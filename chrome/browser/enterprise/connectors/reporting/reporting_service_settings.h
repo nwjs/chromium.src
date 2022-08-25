@@ -8,13 +8,18 @@
 #include <set>
 #include <string>
 
+#include "base/feature_list.h"
 #include "base/memory/raw_ptr.h"
 #include "base/values.h"
 #include "chrome/browser/enterprise/connectors/common.h"
 #include "chrome/browser/enterprise/connectors/service_provider_config.h"
+#include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 
 namespace enterprise_connectors {
+
+// Feature flags for individual event types.
+extern const base::Feature kExtensionEventsEnabled;
 
 // The settings for a report service obtained from a connector policy.
 class ReportingServiceSettings {
@@ -30,6 +35,24 @@ class ReportingServiceSettings {
   absl::optional<ReportingSettings> GetReportingSettings() const;
 
   std::string service_provider_name() const { return service_provider_name_; }
+
+  static constexpr char kExtensionInstallEvent[] =
+      "browserExtensionInstallEvent";
+
+  // All events that the reporting connector supports.
+  static const constexpr char* kAllReportingEvents[] = {
+#if 0
+      extensions::SafeBrowsingPrivateEventRouter::kKeyPasswordReuseEvent,
+      extensions::SafeBrowsingPrivateEventRouter::kKeyPasswordChangedEvent,
+      extensions::SafeBrowsingPrivateEventRouter::kKeyDangerousDownloadEvent,
+      extensions::SafeBrowsingPrivateEventRouter::kKeyInterstitialEvent,
+      extensions::SafeBrowsingPrivateEventRouter::kKeySensitiveDataEvent,
+      extensions::SafeBrowsingPrivateEventRouter::kKeyUnscannedFileEvent,
+      extensions::SafeBrowsingPrivateEventRouter::kKeyLoginEvent,
+      extensions::SafeBrowsingPrivateEventRouter::kKeyPasswordBreachEvent,
+      kExtensionInstallEvent,
+#endif
+  };
 
  private:
   // Returns true if the settings were initialized correctly. If this returns

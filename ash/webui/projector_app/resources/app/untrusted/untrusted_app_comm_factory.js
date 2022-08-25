@@ -112,12 +112,18 @@ const CLIENT_DELEGATE = {
    * @param {string=} requestBody the request body data.
    * @param {boolean=} useCredentials authorize the request with end user
    *     credentials. Used for getting streaming URL.
+   * @param {object=} additional headers.
    * @return {!Promise<!projectorApp.XhrResponse>}
    */
-  sendXhr(url, method, requestBody, useCredentials) {
+  sendXhr(url, method, requestBody, useCredentials, headers) {
     return AppUntrustedCommFactory.getPostMessageAPIClient().callApiFn(
-        'sendXhr',
-        [url, method, requestBody ? requestBody : '', !!useCredentials]);
+        'sendXhr', [
+          url,
+          method,
+          requestBody ? requestBody : '',
+          !!useCredentials,
+          headers,
+        ]);
   },
 
   /**
@@ -173,6 +179,16 @@ const CLIENT_DELEGATE = {
     return AppUntrustedCommFactory.getPostMessageAPIClient().callApiFn(
         'openFeedbackDialog', []);
   },
+
+  /**
+   * Gets information about the specified screencast from DriveFS.
+   * @param {string} screencastId The Drive item id of container folder.
+   * @return {!Promise<projectorApp.Screencast>}
+   */
+  getScreencast(screencastId) {
+    return AppUntrustedCommFactory.getPostMessageAPIClient().callApiFn(
+        'getScreencast', [screencastId]);
+  },
 };
 
 /**
@@ -210,7 +226,6 @@ export class UntrustedAppRequestHandler extends RequestHandler {
     this.registerMethod('onSodaInstallError', (args) => {
       getAppElement().onSodaInstallError();
     });
-
     this.registerMethod('onScreencastsStateChange', (pendingScreencasts) => {
       getAppElement().onScreencastsStateChange(pendingScreencasts);
     });
@@ -221,7 +236,6 @@ export class UntrustedAppRequestHandler extends RequestHandler {
     return this.targetWindow_;
   }
 }
-
 
 /**
  * This is a class that is used to setup the duplex communication channels

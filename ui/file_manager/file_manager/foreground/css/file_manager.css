@@ -1336,6 +1336,38 @@ body.check-select #read-only-indicator {
   position: relative;
 }
 
+#empty-folder {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  left: 0;
+  position: absolute;
+  top: 0;
+  width: 100%;
+}
+
+#empty-folder > .image {
+  --empty-folder-svg-dot-color: var(--cros-illustration-color-1-shade-1);
+  --empty-folder-svg-file-color: var(--cros-illustration-secondary-color);
+  --empty-folder-svg-ellipse-color: var(--cros-illustration-color-1);
+  --empty-folder-svg-folder-color: var(--cros-illustration-color-1-shade-2);
+  margin-top: 64px;
+  text-align: center;
+}
+
+.list-view #empty-folder > .image {
+  /* The list view has a .table-header at the top, the margin-top should also
+  cover that, hence the desired margin plus the .table-header height. */
+  margin-top: calc(64px + 57px);
+}
+
+#empty-folder > .label {
+  color: var(--cros-text-color-secondary);
+  font: var(--cros-body-2-font);
+  margin-top: 16px;
+  text-align: center;
+}
+
 #detail-table {
   display: flex;
   flex: auto;
@@ -1412,19 +1444,11 @@ body.files-ng .banner-close {
      fully visible. */
   box-sizing: border-box;
   overflow-y: auto;
-  padding-bottom: 16px;
-  padding-inline-end: 2px;
-  padding-inline-start: 11px;
-  padding-top: 12px;
   width: 100%;
 }
 
-body.files-ng .thumbnail-grid {
-  padding-inline-end: 20px;
-  padding-inline-start: 16px;
-}
-
 body.files-ng grid .grid-title {
+  box-sizing: border-box;
   color: var(--cros-text-color-secondary);
   font-family: 'Roboto Medium';
   padding-inline-start: 16px;
@@ -1432,8 +1456,21 @@ body.files-ng grid .grid-title {
   width: 100%;
 }
 
-body.files-ng grid .grid-title.files {
-  padding-top: calc(20px + 16px);
+grid .grid-title.group-by-isDirectory {
+  /* Folders/Files heading doesn't have border bottom, so having a padding
+   * bottom together with grid item's margin-top will make the gap too big.
+   * To prevent that, we can treat grid item (.thumbnail-item)'s margin-top
+   * (16px) as heading's padding bottom, that's why we use the desired height
+   * to minus the margin-top value here.
+   */
+  height: calc(56px - 16px);
+}
+
+grid .grid-title.group-by-modificationTime {
+  border-bottom: 1px solid var(--cros-separator-color);
+  /* The desired height plus the border width. */
+  height: calc(56px + 1px);
+  padding-bottom: 16px;
 }
 
 body.files-ng .thumbnail-frame > .img-container {
@@ -1754,6 +1791,30 @@ body.files-ng #list-container li {
   border: 1px solid transparent;
 }
 
+/* Modify GROUP_HEADING_HEIGHT in file_table_list.js if this height changes. */
+#list-container li[group-heading] {
+  /* The desired height plus the border width. */
+  margin-top: calc(56px + 1px);
+}
+
+#list-container li[group-heading]::before {
+  border-bottom: 1px solid var(--cros-separator-color);
+  color: var(--cros-text-color-secondary);
+  content: attr(group-heading);
+  display: block;
+  font-family: 'Roboto Medium';
+  left: 0;
+  padding-bottom: 16px;
+  padding-inline-end: 20px;
+  padding-inline-start: 16px;
+  padding-top: 20px;
+  pointer-events: none;
+  position: absolute;
+  /* Align with li[group-heading]'s margin-top. */
+  top: -57px;
+  width: 100%;
+}
+
 /*
  * selector "li[lead]" is for the row just being operated on,
  * e.g. with mouse: click/select/unselect
@@ -1767,8 +1828,8 @@ body.files-ng.check-select #list-container list > li[lead] {
   border: 1px solid var(--cros-focus-ring-color-inactive);
 }
 
-#list-container.nohover grid > .accepts {
-  background-color: transparent;
+#list-container grid > .accepts {
+  background-color: var(--cros-highlight-color-hover)
 }
 
 #directory-tree .tree-item.accepts > .tree-row,
@@ -1891,7 +1952,8 @@ li[renaming=''] .badge {
   color: var(--cros-text-color-secondary);
   flex: none;
   font-family: 'Roboto Medium';
-  height: 48px;
+  /* The desired height plus the border bottom. */
+  height: calc(56px + 1px);
   line-height: 20px;
 }
 
@@ -1942,6 +2004,20 @@ li[renaming=''] .badge {
 .status-icon {
   height: 24px;
   margin-inline-end: 10px;
+  width: 24px;
+}
+
+/* The managed icon in the details list for DLP restricted files. */
+.dlp-managed-icon {
+  -webkit-mask-image: url(chrome://resources/images/business.svg);
+  -webkit-mask-position: right center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: 16px 16px;
+  background-color: currentColor;
+  color: var(--cros-icon-color-primary);
+  height: 24px;
+  margin-inline-end: 10px;
+  margin-inline-start: auto;
   width: 24px;
 }
 
@@ -2157,7 +2233,8 @@ body.files-ng #list-container .table-header-cell:first-child {
 }
 
 body.files-ng .table-header-cell {
-  padding-bottom: 16px;
+  padding-bottom: 12px;
+  padding-top: 12px;
 }
 
 html:not(.pointer-active) body.files-ng .table-header-cell,
@@ -2201,7 +2278,6 @@ body.files-ng .table-label-container {
   align-items: center;
   display: flex;
   height: 32px;
-  padding-top: 8px;
 }
 
 /* Text in the column header */
@@ -2244,7 +2320,7 @@ body.files-ng .table-row-cell > * {
 body.files-ng .table-header-splitter  {
   background: none;
   height: 32px;
-  margin-top: 8px;
+  margin-top: 12px;
   width: auto;
 }
 

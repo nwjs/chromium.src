@@ -13,6 +13,8 @@
 #include "chrome/browser/ash/file_manager/volume_manager.h"
 #include "chrome/browser/ash/file_manager/volume_manager_factory.h"
 #include "chrome/browser/ash/login/users/fake_chrome_user_manager.h"
+#include "chromeos/ash/components/dbus/chunneld/chunneld_client.h"
+#include "chromeos/ash/components/dbus/cros_disks/cros_disks_client.h"
 #include "chromeos/ash/components/dbus/seneschal/seneschal_client.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "storage/browser/file_system/external_mount_points.h"
@@ -61,8 +63,10 @@ void TrashBaseTest::SetUp() {
   ASSERT_TRUE(base::CreateDirectory(downloads_dir_));
 
   chromeos::DBusThreadManager::Initialize();
+  ash::ChunneldClient::InitializeFake();
   ash::CiceroneClient::InitializeFake();
   ash::ConciergeClient::InitializeFake();
+  chromeos::CrosDisksClient::InitializeFake();
   ash::SeneschalClient::InitializeFake();
 
   // Ensure Crostini is setup correctly.
@@ -96,8 +100,10 @@ void TrashBaseTest::TearDown() {
   scoped_user_manager_.reset();
   profile_.reset();
   ash::SeneschalClient::Shutdown();
+  chromeos::CrosDisksClient::Shutdown();
   ash::ConciergeClient::Shutdown();
   ash::CiceroneClient::Shutdown();
+  ash::ChunneldClient::Shutdown();
   chromeos::DBusThreadManager::Shutdown();
 }
 

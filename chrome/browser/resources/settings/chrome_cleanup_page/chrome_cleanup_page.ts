@@ -14,7 +14,7 @@ import 'chrome://resources/polymer/v3_0/paper-styles/color.js';
 import '../controls/controlled_button.js';
 import '../controls/settings_checkbox.js';
 import '../prefs/prefs.js';
-import '../settings_shared_css.js';
+import '../settings_shared.css.js';
 
 import {assert} from 'chrome://resources/js/assert_ts.js';
 import {I18nMixin} from 'chrome://resources/js/i18n_mixin.js';
@@ -101,8 +101,8 @@ export type ChromeCleanupFilePath = {
 };
 
 export type ChromeCleanerScannerResults = {
-  files: Array<ChromeCleanupFilePath>,
-  registryKeys: Array<string>,
+  files: ChromeCleanupFilePath[],
+  registryKeys: string[],
 };
 
 /**
@@ -621,79 +621,88 @@ export class SettingsChromeCleanupPageElement extends
 
     return new Map([
       [
-        ChromeCleanerCardState.CLEANUP_OFFERED, {
+        ChromeCleanerCardState.CLEANUP_OFFERED,
+        {
           title: this.i18n('chromeCleanupTitleRemove'),
           explanation: this.i18n('chromeCleanupExplanationRemove'),
           actionButton: actionButtons.REMOVE,
           flags: ChromeCleanupCardFlags.SHOW_LOGS_PERMISSIONS |
               ChromeCleanupCardFlags.SHOW_ITEMS_TO_REMOVE,
-        }
+        },
       ],
       [
-        ChromeCleanerCardState.CLEANING, {
+        ChromeCleanerCardState.CLEANING,
+        {
           title: this.i18n('chromeCleanupTitleRemoving'),
           explanation: this.i18n('chromeCleanupExplanationRemoving'),
           actionButton: null,
           flags: ChromeCleanupCardFlags.WAITING_FOR_RESULT |
               ChromeCleanupCardFlags.SHOW_ITEMS_TO_REMOVE,
-        }
+        },
       ],
       [
-        ChromeCleanerCardState.REBOOT_REQUIRED, {
+        ChromeCleanerCardState.REBOOT_REQUIRED,
+        {
           title: this.i18n('chromeCleanupTitleRestart'),
           explanation: null,
           actionButton: actionButtons.RESTART_COMPUTER,
           flags: ChromeCleanupCardFlags.NONE,
-        }
+        },
       ],
       [
-        ChromeCleanerCardState.CLEANUP_SUCCEEDED, {
+        ChromeCleanerCardState.CLEANUP_SUCCEEDED,
+        {
           title: this.i18nAdvanced('chromeCleanupTitleRemoved', {tags: ['a']}),
           explanation: null,
           actionButton: null,
           flags: ChromeCleanupCardFlags.NONE,
-        }
+        },
       ],
       [
-        ChromeCleanerCardState.CLEANING_FAILED, {
+        ChromeCleanerCardState.CLEANING_FAILED,
+        {
           title: this.i18n('chromeCleanupTitleErrorCantRemove'),
           explanation: this.i18n('chromeCleanupExplanationCleanupError'),
           actionButton: null,
           flags: ChromeCleanupCardFlags.NONE,
-        }
+        },
       ],
       [
-        ChromeCleanerCardState.SCANNING_OFFERED, {
+        ChromeCleanerCardState.SCANNING_OFFERED,
+        {
           title: this.i18n('chromeCleanupTitleFindAndRemove'),
           explanation: this.i18n('chromeCleanupExplanationFindAndRemove'),
           actionButton: actionButtons.FIND,
           flags: ChromeCleanupCardFlags.SHOW_LOGS_PERMISSIONS,
-        }
+        },
       ],
       [
-        ChromeCleanerCardState.SCANNING, {
+        ChromeCleanerCardState.SCANNING,
+        {
           title: this.i18n('chromeCleanupTitleScanning'),
           explanation: null,
           actionButton: null,
           flags: ChromeCleanupCardFlags.WAITING_FOR_RESULT,
-        }
+        },
       ],
       [
         // TODO(crbug.com/776538): Could we offer to reset settings here?
-        ChromeCleanerCardState.SCANNING_FOUND_NOTHING, {
+        ChromeCleanerCardState.SCANNING_FOUND_NOTHING,
+        {
           title: this.i18n('chromeCleanupTitleNothingFound'),
           explanation: null,
           actionButton: null,
           flags: ChromeCleanupCardFlags.NONE,
-        }
+        },
       ],
       [
-        ChromeCleanerCardState.SCANNING_FAILED, {
+        ChromeCleanerCardState.SCANNING_FAILED,
+        {
           title: this.i18n('chromeCleanupTitleScanningFailed'),
           explanation: this.i18n('chromeCleanupExplanationScanError'),
           actionButton: null,
           flags: ChromeCleanupCardFlags.NONE,
-        }
+        },
       ],
       [
         ChromeCleanerCardState.CLEANER_DOWNLOAD_FAILED,
@@ -709,13 +718,13 @@ export class SettingsChromeCleanupPageElement extends
     ]);
   }
 
-  private getListEntriesFromStrings_(list: Array<string>):
-      Array<ChromeCleanupRemovalListItem> {
+  private getListEntriesFromStrings_(list: string[]):
+      ChromeCleanupRemovalListItem[] {
     return list.map(entry => ({text: entry, highlightSuffix: null}));
   }
 
-  private getListEntriesFromFilePaths_(paths: Array<ChromeCleanupFilePath>):
-      Array<ChromeCleanupRemovalListItem> {
+  private getListEntriesFromFilePaths_(paths: ChromeCleanupFilePath[]):
+      ChromeCleanupRemovalListItem[] {
     return paths.map(
         path => ({text: path.dirname, highlightSuffix: path.basename}));
   }

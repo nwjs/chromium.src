@@ -14,27 +14,16 @@ const char kPrivacySandboxApisEnabled[] = "privacy_sandbox.apis_enabled";
 
 const char kPrivacySandboxApisEnabledV2[] = "privacy_sandbox.apis_enabled_v2";
 
-const char kPrivacySandboxApisEnabledV2Init[] =
-    "privacy_sandbox.apis_enabled_v2_init";
-
 const char kPrivacySandboxManuallyControlled[] =
     "privacy_sandbox.manually_controlled";
 
 const char kPrivacySandboxManuallyControlledV2[] =
     "privacy_sandbox.manually_controlled_v2";
 
-const char kPrivacySandboxPreferencesReconciled[] =
-    "privacy_sandbox.preferences_reconciled";
-
 const char kPrivacySandboxPageViewed[] = "privacy_sandbox.page_viewed";
-
-const char kPrivacySandboxFlocDataAccessibleSince[] =
-    "privacy_sandbox.floc_data_accessible_since";
 
 const char kPrivacySandboxTopicsDataAccessibleSince[] =
     "privacy_sandbox.topics_data_accessible_since";
-
-extern const char kPrivacySandboxFlocEnabled[] = "privacy_sandbox.floc_enabled";
 
 const char kPrivacySandboxBlockedTopics[] = "privacy_sandbox.blocked_topics";
 
@@ -74,22 +63,14 @@ void RegisterProfilePrefs(PrefRegistrySimple* registry) {
       prefs::kPrivacySandboxApisEnabled, true,
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
   registry->RegisterBooleanPref(prefs::kPrivacySandboxApisEnabledV2, false);
-  registry->RegisterBooleanPref(prefs::kPrivacySandboxApisEnabledV2Init, false);
   registry->RegisterBooleanPref(
       prefs::kPrivacySandboxManuallyControlled, false,
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
   registry->RegisterBooleanPref(prefs::kPrivacySandboxManuallyControlledV2,
                                 false);
-  registry->RegisterBooleanPref(prefs::kPrivacySandboxPreferencesReconciled,
-                                false);
   registry->RegisterBooleanPref(prefs::kPrivacySandboxPageViewed, false);
-  registry->RegisterTimePref(prefs::kPrivacySandboxFlocDataAccessibleSince,
-                             base::Time());
   registry->RegisterTimePref(prefs::kPrivacySandboxTopicsDataAccessibleSince,
                              base::Time());
-  registry->RegisterBooleanPref(
-      prefs::kPrivacySandboxFlocEnabled, true,
-      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
   registry->RegisterListPref(prefs::kPrivacySandboxBlockedTopics);
   registry->RegisterDictionaryPref(prefs::kPrivacySandboxFledgeJoinBlocked);
   registry->RegisterBooleanPref(prefs::kPrivacySandboxNoticeDisplayed, false);

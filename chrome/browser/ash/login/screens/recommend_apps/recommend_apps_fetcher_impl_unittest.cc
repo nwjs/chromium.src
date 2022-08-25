@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "ash/components/arc/arc_features_parser.h"
+#include "ash/constants/ash_features.h"
 #include "ash/public/mojom/cros_display_config.mojom.h"
 #include "base/base64url.h"
 #include "base/files/file_path.h"
@@ -18,6 +19,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/values.h"
+#include "chrome/browser/apps/app_discovery_service/recommended_arc_app_fetcher.h"
 #include "chrome/browser/ash/login/screens/recommend_apps/fake_recommend_apps_fetcher_delegate.h"
 #include "chrome/browser/ash/login/screens/recommend_apps/recommend_apps_fetcher.h"
 #include "chrome/common/chrome_features.h"
@@ -47,14 +49,47 @@ namespace {
 // Values set in ArcFeatures created by CreateArcFeaturesForTest.
 constexpr char kTestArcSdkVersion[] = "25";
 constexpr char kTestArcPlayStoreVersion[] = "81010860";
+constexpr char kTestDeviceFingerprint[] =
+    "google/product/device:1/R105-14925.0/1234567:user/release-keys";
 const char* const kTestArcAbiList[] = {"x86", "x86_64"};
 const char* const kTestArcFeatures[] = {"android.hardware.faketouch",
                                         "android.software.home_screen"};
+
+const std::string kOneAppResponse =
+    R"([{
+           "title_": {"name_": "Test app 1"},
+           "id_": {"id_": "test.app1"},
+           "icon_": {
+             "url_": {
+               "privateDoNotAccessOrElseSafeUrlWrappedValue_": "http://test.app"
+              }
+            }
+         }])";
+
+const std::string kOneAppResponseNew = R"({"recommendedApp": [{
+    "androidApp": {
+      "packageName": "com.game.name",
+      "title": "NameOfFunGame",
+      "icon": {
+        "imageUri": "https://play-lh.googleusercontent.com/1234IDECLAREATHUMBWAR",
+        "dimensions": {
+          "width": 512,
+          "height": 512
+        }
+      }
+    }
+  }]})";
+
+bool IsNewRecommendedAppsEnabled() {
+  return features::IsOobeNewRecommendAppsEnabled() &&
+         base::FeatureList::IsEnabled(::features::kAppDiscoveryForOobe);
+}
 
 // Creates a fake ARC features to be used for these tests.
 arc::ArcFeatures CreateArcFeaturesForTest() {
   arc::ArcFeatures arc_features;
   arc_features.build_props["ro.build.version.sdk"] = kTestArcSdkVersion;
+  arc_features.build_props["ro.build.fingerprint"] = kTestDeviceFingerprint;
   arc_features.play_store_version = kTestArcPlayStoreVersion;
 
   std::vector<std::string> abi_list(std::begin(kTestArcAbiList),
@@ -134,6 +169,8 @@ class AppListRequestHeaderReader {
  public:
   explicit AppListRequestHeaderReader(network::ResourceRequest* request) {
     request->headers.GetHeader("X-DFE-Sdk-Version", &sdk_version_);
+    request->headers.GetHeader("X-DFE-Device-Fingerprint",
+                               &device_fingerprint_);
     request->headers.GetHeader("X-DFE-Chromesky-Client-Version",
                                &play_store_version_);
     DecodeDeviceConfigHeader(request);
@@ -145,6 +182,8 @@ class AppListRequestHeaderReader {
       const AppListRequestHeaderReader& other) = delete;
 
   const std::string& sdk_version() const { return sdk_version_; }
+
+  const std::string& device_fingerprint() const { return device_fingerprint_; }
 
   const std::string& play_store_version() const { return play_store_version_; }
 
@@ -205,6 +244,7 @@ class AppListRequestHeaderReader {
   }
 
   std::string sdk_version_;
+  std::string device_fingerprint_;
   std::string play_store_version_;
   device_configuration::DeviceConfigurationProto device_config_;
 };
@@ -301,6 +341,9 @@ class RecommendAppsFetcherImplTest : public testing::Test {
   void VerifyArcRequestHeaders(
       const AppListRequestHeaderReader& header_reader) {
     EXPECT_EQ(kTestArcSdkVersion, header_reader.sdk_version());
+    // TODO(crbug.com/1345149): Verify that fingerprint is only set when
+    // kAppDiscoveryForOobe is enabled.
+    EXPECT_EQ(kTestDeviceFingerprint, header_reader.device_fingerprint());
     EXPECT_EQ(kTestArcPlayStoreVersion, header_reader.play_store_version());
     EXPECT_EQ(std::vector<std::string>(std::begin(kTestArcAbiList),
                                        std::end(kTestArcAbiList)),
@@ -310,8 +353,28 @@ class RecommendAppsFetcherImplTest : public testing::Test {
               header_reader.GetSystemAvailableFeatures());
   }
 
+  void CheckOneAppResponseResult(network::ResourceRequest* request) {
+    // In the new version we have RecommendedArcAppFetcherTest unit tests which
+    // cover testing of response processing.
+    if (IsNewRecommendedAppsEnabled())
+      return;
+
+    test_url_loader_factory_.AddResponse(request->url.spec(), kOneAppResponse);
+    EXPECT_EQ(FakeRecommendAppsFetcherDelegate::Result::SUCCESS,
+              delegate_.WaitForResult());
+    base::Value::List expected_apps;
+    base::Value::Dict app;
+    app.Set("name", base::Value("Test app 1"));
+    app.Set("icon", base::Value("http://test.app"));
+    app.Set("package_name", base::Value("test.app1"));
+    expected_apps.Append(std::move(app));
+
+    EXPECT_EQ(expected_apps, delegate_.loaded_apps());
+    EXPECT_TRUE(test_url_loader_factory_.pending_requests()->empty());
+  }
+
   void EnableAppDiscoveryFlag() {
-    scoped_feature_list_.InitAndEnableFeature(features::kAppDiscoveryForOobe);
+    scoped_feature_list_.InitAndEnableFeature(::features::kAppDiscoveryForOobe);
   }
 
   FakeRecommendAppsFetcherDelegate delegate_;
@@ -326,7 +389,7 @@ class RecommendAppsFetcherImplTest : public testing::Test {
 
  private:
   void InterceptRequest(const network::ResourceRequest& request) {
-    if (base::FeatureList::IsEnabled(features::kAppDiscoveryForOobe)) {
+    if (base::FeatureList::IsEnabled(::features::kAppDiscoveryForOobe)) {
       ASSERT_EQ(
           "https://android.clients.google.com/fdfe/chrome/"
           "getSetupAppRecommendations",
@@ -391,30 +454,7 @@ TEST_F(RecommendAppsFetcherImplTest, ExtraLargeScreenWithTouch) {
       device_configuration::DeviceConfigurationProto_ScreenLayout_EXTRA_LARGE,
       header_reader.screen_layout());
 
-  const std::string response =
-      R"([{
-           "title_": {"name_": "Test app 1"},
-           "id_": {"id_": "test.app1"},
-           "icon_": {
-             "url_": {
-               "privateDoNotAccessOrElseSafeUrlWrappedValue_": "http://test.app"
-              }
-            }
-         }])";
-
-  test_url_loader_factory_.AddResponse(request->url.spec(), response);
-
-  EXPECT_EQ(FakeRecommendAppsFetcherDelegate::Result::SUCCESS,
-            delegate_.WaitForResult());
-
-  base::Value expected_apps(base::Value::Type::LIST);
-  base::Value app(base::Value::Type::DICTIONARY);
-  app.SetKey("name", base::Value("Test app 1"));
-  app.SetKey("icon", base::Value("http://test.app"));
-  app.SetKey("package_name", base::Value("test.app1"));
-  expected_apps.Append(std::move(app));
-
-  EXPECT_EQ(expected_apps, delegate_.loaded_apps());
+  CheckOneAppResponseResult(request);
 }
 
 TEST_F(RecommendAppsFetcherImplTest, NoArcFeatures) {
@@ -442,6 +482,7 @@ TEST_F(RecommendAppsFetcherImplTest, NoArcFeatures) {
   AppListRequestHeaderReader header_reader(request);
 
   EXPECT_EQ("", header_reader.sdk_version());
+  EXPECT_EQ("", header_reader.device_fingerprint());
   EXPECT_EQ("", header_reader.play_store_version());
   EXPECT_EQ(std::vector<std::string>(), header_reader.GetNativePlatforms());
   EXPECT_EQ(std::vector<std::string>(),
@@ -459,30 +500,7 @@ TEST_F(RecommendAppsFetcherImplTest, NoArcFeatures) {
       device_configuration::DeviceConfigurationProto_ScreenLayout_EXTRA_LARGE,
       header_reader.screen_layout());
 
-  const std::string response =
-      R"([{
-           "title_": {"name_": "Test app 1"},
-           "id_": {"id_": "test.app1"},
-           "icon_": {
-             "url_": {
-               "privateDoNotAccessOrElseSafeUrlWrappedValue_": "http://test.app"
-              }
-            }
-         }])";
-
-  test_url_loader_factory_.AddResponse(request->url.spec(), response);
-
-  EXPECT_EQ(FakeRecommendAppsFetcherDelegate::Result::SUCCESS,
-            delegate_.WaitForResult());
-
-  base::Value expected_apps(base::Value::Type::LIST);
-  base::Value app(base::Value::Type::DICTIONARY);
-  app.SetKey("name", base::Value("Test app 1"));
-  app.SetKey("icon", base::Value("http://test.app"));
-  app.SetKey("package_name", base::Value("test.app1"));
-  expected_apps.Append(std::move(app));
-
-  EXPECT_EQ(expected_apps, delegate_.loaded_apps());
+  CheckOneAppResponseResult(request);
 }
 
 TEST_F(RecommendAppsFetcherImplTest, HasHardKeyboard) {
@@ -524,30 +542,7 @@ TEST_F(RecommendAppsFetcherImplTest, HasHardKeyboard) {
       device_configuration::DeviceConfigurationProto_ScreenLayout_EXTRA_LARGE,
       header_reader.screen_layout());
 
-  const std::string response =
-      R"([{
-           "title_": {"name_": "Test app 1"},
-           "id_": {"id_": "test.app1"},
-           "icon_": {
-             "url_": {
-               "privateDoNotAccessOrElseSafeUrlWrappedValue_": "http://test.app"
-              }
-            }
-         }])";
-
-  test_url_loader_factory_.AddResponse(request->url.spec(), response);
-
-  EXPECT_EQ(FakeRecommendAppsFetcherDelegate::Result::SUCCESS,
-            delegate_.WaitForResult());
-
-  base::Value expected_apps(base::Value::Type::LIST);
-  base::Value app(base::Value::Type::DICTIONARY);
-  app.SetKey("name", base::Value("Test app 1"));
-  app.SetKey("icon", base::Value("http://test.app"));
-  app.SetKey("package_name", base::Value("test.app1"));
-  expected_apps.Append(std::move(app));
-
-  EXPECT_EQ(expected_apps, delegate_.loaded_apps());
+  CheckOneAppResponseResult(request);
 }
 
 TEST_F(RecommendAppsFetcherImplTest, NoKeyboard) {
@@ -583,30 +578,7 @@ TEST_F(RecommendAppsFetcherImplTest, NoKeyboard) {
       device_configuration::DeviceConfigurationProto_ScreenLayout_EXTRA_LARGE,
       header_reader.screen_layout());
 
-  const std::string response =
-      R"([{
-           "title_": {"name_": "Test app 1"},
-           "id_": {"id_": "test.app1"},
-           "icon_": {
-             "url_": {
-               "privateDoNotAccessOrElseSafeUrlWrappedValue_": "http://test.app"
-              }
-            }
-         }])";
-
-  test_url_loader_factory_.AddResponse(request->url.spec(), response);
-
-  EXPECT_EQ(FakeRecommendAppsFetcherDelegate::Result::SUCCESS,
-            delegate_.WaitForResult());
-
-  base::Value expected_apps(base::Value::Type::LIST);
-  base::Value app(base::Value::Type::DICTIONARY);
-  app.SetKey("name", base::Value("Test app 1"));
-  app.SetKey("icon", base::Value("http://test.app"));
-  app.SetKey("package_name", base::Value("test.app1"));
-  expected_apps.Append(std::move(app));
-
-  EXPECT_EQ(expected_apps, delegate_.loaded_apps());
+  CheckOneAppResponseResult(request);
 }
 
 TEST_F(RecommendAppsFetcherImplTest, ExtraLargeScreenWithStylus) {
@@ -649,29 +621,7 @@ TEST_F(RecommendAppsFetcherImplTest, ExtraLargeScreenWithStylus) {
       device_configuration::DeviceConfigurationProto_ScreenLayout_EXTRA_LARGE,
       header_reader.screen_layout());
 
-  const std::string response =
-      R"([{
-           "title_": {"name_": "Test app 1"},
-           "id_": {"id_": "test.app1"},
-           "icon_": {
-             "url_": {
-               "privateDoNotAccessOrElseSafeUrlWrappedValue_": "http://test.app"
-              }
-            }
-         }])";
-
-  test_url_loader_factory_.AddResponse(request->url.spec(), response);
-
-  EXPECT_EQ(FakeRecommendAppsFetcherDelegate::Result::SUCCESS,
-            delegate_.WaitForResult());
-  base::Value expected_apps(base::Value::Type::LIST);
-  base::Value app(base::Value::Type::DICTIONARY);
-  app.SetKey("name", base::Value("Test app 1"));
-  app.SetKey("icon", base::Value("http://test.app"));
-  app.SetKey("package_name", base::Value("test.app1"));
-  expected_apps.Append(std::move(app));
-
-  EXPECT_EQ(expected_apps, delegate_.loaded_apps());
+  CheckOneAppResponseResult(request);
 }
 
 TEST_F(RecommendAppsFetcherImplTest, LargeScreenWithoutTouchScreen) {
@@ -709,29 +659,7 @@ TEST_F(RecommendAppsFetcherImplTest, LargeScreenWithoutTouchScreen) {
   EXPECT_EQ(device_configuration::DeviceConfigurationProto_ScreenLayout_LARGE,
             header_reader.screen_layout());
 
-  const std::string response =
-      R"([{
-           "title_": {"name_": "Test app 1"},
-           "id_": {"id_": "test.app1"},
-           "icon_": {
-             "url_": {
-               "privateDoNotAccessOrElseSafeUrlWrappedValue_": "http://test.app"
-              }
-            }
-         }])";
-
-  test_url_loader_factory_.AddResponse(request->url.spec(), response);
-
-  EXPECT_EQ(FakeRecommendAppsFetcherDelegate::Result::SUCCESS,
-            delegate_.WaitForResult());
-  base::Value expected_apps(base::Value::Type::LIST);
-  base::Value app(base::Value::Type::DICTIONARY);
-  app.SetKey("name", base::Value("Test app 1"));
-  app.SetKey("icon", base::Value("http://test.app"));
-  app.SetKey("package_name", base::Value("test.app1"));
-  expected_apps.Append(std::move(app));
-
-  EXPECT_EQ(expected_apps, delegate_.loaded_apps());
+  CheckOneAppResponseResult(request);
 }
 
 TEST_F(RecommendAppsFetcherImplTest, NormalScreenWithoutTouchScreen) {
@@ -769,29 +697,7 @@ TEST_F(RecommendAppsFetcherImplTest, NormalScreenWithoutTouchScreen) {
   EXPECT_EQ(device_configuration::DeviceConfigurationProto_ScreenLayout_NORMAL,
             header_reader.screen_layout());
 
-  const std::string response =
-      R"([{
-           "title_": {"name_": "Test app 1"},
-           "id_": {"id_": "test.app1"},
-           "icon_": {
-             "url_": {
-               "privateDoNotAccessOrElseSafeUrlWrappedValue_": "http://test.app"
-              }
-            }
-         }])";
-
-  test_url_loader_factory_.AddResponse(request->url.spec(), response);
-
-  EXPECT_EQ(FakeRecommendAppsFetcherDelegate::Result::SUCCESS,
-            delegate_.WaitForResult());
-  base::Value expected_apps(base::Value::Type::LIST);
-  base::Value app(base::Value::Type::DICTIONARY);
-  app.SetKey("name", base::Value("Test app 1"));
-  app.SetKey("icon", base::Value("http://test.app"));
-  app.SetKey("package_name", base::Value("test.app1"));
-  expected_apps.Append(std::move(app));
-
-  EXPECT_EQ(expected_apps, delegate_.loaded_apps());
+  CheckOneAppResponseResult(request);
 }
 
 TEST_F(RecommendAppsFetcherImplTest, SmallScreenWithoutTouchScreen) {
@@ -830,29 +736,7 @@ TEST_F(RecommendAppsFetcherImplTest, SmallScreenWithoutTouchScreen) {
   EXPECT_EQ(device_configuration::DeviceConfigurationProto_ScreenLayout_SMALL,
             header_reader.screen_layout());
 
-  const std::string response =
-      R"([{
-           "title_": {"name_": "Test app 1"},
-           "id_": {"id_": "test.app1"},
-           "icon_": {
-             "url_": {
-               "privateDoNotAccessOrElseSafeUrlWrappedValue_": "http://test.app"
-              }
-            }
-         }])";
-
-  test_url_loader_factory_.AddResponse(request->url.spec(), response);
-
-  EXPECT_EQ(FakeRecommendAppsFetcherDelegate::Result::SUCCESS,
-            delegate_.WaitForResult());
-  base::Value expected_apps(base::Value::Type::LIST);
-  base::Value app(base::Value::Type::DICTIONARY);
-  app.SetKey("name", base::Value("Test app 1"));
-  app.SetKey("icon", base::Value("http://test.app"));
-  app.SetKey("package_name", base::Value("test.app1"));
-  expected_apps.Append(std::move(app));
-
-  EXPECT_EQ(expected_apps, delegate_.loaded_apps());
+  CheckOneAppResponseResult(request);
 }
 
 TEST_F(RecommendAppsFetcherImplTest, ArcFeaturesReadyBeforeAsh) {
@@ -891,29 +775,7 @@ TEST_F(RecommendAppsFetcherImplTest, ArcFeaturesReadyBeforeAsh) {
   EXPECT_EQ(device_configuration::DeviceConfigurationProto_ScreenLayout_SMALL,
             header_reader.screen_layout());
 
-  const std::string response =
-      R"([{
-           "title_": {"name_": "Test app 1"},
-           "id_": {"id_": "test.app1"},
-           "icon_": {
-             "url_": {
-               "privateDoNotAccessOrElseSafeUrlWrappedValue_": "http://test.app"
-              }
-            }
-         }])";
-
-  test_url_loader_factory_.AddResponse(request->url.spec(), response);
-
-  EXPECT_EQ(FakeRecommendAppsFetcherDelegate::Result::SUCCESS,
-            delegate_.WaitForResult());
-  base::Value expected_apps(base::Value::Type::LIST);
-  base::Value app(base::Value::Type::DICTIONARY);
-  app.SetKey("name", base::Value("Test app 1"));
-  app.SetKey("icon", base::Value("http://test.app"));
-  app.SetKey("package_name", base::Value("test.app1"));
-  expected_apps.Append(std::move(app));
-
-  EXPECT_EQ(expected_apps, delegate_.loaded_apps());
+  CheckOneAppResponseResult(request);
 }
 
 TEST_F(RecommendAppsFetcherImplTest, RetryCalledBeforeFirstRequest) {
@@ -940,31 +802,7 @@ TEST_F(RecommendAppsFetcherImplTest, RetryCalledBeforeFirstRequest) {
   network::ResourceRequest* request = WaitForAppListRequest();
   ASSERT_TRUE(request);
 
-  const std::string response =
-      R"([{
-           "title_": {"name_": "Test app 1"},
-           "id_": {"id_": "test.app1"},
-           "icon_": {
-             "url_": {
-               "privateDoNotAccessOrElseSafeUrlWrappedValue_": "http://test.app"
-              }
-            }
-         }])";
-
-  test_url_loader_factory_.AddResponse(request->url.spec(), response);
-
-  EXPECT_EQ(FakeRecommendAppsFetcherDelegate::Result::SUCCESS,
-            delegate_.WaitForResult());
-  base::Value expected_apps(base::Value::Type::LIST);
-  base::Value app(base::Value::Type::DICTIONARY);
-  app.SetKey("name", base::Value("Test app 1"));
-  app.SetKey("icon", base::Value("http://test.app"));
-  app.SetKey("package_name", base::Value("test.app1"));
-  expected_apps.Append(std::move(app));
-
-  EXPECT_EQ(expected_apps, delegate_.loaded_apps());
-
-  EXPECT_TRUE(test_url_loader_factory_.pending_requests()->empty());
+  CheckOneAppResponseResult(request);
 }
 
 TEST_F(RecommendAppsFetcherImplTest, EmptyResponse) {
@@ -1007,6 +845,10 @@ TEST_F(RecommendAppsFetcherImplTest, EmptyAppList) {
   ASSERT_TRUE(request);
   test_url_loader_factory_.AddResponse(request->url.spec(), "[]");
 
+  // In the new version we have RecommendedArcAppFetcherTest unit tests which
+  // cover testing of response processing.
+  if (IsNewRecommendedAppsEnabled())
+    return;
   EXPECT_EQ(FakeRecommendAppsFetcherDelegate::Result::PARSE_ERROR,
             delegate_.WaitForResult());
 }
@@ -1026,29 +868,7 @@ TEST_F(RecommendAppsFetcherImplTest, ResponseWithLeadeingBrackets) {
   network::ResourceRequest* request = WaitForAppListRequest();
   ASSERT_TRUE(request);
 
-  const std::string response =
-      R"()]}'[{
-           "title_": {"name_": "Test app 1"},
-           "id_": {"id_": "test.app1"},
-           "icon_": {
-             "url_": {
-               "privateDoNotAccessOrElseSafeUrlWrappedValue_": "http://test.app"
-              }
-            }
-         }])";
-
-  test_url_loader_factory_.AddResponse(request->url.spec(), response);
-
-  EXPECT_EQ(FakeRecommendAppsFetcherDelegate::Result::SUCCESS,
-            delegate_.WaitForResult());
-  base::Value expected_apps(base::Value::Type::LIST);
-  base::Value app(base::Value::Type::DICTIONARY);
-  app.SetKey("name", base::Value("Test app 1"));
-  app.SetKey("icon", base::Value("http://test.app"));
-  app.SetKey("package_name", base::Value("test.app1"));
-  expected_apps.Append(std::move(app));
-
-  EXPECT_EQ(expected_apps, delegate_.loaded_apps());
+  CheckOneAppResponseResult(request);
 }
 
 TEST_F(RecommendAppsFetcherImplTest, MalformedJsonResponse) {
@@ -1089,6 +909,10 @@ TEST_F(RecommendAppsFetcherImplTest, UnexpectedResponseType) {
 
   test_url_loader_factory_.AddResponse(request->url.spec(), "\"abcd\"");
 
+  // In the new version we have RecommendedArcAppFetcherTest unit tests which
+  // cover testing of response processing.
+  if (IsNewRecommendedAppsEnabled())
+    return;
   EXPECT_EQ(FakeRecommendAppsFetcherDelegate::Result::PARSE_ERROR,
             delegate_.WaitForResult());
 }
@@ -1123,6 +947,10 @@ TEST_F(RecommendAppsFetcherImplTest, ResponseWithMultipleApps) {
 
   test_url_loader_factory_.AddResponse(request->url.spec(), response);
 
+  // In the new version we have RecommendedArcAppFetcherTest unit tests which
+  // cover testing of response processing.
+  if (IsNewRecommendedAppsEnabled())
+    return;
   EXPECT_EQ(FakeRecommendAppsFetcherDelegate::Result::SUCCESS,
             delegate_.WaitForResult());
   base::Value expected_apps(base::Value::Type::LIST);
@@ -1167,6 +995,10 @@ TEST_F(RecommendAppsFetcherImplTest, InvalidAppItemsIgnored) {
 
   test_url_loader_factory_.AddResponse(request->url.spec(), response);
 
+  // In the new version we have RecommendedArcAppFetcherTest unit tests which
+  // cover testing of response processing.
+  if (IsNewRecommendedAppsEnabled())
+    return;
   EXPECT_EQ(FakeRecommendAppsFetcherDelegate::Result::SUCCESS,
             delegate_.WaitForResult());
   base::Value expected_apps(base::Value::Type::LIST);
@@ -1200,6 +1032,10 @@ TEST_F(RecommendAppsFetcherImplTest, DictionaryResponse) {
 
   test_url_loader_factory_.AddResponse(request->url.spec(), "{}");
 
+  // In the new version we have RecommendedArcAppFetcherTest unit tests which
+  // cover testing of response processing.
+  if (IsNewRecommendedAppsEnabled())
+    return;
   EXPECT_EQ(FakeRecommendAppsFetcherDelegate::Result::PARSE_ERROR,
             delegate_.WaitForResult());
 }
@@ -1221,7 +1057,10 @@ TEST_F(RecommendAppsFetcherImplTest, InvalidErrorCodeType) {
 
   test_url_loader_factory_.AddResponse(request->url.spec(),
                                        R"({"Error code": ""})");
-
+  // In the new version we have RecommendedArcAppFetcherTest unit tests which
+  // cover testing of response processing.
+  if (IsNewRecommendedAppsEnabled())
+    return;
   EXPECT_EQ(FakeRecommendAppsFetcherDelegate::Result::PARSE_ERROR,
             delegate_.WaitForResult());
 }
@@ -1243,7 +1082,10 @@ TEST_F(RecommendAppsFetcherImplTest, ResponseWithErrorCode) {
 
   test_url_loader_factory_.AddResponse(request->url.spec(),
                                        R"({"Error code": "6"})");
-
+  // In the new version we have RecommendedArcAppFetcherTest unit tests which
+  // cover testing of response processing.
+  if (IsNewRecommendedAppsEnabled())
+    return;
   EXPECT_EQ(FakeRecommendAppsFetcherDelegate::Result::PARSE_ERROR,
             delegate_.WaitForResult());
 }
@@ -1265,7 +1107,10 @@ TEST_F(RecommendAppsFetcherImplTest, NotEnoughAppsError) {
 
   test_url_loader_factory_.AddResponse(request->url.spec(),
                                        R"({"Error code": "5"})");
-
+  // In the new version we have RecommendedArcAppFetcherTest unit tests which
+  // cover testing of response processing.
+  if (IsNewRecommendedAppsEnabled())
+    return;
   EXPECT_EQ(FakeRecommendAppsFetcherDelegate::Result::PARSE_ERROR,
             delegate_.WaitForResult());
 }
@@ -1310,6 +1155,10 @@ TEST_F(RecommendAppsFetcherImplTest, SuccessOnRetry) {
   test_url_loader_factory_.AddResponse(request->url.spec(),
                                        R"({"Error code": "5"})");
 
+  // In the new version we have RecommendedArcAppFetcherTest unit tests which
+  // cover testing of response processing.
+  if (IsNewRecommendedAppsEnabled())
+    return;
   EXPECT_EQ(FakeRecommendAppsFetcherDelegate::Result::PARSE_ERROR,
             delegate_.WaitForResult());
   delegate_.Reset();
@@ -1320,30 +1169,7 @@ TEST_F(RecommendAppsFetcherImplTest, SuccessOnRetry) {
   request = WaitForAppListRequest();
   ASSERT_TRUE(request);
 
-  const std::string response =
-      R"()]}'[{
-           "title_": {"name_": "Test app 1"},
-           "id_": {"id_": "test.app1"},
-           "icon_": {
-             "url_": {
-               "privateDoNotAccessOrElseSafeUrlWrappedValue_": "http://test.app"
-              }
-            }
-         }])";
-
-  test_url_loader_factory_.AddResponse(request->url.spec(), response);
-
-  EXPECT_EQ(FakeRecommendAppsFetcherDelegate::Result::SUCCESS,
-            delegate_.WaitForResult());
-
-  base::Value expected_apps(base::Value::Type::LIST);
-  base::Value app(base::Value::Type::DICTIONARY);
-  app.SetKey("name", base::Value("Test app 1"));
-  app.SetKey("icon", base::Value("http://test.app"));
-  app.SetKey("package_name", base::Value("test.app1"));
-  expected_apps.Append(std::move(app));
-
-  EXPECT_EQ(expected_apps, delegate_.loaded_apps());
+  CheckOneAppResponseResult(request);
 }
 
 TEST_F(RecommendAppsFetcherImplTest, FailureOnRetry) {
@@ -1362,7 +1188,10 @@ TEST_F(RecommendAppsFetcherImplTest, FailureOnRetry) {
   ASSERT_TRUE(request);
   test_url_loader_factory_.AddResponse(request->url.spec(),
                                        R"({"Error code": "5"})");
-
+  // In the new version we have RecommendedArcAppFetcherTest unit tests which
+  // cover testing of response processing.
+  if (IsNewRecommendedAppsEnabled())
+    return;
   EXPECT_EQ(FakeRecommendAppsFetcherDelegate::Result::PARSE_ERROR,
             delegate_.WaitForResult());
   delegate_.Reset();
@@ -1412,22 +1241,7 @@ TEST_F(RecommendAppsFetcherImplTest, AppDiscoveryValidResponse) {
   network::ResourceRequest* request = WaitForAppListRequest();
   ASSERT_TRUE(request);
 
-  const std::string response =
-      R"({"recommendedApp": [{
-    "androidApp": {
-      "packageName": "com.game.name",
-      "title": "NameOfFunGame",
-      "icon": {
-        "imageUri": "https://play-lh.googleusercontent.com/1234IDECLAREATHUMBWAR",
-        "dimensions": {
-          "width": 512,
-          "height": 512
-        }
-      }
-    }
-  }]})";
-
-  test_url_loader_factory_.AddResponse(request->url.spec(), response);
+  test_url_loader_factory_.AddResponse(request->url.spec(), kOneAppResponseNew);
 
   EXPECT_EQ(FakeRecommendAppsFetcherDelegate::Result::SUCCESS,
             delegate_.WaitForResult());

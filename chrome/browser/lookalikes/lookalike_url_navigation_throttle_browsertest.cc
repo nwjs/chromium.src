@@ -197,6 +197,30 @@ void TestInterstitialNotShown(Browser* browser, const GURL& navigated_url) {
   EXPECT_EQ(nullptr, GetCurrentInterstitial(web_contents));
 }
 
+// Add an allowlist with entries that aren't allowlisted for all domains.
+void ConfigureAllowlistWithScopes() {
+  auto config_proto = reputation::GetOrCreateSafetyTipsConfig();
+  config_proto->clear_allowed_pattern();
+  config_proto->clear_canonical_pattern();
+  config_proto->clear_cohort();
+
+  // Note: allowed_pattern must be sorted, so "Allowed*" comes before "May*".
+
+  // may-spoof-anyone.com has no cohort.
+  auto* patternWildcard = config_proto->add_allowed_pattern();
+  patternWildcard->set_pattern("may-spoof-anyone.com/");
+
+  // may-spoof-google.com is only allowed to spoof google.com.
+  config_proto->add_canonical_pattern()->set_pattern("google.com/");
+  auto* pattern = config_proto->add_allowed_pattern();
+  pattern->set_pattern("may-spoof-google.com/");
+  auto* cohort = config_proto->add_cohort();
+  cohort->add_canonical_index(0);  // google.com
+  pattern->add_cohort_index(0);
+
+  reputation::SetSafetyTipsRemoteConfigProto(std::move(config_proto));
+}
+
 namespace test {
 #include "components/url_formatter/spoof_checks/top_domains/browsertest_domains-trie-inc.cc"
 }
@@ -545,6 +569,36 @@ IN_PROC_BROWSER_TEST_P(LookalikeUrlNavigationThrottleBrowserTest,
   CheckUkm({kNavigatedUrl}, "TriggeredByInitialUrl", false);
 }
 
+// Embedding a top domain would normally show an interstitial, but shouldn't
+// here because it's narrowly allowlisted.
+IN_PROC_BROWSER_TEST_P(LookalikeUrlNavigationThrottleBrowserTest,
+                       TargetEmbedding_ScopedAllowlistMatch) {
+  ConfigureAllowlistWithScopes();
+  const GURL kNavigatedUrl = GetURL("google.com.may-spoof-google.com");
+  SetEngagementScore(browser(), kNavigatedUrl, kLowEngagement);
+
+  TestInterstitialNotShown(browser(), kNavigatedUrl);
+  CheckNoUkm();
+}
+
+// Same as TargetEmbedding_ScopedAllowlistMatch, but the attacker-controlled
+// domain is spoofing an unauthorized victim. This should show a warning.
+IN_PROC_BROWSER_TEST_P(LookalikeUrlNavigationThrottleBrowserTest,
+                       TargetEmbedding_ScopedAllowlistMatchWrongDomain) {
+  ConfigureAllowlistWithScopes();
+  const GURL kNavigatedUrl = GetURL("blogspot.com.may-spoof-google.com");
+  const GURL kExpectedSuggestedUrl = GetURLWithoutPath("blogspot.com");
+  SetEngagementScore(browser(), kNavigatedUrl, kLowEngagement);
+
+  base::HistogramTester histograms;
+  TestMetricsRecordedAndInterstitialShown(
+      browser(), histograms, kNavigatedUrl, kExpectedSuggestedUrl,
+      NavigationSuggestionEvent::kMatchTargetEmbedding);
+  CheckUkm({kNavigatedUrl}, "MatchType",
+           LookalikeUrlMatchType::kTargetEmbedding);
+  CheckUkm({kNavigatedUrl}, "TriggeredByInitialUrl", false);
+}
+
 // Same as TargetEmbedding_TopDomain_Match, but has a redirect where the first
 // and last URLs are both target embedding matches. Should only record
 // metrics for the first URL. Regression test for crbug.com/1136296.
@@ -788,13 +842,7 @@ IN_PROC_BROWSER_TEST_P(LookalikeUrlNavigationThrottleBrowserTest,
   // Advance clock to force a fetch of new engaged sites list.
   test_clock()->Advance(base::Hours(1));
 
-  content::WebContents* tab =
-      browser()->tab_strip_model()->GetActiveWebContents();
-  content::WebContentsConsoleObserver console_observer(tab);
-  console_observer.SetPattern("Chrome has determined that*character-wsap.com*");
-
   TestInterstitialNotShown(browser(), kNavigatedUrl);
-  console_observer.Wait();
 
   histograms.ExpectTotalCount(lookalikes::kHistogramName, 1);
   histograms.ExpectBucketCount(
@@ -1499,6 +1547,26 @@ IN_PROC_BROWSER_TEST_P(LookalikeUrlNavigationThrottleBrowserTest,
   // interstitial.
   TestInterstitialNotShown(browser(),
                            embedded_test_server()->GetURL("example.net", "/"));
+}
+
+// Test Combo Squatting heuristic. In this test, if kNavigatedUrl is
+// Combo Squatting, the metrics should be recorded but no interstitial
+// page (full page warning) is shown.
+IN_PROC_BROWSER_TEST_P(LookalikeUrlNavigationThrottleBrowserTest,
+                       ComboSquatting_ShouldRecordMetricsWithoutUI) {
+  base::HistogramTester histograms;
+  const GURL kNavigatedUrl = GetURL("google-login.com");
+  SetEngagementScore(browser(), kNavigatedUrl, kLowEngagement);
+
+  TestInterstitialNotShown(browser(), kNavigatedUrl);
+
+  histograms.ExpectTotalCount(lookalikes::kHistogramName, 1);
+  histograms.ExpectBucketCount(lookalikes::kHistogramName,
+                               NavigationSuggestionEvent::kComboSquatting, 1);
+
+  CheckUkm({kNavigatedUrl}, "MatchType",
+           LookalikeUrlMatchType::kComboSquatting);
+  CheckUkm({kNavigatedUrl}, "TriggeredByInitialUrl", false);
 }
 
 scoped_refptr<net::X509Certificate> LoadCertificate() {

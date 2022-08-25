@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "base/logging.h"
+#include "cc/base/features.h"
 #include "cc/document_transition/document_transition_request.h"
 #include "cc/paint/display_item_list.h"
 #include "cc/paint/paint_flags.h"
@@ -16,6 +17,7 @@
 #include "cc/trees/mutator_host.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/platform/geometry/geometry_as_json.h"
+#include "third_party/blink/renderer/platform/graphics/compositing/adjust_mask_layer_geometry.h"
 #include "third_party/blink/renderer/platform/graphics/compositing/content_layer_client_impl.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_context.h"
 #include "third_party/blink/renderer/platform/graphics/paint/clip_paint_property_node.h"
@@ -96,7 +98,8 @@ void PaintArtifactCompositor::WillBeRemovedFromFrame() {
 void PaintArtifactCompositor::SetPrefersLCDText(bool prefers) {
   if (prefers_lcd_text_ == prefers)
     return;
-  SetNeedsUpdate();
+  SetNeedsUpdate(PaintArtifactCompositorUpdateReason::
+                     kPaintArtifactCompositorPrefersLCDText);
   prefers_lcd_text_ = prefers;
 }
 
@@ -261,7 +264,8 @@ void PaintArtifactCompositor::SetNeedsFullUpdateAfterPaintIfNeeded(
 
   // Adding or removing chunks requires a full update to add/remove cc::layers.
   if (previous.size() != repainted.size()) {
-    SetNeedsUpdate();
+    SetNeedsUpdate(PaintArtifactCompositorUpdateReason::
+                       kPaintArtifactCompositorNeedsFullUpdateChunksChanged);
     return;
   }
 
@@ -275,7 +279,9 @@ void PaintArtifactCompositor::SetNeedsFullUpdateAfterPaintIfNeeded(
     if (NeedsFullUpdateAfterPaintingChunk(
             previous_chunk, previous.GetPaintArtifact(), repainted_chunk,
             repainted.GetPaintArtifact())) {
-      SetNeedsUpdate();
+      SetNeedsUpdate(
+          PaintArtifactCompositorUpdateReason::
+              kPaintArtifactCompositorNeedsFullUpdateAfterPaintingChunk);
       return;
     }
   }
@@ -460,13 +466,8 @@ void PaintArtifactCompositor::CollectPendingLayers(
   pending_layers_.ShrinkToReasonableCapacity();
 }
 
-void SynthesizedClip::UpdateLayer(bool needs_layer,
-                                  const ClipPaintPropertyNode& clip,
+void SynthesizedClip::UpdateLayer(const ClipPaintPropertyNode& clip,
                                   const TransformPaintPropertyNode& transform) {
-  if (!needs_layer) {
-    layer_.reset();
-    return;
-  }
   if (!layer_) {
     layer_ = cc::PictureLayer::Create(this);
     layer_->SetIsDrawable(true);
@@ -478,15 +479,18 @@ void SynthesizedClip::UpdateLayer(bool needs_layer,
 
   const auto& path = clip.ClipPath();
   SkRRect new_rrect(clip.PaintClipRect());
-  gfx::Rect layer_bounds = gfx::ToEnclosingRect(clip.PaintClipRect().Rect());
+  gfx::Rect layer_rect = gfx::ToEnclosingRect(clip.PaintClipRect().Rect());
   bool needs_display = false;
 
   auto new_translation_2d_or_matrix =
       GeometryMapper::SourceToDestinationProjection(clip.LocalTransformSpace(),
                                                     transform);
-  new_translation_2d_or_matrix.MapRect(layer_bounds);
-  new_translation_2d_or_matrix.PostTranslate(-layer_bounds.x(),
-                                             -layer_bounds.y());
+  new_translation_2d_or_matrix.MapRect(layer_rect);
+  gfx::Vector2dF layer_offset(layer_rect.OffsetFromOrigin());
+  gfx::Size layer_bounds = layer_rect.size();
+  AdjustMaskLayerGeometry(transform, layer_offset, layer_bounds);
+  new_translation_2d_or_matrix.PostTranslate(-layer_offset.x(),
+                                             -layer_offset.y());
 
   if (!path && new_translation_2d_or_matrix.IsIdentityOr2DTranslation()) {
     const auto& translation = new_translation_2d_or_matrix.Translation2D();
@@ -505,9 +509,8 @@ void SynthesizedClip::UpdateLayer(bool needs_layer,
   if (needs_display)
     layer_->SetNeedsDisplay();
 
-  layer_->SetOffsetToTransformParent(
-      gfx::Vector2dF(layer_bounds.OffsetFromOrigin()));
-  layer_->SetBounds(layer_bounds.size());
+  layer_->SetOffsetToTransformParent(layer_offset);
+  layer_->SetBounds(layer_bounds);
   rrect_ = new_rrect;
   path_ = path;
 }
@@ -561,7 +564,7 @@ SynthesizedClip& PaintArtifactCompositor::CreateOrReuseSynthesizedClipLayer(
   entry->in_use = true;
   SynthesizedClip& synthesized_clip = *entry->synthesized_clip;
   if (needs_layer) {
-    synthesized_clip.UpdateLayer(needs_layer, clip, transform);
+    synthesized_clip.UpdateLayer(clip, transform);
     synthesized_clip.Layer()->SetLayerTreeHost(root_layer_->layer_tree_host());
     if (layer_debug_info_enabled_ && !synthesized_clip.Layer()->debug_info())
       synthesized_clip.Layer()->SetDebugName("Synthesized Clip");
@@ -621,10 +624,11 @@ void PaintArtifactCompositor::Update(
     const Vector<const TransformPaintPropertyNode*>& scroll_translation_nodes,
     Vector<std::unique_ptr<cc::DocumentTransitionRequest>>
         transition_requests) {
+  const bool unification_enabled =
+      base::FeatureList::IsEnabled(features::kScrollUnification);
   // See: |UpdateRepaintedLayers| for repaint updates.
   DCHECK(needs_update_);
-  DCHECK(scroll_translation_nodes.IsEmpty() ||
-         RuntimeEnabledFeatures::ScrollUnificationEnabled());
+  DCHECK(scroll_translation_nodes.IsEmpty() || unification_enabled);
   DCHECK(root_layer_);
 
   TRACE_EVENT0("blink", "PaintArtifactCompositor::Update");
@@ -661,7 +665,7 @@ void PaintArtifactCompositor::Update(
 
   // With ScrollUnification, we ensure a cc::ScrollNode for all
   // |scroll_translation_nodes|.
-  if (RuntimeEnabledFeatures::ScrollUnificationEnabled())
+  if (unification_enabled)
     property_tree_manager.EnsureCompositorScrollNodes(scroll_translation_nodes);
 
   for (auto& entry : synthesized_clip_cache_)
@@ -683,9 +687,9 @@ void PaintArtifactCompositor::Update(
     const auto& effect = property_state.Effect();
     int transform_id =
         property_tree_manager.EnsureCompositorTransformNode(transform);
-    int clip_id = property_tree_manager.EnsureCompositorClipNode(clip);
     int effect_id = property_tree_manager.SwitchToEffectNodeWithSynthesizedClip(
         effect, clip, layer.draws_content());
+    int clip_id = property_tree_manager.EnsureCompositorClipNode(clip);
 
     // We need additional bookkeeping for backdrop-filter mask.
     if (effect.RequiresCompositingForBackdropFilterMask() &&
@@ -706,7 +710,7 @@ void PaintArtifactCompositor::Update(
     // property_tree_manager.SetCcScrollNodeIsComposited(scroll_translation);
     int scroll_id =
         property_tree_manager.EnsureCompositorScrollNode(scroll_translation);
-    if (RuntimeEnabledFeatures::ScrollUnificationEnabled())
+    if (unification_enabled)
       property_tree_manager.SetCcScrollNodeIsComposited(scroll_id);
 
     layer_list_builder.Add(&layer);

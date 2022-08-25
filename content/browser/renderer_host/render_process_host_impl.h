@@ -81,7 +81,13 @@
 
 #if BUILDFLAG(IS_ANDROID)
 #include "content/public/browser/android/child_process_importance.h"
+#else
+#include "third_party/blink/public/mojom/hid/hid.mojom-forward.h"
 #endif
+
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#include "media/mojo/mojom/stable/stable_video_decoder.mojom.h"
+#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 
 namespace base {
 class CommandLine;
@@ -300,8 +306,6 @@ class CONTENT_EXPORT RenderProcessHostImpl
   void ForceCrash() override;
   std::string GetInfoForBrowserContextDestructionCrashReporting() override;
   void WriteIntoTrace(perfetto::TracedProto<TraceProto> proto) const override;
-  void EnableBlinkRuntimeFeatures(
-      const std::vector<std::string>& features) override;
 #if BUILDFLAG(CLANG_PROFILING_INSIDE_SANDBOX)
   void DumpProfilingData(base::OnceClosure callback) override;
 #endif
@@ -672,6 +676,12 @@ class CONTENT_EXPORT RenderProcessHostImpl
       mojo::PendingReceiver<blink::mojom::WebSocketConnector> receiver)
       override;
 
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+  void CreateStableVideoDecoder(
+      mojo::PendingReceiver<media::stable::mojom::StableVideoDecoder> receiver)
+      override;
+#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+
   void BindP2PSocketManager(
       net::NetworkIsolationKey isolation_key,
       mojo::PendingReceiver<network::mojom::P2PSocketManager> receiver,
@@ -681,6 +691,11 @@ class CONTENT_EXPORT RenderProcessHostImpl
   void SetIpcSendWatcherForTesting(IpcSendWatcher watcher) {
     ipc_send_watcher_for_testing_ = std::move(watcher);
   }
+
+#if !BUILDFLAG(IS_ANDROID)
+  void BindHidService(const url::Origin& origin,
+                      mojo::PendingReceiver<blink::mojom::HidService> receiver);
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(ENABLE_PLUGINS)
   PepperRendererConnection* pepper_renderer_connection() {
@@ -1121,6 +1136,13 @@ class CONTENT_EXPORT RenderProcessHostImpl
   // RenderProcessHost. This is destroyed early in ResetIPC() method.
   std::unique_ptr<PermissionServiceContext> permission_service_context_;
 
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+  // Connection to the StableVideoDecoderFactory that lives in a utility
+  // process. This is only used for out-of-process video decoding.
+  mojo::Remote<media::stable::mojom::StableVideoDecoderFactory>
+      stable_video_decoder_factory_remote_;
+#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+
   // The memory allocator, if any, in which the renderer will write its metrics.
   std::unique_ptr<base::PersistentMemoryAllocator> metrics_allocator_;
 
@@ -1195,14 +1217,18 @@ class CONTENT_EXPORT RenderProcessHostImpl
   friend class IOThreadHostImpl;
   absl::optional<base::SequenceBound<IOThreadHostImpl>> io_thread_host_impl_;
 
-  // A WeakPtrFactory which is reset every time ResetIPC() or Cleanup() run.
+  // A WeakPtrFactory which is reset every time ResetIPC() or Cleanup() is run.
   // Used to vend WeakPtrs which are invalidated any time the RenderProcessHost
-  // is recycled.
+  // is used for a new renderer process or prepares for deletion.
+  // Most cases should use this factory, so the resulting WeakPtrs are no longer
+  // valid after DeleteSoon is called, when the RenderProcessHost is in a partly
+  // torn-down state.
   base::WeakPtrFactory<RenderProcessHostImpl> instance_weak_factory_{this};
 
-  // A WeakPtrFactory that doesn't get reset, unlike |instance_weak_factory_|
-  // above. This is used to create SafeRefs.
-  base::WeakPtrFactory<RenderProcessHostImpl> weak_ptr_factory_{this};
+  // A WeakPtrFactory which should only be used for creating SafeRefs. All other
+  // weak pointers should use |instance_weak_factory_|. This WeakPtrFactory
+  // doesn't get reset until this RenderProcessHost object is actually deleted.
+  base::WeakPtrFactory<RenderProcessHostImpl> safe_ref_factory_{this};
 };
 
 }  // namespace content

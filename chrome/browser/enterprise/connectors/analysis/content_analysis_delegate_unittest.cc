@@ -89,6 +89,18 @@ constexpr char kBlockingScansForMalware[] = R"(
 
 constexpr char kNothingEnabled[] = R"({ "service_provider": "google" })";
 
+constexpr char kLocalBlockingScansForDlpAndMalware[] = R"(
+{
+  "service_provider": "local_test",
+  "enable": [
+    {
+      "url_list": ["*"],
+      "tags": ["dlp", "malware"]
+    }
+  ],
+  "block_until_verdict": 1
+})";
+
 // Helpers to get text with sizes relative to the minimum required size of 100
 // bytes for scans to trigger.
 std::string large_text() {
@@ -1601,6 +1613,9 @@ TEST_F(ContentAnalysisDelegateAuditOnlyTest, UnsupportedTypeAndDLPFailure) {
   EXPECT_TRUE(called);
 }
 
+// test params:
+// 0: upload result from binary upload service.
+// 1: whether an cloud analysis is done.
 class ContentAnalysisDelegateResultHandlingTest
     : public BaseTest,
       public testing::WithParamInterface<
@@ -1611,8 +1626,10 @@ class ContentAnalysisDelegateResultHandlingTest
   void SetUp() override {
     BaseTest::SetUp();
     EnableFeatures();
-    safe_browsing::SetAnalysisConnector(profile_->GetPrefs(), FILE_ATTACHED,
-                                        kBlockingScansForDlpAndMalware);
+    safe_browsing::SetAnalysisConnector(
+        profile_->GetPrefs(), FILE_ATTACHED,
+        is_cloud() ? kBlockingScansForDlpAndMalware
+                   : kLocalBlockingScansForDlpAndMalware);
 
     ContentAnalysisDelegate::SetFactoryForTesting(base::BindRepeating(
         &FakeContentAnalysisDelegate::Create, run_loop_.QuitClosure(),
@@ -1620,11 +1637,14 @@ class ContentAnalysisDelegateResultHandlingTest
             &ContentAnalysisDelegateResultHandlingTest::ConnectorStatusCallback,
             base::Unretained(this)),
         kDmToken));
+    FakeContentAnalysisDelegate::ResetDialogFlags();
   }
 
   safe_browsing::BinaryUploadService::Result result() const {
     return std::get<0>(GetParam());
   }
+
+  bool is_cloud() const { return std::get<1>(GetParam()); }
 
   ContentAnalysisResponse ConnectorStatusCallback(const base::FilePath& path) {
     return FakeContentAnalysisDelegate::SuccessfulResponse({"dlp", "malware"});
@@ -1655,13 +1675,16 @@ TEST_P(ContentAnalysisDelegateResultHandlingTest, Test) {
             EXPECT_EQ(0u, result.text_results.size());
             EXPECT_EQ(1u, result.paths_results.size());
 
-            bool expected = ContentAnalysisDelegate::ResultShouldAllowDataUse(
-                this->result(), data.settings);
+            bool expected =
+                ResultShouldAllowDataUse(data.settings, this->result());
             EXPECT_EQ(expected, result.paths_results[0]);
             called = true;
           }));
   RunUntilDone();
   EXPECT_TRUE(called);
+
+  EXPECT_EQ(is_cloud(), FakeContentAnalysisDelegate::WasDialogShown());
+  EXPECT_NE(is_cloud(), FakeContentAnalysisDelegate::WasDialogCanceled());
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -1678,83 +1701,5 @@ INSTANTIATE_TEST_SUITE_P(
             safe_browsing::BinaryUploadService::Result::UNAUTHORIZED,
             safe_browsing::BinaryUploadService::Result::FILE_ENCRYPTED),
         testing::Bool()));
-
-class ContentAnalysisDelegateSettingsTest
-    : public BaseTest,
-      public testing::WithParamInterface<bool> {
- public:
-  ContentAnalysisDelegateSettingsTest() = default;
-
-  void SetUp() override {
-    BaseTest::SetUp();
-    EnableFeatures();
-
-    // Settings can't be returned if no DM token exists.
-    SetDMTokenForTesting(policy::DMToken::CreateValidTokenForTesting(kDmToken));
-  }
-
-  bool allowed() const { return !GetParam(); }
-  const char* bool_setting() const { return GetParam() ? "true" : "false"; }
-
-  AnalysisSettings settings() {
-    absl::optional<AnalysisSettings> settings =
-        ConnectorsServiceFactory::GetForBrowserContext(profile())
-            ->GetAnalysisSettings(GURL(kTestUrl), FILE_ATTACHED);
-    EXPECT_TRUE(settings.has_value());
-    return std::move(settings.value());
-  }
-};
-
-INSTANTIATE_TEST_SUITE_P(,
-                         ContentAnalysisDelegateSettingsTest,
-                         testing::Bool());
-
-TEST_P(ContentAnalysisDelegateSettingsTest, BlockLargeFile) {
-  auto pref = base::StringPrintf(R"(
-    {
-      "service_provider": "google",
-      "enable": [{"url_list": ["*"], "tags": ["dlp"]}],
-      "block_large_files": %s
-    })",
-                                 bool_setting());
-  safe_browsing::SetAnalysisConnector(profile_->GetPrefs(), FILE_ATTACHED,
-                                      pref);
-  EXPECT_EQ(allowed(),
-            ContentAnalysisDelegate::ResultShouldAllowDataUse(
-                safe_browsing::BinaryUploadService::Result::FILE_TOO_LARGE,
-                settings()));
-}
-
-TEST_P(ContentAnalysisDelegateSettingsTest, BlockPasswordProtected) {
-  auto pref = base::StringPrintf(R"(
-    {
-      "service_provider": "google",
-      "enable": [{"url_list": ["*"], "tags": ["dlp"]}],
-      "block_password_protected": %s
-    })",
-                                 bool_setting());
-  safe_browsing::SetAnalysisConnector(profile_->GetPrefs(), FILE_ATTACHED,
-                                      pref);
-  EXPECT_EQ(allowed(),
-            ContentAnalysisDelegate::ResultShouldAllowDataUse(
-                safe_browsing::BinaryUploadService::Result::FILE_ENCRYPTED,
-                settings()));
-}
-
-TEST_P(ContentAnalysisDelegateSettingsTest, BlockUnsupportedFileTypes) {
-  auto pref = base::StringPrintf(R"(
-    {
-      "service_provider": "google",
-      "enable": [{"url_list": ["*"], "tags": ["dlp"]}],
-      "block_unsupported_file_types": %s
-    })",
-                                 bool_setting());
-  safe_browsing::SetAnalysisConnector(profile_->GetPrefs(), FILE_ATTACHED,
-                                      pref);
-  EXPECT_EQ(allowed(), ContentAnalysisDelegate::ResultShouldAllowDataUse(
-                           safe_browsing::BinaryUploadService::Result::
-                               DLP_SCAN_UNSUPPORTED_FILE_TYPE,
-                           settings()));
-}
 
 }  // namespace enterprise_connectors

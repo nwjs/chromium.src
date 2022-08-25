@@ -13,7 +13,7 @@
 
 import './passwords_list_handler.js';
 import 'chrome://resources/cr_elements/shared_style_css.m.js';
-import '../settings_shared_css.js';
+import '../settings_shared.css.js';
 import './avatar_icon.js';
 import './passwords_shared.css.js';
 import './password_list_item.js';
@@ -200,20 +200,22 @@ export class PasswordsDeviceSectionElement extends
         },
         reflectToAttribute: true,
       },
+
+      focusConfig: Object,
     };
   }
 
   static get observers() {
     return [
-      'maybeRedirectToPasswordsPage_(isUserAllowedToAccessPage_, currentRoute_)'
+      'maybeRedirectToPasswordsPage_(isUserAllowedToAccessPage_, currentRoute_)',
     ];
   }
 
   subpageRoute: Route;
   filter: string;
-  private deviceOnlyPasswords_: Array<MultiStorePasswordUiEntry>;
-  private deviceAndAccountPasswords_: Array<MultiStorePasswordUiEntry>;
-  private allDevicePasswords_: Array<MultiStorePasswordUiEntry>;
+  private deviceOnlyPasswords_: MultiStorePasswordUiEntry[];
+  private deviceAndAccountPasswords_: MultiStorePasswordUiEntry[];
+  private allDevicePasswords_: MultiStorePasswordUiEntry[];
   private shouldShowMoveMultiplePasswordsBanner_: boolean;
   private lastFocused_: MultiStorePasswordUiEntry;
   private listBlurred_: boolean;
@@ -226,6 +228,7 @@ export class PasswordsDeviceSectionElement extends
   private currentRoute_: Route|null;
   private devicePasswordsLabel_: string;
   private isPasswordViewPageEnabled_: boolean;
+  focusConfig: Map<string, string|(() => void)>;
   private accountStorageOptInStateListener_:
       AccountStorageOptInStateChangedListener|null = null;
 
@@ -235,7 +238,7 @@ export class PasswordsDeviceSectionElement extends
     this.addListenersForAccountStorageRequirements_();
     this.currentRoute_ = Router.getInstance().currentRoute;
 
-    const extractFirstStoredAccountEmail = (accounts: Array<StoredAccount>) => {
+    const extractFirstStoredAccountEmail = (accounts: StoredAccount[]) => {
       this.accountEmail_ = accounts.length > 0 ? accounts[0].email : '';
     };
     SyncBrowserProxyImpl.getInstance().getStoredAccounts().then(
@@ -269,19 +272,20 @@ export class PasswordsDeviceSectionElement extends
     this.accountStorageOptInStateListener_ = null;
   }
 
-  private computeAllDevicePasswords_(): Array<MultiStorePasswordUiEntry> {
-    return this.savedPasswords.filter(p => p.isPresentOnDevice());
+  private computeAllDevicePasswords_(): MultiStorePasswordUiEntry[] {
+    return this.savedPasswords.filter(
+        p => p.storedIn !== chrome.passwordsPrivate.PasswordStoreSet.ACCOUNT);
   }
 
-  private computeDeviceOnlyPasswords_(): Array<MultiStorePasswordUiEntry> {
+  private computeDeviceOnlyPasswords_(): MultiStorePasswordUiEntry[] {
     return this.savedPasswords.filter(
-        p => p.isPresentOnDevice() && !p.isPresentInAccount());
+        p => p.storedIn === chrome.passwordsPrivate.PasswordStoreSet.DEVICE);
   }
 
-  private computeDeviceAndAccountPasswords_():
-      Array<MultiStorePasswordUiEntry> {
+  private computeDeviceAndAccountPasswords_(): MultiStorePasswordUiEntry[] {
     return this.savedPasswords.filter(
-        p => p.isPresentOnDevice() && p.isPresentInAccount());
+        p => p.storedIn ===
+            chrome.passwordsPrivate.PasswordStoreSet.DEVICE_AND_ACCOUNT);
   }
 
   private computeIsUserAllowedToAccessPage_(): boolean {
@@ -334,7 +338,7 @@ export class PasswordsDeviceSectionElement extends
     SyncBrowserProxyImpl.getInstance().getSyncStatus().then(setSyncDisabled);
     this.addWebUIListener('sync-status-changed', setSyncDisabled);
 
-    const setSignedIn = (storedAccounts: Array<StoredAccount>) => {
+    const setSignedIn = (storedAccounts: StoredAccount[]) => {
       this.signedIn_ = storedAccounts.length > 0;
     };
     SyncBrowserProxyImpl.getInstance().getStoredAccounts().then(setSignedIn);
@@ -350,13 +354,13 @@ export class PasswordsDeviceSectionElement extends
     this.accountStorageOptInStateListener_ = setOptedIn;
   }
 
-  private isNonEmpty_(passwords: Array<MultiStorePasswordUiEntry>): boolean {
+  private isNonEmpty_(passwords: MultiStorePasswordUiEntry[]): boolean {
     return passwords.length > 0;
   }
 
   private getFilteredPasswords_(
-      passwords: Array<MultiStorePasswordUiEntry>,
-      filter: string): Array<MultiStorePasswordUiEntry> {
+      passwords: MultiStorePasswordUiEntry[],
+      filter: string): MultiStorePasswordUiEntry[] {
     if (!filter) {
       return passwords.slice();
     }

@@ -114,14 +114,14 @@ void CastActivityManager::LaunchSessionParsed(
     bool off_the_record,
     mojom::MediaRouteProvider::CreateRouteCallback callback,
     data_decoder::DataDecoder::ValueOrError result) {
-  if (!cast_source.app_params().empty() && result.error) {
-    logger_->LogError(
-        mojom::LogCategory::kRoute, kLoggerComponent,
-        base::StrCat({"Error parsing JSON data in appParams: ", *result.error}),
-        sink.id(), cast_source.source_id(), presentation_id);
+  if (!cast_source.app_params().empty() && !result.has_value()) {
+    logger_->LogError(mojom::LogCategory::kRoute, kLoggerComponent,
+                      base::StrCat({"Error parsing JSON data in appParams: ",
+                                    result.error()}),
+                      sink.id(), cast_source.source_id(), presentation_id);
     std::move(callback).Run(
         absl::nullopt, nullptr, std::string("Invalid JSON Format of appParams"),
-        RouteRequestResult::ResultCode::NO_SUPPORTED_PROVIDER);
+        mojom::RouteRequestResultCode::NO_SUPPORTED_PROVIDER);
     return;
   }
 
@@ -144,8 +144,15 @@ void CastActivityManager::LaunchSessionParsed(
   route.set_media_sink_name(sink.sink().name());
   route.set_is_connecting(true);
 
+  // We either have a value, or an error, however `LaunchSession` calls this
+  // function is a default constructed `result`, which is supposed to be
+  // ignored.
+  absl::optional<base::Value> opt_result = absl::nullopt;
+  if (result.has_value() && !result->is_none())
+    opt_result = std::move(*result);
+
   DoLaunchSessionParams params(route, cast_source, sink, origin, tab_id,
-                               std::move(result.value), std::move(callback));
+                               std::move(opt_result), std::move(callback));
 
   // If there is currently a session on the sink, it must be terminated before
   // the new session can be launched.
@@ -221,7 +228,7 @@ void CastActivityManager::SetPendingLaunch(DoLaunchSessionParams params) {
   if (pending_launch_ && pending_launch_->callback) {
     std::move(pending_launch_->callback)
         .Run(absl::nullopt, nullptr, "Pending launch session params destroyed",
-             RouteRequestResult::CANCELLED);
+             mojom::RouteRequestResultCode::CANCELLED);
   }
   pending_launch_ = std::move(params);
 }
@@ -303,7 +310,7 @@ void CastActivityManager::JoinSession(
   if (!activity || !activity->CanJoinSession(cast_source, off_the_record)) {
     std::move(callback).Run(absl::nullopt, nullptr,
                             std::string("No matching route"),
-                            RouteRequestResult::ResultCode::ROUTE_NOT_FOUND);
+                            mojom::RouteRequestResultCode::ROUTE_NOT_FOUND);
     return;
   }
 
@@ -316,7 +323,7 @@ void CastActivityManager::JoinSession(
                       cast_source.source_id(), presentation_id);
     std::move(callback).Run(absl::nullopt, nullptr,
                             std::string("Sink not found"),
-                            RouteRequestResult::ResultCode::SINK_NOT_FOUND);
+                            mojom::RouteRequestResultCode::SINK_NOT_FOUND);
     return;
   }
 
@@ -339,7 +346,7 @@ void CastActivityManager::JoinSession(
                         kErrorMessage, "", "", "");
     }
     std::move(callback).Run(absl::nullopt, nullptr, kErrorMessage,
-                            RouteRequestResult::ResultCode::UNKNOWN_ERROR);
+                            mojom::RouteRequestResultCode::UNKNOWN_ERROR);
     return;
   }
 
@@ -356,7 +363,7 @@ void CastActivityManager::JoinSession(
   // Route is now local; update route queries.
   NotifyAllOnRoutesUpdated();
   std::move(callback).Run(activity->route(), std::move(presentation_connection),
-                          absl::nullopt, RouteRequestResult::ResultCode::OK);
+                          absl::nullopt, mojom::RouteRequestResultCode::OK);
   logger_->LogInfo(mojom::LogCategory::kRoute, kLoggerComponent,
                    "Successfully joined session", sink->id(),
                    cast_source.source_id(), presentation_id);
@@ -421,7 +428,7 @@ void CastActivityManager::TerminateSession(
                         "Cannot find the activity to terminate with route id.",
                         "", source_id, presentation_id);
     std::move(callback).Run("Activity not found",
-                            RouteRequestResult::ROUTE_NOT_FOUND);
+                            mojom::RouteRequestResultCode::ROUTE_NOT_FOUND);
     return;
   }
 
@@ -440,7 +447,7 @@ void CastActivityManager::TerminateSession(
     logger_->LogInfo(mojom::LogCategory::kRoute, kLoggerComponent,
                      "Terminated session has no session ID.", "", source_id,
                      presentation_id);
-    std::move(callback).Run(absl::nullopt, RouteRequestResult::OK);
+    std::move(callback).Run(absl::nullopt, mojom::RouteRequestResultCode::OK);
     return;
   }
 
@@ -656,17 +663,17 @@ void CastActivityManager::SendRouteJsonMessage(
     const std::string& media_route_id,
     const std::string& message,
     data_decoder::DataDecoder::ValueOrError result) {
-  if (result.error) {
+  if (!result.has_value()) {
     logger_->LogError(
         mojom::LogCategory::kRoute, kLoggerComponent,
         "Error parsing JSON data when sending route JSON message: " +
-            *result.error,
+            result.error(),
         "", MediaRoute::GetMediaSourceIdFromMediaRouteId(media_route_id),
         MediaRoute::GetPresentationIdFromMediaRouteId(media_route_id));
     return;
   }
 
-  const std::string* client_id = result.value->FindStringKey("clientId");
+  const std::string* client_id = result->FindStringKey("clientId");
   if (!client_id) {
     logger_->LogError(
         mojom::LogCategory::kRoute, kLoggerComponent,
@@ -764,7 +771,7 @@ void CastActivityManager::HandleLaunchSessionResponse(
                       MediaRoute::GetPresentationIdFromMediaRouteId(route_id));
     std::move(params.callback)
         .Run(absl::nullopt, nullptr, error_message,
-             RouteRequestResult::ResultCode::ROUTE_NOT_FOUND);
+             mojom::RouteRequestResultCode::ROUTE_NOT_FOUND);
     return;
   }
 
@@ -774,13 +781,13 @@ void CastActivityManager::HandleLaunchSessionResponse(
         HandleLaunchSessionResponseFailures(
             activity_it, std::move(params),
             "Failed to launch session due to timeout.",
-            RouteRequestResult::ResultCode::TIMED_OUT);
+            mojom::RouteRequestResultCode::TIMED_OUT);
         break;
       default:
         HandleLaunchSessionResponseFailures(
             activity_it, std::move(params),
             base::StrCat({"Failed to launch session. ", response.error_msg}),
-            RouteRequestResult::ResultCode::UNKNOWN_ERROR);
+            mojom::RouteRequestResultCode::UNKNOWN_ERROR);
         break;
     }
     return;
@@ -792,7 +799,7 @@ void CastActivityManager::HandleLaunchSessionResponse(
         activity_it, std::move(params),
         "Unable to get session from launch response. Cast session is not "
         "launched.",
-        RouteRequestResult::ResultCode::ROUTE_NOT_FOUND);
+        mojom::RouteRequestResultCode::ROUTE_NOT_FOUND);
     return;
   }
   RecordLaunchSessionResponseAppType(session->value().FindKey("appType"));
@@ -851,7 +858,7 @@ void CastActivityManager::HandleLaunchSessionResponse(
 
   std::move(params.callback)
       .Run(route, std::move(presentation_connection),
-           /* error_text */ absl::nullopt, RouteRequestResult::ResultCode::OK);
+           /* error_text */ absl::nullopt, mojom::RouteRequestResultCode::OK);
 }
 
 void CastActivityManager::HandleStopSessionResponse(
@@ -863,7 +870,7 @@ void CastActivityManager::HandleStopSessionResponse(
   auto activity_it = activities_.find(route_id);
   if (activity_it == activities_.end()) {
     // The activity could've been removed via RECEIVER_STATUS message.
-    std::move(callback).Run(absl::nullopt, RouteRequestResult::OK);
+    std::move(callback).Run(absl::nullopt, mojom::RouteRequestResultCode::OK);
     return;
   }
 
@@ -878,7 +885,7 @@ void CastActivityManager::HandleStopSessionResponse(
     // |route_id|.
     RemoveActivity(activity_it, PresentationConnectionState::TERMINATED,
                    PresentationConnectionCloseReason::CLOSED);
-    std::move(callback).Run(absl::nullopt, RouteRequestResult::OK);
+    std::move(callback).Run(absl::nullopt, mojom::RouteRequestResultCode::OK);
 
     logger_->LogInfo(mojom::LogCategory::kRoute, kLoggerComponent,
                      "Terminated a route successfully after receiving "
@@ -887,7 +894,8 @@ void CastActivityManager::HandleStopSessionResponse(
   } else {
     std::string error_msg =
         "StopSession response is not OK. Failed to terminate route.";
-    std::move(callback).Run(error_msg, RouteRequestResult::UNKNOWN_ERROR);
+    std::move(callback).Run(error_msg,
+                            mojom::RouteRequestResultCode::UNKNOWN_ERROR);
     logger_->LogError(mojom::LogCategory::kRoute, kLoggerComponent, error_msg,
                       "", source_id, presentation_id);
   }
@@ -897,7 +905,7 @@ void CastActivityManager::HandleLaunchSessionResponseFailures(
     ActivityMap::iterator activity_it,
     DoLaunchSessionParams params,
     const std::string& message,
-    RouteRequestResult::ResultCode result_code) {
+    mojom::RouteRequestResultCode result_code) {
   logger_->LogError(mojom::LogCategory::kRoute, kLoggerComponent, message,
                     params.sink.id(), params.cast_source.source_id(),
                     MediaRoute::GetPresentationIdFromMediaRouteId(

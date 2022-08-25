@@ -20,7 +20,6 @@ export class FakeFeedbackServiceProvider {
     this.methods_.register('getFeedbackContext');
     this.methods_.register('getScreenshotPng');
     this.methods_.register('sendReport');
-    this.methods_.register('openDiagnosticsApp');
     // Let sendReport return success by default.
     this.methods_.setResult('sendReport', {status: SendReportStatus.kSuccess});
     // Let getScreenshotPng return an empty array by default.
@@ -39,6 +38,12 @@ export class FakeFeedbackServiceProvider {
       sendReport: 0,
       /** @type {number} */
       openDiagnosticsApp: 0,
+      /** @type {number} */
+      openExploreApp: 0,
+      /** @type {number} */
+      openMetricsDialog: 0,
+      /** @type {number} */
+      openSystemInfoDialog: 0,
     };
   }
 
@@ -127,10 +132,51 @@ export class FakeFeedbackServiceProvider {
   }
 
   /**
-   * @return {!Promise<void>}
+   * @return {void}
    */
   openDiagnosticsApp() {
     this.callCounts_.openDiagnosticsApp++;
-    return this.methods_.resolveMethod('openDiagnosticsApp');
+  }
+
+  /**
+   * @return {number}
+   */
+  getOpenExploreAppCallCount() {
+    return this.callCounts_.openExploreApp;
+  }
+
+  /**
+   * @return {void}
+   */
+  openExploreApp() {
+    this.callCounts_.openExploreApp++;
+  }
+
+  /**
+   * @return {number}
+   */
+  getOpenMetricsDialogCallCount() {
+    return this.callCounts_.openMetricsDialog;
+  }
+
+  /**
+   * @return {void}
+   */
+  openMetricsDialog() {
+    this.callCounts_.openMetricsDialog++;
+  }
+
+  /**
+   * @return {number}
+   */
+  getOpenSystemInfoDialogCallCount() {
+    return this.callCounts_.openSystemInfoDialog;
+  }
+
+  /**
+   * @return {void}
+   */
+  openSystemInfoDialog() {
+    this.callCounts_.openSystemInfoDialog++;
   }
 }

@@ -35,17 +35,17 @@ ComponentsHandler::ComponentsHandler(
 ComponentsHandler::~ComponentsHandler() = default;
 
 void ComponentsHandler::RegisterMessages() {
-  web_ui()->RegisterDeprecatedMessageCallback(
+  web_ui()->RegisterMessageCallback(
       "requestComponentsData",
       base::BindRepeating(&ComponentsHandler::HandleRequestComponentsData,
                           base::Unretained(this)));
 
-  web_ui()->RegisterDeprecatedMessageCallback(
+  web_ui()->RegisterMessageCallback(
       "checkUpdate", base::BindRepeating(&ComponentsHandler::HandleCheckUpdate,
                                          base::Unretained(this)));
 
 #if BUILDFLAG(IS_CHROMEOS)
-  web_ui()->RegisterDeprecatedMessageCallback(
+  web_ui()->RegisterMessageCallback(
       "crosUrlComponentsRedirect",
       base::BindRepeating(&ComponentsHandler::HandleCrosUrlComponentsRedirect,
                           base::Unretained(this)));
@@ -61,9 +61,9 @@ void ComponentsHandler::OnJavascriptDisallowed() {
 }
 
 void ComponentsHandler::HandleRequestComponentsData(
-    const base::ListValue* args) {
+    const base::Value::List& args) {
   AllowJavascript();
-  const base::Value& callback_id = args->GetListDeprecated()[0];
+  const base::Value& callback_id = args[0];
 
   base::DictionaryValue result;
   result.GetDict().Set("components",
@@ -85,17 +85,17 @@ void ComponentsHandler::HandleRequestComponentsData(
 // TODO(shrikant): We need to make this button available based on current
 // state e.g. If component state is currently updating then we need to disable
 // button. (https://code.google.com/p/chromium/issues/detail?id=272540)
-void ComponentsHandler::HandleCheckUpdate(const base::ListValue* args) {
-  if (args->GetListDeprecated().size() != 1) {
+void ComponentsHandler::HandleCheckUpdate(const base::Value::List& args) {
+  if (args.size() != 1) {
     NOTREACHED();
     return;
   }
 
-  if (!args->GetListDeprecated()[0].is_string()) {
+  if (!args[0].is_string()) {
     NOTREACHED();
     return;
   }
-  const std::string& component_id = args->GetListDeprecated()[0].GetString();
+  const std::string& component_id = args[0].GetString();
 
   OnDemandUpdate(component_id);
 }
@@ -127,8 +127,9 @@ std::u16string ComponentsHandler::ComponentEventToString(Events event) {
       return l10n_util::GetStringUTF16(IDS_COMPONENTS_EVT_STATUS_READY);
     case Events::COMPONENT_UPDATED:
       return l10n_util::GetStringUTF16(IDS_COMPONENTS_EVT_STATUS_UPDATED);
-    case Events::COMPONENT_NOT_UPDATED:
-      return l10n_util::GetStringUTF16(IDS_COMPONENTS_EVT_STATUS_NOTUPDATED);
+    case Events::COMPONENT_ALREADY_UP_TO_DATE:
+      return l10n_util::GetStringUTF16(
+          IDS_COMPONENTS_EVT_STATUS_ALREADY_UP_TO_DATE);
     case Events::COMPONENT_UPDATE_ERROR:
       return l10n_util::GetStringUTF16(IDS_COMPONENTS_EVT_STATUS_UPDATE_ERROR);
     case Events::COMPONENT_UPDATE_DOWNLOADING:
@@ -175,7 +176,7 @@ std::u16string ComponentsHandler::ServiceStatusToString(
 
 #if BUILDFLAG(IS_CHROMEOS)
 void ComponentsHandler::HandleCrosUrlComponentsRedirect(
-    const base::ListValue* args) {
+    const base::Value::List& args) {
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
   lacros_url_handling::NavigateInAsh(GURL(chrome::kOsUIComponentsURL));
 #else

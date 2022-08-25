@@ -29,7 +29,7 @@ import {PasswordManagerImpl} from './password_manager_proxy.js';
 import {getTemplate} from './password_remove_dialog.html.js';
 
 export type PasswordRemoveDialogPasswordsRemovedEvent =
-    CustomEvent<{removedFromAccount: boolean, removedFromDevice: boolean}>;
+    CustomEvent<{removedFromStores: chrome.passwordsPrivate.PasswordStoreSet}>;
 
 declare global {
   interface HTMLElementEventMap {
@@ -96,8 +96,9 @@ export class PasswordRemoveDialogElement extends
 
     // At creation time, the password should exist in both locations.
     assert(
-        this.duplicatedPassword.isPresentInAccount() &&
-        this.duplicatedPassword.isPresentOnDevice());
+        this.duplicatedPassword.storedIn ===
+        chrome.passwordsPrivate.PasswordStoreSet.DEVICE_AND_ACCOUNT);
+
     this.$.dialog.showModal();
 
     SyncBrowserProxyImpl.getInstance().getStoredAccounts().then(accounts => {
@@ -111,14 +112,17 @@ export class PasswordRemoveDialogElement extends
   }
 
   private onRemoveButtonClick_() {
-    const idsToRemove: Array<number> = [];
-    if (this.removeFromAccountChecked_) {
-      idsToRemove.push(this.duplicatedPassword.accountId!);
+    let fromStores: chrome.passwordsPrivate.PasswordStoreSet =
+        chrome.passwordsPrivate.PasswordStoreSet.DEVICE;
+    if (this.removeFromAccountChecked_ && this.removeFromDeviceChecked_) {
+      fromStores = chrome.passwordsPrivate.PasswordStoreSet.DEVICE_AND_ACCOUNT;
+    } else if (this.removeFromAccountChecked_) {
+      fromStores = chrome.passwordsPrivate.PasswordStoreSet.ACCOUNT;
+    } else {
+      assert(this.removeFromDeviceChecked_);
     }
-    if (this.removeFromDeviceChecked_) {
-      idsToRemove.push(this.duplicatedPassword.deviceId!);
-    }
-    PasswordManagerImpl.getInstance().removeSavedPasswords(idsToRemove);
+    PasswordManagerImpl.getInstance().removeSavedPassword(
+        this.duplicatedPassword.id, fromStores);
 
     this.$.dialog.close();
     this.dispatchEvent(
@@ -126,8 +130,7 @@ export class PasswordRemoveDialogElement extends
           bubbles: true,
           composed: true,
           detail: {
-            removedFromAccount: this.removeFromAccountChecked_,
-            removedFromDevice: this.removeFromDeviceChecked_,
+            removedFromStores: fromStores,
           },
         }));
   }

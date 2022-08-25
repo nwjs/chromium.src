@@ -21,12 +21,14 @@
 #include "chrome/browser/apps/app_service/subscriber_crosapi_factory.h"
 #include "chrome/browser/apps/digital_goods/digital_goods_ash.h"
 #include "chrome/browser/ash/crosapi/arc_ash.h"
+#include "chrome/browser/ash/crosapi/audio_service_ash.h"
 #include "chrome/browser/ash/crosapi/authentication_ash.h"
 #include "chrome/browser/ash/crosapi/automation_ash.h"
 #include "chrome/browser/ash/crosapi/browser_manager.h"
 #include "chrome/browser/ash/crosapi/browser_service_host_ash.h"
 #include "chrome/browser/ash/crosapi/browser_version_service_ash.h"
 #include "chrome/browser/ash/crosapi/cert_database_ash.h"
+#include "chrome/browser/ash/crosapi/cert_provisioning_ash.h"
 #include "chrome/browser/ash/crosapi/chrome_app_kiosk_service_ash.h"
 #include "chrome/browser/ash/crosapi/chrome_app_window_tracker_ash.h"
 #include "chrome/browser/ash/crosapi/clipboard_ash.h"
@@ -41,6 +43,7 @@
 #include "chrome/browser/ash/crosapi/download_controller_ash.h"
 #include "chrome/browser/ash/crosapi/drive_integration_service_ash.h"
 #include "chrome/browser/ash/crosapi/echo_private_ash.h"
+#include "chrome/browser/ash/crosapi/emoji_picker_ash.h"
 #include "chrome/browser/ash/crosapi/extension_info_private_ash.h"
 #include "chrome/browser/ash/crosapi/feedback_ash.h"
 #include "chrome/browser/ash/crosapi/field_trial_service_ash.h"
@@ -60,6 +63,7 @@
 #include "chrome/browser/ash/crosapi/message_center_ash.h"
 #include "chrome/browser/ash/crosapi/metrics_reporting_ash.h"
 #include "chrome/browser/ash/crosapi/native_theme_service_ash.h"
+#include "chrome/browser/ash/crosapi/network_change_ash.h"
 #include "chrome/browser/ash/crosapi/network_settings_service_ash.h"
 #include "chrome/browser/ash/crosapi/networking_attributes_ash.h"
 #include "chrome/browser/ash/crosapi/networking_private_ash.h"
@@ -79,6 +83,7 @@
 #include "chrome/browser/ash/crosapi/time_zone_service_ash.h"
 #include "chrome/browser/ash/crosapi/url_handler_ash.h"
 #include "chrome/browser/ash/crosapi/video_capture_device_factory_ash.h"
+#include "chrome/browser/ash/crosapi/virtual_keyboard_ash.h"
 #include "chrome/browser/ash/crosapi/vpn_extension_observer_ash.h"
 #include "chrome/browser/ash/crosapi/vpn_service_ash.h"
 #include "chrome/browser/ash/crosapi/wallpaper_ash.h"
@@ -119,9 +124,16 @@
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 
 #if BUILDFLAG(USE_VAAPI) || BUILDFLAG(USE_V4L2_CODEC)
+#include "content/public/browser/stable_video_decoder_factory.h"
+#include "media/base/media_switches.h"
 #include "media/mojo/mojom/stable/stable_video_decoder.mojom.h"
-#include "media/mojo/services/stable_video_decoder_factory_service.h"
 #endif  // BUILDFLAG(USE_VAAPI) || BUILDFLAG(USE_V4L2_CODEC)
+
+#if defined(USE_CUPS)
+#include "chrome/browser/ash/crosapi/printing_metrics_ash.h"
+#else
+#include "chrome/browser/ash/crosapi/fake_printing_metrics_ash.h"
+#endif  // defined(USE_CUPS)
 
 namespace crosapi {
 namespace {
@@ -147,12 +159,14 @@ Profile* GetAshProfile() {
 
 CrosapiAsh::CrosapiAsh(CrosapiDependencyRegistry* registry)
     : arc_ash_(std::make_unique<ArcAsh>()),
+      audio_service_ash_(std::make_unique<AudioServiceAsh>()),
       authentication_ash_(std::make_unique<AuthenticationAsh>()),
       automation_ash_(std::make_unique<AutomationAsh>()),
       browser_service_host_ash_(std::make_unique<BrowserServiceHostAsh>()),
       browser_version_service_ash_(std::make_unique<BrowserVersionServiceAsh>(
           g_browser_process->component_updater())),
       cert_database_ash_(std::make_unique<CertDatabaseAsh>()),
+      cert_provisioning_ash_(std::make_unique<CertProvisioningAsh>()),
       chrome_app_window_tracker_ash_(
           std::make_unique<ChromeAppWindowTrackerAsh>()),
       clipboard_ash_(std::make_unique<ClipboardAsh>()),
@@ -169,6 +183,7 @@ CrosapiAsh::CrosapiAsh(CrosapiDependencyRegistry* registry)
       drive_integration_service_ash_(
           std::make_unique<DriveIntegrationServiceAsh>()),
       echo_private_ash_(std::make_unique<EchoPrivateAsh>()),
+      emoji_picker_ash_(std::make_unique<EmojiPickerAsh>()),
       extension_info_private_ash_(std::make_unique<ExtensionInfoPrivateAsh>()),
       feedback_ash_(std::make_unique<FeedbackAsh>()),
       field_trial_service_ash_(std::make_unique<FieldTrialServiceAsh>()),
@@ -193,6 +208,7 @@ CrosapiAsh::CrosapiAsh(CrosapiDependencyRegistry* registry)
       metrics_reporting_ash_(registry->CreateMetricsReportingAsh(
           g_browser_process->metrics_service())),
       native_theme_service_ash_(std::make_unique<NativeThemeServiceAsh>()),
+      network_change_ash_(std::make_unique<NetworkChangeAsh>()),
       networking_attributes_ash_(std::make_unique<NetworkingAttributesAsh>()),
       networking_private_ash_(std::make_unique<NetworkingPrivateAsh>()),
       network_settings_service_ash_(std::make_unique<NetworkSettingsServiceAsh>(
@@ -202,6 +218,9 @@ CrosapiAsh::CrosapiAsh(CrosapiDependencyRegistry* registry)
       prefs_ash_(
           std::make_unique<PrefsAsh>(g_browser_process->profile_manager(),
                                      g_browser_process->local_state())),
+#if defined(USE_CUPS)
+      printing_metrics_ash_(std::make_unique<PrintingMetricsAsh>()),
+#endif  // defined(USE_CUPS)
       remoting_ash_(std::make_unique<RemotingAsh>()),
       resource_manager_ash_(std::make_unique<ResourceManagerAsh>()),
       screen_manager_ash_(std::make_unique<ScreenManagerAsh>()),
@@ -209,10 +228,6 @@ CrosapiAsh::CrosapiAsh(CrosapiDependencyRegistry* registry)
       select_file_ash_(std::make_unique<SelectFileAsh>()),
       sharesheet_ash_(std::make_unique<SharesheetAsh>()),
       speech_recognition_ash_(std::make_unique<SpeechRecognitionAsh>()),
-#if BUILDFLAG(USE_VAAPI) || BUILDFLAG(USE_V4L2_CODEC)
-      stable_video_decoder_factory_ash_(
-          std::make_unique<media::StableVideoDecoderFactoryService>()),
-#endif  // BUILDFLAG(USE_VAAPI) || BUILDFLAG(USE_V4L2_CODEC)
       structured_metrics_service_ash_(
           std::make_unique<StructuredMetricsServiceAsh>()),
       system_display_ash_(std::make_unique<SystemDisplayAsh>()),
@@ -222,6 +237,7 @@ CrosapiAsh::CrosapiAsh(CrosapiDependencyRegistry* registry)
       url_handler_ash_(std::make_unique<UrlHandlerAsh>()),
       video_capture_device_factory_ash_(
           std::make_unique<VideoCaptureDeviceFactoryAsh>()),
+      virtual_keyboard_ash_(std::make_unique<VirtualKeyboardAsh>()),
       vpn_extension_observer_ash_(std::make_unique<VpnExtensionObserverAsh>()),
       vpn_service_ash_(std::make_unique<VpnServiceAsh>()),
       wallpaper_ash_(std::make_unique<WallpaperAsh>()),
@@ -252,6 +268,13 @@ void CrosapiAsh::BindArc(mojo::PendingReceiver<mojom::Arc> receiver) {
   Profile* profile = ProfileManager::GetPrimaryUserProfile();
   arc_ash_->MaybeSetProfile(profile);
   arc_ash_->BindReceiver(std::move(receiver));
+}
+
+void CrosapiAsh::BindAudioService(
+    mojo::PendingReceiver<mojom::AudioService> receiver) {
+  Profile* profile = ProfileManager::GetPrimaryUserProfile();
+  audio_service_ash_->Initialize(profile);
+  audio_service_ash_->BindReceiver(std::move(receiver));
 }
 
 void CrosapiAsh::BindAuthentication(
@@ -430,6 +453,11 @@ void CrosapiAsh::BindNativeThemeService(
   native_theme_service_ash_->BindReceiver(std::move(receiver));
 }
 
+void CrosapiAsh::BindNetworkChange(
+    mojo::PendingReceiver<crosapi::mojom::NetworkChange> receiver) {
+  network_change_ash_->BindReceiver(std::move(receiver));
+}
+
 void CrosapiAsh::BindSelectFile(
     mojo::PendingReceiver<mojom::SelectFile> receiver) {
   select_file_ash_->BindReceiver(std::move(receiver));
@@ -483,6 +511,11 @@ void CrosapiAsh::BindMediaSessionAudioFocusDebug(
 void CrosapiAsh::BindCertDatabase(
     mojo::PendingReceiver<mojom::CertDatabase> receiver) {
   cert_database_ash_->BindReceiver(std::move(receiver));
+}
+
+void CrosapiAsh::BindCertProvisioning(
+    mojo::PendingReceiver<mojom::CertProvisioning> receiver) {
+  cert_provisioning_ash_->BindReceiver(std::move(receiver));
 }
 
 void CrosapiAsh::BindSearchControllerRegistry(
@@ -610,8 +643,13 @@ void CrosapiAsh::BindSensorHalClient(
 void CrosapiAsh::BindStableVideoDecoderFactory(
     mojo::GenericPendingReceiver receiver) {
 #if BUILDFLAG(USE_VAAPI) || BUILDFLAG(USE_V4L2_CODEC)
-  if (auto r = receiver.As<media::stable::mojom::StableVideoDecoderFactory>())
-    stable_video_decoder_factory_ash_->BindReceiver(std::move(r));
+  // TODO(b/171813538): if launching out-of-process video decoding for LaCrOS
+  // with Finch, we may need to tell LaCrOS somehow if this feature is enabled
+  // in ash-chrome. Otherwise, we may run into a situation in which the feature
+  // is enabled for LaCrOS but not for ash-chrome.
+  auto r = receiver.As<media::stable::mojom::StableVideoDecoderFactory>();
+  if (r && base::FeatureList::IsEnabled(media::kUseOutOfProcessVideoDecoding))
+    content::LaunchStableVideoDecoderFactory(std::move(r));
 #endif  // BUILDFLAG(USE_VAAPI) || BUILDFLAG(USE_V4L2_CODEC)
 }
 
@@ -626,6 +664,13 @@ void CrosapiAsh::BindPower(mojo::PendingReceiver<mojom::Power> receiver) {
 
 void CrosapiAsh::BindPrefs(mojo::PendingReceiver<mojom::Prefs> receiver) {
   prefs_ash_->BindReceiver(std::move(receiver));
+}
+
+void CrosapiAsh::BindPrintingMetrics(
+    mojo::PendingReceiver<mojom::PrintingMetrics> receiver) {
+#if defined(USE_CUPS)
+  printing_metrics_ash_->BindReceiver(std::move(receiver));
+#endif  // defined(USE_CUPS)
 }
 
 void CrosapiAsh::BindRemoteAppsLacrosBridge(
@@ -671,6 +716,11 @@ void CrosapiAsh::BindVideoCaptureDeviceFactory(
   video_capture_device_factory_ash_->BindReceiver(std::move(receiver));
 }
 
+void CrosapiAsh::BindVirtualKeyboard(
+    mojo::PendingReceiver<mojom::VirtualKeyboard> receiver) {
+  virtual_keyboard_ash_->BindReceiver(std::move(receiver));
+}
+
 void CrosapiAsh::BindVpnExtensionObserver(
     mojo::PendingReceiver<crosapi::mojom::VpnExtensionObserver> receiver) {
   vpn_extension_observer_ash_->BindReceiver(std::move(receiver));
@@ -702,6 +752,10 @@ void CrosapiAsh::BindDriveIntegrationService(
 void CrosapiAsh::BindEchoPrivate(
     mojo::PendingReceiver<mojom::EchoPrivate> receiver) {
   echo_private_ash_->BindReceiver(std::move(receiver));
+}
+void CrosapiAsh::BindEmojiPicker(
+    mojo::PendingReceiver<mojom::EmojiPicker> receiver) {
+  emoji_picker_ash_->BindReceiver(std::move(receiver));
 }
 
 void CrosapiAsh::BindExtensionInfoPrivate(

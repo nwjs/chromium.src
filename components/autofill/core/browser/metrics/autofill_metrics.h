@@ -18,6 +18,7 @@
 #include "base/time/time.h"
 #include "components/autofill/core/browser/autofill_client.h"
 #include "components/autofill/core/browser/autofill_profile_import_process.h"
+#include "components/autofill/core/browser/autofill_progress_dialog_type.h"
 #include "components/autofill/core/browser/data_model/autofill_offer_data.h"
 #include "components/autofill/core/browser/data_model/autofill_profile.h"
 #include "components/autofill/core/browser/field_types.h"
@@ -30,6 +31,7 @@
 #include "components/autofill/core/common/mojom/autofill_types.mojom-forward.h"
 #include "components/autofill/core/common/signatures.h"
 #include "components/autofill/core/common/unique_ids.h"
+#include "components/autofill_assistant/core/public/autofill_assistant_intent.h"
 #include "components/security_state/core/security_state.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
@@ -1290,6 +1292,12 @@ class AutofillMetrics {
                           const base::TimeTicks& form_parsed_timestamp,
                           FormSignature form_signature,
                           const FormInteractionCounts& form_interaction_counts);
+    void LogKeyMetrics(const DenseSet<FormType>& form_types,
+                       bool data_to_fill_available,
+                       bool suggestions_shown,
+                       bool edited_autofilled_field,
+                       bool suggestion_filled,
+                       autofill_assistant::AutofillAssistantIntent intent);
     void LogFormEvent(FormEvent form_event,
                       const DenseSet<FormType>& form_types,
                       const base::TimeTicks& form_parsed_timestamp);
@@ -1451,8 +1459,11 @@ class AutofillMetrics {
   static void LogOfferNotificationInfoBarResultMetric(
       OfferNotificationInfoBarResultMetric metric);
   static void LogOfferNotificationInfoBarShown();
-  static void LogProgressDialogResultMetric(bool is_canceled_by_user);
-  static void LogProgressDialogShown();
+  static void LogProgressDialogResultMetric(
+      bool is_canceled_by_user,
+      AutofillProgressDialogType autofill_progress_dialog_type);
+  static void LogProgressDialogShown(
+      AutofillProgressDialogType autofill_progress_dialog_type);
   static void LogVirtualCardManualFallbackBubbleShown(bool is_reshow);
   static void LogVirtualCardManualFallbackBubbleResultMetric(
       VirtualCardManualFallbackBubbleResultMetric metric,
@@ -2050,6 +2061,11 @@ class AutofillMetrics {
   static void LogPhoneNumberImportParsingResult(
       bool with_variation_country_code,
       bool with_app_locale);
+
+  // Logs that local heuristics matched phone number fields using `grammar_id`.
+  // `suffix_matched` indicates if the special case handling for phone number
+  // suffixes was triggered.
+  static void LogPhoneNumberGrammarMatched(int grammar_id, bool suffix_matched);
 
   // Logs when the virtual card metadata for one card have been updated.
   static void LogVirtualCardMetadataSynced(bool existing_card);

@@ -319,6 +319,12 @@ def summarize_results(port_obj,
                         failure.text_mismatch_category()
                     break
 
+        for failure in initial_result.failures:
+            if isinstance(failure, test_failures.FailureImageHashMismatch):
+                test_dict['image_diff_stats'] = \
+                    failure.actual_driver_output.image_diff_stats
+                break
+
         # Note: is_unexpected and is_regression are intended to reflect the
         # *last* result. In the normal use case (stop retrying failures
         # once they pass), this is equivalent to saying that all of the
@@ -339,16 +345,9 @@ def summarize_results(port_obj,
                 test_dict.update(
                     _interpret_test_failures(retry_result.failures))
 
-        # crbug/1328703: 'full_results.json' has become too large to upload to
-        # the test results server, so we exclude some artifacts that are not
-        # necessary for rebaselining. These artifacts are still uploaded to
-        # ResultDB.
-        skipped_artifacts = {'command', 'stderr'}
         for test_result, _ in merged_results:
             for artifact_name, artifacts in \
-                    test_result.artifacts.artifacts.items():
-                if artifact_name in skipped_artifacts:
-                    continue
+                test_result.artifacts.artifacts.items():
                 artifact_dict = test_dict.setdefault('artifacts', {})
                 artifact_dict.setdefault(artifact_name, []).extend(artifacts)
 

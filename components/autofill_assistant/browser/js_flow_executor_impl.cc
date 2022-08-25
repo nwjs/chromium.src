@@ -12,6 +12,7 @@
 #include "base/strings/string_piece.h"
 #include "components/autofill_assistant/browser/features.h"
 #include "components/autofill_assistant/browser/js_flow_util.h"
+#include "components/autofill_assistant/browser/metrics.h"
 #include "components/autofill_assistant/browser/parse_jspb.h"
 #include "components/autofill_assistant/browser/web/web_controller_util.h"
 #include "content/public/browser/browser_context.h"
@@ -67,20 +68,17 @@ constexpr char kLeadingWrapper[] = R"(
 // wrapper not on the same line as the JS flow source.
 constexpr char kTrailingWrapper[] = "\n})()";
 
-// The number of lines to subtract from all call stack entries sent to the
-// backend.
-constexpr int kJsLineOffset = []() {
+constexpr int CountLines(base::StringPiece str) {
   int num_lines = 0;
-  for (const char c : kLeadingWrapper) {
+  for (const char c : str) {
     num_lines += c == '\n';
   }
   return num_lines;
-}();
+}
 
-// The number of stack entries to drop before returning to the client. We drop
-// one entry as the source sent from the backend is wrapped in an anonymous
-// function.
-constexpr int kNumStackEntriesToDrop = 1;
+// The number of lines to subtract from all call stack entries sent to the
+// backend.
+constexpr int kJsLineOffset = CountLines(kLeadingWrapper);
 
 constexpr char kArrayGetNthElement[] =
     "function(index) { return this[index]; }";
@@ -128,8 +126,13 @@ void JsFlowExecutorImpl::Start(
     const std::string& js_flow,
     base::OnceCallback<void(const ClientStatus&, std::unique_ptr<base::Value>)>
         callback) {
+  Metrics::RecordJsFlowStartedEvent(
+      Metrics::JsFlowStartedEvent::EXECUTOR_STARTED);
+
   if (callback_) {
     LOG(ERROR) << "Invoked " << __func__ << " while already running";
+    Metrics::RecordJsFlowStartedEvent(
+        Metrics::JsFlowStartedEvent::FAILED_ALREADY_RUNNING);
     std::move(callback).Run(ClientStatus(INVALID_ACTION), nullptr);
     return;
   }
@@ -161,16 +164,19 @@ void JsFlowExecutorImpl::InternalStart(const ClientStatus& status,
   // Wrap the main js_flow in an async function containing a method to
   // request native actions. This is essentially providing |js_flow| with a
   // JS API to call native functionality. Also appends the source url.
-  js_flow_ = std::make_unique<std::string>(
+  const auto wrapped_js_flow =
       base::StrCat({kLeadingWrapper, *js_flow_, kTrailingWrapper,
                     js_flow_util::GetDevtoolsSourceUrlCommentToAppend(
-                        UnexpectedErrorInfoProto::JS_FLOW)}));
+                        UnexpectedErrorInfoProto::JS_FLOW)});
+
+  Metrics::RecordJsFlowStartedEvent(
+      Metrics::JsFlowStartedEvent::SCRIPT_STARTED);
 
   // Run the wrapped js_flow in the sandbox and serve potential native action
   // requests as they arrive.
   devtools_client_->GetRuntime()->Evaluate(
       runtime::EvaluateParams::Builder()
-          .SetExpression(*js_flow_)
+          .SetExpression(wrapped_js_flow)
           .SetAwaitPromise(true)
           .SetReturnByValue(true)
           .SetContextId(isolated_world_context_id_)
@@ -340,16 +346,15 @@ void JsFlowExecutorImpl::OnFlowResumed(
 void JsFlowExecutorImpl::OnFlowFinished(
     const DevtoolsClient::ReplyStatus& reply_status,
     std::unique_ptr<runtime::EvaluateResult> result) {
+  const JsLineOffsets js_line_offsets = {
+      {js_flow_util::GetDevtoolsSourceUrl(UnexpectedErrorInfoProto::JS_FLOW),
+       {kJsLineOffset, kJsLineOffset + CountLines(*js_flow_)}}};
   // Check and extract the return value. In case of exceptions, the sanitized
   // stack trace will be part of the returned ClientStatus. Only primitive
   // values are allowed (see js_flow_util::ExtractFlowReturnValue for details).
   std::unique_ptr<base::Value> out_result_value;
   ClientStatus status = js_flow_util::ExtractFlowReturnValue(
-      reply_status, result.get(), out_result_value,
-      /* js_line_offsets= */
-      {{js_flow_util::GetDevtoolsSourceUrl(UnexpectedErrorInfoProto::JS_FLOW),
-        kJsLineOffset}},
-      kNumStackEntriesToDrop);
+      reply_status, result.get(), out_result_value, js_line_offsets);
 
   RunCallback(status, std::move(out_result_value));
 }

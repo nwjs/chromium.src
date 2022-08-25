@@ -23,7 +23,6 @@
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/policy/messaging_layer/upload/upload_provider.h"
 #include "chrome/browser/policy/messaging_layer/util/dm_token_retriever_provider.h"
-#include "chrome/browser/policy/messaging_layer/util/get_cloud_policy_client.h"
 #include "chrome/common/chrome_paths.h"
 #include "components/policy/core/common/cloud/cloud_policy_client_registration_helper.h"
 #include "components/policy/core/common/cloud/cloud_policy_manager.h"
@@ -36,6 +35,7 @@
 #include "components/reporting/encryption/encryption_module.h"
 #include "components/reporting/encryption/verification.h"
 #include "components/reporting/proto/synced/record.pb.h"
+#include "components/reporting/resources/resource_interface.h"
 #include "components/reporting/storage/storage_configuration.h"
 #include "components/reporting/storage/storage_module.h"
 #include "components/reporting/storage/storage_module_interface.h"
@@ -76,8 +76,8 @@ void ReportingClient::CreateLocalStorageModule(
 // UploadClient.
 class ReportingClient::Uploader : public UploaderInterface {
  public:
-  using UploadCallback =
-      base::OnceCallback<Status(bool, std::vector<EncryptedRecord>)>;
+  using UploadCallback = base::OnceCallback<
+      Status(bool, std::vector<EncryptedRecord>, ScopedReservation)>;
 
   static std::unique_ptr<Uploader> Create(bool need_encryption_key,
                                           UploadCallback upload_callback) {
@@ -126,6 +126,7 @@ class ReportingClient::Uploader : public UploaderInterface {
     bool completed_{false};
     const bool need_encryption_key_;
     std::vector<EncryptedRecord> encrypted_records_;
+    ScopedReservation encrypted_records_reservation_;
 
     UploadCallback upload_callback_;
   };
@@ -146,13 +147,14 @@ ReportingClient::Uploader::Helper::Helper(
 
 void ReportingClient::Uploader::Helper::ProcessRecord(
     EncryptedRecord data,
-    ScopedReservation scoped_reservation,  // TODO(b/233089187): Use it.
+    ScopedReservation scoped_reservation,
     base::OnceCallback<void(bool)> processed_cb) {
   if (completed_) {
     std::move(processed_cb).Run(false);
     return;
   }
   encrypted_records_.emplace_back(std::move(data));
+  encrypted_records_reservation_.HandOver(scoped_reservation);
   std::move(processed_cb).Run(true);
 }
 
@@ -189,7 +191,8 @@ void ReportingClient::Uploader::Helper::Completed(Status final_status) {
   DCHECK(upload_callback_);
   Status upload_status =
       std::move(upload_callback_)
-          .Run(need_encryption_key_, std::move(encrypted_records_));
+          .Run(need_encryption_key_, std::move(encrypted_records_),
+               std::move(encrypted_records_reservation_));
   if (!upload_status.ok()) {
     LOG(ERROR) << "Unable to upload records: " << upload_status;
   }
@@ -223,8 +226,7 @@ ReportingClient::ReportingClient()
                 CompressionInformation::COMPRESSION_SNAPPY,
                 base::BindRepeating(&ReportingClient::AsyncStartUploader),
                 std::move(storage_created_cb));
-          })),
-      build_cloud_policy_client_cb_(GetCloudPolicyClientCb()) {
+          })) {
 }
 
 ReportingClient::~ReportingClient() = default;
@@ -330,8 +332,7 @@ void ReportingClient::DeliverAsyncStartUploader(
                                         instance->storage()),
                     base::BindRepeating(
                         &StorageModuleInterface::UpdateEncryptionKey,
-                        instance->storage()),
-                    instance->build_cloud_policy_client_cb_);
+                        instance->storage()));
               } else {
                 std::move(start_uploader_cb)
                     .Run(Status(error::UNAVAILABLE, "Uploader not available"));
@@ -345,10 +346,11 @@ void ReportingClient::DeliverAsyncStartUploader(
                 base::BindOnce(
                     [](EncryptedReportingUploadProvider* upload_provider,
                        bool need_encryption_key,
-                       std::vector<EncryptedRecord> records) {
+                       std::vector<EncryptedRecord> records,
+                       ScopedReservation scoped_reservation) {
                       upload_provider->RequestUploadEncryptedRecords(
                           need_encryption_key, std::move(records),
-                          base::DoNothing());
+                          std::move(scoped_reservation), base::DoNothing());
                       return Status::StatusOK();
                     },
                     base::Unretained(instance->upload_provider_.get())));
@@ -360,11 +362,9 @@ void ReportingClient::DeliverAsyncStartUploader(
 std::unique_ptr<EncryptedReportingUploadProvider>
 ReportingClient::GetDefaultUploadProvider(
     UploadClient::ReportSuccessfulUploadCallback report_successful_upload_cb,
-    UploadClient::EncryptionKeyAttachedCallback encryption_key_attached_cb,
-    GetCloudPolicyClientCallback build_cloud_policy_client_cb) {
+    UploadClient::EncryptionKeyAttachedCallback encryption_key_attached_cb) {
   return std::make_unique<EncryptedReportingUploadProvider>(
-      report_successful_upload_cb, encryption_key_attached_cb,
-      build_cloud_policy_client_cb);
+      report_successful_upload_cb, encryption_key_attached_cb);
 }
 
 }  // namespace reporting

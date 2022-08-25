@@ -140,6 +140,7 @@ if (is_android) {
       "java/src/org/chromium/media/MediaPlayerBridge.java",
       "java/src/org/chromium/media/MediaPlayerListener.java",
       "java/src/org/chromium/media/MediaServerCrashListener.java",
+      "java/src/org/chromium/media/VideoEncodeAcceleratorUtil.java",
     ]
   }
 
@@ -194,6 +195,7 @@ if (is_android) {
       "java/src/org/chromium/media/MediaPlayerListener.java",
       "java/src/org/chromium/media/MediaServerCrashListener.java",
       "java/src/org/chromium/media/ScreenResolutionUtil.java",
+      "java/src/org/chromium/media/VideoEncodeAcceleratorUtil.java",
     ]
   }
 
@@ -204,7 +206,7 @@ if (is_android) {
     deps = [ "//third_party/androidx:androidx_annotation_annotation_java" ]
   }
 
-  junit_binary("media_base_junit_tests") {
+  robolectric_binary("media_base_junit_tests") {
     sources = [
       "java/src/test/org/chromium/media/AudioTrackOutputStreamTest.java",
       "java/src/test/org/chromium/media/BitrateAdjusterTest.java",

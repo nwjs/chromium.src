@@ -76,6 +76,8 @@ class ProducerEndpoint : public perfetto::ProducerEndpoint,
     producer_->OnDisconnect();
   }
 
+  void Disconnect() override { LOG(DFATAL) << "Not implemented yet"; }
+
   // perfetto::ProducerEndpoint implementation:
   void RegisterDataSource(
       const perfetto::DataSourceDescriptor& descriptor) override {
@@ -646,7 +648,7 @@ class ConsumerEndpoint : public perfetto::ConsumerEndpoint,
   }
 
   SEQUENCE_CHECKER(sequence_checker_);
-  const raw_ptr<perfetto::Consumer> consumer_;
+  const raw_ptr<perfetto::Consumer, DanglingUntriaged> consumer_;
   mojo::Remote<tracing::mojom::ConsumerHost> consumer_host_;
   mojo::Remote<tracing::mojom::TracingSessionHost> tracing_session_host_;
   mojo::Receiver<tracing::mojom::TracingSessionClient> tracing_session_client_{

@@ -7,6 +7,7 @@ import './ambient_mode_page/ambient_mode_page.js';
 import './bluetooth_page/bluetooth_device_list_item.js';
 import './bluetooth_page/bluetooth_page.js';
 import './bluetooth_page/bluetooth_subpage.js';
+import './device_page/audio.js';
 import './device_page/device_page.js';
 import './device_page/display.js';
 import './device_page/display_layout.js';
@@ -55,7 +56,7 @@ import './os_apps_page/app_management_page/arc_detail_view.js';
 import './os_apps_page/app_management_page/borealis_page/borealis_detail_view.js';
 import './os_apps_page/app_management_page/chrome_app_detail_view.js';
 import './os_apps_page/app_management_page/dom_switch.js';
-import '//resources/cr_components/app_management/icons.html.js';
+import 'chrome://resources/cr_components/app_management/icons.html.js';
 import './os_apps_page/app_management_page/main_view.js';
 import './os_apps_page/app_management_page/pin_to_shelf_item.js';
 import './os_apps_page/app_management_page/plugin_vm_page/plugin_vm_detail_view.js';
@@ -65,12 +66,13 @@ import './os_apps_page/app_management_page/shared_vars.js';
 import './os_apps_page/app_management_page/supported_links_overlapping_apps_dialog.js';
 import './os_apps_page/app_management_page/supported_links_dialog.js';
 import './os_apps_page/app_management_page/supported_links_item.js';
-import '//resources/cr_components/app_management/toggle_row.js';
-import '//resources/cr_components/app_management/uninstall_button.js';
+import 'chrome://resources/cr_components/app_management/toggle_row.js';
+import 'chrome://resources/cr_components/app_management/uninstall_button.js';
 import './os_apps_page/app_notifications_page/mojo_interface_provider.js';
 import './os_apps_page/os_apps_page.js';
 import './os_bluetooth_page/os_bluetooth_devices_subpage.js';
 import './os_bluetooth_page/os_bluetooth_device_detail_subpage.js';
+import './os_bluetooth_page/os_bluetooth_saved_devices_subpage.js';
 import './os_bluetooth_page/os_bluetooth_true_wireless_images.js';
 import './os_bluetooth_page/os_bluetooth_change_device_name_dialog.js';
 import './os_bluetooth_page/os_bluetooth_pairing_dialog.js';
@@ -95,11 +97,16 @@ import './os_toolbar/os_toolbar.js';
 import './parental_controls_page/parental_controls_page.js';
 import './settings_scheduler_slider/settings_scheduler_slider.js';
 
-export {BrowserProxy as AppManagementComponentBrowserProxy} from '//resources/cr_components/app_management/browser_proxy.js';
-export {PageType, WindowMode} from '//resources/cr_components/app_management/constants.js';
-export {PermissionType, TriState} from '//resources/cr_components/app_management/permission_constants.js';
-export {createBoolPermission, createTriStatePermission, getBoolPermissionValue, isBoolValue} from '//resources/cr_components/app_management/permission_util.js';
-export {convertOptionalBoolToBool, createEmptyState, createInitialState, getPermissionValueBool} from '//resources/cr_components/app_management/util.js';
+import * as PersonalizationSearchMojom from '../mojom-webui/personalization/search.mojom-webui.js';
+import * as SearchMojom from '../mojom-webui/search/search.mojom-webui.js';
+import * as SearchResultIconMojom from '../mojom-webui/search/search_result_icon.mojom-webui.js';
+import * as UserActionRecorderMojom from '../mojom-webui/search/user_action_recorder.mojom-webui.js';
+
+export {PermissionType, TriState} from 'chrome://resources/cr_components/app_management/app_management.mojom-webui.js';
+export {BrowserProxy as AppManagementComponentBrowserProxy} from 'chrome://resources/cr_components/app_management/browser_proxy.js';
+export {PageType, WindowMode} from 'chrome://resources/cr_components/app_management/constants.js';
+export {createBoolPermission, createTriStatePermission, getBoolPermissionValue, isBoolValue} from 'chrome://resources/cr_components/app_management/permission_util.js';
+export {convertOptionalBoolToBool, createEmptyState, createInitialState, getPermissionValueBool} from 'chrome://resources/cr_components/app_management/util.js';
 export {LifetimeBrowserProxyImpl} from '../lifetime_browser_proxy.js';
 export {OpenWindowProxyImpl} from '../open_window_proxy.js';
 export {ProfileInfoBrowserProxyImpl} from '../people_page/profile_info_browser_proxy.js';
@@ -130,6 +137,7 @@ export {dataUsageStringToEnum, NearbyShareDataUsage} from './nearby_share_page/t
 export {ManageA11yPageBrowserProxy, ManageA11yPageBrowserProxyImpl} from './os_a11y_page/manage_a11y_page_browser_proxy.js';
 export {OsA11yPageBrowserProxy, OsA11yPageBrowserProxyImpl} from './os_a11y_page/os_a11y_page_browser_proxy.js';
 export {SwitchAccessSubpageBrowserProxy, SwitchAccessSubpageBrowserProxyImpl} from './os_a11y_page/switch_access_subpage_browser_proxy.js';
+export {TextToSpeechPageBrowserProxy, TextToSpeechPageBrowserProxyImpl} from './os_a11y_page/text_to_speech_page_browser_proxy.js';
 export {TtsSubpageBrowserProxy, TtsSubpageBrowserProxyImpl} from './os_a11y_page/tts_subpage_browser_proxy.js';
 export {AboutPageBrowserProxyImpl, BrowserChannel, UpdateStatus} from './os_about_page/about_page_browser_proxy.js';
 export {DeviceNameBrowserProxy, DeviceNameBrowserProxyImpl} from './os_about_page/device_name_browser_proxy.js';
@@ -159,3 +167,9 @@ export {PersonalizationHubBrowserProxy, PersonalizationHubBrowserProxyImpl} from
 export {WallpaperBrowserProxyImpl} from './personalization_page/wallpaper_browser_proxy.js';
 export {getPersonalizationSearchHandler, setPersonalizationSearchHandlerForTesting} from './personalization_search_handler.js';
 export {getSettingsSearchHandler, setSettingsSearchHandlerForTesting} from './settings_search_handler.js';
+export {
+  PersonalizationSearchMojom,
+  SearchMojom,
+  SearchResultIconMojom,
+  UserActionRecorderMojom,
+};

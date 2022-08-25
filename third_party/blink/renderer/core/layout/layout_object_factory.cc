@@ -187,6 +187,17 @@ LayoutObject* LayoutObjectFactory::CreateListMarker(Node& node,
                                                     LegacyLayout legacy) {
   const Node* parent = node.parentNode();
   const ComputedStyle* parent_style = parent->GetComputedStyle();
+
+  if (legacy == LegacyLayout::kForce) {
+    // A table inside an inline element with specified columns may end up
+    // marking a list-item ancestor with a size container-type for forced legacy
+    // without re-attaching it during interleaved style recalc. Enforce
+    // legacy/ng consistency between list-item and marker.
+    DCHECK(!RuntimeEnabledFeatures::LayoutNGTableFragmentationEnabled());
+    DCHECK(parent->GetLayoutObject());
+    if (parent->GetLayoutObject()->IsLayoutNGObject())
+      legacy = LegacyLayout::kAuto;
+  }
   bool is_inside =
       parent_style->ListStylePosition() == EListStylePosition::kInside ||
       (IsA<HTMLLIElement>(parent) && !parent_style->IsInsideListElement());
@@ -424,9 +435,10 @@ LayoutBox* LayoutObjectFactory::CreateAnonymousTableWithParent(
       parent.GetDocument().GetStyleResolver().CreateAnonymousStyleWithDisplay(
           parent.StyleRef(),
           parent.IsLayoutInline() ? EDisplay::kInlineTable : EDisplay::kTable);
-  LegacyLayout legacy = parent.ForceLegacyLayout() || child_forces_legacy
-                            ? LegacyLayout::kForce
-                            : LegacyLayout::kAuto;
+  LegacyLayout legacy =
+      parent.ForceLegacyLayoutForChildren() || child_forces_legacy
+          ? LegacyLayout::kForce
+          : LegacyLayout::kAuto;
 
   LayoutBlock* new_table =
       CreateTable(parent.GetDocument(), *new_style, legacy);
@@ -440,8 +452,9 @@ LayoutBox* LayoutObjectFactory::CreateAnonymousTableSectionWithParent(
   scoped_refptr<ComputedStyle> new_style =
       parent.GetDocument().GetStyleResolver().CreateAnonymousStyleWithDisplay(
           parent.StyleRef(), EDisplay::kTableRowGroup);
-  LegacyLayout legacy =
-      parent.ForceLegacyLayout() ? LegacyLayout::kForce : LegacyLayout::kAuto;
+  LegacyLayout legacy = parent.ForceLegacyLayoutForChildren()
+                            ? LegacyLayout::kForce
+                            : LegacyLayout::kAuto;
 
   LayoutBox* new_section =
       CreateTableSection(parent.GetDocument(), *new_style, legacy);
@@ -455,8 +468,9 @@ LayoutBox* LayoutObjectFactory::CreateAnonymousTableRowWithParent(
   scoped_refptr<ComputedStyle> new_style =
       parent.GetDocument().GetStyleResolver().CreateAnonymousStyleWithDisplay(
           parent.StyleRef(), EDisplay::kTableRow);
-  LegacyLayout legacy =
-      parent.ForceLegacyLayout() ? LegacyLayout::kForce : LegacyLayout::kAuto;
+  LegacyLayout legacy = parent.ForceLegacyLayoutForChildren()
+                            ? LegacyLayout::kForce
+                            : LegacyLayout::kAuto;
   LayoutBox* new_row = CreateTableRow(parent.GetDocument(), *new_style, legacy);
   new_row->SetDocumentForAnonymous(&parent.GetDocument());
   new_row->SetStyle(std::move(new_style));
@@ -468,8 +482,9 @@ LayoutBlockFlow* LayoutObjectFactory::CreateAnonymousTableCellWithParent(
   scoped_refptr<ComputedStyle> new_style =
       parent.GetDocument().GetStyleResolver().CreateAnonymousStyleWithDisplay(
           parent.StyleRef(), EDisplay::kTableCell);
-  LegacyLayout legacy =
-      parent.ForceLegacyLayout() ? LegacyLayout::kForce : LegacyLayout::kAuto;
+  LegacyLayout legacy = parent.ForceLegacyLayoutForChildren()
+                            ? LegacyLayout::kForce
+                            : LegacyLayout::kAuto;
   LayoutBlockFlow* new_cell =
       CreateTableCell(parent.GetDocument(), *new_style, legacy);
   new_cell->SetDocumentForAnonymous(&parent.GetDocument());

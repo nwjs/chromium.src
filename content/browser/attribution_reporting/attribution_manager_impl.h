@@ -10,7 +10,6 @@
 #include <vector>
 
 #include "base/callback_forward.h"
-#include "base/compiler_specific.h"
 #include "base/containers/circular_deque.h"
 #include "base/containers/flat_set.h"
 #include "base/memory/raw_ptr.h"
@@ -19,12 +18,13 @@
 #include "base/observer_list.h"
 #include "base/threading/sequence_bound.h"
 #include "content/browser/aggregation_service/aggregation_service.h"
+#include "content/browser/aggregation_service/report_scheduler_timer.h"
 #include "content/browser/attribution_reporting/attribution_manager.h"
 #include "content/browser/attribution_reporting/attribution_report.h"
-#include "content/browser/attribution_reporting/attribution_report_scheduler.h"
 #include "content/browser/attribution_reporting/attribution_report_sender.h"
 #include "content/browser/attribution_reporting/attribution_storage.h"
 #include "content/common/content_export.h"
+#include "content/public/browser/storage_partition.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
 
@@ -36,10 +36,6 @@ class TimeDelta;
 namespace storage {
 class SpecialStoragePolicy;
 }  // namespace storage
-
-namespace url {
-class Origin;
-}  // namespace url
 
 namespace content {
 
@@ -72,15 +68,19 @@ class CONTENT_EXPORT AttributionManagerImpl : public AttributionManager {
       std::unique_ptr<AttributionReportSender> report_sender,
       StoragePartitionImpl* storage_partition);
 
+  static std::unique_ptr<AttributionManagerImpl> CreateWithNewDbForTesting(
+      StoragePartitionImpl* storage_partition,
+      const base::FilePath& user_data_directory,
+      scoped_refptr<storage::SpecialStoragePolicy> special_storage_policy);
+
   AttributionManagerImpl(
       StoragePartitionImpl* storage_partition,
       const base::FilePath& user_data_directory,
       scoped_refptr<storage::SpecialStoragePolicy> special_storage_policy);
-  AttributionManagerImpl(const AttributionManagerImpl& other) = delete;
-  AttributionManagerImpl& operator=(const AttributionManagerImpl& other) =
-      delete;
-  AttributionManagerImpl(AttributionManagerImpl&& other) = delete;
-  AttributionManagerImpl& operator=(AttributionManagerImpl&& other) = delete;
+  AttributionManagerImpl(const AttributionManagerImpl&) = delete;
+  AttributionManagerImpl& operator=(const AttributionManagerImpl&) = delete;
+  AttributionManagerImpl(AttributionManagerImpl&&) = delete;
+  AttributionManagerImpl& operator=(AttributionManagerImpl&&) = delete;
   ~AttributionManagerImpl() override;
 
   // AttributionManager:
@@ -100,7 +100,7 @@ class CONTENT_EXPORT AttributionManagerImpl : public AttributionManager {
                            base::OnceClosure done) override;
   void ClearData(base::Time delete_begin,
                  base::Time delete_end,
-                 base::RepeatingCallback<bool(const url::Origin&)> filter,
+                 StoragePartition::StorageKeyMatcherFunction filter,
                  bool delete_rate_limit_data,
                  base::OnceClosure done) override;
 
@@ -183,7 +183,7 @@ class CONTENT_EXPORT AttributionManagerImpl : public AttributionManager {
 
   base::SequenceBound<AttributionStorage> attribution_storage_;
 
-  AttributionReportScheduler scheduler_;
+  ReportSchedulerTimer scheduler_timer_;
 
   std::unique_ptr<AttributionDataHostManager> data_host_manager_;
 

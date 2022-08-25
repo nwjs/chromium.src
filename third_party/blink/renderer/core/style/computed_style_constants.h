@@ -32,6 +32,7 @@
 #include <cstdint>
 #include "base/check_op.h"
 #include "third_party/blink/renderer/core/style/computed_style_base_constants.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 
 namespace blink {
 
@@ -106,6 +107,15 @@ inline bool IsHighlightPseudoElement(PseudoId pseudo_id) {
     default:
       return false;
   }
+}
+
+inline bool UsesHighlightPseudoInheritance(PseudoId pseudo_id) {
+  // ::highlight() pseudos use highlight inheritance rather than originating
+  // inheritance even if highlight inheritance is not enabled for the other
+  // pseudos.
+  return ((IsHighlightPseudoElement(pseudo_id) &&
+           RuntimeEnabledFeatures::HighlightInheritanceEnabled()) ||
+          pseudo_id == PseudoId::kPseudoIdHighlight);
 }
 
 inline bool IsTransitionPseudoElement(PseudoId pseudo_id) {
@@ -236,12 +246,13 @@ inline Containment& operator|=(Containment& a, Containment b) {
   return a = a | b;
 }
 
-static const size_t kContainerTypeBits = 2;
+static const size_t kContainerTypeBits = 3;
 enum EContainerType {
-  kContainerTypeNone = 0x0,
+  kContainerTypeNormal = 0x0,
   kContainerTypeInlineSize = 0x1,
   kContainerTypeBlockSize = 0x2,
   kContainerTypeSize = kContainerTypeInlineSize | kContainerTypeBlockSize,
+  kContainerTypeStyle = 0x4,
 };
 inline EContainerType operator|(EContainerType a, EContainerType b) {
   return EContainerType(int(a) | int(b));

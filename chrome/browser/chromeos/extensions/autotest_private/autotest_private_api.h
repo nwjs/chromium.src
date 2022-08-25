@@ -9,12 +9,14 @@
 #include <string>
 #include <vector>
 
+#include "ash/components/arc/mojom/process.mojom.h"
 #include "ash/display/screen_orientation_controller.h"
 #include "ash/public/cpp/assistant/assistant_state.h"
 #include "ash/rotator/screen_rotation_animator_observer.h"
 #include "base/scoped_observation.h"
 #include "base/timer/timer.h"
 #include "chrome/browser/ash/printing/cups_printers_manager.h"
+#include "chrome/browser/platform_util.h"
 #include "chrome/browser/web_applications/web_app_id.h"
 #include "chromeos/services/machine_learning/public/mojom/machine_learning_service.mojom-forward.h"
 #include "chromeos/services/machine_learning/public/mojom/model.mojom.h"
@@ -29,9 +31,16 @@
 #include "ui/display/display.h"
 #include "ui/snapshot/screenshot_grabber.h"
 
+class GoogleServiceAuthError;
+
 namespace crostini {
 enum class CrostiniResult;
 }
+
+namespace signin {
+class AccessTokenFetcher;
+struct AccessTokenInfo;
+}  // namespace signin
 
 namespace update_client {
 enum class Error;
@@ -335,6 +344,17 @@ class AutotestPrivateGetArcAppFunction : public ExtensionFunction {
   ResponseAction Run() override;
 };
 
+class AutotestPrivateGetArcAppKillsFunction : public ExtensionFunction {
+ public:
+  DECLARE_EXTENSION_FUNCTION("autotestPrivate.getArcAppKills",
+                             AUTOTESTPRIVATE_GETARCAPPKILLS)
+
+ private:
+  ~AutotestPrivateGetArcAppKillsFunction() override;
+  ResponseAction Run() override;
+  void OnKillCounts(arc::mojom::LowMemoryKillCountsPtr counts);
+};
+
 class AutotestPrivateGetArcPackageFunction : public ExtensionFunction {
  public:
   DECLARE_EXTENSION_FUNCTION("autotestPrivate.getArcPackage",
@@ -391,6 +411,8 @@ class AutotestPrivateIsSystemWebAppOpenFunction : public ExtensionFunction {
  private:
   ~AutotestPrivateIsSystemWebAppOpenFunction() override;
   ResponseAction Run() override;
+
+  void OnSystemWebAppsInstalled();
 };
 
 class AutotestPrivateLaunchArcAppFunction : public ExtensionFunction {
@@ -421,6 +443,19 @@ class AutotestPrivateLaunchSystemWebAppFunction : public ExtensionFunction {
  private:
   ~AutotestPrivateLaunchSystemWebAppFunction() override;
   ResponseAction Run() override;
+
+  void OnSystemWebAppsInstalled();
+};
+
+class AutotestPrivateLaunchFilesAppToPathFunction : public ExtensionFunction {
+ public:
+  DECLARE_EXTENSION_FUNCTION("autotestPrivate.launchFilesAppToPath",
+                             AUTOTESTPRIVATE_LAUNCHFILESAPPTOPATH)
+
+ private:
+  ~AutotestPrivateLaunchFilesAppToPathFunction() override;
+  ResponseAction Run() override;
+  void OnShowItemInFolder(platform_util::OpenOperationResult result);
 };
 
 class AutotestPrivateCloseAppFunction : public ExtensionFunction {
@@ -563,7 +598,7 @@ class AutotestPrivateInstallBorealisFunction : public ExtensionFunction {
   ~AutotestPrivateInstallBorealisFunction() override;
   ResponseAction Run() override;
 
-  void Complete(bool was_successful);
+  void Complete(std::string error_or_empty);
 
   std::unique_ptr<InstallationObserver> installation_observer_;
 };
@@ -996,6 +1031,17 @@ class AutotestPrivateGetDefaultPinnedAppIdsFunction : public ExtensionFunction {
 
  private:
   ~AutotestPrivateGetDefaultPinnedAppIdsFunction() override;
+  ResponseAction Run() override;
+};
+
+// Sends the overlay color of the system.
+class AutotestPrivateSendArcOverlayColorFunction : public ExtensionFunction {
+ public:
+  // AutotestPrivateSendArcOverlayColorFunction();
+  DECLARE_EXTENSION_FUNCTION("autotestPrivate.sendArcOverlayColor",
+                             AUTOTESTPRIVATE_SENDARCOVERLAYCOLOR)
+ private:
+  ~AutotestPrivateSendArcOverlayColorFunction() override;
   ResponseAction Run() override;
 };
 
@@ -1568,6 +1614,37 @@ class AutotestPrivateForceAutoThemeModeFunction : public ExtensionFunction {
 
  private:
   ~AutotestPrivateForceAutoThemeModeFunction() override;
+  ResponseAction Run() override;
+};
+
+class AutotestPrivateGetAccessTokenFunction : public ExtensionFunction {
+ public:
+  AutotestPrivateGetAccessTokenFunction();
+  DECLARE_EXTENSION_FUNCTION("autotestPrivate.getAccessToken",
+                             AUTOTESTPRIVATE_GETACCESSTOKEN)
+
+ private:
+  ~AutotestPrivateGetAccessTokenFunction() override;
+  ResponseAction Run() override;
+
+  void RespondWithTimeoutError();
+
+  void OnAccessToken(GoogleServiceAuthError error,
+                     signin::AccessTokenInfo access_token_info);
+
+  std::unique_ptr<signin::AccessTokenFetcher> access_token_fetcher_;
+  base::OneShotTimer timeout_timer_;
+};
+
+class AutotestPrivateIsInputMethodReadyForTestingFunction
+    : public ExtensionFunction {
+ public:
+  AutotestPrivateIsInputMethodReadyForTestingFunction();
+  DECLARE_EXTENSION_FUNCTION("autotestPrivate.isInputMethodReadyForTesting",
+                             AUTOTESTPRIVATE_ISINPUTMETHODREADYFORTESTING)
+
+ private:
+  ~AutotestPrivateIsInputMethodReadyForTestingFunction() override;
   ResponseAction Run() override;
 };
 

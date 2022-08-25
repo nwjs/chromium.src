@@ -51,7 +51,7 @@ WorkerThread::WorkerThread(const ThreadCreationParams& params)
   if (g_web_worker_thread_new_fn)
     (*g_web_worker_thread_new_fn)((void*)params.name, &is_node);
   base::SimpleThread::Options options;
-  options.priority = params.thread_priority;
+  options.thread_type = params.base_thread_type;
   thread_ = std::make_unique<SimpleThreadImpl>(
       params.name ? params.name : String(), options, is_node, supports_gc_,
       const_cast<scheduler::WorkerThread*>(this));

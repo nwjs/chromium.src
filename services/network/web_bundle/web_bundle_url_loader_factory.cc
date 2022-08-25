@@ -5,6 +5,7 @@
 #include "services/network/web_bundle/web_bundle_url_loader_factory.h"
 
 #include "base/metrics/histogram_functions.h"
+#include "base/ranges/algorithm.h"
 #include "base/threading/sequenced_task_runner_handle.h"
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
@@ -189,6 +190,7 @@ class WebBundleURLLoaderFactory::URLLoader : public mojom::URLLoader {
         request_initiator_(request.request_initiator),
         request_destination_(request.destination),
         devtools_request_id_(request.devtools_request_id),
+        is_trusted_(request.trusted_params),
         receiver_(this, std::move(loader)),
         client_(std::move(client)),
         trusted_header_client_(std::move(trusted_header_client)) {
@@ -269,6 +271,8 @@ class WebBundleURLLoaderFactory::URLLoader : public mojom::URLLoader {
     CompleteBlockedResponse(net::OK, absl::nullopt);
   }
 
+  bool is_trusted() const { return is_trusted_; }
+
   void CompleteBlockedResponse(
       int error_code,
       absl::optional<mojom::BlockedByResponseReason> reason) {
@@ -324,6 +328,7 @@ class WebBundleURLLoaderFactory::URLLoader : public mojom::URLLoader {
   absl::optional<url::Origin> request_initiator_;
   mojom::RequestDestination request_destination_;
   absl::optional<std::string> devtools_request_id_;
+  const bool is_trusted_;
   mojo::Receiver<mojom::URLLoader> receiver_;
   mojo::Remote<mojom::URLLoaderClient> client_;
   mojo::Remote<mojom::TrustedHeaderClient> trusted_header_client_;
@@ -571,6 +576,7 @@ void WebBundleURLLoaderFactory::SetBundleStream(
                                    std::move(data_source), bundle_url_);
 
   parser_->ParseMetadata(
+      /*offset=*/-1,
       base::BindOnce(&WebBundleURLLoaderFactory::OnMetadataParsed,
                      weak_ptr_factory_.GetWeakPtr()));
 }
@@ -704,6 +710,20 @@ void WebBundleURLLoaderFactory::OnMetadataParsed(
     return;
   }
 
+  if (!base::ranges::all_of(metadata->requests, [this](const auto& entry) {
+        return IsAllowedExchangeUrl(entry.first);
+      })) {
+    std::string error_message = "Exchange URL is not valid.";
+    ReportErrorAndCancelPendingLoaders(
+        SubresourceWebBundleLoadResult::kMetadataParseError,
+        mojom::WebBundleErrorType::kMetadataParseError, error_message);
+    if (devtools_request_id_) {
+      devtools_observer_->OnSubresourceWebBundleMetadataError(
+          *devtools_request_id_, error_message);
+    }
+    return;
+  }
+
   metadata_ = std::move(metadata);
   if (devtools_observer_ && devtools_request_id_) {
     std::vector<GURL> urls;
@@ -727,6 +747,11 @@ void WebBundleURLLoaderFactory::OnMetadataParsed(
   for (auto loader : pending_loaders_)
     StartLoad(loader);
   pending_loaders_.clear();
+}
+
+bool WebBundleURLLoaderFactory::IsAllowedExchangeUrl(const GURL& relative_url) {
+  GURL url = bundle_url_.Resolve(relative_url.spec());
+  return url.SchemeIsHTTPOrHTTPS() || web_package::IsValidUuidInPackageURL(url);
 }
 
 void WebBundleURLLoaderFactory::OnResponseParsed(
@@ -829,6 +854,20 @@ void WebBundleURLLoaderFactory::SendResponseToLoader(
               coep_reporter_)) {
     loader->CompleteBlockedResponse(net::ERR_BLOCKED_BY_RESPONSE,
                                     blocked_reason);
+    return;
+  }
+
+  // Enforce FLEDGE auction-only signals -- the renderer process isn't allowed
+  // to read auction-only signals for FLEDGE auctions; only the browser process
+  // is allowed to read those, and only the browser process can issue trusted
+  // requests.
+  std::string fledge_auction_only_signals;
+  if (!loader->is_trusted() && response_head->headers &&
+      response_head->headers->GetNormalizedHeader(
+          "X-FLEDGE-Auction-Only", &fledge_auction_only_signals) &&
+      base::EqualsCaseInsensitiveASCII(fledge_auction_only_signals, "true")) {
+    loader->CompleteBlockedResponse(net::ERR_BLOCKED_BY_RESPONSE,
+                                    /*reason=*/absl::nullopt);
     return;
   }
 

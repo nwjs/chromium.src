@@ -128,7 +128,7 @@ SmbService::SmbService(Profile* profile,
 
   KerberosCredentialsManager* credentials_manager =
       KerberosCredentialsManagerFactory::GetExisting(profile);
-  if (credentials_manager && credentials_manager->IsKerberosEnabled()) {
+  if (credentials_manager) {
     kerberos_credentials_updater_ =
         std::make_unique<SmbKerberosCredentialsUpdater>(
             credentials_manager,
@@ -426,13 +426,7 @@ file_system_provider::Service* SmbService::GetProviderService() const {
 }
 
 SmbProviderClient* SmbService::GetSmbProviderClient() const {
-  // If the DBusThreadManager or the SmbProviderClient aren't available,
-  // there isn't much we can do. This should only happen when running tests.
-  if (!chromeos::DBusThreadManager::IsInitialized() ||
-      !chromeos::DBusThreadManager::Get()) {
-    return nullptr;
-  }
-  return chromeos::DBusThreadManager::Get()->GetSmbProviderClient();
+  return SmbProviderClient::Get();
 }
 
 void SmbService::RestoreMounts() {

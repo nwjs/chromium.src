@@ -31,15 +31,14 @@ export const PasswordRemovalMixin = dedupingMixin(
         removePassword(password: MultiStorePasswordUiEntry): boolean {
           // TODO(https://crbug.com/1298027): Use Promise API to simplify the
           // logic.
-          if (password.isPresentOnDevice() && password.isPresentInAccount()) {
+          if (password.storedIn ===
+              chrome.passwordsPrivate.PasswordStoreSet.DEVICE_AND_ACCOUNT) {
             this.showPasswordRemoveDialog = true;
             return false;
           }
 
-          const idToRemove = password.isPresentInAccount() ?
-              password.accountId :
-              password.deviceId;
-          PasswordManagerImpl.getInstance().removeSavedPassword(idToRemove!);
+          PasswordManagerImpl.getInstance().removeSavedPassword(
+              password.id, password.storedIn);
           return true;
         }
 

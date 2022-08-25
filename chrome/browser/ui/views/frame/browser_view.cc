@@ -89,6 +89,7 @@
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_window_state.h"
+#include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/find_bar/find_bar.h"
 #include "chrome/browser/ui/find_bar/find_bar_controller.h"
@@ -96,7 +97,7 @@
 #include "chrome/browser/ui/qrcode_generator/qrcode_generator_bubble_controller.h"
 #include "chrome/browser/ui/recently_audible_helper.h"
 #include "chrome/browser/ui/sad_tab_helper.h"
-#include "chrome/browser/ui/send_tab_to_self/send_tab_to_self_bubble_view.h"
+#include "chrome/browser/ui/sharing_hub/sharing_hub_bubble_controller.h"
 #include "chrome/browser/ui/sharing_hub/sharing_hub_bubble_view.h"
 #include "chrome/browser/ui/side_search/side_search_utils.h"
 #include "chrome/browser/ui/sync/bubble_sync_promo_delegate.h"
@@ -119,6 +120,7 @@
 #include "chrome/browser/ui/views/autofill/autofill_bubble_handler_impl.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bubble_view.h"
+#include "chrome/browser/ui/views/color_provider_browser_helper.h"
 #include "chrome/browser/ui/views/download/bubble/download_toolbar_button_view.h"
 #include "chrome/browser/ui/views/download/download_in_progress_dialog_view.h"
 #include "chrome/browser/ui/views/download/download_shelf_view.h"
@@ -145,15 +147,16 @@
 #include "chrome/browser/ui/views/location_bar/intent_chip_button.h"
 #include "chrome/browser/ui/views/location_bar/intent_picker_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
-#include "chrome/browser/ui/views/location_bar/permission_chip.h"
 #include "chrome/browser/ui/views/location_bar/star_view.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_view_views.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_controller.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_view.h"
+#include "chrome/browser/ui/views/permissions/permission_chip.h"
 #include "chrome/browser/ui/views/profiles/avatar_toolbar_button.h"
 #include "chrome/browser/ui/views/profiles/profile_indicator_icon.h"
 #include "chrome/browser/ui/views/profiles/profile_menu_view_base.h"
 #include "chrome/browser/ui/views/qrcode_generator/qrcode_generator_bubble.h"
+#include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_bubble_view.h"
 #include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_device_picker_bubble_view.h"
 #include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_icon_view.h"
 #include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_promo_bubble_view.h"
@@ -496,18 +499,13 @@ class ContentsSeparator : public views::View {
   METADATA_HEADER(ContentsSeparator);
 
   ContentsSeparator() {
+    SetBackground(
+        views::CreateThemedSolidBackground(kColorToolbarContentAreaSeparator));
+
     // BrowserViewLayout will respect either the height or width of this,
     // depending on orientation, not simultaneously both.
     SetPreferredSize(
         gfx::Size(views::Separator::kThickness, views::Separator::kThickness));
-  }
-
- private:
-  // views::View:
-  void OnThemeChanged() override {
-    SetBackground(views::CreateSolidBackground(GetThemeProvider()->GetColor(
-        ThemeProperties::COLOR_TOOLBAR_CONTENT_AREA_SEPARATOR)));
-    View::OnThemeChanged();
   }
 };
 
@@ -623,7 +621,11 @@ class BrowserViewLayoutDelegateImpl : public BrowserViewLayoutDelegate {
   }
 
   bool BrowserIsSystemWebApp() const override {
+#if BUILDFLAG(IS_CHROMEOS_ASH)
     return browser_view_->browser()->app_controller()->system_app();
+#else
+    return false;
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
   }
 
   bool BrowserIsWebApp() const override {
@@ -920,6 +922,8 @@ BrowserView::BrowserView(std::unique_ptr<Browser> browser)
   tab_strip_region_view_ = top_container_->AddChildView(
       std::make_unique<TabStripRegionView>(std::move(tabstrip)));
 
+  ColorProviderBrowserHelper::CreateForBrowser(browser_.get());
+
   // Create WebViews early so |webui_tab_strip_| can observe their size.
   auto devtools_web_view =
       std::make_unique<views::WebView>(browser_->profile());
@@ -953,12 +957,21 @@ BrowserView::BrowserView(std::unique_ptr<Browser> browser)
   contents_container_ = AddChildView(std::move(contents_container));
   set_contents_view(contents_container_);
 
-    right_aligned_side_panel_ = AddChildView(std::make_unique<SidePanel>(this));
-    right_aligned_side_panel_separator_ =
+  right_aligned_side_panel_separator_ =
+      AddChildView(std::make_unique<ContentsSeparator>());
+
+  if (base::FeatureList::IsEnabled(features::kUnifiedSidePanel)) {
+    const bool is_right_aligned = GetProfile()->GetPrefs()->GetBoolean(
+        prefs::kSidePanelHorizontalAlignment);
+    right_aligned_side_panel_ = AddChildView(std::make_unique<SidePanel>(
+        this,
+        is_right_aligned ? SidePanel::kAlignRight : SidePanel::kAlignLeft));
+    left_aligned_side_panel_separator_ =
         AddChildView(std::make_unique<ContentsSeparator>());
-    if (base::FeatureList::IsEnabled(features::kUnifiedSidePanel)) {
-      side_panel_coordinator_ = std::make_unique<SidePanelCoordinator>(this);
-    }
+    side_panel_coordinator_ = std::make_unique<SidePanelCoordinator>(this);
+  } else {
+    right_aligned_side_panel_ = AddChildView(std::make_unique<SidePanel>(this));
+  }
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   if (lens::features::IsLensSidePanelEnabled()) {
@@ -970,13 +983,14 @@ BrowserView::BrowserView(std::unique_ptr<Browser> browser)
   }
 #endif
 
-  if (browser_->is_type_normal() && IsSideSearchEnabled(browser_->profile())) {
-    side_search_side_panel_ = AddChildView(std::make_unique<SidePanel>(this));
-    left_aligned_side_panel_separator_ =
-        AddChildView(std::make_unique<ContentsSeparator>());
-
-    side_search_controller_ = std::make_unique<SideSearchBrowserController>(
-        side_search_side_panel_, this);
+  if (side_search::IsEnabledForBrowser(browser_.get())) {
+    if (!base::FeatureList::IsEnabled(features::kUnifiedSidePanel)) {
+      side_search_side_panel_ = AddChildView(std::make_unique<SidePanel>(this));
+      left_aligned_side_panel_separator_ =
+          AddChildView(std::make_unique<ContentsSeparator>());
+      side_search_controller_ = std::make_unique<SideSearchBrowserController>(
+          side_search_side_panel_, this);
+    }
   }
 
   // InfoBarContainer needs to be added as a child here for drop-shadow, but
@@ -1308,6 +1322,14 @@ bool BrowserView::GetIsWebAppType() const {
 
 bool BrowserView::GetIsPictureInPictureType() const {
   return browser_->is_type_picture_in_picture();
+}
+
+float BrowserView::GetInitialAspectRatio() const {
+  return browser_->create_params().initial_aspect_ratio;
+}
+
+bool BrowserView::GetLockAspectRatio() const {
+  return browser_->create_params().lock_aspect_ratio;
 }
 
 bool BrowserView::GetTopControlsSlideBehaviorEnabled() const {
@@ -2218,6 +2240,14 @@ void BrowserView::ToggleWindowControlsOverlayEnabled() {
   UpdateWindowControlsOverlayEnabled();
 }
 
+void BrowserView::UpdateSidePanelHorizontalAlignment() {
+  const bool is_right_aligned = GetProfile()->GetPrefs()->GetBoolean(
+      prefs::kSidePanelHorizontalAlignment);
+  right_aligned_side_panel_->SetHorizontalAlignment(
+      is_right_aligned ? SidePanel::kAlignRight : SidePanel::kAlignLeft);
+  GetBrowserViewLayout()->Layout(this);
+}
+
 void BrowserView::FocusBookmarksToolbar() {
   DCHECK(!immersive_mode_controller_->IsEnabled());
   if (bookmark_bar_view_ && bookmark_bar_view_->GetVisible() &&
@@ -2517,9 +2547,12 @@ BrowserView::ShowScreenshotCapturedBubble(content::WebContents* contents,
 SharingDialog* BrowserView::ShowSharingDialog(
     content::WebContents* web_contents,
     SharingDialogData data) {
+  // TODO(https://crbug.com/1311680): Remove this altogether. This used to
+  // be hardcoded to anchor off the shared clipboard bubble, but that bubble is
+  // now gone altogether.
   auto* dialog_view =
       new SharingDialogView(toolbar_button_provider()->GetAnchorView(
-                                PageActionIconType::kSharedClipboard),
+                                PageActionIconType::kClickToCall),
                             web_contents, std::move(data));
 
   views::BubbleDialogDelegateView::CreateBubble(dialog_view)->Show();
@@ -2581,7 +2614,9 @@ sharing_hub::SharingHubBubbleView* BrowserView::ShowSharingHubBubble(
     share::ShareAttempt attempt) {
   auto* bubble = new sharing_hub::SharingHubBubbleViewImpl(
       toolbar_button_provider()->GetAnchorView(PageActionIconType::kSharingHub),
-      attempt);
+      attempt,
+      sharing_hub::SharingHubBubbleController::CreateOrGetFromWebContents(
+          attempt.web_contents.get()));
   PageActionIconView* icon_view =
       toolbar_button_provider()->GetPageActionIconView(
           PageActionIconType::kSharingHub);
@@ -2631,6 +2666,31 @@ ShowTranslateBubbleResult BrowserView::ShowTranslateBubble(
 
 #endif
   return ShowTranslateBubbleResult::SUCCESS;
+}
+
+void BrowserView::ShowPartialTranslateBubble(
+    PartialTranslateBubbleModel::ViewState view_state,
+    const std::string& source_language,
+    const std::string& target_language,
+    const std::u16string& text_selection,
+    translate::TranslateErrors::Type error_type) {
+#if 0
+  // Show the Translate icon and enabled the associated command to show the
+  // Translate UI.
+  ChromeTranslateClient::FromWebContents(GetActiveWebContents())
+      ->GetTranslateManager()
+      ->GetLanguageState()
+      ->SetTranslateEnabled(true);
+
+  TranslateBubbleController::GetOrCreate(GetActiveWebContents())
+      ->ShowPartialTranslateBubble(
+          toolbar_button_provider()->GetAnchorView(
+              PageActionIconType::kTranslate),
+          toolbar_button_provider()->GetPageActionIconView(
+              PageActionIconType::kTranslate),
+          view_state, source_language, target_language, text_selection,
+          error_type);
+#endif
 }
 
 void BrowserView::ShowOneClickSigninConfirmation(
@@ -3292,9 +3352,8 @@ ui::ImageModel BrowserView::GetWindowIcon() {
       Browser* browser = chrome::FindBrowserWithWebContents(inspected_contents);
       if (browser && !browser->icon_override().IsEmpty())
         return ui::ImageModel::FromImageSkia(*browser->icon_override().ToImageSkia());
-      favicon::FaviconDriver* favicon_driver = nullptr;
-      if (inspected_contents)
-          favicon_driver = favicon::ContentFaviconDriver::FromWebContents(inspected_contents);
+      favicon::FaviconDriver* favicon_driver =
+          favicon::ContentFaviconDriver::FromWebContents(inspected_contents);
       gfx::Image app_icon;
       if (favicon_driver)
         app_icon = favicon_driver->GetFavicon();
@@ -3636,21 +3695,6 @@ void BrowserView::RightAlignedSidePanelWasClosed() {
   }
 }
 
-bool BrowserView::IsSideSearchPanelVisible() const {
-  if (side_search_controller_)
-    return side_search_controller_->GetSidePanelToggledOpen();
-
-  return false;
-}
-
-void BrowserView::MaybeRestoreSideSearchStatePerWindow(
-    const std::map<std::string, std::string>& extra_data) {
-  if (side_search_controller_) {
-    side_search::MaybeRestoreSideSearchWindowState(
-        side_search_controller_.get(), extra_data);
-  }
-}
-
 void BrowserView::RevealTabStripIfNeeded() {
   if (!immersive_mode_controller_->IsEnabled())
     return;
@@ -3754,16 +3798,6 @@ views::CloseRequestResult BrowserView::OnWindowCloseRequested() {
     // down. When the tab strip is empty we'll be called back again.
     frame_->Hide();
     result = views::CloseRequestResult::kCannotClose;
-  }
-
-  // Persist the side search browser controller's window side panel state for
-  // use during session restoration. Since the side panel is closed by default,
-  // we only want to persist the state if the side panel is currently open.
-  if (side_search_controller_ &&
-      side_search_controller_->GetSidePanelToggledOpen()) {
-    side_search::MaybeSaveSideSearchWindowSessionData(
-        GetProfile(), browser()->session_id(),
-        side_search_controller_->GetSidePanelToggledOpen());
   }
 
   browser_->OnWindowClosing();

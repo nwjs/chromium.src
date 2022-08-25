@@ -24,7 +24,6 @@
 #include "base/feature_list.h"
 #include "base/location.h"
 #include "base/notreached.h"
-#include "base/numerics/safe_conversions.h"
 #include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
@@ -38,9 +37,11 @@
 #include "gin/public/isolate_holder.h"
 #include "gin/public/v8_platform.h"
 #include "pdf/accessibility_structs.h"
-#include "pdf/document_loader_impl.h"
 #include "pdf/draw_utils/coordinates.h"
 #include "pdf/draw_utils/shadow.h"
+#include "pdf/loader/document_loader_impl.h"
+#include "pdf/loader/url_loader.h"
+#include "pdf/loader/url_loader_wrapper_impl.h"
 #include "pdf/pdf_features.h"
 #include "pdf/pdf_transform.h"
 #include "pdf/pdf_utils/dates.h"
@@ -49,8 +50,6 @@
 #include "pdf/pdfium/pdfium_mem_buffer_file_write.h"
 #include "pdf/pdfium/pdfium_permissions.h"
 #include "pdf/pdfium/pdfium_unsupported_features.h"
-#include "pdf/ppapi_migration/url_loader.h"
-#include "pdf/url_loader_wrapper_impl.h"
 #include "printing/mojom/print.mojom-shared.h"
 #include "printing/units.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
@@ -915,8 +914,8 @@ bool PDFiumEngine::IsValidLink(const std::string& url) {
   return client_->IsValidLink(url);
 }
 
-void PDFiumEngine::ContinueFind(int32_t result) {
-  StartFind(current_find_text_, result != 0);
+void PDFiumEngine::ContinueFind(bool case_sensitive) {
+  StartFind(current_find_text_, case_sensitive);
 }
 
 bool PDFiumEngine::HandleInputEvent(const blink::WebInputEvent& event) {
@@ -1728,8 +1727,8 @@ bool PDFiumEngine::OnChar(const blink::WebKeyboardEvent& event) {
 
 void PDFiumEngine::StartFind(const std::string& text, bool case_sensitive) {
   // If the caller asks StartFind() to search for no text, then this is an
-  // error on the part of the caller. The PPAPI Find_Private interface
-  // guarantees it is not empty, so this should never happen.
+  // error on the part of the caller. The `blink::FindInPage` code guarantees it
+  // is not empty, so this should never happen.
   DCHECK(!text.empty());
 
   // If StartFind() gets called before we have any page information (i.e.
@@ -1758,7 +1757,6 @@ void PDFiumEngine::StartFind(const std::string& text, bool case_sensitive) {
       character_to_start_searching_from = old_selection[0].char_index();
       last_page_to_search_ = next_page_to_search_;
     }
-    search_in_progress_ = true;
   }
 
   int current_page = next_page_to_search_;
@@ -1799,22 +1797,20 @@ void PDFiumEngine::StartFind(const std::string& text, bool case_sensitive) {
        (pages_.size() > 1 && current_page == next_page_to_search_));
 
   if (end_of_search) {
-    search_in_progress_ = false;
-
     // Send the final notification.
     client_->NotifyNumberOfFindResultsChanged(find_results_.size(), true);
     return;
   }
 
-  // In unit tests, PPAPI is not initialized, so just call ContinueFind()
-  // directly.
+  // In unit tests, just call ContinueFind() directly for simplicity and reduce
+  // the need to use RunLoops.
   if (doc_loader_set_for_testing_) {
-    ContinueFind(case_sensitive ? 1 : 0);
+    ContinueFind(case_sensitive);
   } else {
     base::ThreadTaskRunnerHandle::Get()->PostTask(
-        FROM_HERE, base::BindOnce(&PDFiumEngine::ContinueFind,
-                                  find_weak_factory_.GetWeakPtr(),
-                                  case_sensitive ? 1 : 0));
+        FROM_HERE,
+        base::BindOnce(&PDFiumEngine::ContinueFind,
+                       find_weak_factory_.GetWeakPtr(), case_sensitive));
   }
 }
 
@@ -1884,6 +1880,7 @@ void PDFiumEngine::SearchUsingICU(const std::u16string& term,
                        character_to_start_searching_from, text_length, data);
   api_string_adapter.Close(written);
 
+  const gfx::RectF page_bounds = pages_[current_page]->GetCroppedRect();
   std::u16string adjusted_page_text;
   adjusted_page_text.reserve(page_text.size());
   // Values in `removed_indices` are in the adjusted text index space and
@@ -1898,6 +1895,14 @@ void PDFiumEngine::SearchUsingICU(const std::u16string& term,
   // whitespace characters. Calculating where the collapsed regions are after
   // the fact is as complex as collapsing them manually.
   for (size_t i = 0; i < page_text.size(); i++) {
+    // Filter out characters outside the page bounds, which are semantically not
+    // part of the page.
+    if (!pages_[current_page]->IsCharInPageBounds(
+            character_to_start_searching_from + i, page_bounds)) {
+      removed_indices.push_back(adjusted_page_text.size());
+      continue;
+    }
+
     char16_t c = page_text[i];
     // Collapse whitespace regions by inserting a ' ' into the
     // adjusted text and recording any removed whitespace indices as preceding
@@ -1921,6 +1926,9 @@ void PDFiumEngine::SearchUsingICU(const std::u16string& term,
     else
       adjusted_page_text.push_back(SimplifyForSearch(c));
   }
+
+  if (adjusted_page_text.empty())
+    return;
 
   std::vector<PDFEngine::Client::SearchStringResult> results =
       client_->SearchString(adjusted_page_text.c_str(), adjusted_term.c_str(),
@@ -2059,8 +2067,6 @@ bool PDFiumEngine::SelectFindResult(bool forward) {
   }
 
   client_->NotifySelectedFindResultChanged(current_find_index_.value());
-  if (!search_in_progress_)
-    client_->NotifyNumberOfFindResultsChanged(find_results_.size(), true);
   return true;
 }
 
@@ -2070,7 +2076,6 @@ void PDFiumEngine::StopFind() {
   selecting_ = false;
 
   find_results_.clear();
-  search_in_progress_ = false;
   next_page_to_search_ = -1;
   last_page_to_search_ = -1;
   last_character_index_to_search_ = -1;
@@ -2168,9 +2173,6 @@ void PDFiumEngine::InvalidateAllPages() {
 }
 
 std::string PDFiumEngine::GetSelectedText() {
-  if (!HasPermission(DocumentPermission::kCopy))
-    return std::string();
-
   std::u16string result;
   for (size_t i = 0; i < selection_.size(); ++i) {
     std::u16string current_selection_text = selection_[i].GetText();

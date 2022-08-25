@@ -11,9 +11,9 @@
 #include <utility>
 #include <vector>
 
-#include "ash/webui/telemetry_extension_ui/mojom/probe_service.mojom.h"
 #include "base/notreached.h"
 #include "chrome/common/chromeos/extensions/api/telemetry.h"
+#include "chromeos/crosapi/mojom/probe_service.mojom.h"
 
 namespace chromeos {
 namespace converters {
@@ -124,6 +124,47 @@ telemetry_api::BatteryInfo UncheckedConvertPtr(
   if (input->manufacture_date.has_value()) {
     result.manufacture_date =
         std::make_unique<std::string>(input->manufacture_date.value());
+  }
+
+  return result;
+}
+
+telemetry_api::OsVersionInfo UncheckedConvertPtr(
+    telemetry_service::OsVersionPtr input) {
+  telemetry_api::OsVersionInfo result;
+
+  if (input->release_milestone) {
+    result.release_milestone =
+        std::make_unique<std::string>(input->release_milestone.value());
+  }
+
+  if (input->build_number) {
+    result.build_number =
+        std::make_unique<std::string>(input->build_number.value());
+  }
+
+  if (input->patch_number) {
+    result.patch_number =
+        std::make_unique<std::string>(input->patch_number.value());
+  }
+
+  if (input->release_channel) {
+    result.release_channel =
+        std::make_unique<std::string>(input->release_channel.value());
+  }
+
+  return result;
+}
+
+telemetry_api::StatefulPartitionInfo UncheckedConvertPtr(
+    telemetry_service::StatefulPartitionInfoPtr input) {
+  telemetry_api::StatefulPartitionInfo result;
+  if (input->available_space) {
+    result.available_space =
+        std::make_unique<double_t>(input->available_space->value);
+  }
+  if (input->total_space) {
+    result.total_space = std::make_unique<double_t>(input->total_space->value);
   }
 
   return result;

@@ -19,10 +19,8 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/test/integration/configuration_refresher.h"
 #include "chrome/browser/sync/test/integration/fake_server_invalidation_sender.h"
-#include "chrome/browser/sync/test/integration/fake_server_sync_invalidation_sender.h"
+#include "chrome/browser/sync/test/integration/invalidations/fake_server_sync_invalidation_sender.h"
 #include "chrome/common/buildflags.h"
-#include "components/gcm_driver/instance_id/instance_id.h"
-#include "components/gcm_driver/instance_id/instance_id_driver.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/sync/base/model_type.h"
 #include "components/sync/base/user_selectable_type.h"
@@ -74,6 +72,7 @@ class FakeServer;
 }  // namespace fake_server
 
 namespace syncer {
+class FCMHandler;
 class SyncServiceImpl;
 }  // namespace syncer
 
@@ -127,63 +126,19 @@ class SyncTest : public PlatformBrowserTest {
                              // in-process (bypassing HTTP calls).
   };
 
-  class FakeInstanceID : public instance_id::InstanceID {
-   public:
-    explicit FakeInstanceID(const std::string& app_id,
-                            gcm::GCMDriver* gcm_driver);
+  // Modes when setting up sync.
+  enum SetupSyncMode {
+    // Do not wait for clients to be ready to sync.
+    NO_WAITING,
 
-    FakeInstanceID(const FakeInstanceID&) = delete;
-    FakeInstanceID& operator=(const FakeInstanceID&) = delete;
+    // Wait for sync engine initialization only. This may be used when waiting
+    // for commits is impossible (e.g. due to commit errors or a custom
+    // passphrase).
+    WAIT_FOR_SYNC_SETUP_TO_COMPLETE,
 
-    ~FakeInstanceID() override = default;
-
-    void GetID(GetIDCallback callback) override {}
-
-    void GetCreationTime(GetCreationTimeCallback callback) override {}
-
-    void GetToken(const std::string& authorized_entity,
-                  const std::string& scope,
-                  base::TimeDelta time_to_live,
-                  std::set<Flags> flags,
-                  GetTokenCallback callback) override;
-
-    void ValidateToken(const std::string& authorized_entity,
-                       const std::string& scope,
-                       const std::string& token,
-                       ValidateTokenCallback callback) override {}
-
-    void DeleteToken(const std::string& authorized_entity,
-                     const std::string& scope,
-                     DeleteTokenCallback callback) override {}
-
-   protected:
-    void DeleteTokenImpl(const std::string& authorized_entity,
-                         const std::string& scope,
-                         DeleteTokenCallback callback) override {}
-
-    void DeleteIDImpl(DeleteIDCallback callback) override;
-
-   private:
-    static std::string GenerateNextToken();
-
-    std::string token_;
-  };
-
-  class FakeInstanceIDDriver : public instance_id::InstanceIDDriver {
-   public:
-    explicit FakeInstanceIDDriver(gcm::GCMDriver* gcm_driver);
-
-    FakeInstanceIDDriver(const FakeInstanceIDDriver&) = delete;
-    FakeInstanceIDDriver& operator=(const FakeInstanceIDDriver&) = delete;
-
-    ~FakeInstanceIDDriver() override;
-    instance_id::InstanceID* GetInstanceID(const std::string& app_id) override;
-    void RemoveInstanceID(const std::string& app_id) override {}
-    bool ExistsInstanceID(const std::string& app_id) const override;
-
-   private:
-    raw_ptr<gcm::GCMDriver> gcm_driver_;
-    std::map<std::string, std::unique_ptr<FakeInstanceID>> fake_instance_ids_;
+    // Wait for all the changes to be committed including asynchronous changes
+    // (e.g. DeviceInfo fields).
+    WAIT_FOR_COMMITS_TO_COMPLETE,
   };
 
   // A SyncTest must be associated with a particular test type.
@@ -208,7 +163,7 @@ class SyncTest : public PlatformBrowserTest {
 
   // Returns a pointer to a particular sync profile. Callee owns the object
   // and manages its lifetime.
-  Profile* GetProfile(int index);
+  Profile* GetProfile(int index) const;
 
   // Returns a list of all profiles including the verifier if available. Callee
   // owns the objects and manages its lifetime.
@@ -236,7 +191,7 @@ class SyncTest : public PlatformBrowserTest {
   std::vector<SyncServiceImplHarness*> GetSyncClients();
 
   // Returns a SyncServiceImpl at the given index.
-  syncer::SyncServiceImpl* GetSyncService(int index);
+  syncer::SyncServiceImpl* GetSyncService(int index) const;
 
   // Returns the set of SyncServiceImpls.
   std::vector<syncer::SyncServiceImpl*> GetSyncServices();
@@ -257,27 +212,24 @@ class SyncTest : public PlatformBrowserTest {
   // tests are rewritten in a way to not use verifier.
   virtual bool UseVerifier();
 
+  // Used to determine whether to use the configuration refresher. It's used to
+  // mitigate test flakiness due to missed invalidations and download updates
+  // after SetupClients().
+  virtual bool UseConfigurationRefresher();
+
   // Initializes sync clients and profiles but does not sync any of them.
   [[nodiscard]] virtual bool SetupClients();
 
-  // Initializes sync clients and profiles if required and syncs each of them.
-  [[nodiscard]] virtual bool SetupSync();
+  // Initializes sync clients and waits for different stages to complete
+  // depending on |setup_mode|.
+  [[nodiscard]] bool SetupSync(
+      SetupSyncMode setup_mode = WAIT_FOR_COMMITS_TO_COMPLETE);
 
   // This is similar to click the reset button on chrome.google.com/sync.
   // Only takes effect when running with external servers.
   // Please call this before setting anything. This method will clear all
   // local profiles, browsers, etc.
   void ResetSyncForPrimaryAccount();
-
-  // Like SetupSync() but does not wait for the clients to be ready to sync.
-  void SetupSyncNoWaitingForCompletion();
-
-  // Like SetupSync() but does wait for commits to complete before proceeding to
-  // another client.
-  // TODO(crbug.com/956043): Investigate deeper why such sequential setup is
-  // needed by some tests and why using SetupSync() instead is causing
-  // flakiness. Ideally get rid of this function.
-  void SetupSyncOneClientAfterAnother();
 
   // Sets whether or not the sync clients in this test should respond to
   // notifications of their own commits.  Real sync clients do not do this, but
@@ -292,7 +244,7 @@ class SyncTest : public PlatformBrowserTest {
   bool AwaitQuiescence();
 
   // Returns true if we are running tests against external servers.
-  bool UsingExternalServers();
+  bool UsingExternalServers() const;
 
   // Sets the mock gaia response for when an OAuth2 token is requested.
   // Each call to this method will overwrite responses that were previously set.
@@ -318,6 +270,8 @@ class SyncTest : public PlatformBrowserTest {
   void StopConfigurationRefresher();
 
   arc::SyncArcPackageHelper* sync_arc_helper();
+
+  std::string GetCacheGuid(size_t profile_index) const;
 
  protected:
   // Add custom switches needed for running the test.
@@ -352,6 +306,10 @@ class SyncTest : public PlatformBrowserTest {
   // be provided to the client during initialization, before Sync starts. It is
   // an error to provide both a decryption and encryption passphrases for one
   // client.
+  // TODO(crbug.com/1338480): this and below are overused, most tests can use
+  // SyncUserSettings interface. Avoid usages, reintroduce logic in specific
+  // test that actually need it (if exists) and remove these functions together
+  // with relevant SyncTest SetupSync() code.
   void SetDecryptionPassphraseForClient(int index,
                                         const std::string& passphrase);
 
@@ -377,11 +335,6 @@ class SyncTest : public PlatformBrowserTest {
   network::TestURLLoaderFactory test_url_loader_factory_;
 
  private:
-  enum SetupSyncMode {
-    NO_WAITING,
-    WAIT_FOR_SYNC_SETUP_TO_COMPLETE,
-    WAIT_FOR_COMMITS_TO_COMPLETE
-  };
   // Handles Profile creation for given index. Profile's path and type is
   // determined at runtime based on server type.
   bool CreateProfile(int index);
@@ -395,14 +348,9 @@ class SyncTest : public PlatformBrowserTest {
   static std::unique_ptr<KeyedService> CreateProfileInvalidationProvider(
       std::map<const Profile*, invalidation::FCMNetworkHandler*>*
           profile_to_fcm_network_handler_map,
-      std::map<const Profile*, std::unique_ptr<instance_id::InstanceIDDriver>>*
-          profile_to_instance_id_driver_map,
       content::BrowserContext* context);
 
-  static std::unique_ptr<KeyedService> CreateSyncInvalidationsService(
-      std::map<const Profile*, std::unique_ptr<instance_id::InstanceIDDriver>>*
-          profile_to_instance_id_driver_map,
-      std::vector<syncer::FCMHandler*>* sync_invalidations_fcm_handlers,
+  std::unique_ptr<KeyedService> CreateSyncInvalidationsService(
       content::BrowserContext* context);
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -447,13 +395,18 @@ class SyncTest : public PlatformBrowserTest {
   // value of |server_type_|.
   void SetUpInvalidations(int index);
 
-  // Initializes the invalidations that were set up in SetUpInvalidations.
-  void InitializeInvalidations(int index);
+  // Initializes the configuration refresher.
+  void InitializeConfigurationRefresher(int index);
 
   // Internal routine for setting up sync.
   void SetupSyncInternal(SetupSyncMode setup_mode);
 
   void ClearProfiles();
+
+  // Waits for all the changes which might be done asynchronously after setting
+  // up sync engine. This is used to prevent starting another sync cycle after
+  // SetupSync() call which might be unexpected in several tests.
+  bool WaitForAsyncChangesToBeCommitted(size_t profile_index) const;
 
   // Used to differentiate between single-client and two-client tests.
   const TestType test_type_;
@@ -524,8 +477,7 @@ class SyncTest : public PlatformBrowserTest {
   std::map<const Profile*, invalidation::FCMNetworkHandler*>
       profile_to_fcm_network_handler_map_;
 
-  std::map<const Profile*, std::unique_ptr<instance_id::InstanceIDDriver>>
-      profile_to_instance_id_driver_map_;
+  std::map<const Profile*, syncer::FCMHandler*> profile_to_fcm_handler_map_;
 
   // Triggers a GetUpdates via refresh after a configuration.
   std::unique_ptr<ConfigurationRefresher> configuration_refresher_;
@@ -558,7 +510,6 @@ class SyncTest : public PlatformBrowserTest {
       model_updater_factory_;
 #endif
 
-  std::vector<syncer::FCMHandler*> sync_invalidations_fcm_handlers_;
   std::unique_ptr<fake_server::FakeServerSyncInvalidationSender>
       fake_server_sync_invalidation_sender_;
 };

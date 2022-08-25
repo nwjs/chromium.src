@@ -12,7 +12,10 @@
 #include "base/strings/string_split.h"
 #include "build/build_config.h"
 #include "components/history_clusters/core/features.h"
+#include "components/history_clusters/core/history_clusters_prefs.h"
+#include "components/history_clusters/core/history_clusters_service.h"
 #include "components/history_clusters/core/on_device_clustering_features.h"
+#include "components/prefs/pref_service.h"
 #include "ui/base/l10n/l10n_util.h"
 
 namespace history_clusters {
@@ -88,6 +91,9 @@ Config::Config() {
   omnibox_action_with_pedals = base::GetFieldTrialParamByFeatureAsBool(
       internal::kOmniboxAction, "omnibox_action_with_pedals",
       omnibox_action_with_pedals);
+
+  omnibox_history_cluster_provider =
+      base::FeatureList::IsEnabled(internal::kOmniboxHistoryClusterProvider);
 
   keyword_filter_on_entity_aliases = base::GetFieldTrialParamByFeatureAsBool(
       history_clusters::features::kOnDeviceClusteringKeywordFiltering,
@@ -284,6 +290,22 @@ void SetConfigForTesting(const Config& config) {
   GetConfigInternal() = config;
 }
 
+base::flat_set<std::string> JourneysMidBlocklist() {
+  const base::FeatureParam<std::string> kJourneysMidBlocklist{
+      &internal::kHistoryClustersKeywordFiltering, "JourneysMidBlocklist", ""};
+  std::string blocklist_string = kJourneysMidBlocklist.Get();
+  if (blocklist_string.empty())
+    return {};
+
+  auto blocklist = base::SplitString(blocklist_string, ",",
+                                     base::WhitespaceHandling::TRIM_WHITESPACE,
+                                     base::SplitResult::SPLIT_WANT_NONEMPTY);
+
+  return blocklist.empty()
+             ? base::flat_set<std::string>()
+             : base::flat_set<std::string>(blocklist.begin(), blocklist.end());
+}
+
 bool IsApplicationLocaleSupportedByJourneys(
     const std::string& application_locale) {
   // Application locale support should be checked only if the Journeys feature
@@ -311,6 +333,20 @@ bool IsApplicationLocaleSupportedByJourneys(
   // the list.
   return allowlist.empty() || base::Contains(allowlist, application_locale) ||
          base::Contains(allowlist, l10n_util::GetLanguage(application_locale));
+}
+
+bool IsJourneysEnabledInOmnibox(HistoryClustersService* service,
+                                PrefService* prefs) {
+  if (!service)
+    return false;
+
+  if (!service->IsJourneysEnabled())
+    return false;
+
+  if (!prefs->GetBoolean(history_clusters::prefs::kVisible))
+    return false;
+
+  return true;
 }
 
 const Config& GetConfig() {

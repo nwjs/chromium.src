@@ -182,8 +182,8 @@ class CONTENT_EXPORT SharedStorageWorkletHost
   base::WeakPtr<PageImpl> page_;
 
   // Both `this` and `shared_storage_manager_` live in the `StoragePartition`.
-  // `shared_storage_manager_` almost always outlives `this` (thus is valid)
-  // except for inside `~SharedStorageWorkletHost()`.
+  // `shared_storage_manager_` always outlives `this` because `this` will be
+  // destroyed before `shared_storage_manager_` in ~StoragePartition.
   raw_ptr<storage::SharedStorageManager> shared_storage_manager_;
 
   // Pointer to the `BrowserContext`, saved to be able to call

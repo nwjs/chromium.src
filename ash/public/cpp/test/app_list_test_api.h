@@ -134,8 +134,7 @@ class ASH_EXPORT AppListTestApi {
   // (2) An enum value that specifies the reorder animation status when the
   // callback runs.
   void AddReorderAnimationCallback(
-      base::RepeatingCallback<void(bool, AppListReorderAnimationStatus)>
-          callback);
+      base::RepeatingCallback<void(bool, AppListGridAnimationStatus)> callback);
 
   // Adds a callback that runs right after the app list fade out animation
   // triggered by reorder starts.
@@ -167,6 +166,9 @@ class ASH_EXPORT AppListTestApi {
 
   // Returns the recent app item item specified by `index`.
   views::View* GetRecentAppAt(int index);
+
+  // Updates launcher search box content, and triggers search.
+  void SimulateSearch(const std::u16string& query);
 
   // App list sort related methods ---------------------------------------------
 
@@ -236,7 +238,7 @@ class ASH_EXPORT AppListTestApi {
   // Called at the end of the reorder animation.
   void OnReorderAnimationDone(ReorderAnimationEndState* result,
                               bool abort,
-                              ash::AppListReorderAnimationStatus status);
+                              AppListGridAnimationStatus status);
 
   // Waits until the whole reorder process (including fade in and fade out)
   // ends. Then verifies the top level items visibility.

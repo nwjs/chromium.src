@@ -18,10 +18,9 @@
 #include "base/check.h"
 #include "base/check_op.h"
 #include "base/containers/span.h"
+#include "base/guid.h"
 #include "base/json/json_writer.h"
-#include "base/rand_util.h"
 #include "base/ranges/algorithm.h"
-#include "base/strings/abseil_string_number_conversions.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_piece.h"
@@ -30,7 +29,9 @@
 #include "components/cbor/values.h"
 #include "components/cbor/writer.h"
 #include "content/browser/aggregation_service/aggregation_service_features.h"
+#include "content/browser/aggregation_service/proto/aggregatable_report.pb.h"
 #include "content/browser/aggregation_service/public_key.h"
+#include "content/common/aggregatable_report.mojom.h"
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
 #include "third_party/abseil-cpp/absl/numeric/int128.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
@@ -53,13 +54,12 @@ constexpr char kHistogramValue[] = "histogram";
 constexpr char kOperationKey[] = "operation";
 
 std::vector<GURL> GetDefaultProcessingUrls(
-    AggregationServicePayloadContents::AggregationMode aggregation_mode) {
+    mojom::AggregationServiceMode aggregation_mode) {
   switch (aggregation_mode) {
-    case AggregationServicePayloadContents::AggregationMode::kTeeBased:
+    case mojom::AggregationServiceMode::kTeeBased:
       return {
           GURL(kPrivacySandboxAggregationServiceTrustedServerUrlParam.Get())};
-    case AggregationServicePayloadContents::AggregationMode::
-        kExperimentalPoplar:
+    case mojom::AggregationServiceMode::kExperimentalPoplar:
       // TODO(crbug.com/1295705): Update default processing urls.
       return {GURL("https://server1.example"), GURL("https://server2.example")};
   }
@@ -86,9 +86,8 @@ std::vector<DpfKey> GenerateDpfKeys(
     const AggregationServicePayloadContents& contents) {
   DCHECK_EQ(contents.operation,
             AggregationServicePayloadContents::Operation::kHistogram);
-  DCHECK_EQ(
-      contents.aggregation_mode,
-      AggregationServicePayloadContents::AggregationMode::kExperimentalPoplar);
+  DCHECK_EQ(contents.aggregation_mode,
+            mojom::AggregationServiceMode::kExperimentalPoplar);
   DCHECK_EQ(contents.contributions.size(), 1u);
 
   // absl::StatusOr is not allowed in the codebase, but this minimal usage is
@@ -185,7 +184,7 @@ std::vector<std::vector<uint8_t>> ConstructUnencryptedTeeBasedPayload(
   value.emplace(kOperationKey, kHistogramValue);
 
   cbor::Value::ArrayValue data;
-  for (AggregationServicePayloadContents::HistogramContribution contribution :
+  for (const mojom::AggregatableReportHistogramContribution& contribution :
        payload_contents.contributions) {
     cbor::Value::MapValue data_map;
     data_map.emplace(
@@ -256,13 +255,167 @@ std::vector<uint8_t> EncryptWithHpke(
   return payload;
 }
 
+absl::optional<AggregationServicePayloadContents>
+ConvertPayloadContentsFromProto(
+    const proto::AggregationServicePayloadContents& proto) {
+  if (proto.operation() !=
+      proto::AggregationServicePayloadContents_Operation_HISTOGRAM) {
+    return absl::nullopt;
+  }
+  AggregationServicePayloadContents::Operation operation(
+      AggregationServicePayloadContents::Operation::kHistogram);
+
+  std::vector<mojom::AggregatableReportHistogramContribution> contributions;
+  for (const proto::AggregatableReportHistogramContribution&
+           contribution_proto : proto.contributions()) {
+    contributions.emplace_back(
+        /*bucket=*/absl::MakeUint128(contribution_proto.bucket_high(),
+                                     contribution_proto.bucket_low()),
+        /*value=*/contribution_proto.value());
+  }
+
+  mojom::AggregationServiceMode aggregation_mode =
+      mojom::AggregationServiceMode::kTeeBased;
+  switch (proto.aggregation_mode()) {
+    case proto::AggregationServiceMode::TEE_BASED:
+      break;
+    case proto::AggregationServiceMode::EXPERIMENTAL_POPLAR:
+      aggregation_mode = mojom::AggregationServiceMode::kExperimentalPoplar;
+      break;
+    default:
+      return absl::nullopt;
+  }
+
+  return AggregationServicePayloadContents(operation, std::move(contributions),
+                                           aggregation_mode);
+}
+
+absl::optional<AggregatableReportSharedInfo> ConvertSharedInfoFromProto(
+    const proto::AggregatableReportSharedInfo& proto) {
+  base::Time scheduled_report_time = base::Time::FromDeltaSinceWindowsEpoch(
+      base::Microseconds(proto.scheduled_report_time()));
+  base::GUID report_id = base::GUID::ParseLowercase(proto.report_id());
+  url::Origin reporting_origin =
+      url::Origin::Create(GURL(proto.reporting_origin()));
+
+  AggregatableReportSharedInfo::DebugMode debug_mode =
+      AggregatableReportSharedInfo::DebugMode::kDisabled;
+  switch (proto.debug_mode()) {
+    case proto::AggregatableReportSharedInfo_DebugMode_DISABLED:
+      break;
+    case proto::AggregatableReportSharedInfo_DebugMode_ENABLED:
+      debug_mode = AggregatableReportSharedInfo::DebugMode::kEnabled;
+      break;
+    default:
+      return absl::nullopt;
+  }
+
+  std::string api_version = proto.api_version();
+  std::string api_identifier = proto.api_identifier();
+
+  return AggregatableReportSharedInfo(
+      scheduled_report_time, std::move(report_id), std::move(reporting_origin),
+      debug_mode,
+      // TODO(alexmt): Persist additional_fields when it becomes necessary.
+      /*additional_fields=*/base::Value::Dict(),
+      // TODO(crbug.com/1340296): Add mechanism to upgrade stored requests from
+      // older to newer versions.
+      std::move(api_version), std::move(api_identifier));
+}
+
+absl::optional<AggregatableReportRequest> ConvertReportRequestFromProto(
+    proto::AggregatableReportRequest request_proto) {
+  absl::optional<AggregationServicePayloadContents> payload_contents(
+      ConvertPayloadContentsFromProto(request_proto.payload_contents()));
+  if (!payload_contents.has_value()) {
+    return absl::nullopt;
+  }
+
+  absl::optional<AggregatableReportSharedInfo> shared_info(
+      ConvertSharedInfoFromProto(request_proto.shared_info()));
+  if (!shared_info.has_value()) {
+    return absl::nullopt;
+  }
+
+  return AggregatableReportRequest::Create(
+      std::move(payload_contents.value()), std::move(shared_info.value()),
+      std::move(*request_proto.mutable_reporting_path()));
+}
+
+void ConvertPayloadContentsToProto(
+    const AggregationServicePayloadContents& payload_contents,
+    proto::AggregationServicePayloadContents* out) {
+  switch (payload_contents.operation) {
+    case AggregationServicePayloadContents::Operation::kHistogram:
+      out->set_operation(
+          proto::AggregationServicePayloadContents_Operation_HISTOGRAM);
+  }
+
+  for (const mojom::AggregatableReportHistogramContribution& contribution :
+       payload_contents.contributions) {
+    proto::AggregatableReportHistogramContribution* contribution_proto =
+        out->add_contributions();
+    contribution_proto->set_bucket_high(
+        absl::Uint128High64(contribution.bucket));
+    contribution_proto->set_bucket_low(absl::Uint128Low64(contribution.bucket));
+    contribution_proto->set_value(contribution.value);
+  }
+
+  switch (payload_contents.aggregation_mode) {
+    case mojom::AggregationServiceMode::kTeeBased:
+      out->set_aggregation_mode(proto::AggregationServiceMode::TEE_BASED);
+      break;
+    case mojom::AggregationServiceMode::kExperimentalPoplar:
+      out->set_aggregation_mode(
+          proto::AggregationServiceMode::EXPERIMENTAL_POPLAR);
+      break;
+  }
+}
+
+void ConvertSharedInfoToProto(const AggregatableReportSharedInfo& shared_info,
+                              proto::AggregatableReportSharedInfo* out) {
+  out->set_scheduled_report_time(
+      shared_info.scheduled_report_time.ToDeltaSinceWindowsEpoch()
+          .InMicroseconds());
+  out->set_report_id(shared_info.report_id.AsLowercaseString());
+  out->set_reporting_origin(shared_info.reporting_origin.Serialize());
+
+  switch (shared_info.debug_mode) {
+    case AggregatableReportSharedInfo::DebugMode::kDisabled:
+      out->set_debug_mode(
+          proto::AggregatableReportSharedInfo_DebugMode_DISABLED);
+      break;
+    case AggregatableReportSharedInfo::DebugMode::kEnabled:
+      out->set_debug_mode(
+          proto::AggregatableReportSharedInfo_DebugMode_ENABLED);
+      break;
+  }
+
+  DCHECK(shared_info.additional_fields.empty());
+
+  out->set_api_version(shared_info.api_version);
+  out->set_api_identifier(shared_info.api_identifier);
+}
+
+proto::AggregatableReportRequest ConvertReportRequestToProto(
+    const AggregatableReportRequest& request) {
+  proto::AggregatableReportRequest request_proto;
+  ConvertPayloadContentsToProto(
+      request.payload_contents(),
+      /*out=*/request_proto.mutable_payload_contents());
+  ConvertSharedInfoToProto(request.shared_info(),
+                           /*out=*/request_proto.mutable_shared_info());
+  *request_proto.mutable_reporting_path() = request.reporting_path();
+
+  return request_proto;
+}
+
 }  // namespace
 
 AggregationServicePayloadContents::AggregationServicePayloadContents(
     Operation operation,
-    std::vector<AggregationServicePayloadContents::HistogramContribution>
-        contributions,
-    AggregationMode aggregation_mode)
+    std::vector<mojom::AggregatableReportHistogramContribution> contributions,
+    mojom::AggregationServiceMode aggregation_mode)
     : operation(operation),
       contributions(std::move(contributions)),
       aggregation_mode(aggregation_mode) {}
@@ -336,7 +489,7 @@ std::string AggregatableReportSharedInfo::SerializeAsJson() const {
     return value.contains(e.first);
   })) << "Additional fields in shared_info cannot duplicate existing fields";
 
-  value.Merge(additional_fields);
+  value.Merge(additional_fields.Clone());
 
   std::string serialized_value;
   bool succeeded = base::JSONWriter::Write(value, &serialized_value);
@@ -348,11 +501,12 @@ std::string AggregatableReportSharedInfo::SerializeAsJson() const {
 // static
 absl::optional<AggregatableReportRequest> AggregatableReportRequest::Create(
     AggregationServicePayloadContents payload_contents,
-    AggregatableReportSharedInfo shared_info) {
+    AggregatableReportSharedInfo shared_info,
+    std::string reporting_path) {
   std::vector<GURL> processing_urls =
       GetDefaultProcessingUrls(payload_contents.aggregation_mode);
   return CreateInternal(std::move(processing_urls), std::move(payload_contents),
-                        std::move(shared_info));
+                        std::move(shared_info), std::move(reporting_path));
 }
 
 // static
@@ -360,9 +514,10 @@ absl::optional<AggregatableReportRequest>
 AggregatableReportRequest::CreateForTesting(
     std::vector<GURL> processing_urls,
     AggregationServicePayloadContents payload_contents,
-    AggregatableReportSharedInfo shared_info) {
+    AggregatableReportSharedInfo shared_info,
+    std::string reporting_path) {
   return CreateInternal(std::move(processing_urls), std::move(payload_contents),
-                        std::move(shared_info));
+                        std::move(shared_info), std::move(reporting_path));
 }
 
 // static
@@ -370,7 +525,8 @@ absl::optional<AggregatableReportRequest>
 AggregatableReportRequest::CreateInternal(
     std::vector<GURL> processing_urls,
     AggregationServicePayloadContents payload_contents,
-    AggregatableReportSharedInfo shared_info) {
+    AggregatableReportSharedInfo shared_info,
+    std::string reporting_path) {
   if (!AggregatableReport::IsNumberOfProcessingUrlsValid(
           processing_urls.size(), payload_contents.aggregation_mode)) {
     return absl::nullopt;
@@ -389,7 +545,7 @@ AggregatableReportRequest::CreateInternal(
 
   if (base::ranges::any_of(
           payload_contents.contributions,
-          [](const AggregationServicePayloadContents::HistogramContribution&
+          [](const mojom::AggregatableReportHistogramContribution&
                  contribution) { return contribution.value < 0; })) {
     return absl::nullopt;
   }
@@ -402,18 +558,20 @@ AggregatableReportRequest::CreateInternal(
   // AggregatableReport construction later.
   base::ranges::sort(processing_urls);
 
-  return AggregatableReportRequest(std::move(processing_urls),
-                                   std::move(payload_contents),
-                                   std::move(shared_info));
+  return AggregatableReportRequest(
+      std::move(processing_urls), std::move(payload_contents),
+      std::move(shared_info), std::move(reporting_path));
 }
 
 AggregatableReportRequest::AggregatableReportRequest(
     std::vector<GURL> processing_urls,
     AggregationServicePayloadContents payload_contents,
-    AggregatableReportSharedInfo shared_info)
+    AggregatableReportSharedInfo shared_info,
+    std::string reporting_path)
     : processing_urls_(std::move(processing_urls)),
       payload_contents_(std::move(payload_contents)),
-      shared_info_(std::move(shared_info)) {}
+      shared_info_(std::move(shared_info)),
+      reporting_path_(std::move(reporting_path)) {}
 
 AggregatableReportRequest::AggregatableReportRequest(
     AggregatableReportRequest&& other) = default;
@@ -422,6 +580,38 @@ AggregatableReportRequest& AggregatableReportRequest::operator=(
     AggregatableReportRequest&& other) = default;
 
 AggregatableReportRequest::~AggregatableReportRequest() = default;
+
+GURL AggregatableReportRequest::GetReportingUrl() const {
+  if (reporting_path_.empty()) {
+    return GURL();
+  }
+  return shared_info().reporting_origin.GetURL().Resolve(reporting_path_);
+}
+
+absl::optional<AggregatableReportRequest>
+AggregatableReportRequest::Deserialize(
+    base::span<const uint8_t> serialized_proto) {
+  proto::AggregatableReportRequest request_proto;
+  if (!request_proto.ParseFromArray(serialized_proto.data(),
+                                    serialized_proto.size())) {
+    return absl::nullopt;
+  }
+
+  return ConvertReportRequestFromProto(std::move(request_proto));
+}
+
+std::vector<uint8_t> AggregatableReportRequest::Serialize() {
+  proto::AggregatableReportRequest request_proto =
+      ConvertReportRequestToProto(*this);
+
+  size_t size = request_proto.ByteSizeLong();
+  std::vector<uint8_t> serialized_proto(size);
+  if (!request_proto.SerializeToArray(serialized_proto.data(), size)) {
+    return {};
+  }
+
+  return serialized_proto;
+}
 
 AggregatableReport::AggregationServicePayload::AggregationServicePayload(
     std::vector<uint8_t> payload,
@@ -489,13 +679,12 @@ AggregatableReport::Provider::CreateFromRequestAndPublicKeys(
   std::vector<std::vector<uint8_t>> unencrypted_payloads;
 
   switch (report_request.payload_contents().aggregation_mode) {
-    case AggregationServicePayloadContents::AggregationMode::kTeeBased: {
+    case mojom::AggregationServiceMode::kTeeBased: {
       unencrypted_payloads = ConstructUnencryptedTeeBasedPayload(
           report_request.payload_contents());
       break;
     }
-    case AggregationServicePayloadContents::AggregationMode::
-        kExperimentalPoplar: {
+    case mojom::AggregationServiceMode::kExperimentalPoplar: {
       unencrypted_payloads = ConstructUnencryptedExperimentalPoplarPayloads(
           report_request.payload_contents());
       break;
@@ -571,12 +760,11 @@ base::Value::Dict AggregatableReport::GetAsJson() const {
 // static
 bool AggregatableReport::IsNumberOfProcessingUrlsValid(
     size_t number,
-    AggregationServicePayloadContents::AggregationMode aggregation_mode) {
+    mojom::AggregationServiceMode aggregation_mode) {
   switch (aggregation_mode) {
-    case AggregationServicePayloadContents::AggregationMode::kTeeBased:
+    case mojom::AggregationServiceMode::kTeeBased:
       return number == 1u;
-    case AggregationServicePayloadContents::AggregationMode::
-        kExperimentalPoplar:
+    case mojom::AggregationServiceMode::kExperimentalPoplar:
       return number == 2u;
   }
 }
@@ -584,13 +772,12 @@ bool AggregatableReport::IsNumberOfProcessingUrlsValid(
 // static
 bool AggregatableReport::IsNumberOfHistogramContributionsValid(
     size_t number,
-    AggregationServicePayloadContents::AggregationMode aggregation_mode) {
+    mojom::AggregationServiceMode aggregation_mode) {
   // Note: APIs using the aggregation service may impose their own limits.
   switch (aggregation_mode) {
-    case AggregationServicePayloadContents::AggregationMode::kTeeBased:
+    case mojom::AggregationServiceMode::kTeeBased:
       return number >= 1u;
-    case AggregationServicePayloadContents::AggregationMode::
-        kExperimentalPoplar:
+    case mojom::AggregationServiceMode::kExperimentalPoplar:
       return number == 1u;
   }
 }

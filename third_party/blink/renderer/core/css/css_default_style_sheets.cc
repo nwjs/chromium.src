@@ -47,6 +47,25 @@
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 
 namespace blink {
+namespace {
+String OverflowForReplacedElementRules() {
+  return RuntimeEnabledFeatures::CSSOverflowForReplacedElementsEnabled()
+             ? UncompressResourceAsASCIIString(
+                   IDR_UASTYLE_OVERFLOW_REPLACED_CSS)
+             : "";
+}
+
+String OverflowForSVGRules() {
+  if (!RuntimeEnabledFeatures::CSSOverflowForReplacedElementsEnabled())
+    return "";
+
+  return String(R"CSS(svg:not(:root) {
+    overflow: clip;
+    overflow-clip-margin: content-box;
+        })CSS");
+}
+
+}  // namespace
 
 CSSDefaultStyleSheets& CSSDefaultStyleSheets::Instance() {
   DEFINE_STATIC_LOCAL(Persistent<CSSDefaultStyleSheets>,
@@ -99,6 +118,7 @@ CSSDefaultStyleSheets::CSSDefaultStyleSheets()
     : media_controls_style_sheet_loader_(nullptr) {
   // Strict-mode rules.
   String default_rules = UncompressResourceAsASCIIString(IDR_UASTYLE_HTML_CSS) +
+                         OverflowForReplacedElementRules() +
                          LayoutTheme::GetTheme().ExtraDefaultStyleSheet();
 
   default_style_sheet_ = ParseUASheet(default_rules);
@@ -140,6 +160,7 @@ void CSSDefaultStyleSheets::PrepareForLeakDetection() {
   marker_style_sheet_.Clear();
   // Recreate the default style sheet to clean up possible SVG resources.
   String default_rules = UncompressResourceAsASCIIString(IDR_UASTYLE_HTML_CSS) +
+                         OverflowForReplacedElementRules() +
                          LayoutTheme::GetTheme().ExtraDefaultStyleSheet();
   default_style_sheet_ = ParseUASheet(default_rules);
 
@@ -241,7 +262,8 @@ bool CSSDefaultStyleSheets::EnsureDefaultStyleSheetsForElement(
   // FIXME: We should assert that the sheet only styles SVG elements.
   if (element.IsSVGElement() && !svg_style_sheet_) {
     svg_style_sheet_ =
-        ParseUASheet(UncompressResourceAsASCIIString(IDR_UASTYLE_SVG_CSS));
+        ParseUASheet(UncompressResourceAsASCIIString(IDR_UASTYLE_SVG_CSS) +
+                     OverflowForSVGRules());
     AddRulesToDefaultStyleSheets(svg_style_sheet_, NamespaceType::kSVG);
     changed_default_style = true;
   }

@@ -8,9 +8,9 @@
 
 #include "base/command_line.h"
 #include "base/test/metrics/histogram_tester.h"
-#include "chrome/browser/prefetch/no_state_prefetch/no_state_prefetch_manager_factory.h"
 #include "chrome/browser/prefetch/prefetch_proxy/prefetch_proxy_features.h"
 #include "chrome/browser/prefetch/prefetch_proxy/prefetched_mainframe_response_container.h"
+#include "chrome/browser/preloading/prefetch/no_state_prefetch/no_state_prefetch_manager_factory.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "components/no_state_prefetch/browser/no_state_prefetch_handle.h"
 #include "components/no_state_prefetch/browser/no_state_prefetch_manager.h"
@@ -70,6 +70,13 @@ class PrefetchProxyURLLoaderInterceptorTest
   PrefetchProxyURLLoaderInterceptorTest() = default;
   ~PrefetchProxyURLLoaderInterceptorTest() override = default;
 
+  void SetUp() override {
+    ChromeRenderViewHostTestHarness::SetUp();
+
+    scoped_feature_list_.InitAndDisableFeature(
+        features::kIsolatePrerendersMustProbeOrigin);
+  }
+
   void TearDown() override {
     prerender::NoStatePrefetchManager* no_state_prefetch_manager =
         prerender::NoStatePrefetchManagerFactory::GetForBrowserContext(
@@ -113,6 +120,7 @@ class PrefetchProxyURLLoaderInterceptorTest
  private:
   absl::optional<bool> was_intercepted_;
   base::OnceClosure waiting_for_callback_closure_;
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 TEST_F(PrefetchProxyURLLoaderInterceptorTest, DISABLE_ASAN(WantIntercept)) {

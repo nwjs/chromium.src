@@ -51,6 +51,7 @@
 #include "net/cookies/canonical_cookie.h"
 #include "net/cookies/cookie_constants.h"
 #include "net/cookies/cookie_util.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/image_model.h"
@@ -159,7 +160,6 @@ bool TypeIsProtected(CookieTreeNode::DetailedInfo::NodeType type) {
     // Fall through each below cases to return false.
     case CookieTreeNode::DetailedInfo::TYPE_COOKIE:
     case CookieTreeNode::DetailedInfo::TYPE_QUOTA:
-    case CookieTreeNode::DetailedInfo::TYPE_MEDIA_LICENSE:
       return false;
     default:
       break;
@@ -291,14 +291,6 @@ CookieTreeNode::DetailedInfo& CookieTreeNode::DetailedInfo::InitCacheStorage(
   Init(TYPE_CACHE_STORAGE);
   usage_info = storage_usage_info;
   origin = usage_info->origin;
-  return *this;
-}
-
-CookieTreeNode::DetailedInfo& CookieTreeNode::DetailedInfo::InitMediaLicense(
-    const content::StorageUsageInfo* storage_usage_info) {
-  Init(TYPE_MEDIA_LICENSE);
-  media_license_usage_info = storage_usage_info;
-  origin = media_license_usage_info->origin;
   return *this;
 }
 
@@ -635,12 +627,21 @@ class CookieTreeQuotaNode : public CookieTreeNode {
   ~CookieTreeQuotaNode() override = default;
 
   void DeleteStoredObjects() override {
-    // Calling this function may cause unexpected over-quota state of origin.
-    // However, it'll caused no problem, just prevent usage growth of the
-    // origin.
     LocalDataContainer* container = GetModel()->data_container();
 
     if (container) {
+      if (quota_info_->temporary_usage > 0) {
+        container->quota_helper_->DeleteHostData(
+            quota_info_->host, blink::mojom::StorageType::kTemporary);
+      }
+      if (quota_info_->persistent_usage > 0) {
+        container->quota_helper_->DeleteHostData(
+            quota_info_->host, blink::mojom::StorageType::kPersistent);
+      }
+      if (quota_info_->syncable_usage > 0) {
+        container->quota_helper_->DeleteHostData(
+            quota_info_->host, blink::mojom::StorageType::kSyncable);
+      }
       container->quota_helper_->RevokeHostQuota(quota_info_->host);
       container->quota_info_list_.erase(quota_info_);
     }
@@ -788,52 +789,6 @@ class CookieTreeCacheStorageNode : public CookieTreeNode {
   // |usage_info_| is expected to remain valid as long as the
   // CookieTreeCacheStorageNode is valid.
   std::list<content::StorageUsageInfo>::iterator usage_info_;
-};
-
-///////////////////////////////////////////////////////////////////////////////
-// CookieTreeMediaLicenseNode
-
-class CookieTreeMediaLicenseNode : public CookieTreeNode {
- public:
-  friend class CookieTreeMediaLicensesNode;
-
-  // |media_license_usage_info| is expected to remain valid as long as the
-  // CookieTreeMediaLicenseNode is valid.
-  explicit CookieTreeMediaLicenseNode(
-      const std::list<content::StorageUsageInfo>::iterator
-          media_license_usage_info)
-      : CookieTreeNode(base::UTF8ToUTF16(
-            media_license_usage_info->origin.GetURL().spec())),
-        media_license_usage_info_(media_license_usage_info) {}
-
-  CookieTreeMediaLicenseNode(const CookieTreeMediaLicenseNode&) = delete;
-  CookieTreeMediaLicenseNode& operator=(const CookieTreeMediaLicenseNode&) =
-      delete;
-
-  ~CookieTreeMediaLicenseNode() override = default;
-
-  void DeleteStoredObjects() override {
-    LocalDataContainer* container = GetLocalDataContainerForNode(this);
-
-    if (container) {
-      container->media_license_helper_->DeleteMediaLicenseOrigin(
-          media_license_usage_info_->origin);
-      container->media_license_info_list_.erase(media_license_usage_info_);
-    }
-  }
-
-  DetailedInfo GetDetailedInfo() const override {
-    return DetailedInfo().InitMediaLicense(&*media_license_usage_info_);
-  }
-
-  int64_t InclusiveSize() const override {
-    return media_license_usage_info_->total_size_bytes;
-  }
-
- private:
-  // |media_license_usage_info_| is expected to remain valid as long as the
-  // CookieTreeMediaLicenseNode is valid.
-  std::list<content::StorageUsageInfo>::iterator media_license_usage_info_;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1115,30 +1070,6 @@ class CookieTreeCacheStoragesNode : public CookieTreeCollectionNode {
 };
 
 ///////////////////////////////////////////////////////////////////////////////
-// CookieTreeMediaLicensesNode
-
-class CookieTreeMediaLicensesNode : public CookieTreeCollectionNode {
- public:
-  CookieTreeMediaLicensesNode()
-      : CookieTreeCollectionNode(
-            l10n_util::GetStringUTF16(IDS_COOKIES_MEDIA_LICENSES)) {}
-
-  CookieTreeMediaLicensesNode(const CookieTreeMediaLicensesNode&) = delete;
-  CookieTreeMediaLicensesNode& operator=(const CookieTreeMediaLicensesNode&) =
-      delete;
-
-  ~CookieTreeMediaLicensesNode() override = default;
-
-  DetailedInfo GetDetailedInfo() const override {
-    return DetailedInfo().Init(DetailedInfo::TYPE_MEDIA_LICENSES);
-  }
-
-  void AddMediaLicenseNode(std::unique_ptr<CookieTreeMediaLicenseNode> child) {
-    AddChildSortedByTitle(std::move(child));
-  }
-};
-
-///////////////////////////////////////////////////////////////////////////////
 // CookieTreeHostNode, public:
 
 // static
@@ -1268,16 +1199,6 @@ CookieTreeHostNode::GetOrCreateCacheStoragesNode() {
   return cache_storages_child_;
 }
 
-CookieTreeMediaLicensesNode*
-CookieTreeHostNode::GetOrCreateMediaLicensesNode() {
-  if (media_licenses_child_)
-    return media_licenses_child_;
-  auto media_licenses_node = std::make_unique<CookieTreeMediaLicensesNode>();
-  media_licenses_child_ = media_licenses_node.get();
-  AddChildSortedByTitle(std::move(media_licenses_node));
-  return media_licenses_child_;
-}
-
 void CookieTreeHostNode::CreateContentException(
     content_settings::CookieSettings* cookie_settings,
     ContentSetting setting) const {
@@ -1397,7 +1318,6 @@ int CookiesTreeModel::GetIconIndex(ui::TreeModelNode* node) {
     case CookieTreeNode::DetailedInfo::TYPE_SERVICE_WORKER:
     case CookieTreeNode::DetailedInfo::TYPE_SHARED_WORKER:
     case CookieTreeNode::DetailedInfo::TYPE_CACHE_STORAGE:
-    case CookieTreeNode::DetailedInfo::TYPE_MEDIA_LICENSE:
       return DATABASE;
     case CookieTreeNode::DetailedInfo::TYPE_HOST:
     case CookieTreeNode::DetailedInfo::TYPE_QUOTA:
@@ -1444,7 +1364,6 @@ void CookiesTreeModel::UpdateSearchResults(const std::u16string& filter) {
   PopulateServiceWorkerUsageInfoWithFilter(data_container(), &notifier, filter);
   PopulateSharedWorkerInfoWithFilter(data_container(), &notifier, filter);
   PopulateCacheStorageUsageInfoWithFilter(data_container(), &notifier, filter);
-  PopulateMediaLicenseInfoWithFilter(data_container(), &notifier, filter);
 }
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
@@ -1529,11 +1448,6 @@ void CookiesTreeModel::PopulateCacheStorageUsageInfo(
   ScopedBatchUpdateNotifier notifier(this, GetRoot());
   PopulateCacheStorageUsageInfoWithFilter(container, &notifier,
                                           std::u16string());
-}
-
-void CookiesTreeModel::PopulateMediaLicenseInfo(LocalDataContainer* container) {
-  ScopedBatchUpdateNotifier notifier(this, GetRoot());
-  PopulateMediaLicenseInfoWithFilter(container, &notifier, std::u16string());
 }
 
 void CookiesTreeModel::PopulateCookieInfoWithFilter(
@@ -1795,31 +1709,6 @@ void CookiesTreeModel::PopulateQuotaInfoWithFilter(
   }
 }
 
-void CookiesTreeModel::PopulateMediaLicenseInfoWithFilter(
-    LocalDataContainer* container,
-    ScopedBatchUpdateNotifier* notifier,
-    const std::u16string& filter) {
-  CookieTreeRootNode* root = static_cast<CookieTreeRootNode*>(GetRoot());
-
-  if (container->media_license_info_list_.empty())
-    return;
-
-  notifier->StartBatchUpdate();
-  for (auto usage_info = container->media_license_info_list_.begin();
-       usage_info != container->media_license_info_list_.end(); ++usage_info) {
-    GURL origin(usage_info->origin.GetURL());
-
-    if (filter.empty() || (CookieTreeHostNode::TitleForUrl(origin).find(
-                               filter) != std::u16string::npos)) {
-      CookieTreeHostNode* host_node = root->GetOrCreateHostNode(origin);
-      CookieTreeMediaLicensesNode* media_licenses_node =
-          host_node->GetOrCreateMediaLicensesNode();
-      media_licenses_node->AddMediaLicenseNode(
-          std::make_unique<CookieTreeMediaLicenseNode>(usage_info));
-    }
-  }
-}
-
 void CookiesTreeModel::SetBatchExpectation(int batches_expected, bool reset) {
   batches_expected_ = batches_expected;
   if (reset) {
@@ -1876,31 +1765,57 @@ CookiesTreeModel::GetCookieDeletionDisabledCallback(Profile* profile) {
 }
 
 // static
-std::unique_ptr<CookiesTreeModel> CookiesTreeModel::CreateForProfile(
+std::unique_ptr<CookiesTreeModel> CookiesTreeModel::CreateForProfileDeprecated(
     Profile* profile) {
   auto* storage_partition = profile->GetDefaultStoragePartition();
   auto* file_system_context = storage_partition->GetFileSystemContext();
   auto* native_io_context = storage_partition->GetNativeIOContext();
 
+  // If partitioned storage is enabled, the quota node is used to represent all
+  // types of quota managed storage. If not, the quota node type is excluded as
+  // it is represented by other types.
+  bool use_quota_only = base::FeatureList::IsEnabled(
+      blink::features::kThirdPartyStoragePartitioning);
+
+  // Types managed by Quota:
+  auto database_helper =
+      use_quota_only
+          ? nullptr
+          : base::MakeRefCounted<browsing_data::DatabaseHelper>(profile);
+  auto cache_helper =
+      use_quota_only ? nullptr
+                     : base::MakeRefCounted<browsing_data::CacheStorageHelper>(
+                           storage_partition);
+  auto indexed_db_helper =
+      use_quota_only ? nullptr
+                     : base::MakeRefCounted<browsing_data::IndexedDBHelper>(
+                           storage_partition);
+  auto file_system_helper =
+      use_quota_only
+          ? nullptr
+          : base::MakeRefCounted<browsing_data::FileSystemHelper>(
+                file_system_context,
+                browsing_data_file_system_util::GetAdditionalFileSystemTypes(),
+                native_io_context);
+  auto service_worker_helper =
+      use_quota_only ? nullptr
+                     : base::MakeRefCounted<browsing_data::ServiceWorkerHelper>(
+                           storage_partition->GetServiceWorkerContext());
+
+  // Quota type itself:
+  auto quota_helper =
+      use_quota_only ? BrowsingDataQuotaHelper::Create(profile) : nullptr;
+
   auto container = std::make_unique<LocalDataContainer>(
       base::MakeRefCounted<browsing_data::CookieHelper>(
           storage_partition, GetCookieDeletionDisabledCallback(profile)),
-      base::MakeRefCounted<browsing_data::DatabaseHelper>(profile),
+      database_helper,
       base::MakeRefCounted<browsing_data::LocalStorageHelper>(profile),
-      /*session_storage_helper=*/nullptr,
-      base::MakeRefCounted<browsing_data::IndexedDBHelper>(storage_partition),
-      base::MakeRefCounted<browsing_data::FileSystemHelper>(
-          file_system_context,
-          browsing_data_file_system_util::GetAdditionalFileSystemTypes(),
-          native_io_context),
-      BrowsingDataQuotaHelper::Create(profile),
-      base::MakeRefCounted<browsing_data::ServiceWorkerHelper>(
-          storage_partition->GetServiceWorkerContext()),
+      /*session_storage_helper=*/nullptr, indexed_db_helper, file_system_helper,
+      quota_helper, service_worker_helper,
       base::MakeRefCounted<browsing_data::SharedWorkerHelper>(
           storage_partition),
-      base::MakeRefCounted<browsing_data::CacheStorageHelper>(
-          storage_partition),
-      BrowsingDataMediaLicenseHelper::Create(file_system_context));
+      cache_helper);
 
   return std::make_unique<CookiesTreeModel>(
       std::move(container), profile->GetExtensionSpecialStoragePolicy(),

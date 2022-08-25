@@ -21,7 +21,6 @@ import org.robolectric.annotation.Config;
 import org.chromium.base.Callback;
 import org.chromium.base.metrics.UmaRecorder;
 import org.chromium.base.metrics.UmaRecorderHolder;
-import org.chromium.base.metrics.test.ShadowRecordHistogram;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Feature;
@@ -43,7 +42,7 @@ import java.util.concurrent.TimeoutException;
  */
 @RunWith(BaseRobolectricTestRunner.class)
 @Features.EnableFeatures(ChromeFeatureList.TAB_STRIP_IMPROVEMENTS)
-@Config(manifest = Config.NONE, shadows = {ShadowRecordHistogram.class})
+@Config(manifest = Config.NONE)
 public class UndoRefocusHelperTest {
     @Mock
     TabModelSelector mTabModelSelector;
@@ -217,6 +216,34 @@ public class UndoRefocusHelperTest {
 
         // Assert: Second tab is still selected after undo.
         assertEquals(1, mModel.index());
+    }
+
+    @Test
+    @Feature("Tab Strip Improvements")
+    public void testUndoSingleTabClose_AfterClosingSelectedTabs_ReselectsMostRecentlyClosedTab() {
+        // Arrange: Start with fourth tab as selected index
+        initializeTabModel(3);
+        TabModelSelectorTabModelObserver tabModelSelectorTabModelObserver =
+                mUndoRefocusHelper.getTabModelSelectorTabModelObserverForTests();
+
+        // Act 1: Close the fourth tab.
+        Tab fourthTab = getMockedTab(3);
+        tabModelSelectorTabModelObserver.willCloseTab(fourthTab, false);
+        // After fourth tab is closed, the third one should be selected.
+        mModel.setIndex(2);
+
+        // Act 2: Close the third tab after it is selected.
+        Tab thirdTab = getMockedTab(2);
+        tabModelSelectorTabModelObserver.willCloseTab(thirdTab, false);
+        // After third tab is closed, the second one should be selected.
+        mModel.setIndex(1);
+
+        // Undo tab closures.
+        tabModelSelectorTabModelObserver.tabClosureUndone(thirdTab);
+        tabModelSelectorTabModelObserver.tabClosureUndone(fourthTab);
+
+        // Assert: Third tab is still selected after undo instead of the fourth tab.
+        assertEquals(2, mModel.index());
     }
 
     @Test

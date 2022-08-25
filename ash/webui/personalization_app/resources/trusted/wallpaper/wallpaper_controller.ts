@@ -82,7 +82,7 @@ export async function fetchGooglePhotosAlbum(
     return;
   }
 
-  let photos: Array<GooglePhotosPhoto>|null = [];
+  let photos: GooglePhotosPhoto[]|null = [];
   let resumeToken =
       store.data.wallpaper.googlePhotos.resumeTokens.photosByAlbumId[albumId] ||
       null;
@@ -126,7 +126,7 @@ export async function fetchGooglePhotosAlbums(
     return;
   }
 
-  let albums: Array<GooglePhotosAlbum>|null = [];
+  let albums: GooglePhotosAlbum[]|null = [];
   let resumeToken = store.data.wallpaper.googlePhotos.resumeTokens.albums;
 
   const {response} = await provider.fetchGooglePhotosAlbums(resumeToken);
@@ -184,7 +184,7 @@ export async function fetchGooglePhotosPhotos(
     return;
   }
 
-  let photos: Array<GooglePhotosPhoto>|null = [];
+  let photos: GooglePhotosPhoto[]|null = [];
   let resumeToken = store.data.wallpaper.googlePhotos.resumeTokens.photos;
 
   const {response} = await provider.fetchGooglePhotosPhotos(
@@ -384,7 +384,7 @@ export async function getDailyRefreshState(
     store: PersonalizationStore): Promise<void> {
   const [{collectionId}, {albumId}] = await Promise.all([
     provider.getDailyRefreshCollectionId(),
-    provider.getGooglePhotosDailyRefreshAlbumId()
+    provider.getGooglePhotosDailyRefreshAlbumId(),
   ]);
 
   // Daily refresh should only be active for either Backdrop or Google Photos

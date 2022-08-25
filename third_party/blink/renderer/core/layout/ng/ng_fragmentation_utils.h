@@ -246,11 +246,13 @@ enum class NGBreakStatus {
 };
 
 // Update and write fragmentation information to the fragment builder after
-// layout. This will update the block-size stored in the builder. When
-// calculating the block-size, a layout algorithm will include the accumulated
-// block-size of all fragments generated for this node - as if they were all
-// stitched together as one tall fragment. This is the most convenient thing to
-// do, since any block-size specified in CSS applies to the entire box,
+// layout. This will update the block-size stored in the builder. It may also
+// update the stored intrinsic block-size.
+//
+// When calculating the block-size, a layout algorithm will include the
+// accumulated block-size of all fragments generated for this node - as if they
+// were all stitched together as one tall fragment. This is the most convenient
+// thing to do, since any block-size specified in CSS applies to the entire box,
 // regardless of fragmentation. This function will update the block-size to the
 // actual fragment size, by examining possible breakpoints, if necessary.
 //
@@ -347,6 +349,18 @@ void PropagateSpaceShortage(
     LayoutUnit fragmentainer_block_offset,
     NGBoxFragmentBuilder*,
     absl::optional<LayoutUnit> block_size_override = absl::nullopt);
+// Calculate how much we would need to stretch the column block-size to fit the
+// current result (if applicable). |block_size_override| should only be supplied
+// when you wish to propagate a different block-size than that of the provided
+// layout result.
+LayoutUnit CalculateSpaceShortage(
+    const NGConstraintSpace&,
+    const NGLayoutResult*,
+    LayoutUnit fragmentainer_block_offset,
+    absl::optional<LayoutUnit> block_size_override = absl::nullopt);
+// Update |minimal_space_shortage| based on the current |space_shortage|.
+void UpdateMinimalSpaceShortage(absl::optional<LayoutUnit> space_shortage,
+                                LayoutUnit* minimal_space_shortage);
 
 // Move past the breakpoint before the child, if possible, and return true. Also
 // update the appeal of breaking before or inside the child (if we're not going

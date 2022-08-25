@@ -308,7 +308,7 @@ bool WorkletGlobalScope::CrossOriginIsolatedCapability() const {
   return parent_cross_origin_isolated_capability_;
 }
 
-bool WorkletGlobalScope::DirectSocketCapability() const {
+bool WorkletGlobalScope::IsolatedApplicationCapability() const {
   return parent_direct_socket_capability_;
 }
 
@@ -322,6 +322,10 @@ ukm::UkmRecorder* WorkletGlobalScope::UkmRecorder() {
   ukm_recorder_ = std::make_unique<ukm::MojoUkmRecorder>(std::move(recorder));
 
   return ukm_recorder_.get();
+}
+
+ukm::SourceId WorkletGlobalScope::UkmSourceID() const {
+  return ukm::kInvalidSourceId;
 }
 
 void WorkletGlobalScope::Trace(Visitor* visitor) const {

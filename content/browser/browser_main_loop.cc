@@ -96,7 +96,6 @@
 #include "content/browser/utility_process_host.h"
 #include "content/browser/webrtc/webrtc_internals.h"
 #include "content/browser/webui/content_web_ui_configs.h"
-#include "content/browser/webui/content_web_ui_controller_factory.h"
 #include "content/browser/webui/url_data_manager.h"
 #include "content/common/content_switches_internal.h"
 #include "content/common/skia_utils.h"
@@ -551,17 +550,10 @@ int BrowserMainLoop::EarlyInitialization() {
       return pre_early_init_error_code;
   }
 
-  // Up the priority of the UI thread unless it was already high (since Mac
-  // and recent versions of Android (O+) do this automatically).
-#if !BUILDFLAG(IS_MAC)
-  if (base::FeatureList::IsEnabled(
-          features::kBrowserUseDisplayThreadPriority) &&
-      base::PlatformThread::GetCurrentThreadPriority() <
-          base::ThreadPriority::DISPLAY) {
-    base::PlatformThread::SetCurrentThreadPriority(
-        base::ThreadPriority::DISPLAY);
-  }
-#endif  // !BUILDFLAG(IS_MAC)
+  // SetCurrentThreadType relies on CurrentUIThread on some platforms. The
+  // MessagePumpForUI needs to be bound to the main thread by this point.
+  DCHECK(base::CurrentUIThread::IsSet());
+  base::PlatformThread::SetCurrentThreadType(base::ThreadType::kCompositing);
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
     BUILDFLAG(IS_ANDROID)
@@ -678,8 +670,6 @@ void BrowserMainLoop::PostCreateMainMessageLoop() {
   {
     TRACE_EVENT0("startup",
                  "BrowserMainLoop::Subsystem:ContentWebUIController");
-    WebUIControllerFactory::RegisterFactory(
-        ContentWebUIControllerFactory::GetInstance());
     RegisterContentWebUIConfigs();
   }
 
@@ -991,6 +981,19 @@ int BrowserMainLoop::PreMainMessageLoopRun() {
           self->parts_->OnFirstIdle();
 
         self->responsiveness_watcher_->OnFirstIdle();
+
+        // Enable MessagePumpPhases metrics/tracing on-first-idle, not before as
+        // queuing time is not relevant before first idle.
+        // TODO(1329717): Consider supporting the initial run (until first idle)
+        // as well.
+        auto enable_message_pump_metrics =
+            base::BindRepeating([](const char* thread_name) {
+              base::CurrentThread::Get()->EnableMessagePumpTimeKeeperMetrics(
+                  thread_name);
+            });
+        enable_message_pump_metrics.Run("BrowserUI");
+        GetIOThreadTaskRunner({})->PostTask(
+            FROM_HERE, BindOnce(enable_message_pump_metrics, "BrowserIO"));
       },
       base::Unretained(this)));
 
@@ -1045,6 +1048,11 @@ void BrowserMainLoop::RunMainMessageLoop() {
 }
 
 void BrowserMainLoop::PreShutdown() {
+  // Clear OnNextIdleCallback if it's still pending. Failure to do so can result
+  // in an OnFirstIdle phase incorrectly triggering during shutdown if an early
+  // exit paths results in a shutdown path that happens to RunLoop.
+  base::CurrentThread::Get()->RegisterOnNextIdleCallback(base::NullCallback());
+
   ui::Clipboard::OnPreShutdownForCurrentThread();
 }
 

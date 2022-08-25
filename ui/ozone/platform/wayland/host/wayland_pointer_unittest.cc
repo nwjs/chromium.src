@@ -8,6 +8,7 @@
 #include <cmath>
 #include <memory>
 
+#include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "build/chromeos_buildflags.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -60,7 +61,7 @@ class WaylandPointerTest : public WaylandTest {
   }
 
  protected:
-  wl::MockPointer* pointer_;
+  raw_ptr<wl::MockPointer> pointer_;
 };
 
 void SendAxisEvents(struct wl_resource* resource,
@@ -139,6 +140,7 @@ TEST_P(WaylandPointerTest, Leave) {
   wl_pointer_send_button(pointer_->resource(), 4, 1004, BTN_LEFT,
                          WL_POINTER_BUTTON_STATE_PRESSED);
   EXPECT_CALL(delegate_, DispatchEvent(_)).Times(2);
+  EXPECT_CALL(other_delegate, DispatchEvent(_)).Times(2);
 
   // Do an extra Sync() here so that we process the second enter event before we
   // destroy |other_window|.

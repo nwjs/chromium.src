@@ -10,11 +10,11 @@ import 'chrome://settings/lazy_load.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.m.js';
 import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import {PasswordDialogMode, PasswordEditDialogElement, SettingsTextareaElement} from 'chrome://settings/lazy_load.js';
-import {PasswordManagerImpl} from 'chrome://settings/settings.js';
+import {PasswordManagerImpl, MultiStorePasswordUiEntry} from 'chrome://settings/settings.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {eventToPromise, flushTasks, isVisible} from 'chrome://webui-test/test_util.js';
 
-import {createMultiStorePasswordEntry, PasswordSectionElementFactory} from './passwords_and_autofill_fake_data.js';
+import {createPasswordEntry, createMultiStorePasswordEntry, PasswordSectionElementFactory} from './passwords_and_autofill_fake_data.js';
 import {TestPasswordManagerProxy} from './test_password_manager_proxy.js';
 
 // clang-format on
@@ -81,39 +81,6 @@ function assertFederatedDialogParts(passwordDialog: PasswordEditDialogElement) {
   assertFalse(isElementVisible(passwordDialog.$.footnote));
 
   assertFalse(isElementVisible(passwordDialog.$.cancel));
-  assertEquals(
-      passwordDialog.i18n('done'),
-      passwordDialog.$.actionButton.textContent!.trim());
-  assertFalse(passwordDialog.$.actionButton.disabled);
-}
-
-/**
- * Helper function to test if all components of view dialog are shown
- * correctly.
- */
-function assertViewDialogParts(
-    passwordDialog: PasswordEditDialogElement, titleText: string) {
-  assertEquals(PasswordDialogMode.PASSWORD_VIEW, passwordDialog.dialogMode);
-
-  assertEquals(titleText, passwordDialog.$.title.textContent!.trim());
-
-  assertTrue(!!passwordDialog.$.websiteInput.hidden);
-
-  assertTrue(!!passwordDialog.$.usernameInput.readonly);
-  assertTrue(!!passwordDialog.shadowRoot!.querySelector('#copyUsernameButton'));
-
-  assertTrue(!!passwordDialog.$.passwordInput.readonly);
-  assertTrue(!!passwordDialog.$.passwordInput.required);
-
-  assertTrue(!!passwordDialog.shadowRoot!.querySelector('#copyPasswordButton'));
-  assertTrue(!!passwordDialog.shadowRoot!.querySelector('#showPasswordButton'));
-
-  assertFalse(isElementVisible(passwordDialog.$.storePicker));
-
-  assertFalse(isElementVisible(passwordDialog.$.footnote));
-
-  assertFalse(isElementVisible(passwordDialog.$.cancel));
-  assertTrue(!!passwordDialog.shadowRoot!.querySelector('#switchToEditButton'));
   assertEquals(
       passwordDialog.i18n('done'),
       passwordDialog.$.actionButton.textContent!.trim());
@@ -201,6 +168,7 @@ async function changeSavedPasswordTestHelper(
   assertFalse(editDialog.$.passwordInput.invalid);
   assertFalse(editDialog.$.actionButton.disabled);
 
+  passwordManager.setChangeSavedPasswordResponse({accountId: 999});
   editDialog.$.actionButton.click();
 
   // Check that the changeSavedPassword is called with the right arguments.
@@ -271,6 +239,17 @@ suite('PasswordEditDialog', function() {
         passwordDialog.$.footnote.innerText.trim());
   });
 
+  test('hasCorrectInitialStateWhenEditAndroidCredential', function() {
+    const androidEntry = createPasswordEntry(
+        {url: 'app.com', username: 'bart', isAndroidCredential: true});
+    const passwordDialog = elementFactory.createPasswordEditDialog(
+        new MultiStorePasswordUiEntry(androidEntry));
+    assertEquals(androidEntry.urls.shown, passwordDialog.$.websiteInput.value);
+    assertEquals(
+        passwordDialog.i18n('editPasswordAppLabel'),
+        passwordDialog.$.websiteInput.label);
+  });
+
   test('hasCorrectInitialStateWhenEditPassword', function() {
     const commonEntry = createMultiStorePasswordEntry(
         {url: 'goo.gl', username: 'bart', accountId: 42});
@@ -291,7 +270,7 @@ suite('PasswordEditDialog', function() {
     const editDialog = elementFactory.createPasswordEditDialog(accountEntry);
 
     return changeSavedPasswordTestHelper(
-        editDialog, [accountEntry.accountId!], passwordManager);
+        editDialog, [accountEntry.id], passwordManager);
   });
 
   test('changesPasswordForDeviceId', function() {
@@ -300,17 +279,16 @@ suite('PasswordEditDialog', function() {
     const editDialog = elementFactory.createPasswordEditDialog(deviceEntry);
 
     return changeSavedPasswordTestHelper(
-        editDialog, [deviceEntry.deviceId!], passwordManager);
+        editDialog, [deviceEntry.id], passwordManager);
   });
 
   test('changesPasswordForBothId', function() {
     const multiEntry = createMultiStorePasswordEntry(
-        {url: 'goo.gl', username: 'bart', accountId: 41, deviceId: 42});
+        {url: 'goo.gl', username: 'bart', accountId: 41, deviceId: 41});
     const editDialog = elementFactory.createPasswordEditDialog(multiEntry);
 
     return changeSavedPasswordTestHelper(
-        editDialog, [multiEntry.accountId!, multiEntry.deviceId!],
-        passwordManager);
+        editDialog, [multiEntry.id], passwordManager);
   });
 
   test('changeUsernameFailsWhenReused', function() {
@@ -318,7 +296,7 @@ suite('PasswordEditDialog', function() {
       createMultiStorePasswordEntry(
           {url: 'goo.gl', username: 'bart', accountId: 0}),
       createMultiStorePasswordEntry(
-          {url: 'goo.gl', username: 'mark', accountId: 0})
+          {url: 'goo.gl', username: 'mark', accountId: 1}),
     ];
     const editDialog = elementFactory.createPasswordEditDialog(
         accountPasswords[0]!, accountPasswords);
@@ -332,7 +310,7 @@ suite('PasswordEditDialog', function() {
     assertFalse(editDialog.$.actionButton.disabled);
 
     return changeSavedPasswordTestHelper(
-        editDialog, [accountPasswords[0]!.accountId!], passwordManager);
+        editDialog, [accountPasswords[0]!.id], passwordManager);
   });
 
   test('changesUsernameWhenReusedForDifferentStore', async function() {
@@ -340,7 +318,7 @@ suite('PasswordEditDialog', function() {
       createMultiStorePasswordEntry(
           {url: 'goo.gl', username: 'bart', accountId: 0}),
       createMultiStorePasswordEntry(
-          {url: 'goo.gl', username: 'mark', deviceId: 0})
+          {url: 'goo.gl', username: 'mark', deviceId: 1}),
     ];
     const editDialog =
         elementFactory.createPasswordEditDialog(passwords[0], passwords);
@@ -580,7 +558,7 @@ suite('PasswordEditDialog', function() {
       createMultiStorePasswordEntry(
           {url: 'website.com', username: 'username1', accountId: 0}),
       createMultiStorePasswordEntry(
-          {url: 'website.com', username: 'username2', deviceId: 0})
+          {url: 'website.com', username: 'username2', deviceId: 0}),
     ];
     const addDialog = elementFactory.createPasswordEditDialog(null, passwords);
     await updateWebsiteInput(addDialog, passwordManager, 'website.com');
@@ -650,7 +628,7 @@ suite('PasswordEditDialog', function() {
         addDialog.$.viewExistingPasswordLink.click();
         const {id, reason} =
             await passwordManager.whenCalled('requestPlaintextPassword');
-        assertEquals(existingEntry.getAnyId(), id);
+        assertEquals(existingEntry.id, id);
         assertEquals(chrome.passwordsPrivate.PlaintextReason.EDIT, reason);
         await flushTasks();
 
@@ -675,6 +653,7 @@ suite('PasswordEditDialog', function() {
 
   test('changesPasswordWithNote', async function() {
     loadTimeData.overrideValues({enablePasswordNotes: true});
+    loadTimeData.overrideValues({enablePasswordViewPage: true});
     const entry = createMultiStorePasswordEntry(
         {url: 'goo.gl', username: 'bart', accountId: 42, note: 'some note'});
     const editDialog = elementFactory.createPasswordEditDialog(entry);
@@ -693,28 +672,20 @@ suite('PasswordEditDialog', function() {
     assertFalse(editDialog.$.passwordInput.invalid);
     assertFalse(editDialog.$.actionButton.disabled);
 
+    passwordManager.setChangeSavedPasswordResponse({accountId: 43});
     editDialog.$.actionButton.click();
 
     // Check that the changeSavedPassword is called with the right arguments.
+    const dispatchedEvent = eventToPromise('saved-password-edited', editDialog);
     const {params} = await passwordManager.whenCalled('changeSavedPassword');
     assertEquals(expectedParams.password, params.password);
     assertEquals(expectedParams.username, params.username);
     assertEquals(expectedParams.note, params.note);
-  });
 
-  test('hasCorrectInitialStateWhenViewModeWhenNotesEnabled', async function() {
-    loadTimeData.overrideValues({enablePasswordNotes: true});
-    const commonEntry = createMultiStorePasswordEntry(
-        {url: 'goo.gl', username: 'bart', accountId: 42});
-    const passwordDialog = elementFactory.createPasswordEditDialog(
-        commonEntry, [], false, PasswordDialogMode.PASSWORD_VIEW);
-    assertViewDialogParts(passwordDialog, commonEntry.urls.shown);
-    assertTrue(passwordDialog.$.passwordInput.type === 'text');
-    const noteElement =
-        passwordDialog.shadowRoot!.querySelector<SettingsTextareaElement>(
-            '#note');
-    assertTrue(!!noteElement);
-    assertTrue(!!noteElement.readonly);
+    await dispatchedEvent.then((event) => {
+      assertEquals(43, event.detail.accountId);
+      assertEquals(undefined, event.detail.deviceId);
+    });
   });
 
   test('noChangesWhenNotesIsNotEnabled', async function() {
@@ -726,20 +697,6 @@ suite('PasswordEditDialog', function() {
     assertFalse(
         !!passwordDialog.shadowRoot!.querySelector<SettingsTextareaElement>(
             '#note'));
-  });
-
-  test('clickingEditInPasswordViewModeChangesDialogMode', async function() {
-    loadTimeData.overrideValues({enablePasswordNotes: true});
-    const commonEntry = createMultiStorePasswordEntry(
-        {url: 'goo.gl', username: 'bart', accountId: 42});
-    const passwordDialog = elementFactory.createPasswordEditDialog(
-        commonEntry, [], false, PasswordDialogMode.PASSWORD_VIEW);
-    assertViewDialogParts(passwordDialog, commonEntry.urls.shown);
-    const button = passwordDialog.shadowRoot!.querySelector<HTMLButtonElement>(
-        '#switchToEditButton')!;
-    button.click();
-    flush();
-    assertEditDialogParts(passwordDialog);
   });
 
   test('federatedCredentialDoesntHaveNotes', async function() {
@@ -762,8 +719,8 @@ suite('PasswordEditDialog', function() {
       accountId: 42,
       note: 'a'.repeat(900),
     });
-    const passwordDialog = elementFactory.createPasswordEditDialog(
-        commonEntry, [], false, PasswordDialogMode.EDIT);
+    const passwordDialog =
+        elementFactory.createPasswordEditDialog(commonEntry, [], false);
 
     assertEditDialogParts(passwordDialog);
     const noteElement =
@@ -778,24 +735,6 @@ suite('PasswordEditDialog', function() {
     assertFalse(noteElement!.invalid);
   });
 
-  test('doNotShowNoteWarningInViewModeWhen999Characters', async function() {
-    loadTimeData.overrideValues({enablePasswordNotes: true});
-    const commonEntry = createMultiStorePasswordEntry({
-      url: 'goo.gl',
-      username: 'bart',
-      accountId: 42,
-      note: 'a'.repeat(999),
-    });
-    const passwordDialog = elementFactory.createPasswordEditDialog(
-        commonEntry, [], false, PasswordDialogMode.PASSWORD_VIEW);
-
-    const noteElement =
-        passwordDialog.shadowRoot!.querySelector<SettingsTextareaElement>(
-            '#note');
-    assertEquals('', noteElement!.$.firstFooter.textContent!.trim());
-    assertEquals('', noteElement!.$.secondFooter.textContent!.trim());
-  });
-
   test('disableActionButtonWhenNoteIsLargerThan1000Chars', async function() {
     loadTimeData.overrideValues({enablePasswordNotes: true});
     const commonEntry = createMultiStorePasswordEntry({
@@ -804,8 +743,8 @@ suite('PasswordEditDialog', function() {
       accountId: 42,
       note: 'a'.repeat(1001),
     });
-    const passwordDialog = elementFactory.createPasswordEditDialog(
-        commonEntry, [], false, PasswordDialogMode.EDIT);
+    const passwordDialog =
+        elementFactory.createPasswordEditDialog(commonEntry, [], false);
 
     assertTrue(passwordDialog.$.actionButton.disabled);
     assertTrue(passwordDialog.shadowRoot!
@@ -820,8 +759,8 @@ suite('PasswordEditDialog', function() {
       accountId: 42,
       note: 'a'.repeat(1000),
     });
-    const passwordDialog = elementFactory.createPasswordEditDialog(
-        commonEntry, [], false, PasswordDialogMode.EDIT);
+    const passwordDialog =
+        elementFactory.createPasswordEditDialog(commonEntry, [], false);
     const noteElement =
         passwordDialog.shadowRoot!.querySelector<SettingsTextareaElement>(
             '#note');
@@ -847,8 +786,8 @@ suite('PasswordEditDialog', function() {
       accountId: 42,
       note: 'personal account',
     });
-    const passwordDialog = elementFactory.createPasswordEditDialog(
-        commonEntry, [], false, PasswordDialogMode.EDIT);
+    const passwordDialog =
+        elementFactory.createPasswordEditDialog(commonEntry, [], false);
     const noteElement =
         passwordDialog.shadowRoot!.querySelector<SettingsTextareaElement>(
             '#note');
@@ -878,7 +817,7 @@ suite('PasswordEditDialog', function() {
         addDialog.$.viewExistingPasswordLink.click();
         const {id, reason} =
             await passwordManager.whenCalled('requestPlaintextPassword');
-        assertEquals(existingEntry.getAnyId(), id);
+        assertEquals(existingEntry.id, id);
         assertEquals(chrome.passwordsPrivate.PlaintextReason.EDIT, reason);
         await flushTasks();
 

@@ -17,7 +17,6 @@ import {FilePath} from 'chrome://resources/mojo/mojo/public/mojom/base/file_path
 import * as constants from '../common/constants.js';
 import {isNonEmptyArray} from '../common/utils.js';
 import {CollectionsGrid} from '../untrusted/collections_grid.js';
-import {ImagesGrid} from '../untrusted/images_grid.js';
 
 import {GooglePhotosEnablementState, WallpaperCollection, WallpaperImage} from './personalization_app.mojom-webui.js';
 
@@ -30,11 +29,10 @@ export class IFrameApi {
   /**
    * Send an array of wallpaper collections collections grid..
    */
-  sendCollections(
-      target: CollectionsGrid, collections: Array<WallpaperCollection>) {
+  sendCollections(target: CollectionsGrid, collections: WallpaperCollection[]) {
     const event: constants.SendCollectionsEvent = {
       type: constants.EventType.SEND_COLLECTIONS,
-      collections
+      collections,
     };
     target.onMessageReceived(event);
   }
@@ -47,7 +45,7 @@ export class IFrameApi {
       target: CollectionsGrid, enabled: GooglePhotosEnablementState) {
     const event: constants.SendGooglePhotosEnabledEvent = {
       type: constants.EventType.SEND_GOOGLE_PHOTOS_ENABLED,
-      enabled
+      enabled,
     };
     target.onMessageReceived(event);
   }
@@ -61,7 +59,7 @@ export class IFrameApi {
       target: CollectionsGrid, counts: {[key: string]: number|null}) {
     const event: constants.SendImageCountsEvent = {
       type: constants.EventType.SEND_IMAGE_COUNTS,
-      counts
+      counts,
     };
     target.onMessageReceived(event);
   }
@@ -71,22 +69,10 @@ export class IFrameApi {
    * resize event on iron-list when an iframe becomes visible again so that
    * iron-list will run layout with the current size.
    */
-  sendVisible(target: CollectionsGrid|ImagesGrid, visible: boolean) {
+  sendVisible(target: CollectionsGrid, visible: boolean) {
     const event: constants.SendVisibleEvent = {
       type: constants.EventType.SEND_VISIBLE,
-      visible
-    };
-    target.onMessageReceived(event);
-  }
-
-  /**
-   * Send an array of wallpaper images to collections grid.
-   * Will clear the page if images is empty array.
-   */
-  sendImageTiles(target: ImagesGrid, tiles: constants.ImageTile[]) {
-    const event: constants.SendImageTilesEvent = {
-      type: constants.EventType.SEND_IMAGE_TILES,
-      tiles
+      visible,
     };
     target.onMessageReceived(event);
   }
@@ -99,7 +85,7 @@ export class IFrameApi {
       images: Array<FilePath|constants.DefaultImageSymbol>) {
     const event: constants.SendLocalImagesEvent = {
       type: constants.EventType.SEND_LOCAL_IMAGES,
-      images
+      images,
     };
     target.onMessageReceived(event);
   }
@@ -112,35 +98,10 @@ export class IFrameApi {
       data: Record<string|constants.DefaultImageSymbol, string>) {
     const event: constants.SendLocalImageDataEvent = {
       type: constants.EventType.SEND_LOCAL_IMAGE_DATA,
-      data
+      data,
     };
     target.onMessageReceived(event);
   }
-
-  /**
-   * Send the |assetId| of the currently selected wallpaper to |target|.
-   * Sending null indicates that no image is selected.
-   */
-  sendCurrentWallpaperAssetId(target: ImagesGrid, assetId: bigint|undefined) {
-    const event: constants.SendCurrentWallpaperAssetIdEvent = {
-      type: constants.EventType.SEND_CURRENT_WALLPAPER_ASSET_ID,
-      assetId
-    };
-    target.onMessageReceived(event);
-  }
-
-  /**
-   * Send the |assetId| to the |target| when the user clicks on online wallpaper
-   * image.
-   */
-  sendPendingWallpaperAssetId(target: ImagesGrid, assetId: bigint|undefined) {
-    const event: constants.SendPendingWallpaperAssetIdEvent = {
-      type: constants.EventType.SEND_PENDING_WALLPAPER_ASSET_ID,
-      assetId
-    };
-    target.onMessageReceived(event);
-  }
-
 
   /**
    * Called from trusted code to validate that a received event contains valid
@@ -148,13 +109,7 @@ export class IFrameApi {
    */
   validateReceivedSelection(
       data: constants.Events,
-      choices: WallpaperCollection[]|null): WallpaperCollection;
-  validateReceivedSelection(
-      data: constants.Events, choices: WallpaperImage[]|null): WallpaperImage;
-  validateReceivedSelection(
-      data: constants.Events,
-      choices: (WallpaperCollection|WallpaperImage)[]|null): WallpaperCollection
-      |WallpaperImage {
+      choices: WallpaperCollection[]|null): WallpaperCollection {
     assert(isNonEmptyArray(choices), 'choices must be a non-empty array');
 
     let selected: WallpaperCollection|WallpaperImage|undefined = undefined;
@@ -163,17 +118,6 @@ export class IFrameApi {
         assert(!!data.collectionId, 'Expected a collection id parameter');
         selected = (choices as WallpaperCollection[])
                        .find(choice => choice.id === data.collectionId);
-        break;
-      }
-      case constants.EventType.SELECT_IMAGE: {
-        assert(
-            data.hasOwnProperty('assetId'),
-            'Expected an image assetId parameter');
-        assert(
-            typeof data.assetId === 'bigint',
-            'assetId parameter must be bigint');
-        selected = (choices as WallpaperImage[])
-                       .find(choice => choice.assetId === data.assetId);
         break;
       }
       default:

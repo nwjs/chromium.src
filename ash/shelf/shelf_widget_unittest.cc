@@ -20,9 +20,11 @@
 #include "ash/shelf/shelf.h"
 #include "ash/shelf/shelf_layout_manager.h"
 #include "ash/shelf/shelf_navigation_widget.h"
+#include "ash/shelf/shelf_test_util.h"
 #include "ash/shelf/shelf_view.h"
 #include "ash/shelf/shelf_view_test_api.h"
 #include "ash/shell.h"
+#include "ash/style/dark_light_mode_controller_impl.h"
 #include "ash/system/status_area_widget.h"
 #include "ash/test/ash_test_base.h"
 #include "ash/test/ash_test_helper.h"
@@ -178,7 +180,8 @@ TEST_F(ShelfWidgetDarkLightModeTest, TabletModeTransition) {
             shelf_widget->GetShelfBackgroundColor());
   EXPECT_EQ(0.0, shelf_widget->GetOpaqueBackground()->background_blur());
 
-  ash::AshColorProvider::Get()->ToggleColorMode();
+  auto* dark_light_mode_controller = ash::DarkLightModeControllerImpl::Get();
+  dark_light_mode_controller->ToggleColorMode();
 
   EXPECT_EQ(AshColorProvider::Get()->GetBaseLayerColor(
                 AshColorProvider::BaseLayerType::kTransparent60),
@@ -196,7 +199,7 @@ TEST_F(ShelfWidgetDarkLightModeTest, TabletModeTransition) {
             shelf_widget->GetShelfBackgroundColor());
   EXPECT_GT(shelf_widget->GetOpaqueBackground()->background_blur(), 0.0f);
 
-  ash::AshColorProvider::Get()->ToggleColorMode();
+  dark_light_mode_controller->ToggleColorMode();
 
   EXPECT_EQ(AshColorProvider::Get()->GetBaseLayerColor(
                 AshColorProvider::BaseLayerType::kTransparent80),
@@ -219,7 +222,8 @@ TEST_F(ShelfWidgetDarkLightModeTest, TabletModeTransitionWithWindowOpen) {
             shelf_widget->GetShelfBackgroundColor());
   EXPECT_EQ(0.0f, shelf_widget->GetOpaqueBackground()->background_blur());
 
-  ash::AshColorProvider::Get()->ToggleColorMode();
+  auto* dark_light_mode_controller = ash::DarkLightModeControllerImpl::Get();
+  dark_light_mode_controller->ToggleColorMode();
 
   EXPECT_EQ(AshColorProvider::Get()->GetBaseLayerColor(
                 AshColorProvider::BaseLayerType::kOpaque),
@@ -237,7 +241,7 @@ TEST_F(ShelfWidgetDarkLightModeTest, TabletModeTransitionWithWindowOpen) {
             shelf_widget->GetShelfBackgroundColor());
   EXPECT_GT(shelf_widget->GetOpaqueBackground()->background_blur(), 0.0f);
 
-  ash::AshColorProvider::Get()->ToggleColorMode();
+  dark_light_mode_controller->ToggleColorMode();
 
   EXPECT_EQ(AshColorProvider::Get()->GetBaseLayerColor(
                 AshColorProvider::BaseLayerType::kTransparent80),
@@ -308,6 +312,51 @@ TEST_P(ShelfWidgetLayoutBasicsTest, LauncherInitiallySized) {
   const int margins = 2 * ShelfConfig::Get()->GetAppIconGroupMargin();
 
   EXPECT_EQ(status_width, total_width - nav_width - hotseat_width - margins);
+}
+
+TEST_F(ShelfWidgetTest, CheckVerticalShelfCornersInOverviewMode) {
+  // Verify corners of the shelf on the left alignment.
+  Shelf* shelf = GetPrimaryShelf();
+  shelf->SetAlignment(ShelfAlignment::kLeft);
+  EXPECT_EQ(ShelfAlignment::kLeft, GetPrimaryShelf()->alignment());
+
+  ShelfWidget* const shelf_widget = GetShelfWidget();
+  ui::Layer* opaque_background_layer =
+      shelf_widget->GetDelegateViewOpaqueBackgroundLayerForTesting();
+
+  // The gfx::RoundedCornersF object is considered empty when all of the
+  // corners are squared (no effective radius).
+  EXPECT_FALSE(opaque_background_layer->rounded_corner_radii().IsEmpty());
+
+  OverviewController* overview_controller = Shell::Get()->overview_controller();
+  // Enter overview mode. Expect the shelf with square corners.
+  EnterOverview();
+  WaitForOverviewAnimation(/*enter=*/true);
+  EXPECT_TRUE(overview_controller->InOverviewSession());
+  EXPECT_TRUE(opaque_background_layer->rounded_corner_radii().IsEmpty());
+
+  // Exit overview mode. Expect the shelf with rounded corners.
+  ExitOverview();
+  WaitForOverviewAnimation(/*enter=*/false);
+  EXPECT_FALSE(overview_controller->InOverviewSession());
+  EXPECT_FALSE(opaque_background_layer->rounded_corner_radii().IsEmpty());
+
+  // Verify corners of the shelf on the right alignment.
+  shelf->SetAlignment(ShelfAlignment::kRight);
+  EXPECT_EQ(ShelfAlignment::kRight, GetPrimaryShelf()->alignment());
+  EXPECT_FALSE(opaque_background_layer->rounded_corner_radii().IsEmpty());
+
+  // Enter overview mode. Expect the shelf with square corners.
+  EnterOverview();
+  WaitForOverviewAnimation(/*enter=*/true);
+  EXPECT_TRUE(overview_controller->InOverviewSession());
+  EXPECT_TRUE(opaque_background_layer->rounded_corner_radii().IsEmpty());
+
+  // Exit overview mode. Expect the shelf with rounded corners.
+  ExitOverview();
+  WaitForOverviewAnimation(/*enter=*/false);
+  EXPECT_FALSE(overview_controller->InOverviewSession());
+  EXPECT_FALSE(opaque_background_layer->rounded_corner_radii().IsEmpty());
 }
 
 // Verifies when the shell is deleted with a full screen window we don't crash.
@@ -893,7 +942,7 @@ TEST_F(ShelfWidgetAfterLoginTest, InitialValues) {
   ShelfWidget* shelf_widget = GetShelfWidget();
   ASSERT_NE(nullptr, shelf_widget);
   ASSERT_NE(nullptr, shelf_widget->shelf_view_for_testing());
-  ASSERT_NE(nullptr, shelf_widget->login_shelf_view());
+  ASSERT_NE(nullptr, shelf_widget->GetLoginShelfView());
   ASSERT_NE(nullptr, shelf_widget->shelf_layout_manager());
 
   // Ensure settings are correct before login.
@@ -973,7 +1022,7 @@ class ShelfWidgetViewsVisibilityTest : public AshTestBase {
               !primary_shelf_widget_->IsVisible());
     if (primary_shelf_visibility != kNone) {
       EXPECT_EQ(primary_shelf_visibility == kLoginShelf,
-                primary_shelf_widget_->login_shelf_view()->GetVisible());
+                primary_shelf_widget_->GetLoginShelfView()->GetVisible());
       EXPECT_EQ(primary_shelf_visibility == kShelf,
                 primary_shelf_widget_->shelf_view_for_testing()->GetVisible());
     }
@@ -981,7 +1030,7 @@ class ShelfWidgetViewsVisibilityTest : public AshTestBase {
               !secondary_shelf_widget_->IsVisible());
     if (secondary_shelf_visibility != kNone) {
       EXPECT_EQ(secondary_shelf_visibility == kLoginShelf,
-                secondary_shelf_widget_->login_shelf_view()->GetVisible());
+                secondary_shelf_widget_->GetLoginShelfView()->GetVisible());
       EXPECT_EQ(
           secondary_shelf_visibility == kShelf,
           secondary_shelf_widget_->shelf_view_for_testing()->GetVisible());

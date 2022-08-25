@@ -183,12 +183,14 @@ void ExpectSyncConsentHistogram(
 
 // Tests signing in with one account, switching sync account to a second and
 // choosing to keep the browsing data separate during the switch.
+// Flaky, crbug.com/1279995.
 - (void)DISABLED_testSignInSwitchAccountsAndKeepDataSeparate {
   ChooseImportOrKeepDataSepareteDialog(SettingsImportDataKeepSeparateButton());
 }
 
 // Tests signing in with one account, switching sync account to a second and
 // choosing to import the browsing data during the switch.
+// Flaky, crbug.com/1279995.
 - (void)DISABLED_testSignInSwitchAccountsAndImportData {
   ChooseImportOrKeepDataSepareteDialog(SettingsImportDataImportButton());
 }
@@ -327,7 +329,8 @@ void ExpectSyncConsentHistogram(
 
   // Open Bookmarks and tap on Sign In promo button.
   [ChromeEarlGreyUI openToolsMenu];
-  [ChromeEarlGreyUI tapToolsMenuButton:chrome_test_util::BookmarksMenuButton()];
+  [ChromeEarlGreyUI
+      tapToolsMenuButton:chrome_test_util::BookmarksDestinationButton()];
   [ChromeEarlGreyUI tapSettingsMenuButton:SecondarySignInButton()];
 
   // Assert sign-in screen was shown.
@@ -347,7 +350,8 @@ void ExpectSyncConsentHistogram(
   // Re-open the sign-in screen. If it wasn't correctly dismissed previously,
   // this will fail.
   [ChromeEarlGreyUI openToolsMenu];
-  [ChromeEarlGreyUI tapToolsMenuButton:chrome_test_util::BookmarksMenuButton()];
+  [ChromeEarlGreyUI
+      tapToolsMenuButton:chrome_test_util::BookmarksDestinationButton()];
   [ChromeEarlGreyUI tapSettingsMenuButton:SecondarySignInButton()];
   [[EarlGrey selectElementWithMatcher:IdentityCellMatcherForEmail(
                                           fakeIdentity.userEmail)]
@@ -509,7 +513,7 @@ void ExpectSyncConsentHistogram(
     case OpenSigninMethodFromBookmarks:
       [ChromeEarlGreyUI openToolsMenu];
       [ChromeEarlGreyUI
-          tapToolsMenuButton:chrome_test_util::BookmarksMenuButton()];
+          tapToolsMenuButton:chrome_test_util::BookmarksDestinationButton()];
       [[EarlGrey selectElementWithMatcher:PrimarySignInButton()]
           performAction:grey_tap()];
       break;
@@ -982,6 +986,7 @@ void ExpectSyncConsentHistogram(
 }
 
 // Tests to sign-in with one user, and then turn on syncn with a second account.
+// Flaky, crbug.com/1279995.
 - (void)DISABLED_testSignInWithOneAccountStartSyncWithAnotherAccount {
   FakeChromeIdentity* fakeIdentity1 = [FakeChromeIdentity fakeIdentity1];
   [SigninEarlGrey addFakeIdentity:fakeIdentity1];
@@ -1010,11 +1015,12 @@ void ExpectSyncConsentHistogram(
 // Tests that when the syncTypesListDisabled policy is enabled, the signin promo
 // description is updated and when opening the sign-in screen a policy warning
 // is displayed with a link that opens the policy management page.
-- (void)DISABLED_testSynTypesDisabledPolicy {
+// Flaky, crbug.com/1279995.
+- (void)DISABLED_testSyncTypesDisabledPolicy {
   // Set policy.
-  std::vector<base::Value> values;
-  values.push_back(base::Value("tabs"));
-  policy_test_utils::SetPolicy(base::Value(std::move(values)),
+  base::Value::List list;
+  list.Append("tabs");
+  policy_test_utils::SetPolicy(base::Value(std::move(list)),
                                policy::key::kSyncTypesListDisabled);
 
   // Check that the promo description is updated.

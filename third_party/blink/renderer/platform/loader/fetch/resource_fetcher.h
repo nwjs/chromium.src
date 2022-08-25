@@ -31,6 +31,9 @@
 #include <utility>
 
 #include "base/task/single_thread_task_runner.h"
+#include "base/unguessable_token.h"
+#include "services/metrics/public/cpp/mojo_ukm_recorder.h"
+#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/public/mojom/blob/blob_registry.mojom-blink.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/service_worker/controller_service_worker_mode.mojom-blink-forward.h"
@@ -69,6 +72,7 @@ class Resource;
 class ResourceError;
 class ResourceLoadObserver;
 class ResourceTimingInfo;
+class SubresourceWebBundle;
 class SubresourceWebBundleList;
 class WebBackForwardCacheLoaderHelper;
 class WebCodeCacheLoader;
@@ -250,6 +254,13 @@ class PLATFORM_EXPORT ResourceFetcher
 
   String GetCacheIdentifier(const KURL& url) const;
 
+  // If `url` exists as a resource in a subresource bundle in this frame,
+  // returns its UnguessableToken; otherwise, returns absl::nullopt.
+  absl::optional<base::UnguessableToken> GetSubresourceBundleToken(
+      const KURL& url) const;
+
+  absl::optional<KURL> GetSubresourceBundleSourceUrl(const KURL& url) const;
+
   enum IsImageSet { kImageNotImageSet, kImageIsImageSet };
 
   [[nodiscard]] static mojom::blink::RequestContextType DetermineRequestContext(
@@ -318,6 +329,9 @@ class PLATFORM_EXPORT ResourceFetcher
     early_hints_preloaded_resources_ = std::move(resources);
   }
 
+  // Access the UKMRecorder.
+  ukm::MojoUkmRecorder* UkmRecorder();
+
  private:
   friend class ResourceCacheValidationSuppressor;
   enum class StopFetchingTarget {
@@ -333,7 +347,8 @@ class PLATFORM_EXPORT ResourceFetcher
   void AddToMemoryCacheIfNeeded(const FetchParameters&, Resource*);
   Resource* CreateResourceForLoading(const FetchParameters&,
                                      const ResourceFactory&);
-  void StorePerformanceTimingInitiatorInformation(Resource*);
+  void StorePerformanceTimingInitiatorInformation(Resource*,
+                                                  RenderBlockingBehavior);
   ResourceLoadPriority ComputeLoadPriority(
       ResourceType,
       const ResourceRequestHead&,
@@ -429,6 +444,7 @@ class PLATFORM_EXPORT ResourceFetcher
   void PopulateAndAddResourceTimingInfo(Resource* resource,
                                         scoped_refptr<ResourceTimingInfo> info,
                                         base::TimeTicks response_end);
+  SubresourceWebBundle* GetMatchingBundle(const KURL& url) const;
 
   Member<DetachableResourceFetcherProperties> properties_;
   Member<ResourceLoadObserver> resource_load_observer_;
@@ -482,7 +498,7 @@ class PLATFORM_EXPORT ResourceFetcher
 
   HeapMojoRemote<mojom::blink::BlobRegistry> blob_registry_remote_;
 
-  // Lazily initialized when the first <link rel=webbundle> is inserted.
+  // Lazily initialized when the first <script type=webbundle> is inserted.
   Member<SubresourceWebBundleList> subresource_web_bundles_;
 
   // This is not in the bit field below because we want to use AutoReset.
@@ -496,6 +512,8 @@ class PLATFORM_EXPORT ResourceFetcher
   bool stale_while_revalidate_enabled_ : 1;
 
   static constexpr uint32_t kKeepaliveInflightBytesQuota = 64 * 1024;
+
+  std::unique_ptr<ukm::MojoUkmRecorder> ukm_recorder_;
 
   // NOTE: This must be the last member.
   base::WeakPtrFactory<ResourceFetcher> weak_ptr_factory_{this};

@@ -46,21 +46,6 @@ class InterestGroupManagerImpl;
 // the code to assign unique tracing IDs is not threadsafe.
 class CONTENT_EXPORT AuctionRunner {
  public:
-  // TODO(behamilton@google.com): Make this struct more broadly available to
-  // the rest of interest group code and adjust them to use it where
-  // appropriate.
-  struct InterestGroupKey {
-    InterestGroupKey(url::Origin o, std::string n) : owner(o), name(n) {}
-    inline bool operator<(const InterestGroupKey& other) const {
-      return owner != other.owner ? owner < other.owner : name < other.name;
-    }
-    inline bool operator==(const InterestGroupKey& other) const {
-      return owner == other.owner && name == other.name;
-    }
-    url::Origin owner;
-    std::string name;
-  };
-
   // Post auction signals (signals only available after auction completes such
   // as winning bid) for debug loss/win reporting.
   struct PostAuctionSignals {
@@ -109,16 +94,16 @@ class CONTENT_EXPORT AuctionRunner {
   //
   // `errors` are various error messages to be used for debugging. These are too
   //  sensitive for the renderers to see.
-  using RunAuctionCallback =
-      base::OnceCallback<void(AuctionRunner* auction_runner,
-                              absl::optional<InterestGroupKey> winning_group_id,
-                              absl::optional<GURL> render_url,
-                              std::vector<GURL> ad_component_urls,
-                              std::vector<GURL> report_urls,
-                              std::vector<GURL> debug_loss_report_urls,
-                              std::vector<GURL> debug_win_report_urls,
-                              ReportingMetadata ad_beacon_map,
-                              std::vector<std::string> errors)>;
+  using RunAuctionCallback = base::OnceCallback<void(
+      AuctionRunner* auction_runner,
+      absl::optional<blink::InterestGroupKey> winning_group_id,
+      absl::optional<GURL> render_url,
+      std::vector<GURL> ad_component_urls,
+      std::vector<GURL> report_urls,
+      std::vector<GURL> debug_loss_report_urls,
+      std::vector<GURL> debug_win_report_urls,
+      ReportingMetadata ad_beacon_map,
+      std::vector<std::string> errors)>;
 
   // Returns true if `origin` is allowed to use the interest group API. Will be
   // called on worklet / interest group origins before using them in any
@@ -199,6 +184,10 @@ class CONTENT_EXPORT AuctionRunner {
   //
   // `browser_signals` signals from the browser about the auction that are the
   //  same for all worklets.
+  //
+  //  `callback` is invoked on auction completion. It should synchronously
+  //  destroy this AuctionRunner object. `callback` won't be invoked until after
+  //  CreateAndStart() returns.
   static std::unique_ptr<AuctionRunner> CreateAndStart(
       AuctionWorkletManager* auction_worklet_manager,
       InterestGroupManagerImpl* interest_group_manager,
@@ -216,12 +205,6 @@ class CONTENT_EXPORT AuctionRunner {
   void FailAuction();
 
  private:
-  // A set of interest groups, identified by owner and name. Used to log which
-  // interest groups bid in an auction. A sets is used to avoid double-counting
-  // interest groups that bid in multiple components auctions in a component
-  // auction.
-  using InterestGroupSet = std::set<InterestGroupKey>;
-
   class Auction;
 
   // TODO(mmenke): Move BidState, Bid, and ScoredBid into Auction.
@@ -324,18 +307,18 @@ class CONTENT_EXPORT AuctionRunner {
 
     // InterestGroup that made the bid. Owned by the BidState of that
     // InterestGroup.
-    const raw_ptr<const blink::InterestGroup> interest_group;
+    const raw_ptr<const blink::InterestGroup, DanglingUntriaged> interest_group;
 
     // Points to the InterestGroupAd within `interest_group`.
-    const raw_ptr<const blink::InterestGroup::Ad> bid_ad;
+    const raw_ptr<const blink::InterestGroup::Ad, DanglingUntriaged> bid_ad;
 
     // `bid_state` of the InterestGroup that made the bid. This should not be
     // written to, except for adding seller debug reporting URLs.
-    const raw_ptr<BidState> bid_state;
+    const raw_ptr<BidState, DanglingUntriaged> bid_state;
 
     // The Auction with the interest group that made this bid. Important in the
     // case of component auctions.
-    const raw_ptr<Auction> auction;
+    const raw_ptr<Auction, DanglingUntriaged> auction;
   };
 
   // Combines a Bid with seller score and seller state needed to invoke its
@@ -465,7 +448,8 @@ class CONTENT_EXPORT AuctionRunner {
     // than the seller rejecting all bids.
     //
     // TODO(mmenke): Consider calling this after the reporting phase.
-    void GetInterestGroupsThatBid(InterestGroupSet& interest_groups) const;
+    void GetInterestGroupsThatBid(
+        blink::InterestGroupSet& interest_groups) const;
 
     // Retrieves any debug reporting URLs. May only be called once, since it
     // takes ownership of stored reporting URLs.
@@ -520,11 +504,12 @@ class CONTENT_EXPORT AuctionRunner {
     void OnOneLoadCompleted();
 
     // Invoked once the interest group load phase has completed. Never called
-    // synchronously from StartLoadInterestGroupsPhase(), to avoid reentrancy.
-    // `auction_result` is the result of trying to load the interest groups that
-    // can participate in the auction. It's AuctionResult::kSuccess if there are
-    // interest groups that can take part in the auction, and a failure value
-    // otherwise.
+    // synchronously from StartLoadInterestGroupsPhase(), to avoid reentrancy
+    // (AuctionRunner::callback_ cannot be invoked until
+    // AuctionRunner::CreateAndStart() completes). `auction_result` is the
+    // result of trying to load the interest groups that can participate in the
+    // auction. It's AuctionResult::kSuccess if there are interest groups that
+    // can take part in the auction, and a failure value otherwise.
     void OnStartLoadInterestGroupsPhaseComplete(AuctionResult auction_result);
 
     // -------------------------------------
@@ -628,20 +613,12 @@ class CONTENT_EXPORT AuctionRunner {
         const absl::optional<GURL>& debug_win_report_url,
         const std::vector<std::string>& errors);
 
-    // Invoked when there's a tie for temporary top bid, to handle calculation
-    // of post auction signals.
-    void OnTopBidTie(double score,
-                     double bid_value,
-                     const url::Origin& owner,
-                     bool is_top_bid);
-    // Invoked when the bid becomes the new top bid, to handle calculation
-    // of post auction signals.
-    void OnNewTopBid();
     // Invoked when the bid becomes the new highest scoring other bid, to handle
-    // calculation of post auction signals.
+    // calculation of post auction signals. `owner` is nullptr in the event the
+    // bid is tied with the top bid, and they have different origins.
     void OnNewHighestScoringOtherBid(double score,
                                      double bid_value,
-                                     const url::Origin& owner);
+                                     const url::Origin* owner);
 
     absl::optional<std::string> PerBuyerSignals(const BidState* state);
     absl::optional<base::TimeDelta> PerBuyerTimeout(const BidState* state);
@@ -823,30 +800,29 @@ class CONTENT_EXPORT AuctionRunner {
 
     // A list of all interest groups that need to have their priority adjusted.
     // The new rates will be committed after a successful auction.
-    std::vector<std::pair<InterestGroupKey, double>>
+    std::vector<std::pair<blink::InterestGroupKey, double>>
         post_auction_priority_updates_;
 
     // The highest scoring bid so far. Null if no bid has been accepted yet.
     std::unique_ptr<ScoredBid> top_bid_;
     // Number of bidders with the same score as `top_bidder`.
     size_t num_top_bids_ = 0;
-    // Number of bidders with the same score as `second_highest_score_`.
+    // Number of bidders with the same score as `second_highest_score_`. If the
+    // second highest score matches the highest score, this does not include the
+    // top bid.
     size_t num_second_highest_bids_ = 0;
 
     // The numeric value of the bid that got the second highest score. When
-    // there's a tie for second highest score, just take the most recent one (
-    // any bid with the second highest score can be the most recent one since
-    // the order of bids getting scored is arbitrary).
+    // there's a tie for the second highest score, one of the second highest
+    // scoring bids is randomly chosen.
     double highest_scoring_other_bid_ = 0.0;
     double second_highest_score_ = 0.0;
     // Whether all bids of the highest score are from the same interest group
     // owner.
     bool at_most_one_top_bid_owner_ = true;
-    // Whether all bids of the second highest score are from the same interest
-    // group owner.
-    bool at_most_one_second_highest_scoring_bids_owner_ = true;
-    // Will be null in the end if there are more than one interest groups having
-    // bids getting the second highest score.
+    // Will be null in the end if there are interest groups having the second
+    // highest score with different owners. That includes the top bid itself, in
+    // the case there's a tie for the top bid.
     absl::optional<url::Origin> highest_scoring_other_bid_owner_;
 
     // Holds a reference to the SellerWorklet used by the auction.

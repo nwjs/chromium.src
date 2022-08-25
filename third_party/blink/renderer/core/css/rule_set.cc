@@ -139,10 +139,12 @@ static void ExtractSelectorValues(const CSSSelector* selector,
                                   AtomicString& class_name,
                                   AtomicString& attr_name,
                                   AtomicString& attr_value,
+                                  bool& is_exact_attr,
                                   AtomicString& custom_pseudo_element_name,
                                   AtomicString& tag_name,
                                   AtomicString& part_name,
                                   CSSSelector::PseudoType& pseudo_type) {
+  is_exact_attr = false;
   switch (selector->Match()) {
     case CSSSelector::kId:
       id = selector->Value();
@@ -191,9 +193,10 @@ static void ExtractSelectorValues(const CSSSelector* selector,
           // like a normal selector (save for specificity), and we can put it
           // into a bucket based on that selector.
           if (selector_list->HasOneSelector()) {
-            ExtractSelectorValues(
-                selector_list->First(), id, class_name, attr_name, attr_value,
-                custom_pseudo_element_name, tag_name, part_name, pseudo_type);
+            ExtractSelectorValues(selector_list->First(), id, class_name,
+                                  attr_name, attr_value, is_exact_attr,
+                                  custom_pseudo_element_name, tag_name,
+                                  part_name, pseudo_type);
           }
         } break;
         default:
@@ -201,6 +204,8 @@ static void ExtractSelectorValues(const CSSSelector* selector,
       }
       break;
     case CSSSelector::kAttributeExact:
+      is_exact_attr = true;
+      [[fallthrough]];
     case CSSSelector::kAttributeSet:
     case CSSSelector::kAttributeHyphen:
     case CSSSelector::kAttributeList:
@@ -225,6 +230,7 @@ static const CSSSelector* ExtractBestSelectorValues(
     AtomicString& class_name,
     AtomicString& attr_name,
     AtomicString& attr_value,
+    bool& is_exact_attr,
     AtomicString& custom_pseudo_element_name,
     AtomicString& tag_name,
     AtomicString& part_name,
@@ -233,13 +239,13 @@ static const CSSSelector* ExtractBestSelectorValues(
   for (; it && it->Relation() == CSSSelector::kSubSelector;
        it = it->TagHistory()) {
     ExtractSelectorValues(it, id, class_name, attr_name, attr_value,
-                          custom_pseudo_element_name, tag_name, part_name,
-                          pseudo_type);
+                          is_exact_attr, custom_pseudo_element_name, tag_name,
+                          part_name, pseudo_type);
   }
   if (it) {
     ExtractSelectorValues(it, id, class_name, attr_name, attr_value,
-                          custom_pseudo_element_name, tag_name, part_name,
-                          pseudo_type);
+                          is_exact_attr, custom_pseudo_element_name, tag_name,
+                          part_name, pseudo_type);
   }
   return it;
 }
@@ -259,8 +265,9 @@ bool RuleSet::FindBestRuleSetAndAdd(const CSSSelector& component,
   all_rules_.push_back(rule_data);
 #endif
 
+  bool is_exact_attr;
   const CSSSelector* it = ExtractBestSelectorValues(
-      component, id, class_name, attr_name, attr_value,
+      component, id, class_name, attr_name, attr_value, is_exact_attr,
       custom_pseudo_element_name, tag_name, part_name, pseudo_type);
 
   // Prefer rule sets in order of most likely to apply infrequently.
@@ -489,10 +496,9 @@ void RuleSet::AddChildRules(const HeapVector<Member<StyleRuleBase>>& rules,
     StyleRuleBase* rule = rules[i].Get();
 
     if (auto* style_rule = DynamicTo<StyleRule>(rule)) {
-      const CSSSelectorList& selector_list = style_rule->SelectorList();
-      for (const CSSSelector* selector = selector_list.First(); selector;
-           selector = selector_list.Next(*selector)) {
-        wtf_size_t selector_index = selector_list.SelectorIndex(*selector);
+      for (const CSSSelector* selector = style_rule->FirstSelector(); selector;
+           selector = CSSSelectorList::Next(*selector)) {
+        wtf_size_t selector_index = style_rule->SelectorIndex(*selector);
         AddRule(style_rule, selector_index, add_rule_flags, container_query,
                 cascade_layer, style_scope);
       }
@@ -567,11 +573,8 @@ bool RuleSet::MatchMediaForAddRules(const MediaQueryEvaluator& evaluator,
                                     const MediaQuerySet* media_queries) {
   if (!media_queries)
     return true;
-  bool match_media = evaluator.Eval(
-      *media_queries, MediaQueryEvaluator::Results{
-                          &features_.ViewportDependentMediaQueryResults(),
-                          &features_.DeviceDependentMediaQueryResults(),
-                          &features_.MediaQueryUnitFlags()});
+  bool match_media =
+      evaluator.Eval(*media_queries, &features_.MutableMediaQueryResultFlags());
   media_query_set_results_.push_back(
       MediaQuerySetResult(*media_queries, match_media));
   return match_media;
@@ -612,11 +615,8 @@ void RuleSet::AddRulesFromSheet(StyleSheetContents* sheet,
 }
 
 void RuleSet::AddStyleRule(StyleRule* rule, AddRuleFlags add_rule_flags) {
-  for (wtf_size_t selector_index =
-           rule->SelectorList().SelectorIndex(*rule->SelectorList().First());
-       selector_index != kNotFound;
-       selector_index =
-           rule->SelectorList().IndexOfNextSelectorAfter(selector_index)) {
+  for (wtf_size_t selector_index = 0; selector_index != kNotFound;
+       selector_index = rule->IndexOfNextSelectorAfter(selector_index)) {
     AddRule(rule, selector_index, add_rule_flags, nullptr /* container_query */,
             nullptr /* cascade_layer */, nullptr /* scope */);
   }
@@ -695,17 +695,27 @@ void RuleSet::CreateSubstringMatchers(
       AtomicString custom_pseudo_element_name;
       AtomicString tag_name;
       AtomicString part_name;
+      bool is_exact_attr;
       CSSSelector::PseudoType pseudo_type = CSSSelector::kPseudoUnknown;
-      ExtractBestSelectorValues(rule.Selector(), id, class_name, attr_name,
-                                attr_value, custom_pseudo_element_name,
-                                tag_name, part_name, pseudo_type);
+      ExtractBestSelectorValues(
+          rule.Selector(), id, class_name, attr_name, attr_value, is_exact_attr,
+          custom_pseudo_element_name, tag_name, part_name, pseudo_type);
       DCHECK(!attr_name.IsEmpty());
 
       if (attr_value.IsEmpty()) {
-        // The empty string would make the entire tree useless (it is
-        // a substring of every possible value), so as a special case,
-        // we ignore it, and have a separate check in CanIgnoreEntireList().
-        continue;
+        if (is_exact_attr) {
+          // The empty string would make the entire tree useless
+          // (it is a substring of every possible value),
+          // so as a special case, we ignore it, and have a separate
+          // check in CanIgnoreEntireList().
+          continue;
+        } else {
+          // This rule would indeed match every element containing the
+          // given attribute (e.g. [foo] or [foo^=""]), so building a tree
+          // would be wrong.
+          patterns.clear();
+          break;
+        }
       }
 
       std::string pattern = attr_value.LowerASCII().Utf8();
@@ -721,6 +731,10 @@ void RuleSet::CreateSubstringMatchers(
         patterns.emplace_back(pattern, rule_index);
       }
       ++rule_index;
+    }
+
+    if (patterns.empty()) {
+      continue;
     }
 
     auto substring_matcher = std::make_unique<SubstringSetMatcher>();
@@ -845,7 +859,6 @@ void RuleSet::Trace(Visitor* visitor) const {
   visitor->Trace(cue_pseudo_rules_);
   visitor->Trace(focus_pseudo_class_rules_);
   visitor->Trace(selector_fragment_anchor_rules_);
-  visitor->Trace(features_);
   visitor->Trace(focus_visible_pseudo_class_rules_);
   visitor->Trace(spatial_navigation_interest_class_rules_);
   visitor->Trace(universal_rules_);

@@ -1040,6 +1040,7 @@
     "standalone",
     "minimal-ui",
     "browser",
+    "window-controls-overlay",
 
     // position
     "sticky",
@@ -1306,6 +1307,15 @@
     "max",
     "clamp",
 
+    // Trigonometic functions
+    "sin",
+    // "cos",
+    // "tan" - already declared for color value
+    // "atan",
+    // "atan2",
+    // "acos",
+    // "asin",
+
     //<calc-constant>
     //https://drafts.csswg.org/css-values/#calc-syntax
     "infinity",
@@ -1482,6 +1492,13 @@
     // toggle-root
     "group",
     "self",
+    "cycle",
+    "cycle-on",
+
+    // toggle-trigger
+    "prev",
+    "next",
+    "set",
 
     // color-contrast()
     "color-contrast",

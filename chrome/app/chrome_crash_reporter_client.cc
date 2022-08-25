@@ -131,7 +131,6 @@ void ChromeCrashReporterClient::GetProductNameAndVersion(
   *channel = chrome::GetChannelName(chrome::WithExtendedStable(true));
 }
 
-#if !BUILDFLAG(IS_MAC)
 base::FilePath ChromeCrashReporterClient::GetReporterLogFilename() {
   return base::FilePath(CrashUploadList::kReporterLogFilename);
 }
@@ -139,7 +138,6 @@ base::FilePath ChromeCrashReporterClient::GetReporterLogFilename() {
 bool ChromeCrashReporterClient::GetShouldDumpLargerDumps() {
   return chrome::GetChannel() != version_info::Channel::STABLE;
 }
-#endif
 #endif  // BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_MAC)
 
 bool ChromeCrashReporterClient::GetCrashDumpLocation(

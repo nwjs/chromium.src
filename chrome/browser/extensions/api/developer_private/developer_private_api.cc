@@ -100,6 +100,7 @@
 #include "extensions/common/manifest_url_handlers.h"
 #include "extensions/common/permissions/permissions_data.h"
 #include "net/base/filename_util.h"
+#include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "storage/browser/blob/shareable_file_reference.h"
 #include "storage/browser/file_system/external_mount_points.h"
 #include "storage/browser/file_system/file_system_context.h"
@@ -274,6 +275,34 @@ developer::UserSiteSettings ConvertToUserSiteSettings(
   return user_site_settings;
 }
 
+std::string GetETldPlusOne(const GURL& site) {
+  DCHECK(site.is_valid());
+  std::string etld_plus_one =
+      net::registry_controlled_domains::GetDomainAndRegistry(
+          site, net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES);
+  return etld_plus_one.empty() ? site.spec() : etld_plus_one;
+}
+
+developer::SiteInfo CreateSiteInfo(const std::string& site,
+                                   developer::UserSiteSet site_set) {
+  developer::SiteInfo site_info;
+  site_info.site = site;
+  site_info.site_list = site_set;
+  return site_info;
+}
+
+// Adds `site` grouped under `etld_plus_one` into `site_groups`.
+void AddSiteToSiteGroups(
+    std::map<std::string, developer::SiteGroup>* site_groups,
+    const std::string& site,
+    const std::string& etld_plus_one,
+    developer::UserSiteSet site_set) {
+  auto [it, inserted] = site_groups->try_emplace(etld_plus_one);
+  if (inserted)
+    it->second.etld_plus_one = etld_plus_one;
+  it->second.sites.push_back(CreateSiteInfo(site, site_set));
+}
+
 }  // namespace
 
 namespace ChoosePath = api::developer_private::ChoosePath;
@@ -386,9 +415,6 @@ DeveloperPrivateEventRouter::DeveloperPrivateEventRouter(Profile* profile)
       prefs::kExtensionsUIDeveloperMode,
       base::BindRepeating(&DeveloperPrivateEventRouter::OnProfilePrefChanged,
                           base::Unretained(this)));
-  notification_registrar_.Add(
-      this, extensions::NOTIFICATION_EXTENSION_PERMISSIONS_UPDATED,
-      content::Source<Profile>(profile_.get()));
 }
 
 DeveloperPrivateEventRouter::~DeveloperPrivateEventRouter() {
@@ -525,13 +551,13 @@ void DeveloperPrivateEventRouter::OnExtensionAllowlistWarningStateChanged(
 }
 
 void DeveloperPrivateEventRouter::OnExtensionManagementSettingsChanged() {
-  std::vector<base::Value> args;
-  args.push_back(base::Value::FromUniquePtrValue(
+  base::Value::List args;
+  args.Append(base::Value::FromUniquePtrValue(
       DeveloperPrivateAPI::CreateProfileInfo(profile_)->ToValue()));
 
-  std::unique_ptr<Event> event(
-      new Event(events::DEVELOPER_PRIVATE_ON_PROFILE_STATE_CHANGED,
-                developer::OnProfileStateChanged::kEventName, std::move(args)));
+  auto event = std::make_unique<Event>(
+      events::DEVELOPER_PRIVATE_ON_PROFILE_STATE_CHANGED,
+      developer::OnProfileStateChanged::kEventName, std::move(args));
   event_router_->BroadcastEvent(std::move(event));
 }
 
@@ -541,12 +567,12 @@ void DeveloperPrivateEventRouter::ExtensionWarningsChanged(
     BroadcastItemStateChanged(developer::EVENT_TYPE_WARNINGS_CHANGED, id);
 }
 
-void DeveloperPrivateEventRouter::UserPermissionsSettingsChanged(
+void DeveloperPrivateEventRouter::OnUserPermissionsSettingsChanged(
     const PermissionsManager::UserPermissionsSettings& settings) {
   developer::UserSiteSettings user_site_settings =
       ConvertToUserSiteSettings(settings);
-  std::vector<base::Value> args;
-  args.push_back(base::Value::FromUniquePtrValue(user_site_settings.ToValue()));
+  base::Value::List args;
+  args.Append(base::Value::FromUniquePtrValue(user_site_settings.ToValue()));
 
   auto event = std::make_unique<Event>(
       events::DEVELOPER_PRIVATE_ON_USER_SITE_SETTINGS_CHANGED,
@@ -554,25 +580,19 @@ void DeveloperPrivateEventRouter::UserPermissionsSettingsChanged(
   event_router_->BroadcastEvent(std::move(event));
 }
 
-void DeveloperPrivateEventRouter::Observe(
-    int type,
-    const content::NotificationSource& source,
-    const content::NotificationDetails& details) {
-  DCHECK_EQ(NOTIFICATION_EXTENSION_PERMISSIONS_UPDATED, type);
-
-  UpdatedExtensionPermissionsInfo* info =
-      content::Details<UpdatedExtensionPermissionsInfo>(details).ptr();
+void DeveloperPrivateEventRouter::OnExtensionPermissionsUpdated(
+    const UpdatedExtensionPermissionsInfo& info) {
   BroadcastItemStateChanged(developer::EVENT_TYPE_PERMISSIONS_CHANGED,
-                            info->extension->id());
+                            info.extension->id());
 }
 
 void DeveloperPrivateEventRouter::OnProfilePrefChanged() {
-  std::vector<base::Value> args;
-  args.push_back(base::Value::FromUniquePtrValue(
+  base::Value::List args;
+  args.Append(base::Value::FromUniquePtrValue(
       DeveloperPrivateAPI::CreateProfileInfo(profile_)->ToValue()));
-  std::unique_ptr<Event> event(
-      new Event(events::DEVELOPER_PRIVATE_ON_PROFILE_STATE_CHANGED,
-                developer::OnProfileStateChanged::kEventName, std::move(args)));
+  auto event = std::make_unique<Event>(
+      events::DEVELOPER_PRIVATE_ON_PROFILE_STATE_CHANGED,
+      developer::OnProfileStateChanged::kEventName, std::move(args));
   event_router_->BroadcastEvent(std::move(event));
 
   // The following properties are updated when dev mode is toggled.
@@ -622,8 +642,8 @@ void DeveloperPrivateEventRouter::BroadcastItemStateChangedHelper(
         std::make_unique<developer::ExtensionInfo>(std::move(infos[0]));
   }
 
-  std::vector<base::Value> args;
-  args.push_back(base::Value::FromUniquePtrValue(event_data.ToValue()));
+  base::Value::List args;
+  args.Append(base::Value::FromUniquePtrValue(event_data.ToValue()));
   std::unique_ptr<Event> event(
       new Event(events::DEVELOPER_PRIVATE_ON_ITEM_STATE_CHANGED,
                 developer::OnItemStateChanged::kEventName, std::move(args)));
@@ -2233,6 +2253,38 @@ DeveloperPrivateRemoveUserSpecifiedSitesFunction::Run() {
   }
 
   return RespondNow(NoArguments());
+}
+
+DeveloperPrivateGetUserAndExtensionSitesByEtldFunction::
+    DeveloperPrivateGetUserAndExtensionSitesByEtldFunction() = default;
+DeveloperPrivateGetUserAndExtensionSitesByEtldFunction::
+    ~DeveloperPrivateGetUserAndExtensionSitesByEtldFunction() = default;
+
+ExtensionFunction::ResponseAction
+DeveloperPrivateGetUserAndExtensionSitesByEtldFunction::Run() {
+  std::map<std::string, developer::SiteGroup> site_groups;
+  const PermissionsManager::UserPermissionsSettings& settings =
+      PermissionsManager::Get(browser_context())->GetUserPermissionsSettings();
+  for (const url::Origin& site : settings.permitted_sites) {
+    AddSiteToSiteGroups(&site_groups, site.Serialize(),
+                        GetETldPlusOne(site.GetURL()),
+                        developer::USER_SITE_SET_PERMITTED);
+  }
+
+  for (const url::Origin& site : settings.restricted_sites) {
+    AddSiteToSiteGroups(&site_groups, site.Serialize(),
+                        GetETldPlusOne(site.GetURL()),
+                        developer::USER_SITE_SET_RESTRICTED);
+  }
+
+  std::vector<developer::SiteGroup> site_group_list;
+  site_group_list.reserve(site_groups.size());
+  for (auto& entry : site_groups)
+    site_group_list.push_back(std::move(entry.second));
+
+  return RespondNow(
+      ArgumentList(developer::GetUserAndExtensionSitesByEtld::Results::Create(
+          site_group_list)));
 }
 
 }  // namespace api

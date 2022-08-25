@@ -144,6 +144,8 @@ void DumpAccessibilityTreeTestWithIgnoredNodes::ChooseFeatures(
                                             disabled_features);
 }
 
+class DumpAccessibilityTreeTestExceptUIA : public DumpAccessibilityTreeTest {};
+
 class DumpAccessibilityTreeWithoutLayoutNGTest
     : public DumpAccessibilityTreeTest {
  public:
@@ -186,6 +188,12 @@ INSTANTIATE_TEST_SUITE_P(
     All,
     DumpAccessibilityTreeTest,
     ::testing::ValuesIn(ui::AXInspectTestHelper::TreeTestPasses()),
+    DumpAccessibilityTreeTestPassToString());
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    DumpAccessibilityTreeTestExceptUIA,
+    ::testing::ValuesIn(DumpAccessibilityTestBase::TreeTestPassesExceptUIA()),
     DumpAccessibilityTreeTestPassToString());
 
 INSTANTIATE_TEST_SUITE_P(
@@ -715,7 +723,8 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
   RunAriaTest(FILE_PATH_LITERAL("aria-describedby.html"));
 }
 
-IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+// TODO(crbug.com/1344894): disabled on UIA
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTestExceptUIA,
                        AccessibilityAriaDescribedByUpdates) {
   RunAriaTest(FILE_PATH_LITERAL("aria-describedby-updates.html"));
 }
@@ -734,7 +743,8 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
   RunAriaTest(FILE_PATH_LITERAL("aria-details-multiple.html"));
 }
 
-IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+// TODO(crbug.com/1329847): disabled on UIA
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTestExceptUIA,
                        AccessibilityAriaDetailsRoles) {
   RunAriaTest(FILE_PATH_LITERAL("aria-details-roles.html"));
 }
@@ -1176,8 +1186,17 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityAriaOwnsList) {
   RunAriaTest(FILE_PATH_LITERAL("aria-owns-list.html"));
 }
 
+// TODO(crbug.com/1338211): test timeout on Fuchsia
+#if BUILDFLAG(IS_FUCHSIA)
+#define MAYBE_AccessibilityAriaOwnsWithRoleChange \
+  DISABLED_AccessibilityAriaOwnsWithRoleChange
+#else
+#define MAYBE_AccessibilityAriaOwnsWithRoleChange \
+  AccessibilityAriaOwnsWithRoleChange
+#endif  // BUILDFLAG(IS_FUCHSIA)
+
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
-                       AccessibilityAriaOwnsWithRoleChange) {
+                       MAYBE_AccessibilityAriaOwnsWithRoleChange) {
   RunAriaTest(FILE_PATH_LITERAL("aria-owns-with-role-change.html"));
 }
 
@@ -2189,6 +2208,19 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
   RunHtmlTest(FILE_PATH_LITERAL("iframe-with-invalid-children-added.html"));
 }
 
+// TODO(accessibility) Test fails on Android, even without expectations.
+#if BUILDFLAG(IS_ANDROID)
+#define MAYBE_AccessibilityIframeWithRegionRole \
+  DISABLED_AccessibilityIframeWithRegionRole
+#else
+#define MAYBE_AccessibilityIframeWithRegionRole \
+  AccessibilityIframeWithRegionRole
+#endif
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       MAYBE_AccessibilityIframeWithRegionRole) {
+  RunHtmlTest(FILE_PATH_LITERAL("iframe-with-region-role.html"));
+}
+
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityImg) {
   RunHtmlTest(FILE_PATH_LITERAL("img.html"));
 }
@@ -2755,7 +2787,15 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityOptgroup) {
   RunHtmlTest(FILE_PATH_LITERAL("optgroup.html"));
 }
 
-IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityOpenModal) {
+// TODO(crbug.com/1338211): test timeouts on Fuchsia
+#if BUILDFLAG(IS_FUCHSIA)
+#define MAYBE_AccessibilityOpenModal DISABLED_AccessibilityOpenModal
+#else
+#define MAYBE_AccessibilityOpenModal AccessibilityOpenModal
+#endif  // BUILDFLAG(IS_FUCHSIA)
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       MAYBE_AccessibilityOpenModal) {
   RunHtmlTest(FILE_PATH_LITERAL("open-modal.html"));
 }
 

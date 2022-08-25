@@ -72,27 +72,6 @@ class MockPage : public access_code_cast::mojom::Page {
 
 }  // namespace
 
-class MockAccessCodeCastSinkService : public AccessCodeCastSinkService {
- public:
-  MockAccessCodeCastSinkService(
-      Profile* profile,
-      MediaRouter* media_router,
-      CastMediaSinkServiceImpl* cast_media_sink_service_impl,
-      DiscoveryNetworkMonitor* network_monitor)
-      : AccessCodeCastSinkService(profile,
-                                  media_router,
-                                  cast_media_sink_service_impl,
-                                  network_monitor,
-                                  profile->GetPrefs()) {}
-  ~MockAccessCodeCastSinkService() override = default;
-
-  MOCK_METHOD(void,
-              AddSinkToMediaRouter,
-              (const MediaSinkInternal& sink,
-               AddSinkResultCallback add_sink_callback),
-              (override));
-};
-
 class AccessCodeCastHandlerTest : public ChromeRenderViewHostTestHarness {
  protected:
   AccessCodeCastHandlerTest()
@@ -197,7 +176,7 @@ class AccessCodeCastHandlerTest : public ChromeRenderViewHostTestHarness {
     return access_code_cast_sink_service_.get();
   }
 
-  void set_expected_cast_result(RouteRequestResult::ResultCode code) {
+  void set_expected_cast_result(mojom::RouteRequestResultCode code) {
     result_code_ = code;
   }
 
@@ -306,7 +285,7 @@ class AccessCodeCastHandlerTest : public ChromeRenderViewHostTestHarness {
                               MediaRouteResponseCallback& callback,
                               base::TimeDelta timeout, bool incognito) {
           std::unique_ptr<RouteRequestResult> result;
-          if (result_code_ == RouteRequestResult::ResultCode::OK) {
+          if (result_code_ == mojom::RouteRequestResultCode::OK) {
             MediaSource source(source_id);
             MediaRoute route;
             route.set_media_route_id(source_id + "->" + sink_id);
@@ -351,8 +330,8 @@ class AccessCodeCastHandlerTest : public ChromeRenderViewHostTestHarness {
       mock_cast_media_sink_service_impl_;
   std::unique_ptr<MockWebContentsPresentationManager> presentation_manager_;
   std::vector<MediaSinksObserver*> media_sinks_observers_;
-  RouteRequestResult::ResultCode result_code_ =
-      RouteRequestResult::ResultCode::OK;
+  mojom::RouteRequestResultCode result_code_ =
+      mojom::RouteRequestResultCode::OK;
   MediaSinkInternal cast_sink_1_;
   MediaSinkInternal cast_sink_2_;
 };
@@ -410,7 +389,7 @@ TEST_F(AccessCodeCastHandlerTest, OtherDevicesIgnored) {
 // Demonstrates that desktop mirroring attempts call media router with the
 // correct parameters, and that success is communicated to the dialog box.
 TEST_F(AccessCodeCastHandlerTest, DesktopMirroring) {
-  set_expected_cast_result(RouteRequestResult::ResultCode::OK);
+  set_expected_cast_result(mojom::RouteRequestResultCode::OK);
   MockCastToSinkCallback mock_callback;
   EXPECT_CALL(mock_callback, Run(RouteRequestResultCode::OK));
   StartDesktopMirroring(MediaSource::ForUnchosenDesktop(), mock_callback);
@@ -419,7 +398,7 @@ TEST_F(AccessCodeCastHandlerTest, DesktopMirroring) {
 // Demonstrates that if casting does not start successfully that the error
 // code is communicated to the dialog.
 TEST_F(AccessCodeCastHandlerTest, DesktopMirroringError) {
-  set_expected_cast_result(RouteRequestResult::ResultCode::ROUTE_NOT_FOUND);
+  set_expected_cast_result(mojom::RouteRequestResultCode::ROUTE_NOT_FOUND);
   MockCastToSinkCallback mock_callback;
   EXPECT_CALL(mock_callback, Run(RouteRequestResultCode::ROUTE_NOT_FOUND));
   StartDesktopMirroring(MediaSource::ForUnchosenDesktop(), mock_callback);
@@ -428,7 +407,7 @@ TEST_F(AccessCodeCastHandlerTest, DesktopMirroringError) {
 // Demonstrates that tab mirroring attempts call media router with the
 // correct parameters, and that success is communicated to the dialog box.
 TEST_F(AccessCodeCastHandlerTest, TabMirroring) {
-  set_expected_cast_result(RouteRequestResult::ResultCode::OK);
+  set_expected_cast_result(mojom::RouteRequestResultCode::OK);
   MockCastToSinkCallback mock_callback;
   EXPECT_CALL(mock_callback, Run(RouteRequestResultCode::OK));
   MediaSource media_source = MediaSource::ForTab(
@@ -439,7 +418,7 @@ TEST_F(AccessCodeCastHandlerTest, TabMirroring) {
 // Demonstrates that if casting does not start successfully that the error
 // code is communicated to the dialog.
 TEST_F(AccessCodeCastHandlerTest, TabMirroringError) {
-  set_expected_cast_result(RouteRequestResult::ResultCode::INVALID_ORIGIN);
+  set_expected_cast_result(mojom::RouteRequestResultCode::INVALID_ORIGIN);
   MockCastToSinkCallback mock_callback;
   EXPECT_CALL(mock_callback, Run(RouteRequestResultCode::INVALID_ORIGIN));
   MediaSource media_source = MediaSource::ForTab(
@@ -450,7 +429,7 @@ TEST_F(AccessCodeCastHandlerTest, TabMirroringError) {
 // Demonstrates that if a default presentation source is available,
 // presentation casting will begin instead of tab casting.
 TEST_F(AccessCodeCastHandlerTest, DefaultPresentation) {
-  set_expected_cast_result(RouteRequestResult::ResultCode::OK);
+  set_expected_cast_result(mojom::RouteRequestResultCode::OK);
   MockCastToSinkCallback mock_callback;
   EXPECT_CALL(mock_callback, Run(RouteRequestResultCode::OK));
 
@@ -464,7 +443,7 @@ TEST_F(AccessCodeCastHandlerTest, DefaultPresentation) {
 // Demonstrates that if a presentation casting does not start successfully
 // that the error is propagated to the dialog.
 TEST_F(AccessCodeCastHandlerTest, DefaultPresentationError) {
-  set_expected_cast_result(RouteRequestResult::ResultCode::INVALID_ORIGIN);
+  set_expected_cast_result(mojom::RouteRequestResultCode::INVALID_ORIGIN);
   MockCastToSinkCallback mock_callback;
   EXPECT_CALL(mock_callback, Run(RouteRequestResultCode::INVALID_ORIGIN));
 
@@ -479,7 +458,7 @@ TEST_F(AccessCodeCastHandlerTest, DefaultPresentationError) {
 // it will be used to start casting in preference to the default request and
 // tab mirroring.
 TEST_F(AccessCodeCastHandlerTest, StartPresentationContext) {
-  set_expected_cast_result(RouteRequestResult::ResultCode::OK);
+  set_expected_cast_result(mojom::RouteRequestResultCode::OK);
   MockCastToSinkCallback mock_callback;
   EXPECT_CALL(mock_callback, Run(RouteRequestResultCode::OK));
 

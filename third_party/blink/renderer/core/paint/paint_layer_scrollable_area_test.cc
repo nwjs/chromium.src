@@ -37,23 +37,6 @@ class ScrollableAreaMockChromeClient : public RenderingTestChromeClient {
   }
 };
 
-HeapVector<Member<ScrollTimelineOffset>> CreateScrollOffsets(
-    ScrollTimelineOffset* start_scroll_offset =
-        MakeGarbageCollected<ScrollTimelineOffset>(
-            CSSNumericLiteralValue::Create(
-                10.0,
-                CSSPrimitiveValue::UnitType::kPixels)),
-    ScrollTimelineOffset* end_scroll_offset =
-        MakeGarbageCollected<ScrollTimelineOffset>(
-            CSSNumericLiteralValue::Create(
-                90.0,
-                CSSPrimitiveValue::UnitType::kPixels))) {
-  HeapVector<Member<ScrollTimelineOffset>> scroll_offsets;
-  scroll_offsets.push_back(start_scroll_offset);
-  scroll_offsets.push_back(end_scroll_offset);
-  return scroll_offsets;
-}
-
 }  // namespace
 
 #if BUILDFLAG(IS_FUCHSIA)
@@ -762,8 +745,8 @@ TEST_P(MAYBE_PaintLayerScrollableAreaTest,
   scrollable_area->SetScrollOffset(ScrollOffset(0, 1),
                                    mojom::blink::ScrollType::kProgrammatic);
   UpdateAllLifecyclePhasesExceptPaint();
-  EXPECT_TRUE(
-      GetDocument().View()->GetPaintArtifactCompositor()->NeedsUpdate());
+  EXPECT_EQ(!RuntimeEnabledFeatures::ScrollUpdateOptimizationsEnabled(),
+            GetDocument().View()->GetPaintArtifactCompositor()->NeedsUpdate());
   UpdateAllLifecyclePhasesForTest();
   EXPECT_EQ(ScrollOffset(0, 1), scrollable_area->GetScrollOffset());
 }
@@ -1440,14 +1423,11 @@ TEST_P(MAYBE_PaintLayerScrollableAreaTest, SetSnapContainerDataNeedsUpdate) {
 
 class ScrollTimelineForTest : public ScrollTimeline {
  public:
-  ScrollTimelineForTest(Document* document,
-                        Element* scroll_source,
-                        HeapVector<Member<ScrollTimelineOffset>>
-                            scroll_offsets = CreateScrollOffsets())
+  ScrollTimelineForTest(Document* document, Element* scroll_source)
       : ScrollTimeline(document,
+                       ScrollTimeline::ReferenceType::kSource,
                        scroll_source,
-                       ScrollTimeline::kVertical,
-                       std::move(scroll_offsets)),
+                       ScrollDirection::kVertical),
         invalidated_(false) {}
   void Invalidate() override {
     ScrollTimeline::Invalidate();
@@ -1640,6 +1620,30 @@ TEST_P(MAYBE_PaintLayerScrollableAreaTest, RemoveAddResizerWithoutScrollbars) {
   ASSERT_FALSE(scrollable_area->HasScrollbar());
   EXPECT_TRUE(scrollable_area->HasOverlayOverflowControls());
   EXPECT_TRUE(scrollable_area->Layer()->NeedsReorderOverlayOverflowControls());
+}
+
+TEST_P(MAYBE_PaintLayerScrollableAreaTest, RemoveStickyUnderContain) {
+  SetBodyInnerHTML(R"HTML(
+    <div id="contain" style="contain: strict; width: 100px; height: 2000px">
+      <div id="parent">
+        <div id="sticky" style="top: 100px; position: sticky">STICKY</div>
+      </div>
+    </div>
+  )HTML");
+
+  auto* scrollable_area = GetLayoutView().GetScrollableArea();
+  auto* sticky_layer = GetPaintLayerByElementId("sticky");
+  EXPECT_TRUE(scrollable_area->HasStickyLayer(sticky_layer));
+
+  GetDocument().getElementById("parent")->remove();
+  EXPECT_FALSE(scrollable_area->HasStickyLayer(sticky_layer));
+
+  UpdateAllLifecyclePhasesForTest();
+
+  // This should not crash.
+  scrollable_area->SetScrollOffset(ScrollOffset(0, 100),
+                                   mojom::blink::ScrollType::kProgrammatic);
+  UpdateAllLifecyclePhasesForTest();
 }
 
 }  // namespace blink

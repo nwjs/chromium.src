@@ -7,6 +7,7 @@
 #include "base/bind.h"
 #include "base/callback_helpers.h"
 #include "base/check.h"
+#include "base/memory/raw_ptr.h"
 #include "dbus/bus.h"
 #include "dbus/message.h"
 #include "dbus/object_manager.h"
@@ -41,6 +42,27 @@ class BluetoothDebugManagerClientImpl : public BluetoothDebugManagerClient,
       const BluetoothDebugManagerClientImpl&) = delete;
 
   ~BluetoothDebugManagerClientImpl() override = default;
+
+  // BluetoothDebugManagerClient override.
+  void SetLLPrivacy(const bool enable,
+                    base::OnceClosure callback,
+                    ErrorCallback error_callback) override {
+    constexpr char kLLPrivacy[] = "SetLLPrivacy";
+
+    dbus::MethodCall method_call(bluetooth_debug::kBluetoothDebugInterface,
+                                 kLLPrivacy);
+
+    dbus::MessageWriter writer(&method_call);
+    writer.AppendBool(enable);
+
+    object_proxy_->CallMethodWithErrorCallback(
+        &method_call, dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
+        base::BindOnce(&BluetoothDebugManagerClientImpl::OnSuccess,
+                       weak_ptr_factory_.GetWeakPtr(), std::move(callback)),
+        base::BindOnce(&BluetoothDebugManagerClientImpl::OnError,
+                       weak_ptr_factory_.GetWeakPtr(),
+                       std::move(error_callback)));
+  }
 
   // BluetoothDebugManagerClient override.
   void SetLogLevels(const uint8_t bluez_level,
@@ -121,9 +143,9 @@ class BluetoothDebugManagerClientImpl : public BluetoothDebugManagerClient,
     std::move(error_callback).Run(error_name, error_message);
   }
 
-  dbus::ObjectProxy* object_proxy_;
+  raw_ptr<dbus::ObjectProxy> object_proxy_;
 
-  dbus::ObjectManager* object_manager_;
+  raw_ptr<dbus::ObjectManager> object_manager_;
 
   base::WeakPtrFactory<BluetoothDebugManagerClientImpl> weak_ptr_factory_{this};
 };

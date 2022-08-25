@@ -133,7 +133,7 @@ bool ShouldSaveWindowPlacement(const Browser* browser) {
 }
 
 bool SavedBoundsAreContentBounds(const Browser* browser) {
-  return !browser->is_type_devtools();
+  return true;
 #if 0
   // Applications other than web apps (such as devtools) save their window size.
   // Web apps, on the other hand, have the same behavior as popups, and save

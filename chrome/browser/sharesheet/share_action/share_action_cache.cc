@@ -66,7 +66,7 @@ const gfx::VectorIcon* ShareActionCache::GetVectorIconFromName(
   return &share_action->GetActionIcon();
 }
 
-bool ShareActionCache::HasVisibleActions(const apps::mojom::IntentPtr& intent,
+bool ShareActionCache::HasVisibleActions(const apps::IntentPtr& intent,
                                          bool contains_google_document) {
   for (auto& action : share_actions_) {
     if (action->ShouldShowAction(intent, contains_google_document)) {
@@ -74,6 +74,10 @@ bool ShareActionCache::HasVisibleActions(const apps::mojom::IntentPtr& intent,
     }
   }
   return false;
+}
+
+void ShareActionCache::AddShareActionForTesting() {
+  AddShareAction(std::make_unique<ExampleAction>());
 }
 
 void ShareActionCache::AddShareAction(std::unique_ptr<ShareAction> action) {

@@ -20,6 +20,7 @@
 #include "base/containers/lru_cache.h"
 #include "base/memory/memory_pressure_listener.h"
 #include "base/memory/shared_memory_mapping.h"
+#include "base/rand_util.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "cc/benchmarks/micro_benchmark_controller_impl.h"
@@ -28,7 +29,6 @@
 #include "cc/input/browser_controls_offset_manager_client.h"
 #include "cc/input/input_handler.h"
 #include "cc/input/scrollbar_animation_controller.h"
-#include "cc/input/threaded_input_handler.h"
 #include "cc/layers/layer_collections.h"
 #include "cc/metrics/average_lag_tracking_manager.h"
 #include "cc/metrics/dropped_frame_counter.h"
@@ -278,8 +278,8 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   // TODO(bokan): This getter is an escape-hatch for code that hasn't yet been
   // cleaned up to decouple input from graphics. Callers should be cleaned up
   // to avoid calling it and it should be removed.
-  ThreadedInputHandler& GetInputHandler();
-  const ThreadedInputHandler& GetInputHandler() const;
+  InputHandler& GetInputHandler();
+  const InputHandler& GetInputHandler() const;
 
   void StartPageScaleAnimation(const gfx::Point& target_offset,
                                bool anchor_point,
@@ -350,7 +350,7 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   void SetFullViewportDamage();
   void SetViewportDamage(const gfx::Rect& damage_rect);
 
-  // Interface for ThreadedInputHandler
+  // Interface for InputHandler
   void BindToInputHandler(
       std::unique_ptr<InputDelegateForCompositor> delegate) override;
   ScrollTree& GetScrollTree() const override;
@@ -672,7 +672,7 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   // TODO(bokan): These input-related methods shouldn't be part of
   // LayerTreeHostImpl's interface.
   bool IsPinchGestureActive() const;
-  // See comment in equivalent ThreadedInputHandler method for what this means.
+  // See comment in equivalent InputHandler method for what this means.
   ActivelyScrollingType GetActivelyScrollingType() const;
   bool ScrollAffectsScrollHandler() const;
   bool CurrentScrollCheckerboardsDueToNoRecording() const {
@@ -898,6 +898,10 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   bool IsReadyToActivate() const;
 
   void RequestImplSideInvalidationForRerasterTiling();
+
+  void SetDownsampleMetricsForTesting(bool value) {
+    downsample_metrics_ = value;
+  }
 
  protected:
   LayerTreeHostImpl(
@@ -1304,6 +1308,9 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   ThrottleDecider throttle_decider_;
 
   std::vector<uint32_t> finished_transition_request_sequence_ids_;
+
+  bool downsample_metrics_ = true;
+  base::MetricsSubSampler metrics_subsampler_;
 
   // Must be the last member to ensure this is destroyed first in the
   // destruction order and invalidates all weak pointers.

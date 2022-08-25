@@ -13,6 +13,7 @@
 
 #include "base/bind.h"
 #include "base/callback_helpers.h"
+#include "base/check.h"
 #include "base/command_line.h"
 #include "base/files/file_util.h"
 #include "base/logging.h"
@@ -100,6 +101,7 @@
 
 #if BUILDFLAG(IS_ANDROID)
 #include "chromecast/app/android/crash_handler.h"
+#include "chromecast/base/pref_names.h"
 #include "components/crash/content/browser/child_exit_observer_android.h"
 #include "components/crash/content/browser/child_process_crash_observer_android.h"
 #include "net/android/network_change_notifier_factory_android.h"
@@ -122,7 +124,6 @@
 #include "chromecast/browser/devtools/cast_ui_devtools.h"
 #include "chromecast/graphics/cast_screen.h"
 #include "chromecast/graphics/cast_window_manager_aura.h"
-#include "chromecast/graphics/rounded_window_corners_manager.h"
 #include "chromecast/media/service/cast_renderer.h"  // nogncheck
 #if !BUILDFLAG(IS_FUCHSIA)
 #include "components/ui_devtools/devtools_server.h"  // nogncheck
@@ -159,7 +160,8 @@ namespace {
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_FUCHSIA)
 int kSignalsToRunClosure[] = {
-    SIGTERM, SIGINT,
+    SIGTERM,
+    SIGINT,
 };
 // Closure to run on SIGTERM and SIGINT.
 base::OnceClosure* g_signal_closure = nullptr;
@@ -514,7 +516,8 @@ void CastBrowserMainParts::ToolkitInitialized() {
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
   base::FilePath dir_font = GetApplicationFontsDir();
-  const FcChar8 *dir_font_char8 = reinterpret_cast<const FcChar8*>(dir_font.value().data());
+  const FcChar8* dir_font_char8 =
+      reinterpret_cast<const FcChar8*>(dir_font.value().data());
   if (!FcConfigAppFontAddDir(gfx::GetGlobalFontConfig(), dir_font_char8)) {
     LOG(ERROR) << "Cannot load fonts from " << dir_font_char8;
   }
@@ -599,10 +602,7 @@ int CastBrowserMainParts::PreMainMessageLoopRun() {
   crash_reporter_runner_ = base::ThreadPool::CreateSequencedTaskRunner(
       {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
        base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN});
-  crash_reporter_runner_->PostTask(
-      FROM_HERE,
-      base::BindOnce(&CastBrowserMainParts::StartPeriodicCrashReportUpload,
-                     base::Unretained(this)));
+  StartPeriodicCrashReportUpload();
 #endif  // BUILDFLAG(IS_ANDROID)
 
   cast_browser_process_->SetBrowserContext(
@@ -661,11 +661,6 @@ int CastBrowserMainParts::PreMainMessageLoopRun() {
       CAST_IS_DEBUG_BUILD() ||
       GetSwitchValueBoolean(switches::kEnableInput, false));
   window_manager_->Setup();
-
-  if (GetSwitchValueBoolean(switches::kEnableRoundedWindowCorners, false)) {
-    rounded_window_corners_manager_ =
-        std::make_unique<RoundedWindowCornersManager>(window_manager_.get());
-  }
 
   display_change_observer_ = std::make_unique<DisplayConfiguratorObserver>(
       cast_browser_process_->display_configurator(), window_manager_.get());
@@ -778,13 +773,23 @@ void CastBrowserMainParts::StartPeriodicCrashReportUpload() {
 }
 
 void CastBrowserMainParts::OnStartPeriodicCrashReportUpload() {
+  crash_reporter_runner_->PostTask(
+      FROM_HERE,
+      base::BindOnce(&CastBrowserMainParts::UploadCrashReport,
+                     weak_factory_.GetWeakPtr(),
+                     cast_browser_process_->pref_service()->GetBoolean(
+                         prefs::kOptInStats)));
+}
+
+void CastBrowserMainParts::UploadCrashReport(bool opt_in_stats) {
+  DCHECK(crash_reporter_runner_->RunsTasksInCurrentSequence());
   base::FilePath crash_dir;
   if (!CrashHandler::GetCrashDumpLocation(&crash_dir))
     return;
   base::FilePath reports_dir;
   if (!CrashHandler::GetCrashReportsLocation(&reports_dir))
     return;
-  CrashHandler::UploadDumps(crash_dir, reports_dir, "", "");
+  CrashHandler::UploadDumps(crash_dir, reports_dir, "", "", opt_in_stats);
 }
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -837,10 +842,6 @@ void CastBrowserMainParts::PostMainMessageLoopRun() {
   cast_browser_process_->cast_service()->Finalize();
   cast_browser_process_->cast_browser_metrics()->Finalize();
   cast_browser_process_.reset();
-
-#if defined(USE_AURA)
-  rounded_window_corners_manager_.reset();
-#endif
 
   window_manager_.reset();
 #if defined(USE_AURA)

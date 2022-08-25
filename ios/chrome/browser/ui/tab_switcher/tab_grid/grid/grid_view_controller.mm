@@ -739,6 +739,12 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
 - (NSArray<UIDragItem*>*)collectionView:(UICollectionView*)collectionView
            itemsForBeginningDragSession:(id<UIDragSession>)session
                             atIndexPath:(NSIndexPath*)indexPath {
+  if (self.thumbStripEnabled && self.items.count <= 1) {
+    // If only one item, don't drag it or this will leave the BVC or the grid
+    // empty.
+    // TODO(crbug.com/1334474) try to fix better by opening an NTP.
+    return @[];
+  }
   if (_mode == TabGridModeSearch) {
     // TODO(crbug.com/1300369): Enable dragging items from search results.
     return @[];
@@ -845,7 +851,7 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
       // the plus sign cell in this point in code depends on
       // `item.sourceIndexPath`.
       // I.e., in this point in code, `collectionView.numberOfItemsInSection` is
-      // equal to `self.items.count + 1|.
+      // equal to `self.items.count + 1`.
       if (destinationIndex == plusSignCellIndex) {
         // Prevent the cell from being dropped where the plus sign cell is.
         destinationIndex = plusSignCellIndex - 1;

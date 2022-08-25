@@ -14,6 +14,7 @@
 #include "base/memory/weak_ptr.h"
 #include "extensions/common/extension_id.h"
 #include "extensions/common/features/feature.h"
+#include "extensions/common/mojom/view_type.mojom.h"
 #include "extensions/renderer/renderer_extension_registry.h"
 #include "extensions/renderer/script_context_set_iterable.h"
 #include "url/gurl.h"
@@ -124,6 +125,7 @@ class ScriptContextSet : public ScriptContextSetIterable {
       int32_t world_id,
       const GURL& url,
       const blink::WebSecurityOrigin& origin,
+      mojom::ViewType view_type,
       const blink::WebLocalFrame* frame = nullptr
                                              );
 

@@ -74,6 +74,7 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
+#include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/keep_alive_registry/keep_alive_types.h"
 #include "components/keep_alive_registry/scoped_keep_alive.h"
@@ -1832,7 +1833,8 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, RestorePinnedSelectedTab) {
   ASSERT_EQ(1, browser()->tab_strip_model()->active_index());
   // Select the pinned tab.
   browser()->tab_strip_model()->ActivateTabAt(
-      0, {TabStripModel::GestureType::kOther});
+      0, TabStripUserGestureDetails(
+             TabStripUserGestureDetails::GestureType::kOther));
   ASSERT_EQ(0, browser()->tab_strip_model()->active_index());
   Profile* profile = browser()->profile();
 
@@ -2255,7 +2257,8 @@ IN_PROC_BROWSER_TEST_F(SmartSessionRestoreTest, MAYBE_PRE_CorrectLoadingOrder) {
   // Activate the tabs one by one following the specified activation order.
   for (int i : activation_order)
     browser()->tab_strip_model()->ActivateTabAt(
-        i, {TabStripModel::GestureType::kOther});
+        i, TabStripUserGestureDetails(
+               TabStripUserGestureDetails::GestureType::kOther));
 
   // Close the browser.
   auto keep_alive = std::make_unique<ScopedKeepAlive>(
@@ -2290,7 +2293,8 @@ IN_PROC_BROWSER_TEST_F(SmartSessionRestoreTest, MAYBE_PRE_CorrectLoadingOrder) {
   // Activate the 2nd tab before the browser closes. This should be persisted in
   // the following test.
   new_browser->tab_strip_model()->ActivateTabAt(
-      1, {TabStripModel::GestureType::kOther});
+      1, TabStripUserGestureDetails(
+             TabStripUserGestureDetails::GestureType::kOther));
 }
 
 IN_PROC_BROWSER_TEST_F(SmartSessionRestoreTest, MAYBE_CorrectLoadingOrder) {
@@ -2899,12 +2903,8 @@ class SessionRestoreWithIncompleteFileTest : public InProcessBrowserTest {
     // be read, but a read error should be logged.
     base::FilePath user_data_dir;
     EXPECT_TRUE(base::PathService::Get(chrome::DIR_USER_DATA, &user_data_dir));
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-    const std::string profile_dir = chrome::kTestUserProfileDir;
-#else
-    const std::string profile_dir = chrome::kInitialProfile;
-#endif
-    base::FilePath sessions_dir = user_data_dir.AppendASCII(profile_dir);
+    base::FilePath sessions_dir =
+        user_data_dir.AppendASCII(TestingProfile::kTestUserProfileDir);
     if (!base::DeletePathRecursively(
             sessions_dir.Append(sessions::kSessionsDirectory))) {
       ADD_FAILURE() << "Unable to delete sessions directory";

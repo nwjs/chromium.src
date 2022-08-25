@@ -78,6 +78,7 @@ void ContentsWebView::UpdateBackgroundColor() {
   else
   SetBackground(background_visible_ ? views::CreateSolidBackground(color)
                                     : nullptr);
+
   if (web_contents()) {
     content::RenderWidgetHostView* rwhv =
         web_contents()->GetRenderWidgetHostView();

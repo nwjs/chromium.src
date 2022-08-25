@@ -17,6 +17,7 @@ import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.notNull;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
@@ -96,6 +97,7 @@ import org.chromium.chrome.test.util.browser.signin.SigninTestRule;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.externalauth.ExternalAuthUtils;
 import org.chromium.components.policy.PolicyService;
+import org.chromium.components.signin.AccountUtils;
 import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.identitymanager.IdentityManager;
@@ -345,6 +347,43 @@ public class SigninFirstRunFragmentTest {
         launchActivityWithFragment();
 
         checkFragmentWhenSigninIsDisabledByPolicy();
+    }
+
+    @Test
+    @MediumTest
+    public void testFragmentWhenSigninErrorOccurs() {
+        mSigninTestRule.addAccount(TEST_EMAIL1, FULL_NAME1, GIVEN_NAME1, null);
+        IdentityServicesProvider.setInstanceForTests(mIdentityServicesProviderMock);
+        TestThreadUtils.runOnUiThreadBlocking(() -> {
+            when(IdentityServicesProvider.get().getSigninManager(
+                         Profile.getLastUsedRegularProfile()))
+                    .thenReturn(mSigninManagerMock);
+            // IdentityManager#getPrimaryAccountInfo() is called during this test flow by
+            // SigninFirstRunMediator.
+            when(IdentityServicesProvider.get().getIdentityManager(
+                         Profile.getLastUsedRegularProfile()))
+                    .thenReturn(mIdentityManagerMock);
+        });
+        doAnswer(invocation -> {
+            SigninManager.SignInCallback callback = invocation.getArgument(1);
+            callback.onSignInAborted();
+            return null;
+        })
+                .when(mSigninManagerMock)
+                .signin(eq(AccountUtils.createAccountFromName(TEST_EMAIL1)), any());
+        TestThreadUtils.runOnUiThreadBlocking(() -> { mFragment.onNativeInitialized(); });
+        launchActivityWithFragment();
+        checkFragmentWithSelectedAccount(TEST_EMAIL1, FULL_NAME1, GIVEN_NAME1);
+
+        final String continueAsText = mChromeActivityTestRule.getActivity().getString(
+                R.string.signin_promo_continue_as, GIVEN_NAME1);
+        onView(withText(continueAsText)).perform(click());
+
+        verify(mFirstRunPageDelegateMock).acceptTermsOfService(true);
+        verify(mFirstRunPageDelegateMock, never()).advanceToNextPage();
+        // TODO(crbug/1248090): For now we enable the buttons again to not block the users from
+        // continuing to the next page. Should show a dialog with the signin error.
+        checkFragmentWithSelectedAccount(TEST_EMAIL1, FULL_NAME1, GIVEN_NAME1);
     }
 
     @Test
@@ -669,7 +708,7 @@ public class SigninFirstRunFragmentTest {
         TestThreadUtils.runOnUiThreadBlocking(() -> { mFragment.onNativeInitialized(); });
         launchActivityWithFragment();
 
-        onView(withId(R.id.signin_fre_footer)).perform(clickOnUmaDialogLink());
+        clickOnUmaDialogLinkAndWait();
 
         onView(withText(R.string.signin_fre_uma_dialog_title))
                 .inRoot(isDialog())
@@ -695,7 +734,7 @@ public class SigninFirstRunFragmentTest {
     public void testFragmentWhenDismissingUmaDialog() {
         TestThreadUtils.runOnUiThreadBlocking(() -> { mFragment.onNativeInitialized(); });
         launchActivityWithFragment();
-        onView(withId(R.id.signin_fre_footer)).perform(clickOnUmaDialogLink());
+        clickOnUmaDialogLinkAndWait();
 
         onView(withText(R.string.done)).perform(click());
 
@@ -707,7 +746,7 @@ public class SigninFirstRunFragmentTest {
     public void testDismissButtonWhenAllowCrashUploadTurnedOff() {
         TestThreadUtils.runOnUiThreadBlocking(() -> { mFragment.onNativeInitialized(); });
         launchActivityWithFragment();
-        onView(withId(R.id.signin_fre_footer)).perform(clickOnUmaDialogLink());
+        clickOnUmaDialogLinkAndWait();
         onView(withId(R.id.fre_uma_dialog_switch)).perform(click());
         onView(withText(R.string.done)).perform(click());
 
@@ -722,11 +761,11 @@ public class SigninFirstRunFragmentTest {
     public void testUmaDialogSwitchIsOffWhenAllowCrashUploadWasTurnedOffBefore() {
         TestThreadUtils.runOnUiThreadBlocking(() -> { mFragment.onNativeInitialized(); });
         launchActivityWithFragment();
-        onView(withId(R.id.signin_fre_footer)).perform(clickOnUmaDialogLink());
+        clickOnUmaDialogLinkAndWait();
         onView(withId(R.id.fre_uma_dialog_switch)).check(matches(isChecked())).perform(click());
         onView(withText(R.string.done)).perform(click());
 
-        onView(withId(R.id.signin_fre_footer)).perform(clickOnUmaDialogLink());
+        clickOnUmaDialogLinkAndWait();
 
         onView(withId(R.id.fre_uma_dialog_switch))
                 .check(matches(not(isChecked())))
@@ -744,7 +783,7 @@ public class SigninFirstRunFragmentTest {
         TestThreadUtils.runOnUiThreadBlocking(() -> { mFragment.onNativeInitialized(); });
         mSigninTestRule.addAccount(TEST_EMAIL1, FULL_NAME1, GIVEN_NAME1, null);
         launchActivityWithFragment();
-        onView(withId(R.id.signin_fre_footer)).perform(clickOnUmaDialogLink());
+        clickOnUmaDialogLinkAndWait();
         onView(withId(R.id.fre_uma_dialog_switch)).perform(click());
         onView(withText(R.string.done)).perform(click());
 
@@ -1111,6 +1150,15 @@ public class SigninFirstRunFragmentTest {
             signinProgressSpinner.setIndeterminateDrawable(new ColorDrawable(
                     SemanticColorUtils.getDefaultBgColor(mFragment.getContext())));
         });
+    }
+
+    /**
+     * The dialog does not open instantly, and if we do not wait we get a small percentage of
+     * flakes. See https://crbug.com/1343519.
+     */
+    private void clickOnUmaDialogLinkAndWait() {
+        onView(withId(R.id.signin_fre_footer)).perform(clickOnUmaDialogLink());
+        ViewUtils.onViewWaiting(withText(R.string.done)).check(matches(isDisplayed()));
     }
 
     private ViewAction clickOnUmaDialogLink() {

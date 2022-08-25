@@ -46,9 +46,12 @@ class PortalCreatedObserver : public mojom::FrameHostInterceptorForTesting {
   void CreatePortal(
       mojo::PendingAssociatedReceiver<blink::mojom::Portal> portal,
       mojo::PendingAssociatedRemote<blink::mojom::PortalClient> client,
+      mojom::RemoteFrameInterfacesFromRendererPtr remote_frame_interfaces,
       CreatePortalCallback callback) override;
-  void AdoptPortal(const blink::PortalToken& portal_token,
-                   AdoptPortalCallback callback) override;
+  void AdoptPortal(
+      const blink::PortalToken& portal_token,
+      mojom::RemoteFrameInterfacesFromRendererPtr remote_frame_interfaces,
+      AdoptPortalCallback callback) override;
 
   // Wait until a portal is created (either newly or through adoption).
   Portal* WaitUntilPortalCreated();
@@ -56,13 +59,13 @@ class PortalCreatedObserver : public mojom::FrameHostInterceptorForTesting {
  private:
   void DidCreatePortal();
 
-  raw_ptr<RenderFrameHostImpl> render_frame_host_impl_;
+  raw_ptr<RenderFrameHostImpl, DanglingUntriaged> render_frame_host_impl_;
   mojo::test::ScopedSwapImplForTesting<
       mojo::AssociatedReceiver<mojom::FrameHost>>
       swapped_impl_;
   base::OnceCallback<void(Portal*)> created_cb_;
   raw_ptr<base::RunLoop> run_loop_ = nullptr;
-  raw_ptr<Portal> portal_ = nullptr;
+  raw_ptr<Portal, DanglingUntriaged> portal_ = nullptr;
 };
 
 }  // namespace content

@@ -217,8 +217,11 @@ void InputMethodAsh::OnCaretBoundsChanged(const TextInputClient* client) {
   DCHECK(client == GetTextInputClient());
   DCHECK(!IsTextInputTypeNone());
 
-  if (GetEngine())
-    GetEngine()->SetCompositionBounds(GetCompositionBounds(client));
+  ui::IMEEngineHandlerInterface* engine = GetEngine();
+  if (engine) {
+    engine->SetCompositionBounds(GetCompositionBounds(client));
+    engine->SetCaretBounds(client->GetCaretBounds());
+  }
 
   ash::IMECandidateWindowHandlerInterface* candidate_window =
       ui::IMEBridge::Get()->GetCandidateWindowHandler();
@@ -644,9 +647,16 @@ void InputMethodAsh::MaybeProcessPendingInputMethodResult(ui::KeyEvent* event,
   DCHECK(client);
 
   if (pending_commit_) {
-    if (pending_commit_->text.empty()) {
+    if (handled && NeedInsertChar()) {
+      for (const auto& ch : pending_commit_->text) {
+        KeyEvent ch_event(ET_KEY_PRESSED, VKEY_UNKNOWN, EF_NONE);
+        ch_event.set_character(ch);
+        client->InsertChar(ch_event);
+      }
+    } else if (pending_commit_->text.empty()) {
       client->InsertText(
           u"", TextInputClient::InsertTextCursorBehavior::kMoveCursorAfterText);
+      composing_text_ = false;
     } else {
       // Split the commit into two separate commits, one for the substring
       // before the cursor and one for the substring after.
@@ -664,8 +674,8 @@ void InputMethodAsh::MaybeProcessPendingInputMethodResult(ui::KeyEvent* event,
             after_cursor,
             TextInputClient::InsertTextCursorBehavior::kMoveCursorBeforeText);
       }
+      composing_text_ = false;
     }
-    composing_text_ = false;
     typing_session_manager_.CommitCharacters(pending_commit_->text.length());
   }
 

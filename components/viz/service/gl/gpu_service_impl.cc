@@ -321,7 +321,7 @@ void GetVideoCapabilities(const gpu::GpuPreferences& gpu_preferences,
   gpu_info->video_encode_accelerator_supported_profiles =
       media::GpuVideoAcceleratorUtil::ConvertMediaToGpuEncodeProfiles(
           media::GpuVideoEncodeAcceleratorFactory::GetSupportedProfiles(
-              gpu_preferences, gpu_workarounds,
+              gpu_preferences, gpu_workarounds, gpu_info->active_gpu(),
               /*populate_extended_info=*/false));
 #endif  // BUILDFLAG(IS_ANDROID)
 }
@@ -430,18 +430,16 @@ GpuServiceImpl::GpuServiceImpl(
 #endif
 
 #if BUILDFLAG(IS_WIN)
-  auto info_callback =
-      base::BindRepeating(&GpuServiceImpl::UpdateOverlayAndDXGIInfo,
-                          weak_ptr_factory_.GetWeakPtr());
-  gl::DirectCompositionSurfaceWin::SetOverlayHDRGpuInfoUpdateCallback(
-      info_callback);
-
   if (media::SupportMediaFoundationClearPlayback()) {
     // Initialize the OverlayStateService using the GPUServiceImpl task
     // sequence.
     auto* overlay_state_service = OverlayStateService::GetInstance();
     overlay_state_service->Initialize(base::SequencedTaskRunnerHandle::Get());
   }
+
+  // Add GpuServiceImpl to DirectCompositionOverlayCapsMonitor observer list for
+  // overlay and DXGI info update.
+  gl::DirectCompositionOverlayCapsMonitor::GetInstance()->AddObserver(this);
 #endif
 
   gpu_memory_buffer_factory_ =
@@ -460,6 +458,10 @@ GpuServiceImpl::~GpuServiceImpl() {
 
   if (!in_host_process())
     GetLogMessageManager()->ShutdownLogging();
+
+#if BUILDFLAG(IS_WIN)
+  gl::DirectCompositionOverlayCapsMonitor::GetInstance()->RemoveObserver(this);
+#endif
 
   // Destroy the receiver on the IO thread.
   {
@@ -832,7 +834,8 @@ void GpuServiceImpl::CreateVideoEncodeAcceleratorProvider(
   media::MojoVideoEncodeAcceleratorProvider::Create(
       std::move(vea_provider_receiver),
       base::BindRepeating(&media::GpuVideoEncodeAcceleratorFactory::CreateVEA),
-      gpu_preferences_, gpu_channel_manager_->gpu_driver_bug_workarounds());
+      gpu_preferences_, gpu_channel_manager_->gpu_driver_bug_workarounds(),
+      gpu_info_.active_gpu());
 }
 
 void GpuServiceImpl::CreateGpuMemoryBuffer(
@@ -1192,16 +1195,32 @@ void GpuServiceImpl::DestroyAllChannels() {
 }
 
 void GpuServiceImpl::OnBackgroundCleanup() {
-// Currently only called on Android.
+  OnBackgroundCleanupGpuMainThread();
+  OnBackgroundCleanupCompositorGpuThread();
+}
+
+void GpuServiceImpl::OnBackgroundCleanupGpuMainThread() {
+  // Currently only called on Android.
 #if BUILDFLAG(IS_ANDROID)
   if (!main_runner_->BelongsToCurrentThread()) {
     main_runner_->PostTask(
         FROM_HERE,
-        base::BindOnce(&GpuServiceImpl::OnBackgroundCleanup, weak_ptr_));
+        base::BindOnce(&GpuServiceImpl::OnBackgroundCleanupGpuMainThread,
+                       weak_ptr_));
     return;
   }
   DVLOG(1) << "GPU: Performing background cleanup";
   gpu_channel_manager_->OnBackgroundCleanup();
+#else
+  NOTREACHED();
+#endif
+}
+
+void GpuServiceImpl::OnBackgroundCleanupCompositorGpuThread() {
+  // Currently only called on Android.
+#if BUILDFLAG(IS_ANDROID)
+  if (compositor_gpu_thread_)
+    compositor_gpu_thread_->OnBackgroundCleanup();
 #else
   NOTREACHED();
 #endif
@@ -1322,7 +1341,8 @@ gpu::Scheduler* GpuServiceImpl::GetGpuScheduler() {
 }
 
 #if BUILDFLAG(IS_WIN)
-void GpuServiceImpl::UpdateOverlayAndDXGIInfo() {
+// Update Overlay and DXGI Info
+void GpuServiceImpl::OnOverlayCapsChanged() {
   gpu::OverlayInfo old_overlay_info = gpu_info_.overlay_info;
   gpu::CollectHardwareOverlayInfo(&gpu_info_.overlay_info);
 

@@ -108,6 +108,7 @@ class CONTENT_EXPORT RenderWidgetHostViewBase : public RenderWidgetHostView {
   std::u16string GetSelectedText() override;
   bool IsMouseLocked() override;
   bool GetIsMouseLockedUnadjustedMovementForTesting() override;
+  bool CanBeMouseLocked() override;
   bool LockKeyboard(absl::optional<base::flat_set<ui::DomCode>> codes) override;
   void SetBackgroundColor(SkColor color) override;
   absl::optional<SkColor> GetBackgroundColor() override;
@@ -244,6 +245,20 @@ class CONTENT_EXPORT RenderWidgetHostViewBase : public RenderWidgetHostView {
   // Informs that the focused DOM node has changed.
   virtual void FocusedNodeChanged(bool is_editable_node,
                                   const gfx::Rect& node_bounds_in_screen) {}
+
+  // Requests to start stylus writing and returns true if successful.
+  virtual bool RequestStartStylusWriting();
+
+  // Sets whether the hovered element action is stylus writable or not.
+  virtual void SetHoverActionStylusWritable(bool stylus_writable) {}
+
+  // This message is received when the stylus writable element is focused.
+  // It receives the focused edit element bounds and the current caret bounds
+  // needed for stylus writing service. These bounds would be empty when the
+  // stylus writable element could not be focused.
+  virtual void OnEditElementFocusedForStylusWriting(
+      const gfx::Rect& focused_edit_bounds,
+      const gfx::Rect& caret_bounds) {}
 
   // This method will clear any cached fallback surface. For use in response to
   // a CommitPending where there is no content for TakeFallbackContentFrom.

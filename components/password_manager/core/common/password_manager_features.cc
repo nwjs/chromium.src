@@ -4,6 +4,7 @@
 
 #include "components/password_manager/core/common/password_manager_features.h"
 
+#include "base/feature_list.h"
 #include "build/build_config.h"
 
 namespace password_manager::features {
@@ -89,6 +90,13 @@ const base::Feature kIOSEnablePasswordManagerBrandingUpdate{
     "IOSEnablePasswordManagerBrandingUpdate",
     base::FEATURE_DISABLED_BY_DEFAULT};
 
+#if BUILDFLAG(IS_IOS)
+// Removes the list of passwords from the Settings UI and adds a separate
+// Password Manager view.
+const base::Feature kIOSPasswordUISplit = {"IOSPasswordUISplit",
+                                           base::FEATURE_DISABLED_BY_DEFAULT};
+#endif  // IS_IOS
+
 // Enables (un)muting compromised passwords from bulk leak check in settings.
 const base::Feature kMuteCompromisedPasswords {
   "MuteCompromisedPasswords",
@@ -149,7 +157,7 @@ const base::Feature kPasswordReuseDetectionEnabled = {
 // Enables a revised opt-in flow for the account-scoped password storage.
 const base::Feature kPasswordsAccountStorageRevisedOptInFlow = {
     "PasswordsAccountStorageRevisedOptInFlow",
-    base::FEATURE_DISABLED_BY_DEFAULT};
+    base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enables password scripts fetching for the |PasswordChangeInSettings| feature.
 const base::Feature kPasswordScriptsFetching = {
@@ -164,17 +172,23 @@ const base::Feature kRecoverFromNeverSaveAndroid = {
 const base::Feature kSecondaryServerFieldPredictions = {
     "SecondaryServerFieldPredictions", base::FEATURE_ENABLED_BY_DEFAULT};
 
+// Enables the password strength indicator.
+const base::Feature kPasswordStrengthIndicator = {
+    "PasswordStrengthIndicator", base::FEATURE_DISABLED_BY_DEFAULT};
+
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+// Enables biometric authentication in settings
+const base::Feature kEnableBiometricAuthenticationInSettings = {
+    "EnableBiometricAuthenticationInSettings",
+    base::FEATURE_DISABLED_BY_DEFAULT};
+#endif
+
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 // Displays at least the decryptable and never saved logins in the password
 // manager
 const base::Feature kSkipUndecryptablePasswords = {
     "SkipUndecryptablePasswords", base::FEATURE_DISABLED_BY_DEFAULT};
 #endif
-
-// Enables the addition of passwords in Chrome Settings.
-// TODO(crbug/1226008): Remove once it's launched.
-const base::Feature kSupportForAddPasswordsInSettings = {
-    "SupportForAddPasswordsInSettings", base::FEATURE_ENABLED_BY_DEFAULT};
 
 #if BUILDFLAG(IS_LINUX)
 // When enabled, all undecryptable passwords are deleted from the local database
@@ -188,9 +202,7 @@ const base::Feature kSyncUndecryptablePasswordsLinux = {
 // TouchToFill
 const base::Feature kTouchToFillPasswordSubmission = {
     "TouchToFillPasswordSubmission", base::FEATURE_DISABLED_BY_DEFAULT};
-#endif
 
-#if BUILDFLAG(IS_ANDROID)
 // Enables the intent fetching for the credential manager in Google Mobile
 // Services. It does not enable launching the credential manager.
 const base::Feature kUnifiedCredentialManagerDryRun = {
@@ -211,6 +223,9 @@ const base::Feature kUnifiedPasswordManagerSyncUsingAndroidBackendOnly{
 
 const base::Feature kPasswordEditDialogWithDetails{
     "PasswordEditDialogWithDetails", base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kShowUPMErrorNotification{
+    "ShowUpmErrorNotification", base::FEATURE_DISABLED_BY_DEFAULT};
 #endif
 
 const base::Feature kUnifiedPasswordManagerDesktop = {

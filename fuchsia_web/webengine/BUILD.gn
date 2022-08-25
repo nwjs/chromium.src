@@ -5,7 +5,6 @@
 assert(is_fuchsia)
 
 import("//build/config/fuchsia/generate_runner_scripts.gni")
-import("//build/config/fuchsia/symbol_archive.gni")
 import("//build/config/locales.gni")
 import("//testing/test.gni")
 import("//third_party/fuchsia-sdk/sdk/build/fidl_library.gni")
@@ -16,6 +15,11 @@ visibility = [ ":*" ]
 
 config("web_engine_implementation") {
   defines = [ "WEB_ENGINE_IMPLEMENTATION" ]
+}
+
+source_set("web_engine_export_from_implementation") {
+  public = [ "web_engine_export.h" ]
+  public_configs = [ ":web_engine_implementation" ]
 }
 
 fidl_library("fidl") {
@@ -80,8 +84,10 @@ foreach(locale, locales_with_pseudolocales) {
 
 component("web_engine_core") {
   deps = [
+    ":context_provider",
     ":fidl",
     ":switches",
+    ":web_engine_export_from_implementation",
     "//base",
     "//base:base_static",
     "//components/cast/message_port:message_port_fuchsia",
@@ -119,14 +125,8 @@ component("web_engine_core") {
     "//content/public/child",
     "//content/public/common",
     "//content/public/renderer",
-    "//fuchsia/base",
-    "//fuchsia/base:message_port",
-    "//fuchsia/base:modular",
+    "//fuchsia_web/common",
     "//fuchsia_web/webengine/mojom",
-
-    # TODO(crbug.com/1081525): Move context_provider to its own target and move
-    # this deps there.
-    "//fuchsia_web/webinstance_host",
     "//google_apis",
     "//gpu/command_buffer/service",
     "//media",
@@ -167,13 +167,30 @@ component("web_engine_core") {
   ]
 
   assert_no_deps = [
+    # Although `enable_extensions` is true for Fuchsia, extensions code should
+    # not be linked into WebEngine because it cannot be used and this would
+    # unnecessarily increase the package size.
+    # Exclude everything except "//extensions/buildflags/*", which is allowed,
+    # and //extensions/common:common_constants and
+    # //extensions/common:constants_impl", which are a dependencies.
+    # //extensions:extensions is addressed below.
+    "//extensions:extensions_resources",
+    "//extensions/browser/*",
+    "//extensions/common:common",
+    "//extensions/common:core_api_provider",
+    "//extensions/common:export",
+    "//extensions/common:mojom",
+    "//extensions/renderer/*",
+    "//extensions/strings/*",
+
     # Although `enable_pdf` is true for Fuchsia, PDF code should not be linked
     # into WebEngine because it does not have the necessary infrastructure and
     # this would unnecessarily increase the package size.
     "//components/pdf/*",
+    "//components/plugins/*",
     "//pdf/*",
 
-    # Pepper code should not be included as plugins are disabled.
+    # Pepper code should not be included as enable_ppapi is false.
     # Exclude everything except "//ppapi/buildflags/*", which is allowed.
     "//ppapi:*",
     "//ppapi/c/*",
@@ -193,6 +210,11 @@ component("web_engine_core") {
     "//printing:printing_base",
     "//printing/backend/*",
   ]
+
+  # //extensions:extensions is used by common_constants in component builds.
+  if (!is_component_build) {
+    assert_no_deps += [ "//extensions:*" ]
+  }
 
   # Technically the PAK files are only data dependencies, but specifying them
   # as |data_deps| causes metadata (.info) files to also be pulled-in to the
@@ -214,8 +236,6 @@ component("web_engine_core") {
     # Inspect properties.
     "//third_party/fuchsia-sdk/sdk/pkg/inspect",
   ]
-
-  configs += [ ":web_engine_implementation" ]
 
   sources = [
     "browser/accessibility_bridge.cc",
@@ -240,6 +260,8 @@ component("web_engine_core") {
     "browser/frame_window_tree_host.h",
     "browser/media_player_impl.cc",
     "browser/media_player_impl.h",
+    "browser/message_port.cc",
+    "browser/message_port.h",
     "browser/navigation_controller_impl.cc",
     "browser/navigation_controller_impl.h",
     "browser/navigation_policy_handler.cc",
@@ -280,10 +302,6 @@ component("web_engine_core") {
     "common/cors_exempt_headers.h",
     "common/web_engine_content_client.cc",
     "common/web_engine_content_client.h",
-    "context_provider_impl.cc",
-    "context_provider_impl.h",
-    "context_provider_main.cc",
-    "context_provider_main.h",
     "renderer/web_engine_audio_device_factory.cc",
     "renderer/web_engine_audio_device_factory.h",
     "renderer/web_engine_audio_renderer.cc",
@@ -296,9 +314,27 @@ component("web_engine_core") {
     "renderer/web_engine_render_frame_observer.h",
     "renderer/web_engine_url_loader_throttle_provider.cc",
     "renderer/web_engine_url_loader_throttle_provider.h",
-    "web_engine_export.h",
     "web_engine_main_delegate.cc",
     "web_engine_main_delegate.h",
+  ]
+}
+
+source_set("context_provider") {
+  sources = [
+    "context_provider_impl.cc",
+    "context_provider_impl.h",
+    "context_provider_main.cc",
+    "context_provider_main.h",
+  ]
+  deps = [
+    ":fidl",
+    ":web_engine_export_from_implementation",
+    "//base",
+    "//components/fuchsia_component_support",
+    "//fuchsia_web/common",
+    "//fuchsia_web/webinstance_host",
+    "//third_party/fuchsia-sdk/sdk/pkg/sys_cpp",
+    "//third_party/fuchsia-sdk/sdk/pkg/sys_inspect_cpp",
   ]
 }
 
@@ -317,6 +353,7 @@ source_set("switches") {
 
 executable("web_engine_exe") {
   deps = [
+    ":context_provider",
     ":switches",
     ":web_engine_core",
     "//base",
@@ -361,6 +398,7 @@ fuchsia_component("context_provider_component") {
 }
 
 fuchsia_package("web_engine") {
+  # TODO(fxbug.dev/100944): Add appropriate visibility when fixed.
   deps = [
     ":context_provider_component",
     ":web_instance_component",
@@ -370,6 +408,9 @@ fuchsia_package("web_engine") {
 }
 
 fuchsia_package_installer("web_engine_installer") {
+  # Force this template to apply visibility. See the bug below.
+  # TODO(crbug.com/1328459): Remove once the bug is fixed.
+  visibility += []
   package = ":web_engine"
 }
 
@@ -396,6 +437,7 @@ fuchsia_component("context_provider_with_webui_component") {
 }
 
 fuchsia_package("web_engine_with_webui") {
+  # TODO(fxbug.dev/100944): Add appropriate visibility when fixed.
   deps = [
     ":context_provider_with_webui_component",
     ":web_instance_component",
@@ -406,6 +448,10 @@ fuchsia_package("web_engine_with_webui") {
 }
 
 fuchsia_package_installer("web_engine_with_webui_installer") {
+  visibility += [
+    "//chrome/test/*",
+    "//content/test/*",
+  ]
   package = ":web_engine_with_webui"
 }
 
@@ -418,6 +464,7 @@ source_set("browsertest_core") {
     "test/frame_for_test.h",
     "test/scenic_test_helper.cc",
     "test/scenic_test_helper.h",
+    "test/scoped_connection_checker.h",
     "test/test_data.cc",
     "test/test_data.h",
     "test/web_engine_browser_test.cc",
@@ -430,7 +477,7 @@ source_set("browsertest_core") {
     ":web_engine_core",
     "//content/public/browser",
     "//content/test:test_support",
-    "//fuchsia/base/test:test_support",
+    "//fuchsia_web/common/test:test_support",
     "//net:test_support",
     "//testing/gtest",
     "//third_party/fuchsia-sdk/sdk/fidl/fuchsia.web",
@@ -494,8 +541,8 @@ test("web_engine_browsertests") {
     "//components/version_info",
     "//content/public/browser",
     "//content/test:test_support",
-    "//fuchsia/base",
-    "//fuchsia/base/test:test_support",
+    "//fuchsia_web/common",
+    "//fuchsia_web/common/test:test_support",
     "//net:test_support",
     "//testing/gmock",
     "//testing/gtest",
@@ -558,16 +605,16 @@ test("web_engine_unittests") {
     "test/run_all_unittests.cc",
   ]
   deps = [
+    ":context_provider",
     ":switches",
     ":web_engine_core",
     ":web_engine_unittests_fake_instance_manifest",
     "//base/test:test_support",
-    "//components/cast_streaming/public/mojom",
     "//components/url_rewrite/browser",
     "//components/url_rewrite/common",
     "//components/url_rewrite/mojom",
     "//content/test:test_support",
-    "//fuchsia/base/test:test_support",
+    "//fuchsia_web/common/test:test_support",
     "//mojo/core/embedder",
     "//services/media_session/public/mojom",
     "//services/network:network_service",
@@ -596,6 +643,8 @@ test("web_engine_unittests") {
 
 test("web_engine_integration_tests") {
   sources = [
+    "test/context_provider_test_connector.cc",
+    "test/context_provider_test_connector.h",
     "test_debug_listener.cc",
     "test_debug_listener.h",
     "web_engine_debug_integration_test.cc",
@@ -604,7 +653,8 @@ test("web_engine_integration_tests") {
     "web_engine_integration_test_base.cc",
     "web_engine_integration_test_base.h",
 
-    # TODO(crbug.com/1081525): Move to //fuchsia_web/webinstance_host/.
+    # TODO(crbug.com/1081525): Move to //fuchsia_web/webinstance_host/ and
+    # remove the deps below.
     "web_instance_host_integration_test.cc",
   ]
   data = [ "test/data" ]
@@ -613,9 +663,8 @@ test("web_engine_integration_tests") {
     "//base",
     "//base:test_log_listener_safe",
     "//components/version_info",
-    "//fuchsia/base",
-    "//fuchsia/base:run_all_integration_tests",
-    "//fuchsia/base/test:test_support",
+    "//fuchsia_web/common/test:run_all_integration_tests",
+    "//fuchsia_web/common/test:test_support",
     "//fuchsia_web/webinstance_host",
     "//media",
     "//media/fuchsia/audio:test_support",
@@ -637,52 +686,5 @@ test("web_engine_integration_tests") {
     "//build/config/fuchsia/test/vulkan_capabilities.test-cmx",
     "//build/config/fuchsia/test/web_engine_required_capabilities.test-cmx",
     "//build/config/fuchsia/test/web_instance_host_capabilities.test-cmx",
-  ]
-}
-
-fuchsia_component("web_engine_shell_component") {
-  testonly = true
-  manifest = "test/web_engine_shell.cmx"
-  data_deps = [ ":web_engine_shell_exec" ]
-}
-
-fuchsia_package("web_engine_shell_pkg") {
-  testonly = true
-  package_name = "web_engine_shell"
-  deps = [ ":web_engine_shell_component" ]
-}
-
-fuchsia_package_installer("web_engine_shell") {
-  testonly = true
-  package = ":web_engine_shell_pkg"
-  package_name = "web_engine_shell"
-  package_deps = [
-    [
-      ":web_engine",
-      "web_engine",
-    ],
-    [
-      ":web_engine_with_webui",
-      "web_engine_with_webui",
-    ],
-  ]
-}
-
-executable("web_engine_shell_exec") {
-  testonly = true
-  sources = [ "test/web_engine_shell.cc" ]
-
-  data = [ "test/shell_data" ]
-
-  deps = [
-    "//base",
-    "//fuchsia/base",
-    "//fuchsia_web/webinstance_host",
-    "//third_party/fuchsia-sdk/sdk/fidl/fuchsia.ui.policy",
-    "//third_party/fuchsia-sdk/sdk/fidl/fuchsia.web",
-    "//third_party/fuchsia-sdk/sdk/pkg/fdio",
-    "//third_party/fuchsia-sdk/sdk/pkg/scenic_cpp",
-    "//third_party/fuchsia-sdk/sdk/pkg/sys_cpp",
-    "//url",
   ]
 }

@@ -220,7 +220,7 @@ FYI_BUILDERS = {
         'dimension': {
             'gpu': '10de',
             'id': 'build186-b7',
-            'os': 'Ubuntu-14.04',
+            'os': 'Ubuntu-18.04',
             'pool': 'chrome.tests.perf-fyi',
         },
     },
@@ -667,7 +667,7 @@ BUILDERS = {
         }],
         'dimension': {
             'cpu': 'x86-64',
-            'os': 'Windows',
+            'os': 'Windows-10',
             'pool': 'chrome.tests',
         },
         'perf_trigger':
@@ -677,7 +677,7 @@ BUILDERS = {
         'additional_compile_targets': ['chromium_builder_perf'],
         'dimension': {
             'cpu': 'x86-64',
-            'os': 'Windows',
+            'os': 'Windows-10',
             'pool': 'chrome.tests',
         },
         'perf_trigger': False,
@@ -1277,7 +1277,7 @@ BUILDERS = {
         False,
     },
     'chromeos-amd64-generic-lacros-builder-perf': {
-        'additional_compile_targets': ['chrome', 'lacros_version_metadata'],
+        'additional_compile_targets': ['chrome'],
         'tests': [
             {
                 'name': 'resource_sizes_lacros_chrome',
@@ -1300,7 +1300,7 @@ BUILDERS = {
         False,
     },
     'chromeos-arm-generic-lacros-builder-perf': {
-        'additional_compile_targets': ['chrome', 'lacros_version_metadata'],
+        'additional_compile_targets': ['chrome'],
         'tests': [
             {
                 'name': 'resource_sizes_lacros_chrome',
@@ -1345,6 +1345,31 @@ BUILDERS = {
             'os': 'ChromeOS',
             'device_status': 'available',
             'device_type': 'eve',
+        },
+    },
+    'lacros-x86-perf': {
+        'tests': [
+            {
+                'isolate':
+                'performance_test_suite_octopus',
+                'extra_args': [
+                    # The magic hostname that resolves to a CrOS device in the test lab
+                    '--remote=variable_chromeos_device_hostname',
+                ],
+            },
+        ],
+        'platform':
+        'lacros',
+        'target_bits':
+        64,
+        'dimension': {
+            'pool': 'chrome.tests.perf',
+            # TODO(crbug.com/971204): Explicitly set the gpu to None to make
+            # chromium_swarming recipe_module ignore this dimension.
+            'gpu': None,
+            'os': 'ChromeOS',
+            'device_status': 'available',
+            'device_type': 'octopus',
         },
     },
 }
@@ -1531,6 +1556,7 @@ TELEMETRY_PERF_BENCHMARKS = _get_telemetry_perf_benchmarks_metadata()
 PERFORMANCE_TEST_SUITES = [
     'performance_test_suite',
     'performance_test_suite_eve',
+    'performance_test_suite_octopus',
     'performance_webview_test_suite',
     'performance_weblayer_test_suite',
 ]
@@ -1620,8 +1646,7 @@ def _verify_benchmark_owners(benchmark_metadatas):
 def _create_csv(file_path):
   if sys.version_info.major == 2:
     return open(file_path, 'wb')
-  else:
-    return open(file_path, 'w', newline='')
+  return open(file_path, 'w', newline='')
 
 
 def update_benchmark_csv(file_path):
@@ -1995,9 +2020,7 @@ def main(args):
     if validate_all_files():
       print('All the perf config files are up-to-date. \\o/')
       return 0
-    else:
-      print('Not all perf config files are up-to-date. Please run %s '
-            'to update them.' % sys.argv[0])
-      return 1
-  else:
-    return 0 if update_all_files() else 1
+    print('Not all perf config files are up-to-date. Please run %s '
+          'to update them.' % sys.argv[0])
+    return 1
+  return 0 if update_all_files() else 1

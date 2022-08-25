@@ -167,10 +167,6 @@ class USER_MANAGER_EXPORT UserManagerBase : public UserManager {
                      std::vector<AccountId>* users_vector,
                      std::set<AccountId>* users_set);
 
-  // Returns true if trusted device policies have successfully been retrieved
-  // and ephemeral users are enabled.
-  virtual bool AreEphemeralUsersEnabled() const = 0;
-
   void AddUserRecordForTesting(User* user) {
     return AddUserRecord(user);
   }
@@ -225,7 +221,9 @@ class USER_MANAGER_EXPORT UserManagerBase : public UserManager {
 
   // Implementation for RemoveUser method. It is synchronous. It is called from
   // RemoveUserInternal after owner check.
-  virtual void RemoveNonOwnerUserInternal(const AccountId& account_id,
+  // Pass |account_id| by value here to avoid use-after-free. Original
+  // |account_id| could be destroyed during the user removal.
+  virtual void RemoveNonOwnerUserInternal(AccountId account_id,
                                           UserRemovalReason reason,
                                           RemoveUserDelegate* delegate);
 

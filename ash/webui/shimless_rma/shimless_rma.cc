@@ -80,6 +80,7 @@ void AddShimlessRmaStrings(content::WebUIDataSource* html_source) {
       {"cancelButtonLabel", IDS_SHIMLESS_RMA_CANCEL_BUTTON},
       {"retryButtonLabel", IDS_SHIMLESS_RMA_RETRY_BUTTON},
       {"tryAgainButtonLabel", IDS_SHIMLESS_RMA_TRY_AGAIN_BUTTON},
+      {"doneButtonLabel", IDS_SHIMLESS_RMA_DONE_BUTTON},
       // Exit dialog
       {"exitDialogTitleText", IDS_SHIMLESS_RMA_EXIT_DIALOG_TITLE},
       {"exitDialogDescriptionText", IDS_SHIMLESS_RMA_EXIT_DIALOG_DESCRIPTION},
@@ -240,6 +241,7 @@ void AddShimlessRmaStrings(content::WebUIDataSource* html_source) {
        IDS_SHIMLESS_RMA_REPAIR_COMPLETED_CUTOFF_COUNTDOWN_DESCRIPTION},
       {"repairCompletedBatteryCutoffShutdownButton",
        IDS_SHIMLESS_RMA_REPAIR_COMPLETED_BATTERY_CUTOFF_SHUTDOWN_BUTTON},
+      {"rmaLogsSaveSuccessText", IDS_SHIMLESS_RMA_LOGS_SAVE_SUCCESS},
       // Powerwash dialog
       {"powerwashDialogTitle", IDS_SHIMLESS_RMA_POWERWASH_DIALOG_TITLE},
       {"powerwashDialogShutdownDescription",
@@ -324,6 +326,17 @@ void AddShimlessRmaStrings(content::WebUIDataSource* html_source) {
        IDS_SHIMLESS_RMA_WIPE_DEVICE_REMOVE_DATA_OPTION_DESCRIPTION},
       {"wipeDevicePreserveDataLabel",
        IDS_SHIMLESS_RMA_WIPE_DEVICE_PRESERVE_DATA_OPTION},
+      // Illustrations
+      {"baseOnFlatSurfaceAltText",
+       IDS_SHIMLESS_RMA_BASE_ON_FLAT_SURFACE_ALT_TEXT},
+      {"downloadingAltText", IDS_SHIMLESS_RMA_DOWNLOADING_ALT_TEXT},
+      {"errorAltText", IDS_SHIMLESS_RMA_ERROR_ALT_TEXT},
+      {"insertUsbAltText", IDS_SHIMLESS_RMA_INSERT_USB_ALT_TEXT},
+      {"lidOnFlatSurfaceAltText",
+       IDS_SHIMLESS_RMA_LID_ON_FLAT_SURFACE_ALT_TEXT},
+      {"repairStartAltText", IDS_SHIMLESS_RMA_REPAIR_START_ALT_TEXT},
+      {"successAltText", IDS_SHIMLESS_RMA_SUCCESS_ALT_TEXT},
+      {"updateOsAltText", IDS_SHIMLESS_RMA_UPDATE_OS_ALT_TEXT},
   };
 
   html_source->AddLocalizedStrings(kLocalizedStrings);

@@ -169,7 +169,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="FileBrowser.DirectoryListLoad.{RootType}.{NumFiles}"
-    units="ms" expires_after="2022-08-09">
+    units="ms" expires_after="2023-06-27">
   <owner>simmonsjosh@google.com</owner>
   <owner>src/ui/file_manager/OWNERS</owner>
   <summary>
@@ -356,7 +356,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="FileBrowser.Glitch" enum="FileManagerGlitch"
-    expires_after="M108">
+    expires_after="2022-12-25">
   <owner>majewski@chromium.org</owner>
   <owner>src/ui/file_manager/OWNERS</owner>
   <summary>
@@ -562,7 +562,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="FileBrowser.Notification.UserAction"
-    enum="FileManagerNotificationUserAction" expires_after="M108">
+    enum="FileManagerNotificationUserAction" expires_after="2022-12-25">
   <owner>simmonsjosh@google.com</owner>
   <owner>src/ui/file_manager/OWNERS</owner>
   <summary>
@@ -745,6 +745,21 @@ chromium-metrics-reviews@google.com.
     Chrome OS Files App: Recorded when the Grid View/List View toggle menu icon
     is selected.
   </summary>
+</histogram>
+
+<histogram name="FileBrowser.TrashFiles.{RootType}" units="units"
+    expires_after="2023-02-28">
+  <owner>simmonsjosh@google.com</owner>
+  <owner>src/ui/file_manager/OWNERS</owner>
+  <summary>
+    Recorded when the Trash directory is loaded and all files for the {RootType}
+    are entirely read.
+  </summary>
+  <token key="RootType">
+    <variant name="crostini"/>
+    <variant name="downloads"/>
+    <variant name="drive"/>
+  </token>
 </histogram>
 
 <histogram name="FileBrowser.ViewingFileType" enum="ViewFileType"

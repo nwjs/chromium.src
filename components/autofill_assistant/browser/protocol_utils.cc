@@ -31,6 +31,7 @@
 #include "components/autofill_assistant/browser/actions/popup_message_action.h"
 #include "components/autofill_assistant/browser/actions/presave_generated_password_action.h"
 #include "components/autofill_assistant/browser/actions/prompt_action.h"
+#include "components/autofill_assistant/browser/actions/prompt_qr_code_scan_action.h"
 #include "components/autofill_assistant/browser/actions/register_password_reset_request_action.h"
 #include "components/autofill_assistant/browser/actions/release_elements_action.h"
 #include "components/autofill_assistant/browser/actions/reset_pending_credentials_action.h"
@@ -124,6 +125,9 @@ std::string ProtocolUtils::CreateCapabilitiesByHashRequest(
   if (client_context.chrome().has_chrome_version()) {
     non_sensitive_context.mutable_chrome()->set_chrome_version(
         client_context.chrome().chrome_version());
+  }
+  if (client_context.has_platform_type()) {
+    non_sensitive_context.set_platform_type(client_context.platform_type());
   }
   *request.mutable_client_context() = non_sensitive_context;
 
@@ -469,6 +473,14 @@ std::unique_ptr<Action> ProtocolUtils::CreateAction(ActionDelegate* delegate,
               action.set_native_value().value(),
               base::BindOnce(&WebController::SetNativeValue,
                              delegate->GetWebController()->GetWeakPtr())));
+    case ActionProto::ActionInfoCase::kSetNativeChecked:
+      return PerformOnSingleElementAction::WithClientId(
+          delegate, action, action.set_native_checked().client_id(),
+          base::BindOnce(&WebController::SetNativeChecked,
+                         delegate->GetWebController()->GetWeakPtr(),
+                         action.set_native_checked().checked()));
+    case ActionProto::ActionInfoCase::kPromptQrCodeScan:
+      return std::make_unique<PromptQrCodeScanAction>(delegate, action);
     case ActionProto::ActionInfoCase::ACTION_INFO_NOT_SET: {
       VLOG(1) << "Encountered action with ACTION_INFO_NOT_SET";
       return std::make_unique<UnsupportedAction>(delegate, action);
@@ -741,10 +753,18 @@ absl::optional<ActionProto> ProtocolUtils::ParseFromString(
       success = ParseActionFromString(action_id, bytes, error_message,
                                       proto.mutable_set_native_value());
       break;
+    case ActionProto::ActionInfoCase::kSetNativeChecked:
+      success = ParseActionFromString(action_id, bytes, error_message,
+                                      proto.mutable_set_native_checked());
+      break;
     case ActionProto::ActionInfoCase::kRegisterPasswordResetRequest:
       success = ParseActionFromString(
           action_id, bytes, error_message,
           proto.mutable_register_password_reset_request());
+      break;
+    case ActionProto::ActionInfoCase::kPromptQrCodeScan:
+      success = ParseActionFromString(action_id, bytes, error_message,
+                                      proto.mutable_prompt_qr_code_scan());
       break;
     case ActionProto::ActionInfoCase::ACTION_INFO_NOT_SET:
       // This is an "unknown action", handled as such in CreateAction.
@@ -1018,6 +1038,7 @@ RoundtripNetworkStats ProtocolUtils::ComputeNetworkStats(
     const ServiceRequestSender::ResponseInfo& response_info,
     const std::vector<std::unique_ptr<Action>>& actions) {
   RoundtripNetworkStats stats;
+  stats.set_num_roundtrips(1);
   stats.set_roundtrip_decoded_body_size_bytes(response.size());
   stats.set_roundtrip_encoded_body_size_bytes(
       response_info.encoded_body_length);

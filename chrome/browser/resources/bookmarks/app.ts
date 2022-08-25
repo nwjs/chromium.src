@@ -181,7 +181,7 @@ export class BookmarksAppElement extends BookmarksAppElementBase {
       this.dispatchEvent(new CustomEvent('iron-announce', {
         bubbles: true,
         composed: true,
-        detail: {text: loadTimeData.getString('searchCleared')}
+        detail: {text: loadTimeData.getString('searchCleared')},
       }));
     }
 
@@ -200,8 +200,8 @@ export class BookmarksAppElement extends BookmarksAppElementBase {
         detail: {
           text: ids.length > 0 ?
               loadTimeData.getStringF('searchResults', this.searchTerm_) :
-              loadTimeData.getString('noSearchResults')
-        }
+              loadTimeData.getString('noSearchResults'),
+        },
       }));
     });
   }
@@ -233,6 +233,7 @@ export class BookmarksAppElement extends BookmarksAppElementBase {
   }
 
   /** Overridden from IronScrollTargetBehavior */
+  /* eslint-disable-next-line @typescript-eslint/naming-convention */
   override _scrollHandler() {
     this.toolbarShadow_ = this.scrollTarget!.scrollTop !== 0;
   }

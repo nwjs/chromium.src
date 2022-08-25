@@ -744,8 +744,6 @@ public class ContextualSearchManager
         String message;
         boolean doLiteralSearch = false;
         if (resolvedSearchTerm.isNetworkUnavailable()) {
-            // TODO(donnd): double-check that the network is really unavailable, maybe using
-            // NetworkChangeNotifier#isOnline.
             message = mActivity.getResources().getString(
                     R.string.contextual_search_network_unavailable);
         } else if (!isHttpFailureCode(resolvedSearchTerm.responseCode())
@@ -905,17 +903,9 @@ public class ContextualSearchManager
     }
 
     /**
-     * External entry point to determine if the device is currently online or not.
-     * Stubbed out when under test.
      * @return Whether the device is currently online.
      */
     boolean isDeviceOnline() {
-        return mNetworkCommunicator.isOnline();
-    }
-
-    /** Handles this {@link ContextualSearchNetworkCommunicator} vector when not under test. */
-    @Override
-    public boolean isOnline() {
         return NetworkChangeNotifier.isOnline();
     }
 
@@ -1078,7 +1068,6 @@ public class ContextualSearchManager
                 // Record metrics for when the prefetched results became viewable.
                 if (mSearchRequest != null && mSearchRequest.wasPrefetch()) {
                     boolean didResolve = mPolicy.shouldPreviousGestureResolve();
-                    mSearchPanel.onPanelNavigatedToPrefetchedSearch(didResolve);
                 }
             }
         }
@@ -1140,7 +1129,8 @@ public class ContextualSearchManager
             mRedirectHandler.updateNewUrlLoading(navigationHandle.pageTransition(),
                     navigationHandle.isRedirect(), navigationHandle.hasUserGesture(),
                     mLastUserInteractionTimeSupplier.get(),
-                    RedirectHandler.NO_COMMITTED_ENTRY_INDEX, true /* isInitialNavigation */);
+                    RedirectHandler.NO_COMMITTED_ENTRY_INDEX, true /* isInitialNavigation */,
+                    navigationHandle.isRendererInitiated());
             ExternalNavigationParams params =
                     new ExternalNavigationParams
                             .Builder(escapedUrl, false, navigationHandle.getReferrerUrl(),
@@ -1185,15 +1175,6 @@ public class ContextualSearchManager
      */
     private void onContextualSearchRequestNavigation(boolean isFailure) {
         if (mSearchRequest == null) return;
-
-        if (mSearchRequest.isUsingLowPriority()) {
-            ContextualSearchUma.logLowPrioritySearchRequestOutcome(isFailure);
-        } else {
-            ContextualSearchUma.logNormalPrioritySearchRequestOutcome(isFailure);
-            if (mSearchRequest.getHasFailed()) {
-                ContextualSearchUma.logFallbackSearchRequestOutcome(isFailure);
-            }
-        }
 
         if (isFailure && mSearchRequest.isUsingLowPriority()) {
             // We're navigating to an error page, so we want to stop and retry.
@@ -1530,7 +1511,7 @@ public class ContextualSearchManager
 
     @Override
     public void handleValidResolvingLongpress() {
-        if (isSuppressed() || !mPolicy.canResolveLongpress()) return;
+        if (isSuppressed()) return;
 
         mInternalStateController.enter(InternalState.RESOLVING_LONG_PRESS_RECOGNIZED);
     }
@@ -1546,8 +1527,6 @@ public class ContextualSearchManager
         if (isSuppressed()) return;
 
         if (!selection.isEmpty()) {
-            ContextualSearchUma.logSelectionIsValid(selectionValid);
-
             if (selectionValid && mSearchPanel != null) {
                 mSearchPanel.updateBasePageSelectionYPx(y);
                 if (!mSearchPanel.isShowing()) {
@@ -1858,7 +1837,7 @@ public class ContextualSearchManager
      * @param enabled Whether The user to choose fully Contextual Search privacy opt-in.
      */
     public static void setContextualSearchPromoCardSelection(boolean enabled) {
-        ContextualSearchPolicy.setContextualSearchPromoCardSelection(enabled);
+        ContextualSearchPolicy.setContextualSearchFullyOptedIn(enabled);
     }
 
     /** Notifies that a promo card has been shown. */
@@ -1922,6 +1901,14 @@ public class ContextualSearchManager
     private @Px int spToPx(int sp) {
         return (int) TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_SP, sp, mActivity.getResources().getDisplayMetrics());
+    }
+
+    /** Returns whether the View of the Base Page is too small to show our Overlay Panel. */
+    private boolean isViewTooSmall() {
+        int basePageHeight = getBasePageHeight();
+        return basePageHeight > 0
+                && basePageHeight < mActivity.getResources().getDimensionPixelSize(
+                           R.dimen.contextual_search_minimum_base_page_height);
     }
 
     // ============================================================================================
@@ -1997,12 +1984,16 @@ public class ContextualSearchManager
 
     @VisibleForTesting
     public boolean isSuppressed() {
-        return mIsBottomSheetVisible || mIsAccessibilityModeEnabled;
-    }
+        boolean shouldSimplySuppress = mIsBottomSheetVisible || mIsAccessibilityModeEnabled;
+        if (shouldSimplySuppress) return true;
 
-    @VisibleForTesting
-    public void setVisibilityStateForTesting(boolean isVisible) {
-        getOverlayContentDelegate().onVisibilityChanged(isVisible);
+        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.CONTEXTUAL_SEARCH_SUPPRESS_SHORT_VIEW)) {
+            return false;
+        }
+
+        boolean isViewTooSmall = isViewTooSmall();
+        ContextualSearchUma.logViewTooSmall(isViewTooSmall);
+        return isViewTooSmall;
     }
 
     @NativeMethods

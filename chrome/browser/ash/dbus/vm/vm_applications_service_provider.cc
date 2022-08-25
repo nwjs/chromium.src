@@ -17,6 +17,7 @@
 #include "chrome/browser/ash/crostini/crostini_terminal.h"
 #include "chrome/browser/ash/crostini/crostini_util.h"
 #include "chrome/browser/ash/exo/chrome_data_exchange_delegate.h"
+#include "chrome/browser/ash/guest_os/guest_id.h"
 #include "chrome/browser/ash/guest_os/guest_os_mime_types_service.h"
 #include "chrome/browser/ash/guest_os/guest_os_mime_types_service_factory.h"
 #include "chrome/browser/ash/guest_os/guest_os_registry_service.h"
@@ -27,7 +28,7 @@
 #include "chrome/browser/ui/chrome_select_file_policy.h"
 #include "chromeos/ash/components/dbus/cicerone/cicerone_client.h"
 #include "chromeos/ash/components/dbus/cicerone/cicerone_service.pb.h"
-#include "chromeos/dbus/vm_applications/apps.pb.h"
+#include "chromeos/ash/components/dbus/vm_applications/apps.pb.h"
 #include "dbus/bus.h"
 #include "dbus/message.h"
 #include "third_party/cros_system_api/dbus/service_constants.h"
@@ -137,7 +138,8 @@ void VmApplicationsServiceProvider::LaunchTerminal(
     // kInvalidDisplayId will launch terminal on the current active display.
     crostini::LaunchTerminal(
         profile, display::kInvalidDisplayId,
-        crostini::ContainerId(request.vm_name(), request.container_name()),
+        guest_os::GuestId(crostini::kCrostiniDefaultVmType, request.vm_name(),
+                          request.container_name()),
         request.cwd(),
         std::vector<std::string>(request.params().begin(),
                                  request.params().end()));

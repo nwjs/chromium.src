@@ -22,6 +22,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/sync/base/pref_names.h"
 #include "components/unified_consent/unified_consent_service.h"
+#import "components/url_param_filter/core/url_param_classifications_loader.h"
 #include "components/variations/variations_associated_data.h"
 #include "components/variations/variations_ids_provider.h"
 #import "ios/chrome/app/main_controller.h"
@@ -804,6 +805,12 @@ NSString* SerializedValue(const base::Value* value) {
   chrome_test_util::AddTypedURLToFakeSyncServer(base::SysNSStringToUTF8(URL));
 }
 
++ (void)addFakeSyncServerDeviceInfo:(NSString*)deviceName
+               lastUpdatedTimestamp:(base::Time)lastUpdatedTimestamp {
+  chrome_test_util::AddDeviceInfoToFakeSyncServer(
+      base::SysNSStringToUTF8(deviceName), lastUpdatedTimestamp);
+}
+
 + (void)addHistoryServiceTypedURL:(NSString*)URL {
   chrome_test_util::AddTypedURLToClient(GURL(base::SysNSStringToUTF8(URL)));
 }
@@ -1071,11 +1078,6 @@ NSString* SerializedValue(const base::Value* value) {
   return std::find(ids.begin(), ids.end(), variationID) != ids.end();
 }
 
-+ (BOOL)isAddCredentialsInSettingsEnabled {
-  return base::FeatureList::IsEnabled(
-      password_manager::features::kSupportForAddPasswordsInSettings);
-}
-
 + (BOOL)isUKMEnabled {
   return base::FeatureList::IsEnabled(ukm::kUkmFeature);
 }
@@ -1201,6 +1203,12 @@ NSString* SerializedValue(const base::Value* value) {
   prefs->ClearPref(browsing_data::prefs::kDeleteFormData);
 }
 
++ (void)resetDataForLocalStatePref:(NSString*)prefName {
+  std::string path = base::SysNSStringToUTF8(prefName);
+  PrefService* prefService = GetApplicationContext()->GetLocalState();
+  prefService->ClearPref(path);
+}
+
 #pragma mark - Unified Consent utilities
 
 + (void)setURLKeyedAnonymizedDataCollectionEnabled:(BOOL)enabled {
@@ -1229,8 +1237,8 @@ NSString* SerializedValue(const base::Value* value) {
   [[UIPasteboard generalPasteboard] setURLs:nil];
 }
 
-+ (NSString*)pasteboardString {
-  return [UIPasteboard generalPasteboard].string;
++ (NSArray<NSString*>*)pasteboardStrings {
+  return [UIPasteboard generalPasteboard].strings;
 }
 
 + (NSString*)pasteboardURLSpec {
@@ -1352,6 +1360,18 @@ int watchRunNumber = 0;
   chrome_test_util::GetMainController().appState.shouldShowDefaultBrowserPromo =
       NO;
   LogUserInteractionWithFullscreenPromo();
+}
+#pragma mark - Url Param Classification utilities
+
++ (void)setUrlParamClassifications:(NSString*)contents {
+  std::string file_contents = base::SysNSStringToUTF8(contents);
+  url_param_filter::ClassificationsLoader::GetInstance()->ReadClassifications(
+      file_contents);
+}
+
++ (void)resetUrlParamClassifications {
+  url_param_filter::ClassificationsLoader::GetInstance()
+      ->ResetListsForTesting();
 }
 
 @end

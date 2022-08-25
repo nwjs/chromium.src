@@ -212,6 +212,9 @@ void AddChromeColorMixer(ui::ColorProvider* provider,
   mixer[kColorCapturedTabContentsBorder] = {ui::kColorAccent};
   mixer[kColorDesktopMediaTabListBorder] = {ui::kColorMidground};
   mixer[kColorDesktopMediaTabListPreviewBackground] = {ui::kColorMidground};
+  mixer[kColorDownloadBubbleInfoBackground] = {
+      ui::kColorSubtleEmphasisBackground};
+  mixer[kColorDownloadBubbleInfoIcon] = {ui::kColorIcon};
   mixer[kColorDownloadItemForeground] = {kColorDownloadShelfForeground};
   mixer[kColorDownloadItemForegroundDangerous] =
       ui::PickGoogleColor(ui::kColorAlertHighSeverity, kColorToolbar,
@@ -291,7 +294,6 @@ void AddChromeColorMixer(ui::ColorProvider* provider,
   mixer[kColorInfoBarForeground] = {kColorToolbarText};
   mixer[kColorIntentPickerItemBackgroundHovered] = ui::SetAlpha(
       ui::GetColorWithMaxContrast(ui::kColorDialogBackground), 0x0F);  // 6%.
-  // TODO(crbug.com/1330183): Improve selection color.
   mixer[kColorIntentPickerItemBackgroundSelected] = ui::BlendForMinContrast(
       ui::kColorDialogBackground, ui::kColorDialogBackground, ui::kColorAccent,
       1.2);
@@ -409,8 +411,7 @@ void AddChromeColorMixer(ui::ColorProvider* provider,
   mixer[kColorScreenshotCapturedImageBackground] = {ui::kColorBubbleBackground};
   mixer[kColorScreenshotCapturedImageBorder] = {ui::kColorMidground};
   mixer[kColorSidePanelBackground] = {kColorToolbar};
-  mixer[kColorSidePanelContentAreaSeparator] = {
-      kColorToolbarContentAreaSeparator};
+  mixer[kColorSidePanelContentAreaSeparator] = {ui::kColorSeparator};
   mixer[kColorStatusBubbleBackgroundFrameActive] = {
       kColorTabBackgroundInactiveFrameActive};
   mixer[kColorStatusBubbleBackgroundFrameInactive] = {
@@ -706,6 +707,8 @@ void AddChromeColorMixer(ui::ColorProvider* provider,
   mixer[kColorWindowControlButtonBackgroundActive] = {ui::kColorFrameActive};
   mixer[kColorWindowControlButtonBackgroundInactive] = {
       ui::kColorFrameInactive};
+  mixer[kColorPwaScrollButtonBackground] =
+      ui::SetAlpha(ui::kColorButtonBackground, gfx::kGoogleGreyAlpha700);
 
   // Apply high contrast recipes if necessary.
   if (!ShouldApplyHighContrastColors(key))

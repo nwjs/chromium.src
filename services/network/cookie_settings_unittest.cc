@@ -59,7 +59,6 @@ std::unique_ptr<net::CanonicalCookie> MakeCanonicalCookie(
 
 class CookieSettingsTest : public testing::Test {
  public:
- public:
   CookieSettingsTest()
       : task_environment_(base::test::TaskEnvironment::TimeSource::MOCK_TIME) {}
 
@@ -408,10 +407,9 @@ TEST_F(CookieSettingsTest, GetCookieSettingMatchingSchemeCookiesAllowed) {
 
 TEST_F(CookieSettingsTest, LegacyCookieAccessDefault) {
   CookieSettings settings;
-  ContentSetting setting;
 
-  settings.GetSettingForLegacyCookieAccess(kDomain, &setting);
-  EXPECT_EQ(setting, CONTENT_SETTING_BLOCK);
+  EXPECT_EQ(settings.GetSettingForLegacyCookieAccess(kDomain),
+            CONTENT_SETTING_BLOCK);
   EXPECT_EQ(net::CookieAccessSemantics::NONLEGACY,
             settings.GetCookieAccessSemanticsForDomain(kDomain));
 }
@@ -536,11 +534,19 @@ TEST_F(CookieSettingsTest, IsPrivacyModeEnabled) {
               IsEmpty());
 }
 
-TEST_F(CookieSettingsTest, IsPrivacyModeEnabled_SamePartyConsideredFirstParty) {
+class SamePartyCookieSettingsTest : public CookieSettingsTest {
+ public:
+  SamePartyCookieSettingsTest() {
+    features_.InitAndEnableFeature(
+        net::features::kSamePartyCookiesConsideredFirstParty);
+  }
+
+ private:
+  base::test::ScopedFeatureList features_;
+};
+
+TEST_F(SamePartyCookieSettingsTest, IsPrivacyModeEnabled) {
   base::HistogramTester histogram_tester;
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(
-      net::features::kSamePartyCookiesConsideredFirstParty);
   CookieSettings settings;
   settings.set_block_third_party_cookies(true);
 
@@ -615,11 +621,8 @@ TEST_F(CookieSettingsTest, IsCookieAccessible) {
               ElementsAre(base::Bucket(/*min=*/1, /*count=*/1)));
 }
 
-TEST_F(CookieSettingsTest, IsCookieAccessible_SamePartyConsideredFirstParty) {
+TEST_F(SamePartyCookieSettingsTest, IsCookieAccessible) {
   base::HistogramTester histogram_tester;
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(
-      net::features::kSamePartyCookiesConsideredFirstParty);
   CookieSettings settings;
   settings.set_block_third_party_cookies(true);
 
@@ -675,7 +678,6 @@ TEST_F(CookieSettingsTest, IsCookieAccessible_SamePartyConsideredFirstParty) {
 
 TEST_F(CookieSettingsTest, IsCookieAccessible_PartitionedCookies) {
   base::HistogramTester histogram_tester;
-  base::test::ScopedFeatureList feature_list;
   CookieSettings settings;
   settings.set_block_third_party_cookies(true);
 
@@ -732,6 +734,21 @@ TEST_F(CookieSettingsTest, IsCookieAccessible_PartitionedCookies) {
   // then the partitioned cookie should still be allowed.
   settings.set_content_settings(
       {CreateSetting(kOtherURL, kUnrelatedURL, CONTENT_SETTING_BLOCK)});
+  EXPECT_TRUE(settings.IsCookieAccessible(
+      *partitioned_cookie, GURL(kURL), net::SiteForCookies(),
+      url::Origin::Create(GURL(kOtherURL))));
+  EXPECT_THAT(histogram_tester.GetAllSamples(
+                  "Cookie.SameParty.BlockedByThirdPartyCookieBlockingSetting"),
+              IsEmpty());
+
+  // If third-party cookie blocking is enabled and there is a matching Storage
+  // Access setting whose value is BLOCK, then the partitioned cookie should
+  // still be allowed.
+  settings.set_block_third_party_cookies(true);
+  settings.set_content_settings(
+      {CreateSetting(kURL, kURL, CONTENT_SETTING_ALLOW)});
+  settings.set_storage_access_grants(
+      {CreateSetting(kURL, kOtherURL, CONTENT_SETTING_BLOCK)});
   EXPECT_TRUE(settings.IsCookieAccessible(
       *partitioned_cookie, GURL(kURL), net::SiteForCookies(),
       url::Origin::Create(GURL(kOtherURL))));
@@ -798,12 +815,8 @@ TEST_F(CookieSettingsTest, AnnotateAndMoveUserBlockedCookies) {
               ElementsAre(base::Bucket(/*min=*/1, /*count=*/1)));
 }
 
-TEST_F(CookieSettingsTest,
-       AnnotateAndMoveUserBlockedCookies_SamePartyConsideredFirstParty) {
+TEST_F(SamePartyCookieSettingsTest, AnnotateAndMoveUserBlockedCookies) {
   base::HistogramTester histogram_tester;
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(
-      net::features::kSamePartyCookiesConsideredFirstParty);
   CookieSettings settings;
   settings.set_block_third_party_cookies(true);
 
@@ -907,7 +920,6 @@ net::CookieAccessResultList MakeUnpartitionedAndPartitionedCookies() {
 TEST_F(CookieSettingsTest,
        AnnotateAndMoveUserBlockedCookies_PartitionedCookies) {
   base::HistogramTester histogram_tester;
-  base::test::ScopedFeatureList feature_list;
   CookieSettings settings;
 
   net::CookieAccessResultList maybe_included_cookies =

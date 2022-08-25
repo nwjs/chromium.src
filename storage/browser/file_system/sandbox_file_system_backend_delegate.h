@@ -136,6 +136,7 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) SandboxFileSystemBackendDelegate
 
   // FileSystemBackend helpers.
   void OpenFileSystem(const blink::StorageKey& storage_key,
+                      const absl::optional<BucketLocator>& bucket_locator,
                       FileSystemType type,
                       OpenFileSystemMode mode,
                       ResolveURLCallback callback,
@@ -161,6 +162,11 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) SandboxFileSystemBackendDelegate
       QuotaManagerProxy* proxy,
       const blink::StorageKey& storage_key,
       FileSystemType type) override;
+  base::File::Error DeleteBucketDataOnFileTaskRunner(
+      FileSystemContext* context,
+      QuotaManagerProxy* proxy,
+      const BucketLocator& bucket_locator,
+      FileSystemType type) override;
   void PerformStorageCleanupOnFileTaskRunner(FileSystemContext* context,
                                              QuotaManagerProxy* proxy,
                                              FileSystemType type) override;
@@ -172,7 +178,7 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) SandboxFileSystemBackendDelegate
       FileSystemType type) override;
   int64_t GetBucketUsageOnFileTaskRunner(FileSystemContext* context,
                                          const BucketLocator& bucket_locator,
-                                         FileSystemType type);
+                                         FileSystemType type) override;
   scoped_refptr<QuotaReservation> CreateQuotaReservationOnFileTaskRunner(
       const blink::StorageKey& storage_key,
       FileSystemType type) override;

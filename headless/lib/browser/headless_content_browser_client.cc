@@ -61,7 +61,7 @@
 #endif  // defined(HEADLESS_USE_POLICY)
 
 #if BUILDFLAG(ENABLE_PRINTING)
-#include "components/printing/browser/print_to_pdf/pdf_print_manager.h"
+#include "components/printing/browser/headless/headless_print_manager.h"
 #endif  // defined(ENABLE_PRINTING)
 
 namespace headless {
@@ -153,8 +153,8 @@ void HeadlessContentBrowserClient::
       [](content::RenderFrameHost* render_frame_host,
          mojo::PendingAssociatedReceiver<printing::mojom::PrintManagerHost>
              receiver) {
-        print_to_pdf::PdfPrintManager::BindPrintManagerHost(std::move(receiver),
-                                                            render_frame_host);
+        HeadlessPrintManager::BindPrintManagerHost(std::move(receiver),
+                                                   render_frame_host);
       },
       &render_frame_host));
 #endif
@@ -265,14 +265,6 @@ void HeadlessContentBrowserClient::AppendExtraCommandLineSwitches(
                                             headless_browser_context_impl,
                                             process_type, child_process_id);
   }
-
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-  // Processes may only query perf_event_open with the BPF sandbox disabled.
-  if (old_command_line.HasSwitch(::switches::kEnableThreadInstructionCount) &&
-      old_command_line.HasSwitch(sandbox::policy::switches::kNoSandbox)) {
-    command_line->AppendSwitch(::switches::kEnableThreadInstructionCount);
-  }
-#endif
 }
 
 std::string HeadlessContentBrowserClient::GetApplicationLocale() {

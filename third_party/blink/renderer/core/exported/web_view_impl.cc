@@ -837,7 +837,7 @@ Node* WebViewImpl::BestTapNode(
   }
 
   // Editable nodes should not be highlighted (e.g., <input>)
-  if (HasEditableStyle(*best_touch_node))
+  if (IsEditable(*best_touch_node))
     return nullptr;
 
   Node* hand_cursor_ancestor = FindLinkHighlightAncestor(best_touch_node);
@@ -1013,15 +1013,10 @@ WebPagePopupImpl* WebViewImpl::OpenPagePopup(PagePopupClient* client) {
   // The returned WebPagePopup is self-referencing, so the pointer here is not
   // an owning pointer. It is de-referenced by the PopupWidgetHost disconnecting
   // and calling Close().
-  WebPagePopup* popup_widget = WebPagePopup::Create(
+  page_popup_ = WebPagePopupImpl::Create(
       std::move(popup_widget_host), std::move(widget_host),
-      std::move(widget_receiver), agent_group_scheduler.DefaultTaskRunner());
-  popup_widget->InitializeCompositing(agent_group_scheduler,
-                                      opener_widget->GetOriginalScreenInfos(),
-                                      /*settings=*/nullptr);
-
-  page_popup_ = To<WebPagePopupImpl>(popup_widget);
-  page_popup_->Initialize(this, client);
+      std::move(widget_receiver), this, agent_group_scheduler,
+      opener_widget->GetOriginalScreenInfos(), client);
   EnablePopupMouseWheelEventListener(web_opener_frame->LocalRoot());
   return page_popup_.get();
 }
@@ -1252,7 +1247,7 @@ void WebViewImpl::ResizeViewWhileAnchored(
     gfx::Size old_size = frame_view->Size();
     UpdateICBAndResizeViewport(visible_viewport_size);
     gfx::Size new_size = frame_view->Size();
-    frame_view->MarkViewportConstrainedObjectsForLayout(
+    frame_view->MarkFixedPositionObjectsForLayout(
         old_size.width() != new_size.width(),
         old_size.height() != new_size.height());
   }
@@ -1367,10 +1362,6 @@ void WebViewImpl::SetScreenOrientationOverrideForTesting(
       }
     }
   }
-}
-
-void WebViewImpl::UseSynchronousResizeModeForTesting(bool enable) {
-  web_widget_->UseSynchronousResizeModeForTesting(enable);
 }
 
 void WebViewImpl::SetWindowRectSynchronouslyForTesting(
@@ -1526,6 +1517,8 @@ void WebView::ApplyWebPreferences(const web_pref::WebPreferences& prefs,
   // ChromeClient::tabsToLinks which is part of the glue code.
   web_view_impl->SetTabsToLinks(prefs.tabs_to_links);
 
+  DCHECK(!(web_view_impl->IsFencedFrameRoot() &&
+           prefs.allow_running_insecure_content));
   settings->SetAllowRunningOfInsecureContent(
       prefs.allow_running_insecure_content);
   settings->SetDisableReadingFromCanvas(prefs.disable_reading_from_canvas);
@@ -1562,6 +1555,9 @@ void WebView::ApplyWebPreferences(const web_pref::WebPreferences& prefs,
   settings->SetSupportsMultipleWindows(prefs.supports_multiple_windows);
 
   settings->SetMainFrameClipsContent(!prefs.record_whole_document);
+
+  RuntimeEnabledFeatures::SetStylusHandwritingEnabled(
+      prefs.stylus_handwriting_enabled);
 
   settings->SetSmartInsertDeleteEnabled(prefs.smart_insert_delete_enabled);
 
@@ -1873,7 +1869,7 @@ void WebViewImpl::SetPageFocus(bool enable) {
         focused_frame->GetDocument()->UpdateStyleAndLayoutTree();
         if (element->IsTextControl()) {
           element->UpdateSelectionOnFocus(SelectionBehaviorOnFocus::kRestore);
-        } else if (HasEditableStyle(*element)) {
+        } else if (IsEditable(*element)) {
           // updateFocusAppearance() selects all the text of
           // contentseditable DIVs. So we set the selection explicitly
           // instead. Note that this has the side effect of moving the
@@ -1976,12 +1972,12 @@ void WebViewImpl::DidAttachLocalMainFrame() {
               ->GetAgentGroupScheduler()
               .DefaultTaskRunner()));
 
+  auto& viewport = GetPage()->GetVisualViewport();
   if (does_composite_) {
     // When attaching a local main frame, set up any state on the compositor.
     MainFrameImpl()->FrameWidgetImpl()->SetBackgroundColor(BackgroundColor());
     MainFrameImpl()->FrameWidgetImpl()->SetPrefersReducedMotion(
         web_preferences_.prefers_reduced_motion);
-    auto& viewport = GetPage()->GetVisualViewport();
     MainFrameImpl()->FrameWidgetImpl()->SetPageScaleStateAndLimits(
         viewport.Scale(), viewport.IsPinchGestureActive(),
         MinimumPageScaleFactor(), MaximumPageScaleFactor());
@@ -1989,6 +1985,19 @@ void WebViewImpl::DidAttachLocalMainFrame() {
     // progress is made and BeginMainFrames are explicitly asked for.
     scoped_defer_main_frame_update_ =
         MainFrameImpl()->FrameWidgetImpl()->DeferMainFrameUpdate();
+  }
+
+  // It's possible that at the time that `local_frame` attached its document it
+  // was provisional so it couldn't initialize the root scroller. Try again now
+  // that the frame has been attached; this is a no-op if the root scroller is
+  // already initialized.
+  if (viewport.IsActiveViewport()) {
+    DCHECK(local_frame->GetDocument());
+    // DidAttachLocalMainFrame can be called before a new document is attached
+    // so ensure we don't try to initialize the root scroller on a stopped
+    // document.
+    if (local_frame->GetDocument()->IsActive())
+      local_frame->View()->InitializeRootScroller();
   }
 }
 
@@ -3397,6 +3406,9 @@ void WebViewImpl::UpdateWebPreferences(
     web_preferences_.main_frame_resizes_are_orientation_changes = false;
     web_preferences_.text_autosizing_enabled = false;
 
+    // Insecure content should not be allowed in a fenced frame.
+    web_preferences_.allow_running_insecure_content = false;
+
 #if BUILDFLAG(IS_ANDROID)
     // Reusing the global for unowned main frame is only used for
     // Android WebView. Since this is a fenced frame it is not the
@@ -3532,17 +3544,23 @@ void WebViewImpl::PageScaleFactorChanged() {
   local_main_frame_host_remote_->ScaleFactorChanged(viewport.Scale());
 
   if (dev_tools_emulator_->HasViewportOverride()) {
-    TransformationMatrix device_emulation_transform =
-        dev_tools_emulator_->MainFrameScrollOrScaleChanged();
-    SetDeviceEmulationTransform(device_emulation_transform);
+    // TODO(bokan): Can HasViewportOverride be set on a nested main frame? If
+    // not, we can enforce that when setting it and DCHECK IsOutermostMainFrame
+    // instead.
+    if (MainFrameImpl()->IsOutermostMainFrame()) {
+      TransformationMatrix device_emulation_transform =
+          dev_tools_emulator_->OutermostMainFrameScrollOrScaleChanged();
+      SetDeviceEmulationTransform(device_emulation_transform);
+    }
   }
 }
 
-void WebViewImpl::MainFrameScrollOffsetChanged() {
+void WebViewImpl::OutermostMainFrameScrollOffsetChanged() {
   DCHECK(MainFrameImpl());
+  DCHECK(MainFrameImpl()->IsOutermostMainFrame());
   if (dev_tools_emulator_->HasViewportOverride()) {
     TransformationMatrix device_emulation_transform =
-        dev_tools_emulator_->MainFrameScrollOrScaleChanged();
+        dev_tools_emulator_->OutermostMainFrameScrollOrScaleChanged();
     SetDeviceEmulationTransform(device_emulation_transform);
   }
 }
@@ -3788,7 +3806,6 @@ gfx::Size WebViewImpl::GetPreferredSizeForTest() {
 }
 
 void WebViewImpl::StopDeferringMainFrameUpdate() {
-  DCHECK(MainFrameImpl());
   scoped_defer_main_frame_update_ = nullptr;
 }
 

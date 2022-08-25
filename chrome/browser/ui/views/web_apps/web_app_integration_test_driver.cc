@@ -32,6 +32,7 @@
 #include "chrome/browser/banners/test_app_banner_manager_desktop.h"
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/shell_integration.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_dialogs.h"
@@ -55,6 +56,7 @@
 #include "chrome/browser/ui/webui/app_management/app_management_page_handler.h"
 #include "chrome/browser/ui/webui/app_settings/web_app_settings_ui.h"
 #include "chrome/browser/ui/webui/ntp/app_launcher_handler.h"
+#include "chrome/browser/ui/webui/web_app_internals/web_app_internals_source.h"
 #include "chrome/browser/web_applications/app_service/web_app_publisher_helper.h"
 #include "chrome/browser/web_applications/commands/run_on_os_login_command.h"
 #include "chrome/browser/web_applications/manifest_update_manager.h"
@@ -64,6 +66,7 @@
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/browser/web_applications/test/web_app_test_observers.h"
 #include "chrome/browser/web_applications/user_display_mode.h"
+#include "chrome/browser/web_applications/web_app_command_manager.h"
 #include "chrome/browser/web_applications/web_app_constants.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chrome/browser/web_applications/web_app_icon_generator.h"
@@ -72,10 +75,12 @@
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/browser/web_applications/web_app_sync_bridge.h"
+#include "chrome/browser/web_applications/web_app_utils.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
+#include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/prefs/scoped_user_pref_update.h"
 #include "components/services/app_service/public/mojom/types.mojom.h"
@@ -97,6 +102,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/manifest/display_mode.mojom-shared.h"
 #include "third_party/re2/src/re2/re2.h"
 #include "ui/accessibility/ax_action_data.h"
@@ -120,13 +126,18 @@
 #if BUILDFLAG(IS_MAC)
 #include <ImageIO/ImageIO.h>
 #include "chrome/browser/apps/app_shim/app_shim_manager_mac.h"
+#include "chrome/browser/shell_integration.h"
 #include "chrome/browser/web_applications/app_shim_registry_mac.h"
+#include "net/base/filename_util.h"
 #include "skia/ext/skia_utils_mac.h"
 #endif
 
 #if BUILDFLAG(IS_WIN)
+#include "base/test/test_reg_util_win.h"
 #include "base/win/shortcut.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/web_applications/os_integration/web_app_handler_registration_utils_win.h"
+#include "chrome/installer/util/shell_util.h"
 #endif
 
 namespace web_app::integration_tests {
@@ -293,6 +304,23 @@ Browser* GetBrowserForAppId(const AppId& app_id) {
 }
 
 #if BUILDFLAG(IS_WIN)
+std::vector<std::wstring> GetFileExtensionsForProgId(
+    const std::wstring& file_handler_prog_id) {
+  const std::wstring prog_id_path =
+      base::StrCat({ShellUtil::kRegClasses, L"\\", file_handler_prog_id});
+
+  // Get list of handled file extensions from value FileExtensions at
+  // HKEY_CURRENT_USER\Software\Classes\<file_handler_prog_id>.
+  base::win::RegKey file_extensions_key(HKEY_CURRENT_USER, prog_id_path.c_str(),
+                                        KEY_QUERY_VALUE);
+  std::wstring handled_file_extensions;
+  EXPECT_EQ(file_extensions_key.ReadValue(L"FileExtensions",
+                                          &handled_file_extensions),
+            ERROR_SUCCESS);
+  return base::SplitString(handled_file_extensions, std::wstring(L";"),
+                           base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
+}
+
 base::FilePath GetShortcutProfile(base::FilePath shortcut_path) {
   base::FilePath shortcut_profile;
   std::wstring cmd_line_string;
@@ -386,6 +414,14 @@ AppManagementPageHandler CreateAppManagementPageHandler(Profile* profile) {
                                   *delegate);
 }
 #endif
+
+void ActivateBrowserAndWait(Browser* browser) {
+  DCHECK(browser);
+  DCHECK(browser->window());
+  auto waiter = ui_test_utils::BrowserActivationWaiter(browser);
+  browser->window()->Activate();
+  waiter.WaitForActivation();
+}
 
 }  // anonymous namespace
 
@@ -544,7 +580,7 @@ void WebAppIntegrationTestDriver::SetUp() {
 }
 
 void WebAppIntegrationTestDriver::SetUpOnMainThread() {
-  shortcut_override_ = OverrideShortcutsForTesting();
+  shortcut_override_ = OverrideShortcutsForTesting(base::GetHomeDir());
 
   // Only support manifest updates on non-sync tests, as the current
   // infrastructure here only supports listening on one profile.
@@ -583,6 +619,7 @@ void WebAppIntegrationTestDriver::TearDownOnMainThread() {
     }
     // TODO(crbug.com/1273568): Investigate the true source of flakiness instead
     // of papering over it here.
+    provider->command_manager().AwaitAllCommandsCompleteForTesting();
     FlushShortcutTasks();
   }
   LOG(INFO) << "TearDownOnMainThread: Deleting dangling shortcuts.";
@@ -606,6 +643,21 @@ void WebAppIntegrationTestDriver::TearDownOnMainThread() {
   }
 
   LOG(INFO) << "TearDownOnMainThread: Complete.";
+
+  // Print debug information if there was a failure.
+  if (testing::Test::HasFailure()) {
+    for (auto* profile : delegate_->GetAllProfiles()) {
+      base::RunLoop debug_info_loop;
+      WebAppInternalsSource::BuildWebAppInternalsJson(
+          profile, base::BindLambdaForTesting([&](base::Value debug_info) {
+            LOG(INFO) << "chrome://web-app-internals for profile "
+                      << profile->GetDebugName() << ":";
+            LOG(INFO) << debug_info.DebugString();
+            debug_info_loop.Quit();
+          }));
+      debug_info_loop.Run();
+    }
+  }
 }
 
 void WebAppIntegrationTestDriver::AcceptAppIdUpdateDialog() {
@@ -678,6 +730,7 @@ void WebAppIntegrationTestDriver::InstallMenuOption(InstallableSite site) {
   browser_added_waiter.Wait();
   active_app_id_ = install_observer.Wait();
   app_browser_ = browser_added_waiter.browser_added();
+  ActivateBrowserAndWait(app_browser_);
   chrome::SetAutoAcceptPWAInstallConfirmationForTesting(/*auto_accept=*/false);
   AfterStateChangeAction();
 }
@@ -695,12 +748,12 @@ void WebAppIntegrationTestDriver::InstallLocally(Site site) {
   test_web_ui.set_web_contents(web_contents);
   TestAppLauncherHandler handler(/*extension_service=*/nullptr, provider(),
                                  &test_web_ui);
-  base::ListValue web_app_ids;
+  base::Value::List web_app_ids;
   web_app_ids.Append(app_id);
 
   WebAppTestInstallWithOsHooksObserver observer(profile());
   observer.BeginListening();
-  handler.HandleInstallAppLocally(&web_app_ids);
+  handler.HandleInstallAppLocally(web_app_ids);
   observer.Wait();
   AfterStateChangeAction();
 }
@@ -731,7 +784,7 @@ void WebAppIntegrationTestDriver::InstallOmniboxIcon(InstallableSite site) {
   active_app_id_ = install_observer.Wait();
   DCHECK_EQ(app_id, active_app_id_);
   app_browser_ = browser_added_waiter.browser_added();
-
+  ActivateBrowserAndWait(app_browser_);
   chrome::SetAutoAcceptPWAInstallConfirmationForTesting(false);
   AfterStateChangeAction();
 }
@@ -818,9 +871,6 @@ void WebAppIntegrationTestDriver::ApplyRunOnOsLoginPolicyRunWindowed(
 
 void WebAppIntegrationTestDriver::RemoveRunOnOsLoginPolicy(Site site) {
   BeforeStateChangeAction(__FUNCTION__);
-  base::RunLoop run_loop;
-  web_app::SetRunOnOsLoginOsHooksChangedCallbackForTesting(
-      run_loop.QuitClosure());
   GURL url = GetAppStartURL(site);
   {
     ListPrefUpdate updateList(profile()->GetPrefs(), prefs::kWebAppSettings);
@@ -828,7 +878,6 @@ void WebAppIntegrationTestDriver::RemoveRunOnOsLoginPolicy(Site site) {
       return item.FindKey(kManifestId)->GetString() == url.spec();
     });
   }
-  run_loop.Run();
   AfterStateChangeAction();
 }
 
@@ -885,6 +934,7 @@ void WebAppIntegrationTestDriver::LaunchFromLaunchIcon(Site site) {
   IntentPickerBubbleView::intent_picker_bubble()->AcceptDialog();
   browser_added_waiter.Wait();
   app_browser_ = browser_added_waiter.browser_added();
+  ActivateBrowserAndWait(app_browser_);
   active_app_id_ = app_browser()->app_controller()->app_id();
   AfterStateChangeAction();
 }
@@ -901,6 +951,7 @@ void WebAppIntegrationTestDriver::LaunchFromMenuOption(Site site) {
   CHECK(chrome::ExecuteCommand(browser(), IDC_OPEN_IN_PWA_WINDOW));
   browser_added_waiter.Wait();
   app_browser_ = browser_added_waiter.browser_added();
+  ActivateBrowserAndWait(app_browser_);
   active_app_id_ = app_id;
 
   ASSERT_TRUE(AppBrowserController::IsForWebApp(app_browser(), active_app_id_));
@@ -924,6 +975,7 @@ void WebAppIntegrationTestDriver::LaunchFromPlatformShortcut(Site site) {
     LaunchAppStartupBrowserCreator(app_id);
     browser_added_waiter.Wait();
     app_browser_ = browser_added_waiter.browser_added();
+    ActivateBrowserAndWait(app_browser_);
     active_app_id_ = app_id;
     EXPECT_EQ(app_browser()->app_controller()->app_id(), app_id);
   } else {
@@ -986,10 +1038,10 @@ void WebAppIntegrationTestDriver::OpenAppSettingsFromChromeApps(Site site) {
   test_web_ui.set_web_contents(web_contents);
   TestAppLauncherHandler handler(/*extension_service=*/nullptr, provider(),
                                  &test_web_ui);
-  base::ListValue web_app_ids;
+  base::Value::List web_app_ids;
   web_app_ids.Append(app_id);
   content::WebContentsAddedObserver nav_observer;
-  handler.HandleShowAppInfo(&web_app_ids);
+  handler.HandleShowAppInfo(web_app_ids);
   // Wait for new web content to be created.
   nav_observer.GetWebContents();
   AfterStateChangeAction();
@@ -1011,16 +1063,16 @@ void WebAppIntegrationTestDriver::CreateShortcutFromChromeApps(Site site) {
   test_web_ui.set_web_contents(web_contents);
   TestAppLauncherHandler handler(/*extension_service=*/nullptr, provider(),
                                  &test_web_ui);
-  base::ListValue web_app_ids;
+  base::Value::List web_app_ids;
   web_app_ids.Append(app_id);
 #if BUILDFLAG(IS_MAC)
   base::RunLoop loop;
-  handler.HandleCreateAppShortcut(loop.QuitClosure(), &web_app_ids);
+  handler.HandleCreateAppShortcut(loop.QuitClosure(), web_app_ids);
   loop.Run();
 #else
   views::NamedWidgetShownWaiter waiter(views::test::AnyWidgetTestPasskey{},
                                        "CreateChromeApplicationShortcutView");
-  handler.HandleCreateAppShortcut(base::DoNothing(), &web_app_ids);
+  handler.HandleCreateAppShortcut(base::DoNothing(), web_app_ids);
   FlushShortcutTasks();
   views::Widget* widget = waiter.WaitIfNeededAndGet();
   ASSERT_TRUE(widget != nullptr);
@@ -1317,9 +1369,9 @@ void WebAppIntegrationTestDriver::UninstallFromList(Site site) {
   test_web_ui.set_web_contents(web_contents);
   TestAppLauncherHandler handler(/*extension_service=*/nullptr, provider(),
                                  &test_web_ui);
-  base::ListValue web_app_ids;
+  base::Value::List web_app_ids;
   web_app_ids.Append(app_id);
-  handler.HandleUninstallApp(&web_app_ids);
+  handler.HandleUninstallApp(web_app_ids);
 #endif
 
   observer.Wait();
@@ -1379,7 +1431,7 @@ void WebAppIntegrationTestDriver::UninstallFromMenu(Site site) {
       std::make_unique<WebAppMenuModel>(/*provider=*/nullptr, app_browser);
   app_menu_model->Init();
   ui::MenuModel* model = app_menu_model.get();
-  int index = -1;
+  size_t index = 0;
   const bool found = app_menu_model->GetModelAndIndexForCommandId(
       WebAppMenuModel::kUninstallAppCommandId, &model, &index);
   EXPECT_TRUE(found);
@@ -1831,6 +1883,26 @@ void WebAppIntegrationTestDriver::CheckRunOnOsLoginDisabled(Site site) {
   AfterStateCheckAction();
 }
 
+void WebAppIntegrationTestDriver::CheckSiteHandlesFile(
+    Site site,
+    std::string file_extension) {
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+  BeforeStateCheckAction(__FUNCTION__);
+  ASSERT_TRUE(IsFileHandledBySite(site, file_extension));
+  AfterStateCheckAction();
+#endif
+}
+
+void WebAppIntegrationTestDriver::CheckSiteNotHandlesFile(
+    Site site,
+    std::string file_extension) {
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+  BeforeStateCheckAction(__FUNCTION__);
+  ASSERT_FALSE(IsFileHandledBySite(site, file_extension));
+  AfterStateCheckAction();
+#endif
+}
+
 void WebAppIntegrationTestDriver::CheckUserCannotSetRunOnOsLogin(Site site) {
 #if !BUILDFLAG(IS_CHROMEOS)
   BeforeStateCheckAction(__FUNCTION__);
@@ -2012,6 +2084,7 @@ void WebAppIntegrationTestDriver::BeforeStateChangeAction(
 void WebAppIntegrationTestDriver::AfterStateChangeAction() {
   DCHECK(executing_action_level_ > 0);
   --executing_action_level_;
+  provider()->command_manager().AwaitAllCommandsCompleteForTesting();
 #if BUILDFLAG(IS_MAC)
   for (auto* profile : delegate_->GetAllProfiles()) {
     std::vector<AppId> app_ids = provider()->registrar().GetAppIds();
@@ -2035,6 +2108,7 @@ void WebAppIntegrationTestDriver::AfterStateChangeAction() {
 
 void WebAppIntegrationTestDriver::BeforeStateCheckAction(const char* function) {
   ++executing_action_level_;
+  provider()->command_manager().AwaitAllCommandsCompleteForTesting();
   LOG(INFO) << "BeforeStateCheckAction: "
             << std::string(executing_action_level_, ' ') << function;
   DCHECK(after_state_change_action_state_);
@@ -2240,6 +2314,7 @@ void WebAppIntegrationTestDriver::InstallCreateShortcut(bool open_in_window) {
   if (open_in_window) {
     browser_added_waiter.Wait();
     app_browser_ = browser_added_waiter.browser_added();
+    ActivateBrowserAndWait(app_browser_);
   }
 }
 
@@ -2265,9 +2340,6 @@ void WebAppIntegrationTestDriver::InstallPolicyAppInternal(
 
 void WebAppIntegrationTestDriver::ApplyRunOnOsLoginPolicy(Site site,
                                                           const char* policy) {
-  base::RunLoop run_loop;
-  web_app::SetRunOnOsLoginOsHooksChangedCallbackForTesting(
-      run_loop.QuitClosure());
   GURL url = GetAppStartURL(site);
   {
     ListPrefUpdate updateList(profile()->GetPrefs(), prefs::kWebAppSettings);
@@ -2281,7 +2353,6 @@ void WebAppIntegrationTestDriver::ApplyRunOnOsLoginPolicy(Site site,
 
     updateList.Get()->Append(std::move(dictItem));
   }
-  run_loop.Run();
 }
 
 void WebAppIntegrationTestDriver::UninstallPolicyAppById(const AppId& id) {
@@ -2468,6 +2539,49 @@ bool WebAppIntegrationTestDriver::IsShortcutAndIconCreated(
   return is_shortcut_and_icon_correct;
 }
 
+bool WebAppIntegrationTestDriver::IsFileHandledBySite(
+    Site site,
+    std::string file_extension) {
+  base::ScopedAllowBlockingForTesting allow_blocking;
+  bool is_file_handled = false;
+#if BUILDFLAG(IS_WIN)
+  AppId app_id = GetAppIdBySiteMode(site);
+  const std::wstring prog_id =
+      GetProgIdForApp(browser()->profile()->GetPath(), app_id);
+  const std::vector<std::wstring> file_handler_prog_ids =
+      ShellUtil::GetFileHandlerProgIdsForAppId(prog_id);
+
+  base::win::RegKey key;
+  std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+  for (const auto& file_handler_prog_id : file_handler_prog_ids) {
+    const std::vector<std::wstring> supported_file_extensions =
+        GetFileExtensionsForProgId(file_handler_prog_id);
+    std::wstring extension = converter.from_bytes("." + file_extension);
+    if (std::find(supported_file_extensions.begin(),
+                  supported_file_extensions.end(),
+                  extension) != supported_file_extensions.end()) {
+      const std::wstring reg_key =
+          L"Software\\Classes\\" + extension + L"\\OpenWithProgids";
+      EXPECT_EQ(ERROR_SUCCESS,
+                key.Open(HKEY_CURRENT_USER, reg_key.data(), KEY_READ));
+      return key.HasValue(file_handler_prog_id.data());
+    }
+  }
+#elif BUILDFLAG(IS_MAC)
+  std::string app_name = g_site_to_app_name.find(site)->second;
+  const base::FilePath test_file_path =
+      shortcut_override_->chrome_apps_folder.GetPath().AppendASCII(
+          "test." + file_extension);
+  const base::File test_file(
+      test_file_path, base::File::FLAG_CREATE_ALWAYS | base::File::FLAG_WRITE);
+  const GURL test_file_url = net::FilePathToFileURL(test_file_path);
+  is_file_handled =
+      (base::UTF8ToUTF16(app_name) ==
+       shell_integration::GetApplicationNameForProtocol(test_file_url));
+#endif
+  return is_file_handled;
+}
+
 void WebAppIntegrationTestDriver::SetRunOnOsLoginMode(
     Site site,
     apps::RunOnOsLoginMode login_mode) {
@@ -2475,13 +2589,8 @@ void WebAppIntegrationTestDriver::SetRunOnOsLoginMode(
   AppId app_id = GetAppIdBySiteMode(site);
   ASSERT_TRUE(provider()->registrar().GetAppById(app_id))
       << "No app installed for site: " << static_cast<int>(site);
-  ;
-  base::RunLoop run_loop;
-  web_app::SetRunOnOsLoginOsHooksChangedCallbackForTesting(
-      run_loop.QuitClosure());
   auto app_management_page_handler = CreateAppManagementPageHandler(profile());
   app_management_page_handler.SetRunOnOsLoginMode(app_id, login_mode);
-  run_loop.Run();
 #endif
 }
 
@@ -2542,6 +2651,8 @@ WebAppIntegrationBrowserTest::WebAppIntegrationBrowserTest() : helper_(this) {
   enabled_features.push_back(features::kPwaUpdateDialogForName);
   enabled_features.push_back(features::kDesktopPWAsEnforceWebAppSettingsPolicy);
   enabled_features.push_back(features::kWebAppWindowControlsOverlay);
+  enabled_features.push_back(features::kRecordWebAppDebugInfo);
+  enabled_features.push_back(blink::features::kFileHandlingAPI);
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   disabled_features.push_back(features::kWebAppsCrosapi);
   disabled_features.push_back(chromeos::features::kLacrosPrimary);

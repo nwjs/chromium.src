@@ -15,7 +15,7 @@
 // Returns whether the collection is scrolled to the omnibox.
 - (BOOL)isScrolledToMinimumHeight;
 
-// Register |imageUpdater| object as delegate to refresh UI when user account
+// Register `imageUpdater` object as delegate to refresh UI when user account
 // avatar is changed.
 - (void)registerImageUpdater:(id<UserAccountImageUpdateDelegate>)imageUpdater;
 
@@ -24,6 +24,9 @@
 // See: crbug.com/925304 for more context.  Remove this when ios/web supports
 // queueing multiple loads during this state.
 - (BOOL)ignoreLoadRequests;
+
+// Indicates to the delegate that the fakebox was tapped.
+- (void)fakeboxTapped;
 
 @end
 

@@ -79,7 +79,7 @@ class SearchProvider : public BaseSearchProvider,
   // AutocompleteProvider:
   void ResetSession() override;
 
-  // The verbatim score for an input which is not an URL.
+  // The verbatim score for an input which is not a URL.
   static const int kNonURLVerbatimRelevance = 1300;
 
  protected:
@@ -88,7 +88,7 @@ class SearchProvider : public BaseSearchProvider,
  private:
   friend class AutocompleteProviderTest;
   friend class BaseSearchProviderTest;
-  FRIEND_TEST_ALL_PREFIXES(SearchProviderTest, CanSendURL);
+  FRIEND_TEST_ALL_PREFIXES(SearchProviderTest, CanSendRequestWithURL);
   FRIEND_TEST_ALL_PREFIXES(SearchProviderTest,
                            DontInlineAutocompleteAsynchronously);
   FRIEND_TEST_ALL_PREFIXES(SearchProviderTest, NavigationInline);

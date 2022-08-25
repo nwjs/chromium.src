@@ -1,4 +1,4 @@
-# Copyright 2020 The Chromium Authors. All rights reserved.
+# Copyright 2022 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -7,15 +7,23 @@ import("//build/config/features.gni")
 source_set("win") {
   public = [ "win_system_signals_service.h" ]
 
-  sources = [ "win_system_signals_service.cc" ]
+  sources = [
+    "metrics_utils.cc",
+    "metrics_utils.h",
+    "win_system_signals_service.cc",
+  ]
 
   public_deps = [
     "//components/device_signals/core/common/mojom",
     "//components/device_signals/core/common/win",
+    "//components/device_signals/core/system_signals/win",
     "//mojo/public/mojom/base",
   ]
 
-  deps = [ "//base" ]
+  deps = [
+    "//base",
+    "//components/device_signals/core/common",
+  ]
 }
 
 source_set("unit_tests") {
@@ -26,9 +34,12 @@ source_set("unit_tests") {
     ":win",
     "//base",
     "//base/test:test_support",
+    "//components/device_signals/core/common",
+    "//components/device_signals/core/common:test_support",
     "//components/device_signals/core/common/mojom",
     "//components/device_signals/core/common/win",
-    "//components/device_signals/core/common/win:test_support",
+    "//components/device_signals/core/system_signals/win",
+    "//components/device_signals/core/system_signals/win:test_support",
     "//mojo/public/mojom/base",
     "//testing/gmock",
     "//testing/gtest",

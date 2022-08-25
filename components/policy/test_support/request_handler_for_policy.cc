@@ -26,10 +26,9 @@ namespace em = enterprise_management;
 
 namespace policy {
 
-RequestHandlerForPolicy::RequestHandlerForPolicy(ClientStorage* client_storage,
-                                                 PolicyStorage* policy_storage)
-    : EmbeddedPolicyTestServer::RequestHandler(client_storage, policy_storage) {
-}
+RequestHandlerForPolicy::RequestHandlerForPolicy(
+    EmbeddedPolicyTestServer* parent)
+    : EmbeddedPolicyTestServer::RequestHandler(parent) {}
 
 RequestHandlerForPolicy::~RequestHandlerForPolicy() = default;
 
@@ -44,6 +43,7 @@ std::unique_ptr<HttpResponse> RequestHandlerForPolicy::HandleRequest(
       dm_protocol::kChromeExtensionPolicyType,
       dm_protocol::kChromeMachineLevelUserCloudPolicyType,
       dm_protocol::kChromeMachineLevelUserCloudPolicyAndroidType,
+      dm_protocol::kChromeMachineLevelUserCloudPolicyIOSType,
       dm_protocol::kChromeMachineLevelExtensionCloudPolicyType,
       dm_protocol::kChromePublicAccountPolicyType,
       dm_protocol::kChromeSigninExtensionPolicyType,
@@ -176,7 +176,7 @@ bool RequestHandlerForPolicy::ProcessCloudPolicy(
   policy_data.set_device_id(client_info.device_id);
   policy_data.set_username(
       client_info.username.value_or(policy_storage()->policy_user().empty()
-                                        ? "username@example.com"
+                                        ? kDefaultUsername
                                         : policy_storage()->policy_user()));
   policy_data.set_policy_invalidation_topic(
       policy_storage()->policy_invalidation_topic());

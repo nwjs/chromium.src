@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/memory/raw_ptr.h"
+
 #import "chrome/browser/ui/views/frame/browser_frame_mac.h"
 
 #include "ui/display/display.h"
@@ -71,7 +73,7 @@ bool ShouldHandleKeyboardEvent(const content::NativeWebKeyboardEvent& event) {
 // BrowserWindowTouchBarController.
 @interface BrowserWindowTouchBarViewsDelegate
     : NSObject<WindowTouchBarDelegate> {
-  Browser* _browser;  // Weak.
+  raw_ptr<Browser> _browser;  // Weak.
   NSWindow* _window;  // Weak.
   base::scoped_nsobject<BrowserWindowTouchBarController> _touchBarController;
 }
@@ -339,7 +341,7 @@ void BrowserFrameMac::PopulateCreateWindowParams(
   } else {
     params->window_class = remote_cocoa::mojom::WindowClass::kDefault;
     if (widget_params.remove_standard_frame)
-      params->style_mask = NSWindowStyleMaskBorderless;
+      params->style_mask = NSBorderlessWindowMask;
   }
   params->animation_enabled = true;
 }
@@ -444,6 +446,10 @@ bool BrowserFrameMac::HandleKeyboardEvent(
 }
 
 bool BrowserFrameMac::ShouldRestorePreviousBrowserWidgetState() const {
+  return true;
+}
+
+bool BrowserFrameMac::ShouldUseInitialVisibleOnAllWorkspaces() const {
   return true;
 }
 

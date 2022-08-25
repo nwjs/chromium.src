@@ -6,28 +6,34 @@
  * @fileoverview Processes events related to editing text and emits the
  * appropriate spoken and braille feedback.
  */
-import {BrailleBackground} from '/chromevox/background/braille/braille_background.js';
-import {ChromeVoxState, ChromeVoxStateObserver} from '/chromevox/background/chromevox_state.js';
-import {Color} from '/chromevox/background/color.js';
-import {EditableLine} from '/chromevox/background/editing/editable_line.js';
-import {ChromeVoxEditableTextBase, TextChangeEvent} from '/chromevox/background/editing/editable_text_base.js';
-import {IntentHandler} from '/chromevox/background/editing/intent_handler.js';
-import {Output} from '/chromevox/background/output/output.js';
-import {AbstractTts} from '/chromevox/common/abstract_tts.js';
-import {ChromeVoxEvent} from '/chromevox/common/custom_automation_event.js';
+import {Cursor, CursorMovement, CursorUnit} from '../../../common/cursors/cursor.js';
+import {CursorRange} from '../../../common/cursors/range.js';
+import {AbstractTts} from '../../common/abstract_tts.js';
+import {ChromeVoxEvent} from '../../common/custom_automation_event.js';
+import {Msgs} from '../../common/msgs.js';
+import {BrailleBackground} from '../braille/braille_background.js';
+import {LibLouis} from '../braille/liblouis.js';
+import {BrailleTextStyleSpan, ValueSelectionSpan, ValueSpan} from '../braille/spans.js';
+import {ChromeVoxState, ChromeVoxStateObserver} from '../chromevox_state.js';
+import {Color} from '../color.js';
+import {Output} from '../output/output.js';
+import {OutputEventType, OutputNodeSpan} from '../output/output_types.js';
+
+import {EditableLine} from './editable_line.js';
+import {ChromeVoxEditableTextBase, TextChangeEvent} from './editable_text_base.js';
+import {IntentHandler} from './intent_handler.js';
 
 const AutomationEvent = chrome.automation.AutomationEvent;
 const AutomationIntent = chrome.automation.AutomationIntent;
 const AutomationNode = chrome.automation.AutomationNode;
-const Cursor = cursors.Cursor;
 const Dir = constants.Dir;
 const EventType = chrome.automation.EventType;
 const FormType = LibLouis.FormType;
-const Range = cursors.Range;
+const Range = CursorRange;
 const RoleType = chrome.automation.RoleType;
 const StateType = chrome.automation.StateType;
-const Movement = cursors.Movement;
-const Unit = cursors.Unit;
+const Movement = CursorMovement;
+const Unit = CursorUnit;
 
 /**
  * A handler for automation events in a focused text field or editable root
@@ -142,7 +148,7 @@ export class TextEditHandler {
                       this.node_, Dir.FORWARD, AutomationPredicate.object,
                       {skipInitialSubtree: true}) ||
         this.node_;
-    ChromeVoxState.instance.navigateToRange(cursors.Range.fromNode(after));
+    ChromeVoxState.instance.navigateToRange(CursorRange.fromNode(after));
   }
 
   /**
@@ -670,13 +676,14 @@ const AutomationRichEditableText = class extends AutomationEditableText {
    * @private
    */
   handleBraille_(baseLineOnStart) {
+    const isEmpty = !this.node_.find({role: RoleType.STATIC_TEXT});
     const isFirstLine = this.isSelectionOnFirstLine();
     const cur = this.line_;
     if (cur.value === null) {
       return;
     }
 
-    let value = new MultiSpannable(cur.value);
+    let value = new MultiSpannable(isEmpty ? '' : cur.value);
     if (!this.node_.constructor) {
       return;
     }
@@ -707,6 +714,8 @@ const AutomationRichEditableText = class extends AutomationEditableText {
           start, end);
     });
 
+    value.setSpan(new ValueSpan(0), 0, value.length);
+
     // Provide context for the current selection.
     const context = baseLineOnStart ? cur.startContainer : cur.endContainer;
     if (context && context.role !== RoleType.TEXT_FIELD) {
@@ -729,16 +738,25 @@ const AutomationRichEditableText = class extends AutomationEditableText {
       }
     }
 
+    let start = cur.startOffset;
+    let end = cur.endOffset;
     if (isFirstLine) {
       if (!/\s/.test(value.toString()[value.length - 1])) {
         value.append(Output.SPACE);
       }
+
+      if (isEmpty) {
+        // When the text field is empty, place the selection cursor immediately
+        // after the space and before the 'ed' role msg indicator below.
+        start = value.length - 1;
+        end = start;
+      }
       value.append(Msgs.getMsg('tag_textarea_brl'));
     }
-    value.setSpan(new ValueSpan(0), 0, cur.value.length);
-    value.setSpan(new ValueSelectionSpan(), cur.startOffset, cur.endOffset);
-    ChromeVox.braille.write(new NavBraille(
-        {text: value, startIndex: cur.startOffset, endIndex: cur.endOffset}));
+
+    value.setSpan(new ValueSelectionSpan(), start, end);
+    ChromeVox.braille.write(
+        new NavBraille({text: value, startIndex: start, endIndex: end}));
   }
 
   /**
@@ -969,7 +987,7 @@ class EditingChromeVoxStateObserver {
   }
 
   /**
-   * @param {cursors.Range} range
+   * @param {CursorRange} range
    * @param {boolean=} opt_fromEditing
    * @override
    */

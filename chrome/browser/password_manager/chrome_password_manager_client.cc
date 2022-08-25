@@ -254,6 +254,9 @@ void ChromePasswordManagerClient::BindPasswordGenerationDriver(
     mojo::PendingAssociatedReceiver<autofill::mojom::PasswordGenerationDriver>
         receiver,
     content::RenderFrameHost* rfh) {
+  // [spec] https://wicg.github.io/anonymous-iframe/#spec-autofill
+  if (rfh->IsAnonymous())
+    return;
   auto* web_contents = content::WebContents::FromRenderFrameHost(rfh);
   if (!web_contents)
     return;
@@ -1122,6 +1125,11 @@ void ChromePasswordManagerClient::AutomaticGenerationAvailable(
               element_bounds_in_top_frame_space, ui_data.text_direction,
               /*show_password_suggestions=*/
               ui_data.is_generation_element_password_type)) {
+    // (see crbug.com/1338105)
+    if (popup_controller_) {
+      popup_controller_->GeneratedPasswordRejected();
+    }
+
     return;
   }
 

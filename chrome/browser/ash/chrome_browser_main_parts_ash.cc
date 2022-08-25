@@ -57,6 +57,7 @@
 #include "base/task/thread_pool.h"
 #include "base/task/thread_pool/thread_pool_instance.h"
 #include "build/branding_buildflags.h"
+#include "build/config/chromebox_for_meetings/buildflags.h"  // PLATFORM_CFM
 #include "chrome/browser/ash/accessibility/accessibility_event_rewriter_delegate_impl.h"
 #include "chrome/browser/ash/accessibility/accessibility_manager.h"
 #include "chrome/browser/ash/accessibility/magnification_manager.h"
@@ -197,27 +198,28 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/logging_chrome.h"
 #include "chrome/common/pref_names.h"
+#include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/dbus/services/cros_dbus_service.h"
+#include "chromeos/ash/components/dbus/session_manager/fake_session_manager_client.h"
+#include "chromeos/ash/components/dbus/session_manager/session_manager_client.h"
+#include "chromeos/ash/components/dbus/userdataauth/fake_userdataauth_client.h"
+#include "chromeos/ash/components/local_search_service/public/cpp/local_search_service_proxy_factory.h"
+#include "chromeos/ash/components/network/fast_transition_observer.h"
+#include "chromeos/ash/components/network/network_cert_loader.h"
+#include "chromeos/ash/components/network/network_handler.h"
 #include "chromeos/ash/components/network/portal_detector/network_portal_detector_stub.h"
-#include "chromeos/components/chromebox_for_meetings/buildflags/buildflags.h"  // PLATFORM_CFM
-#include "chromeos/components/local_search_service/public/cpp/local_search_service_proxy_factory.h"
+#include "chromeos/ash/components/network/system_token_cert_db_storage.h"
+#include "chromeos/ash/services/cros_healthd/private/cpp/data_collector.h"
+#include "chromeos/ash/services/cros_healthd/public/cpp/service_connection.h"
 #include "chromeos/components/sensors/ash/sensor_hal_dispatcher.h"
 #include "chromeos/dbus/constants/cryptohome_key_delegate_constants.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
+#include "chromeos/dbus/debug_daemon/debug_daemon_client.h"
 #include "chromeos/dbus/power/fake_power_manager_client.h"
 #include "chromeos/dbus/power/power_manager_client.h"
 #include "chromeos/dbus/power/power_policy_controller.h"
-#include "chromeos/dbus/session_manager/fake_session_manager_client.h"
-#include "chromeos/dbus/session_manager/session_manager_client.h"
-#include "chromeos/dbus/userdataauth/fake_userdataauth_client.h"
 #include "chromeos/dbus/util/version_loader.h"
 #include "chromeos/login/login_state/login_state.h"
-#include "chromeos/network/fast_transition_observer.h"
-#include "chromeos/network/network_cert_loader.h"
-#include "chromeos/network/network_handler.h"
-#include "chromeos/network/system_token_cert_db_storage.h"
-#include "chromeos/services/cros_healthd/private/cpp/data_collector.h"
-#include "chromeos/services/cros_healthd/public/cpp/service_connection.h"
 #include "chromeos/services/machine_learning/public/cpp/service_connection.h"
 #include "chromeos/system/statistics_provider.h"
 #include "components/account_id/account_id.h"
@@ -298,9 +300,9 @@ void ApplySigninProfileModifications(Profile* profile) {
 }
 
 #if !defined(USE_REAL_DBUS_CLIENTS)
-chromeos::FakeSessionManagerClient* FakeSessionManagerClient() {
-  chromeos::FakeSessionManagerClient* fake_session_manager_client =
-      chromeos::FakeSessionManagerClient::Get();
+ash::FakeSessionManagerClient* FakeSessionManagerClient() {
+  ash::FakeSessionManagerClient* fake_session_manager_client =
+      ash::FakeSessionManagerClient::Get();
   DCHECK(fake_session_manager_client);
   return fake_session_manager_client;
 }
@@ -633,8 +635,9 @@ int ChromeBrowserMainPartsAsh::PreEarlyInitialization() {
         switches::kLoginUser,
         cryptohome::Identification(user_manager::StubAccountId()).id());
     if (!command_line->HasSwitch(switches::kLoginProfile)) {
-      command_line->AppendSwitchASCII(switches::kLoginProfile,
-                                      chrome::kTestUserProfileDir);
+      command_line->AppendSwitchASCII(
+          switches::kLoginProfile,
+          ash::BrowserContextHelper::kTestUserBrowserContextDirName);
     }
     LOG(WARNING)
         << "Running as stub user with profile dir: "
@@ -662,7 +665,7 @@ int ChromeBrowserMainPartsAsh::PreEarlyInitialization() {
 
     base::FilePath user_data_dir;
     base::PathService::Get(chrome::DIR_USER_DATA, &user_data_dir);
-    FakeUserDataAuthClient::Get()->set_user_data_dir(user_data_dir);
+    FakeUserDataAuthClient::Get()->SetUserDataDir(std::move(user_data_dir));
 
     // If we're not running on a device, i.e. either in a test or in ash Chrome
     // on linux, fake dbus calls that would result in a shutdown of Chrome by
@@ -802,8 +805,8 @@ int ChromeBrowserMainPartsAsh::PreMainMessageLoopRun() {
 
   SystemProxyManager::Initialize(g_browser_process->local_state());
 
-  debugd_notification_handler_ = std::make_unique<DebugdNotificationHandler>(
-      DBusThreadManager::Get()->GetDebugDaemonClient());
+  debugd_notification_handler_ =
+      std::make_unique<DebugdNotificationHandler>(DebugDaemonClient::Get());
 
   return ChromeBrowserMainPartsLinux::PreMainMessageLoopRun();
 }
@@ -1140,7 +1143,7 @@ void ChromeBrowserMainPartsAsh::PostProfileInit(Profile* profile,
       // Enable portal detector if EULA was previously accepted or if
       // this is an unofficial build.
       if (!is_official_build || StartupUtils::IsEulaAccepted())
-        network_portal_detector::GetInstance()->Enable(true);
+        network_portal_detector::GetInstance()->Enable();
     }
 
     // Initialize an observer to update NetworkHandler's pref based services.
@@ -1379,6 +1382,11 @@ void ChromeBrowserMainPartsAsh::PostBrowserStart() {
   zram_detail_ = base::MakeRefCounted<memory::ZramMetrics>();
   zram_detail_->Start();
 
+  if (ash::memory::ZramWritebackController::IsSupportedAndEnabled()) {
+    zram_writeback_controller_ = ash::memory::ZramWritebackController::Create();
+    zram_writeback_controller_->Start();
+  }
+
   ChromeBrowserMainPartsLinux::PostBrowserStart();
 }
 
@@ -1394,6 +1402,10 @@ void ChromeBrowserMainPartsAsh::PostMainMessageLoopRun() {
   }
   if (zram_detail_ != nullptr) {
     zram_detail_->Stop();
+  }
+
+  if (zram_writeback_controller_ != nullptr) {
+    zram_writeback_controller_->Stop();
   }
 
   SystemProxyManager::Shutdown();

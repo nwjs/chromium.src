@@ -14,19 +14,16 @@
 
 namespace password_manager {
 
-using CredentialKey = base::StrongAlias<class CredentialKeyTag, std::string>;
-
 // Simple struct that represents an entry inside Settings UI. Allows implicit
 // construction from PasswordForm for convenience. A single entry might
 // correspond to multiple PasswordForms.
 struct CredentialUIEntry {
   struct Less {
     bool operator()(const CredentialUIEntry& lhs,
-                    const CredentialUIEntry& rhs) const {
-      return lhs.key() < rhs.key();
-    }
+                    const CredentialUIEntry& rhs) const;
   };
 
+  CredentialUIEntry();
   explicit CredentialUIEntry(const PasswordForm& form);
   CredentialUIEntry(const CredentialUIEntry& other);
   CredentialUIEntry(CredentialUIEntry&& other);
@@ -54,7 +51,7 @@ struct CredentialUIEntry {
   // it is an Android credential. Otherwise, the string is empty.
   std::string app_display_name;
 
-  // The current password.
+  // The current username.
   std::u16string username;
 
   // The current password.
@@ -79,15 +76,15 @@ struct CredentialUIEntry {
   // Tracks if the user opted to never remember passwords for this website.
   bool blocked_by_user;
 
-  const CredentialKey& key() const { return key_; }
+  // Indicates when the credential was last used by the user to login to the
+  // site. Defaults to |date_created|.
+  base::Time last_used_time;
 
   // Information about password insecurities.
   bool IsLeaked() const;
   bool IsPhished() const;
 
- private:
-  // Key which is constructed from an original PasswordForm.
-  CredentialKey key_;
+  const base::Time GetLastLeakedOrPhishedTime() const;
 };
 
 bool operator==(const CredentialUIEntry& lhs, const CredentialUIEntry& rhs);

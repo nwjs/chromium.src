@@ -9,6 +9,7 @@
 #include "ash/components/audio/sounds.h"
 #include "ash/components/login/auth/authenticator.h"
 #include "ash/components/login/auth/extended_authenticator.h"
+#include "ash/components/login/auth/public/auth_failure.h"
 #include "ash/components/login/session/session_termination_manager.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/public/cpp/login_screen.h"
@@ -56,7 +57,7 @@
 #include "chrome/grit/browser_resources.h"
 #include "chrome/grit/generated_resources.h"
 #include "chromeos/ash/components/dbus/biod/constants.pb.h"
-#include "chromeos/dbus/session_manager/session_manager_client.h"
+#include "chromeos/ash/components/dbus/session_manager/session_manager_client.h"
 #include "components/password_manager/core/browser/hash_password_manager.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/session_manager/core/session_manager.h"
@@ -649,11 +650,28 @@ void ScreenLocker::Hide() {
   }
 
   DCHECK(screen_locker_);
-  SessionControllerClientImpl::Get()->RunUnlockAnimation(base::BindOnce([]() {
-    session_manager::SessionManager::Get()->SetSessionState(
-        session_manager::SessionState::ACTIVE);
-    ScreenLocker::ScheduleDeletion();
-  }));
+  SessionControllerClientImpl::Get()->RunUnlockAnimation(
+      base::BindOnce(&ScreenLocker::OnUnlockAnimationFinished));
+}
+
+void ScreenLocker::ResetToLockedState() {
+  LoginScreen::Get()->GetModel()->SetFingerprintState(
+      user_manager::UserManager::Get()->GetPrimaryUser()->GetAccountId(),
+      FingerprintState::AVAILABLE_DEFAULT);
+  screen_locker_->unlock_started_ = false;
+}
+
+// static
+void ScreenLocker::OnUnlockAnimationFinished(bool aborted) {
+  if (aborted) {
+    // Reset state that was impacted by successful auth.
+    screen_locker_->ResetToLockedState();
+    return;
+  }
+
+  session_manager::SessionManager::Get()->SetSessionState(
+      session_manager::SessionState::ACTIVE);
+  ScreenLocker::ScheduleDeletion();
 }
 
 void ScreenLocker::RefreshPinAndFingerprintTimeout() {

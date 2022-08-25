@@ -8,9 +8,9 @@
 #include <utility>
 #include <vector>
 
-#include "ash/webui/telemetry_extension_ui/mojom/probe_service.mojom.h"
 #include "base/check.h"
 #include "chrome/common/chromeos/extensions/api/telemetry.h"
+#include "chromeos/crosapi/mojom/probe_service.mojom.h"
 
 namespace chromeos {
 
@@ -38,6 +38,12 @@ chromeos::api::os_telemetry::PhysicalCpuInfo UncheckedConvertPtr(
 // guarded by a permission.
 chromeos::api::os_telemetry::BatteryInfo UncheckedConvertPtr(
     ash::health::mojom::BatteryInfoPtr input);
+
+chromeos::api::os_telemetry::OsVersionInfo UncheckedConvertPtr(
+    ash::health::mojom::OsVersionPtr input);
+
+chromeos::api::os_telemetry::StatefulPartitionInfo UncheckedConvertPtr(
+    ash::health::mojom::StatefulPartitionInfoPtr input);
 
 }  // namespace unchecked
 

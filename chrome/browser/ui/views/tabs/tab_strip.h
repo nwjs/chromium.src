@@ -97,6 +97,12 @@ class TabStrip : public views::View,
   // Sets |background_offset_| and schedules a paint.
   void SetBackgroundOffset(int background_offset);
 
+  // Scroll the tabstrip towards the trailing tabs by an offset
+  void ScrollTowardsTrailingTabs(int offset);
+
+  // Scroll the tabstrip towards the leading tabs by an offset
+  void ScrollTowardsLeadingTabs(int offset);
+
   // Returns true if the specified rect (in TabStrip coordinates) intersects
   // the window caption area of the browser window.
   bool IsRectInWindowCaption(const gfx::Rect& rect);
@@ -131,6 +137,8 @@ class TabStrip : public views::View,
   void RemoveTabAt(content::WebContents* contents,
                    int model_index,
                    bool was_active);
+
+  void OnTabWillBeRemoved(content::WebContents* contents, int model_index);
 
   // Sets the tab data at the specified model index.
   void SetTabData(int model_index, TabRendererData data);
@@ -297,8 +305,6 @@ class TabStrip : public views::View,
   tab_groups::TabGroupColorId GetGroupColorId(
       const tab_groups::TabGroupId& group) const override;
   bool IsGroupCollapsed(const tab_groups::TabGroupId& group) const override;
-  absl::optional<int> GetLastTabInGroup(
-      const tab_groups::TabGroupId& group) const override;
   SkColor GetPaintedGroupColor(
       const tab_groups::TabGroupColorId& color_id) const override;
   void ShiftGroupLeft(const tab_groups::TabGroupId& group) override;
@@ -381,10 +387,6 @@ class TabStrip : public views::View,
   // Closes the tab at |model_index|.
   void CloseTabInternal(int model_index, CloseTabSource source);
 
-  // Invoked from StoppedDraggingTabs to cleanup |view|. If |view| is known
-  // |is_first_view| is set to true.
-  void StoppedDraggingView(TabSlotView* view, bool* is_first_view);
-
   // Computes and stores values derived from contrast ratios.
   void UpdateContrastRatioValues();
 
@@ -405,9 +407,6 @@ class TabStrip : public views::View,
   const gfx::Rect& ideal_bounds(tab_groups::TabGroupId group) const;
 
   // views::View:
-  bool OnMouseDragged(const ui::MouseEvent& event) override;
-  void OnMouseReleased(const ui::MouseEvent& event) override;
-  void OnMouseCaptureLost() override;
   void OnMouseEntered(const ui::MouseEvent& event) override;
   void OnMouseExited(const ui::MouseEvent& event) override;
   void AddedToWidget() override;
@@ -441,7 +440,7 @@ class TabStrip : public views::View,
 
   std::unique_ptr<TabHoverCardController> hover_card_controller_;
 
-  std::unique_ptr<TabDragContextImpl> drag_context_;
+  raw_ptr<TabDragContextImpl> drag_context_;
 
   // The View parent for the tabs and the various group views.
   raw_ptr<TabContainer> tab_container_;

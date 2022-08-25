@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "chrome/browser/chrome_browser_main_extra_parts.h"
+#include "chrome/browser/ui/ash/in_session_auth_token_provider_impl.h"
 #include "chrome/common/buildflags.h"
 
 namespace ash {
@@ -25,6 +26,7 @@ class DisplaySettingsHandler;
 
 class AccessibilityControllerClient;
 class AmbientClientImpl;
+class AppAccessNotifier;
 class AppListClientImpl;
 class ArcOpenUrlDelegateImpl;
 class AshShellInit;
@@ -35,7 +37,6 @@ class ImeControllerClientImpl;
 class InSessionAuthDialogClient;
 class LoginScreenClientImpl;
 class MediaClientImpl;
-class MicrophoneMuteNotificationDelegateImpl;
 class MobileDataNotifications;
 class NetworkConnectDelegateChromeOS;
 class NightLightClient;
@@ -99,6 +100,8 @@ class ChromeBrowserMainExtraPartsAsh : public ChromeBrowserMainExtraParts {
   std::unique_ptr<ArcOpenUrlDelegateImpl> arc_open_url_delegate_impl_;
   std::unique_ptr<ImeControllerClientImpl> ime_controller_client_;
   std::unique_ptr<InSessionAuthDialogClient> in_session_auth_dialog_client_;
+  std::unique_ptr<ash::InSessionAuthTokenProviderImpl>
+      in_session_auth_token_provider_;
   std::unique_ptr<ScreenOrientationDelegateChromeos>
       screen_orientation_delegate_;
   std::unique_ptr<SessionControllerClientImpl> session_controller_client_;
@@ -126,8 +129,7 @@ class ChromeBrowserMainExtraPartsAsh : public ChromeBrowserMainExtraParts {
   // Initialized in PostProfileInit in all configs:
   std::unique_ptr<LoginScreenClientImpl> login_screen_client_;
   std::unique_ptr<MediaClientImpl> media_client_;
-  std::unique_ptr<MicrophoneMuteNotificationDelegateImpl>
-      microphone_mute_notification_delegate_;
+  std::unique_ptr<AppAccessNotifier> app_access_notifier_;
   std::unique_ptr<policy::DisplaySettingsHandler> display_settings_handler_;
   std::unique_ptr<AshWebViewFactoryImpl> ash_web_view_factory_;
 

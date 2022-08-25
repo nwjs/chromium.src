@@ -25,10 +25,8 @@
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "ui/base/metadata/metadata_header_macros.h"
-#include "ui/base/models/list_model_observer.h"
 #include "ui/compositor/throughput_tracker.h"
 #include "ui/events/keycodes/keyboard_codes_posix.h"
-#include "ui/gfx/image/image_skia_operations.h"
 #include "ui/views/animation/animation_abort_handle.h"
 #include "ui/views/animation/bounds_animator_observer.h"
 #include "ui/views/view.h"
@@ -63,6 +61,7 @@ class AppsGridRowChangeAnimator;
 class GhostImageView;
 class AppsGridViewTest;
 class ScrollableAppsGridViewTest;
+class PagedAppsGridViewTestBase;
 
 // AppsGridView displays a grid of app icons. It is used for:
 // - The main grid of apps in the launcher
@@ -275,6 +274,12 @@ class ASH_EXPORT AppsGridView : public views::View,
   views::AnimationBuilder FadeInVisibleItemsForReorder(
       ReorderAnimationCallback done_callback);
 
+  // Slides visible items up when the continue section is hidden in tablet mode.
+  // Each row of items has a different vertical offset, creating a "cascade"
+  // effect. `base_offset` is the offset for the first row. Subsequent rows have
+  // a smaller offset.
+  void SlideVisibleItemsForHideContinueSection(int base_offset);
+
   // Whether the provided view is hidden to facilitate drag operation (for
   // example, the drag view for which a drag icon proxy has been created).
   bool IsViewHiddenForDrag(const views::View* view) const;
@@ -284,12 +289,16 @@ class ASH_EXPORT AppsGridView : public views::View,
   // position within the grid changed.
   bool IsViewHiddenForFolderReorder(const views::View* view) const;
 
-  // Returns true if the apps grid is under the reorder animation process. This
-  // function is public for testing.
-  bool IsUnderReorderAnimation() const;
+  // Returns true if the whole apps grid is animating (for reordering, or hide
+  // continue section). This function is public for testing.
+  bool IsUnderWholeGridAnimation() const;
 
-  // Aborts the active reorder animation if any.
-  void MaybeAbortReorderAnimation();
+  // Returns whether `view` is hidden due to drag or folder reorder.
+  bool IsViewExplicitlyHidden(const views::View* view) const;
+
+  // Aborts the active whole-grid animation (for reordering, or hide continue
+  // section), if any.
+  void MaybeAbortWholeGridAnimation();
 
   // Passes scroll information from a parent view, so that subclasses may scroll
   // or switch pages.
@@ -304,8 +313,6 @@ class ASH_EXPORT AppsGridView : public views::View,
 
   // Returns true if any animation is running within the view.
   bool IsAnimationRunningForTest();
-  // Cancel any animations currently running within the view.
-  void CancelAnimationsForTest();
 
   AppsGridViewFolderDelegate* folder_delegate() const {
     return folder_delegate_;
@@ -327,7 +334,7 @@ class ASH_EXPORT AppsGridView : public views::View,
   // (2) An enum that specifies the animation stage when the done callback runs.
   using TestReorderDoneCallbackType =
       base::RepeatingCallback<void(bool aborted,
-                                   AppListReorderAnimationStatus status)>;
+                                   AppListGridAnimationStatus status)>;
 
   // Adds a callback that runs at the end of the app list reorder.
   void AddReorderCallbackForTest(TestReorderDoneCallbackType done_callback);
@@ -365,8 +372,8 @@ class ASH_EXPORT AppsGridView : public views::View,
     enable_item_move_animation_ = enable;
   }
 
-  AppListReorderAnimationStatus reorder_animation_status_for_test() const {
-    return reorder_animation_status_;
+  AppListGridAnimationStatus grid_animation_status_for_test() const {
+    return grid_animation_status_;
   }
 
  protected:
@@ -469,7 +476,7 @@ class ASH_EXPORT AppsGridView : public views::View,
   // Sets the ideal bounds for view at index `view_inde_in_model` in
   // `view_model_`. The bounds are set to match the expected tile bounds at
   // `view_grid_index` in the apps grid.
-  void SetIdealBoundsForViewToGridIndex(int view_index_in_model,
+  void SetIdealBoundsForViewToGridIndex(size_t view_index_in_model,
                                         const GridIndex& view_grid_index);
 
   // Calculates the item views' bounds for both folder and non-folder.
@@ -568,7 +575,7 @@ class ASH_EXPORT AppsGridView : public views::View,
   // TODO(crbug.com/1211608): Move cardified state members to PagedAppsGridView.
   bool cardified_state_ = false;
 
-  int bounds_animation_for_cardified_state_in_progress_ = 0;
+  bool bounds_animation_for_cardified_state_in_progress_ = false;
 
   // Tile spacing between the tile views.
   int horizontal_tile_padding_ = 0;
@@ -591,6 +598,7 @@ class ASH_EXPORT AppsGridView : public views::View,
   friend class PagedAppsGridView;
   friend class PagedViewStructure;
   friend class AppsGridRowChangeAnimator;
+  friend class PagedAppsGridViewTestBase;
 
   enum DropTargetRegion {
     NO_TARGET,
@@ -877,12 +885,15 @@ class ASH_EXPORT AppsGridView : public views::View,
   // in animation gets aborted.
   void OnFadeInAnimationEnded(ReorderAnimationCallback callback, bool aborted);
 
+  // Called at the end of the hide continue section animation.
+  void OnHideContinueSectionAnimationEnded();
+
   // Runs the animation callback popped from the test callback queue if the
   // queue is not empty. The parameters indicate the animation running result
   // and should be passed to the callback.
   void MaybeRunNextReorderAnimationCallbackForTest(
       bool aborted,
-      AppListReorderAnimationStatus animation_source);
+      AppListGridAnimationStatus animation_source);
 
   // Sets `open_folder_info_` for  a folder that is about to be shown.
   // `folder_id` is the folder's item ID, `target_folder_position` is the grid
@@ -1069,12 +1080,12 @@ class ASH_EXPORT AppsGridView : public views::View,
 
   std::unique_ptr<AppsGridContextMenu> context_menu_;
 
-  // Indicates the current reorder animation.
-  AppListReorderAnimationStatus reorder_animation_status_ =
-      AppListReorderAnimationStatus::kEmpty;
+  // The status of any whole-grid animation (reorder, hide continue section).
+  AppListGridAnimationStatus grid_animation_status_ =
+      AppListGridAnimationStatus::kEmpty;
 
-  // A handle that aborts the active reorder animation.
-  std::unique_ptr<views::AnimationAbortHandle> reorder_animation_abort_handle_;
+  // A handle that aborts the active whole-grid animation.
+  std::unique_ptr<views::AnimationAbortHandle> grid_animation_abort_handle_;
 
   // If false, the animation to move an app list item when the item's target
   // position changes is disabled. It is set to be false when we only care about

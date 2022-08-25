@@ -59,12 +59,12 @@
 #include "chrome/browser/password_manager/password_store_factory.h"
 #include "chrome/browser/permissions/permission_actions_history_factory.h"
 #include "chrome/browser/permissions/permission_decision_auto_blocker_factory.h"
-#include "chrome/browser/prefetch/no_state_prefetch/no_state_prefetch_manager_factory.h"
 #include "chrome/browser/prefetch/prefetch_proxy/prefetch_proxy_origin_decider.h"
 #include "chrome/browser/prefetch/prefetch_proxy/prefetch_proxy_service.h"
 #include "chrome/browser/prefetch/prefetch_proxy/prefetch_proxy_service_factory.h"
 #include "chrome/browser/prefetch/search_prefetch/search_prefetch_service.h"
 #include "chrome/browser/prefetch/search_prefetch/search_prefetch_service_factory.h"
+#include "chrome/browser/preloading/prefetch/no_state_prefetch/no_state_prefetch_manager_factory.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_settings_factory.h"
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
@@ -79,9 +79,6 @@
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/ui/find_bar/find_bar_state.h"
 #include "chrome/browser/ui/find_bar/find_bar_state_factory.h"
-#include "chrome/browser/web_applications/commands/clear_browsing_data_command.h"
-#include "chrome/browser/web_applications/web_app_provider.h"
-#include "chrome/browser/web_applications/web_app_utils.h"
 #include "chrome/browser/web_data_service_factory.h"
 #include "chrome/browser/webauthn/chrome_authenticator_request_delegate.h"
 #include "chrome/common/buildflags.h"
@@ -131,7 +128,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/browsing_data_filter_builder.h"
 #include "content/public/browser/host_zoom_map.h"
-#include "content/public/browser/plugin_data_remover.h"
+#include "content/public/browser/prefetch_service_delegate.h"
 #include "content/public/browser/ssl_host_state_delegate.h"
 #include "content/public/browser/storage_partition.h"
 #include "google_apis/gaia/gaia_urls.h"
@@ -161,6 +158,12 @@
 #include "components/offline_pages/core/offline_page_model.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/web_applications/commands/clear_browsing_data_command.h"
+#include "chrome/browser/web_applications/web_app_provider.h"
+#include "chrome/browser/web_applications/web_app_utils.h"
+#endif  // !BUILDFLAG(IS_ANDROID)
+
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "chrome/browser/extensions/activity_log/activity_log.h"
 #include "extensions/browser/extension_prefs.h"
@@ -173,8 +176,8 @@
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
-#include "chromeos/dbus/attestation/attestation_client.h"
-#include "chromeos/dbus/attestation/interface.pb.h"
+#include "chromeos/ash/components/dbus/attestation/attestation_client.h"
+#include "chromeos/ash/components/dbus/attestation/interface.pb.h"
 #include "chromeos/dbus/constants/attestation_constants.h"  // nogncheck
 #include "chromeos/dbus/dbus_thread_manager.h"              // nogncheck
 #include "components/user_manager/user.h"
@@ -540,6 +543,8 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
     if (prefetch_proxy_service) {
       prefetch_proxy_service->origin_decider()->OnBrowsingDataCleared();
     }
+
+    content::PrefetchServiceDelegate::ClearData(profile_);
 
 #if BUILDFLAG(IS_ANDROID)
     OomInterventionDecider* oom_intervention_decider =
@@ -1073,7 +1078,7 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
             &ChromeBrowsingDataRemoverDelegate::OnClearPlatformKeys,
             weak_ptr_factory_.GetWeakPtr(),
             CreateTaskCompletionClosure(TracingDataType::kTpmAttestationKeys));
-        chromeos::AttestationClient::Get()->DeleteKeys(
+        ash::AttestationClient::Get()->DeleteKeys(
             request, base::BindOnce(
                          [](decltype(callback) cb,
                             const ::attestation::DeleteKeysReply& reply) {
@@ -1103,7 +1108,8 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
   // Remove omnibox zero-suggest cache results and Search Prefetch cached
   // results only when their respective URLs are in the filter.
   if ((remove_mask & (content::BrowsingDataRemover::DATA_TYPE_CACHE |
-                      content::BrowsingDataRemover::DATA_TYPE_COOKIES))) {
+                      content::BrowsingDataRemover::DATA_TYPE_COOKIES)) &&
+      !filter_builder->IsCrossSiteClearSiteData()) {
     // If there is no template service or DSE, clear the caches.
     bool should_clear_zero_suggest_and_session_token = true;
     bool should_clear_search_prefetch = true;

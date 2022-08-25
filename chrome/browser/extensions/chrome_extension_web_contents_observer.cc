@@ -64,7 +64,7 @@ void ChromeExtensionWebContentsObserver::OnZoomChanged(
     args.Append(data.old_zoom_level);
     args.Append(data.new_zoom_level);
 
-    content::RenderFrameHost* rfh = web_contents()->GetMainFrame();
+    content::RenderFrameHost* rfh = web_contents()->GetPrimaryMainFrame();
     ExtensionWebContentsObserver::GetForWebContents(web_contents())
       ->GetLocalFrame(rfh)
       ->MessageInvoke(extension->id(), "nw.Window",

@@ -20,18 +20,18 @@
 #include "net/cert/cert_verify_proc.h"
 #include "net/cert/cert_verify_result.h"
 #include "net/cert/ev_root_ca_metadata.h"
-#include "net/cert/internal/cert_errors.h"
 #include "net/cert/internal/cert_issuer_source_aia.h"
-#include "net/cert/internal/cert_issuer_source_static.h"
-#include "net/cert/internal/common_cert_errors.h"
-#include "net/cert/internal/parsed_certificate.h"
-#include "net/cert/internal/path_builder.h"
 #include "net/cert/internal/revocation_checker.h"
-#include "net/cert/internal/simple_path_builder_delegate.h"
 #include "net/cert/internal/system_trust_store.h"
-#include "net/cert/internal/trust_store_collection.h"
-#include "net/cert/internal/trust_store_in_memory.h"
 #include "net/cert/known_roots.h"
+#include "net/cert/pki/cert_errors.h"
+#include "net/cert/pki/cert_issuer_source_static.h"
+#include "net/cert/pki/common_cert_errors.h"
+#include "net/cert/pki/parsed_certificate.h"
+#include "net/cert/pki/path_builder.h"
+#include "net/cert/pki/simple_path_builder_delegate.h"
+#include "net/cert/pki/trust_store_collection.h"
+#include "net/cert/pki/trust_store_in_memory.h"
 #include "net/cert/test_root_certs.h"
 #include "net/cert/x509_certificate.h"
 #include "net/cert/x509_util.h"
@@ -124,6 +124,7 @@ RevocationPolicy NoRevocationChecking() {
   RevocationPolicy policy;
   policy.check_revocation = false;
   policy.networking_allowed = false;
+  policy.crl_allowed = false;
   policy.allow_missing_info = true;
   policy.allow_unable_to_check = true;
   return policy;
@@ -329,6 +330,7 @@ class PathBuilderDelegateImpl : public SimplePathBuilderDelegate {
       RevocationPolicy policy;
       policy.check_revocation = true;
       policy.networking_allowed = true;
+      policy.crl_allowed = true;
       policy.allow_missing_info = false;
       policy.allow_unable_to_check = false;
       return policy;
@@ -342,6 +344,9 @@ class PathBuilderDelegateImpl : public SimplePathBuilderDelegate {
       RevocationPolicy policy;
       policy.check_revocation = true;
       policy.networking_allowed = true;
+      // EV is only enabled for certain publicly trusted roots, so it is not
+      // necessary to check IsKnownRoot here, |crl_allowed| is always false.
+      policy.crl_allowed = false;
       policy.allow_missing_info = false;
       policy.allow_unable_to_check = false;
       return policy;
@@ -352,6 +357,11 @@ class PathBuilderDelegateImpl : public SimplePathBuilderDelegate {
       RevocationPolicy policy;
       policy.check_revocation = true;
       policy.networking_allowed = true;
+      // Publicly trusted certs are required to have OCSP by the Baseline
+      // Requirements and CRLs can be quite large, so disable the fallback to
+      // CRLs for chains to known roots.
+      policy.crl_allowed =
+          !certs.empty() && !trust_store_->IsKnownRoot(certs.back().get());
       policy.allow_missing_info = true;
       policy.allow_unable_to_check = true;
       return policy;
@@ -734,6 +744,7 @@ int CertVerifyProcBuiltin::VerifyInternal(
     verify_result->cert_status |= CERT_STATUS_AUTHORITY_INVALID;
     return ERR_CERT_AUTHORITY_INVALID;
   }
+  absl::optional<int64_t> chrome_root_store_version_opt = absl::nullopt;
 #if BUILDFLAG(CHROME_ROOT_STORE_SUPPORTED)
   int64_t chrome_root_store_version =
       system_trust_store_->chrome_root_store_version();
@@ -742,11 +753,13 @@ int CertVerifyProcBuiltin::VerifyInternal(
         NetLogEventType::CERT_VERIFY_PROC_CHROME_ROOT_STORE_VERSION, [&] {
           return NetLogChromeRootStoreVersion(chrome_root_store_version);
         });
+    chrome_root_store_version_opt = chrome_root_store_version;
   }
 #endif
 
   CertVerifyProcBuiltinResultDebugData::Create(verify_result, verification_time,
-                                               der_verification_time);
+                                               der_verification_time,
+                                               chrome_root_store_version_opt);
 
   // Parse the target certificate.
   scoped_refptr<ParsedCertificate> target;
@@ -903,9 +916,11 @@ int CertVerifyProcBuiltin::VerifyInternal(
 
 CertVerifyProcBuiltinResultDebugData::CertVerifyProcBuiltinResultDebugData(
     base::Time verification_time,
-    const der::GeneralizedTime& der_verification_time)
+    const der::GeneralizedTime& der_verification_time,
+    absl::optional<int64_t> chrome_root_store_version)
     : verification_time_(verification_time),
-      der_verification_time_(der_verification_time) {}
+      der_verification_time_(der_verification_time),
+      chrome_root_store_version_(chrome_root_store_version) {}
 
 // static
 const CertVerifyProcBuiltinResultDebugData*
@@ -919,11 +934,12 @@ CertVerifyProcBuiltinResultDebugData::Get(
 void CertVerifyProcBuiltinResultDebugData::Create(
     base::SupportsUserData* debug_data,
     base::Time verification_time,
-    const der::GeneralizedTime& der_verification_time) {
+    const der::GeneralizedTime& der_verification_time,
+    absl::optional<int64_t> chrome_root_store_version) {
   debug_data->SetUserData(
       kResultDebugDataKey,
       std::make_unique<CertVerifyProcBuiltinResultDebugData>(
-          verification_time, der_verification_time));
+          verification_time, der_verification_time, chrome_root_store_version));
 }
 
 std::unique_ptr<base::SupportsUserData::Data>

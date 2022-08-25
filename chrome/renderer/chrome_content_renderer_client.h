@@ -88,7 +88,7 @@ class ChromeContentRendererClient
   ~ChromeContentRendererClient() override;
 
   base::FilePath GetRootPath() override;
-  void willHandleNavigationPolicy(content::RenderView* rv,
+  void willHandleNavigationPolicy(content::RenderFrame* rv,
                                   blink::WebFrame* frame,
                                   const blink::WebURLRequest& request,
                                   blink::WebNavigationPolicy* policy,
@@ -97,7 +97,8 @@ class ChromeContentRendererClient
   void RenderThreadStarted() override;
   void ExposeInterfacesToBrowser(mojo::BinderMap* binders) override;
   void RenderFrameCreated(content::RenderFrame* render_frame) override;
-  void WebViewCreated(blink::WebView* web_view) override;
+  void WebViewCreated(blink::WebView* web_view,
+                      bool was_created_by_renderer) override;
   SkBitmap* GetSadPluginBitmap() override;
   SkBitmap* GetSadWebViewBitmap() override;
   bool IsPluginHandledExternally(content::RenderFrame* render_frame,

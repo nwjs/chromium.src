@@ -257,6 +257,26 @@ void RecordSourceIdConsistency(bool all_valid, bool all_unique) {
                             consistency);
 }
 
+// Dump verbose log with
+// --vmodule=layer_tree_host_impl=3 for renderer only, or
+// --vmodule=layer_tree_host_impl=4 for all clients.
+bool VerboseLogEnabled() {
+  if (!VLOG_IS_ON(3))
+    return false;
+  if (VLOG_IS_ON(4))
+    return true;
+  const char* client_name = GetClientNameForMetrics();
+  return client_name && strcmp(client_name, "Renderer") == 0;
+}
+
+const char* ClientNameForVerboseLog() {
+  const char* client_name = GetClientNameForMetrics();
+  return client_name ? client_name : "<unknown client>";
+}
+
+#define VERBOSE_LOG() \
+  VLOG_IF(3, VerboseLogEnabled()) << ClientNameForVerboseLog() << ": "
+
 }  // namespace
 
 void LayerTreeHostImpl::DidUpdateScrollAnimationCurve() {
@@ -516,16 +536,16 @@ LayerTreeHostImpl::~LayerTreeHostImpl() {
   compositor_frame_reporting_controller_ = nullptr;
 }
 
-ThreadedInputHandler& LayerTreeHostImpl::GetInputHandler() {
+InputHandler& LayerTreeHostImpl::GetInputHandler() {
   DCHECK(input_delegate_) << "Requested InputHandler when one wasn't bound. "
                              "Call BindToInputHandler to bind to one";
-  return static_cast<ThreadedInputHandler&>(*input_delegate_.get());
+  return static_cast<InputHandler&>(*input_delegate_.get());
 }
 
-const ThreadedInputHandler& LayerTreeHostImpl::GetInputHandler() const {
+const InputHandler& LayerTreeHostImpl::GetInputHandler() const {
   DCHECK(input_delegate_) << "Requested InputHandler when one wasn't bound. "
                              "Call BindToInputHandler to bind to one";
-  return static_cast<const ThreadedInputHandler&>(*input_delegate_.get());
+  return static_cast<const InputHandler&>(*input_delegate_.get());
 }
 
 void LayerTreeHostImpl::DidSendBeginMainFrame(const viz::BeginFrameArgs& args) {
@@ -627,19 +647,12 @@ void LayerTreeHostImpl::FinishCommit(
   for (auto& benchmark : state.benchmarks)
     ScheduleMicroBenchmark(std::move(benchmark));
 
-  // Dump property trees and layers if run with:
-  //   --vmodule=layer_tree_host=3
-  if (VLOG_IS_ON(3)) {
-    const char* client_name = GetClientNameForMetrics();
-    if (!client_name)
-      client_name = "<unknown client>";
-    VLOG(3) << "After finishing (" << client_name
-            << ") commit on impl, the sync tree:"
-            << "\nproperty_trees:\n"
-            << tree->property_trees()->ToString() << "\n"
-            << "cc::LayerImpls:\n"
-            << tree->LayerListAsJson();
-  }
+  // Dump property trees and layers if VerboseLogEnabled().
+  VERBOSE_LOG() << "After finishing commit on impl, the sync tree:"
+                << "\nproperty_trees:\n"
+                << tree->property_trees()->ToString() << "\n"
+                << "cc::LayerImpls:\n"
+                << tree->LayerListAsJson();
 }
 
 void LayerTreeHostImpl::PullLayerTreeHostPropertiesFrom(
@@ -1081,7 +1094,7 @@ void LayerTreeHostImpl::FrameData::AsValueInto(
 
   // Quad data can be quite large, so only dump render passes if we are
   // logging verbosely or viz.quads tracing category is enabled.
-  bool quads_enabled = VLOG_IS_ON(3);
+  bool quads_enabled = VerboseLogEnabled();
   if (!quads_enabled) {
     TRACE_EVENT_CATEGORY_GROUP_ENABLED(TRACE_DISABLED_BY_DEFAULT("viz.quads"),
                                        &quads_enabled);
@@ -1116,9 +1129,9 @@ DrawMode LayerTreeHostImpl::GetDrawMode() const {
 static void AppendQuadsToFillScreen(
     viz::CompositorRenderPass* target_render_pass,
     const RenderSurfaceImpl* root_render_surface,
-    SkColor screen_background_color,
+    SkColor4f screen_background_color,
     const Region& fill_region) {
-  if (!root_render_surface || !SkColorGetA(screen_background_color))
+  if (!root_render_surface || !screen_background_color.fA)
     return;
   if (fill_region.IsEmpty())
     return;
@@ -1131,13 +1144,12 @@ static void AppendQuadsToFillScreen(
   gfx::Rect root_target_rect = root_render_surface->content_rect();
   float opacity = 1.f;
   int sorting_context_id = 0;
-  bool are_contents_opaque = SkColorGetA(screen_background_color) == 0xFF;
   viz::SharedQuadState* shared_quad_state =
       target_render_pass->CreateAndAppendSharedQuadState();
   shared_quad_state->SetAll(gfx::Transform(), root_target_rect,
                             root_target_rect, gfx::MaskFilterInfo(),
-                            absl::nullopt, are_contents_opaque, opacity,
-                            SkBlendMode::kSrcOver, sorting_context_id);
+                            absl::nullopt, screen_background_color.isOpaque(),
+                            opacity, SkBlendMode::kSrcOver, sorting_context_id);
 
   for (gfx::Rect screen_space_rect : fill_region) {
     gfx::Rect visible_screen_space_rect = screen_space_rect;
@@ -1442,7 +1454,7 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame) {
             active_tree_->GetDeviceViewport().origin());
 #endif
   bool has_transparent_background =
-      SkColorGetA(active_tree_->background_color()) != SK_AlphaOPAQUE;
+      !active_tree_->background_color().isOpaque();
   auto* root_render_surface = active_tree_->RootRenderSurface();
   if (root_render_surface && !has_transparent_background) {
     frame->render_passes.back()->has_transparent_background = false;
@@ -1539,36 +1551,41 @@ DrawResult LayerTreeHostImpl::PrepareToDraw(FrameData* frame) {
   if (input_delegate_)
     input_delegate_->WillDraw();
 
-  // |client_name| is used for various UMA histograms below.
-  // GetClientNameForMetrics only returns one non-null value over the lifetime
-  // of the process, so the histogram names are runtime constant.
-  const char* client_name = GetClientNameForMetrics();
-  if (client_name) {
-    size_t total_gpu_memory_for_tilings_in_bytes = 0;
-    for (const PictureLayerImpl* layer : active_tree()->picture_layers())
-      total_gpu_memory_for_tilings_in_bytes += layer->GPUMemoryUsageInBytes();
+  // No need to record metrics each time we draw, 1% is enough.
+  constexpr double kSamplingFrequency = .01;
+  if (!downsample_metrics_ ||
+      metrics_subsampler_.ShouldSample(kSamplingFrequency)) {
+    // |client_name| is used for various UMA histograms below.
+    // GetClientNameForMetrics only returns one non-null value over the lifetime
+    // of the process, so the histogram names are runtime constant.
+    const char* client_name = GetClientNameForMetrics();
+    if (client_name) {
+      size_t total_gpu_memory_for_tilings_in_bytes = 0;
+      for (const PictureLayerImpl* layer : active_tree()->picture_layers())
+        total_gpu_memory_for_tilings_in_bytes += layer->GPUMemoryUsageInBytes();
 
-    UMA_HISTOGRAM_CUSTOM_COUNTS(
-        base::StringPrintf("Compositing.%s.NumActiveLayers", client_name),
-        base::saturated_cast<int>(active_tree_->NumLayers()), 1, 1000, 20);
-
-    UMA_HISTOGRAM_CUSTOM_COUNTS(
-        base::StringPrintf("Compositing.%s.NumActivePictureLayers",
-                           client_name),
-        base::saturated_cast<int>(active_tree_->picture_layers().size()), 1,
-        1000, 20);
-
-    // TODO(pdr): Instead of skipping empty picture layers, maybe we should
-    // accumulate layer->GetRasterSource()->GetMemoryUsage() above and skip
-    // recording when the accumulated memory usage is 0.
-    if (!active_tree()->picture_layers().empty()) {
       UMA_HISTOGRAM_CUSTOM_COUNTS(
-          base::StringPrintf("Compositing.%s.GPUMemoryForTilingsInKb",
+          base::StringPrintf("Compositing.%s.NumActiveLayers", client_name),
+          base::saturated_cast<int>(active_tree_->NumLayers()), 1, 1000, 20);
+
+      UMA_HISTOGRAM_CUSTOM_COUNTS(
+          base::StringPrintf("Compositing.%s.NumActivePictureLayers",
                              client_name),
-          base::saturated_cast<int>(total_gpu_memory_for_tilings_in_bytes /
-                                    1024),
-          1, kGPUMemoryForTilingsLargestBucketKb,
-          kGPUMemoryForTilingsBucketCount);
+          base::saturated_cast<int>(active_tree_->picture_layers().size()), 1,
+          1000, 20);
+
+      // TODO(pdr): Instead of skipping empty picture layers, maybe we should
+      // accumulate layer->GetRasterSource()->GetMemoryUsage() above and skip
+      // recording when the accumulated memory usage is 0.
+      if (!active_tree()->picture_layers().empty()) {
+        UMA_HISTOGRAM_CUSTOM_COUNTS(
+            base::StringPrintf("Compositing.%s.GPUMemoryForTilingsInKb",
+                               client_name),
+            base::saturated_cast<int>(total_gpu_memory_for_tilings_in_bytes /
+                                      1024),
+            1, kGPUMemoryForTilingsLargestBucketKb,
+            kGPUMemoryForTilingsBucketCount);
+      }
     }
   }
 
@@ -1601,13 +1618,8 @@ DrawResult LayerTreeHostImpl::PrepareToDraw(FrameData* frame) {
 
   DrawResult draw_result = CalculateRenderPasses(frame);
 
-  // Dump render passes and draw quads if run with:
-  //   --vmodule=layer_tree_host_impl=3
-  if (VLOG_IS_ON(3)) {
-    VLOG(3) << "Prepare to draw ("
-            << (client_name ? client_name : "<unknown client>") << ")\n"
-            << frame->ToString();
-  }
+  // Dump render passes and draw quads if VerboseLogEnabled().
+  VERBOSE_LOG() << "Prepare to draw\n" << frame->ToString();
 
   if (draw_result != DRAW_SUCCESS) {
     DCHECK(!resourceless_software_draw_);
@@ -1937,10 +1949,10 @@ size_t LayerTreeHostImpl::GetFrameIndexForImage(const PaintImage& paint_image,
 
 int LayerTreeHostImpl::GetMSAASampleCountForRaster(
     const scoped_refptr<DisplayItemList>& display_list) {
-  constexpr int kMinNumberOfSlowPathsForMSAA = 6;
-  if (display_list->num_slow_paths() < kMinNumberOfSlowPathsForMSAA)
+  if (display_list->num_slow_paths_up_to_min_for_MSAA() <
+      kMinNumberOfSlowPathsForMSAA) {
     return 0;
-
+  }
   if (!can_use_msaa_)
     return 0;
 
@@ -2258,6 +2270,7 @@ viz::CompositorFrameMetadata LayerTreeHostImpl::MakeCompositorFrameMetadata() {
 
   metadata.page_scale_factor = active_tree_->current_page_scale_factor();
   metadata.scrollable_viewport_size = active_tree_->ScrollableViewportSize();
+
   metadata.root_background_color = active_tree_->background_color();
   metadata.may_throttle_if_undrawn_frames = may_throttle_if_undrawn_frames_;
 
@@ -2459,13 +2472,10 @@ absl::optional<LayerTreeHostImpl::SubmitInfo> LayerTreeHostImpl::DrawLayers(
   lag_tracking_manager_.CollectScrollEventsFromFrame(frame_token,
                                                      events_metrics);
 
-  // Dump property trees and layers if run with:
-  //   --vmodule=layer_tree_host_impl=3
-  if (VLOG_IS_ON(3)) {
-    VLOG(3) << "Submitting a frame:\n"
-            << viz::TransitionUtils::RenderPassListToString(
-                   compositor_frame.render_pass_list);
-  }
+  // Dump property trees and layers if VerboseLogEnabled().
+  VERBOSE_LOG() << "Submitting a frame:\n"
+                << viz::TransitionUtils::RenderPassListToString(
+                       compositor_frame.render_pass_list);
 
   base::TimeTicks submit_time = base::TimeTicks::Now();
   {
@@ -2936,11 +2946,16 @@ bool LayerTreeHostImpl::WillBeginImplFrame(const viz::BeginFrameArgs& args) {
   // it will push the updated viz::LocalSurfaceId. Begin Impl Frame production
   // if it has already become activated, or is on the |pending_tree| to be
   // activated during this frame's production.
-  const viz::LocalSurfaceId& upcoming_lsid =
-      pending_tree() ? pending_tree()->local_surface_id_from_parent()
-                     : active_tree()->local_surface_id_from_parent();
-  if (target_local_surface_id_.IsNewerThan(upcoming_lsid)) {
-    return false;
+  //
+  // However when using a synchronous compositor we skip this throttling
+  // completely.
+  if (!settings_.using_synchronous_renderer_compositor) {
+    const viz::LocalSurfaceId& upcoming_lsid =
+        pending_tree() ? pending_tree()->local_surface_id_from_parent()
+                       : active_tree()->local_surface_id_from_parent();
+    if (target_local_surface_id_.IsNewerThan(upcoming_lsid)) {
+      return false;
+    }
   }
 
   if (is_likely_to_require_a_draw_) {
@@ -3388,19 +3403,12 @@ void LayerTreeHostImpl::ActivateSyncTree() {
       AllocateLocalSurfaceId();
   }
 
-  // Dump property trees and layers if run with:
-  //   --vmodule=layer_tree_host_impl=3
-  if (VLOG_IS_ON(3)) {
-    const char* client_name = GetClientNameForMetrics();
-    if (!client_name)
-      client_name = "<unknown client>";
-    VLOG(3) << "After activating (" << client_name
-            << ") sync tree, the active tree:"
-            << "\nproperty_trees:\n"
-            << active_tree_->property_trees()->ToString() << "\n"
-            << "cc::LayerImpls:\n"
-            << active_tree_->LayerListAsJson();
-  }
+  // Dump property trees and layers if VerboseLogEnabled().
+  VERBOSE_LOG() << "After activating sync tree, the active tree:"
+                << "\nproperty_trees:\n"
+                << active_tree_->property_trees()->ToString() << "\n"
+                << "cc::LayerImpls:\n"
+                << active_tree_->LayerListAsJson();
 }
 
 void LayerTreeHostImpl::ActivateStateForImages() {

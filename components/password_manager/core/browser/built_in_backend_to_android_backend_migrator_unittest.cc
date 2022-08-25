@@ -22,6 +22,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/prefs/testing_pref_service.h"
 #include "components/signin/public/base/signin_pref_names.h"
+#include "components/sync/driver/test_sync_service.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -71,11 +72,28 @@ class BuiltInBackendToAndroidBackendMigratorTest : public testing::Test {
         prefs::kRequiresMigrationAfterSyncStatusChange, false);
     prefs_.registry()->RegisterStringPref(::prefs::kGoogleServicesLastUsername,
                                           "testaccount@gmail.com");
-    migrator_ = std::make_unique<BuiltInBackendToAndroidBackendMigrator>(
-        &built_in_backend_, &android_backend_, &prefs_, &sync_delegate_);
+    CreateMigrator(&built_in_backend_, &android_backend_, &prefs_);
   }
 
-  MockPasswordBackendSyncDelegate& sync_delegate() { return sync_delegate_; }
+  void InitSyncService(bool is_password_sync_enabled) {
+    if (is_password_sync_enabled) {
+      sync_service_.GetUserSettings()->SetSelectedTypes(
+          /*sync_everything=*/false,
+          /*types=*/{syncer::UserSelectableType::kPasswords});
+    } else {
+      sync_service_.GetUserSettings()->SetSelectedTypes(
+          /*sync_everything=*/false, /*types=*/{});
+    }
+    migrator()->OnSyncServiceInitialized(&sync_service_);
+  }
+
+  void CreateMigrator(PasswordStoreBackend* built_in_backend,
+                      PasswordStoreBackend* android_backend,
+                      PrefService* prefs) {
+    migrator_ = std::make_unique<BuiltInBackendToAndroidBackendMigrator>(
+        built_in_backend, android_backend, prefs);
+  }
+
   PasswordStoreBackend& built_in_backend() { return built_in_backend_; }
   PasswordStoreBackend& android_backend() { return android_backend_; }
 
@@ -86,14 +104,12 @@ class BuiltInBackendToAndroidBackendMigratorTest : public testing::Test {
   void RunUntilIdle() { task_env_.RunUntilIdle(); }
   void FastForwardBy(base::TimeDelta delta) { task_env_.FastForwardBy(delta); }
 
- protected:
-  testing::StrictMock<MockPasswordBackendSyncDelegate> sync_delegate_;
-
  private:
   base::test::SingleThreadTaskEnvironment task_env_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   base::test::ScopedFeatureList feature_list_;
   TestingPrefServiceSimple prefs_;
+  syncer::TestSyncService sync_service_;
   FakePasswordStoreBackend built_in_backend_;
   FakePasswordStoreBackend android_backend_{
       IsAccountStore(false),
@@ -107,8 +123,7 @@ TEST_F(BuiltInBackendToAndroidBackendMigratorTest,
       /*enabled_feature=*/features::kUnifiedPasswordManagerAndroid,
       {{"migration_version", "1"}, {"stage", "0"}});
   Init();
-  EXPECT_CALL(sync_delegate(), IsSyncingPasswordsEnabled)
-      .WillRepeatedly(Return(true));
+  InitSyncService(/*is_password_sync_enabled=*/true);
 
   migrator()->StartMigrationIfNecessary();
   RunUntilIdle();
@@ -127,8 +142,7 @@ TEST_F(BuiltInBackendToAndroidBackendMigratorTest,
       {{"migration_version", "1"}, {"stage", "0"}});
   Init();
 
-  EXPECT_CALL(sync_delegate(), IsSyncingPasswordsEnabled)
-      .WillRepeatedly(Return(false));
+  InitSyncService(/*is_password_sync_enabled=*/false);
 
   migrator()->StartMigrationIfNecessary();
   RunUntilIdle();
@@ -146,8 +160,7 @@ TEST_F(BuiltInBackendToAndroidBackendMigratorTest,
       {{"migration_version", "1"}, {"stage", "3"}});
   Init();
 
-  EXPECT_CALL(sync_delegate(), IsSyncingPasswordsEnabled)
-      .WillRepeatedly(Return(false));
+  InitSyncService(/*is_password_sync_enabled=*/false);
 
   migrator()->StartMigrationIfNecessary();
   RunUntilIdle();
@@ -267,10 +280,10 @@ TEST_F(BuiltInBackendToAndroidBackendMigratorTest,
   feature_list().InitAndEnableFeatureWithParameters(
       /*enabled_feature=*/features::kUnifiedPasswordManagerAndroid,
       {{"migration_version", "1"}, {"stage", "0"}});
-  EXPECT_CALL(sync_delegate(), IsSyncingPasswordsEnabled)
-      .WillRepeatedly(Return(true));
 
   Init();
+  InitSyncService(/*is_password_sync_enabled=*/true);
+
   PasswordForm form = CreateTestPasswordForm();
   android_backend().AddLoginAsync(form, base::DoNothing());
 
@@ -302,8 +315,7 @@ TEST_F(BuiltInBackendToAndroidBackendMigratorTest,
 
   // Simulate sync being recently disabled.
   prefs()->SetBoolean(prefs::kRequiresMigrationAfterSyncStatusChange, true);
-  EXPECT_CALL(sync_delegate(), IsSyncingPasswordsEnabled)
-      .WillRepeatedly(Return(false));
+  InitSyncService(/*is_password_sync_enabled=*/false);
 
   PasswordForm form = CreateTestPasswordForm();
   built_in_backend().AddLoginAsync(form, base::DoNothing());
@@ -336,8 +348,7 @@ TEST_F(BuiltInBackendToAndroidBackendMigratorTest,
       {{"migration_version", "1"}, {"stage", "0"}});
 
   Init();
-  EXPECT_CALL(sync_delegate(), IsSyncingPasswordsEnabled)
-      .WillRepeatedly(Return(true));
+  InitSyncService(/*is_password_sync_enabled=*/true);
 
   // Add two incorrect entries to the local database to check if they will be
   // removed before writing to the android backend
@@ -371,8 +382,7 @@ TEST_F(BuiltInBackendToAndroidBackendMigratorTest,
       {{"migration_version", "1"}, {"stage", "0"}});
 
   Init();
-  EXPECT_CALL(sync_delegate(), IsSyncingPasswordsEnabled)
-      .WillRepeatedly(Return(true));
+  InitSyncService(/*is_password_sync_enabled=*/true);
 
   // Add two incorrect entries to the local database to check if they will be
   // fixed before writing to the android backend
@@ -464,8 +474,7 @@ TEST_P(BuiltInBackendToAndroidBackendMigratorTestWithMigrationParams,
        InitialMigrationForSyncingUsers) {
   BuiltInBackendToAndroidBackendMigratorTest::Init();
 
-  EXPECT_CALL(sync_delegate(), IsSyncingPasswordsEnabled)
-      .WillRepeatedly(Return(true));
+  InitSyncService(/*is_password_sync_enabled=*/true);
 
   feature_list().InitAndEnableFeatureWithParameters(
       /*enabled_feature=*/features::kUnifiedPasswordManagerAndroid,
@@ -503,8 +512,7 @@ TEST_P(BuiltInBackendToAndroidBackendMigratorTestWithMigrationParams,
        InitialMigration) {
   BuiltInBackendToAndroidBackendMigratorTest::Init();
 
-  EXPECT_CALL(sync_delegate(), IsSyncingPasswordsEnabled)
-      .WillRepeatedly(Return(false));
+  InitSyncService(/*is_password_sync_enabled=*/false);
 
   feature_list().InitAndEnableFeatureWithParameters(
       /*enabled_feature=*/features::kUnifiedPasswordManagerAndroid,
@@ -647,15 +655,13 @@ class BuiltInBackendToAndroidBackendMigratorTestMetrics
           "PasswordManager.UnifiedPasswordManager.RollingMigration.Success";
     }
 
-    migrator_ = std::make_unique<BuiltInBackendToAndroidBackendMigrator>(
-        &built_in_backend_, &android_backend_, prefs(), &sync_delegate());
+    CreateMigrator(&built_in_backend_, &android_backend_, prefs());
   }
 
   std::string latency_metric_;
   std::string success_metric_;
   ::testing::StrictMock<MockPasswordStoreBackend> built_in_backend_;
   ::testing::StrictMock<MockPasswordStoreBackend> android_backend_;
-  std::unique_ptr<BuiltInBackendToAndroidBackendMigrator> migrator_;
 };
 
 TEST_P(BuiltInBackendToAndroidBackendMigratorTestMetrics,
@@ -663,8 +669,7 @@ TEST_P(BuiltInBackendToAndroidBackendMigratorTestMetrics,
   base::HistogramTester histogram_tester;
 
   // Initial migration only happens with sync enabled for now.
-  EXPECT_CALL(sync_delegate(), IsSyncingPasswordsEnabled)
-      .WillRepeatedly(Return(GetParam().is_sync_enabled));
+  InitSyncService(/*is_password_sync_enabled=*/GetParam().is_sync_enabled);
 
   EXPECT_CALL(built_in_backend_, GetAllLoginsAsync)
       .WillOnce(WithArg<0>(Invoke([](LoginsOrErrorReply reply) -> void {
@@ -687,7 +692,7 @@ TEST_P(BuiltInBackendToAndroidBackendMigratorTestMetrics,
         })));
   }
 
-  migrator_->StartMigrationIfNecessary();
+  migrator()->StartMigrationIfNecessary();
   FastForwardBy(kLatencyDelta);
 
   histogram_tester.ExpectTotalCount(latency_metric_, 1);
@@ -726,14 +731,12 @@ class BuiltInBackendToAndroidBackendMigratorWithMockAndroidBackendTest
         /*enabled_feature=*/features::kUnifiedPasswordManagerAndroid,
         {{"migration_version", "1"}, {"stage", "0"}});
 
-    migrator_ = std::make_unique<BuiltInBackendToAndroidBackendMigrator>(
-        &built_in_backend_, &android_backend_, prefs(), &sync_delegate_);
+    CreateMigrator(&built_in_backend_, &android_backend_, prefs());
   }
 
   PasswordStoreBackend& built_in_backend() { return built_in_backend_; }
 
   ::testing::NiceMock<MockPasswordStoreBackend> android_backend_;
-  std::unique_ptr<BuiltInBackendToAndroidBackendMigrator> migrator_;
 
  private:
   FakePasswordStoreBackend built_in_backend_;
@@ -741,8 +744,7 @@ class BuiltInBackendToAndroidBackendMigratorWithMockAndroidBackendTest
 
 TEST_F(BuiltInBackendToAndroidBackendMigratorWithMockAndroidBackendTest,
        DoesNotCompleteMigrationWhenWritingToAndroidBackendFails_SyncOn) {
-  EXPECT_CALL(sync_delegate(), IsSyncingPasswordsEnabled)
-      .WillRepeatedly(Return(true));
+  InitSyncService(/*is_password_sync_enabled=*/true);
 
   // Add two credentials to the built-in backend.
   built_in_backend().AddLoginAsync(CreateTestPasswordForm(/*index=*/1),
@@ -764,7 +766,7 @@ TEST_F(BuiltInBackendToAndroidBackendMigratorWithMockAndroidBackendTest,
   // executed. Check that exactly one UpdateLoginAsync() is called.
   EXPECT_CALL(android_backend_, UpdateLoginAsync).Times(1);
 
-  migrator_->StartMigrationIfNecessary();
+  migrator()->StartMigrationIfNecessary();
 
   // Migration version is still 0 since migration didn't complete.
   EXPECT_EQ(0, prefs()->GetInteger(
@@ -781,8 +783,7 @@ TEST_F(BuiltInBackendToAndroidBackendMigratorWithMockAndroidBackendTest,
 
   // Sync state doesn't affect this test, run it arbitrarily for non-sync'ing
   // users.
-  EXPECT_CALL(sync_delegate(), IsSyncingPasswordsEnabled)
-      .WillRepeatedly(Return(false));
+  InitSyncService(/*is_password_sync_enabled=*/false);
 
   // Add two credentials to the built-in backend.
   built_in_backend().AddLoginAsync(CreateTestPasswordForm(/*index=*/1),
@@ -811,7 +812,7 @@ TEST_F(BuiltInBackendToAndroidBackendMigratorWithMockAndroidBackendTest,
   // executed. Check that exactly one AddLoginAsync() is called.
   EXPECT_CALL(android_backend_, AddLoginAsync).Times(1);
 
-  migrator_->StartMigrationIfNecessary();
+  migrator()->StartMigrationIfNecessary();
 
   // Migration version is still 0 since migration didn't complete.
   EXPECT_EQ(0, prefs()->GetInteger(

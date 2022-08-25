@@ -8,6 +8,7 @@
 
 #include "ash/constants/ash_pref_names.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/strings/strcat.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
@@ -33,7 +34,6 @@ using chromeos::string_matching::FuzzyTokenizedStringMatch;
 using chromeos::string_matching::TokenizedString;
 
 // Parameters for FuzzyTokenizedStringMatch.
-constexpr bool kUsePrefixOnly = false;
 constexpr bool kUseWeightedRatio = false;
 constexpr bool kUseEditDistance = false;
 constexpr double kRelevanceThreshold = 0.32;
@@ -41,13 +41,35 @@ constexpr double kPartialMatchPenaltyRate = 0.9;
 
 constexpr size_t kMaxResults = 3u;
 
-bool DisabledByPolicy(Profile* profile) {
-  bool suggested_content_enabled =
-      profile->GetPrefs()->GetBoolean(ash::prefs::kSuggestedContentEnabled);
+// Outcome of a call to GameSearchProvider::Start. These values persist to logs.
+// Entries should not be renumbered and numeric values should not be reused.
+enum class Status {
+  kOk = 0,
+  kDisabledByPolicy = 1,
+  kEmptyIndex = 2,
+  kMaxValue = kEmptyIndex,
+};
+
+void LogStatus(Status status) {
+  base::UmaHistogramEnumeration("Apps.AppList.GameProvider.SearchStatus",
+                                status);
+}
+
+void LogUpdateStatus(apps::DiscoveryError status) {
+  base::UmaHistogramEnumeration("Apps.AppList.GameProvider.UpdateStatus",
+                                status);
+}
+
+bool EnabledByPolicy(Profile* profile) {
   bool enabled_override = base::GetFieldTrialParamByFeatureAsBool(
       search_features::kLauncherGameSearch, "enabled_override",
       /*default_value=*/false);
-  return !suggested_content_enabled && !enabled_override;
+  if (enabled_override)
+    return true;
+
+  bool suggested_content_enabled =
+      profile->GetPrefs()->GetBoolean(ash::prefs::kSuggestedContentEnabled);
+  return suggested_content_enabled;
 }
 
 double CalculateTitleRelevance(const TokenizedString& tokenized_query,
@@ -61,12 +83,8 @@ double CalculateTitleRelevance(const TokenizedString& tokenized_query,
   }
 
   FuzzyTokenizedStringMatch match;
-  // The return parameter is ignored here, but this method also implicitly
-  // calculates the match relevance.
-  match.IsRelevant(tokenized_query, tokenized_title, kRelevanceThreshold,
-                   kUsePrefixOnly, kUseWeightedRatio, kUseEditDistance,
-                   kPartialMatchPenaltyRate);
-  return match.relevance();
+  return match.Relevance(tokenized_query, tokenized_title, kUseWeightedRatio,
+                         kUseEditDistance, kPartialMatchPenaltyRate);
 }
 
 std::vector<std::pair<const apps::Result*, double>> SearchGames(
@@ -125,13 +143,12 @@ void GameProvider::UpdateIndex() {
 
 void GameProvider::OnIndexUpdated(const GameIndex& index,
                                   apps::DiscoveryError error) {
-  // TODO(crbug.com/1305880): Report the error to UMA.
+  LogUpdateStatus(error);
   if (!index.empty())
     game_index_ = index;
 }
 
 void GameProvider::OnIndexUpdatedBySubscription(const GameIndex& index) {
-  // TODO(crbug.com/1305880): Report the error to UMA.
   // TODO(crbug.com/1305880): Add tests to check that this is called when the
   // app discovery service notifies its subscribers.
   if (!index.empty())
@@ -141,8 +158,13 @@ void GameProvider::OnIndexUpdatedBySubscription(const GameIndex& index) {
 void GameProvider::Start(const std::u16string& query) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
-  if (DisabledByPolicy(profile_) || game_index_.empty())
+  if (!EnabledByPolicy(profile_)) {
+    LogStatus(Status::kDisabledByPolicy);
     return;
+  } else if (game_index_.empty()) {
+    LogStatus(Status::kEmptyIndex);
+    return;
+  }
 
   // Clear results and discard any existing searches.
   ClearResultsSilently();
@@ -180,6 +202,7 @@ void GameProvider::OnSearchComplete(
         profile_, list_controller_, app_discovery_service_, *matches[i].first,
         matches[i].second, query));
   }
+  LogStatus(Status::kOk);
   SwapResults(&results);
 }
 

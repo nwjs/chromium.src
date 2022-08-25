@@ -42,8 +42,8 @@
 #include "gpu/command_buffer/common/gpu_memory_buffer_support.h"
 #include "gpu/command_buffer/common/mailbox.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
-#include "gpu/command_buffer/service/shared_image_backing_gl_image.h"
-#include "gpu/command_buffer/service/shared_image_factory.h"
+#include "gpu/command_buffer/service/shared_image/gl_image_backing.h"
+#include "gpu/command_buffer/service/shared_image/shared_image_factory.h"
 #include "gpu/ipc/service/shared_image_stub.h"
 #include "media/base/limits.h"
 #include "media/base/mac/color_space_util_mac.h"
@@ -1086,8 +1086,8 @@ void VTVideoDecodeAccelerator::DecodeTaskH264(
           }
 
           // Record the configuration.
-          DCHECK(seen_pps_.count(slice_hdr.pic_parameter_set_id));
-          DCHECK(seen_sps_.count(pps->seq_parameter_set_id));
+          DCHECK(seen_pps_.contains(slice_hdr.pic_parameter_set_id));
+          DCHECK(seen_sps_.contains(pps->seq_parameter_set_id));
           active_sps_ = seen_sps_[pps->seq_parameter_set_id];
           // Note: SPS extension lookup may create an empty entry.
           active_spsext_ = seen_spsext_[pps->seq_parameter_set_id];
@@ -1481,9 +1481,9 @@ void VTVideoDecodeAccelerator::DecodeTaskHEVC(
         }
 
         // Record the configuration.
-        DCHECK(seen_pps_.count(curr_slice_hdr->slice_pic_parameter_set_id));
-        DCHECK(seen_sps_.count(pps->pps_seq_parameter_set_id));
-        DCHECK(seen_vps_.count(sps->sps_video_parameter_set_id));
+        DCHECK(seen_pps_.contains(curr_slice_hdr->slice_pic_parameter_set_id));
+        DCHECK(seen_sps_.contains(pps->pps_seq_parameter_set_id));
+        DCHECK(seen_vps_.contains(sps->sps_video_parameter_set_id));
         active_vps_ = seen_vps_[sps->sps_video_parameter_set_id];
         active_sps_ = seen_sps_[pps->pps_seq_parameter_set_id];
         active_pps_ = seen_pps_[curr_slice_hdr->slice_pic_parameter_set_id];
@@ -1696,7 +1696,7 @@ void VTVideoDecodeAccelerator::DecodeDone(Frame* frame) {
 
   // pending_frames_.erase() will delete |frame|.
   int32_t bitstream_id = frame->bitstream_id;
-  DCHECK_EQ(1u, pending_frames_.count(bitstream_id));
+  DCHECK(pending_frames_.contains(bitstream_id));
 
   if (state_ == STATE_ERROR || state_ == STATE_DESTROYING) {
     // Destroy() handles NotifyEndOfBitstreamBuffer().
@@ -1809,7 +1809,7 @@ void VTVideoDecodeAccelerator::AssignPictureBuffers(
 
   for (const PictureBuffer& picture : pictures) {
     DVLOG(3) << "AssignPictureBuffer(" << picture.id() << ")";
-    DCHECK(!picture_info_map_.count(picture.id()));
+    DCHECK(!picture_info_map_.contains(picture.id()));
     assigned_picture_ids_.insert(picture.id());
     available_picture_ids_.push_back(picture.id());
     if (picture.client_texture_ids().empty() &&
@@ -2140,7 +2140,7 @@ bool VTVideoDecodeAccelerator::SendFrame(const Frame& frame) {
           gpu::SHARED_IMAGE_USAGE_DISPLAY | gpu::SHARED_IMAGE_USAGE_SCANOUT;
       gpu::Mailbox mailbox = gpu::Mailbox::GenerateForSharedImage();
 
-      gpu::SharedImageBackingGLCommon::InitializeGLTextureParams gl_params;
+      gpu::GLTextureImageBackingHelper::InitializeGLTextureParams gl_params;
       // ANGLE-on-Metal exposes IOSurfaces via GL_TEXTURE_2D. Be robust to that.
       gl_params.target = gl_client_.supports_arb_texture_rectangle
                              ? GL_TEXTURE_RECTANGLE_ARB
@@ -2149,24 +2149,24 @@ bool VTVideoDecodeAccelerator::SendFrame(const Frame& frame) {
       gl_params.format = gl_format;
       gl_params.type = GL_UNSIGNED_BYTE;
       gl_params.is_cleared = true;
-      gpu::SharedImageBackingGLCommon::UnpackStateAttribs gl_attribs;
+      gpu::GLTextureImageBackingHelper::UnpackStateAttribs gl_attribs;
 
-      // A GL texture id is needed to create the legacy mailbox, which requires
-      // that the GL context be made current.
-      const bool kCreateLegacyMailbox = true;
+      // Making the GL context current before performing below shared image
+      // tasks.
+      // TODO(vikassoni) : Remove if making context current is not required.
       if (!gl_client_.make_context_current.Run()) {
         DLOG(ERROR) << "Failed to make context current";
         NotifyError(PLATFORM_FAILURE, SFT_PLATFORM_ERROR);
         return false;
       }
 
-      auto shared_image = std::make_unique<gpu::SharedImageBackingGLImage>(
+      auto shared_image = std::make_unique<gpu::GLImageBacking>(
           gl_image, mailbox, viz_resource_format, plane_size, color_space,
           kTopLeft_GrSurfaceOrigin, kOpaque_SkAlphaType, shared_image_usage,
           gl_params, gl_attribs, gl_client_.is_passthrough);
 
       const bool success = shared_image_stub->factory()->RegisterBacking(
-          std::move(shared_image), kCreateLegacyMailbox);
+          std::move(shared_image), /*allow_legacy_mailbox=*/false);
       if (!success) {
         DLOG(ERROR) << "Failed to register shared image";
         NotifyError(PLATFORM_FAILURE, SFT_PLATFORM_ERROR);

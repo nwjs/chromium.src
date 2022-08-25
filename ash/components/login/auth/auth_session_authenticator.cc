@@ -8,16 +8,19 @@
 #include "ash/components/cryptohome/cryptohome_util.h"
 #include "ash/components/cryptohome/system_salt_getter.h"
 #include "ash/components/cryptohome/userdataauth_util.h"
-#include "ash/components/login/auth/cryptohome_key_constants.h"
 #include "ash/components/login/auth/cryptohome_parameter_utils.h"
-#include "ash/components/login/auth/operation_chain_runner.h"
-#include "ash/components/login/auth/user_context.h"
+#include "ash/components/login/auth/public/auth_failure.h"
+#include "ash/components/login/auth/public/cryptohome_key_constants.h"
+#include "ash/components/login/auth/public/operation_chain_runner.h"
+#include "ash/components/login/auth/public/user_context.h"
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/callback_helpers.h"
+#include "base/debug/crash_logging.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/notreached.h"
+#include "chromeos/ash/components/dbus/userdataauth/userdataauth_client.h"
 #include "chromeos/dbus/cryptohome/UserDataAuth.pb.h"
-#include "chromeos/dbus/userdataauth/userdataauth_client.h"
 #include "components/device_event_log/device_event_log.h"
 #include "components/user_manager/known_user.h"
 #include "components/user_manager/user_names.h"
@@ -68,10 +71,102 @@ void AuthSessionAuthenticator::CompleteLoginImpl(
       LOGIN_LOG(ERROR) << "Empty password used in AuthenticateToLogin";
     }
   }
-  auth_performer_->StartAuthSession(
+  StartAuthSessionWithChecks(
       std::move(context), is_ephemeral_mount_enforced_,
       base::BindOnce(&AuthSessionAuthenticator::DoCompleteLogin,
                      weak_factory_.GetWeakPtr()));
+}
+
+void AuthSessionAuthenticator::StartAuthSessionWithChecks(
+    std::unique_ptr<UserContext> context,
+    bool ephemeral,
+    StartAuthSessionCallback callback) {
+  // Clone the context to be able to retry the StartAuthSession operation in
+  // case we need to go through stale data removal.
+  auto original_context = std::make_unique<UserContext>(*context);
+  auth_performer_->StartAuthSession(
+      std::move(context), ephemeral,
+      base::BindOnce(&AuthSessionAuthenticator::OnStartAuthSession,
+                     weak_factory_.GetWeakPtr(), std::move(original_context),
+                     ephemeral, std::move(callback)));
+}
+
+void AuthSessionAuthenticator::OnStartAuthSession(
+    std::unique_ptr<UserContext> original_context,
+    bool ephemeral,
+    StartAuthSessionCallback callback,
+    bool user_exists,
+    std::unique_ptr<UserContext> context,
+    absl::optional<CryptohomeError> error) {
+  if (error.has_value()) {
+    std::move(callback).Run(/*user_exists=*/false, std::move(context),
+                            error.value());
+    return;
+  }
+  if (user_exists && ephemeral) {
+    // It's an edge case when cryptohomed didn't have a chance to delete the
+    // stale data yet. Trigger the removal and retry.
+    RemoveStaleUserForEphemeral(context->GetAuthSessionId(),
+                                std::move(original_context),
+                                std::move(callback));
+    return;
+  }
+  std::move(callback).Run(user_exists, std::move(context),
+                          /*error=*/absl::nullopt);
+}
+
+void AuthSessionAuthenticator::RemoveStaleUserForEphemeral(
+    const std::string& auth_session_id,
+    std::unique_ptr<UserContext> original_context,
+    StartAuthSessionCallback callback) {
+  LOGIN_LOG(EVENT) << "Deleting stale ephemeral user";
+  user_data_auth::RemoveRequest remove_request;
+  remove_request.set_auth_session_id(auth_session_id);
+  UserDataAuthClient::Get()->Remove(
+      remove_request,
+      base::BindOnce(&AuthSessionAuthenticator::OnRemoveStaleUserForEphemeral,
+                     weak_factory_.GetWeakPtr(), std::move(original_context),
+                     std::move(callback)));
+}
+
+void AuthSessionAuthenticator::OnRemoveStaleUserForEphemeral(
+    std::unique_ptr<UserContext> original_context,
+    StartAuthSessionCallback callback,
+    absl::optional<user_data_auth::RemoveReply> reply) {
+  auto error = user_data_auth::ReplyToCryptohomeError(reply);
+  if (error != user_data_auth::CRYPTOHOME_ERROR_NOT_SET) {
+    LOGIN_LOG(ERROR) << "Stale ephemeral user removal failed with error "
+                     << error;
+    std::move(callback).Run(/*user_exists=*/true, std::move(original_context),
+                            CryptohomeError(error));
+    return;
+  }
+  // Retry the auth session creation after we recovered from stale data.
+  auth_performer_->StartAuthSession(
+      std::move(original_context), /*ephemeral=*/true,
+      base::BindOnce(
+          &AuthSessionAuthenticator::OnStartAuthSessionAfterStaleRemoval,
+          weak_factory_.GetWeakPtr(), std::move(callback)));
+}
+
+void AuthSessionAuthenticator::OnStartAuthSessionAfterStaleRemoval(
+    StartAuthSessionCallback callback,
+    bool user_exists,
+    std::unique_ptr<UserContext> context,
+    absl::optional<CryptohomeError> error) {
+  if (error.has_value()) {
+    std::move(callback).Run(/*user_exists=*/false, std::move(context),
+                            error.value());
+    return;
+  }
+  if (user_exists) {
+    // There's still stale ephemeral user despite the removal - abort.
+    LOGIN_LOG(ERROR) << "Home directory exists for ephemeral user session";
+    NotifyFailure(AuthFailure::COULD_NOT_MOUNT_TMPFS, std::move(context));
+    return;
+  }
+  std::move(callback).Run(user_exists, std::move(context),
+                          /*error=*/absl::nullopt);
 }
 
 void AuthSessionAuthenticator::DoCompleteLogin(
@@ -89,14 +184,8 @@ void AuthSessionAuthenticator::DoCompleteLogin(
     std::move(error_callback).Run(std::move(context), error.value());
     return;
   }
+  DCHECK(!user_exists || !is_ephemeral_mount_enforced_);
   LOGIN_LOG(EVENT) << "Regular user CompleteLogin " << user_exists;
-  if (user_exists && is_ephemeral_mount_enforced_) {  // Should not happen
-    // If ephemeral mount is enforced, cryptohomed should delete all existing
-    // home directories before handling any requests.
-    LOGIN_LOG(ERROR) << "Home directory exists for ephemeral user session";
-    NotifyFailure(AuthFailure::COULD_NOT_MOUNT_TMPFS, std::move(context));
-    return;
-  }
   bool challenge_response_auth = !context->GetChallengeResponseKeys().empty();
   std::vector<AuthOperation> steps;
   if (!user_exists) {
@@ -190,8 +279,9 @@ void AuthSessionAuthenticator::AuthenticateToLogin(
       LOGIN_LOG(ERROR) << "Empty password used in AuthenticateToLogin";
     }
   }
-  auth_performer_->StartAuthSession(
+  StartAuthSessionWithChecks(
       std::move(context), is_ephemeral_mount_enforced_,
+
       base::BindOnce(&AuthSessionAuthenticator::DoLoginAsExistingUser,
                      weak_factory_.GetWeakPtr()));
 }
@@ -212,11 +302,6 @@ void AuthSessionAuthenticator::DoLoginAsExistingUser(
     return;
   }
   LOGIN_LOG(EVENT) << "Regular user login " << user_exists;
-  if (user_exists && is_ephemeral_mount_enforced_) {  // Should not happen
-    LOGIN_LOG(ERROR) << "Home directory exists for ephemeral user session";
-    NotifyFailure(AuthFailure::COULD_NOT_MOUNT_TMPFS, std::move(context));
-    return;
-  }
 
   if (!user_exists) {  // Should not happen
     LOGIN_LOG(ERROR)
@@ -307,7 +392,7 @@ void AuthSessionAuthenticator::LoginAsPublicSession(
     return;
   }
 
-  auth_performer_->StartAuthSession(
+  StartAuthSessionWithChecks(
       std::move(context), true /* ephemeral */,
       base::BindOnce(&AuthSessionAuthenticator::DoLoginAsPublicSession,
                      weak_factory_.GetWeakPtr()));
@@ -382,7 +467,7 @@ void AuthSessionAuthenticator::LoginAsKioskImpl(
     NotifyFailure(AuthFailure::OWNER_REQUIRED, std::move(context));
     return;
   }
-  auth_performer_->StartAuthSession(
+  StartAuthSessionWithChecks(
       std::move(context), is_ephemeral_mount_enforced_,
       base::BindOnce(&AuthSessionAuthenticator::DoLoginAsKiosk,
                      weak_factory_.GetWeakPtr()));
@@ -404,11 +489,7 @@ void AuthSessionAuthenticator::DoLoginAsKiosk(
     return;
   }
   LOGIN_LOG(EVENT) << "Kiosk user " << user_exists;
-  if (user_exists && is_ephemeral_mount_enforced_) {  // Should not happen
-    LOGIN_LOG(ERROR) << "Home directory exists for ephemeral Kiosk session";
-    NotifyFailure(AuthFailure::COULD_NOT_MOUNT_TMPFS, std::move(context));
-    return;
-  }
+  DCHECK(!user_exists || !is_ephemeral_mount_enforced_);
   AuthSuccessCallback success_callback = base::BindOnce(
       &AuthSessionAuthenticator::NotifyAuthSuccess, weak_factory_.GetWeakPtr());
 
@@ -481,6 +562,11 @@ void AuthSessionAuthenticator::RecoverEncryptedData(
   // error codes.
   error_callback =
       base::BindOnce(&AuthSessionAuthenticator::HandleMigrationRequired,
+                     weak_factory_.GetWeakPtr(), std::move(error_callback));
+  // As we are in password change flow, all auth failures should be handled
+  // as password changed errors to be redirected correctly.
+  error_callback =
+      base::BindOnce(&AuthSessionAuthenticator::HandlePasswordChangeDetected,
                      weak_factory_.GetWeakPtr(), std::move(error_callback));
 
   AuthSuccessCallback success_callback = base::BindOnce(
@@ -603,10 +689,12 @@ bool AuthSessionAuthenticator::ResolveCryptohomeError(
     case user_data_auth::CRYPTOHOME_ERROR_AUTHORIZATION_KEY_DENIED:
     case user_data_auth::CRYPTOHOME_ERROR_KEY_LABEL_EXISTS:
     case user_data_auth::CRYPTOHOME_ERROR_UPDATE_SIGNATURE_INVALID:
+    case user_data_auth::CRYPTOHOME_ERROR_UNKNOWN_LEGACY:
       // Assumptions about key are not correct
       error.failure_reason = default_error;
       break;
     case user_data_auth::CRYPTOHOME_INVALID_AUTH_SESSION_TOKEN:
+    case user_data_auth::CRYPTOHOME_ERROR_UNAUTHENTICATED_AUTH_SESSION:
       // Auth session expired, might need to handle it separately later.
       error.failure_reason = default_error;
       break;
@@ -630,6 +718,7 @@ bool AuthSessionAuthenticator::ResolveCryptohomeError(
       error.failure_reason = AuthFailure::TPM_UPDATE_REQUIRED;
       break;
     case user_data_auth::CRYPTOHOME_ERROR_VAULT_UNRECOVERABLE:
+    case user_data_auth::CRYPTOHOME_ERROR_UNUSABLE_VAULT:
       error.failure_reason = AuthFailure::UNRECOVERABLE_CRYPTOHOME;
       break;
     case user_data_auth::CryptohomeErrorCode_INT_MIN_SENTINEL_DO_NOT_USE_:
@@ -665,7 +754,13 @@ void AuthSessionAuthenticator::ProcessCryptohomeError(
     return;
   }
   bool handled = ResolveCryptohomeError(default_error, error);
-  CHECK(handled);
+  if (!handled) {
+    NOTREACHED() << "Unhandled cryptohome error: " << error.error_code;
+    SCOPED_CRASH_KEY_NUMBER("Cryptohome", "error_code", error.error_code);
+    base::debug::DumpWithoutCrashing();
+    error.failure_reason = default_error;
+  }
+
   NotifyFailure(error.failure_reason, std::move(context));
 }
 

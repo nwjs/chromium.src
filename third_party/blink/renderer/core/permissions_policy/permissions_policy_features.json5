@@ -230,6 +230,11 @@
       depends_on: ["FreezeFramesOnVisibility"],
     },
     {
+      name: "FederatedCredentials",
+      permissions_policy_name: "federated-credentials",
+      depends_on: ["FedCmIframeSupport"],
+    },
+    {
       name: "FocusWithoutUserActivation",
       permissions_policy_name: "focus-without-user-activation",
       feature_default: "EnableForAll",
@@ -335,6 +340,12 @@
       name: "SharedAutofill",
       permissions_policy_name: "shared-autofill",
       depends_on: ["SharedAutofill"],
+    },
+    {
+      name: "SharedStorage",
+      permissions_policy_name: "shared-storage",
+      feature_default: "EnableForAll",
+      depends_on: ["SharedStorageAPI"],
     },
     {
       name: "StorageAccessAPI",

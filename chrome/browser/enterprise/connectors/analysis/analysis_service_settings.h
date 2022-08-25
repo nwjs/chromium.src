@@ -37,7 +37,7 @@ class AnalysisServiceSettings {
   // settings are invalid or if the message/URL are empty.
   absl::optional<std::u16string> GetCustomMessage(const std::string& tag);
   absl::optional<GURL> GetLearnMoreUrl(const std::string& tag);
-  absl::optional<bool> GetBypassJustificationRequired(const std::string& tag);
+  bool GetBypassJustificationRequired(const std::string& tag);
 
   std::string service_provider_name() const { return service_provider_name_; }
 
@@ -102,7 +102,7 @@ class AnalysisServiceSettings {
   PatternSettings enabled_patterns_settings_;
   PatternSettings disabled_patterns_settings_;
 
-  BlockUntilVerdict block_until_verdict_ = BlockUntilVerdict::NO_BLOCK;
+  BlockUntilVerdict block_until_verdict_ = BlockUntilVerdict::kNoBlock;
   bool block_password_protected_files_ = false;
   bool block_large_files_ = false;
   bool block_unsupported_file_types_ = false;
@@ -111,6 +111,10 @@ class AnalysisServiceSettings {
   // and other settings associated to a specific tag.
   std::map<std::string, TagSettings> tags_;
   std::string service_provider_name_;
+
+  // Arrays of base64 encoded signing key signatures used to verify the
+  // authenticity of the service provider.
+  std::vector<std::string> verification_signatures_;
 };
 
 }  // namespace enterprise_connectors

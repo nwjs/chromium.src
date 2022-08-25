@@ -35,6 +35,7 @@
 #include <queue>
 
 #include "base/auto_reset.h"
+#include "base/numerics/safe_conversions.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/input/web_keyboard_event.h"
@@ -1257,6 +1258,13 @@ ax::mojom::blink::Role AXNodeObject::NativeRoleIgnoringAria() const {
   if (IsFrame(GetNode()))
     return ax::mojom::blink::Role::kIframe;
 
+  if (IsA<HTMLFencedFrameElement>(GetNode())) {
+    // Shadow DOM <fencedframe>s are marked as a group, as they are not the
+    // child tree owner. The child tree owner is their <iframe> child.
+    DCHECK(blink::features::IsFencedFramesShadowDOMBased());
+    return ax::mojom::blink::Role::kGroup;
+  }
+
   // There should only be one banner/contentInfo per page. If header/footer are
   // being used within an article or section then it should not be exposed as
   // whole page's banner/contentInfo but as a generic container role.
@@ -1591,6 +1599,10 @@ bool AXNodeObject::IsNativeSpinButton() const {
   return false;
 }
 
+bool AXNodeObject::IsChildTreeOwner() const {
+  return ui::IsChildTreeOwner(native_role_);
+}
+
 bool AXNodeObject::IsClickable() const {
   // Determine whether the element is clickable either because there is a
   // mouse button handler or because it has a native element where click
@@ -1842,7 +1854,7 @@ AccessibilityExpanded AXNodeObject::IsExpanded() const {
   // kPopup, then set aria-expanded=false when the popup is hidden, and
   // aria-expanded=true when it is showing.
   if (auto* form_control = DynamicTo<HTMLFormControlElement>(element)) {
-    if (auto popup = form_control->togglePopupElement().element;
+    if (auto popup = form_control->popupTargetElement().element;
         popup && popup->PopupType() == PopupValueType::kAuto) {
       return popup->popupOpen() ? kExpandedExpanded : kExpandedCollapsed;
     }
@@ -1933,7 +1945,7 @@ unsigned AXNodeObject::HierarchicalLevel() const {
 
   uint32_t level;
   if (HasAOMPropertyOrARIAAttribute(AOMUIntProperty::kLevel, level)) {
-    if (level >= 1 && level <= 9)
+    if (level >= 1)
       return level;
   }
 
@@ -2470,7 +2482,7 @@ String AXNodeObject::ImageDataUrl(const gfx::Size& max_size) const {
                                        kUnpremul_SkAlphaType);
   size_t row_bytes = info.minRowBytes();
   Vector<char> pixel_storage(
-      SafeCast<wtf_size_t>(info.computeByteSize(row_bytes)));
+      base::checked_cast<wtf_size_t>(info.computeByteSize(row_bytes)));
   SkPixmap pixmap(info, pixel_storage.data(), row_bytes);
   if (!SkImage::MakeFromBitmap(bitmap)->readPixels(pixmap, 0, 0))
     return String();
@@ -3342,7 +3354,7 @@ String AXNodeObject::TextAlternative(
     }
   }
 
-  name_from = ax::mojom::blink::NameFrom::kUninitialized;
+  name_from = ax::mojom::blink::NameFrom::kNone;
 
   if (name_sources && found_text_alternative) {
     for (NameSource& name_source : *name_sources) {
@@ -3379,7 +3391,6 @@ static bool ShouldInsertSpaceBetweenObjectsIfNeeded(
   // spec and with what is done in other user agents.
   switch (last_used_name_from) {
     case ax::mojom::blink::NameFrom::kNone:
-    case ax::mojom::blink::NameFrom::kUninitialized:
     case ax::mojom::blink::NameFrom::kAttributeExplicitlyEmpty:
     case ax::mojom::blink::NameFrom::kContents:
       break;
@@ -3393,7 +3404,6 @@ static bool ShouldInsertSpaceBetweenObjectsIfNeeded(
   }
   switch (name_from) {
     case ax::mojom::blink::NameFrom::kNone:
-    case ax::mojom::blink::NameFrom::kUninitialized:
     case ax::mojom::blink::NameFrom::kAttributeExplicitlyEmpty:
     case ax::mojom::blink::NameFrom::kContents:
       break;
@@ -3454,7 +3464,7 @@ String AXNodeObject::TextFromDescendants(
   StringBuilder accumulated_text;
   AXObject* previous = nullptr;
   ax::mojom::blink::NameFrom last_used_name_from =
-      ax::mojom::blink::NameFrom::kUninitialized;
+      ax::mojom::blink::NameFrom::kNone;
 
   // Ensure that if this node needs to invalidate its children (e.g. due to
   // included in tree status change), that we do it now, rather than while
@@ -3482,7 +3492,7 @@ String AXNodeObject::TextFromDescendants(
     }
 
     ax::mojom::blink::NameFrom child_name_from =
-        ax::mojom::blink::NameFrom::kUninitialized;
+        ax::mojom::blink::NameFrom::kNone;
     String result;
     if (child->IsPresentational()) {
       result = child->TextFromDescendants(visited,
@@ -5623,7 +5633,7 @@ String AXNodeObject::Description(
   // For form controls that act as triggering elements for popups of type kHint,
   // then set aria-describedby to the hint popup.
   if (auto* form_control = DynamicTo<HTMLFormControlElement>(element)) {
-    auto popup = form_control->togglePopupElement();
+    auto popup = form_control->popupTargetElement();
     if (popup.element && popup.element->PopupType() == PopupValueType::kHint) {
       description_from = ax::mojom::blink::DescriptionFrom::kPopupElement;
       if (description_sources) {

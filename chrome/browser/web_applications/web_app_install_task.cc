@@ -56,7 +56,7 @@
 #include "chromeos/crosapi/mojom/arc.mojom.h"
 #include "chromeos/crosapi/mojom/web_app_service.mojom.h"
 #include "chromeos/lacros/lacros_service.h"
-#include "chromeos/startup/browser_init_params.h"
+#include "chromeos/startup/browser_params_proxy.h"
 #endif
 
 namespace web_app {
@@ -120,7 +120,7 @@ bool ShouldInteractWithArc() {
   auto* lacros_service = chromeos::LacrosService::Get();
   return lacros_service &&
          // Check if the feature is enabled.
-         chromeos::BrowserInitParams::Get()->web_apps_enabled &&
+         chromeos::BrowserParamsProxy::Get()->WebAppsEnabled() &&
          // Only use ARC installation flow if we know that remote ash-chrome is
          // capable of installing from Play Store in lacros-chrome, to avoid
          // redirecting users to the Play Store if they cannot install
@@ -162,7 +162,7 @@ WebAppInstallTask::WebAppInstallTask(
 WebAppInstallTask::~WebAppInstallTask() {
   // If this task is still observing a WebContents, then the callbacks haven't
   // yet been run.  Run them before the task is destroyed.
-  if (web_contents() != nullptr)
+  if (web_contents())
     CallInstallCallback(AppId(),
                         webapps::InstallResultCode::kInstallTaskDestroyed);
 }
@@ -591,7 +591,6 @@ void WebAppInstallTask::InstallWebAppOnManifestValidated(
     const GURL& manifest_url,
     WebAppInstallFlow flow,
     absl::optional<WebAppInstallParams> install_params) {
-  DCHECK(AreWebAppsUserInstallable(profile_));
   CheckInstallPreconditions();
 
   flow_ = flow;
@@ -602,6 +601,10 @@ void WebAppInstallTask::InstallWebAppOnManifestValidated(
   if (dialog_callback_.is_null()) {
     background_installation_ = true;
     log_entry_.set_background_installation(true);
+  } else {
+    // TODO(https://crbug.com/1298130): Move the DCHECK to the beginning of
+    // install commands when all install flows are denormalized.
+    DCHECK(AreWebAppsUserInstallable(profile_));
   }
   install_callback_ = std::move(install_callback);
 
@@ -664,7 +667,7 @@ void WebAppInstallTask::OnDidPerformInstallableCheck(
     }
   }
 
-  std::vector<GURL> icon_urls = GetValidIconUrlsToDownload(*web_app_info);
+  base::flat_set<GURL> icon_urls = GetValidIconUrlsToDownload(*web_app_info);
 
   // A system app should always have a manifest icon.
   if (install_surface_ == webapps::WebappInstallSource::SYSTEM_DEFAULT) {
@@ -683,7 +686,7 @@ void WebAppInstallTask::OnDidPerformInstallableCheck(
 void WebAppInstallTask::CheckForPlayStoreIntentOrGetIcons(
     blink::mojom::ManifestPtr opt_manifest,
     std::unique_ptr<WebAppInstallInfo> web_app_info,
-    std::vector<GURL> icon_urls,
+    base::flat_set<GURL> icon_urls,
     bool skip_page_favicons) {
   bool is_create_shortcut = flow_ == WebAppInstallFlow::kCreateShortcut;
   // Background installations are not a user-triggered installs, and thus
@@ -740,7 +743,7 @@ void WebAppInstallTask::CheckForPlayStoreIntentOrGetIcons(
 
 void WebAppInstallTask::OnDidCheckForIntentToPlayStore(
     std::unique_ptr<WebAppInstallInfo> web_app_info,
-    std::vector<GURL> icon_urls,
+    base::flat_set<GURL> icon_urls,
     bool skip_page_favicons,
     const std::string& intent,
     bool should_intent_to_store) {
@@ -787,7 +790,7 @@ void WebAppInstallTask::OnDidCheckForIntentToPlayStore(
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
 void WebAppInstallTask::OnDidCheckForIntentToPlayStoreLacros(
     std::unique_ptr<WebAppInstallInfo> web_app_info,
-    std::vector<GURL> icon_urls,
+    base::flat_set<GURL> icon_urls,
     bool skip_page_favicons,
     const std::string& intent,
     crosapi::mojom::IsInstallableResult result) {

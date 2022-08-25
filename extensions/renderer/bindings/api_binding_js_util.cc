@@ -80,7 +80,7 @@ void APIBindingJSUtil::SendRequestSync(
   }
   std::unique_ptr<content::V8ValueConverter> converter(content::V8ValueConverter::Create());
   v8::Local<v8::Context> context = arguments->GetHolderCreationContext();
-  arguments->Return(converter->ToV8Value(&list_val, context));
+  arguments->Return(converter->ToV8Value(list_val, context));
 }
 
 void APIBindingJSUtil::SendRequest(
@@ -144,7 +144,9 @@ void APIBindingJSUtil::SendRequestHelper(
 
   request_handler_->StartRequest(
       context, name, std::move(parse_result.arguments_list),
-      parse_result.async_type, parse_result.callback, custom_callback, sync, success, response, error);
+      parse_result.async_type, parse_result.callback, custom_callback,
+      binding::ResultModifierFunction(),
+      sync, success, response, error);
 }
 
 void APIBindingJSUtil::RegisterEventArgumentMassager(

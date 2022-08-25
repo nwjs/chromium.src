@@ -2,32 +2,40 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {BrailleCommandHandler} from '/chromevox/background/braille/braille_command_handler.js';
-import {ChromeVoxState} from '/chromevox/background/chromevox_state.js';
-import {ChromeVoxBackground} from '/chromevox/background/classic_background.js';
-import {CommandHandler} from '/chromevox/background/command_handler.js';
-import {ConsoleTts} from '/chromevox/background/console_tts.js';
-import {DesktopAutomationHandler} from '/chromevox/background/desktop_automation_handler.js';
-import {DesktopAutomationInterface} from '/chromevox/background/desktop_automation_interface.js';
-import {DownloadHandler} from '/chromevox/background/download_handler.js';
-import {Earcons} from '/chromevox/background/earcons.js';
-import {FindHandler} from '/chromevox/background/find_handler.js';
-import {FocusAutomationHandler} from '/chromevox/background/focus_automation_handler.js';
-import {GestureCommandHandler} from '/chromevox/background/gesture_command_handler.js';
-import {BackgroundKeyboardHandler} from '/chromevox/background/keyboard_handler.js';
-import {LiveRegions} from '/chromevox/background/live_regions.js';
-import {MathHandler} from '/chromevox/background/math_handler.js';
-import {MediaAutomationHandler} from '/chromevox/background/media_automation_handler.js';
-import {Output} from '/chromevox/background/output/output.js';
-import {PageLoadSoundHandler} from '/chromevox/background/page_load_sound_handler.js';
-import {PanelBackground} from '/chromevox/background/panel/panel_background.js';
-import {ChromeVoxPrefs} from '/chromevox/background/prefs.js';
-import {RangeAutomationHandler} from '/chromevox/background/range_automation_handler.js';
-import {ExtensionBridge} from '/chromevox/common/extension_bridge.js';
-import {PanelCommand, PanelCommandType} from '/chromevox/common/panel_command.js';
-import {JaPhoneticMap} from '/chromevox/third_party/tamachiyomi/ja_phonetic_map.js';
-import {InstanceChecker} from '/common/instance_checker.js';
+import {CursorRange} from '../../common/cursors/range.js';
+import {InstanceChecker} from '../../common/instance_checker.js';
+import {ExtensionBridge} from '../common/extension_bridge.js';
+import {LocaleOutputHelper} from '../common/locale_output_helper.js';
+import {Msgs} from '../common/msgs.js';
+import {PanelCommand, PanelCommandType} from '../common/panel_command.js';
+import {JaPhoneticMap} from '../third_party/tamachiyomi/ja_phonetic_map.js';
 
+import {BrailleCommandHandler} from './braille/braille_command_handler.js';
+import {ChromeVoxState} from './chromevox_state.js';
+import {ChromeVoxBackground} from './classic_background.js';
+import {CommandHandler} from './command_handler.js';
+import {CommandHandlerInterface} from './command_handler_interface.js';
+import {ConsoleTts} from './console_tts.js';
+import {DesktopAutomationHandler} from './desktop_automation_handler.js';
+import {DesktopAutomationInterface} from './desktop_automation_interface.js';
+import {DownloadHandler} from './download_handler.js';
+import {Earcons} from './earcons.js';
+import {FindHandler} from './find_handler.js';
+import {FocusAutomationHandler} from './focus_automation_handler.js';
+import {FocusBounds} from './focus_bounds.js';
+import {GestureCommandHandler} from './gesture_command_handler.js';
+import {BackgroundKeyboardHandler} from './keyboard_handler.js';
+import {LiveRegions} from './live_regions.js';
+import {LogStore} from './logging/log_store.js';
+import {MathHandler} from './math_handler.js';
+import {MediaAutomationHandler} from './media_automation_handler.js';
+import {Output} from './output/output.js';
+import {OutputEventType} from './output/output_types.js';
+import {PageLoadSoundHandler} from './page_load_sound_handler.js';
+import {PanelBackground} from './panel/panel_background.js';
+import {ChromeVoxPrefs} from './prefs.js';
+import {RangeAutomationHandler} from './range_automation_handler.js';
+import {TtsBackground} from './tts_background.js';
 
 /**
  * @fileoverview The entry point for all ChromeVox related code for the
@@ -46,7 +54,7 @@ export class Background extends ChromeVoxState {
     /** @private {TtsBackground} */
     this.backgroundTts_ = null;
 
-    /** @private {cursors.Range} */
+    /** @private {CursorRange} */
     this.currentRange_ = null;
 
     /** @private {!AbstractEarcons} */
@@ -58,10 +66,10 @@ export class Background extends ChromeVoxState {
     /** @private {string|undefined} */
     this.lastClipboardEvent_;
 
-    /** @private {cursors.Range} */
+    /** @private {CursorRange} */
     this.pageSel_ = null;
 
-    /** @private {cursors.Range} */
+    /** @private {CursorRange} */
     this.previousRange_ = null;
 
     /** @private {boolean} */
@@ -151,7 +159,7 @@ export class Background extends ChromeVoxState {
   }
 
   /**
-   * @param {cursors.Range} newRange The new range.
+   * @param {CursorRange} newRange The new range.
    * @param {boolean=} opt_fromEditing
    * @override
    */
@@ -218,12 +226,12 @@ export class Background extends ChromeVoxState {
 
   /** @override */
   set typingEcho(newTypingEcho) {
-    localStorage['typingEcho'] = value;
+    localStorage['typingEcho'] = newTypingEcho;
   }
 
   /**
    * Navigate to the given range - it both sets the range and outputs it.
-   * @param {!cursors.Range} range The new range.
+   * @param {!CursorRange} range The new range.
    * @param {boolean=} opt_focus Focus the range; defaults to true.
    * @param {Object=} opt_speechProps Speech properties.
    * @param {boolean=} opt_skipSettingSelection If true, does not set
@@ -290,7 +298,7 @@ export class Background extends ChromeVoxState {
         const wasBackwardSel =
             this.pageSel_.start.compare(this.pageSel_.end) === Dir.BACKWARD ||
             dir === Dir.BACKWARD;
-        this.pageSel_ = new cursors.Range(
+        this.pageSel_ = new CursorRange(
             this.pageSel_.start, wasBackwardSel ? range.start : range.end);
         if (this.pageSel_) {
           this.pageSel_.select();
@@ -375,22 +383,23 @@ export class Background extends ChromeVoxState {
     textarea.remove();
     ChromeVox.tts.speak(
         Msgs.getMsg(eventType, [clipboardContent]), QueueMode.FLUSH);
-    ChromeVoxState.instance.pageSel_ = null;
+    ChromeVoxState.instance.pageSel = null;
   }
 
   /** @private */
   async setCurrentRangeToFocus_() {
-    const focus = await new Promise(chrome.automation.getFocus);
+    const focus =
+        await new Promise(resolve => chrome.automation.getFocus(resolve));
     if (focus) {
-      this.setCurrentRange(cursors.Range.fromNode(focus));
+      this.setCurrentRange(CursorRange.fromNode(focus));
     } else {
       this.setCurrentRange(null);
     }
   }
 
   /**
-   * @param {!cursors.Range} range
-   * @param {cursors.Range} prevRange
+   * @param {!CursorRange} range
+   * @param {CursorRange} prevRange
    * @private
    */
   setFocusToRange_(range, prevRange) {

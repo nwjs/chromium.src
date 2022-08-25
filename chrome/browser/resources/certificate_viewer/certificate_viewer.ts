@@ -10,7 +10,7 @@ import 'chrome://resources/cr_elements/cr_tree/cr_tree_item.js';
 import {CrTreeElement} from 'chrome://resources/cr_elements/cr_tree/cr_tree.js';
 import {CrTreeItemElement} from 'chrome://resources/cr_elements/cr_tree/cr_tree_item.js';
 import {assert} from 'chrome://resources/js/assert_ts.js';
-import {sendWithPromise} from 'chrome://resources/js/cr.m.js';
+import {isMac, sendWithPromise} from 'chrome://resources/js/cr.m.js';
 
 type TreeInfo = {
   payload?: object,
@@ -20,6 +20,7 @@ type TreeInfo = {
 type CertificateInfo = {
   general: {[key: string]: string},
   hierarchy: TreeInfo[],
+  isError: boolean,
 };
 
 type TreeItemDetail = {
@@ -77,6 +78,8 @@ function initialize() {
 
   const exportButton = document.querySelector<HTMLElement>('#export');
   assert(exportButton);
+  // Export button is disabled on mac, see https://crbug.com/1340536
+  exportButton.hidden = isMac;
   exportButton.onclick = exportCertificate;
 }
 
@@ -140,6 +143,12 @@ function revealTree(tree: CrTreeElement|CrTreeItemElement) {
  * @param certInfo Certificate information in named fields.
  */
 function getCertificateInfo(certInfo: CertificateInfo) {
+  const generalError = document.querySelector<HTMLElement>('#general-error');
+  assert(generalError);
+  generalError.hidden = !certInfo.isError;
+  const generalFields = document.querySelector<HTMLElement>('#general-fields');
+  assert(generalFields);
+  generalFields.hidden = certInfo.isError;
   for (const key in certInfo.general) {
     const el = document.querySelector<HTMLElement>(`#${key}`);
     assert(el);
@@ -178,6 +187,8 @@ function constructTree(tree: TreeInfo): CrTreeItemElement {
   const treeItem = document.createElement('cr-tree-item');
   treeItem.label = tree.label;
   treeItem.detail = {payload: tree.payload ? tree.payload : {}, children: {}};
+  treeItem.setExtraAriaLabel(
+      (treeItem.detail as TreeItemDetail).payload.val || '');
   if (tree.children) {
     for (let i = 0; i < tree.children.length; i++) {
       const child = constructTree(tree.children[i]!);

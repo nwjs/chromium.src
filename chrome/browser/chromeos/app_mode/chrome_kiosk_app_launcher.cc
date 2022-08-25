@@ -11,6 +11,7 @@
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/extensions/application_launch.h"
+#include "components/services/app_service/public/cpp/app_launch_util.h"
 #include "extensions/browser/app_window/app_window.h"
 #include "extensions/browser/app_window/app_window_registry.h"
 #include "extensions/browser/disable_reason.h"
@@ -94,9 +95,8 @@ void ChromeKioskAppLauncher::LaunchApp(LaunchCallback callback) {
   ::OpenApplication(
       profile_,
       apps::AppLaunchParams(
-          extension->id(), apps::mojom::LaunchContainer::kLaunchContainerWindow,
-          WindowOpenDisposition::NEW_WINDOW,
-          apps::mojom::LaunchSource::kFromKiosk));
+          extension->id(), apps::LaunchContainer::kLaunchContainerWindow,
+          WindowOpenDisposition::NEW_WINDOW, apps::LaunchSource::kFromKiosk));
 
   WaitForAppWindow();
 }

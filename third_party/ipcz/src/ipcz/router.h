@@ -15,6 +15,7 @@
 #include "ipcz/sequence_number.h"
 #include "ipcz/trap_set.h"
 #include "third_party/abseil-cpp/absl/synchronization/mutex.h"
+#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "util/ref_counted.h"
 
 namespace ipcz {
@@ -92,9 +93,12 @@ class Router : public RefCounted {
 
   // Accepts notification that the other end of the route has been closed and
   // that the close end transmitted a total of `sequence_length` parcels before
-  // closing.
-  bool AcceptRouteClosureFrom(LinkType link_type,
-                              SequenceNumber sequence_length);
+  // closing. If `sequence_length` is unknown and omitted (due to closure being
+  // forced by disconnection), the current sequence length in the appropriate
+  // direction is used.
+  bool AcceptRouteClosureFrom(
+      LinkType link_type,
+      absl::optional<SequenceNumber> sequence_length = absl::nullopt);
 
   // Retrieves the next available inbound parcel from this Router, if present.
   IpczResult GetNextInboundParcel(IpczGetFlags flags,
@@ -132,9 +136,6 @@ class Router : public RefCounted {
   // and SublinkId.
   void NotifyLinkDisconnected(const NodeLink& node_link, SublinkId sublink);
 
- private:
-  ~Router() override;
-
   // Flushes any inbound or outbound parcels, as well as any route closure
   // notifications. RouterLinks which are no longer needed for the operation of
   // this Router may be deactivated by this call.
@@ -147,6 +148,9 @@ class Router : public RefCounted {
   // A safe way to ensure that is for RouterLink implementations to only call
   // into Router using a reference held on the calling stack.
   void Flush();
+
+ private:
+  ~Router() override;
 
   absl::Mutex mutex_;
 

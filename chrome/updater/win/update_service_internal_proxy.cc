@@ -76,13 +76,13 @@ class UpdaterInternalCallback
 
 IFACEMETHODIMP UpdaterInternalCallback::Run(LONG result) {
   DCHECK_EQ(base::PlatformThreadRef(), com_thread_ref_);
-  DVLOG(2) << __func__ << " result " << result << ".";
+  VLOG(2) << __func__ << " result " << result << ".";
   return S_OK;
 }
 
 base::OnceClosure UpdaterInternalCallback::Disconnect() {
   DCHECK_EQ(base::PlatformThreadRef(), com_thread_ref_);
-  DVLOG(2) << __func__;
+  VLOG(2) << __func__;
   updater_internal_ = nullptr;
   return std::move(callback_);
 }
@@ -110,6 +110,7 @@ void UpdateServiceInternalProxy::Uninitialize() {
 
 void UpdateServiceInternalProxy::Run(base::OnceClosure callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_main_);
+  VLOG(1) << __func__;
 
   com_task_runner_->PostTask(
       FROM_HERE, base::BindOnce(&UpdateServiceInternalProxy::RunOnSTA, this,
@@ -134,8 +135,8 @@ void UpdateServiceInternalProxy::RunOnSTA(base::OnceClosure callback) {
   HRESULT hr = ::CoCreateInstance(GetInternalClass(), nullptr,
                                   CLSCTX_LOCAL_SERVER, IID_PPV_ARGS(&server));
   if (FAILED(hr)) {
-    DVLOG(2) << "Failed to instantiate the updater internal server. "
-             << std::hex << hr;
+    VLOG(2) << "Failed to instantiate the updater internal server. " << std::hex
+            << hr;
     std::move(callback).Run();
     return;
   }
@@ -143,8 +144,8 @@ void UpdateServiceInternalProxy::RunOnSTA(base::OnceClosure callback) {
   Microsoft::WRL::ComPtr<IUpdaterInternal> updater_internal;
   hr = server.As(&updater_internal);
   if (FAILED(hr)) {
-    DVLOG(2) << "Failed to query the updater_internal interface. " << std::hex
-             << hr;
+    VLOG(2) << "Failed to query the updater_internal interface. " << std::hex
+            << hr;
     std::move(callback).Run();
     return;
   }
@@ -161,7 +162,7 @@ void UpdateServiceInternalProxy::RunOnSTA(base::OnceClosure callback) {
       updater_internal, std::move(callback));
   hr = updater_internal->Run(rpc_callback.Get());
   if (FAILED(hr)) {
-    DVLOG(2) << "Failed to call IUpdaterInternal::Run" << std::hex << hr;
+    VLOG(2) << "Failed to call IUpdaterInternal::Run" << std::hex << hr;
 
     // Since the RPC call returned an error, it can't be determined what the
     // state of the update server is. The RPC callback may or may not have run.
@@ -175,6 +176,7 @@ void UpdateServiceInternalProxy::RunOnSTA(base::OnceClosure callback) {
 void UpdateServiceInternalProxy::InitializeUpdateService(
     base::OnceClosure callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_main_);
+  VLOG(1) << __func__;
 
   com_task_runner_->PostTask(
       FROM_HERE,
@@ -192,8 +194,8 @@ void UpdateServiceInternalProxy::InitializeUpdateServiceOnSTA(
   HRESULT hr = ::CoCreateInstance(GetInternalClass(), nullptr,
                                   CLSCTX_LOCAL_SERVER, IID_PPV_ARGS(&server));
   if (FAILED(hr)) {
-    DVLOG(2) << "Failed to instantiate the updater internal server. "
-             << std::hex << hr;
+    VLOG(2) << "Failed to instantiate the updater internal server. " << std::hex
+            << hr;
     std::move(callback).Run();
     return;
   }
@@ -201,8 +203,8 @@ void UpdateServiceInternalProxy::InitializeUpdateServiceOnSTA(
   Microsoft::WRL::ComPtr<IUpdaterInternal> updater_internal;
   hr = server.As(&updater_internal);
   if (FAILED(hr)) {
-    DVLOG(2) << "Failed to query the updater_internal interface. " << std::hex
-             << hr;
+    VLOG(2) << "Failed to query the updater_internal interface. " << std::hex
+            << hr;
     std::move(callback).Run();
     return;
   }
@@ -211,8 +213,8 @@ void UpdateServiceInternalProxy::InitializeUpdateServiceOnSTA(
       updater_internal, std::move(callback));
   hr = updater_internal->InitializeUpdateService(rpc_callback.Get());
   if (FAILED(hr)) {
-    DVLOG(2) << "Failed to call IUpdaterInternal::InitializeUpdateService"
-             << std::hex << hr;
+    VLOG(2) << "Failed to call IUpdaterInternal::InitializeUpdateService"
+            << std::hex << hr;
     rpc_callback->Disconnect().Run();
     return;
   }

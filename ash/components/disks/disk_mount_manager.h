@@ -13,7 +13,7 @@
 #include "base/callback_forward.h"
 #include "base/component_export.h"
 #include "base/observer_list_types.h"
-#include "chromeos/dbus/cros_disks/cros_disks_client.h"
+#include "chromeos/ash/components/dbus/cros_disks/cros_disks_client.h"
 
 namespace ash {
 namespace disks {
@@ -92,8 +92,7 @@ class COMPONENT_EXPORT(ASH_DISKS) DiskMountManager {
         : source_path(source),
           mount_path(mount),
           mount_type(type),
-          mount_condition(condition) {
-    }
+          mount_condition(condition) {}
   };
 
   // MountPointMap key is mount_path.

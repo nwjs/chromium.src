@@ -12,12 +12,14 @@ mojom("mojom") {
     "app_service_types.mojom",
     "app_window_tracker.mojom",
     "arc.mojom",
+    "audio_service.mojom",
     "authentication.mojom",
     "automation.mojom",
     "bitmap.mojom",
     "browser_app_instance_registry.mojom",
     "browser_version.mojom",
     "cert_database.mojom",
+    "cert_provisioning.mojom",
     "chrome_app_kiosk_service.mojom",
     "clipboard.mojom",
     "clipboard_history.mojom",
@@ -32,6 +34,7 @@ mojom("mojom") {
     "download_controller.mojom",
     "drive_integration_service.mojom",
     "echo_private.mojom",
+    "emoji_picker.mojom",
     "extension_info_private.mojom",
     "feedback.mojom",
     "field_trial.mojom",
@@ -54,6 +57,7 @@ mojom("mojom") {
     "message_center.mojom",
     "metrics_reporting.mojom",
     "native_theme.mojom",
+    "network_change.mojom",
     "network_settings_service.mojom",
     "networking_attributes.mojom",
     "networking_private.mojom",
@@ -62,6 +66,8 @@ mojom("mojom") {
     "policy_service.mojom",
     "power.mojom",
     "prefs.mojom",
+    "printing_metrics.mojom",
+    "probe_service.mojom",
     "remoting.mojom",
     "resource_manager.mojom",
     "screen_manager.mojom",
@@ -77,6 +83,7 @@ mojom("mojom") {
     "tts.mojom",
     "url_handler.mojom",
     "video_capture.mojom",
+    "virtual_keyboard.mojom",
     "vpn_extension_observer.mojom",
     "vpn_service.mojom",
     "wallpaper.mojom",
@@ -165,7 +172,7 @@ mojom("mojom") {
         },
         {
           mojom = "crosapi.mojom.LaunchSource"
-          cpp = "::apps::mojom::LaunchSource"
+          cpp = "::apps::LaunchSource"
         },
         {
           mojom = "crosapi.mojom.SharesheetLaunchSource"
@@ -224,6 +231,7 @@ mojom("mojom") {
         "//chromeos/crosapi/mojom/policy_domain_mojom_traits.h",
         "//chromeos/crosapi/mojom/web_app_types_mojom_traits.h",
         "//chromeos/crosapi/mojom/browser_app_instance_registry_mojom_traits.h",
+        "//components/services/app_service/public/cpp/app_launch_util.h",
         "//components/services/app_service/public/cpp/app_types.h",
         "//components/services/app_service/public/cpp/preferred_app.h",
         "//chromeos/crosapi/mojom/sharesheet_mojom_traits.h",

@@ -80,8 +80,7 @@ class ContextHostResolverTest : public ::testing::Test,
   void SetMockDnsRules(MockDnsClientRuleList rules) {
     IPAddress dns_ip(192, 168, 1, 0);
     DnsConfig config;
-    config.nameservers.push_back(
-        IPEndPoint(dns_ip, dns_protocol::kDefaultPort));
+    config.nameservers.emplace_back(dns_ip, dns_protocol::kDefaultPort);
     config.doh_config = *DnsOverHttpsConfig::FromString("https://example.com");
     EXPECT_TRUE(config.IsValid());
 
@@ -100,7 +99,7 @@ class ContextHostResolverTest : public ::testing::Test,
     EXPECT_TRUE(dns_client_->GetEffectiveConfig());
 
     scoped_refptr<HostResolverProc> proc = CreateCatchAllHostResolverProc();
-    manager_->set_proc_params_for_test(ProcTaskParams(proc.get(), 1u));
+    manager_->set_proc_params_for_test(ProcTaskParams(proc, 1u));
   }
 
   raw_ptr<MockDnsClient> dns_client_;
@@ -855,8 +854,7 @@ TEST_F(ContextHostResolverTest, ExistingNetworkBoundLookup) {
 
   const url::SchemeHostPort host(url::kHttpsScheme, "example.com",
                                  NetworkAwareHostResolverProc::kPort);
-  scoped_refptr<NetworkAwareHostResolverProc> resolver_proc =
-      new NetworkAwareHostResolverProc();
+  auto resolver_proc = base::MakeRefCounted<NetworkAwareHostResolverProc>();
   ScopedDefaultHostResolverProc scoped_default_host_resolver;
   scoped_default_host_resolver.Init(resolver_proc.get());
 
@@ -896,8 +894,7 @@ TEST_F(ContextHostResolverTest, ExistingNetworkBoundLookup) {
 TEST_F(ContextHostResolverTest, NotExistingNetworkBoundLookup) {
   const url::SchemeHostPort host(url::kHttpsScheme, "example.com",
                                  NetworkAwareHostResolverProc::kPort);
-  scoped_refptr<NetworkAwareHostResolverProc> resolver_proc =
-      new NetworkAwareHostResolverProc();
+  auto resolver_proc = base::MakeRefCounted<NetworkAwareHostResolverProc>();
   ScopedDefaultHostResolverProc scoped_default_host_resolver;
   scoped_default_host_resolver.Init(resolver_proc.get());
 

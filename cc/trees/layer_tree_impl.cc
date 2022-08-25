@@ -152,7 +152,7 @@ LayerTreeImpl::LayerTreeImpl(
       is_first_frame_after_commit_tracker_(-1),
       hud_layer_(nullptr),
       property_trees_(host_impl),
-      background_color_(0),
+      background_color_(SkColors::kTransparent),
       last_scrolled_scroll_node_index_(kInvalidPropertyNodeId),
       page_scale_factor_(page_scale_factor),
       min_page_scale_factor_(0),
@@ -2302,7 +2302,7 @@ static bool PointIsClippedByAncestorClipNode(
   for (const ClipNode* clip_node = clip_tree.Node(layer->clip_tree_index());
        clip_node->id > kViewportPropertyNodeId;
        clip_node = clip_tree.parent(clip_node)) {
-    if (clip_node->clip_type == ClipNode::ClipType::APPLIES_LOCAL_CLIP) {
+    if (clip_node->AppliesLocalClip()) {
       clip = gfx::ToEnclosingRect(clip_node->clip);
 
       gfx::Transform screen_space_transform =

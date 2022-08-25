@@ -6,7 +6,12 @@
  * @fileoverview Calculates the menu items for the node menus in the ChromeVox
  * panel.
  */
-import {ChromeVoxState} from '/chromevox/background/chromevox_state.js';
+import {CursorRange} from '../../../common/cursors/range.js';
+import {Msgs} from '../../common/msgs.js';
+import {PanelBridge} from '../../common/panel_bridge.js';
+import {ChromeVoxState} from '../chromevox_state.js';
+import {Output} from '../output/output.js';
+import {OutputEventType} from '../output/output_types.js';
 
 const AutomationNode = chrome.automation.AutomationNode;
 
@@ -37,12 +42,12 @@ export class PanelNodeMenuBackground {
 
   /** @param {number} callbackNodeIndex */
   static focusNodeCallback(callbackNodeIndex) {
-    if (callbackNodeIndex < 0 ||
-        callbackNodeIndex >= PanelNodeMenuBackground.callbackNodes_.length) {
+    if (!PanelNodeMenuBackground.callbackNodes_[callbackNodeIndex]) {
       return;
     }
-    ChromeVoxState.instance.navigateToRange(cursors.Range.fromNode(
-        PanelNodeMenuBackground.callbackNodes_[callbackNodeIndex]));
+    ChromeVoxState.instance.navigateToRange(CursorRange.fromNode(
+        /** @type {!AutomationNode} */ (
+            PanelNodeMenuBackground.callbackNodes_[callbackNodeIndex])));
   }
 
   /**
@@ -64,7 +69,7 @@ export class PanelNodeMenuBackground {
     this.walker_ = new AutomationTreeWalker(root, constants.Dir.FORWARD, {
       visit(node) {
         return !AutomationPredicate.shouldIgnoreNode(node);
-      }
+      },
     });
     this.nodeCount_ = 0;
     this.findMoreNodes_();
@@ -86,7 +91,7 @@ export class PanelNodeMenuBackground {
       if (this.pred_(node)) {
         this.isEmpty_ = false;
         const output = new Output();
-        const range = cursors.Range.fromNode(node);
+        const range = CursorRange.fromNode(node);
         output.withoutHints();
         output.withSpeech(range, range, OutputEventType.NAVIGATE);
         const title = output.toString();

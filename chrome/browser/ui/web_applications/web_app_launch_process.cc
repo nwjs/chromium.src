@@ -8,6 +8,7 @@
 #include "base/memory/values_equivalent.h"
 #include "base/metrics/histogram_macros.h"
 #include "build/build_config.h"
+#include "build/chromeos_buildflags.h"
 #include "chrome/browser/apps/app_service/app_launch_params.h"
 #include "chrome/browser/apps/app_service/launch_utils.h"
 #include "chrome/browser/profiles/profile.h"
@@ -17,10 +18,9 @@
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/tabs/tab_strip_user_gesture_details.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/share_target_utils.h"
-#include "chrome/browser/ui/web_applications/system_web_app_ui_utils.h"
 #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
 #include "chrome/browser/web_applications/os_integration/os_integration_manager.h"
 #include "chrome/browser/web_applications/web_app.h"
@@ -29,14 +29,17 @@
 #include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/browser/web_applications/web_app_sync_bridge.h"
 #include "chrome/browser/web_applications/web_app_tab_helper.h"
+#include "components/services/app_service/public/cpp/app_launch_util.h"
+#include "components/services/app_service/public/cpp/intent.h"
 #include "components/services/app_service/public/cpp/intent_util.h"
 #include "components/site_engagement/content/site_engagement_service.h"
 #include "extensions/common/constants.h"
 #include "ui/display/scoped_display_for_new_windows.h"
 #include "url/gurl.h"
 
-#if BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "chrome/browser/ash/system_web_apps/system_web_app_manager.h"
+#include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
 #endif
 
 namespace web_app {
@@ -81,26 +84,31 @@ content::WebContents* WebAppLaunchProcess::Run() {
   const apps::ShareTarget* share_target = MaybeGetShareTarget();
   auto [launch_url, is_file_handling] = GetLaunchUrl(share_target);
 
-#if BUILDFLAG(IS_CHROMEOS)
   // TODO(crbug.com/1265381): URL Handlers allows web apps to be opened with
   // associated origin URLs. There's no utility function to test whether a URL
   // is in a web app's extended scope at the moment.
   // Because URL Handlers is not implemented for Chrome OS we can perform this
   // DCHECK on the basic scope.
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  bool is_url_in_system_web_app_sccope =
+      ash::GetSystemWebAppTypeForAppId(&profile_, params_.app_id) &&
+      ash::SystemWebAppManager::GetForLocalAppsUnchecked(&profile_)
+          ->GetSystemApp(
+              *ash::GetSystemWebAppTypeForAppId(&profile_, params_.app_id)) &&
+      ash::SystemWebAppManager::GetForLocalAppsUnchecked(&profile_)
+          ->GetSystemApp(
+              *ash::GetSystemWebAppTypeForAppId(&profile_, params_.app_id))
+          ->IsUrlInSystemAppScope(launch_url);
   DCHECK(provider_.registrar().IsUrlInAppScope(launch_url, params_.app_id) ||
-         GetSystemWebAppTypeForAppId(&profile_, params_.app_id) &&
-             ash::SystemWebAppManager::GetForLocalAppsUnchecked(&profile_)
-                 ->GetSystemApp(
-                     *GetSystemWebAppTypeForAppId(&profile_, params_.app_id)) &&
-             ash::SystemWebAppManager::GetForLocalAppsUnchecked(&profile_)
-                 ->GetSystemApp(
-                     *GetSystemWebAppTypeForAppId(&profile_, params_.app_id))
-                 ->IsUrlInSystemAppScope(launch_url));
+         is_url_in_system_web_app_sccope);
+#else
+  DCHECK(provider_.registrar().IsUrlInAppScope(launch_url, params_.app_id));
 #endif
 
+#if BUILDFLAG(IS_CHROMEOS_ASH)
   // System Web Apps have their own launch code path.
   absl::optional<ash::SystemWebAppType> system_app_type =
-      GetSystemWebAppTypeForAppId(&profile_, params_.app_id);
+      ash::GetSystemWebAppTypeForAppId(&profile_, params_.app_id);
   if (system_app_type) {
     Browser* browser = LaunchSystemWebAppImpl(&profile_, *system_app_type,
                                               launch_url, params_);
@@ -108,6 +116,7 @@ content::WebContents* WebAppLaunchProcess::Run() {
     return browser ? browser->tab_strip_model()->GetActiveWebContents()
                    : nullptr;
   }
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
   auto [browser, is_new_browser] = EnsureBrowser();
 
@@ -130,8 +139,7 @@ content::WebContents* WebAppLaunchProcess::Run() {
 
 const apps::ShareTarget* WebAppLaunchProcess::MaybeGetShareTarget() const {
   DCHECK(web_app_);
-  bool is_share_intent =
-      params_.intent && apps_util::IsShareIntent(params_.intent);
+  bool is_share_intent = params_.intent && params_.intent->IsShareIntent();
   return is_share_intent && web_app_->share_target().has_value()
              ? &web_app_->share_target().value()
              : nullptr;
@@ -146,12 +154,12 @@ std::tuple<GURL, bool /*is_file_handling*/> WebAppLaunchProcess::GetLaunchUrl(
       params_.intent &&
       params_.intent->action == apps_util::kIntentActionCreateNote;
 
-  if (!params_.override_url.is_empty()) {
-    launch_url = params_.override_url;
-    is_file_handling = !params_.launch_files.empty();
-  } else if (share_target) {
+  if (share_target) {
     // Handle share_target launch.
     launch_url = share_target->action;
+  } else if (!params_.override_url.is_empty()) {
+    launch_url = params_.override_url;
+    is_file_handling = !params_.launch_files.empty();
   } else if (params_.url_handler_launch_url.has_value() &&
              params_.url_handler_launch_url->is_valid()) {
     // Handle url_handlers launch.
@@ -248,7 +256,7 @@ WebAppLaunchProcess::EnsureBrowser() {
 }
 
 Browser* WebAppLaunchProcess::MaybeFindBrowserForLaunch() const {
-  if (params_.container == apps::mojom::LaunchContainer::kLaunchContainerTab) {
+  if (params_.container == apps::LaunchContainer::kLaunchContainerTab) {
     return chrome::FindTabbedBrowser(
         &profile_, /*match_original_profiles=*/false,
         display::Screen::GetScreen()->GetDisplayForNewWindows().id());
@@ -270,7 +278,7 @@ Browser* WebAppLaunchProcess::MaybeFindBrowserForLaunch() const {
 }
 
 Browser* WebAppLaunchProcess::CreateBrowserForLaunch() {
-  if (params_.container == apps::mojom::LaunchContainer::kLaunchContainerTab) {
+  if (params_.container == apps::LaunchContainer::kLaunchContainerTab) {
     return Browser::Create(Browser::CreateParams(Browser::TYPE_NORMAL,
                                                  &profile_,
                                                  /*user_gesture=*/true));
@@ -342,7 +350,9 @@ WebAppLaunchProcess::NavigateResult WebAppLaunchProcess::MaybeNavigateBrowser(
       /*is_renderer_initiated=*/false));
 
   content::WebContents* web_contents = tab_strip->GetActiveWebContents();
-  tab_strip->ActivateTabAt(tab_index, {TabStripModel::GestureType::kOther});
+  tab_strip->ActivateTabAt(
+      tab_index, TabStripUserGestureDetails(
+                     TabStripUserGestureDetails::GestureType::kOther));
   SetWebContentsActingAsApp(web_contents, params_.app_id);
   return {.web_contents = web_contents, .did_navigate = true};
 }

@@ -19,7 +19,7 @@ import 'chrome://resources/cr_elements/cr_radio_group/cr_radio_group.m.js';
 import 'chrome://resources/cr_elements/md_select_css.m.js';
 import '../controls/settings_toggle_button.js';
 import '../prefs/prefs.js';
-import '../settings_shared_css.js';
+import '../settings_shared.css.js';
 import './secure_dns_input.js';
 
 import {CrRadioGroupElement} from 'chrome://resources/cr_elements/cr_radio_group/cr_radio_group.m.js';
@@ -137,7 +137,7 @@ export class SettingsSecureDnsElement extends SettingsSecureDnsElementBase {
   private secureDnsToggle_: chrome.settingsPrivate.PrefObject;
   private showRadioGroup_: boolean;
   private secureDnsRadio_: SecureDnsMode;
-  private resolverOptions_: Array<ResolverOption>;
+  private resolverOptions_: ResolverOption[];
   private lastResolverOption_: string;
   private privacyPolicyString_: string;
   private secureDnsInputValue_: string;
@@ -200,7 +200,7 @@ export class SettingsSecureDnsElement extends SettingsSecureDnsElementBase {
    * selection (and the underlying radio button if the toggle has just been
    * enabled).
    */
-  onToggleChanged_() {
+  private onToggleChanged_() {
     this.showRadioGroup_ = this.secureDnsToggle_.value;
     if (this.secureDnsRadio_ === SecureDnsMode.SECURE &&
         !this.$.secureResolverSelect.value) {
@@ -275,7 +275,7 @@ export class SettingsSecureDnsElement extends SettingsSecureDnsElementBase {
    * resolver and displays the corresponding privacy policy. Focuses the custom
    * text field if the custom option has been selected.
    */
-  onDropdownSelectionChanged_() {
+  private onDropdownSelectionChanged_() {
     // If we're already in secure mode, update the prefs.
     if (this.secureDnsRadio_ === SecureDnsMode.SECURE) {
       this.updateDnsPrefs_(SecureDnsMode.SECURE);

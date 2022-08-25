@@ -439,6 +439,7 @@ void FakeCiceroneClient::StartLxd(
 void FakeCiceroneClient::AddFileWatch(
     const vm_tools::cicerone::AddFileWatchRequest& request,
     DBusMethodCallback<vm_tools::cicerone::AddFileWatchResponse> callback) {
+  add_file_watch_call_count_++;
   base::ThreadTaskRunnerHandle::Get()->PostTask(
       FROM_HERE, base::BindOnce(std::move(callback), add_file_watch_response_));
 }
@@ -446,6 +447,7 @@ void FakeCiceroneClient::AddFileWatch(
 void FakeCiceroneClient::RemoveFileWatch(
     const vm_tools::cicerone::RemoveFileWatchRequest& request,
     DBusMethodCallback<vm_tools::cicerone::RemoveFileWatchResponse> callback) {
+  remove_file_watch_call_count_++;
   base::ThreadTaskRunnerHandle::Get()->PostTask(
       FROM_HERE,
       base::BindOnce(std::move(callback), remove_file_watch_response_));
@@ -457,6 +459,24 @@ void FakeCiceroneClient::GetVshSession(
   base::ThreadTaskRunnerHandle::Get()->PostTask(
       FROM_HERE,
       base::BindOnce(std::move(callback), get_vsh_session_response_));
+}
+
+void FakeCiceroneClient::AttachUsbToContainer(
+    const vm_tools::cicerone::AttachUsbToContainerRequest& request,
+    DBusMethodCallback<vm_tools::cicerone::AttachUsbToContainerResponse>
+        callback) {
+  base::ThreadTaskRunnerHandle::Get()->PostTask(
+      FROM_HERE,
+      base::BindOnce(std::move(callback), attach_usb_to_container_response_));
+}
+
+void FakeCiceroneClient::DetachUsbFromContainer(
+    const vm_tools::cicerone::DetachUsbFromContainerRequest& request,
+    DBusMethodCallback<vm_tools::cicerone::DetachUsbFromContainerResponse>
+        callback) {
+  base::ThreadTaskRunnerHandle::Get()->PostTask(
+      FROM_HERE,
+      base::BindOnce(std::move(callback), detach_usb_from_container_response_));
 }
 
 void FakeCiceroneClient::FileSelected(

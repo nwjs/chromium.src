@@ -16,10 +16,10 @@
 #include "components/autofill_assistant/browser/device_context.h"
 #include "components/autofill_assistant/browser/headless/headless_ui_controller.h"
 #include "components/autofill_assistant/browser/platform_dependencies.h"
+#include "components/autofill_assistant/browser/public/password_change/website_login_manager.h"
 #include "components/autofill_assistant/browser/service.pb.h"
 #include "components/autofill_assistant/browser/service/access_token_fetcher.h"
 #include "components/autofill_assistant/browser/service/service.h"
-#include "components/autofill_assistant/browser/website_login_manager.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "content/public/browser/web_contents.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
@@ -27,7 +27,7 @@
 
 namespace autofill_assistant {
 
-class ExternalScriptControllerImpl;
+class HeadlessScriptControllerImpl;
 
 // An Autofill Assistant client for headless runs.
 class ClientHeadless : public Client, public AccessTokenFetcher {
@@ -36,7 +36,7 @@ class ClientHeadless : public Client, public AccessTokenFetcher {
       content::WebContents* web_contents,
       const CommonDependencies* common_dependencies,
       ExternalActionDelegate* action_extension_delegate,
-      ExternalScriptControllerImpl* external_script_controller);
+      HeadlessScriptControllerImpl* external_script_controller);
   ClientHeadless(const ClientHeadless&) = delete;
   ClientHeadless& operator=(const ClientHeadless&) = delete;
 
@@ -98,7 +98,7 @@ class ClientHeadless : public Client, public AccessTokenFetcher {
   std::unique_ptr<signin::AccessTokenFetcher> access_token_fetcher_;
   base::OnceCallback<void(bool, const std::string&)>
       fetch_access_token_callback_;
-  const raw_ptr<ExternalScriptControllerImpl> external_script_controller_;
+  const raw_ptr<HeadlessScriptControllerImpl> external_script_controller_;
 
   base::WeakPtrFactory<ClientHeadless> weak_ptr_factory_{this};
 };

@@ -121,7 +121,7 @@ public class ContextualSearchSelectionController {
 
     private class ContextualSearchGestureStateListener extends GestureStateListener {
         @Override
-        public void onScrollStarted(int scrollOffsetY, int scrollExtentY) {
+        public void onScrollStarted(int scrollOffsetY, int scrollExtentY, boolean isDirectionUp) {
             mHandler.handleScrollStart();
         }
 
@@ -337,8 +337,7 @@ public class ContextualSearchSelectionController {
                 mAreSelectionHandlesShown = true;
                 mAreSelectionHandlesBeingDragged = false;
                 mWasTapGestureDetected = false;
-                mSelectionType = mPolicy.canResolveLongpress() ? SelectionType.RESOLVING_LONG_PRESS
-                                                               : SelectionType.LONG_PRESS;
+                mSelectionType = SelectionType.RESOLVING_LONG_PRESS;
                 shouldHandleSelection = true;
                 SelectionPopupController controller = getSelectionPopupController();
                 if (controller != null) mSelectedText = controller.getSelectedText();

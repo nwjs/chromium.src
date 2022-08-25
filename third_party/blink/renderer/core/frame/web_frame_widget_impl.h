@@ -45,6 +45,7 @@
 #include "third_party/blink/public/common/input/web_gesture_device.h"
 #include "third_party/blink/public/mojom/drag/drag.mojom-blink.h"
 #include "third_party/blink/public/mojom/input/input_handler.mojom-blink-forward.h"
+#include "third_party/blink/public/mojom/input/stylus_writing_gesture.mojom-blink.h"
 #include "third_party/blink/public/mojom/manifest/display_mode.mojom-blink.h"
 #include "third_party/blink/public/mojom/page/widget.mojom-blink.h"
 #include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink-forward.h"
@@ -211,6 +212,7 @@ class CORE_EXPORT WebFrameWidgetImpl
 
   // FrameWidget overrides.
   cc::AnimationHost* AnimationHost() const final;
+  cc::AnimationTimeline* ScrollAnimationTimeline() const final;
   void SetOverscrollBehavior(
       const cc::OverscrollBehavior& overscroll_behavior) final;
   void RequestAnimationAfterDelay(const base::TimeDelta&) final;
@@ -331,8 +333,6 @@ class CORE_EXPORT WebFrameWidgetImpl
   void NotifyCoreAnimationErrorCode(
       base::OnceCallback<void(gfx::CALayerResult)> callback) override;
 #endif
-  scheduler::WebRenderWidgetSchedulingState* RendererWidgetSchedulingState()
-      override;
   void WaitForDebuggerWhenShown() override;
   void SetTextZoomFactor(float text_zoom_factor) override;
   float TextZoomFactor() override;
@@ -409,6 +409,10 @@ class CORE_EXPORT WebFrameWidgetImpl
   void BeginMainFrame(base::TimeTicks last_frame_time) override;
   void UpdateLifecycle(WebLifecycleUpdate requested_update,
                        DocumentUpdateReason reason) override;
+  void OnDeferCommitsChanged(
+      bool defer_status,
+      cc::PaintHoldingReason reason,
+      absl::optional<cc::PaintHoldingCommitTrigger> trigger) override;
 
   // mojom::blink::FrameWidget overrides:
   void ShowContextMenu(ui::mojom::MenuSourceType source_type,
@@ -420,6 +424,10 @@ class CORE_EXPORT WebFrameWidgetImpl
                          const gfx::PointF& screen_point,
                          ui::mojom::blink::DragOperation,
                          base::OnceClosure callback) override;
+
+  // mojom::blink::FrameWidgetInputHandler overrides:
+  void HandleStylusWritingGestureAction(
+      mojom::blink::StylusWritingGestureDataPtr gesture_data) override;
 
   // Sets the display mode, which comes from the top-level browsing context and
   // is applied to all widgets.
@@ -445,7 +453,7 @@ class CORE_EXPORT WebFrameWidgetImpl
   void SetZoomLevel(double zoom_level);
 
   // Called when the View has auto resized.
-  void DidAutoResize(const gfx::Size& size);
+  virtual void DidAutoResize(const gfx::Size& size);
 
   // This method returns the focused frame belonging to this WebWidget, that
   // is, a focused frame with the same local root as the one corresponding
@@ -517,11 +525,6 @@ class CORE_EXPORT WebFrameWidgetImpl
   // BeginMainFrame, and update the document lifecycle.
   void SynchronouslyCompositeForTesting(base::TimeTicks frame_time);
 
-  // Adjust the synchronous resize mode for testing. Normally resizes are
-  // asynchronous with sending the resize to the browser, however some tests
-  // still need the resize to happen in a synchronous fashion.
-  void UseSynchronousResizeModeForTesting(bool enable);
-
   // Sets the device color space for testing.
   void SetDeviceColorSpaceForTesting(const gfx::ColorSpace& color_space);
 
@@ -541,6 +544,7 @@ class CORE_EXPORT WebFrameWidgetImpl
 
   void ShowVirtualKeyboardOnElementFocus();
   void ProcessTouchAction(WebTouchAction touch_action);
+  void SetPanAction(mojom::blink::PanAction pan_action);
 
   // Called to update whether low latency input mode is enabled or not.
   void SetNeedsLowLatencyInput(bool);
@@ -726,6 +730,7 @@ class CORE_EXPORT WebFrameWidgetImpl
                       uint32_t key_modifiers,
                       base::OnceClosure callback) override;
   void DragSourceSystemDragEnded() override;
+  void OnStartStylusWriting(OnStartStylusWritingCallback callback) override;
   void SetBackgroundOpaque(bool opaque) override;
   void SetActive(bool active) override;
   // For both mainframe and childframe change the text direction of the
@@ -890,6 +895,8 @@ class CORE_EXPORT WebFrameWidgetImpl
   // associated `WebView`.
   Element* FocusedElement() const;
 
+  gfx::Rect GetAbsoluteCaretBounds();
+
   // Perform a hit test for a point relative to the root frame of the page.
   HitTestResult HitTestResultForRootFramePos(
       const gfx::PointF& pos_in_root_frame);
@@ -901,9 +908,6 @@ class CORE_EXPORT WebFrameWidgetImpl
   // change the fullscreen state (e.g. on/off or current display).
   bool DidChangeFullscreenState(
       const VisualProperties& visual_properties) const;
-
-  // Returns the current state of synchronous resize mode for testing.
-  bool SynchronousResizeModeForTestingEnabled();
 
   void NotifyZoomLevelChanged(LocalFrame* root);
 
@@ -1059,20 +1063,6 @@ class CORE_EXPORT WebFrameWidgetImpl
     // contents") like a <webview> or <portal> widget. If false, the widget is
     // the top level widget.
     bool is_for_nested_main_frame = false;
-
-    // In web tests, synchronous resizing mode may be used. Normally each
-    // widget's size is controlled by IPC from the browser. In synchronous
-    // resize mode the renderer controls the size directly, and IPCs from the
-    // browser must be ignored. This was deprecated but then later undeprecated,
-    // so it is now called unfortunate instead. See https://crbug.com/309760.
-    // When this is enabled the various size properties will be controlled
-    // directly when SetWindowRect() is called instead of needing a round trip
-    // through the browser. Note that SetWindowRectSynchronouslyForTesting()
-    // provides a secondary way to control the size of the FrameWidget
-    // independently from the renderer process, without the use of this mode,
-    // however it would be overridden by the browser if they disagree.
-    bool synchronous_resize_mode_for_testing = false;
-
   } main_frame_data_;
 
   MainFrameData& main_data() {

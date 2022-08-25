@@ -7,16 +7,30 @@
 #include "ash/components/cryptohome/cryptohome_util.h"
 #include "ash/components/cryptohome/system_salt_getter.h"
 #include "ash/components/cryptohome/userdataauth_util.h"
-#include "ash/components/login/auth/cryptohome_key_constants.h"
 #include "ash/components/login/auth/cryptohome_parameter_utils.h"
-#include "ash/components/login/auth/user_context.h"
+#include "ash/components/login/auth/public/auth_session_status.h"
+#include "ash/components/login/auth/public/cryptohome_key_constants.h"
+#include "ash/components/login/auth/public/user_context.h"
 #include "base/bind.h"
 #include "base/callback.h"
+#include "base/time/time.h"
+#include "chromeos/ash/components/dbus/userdataauth/userdataauth_client.h"
+#include "chromeos/dbus/cryptohome/UserDataAuth.pb.h"
 #include "chromeos/dbus/cryptohome/key.pb.h"
-#include "chromeos/dbus/userdataauth/userdataauth_client.h"
 #include "components/device_event_log/device_event_log.h"
+#include "components/user_manager/user_type.h"
 
 namespace ash {
+
+namespace {
+
+bool IsKioskUserType(user_manager::UserType type) {
+  return type == user_manager::USER_TYPE_KIOSK_APP ||
+         type == user_manager::USER_TYPE_ARC_KIOSK_APP ||
+         type == user_manager::USER_TYPE_WEB_KIOSK_APP;
+}
+
+}  // namespace
 
 AuthPerformer::AuthPerformer(base::raw_ptr<UserDataAuthClient> client)
     : client_(client) {}
@@ -160,7 +174,7 @@ void AuthPerformer::AuthenticateWithPassword(
 
   SystemSaltGetter::Get()->GetSystemSalt(base::BindOnce(
       &AuthPerformer::HashPasswordAndAuthenticate, weak_factory_.GetWeakPtr(),
-      password, key_label, std::move(context), std::move(callback)));
+      key_label, password, std::move(context), std::move(callback)));
 }
 
 void AuthPerformer::HashPasswordAndAuthenticate(
@@ -229,6 +243,21 @@ void AuthPerformer::AuthenticateAsKiosk(std::unique_ptr<UserContext> context,
                               std::move(callback)));
 }
 
+void AuthPerformer::GetAuthSessionStatus(std::unique_ptr<UserContext> context,
+                                         AuthSessionStatusCallback callback) {
+  DCHECK(!context->GetAuthSessionId().empty());
+
+  LOGIN_LOG(EVENT) << "Requesting authsession status";
+  user_data_auth::GetAuthSessionStatusRequest request;
+
+  request.set_auth_session_id(context->GetAuthSessionId());
+
+  client_->GetAuthSessionStatus(
+      request, base::BindOnce(&AuthPerformer::OnGetAuthSessionStatus,
+                              weak_factory_.GetWeakPtr(), std::move(context),
+                              std::move(callback)));
+}
+
 /// ---- private callbacks ----
 
 void AuthPerformer::OnStartAuthSession(
@@ -249,12 +278,17 @@ void AuthPerformer::OnStartAuthSession(
   // Remember key metadata
   std::vector<cryptohome::KeyDefinition> key_definitions;
   for (const auto& [label, key_data] : reply->key_label_data()) {
-    // Backfill kiosk key type
+    // Backfill key type
     // TODO(crbug.com/1310312): Find if there is any better way.
     cryptohome::KeyData data(key_data);
     if (!data.has_type()) {
-      LOGIN_LOG(DEBUG) << "Backfilling Kiosk key type for key " << label;
-      data.set_type(cryptohome::KeyData::KEY_TYPE_KIOSK);
+      if (IsKioskUserType(context->GetUserType())) {
+        LOGIN_LOG(DEBUG) << "Backfilling Kiosk key type for key " << label;
+        data.set_type(cryptohome::KeyData::KEY_TYPE_KIOSK);
+      } else {
+        LOGIN_LOG(DEBUG) << "Backfilling Password key type for key " << label;
+        data.set_type(cryptohome::KeyData::KEY_TYPE_PASSWORD);
+      }
     }
     // "legacy-0" keys exist as label in map, but might not exist as labels
     // in KeyData.
@@ -284,6 +318,51 @@ void AuthPerformer::OnAuthenticateAuthSession(
   DCHECK(reply->authenticated());
   LOGIN_LOG(EVENT) << "Authenticated successfully";
   std::move(callback).Run(std::move(context), absl::nullopt);
+}
+
+void AuthPerformer::OnGetAuthSessionStatus(
+    std::unique_ptr<UserContext> context,
+    AuthSessionStatusCallback callback,
+    absl::optional<user_data_auth::GetAuthSessionStatusReply> reply) {
+  auto error = user_data_auth::ReplyToCryptohomeError(reply);
+
+  if (error == user_data_auth::CRYPTOHOME_INVALID_AUTH_SESSION_TOKEN) {
+    // Do not trigger error handling
+    std::move(callback).Run(AuthSessionStatus(), base::TimeDelta(),
+                            std::move(context),
+                            /*cryptohome_error=*/absl::nullopt);
+    return;
+  }
+
+  if (error != user_data_auth::CRYPTOHOME_ERROR_NOT_SET) {
+    LOGIN_LOG(EVENT) << "Failed to get authsession status " << error;
+    std::move(callback).Run(AuthSessionStatus(), base::TimeDelta(),
+                            std::move(context), CryptohomeError{error});
+    return;
+  }
+  CHECK(reply.has_value());
+  base::TimeDelta lifetime;
+  AuthSessionStatus status;
+  switch (reply->status()) {
+    case ::user_data_auth::AUTH_SESSION_STATUS_NOT_SET:
+    case ::user_data_auth::AUTH_SESSION_STATUS_INVALID_AUTH_SESSION:
+      break;
+    case ::user_data_auth::AUTH_SESSION_STATUS_FURTHER_FACTOR_REQUIRED:
+      status.Put(AuthSessionLevel::kSessionIsValid);
+      // Once we support multi-factor authentication (and have partially
+      // authenticated sessions) we might need to use value from reply.
+      lifetime = base::TimeDelta::Max();
+      break;
+    case ::user_data_auth::AUTH_SESSION_STATUS_AUTHENTICATED:
+      status.Put(AuthSessionLevel::kSessionIsValid);
+      status.Put(AuthSessionLevel::kCryptohomeStrong);
+      lifetime = base::Seconds(reply->time_left());
+      break;
+    default:
+      NOTREACHED();
+  }
+  std::move(callback).Run(status, lifetime, std::move(context),
+                          /*cryptohome_error=*/absl::nullopt);
 }
 
 }  // namespace ash

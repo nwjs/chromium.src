@@ -23,6 +23,7 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/simple_message_box.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group.h"
+#include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_keyed_service.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_service_factory.h"
 #include "chrome/browser/ui/tabs/tab_group.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
@@ -35,6 +36,7 @@
 #include "content/public/browser/page_navigator.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/window_open_disposition.h"
 #include "url/gurl.h"
 
 using bookmarks::BookmarkModel;
@@ -255,13 +257,10 @@ void OpenAllNow(content::PageNavigator* navigator,
   OpenAllHelper(navigator, std::move(urls), initial_disposition);
 }
 
-// TODO(dljames@): Explore a way to combine OpenAllIfAllowed to support
-// SavedTabGroups and BookmarkNodes.
 void OpenSavedTabGroupHelper(
     Browser* browser,
     base::OnceCallback<content::PageNavigator*()> get_navigator,
-    const SavedTabGroup* saved_group,
-    WindowOpenDisposition initial_disposition,
+    const base::GUID& saved_group_id,
     chrome::MessageBoxResult result) {
   if (result != chrome::MESSAGE_BOX_RESULT_YES)
     return;
@@ -271,72 +270,91 @@ void OpenSavedTabGroupHelper(
   if (!navigator)
     return;
 
-  TabStripModel* model =
-      SavedTabGroupServiceFactory::GetForProfile(browser->profile())
-          ->listener()
-          ->GetTabStripModelWithTabGroupId(saved_group->group_id);
+  SavedTabGroupKeyedService* service =
+      SavedTabGroupServiceFactory::GetForProfile(browser->profile());
 
-  // Only activate the tab group's first tab if it exists in any browser's
-  // tabstrip model.
-  if (model) {
-    absl::optional<int> first_tab =
-        model->group_model()->GetTabGroup(saved_group->group_id)->GetFirstTab();
-    DCHECK(first_tab.has_value());
-    model->ActivateTabAt(first_tab.value());
-    model->GetWebContentsAt(first_tab.value())->Focus();
+  const SavedTabGroup* saved_group = service->model()->Get(saved_group_id);
+
+  // In the case where this function is called after confirmation of an
+  // interstitial, the saved_group could be null, so protect against this by
+  // early returning.
+  if (!saved_group)
     return;
+
+  if (saved_group->tab_group_id().has_value()) {
+    TabStripModel* model_for_activation =
+        service->listener()->GetTabStripModelWithTabGroupId(
+            saved_group->tab_group_id().value());
+
+    // Only activate the tab group's first tab if it exists in any browser's
+    // tabstrip model.
+    if (model_for_activation) {
+      absl::optional<int> first_tab =
+          model_for_activation->group_model()
+              ->GetTabGroup(saved_group->tab_group_id().value())
+              ->GetFirstTab();
+      DCHECK(first_tab.has_value());
+      model_for_activation->ActivateTabAt(first_tab.value());
+      return;
+    }
   }
 
   // If our tab group was not found in any tabstrip model, open the group in
   // this browser's tabstrip model.
-  model = browser->tab_strip_model();
+  TabStripModel* model_for_creation = browser->tab_strip_model();
 
   std::vector<GURL> urls;
   auto get_urls = [&](SavedTabGroupTab saved_tab) { return saved_tab.url; };
-  base::ranges::transform(saved_group->saved_tabs, std::back_inserter(urls),
+  base::ranges::transform(saved_group->saved_tabs(), std::back_inserter(urls),
                           get_urls);
+  if (urls.empty())
+    return;
 
-  const auto opened_web_contents =
-      OpenAllHelper(navigator, std::move(urls), initial_disposition);
+  const auto opened_web_contents = OpenAllHelper(
+      navigator, std::move(urls), WindowOpenDisposition::NEW_BACKGROUND_TAB);
 
   // Figure out which tabs we actually opened in this browser that aren't
   // already in groups.
   std::vector<int> tab_indices;
-  for (int i = 0; i < model->count(); ++i) {
-    if (base::Contains(opened_web_contents, model->GetWebContentsAt(i)) &&
-        !model->GetTabGroupForTab(i).has_value()) {
+  for (int i = 0; i < model_for_creation->count(); ++i) {
+    if (base::Contains(opened_web_contents,
+                       model_for_creation->GetWebContentsAt(i)) &&
+        !model_for_creation->GetTabGroupForTab(i).has_value()) {
       tab_indices.push_back(i);
     }
   }
 
-  if (tab_indices.empty())
-    return;
-
-  // TODO(dljames): Make these variables const& when the Saved Tab Group Bar
-  // refactor lands.
-  const std::u16string title = saved_group->title;
-  const tab_groups::TabGroupColorId color = saved_group->color;
-  const tab_groups::TabGroupId& group_id = saved_group->group_id;
+  const std::u16string& title = saved_group->title();
+  const tab_groups::TabGroupColorId& color = saved_group->color();
+  tab_groups::TabGroupId tab_group_id = tab_groups::TabGroupId::GenerateNew();
 
   // If the group does not exist, create a tab group with the same group_id.
-  model->AddToGroupForRestore(tab_indices, group_id);
-  TabGroup* group = model->group_model()->GetTabGroup(group_id);
+  model_for_creation->AddToGroupForRestore(tab_indices, tab_group_id);
+  TabGroup* group =
+      model_for_creation->group_model()->GetTabGroup(tab_group_id);
   tab_groups::TabGroupVisualData visual_data(title, color,
                                              /*is_collapsed=*/false);
   group->SetVisualData(visual_data, /*is_customized=*/true);
-  group->SaveGroup();
+
+  service->model()->OnGroupOpenedInTabStrip(saved_group->saved_guid(),
+                                            tab_group_id);
+
+  absl::optional<int> first_tab =
+      model_for_creation->group_model()
+          ->GetTabGroup(saved_group->tab_group_id().value())
+          ->GetFirstTab();
+  DCHECK(first_tab.has_value());
+  model_for_creation->ActivateTabAt(first_tab.value());
 }
 
 void OpenSavedTabGroup(
     Browser* browser,
     base::OnceCallback<content::PageNavigator*()> get_navigator,
-    const SavedTabGroup* saved_group,
-    WindowOpenDisposition initial_disposition) {
+    const base::GUID& saved_group_id,
+    const size_t num_tabs) {
   // Skip the prompt if there are few bookmarks.
-  size_t child_count = saved_group->saved_tabs.size();
-  if (child_count < kNumBookmarkUrlsBeforePrompting) {
-    OpenSavedTabGroupHelper(browser, std::move(get_navigator),
-                            std::move(saved_group), initial_disposition,
+  if (num_tabs < kNumBookmarkUrlsBeforePrompting) {
+    OpenSavedTabGroupHelper(browser, std::move(get_navigator), saved_group_id,
                             chrome::MESSAGE_BOX_RESULT_YES);
     return;
   }
@@ -348,10 +366,9 @@ void OpenSavedTabGroup(
       browser->window()->GetNativeWindow(),
       l10n_util::GetStringUTF16(IDS_PRODUCT_NAME),
       l10n_util::GetStringFUTF16(IDS_BOOKMARK_BAR_SHOULD_OPEN_ALL,
-                                 base::NumberToString16(child_count)),
+                                 base::NumberToString16(num_tabs)),
       base::BindOnce(&OpenSavedTabGroupHelper, browser,
-                     std::move(get_navigator), std::move(saved_group),
-                     initial_disposition));
+                     std::move(get_navigator), saved_group_id));
 }
 
 int OpenCount(gfx::NativeWindow parent,

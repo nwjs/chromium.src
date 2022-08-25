@@ -19,6 +19,7 @@ import {FakeSystemDisplay} from './fake_system_display.js';
 /** @enum {string} */
 const TestNames = {
   DevicePage: 'device page',
+  Audio: 'audio',
   Display: 'display',
   Keyboard: 'keyboard',
   NightLight: 'night light',
@@ -231,7 +232,7 @@ TestDevicePageBrowserProxy.prototype = {
           return Object.assign({}, app);
         }),
         !this.androidAppsReceived_);
-  }
+  },
 };
 
 function getFakePrefs() {
@@ -444,8 +445,8 @@ function getFakePrefs() {
           type: chrome.settingsPrivate.PrefType.NUMBER,
           value: 500,
         },
-      }
-    }
+      },
+    },
   };
 }
 
@@ -468,7 +469,16 @@ suite('SettingsDevicePage', function() {
     PolymerTest.clearBody();
     Router.getInstance().navigateTo(routes.BASIC);
 
-    DevicePageBrowserProxyImpl.setInstance(new TestDevicePageBrowserProxy());
+    DevicePageBrowserProxyImpl.setInstanceForTesting(
+        new TestDevicePageBrowserProxy());
+
+    // Allow the light DOM to be distributed to settings-animated-pages.
+    setTimeout(done);
+  });
+
+  async function init() {
+    // await is necessary in order for setup() to complete.
+    await flushTasks();
     devicePage = document.createElement('settings-device-page');
     devicePage.prefs = getFakePrefs();
 
@@ -477,10 +487,7 @@ suite('SettingsDevicePage', function() {
     basicPage.dataset.page = 'basic';
     basicPage.appendChild(devicePage);
     document.body.appendChild(basicPage);
-
-    // Allow the light DOM to be distributed to settings-animated-pages.
-    setTimeout(done);
-  });
+  }
 
   /** @return {!Promise<!HTMLElement>} */
   function showAndGetDeviceSubpage(subpage, expectedRoute) {
@@ -561,7 +568,7 @@ suite('SettingsDevicePage', function() {
           width: 3000,
           height: 2000,
           refreshRate: 100,
-        }
+        },
       ],
       bounds: {
         left: 0,
@@ -647,10 +654,14 @@ suite('SettingsDevicePage', function() {
         `${elementDesc} should be focused for settingId=${settingId}.`);
   }
 
-  test(assert(TestNames.DevicePage), function() {
+  test(assert(TestNames.DevicePage), async function() {
+    await init();
     assertTrue(isVisible(devicePage.shadowRoot.querySelector('#pointersRow')));
     assertTrue(isVisible(devicePage.shadowRoot.querySelector('#keyboardRow')));
     assertTrue(isVisible(devicePage.shadowRoot.querySelector('#displayRow')));
+
+    // enableAudioSettingsPage feature flag by default is turned on in tests.
+    assertTrue(isVisible(devicePage.shadowRoot.querySelector('#audioRow')));
 
     webUIListenerCallback('has-mouse-changed', false);
     assertTrue(isVisible(devicePage.shadowRoot.querySelector('#pointersRow')));
@@ -665,10 +676,42 @@ suite('SettingsDevicePage', function() {
     assertTrue(isVisible(devicePage.shadowRoot.querySelector('#pointersRow')));
   });
 
+  test('audio row visibility', async function() {
+    loadTimeData.overrideValues({
+      enableAudioSettingsPage: false,
+    });
+    await init();
+    assertFalse(isVisible(devicePage.shadowRoot.querySelector('#audioRow')));
+  });
+
+  suite(assert(TestNames.Audio), function() {
+    let audioPage;
+
+    setup(async function() {
+      loadTimeData.overrideValues({
+        enableAudioSettingsPage: true,
+      });
+      await init();
+      return showAndGetDeviceSubpage('audio', routes.AUDIO)
+          .then(function(page) {
+            audioPage = page;
+          });
+    });
+
+    test('subpage visibility', function() {
+      assertEquals(routes.AUDIO, Router.getInstance().getCurrentRoute());
+      assertTrue(
+          isVisible(audioPage.shadowRoot.querySelector('#audioOutputTitle')));
+      assertTrue(isVisible(
+          audioPage.shadowRoot.querySelector('#audioOutputSubsection')));
+    });
+  });
+
   suite(assert(TestNames.Pointers), function() {
     let pointersPage;
 
-    setup(function() {
+    setup(async function() {
+      await init();
       return showAndGetDeviceSubpage('pointers', routes.POINTERS)
           .then(function(page) {
             pointersPage = page;
@@ -908,6 +951,7 @@ suite('SettingsDevicePage', function() {
     let keyboardPage;
 
     setup(async () => {
+      await init();
       keyboardPage = await showAndGetDeviceSubpage('keyboard', routes.KEYBOARD);
     });
 
@@ -1063,6 +1107,7 @@ suite('SettingsDevicePage', function() {
     let browserProxy;
 
     setup(async () => {
+      await init();
       displayPage = await showAndGetDeviceSubpage('display', routes.DISPLAY);
       browserProxy = DevicePageBrowserProxyImpl.getInstance();
       await fakeSystemDisplay.getInfoCalled.promise;
@@ -1132,7 +1177,7 @@ suite('SettingsDevicePage', function() {
               fakeSystemDisplay.getLayoutCalled.promise,
               new Promise(function(resolve, reject) {
                 setTimeout(resolve);
-              })
+              }),
             ]);
           })
           .then(function() {
@@ -1210,7 +1255,7 @@ suite('SettingsDevicePage', function() {
               fakeSystemDisplay.getLayoutCalled.promise,
               new Promise(function(resolve, reject) {
                 setTimeout(resolve);
-              })
+              }),
             ]);
           })
           .then(function() {
@@ -1233,7 +1278,7 @@ suite('SettingsDevicePage', function() {
               fakeSystemDisplay.getLayoutCalled.promise,
               new Promise(function(resolve, reject) {
                 setTimeout(resolve);
-              })
+              }),
             ]);
           })
           .then(function() {
@@ -1305,7 +1350,7 @@ suite('SettingsDevicePage', function() {
 
       const deepLinkElement =
           displayPage.shadowRoot.querySelector('#displayMirrorCheckbox')
-              .$$('#checkbox');
+              .shadowRoot.querySelector('#checkbox');
       await waitAfterNextRender(deepLinkElement);
       assertEquals(
           deepLinkElement, getDeepActiveElement(),
@@ -1380,6 +1425,7 @@ suite('SettingsDevicePage', function() {
 
   test(assert(TestNames.NightLight), async function() {
     // Set up a single display.
+    await init();
     const displayPage =
         await showAndGetDeviceSubpage('display', routes.DISPLAY);
     await fakeSystemDisplay.getInfoCalled.promise;
@@ -1441,7 +1487,8 @@ suite('SettingsDevicePage', function() {
         });
       });
 
-      setup(function() {
+      setup(async function() {
+        await init();
         return showAndGetDeviceSubpage('power', routes.POWER)
             .then(function(page) {
               powerPage = page;
@@ -1466,12 +1513,14 @@ suite('SettingsDevicePage', function() {
                       .requestPowerManagementSettingsCalled_);
               sendPowerManagementSettings(
                   [
-                    IdleBehavior.DISPLAY_OFF_SLEEP, IdleBehavior.DISPLAY_OFF,
-                    IdleBehavior.DISPLAY_ON
+                    IdleBehavior.DISPLAY_OFF_SLEEP,
+                    IdleBehavior.DISPLAY_OFF,
+                    IdleBehavior.DISPLAY_ON,
                   ],
                   [
-                    IdleBehavior.DISPLAY_OFF_SLEEP, IdleBehavior.DISPLAY_OFF,
-                    IdleBehavior.DISPLAY_ON
+                    IdleBehavior.DISPLAY_OFF_SLEEP,
+                    IdleBehavior.DISPLAY_OFF,
+                    IdleBehavior.DISPLAY_ON,
                   ],
                   IdleBehavior.DISPLAY_OFF_SLEEP,
                   IdleBehavior.DISPLAY_OFF_SLEEP, false /* acIdleManaged */,
@@ -1481,7 +1530,8 @@ suite('SettingsDevicePage', function() {
             });
       });
 
-      test('no battery', function() {
+      test('no battery', async function() {
+        await init();
         const batteryStatus = {
           present: false,
           charging: false,
@@ -1638,12 +1688,14 @@ suite('SettingsDevicePage', function() {
         const sendLid = function(lidBehavior) {
           sendPowerManagementSettings(
               [
-                IdleBehavior.DISPLAY_OFF_SLEEP, IdleBehavior.DISPLAY_OFF,
-                IdleBehavior.DISPLAY_ON
+                IdleBehavior.DISPLAY_OFF_SLEEP,
+                IdleBehavior.DISPLAY_OFF,
+                IdleBehavior.DISPLAY_ON,
               ],
               [
-                IdleBehavior.DISPLAY_OFF_SLEEP, IdleBehavior.DISPLAY_OFF,
-                IdleBehavior.DISPLAY_ON
+                IdleBehavior.DISPLAY_OFF_SLEEP,
+                IdleBehavior.DISPLAY_OFF,
+                IdleBehavior.DISPLAY_ON,
               ],
               IdleBehavior.DISPLAY_OFF, IdleBehavior.DISPLAY_OFF,
               false /* acIdleManaged */, false /* batteryIdleManaged */,
@@ -1775,12 +1827,14 @@ suite('SettingsDevicePage', function() {
                  // Send power management settings first.
                  sendPowerManagementSettings(
                      [
-                       IdleBehavior.DISPLAY_OFF_SLEEP, IdleBehavior.DISPLAY_OFF,
-                       IdleBehavior.DISPLAY_ON
+                       IdleBehavior.DISPLAY_OFF_SLEEP,
+                       IdleBehavior.DISPLAY_OFF,
+                       IdleBehavior.DISPLAY_ON,
                      ],
                      [
-                       IdleBehavior.DISPLAY_OFF_SLEEP, IdleBehavior.DISPLAY_OFF,
-                       IdleBehavior.DISPLAY_ON
+                       IdleBehavior.DISPLAY_OFF_SLEEP,
+                       IdleBehavior.DISPLAY_OFF,
+                       IdleBehavior.DISPLAY_ON,
                      ],
                      IdleBehavior.DISPLAY_ON, IdleBehavior.DISPLAY_OFF,
                      false /* acIdleManaged */, false /* batteryIdleManaged */,
@@ -1830,12 +1884,14 @@ suite('SettingsDevicePage', function() {
             .then(function() {
               sendPowerManagementSettings(
                   [
-                    IdleBehavior.DISPLAY_OFF_SLEEP, IdleBehavior.DISPLAY_OFF,
-                    IdleBehavior.DISPLAY_ON
+                    IdleBehavior.DISPLAY_OFF_SLEEP,
+                    IdleBehavior.DISPLAY_OFF,
+                    IdleBehavior.DISPLAY_ON,
                   ],
                   [
-                    IdleBehavior.DISPLAY_OFF_SLEEP, IdleBehavior.DISPLAY_OFF,
-                    IdleBehavior.DISPLAY_ON
+                    IdleBehavior.DISPLAY_OFF_SLEEP,
+                    IdleBehavior.DISPLAY_OFF,
+                    IdleBehavior.DISPLAY_ON,
                   ],
                   IdleBehavior.DISPLAY_OFF, IdleBehavior.DISPLAY_ON,
                   false /* acIdleManaged */, false /* batteryIdleManaged */,
@@ -1964,12 +2020,14 @@ suite('SettingsDevicePage', function() {
                          .hidden);
                  sendPowerManagementSettings(
                      [
-                       IdleBehavior.DISPLAY_OFF_SLEEP, IdleBehavior.DISPLAY_OFF,
-                       IdleBehavior.DISPLAY_ON
+                       IdleBehavior.DISPLAY_OFF_SLEEP,
+                       IdleBehavior.DISPLAY_OFF,
+                       IdleBehavior.DISPLAY_ON,
                      ],
                      [
-                       IdleBehavior.DISPLAY_OFF_SLEEP, IdleBehavior.DISPLAY_OFF,
-                       IdleBehavior.DISPLAY_ON
+                       IdleBehavior.DISPLAY_OFF_SLEEP,
+                       IdleBehavior.DISPLAY_OFF,
+                       IdleBehavior.DISPLAY_ON,
                      ],
                      IdleBehavior.DISPLAY_OFF_SLEEP,
                      IdleBehavior.DISPLAY_OFF_SLEEP, false /* acIdleManaged */,
@@ -2042,7 +2100,8 @@ suite('SettingsDevicePage', function() {
       });
     });
 
-    setup(function() {
+    setup(async function() {
+      await init();
       return showAndGetDeviceSubpage('stylus', routes.STYLUS)
           .then(function(page) {
             stylusPage = page;
@@ -2063,7 +2122,7 @@ suite('SettingsDevicePage', function() {
         name: name,
         value: value,
         preferred: preferred,
-        lockScreenSupport: lockScreenSupport
+        lockScreenSupport: lockScreenSupport,
       };
     }
 
@@ -2132,7 +2191,7 @@ suite('SettingsDevicePage', function() {
       // value set.
       browserProxy.setNoteTakingApps([
         entry('n1', 'v1', false, LockScreenSupport.NOT_SUPPORTED),
-        entry('n2', 'v2', false, LockScreenSupport.NOT_SUPPORTED)
+        entry('n2', 'v2', false, LockScreenSupport.NOT_SUPPORTED),
       ]);
       flush();
       assertEquals('v1', appSelector.value);
@@ -2142,7 +2201,7 @@ suite('SettingsDevicePage', function() {
       // Selector chooses the preferred value if set.
       browserProxy.setNoteTakingApps([
         entry('n1', 'v1', false, LockScreenSupport.NOT_SUPPORTED),
-        entry('n2', 'v2', true, LockScreenSupport.NOT_SUPPORTED)
+        entry('n2', 'v2', true, LockScreenSupport.NOT_SUPPORTED),
       ]);
       flush();
       assertEquals('v2', appSelector.value);
@@ -2152,7 +2211,7 @@ suite('SettingsDevicePage', function() {
       // Load app list.
       browserProxy.setNoteTakingApps([
         entry('n1', 'v1', false, LockScreenSupport.NOT_SUPPORTED),
-        entry('n2', 'v2', true, LockScreenSupport.NOT_SUPPORTED)
+        entry('n2', 'v2', true, LockScreenSupport.NOT_SUPPORTED),
       ]);
       flush();
       assertEquals(0, browserProxy.setPreferredAppCount_);
@@ -2183,7 +2242,7 @@ suite('SettingsDevicePage', function() {
 
       browserProxy.setNoteTakingApps([
         entry('n1', 'v1', false, LockScreenSupport.NOT_SUPPORTED),
-        entry('n2', 'v2', true, LockScreenSupport.NOT_SUPPORTED)
+        entry('n2', 'v2', true, LockScreenSupport.NOT_SUPPORTED),
       ]);
       flush();
       assertEquals(0, browserProxy.setPreferredAppCount_);
@@ -2193,7 +2252,7 @@ suite('SettingsDevicePage', function() {
     test('Deep link to preferred app', async () => {
       browserProxy.setNoteTakingApps([
         entry('n1', 'v1', false, LockScreenSupport.NOT_SUPPORTED),
-        entry('n2', 'v2', false, LockScreenSupport.NOT_SUPPORTED)
+        entry('n2', 'v2', false, LockScreenSupport.NOT_SUPPORTED),
       ]);
       browserProxy.setAndroidAppsReceived(true);
 
@@ -2297,7 +2356,7 @@ suite('SettingsDevicePage', function() {
             // Preferred app updated to be enabled on lock screen.
             browserProxy.setNoteTakingApps([
               entry('n1', 'v1', false, LockScreenSupport.NOT_SUPPORTED),
-              entry('n2', 'v2', true, LockScreenSupport.ENABLED)
+              entry('n2', 'v2', true, LockScreenSupport.ENABLED),
             ]);
             return new Promise(function(resolve) {
               stylusPage.async(resolve);
@@ -2525,7 +2584,7 @@ suite('SettingsDevicePage', function() {
       return new Promise(function(resolve) {
                browserProxy.setNoteTakingApps([
                  entry('n1', 'v1', true, LockScreenSupport.NOT_SUPPORTED),
-                 entry('n2', 'v2', false, LockScreenSupport.SUPPORTED)
+                 entry('n2', 'v2', false, LockScreenSupport.SUPPORTED),
                ]);
                stylusPage.async(resolve);
              })
@@ -2536,7 +2595,7 @@ suite('SettingsDevicePage', function() {
 
             browserProxy.setNoteTakingApps([
               entry('n1', 'v1', false, LockScreenSupport.NOT_SUPPORTED),
-              entry('n2', 'v2', true, LockScreenSupport.SUPPORTED)
+              entry('n2', 'v2', true, LockScreenSupport.SUPPORTED),
             ]);
             return new Promise(function(resolve) {
               stylusPage.async(resolve);
@@ -2622,7 +2681,8 @@ suite('SettingsDevicePage', function() {
       testing.Test.disableAnimationsAndTransitions();
     });
 
-    setup(function() {
+    setup(async function() {
+      await init();
       return showAndGetDeviceSubpage('storage', routes.STORAGE)
           .then(function(page) {
             storagePage = page;

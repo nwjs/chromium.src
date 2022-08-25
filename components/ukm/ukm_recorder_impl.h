@@ -40,6 +40,9 @@ class UkmSource;
 class UkmTestHelper;
 class UkmUtilsForTest;
 
+COMPONENT_EXPORT(UKM_RECORDER)
+extern const base::Feature kUkmSamplingRateFeature;
+
 namespace debug {
 class UkmDebugDataExtractor;
 }
@@ -51,14 +54,6 @@ class COMPONENT_EXPORT(UKM_RECORDER) UkmRecorderImpl : public UkmRecorder {
  public:
   UkmRecorderImpl();
   ~UkmRecorderImpl() override;
-
-  // Unconditionally attempts to create a field trial to control client side
-  // metrics/crash sampling to use as a fallback when one hasn't been
-  // provided. This is expected to occur on first-run on platforms that don't
-  // have first-run variations support. This should only be called when there is
-  // no existing field trial controlling the sampling feature.
-  static void CreateFallbackSamplingTrial(bool is_stable_channel,
-                                          base::FeatureList* feature_list);
 
   // Enables/disables recording control if data is allowed to be collected. The
   // |extensions| flag separately controls recording of chrome-extension://
@@ -182,6 +177,7 @@ class COMPONENT_EXPORT(UKM_RECORDER) UkmRecorderImpl : public UkmRecorder {
   FRIEND_TEST_ALL_PREFIXES(UkmRecorderImplTest, PurgeExtensionRecordings);
   FRIEND_TEST_ALL_PREFIXES(UkmRecorderImplTest, WebApkSourceUrl);
   FRIEND_TEST_ALL_PREFIXES(UkmRecorderImplTest, PaymentAppScopeUrl);
+  FRIEND_TEST_ALL_PREFIXES(UkmRecorderImplTest, WebIdentityScopeUrl);
   FRIEND_TEST_ALL_PREFIXES(UkmRecorderImplTest, ObserverNotifiedOnNewEntry);
   FRIEND_TEST_ALL_PREFIXES(UkmRecorderImplTest, AddRemoveObserver);
 
@@ -218,6 +214,9 @@ class COMPONENT_EXPORT(UKM_RECORDER) UkmRecorderImpl : public UkmRecorder {
   };
 
   using MetricAggregateMap = std::map<uint64_t, MetricAggregate>;
+
+  // Marks for deletion if the |source_id| is of a certain type.
+  void MaybeMarkForDeletion(SourceId source_id);
 
   // Returns the result whether |sanitized_url| should be recorded.
   ShouldRecordUrlResult ShouldRecordUrl(SourceId source_id,

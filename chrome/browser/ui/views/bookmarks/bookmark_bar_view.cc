@@ -96,6 +96,7 @@
 #include "ui/base/theme_provider.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/color/color_id.h"
+#include "ui/color/color_provider.h"
 #include "ui/compositor/paint_recorder.h"
 #include "ui/events/event_constants.h"
 #include "ui/events/types/event_type.h"
@@ -305,9 +306,17 @@ class BookmarkFolderButton : public BookmarkMenuButtonBase {
   BookmarkFolderButton(const BookmarkFolderButton&) = delete;
   BookmarkFolderButton& operator=(const BookmarkFolderButton&) = delete;
 
+  // Returns an accessible name for the folder. If the folder is unnamed, it
+  // will use a default, otherwise it will use the user-supplied folder name.
+  std::u16string GetAccessibleName() const {
+    return GetText().empty()
+               ? l10n_util::GetStringUTF16(IDS_UNNAMED_BOOKMARK_FOLDER)
+               : GetText();
+  }
+
   std::u16string GetTooltipText(const gfx::Point& p) const override {
     return label()->GetPreferredSize().width() > label()->size().width()
-               ? GetText()
+               ? GetAccessibleName()
                : std::u16string();
   }
 
@@ -324,6 +333,7 @@ class BookmarkFolderButton : public BookmarkMenuButtonBase {
 
   void GetAccessibleNodeData(ui::AXNodeData* node_data) override {
     BookmarkMenuButtonBase::GetAccessibleNodeData(node_data);
+    node_data->SetName(GetAccessibleName());
     node_data->AddStringAttribute(
         ax::mojom::StringAttribute::kRoleDescription,
         l10n_util::GetStringUTF8(
@@ -429,6 +439,7 @@ class BookmarkBarView::ButtonSeparatorView : public views::Separator {
     constexpr int kPaddingWidth = kSeparatorWidth - kThickness;
     constexpr int kLeadingPadding = (kPaddingWidth + 1) / 2;
 
+    SetColorId(kColorBookmarkBarSeparator);
     SetBorder(views::CreateEmptyBorder(gfx::Insets::TLBR(
         0, kLeadingPadding, 0, kPaddingWidth - kLeadingPadding)));
     SetPreferredLength(gfx::kFaviconSize);
@@ -436,12 +447,6 @@ class BookmarkBarView::ButtonSeparatorView : public views::Separator {
   ButtonSeparatorView(const ButtonSeparatorView&) = delete;
   ButtonSeparatorView& operator=(const ButtonSeparatorView&) = delete;
   ~ButtonSeparatorView() override = default;
-
-  void OnThemeChanged() override {
-    views::Separator::OnThemeChanged();
-    SetColor(GetThemeProvider()->GetColor(
-        ThemeProperties::COLOR_BOOKMARK_SEPARATOR));
-  }
 
   void GetAccessibleNodeData(ui::AXNodeData* node_data) override {
     node_data->SetName(l10n_util::GetStringUTF8(IDS_ACCNAME_SEPARATOR));
@@ -477,9 +482,8 @@ BookmarkBarView::BookmarkBarView(Browser* browser, BrowserView* browser_view)
   if (browser_view)
     SetBackground(std::make_unique<TopContainerBackground>(browser_view));
 
-  views::SetCascadingThemeProviderColor(
-      this, views::kCascadingBackgroundColor,
-      ThemeProperties::COLOR_BOOKMARK_BAR_BACKGROUND);
+  views::SetCascadingColorProviderColor(this, views::kCascadingBackgroundColor,
+                                        kColorBookmarkBarBackground);
 
   Init();
 }
@@ -944,7 +948,7 @@ void BookmarkBarView::PaintChildren(const views::PaintInfo& paint_info) {
     // TODO(sky/glen): make me pretty!
     recorder.canvas()->FillRect(
         indicator_bounds,
-        GetThemeProvider()->GetColor(ThemeProperties::COLOR_BOOKMARK_TEXT));
+        GetColorProvider()->GetColor(kColorBookmarkBarForeground));
   }
 }
 
@@ -1420,7 +1424,7 @@ void BookmarkBarView::ShowContextMenuForViewImpl(
 }
 
 void BookmarkBarView::Init() {
-  // Note that at this point we're not in a hierarchy so GetThemeProvider() will
+  // Note that at this point we're not in a hierarchy so GetColorProvider() will
   // return nullptr.  When we're inserted into a hierarchy, we'll call
   // UpdateAppearanceForTheme(), which will set the appropriate colors for all
   // the objects added in this function.
@@ -1586,11 +1590,11 @@ void BookmarkBarView::ConfigureButton(const BookmarkNode* node,
   button->SetText(node->GetTitle());
   button->SetAccessibleName(node->GetTitle());
   button->SetID(VIEW_ID_BOOKMARK_BAR_ELEMENT);
-  // We don't always have a theme provider (ui tests, for example).
+  // We don't always have a color provider (ui tests, for example).
   SkColor text_color = gfx::kPlaceholderColor;
-  const ui::ThemeProvider* const tp = GetThemeProvider();
-  if (tp) {
-    text_color = tp->GetColor(ThemeProperties::COLOR_BOOKMARK_TEXT);
+  const ui::ColorProvider* const cp = GetColorProvider();
+  if (cp) {
+    text_color = cp->GetColor(kColorBookmarkBarForeground);
     button->SetEnabledTextColors(text_color);
     if (node->is_folder()) {
       button->SetImageModel(
@@ -1608,7 +1612,7 @@ void BookmarkBarView::ConfigureButton(const BookmarkNode* node,
     bool themify_icon = node->url().SchemeIs(content::kChromeUIScheme);
     gfx::ImageSkia favicon = bookmark_model_->GetFavicon(node).AsImageSkia();
     if (favicon.isNull()) {
-      if (ui::TouchUiController::Get()->touch_ui() && tp) {
+      if (ui::TouchUiController::Get()->touch_ui() && cp) {
         // This favicon currently does not match the default favicon icon used
         // elsewhere in the codebase.
         // See https://crbug/814447
@@ -1625,9 +1629,8 @@ void BookmarkBarView::ConfigureButton(const BookmarkNode* node,
       themify_icon = true;
     }
 
-    if (themify_icon && tp) {
-      SkColor favicon_color =
-          tp->GetColor(ThemeProperties::COLOR_BOOKMARK_FAVICON);
+    if (themify_icon && cp) {
+      SkColor favicon_color = cp->GetColor(kColorBookmarkFavicon);
       if (favicon_color != SK_ColorTRANSPARENT) {
         favicon =
             gfx::ImageSkiaOperations::CreateColorMask(favicon, favicon_color);
@@ -1955,17 +1958,16 @@ views::Button* BookmarkBarView::DetermineViewToThrobFromRemove(
 }
 
 void BookmarkBarView::UpdateAppearanceForTheme() {
-  // We don't always have a theme provider (ui tests, for example).
-  const ui::ThemeProvider* theme_provider = GetThemeProvider();
-  if (!theme_provider)
+  // We don't always have a color provider (ui tests, for example).
+  const ui::ColorProvider* color_provider = GetColorProvider();
+  if (!color_provider)
     return;
   for (size_t i = 0; i < bookmark_buttons_.size(); ++i) {
     ConfigureButton(bookmark_model_->bookmark_bar_node()->children()[i].get(),
                     bookmark_buttons_[i]);
   }
 
-  const SkColor color =
-      theme_provider->GetColor(ThemeProperties::COLOR_BOOKMARK_TEXT);
+  const SkColor color = color_provider->GetColor(kColorBookmarkBarForeground);
   other_bookmarks_button_->SetEnabledTextColors(color);
   managed_bookmarks_button_->SetEnabledTextColors(color);
   other_bookmarks_button_->SetImageModel(
@@ -1981,7 +1983,7 @@ void BookmarkBarView::UpdateAppearanceForTheme() {
     apps_page_shortcut_->SetEnabledTextColors(color);
 
   const SkColor overflow_color =
-      GetColorProvider()->GetColor(kColorBookmarkButtonIcon);
+      color_provider->GetColor(kColorBookmarkButtonIcon);
   const bool touch_ui = ui::TouchUiController::Get()->touch_ui();
   overflow_button_->SetImageModel(
       views::Button::STATE_NORMAL,

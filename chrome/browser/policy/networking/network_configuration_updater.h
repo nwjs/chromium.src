@@ -10,11 +10,12 @@
 #include <string>
 #include <vector>
 
+#include "base/memory/raw_ptr.h"
 #include "base/observer_list.h"
 #include "base/sequence_checker.h"
+#include "chromeos/ash/components/network/policy_certificate_provider.h"
 #include "chromeos/components/onc/certificate_scope.h"
 #include "chromeos/components/onc/onc_parsed_certificates.h"
-#include "chromeos/network/policy_certificate_provider.h"
 #include "components/onc/onc_constants.h"
 #include "components/policy/core/common/policy_service.h"
 
@@ -140,7 +141,7 @@ class NetworkConfigurationUpdater : public chromeos::PolicyCertificateProvider,
   PolicyChangeRegistrar policy_change_registrar_;
 
   // Used to retrieve the policies.
-  PolicyService* policy_service_;
+  raw_ptr<PolicyService> policy_service_;
 
   // Holds certificates from the last parsed ONC policy.
   std::unique_ptr<chromeos::onc::OncParsedCertificates> certs_;

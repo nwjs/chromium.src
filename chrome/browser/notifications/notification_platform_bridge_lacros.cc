@@ -8,6 +8,7 @@
 
 #include "base/check.h"
 #include "base/cxx17_backports.h"
+#include "base/memory/raw_ptr.h"
 #include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
 #include "chrome/browser/notifications/notification_platform_bridge_delegate.h"
@@ -18,6 +19,7 @@
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/message_center/public/cpp/notification.h"
 #include "ui/message_center/public/cpp/notification_types.h"
+#include "ui/native_theme/native_theme.h"
 
 namespace {
 
@@ -153,7 +155,7 @@ class NotificationPlatformBridgeLacros::RemoteNotificationDelegate
 
  private:
   const std::string notification_id_;
-  NotificationPlatformBridgeDelegate* const bridge_delegate_;
+  const raw_ptr<NotificationPlatformBridgeDelegate> bridge_delegate_;
   base::WeakPtr<NotificationPlatformBridgeLacros> owner_;
   mojo::Receiver<crosapi::mojom::NotificationDelegate> receiver_{this};
 };
@@ -184,10 +186,13 @@ void NotificationPlatformBridgeLacros::Display(
   auto pending_notification = std::make_unique<RemoteNotificationDelegate>(
       notification.id(), bridge_delegate_, weak_factory_.GetWeakPtr());
   // Display the notification, or update an existing one with the same ID.
-  // `profile` may be null in tests.
+  // `profile` may be null for e.g. system notifications.
   const auto* const color_provider =
-      profile ? ThemeServiceFactory::GetForProfile(profile)->GetColorProvider()
-              : nullptr;
+      profile
+          ? ThemeServiceFactory::GetForProfile(profile)->GetColorProvider()
+          : ui::ColorProviderManager::Get().GetColorProviderFor(
+                ui::NativeTheme::GetInstanceForNativeUi()->GetColorProviderKey(
+                    nullptr));
   (*message_center_remote_)
       ->DisplayNotification(ToMojo(notification, color_provider),
                             pending_notification->BindNotificationDelegate());

@@ -493,8 +493,8 @@ class CONTENT_EXPORT FrameTreeNode {
   // by FrameTree::Init() or FrameTree::AddFrame().
   void SetFencedFrameNonceIfNeeded();
 
-  // Returns the mode attribute set on the fenced frame if this is a fenced
-  // frame root, otherwise returns `absl::nullopt`.
+  // Returns the mode attribute set on the fenced frame root if this frame is
+  // in a fenced frame tree, otherwise returns `absl::nullopt`.
   absl::optional<blink::mojom::FencedFrameMode> GetFencedFrameMode();
 
   // Helper for GetParentOrOuterDocument/GetParentOrOuterDocumentOrEmbedder.
@@ -557,6 +557,12 @@ class CONTENT_EXPORT FrameTreeNode {
   // Clears the opener property of popups referencing this FrameTreeNode as
   // their opener.
   void ClearOpenerReferences();
+
+  // Calculates whether one of the ancestor frames or this frame has a CSPEE
+  // in place. This is eventually sent over to LocalFrame in the renderer where
+  // it will be used by HTMLFencedFrameElement::canLoadOpaqueURL for information
+  // it can't get on its own.
+  bool AncestorOrSelfHasCSPEE() const;
 
  private:
   FRIEND_TEST_ALL_PREFIXES(SitePerProcessPermissionsPolicyBrowserTest,

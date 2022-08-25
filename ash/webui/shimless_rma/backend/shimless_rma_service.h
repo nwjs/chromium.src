@@ -14,7 +14,7 @@
 #include "base/containers/flat_set.h"
 #include "chromeos/ash/components/dbus/rmad/rmad.pb.h"
 #include "chromeos/ash/components/dbus/rmad/rmad_client.h"
-#include "chromeos/dbus/update_engine/update_engine.pb.h"
+#include "chromeos/ash/components/dbus/update_engine/update_engine.pb.h"
 #include "chromeos/services/network_config/public/mojom/cros_network_config.mojom.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -192,6 +192,10 @@ class ShimlessRmaService : public mojom::ShimlessRmaService,
 
   // Sends a metric to the platform side when an OS update is requested.
   void SendMetricOnUpdateOs();
+
+  // Sets the critical_error_occurred_ variable, so that the tests can call
+  // functions that request reboots after an error.
+  void SetCriticalErrorOccurredForTest(bool critical_error_occurred);
 
  private:
   using TransitionStateCallback =

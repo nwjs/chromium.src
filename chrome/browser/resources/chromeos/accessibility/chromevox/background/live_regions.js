@@ -5,8 +5,11 @@
 /**
  * @fileoverview Implements support for live regions in ChromeVox Next.
  */
-import {ChromeVoxState} from '/chromevox/background/chromevox_state.js';
-import {Output} from '/chromevox/background/output/output.js';
+import {CursorRange} from '../../common/cursors/range.js';
+
+import {ChromeVoxState} from './chromevox_state.js';
+import {Output} from './output/output.js';
+import {OutputEventType} from './output/output_types.js';
 
 const AutomationNode = chrome.automation.AutomationNode;
 const RoleType = chrome.automation.RoleType;
@@ -163,7 +166,7 @@ export class LiveRegions {
    * @private
    */
   outputLiveRegionChangeForNode_(node, opt_prependFormatStr) {
-    const range = cursors.Range.fromNode(node);
+    const range = CursorRange.fromNode(node);
     const output = new Output();
     output.withSpeechCategory(TtsCategory.LIVE);
 

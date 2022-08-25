@@ -66,8 +66,11 @@ void IgnoreUserCloudPrecedencePolicies(PolicyMap* policies) {
 void DowngradeMetricsReportingToRecommendedPolicy(PolicyMap* policies) {
   // Capture both the Chrome-only and device-level policies on Chrome OS.
   const std::vector<const char*> metrics_keys = {
-      policy::key::kMetricsReportingEnabled,
-      policy::key::kDeviceMetricsReportingEnabled};
+    policy::key::kMetricsReportingEnabled,
+#if BUILDFLAG(IS_CHROMEOS)
+    policy::key::kDeviceMetricsReportingEnabled,
+#endif
+  };
   for (const char* policy_key : metrics_keys) {
     PolicyMap::Entry* policy = policies->GetMutable(policy_key);
     if (policy && policy->level != POLICY_LEVEL_RECOMMENDED &&
@@ -88,6 +91,17 @@ base::flat_set<std::string> GetStringListPolicyItems(
     const std::string& policy) {
   return ValueToStringSet(
       bundle.Get(space).GetValue(policy, base::Value::Type::LIST));
+}
+
+bool IsUserCloudMergingAllowed(const PolicyMap& policies) {
+#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_IOS)
+  return false;
+#else
+  const base::Value* cloud_user_policy_merge_value =
+      policies.GetValue(key::kCloudUserPolicyMerge, base::Value::Type::BOOLEAN);
+  return cloud_user_policy_merge_value &&
+         cloud_user_policy_merge_value->GetBool();
+#endif
 }
 
 }  // namespace
@@ -325,10 +339,8 @@ void PolicyServiceImpl::MergeAndTriggerUpdates() {
 
   // Pass affiliation and CloudUserPolicyMerge values to both mergers.
   const bool is_user_affiliated = chrome_policies.IsUserAffiliated();
-  const base::Value* cloud_user_policy_merge_value = chrome_policies.GetValue(
-      key::kCloudUserPolicyMerge, base::Value::Type::BOOLEAN);
   const bool is_user_cloud_merging_enabled =
-      cloud_user_policy_merge_value && cloud_user_policy_merge_value->GetBool();
+      IsUserCloudMergingAllowed(chrome_policies);
   policy_list_merger.SetAllowUserCloudPolicyMerging(
       is_user_affiliated && is_user_cloud_merging_enabled);
   policy_dictionary_merger.SetAllowUserCloudPolicyMerging(

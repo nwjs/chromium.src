@@ -36,7 +36,6 @@ import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
 import org.chromium.chrome.browser.content.ContentUtils;
 import org.chromium.chrome.browser.contextmenu.ContextMenuPopulatorFactory;
-import org.chromium.chrome.browser.flags.CachedFeatureFlags;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.native_page.NativePageAssassin;
@@ -45,6 +44,7 @@ import org.chromium.chrome.browser.offlinepages.OfflinePageUtils;
 import org.chromium.chrome.browser.paint_preview.StartupPaintPreviewHelper;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.rlz.RevenueStats;
+import org.chromium.chrome.browser.tab.TabUtils.UseDesktopUserAgentCaller;
 import org.chromium.chrome.browser.tab.state.CriticalPersistedTabData;
 import org.chromium.chrome.browser.tab.state.SerializedCriticalPersistedTabData;
 import org.chromium.chrome.browser.ui.TabObscuringHandler;
@@ -59,7 +59,6 @@ import org.chromium.components.security_state.SecurityStateModel;
 import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.components.version_info.VersionInfo;
 import org.chromium.content_public.browser.ChildProcessImportance;
-import org.chromium.content_public.browser.ContentFeatureList;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsAccessibility;
@@ -446,6 +445,7 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
         return isShowingErrorPage() || !hasSecurityIssue;
     }
 
+    @CalledByNative
     @Override
     public boolean isIncognito() {
         return mIncognito;
@@ -561,7 +561,7 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
             return true;
         }
 
-        switchUserAgentIfNeeded();
+        switchUserAgentIfNeeded(UseDesktopUserAgentCaller.LOAD_IF_NEEDED);
         restoreIfNeeded();
         return true;
     }
@@ -584,14 +584,14 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
         }
 
         if (getWebContents() == null) return;
-        switchUserAgentIfNeeded();
+        switchUserAgentIfNeeded(UseDesktopUserAgentCaller.RELOAD);
         getWebContents().getNavigationController().reload(true);
     }
 
     @Override
     public void reloadIgnoringCache() {
         if (getWebContents() != null) {
-            switchUserAgentIfNeeded();
+            switchUserAgentIfNeeded(UseDesktopUserAgentCaller.RELOAD_IGNORING_CACHE);
             getWebContents().getNavigationController().reloadBypassingCache(true);
         }
     }
@@ -942,7 +942,7 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
     }
 
     private boolean useCriticalPersistedTabData() {
-        return CachedFeatureFlags.isEnabled(ChromeFeatureList.CRITICAL_PERSISTED_TAB_DATA);
+        return ChromeFeatureList.sCriticalPersistedTabData.isEnabled();
     }
 
     @Nullable
@@ -1638,61 +1638,39 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
 
     private @UserAgentOverrideOption int calculateUserAgentOverrideOption() {
         WebContents webContents = getWebContents();
-        boolean currentRequestDesktopSite = webContents == null
-                ? false
-                : webContents.getNavigationController().getUseDesktopUserAgent();
-
+        boolean currentRequestDesktopSite = TabUtils.isUsingDesktopUserAgent(webContents);
         @TabUserAgent
-        int tabUserAgent = CriticalPersistedTabData.from(this).getUserAgent();
-        // TabUserAgent.UNSET means this is a pre-existing tab from an earlier build. In this case
-        // we set the TabUserAgent bit based on last committed entry's user agent. If webContents is
-        // null, this method is triggered too early, and we cannot read the last committed entry's
-        // user agent yet. We will skip for now and let the following call set the TabUserAgent bit.
-        if (webContents != null && tabUserAgent == TabUserAgent.UNSET) {
-            if (currentRequestDesktopSite) {
-                tabUserAgent = TabUserAgent.DESKTOP;
-            } else {
-                tabUserAgent = TabUserAgent.DEFAULT;
-            }
-            CriticalPersistedTabData.from(this).setUserAgent(tabUserAgent);
-        }
-        // We only calculate the user agent when users did not manually choose one.
-        if (tabUserAgent == TabUserAgent.DEFAULT
-                && ContentFeatureList.isEnabled(ContentFeatureList.REQUEST_DESKTOP_SITE_GLOBAL)) {
-            // We only do the following logic to choose the desktop/mobile user agent if:
-            // 1. User never manually made a choice in the app menu for requesting desktop site.
-            // 2. User-enabled request desktop site in site settings.
-            Profile profile =
-                    IncognitoUtils.getProfileFromWindowAndroid(mWindowAndroid, isIncognito());
-            boolean shouldRequestDesktopSite;
-            if (ContentFeatureList.isEnabled(ContentFeatureList.REQUEST_DESKTOP_SITE_EXCEPTIONS)) {
-                shouldRequestDesktopSite = getWebContents() != null
-                        && TabUtils.isDesktopSiteEnabled(profile, getWebContents().getVisibleUrl());
-            } else {
-                shouldRequestDesktopSite = TabUtils.isDesktopSiteGlobalEnabled(profile);
-            }
-
-            if (shouldRequestDesktopSite != currentRequestDesktopSite) {
-                // TODO(crbug.com/1243758): Confirm if a new histogram should be used.
-                RecordHistogram.recordBooleanHistogram(
-                        "Android.RequestDesktopSite.UseDesktopUserAgent", shouldRequestDesktopSite);
-
-                // The user is not forcing any mode and we determined that we need to
-                // change, therefore we are using TRUE or FALSE option. On Android TRUE mean
-                // override to Desktop user agent, while FALSE means go with Mobile version.
-                return shouldRequestDesktopSite ? UserAgentOverrideOption.TRUE
-                                                : UserAgentOverrideOption.FALSE;
-            }
+        int tabUserAgent = TabUtils.getTabUserAgent(this);
+        // INHERIT means use the same UA that was used last time.
+        @UserAgentOverrideOption
+        int userAgentOverrideOption = UserAgentOverrideOption.INHERIT;
+        // Do not override UA if there is a tab level setting.
+        if (tabUserAgent != TabUserAgent.DEFAULT) {
+            recordHistogramUseDesktopUserAgent(currentRequestDesktopSite);
+            return userAgentOverrideOption;
         }
 
-        RecordHistogram.recordBooleanHistogram(
-                "Android.RequestDesktopSite.UseDesktopUserAgent", currentRequestDesktopSite);
-
-        // INHERIT means use the same that was used last time.
-        return UserAgentOverrideOption.INHERIT;
+        Profile profile = IncognitoUtils.getProfileFromWindowAndroid(mWindowAndroid, isIncognito());
+        boolean shouldRequestDesktopSite =
+                TabUtils.readRequestDesktopSiteContentSettings(profile, webContents);
+        if (shouldRequestDesktopSite != currentRequestDesktopSite) {
+            // The user is not forcing any mode and we determined that we need to
+            // change, therefore we are using TRUE or FALSE option. On Android TRUE mean
+            // override to Desktop user agent, while FALSE means go with Mobile version.
+            userAgentOverrideOption = shouldRequestDesktopSite ? UserAgentOverrideOption.TRUE
+                                                               : UserAgentOverrideOption.FALSE;
+        }
+        recordHistogramUseDesktopUserAgent(shouldRequestDesktopSite);
+        return userAgentOverrideOption;
     }
 
-    private void switchUserAgentIfNeeded() {
+    // TODO(crbug.com/1243758): Confirm if a new histogram should be used.
+    private void recordHistogramUseDesktopUserAgent(boolean value) {
+        RecordHistogram.recordBooleanHistogram(
+                "Android.RequestDesktopSite.UseDesktopUserAgent", value);
+    }
+
+    private void switchUserAgentIfNeeded(@UseDesktopUserAgentCaller int caller) {
         if (calculateUserAgentOverrideOption() == UserAgentOverrideOption.INHERIT
                 || getWebContents() == null) {
             return;
@@ -1700,7 +1678,7 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
         boolean usingDesktopUserAgent =
                 getWebContents().getNavigationController().getUseDesktopUserAgent();
         TabUtils.switchUserAgent(this, /* switchToDesktop */ !usingDesktopUserAgent,
-                /* forcedByUser */ false);
+                /* forcedByUser */ false, caller);
     }
 
     @NativeMethods

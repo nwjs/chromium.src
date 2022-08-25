@@ -53,6 +53,10 @@
 #include "content/public/browser/android/child_process_importance.h"
 #endif
 
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#include "media/mojo/mojom/stable/stable_video_decoder.mojom-forward.h"
+#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+
 class GURL;
 
 namespace base {
@@ -545,10 +549,6 @@ class CONTENT_EXPORT RenderProcessHost : public IPC::Sender,
   virtual void SetProcessLock(const IsolationContext& isolation_context,
                               const ProcessLock& process_lock) = 0;
 
-  // Enable the given list of blink runtime features
-  virtual void EnableBlinkRuntimeFeatures(
-      const std::vector<std::string>& features) = 0;
-
   // Returns the ProcessLock associated with this process.
   // This method is public so that it can be called from within //content, and
   // used by MockRenderProcessHost. It isn't meant to be called outside of
@@ -620,6 +620,12 @@ class CONTENT_EXPORT RenderProcessHost : public IPC::Sender,
   virtual void CreateWebSocketConnector(
       const blink::StorageKey& storage_key,
       mojo::PendingReceiver<blink::mojom::WebSocketConnector> receiver) = 0;
+
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+  virtual void CreateStableVideoDecoder(
+      mojo::PendingReceiver<media::stable::mojom::StableVideoDecoder>
+          receiver) = 0;
+#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 
   // Returns the current number of active views in this process.  Excludes
   // any RenderViewHosts that are swapped out.

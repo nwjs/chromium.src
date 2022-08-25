@@ -9,7 +9,6 @@
 #include "base/scoped_observation.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "build/build_config.h"
-#include "chrome/browser/certificate_viewer.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/safe_browsing/chrome_password_protection_service.h"
@@ -178,7 +177,6 @@ class PageInfoBubbleViewBrowserTest : public InProcessBrowserTest {
       const PageInfoBubbleViewBrowserTest& test) = delete;
 
   void SetUp() override {
-    MockCertificateViewerForTesting();
     ASSERT_TRUE(embedded_test_server()->Start());
     InProcessBrowserTest::SetUp();
   }
@@ -907,4 +905,29 @@ IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewAboutThisSiteDisabledBrowserTest,
   ukm_recorder.ExpectEntryMetric(
       entries[0], ukm::builders::AboutThisSiteStatus::kStatusName,
       static_cast<int>(AboutThisSiteStatus::kUnknown));
+}
+
+class PageInfoBubbleViewSiteSettingsBrowserTest : public InProcessBrowserTest {
+ public:
+  PageInfoBubbleViewSiteSettingsBrowserTest() {
+    feature_list.InitWithFeatures({page_info::kPageInfoHideSiteSettings}, {});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list;
+};
+
+IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewSiteSettingsBrowserTest,
+                       SiteSettingsNotValid) {
+  GURL url = GURL("https://www.google.com/");
+  EXPECT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+  OpenPageInfoBubble(browser());
+
+  views::Widget* page_info_bubble =
+      PageInfoBubbleView::GetPageInfoBubbleForTesting()->GetWidget();
+  EXPECT_TRUE(page_info_bubble);
+
+  views::View* view = page_info_bubble->GetRootView()->GetViewByID(
+      PageInfoViewFactory::VIEW_ID_PAGE_INFO_LINK_OR_BUTTON_SITE_SETTINGS);
+  EXPECT_FALSE(view);
 }

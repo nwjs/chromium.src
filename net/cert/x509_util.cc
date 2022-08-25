@@ -21,11 +21,11 @@
 #include "crypto/sha2.h"
 #include "net/base/hash_value.h"
 #include "net/cert/asn1_util.h"
-#include "net/cert/internal/cert_errors.h"
-#include "net/cert/internal/name_constraints.h"
-#include "net/cert/internal/parse_certificate.h"
-#include "net/cert/internal/parse_name.h"
-#include "net/cert/internal/signature_algorithm.h"
+#include "net/cert/pki/cert_errors.h"
+#include "net/cert/pki/name_constraints.h"
+#include "net/cert/pki/parse_certificate.h"
+#include "net/cert/pki/parse_name.h"
+#include "net/cert/pki/signature_algorithm.h"
 #include "net/cert/x509_certificate.h"
 #include "net/der/encode_values.h"
 #include "net/der/input.h"
@@ -38,9 +38,7 @@
 #include "third_party/boringssl/src/include/openssl/pool.h"
 #include "third_party/boringssl/src/include/openssl/stack.h"
 
-namespace net {
-
-namespace x509_util {
+namespace net::x509_util {
 
 namespace {
 
@@ -273,7 +271,7 @@ Extension::Extension(base::span<const uint8_t> in_oid,
                      bool in_critical,
                      base::span<const uint8_t> in_contents)
     : oid(in_oid), critical(in_critical), contents(in_contents) {}
-Extension::~Extension() {}
+Extension::~Extension() = default;
 Extension::Extension(const Extension&) = default;
 
 bool CreateSelfSignedCert(EVP_PKEY* key,
@@ -530,6 +528,4 @@ bool HasSHA1Signature(const CRYPTO_BUFFER* cert_buffer) {
   return signature_algorithm->digest() == net::DigestAlgorithm::Sha1;
 }
 
-}  // namespace x509_util
-
-}  // namespace net
+}  // namespace net::x509_util

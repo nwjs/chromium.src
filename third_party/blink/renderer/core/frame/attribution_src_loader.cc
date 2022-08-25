@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/bind.h"
 #include "base/check.h"
 #include "base/check_op.h"
 #include "base/memory/scoped_refptr.h"
@@ -29,6 +30,7 @@
 #include "third_party/blink/renderer/core/inspector/identifiers_factory.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
 #include "third_party/blink/renderer/platform/heap/self_keep_alive.h"
+#include "third_party/blink/renderer/platform/loader/attribution_header_constants.h"
 #include "third_party/blink/renderer/platform/loader/cors/cors.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_context.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_initiator_type_names.h"
@@ -67,6 +69,8 @@ void MaybeLogAuditIssue(LocalFrame* frame,
                         const absl::optional<String>& string,
                         HTMLElement* element,
                         absl::optional<uint64_t> request_id) {
+  DCHECK(frame);
+
   if (!frame->IsAttached())
     return;
 
@@ -87,6 +91,8 @@ bool CanRegisterAttributionInContext(
     absl::optional<uint64_t> request_id,
     AttributionSrcLoader::RegisterContext context,
     bool log_issues) {
+  DCHECK(frame);
+
   LocalDOMWindow* window = frame->DomWindow();
   DCHECK(window);
 
@@ -265,7 +271,7 @@ AttributionSrcLoader::CreateAndSendRequest(const KURL& src_url,
 
   if (document->IsPrerendering()) {
     document->AddPostPrerenderingActivationStep(
-        WTF::Bind(&AttributionSrcLoader::DoPrerenderingRegistration,
+        WTF::Bind(base::IgnoreResult(&AttributionSrcLoader::DoRegistration),
                   WrapPersistentIfNeeded(this), src_url, src_type,
                   associated_with_navigation));
     return nullptr;
@@ -322,13 +328,6 @@ AttributionSrcLoader::ResourceClient* AttributionSrcLoader::DoRegistration(
   return client;
 }
 
-void AttributionSrcLoader::DoPrerenderingRegistration(
-    const KURL& src_url,
-    SrcType src_type,
-    bool associated_with_navigation) {
-  DoRegistration(src_url, src_type, associated_with_navigation);
-}
-
 bool AttributionSrcLoader::UrlCanRegisterAttribution(
     RegisterContext context,
     const KURL& url,
@@ -338,9 +337,9 @@ bool AttributionSrcLoader::UrlCanRegisterAttribution(
   DCHECK(window);
 
   if (!CanRegisterAttributionInContext(local_frame_, element, request_id,
-                                       context,
-                                       /*log_issues=*/true))
+                                       context)) {
     return false;
+  }
 
   scoped_refptr<const SecurityOrigin> reporting_origin =
       SecurityOrigin::Create(url);

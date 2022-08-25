@@ -113,7 +113,6 @@ class ASH_EXPORT AppListControllerImpl
   aura::Window* GetWindow() override;
   bool IsVisible(const absl::optional<int64_t>& display_id) override;
   bool IsVisible() override;
-  void HideContinueSection() override;
 
   // SessionObserver:
   void OnActiveUserPrefServiceChanged(PrefService* pref_service) override;
@@ -193,10 +192,6 @@ class ASH_EXPORT AppListControllerImpl
   AssistantViewDelegate* GetAssistantViewDelegate() override;
   void OnSearchResultVisibilityChanged(const std::string& id,
                                        bool visibility) override;
-  void NotifySearchResultsForLogging(
-      const std::u16string& raw_query,
-      const SearchResultIdWithPositionIndices& results,
-      int position_index) override;
   void MaybeIncreaseSuggestedContentInfoShownCount() override;
   bool IsAssistantAllowedAndEnabled() const override;
   bool ShouldShowSuggestedContentInfo() const override;

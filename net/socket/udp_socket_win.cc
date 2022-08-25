@@ -76,7 +76,7 @@ class UDPSocketWin::Core : public base::RefCounted<Core> {
   class ReadDelegate : public base::win::ObjectWatcher::Delegate {
    public:
     explicit ReadDelegate(Core* core) : core_(core) {}
-    ~ReadDelegate() override {}
+    ~ReadDelegate() override = default;
 
     // base::ObjectWatcher::Delegate methods:
     void OnObjectSignaled(HANDLE object) override;
@@ -88,7 +88,7 @@ class UDPSocketWin::Core : public base::RefCounted<Core> {
   class WriteDelegate : public base::win::ObjectWatcher::Delegate {
    public:
     explicit WriteDelegate(Core* core) : core_(core) {}
-    ~WriteDelegate() override {}
+    ~WriteDelegate() override = default;
 
     // base::ObjectWatcher::Delegate methods:
     void OnObjectSignaled(HANDLE object) override;
@@ -268,7 +268,7 @@ int UDPSocketWin::Open(AddressFamily address_family) {
   if (socket_ == INVALID_SOCKET)
     return MapSystemError(WSAGetLastError());
   if (!use_non_blocking_io_) {
-    core_ = new Core(this);
+    core_ = base::MakeRefCounted<Core>(this);
   } else {
     read_write_event_.Set(WSACreateEvent());
     WSAEventSelect(socket_, read_write_event_.Get(), FD_READ | FD_WRITE);
@@ -330,7 +330,7 @@ int UDPSocketWin::GetPeerAddress(IPEndPoint* address) const {
     SockaddrStorage storage;
     if (getpeername(socket_, storage.addr, &storage.addr_len))
       return MapSystemError(WSAGetLastError());
-    std::unique_ptr<IPEndPoint> remote_address(new IPEndPoint());
+    auto remote_address = std::make_unique<IPEndPoint>();
     if (!remote_address->FromSockAddr(storage.addr, storage.addr_len))
       return ERR_ADDRESS_INVALID;
     remote_address_ = std::move(remote_address);
@@ -351,7 +351,7 @@ int UDPSocketWin::GetLocalAddress(IPEndPoint* address) const {
     SockaddrStorage storage;
     if (getsockname(socket_, storage.addr, &storage.addr_len))
       return MapSystemError(WSAGetLastError());
-    std::unique_ptr<IPEndPoint> local_address(new IPEndPoint());
+    auto local_address = std::make_unique<IPEndPoint>();
     if (!local_address->FromSockAddr(storage.addr, storage.addr_len))
       return ERR_ADDRESS_INVALID;
     local_address_ = std::move(local_address);

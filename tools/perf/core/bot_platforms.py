@@ -150,17 +150,16 @@ class BenchmarkConfig(object):
 
   @property
   def stories(self):
-    if self._stories != None:
+    if self._stories is not None:
       return self._stories
-    else:
-      story_set = benchmark_utils.GetBenchmarkStorySet(self.benchmark())
-      abridged_story_set_tag = (
-          story_set.GetAbridgedStorySetTagFilter() if self.abridged else None)
-      story_filter_obj = story_filter.StoryFilter(
-          abridged_story_set_tag=abridged_story_set_tag)
-      stories = story_filter_obj.FilterStories(story_set)
-      self._stories = [story.name for story in stories]
-      return self._stories
+    story_set = benchmark_utils.GetBenchmarkStorySet(self.benchmark())
+    abridged_story_set_tag = (story_set.GetAbridgedStorySetTagFilter()
+                              if self.abridged else None)
+    story_filter_obj = story_filter.StoryFilter(
+        abridged_story_set_tag=abridged_story_set_tag)
+    stories = story_filter_obj.FilterStories(story_set)
+    self._stories = [story.name for story in stories]
+    return self._stories
 
 
 class ExecutableConfig(object):
@@ -470,7 +469,7 @@ _ANDROID_PIXEL2_FYI_BENCHMARK_CONFIGS = PerfSuite([
 ])
 _CHROMEOS_KEVIN_FYI_BENCHMARK_CONFIGS = PerfSuite([
     _GetBenchmarkConfig('rendering.desktop')])
-_LACROS_EVE_BENCHMARK_CONFIGS = PerfSuite(OFFICIAL_BENCHMARK_CONFIGS).Remove([
+_LACROS_BENCHMARK_CONFIGS = PerfSuite(OFFICIAL_BENCHMARK_CONFIGS).Remove([
     'blink_perf.display_locking',
     'v8.runtime_stats.top_25',
 ])
@@ -682,8 +681,10 @@ ANDROID_PIXEL4A_POWER_PGO = PerfPlatform(
     _ANDROID_PIXEL4A_POWER_BENCHMARK_CONFIGS, 12, 'android')
 
 # Cros/Lacros
-LACROS_EVE_PERF = PerfPlatform('lacros-eve-perf', '',
-                               _LACROS_EVE_BENCHMARK_CONFIGS, 8, 'chromeos')
+LACROS_EVE_PERF = PerfPlatform('lacros-eve-perf', '', _LACROS_BENCHMARK_CONFIGS,
+                               8, 'chromeos')
+LACROS_X86_PERF = PerfPlatform('lacros-x86-perf', '', _LACROS_BENCHMARK_CONFIGS,
+                               12, 'chromeos')
 
 # FYI bots
 WIN_10_LOW_END_HP_CANDIDATE = PerfPlatform(
@@ -779,3 +780,4 @@ def find_bot_platform(builder_name):
   for bot_platform in ALL_PLATFORMS:
     if bot_platform.name == builder_name:
       return bot_platform
+  return None

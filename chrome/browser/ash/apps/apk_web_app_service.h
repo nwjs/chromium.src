@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "ash/components/arc/mojom/app.mojom-forward.h"
 #include "base/callback.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/weak_ptr.h"
@@ -68,6 +69,9 @@ class ApkWebAppService : public KeyedService,
 
   absl::optional<std::string> GetPackageNameForWebApp(const GURL& url);
 
+  absl::optional<std::string> GetWebAppIdForPackageName(
+      const std::string& package_name);
+
   absl::optional<std::string> GetCertificateSha256Fingerprint(
       const web_app::AppId& app_id);
 
@@ -90,7 +94,8 @@ class ApkWebAppService : public KeyedService,
   // If the app has updated from a web app to Android app or vice-versa,
   // this function pins the new app in the old app's place on the shelf if it
   // was pinned prior to the update.
-  void UpdateShelfPin(const arc::mojom::ArcPackageInfo* package_info);
+  void UpdateShelfPin(const std::string& package_name,
+                      const arc::mojom::WebAppInfoPtr& web_app_info);
 
   // KeyedService:
   void Shutdown() override;
@@ -123,13 +128,14 @@ class ApkWebAppService : public KeyedService,
                           webapps::InstallResultCode code);
   void UpdatePackageInfo(const std::string& app_id,
                          const arc::mojom::WebAppInfoPtr& web_app_info);
+  const base::Value::Dict& WebAppToApks() const;
 
   WebAppCallbackForTesting web_app_installed_callback_;
   WebAppCallbackForTesting web_app_uninstalled_callback_;
 
   Profile* profile_;
   ArcAppListPrefs* arc_app_list_prefs_;
-  web_app::WebAppProvider* provider_;
+  web_app::WebAppProvider* provider_{nullptr};
 
   base::ScopedObservation<web_app::WebAppInstallManager,
                           web_app::WebAppInstallManagerObserver>

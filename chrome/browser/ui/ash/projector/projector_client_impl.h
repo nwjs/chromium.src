@@ -26,10 +26,6 @@ namespace views {
 class WebView;
 }  // namespace views
 
-namespace web_app {
-class WebAppProvider;
-}  // namespace web_app
-
 class OnDeviceSpeechRecognizer;
 
 // The client implementation for the ProjectorController in ash/. This client is
@@ -65,6 +61,8 @@ class ProjectorClientImpl
   void OnNewScreencastPreconditionChanged(
       const ash::NewScreencastPrecondition& precondition) const override;
   void SetAnnotatorMessageHandler(
+      ash::AnnotatorMessageHandler* handler) override;
+  void ResetAnnotatorMessageHandler(
       ash::AnnotatorMessageHandler* handler) override;
 
   // SpeechRecognizerDelegate:
@@ -106,10 +104,10 @@ class ProjectorClientImpl
   void OnEnablementPolicyChanged();
 
   // Called when app registry becomes ready.
-  void SetAppIsDisabled(web_app::WebAppProvider* provider, bool disabled);
+  void SetAppIsDisabled(bool disabled);
 
   ash::ProjectorController* const controller_;
-  ash::AnnotatorMessageHandler* message_handler_;
+  ash::AnnotatorMessageHandler* message_handler_ = nullptr;
   SpeechRecognizerStatus recognizer_status_ =
       SpeechRecognizerStatus::SPEECH_RECOGNIZER_OFF;
   std::unique_ptr<OnDeviceSpeechRecognizer> speech_recognizer_;

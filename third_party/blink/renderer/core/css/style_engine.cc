@@ -80,6 +80,7 @@
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/dom/text.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
+#include "third_party/blink/renderer/core/frame/visual_viewport.h"
 #include "third_party/blink/renderer/core/html/forms/html_field_set_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_select_element.h"
 #include "third_party/blink/renderer/core/html/html_body_element.h"
@@ -89,6 +90,7 @@
 #include "third_party/blink/renderer/core/html/html_slot_element.h"
 #include "third_party/blink/renderer/core/html/track/text_track.h"
 #include "third_party/blink/renderer/core/html_names.h"
+#include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/layout/adjust_for_absolute_zoom.h"
 #include "third_party/blink/renderer/core/layout/geometry/logical_size.h"
 #include "third_party/blink/renderer/core/layout/geometry/physical_size.h"
@@ -139,13 +141,22 @@ StyleEngine::StyleEngine(Document& document)
     font_selector_->RegisterForInvalidationCallbacks(this);
     if (const auto* owner = document.GetFrame()->Owner())
       owner_color_scheme_ = owner->GetColorScheme();
-  }
-  if (document.IsInMainFrame())
-    viewport_resolver_ = MakeGarbageCollected<ViewportStyleResolver>(document);
-  if (auto* settings = GetDocument().GetSettings()) {
-    preferred_color_scheme_ = settings->GetPreferredColorScheme();
+
+    // Viewport styles are only processed in the main frame of a page with an
+    // active viewport. That is, a pages that their own independently zoomable
+    // viewport: the outermost main frame and portals.
+    DCHECK(document.GetPage());
+    VisualViewport& viewport = document.GetPage()->GetVisualViewport();
+    if (document.IsInMainFrame() && viewport.IsActiveViewport()) {
+      viewport_resolver_ =
+          MakeGarbageCollected<ViewportStyleResolver>(document);
+    }
+
+    DCHECK(document.GetSettings());
+    preferred_color_scheme_ = document.GetSettings()->GetPreferredColorScheme();
     UpdateColorSchemeMetrics();
   }
+
   forced_colors_ =
       WebThemeEngineHelper::GetNativeThemeEngine()->GetForcedColors();
   UpdateForcedBackgroundColor();
@@ -815,10 +826,8 @@ CSSStyleSheet* StyleEngine::ParseSheet(
 void StyleEngine::CollectUserStyleFeaturesTo(RuleFeatureSet& features) const {
   for (unsigned i = 0; i < active_user_style_sheets_.size(); ++i) {
     CSSStyleSheet* sheet = active_user_style_sheets_[i].first;
-    features.ViewportDependentMediaQueryResults().AppendVector(
-        sheet->ViewportDependentMediaQueryResults());
-    features.DeviceDependentMediaQueryResults().AppendVector(
-        sheet->DeviceDependentMediaQueryResults());
+    features.MutableMediaQueryResultFlags().Add(
+        sheet->GetMediaQueryResultFlags());
     DCHECK(sheet->Contents()->HasRuleSet());
     features.Add(sheet->Contents()->GetRuleSet().Features());
   }
@@ -2660,7 +2669,7 @@ void StyleEngine::RecalcStyleForContainer(Element& container,
   DCHECK(!StyleRecalcChange().ShouldRecalcStyleFor(container));
 
   // If the container itself depends on an outer container, then its
-  // DependsOnContainerQueries flag will be set, and we would recalc its
+  // DependsOnSizeContainerQueries flag will be set, and we would recalc its
   // style (due to ForceRecalcContainer/ForceRecalcDescendantContainers).
   // This is not necessary, hence we suppress recalc for this element.
   change = change.SuppressRecalc();
@@ -2699,6 +2708,7 @@ void StyleEngine::RecalcStyleForNonLayoutNGContainerDescendants(
   if (cq_data->SkippedStyleRecalc()) {
     DecrementSkippedContainerRecalc();
     AllowMarkForReattachFromRebuildLayoutTreeScope allow_reattach(*this);
+    base::AutoReset<bool> cq_recalc(&in_container_query_style_recalc_, true);
     RecalcStyleForContainer(container, {});
   }
 }
@@ -2729,7 +2739,7 @@ void StyleEngine::UpdateStyleAndLayoutTreeForContainer(
   DCHECK(evaluator);
 
   ContainerQueryEvaluator::Change query_change = evaluator->ContainerChanged(
-      GetDocument(), style, physical_size, physical_axes);
+      GetDocument(), container, physical_size, physical_axes);
   switch (query_change) {
     case ContainerQueryEvaluator::Change::kNone:
       if (!cq_data->SkippedStyleRecalc())
@@ -2755,7 +2765,7 @@ void StyleEngine::UpdateStyleAndLayoutTreeForContainer(
     // depends on size container queries, fall back to re-attaching its box tree
     // when any of the size queries change the evaluation result.
     if (style.HasPseudoElementStyle(kPseudoIdFirstLine) &&
-        style.FirstLineDependsOnContainerQueries()) {
+        style.FirstLineDependsOnSizeContainerQueries()) {
       change = change.ForceMarkReattachLayoutTree().ForceReattachLayoutTree();
     }
   }
@@ -2766,18 +2776,8 @@ void StyleEngine::UpdateStyleAndLayoutTreeForContainer(
     DecrementSkippedContainerRecalc();
   RecalcStyleForContainer(container, change);
 
-  if (UNLIKELY(container.NeedsReattachLayoutTree())) {
-    // Generally, the container itself should not be marked for re-attachment.
-    // In the case where we have a fieldset as a container, the fieldset itself
-    // is marked for re-attachment in HTMLFieldSetElement::DidRecalcStyle to
-    // make sure the rendered legend is appropriately placed in the layout tree.
-    // We cannot re-attach the fieldset itself in this case since we are in the
-    // process of laying it out. Instead we re-attach all children, which should
-    // be sufficient.
-    auto* fieldset = DynamicTo<HTMLFieldSetElement>(container);
-    DCHECK(fieldset)
-        << "Only fieldsets may be marked for re-attachment as query containers";
-    RebuildFieldSetContainer(*fieldset);
+  if (container.NeedsReattachLayoutTree()) {
+    ReattachContainerSubtree(container);
   } else if (container.ChildNeedsReattachLayoutTree()) {
     DCHECK(layout_tree_rebuild_root_.GetRootNode());
     if (layout_tree_rebuild_root_.GetRootNode()->IsDocumentNode()) {
@@ -2902,11 +2902,26 @@ void StyleEngine::RebuildLayoutTree(
   }
 }
 
-void StyleEngine::RebuildFieldSetContainer(HTMLFieldSetElement& fieldset) {
-  DCHECK(fieldset.NeedsReattachLayoutTree());
+void StyleEngine::ReattachContainerSubtree(Element& container) {
+  // Generally, the container itself should not be marked for re-attachment. In
+  // the case where we have a fieldset as a container, the fieldset itself is
+  // marked for re-attachment in HTMLFieldSetElement::DidRecalcStyle to make
+  // sure the rendered legend is appropriately placed in the layout tree. We
+  // cannot re-attach the fieldset itself in this case since we are in the
+  // process of laying it out. Instead we re-attach all children, which should
+  // be sufficient.
+  //
+  // The other case where the query container is marked for re-attachment is
+  // when one of the descendants requires a legacy box tree and the container is
+  // the closest formatting context.
+
+  DCHECK(container.NeedsReattachLayoutTree());
+  DCHECK(DynamicTo<HTMLFieldSetElement>(container) ||
+         container.ShouldForceLegacyLayout());
+
   base::AutoReset<bool> rebuild_scope(&in_layout_tree_rebuild_, true);
-  fieldset.ReattachLayoutTreeChildren();
-  RebuildLayoutTreeForTraversalRootAncestors(&fieldset);
+  container.ReattachLayoutTreeChildren(base::PassKey<StyleEngine>());
+  RebuildLayoutTreeForTraversalRootAncestors(&container);
   layout_tree_rebuild_root_.Clear();
 }
 
@@ -3398,6 +3413,24 @@ void StyleEngine::MarkForLayoutTreeChangesAfterDetach() {
       layout_object_element->MarkAncestorsWithChildNeedsStyleRecalc();
   }
   parent_for_detached_subtree_ = nullptr;
+}
+
+void StyleEngine::ReportUseOfLegacyLayoutWithContainerQueries() {
+  DCHECK(!RuntimeEnabledFeatures::LayoutNGTableFragmentationEnabled());
+
+  // Only report once.
+  if (legacy_layout_query_container_)
+    return;
+
+  legacy_layout_query_container_ = true;
+
+  ConsoleMessage* console_message = MakeGarbageCollected<ConsoleMessage>(
+      mojom::blink::ConsoleMessageSource::kRendering,
+      mojom::blink::ConsoleMessageLevel::kWarning,
+      String::Format(
+          "Using container queries or units with printing, or in combination "
+          "with tables inside multicol will not work correctly."));
+  GetDocument().AddConsoleMessage(console_message);
 }
 
 }  // namespace blink

@@ -199,7 +199,7 @@ bool Unzip(const base::PlatformFile& src_file,
   reader.SetPassword(std::move(options.password));
 
   if (!reader.OpenFromPlatformFile(src_file)) {
-    VLOG(1) << "Cannot open ZIP from file handle " << src_file;
+    LOG(ERROR) << "Cannot open ZIP from file handle " << src_file;
     return false;
   }
 

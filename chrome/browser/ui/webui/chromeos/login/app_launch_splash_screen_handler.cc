@@ -17,8 +17,8 @@
 #include "chrome/grit/chrome_unscaled_resources.h"
 #include "chrome/grit/chromium_strings.h"
 #include "chrome/grit/generated_resources.h"
-#include "chromeos/network/network_state.h"
-#include "chromeos/network/network_state_handler.h"
+#include "chromeos/ash/components/network/network_state.h"
+#include "chromeos/ash/components/network/network_state_handler.h"
 #include "components/login/localized_values_builder.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -105,8 +105,6 @@ void AppLaunchSplashScreenHandler::Show() {
 void AppLaunchSplashScreenHandler::RegisterMessages() {
   AddCallback("configureNetwork",
               &AppLaunchSplashScreenHandler::HandleConfigureNetwork);
-  AddCallback("continueAppLaunch",
-              &AppLaunchSplashScreenHandler::HandleContinueAppLaunch);
 }
 
 void AppLaunchSplashScreenHandler::Hide() {
@@ -277,7 +275,7 @@ void AppLaunchSplashScreenHandler::HandleConfigureNetwork() {
     LOG(WARNING) << "No delegate set to handle network configuration.";
 }
 
-void AppLaunchSplashScreenHandler::HandleContinueAppLaunch() {
+void AppLaunchSplashScreenHandler::ContinueAppLaunch() {
   if (!delegate_)
     return;
 

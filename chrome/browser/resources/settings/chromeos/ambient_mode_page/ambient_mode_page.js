@@ -6,20 +6,21 @@
  * @fileoverview 'settings-ambient-mode-page' is the settings page containing
  * ambient mode settings.
  */
-import '//resources/cr_elements/cr_radio_button/cr_radio_button.m.js';
-import '//resources/cr_elements/shared_style_css.m.js';
-import '//resources/cr_elements/shared_vars_css.m.js';
-import '//resources/polymer/v3_0/paper-spinner/paper-spinner-lite.js';
+import 'chrome://resources/cr_elements/cr_radio_button/cr_radio_button.m.js';
+import 'chrome://resources/cr_elements/shared_style_css.m.js';
+import 'chrome://resources/cr_elements/shared_vars_css.m.js';
+import 'chrome://resources/polymer/v3_0/paper-spinner/paper-spinner-lite.js';
 import './topic_source_list.js';
 import '../../prefs/prefs.js';
 import '../../controls/settings_radio_group.js';
 import '../../controls/settings_toggle_button.js';
-import '../../settings_shared_css.js';
+import '../../settings_shared.css.js';
 
-import {I18nBehavior, I18nBehaviorInterface} from '//resources/js/i18n_behavior.m.js';
-import {WebUIListenerBehavior, WebUIListenerBehaviorInterface} from '//resources/js/web_ui_listener_behavior.m.js';
-import {afterNextRender, flush, html, mixinBehaviors, PolymerElement} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+import {I18nBehavior, I18nBehaviorInterface} from 'chrome://resources/js/i18n_behavior.m.js';
+import {WebUIListenerBehavior, WebUIListenerBehaviorInterface} from 'chrome://resources/js/web_ui_listener_behavior.m.js';
+import {afterNextRender, flush, html, mixinBehaviors, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
+import {Setting} from '../../mojom-webui/setting.mojom-webui.js';
 import {Route, Router} from '../../router.js';
 import {DeepLinkingBehavior, DeepLinkingBehaviorInterface} from '../deep_linking_behavior.js';
 import {routes} from '../os_route.js';
@@ -40,8 +41,11 @@ import {AmbientModeTemperatureUnit, AmbientModeTopicSource, TopicSourceItem} fro
  */
 const SettingsAmbientModePageElementBase = mixinBehaviors(
     [
-      DeepLinkingBehavior, I18nBehavior, PrefsBehavior, RouteObserverBehavior,
-      WebUIListenerBehavior
+      DeepLinkingBehavior,
+      I18nBehavior,
+      PrefsBehavior,
+      RouteObserverBehavior,
+      WebUIListenerBehavior,
     ],
     PolymerElement);
 
@@ -85,7 +89,7 @@ class SettingsAmbientModePageElement extends
         type: Array,
         value: [
           AmbientModeTopicSource.GOOGLE_PHOTOS,
-          AmbientModeTopicSource.ART_GALLERY
+          AmbientModeTopicSource.ART_GALLERY,
         ],
       },
 
@@ -102,18 +106,18 @@ class SettingsAmbientModePageElement extends
       selectedTemperatureUnit_: {
         type: AmbientModeTemperatureUnit,
         value: AmbientModeTemperatureUnit.UNKNOWN,
-        observer: 'onSelectedTemperatureUnitChanged_'
+        observer: 'onSelectedTemperatureUnitChanged_',
       },
 
       /**
        * Used by DeepLinkingBehavior to focus this page's deep links.
-       * @type {!Set<!chromeos.settings.mojom.Setting>}
+       * @type {!Set<!Setting>}
        */
       supportedSettingIds: {
         type: Object,
         value: () => new Set([
-          chromeos.settings.mojom.Setting.kAmbientModeOnOff,
-          chromeos.settings.mojom.Setting.kAmbientModeSource,
+          Setting.kAmbientModeOnOff,
+          Setting.kAmbientModeSource,
         ]),
       },
 
@@ -128,7 +132,7 @@ class SettingsAmbientModePageElement extends
       disableSettings_: {
         type: Boolean,
         computed: 'computeDisableSettings_(prefs.settings.ambient_mode.*)',
-      }
+      },
     };
   }
 
@@ -163,10 +167,10 @@ class SettingsAmbientModePageElement extends
 
   /**
    * Overridden from DeepLinkingBehavior.
-   * @param {!chromeos.settings.mojom.Setting} settingId
+   * @param {!Setting} settingId
    */
   beforeDeepLinkAttempt(settingId) {
-    if (settingId !== chromeos.settings.mojom.Setting.kAmbientModeSource) {
+    if (settingId !== Setting.kAmbientModeSource) {
       // Continue with deep link attempt.
       return true;
     }

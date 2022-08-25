@@ -120,6 +120,8 @@ bool GetWallpaperInfo(const AccountId& account_id,
   // Use temporary variables to keep |info| untouched in the error case.
   const std::string* location = info_dict->FindStringPath(
       WallpaperPrefManager::kNewWallpaperLocationNodeName);
+  const std::string* file_path = info_dict->FindStringPath(
+      WallpaperPrefManager::kNewWallpaperUserFilePathNodeName);
   absl::optional<int> layout =
       info_dict->FindIntPath(WallpaperPrefManager::kNewWallpaperLayoutNodeName);
   absl::optional<int> type =
@@ -146,6 +148,9 @@ bool GetWallpaperInfo(const AccountId& account_id,
     return false;
 
   info->location = *location;
+  // The old wallpaper didn't include file path information. For migration,
+  // check whether file_path is a null pointer before setting user_file_path.
+  info->user_file_path = file_path ? *file_path : "";
   info->layout = static_cast<WallpaperLayout>(layout.value());
   // TODO(skau): Switch to TimeFromValue
   info->date =
@@ -209,6 +214,9 @@ bool SetWallpaperInfo(const AccountId& account_id,
   }
   wallpaper_info_dict.SetStringPath(
       WallpaperPrefManager::kNewWallpaperLocationNodeName, info.location);
+  wallpaper_info_dict.SetStringPath(
+      WallpaperPrefManager::kNewWallpaperUserFilePathNodeName,
+      info.user_file_path);
   wallpaper_info_dict.SetIntPath(
       WallpaperPrefManager::kNewWallpaperLayoutNodeName, info.layout);
   wallpaper_info_dict.SetIntPath(
@@ -242,9 +250,6 @@ class WallpaperProfileHelperImpl : public WallpaperProfileHelper {
   }
 
   PrefService* GetUserPrefServiceSyncable(const AccountId& id) override {
-    if (!features::IsWallpaperWebUIEnabled())
-      return nullptr;
-
     if (!IsWallpaperSyncEnabled(id))
       return nullptr;
 
@@ -314,6 +319,7 @@ class WallpaperPrefManagerImpl : public WallpaperPrefManager {
     }
 
     RemoveProminentColors(account_id);
+    RemoveKMeanColor(account_id);
 
     bool success = SetLocalWallpaperInfo(account_id, info);
     // Although `WallpaperType::kCustomized` typed wallpapers are syncable, we
@@ -367,7 +373,7 @@ class WallpaperPrefManagerImpl : public WallpaperPrefManager {
     wallpaper_colors_update->RemoveKey(old_info.location);
   }
 
-  absl::optional<std::vector<SkColor>> GetCachedColors(
+  absl::optional<std::vector<SkColor>> GetCachedProminentColors(
       const AccountId& account_id) const override {
     WallpaperInfo info;
     if (!GetLocalWallpaperInfo(account_id, &info))
@@ -392,6 +398,59 @@ class WallpaperPrefManagerImpl : public WallpaperPrefManager {
           static_cast<SkColor>(value.GetDouble()));
     }
     return cached_colors_out;
+  }
+
+  void CacheKMeanColor(const AccountId& account_id,
+                       SkColor k_mean_color) override {
+    WallpaperInfo old_info;
+    if (!GetLocalWallpaperInfo(account_id, &old_info)) {
+      return;
+    }
+
+    // TODO(crbug.com/787134): A blank key cannot be used as a key. This should
+    // be fixed (with a key that will not collide).
+    if (old_info.location.empty())
+      return;
+
+    DictionaryPrefUpdate k_mean_colors(local_state_,
+                                       prefs::kWallpaperMeanColors);
+    k_mean_colors->GetDict().Set(old_info.location,
+                                 static_cast<double>(k_mean_color));
+  }
+
+  absl::optional<SkColor> GetCachedKMeanColor(
+      const AccountId& account_id) const override {
+    WallpaperInfo info;
+    if (!GetLocalWallpaperInfo(account_id, &info))
+      return absl::nullopt;
+
+    // TODO(crbug.com/787134): When we can handle blank keys, remove this.
+    if (info.location.empty())
+      return absl::nullopt;
+
+    const base::Value* k_mean_colors =
+        local_state_->GetDictionary(prefs::kWallpaperMeanColors);
+    if (!k_mean_colors)
+      return kInvalidWallpaperColor;
+    const auto* k_mean_colors_dict = k_mean_colors->GetIfDict();
+    if (!k_mean_colors_dict)
+      return kInvalidWallpaperColor;
+    auto* k_mean_color_value = k_mean_colors_dict->Find(info.location);
+    if (!k_mean_color_value)
+      return absl::nullopt;
+    return static_cast<SkColor>(k_mean_color_value->GetDouble());
+  }
+
+  void RemoveKMeanColor(const AccountId& account_id) override {
+    WallpaperInfo old_info;
+    if (!GetLocalWallpaperInfo(account_id, &old_info)) {
+      return;
+    }
+
+    // Remove the color cache of the previous wallpaper if it exists.
+    DictionaryPrefUpdate k_mean_colors(local_state_,
+                                       prefs::kWallpaperMeanColors);
+    k_mean_colors->RemoveKey(old_info.location);
   }
 
   bool SetDailyGooglePhotosWallpaperIdCache(
@@ -494,6 +553,8 @@ const char WallpaperPrefManager::kNewWallpaperDateNodeName[] = "date";
 const char WallpaperPrefManager::kNewWallpaperDedupKeyNodeName[] = "dedup_key";
 const char WallpaperPrefManager::kNewWallpaperLayoutNodeName[] = "layout";
 const char WallpaperPrefManager::kNewWallpaperLocationNodeName[] = "file";
+const char WallpaperPrefManager::kNewWallpaperUserFilePathNodeName[] =
+    "file_path";
 const char WallpaperPrefManager::kNewWallpaperTypeNodeName[] = "type";
 const char WallpaperPrefManager::kNewWallpaperUnitIdNodeName[] = "unit_id";
 const char WallpaperPrefManager::kNewWallpaperVariantListNodeName[] =
@@ -524,6 +585,7 @@ void WallpaperPrefManager::RegisterLocalStatePrefs(
     PrefRegistrySimple* registry) {
   registry->RegisterDictionaryPref(prefs::kUserWallpaperInfo);
   registry->RegisterDictionaryPref(prefs::kWallpaperColors);
+  registry->RegisterDictionaryPref(prefs::kWallpaperMeanColors);
   registry->RegisterDictionaryPref(prefs::kRecentDailyGooglePhotosWallpapers);
 }
 

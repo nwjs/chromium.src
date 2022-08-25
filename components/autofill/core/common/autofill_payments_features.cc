@@ -62,6 +62,12 @@ const base::Feature
         "AutofillEnableGetDetailsForEnrollParsingInUploadCardResponse",
         base::FEATURE_ENABLED_BY_DEFAULT};
 
+// When enabled, a progress dialog will display while authenticating with FIDO.
+// TODO(crbug.com/1337380): Clean up kAutofillEnableFIDOProgressDialog when it's
+// fully rolled out.
+const base::Feature kAutofillEnableFIDOProgressDialog{
+    "AutofillEnableFIDOProgressDialog", base::FEATURE_DISABLED_BY_DEFAULT};
+
 // When enabled, enable manual falling component for virtual cards on Android.
 const base::Feature kAutofillEnableManualFallbackForVirtualCards{
     "AutofillEnableManualFallbackForVirtualCards",
@@ -79,11 +85,15 @@ const base::Feature kAutofillEnableOffersInClankKeyboardAccessory{
     "AutofillEnableOffersInClankKeyboardAccessory",
     base::FEATURE_DISABLED_BY_DEFAULT};
 
+// When enabled, some extra metrics logging for Autofill Downstream will start.
+const base::Feature kAutofillEnableRemadeDownstreamMetrics{
+    "AutofillEnableRemadeDownstreamMetrics", base::FEATURE_ENABLED_BY_DEFAULT};
+
 // Controls whether we send billing customer number in GetUploadDetails
 // preflight call.
 const base::Feature kAutofillEnableSendingBcnInGetUploadDetails{
     "AutofillEnableSendingBcnInGetUploadDetails",
-    base::FEATURE_DISABLED_BY_DEFAULT};
+    base::FEATURE_ENABLED_BY_DEFAULT};
 
 // When enabled, if the user interacts with the manual fallback bottom sheet
 // on Android, it'll remain sticky until the user dismisses it.
@@ -150,6 +160,11 @@ const base::Feature kAutofillEnforceDelaysInStrikeDatabase{
 const base::Feature kAutofillFillMerchantPromoCodeFields{
     "AutofillFillMerchantPromoCodeFields", base::FEATURE_DISABLED_BY_DEFAULT};
 
+// When enabled, Autofill will attempt to find International Bank Account Number
+// (IBAN) fields when parsing forms.
+const base::Feature kAutofillParseIbanFields{"AutofillParseIbanFields",
+                                             base::FEATURE_DISABLED_BY_DEFAULT};
+
 // When enabled, Autofill will attempt to find merchant promo/coupon/gift code
 // fields when parsing forms.
 const base::Feature kAutofillParseMerchantPromoCodeFields{
@@ -185,12 +200,6 @@ const base::FeatureParam<int> kAutofillSaveCardUiExperimentSelectorInNumber{
 // will be shown in the manual filling view.
 const base::Feature kAutofillShowUnmaskedCachedCardInManualFillingView{
     "AutofillShowUnmaskedCachedCardInManualFillingView",
-    base::FEATURE_DISABLED_BY_DEFAULT};
-
-// When enabled, merchant bound virtual cards will be suggested even if we don't
-// detect all of the card number, exp date and CVC fields in the payment form.
-const base::Feature kAutofillSuggestVirtualCardsOnIncompleteForm{
-    "AutofillSuggestVirtualCardsOnIncompleteForm",
     base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Controls offering credit card upload to Google Payments. Cannot ever be

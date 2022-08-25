@@ -40,6 +40,7 @@
 #include "base/win/sid.h"
 #include "base/win/win_util.h"
 #include "base/win/windows_version.h"
+#include "ppapi/buildflags/buildflags.h"
 #include "printing/buildflags/buildflags.h"
 #include "sandbox/features.h"
 #include "sandbox/policy/features.h"
@@ -163,7 +164,7 @@ const base::Feature kEnableCsrssLockdownFeature{
 bool AddDirectory(int path,
                   const wchar_t* sub_dir,
                   bool children,
-                  TargetPolicy::Semantics access,
+                  Semantics access,
                   TargetPolicy* policy) {
   base::FilePath directory;
   if (!base::PathService::Get(path, &directory))
@@ -173,8 +174,8 @@ bool AddDirectory(int path,
     directory = base::MakeAbsoluteFilePath(directory.Append(sub_dir));
 
   ResultCode result;
-  result = policy->AddRule(TargetPolicy::SUBSYS_FILES, access,
-                           directory.value().c_str());
+  result =
+      policy->AddRule(SubSystem::kFiles, access, directory.value().c_str());
   if (result != SBOX_ALL_OK)
     return false;
 
@@ -183,8 +184,7 @@ bool AddDirectory(int path,
     directory_str += L"*";
   // Otherwise, add the version of the path that ends with a separator.
 
-  result = policy->AddRule(TargetPolicy::SUBSYS_FILES, access,
-                           directory_str.c_str());
+  result = policy->AddRule(SubSystem::kFiles, access, directory_str.c_str());
   if (result != SBOX_ALL_OK)
     return false;
 
@@ -330,17 +330,16 @@ ResultCode AddGenericPolicy(sandbox::TargetPolicy* policy) {
   // Add the policy for the client side of a pipe. It is just a file
   // in the \pipe\ namespace. We restrict it to pipes that start with
   // "chrome." so the sandboxed process cannot connect to system services.
-  result =
-      policy->AddRule(TargetPolicy::SUBSYS_FILES, TargetPolicy::FILES_ALLOW_ANY,
-                      L"\\??\\pipe\\chrome.*");
+  result = policy->AddRule(SubSystem::kFiles, Semantics::kFilesAllowAny,
+                           L"\\??\\pipe\\chrome.*");
   if (result != SBOX_ALL_OK)
     return result;
 
   // Allow the server side of sync sockets, which are pipes that have
   // the "chrome.sync" namespace and a randomly generated suffix.
-  result = policy->AddRule(TargetPolicy::SUBSYS_NAMED_PIPES,
-                           TargetPolicy::NAMEDPIPES_ALLOW_ANY,
-                           L"\\\\.\\pipe\\chrome.sync.*");
+  result =
+      policy->AddRule(SubSystem::kNamedPipes, Semantics::kNamedPipesAllowAny,
+                      L"\\\\.\\pipe\\chrome.sync.*");
   if (result != SBOX_ALL_OK)
     return result;
 
@@ -350,8 +349,7 @@ ResultCode AddGenericPolicy(sandbox::TargetPolicy* policy) {
   if (!base::PathService::Get(base::FILE_EXE, &exe))
     return SBOX_ERROR_GENERIC;
   base::FilePath pdb_path = exe.DirName().Append(L"*.pdb");
-  result = policy->AddRule(TargetPolicy::SUBSYS_FILES,
-                           TargetPolicy::FILES_ALLOW_READONLY,
+  result = policy->AddRule(SubSystem::kFiles, Semantics::kFilesAllowReadonly,
                            pdb_path.value().c_str());
   if (result != SBOX_ALL_OK)
     return result;
@@ -371,8 +369,7 @@ ResultCode AddGenericPolicy(sandbox::TargetPolicy* policy) {
     CHECK(coverage_dir.size() == coverage_dir_size);
     base::FilePath sancov_path =
         base::FilePath(coverage_dir).Append(L"*.sancov");
-    result = policy->AddRule(TargetPolicy::SUBSYS_FILES,
-                             TargetPolicy::FILES_ALLOW_ANY,
+    result = policy->AddRule(SubSystem::kFiles, Semantics::kFilesAllowAny,
                              sancov_path.value().c_str());
     if (result != SBOX_ALL_OK)
       return result;
@@ -542,13 +539,13 @@ ResultCode SetJobMemoryLimit(Sandbox sandbox_type, TargetPolicy* policy) {
   size_t memory_limit = static_cast<size_t>(kDataSizeLimit);
 
   if (sandbox_type == Sandbox::kGpu || sandbox_type == Sandbox::kRenderer) {
-    int64_t GB = 1024 * 1024 * 1024;
+    constexpr uint64_t GB = 1024 * 1024 * 1024;
     // Allow the GPU/RENDERER process's sandbox to access more physical memory
     // if it's available on the system.
     //
     // Renderer processes are allowed to access 16 GB; the GPU process, up
     // to 64 GB.
-    int64_t physical_memory = base::SysInfo::AmountOfPhysicalMemory();
+    uint64_t physical_memory = base::SysInfo::AmountOfPhysicalMemory();
     if (sandbox_type == Sandbox::kGpu && physical_memory > 64 * GB) {
       memory_limit = 64 * GB;
     } else if (sandbox_type == Sandbox::kGpu && physical_memory > 32 * GB) {
@@ -858,8 +855,8 @@ ResultCode SandboxWin::AddWin32kLockdownPolicy(TargetPolicy* policy) {
   if (result != SBOX_ALL_OK)
     return result;
 
-  return policy->AddRule(TargetPolicy::SUBSYS_WIN32K_LOCKDOWN,
-                         TargetPolicy::FAKE_USER_GDI_INIT, nullptr);
+  return policy->AddRule(SubSystem::kWin32kLockdown, Semantics::kFakeGdiInit,
+                         nullptr);
 #else
   return SBOX_ALL_OK;
 #endif
@@ -1068,7 +1065,7 @@ ResultCode SandboxWin::GeneratePolicyForSandboxedProcess(
       process_type == switches::kPpapiPluginProcess ||
       sandbox_type == Sandbox::kPrintCompositor) {
     AddDirectory(base::DIR_WINDOWS_FONTS, NULL, true,
-                 TargetPolicy::FILES_ALLOW_READONLY, policy);
+                 Semantics::kFilesAllowReadonly, policy);
   }
 #endif
 
@@ -1094,8 +1091,7 @@ ResultCode SandboxWin::GeneratePolicyForSandboxedProcess(
       process_type == switches::kUtilityProcess) {
     if (logging::IsLoggingToFileEnabled()) {
       DCHECK(base::FilePath(logging::GetLogFileFullPath()).IsAbsolute());
-      result = policy->AddRule(TargetPolicy::SUBSYS_FILES,
-                               TargetPolicy::FILES_ALLOW_ANY,
+      result = policy->AddRule(SubSystem::kFiles, Semantics::kFilesAllowAny,
                                logging::GetLogFileFullPath().c_str());
       if (result != SBOX_ALL_OK)
         return result;
@@ -1245,8 +1241,10 @@ std::string SandboxWin::GetSandboxTypeInEnglish(Sandbox sandbox_type) {
       return "Utility";
     case Sandbox::kGpu:
       return "GPU";
+#if BUILDFLAG(ENABLE_PLUGINS)
     case Sandbox::kPpapi:
       return "PPAPI";
+#endif
     case Sandbox::kNetwork:
       return "Network";
     case Sandbox::kCdm:

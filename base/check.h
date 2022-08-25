@@ -82,20 +82,20 @@ class BASE_EXPORT CheckError {
                                    int line,
                                    const char* function);
 
+  static CheckError NotReached(const char* file, int line);
+
   // Stream for adding optional details to the error message.
   std::ostream& stream();
 
   NOMERGE ~CheckError();
 
-  CheckError(const CheckError& other) = delete;
-  CheckError& operator=(const CheckError& other) = delete;
-  CheckError(CheckError&& other) = default;
-  CheckError& operator=(CheckError&& other) = default;
+  CheckError(const CheckError&) = delete;
+  CheckError& operator=(const CheckError&) = delete;
 
  private:
   explicit CheckError(LogMessage* log_message);
 
-  LogMessage* log_message_;
+  LogMessage* const log_message_;
 };
 
 #if defined(OFFICIAL_BUILD) && defined(NDEBUG)

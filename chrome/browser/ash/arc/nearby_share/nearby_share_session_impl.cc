@@ -34,6 +34,7 @@
 #include "chrome/browser/ui/webui/settings/chromeos/constants/routes.mojom-forward.h"
 #include "chrome/browser/webshare/prepare_directory_task.h"
 #include "chrome/common/chrome_paths_internal.h"
+#include "components/services/app_service/public/cpp/intent.h"
 #include "components/services/app_service/public/cpp/intent_util.h"
 #include "content/public/browser/browser_thread.h"
 #include "third_party/cros_system_api/constants/cryptohome.h"
@@ -235,8 +236,7 @@ void NearbyShareSessionImpl::OnArcWindowFound(aura::Window* const arc_window) {
   }
 }
 
-apps::mojom::IntentPtr NearbyShareSessionImpl::ConvertShareIntentInfoToIntent()
-    const {
+apps::IntentPtr NearbyShareSessionImpl::ConvertShareIntentInfoToIntent() const {
   DCHECK(share_info_);
 
   DVLOG(1) << __func__;
@@ -262,7 +262,7 @@ apps::mojom::IntentPtr NearbyShareSessionImpl::ConvertShareIntentInfoToIntent()
   // Sharing text
   if (share_info_->extras.has_value() &&
       share_info_->extras->contains(kIntentExtraText)) {
-    apps::mojom::IntentPtr share_intent = apps_util::CreateShareIntentFromText(
+    apps::IntentPtr share_intent = apps_util::MakeShareIntent(
         share_info_->extras->at(kIntentExtraText), share_info_->title);
     share_intent->mime_type = share_info_->mime_type;
     return share_intent;

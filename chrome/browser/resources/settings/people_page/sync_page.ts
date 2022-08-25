@@ -17,7 +17,7 @@ import '//resources/polymer/v3_0/iron-flex-layout/iron-flex-layout-classes.js';
 import './sync_account_control.js';
 import './sync_encryption_options.js';
 import '../privacy_page/personalization_options.js';
-import '../settings_shared_css.js';
+import '../settings_shared.css.js';
 import '../settings_vars.css.js';
 // <if expr="not chromeos_ash">
 import '//resources/cr_elements/cr_toast/cr_toast.js';
@@ -33,6 +33,7 @@ import {IronCollapseElement} from '//resources/polymer/v3_0/iron-collapse/iron-c
 import {flush, PolymerElement} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import {I18nMixin, I18nMixinInterface} from 'chrome://resources/js/i18n_mixin.js';
 
+import {FocusConfig} from '../focus_config.js';
 import {loadTimeData} from '../i18n_setup.js';
 // <if expr="chromeos_ash">
 import {SettingsPersonalizationOptionsElement} from '../privacy_page/personalization_options.js';
@@ -55,14 +56,13 @@ type SyncRoutes = {
   SYNC: Route,
   SYNC_ADVANCED: Route,
   OS_SYNC: Route,
+  OS_PEOPLE: Route,
 };
 
 function getSyncRoutes(): SyncRoutes {
   const router = Router.getInstance();
   return router.getRoutes() as SyncRoutes;
 }
-
-type FocusConfig = Map<string, (string|(() => void))>;
 
 export interface SettingsSyncPageElement {
   $: {
@@ -138,7 +138,7 @@ export class SettingsSyncPageElement extends SettingsSyncPageElementBase {
 
       dataEncrypted_: {
         type: Boolean,
-        computed: 'computeDataEncrypted_(syncPrefs.encryptAllData)'
+        computed: 'computeDataEncrypted_(syncPrefs.encryptAllData)',
       },
 
       encryptionExpanded_: {
@@ -372,6 +372,17 @@ export class SettingsSyncPageElement extends SettingsSyncPageElementBase {
     return getSyncRoutes().SYNC_ADVANCED;
   }
 
+  private getPeoplePageRoute_(): Route {
+    // <if expr="chromeos_ash">
+    if (loadTimeData.getBoolean('isOSSettings')) {
+      // In OS settings on ChromeOS a different page is used as a people page.
+      return getSyncRoutes().OS_PEOPLE;
+    }
+    // </if>
+
+    return getSyncRoutes().PEOPLE;
+  }
+
   private onFocusConfigChange_() {
     this.focusConfig.set(this.getSyncAdvancedPageRoute_().path, () => {
       const toFocus = this.shadowRoot!.querySelector('#sync-advanced-row');
@@ -401,16 +412,6 @@ export class SettingsSyncPageElement extends SettingsSyncPageElementBase {
     this.showSetupCancelDialog_ = false;
   }
 
-  private isNonSyncingProfilesSupported_(): boolean {
-    // <if expr="chromeos_lacros">
-    return loadTimeData.getBoolean('nonSyncingProfilesEnabled');
-    // </if>
-
-    // <if expr="not chromeos_lacros">
-    return true;
-    // </if>
-  }
-
   override currentRouteChanged() {
     const router = Router.getInstance();
     if (router.getCurrentRoute() === getSyncRoutes().SYNC) {
@@ -432,8 +433,7 @@ export class SettingsSyncPageElement extends SettingsSyncPageElementBase {
     }
 
     const userActionCancelsSetup = this.syncStatus &&
-        this.syncStatus.firstSetupInProgress && this.didAbort_ &&
-        this.isNonSyncingProfilesSupported_();
+        this.syncStatus.firstSetupInProgress && this.didAbort_;
     if (userActionCancelsSetup && !this.setupCancelConfirmed_) {
       chrome.metricsPrivate.recordUserAction(
           'Signin_Signin_BackOnAdvancedSyncSettings');
@@ -550,8 +550,8 @@ export class SettingsSyncPageElement extends SettingsSyncPageElementBase {
       tags: ['a'],
       substitutions: [
         loadTimeData.getString('syncErrorsHelpUrl'),
-        this.syncPrefs.explicitPassphraseTime
-      ]
+        this.syncPrefs.explicitPassphraseTime,
+      ],
     });
   }
 
@@ -637,7 +637,7 @@ export class SettingsSyncPageElement extends SettingsSyncPageElementBase {
         return;
       case PageStatus.DONE:
         if (router.getCurrentRoute() === getSyncRoutes().SYNC) {
-          router.navigateTo(getSyncRoutes().PEOPLE);
+          router.navigateTo(this.getPeoplePageRoute_());
         }
         return;
       case PageStatus.PASSPHRASE_FAILED:

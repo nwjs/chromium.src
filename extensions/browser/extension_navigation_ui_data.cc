@@ -127,7 +127,7 @@ ExtensionNavigationUIData::ExtensionNavigationUIData(
     web_view_instance_id_ = web_view->view_instance_id();
     web_view_rules_registry_id_ = web_view->rules_registry_id();
     web_view_embedder_process_id_ =
-        web_view->owner_web_contents()->GetMainFrame()->GetProcess()->GetID();
+        web_view->owner_web_contents()->GetPrimaryMainFrame()->GetProcess()->GetID();
   } else {
     is_web_view_ = false;
     web_view_instance_id_ = web_view_rules_registry_id_ =

@@ -144,7 +144,7 @@ IN_PROC_BROWSER_TEST_F(FrameTreeBrowserTest, FrameTreeAfterCrash) {
 
   // Ensure the view and frame are live.
   RenderFrameHostImpl* rfh1 = static_cast<RenderFrameHostImpl*>(
-      shell()->web_contents()->GetMainFrame());
+      shell()->web_contents()->GetPrimaryMainFrame());
   RenderViewHostImpl* rvh = rfh1->render_view_host();
   EXPECT_TRUE(rvh->IsRenderViewLive());
   EXPECT_TRUE(rfh1->IsRenderFrameLive());
@@ -154,7 +154,8 @@ IN_PROC_BROWSER_TEST_F(FrameTreeBrowserTest, FrameTreeAfterCrash) {
       shell()->web_contents(),
       RenderProcessHostWatcher::WATCH_FOR_PROCESS_EXIT);
   ASSERT_TRUE(
-      shell()->web_contents()->GetMainFrame()->GetProcess()->Shutdown(0));
+      shell()->web_contents()->GetPrimaryMainFrame()->GetProcess()->Shutdown(
+          0));
   crash_observer.Wait();
 
   // The frame tree should be cleared.
@@ -296,7 +297,8 @@ IN_PROC_BROWSER_TEST_F(FrameTreeBrowserTest, OriginSetOnNavigation) {
   // Navigating to a data URL should set a unique origin.  This is represented
   // as "null" per RFC 6454.
   EXPECT_EQ("null", root->current_origin().Serialize());
-  EXPECT_TRUE(contents->GetMainFrame()->GetLastCommittedOrigin().opaque());
+  EXPECT_TRUE(
+      contents->GetPrimaryMainFrame()->GetLastCommittedOrigin().opaque());
   EXPECT_EQ("null", GetOriginFromRenderer(root));
 
   // Re-navigating to a normal URL should update the origin.
@@ -305,8 +307,10 @@ IN_PROC_BROWSER_TEST_F(FrameTreeBrowserTest, OriginSetOnNavigation) {
             root->current_origin().Serialize() + '/');
   EXPECT_EQ(
       main_url.DeprecatedGetOriginAsURL().spec(),
-      contents->GetMainFrame()->GetLastCommittedOrigin().Serialize() + '/');
-  EXPECT_FALSE(contents->GetMainFrame()->GetLastCommittedOrigin().opaque());
+      contents->GetPrimaryMainFrame()->GetLastCommittedOrigin().Serialize() +
+          '/');
+  EXPECT_FALSE(
+      contents->GetPrimaryMainFrame()->GetLastCommittedOrigin().opaque());
   EXPECT_EQ(root->current_origin().Serialize(), GetOriginFromRenderer(root));
 }
 
@@ -1029,7 +1033,7 @@ class FencedFrameTreeBrowserTest
   }
 
   RenderFrameHostImpl* primary_main_frame_host() {
-    return web_contents()->GetMainFrame();
+    return web_contents()->GetPrimaryMainFrame();
   }
 
  private:
@@ -1935,7 +1939,8 @@ IN_PROC_BROWSER_TEST_P(FencedFrameTreeBrowserTest, CheckOpaqueUrlFlag) {
   //
   // With MPArch, since this was a navigation toward an opaque URL, in the
   // 'opaque-ads' mode, initiated from the embedder, the navigation must use
-  // and commit a document with `is_fenced_frame_opaque_url` to true.
+  // and commit a document with
+  // `is_fenced_frame_root_originating_from_opaque_url` to true.
   GURL fenced_frame_url(
       https_server()->GetURL("a.test", "/fenced_frames/redirect.html"));
   FencedFrameURLMapping& url_mapping =
@@ -1949,12 +1954,12 @@ IN_PROC_BROWSER_TEST_P(FencedFrameTreeBrowserTest, CheckOpaqueUrlFlag) {
 
   EXPECT_EQ(
       fenced_frame_root_node->current_frame_host()
-          ->is_fenced_frame_opaque_url(),
+          ->is_fenced_frame_root_originating_from_opaque_url(),
       GetParam() == blink::features::FencedFramesImplementationType::kMPArch);
 
   // Navigate the fenced frame again, but toward a non-opaque URL. Since this
   // is initiated from the embedder, the new document must commit with
-  // `is_fenced_frame_opaque_url` to false.
+  // `is_fenced_frame_root_originating_from_opaque_url` to false.
   GURL second_url(
       https_server()->GetURL("a.test", "/fenced_frames/title0.html"));
   std::string second_navigate_script =
@@ -1962,7 +1967,7 @@ IN_PROC_BROWSER_TEST_P(FencedFrameTreeBrowserTest, CheckOpaqueUrlFlag) {
   NavigateFrameInsideFencedFrameTreeAndWaitForFinishedLoad(
       fenced_frame_root_node, fenced_frame_url, second_navigate_script);
   EXPECT_FALSE(fenced_frame_root_node->current_frame_host()
-                   ->is_fenced_frame_opaque_url());
+                   ->is_fenced_frame_root_originating_from_opaque_url());
 }
 
 IN_PROC_BROWSER_TEST_P(FencedFrameTreeBrowserTest,
@@ -1988,7 +1993,7 @@ IN_PROC_BROWSER_TEST_P(FencedFrameTreeBrowserTest,
   // Navigate the fenced frame from the initial empty document toward an opaque
   // URL. With MPArch, since this was in the 'opaque-ads' mode, initiated from
   // the embedder, the navigation must use and commit a document with
-  // `is_fenced_frame_opaque_url` to true.
+  // `is_fenced_frame_root_originating_from_opaque_url` to true.
   GURL fenced_frame_url(
       https_server()->GetURL("a.test", "/fenced_frames/title1.html"));
   FencedFrameURLMapping& url_mapping =
@@ -2002,12 +2007,13 @@ IN_PROC_BROWSER_TEST_P(FencedFrameTreeBrowserTest,
 
   EXPECT_EQ(
       fenced_frame_root_node->current_frame_host()
-          ->is_fenced_frame_opaque_url(),
+          ->is_fenced_frame_root_originating_from_opaque_url(),
       GetParam() == blink::features::FencedFramesImplementationType::kMPArch);
 
   // Navigate the fenced frame again, but toward a non-opaque URL and the
   // navigation is cancelled. The navigation is not committed and therefore
-  // `is_fenced_frame_opaque_url` of the document doesn't change.
+  // `is_fenced_frame_root_originating_from_opaque_url` of the document doesn't
+  // change.
   GURL second_url(https_server()->GetURL("a.test", "/nocontent"));
   std::string second_navigate_script =
       JsReplace("f.src = $1;", second_url.spec());
@@ -2020,7 +2026,8 @@ IN_PROC_BROWSER_TEST_P(FencedFrameTreeBrowserTest,
 
   // The fenced frame's document initiates a navigation. The previous cancelled
   // navigation from the embedder shouldn't have made any side effects. The next
-  // committed document must continue to have `is_fenced_frame_opaque_url` true.
+  // committed document must continue to have
+  // `is_fenced_frame_root_originating_from_opaque_url` true.
   GURL redirect_url(
       https_server()->GetURL("a.test", "/fenced_frames/title0.html"));
   EXPECT_TRUE(ExecJs(fenced_frame_root_node->current_frame_host(),
@@ -2032,7 +2039,7 @@ IN_PROC_BROWSER_TEST_P(FencedFrameTreeBrowserTest,
 
   EXPECT_EQ(
       fenced_frame_root_node->current_frame_host()
-          ->is_fenced_frame_opaque_url(),
+          ->is_fenced_frame_root_originating_from_opaque_url(),
       GetParam() == blink::features::FencedFramesImplementationType::kMPArch);
 }
 
@@ -2234,9 +2241,9 @@ IN_PROC_BROWSER_TEST_P(FencedFrameTreeBrowserTest, ShouldIgnoreJsDialog) {
   // Setup test dialog manager and create dialog.
   TestJavaScriptDialogManager dialog_manager;
   web_contents()->SetDelegate(&dialog_manager);
-  web_contents()->RunJavaScriptDialog(web_contents()->GetMainFrame(), u"", u"",
-                                      JAVASCRIPT_DIALOG_TYPE_ALERT, false,
-                                      base::NullCallback());
+  web_contents()->RunJavaScriptDialog(web_contents()->GetPrimaryMainFrame(),
+                                      u"", u"", JAVASCRIPT_DIALOG_TYPE_ALERT,
+                                      false, base::NullCallback());
 
   {
     // Navigate fenced frame.
@@ -3106,7 +3113,13 @@ IN_PROC_BROWSER_TEST_P(FencedFrameTreeBrowserTest, FenceUserActivation) {
                     true /*G*/});
 }
 
-IN_PROC_BROWSER_TEST_P(FencedFrameTreeBrowserTest, FencedAdSizes) {
+// TODO(https://crbug.com/1335512): Flaky.
+#if BUILDFLAG(IS_ANDROID)
+#define MAYBE_FencedAdSizes DISABLED_FencedAdSizes
+#else
+#define MAYBE_FencedAdSizes FencedAdSizes
+#endif
+IN_PROC_BROWSER_TEST_P(FencedFrameTreeBrowserTest, MAYBE_FencedAdSizes) {
   // This test exercises restrictions on fenced frame sizes in opaque-ads mode.
   // See the design document for more details on intended semantics:
   // https://docs.google.com/document/d/1MVqxc2nzde3cJYIRC8vnXH-a4A6J4GQE-1vBuXhQsPE/edit#
@@ -4066,9 +4079,10 @@ IN_PROC_BROWSER_TEST_F(CrossProcessFrameTreeBrowserTest,
   RenderViewHost* rvh = child->current_frame_host()->render_view_host();
   RenderProcessHost* rph = child->current_frame_host()->GetProcess();
 
-  EXPECT_NE(shell()->web_contents()->GetMainFrame()->GetRenderViewHost(), rvh);
+  EXPECT_NE(shell()->web_contents()->GetPrimaryMainFrame()->GetRenderViewHost(),
+            rvh);
   EXPECT_NE(shell()->web_contents()->GetSiteInstance(), child_instance);
-  EXPECT_NE(shell()->web_contents()->GetMainFrame()->GetProcess(), rph);
+  EXPECT_NE(shell()->web_contents()->GetPrimaryMainFrame()->GetProcess(), rph);
 
   // Ensure that the root node has a proxy for the child node's SiteInstance.
   EXPECT_TRUE(root->current_frame_host()
@@ -4612,7 +4626,7 @@ class MPArchFencedFramesFrameTreeBrowserTest : public FrameTreeBrowserTest {
 
   RenderFrameHostImpl* current_frame_host() {
     return static_cast<RenderFrameHostImpl*>(
-        shell()->web_contents()->GetMainFrame());
+        shell()->web_contents()->GetPrimaryMainFrame());
   }
 
  private:

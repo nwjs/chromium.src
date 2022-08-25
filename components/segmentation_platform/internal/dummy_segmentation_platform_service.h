@@ -29,14 +29,16 @@ class DummySegmentationPlatformService : public SegmentationPlatformService {
                           SegmentSelectionCallback callback) override;
   SegmentSelectionResult GetCachedSegmentResult(
       const std::string& segmentation_key) override;
+  void GetSelectedSegmentOnDemand(const std::string& segmentation_key,
+                                  scoped_refptr<InputContext> input_context,
+                                  SegmentSelectionCallback callback) override;
   CallbackId RegisterOnDemandSegmentSelectionCallback(
       const std::string& segmentation_key,
       const OnDemandSegmentSelectionCallback& callback) override;
   void UnregisterOnDemandSegmentSelectionCallback(
       CallbackId callback_id,
       const std::string& segmentation_key) override;
-  void OnTrigger(TriggerType trigger,
-                 const TriggerContext& trigger_context) override;
+  void OnTrigger(std::unique_ptr<TriggerContext> trigger_context) override;
   void EnableMetrics(bool signal_collection_allowed) override;
   bool IsPlatformInitialized() override;
 };

@@ -393,10 +393,14 @@ void QuicChromiumClientSession::Handle::OnSessionClosed(
     int net_error,
     quic::QuicErrorCode quic_error,
     bool port_migration_detected,
+    bool quic_connection_migration_attempted,
+    bool quic_connection_migration_successful,
     LoadTimingInfo::ConnectTiming connect_timing,
     bool was_ever_used) {
   session_ = nullptr;
   port_migration_detected_ = port_migration_detected;
+  quic_connection_migration_attempted_ = quic_connection_migration_attempted;
+  quic_connection_migration_successful_ = quic_connection_migration_successful;
   net_error_ = net_error;
   quic_error_ = quic_error;
   quic_version_ = quic_version;
@@ -428,6 +432,10 @@ void QuicChromiumClientSession::Handle::PopulateNetErrorDetails(
   } else {
     details->quic_port_migration_detected = port_migration_detected_;
     details->quic_connection_error = quic_error_;
+    details->quic_connection_migration_attempted =
+        quic_connection_migration_attempted_;
+    details->quic_connection_migration_successful =
+        quic_connection_migration_successful_;
   }
 }
 
@@ -968,12 +976,13 @@ QuicChromiumClientSession::QuicChromiumClientSession(
       server_info_(std::move(server_info)),
       task_runner_(task_runner),
       net_log_(NetLogWithSource::Make(net_log, NetLogSourceType::QUIC_SESSION)),
-      logger_(new QuicConnectionLogger(this,
-                                       connection_description,
-                                       std::move(socket_performance_watcher),
-                                       net_log_)),
+      logger_(std::make_unique<QuicConnectionLogger>(
+          this,
+          connection_description,
+          std::move(socket_performance_watcher),
+          net_log_)),
       http3_logger_(VersionUsesHttp3(connection->transport_version())
-                        ? new QuicHttp3Logger(net_log_)
+                        ? std::make_unique<QuicHttp3Logger>(net_log_)
                         : nullptr),
       push_delegate_(push_delegate),
       headers_include_h2_stream_dependency_(
@@ -987,12 +996,10 @@ QuicChromiumClientSession::QuicChromiumClientSession(
       sockets_.back().get(), clock, this, yield_after_packets,
       yield_after_duration, net_log_));
   CHECK_EQ(packet_readers_.size(), sockets_.size());
-  crypto_stream_.reset(
-      crypto_client_stream_factory->CreateQuicCryptoClientStream(
-          session_key.server_id(), this,
-          std::make_unique<ProofVerifyContextChromium>(cert_verify_flags,
-                                                       net_log_),
-          crypto_config_->GetConfig()));
+  crypto_stream_ = crypto_client_stream_factory->CreateQuicCryptoClientStream(
+      session_key.server_id(), this,
+      std::make_unique<ProofVerifyContextChromium>(cert_verify_flags, net_log_),
+      crypto_config_->GetConfig());
   if (VersionUsesHttp3(transport_version()))
     set_debug_visitor(http3_logger_.get());
   connection->set_debug_visitor(logger_.get());
@@ -1220,8 +1227,10 @@ void QuicChromiumClientSession::OnAcceptChFrameReceivedViaAlps(
 void QuicChromiumClientSession::AddHandle(Handle* handle) {
   if (going_away_) {
     handle->OnSessionClosed(connection()->version(), ERR_UNEXPECTED, error(),
-                            port_migration_detected_, GetConnectTiming(),
-                            WasConnectionEverUsed());
+                            port_migration_detected_,
+                            quic_connection_migration_attempted_,
+                            quic_connection_migration_successful_,
+                            GetConnectTiming(), WasConnectionEverUsed());
     return;
   }
 
@@ -2815,8 +2824,10 @@ void QuicChromiumClientSession::CloseAllHandles(int net_error) {
     Handle* handle = *handles_.begin();
     handles_.erase(handle);
     handle->OnSessionClosed(connection()->version(), net_error, error(),
-                            port_migration_detected_, GetConnectTiming(),
-                            WasConnectionEverUsed());
+                            port_migration_detected_,
+                            quic_connection_migration_attempted_,
+                            quic_connection_migration_successful_,
+                            GetConnectTiming(), WasConnectionEverUsed());
   }
 }
 
@@ -2843,6 +2854,8 @@ void QuicChromiumClientSession::NotifyRequestsOfConfirmation(int net_error) {
 void QuicChromiumClientSession::MaybeMigrateToDifferentPortOnPathDegrading() {
   DCHECK(allow_port_migration_ && !migrate_session_early_v2_);
 
+  current_migration_cause_ = CHANGE_PORT_ON_PATH_DEGRADING;
+
   if (!version().UsesHttp3())
     return;
 
@@ -2861,7 +2874,6 @@ void QuicChromiumClientSession::MaybeMigrateToDifferentPortOnPathDegrading() {
     return;
   }
 
-  current_migration_cause_ = CHANGE_PORT_ON_PATH_DEGRADING;
   net_log_.BeginEvent(NetLogEventType::QUIC_PORT_MIGRATION_TRIGGERED);
 
   if (!stream_factory_)
@@ -2992,12 +3004,11 @@ ProbingResult QuicChromiumClientSession::StartProbing(
   }
 
   // Create new packet writer and reader on the probing socket.
-  std::unique_ptr<QuicChromiumPacketWriter> probing_writer(
-      new QuicChromiumPacketWriter(probing_socket.get(), task_runner_));
-  std::unique_ptr<QuicChromiumPacketReader> probing_reader(
-      new QuicChromiumPacketReader(probing_socket.get(), clock_, this,
-                                   yield_after_packets_, yield_after_duration_,
-                                   net_log_));
+  auto probing_writer = std::make_unique<QuicChromiumPacketWriter>(
+      probing_socket.get(), task_runner_);
+  auto probing_reader = std::make_unique<QuicChromiumPacketReader>(
+      probing_socket.get(), clock_, this, yield_after_packets_,
+      yield_after_duration_, net_log_);
 
   probing_reader->StartReading();
   path_validation_writer_delegate_.set_network(network);
@@ -3418,6 +3429,8 @@ MigrationResult QuicChromiumClientSession::Migrate(
     NetworkChangeNotifier::NetworkHandle network,
     IPEndPoint peer_address,
     bool close_session_on_error) {
+  quic_connection_migration_attempted_ = true;
+  quic_connection_migration_successful_ = false;
   if (!stream_factory_)
     return MigrationResult::FAILURE;
 
@@ -3459,13 +3472,12 @@ MigrationResult QuicChromiumClientSession::Migrate(
   }
 
   // Create new packet reader and writer on the new socket.
-  std::unique_ptr<QuicChromiumPacketReader> new_reader(
-      new QuicChromiumPacketReader(socket.get(), clock_, this,
-                                   yield_after_packets_, yield_after_duration_,
-                                   net_log_));
+  auto new_reader = std::make_unique<QuicChromiumPacketReader>(
+      socket.get(), clock_, this, yield_after_packets_, yield_after_duration_,
+      net_log_);
   new_reader->StartReading();
-  std::unique_ptr<QuicChromiumPacketWriter> new_writer(
-      new QuicChromiumPacketWriter(socket.get(), task_runner_));
+  auto new_writer =
+      std::make_unique<QuicChromiumPacketWriter>(socket.get(), task_runner_);
 
   static_cast<QuicChromiumPacketWriter*>(connection()->writer())
       ->set_delegate(nullptr);
@@ -3491,6 +3503,7 @@ MigrationResult QuicChromiumClientSession::Migrate(
     }
     return MigrationResult::FAILURE;
   }
+  quic_connection_migration_successful_ = true;
   HistogramAndLogMigrationSuccess(connection_id());
   return MigrationResult::SUCCESS;
 }
@@ -3541,6 +3554,10 @@ void QuicChromiumClientSession::PopulateNetErrorDetails(
     NetErrorDetails* details) const {
   details->quic_port_migration_detected = port_migration_detected_;
   details->quic_connection_error = error();
+  details->quic_connection_migration_attempted =
+      quic_connection_migration_attempted_;
+  details->quic_connection_migration_successful =
+      quic_connection_migration_successful_;
 }
 
 const DatagramClientSocket* QuicChromiumClientSession::GetDefaultSocket()

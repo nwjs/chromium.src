@@ -19,6 +19,7 @@
 #include "content/public/common/url_constants.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/display/types/display_constants.h"
 
 // The FullscreenControllerStateUnitTest unit test suite exhastively tests
 // the FullscreenController through all permutations of events. The behavior
@@ -454,6 +455,37 @@ TEST_F(FullscreenControllerStateUnitTest,
   EXPECT_TRUE(lambda_called);
 }
 
+// Tests that the overloaded version of IsFullscreenForTabOrPending writes the
+// display ID.
+TEST_F(FullscreenControllerStateUnitTest,
+       IsFullscreenForTabOrPendingWritesDisplayId) {
+  AddTab(browser(), GURL(url::kAboutBlankURL));
+  content::WebContents* const tab =
+      browser()->tab_strip_model()->GetWebContentsAt(0);
+  // Should not overwrite `display_id` when not in fullscreen (or pending).
+  int64_t display_id = display::kDefaultDisplayId;
+  EXPECT_FALSE(
+      GetFullscreenController()->IsFullscreenForTabOrPending(tab, &display_id));
+  EXPECT_EQ(display::kDefaultDisplayId, display_id);
+
+  // During transition `display_id` should be overwritten with the display ID.
+  ASSERT_TRUE(InvokeEvent(TAB_FULLSCREEN_TRUE));
+  EXPECT_TRUE(GetFullscreenController()->IsFullscreenForTabOrPending(tab));
+  display_id = display::kDefaultDisplayId;
+  EXPECT_TRUE(GetFullscreenController()->IsFullscreenForTabOrPending(tab));
+  EXPECT_TRUE(
+      GetFullscreenController()->IsFullscreenForTabOrPending(tab, &display_id));
+  EXPECT_NE(display::kDefaultDisplayId, display_id);
+
+  // After transition, `display_id` should be overwritten with the display ID.
+  GetFullscreenController()->FullscreenTransititionCompleted();
+  display_id = display::kDefaultDisplayId;
+  EXPECT_TRUE(GetFullscreenController()->IsFullscreenForTabOrPending(tab));
+  EXPECT_TRUE(
+      GetFullscreenController()->IsFullscreenForTabOrPending(tab, &display_id));
+  EXPECT_NE(display::kDefaultDisplayId, display_id);
+}
+
 // Test that switching tabs takes the browser out of tab fullscreen.
 TEST_F(FullscreenControllerStateUnitTest, ExitTabFullscreenViaSwitchingTab) {
   base::HistogramTester histogram_tester;
@@ -529,7 +561,8 @@ TEST_F(FullscreenControllerStateUnitTest, OneCapturedFullscreenedTab) {
 
   // Activate the first tab and tell its WebContents it is being captured.
   browser()->tab_strip_model()->ActivateTabAt(
-      0, {TabStripModel::GestureType::kOther});
+      0, TabStripUserGestureDetails(
+             TabStripUserGestureDetails::GestureType::kOther));
   const gfx::Size kCaptureSize(1280, 720);
   auto capture_handle =
       first_tab->IncrementCapturerCount(kCaptureSize, /*stay_hidden=*/false,
@@ -550,7 +583,8 @@ TEST_F(FullscreenControllerStateUnitTest, OneCapturedFullscreenedTab) {
   // Switch to the other tab.  Check that the first tab was resized to the
   // WebContents' preferred size.
   browser()->tab_strip_model()->ActivateTabAt(
-      1, {TabStripModel::GestureType::kOther});
+      1, TabStripUserGestureDetails(
+             TabStripUserGestureDetails::GestureType::kOther));
   EXPECT_FALSE(browser()->window()->IsFullscreen());
   EXPECT_TRUE(wc_delegate->IsFullscreenForTabOrPending(first_tab));
   EXPECT_FALSE(wc_delegate->IsFullscreenForTabOrPending(second_tab));
@@ -559,7 +593,8 @@ TEST_F(FullscreenControllerStateUnitTest, OneCapturedFullscreenedTab) {
 
   // Switch back to the first tab and exit fullscreen.
   browser()->tab_strip_model()->ActivateTabAt(
-      0, {TabStripModel::GestureType::kOther});
+      0, TabStripUserGestureDetails(
+             TabStripUserGestureDetails::GestureType::kOther));
   EXPECT_FALSE(browser()->window()->IsFullscreen());
   EXPECT_TRUE(wc_delegate->IsFullscreenForTabOrPending(first_tab));
   EXPECT_FALSE(wc_delegate->IsFullscreenForTabOrPending(second_tab));
@@ -595,7 +630,8 @@ TEST_F(FullscreenControllerStateUnitTest, TwoFullscreenedTabsOneCaptured) {
   // and fullscreen that.  The second tab will cause the browser window to
   // expand to fill the screen.
   browser()->tab_strip_model()->ActivateTabAt(
-      0, {TabStripModel::GestureType::kOther});
+      0, TabStripUserGestureDetails(
+             TabStripUserGestureDetails::GestureType::kOther));
   const gfx::Size kCaptureSize(1280, 720);
   auto capture_handle =
       first_tab->IncrementCapturerCount(kCaptureSize, /*stay_hidden=*/false,
@@ -606,7 +642,8 @@ TEST_F(FullscreenControllerStateUnitTest, TwoFullscreenedTabsOneCaptured) {
   EXPECT_FALSE(wc_delegate->IsFullscreenForTabOrPending(second_tab));
   EXPECT_FALSE(GetFullscreenController()->IsWindowFullscreenForTabOrPending());
   browser()->tab_strip_model()->ActivateTabAt(
-      1, {TabStripModel::GestureType::kOther});
+      1, TabStripUserGestureDetails(
+             TabStripUserGestureDetails::GestureType::kOther));
   ASSERT_TRUE(InvokeEvent(TAB_FULLSCREEN_TRUE));
   ASSERT_TRUE(InvokeEvent(WINDOW_CHANGE));
   EXPECT_TRUE(browser()->window()->IsFullscreen());
@@ -625,7 +662,8 @@ TEST_F(FullscreenControllerStateUnitTest, TwoFullscreenedTabsOneCaptured) {
 
   // Finally, exit fullscreen on the captured tab.
   browser()->tab_strip_model()->ActivateTabAt(
-      0, {TabStripModel::GestureType::kOther});
+      0, TabStripUserGestureDetails(
+             TabStripUserGestureDetails::GestureType::kOther));
   ASSERT_TRUE(InvokeEvent(TAB_FULLSCREEN_FALSE));
   EXPECT_FALSE(browser()->window()->IsFullscreen());
   EXPECT_FALSE(wc_delegate->IsFullscreenForTabOrPending(first_tab));
@@ -657,7 +695,8 @@ TEST_F(FullscreenControllerStateUnitTest,
   // and fullscreen that.  The second tab will cause the browser window to
   // expand to fill the screen.
   browser()->tab_strip_model()->ActivateTabAt(
-      0, {TabStripModel::GestureType::kOther});
+      0, TabStripUserGestureDetails(
+             TabStripUserGestureDetails::GestureType::kOther));
   const gfx::Size kCaptureSize(1280, 720);
   auto capture_handle =
       first_tab->IncrementCapturerCount(kCaptureSize, /*stay_hidden=*/false,
@@ -668,7 +707,8 @@ TEST_F(FullscreenControllerStateUnitTest,
   EXPECT_FALSE(wc_delegate->IsFullscreenForTabOrPending(second_tab));
   EXPECT_FALSE(GetFullscreenController()->IsWindowFullscreenForTabOrPending());
   browser()->tab_strip_model()->ActivateTabAt(
-      1, {TabStripModel::GestureType::kOther});
+      1, TabStripUserGestureDetails(
+             TabStripUserGestureDetails::GestureType::kOther));
   ASSERT_TRUE(InvokeEvent(TAB_FULLSCREEN_TRUE));
   ASSERT_TRUE(InvokeEvent(WINDOW_CHANGE));
   EXPECT_TRUE(browser()->window()->IsFullscreen());
@@ -712,7 +752,8 @@ TEST_F(FullscreenControllerStateUnitTest,
   // Start capturing the tab and fullscreen it.  The state of the browser window
   // should remain unchanged.
   browser()->tab_strip_model()->ActivateTabAt(
-      0, {TabStripModel::GestureType::kOther});
+      0, TabStripUserGestureDetails(
+             TabStripUserGestureDetails::GestureType::kOther));
   const gfx::Size kCaptureSize(1280, 720);
   auto capture_handle =
       tab->IncrementCapturerCount(kCaptureSize, /*stay_hidden=*/false,
@@ -762,7 +803,8 @@ TEST_F(FullscreenControllerStateUnitTest, HiddenlyCapturedTabFullscreened) {
   // Start capturing the tab with stay_hidden==true, and fullscreen it.
   // The the browser window should enter fullscreen.
   browser()->tab_strip_model()->ActivateTabAt(
-      0, {TabStripModel::GestureType::kOther});
+      0, TabStripUserGestureDetails(
+             TabStripUserGestureDetails::GestureType::kOther));
   auto capture_handle =
       tab->IncrementCapturerCount(gfx::Size(), /*stay_hidden=*/true,
                                   /*stay_awake=*/true);
@@ -847,7 +889,8 @@ TEST_F(FullscreenControllerStateUnitTest,
 
   // Activate the first tab and tell its WebContents it is being captured.
   browser()->tab_strip_model()->ActivateTabAt(
-      0, {TabStripModel::GestureType::kOther});
+      0, TabStripUserGestureDetails(
+             TabStripUserGestureDetails::GestureType::kOther));
   const gfx::Size kCaptureSize(1280, 720);
   auto capture_handle =
       tab->IncrementCapturerCount(kCaptureSize, /*stay_hidden=*/false,

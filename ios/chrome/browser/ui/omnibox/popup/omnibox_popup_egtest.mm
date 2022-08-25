@@ -27,7 +27,7 @@
 
 namespace {
 
-// Returns the popup row containing the |url| as suggestion.
+// Returns the popup row containing the `url` as suggestion.
 id<GREYMatcher> PopupRowWithUrl(GURL url) {
   NSString* urlString = base::SysUTF8ToNSString(url.GetContent());
   id<GREYMatcher> URLMatcher =
@@ -40,7 +40,7 @@ id<GREYMatcher> PopupRowWithUrl(GURL url) {
   return grey_allOf(chrome_test_util::OmniboxPopupRow(), URLMatcher, nil);
 }
 
-// Returns the switch to open tab element for the |url|.
+// Returns the switch to open tab element for the `url`.
 id<GREYMatcher> SwitchTabElementForUrl(const GURL& url) {
   return grey_allOf(
       grey_ancestor(PopupRowWithUrl(url)),
@@ -61,22 +61,7 @@ void TapSwitchToTabButton(const GURL& url) {
 
 void ScrollToSwitchToTabElement(const GURL& url) {
   if ([ChromeEarlGrey isNewOmniboxPopupEnabled]) {
-    XCUIApplication* app = [[XCUIApplication alloc] init];
-
-    XCUIElement* popup =
-        app.tables[kOmniboxPopupTableViewAccessibilityIdentifier];
-
-    NSInteger swipeCount = 0;
-    GREYAssert([app.buttons[kOmniboxPopupRowSwitchTabAccessibilityIdentifier]
-                   waitForExistenceWithTimeout:5],
-               @"Switch to tab element not found");
-    while (swipeCount < 10 &&
-           !app.buttons[kOmniboxPopupRowSwitchTabAccessibilityIdentifier]
-                .isHittable) {
-      [popup swipeUp];
-      ++swipeCount;
-    }
-    GREYAssert(swipeCount < 10, @"Couldn't find the switch to tab element");
+    // No need to scroll, tapping works without scrolling.
   } else {
     [[[EarlGrey selectElementWithMatcher:grey_allOf(SwitchTabElementForUrl(url),
                                                     grey_interactable(), nil)]
@@ -153,13 +138,21 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
 
 // Tests that tapping the switch to open tab button, switch to the open tab,
 // doesn't close the tab.
-- (void)testSwitchToOpenTab {
+// TOOD(crbug.com/1346362): Test failing regularly.
+- (void)DISABLED_testSwitchToOpenTab {
 // TODO(crbug.com/1067817): Test won't pass on iPad devices.
 #if !TARGET_IPHONE_SIMULATOR
   if ([ChromeEarlGrey isIPadIdiom]) {
     EARL_GREY_TEST_SKIPPED(@"This test doesn't pass on iPad device.");
   }
 #endif
+
+  if (@available(iOS 15, *)) {
+    // Run the test.
+  } else {
+    EARL_GREY_TEST_SKIPPED(@"SwiftUI is too hard to test before iOS 15.")
+  }
+
   // Open the first page.
   GURL firstPageURL = self.testServer->GetURL(kPage1URL);
   [ChromeEarlGrey loadURL:firstPageURL];
@@ -193,19 +186,9 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
 
 // Tests that the switch to open tab button isn't displayed for the current tab.
 // TODO(crbug.com/1128463): Test is flaky on simulators.
-#if TARGET_IPHONE_SIMULATOR
-#define MAYBE_testNotSwitchButtonOnCurrentTab \
-  DISABLED_testNotSwitchButtonOnCurrentTab
-#else
-#define MAYBE_testNotSwitchButtonOnCurrentTab testNotSwitchButtonOnCurrentTab
-#endif
-- (void)MAYBE_testNotSwitchButtonOnCurrentTab {
+// TODO(crbug.com/1339419): Test fails on device.
 // TODO(crbug.com/1067817): Test won't pass on iPad devices.
-#if !TARGET_IPHONE_SIMULATOR
-  if ([ChromeEarlGrey isIPadIdiom]) {
-    EARL_GREY_TEST_SKIPPED(@"This test doesn't pass on iPad device.");
-  }
-#endif
+- (void)DISABLED_testNotSwitchButtonOnCurrentTab {
   GURL URL2 = self.testServer->GetURL(kPage2URL);
 
   // Open the first page.
@@ -316,6 +299,12 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
     EARL_GREY_TEST_SKIPPED(@"This test doesn't pass on iPad.");
   }
 
+  if (@available(iOS 15, *)) {
+    // Run the test.
+  } else {
+    EARL_GREY_TEST_SKIPPED(@"SwiftUI is too hard to test before iOS 15.")
+  }
+
   // Open the first page.
   GURL URL1 = self.testServer->GetURL(kPage1URL);
   [ChromeEarlGrey loadURL:URL1];
@@ -383,13 +372,8 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
 
 // Tests that switching to closed tab opens the tab in foreground, except if it
 // is from NTP without history.
-- (void)testSwitchToClosedTab {
-// TODO(crbug.com/1067817): Test won't pass on iPad devices.
-#if !TARGET_IPHONE_SIMULATOR
-  if ([ChromeEarlGrey isIPadIdiom]) {
-    EARL_GREY_TEST_SKIPPED(@"This test doesn't pass on iPad device.");
-  }
-#endif
+// TODO(crbug.com/1067817): Test broken in many configurations.
+- (void)DISABLED_testSwitchToClosedTab {
   GURL URL1 = self.testServer->GetURL(kPage1URL);
 
   // Open the first page.
@@ -601,30 +585,13 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
   return config;
 }
 
-- (void)testCloseNTPWhenSwitching {
-  if (@available(iOS 15, *)) {
-    [super testCloseNTPWhenSwitching];
-  } else {
-    EARL_GREY_TEST_SKIPPED(@"SwiftUI is too hard to test before iOS 15.")
-  }
-}
-
 // TODO(crbug.com/1322120): Reenable this test.
-- (void)MAYBE_testNotSwitchButtonOnCurrentTab {
+- (void)DISABLED_testNotSwitchButtonOnCurrentTab {
   if (@available(iOS 15, *)) {
-    [super MAYBE_testNotSwitchButtonOnCurrentTab];
+    [super DISABLED_testNotSwitchButtonOnCurrentTab];
   } else {
     EARL_GREY_TEST_SKIPPED(@"SwiftUI is too hard to test before iOS 15.")
   }
-}
-- (void)testSwitchToClosedTab {
-  // TODO(crbug.com/1315304): Reenable this test
-  EARL_GREY_TEST_SKIPPED(@"Test disabled with SwiftUI.")
-}
-
-- (void)testSwitchToOpenTab {
-  // TODO(crbug.com/1315304): Reenable this test
-  EARL_GREY_TEST_SKIPPED(@"Test disabled with SwiftUI.")
 }
 
 @end
@@ -639,7 +606,7 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
 - (void)setUp {
   _variant = std::string(kIOSOmniboxUpdatedPopupUIVariation1);
 
-  // |appConfigurationForTestCase| is called during [super setUp], and
+  // `appConfigurationForTestCase` is called during [super setUp], and
   // depends on _variant.
   [super setUp];
 }
@@ -660,7 +627,7 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
 - (void)setUp {
   _variant = std::string(kIOSOmniboxUpdatedPopupUIVariation2);
 
-  // |appConfigurationForTestCase| is called during [super setUp], and
+  // `appConfigurationForTestCase` is called during [super setUp], and
   // depends on _variant.
   [super setUp];
 }

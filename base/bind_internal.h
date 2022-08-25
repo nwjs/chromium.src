@@ -14,6 +14,7 @@
 #include <utility>
 
 #include "base/allocator/buildflags.h"
+#include "base/allocator/partition_allocator/partition_alloc_config.h"
 #include "base/callback_internal.h"
 #include "base/check.h"
 #include "base/compiler_specific.h"
@@ -87,15 +88,29 @@ class UnretainedWrapper {
   // Trick to only instantiate this constructor if it is used. Otherwise,
   // instantiating UnretainedWrapper with a T that is not supported by
   // raw_ptr would trigger raw_ptr<T>'s static_assert.
-  template <typename U = T>
+  template <typename U = T, typename Option>
   // Avoids having a raw_ptr<T> -> T* -> raw_ptr<T> round trip, which
   // would trigger the raw_ptr error detector if T* was dangling.
-  explicit UnretainedWrapper(const raw_ptr<U>& o) : ptr_(o) {}
+  explicit UnretainedWrapper(const raw_ptr<U, Option>& o) : ptr_(o) {}
   T* get() const { return ptr_; }
 
  private:
-  using ImplType = std::
-      conditional_t<raw_ptr_traits::IsSupportedType<T>::value, raw_ptr<T>, T*>;
+#if defined(PA_USE_MTE_CHECKED_PTR_WITH_64_BITS_POINTERS)
+  // When `MTECheckedPtr` is enabled as the backing implementation of
+  // `raw_ptr`, there are too many different types that immediately
+  // cause Chrome to crash. Some of these are inutterable as forward
+  // declarations in `raw_ptr.h` (necessary to mark it as not
+  // `IsSupportedType`) - in particular, nested classes
+  // (`Foo::UnsupportedFoo`) cannot be marked as unsupported.
+  //
+  // As a compromise, we decay the wrapper to use `T*` only (rather
+  // than `raw_ptr`) when `raw_ptr` is `MTECheckedPtr`.
+  using ImplType = T*;
+#else
+  using ImplType = std::conditional_t<raw_ptr_traits::IsSupportedType<T>::value,
+                                      raw_ptr<T, DanglingUntriaged>,
+                                      T*>;
+#endif  // defined(PA_USE_MTE_CHECKED_PTR_WITH_64_BITS_POINTERS)
   ImplType ptr_;
 };
 
@@ -114,8 +129,14 @@ class UnretainedRefWrapper {
   T& get() const { return *ptr_; }
 
  private:
-  using ImplType = std::
-      conditional_t<raw_ptr_traits::IsSupportedType<T>::value, raw_ptr<T>, T*>;
+#if defined(PA_USE_MTE_CHECKED_PTR_WITH_64_BITS_POINTERS)
+  // As above.
+  using ImplType = T*;
+#else
+  using ImplType = std::conditional_t<raw_ptr_traits::IsSupportedType<T>::value,
+                                      raw_ptr<T, DanglingUntriaged>,
+                                      T*>;
+#endif  // defined(PA_USE_MTE_CHECKED_PTR_WITH_64_BITS_POINTERS)
   ImplType const ptr_;
 };
 
@@ -338,6 +359,17 @@ struct ExtractCallableRunTypeImpl<Callable, R (Callable::*)(Args...) const> {
   using Type = R(Args...);
 };
 
+template <typename Callable, typename R, typename... Args>
+struct ExtractCallableRunTypeImpl<Callable, R (Callable::*)(Args...) noexcept> {
+  using Type = R(Args...);
+};
+
+template <typename Callable, typename R, typename... Args>
+struct ExtractCallableRunTypeImpl<Callable,
+                                  R (Callable::*)(Args...) const noexcept> {
+  using Type = R(Args...);
+};
+
 // Evaluated to RunType of the given callable type.
 // Example:
 //   auto f = [](int, char*) { return 0.1; };
@@ -389,10 +421,11 @@ struct ForceVoidReturn<R(Args...)> {
 template <typename Functor, typename SFINAE>
 struct FunctorTraits;
 
-// For empty callable types.
-// This specialization is intended to allow binding captureless lambdas, based
-// on the fact that captureless lambdas are empty while capturing lambdas are
-// not. This also allows any functors as far as it's an empty class.
+// For callable types.
+// This specialization handles lambdas (captureless and capturing) and functors
+// with a call operator. Capturing lambdas and stateful functors are explicitly
+// disallowed by BindImpl().
+//
 // Example:
 //
 //   // Captureless lambdas are allowed.
@@ -409,12 +442,12 @@ struct FunctorTraits;
 //   };
 template <typename Functor>
 struct FunctorTraits<Functor,
-                     std::enable_if_t<IsCallableObject<Functor>::value &&
-                                      std::is_empty_v<Functor>>> {
+                     std::enable_if_t<IsCallableObject<Functor>::value>> {
   using RunType = ExtractCallableRunType<Functor>;
   static constexpr bool is_method = false;
   static constexpr bool is_nullable = false;
   static constexpr bool is_callback = false;
+  static constexpr bool is_stateless = std::is_empty_v<Functor>;
 
   template <typename RunFunctor, typename... RunArgs>
   static ExtractReturnType<RunType> Invoke(RunFunctor&& functor,
@@ -430,6 +463,7 @@ struct FunctorTraits<R (*)(Args...)> {
   static constexpr bool is_method = false;
   static constexpr bool is_nullable = true;
   static constexpr bool is_callback = false;
+  static constexpr bool is_stateless = true;
 
   template <typename Function, typename... RunArgs>
   static R Invoke(Function&& function, RunArgs&&... args) {
@@ -446,6 +480,7 @@ struct FunctorTraits<R(__stdcall*)(Args...)> {
   static constexpr bool is_method = false;
   static constexpr bool is_nullable = true;
   static constexpr bool is_callback = false;
+  static constexpr bool is_stateless = true;
 
   template <typename... RunArgs>
   static R Invoke(R(__stdcall* function)(Args...), RunArgs&&... args) {
@@ -460,6 +495,7 @@ struct FunctorTraits<R(__fastcall*)(Args...)> {
   static constexpr bool is_method = false;
   static constexpr bool is_nullable = true;
   static constexpr bool is_callback = false;
+  static constexpr bool is_stateless = true;
 
   template <typename... RunArgs>
   static R Invoke(R(__fastcall* function)(Args...), RunArgs&&... args) {
@@ -490,6 +526,7 @@ struct FunctorTraits<R (^)(Args...)> {
   static constexpr bool is_method = false;
   static constexpr bool is_nullable = true;
   static constexpr bool is_callback = false;
+  static constexpr bool is_stateless = true;
 
   template <typename BlockType, typename... RunArgs>
   static R Invoke(BlockType&& block, RunArgs&&... args) {
@@ -512,6 +549,7 @@ struct FunctorTraits<base::mac::ScopedBlock<R (^)(Args...)>> {
   static constexpr bool is_method = false;
   static constexpr bool is_nullable = true;
   static constexpr bool is_callback = false;
+  static constexpr bool is_stateless = true;
 
   template <typename BlockType, typename... RunArgs>
   static R Invoke(BlockType&& block, RunArgs&&... args) {
@@ -533,6 +571,7 @@ struct FunctorTraits<R (Receiver::*)(Args...)> {
   static constexpr bool is_method = true;
   static constexpr bool is_nullable = true;
   static constexpr bool is_callback = false;
+  static constexpr bool is_stateless = true;
 
   template <typename Method, typename ReceiverPtr, typename... RunArgs>
   static R Invoke(Method method,
@@ -549,6 +588,7 @@ struct FunctorTraits<R (Receiver::*)(Args...) const> {
   static constexpr bool is_method = true;
   static constexpr bool is_nullable = true;
   static constexpr bool is_callback = false;
+  static constexpr bool is_stateless = true;
 
   template <typename Method, typename ReceiverPtr, typename... RunArgs>
   static R Invoke(Method method,
@@ -567,6 +607,7 @@ struct FunctorTraits<R (__stdcall Receiver::*)(Args...)> {
   static constexpr bool is_method = true;
   static constexpr bool is_nullable = true;
   static constexpr bool is_callback = false;
+  static constexpr bool is_stateless = true;
 
   template <typename Method, typename ReceiverPtr, typename... RunArgs>
   static R Invoke(Method method,
@@ -583,6 +624,7 @@ struct FunctorTraits<R (__stdcall Receiver::*)(Args...) const> {
   static constexpr bool is_method = true;
   static constexpr bool is_nullable = true;
   static constexpr bool is_callback = false;
+  static constexpr bool is_stateless = true;
 
   template <typename Method, typename ReceiverPtr, typename... RunArgs>
   static R Invoke(Method method,
@@ -633,6 +675,7 @@ struct FunctorTraits<OnceCallback<R(Args...)>> {
   static constexpr bool is_method = false;
   static constexpr bool is_nullable = true;
   static constexpr bool is_callback = true;
+  static constexpr bool is_stateless = true;
 
   template <typename CallbackType, typename... RunArgs>
   static R Invoke(CallbackType&& callback, RunArgs&&... args) {
@@ -649,6 +692,7 @@ struct FunctorTraits<RepeatingCallback<R(Args...)>> {
   static constexpr bool is_method = false;
   static constexpr bool is_nullable = true;
   static constexpr bool is_callback = true;
+  static constexpr bool is_stateless = true;
 
   template <typename CallbackType, typename... RunArgs>
   static R Invoke(CallbackType&& callback, RunArgs&&... args) {
@@ -1248,6 +1292,10 @@ decltype(auto) BindImpl(Functor&& functor, Args&&... args) {
   using UnwrappedArgsList =
       MakeUnwrappedTypeList<kIsOnce, FunctorTraits::is_method, Args&&...>;
   using BoundParamsList = typename Helper::BoundParamsList;
+  static_assert(
+      MakeFunctorTraits<Functor>::is_stateless,
+      "Capturing lambdas and stateful lambdas are intentionally not supported. "
+      "Please use base::Bind{Once,Repeating} directly to bind arguments.");
   static_assert(
       AssertBindArgsValidity<std::make_index_sequence<Helper::num_bounds>,
                              BoundArgsList, UnwrappedArgsList,

@@ -10,6 +10,7 @@
 #include "base/feature_list.h"
 #include "chrome/browser/ash/system_extensions/system_extension.h"
 #include "chrome/browser/ash/system_extensions/system_extensions_install_manager.h"
+#include "chrome/browser/ash/system_extensions/system_extensions_profile_utils.h"
 #include "chrome/browser/ash/system_extensions/system_extensions_provider_factory.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/common/url_constants.h"
@@ -21,13 +22,9 @@ namespace ash {
 const char* kSystemExtensionScheme = content::kChromeUIUntrustedScheme;
 
 // static
-SystemExtensionsProvider* SystemExtensionsProvider::Get(Profile* profile) {
-  return SystemExtensionsProviderFactory::GetForProfileIfExists(profile);
-}
-
-// static
-bool SystemExtensionsProvider::IsEnabled() {
-  return base::FeatureList::IsEnabled(ash::features::kSystemExtensions);
+SystemExtensionsProvider& SystemExtensionsProvider::Get(Profile* profile) {
+  DCHECK(ash::IsSystemExtensionsEnabled(profile));
+  return *SystemExtensionsProviderFactory::GetForProfileIfExists(profile);
 }
 
 // static
@@ -40,9 +37,10 @@ SystemExtensionsProvider::SystemExtensionsProvider(Profile* profile) {
   install_manager_ = std::make_unique<SystemExtensionsInstallManager>(profile);
 }
 
-void SystemExtensionsProvider::WillStartServiceWorker(
-    const GURL& script_url,
-    content::RenderProcessHost* render_process_host) {
+void SystemExtensionsProvider::
+    UpdateEnabledBlinkRuntimeFeaturesInIsolatedWorker(
+        const GURL& script_url,
+        std::vector<std::string>& out_forced_enabled_runtime_features) {
   if (!script_url.SchemeIs(kSystemExtensionScheme))
     return;
 
@@ -53,14 +51,11 @@ void SystemExtensionsProvider::WillStartServiceWorker(
 
   // TODO(https://crbug.com/1272371): Change the following to query system
   // extension feature list.
-  std::vector<std::string> features;
-  features.push_back("BlinkExtensionChromeOS");
+  out_forced_enabled_runtime_features.push_back("BlinkExtensionChromeOS");
   if (system_extension->type == SystemExtensionType::kEcho) {
-    features.push_back("BlinkExtensionChromeOSWindowManagement");
+    out_forced_enabled_runtime_features.push_back(
+        "BlinkExtensionChromeOSWindowManagement");
   }
-
-  render_process_host->EnableBlinkRuntimeFeatures(features);
-  return;
 }
 
 SystemExtensionsProvider::~SystemExtensionsProvider() = default;

@@ -254,8 +254,7 @@ TEST_F(ServiceWorkerObjectHostTest, OnVersionStateChanged) {
                                   /*mock frame_routing_id=*/1),
           /*is_parent_frame_secure=*/true, helper_->context()->AsWeakPtr(),
           &remote_endpoint);
-  container_host->UpdateUrls(scope, net::SiteForCookies::FromUrl(scope),
-                             url::Origin::Create(scope),
+  container_host->UpdateUrls(scope, url::Origin::Create(scope),
                              blink::StorageKey(url::Origin::Create(scope)));
   blink::mojom::ServiceWorkerRegistrationObjectInfoPtr registration_info =
       GetRegistrationFromRemote(remote_endpoint.host_remote()->get(), scope);
@@ -401,14 +400,13 @@ TEST_F(ServiceWorkerObjectHostTest, DispatchExtendableMessageEvent_FromClient) {
   std::unique_ptr<WebContents> web_contents(
       WebContentsTester::CreateTestWebContents(helper_->browser_context(),
                                                nullptr));
-  RenderFrameHost* frame_host = web_contents->GetMainFrame();
+  RenderFrameHost* frame_host = web_contents->GetPrimaryMainFrame();
   ServiceWorkerRemoteContainerEndpoint remote_endpoint;
   base::WeakPtr<ServiceWorkerContainerHost> container_host =
       CreateContainerHostForWindow(
           frame_host->GetGlobalId(), /*is_parent_frame_secure=*/true,
           helper_->context()->AsWeakPtr(), &remote_endpoint);
-  container_host->UpdateUrls(scope, net::SiteForCookies::FromUrl(scope),
-                             url::Origin::Create(scope), key);
+  container_host->UpdateUrls(scope, url::Origin::Create(scope), key);
 
   // Prepare a ServiceWorkerObjectHost for the worker.
   blink::mojom::ServiceWorkerObjectInfoPtr info =

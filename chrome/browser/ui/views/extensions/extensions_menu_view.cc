@@ -87,11 +87,11 @@ ExtensionsMenuView::ExtensionsMenuView(
       wants_access_{
           nullptr, nullptr, IDS_EXTENSIONS_MENU_WANTS_TO_ACCESS_SITE_DATA_SHORT,
           IDS_EXTENSIONS_MENU_WANTS_TO_ACCESS_SITE_DATA,
-          extensions::SitePermissionsHelper::SiteInteraction::kPending},
-      has_access_{nullptr, nullptr,
-                  IDS_EXTENSIONS_MENU_ACCESSING_SITE_DATA_SHORT,
-                  IDS_EXTENSIONS_MENU_ACCESSING_SITE_DATA,
-                  extensions::SitePermissionsHelper::SiteInteraction::kActive} {
+          extensions::SitePermissionsHelper::SiteInteraction::kWithheld},
+      has_access_{
+          nullptr, nullptr, IDS_EXTENSIONS_MENU_ACCESSING_SITE_DATA_SHORT,
+          IDS_EXTENSIONS_MENU_ACCESSING_SITE_DATA,
+          extensions::SitePermissionsHelper::SiteInteraction::kGranted} {
   // Ensure layer masking is used for the extensions menu to ensure buttons with
   // layer effects sitting flush with the bottom of the bubble are clipped
   // appropriately.
@@ -104,7 +104,17 @@ ExtensionsMenuView::ExtensionsMenuView(
   SetButtons(ui::DIALOG_BUTTON_NONE);
   SetShowCloseButton(true);
   SetTitle(IDS_EXTENSIONS_MENU_TITLE);
-  GetViewAccessibility().OverrideName(GetAccessibleWindowTitle());
+
+  // ExtensionsMenuView::GetAccessibleWindowTitle always returns an empty
+  // string. This was done to prevent repetition of "Alert Extensions"
+  // when the user selects Extensions from the Desktop PWA three dot menu.
+  // See crrev.com/c/2661700. Should that change, kAttributeExplicitlyEmpty
+  // will not be appropriate.
+  ax::mojom::NameFrom name_from =
+      GetAccessibleWindowTitle().empty()
+          ? ax::mojom::NameFrom::kAttributeExplicitlyEmpty
+          : ax::mojom::NameFrom::kAttribute;
+  GetViewAccessibility().OverrideName(GetAccessibleWindowTitle(), name_from);
 
   SetEnableArrowKeyTraversal(true);
 
@@ -261,11 +271,11 @@ ExtensionsMenuView::Section* ExtensionsMenuView::GetSectionForSiteInteraction(
     case extensions::SitePermissionsHelper::SiteInteraction::kNone:
       section = &cant_access_;
       break;
-    case extensions::SitePermissionsHelper::SiteInteraction::kPending:
+    case extensions::SitePermissionsHelper::SiteInteraction::kWithheld:
     case extensions::SitePermissionsHelper::SiteInteraction::kActiveTab:
       section = &wants_access_;
       break;
-    case extensions::SitePermissionsHelper::SiteInteraction::kActive:
+    case extensions::SitePermissionsHelper::SiteInteraction::kGranted:
       section = &has_access_;
       break;
   }

@@ -18,7 +18,7 @@ import 'chrome://resources/cr_elements/shared_style_css.m.js';
 import 'chrome://resources/cr_elements/shared_vars_css.m.js';
 import 'chrome://resources/polymer/v3_0/iron-flex-layout/iron-flex-layout-classes.js';
 import '../icons.html.js';
-import '../settings_shared_css.js';
+import '../settings_shared.css.js';
 import './all_sites_icons.html.js';
 import './clear_storage_dialog_shared.css.js';
 import './site_details_permission.js';
@@ -221,7 +221,7 @@ export class SiteDetailsElement extends SiteDetailsElementBase {
    *     |categoryList| will be hidden.
    */
   private updatePermissions_(
-      categoryList: Array<ContentSettingsTypes>, hideOthers: boolean) {
+      categoryList: ContentSettingsTypes[], hideOthers: boolean) {
     const permissionsMap: {[key: string]: SiteDetailsPermissionElement} =
         Array.prototype.reduce.call(
             this.shadowRoot!.querySelectorAll('site-details-permission'),

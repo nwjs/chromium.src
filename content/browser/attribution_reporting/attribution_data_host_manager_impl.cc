@@ -142,12 +142,14 @@ enum class RegistrationType {
 
 struct AttributionDataHostManagerImpl::FrozenContext {
   // Top-level origin the data host was created in.
-  const url::Origin context_origin;
+  // Logically const.
+  url::Origin context_origin;
 
   // Source type of this context. Note that data hosts which result in
   // triggers still have a source type of` kEvent` as they share the same web
   // API surface.
-  const AttributionSourceType source_type;
+  // Logically const.
+  AttributionSourceType source_type;
 
   // For receivers with `source_type` `AttributionSourceType::kNavigation`,
   // the final committed origin of the navigation associated with the data
@@ -161,11 +163,14 @@ struct AttributionDataHostManagerImpl::FrozenContext {
 
   int num_data_registered = 0;
 
-  const base::TimeTicks register_time;
+  // Logically const.
+  base::TimeTicks register_time;
 };
 
 struct AttributionDataHostManagerImpl::DelayedTrigger {
-  const base::TimeTicks delay_until;
+  // Logically const.
+  base::TimeTicks delay_until;
+
   AttributionTrigger trigger;
 
   base::TimeDelta TimeUntil() const {
@@ -477,6 +482,16 @@ void AttributionDataHostManagerImpl::TriggerDataAvailable(
     return;
   }
 
+  absl::optional<AttributionFilterData> not_filters =
+      AttributionFilterData::FromTriggerFilterValues(
+          std::move(data->not_filters->filter_values));
+  if (!not_filters.has_value()) {
+    RecordTriggerDataHandleStatus(DataHandleStatus::kInvalidData);
+    mojo::ReportBadMessage(
+        "AttributionDataHost: Invalid top-level negated filters.");
+    return;
+  }
+
   if (data->event_triggers.size() > blink::kMaxAttributionEventTriggerData) {
     RecordTriggerDataHandleStatus(DataHandleStatus::kInvalidData);
     mojo::ReportBadMessage("AttributionDataHost: Too many event triggers.");
@@ -541,6 +556,7 @@ void AttributionDataHostManagerImpl::TriggerDataAvailable(
   AttributionTrigger trigger(
       /*destination_origin=*/context.context_origin,
       std::move(data->reporting_origin), std::move(*filters),
+      std::move(*not_filters),
       data->debug_key ? absl::make_optional(data->debug_key->value)
                       : absl::nullopt,
       std::move(event_triggers), std::move(*aggregatable_trigger_data),
@@ -685,9 +701,9 @@ void AttributionDataHostManagerImpl::OnRedirectSourceParsed(
   registrations.pending_source_data--;
 
   absl::optional<StorableSource> source;
-  if (result.value && result.value->is_dict()) {
+  if (result.has_value() && result->is_dict()) {
     source = ParseSourceRegistration(
-        std::move(result.value->GetDict()), /*source_time=*/base::Time::Now(),
+        std::move(result->GetDict()), /*source_time=*/base::Time::Now(),
         std::move(reporting_origin), registrations.source_origin,
         AttributionSourceType::kNavigation);
   }

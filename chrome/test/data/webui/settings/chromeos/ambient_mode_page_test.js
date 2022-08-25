@@ -57,7 +57,7 @@ suite('AmbientModeHandler', function() {
 
   setup(function() {
     browserProxy = new TestAmbientModeBrowserProxy();
-    AmbientModeBrowserProxyImpl.setInstance(browserProxy);
+    AmbientModeBrowserProxyImpl.setInstanceForTesting(browserProxy);
 
     PolymerTest.clearBody();
 
@@ -136,7 +136,7 @@ suite('AmbientModeHandler', function() {
     // Select the google photos topic source.
     webUIListenerCallback('topic-source-changed', {
       'topicSource': AmbientModeTopicSource.GOOGLE_PHOTOS,
-      'hasAlbums': true
+      'hasAlbums': true,
     });
     // Select celsius as the initial temperature unit.
     webUIListenerCallback(
@@ -160,7 +160,7 @@ suite('AmbientModeHandler', function() {
     // Select the google photos topic source.
     webUIListenerCallback('topic-source-changed', {
       'topicSource': AmbientModeTopicSource.GOOGLE_PHOTOS,
-      'hasAlbums': true
+      'hasAlbums': true,
     });
     // Select celsius as the initial temperature unit.
     webUIListenerCallback(
@@ -181,7 +181,7 @@ suite('AmbientModeHandler', function() {
     // Select the google photos topic source.
     webUIListenerCallback('topic-source-changed', {
       'topicSource': AmbientModeTopicSource.GOOGLE_PHOTOS,
-      'hasAlbums': true
+      'hasAlbums': true,
     });
     // Select celsius as the initial temperature unit.
     webUIListenerCallback(
@@ -221,7 +221,7 @@ suite('AmbientModeHandler', function() {
     // Select the google photos topic source.
     webUIListenerCallback('topic-source-changed', {
       'topicSource': AmbientModeTopicSource.GOOGLE_PHOTOS,
-      'hasAlbums': true
+      'hasAlbums': true,
     });
     // Select celsius as the initial temperature unit.
     webUIListenerCallback(
@@ -241,7 +241,7 @@ suite('AmbientModeHandler', function() {
     // Select the google photos topic source.
     webUIListenerCallback('topic-source-changed', {
       'topicSource': AmbientModeTopicSource.GOOGLE_PHOTOS,
-      'hasAlbums': true
+      'hasAlbums': true,
     });
     flush();
 
@@ -267,7 +267,7 @@ suite('AmbientModeHandler', function() {
     // Select the google photos topic source.
     webUIListenerCallback('topic-source-changed', {
       'topicSource': AmbientModeTopicSource.GOOGLE_PHOTOS,
-      'hasAlbums': true
+      'hasAlbums': true,
     });
     // Select celsius as the initial temperature unit.
     webUIListenerCallback(
@@ -315,7 +315,7 @@ suite('AmbientModeHandler', function() {
     // Select the google photos topic source.
     webUIListenerCallback('topic-source-changed', {
       'topicSource': AmbientModeTopicSource.GOOGLE_PHOTOS,
-      'hasAlbums': true
+      'hasAlbums': true,
     });
     // Select celsius as the initial temperature unit.
     webUIListenerCallback(
@@ -336,7 +336,7 @@ suite('AmbientModeHandler', function() {
     // Select the google photos topic source.
     webUIListenerCallback('topic-source-changed', {
       'topicSource': AmbientModeTopicSource.GOOGLE_PHOTOS,
-      'hasAlbums': true
+      'hasAlbums': true,
     });
     // Select celsius as the initial temperature unit.
     webUIListenerCallback(

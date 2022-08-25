@@ -39,7 +39,6 @@
 #include "chrome/browser/ui/webui/settings/chromeos/server_printer_url_util.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/pref_names.h"
-#include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/debug_daemon/debug_daemon_client.h"
 #include "chromeos/printing/ppd_line_reader.h"
 #include "chromeos/printing/printer_configuration.h"
@@ -102,16 +101,16 @@ void QueryAutoconf(const Uri& uri, PrinterInfoCallback callback) {
 }
 
 // Returns the list of |printers| formatted as a CupsPrintersList.
-base::Value BuildCupsPrintersList(const std::vector<Printer>& printers) {
-  base::Value printers_list(base::Value::Type::LIST);
+base::Value::Dict BuildCupsPrintersList(const std::vector<Printer>& printers) {
+  base::Value::List printers_list;
   for (const Printer& printer : printers) {
     // Some of these printers could be invalid but we want to allow the user
     // to edit them. crbug.com/778383
     printers_list.Append(GetCupsPrinterInfo(printer));
   }
 
-  base::Value response(base::Value::Type::DICTIONARY);
-  response.SetKey("printerList", std::move(printers_list));
+  base::Value::Dict response;
+  response.Set("printerList", std::move(printers_list));
   return response;
 }
 
@@ -383,8 +382,8 @@ void CupsPrintersHandler::HandleGetCupsSavedPrintersList(
   std::vector<Printer> printers =
       printers_manager_->GetPrinters(PrinterClass::kSaved);
 
-  auto response = BuildCupsPrintersList(printers);
-  ResolveJavascriptCallback(base::Value(callback_id), response);
+  ResolveJavascriptCallback(base::Value(callback_id),
+                            base::Value(BuildCupsPrintersList(printers)));
 }
 
 void CupsPrintersHandler::HandleGetCupsEnterprisePrintersList(
@@ -397,8 +396,8 @@ void CupsPrintersHandler::HandleGetCupsEnterprisePrintersList(
   std::vector<Printer> printers =
       printers_manager_->GetPrinters(PrinterClass::kEnterprise);
 
-  auto response = BuildCupsPrintersList(printers);
-  ResolveJavascriptCallback(base::Value(callback_id), response);
+  ResolveJavascriptCallback(base::Value(callback_id),
+                            base::Value(BuildCupsPrintersList(printers)));
 }
 
 void CupsPrintersHandler::HandleUpdateCupsPrinter(
@@ -445,10 +444,9 @@ void CupsPrintersHandler::HandleRemoveCupsPrinter(
   // Printer is deleted here.  Do not access after this line.
   printers_manager_->RemoveSavedPrinter(printer_id);
 
-  DebugDaemonClient* client = DBusThreadManager::Get()->GetDebugDaemonClient();
-  client->CupsRemovePrinter(printer_id,
-                            base::BindOnce(&OnRemovedPrinter, protocol),
-                            base::DoNothing());
+  DebugDaemonClient::Get()->CupsRemovePrinter(
+      printer_id, base::BindOnce(&OnRemovedPrinter, protocol),
+      base::DoNothing());
 }
 
 void CupsPrintersHandler::HandleGetPrinterInfo(const base::Value::List& args) {
@@ -551,7 +549,7 @@ void CupsPrintersHandler::OnAutoconfQueriedDiscovered(
   // the rest.
   PRINTER_LOG(EVENT) << "Could not query printer.  Fallback to asking the user";
   RejectJavascriptCallback(base::Value(callback_id),
-                           GetCupsPrinterInfo(printer));
+                           base::Value(GetCupsPrinterInfo(printer)));
 }
 
 void CupsPrintersHandler::OnAutoconfQueried(
@@ -812,7 +810,7 @@ void CupsPrintersHandler::OnAddedDiscoveredPrinter(
                           "Fall back to manual.";
     // Could not set up printer.  Asking user for manufacturer data.
     RejectJavascriptCallback(base::Value(callback_id),
-                             GetCupsPrinterInfo(printer));
+                             base::Value(GetCupsPrinterInfo(printer)));
   }
 }
 
@@ -1029,14 +1027,14 @@ void CupsPrintersHandler::OnPrintersChanged(
       UpdateDiscoveredPrinters();
       break;
     case PrinterClass::kSaved: {
-      auto printers_list = BuildCupsPrintersList(printers);
-      FireWebUIListener("on-saved-printers-changed", printers_list);
+      FireWebUIListener("on-saved-printers-changed",
+                        base::Value(BuildCupsPrintersList(printers)));
       break;
     }
     case PrinterClass::kEnterprise:
-      auto enterprise_printers_list = BuildCupsPrintersList(printers);
       FireWebUIListener("on-enterprise-printers-changed",
-                        enterprise_printers_list);
+                        base::Value(BuildCupsPrintersList(printers)));
+      break;
   }
 }
 
@@ -1107,7 +1105,7 @@ void CupsPrintersHandler::HandleAddDiscoveredPrinter(
   // directly, so we have to fall back to manual configuration here.
   if (printer->IsUsbProtocol()) {
     RejectJavascriptCallback(base::Value(callback_id),
-                             GetCupsPrinterInfo(*printer));
+                             base::Value(GetCupsPrinterInfo(*printer)));
     return;
   }
 
@@ -1235,7 +1233,7 @@ void CupsPrintersHandler::OnIpResolved(const std::string& callback_id,
   PRINTER_LOG(EVENT) << "Request make and model from user";
   // If it's not an IPP printer, the user must choose a PPD.
   RejectJavascriptCallback(base::Value(callback_id),
-                           GetCupsPrinterInfo(printer));
+                           base::Value(GetCupsPrinterInfo(printer)));
 }
 
 void CupsPrintersHandler::HandleQueryPrintServer(
@@ -1315,8 +1313,8 @@ void CupsPrintersHandler::OnQueryPrintServerCompleted(
   server_printers_fetcher_.reset();
 
   // Create result value and finish the callback.
-  base::Value result_dict = BuildCupsPrintersList(printers);
-  ResolveJavascriptCallback(base::Value(callback_id), result_dict);
+  ResolveJavascriptCallback(base::Value(callback_id),
+                            base::Value(BuildCupsPrintersList(printers)));
 }
 
 void CupsPrintersHandler::HandleOpenPrintManagementApp(

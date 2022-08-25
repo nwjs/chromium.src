@@ -284,8 +284,8 @@ gfx::Rect WindowSizer::GetDefaultWindowBounds(
   int default_height = 600;
   nw::Package* package = nw::package();
   if (package && package->window()) {
-    package->window()->GetInteger("width", &default_width);
-    package->window()->GetInteger("height", &default_height);
+    default_width = package->window()->FindInt("width").value_or(800);
+    default_height = package->window()->FindInt("height").value_or(600);
   }
 
 #if 0

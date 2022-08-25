@@ -80,6 +80,7 @@ class WebLocalFrameImpl;
 struct WebNavigationParams;
 class WebRemoteFrameImpl;
 class WebSettings;
+class WidgetInputHandlerManager;
 
 namespace frame_test_helpers {
 class TestWebFrameClient;
@@ -153,6 +154,14 @@ WebRemoteFrameImpl* CreateRemoteChild(WebRemoteFrame& parent,
                                       const WebString& name = WebString(),
                                       scoped_refptr<SecurityOrigin> = nullptr,
                                       TestWebRemoteFrameClient* = nullptr);
+
+// Call Swap with a `new_remote_frame` stubbing out the mojo channels if
+// necessary.
+void SwapRemoteFrame(
+    WebFrame* old_frame,
+    WebRemoteFrame* new_remote_frame,
+    mojo::PendingAssociatedRemote<mojom::blink::RemoteFrameHost> =
+        mojo::NullAssociatedRemote());
 
 class TestWebFrameWidgetHost : public mojom::blink::WidgetHost,
                                public mojom::blink::FrameWidgetHost {
@@ -257,6 +266,24 @@ class TestWebFrameWidget : public WebFrameWidgetImpl {
       mojo::PendingAssociatedReceiver<mojom::blink::WidgetHost>,
       mojo::PendingAssociatedReceiver<mojom::blink::FrameWidgetHost>);
 
+  WidgetInputHandlerManager* GetWidgetInputHandlerManager() const;
+  void FlushInputHandlerTasks();
+
+  // Simulates an input event arriving at the WidgetInputHandlerManager from the
+  // browser process.  The event will run synchronously through the compositor's
+  // real input handling code (InputHandlerProxy and ThreadedInputHandler).
+  //
+  // Note that with scroll unification, tests should send gesture scroll events
+  // using this method, and not through WebFrameWidgetImpl::HandleInputEvent or
+  // EventHandler::HandleGestureEvent.  Tests that use this method for scrolling
+  // should also use SimTest::ResizeView or WebViewHelper::Resize (not directly
+  // WebFrameWidgetImpl::Resize) to set the initial size of the viewport.
+  //
+  void DispatchThroughCcInputHandler(const WebInputEvent& event);
+  const mojom::blink::DidOverscrollParamsPtr& last_overscroll() const {
+    return last_overscroll_;
+  }
+
   using WebFrameWidgetImpl::GetOriginalScreenInfo;
 
  protected:
@@ -270,6 +297,7 @@ class TestWebFrameWidget : public WebFrameWidgetImpl {
   bool ShouldAutoDetermineCompositingToLCDTextSetting() override {
     return false;
   }
+  bool AllowsScrollResampling() override { return false; }
 
  private:
   cc::FakeLayerTreeFrameSink* last_created_frame_sink_ = nullptr;
@@ -281,6 +309,7 @@ class TestWebFrameWidget : public WebFrameWidgetImpl {
   std::unique_ptr<TestWidgetInputHandlerHost> widget_input_handler_host_;
   viz::FrameSinkId frame_sink_id_;
   std::unique_ptr<TestWebFrameWidgetHost> widget_host_;
+  mojom::blink::DidOverscrollParamsPtr last_overscroll_;
 };
 
 class TestWebViewClient : public WebViewClient {
@@ -291,15 +320,17 @@ class TestWebViewClient : public WebViewClient {
   void DestroyChildViews();
 
   // WebViewClient overrides.
-  WebView* CreateView(WebLocalFrame* opener,
-                      const WebURLRequest&,
-                      const WebWindowFeatures&,
-                      const WebString& name,
-                      WebNavigationPolicy,
-                      network::mojom::blink::WebSandboxFlags,
-                      const SessionStorageNamespaceId&,
-                      bool& consumed_user_gesture,
-                      const absl::optional<Impression>&) override;
+  WebView* CreateView(
+      WebLocalFrame* opener,
+      const WebURLRequest&,
+      const WebWindowFeatures&,
+      const WebString& name,
+      WebNavigationPolicy,
+      network::mojom::blink::WebSandboxFlags,
+      const SessionStorageNamespaceId&,
+      bool& consumed_user_gesture,
+      const absl::optional<Impression>&,
+      const absl::optional<WebPictureInPictureWindowOptions>&) override;
 
  private:
   WTF::Vector<std::unique_ptr<WebViewHelper>> child_web_views_;
@@ -346,7 +377,9 @@ class WebViewHelper : public ScopedMockOverlayScrollbars {
       WebFrame* opener,
       TestWebFrameClient* = nullptr,
       TestWebViewClient* = nullptr,
-      void (*update_settings_func)(WebSettings*) = nullptr);
+      void (*update_settings_func)(WebSettings*) = nullptr,
+      absl::optional<mojom::blink::FencedFrameMode> fenced_frame_mode =
+          absl::nullopt);
 
   // Same as InitializeWithOpener(), but always sets the opener to null.
   WebViewImpl* Initialize(TestWebFrameClient* = nullptr,
@@ -415,6 +448,7 @@ class WebViewHelper : public ScopedMockOverlayScrollbars {
   WebLocalFrameImpl* LocalMainFrame() const;
   WebRemoteFrameImpl* RemoteMainFrame() const;
   TestWebFrameWidget* GetMainFrameWidget() const;
+  WidgetInputHandlerManager* GetWidgetInputHandlerManager() const;
 
   void set_viewport_enabled(bool viewport) {
     DCHECK(!web_view_)
@@ -453,8 +487,10 @@ class WebViewHelper : public ScopedMockOverlayScrollbars {
   }
 
  private:
-  void InitializeWebView(TestWebViewClient*,
-                         class WebView* opener);
+  void InitializeWebView(
+      TestWebViewClient*,
+      class WebView* opener,
+      absl::optional<mojom::blink::FencedFrameMode> fenced_frame_mode);
   void CheckFrameIsAssociatedWithWebView(WebFrame* frame);
 
   bool viewport_enabled_ = false;
@@ -578,15 +614,10 @@ class TestWebRemoteFrameClient : public WebRemoteFrameClient {
 
   // WebRemoteFrameClient:
   void FrameDetached(DetachType) override;
-  AssociatedInterfaceProvider* GetRemoteAssociatedInterfaces() override {
-    return associated_interface_provider_.get();
-  }
 
  private:
   // If set to a non-null value, self-deletes on frame detach.
   std::unique_ptr<TestWebRemoteFrameClient> self_owned_;
-
-  std::unique_ptr<AssociatedInterfaceProvider> associated_interface_provider_;
 
   // This is null from when the client is created until it is initialized with
   // Bind().
@@ -598,6 +629,7 @@ class TestWidgetInputHandlerHost : public mojom::blink::WidgetInputHandlerHost {
   mojo::PendingRemote<mojom::blink::WidgetInputHandlerHost> BindNewRemote();
 
   void SetTouchActionFromMain(cc::TouchAction touch_action) override;
+  void SetPanAction(mojom::blink::PanAction pan_action) override;
   void DidOverscroll(mojom::blink::DidOverscrollParamsPtr params) override;
   void DidStartScrollingViewport() override;
   void ImeCancelComposition() override;

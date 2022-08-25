@@ -8,6 +8,11 @@
   </outputs>
   <release seq="1">
     <structures>
+      <if expr="enable_app_list">
+        <structure name="IDR_APP_LIST_START_PAGE_CSS" file="resources\empty.css" flattenhtml="true" type="chrome_html" />
+        <structure name="IDR_APP_LIST_START_PAGE_HTML" file="resources\empty.html" flattenhtml="true" type="chrome_html" />
+        <structure name="IDR_APP_LIST_START_PAGE_JS" file="resources\empty.js" flattenhtml="true" type="chrome_html" />
+      </if>
       <if expr="not is_android">
         <structure name="IDR_DOWNLOADS_CSS" file="resources\empty.css" flattenhtml="true" type="chrome_html" />
         <structure name="IDR_DOWNLOADS_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="chrome_html" />
@@ -44,28 +49,48 @@
         <structure name="IDR_NEW_OOBE_JS" file="resources\empty.js" flattenhtml="true" type="chrome_html" />
       </if>
       <structure name="IDR_READER_OUT_OF_DATE_HTML" file="resources\empty.html" flattenhtml="true" type="chrome_html" />
+      <structure name="IDR_SIGNIN_SHARED_CSS_HTML" file="resources\signin\signin_shared_css.html" preprocess="true" allowexternalscript="true" type="chrome_html" />
     </structures>
     <includes>
+      <if expr="is_win or is_macosx or is_linux">
+        <include name="IDR_COMMANDER_HTML" file="resources\commander\commander.html" type="BINDATA" />
+        <include name="IDR_DISCARDS_DATABASE_TAB_HTML" file="resources\discards\database_tab.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
+        <include name="IDR_DISCARDS_DATABASE_TAB_JS" file="resources\discards\database_tab.js" type="BINDATA" />
+        <include name="IDR_DISCARDS_DISCARDS_MAIN_HTML" file="resources\discards\discards_main.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
+        <include name="IDR_DISCARDS_DISCARDS_MAIN_JS" file="resources\discards\discards_main.js" type="BINDATA" />
+        <include name="IDR_DISCARDS_DISCARDS_TAB_HTML" file="resources\discards\discards_tab.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
+        <include name="IDR_DISCARDS_DISCARDS_TAB_JS" file="resources\discards\discards_tab.js" type="BINDATA" />
+        <include name="IDR_DISCARDS_HTML" file="resources\discards\discards.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
+        <include name="IDR_DISCARDS_JS" file="resources\discards\discards.js" type="BINDATA" />
+        <include name="IDR_DISCARDS_LIFECYCLE_UNIT_STATE_MOJO_JS" file="${root_gen_dir}\chrome\browser\resource_coordinator\lifecycle_unit_state.mojom.js" use_base_dir="false" type="BINDATA" />
+        <include name="IDR_DISCARDS_MOJO_JS" file="${root_gen_dir}\chrome\browser\ui\webui\discards\discards.mojom.js" use_base_dir="false" type="BINDATA" />
+        <include name="IDR_DISCARDS_MOJO_PUBLIC_BASE_PROCESS_ID_MOJOM_JS" file="${root_gen_dir}\mojo\public\mojom\base\process_id.mojom.js" use_base_dir="false" type="BINDATA" />
+        <include name="IDR_DISCARDS_SORTED_TABLE_BEHAVIOR_JS" file="resources\discards\sorted_table_behavior.js" type="BINDATA" />
+      </if>
       <include name="IDR_NWJS_DEFAPP_MANIFEST" file="resources\nwjs_default_app\manifest.json" type="BINDATA" />
       <include name="IDR_NWJS_DEFAPP_MANIFEST_NEWWIN" file="resources\nwjs_newwin_app\manifest.json" type="BINDATA" />
       <if expr="is_win">
-        <include name="IDR_ABOUT_CONFLICTS_HTML" file="resources\conflicts\about_conflicts.html" type="BINDATA" />
-        <include name="IDR_ABOUT_CONFLICTS_JS" file="${root_gen_dir}\chrome\browser\resources\conflicts\tsc\about_conflicts.js" use_base_dir="false" type="BINDATA" />
-        <include name="IDR_ABOUT_CONFLICTS_WARNING_SVG" file="resources\conflicts\warning.svg" type="BINDATA" />
+        <include name="IDR_ABOUT_CONFLICTS_HTML" file="resources\conflicts\about_conflicts.html" compress="gzip" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
+        <include name="IDR_ABOUT_CONFLICTS_JS" file="resources\conflicts\about_conflicts.js" compress="gzip" type="BINDATA" />
       </if>
       <if expr="enable_plugins">
         <include name="IDR_ABOUT_FLASH_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
         <include name="IDR_ABOUT_FLASH_JS" file="resources\empty.js" type="BINDATA" />
       </if>
       <include name="IDR_ABOUT_MEMORY_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />
+      <if expr="not disable_nacl">
+        <include name="IDR_ABOUT_NACL_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
+        <include name="IDR_ABOUT_NACL_CSS" file="resources\empty.css" flattenhtml="true" type="chrome_html" />
+        <include name="IDR_ABOUT_NACL_JS" file="resources\empty.js" type="BINDATA" />
+      </if>
       <if expr="not is_android">
         <include name="IDR_ABOUT_SYS_HTML" file="resources\empty.html" flattenhtml="true" type="BINDATA" />
-        <include name="IDR_ABOUT_SYS_CSS" file="resources\empty.html" flattenhtml="true" type="BINDATA" />
-        <include name="IDR_ABOUT_SYS_JS" file="resources\empty.html" preprocess="true" type="BINDATA" />
       </if>
 
+      <include name="IDR_DEVTOOLS_DISCOVERY_PAGE_HTML" file="devtools\frontend\devtools_discovery_page.html" type="BINDATA"/>
       <include name="IDR_ACCESSIBILITY_HTML" file="resources\accessibility\accessibility.html" flattenhtml="true" allowexternalscript="true" compress="gzip" type="BINDATA" />
       <include name="IDR_ACCESSIBILITY_CSS" file="resources\accessibility\accessibility.css" compress="gzip" type="BINDATA" />
+      <include name="IDR_ACCESSIBILITY_JS" file="resources\accessibility\accessibility.js" flattenhtml="true" compress="gzip" type="BINDATA" />
       <include name="IDR_ABOUT_VERSION_JS" file="resources\empty.js" type="BINDATA" />
       <include name="IDR_ABOUT_VERSION_CSS" file="resources\empty.css" type="BINDATA" />
       <include name="IDR_ABOUT_VOICESEARCH_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
@@ -99,6 +124,9 @@
         <include name="IDR_CERTIFICATE_VIEWER_JS" file="resources\empty.js" type="BINDATA" />
         <include name="IDR_CERTIFICATE_VIEWER_CSS" file="resources\empty.css" type="BINDATA" />
       </if>
+      <if expr="enable_app_list">
+        <include name="IDR_CHROME_APP_MANIFEST" file="resources\empty.json" type="BINDATA" />
+      </if>
       <if expr="not is_android and not is_ios">
         <include name="IDR_COPRESENCE_CSS" file="resources\empty.css" type="BINDATA" />
         <include name="IDR_COPRESENCE_HTML" file="resources\empty.html" type="BINDATA" />
@@ -110,6 +138,9 @@
         <include name="IDR_INLINE_LOGIN_HTML" file="resources\inline_login\inline_login.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
         <include name="IDR_INLINE_LOGIN_APP_JS" file="${root_gen_dir}\chrome\browser\resources\inline_login\inline_login_app.js" use_base_dir="false" type ="BINDATA" preprocess="true" />
         <include name="IDR_INLINE_LOGIN_BROWSER_PROXY_JS" file="resources\inline_login\inline_login_browser_proxy.js" type ="BINDATA"/>
+      </if>
+      <if expr="enable_printing">
+        <include name="IDR_CLOUDPRINT_MANIFEST" file="resources\empty.json" type="BINDATA" />
       </if>
       <include name="IDR_CRASHES_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_CRASHES_JS" file="resources\empty.js" type="BINDATA" />
@@ -143,6 +174,14 @@
             <include name="IDR_DOWNLOADS_TOOLBAR_JS" file="resources\downloads\toolbar.js" type="BINDATA" />
           </else>
         </if>
+      </if>
+      <if expr="is_win or is_macosx or desktop_linux">
+        <include name="IDR_SIGNIN_DICE_WEB_INTERCEPT_HTML" file="resources\signin\dice_web_signin_intercept\dice_web_signin_intercept.html" type="BINDATA" />
+        <include name="IDR_SIGNIN_EMAIL_CONFIRMATION_HTML" file="resources\signin\signin_email_confirmation\signin_email_confirmation.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
+        <include name="IDR_SIGNIN_ERROR_HTML" file="resources\signin\signin_error\signin_error.html" type="BINDATA" />
+        <include name="IDR_SIGNIN_REAUTH_HTML" file="resources\signin\signin_reauth\signin_reauth.html" type="BINDATA" />
+        <include name="IDR_SIGNIN_REAUTH_IMAGES_ACCOUNT_PASSWORDS_REAUTH_ILLUSTRATION_SVG" file="resources\signin\signin_reauth\images\account_passwords_reauth_illustration.svg" type="BINDATA" />
+        <include name="IDR_SIGNIN_REAUTH_IMAGES_ACCOUNT_PASSWORDS_REAUTH_ILLUSTRATION_DARK_SVG" file="resources\signin\signin_reauth\images\account_passwords_reauth_illustration_dark.svg" type="BINDATA" />
       </if>
       <include name="IDR_FEEDBACK_MANIFEST" file="resources\empty.json" type="BINDATA" />
       <include name="IDR_SUPERVISED_USER_INTERNALS_HTML" file="resources\empty.html" allowexternalscript="true" type="BINDATA" />
@@ -227,8 +266,7 @@
       <if expr="chromeos_ash">
         <include name="IDR_PLUGIN_DB_JSON" file="resources\plugin_metadata\plugins_chromeos.json" type="BINDATA" />
       </if>
-      <!-- TODO(crbug.com/1307455): Remove ` and not chromeos_ash` once fixed. -->
-      <if expr="is_linux and not chromeos_ash or chromeos_lacros">
+      <if expr="desktop_linux or (is_android and enable_plugins)">
         <include name="IDR_PLUGIN_DB_JSON" file="resources\plugin_metadata\plugins_linux.json" type="BINDATA" />
       </if>
       <if expr="is_android">
@@ -250,6 +288,12 @@
       <include name="IDR_PROFILER_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_PROFILER_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />
         <include name="IDR_PROFILE_CUSTOMIZATION_HTML" file="resources\signin\profile_customization\profile_customization.html" type="BINDATA" />
+      <if expr="enable_settings_app">
+        <include name="IDR_SETTINGS_APP_MANIFEST" file="resources\empty.json" type="BINDATA" />
+      </if>
+      <if expr="enable_google_now">
+        <include name="IDR_GOOGLE_NOW_MANIFEST" file="resources\empty.json" type="BINDATA" />
+      </if>
       <include name="IDR_URL_MOJO_JS" file="resources\empty.js" type="BINDATA" compress="gzip" />
       <include name="IDR_UBER_HTML" file="resources\empty.html" flattenhtml="true" type="BINDATA" />
       <include name="IDR_UBER_JS" file="resources\empty.js" type="BINDATA" />
@@ -308,16 +352,16 @@
         <include name="IDR_HELP_MANIFEST" file="resources\empty.json" type="BINDATA" />
         <include name="IDR_QUICKOFFICE_MANIFEST" file="resources\empty.json" type="BINDATA" />
       </if>
+      <if expr="use_ash">
+        <include name="IDR_GESTURE_CONFIG_CSS" file="resources\empty.css" type="BINDATA" />
+        <include name="IDR_GESTURE_CONFIG_HTML" file="resources\empty.html" type="BINDATA" />
+        <include name="IDR_GESTURE_CONFIG_JS" file="resources\empty.js" type="BINDATA" />
+      </if>
       <include name="IDR_RECENTLY_CLOSED_WINDOW" file="resources\empty.png" type="BINDATA" />
       <if expr="not is_android">
         <include name="IDR_IDENTITY_INTERNALS_HTML" file="resources\empty.html" type="BINDATA" />
         <include name="IDR_IDENTITY_INTERNALS_CSS" file="resources\empty.css" type="BINDATA" />
         <include name="IDR_IDENTITY_INTERNALS_JS" file="resources\empty.js" type="BINDATA" />
-      </if>
-      <if expr="not is_android">
-        <include name="IDR_MEDIA_ROUTER_INTERNALS_HTML" file="resources\media_router\internals\media_router_internals.html" type="BINDATA" />
-        <include name="IDR_MEDIA_ROUTER_INTERNALS_CSS" file="resources\media_router\internals\media_router_internals.css" type="BINDATA" />
-        <include name="IDR_MEDIA_ROUTER_INTERNALS_JS" file="${root_gen_dir}\chrome\browser\resources\media_router\internals\tsc\media_router_internals.js" use_base_dir="false" type="BINDATA" />
       </if>
       <include name="IDR_DEVICE_LOG_UI_HTML" file="resources\empty.html" type="BINDATA" />
       <include name="IDR_DEVICE_LOG_UI_JS" file="resources\empty.js" type="BINDATA" />
@@ -376,6 +420,11 @@
         </if>
         <include name="IDR_BRAILLE_MANIFEST" file="resources\empty.json" type="BINDATA" />
       </if>
+      <if expr="not is_android">
+        <include name="IDR_MEDIA_ROUTER_INTERNALS_HTML" file="resources\media_router\media_router_internals.html" type="BINDATA" />
+        <include name="IDR_MEDIA_ROUTER_INTERNALS_CSS" file="resources\media_router\media_router_internals.css" type="BINDATA" />
+        <include name="IDR_MEDIA_ROUTER_INTERNALS_JS" file="resources\media_router\media_router_internals.js" type="BINDATA" />
+      </if>
       <if expr="not is_android and not is_ios and not chromeos_ash">
         <include name="IDR_IME_WINDOW_CLOSE" file="resources\input_ime\ime_window_close.png" type="BINDATA" />
         <include name="IDR_IME_WINDOW_CLOSE_C" file="resources\input_ime\ime_window_close_click.png" type="BINDATA" />
@@ -387,6 +436,7 @@
       </if>
       <if expr="is_android or is_linux">
         <include name="IDR_SANDBOX_INTERNALS_HTML" file="resources\sandbox_internals\sandbox_internals.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" compress="gzip" />
+        <include name="IDR_SANDBOX_INTERNALS_JS" file="resources\sandbox_internals\sandbox_internals.js" type="BINDATA" compress="gzip" />
       </if>
       <include name="IDR_MEDIA_ENGAGEMENT_HTML" file="resources\empty.html" flattenhtml="true" type="BINDATA" compress="gzip" allowexternalscript="true" />
       <include name="IDR_MEDIA_ENGAGEMENT_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" compress="gzip" />

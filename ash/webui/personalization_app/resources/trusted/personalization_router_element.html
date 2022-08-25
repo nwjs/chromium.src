@@ -1,19 +1,24 @@
-<style>
+<style include="common">
   #container {
     display: flex;
     flex-flow: column nowrap;
-    height: 100%;
     position: relative;
     width: 100%;
   }
   #breadcrumbArea {
+    background-color: var(--cros-bg-color);
     display: grid;
     grid-template-areas:
       '. . breadcrumb . .';
     grid-template-columns: 1fr 16px minmax(568px, 920px) 16px 1fr;
     grid-template-rows: 56px;
-    position: relative;
+    position: sticky;
+    top: 0;
     width: 100%;
+    /* z-index for breadcrumb should be higher than other elements 
+    (such as preview-image-border) so that it won't be overlapped 
+    during scrolling in hub subpages */
+    z-index: 3;
   }
   personalization-breadcrumb {
     grid-area: breadcrumb;
@@ -22,7 +27,7 @@
     bottom: 16px;
     left: 16px;
     max-width: 380px;
-    position: absolute;
+    position: sticky;
   }
   wallpaper-fullscreen {
     bottom: 0;
@@ -34,7 +39,6 @@
   }
   wallpaper-subpage {
     flex-grow: 1;
-    overflow: hidden;
   }
 </style>
 <div id="container">

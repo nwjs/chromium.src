@@ -12,7 +12,7 @@
 #include "ash/components/cryptohome/cryptohome_util.h"
 #include "ash/components/cryptohome/system_salt_getter.h"
 #include "ash/components/cryptohome/userdataauth_util.h"
-#include "ash/components/login/auth/key.h"
+#include "ash/components/login/auth/public/key.h"
 #include "ash/components/multidevice/logging/logging.h"
 #include "base/base64url.h"
 #include "base/bind.h"
@@ -20,9 +20,8 @@
 #include "base/strings/string_util.h"
 #include "chrome/browser/ash/login/easy_unlock/easy_unlock_key_manager.h"
 #include "chrome/browser/ash/login/easy_unlock/easy_unlock_types.h"
-#include "chromeos/dbus/dbus_thread_manager.h"
+#include "chromeos/ash/components/dbus/userdataauth/userdataauth_client.h"
 #include "chromeos/dbus/easy_unlock/easy_unlock_client.h"
-#include "chromeos/dbus/userdataauth/userdataauth_client.h"
 #include "crypto/encryptor.h"
 #include "crypto/random.h"
 #include "crypto/symmetric_key.h"
@@ -85,7 +84,6 @@ class EasyUnlockCreateKeysOperation::ChallengeCreator {
   std::string ec_public_key_;
   std::string esk_;
 
-  // Owned by DBusThreadManager
   EasyUnlockClient* easy_unlock_client_;
 
   base::WeakPtrFactory<ChallengeCreator> weak_ptr_factory_{this};
@@ -102,7 +100,7 @@ EasyUnlockCreateKeysOperation::ChallengeCreator::ChallengeCreator(
       tpm_pub_key_(tpm_pub_key),
       device_(device),
       callback_(std::move(callback)),
-      easy_unlock_client_(DBusThreadManager::Get()->GetEasyUnlockClient()) {}
+      easy_unlock_client_(EasyUnlockClient::Get()) {}
 
 EasyUnlockCreateKeysOperation::ChallengeCreator::~ChallengeCreator() {}
 
@@ -355,7 +353,7 @@ void EasyUnlockCreateKeysOperation::OnGetSystemSalt(
                                              auth_key->GetSecret());
   *request.mutable_account_id() = CreateAccountIdentifierFromIdentification(
       cryptohome::Identification(user_context_.GetAccountId()));
-  chromeos::UserDataAuthClient::Get()->AddKey(
+  UserDataAuthClient::Get()->AddKey(
       request, base::BindOnce(&EasyUnlockCreateKeysOperation::OnKeyCreated,
                               weak_ptr_factory_.GetWeakPtr(), index, user_key));
 }

@@ -49,6 +49,8 @@ extern const base::Feature kAutofillInferCountryCallingCode;
 COMPONENT_EXPORT(AUTOFILL)
 extern const base::Feature kAutofillComplementCountryCodeOnImport;
 COMPONENT_EXPORT(AUTOFILL)
+extern const base::Feature kAutofillConsiderPhoneNumberSeparatorsValidLabels;
+COMPONENT_EXPORT(AUTOFILL)
 extern const base::Feature kAutofillConsiderPlaceholderForParsing;
 COMPONENT_EXPORT(AUTOFILL)
 extern const base::Feature kAutofillConsiderVariationCountryCodeForPhoneNumbers;
@@ -60,8 +62,6 @@ COMPONENT_EXPORT(AUTOFILL)
 extern const base::Feature kAutofillFillAndImportFromMoreFields;
 COMPONENT_EXPORT(AUTOFILL)
 extern const base::Feature kAutofillFillCreditCardAsPerFormatString;
-COMPONENT_EXPORT(AUTOFILL)
-extern const base::Feature kAutofillDelayPopupControllerDeletion;
 COMPONENT_EXPORT(AUTOFILL) extern const base::Feature kAutofillDisableFilling;
 COMPONENT_EXPORT(AUTOFILL)
 extern const base::Feature kAutofillDisableAddressImport;
@@ -71,6 +71,8 @@ COMPONENT_EXPORT(AUTOFILL)
 extern const base::Feature kAutofillEnableAccountWalletStorage;
 COMPONENT_EXPORT(AUTOFILL)
 extern const base::Feature kAutofillEnableAugmentedPhoneCountryCode;
+COMPONENT_EXPORT(AUTOFILL)
+extern const base::Feature kAutofillEnableBirthdateParsing;
 COMPONENT_EXPORT(AUTOFILL)
 extern const base::Feature kAutofillEnableCompatibilitySupportForBirthdates;
 COMPONENT_EXPORT(AUTOFILL)
@@ -126,12 +128,12 @@ extern const base::Feature kAutofillTypeSpecificPopupWidth;
 COMPONENT_EXPORT(AUTOFILL)
 extern const base::Feature kAutofillFixFillableFieldTypes;
 COMPONENT_EXPORT(AUTOFILL)
-extern const base::Feature kAutofillFixServerQueriesIfPasswordManagerIsEnabled;
-COMPONENT_EXPORT(AUTOFILL)
 extern const base::Feature kAutofillIgnoreEarlyClicksOnPopup;
 COMPONENT_EXPORT(AUTOFILL)
 extern const base::FeatureParam<base::TimeDelta>
     kAutofillIgnoreEarlyClicksOnPopupDuration;
+COMPONENT_EXPORT(AUTOFILL)
+extern const base::Feature kAutofillIgnoreUnmappableAutocompleteValues;
 COMPONENT_EXPORT(AUTOFILL)
 extern const base::Feature kAutofillHighlightOnlyChangedValuesInPreviewMode;
 COMPONENT_EXPORT(AUTOFILL)
@@ -150,6 +152,8 @@ extern const base::FeatureParam<int>
     kAutofillMaxiumWidthPercentageToMoveSuggestionPopupToCenter;
 COMPONENT_EXPORT(AUTOFILL)
 extern const base::Feature kAutofillPageLanguageDetection;
+COMPONENT_EXPORT(AUTOFILL)
+extern const base::Feature kAutofillParseAsync;
 COMPONENT_EXPORT(AUTOFILL)
 extern const base::Feature kAutofillParsingPatternProvider;
 COMPONENT_EXPORT(AUTOFILL)

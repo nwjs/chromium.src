@@ -21,8 +21,8 @@
 #include "chrome/browser/ash/policy/off_hours/off_hours_proto_parser.h"
 #include "chrome/browser/ash/tpm_firmware_update.h"
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
+#include "chromeos/ash/components/dbus/update_engine/update_engine_client.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
-#include "chromeos/dbus/update_engine/update_engine_client.h"
 #include "components/policy/core/common/chrome_schema.h"
 #include "components/policy/core/common/external_data_fetcher.h"
 #include "components/policy/core/common/external_data_manager.h"
@@ -365,6 +365,13 @@ void DecodeLoginPolicies(const em::ChromeDeviceSettingsProto& policy,
       policies->Set(key::kDeviceTransferSAMLCookies, POLICY_LEVEL_MANDATORY,
                     POLICY_SCOPE_MACHINE, POLICY_SOURCE_CLOUD,
                     base::Value(container.transfer_saml_cookies()), nullptr);
+    }
+    if (container.has_url_parameter_to_autofill_saml_username()) {
+      policies->Set(
+          key::kDeviceAutofillSAMLUsername, POLICY_LEVEL_MANDATORY,
+          POLICY_SCOPE_MACHINE, POLICY_SOURCE_CLOUD,
+          base::Value(container.url_parameter_to_autofill_saml_username()),
+          nullptr);
     }
   }
 
@@ -747,13 +754,13 @@ void DecodeReportingPolicies(const em::ChromeDeviceSettingsProto& policy,
       policies->Set(key::kReportDeviceNetworkConfiguration,
                     POLICY_LEVEL_MANDATORY, POLICY_SCOPE_MACHINE,
                     POLICY_SOURCE_CLOUD,
-                    base::Value(container.has_report_network_configuration()),
+                    base::Value(container.report_network_configuration()),
                     nullptr);
     }
     if (container.has_report_network_status()) {
       policies->Set(key::kReportDeviceNetworkStatus, POLICY_LEVEL_MANDATORY,
                     POLICY_SCOPE_MACHINE, POLICY_SOURCE_CLOUD,
-                    base::Value(container.has_report_network_status()),
+                    base::Value(container.report_network_status()),
                     nullptr);
     }
     if (container.has_report_users()) {
@@ -2047,14 +2054,13 @@ absl::optional<base::Value> DecodeJsonStringAndNormalize(
     const std::string& json_string,
     const std::string& policy_name,
     std::string* error) {
-  base::JSONReader::ValueWithError value_with_error =
-      base::JSONReader::ReadAndReturnValueWithError(
-          json_string, base::JSON_ALLOW_TRAILING_COMMAS);
-  if (!value_with_error.value) {
-    *error = "Invalid JSON string: " + value_with_error.error_message;
+  auto value_with_error = base::JSONReader::ReadAndReturnValueWithError(
+      json_string, base::JSON_ALLOW_TRAILING_COMMAS);
+  if (!value_with_error.has_value()) {
+    *error = "Invalid JSON string: " + value_with_error.error().message;
     return absl::nullopt;
   }
-  base::Value root = std::move(value_with_error.value.value());
+  base::Value root = std::move(*value_with_error);
 
   const Schema& schema = GetChromeSchema().GetKnownProperty(policy_name);
   CHECK(schema.valid());

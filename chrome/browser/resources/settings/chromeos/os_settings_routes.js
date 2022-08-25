@@ -8,6 +8,11 @@ import {Route} from '../router.js';
  * Specifies all possible os routes in settings.
  *
  * @typedef {{
+ *   A11Y_AUDIO_AND_CAPTIONS: !Route,
+ *   A11Y_CURSOR_AND_TOUCHPAD: !Route,
+ *   A11Y_DISPLAY_AND_MAGNIFICATION: !Route,
+ *   A11Y_KEYBOARD_AND_TEXT_INPUT: !Route,
+ *   A11Y_TEXT_TO_SPEECH: !Route,
  *   ABOUT: !Route,
  *   ABOUT_ABOUT: !Route,
  *   ACCOUNTS: !Route,
@@ -23,6 +28,7 @@ import {Route} from '../router.js';
  *   APPS: !Route,
  *   ANDROID_APPS_DETAILS: !Route,
  *   ANDROID_APPS_DETAILS_ARC_VM_SHARED_USB_DEVICES: !Route,
+ *   AUDIO: !Route,
  *   CROSTINI: !Route,
  *   CROSTINI_ANDROID_ADB: !Route,
  *   CROSTINI_DETAILS: !Route,
@@ -36,6 +42,7 @@ import {Route} from '../router.js';
  *   BLUETOOTH: !Route,
  *   BLUETOOTH_DEVICES: !Route,
  *   BLUETOOTH_DEVICE_DETAIL: !Route,
+ *   BLUETOOTH_SAVED_DEVICES: !Route,
  *   BRUSCHETTA_DETAILS: !Route,
  *   BRUSCHETTA_SHARED_USB_DEVICES: !Route,
  *   CHANGE_PICTURE: !Route,

@@ -70,7 +70,6 @@
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
-#include "net/url_request/test_url_fetcher_factory.h"
 #include "services/device/public/cpp/test/scoped_geolocation_overrider.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
@@ -773,7 +772,6 @@ class SaveCardBubbleViewsFullFormBrowserTest
   }
 
   std::unique_ptr<autofill::EventWaiter<DialogEvent>> event_waiter_;
-  std::unique_ptr<net::FakeURLFetcherFactory> url_fetcher_factory_;
   scoped_refptr<network::SharedURLLoaderFactory> test_shared_loader_factory_;
   std::unique_ptr<device::ScopedGeolocationOverrider> geolocation_overrider_;
 };
@@ -1762,9 +1760,10 @@ IN_PROC_BROWSER_TEST_F(
   VerifyExpirationDateDropdownsAreVisible();
 
   // Ensure the next year is pre-populated but month is not checked.
-  EXPECT_EQ(0, month_input()->GetSelectedIndex());
-  EXPECT_EQ(base::ASCIIToUTF16(test::NextYear()),
-            year_input()->GetTextForRow(year_input()->GetSelectedIndex()));
+  EXPECT_EQ(0u, month_input()->GetSelectedIndex());
+  EXPECT_EQ(
+      base::ASCIIToUTF16(test::NextYear()),
+      year_input()->GetTextForRow(year_input()->GetSelectedIndex().value()));
 }
 
 // Tests the upload save bubble. Ensures that the bubble surfaces a pair of
@@ -1780,9 +1779,9 @@ IN_PROC_BROWSER_TEST_F(
   VerifyExpirationDateDropdownsAreVisible();
 
   // Ensure the December is pre-populated but year is not checked.
-  EXPECT_EQ(u"12",
-            month_input()->GetTextForRow(month_input()->GetSelectedIndex()));
-  EXPECT_EQ(0, year_input()->GetSelectedIndex());
+  EXPECT_EQ(u"12", month_input()->GetTextForRow(
+                       month_input()->GetSelectedIndex().value()));
+  EXPECT_EQ(0u, year_input()->GetSelectedIndex());
 }
 
 // Tests the upload save bubble. Ensures that the bubble surfaces a pair of
@@ -1799,8 +1798,8 @@ IN_PROC_BROWSER_TEST_F(
   VerifyExpirationDateDropdownsAreVisible();
 
   // Ensure no pre-populated expiration date.
-  EXPECT_EQ(0, month_input()->GetSelectedIndex());
-  EXPECT_EQ(0, year_input()->GetSelectedRow());
+  EXPECT_EQ(0u, month_input()->GetSelectedIndex());
+  EXPECT_EQ(0u, year_input()->GetSelectedRow());
 }
 
 // Tests the upload save bubble. Ensures that the bubble surfaces a pair of
@@ -1816,9 +1815,9 @@ IN_PROC_BROWSER_TEST_F(
   VerifyExpirationDateDropdownsAreVisible();
 
   // Ensure no pre-populated expiration date.
-  EXPECT_EQ(u"08",
-            month_input()->GetTextForRow(month_input()->GetSelectedIndex()));
-  EXPECT_EQ(0, year_input()->GetSelectedRow());
+  EXPECT_EQ(u"08", month_input()->GetTextForRow(
+                       month_input()->GetSelectedIndex().value()));
+  EXPECT_EQ(0u, year_input()->GetSelectedRow());
 }
 
 // Tests the upload save bubble. Ensures that the bubble surfaces a pair of
@@ -1837,10 +1836,10 @@ IN_PROC_BROWSER_TEST_F(
   VerifyExpirationDateDropdownsAreVisible();
 
   // Ensure pre-populated expiration date.
-  EXPECT_EQ(u"03",
-            month_input()->GetTextForRow(month_input()->GetSelectedIndex()));
-  EXPECT_EQ(u"2017",
-            year_input()->GetTextForRow(year_input()->GetSelectedIndex()));
+  EXPECT_EQ(u"03", month_input()->GetTextForRow(
+                       month_input()->GetSelectedIndex().value()));
+  EXPECT_EQ(u"2017", year_input()->GetTextForRow(
+                         year_input()->GetSelectedIndex().value()));
 }
 
 // TODO(crbug.com/884817): Investigate combining local vs. upload tests using a
@@ -2151,14 +2150,18 @@ IN_PROC_BROWSER_TEST_F(SaveCardBubbleViewsFullFormBrowserTestForStatusChip,
                                      ui::PAGE_TRANSITION_TYPED,
                                      /*check_navigation_success=*/true));
   TabStripModel* tab_model = GetBrowser(0)->tab_strip_model();
-  tab_model->ActivateTabAt(1, {TabStripModel::GestureType::kOther});
+  tab_model->ActivateTabAt(
+      1, TabStripUserGestureDetails(
+             TabStripUserGestureDetails::GestureType::kOther));
   WaitForAnimationToEnd();
 
   // Ensures bubble and icon go away if user navigates to another tab.
   EXPECT_FALSE(GetSaveCardIconView()->GetVisible());
   EXPECT_FALSE(GetSaveCardBubbleViews());
 
-  tab_model->ActivateTabAt(0, {TabStripModel::GestureType::kOther});
+  tab_model->ActivateTabAt(
+      0, TabStripUserGestureDetails(
+             TabStripUserGestureDetails::GestureType::kOther));
   WaitForAnimationToEnd();
 
   // If the user navigates back, shows only the icon not the bubble.
@@ -2388,5 +2391,10 @@ IN_PROC_BROWSER_TEST_F(SaveCardBubbleViewsFullFormBrowserTestForManageCard,
       ElementsAre(Bucket(ManageCardsPromptMetric::kManageCardsShown, 1),
                   Bucket(ManageCardsPromptMetric::kManageCardsDone, 1)));
 }
+
+// TODO(crbug.com/1346433): Add new browser tests for save card bubble view
+// where it check for user label information based on experiment conditions.
+// These aren't being added at the current time because of issues with the Sync
+// setup that makes them flaky.
 
 }  // namespace autofill

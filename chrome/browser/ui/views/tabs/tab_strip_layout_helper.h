@@ -54,7 +54,7 @@ class TabStripLayoutHelper {
   int first_non_pinned_tab_x() { return first_non_pinned_tab_x_; }
 
   // Returns the number of pinned tabs in the tabstrip.
-  int GetPinnedTabCount() const;
+  size_t GetPinnedTabCount() const;
 
   // Returns a map of all tab groups and their bounds.
   const std::map<tab_groups::TabGroupId, gfx::Rect>& group_header_ideal_bounds()
@@ -94,7 +94,8 @@ class TabStripLayoutHelper {
   void UpdateGroupHeaderIndex(tab_groups::TabGroupId group);
 
   // Changes the active tab from |prev_active_index| to |new_active_index|.
-  void SetActiveTab(int prev_active_index, int new_active_index);
+  void SetActiveTab(absl::optional<size_t> prev_active_index,
+                    absl::optional<size_t> new_active_index);
 
   // Calculates the smallest width the tabs can occupy.
   int CalculateMinimumWidth();

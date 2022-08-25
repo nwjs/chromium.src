@@ -114,10 +114,10 @@
 #include "ui/gfx/gdi_util.h"
 #endif
 
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS)
+#if BUILDFLAG(IS_LINUX)
 #include "content/browser/accessibility/browser_accessibility_auralinux.h"
 #include "ui/base/ime/linux/text_edit_command_auralinux.h"
-#include "ui/base/ime/linux/text_edit_key_bindings_delegate_auralinux.h"
+#include "ui/linux/linux_ui.h"
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -1477,12 +1477,6 @@ bool RenderWidgetHostViewAura::SetEditableSelectionRange(
   return true;
 }
 
-bool RenderWidgetHostViewAura::DeleteRange(const gfx::Range& range) {
-  // TODO(suzhe): implement this method when fixing http://crbug.com/55130.
-  NOTIMPLEMENTED_LOG_ONCE();
-  return false;
-}
-
 bool RenderWidgetHostViewAura::GetTextFromRange(const gfx::Range& range,
                                                 std::u16string* text) const {
   if (!text_input_manager_ || !GetFocusedWidget())
@@ -2133,7 +2127,9 @@ void RenderWidgetHostViewAura::OnRenderFrameMetadataChangedAfterActivation(
     base::TimeTicks activation_time) {
   const cc::RenderFrameMetadata& metadata =
       host()->render_frame_metadata_provider()->LastRenderFrameMetadata();
-  SetContentBackgroundColor(metadata.root_background_color);
+
+  // TODO(crbug/1308932): Remove toSkColor and make all SkColor4f.
+  SetContentBackgroundColor(metadata.root_background_color.toSkColor());
   if (inset_surface_id_.is_valid() && metadata.local_surface_id &&
       metadata.local_surface_id.value().is_valid() &&
       metadata.local_surface_id.value().IsSameOrNewerThan(inset_surface_id_)) {
@@ -2574,14 +2570,11 @@ void RenderWidgetHostViewAura::ForwardKeyboardEventWithLatencyInfo(
   if (!target_host)
     return;
 
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS)
-  ui::TextEditKeyBindingsDelegateAuraLinux* keybinding_delegate =
-      ui::GetTextEditKeyBindingsDelegate();
+#if BUILDFLAG(IS_LINUX)
+  auto* linux_ui = ui::LinuxUi::instance();
   std::vector<ui::TextEditCommandAuraLinux> commands;
-  if (!event.skip_in_browser &&
-      keybinding_delegate &&
-      event.os_event &&
-      keybinding_delegate->MatchEvent(*event.os_event, &commands)) {
+  if (!event.skip_in_browser && linux_ui && event.os_event &&
+      linux_ui->GetTextEditCommandsForEvent(*event.os_event, &commands)) {
     // Transform from ui/ types to content/ types.
     std::vector<blink::mojom::EditCommandPtr> edit_commands;
     for (std::vector<ui::TextEditCommandAuraLinux>::const_iterator it =

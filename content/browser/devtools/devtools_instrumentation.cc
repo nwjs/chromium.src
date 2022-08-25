@@ -5,7 +5,6 @@
 #include "content/browser/devtools/devtools_instrumentation.h"
 
 #include "base/containers/adapters.h"
-#include "base/strings/strcat.h"
 #include "base/strings/stringprintf.h"
 #include "base/trace_event/traced_value.h"
 #include "components/download/public/common/download_create_info.h"
@@ -25,6 +24,7 @@
 #include "content/browser/devtools/protocol/page_handler.h"
 #include "content/browser/devtools/protocol/security_handler.h"
 #include "content/browser/devtools/protocol/target_handler.h"
+#include "content/browser/devtools/protocol/tracing_handler.h"
 #include "content/browser/devtools/render_frame_devtools_agent_host.h"
 #include "content/browser/devtools/service_worker_devtools_agent_host.h"
 #include "content/browser/devtools/worker_devtools_agent_host.h"
@@ -43,10 +43,8 @@
 #include "net/cookies/canonical_cookie.h"
 #include "net/cookies/cookie_inclusion_status.h"
 #include "net/http/http_request_headers.h"
-#include "net/proxy_resolution/proxy_config.h"
 #include "net/quic/web_transport_error.h"
 #include "net/ssl/ssl_info.h"
-#include "net/traffic_annotation/network_traffic_annotation.h"
 #include "services/network/public/cpp/devtools_observer_util.h"
 #include "services/network/public/mojom/devtools_observer.mojom.h"
 #include "services/network/public/mojom/network_context.mojom.h"
@@ -417,10 +415,14 @@ void OnNavigationRequestFailed(
 
   // If a BFCache navigation fails, it will be restarted as a regular
   // navigation, so we don't want to report this failure.
-  // TODO(https://crbug.com/1195751): Stop reporting this for Prerender as well
-  // after it supports fallback to regular navigation on activation failures.
   if (nav_request.IsServedFromBackForwardCache())
     return;
+
+  // Activation of a prerender page is synchronous with its own activation flow
+  // (crrev.com/c/2992411); if the prerender is cancelled (e.g. speculation rule
+  // removed), the flow will fallback to a normal navigation, which is no longer
+  // considered as a page activation.
+  DCHECK(!nav_request.IsPageActivation());
 
   DispatchToAgents(ftn, &protocol::NetworkHandler::LoadingComplete, id,
                    protocol::Network::ResourceTypeEnum::Document, status);
@@ -665,7 +667,7 @@ void ApplyNetworkRequestOverrides(
     DCHECK(!agent_host);
     agent_host = RenderFrameDevToolsAgentHost::GetFor(
         WebContentsImpl::FromFrameTreeNode(frame_tree_node)
-            ->GetMainFrame()
+            ->GetPrimaryMainFrame()
             ->frame_tree_node());
   }
   if (!agent_host)
@@ -711,7 +713,7 @@ bool ApplyUserAgentMetadataOverrides(
     DCHECK(!agent_host);
     agent_host = RenderFrameDevToolsAgentHost::GetFor(
         WebContentsImpl::FromFrameTreeNode(frame_tree_node)
-            ->GetMainFrame()
+            ->GetPrimaryMainFrame()
             ->frame_tree_node());
   }
   if (!agent_host)
@@ -923,6 +925,39 @@ bool WillCreateURLLoaderFactory(
   return true;
 }
 
+void OnPrefetchRequestWillBeSent(FrameTreeNode* frame_tree_node,
+                                 const std::string& request_id,
+                                 const GURL& initiator,
+                                 const network::ResourceRequest& request) {
+  auto timestamp = base::TimeTicks::Now();
+  std::string frame_token = frame_tree_node->devtools_frame_token().ToString();
+  DispatchToAgents(frame_tree_node,
+                   &protocol::NetworkHandler::PrefetchRequestWillBeSent,
+                   request_id, request, initiator, frame_token, timestamp);
+}
+
+void OnPrefetchResponseReceived(FrameTreeNode* frame_tree_node,
+                                const std::string& request_id,
+                                const GURL& url,
+                                const network::mojom::URLResponseHead& head) {
+  std::string frame_token = frame_tree_node->devtools_frame_token().ToString();
+
+  network::mojom::URLResponseHeadDevToolsInfoPtr head_info =
+      network::ExtractDevToolsInfo(head);
+  DispatchToAgents(frame_tree_node, &protocol::NetworkHandler::ResponseReceived,
+                   request_id, request_id, url,
+                   protocol::Network::ResourceTypeEnum::Prefetch, *head_info,
+                   frame_token);
+}
+void OnPrefetchRequestComplete(
+    FrameTreeNode* frame_tree_node,
+    const std::string& request_id,
+    const network::URLLoaderCompletionStatus& status) {
+  DispatchToAgents(frame_tree_node, &protocol::NetworkHandler::LoadingComplete,
+                   request_id, protocol::Network::ResourceTypeEnum::Prefetch,
+                   status);
+}
+
 void OnNavigationRequestWillBeSent(
     const NavigationRequest& navigation_request) {
   // Note this intentionally deviates from the usual instrumentation signal
@@ -1031,6 +1066,17 @@ void FencedFrameCreated(
   if (!agent_host)
     return;
   agent_host->DidCreateFencedFrame(fenced_frame);
+}
+
+void DidCreateProcessForAuctionWorklet(RenderFrameHostImpl* owner,
+                                       base::ProcessId pid) {
+  // TracingHandler lives on the very root, not local root.
+  // TODO(morlovich): This may not be right for fenced frames, though
+  // that should not currently matter.
+  FrameTreeNode* node = owner->GetMainFrame()->frame_tree_node();
+  if (!node)
+    return;
+  DispatchToAgents(node, &protocol::TracingHandler::AddProcess, pid);
 }
 
 void WillStartDragging(FrameTreeNode* main_frame_tree_node,

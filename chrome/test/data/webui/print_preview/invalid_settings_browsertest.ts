@@ -46,7 +46,7 @@ suite(invalid_settings_browsertest.suiteName, function() {
     printerName: 'FooDevice',
     pdfPrinterDisabled: false,
     serializedAppStateStr: null,
-    serializedDefaultDestinationSelectionRulesStr: null
+    serializedDefaultDestinationSelectionRulesStr: null,
   };
 
   setup(function() {
@@ -129,7 +129,7 @@ suite(invalid_settings_browsertest.suiteName, function() {
               // Wait for the preview request.
               return Promise.all([
                 nativeLayer.whenCalled('getPrinterCapabilities'),
-                nativeLayer.whenCalled('getPreview')
+                nativeLayer.whenCalled('getPreview'),
               ]);
             })
             .then(function() {

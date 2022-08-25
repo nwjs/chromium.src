@@ -107,6 +107,7 @@ class ShellSurface : public ShellSurfaceBase, public ash::WindowStateObserver {
   void RemoveObserver(ShellSurfaceObserver* observer);
 
   // Overridden from SurfaceDelegate:
+  void OnSetFrame(SurfaceFrameType type) override;
   void OnSetParent(Surface* parent, const gfx::Point& position) override;
 
   // Overridden from ShellSurfaceBase:
@@ -137,6 +138,10 @@ class ShellSurface : public ShellSurfaceBase, public ash::WindowStateObserver {
   bool OnPreWidgetCommit() override;
   std::unique_ptr<views::NonClientFrameView> CreateNonClientFrameView(
       views::Widget* widget) override;
+
+  void EndDrag();
+
+  int resize_component_for_test() const { return resize_component_; }
 
  private:
   struct Config;
@@ -179,8 +184,6 @@ class ShellSurface : public ShellSurfaceBase, public ash::WindowStateObserver {
 
   void AttemptToStartDrag(int component);
 
-  void EndDrag();
-
   std::unique_ptr<ash::ScopedAnimationDisabler> animations_disabler_;
 
   std::unique_ptr<ui::CompositorLock> configure_compositor_lock_;
@@ -189,13 +192,21 @@ class ShellSurface : public ShellSurfaceBase, public ash::WindowStateObserver {
   ScopedConfigure* scoped_configure_ = nullptr;
   base::circular_deque<std::unique_ptr<Config>> pending_configs_;
 
+  // Window resizing is an asynchronous operation. See
+  // https://crbug.com/1336706#c22 for a more detailed explanation.
+  // |origin_offset_| is typically (0,0). During an asynchronous resizing
+  // |origin_offset_| is set to a non-zero value such that it appears as though
+  // the ExoShellSurfaceHost has not moved even though ExoShellSurface has
+  // already been moved and resized to the new position.
   gfx::Vector2d origin_offset_;
   gfx::Vector2d pending_origin_offset_;
   gfx::Vector2d pending_origin_offset_accumulator_;
+
   int resize_component_ = HTCAPTION;  // HT constant (see ui/base/hit_test.h)
   int pending_resize_component_ = HTCAPTION;
   ui::WindowShowState initial_show_state_ = ui::SHOW_STATE_DEFAULT;
   bool ignore_window_bounds_changes_ = false;
+  bool window_state_is_changing_ = false;
 
   base::ObserverList<ShellSurfaceObserver> observers_;
 };

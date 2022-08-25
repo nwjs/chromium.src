@@ -218,7 +218,6 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadItemImpl
       bool transient,
       const std::vector<DownloadItem::ReceivedSlice>& received_slices,
       const DownloadItemRerouteInfo& reroute_info,
-      absl::optional<DownloadSchedule> download_schedule,
       int64_t range_request_from,
       int64_t range_request_to,
       std::unique_ptr<DownloadEntry> download_entry);
@@ -270,6 +269,7 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadItemImpl
   bool IsDone() const override;
   int64_t GetBytesWasted() const override;
   int32_t GetAutoResumeCount() const override;
+  bool IsOffTheRecord() const override;
   const GURL& GetURL() const override;
   const std::vector<GURL>& GetUrlChain() const override;
   const GURL& GetOriginalUrl() const override;
@@ -604,7 +604,6 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadItemImpl
       const base::FilePath& intermediate_path,
       const base::FilePath& display_name,
       const std::string& mime_type,
-      absl::optional<DownloadSchedule> download_schedule,
       DownloadInterruptReason interrupt_reason);
 
   void OnDownloadRenamedToIntermediateName(DownloadInterruptReason reason,

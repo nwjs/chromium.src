@@ -16,14 +16,14 @@
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 // TODO(https://crbug.com/1164001): move to forward declaration.
-#include "chromeos/network/network_activation_handler.h"
+#include "chromeos/ash/components/network/network_activation_handler.h"
 // TODO(https://crbug.com/1164001): move to forward declaration.
-#include "chromeos/network/network_connection_handler.h"
+#include "chromeos/ash/components/network/network_connection_handler.h"
 // TODO(https://crbug.com/1164001): move to forward declaration.
-#include "chromeos/network/network_state.h"
+#include "chromeos/ash/components/network/network_state.h"
 // TODO(https://crbug.com/1164001): move to forward declaration.
-#include "chromeos/network/network_state_handler.h"
-#include "chromeos/network/network_state_handler_observer.h"
+#include "chromeos/ash/components/network/network_state_handler.h"
+#include "chromeos/ash/components/network/network_state_handler_observer.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/remote.h"
 

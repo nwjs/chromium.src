@@ -288,15 +288,10 @@ int GpuMain(MainFunctionParams parameters) {
 
   base::PlatformThread::SetName("CrGpuMain");
 
-#if !BUILDFLAG(IS_MAC)
   // Set thread priority before sandbox initialization.
-  base::ThreadPriority thread_priority = base::ThreadPriority::NORMAL;
-  if (base::FeatureList::IsEnabled(features::kGpuUseDisplayThreadPriority) &&
-      !features::IsGpuMainThreadForcedToNormalPriorityDrDc()) {
-    thread_priority = base::ThreadPriority::DISPLAY;
+  if (!features::IsGpuMainThreadForcedToNormalPriorityDrDc()) {
+    base::PlatformThread::SetCurrentThreadType(base::ThreadType::kCompositing);
   }
-  base::PlatformThread::SetCurrentThreadPriority(thread_priority);
-#endif
 
   auto gpu_init = std::make_unique<gpu::GpuInit>();
   ContentSandboxHelper sandbox_helper;
@@ -330,19 +325,16 @@ int GpuMain(MainFunctionParams parameters) {
 
   GetContentClient()->SetGpuInfo(gpu_init->gpu_info());
 
-  base::ThreadPriority io_thread_priority =
-      base::FeatureList::IsEnabled(features::kGpuUseDisplayThreadPriority)
-          ? base::ThreadPriority::DISPLAY
-          : base::ThreadPriority::NORMAL;
+  base::ThreadType io_thread_type = base::ThreadType::kCompositing;
 #if BUILDFLAG(IS_MAC)
   // Increase the thread priority to get more reliable values in performance
   // test of mac_os.
   if (command_line.HasSwitch(switches::kUseHighGPUThreadPriorityForPerfTests))
-    io_thread_priority = base::ThreadPriority::REALTIME_AUDIO;
+    io_thread_type = base::ThreadType::kRealtimeAudio;
 #endif
   // ChildProcess will start the ThreadPoolInstance now that the sandbox is
   // initialized.
-  ChildProcess gpu_process(io_thread_priority);
+  ChildProcess gpu_process(io_thread_type);
   DCHECK(base::ThreadPoolInstance::Get()->WasStarted());
 
   auto* client = GetContentClient()->gpu();
@@ -419,12 +411,24 @@ bool StartSandboxLinux(gpu::GpuWatchdogThread* watchdog_thread,
   // SandboxLinux::InitializeSandbox() must always be called
   // with only one thread.
   sandbox::policy::SandboxLinux::Options sandbox_options;
-  sandbox_options.use_amd_specific_policies =
-      gpu_info && angle::IsAMD(gpu_info->active_gpu().vendor_id);
-  sandbox_options.use_intel_specific_policies =
-      gpu_info && angle::IsIntel(gpu_info->active_gpu().vendor_id);
-  sandbox_options.use_nvidia_specific_policies =
-      gpu_info && angle::IsNVIDIA(gpu_info->active_gpu().vendor_id);
+  if (gpu_info) {
+    // We have to enable sandbox settings for all GPUs in the system
+    // for Chrome to be able to access/use them.
+    sandbox_options.use_amd_specific_policies =
+        angle::IsAMD(gpu_info->active_gpu().vendor_id);
+    sandbox_options.use_intel_specific_policies =
+        angle::IsIntel(gpu_info->active_gpu().vendor_id);
+    sandbox_options.use_nvidia_specific_policies =
+        angle::IsNVIDIA(gpu_info->active_gpu().vendor_id);
+    for (const auto& gpu : gpu_info->secondary_gpus) {
+      if (angle::IsAMD(gpu.vendor_id))
+        sandbox_options.use_amd_specific_policies = true;
+      else if (angle::IsIntel(gpu.vendor_id))
+        sandbox_options.use_intel_specific_policies = true;
+      else if (angle::IsNVIDIA(gpu.vendor_id))
+        sandbox_options.use_nvidia_specific_policies = true;
+    }
+  }
   sandbox_options.accelerated_video_decode_enabled =
       !gpu_prefs.disable_accelerated_video_decode;
   sandbox_options.accelerated_video_encode_enabled =

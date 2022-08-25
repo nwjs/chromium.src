@@ -18,7 +18,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/logging_chrome.h"
 #include "chrome/grit/generated_resources.h"
-#include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/debug_daemon/debug_daemon_client.h"
 #include "components/policy/core/browser/policy_conversions.h"
 #include "content/public/browser/web_contents.h"
@@ -66,10 +65,10 @@ NetworkLogsMessageHandler::~NetworkLogsMessageHandler() = default;
 
 void NetworkLogsMessageHandler::RegisterMessages() {
   out_dir_ = GetDownloadsDirectory(web_ui());
-  web_ui()->RegisterDeprecatedMessageCallback(
+  web_ui()->RegisterMessageCallback(
       "storeLogs", base::BindRepeating(&NetworkLogsMessageHandler::OnStoreLogs,
                                        base::Unretained(this)));
-  web_ui()->RegisterDeprecatedMessageCallback(
+  web_ui()->RegisterMessageCallback(
       "setShillDebugging",
       base::BindRepeating(&NetworkLogsMessageHandler::OnSetShillDebugging,
                           base::Unretained(this)));
@@ -84,10 +83,10 @@ void NetworkLogsMessageHandler::Respond(const std::string& callback_id,
   ResolveJavascriptCallback(base::Value(callback_id), response);
 }
 
-void NetworkLogsMessageHandler::OnStoreLogs(const base::ListValue* list) {
-  CHECK_EQ(2u, list->GetListDeprecated().size());
-  std::string callback_id = list->GetListDeprecated()[0].GetString();
-  const base::Value& options = list->GetListDeprecated()[1];
+void NetworkLogsMessageHandler::OnStoreLogs(const base::Value::List& list) {
+  CHECK_EQ(2u, list.size());
+  std::string callback_id = list[0].GetString();
+  const base::Value& options = list[1];
   AllowJavascript();
 
   if (GetBoolOrFalse(options, "systemLogs")) {
@@ -179,12 +178,12 @@ void NetworkLogsMessageHandler::OnWriteSystemLogsCompleted(
 }
 
 void NetworkLogsMessageHandler::OnSetShillDebugging(
-    const base::ListValue* list) {
-  CHECK_EQ(2u, list->GetListDeprecated().size());
-  std::string callback_id = list->GetListDeprecated()[0].GetString();
-  std::string subsystem = list->GetListDeprecated()[1].GetString();
+    const base::Value::List& list) {
+  CHECK_EQ(2u, list.size());
+  std::string callback_id = list[0].GetString();
+  std::string subsystem = list[1].GetString();
   AllowJavascript();
-  chromeos::DBusThreadManager::Get()->GetDebugDaemonClient()->SetDebugMode(
+  chromeos::DebugDaemonClient::Get()->SetDebugMode(
       subsystem,
       base::BindOnce(&NetworkLogsMessageHandler::OnSetShillDebuggingCompleted,
                      weak_factory_.GetWeakPtr(), callback_id));

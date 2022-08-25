@@ -9,9 +9,10 @@
 #include "base/synchronization/waitable_event.h"
 #include "build/build_config.h"
 #include "gpu/command_buffer/client/gpu_memory_buffer_manager.h"
+#include "gpu/command_buffer/common/shared_image_usage.h"
 #include "gpu/command_buffer/common/sync_token.h"
 #include "gpu/command_buffer/service/mailbox_manager.h"
-#include "gpu/command_buffer/service/shared_image_factory.h"
+#include "gpu/command_buffer/service/shared_image/shared_image_factory.h"
 #include "gpu/command_buffer/service/sync_point_manager.h"
 #include "gpu/ipc/command_buffer_task_executor.h"
 #include "gpu/ipc/common/gpu_client_ids.h"
@@ -121,14 +122,13 @@ void SharedImageInterfaceInProcess::SetUpOnGpu(
   context_state_ = params->context_state.get();
 
   create_factory_ = base::BindOnce(
-      [](std::unique_ptr<SetUpOnGpuParams> params,
-         bool enable_wrapped_sk_image) {
+      [](std::unique_ptr<SetUpOnGpuParams> params) {
         auto shared_image_factory = std::make_unique<SharedImageFactory>(
             params->gpu_preferences, params->gpu_workarounds,
             params->gpu_feature_info, params->context_state,
             params->mailbox_manager, params->shared_image_manager,
             params->image_factory, params->memory_tracker,
-            enable_wrapped_sk_image, params->is_for_display_compositor);
+            params->is_for_display_compositor);
         return shared_image_factory;
       },
       std::move(params));
@@ -182,14 +182,7 @@ bool SharedImageInterfaceInProcess::LazyCreateSharedImageFactory() {
   if (!MakeContextCurrent(/*needs_gl=*/true))
     return false;
 
-  // We need WrappedSkImage to support creating a SharedImage with pixel data
-  // when GL is unavailable. This is used in various unit tests. If we don't
-  // have a command buffer helper, that means this class is created for
-  // SkiaRenderer, and we definitely need to turn on enable_wrapped_sk_image.
-  const bool enable_wrapped_sk_image =
-      !command_buffer_helper_ || command_buffer_helper_->EnableWrappedSkImage();
-  shared_image_factory_ =
-      std::move(create_factory_).Run(enable_wrapped_sk_image);
+  shared_image_factory_ = std::move(create_factory_).Run();
   return true;
 }
 
@@ -201,6 +194,7 @@ Mailbox SharedImageInterfaceInProcess::CreateSharedImage(
     SkAlphaType alpha_type,
     uint32_t usage,
     gpu::SurfaceHandle surface_handle) {
+  DCHECK(gpu::IsValidClientUsage(usage));
   auto mailbox = Mailbox::GenerateForSharedImage();
   {
     base::AutoLock lock(lock_);
@@ -255,6 +249,7 @@ Mailbox SharedImageInterfaceInProcess::CreateSharedImage(
     SkAlphaType alpha_type,
     uint32_t usage,
     base::span<const uint8_t> pixel_data) {
+  DCHECK(gpu::IsValidClientUsage(usage));
   auto mailbox = Mailbox::GenerateForSharedImage();
   std::vector<uint8_t> pixel_data_copy(pixel_data.begin(), pixel_data.end());
   {
@@ -311,6 +306,7 @@ Mailbox SharedImageInterfaceInProcess::CreateSharedImage(
     GrSurfaceOrigin surface_origin,
     SkAlphaType alpha_type,
     uint32_t usage) {
+  DCHECK(gpu::IsValidClientUsage(usage));
   DCHECK(gpu_memory_buffer->GetType() == gfx::NATIVE_PIXMAP ||
          gpu_memory_buffer->GetType() == gfx::ANDROID_HARDWARE_BUFFER ||
          gpu_memory_buffer_manager);

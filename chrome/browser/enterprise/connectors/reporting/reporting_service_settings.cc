@@ -7,11 +7,12 @@
 #include "base/command_line.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/enterprise/connectors/service_provider_config.h"
-#include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router.h"
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
 
 namespace enterprise_connectors {
 
+const base::Feature kExtensionEventsEnabled{"ExtensionEventsEnabled",
+                                            base::FEATURE_DISABLED_BY_DEFAULT};
 namespace {
 
 constexpr char kReportingConnectorUrlFlag[] = "reporting-connector-url";
@@ -76,12 +77,9 @@ ReportingServiceSettings::ReportingServiceSettings(
     // when new events may be added in the future. And this is also to support
     // existing customer policies that were created before we introduced the
     // concept of enabling/disabling events.
-#if 0
-    for (auto* event_name :
-         extensions::SafeBrowsingPrivateEventRouter::kAllEvents) {
-      enabled_event_names_.insert(event_name);
+    for (const char* event : kAllReportingEvents) {
+      enabled_event_names_.insert(event);
     }
-#endif
   }
 
   const base::Value* enabled_opt_in_events_value =

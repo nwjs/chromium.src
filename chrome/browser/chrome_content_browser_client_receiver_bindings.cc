@@ -59,8 +59,10 @@
 #include "chrome/browser/win/conflicts/module_event_sink_impl.h"
 #elif BUILDFLAG(IS_CHROMEOS_ASH)
 #include "chrome/browser/ash/system_extensions/api/hid/hid_impl.h"
+#include "chrome/browser/ash/system_extensions/api/window_management/cros_window_management_context.h"
 #include "chrome/browser/ash/system_extensions/api/window_management/window_management_impl.h"
 #include "chrome/browser/ash/system_extensions/system_extension.h"
+#include "chrome/browser/ash/system_extensions/system_extensions_profile_utils.h"
 #include "chrome/browser/ash/system_extensions/system_extensions_provider.h"
 #include "chromeos/components/cdm_factory_daemon/cdm_factory_daemon_proxy_ash.h"
 #include "components/performance_manager/public/performance_manager.h"
@@ -112,7 +114,7 @@
 
 #if BUILDFLAG(ENABLE_PRINTING)
 #include "chrome/browser/printing/print_view_manager_basic.h"
-#include "components/printing/browser/print_to_pdf/pdf_print_manager.h"
+#include "components/printing/browser/headless/headless_print_manager.h"
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW)
 #include "chrome/browser/printing/print_view_manager.h"
 #endif  // BUILDFLAG(ENABLE_PRINT_PREVIEW)
@@ -187,8 +189,8 @@ void BindBadgeServiceForServiceWorker(
   if (!render_process_host)
     return;
 
-  badging::BadgeManager::BindServiceWorkerReceiver(
-      render_process_host, info.scope, std::move(receiver));
+  badging::BadgeManager::BindServiceWorkerReceiverIfAllowed(
+      render_process_host, info, std::move(receiver));
 }
 #endif
 
@@ -342,6 +344,7 @@ void ChromeContentBrowserClient::RegisterWebUIInterfaceBrokers(
 
 void ChromeContentBrowserClient::
     RegisterBrowserInterfaceBindersForServiceWorker(
+        content::BrowserContext* browser_context,
         mojo::BinderMapWithContext<
             const content::ServiceWorkerVersionBaseInfo&>* map) {
 #if !BUILDFLAG(IS_ANDROID)
@@ -352,10 +355,12 @@ void ChromeContentBrowserClient::
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   // TODO(crbug.com/1253318): Only add this mapping if the System Extension type
   // is Window Manager.
-  if (ash::SystemExtensionsProvider::IsEnabled()) {
-    map->Add<blink::mojom::CrosWindowManagement>(base::BindRepeating(
+  auto* profile = Profile::FromBrowserContext(browser_context);
+  if (ash::IsSystemExtensionsEnabled(profile)) {
+    map->Add<blink::mojom::CrosWindowManagementFactory>(base::BindRepeating(
         [](const content::ServiceWorkerVersionBaseInfo& info,
-           mojo::PendingReceiver<blink::mojom::CrosWindowManagement> receiver) {
+           mojo::PendingReceiver<blink::mojom::CrosWindowManagementFactory>
+               receiver) {
           DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
           if (!ash::SystemExtensionsProvider::IsDebugMode() &&
@@ -369,21 +374,23 @@ void ChromeContentBrowserClient::
           if (!render_process_host)
             return;
 
+          auto* profile = Profile::FromBrowserContext(
+              render_process_host->GetBrowserContext());
+          if (!profile)
+            return;
+
           // TODO(crbug.com/1253318): Once system extensions are site-isolated,
           // ensure that the render_process_host is origin-locked via
           // ChildProcessSecurityPolicy::CanAccessDataForOrigin().
 
-          mojo::MakeSelfOwnedReceiver(
-              std::make_unique<ash::WindowManagementImpl>(info.process_id),
-              std::move(receiver));
+          ash::CrosWindowManagementContext::BindFactory(profile, info,
+                                                        std::move(receiver));
         }));
   }
-#endif
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
   // TODO(b/210738172): Only add this mapping if the System Extension type
   // is HID.
-  if (ash::SystemExtensionsProvider::IsEnabled()) {
+  if (ash::IsSystemExtensionsEnabled(profile)) {
     map->Add<blink::mojom::CrosHID>(base::BindRepeating(
         [](const content::ServiceWorkerVersionBaseInfo& info,
            mojo::PendingReceiver<blink::mojom::CrosHID> receiver) {
@@ -408,7 +415,7 @@ void ChromeContentBrowserClient::
                                       std::move(receiver));
         }));
   }
-#endif
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 }
 
 void ChromeContentBrowserClient::
@@ -576,7 +583,7 @@ void ChromeContentBrowserClient::
            mojo::PendingAssociatedReceiver<printing::mojom::PrintManagerHost>
                receiver) {
           if (headless::IsChromeNativeHeadless()) {
-            print_to_pdf::PdfPrintManager::BindPrintManagerHost(
+            headless::HeadlessPrintManager::BindPrintManagerHost(
                 std::move(receiver), render_frame_host);
           } else {
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW)

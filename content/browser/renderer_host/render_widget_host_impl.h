@@ -760,6 +760,8 @@ class CONTENT_EXPORT RenderWidgetHostImpl
       const gfx::Range& range,
       const std::vector<gfx::Rect>& character_bounds) override;
   void OnImeCancelComposition() override;
+  RenderWidgetHostViewBase* GetRenderWidgetHostViewBase() override;
+  void OnStartStylusWriting() override;
   bool IsWheelScrollInProgress() override;
   bool IsAutoscrollInProgress() override;
   void SetMouseCapture(bool capture) override;
@@ -1066,6 +1068,14 @@ class CONTENT_EXPORT RenderWidgetHostImpl
 
   void OnSnapshotReceived(int snapshot_id, gfx::Image image);
 
+  // This message is received when the stylus writable element is focused.
+  // It receives the focused edit element bounds and the current caret bounds
+  // needed for stylus writing service. These bounds would be null when the
+  // stylus writable element could not be focused.
+  void OnEditElementFocusedForStylusWriting(
+      const absl::optional<gfx::Rect>& focused_edit_bounds,
+      const absl::optional<gfx::Rect>& caret_bounds);
+
   // Called by the RenderProcessHost to handle the case when the process
   // changed its state of being blocked.
   void RenderProcessBlockedStateChanged(bool blocked);
@@ -1132,7 +1142,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // An expiry time for resetting the pending_user_activation_timer_.
   static const base::TimeDelta kActivationNotificationExpireTime;
 
-  raw_ptr<FrameTree> frame_tree_;
+  raw_ptr<FrameTree, DanglingUntriaged> frame_tree_;
 
   // RenderWidgetHost are either:
   // - Owned by RenderViewHostImpl.
@@ -1166,7 +1176,8 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // The delegate of the owner of this object.
   // This member is non-null if and only if this RenderWidgetHost is associated
   // with a main frame RenderWidget.
-  raw_ptr<RenderWidgetHostOwnerDelegate> owner_delegate_ = nullptr;
+  raw_ptr<RenderWidgetHostOwnerDelegate, DanglingUntriaged> owner_delegate_ =
+      nullptr;
 
   // AgentSchedulingGroupHost to be used for IPC with the corresponding
   // (renderer-side) AgentSchedulingGroup. Its channel may be nullptr if the
@@ -1320,7 +1331,12 @@ class CONTENT_EXPORT RenderWidgetHostImpl
 
   std::unique_ptr<SyntheticGestureController> synthetic_gesture_controller_;
 
+  // Must be declared before `input_router_`. The latter is constructed by
+  // borrowing a reference to this object, so it must be deleted first.
+  std::unique_ptr<FlingSchedulerBase> fling_scheduler_;
+
   // Receives and handles all input events.
+  // Depends on `fling_scheduler` above, so it must be declared last.
   std::unique_ptr<InputRouter> input_router_;
 
   base::OneShotTimer input_event_ack_timeout_;
@@ -1384,8 +1400,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   bool surface_id_allocation_suppressed_ = false;
 
   const viz::FrameSinkId frame_sink_id_;
-
-  std::unique_ptr<FlingSchedulerBase> fling_scheduler_;
 
   bool sent_autoscroll_scroll_begin_ = false;
   gfx::PointF autoscroll_start_position_;

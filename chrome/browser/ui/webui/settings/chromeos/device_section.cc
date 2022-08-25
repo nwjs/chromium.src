@@ -16,13 +16,13 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/ash/login/demo_mode/demo_session.h"
+#include "chrome/browser/ui/webui/settings/ash/search/search_tag_registry.h"
 #include "chrome/browser/ui/webui/settings/chromeos/device_display_handler.h"
 #include "chrome/browser/ui/webui/settings/chromeos/device_keyboard_handler.h"
 #include "chrome/browser/ui/webui/settings/chromeos/device_pointer_handler.h"
 #include "chrome/browser/ui/webui/settings/chromeos/device_power_handler.h"
 #include "chrome/browser/ui/webui/settings/chromeos/device_stylus_handler.h"
 #include "chrome/browser/ui/webui/settings/chromeos/os_settings_features_util.h"
-#include "chrome/browser/ui/webui/settings/chromeos/search/search_tag_registry.h"
 #include "chrome/browser/ui/webui/webui_util.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/url_constants.h"
@@ -755,6 +755,16 @@ void AddDeviceStorageStrings(content::WebUIDataSource* html_source,
           base::ASCIIToUTF16(chrome::kArcExternalStorageLearnMoreURL)));
 }
 
+void AddDeviceAudioStrings(content::WebUIDataSource* html_source) {
+  static constexpr webui::LocalizedString kAudioStrings[] = {
+      {"audioTitle", IDS_SETTINGS_AUDIO_TITLE},
+      {"audioOutputTitle", IDS_SETTINGS_AUDIO_OUTPUT_TITLE},
+      {"audioVolumeTitle", IDS_SETTINGS_AUDIO_VOLUME_TITLE},
+  };
+
+  html_source->AddLocalizedStrings(kAudioStrings);
+}
+
 void AddDevicePowerStrings(content::WebUIDataSource* html_source) {
   static constexpr webui::LocalizedString kPowerStrings[] = {
       {"powerTitle", IDS_SETTINGS_POWER_TITLE},
@@ -890,6 +900,7 @@ void DeviceSection::AddLoadTimeData(content::WebUIDataSource* html_source) {
   AddDeviceKeyboardStrings(html_source);
   AddDeviceStylusStrings(html_source);
   AddDeviceDisplayStrings(html_source);
+  AddDeviceAudioStrings(html_source);
   AddDeviceStorageStrings(
       html_source, features::ShouldShowExternalStorageSettings(profile()));
   AddDevicePowerStrings(html_source);
@@ -1032,6 +1043,12 @@ void DeviceSection::RegisterHierarchy(HierarchyGenerator* generator) const {
       mojom::Subpage::kStorage, mojom::SearchResultIcon::kHardDrive,
       mojom::SearchResultDefaultRank::kMedium,
       mojom::kExternalStorageSubpagePath);
+
+  // Audio.
+  generator->RegisterTopLevelSubpage(
+      IDS_SETTINGS_AUDIO_TITLE, mojom::Subpage::kAudio,
+      mojom::SearchResultIcon::kAudio, mojom::SearchResultDefaultRank::kMedium,
+      mojom::kAudioSubpagePath);
 
   // Power.
   generator->RegisterTopLevelSubpage(
@@ -1293,6 +1310,9 @@ void DeviceSection::AddDevicePointersStrings(
   html_source->AddBoolean("allowTouchpadHapticClickSettings",
                           base::FeatureList::IsEnabled(
                               ::features::kAllowTouchpadHapticClickSettings));
+  html_source->AddBoolean(
+      "enableAudioSettingsPage",
+      base::FeatureList::IsEnabled(ash::features::kAudioSettingsPage));
 }
 
 }  // namespace settings

@@ -7,7 +7,6 @@
 #include "base/stl_util.h"
 #include "cc/layers/surface_layer.h"
 #include "services/network/public/mojom/web_sandbox_flags.mojom-blink.h"
-#include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/frame/frame_owner_element_type.h"
 #include "third_party/blink/public/common/navigation/navigation_policy.h"
 #include "third_party/blink/public/mojom/frame/frame.mojom-blink.h"
@@ -16,7 +15,6 @@
 #include "third_party/blink/public/mojom/frame/intrinsic_sizing_info.mojom-blink.h"
 #include "third_party/blink/public/mojom/loader/referrer.mojom-blink.h"
 #include "third_party/blink/public/mojom/security_context/insecure_request_policy.mojom-blink.h"
-#include "third_party/blink/public/platform/interface_registry.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/url_conversion.h"
 #include "third_party/blink/public/platform/web_url_request_util.h"
@@ -100,10 +98,11 @@ RemoteFrame::RemoteFrame(
     FrameInsertType insert_type,
     const RemoteFrameToken& frame_token,
     WindowAgentFactory* inheriting_agent_factory,
-    InterfaceRegistry* interface_registry,
-    AssociatedInterfaceProvider* associated_interface_provider,
     WebFrameWidget* ancestor_widget,
-    const base::UnguessableToken& devtools_frame_token)
+    const base::UnguessableToken& devtools_frame_token,
+    mojo::PendingAssociatedRemote<mojom::blink::RemoteFrameHost>
+        remote_frame_host,
+    mojo::PendingAssociatedReceiver<mojom::blink::RemoteFrame> receiver)
     : Frame(client,
             page,
             owner,
@@ -119,9 +118,6 @@ RemoteFrame::RemoteFrame(
       parent_local_surface_id_allocator_(
           std::make_unique<viz::ParentLocalSurfaceIdAllocator>()),
       ancestor_widget_(ancestor_widget),
-      interface_registry_(interface_registry
-                              ? interface_registry
-                              : InterfaceRegistry::GetEmptyInterfaceRegistry()),
       task_runner_(page.GetPageScheduler()
                        ->GetAgentGroupScheduler()
                        .DefaultTaskRunner()) {
@@ -136,12 +132,9 @@ RemoteFrame::RemoteFrame(
 
   dom_window_ = MakeGarbageCollected<RemoteDOMWindow>(*this);
 
-  interface_registry->AddAssociatedInterface(WTF::BindRepeating(
-      &RemoteFrame::BindToReceiver, WrapWeakPersistent(this)));
-
   DCHECK(task_runner_);
-  associated_interface_provider->GetInterface(
-      remote_frame_host_remote_.BindNewEndpointAndPassReceiver(task_runner_));
+  remote_frame_host_remote_.Bind(std::move(remote_frame_host));
+  receiver_.Bind(std::move(receiver), task_runner_);
 
   UpdateInertIfPossible();
   UpdateInheritedEffectiveTouchActionIfPossible();
@@ -265,6 +258,7 @@ void RemoteFrame::Navigate(FrameLoadRequest& frame_request,
       blink::GetWebURLRequestHeadersAsString(WrappedResourceRequest(request));
   params->referrer = mojom::blink::Referrer::New(
       KURL(NullURL(), request.ReferrerString()), request.GetReferrerPolicy());
+  params->is_form_submission = !!frame_request.Form();
   params->disposition = ui::mojom::blink::WindowOpenDisposition::CURRENT_TAB;
   params->should_replace_current_entry =
       frame_load_type == WebFrameLoadType::kReplaceCurrentItem;
@@ -401,17 +395,6 @@ void RemoteFrame::SetInheritedEffectiveTouchAction(TouchAction touch_action) {
   inherited_effective_touch_action_ = touch_action;
 }
 
-bool RemoteFrame::BubbleLogicalScrollFromChildFrame(
-    mojom::blink::ScrollDirection direction,
-    ui::ScrollGranularity granularity,
-    Frame* child) {
-  DCHECK(child->Client());
-  To<LocalFrame>(child)
-      ->GetLocalFrameHostRemote()
-      .BubbleLogicalScrollInParentFrame(direction, granularity);
-  return false;
-}
-
 void RemoteFrame::RenderFallbackContent() {
   Frame::RenderFallbackContent();
 }
@@ -428,11 +411,8 @@ void RemoteFrame::AddResourceTimingFromChild(
   HTMLFrameOwnerElement* owner_element = To<HTMLFrameOwnerElement>(Owner());
   DCHECK(owner_element);
 
-  // TODO(https://crbug.com/900700): Take a Mojo pending receiver for
-  // WorkerTimingContainer for navigation from the calling function.
   DOMWindowPerformance::performance(*owner_element->GetDocument().domWindow())
       ->AddResourceTiming(std::move(timing), owner_element->localName(),
-                          /*worker_timing_receiver=*/mojo::NullReceiver(),
                           owner_element->GetDocument().GetExecutionContext());
 }
 
@@ -650,10 +630,19 @@ void RemoteFrame::SetNeedsOcclusionTracking(bool needs_tracking) {
 
 void RemoteFrame::BubbleLogicalScroll(mojom::blink::ScrollDirection direction,
                                       ui::ScrollGranularity granularity) {
-  Frame* parent_frame = Parent();
-  DCHECK(parent_frame);
-  DCHECK(parent_frame->IsLocalFrame());
+  LocalFrame* parent_frame = nullptr;
+  if (auto* parent = DynamicTo<LocalFrame>(Parent())) {
+    parent_frame = parent;
+  } else {
+    // This message can be received by an embedded frame tree's placeholder
+    // RemoteFrame in which case Parent() is not connected to the outer frame
+    // tree.
+    auto* owner_element = DynamicTo<HTMLFrameOwnerElement>(Owner());
+    DCHECK(owner_element);
+    parent_frame = owner_element->GetDocument().GetFrame();
+  }
 
+  DCHECK(parent_frame);
   parent_frame->BubbleLogicalScrollFromChildFrame(direction, granularity, this);
 }
 
@@ -1089,13 +1078,6 @@ void RemoteFrame::EnableAutoResize(const gfx::Size& min_size,
 void RemoteFrame::DisableAutoResize() {
   pending_visual_properties_.auto_resize_enabled = false;
   SynchronizeVisualProperties();
-}
-
-void RemoteFrame::BindToReceiver(
-    RemoteFrame* frame,
-    mojo::PendingAssociatedReceiver<mojom::blink::RemoteFrame> receiver) {
-  DCHECK(frame);
-  frame->receiver_.Bind(std::move(receiver), frame->task_runner_);
 }
 
 }  // namespace blink

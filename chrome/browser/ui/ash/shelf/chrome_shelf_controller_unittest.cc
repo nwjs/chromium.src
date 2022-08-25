@@ -65,6 +65,7 @@
 #include "chrome/browser/ash/login/demo_mode/demo_mode_test_helper.h"
 #include "chrome/browser/ash/login/users/fake_chrome_user_manager.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
+#include "chrome/browser/ash/system_web_apps/test_support/test_system_web_app_manager.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/test_extension_system.h"
 #include "chrome/browser/prefs/browser_prefs.h"
@@ -104,7 +105,8 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/browser/web_applications/externally_installed_web_app_prefs.h"
-#include "chrome/browser/web_applications/system_web_apps/test/test_system_web_app_manager.h"
+#include "chrome/browser/web_applications/preinstalled_web_app_manager.h"
+#include "chrome/browser/web_applications/test/app_registration_waiter.h"
 #include "chrome/browser/web_applications/test/fake_web_app_provider.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/browser/web_applications/web_app_constants.h"
@@ -427,6 +429,8 @@ class ChromeShelfControllerTestBase : public BrowserWithTestWindowTest {
     chromeos::DBusThreadManager::Initialize();
     ash::ConciergeClient::InitializeFake(/*fake_cicerone_client=*/nullptr);
 
+    web_app::PreinstalledWebAppManager::SkipStartupForTesting();
+
     app_list::AppListSyncableServiceFactory::SetUseInTesting(true);
 
     BrowserWithTestWindowTest::SetUp();
@@ -458,11 +462,11 @@ class ChromeShelfControllerTestBase : public BrowserWithTestWindowTest {
                                         "true");
     manifest_platform_app.Set(extensions::manifest_keys::kPlatformAppBackground,
                               std::make_unique<base::DictionaryValue>());
-    auto scripts = std::make_unique<base::ListValue>();
-    scripts->Append("main.js");
+    base::Value::List scripts;
+    scripts.Append("main.js");
     manifest_platform_app.Set(
         extensions::manifest_keys::kPlatformAppBackgroundScripts,
-        std::move(scripts));
+        std::make_unique<base::Value>(std::move(scripts)));
 
     SyncServiceFactory::GetInstance()->SetTestingFactory(
         profile(), base::BindRepeating(&BuildTestSyncService));
@@ -532,13 +536,14 @@ class ChromeShelfControllerTestBase : public BrowserWithTestWindowTest {
   virtual bool StartWebAppProviderForMainProfile() const { return true; }
 
   void StartWebAppProvider(Profile* profile) {
-    auto system_web_app_manager =
-        std::make_unique<web_app::TestSystemWebAppManager>(profile);
-
     auto* provider = web_app::FakeWebAppProvider::Get(profile);
-    provider->SetSystemWebAppManager(std::move(system_web_app_manager));
+
+    auto* system_web_app_manager = ash::TestSystemWebAppManager::Get(profile);
+
     provider->SetRunSubsystemStartupTasks(true);
     provider->Start();
+
+    system_web_app_manager->ScheduleStart();
   }
 
   ui::BaseWindow* GetLastActiveWindowForItemController(
@@ -1132,6 +1137,7 @@ class ChromeShelfControllerTestBase : public BrowserWithTestWindowTest {
     web_app::AppId installed_app_id =
         web_app::test::InstallWebApp(profile(), std::move(web_app_info));
     ASSERT_EQ(installed_app_id, web_app_id);
+    web_app::AppRegistrationWaiter(profile(), web_app_id).Await();
     app_service_test_.FlushMojoCalls();
   }
 
@@ -1728,14 +1734,7 @@ TEST_F(ChromeShelfControllerWithArcTest, ArcAppsHiddenFromLaunchCanBePinned) {
   EXPECT_EQ("Chrome, Play Store, Android Settings", GetPinnedAppStatus());
 }
 
-// crbug.com/1312611 Test Failing on linux-cfm-rel
-#if BUILDFLAG(IS_LINUX)
-#define MAYBE_ArcAppPinCrossPlatformWorkflow \
-  DISABLED_ArcAppPinCrossPlatformWorkflow
-#else
-#define MAYBE_ArcAppPinCrossPlatformWorkflow ArcAppPinCrossPlatformWorkflow
-#endif
-TEST_F(ChromeShelfControllerWithArcTest, MAYBE_ArcAppPinCrossPlatformWorkflow) {
+TEST_F(ChromeShelfControllerWithArcTest, ArcAppPinCrossPlatformWorkflow) {
   // Work on ARC disabled platform first.
   const std::string arc_app_id1 =
       ArcAppTest::GetAppId(*arc_test_.fake_apps()[0]);
@@ -4947,6 +4946,7 @@ class ChromeShelfControllerDemoModeTest : public ChromeShelfControllerTestBase {
   web_app::AppId InstallExternalWebApp(std::string start_url) {
     auto web_app_info = std::make_unique<WebAppInstallInfo>();
     web_app_info->start_url = GURL(start_url);
+    web_app_info->install_url = GURL(start_url);
     const web_app::AppId expected_web_app_id = web_app::GenerateAppId(
         /*manifest_id=*/absl::nullopt, web_app_info->start_url);
     PrefService* prefs = browser()->profile()->GetPrefs();
@@ -4957,8 +4957,10 @@ class ChromeShelfControllerDemoModeTest : public ChromeShelfControllerTestBase {
     base::RunLoop run_loop;
     prefs->CommitPendingWrite(run_loop.QuitClosure());
     run_loop.Run();
-    web_app::AppId web_app_id =
-        web_app::test::InstallWebApp(profile(), std::move(web_app_info));
+    web_app::AppId web_app_id = web_app::test::InstallWebApp(
+        profile(), std::move(web_app_info),
+        /*overwrite_existing_manifest_fields =*/false,
+        webapps::WebappInstallSource::EXTERNAL_POLICY);
     DCHECK_EQ(expected_web_app_id, web_app_id);
     return web_app_id;
   }

@@ -298,7 +298,7 @@ void AppWindow::LoadingStateChanged(content::WebContents* source, bool to_differ
       return;
     args.Append("loaded");
   }
-  content::RenderFrameHost* rfh = web_contents()->GetMainFrame();
+  content::RenderFrameHost* rfh = web_contents()->GetPrimaryMainFrame();
     ExtensionWebContentsObserver::GetForWebContents(web_contents())
       ->GetLocalFrame(rfh)
       ->MessageInvoke(
@@ -319,11 +319,17 @@ void AppWindow::Init(const GURL& url,
 
   nw::Package* package = nw::package();
   std::string js_doc_start(params.inject_js_start), js_doc_end(params.inject_js_end);
-  if (js_doc_start.empty())
-    package->root()->GetString(::switches::kmInjectJSDocStart, &js_doc_start);
+  if (js_doc_start.empty()) {
+    std::string* str = package->root()->FindString(::switches::kmInjectJSDocStart);
+    if (str)
+      js_doc_start = *str;
+  }
   web_contents()->GetMutableRendererPrefs()->nw_inject_js_doc_start = js_doc_start;
-  if (js_doc_end.empty())
-    package->root()->GetString(::switches::kmInjectJSDocEnd, &js_doc_end);
+  if (js_doc_end.empty()) {
+    std::string* str = package->root()->FindString(::switches::kmInjectJSDocEnd);
+    if (str)
+      js_doc_end = *str;
+  }
   web_contents()->GetMutableRendererPrefs()->nw_inject_js_doc_end = js_doc_end;
   if (!js_doc_start.empty() || !js_doc_end.empty())
     web_contents()->SyncRendererPrefs();
@@ -476,7 +482,7 @@ void AppWindow::AddNewContents(WebContents* source,
   GURL new_url = new_contents->GetURL();
   app_window->Init(new_url,
                    new extensions::AppWindowContentsImpl(app_window, std::move(new_contents)),
-                   web_contents()->GetMainFrame(),
+                   web_contents()->GetPrimaryMainFrame(),
                    params);
 }
 
@@ -609,7 +615,7 @@ bool AppWindow::NWCanClose(bool user_force) const {
   const Extension* extension = GetExtension();
   if (!extension)
     return true;
-  content::RenderFrameHost* rfh = web_contents()->GetMainFrame();
+  content::RenderFrameHost* rfh = web_contents()->GetPrimaryMainFrame();
   EventRouter* event_router = EventRouter::Get(browser_context());
   std::string listener_extension_id;
   bool listening_to_close = event_router->
@@ -1273,7 +1279,7 @@ content::JavaScriptDialogManager* AppWindow::GetJavaScriptDialogManager(
 void AppWindow::OnVisibilityChanged(content::Visibility visibility) {
   if (visibility == content::Visibility::VISIBLE) {
   web_cache::WebCacheManager::GetInstance()->ObserveActivity(
-                                                             web_contents()->GetMainFrame()->GetProcess()->GetID());
+                                                             web_contents()->GetPrimaryMainFrame()->GetProcess()->GetID());
   }
 }
 

@@ -49,7 +49,6 @@
 #include "build/chromeos_buildflags.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/app_mode/app_mode_utils.h"
-#include "chrome/browser/autofill/personal_data_manager_factory.h"
 #include "chrome/browser/background/background_contents.h"
 #include "chrome/browser/background/background_contents_service.h"
 #include "chrome/browser/background/background_contents_service_factory.h"
@@ -63,6 +62,8 @@
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/devtools/devtools_toggle_action.h"
 #include "chrome/browser/devtools/devtools_window.h"
+#include "chrome/browser/download/bubble/download_bubble_controller.h"
+#include "chrome/browser/download/bubble/download_display_controller.h"
 #include "chrome/browser/download/download_core_service.h"
 #include "chrome/browser/download/download_core_service_factory.h"
 #include "chrome/browser/extensions/browser_extension_window_controller.h"
@@ -105,7 +106,6 @@
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
-#include "chrome/browser/ui/autofill/chrome_autofill_client.h"
 #include "chrome/browser/ui/blocked_content/chrome_popup_navigation_delegate.h"
 #include "chrome/browser/ui/blocked_content/framebust_block_tab_helper.h"
 #include "chrome/browser/ui/bookmarks/bookmark_tab_helper.h"
@@ -266,11 +266,11 @@
 #include <shellapi.h>
 
 #include "chrome/browser/ui/view_ids.h"
-#include "components/autofill/core/browser/autofill_ie_toolbar_import_win.h"
 #include "ui/base/win/shell.h"
 #endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
+#include "ash/constants/ash_features.h"
 #include "chrome/browser/ui/settings_window_manager_chromeos.h"
 #include "components/session_manager/core/session_manager.h"
 #endif
@@ -614,17 +614,14 @@ Browser::Browser(const CreateParams& params)
   if (service)
     service->WindowOpened(this);
 
-  // TODO(beng): move to ChromeBrowserMain:
-  if (first_run::ShouldDoPersonalDataManagerFirstRun()) {
-#if BUILDFLAG(IS_WIN)
-    // Notify PDM that this is a first run.
-    ImportAutofillDataWin(
-        autofill::PersonalDataManagerFactory::GetForProfile(profile_));
-#endif  // BUILDFLAG(IS_WIN)
-  }
-
   exclusive_access_manager_ = std::make_unique<ExclusiveAccessManager>(
       window_->GetExclusiveAccessContext());
+
+  if (window_->GetDownloadBubbleUIController()) {
+    window_->GetDownloadBubbleUIController()
+        ->GetDownloadDisplayController()
+        ->ListenToFullScreenChanges();
+  }
 
   BrowserList::AddBrowser(this);
 }
@@ -725,14 +722,14 @@ bool Browser::NWCanClose(bool user_force) {
                               extensions::ExtensionTabUtil::GetWindowId(this),
                               &listener_extension_id);
   if (listening_to_close) {
-    std::unique_ptr<base::ListValue> args(new base::ListValue());
+    std::unique_ptr<base::Value::List> args(new base::Value::List());
     args->Append(session_id().id());
     if (user_force)
       args->Append("quit");
     auto event =
       std::make_unique<extensions::Event>(extensions::events::UNKNOWN,
                                           extensions::api::windows::OnRemoving::kEventName,
-                                          std::move(*args).TakeListDeprecated(), profile());
+                                          std::move(*args), profile());
     event->filter_info = extensions::mojom::EventFilteringInfo::New();
     event->filter_info->window_exposed_by_default = true;
     event->filter_info->instance_id = instance_id;
@@ -777,7 +774,7 @@ bool Browser::HasFindBarController() const {
 
 GURL Browser::GetNewTabURL() const {
   if (app_controller_)
-    return app_controller_->GetAppStartUrl();
+    return app_controller_->GetAppNewTabUrl();
   return GURL(chrome::kChromeUINewTabURL);
 }
 
@@ -955,10 +952,11 @@ std::u16string Browser::FormatTitleForDisplay(std::u16string title) {
 
 Browser::WarnBeforeClosingResult Browser::MaybeWarnBeforeClosing(
     Browser::WarnBeforeClosingCallback warn_callback) {
-  // If the browser can close right away (there are no pending downloads we need
-  // to prompt about) then there's no need to warn. In the future, we might need
-  // to check other conditions as well.
-  if (CanCloseWithInProgressDownloads())
+  // If the browser can close right away (we've indicated that we want to skip
+  // before-unload handlers by setting `force_skip_warning_user_on_close_` to
+  // true or there are no pending downloads we need to prompt about) then
+  // there's no need to warn.
+  if (force_skip_warning_user_on_close_ || CanCloseWithInProgressDownloads())
     return WarnBeforeClosingResult::kOkToClose;
 
   DCHECK(!warn_before_closing_callback_)
@@ -968,6 +966,11 @@ Browser::WarnBeforeClosingResult Browser::MaybeWarnBeforeClosing(
 }
 
 bool Browser::ShouldCloseWindow() {
+  // If `force_skip_warning_user_` is true, then we should immediately
+  // return true.
+  if (force_skip_warning_user_on_close_)
+    return true;
+
   // If the user needs to see one or more warnings, hold off closing the
   // browser.
   const WarnBeforeClosingResult result = MaybeWarnBeforeClosing(base::BindOnce(
@@ -997,12 +1000,14 @@ bool Browser::IsAttemptingToCloseBrowser() const {
 
 bool Browser::ShouldRunUnloadListenerBeforeClosing(
     content::WebContents* web_contents) {
-  return unload_controller_.ShouldRunUnloadEventsHelper(web_contents);
+  return !force_skip_warning_user_on_close_ &&
+         unload_controller_.ShouldRunUnloadEventsHelper(web_contents);
 }
 
 bool Browser::RunUnloadListenerBeforeClosing(
     content::WebContents* web_contents) {
-  return unload_controller_.RunUnloadEventsHelper(web_contents);
+  return !force_skip_warning_user_on_close_ &&
+         unload_controller_.RunUnloadEventsHelper(web_contents);
 }
 
 void Browser::SetWindowUserTitle(const std::string& user_title) {
@@ -1196,10 +1201,14 @@ bool Browser::CanSaveContents(content::WebContents* web_contents) const {
 }
 
 bool Browser::ShouldDisplayFavicon(content::WebContents* web_contents) const {
+#if BUILDFLAG(IS_CHROMEOS_ASH)
   // Suppress for System Apps.
-  if (app_controller_ && app_controller_->system_app()) {
+  if (!base::FeatureList::IsEnabled(
+          chromeos::features::kTerminalMultiProfile) &&
+      app_controller_ && app_controller_->system_app()) {
     return false;
   }
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
   // Otherwise, always display the favicon.
   return true;
@@ -1312,8 +1321,12 @@ void Browser::OnTabStripModelChanged(TabStripModel* tab_strip_model,
   if (tab_strip_model_->empty())
     return;
 
-  OnActiveTabChanged(selection.old_contents, selection.new_contents,
-                     selection.new_model.active(), selection.reason);
+  OnActiveTabChanged(
+      selection.old_contents, selection.new_contents,
+      selection.new_model.active().has_value()
+          ? static_cast<int>(selection.new_model.active().value())
+          : TabStripModel::kNoTab,
+      selection.reason);
 }
 
 void Browser::OnTabGroupChanged(const TabGroupChange& change) {
@@ -1548,7 +1561,14 @@ bool Browser::IsBackForwardCacheSupported() {
 bool Browser::IsPrerender2Supported(content::WebContents& web_contents) {
   Profile* profile =
       Profile::FromBrowserContext(web_contents.GetBrowserContext());
-  return prefetch::IsSomePreloadingEnabled(*profile->GetPrefs());
+  bool disabled =
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+      web_contents.GetBrowserContext()->GetUserData(
+          extensions::kIsPrerender2DisabledKey);
+#else
+      false;
+#endif
+  return prefetch::IsSomePreloadingEnabled(*profile->GetPrefs()) && !disabled;
 }
 
 std::unique_ptr<content::WebContents> Browser::ActivatePortalWebContents(
@@ -2100,8 +2120,13 @@ void Browser::ExitFullscreenModeForTab(WebContents* web_contents) {
 }
 
 bool Browser::IsFullscreenForTabOrPending(const WebContents* web_contents) {
+  return IsFullscreenForTabOrPending(web_contents, /*display_id=*/nullptr);
+}
+
+bool Browser::IsFullscreenForTabOrPending(const WebContents* web_contents,
+                                          int64_t* display_id) {
   return exclusive_access_manager_->fullscreen_controller()
-      ->IsFullscreenForTabOrPending(web_contents);
+      ->IsFullscreenForTabOrPending(web_contents, display_id);
 }
 
 blink::mojom::DisplayMode Browser::GetDisplayMode(
@@ -2112,6 +2137,12 @@ blink::mojom::DisplayMode Browser::GetDisplayMode(
   if (is_type_app() || is_type_devtools() || is_type_app_popup()) {
     if (app_controller_ && app_controller_->HasMinimalUiButtons())
       return blink::mojom::DisplayMode::kMinimalUi;
+
+    // TODO(crbug.com/1333978): Sync with the value of
+    // browser_view()->IsWindowControlsOverlayEnabled().
+    if (app_controller_ && app_controller_->AppUsesWindowControlsOverlay())
+      return blink::mojom::DisplayMode::kWindowControlsOverlay;
+
     return blink::mojom::DisplayMode::kStandalone;
   }
 
@@ -2136,6 +2167,7 @@ blink::ProtocolHandlerSecurityLevel Browser::GetProtocolHandlerSecurityLevel(
     case extensions::Feature::BLESSED_WEB_PAGE_CONTEXT:
     case extensions::Feature::CONTENT_SCRIPT_CONTEXT:
     case extensions::Feature::LOCK_SCREEN_EXTENSION_CONTEXT:
+    case extensions::Feature::OFFSCREEN_EXTENSION_CONTEXT:
     case extensions::Feature::UNBLESSED_EXTENSION_CONTEXT:
     case extensions::Feature::UNSPECIFIED_CONTEXT:
     case extensions::Feature::WEBUI_CONTEXT:

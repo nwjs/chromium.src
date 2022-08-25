@@ -401,6 +401,7 @@ class ServiceWorkerFetchDispatcher::ResponseCallback
                    FetchEventResult::kGotResponse, std::move(timing));
   }
   void OnFallback(
+      absl::optional<network::DataElementChunkedDataPipe> request_body,
       blink::mojom::ServiceWorkerFetchEventTimingPtr timing) override {
     HandleResponse(fetch_dispatcher_, version_, fetch_event_id_,
                    blink::mojom::FetchAPIResponse::New(),
@@ -646,9 +647,6 @@ void ServiceWorkerFetchDispatcher::DispatchFetchEvent() {
       std::move(preload_url_loader_client_receiver_);
   params->is_offline_capability_check = is_offline_capability_check_;
 
-  // TODO(https://crbug.com/900700): Make the remote connected to a receiver
-  // which is passed to blink::PerformanceResourceTiming.
-  params->worker_timing_remote = mojo::NullRemote();
   // |endpoint()| is owned by |version_|. So it is safe to pass the
   // unretained raw pointer of |version_| to OnFetchEventFinished callback.
   // Pass |url_loader_assets_| to the callback to keep the URL loader related

@@ -2,8 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {EventGenerator} from '/common/event_generator.js';
-import {BasicNode, BasicRootNode} from '/switch_access/nodes/basic_node.js';
+import {EventGenerator} from '../../common/event_generator.js';
+
+import {BasicNode, BasicRootNode} from './basic_node.js';
 
 const AutomationNode = chrome.automation.AutomationNode;
 
@@ -22,7 +23,7 @@ export class ModalDialogRootNode extends BasicRootNode {
    */
   static buildTree(dialogNode) {
     const root = new ModalDialogRootNode(dialogNode);
-    const childConstructor = (node) => BasicNode.create(node, root);
+    const childConstructor = node => BasicNode.create(node, root);
 
     BasicRootNode.findAndSetChildren(root, childConstructor);
     return root;

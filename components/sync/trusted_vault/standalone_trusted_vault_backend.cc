@@ -143,8 +143,7 @@ void UpgradeToVersion1(sync_pb::LocalTrustedVault* local_trusted_vault) {
 }
 
 void RecordVerifyRegistrationStatus(
-    StandaloneTrustedVaultBackend::TrustedVaultDownloadKeysStatusForUMA
-        status) {
+    TrustedVaultDownloadKeysStatusForUMA status) {
   base::UmaHistogramEnumeration(
       "Sync.TrustedVaultVerifyDeviceRegistrationState", status);
 }
@@ -165,7 +164,7 @@ StandaloneTrustedVaultBackend::PendingTrustedRecoveryMethod::
     ~PendingTrustedRecoveryMethod() = default;
 
 // static
-StandaloneTrustedVaultBackend::TrustedVaultDownloadKeysStatusForUMA
+TrustedVaultDownloadKeysStatusForUMA
 StandaloneTrustedVaultBackend::GetDownloadKeysStatusForUMAFromResponse(
     TrustedVaultDownloadKeysStatus response_status) {
   switch (response_status) {
@@ -378,7 +377,7 @@ void StandaloneTrustedVaultBackend::SetPrimaryAccount(
     // trigger a procedure to verify that the server has a consistent state
     // (i.e. downloading of new keys should succeed but return no new keys).
     if ((*registration_state ==
-             TrustedVaultDeviceRegistrationStateForUMA::kAlreadyRegistered ||
+             TrustedVaultDeviceRegistrationStateForUMA::kAlreadyRegisteredV0 ||
          *registration_state ==
              TrustedVaultDeviceRegistrationStateForUMA::kAlreadyRegisteredV1) &&
         base::FeatureList::IsEnabled(
@@ -622,7 +621,7 @@ StandaloneTrustedVaultBackend::MaybeRegisterDevice(
 
   if (per_user_vault->local_device_registration_info().device_registered() &&
       !base::FeatureList::IsEnabled(kSyncTrustedVaultRedoDeviceRegistration)) {
-    return TrustedVaultDeviceRegistrationStateForUMA::kAlreadyRegistered;
+    return TrustedVaultDeviceRegistrationStateForUMA::kAlreadyRegisteredV0;
   }
 
   if (per_user_vault->keys_are_stale()) {
@@ -859,8 +858,7 @@ void StandaloneTrustedVaultBackend::FulfillOngoingFetchKeys(
   DCHECK(!ongoing_fetch_keys_callback_.is_null());
 
   if (status_for_uma.has_value()) {
-    base::UmaHistogramEnumeration("Sync.TrustedVaultDownloadKeysStatus",
-                                  *status_for_uma);
+    RecordTrustedVaultDownloadKeysStatus(*status_for_uma);
   }
 
   const sync_pb::LocalTrustedVaultPerUser* per_user_vault =

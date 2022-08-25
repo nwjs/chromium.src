@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -29,7 +30,7 @@ class DnsRecordParser;
 // DNS record data such as TTL, Name, Type and Class.
 class NET_EXPORT RecordRdata {
  public:
-  virtual ~RecordRdata() {}
+  virtual ~RecordRdata() = default;
 
   // Return true if `data` represents RDATA in the wire format with a valid size
   // for the give `type`. Always returns true for unrecognized `type`s as the
@@ -265,17 +266,19 @@ class NET_EXPORT_PRIVATE OptRecordRdata : public RecordRdata {
   uint16_t Type() const override;
 
   const std::vector<char>& buf() const { return buf_; }
+  const std::multimap<uint16_t, Opt>& opts() { return opts_; }
 
-  const std::vector<Opt>& opts() const { return opts_; }
   void AddOpt(const Opt& opt);
 
   // Add all Opts from |other| to |this|.
   void AddOpts(const OptRecordRdata& other);
 
+  // Checks if an Opt with the specified opt_code is in opts_.
   bool ContainsOptCode(uint16_t opt_code) const;
 
  private:
-  std::vector<Opt> opts_;
+  // Opt objects are stored in a multimap; key is the opt code.
+  std::multimap<uint16_t, Opt> opts_;
   std::vector<char> buf_;
 };
 

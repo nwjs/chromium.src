@@ -20,15 +20,15 @@
 #include "chrome/browser/ash/arc/session/adb_sideloading_availability_delegate_impl.h"
 #include "chrome/browser/ash/arc/session/arc_app_id_provider_impl.h"
 #include "chrome/browser/ash/arc/session/arc_session_manager_observer.h"
+#include "chrome/browser/ash/guest_os/public/guest_os_mount_provider_registry.h"
 #include "chrome/browser/ash/policy/arc/android_management_client.h"
 #include "chromeos/ash/components/dbus/concierge/concierge_client.h"
-#include "chromeos/dbus/session_manager/session_manager_client.h"
+#include "chromeos/ash/components/dbus/session_manager/session_manager_client.h"
 #include "components/policy/core/common/policy_service.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
 
 class ArcAppLauncher;
-class PrefService;
 class Profile;
 
 namespace arc {
@@ -56,7 +56,7 @@ enum class ArcStopReason;
 // This class is responsible for handing stages of ARC life-cycle.
 class ArcSessionManager : public ArcSessionRunner::Observer,
                           public ArcSupportHost::ErrorDelegate,
-                          public chromeos::SessionManagerClient::Observer,
+                          public ash::SessionManagerClient::Observer,
                           public ash::ConciergeClient::VmObserver,
                           public policy::PolicyService::Observer {
  public:
@@ -138,15 +138,6 @@ class ArcSessionManager : public ArcSessionRunner::Observer,
   static void SetUiEnabledForTesting(bool enabled);
   static void SetArcTermsOfServiceOobeNegotiatorEnabledForTesting(bool enabled);
   static void EnableCheckAndroidManagementForTesting(bool enable);
-  static std::string GenerateFakeSerialNumberForTesting(
-      const std::string& chromeos_user,
-      const std::string& salt);
-  static std::string GetOrCreateSerialNumberForTesting(
-      PrefService* local_state,
-      const std::string& chromeos_user,
-      const std::string& arc_salt_on_disk);
-  static bool ReadSaltOnDiskForTesting(const base::FilePath& salt_path,
-                                       std::string* out_salt);
 
   // Returns true if ARC is allowed to run for the current session.
   // TODO(hidehiko): The name is very close to IsArcAllowedForProfile(), but
@@ -215,6 +206,16 @@ class ArcSessionManager : public ArcSessionRunner::Observer,
   // A log statement with the removal reason must be added prior to calling
   // this.
   void RequestArcDataRemoval();
+
+  // Stops ARC instance without removing user ARC data.
+  // Unlike RequestDisable(), this doesn't clear user ARC prefs, and ARC is not
+  // supposed to restart within the same user session.
+  // NOTE: This method should be used only for the purpose of stopping ARC
+  //       under low disk space.
+  // TODO(b/236325019): Remove this once ArcSessionManager officially supports
+  //       a method to stop ARC without clearing user ARC prefs, or when we
+  //       remove ArcDiskSpaceMonitor after Storage Balloon is ready.
+  void RequestStopOnLowDiskSpace();
 
   // ArcSupportHost:::ErrorDelegate:
   void OnWindowClosed() override;
@@ -421,7 +422,7 @@ class ArcSessionManager : public ArcSessionRunner::Observer,
                                bool should_show_send_feedback,
                                bool should_show_run_network_tests);
 
-  // chromeos::SessionManagerClient::Observer:
+  // ash::SessionManagerClient::Observer:
   void EmitLoginPromptVisibleCalled() override;
 
   // Called when the first part of ExpandPropertyFilesAndReadSalt is done.
@@ -493,6 +494,9 @@ class ArcSessionManager : public ArcSessionRunner::Observer,
   base::OneShotTimer wait_for_policy_timer_;
 
   std::unique_ptr<ArcDlcInstaller> arc_dlc_installer_;
+
+  absl::optional<guest_os::GuestOsMountProviderRegistry::Id>
+      arcvm_mount_provider_id_;
 
   // Must be the last member.
   base::WeakPtrFactory<ArcSessionManager> weak_ptr_factory_{this};

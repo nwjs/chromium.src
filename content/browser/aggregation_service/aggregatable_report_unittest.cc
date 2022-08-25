@@ -21,6 +21,7 @@
 #include "components/cbor/reader.h"
 #include "components/cbor/values.h"
 #include "content/browser/aggregation_service/aggregation_service_test_utils.h"
+#include "content/common/aggregatable_report.mojom.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/abseil-cpp/absl/numeric/int128.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
@@ -99,7 +100,7 @@ void VerifyReport(
               "histogram");
 
     switch (expected_payload_contents.aggregation_mode) {
-      case AggregationServicePayloadContents::AggregationMode::kTeeBased: {
+      case mojom::AggregationServiceMode::kTeeBased: {
         ASSERT_TRUE(CborMapContainsKeyAndType(payload_map, "data",
                                               cbor::Value::Type::ARRAY));
         const cbor::Value::ArrayValue& data_array =
@@ -141,8 +142,7 @@ void VerifyReport(
         EXPECT_FALSE(payload_map.contains(cbor::Value("dpf_key")));
         break;
       }
-      case AggregationServicePayloadContents::AggregationMode::
-          kExperimentalPoplar: {
+      case mojom::AggregationServiceMode::kExperimentalPoplar: {
         EXPECT_TRUE(CborMapContainsKeyAndType(payload_map, "dpf_key",
                                               cbor::Value::Type::BYTE_STRING));
 
@@ -159,7 +159,7 @@ void VerifyReport(
 TEST(AggregatableReportTest,
      ValidExperimentalPoplarRequest_ValidReportReturned) {
   AggregatableReportRequest request = aggregation_service::CreateExampleRequest(
-      AggregationServicePayloadContents::AggregationMode::kExperimentalPoplar);
+      mojom::AggregationServiceMode::kExperimentalPoplar);
 
   AggregationServicePayloadContents expected_payload_contents =
       request.payload_contents();
@@ -182,7 +182,7 @@ TEST(AggregatableReportTest,
 
 TEST(AggregatableReportTest, ValidTeeBasedRequest_ValidReportReturned) {
   AggregatableReportRequest request = aggregation_service::CreateExampleRequest(
-      AggregationServicePayloadContents::AggregationMode::kTeeBased);
+      mojom::AggregationServiceMode::kTeeBased);
 
   AggregationServicePayloadContents expected_payload_contents =
       request.payload_contents();
@@ -206,15 +206,17 @@ TEST(AggregatableReportTest,
      ValidMultipleContributionsRequest_ValidReportReturned) {
   AggregatableReportRequest example_request =
       aggregation_service::CreateExampleRequest(
-          AggregationServicePayloadContents::AggregationMode::kTeeBased);
+          mojom::AggregationServiceMode::kTeeBased);
 
   AggregationServicePayloadContents expected_payload_contents =
       example_request.payload_contents();
   expected_payload_contents.contributions = {
-      AggregationServicePayloadContents::HistogramContribution{.bucket = 123,
-                                                               .value = 456},
-      AggregationServicePayloadContents::HistogramContribution{.bucket = 7890,
-                                                               .value = 1234}};
+      mojom::AggregatableReportHistogramContribution(
+          /*bucket=*/123,
+          /*value=*/456),
+      mojom::AggregatableReportHistogramContribution(
+          /*bucket=*/7890,
+          /*value=*/1234)};
 
   absl::optional<AggregatableReportRequest> request =
       AggregatableReportRequest::Create(expected_payload_contents,
@@ -322,16 +324,17 @@ TEST(AggregatableReportTest, RequestCreatedWithZeroContributions) {
 TEST(AggregatableReportTest, RequestCreatedWithTooManyContributions) {
   AggregatableReportRequest example_request =
       aggregation_service::CreateExampleRequest(
-          AggregationServicePayloadContents::AggregationMode::
-              kExperimentalPoplar);
+          mojom::AggregationServiceMode::kExperimentalPoplar);
 
   AggregationServicePayloadContents payload_contents =
       example_request.payload_contents();
   payload_contents.contributions = {
-      AggregationServicePayloadContents::HistogramContribution{.bucket = 123,
-                                                               .value = 456},
-      AggregationServicePayloadContents::HistogramContribution{.bucket = 7890,
-                                                               .value = 1234}};
+      mojom::AggregatableReportHistogramContribution(
+          /*bucket=*/123,
+          /*value=*/456),
+      mojom::AggregatableReportHistogramContribution(
+          /*bucket=*/7890,
+          /*value=*/1234)};
 
   absl::optional<AggregatableReportRequest> request =
       AggregatableReportRequest::Create(payload_contents,
@@ -483,6 +486,39 @@ TEST(AggregatableReportTest, SharedInfoAdditionalFields) {
       R"(})";
 
   EXPECT_EQ(shared_info.SerializeAsJson(), kExpectedString);
+}
+
+TEST(AggregatableReportTest, ReportingPathSet_SetInRequest) {
+  AggregatableReportRequest example_request =
+      aggregation_service::CreateExampleRequest(
+          mojom::AggregationServiceMode::kExperimentalPoplar);
+
+  std::string reporting_path = "/example-path";
+
+  absl::optional<AggregatableReportRequest> request =
+      AggregatableReportRequest::Create(example_request.payload_contents(),
+                                        example_request.shared_info().Clone(),
+                                        reporting_path);
+  ASSERT_TRUE(request.has_value());
+  EXPECT_EQ(request->reporting_path(), reporting_path);
+  EXPECT_EQ(request->GetReportingUrl().path(), reporting_path);
+  EXPECT_EQ(request->GetReportingUrl().GetWithEmptyPath(),
+            example_request.shared_info().reporting_origin.GetURL());
+}
+
+TEST(AggregatableReportTest, ReportingPathEmpty_NotSetInRequest) {
+  AggregatableReportRequest example_request =
+      aggregation_service::CreateExampleRequest(
+          mojom::AggregationServiceMode::kExperimentalPoplar);
+
+  absl::optional<AggregatableReportRequest> request =
+      AggregatableReportRequest::Create(example_request.payload_contents(),
+                                        example_request.shared_info().Clone());
+  ASSERT_TRUE(request.has_value());
+  EXPECT_TRUE(request->reporting_path().empty());
+
+  // If the reporting path is empty,
+  EXPECT_FALSE(request->GetReportingUrl().is_valid());
 }
 
 }  // namespace content

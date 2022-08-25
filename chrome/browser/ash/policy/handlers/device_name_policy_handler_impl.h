@@ -10,12 +10,13 @@
 
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
+#include "base/scoped_observation.h"
 #include "chrome/browser/ash/policy/handlers/device_name_policy_handler.h"
 #include "chrome/browser/ash/settings/cros_settings.h"
-#include "chromeos/network/network_handler.h"
-#include "chromeos/network/network_state.h"
-#include "chromeos/network/network_state_handler.h"
-#include "chromeos/network/network_state_handler_observer.h"
+#include "chromeos/ash/components/network/network_handler.h"
+#include "chromeos/ash/components/network/network_state.h"
+#include "chromeos/ash/components/network/network_state_handler.h"
+#include "chromeos/ash/components/network/network_state_handler_observer.h"
 #include "chromeos/system/statistics_provider.h"
 
 namespace policy {
@@ -49,6 +50,7 @@ class DeviceNamePolicyHandlerImpl
 
   // NetworkStateHandlerObserver overrides
   void DefaultNetworkChanged(const chromeos::NetworkState* network) override;
+  void OnShuttingDown() override;
 
   void OnDeviceHostnamePropertyChanged();
 
@@ -71,6 +73,10 @@ class DeviceNamePolicyHandlerImpl
   ash::CrosSettings* cros_settings_;
   chromeos::system::StatisticsProvider* statistics_provider_;
   chromeos::NetworkStateHandler* handler_;
+  base::ScopedObservation<chromeos::NetworkStateHandler,
+                          chromeos::NetworkStateHandlerObserver>
+      network_state_handler_observer_{this};
+
   DeviceNamePolicy device_name_policy_;
 
   base::CallbackListSubscription template_policy_subscription_;

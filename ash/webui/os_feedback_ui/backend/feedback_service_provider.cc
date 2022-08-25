@@ -46,10 +46,20 @@ void FeedbackServiceProvider::SendReport(ReportPtr report,
   feedback_delegate_->SendReport(std::move(report), std::move(callback));
 }
 
-void FeedbackServiceProvider::OpenDiagnosticsApp(
-    OpenDiagnosticsAppCallback callback) {
+void FeedbackServiceProvider::OpenDiagnosticsApp() {
   feedback_delegate_->OpenDiagnosticsApp();
-  std::move(callback).Run();
+}
+
+void FeedbackServiceProvider::OpenExploreApp() {
+  feedback_delegate_->OpenExploreApp();
+}
+
+void FeedbackServiceProvider::OpenMetricsDialog() {
+  feedback_delegate_->OpenMetricsDialog();
+}
+
+void FeedbackServiceProvider::OpenSystemInfoDialog() {
+  feedback_delegate_->OpenSystemInfoDialog();
 }
 
 void FeedbackServiceProvider::BindInterface(

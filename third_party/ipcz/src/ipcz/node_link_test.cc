@@ -12,7 +12,7 @@
 #include "ipcz/remote_router_link.h"
 #include "ipcz/router.h"
 #include "ipcz/sublink_id.h"
-#include "reference_drivers/single_process_reference_driver.h"
+#include "reference_drivers/sync_reference_driver.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/abseil-cpp/absl/base/macros.h"
 #include "util/ref_counted.h"
@@ -20,7 +20,7 @@
 namespace ipcz {
 namespace {
 
-const IpczDriver& kDriver = reference_drivers::kSingleProcessReferenceDriver;
+const IpczDriver& kDriver = reference_drivers::kSyncReferenceDriver;
 
 std::pair<Ref<NodeLink>, Ref<NodeLink>> LinkNodes(Ref<Node> broker,
                                                   Ref<Node> non_broker) {
@@ -66,14 +66,19 @@ TEST_F(NodeLinkTest, BasicTransmission) {
   auto router0 = MakeRefCounted<Router>();
   auto router1 = MakeRefCounted<Router>();
   router0->SetOutwardLink(link0->AddRemoteRouterLink(
-      SublinkId(0), LinkType::kCentral, LinkSide::kA, router0));
+      SublinkId(0), link0->memory().GetInitialRouterLinkState(0),
+      LinkType::kCentral, LinkSide::kA, router0));
   router1->SetOutwardLink(link1->AddRemoteRouterLink(
-      SublinkId(0), LinkType::kCentral, LinkSide::kB, router1));
+      SublinkId(0), link0->memory().GetInitialRouterLinkState(0),
+      LinkType::kCentral, LinkSide::kB, router1));
 
   EXPECT_FALSE(router1->IsPeerClosed());
   router0->CloseRoute();
   EXPECT_TRUE(router1->IsPeerClosed());
   router1->CloseRoute();
+
+  link0->Deactivate();
+  link1->Deactivate();
 }
 
 }  // namespace

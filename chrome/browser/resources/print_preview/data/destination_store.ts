@@ -6,7 +6,6 @@ import {assert} from 'chrome://resources/js/assert_ts.js';
 import {EventTracker} from 'chrome://resources/js/event_tracker.m.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.m.js';
 
-import {MetricsContext, PrintPreviewInitializationEvents} from '../metrics.js';
 import {CapabilitiesResponse, NativeLayer, NativeLayerImpl} from '../native_layer.js';
 // <if expr="chromeos_ash or chromeos_lacros">
 import {NativeLayerCros, NativeLayerCrosImpl, PrinterSetupResponse} from '../native_layer_cros.js';
@@ -185,11 +184,6 @@ export class DestinationStore extends EventTarget {
   private initialDestinationSelected_: boolean = false;
 
   /**
-   * Used to track metrics.
-   */
-  private metrics_: MetricsContext = MetricsContext.destinationSearch();
-
-  /**
    * Used to fetch local print destinations.
    */
   private nativeLayer_: NativeLayer = NativeLayerImpl.getInstance();
@@ -250,7 +244,8 @@ export class DestinationStore extends EventTarget {
 
     this.destinationSearchStatus_ = new Map([
       [
-        PrinterType.EXTENSION_PRINTER, DestinationStorePrinterSearchStatus.START
+        PrinterType.EXTENSION_PRINTER,
+        DestinationStorePrinterSearchStatus.START,
       ],
       [PrinterType.LOCAL_PRINTER, DestinationStorePrinterSearchStatus.START],
     ]);
@@ -615,8 +610,6 @@ export class DestinationStore extends EventTarget {
                   destination.origin, destination.id, caps),
               () => this.onGetCapabilitiesFail_(
                   destination.origin, destination.id));
-      MetricsContext.getPrinterCapabilities().record(
-          PrintPreviewInitializationEvents.FUNCTION_INITIATED);
     } else {
       this.sendSelectedDestinationUpdateEvent_();
     }
@@ -706,8 +699,6 @@ export class DestinationStore extends EventTarget {
         type, DestinationStorePrinterSearchStatus.SEARCHING);
     this.nativeLayer_.getPrinters(type).then(
         () => this.onDestinationSearchDone_(type));
-    MetricsContext.getPrinters(type).record(
-        PrintPreviewInitializationEvents.FUNCTION_INITIATED);
   }
 
   /** Initiates loading of all known destination types. */
@@ -760,7 +751,7 @@ export class DestinationStore extends EventTarget {
    * Inserts multiple {@code destinations} to the data store and dispatches
    * single DESTINATIONS_INSERTED event.
    */
-  private insertDestinations_(destinations: (Destination|null)[]) {
+  private insertDestinations_(destinations: Array<Destination|null>) {
     let inserted = false;
     destinations.forEach(destination => {
       if (destination) {
@@ -863,8 +854,6 @@ export class DestinationStore extends EventTarget {
    * @param type The type of printers that are done being retrieved.
    */
   private onDestinationSearchDone_(type: PrinterType) {
-    MetricsContext.getPrinters(type).record(
-        PrintPreviewInitializationEvents.FUNCTION_SUCCESSFUL);
     this.destinationSearchStatus_.set(
         type, DestinationStorePrinterSearchStatus.DONE);
     this.dispatchEvent(
@@ -891,8 +880,6 @@ export class DestinationStore extends EventTarget {
   private onCapabilitiesSet_(
       origin: DestinationOrigin, id: string,
       settingsInfo: CapabilitiesResponse) {
-    MetricsContext.getPrinterCapabilities().record(
-        PrintPreviewInitializationEvents.FUNCTION_SUCCESSFUL);
     let dest = null;
     const key = createDestinationKey(id, origin);
     dest = this.destinationMap_.get(key);
@@ -934,8 +921,6 @@ export class DestinationStore extends EventTarget {
    */
   private onGetCapabilitiesFail_(
       _origin: DestinationOrigin, destinationId: string) {
-    MetricsContext.getPrinterCapabilities().record(
-        PrintPreviewInitializationEvents.FUNCTION_FAILED);
     console.warn(
         'Failed to get print capabilities for printer ' + destinationId);
     if (this.selectedDestination_ &&

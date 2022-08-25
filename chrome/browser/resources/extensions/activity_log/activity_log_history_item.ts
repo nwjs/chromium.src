@@ -67,7 +67,7 @@ export class ActivityLogHistoryItemElement extends PolymerElement {
    * for this ActivityGroup (API call or content script invocation.) Resolve
    * ties by the alphabetical order of the page URL.
    */
-  private getPageUrls_(): Array<PageUrlItem> {
+  private getPageUrls_(): PageUrlItem[] {
     return Array.from(this.data.countsByUrl.entries())
         .map(e => ({page: e[0], count: e[1]}))
         .sort(function(a, b) {
@@ -83,7 +83,7 @@ export class ActivityLogHistoryItemElement extends PolymerElement {
     this.dispatchEvent(new CustomEvent('delete-activity-log-item', {
       bubbles: true,
       composed: true,
-      detail: Array.from(this.data.activityIds.values())
+      detail: Array.from(this.data.activityIds.values()),
     }));
   }
 

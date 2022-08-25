@@ -29,6 +29,7 @@
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
+#include "ui/views/test/widget_test.h"
 #include "ui/views/widget/widget.h"
 
 #if defined(USE_AURA)
@@ -174,7 +175,7 @@ class CaptionBubbleControllerViewsTest : public InProcessBrowserTest {
 
   void OnError(CaptionBubbleContext* caption_bubble_context) {
     GetController()->OnError(
-        caption_bubble_context, CaptionBubbleErrorType::GENERIC,
+        caption_bubble_context, CaptionBubbleErrorType::kGeneric,
         base::RepeatingClosure(),
         base::BindRepeating(
             [](CaptionBubbleErrorType error_type, bool checked) {}));
@@ -187,7 +188,7 @@ class CaptionBubbleControllerViewsTest : public InProcessBrowserTest {
   void OnMediaFoundationError(CaptionBubbleContext* caption_bubble_context) {
     GetController()->OnError(
         caption_bubble_context,
-        CaptionBubbleErrorType::MEDIA_FOUNDATION_RENDERER_UNSUPPORTED,
+        CaptionBubbleErrorType::kMediaFoundationRendererUnsupported,
         base::RepeatingClosure(),
         base::BindRepeating(
             [](CaptionBubbleErrorType error_type, bool checked) {}));
@@ -1059,8 +1060,12 @@ IN_PROC_BROWSER_TEST_F(CaptionBubbleControllerViewsTest,
   test_task_runner->FastForwardBy(base::Seconds(4));
   EXPECT_TRUE(IsWidgetVisible());
 
-  // TODO(crbug.com/1055150): Test that widget doesn't hide when focused. It
-  // works in app but the tests aren't working.
+  // Test that widget doesn't hide when focused.
+  views::test::WidgetActivationWaiter waiter(GetCaptionWidget(), true);
+  GetCaptionWidget()->Activate();
+  waiter.Wait();
+  test_task_runner->FastForwardBy(base::Seconds(10));
+  EXPECT_TRUE(IsWidgetVisible());
 }
 
 // TODO(https://crbug.com/1207312): Flaky test.

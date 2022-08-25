@@ -89,9 +89,7 @@
 
 using std::string;
 
-namespace net {
-
-namespace test {
+namespace net::test {
 
 class QuicHttpStreamPeer {
  public:
@@ -164,8 +162,7 @@ class TestConnectionMigrationSocketFactory : public MockClientSocketFactory {
       NetLog* net_log,
       const NetLogSource& source) override {
     SocketDataProvider* data_provider = mock_data().GetNext();
-    std::unique_ptr<MockUDPClientSocket> socket(
-        new MockUDPClientSocket(data_provider, net_log));
+    auto socket = std::make_unique<MockUDPClientSocket>(data_provider, net_log);
     socket->set_source_host(IPAddress(192, 0, 2, next_source_host_num_++));
     return std::move(socket);
   }
@@ -192,8 +189,7 @@ class TestPortMigrationSocketFactory : public MockClientSocketFactory {
       NetLog* net_log,
       const NetLogSource& source) override {
     SocketDataProvider* data_provider = mock_data().GetNext();
-    std::unique_ptr<MockUDPClientSocket> socket(
-        new MockUDPClientSocket(data_provider, net_log));
+    auto socket = std::make_unique<MockUDPClientSocket>(data_provider, net_log);
     socket->set_source_port(next_source_port_num_++);
     return std::move(socket);
   }
@@ -206,12 +202,12 @@ class QuicStreamFactoryTestBase : public WithTaskEnvironment {
  protected:
   QuicStreamFactoryTestBase(quic::ParsedQuicVersion version,
                             bool client_headers_include_h2_stream_dependency)
-      : host_resolver_(
-            new MockHostResolver(/*default_result=*/MockHostResolverBase::
-                                     RuleResolver::GetLocalhostResult())),
-        ssl_config_service_(new SSLConfigServiceDefaults),
-        socket_factory_(new MockClientSocketFactory),
-        runner_(new TestTaskRunner(context_.mock_clock())),
+      : host_resolver_(std::make_unique<MockHostResolver>(
+            /*default_result=*/MockHostResolverBase::RuleResolver::
+                GetLocalhostResult())),
+        ssl_config_service_(std::make_unique<SSLConfigServiceDefaults>()),
+        socket_factory_(std::make_unique<MockClientSocketFactory>()),
+        runner_(base::MakeRefCounted<TestTaskRunner>(context_.mock_clock())),
         version_(version),
         client_maker_(version_,
                       quic::QuicUtils::CreateRandomConnectionId(
@@ -260,7 +256,6 @@ class QuicStreamFactoryTestBase : public WithTaskEnvironment {
 
   void SetIetfConnectionMigrationFlagsAndConnectionOptions() {
     FLAGS_quic_reloadable_flag_quic_connection_migration_use_new_cid_v2 = true;
-    quic_params_->connection_options.push_back(quic::kRVCM);
   }
 
   void InitializeConnectionMigrationV2Test(
@@ -10928,6 +10923,13 @@ TEST_P(QuicStreamFactoryTest, ServerMigration) {
       quic::test::TestConnectionId(12345678);
   MaybeMakeNewConnectionIdAvailableToSession(cid_on_new_path, session);
 
+  NetErrorDetails details;
+  EXPECT_FALSE(details.quic_connection_migration_attempted);
+  EXPECT_FALSE(details.quic_connection_migration_successful);
+  session->PopulateNetErrorDetails(&details);
+  EXPECT_FALSE(details.quic_connection_migration_attempted);
+  EXPECT_FALSE(details.quic_connection_migration_successful);
+
   // Send GET request on stream.
   HttpResponseInfo response;
   HttpRequestHeaders request_headers;
@@ -10998,6 +11000,10 @@ TEST_P(QuicStreamFactoryTest, ServerMigration) {
   EXPECT_TRUE(HasActiveSession(scheme_host_port_));
   EXPECT_EQ(1u, session->GetNumActiveStreams());
 
+  session->PopulateNetErrorDetails(&details);
+  EXPECT_TRUE(details.quic_connection_migration_attempted);
+  EXPECT_TRUE(details.quic_connection_migration_successful);
+
   // Run the message loop so that data queued in the new socket is read by the
   // packet reader.
   base::RunLoop().RunUntilIdle();
@@ -11013,6 +11019,124 @@ TEST_P(QuicStreamFactoryTest, ServerMigration) {
   EXPECT_TRUE(socket_data1.AllWriteDataConsumed());
   EXPECT_TRUE(socket_data2.AllReadDataConsumed());
   EXPECT_TRUE(socket_data2.AllWriteDataConsumed());
+}
+
+TEST_P(QuicStreamFactoryTest, ServerMigrationNonMigratableStream) {
+  quic_params_->allow_server_migration = true;
+  SetIetfConnectionMigrationFlagsAndConnectionOptions();
+  Initialize();
+
+  ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
+  crypto_client_stream_factory_.AddProofVerifyDetails(&verify_details);
+  crypto_client_stream_factory_.AddProofVerifyDetails(&verify_details);
+  client_maker_.set_save_packet_frames(true);
+
+  int packet_num = 1;
+  MockQuicData socket_data(version_);
+  socket_data.AddRead(SYNCHRONOUS, ERR_IO_PENDING);  // Hanging Read.
+  if (VersionUsesHttp3(version_.transport_version)) {
+    socket_data.AddWrite(SYNCHRONOUS,
+                         ConstructInitialSettingsPacket(packet_num++));
+  }
+  socket_data.AddWrite(
+      SYNCHRONOUS,
+      ConstructGetRequestPacket(packet_num++,
+                                GetNthClientInitiatedBidirectionalStreamId(0),
+                                true, true));
+  if (VersionUsesHttp3(version_.transport_version)) {
+    socket_data.AddWrite(
+        SYNCHRONOUS, client_maker_.MakeDataPacket(
+                         packet_num++, GetQpackDecoderStreamId(), true, false,
+                         StreamCancellationQpackDecoderInstruction(0)));
+  }
+  socket_data.AddWrite(
+      SYNCHRONOUS,
+      ConstructClientRstPacket(packet_num++, quic::QUIC_STREAM_CANCELLED));
+  socket_data.AddSocketDataToFactory(socket_factory_.get());
+
+  // Create request and QuicHttpStream.
+  QuicStreamRequest request(factory_.get());
+  EXPECT_EQ(ERR_IO_PENDING,
+            request.Request(
+                scheme_host_port_, version_, privacy_mode_, DEFAULT_PRIORITY,
+                SocketTag(), NetworkIsolationKey(), SecureDnsPolicy::kAllow,
+                /*use_dns_aliases=*/true, /*require_dns_https_alpn=*/false,
+                /*cert_verify_flags=*/0, url_, net_log_, &net_error_details_,
+                failed_on_default_network_callback_, callback_.callback()));
+  EXPECT_EQ(OK, callback_.WaitForResult());
+  std::unique_ptr<HttpStream> stream = CreateStream(&request);
+  EXPECT_TRUE(stream.get());
+
+  // Cause QUIC stream to be created.
+  HttpRequestInfo request_info;
+  request_info.method = "GET";
+  request_info.url = GURL("https://www.example.org/");
+  request_info.traffic_annotation =
+      MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
+  stream->RegisterRequest(&request_info);
+  EXPECT_EQ(OK, stream->InitializeStream(true, DEFAULT_PRIORITY, net_log_,
+                                         CompletionOnceCallback()));
+
+  // Ensure that session is alive and active.
+  QuicChromiumClientSession* session = GetActiveSession(scheme_host_port_);
+  EXPECT_TRUE(QuicStreamFactoryPeer::IsLiveSession(factory_.get(), session));
+  EXPECT_TRUE(HasActiveSession(scheme_host_port_));
+  quic::QuicConnectionId cid_on_new_path =
+      quic::test::TestConnectionId(12345678);
+  MaybeMakeNewConnectionIdAvailableToSession(cid_on_new_path, session);
+
+  // Disable connection migration on the request streams.
+  QuicChromiumClientStream* chrome_stream =
+      static_cast<QuicChromiumClientStream*>(
+          quic::test::QuicSessionPeer::GetStream(
+              session, GetNthClientInitiatedBidirectionalStreamId(0)));
+  EXPECT_TRUE(chrome_stream);
+  chrome_stream->DisableConnectionMigrationToCellularNetwork();
+
+  NetErrorDetails details;
+  EXPECT_FALSE(details.quic_connection_migration_attempted);
+  EXPECT_FALSE(details.quic_connection_migration_successful);
+  session->PopulateNetErrorDetails(&details);
+  EXPECT_FALSE(details.quic_connection_migration_attempted);
+  EXPECT_FALSE(details.quic_connection_migration_successful);
+
+  // Send GET request on stream.
+  HttpResponseInfo response;
+  HttpRequestHeaders request_headers;
+  EXPECT_EQ(OK, stream->SendRequest(request_headers, &response,
+                                    callback_.callback()));
+
+  // The specific network isn't important, we just want something !=
+  // kInvalidNetworkHandle to specify a non-default network.
+  constexpr NetworkChangeNotifier::NetworkHandle kNonDefaultNetwork = 1;
+  constexpr uint8_t kTestIpAddress[] = {1, 2, 3, 4};
+  constexpr uint16_t kTestPort = 123;
+  session->Migrate(kNonDefaultNetwork,
+                   IPEndPoint(IPAddress(kTestIpAddress), kTestPort), true);
+
+  // The session should exist but no longer be active since its only stream has
+  // been reset.
+  EXPECT_TRUE(QuicStreamFactoryPeer::IsLiveSession(factory_.get(), session));
+  EXPECT_FALSE(HasActiveSession(scheme_host_port_));
+
+  session->PopulateNetErrorDetails(&details);
+  EXPECT_TRUE(details.quic_connection_migration_attempted);
+  EXPECT_FALSE(details.quic_connection_migration_successful);
+
+  // Run the message loop so that data queued due to the reset is read by the
+  // packet reader.
+  base::RunLoop().RunUntilIdle();
+
+  // Verify that the request failed since connection the stream couldn't be
+  // migrated.
+  EXPECT_EQ(ERR_QUIC_PROTOCOL_ERROR,
+            stream->ReadResponseHeaders(callback_.callback()));
+  EXPECT_EQ(nullptr, response.headers);
+
+  stream.reset();
+
+  EXPECT_TRUE(socket_data.AllReadDataConsumed());
+  EXPECT_TRUE(socket_data.AllWriteDataConsumed());
 }
 
 TEST_P(QuicStreamFactoryTest, ServerMigrationIPv4ToIPv4) {
@@ -11290,14 +11414,14 @@ TEST_P(QuicStreamFactoryTest, SharedCryptoConfig) {
   Initialize();
 
   std::vector<string> cannoncial_suffixes;
-  cannoncial_suffixes.push_back(string(".c.youtube.com"));
-  cannoncial_suffixes.push_back(string(".googlevideo.com"));
+  cannoncial_suffixes.emplace_back(".c.youtube.com");
+  cannoncial_suffixes.emplace_back(".googlevideo.com");
 
-  for (unsigned i = 0; i < cannoncial_suffixes.size(); ++i) {
+  for (const auto& cannoncial_suffix : cannoncial_suffixes) {
     string r1_host_name("r1");
     string r2_host_name("r2");
-    r1_host_name.append(cannoncial_suffixes[i]);
-    r2_host_name.append(cannoncial_suffixes[i]);
+    r1_host_name.append(cannoncial_suffix);
+    r2_host_name.append(cannoncial_suffix);
 
     url::SchemeHostPort scheme_host_port1(url::kHttpsScheme, r1_host_name, 80);
     // Need to hold onto this through the test, to keep the
@@ -11330,14 +11454,14 @@ TEST_P(QuicStreamFactoryTest, SharedCryptoConfig) {
 TEST_P(QuicStreamFactoryTest, CryptoConfigWhenProofIsInvalid) {
   Initialize();
   std::vector<string> cannoncial_suffixes;
-  cannoncial_suffixes.push_back(string(".c.youtube.com"));
-  cannoncial_suffixes.push_back(string(".googlevideo.com"));
+  cannoncial_suffixes.emplace_back(".c.youtube.com");
+  cannoncial_suffixes.emplace_back(".googlevideo.com");
 
-  for (unsigned i = 0; i < cannoncial_suffixes.size(); ++i) {
+  for (const auto& cannoncial_suffix : cannoncial_suffixes) {
     string r3_host_name("r3");
     string r4_host_name("r4");
-    r3_host_name.append(cannoncial_suffixes[i]);
-    r4_host_name.append(cannoncial_suffixes[i]);
+    r3_host_name.append(cannoncial_suffix);
+    r4_host_name.append(cannoncial_suffix);
 
     url::SchemeHostPort scheme_host_port1(url::kHttpsScheme, r3_host_name, 80);
     // Need to hold onto this through the test, to keep the
@@ -11585,7 +11709,9 @@ TEST_P(QuicStreamFactoryTest, CryptoConfigCache) {
 
 // With different NetworkIsolationKeys enabled for HttpServerProperties, there
 // should only be one global CryptoCache per NetworkIsolationKey.
-TEST_P(QuicStreamFactoryTest, CryptoConfigCacheWithNetworkIsolationKey) {
+// TODO(https://crbug.com/1335453): The test is flaky.
+TEST_P(QuicStreamFactoryTest,
+       DISABLED_CryptoConfigCacheWithNetworkIsolationKey) {
   const char kUserAgentId1[] = "spoon";
   const char kUserAgentId2[] = "fork";
   const char kUserAgentId3[] = "another spoon";
@@ -11695,7 +11821,7 @@ TEST_P(QuicStreamFactoryTest, CryptoConfigCacheMRUWithNetworkIsolationKey) {
   std::vector<NetworkIsolationKey> network_isolation_keys;
   for (int i = 0; i < kNumSessionsToMake; ++i) {
     SchemefulSite site(GURL(base::StringPrintf("https://foo%i.test/", i)));
-    network_isolation_keys.push_back(NetworkIsolationKey(site, site));
+    network_isolation_keys.emplace_back(site, site);
 
     std::unique_ptr<QuicCryptoClientConfigHandle> crypto_config_handle =
         QuicStreamFactoryPeer::GetCryptoConfig(factory_.get(),
@@ -11764,7 +11890,7 @@ TEST_P(QuicStreamFactoryTest,
   std::vector<NetworkIsolationKey> network_isolation_keys;
   for (int i = 0; i < kNumSessionsToMake; ++i) {
     SchemefulSite site(GURL(base::StringPrintf("https://foo%i.test/", i)));
-    network_isolation_keys.push_back(NetworkIsolationKey(site, site));
+    network_isolation_keys.emplace_back(site, site);
   }
 
   const quic::QuicServerId kQuicServerId(
@@ -12330,9 +12456,8 @@ class QuicStreamFactoryWithDestinationTest
   }
 
   void AddHangingSocketData() {
-    std::unique_ptr<SequencedSocketData> sequenced_socket_data(
-        new SequencedSocketData(base::make_span(&hanging_read_, 1),
-                                base::span<MockWrite>()));
+    auto sequenced_socket_data = std::make_unique<SequencedSocketData>(
+        base::make_span(&hanging_read_, 1), base::span<MockWrite>());
     socket_factory_->AddSocketDataProvider(sequenced_socket_data.get());
     sequenced_socket_data_vector_.push_back(std::move(sequenced_socket_data));
   }
@@ -12792,6 +12917,8 @@ TEST_P(QuicStreamFactoryTest, ConfigConnectionOptions) {
 
   Initialize();
 
+  // RVCM will be default enabled as a connection option.
+  quic_params_->connection_options.push_back(quic::kRVCM);
   const quic::QuicConfig* config =
       QuicStreamFactoryPeer::GetConfig(factory_.get());
   EXPECT_EQ(quic_params_->connection_options, config->SendConnectionOptions());
@@ -14996,5 +15123,4 @@ TEST_P(QuicStreamFactoryDnsAliasPoolingTest, IPPooling) {
   EXPECT_EQ(expected_dns_aliases2_, stream2->GetDnsAliases());
 }
 
-}  // namespace test
-}  // namespace net
+}  // namespace net::test

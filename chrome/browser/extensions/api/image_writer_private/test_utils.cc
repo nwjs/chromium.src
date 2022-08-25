@@ -21,18 +21,16 @@
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "ash/components/disks/disk.h"
 #include "chromeos/ash/components/dbus/concierge/concierge_client.h"
+#include "chromeos/ash/components/dbus/image_burner/fake_image_burner_client.h"
+#include "chromeos/ash/components/dbus/image_burner/image_burner_client.h"
 #include "chromeos/dbus/dbus_thread_manager.h"  // nogncheck
-#include "chromeos/dbus/image_burner/fake_image_burner_client.h"
 #endif
 
 namespace extensions {
 namespace image_writer {
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-namespace {
-
-class ImageWriterFakeImageBurnerClient
-    : public chromeos::FakeImageBurnerClient {
+class ImageWriterFakeImageBurnerClient : public ash::FakeImageBurnerClient {
  public:
   ImageWriterFakeImageBurnerClient() = default;
   ~ImageWriterFakeImageBurnerClient() override = default;
@@ -65,8 +63,6 @@ class ImageWriterFakeImageBurnerClient
   BurnFinishedHandler burn_finished_handler_;
   BurnProgressUpdateHandler burn_progress_update_handler_;
 };
-
-} // namespace
 #endif
 
 MockOperationManager::MockOperationManager(content::BrowserContext* context)
@@ -249,8 +245,8 @@ void ImageWriterTestUtils::SetUp(bool is_browser_test) {
       ash::ConciergeClient::InitializeFake(
           /*fake_cicerone_client=*/nullptr);
     }
-    chromeos::DBusThreadManager::GetSetterForTesting()->SetImageBurnerClient(
-        std::make_unique<ImageWriterFakeImageBurnerClient>());
+    image_burner_client_ = std::make_unique<ImageWriterFakeImageBurnerClient>();
+    ash::ImageBurnerClient::SetInstanceForTest(image_burner_client_.get());
   }
 
   FakeDiskMountManager* disk_manager = new FakeDiskMountManager();
@@ -272,6 +268,9 @@ void ImageWriterTestUtils::SetUp(bool is_browser_test) {
 
 void ImageWriterTestUtils::TearDown() {
 #if BUILDFLAG(IS_CHROMEOS_ASH)
+  ash::ImageBurnerClient::SetInstanceForTest(nullptr);
+  image_burner_client_.reset();
+
   if (chromeos::DBusThreadManager::IsInitialized()) {
     // When in browser_tests, this path is not taken. These clients have already
     // been shut down by chromeos::ShutdownDBus().

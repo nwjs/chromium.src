@@ -27,9 +27,9 @@
 #include "components/autofill_assistant/browser/client_status.h"
 #include "components/autofill_assistant/browser/cud_condition.pb.h"
 #include "components/autofill_assistant/browser/field_formatter.h"
+#include "components/autofill_assistant/browser/public/password_change/website_login_manager_impl.h"
 #include "components/autofill_assistant/browser/service.pb.h"
 #include "components/autofill_assistant/browser/user_data_util.h"
-#include "components/autofill_assistant/browser/website_login_manager_impl.h"
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/web_contents.h"
@@ -1692,7 +1692,8 @@ void CollectUserDataAction::UpdatePersonalDataManagerProfiles(
   user_data->available_contacts_.clear();
   user_data->available_addresses_.clear();
   for (const auto* profile : personal_data_manager->GetProfilesToSuggest()) {
-    if (requires_contact) {
+    if (requires_contact && user_data::ContactHasAtLeastOneRequiredField(
+                                *profile, *collect_user_data_options_)) {
       user_data->available_contacts_.emplace_back(std::make_unique<Contact>(
           user_data::MakeUniqueFromProfile(*profile)));
     }

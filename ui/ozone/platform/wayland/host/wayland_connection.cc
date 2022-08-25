@@ -20,25 +20,22 @@
 #include "base/strings/string_util.h"
 #include "base/task/current_thread.h"
 #include "base/threading/thread_task_runner_handle.h"
-#include "base/time/time.h"
 #include "ui/events/devices/device_data_manager.h"
 #include "ui/events/devices/input_device.h"
 #include "ui/events/ozone/layout/keyboard_layout_engine_manager.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/ozone/common/features.h"
-#include "ui/ozone/platform/wayland/common/wayland_object.h"
 #include "ui/ozone/platform/wayland/host/gtk_primary_selection_device_manager.h"
 #include "ui/ozone/platform/wayland/host/gtk_shell1.h"
 #include "ui/ozone/platform/wayland/host/org_kde_kwin_idle.h"
 #include "ui/ozone/platform/wayland/host/overlay_prioritizer.h"
 #include "ui/ozone/platform/wayland/host/proxy/wayland_proxy_impl.h"
 #include "ui/ozone/platform/wayland/host/surface_augmenter.h"
+#include "ui/ozone/platform/wayland/host/wayland_buffer_factory.h"
 #include "ui/ozone/platform/wayland/host/wayland_buffer_manager_host.h"
-#include "ui/ozone/platform/wayland/host/wayland_clipboard.h"
 #include "ui/ozone/platform/wayland/host/wayland_cursor.h"
 #include "ui/ozone/platform/wayland/host/wayland_cursor_position.h"
 #include "ui/ozone/platform/wayland/host/wayland_data_device_manager.h"
-#include "ui/ozone/platform/wayland/host/wayland_data_drag_controller.h"
 #include "ui/ozone/platform/wayland/host/wayland_drm.h"
 #include "ui/ozone/platform/wayland/host/wayland_event_source.h"
 #include "ui/ozone/platform/wayland/host/wayland_input_method_context.h"
@@ -50,6 +47,8 @@
 #include "ui/ozone/platform/wayland/host/wayland_window.h"
 #include "ui/ozone/platform/wayland/host/wayland_window_drag_controller.h"
 #include "ui/ozone/platform/wayland/host/wayland_zaura_shell.h"
+#include "ui/ozone/platform/wayland/host/wayland_zcr_color_management_output.h"
+#include "ui/ozone/platform/wayland/host/wayland_zcr_color_manager.h"
 #include "ui/ozone/platform/wayland/host/wayland_zcr_cursor_shapes.h"
 #include "ui/ozone/platform/wayland/host/wayland_zcr_touchpad_haptics.h"
 #include "ui/ozone/platform/wayland/host/wayland_zwp_linux_dmabuf.h"
@@ -81,7 +80,7 @@ constexpr uint32_t kMaxZXdgShellVersion = 1;
 constexpr uint32_t kMaxWpPresentationVersion = 1;
 constexpr uint32_t kMaxWpViewporterVersion = 1;
 constexpr uint32_t kMaxTextInputManagerVersion = 1;
-constexpr uint32_t kMaxTextInputExtensionVersion = 2;
+constexpr uint32_t kMaxTextInputExtensionVersion = 4;
 constexpr uint32_t kMaxExplicitSyncVersion = 2;
 constexpr uint32_t kMaxAlphaCompositingVersion = 1;
 constexpr uint32_t kMaxXdgDecorationVersion = 1;
@@ -183,6 +182,8 @@ bool WaylandConnection::Initialize() {
                               &WaylandShm::Instantiate);
   RegisterGlobalObjectFactory(WaylandZAuraShell::kInterfaceName,
                               &WaylandZAuraShell::Instantiate);
+  RegisterGlobalObjectFactory(WaylandZcrColorManager::kInterfaceName,
+                              &WaylandZcrColorManager::Instantiate);
   RegisterGlobalObjectFactory(WaylandZcrCursorShapes::kInterfaceName,
                               &WaylandZcrCursorShapes::Instantiate);
   RegisterGlobalObjectFactory(WaylandZcrTouchpadHaptics::kInterfaceName,
@@ -234,6 +235,10 @@ bool WaylandConnection::Initialize() {
   event_source_ = std::make_unique<WaylandEventSource>(
       display(), event_queue_.get(), wayland_window_manager(), this);
 
+  // Create the buffer factory before registry listener is set so that shm, drm,
+  // zwp_linux_dmabuf objects are able to be stored.
+  wayland_buffer_factory_ = std::make_unique<WaylandBufferFactory>();
+
   wl_registry_add_listener(registry_.get(), &registry_listener, this);
   while (!wayland_output_manager_ ||
          !wayland_output_manager_->IsOutputReady()) {
@@ -246,7 +251,7 @@ bool WaylandConnection::Initialize() {
     LOG(ERROR) << "No wl_compositor object";
     return false;
   }
-  if (!shm_) {
+  if (!wayland_buffer_factory()->shm()) {
     LOG(ERROR) << "No wl_shm object";
     return false;
   }

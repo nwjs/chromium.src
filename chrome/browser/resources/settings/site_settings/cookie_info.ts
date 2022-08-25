@@ -27,52 +27,56 @@ export type CookieDataForDisplay = {
 // 1) to list what subset of the cookie data we want to show in the UI.
 // 2) What order to show it in.
 // 3) What user friendly label to prefix the data with.
-export const cookieInfo: {[key: string]: Array<Array<string>>} = {
+export const cookieInfo: {[key: string]: string[][]} = {
   'cookie': [
-    ['name', 'cookieName'], ['content', 'cookieContent'],
-    ['domain', 'cookieDomain'], ['path', 'cookiePath'],
+    ['name', 'cookieName'],
+    ['content', 'cookieContent'],
+    ['domain', 'cookieDomain'],
+    ['path', 'cookiePath'],
     ['sendfor', 'cookieSendFor'],
     ['accessibleToScript', 'cookieAccessibleToScript'],
-    ['created', 'cookieCreated'], ['expires', 'cookieExpires']
+    ['created', 'cookieCreated'],
+    ['expires', 'cookieExpires'],
   ],
   'database': [
-    ['origin', 'databaseOrigin'], ['size', 'localStorageSize'],
-    ['modified', 'localStorageLastModified']
+    ['origin', 'databaseOrigin'],
+    ['size', 'localStorageSize'],
+    ['modified', 'localStorageLastModified'],
   ],
   'local_storage': [
-    ['origin', 'localStorageOrigin'], ['size', 'localStorageSize'],
-    ['modified', 'localStorageLastModified']
+    ['origin', 'localStorageOrigin'],
+    ['size', 'localStorageSize'],
+    ['modified', 'localStorageLastModified'],
   ],
   'indexed_db': [
-    ['origin', 'indexedDbOrigin'], ['size', 'indexedDbSize'],
-    ['modified', 'indexedDbLastModified']
+    ['origin', 'indexedDbOrigin'],
+    ['size', 'indexedDbSize'],
+    ['modified', 'indexedDbLastModified'],
   ],
   'file_system': [
-    ['origin', 'fileSystemOrigin'], ['persistent', 'fileSystemPersistentUsage'],
-    ['temporary', 'fileSystemTemporaryUsage']
+    ['origin', 'fileSystemOrigin'],
+    ['persistent', 'fileSystemPersistentUsage'],
+    ['temporary', 'fileSystemTemporaryUsage'],
   ],
+  'quota': [['origin', 'quotaOrigin'], ['totalUsage', 'quotaSize']],
   'service_worker':
       [['origin', 'serviceWorkerOrigin'], ['size', 'serviceWorkerSize']],
   'shared_worker':
       [['worker', 'sharedWorkerWorker'], ['name', 'sharedWorkerName']],
   'cache_storage': [
-    ['origin', 'cacheStorageOrigin'], ['size', 'cacheStorageSize'],
-    ['modified', 'cacheStorageLastModified']
+    ['origin', 'cacheStorageOrigin'],
+    ['size', 'cacheStorageSize'],
+    ['modified', 'cacheStorageLastModified'],
   ],
   'flash_lso': [['domain', 'cookieDomain']],
-  'media_license': [
-    ['origin', 'mediaLicenseOrigin'], ['size', 'mediaLicenseSize'],
-    ['modified', 'mediaLicenseLastModified']
-  ],
 };
 
 /**
  * Get cookie data for a given HTML node.
  * @param data The contents of the cookie.
  */
-export function getCookieData(data: CookieDetails):
-    Array<CookieDataForDisplay> {
-  const out: Array<CookieDataForDisplay> = [];
+export function getCookieData(data: CookieDetails): CookieDataForDisplay[] {
+  const out: CookieDataForDisplay[] = [];
   const fields = cookieInfo[data.type];
   for (let i = 0; i < fields.length; i++) {
     const field = fields[i];

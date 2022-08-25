@@ -36,7 +36,6 @@ import collections
 import json
 import logging
 import optparse
-import os
 import re
 import sys
 import tempfile
@@ -56,7 +55,11 @@ from blinkpy.w3c.wpt_manifest import WPTManifest, MANIFEST_NAME
 from blinkpy.web_tests.layout_package.bot_test_expectations import BotTestExpectationsFactory
 from blinkpy.web_tests.models.test_configuration import TestConfiguration
 from blinkpy.web_tests.models.test_run_results import TestRunException
-from blinkpy.web_tests.models.typ_types import TestExpectations, ResultType
+from blinkpy.web_tests.models.typ_types import (
+    TestExpectations,
+    ResultType,
+    SerializableTypHost,
+)
 from blinkpy.web_tests.port import driver
 from blinkpy.web_tests.port import server_process
 from blinkpy.web_tests.port.factory import PortFactory
@@ -148,7 +151,6 @@ class Port(object):
         ('mac11-arm64', 'arm64'),
         ('mac12', 'x86_64'),
         ('mac12-arm64', 'arm64'),
-        ('win7', 'x86'),
         ('win10.20h2', 'x86'),
         ('win11', 'x64'),
         ('trusty', 'x86_64'),
@@ -160,7 +162,7 @@ class Port(object):
             'mac10.13', 'mac10.14', 'mac10.15', 'mac11', 'mac11-arm64',
             'mac12', 'mac12-arm64'
         ],
-        'win': ['win7', 'win10.20h2', 'win11'],
+        'win': ['win10.20h2', 'win11'],
         'linux': ['trusty'],
         'fuchsia': ['fuchsia'],
     }
@@ -209,6 +211,14 @@ class Port(object):
     # leading slash).
     WPT_REGEX = re.compile(
         r'^(?:virtual/[^/]+/)?(external/wpt|wpt_internal)/(.*)$')
+
+    # This regex parses the WPT-style style fuzzy match syntax. For actual WPT
+    # tests, this is not needed since this information is contained in the
+    # manifest. However, we reuse this syntax for some non-WPT tests as well.
+    WPT_FUZZY_REGEX = re.compile(
+        r'<(?:html:)?meta\s+name=(?:fuzzy|"fuzzy")\s+content='
+        r'"(?:(.+):)?(?:maxDifference=)?(?:(\d+)-)?(\d+);(?:totalPixels=)?(?:(\d+)-)?(\d+)"\s*/?>'
+    )
 
     # Because this is an abstract base class, arguments to functions may be
     # unused in this class - pylint: disable=unused-argument
@@ -600,11 +610,11 @@ class Port(object):
         """
         # If only one of them exists, return that one.
         if not actual_contents and not expected_contents:
-            return (None, None)
+            return (None, None, None)
         if not actual_contents:
-            return (expected_contents, None)
+            return (expected_contents, None, None)
         if not expected_contents:
-            return (actual_contents, None)
+            return (actual_contents, None, None)
 
         tempdir = self._filesystem.mkdtemp()
 
@@ -639,19 +649,30 @@ class Port(object):
                 map(str, max_pixels_diff))))
 
         result = None
+        stats = None
         err_str = None
+
+        def handle_output(output):
+            if output:
+                match = re.search(
+                    "Found pixels_different: (\d+), max_channel_diff: (\d+)",
+                    output)
+                _log.debug(output)
+
+                if match:
+                    return {
+                        "maxDifference": int(match.group(2)),
+                        "totalPixels": int(match.group(1))
+                    }
+            return None
+
         try:
             output = self._executive.run_command(command)
-            # Log the output, to enable user debugging of a diff hidden by fuzzy
-            # expectations. This is useful when tightening fuzzy bounds.
-            if output:
-                _log.debug(output)
+            stats = handle_output(output)
         except ScriptError as error:
             if error.exit_code == 1:
                 result = self._filesystem.read_binary_file(diff_filename)
-                # Log the output, to enable user debugging of the diff.
-                if error.output:
-                    _log.debug(error.output)
+                stats = handle_output(error.output)
             else:
                 err_str = 'Image diff returned an exit code of %s. See http://crbug.com/278596' % error.exit_code
         except OSError as error:
@@ -659,7 +680,7 @@ class Port(object):
         finally:
             self._filesystem.rmtree(str(tempdir))
 
-        return (result, err_str or None)
+        return (result, stats, err_str or None)
 
     def driver_name(self):
         if self.get_option('driver_name'):
@@ -991,7 +1012,7 @@ class Port(object):
             ]
             tests_by_dir = defaultdict(list)
             for test in tests + wpt_tests:
-                dirname = os.path.dirname(test) + '/'
+                dirname = self._filesystem.dirname(test) + '/'
                 tests_by_dir[dirname].append(test)
 
             if not self._options.no_virtual_tests:
@@ -1004,7 +1025,10 @@ class Port(object):
         files = []
         for path in paths:
             if self._has_supported_extension_for_all(path):
-                files.append(path)
+                # only append the file when it is in tests_by_dir
+                dirname = self._filesystem.dirname(path) + '/'
+                if path in tests_by_dir.get(dirname, []):
+                    files.append(path)
                 continue
             path = path + '/' if path[-1] != '/' else path
             for key, value in tests_by_dir.items():
@@ -1090,6 +1114,8 @@ class Port(object):
         assert path in self.WPT_DIRS
         # Convert '/' to the platform-specific separator.
         path = self._filesystem.normpath(path)
+        self._filesystem.maybe_make_directory(
+            self._filesystem.join(self.web_tests_dir(), path))
         manifest_path = self._filesystem.join(self.web_tests_dir(), path,
                                               MANIFEST_NAME)
         if not self._filesystem.exists(manifest_path) or self.get_option(
@@ -1127,20 +1153,47 @@ class Port(object):
         return self.wpt_manifest(wpt_path).is_slow_test(path_in_wpt)
 
     def get_wpt_fuzzy_metadata(self, test_name):
-        """Returns the fuzzy metadata for the given WPT test.
+        """Returns the WPT-style fuzzy metadata for the given test.
 
         The metadata is a pair of lists, (maxDifference, totalPixels), where
-        each list is a [min, max] range, inclusive. If the test is not a WPT
-        test or has no fuzzy metadata, returns (None, None).
+        each list is a [min, max] range, inclusive. If the test has no fuzzy metadata,
+        returns (None, None).
 
         See https://web-platform-tests.org/writing-tests/reftests.html#fuzzy-matching
         """
         match = self.WPT_REGEX.match(test_name)
-        if not match:
-            return None, None
-        wpt_path = match.group(1)
-        path_in_wpt = match.group(2)
-        return self.wpt_manifest(wpt_path).extract_fuzzy_metadata(path_in_wpt)
+
+        if match:
+            # This is an actual WPT test, so we can get the metadata from the manifest.
+            wpt_path = match.group(1)
+            path_in_wpt = match.group(2)
+            return self.wpt_manifest(wpt_path).extract_fuzzy_metadata(
+                path_in_wpt)
+
+        # This is not a WPT test, so we will parse the metadata ourselves.
+        if not self.test_isfile(test_name):
+            return (None, None)
+
+        # We use a safe encoding because some test files are incompatible with utf-8.
+        test_file = self.read_test(test_name, "latin-1")
+        if not test_file:
+            return (None, None)
+
+        # We only take the first match which is in line with what we do for WPT tests.
+        fuzzy_match = self.WPT_FUZZY_REGEX.search(test_file)
+        if not fuzzy_match:
+            return (None, None)
+
+        _, max_diff_min, max_diff_max, tot_pix_min, tot_pix_max = \
+            fuzzy_match.groups()
+        if not max_diff_min:
+            max_diff_min = max_diff_max
+        if not tot_pix_min:
+            tot_pix_min = tot_pix_max
+
+        return ([int(max_diff_min),
+                 int(max_diff_max)], [int(tot_pix_min),
+                                      int(tot_pix_max)])
 
     def get_file_path_for_wpt_test(self, test_name):
         """Returns the real file path for the given WPT test.
@@ -1195,6 +1248,24 @@ class Port(object):
             d for d in fs.listdir(web_tests_dir)
             if fs.isdir(fs.join(web_tests_dir, d))
         ]
+
+    def read_test(self, test_name, encoding="utf8"):
+        """Returns the contents of the given test according to the given encoding.
+        If no corresponding file can be found, returns None instead.
+        Warning: some tests are in utf8-incompatible encodings.
+        """
+        path = self.abspath_for_test(test_name)
+        if self._filesystem.isfile(path):
+            return self._filesystem.read_binary_file(path).decode(encoding)
+
+        base = self.lookup_virtual_test_base(test_name)
+        if not base:
+            return None
+        path = self.abspath_for_test(base)
+        if self._filesystem.isfile(path):
+            return self._filesystem.read_binary_file(path).decode(encoding)
+
+        return None
 
     @memoized
     def test_isfile(self, test_name):
@@ -1277,14 +1348,16 @@ class Port(object):
     def skips_test(self, test):
         """Checks whether the given test is skipped for this port.
 
-        Returns True if the test is skipped because the port runs smoke tests
-        only or because the test is marked as Skip in NeverFixTest or because
-        it is a virtual test not intended to run on this platform (otherwise
-        the test is only marked as Skip indicating a temporary skip).
+        Returns True if:
+          - the test is a manual test
+          - the port runs smoke tests only and the test is not in the list
+          - the test is marked as Skip in NeverFixTest
+          - the test is a virtual test not intended to run on this platform.
         """
-        return self.skipped_due_to_smoke_tests(
-            test) or self.skipped_in_never_fix_tests(
-            test) or self.virtual_test_skipped_due_to_platform_config(test)
+        return (self.is_manual_test(test)
+                or self.skipped_due_to_smoke_tests(test)
+                or self.skipped_in_never_fix_tests(test)
+                or self.virtual_test_skipped_due_to_platform_config(test))
 
     @memoized
     def _tests_from_file(self, filename):
@@ -1296,6 +1369,10 @@ class Port(object):
                 continue
             tests.add(line)
         return tests
+
+    def is_manual_test(self, test):
+        """Skip the test if it is a WPT manual test"""
+        return self.is_wpt_test(test) and '-manual.' in test
 
     def skipped_due_to_smoke_tests(self, test):
         """Checks if the test is skipped based on the set of Smoke tests.
@@ -1484,6 +1561,10 @@ class Port(object):
     def default_results_directory(self):
         """Returns the absolute path to the build directory."""
         return self._build_path()
+
+    @memoized
+    def typ_host(self):
+        return SerializableTypHost()
 
     def setup_test_run(self):
         """Performs port-specific work at the beginning of a test run."""
@@ -1717,11 +1798,11 @@ class Port(object):
         """Ports may provide a way to abbreviate configuration specifiers to conveniently
         refer to them as one term or alias specific values to more generic ones. For example:
 
-        (vista, win7) -> win # Abbreviate all Windows versions into one namesake.
+        (win10, win11) -> win # Abbreviate all Windows versions into one namesake.
         (precise, trusty) -> linux  # Change specific name of Linux distro to a more generic term.
 
         Returns a dictionary, each key representing a macro term ('win', for example),
-        and value being a list of valid configuration specifiers (such as ['vista', 'win7']).
+        and value being a list of valid configuration specifiers (such as ['win10', 'win11']).
         """
         return self.CONFIGURATION_SPECIFIER_MACROS
 
@@ -1829,22 +1910,27 @@ class Port(object):
         full_port_name = self.determine_full_port_name(
             self.host, self._options, self.port_name)
         builder_category = self.get_option('ignore_builder_category', 'layout')
-        factory = BotTestExpectationsFactory(self.host.builders)
-        # FIXME: This only grabs release builder's flakiness data. If we're running debug,
-        # when we should grab the debug builder's data.
-        expectations = factory.expectations_for_port(full_port_name,
-                                                     builder_category)
+        step_names = ['blink_web_tests', 'blink_wpt_tests']
+        retval = {}
+        for step_name in step_names:
+            factory = BotTestExpectationsFactory(self.host.builders, step_name)
+            # FIXME: This only grabs release builder's flakiness data. If we're running debug,
+            # when we should grab the debug builder's data.
+            expectations = factory.expectations_for_port(full_port_name,
+                                                         builder_category)
 
-        if not expectations:
-            return {}
+            if not expectations:
+                continue
 
-        ignore_mode = self.get_option('ignore_flaky_tests')
-        if ignore_mode == 'very-flaky' or ignore_mode == 'maybe-flaky':
-            return expectations.flakes_by_path(ignore_mode == 'very-flaky')
-        if ignore_mode == 'unexpected':
-            return expectations.unexpected_results_by_path()
-        _log.warning("Unexpected ignore mode: '%s'.", ignore_mode)
-        return {}
+            ignore_mode = self.get_option('ignore_flaky_tests')
+            if ignore_mode == 'very-flaky' or ignore_mode == 'maybe-flaky':
+                retval.update(expectations.flakes_by_path(ignore_mode == 'very-flaky'))
+            elif ignore_mode == 'unexpected':
+                retval.update(expectations.unexpected_results_by_path())
+            else:
+                _log.warning("Unexpected ignore mode: '%s'.", ignore_mode)
+
+        return retval
 
     def default_expectations_files(self):
         """Returns a list of paths to expectations files that apply by default.

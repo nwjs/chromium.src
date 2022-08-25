@@ -9,7 +9,7 @@
 #include "base/i18n/char_iterator.h"
 #include "content/browser/accessibility/browser_accessibility_android.h"
 #include "content/browser/accessibility/web_contents_accessibility_android.h"
-#include "content/common/render_accessibility.mojom.h"
+#include "third_party/blink/public/mojom/render_accessibility.mojom.h"
 #include "ui/accessibility/ax_role_properties.h"
 
 namespace content {
@@ -237,6 +237,11 @@ void BrowserAccessibilityManagerAndroid::FireGeneratedEvent(
     }
     case ui::AXEventGenerator::Event::CHECKED_STATE_CHANGED:
       wcax->HandleCheckStateChanged(android_node->unique_id());
+      if (android_node->GetRole() == ax::mojom::Role::kToggleButton ||
+          android_node->GetRole() == ax::mojom::Role::kSwitch ||
+          android_node->GetRole() == ax::mojom::Role::kRadioButton) {
+        wcax->HandleStateDescriptionChanged(android_node->unique_id());
+      }
       break;
     case ui::AXEventGenerator::Event::DOCUMENT_SELECTION_CHANGED: {
       ui::AXNodeID focus_id =
@@ -261,6 +266,17 @@ void BrowserAccessibilityManagerAndroid::FireGeneratedEvent(
       // Speak its text.
       std::u16string text = android_node->GetTextContentUTF16();
       wcax->AnnounceLiveRegionText(text);
+      break;
+    }
+    case ui::AXEventGenerator::Event::NAME_CHANGED: {
+      // Clear node from cache whenever the name changes to ensure fresh data.
+      wcax->ClearNodeInfoCacheForGivenId(android_node->unique_id());
+
+      // If this is a simple text element, also send an event to the framework.
+      if (ui::IsText(android_node->GetRole()) ||
+          android_node->IsAndroidTextView()) {
+        wcax->HandleTextContentChanged(android_node->unique_id());
+      }
       break;
     }
     case ui::AXEventGenerator::Event::RANGE_VALUE_CHANGED:
@@ -329,14 +345,11 @@ void BrowserAccessibilityManagerAndroid::FireGeneratedEvent(
     case ui::AXEventGenerator::Event::LIVE_REGION_CREATED:
     case ui::AXEventGenerator::Event::LIVE_RELEVANT_CHANGED:
     case ui::AXEventGenerator::Event::LIVE_STATUS_CHANGED:
-    case ui::AXEventGenerator::Event::LOAD_COMPLETE:
-    case ui::AXEventGenerator::Event::LOAD_START:
     case ui::AXEventGenerator::Event::MENU_POPUP_END:
     case ui::AXEventGenerator::Event::MENU_POPUP_START:
     case ui::AXEventGenerator::Event::MENU_ITEM_SELECTED:
     case ui::AXEventGenerator::Event::MULTILINE_STATE_CHANGED:
     case ui::AXEventGenerator::Event::MULTISELECTABLE_STATE_CHANGED:
-    case ui::AXEventGenerator::Event::NAME_CHANGED:
     case ui::AXEventGenerator::Event::OBJECT_ATTRIBUTE_CHANGED:
     case ui::AXEventGenerator::Event::OTHER_ATTRIBUTE_CHANGED:
     case ui::AXEventGenerator::Event::PARENT_CHANGED:
@@ -365,7 +378,7 @@ void BrowserAccessibilityManagerAndroid::FireGeneratedEvent(
 }
 
 void BrowserAccessibilityManagerAndroid::SendLocationChangeEvents(
-    const std::vector<mojom::LocationChangesPtr>& changes) {
+    const std::vector<blink::mojom::LocationChangesPtr>& changes) {
   // Android is not very efficient at handling notifications, and location
   // changes in particular are frequent and not time-critical. If a lot of
   // nodes changed location, just send a single notification after a short
@@ -542,7 +555,7 @@ void BrowserAccessibilityManagerAndroid::OnAtomicUpdateFinished(
   // Reset content changed events counter every time we finish an atomic update.
   wcax->ResetContentChangedEventsCounter();
 
-  // Clear unordered_set of nodes cleared from the cache after atomic update.
+  // Clear set of nodes cleared from the cache after atomic update.
   nodes_already_cleared_.clear();
 
   if (root_changed) {

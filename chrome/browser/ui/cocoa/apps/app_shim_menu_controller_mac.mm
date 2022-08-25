@@ -433,7 +433,7 @@ extensions::AppWindowRegistry::AppWindowList GetAppWindowsForNSWindow(
   [item setTag:IDC_DEV_TOOLS_CONSOLE];
   [item setTarget:self];
   [item setEnabled:YES];
-  [item setKeyEquivalentModifierMask:NSEventModifierFlagCommand | NSEventModifierFlagOption];
+  [item setKeyEquivalentModifierMask:NSCommandKeyMask | NSAlternateKeyMask];
   [[_windowMenuItem submenu] addItem:item];
   }
 #endif

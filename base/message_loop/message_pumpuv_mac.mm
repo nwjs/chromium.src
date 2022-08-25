@@ -176,6 +176,7 @@ class MessagePumpScopedAutoreleasePool {
 
  private:
   NSAutoreleasePool* pool_;
+  DISALLOW_COPY_AND_ASSIGN(MessagePumpScopedAutoreleasePool);
 };
 
 bool MessagePumpUVNSRunLoop::RunWork() {

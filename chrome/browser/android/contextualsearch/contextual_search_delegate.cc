@@ -19,7 +19,6 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/android/contextualsearch/contextual_search_field_trial.h"
-#include "chrome/browser/android/contextualsearch/resolved_search_term.h"
 #include "chrome/browser/android/proto/client_discourse_context.pb.h"
 #include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/browser/language/language_model_manager_factory.h"
@@ -27,6 +26,7 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/translate/translate_service.h"
 #include "components/contextual_search/core/browser/public.h"
+#include "components/contextual_search/core/browser/resolved_search_term.h"
 #include "components/language/core/browser/language_model.h"
 #include "components/language/core/browser/language_model_manager.h"
 #include "components/language/core/browser/pref_names.h"
@@ -84,8 +84,6 @@ const char kXssiEscape[] = ")]}'\n";
 const char kDiscourseContextHeaderName[] = "X-Additional-Discourse-Context";
 const char kDoPreventPreloadValue[] = "1";
 
-const int kResponseCodeUninitialized = -1;
-
 }  // namespace
 
 // Handles tasks for the ContextualSearchManager in a separable, testable way.
@@ -104,7 +102,7 @@ ContextualSearchDelegate::~ContextualSearchDelegate() {
 }
 
 void ContextualSearchDelegate::GatherAndSaveSurroundingText(
-    base::WeakPtr<ContextualSearchContext> contextual_search_context,
+    base::WeakPtr<NativeContextualSearchContext> contextual_search_context,
     content::WebContents* web_contents) {
   DCHECK(web_contents);
   blink::mojom::LocalFrame::GetTextSurroundingSelectionCallback callback =
@@ -129,7 +127,7 @@ void ContextualSearchDelegate::GatherAndSaveSurroundingText(
 }
 
 void ContextualSearchDelegate::StartSearchTermResolutionRequest(
-    base::WeakPtr<ContextualSearchContext> contextual_search_context,
+    base::WeakPtr<NativeContextualSearchContext> contextual_search_context,
     content::WebContents* web_contents) {
   DCHECK(web_contents);
   if (context_ == nullptr)
@@ -216,13 +214,13 @@ void ContextualSearchDelegate::OnUrlLoadComplete(
   if (!context_)
     return;
 
-  int response_code = kResponseCodeUninitialized;
+  int response_code = ResolvedSearchTerm::kResponseCodeUninitialized;
   if (url_loader_->ResponseInfo() && url_loader_->ResponseInfo()->headers) {
     response_code = url_loader_->ResponseInfo()->headers->response_code();
   }
 
-  std::unique_ptr<ResolvedSearchTerm> resolved_search_term(
-      new ResolvedSearchTerm(response_code));
+  std::unique_ptr<ResolvedSearchTerm> resolved_search_term =
+      std::make_unique<ResolvedSearchTerm>(response_code);
   if (response_body && response_code == net::HTTP_OK) {
     resolved_search_term =
         GetResolvedSearchTermFromJson(response_code, *response_body);
@@ -276,7 +274,8 @@ ContextualSearchDelegate::GetResolvedSearchTermFromJson(
       end_adjust = mention_end - context_->GetEndOffset();
     }
   }
-  bool is_invalid = response_code == kResponseCodeUninitialized;
+  bool is_invalid =
+      response_code == ResolvedSearchTerm::kResponseCodeUninitialized;
   return std::make_unique<ResolvedSearchTerm>(
       is_invalid, response_code, search_term, display_text, alternate_term, mid,
       prevent_preload == kDoPreventPreloadValue, start_adjust, end_adjust,
@@ -286,7 +285,7 @@ ContextualSearchDelegate::GetResolvedSearchTermFromJson(
 }
 
 std::string ContextualSearchDelegate::BuildRequestUrl(
-    ContextualSearchContext* context) {
+    NativeContextualSearchContext* context) {
   if (!template_url_service_ ||
       !template_url_service_->GetDefaultSearchProvider()) {
     return std::string();
@@ -368,6 +367,8 @@ void ContextualSearchDelegate::OnTextSurroundingSelectionAvailable(
 
   // Pin the start and end offsets to ensure they point within the string.
   uint32_t surrounding_length = surrounding_text.length();
+  // TODO(crbug.com/1343955): The case where end_offset < start_offset should be
+  // handled here as well.
   start_offset = std::min(surrounding_length, start_offset);
   end_offset = std::min(surrounding_length, end_offset);
 
@@ -392,7 +393,7 @@ void ContextualSearchDelegate::OnTextSurroundingSelectionAvailable(
 }
 
 const net::HttpRequestHeaders ContextualSearchDelegate::GetDiscourseContext(
-    const ContextualSearchContext& context) {
+    const NativeContextualSearchContext& context) {
   discourse_context::ClientDiscourseContext proto;
   discourse_context::Display* display = proto.add_display();
   display->set_uri(context.GetBasePageUrl().spec());
@@ -466,13 +467,13 @@ void ContextualSearchDelegate::DecodeSearchTermFromJsonResponse(
 
   // Extract mentions for selection expansion.
   if (!field_trial_->IsDecodeMentionsDisabled()) {
-    base::Value* mentions_list =
+    const base::Value* mentions_list =
         dict->FindListKey(kContextualSearchMentionsKey);
     // Note that because we've deserialized the json and it's not used later, we
     // can just take the list without worrying about putting it back.
-    if (mentions_list && mentions_list->GetListDeprecated().size() >= 2)
-      ExtractMentionsStartEnd(std::move(*mentions_list).TakeListDeprecated(),
-                              mention_start, mention_end);
+    if (mentions_list && mentions_list->GetList().size() >= 2)
+      ExtractMentionsStartEnd(mentions_list->GetList(), mention_start,
+                              mention_end);
   }
 
   // If either the selected text or the resolved term is not the search term,
@@ -551,13 +552,13 @@ void ContextualSearchDelegate::DecodeSearchTermFromJsonResponse(
 // Extract the Start/End of the mentions in the surrounding text
 // for selection-expansion.
 void ContextualSearchDelegate::ExtractMentionsStartEnd(
-    const std::vector<base::Value>& mentions_list,
-    int* startResult,
-    int* endResult) {
+    const base::Value::List& mentions_list,
+    int* start_result,
+    int* end_result) {
   if (mentions_list.size() >= 1 && mentions_list[0].is_int())
-    *startResult = std::max(0, mentions_list[0].GetInt());
+    *start_result = std::max(0, mentions_list[0].GetInt());
   if (mentions_list.size() >= 2 && mentions_list[1].is_int())
-    *endResult = std::max(0, mentions_list[1].GetInt());
+    *end_result = std::max(0, mentions_list[1].GetInt());
 }
 
 std::u16string ContextualSearchDelegate::SampleSurroundingText(

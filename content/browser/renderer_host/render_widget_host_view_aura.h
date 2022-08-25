@@ -231,7 +231,6 @@ class CONTENT_EXPORT RenderWidgetHostViewAura
   bool GetCompositionTextRange(gfx::Range* range) const override;
   bool GetEditableSelectionRange(gfx::Range* range) const override;
   bool SetEditableSelectionRange(const gfx::Range& range) override;
-  bool DeleteRange(const gfx::Range& range) override;
   bool GetTextFromRange(const gfx::Range& range,
                         std::u16string* text) const override;
   void OnInputMethodChanged() override;
@@ -646,7 +645,9 @@ class CONTENT_EXPORT RenderWidgetHostViewAura
 
   void SetTooltipText(const std::u16string& tooltip_text);
 
-  raw_ptr<aura::Window> window_;
+  // TODO(crbug.com/1298696): content_browsertests breaks with MTECheckedPtr
+  // enabled. Triage.
+  raw_ptr<aura::Window, DegradeToNoOpWhenMTE> window_;
 
   std::unique_ptr<DelegatedFrameHostClient> delegated_frame_host_client_;
   // NOTE: this may be null during destruction.

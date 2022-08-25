@@ -161,6 +161,8 @@ class HIDDetectionScreenTester extends ScreenElementApi {
 class WelcomeScreenTester extends ScreenElementApi {
   constructor() {
     super('connect');
+    this.demoModeConfirmationDialog =
+        new PolymerElementApi(this, '#demoModeConfirmationDialog');
   }
 
   /** @override */
@@ -172,6 +174,9 @@ class WelcomeScreenTester extends ScreenElementApi {
 
     assert(this.nextButton);
     this.nextButton.click();
+  }
+  getDemoModeOkButtonName() {
+    return loadTimeData.getString('enableDemoModeDialogConfirm');
   }
 }
 
@@ -238,7 +243,7 @@ class GaiaScreenTester extends ScreenElementApi {
     super('gaia-signin');
     this.signinFrame = new PolymerElementApi(this, '#signin-frame-dialog');
     this.gaiaDialog = new PolymerElementApi(this.signinFrame, '#gaiaDialog');
-    this.gaiaLoading = new PolymerElementApi(this, '#gaia-loading');
+    this.gaiaLoading = new PolymerElementApi(this, '#step-loading');
   }
 
   /**
@@ -542,6 +547,29 @@ class ErrorScreenTester extends ScreenElementApi {
   }
 }
 
+class DemoPreferencesScreenTester extends ScreenElementApi {
+  constructor() {
+    super('demo-preferences');
+  }
+
+  getDemoPreferencesNextButtonName() {
+    return loadTimeData.getString('demoPreferencesNextButtonLabel');
+  }
+}
+
+class ArcTosScreenTester extends ScreenElementApi {
+  constructor() {
+    super('arc-tos');
+  }
+
+  // Note that the Accept Button text key is different depending on whether
+  // the device in Demo Mode setup. Key for non-demo setup is
+  // "arcTermsOfServiceAcceptButton"
+  getArcTosDemoModeAcceptButtonName() {
+    return loadTimeData.getString('arcTermsOfServiceAcceptAndContinueButton');
+  }
+}
+
 class OobeApiProvider {
   constructor() {
     this.screens = {
@@ -563,6 +591,8 @@ class OobeApiProvider {
       GuestTosScreen: new GuestTosScreenTester(),
       ErrorScreen: new ErrorScreenTester(),
       OfflineLoginScreen: new OfflineLoginScreenTester(),
+      DemoPreferencesScreen: new DemoPreferencesScreenTester(),
+      ArcTosScreen: new ArcTosScreenTester(),
     };
 
     this.loginWithPin = function(username, pin) {
@@ -583,6 +613,10 @@ class OobeApiProvider {
 
     this.loginAsGuest = function() {
       chrome.send('OobeTestApi.loginAsGuest');
+    };
+
+    this.showGaiaDialog = function() {
+      chrome.send('OobeTestApi.showGaiaDialog');
     };
   }
 }

@@ -12,7 +12,7 @@ import 'chrome://resources/cr_elements/cr_dialog/cr_dialog.m.js';
 import 'chrome://resources/cr_elements/cr_search_field/cr_search_field.js';
 import 'chrome://resources/cr_elements/shared_vars_css.m.js';
 import 'chrome://resources/polymer/v3_0/iron-list/iron-list.js';
-import '../settings_shared_css.js';
+import '../settings_shared.css.js';
 
 import {CrCheckboxElement} from 'chrome://resources/cr_elements/cr_checkbox/cr_checkbox.m.js';
 import {CrDialogElement} from 'chrome://resources/cr_elements/cr_dialog/cr_dialog.m.js';
@@ -20,6 +20,7 @@ import {CrScrollableBehavior} from 'chrome://resources/cr_elements/cr_scrollable
 import {CrSearchFieldElement} from 'chrome://resources/cr_elements/cr_search_field/cr_search_field.js';
 import {FindShortcutMixin, FindShortcutMixinInterface} from 'chrome://resources/cr_elements/find_shortcut_mixin.js';
 import {mixinBehaviors, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+
 import {getTemplate} from './add_languages_dialog.html.js';
 
 export interface SettingsAddLanguagesDialogElement {
@@ -75,7 +76,7 @@ export class SettingsAddLanguagesDialogElement extends
     };
   }
 
-  languages: Array<chrome.languageSettingsPrivate.Language>;
+  languages: chrome.languageSettingsPrivate.Language[];
   private languagesToAdd_: Set<string>;
   private disableActionButton_: boolean;
   private filterValue_: string;
@@ -110,7 +111,7 @@ export class SettingsAddLanguagesDialogElement extends
   /**
    * @return A list of languages to be displayed.
    */
-  private getLanguages_(): Array<chrome.languageSettingsPrivate.Language> {
+  private getLanguages_(): chrome.languageSettingsPrivate.Language[] {
     if (!this.filterValue_) {
       return this.languages;
     }

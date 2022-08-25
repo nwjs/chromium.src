@@ -114,9 +114,9 @@ struct VIEWS_EXPORT ViewHierarchyChangedDetails {
 
   bool is_add = false;
   // New parent if |is_add| is true, old parent if |is_add| is false.
-  View* parent = nullptr;
+  raw_ptr<View> parent = nullptr;
   // The view being added or removed.
-  View* child = nullptr;
+  raw_ptr<View> child = nullptr;
   // If this is a move (reparent), meaning AddChildViewAt() is invoked with an
   // existing parent, then a notification for the remove is sent first,
   // followed by one for the add.  This case can be distinguished by a
@@ -125,7 +125,7 @@ struct VIEWS_EXPORT ViewHierarchyChangedDetails {
   // being removed.
   // For the add part of move, |move_view| is the old parent of the View being
   // added.
-  View* move_view = nullptr;
+  raw_ptr<View> move_view = nullptr;
 };
 
 using PropertyChangedCallback = ui::metadata::PropertyChangedCallback;
@@ -413,7 +413,7 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
     return AddChildView<T>(view.release());
   }
   template <typename T>
-  T* AddChildViewAt(std::unique_ptr<T> view, int index) {
+  T* AddChildViewAt(std::unique_ptr<T> view, size_t index) {
     DCHECK(!view->owned_by_client())
         << "This should only be called if the client is passing ownership of "
            "|view| to the parent View.";
@@ -424,17 +424,19 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // for new code.
   template <typename T>
   T* AddChildView(T* view) {
-    AddChildViewAtImpl(view, static_cast<int>(children_.size()));
+    AddChildViewAtImpl(view, children_.size());
     return view;
   }
   template <typename T>
-  T* AddChildViewAt(T* view, int index) {
+  T* AddChildViewAt(T* view, size_t index) {
     AddChildViewAtImpl(view, index);
     return view;
   }
 
   // Moves |view| to the specified |index|. A negative value for |index| moves
   // the view at the end.
+  // TODO(crbug.com/1292951): Change `index` to size_t and remove negative
+  // indexing behavior.
   void ReorderChildView(View* view, int index);
 
   // Removes |view| from this view. The view's parent will change to null.
@@ -1755,7 +1757,7 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // Tree operations -----------------------------------------------------------
 
   // Adds |view| as a child of this view at |index|.
-  void AddChildViewAtImpl(View* view, int index);
+  void AddChildViewAtImpl(View* view, size_t index);
 
   // Removes |view| from the hierarchy tree. If |update_tool_tip| is
   // true, the tooltip is updated. If |delete_removed_view| is true, the
@@ -2012,7 +2014,7 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // Tree operations -----------------------------------------------------------
 
   // This view's parent.
-  raw_ptr<View> parent_ = nullptr;
+  raw_ptr<View, DanglingUntriaged> parent_ = nullptr;
 
   // This view's children.
   Views children_;
@@ -2148,10 +2150,10 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // Focus ---------------------------------------------------------------------
 
   // Next view to be focused when the Tab key is pressed.
-  raw_ptr<View> next_focusable_view_ = nullptr;
+  raw_ptr<View, DanglingUntriaged> next_focusable_view_ = nullptr;
 
   // Next view to be focused when the Shift-Tab key combination is pressed.
-  raw_ptr<View> previous_focusable_view_ = nullptr;
+  raw_ptr<View, DanglingUntriaged> previous_focusable_view_ = nullptr;
 
   // The focus behavior of the view in regular and accessibility mode.
   FocusBehavior focus_behavior_ = FocusBehavior::NEVER;

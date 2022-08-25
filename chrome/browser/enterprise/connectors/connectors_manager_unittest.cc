@@ -16,6 +16,7 @@
 #include "chrome/browser/enterprise/connectors/common.h"
 #include "chrome/browser/enterprise/connectors/connectors_prefs.h"
 #include "chrome/browser/enterprise/connectors/connectors_service.h"
+#include "chrome/browser/enterprise/connectors/reporting/extension_install_event_router.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/testing_profile_manager.h"
@@ -42,7 +43,7 @@ constexpr FileSystemConnector kAllFileSystemConnectors[] = {
 
 constexpr char kEmptySettingsPref[] = "[]";
 
-constexpr char kNormalAnalysisSettingsPref[] = R"([
+constexpr char kNormalCloudAnalysisSettingsPref[] = R"([
   {
     "service_provider": "google",
     "enable": [
@@ -52,6 +53,22 @@ constexpr char kNormalAnalysisSettingsPref[] = R"([
       {"url_list": ["no.dlp.com", "no.dlp.or.malware.ca"], "tags": ["dlp"]},
       {"url_list": ["no.malware.com", "no.dlp.or.malware.ca"],
            "tags": ["malware"]},
+    ],
+    "block_until_verdict": 1,
+    "block_password_protected": true,
+    "block_large_files": true,
+    "block_unsupported_file_types": true,
+  },
+])";
+
+constexpr char kNormalLocalAnalysisSettingsPref[] = R"([
+  {
+    "service_provider": "local_test",
+    "enable": [
+      {"url_list": ["*"], "tags": ["dlp"]},
+    ],
+    "disable": [
+      {"url_list": ["no.dlp.com", "no.dlp.or.malware.ca"], "tags": ["dlp"]},
     ],
     "block_until_verdict": 1,
     "block_password_protected": true,
@@ -168,7 +185,7 @@ class ConnectorsManagerTest : public testing::Test {
 
   // Set to the default value of their legacy policy.
   std::map<std::string, TagSettings> expected_tags_ = {};
-  BlockUntilVerdict expected_block_until_verdict_ = BlockUntilVerdict::NO_BLOCK;
+  BlockUntilVerdict expected_block_until_verdict_ = BlockUntilVerdict::kNoBlock;
   bool expected_block_password_protected_files_ = false;
   bool expected_block_large_files_ = false;
   bool expected_block_unsupported_file_types_ = false;
@@ -179,13 +196,15 @@ class ConnectorsManagerTest : public testing::Test {
 class ConnectorsManagerConnectorPoliciesTest
     : public ConnectorsManagerTest,
       public testing::WithParamInterface<
-          std::tuple<AnalysisConnector, const char*>> {
+          std::tuple<AnalysisConnector, const char*, const char*>> {
  public:
   ConnectorsManagerConnectorPoliciesTest() = default;
 
   AnalysisConnector connector() const { return std::get<0>(GetParam()); }
 
   const char* url() const { return std::get<1>(GetParam()); }
+
+  const char* pref_value() const { return std::get<2>(GetParam()); }
 
   const char* pref() const { return ConnectorPref(connector()); }
 
@@ -212,7 +231,7 @@ class ConnectorsManagerConnectorPoliciesTest
 
     AnalysisSettings settings;
 
-    settings.block_until_verdict = BlockUntilVerdict::BLOCK;
+    settings.block_until_verdict = BlockUntilVerdict::kBlock;
     settings.block_password_protected_files = true;
     settings.block_large_files = true;
     settings.block_unsupported_file_types = true;
@@ -224,6 +243,13 @@ class ConnectorsManagerConnectorPoliciesTest
     else if (url == kOnlyMalwareUrl)
       settings.tags = {{"malware", TagSettings()}};
 
+    // The "local_test" service provider doesn't support the "malware" tag, so
+    // remove it from expectations.
+    if (pref == kNormalLocalAnalysisSettingsPref)
+      settings.tags.erase("malware");
+    if (settings.tags.empty())
+      return absl::nullopt;
+
     return settings;
   }
 
@@ -231,11 +257,11 @@ class ConnectorsManagerConnectorPoliciesTest
 };
 
 TEST_P(ConnectorsManagerConnectorPoliciesTest, NormalPref) {
-  ConnectorsManager manager(pref_service(), GetServiceProviderConfig());
+  ConnectorsManager manager(ExtensionInstallEventRouter(profile_),
+                            pref_service(), GetServiceProviderConfig());
   ASSERT_TRUE(manager.GetAnalysisConnectorsSettingsForTesting().empty());
-  ScopedConnectorPref scoped_pref(pref_service(), pref(),
-                                  kNormalAnalysisSettingsPref);
-  SetUpExpectedAnalysisSettings(kNormalAnalysisSettingsPref);
+  ScopedConnectorPref scoped_pref(pref_service(), pref(), pref_value());
+  SetUpExpectedAnalysisSettings(pref_value());
 
   // Verify that the expected settings are returned normally.
   auto settings_from_manager =
@@ -259,7 +285,8 @@ TEST_P(ConnectorsManagerConnectorPoliciesTest, NormalPref) {
 }
 
 TEST_P(ConnectorsManagerConnectorPoliciesTest, EmptyPref) {
-  ConnectorsManager manager(pref_service(), GetServiceProviderConfig());
+  ConnectorsManager manager(ExtensionInstallEventRouter(profile_),
+                            pref_service(), GetServiceProviderConfig());
   // If the connector's settings list is empty, no analysis settings are ever
   // returned.
   ASSERT_TRUE(manager.GetAnalysisConnectorsSettingsForTesting().empty());
@@ -278,11 +305,14 @@ INSTANTIATE_TEST_SUITE_P(
                      testing::Values(kDlpAndMalwareUrl,
                                      kOnlyDlpUrl,
                                      kOnlyMalwareUrl,
-                                     kNoTagsUrl)));
+                                     kNoTagsUrl),
+                     testing::Values(kNormalCloudAnalysisSettingsPref,
+                                     kNormalLocalAnalysisSettingsPref)));
 
 class ConnectorsManagerAnalysisConnectorsTest
     : public ConnectorsManagerTest,
-      public testing::WithParamInterface<AnalysisConnector> {
+      public testing::WithParamInterface<
+          std::tuple<AnalysisConnector, const char*>> {
  public:
   explicit ConnectorsManagerAnalysisConnectorsTest(bool enable = true) {
     if (enable) {
@@ -292,21 +322,23 @@ class ConnectorsManagerAnalysisConnectorsTest
     }
   }
 
-  AnalysisConnector connector() const { return GetParam(); }
+  AnalysisConnector connector() const { return std::get<0>(GetParam()); }
+
+  const char* pref_value() const { return std::get<1>(GetParam()); }
 
   const char* pref() const { return ConnectorPref(connector()); }
 };
 
 TEST_P(ConnectorsManagerAnalysisConnectorsTest, DynamicPolicies) {
-  ConnectorsManager manager(pref_service(), GetServiceProviderConfig());
+  ConnectorsManager manager(ExtensionInstallEventRouter(profile_),
+                            pref_service(), GetServiceProviderConfig());
   // The cache is initially empty.
   ASSERT_TRUE(manager.GetAnalysisConnectorsSettingsForTesting().empty());
 
   // Once the pref is updated, the settings should be cached, and analysis
   // settings can be obtained.
   {
-    ScopedConnectorPref scoped_pref(pref_service(), pref(),
-                                    kNormalAnalysisSettingsPref);
+    ScopedConnectorPref scoped_pref(pref_service(), pref(), pref_value());
 
     const auto& cached_settings =
         manager.GetAnalysisConnectorsSettingsForTesting();
@@ -318,11 +350,18 @@ TEST_P(ConnectorsManagerAnalysisConnectorsTest, DynamicPolicies) {
                         .at(0)
                         .GetAnalysisSettings(GURL(kDlpAndMalwareUrl));
     ASSERT_TRUE(settings.has_value());
-    expected_block_until_verdict_ = BlockUntilVerdict::BLOCK;
+    expected_block_until_verdict_ = BlockUntilVerdict::kBlock;
     expected_block_password_protected_files_ = true;
     expected_block_large_files_ = true;
     expected_block_unsupported_file_types_ = true;
-    expected_tags_ = {{"dlp", TagSettings()}, {"malware", TagSettings()}};
+
+    // The "local_test" service provider doesn't support the "malware" tag, so
+    // remove it from expectations.
+    if (pref_value() == kNormalCloudAnalysisSettingsPref)
+      expected_tags_ = {{"dlp", TagSettings()}, {"malware", TagSettings()}};
+    else
+      expected_tags_ = {{"dlp", TagSettings()}};
+
     ValidateSettings(settings.value());
   }
 
@@ -330,9 +369,12 @@ TEST_P(ConnectorsManagerAnalysisConnectorsTest, DynamicPolicies) {
   ASSERT_TRUE(manager.GetAnalysisConnectorsSettingsForTesting().empty());
 }
 
-INSTANTIATE_TEST_SUITE_P(ConnectorsManagerAnalysisConnectorsTest,
-                         ConnectorsManagerAnalysisConnectorsTest,
-                         testing::ValuesIn(kAllAnalysisConnectors));
+INSTANTIATE_TEST_SUITE_P(
+    ConnectorsManagerAnalysisConnectorsTest,
+    ConnectorsManagerAnalysisConnectorsTest,
+    testing::Combine(testing::ValuesIn(kAllAnalysisConnectors),
+                     testing::Values(kNormalCloudAnalysisSettingsPref,
+                                     kNormalLocalAnalysisSettingsPref)));
 
 class ConnectorsManagerReportingTest
     : public ConnectorsManagerTest,
@@ -348,7 +390,8 @@ class ConnectorsManagerReportingTest
 };
 
 TEST_P(ConnectorsManagerReportingTest, DynamicPolicies) {
-  ConnectorsManager manager(pref_service(), GetServiceProviderConfig());
+  ConnectorsManager manager(ExtensionInstallEventRouter(profile_),
+                            pref_service(), GetServiceProviderConfig());
   // The cache is initially empty.
   ASSERT_TRUE(manager.GetReportingConnectorsSettingsForTesting().empty());
 
@@ -392,7 +435,8 @@ class ConnectorsManagerFileSystemTest
 };
 
 TEST_P(ConnectorsManagerFileSystemTest, DynamicPolicies) {
-  ConnectorsManager manager(pref_service(), GetServiceProviderConfig());
+  ConnectorsManager manager(ExtensionInstallEventRouter(profile_),
+                            pref_service(), GetServiceProviderConfig());
   // The cache is initially empty.
   ASSERT_TRUE(manager.GetFileSystemConnectorsSettingsForTesting().empty());
 

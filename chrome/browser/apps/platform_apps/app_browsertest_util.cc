@@ -19,6 +19,7 @@
 #include "chrome/browser/ui/apps/chrome_app_delegate.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/extensions/app_launch_params.h"
+#include "components/services/app_service/public/cpp/app_launch_util.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_types.h"
 #include "content/public/test/browser_test_utils.h"
@@ -161,9 +162,8 @@ void PlatformAppBrowserTest::LaunchPlatformApp(const Extension* extension) {
   apps::AppServiceProxyFactory::GetForProfile(profile())
       ->BrowserAppLauncher()
       ->LaunchAppWithParamsForTesting(apps::AppLaunchParams(
-          extension->id(), apps::mojom::LaunchContainer::kLaunchContainerNone,
-          WindowOpenDisposition::NEW_WINDOW,
-          apps::mojom::LaunchSource::kFromTest));
+          extension->id(), apps::LaunchContainer::kLaunchContainerNone,
+          WindowOpenDisposition::NEW_WINDOW, apps::LaunchSource::kFromTest));
 }
 
 void PlatformAppBrowserTest::LaunchHostedApp(const Extension* extension) {
@@ -172,7 +172,7 @@ void PlatformAppBrowserTest::LaunchHostedApp(const Extension* extension) {
       ->LaunchAppWithParamsForTesting(CreateAppLaunchParamsUserContainer(
           browser()->profile(), extension,
           WindowOpenDisposition::NEW_FOREGROUND_TAB,
-          apps::mojom::LaunchSource::kFromCommandLine));
+          apps::LaunchSource::kFromCommandLine));
 }
 
 WebContents* PlatformAppBrowserTest::GetFirstAppWindowWebContents() {
@@ -205,10 +205,10 @@ size_t PlatformAppBrowserTest::RunGetWindowsFunctionForExtension(
     const Extension* extension) {
   scoped_refptr<WindowsGetAllFunction> function = new WindowsGetAllFunction();
   function->set_extension(extension);
-  std::unique_ptr<base::ListValue> result(
+  base::Value::List result(
       utils::ToList(utils::RunFunctionAndReturnSingleResult(function.get(),
                                                             "[]", browser())));
-  return result->GetListDeprecated().size();
+  return result.size();
 }
 
 bool PlatformAppBrowserTest::RunGetWindowFunctionForExtension(

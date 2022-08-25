@@ -8,7 +8,6 @@
 
 #include "ash/accessibility/accessibility_controller_impl.h"
 #include "ash/public/cpp/desk_template.h"
-#include "ash/public/cpp/view_shadow.h"
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "ash/shell.h"
 #include "ash/strings/grit/ash_strings.h"
@@ -16,7 +15,6 @@
 #include "ash/style/close_button.h"
 #include "ash/style/pill_button.h"
 #include "ash/style/style_util.h"
-#include "ash/style/system_shadow.h"
 #include "ash/wm/desks/desk.h"
 #include "ash/wm/desks/desks_textfield.h"
 #include "ash/wm/desks/templates/saved_desk_dialog_controller.h"
@@ -40,6 +38,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/l10n/time_format.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/color/color_id.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/paint_vector_icon.h"
@@ -49,6 +48,7 @@
 #include "ui/views/controls/highlight_path_generator.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
+#include "ui/views/highlight_border.h"
 #include "ui/views/layout/box_layout_view.h"
 #include "ui/views/layout/flex_layout_view.h"
 #include "ui/views/metadata/view_factory_internal.h"
@@ -136,6 +136,9 @@ SavedDeskItemView::SavedDeskItemView(
           color_provider->GetBaseLayerColor(
               AshColorProvider::BaseLayerType::kTransparent80),
           kCornerRadius))
+      .SetBorder(std::make_unique<views::HighlightBorder>(
+          kCornerRadius, views::HighlightBorder::Type::kHighlightBorder1,
+          /*use_light_colors=*/false))
       .AddChildren(
           views::Builder<views::FlexLayoutView>()
               .SetOrientation(views::LayoutOrientation::kVertical)
@@ -239,13 +242,6 @@ SavedDeskItemView::SavedDeskItemView(
   name_view_->parent()->SetProperty(views::kMarginsKey, -kTemplateNameInsets);
   name_view_observation_.Observe(name_view_);
 
-  // Add a shadow with system UI shadow type.
-  shadow_ = std::make_unique<ViewShadow>(
-      this,
-      SystemShadow::GetElevationFromType(SystemShadow::Type::kElevation12));
-  shadow_->shadow()->SetShadowStyle(gfx::ShadowStyle::kChromeOSSystemUI);
-  shadow_->SetRoundedCornerRadius(kCornerRadius);
-
   StyleUtil::SetUpInkDropForButton(this, gfx::Insets(),
                                    /*highlight_on_hover=*/false,
                                    /*highlight_on_focus=*/false);
@@ -257,6 +253,7 @@ SavedDeskItemView::SavedDeskItemView(
   focus_ring->SetHasFocusPredicate([](views::View* view) {
     return static_cast<SavedDeskItemView*>(view)->IsViewHighlighted();
   });
+  focus_ring->SetColorId(ui::kColorAshFocusRing);
 
   SetEventTargeter(std::make_unique<views::ViewTargeter>(this));
 }
@@ -286,19 +283,19 @@ bool SavedDeskItemView::IsNameBeingModified() const {
   return name_view_->HasFocus();
 }
 
-void SavedDeskItemView::MaybeRemoveNameNumber() {
-  // When there are existing matched Desk name and Template name (ie.
+void SavedDeskItemView::MaybeRemoveNameNumber(
+    const std::u16string& saved_desk_name) {
+  // When there is a matched `saved_desk_name` and existing Template name (ie.
   // "Desk 1"), creating a new template from "Desk 1" will get auto generated
-  // template name from the frontend as "Desk 1 (1)", to prevent template
-  // duplication, we show the template view name to be "Desk 1" by removing name
-  // number, save template under such name will call out template replace
-  // dialog.
+  // template name from the frontend as "Desk 1 (1)". To prevent template
+  // duplication, we show the template view name to be "Desk 1" by removing the
+  // appended name number. Saving the template under the new name will trigger
+  // the template replace dialog.
   if (saved_desk_util::GetSavedDeskPresenter()->FindOtherEntryWithName(
-          DesksController::Get()->active_desk()->name(), desk_template().type(),
-          uuid())) {
+          saved_desk_name, desk_template().type(), uuid())) {
     // Replace the name number.
-    name_view_->SetTemporaryName(DesksController::Get()->active_desk()->name());
-    name_view_->SetViewName(DesksController::Get()->active_desk()->name());
+    name_view_->SetTemporaryName(saved_desk_name);
+    name_view_->SetViewName(saved_desk_name);
   }
 }
 
@@ -310,7 +307,7 @@ void SavedDeskItemView::ReplaceTemplate(const std::string& uuid) {
   saved_desk_util::GetSavedDeskPresenter()->DeleteEntry(
       uuid, /*record_for_type=*/absl::nullopt);
   UpdateTemplateName();
-  RecordReplaceTemplateHistogram();
+  RecordReplaceSavedDeskHistogram(desk_template_->type());
 }
 
 void SavedDeskItemView::RevertTemplateName() {
@@ -390,9 +387,6 @@ void SavedDeskItemView::OnThemeChanged() {
   time_view_->SetBackgroundColor(SK_ColorTRANSPARENT);
   time_view_->SetEnabledColor(color_provider->GetContentLayerColor(
       AshColorProvider::ContentLayerType::kTextColorSecondary));
-
-  views::FocusRing::Get(this)->SetColor(color_provider->GetControlsLayerColor(
-      AshColorProvider::ControlsLayerType::kFocusRingColor));
 }
 
 void SavedDeskItemView::OnViewFocused(views::View* observed_view) {

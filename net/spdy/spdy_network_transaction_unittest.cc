@@ -1610,8 +1610,8 @@ namespace {
 // invoked.
 class KillerCallback : public TestCompletionCallbackBase {
  public:
-  explicit KillerCallback(HttpNetworkTransaction* transaction)
-      : transaction_(transaction) {}
+  explicit KillerCallback(std::unique_ptr<HttpNetworkTransaction> transaction)
+      : transaction_(std::move(transaction)) {}
 
   ~KillerCallback() override = default;
 
@@ -1622,12 +1622,12 @@ class KillerCallback : public TestCompletionCallbackBase {
  private:
   void OnComplete(int result) {
     if (result < 0)
-      delete transaction_;
+      transaction_.reset();
 
     SetResult(result);
   }
 
-  raw_ptr<HttpNetworkTransaction> transaction_;
+  std::unique_ptr<HttpNetworkTransaction> transaction_;
 };
 
 }  // namespace
@@ -1692,12 +1692,13 @@ TEST_F(SpdyNetworkTransactionTest, ThreeGetsWithMaxConcurrentSocketClose) {
   helper.AddData(&data_placeholder);
   HttpNetworkTransaction trans1(HIGHEST, helper.session());
   HttpNetworkTransaction trans2(MEDIUM, helper.session());
-  HttpNetworkTransaction* trans3(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, helper.session()));
+  auto trans3 = std::make_unique<HttpNetworkTransaction>(DEFAULT_PRIORITY,
+                                                         helper.session());
+  auto* trans3_ptr = trans3.get();
 
   TestCompletionCallback callback1;
   TestCompletionCallback callback2;
-  KillerCallback callback3(trans3);
+  KillerCallback callback3(std::move(trans3));
 
   out.rv = trans1.Start(&request_, callback1.callback(), log_);
   ASSERT_EQ(out.rv, ERR_IO_PENDING);
@@ -1707,7 +1708,7 @@ TEST_F(SpdyNetworkTransactionTest, ThreeGetsWithMaxConcurrentSocketClose) {
 
   out.rv = trans2.Start(&request_, callback2.callback(), log_);
   ASSERT_EQ(out.rv, ERR_IO_PENDING);
-  out.rv = trans3->Start(&request_, callback3.callback(), log_);
+  out.rv = trans3_ptr->Start(&request_, callback3.callback(), log_);
   ASSERT_EQ(out.rv, ERR_IO_PENDING);
 
   // Run until both transactions are in the SpdySession's queue, waiting for the
@@ -3796,7 +3797,7 @@ TEST_F(SpdyNetworkTransactionTest, NoConnectionPoolingOverTunnel) {
   const char kPacString[] = "PROXY myproxy:443";
 
   auto session_deps = std::make_unique<SpdySessionDependencies>(
-      ConfiguredProxyResolutionService::CreateFixedFromPacResult(
+      ConfiguredProxyResolutionService::CreateFixedFromPacResultForTest(
           kPacString, TRAFFIC_ANNOTATION_FOR_TESTS));
   NormalSpdyTransactionHelper helper(request_, DEFAULT_PRIORITY, log_,
                                      std::move(session_deps));
@@ -5703,7 +5704,7 @@ TEST_F(SpdyNetworkTransactionTest, HTTP11RequiredRetryWithNetworkIsolationKey) {
 TEST_F(SpdyNetworkTransactionTest, HTTP11RequiredProxyRetry) {
   request_.method = "GET";
   auto session_deps = std::make_unique<SpdySessionDependencies>(
-      ConfiguredProxyResolutionService::CreateFixedFromPacResult(
+      ConfiguredProxyResolutionService::CreateFixedFromPacResultForTest(
           "HTTPS myproxy:70", TRAFFIC_ANNOTATION_FOR_TESTS));
   // Do not force SPDY so that second socket can negotiate HTTP/1.1.
   NormalSpdyTransactionHelper helper(request_, DEFAULT_PRIORITY, log_,
@@ -5813,7 +5814,7 @@ TEST_F(SpdyNetworkTransactionTest,
 
   request_.method = "GET";
   auto session_deps = std::make_unique<SpdySessionDependencies>(
-      ConfiguredProxyResolutionService::CreateFixedFromPacResult(
+      ConfiguredProxyResolutionService::CreateFixedFromPacResultForTest(
           "HTTPS myproxy:70", TRAFFIC_ANNOTATION_FOR_TESTS));
   // Do not force SPDY so that second socket can negotiate HTTP/1.1.
   NormalSpdyTransactionHelper helper(request_, DEFAULT_PRIORITY, log_,
@@ -5927,7 +5928,7 @@ TEST_F(SpdyNetworkTransactionTest,
 // Test to make sure we can correctly connect through a proxy.
 TEST_F(SpdyNetworkTransactionTest, ProxyConnect) {
   auto session_deps = std::make_unique<SpdySessionDependencies>(
-      ConfiguredProxyResolutionService::CreateFixedFromPacResult(
+      ConfiguredProxyResolutionService::CreateFixedFromPacResultForTest(
           "PROXY myproxy:70", TRAFFIC_ANNOTATION_FOR_TESTS));
   NormalSpdyTransactionHelper helper(request_, DEFAULT_PRIORITY, log_,
                                      std::move(session_deps));
@@ -5986,7 +5987,7 @@ TEST_F(SpdyNetworkTransactionTest, DirectConnectProxyReconnect) {
   // to simply DIRECT. The reason for appending the second proxy is to verify
   // that the session pool key used does is just "DIRECT".
   auto session_deps = std::make_unique<SpdySessionDependencies>(
-      ConfiguredProxyResolutionService::CreateFixedFromPacResult(
+      ConfiguredProxyResolutionService::CreateFixedFromPacResultForTest(
           "DIRECT; PROXY myproxy:70", TRAFFIC_ANNOTATION_FOR_TESTS));
   // When setting up the first transaction, we store the SpdySessionPool so that
   // we can use the same pool in the second transaction.
@@ -6076,7 +6077,7 @@ TEST_F(SpdyNetworkTransactionTest, DirectConnectProxyReconnect) {
   request_.method = "GET";
   request_.url = GURL(kPushedUrl);
   auto session_deps_proxy = std::make_unique<SpdySessionDependencies>(
-      ConfiguredProxyResolutionService::CreateFixedFromPacResult(
+      ConfiguredProxyResolutionService::CreateFixedFromPacResultForTest(
           "PROXY myproxy:70", TRAFFIC_ANNOTATION_FOR_TESTS));
   NormalSpdyTransactionHelper helper_proxy(request_, DEFAULT_PRIORITY, log_,
                                            std::move(session_deps_proxy));
@@ -6364,7 +6365,7 @@ class SpdyNetworkTransactionPushHeaderTest
         spdy_util_.ConstructSpdyPriority(2, 1, IDLE, true));
     writes.push_back(CreateMockWrite(priority, seq++));
 
-    reads.push_back(MockRead(ASYNC, ERR_IO_PENDING, seq++));
+    reads.emplace_back(ASYNC, ERR_IO_PENDING, seq++);
 
     spdy::Http2HeaderBlock pushed_response_headers;
     pushed_response_headers[spdy::kHttp2StatusHeader] =
@@ -6413,9 +6414,9 @@ class SpdyNetworkTransactionPushHeaderTest
       reads.push_back(CreateMockRead(body2, seq++));
     }
 
-    reads.push_back(MockRead(ASYNC, ERR_IO_PENDING, seq++));
+    reads.emplace_back(ASYNC, ERR_IO_PENDING, seq++);
 
-    reads.push_back(MockRead(ASYNC, 0, seq++));
+    reads.emplace_back(ASYNC, 0, seq++);
 
     SequencedSocketData data(reads, writes);
 
@@ -7504,8 +7505,7 @@ TEST_F(SpdyNetworkTransactionTest, WindowUpdateSent) {
     remaining -= frame_size;
   }
   // Yield.
-  reads.push_back(
-      MockRead(SYNCHRONOUS, ERR_IO_PENDING, writes.size() + reads.size()));
+  reads.emplace_back(SYNCHRONOUS, ERR_IO_PENDING, writes.size() + reads.size());
 
   spdy::SpdySerializedFrame session_window_update(
       spdy_util_.ConstructSpdyWindowUpdate(0, session_window_update_delta));
@@ -7699,7 +7699,7 @@ TEST_F(SpdyNetworkTransactionTest, SessionMaxQueuedCappedFramesExceeded) {
         CreateMockWrite(ping_frames.back(), writes.size() + reads.size()));
   }
   // Stop reading.
-  reads.push_back(MockRead(ASYNC, 0, writes.size() + reads.size()));
+  reads.emplace_back(ASYNC, 0, writes.size() + reads.size());
 
   SequencedSocketData data(reads, writes);
   auto session_deps = std::make_unique<SpdySessionDependencies>();
@@ -7798,7 +7798,7 @@ TEST_F(SpdyNetworkTransactionTest, FlowControlStallResume) {
   // Fill in mock reads.
   std::vector<MockRead> reads;
   // Force a pause.
-  reads.push_back(MockRead(ASYNC, ERR_IO_PENDING, i++));
+  reads.emplace_back(ASYNC, ERR_IO_PENDING, i++);
   // Construct read frame for window updates that gives enough space to upload
   // the rest of the data.
   spdy::SpdySerializedFrame session_window_update(
@@ -7820,7 +7820,7 @@ TEST_F(SpdyNetworkTransactionTest, FlowControlStallResume) {
   reads.push_back(CreateMockRead(reply, i++));
   reads.push_back(CreateMockRead(body2, i++));
   reads.push_back(CreateMockRead(body5, i++));
-  reads.push_back(MockRead(ASYNC, 0, i++));  // EOF
+  reads.emplace_back(ASYNC, 0, i++);  // EOF
 
   SequencedSocketData data(reads, writes);
 
@@ -7947,7 +7947,7 @@ TEST_F(SpdyNetworkTransactionTest, FlowControlStallResumeAfterSettings) {
   // Fill in mock reads.
   std::vector<MockRead> reads;
   // Force a pause.
-  reads.push_back(MockRead(ASYNC, ERR_IO_PENDING, i++));
+  reads.emplace_back(ASYNC, ERR_IO_PENDING, i++);
 
   // Construct read frame for SETTINGS that gives enough space to upload the
   // rest of the data.
@@ -7976,7 +7976,7 @@ TEST_F(SpdyNetworkTransactionTest, FlowControlStallResumeAfterSettings) {
   reads.push_back(CreateMockRead(reply, i++));
   reads.push_back(CreateMockRead(body2, i++));
   reads.push_back(CreateMockRead(body5, i++));
-  reads.push_back(MockRead(ASYNC, 0, i++));  // EOF
+  reads.emplace_back(ASYNC, 0, i++);  // EOF
 
   // Force all writes to happen before any read, last write will not
   // actually queue a frame, due to window size being 0.
@@ -8108,7 +8108,7 @@ TEST_F(SpdyNetworkTransactionTest, FlowControlNegativeSendWindowSize) {
   // Fill in mock reads.
   std::vector<MockRead> reads;
   // Force a pause.
-  reads.push_back(MockRead(ASYNC, ERR_IO_PENDING, i++));
+  reads.emplace_back(ASYNC, ERR_IO_PENDING, i++);
   // Construct read frame for SETTINGS that makes the send_window_size
   // negative.
   spdy::SettingsMap new_settings;
@@ -8139,7 +8139,7 @@ TEST_F(SpdyNetworkTransactionTest, FlowControlNegativeSendWindowSize) {
   reads.push_back(CreateMockRead(reply, i++));
   reads.push_back(CreateMockRead(body2, i++));
   reads.push_back(CreateMockRead(body5, i++));
-  reads.push_back(MockRead(ASYNC, 0, i++));  // EOF
+  reads.emplace_back(ASYNC, 0, i++);  // EOF
 
   // Force all writes to happen before any read, last write will not
   // actually queue a frame, due to window size being 0.
@@ -8578,7 +8578,7 @@ TEST_F(SpdyNetworkTransactionTest, InsecureUrlCreatesSecureSpdySession) {
 
   // Need secure proxy so that insecure URL can use HTTP/2.
   auto session_deps = std::make_unique<SpdySessionDependencies>(
-      ConfiguredProxyResolutionService::CreateFixedFromPacResult(
+      ConfiguredProxyResolutionService::CreateFixedFromPacResultForTest(
           "HTTPS myproxy:70", TRAFFIC_ANNOTATION_FOR_TESTS));
   NormalSpdyTransactionHelper helper(request_, DEFAULT_PRIORITY, log_,
                                      std::move(session_deps));
@@ -9093,7 +9093,7 @@ TEST_F(SpdyNetworkTransactionTest, WebSocketOverHTTP2) {
 TEST_F(SpdyNetworkTransactionTest,
        WebSocketDoesNotUseNewH2SessionWithoutWebSocketSupportOverHttpsProxy) {
   auto session_deps = std::make_unique<SpdySessionDependencies>(
-      ConfiguredProxyResolutionService::CreateFixed(
+      ConfiguredProxyResolutionService::CreateFixedForTest(
           "https://proxy:70", TRAFFIC_ANNOTATION_FOR_TESTS));
 
   NormalSpdyTransactionHelper helper(request_, HIGHEST, log_,
@@ -9727,7 +9727,7 @@ TEST_F(SpdyNetworkTransactionTest, PlaintextWebSocketOverHttp2Proxy) {
   request_.extra_headers.SetHeader("Origin", "http://www.example.org");
   request_.extra_headers.SetHeader("Sec-WebSocket-Version", "13");
   auto session_deps = std::make_unique<SpdySessionDependencies>(
-      ConfiguredProxyResolutionService::CreateFixed(
+      ConfiguredProxyResolutionService::CreateFixedForTest(
           "https://proxy:70", TRAFFIC_ANNOTATION_FOR_TESTS));
   NormalSpdyTransactionHelper helper(request_, DEFAULT_PRIORITY, log_,
                                      std::move(session_deps));
@@ -9787,7 +9787,7 @@ TEST_F(SpdyNetworkTransactionTest, SecureWebSocketOverHttp2Proxy) {
   request_.extra_headers.SetHeader("Origin", "http://www.example.org");
   request_.extra_headers.SetHeader("Sec-WebSocket-Version", "13");
   auto session_deps = std::make_unique<SpdySessionDependencies>(
-      ConfiguredProxyResolutionService::CreateFixed(
+      ConfiguredProxyResolutionService::CreateFixedForTest(
           "https://proxy:70", TRAFFIC_ANNOTATION_FOR_TESTS));
   NormalSpdyTransactionHelper helper(request_, DEFAULT_PRIORITY, log_,
                                      std::move(session_deps));
@@ -9847,7 +9847,7 @@ TEST_F(SpdyNetworkTransactionTest,
   request_.extra_headers.SetHeader("Origin", "http://www.example.org");
   request_.extra_headers.SetHeader("Sec-WebSocket-Version", "13");
   auto session_deps = std::make_unique<SpdySessionDependencies>(
-      ConfiguredProxyResolutionService::CreateFixed(
+      ConfiguredProxyResolutionService::CreateFixedForTest(
           "https://proxy:70", TRAFFIC_ANNOTATION_FOR_TESTS));
   NormalSpdyTransactionHelper helper(request_, DEFAULT_PRIORITY, log_,
                                      std::move(session_deps));
@@ -10754,7 +10754,7 @@ TEST_F(SpdyNetworkTransactionTest,
 // streams.
 TEST_F(SpdyNetworkTransactionTest, DoNotGreaseFrameTypeWithConnect) {
   auto session_deps = std::make_unique<SpdySessionDependencies>(
-      ConfiguredProxyResolutionService::CreateFixedFromPacResult(
+      ConfiguredProxyResolutionService::CreateFixedFromPacResultForTest(
           "HTTPS myproxy:70", TRAFFIC_ANNOTATION_FOR_TESTS));
 
   const uint8_t type = 0x0b;

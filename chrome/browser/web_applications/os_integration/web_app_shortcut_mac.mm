@@ -265,7 +265,7 @@ bool AppShimCreationDisabledForTest() {
   // Because shims created in ~/Applications will not be cleaned up.
   return base::CommandLine::ForCurrentProcess()->HasSwitch(
              switches::kTestType) &&
-         !web_app::GetShortcutOverrideForTesting();
+         !GetShortcutOverrideForTesting();
 #endif
 }
 
@@ -785,7 +785,7 @@ bool AppShimLaunchDisabled() {
 }
 
 base::FilePath GetChromeAppsFolder() {
-  auto* override = web_app::GetShortcutOverrideForTesting();
+  auto* override = GetShortcutOverrideForTesting();
   if (override) {
     if (override->chrome_apps_folder.IsValid())
       return override->chrome_apps_folder.GetPath();
@@ -816,7 +816,7 @@ void WebAppAutoLoginUtil::SetInstanceForTesting(
 
 void WebAppAutoLoginUtil::AddToLoginItems(const base::FilePath& app_bundle_path,
                                           bool hide_on_startup) {
-  auto* override = web_app::GetShortcutOverrideForTesting();
+  auto* override = GetShortcutOverrideForTesting();
   if (override) {
     override->startup_enabled[app_bundle_path] = true;
   } else {
@@ -826,7 +826,7 @@ void WebAppAutoLoginUtil::AddToLoginItems(const base::FilePath& app_bundle_path,
 
 void WebAppAutoLoginUtil::RemoveFromLoginItems(
     const base::FilePath& app_bundle_path) {
-  auto* override = web_app::GetShortcutOverrideForTesting();
+  auto* override = GetShortcutOverrideForTesting();
   if (override) {
     override->startup_enabled[app_bundle_path] = false;
   } else {

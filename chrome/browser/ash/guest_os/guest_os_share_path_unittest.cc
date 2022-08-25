@@ -33,13 +33,16 @@
 #include "chrome/test/base/scoped_testing_local_state.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
+#include "chromeos/ash/components/dbus/chunneld/chunneld_client.h"
 #include "chromeos/ash/components/dbus/cicerone/cicerone_client.h"
 #include "chromeos/ash/components/dbus/concierge/concierge_client.h"
 #include "chromeos/ash/components/dbus/concierge/fake_concierge_client.h"
 #include "chromeos/ash/components/dbus/seneschal/fake_seneschal_client.h"
 #include "chromeos/ash/components/dbus/seneschal/seneschal_client.h"
 #include "chromeos/ash/components/dbus/seneschal/seneschal_service.pb.h"
+#include "chromeos/ash/components/dbus/vm_plugin_dispatcher/vm_plugin_dispatcher_client.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
+#include "chromeos/dbus/debug_daemon/debug_daemon_client.h"
 #include "chromeos/dbus/dlcservice/dlcservice_client.h"
 #include "components/account_id/account_id.h"
 #include "components/drive/drive_pref_names.h"
@@ -224,9 +227,12 @@ class GuestOsSharePathTest : public testing::Test {
             TestingBrowserProcess::GetGlobal())),
         browser_part_(g_browser_process->platform_part()) {
     chromeos::DBusThreadManager::Initialize();
+    ash::ChunneldClient::InitializeFake();
     ash::CiceroneClient::InitializeFake();
     ash::ConciergeClient::InitializeFake();
+    chromeos::DebugDaemonClient::InitializeFake();
     ash::SeneschalClient::InitializeFake();
+    ash::VmPluginDispatcherClient::InitializeFake();
 
     fake_concierge_client_ = ash::FakeConciergeClient::Get();
     fake_seneschal_client_ = ash::FakeSeneschalClient::Get();
@@ -236,9 +242,12 @@ class GuestOsSharePathTest : public testing::Test {
   GuestOsSharePathTest& operator=(const GuestOsSharePathTest&) = delete;
 
   ~GuestOsSharePathTest() override {
+    ash::VmPluginDispatcherClient::Shutdown();
     ash::SeneschalClient::Shutdown();
+    chromeos::DebugDaemonClient::Shutdown();
     ash::ConciergeClient::Shutdown();
     ash::CiceroneClient::Shutdown();
+    ash::ChunneldClient::Shutdown();
     chromeos::DBusThreadManager::Shutdown();
   }
 

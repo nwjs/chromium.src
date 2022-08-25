@@ -4,6 +4,7 @@
 
 #include <stddef.h>
 
+#include <memory>
 #include <string>
 #include <utility>
 
@@ -12,17 +13,22 @@
 #include "base/location.h"
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
+#include "base/test/bind.h"
 #include "base/test/mock_callback.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/threading/thread_task_runner_handle.h"
+#include "base/unguessable_token.h"
 #include "build/build_config.h"
 #include "content/browser/renderer_host/media/media_stream_manager.h"
 #include "content/browser/renderer_host/media/media_stream_ui_proxy.h"
 #include "content/browser/renderer_host/media/mock_video_capture_provider.h"
+#include "content/browser/renderer_host/media/video_capture_manager.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/media_observer.h"
+#include "content/public/browser/media_request_state.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
@@ -32,9 +38,12 @@
 #include "media/audio/fake_audio_log_factory.h"
 #include "media/audio/test_audio_thread.h"
 #include "media/base/media_switches.h"
+#include "media/capture/content/screen_enumerator.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/common/mediastream/media_stream_request.h"
 #include "third_party/blink/public/mojom/mediastream/media_stream.mojom.h"
+#include "ui/gfx/native_widget_types.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -161,15 +170,73 @@ class MockMediaObserver : public MediaObserver {
                void(int, int, int, blink::mojom::MediaStreamType, bool));
 };
 
+class ScreenEnumeratorMock : public media::ScreenEnumerator {
+ public:
+  explicit ScreenEnumeratorMock(const size_t* screen_count)
+      : screen_count_(screen_count){};
+  ~ScreenEnumeratorMock() override = default;
+
+  void EnumerateScreens(
+      blink::mojom::MediaStreamType stream_type,
+      base::OnceCallback<
+          void(const blink::mojom::StreamDevicesSet& stream_devices_set,
+               blink::mojom::MediaStreamRequestResult result)> screens_callback)
+      const override {
+    blink::mojom::StreamDevicesSet stream_devices_set;
+    for (size_t screen_idx = 0; screen_idx < *screen_count_; ++screen_idx) {
+      stream_devices_set.stream_devices.push_back(
+          blink::mojom::StreamDevices::New(
+              /*audio_device=*/absl::nullopt,
+              /*video_device=*/blink::MediaStreamDevice(
+                  blink::mojom::MediaStreamType::DISPLAY_VIDEO_CAPTURE_SET,
+                  base::StrCat({"id_", base::NumberToString(screen_idx)}),
+                  base::StrCat({"name_", base::NumberToString(screen_idx)}))));
+    }
+    std::move(screens_callback)
+        .Run(stream_devices_set, blink::mojom::MediaStreamRequestResult::OK);
+  }
+
+ private:
+  const size_t* screen_count_;
+};
+
+class MediaStreamProviderListenerMock
+    : public content::MediaStreamProviderListener {
+ public:
+  void Opened(blink::mojom::MediaStreamType stream_type,
+              const base::UnguessableToken& capture_session_id) override {
+    capture_session_ids_.push_back(capture_session_id);
+  }
+
+  void Closed(blink::mojom::MediaStreamType stream_type,
+              const base::UnguessableToken& capture_session_id) override {}
+
+  void Aborted(blink::mojom::MediaStreamType stream_type,
+               const base::UnguessableToken& capture_session_id) override {}
+
+  const std::vector<base::UnguessableToken>& capture_session_ids() {
+    return capture_session_ids_;
+  }
+
+ private:
+  std::vector<base::UnguessableToken> capture_session_ids_;
+};
+
 class TestBrowserClient : public ContentBrowserClient {
  public:
-  explicit TestBrowserClient(MediaObserver* media_observer)
-      : media_observer_(media_observer) {}
-  ~TestBrowserClient() override {}
+  explicit TestBrowserClient(MediaObserver* media_observer,
+                             const size_t* screen_count)
+      : media_observer_(media_observer), screen_count_(screen_count) {}
+  ~TestBrowserClient() override = default;
   MediaObserver* GetMediaObserver() override { return media_observer_; }
+  std::unique_ptr<media::ScreenEnumerator> CreateScreenEnumerator()
+      const override {
+    return std::make_unique<ScreenEnumeratorMock>(screen_count_);
+  }
 
  private:
   raw_ptr<MediaObserver> media_observer_;
+  const size_t* screen_count_;
 };
 
 class MockMediaStreamUIProxy : public FakeMediaStreamUIProxy {
@@ -201,8 +268,8 @@ class MediaStreamManagerTest : public ::testing::Test {
         audio_system_.get(), audio_manager_->GetTaskRunner(),
         std::move(video_capture_provider));
     media_observer_ = std::make_unique<MockMediaObserver>();
-    browser_content_client_ =
-        std::make_unique<TestBrowserClient>(media_observer_.get());
+    browser_content_client_ = std::make_unique<TestBrowserClient>(
+        media_observer_.get(), &screen_count_);
     SetBrowserClientForTesting(browser_content_client_.get());
     base::RunLoop().RunUntilIdle();
 
@@ -243,6 +310,45 @@ class MediaStreamManagerTest : public ::testing::Test {
     return media_stream_manager_->MakeMediaAccessRequest(
         render_process_id, render_frame_id, requester_id, page_request_id,
         controls, security_origin, std::move(callback));
+  }
+
+  void RequestMultiScreenCapture(size_t screen_count,
+                                 const base::UnguessableToken& session) {
+    screen_count_ = screen_count;
+    const int render_process_id = 0;
+    const int render_frame_id = 0;
+    const int requester_id = 0;
+    const int page_request_id = 0;
+    blink::StreamControls controls(/*request_audio=*/false,
+                                   /*request_video=*/true);
+    controls.request_all_screens = true;
+    controls.video.stream_type =
+        blink::mojom::MediaStreamType::DISPLAY_VIDEO_CAPTURE_SET;
+    EXPECT_CALL(*media_observer_,
+                OnMediaRequestStateChanged(
+                    _, _, _, _,
+                    blink::mojom::MediaStreamType::DISPLAY_VIDEO_CAPTURE_SET,
+                    MEDIA_REQUEST_STATE_OPENING));
+    stream_provider_listener_ =
+        std::make_unique<MediaStreamProviderListenerMock>();
+    media_stream_manager_->video_capture_manager_->RegisterListener(
+        stream_provider_listener_.get());
+    media_stream_manager_->video_capture_manager_->UnregisterListener(
+        media_stream_manager_.get());
+    media_stream_manager_->GenerateStreams(
+        render_process_id, render_frame_id, requester_id, page_request_id,
+        controls, MediaDeviceSaltAndOrigin(), /*user_gesture=*/false,
+        /*audio_stream_selection_info_ptr=*/
+        blink::mojom::StreamSelectionInfo::New(
+            /*strategy=*/blink::mojom::StreamSelectionStrategy::
+                FORCE_NEW_STREAM,
+            /*session_id=*/session),
+        /*generate_stream_cb=*/base::DoNothing(),
+        /*device_stopped_cb=*/base::DoNothing(),
+        /*device_changed_cb=*/base::DoNothing(),
+        /*device_request_state_change_cb=*/base::DoNothing(),
+        /*device_capture_handle_change_cb=*/base::DoNothing());
+    base::RunLoop().RunUntilIdle();
   }
 
   void RequestAndStopGetDisplayMedia(bool request_audio) {
@@ -430,6 +536,8 @@ class MediaStreamManagerTest : public ::testing::Test {
   std::unique_ptr<MockAudioManager> audio_manager_;
   std::unique_ptr<media::AudioSystem> audio_system_;
   raw_ptr<MockVideoCaptureProvider> video_capture_provider_;
+  std::unique_ptr<MediaStreamProviderListenerMock> stream_provider_listener_;
+  size_t screen_count_ = 0;
   base::RunLoop run_loop_;
 };
 
@@ -487,6 +595,11 @@ TEST_F(MediaStreamManagerTest, MakeAndCancelMediaAccessRequest) {
                   _, _, _, _,
                   blink::mojom::MediaStreamType::DISPLAY_VIDEO_CAPTURE_THIS_TAB,
                   MEDIA_REQUEST_STATE_CLOSING));
+  EXPECT_CALL(
+      *media_observer_,
+      OnMediaRequestStateChanged(
+          _, _, _, _, blink::mojom::MediaStreamType::DISPLAY_VIDEO_CAPTURE_SET,
+          MEDIA_REQUEST_STATE_CLOSING));
   EXPECT_CALL(
       *media_observer_,
       OnMediaRequestStateChanged(
@@ -566,6 +679,11 @@ TEST_F(MediaStreamManagerTest, MakeAndCancelMultipleRequests) {
                   _, _, _, _,
                   blink::mojom::MediaStreamType::DISPLAY_VIDEO_CAPTURE_THIS_TAB,
                   MEDIA_REQUEST_STATE_CLOSING));
+  EXPECT_CALL(
+      *media_observer_,
+      OnMediaRequestStateChanged(
+          _, _, _, _, blink::mojom::MediaStreamType::DISPLAY_VIDEO_CAPTURE_SET,
+          MEDIA_REQUEST_STATE_CLOSING));
   EXPECT_CALL(
       *media_observer_,
       OnMediaRequestStateChanged(
@@ -996,6 +1114,118 @@ TEST_F(MediaStreamManagerTest, GetMediaDeviceIDForHMAC) {
         EXPECT_FALSE(raw_device_id.has_value());
       }));
   base::RunLoop().RunUntilIdle();
+}
+
+TEST_F(MediaStreamManagerTest, MultiCaptureOnMediaStreamUIWindowId) {
+  std::vector<media::VideoCaptureSessionId> session_ids;
+  VideoCaptureManager::SetDesktopCaptureWindowIdCallback callback =
+      base::BindLambdaForTesting(
+          [&session_ids](const media::VideoCaptureSessionId& session_id,
+                         gfx::NativeViewId window_id) {
+            session_ids.push_back(session_id);
+          });
+  media_stream_manager_->video_capture_manager()
+      ->set_desktop_capture_window_id_callback_for_testing(callback);
+
+  gfx::NativeViewId native_view_id = 1;
+  blink::mojom::StreamDevicesSetPtr stream_devices_set =
+      blink::mojom::StreamDevicesSet::New();
+  blink::MediaStreamDevice device_0 = blink::MediaStreamDevice(
+      blink::mojom::MediaStreamType::DISPLAY_VIDEO_CAPTURE, "screen:0:0",
+      "test_device_0");
+  base::UnguessableToken session_id_0 = base::UnguessableToken::Create();
+  device_0.set_session_id(session_id_0);
+  blink::MediaStreamDevice device_1 = blink::MediaStreamDevice(
+      blink::mojom::MediaStreamType::DISPLAY_VIDEO_CAPTURE, "screen:1:0",
+      "test_device_1");
+  base::UnguessableToken session_id_1 = base::UnguessableToken::Create();
+  device_1.set_session_id(session_id_1);
+  stream_devices_set->stream_devices.emplace_back(
+      blink::mojom::StreamDevices(absl::nullopt, device_0).Clone());
+  stream_devices_set->stream_devices.emplace_back(
+      blink::mojom::StreamDevices(absl::nullopt, device_1).Clone());
+  media_stream_manager_->OnMediaStreamUIWindowId(
+      blink::mojom::MediaStreamType::DISPLAY_VIDEO_CAPTURE,
+      std::move(stream_devices_set), native_view_id);
+  ASSERT_EQ(2u, session_ids.size());
+  ASSERT_EQ(session_id_0, session_ids[0]);
+  ASSERT_EQ(session_id_1, session_ids[1]);
+}
+
+TEST_F(MediaStreamManagerTest, MultiCaptureAllDevicesOpened) {
+  base::UnguessableToken session = base::UnguessableToken::Create();
+  RequestMultiScreenCapture(/*screen_count=*/3u, session);
+
+  const std::vector<base::UnguessableToken>& session_ids =
+      stream_provider_listener_->capture_session_ids();
+  EXPECT_EQ(3u, session_ids.size());
+
+  media_stream_manager_->Opened(
+      blink::mojom::MediaStreamType::DISPLAY_VIDEO_CAPTURE_SET, session_ids[0]);
+  media_stream_manager_->Opened(
+      blink::mojom::MediaStreamType::DISPLAY_VIDEO_CAPTURE_SET, session_ids[1]);
+
+  EXPECT_CALL(
+      *media_observer_,
+      OnMediaRequestStateChanged(
+          _, _, _, _, blink::mojom::MediaStreamType::DISPLAY_VIDEO_CAPTURE_SET,
+          MEDIA_REQUEST_STATE_DONE));
+  media_stream_manager_->Opened(
+      blink::mojom::MediaStreamType::DISPLAY_VIDEO_CAPTURE_SET, session_ids[2]);
+}
+
+TEST_F(MediaStreamManagerTest, MultiCaptureNotAllDevicesOpened) {
+  base::UnguessableToken session = base::UnguessableToken::Create();
+  RequestMultiScreenCapture(/*screen_count=*/3u, session);
+
+  const std::vector<base::UnguessableToken>& session_ids =
+      stream_provider_listener_->capture_session_ids();
+  EXPECT_EQ(3u, session_ids.size());
+
+  media_stream_manager_->Opened(
+      blink::mojom::MediaStreamType::DISPLAY_VIDEO_CAPTURE_SET, session_ids[0]);
+  media_stream_manager_->Opened(
+      blink::mojom::MediaStreamType::DISPLAY_VIDEO_CAPTURE_SET, session_ids[1]);
+
+  EXPECT_CALL(
+      *media_observer_,
+      OnMediaRequestStateChanged(
+          _, _, _, _, blink::mojom::MediaStreamType::DISPLAY_VIDEO_CAPTURE_SET,
+          MEDIA_REQUEST_STATE_DONE))
+      .Times(0);
+}
+
+TEST_F(MediaStreamManagerTest, MultiCaptureIntermediateErrorOnOpening) {
+  base::UnguessableToken session = base::UnguessableToken::Create();
+  RequestMultiScreenCapture(/*screen_count=*/3u, session);
+
+  const std::vector<base::UnguessableToken>& session_ids =
+      stream_provider_listener_->capture_session_ids();
+  EXPECT_EQ(3u, session_ids.size());
+
+  EXPECT_CALL(
+      *media_observer_,
+      OnMediaRequestStateChanged(
+          _, _, _, _, blink::mojom::MediaStreamType::DISPLAY_VIDEO_CAPTURE_SET,
+          MEDIA_REQUEST_STATE_ERROR));
+
+  media_stream_manager_->Opened(
+      blink::mojom::MediaStreamType::DISPLAY_VIDEO_CAPTURE_SET, session_ids[0]);
+  media_stream_manager_->SetStateForTesting(
+      /*request_index=*/0u,
+      blink::mojom::MediaStreamType::DISPLAY_VIDEO_CAPTURE_SET,
+      MEDIA_REQUEST_STATE_ERROR);
+  media_stream_manager_->Opened(
+      blink::mojom::MediaStreamType::DISPLAY_VIDEO_CAPTURE_SET, session_ids[1]);
+  media_stream_manager_->Opened(
+      blink::mojom::MediaStreamType::DISPLAY_VIDEO_CAPTURE_SET, session_ids[2]);
+
+  EXPECT_CALL(
+      *media_observer_,
+      OnMediaRequestStateChanged(
+          _, _, _, _, blink::mojom::MediaStreamType::DISPLAY_VIDEO_CAPTURE_SET,
+          MEDIA_REQUEST_STATE_DONE))
+      .Times(0);
 }
 
 // TODO(crbug.com/1300883): Add test cases for multi stream generation.

@@ -17,9 +17,9 @@
 #include "base/check_op.h"
 #include "base/feature_list.h"
 #include "base/format_macros.h"
-#include "base/metrics/histogram.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/observer_list.h"
+#include "base/ranges/algorithm.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
@@ -30,8 +30,10 @@
 #include "base/trace_event/memory_usage_estimator.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
+#include "components/history_clusters/core/config.h"
 #include "components/omnibox/browser/actions/omnibox_pedal_provider.h"
 #include "components/omnibox/browser/autocomplete_input.h"
+#include "components/omnibox/browser/autocomplete_provider.h"
 #include "components/omnibox/browser/bookmark_provider.h"
 #include "components/omnibox/browser/builtin_provider.h"
 #include "components/omnibox/browser/clipboard_provider.h"
@@ -51,7 +53,6 @@
 #include "components/omnibox/browser/voice_suggest_provider.h"
 #include "components/omnibox/browser/zero_suggest_provider.h"
 #include "components/omnibox/browser/zero_suggest_verbatim_match_provider.h"
-#include "components/omnibox/common/omnibox_features.h"
 #include "components/open_from_clipboard/clipboard_recent_content.h"
 #include "components/search_engines/omnibox_focus_type.h"
 #include "components/search_engines/template_url.h"
@@ -65,6 +66,7 @@
 
 #if !BUILDFLAG(IS_IOS)
 #include "components/omnibox/browser/actions/history_clusters_action.h"
+#include "components/omnibox/browser/history_cluster_provider.h"
 #include "components/open_from_clipboard/clipboard_recent_content_generic.h"
 #endif
 
@@ -106,29 +108,28 @@ bool AutocompleteMatchHasCustomDescription(const AutocompleteMatch& match) {
          match.type == AutocompleteMatchType::SEARCH_SUGGEST_PROFILE;
 }
 
-// Returns if rich autocompletion had (or would have had for counterfactual
-// variations) an impact; i.e. whether the top scoring rich autocompleted
-// suggestion outscores the top scoring default suggestion.
-bool TopMatchWouldHaveBeenRichAutocompletion(const AutocompleteResult& result) {
+// Returns which rich autocompletion type, if any, had (or would have had for
+// counterfactual variations) an impact; i.e. whether the top scoring rich
+// autocompleted suggestion outscores the top scoring default suggestion.
+AutocompleteMatch::RichAutocompletionType TopMatchRichAutocompletionType(
+    const AutocompleteResult& result) {
   // Trigger rich autocompletion logging if the highest scoring match has
-  // |rich_autocompletion_triggered| set to true indicating it is, or could have
-  // been, rich autocompleted. It's not sufficient to check the default match
-  // since counterfactual variations will not allow rich autocompleted matches
-  // to be the default match.
+  // |rich_autocompletion_triggered| set indicating it is, or could have been
+  // rich autocompleted. It's not sufficient to check the default match since
+  // counterfactual variations will not allow rich autocompleted matches to be
+  // the default match.
   if (result.empty())
-    return false;
+    return AutocompleteMatch::RichAutocompletionType::kNone;
 
   auto get_sort_key = [](const AutocompleteMatch& match) {
-    return std::make_tuple(match.allowed_to_be_default_match ||
-                               match.rich_autocompletion_triggered,
-                           match.relevance);
+    return std::make_tuple(
+        match.allowed_to_be_default_match ||
+            match.rich_autocompletion_triggered !=
+                AutocompleteMatch::RichAutocompletionType::kNone,
+        match.relevance);
   };
 
-  auto top_match = std::max_element(
-      result.begin(), result.end(),
-      [&](const AutocompleteMatch& match1, const AutocompleteMatch& match2) {
-        return get_sort_key(match1) < get_sort_key(match2);
-      });
+  auto top_match = base::ranges::max_element(result, {}, get_sort_key);
   return top_match->rich_autocompletion_triggered;
 }
 
@@ -295,6 +296,47 @@ AutocompleteController::AutocompleteController(
       search_service_worker_signal_sent_(false),
       template_url_service_(provider_client_->GetTemplateURLService()) {
   provider_types &= ~OmniboxFieldTrial::GetDisabledProviderTypes();
+
+  if (OmniboxFieldTrial::kAutocompleteStabilityAsyncProvidersFirst.Get()) {
+    // Providers run in the order they're added. Run these async providers 1st
+    // so their async requests can be kicked off before waiting a few
+    // milliseconds for the other sync providers to complete.
+
+    if (provider_types & AutocompleteProvider::TYPE_SEARCH) {
+      search_provider_ = new SearchProvider(provider_client_.get(), this);
+      providers_.push_back(search_provider_.get());
+    }
+    // Providers run in the order they're added.  Add `HistoryURLProvider` after
+    // `SearchProvider` because:
+    // - `SearchProvider` synchronously queries the history database's
+    //   keyword_search_terms and url table.
+    // - `HistoryUrlProvider` schedules a background task that also accesses the
+    //    history database.
+    // If both db accesses happen concurrently, TSan complains. So put
+    // `HistoryURLProvider` later to make sure that `SearchProvider` is done
+    // doing its thing by the time the `HistoryURLProvider` task runs. (And hope
+    // that it completes before `AutocompleteController::Start()` is called the
+    // next time.)
+    if (provider_types & AutocompleteProvider::TYPE_HISTORY_URL) {
+      history_url_provider_ =
+          new HistoryURLProvider(provider_client_.get(), this);
+      if (provider_types & AutocompleteProvider::TYPE_HISTORY_URL)
+        providers_.push_back(history_url_provider_.get());
+    }
+    if (provider_types & AutocompleteProvider::TYPE_DOCUMENT) {
+      document_provider_ =
+          DocumentProvider::Create(provider_client_.get(), this);
+      providers_.push_back(document_provider_.get());
+    }
+    if (provider_types & AutocompleteProvider::TYPE_ON_DEVICE_HEAD) {
+      on_device_head_provider_ =
+          OnDeviceHeadProvider::Create(provider_client_.get(), this);
+      if (on_device_head_provider_) {
+        providers_.push_back(on_device_head_provider_.get());
+      }
+    }
+  }
+
   if (provider_types & AutocompleteProvider::TYPE_BOOKMARK) {
     bookmark_provider_ = new BookmarkProvider(provider_client_.get());
     providers_.push_back(bookmark_provider_.get());
@@ -309,27 +351,28 @@ AutocompleteController::AutocompleteController(
     keyword_provider_ = new KeywordProvider(provider_client_.get(), this);
     providers_.push_back(keyword_provider_.get());
   }
-  if (provider_types & AutocompleteProvider::TYPE_SEARCH) {
-    search_provider_ = new SearchProvider(provider_client_.get(), this);
-    providers_.push_back(search_provider_.get());
-  }
-  // It's important that the HistoryURLProvider gets added after SearchProvider:
-  // AutocompleteController::Start() calls each providers' Start() function
-  // synchronously in the order they're in providers_.
-  // - SearchProvider::Start() synchronously queries the history database's
-  //   keyword_search_terms and url table.
-  // - HistoryUrlProvider::Start schedules a background task that also accesses
-  //   the history database.
-  // If both db accesses happen concurrently, TSan complains.
-  // So put HistoryURLProvider later to make sure that SearchProvider is done
-  // doing its thing by the time the HistoryURLProvider task runs.
-  // (And hope that it completes before AutocompleteController::Start() is
-  // called the next time.)
-  if (provider_types & AutocompleteProvider::TYPE_HISTORY_URL) {
-    history_url_provider_ =
-        new HistoryURLProvider(provider_client_.get(), this);
-    if (provider_types & AutocompleteProvider::TYPE_HISTORY_URL)
-      providers_.push_back(history_url_provider_.get());
+  if (!OmniboxFieldTrial::kAutocompleteStabilityAsyncProvidersFirst.Get()) {
+    if (provider_types & AutocompleteProvider::TYPE_SEARCH) {
+      search_provider_ = new SearchProvider(provider_client_.get(), this);
+      providers_.push_back(search_provider_.get());
+    }
+    // Providers run in the order they're added.  Add `HistoryURLProvider` after
+    // `SearchProvider` because:
+    // - `SearchProvider` synchronously queries the history database's
+    //   keyword_search_terms and url table.
+    // - `HistoryUrlProvider` schedules a background task that also accesses the
+    //    history database.
+    // If both db accesses happen concurrently, TSan complains. So put
+    // `HistoryURLProvider` later to make sure that `SearchProvider` is done
+    // doing its thing by the time the `HistoryURLProvider` task runs. (And hope
+    // that it completes before `AutocompleteController::Start()` is called the
+    // next time.)
+    if (provider_types & AutocompleteProvider::TYPE_HISTORY_URL) {
+      history_url_provider_ =
+          new HistoryURLProvider(provider_client_.get(), this);
+      if (provider_types & AutocompleteProvider::TYPE_HISTORY_URL)
+        providers_.push_back(history_url_provider_.get());
+    }
   }
   if (provider_types & AutocompleteProvider::TYPE_SHORTCUTS)
     providers_.push_back(new ShortcutsProvider(provider_client_.get()));
@@ -352,15 +395,18 @@ AutocompleteController::AutocompleteController(
     providers_.push_back(
         new ZeroSuggestVerbatimMatchProvider(provider_client_.get()));
   }
-  if (provider_types & AutocompleteProvider::TYPE_DOCUMENT) {
-    document_provider_ = DocumentProvider::Create(provider_client_.get(), this);
-    providers_.push_back(document_provider_.get());
-  }
-  if (provider_types & AutocompleteProvider::TYPE_ON_DEVICE_HEAD) {
-    on_device_head_provider_ =
-        OnDeviceHeadProvider::Create(provider_client_.get(), this);
-    if (on_device_head_provider_) {
-      providers_.push_back(on_device_head_provider_.get());
+  if (!OmniboxFieldTrial::kAutocompleteStabilityAsyncProvidersFirst.Get()) {
+    if (provider_types & AutocompleteProvider::TYPE_DOCUMENT) {
+      document_provider_ =
+          DocumentProvider::Create(provider_client_.get(), this);
+      providers_.push_back(document_provider_.get());
+    }
+    if (provider_types & AutocompleteProvider::TYPE_ON_DEVICE_HEAD) {
+      on_device_head_provider_ =
+          OnDeviceHeadProvider::Create(provider_client_.get(), this);
+      if (on_device_head_provider_) {
+        providers_.push_back(on_device_head_provider_.get());
+      }
     }
   }
   if (provider_types & AutocompleteProvider::TYPE_CLIPBOARD) {
@@ -391,11 +437,32 @@ AutocompleteController::AutocompleteController(
     providers_.push_back(voice_suggest_provider_.get());
   }
   if (provider_types & AutocompleteProvider::TYPE_HISTORY_FUZZY) {
-    providers_.push_back(new HistoryFuzzyProvider(provider_client_.get()));
+    providers_.push_back(new HistoryFuzzyProvider(
+        provider_client_.get(), history_quick_provider_, bookmark_provider_));
   }
   if (provider_types & AutocompleteProvider::TYPE_OPEN_TAB) {
-    providers_.push_back(new OpenTabProvider(provider_client_.get()));
+    open_tab_provider_ = new OpenTabProvider(provider_client_.get());
+    providers_.push_back(open_tab_provider_.get());
   }
+  // Ideally, we'd check `IsApplicationLocaleSupportedByJourneys()` when
+  // constructing `provider_types`. But that's usually constructed in
+  // `AutocompleteClassifier::DefaultOmniboxProviders` which can't depend on the
+  // browser dir to detect locale. The alternative of piping in the locale from
+  // each call site seems too intrusive for a temporary condition (some call
+  // sites are also in the components dir). All callers of
+  // `DefaultOmniboxProviders` only use it to then construct
+  // `AutocompleteController`, so placing the check here instead has no behavior
+  // change.
+#if !BUILDFLAG(IS_IOS)
+  // HistoryClusters is not enabled on iOS.
+  if (provider_types & AutocompleteProvider::TYPE_HISTORY_CLUSTER_PROVIDER &&
+      history_clusters::IsApplicationLocaleSupportedByJourneys(
+          provider_client_->GetApplicationLocale()) &&
+      search_provider_ != nullptr) {
+    providers_.push_back(new HistoryClusterProvider(provider_client_.get(),
+                                                    this, search_provider_));
+  }
+#endif
 
   base::trace_event::MemoryDumpManager::GetInstance()->RegisterDumpProvider(
       this, "AutocompleteController", base::ThreadTaskRunnerHandle::Get());
@@ -423,16 +490,37 @@ void AutocompleteController::Start(const AutocompleteInput& input) {
   TRACE_EVENT1("omnibox", "AutocompleteController::Start", "text",
                base::UTF16ToUTF8(input.text()));
 
-  // When input.want_asynchronous_matches() is false, the AutocompleteController
+  // Providers assume synchronous inputs (`omit_asynchronous_matches() ==
+  // true`) have default focus type (`focus_type() == DEFAULT`). See
+  // crbug.com/1339425.
+  DCHECK(!input.omit_asynchronous_matches() ||
+         input.focus_type() == OmniboxFocusType::DEFAULT);
+
+  // When input.omit_asynchronous_matches() is true, the AutocompleteController
   // is being used for text classification, which should not notify observers.
-  if (input.want_asynchronous_matches()) {
+  // TODO(manukh): This seems unnecessary; `AutocompleteClassifier` and
+  //   `OmniboxController` use separate instances of `AutocompleteController`,
+  //   the former doesn't add observers, the latter always uses
+  //   `omit_asynchrous_matches()` set to false. Besides, if that weren't the
+  //   case, e.g. the classifier did add an observer, then
+  //   `AutocompleteController` should respect that, not assume it's a mistake
+  //   and silently ignore the observer. Audit all call paths of `::Start()` to
+  //   remove this check.
+  if (!input.omit_asynchronous_matches()) {
     for (Observer& obs : observers_)
       obs.OnStart(this, input);
   }
 
+  // Must be called before `expire_timer_.Stop()`, modifying `done_`, or
+  // modifying `AutocompleteProvider::done_` below. If the previous request has
+  // not completed, and therefore has not been logged yet, will log it now.
+  // Likewise, if the providers have not completed, and therefore have not been
+  // logged yet, will log them now.
+  metrics_.OnStart();
+
   const std::u16string old_input_text(input_.text());
   const bool old_allow_exact_keyword_match = input_.allow_exact_keyword_match();
-  const bool old_want_asynchronous_matches = input_.want_asynchronous_matches();
+  const bool old_omit_asynchronous_matches = input_.omit_asynchronous_matches();
   const OmniboxFocusType old_focus_type = input_.focus_type();
   input_ = input;
 
@@ -448,40 +536,50 @@ void AutocompleteController::Start(const AutocompleteInput& input) {
   const bool minimal_changes =
       (input_.text() == old_input_text) &&
       (input_.allow_exact_keyword_match() == old_allow_exact_keyword_match) &&
-      (input_.want_asynchronous_matches() == old_want_asynchronous_matches) &&
+      (input_.omit_asynchronous_matches() == old_omit_asynchronous_matches) &&
       (input_.focus_type() == old_focus_type);
 
   expire_timer_.Stop();
   stop_timer_.Stop();
 
   // Start the new query. Starter Pack engines in keyword mode only run a subset
-  // of the providers, so call `GetProvidersToRun()` to determine the subset or
-  // if we run all providers.
+  // of the providers, so call `ShouldRunProvider()` to determine which.
   in_start_ = true;
+  // Use `start_time` rather than `metrics.start_time_` for
+  // 'Omnibox.QueryTime2.*'. They differ by 3 μs, which though too small to be
+  // distinguished in the ms-scale buckets, is large enough to move the
+  // arithmetic mean.
   base::TimeTicks start_time = base::TimeTicks::Now();
-  for (const auto& provider : GetProvidersToRun()) {
+  for (const auto& provider : providers_) {
+    if (!ShouldRunProvider(provider.get()))
+      continue;
+
     base::TimeTicks provider_start_time = base::TimeTicks::Now();
     provider->Start(input_, minimal_changes);
-    if (!input.want_asynchronous_matches())
-      DCHECK(provider->done());
+    // `UmaHistogramTimes()` uses 1ms - 10s buckets, whereas this uses 1ms - 5s
+    // buckets.
+    // TODO(crbug.com/1340291|manukh): This isn't handled by `metrics_` yet. It
+    //   will "automatically" move to `metrics_` if we make all providers async.
+    //   Otherwise, if we decide not to make all providers async, move this
+    //   there.
     base::TimeTicks provider_end_time = base::TimeTicks::Now();
-    std::string name =
-        std::string("Omnibox.ProviderTime2.") + provider->GetName();
-    base::HistogramBase* counter = base::Histogram::FactoryGet(
-        name, 1, 5000, 20, base::Histogram::kUmaTargetedHistogramFlag);
-    counter->Add(static_cast<int>(
-        (provider_end_time - provider_start_time).InMilliseconds()));
+    base::UmaHistogramCustomTimes(
+        std::string("Omnibox.ProviderTime2.") + provider->GetName(),
+        provider_end_time - provider_start_time, base::Milliseconds(1),
+        base::Seconds(5), 20);
   }
-  if (input.want_asynchronous_matches() && (input.text().length() < 6)) {
+  if (!input.omit_asynchronous_matches() && (input.text().length() < 6)) {
+    // `UmaHistogramTimes()` uses 1ms - 10s buckets, whereas this uses 1ms - 1s
+    // buckets.
+    // TODO(crbug.com/1340291|manukh): This isn't handled by `metrics_` yet. Do
+    //   so after we decide whether to make all providers async.
     base::TimeTicks end_time = base::TimeTicks::Now();
-    std::string name =
-        "Omnibox.QueryTime2." + base::NumberToString(input.text().length());
-    base::HistogramBase* counter = base::Histogram::FactoryGet(
-        name, 1, 1000, 50, base::Histogram::kUmaTargetedHistogramFlag);
-    counter->Add(static_cast<int>((end_time - start_time).InMilliseconds()));
+    base::UmaHistogramCustomTimes(
+        "Omnibox.QueryTime2." + base::NumberToString(input.text().length()),
+        end_time - start_time, base::Milliseconds(1), base::Seconds(1), 50);
   }
   base::UmaHistogramBoolean("Omnibox.Start.WantAsyncMatches",
-                            input.want_asynchronous_matches());
+                            !input.omit_asynchronous_matches());
 
   // This will usually set |done_| to false, unless all providers are finished
   // after the synchronous pass we just completed.
@@ -537,10 +635,10 @@ void AutocompleteController::StartPrefetch(const AutocompleteInput& input) {
     return;
   }
 
-  // Starter Pack engines in keyword mode only run a subset of the providers, so
-  // call `GetProvidersToRun()` to determine the subset or if we run all
-  // providers (the Default case).
-  for (auto provider : GetProvidersToRun()) {
+  for (auto provider : providers_) {
+    if (!ShouldRunProvider(provider.get()))
+      continue;
+
     provider->StartPrefetch(input);
   }
 }
@@ -563,7 +661,7 @@ void AutocompleteController::DeleteMatch(const AutocompleteMatch& match) {
     match.provider->DeleteMatch(match);
   }
 
-  OnProviderUpdate(true);
+  OnProviderUpdate(true, nullptr);
 
   // If we're not done, we might attempt to redisplay the deleted match. Make
   // sure we aren't displaying it by removing any old entries.
@@ -579,7 +677,7 @@ void AutocompleteController::DeleteMatchElement(const AutocompleteMatch& match,
     match.provider->DeleteMatchElement(match, element_index);
   }
 
-  OnProviderUpdate(true);
+  OnProviderUpdate(true, nullptr);
 }
 
 void AutocompleteController::ExpireCopiedEntries() {
@@ -589,7 +687,15 @@ void AutocompleteController::ExpireCopiedEntries() {
   UpdateResult(true, false);
 }
 
-void AutocompleteController::OnProviderUpdate(bool updated_matches) {
+void AutocompleteController::OnProviderUpdate(
+    bool updated_matches,
+    const AutocompleteProvider* provider) {
+  // Should be called even if `in_start_` is true in order to include early
+  // exited async providers. If the provider is done, will log how long the
+  // provider took.
+  if (provider)
+    metrics_.OnProviderUpdate(*provider);
+
   // Providers should only call this method during the asynchronous pass.
   // There's no reason to call this during the synchronous pass, since we
   // perform these operations anyways after all providers are started.
@@ -611,6 +717,9 @@ void AutocompleteController::AddProviderAndTriggeringLogs(
     OmniboxLog* logs) const {
   logs->providers_info.clear();
   for (const auto& provider : providers_) {
+    if (!ShouldRunProvider(provider.get()))
+      continue;
+
     // Add per-provider info, if any.
     provider->AddProviderInfo(&logs->providers_info);
 
@@ -635,6 +744,8 @@ void AutocompleteController::ResetSession() {
   search_service_worker_signal_sent_ = false;
 
   for (const auto& provider : providers_) {
+    if (!ShouldRunProvider(provider.get()))
+      continue;
     provider->ResetSession();
   }
 
@@ -685,38 +796,27 @@ void AutocompleteController::
   // Append the ExperimentStatsV2 to the AQS parameter to be logged in
   // searchbox_stats.proto's experiment_stats_v2 field.
   if (zero_suggest_provider_) {
-    // The field number for the experiment stat type specified as an int
-    // in ExperimentStatsV2.
-    constexpr char kTypeIntFieldNumber[] = "4";
-    // The field number for the string value in ExperimentStatsV2.
-    constexpr char kStringValueFieldNumber[] = "2";
-    std::vector<std::string> experiment_stats_v2;
-    for (const auto& experiment_stat :
-         zero_suggest_provider_->experiment_stats()) {
-      DCHECK(experiment_stat.is_dict());
-      absl::optional<int> type_int =
-          experiment_stat.FindIntPath(kTypeIntFieldNumber);
-      const std::string* string_value =
-          experiment_stat.FindStringPath(kStringValueFieldNumber);
-      if (type_int && string_value) {
-        // The string value consists of suggestion type/subtype pairs which are
-        // delimited with colons. Replace colons with commas as expected by the
-        // Searchbox logging flow.
-        std::string value = *string_value;
-        std::replace(value.begin(), value.end(), ':', ',');
-        // 'i' is used as a delimiter between experiment stat type and value.
-        experiment_stats_v2.push_back(base::NumberToString(*type_int) + "i" +
-                                      value);
-        auto* experiment_stats_v2_proto =
-            match->search_terms_args->searchbox_stats.add_experiment_stats_v2();
-        experiment_stats_v2_proto->set_type_int(*type_int);
-        experiment_stats_v2_proto->set_string_value(value);
-      }
+    std::vector<std::string> experiment_stats_v2_strings;
+    for (const auto& experiment_stat_v2 :
+         zero_suggest_provider_->experiment_stats_v2s()) {
+      // The string value consists of suggestion type/subtype pairs delimited
+      // with colons. However, the SearchboxStats logging flow expects
+      // suggestion type/subtype pairs to be delimited with commas instead.
+      std::string value = experiment_stat_v2.string_value();
+      std::replace(value.begin(), value.end(), ':', ',');
+      // The SearchboxStats logging flow expects experiment stats type and value
+      // to be delimited with 'i'.
+      experiment_stats_v2_strings.push_back(
+          base::NumberToString(experiment_stat_v2.type_int()) + "i" + value);
+      auto* reported_experiment_stats_v2 =
+          match->search_terms_args->searchbox_stats.add_experiment_stats_v2();
+      reported_experiment_stats_v2->set_type_int(experiment_stat_v2.type_int());
+      reported_experiment_stats_v2->set_string_value(value);
     }
-    if (!experiment_stats_v2.empty()) {
+    if (!experiment_stats_v2_strings.empty()) {
       // 'j' is used as a delimiter between individual experiment stat entries.
       match->search_terms_args->assisted_query_stats +=
-          "." + base::JoinString(experiment_stats_v2, "j");
+          "." + base::JoinString(experiment_stats_v2_strings, "j");
     }
   }
 
@@ -768,8 +868,12 @@ void AutocompleteController::UpdateResult(
   AutocompleteResult old_matches_to_reuse;
   old_matches_to_reuse.Swap(&result_);
 
-  for (const auto& provider : providers_)
+  for (const auto& provider : providers_) {
+    if (!ShouldRunProvider(provider.get()))
+      continue;
     result_.AppendMatches(provider->matches());
+    result_.MergeSuggestionGroupsMap(provider->suggestion_groups_map());
+  }
 
   bool perform_tab_match = true;
 #if BUILDFLAG(IS_ANDROID)
@@ -782,11 +886,16 @@ void AutocompleteController::UpdateResult(
   if (perform_tab_match)
     result_.ConvertOpenTabMatches(provider_client_.get(), &input_);
 
-  UpdateHeaderInfoFromZeroSuggestProvider(&result_);
-
-  // Sort the matches and trim to a small number of "best" matches.
+  // Sort the matches and trim to a small number of "best" matches. Do this only
+  // if preservation is enabled for sync/async updates, and this is a sync/async
+  // update.
   const AutocompleteMatch* preserve_default_match = nullptr;
-  if (!in_start_ && last_default_match) {
+  if ((in_start_
+           ? OmniboxFieldTrial::
+                 kAutocompleteStabilityPreserveDefaultForSyncUpdates.Get()
+           : OmniboxFieldTrial::
+                 kAutocompleteStabilityPreserveDefaultForAsyncUpdates.Get()) &&
+      last_default_match) {
     preserve_default_match = &last_default_match.value();
   }
   result_.SortAndCull(input_, template_url_service_, preserve_default_match);
@@ -807,17 +916,22 @@ void AutocompleteController::UpdateResult(
   if (!done_) {
     // This conditional needs to match the conditional in Start that invokes
     // StartExpireTimer.
-    result_.TransferOldMatches(input_, &old_matches_to_reuse,
-                               template_url_service_);
+    result_.TransferOldMatches(input_, &old_matches_to_reuse);
+    if (OmniboxFieldTrial::kAutocompleteStabilityPreserveDefaultAfterTransfer
+            .Get()) {
+      result_.SortAndCull(input_, template_url_service_,
+                          preserve_default_match);
+    } else {
+      result_.SortAndCull(input_, template_url_service_);
+    }
   }
 
-  // Log metrics for how many matches are asynchronously changed. If results are
-  // empty then the omnibox is likely closed, and clearing old results won't
-  // be user visible.
-  if (!result_.empty()) {
-    AutocompleteResult::LogUpdateMetrics(last_result_for_logging, result_,
-                                         in_start_);
-  }
+  // Will log metrics for how many matches changed. Will also log timing metrics
+  // for the current request if it's complete; otherwise, will just update
+  // timestamps of when the last update changing any or the default suggestion
+  // occurred.
+  metrics_.OnUpdateResult(last_result_for_logging,
+                          result_.GetMatchDedupComparators());
 
   // Below are all annotations after the match list is ready.
 #if !BUILDFLAG(IS_IOS)
@@ -856,8 +970,16 @@ void AutocompleteController::UpdateResult(
   if (notify_default_match)
     last_time_default_match_changed_ = base::TimeTicks::Now();
 
-  if (TopMatchWouldHaveBeenRichAutocompletion(result_)) {
-    provider_client_->GetOmniboxTriggeredFeatureService()->TriggerFeature(
+  // Mark the rich autocompletion feature triggered if the top match, or
+  // would-be-top-match if rich autocompletion is counterfactual enabled, is
+  // rich autocompleted.
+  const auto top_match_rich_autocompletion_type =
+      TopMatchRichAutocompletionType(result_);
+  provider_client_->GetOmniboxTriggeredFeatureService()
+      ->RichAutocompletionTypeTriggered(top_match_rich_autocompletion_type);
+  if (top_match_rich_autocompletion_type !=
+      AutocompleteMatch::RichAutocompletionType::kNone) {
+    provider_client_->GetOmniboxTriggeredFeatureService()->FeatureTriggered(
         OmniboxTriggeredFeatureService::Feature::kRichAutocompletion);
   }
 
@@ -918,24 +1040,6 @@ void AutocompleteController::UpdateAssociatedKeywords(
       match.associated_keyword.reset();
     }
   }
-}
-
-void AutocompleteController::UpdateHeaderInfoFromZeroSuggestProvider(
-    AutocompleteResult* result) {
-  // Currently, we only populate the AutocompleteResult's header labels from
-  // ZeroSuggestProvider. Even if another provider has header metadata, we
-  // currently ignore it. This means that as-you-type suggestions will NEVER
-  // show headers in the UI. For now, this is hacky, but intended.
-  //
-  // TODO(tommycli): Stop special casing ZeroSuggestProvider here.
-  if (!zero_suggest_provider_)
-    return;
-
-  // Merge the new header info with the existing one rather than replacing it.
-  // We might end up using the existing matches fully or partially if there are
-  // not enough new ones. Thus, we should also keep the existing header info.
-  result->MergeHeadersMap(zero_suggest_provider_->headers_map());
-  result->MergeHiddenGroupIds(zero_suggest_provider_->hidden_group_ids());
 }
 
 void AutocompleteController::UpdateKeywordDescriptions(
@@ -1077,13 +1181,19 @@ void AutocompleteController::NotifyChanged(bool notify_default_match) {
 }
 
 void AutocompleteController::CheckIfDone() {
+  bool all_providers_done = true;
   for (const auto& provider : providers_) {
+    if (!ShouldRunProvider(provider.get()))
+      continue;
+
     if (!provider->done()) {
-      done_ = false;
-      return;
+      all_providers_done = false;
+      break;
     }
   }
-  done_ = true;
+  // If asynchronous matches have been disallowed, all providers should be done.
+  DCHECK(!input_.omit_asynchronous_matches() || all_providers_done);
+  done_ = all_providers_done;
 }
 
 void AutocompleteController::StartExpireTimer() {
@@ -1106,8 +1216,18 @@ void AutocompleteController::StartStopTimer() {
 
 void AutocompleteController::StopHelper(bool clear_result,
                                         bool due_to_user_inactivity) {
-  for (const auto& provider : providers_)
+  // Must be called before `expire_timer_.Stop()`, modifying `done_`, or
+  // modifying `AutocompleteProvider::done_` below. If the current request has
+  // not completed, and therefore has not been logged yet, will log it now.
+  // Likewise, if the providers have not completed, and therefore have not been
+  // logged yet, will log them now.
+  metrics_.OnStop();
+
+  for (const auto& provider : providers_) {
+    if (!ShouldRunProvider(provider.get()))
+      continue;
     provider->Stop(clear_result, due_to_user_inactivity);
+  }
 
   expire_timer_.Stop();
   stop_timer_.Stop();
@@ -1157,39 +1277,63 @@ void AutocompleteController::SetStartStopTimerDurationForTesting(
   stop_timer_duration_ = duration;
 }
 
-AutocompleteController::Providers AutocompleteController::GetProvidersToRun() {
+bool AutocompleteController::ShouldRunProvider(
+    AutocompleteProvider* provider) const {
   if (OmniboxFieldTrial::IsSiteSearchStarterPackEnabled() &&
       input_.keyword_mode_entry_method() !=
           metrics::OmniboxEventProto_KeywordModeEntryMethod_INVALID) {
-    // We're in keyword mode. Try to grab the TemplateURL to determine which
-    // provider to run.
+    // We're in keyword mode. Only a subset of providers are run when we're in a
+    // starter pack keyword mode. Try to grab the TemplateURL to determine if
+    // we're in starter pack mode and whether this provider should be run.
     AutocompleteInput keyword_input = input_;
     const TemplateURL* keyword_turl =
         KeywordProvider::GetSubstitutingTemplateURLForInput(
             template_url_service_, &keyword_input);
-    Providers provider_subset;
     if (keyword_turl && keyword_turl->starter_pack_id() > 0) {
-      // Search provider and keyword provider are still run because we would
-      // lose the suggestion the keyword chip is attached to otherwise. Search
-      // provider suggestions are curbed for starter pack scopes in
-      // `SearchProvider::ShouldCurbDefaultSuggestions()`.
-      provider_subset.push_back(search_provider_.get());
-      provider_subset.push_back(keyword_provider_.get());
+      switch (provider->type()) {
+        // Search provider and keyword provider are still run because we would
+        // lose the suggestion the keyword chip is attached to otherwise. Search
+        // provider suggestions are curbed for starter pack scopes in
+        // `SearchProvider::ShouldCurbDefaultSuggestions()`.
+        case AutocompleteProvider::TYPE_SEARCH:
+        case AutocompleteProvider::TYPE_KEYWORD:
+          return true;
 
-      switch (keyword_turl->starter_pack_id()) {
-        case TemplateURLStarterPackData::kBookmarks:
-          provider_subset.push_back(bookmark_provider_.get());
-          break;
-        case TemplateURLStarterPackData::kHistory:
-          provider_subset.push_back(history_quick_provider_.get());
-          provider_subset.push_back(history_url_provider_.get());
-          break;
+        // @Bookmarks starter pack scope - run only the bookmarks provider.
+        case AutocompleteProvider::TYPE_BOOKMARK:
+          return (keyword_turl->starter_pack_id() ==
+                  TemplateURLStarterPackData::kBookmarks);
+
+        // @History starter pack scope - run history quick and history url
+        // providers.
+        case AutocompleteProvider::TYPE_HISTORY_QUICK:
+        case AutocompleteProvider::TYPE_HISTORY_URL:
+          return (keyword_turl->starter_pack_id() ==
+                  TemplateURLStarterPackData::kHistory);
+
+        // @Tabs starter pack scope - run the open tab provider.
+        case AutocompleteProvider::TYPE_OPEN_TAB:
+          return (keyword_turl->starter_pack_id() ==
+                  TemplateURLStarterPackData::kTabs);
+
+        // No other providers should run when in a starter pack scope.
+        default:
+          return false;
       }
-
-      return provider_subset;
     }
   }
 
+  // Open Tab Provider should only be run for @tabs starter pack mode and in the
+  // CrOS launcher.  As a temporary condition, we don't run the open tab
+  // provider when IsSiteSearchStarterPackEnabled() is true, even though that
+  // could interfere with the launcher.
+  // TODO(crbug/1287313): This needs to be updated before running live
+  // experiments.
+  if (provider->type() == AutocompleteProvider::TYPE_OPEN_TAB &&
+      OmniboxFieldTrial::IsSiteSearchStarterPackEnabled()) {
+    return false;
+  }
+
   // Otherwise, run all providers.
-  return providers_;
+  return true;
 }

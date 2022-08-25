@@ -71,9 +71,11 @@
 #include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/recently_audible_helper.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_group.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/tabs/tab_strip_user_gesture_details.h"
 #include "chrome/browser/ui/tabs/tab_utils.h"
 #include "chrome/browser/ui/window_sizer/window_sizer.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
@@ -938,7 +940,10 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
   if (!contents && urls.empty() && window_type == Browser::TYPE_NORMAL) {
     chrome::NewTab(new_window);
   }
-  chrome::SelectNumberedTab(new_window, 0, {TabStripModel::GestureType::kNone});
+  chrome::SelectNumberedTab(
+      new_window, 0,
+      TabStripUserGestureDetails(
+          TabStripUserGestureDetails::GestureType::kNone));
 
   new_window->window()->SetMinimumSize(gfx::Size(min_width, min_height));
   new_window->window()->SetMaximumSize(gfx::Size(max_width, max_height));
@@ -1643,7 +1648,7 @@ ExtensionFunction::ResponseAction TabsHighlightFunction::Run() {
   if (!tabstrip)
     return RespondNow(Error(tabs_constants::kTabStripNotEditableError));
   ui::ListSelectionModel selection;
-  int active_index = -1;
+  absl::optional<size_t> active_index;
 
   if (params->highlight_info.tabs.as_integers) {
     std::vector<int>& tab_indices = *params->highlight_info.tabs.as_integers;
@@ -1680,7 +1685,7 @@ ExtensionFunction::ResponseAction TabsHighlightFunction::Run() {
 
 bool TabsHighlightFunction::HighlightTab(TabStripModel* tabstrip,
                                          ui::ListSelectionModel* selection,
-                                         int* active_index,
+                                         absl::optional<size_t>* active_index,
                                          int index,
                                          std::string* error) {
   // Make sure the index is in range.
@@ -1691,8 +1696,8 @@ bool TabsHighlightFunction::HighlightTab(TabStripModel* tabstrip,
   }
 
   // By default, we make the first tab in the list active.
-  if (*active_index == -1)
-    *active_index = index;
+  if (!active_index->has_value())
+    *active_index = static_cast<size_t>(index);
 
   selection->AddIndexToSelection(index);
   return true;

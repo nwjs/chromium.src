@@ -7,9 +7,14 @@
  * text in an input field.  This class cooperates with the Braille IME
  * that is built into Chrome OS to do the actual text editing.
  */
-import {BrailleTranslatorManager} from '/chromevox/background/braille/braille_translator_manager.js';
-import {ExpandingBrailleTranslator} from '/chromevox/background/braille/expanding_braille_translator.js';
-import {EventGenerator} from '/common/event_generator.js';
+
+import {EventGenerator} from '../../../common/event_generator.js';
+import {StringUtil} from '../../../common/string_util.js';
+
+import {BrailleTranslatorManager} from './braille_translator_manager.js';
+import {ExpandingBrailleTranslator} from './expanding_braille_translator.js';
+import {LibLouis} from './liblouis.js';
+import {ExtraCellsSpan, ValueSelectionSpan, ValueSpan} from './spans.js';
 
 export class BrailleInputHandler {
   /**
@@ -327,7 +332,7 @@ export class BrailleInputHandler {
         this.postImeMessage_({
           type: 'keyEventHandled',
           requestId: message['requestId'],
-          result: this.onBackspace_()
+          result: this.onBackspace_(),
         });
         break;
       case 'reset':
@@ -386,7 +391,7 @@ export class BrailleInputHandler {
       EventGenerator.sendKeyPress(numericCode, {
         shift: Boolean(event.shiftKey),
         ctrl: Boolean(event.ctrlKey),
-        alt: Boolean(event.altKey)
+        alt: Boolean(event.altKey),
       });
     });
   }
@@ -620,7 +625,7 @@ BrailleInputHandler.EditsEntryState_ =
         type: 'replaceText',
         contextID: this.inputHandler_.inputContext_.contextID,
         deleteBefore: deleteLength,
-        newText: toInsert
+        newText: toInsert,
       });
     }
   }
@@ -647,7 +652,7 @@ BrailleInputHandler.LateCommitEntryState_ =
   commit() {
     this.inputHandler_.postImeMessage_({
       type: 'commitUncommitted',
-      contextID: this.inputHandler_.inputContext_.contextID
+      contextID: this.inputHandler_.inputContext_.contextID,
     });
   }
 
@@ -661,7 +666,7 @@ BrailleInputHandler.LateCommitEntryState_ =
     this.inputHandler_.postImeMessage_({
       type: 'setUncommitted',
       contextID: this.inputHandler_.inputContext_.contextID,
-      text: newText
+      text: newText,
     });
   }
 };

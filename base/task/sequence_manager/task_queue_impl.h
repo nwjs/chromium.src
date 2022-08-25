@@ -168,7 +168,7 @@ class BASE_EXPORT TaskQueueImpl {
   // Must only be called from the thread this task queue was created on.
   void ReloadEmptyImmediateWorkQueue();
 
-  Value AsValue(TimeTicks now, bool force_verbose) const;
+  Value::Dict AsValue(TimeTicks now, bool force_verbose) const;
 
   bool GetQuiescenceMonitored() const { return should_monitor_quiescence_; }
   bool GetShouldNotifyObservers() const { return should_notify_observers_; }
@@ -330,7 +330,7 @@ class BASE_EXPORT TaskQueueImpl {
 
     base::internal::OperationsController operations_controller_;
     // Pointer might be stale, access guarded by |operations_controller_|
-    const raw_ptr<TaskQueueImpl> outer_;
+    const raw_ptr<TaskQueueImpl, DanglingUntriaged> outer_;
   };
 
   class TaskRunner final : public SingleThreadTaskRunner {
@@ -411,7 +411,7 @@ class BASE_EXPORT TaskQueueImpl {
     // TODO(crbug.com/1155905): we pass SequenceManager to be able to record
     // crash keys. Remove this parameter after chasing down this crash.
     void SweepCancelledTasks(SequenceManagerImpl* sequence_manager);
-    Value AsValue(TimeTicks now) const;
+    Value::List AsValue(TimeTicks now) const;
 
    private:
     struct Compare {
@@ -513,8 +513,8 @@ class BASE_EXPORT TaskQueueImpl {
   void TakeImmediateIncomingQueueTasks(TaskDeque* queue);
 
   void TraceQueueSize() const;
-  static Value QueueAsValue(const TaskDeque& queue, TimeTicks now);
-  static Value TaskAsValue(const Task& task, TimeTicks now);
+  static Value::List QueueAsValue(const TaskDeque& queue, TimeTicks now);
+  static Value::Dict TaskAsValue(const Task& task, TimeTicks now);
 
   // Returns a Task representation for `delayed_task`.
   Task MakeDelayedTask(PostedTask delayed_task, LazyNow* lazy_now) const;

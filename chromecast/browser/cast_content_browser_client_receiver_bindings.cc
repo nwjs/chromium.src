@@ -35,11 +35,6 @@
 #include "media/mojo/services/media_service.h"  // nogncheck
 #endif  // BUILDFLAG(ENABLE_CAST_RENDERER)
 
-#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)) && defined(USE_OZONE)
-#include "chromecast/browser/webview/js_channel_service.h"
-#include "chromecast/common/mojom/js_channel.mojom.h"
-#endif
-
 #if !BUILDFLAG(IS_ANDROID)
 #include "chromecast/browser/memory_pressure_controller_impl.h"
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -80,7 +75,7 @@ void CreateMediaDrmStorage(
   // The object will be deleted on connection error, or when the frame navigates
   // away.
   new cdm::MediaDrmStorageImpl(
-      render_frame_host, pref_service, base::BindRepeating(&CreateOriginId),
+      *render_frame_host, pref_service, base::BindRepeating(&CreateOriginId),
       base::BindRepeating(&AllowEmptyOriginIdCB), std::move(receiver));
 }
 
@@ -143,9 +138,9 @@ void CastContentBrowserClient::BindMediaServiceReceiver(
     bool mixer_audio_enabled;
     GetApplicationMediaInfo(&application_session_id, &mixer_audio_enabled,
                             render_frame_host);
-    media::CreateApplicationMediaInfoManager(render_frame_host,
-                                             std::move(application_session_id),
-                                             mixer_audio_enabled, std::move(r));
+    media::ApplicationMediaInfoManager::Create(
+        render_frame_host, std::move(application_session_id),
+        mixer_audio_enabled, std::move(r));
     return;
   }
 }
@@ -230,20 +225,6 @@ void CastContentBrowserClient::BindGpuHostReceiver(
 void CastContentBrowserClient::RunServiceInstance(
     const service_manager::Identity& identity,
     mojo::PendingReceiver<service_manager::mojom::Service>* receiver) {}
-
-void CastContentBrowserClient::BindHostReceiverForRenderer(
-    content::RenderProcessHost* render_process_host,
-    mojo::GenericPendingReceiver receiver) {
-#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)) && defined(USE_OZONE)
-  if (auto r = receiver.As<::chromecast::mojom::JsChannelBindingProvider>()) {
-    JsChannelService::Create(render_process_host, std::move(r),
-                             base::ThreadTaskRunnerHandle::Get());
-    return;
-  }
-#endif
-  ContentBrowserClient::BindHostReceiverForRenderer(render_process_host,
-                                                    std::move(receiver));
-}
 
 }  // namespace shell
 }  // namespace chromecast

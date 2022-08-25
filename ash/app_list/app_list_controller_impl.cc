@@ -67,7 +67,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
 #include "base/strings/utf_string_conversions.h"
-#include "chromeos/services/assistant/public/cpp/assistant_enums.h"
+#include "chromeos/ash/services/assistant/public/cpp/assistant_enums.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "extensions/common/constants.h"
@@ -340,6 +340,9 @@ void AppListControllerImpl::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterBooleanPref(
       prefs::kLauncherContinueSectionHidden, false,
       user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PREF);
+  registry->RegisterTimePref(prefs::kLauncherLastContinueRequestTime,
+                             base::Time());
+  registry->RegisterBooleanPref(prefs::kLauncherUseLongContinueDelay, false);
   AppListNudgeController::RegisterProfilePrefs(registry);
 }
 
@@ -417,6 +420,11 @@ void AppListControllerImpl::GetAppInfoDialogBounds(
 }
 
 void AppListControllerImpl::ShowAppList() {
+  if (Shell::Get()->session_controller()->GetSessionState() !=
+      session_manager::SessionState::ACTIVE) {
+    return;
+  }
+
   if (IsKioskSession())
     return;
 
@@ -448,10 +456,6 @@ bool AppListControllerImpl::IsVisible() {
   return IsVisible(absl::nullopt);
 }
 
-void AppListControllerImpl::HideContinueSection() {
-  SetHideContinueSection(true);
-}
-
 void AppListControllerImpl::OnActiveUserPrefServiceChanged(
     PrefService* pref_service) {
   if (IsKioskSession())
@@ -476,10 +480,14 @@ void AppListControllerImpl::OnSessionStateChanged(
   if (state == session_manager::SessionState::ACTIVE)
     has_session_started_ = true;
 
-  if (!IsTabletMode())
+  const bool in_clamshell = !IsTabletMode();
+  if (state != session_manager::SessionState::ACTIVE || IsKioskSession()) {
+    if (in_clamshell)
+      DismissAppList();
     return;
+  }
 
-  if (state != session_manager::SessionState::ACTIVE || IsKioskSession())
+  if (in_clamshell)
     return;
 
   // Show the app list after signing in in tablet mode. For metrics, the app
@@ -614,6 +622,11 @@ ShelfAction AppListControllerImpl::ToggleAppList(
     int64_t display_id,
     AppListShowSource show_source,
     base::TimeTicks event_time_stamp) {
+  if (Shell::Get()->session_controller()->GetSessionState() !=
+      session_manager::SessionState::ACTIVE) {
+    return SHELF_ACTION_APP_LIST_DISMISSED;
+  }
+
   if (IsKioskSession())
     return SHELF_ACTION_APP_LIST_DISMISSED;
 
@@ -1509,17 +1522,6 @@ void AppListControllerImpl::OnSearchResultVisibilityChanged(
     client_->OnSearchResultVisibilityChanged(id, visibility);
 }
 
-void AppListControllerImpl::NotifySearchResultsForLogging(
-    const std::u16string& raw_query,
-    const SearchResultIdWithPositionIndices& results,
-    int position_index) {
-  if (client_) {
-    std::u16string query;
-    base::TrimWhitespace(raw_query, base::TRIM_ALL, &query);
-    client_->NotifySearchResultsForLogging(query, results, position_index);
-  }
-}
-
 void AppListControllerImpl::MaybeIncreaseSuggestedContentInfoShownCount() {
   if (ShouldShowSuggestedContentInfo()) {
     const int count = GetSuggestedContentInfoShownCount();
@@ -1654,6 +1656,9 @@ bool AppListControllerImpl::ShouldHideContinueSection() const {
 
 void AppListControllerImpl::SetHideContinueSection(bool hide) {
   PrefService* prefs = GetLastActiveUserPrefService();
+  bool is_hidden = prefs->GetBoolean(prefs::kLauncherContinueSectionHidden);
+  if (hide == is_hidden)
+    return;
   prefs->SetBoolean(prefs::kLauncherContinueSectionHidden, hide);
   fullscreen_presenter_->UpdateContinueSectionVisibility();
   bubble_presenter_->UpdateContinueSectionVisibility();

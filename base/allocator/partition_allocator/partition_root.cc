@@ -338,10 +338,8 @@ static size_t PartitionPurgeSlotSpan(
   // slots are not in use.
   for (PartitionFreelistEntry* entry = slot_span->get_freelist_head(); entry;
        /**/) {
-    size_t slot_index = (::partition_alloc::internal::UnmaskPtr(
-                             reinterpret_cast<uintptr_t>(entry)) -
-                         slot_span_start) /
-                        slot_size;
+    size_t slot_index =
+        (SlotStartPtr2Addr(entry) - slot_span_start) / slot_size;
     PA_DCHECK(slot_index < num_slots);
     slot_usage[slot_index] = 0;
 #if !BUILDFLAG(IS_WIN)
@@ -480,12 +478,11 @@ static void PartitionDumpSlotSpanStats(
 
   if (slot_span->CanStoreRawSize()) {
     stats_out->active_bytes += static_cast<uint32_t>(slot_span->GetRawSize());
-    stats_out->active_count += 1;
   } else {
     stats_out->active_bytes +=
         (slot_span->num_allocated_slots * stats_out->bucket_slot_size);
-    stats_out->active_count += slot_span->num_allocated_slots;
   }
+  stats_out->active_count += slot_span->num_allocated_slots;
 
   size_t slot_span_bytes_resident = RoundUpToSystemPage(
       (bucket_num_slots - slot_span->num_unprovisioned_slots) *
@@ -685,6 +682,10 @@ void PartitionRoot<thread_safe>::Init(PartitionOptions opts) {
 #if BUILDFLAG(USE_BACKUP_REF_PTR)
     flags.brp_enabled_ =
         opts.backup_ref_ptr == PartitionOptions::BackupRefPtr::kEnabled;
+    flags.brp_zapping_enabled_ =
+        opts.backup_ref_ptr_zapping ==
+        PartitionOptions::BackupRefPtrZapping::kEnabled;
+    PA_CHECK(!flags.brp_zapping_enabled_ || flags.brp_enabled_);
 #else
     PA_CHECK(opts.backup_ref_ptr == PartitionOptions::BackupRefPtr::kDisabled);
 #endif
@@ -829,6 +830,7 @@ bool PartitionRoot<thread_safe>::TryReallocInPlaceForDirectMap(
     internal::SlotSpanMetadata<thread_safe>* slot_span,
     size_t requested_size) {
   PA_DCHECK(slot_span->bucket->is_direct_mapped());
+  // Slot-span metadata isn't MTE-tagged.
   PA_DCHECK(
       internal::IsManagedByDirectMap(reinterpret_cast<uintptr_t>(slot_span)));
 
@@ -922,8 +924,7 @@ bool PartitionRoot<thread_safe>::TryReallocInPlaceForDirectMap(
 #if BUILDFLAG(PA_DCHECK_IS_ON)
   // Write a new trailing cookie.
   if (flags.allow_cookie) {
-    auto* object =
-        reinterpret_cast<unsigned char*>(SlotStartToObject(slot_start));
+    auto* object = static_cast<unsigned char*>(SlotStartToObject(slot_start));
     internal::PartitionCookieWriteValue(object +
                                         slot_span->GetUsableSize(this));
   }
@@ -934,17 +935,17 @@ bool PartitionRoot<thread_safe>::TryReallocInPlaceForDirectMap(
 
 template <bool thread_safe>
 bool PartitionRoot<thread_safe>::TryReallocInPlaceForNormalBuckets(
-    void* ptr,
+    void* object,
     SlotSpan* slot_span,
     size_t new_size) {
-  uintptr_t address = reinterpret_cast<uintptr_t>(ptr);
-  PA_DCHECK(internal::IsManagedByNormalBuckets(address));
+  uintptr_t slot_start = ObjectToSlotStart(object);
+  PA_DCHECK(internal::IsManagedByNormalBuckets(slot_start));
 
   // TODO: note that tcmalloc will "ignore" a downsizing realloc() unless the
   // new size is a significant percentage smaller. We could do the same if we
   // determine it is a win.
   if (AllocationCapacityFromRequestedSize(new_size) !=
-      AllocationCapacityFromPtr(ptr))
+      AllocationCapacityFromPtr(object))
     return false;
 
   // Trying to allocate |new_size| would use the same amount of underlying
@@ -952,7 +953,6 @@ bool PartitionRoot<thread_safe>::TryReallocInPlaceForNormalBuckets(
   // statistics (and cookie, if present).
   if (slot_span->CanStoreRawSize()) {
 #if BUILDFLAG(PUT_REF_COUNT_IN_PREVIOUS_SLOT) && BUILDFLAG(PA_DCHECK_IS_ON)
-    uintptr_t slot_start = ObjectToSlotStart(ptr);
     internal::PartitionRefCount* old_ref_count;
     if (brp_enabled()) {
       old_ref_count = internal::PartitionRefCountPointer(slot_start);
@@ -973,13 +973,12 @@ bool PartitionRoot<thread_safe>::TryReallocInPlaceForNormalBuckets(
     // Write a new trailing cookie only when it is possible to keep track
     // raw size (otherwise we wouldn't know where to look for it later).
     if (flags.allow_cookie) {
-      internal::PartitionCookieWriteValue(
-          reinterpret_cast<unsigned char*>(address) +
-          slot_span->GetUsableSize(this));
+      internal::PartitionCookieWriteValue(static_cast<unsigned char*>(object) +
+                                          slot_span->GetUsableSize(this));
     }
 #endif  // BUILDFLAG(PA_DCHECK_IS_ON)
   }
-  return ptr;
+  return object;
 }
 
 template <bool thread_safe>
@@ -1177,6 +1176,12 @@ void PartitionRoot<thread_safe>::DumpStats(const char* partition_name,
         total_size_of_brp_quarantined_bytes.load(std::memory_order_relaxed);
     stats.total_brp_quarantined_count =
         total_count_of_brp_quarantined_slots.load(std::memory_order_relaxed);
+    stats.cumulative_brp_quarantined_bytes =
+        cumulative_size_of_brp_quarantined_bytes.load(
+            std::memory_order_relaxed);
+    stats.cumulative_brp_quarantined_count =
+        cumulative_count_of_brp_quarantined_slots.load(
+            std::memory_order_relaxed);
 #endif
 
     size_t direct_mapped_allocations_total_size = 0;

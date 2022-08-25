@@ -18,7 +18,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/cookie_settings_factory.h"
 #include "chrome/browser/history_clusters/history_clusters_tab_helper.h"
-#include "chrome/browser/prefetch/no_state_prefetch/no_state_prefetch_manager_factory.h"
+#include "chrome/browser/preloading/prefetch/no_state_prefetch/no_state_prefetch_manager_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/common/pref_names.h"
@@ -254,6 +254,15 @@ page_load_metrics::PageLoadMetricsObserver::ObservePolicy
 UkmPageLoadMetricsObserver::OnFencedFramesStart(
     content::NavigationHandle* navigation_handle,
     const GURL& currently_committed_url) {
+  return STOP_OBSERVING;
+}
+
+page_load_metrics::PageLoadMetricsObserver::ObservePolicy
+UkmPageLoadMetricsObserver::OnPrerenderStart(
+    content::NavigationHandle* navigation_handle,
+    const GURL& currently_committed_url) {
+  // PrerenderPageLoadMetricsObserver records prerendering version of metrics
+  // and this PLMO can stop on prerendering.
   return STOP_OBSERVING;
 }
 
@@ -769,6 +778,8 @@ void UkmPageLoadMetricsObserver::RecordTimingMetrics(
   builder.SetNet_MediaBytes2(
       ukm::GetExponentialBucketMinForBytes(media_bytes_));
 
+  builder.SetSoftNavigationCount(GetDelegate().GetSoftNavigationCount());
+
   if (main_frame_timing_)
     ReportMainResourceTimingMetrics(builder);
 
@@ -1206,9 +1217,6 @@ void UkmPageLoadMetricsObserver::RecordSmoothnessMetrics() {
     builder.SetWorstCaseAfter5Sec(smoothness_data.worst_smoothness_after5sec);
   builder.Record(ukm::UkmRecorder::Get());
 
-  base::UmaHistogramPercentage(
-      "Graphics.Smoothness.PerSession.AveragePercentDroppedFrames",
-      smoothness_data.avg_smoothness);
   base::UmaHistogramPercentage(
       "Graphics.Smoothness.PerSession.95pctPercentDroppedFrames_1sWindow",
       smoothness_data.percentile_95);

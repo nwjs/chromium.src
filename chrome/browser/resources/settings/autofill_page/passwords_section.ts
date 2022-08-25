@@ -22,11 +22,12 @@ import '../controls/password_prompt_dialog.js';
 // </if>
 import '../controls/settings_toggle_button.js';
 import '../prefs/prefs.js';
-import '../settings_shared_css.js';
+import '../settings_shared.css.js';
 import '../site_favicon.js';
 import './password_list_item.js';
 import './passwords_list_handler.js';
 import './passwords_export_dialog.js';
+import './passwords_import_dialog.js';
 import './passwords_shared.css.js';
 import './avatar_icon.js';
 
@@ -35,31 +36,30 @@ import {CrActionMenuElement} from 'chrome://resources/cr_elements/cr_action_menu
 import {CrLinkRowElement} from 'chrome://resources/cr_elements/cr_link_row/cr_link_row.js';
 import {assert, assertNotReached} from 'chrome://resources/js/assert_ts.js';
 import {focusWithoutInk} from 'chrome://resources/js/cr/ui/focus_without_ink.m.js';
-import {I18nMixin} from 'chrome://resources/js/i18n_mixin.js';
+import {I18nMixin, I18nMixinInterface} from 'chrome://resources/js/i18n_mixin.js';
 import {getDeepActiveElement} from 'chrome://resources/js/util.m.js';
-import {WebUIListenerMixin} from 'chrome://resources/js/web_ui_listener_mixin.js';
+import {WebUIListenerMixin, WebUIListenerMixinInterface} from 'chrome://resources/js/web_ui_listener_mixin.js';
 import {DomRepeat, DomRepeatEvent, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
-import {GlobalScrollTargetMixin} from '../global_scroll_target_mixin.js';
+import {FocusConfig} from '../focus_config.js';
+import {GlobalScrollTargetMixin, GlobalScrollTargetMixinInterface} from '../global_scroll_target_mixin.js';
 import {HatsBrowserProxyImpl, TrustSafetyInteraction} from '../hats_browser_proxy.js';
 import {loadTimeData} from '../i18n_setup.js';
 import {OpenWindowProxyImpl} from '../open_window_proxy.js';
 import {StoredAccount, SyncBrowserProxyImpl, SyncPrefs, SyncStatus, TrustedVaultBannerState} from '../people_page/sync_browser_proxy.js';
-import {PrefsMixin} from '../prefs/prefs_mixin.js';
+import {PrefsMixin, PrefsMixinInterface} from '../prefs/prefs_mixin.js';
 import {routes} from '../route.js';
-import {Route, Router} from '../router.js';
+import {Route, RouteObserverMixin, RouteObserverMixinInterface, Router} from '../router.js';
 
 // <if expr="chromeos_ash or chromeos_lacros">
 import {BlockingRequestManager} from './blocking_request_manager.js';
 // </if>
-import {MergeExceptionsStoreCopiesMixin} from './merge_exceptions_store_copies_mixin.js';
-import {MergePasswordsStoreCopiesMixin} from './merge_passwords_store_copies_mixin.js';
-import {MultiStoreExceptionEntry} from './multi_store_exception_entry.js';
+import {MergePasswordsStoreCopiesMixin, MergePasswordsStoreCopiesMixinInterface} from './merge_passwords_store_copies_mixin.js';
 import {MultiStorePasswordUiEntry} from './multi_store_password_ui_entry.js';
-import {PasswordCheckMixin} from './password_check_mixin.js';
+import {PasswordCheckMixin, PasswordCheckMixinInterface} from './password_check_mixin.js';
 import {AddCredentialFromSettingsUserInteractions, PasswordEditDialogElement} from './password_edit_dialog.js';
 import {PasswordCheckReferrer, PasswordExceptionListChangedListener, PasswordManagerImpl, PasswordManagerProxy} from './password_manager_proxy.js';
-import {PasswordRequestorMixin} from './password_requestor_mixin.js';
+import {PasswordRequestorMixin, PasswordRequestorMixinInterface} from './password_requestor_mixin.js';
 import {PasswordsListHandlerElement} from './passwords_list_handler.js';
 import {getTemplate} from './passwords_section.html.js';
 
@@ -75,8 +75,6 @@ function isEditable(element: Element): boolean {
         /^(?:text|search|email|number|tel|url|password)$/i.test(
             (element as HTMLInputElement).type)));
 }
-
-type FocusConfig = Map<string, string|(() => void)>;
 
 export interface PasswordsSectionElement {
   $: {
@@ -108,10 +106,16 @@ export interface PasswordsSectionElement {
   };
 }
 
-const PasswordsSectionElementBase = MergePasswordsStoreCopiesMixin(
-    PasswordRequestorMixin(PrefsMixin(GlobalScrollTargetMixin(
-        MergeExceptionsStoreCopiesMixin(WebUIListenerMixin(
-            I18nMixin(PasswordCheckMixin(PolymerElement))))))));
+const PasswordsSectionElementBase =
+    MergePasswordsStoreCopiesMixin(PasswordRequestorMixin(PrefsMixin(
+        GlobalScrollTargetMixin(RouteObserverMixin(WebUIListenerMixin(
+            I18nMixin(PasswordCheckMixin(PolymerElement)))))))) as {
+      new (): PolymerElement & PasswordCheckMixinInterface &
+          I18nMixinInterface & WebUIListenerMixinInterface &
+          RouteObserverMixinInterface & GlobalScrollTargetMixinInterface &
+          PrefsMixinInterface & PasswordRequestorMixinInterface &
+          MergePasswordsStoreCopiesMixinInterface,
+    };
 
 export class PasswordsSectionElement extends PasswordsSectionElementBase {
   static get is() {
@@ -244,6 +248,14 @@ export class PasswordsSectionElement extends PasswordsSectionElementBase {
             'eligibleForAccountStorage_)',
       },
 
+      isAutomaticPasswordChangeEnabled_: {
+        type: Boolean,
+        value() {
+          return loadTimeData.getBoolean(
+              'enableAutomaticPasswordChangeInSettings');
+        },
+      },
+
       isPasswordViewPageEnabled_: {
         type: Boolean,
         value() {
@@ -264,7 +276,13 @@ export class PasswordsSectionElement extends PasswordsSectionElementBase {
         value() {
           return loadTimeData.valueExists('showImportPasswords') &&
               loadTimeData.getBoolean('showImportPasswords');
-        }
+        },
+      },
+
+      /** An array of blocked sites to display. */
+      passwordExceptions: {
+        type: Array,
+        value: () => [],
       },
 
       profileEmail_: {
@@ -287,6 +305,7 @@ export class PasswordsSectionElement extends PasswordsSectionElementBase {
       // </if>
 
       showPasswordsExportDialog_: Boolean,
+      showPasswordsImportDialog_: Boolean,
 
       showAddPasswordDialog_: Boolean,
 
@@ -302,11 +321,12 @@ export class PasswordsSectionElement extends PasswordsSectionElementBase {
   focusConfig: FocusConfig;
   subpageRoute: Route;
   filter: string;
+  passwordExceptions: chrome.passwordsPrivate.ExceptionEntry[];
 
   private shownPasswordsCount_: number;
   private shownExceptionsCount_: number;
 
-  private storedAccounts_: Array<StoredAccount>;
+  private storedAccounts_: StoredAccount[];
   private signedIn_: boolean;
   private eligibleForAccountStorage_: boolean;
   private hasNeverCheckedPasswords_: boolean;
@@ -315,6 +335,7 @@ export class PasswordsSectionElement extends PasswordsSectionElementBase {
   private hasPasswordExceptions_: boolean;
   private shouldShowBanner_: boolean;
   private isAccountStoreUser_: boolean;
+  private isAutomaticPasswordChangeEnabled_: boolean;
   private isPasswordViewPageEnabled_: boolean;
   private isUnifiedPasswordManagerEnabled_: boolean;
   private shouldShowDevicePasswordsLink_: boolean;
@@ -333,10 +354,11 @@ export class PasswordsSectionElement extends PasswordsSectionElementBase {
   // </if>
 
   private showPasswordsExportDialog_: boolean;
+  private showPasswordsImportDialog_: boolean;
   private showAddPasswordDialog_: boolean;
   private showAddPasswordButton_: boolean;
 
-  private activeDialogAnchorStack_: Array<HTMLElement>;
+  private activeDialogAnchorStack_: HTMLElement[];
   private passwordManager_: PasswordManagerProxy =
       PasswordManagerImpl.getInstance();
   private setIsOptedInForAccountStorageListener_:
@@ -378,12 +400,13 @@ export class PasswordsSectionElement extends PasswordsSectionElementBase {
     super.connectedCallback();
 
     // Create listener functions.
-    const setIsOptedInForAccountStorageListener = (optedIn: boolean) => {
+    this.setIsOptedInForAccountStorageListener_ = (optedIn: boolean) => {
       this.isOptedInForAccountStorage_ = optedIn;
     };
 
-    this.setIsOptedInForAccountStorageListener_ =
-        setIsOptedInForAccountStorageListener;
+    this.setPasswordExceptionsListener_ = exceptionList => {
+      this.passwordExceptions = exceptionList;
+    };
 
     // <if expr="chromeos_ash or chromeos_lacros">
     // If the user's account supports the password check, an auth token will be
@@ -400,11 +423,14 @@ export class PasswordsSectionElement extends PasswordsSectionElementBase {
 
     // Request initial data.
     this.passwordManager_.isOptedInForAccountStorage().then(
-        setIsOptedInForAccountStorageListener);
+        this.setIsOptedInForAccountStorageListener_);
+    this.passwordManager_.getExceptionList(this.setPasswordExceptionsListener_);
 
     // Listen for changes.
     this.passwordManager_.addAccountStorageOptInStateListener(
-        setIsOptedInForAccountStorageListener);
+        this.setIsOptedInForAccountStorageListener_);
+    this.passwordManager_.addExceptionListChangedListener(
+        this.setPasswordExceptionsListener_);
 
     const syncBrowserProxy = SyncBrowserProxyImpl.getInstance();
 
@@ -420,7 +446,7 @@ export class PasswordsSectionElement extends PasswordsSectionElementBase {
 
     // For non-ChromeOS, non-Lacros, also check whether accounts are available.
     // <if expr="not (chromeos_ash or chromeos_lacros)">
-    const storedAccountsChanged = (accounts: Array<StoredAccount>) =>
+    const storedAccountsChanged = (accounts: StoredAccount[]) =>
         this.storedAccounts_ = accounts;
     syncBrowserProxy.getStoredAccounts().then(storedAccountsChanged);
     this.addWebUIListener('stored-accounts-updated', storedAccountsChanged);
@@ -444,14 +470,29 @@ export class PasswordsSectionElement extends PasswordsSectionElementBase {
     this.passwordManager_.removeAccountStorageOptInStateListener(
         this.setIsOptedInForAccountStorageListener_);
     this.setIsOptedInForAccountStorageListener_ = null;
+
+    assert(this.setPasswordExceptionsListener_);
+    PasswordManagerImpl.getInstance().removeExceptionListChangedListener(
+        this.setPasswordExceptionsListener_);
+    this.setPasswordExceptionsListener_ = null;
+  }
+
+  override currentRouteChanged(route: Route): void {
+    super.currentRouteChanged(route);
+
+    // If password change scripts are enabled, the scripts cache should be
+    // refreshed to minimize any UI modifications on the password check page.
+    if (route === routes.PASSWORDS && this.isAutomaticPasswordChangeEnabled_) {
+      this.passwordManager_.refreshScriptsIfNecessary();
+    }
   }
 
   private computeShowAddPasswordButton_(): boolean {
-    return loadTimeData.getBoolean('addPasswordsInSettingsEnabled') &&
-        // Don't show add button if password manager is disabled by policy.
-        !(this.prefs.credentials_enable_service.enforcement ===
-              chrome.settingsPrivate.Enforcement.ENFORCED &&
-          !this.prefs.credentials_enable_service.value);
+    // Don't show add button if password manager is disabled by policy.
+    return !(
+        this.prefs.credentials_enable_service.enforcement ===
+            chrome.settingsPrivate.Enforcement.ENFORCED &&
+        !this.prefs.credentials_enable_service.value);
   }
 
   private computeSignedIn_(): boolean {
@@ -474,7 +515,11 @@ export class PasswordsSectionElement extends PasswordsSectionElementBase {
   }
 
   private computeNumberOfDevicePasswords_(): number {
-    return this.savedPasswords.filter(p => p.isPresentOnDevice()).length;
+    return this.savedPasswords
+        .filter(
+            p =>
+                p.storedIn !== chrome.passwordsPrivate.PasswordStoreSet.ACCOUNT)
+        .length;
   }
 
   private computeHasPasswordExceptions_(): boolean {
@@ -624,16 +669,9 @@ export class PasswordsSectionElement extends PasswordsSectionElementBase {
    * Fires an event that should delete the password exception.
    */
   private onRemoveExceptionButtonTap_(
-      e: DomRepeatEvent<MultiStoreExceptionEntry>) {
+      e: DomRepeatEvent<chrome.passwordsPrivate.ExceptionEntry>) {
     const exception = e.model.item;
-    const allExceptionIds: Array<number> = [];
-    if (exception.isPresentInAccount()) {
-      allExceptionIds.push(exception.accountId!);
-    }
-    if (exception.isPresentOnDevice()) {
-      allExceptionIds.push(exception.deviceId!);
-    }
-    this.passwordManager_.removeExceptions(allExceptionIds);
+    this.passwordManager_.removeException(exception.id);
   }
 
   /**
@@ -650,8 +688,15 @@ export class PasswordsSectionElement extends PasswordsSectionElementBase {
    * Fires an event that should trigger the password import process.
    */
   private onImportTap_() {
-    this.passwordManager_.importPasswords();
+    this.showPasswordsImportDialog_ = true;
     this.$.exportImportMenu.close();
+  }
+
+  private onPasswordsImportDialogClosed_() {
+    this.showPasswordsImportDialog_ = false;
+    const toFocus = this.activeDialogAnchorStack_.pop();
+    assert(toFocus);
+    focusWithoutInk(toFocus);
   }
 
   /**

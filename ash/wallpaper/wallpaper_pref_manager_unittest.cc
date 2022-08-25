@@ -77,6 +77,9 @@ base::Value CreateWallpaperInfoDict(WallpaperInfo info) {
       base::NumberToString(info.date.ToInternalValue()));
   wallpaper_info_dict.SetStringKey(
       WallpaperPrefManager::kNewWallpaperLocationNodeName, info.location);
+  wallpaper_info_dict.SetStringKey(
+      WallpaperPrefManager::kNewWallpaperUserFilePathNodeName,
+      info.user_file_path);
   wallpaper_info_dict.SetIntKey(
       WallpaperPrefManager::kNewWallpaperLayoutNodeName, info.layout);
   wallpaper_info_dict.SetIntKey(WallpaperPrefManager::kNewWallpaperTypeNodeName,
@@ -230,7 +233,6 @@ TEST_F(WallpaperPrefManagerTest, SetWallpaperInfoLocal) {
 }
 
 TEST_F(WallpaperPrefManagerTest, SetWallpaperInfoSynced) {
-  base::test::ScopedFeatureList scoped_features(features::kWallpaperWebUI);
   profile_helper_->RegisterPrefsForAccount(account_id_1);
 
   WallpaperInfo info = InfoWithType(WallpaperType::kOnline);
@@ -241,9 +243,6 @@ TEST_F(WallpaperPrefManagerTest, SetWallpaperInfoSynced) {
 }
 
 TEST_F(WallpaperPrefManagerTest, SetWallpaperInfoSyncDisabled) {
-  base::test::ScopedFeatureList scoped_features;
-  scoped_features.InitAndEnableFeature(features::kWallpaperWebUI);
-
   profile_helper_->RegisterPrefsForAccount(account_id_1);
   // This needs to be saved before sync is disabled or we can't get a pref
   // service.

@@ -54,6 +54,11 @@ class TestAuthenticatorModelObserver final
       : model_(model) {
     last_step_ = model_->current_step();
   }
+  ~TestAuthenticatorModelObserver() override {
+    if (model_) {
+      model_->RemoveObserver(this);
+    }
+  }
 
   AuthenticatorRequestDialogModel::Step last_step() { return last_step_; }
 
@@ -120,11 +125,11 @@ TEST_F(ChromeAuthenticatorRequestDelegateTest, IndividualAttestation) {
     PrefService* prefs =
         Profile::FromBrowserContext(GetBrowserContext())->GetPrefs();
     if (!test.permit_attestation_policy_values.empty()) {
-      std::vector<base::Value> policy_values;
+      base::Value::List policy_values;
       for (const std::string& v : test.permit_attestation_policy_values)
-        policy_values.emplace_back(v);
-      prefs->Set(prefs::kSecurityKeyPermitAttestation,
-                 base::Value(std::move(policy_values)));
+        policy_values.Append(v);
+      prefs->SetList(prefs::kSecurityKeyPermitAttestation,
+                     std::move(policy_values));
     } else {
       prefs->ClearPref(prefs::kSecurityKeyPermitAttestation);
     }
@@ -312,7 +317,7 @@ TEST_F(ChromeAuthenticatorRequestDelegateTest, ConditionalUI) {
     delegate.OnTransportAvailabilityEnumerated(
         AuthenticatorRequestDialogModel::TransportAvailabilityInfo());
     EXPECT_EQ(observer.last_step() ==
-                  AuthenticatorRequestDialogModel::Step::kLocationBarBubble,
+                  AuthenticatorRequestDialogModel::Step::kConditionalMediation,
               conditional_ui);
   }
 }

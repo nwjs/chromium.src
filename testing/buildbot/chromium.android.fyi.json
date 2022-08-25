@@ -1245,7 +1245,7 @@
       },
       {
         "args": [
-          "--gtest_filter=-org.chromium.chrome.browser.contextualsearch.ContextualSearchManagerTest.test*ExternalNavigationWithUserGesture*",
+          "--gtest_filter=-org.chromium.chrome.browser.contextualsearch.ContextualSearchManagerTest.test*ExternalNavigationWithUserGesture*:org.chromium.shape_detection.*",
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices",
           "--avd-config=../../tools/android/avd/proto/generic_android23.textpb",
@@ -1388,7 +1388,8 @@
               "name": "shard #${SHARD_INDEX} logcats"
             }
           ],
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 4
         },
         "test": "chrome_public_unit_test_apk",
         "test_id_prefix": "ninja://chrome/android:chrome_public_unit_test_apk/"
@@ -2888,7 +2889,8 @@
         "args": [
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices",
-          "--avd-config=../../tools/android/avd/proto/generic_android24.textpb"
+          "--avd-config=../../tools/android/avd/proto/generic_android24.textpb",
+          "--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_n.blink_platform_unittests.filter"
         ],
         "isolate_profile_data": true,
         "merge": {
@@ -3565,11 +3567,12 @@
       },
       {
         "args": [
-          "--gtest_filter=-org.chromium.chrome.browser.contextualsearch.ContextualSearchManagerTest.test*ExternalNavigationWithUserGesture*",
+          "--gtest_filter=-org.chromium.chrome.browser.contextualsearch.ContextualSearchManagerTest.test*ExternalNavigationWithUserGesture*:org.chromium.shape_detection.*",
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices",
           "--avd-config=../../tools/android/avd/proto/generic_android24.textpb",
-          "--git-revision=${got_revision}"
+          "--git-revision=${got_revision}",
+          "--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_n.chrome_public_test_apk.filter"
         ],
         "isolate_profile_data": true,
         "merge": {
@@ -3640,7 +3643,7 @@
       },
       {
         "args": [
-          "--gtest_filter=org.chromium.chrome.browser.contextualsearch.ContextualSearchManagerTest.test*ExternalNavigationWithUserGesture*",
+          "--gtest_filter=org.chromium.chrome.browser.contextualsearch.ContextualSearchManagerTest.test*ExternalNavigationWithUserGesture*:org.chromium.shape_detection.*",
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices",
           "--avd-config=../../tools/android/avd/proto/generic_android24.textpb",
@@ -3781,7 +3784,8 @@
               "name": "shard #${SHARD_INDEX} logcats"
             }
           ],
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 4
         },
         "test": "chrome_public_unit_test_apk",
         "test_id_prefix": "ninja://chrome/android:chrome_public_unit_test_apk/"
@@ -3993,7 +3997,8 @@
         "args": [
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices",
-          "--avd-config=../../tools/android/avd/proto/generic_android24.textpb"
+          "--avd-config=../../tools/android/avd/proto/generic_android24.textpb",
+          "--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_n.content_shell_test_apk.filter"
         ],
         "isolate_profile_data": true,
         "merge": {
@@ -4666,7 +4671,8 @@
           "--use-cmd-decoder=validating",
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices",
-          "--avd-config=../../tools/android/avd/proto/generic_android24.textpb"
+          "--avd-config=../../tools/android/avd/proto/generic_android24.textpb",
+          "--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_n.gl_tests.filter"
         ],
         "isolate_profile_data": true,
         "merge": {
@@ -5740,7 +5746,8 @@
         "args": [
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices",
-          "--avd-config=../../tools/android/avd/proto/generic_android24.textpb"
+          "--avd-config=../../tools/android/avd/proto/generic_android24.textpb",
+          "--gtest_filter=-ScopedDirTest.CloseOutOfScope"
         ],
         "isolate_profile_data": true,
         "merge": {
@@ -5807,7 +5814,8 @@
         "args": [
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices",
-          "--avd-config=../../tools/android/avd/proto/generic_android24.textpb"
+          "--avd-config=../../tools/android/avd/proto/generic_android24.textpb",
+          "--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator.sandbox_linux_unittests.filter"
         ],
         "isolate_profile_data": true,
         "merge": {
@@ -5874,7 +5882,8 @@
         "args": [
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices",
-          "--avd-config=../../tools/android/avd/proto/generic_android24.textpb"
+          "--avd-config=../../tools/android/avd/proto/generic_android24.textpb",
+          "--gtest_filter=-PacLibraryTest.ActualPacMyIpAddress*"
         ],
         "isolate_profile_data": true,
         "merge": {
@@ -6204,73 +6213,6 @@
         },
         "test": "storage_unittests",
         "test_id_prefix": "ninja://storage:storage_unittests/"
-      },
-      {
-        "args": [
-          "--gs-results-bucket=chromium-result-details",
-          "--recover-devices",
-          "--avd-config=../../tools/android/avd/proto/generic_android24.textpb"
-        ],
-        "isolate_profile_data": true,
-        "merge": {
-          "args": [
-            "--bucket",
-            "chromium-result-details",
-            "--test-name",
-            "system_webview_shell_layout_test_apk"
-          ],
-          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
-        },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "cipd_packages": [
-            {
-              "cipd_package": "infra/tools/luci/logdog/butler/${platform}",
-              "location": "bin",
-              "revision": "git_revision:ff387eadf445b24c935f1cf7d6ddd279f8a6b04c"
-            }
-          ],
-          "dimension_sets": [
-            {
-              "cpu": "x86-64",
-              "device_os": null,
-              "device_type": null,
-              "machine_type": "n1-standard-4|e2-standard-4",
-              "os": "Ubuntu-18.04",
-              "pool": "chromium.tests.avd"
-            }
-          ],
-          "named_caches": [
-            {
-              "name": "generic_android25",
-              "path": ".android_emulator/generic_android25"
-            }
-          ],
-          "optional_dimensions": {
-            "60": [
-              {
-                "caches": "generic_android25"
-              }
-            ]
-          },
-          "output_links": [
-            {
-              "link": [
-                "https://luci-logdog.appspot.com/v/?s",
-                "=android%2Fswarming%2Flogcats%2F",
-                "${TASK_ID}%2F%2B%2Funified_logcats"
-              ],
-              "name": "shard #${SHARD_INDEX} logcats"
-            }
-          ],
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "system_webview_shell_layout_test_apk",
-        "test_id_prefix": "ninja://android_webview/tools/system_webview_shell:system_webview_shell_layout_test_apk/"
       },
       {
         "args": [
@@ -7014,7 +6956,8 @@
         "args": [
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices",
-          "--avd-config=../../tools/android/avd/proto/generic_android24.textpb"
+          "--avd-config=../../tools/android/avd/proto/generic_android24.textpb",
+          "--gtest_filter=-android.assist.cts.WebViewTest#testWebView"
         ],
         "isolate_profile_data": true,
         "merge": {
@@ -8274,7 +8217,7 @@
             {
               "cipd_package": "chromium/testing/weblayer-x86",
               "location": "weblayer_instrumentation_test_M102",
-              "revision": "version:102.0.5005.124"
+              "revision": "version:102.0.5005.125"
             },
             {
               "cipd_package": "infra/tools/luci/logdog/butler/${platform}",
@@ -8325,15 +8268,15 @@
       {
         "args": [
           "--additional-apk=apks/WebLayerShellSystemWebView.apk",
+          "--webview-apk-path=apks/SystemWebView.apk",
           "--test-runner-outdir",
           ".",
+          "--client-outdir",
+          "../../weblayer_instrumentation_test_M103/out/Release",
           "--implementation-outdir",
           ".",
           "--test-expectations",
           "../../weblayer/browser/android/javatests/skew/expectations.txt",
-          "--webview-apk-path=apks/SystemWebView.apk",
-          "--client-outdir",
-          "../../weblayer_instrumentation_test_M103/out/Release",
           "--client-version=103",
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices",
@@ -8359,7 +8302,7 @@
             {
               "cipd_package": "chromium/testing/weblayer-x86",
               "location": "weblayer_instrumentation_test_M103",
-              "revision": "version:103.0.5060.45"
+              "revision": "version:103.0.5060.140"
             },
             {
               "cipd_package": "infra/tools/luci/logdog/butler/${platform}",
@@ -8410,16 +8353,16 @@
       {
         "args": [
           "--additional-apk=apks/WebLayerShellSystemWebView.apk",
+          "--webview-apk-path=apks/SystemWebView.apk",
           "--test-runner-outdir",
           ".",
+          "--client-outdir",
+          "../../weblayer_instrumentation_test_M104/out/Release",
           "--implementation-outdir",
           ".",
           "--test-expectations",
           "../../weblayer/browser/android/javatests/skew/expectations.txt",
-          "--webview-apk-path=apks/SystemWebView.apk",
-          "--client-outdir",
-          "../../weblayer_instrumentation_test_M98/out/Release",
-          "--client-version=98",
+          "--client-version=104",
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices",
           "--avd-config=../../tools/android/avd/proto/generic_android30.textpb"
@@ -8429,11 +8372,11 @@
             "--bucket",
             "chromium-result-details",
             "--test-name",
-            "weblayer_skew_tests with_client_from_98"
+            "weblayer_skew_tests with_client_from_104"
           ],
           "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
         },
-        "name": "weblayer_skew_tests with_client_from_98",
+        "name": "weblayer_skew_tests with_client_from_104",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -8443,8 +8386,8 @@
           "cipd_packages": [
             {
               "cipd_package": "chromium/testing/weblayer-x86",
-              "location": "weblayer_instrumentation_test_M98",
-              "revision": "version:98.0.4758.109"
+              "location": "weblayer_instrumentation_test_M104",
+              "revision": "version:104.0.5112.59"
             },
             {
               "cipd_package": "infra/tools/luci/logdog/butler/${platform}",
@@ -8490,7 +8433,7 @@
         },
         "test": "weblayer_skew_tests",
         "test_id_prefix": "ninja://weblayer/browser/android/javatests:weblayer_skew_tests/",
-        "variant_id": "with_client_from_98"
+        "variant_id": "with_client_from_104"
       },
       {
         "args": [
@@ -8784,7 +8727,7 @@
             {
               "cipd_package": "chromium/testing/weblayer-x86",
               "location": "weblayer_instrumentation_test_M102",
-              "revision": "version:102.0.5005.124"
+              "revision": "version:102.0.5005.125"
             },
             {
               "cipd_package": "infra/tools/luci/logdog/butler/${platform}",
@@ -8835,15 +8778,15 @@
       {
         "args": [
           "--additional-apk=apks/WebLayerShellSystemWebView.apk",
+          "--webview-apk-path=apks/AOSP_SystemWebView.apk",
           "--test-runner-outdir",
           ".",
           "--client-outdir",
           ".",
-          "--test-expectations",
-          "../../weblayer/browser/android/javatests/skew/expectations.txt",
-          "--webview-apk-path=apks/AOSP_SystemWebView.apk",
           "--implementation-outdir",
           "../../weblayer_instrumentation_test_M103/out/Release",
+          "--test-expectations",
+          "../../weblayer/browser/android/javatests/skew/expectations.txt",
           "--impl-version=103",
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices",
@@ -8869,7 +8812,7 @@
             {
               "cipd_package": "chromium/testing/weblayer-x86",
               "location": "weblayer_instrumentation_test_M103",
-              "revision": "version:103.0.5060.45"
+              "revision": "version:103.0.5060.140"
             },
             {
               "cipd_package": "infra/tools/luci/logdog/butler/${platform}",
@@ -8920,16 +8863,16 @@
       {
         "args": [
           "--additional-apk=apks/WebLayerShellSystemWebView.apk",
+          "--webview-apk-path=apks/AOSP_SystemWebView.apk",
           "--test-runner-outdir",
           ".",
           "--client-outdir",
           ".",
+          "--implementation-outdir",
+          "../../weblayer_instrumentation_test_M104/out/Release",
           "--test-expectations",
           "../../weblayer/browser/android/javatests/skew/expectations.txt",
-          "--webview-apk-path=apks/AOSP_SystemWebView.apk",
-          "--implementation-outdir",
-          "../../weblayer_instrumentation_test_M98/out/Release",
-          "--impl-version=98",
+          "--impl-version=104",
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices",
           "--avd-config=../../tools/android/avd/proto/generic_android30.textpb"
@@ -8939,11 +8882,11 @@
             "--bucket",
             "chromium-result-details",
             "--test-name",
-            "weblayer_skew_tests with_impl_from_98"
+            "weblayer_skew_tests with_impl_from_104"
           ],
           "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
         },
-        "name": "weblayer_skew_tests with_impl_from_98",
+        "name": "weblayer_skew_tests with_impl_from_104",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -8953,8 +8896,8 @@
           "cipd_packages": [
             {
               "cipd_package": "chromium/testing/weblayer-x86",
-              "location": "weblayer_instrumentation_test_M98",
-              "revision": "version:98.0.4758.109"
+              "location": "weblayer_instrumentation_test_M104",
+              "revision": "version:104.0.5112.59"
             },
             {
               "cipd_package": "infra/tools/luci/logdog/butler/${platform}",
@@ -9000,7 +8943,7 @@
         },
         "test": "weblayer_skew_tests",
         "test_id_prefix": "ninja://weblayer/browser/android/javatests:weblayer_skew_tests/",
-        "variant_id": "with_impl_from_98"
+        "variant_id": "with_impl_from_104"
       },
       {
         "args": [

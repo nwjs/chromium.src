@@ -232,12 +232,12 @@ void TabletModeWindowManager::Shutdown() {
                                  was_in_overview);
 }
 
-int TabletModeWindowManager::GetNumberOfManagedWindows() {
-  return window_state_map_.size();
-}
-
 bool TabletModeWindowManager::IsTrackingWindow(aura::Window* window) {
   return base::Contains(window_state_map_, window);
+}
+
+int TabletModeWindowManager::GetNumberOfManagedWindows() {
+  return window_state_map_.size();
 }
 
 void TabletModeWindowManager::AddWindow(aura::Window* window) {
@@ -312,6 +312,7 @@ void TabletModeWindowManager::OnSplitViewStateChanged(
   switch (SplitViewController::Get(primary_root)->end_reason()) {
     case SplitViewController::EndReason::kNormal:
     case SplitViewController::EndReason::kUnsnappableWindowActivated:
+    case SplitViewController::EndReason::kRootWindowDestroyed:
       break;
     case SplitViewController::EndReason::kHomeLauncherPressed:
     case SplitViewController::EndReason::kActiveUserChanged:
@@ -412,8 +413,8 @@ void TabletModeWindowManager::OnWindowBoundsChanged(
 
   // Reposition all non maximizeable windows.
   for (auto& pair : window_state_map_) {
-    pair.second->UpdateWindowPosition(WindowState::Get(pair.first),
-                                      /*animate=*/false);
+    TabletModeWindowState::UpdateWindowPosition(WindowState::Get(pair.first),
+                                                /*animate=*/false);
   }
   if (session)
     session->ResumeReposition();

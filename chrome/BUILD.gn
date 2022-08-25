@@ -113,6 +113,16 @@ group("assert_no_deps") {
   assert_no_deps = [ "//chrome/installer/util:strings" ]
 }
 
+config("disable_thinlto_cache_flags") {
+  if (is_linux && use_thin_lto) {
+    # This build target has so many inputs that LLD will run into the default
+    # vm.max_map_count limit of 65530 memory mappings when using the ThinLTO
+    # cache.
+    # TODO (crbug.com/1183211): Re-enable once the linker has been fixed.
+    ldflags = [ "-Wl,--thinlto-cache-dir=" ]
+  }
+}
+
 if (!is_android && !is_mac) {
   group("chrome") {
     public_deps = [ ":chrome_initial" ]
@@ -135,6 +145,11 @@ if (!is_android && !is_mac) {
   executable("chrome_initial") {
     configs -= [ "//build/config/compiler:thinlto_optimize_default" ]
     configs += [ "//build/config/compiler:thinlto_optimize_max" ]
+
+    # TODO (crbug.com/1345158): Re-enable once the linker has been fixed or
+    # the limit on the bots raised.
+    configs += [ ":disable_thinlto_cache_flags" ]
+
     if (is_win) {
       output_name = "initialexe/nw"
     } else {
@@ -198,6 +213,7 @@ if (!is_android && !is_mac) {
         "//components/crash/core/app",
         "//components/crash/core/app:run_as_crashpad_handler",
         "//components/crash/core/common",
+        "//components/crash/win:chrome_wer",
         "//components/flags_ui:switches",
         "//content:sandbox_helper_win",
         "//content/public/common:static_switches",
@@ -309,6 +325,12 @@ if (!is_android && !is_mac) {
       # This will avoid conflicting of exposed symbols.
       if (is_chromeos_device) {
         ldflags += [ "-L" + rebase_path(root_out_dir) ]
+      }
+
+      # On Chrome OS builds (for both ash-chrome and lacros-chrome), put
+      # a metadata.json file in root directory containing Chrome version.
+      if (is_chromeos) {
+        deps += [ "//build:version_metadata" ]
       }
 
       # Chrome OS debug builds for arm need to pass --long-plt to the linker.
@@ -423,7 +445,6 @@ if (is_win || (is_linux && !is_component_build)) {
         "//components/crash/core/app",
         "//components/policy:generated",
         "//crypto",
-        "//headless:headless_renderer",
         "//headless:headless_shell_browser_lib",
         "//net:net_resources",
         "//ppapi/buildflags",
@@ -1391,6 +1412,8 @@ if (is_win || (is_linux && !is_component_build)) {
         "//third_party/angle:libEGL",
         "//third_party/angle:libGLESv2",
         "//third_party/crashpad/crashpad/handler:crashpad_handler",
+        "//third_party/swiftshader/src/OpenGL/libEGL:swiftshader_libEGL",
+        "//third_party/swiftshader/src/OpenGL/libGLESv2:swiftshader_libGLESv2",
         "//third_party/swiftshader/src/Vulkan:swiftshader_libvulkan",
       ]
       foreach(helper_params, chrome_mac_helpers) {
@@ -1649,12 +1672,14 @@ if (!is_android) {
 }
 
 repack("unit_tests_pak") {
+  testonly = true
   sources = [ "$root_gen_dir/chrome/chrome_test_resources.pak" ]
   output = "$root_out_dir/unit_tests.pak"
   deps = [ "//chrome/test/data:chrome_test_resources" ]
 }
 
 repack("browser_tests_pak") {
+  testonly = true
   sources = [ "$root_gen_dir/chrome/webui_test_resources.pak" ]
   output = "$root_out_dir/browser_tests.pak"
   deps = [ "//chrome/test/data:webui_test_resources" ]
@@ -1676,10 +1701,6 @@ group("strings") {
 if (is_android) {
   java_cpp_enum("partner_bookmarks_javagen") {
     sources = [ "browser/android/bookmarks/partner_bookmarks_reader.h" ]
-  }
-
-  java_cpp_enum("quick_action_category_enum_javagen") {
-    sources = [ "browser/android/contextualsearch/resolved_search_term.h" ]
   }
 
   java_cpp_enum("offline_pages_enum_javagen") {

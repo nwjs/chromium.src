@@ -27,13 +27,13 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/in_process_browser_test.h"
+#include "chromeos/ash/components/network/network_handler.h"
+#include "chromeos/ash/components/network/network_state.h"
+#include "chromeos/ash/components/network/network_state_handler.h"
 #include "chromeos/ash/components/network/proxy/proxy_config_handler.h"
 #include "chromeos/dbus/shill/shill_ipconfig_client.h"
 #include "chromeos/dbus/shill/shill_profile_client.h"
 #include "chromeos/dbus/shill/shill_service_client.h"
-#include "chromeos/network/network_handler.h"
-#include "chromeos/network/network_state.h"
-#include "chromeos/network/network_state_handler.h"
 #include "components/arc/test/fake_intent_helper_instance.h"
 #include "components/policy/core/browser/browser_policy_connector.h"
 #include "components/policy/core/common/mock_configuration_policy_provider.h"
@@ -199,8 +199,7 @@ int CountProxyBroadcasts(
       DCHECK(count < extras.size())
           << "The expected proxy broadcast count is smaller than "
              "the actual count.";
-      EXPECT_EQ(*base::JSONReader::ReadDeprecated(broadcast.extras),
-                *extras[count]);
+      EXPECT_EQ(*base::JSONReader::Read(broadcast.extras), *extras[count]);
       count++;
     }
   }

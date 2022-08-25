@@ -64,6 +64,11 @@ using ReportThreatDetailsResult =
 
 namespace {
 
+#if !BUILDFLAG(IS_ANDROID)
+// How long an ephemeral warning is displayed on the download bubble.
+constexpr base::TimeDelta kEphemeralWarningLifetimeOnBubble = base::Minutes(5);
+#endif
+
 // Per DownloadItem data used by DownloadItemModel. The model doesn't keep any
 // state since there could be multiple models associated with a single
 // DownloadItem, and the lifetime of the model is shorter than the DownloadItem.
@@ -100,6 +105,11 @@ class DownloadItemModelData : public base::SupportsUserData::Data {
   // Whether the safe browsing download warning was shown (and recorded) earlier
   // on the UI.
   bool was_ui_warning_shown_ = false;
+
+  // Tracks when an ephemeral warning was first displayed on the UI. Does not
+  // persist on restart, though ephemeral warning downloads are canceled by
+  // then as all in-progress downloads are.
+  absl::optional<base::Time> ephemeral_warning_ui_shown_time_;
 
  private:
   DownloadItemModelData();
@@ -160,10 +170,7 @@ bool ShouldSendDownloadReport(download::DownloadDangerType danger_type) {
 // static
 DownloadUIModel::DownloadUIModelPtr DownloadItemModel::Wrap(
     download::DownloadItem* download) {
-  DownloadUIModel::DownloadUIModelPtr model(
-      new DownloadItemModel(download),
-      base::OnTaskRunnerDeleter(base::ThreadTaskRunnerHandle::Get()));
-  return model;
+  return std::make_unique<DownloadItemModel>(download);
 }
 
 // static
@@ -171,10 +178,8 @@ DownloadUIModel::DownloadUIModelPtr DownloadItemModel::Wrap(
     download::DownloadItem* download,
     std::unique_ptr<DownloadUIModel::StatusTextBuilderBase>
         status_text_builder) {
-  DownloadUIModel::DownloadUIModelPtr model(
-      new DownloadItemModel(download, std::move(status_text_builder)),
-      base::OnTaskRunnerDeleter(base::ThreadTaskRunnerHandle::Get()));
-  return model;
+  return std::make_unique<DownloadItemModel>(download,
+                                             std::move(status_text_builder));
 }
 
 DownloadItemModel::DownloadItemModel(DownloadItem* download)
@@ -376,23 +381,6 @@ void DownloadItemModel::SetShouldShowInShelf(bool should_show) {
   data->should_show_in_shelf_ = should_show;
 }
 
-bool DownloadItemModel::ShouldShowInBubble() const {
-  // Downloads blocked by local policies should be notified, otherwise users
-  // won't get any feedback that the download has failed.
-  bool should_notify =
-      download_->GetLastReason() ==
-          download::DOWNLOAD_INTERRUPT_REASON_FILE_BLOCKED &&
-      download_->GetMixedContentStatus() !=
-          download::DownloadItem::MixedContentStatus::SILENT_BLOCK;
-
-  // Wait until the target path is determined.
-  if (download_->GetTargetFilePath().empty() && !should_notify) {
-    return false;
-  }
-
-  return DownloadUIModel::ShouldShowInBubble();
-}
-
 bool DownloadItemModel::ShouldNotifyUI() const {
   if (download_->IsTransient())
     return false;
@@ -433,6 +421,19 @@ void DownloadItemModel::SetWasUIWarningShown(bool was_ui_warning_shown) {
   data->was_ui_warning_shown_ = was_ui_warning_shown;
 }
 
+absl::optional<base::Time> DownloadItemModel::GetEphemeralWarningUiShownTime()
+    const {
+  const DownloadItemModelData* data = DownloadItemModelData::Get(download_);
+  return data ? data->ephemeral_warning_ui_shown_time_
+              : absl::optional<base::Time>();
+}
+
+void DownloadItemModel::SetEphemeralWarningUiShownTime(
+    absl::optional<base::Time> ephemeral_warning_ui_shown_time) {
+  DownloadItemModelData* data = DownloadItemModelData::GetOrCreate(download_);
+  data->ephemeral_warning_ui_shown_time_ = ephemeral_warning_ui_shown_time;
+}
+
 bool DownloadItemModel::ShouldPreferOpeningInBrowser() const {
   const DownloadItemModelData* data = DownloadItemModelData::Get(download_);
   return data && data->should_prefer_opening_in_browser_;
@@ -469,7 +470,7 @@ void DownloadItemModel::SetIsBeingRevived(bool is_being_revived) {
   data->is_being_revived_ = is_being_revived;
 }
 
-download::DownloadItem* DownloadItemModel::download() {
+const download::DownloadItem* DownloadItemModel::GetDownloadItem() const {
   return download_;
 }
 
@@ -618,19 +619,21 @@ bool DownloadItemModel::HasUserGesture() const {
 }
 
 void DownloadItemModel::OnDownloadUpdated(DownloadItem* download) {
-  for (auto& obs : observers_)
-    obs.OnDownloadUpdated();
+  if (delegate_)
+    delegate_->OnDownloadUpdated();
 }
 
 void DownloadItemModel::OnDownloadOpened(DownloadItem* download) {
-  for (auto& obs : observers_)
-    obs.OnDownloadOpened();
+  if (delegate_)
+    delegate_->OnDownloadOpened();
 }
 
 void DownloadItemModel::OnDownloadDestroyed(DownloadItem* download) {
-  for (auto& obs : observers_)
-    obs.OnDownloadDestroyed();
+  ContentId id = GetContentId();
   download_ = nullptr;
+  // The object could get deleted after this.
+  if (delegate_)
+    delegate_->OnDownloadDestroyed(id);
 }
 
 void DownloadItemModel::OpenUsingPlatformHandler() {
@@ -688,6 +691,8 @@ bool DownloadItemModel::IsCommandEnabled(
     case DownloadCommands::LEARN_MORE_MIXED_CONTENT:
     case DownloadCommands::DEEP_SCAN:
     case DownloadCommands::BYPASS_DEEP_SCANNING:
+    case DownloadCommands::REVIEW:
+    case DownloadCommands::RETRY:
       return DownloadUIModel::IsCommandEnabled(download_commands, command);
   }
   NOTREACHED();
@@ -727,6 +732,8 @@ bool DownloadItemModel::IsCommandChecked(
     case DownloadCommands::COPY_TO_CLIPBOARD:
     case DownloadCommands::DEEP_SCAN:
     case DownloadCommands::BYPASS_DEEP_SCANNING:
+    case DownloadCommands::REVIEW:
+    case DownloadCommands::RETRY:
       return false;
   }
   return false;
@@ -842,6 +849,8 @@ void DownloadItemModel::ExecuteCommand(DownloadCommands* download_commands,
     case DownloadCommands::PAUSE:
     case DownloadCommands::RESUME:
     case DownloadCommands::COPY_TO_CLIPBOARD:
+    case DownloadCommands::REVIEW:
+    case DownloadCommands::RETRY:
       DownloadUIModel::ExecuteCommand(download_commands, command);
       break;
     case DownloadCommands::DEEP_SCAN:
@@ -875,7 +884,87 @@ void DownloadItemModel::ExecuteCommand(DownloadCommands* download_commands,
       break;
   }
 }
-#endif
+
+bool DownloadItemModel::ShouldShowInBubble() const {
+  // Downloads blocked by local policies should be notified, otherwise users
+  // won't get any feedback that the download has failed.
+  bool should_notify =
+      download_->GetLastReason() ==
+          download::DOWNLOAD_INTERRUPT_REASON_FILE_BLOCKED &&
+      download_->GetMixedContentStatus() !=
+          download::DownloadItem::MixedContentStatus::SILENT_BLOCK;
+
+  // Wait until the target path is determined.
+  if (download_->GetTargetFilePath().empty() && !should_notify) {
+    return false;
+  }
+
+  if (IsEphemeralWarning()) {
+    // Ephemeral warnings become canceled if the browser shuts down (or an hour
+    // after being displayed if the user hasn't acted on them). These should no
+    // longer be shown, regardless of what the shown time is set to.
+    if (download_->GetState() == download::DownloadItem::CANCELLED) {
+      return false;
+    }
+
+    // If the user hasn't acted on an ephemeral warning within 5 minutes, it
+    // should no longer be shown in the bubble. (IsEphemeralWarning no longer
+    // returns true once the user has acted on the warning.)
+    auto warning_shown_time = GetEphemeralWarningUiShownTime();
+    if (warning_shown_time.has_value() &&
+        base::Time::Now() - warning_shown_time.value() >
+            kEphemeralWarningLifetimeOnBubble) {
+      return false;
+    }
+  }
+
+  return DownloadUIModel::ShouldShowInBubble();
+}
+
+bool DownloadItemModel::IsEphemeralWarning() const {
+  if (!IsBubbleV2Enabled()) {
+    return false;
+  }
+
+  switch (GetMixedContentStatus()) {
+    case download::DownloadItem::MixedContentStatus::BLOCK:
+    case download::DownloadItem::MixedContentStatus::WARN:
+      return true;
+    case download::DownloadItem::MixedContentStatus::UNKNOWN:
+    case download::DownloadItem::MixedContentStatus::SAFE:
+    case download::DownloadItem::MixedContentStatus::VALIDATED:
+    case download::DownloadItem::MixedContentStatus::SILENT_BLOCK:
+      break;
+  }
+
+  switch (GetDangerType()) {
+    case download::DOWNLOAD_DANGER_TYPE_DANGEROUS_FILE:
+    case download::DOWNLOAD_DANGER_TYPE_DANGEROUS_CONTENT:
+    case download::DOWNLOAD_DANGER_TYPE_DANGEROUS_HOST:
+    case download::DOWNLOAD_DANGER_TYPE_DANGEROUS_ACCOUNT_COMPROMISE:
+    case download::DOWNLOAD_DANGER_TYPE_POTENTIALLY_UNWANTED:
+    case download::DOWNLOAD_DANGER_TYPE_DANGEROUS_URL:
+    case download::DOWNLOAD_DANGER_TYPE_UNCOMMON_CONTENT:
+    case download::DOWNLOAD_DANGER_TYPE_SENSITIVE_CONTENT_WARNING:
+      return true;
+    case download::DOWNLOAD_DANGER_TYPE_DEEP_SCANNED_OPENED_DANGEROUS:
+    case download::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS:
+    case download::DOWNLOAD_DANGER_TYPE_MAYBE_DANGEROUS_CONTENT:
+    case download::DOWNLOAD_DANGER_TYPE_USER_VALIDATED:
+    case download::DOWNLOAD_DANGER_TYPE_ALLOWLISTED_BY_POLICY:
+    case download::DOWNLOAD_DANGER_TYPE_MAX:
+    case download::DOWNLOAD_DANGER_TYPE_ASYNC_SCANNING:
+    case download::DOWNLOAD_DANGER_TYPE_DEEP_SCANNED_SAFE:
+    case download::DOWNLOAD_DANGER_TYPE_PROMPT_FOR_SCANNING:
+    case download::DOWNLOAD_DANGER_TYPE_BLOCKED_UNSUPPORTED_FILETYPE:
+    case download::DOWNLOAD_DANGER_TYPE_BLOCKED_PASSWORD_PROTECTED:
+    case download::DOWNLOAD_DANGER_TYPE_BLOCKED_TOO_LARGE:
+    case download::DOWNLOAD_DANGER_TYPE_SENSITIVE_CONTENT_BLOCK:
+      return false;
+  }
+}
+
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 offline_items_collection::FailState DownloadItemModel::GetLastFailState()
     const {
@@ -905,6 +994,27 @@ void DownloadItemModel::CompleteSafeBrowsingScan() {
                     kSafeBrowsingUserDataKey));
     state->CompleteDownload();
   }
+}
+
+void DownloadItemModel::ReviewScanningVerdict(
+    content::WebContents* web_contents) {
+  auto command_callback =
+      [](std::unique_ptr<DownloadItemModel> model,
+         std::unique_ptr<DownloadCommands> download_commands,
+         DownloadCommands::Command command) {
+        model->ExecuteCommand(download_commands.get(), command);
+      };
+  enterprise_connectors::ShowDownloadReviewDialog(
+      GetFileNameToReportUser().LossyDisplayName(), profile(), download_,
+      web_contents, download_->GetDangerType(),
+      base::BindOnce(
+          command_callback, std::make_unique<DownloadItemModel>(download_),
+          std::make_unique<DownloadCommands>(DownloadUIModel::GetWeakPtr()),
+          DownloadCommands::KEEP),
+      base::BindOnce(
+          command_callback, std::make_unique<DownloadItemModel>(download_),
+          std::make_unique<DownloadCommands>(DownloadUIModel::GetWeakPtr()),
+          DownloadCommands::DISCARD));
 }
 #endif
 

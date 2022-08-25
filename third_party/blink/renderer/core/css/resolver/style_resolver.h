@@ -167,8 +167,6 @@ class CORE_EXPORT StyleResolver final : public GarbageCollected<StyleResolver> {
 
   static bool CanReuseBaseComputedStyle(const StyleResolverState& state);
 
-  static bool UsesHighlightPseudoInheritance(PseudoId);
-
   static const CSSValue* ComputeValue(Element* element,
                                       const CSSPropertyName&,
                                       const CSSValue&);
@@ -194,6 +192,10 @@ class CORE_EXPORT StyleResolver final : public GarbageCollected<StyleResolver> {
       Element& element,
       const ComputedStyle& base_style,
       ActiveInterpolationsMap& transition_interpolations);
+
+  scoped_refptr<const ComputedStyle> ResolvePositionFallbackStyle(
+      Element&,
+      unsigned index);
 
   // Check if the BODY or HTML element's display or containment stops
   // propagation of BODY style to HTML and viewport.

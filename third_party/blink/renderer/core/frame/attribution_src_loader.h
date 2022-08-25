@@ -40,8 +40,6 @@ class CORE_EXPORT AttributionSrcLoader
   static constexpr const char* kAttributionEligibleNavigationSource =
       "navigation-source";
   static constexpr const char* kAttributionEligibleTrigger = "trigger";
-  static constexpr const char* kAttributionEligibleEventSourceAndTrigger =
-      "event-source, trigger";
 
   explicit AttributionSrcLoader(LocalFrame* frame);
   AttributionSrcLoader(const AttributionSrcLoader&) = delete;
@@ -83,9 +81,6 @@ class CORE_EXPORT AttributionSrcLoader
   ResourceClient* DoRegistration(const KURL& src_url,
                                  SrcType src_type,
                                  bool associated_with_navigation);
-  void DoPrerenderingRegistration(const KURL& src_url,
-                                  SrcType src_type,
-                                  bool associated_with_navigation);
 
   // Returns whether the attribution is allowed to be registered. Devtool issue
   // might be reported if it's not allowed.
@@ -111,15 +106,15 @@ class CORE_EXPORT AttributionSrcLoader
   size_t num_resource_clients_ = 0;
 };
 
-// Returns whether attribution is allowed, and logs devtools issues if
-// registration was attempted in a context is not allowed and `log_issues` is
-// set. `element` may be null.
+// Returns whether attribution is allowed, and logs DevTools issues if
+// registration was attempted in a context that is not allowed.
+// `element` may be null.
 CORE_EXPORT bool CanRegisterAttributionInContext(
     LocalFrame* frame,
     HTMLElement* element,
     absl::optional<uint64_t> request_id,
     AttributionSrcLoader::RegisterContext context,
-    bool log_issues);
+    bool log_issues = true);
 
 }  // namespace blink
 

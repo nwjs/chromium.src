@@ -44,6 +44,7 @@ import {DirectoryModel} from './directory_model.js';
 import {DirectoryTreeNamingController} from './directory_tree_naming_controller.js';
 import {DriveDialogController} from './drive_dialog_controller.js';
 import {importElements} from './elements_importer.js';
+import {EmptyFolderController} from './empty_folder_controller.js';
 import {CommandHandler, CommandUtil} from './file_manager_commands.js';
 import {FileSelection, FileSelectionHandler} from './file_selection.js';
 import {FileTasks} from './file_tasks.js';
@@ -76,6 +77,7 @@ import {SpinnerController} from './spinner_controller.js';
 import {TaskController} from './task_controller.js';
 import {ToolbarController} from './toolbar_controller.js';
 import {A11yAnnounce} from './ui/a11y_announce.js';
+import {BreadcrumbController} from './ui/breadcrumb_controller.js';
 import {CommandButton} from './ui/commandbutton.js';
 import {DirectoryTree} from './ui/directory_tree.js';
 import {FileGrid} from './ui/file_grid.js';
@@ -348,6 +350,12 @@ export class FileManager extends EventTarget {
 
     /** @private {?FileTypeFiltersController} */
     this.fileTypeFiltersController_ = null;
+
+    /**
+     * Empty folder controller.
+     * @private {?EmptyFolderController}
+     */
+    this.emptyFolderController_ = null;
 
     /**
      * Records histograms of directory-changed event.
@@ -837,10 +845,6 @@ export class FileManager extends EventTarget {
     this.setContextMenuForInput_(this.ui_.listContainer.renameInput);
     this.setContextMenuForInput_(
         this.directoryTreeNamingController_.getInputElement());
-
-    this.document_.addEventListener(
-        'command',
-        this.ui_.listContainer.clearHover.bind(this.ui_.listContainer));
     CommandHandler.registerUndoDeleteToast(this);
   }
 
@@ -1276,9 +1280,14 @@ export class FileManager extends EventTarget {
 
     // Create search controller.
     this.searchController_ = new SearchController(
-        this.ui_.searchBox, assert(this.ui_.breadcrumbController),
-        this.directoryModel_, this.volumeManager_, assert(this.taskController_),
-        assert(this.ui_));
+        this.ui_.searchBox,
+        /** @type {!BreadcrumbController} */
+        (assert(this.ui_.breadcrumbController)),
+        this.directoryModel_,
+        this.volumeManager_,
+        assert(this.taskController_),
+        assert(this.ui_),
+    );
 
     // Create directory tree naming controller.
     this.directoryTreeNamingController_ = new DirectoryTreeNamingController(
@@ -1301,6 +1310,8 @@ export class FileManager extends EventTarget {
       this.fileTypeFiltersController_ = new FileTypeFiltersController(
           this.ui_.fileTypeFilterContainer, this.directoryModel_,
           this.recentEntry_, /** @type {!A11yAnnounce} */ (this.ui_));
+      this.emptyFolderController_ = new EmptyFolderController(
+          this.ui_.emptyFolder, this.directoryModel_, this.recentEntry_);
     }
 
     return directoryTreePromise;

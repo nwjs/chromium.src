@@ -74,7 +74,7 @@ WebContentsImpl* BrowserPluginGuest::CreateNewGuestWindow(
 
 void BrowserPluginGuest::InitInternal(WebContentsImpl* owner_web_contents) {
   RenderWidgetHostImpl* rwhi =
-      GetWebContents()->GetMainFrame()->GetRenderWidgetHost();
+      GetWebContents()->GetPrimaryMainFrame()->GetRenderWidgetHost();
   DCHECK(rwhi);
   // The initial state will not be focused but the plugin may be active so
   // set that appropriately.
@@ -111,12 +111,16 @@ void BrowserPluginGuest::InitInternal(WebContentsImpl* owner_web_contents) {
   base::ThreadRestrictions::ScopedAllowIO allow_io;
   nw::Package* package = nw::package();
   std::string js_doc_start, js_doc_end;
-  package->root()->GetString(::switches::kmInjectJSDocStart, &js_doc_start);
+  std::string* str = package->root()->FindString(::switches::kmInjectJSDocStart);
+  if (str)
+    js_doc_start = *str;
   if (!js_doc_start.empty()) {
     std::string fpath = base::MakeAbsoluteFilePath(package->path()).AppendASCII(js_doc_start).AsUTF8Unsafe();
     renderer_prefs->nw_inject_js_doc_start = fpath;
   }
-  package->root()->GetString(::switches::kmInjectJSDocEnd, &js_doc_end);
+  str = package->root()->FindString(::switches::kmInjectJSDocEnd);
+  if (str)
+    js_doc_end = *str;
   if (!js_doc_end.empty()) {
     std::string fpath = base::MakeAbsoluteFilePath(package->path()).AppendASCII(js_doc_end).AsUTF8Unsafe();
     renderer_prefs->nw_inject_js_doc_end = fpath;
@@ -240,7 +244,7 @@ void BrowserPluginGuest::ShowPopupMenu(
       guest->GetRenderWidgetHostView()->TransformPointToRootCoordSpace(
           translated_bounds.origin()));
   BrowserPluginPopupMenuHelper popup_menu_helper(
-      owner_web_contents_->GetMainFrame(), render_frame_host,
+      owner_web_contents_->GetPrimaryMainFrame(), render_frame_host,
       std::move(*popup_client));
   popup_menu_helper.ShowPopupMenu(translated_bounds, item_height, font_size,
                                   selected_item, std::move(*menu_items),

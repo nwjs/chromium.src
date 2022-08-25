@@ -10,8 +10,8 @@
 #include "base/bind.h"
 #include "base/callback_helpers.h"
 #include "base/values.h"
-#include "chromeos/network/network_configuration_handler.h"
-#include "chromeos/network/network_handler.h"
+#include "chromeos/ash/components/network/network_configuration_handler.h"
+#include "chromeos/ash/components/network/network_handler.h"
 #include "third_party/cros_system_api/dbus/service_constants.h"
 
 namespace arc {

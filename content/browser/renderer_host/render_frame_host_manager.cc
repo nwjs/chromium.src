@@ -19,7 +19,6 @@
 #include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/memory/ptr_util.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
 #include "base/trace_event/base_tracing.h"
 #include "base/trace_event/trace_event.h"
@@ -275,15 +274,6 @@ void TraceShouldSwapBrowsingInstanceResult(int frame_tree_node_id,
         data->set_result(ShouldSwapBrowsingInstanceToProto(result));
       });
 }
-
-// Please keep in sync with SpeculativeRenderFrameHostType in
-// tools/metrics/histograms/enums.xml. These values should not be renumbered.
-enum class SpeculativeRenderFrameHostType {
-  kDoesNotExist = 0,
-  kNotPendingCommit = 1,
-  kPendingCommit = 2,
-  kMaxValue = kPendingCommit,
-};
 
 }  // namespace
 
@@ -933,20 +923,6 @@ void RenderFrameHostManager::DidCreateNavigationRequest(
   TRACE_EVENT("navigation",
               "RenderFrameHostManager::DidCreateNavigationRequest",
               ChromeTrackEvent::kFrameTreeNodeInfo, *frame_tree_node_);
-  // Track whether there is an existing speculative RFH when a new
-  // NavigationRequest is created.
-  SpeculativeRenderFrameHostType current_speculative_rfh_type =
-      SpeculativeRenderFrameHostType::kDoesNotExist;
-  if (speculative_render_frame_host_) {
-    // Track whether the speculative RFH is pending commit or not.
-    current_speculative_rfh_type =
-        speculative_render_frame_host_->HasPendingCommitNavigation()
-            ? SpeculativeRenderFrameHostType::kPendingCommit
-            : SpeculativeRenderFrameHostType::kNotPendingCommit;
-  }
-  UMA_HISTOGRAM_ENUMERATION(
-      "Navigation.NavigationRequestCreation.SpeculativeRFHExisted",
-      current_speculative_rfh_type);
 
   const bool force_use_current_render_frame_host =
       // Since the frame from the back-forward cache is being committed to the
@@ -979,15 +955,15 @@ void RenderFrameHostManager::DidCreateNavigationRequest(
     // done inside GetFrameHostForNavigation(request), but we avoid calling that
     // method for navigations which will be forced into the current document.
     CleanUpNavigation();
-    request->set_associated_site_instance_type(
-        NavigationRequest::AssociatedSiteInstanceType::CURRENT);
+    request->set_associated_rfh_type(
+        NavigationRequest::AssociatedRenderFrameHostType::CURRENT);
   } else {
     RenderFrameHostImpl* dest_rfh = GetFrameHostForNavigation(request);
     DCHECK(dest_rfh);
-    request->set_associated_site_instance_type(
+    request->set_associated_rfh_type(
         dest_rfh == render_frame_host_.get()
-            ? NavigationRequest::AssociatedSiteInstanceType::CURRENT
-            : NavigationRequest::AssociatedSiteInstanceType::SPECULATIVE);
+            ? NavigationRequest::AssociatedRenderFrameHostType::CURRENT
+            : NavigationRequest::AssociatedRenderFrameHostType::SPECULATIVE);
   }
 }
 
@@ -1305,8 +1281,8 @@ void RenderFrameHostManager::MaybeCleanUpNavigation() {
   NavigationRequest* navigation_request =
       frame_tree_node_->navigation_request();
   if (navigation_request &&
-      navigation_request->associated_site_instance_type() ==
-          NavigationRequest::AssociatedSiteInstanceType::SPECULATIVE) {
+      navigation_request->associated_rfh_type() ==
+          NavigationRequest::AssociatedRenderFrameHostType::SPECULATIVE) {
     return;
   }
   CleanUpNavigation();
@@ -1413,7 +1389,10 @@ void RenderFrameHostManager::OnDidChangeCollapsedState(bool collapsed) {
   // ShadowDOM as well so we need to check the `FrameTree::Type` as well.
   if (frame_tree_node_->IsFencedFrameRoot() &&
       frame_tree_node_->frame_tree()->type() == FrameTree::Type::kFencedFrame) {
-    GetProxyToOuterDelegate()->GetAssociatedRemoteFrame()->Collapse(collapsed);
+    if (GetProxyToOuterDelegate()->is_render_frame_proxy_live()) {
+      GetProxyToOuterDelegate()->GetAssociatedRemoteFrame()->Collapse(
+          collapsed);
+    }
     return;
   }
 
@@ -1432,7 +1411,8 @@ void RenderFrameHostManager::OnDidChangeCollapsedState(bool collapsed) {
     RenderFrameProxyHost* proxy_to_parent =
         frame_tree_node_->GetBrowsingContextStateForSubframe()
             ->GetRenderFrameProxyHost(parent_site_instance->group());
-    proxy_to_parent->GetAssociatedRemoteFrame()->Collapse(collapsed);
+    if (proxy_to_parent->is_render_frame_proxy_live())
+      proxy_to_parent->GetAssociatedRemoteFrame()->Collapse(collapsed);
   }
 }
 
@@ -1492,8 +1472,10 @@ void RenderFrameHostManager::UpdateUserActivationState(
   for (const auto& pair :
        render_frame_host_->browsing_context_state()->proxy_hosts()) {
     RenderFrameProxyHost* proxy = pair.second.get();
-    proxy->GetAssociatedRemoteFrame()->UpdateUserActivationState(
-        update_type, notification_type);
+    if (proxy->is_render_frame_proxy_live()) {
+      proxy->GetAssociatedRemoteFrame()->UpdateUserActivationState(
+          update_type, notification_type);
+    }
   }
 
   // If any frame in an inner delegate is activated, then the FrameTreeNode that
@@ -1506,6 +1488,7 @@ void RenderFrameHostManager::UpdateUserActivationState(
   RenderFrameProxyHost* outer_delegate_proxy =
       root->render_manager()->GetProxyToOuterDelegate();
   if (outer_delegate_proxy &&
+      outer_delegate_proxy->is_render_frame_proxy_live() &&
       update_type ==
           blink::mojom::UserActivationUpdateType::kNotifyActivation) {
     outer_delegate_proxy->GetAssociatedRemoteFrame()->UpdateUserActivationState(
@@ -1964,15 +1947,14 @@ RenderFrameHostManager::GetSiteInstanceForNavigation(
   // BrowserContext.
   DCHECK_EQ(new_instance->GetBrowserContext(), browser_context);
 
-  // If |new_instance| is a new SiteInstance for a subframe that requires a
-  // dedicated process, set its process reuse policy so that such subframes are
-  // consolidated into existing processes for that site.
-  // TODO(crbug.com/1314749): With MPArch there may be multiple main frames and
-  // so IsMainFrame should not be used to identify subframes. Follow up to
-  // confirm correctness. Using IsOutermostMainFrame here will cause same-site
-  // fenced frames to share a process, even across tabs, aligning with Shadow
-  // DOM behavior. Determining correctness here will also involve resolving on
-  // the FF process model plan (see https://github.com/WICG/fenced-
+  // If |new_instance| is a new SiteInstance for a subframe or a fenced frame
+  // that require a dedicated process, set its process reuse policy so that such
+  // subframes and fenced frames are consolidated into existing processes for
+  // that site.
+  // TODO(crbug.com/1340662): The model described in fenced frames process
+  // isolation explainer is still in the design stage. Determining correctness
+  // here will also involve resolving on the FF process model plan (see
+  // https://github.com/WICG/fenced-
   // frame/blob/master/explainer/process_isolation.md).
   if (!frame_tree_node_->IsOutermostMainFrame() &&
       !new_instance_impl->HasProcess() &&
@@ -1985,8 +1967,7 @@ RenderFrameHostManager::GetSiteInstanceForNavigation(
         GetContentClient()
             ->browser()
             ->ShouldEmbeddedFramesTryToReuseExistingProcess(
-                frame_tree_node_->frame_tree()
-                    ->GetMainFrame()
+                frame_tree_node_->GetParentOrOuterDocument()
                     ->GetOutermostMainFrame())) {
       new_instance_impl->set_process_reuse_policy(
           SiteInstanceImpl::ProcessReusePolicy::
@@ -3225,14 +3206,14 @@ bool RenderFrameHostManager::InitRenderFrame(
   if (frame_tree_node_->opener())
     opener_frame_token = GetOpenerFrameToken(site_instance_group);
 
-  int parent_routing_id = MSG_ROUTING_NONE;
+  absl::optional<blink::FrameToken> parent_frame_token;
   if (frame_tree_node_->parent()) {
-    parent_routing_id =
+    parent_frame_token =
         frame_tree_node_->parent()
             ->frame_tree_node()
             ->render_manager()
-            ->GetRoutingIdForSiteInstanceGroup(site_instance_group);
-    CHECK_NE(parent_routing_id, MSG_ROUTING_NONE);
+            ->GetFrameTokenForSiteInstanceGroup(site_instance_group);
+    CHECK(parent_frame_token);
   }
 
   // At this point, all RenderFrameProxies for sibling frames have already been
@@ -3240,14 +3221,14 @@ bool RenderFrameHostManager::InitRenderFrame(
   // correct order for indexed window access (e.g., window.frames[1]), pass the
   // previous sibling frame so that this frame is correctly inserted into the
   // frame tree on the renderer side.
-  int previous_sibling_routing_id = MSG_ROUTING_NONE;
+  absl::optional<blink::FrameToken> previous_sibling_frame_token;
   FrameTreeNode* previous_sibling =
       frame_tree_node_->current_frame_host()->PreviousSibling();
   if (previous_sibling) {
-    previous_sibling_routing_id =
-        previous_sibling->render_manager()->GetRoutingIdForSiteInstanceGroup(
+    previous_sibling_frame_token =
+        previous_sibling->render_manager()->GetFrameTokenForSiteInstanceGroup(
             site_instance_group);
-    CHECK_NE(previous_sibling_routing_id, MSG_ROUTING_NONE);
+    CHECK(previous_sibling_frame_token);
   }
 
   RenderFrameProxyHost* existing_proxy =
@@ -3256,18 +3237,19 @@ bool RenderFrameHostManager::InitRenderFrame(
   if (existing_proxy && !existing_proxy->is_render_frame_proxy_live())
     existing_proxy->InitRenderFrameProxy();
 
-  // Figure out the routing ID of the frame or proxy that this frame will
-  // replace. This will usually will be |existing_proxy|'s routing ID, but
-  // with RenderDocument it might also be a RenderFrameHost's routing ID.
-  int previous_routing_id =
-      GetReplacementRoutingId(existing_proxy, render_frame_host);
+  // Figure out the FrameToken of the frame or proxy that this frame will
+  // replace. This usually will be `existing_proxy`'s FrameToken, but
+  // with RenderDocument it might also be a RenderFrameHost's FrameToken.
+  absl::optional<blink::FrameToken> previous_frame_token =
+      GetReplacementFrameToken(existing_proxy, render_frame_host);
 
   return render_frame_host->CreateRenderFrame(
-      previous_routing_id, opener_frame_token, parent_routing_id,
-      previous_sibling_routing_id);
+      previous_frame_token, opener_frame_token, parent_frame_token,
+      previous_sibling_frame_token);
 }
 
-int RenderFrameHostManager::GetReplacementRoutingId(
+absl::optional<blink::FrameToken>
+RenderFrameHostManager::GetReplacementFrameToken(
     RenderFrameProxyHost* existing_proxy,
     RenderFrameHostImpl* render_frame_host) const {
   // Check whether there is an existing proxy for this frame in this
@@ -3279,9 +3261,7 @@ int RenderFrameHostManager::GetReplacementRoutingId(
   // RenderFrameProxyHost.
   if (existing_proxy) {
     // We are navigating cross-SiteInstance in a main frame or subframe.
-    int proxy_routing_id = existing_proxy->GetRoutingID();
-    CHECK_NE(proxy_routing_id, MSG_ROUTING_NONE);
-    return proxy_routing_id;
+    return existing_proxy->GetFrameToken();
   } else {
     // No proxy means that this is one of:
     // - a same-SiteInstance subframe navigation
@@ -3298,13 +3278,13 @@ int RenderFrameHostManager::GetReplacementRoutingId(
       // this can only be when RenderDocument-subframe is enabled.
       DCHECK(ShouldCreateNewHostForSameSiteSubframe());
       DCHECK_NE(render_frame_host, current_frame_host());
-      return current_frame_host()->GetRoutingID();
+      return current_frame_host()->GetFrameToken();
     } else {
       // The renderer crashed and there is no previous proxy or previous frame
       // in the renderer to be replaced.
       DCHECK(current_frame_host()->must_be_replaced());
       DCHECK_NE(render_frame_host, current_frame_host());
-      return MSG_ROUTING_NONE;
+      return absl::nullopt;
     }
   }
 }
@@ -3892,7 +3872,7 @@ void RenderFrameHostManager::CreateOpenerProxies(
     // If there is no proxy, the cycle may involve nodes in the same process,
     // or, if this is a subframe, --site-per-process may be off.  Either way,
     // there's nothing more to do.
-    if (!proxy)
+    if (!proxy || !proxy->is_render_frame_proxy_live())
       continue;
 
     auto opener_frame_token = node->render_manager()->GetOpenerFrameToken(

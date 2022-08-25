@@ -122,9 +122,7 @@ void ScriptExecutor::Run(const UserData* user_data,
 #endif
 
   delegate_->GetService()->GetActions(
-      script_path_, delegate_->GetScriptURL(),
-      TriggerContext(
-          {delegate_->GetTriggerContext(), additional_context_.get()}),
+      script_path_, delegate_->GetScriptURL(), GetMergedTriggerContext(),
       last_global_payload_, last_script_payload_,
       base::BindOnce(&ScriptExecutor::OnGetActions,
                      weak_ptr_factory_.GetWeakPtr(), base::TimeTicks::Now()));
@@ -133,6 +131,10 @@ void ScriptExecutor::Run(const UserData* user_data,
 const UserData* ScriptExecutor::GetUserData() const {
   DCHECK(user_data_);
   return user_data_;
+}
+
+UserData* ScriptExecutor::GetMutableUserData() const {
+  return delegate_->GetUserData();
 }
 
 UserModel* ScriptExecutor::GetUserModel() const {
@@ -714,6 +716,17 @@ bool ScriptExecutor::SetForm(
                                std::move(cancel_callback));
 }
 
+void ScriptExecutor::ShowQrCodeScanUi(
+    std::unique_ptr<PromptQrCodeScanProto> qr_code_scan,
+    base::OnceCallback<void(const ClientStatus&,
+                            const absl::optional<ValueProto>&)> callback) {
+  ui_delegate_->ShowQrCodeScanUi(std::move(qr_code_scan), std::move(callback));
+}
+
+void ScriptExecutor::ClearQrCodeScanUi() {
+  ui_delegate_->ClearQrCodeScanUi();
+}
+
 void ScriptExecutor::RequireUI() {
   delegate_->RequireUI();
 }
@@ -844,6 +857,10 @@ void ScriptExecutor::OnGetActions(
   }
 
   if (!success) {
+    roundtrip_network_stats_ = ProtocolUtils::ComputeNetworkStats(
+        response, response_info, /* actions = */ {});
+    delegate_->OnActionsResponseReceived(roundtrip_network_stats_);
+
     RunCallback(false);
     return;
   }
@@ -890,6 +907,7 @@ bool ScriptExecutor::ProcessNextActionResponse(
 
   roundtrip_network_stats_ =
       ProtocolUtils::ComputeNetworkStats(response, response_info, actions_);
+  delegate_->OnActionsResponseReceived(roundtrip_network_stats_);
   ReportPayloadsToListener();
   if (should_update_scripts) {
     ReportScriptsUpdateToListener(std::move(scripts));
@@ -981,10 +999,8 @@ void ScriptExecutor::GetNextActions() {
   VLOG(2) << "Client execution time: "
           << roundtrip_timing_stats_.client_time_ms();
   delegate_->GetService()->GetNextActions(
-      TriggerContext(
-          {delegate_->GetTriggerContext(), additional_context_.get()}),
-      last_global_payload_, last_script_payload_, processed_actions_,
-      roundtrip_timing_stats_, roundtrip_network_stats_,
+      GetMergedTriggerContext(), last_global_payload_, last_script_payload_,
+      processed_actions_, roundtrip_timing_stats_, roundtrip_network_stats_,
       base::BindOnce(&ScriptExecutor::OnGetActions,
                      weak_ptr_factory_.GetWeakPtr(), get_next_actions_start));
 }
@@ -1174,6 +1190,19 @@ void ScriptExecutor::OnExternalActionFinished(
 
 bool ScriptExecutor::MustUseBackendData() const {
   return delegate_->MustUseBackendData();
+}
+
+absl::optional<std::string> ScriptExecutor::GetIntent() const {
+  return GetMergedTriggerContext().GetScriptParameters().GetIntent();
+}
+
+TriggerContext ScriptExecutor::GetMergedTriggerContext() const {
+  return TriggerContext(
+      {delegate_->GetTriggerContext(), additional_context_.get()});
+}
+
+const std::string ScriptExecutor::GetLocale() const {
+  return delegate_->GetLocale();
 }
 
 }  // namespace autofill_assistant

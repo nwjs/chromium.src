@@ -87,6 +87,7 @@ source_set("delegate") {
     ":tab_helper_delegates",
     ":web",
     "//base",
+    "//components/url_param_filter/core",
     "//ios/chrome/browser/main:public",
     "//ios/chrome/browser/overlays",
     "//ios/chrome/browser/overlays/public/web_content_area",
@@ -195,7 +196,7 @@ source_set("unit_tests") {
   ]
 }
 
-optimize_js("chrome_bundle_main_frame") {
+optimize_js("language_detection_js") {
   primary_script =
       "//components/translate/ios/browser/resources/language_detection.js"
   sources =
@@ -209,7 +210,7 @@ source_set("web_internal") {
     "chrome_web_client.mm",
   ]
   deps = [
-    ":chrome_bundle_main_frame",
+    ":language_detection_js",
     ":web",
     "//base",
     "//components/autofill/ios/browser",

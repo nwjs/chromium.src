@@ -10,7 +10,7 @@ load("//lib/branches.star", "branches")
 load("//project.star", "settings")
 
 lucicfg.check_version(
-    min = "1.30.9",
+    min = "1.31.1",
     message = "Update depot_tools",
 )
 
@@ -151,7 +151,17 @@ luci.realm(
         # Allow try builders to create invocations in their own builds.
         luci.binding(
             roles = "role/resultdb.invocationCreator",
-            groups = "project-chromium-try-task-accounts",
+            groups = [
+                "project-chromium-try-task-accounts",
+                # In order to be able to reproduce test tasks that have
+                # ResultDB enabled (at this point that should be all
+                # tests), a realm must be provided. The ability to
+                # trigger machines in the test pool is associated with
+                # the try realm, so allow those who can trigger swarming
+                # tasks in that pool tasks to create invocations.
+                "chromium-led-users",
+                "project-chromium-tryjob-access",
+            ],
         ),
     ],
 )

@@ -31,7 +31,6 @@ import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.BooleanSupplier;
 import org.chromium.base.supplier.ObservableSupplier;
-import org.chromium.chrome.browser.flags.CachedFeatureFlags;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.omnibox.LocationBar;
 import org.chromium.chrome.browser.omnibox.LocationBarCoordinator;
@@ -71,15 +70,19 @@ public class ToolbarTablet
         extends ToolbarLayout implements OnClickListener, View.OnLongClickListener {
     private ObjectAnimator mTabSwitcherModeAnimation;
 
-    /** Downloads page for offline access. */
+    /**
+     * Downloads page for offline access.
+     */
     public interface OfflineDownloader {
         /**
          * Trigger the download of a page.
+         *
          * @param context Context to pull resources from.
          * @param tab Tab containing the page to download.
          */
         void downloadPage(Context context, Tab tab);
     }
+
     private HomeButton mHomeButton;
     private ImageButton mBackButton;
     private ImageButton mForwardButton;
@@ -113,6 +116,7 @@ public class ToolbarTablet
 
     /**
      * Constructs a ToolbarTablet object.
+     *
      * @param context The Context in which this View object is created.
      * @param attrs The AttributeSet that was specified with this View.
      */
@@ -172,8 +176,8 @@ public class ToolbarTablet
     }
 
     /**
-     * Sets up key listeners after native initialization is complete, so that we can invoke
-     * native functions.
+     * Sets up key listeners after native initialization is complete, so that we can invoke native
+     * functions.
      */
     @Override
     public void onNativeLibraryReady() {
@@ -600,6 +604,11 @@ public class ToolbarTablet
 
     @Override
     void onAccessibilityStatusChanged(boolean enabled) {
+        enableTabStackButton(enabled);
+    }
+
+    @VisibleForTesting
+    void enableTabStackButton(boolean enabled) {
         mShowTabStack = (enabled && isAccessibilityTabSwitcherPreferenceEnabled())
                 || isGridTabSwitcherEnabled();
         updateSwitcherButtonVisibility(mShowTabStack);
@@ -662,6 +671,9 @@ public class ToolbarTablet
             ApiCompatibilityUtils.setImageTintList(mOptionalButton, null);
         }
 
+        if (buttonSpec.getIPHCommandBuilder() != null) {
+            buttonSpec.getIPHCommandBuilder().setAnchorView(mOptionalButton);
+        }
         mOptionalButton.setOnClickListener(buttonSpec.getOnClickListener());
         if (buttonSpec.getOnLongClickListener() == null) {
             mOptionalButton.setLongClickable(false);
@@ -687,7 +699,7 @@ public class ToolbarTablet
 
     @Override
     @VisibleForTesting
-    public View getOptionalButtonView() {
+    public View getOptionalButtonViewForTesting() {
         return mOptionalButton;
     }
 
@@ -714,6 +726,7 @@ public class ToolbarTablet
 
     /**
      * Sets the toolbar start padding based on whether the buttons are visible.
+     *
      * @param buttonsVisible Whether the toolbar buttons are visible.
      */
     private void setStartPaddingBasedOnButtonVisibility(boolean buttonsVisible) {
@@ -726,7 +739,7 @@ public class ToolbarTablet
 
     /**
      * @return The difference in start padding when the buttons are visible and when they are not
-     *         visible.
+     * visible.
      */
     public int getStartPaddingDifferenceForButtonVisibilityAnimation() {
         // If the home button is visible then the padding doesn't change.
@@ -821,11 +834,31 @@ public class ToolbarTablet
     }
 
     private boolean isGridTabSwitcherEnabled() {
-        return CachedFeatureFlags.isEnabled(ChromeFeatureList.GRID_TAB_SWITCHER_FOR_TABLETS);
+        return ChromeFeatureList.sGridTabSwitcherForTablets.isEnabled();
     }
 
     private boolean isTabletGridTabSwitcherPolishEnabled() {
         return ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
                 ChromeFeatureList.GRID_TAB_SWITCHER_FOR_TABLETS, "enable_launch_polish", false);
+    }
+
+    @VisibleForTesting
+    ImageButton[] getToolbarButtons() {
+        return mToolbarButtons;
+    }
+
+    @VisibleForTesting
+    ObjectAnimator getTabSwitcherModeAnimation() {
+        return mTabSwitcherModeAnimation;
+    }
+
+    @VisibleForTesting
+    void enableButtonVisibilityChangeAnimationForTesting() {
+        mShouldAnimateButtonVisibilityChange = true;
+    }
+
+    @VisibleForTesting
+    void setToolbarButtonsVisibleForTesting(boolean value) {
+        mToolbarButtonsVisible = value;
     }
 }

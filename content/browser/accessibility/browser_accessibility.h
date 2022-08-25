@@ -446,6 +446,7 @@ class CONTENT_EXPORT BrowserAccessibility : public ui::AXPlatformNodeDelegate {
   bool HasAction(ax::mojom::Action action) const override;
   bool HasTextStyle(ax::mojom::TextStyle text_style) const override;
   ax::mojom::NameFrom GetNameFrom() const override;
+  ax::mojom::DescriptionFrom GetDescriptionFrom() const override;
   const ui::AXTree::Selection GetUnignoredSelection() const override;
   AXPosition CreatePositionAt(
       int offset,
@@ -468,7 +469,6 @@ class CONTENT_EXPORT BrowserAccessibility : public ui::AXPlatformNodeDelegate {
   bool IsChildOfLeaf() const override;
   bool IsDescendantOfAtomicTextField() const override;
   bool IsPlatformDocument() const override;
-  bool IsPlatformDocumentWithContent() const override;
   bool IsLeaf() const override;
   bool IsFocused() const override;
   bool IsIgnored() const override;
@@ -483,6 +483,7 @@ class CONTENT_EXPORT BrowserAccessibility : public ui::AXPlatformNodeDelegate {
   std::unique_ptr<ChildIterator> ChildrenEnd() override;
 
   const std::string& GetName() const override;
+  const std::string& GetDescription() const override;
   std::u16string GetHypertext() const override;
   const std::map<int, int>& GetHypertextOffsetToHyperlinkChildIndex()
       const override;
@@ -614,7 +615,7 @@ class CONTENT_EXPORT BrowserAccessibility : public ui::AXPlatformNodeDelegate {
   // The underlying node. This could change during the lifetime of this object
   // if this object has been reparented, i.e. moved to another part of the tree.
   // Weak, `AXTree` owns this.
-  raw_ptr<ui::AXNode> node_;
+  raw_ptr<ui::AXNode, DanglingUntriaged> node_;
 
   // Protected so that it can't be called directly on a BrowserAccessibility
   // where it could be confused with an id that comes from the node data,

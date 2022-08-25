@@ -40,8 +40,11 @@ const float kPlaceholderTitleCornerRadius = 2.0f;
 const float kCornerRadius = 16;
 
 // The shadow offsets of this container.
-const CGFloat kHorizontalShadowOffset = 10;
-const CGFloat kVerticalShadowOffset = 20;
+const CGFloat kHorizontalShadowOffset = 40;
+const CGFloat kVerticalShadowOffset = 50;
+
+// Vertical space allocated to the Trending Queries module content.
+const float kTrendingQueriesContentHeight = 103;
 
 }  // namespace
 
@@ -72,7 +75,7 @@ const CGFloat kVerticalShadowOffset = 20;
     // Create content container with same background as this view so that a
     // shadow view can be placed under it to create a shadow effect.
     UIImageView* shadow = [[UIImageView alloc]
-        initWithImage:StretchableImageNamed(@"menu_shadow")];
+        initWithImage:StretchableImageNamed(@"module_shadow")];
     shadow.translatesAutoresizingMaskIntoConstraints = NO;
     [self addSubview:shadow];
     AddSameConstraintsToSidesWithInsets(
@@ -159,6 +162,9 @@ const CGFloat kVerticalShadowOffset = 20;
           IDS_IOS_CONTENT_SUGGESTIONS_MOST_VISITED_MODULE_TITLE);
     case ContentSuggestionsModuleTypeReturnToRecentTab:
       return @"";
+    case ContentSuggestionsModuleTypeTrendingQueries:
+      return l10n_util::GetNSString(
+          IDS_IOS_CONTENT_SUGGESTIONS_TRENDING_QUERIES_MODULE_TITLE);
   }
 }
 
@@ -200,6 +206,8 @@ const CGFloat kVerticalShadowOffset = 20;
       break;
     case ContentSuggestionsModuleTypeReturnToRecentTab:
       return kReturnToRecentTabSize.height;
+    case ContentSuggestionsModuleTypeTrendingQueries:
+      contentHeight += kTrendingQueriesContentHeight;
   }
   return kContentTitleVerticalSpacing + ceilf(self.title.font.lineHeight) +
          kTitleTopInset + contentHeight;

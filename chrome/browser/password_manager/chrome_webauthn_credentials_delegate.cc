@@ -33,8 +33,26 @@ bool ChromeWebAuthnCredentialsDelegate::IsWebAuthnAutofillEnabled() const {
   return base::FeatureList::IsEnabled(features::kWebAuthConditionalUI);
 }
 
+void ChromeWebAuthnCredentialsDelegate::LaunchWebAuthnFlow() {
+#if !BUILDFLAG(IS_ANDROID)
+  ChromeAuthenticatorRequestDelegate* authenticator_delegate =
+      AuthenticatorRequestScheduler::GetRequestDelegate(
+          client_->web_contents());
+  if (!authenticator_delegate) {
+    return;
+  }
+  authenticator_delegate->dialog_model()->TransitionToModalWebAuthnRequest();
+#endif  // !BUILDFLAG(IS_ANDROID)
+}
+
 void ChromeWebAuthnCredentialsDelegate::SelectWebAuthnCredential(
     std::string backend_id) {
+  // `backend_id` is the base64-encoded credential ID. See
+  // `OnCredentialsReceived()` for where these are encoded.
+  absl::optional<std::vector<uint8_t>> selected_credential_id =
+      base::Base64Decode(backend_id);
+  DCHECK(selected_credential_id);
+
 #if BUILDFLAG(IS_ANDROID)
   auto* credentials_delegate =
       ConditionalUiDelegateAndroid::GetConditionalUiDelegate(
@@ -43,10 +61,7 @@ void ChromeWebAuthnCredentialsDelegate::SelectWebAuthnCredential(
     std::move(retrieve_suggestions_callback_).Run();
     return;
   }
-  absl::optional<std::vector<uint8_t>> selected_credential =
-      base::Base64Decode(backend_id);
-  DCHECK(selected_credential);
-  credentials_delegate->OnWebAuthnAccountSelected(*selected_credential);
+  credentials_delegate->OnWebAuthnAccountSelected(*selected_credential_id);
 #else
   ChromeAuthenticatorRequestDelegate* authenticator_delegate =
       AuthenticatorRequestScheduler::GetRequestDelegate(
@@ -55,7 +70,7 @@ void ChromeWebAuthnCredentialsDelegate::SelectWebAuthnCredential(
     return;
   }
   authenticator_delegate->dialog_model()->OnAccountPreselected(
-      std::vector<uint8_t>(backend_id.begin(), backend_id.end()));
+      *selected_credential_id);
 #endif  // BUILDFLAG(IS_ANDROID)
 }
 
@@ -102,8 +117,7 @@ void ChromeWebAuthnCredentialsDelegate::OnCredentialsReceived(
         !credential.user.display_name->empty()) {
       name = base::UTF8ToUTF16(*credential.user.display_name);
     } else {
-      // TODO(crbug.com/1179014): go through UX review, choose a string, and
-      // i18n it.
+      // TODO(crbug.com/1329958): i18n this string.
       name = u"Unknown account";
     }
     autofill::Suggestion suggestion(std::move(name));
@@ -112,15 +126,7 @@ void ChromeWebAuthnCredentialsDelegate::OnCredentialsReceived(
     }
     suggestion.icon = "fingerprint";
     suggestion.frontend_id = autofill::POPUP_ITEM_ID_WEBAUTHN_CREDENTIAL;
-#if BUILDFLAG(IS_ANDROID)
-    // Android passes the credential ID instead of the user ID, because it
-    // needs the credential ID to directly populate the allowCredentials
-    // list when one is selected.
     suggestion.payload = base::Base64Encode(credential.cred_id);
-#else
-    suggestion.payload =
-        std::string(credential.user.id.begin(), credential.user.id.end());
-#endif
     suggestions.push_back(std::move(suggestion));
   }
   suggestions_ = std::move(suggestions);

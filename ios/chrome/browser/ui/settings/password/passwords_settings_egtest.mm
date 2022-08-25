@@ -6,22 +6,24 @@
 
 #include <utility>
 
-#include "base/callback.h"
-#include "base/ios/ios_util.h"
-#include "base/strings/sys_string_conversions.h"
-#include "base/test/scoped_feature_list.h"
-#include "base/time/time.h"
-#include "components/password_manager/core/common/password_manager_features.h"
-#include "components/strings/grit/components_strings.h"
-#include "components/sync/base/features.h"
+#import "base/callback.h"
+#import "base/ios/ios_util.h"
+#import "base/strings/sys_string_conversions.h"
+#import "base/test/ios/wait_util.h"
+#import "base/test/scoped_feature_list.h"
+#import "base/time/time.h"
+#import "components/password_manager/core/common/password_manager_features.h"
+#import "components/strings/grit/components_strings.h"
+#import "components/sync/base/features.h"
+#import "ios/chrome/browser/metrics/metrics_app_interface.h"
 #import "ios/chrome/browser/ui/authentication/signin_earl_grey_ui_test_util.h"
 #import "ios/chrome/browser/ui/settings/google_services/manage_sync_settings_constants.h"
-#include "ios/chrome/browser/ui/settings/password/password_settings_app_interface.h"
+#import "ios/chrome/browser/ui/settings/password/password_settings_app_interface.h"
 #import "ios/chrome/browser/ui/settings/password/passwords_table_view_constants.h"
 #import "ios/chrome/browser/ui/settings/settings_root_table_constants.h"
 #import "ios/chrome/common/ui/reauthentication/reauthentication_protocol.h"
 #import "ios/chrome/common/ui/table_view/table_view_cells_constants.h"
-#include "ios/chrome/grit/ios_strings.h"
+#import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_actions.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey_app_interface.h"
@@ -31,8 +33,8 @@
 #import "ios/public/provider/chrome/browser/signin/fake_chrome_identity.h"
 #import "ios/testing/earl_grey/app_launch_manager.h"
 #import "ios/testing/earl_grey/earl_grey_test.h"
-#include "ios/web/public/test/element_selector.h"
-#include "ui/base/l10n/l10n_util.h"
+#import "ios/web/public/test/element_selector.h"
+#import "ui/base/l10n/l10n_util.h"
 
 #include "ios/third_party/earl_grey2/src/CommonLib/Matcher/GREYLayoutConstraint.h"  // nogncheck
 
@@ -294,7 +296,8 @@ id<GREYMatcher> PopUpMenuItemWithLabel(int label) {
   // UIAccessibilityTraitButton.
   return grey_allOf(
       grey_accessibilityLabel(l10n_util::GetNSString(label)),
-      grey_not(grey_accessibilityTrait(UIAccessibilityTraitButton)), nil);
+      grey_not(grey_accessibilityTrait(UIAccessibilityTraitButton)),
+      grey_userInteractionEnabled(), nil);
 }
 
 // Returns matcher for the "Add Password" button located at the bottom of the
@@ -375,10 +378,7 @@ void CopyPasswordDetailWithID(int detail_id) {
 }
 
 id<GREYMatcher> EditDoneButton() {
-  if ([ChromeEarlGrey isAddCredentialsInSettingsEnabled]) {
-    return SettingToolbarEditDoneButton();
-  }
-  return NavigationBarDoneButton();
+  return SettingToolbarEditDoneButton();
 }
 
 }  // namespace
@@ -389,6 +389,12 @@ id<GREYMatcher> EditDoneButton() {
 
 @implementation PasswordsSettingsTestCase
 
+- (void)setUp {
+  [super setUp];
+  GREYAssertNil([MetricsAppInterface setupHistogramTester],
+                @"Cannot setup histogram tester.");
+}
+
 - (void)tearDown {
   // Snackbars triggered by tests stay up for a limited time even if the
   // settings get closed. Ensure that they are closed to avoid interference with
@@ -396,6 +402,9 @@ id<GREYMatcher> EditDoneButton() {
   [PasswordSettingsAppInterface dismissSnackBar];
   GREYAssert([PasswordSettingsAppInterface clearPasswordStore],
              @"PasswordStore was not cleared.");
+
+  GREYAssertNil([MetricsAppInterface releaseHistogramTester],
+                @"Cannot reset histogram tester.");
 
   [super tearDown];
 }
@@ -411,15 +420,11 @@ id<GREYMatcher> EditDoneButton() {
     config.features_disabled.push_back(
         syncer::kSyncTrustedVaultPassphrasePromo);
   }
-  if ([self isRunningTest:@selector(testToolbarAddPasswordButton)] ||
-      [self isRunningTest:@selector(testNoAddButtonInEditMode)] ||
-      [self isRunningTest:@selector(testAddNewPasswordCredential)] ||
-      [self isRunningTest:@selector(testAutoScroll)] ||
-      [self isRunningTest:@selector(testAddNewDuplicatedPasswordCredential)] ||
-      [self isRunningTest:@selector(testTLDMissingMessage)] ||
-      [self isRunningTest:@selector(testDuplicatedCredentialWithNoUsername)]) {
+  if ([self isRunningTest:@selector(testLogFaviconsForPasswordsMetrics)] ||
+      [self isRunningTest:@selector
+            (testLogFaviconsForPasswordsMetricsNoPassword)]) {
     config.features_enabled.push_back(
-        password_manager::features::kSupportForAddPasswordsInSettings);
+        password_manager::features::kEnableFaviconForPasswords);
   }
 
   return config;
@@ -2117,6 +2122,133 @@ id<GREYMatcher> EditDoneButton() {
       assertWithMatcher:grey_sufficientlyVisible()];
   [GetInteractionForPasswordDetailItem(HidePasswordButton())
       performAction:grey_tap()];
+}
+
+// Tests that the favicons for the password managers metrics are logged
+// properly when there are passwords with a favicon.
+// TODO(crbug.com/1348585): Fix to re-enable.
+- (void)testLogFaviconsForPasswordsMetrics {
+  // Sign-in and synced user.
+  FakeChromeIdentity* fakeIdentity = [FakeChromeIdentity fakeIdentity1];
+  [SigninEarlGreyUI signinWithFakeIdentity:fakeIdentity];
+  [ChromeEarlGrey waitForSyncInitialized:YES syncTimeout:5.0];
+
+  // Add passwords for the user.
+  SaveExamplePasswordForms();
+
+  OpenPasswordSettings();
+
+  // Make sure the cell is loaded properly before tapping on it.
+  ConditionBlock condition = ^{
+    NSError* error = nil;
+    [[[EarlGrey
+        selectElementWithMatcher:grey_allOf(ButtonWithAccessibilityLabel(
+                                                @"example12.com, user2"),
+                                            grey_sufficientlyVisible(), nil)]
+           usingSearchAction:grey_scrollInDirection(kGREYDirectionDown,
+                                                    kScrollAmount)
+        onElementWithMatcher:grey_accessibilityID(kPasswordsTableViewId)]
+        assertWithMatcher:grey_notNil()
+                    error:&error];
+    return error == nil;
+  };
+
+  GREYAssert(base::test::ios::WaitUntilConditionOrTimeout(
+                 base::test::ios::kWaitForUIElementTimeout, condition),
+             @"Waiting for the cell to load");
+
+  [GetInteractionForPasswordEntry(@"example12.com, user2")
+      performAction:grey_tap()];
+
+  // Metric: Passwords in the password manager.
+  // Verify that histogram is called.
+  NSError* error = [MetricsAppInterface
+      expectTotalCount:1
+          forHistogram:@"IOS.PasswordManager.PasswordsWithFavicons.Count"];
+  if (error) {
+    GREYFail([error description]);
+  }
+  // Verify the logged value of the histogram.
+  error = [MetricsAppInterface
+         expectSum:2
+      forHistogram:@"IOS.PasswordManager.PasswordsWithFavicons.Count"];
+  if (error) {
+    GREYFail([error description]);
+  }
+
+  // Metric: Passwords with a favicon (image) in the password manager.
+  // Verify that histogram is called.
+  error = [MetricsAppInterface
+      expectTotalCount:1
+          forHistogram:@"IOS.PasswordManager.Favicons.Count"];
+  if (error) {
+    GREYFail([error description]);
+  }
+  // Verify the logged value of the histogram.
+  error = [MetricsAppInterface expectSum:0
+                            forHistogram:@"IOS.PasswordManager.Favicons.Count"];
+  if (error) {
+    GREYFail([error description]);
+  }
+
+  // Metric: Percentage of favicons with image.
+  // Verify that histogram is called.
+  error = [MetricsAppInterface
+      expectTotalCount:1
+          forHistogram:@"IOS.PasswordManager.Favicons.Percentage"];
+  if (error) {
+    GREYFail([error description]);
+  }
+  // Verify the logged value of the histogram.
+  error = [MetricsAppInterface
+         expectSum:0
+      forHistogram:@"IOS.PasswordManager.Favicons.Percentage"];
+  if (error) {
+    GREYFail([error description]);
+  }
+}
+
+// Tests that the favicons for the password managers metrics are logged
+// properly when there are no password.
+- (void)testLogFaviconsForPasswordsMetricsNoPassword {
+  OpenPasswordSettings();
+
+  [[EarlGrey selectElementWithMatcher:SettingsDoneButton()]
+      performAction:grey_tap()];
+
+  // Metric: Passwords in the password manager.
+  // Verify that histogram is called.
+  NSError* error = [MetricsAppInterface
+      expectTotalCount:1
+          forHistogram:@"IOS.PasswordManager.PasswordsWithFavicons.Count"];
+  if (error) {
+    GREYFail([error description]);
+  }
+  // Verify the logged value of the histogram.
+  error = [MetricsAppInterface
+         expectSum:0
+      forHistogram:@"IOS.PasswordManager.PasswordsWithFavicons.Count"];
+  if (error) {
+    GREYFail([error description]);
+  }
+
+  // Metric: Percentage of favicons with image.
+  // This histogram is not logged.
+  error = [MetricsAppInterface
+      expectTotalCount:0
+          forHistogram:@"IOS.PasswordManager.Favicons.Count"];
+  if (error) {
+    GREYFail([error description]);
+  }
+
+  // Metric: Percentage of favicons with image.
+  // This histogram is not logged.
+  error = [MetricsAppInterface
+      expectTotalCount:0
+          forHistogram:@"IOS.PasswordManager.Favicons.Percentage"];
+  if (error) {
+    GREYFail([error description]);
+  }
 }
 
 @end

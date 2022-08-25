@@ -77,6 +77,7 @@ void VirtualCardEnrollmentManager::InitVirtualCardEnroll(
       ShouldBlockVirtualCardEnrollment(
           base::NumberToString(credit_card.instrument_id()),
           virtual_card_enrollment_source)) {
+    Reset();
     return;
   }
 
@@ -120,7 +121,9 @@ void VirtualCardEnrollmentManager::OnCardSavedAnimationComplete() {
   }
 }
 
-void VirtualCardEnrollmentManager::Enroll() {
+void VirtualCardEnrollmentManager::Enroll(
+    absl::optional<VirtualCardEnrollmentUpdateResponseCallback>
+        virtual_card_enrollment_update_response_callback) {
   LogUpdateVirtualCardEnrollmentRequestAttempt(
       state_.virtual_card_enrollment_fields.virtual_card_enrollment_source,
       VirtualCardEnrollmentRequestType::kEnroll);
@@ -136,6 +139,9 @@ void VirtualCardEnrollmentManager::Enroll() {
       state_.virtual_card_enrollment_fields.credit_card.instrument_id();
   request_details.vcn_context_token = state_.vcn_context_token;
 
+  virtual_card_enrollment_update_response_callback_ =
+      std::move(virtual_card_enrollment_update_response_callback);
+
   payments_client_->UpdateVirtualCardEnrollment(
       request_details,
       base::BindOnce(&VirtualCardEnrollmentManager::
@@ -149,7 +155,10 @@ void VirtualCardEnrollmentManager::Enroll() {
   }
 }
 
-void VirtualCardEnrollmentManager::Unenroll(int64_t instrument_id) {
+void VirtualCardEnrollmentManager::Unenroll(
+    int64_t instrument_id,
+    absl::optional<VirtualCardEnrollmentUpdateResponseCallback>
+        virtual_card_enrollment_update_response_callback) {
   LogUpdateVirtualCardEnrollmentRequestAttempt(
       VirtualCardEnrollmentSource::kSettingsPage,
       VirtualCardEnrollmentRequestType::kUnenroll);
@@ -169,6 +178,9 @@ void VirtualCardEnrollmentManager::Unenroll(int64_t instrument_id) {
       payments::GetBillingCustomerId(personal_data_manager_);
   request_details.instrument_id = instrument_id;
 
+  virtual_card_enrollment_update_response_callback_ =
+      std::move(virtual_card_enrollment_update_response_callback);
+
   payments_client_->UpdateVirtualCardEnrollment(
       request_details,
       base::BindOnce(&VirtualCardEnrollmentManager::
@@ -181,8 +193,9 @@ bool VirtualCardEnrollmentManager::ShouldBlockVirtualCardEnrollment(
     const std::string& instrument_id,
     VirtualCardEnrollmentSource virtual_card_enrollment_source) const {
   if (virtual_card_enrollment_source ==
-      VirtualCardEnrollmentSource::kSettingsPage)
+      VirtualCardEnrollmentSource::kSettingsPage) {
     return false;
+  }
 
   if (!GetVirtualCardEnrollmentStrikeDatabase())
     return false;
@@ -262,6 +275,13 @@ void VirtualCardEnrollmentManager::OnDidGetUpdateVirtualCardEnrollmentResponse(
       state_.virtual_card_enrollment_fields.virtual_card_enrollment_source,
       type, result == AutofillClient::PaymentsRpcResult::kSuccess);
   Reset();
+  // Relay the response to the server card editor page. This also destroys the
+  // payments delegate if the editor was already closed.
+  if (virtual_card_enrollment_update_response_callback_.has_value()) {
+    std::move(virtual_card_enrollment_update_response_callback_.value())
+        .Run(result == AutofillClient::PaymentsRpcResult::kSuccess);
+  }
+  virtual_card_enrollment_update_response_callback_.reset();
 }
 
 void VirtualCardEnrollmentManager::Reset() {
@@ -322,8 +342,9 @@ void VirtualCardEnrollmentManager::ShowVirtualCardEnrollBubble() {
 
   autofill_client_->ShowVirtualCardEnrollDialog(
       state_.virtual_card_enrollment_fields,
-      base::BindOnce(&VirtualCardEnrollmentManager::Enroll,
-                     weak_ptr_factory_.GetWeakPtr()),
+      base::BindOnce(
+          &VirtualCardEnrollmentManager::Enroll, weak_ptr_factory_.GetWeakPtr(),
+          /*virtual_card_enrollment_update_response_callback=*/absl::nullopt),
       base::BindOnce(
           &VirtualCardEnrollmentManager::OnVirtualCardEnrollmentBubbleCancelled,
           weak_ptr_factory_.GetWeakPtr()));
@@ -509,6 +530,7 @@ void VirtualCardEnrollmentManager::EnsureCardArtImageIsSetBeforeShowingUI() {
 void VirtualCardEnrollmentManager::SetInitialVirtualCardEnrollFields(
     const CreditCard& credit_card,
     VirtualCardEnrollmentSource virtual_card_enrollment_source) {
+  // Reset here to override currently pending enrollment.
   Reset();
 
   DCHECK_NE(virtual_card_enrollment_source, VirtualCardEnrollmentSource::kNone);

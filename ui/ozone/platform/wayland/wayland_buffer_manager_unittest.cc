@@ -10,10 +10,12 @@
 
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
+#include "base/memory/raw_ptr.h"
 #include "base/test/mock_callback.h"
 #include "mojo/public/cpp/system/platform_handle.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
@@ -26,6 +28,7 @@
 #include "ui/ozone/platform/wayland/common/wayland_overlay_config.h"
 #include "ui/ozone/platform/wayland/gpu/wayland_buffer_manager_gpu.h"
 #include "ui/ozone/platform/wayland/gpu/wayland_surface_gpu.h"
+#include "ui/ozone/platform/wayland/host/wayland_buffer_factory.h"
 #include "ui/ozone/platform/wayland/host/wayland_buffer_manager_host.h"
 #include "ui/ozone/platform/wayland/host/wayland_connection.h"
 #include "ui/ozone/platform/wayland/host/wayland_subsurface.h"
@@ -36,6 +39,7 @@
 #include "ui/ozone/platform/wayland/test/test_overlay_prioritized_surface.h"
 #include "ui/ozone/platform/wayland/test/test_zwp_linux_buffer_params.h"
 #include "ui/ozone/platform/wayland/test/wayland_test.h"
+#include "ui/platform_window/platform_window_init_properties.h"
 
 using testing::_;
 using testing::Truly;
@@ -89,7 +93,7 @@ class MockSurfaceGpu : public WaylandSurfaceGpu {
                     const gfx::PresentationFeedback& feedback));
 
  private:
-  WaylandBufferManagerGpu* const buffer_manager_;
+  const raw_ptr<WaylandBufferManagerGpu> buffer_manager_;
   const gfx::AcceleratedWidget widget_;
 };
 
@@ -118,8 +122,8 @@ class WaylandBufferManagerTest : public WaylandTest {
                                     false,
                                     kAugmentedSurfaceNotSupportedVersion);
 
-    window_->set_update_visual_size_immediately(false);
-    window_->set_apply_pending_state_on_update_visual_size(false);
+    window_->set_update_visual_size_immediately_for_testing(false);
+    window_->set_apply_pending_state_on_update_visual_size_for_testing(false);
   }
 
  protected:
@@ -147,22 +151,23 @@ class WaylandBufferManagerTest : public WaylandTest {
     } else {
       EXPECT_CALL(*callback, Run(_))
           .Times(1)
-          .WillRepeatedly(::testing::Invoke([this, callback](
-                                                std::string error_string) {
-            channel_destroyed_error_message_ = error_string;
+          .WillRepeatedly(
+              ::testing::Invoke([this, callback](std::string error_string) {
+                channel_destroyed_error_message_ = error_string;
 
-            manager_host_->OnChannelDestroyed();
+                manager_host_->OnChannelDestroyed();
 
-            manager_host_->SetTerminateGpuCallback(callback->Get());
+                manager_host_->SetTerminateGpuCallback(callback->Get());
 
-            auto interface_ptr = manager_host_->BindInterface();
-            // Recreate the gpu side manager (the production code does the
-            // same).
-            buffer_manager_gpu_ = std::make_unique<WaylandBufferManagerGpu>();
-            buffer_manager_gpu_->Initialize(
-                std::move(interface_ptr), {}, false, true, false,
-                kAugmentedSurfaceNotSupportedVersion);
-          }));
+                auto interface_ptr = manager_host_->BindInterface();
+                // Recreate the gpu side manager (the production code does the
+                // same).
+                buffer_manager_gpu_ =
+                    std::make_unique<WaylandBufferManagerGpu>();
+                buffer_manager_gpu_->Initialize(
+                    std::move(interface_ptr), {}, false, true, false,
+                    kAugmentedSurfaceNotSupportedVersion);
+              }));
     }
   }
 
@@ -265,7 +270,7 @@ class WaylandBufferManagerTest : public WaylandTest {
   }
 
   MockTerminateGpuCallback callback_;
-  WaylandBufferManagerHost* manager_host_;
+  raw_ptr<WaylandBufferManagerHost> manager_host_;
   // Error message that is received when the manager_host destroys the channel.
   std::string channel_destroyed_error_message_;
 };
@@ -299,7 +304,8 @@ TEST_P(WaylandBufferManagerTest, VerifyModifiers) {
 
     Sync();
 
-    auto buffer_formats = connection_->zwp_dmabuf()->supported_buffer_formats();
+    auto buffer_formats =
+        connection_->wayland_buffer_factory()->GetSupportedBufferFormats();
     DCHECK_EQ(buffer_formats.size(), 1u);
     DCHECK_EQ(buffer_formats.begin()->first,
               GetBufferFormatFromFourCCFormat(kFourccFormatR8));
@@ -1074,9 +1080,15 @@ TEST_P(WaylandBufferManagerTest, TestCommitBufferConditionsAckConfigured) {
 
     Sync();
 
+    auto* xdg_surface = mock_surface->xdg_surface();
+    ASSERT_TRUE(xdg_surface);
+    ASSERT_FALSE(temp_window->IsSurfaceConfigured());
+
     ProcessCreatedBufferResourcesWithExpectation(1u /* expected size */,
                                                  false /* fail */);
 
+    EXPECT_CALL(*xdg_surface, SetWindowGeometry(_)).Times(0);
+    EXPECT_CALL(*xdg_surface, AckConfigure(_)).Times(0);
     EXPECT_CALL(*mock_surface, Attach(_, _, _)).Times(0);
     EXPECT_CALL(*mock_surface, Frame(_)).Times(0);
     EXPECT_CALL(*mock_surface, Commit()).Times(0);
@@ -1085,22 +1097,127 @@ TEST_P(WaylandBufferManagerTest, TestCommitBufferConditionsAckConfigured) {
         widget, kDmabufBufferId, kDmabufBufferId, window_->GetBoundsInPixels(),
         kDefaultScale, window_->GetBoundsInPixels());
     Sync();
+    testing::Mock::VerifyAndClearExpectations(mock_surface);
 
-    DCHECK(mock_surface->xdg_surface());
-    ActivateSurface(mock_surface->xdg_surface());
-
+    EXPECT_CALL(*xdg_surface, SetWindowGeometry(gfx::Rect(800, 600))).Times(1);
+    EXPECT_CALL(*xdg_surface, AckConfigure(_)).Times(1);
     EXPECT_CALL(*mock_surface, Attach(_, _, _)).Times(1);
     EXPECT_CALL(*mock_surface, Frame(_)).Times(1);
-    EXPECT_CALL(*mock_surface, Commit()).Times(1);
+    // Commit() can be called a second time as part of the configure -> ack
+    // sequence.
+    EXPECT_CALL(*mock_surface, Commit()).Times(testing::Between(1, 2));
 
+    ActivateSurface(mock_surface->xdg_surface());
     Sync();
+    testing::Mock::VerifyAndClearExpectations(mock_surface);
 
-    window_->SetPointerFocus(false);
+    SetPointerFocusedWindow(nullptr);
     temp_window.reset();
     DestroyBufferAndSetTerminateExpectation(kDmabufBufferId, false /*fail*/);
 
     Sync();
   }
+}
+
+// Verifies toplevel surfaces do not have buffers attached until configured,
+// even when the initial configure sequence is not acked in response to
+// xdg_surface.configure event, i.e: done asynchronously when UpdateVisualSize()
+// is called by they FrameManager).
+//
+// Regression test for https://crbug.com/1313023.
+TEST_P(WaylandBufferManagerTest,
+       CommitBufferConditionsWithDeferredAckConfigure) {
+  constexpr gfx::Rect kNormalBounds{800, 800};
+  constexpr gfx::Rect kRestoredBounds{500, 500};
+  constexpr uint32_t kDmabufBufferId = 1;
+
+  testing::Mock::VerifyAndClearExpectations(&delegate_);
+  PlatformWindowInitProperties properties;
+  properties.type = PlatformWindowType::kWindow;
+  properties.bounds = kNormalBounds;
+  auto window = WaylandWindow::Create(&delegate_, connection_.get(),
+                                      std::move(properties));
+  ASSERT_TRUE(window);
+  ASSERT_NE(window->GetWidget(), gfx::kNullAcceleratedWidget);
+  auto widget = window->GetWidget();
+
+  // Set restored bounds to a value different from the initial window bounds in
+  // order to force WaylandWindow::ProcessPendingBoundsDip() to defer the very
+  // first configure ack to be done in the subsequent UpdateVisualSize() call.
+  window->SetRestoredBoundsInDIP(kRestoredBounds);
+
+  // Disable auto immediate visual size update (when, for example, calling into
+  // WaylandWindow::SetBoundsInPixels) so that we can emulate deferred call to
+  // WaylandToplevelWindow::UpdateVisualSize() with mismatching parameters, when
+  // processing initial frame sent by the GPU.
+  window->set_update_visual_size_immediately_for_testing(false);
+  window->set_apply_pending_state_on_update_visual_size_for_testing(false);
+
+  Sync();
+
+  gfx::Insets insets;
+  window->SetDecorationInsets(&insets);
+  window->Show(false);
+  Sync();
+
+  auto* mock_surface = server_.GetObject<wl::MockSurface>(
+      window->root_surface()->GetSurfaceId());
+  MockSurfaceGpu mock_surface_gpu(buffer_manager_gpu_.get(), widget);
+
+  auto* linux_dmabuf = server_.zwp_linux_dmabuf_v1();
+  EXPECT_CALL(*linux_dmabuf, CreateParams(_, _, _)).Times(1);
+
+  CreateDmabufBasedBufferAndSetTerminateExpectation(false /*fail*/,
+                                                    kDmabufBufferId);
+
+  Sync();
+
+  auto* xdg_surface = mock_surface->xdg_surface();
+  ASSERT_TRUE(xdg_surface);
+  ASSERT_FALSE(window->IsSurfaceConfigured());
+
+  ProcessCreatedBufferResourcesWithExpectation(1u /* expected size */,
+                                               false /* fail */);
+
+  // Emulate the following steps:
+  //
+  // 1. A CommitBuffer request coming from the GPU service, with frame
+  //    bounds that do not match the one stored in |pending_configures_| at Host
+  //    side (filled when processing 0x0 initial configure sequence sent by the
+  //    Wayland compositor.
+  // 2. The initial configure sequence (i.e: with 0x0 size which means the
+  //    client must suggest the initial geometry of the surface.
+  // 3. And then a CommitBuffer with the expected bounds (ie: suggested to the
+  //    Wayland compositor through a set_geometry/ack_configure sequence when
+  //    processing (2).
+  //
+  // And ensures the xdg and wl_surface objects received the correct requests
+  // amount. I.e: No buffer attaches before setting geometry + acking initial
+  // configure sequence, etc.
+
+  EXPECT_CALL(*xdg_surface, SetWindowGeometry(kRestoredBounds)).Times(1);
+  EXPECT_CALL(*xdg_surface, AckConfigure(1)).Times(1);
+  EXPECT_CALL(*mock_surface, Attach(_, 0, 0)).Times(1);
+  EXPECT_CALL(*mock_surface, Frame(_)).Times(1);
+  EXPECT_CALL(*mock_surface, Commit()).Times(1);
+
+  buffer_manager_gpu_->CommitBuffer(widget, kDmabufBufferId, kDmabufBufferId,
+                                    gfx::Rect{55, 55}, kDefaultScale,
+                                    gfx::Rect{55, 55});
+  ActivateSurface(mock_surface->xdg_surface());
+
+  Sync();
+
+  buffer_manager_gpu_->CommitBuffer(widget, kDmabufBufferId, kDmabufBufferId,
+                                    kRestoredBounds, kDefaultScale,
+                                    kRestoredBounds);
+  Sync();
+
+  SetPointerFocusedWindow(nullptr);
+  window.reset();
+  DestroyBufferAndSetTerminateExpectation(kDmabufBufferId, false /*fail*/);
+
+  Sync();
 }
 
 // The buffer that is not originally attached to any of the surfaces,

@@ -10,6 +10,7 @@
 #include "base/callback_helpers.h"
 #include "base/i18n/time_formatting.h"
 #include "base/logging.h"
+#include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "base/sequence_checker.h"
@@ -38,7 +39,7 @@
 #include "chrome/browser/certificate_provider/certificate_provider_service_factory.h"
 #include "chrome/browser/policy/networking/user_network_configuration_updater.h"
 #include "chrome/browser/policy/networking/user_network_configuration_updater_factory.h"
-#include "chromeos/network/policy_certificate_provider.h"
+#include "chromeos/ash/components/network/policy_certificate_provider.h"
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -279,7 +280,7 @@ class CertsSourcePlatformNSS : public CertificateManagerModel::CertsSource,
   }
 
   // The source NSSCertDatabase used for listing certificates.
-  net::NSSCertDatabase* cert_db_;
+  raw_ptr<net::NSSCertDatabase> cert_db_;
 
   // ScopedObservation to keep track of the observer for net::CertDatabase.
   base::ScopedObservation<net::CertDatabase, net::CertDatabase::Observer>
@@ -385,7 +386,7 @@ class CertsSourcePolicy : public CertificateManagerModel::CertsSource,
     SetCertInfos(std::move(cert_infos));
   }
 
-  chromeos::PolicyCertificateProvider* policy_certs_provider_;
+  raw_ptr<chromeos::PolicyCertificateProvider> policy_certs_provider_;
   Mode mode_;
 };
 

@@ -5,7 +5,7 @@
 // Include test fixture.
 GEN_INCLUDE([
   '../select_to_speak/select_to_speak_e2e_test_base.js',
-  '../chromevox/testing/snippets.js'
+  '../chromevox/testing/snippets.js',
 ]);
 
 /**
@@ -119,7 +119,7 @@ TEST_F(
       }.bind(this)));
     });
 
-TEST_F(
+AX_TEST_F(
     'AccessibilityExtensionAutomationTreeWalkerTest', 'RootLeafRestriction',
     async function() {
       const r = await this.runWithLoadedTree(`
@@ -197,7 +197,7 @@ TEST_F(
       assertEquals(node6, walker.next().node);
     });
 
-TEST_F(
+AX_TEST_F(
     'AccessibilityExtensionAutomationTreeWalkerTest', 'LeafPredicateSymmetry',
     async function() {
       const r = await this.runWithLoadedTree(toolbarDoc);
@@ -220,7 +220,7 @@ TEST_F(
       } while (backwardWalker.next().node);
     });
 
-TEST_F(
+AX_TEST_F(
     'AccessibilityExtensionAutomationTreeWalkerTest', 'RootPredicateEnding',
     async function() {
       const r = await this.runWithLoadedTree(toolbarDoc());
@@ -228,7 +228,7 @@ TEST_F(
           new AutomationTreeWalker(r.firstChild, 'backward', {
             root(node) {
               return node === r;
-            }
+            },
           });
       assertEquals(r, backwardWalker.next().node);
       assertEquals(null, backwardWalker.next().node);
@@ -237,7 +237,7 @@ TEST_F(
           new AutomationTreeWalker(r.firstChild.lastChild, 'forward', {
             root(node) {
               return node === r;
-            }
+            },
           });
       // Advance to the static text box of button contains text "Forward".
       assertEquals('Forward', forwardWalker.next().node.name);

@@ -275,11 +275,16 @@ class PLATFORM_EXPORT GeometryMapper {
   // successful on return. See comments of the public functions for failure
   // conditions.
 
+  struct ExtraProjectionResult {
+    bool has_animation = false;
+    bool has_fixed = false;
+    bool has_sticky = false;
+  };
+
   static Translation2DOrMatrix SourceToDestinationProjectionInternal(
       const TransformPaintPropertyNode& source,
       const TransformPaintPropertyNode& destination,
-      bool& has_animation,
-      bool& has_fixed,
+      ExtraProjectionResult&,
       bool& success);
 
   static FloatClipRect LocalToAncestorClipRectInternal(
@@ -318,7 +323,7 @@ class PLATFORM_EXPORT GeometryMapper {
   }
 
   static void MoveRect(LayoutRect& rect, const gfx::Vector2dF& delta) {
-    rect.Move(LayoutSize(delta.x(), delta.y()));
+    rect.Move(LayoutSize(delta));
   }
 
   static void MoveRect(gfx::Rect& rect, const gfx::Vector2dF& delta) {

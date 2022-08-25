@@ -5,7 +5,6 @@
 #ifndef CHROME_BROWSER_WEB_APPLICATIONS_WEB_APP_H_
 #define CHROME_BROWSER_WEB_APPLICATIONS_WEB_APP_H_
 
-#include <bitset>
 #include <iosfwd>
 #include <string>
 #include <vector>
@@ -18,6 +17,7 @@
 #include "chrome/browser/web_applications/web_app_constants.h"
 #include "chrome/browser/web_applications/web_app_id.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
+#include "chrome/browser/web_applications/web_app_sources.h"
 #include "components/services/app_service/public/cpp/file_handler.h"
 #include "components/services/app_service/public/cpp/protocol_handler_info.h"
 #include "components/services/app_service/public/cpp/share_target.h"
@@ -30,8 +30,6 @@
 #include "url/gurl.h"
 
 namespace web_app {
-
-using WebAppSources = std::bitset<WebAppManagement::kMaxValue + 1>;
 
 class WebApp {
  public:
@@ -243,8 +241,6 @@ class WebApp {
 
   blink::mojom::CaptureLinks capture_links() const { return capture_links_; }
 
-  blink::mojom::HandleLinks handle_links() const { return handle_links_; }
-
   const GURL& manifest_url() const { return manifest_url_; }
 
   const absl::optional<std::string>& manifest_id() const {
@@ -289,9 +285,15 @@ class WebApp {
     base::flat_set<GURL> install_urls;
   };
 
-  base::flat_map<WebAppManagement::Type, ExternalManagementConfig>
-  management_to_external_config_map() const {
+  using ExternalConfigMap =
+      base::flat_map<WebAppManagement::Type, ExternalManagementConfig>;
+
+  const ExternalConfigMap& management_to_external_config_map() const {
     return management_to_external_config_map_;
+  }
+
+  const absl::optional<blink::Manifest::TabStrip> tab_strip() const {
+    return tab_strip_;
   }
 
   // A Web App can be installed from multiple sources simultaneously. Installs
@@ -364,7 +366,6 @@ class WebApp {
   void SetRunOnOsLoginOsIntegrationState(RunOnOsLoginMode os_integration_state);
   void SetSyncFallbackData(SyncFallbackData sync_fallback_data);
   void SetCaptureLinks(blink::mojom::CaptureLinks capture_links);
-  void SetHandleLinks(blink::mojom::HandleLinks handle_links);
   void SetManifestUrl(const GURL& manifest_url);
   void SetManifestId(const absl::optional<std::string>& manifest_id);
   void SetWindowControlsOverlayEnabled(bool enabled);
@@ -377,8 +378,8 @@ class WebApp {
   void SetAppSizeInBytes(absl::optional<int64_t> app_size_in_bytes);
   void SetDataSizeInBytes(absl::optional<int64_t> data_size_in_bytes);
   void SetWebAppManagementExternalConfigMap(
-      base::flat_map<WebAppManagement::Type, ExternalManagementConfig>
-          management_to_external_config_map);
+      ExternalConfigMap management_to_external_config_map);
+  void SetTabStrip(absl::optional<blink::Manifest::TabStrip> tab_strip);
 
   void AddPlaceholderInfoToManagementExternalConfigMap(
       WebAppManagement::Type source_type,
@@ -461,8 +462,6 @@ class WebApp {
   SyncFallbackData sync_fallback_data_;
   blink::mojom::CaptureLinks capture_links_ =
       blink::mojom::CaptureLinks::kUndefined;
-  blink::mojom::HandleLinks handle_links_ =
-      blink::mojom::HandleLinks::kUndefined;
   ClientData client_data_;
   GURL manifest_url_;
   absl::optional<std::string> manifest_id_;
@@ -490,8 +489,9 @@ class WebApp {
 
   // Maps WebAppManagement::Type to config values for externally installed apps,
   // like is_placeholder and install URLs.
-  base::flat_map<WebAppManagement::Type, ExternalManagementConfig>
-      management_to_external_config_map_;
+  ExternalConfigMap management_to_external_config_map_;
+
+  absl::optional<blink::Manifest::TabStrip> tab_strip_;
 
   // New fields must be added to:
   //  - |operator==|

@@ -10,9 +10,10 @@
 #include <set>
 #include <sstream>
 #include <string>
-#include <unordered_map>
 
+#include "base/containers/flat_map.h"
 #include "base/no_destructor.h"
+#include "base/numerics/checked_math.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -65,7 +66,7 @@ bool FindDescendantRoleWithMaxDepth(const AXPlatformNodeBase* node,
 const char16_t AXPlatformNodeBase::kEmbeddedCharacter = u'\xfffc';
 
 // Map from each AXPlatformNode's unique id to its instance.
-using UniqueIdMap = std::unordered_map<int32_t, AXPlatformNode*>;
+using UniqueIdMap = base::flat_map<int32_t, AXPlatformNode*>;
 base::LazyInstance<UniqueIdMap>::Leaky g_unique_id_map =
     LAZY_INSTANCE_INITIALIZER;
 
@@ -824,10 +825,6 @@ bool AXPlatformNodeBase::IsPlatformDocument() const {
   return delegate_ && delegate_->IsPlatformDocument();
 }
 
-bool AXPlatformNodeBase::IsPlatformDocumentWithContent() const {
-  return delegate_ && delegate_->IsPlatformDocumentWithContent();
-}
-
 bool AXPlatformNodeBase::IsStructuredAnnotation() const {
   // The node represents a structured annotation if it can trace back to a
   // target node that is being annotated.
@@ -1262,11 +1259,13 @@ void AXPlatformNodeBase::ComputeAttributes(PlatformAttributeList* attributes) {
       case ax::mojom::DescriptionFrom::kPopupElement:
         // The following types of markup are mapped to "tooltip":
         // * The title attribute.
-        // * A related popup=hint related via togglepopup/showpopup/hidepopup.
+        // * A related popup=hint related via popuptoggletarget /
+        // popupshowtarget / popuphidetarget.
         // * A tooltip related via aria-describedby (see kRelatedElement above).
         from = "tooltip";
         break;
       case ax::mojom::DescriptionFrom::kNone:
+      case ax::mojom::DescriptionFrom::kAttributeExplicitlyEmpty:
         NOTREACHED();
     }
     DCHECK(!from.empty());
@@ -1895,14 +1894,15 @@ AXPlatformNodeBase::AXPosition AXPlatformNodeBase::HypertextOffsetToEndpoint(
   DCHECK_GE(hypertext_offset, 0);
   DCHECK_LT(hypertext_offset, static_cast<int>(GetHypertext().size()));
 
-  int32_t current_hypertext_offset = hypertext_offset;
+  int current_hypertext_offset = hypertext_offset;
   for (auto child_iter = AXPlatformNodeChildrenBegin();
        child_iter != AXPlatformNodeChildrenEnd() &&
        current_hypertext_offset >= 0;
        ++child_iter) {
     int child_text_len = 1;
     if (child_iter->IsText())
-      child_text_len = child_iter->GetHypertext().size();
+      child_text_len =
+          base::checked_cast<int>(child_iter->GetHypertext().size());
 
     if (current_hypertext_offset < child_text_len) {
       int endpoint_offset = child_text_len - current_hypertext_offset;

@@ -4,7 +4,7 @@
 
 import 'chrome://resources/cr_elements/cr_action_menu/cr_action_menu.js';
 import 'chrome://resources/cr_elements/cr_button/cr_button.m.js';
-import '../settings_shared_css.js';
+import '../settings_shared.css.js';
 import 'chrome://resources/cr_elements/icons.m.js';
 import 'chrome://resources/cr_elements/shared_style_css.m.js';
 import 'chrome://resources/polymer/v3_0/iron-flex-layout/iron-flex-layout-classes.js';
@@ -160,7 +160,7 @@ export class SettingsPasswordCheckElement extends
 
       showMutedPasswordsSection_: {
         type: Boolean,
-        computed: 'computeShowMutedLeakedCredentials_(mutedPasswords)'
+        computed: 'computeShowMutedLeakedCredentials_(mutedPasswords)',
       },
 
       showNoCompromisedPasswordsLabel_: {
@@ -195,7 +195,7 @@ export class SettingsPasswordCheckElement extends
     };
   }
 
-  private storedAccounts_: Array<StoredAccount>;
+  private storedAccounts_: StoredAccount[];
   private title_: string;
   private mutedPasswordsTitle_: string;
   private isSignedOut_: boolean;
@@ -221,7 +221,7 @@ export class SettingsPasswordCheckElement extends
   private showPasswordPromptDialog_: boolean;
   // </if>
 
-  private activeDialogAnchorStack_: Array<HTMLElement>|null;
+  private activeDialogAnchorStack_: HTMLElement[]|null;
   private activeListItem_: PasswordCheckListItemElement|null;
   startCheckAutomaticallySucceeded: boolean = false;
   private setSavedPasswordsListener_: SavedPasswordListChangedListener|null;
@@ -293,7 +293,7 @@ export class SettingsPasswordCheckElement extends
 
     // For non-ChromeOS, also check whether accounts are available.
     // <if expr="not (chromeos_ash or chromeos_lacros)">
-    const storedAccountsChanged = (accounts: Array<StoredAccount>) =>
+    const storedAccountsChanged = (accounts: StoredAccount[]) =>
         this.storedAccounts_ = accounts;
     syncBrowserProxy.getStoredAccounts().then(storedAccountsChanged);
     this.addWebUIListener('stored-accounts-updated', storedAccountsChanged);

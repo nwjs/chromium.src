@@ -40,7 +40,6 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/scoped_tabbed_browser_displayer.h"
@@ -50,6 +49,7 @@
 #include "chrome/browser/ui/webui/tab_strip/tab_strip_ui_layout.h"
 #include "chrome/browser/ui/webui/tab_strip/tab_strip_ui_util.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
+#include "chrome/common/channel_info.h"
 #include "chrome/common/chrome_switches.h"
 #include "components/ui_devtools/devtools_server.h"
 #include "components/user_manager/user_manager.h"
@@ -336,4 +336,19 @@ const GURL& ChromeShellDelegate::GetLastCommittedURLForWindowIfAny(
   }
 
   return contents ? contents->GetLastCommittedURL() : GURL::EmptyGURL();
+}
+
+version_info::Channel ChromeShellDelegate::GetChannel() {
+  return chrome::GetChannel();
+}
+
+void ChromeShellDelegate::ForceSkipWarningUserOnClose(
+    const std::vector<aura::Window*>& windows) {
+  for (aura::Window* window : windows) {
+    BrowserView* browser_view =
+        BrowserView::GetBrowserViewForNativeWindow(window);
+    if (browser_view) {
+      browser_view->browser()->set_force_skip_warning_user_on_close(true);
+    }
+  }
 }

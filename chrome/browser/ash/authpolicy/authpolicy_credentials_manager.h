@@ -10,9 +10,11 @@
 
 #include "base/cancelable_callback.h"
 #include "base/memory/weak_ptr.h"
+#include "base/scoped_observation.h"
 #include "chrome/browser/ash/authpolicy/kerberos_files_handler.h"
 #include "chromeos/ash/components/dbus/authpolicy/active_directory_info.pb.h"
-#include "chromeos/network/network_state_handler_observer.h"
+#include "chromeos/ash/components/network/network_state_handler.h"
+#include "chromeos/ash/components/network/network_state_handler_observer.h"
 #include "components/account_id/account_id.h"
 #include "components/keyed_service/content/browser_context_keyed_service_factory.h"
 #include "components/keyed_service/core/keyed_service.h"
@@ -113,6 +115,10 @@ class AuthPolicyCredentialsManager
   bool rerun_get_status_on_error_ = false;
   bool is_observing_network_ = false;
   KerberosFilesHandler kerberos_files_handler_;
+
+  base::ScopedObservation<chromeos::NetworkStateHandler,
+                          chromeos::NetworkStateHandlerObserver>
+      network_state_handler_observer_{this};
 
   // Stores message ids of shown notifications. Each notification is shown at
   // most once.

@@ -52,6 +52,7 @@
 #import "ios/chrome/browser/safe_browsing/verdict_cache_manager_factory.h"
 #include "ios/chrome/browser/screen_time/screen_time_buildflags.h"
 #include "ios/chrome/browser/search_engines/template_url_service_factory.h"
+#import "ios/chrome/browser/segmentation_platform/segmentation_platform_service_factory.h"
 #include "ios/chrome/browser/signin/about_signin_internals_factory.h"
 #include "ios/chrome/browser/signin/account_consistency_service_factory.h"
 #include "ios/chrome/browser/signin/account_reconcilor_factory.h"
@@ -61,6 +62,7 @@
 #include "ios/chrome/browser/signin/signin_browser_state_info_updater_factory.h"
 #include "ios/chrome/browser/signin/signin_client_factory.h"
 #include "ios/chrome/browser/signin/signin_error_controller_factory.h"
+#import "ios/chrome/browser/signin/trusted_vault_client_backend_factory.h"
 #include "ios/chrome/browser/sync/consent_auditor_factory.h"
 #include "ios/chrome/browser/sync/ios_user_event_service_factory.h"
 #include "ios/chrome/browser/sync/model_type_store_service_factory.h"
@@ -152,6 +154,7 @@ void EnsureBrowserStateKeyedServiceFactoriesBuilt() {
   RealTimeUrlLookupServiceFactory::GetInstance();
   SafeBrowsingClientFactory::GetInstance();
   SafeBrowsingMetricsCollectorFactory::GetInstance();
+  segmentation_platform::SegmentationPlatformServiceFactory::GetInstance();
   SigninBrowserStateInfoUpdaterFactory::GetInstance();
   SigninClientFactory::GetInstance();
   SyncSetupServiceFactory::GetInstance();
@@ -161,6 +164,7 @@ void EnsureBrowserStateKeyedServiceFactoriesBuilt() {
   UrlLanguageHistogramFactory::GetInstance();
   VerdictCacheManagerFactory::GetInstance();
   PolicyBlocklistServiceFactory::GetInstance();
+  TrustedVaultClientBackendFactory::GetInstance();
 
 #if BUILDFLAG(IOS_CREDENTIAL_PROVIDER_ENABLED)
   CredentialProviderServiceFactory::GetInstance();

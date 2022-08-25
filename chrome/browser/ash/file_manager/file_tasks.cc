@@ -31,7 +31,6 @@
 #include "chrome/browser/apps/app_service/metrics/app_platform_metrics.h"
 #include "chrome/browser/apps/app_service/metrics/app_service_metrics.h"
 #include "chrome/browser/ash/crostini/crostini_features.h"
-#include "chrome/browser/ash/drive/drive_integration_service.h"
 #include "chrome/browser/ash/drive/file_system_util.h"
 #include "chrome/browser/ash/file_manager/app_id.h"
 #include "chrome/browser/ash/file_manager/app_service_file_tasks.h"
@@ -39,8 +38,8 @@
 #include "chrome/browser/ash/file_manager/file_browser_handlers.h"
 #include "chrome/browser/ash/file_manager/file_tasks_notifier.h"
 #include "chrome/browser/ash/file_manager/fileapi_util.h"
-#include "chrome/browser/ash/file_manager/filesystem_api_util.h"
 #include "chrome/browser/ash/file_manager/guest_os_file_tasks.h"
+#include "chrome/browser/ash/file_manager/office_task_selection_helper.h"
 #include "chrome/browser/ash/file_manager/open_util.h"
 #include "chrome/browser/ash/file_manager/open_with_browser.h"
 #include "chrome/browser/ash/file_manager/url_util.h"
@@ -48,7 +47,8 @@
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/extensions/launch_util.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/web_applications/system_web_app_ui_utils.h"
+#include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
+#include "chrome/browser/ui/webui/chromeos/cloud_upload/cloud_upload_dialog.h"
 #include "chrome/browser/ui/webui/extensions/extension_icon_source.h"
 #include "chrome/browser/web_applications/web_app_id_constants.h"
 #include "chrome/common/chrome_features.h"
@@ -59,6 +59,7 @@
 #include "components/drive/drive_api_util.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
+#include "components/services/app_service/public/cpp/app_launch_util.h"
 #include "components/services/app_service/public/cpp/app_types.h"
 #include "components/services/app_service/public/cpp/file_handler.h"
 #include "components/services/app_service/public/cpp/file_handler_info.h"
@@ -93,10 +94,12 @@ namespace file_tasks {
 const char kActionIdView[] = "view";
 const char kActionIdSend[] = "send";
 const char kActionIdSendMultiple[] = "send_multiple";
+const char kActionIdHandleOffice[] = "handle-office";
 const char kActionIdWebDriveOfficeWord[] = "open-web-drive-office-word";
 const char kActionIdWebDriveOfficeExcel[] = "open-web-drive-office-excel";
 const char kActionIdWebDriveOfficePowerPoint[] =
     "open-web-drive-office-powerpoint";
+const char kActionIdUploadOfficeToDrive[] = "upload-office-to-drive";
 
 namespace {
 
@@ -131,13 +134,13 @@ void RecordChangesInDefaultPdfApp(const std::string& new_default_app_id,
 }
 
 // Returns True if the `app_id` belongs to Files app either extension or SWA.
-inline bool isFilesAppId(const std::string& app_id) {
+inline bool IsFilesAppId(const std::string& app_id) {
   return app_id == kFileManagerAppId || app_id == kFileManagerSwaAppId;
 }
 
 // The SWA actionId is prefixed with chrome://file-manager/?ACTION_ID, just the
 // sub-string compatible with the extension/legacy e.g.: "view-pdf".
-std::string parseFilesAppActionId(const std::string& action_id) {
+std::string ParseFilesAppActionId(const std::string& action_id) {
   if (base::StartsWith(action_id, kChromeUIFileManagerURL)) {
     std::string result(action_id);
     base::ReplaceFirstSubstringAfterOffset(
@@ -150,15 +153,23 @@ std::string parseFilesAppActionId(const std::string& action_id) {
 }
 
 // Returns true if the `task` is a Web Drive Office task.
-bool isWebDriveOfficeTask(const FullTaskDescriptor& task) {
+bool IsWebDriveOfficeTask(const FullTaskDescriptor& task) {
   const std::string action_id =
-      parseFilesAppActionId(task.task_descriptor.action_id);
+      ParseFilesAppActionId(task.task_descriptor.action_id);
   bool is_web_drive_office_action_id =
       action_id == kActionIdWebDriveOfficeWord ||
       action_id == kActionIdWebDriveOfficeExcel ||
       action_id == kActionIdWebDriveOfficePowerPoint;
-  return isFilesAppId(task.task_descriptor.app_id) &&
+  return IsFilesAppId(task.task_descriptor.app_id) &&
          is_web_drive_office_action_id;
+}
+
+// Returns true if the `task` is the "upload to Drive" workflow.
+bool IsUploadOfficeToDriveTask(const FullTaskDescriptor& task) {
+  const std::string action_id =
+      ParseFilesAppActionId(task.task_descriptor.action_id);
+  return IsFilesAppId(task.task_descriptor.app_id) &&
+         action_id == kActionIdUploadOfficeToDrive;
 }
 
 // Returns true if path_mime_set contains a Google document.
@@ -174,7 +185,7 @@ bool ContainsGoogleDocument(const std::vector<extensions::EntryInfo>& entries) {
 void KeepOnlyFileManagerInternalTasks(std::vector<FullTaskDescriptor>* tasks) {
   std::vector<FullTaskDescriptor> filtered;
   for (FullTaskDescriptor& task : *tasks) {
-    if (isFilesAppId(task.task_descriptor.app_id))
+    if (IsFilesAppId(task.task_descriptor.app_id))
       filtered.push_back(task);
   }
   tasks->swap(filtered);
@@ -186,9 +197,9 @@ void RemoveFileManagerInternalActions(const std::set<std::string>& actions,
   std::vector<FullTaskDescriptor> filtered;
   for (FullTaskDescriptor& task : *tasks) {
     const auto& action = task.task_descriptor.action_id;
-    if (!isFilesAppId(task.task_descriptor.app_id)) {
+    if (!IsFilesAppId(task.task_descriptor.app_id)) {
       filtered.push_back(task);
-    } else if (actions.find(parseFilesAppActionId(action)) == actions.end()) {
+    } else if (actions.find(ParseFilesAppActionId(action)) == actions.end()) {
       filtered.push_back(task);
     }
   }
@@ -235,181 +246,6 @@ void AdjustTasksForMediaApp(const std::vector<extensions::EntryInfo>& entries,
   }
   std::swap(*tasks, new_tasks);
 }
-
-// Helper class that validates whether a selected WebDriveOffice task can
-// properly handle a given set of files.
-class WebDriveOfficeValidationHelper {
- public:
-  WebDriveOfficeValidationHelper(
-      Profile* profile,
-      const std::vector<extensions::EntryInfo>& entries,
-      std::unique_ptr<std::vector<FullTaskDescriptor>> result_list,
-      std::set<std::string> disabled_actions)
-      : profile(profile),
-        entries(entries),
-        result_list(std::move(result_list)),
-        disabled_actions_(std::move(disabled_actions)) {}
-
-  WebDriveOfficeValidationHelper(const WebDriveOfficeValidationHelper& other) =
-      delete;
-  WebDriveOfficeValidationHelper& operator=(
-      const WebDriveOfficeValidationHelper& other) = delete;
-
-  ~WebDriveOfficeValidationHelper() = default;
-
-  void Run(base::OnceClosure callback) {
-    DCHECK(callback);
-    DCHECK(!callback_);
-
-    callback_ = std::move(callback);
-    AdjustTasks();
-  }
-
-  Profile* profile;
-  const std::vector<extensions::EntryInfo> entries;
-  std::unique_ptr<std::vector<FullTaskDescriptor>> result_list;
-
- private:
-  // Starts processing entries to determine whether a Web Drive Office action
-  // should be disabled or not.
-  void AdjustTasks() {
-    // No checks to perform if no Web Drive Office task has been selected. It is
-    // not possible to have multiple Web Drive Office tasks
-    // (Word/Excel/PowerPoint) selected simultaneously.
-    const auto web_drive_office_task = std::find_if(
-        result_list->begin(), result_list->end(),
-        [&](const auto& task) { return isWebDriveOfficeTask(task); });
-    if (web_drive_office_task == result_list->end()) {
-      EndAdjustTasks();
-      return;
-    }
-
-    DCHECK(web_drive_office_action_id_.empty());
-    web_drive_office_action_id_ =
-        parseFilesAppActionId(web_drive_office_task->task_descriptor.action_id);
-
-    // Remove Web Drive Office action if Web Drive Office is disabled.
-    if (!base::FeatureList::IsEnabled(ash::features::kFilesWebDriveOffice)) {
-      UMA_HISTOGRAM_ENUMERATION(kWebDriveOfficeMetricName,
-                                WebDriveOfficeTaskResult::FLAG_DISABLED);
-      disabled_actions_.emplace(web_drive_office_action_id_);
-      EndAdjustTasks();
-      return;
-    }
-
-    // Remove Web Drive Office action if Drive is Offline.
-    if (drive::util::GetDriveConnectionStatus(profile) !=
-        drive::util::DRIVE_CONNECTED) {
-      UMA_HISTOGRAM_ENUMERATION(kWebDriveOfficeMetricName,
-                                WebDriveOfficeTaskResult::OFFLINE);
-      disabled_actions_.emplace(web_drive_office_action_id_);
-      EndAdjustTasks();
-      return;
-    }
-
-    ProcessNextEntryForWebDriveOffice(0);
-  }
-
-  // Checks whether an entry is potentially available to be opened and edited in
-  // Web Drive, and query its DriveFS metadata.
-  void ProcessNextEntryForWebDriveOffice(size_t entry_index) {
-    // Web Drive Office is available for all the selected entries.
-    if (entry_index == entries.size()) {
-      UMA_HISTOGRAM_ENUMERATION(kWebDriveOfficeMetricName,
-                                WebDriveOfficeTaskResult::AVAILABLE);
-      EndAdjustTasks();
-      return;
-    }
-
-    // Check whether the entry is on Drive.
-    if (!::file_manager::util::IsDriveLocalPath(profile,
-                                                entries[entry_index].path)) {
-      UMA_HISTOGRAM_ENUMERATION(kWebDriveOfficeMetricName,
-                                WebDriveOfficeTaskResult::NOT_ON_DRIVE);
-      disabled_actions_.emplace(web_drive_office_action_id_);
-      EndAdjustTasks();
-      return;
-    }
-
-    // Check whether the DriveIntegrationService is available.
-    drive::DriveIntegrationService* integration_service =
-        drive::DriveIntegrationServiceFactory::FindForProfile(profile);
-    base::FilePath relative_drive_path;
-    if (!(integration_service && integration_service->IsMounted() &&
-          integration_service->GetDriveFsInterface() &&
-          integration_service->GetRelativeDrivePath(entries[entry_index].path,
-                                                    &relative_drive_path))) {
-      UMA_HISTOGRAM_ENUMERATION(kWebDriveOfficeMetricName,
-                                WebDriveOfficeTaskResult::DRIVE_ERROR);
-      disabled_actions_.emplace(web_drive_office_action_id_);
-      EndAdjustTasks();
-      return;
-    }
-
-    // Get Office file's metadata.
-    integration_service->GetDriveFsInterface()->GetMetadata(
-        relative_drive_path,
-        base::BindOnce(&WebDriveOfficeValidationHelper::
-                           OnGetDriveFsMetadataForWebDriveOffice,
-                       weak_factory_.GetWeakPtr(), entry_index));
-  }
-
-  // Checks whether the Web Drive Office task should be disabled based on the
-  // entry's alternate URL.
-  void OnGetDriveFsMetadataForWebDriveOffice(
-      size_t entry_index,
-      drive::FileError error,
-      drivefs::mojom::FileMetadataPtr metadata) {
-    if (error != drive::FILE_ERROR_OK) {
-      UMA_HISTOGRAM_ENUMERATION(kWebDriveOfficeMetricName,
-                                WebDriveOfficeTaskResult::DRIVE_METADATA_ERROR);
-      disabled_actions_.emplace(web_drive_office_action_id_);
-      EndAdjustTasks();
-      return;
-    }
-
-    GURL hosted_url(metadata->alternate_url);
-    // URLs for editing Office files in Web Drive all have a "docs.google.com"
-    // host: Disable the task if the entry doesn't have such alternate URL.
-    if (!hosted_url.is_valid()) {
-      UMA_HISTOGRAM_ENUMERATION(
-          kWebDriveOfficeMetricName,
-          WebDriveOfficeTaskResult::INVALID_ALTERNATE_URL);
-      disabled_actions_.emplace(web_drive_office_action_id_);
-      EndAdjustTasks();
-      return;
-    } else if (hosted_url.host() == "drive.google.com") {
-      UMA_HISTOGRAM_ENUMERATION(kWebDriveOfficeMetricName,
-                                WebDriveOfficeTaskResult::DRIVE_ALTERNATE_URL);
-      disabled_actions_.emplace(web_drive_office_action_id_);
-      EndAdjustTasks();
-      return;
-    } else if (hosted_url.host() != "docs.google.com") {
-      UMA_HISTOGRAM_ENUMERATION(
-          kWebDriveOfficeMetricName,
-          WebDriveOfficeTaskResult::UNEXPECTED_ALTERNATE_URL);
-      disabled_actions_.emplace(web_drive_office_action_id_);
-      EndAdjustTasks();
-      return;
-    }
-
-    // Check alternate URL for next entry.
-    ProcessNextEntryForWebDriveOffice(++entry_index);
-  }
-
-  // Ends the recursion that determines whether or not the Web Drive Office
-  // action is available.
-  void EndAdjustTasks() {
-    if (!disabled_actions_.empty())
-      RemoveFileManagerInternalActions(disabled_actions_, result_list.get());
-    std::move(callback_).Run();
-  }
-
-  std::string web_drive_office_action_id_;
-  std::set<std::string> disabled_actions_;
-  base::OnceClosure callback_;
-  base::WeakPtrFactory<WebDriveOfficeValidationHelper> weak_factory_{this};
-};
 
 // Returns true if the given task is a handler by built-in apps like the Files
 // app itself or QuickOffice etc. They are used as the initial default app.
@@ -478,33 +314,32 @@ void ExecuteTaskAfterMimeTypesCollected(
     FileTaskFinishedCallback done,
     extensions::app_file_handler_util::MimeTypeCollector* mime_collector,
     std::unique_ptr<std::vector<std::string>> mime_types) {
-  bool is_arc_share = task.task_type == TASK_TYPE_ARC_APP &&
-                      (task.action_id == kActionIdSend ||
-                       task.action_id == kActionIdSendMultiple);
-  bool is_web_app = task.task_type == TASK_TYPE_WEB_APP;
-  bool is_chrome_app = task.task_type == TASK_TYPE_FILE_HANDLER;
-  if (is_arc_share || is_web_app || is_chrome_app) {
+  if (task.task_type == TASK_TYPE_ARC_APP &&
+      !ash::features::ShouldArcAndGuestOsFileTasksUseAppService()) {
+    apps::RecordAppLaunchMetrics(profile, apps::AppType::kArc, task.app_id,
+                                 apps::LaunchSource::kFromFileManager,
+                                 apps::LaunchContainer::kLaunchContainerWindow);
+    ExecuteArcTask(profile, task, file_urls, *mime_types, std::move(done));
+  } else {
     ExecuteAppServiceTask(profile, task, file_urls, *mime_types,
                           std::move(done));
-    return;
   }
-
-  DCHECK_EQ(task.task_type, TASK_TYPE_ARC_APP);
-  apps::RecordAppLaunchMetrics(
-      profile, apps::AppType::kArc, task.app_id,
-      apps::mojom::LaunchSource::kFromFileManager,
-      apps::mojom::LaunchContainer::kLaunchContainerWindow);
-  ExecuteArcTask(profile, task, file_urls, *mime_types, std::move(done));
 }
 
-void EndPostProcessFoundTasks(std::unique_ptr<WebDriveOfficeValidationHelper>
-                                  web_drive_office_validation_helper,
-                              FindTasksCallback callback) {
-  Profile* profile = web_drive_office_validation_helper.get()->profile;
+void EndPostProcessFoundTasks(
+    std::unique_ptr<OfficeTaskSelectionHelper> office_task_selection_helper,
+    FindTasksCallback callback) {
+  Profile* profile = office_task_selection_helper->profile;
   const std::vector<extensions::EntryInfo>& entries =
-      web_drive_office_validation_helper.get()->entries;
+      office_task_selection_helper->entries;
   std::unique_ptr<std::vector<FullTaskDescriptor>> result_list =
-      std::move(web_drive_office_validation_helper.get()->result_list);
+      std::move(office_task_selection_helper->result_list);
+  std::set<std::string> disabled_actions =
+      std::move(office_task_selection_helper->disabled_actions);
+
+  if (!disabled_actions.empty())
+    RemoveFileManagerInternalActions(disabled_actions, result_list.get());
+
   ChooseAndSetDefaultTask(*profile->GetPrefs(), entries, result_list.get());
   std::move(callback).Run(std::move(result_list));
 }
@@ -522,50 +357,17 @@ void PostProcessFoundTasks(
 
   std::set<std::string> disabled_actions;
 
-  // kFilesArchivemount2 controls what subset of filename extensions listed in
-  // ui/file_manager/file_manager/manifest.json allows the "mount-archive"
-  // action. If kFilesArchivemount2 is enabled, everything listed in
-  // manifest.json is allowed.
-  if (!base::FeatureList::IsEnabled(ash::features::kFilesArchivemount2)) {
-    for (const auto& entry : entries) {
-      // Deny-list: "slow-mounter" compressed formats.
-      if (entry.path.MatchesFinalExtension(".bz") ||
-          entry.path.MatchesFinalExtension(".bz2") ||
-          entry.path.MatchesFinalExtension(".gz") ||
-          entry.path.MatchesFinalExtension(".lz") ||
-          entry.path.MatchesFinalExtension(".lzma") ||
-          entry.path.MatchesFinalExtension(".taz") ||
-          entry.path.MatchesFinalExtension(".tb2") ||
-          entry.path.MatchesFinalExtension(".tbz") ||
-          entry.path.MatchesFinalExtension(".tbz2") ||
-          entry.path.MatchesFinalExtension(".tgz") ||
-          entry.path.MatchesFinalExtension(".tlz") ||
-          entry.path.MatchesFinalExtension(".tlzma") ||
-          entry.path.MatchesFinalExtension(".txz") ||
-          entry.path.MatchesFinalExtension(".tz") ||
-          entry.path.MatchesFinalExtension(".tz2") ||
-          entry.path.MatchesFinalExtension(".tzst") ||
-          entry.path.MatchesFinalExtension(".xz") ||
-          entry.path.MatchesFinalExtension(".z") ||
-          entry.path.MatchesFinalExtension(".zst")) {
-        disabled_actions.emplace("mount-archive");
-        break;
-      }
-    }
-  }
-
 #if !BUILDFLAG(ENABLE_PDF)
   disabled_actions.emplace("view-pdf");
 #endif  // !BUILDFLAG(ENABLE_PDF)
 
-  std::unique_ptr<WebDriveOfficeValidationHelper>
-      web_drive_office_validation_helper =
-          std::make_unique<WebDriveOfficeValidationHelper>(
-              profile, entries, std::move(result_list),
-              std::move(disabled_actions));
+  std::unique_ptr<OfficeTaskSelectionHelper> office_task_selection_helper =
+      std::make_unique<OfficeTaskSelectionHelper>(profile, entries,
+                                                  std::move(result_list),
+                                                  std::move(disabled_actions));
 
-  web_drive_office_validation_helper.get()->Run(base::BindOnce(
-      &EndPostProcessFoundTasks, std::move(web_drive_office_validation_helper),
+  office_task_selection_helper->Run(base::BindOnce(
+      &EndPostProcessFoundTasks, std::move(office_task_selection_helper),
       std::move(callback)));
 }
 
@@ -574,7 +376,7 @@ void PostProcessFoundTasks(
 // is used to handle certain action IDs of the file manager.
 bool ShouldBeOpenedWithBrowser(const std::string& extension_id,
                                const std::string& action_id) {
-  return isFilesAppId(extension_id) &&
+  return IsFilesAppId(extension_id) &&
          (action_id == "view-pdf" || action_id == "view-in-browser" ||
           action_id == "open-hosted-generic" ||
           action_id == "open-hosted-gdoc" ||
@@ -643,6 +445,28 @@ std::string TaskTypeToString(TaskType task_type) {
   return "";
 }
 
+bool TaskDescriptor::operator<(const TaskDescriptor& other) const {
+  if (app_id < other.app_id) {
+    return true;
+  } else if (app_id > other.app_id) {
+    return false;
+  }
+
+  // If we're here, it's because app_id == other.app_id.
+  if (task_type < other.task_type) {
+    return true;
+  } else if (task_type > other.task_type) {
+    return false;
+  }
+
+  // If we're here, it's because task_type == other.task_type.
+  if (action_id < other.action_id) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
 FullTaskDescriptor::FullTaskDescriptor(const TaskDescriptor& in_task_descriptor,
                                        const std::string& in_task_title,
                                        const Verb in_task_verb,
@@ -663,6 +487,13 @@ FullTaskDescriptor::FullTaskDescriptor(const FullTaskDescriptor& other) =
 
 FullTaskDescriptor& FullTaskDescriptor::operator=(
     const FullTaskDescriptor& other) = default;
+
+bool IsHandleOfficeTask(const FullTaskDescriptor& task) {
+  const std::string action_id =
+      ParseFilesAppActionId(task.task_descriptor.action_id);
+  return IsFilesAppId(task.task_descriptor.app_id) &&
+         action_id == kActionIdHandleOffice;
+}
 
 void UpdateDefaultTask(PrefService* pref_service,
                        const TaskDescriptor& task_descriptor,
@@ -795,18 +626,33 @@ bool ExecuteFileTask(Profile* profile,
 
   // TODO(crbug.com/1005640): Move recording this metric to the App Service when
   // file handling is supported there.
-  apps::RecordAppLaunch(task.app_id,
-                        apps::mojom::LaunchSource::kFromFileManager);
+  apps::RecordAppLaunch(task.app_id, apps::LaunchSource::kFromFileManager);
 
   if (auto* notifier = FileTasksNotifier::GetForProfile(profile)) {
     notifier->NotifyFileTasks(file_urls);
+  }
+
+  const std::string parsed_action_id(ParseFilesAppActionId(task.action_id));
+
+  if (IsFilesAppId(task.app_id) &&
+      (parsed_action_id == "upload-office-to-drive")) {
+    const bool opened = chromeos::cloud_upload::CloudUploadDialog::Show();
+    if (done) {
+      if (opened) {
+        std::move(done).Run(
+            extensions::api::file_manager_private::TASK_RESULT_OPENED, "");
+      } else {
+        std::move(done).Run(
+            extensions::api::file_manager_private::TASK_RESULT_FAILED, "");
+      }
+    }
+    return true;
   }
 
   // Some action IDs of the file manager's file browser handlers require the
   // files to be directly opened with the browser. In a multiprofile session
   // this will always open on the current desktop, regardless of which profile
   // owns the files, so return TASK_RESULT_OPENED.
-  const std::string parsed_action_id(parseFilesAppActionId(task.action_id));
   if (ShouldBeOpenedWithBrowser(task.app_id, parsed_action_id)) {
     const bool result =
         OpenFilesWithBrowser(profile, file_urls, parsed_action_id);
@@ -818,7 +664,7 @@ bool ExecuteFileTask(Profile* profile,
   }
 
   // When the FilesSWA is enabled: Open Files SWA if the task is for Files app.
-  if (ash::features::IsFileManagerSwaEnabled() && isFilesAppId(task.app_id)) {
+  if (ash::features::IsFileManagerSwaEnabled() && IsFilesAppId(task.app_id)) {
     std::u16string title;
     const GURL destination_entry =
         file_urls.size() ? file_urls[0].ToGURL() : GURL();
@@ -836,11 +682,11 @@ bool ExecuteFileTask(Profile* profile,
             /*show_android_picker_apps=*/false,
             /*volume_filter=*/{});
 
-    web_app::SystemAppLaunchParams params;
+    ash::SystemAppLaunchParams params;
     params.url = files_swa_url;
 
-    web_app::LaunchSystemWebAppAsync(
-        profile, ash::SystemWebAppType::FILE_MANAGER, params);
+    ash::LaunchSystemWebAppAsync(profile, ash::SystemWebAppType::FILE_MANAGER,
+                                 params);
     if (done) {
       std::move(done).Run(
           extensions::api::file_manager_private::TASK_RESULT_OPENED, "");
@@ -947,10 +793,16 @@ void FindAllTypesOfTasks(Profile* profile,
   std::unique_ptr<std::vector<FullTaskDescriptor>> result_list(
       new std::vector<FullTaskDescriptor>);
 
-  // 1. Find and append ARC handler tasks.
-  FindArcTasks(profile, entries, file_urls, std::move(result_list),
-               base::BindOnce(&FindExtensionAndAppTasks, profile, entries,
-                              file_urls, std::move(callback)));
+  if (ash::features::ShouldArcAndGuestOsFileTasksUseAppService()) {
+    // Skip FindArcTasks since ARC tasks are now found in App Service.
+    FindExtensionAndAppTasks(profile, entries, file_urls, std::move(callback),
+                             std::move(result_list));
+  } else {
+    // 1. Find and append ARC handler tasks.
+    FindArcTasks(profile, entries, file_urls, std::move(result_list),
+                 base::BindOnce(&FindExtensionAndAppTasks, profile, entries,
+                                file_urls, std::move(callback)));
+  }
 }
 
 void ChooseAndSetDefaultTask(const PrefService& pref_service,
@@ -978,10 +830,12 @@ void ChooseAndSetDefaultTask(const PrefService& pref_service,
     }
   }
 
-  // No default task. If ShadowDocs is available for Office files, set as
-  // default.
+  // No default task. If the "Upload to Drive" workflow or ShadowDocs is
+  // available for Office files, set as default. Since "Upload to Drive" is
+  // available outside Drive and and ShadowDocs is available on Drive, these two
+  // tasks shouldn't be available simultaneously.
   for (FullTaskDescriptor& task : *tasks) {
-    if (isWebDriveOfficeTask(task)) {
+    if (IsUploadOfficeToDriveTask(task) || IsWebDriveOfficeTask(task)) {
       task.is_default = true;
       return;
     }
@@ -1002,7 +856,7 @@ void ChooseAndSetDefaultTask(const PrefService& pref_service,
   // Unless it's HTML which should open in the browser (crbug.com/1121396).
   for (FullTaskDescriptor& task : *tasks) {
     if (IsFallbackFileHandler(task) &&
-        parseFilesAppActionId(task.task_descriptor.action_id) !=
+        ParseFilesAppActionId(task.task_descriptor.action_id) !=
             "view-in-browser") {
       const extensions::EntryInfo entry = entries[0];
       const base::FilePath& file_path = entry.path;

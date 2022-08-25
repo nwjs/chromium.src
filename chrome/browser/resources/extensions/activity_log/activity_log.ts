@@ -88,14 +88,14 @@ export class ExtensionsActivityLogElement extends
           loadTimeData.getString('activityLogHistoryTabHeading'),
           loadTimeData.getString('activityLogStreamTabHeading'),
         ]),
-      }
+      },
     };
   }
 
   extensionInfo: chrome.developerPrivate.ExtensionInfo|
       ActivityLogExtensionPlaceholder;
   delegate: ActivityLogDelegate;
-  selectedSubpage_: ActivityLogSubpage;
+  private selectedSubpage_: ActivityLogSubpage;
   private tabNames_: string[];
 
   override ready() {

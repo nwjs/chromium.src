@@ -32,6 +32,7 @@ generate_grd("build_grd") {
     ":emoji_data_remaining",
     ":emoticon_data",
     ":symbol_data",
+    ":symbol_test_data",
   ]
   grd_prefix = "emoji_picker"
   out_grd = resources_grd_file
@@ -188,6 +189,11 @@ action("symbol_data") {
   ]
 }
 
+copy("symbol_test_data") {
+  sources = [ "./symbol_test_ordering.json" ]
+  outputs =  [ "$target_gen_dir/symbol_test_ordering.json" ]
+}
+
 js_library("emoji_picker") {
   deps = [
     ":constants",
@@ -196,6 +202,7 @@ js_library("emoji_picker") {
     ":emoji_picker_api_proxy",
     ":emoji_search",
     ":events",
+    ":metadata_extension",
     ":store",
     ":text_group_button",
     ":trie",
@@ -287,6 +294,10 @@ js_library("trie") {
 js_library("prefix_search") {
   sources = [ "./prefix_search.js" ]
   deps = [ ":trie" ]
+}
+
+js_library("metadata_extension") {
+  deps = [ ":types" ]
 }
 
 js_library("store") {

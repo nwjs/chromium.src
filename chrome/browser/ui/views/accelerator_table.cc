@@ -33,7 +33,6 @@ const AcceleratorMapping kAcceleratorMap[] = {
 //      item with the appropriate modifier.
 //   2) Update GetShortcutsNotPresentInMainMenu() in
 //      global_keyboard_shortcuts_mac.mm.
-    { ui::VKEY_F4, ui::EF_ALT_DOWN, IDC_CLOSE_WINDOW },
 #if 0
     {ui::VKEY_F7, ui::EF_NONE, IDC_CARET_BROWSING_TOGGLE},
 #endif
@@ -205,9 +204,7 @@ const AcceleratorMapping kAcceleratorMap[] = {
     {ui::VKEY_LEFT, ui::EF_ALT_DOWN, IDC_BACK},
     {ui::VKEY_LEFT, ui::EF_ALTGR_DOWN, IDC_BACK},
 #if BUILDFLAG(ENABLE_PRINTING)
-    {ui::VKEY_P, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN,
-     IDC_BASIC_PRINT_DEPRECATED},
-    {ui::VKEY_P, ui::EF_ALT_DOWN | ui::EF_CONTROL_DOWN, IDC_BASIC_PRINT},
+    {ui::VKEY_P, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN, IDC_BASIC_PRINT},
 #endif  // ENABLE_PRINTING
     {ui::VKEY_I, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN, IDC_DEV_TOOLS},
     {ui::VKEY_J, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN,

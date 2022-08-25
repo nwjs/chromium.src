@@ -11,10 +11,8 @@ source_set("webinstance_host") {
   visibility += [
     # WebEngine clients that instantiate WebInstances directly.
     "//fuchsia_web/runners/*",
-    "//fuchsia_web/webengine:web_engine_shell_exec",
-
-    # TODO(crbug.com/1081525): Change to the context_provider target when created.
-    "//fuchsia_web/webengine:web_engine_core",
+    "//fuchsia_web/shell:web_engine_shell_exec",
+    "//fuchsia_web/webengine:context_provider",
 
     # TODO(crbug.com/1081525): Move dependent tests into this directory and
     # source_sets that have these deps.
@@ -27,7 +25,7 @@ source_set("webinstance_host") {
     "//base:base_static",
     "//components/fuchsia_component_support",
     "//content/public/common",
-    "//fuchsia/base",
+    "//fuchsia_web/common",
     "//fuchsia_web/webengine:switches",
     "//gpu/command_buffer/service",
     "//media",

@@ -38,7 +38,6 @@ import org.chromium.base.task.PostTask;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerImpl;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
-import org.chromium.chrome.browser.flags.CachedFeatureFlags;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.init.FirstDrawDetector;
 import org.chromium.chrome.browser.multiwindow.MultiWindowModeStateDispatcher;
@@ -517,6 +516,7 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
         }
 
         mContainerViewModel.set(IS_VISIBLE, isVisible);
+        notifyBackPressStateChangedInternal();
     }
 
     private void updateTopControlsProperties() {
@@ -719,7 +719,7 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
             // the scrolling request is already processed in TabModelObserver#restoreCompleted.
             // Therefore, we only need to handle the case with isTabStateInitialized() here.
             setInitialScrollIndexOffset();
-        } else if (CachedFeatureFlags.isEnabled(ChromeFeatureList.INSTANT_START)) {
+        } else if (ChromeFeatureList.sInstantStart.isEnabled()) {
             List<PseudoTab> allTabs;
             try (StrictModeContext ignored = StrictModeContext.allowDiskReads()) {
                 allTabs = PseudoTab.getAllPseudoTabsFromStateFile(mContext);
@@ -1021,7 +1021,8 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
         mBackPressChangedSupplier.set(shouldInterceptBackPress());
     }
 
-    private boolean shouldInterceptBackPress() {
+    @VisibleForTesting
+    boolean shouldInterceptBackPress() {
         if (isDialogVisible()) return true;
 
         if (!mContainerViewModel.get(IS_VISIBLE)) return false;

@@ -259,7 +259,7 @@ PopupMenuTextItem* CreateEnterpriseInfoItem(NSString* imageName,
     _webState->RemoveObserver(_webStateObserver.get());
     _webStateObserver.reset();
     if (self.followItem) {
-      FollowTabHelper::FromWebState(_webState)->remove_follow_menu_updater();
+      FollowTabHelper::FromWebState(_webState)->RemoveFollowMenuUpdater();
       self.webPageURLs = nil;
     }
     _webState = nullptr;
@@ -422,7 +422,7 @@ PopupMenuTextItem* CreateEnterpriseInfoItem(NSString* imageName,
   if (_webState) {
     _webState->AddObserver(_webStateObserver.get());
 
-    // Observer the language::IOSLanguageDetectionTabHelper for |_webState|.
+    // Observer the language::IOSLanguageDetectionTabHelper for `_webState`.
     _iOSLanguageDetectionTabHelperObserverBridge =
         std::make_unique<language::IOSLanguageDetectionTabHelperObserverBridge>(
             language::IOSLanguageDetectionTabHelper::FromWebState(_webState),
@@ -521,7 +521,7 @@ PopupMenuTextItem* CreateEnterpriseInfoItem(NSString* imageName,
         [self createToolsMenuItems];
         if (self.webState && self.followItem) {
           FollowTabHelper::FromWebState(self.webState)
-              ->set_follow_menu_updater(self);
+              ->SetFollowMenuUpdater(self);
         }
         break;
       case PopupMenuTypeNavigationForward:
@@ -665,6 +665,10 @@ PopupMenuTextItem* CreateEnterpriseInfoItem(NSString* imageName,
       self.webPageURLs, !self.followStatus);
 }
 
+- (web::WebState*)currentWebState {
+  return self.webState;
+}
+
 #pragma mark - IOSLanguageDetectionTabHelperObserving
 
 - (void)iOSLanguageDetectionTabHelper:
@@ -746,7 +750,7 @@ PopupMenuTextItem* CreateEnterpriseInfoItem(NSString* imageName,
   [self.popupMenu itemsHaveChanged:self.specificItems];
 }
 
-// Updates the |bookmark| item to match the bookmarked status of the page.
+// Updates `self.bookmarkItem` to match the bookmarked status of the page.
 - (void)updateBookmarkItem {
   if (!self.bookmarkItem)
     return;
@@ -772,7 +776,7 @@ PopupMenuTextItem* CreateEnterpriseInfoItem(NSString* imageName,
   [self.popupMenu itemsHaveChanged:@[ self.bookmarkItem ]];
 }
 
-// Updates the |reloadStopItem| item to match the current behavior.
+// Updates the `reloadStopItem` item to match the current behavior.
 - (void)updateReloadStopItem {
   if ([self isPageLoading] &&
       self.reloadStopItem.accessibilityIdentifier == kToolsMenuReload) {
@@ -1238,7 +1242,7 @@ PopupMenuTextItem* CreateEnterpriseInfoItem(NSString* imageName,
   // Settings.
   TableViewItem* settings =
       CreateTableViewItem(IDS_IOS_TOOLS_MENU_SETTINGS, PopupMenuActionSettings,
-                          @"popup_menu_settings", kToolsMenuSettingsId);
+                          @"popup_menu_settings", kToolsMenuSettingsActionId);
 
   if (self.isIncognito &&
       base::FeatureList::IsEnabled(kUpdateHistoryEntryPointsInIncognito)) {
@@ -1281,7 +1285,7 @@ PopupMenuTextItem* CreateEnterpriseInfoItem(NSString* imageName,
 }
 
 // Returns YES if incognito NTP title and image should be used for back/forward
-// item associated with |URL|.
+// item associated with `URL`.
 - (BOOL)shouldUseIncognitoNTPResourcesForURL:(const GURL&)URL {
   return URL.DeprecatedGetOriginAsURL() == kChromeUINewTabURL &&
          self.isIncognito &&

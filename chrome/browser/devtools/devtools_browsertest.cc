@@ -2420,9 +2420,7 @@ class StaticURLDataSource : public content::URLDataSource {
     std::string data(content_);
     std::move(callback).Run(base::RefCountedString::TakeString(&data));
   }
-  std::string GetMimeType(const std::string& path) override {
-    return "text/html";
-  }
+  std::string GetMimeType(const GURL& url) override { return "text/html"; }
   bool ShouldAddContentSecurityPolicy() override { return false; }
 
  private:
@@ -2518,7 +2516,13 @@ IN_PROC_BROWSER_TEST_F(DevToolsTest, TestRawHeadersWithRedirectAndHSTS) {
 }
 
 // Tests that OpenInNewTab filters URLs.
-IN_PROC_BROWSER_TEST_F(DevToolsTest, TestOpenInNewTabFilter) {
+// TODO(https://crbug.com/1335516): Flaky on Windows and Linux.
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
+#define MAYBE_TestOpenInNewTabFilter DISABLED_TestOpenInNewTabFilter
+#else
+#define MAYBE_TestOpenInNewTabFilter TestOpenInNewTabFilter
+#endif
+IN_PROC_BROWSER_TEST_F(DevToolsTest, MAYBE_TestOpenInNewTabFilter) {
   OpenDevToolsWindow(kDebuggerTestPage, false);
   DevToolsUIBindings::Delegate* bindings_delegate_ =
       static_cast<DevToolsUIBindings::Delegate*>(window_);

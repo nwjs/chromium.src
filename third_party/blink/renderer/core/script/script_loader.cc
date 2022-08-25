@@ -38,6 +38,7 @@
 #include "third_party/blink/renderer/core/dom/events/event.h"
 #include "third_party/blink/renderer/core/dom/scriptable_document_parser.h"
 #include "third_party/blink/renderer/core/dom/text.h"
+#include "third_party/blink/renderer/core/frame/attribution_src_loader.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
@@ -214,6 +215,10 @@ enum class ShouldFireErrorEvent {
   kDoNotFire,
   kShouldFire,
 };
+
+bool ShouldForceDeferScript() {
+  return base::FeatureList::IsEnabled(features::kForceDeferScriptIntervention);
+}
 
 }  // namespace
 
@@ -513,13 +518,24 @@ bool ScriptLoader::PrepareScript(const TextPosition& script_start_position) {
       potentially_render_blocking ? RenderBlockingBehavior::kBlocking
                                   : RenderBlockingBehavior::kNonBlocking;
 
+  // TODO(apaseltiner): Propagate the element instead of passing nullptr.
+  const auto attribution_reporting_eligibility =
+      element_->HasAttributionsrcAttribute() &&
+              CanRegisterAttributionInContext(
+                  context_window->GetFrame(), /*element=*/nullptr,
+                  /*request_id=*/absl::nullopt,
+                  AttributionSrcLoader::RegisterContext::kResource)
+          ? ScriptFetchOptions::AttributionReportingEligibility::kEligible
+          : ScriptFetchOptions::AttributionReportingEligibility::kIneligible;
+
   // <spec step="22">Let options be a script fetch options whose cryptographic
   // nonce is cryptographic nonce, integrity metadata is integrity metadata,
   // parser metadata is parser metadata, credentials mode is module script
   // credentials mode, and referrer policy is referrer policy.</spec>
-  ScriptFetchOptions options(nonce, integrity_metadata, integrity_attr,
-                             parser_state, credentials_mode, referrer_policy,
-                             fetch_priority_hint, render_blocking_behavior);
+  ScriptFetchOptions options(
+      nonce, integrity_metadata, integrity_attr, parser_state, credentials_mode,
+      referrer_policy, fetch_priority_hint, render_blocking_behavior,
+      RejectCoepUnsafeNone(false), attribution_reporting_eligibility);
 
   // <spec step="23">Let settings object be the element's node document's
   // relevant settings object.</spec>
@@ -850,7 +866,12 @@ bool ScriptLoader::PrepareScript(const TextPosition& script_start_position) {
         //
         // <specdef label="fetch-an-inline-module-script-graph"
         // href="https://html.spec.whatwg.org/C/#fetch-an-inline-module-script-graph">
-        const KURL& source_url = element_document.Url();
+        KURL source_url = element_document.Url();
+        // Strip any fragment identifiers from the source URL reported to
+        // DevTools, so that breakpoints hit reliably for inline module
+        // scripts, see crbug.com/1338257 for more details.
+        if (source_url.HasFragmentIdentifier())
+          source_url.RemoveFragmentIdentifier();
         Modulator* modulator = Modulator::From(
             ToScriptStateForMainWorld(context_window->GetFrame()));
 
@@ -920,6 +941,24 @@ bool ScriptLoader::PrepareScript(const TextPosition& script_start_position) {
     // - HTMLParserScriptRunner::requestDeferredScript(), and
     // - TODO(hiroshige): Investigate XMLDocumentParser::endElementNs()
     will_execute_when_document_finished_parsing_ = true;
+    will_be_parser_executed_ = true;
+
+    return true;
+  }
+
+  // Check for external script that should be force deferred.
+  if (GetScriptType() == ScriptTypeAtPrepare::kClassic &&
+      element_->HasSourceAttribute() && ShouldForceDeferScript() &&
+      IsA<HTMLDocument>(context_window->document()) && parser_inserted_ &&
+      !element_->AsyncAttributeValue()) {
+    // In terms of ScriptLoader flags, force deferred scripts behave like
+    // parser-blocking scripts, except that |force_deferred_| is set.
+    // The caller of PrepareScript()
+    // - Force-defers such scripts if the caller supports force-defer
+    //   (i.e., HTMLParserScriptRunner); or
+    // - Ignores the |force_deferred_| flag and handles such scripts as
+    //   parser-blocking scripts (e.g., XMLParserScriptRunner).
+    force_deferred_ = true;
     will_be_parser_executed_ = true;
 
     return true;
@@ -1005,6 +1044,14 @@ bool ScriptLoader::PrepareScript(const TextPosition& script_start_position) {
   // and the element doesn't have a src attribute.
   DCHECK_EQ(GetScriptType(), ScriptTypeAtPrepare::kClassic);
   DCHECK(!is_external_script_);
+
+  // Check for inline script that should be force deferred.
+  if (ShouldForceDeferScript() &&
+      IsA<HTMLDocument>(context_window->document()) && parser_inserted_) {
+    force_deferred_ = true;
+    will_be_parser_executed_ = true;
+    return true;
+  }
 
   // <spec step="26.E">If the element does not have a src attribute, and the
   // element has been flagged as "parser-inserted", and either the parser that

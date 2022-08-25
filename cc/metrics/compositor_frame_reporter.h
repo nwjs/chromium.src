@@ -133,6 +133,9 @@ class CC_EXPORT CompositorFrameReporter {
     kBreakdownCount
   };
 
+  // To distinguish between impl and main reporter
+  enum class ReporterType { kImpl = 0, kMain = 1 };
+
   struct CC_EXPORT StageData {
     StageType stage_type;
     base::TimeTicks start_time;
@@ -330,6 +333,13 @@ class CC_EXPORT CompositorFrameReporter {
         is_accompanied_by_main_thread_update;
   }
 
+  void set_is_forked(bool is_forked) {
+    is_forked_ = is_forked;
+  }
+  void set_is_backfill(bool is_backfill) {
+    is_backfill_ = is_backfill;
+  }
+
   const viz::BeginFrameId& frame_id() const { return args_.frame_id; }
 
   // Adopts |cloned_reporter|, i.e. keeps |cloned_reporter| alive until after
@@ -345,6 +355,23 @@ class CC_EXPORT CompositorFrameReporter {
   }
   using FrameReportTypes =
       std::bitset<static_cast<size_t>(FrameReportType::kMaxValue) + 1>;
+
+  // This function is called to calculate breakdown stage duration's prediction
+  // based on the `previous_predictions` and update the `previous_predictions`
+  // to the new prediction calculated.
+  void CalculateStageLatencyPrediction(
+      std::vector<base::TimeDelta>& previous_predictions);
+
+  // Sets EventLatency stage duration predictions based on previous trace
+  // durations using exponentially weighted averages.
+  void SetEventLatencyPredictions(
+      std::vector<base::TimeDelta>& predicted_latencies);
+
+  ReporterType get_reporter_type() { return reporter_type_; }
+
+  void set_reporter_type_to_impl() { reporter_type_ = ReporterType::kImpl; }
+
+  void set_reporter_type_to_main() { reporter_type_ = ReporterType::kMain; }
 
  protected:
   void set_has_partial_update(bool has_partial_update) {
@@ -458,6 +485,14 @@ class CC_EXPORT CompositorFrameReporter {
   // with checkerboarding).
   bool has_missing_content_ = false;
 
+  // Indicates whether the frame is forked (i.e. a PipelineReporter event starts
+  // at the same frame sequence as another PipelineReporter).
+  bool is_forked_ = false;
+
+  // Indicates whether the frame is backfill (i.e. dropped frames when there are
+  // no partial compositor updates).
+  bool is_backfill_ = false;
+
   // For a reporter A, if the main-thread takes a long time to respond
   // to a begin-main-frame, then all reporters created (and terminated) until
   // the main-thread responds depends on this reporter to decide whether those
@@ -478,6 +513,8 @@ class CC_EXPORT CompositorFrameReporter {
       owned_partial_update_dependents_;
 
   const GlobalMetricsTrackers global_trackers_;
+
+  ReporterType reporter_type_;
 
   base::WeakPtrFactory<CompositorFrameReporter> weak_factory_{this};
 };

@@ -85,10 +85,10 @@ if (use_v8_context_snapshot) {
         # that it's possible that some of the shared libraries are updated
         # without having the executable updated.
         inputs = [
-          "$root_out_dir/${shlib_subdir}/${shlib_prefix}blink_core${shlib_extension}",
-          "$root_out_dir/${shlib_subdir}/${shlib_prefix}blink_modules${shlib_extension}",
-          "$root_out_dir/${shlib_subdir}/${shlib_prefix}blink_platform${shlib_extension}",
-          "$root_out_dir/${shlib_subdir}/${shlib_prefix}v8${shlib_extension}",
+          "$root_out_dir/${shlib_prefix}blink_core${shlib_extension}",
+          "$root_out_dir/${shlib_prefix}blink_modules${shlib_extension}",
+          "$root_out_dir/${shlib_prefix}blink_platform${shlib_extension}",
+          "$root_out_dir/${shlib_prefix}v8${shlib_extension}",
         ]
 
         deps += [

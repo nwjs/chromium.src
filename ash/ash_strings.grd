@@ -314,6 +314,27 @@ This file contains the strings for ash.
       <message name="IDS_ASH_QUICK_SETTINGS_BUBBLE_VPN_SETTINGS_ACCESSIBLE_DESCRIPTION" desc="The accessible description for VPN settings accessed through the VPN feature pod.">
         VPN Settings
       </message>
+      <message name="IDS_ASH_STATUS_TRAY_AUTOZOOM_BUTTON_LABEL" desc="The shorter label used for the button in the status tray to toggle the Autozoom feature (which controls if camera auto zoom to faces) on or off. [CHAR_LIMIT=14]">
+        Autozoom
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_AUTOZOOM_TOGGLE_TOOLTIP" desc="The tooltip text used for the button in the status tray to toggle the Autozoom feature (which controls if camera auto zoom to faces) on or off.">
+        Toggle autozoom. <ph name="STATE_TEXT">$1<ex>Autozoom is on.</ex></ph>
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_AUTOZOOM_TOGGLE_ACCESSIBILITY_DESCRIPTION" desc="The accessible description for the button in the status tray to toggle the Autozoom feature (which controls if camera auto zoom to faces) on or off.">
+        Adjust camera to put you in the center of the screen.
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_AUTOZOOM_OFF_STATE_TOOLTIP" desc="The tooltip text indicating the Autozoom feature is off.">
+        Autozoom is off.
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_AUTOZOOM_ON_STATE_TOOLTIP" desc="The tooltip text indicating the Autozoom feature is on.">
+        Autozoom is on.
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_AUTOZOOM_OFF_STATE" desc="Button label for the Autozoom feature." meaning="Autozoom feature is off. [CHAR_LIMIT=14]">
+        Off
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_AUTOZOOM_ON_STATE" desc="Button label for the Autozoom feature." meaning="Autozoom feature is on. [CHAR_LIMIT=14]">
+        On
+      </message>
       <message name="IDS_ASH_STATUS_TRAY_BRAILLE_DISPLAY_CONNECTED" desc="The message shown on a notification when a braille display is connected">
         Braille display connected.
       </message>
@@ -2096,6 +2117,16 @@ Connect your device to power.
       <message name="IDS_ASH_STATUS_TRAY_BATTERY_STATUS_SEPARATOR" desc="The separator symbol between battery percentage string and battery remaining time string">
         ''' - '''
       </message>
+      <!-- Status tray channel indicator strings -->
+      <message name="IDS_ASH_STATUS_TRAY_CHANNEL_BETA" desc="The string used to indicate that this device is on the beta release track">
+        Beta Channel
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_CHANNEL_DEV" desc="The string used to indicate that this device is on the development release track">
+        Dev Channel
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_CHANNEL_CANARY" desc="The string used to indicate that this device is on the canary release track">
+        Canary Channel
+      </message>
       <!-- Status Tray Network strings -->
       <message name="IDS_ASH_STATUS_TRAY_NETWORK" desc="The label used in the network dialog header. [CHAR_LIMIT=18]">
         Network
@@ -2950,6 +2981,9 @@ Connect your device to power.
       </message>
       <message name="IDS_ASH_LOGIN_ERROR_AUTHENTICATING_2ND_TIME" desc="Couldn't sign in because password is invalid for the 2nd time">
         Your PIN or password still couldn't be verified. Note: If you recently changed your password, use your old password. Your new password will be applied once you sign out.
+      </message>
+      <message name="IDS_ASH_LOGIN_FORGOT_PASSWORD" desc="Label of the button to recover your password">
+        Forgot password
       </message>
       <message name="IDS_ASH_LOGIN_ERROR_CAPS_LOCK_HINT" desc="A hint text for the login and lock screens that Caps Lock is on">
         Caps Lock is on.
@@ -3843,6 +3877,17 @@ Here are some things you can try to get started.
         An application is using your microphone
       </message>
 
+      <!-- For privacy indicators notification -->
+      <message name="IDS_PRIVACY_NOTIFICATION_TITLE_CAMERA_AND_MIC" desc="Title for a notification shown when an app is using the camera and the microphone.">
+        Camera and microphone in use
+      </message>
+      <message name="IDS_PRIVACY_NOTIFICATION_TITLE_CAMERA" desc="Title for a notification shown when an app is using the camera.">
+        Camera in use
+      </message>
+      <message name="IDS_PRIVACY_NOTIFICATION_TITLE_MIC" desc="Title for a notification shown when an app is using the microphone.">
+        Microphone in use
+      </message>
+
       <!-- Strings for microphone mute switch notification -->
       <message name="IDS_MICROPHONE_MUTED_NOTIFICATION_TITLE" desc="Title for a notification shown to the users when an app tries to use the microphone while the microphone is muted.i Similar to IDS_MICROPHONE_MUTED_NOTIFICATION_TITLE_WITH_APP_NAME, except this message contains a generic app name string. Used when the name of the app that's using the microphone cannot be determined.">
           An app wants to use the microphone
@@ -4319,6 +4364,9 @@ Here are some things you can try to get started.
       <message name="IDS_APP_LIST_BLOCKED_APP" desc="The spoken feedback text when a focused app is blocked.">
         Blocked
       </message>
+      <message name="IDS_APP_LIST_NEW_INSTALL_ACCESSIBILE_DESCRIPTION" desc="The spoken feedback text when a focused app is newly installed.">
+        New install
+      </message>
       <message name="IDS_APP_LIST_PAUSED_APP" desc="The spoken feedback text when a focused app is paused.">
         Paused
       </message>
@@ -4365,15 +4413,6 @@ Here are some things you can try to get started.
       </message>
       <message name="IDS_ASH_SHORTCUT_DEPRECATION_SEARCH_PERIOD_INSERT" desc="Message telling user to use search/launcher + shift + backspace instead of search/launcher + period to emulate the delete key. The name of the launcher key varies by device and may be either Search or Launcher depending on the glyph on the keyboard.">
         The <ph name="LAUNCHER_KEY_NAME">$1<ex>Launcher</ex></ph> + Period keyboard shortcut has changed. To use the Insert key, press the <ph name="LAUNCHER_KEY_NAME">$1<ex>Launcher</ex></ph> key + Shift + Backspace.
-      </message>
-      <message name="IDS_SHORTCUT_CHANGES_IN_RELEASE_NOTIFICATION_BODY" desc="Message body of notification telling user that this release has changes to keyboard shortcuts.">
-        To see the updates, open the Shortcuts app
-      </message>
-      <message name="IDS_SHORTCUT_CHANGES_IN_RELEASE_NOTIFICATION_TITLE" desc="Title of notification telling user that this release has changes to keyboard shortcuts.">
-        Keyboard shortcuts have been improved
-      </message>
-      <message name="IDS_SHORTCUT_CHANGES_IN_RELEASE_NOTIFICATION_LEARN_MORE_BUTTON_TEXT" desc="Button text on notification to learn more. Links to a help page.">
-        Learn more
       </message>
 
       <!-- PciePeripheral notifications -->
@@ -4562,10 +4601,16 @@ Here are some things you can try to get started.
       <message name="IDS_ASH_LAUNCHER_CONTINUE_SECTION_CONTEXT_MENU_REMOVE" desc="Context menu option title to remove a suggestion for a task in the launcher. Tasks display in the continue section located above the app list.">
         Remove suggestion
       </message>
-      <message name="IDS_ASH_LAUNCHER_SHOW_CONTINUE_SECTION" desc="Button title to show the launcher continue section after it has been hidden.">
-        Continue where you left off
+      <message name="IDS_ASH_LAUNCHER_SHOW_CONTINUE_SECTION" desc="Context menu label to show the launcher continue section after it has been hidden.">
+        Show all suggestions
       </message>
       <message name="IDS_ASH_LAUNCHER_HIDE_CONTINUE_SECTION" desc="Context menu label to hide the launcher continue section (which defaults to being shown).">
+        Hide all suggestions
+      </message>
+      <message name="IDS_ASH_LAUNCHER_SHOW_CONTINUE_SECTION_TOOLTIP" desc="Tooltip for button that shows the launcher continue section after it has been hidden.">
+        Show all suggestions
+      </message>
+      <message name="IDS_ASH_LAUNCHER_HIDE_CONTINUE_SECTION_TOOLTIP" desc="Tooltip for button that hides the launcher continue section (which defaults to being shown).">
         Hide all suggestions
       </message>
       <message name="IDS_ASH_LAUNCHER_CONTINUE_SECTION_PRIVACY_TEXT" desc="Text for the privacy notice of the continue section of the launcher in clamshell mode, which shows recent files and apps that the user can continue using.">
@@ -5018,7 +5063,7 @@ New install
         Your battery is kept at 80% while plugged in to extend battery life.
       </message>
       <message name="IDS_ASH_ADAPTIVE_CHARGING_NOTIFICATION_MESSAGE_TEMPORARY" desc="Notification message explaining the battery is temporarily at 80%. The message includes the predicted time at which charging will resume.">
-        Your battery is temporarily at 80% while plugged in to extend battery life. Your battery will fully charge by <ph name="FULLY_CHARGE_TIME">$1<ex>7:30 AM</ex></ph>.
+        Extending your battery life. Battery will fully charge by <ph name="FULLY_CHARGE_TIME">$1<ex>7:30 AM</ex></ph>.
       </message>
       <message name="IDS_ASH_ADAPTIVE_CHARGING_NOTIFICATION_FULLY_CHARGE_NOW_BUTTON_TEXT" desc="Text in notification button to fully charge the device.">
         Fully charge now
@@ -5031,6 +5076,15 @@ New install
       <message name="IDS_ASH_STATUS_TRAY_KEYBOARD_BACKLIGHT_ACCESSIBLE_NAME" desc="The accessible text for the brightness slider keyboard backlight icon.">
         Keyboard backlight color
       </message>
+
+      <!-- Eche feature -->
+      <message name="IDS_ASH_ECHE_TOAST_COPY_PASTE_NOT_IMPLEMENTED" desc="A toast message that we show when user tries to use ctrl+c or ctrl+v in the Eche window.">
+        Can't copy or paste content at this time
+      </message>
+      <message name="IDS_ASH_ECHE_TOAST_TABLET_MODE_NOT_SUPPORTED" desc="A toast message that we show when user tries to switch to tablet mode.">
+        Can't stream apps in tablet mode. Try again in laptop mode.
+      </message>
+
     </messages>
   </release>
 </grit>

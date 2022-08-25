@@ -37,7 +37,6 @@
 
 namespace ukm {
 
-COMPONENT_EXPORT(UKM_RECORDER)
 const base::Feature kUkmSamplingRateFeature{"UkmSamplingRate",
                                             base::FEATURE_DISABLED_BY_DEFAULT};
 
@@ -45,10 +44,22 @@ namespace {
 
 bool IsWhitelistedSourceId(SourceId source_id) {
   SourceIdType type = GetSourceIdType(source_id);
-  return type == SourceIdType::NAVIGATION_ID || type == SourceIdType::APP_ID ||
-         type == SourceIdType::HISTORY_ID || type == SourceIdType::WEBAPK_ID ||
-         type == SourceIdType::PAYMENT_APP_ID ||
-         type == SourceIdType::NO_URL_ID;
+  switch (type) {
+    case ukm::SourceIdObj::Type::NAVIGATION_ID:
+    case ukm::SourceIdObj::Type::APP_ID:
+    case ukm::SourceIdObj::Type::HISTORY_ID:
+    case ukm::SourceIdObj::Type::WEBAPK_ID:
+    case ukm::SourceIdObj::Type::PAYMENT_APP_ID:
+    case ukm::SourceIdObj::Type::NO_URL_ID:
+    case ukm::SourceIdObj::Type::REDIRECT_ID:
+    case ukm::SourceIdObj::Type::WEB_IDENTITY_ID: {
+      return true;
+    }
+    case ukm::SourceIdObj::Type::DEFAULT:
+    case ukm::SourceIdObj::Type::DESKTOP_WEB_APP_ID:
+    case ukm::SourceIdObj::Type::WORKER_ID:
+      return false;
+  }
 }
 
 bool IsAppIdType(SourceId source_id) {
@@ -205,42 +216,6 @@ UkmRecorderImpl::UkmRecorderImpl()
 }
 
 UkmRecorderImpl::~UkmRecorderImpl() = default;
-
-// static
-void UkmRecorderImpl::CreateFallbackSamplingTrial(
-    bool is_stable_channel,
-    base::FeatureList* feature_list) {
-  static const char kSampledGroup_Stable[] = "Sampled_NoSeed_Stable";
-  static const char kSampledGroup_Other[] = "Sampled_NoSeed_Other";
-  const char* sampled_group = kSampledGroup_Other;
-  int default_sampling = 1;  // Sampling is 1-in-N; this is N.
-
-  // Nothing is sampled out except for "stable" which omits almost everything
-  // in this configuration. This is done so that clients that fail to receive
-  // a configuration from the server do not bias aggregated results because
-  // of a relatively large number of records from them.
-  if (is_stable_channel) {
-    sampled_group = kSampledGroup_Stable;
-    default_sampling = 1000000;
-  }
-
-  scoped_refptr<base::FieldTrial> trial(
-      base::FieldTrialList::FactoryGetFieldTrial(
-          kUkmSamplingRateFeature.name, 100, sampled_group,
-          base::FieldTrial::ONE_TIME_RANDOMIZED, nullptr));
-
-  // Everybody (100%) should have a sampling configuration.
-  std::map<std::string, std::string> params = {
-      {"_default_sampling", base::NumberToString(default_sampling)}};
-  variations::AssociateVariationParams(trial->trial_name(), sampled_group,
-                                       params);
-  trial->AppendGroup(sampled_group, 100);
-
-  // Setup the feature.
-  feature_list->RegisterFieldTrialOverride(
-      kUkmSamplingRateFeature.name, base::FeatureList::OVERRIDE_ENABLE_FEATURE,
-      trial.get());
-}
 
 UkmRecorderImpl::EventAggregate::EventAggregate() = default;
 UkmRecorderImpl::EventAggregate::~EventAggregate() = default;
@@ -417,15 +392,7 @@ void UkmRecorderImpl::StoreRecordingsInReport(Report* report) {
   std::unordered_map<SourceIdType, int> serialized_source_type_counts;
 
   for (const auto& kv : recordings_.sources) {
-    // Don't keep sources of these types after current report because their
-    // entries are logged only at source creation time.
-    SourceIdType type = GetSourceIdType(kv.first);
-    if (type == ukm::SourceIdObj::Type::HISTORY_ID ||
-        type == ukm::SourceIdObj::Type::WEBAPK_ID ||
-        type == SourceIdType::PAYMENT_APP_ID ||
-        type == SourceIdType::NO_URL_ID) {
-      MarkSourceForDeletion(kv.first);
-    }
+    MaybeMarkForDeletion(kv.first);
     // If the source id is not whitelisted, don't send it unless it has
     // associated entries and the URL matches that of a whitelisted source.
     // Note: If ShouldRestrictToWhitelistedSourceIds() is true, this logic will
@@ -878,6 +845,29 @@ void UkmRecorderImpl::RecordNavigation(
       unsanitized_navigation_data.CopyWithSanitizedUrls(urls);
   RecordSource(
       std::make_unique<UkmSource>(source_id, sanitized_navigation_data));
+}
+
+void UkmRecorderImpl::MaybeMarkForDeletion(SourceId source_id) {
+  SourceIdType type = GetSourceIdType(source_id);
+  switch (type) {
+    case ukm::SourceIdObj::Type::HISTORY_ID:
+    case ukm::SourceIdObj::Type::WEBAPK_ID:
+    case ukm::SourceIdObj::Type::PAYMENT_APP_ID:
+    case ukm::SourceIdObj::Type::NO_URL_ID:
+    case ukm::SourceIdObj::Type::WEB_IDENTITY_ID: {
+      // Don't keep sources of these types after current report because their
+      // entries are logged only at source creation time.
+      MarkSourceForDeletion(source_id);
+      break;
+    }
+    case ukm::SourceIdObj::Type::DEFAULT:
+    case ukm::SourceIdObj::Type::APP_ID:
+    case ukm::SourceIdObj::Type::DESKTOP_WEB_APP_ID:
+    case ukm::SourceIdObj::Type::NAVIGATION_ID:
+    case ukm::SourceIdObj::Type::WORKER_ID:
+    case ukm::SourceIdObj::Type::REDIRECT_ID:
+      break;
+  }
 }
 
 UkmRecorderImpl::ShouldRecordUrlResult UkmRecorderImpl::ShouldRecordUrl(

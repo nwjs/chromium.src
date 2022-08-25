@@ -7,12 +7,18 @@ import {Origin} from 'chrome://resources/mojo/url/mojom/origin.mojom-webui.js';
 
 import {QuotaInternalsHandler} from './quota_internals.mojom-webui.js';
 
+enum StorageType {
+  TEMPORARY,
+  PERSISTENT,
+  SYNCABLE,
+}
+
 type BucketTableEntry = {
   'bucketId': bigint,
   'storageKey': string,
-  'host': string,
-  'type': string,
+  'type': StorageType,
   'name': string,
+  'usage': bigint,
   'useCount': bigint,
   'lastAccessed': Time,
   'lastModified': Time,
@@ -22,10 +28,6 @@ type GetDiskAvailabilityAndTempPoolSizeResult = {
   totalSpace: bigint,
   availableSpace: bigint,
   tempPoolSize: bigint,
-};
-
-type GetHostUsageForInternalsResult = {
-  'hostUsage': bigint,
 };
 
 type GetGlobalUsageResult = {
@@ -103,13 +105,6 @@ export class QuotaInternalsBrowserProxy {
 
   retrieveBucketsTable(): Promise<RetrieveBucketsTableResult> {
     return this.handler.retrieveBucketsTable();
-  }
-
-  async getHostUsageForInternals(host: string, storageType: string):
-      Promise<GetHostUsageForInternalsResult> {
-    const totalUsage = await this.handler.getHostUsageForInternals(
-        host, enumerateStorageType(storageType));
-    return totalUsage;
   }
 
   static getInstance(): QuotaInternalsBrowserProxy {

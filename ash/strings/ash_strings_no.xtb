@@ -27,6 +27,7 @@ Her er noen ting du kan prøve til å begynne med.</translation>
 <translation id="1111021433905331574">Du kan endre fargen på tastaturets bakgrunnsbelysning i Innstillinger &gt; <ph name="APP_TITLE" /></translation>
 <translation id="112308213915226829">Skjul hyllen automatisk</translation>
 <translation id="1142002900084379065">Nylige bilder</translation>
+<translation id="114451698114044150">Automatisk zoom er på.</translation>
 <translation id="1148499908455722006">Åpne dialogboksen for informasjon om <ph name="USER_NAME" /></translation>
 <translation id="1150989369772528668">Kalender</translation>
 <translation id="1153356358378277386">Tilkoblede enheter</translation>
@@ -102,6 +103,7 @@ Her er noen ting du kan prøve til å begynne med.</translation>
 <translation id="1480845547124508962"><ph name="CURRENT_TIME" /> – trykk på Enter for å åpne Kalender-visningen</translation>
 <translation id="1484102317210609525"><ph name="DEVICE_NAME" /> (HDMI/DP)</translation>
 <translation id="1487931858675166540"><ph name="FIRST_ITEM_TITLE" /> har byttet plass med <ph name="SECOND_ITEM_TITLE" /></translation>
+<translation id="1500926532737552529">Vis alle forslag</translation>
 <translation id="1503394326855300303">Denne eierkontoen må være den første påloggingskontoen i en multipåloggingsøkt.</translation>
 <translation id="1510238584712386396">Appoversikt</translation>
 <translation id="1516740043221086139">Ikke forstyrr er på.</translation>
@@ -151,6 +153,7 @@ Her er noen ting du kan prøve til å begynne med.</translation>
 <translation id="1771761307086386028">Rull til høyre</translation>
 <translation id="1774796056689732716">Kalender – <ph name="CURRENT_MONTH_YEAR" />. For øyeblikket er <ph name="DATE" /> valgt.</translation>
 <translation id="1787955149152357925">Av</translation>
+<translation id="1797271123677381264">Glemt passord</translation>
 <translation id="181103072419391116">Signalstyrke <ph name="SIGNAL_STRENGTH" /> – administreres av administratoren din</translation>
 <translation id="1812997170047690955">Hva er på skjermen?</translation>
 <translation id="1823873187264960516">Ethernet: <ph name="ADDRESS" /></translation>
@@ -163,6 +166,7 @@ Her er noen ting du kan prøve til å begynne med.</translation>
 <translation id="1882897271359938046">Speiler <ph name="DISPLAY_NAME" /></translation>
 <translation id="1885785240814121742">Lås opp med fingeravtrykk</translation>
 <translation id="1888656773939766144"><ph name="DISPLAY_NAME" /> støtter ikke <ph name="SPECIFIED_RESOLUTION" /> (<ph name="SPECIFIED_REFRESH_RATE" /> Hz). Oppløsningen ble endret til <ph name="FALLBACK_RESOLUTION" /> (<ph name="FALLBACK_REFRESH_RATE" />). Klikk på Bekreft for å beholde endringene. De forrige innstillingene blir gjenopprettet om <ph name="TIMEOUT_SECONDS" />.</translation>
+<translation id="1908992311423394684">Nylig installert</translation>
 <translation id="1915307458270490472">Legg på</translation>
 <translation id="1918022425394817322">Kameraet er festet til øvre høyre hjørne</translation>
 <translation id="1919743966458266018">Snarveien for å åpne oppgavebehandlingen er endret. Bruk <ph name="NEW_SHORTCUT" /> i stedet for <ph name="OLD_SHORTCUT" />.</translation>
@@ -303,6 +307,7 @@ Her er noen ting du kan prøve til å begynne med.</translation>
 <translation id="2805756323405976993">Apper</translation>
 <translation id="2814448776515246190">Delvis opptak</translation>
 <translation id="2819276065543622893">Du blir nå logget av.</translation>
+<translation id="2822551631199737692">Kameraet er i bruk</translation>
 <translation id="2825224105325558319"><ph name="DISPLAY_NAME" /> støtter ikke <ph name="SPECIFIED_RESOLUTION" />. Oppløsningen ble endret til <ph name="FALLBACK_RESOLUTION" />.</translation>
 <translation id="2825619548187458965">Hylle</translation>
 <translation id="2831035692318564937">Påslått til soloppgang</translation>
@@ -445,6 +450,7 @@ Her er noen ting du kan prøve til å begynne med.</translation>
 <translation id="3593039967545720377">Åpne utklippstavleloggen ved å trykke på <ph name="SHORTCUT_KEY_NAME" /> + V for å se utklippstavlen. Kopiér et element for å komme i gang.</translation>
 <translation id="3593646411856133110">Sveip opp og hold for å se åpne apper</translation>
 <translation id="3595596368722241419">Batteriet er fullt</translation>
+<translation id="3600061223661453002">Av</translation>
 <translation id="3604801046548457007">Opprettet skrivebord <ph name="DESK_TITILE" /></translation>
 <translation id="3606978283550408104">En leselist er tilkoblet.</translation>
 <translation id="3615926715408477684">Hvis du slår på mobildata, blir Bluetooth også slått på</translation>
@@ -487,7 +493,6 @@ Koble enheten til strøm.</translation>
 <translation id="3804737937830804242">Skjul kameraet</translation>
 <translation id="3826099427150913765">Bytt til passord</translation>
 <translation id="383058930331066723">Batterisparing er på</translation>
-<translation id="3835880383832568924">Åpne Snarveier-appen for å se oppdateringene</translation>
 <translation id="383629559565718788">Vis tastaturinnstillinger</translation>
 <translation id="384082539148746321">Vil du slette malen?</translation>
 <translation id="3842239759367498783">Fortsett lesingen på mobilenheten <ph name="TITLE" /></translation>
@@ -535,6 +540,7 @@ Koble enheten til strøm.</translation>
 <translation id="4115378294792113321">Magenta</translation>
 <translation id="412298498316631026">vindu</translation>
 <translation id="4123259114412175274">For å låse opp Chromebooken, sørg for at Bluetooth er påslått på telefonen</translation>
+<translation id="4125970834901680537">Kan ikke strømme apper i nettbrettmodus. Prøv på nytt i laptopmodus.</translation>
 <translation id="4129129681837227511">For å se varsler på låseskjermen, lås opp for å endre innstillingen</translation>
 <translation id="4136724716305260864">Påslått til soloppgang</translation>
 <translation id="4146833061457621061">Spill av musikk</translation>
@@ -552,6 +558,7 @@ Koble enheten til strøm.</translation>
 <translation id="4215497585250573029">VPN-innstillinger</translation>
 <translation id="4217571870635786043">Diktering</translation>
 <translation id="4221957499226645091"><ph name="APP_NAME" />, installert app, satt på pause</translation>
+<translation id="423685346499232137">Kan ikke kopiere eller lime inn innhold akkurat nå</translation>
 <translation id="4239069858505860023">GPRS</translation>
 <translation id="4242533952199664413">Åpne innstillingene</translation>
 <translation id="4250229828105606438">Skjermdump</translation>
@@ -606,9 +613,11 @@ Koble enheten til strøm.</translation>
 <translation id="4479639480957787382">Ethernet</translation>
 <translation id="4481530544597605423">Frakoblede enheter</translation>
 <translation id="4505050298327493054">Aktivt skrivebord.</translation>
+<translation id="450584155212756404">Utviklerkanal</translation>
 <translation id="4513946894732546136">Google Feedback</translation>
 <translation id="4518404433291145981">For å låse opp Chromebooken, lås opp telefonen først</translation>
 <translation id="4527045527269911712">Bluetooth-enheten «<ph name="DEVICE_NAME" />» ber om tillatelse til å koble til.</translation>
+<translation id="4533343294786968049">Batterilevetiden forlenges. Batteriet kommer til å være helt oppladet innen <ph name="FULLY_CHARGE_TIME" />.</translation>
 <translation id="453661520163887813"><ph name="TIME" /> til batteriet er fulladet</translation>
 <translation id="4538824937723742295">Ta skjermdump i fullskjerm</translation>
 <translation id="4544483149666270818">Velg vinduet du vil ta opp</translation>
@@ -801,6 +810,7 @@ Koble enheten til strøm.</translation>
 <translation id="5682642926269496722">Google-assistenten er ikke tilgjengelig for denne brukerkontoen.</translation>
 <translation id="5689633613396158040">Nattlys gjør det lettere å se på skjermen og lese i svakt lys. Trykk for å endre når Nattlys slås på, eller slå det helt av.</translation>
 <translation id="5691772641933328258">Gjenkjenner ikke fingeravtrykket</translation>
+<translation id="5693255400847650006">Mikrofonen er i bruk</translation>
 <translation id="570390244361237317">Alle apper – naviger med piltastene for å få tilgang til alle appene</translation>
 <translation id="5707775774148071965">Enheten støtter en høyere datafrekvens enn kabelen. Enhetens ytelse kan være begrenset.</translation>
 <translation id="5710450975648804523">Ikke forstyrr er på</translation>
@@ -872,6 +882,7 @@ Koble enheten til strøm.</translation>
 <translation id="6062360702481658777">Du logges automatisk av om <ph name="LOGOUT_TIME_LEFT" />.</translation>
 <translation id="6064463340679478396">Ferdig med filen</translation>
 <translation id="6073451960410192870">Stopp opptaket</translation>
+<translation id="6074087755403037157">Betakanal</translation>
 <translation id="6099678161144790572">Redigert den siste måneden</translation>
 <translation id="6103838137565245112">system</translation>
 <translation id="6114505516289286752">Talefiler for <ph name="LANGUAGE" /> er lastet ned</translation>
@@ -958,6 +969,7 @@ Nylig installert</translation>
 <translation id="6637729079642709226">Endre tiden</translation>
 <translation id="6641720045729354415">Slå av/på Direkteteksting. <ph name="STATE_TEXT" /></translation>
 <translation id="6643169293433369663">Angre sortering etter navn</translation>
+<translation id="6649641931981131786">Juster kameraet så du er midt på skjermen.</translation>
 <translation id="6650072551060208490"><ph name="ORIGIN_NAME" /> vil bekrefte at det er deg</translation>
 <translation id="6650933572246256093">Bluetooth-enheten «<ph name="DEVICE_NAME" />» ber om tillatelse til å koble til. Skriv inn denne tilgangskoden på den aktuelle enheten: <ph name="PASSKEY" /></translation>
 <translation id="6657585470893396449">Passord</translation>
@@ -974,6 +986,7 @@ Nylig installert</translation>
 <translation id="6723839937902243910">Strøm</translation>
 <translation id="6727969043791803658">Koblet til – <ph name="BATTERY_PERCENTAGE" /> % batteri</translation>
 <translation id="6732800389263199929">+<ph name="COUNT" /></translation>
+<translation id="6737983188036277605">Kameraet og mikrofonen er i bruk</translation>
 <translation id="6739144137573853180">GÅ TIL INNSTILLINGER</translation>
 <translation id="6751052314767925245">Påkreves av administratoren din</translation>
 <translation id="6751826523481687655">Ytelsessporing er slått på</translation>
@@ -998,6 +1011,7 @@ Nylig installert</translation>
 <translation id="685782768769951078">{NUM_DIGITS,plural, =1{Ett siffer gjenstår}other{# sifre gjenstår}}</translation>
 <translation id="6867938213751067702">Nedlastingen av <ph name="FILENAME" /> er satt på pause</translation>
 <translation id="6878400149835617132">Snarveien er avslått</translation>
+<translation id="6878709625737492815">Automatisk zoom er av.</translation>
 <translation id="6884665277231944629">Gå tilbake til i dag</translation>
 <translation id="6886172995547742638">Ytelsen til <ph name="DEVICE_TYPE" /> kan svekkes. Bruk en sertifisert USB-C-strømadapter på <ph name="PREFERRED_MINIMUM_POWER" /> W eller mer.</translation>
 <translation id="688631446150864480">Trykk på nedoverpiltasten for å bytte vindu</translation>
@@ -1005,7 +1019,6 @@ Nylig installert</translation>
 <translation id="6896758677409633944">Kopiér</translation>
 <translation id="6901883536534621389">Prøv å navigere med bevegelser</translation>
 <translation id="6919251195245069855">Smartkortet ditt ble ikke gjenkjent. Prøv på nytt.</translation>
-<translation id="6921188888306725546">Tastatursnarveier er forbedret</translation>
 <translation id="6931576957638141829">Lagre i</translation>
 <translation id="6945221475159498467">Velg</translation>
 <translation id="6960565108681981554">Ikke aktivert. Kontakt operatøren din.</translation>
@@ -1078,6 +1091,7 @@ Nylig installert</translation>
 <translation id="7378203170292176219">Dra for å velge området du vil ta opp</translation>
 <translation id="7378594059915113390">Mediekontroller</translation>
 <translation id="7378889811480108604">Batterisparing er av</translation>
+<translation id="7382680553121047388">På</translation>
 <translation id="7384028040782072252">Høyreklikk hvor som helst for å endre rekkefølge på appene</translation>
 <translation id="7392563512730092880">Du kan alltid konfigurere dette senere i Innstillinger.</translation>
 <translation id="7405710164030118432">For å låse opp enheten, skriv inn koden din for foreldretilgang til Family Link</translation>
@@ -1160,6 +1174,7 @@ Nylig installert</translation>
 <translation id="7868900307798234037">Låser opp med fingeravtrykk</translation>
 <translation id="7872195908557044066">Administratoren holder på å tilbakestille e-SIM-kortet ditt. Vent i noen minutter.</translation>
 <translation id="7872786842639831132">Av</translation>
+<translation id="7875280185395705476">Automatisk zoom</translation>
 <translation id="7875575368831396199">Det ser ut til at Bluetooth er slått av på <ph name="DEVICE_TYPE" />. Slå på Bluetooth for å bruke Telefonstyring.</translation>
 <translation id="7877557217297072640">{0,plural, =0{Nedgrader enheten til en tidligere versjon nå}=1{Nedgrader enheten til en tidligere versjon innen 1 sekund}other{Nedgrader enheten til en tidligere versjon innen # sekunder}}</translation>
 <translation id="7886169021410746335">justere personverninnstillinger</translation>
@@ -1222,6 +1237,7 @@ Nylig installert</translation>
 <translation id="8200772114523450471">Fortsett</translation>
 <translation id="8203795194971602413">Høyreklikk</translation>
 <translation id="8209010265547628927">Tilbakestill</translation>
+<translation id="8214996719228530800">Canary-kanal</translation>
 <translation id="8219451629189078428">Chromebooken må være påslått og koblet til strøm i denne perioden. Sørg for at lader- eller adapterkabelen er plugget helt inn i både Chromebooken og stikkontakten. Ikke slå av Chromebook.</translation>
 <translation id="8236042855478648955">På tide med en pause</translation>
 <translation id="8247060538831475781"><ph name="CONNECTION_STATUS" /> – signalstyrke <ph name="SIGNAL_STRENGTH" /> – telefonbatterinivå <ph name="BATTERY_STATUS" /></translation>
@@ -1230,7 +1246,6 @@ Nylig installert</translation>
 <translation id="826107067893790409">Trykk på Enter for å låse opp for <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="8261506727792406068">Slett</translation>
 <translation id="8270450402312105425">{0,plural, =1{Nedgrader enheten til en tidligere versjon innen en time}other{Nedgrader enheten til en tidligere versjon innen # timer}}</translation>
-<translation id="8271580342040932214">Batteriet holdes midlertidig på 80 % mens enheten er koblet til strøm, slik at batterilevetiden forlenges. Batteriet kommer til å være fulladet innen <ph name="FULLY_CHARGE_TIME" />.</translation>
 <translation id="8284362522226889623">Sveip til venstre med fire fingre for å bytte til forrige skrivebord</translation>
 <translation id="828708037801473432">Av</translation>
 <translation id="8297006494302853456">Svakt</translation>
@@ -1280,6 +1295,7 @@ Nylig installert</translation>
 <translation id="856298576161209842"><ph name="MANAGER" /> anbefaler at du oppdaterer <ph name="DEVICE_TYPE" /></translation>
 <translation id="8563862697512465947">Varslingsinnstillinger</translation>
 <translation id="857201607579416096">Menyen ble flyttet til nedre høyre hjørne av skjermen.</translation>
+<translation id="8576288697319745668">Slå av/på automatisk zoom. <ph name="STATE_TEXT" /></translation>
 <translation id="8594115950068821369">–<ph name="FORMATTED_TIME" /></translation>
 <translation id="8598235756057743477">Sorter apper etter navn eller farge</translation>
 <translation id="8614517853887502247">Varsler fra <ph name="APP_1_TITLE" /> og <ph name="APP_2_TITLE" /> er skjult fordi visningsbeskyttelse er på</translation>

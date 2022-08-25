@@ -54,7 +54,6 @@
 #include "content/renderer/render_thread_impl.h"
 #include "content/renderer/service_worker/controller_service_worker_connector.h"
 #include "content/renderer/service_worker/service_worker_subresource_loader.h"
-#include "content/renderer/storage_util.h"
 #include "content/renderer/v8_value_converter_impl.h"
 #include "content/renderer/variations_render_thread_observer.h"
 #include "content/renderer/webgraphicscontext3d_provider_impl.h"
@@ -159,9 +158,9 @@ media::AudioParameters GetAudioHardwareParams() {
   if (!render_frame)
     return media::AudioParameters::UnavailableDeviceParams();
 
-  return blink::AudioDeviceFactory::GetOutputDeviceInfo(
-             render_frame->GetWebFrame()->GetLocalFrameToken(),
-             media::AudioSinkParameters())
+  return blink::AudioDeviceFactory::GetInstance()
+      ->GetOutputDeviceInfo(render_frame->GetWebFrame()->GetLocalFrameToken(),
+                            media::AudioSinkParameters())
       .output_params();
 }
 
@@ -279,28 +278,12 @@ RendererBlinkPlatformImpl::WrapURLLoaderFactory(
       /*terminate_sync_load_event=*/nullptr);
 }
 
-std::unique_ptr<blink::WebURLLoaderFactory>
-RendererBlinkPlatformImpl::WrapSharedURLLoaderFactory(
-    scoped_refptr<network::SharedURLLoaderFactory> factory) {
-  std::vector<std::string> cors_exempt_header_list =
-      RenderThreadImpl::current()->cors_exempt_header_list();
-  blink::WebVector<blink::WebString> web_cors_exempt_header_list(
-      cors_exempt_header_list.size());
-  std::transform(cors_exempt_header_list.begin(), cors_exempt_header_list.end(),
-                 web_cors_exempt_header_list.begin(), [](const std::string& h) {
-                   return blink::WebString::FromLatin1(h);
-                 });
-  return std::make_unique<blink::WebURLLoaderFactory>(
-      std::move(factory), web_cors_exempt_header_list,
-      /*terminate_sync_load_event=*/nullptr);
-}
-
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-void RendererBlinkPlatformImpl::SetDisplayThreadPriority(
-    base::PlatformThreadId thread_id) {
+void RendererBlinkPlatformImpl::SetThreadType(base::PlatformThreadId thread_id,
+                                              base::ThreadType thread_type) {
   if (RenderThreadImpl* render_thread = RenderThreadImpl::current()) {
-    render_thread->render_message_filter()->SetThreadPriority(
-        thread_id, base::ThreadPriority::DISPLAY);
+    render_thread->render_message_filter()->SetThreadType(thread_id,
+                                                          thread_type);
   }
 }
 #endif
@@ -435,20 +418,6 @@ void RendererBlinkPlatformImpl::SuddenTerminationChanged(bool enabled) {
 
 //------------------------------------------------------------------------------
 
-WebString RendererBlinkPlatformImpl::FileSystemCreateOriginIdentifier(
-    const blink::WebSecurityOrigin& origin) {
-  return WebString::FromUTF8(
-      storage::GetIdentifierFromOrigin(WebSecurityOriginToGURL(origin)));
-}
-
-//------------------------------------------------------------------------------
-
-WebString RendererBlinkPlatformImpl::DatabaseCreateOriginIdentifier(
-    const blink::WebSecurityOrigin& origin) {
-  return WebString::FromUTF8(
-      storage::GetIdentifierFromOrigin(WebSecurityOriginToGURL(origin)));
-}
-
 viz::FrameSinkId RendererBlinkPlatformImpl::GenerateFrameSinkId() {
   return viz::FrameSinkId(RenderThread::Get()->GetClientId(),
                           RenderThread::Get()->GenerateRoutingID());
@@ -500,11 +469,6 @@ bool RendererBlinkPlatformImpl::IsElasticOverscrollEnabled() {
 bool RendererBlinkPlatformImpl::IsScrollAnimatorEnabled() {
   RenderThreadImpl* thread = RenderThreadImpl::current();
   return thread ? thread->IsScrollAnimatorEnabled() : false;
-}
-
-cc::TaskGraphRunner* RendererBlinkPlatformImpl::GetTaskGraphRunner() {
-  RenderThreadImpl* thread = RenderThreadImpl::current();
-  return thread ? thread->GetTaskGraphRunner() : nullptr;
 }
 
 bool RendererBlinkPlatformImpl::IsThreadedAnimationEnabled() {
@@ -560,7 +524,7 @@ scoped_refptr<media::AudioCapturerSource>
 RendererBlinkPlatformImpl::NewAudioCapturerSource(
     blink::WebLocalFrame* web_frame,
     const media::AudioSourceParameters& params) {
-  return blink::AudioDeviceFactory::NewAudioCapturerSource(
+  return blink::AudioDeviceFactory::GetInstance()->NewAudioCapturerSource(
       web_frame->GetLocalFrameToken(), params);
 }
 
@@ -609,7 +573,7 @@ RendererBlinkPlatformImpl::NewAudioRendererSink(
     blink::WebAudioDeviceSourceType source_type,
     blink::WebLocalFrame* web_frame,
     const media::AudioSinkParameters& params) {
-  return blink::AudioDeviceFactory::NewAudioRendererSink(
+  return blink::AudioDeviceFactory::GetInstance()->NewAudioRendererSink(
       source_type, web_frame->GetLocalFrameToken(), params);
 }
 
@@ -1008,19 +972,13 @@ void RendererBlinkPlatformImpl::CreateServiceWorkerSubresourceLoaderFactory(
     const blink::WebString& client_id,
     std::unique_ptr<network::PendingSharedURLLoaderFactory> fallback_factory,
     mojo::PendingReceiver<network::mojom::URLLoaderFactory> receiver,
-    scoped_refptr<base::SequencedTaskRunner> task_runner,
-    scoped_refptr<base::SequencedTaskRunner> worker_timing_callback_task_runner,
-    base::RepeatingCallback<
-        void(int, mojo::PendingReceiver<blink::mojom::WorkerTimingContainer>)>
-        worker_timing_callback) {
+    scoped_refptr<base::SequencedTaskRunner> task_runner) {
   ServiceWorkerSubresourceLoaderFactory::Create(
       base::MakeRefCounted<ControllerServiceWorkerConnector>(
           std::move(service_worker_container_host),
           /*remote_controller=*/mojo::NullRemote(), client_id.Utf8()),
       network::SharedURLLoaderFactory::Create(std::move(fallback_factory)),
-      std::move(receiver), std::move(task_runner),
-      std::move(worker_timing_callback_task_runner),
-      std::move(worker_timing_callback));
+      std::move(receiver), std::move(task_runner));
 }
 
 //------------------------------------------------------------------------------

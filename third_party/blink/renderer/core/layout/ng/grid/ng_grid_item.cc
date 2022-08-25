@@ -161,8 +161,12 @@ GridItemData::GridItemData(const NGBlockNode node,
                            const ComputedStyle& container_style,
                            const WritingMode container_writing_mode)
     : node(node),
+      parent_grid(nullptr),
       is_sizing_dependent_on_block_size(false),
-      is_subgridded_to_parent_grid(false) {
+      is_considered_for_column_sizing(true),
+      is_considered_for_row_sizing(true),
+      can_subgrid_items_in_column_direction(false),
+      can_subgrid_items_in_row_direction(false) {
   const auto& style = node.Style();
 
   const bool is_replaced = node.IsReplaced();
@@ -372,17 +376,15 @@ void GridItemData::ComputeOutOfFlowItemPlacement(
 void GridItems::RemoveSubgriddedItems() {
   wtf_size_t new_item_count = 0;
   for (const auto& grid_item : item_data) {
-    if (grid_item.is_subgridded_to_parent_grid)
+    if (grid_item->ParentGrid())
       break;
     ++new_item_count;
   }
 
 #if DCHECK_IS_ON()
   for (wtf_size_t i = new_item_count; i < item_data.size(); ++i)
-    DCHECK(item_data[i].is_subgridded_to_parent_grid);
+    DCHECK(item_data[i]->ParentGrid());
 #endif
-
-  reordered_item_indices.Shrink(new_item_count);
   item_data.Shrink(new_item_count);
 }
 

@@ -56,18 +56,7 @@ size_t CountDuplicateClientTags(const EntityMetadataMap& metadata_map) {
 ClientTagBasedModelTypeProcessor::ClientTagBasedModelTypeProcessor(
     ModelType type,
     const base::RepeatingClosure& dump_stack)
-    : ClientTagBasedModelTypeProcessor(type,
-                                       dump_stack,
-                                       CommitOnlyTypes().Has(type)) {}
-
-ClientTagBasedModelTypeProcessor::ClientTagBasedModelTypeProcessor(
-    ModelType type,
-    const base::RepeatingClosure& dump_stack,
-    bool commit_only)
-    : type_(type),
-      bridge_(nullptr),
-      dump_stack_(dump_stack),
-      commit_only_(commit_only) {
+    : type_(type), bridge_(nullptr), dump_stack_(dump_stack) {
   ResetState(CLEAR_METADATA);
 }
 
@@ -125,7 +114,7 @@ void ClientTagBasedModelTypeProcessor::ModelReadyToSync(
     // types exactly once as an upgrade flow.
     // TODO(crbug.com/872360): This DCHECK can currently trigger if the user's
     // persisted Sync metadata is in an inconsistent state.
-    DCHECK(commit_only_ || batch->TakeAllMetadata().empty())
+    DCHECK(CommitOnlyTypes().Has(type_) || batch->TakeAllMetadata().empty())
         << ModelTypeToDebugString(type_);
   }
 
@@ -162,7 +151,7 @@ void ClientTagBasedModelTypeProcessor::ConnectIfReady() {
     model_type_state.set_cache_guid(activation_request_.cache_guid);
     model_type_state.set_authenticated_account_id(
         activation_request_.authenticated_account_id.ToString());
-    if (commit_only_) {
+    if (CommitOnlyTypes().Has(type_)) {
       // For commit-only types, no updates are expected and hence we can
       // consider initial_sync_done(), reflecting that sync is enabled.
       model_type_state.set_initial_sync_done(true);
@@ -279,7 +268,7 @@ bool ClientTagBasedModelTypeProcessor::IsTrackingMetadata() const {
   return entity_tracker_ != nullptr;
 }
 
-std::string ClientTagBasedModelTypeProcessor::TrackedAccountId() {
+std::string ClientTagBasedModelTypeProcessor::TrackedAccountId() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   // Returning non-empty here despite !IsTrackingMetadata() has weird semantics,
   // e.g. initial updates are being fetched but we haven't received the response
@@ -291,7 +280,7 @@ std::string ClientTagBasedModelTypeProcessor::TrackedAccountId() {
   return entity_tracker_->model_type_state().authenticated_account_id();
 }
 
-std::string ClientTagBasedModelTypeProcessor::TrackedCacheGuid() {
+std::string ClientTagBasedModelTypeProcessor::TrackedCacheGuid() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   // Returning non-empty here despite !IsTrackingMetadata() has weird semantics,
   // e.g. initial updates are being fetched but we haven't received the response
@@ -523,6 +512,18 @@ void ClientTagBasedModelTypeProcessor::UntrackEntityForClientTagHash(
   entity_tracker_->RemoveEntityForClientTagHash(client_tag_hash);
 }
 
+std::vector<std::string>
+ClientTagBasedModelTypeProcessor::GetAllTrackedStorageKeys() const {
+  std::vector<std::string> storage_keys;
+  if (entity_tracker_) {
+    for (const ProcessorEntity* entity :
+         entity_tracker_->GetAllEntitiesIncludingTombstones()) {
+      storage_keys.push_back(entity->storage_key());
+    }
+  }
+  return storage_keys;
+}
+
 bool ClientTagBasedModelTypeProcessor::IsEntityUnsynced(
     const std::string& storage_key) {
   if (!entity_tracker_) {
@@ -653,9 +654,9 @@ void ClientTagBasedModelTypeProcessor::OnCommitCompleted(
       continue;
     }
 
-    entity->ReceiveCommitResponse(data, commit_only_);
+    entity->ReceiveCommitResponse(data, CommitOnlyTypes().Has(type_));
 
-    if (commit_only_) {
+    if (CommitOnlyTypes().Has(type_)) {
       if (!entity->IsUnsynced()) {
         entity_change_list.push_back(
             EntityChange::CreateDelete(entity->storage_key()));

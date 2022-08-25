@@ -1000,7 +1000,7 @@ CommandHandler.COMMANDS_['new-window'] = new (class extends FilesCommand {
   execute(event, fileManager) {
     fileManager.launchFileManager({
       currentDirectoryURL: fileManager.getCurrentDirectoryEntry() &&
-          fileManager.getCurrentDirectoryEntry().toURL()
+          fileManager.getCurrentDirectoryEntry().toURL(),
     });
   }
 
@@ -1288,7 +1288,7 @@ CommandHandler.registerUndoDeleteToast = function(fileManager) {
       callback: () => {
         fileManager.fileOperationManager.restoreDeleted(
             assert(e.trashedEntries));
-      }
+      },
     });
   };
 
@@ -1329,9 +1329,15 @@ CommandHandler.COMMANDS_['restore-from-trash'] =
  */
 CommandHandler.COMMANDS_['empty-trash'] = new (class extends FilesCommand {
   execute(event, fileManager) {
-    fileManager.ui.deleteConfirmDialog.show(
-        str('CONFIRM_EMPTY_TRASH'),
-        () => fileManager.fileOperationManager.emptyTrash());
+    fileManager.ui.deleteConfirmDialog.show(str('CONFIRM_EMPTY_TRASH'), () => {
+      if (window.isSWA) {
+        startIOTask(
+            chrome.fileManagerPrivate.IOTaskType.EMPTY_TRASH, /*entries=*/[],
+            /*params=*/ {});
+        return;
+      }
+      fileManager.fileOperationManager.emptyTrash();
+    });
   }
 
   /** @override */
@@ -2352,6 +2358,30 @@ CommandHandler.COMMANDS_['manage-in-drive'] = new (class extends FilesCommand {
 })();
 
 /**
+ * Opens the Manage MirrorSync dialog if the flag is enabled.
+ */
+CommandHandler.COMMANDS_['manage-mirrorsync'] =
+    new (class extends FilesCommand {
+      execute(event, fileManager) {
+        chrome.fileManagerPrivate.openManageSyncSettings();
+      }
+
+      /**
+       * @override
+       */
+      canExecute(event, fileManager) {
+        // MirrorSync is only available to sync local directories, only show the
+        // folder when navigated to a local directory.
+        const currentRootType = fileManager.directoryModel.getCurrentRootType();
+        event.canExecute =
+            (currentRootType === VolumeManagerCommon.RootType.MY_FILES ||
+             currentRootType === VolumeManagerCommon.RootType.DOWNLOADS) &&
+            util.isMirrorSyncEnabled();
+        event.command.setHidden(!event.canExecute);
+      }
+    })();
+
+/**
  * Shares the selected (single only) directory with the default crostini VM.
  */
 CommandHandler.COMMANDS_['share-with-linux'] = new (class extends FilesCommand {
@@ -2383,7 +2413,7 @@ CommandHandler.COMMANDS_['share-with-linux'] = new (class extends FilesCommand {
           chrome.fileManagerPrivate.openSettingsSubpage('crostini/sharedPaths');
           CommandHandler.recordMenuItemSelected(
               CommandHandler.MenuCommandsForUMA.MANAGE_LINUX_SHARING_TOAST);
-        }
+        },
       });
     }
     // Show a confirmation dialog if we are sharing the root of a volume.
@@ -2460,7 +2490,7 @@ CommandHandler
               'app-management/pluginVm/sharedPaths');
           CommandHandler.recordMenuItemSelected(
               CommandHandler.MenuCommandsForUMA.MANAGE_PLUGIN_VM_SHARING_TOAST);
-        }
+        },
       });
     }
     // Show a confirmation dialog if we are sharing the root of a volume.
@@ -2941,7 +2971,7 @@ CommandHandler.COMMANDS_['set-wallpaper'] = new (class extends FilesCommand {
                 {
                   data: arrayBuffer,
                   layout: chrome.wallpaper.WallpaperLayout.CENTER_CROPPED,
-                  filename: 'wallpaper'
+                  filename: 'wallpaper',
                 },
                 () => {
                   if (chrome.runtime.lastError) {

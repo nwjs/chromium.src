@@ -722,8 +722,8 @@ void DevToolsHttpHandler::RespondToJsonList(
   base::ListValue list_value;
   for (auto& agent_host : agent_hosts) {
     WebContents* web_contents = agent_host->GetWebContents();
-    if (web_contents && web_contents->GetMainFrame())
-      if (!web_contents->GetMainFrame()->context_created())
+    if (web_contents && web_contents->GetPrimaryMainFrame())
+      if (!web_contents->GetPrimaryMainFrame()->context_created())
         continue;
     list_value.Append(SerializeDescriptor(agent_host, host));
   }

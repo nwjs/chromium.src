@@ -53,6 +53,7 @@ import './a11y_page/a11y_page.js';
 import './downloads_page/downloads_page.js';
 // <if expr="not chromeos_ash">
 import './languages_page/languages_page.js';
+import './languages_page/spell_check_page.js';
 // </if>
 import './reset_page/reset_page.js';
 // <if expr="not chromeos_ash">
@@ -94,6 +95,7 @@ export {PasswordRemoveDialogElement} from './autofill_page/password_remove_dialo
 export {PasswordViewElement} from './autofill_page/password_view.js';
 export {PasswordsDeviceSectionElement} from './autofill_page/passwords_device_section.js';
 export {PasswordsExportDialogElement} from './autofill_page/passwords_export_dialog.js';
+export {PasswordsImportDialogElement} from './autofill_page/passwords_import_dialog.js';
 export {PasswordsSectionElement} from './autofill_page/passwords_section.js';
 export {PaymentsManagerImpl, PaymentsManagerProxy} from './autofill_page/payments_manager_proxy.js';
 export {SettingsPaymentsSectionElement} from './autofill_page/payments_section.js';
@@ -125,10 +127,10 @@ export {SettingsAddLanguagesDialogElement} from './languages_page/add_languages_
 export {SettingsEditDictionaryPageElement} from './languages_page/edit_dictionary_page.js';
 // </if>
 export {LanguagesBrowserProxy, LanguagesBrowserProxyImpl} from './languages_page/languages_browser_proxy.js';
-export {SettingsLanguagesPageElement} from './languages_page/languages_page.js';
+export {kMenuCloseDelay, SettingsLanguagesPageElement} from './languages_page/languages_page.js';
 export {LanguageSettingsActionType, LanguageSettingsMetricsProxy, LanguageSettingsMetricsProxyImpl, LanguageSettingsPageImpressionType} from './languages_page/languages_settings_metrics_proxy.js';
-export {kMenuCloseDelay, SettingsLanguagesSubpageElement} from './languages_page/languages_subpage.js';
 export {LanguageHelper, LanguagesModel} from './languages_page/languages_types.js';
+export {SettingsSpellCheckPageElement} from './languages_page/spell_check_page.js';
 // </if>
 // <if expr="not chromeos_ash and not chromeos_lacros">
 export {BrowserProfile, ImportDataBrowserProxy, ImportDataBrowserProxyImpl, ImportDataStatus} from './people_page/import_data_browser_proxy.js';

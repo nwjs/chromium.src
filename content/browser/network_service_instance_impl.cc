@@ -34,6 +34,7 @@
 #include "content/browser/browser_main_loop.h"
 #include "content/browser/first_party_sets/first_party_sets_handler_impl.h"
 #include "content/browser/net/http_cache_backend_file_operations_factory.h"
+#include "content/browser/net/socket_broker_impl.h"
 #include "content/browser/network_sandbox_grant_result.h"
 #include "content/browser/network_service_client.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -49,6 +50,7 @@
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "net/base/features.h"
 #include "net/log/net_log_util.h"
+#include "sandbox/policy/features.h"
 #include "services/cert_verifier/cert_verifier_service_factory.h"
 #include "services/cert_verifier/public/mojom/cert_verifier_service_factory.mojom.h"
 #include "services/network/network_service.h"
@@ -59,6 +61,7 @@
 #include "services/network/public/mojom/network_context.mojom.h"
 #include "services/network/public/mojom/network_service.mojom.h"
 #include "services/network/public/mojom/network_service_test.mojom.h"
+#include "services/network/public/mojom/socket_broker.mojom.h"
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "content/browser/network_sandbox.h"
@@ -598,7 +601,7 @@ base::CallbackListSubscription RegisterNetworkServiceCrashHandler(
   return GetCrashHandlersList().Add(std::move(handler));
 }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 net::NetworkChangeNotifier* GetNetworkChangeNotifier() {
   return BrowserMainLoop::GetInstance()->network_change_notifier();
 }
@@ -831,6 +834,41 @@ void CreateNetworkContextInNetworkService(
             .InitWithNewPipeAndPassReceiver());
   }
 
+#if BUILDFLAG(IS_ANDROID)
+
+  if (sandbox::policy::features::IsNetworkSandboxEnabled() &&
+      !params->socket_broker) {
+    params->socket_broker = g_client->BindSocketBroker();
+  }
+  // On Android, if a cookie_manager pending receiver was passed then migration
+  // should not be attempted as the cookie file is already being accessed by the
+  // browser instance.
+  if (params->cookie_manager) {
+    if (params->file_paths) {
+      // No migration should ever be attempted under this configuration.
+      DCHECK(!params->file_paths->unsandboxed_data_path);
+    }
+    CreateNetworkContextInternal(
+        std::move(context), std::move(params),
+        SandboxGrantResult::kDidNotAttemptToGrantSandboxAccess);
+    return;
+  }
+
+  // Note: This logic is duplicated from MaybeGrantAccessToDataPath to this fast
+  // path. This should be kept in sync if there are any changes to the logic.
+  SandboxGrantResult grant_result = SandboxGrantResult::kNoMigrationRequested;
+  if (!params->file_paths) {
+    // No file paths (e.g. in-memory context) so nothing to do.
+    grant_result = SandboxGrantResult::kDidNotAttemptToGrantSandboxAccess;
+  } else {
+    // If no `unsandboxed_data_path` is supplied, it means this is network
+    // context has been created by Android Webview, which does not understand
+    // the concept of `unsandboxed_data_path`. In this case, `data_directory`
+    // should always be used, if present.
+    if (!params->file_paths->unsandboxed_data_path)
+      grant_result = SandboxGrantResult::kDidNotAttemptToGrantSandboxAccess;
+  }
+#endif
 #if 1 //BUILDFLAG(IS_ANDROID)
   // Create network context immediately without thread hops.
   CreateNetworkContextInternal(std::move(context), std::move(params),

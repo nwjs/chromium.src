@@ -35,7 +35,6 @@
 #include "content/common/download/mhtml_file_writer.mojom.h"
 #include "content/common/frame.mojom.h"
 #include "content/common/navigation_client.mojom.h"
-#include "content/common/render_accessibility.mojom.h"
 #include "content/common/renderer.mojom.h"
 #include "content/common/web_ui.mojom.h"
 #include "content/public/common/alternative_error_page_override_info.mojom.h"
@@ -94,6 +93,7 @@
 #include "third_party/blink/public/mojom/loader/resource_load_info_notifier.mojom.h"
 #include "third_party/blink/public/mojom/media/renderer_audio_input_stream_factory.mojom.h"
 #include "third_party/blink/public/mojom/navigation/navigation_params.mojom-forward.h"
+#include "third_party/blink/public/mojom/render_accessibility.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_object.mojom.h"
 #include "third_party/blink/public/mojom/use_counter/metrics/css_property_id.mojom.h"
 #include "third_party/blink/public/platform/child_url_loader_factory_bundle.h"
@@ -187,12 +187,12 @@ class CONTENT_EXPORT RenderFrameImpl
       const base::UnguessableToken& devtools_frame_token,
       mojom::CreateLocalMainFrameParamsPtr params);
 
-  // Creates a new RenderFrame with |routing_id|. If |previous_routing_id| is
-  // MSG_ROUTING_NONE, it creates the Blink WebLocalFrame and inserts it into
+  // Creates a new RenderFrame with |routing_id|. If |previous_frame_token| is
+  // not provided, it creates the Blink WebLocalFrame and inserts it into
   // the frame tree after the frame identified by |previous_sibling_routing_id|,
   // or as the first child if |previous_sibling_routing_id| is MSG_ROUTING_NONE.
   // Otherwise, the frame is semi-orphaned until it commits, at which point it
-  // replaces the previous object identified by |previous_routing_id|. The
+  // replaces the previous object identified by |previous_frame_token|. The
   // previous object can either be a RenderFrame or a RenderFrameProxy.
   // The frame's opener is set to the frame identified by |opener_routing_id|.
   // The frame is created as a child of the RenderFrame identified by
@@ -216,10 +216,10 @@ class CONTENT_EXPORT RenderFrameImpl
       mojo::PendingAssociatedReceiver<mojom::Frame> frame_receiver,
       mojo::PendingRemote<blink::mojom::BrowserInterfaceBroker>
           browser_interface_broker,
-      int previous_routing_id,
+      const absl::optional<blink::FrameToken>& previous_frame_token,
       const absl::optional<blink::FrameToken>& opener_frame_token,
-      int parent_routing_id,
-      int previous_sibling_routing_id,
+      const absl::optional<blink::FrameToken>& parent_frame_token,
+      const absl::optional<blink::FrameToken>& previous_sibling_frame_token,
       const base::UnguessableToken& devtools_frame_token,
       blink::mojom::TreeScopeType tree_scope_type,
       blink::mojom::FrameReplicationStatePtr replicated_state,
@@ -262,10 +262,6 @@ class CONTENT_EXPORT RenderFrameImpl
   // Web tests override the creation of RenderFrames in order to inject a
   // partial testing fake.
   static void InstallCreateHook(CreateRenderFrameImplFunction create_frame);
-
-  // Looks up and returns the WebFrame corresponding to a given frame routing
-  // ID.
-  static blink::WebFrame* ResolveWebFrame(int opener_frame_routing_id);
 
   // Overwrites the given URL to use an HTML5 embed if possible.
   blink::WebURL OverrideFlashEmbedWithHTML(const blink::WebURL& url) override;
@@ -346,7 +342,6 @@ class CONTENT_EXPORT RenderFrameImpl
       mojo::ScopedInterfaceEndpointHandle handle) override;
 
   // RenderFrame implementation:
-  RenderView* GetRenderView() override;
   RenderFrame* GetMainRenderFrame() override;
   RenderAccessibility* GetRenderAccessibility() override;
   std::unique_ptr<AXTreeSnapshotter> CreateAXTreeSnapshotter(
@@ -452,6 +447,7 @@ class CONTENT_EXPORT RenderFrameImpl
       mojo::PendingRemote<network::mojom::URLLoaderFactory>
           prefetch_loader_factory,
       const base::UnguessableToken& devtools_navigation_token,
+      const blink::ParsedPermissionsPolicy& permissions_policy,
       blink::mojom::PolicyContainerPtr policy_container,
       mojo::PendingRemote<blink::mojom::CodeCacheHost> code_cache_host,
       mojom::CookieManagerInfoPtr cookie_manager_info,
@@ -486,7 +482,8 @@ class CONTENT_EXPORT RenderFrameImpl
       blink::WebMediaPlayerEncryptedMediaClient* encrypted_client,
       blink::WebContentDecryptionModule* initial_cdm,
       const blink::WebString& sink_id,
-      const cc::LayerTreeSettings& settings) override;
+      const cc::LayerTreeSettings& settings,
+      scoped_refptr<base::TaskRunner> compositor_worker_task_runner) override;
   std::unique_ptr<blink::WebContentSettingsClient>
   CreateWorkerContentSettingsClient() override;
 #if !BUILDFLAG(IS_ANDROID)
@@ -603,6 +600,7 @@ class CONTENT_EXPORT RenderFrameImpl
   void DidObserveLoadingBehavior(blink::LoadingBehaviorFlag behavior) override;
   void DidObserveNewFeatureUsage(
       const blink::UseCounterFeature& feature) override;
+  void DidObserveSoftNavigation(uint32_t count) override;
   void DidObserveLayoutShift(double score, bool after_input_or_scroll) override;
   void DidObserveLayoutNg(uint32_t all_block_count,
                           uint32_t ng_block_count,
@@ -854,18 +852,19 @@ class CONTENT_EXPORT RenderFrameImpl
       std::unique_ptr<blink::PendingURLLoaderFactoryBundle>
           subresource_loader_factories) override;
   void SetWantErrorMessageStackTrace() override;
-  void Unload(int proxy_routing_id,
-              bool is_loading,
-              blink::mojom::FrameReplicationStatePtr replicated_frame_state,
-              const blink::RemoteFrameToken& frame_token,
-              mojom::RemoteMainFrameInterfacesPtr remote_main_frame_interfaces)
-      override;
-  void Delete(mojom::FrameDeleteIntention intent) override;
-  void UndoCommitNavigation(
-      int proxy_routing_id,
+  void Unload(
       bool is_loading,
       blink::mojom::FrameReplicationStatePtr replicated_frame_state,
       const blink::RemoteFrameToken& frame_token,
+      mojom::RemoteFrameInterfacesFromBrowserPtr remote_frame_interfaces,
+      mojom::RemoteMainFrameInterfacesPtr remote_main_frame_interfaces)
+      override;
+  void Delete(mojom::FrameDeleteIntention intent) override;
+  void UndoCommitNavigation(
+      bool is_loading,
+      blink::mojom::FrameReplicationStatePtr replicated_frame_state,
+      const blink::RemoteFrameToken& frame_token,
+      mojom::RemoteFrameInterfacesFromBrowserPtr remote_frame_interfaces,
       mojom::RemoteMainFrameInterfacesPtr remote_main_frame_interfaces)
       override;
   void BlockRequests() override;
@@ -1127,10 +1126,10 @@ class CONTENT_EXPORT RenderFrameImpl
   //
   // Important: after this method returns, `this` has been deleted.
   bool SwapOutAndDeleteThis(
-      int proxy_routing_id,
       bool is_loading,
       blink::mojom::FrameReplicationStatePtr replicated_frame_state,
       const blink::RemoteFrameToken& frame_token,
+      mojom::RemoteFrameInterfacesFromBrowserPtr remote_frame_interfaces,
       mojom::RemoteMainFrameInterfacesPtr remote_main_frame_interfaces);
 
   // Stores the WebLocalFrame we are associated with.  This is null from the
@@ -1299,7 +1298,7 @@ class CONTENT_EXPORT RenderFrameImpl
   //   request NavigationClient
   //
   // Note that the initiating RenderFrameImpl does *not* own the request
-  // NavigationClient. Rather, the RanderFrameImpl that the navigation *targets*
+  // NavigationClient. Rather, the RenderFrameImpl that the navigation *targets*
   // is the RenderFrameImpl that owns the request NavigationClient.
   //
   // ## Commit NavigationClient ##
@@ -1328,8 +1327,11 @@ class CONTENT_EXPORT RenderFrameImpl
   // Note that using RenderDocument means that all cross-document navigations
   // will use a provisional RenderFrameImpl: as such, all cross-document
   // navigations with RenderDocument will ignore cancellation after
-  // READY_TO_COMMIT. This is a known compatibility issue with RenderDocument
-  // and will need to eventually be addressed.
+  // READY_TO_COMMIT. To handle this, all renderer-initiated navigations will
+  // not enter the READY_TO_COMMIT stage until the task that initiated the
+  // navigation finishes, to ensure that no renderer-initiated navigation
+  // cancellation can take place after READY_TO_COMMIT. For more details, see
+  // RendererCancellationThrottle.
   std::unique_ptr<NavigationClient> navigation_client_impl_;
 
   // Creates various media clients.

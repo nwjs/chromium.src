@@ -13,10 +13,11 @@
 #include "base/callback_helpers.h"
 #include "components/autofill_assistant/browser/js_flow_devtools_wrapper.h"
 #include "components/autofill_assistant/browser/public/external_action_delegate.h"
-#include "components/autofill_assistant/browser/public/external_script_controller.h"
+#include "components/autofill_assistant/browser/public/headless_script_controller.h"
 #include "components/autofill_assistant/browser/service.pb.h"
 #include "components/autofill_assistant/browser/tts_button_state.h"
 #include "components/autofill_assistant/browser/viewport_mode.h"
+#include "third_party/abseil-cpp/absl/types/optional.h"
 
 class GURL;
 
@@ -59,6 +60,7 @@ class GenericUserInterfaceProto;
 class FormProto;
 class FormProto_Result;
 class InfoBox;
+class PromptQrCodeScanProto;
 class UserAction;
 class UserData;
 class UserModel;
@@ -410,6 +412,16 @@ class ActionDelegate {
       base::RepeatingCallback<void(const FormProto_Result*)> changed_callback,
       base::OnceCallback<void(const ClientStatus&)> cancel_callback) = 0;
 
+  // Show QR Code Scan UI to the user. |callback| should be invoked with the
+  // scanned result or absl::nullopt and an appropriate client status.
+  virtual void ShowQrCodeScanUi(
+      std::unique_ptr<PromptQrCodeScanProto> qr_code_scan,
+      base::OnceCallback<void(const ClientStatus&,
+                              const absl::optional<ValueProto>&)> callback) = 0;
+
+  // Clears the QR Code Scan Ui.
+  virtual void ClearQrCodeScanUi() = 0;
+
   // Force showing the UI if no UI is shown. This is useful when executing a
   // direct action which realizes it needs to interact with the user. Once
   // shown, the UI stays up until the end of the flow.
@@ -417,6 +429,9 @@ class ActionDelegate {
 
   // Gets the user data.
   virtual const UserData* GetUserData() const = 0;
+
+  // Gets the user data (mutable).
+  virtual UserData* GetMutableUserData() const = 0;
 
   // Access to the user model.
   virtual UserModel* GetUserModel() const = 0;
@@ -495,6 +510,12 @@ class ActionDelegate {
   // because they act as a script executor.
   virtual void MaybeSetPreviousAction(
       const ProcessedActionProto& processed_action) = 0;
+
+  // Returns the Autofill Assistant intent for the current flow.
+  virtual absl::optional<std::string> GetIntent() const = 0;
+
+  // Returns the client's locale.
+  virtual const std::string GetLocale() const = 0;
 
   virtual base::WeakPtr<ActionDelegate> GetWeakPtr() const = 0;
 

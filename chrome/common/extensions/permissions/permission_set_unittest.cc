@@ -752,6 +752,7 @@ TEST(PermissionsTest, PermissionMessages) {
   skip.insert(APIPermissionID::kDiagnostics);
   skip.insert(APIPermissionID::kDns);
   skip.insert(APIPermissionID::kDownloadsShelf);
+  skip.insert(APIPermissionID::kDownloadsUi);
   skip.insert(APIPermissionID::kFontSettings);
   skip.insert(APIPermissionID::kFullscreen);
   skip.insert(APIPermissionID::kGcm);
@@ -759,12 +760,14 @@ TEST(PermissionsTest, PermissionMessages) {
   skip.insert(APIPermissionID::kImeWindowEnabled);
   skip.insert(APIPermissionID::kIdltest);
   skip.insert(APIPermissionID::kLoginState);
+  skip.insert(APIPermissionID::kOffscreen);
   skip.insert(APIPermissionID::kOverrideEscFullscreen);
   skip.insert(APIPermissionID::kPointerLock);
   skip.insert(APIPermissionID::kPower);
   skip.insert(APIPermissionID::kPrinterProvider);
   skip.insert(APIPermissionID::kSearch);
   skip.insert(APIPermissionID::kSessions);
+  skip.insert(APIPermissionID::kSidePanel);
   skip.insert(APIPermissionID::kStorage);
   skip.insert(APIPermissionID::kSystemCpu);
   skip.insert(APIPermissionID::kSystemDisplay);
@@ -846,7 +849,6 @@ TEST(PermissionsTest, PermissionMessages) {
   skip.insert(APIPermissionID::kTabCaptureForTab);
   skip.insert(APIPermissionID::kTerminalPrivate);
   skip.insert(APIPermissionID::kVirtualKeyboardPrivate);
-  skip.insert(APIPermissionID::kWallpaperPrivate);
   skip.insert(APIPermissionID::kWebrtcAudioPrivate);
   skip.insert(APIPermissionID::kWebrtcDesktopCapturePrivate);
   skip.insert(APIPermissionID::kWebrtcLoggingPrivate);
@@ -863,7 +865,6 @@ TEST(PermissionsTest, PermissionMessages) {
   skip.insert(APIPermissionID::kHid);
   skip.insert(APIPermissionID::kFileSystem);
   skip.insert(APIPermissionID::kFileSystemProvider);
-  skip.insert(APIPermissionID::kFileSystemRequestDownloads);
   skip.insert(APIPermissionID::kFileSystemRequestFileSystem);
   skip.insert(APIPermissionID::kFileSystemRetainEntries);
   skip.insert(APIPermissionID::kFileSystemWrite);

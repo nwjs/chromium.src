@@ -6,10 +6,13 @@ import './help_resources_icons.js';
 import './os_feedback_shared_css.js';
 import 'chrome://resources/cr_elements/cr_toast/cr_toast.js';
 import 'chrome://resources/cr_elements/icons.m.js';
+import 'chrome://resources/cr_elements/cr_dialog/cr_dialog.m.js';
 import 'chrome://resources/polymer/v3_0/iron-icon/iron-icon.js';
 
 import {stringToMojoString16} from 'chrome://resources/ash/common/mojo_utils.js';
-import {html, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+import {assert} from 'chrome://resources/js/assert.m.js';
+import {I18nBehavior, I18nBehaviorInterface} from 'chrome://resources/js/i18n_behavior.m.js';
+import {html, mixinBehaviors, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import {AttachedFile} from './feedback_types.js';
 
@@ -18,7 +21,19 @@ import {AttachedFile} from './feedback_types.js';
  * 'file-attachment' allows users to select a file as an attachment to the
  *  report.
  */
-export class FileAttachmentElement extends PolymerElement {
+
+/**
+ * @constructor
+ * @extends {PolymerElement}
+ * @implements {I18nBehaviorInterface}
+ */
+const FileAttachmentElementBase =
+    mixinBehaviors([I18nBehavior], PolymerElement);
+
+/**
+ * @polymer
+ */
+export class FileAttachmentElement extends FileAttachmentElementBase {
   static get is() {
     return 'file-attachment';
   }
@@ -45,6 +60,19 @@ export class FileAttachmentElement extends PolymerElement {
      * @private
      */
     this.selectedFile_ = null;
+
+    /**
+     * The name of the file selected
+     * @type {string}
+     * @protected
+     */
+    this.selectedFileName_;
+
+    /**
+     * Url of the selected image.
+     * @type {string}
+     */
+    this.selectedImageUrl_;
 
     /**
      * True when there is a file selected.
@@ -92,10 +120,36 @@ export class FileAttachmentElement extends PolymerElement {
     /** @type {!AttachedFile} */
     const attachedFile = {
       fileName: {path: {path: this.selectedFile_.name}},
-      fileData: fileData
+      fileData: fileData,
     };
 
     return attachedFile;
+  }
+
+  /**
+   * Get the image url when uploaded file is image type.
+   * @param {!File} file
+   * @return {!Promise<string>}
+   * @private
+   */
+  async getImageUrl_(file) {
+    const fileDataBuffer = await file.arrayBuffer();
+    const fileDataView = new Uint8Array(fileDataBuffer);
+    const blob = new Blob([Uint8Array.from(fileDataView)], {type: file.type});
+
+    const imageUrl = URL.createObjectURL(blob);
+    return imageUrl;
+  }
+
+  /** @protected */
+  handleSelectedImageClick_() {
+    this.$.selectedImageDialog.showModal();
+    this.$.closeDialogButton.focus();
+  }
+
+  /** @protected */
+  handleSelectedImageDialogCloseClick_() {
+    this.$.selectedImageDialog.close();
   }
 
   /**
@@ -125,6 +179,7 @@ export class FileAttachmentElement extends PolymerElement {
    * @private
    */
   handleSelectedFileHelper_(file) {
+    assert(file);
     // Maximum file size is 10MB.
     const MAX_ATTACH_FILE_SIZE_BYTES = 10 * 1024 * 1024;
     if (file.size > MAX_ATTACH_FILE_SIZE_BYTES) {
@@ -132,8 +187,20 @@ export class FileAttachmentElement extends PolymerElement {
       return;
     }
     this.selectedFile_ = file;
-    this.getElement_('#selectedFileName').textContent = file.name;
+    this.selectedFileName_ = file.name;
     this.getElement_('#selectFileCheckbox').checked = true;
+
+    // Add a preview image when selected file is image type.
+    if (file.type.startsWith('image/')) {
+      this.getImageUrl_(file).then((imageUrl) => {
+        this.selectedImageUrl_ = imageUrl;
+        this.$.selectedImageButton.ariaLabel =
+            this.i18n('previewImageAriaLabel', file.name);
+      });
+    } else {
+      this.selectedImageUrl_ = '';
+      this.$.selectedImageButton.ariaLabel = '';
+    }
   }
 
   /**

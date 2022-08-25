@@ -20,6 +20,7 @@
 #include "base/gtest_prod_util.h"
 #include "base/json/json_writer.h"
 #include "base/memory/singleton.h"
+#include "base/scoped_observation.h"
 #include "base/strings/string_piece.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
@@ -35,12 +36,12 @@
 #include "chrome/browser/ui/app_list/arc/arc_app_utils.h"
 #include "chrome/browser/ui/zoom/chrome_zoom_level_prefs.h"
 #include "chrome/common/pref_names.h"
+#include "chromeos/ash/components/network/network_handler.h"
+#include "chromeos/ash/components/network/network_state.h"
+#include "chromeos/ash/components/network/network_state_handler.h"
+#include "chromeos/ash/components/network/network_state_handler_observer.h"
 #include "chromeos/ash/components/network/onc/network_onc_utils.h"
 #include "chromeos/ash/components/network/proxy/proxy_config_service_impl.h"
-#include "chromeos/network/network_handler.h"
-#include "chromeos/network/network_state.h"
-#include "chromeos/network/network_state_handler.h"
-#include "chromeos/network/network_state_handler_observer.h"
 #include "components/arc/common/intent_helper/arc_intent_helper_package.h"
 #include "components/arc/intent_helper/arc_intent_helper_bridge.h"
 #include "components/language/core/browser/pref_names.h"
@@ -253,6 +254,10 @@ class ArcSettingsServiceImpl : public TimezoneSettings::Observer,
   // automatically unregisters a callback when it's destructed.
   base::CallbackListSubscription default_zoom_level_subscription_;
 
+  base::ScopedObservation<chromeos::NetworkStateHandler,
+                          chromeos::NetworkStateHandlerObserver>
+      network_state_handler_observer_{this};
+
   // Name of the default network. Used to keep track of whether the default
   // network has changed.
   std::string default_network_name_;
@@ -427,8 +432,8 @@ void ArcSettingsServiceImpl::StartObservingSettingsChanges() {
 
   TimezoneSettings::GetInstance()->AddObserver(this);
 
-  chromeos::NetworkHandler::Get()->network_state_handler()->AddObserver(
-      this, FROM_HERE);
+  network_state_handler_observer_.Observe(
+      chromeos::NetworkHandler::Get()->network_state_handler());
 }
 
 void ArcSettingsServiceImpl::StopObservingSettingsChanges() {
@@ -437,8 +442,7 @@ void ArcSettingsServiceImpl::StopObservingSettingsChanges() {
   reporting_consent_subscription_ = {};
 
   TimezoneSettings::GetInstance()->RemoveObserver(this);
-  chromeos::NetworkHandler::Get()->network_state_handler()->RemoveObserver(
-      this, FROM_HERE);
+  network_state_handler_observer_.Reset();
 }
 
 void ArcSettingsServiceImpl::SyncInitialSettings() const {

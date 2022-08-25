@@ -26,7 +26,7 @@ Polymer({
       reflectToAttribute: true,
       observer: 'disabledChanged_',
       computed: 'computeDisabled_(deviceState, deviceState.inhibitReason,' +
-          'disableItem)'
+          'disableItem)',
     },
 
     /**
@@ -81,13 +81,6 @@ Polymer({
     buttonLabel: {
       type: String,
       computed: 'getButtonLabel_(item)',
-    },
-
-    /** Expose the aria role attribute as "button". */
-    role: {
-      type: String,
-      reflectToAttribute: true,
-      value: 'button',
     },
 
     /**
@@ -203,15 +196,6 @@ Polymer({
       type: Boolean,
       value: false,
       computed: 'computeIsESimUnactivatedProfile_(managedProperties_)',
-    },
-
-    /** @private {boolean} */
-    isESimPolicyEnabled_: {
-      type: Boolean,
-      value() {
-        return loadTimeData.valueExists('esimPolicyEnabled') &&
-            loadTimeData.getBoolean('esimPolicyEnabled');
-      }
     },
 
     /**
@@ -1009,8 +993,7 @@ Polymer({
     }
 
     if (this.item.type === mojom.NetworkType.kCellular) {
-      return this.isESimPolicyEnabled_ &&
-          !!this.globalPolicy.allowOnlyPolicyCellularNetworks;
+      return !!this.globalPolicy.allowOnlyPolicyCellularNetworks;
     }
 
     return this.isBlockedWifiNetwork_();

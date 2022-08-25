@@ -186,20 +186,20 @@ TEST(SessionCommandsTest, ProcessCapabilities_FirstMatch) {
   ASSERT_EQ(kInvalidArgument, status.code());
 
   // Empty JSON object allowed as an entry
-  list_ptr->GetListDeprecated()[0] = base::DictionaryValue();
+  list_ptr->GetList()[0] = base::Value(base::Value::Type::DICT);
   status = ProcessCapabilities(params, &result);
   ASSERT_EQ(kOk, status.code()) << status.message();
   ASSERT_TRUE(result.DictEmpty());
 
   // Invalid entry
-  base::DictionaryValue* entry_ptr;
-  ASSERT_TRUE(list_ptr->GetDictionary(0, &entry_ptr));
-  entry_ptr->GetDict().Set("pageLoadStrategy", "invalid");
+  base::Value::Dict* entry_ptr = list_ptr->GetList()[0].GetIfDict();
+  ASSERT_TRUE(entry_ptr);
+  entry_ptr->Set("pageLoadStrategy", "invalid");
   status = ProcessCapabilities(params, &result);
   ASSERT_EQ(kInvalidArgument, status.code());
 
   // Valid entry
-  entry_ptr->GetDict().Set("pageLoadStrategy", "eager");
+  entry_ptr->Set("pageLoadStrategy", "eager");
   status = ProcessCapabilities(params, &result);
   ASSERT_EQ(kOk, status.code()) << status.message();
   ASSERT_EQ(result.DictSize(), 1u);
@@ -209,9 +209,10 @@ TEST(SessionCommandsTest, ProcessCapabilities_FirstMatch) {
 
   // Multiple entries, the first one should be selected.
   list_ptr->Append(base::DictionaryValue());
-  ASSERT_TRUE(list_ptr->GetDictionary(1, &entry_ptr));
-  entry_ptr->GetDict().Set("pageLoadStrategy", "normal");
-  entry_ptr->GetDict().Set("browserName", "chrome");
+  entry_ptr = list_ptr->GetList()[1].GetIfDict();
+  ASSERT_TRUE(entry_ptr);
+  entry_ptr->Set("pageLoadStrategy", "normal");
+  entry_ptr->Set("browserName", "chrome");
   status = ProcessCapabilities(params, &result);
   ASSERT_EQ(kOk, status.code()) << status.message();
   ASSERT_EQ(result.DictSize(), 1u);
@@ -486,9 +487,10 @@ class MockChrome : public StubChrome {
 TEST(SessionCommandsTest, ConfigureHeadlessSession_dotNotation) {
   Capabilities capabilities;
   base::DictionaryValue caps;
-  base::Value::ListStorage args;
-  args.emplace_back("headless");
-  caps.GetDict().SetByDottedPath("goog:chromeOptions.args", base::Value(args));
+  base::Value::List args;
+  args.Append("headless");
+  caps.GetDict().SetByDottedPath("goog:chromeOptions.args",
+                                 base::Value(std::move(args)));
 
   base::DictionaryValue prefs;
   prefs.GetDict().SetByDottedPath("download.default_directory",
@@ -511,9 +513,10 @@ TEST(SessionCommandsTest, ConfigureHeadlessSession_dotNotation) {
 TEST(SessionCommandsTest, ConfigureHeadlessSession_nestedMap) {
   Capabilities capabilities;
   base::DictionaryValue caps;
-  base::Value::ListStorage args;
-  args.emplace_back("headless");
-  caps.GetDict().SetByDottedPath("goog:chromeOptions.args", base::Value(args));
+  base::Value::List args;
+  args.Append("headless");
+  caps.GetDict().SetByDottedPath("goog:chromeOptions.args",
+                                 base::Value(std::move(args)));
 
   base::Value* prefs = caps.GetDict().SetByDottedPath(
       "goog:chromeOptions.prefs", base::Value(base::Value::Type::DICTIONARY));
@@ -537,9 +540,10 @@ TEST(SessionCommandsTest, ConfigureHeadlessSession_nestedMap) {
 TEST(SessionCommandsTest, ConfigureHeadlessSession_noDownloadDir) {
   Capabilities capabilities;
   base::DictionaryValue caps;
-  base::Value::ListStorage args;
-  args.emplace_back("headless");
-  caps.GetDict().SetByDottedPath("goog:chromeOptions.args", base::Value(args));
+  base::Value::List args;
+  args.Append("headless");
+  caps.GetDict().SetByDottedPath("goog:chromeOptions.args",
+                                 base::Value(std::move(args)));
 
   Status status = capabilities.Parse(caps);
   BrowserInfo binfo;

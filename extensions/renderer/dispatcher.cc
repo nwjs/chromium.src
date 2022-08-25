@@ -183,7 +183,7 @@ void CallModuleMethod(const std::string& module_name,
 
   std::vector<v8::Local<v8::Value>> arguments;
   for (const auto& arg : *args) {
-    arguments.push_back(converter->ToV8Value(&arg, context->v8_context()));
+    arguments.push_back(converter->ToV8Value(arg, context->v8_context()));
   }
 
   context->module_system()->CallModuleMethodSafe(
@@ -496,6 +496,11 @@ void Dispatcher::DidCreateScriptContext(
     case Feature::LOCK_SCREEN_EXTENSION_CONTEXT:
       UMA_HISTOGRAM_TIMES(
           "Extensions.DidCreateScriptContext_LockScreenExtension", elapsed);
+      break;
+    case Feature::OFFSCREEN_EXTENSION_CONTEXT:
+      // We don't really care about offscreen extension context initialization
+      // time at the moment - it's a strict subset (and very similar to)
+      // blessed extension context time.
       break;
   }
 

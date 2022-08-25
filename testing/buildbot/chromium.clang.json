@@ -1758,24 +1758,6 @@
               "os": "Windows-10-19042"
             }
           ],
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "browser_switcher_bho_unittests",
-        "test_id_prefix": "ninja://chrome/browser/browser_switcher/bho:browser_switcher_bho_unittests/"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "cpu": "x86-64",
-              "os": "Windows-10-19042"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 40
         },
@@ -3560,24 +3542,6 @@
         },
         "test": "boringssl_ssl_tests",
         "test_id_prefix": "ninja://third_party/boringssl:boringssl_ssl_tests/"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "cpu": "x86-64",
-              "os": "Windows-10-19042"
-            }
-          ],
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "browser_switcher_bho_unittests",
-        "test_id_prefix": "ninja://chrome/browser/browser_switcher/bho:browser_switcher_bho_unittests/"
       },
       {
         "args": [
@@ -5919,7 +5883,7 @@
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 20
+          "shards": 19
         },
         "test": "chrome_public_test_apk",
         "test_id_prefix": "ninja://chrome/android:chrome_public_test_apk/"
@@ -5975,7 +5939,8 @@
               "name": "shard #${SHARD_INDEX} logcats"
             }
           ],
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 2
         },
         "test": "chrome_public_unit_test_apk",
         "test_id_prefix": "ninja://chrome/android:chrome_public_unit_test_apk/"
@@ -8959,8 +8924,8 @@
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
-        "test": "cast_runner_integration_tests",
-        "test_id_prefix": "ninja://fuchsia_web/runners:cast_runner_integration_tests/"
+        "test": "cast_runner_integration_tests_cfv1",
+        "test_id_prefix": "ninja://fuchsia_web/runners:cast_runner_integration_tests_cfv1/"
       },
       {
         "merge": {
@@ -9073,9 +9038,6 @@
         "test_id_prefix": "ninja://ui/compositor:compositor_unittests/"
       },
       {
-        "args": [
-          "--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.content_unittests.filter"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -9110,24 +9072,6 @@
         },
         "test": "courgette_unittests",
         "test_id_prefix": "ninja://courgette:courgette_unittests/"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "kvm": "1",
-              "os": "Ubuntu-18.04"
-            }
-          ],
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "cr_fuchsia_base_unittests",
-        "test_id_prefix": "ninja://fuchsia/base:cr_fuchsia_base_unittests/"
       },
       {
         "merge": {
@@ -9218,24 +9162,6 @@
         },
         "test": "filesystem_service_unittests",
         "test_id_prefix": "ninja://components/services/filesystem:filesystem_service_unittests/"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "kvm": "1",
-              "os": "Ubuntu-18.04"
-            }
-          ],
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "fuchsia_mojo_unittests",
-        "test_id_prefix": "ninja://mojo/public/cpp/base/fuchsia:fuchsia_mojo_unittests/"
       },
       {
         "merge": {
@@ -9549,7 +9475,8 @@
       },
       {
         "args": [
-          "--child-arg=--ozone-platform=headless"
+          "--",
+          "--ozone-platform=headless"
         ],
         "merge": {
           "args": [],
@@ -9873,7 +9800,8 @@
       },
       {
         "args": [
-          "--child-arg=--vmodule=test_navigation_listener=1"
+          "--",
+          "--vmodule=test_navigation_listener=1"
         ],
         "merge": {
           "args": [],
@@ -10013,6 +9941,7 @@
           "--git-revision=${got_revision}",
           "--platform=fuchsia"
         ],
+        "check_flakiness_for_new_tests": false,
         "isolate_name": "blink_web_tests",
         "merge": {
           "args": [
@@ -10041,6 +9970,42 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test_id_prefix": "ninja://:blink_web_tests/"
+      },
+      {
+        "args": [
+          "--num-retries=3",
+          "--git-revision=${got_revision}",
+          "--platform=fuchsia"
+        ],
+        "check_flakiness_for_new_tests": false,
+        "isolate_name": "blink_wpt_tests",
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "blink_wpt_tests",
+        "precommit_args": [
+          "--gerrit-issue=${patch_issue}",
+          "--gerrit-patchset=${patch_set}",
+          "--buildbucket-id=${buildbucket_build_id}"
+        ],
+        "resultdb": {
+          "enable": true
+        },
+        "results_handler": "layout tests",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "kvm": "1",
+              "os": "Ubuntu-18.04"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test_id_prefix": "ninja://:blink_wpt_tests/"
       },
       {
         "args": [
@@ -10526,8 +10491,8 @@
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
-        "test": "cast_runner_integration_tests",
-        "test_id_prefix": "ninja://fuchsia_web/runners:cast_runner_integration_tests/"
+        "test": "cast_runner_integration_tests_cfv1",
+        "test_id_prefix": "ninja://fuchsia_web/runners:cast_runner_integration_tests_cfv1/"
       },
       {
         "merge": {
@@ -10626,9 +10591,6 @@
         "test_id_prefix": "ninja://ui/compositor:compositor_unittests/"
       },
       {
-        "args": [
-          "--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.content_unittests.filter"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -10646,25 +10608,6 @@
         },
         "test": "content_unittests",
         "test_id_prefix": "ninja://content/test:content_unittests/"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "cpu": "arm64",
-              "inside_docker": "1",
-              "os": "Ubuntu-20.04"
-            }
-          ],
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "cr_fuchsia_base_unittests",
-        "test_id_prefix": "ninja://fuchsia/base:cr_fuchsia_base_unittests/"
       },
       {
         "merge": {
@@ -10722,25 +10665,6 @@
         },
         "test": "filesystem_service_unittests",
         "test_id_prefix": "ninja://components/services/filesystem:filesystem_service_unittests/"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "cpu": "arm64",
-              "inside_docker": "1",
-              "os": "Ubuntu-20.04"
-            }
-          ],
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "fuchsia_mojo_unittests",
-        "test_id_prefix": "ninja://mojo/public/cpp/base/fuchsia:fuchsia_mojo_unittests/"
       },
       {
         "merge": {
@@ -11014,7 +10938,8 @@
       },
       {
         "args": [
-          "--child-arg=--ozone-platform=headless"
+          "--",
+          "--ozone-platform=headless"
         ],
         "merge": {
           "args": [],
@@ -11289,7 +11214,8 @@
       },
       {
         "args": [
-          "--child-arg=--vmodule=test_navigation_listener=1"
+          "--",
+          "--vmodule=test_navigation_listener=1"
         ],
         "merge": {
           "args": [],
@@ -21754,7 +21680,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -21772,7 +21698,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -21793,7 +21719,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -21812,7 +21738,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -21830,7 +21756,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -21848,7 +21774,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -21866,7 +21792,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -21884,7 +21810,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -21902,7 +21828,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -21921,7 +21847,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -21939,7 +21865,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -21957,7 +21883,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -21975,7 +21901,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
@@ -21997,7 +21923,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22015,7 +21941,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22033,7 +21959,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22051,7 +21977,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22069,7 +21995,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22087,7 +22013,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22105,7 +22031,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22123,7 +22049,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22141,7 +22067,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
@@ -22160,7 +22086,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22178,7 +22104,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22196,7 +22122,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22214,7 +22140,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22232,7 +22158,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22250,7 +22176,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22268,7 +22194,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22286,7 +22212,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22304,7 +22230,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22322,7 +22248,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22340,7 +22266,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22358,7 +22284,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22376,7 +22302,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22394,7 +22320,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22412,7 +22338,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22430,7 +22356,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22448,7 +22374,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22466,7 +22392,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22484,7 +22410,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22502,7 +22428,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22520,7 +22446,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
@@ -22539,7 +22465,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22557,7 +22483,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22575,7 +22501,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22593,7 +22519,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22611,7 +22537,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22629,7 +22555,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22647,7 +22573,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22665,7 +22591,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22683,7 +22609,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22701,7 +22627,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22719,7 +22645,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22737,7 +22663,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22755,7 +22681,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22773,7 +22699,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22791,7 +22717,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22809,7 +22735,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22827,7 +22753,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22845,7 +22771,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22863,13 +22789,13 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
-        "test": "sandbox_mac_unittests",
-        "test_id_prefix": "ninja://sandbox/mac:sandbox_mac_unittests/"
+        "test": "sandbox_unittests",
+        "test_id_prefix": "ninja://sandbox:sandbox_unittests/"
       },
       {
         "merge": {
@@ -22881,7 +22807,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22899,7 +22825,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22917,7 +22843,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22935,7 +22861,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22953,7 +22879,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22971,7 +22897,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -22989,7 +22915,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23007,7 +22933,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23025,7 +22951,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23043,7 +22969,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23061,7 +22987,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23084,7 +23010,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23102,7 +23028,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23120,7 +23046,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23138,7 +23064,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23156,7 +23082,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23175,7 +23101,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23193,7 +23119,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23218,7 +23144,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23230,6 +23156,7 @@
           "--num-retries=3",
           "--git-revision=${got_revision}"
         ],
+        "check_flakiness_for_new_tests": false,
         "isolate_name": "blink_web_tests",
         "merge": {
           "args": [
@@ -23252,13 +23179,49 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 12
+          "shards": 5
         },
         "test_id_prefix": "ninja://:blink_web_tests/"
+      },
+      {
+        "args": [
+          "--num-retries=3",
+          "--git-revision=${got_revision}"
+        ],
+        "check_flakiness_for_new_tests": false,
+        "isolate_name": "blink_wpt_tests",
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "blink_wpt_tests",
+        "precommit_args": [
+          "--gerrit-issue=${patch_issue}",
+          "--gerrit-patchset=${patch_set}",
+          "--buildbucket-id=${buildbucket_build_id}"
+        ],
+        "resultdb": {
+          "enable": true
+        },
+        "results_handler": "layout tests",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "cpu": "x86-64",
+              "os": "Mac-12"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 7
+        },
+        "test_id_prefix": "ninja://:blink_wpt_tests/"
       },
       {
         "isolate_name": "chrome_sizes",
@@ -23275,7 +23238,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23301,7 +23264,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23320,7 +23283,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23344,7 +23307,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23367,7 +23330,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23390,7 +23353,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23412,7 +23375,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23431,7 +23394,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23453,7 +23416,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23475,7 +23438,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "idempotent": false,
@@ -23501,7 +23464,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "idempotent": false,
@@ -23529,7 +23492,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "idempotent": false,
@@ -23555,7 +23518,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23587,7 +23550,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23608,7 +23571,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23630,7 +23593,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23652,7 +23615,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23673,7 +23636,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23694,7 +23657,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23715,7 +23678,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23736,7 +23699,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23757,7 +23720,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23779,7 +23742,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23800,7 +23763,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23821,7 +23784,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23842,7 +23805,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
@@ -23865,7 +23828,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23886,7 +23849,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23907,7 +23870,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23928,7 +23891,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23949,7 +23912,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23970,7 +23933,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -23991,7 +23954,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24012,7 +23975,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24033,7 +23996,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
@@ -24055,7 +24018,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24076,7 +24039,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24097,7 +24060,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24118,7 +24081,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24139,7 +24102,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24160,7 +24123,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24181,7 +24144,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24202,7 +24165,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24223,7 +24186,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24244,7 +24207,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24265,7 +24228,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24286,7 +24249,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24307,7 +24270,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24328,7 +24291,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24349,7 +24312,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24370,7 +24333,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24391,7 +24354,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24412,7 +24375,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24433,7 +24396,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24454,7 +24417,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24475,7 +24438,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
@@ -24497,7 +24460,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24518,7 +24481,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24539,7 +24502,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24560,7 +24523,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24581,7 +24544,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24602,7 +24565,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24623,7 +24586,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24644,7 +24607,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24665,7 +24628,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24686,7 +24649,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24707,7 +24670,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24728,7 +24691,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24749,7 +24712,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24770,7 +24733,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24791,7 +24754,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24812,7 +24775,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24833,7 +24796,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24854,13 +24817,13 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
-        "test": "sandbox_mac_unittests",
-        "test_id_prefix": "ninja://sandbox/mac:sandbox_mac_unittests/"
+        "test": "sandbox_unittests",
+        "test_id_prefix": "ninja://sandbox:sandbox_unittests/"
       },
       {
         "args": [
@@ -24875,7 +24838,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24896,7 +24859,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24917,7 +24880,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24938,7 +24901,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24959,7 +24922,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -24980,7 +24943,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -25001,7 +24964,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -25022,7 +24985,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -25043,7 +25006,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -25064,7 +25027,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -25085,7 +25048,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -25109,7 +25072,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -25130,7 +25093,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -25151,7 +25114,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -25172,7 +25135,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -25193,7 +25156,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -25215,7 +25178,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -25236,7 +25199,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15"
+              "os": "Mac-12"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -25261,7 +25224,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25280,7 +25243,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25302,7 +25265,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25322,7 +25285,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25341,7 +25304,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25360,7 +25323,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25379,7 +25342,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25398,7 +25361,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25417,7 +25380,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25437,7 +25400,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25456,7 +25419,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25475,7 +25438,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25494,7 +25457,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25517,7 +25480,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25536,7 +25499,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25555,7 +25518,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25574,7 +25537,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25593,7 +25556,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25612,7 +25575,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25631,7 +25594,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25650,7 +25613,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25669,7 +25632,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25689,7 +25652,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25708,7 +25671,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25727,7 +25690,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25746,7 +25709,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25765,7 +25728,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25784,7 +25747,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25803,7 +25766,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25822,7 +25785,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25841,7 +25804,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25860,7 +25823,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25879,7 +25842,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25898,7 +25861,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25917,7 +25880,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25936,7 +25899,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25955,7 +25918,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25974,7 +25937,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -25993,7 +25956,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26012,7 +25975,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26031,7 +25994,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26050,7 +26013,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26069,7 +26032,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26089,7 +26052,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26108,7 +26071,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26127,7 +26090,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26146,7 +26109,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26165,7 +26128,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26184,7 +26147,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26203,7 +26166,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26222,7 +26185,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26241,7 +26204,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26260,7 +26223,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26279,7 +26242,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26298,7 +26261,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26317,7 +26280,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26336,7 +26299,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26355,7 +26318,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26374,7 +26337,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26393,7 +26356,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26412,7 +26375,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26431,14 +26394,14 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
-        "test": "sandbox_mac_unittests",
-        "test_id_prefix": "ninja://sandbox/mac:sandbox_mac_unittests/"
+        "test": "sandbox_unittests",
+        "test_id_prefix": "ninja://sandbox:sandbox_unittests/"
       },
       {
         "merge": {
@@ -26450,7 +26413,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26469,7 +26432,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26488,7 +26451,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26507,7 +26470,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26526,7 +26489,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26545,7 +26508,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26564,7 +26527,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26583,7 +26546,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26602,7 +26565,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26621,7 +26584,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26640,7 +26603,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26664,7 +26627,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26683,7 +26646,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26702,7 +26665,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26721,7 +26684,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26740,7 +26703,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26760,7 +26723,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26779,7 +26742,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26805,7 +26768,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26818,6 +26781,7 @@
           "--num-retries=3",
           "--git-revision=${got_revision}"
         ],
+        "check_flakiness_for_new_tests": false,
         "isolate_name": "blink_web_tests",
         "merge": {
           "args": [
@@ -26840,14 +26804,51 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 12
+          "shards": 5
         },
         "test_id_prefix": "ninja://:blink_web_tests/"
+      },
+      {
+        "args": [
+          "--num-retries=3",
+          "--git-revision=${got_revision}"
+        ],
+        "check_flakiness_for_new_tests": false,
+        "isolate_name": "blink_wpt_tests",
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "blink_wpt_tests",
+        "precommit_args": [
+          "--gerrit-issue=${patch_issue}",
+          "--gerrit-patchset=${patch_set}",
+          "--buildbucket-id=${buildbucket_build_id}"
+        ],
+        "resultdb": {
+          "enable": true
+        },
+        "results_handler": "layout tests",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "cpu": "x86-64",
+              "os": "Mac-12",
+              "pool": "chrome.tests"
+            }
+          ],
+          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 7
+        },
+        "test_id_prefix": "ninja://:blink_wpt_tests/"
       },
       {
         "isolate_name": "chrome_sizes",
@@ -26864,7 +26865,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26891,7 +26892,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26911,7 +26912,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26936,7 +26937,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26960,7 +26961,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -26984,7 +26985,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -27007,7 +27008,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -27027,7 +27028,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -27050,7 +27051,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -27073,7 +27074,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -27100,7 +27101,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -27129,7 +27130,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -27156,7 +27157,7 @@
           "dimension_sets": [
             {
               "cpu": "x86-64",
-              "os": "Mac-10.15",
+              "os": "Mac-12",
               "pool": "chrome.tests"
             }
           ],
@@ -27331,18 +27332,6 @@
         },
         "test": "boringssl_ssl_tests",
         "test_id_prefix": "ninja://third_party/boringssl:boringssl_ssl_tests/"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "browser_switcher_bho_unittests",
-        "test_id_prefix": "ninja://chrome/browser/browser_switcher/bho:browser_switcher_bho_unittests/"
       },
       {
         "merge": {
@@ -28610,18 +28599,6 @@
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "browser_switcher_bho_unittests",
-        "test_id_prefix": "ninja://chrome/browser/browser_switcher/bho:browser_switcher_bho_unittests/"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 20
         },
@@ -29841,18 +29818,6 @@
         },
         "test": "boringssl_ssl_tests",
         "test_id_prefix": "ninja://third_party/boringssl:boringssl_ssl_tests/"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "browser_switcher_bho_unittests",
-        "test_id_prefix": "ninja://chrome/browser/browser_switcher/bho:browser_switcher_bho_unittests/"
       },
       {
         "merge": {
@@ -31190,24 +31155,6 @@
         },
         "test": "boringssl_ssl_tests",
         "test_id_prefix": "ninja://third_party/boringssl:boringssl_ssl_tests/"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "cpu": "x86-64",
-              "os": "Windows-10-19042"
-            }
-          ],
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "browser_switcher_bho_unittests",
-        "test_id_prefix": "ninja://chrome/browser/browser_switcher/bho:browser_switcher_bho_unittests/"
       },
       {
         "merge": {
@@ -33065,24 +33012,6 @@
               "os": "Windows-10-19042"
             }
           ],
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "browser_switcher_bho_unittests",
-        "test_id_prefix": "ninja://chrome/browser/browser_switcher/bho:browser_switcher_bho_unittests/"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "cpu": "x86-64",
-              "os": "Windows-10-19042"
-            }
-          ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 20
         },
@@ -34912,24 +34841,6 @@
         },
         "test": "boringssl_ssl_tests",
         "test_id_prefix": "ninja://third_party/boringssl:boringssl_ssl_tests/"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "cpu": "x86-64",
-              "os": "Windows-10-19042"
-            }
-          ],
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "browser_switcher_bho_unittests",
-        "test_id_prefix": "ninja://chrome/browser/browser_switcher/bho:browser_switcher_bho_unittests/"
       },
       {
         "merge": {
@@ -37312,24 +37223,6 @@
               "pool": "chrome.tests"
             }
           ],
-          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "browser_switcher_bho_unittests",
-        "test_id_prefix": "ninja://chrome/browser/browser_switcher/bho:browser_switcher_bho_unittests/"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "os": "Windows-10",
-              "pool": "chrome.tests"
-            }
-          ],
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 10
         },
@@ -39159,24 +39052,6 @@
         },
         "test": "boringssl_ssl_tests",
         "test_id_prefix": "ninja://third_party/boringssl:boringssl_ssl_tests/"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "os": "Windows-10",
-              "pool": "chrome.tests"
-            }
-          ],
-          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "browser_switcher_bho_unittests",
-        "test_id_prefix": "ninja://chrome/browser/browser_switcher/bho:browser_switcher_bho_unittests/"
       },
       {
         "merge": {
@@ -42819,23 +42694,6 @@
         },
         "test": "boringssl_ssl_tests",
         "test_id_prefix": "ninja://third_party/boringssl:boringssl_ssl_tests/"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "os": "Windows-10-19042"
-            }
-          ],
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "browser_switcher_bho_unittests",
-        "test_id_prefix": "ninja://chrome/browser/browser_switcher/bho:browser_switcher_bho_unittests/"
       },
       {
         "args": [

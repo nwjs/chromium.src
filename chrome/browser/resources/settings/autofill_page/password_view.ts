@@ -15,7 +15,7 @@ import '../i18n_setup.js';
 // <if expr="chromeos_ash or chromeos_lacros">
 import '../controls/password_prompt_dialog.js';
 // </if>
-import '../settings_shared_css.js';
+import '../settings_shared.css.js';
 import './password_edit_dialog.js';
 import './password_remove_dialog.js';
 import './passwords_shared.css.js';
@@ -58,15 +58,11 @@ const PasswordViewElementBase =
     };
 
 export enum PasswordRemovalUrlParams {
-  REMOVED_FROM_ACCOUNT = 'removedFromAccount',
-  REMOVED_FROM_DEVICE = 'removedFromDevice',
+  REMOVED_FROM_STORES = 'removedFromStores',
 }
 
 export enum PasswordViewPageUrlParams {
-  SITE = 'site',
-  USERNAME = 'username',
-  IN_ACCOUNT = 'inAccount',
-  ON_DEVICE = 'onDevice',
+  ID = 'id',
 }
 
 export function recordPasswordViewInteraction(
@@ -107,6 +103,8 @@ export class PasswordViewElement extends PasswordViewElementBase {
 
   static get properties() {
     return {
+      id_: Number,
+
       activeDialogAnchorStack_: {
         type: Array,
         value: () => [],
@@ -130,18 +128,19 @@ export class PasswordViewElement extends PasswordViewElementBase {
         },
       },
 
-      inAccount_: Boolean,
-
       isPasswordVisible_: {
         type: Boolean,
         value: false,
       },
 
-      onDevice_: Boolean,
-
       password_: {
         type: String,
         value: '',
+      },
+
+      showEditDialog_: {
+        type: Boolean,
+        value: false,
       },
 
       // <if expr="chromeos_ash or chromeos_lacros">
@@ -154,40 +153,29 @@ export class PasswordViewElement extends PasswordViewElementBase {
        */
       recentlyEdited_: Boolean,
 
-      site: {
-        type: String,
-        value: '',
-      },
-
-      username: {
-        type: String,
-        value: '',
-      },
     };
   }
 
   static get observers() {
-    return [
-      'savedPasswordsChanged_(savedPasswords.splices, site, username, ' +
-      'inAccount_, onDevice_)'
-    ];
+    return ['savedPasswordsChanged_(savedPasswords.splices, id_)'];
   }
 
-  private activeDialogAnchorStack_: Array<HTMLElement>;
+  /**
+   * Valid value for id is null or number, undefined is set for early return in
+   * the observer.
+   */
+  private id_: number|null|undefined;
+  private activeDialogAnchorStack_: HTMLElement[];
   private toastText_: string;
   credential: MultiStorePasswordUiEntry|null;
-  private inAccount_: boolean|undefined;
   private isPasswordNotesEnabled_: boolean;
   private isPasswordVisible_: boolean;
-  private onDevice_: boolean|undefined;
   private password_: string;
   private recentlyEdited_: boolean;
   // <if expr="chromeos_ash or chromeos_lacros">
   private showPasswordPromptDialog_: boolean;
   // </if>
   private showEditDialog_: boolean;
-  site: string;
-  username: string;
 
   // <if expr="chromeos_ash or chromeos_lacros">
   override connectedCallback() {
@@ -208,10 +196,7 @@ export class PasswordViewElement extends PasswordViewElementBase {
 
   override currentRouteChanged(route: Route): void {
     if (route !== routes.PASSWORD_VIEW) {
-      this.site = '';
-      this.username = '';
-      this.inAccount_ = undefined;
-      this.onDevice_ = undefined;
+      this.id_ = undefined;
       this.recentlyEdited_ = false;
       this.password_ = '';
       this.credential = null;
@@ -220,36 +205,20 @@ export class PasswordViewElement extends PasswordViewElementBase {
     }
     const queryParameters = Router.getInstance().getQueryParameters();
 
-    const site = queryParameters.get(PasswordViewPageUrlParams.SITE);
-    if (!site) {
-      return;
-    }
-
-    this.username =
-        queryParameters.get(PasswordViewPageUrlParams.USERNAME) || '';
-    this.site = site;
-
-    // inAccount | onDevice
-    // ----------+---------
-    // true      | -/false  : look for the credential stored in account
-    // -/false   | true     : look for the credential stored on device
-    // true      | true     : look for the credential stored in both
-    // -/false   | -/false  : look for the credential stored on device
-    if (!queryParameters.has(PasswordViewPageUrlParams.IN_ACCOUNT)) {
-      this.onDevice_ = true;
-      this.inAccount_ = false;
-      return;
-    }
-
-    this.onDevice_ = queryParameters.has(PasswordViewPageUrlParams.ON_DEVICE);
-    this.inAccount_ = queryParameters.has(PasswordViewPageUrlParams.IN_ACCOUNT);
+    const convertToNullOrNumber = (input: string|null) => {
+      if (!input || Number.isNaN(Number(input))) {
+        return null;
+      }
+      return Number(input);
+    };
+    this.id_ = convertToNullOrNumber(
+        queryParameters.get(PasswordViewPageUrlParams.ID));
   }
 
   override onPasswordRemoveDialogPasswordsRemoved(
       event: PasswordRemoveDialogPasswordsRemovedEvent) {
     super.onPasswordRemoveDialogPasswordsRemoved(event);
-    this.rerouteAndShowRemovalNotification_(
-        event.detail.removedFromAccount, event.detail.removedFromDevice);
+    this.rerouteAndShowRemovalNotification_(event.detail.removedFromStores);
   }
 
   /** Gets the title text for the show/hide icon. */
@@ -303,8 +272,7 @@ export class PasswordViewElement extends PasswordViewElementBase {
     recordPasswordViewInteraction(
         PasswordViewPageInteractions.PASSWORD_COPY_BUTTON_CLICKED);
     this.requestPlaintextPassword(
-            this.credential!.getAnyId(),
-            chrome.passwordsPrivate.PlaintextReason.COPY)
+            this.credential!.id, chrome.passwordsPrivate.PlaintextReason.COPY)
         .then(() => {
           this.toastText_ = this.i18n('passwordCopiedToClipboard');
           this.showToast_();
@@ -330,9 +298,7 @@ export class PasswordViewElement extends PasswordViewElementBase {
     if (!this.removePassword(this.credential)) {
       return;
     }
-    this.rerouteAndShowRemovalNotification_(
-        this.credential.isPresentInAccount(),
-        this.credential.isPresentOnDevice());
+    this.rerouteAndShowRemovalNotification_(this.credential.storedIn);
   }
 
   /** Handler to open edit dialog for the password. */
@@ -341,8 +307,7 @@ export class PasswordViewElement extends PasswordViewElementBase {
     recordPasswordViewInteraction(
         PasswordViewPageInteractions.PASSWORD_EDIT_BUTTON_CLICKED);
     this.requestPlaintextPassword(
-            this.credential!.getAnyId(),
-            chrome.passwordsPrivate.PlaintextReason.EDIT)
+            this.credential!.id, chrome.passwordsPrivate.PlaintextReason.EDIT)
         .then(password => {
           this.credential!.password = password;
           this.showEditDialog_ = true;
@@ -355,21 +320,16 @@ export class PasswordViewElement extends PasswordViewElementBase {
 
   private onSavedPasswordEdited_(event: SavedPasswordEditedEvent) {
     this.recentlyEdited_ = true;
-
-    const newUsername = event.detail.username;
-    if (event.detail.username !== this.credential!.username ||
-        event.detail.password !== this.credential!.password ||
-        event.detail.note !== this.credential!.note) {
-      recordPasswordViewInteraction(
-          PasswordViewPageInteractions.CREDENTIAL_EDITED);
-    }
-    if (this.credential!.username === newUsername) {
-      return;
-    }
-    // The dialog is recently closed. If the username has changed, reroute the
-    // page to the new credential.
+    // The dialog is recently closed. Use the new IDs to update the URL.
     const newParams = Router.getInstance().getQueryParameters();
-    newParams.set(PasswordViewPageUrlParams.USERNAME, newUsername);
+
+    if (event.detail.accountId !== undefined) {
+      newParams.set(
+          PasswordViewPageUrlParams.ID, event.detail.accountId.toString());
+    } else if (event.detail.deviceId !== undefined) {
+      newParams.set(
+          PasswordViewPageUrlParams.ID, event.detail.deviceId.toString());
+    }
     Router.getInstance().updateRouteParams(newParams);
   }
 
@@ -418,8 +378,7 @@ export class PasswordViewElement extends PasswordViewElementBase {
     recordPasswordViewInteraction(
         PasswordViewPageInteractions.PASSWORD_SHOW_BUTTON_CLICKED);
     this.requestPlaintextPassword(
-            this.credential!.getAnyId(),
-            chrome.passwordsPrivate.PlaintextReason.VIEW)
+            this.credential!.id, chrome.passwordsPrivate.PlaintextReason.VIEW)
         .then(password => {
           this.password_ = password;
           this.isPasswordVisible_ = true;
@@ -428,16 +387,13 @@ export class PasswordViewElement extends PasswordViewElementBase {
 
   /** Reroutes to PASSWORDS page and shows the removal notification */
   private rerouteAndShowRemovalNotification_(
-      removedFromAccount: boolean, removedFromDevice: boolean): void {
+      removedFromStores: chrome.passwordsPrivate.PasswordStoreSet): void {
     // TODO(https://crbug.com/1298027): find a way to reroute to
     // DEVICE_PASSWORDS if view is opened from there.
     const params = new URLSearchParams();
     params.set(
-        PasswordRemovalUrlParams.REMOVED_FROM_ACCOUNT,
-        removedFromAccount.toString());
-    params.set(
-        PasswordRemovalUrlParams.REMOVED_FROM_DEVICE,
-        removedFromDevice.toString());
+        PasswordRemovalUrlParams.REMOVED_FROM_STORES,
+        removedFromStores.toString());
     Router.getInstance().navigateTo(routes.PASSWORDS, params);
   }
 
@@ -447,15 +403,11 @@ export class PasswordViewElement extends PasswordViewElementBase {
     this.isPasswordVisible_ = false;
     // When an observed property changes, the observer will be called. Make sure
     // that all properties are set.
-    if (!this.savedPasswords.length ||
-        !(!!this.site && this.inAccount_ !== undefined &&
-          this.onDevice_ !== undefined)) {
+    if (!this.savedPasswords.length || this.id_ === undefined) {
       return;
     }
     const item = this.savedPasswords.find((item: MultiStorePasswordUiEntry) => {
-      return item.urls.shown === this.site && item.username === this.username &&
-          item.isPresentInAccount() === this.inAccount_ &&
-          item.isPresentOnDevice() === this.onDevice_;
+      return item.id === this.id_;
     });
 
     if (!item) {

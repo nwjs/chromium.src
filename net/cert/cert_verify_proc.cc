@@ -31,15 +31,15 @@
 #include "net/cert/cert_verifier.h"
 #include "net/cert/cert_verify_result.h"
 #include "net/cert/crl_set.h"
-#include "net/cert/internal/extended_key_usage.h"
-#include "net/cert/internal/ocsp.h"
-#include "net/cert/internal/parse_certificate.h"
 #include "net/cert/internal/revocation_checker.h"
-#include "net/cert/internal/signature_algorithm.h"
 #include "net/cert/internal/system_trust_store.h"
 #include "net/cert/known_roots.h"
 #include "net/cert/ocsp_revocation_status.h"
 #include "net/cert/pem.h"
+#include "net/cert/pki/extended_key_usage.h"
+#include "net/cert/pki/ocsp.h"
+#include "net/cert/pki/parse_certificate.h"
+#include "net/cert/pki/signature_algorithm.h"
 #include "net/cert/symantec_certs.h"
 #include "net/cert/x509_certificate.h"
 #include "net/cert/x509_certificate_net_log_param.h"
@@ -532,13 +532,14 @@ base::Value CertVerifyParams(X509Certificate* cert,
 scoped_refptr<CertVerifyProc> CertVerifyProc::CreateSystemVerifyProc(
     scoped_refptr<CertNetFetcher> cert_net_fetcher) {
 #if BUILDFLAG(IS_ANDROID)
-  return new CertVerifyProcAndroid(std::move(cert_net_fetcher));
+  return base::MakeRefCounted<CertVerifyProcAndroid>(
+      std::move(cert_net_fetcher));
 #elif BUILDFLAG(IS_IOS)
-  return new CertVerifyProcIOS();
+  return base::MakeRefCounted<CertVerifyProcIOS>();
 #elif BUILDFLAG(IS_MAC)
-  return new CertVerifyProcMac();
+  return base::MakeRefCounted<CertVerifyProcMac>();
 #elif BUILDFLAG(IS_WIN)
-  return new CertVerifyProcWin();
+  return base::MakeRefCounted<CertVerifyProcWin>();
 #else
 #error Unsupported platform
 #endif
@@ -554,7 +555,7 @@ scoped_refptr<CertVerifyProc> CertVerifyProc::CreateBuiltinVerifyProc(
 }
 #endif
 
-CertVerifyProc::CertVerifyProc() {}
+CertVerifyProc::CertVerifyProc() = default;
 
 CertVerifyProc::~CertVerifyProc() = default;
 

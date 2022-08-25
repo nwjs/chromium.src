@@ -19,6 +19,7 @@
 #import "ios/chrome/browser/ui/main/default_browser_scene_agent.h"
 #import "ios/chrome/browser/ui/main/scene_state_browser_agent.h"
 #import "ios/chrome/browser/ui/ntp/ntp_util.h"
+#import "ios/chrome/browser/ui/omnibox/omnibox_ui_features.h"
 #import "ios/chrome/browser/ui/omnibox/popup/content_providing.h"
 #import "ios/chrome/browser/ui/omnibox/popup/omnibox_pedal_annotator.h"
 #import "ios/chrome/browser/ui/omnibox/popup/omnibox_popup_container_view.h"
@@ -64,9 +65,7 @@
   self = [super initWithBaseViewController:nil browser:browser];
   if (self) {
     _popupView = std::move(popupView);
-    if (base::FeatureList::IsEnabled(kIOSOmniboxUpdatedPopupUI)) {
-      self.pedalExtractor = [[PedalSectionExtractor alloc] init];
-    }
+    self.pedalExtractor = [[PedalSectionExtractor alloc] init];
   }
   return self;
 }
@@ -99,11 +98,18 @@
   if (base::FeatureList::IsEnabled(kIOSOmniboxUpdatedPopupUI)) {
     self.model = [[PopupModel alloc] initWithMatches:@[]
                                              headers:@[]
+                                          dataSource:self.mediator
                                             delegate:self.pedalExtractor];
     ToolbarConfiguration* toolbarConfiguration = [[ToolbarConfiguration alloc]
         initWithStyle:isIncognito ? INCOGNITO : NORMAL];
     self.uiConfiguration = [[PopupUIConfiguration alloc]
         initWithToolbarConfiguration:toolbarConfiguration];
+    if (@available(iOS 16, *)) {
+      self.uiConfiguration.shouldDismissKeyboardOnScroll =
+          (ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET ||
+           base::FeatureList::IsEnabled(kEnableSuggestionsScrollingOnIPad));
+    }
+
     BOOL popupShouldSelfSize =
         (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET);
     self.mediator.model = self.model;
@@ -116,10 +122,21 @@
             ? PopupUIVariationOne
             : PopupUIVariationTwo;
 
+    std::string pasteButtonVariationName =
+        base::GetFieldTrialParamValueByFeature(
+            kOmniboxPasteButton, kOmniboxPasteButtonParameterName);
+
+    PopupPasteButtonVariation popupPasteButtonVariation =
+        (pasteButtonVariationName ==
+         kOmniboxPasteButtonParameterBlueFullCapsule)
+            ? PopupPasteButtonVariationIconText
+            : PopupPasteButtonVariationIcon;
+
     self.popupViewController = [OmniboxPopupViewProvider
         makeViewControllerWithModel:self.model
                     uiConfiguration:self.uiConfiguration
                    popupUIVariation:popupUIVariation
+          popupPasteButtonVariation:popupPasteButtonVariation
                 popupShouldSelfSize:popupShouldSelfSize
             appearanceContainerType:[OmniboxPopupContainerView class]];
     [self.browser->GetCommandDispatcher()
@@ -139,13 +156,16 @@
         [[OmniboxPopupViewController alloc] init];
     popupViewController.imageRetriever = self.mediator;
     popupViewController.faviconRetriever = self.mediator;
-    popupViewController.delegate = self.mediator;
+    popupViewController.delegate = self.pedalExtractor;
+    popupViewController.dataSource = self.mediator;
     popupViewController.incognito = isIncognito;
     [self.browser->GetCommandDispatcher()
         startDispatchingToTarget:popupViewController
                      forProtocol:@protocol(OmniboxSuggestionCommands)];
 
-    self.mediator.consumer = popupViewController;
+    self.mediator.consumer = self.pedalExtractor;
+    self.pedalExtractor.dataSink = popupViewController;
+    self.pedalExtractor.delegate = self.mediator;
 
     self.popupViewController = popupViewController;
   }

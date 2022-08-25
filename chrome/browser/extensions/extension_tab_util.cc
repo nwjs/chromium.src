@@ -34,6 +34,7 @@
 #include "chrome/browser/ui/scoped_tabbed_browser_displayer.h"
 #include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/browser/ui/tab_contents/tab_contents_iterator.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_utils.h"
 #include "chrome/common/extensions/api/tabs.h"
@@ -499,7 +500,7 @@ std::unique_ptr<api::tabs::Tab> ExtensionTabUtil::CreateTabObject(
   ScrubTabForExtension(extension, contents, tab_object.get(),
                        scrub_tab_behavior);
 
-  tab_object->main_frame_id = contents->GetMainFrame()->GetRoutingID();
+  tab_object->main_frame_id = contents->GetPrimaryMainFrame()->GetRoutingID();
   return tab_object;
 }
 

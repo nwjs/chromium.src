@@ -116,6 +116,7 @@ class AccessCodeCastSinkService : public KeyedService,
   friend class AccessCodeCastSinkServiceFactory;
   friend class AccessCodeCastSinkServiceTest;
   friend class AccessCodeCastHandlerTest;
+  friend class AccessCodeCastIntegrationBrowserTest;
   friend class MockAccessCodeCastSinkService;
   FRIEND_TEST_ALL_PREFIXES(
       AccessCodeCastSinkServiceTest,
@@ -168,6 +169,12 @@ class AccessCodeCastSinkService : public KeyedService,
                            TestChangeNetworkWithRouteActive);
   FRIEND_TEST_ALL_PREFIXES(AccessCodeCastSinkServiceTest,
                            TestChangeNetworkWithRouteActiveExpiration);
+  FRIEND_TEST_ALL_PREFIXES(AccessCodeCastSinkServiceTest,
+                           DiscoverSinkWithNoMediaRouter);
+
+  // Use |AccessCodeCastSinkServiceFactory::GetForProfile(..)| to get
+  // an instance of this service.
+  explicit AccessCodeCastSinkService(Profile* profile);
 
   // Constructor used for testing.
   AccessCodeCastSinkService(
@@ -176,10 +183,6 @@ class AccessCodeCastSinkService : public KeyedService,
       CastMediaSinkServiceImpl* cast_media_sink_service_impl,
       DiscoveryNetworkMonitor* network_monitor,
       PrefService* prefs);
-
-  // Use |AccessCodeCastSinkServiceFactory::GetForProfile(..)| to get
-  // an instance of this service.
-  explicit AccessCodeCastSinkService(Profile* profile);
 
   void OnAccessCodeValidated(AddSinkResultCallback add_sink_callback,
                              absl::optional<DiscoveryDevice> discovery_device,
@@ -249,6 +252,10 @@ class AccessCodeCastSinkService : public KeyedService,
   cast_channel::CastSocketOpenParams CreateCastSocketOpenParams(
       const MediaSinkInternal& sink);
 
+  void LogInfo(const std::string& log_message, const std::string& sink_id);
+  void LogWarning(const std::string& log_message, const std::string& sink_id);
+  void LogError(const std::string& log_message, const std::string& sink_id);
+
   // KeyedService.
   void Shutdown() override;
 
@@ -257,10 +264,14 @@ class AccessCodeCastSinkService : public KeyedService,
     task_runner_ = task_runner;
   }
 
+  void SetIdentityManagerForTesting(signin::IdentityManager* identity_manager);
+
   // Owns us via the KeyedService mechanism.
   const raw_ptr<Profile> profile_;
 
-  const raw_ptr<media_router::MediaRouter> media_router_;
+  // There are some edge cases where the AccessCodeCastSinkService can outlive
+  // the MediaRouter. This variable must be checked for validity before use.
+  raw_ptr<media_router::MediaRouter> media_router_;
 
   // Helper class for observing the removal of MediaRoutes.
   std::unique_ptr<AccessCodeMediaRoutesObserver> media_routes_observer_;
@@ -300,6 +311,8 @@ class AccessCodeCastSinkService : public KeyedService,
   std::unique_ptr<AccessCodeCastPrefUpdater> pref_updater_;
 
   raw_ptr<PrefService> prefs_;
+
+  raw_ptr<signin::IdentityManager> identity_manager_ = nullptr;
 
   // This registrar monitors for user prefs changes.
   std::unique_ptr<PrefChangeRegistrar> user_prefs_registrar_;

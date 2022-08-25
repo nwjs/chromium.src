@@ -13,12 +13,12 @@ import {decorate} from 'chrome://resources/js/cr/ui.m.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.m.js';
 import {queryRequiredElement} from 'chrome://resources/js/util.m.js';
 
-import {promisify} from '../../common/js/api.js';
 import {EntryLocation} from '../../externs/entry_location.js';
 import {FakeEntry, FilesAppEntry} from '../../externs/files_app_entry_interfaces.js';
 import {VolumeInfo} from '../../externs/volume_info.js';
 import {VolumeManager} from '../../externs/volume_manager.js';
 
+import {promisify} from './api.js';
 import {EntryList} from './files_app_entry_types.js';
 import {VolumeManagerCommon} from './volume_manager_types.js';
 
@@ -1279,9 +1279,10 @@ util.delay = ms => {
  */
 util.timeoutPromise = (promise, ms, opt_message) => {
   return Promise.race([
-    promise, util.delay(ms).then(() => {
+    promise,
+    util.delay(ms).then(() => {
       throw new Error(opt_message || 'Operation timed out.');
-    })
+    }),
   ]);
 };
 
@@ -1306,7 +1307,17 @@ util.isRecentsFilterEnabled = () => {
  * @return {boolean}
  */
 util.isRecentsFilterV2Enabled = () => {
-  return loadTimeData.getBoolean('FILTERS_IN_RECENTS_V2_ENABLED');
+  return loadTimeData.valueExists('FILTERS_IN_RECENTS_V2_ENABLED') &&
+      loadTimeData.getBoolean('FILTERS_IN_RECENTS_V2_ENABLED');
+};
+
+/**
+ * Returns true if FilesTrash feature flag is enabled.
+ * @returns {boolean}
+ */
+util.isTrashEnabled = () => {
+  return loadTimeData.valueExists('FILES_TRASH_ENABLED') &&
+      loadTimeData.getBoolean('FILES_TRASH_ENABLED');
 };
 
 /**
@@ -1333,7 +1344,6 @@ util.isExtractArchiveEnabled = () => {
   return loadTimeData.getBoolean('EXTRACT_ARCHIVE');
 };
 
-
 /**
  * Whether the Files app Experimental flag is enabled.
  * @returns {boolean}
@@ -1341,6 +1351,15 @@ util.isExtractArchiveEnabled = () => {
 util.isFilesAppExperimental = () => {
   return loadTimeData.valueExists('FILES_APP_EXPERIMENTAL') &&
       loadTimeData.getBoolean('FILES_APP_EXPERIMENTAL');
+};
+
+/**
+ * Whether the Files app integration with DLP (Data Loss Prevention) is enabled.
+ * @returns {boolean}
+ */
+util.isDlpEnabled = () => {
+  return loadTimeData.valueExists('DLP_ENABLED') &&
+      loadTimeData.getBoolean('DLP_ENABLED');
 };
 
 /**
@@ -1367,6 +1386,16 @@ util.isFuseBoxDebugEnabled = () => {
  */
 util.isGuestOsEnabled = () => {
   return loadTimeData.getBoolean('GUEST_OS');
+};
+
+/**
+ * Returns true if DriveFsMirroring flag is enabled.
+ * @return {boolean}
+ */
+util.isMirrorSyncEnabled = () => {
+  return loadTimeData.isInitialized() &&
+      loadTimeData.valueExists('DRIVEFS_MIRRORING') &&
+      loadTimeData.getBoolean('DRIVEFS_MIRRORING');
 };
 
 /**
@@ -1699,11 +1728,27 @@ util.isInGuestMode = async () => {
 };
 
 /**
+ * Get the locale based week start from the load time data.
+ * @returns {number}
+ */
+util.getLocaleBasedWeekStart = () => {
+  return loadTimeData.valueExists('WEEK_START_FROM') ?
+      loadTimeData.getInteger('WEEK_START_FROM') :
+      0;
+};
+
+/**
  * A kind of error that represents user electing to cancel an operation. We use
  * this specialization to differentiate between system errors and errors
  * generated through legitimate user actions.
  */
 class UserCanceledError extends Error {}
 
+/**
+ * Returns whether the given value is null or undefined.
+ * @param {*} value
+ * @returns {boolean}
+ */
+util.isNullOrUndefined = (value) => value === null || value === undefined;
 
 export {util, UserCanceledError};

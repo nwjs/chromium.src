@@ -304,6 +304,7 @@ static const char* const kSwitchNames[] = {
 #endif
 #if BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
     switches::kHardwareVideoDecodeFrameRate,
+    switches::kMaxChromeOSDecoderThreads,
 #endif
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
     switches::kLacrosEnablePlatformHevc,
@@ -438,8 +439,8 @@ class GpuSandboxedProcessLauncherDelegate
       std::wstring log_file_path = logging::GetLogFileFullPath();
       if (!log_file_path.empty()) {
         sandbox::ResultCode result = policy->AddRule(
-            sandbox::TargetPolicy::SUBSYS_FILES,
-            sandbox::TargetPolicy::FILES_ALLOW_ANY, log_file_path.c_str());
+            sandbox::SubSystem::kFiles, sandbox::Semantics::kFilesAllowAny,
+            log_file_path.c_str());
         if (result != sandbox::SBOX_ALL_OK)
           return false;
       }
@@ -900,8 +901,7 @@ bool GpuProcessHost::Init() {
     // WGL needs to create its own window and pump messages on it.
     options.message_pump_type = base::MessagePumpType::UI;
 #endif
-    if (base::FeatureList::IsEnabled(features::kGpuUseDisplayThreadPriority))
-      options.priority = base::ThreadPriority::DISPLAY;
+    options.thread_type = base::ThreadType::kCompositing;
     in_process_gpu_thread_->StartWithOptions(std::move(options));
   } else if (!LaunchGpuProcess()) {
     return false;

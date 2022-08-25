@@ -28,7 +28,6 @@ class CloseButton;
 class PillButton;
 class SavedDeskIconContainer;
 class SavedDeskNameView;
-class ViewShadow;
 
 // A view that represents each individual saved desk item in the saved desk
 // grid. The view has different shown contents depending on whether the mouse is
@@ -91,9 +90,9 @@ class ASH_EXPORT SavedDeskItemView : public views::Button,
   bool IsNameBeingModified() const;
 
   // To prevent duplications when saving a desk multiple times, check if there's
-  // an existing saved desk that shares the same name as current active desk, if
-  // so, remove auto added number.
-  void MaybeRemoveNameNumber();
+  // an existing saved desk that shares the same name as the `saved_desk_name`.
+  // If so, remove auto added number.
+  void MaybeRemoveNameNumber(const std::u16string& saved_desk_name);
   // Show replace dialog when found a name duplication.
   void MaybeShowReplaceDialog(ash::DeskTemplateType type,
                               const base::GUID& uuid);
@@ -169,8 +168,6 @@ class ASH_EXPORT SavedDeskItemView : public views::Button,
   PillButton* launch_button_ = nullptr;
   // Container used for holding all the views that appear on hover.
   views::View* hover_container_ = nullptr;
-
-  std::unique_ptr<ViewShadow> shadow_;
 
   // When the `name_view_` is focused, we select all its text. However, if it is
   // focused via a mouse press event, on mouse release will clear the selection.

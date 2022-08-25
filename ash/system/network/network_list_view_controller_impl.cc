@@ -16,10 +16,12 @@
 #include "ash/system/network/network_list_mobile_header_view.h"
 #include "ash/system/network/network_list_network_header_view.h"
 #include "ash/system/network/network_list_network_item_view.h"
+#include "ash/system/network/network_utils.h"
 #include "ash/system/network/tray_network_state_model.h"
 #include "ash/system/tray/tray_info_label.h"
 #include "ash/system/tray/tri_view.h"
-#include "chromeos/dbus/hermes/hermes_manager_client.h"
+#include "base/timer/timer.h"
+#include "chromeos/ash/components/dbus/hermes/hermes_manager_client.h"
 #include "chromeos/services/network_config/public/cpp/cros_network_config_util.h"
 #include "chromeos/services/network_config/public/mojom/cros_network_config.mojom.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -46,6 +48,9 @@ using chromeos::network_config::mojom::ProxyMode;
 
 using chromeos::bluetooth_config::mojom::BluetoothSystemPropertiesPtr;
 using chromeos::bluetooth_config::mojom::BluetoothSystemState;
+
+// Delay between scan requests.
+constexpr int kRequestScanDelaySeconds = 10;
 
 // Helper function to remove |*view| from its view hierarchy, delete the view,
 // and reset the value of |*view| to be |nullptr|.
@@ -92,7 +97,7 @@ bool IsESimSupported() {
   // Check both the SIM slot infos and the number of EUICCs because the former
   // comes from Shill and the latter from Hermes, and so there may be instances
   // where one may be true while they other isn't.
-  if (chromeos::HermesManagerClient::Get()->GetAvailableEuiccs().empty())
+  if (HermesManagerClient::Get()->GetAvailableEuiccs().empty())
     return false;
 
   for (const auto& sim_info : *cellular_device->sim_infos) {
@@ -100,6 +105,14 @@ bool IsESimSupported() {
       return true;
   }
   return false;
+}
+
+bool IsCellularSimLocked() {
+  const DeviceStateProperties* cellular_device =
+      Shell::Get()->system_tray_model()->network_state_model()->GetDevice(
+          NetworkType::kCellular);
+  return cellular_device &&
+         !cellular_device->sim_lock_status->lock_type.empty();
 }
 
 }  // namespace
@@ -190,6 +203,7 @@ void NetworkListViewControllerImpl::OnGetNetworkStateList(
     }
 
     if (!mobile_header_view_) {
+      RecordDetailedViewSection(DetailedViewSection::kMobileSection);
       mobile_header_view_ =
           network_detailed_network_view()->AddMobileSectionHeader();
       mobile_header_view_->SetID(static_cast<int>(
@@ -233,6 +247,8 @@ void NetworkListViewControllerImpl::OnGetNetworkStateList(
     network_detailed_network_view()->network_list()->ReorderChildView(
         wifi_status_message_, index++);
   }
+
+  UpdateScanningBarAndTimer();
 
   // Remaining views in |previous_network_views| are no longer needed
   // and should be deleted.
@@ -361,8 +377,7 @@ void NetworkListViewControllerImpl::UpdateMobileSection() {
 
   // Adding new cellular networks is disallowed when only policy cellular
   // networks are allowed by admin.
-  if (ash::features::IsESimPolicyEnabled() &&
-      (!global_policy || global_policy->allow_only_policy_cellular_networks)) {
+  if (!global_policy || global_policy->allow_only_policy_cellular_networks) {
     is_add_esim_visible = false;
   }
 
@@ -374,6 +389,7 @@ void NetworkListViewControllerImpl::UpdateMobileSection() {
 
 void NetworkListViewControllerImpl::UpdateWifiSection() {
   if (!wifi_header_view_) {
+    RecordDetailedViewSection(DetailedViewSection::kWifiSection);
     wifi_header_view_ = network_detailed_network_view()->AddWifiSectionHeader();
     wifi_header_view_->SetID(static_cast<int>(
         NetworkListViewControllerViewChildId::kWifiSectionHeader));
@@ -427,10 +443,22 @@ void NetworkListViewControllerImpl::UpdateMobileToggleAndSetStatusMessage() {
       return;
     }
 
-    const bool toggle_enabled =
-        !is_secondary_user && (cellular_state == DeviceStateType::kEnabled ||
-                               cellular_state == DeviceStateType::kDisabled);
     const bool cellular_enabled = cellular_state == DeviceStateType::kEnabled;
+
+    // The toggle will never be enabled for secondary users.
+    bool toggle_enabled = !is_secondary_user;
+
+    // The toggle will never be enabled during cellular state transitions.
+    toggle_enabled &=
+        cellular_enabled || cellular_state == DeviceStateType::kDisabled;
+
+    // The toggle will never be enabled if the device is SIM locked and we
+    // cannot open the Settings UI.
+    toggle_enabled &=
+        cellular_enabled ||
+        Shell::Get()->session_controller()->ShouldEnableSettings() ||
+        !IsCellularSimLocked();
+
     mobile_header_view_->SetToggleVisibility(/*visibility=*/true);
     mobile_header_view_->SetToggleState(/*enabled=*/toggle_enabled,
                                         /*is_on=*/cellular_enabled);
@@ -531,6 +559,10 @@ int NetworkListViewControllerImpl::CreateItemViewsIfMissingAndReorder(
   NetworkIdToViewMap id_to_view_map;
   NetworkListNetworkItemView* network_view = nullptr;
 
+  // This value is used to determine whether at least one network of |type| type
+  // already existed prior to this method.
+  bool has_reordered_a_network = false;
+
   for (const auto& network : networks) {
     if (!NetworkTypeMatchesType(network->type, type))
       continue;
@@ -541,6 +573,7 @@ int NetworkListViewControllerImpl::CreateItemViewsIfMissingAndReorder(
     if (it == previous_views->end()) {
       network_view = network_detailed_network_view()->AddNetworkListItem();
     } else {
+      has_reordered_a_network = true;
       network_view = it->second;
       previous_views->erase(it);
     }
@@ -549,6 +582,14 @@ int NetworkListViewControllerImpl::CreateItemViewsIfMissingAndReorder(
     network_view->UpdateViewForNetwork(network);
     network_detailed_network_view()->network_list()->ReorderChildView(
         network_view, index);
+
+    // Only emit ethernet metric each time we show Ethernet section
+    // for the first time. We use |has_reordered_a_network| to determine
+    // if Ethernet networks already exist in network detailed list.
+    if (NetworkTypeMatchesType(network->type, NetworkType::kEthernet) &&
+        !has_reordered_a_network) {
+      RecordDetailedViewSection(DetailedViewSection::kEthernetSection);
+    }
 
     // Increment |index| since this position was taken by |network_view|.
     index++;
@@ -599,6 +640,40 @@ void NetworkListViewControllerImpl::ShowConnectionWarning() {
   connection_warning_ =
       network_detailed_network_view()->network_list()->AddChildView(
           std::move(connection_warning));
+}
+
+void NetworkListViewControllerImpl::UpdateScanningBarAndTimer() {
+  if (is_wifi_enabled_ && !network_scan_repeating_timer_.IsRunning())
+    ScanAndStartTimer();
+
+  if (!is_wifi_enabled_ && network_scan_repeating_timer_.IsRunning())
+    network_scan_repeating_timer_.Stop();
+
+  bool is_scanning_bar_visible = false;
+  if (is_wifi_enabled_) {
+    const DeviceStateProperties* wifi = model_->GetDevice(NetworkType::kWiFi);
+    const DeviceStateProperties* tether =
+        model_->GetDevice(NetworkType::kTether);
+
+    is_scanning_bar_visible =
+        (wifi && wifi->scanning) || (tether && tether->scanning);
+  }
+
+  network_detailed_network_view()->UpdateScanningBarVisibility(
+      /*visible=*/is_scanning_bar_visible);
+}
+
+void NetworkListViewControllerImpl::ScanAndStartTimer() {
+  RequestScan();
+  network_scan_repeating_timer_.Start(
+      FROM_HERE, base::Seconds(kRequestScanDelaySeconds), this,
+      &NetworkListViewControllerImpl::RequestScan);
+}
+
+void NetworkListViewControllerImpl::RequestScan() {
+  VLOG(1) << "Requesting Network Scan.";
+  model_->cros_network_config()->RequestNetworkScan(NetworkType::kWiFi);
+  model_->cros_network_config()->RequestNetworkScan(NetworkType::kTether);
 }
 
 void NetworkListViewControllerImpl::FocusLastSelectedView() {

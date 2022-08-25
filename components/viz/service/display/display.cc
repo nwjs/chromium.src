@@ -80,7 +80,6 @@ const DrawQuad::Material kNonSplittableMaterials[] = {
     DrawQuad::Material::kDebugBorder,
     // Exclude possible overlay candidates from quad splitting
     // See OverlayCandidate::FromDrawQuad
-    DrawQuad::Material::kStreamVideoContent,
     DrawQuad::Material::kTextureContent,
     DrawQuad::Material::kVideoHole,
     // See DCLayerOverlayProcessor::ProcessRenderPass
@@ -847,6 +846,7 @@ bool Display::DrawAndSwap(const DrawAndSwapParams& params) {
     renderer_->DecideRenderPassAllocationsForFrame(frame.render_pass_list);
     overlay_processor_->SetFrameSequenceNumber(frame_sequence_number_);
     overlay_processor_->SetIsVideoCaptureEnabled(frame.video_capture_enabled);
+    overlay_processor_->SetIsVideoFullscreen(frame.page_fullscreen_mode);
     renderer_->DrawFrame(&frame.render_pass_list, device_scale_factor_,
                          current_surface_size, display_color_spaces_,
                          std::move(frame.surface_damage_rect_list_));
@@ -860,8 +860,8 @@ bool Display::DrawAndSwap(const DrawAndSwapParams& params) {
         pending_presentation_group_timings_.emplace_back();
 
     base::flat_set<base::PlatformThreadId> thread_ids;
-    for (const auto& id_entry : aggregator_->previous_contained_surfaces()) {
-      surface = surface_manager_->GetSurfaceForId(id_entry.first);
+    for (const auto& surface_id : aggregator_->previous_contained_surfaces()) {
+      surface = surface_manager_->GetSurfaceForId(surface_id);
       if (surface) {
         base::flat_set<base::PlatformThreadId> surface_thread_ids =
             surface->GetThreadIds();
@@ -871,8 +871,8 @@ bool Display::DrawAndSwap(const DrawAndSwapParams& params) {
     presentation_group_timing.OnDraw(params.frame_time, draw_timer->Begin(),
                                      std::move(thread_ids));
 
-    for (const auto& id_entry : aggregator_->previous_contained_surfaces()) {
-      surface = surface_manager_->GetSurfaceForId(id_entry.first);
+    for (const auto& surface_id : aggregator_->previous_contained_surfaces()) {
+      surface = surface_manager_->GetSurfaceForId(surface_id);
       if (surface) {
         std::unique_ptr<Surface::PresentationHelper> helper =
             surface->TakePresentationHelperForPresentNotification();
@@ -972,6 +972,11 @@ void Display::DidReceiveSwapBuffersAck(const gfx::SwapTimings& timings,
       "viz,benchmark", "Graphics.Pipeline.DrawAndSwap", last_swap_ack_trace_id_,
       "WaitForPresentation", timings.swap_end);
 
+  if (overlay_processor_)
+    overlay_processor_->OverlayPresentationComplete();
+  if (renderer_)
+    renderer_->SwapBuffersComplete(std::move(release_fence));
+
   DCHECK_GT(pending_swaps_, 0);
   pending_swaps_--;
   if (scheduler_) {
@@ -980,11 +985,6 @@ void Display::DidReceiveSwapBuffersAck(const gfx::SwapTimings& timings,
 
   if (no_pending_swaps_callback_ && pending_swaps_ == 0)
     std::move(no_pending_swaps_callback_).Run();
-
-  if (overlay_processor_)
-    overlay_processor_->OverlayPresentationComplete();
-  if (renderer_)
-    renderer_->SwapBuffersComplete(std::move(release_fence));
 
   // It's possible to receive multiple calls to DidReceiveSwapBuffersAck()
   // before DidReceivePresentationFeedback(). Ensure that we're not setting

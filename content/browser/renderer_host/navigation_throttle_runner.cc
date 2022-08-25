@@ -8,8 +8,8 @@
 #include "base/strings/strcat.h"
 #include "content/browser/devtools/devtools_instrumentation.h"
 #include "content/browser/portal/portal_navigation_throttle.h"
-#include "content/browser/prerender/prerender_navigation_throttle.h"
-#include "content/browser/prerender/prerender_subframe_navigation_throttle.h"
+#include "content/browser/preloading/prerender/prerender_navigation_throttle.h"
+#include "content/browser/preloading/prerender/prerender_subframe_navigation_throttle.h"
 #include "content/browser/renderer_host/ancestor_throttle.h"
 #include "content/browser/renderer_host/blocked_scheme_navigation_throttle.h"
 #include "content/browser/renderer_host/http_error_navigation_throttle.h"
@@ -17,7 +17,7 @@
 #include "content/browser/renderer_host/mixed_content_navigation_throttle.h"
 #include "content/browser/renderer_host/navigation_request.h"
 #include "content/browser/renderer_host/navigator_delegate.h"
-#include "content/browser/renderer_host/origin_policy_throttle.h"
+#include "content/browser/renderer_host/renderer_cancellation_throttle.h"
 #include "content/public/browser/navigation_handle.h"
 
 namespace content {
@@ -154,9 +154,6 @@ void NavigationThrottleRunner::RegisterNavigationThrottles() {
   AddThrottle(
       MixedContentNavigationThrottle::CreateThrottleForNavigation(request));
 
-  // Handle Origin Policy (if enabled)
-  AddThrottle(OriginPolicyThrottle::MaybeCreateThrottleFor(request));
-
   // Block certain requests that are not permitted for portals.
   AddThrottle(PortalNavigationThrottle::MaybeCreateThrottleFor(request));
 
@@ -180,6 +177,11 @@ void NavigationThrottleRunner::RegisterNavigationThrottles() {
   // than other throttles that might care about those navigations, e.g.
   // throttles handling pages with 407 errors that require extra authentication.
   AddThrottle(HttpErrorNavigationThrottle::MaybeCreateThrottleFor(*request));
+
+  // Wait for renderer-initiated navigation cancelation window to end. This will
+  // wait for the JS task that starts the navigation to finish, so add it close
+  // to the end to not delay running other throttles.
+  AddThrottle(RendererCancellationThrottle::MaybeCreateThrottleFor(request));
 
   // Insert all testing NavigationThrottles last.
   throttles_.insert(throttles_.end(),
@@ -244,6 +246,9 @@ void NavigationThrottleRunner::ProcessInternal() {
       case NavigationThrottle::DEFER:
         next_index_ = i + 1;
         defer_start_time_ = base::Time::Now();
+        if (first_deferral_callback_for_testing_) {
+          std::move(first_deferral_callback_for_testing_).Run();
+        }
         return;
     }
   }

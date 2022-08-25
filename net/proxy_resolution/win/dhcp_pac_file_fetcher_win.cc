@@ -506,13 +506,15 @@ scoped_refptr<base::TaskRunner> DhcpPacFileFetcherWin::GetTaskRunner() {
   return task_runner_;
 }
 
-DhcpPacFileAdapterFetcher* DhcpPacFileFetcherWin::ImplCreateAdapterFetcher() {
-  return new DhcpPacFileAdapterFetcher(url_request_context_, task_runner_);
+std::unique_ptr<DhcpPacFileAdapterFetcher>
+DhcpPacFileFetcherWin::ImplCreateAdapterFetcher() {
+  return std::make_unique<DhcpPacFileAdapterFetcher>(url_request_context_,
+                                                     task_runner_);
 }
 
-DhcpPacFileFetcherWin::AdapterQuery*
+scoped_refptr<DhcpPacFileFetcherWin::AdapterQuery>
 DhcpPacFileFetcherWin::ImplCreateAdapterQuery() {
-  return new AdapterQuery();
+  return base::MakeRefCounted<AdapterQuery>();
 }
 
 base::TimeDelta DhcpPacFileFetcherWin::ImplGetMaxWait() {
@@ -574,7 +576,7 @@ bool DhcpPacFileFetcherWin::GetCandidateAdapterNames(
 }
 
 DhcpPacFileFetcherWin::AdapterQuery::AdapterQuery()
-    : logging_info_(new DhcpAdapterNamesLoggingInfo()) {}
+    : logging_info_(std::make_unique<DhcpAdapterNamesLoggingInfo>()) {}
 
 void DhcpPacFileFetcherWin::AdapterQuery::GetCandidateAdapterNames() {
   logging_info_->error = ERROR_NO_DATA;
@@ -598,6 +600,6 @@ bool DhcpPacFileFetcherWin::AdapterQuery::ImplGetCandidateAdapterNames(
                                                          info);
 }
 
-DhcpPacFileFetcherWin::AdapterQuery::~AdapterQuery() {}
+DhcpPacFileFetcherWin::AdapterQuery::~AdapterQuery() = default;
 
 }  // namespace net

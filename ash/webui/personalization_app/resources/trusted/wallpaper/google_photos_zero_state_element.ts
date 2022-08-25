@@ -6,8 +6,8 @@
  * @fileoverview Polymer element that displays the Google Photos zero state.
  */
 
-import './trusted_style.css.js';
-import '../../common/common_style.css.js';
+import '../../css/wallpaper.css.js';
+import '../../css/common.css.js';
 
 import {WithPersonalizationStore} from '../personalization_store.js';
 
@@ -38,15 +38,15 @@ export class GooglePhotosZeroState extends WithPersonalizationStore {
   private getMessage_(): string {
     return this.i18nAdvanced('googlePhotosZeroStateMessage', {
       substitutions: [
-        '<a target="_blank" href="https://photos.google.com">photos.google.com</a>'
-      ]
+        '<a target="_blank" href="https://photos.google.com">photos.google.com</a>',
+      ],
     });
   }
 
   private getImageSource_(): string {
     return this.isDarkModeActive_ ?
-        'chrome://personalization/common/no_google_photos_images_dark.svg' :
-        'chrome://personalization/common/no_google_photos_images.svg';
+        'chrome://personalization/images/no_google_photos_images_dark.svg' :
+        'chrome://personalization/images/no_google_photos_images.svg';
   }
 }
 

@@ -50,8 +50,18 @@ chromium-metrics-reviews@google.com.
   <summary>The steady state feature status of PhoneHub on user login.</summary>
 </histogram>
 
-<histogram name="PhoneHub.BubbleOpened.Connectable.Screen"
-    enum="PhoneHubScreen" expires_after="2023-02-01">
+<histogram name="PhoneHub.BubbleOpened.Connectable.Failed.HostLastSeen"
+    units="ms" expires_after="2023-02-01">
+  <owner>jonmann@chromium.org</owner>
+  <owner>chromeos-cross-device-eng@google.com</owner>
+  <summary>
+    The time since the last successful discovery of the phone. Emitted when the
+    PhoneHub tray bubble is opened prior to connected to the phone.
+  </summary>
+</histogram>
+
+<histogram name="PhoneHub.BubbleOpened.Connectable.Page" enum="PhoneHubScreen"
+    expires_after="2023-02-01">
   <owner>jonmann@chromium.org</owner>
   <owner>chromeos-cross-device-eng@google.com</owner>
   <summary>
@@ -194,7 +204,22 @@ chromium-metrics-reviews@google.com.
   <owner>chromeos-cross-device-eng@google.com</owner>
   <summary>
     Measures PhoneHub connection success rate, considering attempts where the
-    phone is not nearby as failures.
+    phone is not nearby as failures. This is recorded at the end of each
+    connection attempt, whether it fails or succeeds and the failures are broken
+    down into more specific categories in
+    PhoneHub.Connection.Result.FailureReason
+  </summary>
+</histogram>
+
+<histogram name="PhoneHub.Connection.Result.FailureReason"
+    enum="SecureChannelConnectionAttemptFailureReason"
+    expires_after="2023-02-01">
+  <owner>jonmann@chromium.org</owner>
+  <owner>chromeos-cross-device-eng@google.com</owner>
+  <summary>
+    The reason for which a connection attempt to the phone has failed. This is a
+    breakdown of the failure bucket of PhoneHub.Connection.Result and is
+    recorded on each connection failure.
   </summary>
 </histogram>
 

@@ -8,6 +8,7 @@
 #include <tuple>
 #include <utility>
 
+#include "base/numerics/safe_conversions.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/browser_interface_broker_proxy.h"
@@ -29,6 +30,7 @@
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/modules/shared_storage/shared_storage_worklet.h"
+#include "third_party/blink/renderer/modules/shared_storage/util.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
@@ -71,7 +73,7 @@ bool Serialize(ScriptState* script_state,
 
   std::pair<uint8_t*, size_t> buffer = serializer.Release();
 
-  output.ReserveInitialCapacity(SafeCast<wtf_size_t>(buffer.second));
+  output.ReserveInitialCapacity(base::checked_cast<wtf_size_t>(buffer.second));
   output.Append(buffer.first, static_cast<wtf_size_t>(buffer.second));
   DCHECK_EQ(output.size(), buffer.second);
 
@@ -149,15 +151,17 @@ ScriptPromise SharedStorage::set(ScriptState* script_state,
   ExecutionContext* execution_context = ExecutionContext::From(script_state);
   CHECK(execution_context->IsWindow());
 
-  if (!script_state->ContextIsValid()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidAccessError,
-                                      "A browsing context is required.");
+  if (!CheckBrowsingContextIsValid(*script_state, exception_state))
     return ScriptPromise();
-  }
 
   ScriptPromiseResolver* resolver =
       MakeGarbageCollected<ScriptPromiseResolver>(script_state);
   ScriptPromise promise = resolver->Promise();
+
+  if (!CheckSharedStoragePermissionsPolicy(*script_state, *execution_context,
+                                           *resolver)) {
+    return promise;
+  }
 
   if (!IsValidSharedStorageKeyStringLength(key.length())) {
     resolver->Reject(V8ThrowDOMException::CreateOrEmpty(
@@ -191,15 +195,17 @@ ScriptPromise SharedStorage::append(ScriptState* script_state,
   ExecutionContext* execution_context = ExecutionContext::From(script_state);
   CHECK(execution_context->IsWindow());
 
-  if (!script_state->ContextIsValid()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidAccessError,
-                                      "A browsing context is required.");
+  if (!CheckBrowsingContextIsValid(*script_state, exception_state))
     return ScriptPromise();
-  }
 
   ScriptPromiseResolver* resolver =
       MakeGarbageCollected<ScriptPromiseResolver>(script_state);
   ScriptPromise promise = resolver->Promise();
+
+  if (!CheckSharedStoragePermissionsPolicy(*script_state, *execution_context,
+                                           *resolver)) {
+    return promise;
+  }
 
   if (!IsValidSharedStorageKeyStringLength(key.length())) {
     resolver->Reject(V8ThrowDOMException::CreateOrEmpty(
@@ -230,15 +236,17 @@ ScriptPromise SharedStorage::Delete(ScriptState* script_state,
   ExecutionContext* execution_context = ExecutionContext::From(script_state);
   CHECK(execution_context->IsWindow());
 
-  if (!script_state->ContextIsValid()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidAccessError,
-                                      "A browsing context is required.");
+  if (!CheckBrowsingContextIsValid(*script_state, exception_state))
     return ScriptPromise();
-  }
 
   ScriptPromiseResolver* resolver =
       MakeGarbageCollected<ScriptPromiseResolver>(script_state);
   ScriptPromise promise = resolver->Promise();
+
+  if (!CheckSharedStoragePermissionsPolicy(*script_state, *execution_context,
+                                           *resolver)) {
+    return promise;
+  }
 
   if (!IsValidSharedStorageKeyStringLength(key.length())) {
     resolver->Reject(V8ThrowDOMException::CreateOrEmpty(
@@ -260,15 +268,17 @@ ScriptPromise SharedStorage::clear(ScriptState* script_state,
   ExecutionContext* execution_context = ExecutionContext::From(script_state);
   CHECK(execution_context->IsWindow());
 
-  if (!script_state->ContextIsValid()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidAccessError,
-                                      "A browsing context is required.");
+  if (!CheckBrowsingContextIsValid(*script_state, exception_state))
     return ScriptPromise();
-  }
 
   ScriptPromiseResolver* resolver =
       MakeGarbageCollected<ScriptPromiseResolver>(script_state);
   ScriptPromise promise = resolver->Promise();
+
+  if (!CheckSharedStoragePermissionsPolicy(*script_state, *execution_context,
+                                           *resolver)) {
+    return promise;
+  }
 
   GetSharedStorageDocumentService(execution_context)
       ->SharedStorageClear(WTF::Bind(&OnVoidOperationFinished,
@@ -297,11 +307,8 @@ ScriptPromise SharedStorage::selectURL(
   ExecutionContext* execution_context = ExecutionContext::From(script_state);
   CHECK(execution_context->IsWindow());
 
-  if (!script_state->ContextIsValid()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidAccessError,
-                                      "A browsing context is required.");
+  if (!CheckBrowsingContextIsValid(*script_state, exception_state))
     return ScriptPromise();
-  }
 
   LocalFrame* frame = To<LocalDOMWindow>(execution_context)->GetFrame();
   DCHECK(frame);
@@ -315,6 +322,16 @@ ScriptPromise SharedStorage::selectURL(
     resolver->Reject(V8ThrowDOMException::CreateOrEmpty(
         script_state->GetIsolate(), DOMExceptionCode::kInvalidAccessError,
         "sharedStorage.selectURL() is not allowed in fenced frame."));
+    return promise;
+  }
+
+  // For `selectURL()` to succeed, it is currently enforced in the browser side
+  // that `addModule()` must be called beforehand that passed the early
+  // permission checks. Thus the permissions-policy check here isn't strictly
+  // needed. But here we still check the permissions-policy for consistency and
+  // consider this a higher priority error.
+  if (!CheckSharedStoragePermissionsPolicy(*script_state, *execution_context,
+                                           *resolver)) {
     return promise;
   }
 
@@ -459,11 +476,8 @@ ScriptPromise SharedStorage::run(
   ExecutionContext* execution_context = ExecutionContext::From(script_state);
   CHECK(execution_context->IsWindow());
 
-  if (!script_state->ContextIsValid()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidAccessError,
-                                      "A browsing context is required.");
+  if (!CheckBrowsingContextIsValid(*script_state, exception_state))
     return ScriptPromise();
-  }
 
   Vector<uint8_t> serialized_data;
   if (!Serialize(script_state, options, exception_state, serialized_data))
@@ -472,6 +486,11 @@ ScriptPromise SharedStorage::run(
   ScriptPromiseResolver* resolver =
       MakeGarbageCollected<ScriptPromiseResolver>(script_state);
   ScriptPromise promise = resolver->Promise();
+
+  if (!CheckSharedStoragePermissionsPolicy(*script_state, *execution_context,
+                                           *resolver)) {
+    return promise;
+  }
 
   GetSharedStorageDocumentService(execution_context)
       ->RunOperationOnWorklet(

@@ -21,6 +21,7 @@
 #include "mojo/public/cpp/bindings/self_owned_associated_receiver.h"
 #include "ui/accelerated_widget_mac/window_resize_helper_mac.h"
 #include "ui/base/cocoa/animation_utils.h"
+#include "ui/base/cocoa/nswindow_test_util.h"
 #include "ui/base/cocoa/remote_accessibility_api.h"
 #include "ui/base/cocoa/remote_layer_api.h"
 #include "ui/base/hit_test.h"
@@ -372,11 +373,10 @@ void NativeWidgetMacNSWindowHost::InitWindow(
           in_process_ns_window_bridge_.get(), GetNSWindowMojo());
 
   Widget* widget = native_widget_mac_->GetWidget();
-  // Tooltip Widgets shouldn't have their own tooltip manager, but tooltips are
-  // native on Mac, so nothing should ever want one in Widget form.
-  DCHECK_NE(params.type, Widget::InitParams::TYPE_TOOLTIP);
   widget_type_ = params.type;
-  tooltip_manager_ = std::make_unique<TooltipManagerMac>(GetNSWindowMojo());
+  bool is_tooltip = params.type == Widget::InitParams::TYPE_TOOLTIP;
+  if (!is_tooltip)
+    tooltip_manager_ = std::make_unique<TooltipManagerMac>(GetNSWindowMojo());
 
   if (params.workspace.length()) {
     std::string restoration_data;
@@ -395,6 +395,7 @@ void NativeWidgetMacNSWindowHost::InitWindow(
     window_params->is_translucent =
         params.opacity == Widget::InitParams::WindowOpacity::kTranslucent;
     window_params->is_headless_mode_window = params.headless_mode;
+    window_params->is_tooltip = is_tooltip;
     is_headless_mode_window_ = params.headless_mode;
 
     // OSX likes to put shadows on most things. However, frameless windows (with
@@ -668,7 +669,7 @@ void NativeWidgetMacNSWindowHost::SetParent(
   // close the Widget.
   // https://crbug.com/957927
   remote_cocoa::ApplicationHost* new_application_host =
-      new_parent ? new_parent->application_host() : application_host_;
+      new_parent ? new_parent->application_host() : application_host_.get();
   if (new_application_host != application_host_) {
     DLOG(ERROR) << "Cannot migrate views::NativeWidget to another process, "
                    "closing it instead.";
@@ -1112,6 +1113,9 @@ void NativeWidgetMacNSWindowHost::OnWindowFullscreenTransitionComplete(
 
   // Ensure constraints are re-applied when completing a transition.
   native_widget_mac_->OnSizeConstraintsChanged();
+
+  ui::NSWindowFullscreenNotificationWaiter::NotifyFullscreenTransitionComplete(
+      native_widget_mac_->GetNativeWindow(), actual_fullscreen_state);
 }
 
 void NativeWidgetMacNSWindowHost::OnWindowMiniaturizedChanged(

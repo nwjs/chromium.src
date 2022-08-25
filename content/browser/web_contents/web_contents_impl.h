@@ -28,7 +28,7 @@
 #include "components/download/public/common/download_url_parameters.h"
 #include "content/browser/media/audio_stream_monitor.h"
 #include "content/browser/media/forwarding_audio_stream_factory.h"
-#include "content/browser/prerender/prerender_handle_impl.h"
+#include "content/browser/preloading/prerender/prerender_handle_impl.h"
 #include "content/browser/renderer_host/frame_tree.h"
 #include "content/browser/renderer_host/frame_tree_node.h"
 #include "content/browser/renderer_host/navigation_controller_delegate.h"
@@ -136,6 +136,7 @@ class WebContentsView;
 struct AXEventNotificationDetails;
 struct LoadNotificationDetails;
 struct MHTMLGenerationParams;
+class PreloadingAttempt;
 
 namespace mojom {
 class CreateNewWindowParams;
@@ -324,6 +325,10 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   // human-readable name.
   std::string GetTitleForMediaControls();
 
+  // Returns true if this WebContents is in fullscreen (or pending fullscreen)
+  // on the specified display ID.
+  bool IsFullscreenOnDisplay(int64_t display_id) const;
+
   // WebContents ------------------------------------------------------
   WebContentsDelegate* GetDelegate() override;
   void SetDelegate(WebContentsDelegate* delegate) override;
@@ -333,15 +338,12 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   const GURL& GetURL() override;
   const GURL& GetVisibleURL() override;
   const GURL& GetLastCommittedURL() override;
-  RenderFrameHostImpl* GetMainFrame() override;
   RenderFrameHostImpl* GetPrimaryMainFrame() override;
   PageImpl& GetPrimaryPage() override;
   RenderFrameHostImpl* GetFocusedFrame() override;
   bool IsPrerenderedFrame(int frame_tree_node_id) override;
   RenderFrameHostImpl* UnsafeFindFrameByFrameTreeNodeId(
       int frame_tree_node_id) override;
-  void ForEachFrame(
-      const base::RepeatingCallback<void(RenderFrameHost*)>& on_frame) override;
   void ForEachRenderFrameHost(
       RenderFrameHost::FrameIterationCallback on_frame) override;
   void ForEachRenderFrameHost(
@@ -416,9 +418,13 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   Visibility GetVisibility() override;
   bool NeedToFireBeforeUnloadOrUnloadEvents() override;
   void DispatchBeforeUnload(bool auto_cancel) override;
-  void AttachInnerWebContents(std::unique_ptr<WebContents> inner_web_contents,
-                              RenderFrameHost* render_frame_host,
-                              bool is_full_page) override;
+  void AttachInnerWebContents(
+      std::unique_ptr<WebContents> inner_web_contents,
+      RenderFrameHost* render_frame_host,
+      mojo::PendingAssociatedRemote<blink::mojom::RemoteFrame> remote_frame,
+      mojo::PendingAssociatedReceiver<blink::mojom::RemoteFrameHost>
+          remote_frame_host_receiver,
+      bool is_full_page) override;
   bool IsInnerWebContentsForGuest() override;
   bool IsPortal() override;
   WebContentsImpl* GetPortalHostWebContents() override;
@@ -558,6 +564,8 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   bool HasActiveEffectivelyFullscreenVideo() override;
   void WriteIntoTrace(perfetto::TracedValue context) override;
   const base::Location& GetCreatorLocation() override;
+  float GetPictureInPictureInitialAspectRatio() override;
+  bool GetPictureInPictureLockAspectRatio() override;
   void UpdateBrowserControlsState(cc::BrowserControlsState constraints,
                                   cc::BrowserControlsState current,
                                   bool animate) override;
@@ -662,7 +670,6 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
       const GURL& url) override;
   void SetFocusedFrame(FrameTreeNode* node, SiteInstanceGroup* source) override;
   void DidCallFocus() override;
-  RenderFrameHostImpl* GetFocusedFrameIncludingInnerWebContents() override;
   void OnFocusedElementChangedInFrame(
       RenderFrameHostImpl* frame,
       const gfx::Rect& bounds_in_root_view,
@@ -850,6 +857,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
       PrerenderTriggerType trigger_type,
       const std::string& embedder_histogram_suffix,
       ui::PageTransition page_transition,
+      PreloadingAttempt* preloading_attempt,
       absl::optional<base::RepeatingCallback<bool(const GURL&)>>
           url_match_predicate = absl::nullopt) override;
 
@@ -1172,6 +1180,10 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   // Sets the spatial navigation state.
   void SetSpatialNavigationDisabled(bool disabled);
 
+  // Sets the Stylus handwriting feature status. This status is updated to web
+  // preferences.
+  void SetStylusHandwritingEnabled(bool enabled);
+
   // Called when a file selection is to be done.
   void RunFileChooser(
       RenderFrameHost* render_frame_host,
@@ -1307,6 +1319,10 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
 
   void set_suppress_ime_events_for_testing(bool suppress) {
     suppress_ime_events_for_testing_ = suppress;
+  }
+
+  RenderWidgetHost* mouse_lock_widget_for_testing() {
+    return mouse_lock_widget_;
   }
 
  private:
@@ -1770,8 +1786,8 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   // Returns UKM source id for the currently displayed page.
   // Intentionally kept private, prefer using
   // render_frame_host->GetPageUkmSourceId() if you already have a
-  // |render_frame_host| reference or GetMainFrame()->GetPageUkmSourceId()
-  // if you don't.
+  // |render_frame_host| reference or
+  // GetPrimaryMainFrame()->GetPageUkmSourceId() if you don't.
   ukm::SourceId GetCurrentPageUkmSourceId() override;
 
   // Bit mask to indicate what types of RenderViewHosts to be returned in
@@ -2196,6 +2212,8 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
 
   bool is_spatial_navigation_disabled_ = false;
 
+  bool stylus_handwriting_enabled_ = false;
+
   bool is_currently_audible_ = false;
   bool was_ever_audible_ = false;
 
@@ -2298,6 +2316,15 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
 
   // Stores WebContents::CreateParams::creator_location_.
   base::Location creator_location_;
+
+  // The initial aspect ratio (only used for WebContents associated with a
+  // PictureInPicture window). This value is either the parameter given in
+  // WebContents::CreateParams::initial_picture_in_picture_aspect_ratio, or a
+  // default value if the given value is unset or invalid.
+  float pip_initial_aspect_ratio_ = 1.0f;
+
+  // Stores WebContents::CreateParams::lock_picture_in_picture_aspect_ratio.
+  bool pip_lock_aspect_ratio_ = false;
 
   VisibleTimeRequestTrigger visible_time_request_trigger_;
 

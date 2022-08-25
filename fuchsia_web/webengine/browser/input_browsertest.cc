@@ -11,13 +11,14 @@
 #include "base/fuchsia/test_component_context_for_process.h"
 #include "base/test/scoped_feature_list.h"
 #include "content/public/test/browser_test.h"
-#include "fuchsia/base/test/frame_test_util.h"
-#include "fuchsia/base/test/scoped_connection_checker.h"
-#include "fuchsia/base/test/test_navigation_listener.h"
+#include "content/public/test/browser_test_utils.h"
+#include "fuchsia_web/common/test/frame_test_util.h"
+#include "fuchsia_web/common/test/test_navigation_listener.h"
 #include "fuchsia_web/webengine/browser/context_impl.h"
 #include "fuchsia_web/webengine/features.h"
 #include "fuchsia_web/webengine/test/frame_for_test.h"
 #include "fuchsia_web/webengine/test/scenic_test_helper.h"
+#include "fuchsia_web/webengine/test/scoped_connection_checker.h"
 #include "fuchsia_web/webengine/test/test_data.h"
 #include "fuchsia_web/webengine/test/web_engine_browser_test.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -57,24 +58,11 @@ KeyEvent CreateCharacterEvent(uint32_t codepoint, KeyEventType event_type) {
 base::Value ExpectedKeyValue(base::StringPiece code,
                              base::StringPiece key,
                              base::StringPiece type) {
-  base::Value expected(base::Value::Type::DICTIONARY);
-  expected.SetStringKey("code", code);
-  expected.SetStringKey("key", key);
-  expected.SetStringKey("type", type);
-  return expected;
-}
-
-// Recursive base case.
-template <typename T>
-void AppendValueList(std::vector<T>* vec) {}
-
-// Use tail recursion to emplace a sequence of Values into |vec|.
-// It is used as an alternative to initializer lists, which don't work with
-// move-only types like base::Value.
-template <typename T, typename... Args>
-void AppendValueList(std::vector<T>* vec, T&& value, Args&&... args) {
-  vec->push_back(std::move(value));
-  AppendValueList(vec, std::forward<base::Value>(args)...);
+  base::Value::Dict expected;
+  expected.Set("code", code);
+  expected.Set("key", key);
+  expected.Set("type", type);
+  return base::Value(std::move(expected));
 }
 
 class FakeKeyboard : public fuchsia::ui::input3::testing::Keyboard_TestBase {
@@ -126,11 +114,9 @@ class FakeKeyboard : public fuchsia::ui::input3::testing::Keyboard_TestBase {
   int num_acked_events_ = 0;
 };
 
-class KeyboardInputTest : public cr_fuchsia::WebEngineBrowserTest {
+class KeyboardInputTest : public WebEngineBrowserTest {
  public:
-  KeyboardInputTest() {
-    set_test_server_root(base::FilePath(cr_fuchsia::kTestServerRoot));
-  }
+  KeyboardInputTest() { set_test_server_root(base::FilePath(kTestServerRoot)); }
   ~KeyboardInputTest() override = default;
 
   KeyboardInputTest(const KeyboardInputTest&) = delete;
@@ -143,16 +129,15 @@ class KeyboardInputTest : public cr_fuchsia::WebEngineBrowserTest {
 
   void SetUp() override {
     scoped_feature_list_.InitWithFeatures({features::kKeyboardInput}, {});
-    cr_fuchsia::WebEngineBrowserTest::SetUp();
+    WebEngineBrowserTest::SetUp();
   }
 
   void SetUpOnMainThread() override {
-    cr_fuchsia::WebEngineBrowserTest::SetUpOnMainThread();
+    WebEngineBrowserTest::SetUpOnMainThread();
     ASSERT_TRUE(embedded_test_server()->Start());
 
     fuchsia::web::CreateFrameParams params;
-    frame_for_test_ =
-        cr_fuchsia::FrameForTest::Create(context(), std::move(params));
+    frame_for_test_ = FrameForTest::Create(context(), std::move(params));
 
     // Set up services needed for the test. The keyboard service is included in
     // the allowed services by default. The real service needs to be removed so
@@ -168,7 +153,7 @@ class KeyboardInputTest : public cr_fuchsia::WebEngineBrowserTest {
     fuchsia::web::NavigationControllerPtr controller;
     frame_for_test_.ptr()->GetNavigationController(controller.NewRequest());
     const GURL test_url(embedded_test_server()->GetURL("/keyevents.html"));
-    EXPECT_TRUE(cr_fuchsia::LoadUrlAndExpectResponse(
+    EXPECT_TRUE(LoadUrlAndExpectResponse(
         controller.get(), fuchsia::web::LoadUrlParams(), test_url.spec()));
     frame_for_test_.navigation_listener().RunUntilUrlEquals(test_url);
 
@@ -188,21 +173,21 @@ class KeyboardInputTest : public cr_fuchsia::WebEngineBrowserTest {
 
   template <typename... Args>
   void ExpectKeyEventsEqual(Args... events) {
-    std::vector<base::Value> expected;
-    AppendValueList(&expected, std::forward<Args>(events)...);
+    base::Value::List expected;
+    content::ConvertToBaseValueList(expected, std::forward<Args>(events)...);
     frame_for_test_.navigation_listener().RunUntilTitleEquals(
         base::NumberToString(expected.size()));
 
     absl::optional<base::Value> actual =
-        cr_fuchsia::ExecuteJavaScript(frame_for_test_.ptr().get(), kKeyDicts);
-    EXPECT_EQ(*actual, base::Value(expected));
+        ExecuteJavaScript(frame_for_test_.ptr().get(), kKeyDicts);
+    EXPECT_EQ(*actual, base::Value(std::move(expected)));
   }
 
   // Used to publish fake services.
   absl::optional<base::TestComponentContextForProcess> component_context_;
 
-  cr_fuchsia::FrameForTest frame_for_test_;
-  cr_fuchsia::ScenicTestHelper scenic_test_helper_;
+  FrameForTest frame_for_test_;
+  ScenicTestHelper scenic_test_helper_;
   absl::optional<FakeKeyboard> keyboard_service_;
   base::test::ScopedFeatureList scoped_feature_list_;
   absl::optional<
@@ -352,8 +337,8 @@ IN_PROC_BROWSER_TEST_F(KeyboardInputTest, Disconnect) {
   frame_for_test_.navigation_listener().RunUntilTitleEquals("loaded");
 
   // Make sure the page is still available and there are no crashes.
-  EXPECT_TRUE(cr_fuchsia::ExecuteJavaScript(frame_for_test_.ptr().get(), "true")
-                  ->GetBool());
+  EXPECT_TRUE(
+      ExecuteJavaScript(frame_for_test_.ptr().get(), "true")->GetBool());
 }
 
 class KeyboardInputTestWithoutKeyboardFeature : public KeyboardInputTest {
@@ -364,7 +349,7 @@ class KeyboardInputTestWithoutKeyboardFeature : public KeyboardInputTest {
  protected:
   void SetUp() override {
     scoped_feature_list_.InitWithFeatures({}, {});
-    cr_fuchsia::WebEngineBrowserTest::SetUp();
+    WebEngineBrowserTest::SetUp();
   }
 
   void SetUpService() override {

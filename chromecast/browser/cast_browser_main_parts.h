@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "base/memory/ref_counted.h"
+#include "base/memory/weak_ptr.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
 #include "chromecast/browser/display_configurator_observer.h"
@@ -48,7 +49,6 @@ class ServiceManagerContext;
 #if defined(USE_AURA)
 class CastWindowManagerAura;
 class CastScreen;
-class RoundedWindowCornersManager;
 namespace shell {
 class CastUIDevTools;
 }  // namespace shell
@@ -140,7 +140,6 @@ class CastBrowserMainParts : public content::BrowserMainParts {
   std::unique_ptr<views::ViewsDelegate> views_delegate_;
   std::unique_ptr<CastScreen> cast_screen_;
   std::unique_ptr<CastWindowManagerAura> window_manager_;
-  std::unique_ptr<RoundedWindowCornersManager> rounded_window_corners_manager_;
   std::unique_ptr<DisplayConfiguratorObserver> display_change_observer_;
 #else
   std::unique_ptr<CastWindowManager> window_manager_;
@@ -152,6 +151,7 @@ class CastBrowserMainParts : public content::BrowserMainParts {
 #if BUILDFLAG(IS_ANDROID)
   void StartPeriodicCrashReportUpload();
   void OnStartPeriodicCrashReportUpload();
+  void UploadCrashReport(bool opt_in_stats);
   scoped_refptr<base::SequencedTaskRunner> crash_reporter_runner_;
   std::unique_ptr<base::RepeatingTimer> crash_reporter_timer_;
   std::unique_ptr<crash_reporter::ChildExitObserver> child_exit_observer_;
@@ -175,6 +175,8 @@ class CastBrowserMainParts : public content::BrowserMainParts {
   // Only used when running with --enable-ui-devtools.
   std::unique_ptr<CastUIDevTools> ui_devtools_;
 #endif  // defined(USE_AURA) && !BUILDFLAG(IS_FUCHSIA)
+
+  base::WeakPtrFactory<CastBrowserMainParts> weak_factory_{this};
 };
 
 }  // namespace shell

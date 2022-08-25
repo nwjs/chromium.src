@@ -25,8 +25,8 @@
 #include "base/containers/flat_set.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/strings/string_util.h"
-#include "chromeos/network/network_handler.h"
-#include "chromeos/network/network_state_handler.h"
+#include "chromeos/ash/components/network/network_handler.h"
+#include "chromeos/ash/components/network/network_state_handler.h"
 #include "device/bluetooth//bluetooth_adapter.h"
 #include "device/bluetooth/bluetooth_device.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
@@ -35,6 +35,17 @@ namespace {
 
 constexpr char kNearbyShareModelId[] = "fc128e";
 constexpr int kMaxParseModelIdRetryCount = 5;
+
+bool IsValidDeviceType(const nearby::fastpair::Device& device) {
+  // TODO: Filter out based on solidified Fast Pair configuration list once
+  // available.
+  return device.device_type() == nearby::fastpair::DeviceType::HEADPHONES ||
+         device.device_type() == nearby::fastpair::DeviceType::SPEAKER ||
+         device.device_type() ==
+             nearby::fastpair::DeviceType::TRUE_WIRELESS_HEADPHONES ||
+         device.device_type() ==
+             nearby::fastpair::DeviceType::DEVICE_TYPE_UNSPECIFIED;
+}
 
 }  // namespace
 
@@ -166,6 +177,15 @@ void FastPairDiscoverableScannerImpl::OnDeviceMetadataRetrieved(
     QP_LOG(WARNING) << __func__
                     << ": No metadata available for id: " << model_id
                     << ". Ignoring this advertisement";
+    return;
+  }
+
+  // Ignore advertisements that aren't for Fast Pair but leverage the service
+  // UUID.
+  if (!IsValidDeviceType(device_metadata->GetDetails())) {
+    QP_LOG(WARNING)
+        << __func__
+        << ": Invalid device type for Fast Pair. Ignoring this advertisement";
     return;
   }
 

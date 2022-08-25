@@ -62,11 +62,8 @@ WeakPtr<AutofillPopupControllerImpl> AutofillPopupControllerImpl::GetOrCreate(
     base::i18n::TextDirection text_direction) {
   if (previous && previous->delegate_.get() == delegate.get() &&
       previous->container_view() == container_view) {
-    if (base::FeatureList::IsEnabled(
-            features::kAutofillDelayPopupControllerDeletion) &&
-        previous->self_deletion_weak_ptr_factory_.HasWeakPtrs()) {
+    if (previous->self_deletion_weak_ptr_factory_.HasWeakPtrs())
       previous->self_deletion_weak_ptr_factory_.InvalidateWeakPtrs();
-    }
     previous->SetElementBounds(element_bounds);
     previous->ClearState();
     return previous;
@@ -101,8 +98,8 @@ void AutofillPopupControllerImpl::Show(
     const std::vector<Suggestion>& suggestions,
     bool autoselect_first_suggestion,
     PopupType popup_type) {
-  // TODO(crbug.com/1277218): Remove when kAutofillDelayPopupControllerDeletion
-  // is launched.
+  // TODO(crbug.com/1341374, crbug.com/1277218): Why can `this` be deleted
+  // synchronously?
   WeakPtr<AutofillPopupControllerImpl> weak_this = GetWeakPtr();
 
   if (IsMouseLocked()) {
@@ -133,7 +130,8 @@ void AutofillPopupControllerImpl::Show(
                                    !suggestions.empty());
 #endif
     view_->Show();
-    // crbug.com/1055981. |this| can be destroyed synchronously at this point.
+    // TODO(crbug.com/1055981): `this| can be destroyed synchronously at this
+    // point.
     if (!weak_this)
       return;
 
@@ -152,8 +150,8 @@ void AutofillPopupControllerImpl::Show(
 
     OnSuggestionsChanged();
   }
-  // |this| can be destroyed synchronously at this point. See crbug.com/1200766
-  // and crbug.com/1276850 and crbug.com/1277218.
+  // TODO(crbug.com/1200766, crbug.com/1276850, crbug.com/1277218): `this` can
+  // be destroyed synchronously at this point.
   if (!weak_this)
     return;
 
@@ -605,12 +603,6 @@ void AutofillPopupControllerImpl::HideViewAndDie() {
     FireControlsChangedEvent(false);
     view_->Hide();  // Deletes |view_|.
     view_ = nullptr;
-  }
-
-  if (!base::FeatureList::IsEnabled(
-          features::kAutofillDelayPopupControllerDeletion)) {
-    delete this;
-    return;
   }
 
   if (self_deletion_weak_ptr_factory_.HasWeakPtrs())

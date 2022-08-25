@@ -74,7 +74,7 @@ class PaintOpSerializationTestUtils {
     shader->start_radius_ = 13.4f;
     shader->tx_ = SkTileMode::kRepeat;
     shader->ty_ = SkTileMode::kMirror;
-    shader->fallback_color_ = SkColorSetARGB(254, 252, 250, 248);
+    shader->fallback_color_ = {0.99f, 0.98f, 0.97f, 0.99f};
     shader->scaling_behavior_ = PaintShader::ScalingBehavior::kRasterAtScale;
     if (use_matrix) {
       shader->local_matrix_.emplace(SkMatrix::I());
@@ -88,8 +88,9 @@ class PaintOpSerializationTestUtils {
     shader->start_degrees_ = 123;
     shader->end_degrees_ = 456;
     // TODO(vmpstr): Add PaintImage/PaintRecord.
-    shader->colors_ = {SkColorSetARGB(1, 2, 3, 4), SkColorSetARGB(5, 6, 7, 8),
-                       SkColorSetARGB(9, 0, 1, 2)};
+    shader->colors_ = {{0.1f, 0.2f, 0.3f, 0.4f},
+                       {0.05f, 0.15f, 0.25f, 0.35f},
+                       {0.0f, 0.5f, 0.9f, 0.1f}};
     shader->positions_ = {0.f, 0.4f, 1.f};
   }
 };
@@ -507,7 +508,7 @@ TEST(PaintOpBufferTest, DiscardableImagesTracking_OpWithFlags) {
 
 TEST(PaintOpBufferTest, SlowPaths) {
   auto buffer = sk_make_sp<PaintOpBuffer>();
-  EXPECT_EQ(buffer->num_slow_paths(), 0);
+  EXPECT_EQ(buffer->num_slow_paths_up_to_min_for_MSAA(), 0);
 
   // Op without slow paths
   PaintFlags noop_flags;
@@ -523,13 +524,13 @@ TEST(PaintOpBufferTest, SlowPaths) {
   line_effect_slow.setPathEffect(SkDashPathEffect::Make(intervals, 2, 0));
 
   buffer->push<DrawLineOp>(1.f, 2.f, 3.f, 4.f, line_effect_slow);
-  EXPECT_EQ(buffer->num_slow_paths(), 1);
+  EXPECT_EQ(buffer->num_slow_paths_up_to_min_for_MSAA(), 1);
 
   // Line effect special case that Skia handles specially.
   PaintFlags line_effect = line_effect_slow;
   line_effect.setStrokeCap(PaintFlags::kButt_Cap);
   buffer->push<DrawLineOp>(1.f, 2.f, 3.f, 4.f, line_effect);
-  EXPECT_EQ(buffer->num_slow_paths(), 1);
+  EXPECT_EQ(buffer->num_slow_paths_up_to_min_for_MSAA(), 1);
 
   // Antialiased convex path is not slow.
   SkPath path;
@@ -537,7 +538,7 @@ TEST(PaintOpBufferTest, SlowPaths) {
   EXPECT_TRUE(path.isConvex());
   buffer->push<ClipPathOp>(path, SkClipOp::kIntersect, /*antialias=*/true,
                            UsePaintCache::kDisabled);
-  EXPECT_EQ(buffer->num_slow_paths(), 1);
+  EXPECT_EQ(buffer->num_slow_paths_up_to_min_for_MSAA(), 1);
 
   // Concave paths are slow only when antialiased.
   SkPath concave = path;
@@ -545,19 +546,19 @@ TEST(PaintOpBufferTest, SlowPaths) {
   EXPECT_FALSE(concave.isConvex());
   buffer->push<ClipPathOp>(concave, SkClipOp::kIntersect, /*antialias=*/true,
                            UsePaintCache::kDisabled);
-  EXPECT_EQ(buffer->num_slow_paths(), 2);
+  EXPECT_EQ(buffer->num_slow_paths_up_to_min_for_MSAA(), 2);
   buffer->push<ClipPathOp>(concave, SkClipOp::kIntersect, /*antialias=*/false,
                            UsePaintCache::kDisabled);
-  EXPECT_EQ(buffer->num_slow_paths(), 2);
+  EXPECT_EQ(buffer->num_slow_paths_up_to_min_for_MSAA(), 2);
 
   // Drawing a record with slow paths into another adds the same
   // number of slow paths as the record.
   auto buffer2 = sk_make_sp<PaintOpBuffer>();
-  EXPECT_EQ(0, buffer2->num_slow_paths());
+  EXPECT_EQ(0, buffer2->num_slow_paths_up_to_min_for_MSAA());
   buffer2->push<DrawRecordOp>(buffer);
-  EXPECT_EQ(2, buffer2->num_slow_paths());
+  EXPECT_EQ(2, buffer2->num_slow_paths_up_to_min_for_MSAA());
   buffer2->push<DrawRecordOp>(buffer);
-  EXPECT_EQ(4, buffer2->num_slow_paths());
+  EXPECT_EQ(4, buffer2->num_slow_paths_up_to_min_for_MSAA());
 }
 
 TEST(PaintOpBufferTest, NonAAPaint) {
@@ -1127,7 +1128,7 @@ std::vector<PaintFlags> test_flags = {
       flags.setStrokeJoin(PaintFlags::kBevel_Join);
       flags.setStyle(PaintFlags::kStroke_Style);
       flags.setFilterQuality(PaintFlags::FilterQuality::kMedium);
-      flags.setShader(PaintShader::MakeColor(SkColorSetARGB(1, 2, 3, 4)));
+      flags.setShader(PaintShader::MakeColor({0.1f, 0.2f, 0.3f, 0.4f}));
       return flags;
     }(),
     [] {
@@ -1159,7 +1160,8 @@ std::vector<PaintFlags> test_flags = {
       looper_builder.addLayer(layer_info);
       flags.setLooper(looper_builder.detach());
 
-      sk_sp<PaintShader> shader = PaintShader::MakeColor(SK_ColorTRANSPARENT);
+      sk_sp<PaintShader> shader =
+          PaintShader::MakeColor(SkColors::kTransparent);
       PaintOpSerializationTestUtils::FillArbitraryShaderValues(shader.get(),
                                                                true);
       flags.setShader(std::move(shader));
@@ -1168,13 +1170,14 @@ std::vector<PaintFlags> test_flags = {
     }(),
     [] {
       PaintFlags flags;
-      flags.setShader(PaintShader::MakeColor(SkColorSetARGB(12, 34, 56, 78)));
+      flags.setShader(PaintShader::MakeColor({0.1f, 0.2f, 0.3f, 0.4f}));
 
       return flags;
     }(),
     [] {
       PaintFlags flags;
-      sk_sp<PaintShader> shader = PaintShader::MakeColor(SK_ColorTRANSPARENT);
+      sk_sp<PaintShader> shader =
+          PaintShader::MakeColor(SkColors::kTransparent);
       PaintOpSerializationTestUtils::FillArbitraryShaderValues(shader.get(),
                                                                false);
       flags.setShader(std::move(shader));
@@ -1184,9 +1187,9 @@ std::vector<PaintFlags> test_flags = {
     [] {
       PaintFlags flags;
       SkPoint points[2] = {SkPoint::Make(1, 2), SkPoint::Make(3, 4)};
-      SkColor colors[3] = {SkColorSetARGB(1, 2, 3, 4),
-                           SkColorSetARGB(4, 3, 2, 1),
-                           SkColorSetARGB(0, 10, 20, 30)};
+      SkColor4f colors[3] = {{0.1f, 0.2f, 0.3f, 0.4f},
+                             {0.4f, 0.3f, 0.2f, 0.1f},
+                             {0.2f, 0.4f, 0.6f, 0.0f}};
       SkScalar positions[3] = {0.f, 0.3f, 1.f};
       flags.setShader(PaintShader::MakeLinearGradient(points, colors, positions,
                                                       3, SkTileMode::kMirror));
@@ -1195,9 +1198,9 @@ std::vector<PaintFlags> test_flags = {
     }(),
     [] {
       PaintFlags flags;
-      SkColor colors[3] = {SkColorSetARGB(1, 2, 3, 4),
-                           SkColorSetARGB(4, 3, 2, 1),
-                           SkColorSetARGB(0, 10, 20, 30)};
+      SkColor4f colors[3] = {{0.1f, 0.2f, 0.3f, 0.4f},
+                             {0.4f, 0.3f, 0.2f, 0.1f},
+                             {0.2f, 0.4f, 0.6f, 0.0f}};
       flags.setShader(PaintShader::MakeSweepGradient(
           0.2f, -0.8f, colors, nullptr, 3, SkTileMode::kMirror, 10, 20));
       return flags;
@@ -3387,7 +3390,7 @@ TEST_P(PaintFilterSerializationTest, Basic) {
       sk_sp<PaintFilter>{
           new BlurPaintFilter(0.5f, 0.3f, SkTileMode::kRepeat, nullptr)},
       sk_sp<PaintFilter>{new DropShadowPaintFilter(
-          5.f, 10.f, 0.1f, 0.3f, SK_ColorBLUE,
+          5.f, 10.f, 0.1f, 0.3f, SkColors::kBlue,
           DropShadowPaintFilter::ShadowMode::kDrawShadowOnly, nullptr)},
       sk_sp<PaintFilter>{new MagnifierPaintFilter(SkRect::MakeXYWH(5, 6, 7, 8),
                                                   10.5f, nullptr)},
@@ -3408,13 +3411,13 @@ TEST_P(PaintFilterSerializationTest, Basic) {
           SkMatrix::I(), PaintFlags::FilterQuality::kHigh, nullptr)},
       sk_sp<PaintFilter>{new LightingDistantPaintFilter(
           PaintFilter::LightingType::kSpecular, SkPoint3::Make(1, 2, 3),
-          SK_ColorCYAN, 1.1f, 2.2f, 3.3f, nullptr)},
+          SkColors::kCyan, 1.1f, 2.2f, 3.3f, nullptr)},
       sk_sp<PaintFilter>{new LightingPointPaintFilter(
           PaintFilter::LightingType::kDiffuse, SkPoint3::Make(2, 3, 4),
-          SK_ColorRED, 1.2f, 3.4f, 5.6f, nullptr)},
+          SkColors::kRed, 1.2f, 3.4f, 5.6f, nullptr)},
       sk_sp<PaintFilter>{new LightingSpotPaintFilter(
           PaintFilter::LightingType::kSpecular, SkPoint3::Make(100, 200, 300),
-          SkPoint3::Make(400, 500, 600), 1, 2, SK_ColorMAGENTA, 3, 4, 5,
+          SkPoint3::Make(400, 500, 600), 1, 2, SkColors::kMagenta, 3, 4, 5,
           nullptr)},
       sk_sp<PaintFilter>{
           new ImagePaintFilter(CreateDiscardablePaintImage(gfx::Size(100, 100)),

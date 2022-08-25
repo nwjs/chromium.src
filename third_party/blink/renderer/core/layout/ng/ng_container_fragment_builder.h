@@ -14,6 +14,7 @@
 #include "third_party/blink/renderer/core/layout/ng/geometry/ng_bfc_offset.h"
 #include "third_party/blink/renderer/core/layout/ng/geometry/ng_margin_strut.h"
 #include "third_party/blink/renderer/core/layout/ng/list/ng_unpositioned_list_marker.h"
+#include "third_party/blink/renderer/core/layout/ng/ng_anchor_query.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_break_appeal.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_early_break.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_floats_utils.h"
@@ -262,6 +263,17 @@ class CORE_EXPORT NGContainerFragmentBuilder : public NGFragmentBuilder {
       const NGInlineContainer<LogicalOffset>* fixedpos_inline_container =
           nullptr,
       LogicalOffset additional_fixedpos_offset = LogicalOffset());
+  // Same as PropagateOOFPositionedInfo(), but only performs the propagation of
+  // OOF fragmentainer descendants. If |out_list| is provided, any OOF
+  // fragmentainer descendants should be propagated there rather than to this
+  // builder.
+  void PropagateOOFFragmentainerDescendants(
+      const NGPhysicalFragment& fragment,
+      LogicalOffset offset,
+      LogicalOffset relative_offset,
+      LayoutUnit containing_block_adjustment,
+      const NGContainingBlock<LogicalOffset>* fixedpos_containing_block,
+      HeapVector<NGLogicalOOFNodeForFragmentation>* out_list = nullptr);
 
   void SetIsSelfCollapsing() { is_self_collapsing_ = true; }
 
@@ -353,6 +365,8 @@ class CORE_EXPORT NGContainerFragmentBuilder : public NGFragmentBuilder {
 
   const NGConstraintSpace& ConstraintSpace() const { return space_; }
 
+  const NGLogicalAnchorQuery& AnchorQuery() const { return anchor_query_; }
+
   const NGLayoutResult* Abort(NGLayoutResult::EStatus);
 
 #if DCHECK_IS_ON()
@@ -406,6 +420,7 @@ class CORE_EXPORT NGContainerFragmentBuilder : public NGFragmentBuilder {
   HeapVector<NGLogicalOOFNodeForFragmentation>
       oof_positioned_fragmentainer_descendants_;
   HeapVector<NGLogicalOutOfFlowPositionedNode> oof_positioned_descendants_;
+  NGLogicalAnchorQuery anchor_query_;
 
   MulticolCollection multicols_with_pending_oofs_;
 

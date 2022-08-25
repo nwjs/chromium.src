@@ -105,6 +105,18 @@ export class ReimagingCalibrationFailedPage extends
     super.ready();
     this.getInitialComponentsList_();
     enableNextButton(this);
+
+    // Hide the gradient when the list is scrolled to the end.
+    this.shadowRoot.querySelector('.scroll-container')
+        .addEventListener('scroll', (event) => {
+          const gradient = this.shadowRoot.querySelector('.gradient');
+          if (event.target.scrollHeight - event.target.scrollTop ===
+              event.target.clientHeight) {
+            gradient.style.setProperty('visibility', 'hidden');
+          } else {
+            gradient.style.setProperty('visibility', 'visible');
+          }
+        });
   }
 
   /** @private */
@@ -141,7 +153,7 @@ export class ReimagingCalibrationFailedPage extends
         component: item.component,
         status: item.checked ? CalibrationStatus.kCalibrationWaiting :
                                CalibrationStatus.kCalibrationSkip,
-        progress: 0.0
+        progress: 0.0,
       };
     });
   }
@@ -155,7 +167,7 @@ export class ReimagingCalibrationFailedPage extends
       return {
         component: item.component,
         status: CalibrationStatus.kCalibrationSkip,
-        progress: 0.0
+        progress: 0.0,
       };
     });
     return this.shimlessRmaService_.startCalibration(skippedComponents);

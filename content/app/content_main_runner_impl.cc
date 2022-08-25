@@ -196,8 +196,6 @@ namespace content {
 
 namespace {
 
-using InvokedIn = ContentMainDelegate::InvokedIn;
-
 #if defined(V8_USE_EXTERNAL_STARTUP_DATA) && BUILDFLAG(IS_ANDROID)
 #if defined __LP64__
 #define kV8SnapshotDataDescriptor kV8Snapshot64DataDescriptor
@@ -633,9 +631,11 @@ int NO_STACK_PROTECTOR RunZygote(ContentMainDelegate* delegate) {
   MainFunctionParams main_params(command_line);
   main_params.zygote_child = true;
 
-  if (delegate->ShouldCreateFeatureList(InvokedIn::kChildProcess))
+  if (delegate->ShouldCreateFeatureList(
+          ContentMainDelegate::InvokedInChildProcess()))
     InitializeFieldTrialAndFeatureList();
-  delegate->PostEarlyInitialization(InvokedIn::kChildProcess);
+  delegate->PostEarlyInitialization(
+      ContentMainDelegate::InvokedInChildProcess());
 
   internal::PartitionAllocSupport::Get()->ReconfigureAfterFeatureListInit(
       process_type);
@@ -815,11 +815,12 @@ int ContentMainRunnerImpl::Initialize(ContentMainParams params) {
   base::FetchAndCacheSystemInfo();
 #endif
 
-  int exit_code = 0;
   if (!GetContentClient())
     ContentClientCreator::Create(delegate_);
-  if (delegate_->BasicStartupComplete(&exit_code))
-    return exit_code;
+  absl::optional<int> basic_startup_exit_code =
+      delegate_->BasicStartupComplete();
+  if (basic_startup_exit_code.has_value())
+    return basic_startup_exit_code.value();
   completed_basic_startup_ = true;
 
   const base::CommandLine& command_line =
@@ -1011,9 +1012,11 @@ int NO_STACK_PROTECTOR ContentMainRunnerImpl::Run() {
       // Zygotes will run this at a later point in time when the command line
       // has been updated.
       CreateChildThreadPool(process_type);
-      if (delegate_->ShouldCreateFeatureList(InvokedIn::kChildProcess))
+      if (delegate_->ShouldCreateFeatureList(
+              ContentMainDelegate::InvokedInChildProcess()))
         InitializeFieldTrialAndFeatureList();
-      delegate_->PostEarlyInitialization(InvokedIn::kChildProcess);
+      delegate_->PostEarlyInitialization(
+          ContentMainDelegate::InvokedInChildProcess());
 
       internal::PartitionAllocSupport::Get()->ReconfigureAfterFeatureListInit(
           process_type);
@@ -1074,10 +1077,9 @@ int ContentMainRunnerImpl::RunBrowser(MainFunctionParams main_params,
     return -1;
 
   if (!mojo_ipc_support_) {
-    const auto invoked_in = main_params.ui_task
-                                ? InvokedIn::kBrowserProcessUnderTest
-                                : InvokedIn::kBrowserProcess;
-    if (delegate_->ShouldCreateFeatureList(invoked_in)) {
+    const ContentMainDelegate::InvokedInBrowserProcess invoked_in_browser{
+        .is_running_test = !main_params.ui_task.is_null()};
+    if (delegate_->ShouldCreateFeatureList(invoked_in_browser)) {
       // This is intentionally leaked since it needs to live for the duration
       // of the process and there's no benefit in cleaning it up at exit.
       base::FieldTrialList* leaked_field_trial_list =
@@ -1092,7 +1094,11 @@ int ContentMainRunnerImpl::RunBrowser(MainFunctionParams main_params,
     const bool has_thread_pool =
         GetContentClient()->browser()->CreateThreadPool("Browser");
 
-    delegate_->PreBrowserMain();
+    absl::optional<int> pre_browser_main_exit_code =
+        delegate_->PreBrowserMain();
+    if (pre_browser_main_exit_code.has_value())
+      return pre_browser_main_exit_code.value();
+
 #if BUILDFLAG(IS_WIN)
     if (l10n_util::GetLocaleOverrides().empty()) {
       // Override the configured locale with the user's preferred UI language.
@@ -1114,7 +1120,10 @@ int ContentMainRunnerImpl::RunBrowser(MainFunctionParams main_params,
           variations::VariationsIdsProvider::Mode::kUseSignedInState);
     }
 
-    delegate_->PostEarlyInitialization(invoked_in);
+    absl::optional<int> post_early_initialization_exit_code =
+        delegate_->PostEarlyInitialization(invoked_in_browser);
+    if (post_early_initialization_exit_code.has_value())
+      return post_early_initialization_exit_code.value();
 
     // The hang watcher needs to be started once the feature list is available
     // but before the IO thread is started.

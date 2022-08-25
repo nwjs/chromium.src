@@ -66,6 +66,21 @@ std::string SanitizeUrl(const std::string& url) {
   return GURL(url).DeprecatedGetOriginAsURL().spec();
 }
 
+void MaybeLogDocumentMetrics(const std::string& request_data,
+                             DownloadCheckResultReason reason) {
+  ClientDownloadRequest request;
+  if (!request.ParseFromString(request_data))
+    return;
+
+  if (request.has_document_summary()) {
+    base::UmaHistogramBoolean(
+        "SBClientDownload.DocumentContainsMacros",
+        request.document_summary().metadata().contains_macros());
+    base::UmaHistogramEnumeration("SBClientDownload.DocumentCheckDownloadStats",
+                                  reason, REASON_MAX);
+  }
+}
+
 }  // namespace
 
 CheckClientDownloadRequestBase::CheckClientDownloadRequestBase(
@@ -130,8 +145,8 @@ void CheckClientDownloadRequestBase::FinishRequest(
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   if (!request_start_time_.is_null()) {
-    UMA_HISTOGRAM_ENUMERATION("SBClientDownload.DownloadRequestNetworkStats",
-                              reason, REASON_MAX);
+    base::UmaHistogramEnumeration(
+        "SBClientDownload.DownloadRequestNetworkStats", reason, REASON_MAX);
   }
 
   auto settings = ShouldUploadBinary(reason);
@@ -143,8 +158,15 @@ void CheckClientDownloadRequestBase::FinishRequest(
         FROM_HERE, base::BindOnce(std::move(callback_), result));
   }
 
-  UMA_HISTOGRAM_ENUMERATION("SBClientDownload.CheckDownloadStats", reason,
-                            REASON_MAX);
+  if (FileTypePolicies::GetInstance()
+          ->PolicyForFile(target_file_path_, GURL{}, nullptr)
+          .extension() == "exe") {
+    base::UmaHistogramEnumeration("SBClientDownload.CheckDownloadStats.Exe",
+                                  reason, REASON_MAX);
+  }
+  base::UmaHistogramEnumeration("SBClientDownload.CheckDownloadStats", reason,
+                                REASON_MAX);
+  MaybeLogDocumentMetrics(client_download_request_data_, reason);
 
   NotifyRequestFinished(result, reason);
   service()->RequestFinished(this, GetBrowserContext(), result);

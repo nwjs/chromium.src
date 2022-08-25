@@ -35,12 +35,12 @@
 
 #include "base/containers/contains.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/time/default_clock.h"
 #include "base/time/default_tick_clock.h"
+#include "base/time/tick_clock.h"
+#include "base/time/time.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/public/mojom/permissions_policy/document_policy_feature.mojom-blink.h"
-#include "third_party/blink/public/mojom/timing/worker_timing_container.mojom-blink-forward.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
@@ -108,13 +108,6 @@ bool IsMeasureOptionsEmpty(const PerformanceMeasureOptions& options) {
          !options.hasDuration();
 }
 
-base::TimeDelta GetUnixAtZeroMonotonic(const base::Clock* clock,
-                                       const base::TickClock* tick_clock) {
-  base::TimeDelta unix_time_now = clock->Now() - base::Time::UnixEpoch();
-  base::TimeDelta time_since_origin = tick_clock->NowTicks().since_origin();
-  return unix_time_now - time_since_origin;
-}
-
 void RecordLongTaskUkm(ExecutionContext* execution_context,
                        base::TimeDelta start_time,
                        base::TimeDelta duration) {
@@ -173,8 +166,6 @@ Performance::Performance(
           task_runner_,
           this,
           &Performance::FireResourceTimingBufferFull) {
-  unix_at_zero_monotonic_ =
-      GetUnixAtZeroMonotonic(base::DefaultClock::GetInstance(), tick_clock_);
   // |context| may be null in tests.
   if (context) {
     background_tracing_helper_ =
@@ -218,11 +209,8 @@ ScriptPromise Performance::measureUserAgentSpecificMemory(
 
 DOMHighResTimeStamp Performance::timeOrigin() const {
   DCHECK(!time_origin_.is_null());
-  base::TimeDelta time_origin_from_zero_monotonic =
-      time_origin_ - base::TimeTicks();
-  return ClampTimeResolution(
-      unix_at_zero_monotonic_ + time_origin_from_zero_monotonic,
-      cross_origin_isolated_capability_);
+  return ClampTimeResolution(time_origin_ - base::TimeTicks::UnixEpoch(),
+                             cross_origin_isolated_capability_);
 }
 
 PerformanceEntryVector Performance::getEntries() {
@@ -513,13 +501,10 @@ void Performance::GenerateAndAddResourceTiming(
   const SecurityOrigin* security_origin = GetSecurityOrigin(context);
   if (!security_origin)
     return;
-  // |info| is taken const-ref but this can make destructive changes to
-  // WorkerTimingContainer on |info| when a page is controlled by a service
-  // worker.
   AddResourceTiming(
       GenerateResourceTiming(*security_origin, info, *context),
       !initiator_type.IsNull() ? initiator_type : info.InitiatorType(),
-      info.TakeWorkerTimingReceiver(), context);
+      context);
 }
 
 // Please keep this function in sync with ObjectNavigationFallbackBodyLoader's
@@ -590,18 +575,17 @@ mojom::blink::ResourceTimingInfoPtr Performance::GenerateResourceTiming(
                       WebFeature::kPerformanceServerTiming);
   }
 
+  result->render_blocking_status = info.RenderBlockingStatus();
+
   return result;
 }
 
-void Performance::AddResourceTiming(
-    mojom::blink::ResourceTimingInfoPtr info,
-    const AtomicString& initiator_type,
-    mojo::PendingReceiver<mojom::blink::WorkerTimingContainer>
-        worker_timing_receiver,
-    ExecutionContext* context) {
+void Performance::AddResourceTiming(mojom::blink::ResourceTimingInfoPtr info,
+                                    const AtomicString& initiator_type,
+                                    ExecutionContext* context) {
   auto* entry = MakeGarbageCollected<PerformanceResourceTiming>(
       *info, time_origin_, cross_origin_isolated_capability_, initiator_type,
-      std::move(worker_timing_receiver), context);
+      context);
   NotifyObserversOfEntry(*entry);
   // https://w3c.github.io/resource-timing/#dfn-add-a-performanceresourcetiming-entry
   if (CanAddResourceTimingEntry() &&
@@ -627,16 +611,13 @@ void Performance::AddResourceTimingWithUnparsedServerTiming(
     mojom::blink::ResourceTimingInfoPtr info,
     const String& server_timing_value,
     const AtomicString& initiator_type,
-    mojo::PendingReceiver<mojom::blink::WorkerTimingContainer>
-        worker_timing_receiver,
     ExecutionContext* context) {
   if (info->allow_timing_details) {
     info->server_timing =
         PerformanceServerTiming::ParseServerTimingFromHeaderValueToMojo(
             server_timing_value);
   }
-  AddResourceTiming(std::move(info), initiator_type,
-                    std::move(worker_timing_receiver), context);
+  AddResourceTiming(std::move(info), initiator_type, context);
 }
 
 // Called after loadEventEnd happens.
@@ -1152,11 +1133,8 @@ void Performance::Trace(Visitor* visitor) const {
   EventTargetWithInlineData::Trace(visitor);
 }
 
-void Performance::SetClocksForTesting(const base::Clock* clock,
-                                      const base::TickClock* tick_clock) {
+void Performance::SetTickClockForTesting(const base::TickClock* tick_clock) {
   tick_clock_ = tick_clock;
-  // Recompute |unix_at_zero_monotonic_|.
-  unix_at_zero_monotonic_ = GetUnixAtZeroMonotonic(clock, tick_clock_);
 }
 
 void Performance::ResetTimeOriginForTesting(base::TimeTicks time_origin) {

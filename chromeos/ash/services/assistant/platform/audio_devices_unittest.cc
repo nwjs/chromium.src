@@ -9,8 +9,8 @@
 #include "base/run_loop.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
-#include "chromeos/dbus/audio/fake_cras_audio_client.h"
-#include "chromeos/services/assistant/public/cpp/features.h"
+#include "chromeos/ash/components/dbus/audio/fake_cras_audio_client.h"
+#include "chromeos/ash/services/assistant/public/cpp/features.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -155,6 +155,16 @@ TEST_F(AssistantAudioDevicesTest, ShouldSendHotwordDeviceToObserver) {
   EXPECT_EQ("<none>", observer.preferred_device_id());
 }
 
+TEST_F(AssistantAudioDevicesTest, ShouldSendMicDeviceToObserver) {
+  FakeAudioDevicesObserver observer;
+  audio_devices().AddAndFireObserver(&observer);
+
+  UpdateDeviceList({DeviceBuilder(AudioDeviceType::kMic).WithId(221).Build()});
+
+  EXPECT_EQ("<none>", observer.hotword_device_id());
+  EXPECT_EQ("221", observer.preferred_device_id());
+}
+
 TEST_F(AssistantAudioDevicesTest, ShouldSendUsbDeviceToObserver) {
   FakeAudioDevicesObserver observer;
   audio_devices().AddAndFireObserver(&observer);
@@ -196,6 +206,28 @@ TEST_F(AssistantAudioDevicesTest, ShouldSendFrontMicDeviceToObserver) {
 
   EXPECT_EQ("<none>", observer.hotword_device_id());
   EXPECT_EQ("555", observer.preferred_device_id());
+}
+
+TEST_F(AssistantAudioDevicesTest, ShouldSendRearMicDeviceToObserver) {
+  FakeAudioDevicesObserver observer;
+  audio_devices().AddAndFireObserver(&observer);
+
+  UpdateDeviceList(
+      {DeviceBuilder(AudioDeviceType::kRearMic).WithId(666).Build()});
+
+  EXPECT_EQ("<none>", observer.hotword_device_id());
+  EXPECT_EQ("666", observer.preferred_device_id());
+}
+
+TEST_F(AssistantAudioDevicesTest, ShouldSendKeyboardMicDeviceToObserver) {
+  FakeAudioDevicesObserver observer;
+  audio_devices().AddAndFireObserver(&observer);
+
+  UpdateDeviceList(
+      {DeviceBuilder(AudioDeviceType::kKeyboardMic).WithId(777).Build()});
+
+  EXPECT_EQ("<none>", observer.hotword_device_id());
+  EXPECT_EQ("777", observer.preferred_device_id());
 }
 
 TEST_F(AssistantAudioDevicesTest, ShouldUseHighestPriorityHotwordDevice) {
@@ -290,8 +322,6 @@ TEST_F(AssistantAudioDevicesTest, ShouldIgnoreUnsupportedDeviceTypes) {
       DeviceBuilder(AudioDeviceType::kBluetoothNbMic).WithId(3).Build(),
       DeviceBuilder(AudioDeviceType::kHdmi).WithId(4).Build(),
       DeviceBuilder(AudioDeviceType::kInternalSpeaker).WithId(5).Build(),
-      DeviceBuilder(AudioDeviceType::kRearMic).WithId(6).Build(),
-      DeviceBuilder(AudioDeviceType::kKeyboardMic).WithId(7).Build(),
       DeviceBuilder(AudioDeviceType::kLineout).WithId(8).Build(),
       DeviceBuilder(AudioDeviceType::kPostMixLoopback).WithId(9).Build(),
       DeviceBuilder(AudioDeviceType::kPostDspLoopback).WithId(10).Build(),

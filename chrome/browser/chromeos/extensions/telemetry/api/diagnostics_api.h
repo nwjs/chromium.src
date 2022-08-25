@@ -5,9 +5,11 @@
 #ifndef CHROME_BROWSER_CHROMEOS_EXTENSIONS_TELEMETRY_API_DIAGNOSTICS_API_H_
 #define CHROME_BROWSER_CHROMEOS_EXTENSIONS_TELEMETRY_API_DIAGNOSTICS_API_H_
 
+#include <memory>
+
 #include "ash/webui/telemetry_extension_ui/mojom/diagnostics_service.mojom.h"
-#include "ash/webui/telemetry_extension_ui/services/diagnostics_service.h"
 #include "chrome/browser/chromeos/extensions/telemetry/api/base_telemetry_extension_api_guard_function.h"
+#include "chrome/browser/chromeos/extensions/telemetry/api/remote_diagnostics_service_strategy.h"
 #include "extensions/browser/extension_function.h"
 #include "extensions/browser/extension_function_histogram_value.h"
 #include "mojo/public/cpp/bindings/remote.h"
@@ -26,11 +28,11 @@ class DiagnosticsApiFunctionBase
  protected:
   ~DiagnosticsApiFunctionBase() override;
 
-  mojo::Remote<ash::health::mojom::DiagnosticsService>
-      remote_diagnostics_service_;
+  mojo::Remote<ash::health::mojom::DiagnosticsService>& GetRemoteService();
 
  private:
-  DiagnosticsService diagnostics_service_;
+  std::unique_ptr<RemoteDiagnosticsServiceStrategy>
+      remote_diagnostics_service_strategy_;
 };
 
 class OsDiagnosticsGetAvailableRoutinesFunction
@@ -89,6 +91,25 @@ class DiagnosticsApiRunRoutineFunctionBase : public DiagnosticsApiFunctionBase {
 
  protected:
   ~DiagnosticsApiRunRoutineFunctionBase() override;
+};
+
+class OsDiagnosticsRunAcPowerRoutineFunction
+    : public DiagnosticsApiRunRoutineFunctionBase {
+ public:
+  DECLARE_EXTENSION_FUNCTION("os.diagnostics.runAcPowerRoutine",
+                             OS_DIAGNOSTICS_RUNACPOWERROUTINE)
+
+  OsDiagnosticsRunAcPowerRoutineFunction();
+  OsDiagnosticsRunAcPowerRoutineFunction(
+      const OsDiagnosticsRunAcPowerRoutineFunction&) = delete;
+  OsDiagnosticsRunAcPowerRoutineFunction& operator=(
+      const OsDiagnosticsRunAcPowerRoutineFunction&) = delete;
+
+ private:
+  ~OsDiagnosticsRunAcPowerRoutineFunction() override;
+
+  // BaseTelemetryExtensionApiGuardFunction:
+  void RunIfAllowed() override;
 };
 
 class OsDiagnosticsRunBatteryCapacityRoutineFunction

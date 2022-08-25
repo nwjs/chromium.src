@@ -31,8 +31,10 @@ import json
 import time
 
 from blinkpy.common import exit_codes
+from blinkpy.common.memoized import memoized
 from blinkpy.common.system.crash_logs import CrashLogs
 from blinkpy.web_tests.models.test_configuration import TestConfiguration
+from blinkpy.web_tests.models.typ_types import FileSystemForwardingTypHost
 from blinkpy.web_tests.port.base import Port, VirtualTestSuite
 from blinkpy.web_tests.port.driver import DeviceFailure, Driver, DriverOutput
 from blinkpy.w3c.wpt_manifest import BASE_MANIFEST_NAME
@@ -753,17 +755,21 @@ class TestPort(Port):
                    max_pixels_diff=None):
         diffed = actual_contents != expected_contents
         if not actual_contents and not expected_contents:
-            return (None, None)
+            return (None, None, None)
         if not actual_contents or not expected_contents:
-            return (True, None)
+            return (True, None, None)
         if diffed:
             mock_diff = '\n'.join([
                 '< %s' % base64.b64encode(expected_contents).decode('utf-8'),
                 '---',
                 '> %s' % base64.b64encode(actual_contents).decode('utf-8'),
             ])
-            return (mock_diff, None)
-        return (None, None)
+            mock_stats = {
+                "maxDifference": 100,
+                "maxPixels": len(actual_contents)
+            }
+            return (mock_diff, mock_stats, None)
+        return (None, None, None)
 
     def web_tests_dir(self):
         return WEB_TEST_DIR
@@ -779,6 +785,10 @@ class TestPort(Port):
 
     def default_results_directory(self):
         return '/tmp'
+
+    @memoized
+    def typ_host(self):
+        return FileSystemForwardingTypHost(self._filesystem)
 
     def setup_test_run(self):
         pass

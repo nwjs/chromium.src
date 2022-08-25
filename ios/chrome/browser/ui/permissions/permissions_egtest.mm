@@ -16,6 +16,7 @@
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
 #import "ios/chrome/test/earl_grey/chrome_matchers.h"
 #import "ios/chrome/test/earl_grey/chrome_test_case.h"
+#import "ios/testing/earl_grey/disabled_test_macros.h"
 #import "ios/testing/earl_grey/earl_grey_test.h"
 #include "ios/web/common/features.h"
 #include "ios/web/public/permissions/permissions.h"
@@ -64,7 +65,7 @@ id<GREYMatcher> InfobarBannerEditButton() {
   return grey_accessibilityID(kInfobarBannerAcceptButtonIdentifier);
 }
 
-// Matcher for camera infobar badge with acceptance state |accepted|;
+// Matcher for camera infobar badge with acceptance state `accepted`;
 id<GREYMatcher> CameraBadge(BOOL accepted) {
   NSString* axid =
       accepted ? kBadgeButtonPermissionsCameraAcceptedAccessibilityIdentifier
@@ -72,7 +73,7 @@ id<GREYMatcher> CameraBadge(BOOL accepted) {
   return grey_accessibilityID(axid);
 }
 
-// Matcher for microphone infobar badge with acceptance state |accepted|;
+// Matcher for microphone infobar badge with acceptance state `accepted`;
 id<GREYMatcher> MicrophoneBadge(BOOL accepted) {
   NSString* axid =
       accepted
@@ -143,7 +144,7 @@ void TapDoneButtonOnInfobarModal() {
   [button tap];
 }
 
-// Checks that the visibility of the infobar matches |shouldShow|.
+// Checks that the visibility of the infobar matches `shouldShow`.
 - (void)waitUntilInfobarBannerVisibleOrTimeout:(BOOL)shouldShow {
   GREYCondition* infobarShown = [GREYCondition
       conditionWithName:@"Infobar shown"
@@ -167,7 +168,7 @@ void TapDoneButtonOnInfobarModal() {
   }
 }
 
-// Checks |expectedStatesForPermissions| matches the actual states for
+// Checks `expectedStatesForPermissions` matches the actual states for
 // permissions of the active web state; checks will fail if there is no active
 // web state.
 - (void)checkStatesForPermissions:
@@ -389,7 +390,7 @@ void TapDoneButtonOnInfobarModal() {
     [ChromeEarlGrey goBack];
 
     // Note: There's currently an existing WebKit bug that WKUIDelegate method
-    // |requestMediaCapturePermissionForOrigin:| would not be invoked when the
+    // `requestMediaCapturePermissionForOrigin:` would not be invoked when the
     // user hits backward/forward; therefore, the alert and banner would not
     // show again, and the checks for the alert and the infobar banner are
     // commented out. Once this issue is fixed, these checks should be
@@ -407,6 +408,10 @@ void TapDoneButtonOnInfobarModal() {
 // Tests that permissions stay the same after user switches to another tab then
 // comes back.
 - (void)testPermissionsAfterTabSwitch {
+  if (@available(iOS 16.0, *)) {
+    EARL_GREY_TEST_DISABLED(@"Fails on iOS 16");
+  }
+
   if (@available(iOS 15.0, *)) {
     GREYAssertTrue(self.testServer->Start(), @"Test server failed to start.");
     // Opens a page that requests both camera and microphone permissions, and

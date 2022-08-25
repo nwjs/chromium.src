@@ -200,8 +200,6 @@ _mdc_public_headers = [
   "src/components/FeatureHighlight/src/private/MDCFeatureHighlightDismissGestureRecognizer.h",
   "src/components/FeatureHighlight/src/private/MDCFeatureHighlightLayer.h",
   "src/components/FeatureHighlight/src/private/MDCFeatureHighlightView+Private.h",
-  "src/components/FlexibleHeader/src/CanAlwaysExpandToMaximumHeight/MDCFlexibleHeaderView+canAlwaysExpandToMaximumHeight.h",
-  "src/components/FlexibleHeader/src/CanAlwaysExpandToMaximumHeight/MaterialFlexibleHeader+CanAlwaysExpandToMaximumHeight.h",
   "src/components/FlexibleHeader/src/MDCFlexibleHeaderContainerViewController.h",
   "src/components/FlexibleHeader/src/MDCFlexibleHeaderSafeAreaDelegate.h",
   "src/components/FlexibleHeader/src/MDCFlexibleHeaderView+ShiftBehavior.h",
@@ -621,7 +619,6 @@ _mdc_include_dirs = [
   "src/components/FeatureHighlight/src/ColorThemer",
   "src/components/FeatureHighlight/src/private",
   "src/components/FlexibleHeader/src",
-  "src/components/FlexibleHeader/src/CanAlwaysExpandToMaximumHeight",
   "src/components/FlexibleHeader/src/ShiftBehavior",
   "src/components/FlexibleHeader/src/ShiftBehaviorEnabledWithStatusBar",
   "src/components/FlexibleHeader/src/private",
@@ -1021,8 +1018,6 @@ _mdc_sources = [
   "src/components/FeatureHighlight/src/private/MDCFeatureHighlightLayer.m",
   "src/components/FeatureHighlight/src/private/MDCFeatureHighlightView+Private.h",
   "src/components/FeatureHighlight/src/private/MDCFeatureHighlightView+Private.m",
-  "src/components/FlexibleHeader/src/CanAlwaysExpandToMaximumHeight/MDCFlexibleHeaderView+canAlwaysExpandToMaximumHeight.h",
-  "src/components/FlexibleHeader/src/CanAlwaysExpandToMaximumHeight/MaterialFlexibleHeader+CanAlwaysExpandToMaximumHeight.h",
   "src/components/FlexibleHeader/src/MDCFlexibleHeaderContainerViewController.h",
   "src/components/FlexibleHeader/src/MDCFlexibleHeaderContainerViewController.m",
   "src/components/FlexibleHeader/src/MDCFlexibleHeaderSafeAreaDelegate.h",
@@ -1584,11 +1579,12 @@ config("config") {
   include_dirs = _mdc_include_dirs
 }
 
-config("disable_deprecated_errors") {
-  cflags = [
-    "-Wno-deprecated",
-    "-Wno-deprecated-declarations",
-  ]
+config("disable_deprecated") {
+  cflags = [ "-Wno-deprecated" ]
+}
+
+config("disable_deprecated_declarations") {
+  cflags = [ "-Wno-deprecated-declarations" ]
 }
 
 # TODO(crbug.com/1153275): MDCTabBarViewItemView.h has incomplete nullability
@@ -1596,6 +1592,13 @@ config("disable_deprecated_errors") {
 # is fixed in MDC. Remove this once fixed.
 config("disable_nullability_completeness") {
   cflags = [ "-Wno-nullability-completeness" ]
+}
+
+# TODO(crbug.com/1339746): MDCNavigationBar.h has conflicting deprecation
+# specification, causing compilation to fail. Disable the warning until this
+# is fixed in MDC. Remove this once fixed.
+config("disable_availability") {
+  cflags = [ "-Wno-availability" ]
 }
 
 ios_framework_bundle("material_components_ios") {
@@ -1634,12 +1637,25 @@ ios_framework_bundle("material_components_ios") {
 
     # material_components_ios internally uses deprecated methods.
     # Disable the warning about deprecation usage.
-    ":disable_deprecated_errors",
+    ":disable_deprecated",
 
     # TODO(crbug.com/1153275): MDCTabBarViewItemView.h has incomplete
     # nullability specification, causing compilation to fail. Disable
     # the warning until this is fixed in MDC. Remove this once fixed.
     ":disable_nullability_completeness",
+
+    # TODO(crbug.com/1339746): MDCNavigationBar.h has conflicting deprecation
+    # specification, causing compilation to fail. Disable the warning until this
+    # is fixed in MDC. Remove this once fixed.
+    ":disable_availability",
+  ]
+
+  public_configs = [
+    # TODO(crbug.com/1344830): A number of components used by Chrome are
+    # marked deprecated in material_components_ios. Disable deprecation
+    # warnings as a temporary measure, until we remove all existing use in
+    # Chrome.
+    ":disable_deprecated_declarations",
   ]
 }
 

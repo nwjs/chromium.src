@@ -21,6 +21,7 @@
 #include "chrome/browser/ui/views/extensions/browser_action_drag_data.h"
 #include "chrome/browser/ui/views/extensions/extensions_menu_view.h"
 #include "chrome/browser/ui/views/extensions/extensions_request_access_button.h"
+#include "chrome/browser/ui/views/extensions/extensions_tabbed_menu_coordinator.h"
 #include "chrome/browser/ui/views/extensions/extensions_tabbed_menu_view.h"
 #include "chrome/browser/ui/views/extensions/extensions_toolbar_button.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -43,27 +44,6 @@ using ::ui::mojom::DragOperation;
 base::OnceClosure& GetOnVisibleCallbackForTesting() {
   static base::NoDestructor<base::OnceClosure> callback;
   return *callback;
-}
-
-// TODO(crbug.com/1279986): Remove ExtensionMenuView once tabbed menu is rolled
-// out.
-bool IsExtensionsMenuShowing() {
-  return base::FeatureList::IsEnabled(
-             extensions_features::kExtensionsMenuAccessControl)
-             ? ExtensionsTabbedMenuView::IsShowing()
-             : ExtensionsMenuView::IsShowing();
-}
-
-// Hides the currently-showing ExtensionsMenuView or ExtensionsTabbedMenuView,
-// if any exists.
-// TODO(crbug.com/1279986): Remove ExtensionMenuView once tabbed menu is rolled
-// out.
-void HideExtensionsMenu() {
-  if (base::FeatureList::IsEnabled(
-          extensions_features::kExtensionsMenuAccessControl))
-    ExtensionsTabbedMenuView::Hide();
-  else
-    ExtensionsMenuView::Hide();
 }
 
 }  // namespace
@@ -93,6 +73,14 @@ ExtensionsToolbarContainer::ExtensionsToolbarContainer(Browser* browser,
     : ToolbarIconContainerView(/*uses_highlight=*/true),
       browser_(browser),
       model_(ToolbarActionsModel::Get(browser_->profile())),
+      extensions_tabbed_menu_coordinator_(
+          base::FeatureList::IsEnabled(
+              extensions_features::kExtensionsMenuAccessControl)
+              ? std::make_unique<ExtensionsTabbedMenuCoordinator>(
+                    browser,
+                    this,
+                    CanShowIconInToolbar())
+              : nullptr),
       extensions_button_(
           base::FeatureList::IsEnabled(
               extensions_features::kExtensionsMenuAccessControl)
@@ -100,7 +88,8 @@ ExtensionsToolbarContainer::ExtensionsToolbarContainer(Browser* browser,
               : new ExtensionsToolbarButton(
                     browser,
                     this,
-                    ExtensionsToolbarButton::ButtonType::kExtensions)),
+                    ExtensionsToolbarButton::ButtonType::kExtensions,
+                    extensions_tabbed_menu_coordinator_.get())),
       extensions_controls_(
           base::FeatureList::IsEnabled(
               extensions_features::kExtensionsMenuAccessControl)
@@ -108,11 +97,13 @@ ExtensionsToolbarContainer::ExtensionsToolbarContainer(Browser* browser,
                     std::make_unique<ExtensionsToolbarButton>(
                         browser,
                         this,
-                        ExtensionsToolbarButton::ButtonType::kExtensions),
+                        ExtensionsToolbarButton::ButtonType::kExtensions,
+                        extensions_tabbed_menu_coordinator_.get()),
                     std::make_unique<ExtensionsToolbarButton>(
                         browser,
                         this,
-                        ExtensionsToolbarButton::ButtonType::kSiteAccess),
+                        ExtensionsToolbarButton::ButtonType::kSiteAccess,
+                        extensions_tabbed_menu_coordinator_.get()),
                     std::make_unique<ExtensionsRequestAccessButton>(browser_))
               : nullptr),
       display_mode_(display_mode) {
@@ -120,6 +111,8 @@ ExtensionsToolbarContainer::ExtensionsToolbarContainer(Browser* browser,
   SetVisible(false);
 
   model_observation_.Observe(model_.get());
+  permissions_manager_observation_.Observe(
+      extensions::PermissionsManager::Get(browser_->profile()));
 
   const views::FlexSpecification hide_icon_flex_specification =
       views::FlexSpecification(views::LayoutOrientation::kHorizontal,
@@ -224,6 +217,21 @@ ExtensionsToolbarContainer::GetAnchoredWidgetForExtensionForTesting(
                              return info.extension_id == extension_id;
                            });
   return iter == anchored_widgets_.end() ? nullptr : iter->widget.get();
+}
+
+bool ExtensionsToolbarContainer::IsExtensionsMenuShowing() const {
+  return base::FeatureList::IsEnabled(
+             extensions_features::kExtensionsMenuAccessControl)
+             ? extensions_tabbed_menu_coordinator_->IsShowing()
+             : ExtensionsMenuView::IsShowing();
+}
+
+void ExtensionsToolbarContainer::HideExtensionsMenu() {
+  if (base::FeatureList::IsEnabled(
+          extensions_features::kExtensionsMenuAccessControl))
+    extensions_tabbed_menu_coordinator_->Hide();
+  else
+    ExtensionsMenuView::Hide();
 }
 
 bool ExtensionsToolbarContainer::ShouldForceVisibility(
@@ -534,6 +542,11 @@ void ExtensionsToolbarContainer::OnToolbarPinnedActionsChanged() {
   ReorderViews();
 
   drop_weak_ptr_factory_.InvalidateWeakPtrs();
+}
+
+void ExtensionsToolbarContainer::OnUserPermissionsSettingsChanged(
+    const extensions::PermissionsManager::UserPermissionsSettings& settings) {
+  UpdateControlsVisibility();
 }
 
 void ExtensionsToolbarContainer::ReorderViews() {
@@ -864,17 +877,14 @@ void ExtensionsToolbarContainer::UpdateControlsVisibility() {
     return;
 
   content::WebContents* web_contents = GetCurrentWebContents();
+  if (!web_contents)
+    return;
 
-  extensions_controls_->UpdateSiteAccessButtonVisibility(
-      ExtensionActionViewController::AnyActionHasCurrentSiteAccess(
-          actions_, web_contents));
-
-  std::vector<ToolbarActionViewController*> extensions_requesting_access;
-  for (const auto& action : actions_) {
-    if (action->IsRequestingSiteAccess(web_contents))
-      extensions_requesting_access.push_back(action.get());
-  }
-  extensions_controls_->UpdateRequestAccessButton(extensions_requesting_access);
+  extensions::PermissionsManager::UserSiteSetting site_setting =
+      extensions::PermissionsManager::Get(browser_->profile())
+          ->GetUserSiteSetting(
+              web_contents->GetPrimaryMainFrame()->GetLastCommittedOrigin());
+  extensions_controls_->UpdateControls(actions_, site_setting, web_contents);
 }
 
 BEGIN_METADATA(ExtensionsToolbarContainer, ToolbarIconContainerView)

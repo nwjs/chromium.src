@@ -133,11 +133,11 @@ suite('cr_fingerprint_progress_arc_test', function() {
     // top of the circle (3pi/2 rad). In the verification step, a test case
     // checks the colors drawn at angles 7pi/4, pi/4, 3pi/4, and 5pi/4 rad
     // (respectively 12.5%, 37.5%, 62.5%, and 87.5% progress completed).
-    static progressCheckPoints: [Point, number][] = [
+    static progressCheckPoints: Array<[Point, number]> = [
       [{x: 185, y: 40} /**  7pi/4 rad */, 12.5],
       [{x: 185, y: 110} /**  pi/4 rad */, 37.5],
       [{x: 115, y: 110} /** 3pi/4 rad */, 62.5],
-      [{x: 115, y: 40} /**  5pi/4 rad */, 87.5]
+      [{x: 115, y: 40} /**  5pi/4 rad */, 87.5],
     ];
 
     // |setProgress()| arguments.
@@ -211,14 +211,14 @@ suite('cr_fingerprint_progress_arc_test', function() {
       new SetProgressTestCase(0, 0, false),
       // Verify that progress is drawn starting from the top of the circle
       // (3pi/2 rad) and moving clockwise.
-      new SetProgressTestCase(0, 40, false)
+      new SetProgressTestCase(0, 40, false),
     ];
 
     const darkModeTestCases = [
       // Verify that the progress drawn includes progress made previously.
       new SetProgressTestCase(40, 80, false),
       // Verify that progress past 100% gets capped rather than wrapping around.
-      new SetProgressTestCase(80, 160, false)
+      new SetProgressTestCase(80, 160, false),
     ];
 
     // Verify that if the enrollment is complete, maximum progress is drawn.

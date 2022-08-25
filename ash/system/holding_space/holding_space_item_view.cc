@@ -12,6 +12,7 @@
 #include "ash/public/cpp/shelf_config.h"
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "ash/style/ash_color_provider.h"
+#include "ash/style/dark_light_mode_controller_impl.h"
 #include "ash/system/holding_space/holding_space_util.h"
 #include "ash/system/holding_space/holding_space_view_delegate.h"
 #include "base/bind.h"
@@ -133,7 +134,15 @@ HoldingSpaceItemView::HoldingSpaceItemView(HoldingSpaceViewDelegate* delegate,
 
   // Accessibility.
   GetViewAccessibility().OverrideName(item->GetAccessibleName());
-  GetViewAccessibility().OverrideDescription(base::EmptyString16());
+
+  // When the description is not specified, tooltip text will be used.
+  // That text is redundant to the name, but different enough that it is
+  // still exposed to assistive technologies which may then present both.
+  // To avoid that redundant presentation, set the description explicitly
+  // to the empty string. See crrev.com/c/3218112.
+  GetViewAccessibility().OverrideDescription(
+      std::u16string(), ax::mojom::DescriptionFrom::kAttributeExplicitlyEmpty);
+
   GetViewAccessibility().OverrideRole(ax::mojom::Role::kListItem);
 
   // Layer.
@@ -267,8 +276,9 @@ void HoldingSpaceItemView::OnThemeChanged() {
       kCheckmarkBackgroundSize));
   checkmark_->SetImage(gfx::CreateVectorIcon(
       kCheckIcon, kHoldingSpaceIconSize,
-      ash_color_provider->IsDarkModeEnabled() ? gfx::kGoogleGrey900
-                                              : SK_ColorWHITE));
+      DarkLightModeControllerImpl::Get()->IsDarkModeEnabled()
+          ? gfx::kGoogleGrey900
+          : SK_ColorWHITE));
 
   // Focused/selected layers.
   InvalidateLayer(focused_layer_owner_->layer());

@@ -6,15 +6,15 @@
 
 #include "third_party/blink/public/mojom/frame/pending_beacon.mojom-blink.h"
 #include "third_party/blink/public/platform/task_type.h"
+#include "third_party/blink/public/platform/web_url_request_util.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_beacon_options.h"
-#include "third_party/blink/renderer/bindings/core/v8/v8_beacon_state.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_arraybuffer_arraybufferview_blob_formdata_readablestream_urlsearchparams_usvstring.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
-#include "third_party/blink/renderer/core/html/forms/form_data.h"
-#include "third_party/blink/renderer/core/url/url_search_params.h"
+#include "third_party/blink/renderer/core/loader/beacon_data.h"
+#include "third_party/blink/renderer/platform/exported/wrapped_resource_request.h"
+#include "third_party/blink/renderer/platform/loader/fetch/resource_request.h"
 #include "third_party/blink/renderer/platform/network/encoded_form_data.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
-#include "third_party/blink/renderer/platform/wtf/functional.h"
 
 namespace blink {
 
@@ -67,21 +67,12 @@ PendingBeacon* PendingBeacon::Create(ExecutionContext* ec,
 PendingBeacon* PendingBeacon::Create(ExecutionContext* ec,
                                      const String& targetURL,
                                      BeaconOptions* options) {
-  PendingBeacon* beacon = MakeGarbageCollected<PendingBeacon>(ec);
-  beacon->url_ = targetURL;
-  beacon->state_ = V8BeaconState(V8BeaconState::Enum::kPending);
-  beacon->method_ = options->method();
-  if (options->hasPageHideTimeout()) {
-    beacon->page_hide_timeout_ = options->pageHideTimeout();
-  }
+  PendingBeacon* beacon = MakeGarbageCollected<PendingBeacon>(
+      ec, targetURL, options->method(), options->pageHideTimeout());
   mojom::blink::BeaconMethod method;
-  if (options->method() == V8BeaconMethod::Enum::kPOST) {
-    method = mojom::blink::BeaconMethod::kPost;
-  } else if (options->method() == V8BeaconMethod::Enum::kGET) {
+  if (options->method() == V8BeaconMethod::Enum::kGET) {
     method = mojom::blink::BeaconMethod::kGet;
   } else {
-    // TODO(crbug.com/1293679):Throw an exception for invalid method here. For
-    // now fallback to post.
     method = mojom::blink::BeaconMethod::kPost;
   }
 
@@ -102,60 +93,82 @@ PendingBeacon* PendingBeacon::Create(ExecutionContext* ec,
   return beacon;
 }
 
-PendingBeacon::PendingBeacon(ExecutionContext* ec) : remote_(ec) {}
+PendingBeacon::PendingBeacon(ExecutionContext* context,
+                             String url,
+                             String method,
+                             int32_t page_hide_timeout)
+    : remote_(context),
+      url_(url),
+      method_(method),
+      page_hide_timeout_(page_hide_timeout) {}
 
 void PendingBeacon::Trace(Visitor* visitor) const {
   ScriptWrappable::Trace(visitor);
   visitor->Trace(remote_);
 }
 
-void PendingBeacon::setUrl(const String& url) {
-  url_ = url;
-}
-
-void PendingBeacon::setMethod(const String& method) {
-  method_ = method;
-}
-
-void PendingBeacon::setPageHideTimeout(int32_t pageHideTimeout) {
-  page_hide_timeout_ = pageHideTimeout;
-}
-
 void PendingBeacon::setData(
     const V8UnionReadableStreamOrXMLHttpRequestBodyInit* data) {
+  if (method_ == http_names::kGET) {
+    // TODO(crbug.com/1293679): Throw errors.
+    return;
+  }
+  using ContentType =
+      V8UnionReadableStreamOrXMLHttpRequestBodyInit::ContentType;
   switch (data->GetContentType()) {
-    case V8UnionReadableStreamOrXMLHttpRequestBodyInit::ContentType::
-        kUSVString: {
-      auto string_data = data->GetAsUSVString();
-      remote_->SetData(string_data);
+    case ContentType::kUSVString: {
+      SetDataInternal(BeaconString(data->GetAsUSVString()));
       return;
     }
-    case V8UnionReadableStreamOrXMLHttpRequestBodyInit::ContentType::
-        kArrayBuffer:
-    case V8UnionReadableStreamOrXMLHttpRequestBodyInit::ContentType::
-        kArrayBufferView:
-    case V8UnionReadableStreamOrXMLHttpRequestBodyInit::ContentType::kFormData:
-    case V8UnionReadableStreamOrXMLHttpRequestBodyInit::ContentType::
-        kURLSearchParams:
-    case V8UnionReadableStreamOrXMLHttpRequestBodyInit::ContentType::kBlob:
-    case V8UnionReadableStreamOrXMLHttpRequestBodyInit::ContentType::
-        kReadableStream: {
+    case ContentType::kArrayBuffer: {
+      SetDataInternal(BeaconDOMArrayBuffer(data->GetAsArrayBuffer()));
+      return;
+    }
+    case ContentType::kArrayBufferView: {
+      SetDataInternal(
+          BeaconDOMArrayBufferView(data->GetAsArrayBufferView().Get()));
+      return;
+    }
+    case ContentType::kFormData: {
+      SetDataInternal(BeaconFormData(data->GetAsFormData()));
+      return;
+    }
+    case ContentType::kURLSearchParams: {
+      SetDataInternal(BeaconURLSearchParams(data->GetAsURLSearchParams()));
+      return;
+    }
+    case ContentType::kBlob:
+      // TODO(crbug.com/1293679): Decide whether to support blob/file.
+    case ContentType::kReadableStream: {
+      // TODO(crbug.com/1293679): Throw errors.
+      break;
     }
   }
   NOTIMPLEMENTED();
 }
 
 void PendingBeacon::deactivate() {
-  state_ = V8BeaconState(V8BeaconState::Enum::kDeactivated);
   remote_->Deactivate();
 }
 
 void PendingBeacon::sendNow() {
-  if (state_ ==
-      static_cast<WTF::String>(V8BeaconState(V8BeaconState::Enum::kPending))) {
+  if (is_pending_) {
     remote_->SendNow();
+    is_pending_ = false;
   }
-  state_ = V8BeaconState(V8BeaconState::Enum::kSent);
+}
+
+void PendingBeacon::SetDataInternal(const BeaconData& data) {
+  ResourceRequest request;
+
+  data.Serialize(request);
+  // `WrappedResourceRequest` only works for POST request.
+  request.SetHttpMethod(http_names::kPOST);
+  scoped_refptr<network::ResourceRequestBody> request_body =
+      GetRequestBodyForWebURLRequest(WrappedResourceRequest(request));
+  AtomicString content_type = request.HttpContentType();
+  remote_->SetRequestData(std::move(request_body),
+                          content_type.IsNull() ? "" : content_type);
 }
 
 }  // namespace blink

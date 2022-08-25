@@ -8,9 +8,7 @@
 #include "ash/components/disks/mock_disk_mount_manager.h"
 #include "base/bind.h"
 #include "base/callback_helpers.h"
-#include "base/memory/ptr_util.h"
 #include "base/run_loop.h"
-#include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/task_environment.h"
 #include "chrome/browser/ash/crostini/ansible/ansible_management_test_helper.h"
@@ -23,6 +21,7 @@
 #include "chrome/test/base/scoped_testing_local_state.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
+#include "chromeos/ash/components/dbus/chunneld/chunneld_client.h"
 #include "chromeos/ash/components/dbus/cicerone/cicerone_client.h"
 #include "chromeos/ash/components/dbus/cicerone/fake_cicerone_client.h"
 #include "chromeos/ash/components/dbus/concierge/concierge_client.h"
@@ -30,6 +29,7 @@
 #include "chromeos/ash/components/dbus/concierge/fake_concierge_client.h"
 #include "chromeos/ash/components/dbus/seneschal/seneschal_client.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
+#include "chromeos/dbus/debug_daemon/debug_daemon_client.h"
 #include "chromeos/dbus/dlcservice/dlcservice_client.h"
 #include "content/public/test/browser_task_environment.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -118,7 +118,9 @@ class CrostiniInstallerTest : public testing::Test {
 
     chromeos::DlcserviceClient::InitializeFake();
     chromeos::DBusThreadManager::Initialize();
+    ash::ChunneldClient::InitializeFake();
     ash::CiceroneClient::InitializeFake();
+    chromeos::DebugDaemonClient::InitializeFake();
     SetOSRelease();
     waiting_fake_concierge_client_ =
         new WaitingFakeConciergeClient(ash::FakeCiceroneClient::Get());
@@ -153,8 +155,10 @@ class CrostiniInstallerTest : public testing::Test {
 
     ash::disks::MockDiskMountManager::Shutdown();
     ash::SeneschalClient::Shutdown();
+    chromeos::DebugDaemonClient::Shutdown();
     ash::ConciergeClient::Shutdown();
     ash::CiceroneClient::Shutdown();
+    ash::ChunneldClient::Shutdown();
     chromeos::DBusThreadManager::Shutdown();
     chromeos::DlcserviceClient::Shutdown();
 

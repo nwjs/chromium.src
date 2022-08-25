@@ -57,9 +57,6 @@ protocol::Response PageHandler::Enable() {
 
 protocol::Response PageHandler::Disable() {
   enabled_ = false;
-  // TODO(bokan): This is inadvertently called from a FencedFrame as it has a
-  // PageHandler that gets destroyed when the main frame is refreshed.
-  // ToggleAdBlocking should be a no-op for non-primary pages.
   ToggleAdBlocking(false /* enable */);
   SetSPCTransactionMode(protocol::Page::SetSPCTransactionMode::ModeEnum::None);
   // Do not mark the command as handled. Let it fall through instead, so that
@@ -222,8 +219,8 @@ void PageHandler::PrintToPDF(protocol::Maybe<bool> landscape,
       transfer_mode.fromMaybe("") ==
       protocol::Page::PrintToPDF::TransferModeEnum::ReturnAsStream;
 
-  if (auto* print_manager =
-          print_to_pdf::PdfPrintManager::FromWebContents(web_contents_.get())) {
+  if (auto* print_manager = headless::HeadlessPrintManager::FromWebContents(
+          web_contents_.get())) {
     print_manager->PrintToPdf(
         web_contents_->GetPrimaryMainFrame(), page_ranges.fromMaybe(""),
         std::move(absl::get<printing::mojom::PrintPagesParamsPtr>(
@@ -277,14 +274,13 @@ void PageHandler::OnDidGetManifest(std::unique_ptr<GetAppIdCallback> callback,
 }
 
 #if BUILDFLAG(ENABLE_PRINTING)
-void PageHandler::OnPDFCreated(
-    bool return_as_stream,
-    std::unique_ptr<PrintToPDFCallback> callback,
-    print_to_pdf::PdfPrintManager::PrintResult print_result,
-    scoped_refptr<base::RefCountedMemory> data) {
-  if (print_result != print_to_pdf::PdfPrintManager::PRINT_SUCCESS) {
+void PageHandler::OnPDFCreated(bool return_as_stream,
+                               std::unique_ptr<PrintToPDFCallback> callback,
+                               print_to_pdf::PdfPrintResult print_result,
+                               scoped_refptr<base::RefCountedMemory> data) {
+  if (print_result != print_to_pdf::PdfPrintResult::PRINT_SUCCESS) {
     callback->sendFailure(protocol::Response::ServerError(
-        print_to_pdf::PdfPrintManager::PrintResultToString(print_result)));
+        print_to_pdf::PdfPrintResultToString(print_result)));
     return;
   }
 

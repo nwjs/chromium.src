@@ -395,7 +395,7 @@ void AuctionRunner::Auction::ClosePipes() {
 }
 
 void AuctionRunner::Auction::GetInterestGroupsThatBid(
-    InterestGroupSet& interest_groups) const {
+    blink::InterestGroupSet& interest_groups) const {
   if (!all_bids_scored_)
     return;
 
@@ -602,56 +602,78 @@ AuctionRunner::ScoredBid* AuctionRunner::Auction::top_bid() {
 void AuctionRunner::Auction::OnInterestGroupRead(
     std::vector<StorageInterestGroup> interest_groups) {
   ++num_owners_loaded_;
-  if (!interest_groups.empty()) {
-    size_t size_limit = config_->non_shared_params.all_buyers_group_limit;
-    const url::Origin& owner = interest_groups[0].interest_group.owner;
-    post_auction_update_owners_.push_back(owner);
-    const auto limit_iter =
-        config_->non_shared_params.per_buyer_group_limits.find(owner);
-    if (limit_iter !=
-        config_->non_shared_params.per_buyer_group_limits.cend()) {
-      size_limit = static_cast<size_t>(limit_iter->second);
+  if (interest_groups.empty()) {
+    OnOneLoadCompleted();
+    return;
+  }
+  const url::Origin& owner = interest_groups[0].interest_group.owner;
+  post_auction_update_owners_.push_back(owner);
+  for (const auto& bidder : interest_groups) {
+    // Report freshness metrics.
+    if (bidder.interest_group.daily_update_url.has_value()) {
+      UMA_HISTOGRAM_CUSTOM_COUNTS(
+          "Ads.InterestGroup.Auction.GroupFreshness.WithDailyUpdates",
+          (base::Time::Now() - bidder.last_updated).InMinutes(),
+          kGroupFreshnessMin.InMinutes(), kGroupFreshnessMax.InMinutes(),
+          kGroupFreshnessBuckets);
+    } else {
+      UMA_HISTOGRAM_CUSTOM_COUNTS(
+          "Ads.InterestGroup.Auction.GroupFreshness.NoDailyUpdates",
+          (base::Time::Now() - bidder.last_updated).InMinutes(),
+          kGroupFreshnessMin.InMinutes(), kGroupFreshnessMax.InMinutes(),
+          kGroupFreshnessBuckets);
     }
-    StorageInterestGroupDescByPriority cmp;
-    std::sort(interest_groups.begin(), interest_groups.end(), cmp);
-    // Randomize order of interest groups with lowest allowed priority. This
-    // effectively performs a random sample among interest groups with the same
-    // priority.
-    double min_priority =
-        interest_groups.back().interest_group.priority.value();
-    auto rand_begin = std::lower_bound(
-        interest_groups.begin(), interest_groups.end(), min_priority, cmp);
-    auto rand_end =
-        std::upper_bound(rand_begin, interest_groups.end(), min_priority, cmp);
-    base::RandomShuffle(rand_begin, rand_end);
-    interest_groups.resize(std::min(interest_groups.size(), size_limit));
+  }
 
-    for (auto& bidder : interest_groups) {
-      // Report freshness metrics.
-      if (bidder.interest_group.daily_update_url.has_value()) {
-        UMA_HISTOGRAM_CUSTOM_COUNTS(
-            "Ads.InterestGroup.Auction.GroupFreshness.WithDailyUpdates",
-            (base::Time::Now() - bidder.last_updated).InMinutes(),
-            kGroupFreshnessMin.InMinutes(), kGroupFreshnessMax.InMinutes(),
-            kGroupFreshnessBuckets);
-      } else {
-        UMA_HISTOGRAM_CUSTOM_COUNTS(
-            "Ads.InterestGroup.Auction.GroupFreshness.NoDailyUpdates",
-            (base::Time::Now() - bidder.last_updated).InMinutes(),
-            kGroupFreshnessMin.InMinutes(), kGroupFreshnessMax.InMinutes(),
-            kGroupFreshnessBuckets);
-      }
+  // Ignore interest groups with no bidding script or no ads.
+  interest_groups.erase(
+      std::remove_if(interest_groups.begin(), interest_groups.end(),
+                     [](const StorageInterestGroup& bidder) {
+                       return !bidder.interest_group.bidding_url ||
+                              bidder.interest_group.ads->empty();
+                     }),
+      interest_groups.end());
 
-      // Ignore interest groups with no bidding script or no ads.
-      if (!bidder.interest_group.bidding_url)
-        continue;
-      if (bidder.interest_group.ads->empty())
-        continue;
-      bidder.interest_group.priority.reset();
-      bid_states_.emplace_back(BidState());
-      bid_states_.back().bidder = std::move(bidder);
-    }
-    ++num_owners_with_interest_groups_;
+  // If there are no interest groups with both a bidding script and ads, nothing
+  // else to do.
+  if (interest_groups.empty()) {
+    OnOneLoadCompleted();
+    return;
+  }
+
+  // Only count owners with interest groups theoretically capable of making
+  // bids as participating in this auction.
+  ++num_owners_with_interest_groups_;
+
+  size_t size_limit = config_->non_shared_params.all_buyers_group_limit;
+  const auto limit_iter =
+      config_->non_shared_params.per_buyer_group_limits.find(owner);
+  if (limit_iter != config_->non_shared_params.per_buyer_group_limits.cend()) {
+    size_limit = static_cast<size_t>(limit_iter->second);
+  }
+  size_limit = std::min(interest_groups.size(), size_limit);
+  if (size_limit == 0) {
+    OnOneLoadCompleted();
+    return;
+  }
+
+  StorageInterestGroupDescByPriority cmp;
+  std::sort(interest_groups.begin(), interest_groups.end(), cmp);
+  // Randomize order of interest groups with lowest allowed priority. This
+  // effectively performs a random sample among interest groups with the same
+  // priority.
+  double min_priority = interest_groups[size_limit - 1].interest_group.priority;
+  auto rand_begin = std::lower_bound(interest_groups.begin(),
+                                     interest_groups.end(), min_priority, cmp);
+  auto rand_end =
+      std::upper_bound(rand_begin, interest_groups.end(), min_priority, cmp);
+  base::RandomShuffle(rand_begin, rand_end);
+  interest_groups.resize(size_limit);
+
+  // Set up remaining interest groups to generate bids.
+  for (auto& bidder : interest_groups) {
+    bid_states_.emplace_back();
+    bid_states_.back().bidder = std::move(bidder);
   }
   OnOneLoadCompleted();
 }
@@ -914,7 +936,8 @@ void AuctionRunner::Auction::OnGenerateBidComplete(
 
   if (has_set_priority) {
     interest_group_manager_->SetInterestGroupPriority(
-        state->bidder.interest_group.owner, state->bidder.interest_group.name,
+        blink::InterestGroupKey(state->bidder.interest_group.owner,
+                                state->bidder.interest_group.name),
         set_priority);
   }
 
@@ -1104,7 +1127,10 @@ void AuctionRunner::Auction::OnBidScored(
     // If there's no previous top bidder, or the bidder has the highest score,
     // need to replace the previous top bidder.
     is_top_bid = true;
-    OnNewTopBid();
+    if (top_bid_) {
+      OnNewHighestScoringOtherBid(top_bid_->score, top_bid_->bid->bid,
+                                  &top_bid_->bid->interest_group->owner);
+    }
     num_top_bids_ = 1;
     at_most_one_top_bid_owner_ = true;
   } else if (score == top_bid_->score) {
@@ -1114,11 +1140,20 @@ void AuctionRunner::Auction::OnBidScored(
     ++num_top_bids_;
     if (1 == base::RandInt(1, num_top_bids_))
       is_top_bid = true;
-    OnTopBidTie(score, bid->bid, owner, is_top_bid);
+    if (owner != top_bid_->bid->interest_group->owner)
+      at_most_one_top_bid_owner_ = false;
+    // If the top bid is being replaced, need to add the old top bid as a second
+    // highest bid. Otherwise, need to add the current bid as a second highest
+    // bid.
+    double new_highest_scoring_other_bid =
+        is_top_bid ? top_bid_->bid->bid : bid->bid;
+    OnNewHighestScoringOtherBid(
+        score, new_highest_scoring_other_bid,
+        at_most_one_top_bid_owner_ ? &bid->interest_group->owner : nullptr);
   } else if (score >= second_highest_score_) {
     // Also use this bid (the most recent one) as highest scoring other bid if
     // there's a tie for second highest score.
-    OnNewHighestScoringOtherBid(score, bid->bid, owner);
+    OnNewHighestScoringOtherBid(score, bid->bid, &owner);
   }
 
   if (is_top_bid) {
@@ -1130,61 +1165,32 @@ void AuctionRunner::Auction::OnBidScored(
   MaybeCompleteBiddingAndScoringPhase();
 }
 
-void AuctionRunner::Auction::OnTopBidTie(double score,
-                                         double bid_value,
-                                         const url::Origin& owner,
-                                         bool is_top_bid) {
-  // If there's a tie for top bid, the highest score is second highest score
-  // as well.
-  second_highest_score_ = score;
-  num_second_highest_bids_ = num_top_bids_;
-  if (owner != top_bid_->bid->interest_group->owner) {
-    at_most_one_top_bid_owner_ = false;
-    at_most_one_second_highest_scoring_bids_owner_ = false;
-  }
-  if (is_top_bid) {
-    OnNewTopBid();
-  } else {
-    // Current (the most recent) bid becomes highest scoring other bid.
-    highest_scoring_other_bid_ = bid_value;
-    highest_scoring_other_bid_owner_ = owner;
-  }
-}
-
-void AuctionRunner::Auction::OnNewTopBid() {
-  if (top_bid_) {
-    // Previous top bid becomes highest scoring other bid.
-    highest_scoring_other_bid_ = top_bid_->bid->bid;
-    second_highest_score_ = top_bid_->score;
-    num_second_highest_bids_ = num_top_bids_;
-    highest_scoring_other_bid_owner_ = top_bid_->bid->interest_group->owner;
-    at_most_one_second_highest_scoring_bids_owner_ = at_most_one_top_bid_owner_;
-  }
-}
-
 void AuctionRunner::Auction::OnNewHighestScoringOtherBid(
     double score,
     double bid_value,
-    const url::Origin& owner) {
+    const url::Origin* owner) {
   // Current (the most recent) bid becomes highest scoring other bid.
   if (score > second_highest_score_) {
     highest_scoring_other_bid_ = bid_value;
-    at_most_one_second_highest_scoring_bids_owner_ = true;
     num_second_highest_bids_ = 1;
-    highest_scoring_other_bid_owner_ = owner;
-  } else {
-    // score == second_highest_score_
-    DCHECK(highest_scoring_other_bid_owner_.has_value());
-    if (owner != highest_scoring_other_bid_owner_.value())
-      at_most_one_second_highest_scoring_bids_owner_ = false;
-    // In case of a tie, randomly decide which to pick.
-    ++num_second_highest_bids_;
-    if (1 == base::RandInt(1, num_second_highest_bids_)) {
-      highest_scoring_other_bid_owner_ = owner;
-      highest_scoring_other_bid_ = bid_value;
+    // Owner may be false if this is one of the bids tied for first place.
+    if (!owner) {
+      highest_scoring_other_bid_owner_.reset();
+    } else {
+      highest_scoring_other_bid_owner_ = *owner;
     }
+    second_highest_score_ = score;
+    return;
   }
-  second_highest_score_ = score;
+
+  DCHECK_EQ(score, second_highest_score_);
+  if (!owner || *owner != highest_scoring_other_bid_owner_)
+    highest_scoring_other_bid_owner_.reset();
+  ++num_second_highest_bids_;
+  // In case of a tie, randomly pick one. This is the select random value from a
+  // stream with fixed storage problem.
+  if (1 == base::RandInt(1, num_second_highest_bids_))
+    highest_scoring_other_bid_ = bid_value;
 }
 
 absl::optional<std::string> AuctionRunner::Auction::PerBuyerSignals(
@@ -1258,11 +1264,6 @@ void AuctionRunner::Auction::OnBiddingAndScoringComplete(
 
   TRACE_EVENT_NESTABLE_ASYNC_END0("fledge", "bidding_and_scoring_phase",
                                   trace_id_);
-
-  // `highest_scoring_other_bid_owner_` is set to null if there are more
-  // than one interest groups having bids getting the second highest score.
-  if (!at_most_one_second_highest_scoring_bids_owner_)
-    highest_scoring_other_bid_owner_.reset();
 
   errors_.insert(errors_.end(), errors.begin(), errors.end());
 
@@ -1755,12 +1756,9 @@ void AuctionRunner::OnLoadInterestGroupsComplete(bool success) {
 }
 
 void AuctionRunner::OnBidsGeneratedAndScored(bool success) {
-  InterestGroupSet interest_groups_that_bid;
+  blink::InterestGroupSet interest_groups_that_bid;
   auction_.GetInterestGroupsThatBid(interest_groups_that_bid);
-  for (const auto& interest_group : interest_groups_that_bid) {
-    interest_group_manager_->RecordInterestGroupBid(interest_group.owner,
-                                                    interest_group.name);
-  }
+  interest_group_manager_->RecordInterestGroupBids(interest_groups_that_bid);
   if (!success) {
     FailAuction();
     return;
@@ -1793,18 +1791,18 @@ void AuctionRunner::OnReportingPhaseComplete(bool success) {
                            auction_.top_bid()->bid->render_url.spec().c_str());
   }
 
-  interest_group_manager_->RecordInterestGroupWin(
-      auction_.top_bid()->bid->interest_group->owner,
-      auction_.top_bid()->bid->interest_group->name, ad_metadata);
+  DCHECK(auction_.top_bid()->bid->interest_group);
+  const blink::InterestGroup& winning_group =
+      *auction_.top_bid()->bid->interest_group;
+  blink::InterestGroupKey winning_group_key(
+      {winning_group.owner, winning_group.name});
+
+  interest_group_manager_->RecordInterestGroupWin(winning_group_key,
+                                                  ad_metadata);
 
   std::vector<GURL> debug_win_report_urls;
   std::vector<GURL> debug_loss_report_urls;
   auction_.TakeDebugReportUrls(debug_win_report_urls, debug_loss_report_urls);
-
-  DCHECK(auction_.top_bid()->bid->interest_group);
-  const blink::InterestGroup& winning_group =
-      *auction_.top_bid()->bid->interest_group;
-  InterestGroupKey winning_group_key({winning_group.owner, winning_group.name});
 
   UpdateInterestGroupsPostAuction();
 

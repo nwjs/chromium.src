@@ -10,15 +10,14 @@ import 'chrome://settings/lazy_load.js';
 import {isChromeOS, isLacros, webUIListenerCallback} from 'chrome://resources/js/cr.m.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.m.js';
 import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
-import {CrDialogElement, PasswordsSectionElement} from 'chrome://settings/lazy_load.js';
-import {buildRouter, HatsBrowserProxyImpl, MultiStoreExceptionEntry, MultiStorePasswordUiEntry, PasswordCheckReferrer, PasswordManagerImpl, Router, routes, SettingsPluralStringProxyImpl,StatusAction, TrustedVaultBannerState, TrustSafetyInteraction} from 'chrome://settings/settings.js';
+import {PasswordsSectionElement} from 'chrome://settings/lazy_load.js';
+import {buildRouter, HatsBrowserProxyImpl, MultiStorePasswordUiEntry, PasswordCheckReferrer, PasswordManagerImpl, Router, routes, SettingsPluralStringProxyImpl,StatusAction, TrustedVaultBannerState, TrustSafetyInteraction} from 'chrome://settings/settings.js';
 import {SettingsRoutes} from 'chrome://settings/settings_routes.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {TestPluralStringProxy} from 'chrome://webui-test/test_plural_string_proxy.js';
 import {eventToPromise, flushTasks, isVisible} from 'chrome://webui-test/test_util.js';
 
-import {createExceptionEntry, createMultiStoreExceptionEntry, createMultiStorePasswordEntry, createPasswordEntry, makeCompromisedCredential, makePasswordCheckStatus, PasswordSectionElementFactory} from './passwords_and_autofill_fake_data.js';
-import {runCancelExportTest, runExportFlowErrorRetryTest, runExportFlowErrorTest, runExportFlowFastTest, runExportFlowSlowTest, runFireCloseEventAfterExportCompleteTest,runStartExportTest} from './passwords_export_test.js';
+import {createExceptionEntry, createPasswordEntry, makeCompromisedCredential, makePasswordCheckStatus, PasswordSectionElementFactory} from './passwords_and_autofill_fake_data.js';
 import {getSyncAllPrefs, simulateStoredAccounts, simulateSyncStatus} from './sync_test_util.js';
 import {TestHatsBrowserProxy} from './test_hats_browser_proxy.js';
 import {TestPasswordManagerProxy} from './test_password_manager_proxy.js';
@@ -82,8 +81,9 @@ function validatePasswordList(
  * @param nodes The nodes that will be checked.
  * @param exceptionList The expected data.
  */
-function validateMultiStoreExceptionList(
-    nodes: NodeListOf<HTMLElement>, exceptionList: MultiStoreExceptionEntry[]) {
+function validateExceptionList(
+    nodes: NodeListOf<HTMLElement>,
+    exceptionList: chrome.passwordsPrivate.ExceptionEntry[]) {
   assertEquals(exceptionList.length, nodes.length);
   for (let index = 0; index < exceptionList.length; ++index) {
     const node = nodes[index]!;
@@ -95,19 +95,6 @@ function validateMultiStoreExceptionList(
         exception.urls.link.toLowerCase(),
         node.querySelector<HTMLAnchorElement>('#exception')!.href);
   }
-}
-
-/**
- * Convenience version of validateMultiStoreExceptionList() for when store
- * duplicates do not exist.
- * @param nodes The nodes that will be checked.
- * @param exceptionList The expected data.
- */
-function validateExceptionList(
-    nodes: NodeListOf<HTMLElement>,
-    exceptionList: chrome.passwordsPrivate.ExceptionEntry[]) {
-  validateMultiStoreExceptionList(
-      nodes, exceptionList.map(entry => new MultiStoreExceptionEntry(entry)));
 }
 
 /**
@@ -141,8 +128,7 @@ function listContainsUrl(
  * @param url The URL that is being searched for.
  */
 function exceptionsListContainsUrl(
-    exceptionList:
-        (MultiStoreExceptionEntry[]|chrome.passwordsPrivate.ExceptionEntry[]),
+    exceptionList: chrome.passwordsPrivate.ExceptionEntry[],
     url: string): boolean {
   return exceptionList.some(
       item => (item.urls as unknown as {originUrl: string}).originUrl === url);
@@ -223,6 +209,7 @@ async function openPasswordEditDialogHelper(
   // Close the dialog, verify that the list item password remains hidden.
   // Note that the password only gets hidden in the on-close handler, thus we
   // need to await this event first.
+  passwordManager.setChangeSavedPasswordResponse({deviceId: 1});
   passwordEditDialog.$.actionButton.click();
   await eventToPromise('close', passwordEditDialog);
 
@@ -274,6 +261,7 @@ suite('PasswordsSection', function() {
     PasswordManagerImpl.setInstance(passwordManager);
     elementFactory = new PasswordSectionElementFactory(document);
     loadTimeData.overrideValues({
+      enableAutomaticPasswordChangeInSettings: false,
       enablePasswordViewPage: false,
       unifiedPasswordManagerEnabled: false,
     });
@@ -331,53 +319,13 @@ suite('PasswordsSection', function() {
     assertFalse(passwordsSection.$.savedPasswordsHeaders.hidden);
   });
 
-  // Test verifies that passwords duplicated across stores get properly merged
-  // in the UI.
-  test('verifySavedPasswordEntriesWithMultiStore', function() {
-    // Entries with duplicates.
-    const accountPassword1 = createPasswordEntry(
-        {username: 'user1', frontendId: 1, id: 10, fromAccountStore: true});
-    const devicePassword1 = createPasswordEntry(
-        {username: 'user1', frontendId: 1, id: 11, fromAccountStore: false});
-    const accountPassword2 = createPasswordEntry(
-        {username: 'user2', frontendId: 2, id: 20, fromAccountStore: true});
-    const devicePassword2 = createPasswordEntry(
-        {username: 'user2', frontendId: 2, id: 21, fromAccountStore: false});
-    // Entries without duplicate.
-    const devicePassword3 = createPasswordEntry(
-        {username: 'user3', frontendId: 3, id: 3, fromAccountStore: false});
-    const accountPassword4 = createPasswordEntry(
-        {username: 'user4', frontendId: 4, id: 4, fromAccountStore: true});
-
-    // Shuffle entries a little.
-    const passwordsSection = elementFactory.createPasswordsSection(
-        passwordManager,
-        [
-          devicePassword3, accountPassword1, devicePassword2, accountPassword4,
-          devicePassword1, accountPassword2
-        ],
-        []);
-
-    // Expected list keeping relative order.
-    const expectedList = [
-      createMultiStorePasswordEntry({username: 'user3', deviceId: 3}),
-      createMultiStorePasswordEntry(
-          {username: 'user1', accountId: 10, deviceId: 11}),
-      createMultiStorePasswordEntry(
-          {username: 'user2', accountId: 20, deviceId: 21}),
-      createMultiStorePasswordEntry({username: 'user4', accountId: 4}),
-    ];
-
-    validateMultiStorePasswordList(passwordsSection, expectedList);
-  });
-
   // Test verifies that removing a password will update the elements.
   test('verifyPasswordListRemove', function() {
     const passwordList = [
       createPasswordEntry(
           {url: 'anotherwebsite.com', username: 'luigi', id: 0}),
       createPasswordEntry({url: 'longwebsite.com', username: 'peach', id: 1}),
-      createPasswordEntry({url: 'website.com', username: 'mario', id: 2})
+      createPasswordEntry({url: 'website.com', username: 'mario', id: 2}),
     ];
 
     const passwordsSection = elementFactory.createPasswordsSection(
@@ -454,77 +402,6 @@ suite('PasswordsSection', function() {
     await openPasswordEditDialogHelper(passwordManager, elementFactory);
   });
 
-  // Test verifies that removing the account copy of a duplicated password will
-  // still leave the device copy present.
-  test('verifyPasswordListRemoveAccountCopy', function() {
-    const passwordList = [
-      createPasswordEntry({frontendId: 0, id: 0, fromAccountStore: true}),
-      createPasswordEntry({frontendId: 0, id: 1, fromAccountStore: false}),
-    ];
-
-    const passwordsSection = elementFactory.createPasswordsSection(
-        passwordManager, passwordList, []);
-
-    validateMultiStorePasswordList(
-        passwordsSection,
-        [createMultiStorePasswordEntry({accountId: 0, deviceId: 1})]);
-    // Simulate account copy being removed from the list.
-    passwordList.splice(0, 1);
-    passwordManager.lastCallback.addSavedPasswordListChangedListener!
-        (passwordList);
-    flush();
-
-    validateMultiStorePasswordList(
-        passwordsSection, [createMultiStorePasswordEntry({deviceId: 1})]);
-  });
-
-  // Test verifies that removing the device copy of a duplicated password will
-  // still leave the account copy present.
-  test('verifyPasswordListRemoveDeviceCopy', function() {
-    const passwordList = [
-      createPasswordEntry({frontendId: 0, id: 0, fromAccountStore: true}),
-      createPasswordEntry({frontendId: 0, id: 1, fromAccountStore: false}),
-    ];
-
-    const passwordsSection = elementFactory.createPasswordsSection(
-        passwordManager, passwordList, []);
-
-    validateMultiStorePasswordList(
-        passwordsSection,
-        [createMultiStorePasswordEntry({accountId: 0, deviceId: 1})]);
-    // Simulate device copy being removed from the list.
-    passwordList.splice(1, 1);
-    passwordManager.lastCallback.addSavedPasswordListChangedListener!
-        (passwordList);
-    flush();
-
-    validateMultiStorePasswordList(
-        passwordsSection, [createMultiStorePasswordEntry({accountId: 0})]);
-  });
-
-  // Test verifies that removing both copies of a duplicated password will
-  // cause no password to be displayed.
-  test('verifyPasswordListRemoveBothCopies', function() {
-    const passwordList = [
-      createPasswordEntry({frontendId: 0, id: 0, fromAccountStore: true}),
-      createPasswordEntry({frontendId: 0, id: 1, fromAccountStore: false}),
-    ];
-
-    const passwordsSection = elementFactory.createPasswordsSection(
-        passwordManager, passwordList, []);
-
-    validateMultiStorePasswordList(
-        passwordsSection,
-        [createMultiStorePasswordEntry({accountId: 0, deviceId: 1})]);
-    // Simulate both copies being removed from the list.
-    passwordList.splice(0, 2);
-    passwordManager.lastCallback.addSavedPasswordListChangedListener!
-        (passwordList);
-    flush();
-
-    validateMultiStorePasswordList(passwordsSection, []);
-  });
-
   // Test verifies that adding a password will update the elements.
   test('verifyPasswordListAdd', function() {
     const passwordList = [
@@ -547,54 +424,6 @@ suite('PasswordsSection', function() {
     validatePasswordList(passwordsSection, passwordList);
   });
 
-  // Test verifies that adding an account copy of an existing password will
-  // merge it with the one already in the list.
-  test('verifyPasswordListAddAccountCopy', function() {
-    const passwordList = [
-      createPasswordEntry({frontendId: 0, fromAccountStore: false, id: 0}),
-    ];
-
-    const passwordsSection = elementFactory.createPasswordsSection(
-        passwordManager, passwordList, []);
-
-    validatePasswordList(passwordsSection, passwordList);
-    // Simulate account copy being added to the list.
-    passwordList.unshift(
-        createPasswordEntry({frontendId: 0, fromAccountStore: true, id: 1}));
-
-    passwordManager.lastCallback.addSavedPasswordListChangedListener!
-        (passwordList);
-    flush();
-
-    validateMultiStorePasswordList(
-        passwordsSection,
-        [createMultiStorePasswordEntry({deviceId: 0, accountId: 1})]);
-  });
-
-  // Test verifies that adding a device copy of an existing password will
-  // merge it with the one already in the list.
-  test('verifyPasswordListAddDeviceCopy', function() {
-    const passwordList = [
-      createPasswordEntry({frontendId: 0, fromAccountStore: true, id: 0}),
-    ];
-
-    const passwordsSection = elementFactory.createPasswordsSection(
-        passwordManager, passwordList, []);
-
-    validatePasswordList(passwordsSection, passwordList);
-    // Simulate device copy being added to the list.
-    passwordList.unshift(
-        createPasswordEntry({frontendId: 0, fromAccountStore: false, id: 1}));
-
-    passwordManager.lastCallback.addSavedPasswordListChangedListener!
-        (passwordList);
-    flush();
-
-    validateMultiStorePasswordList(
-        passwordsSection,
-        [createMultiStorePasswordEntry({accountId: 0, deviceId: 1})]);
-  });
-
   // Test verifies that removing one out of two passwords for the same website
   // will update the elements.
   test('verifyPasswordListRemoveSameWebsite', function() {
@@ -604,7 +433,7 @@ suite('PasswordsSection', function() {
     // Set-up initial list.
     let passwordList = [
       createPasswordEntry({url: 'website.com', username: 'mario', id: 0}),
-      createPasswordEntry({url: 'website.com', username: 'luigi', id: 1})
+      createPasswordEntry({url: 'website.com', username: 'luigi', id: 1}),
     ];
 
     passwordManager.lastCallback.addSavedPasswordListChangedListener!
@@ -650,7 +479,7 @@ suite('PasswordsSection', function() {
     firstNode.$.moreActionsButton.click();
     passwordsSection.$.passwordsListHandler.$.menuRemovePassword.click();
 
-    const id = await passwordManager.whenCalled('removeSavedPassword');
+    const {id} = await passwordManager.whenCalled('removeSavedPassword');
     // Verify that the expected value was passed to the proxy.
     assertEquals(firstPassword.id, id);
     assertEquals(
@@ -865,48 +694,6 @@ suite('PasswordsSection', function() {
     assertTrue(passwordsSection.$.noExceptionsLabel.hidden);
   });
 
-  // Test verifies that exceptions duplicated across stores get properly merged
-  // in the UI.
-  test('verifyPasswordExceptionsWithMultiStore', function() {
-    // Entries with duplicates.
-    const accountException1 = createExceptionEntry(
-        {url: '1.com', frontendId: 1, id: 10, fromAccountStore: true});
-    const deviceException1 = createExceptionEntry(
-        {url: '1.com', frontendId: 1, id: 11, fromAccountStore: false});
-    const accountException2 = createExceptionEntry(
-        {url: '2.com', frontendId: 2, id: 20, fromAccountStore: true});
-    const deviceException2 = createExceptionEntry(
-        {url: '2.com', frontendId: 2, id: 21, fromAccountStore: false});
-    // Entries without duplicate.
-    const deviceException3 = createExceptionEntry(
-        {url: '3.com', frontendId: 3, id: 3, fromAccountStore: false});
-    const accountException4 = createExceptionEntry(
-        {url: '4.com', frontendId: 4, id: 4, fromAccountStore: true});
-
-    // Shuffle entries a little.
-    const passwordsSection =
-        elementFactory.createPasswordsSection(passwordManager, [], [
-          deviceException3, accountException1, deviceException2,
-          accountException4, deviceException1, accountException2
-        ]);
-
-    // Expected list keeping relative order.
-    const expectedList = [
-      createMultiStoreExceptionEntry({url: '3.com', deviceId: 3}),
-      createMultiStoreExceptionEntry(
-          {url: '1.com', accountId: 10, deviceId: 11}),
-      createMultiStoreExceptionEntry(
-          {url: '2.com', accountId: 20, deviceId: 21}),
-      createMultiStoreExceptionEntry({url: '4.com', accountId: 4}),
-    ];
-
-    validateMultiStoreExceptionList(
-        getDomRepeatChildren(passwordsSection.$.passwordExceptionsList),
-        expectedList);
-
-    assertTrue(passwordsSection.$.noExceptionsLabel.hidden);
-  });
-
   // Test verifies that removing an exception will update the elements.
   test('verifyPasswordExceptionRemove', function() {
     const exceptionList = [
@@ -937,7 +724,7 @@ suite('PasswordsSection', function() {
       createExceptionEntry({url: 'google.com', id: 2}),
       createExceptionEntry({url: 'inbox.google.com', id: 3}),
       createExceptionEntry({url: 'maps.google.com', id: 4}),
-      createExceptionEntry({url: 'plus.google.com', id: 5})
+      createExceptionEntry({url: 'plus.google.com', id: 5}),
     ];
     validateExceptionList(
         getDomRepeatChildren(passwordsSection.$.passwordExceptionsList),
@@ -974,12 +761,12 @@ suite('PasswordsSection', function() {
     // called on |passwordManager| and continues recursively until no more items
     // exist.
     function removeNextRecursive(): Promise<void> {
-      passwordManager.resetResolver('removeExceptions');
+      passwordManager.resetResolver('removeException');
       clickRemoveButton();
-      return passwordManager.whenCalled('removeExceptions').then(ids => {
+      return passwordManager.whenCalled('removeException').then(id => {
         // Verify that the event matches the expected value.
         assertTrue(item < exceptionList.length);
-        assertDeepEquals(ids, [exceptionList[item]!.id]);
+        assertEquals(id, exceptionList[item]!.id);
 
         if (++item < exceptionList.length) {
           return removeNextRecursive();
@@ -990,28 +777,6 @@ suite('PasswordsSection', function() {
 
     // Click 'remove' on all passwords, one by one.
     return removeNextRecursive();
-  });
-
-  // Test verifies that pressing the 'remove' button for a duplicated exception
-  // will remove both the device and account copies.
-  test('verifyDuplicatedExceptionRemoveButton', async function() {
-    // Create a duplicated exception that will be merged into a single entry.
-    const deviceCopy =
-        createPasswordEntry({frontendId: 42, id: 0, fromAccountStore: false});
-    const accountCopy =
-        createPasswordEntry({frontendId: 42, id: 1, fromAccountStore: true});
-
-    const passwordsSection = elementFactory.createPasswordsSection(
-        passwordManager, [], [deviceCopy, accountCopy]);
-
-    const [mergedEntry] =
-        getDomRepeatChildren(passwordsSection.$.passwordExceptionsList);
-    mergedEntry!.querySelector<HTMLElement>('#removeExceptionButton')!.click();
-
-    // Verify both ids get passed to the proxy.
-    const ids = await passwordManager.whenCalled('removeExceptions');
-    assertTrue(ids.includes(deviceCopy.id));
-    assertTrue(ids.includes(accountCopy.id));
   });
 
   test('showSavedPasswordListItem', async function() {
@@ -1222,77 +987,54 @@ suite('PasswordsSection', function() {
     assertTrue(passwordsSection.$.menuExportPassword.hidden);
   });
 
+  test(
+      'importPasswordsButtonShownOnlyWhenPasswordsImportFeatureEnabled',
+      function() {
+        loadTimeData.overrideValues({showImportPasswords: false});
+        const passwordsSectionImportPasswordsDisabled =
+            elementFactory.createPasswordsSection(passwordManager, [], []);
+        assertTrue(
+            passwordsSectionImportPasswordsDisabled.shadowRoot!
+                .querySelector<HTMLElement>('#menuImportPassword')!.hidden);
+        loadTimeData.overrideValues({showImportPasswords: true});
+        const passwordsSectionImportPasswordsEnabled =
+            elementFactory.createPasswordsSection(passwordManager, [], []);
+        assertFalse(
+            passwordsSectionImportPasswordsEnabled.shadowRoot!
+                .querySelector<HTMLElement>('#menuImportPassword')!.hidden);
+      });
+
+  test('importButtonOpensPasswordsImportDialog', function() {
+    loadTimeData.overrideValues({showImportPasswords: true});
+    const passwordsSection =
+        elementFactory.createPasswordsSection(passwordManager, [], []);
+    assertFalse(!!passwordsSection.shadowRoot!.querySelector<HTMLElement>(
+        '#importPasswordsDialog'));
+
+    passwordsSection.shadowRoot!
+        .querySelector<HTMLElement>('#menuImportPassword')!.click();
+    flush();
+    const importDialog =
+        passwordsSection.shadowRoot!.querySelector<HTMLElement>(
+            '#importPasswordsDialog');
+    assertTrue(!!importDialog);
+  });
+
   // Test that clicking the Export Passwords menu item opens the export
   // dialog.
-  test('exportOpen', function(done) {
+  test('exportOpen', async function() {
     const passwordList = [
       createPasswordEntry({url: 'googoo.com', username: 'Larry'}),
     ];
     const passwordsSection = elementFactory.createPasswordsSection(
         passwordManager, passwordList, []);
 
-    // The export dialog calls requestExportProgressStatus() when opening.
-    passwordManager.requestExportProgressStatus = (callback) => {
-      callback(chrome.passwordsPrivate.ExportProgressStatus.NOT_STARTED);
-      done();
-    };
-    passwordManager.addPasswordsFileExportProgressListener = () => {};
     passwordsSection.$.menuExportPassword.click();
+    // The export dialog calls requestExportProgressStatus() when opening.
+    await passwordManager.whenCalled('requestExportProgressStatus');
   });
 
   if (!(isChromeOS || isLacros)) {
-    // Test that tapping "Export passwords..." notifies the browser.
-    test('startExport', function(done) {
-      const exportDialog =
-          elementFactory.createExportPasswordsDialog(passwordManager);
-      runStartExportTest(exportDialog, passwordManager, done);
-    });
-
-    // Test the export flow. If exporting is fast, we should skip the
-    // in-progress view altogether.
-    test('exportFlowFast', function(done) {
-      const exportDialog =
-          elementFactory.createExportPasswordsDialog(passwordManager);
-      runExportFlowFastTest(exportDialog, passwordManager, done);
-    });
-
-    // The error view is shown when an error occurs.
-    test('exportFlowError', function(done) {
-      const exportDialog =
-          elementFactory.createExportPasswordsDialog(passwordManager);
-      runExportFlowErrorTest(exportDialog, passwordManager, done);
-    });
-
-    // The error view allows to retry.
-    test('exportFlowErrorRetry', function(done) {
-      const exportDialog =
-          elementFactory.createExportPasswordsDialog(passwordManager);
-      runExportFlowErrorRetryTest(exportDialog, passwordManager, done);
-    });
-
-    // Test the export flow. If exporting is slow, Chrome should show the
-    // in-progress dialog for at least 1000ms.
-    test('exportFlowSlow', function(done) {
-      const exportDialog =
-          elementFactory.createExportPasswordsDialog(passwordManager);
-      runExportFlowSlowTest(exportDialog, passwordManager, done);
-    });
-
-    // Test that canceling the dialog while exporting will also cancel the
-    // export on the browser.
-    test('cancelExport', function(done) {
-      const exportDialog =
-          elementFactory.createExportPasswordsDialog(passwordManager);
-      runCancelExportTest(exportDialog, passwordManager, done);
-    });
-
-    test('fires close event after export complete', () => {
-      const exportDialog =
-          elementFactory.createExportPasswordsDialog(passwordManager);
-      return runFireCloseEventAfterExportCompleteTest(
-          exportDialog, passwordManager);
-    });
-
     // Test verifies that the overflow menu does not offer an option to move a
     // password to the account.
     test('noMoveToAccountOption', function() {
@@ -1391,7 +1133,7 @@ suite('PasswordsSection', function() {
       // Set up user eligible to the account-scoped password storage, not
       // opted in and with no device passwords. Button should be hidden.
       const passwordList =
-          [createPasswordEntry({fromAccountStore: true, id: 10})];
+          [createPasswordEntry({inAccountStore: true, id: 10})];
       const passwordsSection = elementFactory.createPasswordsSection(
           passwordManager, passwordList, []);
       simulateSyncStatus(
@@ -1406,8 +1148,7 @@ suite('PasswordsSection', function() {
       assertTrue(passwordsSection.$.devicePasswordsLink.hidden);
 
       // Add a device password. The button shows up.
-      passwordList.unshift(
-          createPasswordEntry({fromAccountStore: false, id: 20}));
+      passwordList.unshift(createPasswordEntry({inProfileStore: true, id: 20}));
       passwordManager.lastCallback.addSavedPasswordListChangedListener!
           (passwordList);
       flush();
@@ -1422,9 +1163,9 @@ suite('PasswordsSection', function() {
         function() {
           const passwordList = [
             createPasswordEntry(
-                {username: 'account', id: 0, fromAccountStore: true}),
+                {username: 'account', id: 0, inAccountStore: true}),
             createPasswordEntry(
-                {username: 'local', id: 1, fromAccountStore: false}),
+                {username: 'local', id: 1, inProfileStore: true}),
           ];
           const passwordsSection = elementFactory.createPasswordsSection(
               passwordManager, passwordList, []);
@@ -1457,12 +1198,10 @@ suite('PasswordsSection', function() {
     // Clicking the button in the dialog then removes both versions of the
     // password.
     test('verifyPasswordRemoveDialogRemoveBothCopies', async function() {
-      const accountCopy =
-          createPasswordEntry({frontendId: 42, id: 0, fromAccountStore: true});
-      const deviceCopy =
-          createPasswordEntry({frontendId: 42, id: 1, fromAccountStore: false});
+      const password = createPasswordEntry(
+          {id: 0, inAccountStore: true, inProfileStore: true});
       const passwordsSection = elementFactory.createPasswordsSection(
-          passwordManager, [accountCopy, deviceCopy], []);
+          passwordManager, [password], []);
 
       simulateAccountStorageUser(passwordManager);
 
@@ -1486,22 +1225,20 @@ suite('PasswordsSection', function() {
           removeDialog.$.removeFromAccountCheckbox.checked &&
           removeDialog.$.removeFromDeviceCheckbox.checked);
       removeDialog.$.removeButton.click();
-      const removedIds =
-          await passwordManager.whenCalled('removeSavedPasswords');
-      assertTrue(removedIds.includes(accountCopy.id));
-      assertTrue(removedIds.includes(deviceCopy.id));
+      const {id, fromStores} =
+          await passwordManager.whenCalled('removeSavedPassword');
+      assertEquals(password.id, id);
+      assertEquals('DEVICE_AND_ACCOUNT', fromStores);
     });
 
     // Test verifies that if the user attempts to remove a password stored
     // both on the device and in the account, the PasswordRemoveDialog shows up.
     // The user then chooses to remove only of the copies.
     test('verifyPasswordRemoveDialogRemoveSingleCopy', async function() {
-      const accountCopy =
-          createPasswordEntry({frontendId: 42, id: 0, fromAccountStore: true});
-      const deviceCopy =
-          createPasswordEntry({frontendId: 42, id: 1, fromAccountStore: false});
+      const onAccountAndDevice = createPasswordEntry(
+          {id: 0, inAccountStore: true, inProfileStore: true});
       const passwordsSection = elementFactory.createPasswordsSection(
-          passwordManager, [accountCopy, deviceCopy], []);
+          passwordManager, [onAccountAndDevice], []);
 
       simulateAccountStorageUser(passwordManager);
 
@@ -1527,33 +1264,12 @@ suite('PasswordsSection', function() {
           !removeDialog.$.removeFromAccountCheckbox.checked &&
           removeDialog.$.removeFromDeviceCheckbox.checked);
       removeDialog.$.removeButton.click();
-      const removedIds =
-          await passwordManager.whenCalled('removeSavedPasswords');
-      assertTrue(removedIds.includes(deviceCopy.id));
+      const {id, fromStores} =
+          await passwordManager.whenCalled('removeSavedPassword');
+      assertEquals(onAccountAndDevice.id, id);
+      assertEquals(chrome.passwordsPrivate.PasswordStoreSet.DEVICE, fromStores);
     });
   }
-
-  // The export dialog is dismissable.
-  test('exportDismissable', function() {
-    const exportDialog =
-        elementFactory.createExportPasswordsDialog(passwordManager);
-
-    assertTrue(exportDialog.shadowRoot!
-                   .querySelector<CrDialogElement>('#dialog_start')!.open);
-    exportDialog.shadowRoot!.querySelector<HTMLElement>(
-                                '#cancelButton')!.click();
-    flush();
-    assertFalse(!!exportDialog.shadowRoot!.querySelector('#dialog_start'));
-  });
-
-  test('fires close event when canceled', () => {
-    const exportDialog =
-        elementFactory.createExportPasswordsDialog(passwordManager);
-    const wait = eventToPromise('passwords-export-dialog-close', exportDialog);
-    exportDialog.shadowRoot!.querySelector<HTMLElement>(
-                                '#cancelButton')!.click();
-    return wait;
-  });
 
   test('hideLinkToPasswordManagerWhenEncrypted', function() {
     const passwordsSection =
@@ -1846,28 +1562,17 @@ suite('PasswordsSection', function() {
     assertEquals(TrustSafetyInteraction.OPENED_PASSWORD_MANAGER, interaction);
   });
 
-  test(
-      'addPasswordButtonShownOnlyWhenAddingPasswordsFeatureEnabled',
-      function() {
-        loadTimeData.overrideValues({addPasswordsInSettingsEnabled: false});
-        const passwordsSectionAddPasswordsDisabled =
-            elementFactory.createPasswordsSection(passwordManager, [], []);
-        assertFalse(
-            !!passwordsSectionAddPasswordsDisabled.shadowRoot!.querySelector(
-                '#addPasswordButton'));
-
-        loadTimeData.overrideValues({addPasswordsInSettingsEnabled: true});
-        const passwordsSectionAddPasswordsEnabled =
-            elementFactory.createPasswordsSection(passwordManager, [], []);
-        assertTrue(
-            !!passwordsSectionAddPasswordsEnabled.shadowRoot!.querySelector(
-                '#addPasswordButton'));
-      });
+  test('passwordScriptsRefreshedOnOpen', async function() {
+    loadTimeData.overrideValues(
+        {enableAutomaticPasswordChangeInSettings: true});
+    elementFactory.createPasswordsSection(passwordManager, [], []);
+    Router.getInstance().navigateTo(routes.PASSWORDS);
+    await passwordManager.whenCalled('refreshScriptsIfNecessary');
+  });
 
   test(
       'addPasswordButtonShownOnlyWhenPasswordManagerNotDisabledByPolicy',
       function() {
-        loadTimeData.overrideValues({addPasswordsInSettingsEnabled: true});
         const passwordsSection =
             elementFactory.createPasswordsSection(passwordManager, [], []);
         const addButton =
@@ -1887,7 +1592,6 @@ suite('PasswordsSection', function() {
       });
 
   test('addPasswordButtonOpensAddPasswordDialog', function() {
-    loadTimeData.overrideValues({addPasswordsInSettingsEnabled: true});
     const passwordsSection =
         elementFactory.createPasswordsSection(passwordManager, [], []);
     assertFalse(!!passwordsSection.shadowRoot!.querySelector<HTMLElement>(
@@ -1936,8 +1640,7 @@ suite('PasswordsSection', function() {
     const toastManager = passwordsSection.$.passwordsListHandler.$.removalToast;
 
     const params = new URLSearchParams();
-    params.set('removedFromAccount', 'true');
-    params.set('removedFromDevice', 'false');
+    params.set('removedFromStores', passwordEntry.storedIn);
     Router.getInstance().navigateTo(routes.PASSWORDS, params);
 
     flush();

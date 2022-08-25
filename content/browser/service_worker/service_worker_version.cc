@@ -250,6 +250,7 @@ ServiceWorkerVersion::ServiceWorkerVersion(
       script_type_(script_type),
       fetch_handler_existence_(FetchHandlerExistence::UNKNOWN),
       registration_status_(registration->status()),
+      ancestor_frame_type_(registration->ancestor_frame_type()),
       context_(context),
       script_cache_map_(this, context),
       tick_clock_(base::DefaultTickClock::GetInstance()),
@@ -385,7 +386,8 @@ ServiceWorkerVersionInfo ServiceWorkerVersion::GetInfo() {
       running_status(), status(), fetch_handler_existence(), script_url(),
       scope(), key(), registration_id(), version_id(),
       embedded_worker()->process_id(), embedded_worker()->thread_id(),
-      embedded_worker()->worker_devtools_agent_route_id(), ukm_source_id());
+      embedded_worker()->worker_devtools_agent_route_id(), ukm_source_id(),
+      ancestor_frame_type_);
   for (const auto& controllee : controllee_map_) {
     ServiceWorkerContainerHost* container_host = controllee.second.get();
     info.clients.emplace(container_host->client_uuid(),
@@ -1034,7 +1036,8 @@ void ServiceWorkerVersion::InitializeGlobalScope() {
       worker_host_->container_host()->CreateServiceWorkerRegistrationObjectInfo(
           std::move(registration)),
       worker_host_->container_host()->CreateServiceWorkerObjectInfoToSend(this),
-      fetch_handler_existence_, std::move(reporting_observer_receiver_));
+      fetch_handler_existence_, std::move(reporting_observer_receiver_),
+      ancestor_frame_type_);
 
   is_endpoint_ready_ = true;
 }
@@ -2057,6 +2060,9 @@ void ServiceWorkerVersion::OnTimeoutTimer() {
 
   // Requests have not finished before their expiration.
   bool stop_for_timeout = false;
+  // In case, `request_timeouts_` can be modified in the callbacks initiated
+  // in `MaybeTimeoutRequest`, we keep its contents locally during the
+  // following while loop.
   std::set<InflightRequestTimeoutInfo> request_timeouts;
   request_timeouts.swap(request_timeouts_);
   auto timeout_iter = request_timeouts.begin();
@@ -2071,6 +2077,7 @@ void ServiceWorkerVersion::OnTimeoutTimer() {
     }
     timeout_iter = request_timeouts.erase(timeout_iter);
   }
+  // Ensure the `request_timeouts_` won't be touched during the loop.
   DCHECK(request_timeouts_.empty());
   request_timeouts_.swap(request_timeouts);
   if (stop_for_timeout && running_status() != EmbeddedWorkerStatus::STOPPING)
@@ -2365,14 +2372,20 @@ bool ServiceWorkerVersion::IsStartWorkerAllowed() const {
     return false;
   }
 
+  auto* browser_context = context_->wrapper()->browser_context();
+  // Check that the browser context is not nullptr.  It becomes nullptr
+  // when the service worker process manager is being shutdown.
+  if (!browser_context) {
+    return false;
+  }
+
   // Check that the worker is allowed on the given scope. It's possible a worker
   // was previously allowed and installed, but later content settings changed to
   // disallow this scope. Since this worker might not be used for a specific
   // tab, pass a null callback as WebContents getter.
   if (!GetContentClient()->browser()->AllowServiceWorker(
           scope_, net::SiteForCookies::FromUrl(scope_),
-          url::Origin::Create(scope_), script_url_,
-          context_->wrapper()->browser_context())) {
+          url::Origin::Create(scope_), script_url_, browser_context)) {
     return false;
   }
 

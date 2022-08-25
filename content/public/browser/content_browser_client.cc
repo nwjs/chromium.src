@@ -9,7 +9,7 @@
 // declarations instead of including more headers. If that is infeasible, adjust
 // the limit. For more info, see
 // https://chromium.googlesource.com/chromium/src/+/HEAD/docs/wmax_tokens.md
-#pragma clang max_tokens_here 880000
+#pragma clang max_tokens_here 1110000
 
 #include "content/nw/src/browser/nw_content_browser_hooks.h"
 
@@ -39,6 +39,7 @@
 #include "content/public/browser/network_service_instance.h"
 #include "content/public/browser/overlay_window.h"
 #include "content/public/browser/page_navigator.h"
+#include "content/public/browser/prefetch_service_delegate.h"
 #include "content/public/browser/quota_permission_context.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/sms_fetcher.h"
@@ -51,6 +52,7 @@
 #include "content/public/common/content_features.h"
 #include "content/public/common/url_utils.h"
 #include "media/audio/audio_manager.h"
+#include "media/capture/content/screen_enumerator.h"
 #include "media/mojo/mojom/media_service.mojom.h"
 #include "net/cookies/site_for_cookies.h"
 #include "net/ssl/client_cert_identity.h"
@@ -301,6 +303,11 @@ std::unique_ptr<media::AudioManager> ContentBrowserClient::CreateAudioManager(
   return nullptr;
 }
 
+std::unique_ptr<media::ScreenEnumerator>
+ContentBrowserClient::CreateScreenEnumerator() const {
+  return nullptr;
+}
+
 bool ContentBrowserClient::OverridesAudioManager() {
   return false;
 }
@@ -341,6 +348,12 @@ bool ContentBrowserClient::ShouldUrlUseApplicationIsolationLevel(
 bool ContentBrowserClient::IsIsolatedAppsDeveloperModeAllowed(
     BrowserContext* context) {
   return true;
+}
+
+bool ContentBrowserClient::IsGetDisplayMediaSetSelectAllScreensAllowed(
+    content::BrowserContext* context,
+    const url::Origin& origin) {
+  return false;
 }
 
 size_t ContentBrowserClient::GetMaxRendererProcessCountOverride() {
@@ -394,10 +407,10 @@ AllowServiceWorkerResult ContentBrowserClient::AllowServiceWorker(
   return AllowServiceWorkerResult::Yes();
 }
 
-void ContentBrowserClient::WillStartServiceWorker(
+void ContentBrowserClient::UpdateEnabledBlinkRuntimeFeaturesInIsolatedWorker(
     BrowserContext* context,
     const GURL& script_url,
-    RenderProcessHost* render_process_host) {}
+    std::vector<std::string>& out_forced_enabled_runtime_features) {}
 
 bool ContentBrowserClient::AllowSharedWorker(
     const GURL& worker_url,
@@ -436,6 +449,15 @@ void ContentBrowserClient::UpdateRendererPreferencesForWorker(
     BrowserContext* browser_context,
     blink::RendererPreferences* out_prefs) {
   // |browser_context| may be null (e.g. during shutdown of a service worker).
+}
+
+void ContentBrowserClient::RequestFilesAccess(
+    const std::vector<base::FilePath>& files,
+    const GURL& destination_url,
+    base::OnceCallback<void(file_access::ScopedFileAccess)>
+        continuation_callback) {
+  std::move(continuation_callback)
+      .Run(file_access::ScopedFileAccess::Allowed());
 }
 
 void ContentBrowserClient::AllowWorkerFileSystem(
@@ -957,7 +979,7 @@ bool ContentBrowserClient::ShouldOverrideUrlLoading(
     const std::string& request_method,
     bool has_user_gesture,
     bool is_redirect,
-    bool is_main_frame,
+    bool is_outermost_main_frame,
     ui::PageTransition transition,
     bool* ignore_navigation) {
   return true;
@@ -1091,12 +1113,6 @@ void ContentBrowserClient::RegisterRendererPreferenceWatcher(
     BrowserContext* browser_context,
     mojo::PendingRemote<blink::mojom::RendererPreferenceWatcher> watcher) {
   // |browser_context| may be null (e.g. during shutdown of a service worker).
-}
-
-absl::optional<std::string> ContentBrowserClient::GetOriginPolicyErrorPage(
-    network::OriginPolicyState error_reason,
-    content::NavigationHandle* handle) {
-  return absl::nullopt;
 }
 
 bool ContentBrowserClient::CanAcceptUntrustedExchangesIfNeeded() {
@@ -1257,14 +1273,6 @@ bool ContentBrowserClient::CanEnterFullscreenWithoutUserActivation() {
   return false;
 }
 
-#if BUILDFLAG(ENABLE_PLUGINS)
-bool ContentBrowserClient::ShouldAllowPluginCreation(
-    const url::Origin& embedder_origin,
-    const content::PepperPluginInfo& plugin_info) {
-  return true;
-}
-#endif
-
 #if BUILDFLAG(ENABLE_VR)
 XrIntegrationClient* ContentBrowserClient::GetXrIntegrationClient() {
   return nullptr;
@@ -1327,6 +1335,12 @@ bool ContentBrowserClient::SuppressDifferentOriginSubframeJSDialogs(
 std::unique_ptr<SpeculationHostDelegate>
 ContentBrowserClient::CreateSpeculationHostDelegate(
     RenderFrameHost& render_frame_host) {
+  return nullptr;
+}
+
+std::unique_ptr<PrefetchServiceDelegate>
+ContentBrowserClient::CreatePrefetchServiceDelegate(
+    BrowserContext* browser_context) {
   return nullptr;
 }
 

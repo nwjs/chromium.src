@@ -88,7 +88,10 @@ Controller::Controller(content::WebContents* web_contents,
       ukm_recorder_(ukm_recorder),
       annotate_dom_model_service_(annotate_dom_model_service) {}
 
-Controller::~Controller() {}
+Controller::~Controller() {
+  // Record failure, iff an earlier call didn't already record.
+  MaybeRecordFlowFinishedMetrics(Metrics::FlowFinishedState::DESTROYED);
+}
 
 const ClientSettings& Controller::GetSettings() {
   return settings_;
@@ -146,6 +149,10 @@ Controller::GetPasswordChangeSuccessTracker() {
 
 content::WebContents* Controller::GetWebContents() {
   return web_contents();
+}
+
+const std::string Controller::GetLocale() {
+  return client_->GetLocale();
 }
 
 void Controller::SetJsFlowLibrary(const std::string& js_flow_library) {
@@ -362,6 +369,9 @@ void Controller::EnterStoppedState() {
     script_tracker_->StopScript();
   SetStoppedUI();
   EnterState(AutofillAssistantState::STOPPED);
+
+  // Record failure, iff an earlier call didn't already record.
+  MaybeRecordFlowFinishedMetrics(Metrics::FlowFinishedState::FAILURE);
 }
 
 void Controller::SetStoppedUI() {
@@ -499,9 +509,14 @@ void Controller::OnPeriodicScriptCheck() {
     periodic_script_check_count_--;
   }
 
-  if (periodic_script_check_count_ <= 0 && !allow_autostart()) {
+  if (periodic_script_check_count_ <= 0 &&
+      (!allow_autostart() || autostart_timeout_script_path_.empty())) {
     DCHECK_EQ(0, periodic_script_check_count_);
     periodic_script_check_scheduled_ = false;
+
+    if (allow_autostart()) {
+      OnNoRunnableScriptsForPage();
+    }
     return;
   }
 
@@ -670,6 +685,10 @@ void Controller::ExecuteScript(const std::string& script_path,
 void Controller::OnScriptExecuted(const std::string& script_path,
                                   AutofillAssistantState end_state,
                                   const ScriptExecutor::Result& result) {
+  MaybeRecordFlowFinishedMetrics(result.success
+                                     ? Metrics::FlowFinishedState::SUCCESS
+                                     : Metrics::FlowFinishedState::FAILURE);
+
   if (!result.success) {
 #ifdef NDEBUG
     VLOG(1) << "Failed to execute script";
@@ -898,31 +917,23 @@ AutofillAssistantState Controller::GetState() const {
 bool Controller::ShouldSuppressKeyboard() const {
   return ShouldSuppressKeyboardForState(state_);
 }
-void Controller::OnScriptSelected(const ScriptHandle& handle,
-                                  std::unique_ptr<TriggerContext> context) {
-  ExecuteScript(handle.path, handle.start_message, handle.needs_ui,
-                std::move(context),
-                state_ == AutofillAssistantState::TRACKING
-                    ? AutofillAssistantState::TRACKING
-                    : AutofillAssistantState::PROMPT);
-}
 
 base::Value Controller::GetDebugContext() {
-  base::Value dict(base::Value::Type::DICTIONARY);
+  base::Value::Dict dict;
 
   if (trigger_context_) {
-    std::vector<base::Value> parameters_js;
+    base::Value::List parameters_js;
     for (const auto& parameter :
          trigger_context_->GetScriptParameters().ToProto()) {
-      base::Value parameter_js = base::Value(base::Value::Type::DICTIONARY);
-      parameter_js.SetKey(parameter.name(), base::Value(parameter.value()));
-      parameters_js.push_back(std::move(parameter_js));
+      base::Value::Dict parameter_js;
+      parameter_js.Set(parameter.name(), parameter.value());
+      parameters_js.Append(std::move(parameter_js));
     }
-    dict.SetKey("parameters", base::Value(parameters_js));
+    dict.Set("parameters", std::move(parameters_js));
   }
-  dict.SetKey("scripts", script_tracker()->GetDebugContext());
+  dict.Set("scripts", script_tracker()->GetDebugContext());
 
-  return dict;
+  return base::Value(std::move(dict));
 }
 
 void Controller::GetTouchableArea(std::vector<RectF>* area) const {
@@ -1267,6 +1278,8 @@ void Controller::OnWebContentsFocused(
 
 void Controller::WebContentsDestroyed() {
   suppress_keyboard_raii_.reset();
+  // Record failure, iff an earlier call didn't already record.
+  MaybeRecordFlowFinishedMetrics(Metrics::FlowFinishedState::DESTROYED);
 }
 
 void Controller::SuppressKeyboard(bool suppress) {
@@ -1345,6 +1358,38 @@ ScriptTracker* Controller::script_tracker() {
         /* listener= */ this);
   }
   return script_tracker_.get();
+}
+
+void Controller::OnActionsResponseReceived(
+    const RoundtripNetworkStats& network_stats) {
+  accumulated_network_stats_.set_num_roundtrips(
+      accumulated_network_stats_.num_roundtrips() +
+      network_stats.num_roundtrips());
+  accumulated_network_stats_.set_roundtrip_encoded_body_size_bytes(
+      accumulated_network_stats_.roundtrip_encoded_body_size_bytes() +
+      network_stats.roundtrip_encoded_body_size_bytes());
+  accumulated_network_stats_.set_roundtrip_decoded_body_size_bytes(
+      accumulated_network_stats_.roundtrip_decoded_body_size_bytes() +
+      network_stats.roundtrip_decoded_body_size_bytes());
+  for (const auto& action_network_stats : network_stats.action_stats()) {
+    *accumulated_network_stats_.add_action_stats() = action_network_stats;
+  }
+}
+
+void Controller::MaybeRecordFlowFinishedMetrics(
+    Metrics::FlowFinishedState state) {
+  if (accumulated_network_stats_.num_roundtrips() == 0 || !web_contents()) {
+    return;
+  }
+
+  Metrics::RecordFlowFinished(
+      ukm_recorder_,
+      web_contents()->GetPrimaryMainFrame()->GetPageUkmSourceId(), state,
+      accumulated_network_stats_);
+
+  // Reset network stats. Subsequent calls to this method should be ignored,
+  // unless a new run was started in the meantime.
+  accumulated_network_stats_ = RoundtripNetworkStats();
 }
 
 }  // namespace autofill_assistant

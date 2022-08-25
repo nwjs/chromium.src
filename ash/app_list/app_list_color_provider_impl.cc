@@ -10,6 +10,7 @@
 #include "ash/style/ash_color_provider.h"
 #include "ash/style/default_colors.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
+#include "ui/chromeos/styles/cros_styles.h"
 
 namespace ash {
 
@@ -197,6 +198,14 @@ SkColor AppListColorProviderImpl::GetFolderNameSelectionColor() const {
       AshColorProvider::ControlsLayerType::kFocusAuraColor);
 }
 
+SkColor AppListColorProviderImpl::GetFolderNotificationBadgeColor() const {
+  if (ShouldUseDarkLightColors()) {
+    return cros_styles::ResolveColor(cros_styles::ColorName::kIconColorBlue);
+  }
+  return cros_styles::ResolveColor(cros_styles::ColorName::kIconColorBlue,
+                                   /*is_dark_mode=*/false);
+}
+
 SkColor AppListColorProviderImpl::GetContentsBackgroundColor() const {
   if (ShouldUseDarkLightColors()) {
     return ash_color_provider_->GetControlsLayerColor(
@@ -220,12 +229,11 @@ SkColor AppListColorProviderImpl::GetGridBackgroundCardInactiveColor() const {
       AshColorProvider::ControlsLayerType::kControlBackgroundColorInactive);
 }
 
-SkColor AppListColorProviderImpl::GetSeparatorColor() const {
+ui::ColorId AppListColorProviderImpl::GetSeparatorColorId() const {
   if (ShouldUseDarkLightColors()) {
-    return ash_color_provider_->GetContentLayerColor(
-        ColorProvider::ContentLayerType::kSeparatorColor);
+    return ui::kColorAshAppListSeparatorLight;
   }
-  return SkColorSetA(gfx::kGoogleGrey900, 0x24);  // default_color
+  return ui::kColorAshAppListSeparator;  // default_color
 }
 
 SkColor AppListColorProviderImpl::GetFocusRingColor() const {

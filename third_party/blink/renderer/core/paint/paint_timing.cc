@@ -241,6 +241,11 @@ void PaintTiming::SetFirstPaint(base::TimeTicks stamp) {
 
   first_paint_ = stamp;
   RegisterNotifyPresentationTime(PaintEvent::kFirstPaint);
+
+  LocalFrame* frame = GetFrame();
+  if (frame && frame->GetDocument()) {
+    frame->GetDocument()->MarkFirstPaint();
+  }
 }
 
 void PaintTiming::SetFirstContentfulPaint(base::TimeTicks stamp) {
@@ -251,13 +256,12 @@ void PaintTiming::SetFirstContentfulPaint(base::TimeTicks stamp) {
   first_contentful_paint_ = stamp;
   RegisterNotifyPresentationTime(PaintEvent::kFirstContentfulPaint);
 
-  // Restart commits that may have been deferred.
   LocalFrame* frame = GetFrame();
-  if (!frame || !frame->IsMainFrame())
+  if (!frame)
     return;
   frame->View()->OnFirstContentfulPaint();
 
-  if (frame->GetFrameScheduler())
+  if (frame->IsMainFrame() && frame->GetFrameScheduler())
     frame->GetFrameScheduler()->OnFirstContentfulPaintInMainFrame();
 
   NotifyPaintTimingChanged();

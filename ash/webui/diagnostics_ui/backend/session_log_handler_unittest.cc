@@ -228,7 +228,8 @@ class SessionLogHandlerTest : public testing::Test {
   base::ScopedTempDir temp_dir_;
 };
 
-TEST_F(SessionLogHandlerTest, SaveSessionLog) {
+// Flaky; see crbug.com/1336726
+TEST_F(SessionLogHandlerTest, DISABLED_SaveSessionLog) {
   base::RunLoop run_loop;
   // Populate routine log
   routine_log_->LogRoutineStarted(mojom::RoutineType::kCpuStress);

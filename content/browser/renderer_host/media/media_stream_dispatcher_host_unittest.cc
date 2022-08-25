@@ -54,7 +54,7 @@
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "ash/components/audio/cras_audio_handler.h"
-#include "chromeos/dbus/audio/cras_audio_client.h"
+#include "chromeos/ash/components/dbus/audio/cras_audio_client.h"
 #endif
 
 using ::testing::_;
@@ -298,8 +298,11 @@ class MediaStreamDispatcherHostTest : public testing::Test {
   MediaStreamDispatcherHostTest()
       : task_environment_(BrowserTaskEnvironment::IO_MAINLOOP),
         origin_(url::Origin::Create(GURL("https://test.com"))) {
-    scoped_feature_list_.InitAndEnableFeature(
-        features::kUserMediaCaptureOnFocus);
+    scoped_feature_list_
+        .InitFromCommandLine(/*enable_features=*/
+                             "UserMediaCaptureOnFocus,GetDisplayMediaSet,"
+                             "GetDisplayMediaSetAutoSelectAllScreens",
+                             /*disable_features=*/"");
     audio_manager_ = std::make_unique<media::MockAudioManager>(
         std::make_unique<media::TestAudioThread>());
     audio_system_ =
@@ -329,7 +332,7 @@ class MediaStreamDispatcherHostTest : public testing::Test {
                             base::Unretained(this)));
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-    chromeos::CrasAudioClient::InitializeFake();
+    ash::CrasAudioClient::InitializeFake();
     ash::CrasAudioHandler::InitializeForTesting();
 #endif
   }
@@ -338,7 +341,7 @@ class MediaStreamDispatcherHostTest : public testing::Test {
     audio_manager_->Shutdown();
 #if BUILDFLAG(IS_CHROMEOS_ASH)
     ash::CrasAudioHandler::Shutdown();
-    chromeos::CrasAudioClient::Shutdown();
+    ash::CrasAudioClient::Shutdown();
 #endif
   }
 
@@ -585,6 +588,7 @@ TEST_P(MediaStreamDispatcherHostStreamTypeCombinationTest,
       {MediaStreamType::NO_SERVICE, MediaStreamType::GUM_TAB_VIDEO_CAPTURE},
       {MediaStreamType::NO_SERVICE, MediaStreamType::GUM_DESKTOP_VIDEO_CAPTURE},
       {MediaStreamType::NO_SERVICE, MediaStreamType::DISPLAY_VIDEO_CAPTURE},
+      {MediaStreamType::NO_SERVICE, MediaStreamType::DISPLAY_VIDEO_CAPTURE_SET},
       {MediaStreamType::NO_SERVICE,
        MediaStreamType::DISPLAY_VIDEO_CAPTURE_THIS_TAB},
       {MediaStreamType::DEVICE_AUDIO_CAPTURE, MediaStreamType::NO_SERVICE},

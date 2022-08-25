@@ -2069,8 +2069,10 @@ IN_PROC_BROWSER_TEST_F(PDFExtensionTest,
   menu_interceptor.Wait();
 }
 
-IN_PROC_BROWSER_TEST_F(PDFExtensionTest,
-                       ContextMenuPrintCommandEmbeddedExtensionMainFrame) {
+// TODO(crbug.com/1344508): Test is flaky on multiple platforms.
+IN_PROC_BROWSER_TEST_F(
+    PDFExtensionTest,
+    DISABLED_ContextMenuPrintCommandEmbeddedExtensionMainFrame) {
   content::WebContents* guest_contents = LoadPdfGetGuestContents(
       embedded_test_server()->GetURL("/pdf/pdf_embed.html"));
   content::RenderFrameHost* plugin_frame = GetPluginFrame(guest_contents);
@@ -3445,14 +3447,9 @@ IN_PROC_BROWSER_TEST_F(PDFExtensionClipboardTest,
   SendCopyCommandAndCheckCopyPasteClipboard("HEL");
 }
 
-// Flaky on Linux (https://crbug.com/1121446)
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-#define MAYBE_CombinedShiftArrowPresses DISABLED_CombinedShiftArrowPresses
-#else
-#define MAYBE_CombinedShiftArrowPresses CombinedShiftArrowPresses
-#endif
+// Flaky on multiple platforms (https://crbug.com/1121446)
 IN_PROC_BROWSER_TEST_F(PDFExtensionClipboardTest,
-                       MAYBE_CombinedShiftArrowPresses) {
+                       DISABLED_CombinedShiftArrowPresses) {
   LoadTestComboBoxPdfGetGuestContents();
 
   // Give the editable combo box focus.

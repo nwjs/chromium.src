@@ -16,13 +16,13 @@
 #include "components/autofill_assistant/browser/autofill_assistant_tts_controller.h"
 #include "components/autofill_assistant/browser/controller.h"
 #include "components/autofill_assistant/browser/display_strings_util.h"
-#include "components/autofill_assistant/browser/empty_website_login_manager_impl.h"
 #include "components/autofill_assistant/browser/features.h"
-#include "components/autofill_assistant/browser/headless/external_script_controller_impl.h"
+#include "components/autofill_assistant/browser/headless/headless_script_controller_impl.h"
+#include "components/autofill_assistant/browser/public/password_change/empty_website_login_manager_impl.h"
+#include "components/autofill_assistant/browser/public/password_change/website_login_manager_impl.h"
 #include "components/autofill_assistant/browser/public/ui_state.h"
 #include "components/autofill_assistant/browser/service/access_token_fetcher.h"
 #include "components/autofill_assistant/browser/switches.h"
-#include "components/autofill_assistant/browser/website_login_manager_impl.h"
 #include "components/password_manager/content/browser/password_change_success_tracker_factory.h"
 #include "components/password_manager/core/browser/password_change_success_tracker.h"
 #include "components/password_manager/core/browser/password_manager_client.h"
@@ -45,7 +45,7 @@ ClientHeadless::ClientHeadless(
     content::WebContents* web_contents,
     const CommonDependencies* common_dependencies,
     ExternalActionDelegate* action_extension_delegate,
-    ExternalScriptControllerImpl* external_script_controller)
+    HeadlessScriptControllerImpl* external_script_controller)
     : web_contents_(web_contents),
       common_dependencies_(common_dependencies),
       external_script_controller_(external_script_controller) {
@@ -72,6 +72,7 @@ void ClientHeadless::Start(const GURL& url,
       /* annotate_dom_model_service= */
       common_dependencies_->GetOrCreateAnnotateDomModelService(
           GetWebContents()->GetBrowserContext()));
+  controller_->AddObserver(headless_ui_controller_.get());
   controller_->Start(url, std::move(trigger_context));
 }
 

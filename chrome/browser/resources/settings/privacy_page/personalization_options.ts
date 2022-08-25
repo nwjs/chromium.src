@@ -15,7 +15,7 @@ import '../prefs/prefs.js';
 // <if expr="not chromeos_ash">
 import '../relaunch_confirmation_dialog.js';
 // </if>
-import '../settings_shared_css.js';
+import '../settings_shared.css.js';
 // <if expr="not chromeos_ash">
 import '//resources/cr_elements/cr_toast/cr_toast.js';
 
@@ -263,8 +263,7 @@ export class SettingsPersonalizationOptionsElement extends
     // </if>
     return (
         !!(this.prefs as {spellcheck?: any}).spellcheck &&
-        (this.getPref('spellcheck.dictionaries').value as Array<string>)
-                .length > 0);
+        (this.getPref('spellcheck.dictionaries').value as string[]).length > 0);
   }
 
   // <if expr="chromeos_ash">
@@ -277,8 +276,7 @@ export class SettingsPersonalizationOptionsElement extends
     }
     return (
         !!(this.prefs as {spellcheck?: any}).spellcheck &&
-        (this.getPref('spellcheck.dictionaries').value as Array<string>)
-                .length > 0);
+        (this.getPref('spellcheck.dictionaries').value as string[]).length > 0);
   }
 
   private onUseSpellingServiceLinkClick_() {

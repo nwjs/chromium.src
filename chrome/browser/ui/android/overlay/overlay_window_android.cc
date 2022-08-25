@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/android/overlay/overlay_window_android.h"
 
 #include "base/android/jni_android.h"
+#include "base/android/jni_array.h"
 #include "base/memory/ptr_util.h"
 #include "cc/layers/surface_layer.h"
 #include "chrome/android/chrome_jni_headers/PictureInPictureActivity_jni.h"
@@ -90,8 +91,9 @@ void OverlayWindowAndroid::OnActivityStart(
   window_android_ = ui::WindowAndroid::FromJavaWindowAndroid(jwindow_android);
   window_android_->AddObserver(this);
 
-  Java_PictureInPictureActivity_setPlayPauseButtonVisibility(
-      env, java_ref_.get(env), is_play_pause_button_visible_);
+  Java_PictureInPictureActivity_setPlaybackState(env, java_ref_.get(env),
+                                                 is_playing_);
+  MaybeNotifyVisibleActionsChanged();
 
   if (video_size_.IsEmpty())
     return;
@@ -122,13 +124,20 @@ void OverlayWindowAndroid::Destroy(JNIEnv* env) {
     window_android_ = nullptr;
   }
 
-  controller_->FocusInitiator();
   controller_->OnWindowDestroyed(/*should_pause_video=*/true);
 }
 
-void OverlayWindowAndroid::Play(JNIEnv* env) {
+void OverlayWindowAndroid::TogglePlayPause(JNIEnv* env) {
   DCHECK(!controller_->IsPlayerActive());
   controller_->TogglePlayPause();
+}
+
+void OverlayWindowAndroid::NextTrack(JNIEnv* env) {
+  controller_->NextTrack();
+}
+
+void OverlayWindowAndroid::PreviousTrack(JNIEnv* env) {
+  controller_->PreviousTrack();
 }
 
 void OverlayWindowAndroid::CompositorViewCreated(
@@ -150,6 +159,11 @@ void OverlayWindowAndroid::OnViewSizeChanged(JNIEnv* env,
   bounds_.set_size(content_size);
   surface_layer_->SetBounds(content_size);
   controller_->UpdateLayerBounds();
+}
+
+void OverlayWindowAndroid::OnBackToTab(JNIEnv* env) {
+  controller_->FocusInitiator();
+  Hide();
 }
 
 void OverlayWindowAndroid::Close() {
@@ -202,34 +216,90 @@ void OverlayWindowAndroid::UpdateNaturalSize(const gfx::Size& natural_size) {
       env, java_ref_.get(env), natural_size.width(), natural_size.height());
 }
 
-void OverlayWindowAndroid::SetPlayPauseButtonVisibility(bool is_visible) {
-  is_play_pause_button_visible_ = is_visible;
+// TODO(crbug.com/1345953): Handle replay action when video reaches the end.
+void OverlayWindowAndroid::SetPlaybackState(PlaybackState playback_state) {
+  is_playing_ = playback_state == PlaybackState::kPlaying;
   if (java_ref_.is_uninitialized())
     return;
 
   JNIEnv* env = base::android::AttachCurrentThread();
-  Java_PictureInPictureActivity_setPlayPauseButtonVisibility(
-      env, java_ref_.get(env), is_visible);
+  Java_PictureInPictureActivity_setPlaybackState(env, java_ref_.get(env),
+                                                 is_playing_);
+}
+
+void OverlayWindowAndroid::SetPlayPauseButtonVisibility(bool is_visible) {
+  if (!MaybeUpdateVisibleAction(media_session::mojom::MediaSessionAction::kPlay,
+                                is_visible)) {
+    return;
+  }
+
+  MaybeUpdateVisibleAction(media_session::mojom::MediaSessionAction::kPause,
+                           is_visible);
+  MaybeNotifyVisibleActionsChanged();
+}
+
+void OverlayWindowAndroid::SetNextTrackButtonVisibility(bool is_visible) {
+  if (MaybeUpdateVisibleAction(
+          media_session::mojom::MediaSessionAction::kNextTrack, is_visible)) {
+    MaybeNotifyVisibleActionsChanged();
+  }
+}
+
+void OverlayWindowAndroid::SetPreviousTrackButtonVisibility(bool is_visible) {
+  if (MaybeUpdateVisibleAction(
+          media_session::mojom::MediaSessionAction::kPreviousTrack,
+          is_visible)) {
+    MaybeNotifyVisibleActionsChanged();
+  }
 }
 
 void OverlayWindowAndroid::SetSurfaceId(const viz::SurfaceId& surface_id) {
   const viz::SurfaceId& old_surface_id = surface_layer_->surface_id().is_valid()
                                              ? surface_layer_->surface_id()
                                              : surface_id;
+  if (window_android_ && window_android_->GetCompositor() &&
+      old_surface_id != surface_id) {
+    // On Android, the new frame sink needs to be added before
+    // removing the previous surface sink.
+    window_android_->GetCompositor()->AddChildFrameSink(
+        surface_id.frame_sink_id());
+    window_android_->GetCompositor()->RemoveChildFrameSink(
+        old_surface_id.frame_sink_id());
+  }
+  // Set the surface after frame sink hierarchy update.
   surface_layer_->SetSurfaceId(surface_id,
                                cc::DeadlinePolicy::UseDefaultDeadline());
-
-  if (!window_android_ || !window_android_->GetCompositor() ||
-      old_surface_id == surface_id) {
-    return;
-  }
-
-  window_android_->GetCompositor()->RemoveChildFrameSink(
-      old_surface_id.frame_sink_id());
-  window_android_->GetCompositor()->AddChildFrameSink(
-      surface_id.frame_sink_id());
 }
 
 cc::Layer* OverlayWindowAndroid::GetLayerForTesting() {
   return nullptr;
+}
+
+void OverlayWindowAndroid::MaybeNotifyVisibleActionsChanged() {
+  if (java_ref_.is_uninitialized())
+    return;
+
+  JNIEnv* env = base::android::AttachCurrentThread();
+  Java_PictureInPictureActivity_updateVisibleActions(
+      env, java_ref_.get(env),
+      base::android::ToJavaIntArray(
+          env,
+          std::vector<int>(visible_actions_.begin(), visible_actions_.end())));
+}
+
+bool OverlayWindowAndroid::MaybeUpdateVisibleAction(
+    const media_session::mojom::MediaSessionAction& action,
+    bool is_visible) {
+  int action_code = static_cast<int>(action);
+  if ((visible_actions_.find(action_code) != visible_actions_.end()) ==
+      is_visible) {
+    return false;
+  }
+
+  if (is_visible)
+    visible_actions_.insert(action_code);
+  else
+    visible_actions_.erase(action_code);
+
+  return true;
 }

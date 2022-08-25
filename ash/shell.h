@@ -48,7 +48,6 @@ class DisplayManager;
 }  // namespace display
 
 namespace gfx {
-class Insets;
 class Point;
 }  // namespace gfx
 
@@ -96,6 +95,7 @@ class AshFocusRules;
 class AshTouchTransformController;
 class AssistantControllerImpl;
 class AutoclickController;
+class AutozoomControllerImpl;
 class BackGestureEventHandler;
 class BacklightsForcedOffSetter;
 class BluetoothDeviceStatusUiHandler;
@@ -106,7 +106,7 @@ class CalendarController;
 class CaptureModeController;
 class ControlVHistogramRecorder;
 class CrosDisplayConfig;
-class DarkModeController;
+class DarkLightModeControllerImpl;
 class DesksController;
 class DetachableBaseHandler;
 class DetachableBaseNotificationController;
@@ -181,6 +181,7 @@ class PrivacyScreenController;
 class ProjectingObserver;
 class ProjectorControllerImpl;
 class RgbKeyboardManager;
+class RefreshRateThrottleController;
 class ResizeShadowController;
 class ResolutionNotificationController;
 class RootWindowController;
@@ -313,18 +314,14 @@ class ASH_EXPORT Shell : public SessionObserver,
   std::unique_ptr<views::NonClientFrameView> CreateDefaultNonClientFrameView(
       views::Widget* widget);
 
-  // Please note: this is deprecated. Please use
-  // `WorkAreaInsets::UpdateWorkAreaInsetsForTest()` for test purpose.
-  // Sets work area insets of the display containing |window|, pings observers.
-  // TODO(yongshun): Get rid of this API and update existing test cases.
-  void SetDisplayWorkAreaInsets(aura::Window* window,
-                                const gfx::Insets& insets);
-
   // Called when a casting session is started or stopped.
   void OnCastingSessionStartedOrStopped(bool started);
 
   // Called when a root window is created.
   void OnRootWindowAdded(aura::Window* root_window);
+
+  // Called when a root window is about to shutdown.
+  void OnRootWindowWillShutdown(aura::Window* root_window);
 
   // Called when dictation is activated.
   void OnDictationStarted();
@@ -369,6 +366,9 @@ class ASH_EXPORT Shell : public SessionObserver,
   AutoclickController* autoclick_controller() {
     return autoclick_controller_.get();
   }
+  AutozoomControllerImpl* autozoom_controller() {
+    return autozoom_controller_.get();
+  }
   BacklightsForcedOffSetter* backlights_forced_off_setter() {
     return backlights_forced_off_setter_.get();
   }
@@ -386,8 +386,8 @@ class ASH_EXPORT Shell : public SessionObserver,
     return cros_display_config_.get();
   }
   ::wm::CursorManager* cursor_manager() { return cursor_manager_.get(); }
-  DarkModeController* dark_mode_controller() {
-    return dark_mode_controller_.get();
+  DarkLightModeControllerImpl* dark_light_mode_controller() {
+    return dark_light_mode_controller_.get();
   }
   DesksController* desks_controller() { return desks_controller_.get(); }
   PersistentDesksBarController* persistent_desks_bar_controller() {
@@ -404,6 +404,10 @@ class ASH_EXPORT Shell : public SessionObserver,
   DisplayPrefs* display_prefs() { return display_prefs_.get(); }
   DisplayConfigurationController* display_configuration_controller() {
     return display_configuration_controller_.get();
+  }
+
+  RefreshRateThrottleController* refresh_rate_throttle_controller() {
+    return refresh_rate_throttle_controller_.get();
   }
 
   DisplayAlignmentController* display_alignment_controller() {
@@ -494,6 +498,9 @@ class ASH_EXPORT Shell : public SessionObserver,
     return logout_confirmation_controller_.get();
   }
   MediaControllerImpl* media_controller() { return media_controller_.get(); }
+  MediaNotificationProviderImpl* media_notification_provider() {
+    return media_notification_provider_.get();
+  }
   MessageCenterAshImpl* message_center_ash_impl() {
     return message_center_ash_impl_.get();
   }
@@ -783,11 +790,12 @@ class ASH_EXPORT Shell : public SessionObserver,
   scoped_refptr<dbus::Bus> dbus_bus_;
   std::unique_ptr<AshDBusServices> ash_dbus_services_;
   std::unique_ptr<AssistantControllerImpl> assistant_controller_;
+  std::unique_ptr<AutozoomControllerImpl> autozoom_controller_;
   std::unique_ptr<BacklightsForcedOffSetter> backlights_forced_off_setter_;
   std::unique_ptr<BrightnessControlDelegate> brightness_control_delegate_;
   std::unique_ptr<CalendarController> calendar_controller_;
   std::unique_ptr<CrosDisplayConfig> cros_display_config_;
-  std::unique_ptr<DarkModeController> dark_mode_controller_;
+  std::unique_ptr<DarkLightModeControllerImpl> dark_light_mode_controller_;
   std::unique_ptr<DesksController> desks_controller_;
   std::unique_ptr<DesksTemplatesDelegate> desks_templates_delegate_;
   std::unique_ptr<DetachableBaseHandler> detachable_base_handler_;
@@ -917,6 +925,8 @@ class ASH_EXPORT Shell : public SessionObserver,
   std::unique_ptr<DisplayConfigurationController>
       display_configuration_controller_;
   std::unique_ptr<DisplayConfigurationObserver> display_configuration_observer_;
+  std::unique_ptr<RefreshRateThrottleController>
+      refresh_rate_throttle_controller_;
 
   std::unique_ptr<ScreenPinningController> screen_pinning_controller_;
 

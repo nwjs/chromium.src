@@ -13,7 +13,7 @@
  */
 import '//resources/cr_elements/md_select_css.m.js';
 import '//resources/cr_elements/policy/cr_policy_pref_indicator.m.js';
-import '../settings_shared_css.js';
+import '../settings_shared.css.js';
 import '../settings_vars.css.js';
 
 import {assert} from '//resources/js/assert_ts.js';
@@ -34,7 +34,7 @@ type DropdownMenuOption = {
   value: number|string,
 };
 
-export type DropdownMenuOptionList = Array<DropdownMenuOption>;
+export type DropdownMenuOptionList = DropdownMenuOption[];
 
 export interface SettingsDropdownMenuElement {
   $: {

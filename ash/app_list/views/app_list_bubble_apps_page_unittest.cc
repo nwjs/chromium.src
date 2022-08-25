@@ -20,7 +20,7 @@
 #include "ash/constants/ash_features.h"
 #include "ash/public/cpp/app_list/app_list_controller.h"
 #include "ash/shell.h"
-#include "ash/style/pill_button.h"
+#include "ash/style/icon_button.h"
 #include "ash/test/ash_test_base.h"
 #include "ash/test/layer_animation_stopped_waiter.h"
 #include "base/test/bind.h"
@@ -50,16 +50,20 @@ class AppListBubbleAppsPageTest : public AshTestBase {
   }
 
   void OnReorderAnimationDone(base::OnceClosure closure,
+                              bool expect_abort,
                               bool aborted,
-                              AppListReorderAnimationStatus status) {
-    EXPECT_FALSE(aborted);
-    EXPECT_EQ(AppListReorderAnimationStatus::kFadeInAnimation, status);
+                              AppListGridAnimationStatus status) {
+    EXPECT_EQ(aborted, expect_abort);
+    EXPECT_EQ(AppListGridAnimationStatus::kReorderFadeIn, status);
     std::move(closure).Run();
   }
 
   // Sorts app list with the specified order. If `wait` is true, wait for the
-  // reorder animation to complete.
-  void SortAppList(const absl::optional<AppListSortOrder>& order, bool wait) {
+  // reorder animation to complete. The animation is expected to be aborted if
+  // `expect_abort` is set to true.
+  void SortAppList(const absl::optional<AppListSortOrder>& order,
+                   bool wait,
+                   bool expect_abort = false) {
     AppListController::Get()->UpdateAppListWithNewTemporarySortOrder(
         order,
         /*animate=*/true, /*update_position_closure=*/base::DoNothing());
@@ -73,7 +77,7 @@ class AppListBubbleAppsPageTest : public AshTestBase {
         ->scrollable_apps_grid_view()
         ->AddReorderCallbackForTest(base::BindRepeating(
             &AppListBubbleAppsPageTest::OnReorderAnimationDone,
-            base::Unretained(this), run_loop.QuitClosure()));
+            base::Unretained(this), run_loop.QuitClosure(), expect_abort));
     run_loop.Run();
   }
 
@@ -99,14 +103,15 @@ TEST_F(AppListBubbleAppsPageTest, SlideViewIntoPositionCleansUpLayers) {
       ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
   constexpr int kVerticalOffset = 20;
   constexpr base::TimeDelta kSlideDuration = base::Milliseconds(100);
+  constexpr gfx::Tween::Type kTweenType = gfx::Tween::LINEAR;
   helper->StartSlideAnimationOnBubbleAppsPage(recent_apps, kVerticalOffset,
-                                              kSlideDuration);
+                                              kSlideDuration, kTweenType);
   ASSERT_TRUE(recent_apps->layer());
   EXPECT_TRUE(recent_apps->layer()->GetAnimator()->is_animating());
 
   // While that animation is running, run another animation.
   helper->StartSlideAnimationOnBubbleAppsPage(recent_apps, kVerticalOffset,
-                                              kSlideDuration);
+                                              kSlideDuration, kTweenType);
   auto* compositor = recent_apps->layer()->GetCompositor();
   while (recent_apps->layer() &&
          recent_apps->layer()->GetAnimator()->is_animating()) {
@@ -249,15 +254,25 @@ TEST_F(AppListBubbleAppsPageTest, ContinueSectionVisibleByDefault) {
   helper->AddAppItems(5);
   helper->ShowAppList();
 
-  // The show continue section button is hidden.
-  auto* apps_page = helper->GetBubbleAppsPage();
-  EXPECT_FALSE(
-      apps_page->show_continue_section_button_for_test()->GetVisible());
-
   // The continue section and recent apps are visible.
+  auto* apps_page = helper->GetBubbleAppsPage();
   EXPECT_TRUE(helper->GetBubbleContinueSectionView()->GetVisible());
   EXPECT_TRUE(helper->GetBubbleRecentAppsView()->GetVisible());
   EXPECT_TRUE(apps_page->separator_for_test()->GetVisible());
+}
+
+TEST_F(AppListBubbleAppsPageTest, ContinueLabelHiddenWhenNoTasksAndNoRecents) {
+  base::test::ScopedFeatureList feature_list(
+      features::kLauncherHideContinueSection);
+
+  // Show the app list with no continue suggestions and no recent apps.
+  auto* helper = GetAppListTestHelper();
+  helper->AddAppItems(5);
+  helper->ShowAppList();
+
+  auto* apps_page = helper->GetBubbleAppsPage();
+  ASSERT_TRUE(apps_page->continue_label_container_for_test());
+  EXPECT_FALSE(apps_page->continue_label_container_for_test()->GetVisible());
 }
 
 TEST_F(AppListBubbleAppsPageTest, CanHideContinueSection) {
@@ -272,19 +287,54 @@ TEST_F(AppListBubbleAppsPageTest, CanHideContinueSection) {
   helper->AddAppItems(5);
   helper->ShowAppList();
 
-  // Hide the continue section.
-  Shell::Get()->app_list_controller()->SetHideContinueSection(true);
-
-  // The show continue section button appears.
+  // The toggle continue section button has the "hide" tooltip.
   auto* apps_page = helper->GetBubbleAppsPage();
-  auto* show_continue_section_button =
-      apps_page->show_continue_section_button_for_test();
-  EXPECT_TRUE(show_continue_section_button->GetVisible());
+  IconButton* toggle_continue_section_button =
+      apps_page->toggle_continue_section_button();
+  ASSERT_TRUE(toggle_continue_section_button);
+  EXPECT_EQ(toggle_continue_section_button->GetTooltipText(),
+            u"Hide all suggestions");
+
+  // Hide the continue section.
+  LeftClickOn(toggle_continue_section_button);
 
   // Continue section and recent apps are hidden.
   EXPECT_FALSE(helper->GetBubbleContinueSectionView()->GetVisible());
   EXPECT_FALSE(helper->GetBubbleRecentAppsView()->GetVisible());
-  EXPECT_FALSE(apps_page->separator_for_test()->GetVisible());
+
+  // Label container and separator stay visible.
+  EXPECT_TRUE(apps_page->continue_label_container_for_test()->GetVisible());
+  EXPECT_TRUE(apps_page->separator_for_test()->GetVisible());
+}
+
+TEST_F(AppListBubbleAppsPageTest, HideContinueSectionPlaysAnimation) {
+  base::test::ScopedFeatureList feature_list(
+      features::kLauncherHideContinueSection);
+
+  // Open the app list without animation.
+  ASSERT_EQ(ui::ScopedAnimationDurationScaleMode::duration_multiplier(),
+            ui::ScopedAnimationDurationScaleMode::ZERO_DURATION);
+  auto* helper = GetAppListTestHelper();
+  helper->AddRecentApps(5);
+  helper->AddAppItems(5);
+  helper->ShowAppList();
+
+  // Enable animations.
+  ui::ScopedAnimationDurationScaleMode duration(
+      ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
+
+  // Hide the continue section.
+  auto* apps_page = helper->GetBubbleAppsPage();
+  LeftClickOn(apps_page->toggle_continue_section_button());
+
+  // Separator and apps grid are animating.
+  auto* separator = apps_page->separator_for_test();
+  ASSERT_TRUE(separator->layer());
+  EXPECT_TRUE(separator->layer()->GetAnimator()->is_animating());
+
+  auto* apps_grid = apps_page->scrollable_apps_grid_view();
+  ASSERT_TRUE(apps_grid->layer());
+  EXPECT_TRUE(apps_grid->layer()->GetAnimator()->is_animating());
 }
 
 TEST_F(AppListBubbleAppsPageTest, CanShowContinueSectionByClickingButton) {
@@ -302,27 +352,71 @@ TEST_F(AppListBubbleAppsPageTest, CanShowContinueSectionByClickingButton) {
   helper->AddAppItems(5);
   helper->ShowAppList();
 
-  // The show continue section button appears.
+  // The toggle continue section button has the "show" tooltip.
   auto* apps_page = helper->GetBubbleAppsPage();
-  auto* show_continue_section_button =
-      apps_page->show_continue_section_button_for_test();
-  EXPECT_TRUE(show_continue_section_button->GetVisible());
+  IconButton* toggle_continue_section_button =
+      apps_page->toggle_continue_section_button();
+  ASSERT_TRUE(toggle_continue_section_button);
+  EXPECT_EQ(toggle_continue_section_button->GetTooltipText(),
+            u"Show all suggestions");
 
   // Continue section and recent apps are hidden.
   EXPECT_FALSE(helper->GetBubbleContinueSectionView()->GetVisible());
   EXPECT_FALSE(helper->GetBubbleRecentAppsView()->GetVisible());
-  EXPECT_FALSE(apps_page->separator_for_test()->GetVisible());
+  EXPECT_TRUE(apps_page->separator_for_test()->GetVisible());
 
   // Click the show continue section button.
-  LeftClickOn(show_continue_section_button);
-
-  // The button hides.
-  EXPECT_FALSE(show_continue_section_button->GetVisible());
+  LeftClickOn(toggle_continue_section_button);
 
   // The continue section and recent apps are visible.
   EXPECT_TRUE(helper->GetBubbleContinueSectionView()->GetVisible());
   EXPECT_TRUE(helper->GetBubbleRecentAppsView()->GetVisible());
   EXPECT_TRUE(apps_page->separator_for_test()->GetVisible());
+}
+
+TEST_F(AppListBubbleAppsPageTest, ShowContinueSectionPlaysAnimation) {
+  base::test::ScopedFeatureList feature_list(
+      features::kLauncherHideContinueSection);
+
+  // Simulate a user with the continue section hidden on startup.
+  Shell::Get()->app_list_controller()->SetHideContinueSection(true);
+
+  // Show the app list with enough items to make the continue section and
+  // recent apps visible.
+  auto* helper = GetAppListTestHelper();
+  helper->AddContinueSuggestionResults(4);
+  helper->AddRecentApps(5);
+  helper->AddAppItems(5);
+  helper->ShowAppList();
+
+  // Enable animations.
+  ui::ScopedAnimationDurationScaleMode duration(
+      ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
+
+  // Click the show continue section button.
+  auto* apps_page = helper->GetBubbleAppsPage();
+  LeftClickOn(apps_page->toggle_continue_section_button());
+
+  // Animations play for continue section, recent apps, separator and apps grid.
+  auto* continue_section = helper->GetBubbleContinueSectionView();
+  ASSERT_TRUE(continue_section->layer());
+  EXPECT_TRUE(continue_section->layer()->GetAnimator()->is_animating());
+  EXPECT_EQ(continue_section->layer()->opacity(), 0.0f);
+  EXPECT_EQ(continue_section->layer()->GetTargetOpacity(), 1.0f);
+
+  auto* recent_apps = helper->GetBubbleRecentAppsView();
+  ASSERT_TRUE(recent_apps->layer());
+  EXPECT_TRUE(recent_apps->layer()->GetAnimator()->is_animating());
+  EXPECT_EQ(recent_apps->layer()->opacity(), 0.0f);
+  EXPECT_EQ(recent_apps->layer()->GetTargetOpacity(), 1.0f);
+
+  auto* separator = apps_page->separator_for_test();
+  ASSERT_TRUE(separator->layer());
+  EXPECT_TRUE(separator->layer()->GetAnimator()->is_animating());
+
+  auto* apps_grid = apps_page->scrollable_apps_grid_view();
+  ASSERT_TRUE(apps_grid->layer());
+  EXPECT_TRUE(apps_grid->layer()->GetAnimator()->is_animating());
 }
 
 // Regression test for https://crbug.com/1329227
@@ -548,6 +642,25 @@ TEST_F(AppListBubbleAppsPageTest, CloseReorderToast) {
   LayerAnimationStoppedWaiter().Wait(toast_container->toast_view()->layer());
 
   EXPECT_FALSE(toast_container->IsToastVisible());
+}
+
+// Verifies that sorting the app list with no app is properly handled.
+TEST_F(AppListBubbleAppsPageTest, SortingAppListWithNoApp) {
+  ui::ScopedAnimationDurationScaleMode scope_duration(
+      ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
+
+  auto* helper = GetAppListTestHelper();
+  helper->ShowAppList();
+
+  // Sort app list that contains no app. The animation should be aborted in this
+  // case.
+  SortAppList(AppListSortOrder::kNameAlphabetical, /*wait=*/true,
+              /*expect_abort=*/true);
+
+  // Make sure the toast container shows up even if the animation is aborted.
+  auto* toast_container =
+      helper->GetBubbleAppsPage()->toast_container_for_test();
+  EXPECT_TRUE(toast_container->IsToastVisible());
 }
 
 }  // namespace

@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import {assert} from 'chrome://resources/js/assert_ts.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.m.js';
 
 import {pageVisibility} from './page_visibility.js';
@@ -12,15 +13,14 @@ import {SettingsRoutes} from './settings_routes.js';
  * Add all of the child routes that originate from the privacy route,
  * regardless of whether the privacy section under basic or advanced.
  */
-function addPrivacyChildRoutes(r: SettingsRoutes) {
+function addPrivacyChildRoutes(r: Partial<SettingsRoutes>) {
+  assert(r.PRIVACY);
   r.CLEAR_BROWSER_DATA = r.PRIVACY.createChild('/clearBrowserData');
   r.CLEAR_BROWSER_DATA.isNavigableDialog = true;
 
   r.SAFETY_CHECK = r.PRIVACY.createSection('/safetyCheck', 'safetyCheck');
 
-  if (loadTimeData.getBoolean('privacyGuideEnabled')) {
-    r.PRIVACY_GUIDE = r.PRIVACY.createChild('guide');
-  }
+  r.PRIVACY_GUIDE = r.PRIVACY.createChild('guide');
   r.SITE_SETTINGS = r.PRIVACY.createChild('/content');
   r.COOKIES = r.PRIVACY.createChild('/cookies');
   r.SECURITY = r.PRIVACY.createChild('/security');
@@ -104,8 +104,8 @@ function addPrivacyChildRoutes(r: SettingsRoutes) {
 /**
  * Adds Route objects for each path.
  */
-function createBrowserSettingsRoutes(): SettingsRoutes {
-  const r = {} as SettingsRoutes;
+function createBrowserSettingsRoutes(): Partial<SettingsRoutes> {
+  const r: Partial<SettingsRoutes> = {};
 
   // Root pages.
   r.BASIC = new Route('/');
@@ -129,6 +129,7 @@ function createBrowserSettingsRoutes(): SettingsRoutes {
 
   // <if expr="not chromeos_ash">
   if (visibility.people !== false) {
+    assert(r.PEOPLE);
     r.MANAGE_PROFILE = r.PEOPLE.createChild('/manageProfile');
   }
   // </if>
@@ -175,8 +176,9 @@ function createBrowserSettingsRoutes(): SettingsRoutes {
     r.ADVANCED = new Route('/advanced');
 
     r.LANGUAGES = r.ADVANCED.createSection('/languages', 'languages');
+    r.SPELL_CHECK = r.LANGUAGES.createSection('/spellCheck', 'spellCheck');
     // <if expr="not chromeos_ash and not is_macosx">
-    r.EDIT_DICTIONARY = r.LANGUAGES.createChild('/editDictionary');
+    r.EDIT_DICTIONARY = r.SPELL_CHECK.createChild('/editDictionary');
     // </if>
 
     if (visibility.downloads !== false) {
@@ -222,7 +224,11 @@ function createBrowserSettingsRoutes(): SettingsRoutes {
  * @return A router with the browser settings routes.
  */
 export function buildRouter(): Router {
-  return new Router(createBrowserSettingsRoutes());
+  return new Router(createBrowserSettingsRoutes() as {
+    BASIC: Route,
+    ADVANCED: Route,
+    ABOUT: Route,
+  });
 }
 
 Router.setInstance(buildRouter());

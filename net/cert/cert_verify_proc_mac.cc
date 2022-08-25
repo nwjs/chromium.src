@@ -30,10 +30,10 @@
 #include "net/cert/crl_set.h"
 #include "net/cert/ct_serialization.h"
 #include "net/cert/ev_root_ca_metadata.h"
-#include "net/cert/internal/certificate_policies.h"
-#include "net/cert/internal/parsed_certificate.h"
 #include "net/cert/known_roots.h"
 #include "net/cert/known_roots_mac.h"
+#include "net/cert/pki/certificate_policies.h"
+#include "net/cert/pki/parsed_certificate.h"
 #include "net/cert/test_keychain_search_list_mac.h"
 #include "net/cert/test_root_certs.h"
 #include "net/cert/x509_certificate.h"
@@ -574,7 +574,7 @@ int BuildAndEvaluateSecTrustRef(CFArrayRef cert_array,
                                 SecTrustResultType* trust_result,
                                 ScopedCFTypeRef<CFArrayRef>* verified_chain,
                                 std::vector<CertEvidenceInfo>* chain_info) {
-  SecTrustRef tmp_trust = NULL;
+  SecTrustRef tmp_trust = nullptr;
   OSStatus status = SecTrustCreateWithCertificates(cert_array, trust_policies,
                                                    &tmp_trust);
   if (status)
@@ -658,7 +658,7 @@ int BuildAndEvaluateSecTrustRef(CFArrayRef cert_array,
   status = SecTrustEvaluate(tmp_trust, &tmp_trust_result);
   if (status)
     return NetErrorFromOSStatus(status);
-  CFArrayRef tmp_verified_chain = NULL;
+  CFArrayRef tmp_verified_chain = nullptr;
   CSSM_TP_APPLE_EVIDENCE_INFO* tmp_chain_info;
   status = SecTrustGetResult(tmp_trust, &tmp_trust_result, &tmp_verified_chain,
                              &tmp_chain_info);

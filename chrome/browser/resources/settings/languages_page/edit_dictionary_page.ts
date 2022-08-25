@@ -14,7 +14,7 @@ import 'chrome://resources/cr_elements/icons.m.js';
 import 'chrome://resources/polymer/v3_0/iron-a11y-keys/iron-a11y-keys.js';
 import 'chrome://resources/polymer/v3_0/iron-list/iron-list.js';
 import '../prefs/prefs.js';
-import '../settings_shared_css.js';
+import '../settings_shared.css.js';
 import '../settings_vars.css.js';
 
 import {CrButtonElement} from 'chrome://resources/cr_elements/cr_button/cr_button.m.js';
@@ -88,7 +88,7 @@ export class SettingsEditDictionaryPageElement extends
 
   private newWordValue_: string;
   subpageRoute: Route;
-  private words_: Array<string>;
+  private words_: string[];
   private hasWords_: boolean;
   private languageSettingsPrivate_:
       (typeof chrome.languageSettingsPrivate)|null = null;
@@ -172,8 +172,7 @@ export class SettingsEditDictionaryPageElement extends
    * Handles updates to the word list. Additions are unshifted to the top
    * of the list so that users can see them easily.
    */
-  private onCustomDictionaryChanged_(
-      added: Array<string>, removed: Array<string>) {
+  private onCustomDictionaryChanged_(added: string[], removed: string[]) {
     const wasEmpty = this.words_.length === 0;
 
     for (const word of removed) {

@@ -5,18 +5,21 @@
 /**
  * @fileoverview The ChromeVox panel and menus.
  */
-import {BrailleCommandData} from '/chromevox/common/braille/braille_command_data.js';
-import {CommandStore} from '/chromevox/common/command_store.js';
-import {EventSourceType} from '/chromevox/common/event_source_type.js';
-import {GestureCommandData} from '/chromevox/common/gesture_command_data.js';
-import {KeyMap} from '/chromevox/common/key_map.js';
-import {KeyUtil} from '/chromevox/common/key_util.js';
-import {PanelCommand, PanelCommandType} from '/chromevox/common/panel_command.js';
-import {ISearchUI} from '/chromevox/panel/i_search_ui.js';
-import {PanelInterface} from '/chromevox/panel/panel_interface.js';
-import {PanelMenu, PanelNodeMenu, PanelSearchMenu} from '/chromevox/panel/panel_menu.js';
-import {PanelMode, PanelModeInfo} from '/chromevox/panel/panel_mode.js';
-import {EventGenerator} from '/common/event_generator.js';
+import {EventGenerator} from '../../common/event_generator.js';
+import {BrailleCommandData} from '../common/braille/braille_command_data.js';
+import {CommandStore} from '../common/command_store.js';
+import {EventSourceType} from '../common/event_source_type.js';
+import {GestureCommandData} from '../common/gesture_command_data.js';
+import {KeyMap} from '../common/key_map.js';
+import {KeyUtil} from '../common/key_util.js';
+import {LocaleOutputHelper} from '../common/locale_output_helper.js';
+import {Msgs} from '../common/msgs.js';
+import {PanelCommand, PanelCommandType} from '../common/panel_command.js';
+
+import {ISearchUI} from './i_search_ui.js';
+import {PanelInterface} from './panel_interface.js';
+import {PanelMenu, PanelNodeMenu, PanelSearchMenu} from './panel_menu.js';
+import {PanelMode, PanelModeInfo} from './panel_mode.js';
 
 /**
  * Class to manage the panel.
@@ -55,8 +58,8 @@ export class Panel extends PanelInterface {
     /** @type {Element} @private */
     Panel.searchContainer_ = $('search-container');
 
-    /** @type {Element} @private */
-    Panel.searchInput_ = $('search');
+    /** @type {!Element} @private */
+    Panel.searchInput_ = /** @type {!Element} */ ($('search'));
 
     /** @type {Element} @private */
     Panel.brailleTableElement_ = $('braille-table');
@@ -348,7 +351,7 @@ export class Panel extends PanelInterface {
         'actions': actionsMenu,
 
         'braille': null,
-        'developer': null
+        'developer': null,
       };
 
       // TODO(accessibility): Commands should be based off of CommandStore and
@@ -453,10 +456,10 @@ export class Panel extends PanelInterface {
       // Add all open tabs to the Tabs menu.
       const data = await BackgroundBridge.PanelBackground.getTabMenuData();
       for (const menuInfo of data) {
-        tabsMenu.addMenuItem(
-            menuInfo.title, '', '', '',
-            () => BackgroundBridge.PanelTabMenuBackground.focus(
-                menuInfo.windowId, menuInfo.tabId));
+        tabsMenu.addMenuItem(menuInfo.title, '', '', '', () => {
+          BackgroundBridge.PanelBackground.focusTab(
+              menuInfo.windowId, menuInfo.tabId);
+        });
       }
 
       if (Panel.sessionState !== 'IN_SESSION') {
@@ -466,7 +469,7 @@ export class Panel extends PanelInterface {
           const menu = Panel.menus_[i];
           for (let j = 0; j < menu.items.length; ++j) {
             const item = menu.items[j];
-            if (CommandStore.denyOOBE(item.element.id)) {
+            if (CommandStore.denySignedOut(item.element.id)) {
               item.disable();
             }
           }
@@ -638,7 +641,8 @@ export class Panel extends PanelInterface {
       Panel.brailleTableElement2_.deleteRow(0);
     }
 
-    let row1, row2;
+    let row1;
+    let row2;
     // Number of rows already written.
     rowCount = 0;
     // Number of cells already written in this row.
@@ -1215,7 +1219,8 @@ export class Panel extends PanelInterface {
 
   static onCurrentRangeChanged() {
     if (Panel.mode_ === PanelMode.FULLSCREEN_TUTORIAL) {
-      if (Panel.tutorial && Panel.tutorial.restartNudges) {
+      if (Panel.tutorial && Panel.tutorial.restartNudges &&
+          !Panel.disableRestartTutorialNudgesForTesting) {
         Panel.tutorial.restartNudges();
       }
     }
@@ -1228,7 +1233,7 @@ Panel.ACTION_TO_MSG_ID = {
   increment: 'action_increment_description',
   scrollBackward: 'action_scroll_backward_description',
   scrollForward: 'action_scroll_forward_description',
-  showContextMenu: 'show_context_menu'
+  showContextMenu: 'show_context_menu',
 };
 
 
@@ -1237,6 +1242,9 @@ Panel.lastMenu_ = '';
 
 /** @private {!Object<!PanelNodeMenuId, !PanelNodeMenu>} */
 Panel.nodeMenuDictionary_ = {};
+
+/** @public {boolean} */
+Panel.disableRestartTutorialNudgesForTesting = false;
 
 window.addEventListener('load', function() {
   Panel.init();

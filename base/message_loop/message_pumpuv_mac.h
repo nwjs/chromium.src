@@ -86,6 +86,8 @@ class BASE_EXPORT MessagePumpUVNSRunLoop : public MessagePumpCFRunLoopBase {
   // Whether we're done.
   int embed_closed_;
   int nw_nesting_level_;
+
+  DISALLOW_COPY_AND_ASSIGN(MessagePumpUVNSRunLoop);
 };
 
 }  // namespace base

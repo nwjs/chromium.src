@@ -9,8 +9,8 @@
 #include "base/task/thread_pool.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/cart/cart_discount_fetcher.h"
-#include "chrome/browser/commerce/coupons/coupon_db_content.pb.h"
 #include "components/commerce/core/commerce_feature_list.h"
+#include "components/commerce/core/proto/coupon_db_content.pb.h"
 #include "components/search/ntp_features.h"
 #include "components/signin/public/identity_manager/access_token_info.h"
 #include "components/variations/variations.mojom.h"
@@ -154,7 +154,7 @@ void FetchDiscountWorker::ReadyToFetch(
     }
   }
   if (!has_partner_merchant) {
-    Start(commerce::kDiscountFetchDelayParam.Get());
+    Start(commerce::GetDiscountFetchDelay());
     return;
   }
   backend_task_runner_->PostTask(
@@ -305,11 +305,8 @@ void FetchDiscountWorker::OnUpdatingDiscounts(
     cart_service_delegate_->UpdateFreeListingCoupons(coupon_map);
   }
 
-  if (base::GetFieldTrialParamByFeatureAsBool(
-          ntp_features::kNtpChromeCartModule,
-          ntp_features::kNtpChromeCartModuleAbandonedCartDiscountParam,
-          false)) {
+  if (commerce::IsCartDiscountFeatureEnabled()) {
     // Continue to work.
-    Start(commerce::kDiscountFetchDelayParam.Get());
+    Start(commerce::GetDiscountFetchDelay());
   }
 }

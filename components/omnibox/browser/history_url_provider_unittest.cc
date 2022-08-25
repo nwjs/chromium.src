@@ -206,7 +206,8 @@ class HistoryURLProviderTest : public testing::Test,
   HistoryURLProviderTest& operator=(const HistoryURLProviderTest&) = delete;
 
   // AutocompleteProviderListener:
-  void OnProviderUpdate(bool updated_matches) override;
+  void OnProviderUpdate(bool updated_matches,
+                        const AutocompleteProvider* provider) override;
 
  protected:
   // testing::Test
@@ -275,7 +276,9 @@ class HistoryURLProviderTestNoSearchProvider : public HistoryURLProviderTest {
   }
 };
 
-void HistoryURLProviderTest::OnProviderUpdate(bool updated_matches) {
+void HistoryURLProviderTest::OnProviderUpdate(
+    bool updated_matches,
+    const AutocompleteProvider* provider) {
   if (autocomplete_->done())
     base::RunLoop::QuitCurrentWhenIdleDeprecated();
 }
@@ -1436,7 +1439,7 @@ TEST_F(HistoryURLProviderTest, KeywordModeExtractUserInput) {
   EXPECT_EQ(GURL("http://www.google.com/"), matches_[0].destination_url);
 
   // Test result for "@history" and "@history google" while NOT in keyword mode,
-  // we should get a result for history.com and not for google since the we're
+  // we should get a result for history.com and not for google since we're
   // searching for the whole input text including "@history".
   AutocompleteInput input2(u"@history", metrics::OmniboxEventProto::OTHER,
                            TestSchemeClassifier());
@@ -1461,6 +1464,8 @@ TEST_F(HistoryURLProviderTest, KeywordModeExtractUserInput) {
   // Turn on keyword mode, test result again, we should get back the result for
   // google.com since we're searching only for the user text after the keyword.
   input3.set_prefer_keyword(true);
+  input3.set_keyword_mode_entry_method(
+      metrics::OmniboxEventProto_KeywordModeEntryMethod_TAB);
   autocomplete_->Start(input3, false);
   if (!autocomplete_->done())
     base::RunLoop().Run();
@@ -1468,4 +1473,29 @@ TEST_F(HistoryURLProviderTest, KeywordModeExtractUserInput) {
   matches_ = autocomplete_->matches();
   ASSERT_GT(matches_.size(), 0u);
   EXPECT_EQ(GURL("http://www.google.com/"), matches_[0].destination_url);
+  EXPECT_TRUE(matches_[0].from_keyword);
+}
+
+TEST_F(HistoryURLProviderTest, MaxMatches) {
+  // Keyword mode is off. We should only get provider_max_matches_ matches.
+  AutocompleteInput input(u"star", metrics::OmniboxEventProto::OTHER,
+                          TestSchemeClassifier());
+  autocomplete_->Start(input, false);
+  if (!autocomplete_->done())
+    base::RunLoop().Run();
+
+  matches_ = autocomplete_->matches();
+  EXPECT_EQ(matches_.size(), autocomplete_->provider_max_matches());
+
+  // Turn keyword mode on. we should be able to get more matches now.
+  input.set_keyword_mode_entry_method(
+      metrics::OmniboxEventProto_KeywordModeEntryMethod_TAB);
+  input.set_prefer_keyword(true);
+  autocomplete_->Start(input, false);
+  if (!autocomplete_->done())
+    base::RunLoop().Run();
+
+  matches_ = autocomplete_->matches();
+  EXPECT_EQ(matches_.size(),
+            autocomplete_->provider_max_matches_in_keyword_mode());
 }

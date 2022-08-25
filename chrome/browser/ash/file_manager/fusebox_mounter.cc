@@ -15,8 +15,8 @@
 #include "base/logging.h"
 #include "base/memory/weak_ptr.h"
 #include "base/strings/string_util.h"
+#include "chromeos/ash/components/dbus/cros_disks/cros_disks_client.h"
 #include "chromeos/ash/components/dbus/fusebox/fusebox_reverse_client.h"
-#include "chromeos/dbus/cros_disks/cros_disks_client.h"
 
 namespace file_manager {
 
@@ -83,6 +83,11 @@ void FuseBoxMounter::DetachStorage(const std::string& subdir,
 
 void FuseBoxMounter::Unmount(FuseBoxDiskMountManager* disk_mount_manager) {
   DCHECK(disk_mount_manager);
+
+  if (!mounted_) {
+    VLOG(1) << "FuseBoxMounter::Unmount ignored: not mounted";
+    return;
+  }
 
   disk_mount_manager->UnmountPath(
       uri_, base::BindOnce(&FuseBoxMounter::UnmountResponse, GetWeakPtr()));

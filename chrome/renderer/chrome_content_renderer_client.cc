@@ -71,6 +71,7 @@
 #include "components/autofill/content/renderer/password_generation_agent.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill_assistant/content/renderer/autofill_assistant_agent.h"
+#include "components/commerce/core/commerce_feature_list.h"
 #include "components/content_capture/common/content_capture_features.h"
 #include "components/content_capture/renderer/content_capture_sender.h"
 #include "components/content_settings/core/common/content_settings_pattern.h"
@@ -84,6 +85,7 @@
 #include "components/error_page/common/localized_error.h"
 #include "components/feed/buildflags.h"
 #include "components/grit/components_scaled_resources.h"
+#include "components/heap_profiling/in_process/heap_profiler_controller.h"
 #include "components/history_clusters/core/config.h"
 #include "components/metrics/call_stack_profile_builder.h"
 #include "components/network_hints/renderer/web_prescient_networking_impl.h"
@@ -167,7 +169,6 @@
 
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/renderer/sandbox_status_extension_android.h"
-#include "components/commerce/core/commerce_feature_list.h"
 #else
 #include "chrome/renderer/searchbox/searchbox.h"
 #include "chrome/renderer/searchbox/searchbox_extension.h"
@@ -376,7 +377,7 @@ ChromeContentRendererClient::ChromeContentRendererClient()
 
 ChromeContentRendererClient::~ChromeContentRendererClient() {}
 
-void ChromeContentRendererClient::willHandleNavigationPolicy(content::RenderView* rv,
+void ChromeContentRendererClient::willHandleNavigationPolicy(content::RenderFrame* rv,
                                                              blink::WebFrame* frame,
                                                              const blink::WebURLRequest& request,
                                                              blink::WebNavigationPolicy* policy,
@@ -513,10 +514,16 @@ void ChromeContentRendererClient::RenderThreadStarted() {
         WebString::FromASCII(scheme));
   }
 
+  // This doesn't work in single-process mode.
   if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kSingleProcess)) {
-    // This doesn't work in single-process mode.
-    if (ThreadProfiler::ShouldCollectProfilesForChildProcess()) {
+    // The HeapProfilerController should have been created in
+    // ChromeMainDelegate::PostEarlyInitialization.
+    DCHECK_NE(HeapProfilerController::GetProfilingEnabled(),
+              HeapProfilerController::ProfilingEnabled::kNoController);
+    if (ThreadProfiler::ShouldCollectProfilesForChildProcess() ||
+        HeapProfilerController::GetProfilingEnabled() ==
+            HeapProfilerController::ProfilingEnabled::kEnabled) {
       ThreadProfiler::SetMainThreadTaskRunner(
           base::ThreadTaskRunnerHandle::Get());
       mojo::PendingRemote<metrics::mojom::CallStackProfileCollector> collector;
@@ -599,24 +606,16 @@ void ChromeContentRendererClient::RenderFrameCreated(
   SandboxStatusExtension::Create(render_frame);
 #endif
 
-#if !BUILDFLAG(IS_ANDROID)
   SyncEncryptionKeysExtension::Create(render_frame);
-#endif
 
   if (render_frame->IsMainFrame())
     new webapps::WebPageMetadataAgent(render_frame);
 
-#if BUILDFLAG(IS_ANDROID)
-  const bool search_result_extractor_enabled =
-      render_frame->IsMainFrame() &&
-      base::FeatureList::IsEnabled(features::kContinuousSearch);
-#else
   const bool search_result_extractor_enabled =
       render_frame->IsMainFrame() &&
       history_clusters::GetConfig().is_journeys_enabled_no_locale_check &&
       history_clusters::IsApplicationLocaleSupportedByJourneys(
           RenderThread::Get()->GetLocale());
-#endif
   if (search_result_extractor_enabled) {
     continuous_search::SearchResultExtractorImpl::Create(render_frame);
   }
@@ -725,7 +724,7 @@ void ChromeContentRendererClient::RenderFrameCreated(
 // frame that is the main frame as well, so we should check if |render_frame|
 // is the fenced frame.
 #if !BUILDFLAG(IS_ANDROID)
-  if (base::FeatureList::IsEnabled(ntp_features::kNtpChromeCartModule) &&
+  if (command_line->HasSwitch(commerce::switches::kEnableChromeCart) &&
 #else
   if (base::FeatureList::IsEnabled(commerce::kCommerceHintAndroid) &&
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -756,7 +755,8 @@ void ChromeContentRendererClient::RenderFrameCreated(
 #endif
 }
 
-void ChromeContentRendererClient::WebViewCreated(blink::WebView* web_view) {
+void ChromeContentRendererClient::WebViewCreated(blink::WebView* web_view,
+                                                 bool was_created_by_renderer) {
   new prerender::NoStatePrefetchClient(web_view);
 }
 
@@ -1359,6 +1359,10 @@ void ChromeContentRendererClient::PostCompositorThreadCreated(
       FROM_HERE,
       base::BindOnce(&ThreadProfiler::StartOnChildThread,
                      metrics::CallStackProfileParams::Thread::kCompositor));
+  // Enable stack sampling for tracing.
+  compositor_thread_task_runner->PostTask(
+      FROM_HERE,
+      base::BindOnce(&tracing::TracingSamplerProfiler::CreateOnChildThread));
 }
 
 bool ChromeContentRendererClient::RunIdleHandlerWhenWidgetsHidden() {
@@ -1611,6 +1615,16 @@ void ChromeContentRendererClient::
            features::kSupportSearchSuggestionForPrerender2))) {
     blink::WebRuntimeFeatures::EnablePrerender2RelatedFeatures(true);
   }
+
+#if !BUILDFLAG(IS_ANDROID) && BUILDFLAG(ENABLE_EXTENSIONS)
+  // WebHID on service workers is only available in extension for now with
+  // feature enabled.
+  if (IsStandaloneContentExtensionProcess() &&
+      base::FeatureList::IsEnabled(
+          features::kEnableWebHidOnExtensionServiceWorker)) {
+    blink::WebRuntimeFeatures::EnableWebHIDOnServiceWorkers(true);
+  }
+#endif
 }
 
 bool ChromeContentRendererClient::AllowScriptExtensionForServiceWorker(

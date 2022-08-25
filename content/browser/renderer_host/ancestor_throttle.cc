@@ -322,13 +322,7 @@ AncestorThrottle::CheckResult AncestorThrottle::EvaluateFrameAncestors(
       GetParentExceptForFencedFrame(static_cast<RenderFrameHostImpl*>(
           navigation_handle()->GetRenderFrameHost()));
 
-  if (static_cast<RenderFrameHostImpl*>(navigation_handle()->GetRenderFrameHost())->
-      frame_tree_node()->frame_owner_properties().nwfaketop)
-    return CheckResult::PROCEED;
-
   while (parent) {
-    if (parent->frame_tree_node()->frame_owner_properties().nwfaketop)
-      break;
     // CSP violations (if any) are reported via the disallowed ancestor of the
     // navigated frame (because while the throttle runs the navigation hasn't
     // committed yet and the target frame might not yet have a URLLoaderFactory

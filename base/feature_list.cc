@@ -8,7 +8,7 @@
 // time. Try not to raise this limit unless necessary. See
 // https://chromium.googlesource.com/chromium/src/+/HEAD/docs/wmax_tokens.md
 #ifndef NACL_TC_REV
-#pragma clang max_tokens_here 545000
+#pragma clang max_tokens_here 600000
 #endif
 
 #include <string>
@@ -24,15 +24,18 @@
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/metrics/field_trial.h"
+#include "base/metrics/field_trial_param_associator.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/persistent_memory_allocator.h"
 #include "base/notreached.h"
 #include "base/path_service.h"
 #include "base/pickle.h"
+#include "base/rand_util.h"
 #include "base/strings/string_piece.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
+#include "base/task/sequence_manager/work_queue.h"
 #include "build/build_config.h"
 
 namespace base {
@@ -477,6 +480,12 @@ void FeatureList::SetInstance(std::unique_ptr<FeatureList> instance) {
   // Note: Intentional leak of global singleton.
   g_feature_list_instance = instance.release();
 
+#if BUILDFLAG(IS_ANDROID)
+  ConfigureRandBytesFieldTrial();
+#endif
+
+  base::sequence_manager::internal::WorkQueue::ConfigureCapacityFieldTrial();
+
 #if defined(DCHECK_IS_CONFIGURABLE)
   // Update the behaviour of LOGGING_DCHECK to match the Feature configuration.
   // DCHECK is also forced to be FATAL if we are running a death-test.
@@ -752,6 +761,15 @@ FeatureList::Accessor::Accessor(FeatureList* feature_list)
 FeatureList::OverrideState FeatureList::Accessor::GetOverrideStateByFeatureName(
     StringPiece feature_name) {
   return feature_list_->GetOverrideStateByFeatureName(feature_name);
+}
+
+bool FeatureList::Accessor::GetParamsByFeatureName(
+    StringPiece feature_name,
+    std::map<std::string, std::string>* params) {
+  base::FieldTrial* trial =
+      feature_list_->GetAssociatedFieldTrialByFeatureName(feature_name);
+  return FieldTrialParamAssociator::GetInstance()->GetFieldTrialParams(trial,
+                                                                       params);
 }
 
 }  // namespace base

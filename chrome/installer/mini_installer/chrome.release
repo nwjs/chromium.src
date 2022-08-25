@@ -23,6 +23,7 @@ nw_100_percent.pak: %(ChromeDir)s\
 nw_child.dll: %(ChromeDir)s\
 nw_elf.dll: %(ChromeDir)s\
 chrome_pwa_launcher.exe: %(ChromeDir)s\
+chrome_wer.dll: %(ChromeDir)s\
 d3dcompiler_47.dll: %(ChromeDir)s\
 eventlog_provider.dll: %(ChromeDir)s\
 icudtl.dat: %(ChromeDir)s\

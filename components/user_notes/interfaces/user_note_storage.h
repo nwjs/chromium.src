@@ -25,6 +25,7 @@ class UserNoteStorage {
   // Observer class for the notes storage. Notifies implementers when the notes
   // have changed on disk so they can update their model.
   class Observer {
+   public:
     // Called when notes have changed on disk.
     virtual void OnNotesChanged() = 0;
   };
@@ -34,23 +35,28 @@ class UserNoteStorage {
   UserNoteStorage& operator=(const UserNoteStorage&) = delete;
   virtual ~UserNoteStorage() = default;
 
+  // Adds an observer.
+  virtual void AddObserver(Observer* observer) = 0;
+  // Removes an observer.
+  virtual void RemoveObserver(Observer* observer) = 0;
+
   // Fetches all `UserNoteMetadata` entries for the given URLs from disk. The
   // results are returned via `callback`, mapped by URL and by note
   // ID.
   virtual void GetNoteMetadataForUrls(
-      std::vector<GURL> urls,
+      const std::vector<GURL>& urls,
       base::OnceCallback<void(UserNoteMetadataSnapshot)> callback) = 0;
 
   // Fetches all `UserNotes` corresponding to the given IDs from disk. The
   // results are returned via `callback`.
   virtual void GetNotesById(
-      std::vector<base::UnguessableToken> ids,
+      const std::vector<base::UnguessableToken>& ids,
       base::OnceCallback<void(std::vector<std::unique_ptr<UserNote>>)>
           callback) = 0;
 
   // Saves a brand-new note or a modified note to disk.
   virtual void UpdateNote(const UserNote* model,
-                          std::string note_body_text,
+                          std::u16string note_body_text,
                           bool is_creation = false) = 0;
 
   // Deletes a note from disk.

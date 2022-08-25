@@ -19,6 +19,7 @@
 #include "chrome/browser/apps/app_service/publisher_host.h"
 #include "chrome/browser/apps/app_service/subscriber_crosapi.h"
 #include "chrome/browser/ash/crosapi/browser_manager.h"
+#include "components/services/app_service/public/cpp/app_launch_util.h"
 #include "components/services/app_service/public/cpp/app_registry_cache.h"
 #include "components/services/app_service/public/cpp/icon_types.h"
 #include "components/services/app_service/public/cpp/instance_registry.h"
@@ -120,6 +121,7 @@ class AppServiceProxyAsh : public AppServiceProxyBase,
   void SetAppPlatformMetricsServiceForTesting(
       std::unique_ptr<apps::AppPlatformMetricsService>
           app_platform_metrics_service);
+  void RegisterPublishersForTesting();
 
  private:
   // For access to Initialize.
@@ -196,13 +198,12 @@ class AppServiceProxyAsh : public AppServiceProxyBase,
   void OnAppRegistryCacheWillBeDestroyed(
       apps::AppRegistryCache* cache) override;
 
-  void PerformPostLaunchTasks(apps::mojom::LaunchSource launch_source) override;
+  void PerformPostLaunchTasks(apps::LaunchSource launch_source) override;
 
-  void RecordAppPlatformMetrics(
-      Profile* profile,
-      const apps::AppUpdate& update,
-      apps::mojom::LaunchSource launch_source,
-      apps::mojom::LaunchContainer container) override;
+  void RecordAppPlatformMetrics(Profile* profile,
+                                const apps::AppUpdate& update,
+                                apps::LaunchSource launch_source,
+                                apps::LaunchContainer container) override;
 
   void InitAppPlatformMetrics();
 

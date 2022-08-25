@@ -341,7 +341,7 @@ void SliderContainerElement::HandleTouchEvent(TouchEvent* event) {
     // TODO: Also do this for touchcancel?
     input->DispatchFormControlChangeEvent();
     event->SetDefaultHandled();
-    sliding_direction_ = kNoMove;
+    sliding_direction_ = Direction::kNoMove;
     touch_started_ = false;
     return;
   }
@@ -361,13 +361,13 @@ void SliderContainerElement::HandleTouchEvent(TouchEvent* event) {
   if (touches->length() == 1) {
     if (event->type() == event_type_names::kTouchstart) {
       start_point_ = touches->item(0)->AbsoluteLocation();
-      sliding_direction_ = kNoMove;
+      sliding_direction_ = Direction::kNoMove;
       touch_started_ = true;
       thumb->SetPositionFromPoint(touches->item(0)->AbsoluteLocation());
     } else if (touch_started_) {
       LayoutPoint current_point = touches->item(0)->AbsoluteLocation();
-      if (sliding_direction_ ==
-          kNoMove) {  // Still needs to update the direction.
+      if (sliding_direction_ == Direction::kNoMove) {
+        // Still needs to update the direction.
         sliding_direction_ = GetDirection(current_point, start_point_);
       }
 
@@ -385,12 +385,12 @@ SliderContainerElement::Direction SliderContainerElement::GetDirection(
     LayoutPoint& point1,
     LayoutPoint& point2) {
   if (point1 == point2) {
-    return kNoMove;
+    return Direction::kNoMove;
   }
   if ((point1.X() - point2.X()).Abs() >= (point1.Y() - point2.Y()).Abs()) {
-    return kHorizontal;
+    return Direction::kHorizontal;
   }
-  return kVertical;
+  return Direction::kVertical;
 }
 
 bool SliderContainerElement::CanSlide() {
@@ -410,8 +410,8 @@ bool SliderContainerElement::CanSlide() {
     }
   }
   bool is_horizontal = GetComputedStyle()->IsHorizontalWritingMode();
-  if ((sliding_direction_ == kVertical && is_horizontal) ||
-      (sliding_direction_ == kHorizontal && !is_horizontal)) {
+  if ((sliding_direction_ == Direction::kVertical && is_horizontal) ||
+      (sliding_direction_ == Direction::kHorizontal && !is_horizontal)) {
     return false;
   }
   return true;

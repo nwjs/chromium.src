@@ -63,6 +63,7 @@ namespace {
 typedef NS_ENUM(NSInteger, SectionIdentifier) {
   SectionIdentifierPrivacyContent = kSectionIdentifierEnumZero,
   SectionIdentifierSafeBrowsing,
+  SectionIdentifierHTTPSOnlyMode,
   SectionIdentifierWebServices,
   SectionIdentifierIncognitoAuth,
   SectionIdentifierIncognitoInterstitial,
@@ -209,6 +210,14 @@ const char kSyncSettingsURL[] = "settings://open_sync";
   if (base::FeatureList::IsEnabled(safe_browsing::kEnhancedProtection)) {
     [model addSectionWithIdentifier:SectionIdentifierSafeBrowsing];
   }
+
+  if (base::FeatureList::IsEnabled(
+          security_interstitials::features::kHttpsOnlyMode)) {
+    [model addSectionWithIdentifier:SectionIdentifierHTTPSOnlyMode];
+    [model addItem:self.HTTPSOnlyModeItem
+        toSectionWithIdentifier:SectionIdentifierHTTPSOnlyMode];
+  }
+
   [model addSectionWithIdentifier:SectionIdentifierWebServices];
   [model addSectionWithIdentifier:SectionIdentifierIncognitoAuth];
   if (base::FeatureList::IsEnabled(kIOS3PIntentsInIncognito)) {
@@ -260,12 +269,6 @@ const char kSyncSettingsURL[] = "settings://open_sync";
             : self.incognitoInterstitialItem;
     [model addItem:incognitoInterstitialItem
         toSectionWithIdentifier:SectionIdentifierIncognitoInterstitial];
-  }
-
-  if (base::FeatureList::IsEnabled(
-          security_interstitials::features::kHttpsOnlyMode)) {
-    [model addItem:self.HTTPSOnlyModeItem
-        toSectionWithIdentifier:SectionIdentifierPrivacyContent];
   }
 }
 
@@ -630,7 +633,7 @@ const char kSyncSettingsURL[] = "settings://open_sync";
 }
 
 // Called from the Incognito interstitial setting's UIControlEventTouchUpInside.
-// When this is called, |switchView| already has the updated value:
+// When this is called, `switchView` already has the updated value:
 // If the switch was off, and user taps it, when this method is called,
 // switchView.on is YES.
 - (void)incognitoInterstitialSwitchTapped:(UISwitch*)switchView {

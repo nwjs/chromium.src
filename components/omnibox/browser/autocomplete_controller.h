@@ -19,6 +19,7 @@
 #include "base/timer/timer.h"
 #include "base/trace_event/memory_dump_provider.h"
 #include "build/build_config.h"
+#include "components/omnibox/browser/autocomplete_controller_metrics.h"
 #include "components/omnibox/browser/autocomplete_input.h"
 #include "components/omnibox/browser/autocomplete_provider.h"
 #include "components/omnibox/browser/autocomplete_provider_client.h"
@@ -26,6 +27,7 @@
 #include "components/omnibox/browser/autocomplete_result.h"
 #include "components/omnibox/browser/bookmark_provider.h"
 #include "components/omnibox/browser/omnibox_log.h"
+#include "components/omnibox/browser/open_tab_provider.h"
 
 class ClipboardProvider;
 class DocumentProvider;
@@ -61,7 +63,7 @@ class OnDeviceHeadProvider;
 class AutocompleteController : public AutocompleteProviderListener,
                                public base::trace_event::MemoryDumpProvider {
  public:
-  typedef std::vector<scoped_refptr<AutocompleteProvider> > Providers;
+  typedef std::vector<scoped_refptr<AutocompleteProvider>> Providers;
 
   class Observer : public base::CheckedObserver {
    public:
@@ -153,7 +155,8 @@ class AutocompleteController : public AutocompleteProviderListener,
   void ExpireCopiedEntries();
 
   // AutocompleteProviderListener:
-  void OnProviderUpdate(bool updated_matches) override;
+  void OnProviderUpdate(bool updated_matches,
+                        const AutocompleteProvider* provider) override;
 
   // Called when an omnibox event log entry is generated.
   // Populates |log.provider_info| with diagnostic information about the status
@@ -194,10 +197,17 @@ class AutocompleteController : public AutocompleteProviderListener,
   VoiceSuggestProvider* voice_suggest_provider() const {
     return voice_suggest_provider_;
   }
+  OpenTabProvider* open_tab_provider() const { return open_tab_provider_; }
 
   const AutocompleteInput& input() const { return input_; }
   const AutocompleteResult& result() const { return result_; }
   bool done() const { return done_; }
+  bool in_start() const { return in_start_; }
+  // TODO(manukh): Once we have a smarter `expire_timer_` that early runs when
+  //  the controller is done, `expire_timer_done()` will be unnecessary. Until
+  //  then, neither, either, or both `done()` and `expire_timer_done()` can be
+  //  true.
+  bool expire_timer_done() const { return !expire_timer_.IsRunning(); }
   const Providers& providers() const { return providers_; }
 
   const base::TimeTicks& last_time_default_match_changed() const {
@@ -213,6 +223,7 @@ class AutocompleteController : public AutocompleteProviderListener,
   }
 
  private:
+  friend class FakeAutocompleteController;
   friend class AutocompleteProviderTest;
   friend class OmniboxSuggestionButtonRowBrowserTest;
   friend class ZeroSuggestPrefetchTabHelperBrowserTest;
@@ -274,13 +285,6 @@ class AutocompleteController : public AutocompleteProviderListener,
   // relevance before this is called.
   void UpdateAssociatedKeywords(AutocompleteResult* result);
 
-  // Updates |result| with the suggestion group ID to header string mapping as
-  // well as the set of hidden suggestion group IDs.
-  // Called for zero-prefix suggestions only. This call is followed by
-  // AutocompleteResult::GroupAndDemoteMatchesWithHeaders() which groups and
-  // demotes matches with suggestion group IDs to the bottom of the result set.
-  void UpdateHeaderInfoFromZeroSuggestProvider(AutocompleteResult* result);
-
   // For each group of contiguous matches from the same TemplateURL, show the
   // provider name as a description on the first match in the group. Starter
   // Pack matches show their URLs as descriptions instead of the provider name.
@@ -305,8 +309,7 @@ class AutocompleteController : public AutocompleteProviderListener,
 
   // Helper function for Stop().  |due_to_user_inactivity| means this call was
   // triggered by a user's idleness, i.e., not an explicit user action.
-  void StopHelper(bool clear_result,
-                  bool due_to_user_inactivity);
+  void StopHelper(bool clear_result, bool due_to_user_inactivity);
 
   // Helper for UpdateKeywordDescriptions(). Returns whether curbing the keyword
   // descriptions is enabled, and whether there is enough input to guarantee
@@ -323,10 +326,11 @@ class AutocompleteController : public AutocompleteProviderListener,
   // The client passed to the providers.
   std::unique_ptr<AutocompleteProviderClient> provider_client_;
 
-  // Returns a list of which providers to run based on whether we're in keyword
-  // mode and which keyword we're searching.  Currently returns all providers
-  // except when we're in keyword mode for a starter pack search engine.
-  Providers GetProvidersToRun();
+  // Returns whether the given provider should be ran based on whether we're in
+  // keyword mode and which keyword we're searching. Currently runs all enabled
+  // providers unless in a Starter Pack scope, except for OpenTabProvider which
+  // only runs on Lacros and the @tabs scope.
+  bool ShouldRunProvider(AutocompleteProvider* provider) const;
 
   // A list of all providers.
   Providers providers_;
@@ -351,6 +355,8 @@ class AutocompleteController : public AutocompleteProviderListener,
 
   raw_ptr<VoiceSuggestProvider> voice_suggest_provider_;
 
+  raw_ptr<OpenTabProvider> open_tab_provider_;
+
   // Input passed to Start.
   AutocompleteInput input_;
 
@@ -367,6 +373,8 @@ class AutocompleteController : public AutocompleteProviderListener,
   // asynchronous provider that returned and changed the default
   // match.  See UpdateResult() for details on when we consider a
   // match to have changed.
+  // This is very similar to `metrics_.last_default_change_time_`, but whereas
+  // that is reset on `::Start()`, this is not.
   base::TimeTicks last_time_default_match_changed_;
 
   // Timer used to remove any matches copied from the last result. When run
@@ -389,6 +397,9 @@ class AutocompleteController : public AutocompleteProviderListener,
   // notifications until Start() has been invoked on all providers. When this
   // boolean is true, we are definitely within the synchronous pass.
   bool in_start_;
+
+  // Logs stability and timing metrics for updates.
+  AutocompleteControllerMetrics metrics_{*this};
 
   // True if the signal predicting a likely search has already been sent to the
   // service worker context during the current input session. False on

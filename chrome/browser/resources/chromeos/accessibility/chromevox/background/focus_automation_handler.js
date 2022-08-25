@@ -5,10 +5,13 @@
 /**
  * @fileoverview Handles automation events on the currently focused node.
  */
-import {BaseAutomationHandler} from '/chromevox/background/base_automation_handler.js';
-import {ChromeVoxState} from '/chromevox/background/chromevox_state.js';
-import {Output} from '/chromevox/background/output/output.js';
-import {ChromeVoxEvent} from '/chromevox/common/custom_automation_event.js';
+import {CursorRange} from '../../common/cursors/range.js';
+import {ChromeVoxEvent} from '../common/custom_automation_event.js';
+
+import {BaseAutomationHandler} from './base_automation_handler.js';
+import {ChromeVoxState} from './chromevox_state.js';
+import {Output} from './output/output.js';
+import {OutputEventType} from './output/output_types.js';
 
 const AutomationEvent = chrome.automation.AutomationEvent;
 const AutomationNode = chrome.automation.AutomationNode;
@@ -86,12 +89,12 @@ export class FocusAutomationHandler extends BaseAutomationHandler {
     Output.forceModeForNextSpeechUtterance(QueueMode.CATEGORY_FLUSH);
 
     const prev = this.previousActiveDescendant_ ?
-        cursors.Range.fromNode(this.previousActiveDescendant_) :
+        CursorRange.fromNode(this.previousActiveDescendant_) :
         ChromeVoxState.instance.currentRange;
     new Output()
         .withoutHints()
         .withRichSpeechAndBraille(
-            cursors.Range.fromNode(evt.target.activeDescendant), prev,
+            CursorRange.fromNode(evt.target.activeDescendant), prev,
             OutputEventType.NAVIGATE)
         .go();
     this.previousActiveDescendant_ = evt.target.activeDescendant;

@@ -452,19 +452,20 @@ void FrameHeader::LayoutHeaderInternal() {
 
   if (center_button_) {
     constexpr int kCenterButtonSpacing = 5;
-    int full_width = center_button_->GetPreferredSize().width();
-    const gfx::Range range(
-        std::max((view_->width() - full_width) / 2,
-                 origin + kCenterButtonSpacing),
-        std::min((view_->width() + full_width) / 2,
-                 caption_button_container_->x() - kCenterButtonSpacing));
-    center_button_->SetBounds(range.start(), 0, range.end() - range.start(),
+    const int full_width = center_button_->GetPreferredSize().width();
+    const int begin = std::max((view_->width() - full_width) / 2,
+                               origin + kCenterButtonSpacing);
+    const int end = std::max(
+        begin, std::min((view_->width() + full_width) / 2,
+                        caption_button_container_->x() - kCenterButtonSpacing));
+    center_button_->SetBounds(begin, 0, end - begin,
                               caption_button_container_size.height());
   }
 }
 
 gfx::Rect FrameHeader::GetTitleBounds() const {
-  views::View* left_view = left_header_view_ ? left_header_view_ : back_button_;
+  views::View* left_view =
+      left_header_view_ ? left_header_view_.get() : back_button_.get();
   return GetAvailableTitleBounds(left_view, caption_button_container_,
                                  GetHeaderHeight());
 }

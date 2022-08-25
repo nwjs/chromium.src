@@ -23,10 +23,6 @@
 #include "base/strings/strcat.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/system/sys_info.h"
-#include "base/task/task_traits.h"
-#include "base/task/thread_pool.h"
-#include "base/task/thread_pool/thread_pool_instance.h"
 #include "base/threading/sequenced_task_runner_handle.h"
 #include "base/win/atl.h"
 #include "base/win/registry.h"
@@ -224,18 +220,6 @@ void ComServerApp::Stop() {
                               }));
 }
 
-void ComServerApp::InitializeThreadPool() {
-  base::ThreadPoolInstance::Create(kThreadPoolName);
-
-  // Reuses the logic in base::ThreadPoolInstance::StartWithDefaultParams.
-  const size_t max_num_foreground_threads =
-      static_cast<size_t>(std::max(3, base::SysInfo::NumberOfProcessors() - 1));
-  base::ThreadPoolInstance::InitParams init_params(max_num_foreground_threads);
-  init_params.common_thread_pool_environment = base::ThreadPoolInstance::
-      InitParams::CommonThreadPoolEnvironment::COM_MTA;
-  base::ThreadPoolInstance::Get()->Start(init_params);
-}
-
 HRESULT ComServerApp::RegisterClassObjects() {
   // Register COM class objects that are under either the ActiveSystem or the
   // ActiveUser group.
@@ -293,12 +277,12 @@ bool ComServerApp::SwapInNewVersion() {
   std::unique_ptr<WorkItemList> list(WorkItem::CreateWorkItemList());
 
   const absl::optional<base::FilePath> versioned_directory =
-      GetVersionedDirectory(updater_scope());
+      GetVersionedDataDirectory(updater_scope());
   if (!versioned_directory)
     return false;
 
   const base::FilePath updater_path =
-      versioned_directory->Append(FILE_PATH_LITERAL("updater.exe"));
+      versioned_directory->Append(GetExecutableRelativePath());
 
   HKEY root = (updater_scope() == UpdaterScope::kSystem) ? HKEY_LOCAL_MACHINE
                                                          : HKEY_CURRENT_USER;

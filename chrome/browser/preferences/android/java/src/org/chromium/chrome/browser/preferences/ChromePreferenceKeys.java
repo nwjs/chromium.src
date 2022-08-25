@@ -294,6 +294,11 @@ public final class ChromePreferenceKeys {
             "Chrome.Flags.CrashStreakBeforeCache";
 
     /**
+     * Cached value of the native SafeModeForCachedFlags feature flag.
+     */
+    public static final String FLAGS_SAFE_MODE_ENABLED = "Chrome.Flags.SafeModeEnabled";
+
+    /**
      * How many runs of Safe Mode for Cached Flags are left before trying a normal run.
      */
     public static final String FLAGS_SAFE_MODE_RUNS_LEFT = "Chrome.Flags.SafeModeRunsLeft";
@@ -390,6 +395,18 @@ public final class ChromePreferenceKeys {
             "Chrome.ImageDescriptions.DontAskAgain";
 
     public static final String INCOGNITO_SHORTCUT_ADDED = "incognito-shortcut-added";
+
+    /**
+     * Indicates how many times the Incognito re-auth promo card was shown in the tab switcher.
+     */
+    public static final String INCOGNITO_REAUTH_PROMO_SHOW_COUNT =
+            "Chrome.IncognitoReauth.PromoShowCount";
+    /**
+     * Indicates whether the re-auth promo card is enabled. This gets disabled if either the re-auth
+     * feature is disabled or the INCONGITO_REAUTH_PROMO_SHOW_COUNT exceeds the limit.
+     */
+    public static final String INCOGNITO_REAUTH_PROMO_CARD_ENABLED =
+            "Chrome.IncognitoReauth.PromoCardEnabled";
 
     /**
      * The last version the dex compile workaround ran on. See SplitChromeApplication for more
@@ -705,6 +722,12 @@ public final class ChromePreferenceKeys {
     public static final String IS_LAST_VISITED_TAB_SRP = "Chrome.StartSurface.IsLastVisitedTabSRP";
 
     /**
+     * Key used to store user actions for collapsing search resumption module on NTP.
+     */
+    public static final String SEARCH_RESUMPTION_MODULE_COLLAPSE_ON_NTP =
+            "Chrome.SearchResumptionModule.Collapse";
+
+    /**
      * Contains a trial group that was used to determine whether the reached code profiler should be
      * enabled.
      */
@@ -999,6 +1022,7 @@ public final class ChromePreferenceKeys {
                 FLAGS_CRASH_STREAK_BEFORE_CACHE,
                 FLAGS_FIELD_TRIAL_PARAM_CACHED.pattern(),
                 FLAGS_LAST_CACHED_MINIMAL_BROWSER_FLAGS_TIME_MILLIS,
+                FLAGS_SAFE_MODE_ENABLED,
                 FLAGS_SAFE_MODE_RUNS_LEFT,
                 HOMEPAGE_LOCATION_POLICY,
                 HOMEPAGE_USE_CHROME_NTP,
@@ -1006,6 +1030,8 @@ public final class ChromePreferenceKeys {
                 HOMEPAGE_PARTNER_CUSTOMIZED_DEFAULT_GURL,
                 IMAGE_DESCRIPTIONS_JUST_ONCE_COUNT,
                 IMAGE_DESCRIPTIONS_DONT_ASK_AGAIN,
+                INCOGNITO_REAUTH_PROMO_CARD_ENABLED,
+                INCOGNITO_REAUTH_PROMO_SHOW_COUNT,
                 INCOGNITO_TAB_COUNT,
                 IS_LAST_VISITED_TAB_SRP,
                 ISOLATED_SPLITS_DEX_COMPILE_VERSION,
@@ -1071,6 +1097,7 @@ public final class ChromePreferenceKeys {
                 SIGNIN_PROMO_NTP_LAST_SHOWN_TIME,
                 SYNC_PROMO_TOTAL_SHOW_COUNT,
                 START_NEXT_SHOW_ON_STARTUP_DECISION_MS,
+                SEARCH_RESUMPTION_MODULE_COLLAPSE_ON_NTP,
                 START_SHOW_ON_STARTUP,
                 TAP_FEED_CARDS_COUNT,
                 TAP_MV_TILES_COUNT,

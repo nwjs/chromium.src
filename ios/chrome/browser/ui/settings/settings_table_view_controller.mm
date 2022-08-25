@@ -56,7 +56,13 @@
 #import "ios/chrome/browser/ui/authentication/signin/signin_utils.h"
 #import "ios/chrome/browser/ui/authentication/signin_presenter.h"
 #import "ios/chrome/browser/ui/authentication/signin_promo_view_mediator.h"
+#import "ios/chrome/browser/ui/commands/application_commands.h"
+#import "ios/chrome/browser/ui/commands/command_dispatcher.h"
+#import "ios/chrome/browser/ui/commands/snackbar_commands.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_feature.h"
+#import "ios/chrome/browser/ui/icons/chrome_symbol.h"
+#import "ios/chrome/browser/ui/icons/custom_symbol.h"
+#import "ios/chrome/browser/ui/icons/settings_icon.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_feature.h"
 #import "ios/chrome/browser/ui/settings/about_chrome_table_view_controller.h"
 #import "ios/chrome/browser/ui/settings/autofill/autofill_credit_card_table_view_controller.h"
@@ -113,13 +119,9 @@
 
 namespace {
 
-NSString* const kSyncAndGoogleServicesImageName = @"sync_and_google_services";
-NSString* const kSyncAndGoogleServicesSyncErrorImageName =
-    @"google_services_sync_error";
-NSString* const kSyncAndGoogleServicesSyncOffImageName =
-    @"sync_and_google_services_sync_off";
-NSString* const kSyncAndGoogleServicesSyncOnImageName =
-    @"sync_and_google_services_sync_on";
+NSString* const kSyncErrorImageName = @"google_services_sync_error";
+NSString* const kSyncOffImageName = @"sync_and_google_services_sync_off";
+NSString* const kSyncOnImageName = @"sync_and_google_services_sync_on";
 NSString* const kSettingsGoogleServicesImageName = @"settings_google_services";
 NSString* const kSettingsSearchEngineImageName = @"settings_search_engine";
 NSString* const kLegacySettingsPasswordsImageName = @"legacy_settings_passwords";
@@ -705,7 +707,7 @@ SyncState GetSyncStateFromBrowserState(ChromeBrowserState* browserState) {
   syncItem.accessibilityHint =
       l10n_util::GetNSString(IDS_IOS_TOGGLE_SETTING_MANAGED_ACCESSIBILITY_HINT);
   syncItem.accessibilityIdentifier = kSettingsGoogleSyncAndServicesCellId;
-  syncItem.image = [UIImage imageNamed:kSyncAndGoogleServicesSyncOffImageName];
+  syncItem.image = [UIImage imageNamed:kSyncOffImageName];
   return syncItem;
 }
 
@@ -734,7 +736,14 @@ SyncState GetSyncStateFromBrowserState(ChromeBrowserState* browserState) {
   defaultBrowser.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
   defaultBrowser.text =
       l10n_util::GetNSString(IDS_IOS_SETTINGS_SET_DEFAULT_BROWSER);
-  defaultBrowser.iconImageName = kDefaultBrowserWorldImageName;
+
+  if (UseSymbols()) {
+    defaultBrowser.symbolView = ElevatedTableViewSymbolWithBackground(
+        DefaultSettingsRootSymbol(kDefaultBrowserSymbol),
+        [UIColor colorNamed:kPurple600Color]);
+  } else {
+    defaultBrowser.iconImageName = kDefaultBrowserWorldImageName;
+  }
 
   return defaultBrowser;
 }
@@ -754,13 +763,26 @@ SyncState GetSyncStateFromBrowserState(ChromeBrowserState* browserState) {
       base::SysUTF16ToNSString(GetDefaultSearchEngineName(
           ios::TemplateURLServiceFactory::GetForBrowserState(_browserState)));
 
-  _defaultSearchEngineItem =
-      [self detailItemWithType:SettingsItemTypeSearchEngine
-                             text:l10n_util::GetNSString(
-                                      IDS_IOS_SEARCH_ENGINE_SETTING_TITLE)
-                       detailText:defaultSearchEngineName
-                    iconImageName:kSettingsSearchEngineImageName
-          accessibilityIdentifier:kSettingsSearchEngineCellId];
+  if (UseSymbols()) {
+    _defaultSearchEngineItem = [self
+             detailItemWithType:SettingsItemTypeSearchEngine
+                           text:l10n_util::GetNSString(
+                                    IDS_IOS_SEARCH_ENGINE_SETTING_TITLE)
+                     detailText:defaultSearchEngineName
+                     symbolView:ElevatedTableViewSymbolWithBackground(
+                                    DefaultSettingsRootSymbol(kSearchSymbol),
+                                    [UIColor colorNamed:kPurple600Color])
+        accessibilityIdentifier:kSettingsSearchEngineCellId];
+  } else {
+    _defaultSearchEngineItem =
+        [self detailItemWithType:SettingsItemTypeSearchEngine
+                               text:l10n_util::GetNSString(
+                                        IDS_IOS_SEARCH_ENGINE_SETTING_TITLE)
+                         detailText:defaultSearchEngineName
+                      iconImageName:kSettingsSearchEngineImageName
+            accessibilityIdentifier:kSettingsSearchEngineCellId];
+  }
+
   return _defaultSearchEngineItem;
 }
 
@@ -796,15 +818,27 @@ SyncState GetSyncStateFromBrowserState(ChromeBrowserState* browserState) {
           ? l10n_util::GetNSString(IDS_IOS_PASSWORD_MANAGER)
           : l10n_util::GetNSString(IDS_IOS_PASSWORDS);
 
-  NSString* passwordsIconImageName = passwordsRebrandingEnabled
-                                         ? kSettingsPasswordsImageName
-                                         : kLegacySettingsPasswordsImageName;
+  if (UseSymbols()) {
+    // TODO(crbug.com/1315544): Update this placeholder symbol.
+    _passwordsDetailItem =
+        [self detailItemWithType:SettingsItemTypePasswords
+                               text:passwordsSectionTitle
+                         detailText:passwordsDetail
+                         symbolView:ElevatedTableViewSymbolWithBackground(
+                                        DefaultSettingsRootSymbol(@"key.fill"),
+                                        [UIColor colorNamed:kYellow500Color])
+            accessibilityIdentifier:kSettingsPasswordsCellId];
+  } else {
+    NSString* passwordsIconImageName = passwordsRebrandingEnabled
+                                           ? kSettingsPasswordsImageName
+                                           : kLegacySettingsPasswordsImageName;
 
-  _passwordsDetailItem = [self detailItemWithType:SettingsItemTypePasswords
-                                             text:passwordsSectionTitle
-                                       detailText:passwordsDetail
-                                    iconImageName:passwordsIconImageName
-                          accessibilityIdentifier:kSettingsPasswordsCellId];
+    _passwordsDetailItem = [self detailItemWithType:SettingsItemTypePasswords
+                                               text:passwordsSectionTitle
+                                         detailText:passwordsDetail
+                                      iconImageName:passwordsIconImageName
+                            accessibilityIdentifier:kSettingsPasswordsCellId];
+  }
 
   return _passwordsDetailItem;
 }
@@ -815,13 +849,27 @@ SyncState GetSyncStateFromBrowserState(ChromeBrowserState* browserState) {
   NSString* detailText = autofillCreditCardEnabled
                              ? l10n_util::GetNSString(IDS_IOS_SETTING_ON)
                              : l10n_util::GetNSString(IDS_IOS_SETTING_OFF);
-  _autoFillCreditCardDetailItem =
-      [self detailItemWithType:SettingsItemTypeAutofillCreditCard
-                             text:l10n_util::GetNSString(
-                                      IDS_AUTOFILL_PAYMENT_METHODS)
-                       detailText:detailText
-                    iconImageName:kSettingsAutofillCreditCardImageName
-          accessibilityIdentifier:kSettingsPaymentMethodsCellId];
+
+  if (UseSymbols()) {
+    _autoFillCreditCardDetailItem =
+        [self detailItemWithType:SettingsItemTypeAutofillCreditCard
+                               text:l10n_util::GetNSString(
+                                        IDS_AUTOFILL_PAYMENT_METHODS)
+                         detailText:detailText
+                         symbolView:ElevatedTableViewSymbolWithBackground(
+                                        DefaultSettingsRootSymbol(
+                                            kCreditCardSymbol),
+                                        [UIColor colorNamed:kYellow500Color])
+            accessibilityIdentifier:kSettingsPaymentMethodsCellId];
+  } else {
+    _autoFillCreditCardDetailItem =
+        [self detailItemWithType:SettingsItemTypeAutofillCreditCard
+                               text:l10n_util::GetNSString(
+                                        IDS_AUTOFILL_PAYMENT_METHODS)
+                         detailText:detailText
+                      iconImageName:kSettingsAutofillCreditCardImageName
+            accessibilityIdentifier:kSettingsPaymentMethodsCellId];
+  }
 
   return _autoFillCreditCardDetailItem;
 }
@@ -832,14 +880,26 @@ SyncState GetSyncStateFromBrowserState(ChromeBrowserState* browserState) {
   NSString* detailText = autofillProfileEnabled
                              ? l10n_util::GetNSString(IDS_IOS_SETTING_ON)
                              : l10n_util::GetNSString(IDS_IOS_SETTING_OFF);
-  _autoFillProfileDetailItem =
-      [self detailItemWithType:SettingsItemTypeAutofillProfile
-                             text:l10n_util::GetNSString(
-                                      IDS_AUTOFILL_ADDRESSES_SETTINGS_TITLE)
-                       detailText:detailText
-                    iconImageName:kSettingsAutofillProfileImageName
-          accessibilityIdentifier:kSettingsAddressesAndMoreCellId];
 
+  if (UseSymbols()) {
+    _autoFillProfileDetailItem =
+        [self detailItemWithType:SettingsItemTypeAutofillProfile
+                               text:l10n_util::GetNSString(
+                                        IDS_AUTOFILL_ADDRESSES_SETTINGS_TITLE)
+                         detailText:detailText
+                         symbolView:ElevatedTableViewSymbolWithBackground(
+                                        DefaultSettingsRootSymbol(kPinSymbol),
+                                        [UIColor colorNamed:kYellow500Color])
+            accessibilityIdentifier:kSettingsAddressesAndMoreCellId];
+  } else {
+    _autoFillProfileDetailItem =
+        [self detailItemWithType:SettingsItemTypeAutofillProfile
+                               text:l10n_util::GetNSString(
+                                        IDS_AUTOFILL_ADDRESSES_SETTINGS_TITLE)
+                         detailText:detailText
+                      iconImageName:kSettingsAutofillProfileImageName
+            accessibilityIdentifier:kSettingsAddressesAndMoreCellId];
+  }
   return _autoFillProfileDetailItem;
 }
 
@@ -851,13 +911,28 @@ SyncState GetSyncStateFromBrowserState(ChromeBrowserState* browserState) {
           ? localeConfig->GetLocaleForCode(_voiceLocaleCode.GetValue())
           : localeConfig->GetDefaultLocale();
   NSString* languageName = base::SysUTF16ToNSString(locale.display_name);
-  _voiceSearchDetailItem =
-      [self detailItemWithType:SettingsItemTypeVoiceSearch
-                             text:l10n_util::GetNSString(
-                                      IDS_IOS_VOICE_SEARCH_SETTING_TITLE)
-                       detailText:languageName
-                    iconImageName:kSettingsVoiceSearchImageName
-          accessibilityIdentifier:kSettingsVoiceSearchCellId];
+
+  if (UseSymbols()) {
+    _voiceSearchDetailItem =
+        [self detailItemWithType:SettingsItemTypeVoiceSearch
+                               text:l10n_util::GetNSString(
+                                        IDS_IOS_VOICE_SEARCH_SETTING_TITLE)
+                         detailText:languageName
+                         symbolView:ElevatedTableViewSymbolWithBackground(
+                                        DefaultSettingsRootSymbol(
+                                            kMicrophoneSymbol),
+                                        [UIColor colorNamed:kGreen500Color])
+            accessibilityIdentifier:kSettingsVoiceSearchCellId];
+  } else {
+    _voiceSearchDetailItem =
+        [self detailItemWithType:SettingsItemTypeVoiceSearch
+                               text:l10n_util::GetNSString(
+                                        IDS_IOS_VOICE_SEARCH_SETTING_TITLE)
+                         detailText:languageName
+                      iconImageName:kSettingsVoiceSearchImageName
+            accessibilityIdentifier:kSettingsVoiceSearchCellId];
+  }
+
   return _voiceSearchDetailItem;
 }
 
@@ -893,6 +968,18 @@ SyncState GetSyncStateFromBrowserState(ChromeBrowserState* browserState) {
   } else {
     title = l10n_util::GetNSString(IDS_OPTIONS_ADVANCED_SECTION_TITLE_PRIVACY);
   }
+
+  if (UseSymbols()) {
+    return [self detailItemWithType:SettingsItemTypePrivacy
+                               text:title
+                         detailText:nil
+                         symbolView:ElevatedTableViewSymbolWithBackground(
+                                        DefaultSettingsRootSymbol(
+                                            kPrivacySecuritySymbol),
+                                        [UIColor colorNamed:kBlue500Color])
+            accessibilityIdentifier:kSettingsPrivacyCellId];
+  }
+
   return [self detailItemWithType:SettingsItemTypePrivacy
                              text:title
                        detailText:nil
@@ -910,6 +997,18 @@ SyncState GetSyncStateFromBrowserState(ChromeBrowserState* browserState) {
 }
 
 - (TableViewItem*)contentSettingsDetailItem {
+  if (UseSymbols()) {
+    return [self
+             detailItemWithType:SettingsItemTypeContentSettings
+                           text:l10n_util::GetNSString(
+                                    IDS_IOS_CONTENT_SETTINGS_TITLE)
+                     detailText:nil
+                     symbolView:ElevatedTableViewSymbolWithBackground(
+                                    DefaultSettingsRootSymbol(kGearShapeSymbol),
+                                    [UIColor colorNamed:kGrey500Color])
+        accessibilityIdentifier:kSettingsContentSettingsCellId];
+  }
+
   return [self detailItemWithType:SettingsItemTypeContentSettings
                              text:l10n_util::GetNSString(
                                       IDS_IOS_CONTENT_SETTINGS_TITLE)
@@ -928,6 +1027,17 @@ SyncState GetSyncStateFromBrowserState(ChromeBrowserState* browserState) {
 }
 
 - (TableViewItem*)aboutChromeDetailItem {
+  if (UseSymbols()) {
+    return [self detailItemWithType:SettingsItemTypeAboutChrome
+                               text:l10n_util::GetNSString(IDS_IOS_PRODUCT_NAME)
+                         detailText:nil
+                         symbolView:ElevatedTableViewSymbolWithBackground(
+                                        DefaultSettingsRootSymbol(
+                                            kInfoCircleSymbol),
+                                        [UIColor colorNamed:kGrey500Color])
+            accessibilityIdentifier:kSettingsAboutCellId];
+  }
+
   return [self detailItemWithType:SettingsItemTypeAboutChrome
                              text:l10n_util::GetNSString(IDS_IOS_PRODUCT_NAME)
                        detailText:nil
@@ -1023,7 +1133,23 @@ SyncState GetSyncStateFromBrowserState(ChromeBrowserState* browserState) {
   detailItem.iconImageName = iconImageName;
   detailItem.accessibilityTraits |= UIAccessibilityTraitButton;
   detailItem.accessibilityIdentifier = accessibilityIdentifier;
+  return detailItem;
+}
 
+- (TableViewDetailIconItem*)detailItemWithType:(NSInteger)type
+                                          text:(NSString*)text
+                                    detailText:(NSString*)detailText
+                                    symbolView:(UIView*)symbolView
+                       accessibilityIdentifier:
+                           (NSString*)accessibilityIdentifier {
+  TableViewDetailIconItem* detailItem =
+      [[TableViewDetailIconItem alloc] initWithType:type];
+  detailItem.text = text;
+  detailItem.detailText = detailText;
+  detailItem.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+  detailItem.accessibilityTraits |= UIAccessibilityTraitButton;
+  detailItem.accessibilityIdentifier = accessibilityIdentifier;
+  detailItem.symbolView = symbolView;
   return detailItem;
 }
 
@@ -1172,18 +1298,22 @@ SyncState GetSyncStateFromBrowserState(ChromeBrowserState* browserState) {
   switch (itemType) {
     case SettingsItemTypeSignInButton:
       signin_metrics::RecordSigninUserActionForAccessPoint(
-          signin_metrics::AccessPoint::ACCESS_POINT_SETTINGS,
-          signin_metrics::PromoAction::PROMO_ACTION_NO_SIGNIN_PROMO);
+          signin_metrics::AccessPoint::ACCESS_POINT_SETTINGS);
       [self showSignInWithIdentity:nil
                        promoAction:signin_metrics::PromoAction::
                                        PROMO_ACTION_NO_SIGNIN_PROMO
                         completion:nil];
       break;
-    case SettingsItemTypeAccount:
+    case SettingsItemTypeAccount: {
       base::RecordAction(base::UserMetricsAction("Settings.MyAccount"));
-      controller = [[AccountsTableViewController alloc] initWithBrowser:_browser
-                                              closeSettingsOnAddAccount:NO];
+      AccountsTableViewController* accountsTableViewController =
+          [[AccountsTableViewController alloc] initWithBrowser:_browser
+                                     closeSettingsOnAddAccount:NO];
+      accountsTableViewController.applicationCommandsHandler =
+          self.applicationCommandsHandler;
+      controller = accountsTableViewController;
       break;
+    }
     case SettingsItemTypeGoogleServices:
       base::RecordAction(base::UserMetricsAction("Settings.GoogleServices"));
       [self showGoogleServices];
@@ -1275,10 +1405,17 @@ SyncState GetSyncStateFromBrowserState(ChromeBrowserState* browserState) {
       controller = [[BandwidthManagementTableViewController alloc]
           initWithBrowserState:_browserState];
       break;
-    case SettingsItemTypeAboutChrome:
+    case SettingsItemTypeAboutChrome: {
       base::RecordAction(base::UserMetricsAction("AboutChrome"));
-      controller = [[AboutChromeTableViewController alloc] init];
+      AboutChromeTableViewController* aboutChromeTableViewController =
+          [[AboutChromeTableViewController alloc] init];
+      aboutChromeTableViewController.applicationCommandsHandler =
+          self.applicationCommandsHandler;
+      aboutChromeTableViewController.snackbarCommandsHandler =
+          self.snackbarCommandsHandler;
+      controller = aboutChromeTableViewController;
       break;
+    }
     case SettingsItemTypeMemoryDebugging:
     case SettingsItemTypeViewSource:
       // Taps on these don't do anything. They have a switch as accessory view
@@ -1536,66 +1673,32 @@ SyncState GetSyncStateFromBrowserState(ChromeBrowserState* browserState) {
   }
 }
 
-// Updates the Sync & Google services item to display the right icon and status
-// message in the detail text of the cell.
-- (void)updateSyncAndGoogleServicesItem:
-    (SettingsImageDetailTextItem*)googleServicesItem {
-  googleServicesItem.detailTextColor = nil;
-  syncer::SyncService* syncService =
-      SyncServiceFactory::GetForBrowserState(_browserState);
-  SyncSetupService* syncSetupService =
-      SyncSetupServiceFactory::GetForBrowserState(_browserState);
-  AuthenticationService* authService =
-      AuthenticationServiceFactory::GetForBrowserState(_browserState);
-  if (!authService->HasPrimaryIdentity(signin::ConsentLevel::kSignin)) {
-    // No sync status when the user is not signed-in.
-    googleServicesItem.detailText = nil;
-    googleServicesItem.image =
-        [UIImage imageNamed:kSyncAndGoogleServicesImageName];
-  } else if (syncService->GetDisableReasons().Has(
-                 syncer::SyncService::DISABLE_REASON_ENTERPRISE_POLICY)) {
-    googleServicesItem.detailText = l10n_util::GetNSString(
-        IDS_IOS_GOOGLE_SERVICES_SETTINGS_SYNC_DISABLBED_BY_ADMINISTRATOR_STATUS);
-    googleServicesItem.image =
-        [UIImage imageNamed:kSyncAndGoogleServicesSyncOffImageName];
-  } else if (!syncSetupService->IsFirstSetupComplete()) {
-    googleServicesItem.detailText =
-        l10n_util::GetNSString(IDS_IOS_SYNC_SETUP_IN_PROGRESS);
-    googleServicesItem.image =
-        [UIImage imageNamed:kSyncAndGoogleServicesSyncOnImageName];
-  } else if (!IsTransientSyncError(syncSetupService->GetSyncServiceState())) {
-    googleServicesItem.detailTextColor = [UIColor colorNamed:kRedColor];
-    googleServicesItem.detailText =
-        GetSyncErrorDescriptionForSyncSetupService(syncSetupService);
-    googleServicesItem.image =
-        [UIImage imageNamed:kSyncAndGoogleServicesSyncErrorImageName];
-  } else if (syncSetupService->CanSyncFeatureStart()) {
-    googleServicesItem.detailText =
-        l10n_util::GetNSString(IDS_IOS_SIGN_IN_TO_CHROME_SETTING_SYNC_ON);
-    googleServicesItem.image =
-        [UIImage imageNamed:kSyncAndGoogleServicesSyncOnImageName];
-  } else {
-    googleServicesItem.detailText =
-        l10n_util::GetNSString(IDS_IOS_SIGN_IN_TO_CHROME_SETTING_SYNC_OFF);
-    googleServicesItem.image =
-        [UIImage imageNamed:kSyncAndGoogleServicesSyncOffImageName];
-  }
-  DCHECK(googleServicesItem.image);
-}
-
 // Updates the Sync item to display the right icon and status message in the
 // cell.
 - (void)updateSyncItem:(TableViewDetailIconItem*)googleSyncItem {
   switch (GetSyncStateFromBrowserState(_browserState)) {
     case kSyncConsentOff: {
       googleSyncItem.detailText = l10n_util::GetNSString(IDS_IOS_SETTING_OFF);
-      googleSyncItem.iconImageName = kSyncAndGoogleServicesSyncOffImageName;
+      if (UseSymbols()) {
+        googleSyncItem.symbolView = ElevatedTableViewSymbolWithBackground(
+            DefaultSettingsRootSymbol(kSyncErrorSymbol), UIColor.redColor);
+
+      } else {
+        googleSyncItem.iconImageName = kSyncOffImageName;
+      }
       break;
     }
     case kSyncOff:
     case kSyncEnabledWithNoSelectedTypes: {
       googleSyncItem.detailText = nil;
-      googleSyncItem.iconImageName = kSyncAndGoogleServicesSyncOffImageName;
+      googleSyncItem.iconImageName = kSyncOffImageName;
+      if (UseSymbols()) {
+        googleSyncItem.symbolView = ElevatedTableViewSymbolWithBackground(
+            CustomSettingsRootSymbol(kSyncDisabledSymbol),
+            [UIColor colorNamed:kGrey500Color]);
+      } else {
+        googleSyncItem.iconImageName = kSyncOffImageName;
+      }
       break;
     }
     case kSyncEnabledWithError: {
@@ -1603,8 +1706,13 @@ SyncState GetSyncStateFromBrowserState(ChromeBrowserState* browserState) {
           SyncSetupServiceFactory::GetForBrowserState(_browserState);
       googleSyncItem.detailText =
           GetSyncErrorDescriptionForSyncSetupService(syncSetupService);
-      googleSyncItem.iconImageName = kSyncAndGoogleServicesSyncErrorImageName;
-
+      if (UseSymbols()) {
+        googleSyncItem.symbolView = ElevatedTableViewSymbolWithBackground(
+            DefaultSettingsRootSymbol(kSyncErrorSymbol),
+            [UIColor colorNamed:kRed500Color]);
+      } else {
+        googleSyncItem.iconImageName = kSyncErrorImageName;
+      }
       // Return a vertical layout of title / subtitle in the case of a sync
       // error.
       googleSyncItem.textLayoutConstraintAxis = UILayoutConstraintAxisVertical;
@@ -1612,7 +1720,14 @@ SyncState GetSyncStateFromBrowserState(ChromeBrowserState* browserState) {
     }
     case kSyncEnabled: {
       googleSyncItem.detailText = l10n_util::GetNSString(IDS_IOS_SETTING_ON);
-      googleSyncItem.iconImageName = kSyncAndGoogleServicesSyncOnImageName;
+
+      if (UseSymbols()) {
+        googleSyncItem.symbolView = ElevatedTableViewSymbolWithBackground(
+            DefaultSettingsRootSymbol(kSyncEnabledSymbol),
+            [UIColor colorNamed:kGreen500Color]);
+      } else {
+        googleSyncItem.iconImageName = kSyncOnImageName;
+      }
       break;
     }
     case kSyncDisabledByAdministrator:
@@ -1622,31 +1737,6 @@ SyncState GetSyncStateFromBrowserState(ChromeBrowserState* browserState) {
   // Needed to update the item text layout in the case that it was previously
   // set to UILayoutConstraintAxisVertical due to a sync error.
   googleSyncItem.textLayoutConstraintAxis = UILayoutConstraintAxisHorizontal;
-}
-
-// Updates and reloads the Google service cell.
-- (void)reloadSyncAndGoogleServicesCell {
-  if (!_syncItem)
-    return;
-
-  AuthenticationService* authService =
-      AuthenticationServiceFactory::GetForBrowserState(_browserState);
-  if (authService->HasPrimaryIdentity(signin::ConsentLevel::kSignin)) {
-    NSIndexPath* itemIndexPath =
-        [self.tableViewModel indexPathForItem:_syncItem];
-    [self.tableViewModel removeItemWithType:SettingsItemTypeGoogleSync
-                  fromSectionWithIdentifier:SettingsSectionIdentifierAccount];
-    _syncItem = [self syncItem];
-    [self.tableViewModel insertItem:_syncItem
-            inSectionWithIdentifier:SettingsSectionIdentifierAccount
-                            atIndex:itemIndexPath.row];
-    [self.tableView reloadRowsAtIndexPaths:@[ itemIndexPath ]
-                          withRowAnimation:UITableViewRowAnimationAutomatic];
-    return;
-  }
-  [self.tableViewModel removeItemWithType:SettingsItemTypeGoogleSync
-                fromSectionWithIdentifier:SettingsSectionIdentifierAccount];
-  _syncItem = nil;
 }
 
 // Check if the default search engine is managed by policy.
@@ -1680,7 +1770,7 @@ SyncState GetSyncStateFromBrowserState(ChromeBrowserState* browserState) {
 #pragma mark - SigninPresenter
 
 - (void)showSignin:(ShowSigninCommand*)command {
-  [self.dispatcher showSignin:command baseViewController:self];
+  [self.applicationCommandsHandler showSignin:command baseViewController:self];
 }
 
 #pragma mark Sign in
@@ -1701,7 +1791,7 @@ SyncState GetSyncStateFromBrowserState(ChromeBrowserState* browserState) {
                    completion(success);
                  [weakSelf didFinishSignin:success];
                }];
-  [self.dispatcher showSignin:command baseViewController:self];
+  [self.applicationCommandsHandler showSignin:command baseViewController:self];
 }
 
 - (void)didFinishSignin:(BOOL)signedIn {
@@ -1771,7 +1861,6 @@ SyncState GetSyncStateFromBrowserState(ChromeBrowserState* browserState) {
 #pragma mark SyncObserverModelBridge
 
 - (void)onSyncStateChanged {
-  [self reloadSyncAndGoogleServicesCell];
   [self updateSigninSection];
   // The Identity section may be added or removed depending on sign-in is
   // allowed. Reload all sections in the model to account for the change.

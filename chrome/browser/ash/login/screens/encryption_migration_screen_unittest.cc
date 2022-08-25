@@ -5,8 +5,8 @@
 #include <memory>
 #include <utility>
 
-#include "ash/components/login/auth/key.h"
-#include "ash/components/login/auth/user_context.h"
+#include "ash/components/login/auth/public/key.h"
+#include "ash/components/login/auth/public/user_context.h"
 #include "base/bind.h"
 #include "base/memory/ptr_util.h"
 #include "base/test/task_environment.h"
@@ -16,10 +16,10 @@
 #include "chrome/browser/ash/login/users/mock_user_manager.h"
 #include "chrome/browser/ui/webui/chromeos/login/base_webui_handler.h"
 #include "chrome/browser/ui/webui/chromeos/login/encryption_migration_screen_handler.h"
+#include "chromeos/ash/components/dbus/userdataauth/fake_userdataauth_client.h"
 #include "chromeos/dbus/cryptohome/account_identifier_operators.h"
 #include "chromeos/dbus/power/fake_power_manager_client.h"
 #include "chromeos/dbus/power/power_policy_controller.h"
-#include "chromeos/dbus/userdataauth/fake_userdataauth_client.h"
 #include "components/account_id/account_id.h"
 #include "components/user_manager/scoped_user_manager.h"
 #include "components/user_manager/user_names.h"

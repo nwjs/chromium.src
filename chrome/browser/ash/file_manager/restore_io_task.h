@@ -7,8 +7,13 @@
 
 #include <vector>
 
+#include "base/files/file_error_or.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/ash/file_manager/io_task.h"
+#include "chrome/browser/ash/file_manager/trash_common_util.h"
+#include "chromeos/ash/components/trash_service/public/cpp/trash_service.h"
+#include "chromeos/ash/components/trash_service/public/mojom/trash_service.mojom.h"
+#include "mojo/public/cpp/bindings/remote.h"
 #include "storage/browser/file_system/file_system_context.h"
 #include "storage/browser/file_system/file_system_operation_runner.h"
 #include "storage/browser/file_system/file_system_url.h"
@@ -43,19 +48,62 @@ class RestoreIOTask : public IOTask {
   // Finalises the RestoreIOTask with the `state`.
   void Complete(State state);
 
+  void OnGotFile(chromeos::trash_service::ParseTrashInfoCallback callback,
+                 size_t idx,
+                 base::File file);
+
   // Ensure the metadata file conforms to the following:
   //   - Has a .trashinfo suffix
-  // TODO(b/231830250): Implement the remaining validations:
   //   - Resides in an enabled trash directory
   //   - The file resides in the info directory
   //   - Has an identical item in the files directory with no .trashinfo suffix
   void ValidateTrashInfo(size_t idx);
 
-  // Parse the .trashinfo file and ensure it conforms to the XDG specification
-  // before restoring the file.
-  // TODO(b/231830250): Finish implementation of this method.
-  void ParseTrashInfoFile(size_t idx,
-                          const base::FilePath& trash_info_file_path);
+  void OnTrashedFileExists(size_t idx,
+                           const base::FilePath& trash_parent_path,
+                           const base::FilePath& trashed_file_location,
+                           bool exists);
+
+  // Make sure the enclosing folder where the trashed file to be restored to
+  // actually exists. In the event the file path has been removed, recreate it.
+  void EnsureParentRestorePathExists(
+      size_t idx,
+      const base::FilePath& trash_parent_path,
+      const base::FilePath& trashed_file_location,
+      base::File::Error status,
+      const base::FilePath& restore_path,
+      base::Time deletion_date);
+
+  void OnParentRestorePathExists(size_t idx,
+                                 const base::FilePath& trashed_file_location,
+                                 const base::FilePath& absolute_restore_path,
+                                 base::File::Error status);
+
+  // Make sure the destination file name is unique before moving, creates unique
+  // file names by appending (N) to the end of a file name.
+  void GenerateDestinationURL(size_t idx,
+                              const base::FilePath& trashed_file_location,
+                              const base::FilePath& absolute_restore_path);
+
+  // Move the item from `trashed_file_location` to `destination_result`.
+  void RestoreItem(
+      size_t idx,
+      base::FilePath trashed_file_location,
+      base::FileErrorOr<storage::FileSystemURL> destination_result);
+
+  void OnRestoreItem(size_t idx, base::File::Error error);
+
+  // Once a restore has completed, kick off the next restore `idx` or finish.
+  void RestoreComplete(size_t idx, base::File::Error error);
+
+  void SetCurrentOperationID(
+      storage::FileSystemOperationRunner::OperationID id);
+
+  base::FilePath MakeRelativeFromBasePath(const base::FilePath& absolute_path);
+
+  const storage::FileSystemURL CreateFileSystemURL(
+      const storage::FileSystemURL& original_url,
+      const base::FilePath& path);
 
   scoped_refptr<storage::FileSystemContext> file_system_context_;
   raw_ptr<Profile> profile_;
@@ -65,9 +113,16 @@ class RestoreIOTask : public IOTask {
   // only in testing.
   base::FilePath base_path_;
 
+  // A map containing paths which are enabled for trashing.
+  TrashPathsMap enabled_trash_locations_;
+
   // Stores the id of the restore operation if one is in progress. Used so the
   // restore can be cancelled.
   absl::optional<storage::FileSystemOperationRunner::OperationID> operation_id_;
+
+  // Holds the connection open to the `TrashService`. This is a sandboxed
+  // process that performs parsing of the trashinfo files.
+  mojo::Remote<chromeos::trash_service::mojom::TrashService> trash_service_;
 
   ProgressCallback progress_callback_;
   CompleteCallback complete_callback_;

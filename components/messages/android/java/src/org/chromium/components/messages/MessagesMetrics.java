@@ -129,6 +129,8 @@ public class MessagesMetrics {
                 return "AutoDarkWebContents";
             case MessageIdentifier.TAILORED_SECURITY_ENABLED:
                 return "TailoredSecurityEnabled";
+            case MessageIdentifier.TAILORED_SECURITY_DISABLED:
+                return "TailoredSecurityDisabled";
             case MessageIdentifier.VR_SERVICES_UPGRADE:
                 return "VrServicesUpgrade";
             case MessageIdentifier.AR_CORE_UPGRADE:
@@ -141,6 +143,12 @@ public class MessagesMetrics {
                 return "Translate";
             case MessageIdentifier.OFFER_NOTIFICATION:
                 return "OfferNotification";
+            case MessageIdentifier.EXTERNAL_NAVIGATION:
+                return "ExternalNavigation";
+            case MessageIdentifier.FRAMEBUST_BLOCKED:
+                return "FramebustBlocked";
+            case MessageIdentifier.INVALID_MESSAGE:
+                return "InvalidMessage";
             default:
                 return "Unknown";
         }

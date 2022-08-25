@@ -44,6 +44,7 @@ import {I18nBehavior, I18nBehaviorInterface} from 'chrome://resources/js/i18n_be
 import {WebUIListenerBehavior, WebUIListenerBehaviorInterface} from 'chrome://resources/js/web_ui_listener_behavior.m.js';
 import {afterNextRender, flush, html, mixinBehaviors, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
+import {Setting} from '../../mojom-webui/setting.mojom-webui.js';
 import {SyncBrowserProxyImpl} from '../../people_page/sync_browser_proxy.js';
 import {Route, Router} from '../../router.js';
 import {DeepLinkingBehavior, DeepLinkingBehaviorInterface} from '../deep_linking_behavior.js';
@@ -67,8 +68,12 @@ import {TetherConnectionDialogElement} from './tether_connection_dialog.js';
  */
 const SettingsInternetDetailPageElementBase = mixinBehaviors(
     [
-      NetworkListenerBehavior, CrPolicyNetworkBehaviorMojo, DeepLinkingBehavior,
-      RouteObserverBehavior, I18nBehavior, WebUIListenerBehavior
+      NetworkListenerBehavior,
+      CrPolicyNetworkBehaviorMojo,
+      DeepLinkingBehavior,
+      RouteObserverBehavior,
+      I18nBehavior,
+      WebUIListenerBehavior,
     ],
     PolymerElement);
 
@@ -269,7 +274,7 @@ class SettingsInternetDetailPageElement extends
         value() {
           return loadTimeData.valueExists('showTechnologyBadge') &&
               loadTimeData.getBoolean('showTechnologyBadge');
-        }
+        },
       },
 
       /**
@@ -281,7 +286,7 @@ class SettingsInternetDetailPageElement extends
         value() {
           return loadTimeData.valueExists('showMeteredToggle') &&
               loadTimeData.getBoolean('showMeteredToggle');
-        }
+        },
       },
 
       /**
@@ -297,21 +302,12 @@ class SettingsInternetDetailPageElement extends
       },
 
       /** @private {boolean} */
-      isESimPolicyEnabled_: {
-        type: Boolean,
-        value() {
-          return loadTimeData.valueExists('esimPolicyEnabled') &&
-              loadTimeData.getBoolean('esimPolicyEnabled');
-        }
-      },
-
-      /** @private {boolean} */
       isTrafficCountersEnabled_: {
         type: Boolean,
         value() {
           return loadTimeData.valueExists('trafficCountersEnabled') &&
               loadTimeData.getBoolean('trafficCountersEnabled');
-        }
+        },
       },
 
       /**
@@ -321,7 +317,7 @@ class SettingsInternetDetailPageElement extends
       disabled_: {
         type: Boolean,
         value: false,
-        computed: 'computeDisabled_(deviceState_.*)'
+        computed: 'computeDisabled_(deviceState_.*)',
       },
 
       /** @private */
@@ -338,34 +334,34 @@ class SettingsInternetDetailPageElement extends
 
       /**
        * Used by DeepLinkingBehavior to focus this page's deep links.
-       * @type {!Set<!chromeos.settings.mojom.Setting>}
+       * @type {!Set<!Setting>}
        */
       supportedSettingIds: {
         type: Object,
         value: () => new Set([
-          chromeos.settings.mojom.Setting.kConfigureEthernet,
-          chromeos.settings.mojom.Setting.kEthernetAutoConfigureIp,
-          chromeos.settings.mojom.Setting.kEthernetDns,
-          chromeos.settings.mojom.Setting.kEthernetProxy,
-          chromeos.settings.mojom.Setting.kDisconnectWifiNetwork,
-          chromeos.settings.mojom.Setting.kPreferWifiNetwork,
-          chromeos.settings.mojom.Setting.kForgetWifiNetwork,
-          chromeos.settings.mojom.Setting.kWifiAutoConfigureIp,
-          chromeos.settings.mojom.Setting.kWifiDns,
-          chromeos.settings.mojom.Setting.kWifiHidden,
-          chromeos.settings.mojom.Setting.kWifiProxy,
-          chromeos.settings.mojom.Setting.kWifiAutoConnectToNetwork,
-          chromeos.settings.mojom.Setting.kCellularSimLock,
-          chromeos.settings.mojom.Setting.kCellularRoaming,
-          chromeos.settings.mojom.Setting.kCellularApn,
-          chromeos.settings.mojom.Setting.kDisconnectCellularNetwork,
-          chromeos.settings.mojom.Setting.kCellularAutoConfigureIp,
-          chromeos.settings.mojom.Setting.kCellularDns,
-          chromeos.settings.mojom.Setting.kCellularProxy,
-          chromeos.settings.mojom.Setting.kCellularAutoConnectToNetwork,
-          chromeos.settings.mojom.Setting.kDisconnectTetherNetwork,
-          chromeos.settings.mojom.Setting.kWifiMetered,
-          chromeos.settings.mojom.Setting.kCellularMetered,
+          Setting.kConfigureEthernet,
+          Setting.kEthernetAutoConfigureIp,
+          Setting.kEthernetDns,
+          Setting.kEthernetProxy,
+          Setting.kDisconnectWifiNetwork,
+          Setting.kPreferWifiNetwork,
+          Setting.kForgetWifiNetwork,
+          Setting.kWifiAutoConfigureIp,
+          Setting.kWifiDns,
+          Setting.kWifiHidden,
+          Setting.kWifiProxy,
+          Setting.kWifiAutoConnectToNetwork,
+          Setting.kCellularSimLock,
+          Setting.kCellularRoaming,
+          Setting.kCellularApn,
+          Setting.kDisconnectCellularNetwork,
+          Setting.kCellularAutoConfigureIp,
+          Setting.kCellularDns,
+          Setting.kCellularProxy,
+          Setting.kCellularAutoConnectToNetwork,
+          Setting.kDisconnectTetherNetwork,
+          Setting.kWifiMetered,
+          Setting.kCellularMetered,
         ]),
       },
     };
@@ -459,7 +455,7 @@ class SettingsInternetDetailPageElement extends
 
   /**
    * Helper function for manually showing deep links on this page.
-   * @param {!chromeos.settings.mojom.Setting} settingId
+   * @param {!Setting} settingId
    * @param {!function():?Element} elementCallback
    * @private
    */
@@ -477,12 +473,12 @@ class SettingsInternetDetailPageElement extends
 
   /**
    * Overridden from DeepLinkingBehavior.
-   * @param {!chromeos.settings.mojom.Setting} settingId
+   * @param {!Setting} settingId
    * @return {boolean}
    */
   beforeDeepLinkAttempt(settingId) {
     // Manually show the deep links for settings in shared elements.
-    if (settingId === chromeos.settings.mojom.Setting.kCellularRoaming) {
+    if (settingId === Setting.kCellularRoaming) {
       this.afterRenderShowDeepLink(
           settingId,
           () => this.shadowRoot.querySelector('cellular-roaming-toggle-button')
@@ -491,7 +487,7 @@ class SettingsInternetDetailPageElement extends
       return false;
     }
 
-    if (settingId === chromeos.settings.mojom.Setting.kCellularApn) {
+    if (settingId === Setting.kCellularApn) {
       this.networkExpanded_ = true;
       this.afterRenderShowDeepLink(
           settingId,
@@ -500,11 +496,9 @@ class SettingsInternetDetailPageElement extends
       return false;
     }
 
-    if (settingId ===
-            chromeos.settings.mojom.Setting.kEthernetAutoConfigureIp ||
-        settingId === chromeos.settings.mojom.Setting.kWifiAutoConfigureIp ||
-        settingId ===
-            chromeos.settings.mojom.Setting.kCellularAutoConfigureIp) {
+    if (settingId === Setting.kEthernetAutoConfigureIp ||
+        settingId === Setting.kWifiAutoConfigureIp ||
+        settingId === Setting.kCellularAutoConfigureIp) {
       this.networkExpanded_ = true;
       this.afterRenderShowDeepLink(
           settingId,
@@ -513,9 +507,8 @@ class SettingsInternetDetailPageElement extends
       return false;
     }
 
-    if (settingId === chromeos.settings.mojom.Setting.kEthernetDns ||
-        settingId === chromeos.settings.mojom.Setting.kWifiDns ||
-        settingId === chromeos.settings.mojom.Setting.kCellularDns) {
+    if (settingId === Setting.kEthernetDns || settingId === Setting.kWifiDns ||
+        settingId === Setting.kCellularDns) {
       this.networkExpanded_ = true;
       this.afterRenderShowDeepLink(
           settingId,
@@ -524,9 +517,9 @@ class SettingsInternetDetailPageElement extends
       return false;
     }
 
-    if (settingId === chromeos.settings.mojom.Setting.kEthernetProxy ||
-        settingId === chromeos.settings.mojom.Setting.kWifiProxy ||
-        settingId === chromeos.settings.mojom.Setting.kCellularProxy) {
+    if (settingId === Setting.kEthernetProxy ||
+        settingId === Setting.kWifiProxy ||
+        settingId === Setting.kCellularProxy) {
       this.proxyExpanded_ = true;
       this.afterRenderShowDeepLink(
           settingId,
@@ -535,14 +528,14 @@ class SettingsInternetDetailPageElement extends
       return false;
     }
 
-    if (settingId === chromeos.settings.mojom.Setting.kWifiMetered ||
-        settingId === chromeos.settings.mojom.Setting.kCellularMetered) {
+    if (settingId === Setting.kWifiMetered ||
+        settingId === Setting.kCellularMetered) {
       this.advancedExpanded_ = true;
       // Continue with automatically showing these deep links.
       return true;
     }
 
-    if (settingId === chromeos.settings.mojom.Setting.kForgetWifiNetwork) {
+    if (settingId === Setting.kForgetWifiNetwork) {
       this.afterRenderShowDeepLink(settingId, () => {
         const forgetButton = this.shadowRoot.querySelector('#forgetButton');
         if (forgetButton && !forgetButton.hidden) {
@@ -554,7 +547,7 @@ class SettingsInternetDetailPageElement extends
       return false;
     }
 
-    if (settingId === chromeos.settings.mojom.Setting.kCellularSimLock) {
+    if (settingId === Setting.kCellularSimLock) {
       this.advancedExpanded_ = true;
 
       // If the page just loaded, deviceState_ will not be fully initialized
@@ -825,7 +818,7 @@ class SettingsInternetDetailPageElement extends
 
   /** @private */
   deepLinkToSimLockElement_() {
-    const settingId = chromeos.settings.mojom.Setting.kCellularSimLock;
+    const settingId = Setting.kCellularSimLock;
     const simLockStatus = this.deviceState_.simLockStatus;
 
     // In this rare case, element not focusable until after a second wait.
@@ -863,8 +856,7 @@ class SettingsInternetDetailPageElement extends
       return;
     }
     recordSettingChange(
-        chromeos.settings.mojom.Setting.kWifiHidden,
-        {boolValue: !!this.hiddenPref_.value});
+        Setting.kWifiHidden, {boolValue: !!this.hiddenPref_.value});
     const config = this.getDefaultConfigProperties_();
     config.typeConfig.wifi.hiddenSsid = this.hiddenPref_.value ?
         chromeos.networkConfig.mojom.HiddenSsidMode.kEnabled :
@@ -1308,8 +1300,7 @@ class SettingsInternetDetailPageElement extends
       return false;
     }
 
-    if (this.isESimPolicyEnabled_ &&
-        managedProperties.type ===
+    if (managedProperties.type ===
             chromeos.networkConfig.mojom.NetworkType.kCellular &&
         !!globalPolicy.allowOnlyPolicyCellularNetworks) {
       return true;
@@ -1696,7 +1687,8 @@ class SettingsInternetDetailPageElement extends
     const networkConnectEvent = new CustomEvent('network-connect', {
       bubbles: true,
       composed: true,
-      detail: {networkState: networkState, bypassConnectionDialog: bypassDialog}
+      detail:
+          {networkState: networkState, bypassConnectionDialog: bypassDialog},
     });
     this.dispatchEvent(networkConnectEvent);
     recordSettingChange();
@@ -1789,7 +1781,7 @@ class SettingsInternetDetailPageElement extends
 
     if (this.managedProperties_.type ===
         chromeos.networkConfig.mojom.NetworkType.kWiFi) {
-      recordSettingChange(chromeos.settings.mojom.Setting.kForgetWifiNetwork);
+      recordSettingChange(Setting.kForgetWifiNetwork);
     } else {
       recordSettingChange();
     }
@@ -1816,7 +1808,7 @@ class SettingsInternetDetailPageElement extends
       detail: {
         guid: this.guid,
         type: OncMojo.getNetworkTypeString(this.managedProperties_.type),
-        name: OncMojo.getNetworkName(this.managedProperties_)
+        name: OncMojo.getNetworkName(this.managedProperties_),
       },
     });
     this.dispatchEvent(showConfigEvent);

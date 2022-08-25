@@ -140,6 +140,7 @@ class MockAutofillClient : public TestAutofillClient {
               GetProfileType,
               (),
               (const override));
+  MOCK_METHOD(void, HideAutofillPopup, (PopupHidingReason reason), (override));
   MOCK_METHOD(bool, IsPasswordManagerEnabled, (), (override));
 };
 
@@ -163,17 +164,21 @@ class MockAutofillDownloadManager : public TestAutofillDownloadManager {
               (override));
 };
 
-class MockTouchToFillDelegate : public TouchToFillDelegate {
+class MockTouchToFillDelegateImpl : public TouchToFillDelegateImpl {
  public:
-  MockTouchToFillDelegate() = default;
-  MockTouchToFillDelegate(const MockTouchToFillDelegate&) = delete;
-  MockTouchToFillDelegate& operator=(const MockTouchToFillDelegate&) = delete;
-  ~MockTouchToFillDelegate() override = default;
+  explicit MockTouchToFillDelegateImpl(BrowserAutofillManager* manager)
+      : TouchToFillDelegateImpl(manager) {}
+  MockTouchToFillDelegateImpl(const MockTouchToFillDelegateImpl&) = delete;
+  MockTouchToFillDelegateImpl& operator=(const MockTouchToFillDelegateImpl&) =
+      delete;
+  ~MockTouchToFillDelegateImpl() override = default;
 
   MOCK_METHOD(bool,
               TryToShowTouchToFill,
               (int query_id, const FormData& form, const FormFieldData& field),
               (override));
+  MOCK_METHOD(bool, IsShowingTouchToFill, (), (override));
+  MOCK_METHOD(void, HideTouchToFill, (), (override));
 };
 
 void ExpectFilledField(const char* expected_label,
@@ -397,13 +402,14 @@ class BrowserAutofillManagerTest : public testing::Test {
         new TestCreditCardSaveManager(autofill_driver_.get(), &autofill_client_,
                                       payments_client_, &personal_data());
     credit_card_save_manager->SetCreditCardUploadEnabled(true);
-    TestFormDataImporter* test_form_data_importer = new TestFormDataImporter(
-        &autofill_client_, payments_client_,
-        std::unique_ptr<CreditCardSaveManager>(credit_card_save_manager),
-        &personal_data(), "en-US");
+    auto test_form_data_importer =
+        std::make_unique<autofill::TestFormDataImporter>(
+            &autofill_client_, payments_client_,
+            std::unique_ptr<CreditCardSaveManager>(credit_card_save_manager),
+            &personal_data(), "en-US");
+    test_form_data_importer_ = test_form_data_importer.get();
     autofill_client_.set_test_form_data_importer(
-        std::unique_ptr<autofill::TestFormDataImporter>(
-            test_form_data_importer));
+        std::move(test_form_data_importer));
     browser_autofill_manager_ = std::make_unique<TestBrowserAutofillManager>(
         autofill_driver_.get(), &autofill_client_);
 
@@ -428,9 +434,12 @@ class BrowserAutofillManagerTest : public testing::Test {
     browser_autofill_manager_->SetExternalDelegateForTest(
         std::move(external_delegate));
 
-    auto touch_to_fill_delegate = std::make_unique<MockTouchToFillDelegate>();
+    auto touch_to_fill_delegate = std::make_unique<MockTouchToFillDelegateImpl>(
+        browser_autofill_manager_.get());
+    ON_CALL(*touch_to_fill_delegate, IsShowingTouchToFill())
+        .WillByDefault(Return(false));
     touch_to_fill_delegate_ = touch_to_fill_delegate.get();
-    browser_autofill_manager_->SetTouchToFillDelegateForTest(
+    browser_autofill_manager_->SetTouchToFillDelegateImplForTest(
         std::move(touch_to_fill_delegate));
 
     auto test_strike_database = std::make_unique<TestStrikeDatabase>();
@@ -503,7 +512,7 @@ class BrowserAutofillManagerTest : public testing::Test {
                               const FormData& form,
                               const FormFieldData& field) {
     browser_autofill_manager_->OnAskForValuesToFill(
-        query_id, form, field, gfx::RectF(),
+        form, field, gfx::RectF(), query_id,
         /*autoselect_first_suggestion=*/false, TouchToFillEligible(false));
   }
 
@@ -517,7 +526,7 @@ class BrowserAutofillManagerTest : public testing::Test {
                             const FormFieldData& field,
                             TouchToFillEligible touch_to_fill_eligible) {
     browser_autofill_manager_->OnAskForValuesToFill(
-        query_id, form, field, gfx::RectF(),
+        form, field, gfx::RectF(), query_id,
         /*autoselect_first_suggestion=*/false, touch_to_fill_eligible);
   }
 
@@ -761,7 +770,7 @@ class BrowserAutofillManagerTest : public testing::Test {
   std::unique_ptr<MockAutofillDriver> autofill_driver_;
   std::unique_ptr<TestBrowserAutofillManager> browser_autofill_manager_;
   raw_ptr<TestAutofillExternalDelegate> external_delegate_;
-  raw_ptr<MockTouchToFillDelegate> touch_to_fill_delegate_;
+  raw_ptr<MockTouchToFillDelegateImpl> touch_to_fill_delegate_;
   scoped_refptr<AutofillWebDataService> database_;
   raw_ptr<MockAutofillDownloadManager> download_manager_;
   std::unique_ptr<MockAutocompleteHistoryManager> autocomplete_history_manager_;
@@ -770,6 +779,7 @@ class BrowserAutofillManagerTest : public testing::Test {
   base::test::ScopedFeatureList scoped_feature_list_;
   raw_ptr<TestStrikeDatabase> strike_database_;
   raw_ptr<payments::TestPaymentsClient> payments_client_;
+  raw_ptr<TestFormDataImporter> test_form_data_importer_;
 
  private:
   int ToHistogramSample(AutofillMetrics::CardUploadDecisionMetric metric) {
@@ -2363,6 +2373,26 @@ TEST_F(BrowserAutofillManagerTest,
           browser_autofill_manager_->GetPackedCreditCardID(1)));
 }
 
+TEST_F(BrowserAutofillManagerTest, OnCreditCardFetched_StoreInstrumentId) {
+  FormData form;
+  CreateTestCreditCardFormData(&form, true, false);
+  std::vector<FormData> forms(1, form);
+  FormsSeen(forms);
+  CreditCard credit_card = test::GetMaskedServerCard();
+  browser_autofill_manager_->FillOrPreviewCreditCardForm(
+      mojom::RendererFormDataAction::kFill, kDefaultPageID, form,
+      form.fields[0], &credit_card);
+
+  browser_autofill_manager_->OnCreditCardFetched(
+      CreditCardFetchResult::kSuccess, &credit_card,
+      /*cvc=*/u"123");
+
+  ASSERT_TRUE(
+      test_form_data_importer_->fetched_card_instrument_id().has_value());
+  EXPECT_EQ(test_form_data_importer_->fetched_card_instrument_id().value(),
+            credit_card.instrument_id());
+}
+
 // Test that we return profile and credit card suggestions for combined forms.
 TEST_P(SuggestionMatchingTest, GetAddressAndCreditCardSuggestions) {
   // Set up our form data.
@@ -2950,26 +2980,9 @@ TEST_F(BrowserAutofillManagerTest, DetermineStateFieldTypeForUpload) {
   EXPECT_TRUE(form_structure.field(1)->state_is_a_matching_type());
 }
 
-// Test fixture which enables
-// features::kAutofillFixServerQueriesIfPasswordManagerIsEnabled.
-// TODO(crbug.com/1293341) Once enabled by default, delete this test
-// fixture and use BrowserAutofillManagerTest in the test below.
-class BrowserAutofillManagerTestWithFixForQueries
-    : public BrowserAutofillManagerTest {
- public:
-  BrowserAutofillManagerTestWithFixForQueries() {
-    features_.InitAndEnableFeature(
-        features::kAutofillFixServerQueriesIfPasswordManagerIsEnabled);
-  }
-  ~BrowserAutofillManagerTestWithFixForQueries() override = default;
-
- private:
-  base::test::ScopedFeatureList features_;
-};
-
 // Ensures that if autofill is disabled but the password manager is enabled,
 // Autofill still performs a lookup to the server.
-TEST_F(BrowserAutofillManagerTestWithFixForQueries,
+TEST_F(BrowserAutofillManagerTest,
        OnFormsSeen_AutofillDisabledPasswordManagerEnabled) {
   // Set up our form data.
   FormData form;
@@ -8248,10 +8261,6 @@ TEST_P(BrowserAutofillManagerStructuredProfileTest,
 
 TEST_P(BrowserAutofillManagerStructuredProfileTest,
        GetCreditCardSuggestions_VirtualCard) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(
-      features::kAutofillSuggestVirtualCardsOnIncompleteForm);
-
   personal_data().ClearCreditCards();
   CreditCard masked_server_card(CreditCard::MASKED_SERVER_CARD,
                                 /*server_id=*/"a123");
@@ -8320,7 +8329,7 @@ TEST_P(BrowserAutofillManagerStructuredProfileTest,
   GetAutofillSuggestions(form, field);
 
   CheckSuggestions(
-      kDefaultPageID,
+      kDefaultPageID, virtual_card_suggestion,
       Suggestion("Elvis Presley", label, kVisaCard,
                  browser_autofill_manager_->GetPackedCreditCardID(7)));
 }
@@ -9099,11 +9108,25 @@ TEST_F(BrowserAutofillManagerTest, PageLanguageGetsCorrectlySet) {
   ASSERT_EQ(LanguageCode("zh"), parsed_form->current_page_language());
 }
 
-TEST_F(BrowserAutofillManagerTest, PageLanguageGetsCorrectlyDetected) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      features::kAutofillPageLanguageDetection);
+// Test language detection on frames depending on whether the frame is active or
+// not.
+class BrowserAutofillManagerTestPageLanguageDetection
+    : public BrowserAutofillManagerTest,
+      public testing::WithParamInterface<bool> {
+ public:
+  BrowserAutofillManagerTestPageLanguageDetection() {
+    is_in_active_frame_ = GetParam();
+    scoped_features_.InitAndEnableFeature(
+        features::kAutofillPageLanguageDetection);
+  }
 
+  bool is_in_active_frame_;
+
+ private:
+  base::test::ScopedFeatureList scoped_features_;
+};
+
+TEST_P(BrowserAutofillManagerTestPageLanguageDetection, GetsCorrectlyDetected) {
   FormData form;
   test::CreateTestAddressFormData(&form);
 
@@ -9115,16 +9138,25 @@ TEST_F(BrowserAutofillManagerTest, PageLanguageGetsCorrectlyDetected) {
   ASSERT_EQ(LanguageCode(), parsed_form->current_page_language());
 
   translate::LanguageDetectionDetails language_detection_details;
-  language_detection_details.adopted_language = "zh";
+  language_detection_details.adopted_language = "hu";
+  autofill_driver_->SetIsInActiveFrame(is_in_active_frame_);
   browser_autofill_manager_->OnLanguageDetermined(language_detection_details);
 
-  autofill_client_.GetLanguageState()->SetCurrentLanguage("zh");
+  autofill_client_.GetLanguageState()->SetCurrentLanguage("hu");
 
   parsed_form =
       browser_autofill_manager_->FindCachedFormByRendererId(form.global_id());
 
-  ASSERT_EQ(LanguageCode("zh"), parsed_form->current_page_language());
+  // Language detection is used only for active frames.
+  auto expected_language_code =
+      is_in_active_frame_ ? LanguageCode("hu") : LanguageCode();
+
+  ASSERT_EQ(expected_language_code, parsed_form->current_page_language());
 }
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         BrowserAutofillManagerTestPageLanguageDetection,
+                         testing::Bool());
 
 // BrowserAutofillManagerTest with different browser profile types.
 class BrowserAutofillManagerProfileMetricsTest
@@ -9399,6 +9431,14 @@ TEST_F(BrowserAutofillManagerTest, AutofillOverridePrefilledValue) {
   EXPECT_EQ(response_data.fields[3].value, u"Test Country");
 }
 
+// Tests that both Autofill popup and TTF are hidden on renderer event.
+TEST_F(BrowserAutofillManagerTest, HideAutofillPopupAndTouchToFillOnHidePopup) {
+  EXPECT_CALL(autofill_client_,
+              HideAutofillPopup(PopupHidingReason::kRendererEvent));
+  EXPECT_CALL(*touch_to_fill_delegate_, HideTouchToFill);
+  browser_autofill_manager_->OnHidePopup();
+}
+
 // Tests that Autofill suggestions are not shown if TTF is eligible and shown.
 TEST_F(BrowserAutofillManagerTest, AutofillSuggestionsOrTouchToFill) {
   FormData form;
@@ -9425,6 +9465,24 @@ TEST_F(BrowserAutofillManagerTest, AutofillSuggestionsOrTouchToFill) {
   EXPECT_CALL(*touch_to_fill_delegate_, TryToShowTouchToFill(query_id, _, _))
       .WillOnce(Return(true));
   TryToShowTouchToFill(query_id++, form, field, TouchToFillEligible(true));
+  EXPECT_FALSE(external_delegate_->on_suggestions_returned_seen());
+}
+
+// Tests that neither Autofill suggestions nor TTF is triggered if TTF is
+// already shown.
+TEST_F(BrowserAutofillManagerTest, ShowNothingIfTouchToFillAlreadyShown) {
+  FormData form;
+  CreateTestCreditCardFormData(&form, /*is_https=*/true,
+                               /*use_month_type=*/false);
+  FormsSeen({form});
+  const FormFieldData& field = form.fields[1];
+
+  EXPECT_CALL(*touch_to_fill_delegate_, IsShowingTouchToFill)
+      .WillOnce(Return(true));
+  EXPECT_CALL(*touch_to_fill_delegate_,
+              TryToShowTouchToFill(kDefaultPageID, _, _))
+      .Times(0);
+  TryToShowTouchToFill(kDefaultPageID, form, field, TouchToFillEligible(true));
   EXPECT_FALSE(external_delegate_->on_suggestions_returned_seen());
 }
 
@@ -10099,7 +10157,7 @@ TEST_P(BrowserAutofillManagerRefillTest,
   // Simulate that JavaScript modifies the expiration date field.
   FormData form_after_js_modification = first_fill_data;
   form_after_js_modification.fields[2].value = test_case.exp_date_from_js;
-  browser_autofill_manager_->JavaScriptChangedAutofilledValue(
+  browser_autofill_manager_->OnJavaScriptChangedAutofilledValue(
       form_after_js_modification, form_after_js_modification.fields[2],
       u"04/2999");
 

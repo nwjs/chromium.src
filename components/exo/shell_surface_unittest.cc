@@ -26,12 +26,14 @@
 #include "components/app_restore/window_properties.h"
 #include "components/exo/buffer.h"
 #include "components/exo/permission.h"
+#include "components/exo/security_delegate.h"
 #include "components/exo/shell_surface_util.h"
 #include "components/exo/sub_surface.h"
 #include "components/exo/surface.h"
 #include "components/exo/surface_test_util.h"
 #include "components/exo/test/exo_test_base.h"
 #include "components/exo/test/exo_test_helper.h"
+#include "components/exo/test/mock_security_delegate.h"
 #include "components/exo/test/shell_surface_builder.h"
 #include "components/exo/window_properties.h"
 #include "components/exo/wm_helper.h"
@@ -497,7 +499,7 @@ TEST_F(ShellSurfaceTest, SetApplicationId) {
   EXPECT_EQ(nullptr, GetShellApplicationId(window));
 }
 
-TEST_F(ShellSurfaceTest, ActivationPermission) {
+TEST_F(ShellSurfaceTest, ActivationPermissionLegacy) {
   gfx::Size buffer_size(64, 64);
   std::unique_ptr<Buffer> buffer(
       new Buffer(exo_test_helper()->CreateGpuMemoryBuffer(buffer_size)));
@@ -528,7 +530,9 @@ TEST_F(ShellSurfaceTest, ActivationPermission) {
   EXPECT_TRUE(HasPermissionToActivate(window));
 }
 
-TEST_F(ShellSurfaceTest, WidgetActivation) {
+TEST_F(ShellSurfaceTest, WidgetActivationLegacy) {
+  std::unique_ptr<SecurityDelegate> default_security_delegate =
+      SecurityDelegate::GetDefaultSecurityDelegate();
   gfx::Size buffer_size(64, 64);
   auto buffer1 = std::make_unique<Buffer>(
       exo_test_helper()->CreateGpuMemoryBuffer(buffer_size));
@@ -536,6 +540,7 @@ TEST_F(ShellSurfaceTest, WidgetActivation) {
   auto shell_surface1 = std::make_unique<ShellSurface>(surface1.get());
   surface1->Attach(buffer1.get());
   surface1->Commit();
+  shell_surface1->SetSecurityDelegate(default_security_delegate.get());
 
   // The window is active.
   views::Widget* widget1 = shell_surface1->GetWidget();
@@ -548,6 +553,7 @@ TEST_F(ShellSurfaceTest, WidgetActivation) {
   auto shell_surface2 = std::make_unique<ShellSurface>(surface2.get());
   surface2->Attach(buffer2.get());
   surface2->Commit();
+  shell_surface2->SetSecurityDelegate(default_security_delegate.get());
 
   // Now the second window is active.
   views::Widget* widget2 = shell_surface2->GetWidget();
@@ -564,6 +570,44 @@ TEST_F(ShellSurfaceTest, WidgetActivation) {
 
   // The second window cannot activate itself.
   surface2->RequestActivation();
+  EXPECT_TRUE(widget1->IsActive());
+  EXPECT_FALSE(widget2->IsActive());
+}
+
+TEST_F(ShellSurfaceTest, WidgetActivation) {
+  test::MockSecurityDelegate security_delegate;
+  gfx::Size buffer_size(64, 64);
+  std::unique_ptr<ShellSurface> shell_surface1 =
+      test::ShellSurfaceBuilder(buffer_size)
+          .SetSecurityDelegate(&security_delegate)
+          .BuildShellSurface();
+
+  // The window is active.
+  views::Widget* widget1 = shell_surface1->GetWidget();
+  EXPECT_TRUE(widget1->IsActive());
+
+  // Create a second window.
+  std::unique_ptr<ShellSurface> shell_surface2 =
+      test::ShellSurfaceBuilder(buffer_size)
+          .SetSecurityDelegate(&security_delegate)
+          .BuildShellSurface();
+
+  // Now the second window is active.
+  views::Widget* widget2 = shell_surface2->GetWidget();
+  EXPECT_FALSE(widget1->IsActive());
+  EXPECT_TRUE(widget2->IsActive());
+
+  // The first window can activate itself.
+  EXPECT_CALL(security_delegate, CanSelfActivate(widget1->GetNativeWindow()))
+      .WillOnce(testing::Return(true));
+  shell_surface1->surface_for_testing()->RequestActivation();
+  EXPECT_TRUE(widget1->IsActive());
+  EXPECT_FALSE(widget2->IsActive());
+
+  // The second window cannot activate itself.
+  EXPECT_CALL(security_delegate, CanSelfActivate(widget2->GetNativeWindow()))
+      .WillOnce(testing::Return(false));
+  shell_surface2->surface_for_testing()->RequestActivation();
   EXPECT_TRUE(widget1->IsActive());
   EXPECT_FALSE(widget2->IsActive());
 }
@@ -1198,7 +1242,7 @@ TEST_F(ShellSurfaceTest, CycleSnap) {
   EXPECT_EQ(buffer_size,
             shell_surface->GetWidget()->GetWindowBoundsInScreen().size());
 
-  ash::WMEvent event(ash::WM_EVENT_CYCLE_SNAP_PRIMARY);
+  ash::WindowSnapWMEvent event(ash::WM_EVENT_CYCLE_SNAP_PRIMARY);
   aura::Window* window = shell_surface->GetWidget()->GetNativeWindow();
 
   // Enter snapped mode.
@@ -1732,6 +1776,43 @@ TEST_F(ShellSurfaceTest, ServerStartResize) {
             size.width() + kDragAmount);
 }
 
+TEST_F(ShellSurfaceTest, ServerStartResizeComponent) {
+  std::unique_ptr<ShellSurface> shell_surface =
+      test::ShellSurfaceBuilder({64, 64}).SetNoCommit().BuildShellSurface();
+  shell_surface->OnSetServerStartResize();
+  shell_surface->root_surface()->Commit();
+  ASSERT_TRUE(shell_surface->GetWidget());
+
+  auto* widget = shell_surface->GetWidget();
+
+  gfx::Size size = widget->GetWindowBoundsInScreen().size();
+  widget->SetBounds(gfx::Rect(size));
+
+  uint32_t serial = 0;
+  auto configure_callback = base::BindRepeating(
+      [](uint32_t* const serial_ptr, const gfx::Rect& bounds,
+         chromeos::WindowStateType state_type, bool resizing, bool activated,
+         const gfx::Vector2d& origin_offset) { return ++(*serial_ptr); },
+      &serial);
+
+  ui::test::EventGenerator* event_generator = GetEventGenerator();
+  event_generator->MoveMouseTo(size.width() + 2, size.height() / 2);
+
+  EXPECT_EQ(shell_surface->resize_component_for_test(), HTCAPTION);
+
+  constexpr int kDragAmount = 10;
+  event_generator->PressLeftButton();
+  event_generator->MoveMouseBy(kDragAmount, 0);
+  EXPECT_EQ(shell_surface->resize_component_for_test(), HTCAPTION);
+  shell_surface->AcknowledgeConfigure(serial);
+  shell_surface->root_surface()->Commit();
+  EXPECT_EQ(shell_surface->resize_component_for_test(), HTRIGHT);
+  event_generator->ReleaseLeftButton();
+  shell_surface->AcknowledgeConfigure(serial);
+  shell_surface->root_surface()->Commit();
+  EXPECT_EQ(shell_surface->resize_component_for_test(), HTCAPTION);
+}
+
 // Make sure that dragging to another display will update the origin to
 // correct value.
 TEST_F(ShellSurfaceTest, UpdateBoundsWhenDraggedToAnotherDisplay) {
@@ -1767,8 +1848,6 @@ TEST_F(ShellSurfaceTest, ResizeShadowIndependentBounds) {
 
   gfx::Size size = widget->GetWindowBoundsInScreen().size();
   widget->SetBounds(gfx::Rect(size));
-  widget->GetNativeWindow()->SetProperty(
-      aura::client::kUseWindowBoundsForShadow, false);
 
   // Starts mouse event to make sure resize shadow is created.
   ui::test::EventGenerator* event_generator = GetEventGenerator();
@@ -1781,6 +1860,9 @@ TEST_F(ShellSurfaceTest, ResizeShadowIndependentBounds) {
   ASSERT_TRUE(resize_shadow);
   shell_surface->root_surface()->SetFrame(SurfaceFrameType::SHADOW);
   shell_surface->root_surface()->Commit();
+  EXPECT_FALSE(widget->GetNativeWindow()->GetProperty(
+      aura::client::kUseWindowBoundsForShadow));
+
   ui::Shadow* normal_shadow =
       wm::ShadowController::GetShadowForWindow(widget->GetNativeWindow());
   ASSERT_TRUE(normal_shadow);
@@ -1848,6 +1930,12 @@ TEST_F(ShellSurfaceTest, ResizeShadowDependentBounds) {
   ASSERT_TRUE(resize_shadow);
   shell_surface->root_surface()->SetFrame(SurfaceFrameType::SHADOW);
   shell_surface->root_surface()->Commit();
+  EXPECT_FALSE(widget->GetNativeWindow()->GetProperty(
+      aura::client::kUseWindowBoundsForShadow));
+  // Override the property to update the shadow bounds immediately.
+  widget->GetNativeWindow()->SetProperty(
+      aura::client::kUseWindowBoundsForShadow, true);
+
   ui::Shadow* normal_shadow =
       wm::ShadowController::GetShadowForWindow(widget->GetNativeWindow());
   ASSERT_TRUE(normal_shadow);
@@ -2384,6 +2472,72 @@ TEST_F(ShellSurfaceTest, PipInitialPosition) {
   // position
   EXPECT_EQ(gfx::Rect(8, 20, 256, 256),
             shell_surface->GetWidget()->GetWindowBoundsInScreen());
+}
+
+TEST_F(ShellSurfaceTest, PostWindowChangeCallback) {
+  chromeos::WindowStateType state_type = chromeos::WindowStateType::kDefault;
+  auto test_callback = base::BindRepeating(
+      [](chromeos::WindowStateType* state_type, const gfx::Rect&,
+         chromeos::WindowStateType new_type, bool, bool,
+         const gfx::Vector2d&) -> uint32_t {
+        *state_type = new_type;
+        return 0;
+      },
+      &state_type);
+
+  std::unique_ptr<ShellSurface> shell_surface =
+      test::ShellSurfaceBuilder({256, 256}).BuildShellSurface();
+
+  shell_surface->set_configure_callback(test_callback);
+
+  auto* state = ash::WindowState::Get(
+      shell_surface->GetWidget()->GetNativeWindow()->GetToplevelWindow());
+
+  // Make sure we are in a non-snapped state before testing state change.
+  ASSERT_FALSE(state->IsSnapped());
+
+  auto snap_event =
+      std::make_unique<ash::WindowSnapWMEvent>(ash::WM_EVENT_SNAP_PRIMARY);
+
+  // Trigger a snap event, this should cause a configure event.
+  state->OnWMEvent(snap_event.get());
+
+  EXPECT_EQ(state_type, chromeos::WindowStateType::kPrimarySnapped);
+}
+
+// A single configuration event should be sent when both the bounds and the
+// window state change.
+TEST_F(ShellSurfaceTest, ConfigureOnlySentOnceForBoundsAndWindowStateChange) {
+  int times_configured = 0;
+  auto test_callback = base::BindRepeating(
+      [](int* times_configured, const gfx::Rect&,
+         chromeos::WindowStateType new_type, bool, bool,
+         const gfx::Vector2d&) -> uint32_t {
+        ++(*times_configured);
+        return 0;
+      },
+      &times_configured);
+
+  std::unique_ptr<ShellSurface> shell_surface =
+      test::ShellSurfaceBuilder({1, 1}).BuildShellSurface();
+
+  shell_surface->set_configure_callback(test_callback);
+
+  auto* state = ash::WindowState::Get(
+      shell_surface->GetWidget()->GetNativeWindow()->GetToplevelWindow());
+
+  // Make sure we are in normal mode. Maximizing from this state should result
+  // in BOTH the bounds and state changing.
+  ASSERT_TRUE(state->IsNormalStateType());
+
+  auto maximize_event = std::make_unique<ash::WMEvent>(ash::WM_EVENT_MAXIMIZE);
+
+  // Trigger a snap event, this should cause a configure event.
+  state->OnWMEvent(maximize_event.get());
+
+  // The bounds change event should have been suppressed because the window
+  // state is changing.
+  EXPECT_EQ(times_configured, 1);
 }
 
 }  // namespace exo

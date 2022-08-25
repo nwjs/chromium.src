@@ -55,6 +55,11 @@ class MockAutofillManager : public AutofillManager {
                         client,
                         client->GetChannel(),
                         EnableDownloadManager(false)) {}
+
+  base::WeakPtr<AutofillManager> GetWeakPtr() override {
+    return weak_ptr_factory_.GetWeakPtr();
+  }
+
   MOCK_METHOD(bool, ShouldClearPreviewedForm, (), (override));
   MOCK_METHOD(AutofillOfferManager*, GetOfferManager, (), (override));
   MOCK_METHOD(CreditCardAccessManager*,
@@ -62,36 +67,44 @@ class MockAutofillManager : public AutofillManager {
               (),
               (override));
   MOCK_METHOD(void,
-              FillCreditCardForm,
-              (int query_id,
-               const FormData& form,
+              FillCreditCardFormImpl,
+              (const FormData& form,
                const FormFieldData& field,
                const CreditCard& credit_card,
-               const std::u16string& cvc),
+               const std::u16string& cvc,
+               int query_id),
               (override));
   MOCK_METHOD(void,
-              FillProfileForm,
-              (const autofill::AutofillProfile& profile,
-               const FormData& form,
-               const FormFieldData& field),
+              FillProfileFormImpl,
+              (const FormData& form,
+               const FormFieldData& field,
+               const AutofillProfile& profile),
               (override));
   MOCK_METHOD(void,
-              OnFocusNoLongerOnForm,
+              SetProfileFillViaAutofillAssistantIntent,
+              (const autofill_assistant::AutofillAssistantIntent intent),
+              (override));
+  MOCK_METHOD(void,
+              SetCreditCardFillViaAutofillAssistantIntent,
+              (const autofill_assistant::AutofillAssistantIntent intent),
+              (override));
+  MOCK_METHOD(void,
+              OnFocusNoLongerOnFormImpl,
               (bool had_interacted_form),
               (override));
   MOCK_METHOD(void,
-              OnDidFillAutofillFormData,
+              OnDidFillAutofillFormDataImpl,
               (const FormData& form, const base::TimeTicks timestamp),
               (override));
-  MOCK_METHOD(void, OnDidPreviewAutofillFormData, (), (override));
-  MOCK_METHOD(void, OnDidEndTextFieldEditing, (), (override));
-  MOCK_METHOD(void, OnHidePopup, (), (override));
+  MOCK_METHOD(void, OnDidPreviewAutofillFormDataImpl, (), (override));
+  MOCK_METHOD(void, OnDidEndTextFieldEditingImpl, (), (override));
+  MOCK_METHOD(void, OnHidePopupImpl, (), (override));
   MOCK_METHOD(void,
-              SelectFieldOptionsDidChange,
+              OnSelectFieldOptionsDidChangeImpl,
               (const FormData& form),
               (override));
   MOCK_METHOD(void,
-              JavaScriptChangedAutofilledValue,
+              OnJavaScriptChangedAutofilledValueImpl,
               (const FormData& form,
                const FormFieldData& field,
                const std::u16string& old_value),
@@ -121,10 +134,10 @@ class MockAutofillManager : public AutofillManager {
               (override));
   MOCK_METHOD(void,
               OnAskForValuesToFillImpl,
-              (int query_id,
-               const FormData& form,
+              (const FormData& form,
                const FormFieldData& field,
                const gfx::RectF& bounding_box,
+               int query_id,
                bool autoselect_first_suggestion,
                TouchToFillEligible touch_to_fill_eligible),
               (override));
@@ -147,7 +160,7 @@ class MockAutofillManager : public AutofillManager {
   MOCK_METHOD(void, OnBeforeProcessParsedForms, (), (override));
   MOCK_METHOD(void,
               OnFormProcessed,
-              (const FormData& form, const FormStructure& form_structure),
+              (const FormData& form_data, const FormStructure& form_structure),
               (override));
   MOCK_METHOD(void,
               OnAfterProcessParsedForms,
@@ -157,6 +170,9 @@ class MockAutofillManager : public AutofillManager {
               ReportAutofillWebOTPMetrics,
               (bool used_web_otp),
               (override));
+
+ private:
+  base::WeakPtrFactory<MockAutofillManager> weak_ptr_factory_{this};
 };
 
 class MockAutofillObserver : public AutofillManager::Observer {

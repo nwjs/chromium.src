@@ -39,6 +39,7 @@
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/public/mojom/favicon/favicon_url.mojom-forward.h"
 #include "third_party/blink/public/mojom/frame/find_in_page.mojom-forward.h"
+#include "third_party/blink/public/mojom/frame/frame.mojom-forward.h"
 #include "third_party/blink/public/mojom/input/pointer_lock_result.mojom.h"
 #include "third_party/blink/public/mojom/media/capture_handle_config.mojom-forward.h"
 #include "third_party/perfetto/include/perfetto/tracing/traced_value_forward.h"
@@ -100,6 +101,7 @@ class WebContentsDelegate;
 class WebUI;
 struct DropData;
 struct MHTMLGenerationParams;
+class PreloadingAttempt;
 
 // WebContents is the core class in content/. A WebContents renders web content
 // (usually HTML) in a rectangular area.
@@ -254,6 +256,10 @@ class WebContents : public PageNavigator,
     // Enables contents to hold wake locks, for example, to keep the screen on
     // while playing video.
     bool enable_wake_locks = true;
+
+    // Options specific to WebContents created for picture-in-picture windows.
+    float initial_picture_in_picture_aspect_ratio = 0;
+    bool lock_picture_in_picture_aspect_ratio = false;
   };
 
   // Creates a new WebContents.
@@ -362,9 +368,6 @@ class WebContents : public PageNavigator,
   // WebContents' main frame.
   virtual const GURL& GetLastCommittedURL() = 0;
 
-  // Deprecated. Use `GetPrimaryMainFrame` instead.
-  virtual RenderFrameHost* GetMainFrame() = 0;
-
   // Returns the primary main frame for the currently active page. Always
   // non-null except during WebContents destruction. This WebContents may
   // have additional main frames for prerendered pages, bfcached pages, etc.
@@ -403,8 +406,8 @@ class WebContents : public PageNavigator,
   // be used instead of getting the primary page from the WebContents.
   virtual Page& GetPrimaryPage() = 0;
 
-  // Returns the focused frame for the currently active view. Might be nullptr
-  // if nothing is focused.
+  // Returns the focused frame for the primary page or an inner page thereof.
+  // Might be nullptr if nothing is focused.
   virtual RenderFrameHost* GetFocusedFrame() = 0;
 
   // Returns true if |frame_tree_node_id| refers to a frame in a prerendered
@@ -424,15 +427,6 @@ class WebContents : public PageNavigator,
   // See RenderFrameHost::GetFrameTreeNodeId for documentation on this ID.
   virtual RenderFrameHost* UnsafeFindFrameByFrameTreeNodeId(
       int frame_tree_node_id) = 0;
-
-  // TODO(1208438): Migrate to |ForEachRenderFrameHost|.
-  // Calls |on_frame| for each frame in the currently active view.
-  // Note: The RenderFrameHost parameter is not guaranteed to have a live
-  // RenderFrame counterpart in the renderer process. Callbacks should check
-  // IsRenderFrameLive(), as sending IPC messages to it in this case will fail
-  // silently.
-  virtual void ForEachFrame(
-      const base::RepeatingCallback<void(RenderFrameHost*)>& on_frame) = 0;
 
   // Calls |on_frame| for every RenderFrameHost in this WebContents. Note that
   // this includes RenderFrameHosts that are not descended from the primary main
@@ -788,6 +782,9 @@ class WebContents : public PageNavigator,
   virtual void AttachInnerWebContents(
       std::unique_ptr<WebContents> inner_web_contents,
       RenderFrameHost* render_frame_host,
+      mojo::PendingAssociatedRemote<blink::mojom::RemoteFrame> remote_frame,
+      mojo::PendingAssociatedReceiver<blink::mojom::RemoteFrameHost>
+          remote_frame_host_receiver,
       bool is_full_page) = 0;
 
   // Returns whether this WebContents is an inner WebContents for a guest.
@@ -1326,6 +1323,12 @@ class WebContents : public PageNavigator,
   // Returns the value from CreateParams::creator_location.
   virtual const base::Location& GetCreatorLocation() = 0;
 
+  // Returns the initial_aspect_ratio value from CreateParams.
+  virtual float GetPictureInPictureInitialAspectRatio() = 0;
+
+  // Returns the lock_aspect_ratio value from CreateParams.
+  virtual bool GetPictureInPictureLockAspectRatio() = 0;
+
   // Hide or show the browser controls for the given WebContents, based on
   // allowed states, desired state and whether the transition should be animated
   // or not.
@@ -1347,17 +1350,19 @@ class WebContents : public PageNavigator,
   // destruction. If the prerendering failed to start (e.g. if prerendering is
   // disabled, failure happened or because this URL is already being
   // prerendered), this function returns a nullptr.
-  // `url_match_predicate` allows embedders to define their own predicates for
-  // matching same-origin URLs during prerendering activation; it would be
-  // useful if embedders want Prerender2 to ignore some parameter mismatches.
-  // Note that if the mismatched prerender URL will be activated due to the
-  // predicate returning true, the last committed URL in the prerendered
-  // RenderFrameHost will be activated.
+  // PreloadingAttempt helps us to log various metrics associated with
+  // particular prerendering attempt. `url_match_predicate` allows embedders to
+  // define their own predicates for matching same-origin URLs during
+  // prerendering activation; it would be useful if embedders want Prerender2 to
+  // ignore some parameter mismatches. Note that if the mismatched prerender URL
+  // will be activated due to the predicate returning true, the last committed
+  // URL in the prerendered RenderFrameHost will be activated.
   virtual std::unique_ptr<PrerenderHandle> StartPrerendering(
       const GURL& prerendering_url,
       PrerenderTriggerType trigger_type,
       const std::string& embedder_histogram_suffix,
       ui::PageTransition page_transition,
+      PreloadingAttempt* preloading_attempt,
       absl::optional<base::RepeatingCallback<bool(const GURL&)>>
           url_match_predicate = absl::nullopt) = 0;
 

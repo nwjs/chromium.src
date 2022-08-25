@@ -706,7 +706,7 @@ const char kTermsOfServiceURL[] = "terms_of_service.url";
 const char kAttestationEnabled[] = "attestation.enabled";
 
 // A boolean pref recording whether user has dismissed the multiprofile
-// itroduction dialog show.
+// introduction dialog show.
 const char kMultiProfileNeverShowIntro[] =
     "settings.multi_profile_never_show_intro";
 
@@ -1398,7 +1398,7 @@ const char kProfileName[] = "profile.name";
 // Whether a profile is using a default avatar name (eg. Pickles or Person 1)
 // because it was randomly assigned at profile creation time.
 const char kProfileUsingDefaultName[] = "profile.using_default_name";
-// Whether a profile is using an avatar without having explicitely chosen it
+// Whether a profile is using an avatar without having explicitly chosen it
 // (i.e. was assigned by default by legacy profile creation).
 const char kProfileUsingDefaultAvatar[] = "profile.using_default_avatar";
 const char kProfileUsingGAIAAvatar[] = "profile.using_gaia_avatar";
@@ -1697,6 +1697,16 @@ const char kUserAgentReduction[] = "user_agent_reduction";
 const char kForceMajorVersionToMinorPositionInUserAgent[] =
     "force_major_version_to_minor_position_in_user_agent";
 
+#if (!BUILDFLAG(IS_ANDROID))
+// Boolean determining the side the side panel will be appear on (left / right).
+// True when the side panel is aligned to the right.
+const char kSidePanelHorizontalAlignment[] = "side_panel.is_right_aligned";
+#endif
+
+// Number of minutes of inactivity before closing the profile and showing the
+// Profile Picker. Controlled via the IdleProfileCloseTimeout policy.
+const char kIdleProfileCloseTimeout[] = "idle_profile_close_timeout";
+
 // *************** LOCAL STATE ***************
 // These are attached to the machine/installation
 
@@ -1821,10 +1831,6 @@ const char kOpenPdfDownloadInSystemReader[] =
 // Int (as defined by DownloadPromptStatus) which specifies whether we should
 // ask the user where they want to download the file (only for Android).
 const char kPromptForDownloadAndroid[] = "download.prompt_for_download_android";
-
-// The prompt status for the download later dialog.
-const char kDownloadLaterPromptStatus[] =
-    "download.download_later_prompt_status";
 
 // Boolean which specifies whether we should display the missing SD card error.
 // This is only applicable for Android.
@@ -2024,7 +2030,7 @@ const char kDevToolsTCPDiscoveryConfig[] = "devtools.tcp_discovery_config";
 // A dictionary with all unsynced DevTools settings.
 const char kDevToolsPreferences[] = "devtools.preferences";
 
-// A boolean specyfing whether the "syncable" subset of DevTools preferences
+// A boolean specifying whether the "syncable" subset of DevTools preferences
 // should be synced or not.
 const char kDevToolsSyncPreferences[] = "devtools.sync_preferences";
 
@@ -2118,36 +2124,6 @@ const char kWebAppsIsolationState[] = "web_apps.isolation_state";
 // Dictionary that maps origins to web apps that can act as URL handlers.
 const char kWebAppsUrlHandlerInfo[] = "web_apps.url_handler_info";
 #endif
-
-// A string representing the last version of Chrome that System Web Apps were
-// updated for.
-const char kSystemWebAppLastUpdateVersion[] =
-    "web_apps.system_web_app_last_update";
-
-// A string representing the last locale that System Web Apps were installed in.
-// This is used to refresh System Web Apps i18n when the locale is changed.
-const char kSystemWebAppLastInstalledLocale[] =
-    "web_apps.system_web_app_last_installed_language";
-
-// An int representing the number of failures to install SWAs for a given
-// version & locale pair. After 3 failures, we'll abandon this version to avoid
-// bootlooping, and wait for a new version to come along.
-const char kSystemWebAppInstallFailureCount[] =
-    "web_apps.system_web_app_failure_count";
-
-// A string representing the latest Chrome version where an attempt was made
-// to install. In the case of success, this and LastUpdateVersion will be the
-// same. If there is an installation failure, they will diverge until a
-// successful installation is made.
-extern const char kSystemWebAppLastAttemptedVersion[] =
-    "web_apps.system_web_app_last_attempted_update";
-
-// A string representing the most recent locale that was attempted to be
-// installed. In the case of success, this and LastUpdateVersion will be the
-// same. If there is an installation failure, they will diverge until a
-// successful installation is made.
-extern const char kSystemWebAppLastAttemptedLocale[] =
-    "web_apps.system_web_app_last_attempted_language";
 
 // The default audio capture device used by the Media content setting.
 const char kDefaultAudioCaptureDevice[] = "media.default_audio_capture_device";
@@ -2258,7 +2234,7 @@ const char kNtlmV2Enabled[] = "auth.ntlm_v2_enabled";
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 // Boolean whether Kerberos functionality is enabled.
 const char kKerberosEnabled[] = "kerberos.enabled";
-#endif
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 // Boolean that specifies whether to enable revocation checking (best effort)
 // by default.
@@ -2299,6 +2275,9 @@ const char kHSTSPolicyBypassList[] = "hsts.policy.upgrade_bypass_list";
 
 // If false, disable post-quantum key agreement in TLS connections.
 const char kCECPQ2Enabled[] = "ssl.cecpq2_enabled";
+
+// If false, disable Encrypted ClientHello (ECH) in TLS connections.
+const char kEncryptedClientHelloEnabled[] = "ssl.ech_enabled";
 
 // Boolean that specifies whether the built-in asynchronous DNS client is used.
 const char kBuiltInDnsClientEnabled[] = "async_dns.enabled";
@@ -2379,9 +2358,11 @@ const char kDemoModeConfig[] = "demo_mode.config";
 // A string pref holding the value of the current country for demo sessions.
 const char kDemoModeCountry[] = "demo_mode.country";
 
-// A string pref holding the value of the retailer and store id input for demo
-// sessions.
-const char kDemoModeRetailerAndStoreIdInput[] = "demo_mode.retailer_id";
+// A string pref holding the value of the retailer id input for demo sessions.
+const char kDemoModeRetailerId[] = "demo_mode.retailer_id";
+
+// A string pref holding the value of the store id input for demo sessions.
+const char kDemoModeStoreId[] = "demo_mode.store_id";
 
 // A string pref holding the value of the default locale for demo sessions.
 const char kDemoModeDefaultLocale[] = "demo_mode.default_locale";
@@ -2705,6 +2686,17 @@ const char kLastChromadMigrationAttemptTime[] =
 const char kHardwareSecureDecryptionDisabledTimes[] =
     "media.hardware_secure_decryption.disabled_times";
 #endif  // BUILDFLAG(IS_WIN)
+
+#if BUILDFLAG(IS_CHROMEOS)
+// A dictionary containing kiosk metrics latest session related information.
+// For example, kiosk session start times, number of network drops.
+// This setting resides in local state.
+const char kKioskMetrics[] = "kiosk-metrics";
+
+// A boolean pref which determines whether a Web Kiosk can open more than one
+// browser window.
+const char kNewWindowsInKioskAllowed[] = "new_windows_in_kiosk_allowed";
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 // *************** SERVICE PREFS ***************
 // These are attached to the service process.
@@ -3043,8 +3035,6 @@ const char kLacrosAccessibilityVirtualKeyboardEnabled[] =
     "lacros.settings.a11y.virtual_keyboard";
 #endif
 
-const char kBackgroundTracingLastUpload[] = "background_tracing.last_upload";
-
 const char kAllowDinosaurEasterEgg[] = "allow_dinosaur_easter_egg";
 
 #if BUILDFLAG(IS_ANDROID)
@@ -3309,6 +3299,15 @@ const char kCACertificateManagementAllowed[] =
 // set, Chrome will choose the certificate verifier based on experiments.
 const char kBuiltinCertificateVerifierEnabled[] =
     "builtin_certificate_verifier_enabled";
+#endif
+
+#if BUILDFLAG(CHROME_ROOT_STORE_POLICY_SUPPORTED)
+// Boolean that specifies whether the Chrome Root Store and built-in
+// certificate verifier should be used. If false, Chrome will not use the
+// Chrome Root Store. (The built-in certificate verifier may or may not be used
+// depending on the state of kBuiltinCertificateVerifierEnabled, if supported.)
+// If not set, Chrome will choose the root store based on experiments.
+const char kChromeRootStoreEnabled[] = "chrome_root_store_enabled";
 #endif
 
 const char kSharingVapidKey[] = "sharing.vapid_key";

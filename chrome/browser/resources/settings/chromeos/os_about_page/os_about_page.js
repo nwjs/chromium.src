@@ -13,27 +13,28 @@ import '../../settings_page/settings_animated_pages.js';
 import '../../settings_page/settings_section.js';
 import '../../settings_page/settings_subpage.js';
 import '../../settings_page_styles.css.js';
-import '../../settings_shared_css.js';
+import '../../settings_shared.css.js';
 import '../os_icons.js';
 import '../os_reset_page/os_powerwash_dialog.js';
-import '//resources/cr_components/localized_link/localized_link.js';
+import 'chrome://resources/cr_components/localized_link/localized_link.js';
 import './detailed_build_info.js';
 import './update_warning_dialog.js';
-import '//resources/cr_elements/cr_button/cr_button.m.js';
-import '//resources/cr_elements/cr_icon_button/cr_icon_button.m.js';
-import '//resources/cr_elements/cr_link_row/cr_link_row.js';
-import '//resources/cr_elements/icons.m.js';
-import '//resources/polymer/v3_0/iron-icon/iron-icon.js';
-import '//resources/polymer/v3_0/iron-media-query/iron-media-query.js';
+import 'chrome://resources/cr_elements/cr_button/cr_button.m.js';
+import 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.m.js';
+import 'chrome://resources/cr_elements/cr_link_row/cr_link_row.js';
+import 'chrome://resources/cr_elements/icons.m.js';
+import 'chrome://resources/polymer/v3_0/iron-icon/iron-icon.js';
+import 'chrome://resources/polymer/v3_0/iron-media-query/iron-media-query.js';
 
-import {assert} from '//resources/js/assert.m.js';
-import {I18nBehavior, I18nBehaviorInterface} from '//resources/js/i18n_behavior.m.js';
-import {parseHtmlSubset} from '//resources/js/parse_html_subset.m.js';
-import {WebUIListenerBehavior, WebUIListenerBehaviorInterface} from '//resources/js/web_ui_listener_behavior.m.js';
-import {html, mixinBehaviors, PolymerElement, TemplateInstanceBase, Templatizer} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+import {assert} from 'chrome://resources/js/assert.m.js';
+import {I18nBehavior, I18nBehaviorInterface} from 'chrome://resources/js/i18n_behavior.m.js';
+import {parseHtmlSubset} from 'chrome://resources/js/parse_html_subset.m.js';
+import {WebUIListenerBehavior, WebUIListenerBehaviorInterface} from 'chrome://resources/js/web_ui_listener_behavior.m.js';
+import {html, mixinBehaviors, PolymerElement, TemplateInstanceBase, Templatizer} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import {loadTimeData} from '../../i18n_setup.js';
 import {LifetimeBrowserProxyImpl} from '../../lifetime_browser_proxy.js';
+import {Setting} from '../../mojom-webui/setting.mojom-webui.js';
 import {Route, Router} from '../../router.js';
 import {DeepLinkingBehavior, DeepLinkingBehaviorInterface} from '../deep_linking_behavior.js';
 import {recordSettingChange} from '../metrics_recorder.js';
@@ -91,7 +92,7 @@ class OsSettingsAboutPageElement extends OsSettingsAboutPageBase {
           progress: 0,
           rollback: false,
           powerwash: false,
-          status: UpdateStatus.UPDATED
+          status: UpdateStatus.UPDATED,
         },
       },
 
@@ -155,6 +156,12 @@ class OsSettingsAboutPageElement extends OsSettingsAboutPageBase {
       hasInternetConnection_: {
         type: Boolean,
         value: false,
+      },
+
+      /** @private */
+      firmwareUpdateCount_: {
+        type: Number,
+        value: 0,
       },
 
       /** @private */
@@ -239,18 +246,18 @@ class OsSettingsAboutPageElement extends OsSettingsAboutPageBase {
 
       /**
        * Used by DeepLinkingBehavior to focus this page's deep links.
-       * @type {!Set<!chromeos.settings.mojom.Setting>}
+       * @type {!Set<!Setting>}
        */
       supportedSettingIds: {
         type: Object,
         value: () => new Set([
-          chromeos.settings.mojom.Setting.kCheckForOsUpdate,
-          chromeos.settings.mojom.Setting.kSeeWhatsNew,
-          chromeos.settings.mojom.Setting.kGetHelpWithChromeOs,
-          chromeos.settings.mojom.Setting.kReportAnIssue,
-          chromeos.settings.mojom.Setting.kTermsOfService,
-          chromeos.settings.mojom.Setting.kDiagnostics,
-          chromeos.settings.mojom.Setting.kFirmwareUpdates,
+          Setting.kCheckForOsUpdate,
+          Setting.kSeeWhatsNew,
+          Setting.kGetHelpWithChromeOs,
+          Setting.kReportAnIssue,
+          Setting.kTermsOfService,
+          Setting.kDiagnostics,
+          Setting.kFirmwareUpdates,
         ]),
       },
     };
@@ -302,6 +309,12 @@ class OsSettingsAboutPageElement extends OsSettingsAboutPageBase {
       this.hasInternetConnection_ = result;
     });
 
+    if (this.showFirmwareUpdatesApp_) {
+      this.aboutBrowserProxy_.getFirmwareUpdateCount().then(result => {
+        this.firmwareUpdateCount_ = result;
+      });
+    }
+
     if (Router.getInstance().getQueryParameters().get('checkForUpdate') ===
         'true') {
       this.onCheckUpdatesClick_();
@@ -330,9 +343,7 @@ class OsSettingsAboutPageElement extends OsSettingsAboutPageBase {
       if (!result.deepLinkShown && result.pendingSettingId) {
         // Only the check for OS update is expected to fail deep link when
         // awaiting the check for update.
-        assert(
-            result.pendingSettingId ===
-            chromeos.settings.mojom.Setting.kCheckForOsUpdate);
+        assert(result.pendingSettingId === Setting.kCheckForOsUpdate);
         this.isPendingOsUpdateDeepLink_ = true;
       }
     });
@@ -391,14 +402,14 @@ class OsSettingsAboutPageElement extends OsSettingsAboutPageBase {
   /** @private */
   onDiagnosticsClick_() {
     this.aboutBrowserProxy_.openDiagnostics();
-    recordSettingChange(chromeos.settings.mojom.Setting.kDiagnostics);
+    recordSettingChange(Setting.kDiagnostics);
   }
 
   /** @private */
   onFirmwareUpdatesClick_() {
     assert(this.showFirmwareUpdatesApp_);
     this.aboutBrowserProxy_.openFirmwareUpdatesPage();
-    recordSettingChange(chromeos.settings.mojom.Setting.kFirmwareUpdates);
+    recordSettingChange(Setting.kFirmwareUpdates);
   }
 
   /** @private */
@@ -446,12 +457,11 @@ class OsSettingsAboutPageElement extends OsSettingsAboutPageBase {
       return;
     }
 
-    this.showDeepLink(chromeos.settings.mojom.Setting.kCheckForOsUpdate)
-        .then(result => {
-          if (result.deepLinkShown) {
-            this.isPendingOsUpdateDeepLink_ = false;
-          }
-        });
+    this.showDeepLink(Setting.kCheckForOsUpdate).then(result => {
+      if (result.deepLinkShown) {
+        this.isPendingOsUpdateDeepLink_ = false;
+      }
+    });
   }
 
   /** @private */
@@ -467,6 +477,13 @@ class OsSettingsAboutPageElement extends OsSettingsAboutPageBase {
     return this.currentUpdateStatusEvent_.status === UpdateStatus.FAILED;
   }
 
+  /**
+   * @return {boolean}
+   * @private
+   */
+  shouldShowFirmwareUpdatesBadge_() {
+    return this.showFirmwareUpdatesApp_ && this.firmwareUpdateCount_ > 0;
+  }
 
   /**
    * @return {string}
@@ -498,8 +515,8 @@ class OsSettingsAboutPageElement extends OsSettingsAboutPageBase {
             substitutions: [
               this.i18nAdvanced(
                   browserChannelToI18nId(this.targetChannel_, this.isLts_)),
-              progressPercent
-            ]
+              progressPercent,
+            ],
           });
         }
         if (this.currentUpdateStatusEvent_.rollback) {
@@ -567,6 +584,22 @@ class OsSettingsAboutPageElement extends OsSettingsAboutPageBase {
       default:
         return null;
     }
+  }
+
+  /**
+   * @return {string}
+   * @private
+   */
+  getFirmwareUpdatesIcon_() {
+    if (this.firmwareUpdateCount_ === 0) {
+      return '';
+    }
+
+    const maxBadgeId = 9;
+    // If the number of firmware updates is > 9, then we want to show
+    // the 9 badge.
+    const updateBadgeId = Math.min(this.firmwareUpdateCount_, maxBadgeId);
+    return `os-settings:counter-${updateBadgeId}`;
   }
 
   /**
@@ -744,6 +777,16 @@ class OsSettingsAboutPageElement extends OsSettingsAboutPageBase {
   /** @private */
   onReportIssueClick_() {
     this.aboutBrowserProxy_.openFeedbackDialog();
+  }
+
+  /**
+   * @return {string}
+   * @private
+   */
+  getReportIssueLabel_() {
+    return loadTimeData.getBoolean('isOsFeedbackEnabled') ?
+        this.i18nAdvanced('aboutSendFeedback') :
+        this.i18nAdvanced('aboutReportAnIssue');
   }
   // </if>
 

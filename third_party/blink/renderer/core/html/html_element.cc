@@ -25,6 +25,7 @@
 
 #include "third_party/blink/renderer/core/html/html_element.h"
 
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/renderer/bindings/core/v8/js_event_handler_for_content_attribute.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_stringtreatnullasemptystring_trustedscript.h"
 #include "third_party/blink/renderer/core/css/css_color.h"
@@ -54,6 +55,7 @@
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
 #include "third_party/blink/renderer/core/editing/serializers/serialization.h"
 #include "third_party/blink/renderer/core/editing/spellcheck/spell_checker.h"
+#include "third_party/blink/renderer/core/event_type_names.h"
 #include "third_party/blink/renderer/core/events/keyboard_event.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
@@ -84,6 +86,7 @@
 #include "third_party/blink/renderer/core/page/spatial_navigation.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/svg/svg_svg_element.h"
+#include "third_party/blink/renderer/core/timing/soft_navigation_heuristics.h"
 #include "third_party/blink/renderer/core/trustedtypes/trusted_script.h"
 #include "third_party/blink/renderer/core/xml_names.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
@@ -176,6 +179,42 @@ HTMLElement* GetParentForDirectionality(const HTMLElement& element,
   // recalc, and delay the check for later for a performance reason.
   SlotAssignmentRecalcForbiddenScope forbid_slot_recalc(element.GetDocument());
   return DynamicTo<HTMLElement>(FlatTreeTraversal::ParentElement(element));
+}
+
+bool IsDescendentOfMainElement(const Node* node) {
+  DCHECK(node);
+  do {
+    if (IsA<HTMLMainElement>(node)) {
+      return true;
+    }
+    node = node->parentNode();
+  } while (node);
+  return false;
+}
+
+void CheckSoftNavigationHeuristicsTracking(const Document& document,
+                                           const Node* insertion_point) {
+  DCHECK(insertion_point);
+  if (document.IsTrackingSoftNavigationHeuristics() &&
+      IsDescendentOfMainElement(insertion_point)) {
+    LocalDOMWindow* window = document.domWindow();
+    if (!window) {
+      return;
+    }
+    LocalFrame* frame = window->GetFrame();
+    if (!frame || !frame->IsMainFrame()) {
+      return;
+    }
+    ScriptState* script_state = ToScriptStateForMainWorld(frame);
+    if (!script_state) {
+      return;
+    }
+
+    SoftNavigationHeuristics* heuristics =
+        SoftNavigationHeuristics::From(*window);
+    DCHECK(heuristics);
+    heuristics->ModifiedMain(script_state);
+  }
 }
 
 }  // anonymous namespace
@@ -405,20 +444,23 @@ AttributeTriggers* HTMLElement::TriggersForAttributeName(
   static AttributeTriggers attribute_triggers[] = {
       {html_names::kDirAttr, kNoWebFeature, kNoEvent,
        &HTMLElement::OnDirAttrChanged},
-      {html_names::kFocusgroupAttr, kNoWebFeature, kNoEvent,
-       &HTMLElement::OnFocusgroupAttrChanged},
       {html_names::kFormAttr, kNoWebFeature, kNoEvent,
        &HTMLElement::OnFormAttrChanged},
       {html_names::kLangAttr, kNoWebFeature, kNoEvent,
        &HTMLElement::OnLangAttrChanged},
       {html_names::kNonceAttr, kNoWebFeature, kNoEvent,
        &HTMLElement::OnNonceAttrChanged},
+
+      {html_names::kFocusgroupAttr, kNoWebFeature, kNoEvent,
+       &HTMLElement::ReparseAttribute},
       {html_names::kTabindexAttr, kNoWebFeature, kNoEvent,
-       &HTMLElement::OnTabIndexAttrChanged},
+       &HTMLElement::ReparseAttribute},
       {xml_names::kLangAttr, kNoWebFeature, kNoEvent,
-       &HTMLElement::OnXMLLangAttrChanged},
+       &HTMLElement::ReparseAttribute},
       {html_names::kPopupAttr, kNoWebFeature, kNoEvent,
-       &HTMLElement::OnPopupAttrChanged},
+       &HTMLElement::ReparseAttribute},
+      {html_names::kHoverpopupAttr, kNoWebFeature, kNoEvent,
+       &HTMLElement::ReparseAttribute},
 
       {html_names::kOnabortAttr, kNoWebFeature, event_type_names::kAbort,
        nullptr},
@@ -434,6 +476,8 @@ AttributeTriggers* HTMLElement::TriggersForAttributeName(
        event_type_names::kBeforecopy, nullptr},
       {html_names::kOnbeforecutAttr, kNoWebFeature,
        event_type_names::kBeforecut, nullptr},
+      {html_names::kOnbeforeinputAttr, kNoWebFeature,
+       event_type_names::kBeforeinput, nullptr},
       {html_names::kOnbeforepasteAttr, kNoWebFeature,
        event_type_names::kBeforepaste, nullptr},
       {html_names::kOnblurAttr, kNoWebFeature, event_type_names::kBlur,
@@ -1138,6 +1182,11 @@ void HTMLElement::setHidden(
   }
 }
 
+bool HTMLElement::IsSupportedByRegionCapture() const {
+  return base::FeatureList::IsEnabled(
+      features::kRegionCaptureExperimentalSubtypes);
+}
+
 const AtomicString& HTMLElement::autocapitalize() const {
   DEFINE_STATIC_LOCAL(const AtomicString, kOff, ("off"));
   DEFINE_STATIC_LOCAL(const AtomicString, kNone, ("none"));
@@ -1294,6 +1343,10 @@ void HTMLElement::ChildrenChanged(const ChildrenChange& change) {
           !ElementAffectsDirectionality(element))
         element->UpdateDirectionalityAndDescendant(CachedDirectionality());
     }
+  }
+  if (change.IsChildInsertion()) {
+    CheckSoftNavigationHeuristicsTracking(GetDocument(),
+                                          change.sibling_changed);
   }
 }
 
@@ -1773,7 +1826,7 @@ void HTMLElement::HandleKeypressEvent(KeyboardEvent& event) {
   // <textarea>) or has contentEditable attribute on, we should enter a space or
   // newline even in spatial navigation mode instead of handling it as a "click"
   // action.
-  if (IsTextControl() || HasEditableStyle(*this))
+  if (IsTextControl() || IsEditable(*this))
     return;
   int char_code = event.charCode();
   if (char_code == '\r' || char_code == ' ') {
@@ -1978,8 +2031,7 @@ void HTMLElement::OnDirAttrChanged(const AttributeModificationParams& params) {
   }
 }
 
-void HTMLElement::OnFocusgroupAttrChanged(
-    const AttributeModificationParams& params) {
+void HTMLElement::ReparseAttribute(const AttributeModificationParams& params) {
   Element::ParseAttribute(params);
 }
 
@@ -1996,21 +2048,6 @@ void HTMLElement::OnNonceAttrChanged(
     const AttributeModificationParams& params) {
   if (params.new_value != g_empty_atom)
     setNonce(params.new_value);
-}
-
-void HTMLElement::OnTabIndexAttrChanged(
-    const AttributeModificationParams& params) {
-  Element::ParseAttribute(params);
-}
-
-void HTMLElement::OnXMLLangAttrChanged(
-    const AttributeModificationParams& params) {
-  Element::ParseAttribute(params);
-}
-
-void HTMLElement::OnPopupAttrChanged(
-    const AttributeModificationParams& params) {
-  Element::ParseAttribute(params);
 }
 
 ElementInternals* HTMLElement::attachInternals(

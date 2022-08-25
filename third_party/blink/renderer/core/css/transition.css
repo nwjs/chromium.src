@@ -25,15 +25,9 @@ html::page-transition-container(*) {
   transform-origin: top left;
 }
 
-html::page-transition-container(root) {
-  right: 0;
-  bottom: 0;
-}
-
 ::page-transition-image-wrapper(*) {
   position: absolute;
   inset: 0;
-  isolation: isolate;
 }
 
 ::page-transition-incoming-image(*),
@@ -42,6 +36,6 @@ html::page-transition-container(root) {
   inset-block-start: 0;
   inline-size: 100%;
   block-size: auto;
-  mix-blend-mode: plus-lighter;
   will-change: opacity;
 }
+

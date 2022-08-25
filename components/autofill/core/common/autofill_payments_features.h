@@ -23,9 +23,11 @@ extern const base::Feature kAutofillCreditCardAuthentication;
 extern const base::Feature kAutofillCreditCardUploadFeedback;
 extern const base::Feature
     kAutofillEnableGetDetailsForEnrollParsingInUploadCardResponse;
+extern const base::Feature kAutofillEnableFIDOProgressDialog;
 extern const base::Feature kAutofillEnableManualFallbackForVirtualCards;
 extern const base::Feature kAutofillEnableOfferNotificationForPromoCodes;
 extern const base::Feature kAutofillEnableOffersInClankKeyboardAccessory;
+extern const base::Feature kAutofillEnableRemadeDownstreamMetrics;
 extern const base::Feature kAutofillEnableSendingBcnInGetUploadDetails;
 extern const base::Feature kAutofillEnableStickyManualFallbackForCards;
 extern const base::Feature kAutofillEnableToolbarStatusChip;
@@ -38,6 +40,7 @@ extern const base::Feature
 extern const base::Feature kAutofillEnableVirtualCardMetadata;
 extern const base::Feature kAutofillEnforceDelaysInStrikeDatabase;
 extern const base::Feature kAutofillFillMerchantPromoCodeFields;
+extern const base::Feature kAutofillParseIbanFields;
 extern const base::Feature kAutofillParseMerchantPromoCodeFields;
 extern const base::Feature kAutofillRemoveCardExpiryFromDownstreamSuggestion;
 extern const base::Feature kAutofillSaveCardDismissOnNavigation;
@@ -46,7 +49,6 @@ extern const base::Feature kAutofillSaveCardUiExperiment;
 extern const base::FeatureParam<int>
     kAutofillSaveCardUiExperimentSelectorInNumber;
 extern const base::Feature kAutofillShowUnmaskedCachedCardInManualFillingView;
-extern const base::Feature kAutofillSuggestVirtualCardsOnIncompleteForm;
 extern const base::Feature kAutofillUpstream;
 extern const base::Feature kAutofillUpstreamAllowAdditionalEmailDomains;
 extern const base::Feature kAutofillUpstreamAllowAllEmailDomains;

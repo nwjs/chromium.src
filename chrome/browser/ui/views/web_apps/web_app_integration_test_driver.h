@@ -261,6 +261,8 @@ class WebAppIntegrationTestDriver : WebAppInstallManagerObserver {
   void CheckPlatformShortcutNotExists(Site site);
   void CheckRunOnOsLoginEnabled(Site site);
   void CheckRunOnOsLoginDisabled(Site site);
+  void CheckSiteHandlesFile(Site site, std::string file_extension);
+  void CheckSiteNotHandlesFile(Site site, std::string file_extension);
   void CheckUserCannotSetRunOnOsLogin(Site site);
   void CheckUserDisplayModeInternal(UserDisplayMode user_display_mode);
   void CheckWindowClosed();
@@ -332,6 +334,8 @@ class WebAppIntegrationTestDriver : WebAppInstallManagerObserver {
                                 const std::string& name,
                                 const AppId& id);
 
+  bool IsFileHandledBySite(Site site, std::string file_extension);
+
   void SetRunOnOsLoginMode(Site site, apps::RunOnOsLoginMode login_mode);
 
   void LaunchAppStartupBrowserCreator(const AppId& app_id);
@@ -380,7 +384,9 @@ class WebAppIntegrationTestDriver : WebAppInstallManagerObserver {
   raw_ptr<Browser> active_browser_ = nullptr;
   raw_ptr<Profile> active_profile_ = nullptr;
   AppId active_app_id_;
-  raw_ptr<Browser> app_browser_ = nullptr;
+  // TODO(crbug.com/1298696): browser_tests breaks with MTECheckedPtr
+  // enabled. Triage.
+  raw_ptr<Browser, DegradeToNoOpWhenMTE> app_browser_ = nullptr;
 
   std::unique_ptr<views::NamedWidgetShownWaiter> app_id_update_dialog_waiter_;
   base::ScopedObservation<web_app::WebAppInstallManager,

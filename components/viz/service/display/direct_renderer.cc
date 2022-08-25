@@ -341,6 +341,8 @@ void DirectRenderer::DrawFrame(
   reshape_params.color_space = frame_color_space;
   reshape_params.sdr_white_level = CurrentFrameSDRWhiteLevel();
   reshape_params.format = frame_buffer_format;
+  reshape_params.alpha_type =
+      frame_has_alpha ? kPremul_SkAlphaType : kOpaque_SkAlphaType;
   if (next_frame_needs_full_frame_redraw_ ||
       reshape_params != reshape_params_ ||
       display_transform != reshape_display_transform_) {
@@ -669,7 +671,7 @@ void DirectRenderer::DrawRenderPass(const AggregatedRenderPass* render_pass) {
       // We cannot composite this quad properly, replace it with solid black.
       SolidColorDrawQuad solid_black;
       solid_black.SetAll(quad.shared_quad_state, quad.rect, quad.rect,
-                         /*needs_blending=*/false, SK_ColorBLACK,
+                         /*needs_blending=*/false, SkColors::kBlack,
                          /*force_anti_aliasing_off=*/true);
       DoDrawQuad(&solid_black, nullptr);
       continue;
@@ -908,6 +910,22 @@ gfx::Size DirectRenderer::CalculateSizeForOutputSurface(
   if (requested_viewport_size != device_viewport_size_)
     last_viewport_resize_time_ = base::TimeTicks::Now();
 
+  // Width & height mustn't be more than max texture size.
+  if (surface_width > output_surface_->capabilities().max_texture_size) {
+    auto old_width = surface_width;
+    surface_width = output_surface_->capabilities().max_texture_size;
+    LOG_IF(ERROR, surface_width < request_width)
+        << "Reduced surface width from " << old_width << " to "
+        << surface_width;
+  }
+  if (surface_height > output_surface_->capabilities().max_texture_size) {
+    auto old_height = surface_height;
+    surface_height = output_surface_->capabilities().max_texture_size;
+    LOG_IF(ERROR, surface_height < request_height)
+        << "Reduced surface height from " << old_height << " to "
+        << surface_height;
+  }
+
   device_viewport_size_ = requested_viewport_size;
   return gfx::Size(surface_width, surface_height);
 }
@@ -950,6 +968,13 @@ bool DirectRenderer::ShouldApplyRoundedCorner(const DrawQuad* quad) const {
 
 float DirectRenderer::CurrentFrameSDRWhiteLevel() const {
   return current_frame()->display_color_spaces.GetSDRMaxLuminanceNits();
+}
+
+bool DirectRenderer::ShouldApplyGradientMask(const DrawQuad* quad) const {
+  if (!quad->shared_quad_state->mask_filter_info.HasGradientMask())
+    return false;
+
+  return true;
 }
 
 gfx::ColorSpace DirectRenderer::RootRenderPassColorSpace() const {

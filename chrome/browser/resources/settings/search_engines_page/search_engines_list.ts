@@ -7,7 +7,7 @@
  * list of search engines.
  */
 import 'chrome://resources/cr_elements/shared_vars_css.m.js';
-import '../settings_shared_css.js';
+import '../settings_shared.css.js';
 import '../settings_vars.css.js';
 import './search_engine_entry.js';
 
@@ -104,20 +104,20 @@ export class SettingsSearchEnginesListElement extends PolymerElement {
     };
   }
 
-  engines: Array<SearchEngine>;
-  visibleEngines: Array<SearchEngine>;
-  collapsedEngines: Array<SearchEngine>;
+  engines: SearchEngine[];
+  visibleEngines: SearchEngine[];
+  collapsedEngines: SearchEngine[];
   visibleEnginesSize: number;
   fixedHeight: boolean;
   showShortcut: boolean;
   showQueryUrl: boolean;
   collapseList: boolean;
-  nameColumnHeader: String;
-  expandListText: String;
+  nameColumnHeader: string;
+  expandListText: string;
   private lastFocused_: HTMLElement;
   private listBlurred_: boolean;
 
-  computeVisibleEngines_(engines: Array<SearchEngine>) {
+  private computeVisibleEngines_(engines: SearchEngine[]) {
     if (!engines || !engines.length) {
       return;
     }
@@ -125,7 +125,7 @@ export class SettingsSearchEnginesListElement extends PolymerElement {
     return engines.slice(0, this.visibleEnginesSize);
   }
 
-  computeCollapsedEngines_(engines: Array<SearchEngine>) {
+  private computeCollapsedEngines_(engines: SearchEngine[]) {
     if (!engines || !engines.length) {
       return;
     }

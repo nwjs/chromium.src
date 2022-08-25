@@ -33,6 +33,7 @@
 #include "chrome/browser/ui/browser_content_setting_bubble_model_delegate.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/global_error/global_error_service.h"
 #include "chrome/browser/ui/global_error/global_error_service_factory.h"
 #include "chrome/browser/ui/intent_picker_tab_helper.h"
@@ -184,8 +185,8 @@ ToolbarView::ToolbarView(Browser* browser, BrowserView* browser_view)
     for (const auto& view_and_command : GetViewCommandMap())
       chrome::AddCommandObserver(browser_, view_and_command.second, this);
   }
-  views::SetCascadingThemeProviderColor(this, views::kCascadingBackgroundColor,
-                                        ThemeProperties::COLOR_TOOLBAR);
+  views::SetCascadingColorProviderColor(this, views::kCascadingBackgroundColor,
+                                        kColorToolbar);
 }
 
 ToolbarView::~ToolbarView() {
@@ -243,8 +244,9 @@ void ToolbarView::Init() {
   std::unique_ptr<ReloadButton> reload =
       std::make_unique<ReloadButton>(browser_->command_controller());
 
+  PrefService* const prefs = browser_->profile()->GetPrefs();
   std::unique_ptr<HomeButton> home = std::make_unique<HomeButton>(
-      base::BindRepeating(callback, browser_, IDC_HOME), browser_);
+      base::BindRepeating(callback, browser_, IDC_HOME), prefs);
 
   std::unique_ptr<ExtensionsToolbarContainer> extensions_container;
 
@@ -331,8 +333,7 @@ void ToolbarView::Init() {
           browser_view_, chrome_labs_model_.get()));
 
       show_chrome_labs_button_.Init(
-          chrome_labs_prefs::kBrowserLabsEnabled,
-          browser_->profile()->GetPrefs(),
+          chrome_labs_prefs::kBrowserLabsEnabled, prefs,
           base::BindRepeating(&ToolbarView::OnChromeLabsPrefChanged,
                               base::Unretained(this)));
       // Set the visibility for the button based on initial enterprise policy
@@ -393,7 +394,7 @@ void ToolbarView::Init() {
   location_bar_->Init();
 
   show_home_button_.Init(
-      prefs::kShowHomeButton, browser_->profile()->GetPrefs(),
+      prefs::kShowHomeButton, prefs,
       base::BindRepeating(&ToolbarView::OnShowHomeButtonChanged,
                           base::Unretained(this)));
 
@@ -804,8 +805,7 @@ SkColor ToolbarView::GetDefaultColorForSeverity(
   ui::ColorId color_id;
   switch (severity) {
     case AppMenuIconController::Severity::NONE:
-      return GetThemeProvider()->GetColor(
-          ThemeProperties::COLOR_TOOLBAR_BUTTON_ICON);
+      return GetColorProvider()->GetColor(kColorToolbarButtonIcon);
     case AppMenuIconController::Severity::LOW:
       color_id = ui::kColorAlertLowSeverity;
       break;

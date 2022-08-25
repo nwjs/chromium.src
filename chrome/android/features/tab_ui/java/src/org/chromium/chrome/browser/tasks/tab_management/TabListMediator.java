@@ -20,6 +20,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.text.TextUtils;
 import android.util.Pair;
+import android.util.Size;
 import android.view.View;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction;
@@ -51,6 +52,7 @@ import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.tab.TabSelectionType;
+import org.chromium.chrome.browser.tab.state.CouponPersistedTabData;
 import org.chromium.chrome.browser.tab.state.ShoppingPersistedTabData;
 import org.chromium.chrome.browser.tab.state.StorePersistedTabData;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelFilter;
@@ -123,8 +125,8 @@ class TabListMediator {
         /**
          * @see TabContentManager#getTabThumbnailWithCallback
          */
-        void getTabThumbnailWithCallback(
-                int tabId, Callback<Bitmap> callback, boolean forceUpdate, boolean writeToCache);
+        void getTabThumbnailWithCallback(int tabId, Size thumbnailSize, Callback<Bitmap> callback,
+                boolean forceUpdate, boolean writeToCache);
     }
 
     /**
@@ -247,6 +249,28 @@ class TabListMediator {
     }
 
     /**
+     * Asynchronously acquire {@link CouponPersistedTabData}
+     */
+    static class CouponPersistedTabDataFetcher {
+        protected Tab mTab;
+
+        /**
+         * @param tab {@link Tab} {@link CouponPersistedTabData} will be acquired for.
+         */
+        CouponPersistedTabDataFetcher(Tab tab) {
+            mTab = tab;
+        }
+
+        /**
+         * Asynchronously acquire {@link CouponPersistedTabData}
+         * @param callback {@link Callback} to pass {@link CouponPersistedTabData} back in
+         */
+        public void fetch(Callback<CouponPersistedTabData> callback) {
+            CouponPersistedTabData.from(mTab, (res) -> { callback.onResult(res); });
+        }
+    }
+
+    /**
      * The object to set to {@link TabProperties#THUMBNAIL_FETCHER} for the TabGridViewBinder to
      * obtain the thumbnail asynchronously.
      */
@@ -266,14 +290,14 @@ class TabListMediator {
             mWriteToCache = writeToCache;
         }
 
-        void fetch(Callback<Bitmap> callback) {
+        void fetch(Callback<Bitmap> callback, Size thumbnailSize) {
             Callback<Bitmap> forking = (bitmap) -> {
                 if (sBitmapCallbackForTesting != null) sBitmapCallbackForTesting.onResult(bitmap);
                 callback.onResult(bitmap);
             };
             sFetchCountForTesting++;
             mThumbnailProvider.getTabThumbnailWithCallback(
-                    mId, forking, mForceUpdate, mWriteToCache);
+                    mId, thumbnailSize, forking, mForceUpdate, mWriteToCache);
         }
     }
 
@@ -447,15 +471,20 @@ class TabListMediator {
 
     private final TabObserver mTabObserver = new EmptyTabObserver() {
         @Override
-        public void onDidStartNavigation(Tab tab, NavigationHandle navigationHandle) {
-            if (UrlUtilities.isNTPUrl(tab.getUrl())) return;
-            if (navigationHandle.isSameDocument() || !navigationHandle.isInPrimaryMainFrame()) {
+        public void onDidStartNavigationInPrimaryMainFrame(
+                Tab tab, NavigationHandle navigationHandle) {
+            if (navigationHandle.isSameDocument() || UrlUtilities.isNTPUrl(tab.getUrl())) {
                 return;
             }
             if (mModel.indexFromId(tab.getId()) == TabModel.INVALID_TAB_INDEX) return;
             mModel.get(mModel.indexFromId(tab.getId()))
                     .model.set(TabProperties.FAVICON,
                             mTabListFaviconProvider.getDefaultFavicon(tab.isIncognito()));
+        }
+
+        @Override
+        public void onDidStartNavigationNoop(Tab tab, NavigationHandle navigationHandle) {
+            if (!navigationHandle.isInPrimaryMainFrame()) return;
         }
 
         @Override
@@ -504,6 +533,8 @@ class TabListMediator {
     private TabGroupModelFilter.Observer mTabGroupObserver;
 
     private View.AccessibilityDelegate mAccessibilityDelegate;
+
+    private int mLastSelectedTabListModelIndex = TabList.INVALID_TAB_INDEX;
 
     /**
      * Interface for implementing a {@link Runnable} that takes a tabId for a generic action.
@@ -561,14 +592,24 @@ class TabListMediator {
             public void didSelectTab(Tab tab, int type, int lastId) {
                 mNextTabId = Tab.INVALID_TAB_ID;
                 if (tab.getId() == lastId) return;
+
                 int oldIndex = mModel.indexFromId(lastId);
+                mLastSelectedTabListModelIndex = oldIndex;
                 if (oldIndex != TabModel.INVALID_TAB_INDEX) {
                     mModel.get(oldIndex).model.set(TabProperties.IS_SELECTED, false);
+                    if (mActionsOnAllRelatedTabs && mThumbnailProvider != null && mVisible) {
+                        mModel.get(oldIndex).model.set(TabProperties.THUMBNAIL_FETCHER,
+                                new ThumbnailFetcher(mThumbnailProvider, lastId, true, false));
+                    }
                 }
+
                 int newIndex = mModel.indexFromId(tab.getId());
                 if (newIndex == TabModel.INVALID_TAB_INDEX) return;
-
                 mModel.get(newIndex).model.set(TabProperties.IS_SELECTED, true);
+                if (mThumbnailProvider != null && mVisible) {
+                    mModel.get(newIndex).model.set(TabProperties.THUMBNAIL_FETCHER,
+                            new ThumbnailFetcher(mThumbnailProvider, tab.getId(), true, false));
+                }
             }
 
             @Override
@@ -919,6 +960,8 @@ class TabListMediator {
                     TabModel tabModel = mTabModelSelector.getCurrentModel();
                     int curPosition = mModel.indexFromId(currentGroupSelectedTab.getId());
                     if (curPosition == TabModel.INVALID_TAB_INDEX) {
+                        // Model is uninitialized if reordering from tab strip before opening GTS.
+                        if (mModel.size() == 0) return;
                         // Sync TabListModel with updated TabGroupModelFilter.
                         int indexToUpdate = mModel.indexOfNthTabCard(
                                 filter.indexOf(tabModel.getTabAt(tabModelOldIndex)));
@@ -1040,7 +1083,8 @@ class TabListMediator {
     }
 
     private int getIndexOfTab(Tab tab, boolean onlyShowRelatedTabs) {
-        int index;
+        int index = TabList.INVALID_TAB_INDEX;
+        if (tab == null) return index;
         if (onlyShowRelatedTabs) {
             if (mModel.size() == 0) return TabList.INVALID_TAB_INDEX;
             List<Tab> related = getRelatedTabsForId(mModel.get(0).model.get(TabProperties.TAB_ID));
@@ -1152,6 +1196,8 @@ class TabListMediator {
             return true;
         }
         mModel.set(new ArrayList<>());
+        mLastSelectedTabListModelIndex = TabList.INVALID_TAB_INDEX;
+
         if (tabsList == null) {
             return true;
         }
@@ -1245,12 +1291,15 @@ class TabListMediator {
 
         updateFaviconForTab(pseudoTab, null);
         boolean forceUpdate = isSelected && !quickMode;
+        boolean forceUpdateLastSelected =
+                mActionsOnAllRelatedTabs && index == mLastSelectedTabListModelIndex && !quickMode;
+
         if (mThumbnailProvider != null && mVisible
                 && (mModel.get(index).model.get(TabProperties.THUMBNAIL_FETCHER) == null
-                        || forceUpdate || isUpdatingId)) {
-            ThumbnailFetcher callback =
-                    new ThumbnailFetcher(mThumbnailProvider, pseudoTab.getId(), forceUpdate,
-                            forceUpdate && !TabUiFeatureUtilities.isTabToGtsAnimationEnabled());
+                        || forceUpdate || isUpdatingId || forceUpdateLastSelected)) {
+            ThumbnailFetcher callback = new ThumbnailFetcher(mThumbnailProvider, pseudoTab.getId(),
+                    forceUpdate || forceUpdateLastSelected,
+                    forceUpdate && !TabUiFeatureUtilities.isTabToGtsAnimationEnabled());
             mModel.get(index).model.set(TabProperties.THUMBNAIL_FETCHER, callback);
         }
     }
@@ -1694,7 +1743,14 @@ class TabListMediator {
             } else {
                 mModel.get(index).model.set(TabProperties.STORE_PERSISTED_TAB_DATA_FETCHER, null);
             }
+            if (CouponUtilities.isCouponsOnTabsEnabled() && isUngroupedTab(pseudoTab.getId())) {
+                mModel.get(index).model.set(TabProperties.COUPON_PERSISTED_TAB_DATA_FETCHER,
+                        new CouponPersistedTabDataFetcher(pseudoTab.getTab()));
+            } else {
+                mModel.get(index).model.set(TabProperties.COUPON_PERSISTED_TAB_DATA_FETCHER, null);
+            }
         } else {
+            mModel.get(index).model.set(TabProperties.COUPON_PERSISTED_TAB_DATA_FETCHER, null);
             mModel.get(index).model.set(TabProperties.SHOPPING_PERSISTED_TAB_DATA_FETCHER, null);
             mModel.get(index).model.set(TabProperties.STORE_PERSISTED_TAB_DATA_FETCHER, null);
         }
@@ -1775,7 +1831,8 @@ class TabListMediator {
      *         org.chromium.ui.modelutil.MVCListAdapter.ListItem} does not need additional
      *         identifier.
      */
-    void removeSpecialItemFromModel(@UiType int uiType, int itemIdentifier) {
+    void removeSpecialItemFromModel(
+            @UiType int uiType, @MessageService.MessageType int itemIdentifier) {
         int index = TabModel.INVALID_TAB_INDEX;
         if (uiType == UiType.MESSAGE || uiType == UiType.LARGE_MESSAGE) {
             if (itemIdentifier == MessageService.MessageType.ALL) {
@@ -1786,8 +1843,6 @@ class TabListMediator {
                 return;
             }
             index = mModel.lastIndexForMessageItemFromType(itemIdentifier);
-        } else if (uiType == UiType.NEW_TAB_TILE) {
-            index = mModel.getIndexForNewTabTile();
         }
 
         if (index == TabModel.INVALID_TAB_INDEX) return;
@@ -1796,12 +1851,11 @@ class TabListMediator {
         mModel.removeAt(index);
     }
 
-    private boolean validateItemAt(int index, @UiType int uiType, int itemIdentifier) {
+    private boolean validateItemAt(
+            int index, @UiType int uiType, @MessageService.MessageType int itemIdentifier) {
         if (uiType == UiType.MESSAGE || uiType == UiType.LARGE_MESSAGE) {
             return mModel.get(index).type == uiType
                     && mModel.get(index).model.get(MESSAGE_TYPE) == itemIdentifier;
-        } else if (uiType == UiType.NEW_TAB_TILE) {
-            return mModel.get(index).type == uiType;
         }
 
         return false;

@@ -152,6 +152,13 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   // frame that is currently rendered in a different process than |process_id|.
   static int GetFrameTreeNodeIdForRoutingId(int process_id, int routing_id);
 
+  // Returns the FrameTreeNode ID corresponding to the specified |process_id|
+  // and |frame_token|. This routing ID pair may represent a placeholder for
+  // frame that is currently rendered in a different process than |process_id|.
+  static int GetFrameTreeNodeIdForFrameToken(
+      int process_id,
+      const ::blink::FrameToken& frame_token);
+
   // Returns the RenderFrameHost corresponding to the
   // |placeholder_frame_token| in the given |render_process_id|. The returned
   // RenderFrameHost will always be in a different process.  It may be null if
@@ -323,7 +330,7 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   // <fencedframe> element, if the frame is not the top-level <fencedframe>
   // itself. That is, this will return false for all <iframes> nested under a
   // <fencedframe>.
-  virtual bool IsFencedFrameRoot() = 0;
+  virtual bool IsFencedFrameRoot() const = 0;
 
   // Fenced frames (meta-bug https://crbug.com/1111084):
   // Returns true if `this` was loaded in a <fencedframe> element directly or if
@@ -375,13 +382,14 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   //
   // In the other direction, a RenderFrameHost can also transfer to a different
   // FrameTreeNode! Prior to the advent of prerendered pages
-  // (content/browser/prerender/README.md), that was not true, and it could be
-  // assumed that the return value of RenderFrameHost::GetFrameTreeNodeId() was
-  // constant over the lifetime of the RenderFrameHost. But with prerender
-  // activations, the main frame of the prerendered page transfers to a new
-  // FrameTreeNode, so newer code should no longer make that assumption. This
-  // transfer only happens for main frames (currently only during a prerender
-  // activation navigation) and never happens for subframes.
+  // (content/browser/preloading/prerender/README.md), that was not true, and it
+  // could be assumed that the return value of
+  // RenderFrameHost::GetFrameTreeNodeId() was constant over the lifetime of the
+  // RenderFrameHost. But with prerender activations, the main frame of the
+  // prerendered page transfers to a new FrameTreeNode, so newer code should no
+  // longer make that assumption. This transfer only happens for main frames
+  // (currently only during a prerender activation navigation) and never happens
+  // for subframes.
   //
   // If a stable identifier is needed, GetGlobalId() always refers to this
   // RenderFrameHost, while this RenderFrameHost might host multiple documents
@@ -1048,6 +1056,10 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   // enables a set of additional features that can be used with MojoJs. For
   // example, helper methods for MojoJs to better work with Web API objects.
   virtual void EnableMojoJsBindings(mojom::ExtraMojoJsFeaturesPtr features) = 0;
+
+  // Whether the current document is loaded inside an anonymous iframe. Updated
+  // on every cross-document navigation.
+  virtual bool IsAnonymous() const = 0;
 
  private:
   // This interface should only be implemented inside content.

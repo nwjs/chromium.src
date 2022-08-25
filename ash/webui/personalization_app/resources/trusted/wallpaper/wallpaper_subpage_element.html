@@ -1,4 +1,4 @@
-<style>
+<style include="common">
   #wallpaperContainer {
     display: grid;
     grid-template-areas:
@@ -7,7 +7,7 @@
       '. leftspacer imagegrid  rightspacer .'
       '. leftspacer .          rightspacer .';
     grid-template-columns: 1fr 16px minmax(568px, 920px) 16px 1fr;
-    grid-template-rows: 172px 12px minmax(0, 1fr) 12px;
+    grid-template-rows: 172px 12px minmax(0, 1fr) 32px;
     height: 100%;
     position: relative;
     width: 100%;
@@ -22,7 +22,11 @@
   }
 
   wallpaper-selected {
+    background-color: var(--cros-bg-color);
     grid-area: selected;
+    position: sticky;
+    top: 56px;
+    z-index: 1;
   }
 
   wallpaper-collections,
@@ -42,8 +46,9 @@
           these elements. -->
   <wallpaper-collections hidden="[[!shouldShowCollections_(path)]]">
   </wallpaper-collections>
-  <wallpaper-images collection-id="[[queryParams.id]]"
-      hidden="[[!shouldShowCollectionImages_(path)]]"></wallpaper-images>
+  <template is="dom-if" if="[[shouldShowCollectionImages_(path)]]" restamp>
+    <wallpaper-images collection-id="[[queryParams.id]]"></wallpaper-images>
+  </template>
   <template is="dom-if" if="[[isGooglePhotosIntegrationEnabled_()]]">
     <google-photos-collection path="[[path]]"
         album-id="[[queryParams.googlePhotosAlbumId]]"

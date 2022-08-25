@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ash/login/reporting/login_logout_reporter_test_delegate.h"
 
+#include "ash/components/login/auth/public/auth_failure.h"
 #include "ash/components/login/session/session_termination_manager.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/simple_test_clock.h"
@@ -159,7 +160,8 @@ class LoginLogoutTestHelper {
 
     auto reporter_helper =
         std::make_unique<::reporting::UserEventReporterHelperTesting>(
-            reporting_enabled, should_report_user, std::move(mock_queue));
+            reporting_enabled, should_report_user, /*is_kiosk_user=*/false,
+            std::move(mock_queue));
     return reporter_helper;
   }
 

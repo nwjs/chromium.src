@@ -141,18 +141,6 @@ try_.builder(
 )
 
 try_.builder(
-    name = "linux-clang-tidy-dbg",
-    executable = "recipe:tricium_clang_tidy_wrapper",
-    goma_jobs = goma.jobs.J150,
-)
-
-try_.builder(
-    name = "linux-clang-tidy-rel",
-    executable = "recipe:tricium_clang_tidy_wrapper",
-    goma_jobs = goma.jobs.J150,
-)
-
-try_.builder(
     name = "linux-dcheck-off-rel",
     mirrors = builder_config.copy_from("linux-rel"),
 )
@@ -186,7 +174,7 @@ try_.builder(
 )
 
 try_.builder(
-    name = "linux-fieldtrial-fyi-rel",
+    name = "linux-fieldtrial-rel",
 )
 
 try_.builder(
@@ -237,6 +225,7 @@ try_.orchestrator_builder(
     name = "linux-rel",
     compilator = "linux-rel-compilator",
     branch_selector = branches.STANDARD_MILESTONE,
+    check_for_flakiness = True,
     mirrors = [
         "ci/Linux Builder",
         "ci/Linux Tests",
@@ -254,6 +243,7 @@ try_.orchestrator_builder(
     tryjob = try_.job(),
     experiments = {
         "remove_src_checkout_experiment": 100,
+        "enable_weetbix_queries": 20,
     },
     use_orchestrator_pool = True,
 )
@@ -261,6 +251,7 @@ try_.orchestrator_builder(
 try_.compilator_builder(
     name = "linux-rel-compilator",
     branch_selector = branches.STANDARD_MILESTONE,
+    check_for_flakiness = True,
     main_list_view = "try",
 )
 
@@ -360,6 +351,7 @@ try_.orchestrator_builder(
     experiments = {
         "remove_src_checkout_experiment": 100,
     },
+    use_orchestrator_pool = True,
 )
 
 try_.compilator_builder(
@@ -388,6 +380,7 @@ try_.builder(
     # TODO(crbug/1144484): Remove this timeout once we figure out the
     # regression in compiler or toolchain.
     execution_timeout = 7 * time.hour,
+    ssd = True,
 )
 
 try_.builder(
@@ -407,6 +400,8 @@ try_.builder(
         "ci/Linux ChromiumOS MSan Tests",
     ],
     goma_jobs = goma.jobs.J150,
+    ssd = True,
+    cores = 16,
 )
 
 try_.builder(
@@ -516,6 +511,7 @@ try_.orchestrator_builder(
     experiments = {
         "remove_src_checkout_experiment": 100,
     },
+    use_orchestrator_pool = True,
 )
 
 try_.compilator_builder(
@@ -583,6 +579,7 @@ try_.builder(
     # OS version that's the oldest used on any bot.
     os = os.LINUX_BIONIC,
     notifies = ["chrome-rust-toolchain"],
+    execution_timeout = 5 * time.hour,
 )
 
 try_.builder(
@@ -689,5 +686,5 @@ try_.builder(
     ),
     cores = 16,
     builderless = False,
-    experiments = {"chromium_rts.ml_model": 100},
+    experiments = {"chromium_rts.experimental_model": 100},
 )

@@ -11,14 +11,22 @@ namespace history {
 
 class HistoryBackend;
 
+// Used by internal History components to observe `HistoryBackend` and process
+// those notifications on the backend task runner.
+//
+// Classes external to History that wish to observe History should instead use
+// `HistoryServiceObserver`, which operates on the main thread.
+//
+// These notifications are kept roughly in sync with `HistoryServiceObserver`,
+// but there's already not an exact 1-to-1 correspondence.
 class HistoryBackendObserver {
  public:
-  HistoryBackendObserver() {}
+  HistoryBackendObserver() = default;
 
   HistoryBackendObserver(const HistoryBackendObserver&) = delete;
   HistoryBackendObserver& operator=(const HistoryBackendObserver&) = delete;
 
-  virtual ~HistoryBackendObserver() {}
+  virtual ~HistoryBackendObserver() = default;
 
   // Called when user visits an URL.
   //
@@ -53,6 +61,15 @@ class HistoryBackendObserver {
                              bool expired,
                              const URLRows& deleted_rows,
                              const std::set<GURL>& favicon_urls) = 0;
+
+  // Called when a visit is updated. Typically this happens when the visit
+  // duration is updated, and in some redirect cases when the transition type
+  // is updated.
+  virtual void OnVisitUpdated(const VisitRow& visit) = 0;
+
+  // Called when a visit is deleted - usually either due to expiry, or because
+  // the user explicitly deleted it.
+  virtual void OnVisitDeleted(const VisitRow& visit) = 0;
 };
 
 }  // namespace history

@@ -2901,6 +2901,29 @@ void RenderWidgetHostImpl::OnImeCancelComposition() {
     view_->ImeCancelComposition();
 }
 
+RenderWidgetHostViewBase* RenderWidgetHostImpl::GetRenderWidgetHostViewBase() {
+  return GetView();
+}
+
+void RenderWidgetHostImpl::OnStartStylusWriting() {
+  if (blink_frame_widget_) {
+    auto callback = base::BindOnce(
+        &RenderWidgetHostImpl::OnEditElementFocusedForStylusWriting,
+        weak_factory_.GetWeakPtr());
+    blink_frame_widget_->OnStartStylusWriting(std::move(callback));
+  }
+}
+
+void RenderWidgetHostImpl::OnEditElementFocusedForStylusWriting(
+    const absl::optional<gfx::Rect>& focused_edit_bounds,
+    const absl::optional<gfx::Rect>& caret_bounds) {
+  if (view_) {
+    view_->OnEditElementFocusedForStylusWriting(
+        focused_edit_bounds.value_or(gfx::Rect()),
+        caret_bounds.value_or(gfx::Rect()));
+  }
+}
+
 bool RenderWidgetHostImpl::IsWheelScrollInProgress() {
   return is_in_gesture_scroll_[static_cast<int>(
       blink::WebGestureDevice::kTouchpad)];
@@ -2923,7 +2946,7 @@ void RenderWidgetHostImpl::RequestMouseLock(
     return;
   }
 
-  if (!view_ || !view_->HasFocus()) {
+  if (!view_ || !view_->CanBeMouseLocked()) {
     std::move(response).Run(blink::mojom::PointerLockResult::kWrongDocument,
                             /*context=*/mojo::NullRemote());
     return;

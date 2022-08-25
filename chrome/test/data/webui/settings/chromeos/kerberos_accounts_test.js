@@ -42,14 +42,14 @@ suite('KerberosAccountsTests', function() {
     Router.resetInstanceForTesting(new Router(routes));
 
     browserProxy = new TestKerberosAccountsBrowserProxy();
-    KerberosAccountsBrowserProxyImpl.setInstance(browserProxy);
+    KerberosAccountsBrowserProxyImpl.setInstanceForTesting(browserProxy);
     PolymerTest.clearBody();
     createDialog();
   });
 
   teardown(function() {
     kerberosAccounts.remove();
-    KerberosAccountsBrowserProxyImpl.setInstance(undefined);
+    KerberosAccountsBrowserProxyImpl.setInstanceForTesting(undefined);
   });
 
   function createDialog() {
@@ -364,14 +364,14 @@ suite('KerberosAddAccountTests', function() {
 
   setup(function() {
     browserProxy = new TestKerberosAccountsBrowserProxy();
-    KerberosAccountsBrowserProxyImpl.setInstance(browserProxy);
+    KerberosAccountsBrowserProxyImpl.setInstanceForTesting(browserProxy);
     PolymerTest.clearBody();
     createDialog(null);
   });
 
   teardown(function() {
     dialog.remove();
-    KerberosAccountsBrowserProxyImpl.setInstance(undefined);
+    KerberosAccountsBrowserProxyImpl.setInstanceForTesting(undefined);
   });
 
   function createDialog(presetAccount) {
@@ -690,7 +690,7 @@ suite('KerberosAddAccountTests', function() {
     // Cause a validation error.
     browserProxy.validateConfigResult = {
       error: KerberosErrorType.kBadConfig,
-      errorInfo: {code: KerberosConfigErrorCode.kKeyNotSupported, lineIndex: 0}
+      errorInfo: {code: KerberosConfigErrorCode.kKeyNotSupported, lineIndex: 0},
     };
 
     // Clicking the action button (aka 'Save') validates the config.

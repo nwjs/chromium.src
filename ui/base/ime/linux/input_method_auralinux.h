@@ -27,7 +27,7 @@ class COMPONENT_EXPORT(UI_BASE_IME_LINUX) InputMethodAuraLinux
   InputMethodAuraLinux& operator=(const InputMethodAuraLinux&) = delete;
   ~InputMethodAuraLinux() override;
 
-  LinuxInputMethodContext* GetContextForTesting(bool is_simple);
+  LinuxInputMethodContext* GetContextForTesting();
 
   // Overriden from InputMethod.
   ui::EventDispatchDetails DispatchKeyEvent(ui::KeyEvent* event) override;
@@ -45,6 +45,9 @@ class COMPONENT_EXPORT(UI_BASE_IME_LINUX) InputMethodAuraLinux
   void OnPreeditStart() override {}
   void OnSetPreeditRegion(const gfx::Range& range,
                           const std::vector<ImeTextSpan>& spans) override;
+  void OnClearGrammarFragments(const gfx::Range& range) override;
+  void OnAddGrammarFragment(const ui::GrammarFragment& fragment) override;
+  void OnSetAutocorrectRange(const gfx::Range& range) override;
 
  protected:
   // Overridden from InputMethodBase.
@@ -74,7 +77,7 @@ class COMPONENT_EXPORT(UI_BASE_IME_LINUX) InputMethodAuraLinux
                        bool force_update_client);
   void ConfirmCompositionText();
   bool HasInputMethodResult();
-  bool NeedInsertChar(const std::u16string& result_text) const;
+  bool NeedInsertChar(const absl::optional<std::u16string>& result_text) const;
   [[nodiscard]] ui::EventDispatchDetails SendFakeProcessKeyEvent(
       ui::KeyEvent* event) const;
   void UpdateContextFocusState();
@@ -82,7 +85,6 @@ class COMPONENT_EXPORT(UI_BASE_IME_LINUX) InputMethodAuraLinux
   bool IgnoringNonKeyInput() const;
 
   std::unique_ptr<LinuxInputMethodContext> context_;
-  std::unique_ptr<LinuxInputMethodContext> context_simple_;
 
   // The last key event that IME is probably in process in
   // async-mode.
@@ -91,7 +93,7 @@ class COMPONENT_EXPORT(UI_BASE_IME_LINUX) InputMethodAuraLinux
   // Tracks last commit result during one key dispatch event.
   absl::optional<CommitResult> last_commit_result_;
 
-  std::u16string result_text_;
+  absl::optional<std::u16string> result_text_;
 
   ui::CompositionText composition_;
 

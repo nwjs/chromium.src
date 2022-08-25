@@ -73,22 +73,15 @@ class ScopedTimeTicksOverride {
 };
 
 class MobileFriendlinessCheckerTest : public testing::Test {
-  static void EvalMobileFriendliness(LocalFrameView* view,
-                                     int scroll_y_offset,
-                                     bool fixed_clock) {
+  static void EvalMobileFriendliness(LocalFrameView* view, bool fixed_clock) {
     DCHECK(view->GetFrame().IsLocalRoot());
     ScopedTimeTicksOverride clock(fixed_clock);
     for (const Frame* frame = &view->GetFrame(); frame;
          frame = frame->Tree().TraverseNext()) {
       if (const auto* local_frame = DynamicTo<LocalFrame>(frame)) {
-        local_frame->View()->UpdateLifecycleToPrePaintClean(
-            DocumentUpdateReason::kTest);
+        local_frame->View()->UpdateAllLifecyclePhasesForTest();
       }
     }
-
-    // Scroll the view to specified offset
-    view->LayoutViewport()->SetScrollOffsetUnconditionally(
-        ScrollOffset(0, scroll_y_offset));
 
     view->GetMobileFriendlinessChecker()->DidFinishLifecycleUpdate(*view);
   }
@@ -127,7 +120,6 @@ class MobileFriendlinessCheckerTest : public testing::Test {
 
   MobileFriendliness CalculateMetricsForHTMLString(const std::string& html,
                                                    float device_scale = 1.0,
-                                                   int scroll_y_offset = 0,
                                                    bool fixed_clock = true) {
     MFTestWebFrameClient web_frame_client;
     {
@@ -137,15 +129,13 @@ class MobileFriendlinessCheckerTest : public testing::Test {
           helper->GetWebView()->MainFrameImpl(), html,
           url_test_helpers::ToKURL("about:blank"));
       EvalMobileFriendliness(
-          helper->GetWebView()->MainFrameImpl()->GetFrameView(),
-          scroll_y_offset, fixed_clock);
+          helper->GetWebView()->MainFrameImpl()->GetFrameView(), fixed_clock);
     }
     return web_frame_client.GetMobileFriendliness();
   }
 
   MobileFriendliness CalculateMetricsForFile(const std::string& path,
                                              float device_scale = 1.0,
-                                             int scroll_y_offset = 0,
                                              bool fixed_clock = true) {
     MFTestWebFrameClient web_frame_client;
     {
@@ -157,8 +147,7 @@ class MobileFriendlinessCheckerTest : public testing::Test {
       frame_test_helpers::LoadFrame(helper->GetWebView()->MainFrameImpl(),
                                     kBaseUrl + path);
       EvalMobileFriendliness(
-          helper->GetWebView()->MainFrameImpl()->GetFrameView(),
-          scroll_y_offset, fixed_clock);
+          helper->GetWebView()->MainFrameImpl()->GetFrameView(), fixed_clock);
     }
     return web_frame_client.GetMobileFriendliness();
   }
@@ -512,14 +501,15 @@ TEST_F(MobileFriendlinessCheckerTest, NormalTextAndWideImage) {
   // Wide image forces Chrome to zoom out.
   MobileFriendliness actual_mf = CalculateMetricsForHTMLString(R"(
 <html>
-  <body>
-    <img style="width:3000px; height:50px">
+  <body style="margin:0px">
+    <img style="width:720px; height:800px">
     <p style="font-size: 12pt">Normal font text.</p>
   </body>
 </html>
 )");
+  // Automatic zoom-out makes text small and image fits in display.
   EXPECT_EQ(actual_mf.small_text_ratio, 100);
-  EXPECT_GE(actual_mf.text_content_outside_viewport_percentage, 50);
+  EXPECT_GE(actual_mf.text_content_outside_viewport_percentage, 0);
 }
 
 TEST_F(MobileFriendlinessCheckerTest, SmallTextByWideTable) {
@@ -537,6 +527,7 @@ TEST_F(MobileFriendlinessCheckerTest, SmallTextByWideTable) {
   </body>
 </html>
 )");
+  // Automatic zoom-out makes text small.
   EXPECT_EQ(actual_mf.small_text_ratio, 100);
   EXPECT_GE(actual_mf.text_content_outside_viewport_percentage, 0);
 }
@@ -554,6 +545,7 @@ TEST_F(MobileFriendlinessCheckerTest,
   </body>
 </html>
 )");
+  // Automatic zoom-out makes text small and image fits in display.
   EXPECT_EQ(actual_mf.small_text_ratio, 100);
   EXPECT_GE(actual_mf.text_content_outside_viewport_percentage, 50);
 }
@@ -684,6 +676,9 @@ TEST_F(MobileFriendlinessCheckerTest, TextTooWideOverflowXHidden) {
   MobileFriendliness actual_mf = CalculateMetricsForHTMLString(
       R"(
 <html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  </head>
   <body>
     <pre style="overflow-x:hidden">)" +
       std::string(10000, 'a') + R"(</pre>
@@ -697,6 +692,9 @@ TEST_F(MobileFriendlinessCheckerTest, TextTooWideHidden) {
   MobileFriendliness actual_mf = CalculateMetricsForHTMLString(
       R"(
 <html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  </head>
   <body>
     <pre style="overflow:hidden">)" +
       std::string(10000, 'a') +
@@ -711,6 +709,9 @@ TEST_F(MobileFriendlinessCheckerTest, TextTooWideHiddenInDiv) {
   MobileFriendliness actual_mf = CalculateMetricsForHTMLString(
       R"(
 <html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  </head>
   <body>
     <div style="overflow:hidden">
       <pre>)" +
@@ -772,7 +773,7 @@ TEST_F(MobileFriendlinessCheckerTest, ImageTooWideTwoImages) {
   MobileFriendliness actual_mf = CalculateMetricsForHTMLString(R"(
 <html>
   <head>
-    <meta name="viewport" content="initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
   </head>
   <body style="width:4000px">
     <img style="width:2000px; height:50px">
@@ -790,11 +791,11 @@ TEST_F(MobileFriendlinessCheckerTest, ImageTooWideAbsolutePosition) {
     <meta name="viewport" content="initial-scale=1.0">
   </head>
   <body>
-    <img style="width:100px; height:100px; position:absolute; left:2000px">
+    <img style="width:480px; height:800px; position:absolute; left:2000px">
   </body>
 </html>
 )");
-  EXPECT_EQ(actual_mf.text_content_outside_viewport_percentage, 338);
+  EXPECT_EQ(actual_mf.text_content_outside_viewport_percentage, 417);
 }
 
 TEST_F(MobileFriendlinessCheckerTest, ImageTooWideDisplayNone) {
@@ -1477,7 +1478,6 @@ TEST_F(MobileFriendlinessCheckerTest, TapTargetTimeout) {
 </html>
 )",
                                     /*device_scale=*/1.0,
-                                    /*scroll_y_offset=*/0,
                                     /*fixed_clock=*/false);
   EXPECT_EQ(actual_mf.bad_tap_targets_ratio, -2);
 }

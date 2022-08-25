@@ -8,9 +8,12 @@
 #include "base/strings/sys_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #import "base/test/ios/wait_util.h"
+#include "components/translate/core/browser/translate_pref_names.h"
+#import "ios/chrome/browser/ui/fullscreen/fullscreen_features.h"
 #import "ios/chrome/browser/ui/fullscreen/test/fullscreen_app_interface.h"
 #include "ios/chrome/browser/ui/util/ui_util.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
+#import "ios/chrome/test/earl_grey/chrome_earl_grey_app_interface.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey_ui.h"
 #import "ios/chrome/test/earl_grey/chrome_matchers.h"
 #include "ios/chrome/test/earl_grey/scoped_block_popups_pref.h"
@@ -89,8 +92,36 @@ void WaitforPDFExtensionView() {
 
 @implementation FullscreenTestCase
 
+// TODO(crbug.com/1345810): Remove when iOS16/kSmoothScrollingDefault is fixed.
+- (AppLaunchConfiguration)appConfigurationForTestCase {
+  AppLaunchConfiguration config = [super appConfigurationForTestCase];
+  if (@available(iOS 16, *)) {
+    NSString* bundleIdentifier = [[NSBundle mainBundle] bundleIdentifier];
+    if ([bundleIdentifier hasPrefix:@"org.chromium.ost.chrome"]) {
+      config.features_disabled.push_back(
+          fullscreen::features::kSmoothScrollingDefault);
+    }
+  }
+  return config;
+}
+
 - (void)setUp {
   [super setUp];
+
+  // Disable translate to avoid the info bar that block the top toolbar.
+  [ChromeEarlGreyAppInterface
+      setBoolValue:NO
+       forUserPref:base::SysUTF8ToNSString(
+                       translate::prefs::kOfferTranslateEnabled)];
+}
+
+- (void)tearDown {
+  // Reactivate translation.
+  [ChromeEarlGreyAppInterface
+      setBoolValue:YES
+       forUserPref:base::SysUTF8ToNSString(
+                       translate::prefs::kOfferTranslateEnabled)];
+  [super tearDown];
 }
 
 // Verifies that the content offset of the web view is set up at the correct

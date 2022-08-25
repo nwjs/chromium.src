@@ -5,8 +5,8 @@
 #ifndef ASH_WEBUI_DIAGNOSTICS_UI_BACKEND_CROS_HEALTHD_HELPERS_H_
 #define ASH_WEBUI_DIAGNOSTICS_UI_BACKEND_CROS_HEALTHD_HELPERS_H_
 
-#include "chromeos/services/cros_healthd/public/mojom/cros_healthd_diagnostics.mojom-forward.h"
-#include "chromeos/services/cros_healthd/public/mojom/cros_healthd_probe.mojom-forward.h"
+#include "chromeos/ash/services/cros_healthd/public/mojom/cros_healthd_diagnostics.mojom-forward.h"
+#include "chromeos/ash/services/cros_healthd/public/mojom/cros_healthd_probe.mojom-forward.h"
 
 namespace ash {
 namespace diagnostics {
@@ -26,9 +26,9 @@ const chromeos::cros_healthd::mojom::CpuInfo* GetCpuInfo(
 const chromeos::cros_healthd::mojom::MemoryInfo* GetMemoryInfo(
     const chromeos::cros_healthd::mojom::TelemetryInfo& info);
 
-// Extracts SystemInfo from |info|. Logs and returns a nullptr if SystemInfo
+// Extracts SystemInfoV2 from |info|. Logs and returns a nullptr if SystemInfoV2
 // in not present.
-const chromeos::cros_healthd::mojom::SystemInfo* GetSystemInfo(
+const chromeos::cros_healthd::mojom::SystemInfoV2* GetSystemInfo(
     const chromeos::cros_healthd::mojom::TelemetryInfo& info);
 
 const chromeos::cros_healthd::mojom::NonInteractiveRoutineUpdate*

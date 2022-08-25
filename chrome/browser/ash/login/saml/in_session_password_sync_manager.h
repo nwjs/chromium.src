@@ -9,7 +9,7 @@
 #include <string>
 
 #include "ash/components/login/auth/auth_status_consumer.h"
-#include "ash/components/login/auth/user_context.h"
+#include "ash/components/login/auth/public/user_context.h"
 #include "ash/components/proximity_auth/screenlock_bridge.h"
 #include "base/callback_forward.h"
 #include "base/time/clock.h"
@@ -122,6 +122,9 @@ class InSessionPasswordSyncManager
 
   // Notify test that the reauth dialog is ready for testing.
   void OnReauthDialogReadyForTesting();
+
+  // Forces network state update because webview reported frame loading error.
+  void OnWebviewLoadAborted();
 
   LockScreenStartReauthDialog* get_reauth_dialog_for_testing() {
     return lock_screen_start_reauth_dialog_.get();

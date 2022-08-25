@@ -120,7 +120,7 @@ bool ListPolicyHandler::CheckAndGetList(const policy::PolicyMap& policies,
     return true;
 
   // Filter the list, rejecting any invalid strings.
-  base::Value::ConstListView list = value->GetListDeprecated();
+  const base::Value::List& list = value->GetList();
   if (filtered_list)
     *filtered_list = base::Value(base::Value::Type::LIST);
   for (size_t list_index = 0; list_index < list.size(); ++list_index) {
@@ -142,7 +142,7 @@ bool ListPolicyHandler::CheckAndGetList(const policy::PolicyMap& policies,
     }
 
     if (filtered_list)
-      filtered_list->Append(entry.Clone());
+      filtered_list->GetList().Append(entry.Clone());
   }
 
   return true;
@@ -377,8 +377,6 @@ bool SchemaValidatingPolicyHandler::CheckPolicySettings(
   bool result = schema_.Validate(*value, strategy_, &error_path, &error);
 
   if (errors && !error.empty()) {
-    if (error_path.empty())
-      error_path = "(ROOT)";
     errors->AddError(policy_name(), error_path, error);
   }
 
@@ -401,8 +399,6 @@ bool SchemaValidatingPolicyHandler::CheckAndGetValue(
       schema_.Normalize(output->get(), strategy_, &error_path, &error, nullptr);
 
   if (errors && !error.empty()) {
-    if (error_path.empty())
-      error_path = "(ROOT)";
     errors->AddError(policy_name(), error_path, error);
   }
 
@@ -510,7 +506,7 @@ bool SimpleJsonStringSchemaValidatingPolicyHandler::CheckSingleJsonString(
   // First validate the root value is a string.
   if (!root_value->is_string()) {
     if (errors) {
-      errors->AddError(policy_name(), "(ROOT)", IDS_POLICY_TYPE_ERROR,
+      errors->AddError(policy_name(), IDS_POLICY_TYPE_ERROR,
                        base::Value::GetTypeName(base::Value::Type::STRING));
     }
     return false;
@@ -531,7 +527,7 @@ bool SimpleJsonStringSchemaValidatingPolicyHandler::CheckListOfJsonStrings(
   // First validate the root value is a list.
   if (!root_value->is_list()) {
     if (errors) {
-      errors->AddError(policy_name(), "(ROOT)", IDS_POLICY_TYPE_ERROR,
+      errors->AddError(policy_name(), IDS_POLICY_TYPE_ERROR,
                        base::Value::GetTypeName(base::Value::Type::LIST));
     }
     return false;
@@ -539,7 +535,7 @@ bool SimpleJsonStringSchemaValidatingPolicyHandler::CheckListOfJsonStrings(
 
   // If that succeeds, validate all the list items are strings and validate
   // the JSON inside the strings.
-  base::Value::ConstListView list = root_value->GetListDeprecated();
+  const base::Value::List& list = root_value->GetList();
   bool json_error_seen = false;
 
   for (size_t index = 0; index < list.size(); ++index) {
@@ -568,14 +564,13 @@ bool SimpleJsonStringSchemaValidatingPolicyHandler::ValidateJsonString(
     const std::string& json_string,
     PolicyErrorMap* errors,
     int index) {
-  base::JSONReader::ValueWithError value_with_error =
-      base::JSONReader::ReadAndReturnValueWithError(
-          json_string, base::JSONParserOptions::JSON_ALLOW_TRAILING_COMMAS);
-  if (!value_with_error.value) {
+  auto value_with_error = base::JSONReader::ReadAndReturnValueWithError(
+      json_string, base::JSONParserOptions::JSON_ALLOW_TRAILING_COMMAS);
+  if (!value_with_error.has_value()) {
     if (errors) {
       errors->AddError(policy_name(), ErrorPath(index, ""),
                        IDS_POLICY_INVALID_JSON_ERROR,
-                       value_with_error.error_message);
+                       value_with_error.error().message);
     }
     return false;
   }
@@ -587,9 +582,8 @@ bool SimpleJsonStringSchemaValidatingPolicyHandler::ValidateJsonString(
   // Even though we are validating this schema here, we don't actually change
   // the policy if it fails to validate. This validation is just so we can show
   // the user errors.
-  bool validated = json_string_schema.Validate(value_with_error.value.value(),
-                                               SCHEMA_ALLOW_UNKNOWN,
-                                               &error_path, &schema_error);
+  bool validated = json_string_schema.Validate(
+      *value_with_error, SCHEMA_ALLOW_UNKNOWN, &error_path, &schema_error);
   if (errors && !schema_error.empty())
     errors->AddError(policy_name(), ErrorPath(index, error_path), schema_error);
   if (!validated)
@@ -607,7 +601,7 @@ std::string SimpleJsonStringSchemaValidatingPolicyHandler::ErrorPath(
                : base::StringPrintf("items[%d].%s", index,
                                     json_error_path.c_str());
   }
-  return json_error_path.empty() ? "(ROOT)" : json_error_path;
+  return json_error_path;
 }
 
 void SimpleJsonStringSchemaValidatingPolicyHandler::ApplyPolicySettings(

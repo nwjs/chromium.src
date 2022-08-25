@@ -79,7 +79,8 @@ def main(args):
   mbw = MetaBuildWrapper()
   return mbw.Main(args)
 
-class MetaBuildWrapper(object):
+
+class MetaBuildWrapper:
   def __init__(self):
     self.chromium_src_dir = CHROMIUM_SRC_DIR
     self.default_config = os.path.join(self.chromium_src_dir, 'tools', 'mb',
@@ -180,12 +181,15 @@ class MetaBuildWrapper(object):
                         help='Sets GN arg android_default_version_code')
       subp.add_argument('--android-version-name',
                         help='Sets GN arg android_default_version_name')
+      subp.add_argument('--rts',
+                        default=None,
+                        help='which regression test selection model to use'
+                        ' For more info about RTS, please see'
+                        ' //docs/testing/regression-test-selection.md')
       subp.add_argument('--use-rts',
                         action='store_true',
                         default=False,
-                        help='whether or not to use regression test selection'
-                        ' For more info about RTS, please see'
-                        ' //docs/testing/regression-test-selection.md')
+                        help='Deprecated argument for enabling RTS')
 
       # TODO(crbug.com/1060857): Remove this once swarming task templates
       # support command prefixes.
@@ -468,10 +472,15 @@ class MetaBuildWrapper(object):
     return 0
 
   def RtsSelect(self):
-    model_dir = self.PathJoin(
-        self.chromium_src_dir, 'testing', 'rts', self._CipdPlatform())
+    if self.args.rts == 'rts-ml-chromium':
+      model_dir = self.PathJoin(self.chromium_src_dir, 'testing', 'rts',
+                                self.args.rts, self._CipdPlatform())
+      exe = self.PathJoin(model_dir, self.args.rts)
+    else:
+      model_dir = self.PathJoin(self.chromium_src_dir, 'testing', 'rts',
+                                self._CipdPlatform())
+      exe = self.PathJoin(model_dir, self.args.rts)
 
-    exe = self.PathJoin(model_dir, 'rts-chromium')
     if self.platform == 'win32':
       exe += '.exe'
 
@@ -488,12 +497,12 @@ class MetaBuildWrapper(object):
             'rts-target-change-recall must be between (0 and 1]', None)
       args += ['-target-change-recall', str(self.args.rts_target_change_recall)]
 
-    ret, _, _ = self.Run(args, force_verbose=True)
+    ret, _, err = self.Run(args, force_verbose=True)
     if ret != 0:
       self.WriteFailureAndRaise(err, None)
 
   def CmdGen(self):
-    if self.args.use_rts:
+    if self.args.rts:
       self.RtsSelect()
     vals = self.Lookup()
     return self.RunGNGen(vals)
@@ -1039,7 +1048,8 @@ class MetaBuildWrapper(object):
     try:
       contents = ast.literal_eval(self.ReadFile(config_file))
     except SyntaxError as e:
-      raise MBErr('Failed to parse config file "%s": %s' % (config_file, e))
+      raise MBErr('Failed to parse config file "%s": %s' %
+                  (config_file, e)) from e
 
     self.configs = contents['configs']
     self.mixins = contents['mixins']
@@ -1064,8 +1074,8 @@ class MetaBuildWrapper(object):
               ', '.join(duplicates))
         isolate_maps.update(isolate_map)
       except SyntaxError as e:
-        raise MBErr(
-            'Failed to parse isolate map file "%s": %s' % (isolate_map, e))
+        raise MBErr('Failed to parse isolate map file "%s": %s' %
+                    (isolate_map, e)) from e
     return isolate_maps
 
   def ConfigFromArgs(self):
@@ -1326,7 +1336,7 @@ class MetaBuildWrapper(object):
 
       # For more info about RTS, please see
       # //docs/testing/regression-test-selection.md
-      if self.args.use_rts:
+      if self.args.rts:
         self.AddFilterFileArg(target, build_dir, command)
 
       canonical_target = target.replace(':','_').replace('/','_')
@@ -1625,7 +1635,7 @@ class MetaBuildWrapper(object):
     if android_version_name:
       gn_args += ' android_default_version_name="%s"' % android_version_name
 
-    if self.args.use_rts:
+    if self.args.rts:
       gn_args += ' use_rts=true'
 
     args_gn_lines = []
@@ -1694,8 +1704,6 @@ class MetaBuildWrapper(object):
     # that one Ozone build can be used to run different backends. Currently,
     # tests are executed for the headless and X11 backends and both can run
     # under Xvfb on Linux.
-    # TODO(tonikitoo,msisov,fwang): Find a way to run tests for the Wayland
-    # backend.
     use_xvfb = (self.platform.startswith('linux') and not is_android
                 and not is_fuchsia and not is_cros_device)
 
@@ -1999,8 +2007,7 @@ class MetaBuildWrapper(object):
       self.WriteFile(path, json.dumps(obj, indent=2, sort_keys=True) + '\n',
                      force_verbose=force_verbose)
     except Exception as e:
-      raise MBErr('Error %s writing to the output path "%s"' %
-                 (e, path))
+      raise MBErr('Error %s writing to the output path "%s"' % (e, path)) from e
 
   def PrintCmd(self, cmd):
     if self.platform == 'win32':
@@ -2148,7 +2155,7 @@ class MetaBuildWrapper(object):
       return fp.write(contents)
 
 
-class LedResult(object):
+class LedResult:
   """Holds the result of a led operation. Can be chained using |then|."""
 
   def __init__(self, result, run_cmd):

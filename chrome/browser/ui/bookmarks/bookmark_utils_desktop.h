@@ -69,8 +69,8 @@ void OpenAllNow(content::PageNavigator* navigator,
 void OpenSavedTabGroup(
     Browser* browser,
     base::OnceCallback<content::PageNavigator*()> get_navigator,
-    const SavedTabGroup* saved_group,
-    WindowOpenDisposition initial_disposition);
+    const base::GUID& saved_group_id,
+    const size_t num_tabs);
 
 // Returns the count of bookmarks that would be opened by OpenAll. If
 // |incognito_context| is set, the function will use it to check if the URLs

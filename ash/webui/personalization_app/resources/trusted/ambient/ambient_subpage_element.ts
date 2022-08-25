@@ -7,7 +7,7 @@
  * the ambient mode settings.
  */
 
-import '../../common/common_style.css.js';
+import '../../css/common.css.js';
 import './albums_subpage_element.js';
 import './ambient_weather_element.js';
 import './ambient_preview_element.js';
@@ -47,7 +47,7 @@ export class AmbientSubpage extends WithPersonalizationStore {
         type: Boolean,
         value() {
           return loadTimeData.getBoolean('isAmbientModeAnimationEnabled');
-        }
+        },
       },
       albums_: {
         type: Array,

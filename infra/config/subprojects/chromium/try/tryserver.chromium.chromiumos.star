@@ -60,6 +60,7 @@ try_.orchestrator_builder(
     experiments = {
         "remove_src_checkout_experiment": 100,
     },
+    use_orchestrator_pool = True,
 )
 
 try_.compilator_builder(
@@ -119,6 +120,15 @@ try_.builder(
 )
 
 try_.builder(
+    name = "lacros-arm64-generic-rel",
+    mirrors = [
+        "ci/lacros-arm64-generic-rel",
+    ],
+    branch_selector = branches.STANDARD_MILESTONE,
+    main_list_view = "try",
+)
+
+try_.builder(
     name = "linux-chromeos-compile-dbg",
     mirrors = [
         "ci/linux-chromeos-dbg",
@@ -145,6 +155,15 @@ try_.builder(
 )
 
 try_.builder(
+    name = "chromeos-jacuzzi-rel",
+    branch_selector = branches.CROS_LTS_MILESTONE,
+    mirrors = [
+        "ci/chromeos-jacuzzi-rel",
+    ],
+    main_list_view = "try",
+)
+
+try_.builder(
     name = "chromeos-kevin-rel",
     branch_selector = branches.CROS_LTS_MILESTONE,
     mirrors = [
@@ -158,6 +177,15 @@ try_.builder(
             ".+/[+]/chromeos/CHROMEOS_LKGM",
         ],
     ),
+)
+
+try_.builder(
+    name = "chromeos-octopus-rel",
+    branch_selector = branches.CROS_LTS_MILESTONE,
+    mirrors = [
+        "ci/chromeos-octopus-rel",
+    ],
+    main_list_view = "try",
 )
 
 try_.builder(
@@ -179,6 +207,7 @@ try_.orchestrator_builder(
     experiments = {
         "remove_src_checkout_experiment": 100,
     },
+    use_orchestrator_pool = True,
 )
 
 try_.compilator_builder(
@@ -218,23 +247,6 @@ try_.builder(
 )
 
 try_.builder(
-    name = "linux-lacros-rel-code-coverage",
-    mirrors = [
-        "ci/linux-lacros-builder-rel",
-        "ci/linux-lacros-tester-rel",
-    ],
-    cores = 16,
-    ssd = True,
-    goma_jobs = goma.jobs.J300,
-    main_list_view = "try",
-    use_clang_coverage = True,
-    coverage_test_types = ["unit", "overall"],
-    tryjob = try_.job(
-        experiment_percentage = 3,
-    ),
-)
-
-try_.builder(
     name = "linux-chromeos-dbg",
     mirrors = [
         "ci/linux-chromeos-dbg",
@@ -249,25 +261,13 @@ try_.builder(
 )
 
 try_.builder(
-    name = "linux-chromeos-clang-tidy-rel",
-    executable = "recipe:tricium_clang_tidy_wrapper",
-    goma_jobs = goma.jobs.J150,
-)
-
-try_.builder(
-    name = "linux-lacros-clang-tidy-rel",
-    executable = "recipe:tricium_clang_tidy_wrapper",
-    goma_jobs = goma.jobs.J150,
-)
-
-try_.builder(
     name = "linux-cfm-rel",
     mirrors = [
         "ci/linux-cfm-rel",
     ],
     tryjob = try_.job(
         location_regexp = [
-            ".+/[+]/chromeos/components/chromebox_for_meetings/.+",
+            ".+/[+]/chromeos/ash/components/chromebox_for_meetings/.+",
             ".+/[+]/chromeos/ash/components/dbus/chromebox_for_meetings/.+",
             ".+/[+]/ash/services/chromebox_for_meetings/.+",
             ".+/[+]/chrome/browser/ash/chromebox_for_meetings/.+",

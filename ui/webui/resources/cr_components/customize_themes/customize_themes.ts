@@ -76,13 +76,13 @@ export class CustomizeThemesElement extends CustomizeThemesElementBase {
       showManagedThemeDialog_: {
         type: Boolean,
         value: false,
-      }
+      },
     };
   }
 
   selectedTheme: Theme|null;
   autoConfirmThemeChanges: boolean;
-  private chromeThemes_: Array<ChromeTheme>;
+  private chromeThemes_: ChromeTheme[];
   private showManagedThemeDialog_: boolean;
 
   private handler_: CustomizeThemesHandlerInterface =

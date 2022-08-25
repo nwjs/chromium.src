@@ -3,18 +3,20 @@
 // found in the LICENSE file.
 
 import 'chrome://resources/mojo/mojo/public/js/mojo_bindings_lite.js';
-import '../constants/routes.mojom-lite.js';
 
 import {loadTimeData} from 'chrome://resources/js/load_time_data.m.js';
 
+import * as mojom from '../mojom-webui/routes.mojom-webui.js';
 import {Route, Router} from '../router.js';
 
 import {OsSettingsRoutes} from './os_settings_routes.js';
 
+const {Section, Subpage} = mojom;
+
 /**
  * @param {!Route} parent
  * @param {string} path
- * @param {!chromeos.settings.mojom.Section} section
+ * @param {!Section} section
  * @return {!Route}
  */
 function createSection(parent, path, section) {
@@ -25,7 +27,7 @@ function createSection(parent, path, section) {
 /**
  * @param {!Route} parent
  * @param {string} path
- * @param {!chromeos.settings.mojom.Subpage} subpage
+ * @param {!Subpage} subpage
  * @return {!Route}
  */
 function createSubpage(parent, path, subpage) {
@@ -38,10 +40,6 @@ function createSubpage(parent, path, subpage) {
  * @return {!OsSettingsRoutes}
  */
 function createOSSettingsRoutes() {
-  const mojom = chromeos.settings.mojom;
-  const Section = mojom.Section;
-  const Subpage = mojom.Subpage;
-
   const r = /** @type {!OsSettingsRoutes} */ ({});
 
   // Special routes: BASIC is the main page which loads if no path is
@@ -75,6 +73,11 @@ function createOSSettingsRoutes() {
     r.BLUETOOTH_DEVICE_DETAIL = createSubpage(
         r.BLUETOOTH, mojom.BLUETOOTH_DEVICE_DETAIL_SUBPAGE_PATH,
         Subpage.kBluetoothDeviceDetail);
+  }
+  if (loadTimeData.getBoolean('enableSavedDevicesFlag')) {
+    r.BLUETOOTH_SAVED_DEVICES = createSubpage(
+        r.BLUETOOTH, mojom.BLUETOOTH_SAVED_DEVICES_SUBPAGE_PATH,
+        Subpage.kBluetoothSavedDevices);
   }
 
   // MultiDevice section.
@@ -132,6 +135,9 @@ function createOSSettingsRoutes() {
       createSubpage(r.DEVICE, mojom.STYLUS_SUBPAGE_PATH, Subpage.kStylus);
   r.DISPLAY =
       createSubpage(r.DEVICE, mojom.DISPLAY_SUBPAGE_PATH, Subpage.kDisplay);
+  if (loadTimeData.getBoolean('enableAudioSettingsPage')) {
+    r.AUDIO = createSubpage(r.DEVICE, mojom.AUDIO_SUBPAGE_PATH, Subpage.kAudio);
+  }
   r.STORAGE =
       createSubpage(r.DEVICE, mojom.STORAGE_SUBPAGE_PATH, Subpage.kStorage);
   r.EXTERNAL_STORAGE_PREFERENCES = createSubpage(
@@ -207,8 +213,23 @@ function createOSSettingsRoutes() {
     r.MANAGE_ACCESSIBILITY = createSubpage(
         r.OS_ACCESSIBILITY, mojom.MANAGE_ACCESSIBILITY_SUBPAGE_PATH,
         Subpage.kManageAccessibility);
+    r.A11Y_TEXT_TO_SPEECH = createSubpage(
+        r.OS_ACCESSIBILITY, mojom.TEXT_TO_SPEECH_PAGE_PATH,
+        Subpage.kTextToSpeechPage);
+    r.A11Y_DISPLAY_AND_MAGNIFICATION = createSubpage(
+        r.OS_ACCESSIBILITY, mojom.DISPLAY_AND_MAGNIFICATION_SUBPAGE_PATH,
+        Subpage.kDisplayAndMagnification);
+    r.A11Y_KEYBOARD_AND_TEXT_INPUT = createSubpage(
+        r.OS_ACCESSIBILITY, mojom.KEYBOARD_AND_TEXT_INPUT_SUBPAGE_PATH,
+        Subpage.kKeyboardAndTextInput);
+    r.A11Y_CURSOR_AND_TOUCHPAD = createSubpage(
+        r.OS_ACCESSIBILITY, mojom.CURSOR_AND_TOUCHPAD_SUBPAGE_PATH,
+        Subpage.kCursorAndTouchpad);
+    r.A11Y_AUDIO_AND_CAPTIONS = createSubpage(
+        r.OS_ACCESSIBILITY, mojom.AUDIO_AND_CAPTIONS_SUBPAGE_PATH,
+        Subpage.kAudioAndCaptions);
     r.MANAGE_TTS_SETTINGS = createSubpage(
-        r.MANAGE_ACCESSIBILITY, mojom.TEXT_TO_SPEECH_SUBPAGE_PATH,
+        r.A11Y_TEXT_TO_SPEECH, mojom.TEXT_TO_SPEECH_SUBPAGE_PATH,
         Subpage.kTextToSpeech);
     r.MANAGE_SWITCH_ACCESS_SETTINGS = createSubpage(
         r.MANAGE_ACCESSIBILITY, mojom.SWITCH_ACCESS_OPTIONS_SUBPAGE_PATH,

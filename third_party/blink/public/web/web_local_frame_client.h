@@ -166,7 +166,8 @@ class BLINK_EXPORT WebLocalFrameClient {
       WebMediaPlayerEncryptedMediaClient*,
       WebContentDecryptionModule*,
       const WebString& sink_id,
-      const cc::LayerTreeSettings& settings) {
+      const cc::LayerTreeSettings& settings,
+      scoped_refptr<base::TaskRunner> compositor_worker_task_runner) {
     return nullptr;
   }
 
@@ -584,6 +585,9 @@ class BLINK_EXPORT WebLocalFrameClient {
   // frames associated with the same page in the renderer are not currently
   // reported.
   virtual void DidObserveNewFeatureUsage(const UseCounterFeature&) {}
+
+  // A new soft navigation was observed.
+  virtual void DidObserveSoftNavigation(uint32_t count) {}
 
   // Reports that visible elements in the frame shifted (bit.ly/lsm-explainer).
   virtual void DidObserveLayoutShift(double score, bool after_input_or_scroll) {

@@ -74,7 +74,7 @@ suite('PersonalizationToastTest', function() {
 
     personalizationStore.data.error = {
       message: 'There was an error',
-      dismiss: {callback: dismissCallback}
+      dismiss: {callback: dismissCallback},
     };
     personalizationStore.notifyObservers();
     await waitAfterNextRender(personalizationToastElement);
@@ -87,7 +87,8 @@ suite('PersonalizationToastTest', function() {
   test('automatically dismisses after ten seconds', async () => {
     // Spy on calls to |window.setTimeout|.
     const setTimeout = window.setTimeout;
-    const setTimeoutCalls: {handler: Function|string, delay?: number}[] = [];
+    const setTimeoutCalls: Array<{handler: Function | string, delay?: number}> =
+        [];
     window.setTimeout =
         (handler: Function|string, delay?: number, ...args: any[]): number => {
           setTimeoutCalls.push({handler, delay});

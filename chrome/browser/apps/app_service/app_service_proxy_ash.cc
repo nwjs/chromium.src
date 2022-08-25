@@ -25,7 +25,6 @@
 #include "chrome/browser/supervised_user/grit/supervised_user_unscaled_resources.h"
 #include "chrome/browser/web_applications/app_service/web_apps.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
-#include "chrome/common/chrome_features.h"
 #include "components/account_id/account_id.h"
 #include "components/app_constants/constants.h"
 #include "components/app_restore/full_restore_save_handler.h"
@@ -162,10 +161,8 @@ AppServiceProxyAsh::BrowserAppInstanceRegistry() {
 
 void AppServiceProxyAsh::RegisterCrosApiSubScriber(
     SubscriberCrosapi* subscriber) {
-  if (base::FeatureList::IsEnabled(kAppServiceCrosApiOnAppsWithoutMojom)) {
-    crosapi_subscriber_ = subscriber;
-    crosapi_subscriber_->OnApps(app_registry_cache_.GetAllApps());
-  }
+  crosapi_subscriber_ = subscriber;
+  crosapi_subscriber_->OnApps(app_registry_cache_.GetAllApps());
 
   // Initialise the Preferred Apps in the `crosapi_subscriber_` on register.
   if (preferred_apps_impl_ &&
@@ -306,6 +303,12 @@ void AppServiceProxyAsh::SetAppPlatformMetricsServiceForTesting(
     std::unique_ptr<apps::AppPlatformMetricsService>
         app_platform_metrics_service) {
   app_platform_metrics_service_ = std::move(app_platform_metrics_service);
+}
+
+void AppServiceProxyAsh::RegisterPublishersForTesting() {
+  if (publisher_host_) {
+    publisher_host_->RegisterPublishersForTesting();
+  }
 }
 
 void AppServiceProxyAsh::Shutdown() {
@@ -476,7 +479,6 @@ void AppServiceProxyAsh::LoadIconForDialog(const apps::AppUpdate& update,
   auto icon_key = update.IconKey();
   constexpr bool kAllowPlaceholderIcon = false;
   constexpr int32_t kIconSize = 48;
-  auto app_type = update.AppType();
   auto icon_type = IconType::kStandard;
 
   // For browser tests, load the app icon, because there is no family link
@@ -485,27 +487,13 @@ void AppServiceProxyAsh::LoadIconForDialog(const apps::AppUpdate& update,
   // For non_child profile, load the app icon, because the app is blocked by
   // admin.
   if (!dialog_created_callback_.is_null() || !profile_->IsChild()) {
-    if (base::FeatureList::IsEnabled(
-            features::kAppServiceLoadIconWithoutMojom)) {
-      if (!icon_key.has_value()) {
-        std::move(callback).Run(std::make_unique<IconValue>());
-        return;
-      }
-      LoadIconFromIconKey(app_type, update.AppId(), icon_key.value(), icon_type,
-                          kIconSize, kAllowPlaceholderIcon,
-                          std::move(callback));
-    } else {
-      if (!icon_key.has_value()) {
-        MojomIconValueToIconValueCallback(std::move(callback))
-            .Run(apps::mojom::IconValue::New());
-        return;
-      }
-      LoadIconFromIconKey(
-          ConvertAppTypeToMojomAppType(app_type), update.AppId(),
-          ConvertIconKeyToMojomIconKey(icon_key.value()),
-          apps::mojom::IconType::kStandard, kIconSize, kAllowPlaceholderIcon,
-          MojomIconValueToIconValueCallback(std::move(callback)));
+    if (!icon_key.has_value()) {
+      std::move(callback).Run(std::make_unique<IconValue>());
+      return;
     }
+    LoadIconFromIconKey(update.AppType(), update.AppId(), icon_key.value(),
+                        icon_type, kIconSize, kAllowPlaceholderIcon,
+                        std::move(callback));
     return;
   }
 
@@ -584,8 +572,8 @@ void AppServiceProxyAsh::OnAppRegistryCacheWillBeDestroyed(
 void AppServiceProxyAsh::RecordAppPlatformMetrics(
     Profile* profile,
     const apps::AppUpdate& update,
-    apps::mojom::LaunchSource launch_source,
-    apps::mojom::LaunchContainer container) {
+    apps::LaunchSource launch_source,
+    apps::LaunchContainer container) {
   RecordAppLaunchMetrics(profile, update.AppType(), update.AppId(),
                          launch_source, container);
 }
@@ -609,7 +597,7 @@ void AppServiceProxyAsh::PerformPostUninstallTasks(
 }
 
 void AppServiceProxyAsh::PerformPostLaunchTasks(
-    apps::mojom::LaunchSource launch_source) {
+    apps::LaunchSource launch_source) {
   if (apps_util::IsHumanLaunch(launch_source)) {
     ash::full_restore::FullRestoreService::MaybeCloseNotification(profile_);
   }

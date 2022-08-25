@@ -25,6 +25,7 @@
 #include "base/i18n/number_formatting.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
+#include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/escape.h"
@@ -631,7 +632,9 @@ class NotificationPlatformBridgeLinuxImpl
 
     // app_name
     std::string product_string = l10n_util::GetStringUTF8(IDS_PRODUCT_NAME);
-    nw::package()->root()->GetString("product_string", &product_string);
+    std::string* str = nw::package()->root()->FindString("product_string");
+    if (str)
+      product_string = *str;
     writer.AppendString(product_string);
 
     writer.AppendUint32(data->dbus_id);
@@ -1167,7 +1170,7 @@ class NotificationPlatformBridgeLinuxImpl
 
   scoped_refptr<dbus::Bus> bus_;
 
-  dbus::ObjectProxy* notification_proxy_ = nullptr;
+  raw_ptr<dbus::ObjectProxy> notification_proxy_ = nullptr;
 
   std::unordered_set<std::string> capabilities_;
 

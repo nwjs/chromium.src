@@ -74,12 +74,9 @@ testcase.showMyFiles = async () => {
   // Select Downloads folder.
   await remoteCall.callRemoteTestUtil('selectVolume', appId, ['downloads']);
 
-  // Get the breadcrumbs element.
-  const breadcrumbs = await remoteCall.waitForElement(appId, ['bread-crumb']);
-
   // Check that My Files is displayed on breadcrumbs.
-  const expectedBreadcrumbs = 'My files/Downloads';
-  chrome.test.assertEq(expectedBreadcrumbs, breadcrumbs['attributes']['path']);
+  const expectedBreadcrumbs = '/My files/Downloads';
+  remoteCall.waitUntilCurrentDirectoryIsChanged(appId, expectedBreadcrumbs);
 };
 
 /**
@@ -150,7 +147,7 @@ testcase.myFilesUpdatesChildren = async () => {
     lastModifiedTime: 'Sep 4, 1998, 12:34 PM',
     nameText: '.hidden-folder',
     sizeText: '--',
-    typeText: 'Folder'
+    typeText: 'Folder',
   });
 
   // Add a hidden folder.

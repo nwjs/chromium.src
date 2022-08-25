@@ -5,22 +5,23 @@
 #ifndef CHROME_BROWSER_PREFETCH_SEARCH_PREFETCH_STREAMING_SEARCH_PREFETCH_URL_LOADER_H_
 #define CHROME_BROWSER_PREFETCH_SEARCH_PREFETCH_STREAMING_SEARCH_PREFETCH_URL_LOADER_H_
 
+#include <memory>
+#include <string>
 #include <vector>
 
 #include "base/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
+#include "chrome/browser/prefetch/search_prefetch/search_prefetch_request.h"
 #include "chrome/browser/prefetch/search_prefetch/search_prefetch_url_loader.h"
-#include "chrome/browser/prefetch/search_prefetch/streaming_search_prefetch_request.h"
-#include "content/public/browser/url_loader_request_interceptor.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/system/data_pipe.h"
 #include "mojo/public/cpp/system/data_pipe_drainer.h"
-#include "services/network/public/mojom/url_loader.mojom-forward.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/mojom/url_response_head.mojom-forward.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 
@@ -37,7 +38,7 @@ class StreamingSearchPrefetchURLLoader : public network::mojom::URLLoader,
   // Creates a network service URLLoader, binds to the URL Loader, and starts
   // the request.
   StreamingSearchPrefetchURLLoader(
-      StreamingSearchPrefetchRequest* streaming_prefetch_request,
+      SearchPrefetchRequest* streaming_prefetch_request,
       Profile* profile,
       bool navigation_prefetch,
       std::unique_ptr<network::ResourceRequest> resource_request,
@@ -54,18 +55,6 @@ class StreamingSearchPrefetchURLLoader : public network::mojom::URLLoader,
   // Record whether the navigation url and the |prefetch_url_| match. Only
   // recorded when |navigation_prefetch_| is true.
   void RecordNavigationURLHistogram(const GURL& navigation_url);
-
-  // Informs |this| that only determining headers is needed. When headers are
-  // determined, |this| can stop receiving messages from the network service.
-  void SetHeadersReceivedCallback(base::OnceClosure headers_received_callback);
-
-  // Whether a successful status code has been received with the headers.
-  // |false| when headers have not been received.
-  bool ReadyToServe();
-
-  // Whether an error status code has been received with the headers. |false|
-  // when headers have not been received.
-  bool ReceivedError();
 
  private:
   // mojo::DataPipeDrainer::Client:
@@ -151,6 +140,9 @@ class StreamingSearchPrefetchURLLoader : public network::mojom::URLLoader,
   // Marks the parent prefetch request as servable. Called as delayed task.
   void MarkPrefetchAsServable();
 
+  // Called on `this` receives servable response.
+  void OnServableResponseCodeReceived();
+
   // The network URLLoader that fetches the prefetch URL and its receiver.
   mojo::Remote<network::mojom::URLLoader> network_url_loader_;
   mojo::Receiver<network::mojom::URLLoaderClient> url_loader_receiver_{this};
@@ -165,7 +157,7 @@ class StreamingSearchPrefetchURLLoader : public network::mojom::URLLoader,
 
   // The initiating prefetch request. Cleared when handing this request off to
   // the navigation stack.
-  raw_ptr<StreamingSearchPrefetchRequest> streaming_prefetch_request_;
+  raw_ptr<SearchPrefetchRequest> streaming_prefetch_request_;
 
   // Whether we are serving from |bdoy_content_|.
   bool serving_from_data_ = false;
@@ -219,13 +211,7 @@ class StreamingSearchPrefetchURLLoader : public network::mojom::URLLoader,
   // report it again.
   bool marked_as_servable_ = false;
 
-  raw_ptr<Profile> profile_;
-
-  // If not null, called when headers are received.
-  base::OnceClosure headers_received_callback_;
-
-  // Whether the response can be served to the user (based on status code).
-  absl::optional<bool> can_be_served_;
+  scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory_;
 
   net::NetworkTrafficAnnotationTag network_traffic_annotation_;
 

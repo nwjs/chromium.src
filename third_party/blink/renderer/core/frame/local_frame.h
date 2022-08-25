@@ -215,10 +215,6 @@ class CORE_EXPORT LocalFrame final
   // subtree, updating the inert bit on all descendant frames.
   void SetIsInert(bool) override;
   void SetInheritedEffectiveTouchAction(TouchAction) override;
-  bool BubbleLogicalScrollFromChildFrame(
-      mojom::blink::ScrollDirection direction,
-      ui::ScrollGranularity granularity,
-      Frame* child) override;
   void DidFocus() override;
   bool IsAdSubframe() const override;
 
@@ -250,6 +246,7 @@ class CORE_EXPORT LocalFrame final
   Document* GetDocument() const;
   void SetPagePopupOwner(Element&);
   Element* PagePopupOwner() const { return page_popup_owner_.Get(); }
+  bool HasPagePopupOwner() const { return page_popup_owner_; }
 
   // Root of the layout tree for the document contained in this frame.
   LayoutView* ContentLayoutObject() const;
@@ -314,6 +311,22 @@ class CORE_EXPORT LocalFrame final
   // rect has changed.
   void NotifyVirtualKeyboardOverlayRectObservers(const gfx::Rect&) const;
 
+  // Bubbles a logical scroll to the parent frame, if one exists. For a local
+  // frame, this will continue the scroll synchronously. For remote frames and
+  // frame tree boundaries, this will IPC the scroll via the browser process.
+  // Returns true if the scroll is locally consumed, false otherwise.
+  bool BubbleLogicalScrollInParentFrame(mojom::blink::ScrollDirection direction,
+                                        ui::ScrollGranularity granularity);
+
+  // Receives and continues a bubbled logical scroll from the child frame (sent
+  // via the method above). This can either be called synchronously by the
+  // method above or from the RemoteFrame child after being sent via IPC.
+  // Returns true if the scroll is locally consumed, false otherwise.
+  bool BubbleLogicalScrollFromChildFrame(
+      mojom::blink::ScrollDirection direction,
+      ui::ScrollGranularity granularity,
+      Frame* child);
+
   // =========================================================================
   // All public functions below this point are candidates to move out of
   // LocalFrame into another class.
@@ -357,7 +370,6 @@ class CORE_EXPORT LocalFrame final
   void SetPageAndTextZoomFactors(float page_zoom_factor,
                                  float text_zoom_factor);
 
-  void DeviceScaleFactorChanged();
   double DevicePixelRatio() const;
 
   // Informs the local root's document and its local descendant subtree that a
@@ -673,7 +685,16 @@ class CORE_EXPORT LocalFrame final
   void UpdateWindowControlsOverlay(const gfx::Rect& bounding_rect_in_dips);
   void RegisterWindowControlsOverlayChangedDelegate(
       WindowControlsOverlayChangedDelegate*);
-#endif
+  // For PWAs with display_overrides, these getters are information about the
+  // titlebar bounds sent over from the browser via UpdateWindowControlsOverlay
+  // in LocalMainFrame that are needed to persist the lifetime of the frame.
+  const gfx::Rect& GetWindowControlsOverlayRect() const {
+    return window_controls_overlay_rect_;
+  }
+  bool IsWindowControlsOverlayVisible() const {
+    return is_window_controls_overlay_visible_;
+  }
+#endif  // !BUILDFLAG(IS_ANDROID)
 
   SystemClipboard* GetSystemClipboard();
 
@@ -701,18 +722,6 @@ class CORE_EXPORT LocalFrame final
   // of subframes, `Owner()->frame()`, or in the case of the main frame,
   // `GetPage()->Frame()`). Must only be called on provisional frames.
   bool SwapIn();
-
-#if !BUILDFLAG(IS_ANDROID)
-  // For PWAs with display_overrides, these getters are information about the
-  // titlebar bounds sent over from the browser via UpdateWindowControlsOverlay
-  // in LocalMainFrame that are needed to persist the lifetime of the frame.
-  bool IsWindowControlsOverlayVisible() const {
-    return is_window_controls_overlay_visible_;
-  }
-  const gfx::Rect& GetWindowControlsOverlayRect() const {
-    return window_controls_overlay_rect_;
-  }
-#endif
 
   void LoadJavaScriptURL(const KURL& url);
 
@@ -746,6 +755,11 @@ class CORE_EXPORT LocalFrame final
 #endif
 
   void WriteIntoTrace(perfetto::TracedValue ctx) const;
+
+  bool AncestorOrSelfHasCSPEE() const { return ancestor_or_self_has_cspee_; }
+  void SetAncestorOrSelfHasCSPEE(bool has_policy) {
+    ancestor_or_self_has_cspee_ = has_policy;
+  }
 
  private:
   friend class FrameNavigationDisabler;
@@ -820,6 +834,11 @@ class CORE_EXPORT LocalFrame final
                                     String& clip_text,
                                     String& clip_html,
                                     gfx::Rect& clip_rect);
+
+#if !BUILDFLAG(IS_ANDROID)
+  void SetTitlebarAreaDocumentStyleEnvironmentVariables() const;
+  void MaybeUpdateWindowControlsOverlayWithNewZoomLevel();
+#endif
 
   std::unique_ptr<FrameScheduler> frame_scheduler_;
 
@@ -941,6 +960,12 @@ class CORE_EXPORT LocalFrame final
 
 #if !BUILDFLAG(IS_ANDROID)
   bool is_window_controls_overlay_visible_ = false;
+  // |page_zoom_factor_| is asynchronously set sometimes (most prominently seen
+  // on mac) in |LocalFrame| via |PropagatePageZoomToNewlyAttachedFrame| on
+  // navigation. We need to store the window_controls_overlay_rect sent from the
+  // browser in dips so we can convert the rect to blink space coordinates when
+  // |page_zoom_factor_| gets updated this way.
+  gfx::Rect window_controls_overlay_rect_in_dips_;
   gfx::Rect window_controls_overlay_rect_;
   WeakMember<WindowControlsOverlayChangedDelegate>
       window_controls_overlay_changed_delegate_;
@@ -971,6 +996,11 @@ class CORE_EXPORT LocalFrame final
   // Tracks the number of times this document has been retrieved from the
   // bfcache.
   uint32_t navigation_id_ = 1;
+
+  // Stores whether this frame is affected by a CSPEE policy (from any ancestor
+  // frame). Calculated browser-side and used to help determine if this frame
+  // is allowed to load a new child opaque-ads fenced frame.
+  bool ancestor_or_self_has_cspee_ = false;
 };
 
 inline FrameLoader& LocalFrame::Loader() const {

@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "base/location.h"
+#include "base/synchronization/lock.h"
 #include "third_party/blink/public/common/features.h"
 
 #include "third_party/node-nw/src/node_webkit.h"
@@ -41,26 +42,23 @@ void set_web_worker_hooks(void* fn_start) {
 
 namespace {
 
-Mutex& IsolatesMutex() {
-  DEFINE_THREAD_SAFE_STATIC_LOCAL(Mutex, mutex, ());
-  return mutex;
+base::Lock& IsolatesLock() {
+  DEFINE_THREAD_SAFE_STATIC_LOCAL(base::Lock, lock, ());
+  return lock;
 }
 
-HashSet<v8::Isolate*>& Isolates() {
-#if DCHECK_IS_ON()
-  IsolatesMutex().AssertAcquired();
-#endif
+HashSet<v8::Isolate*>& Isolates() EXCLUSIVE_LOCKS_REQUIRED(IsolatesLock()) {
   static HashSet<v8::Isolate*>& isolates = *new HashSet<v8::Isolate*>();
   return isolates;
 }
 
 void AddWorkerIsolate(v8::Isolate* isolate) {
-  MutexLocker lock(IsolatesMutex());
+  base::AutoLock locker(IsolatesLock());
   Isolates().insert(isolate);
 }
 
 void RemoveWorkerIsolate(v8::Isolate* isolate) {
-  MutexLocker lock(IsolatesMutex());
+  base::AutoLock locker(IsolatesLock());
   Isolates().erase(isolate);
 }
 
@@ -135,7 +133,7 @@ void WorkerBackingThread::ShutdownOnBackingThread() {
 // static
 void WorkerBackingThread::MemoryPressureNotificationToWorkerThreadIsolates(
     v8::MemoryPressureLevel level) {
-  MutexLocker lock(IsolatesMutex());
+  base::AutoLock locker(IsolatesLock());
   for (v8::Isolate* isolate : Isolates())
     isolate->MemoryPressureNotification(level);
 }

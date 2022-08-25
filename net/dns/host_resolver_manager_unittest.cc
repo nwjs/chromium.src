@@ -116,8 +116,8 @@ namespace {
 const size_t kMaxJobs = 10u;
 const size_t kMaxRetryAttempts = 4u;
 
-ProcTaskParams DefaultParams(HostResolverProc* resolver_proc) {
-  return ProcTaskParams(resolver_proc, kMaxRetryAttempts);
+ProcTaskParams DefaultParams(scoped_refptr<HostResolverProc> resolver_proc) {
+  return ProcTaskParams(std::move(resolver_proc), kMaxRetryAttempts);
 }
 
 // A HostResolverProc that pushes each host mapped into a list and allows
@@ -525,10 +525,10 @@ class HostResolverManagerTest : public TestWithTaskEnvironment {
       base::test::TaskEnvironment::TimeSource time_source =
           base::test::TaskEnvironment::TimeSource::SYSTEM_TIME)
       : TestWithTaskEnvironment(time_source),
-        proc_(new MockHostResolverProc()) {}
+        proc_(base::MakeRefCounted<MockHostResolverProc>()) {}
 
   void CreateResolver(bool check_ipv6_on_wifi = true) {
-    CreateResolverWithLimitsAndParams(kMaxJobs, DefaultParams(proc_.get()),
+    CreateResolverWithLimitsAndParams(kMaxJobs, DefaultParams(proc_),
                                       true /* ipv6_reachable */,
                                       check_ipv6_on_wifi);
   }
@@ -544,7 +544,7 @@ class HostResolverManagerTest : public TestWithTaskEnvironment {
   // This HostResolverManager will only allow 1 outstanding resolve at a time
   // and perform no retries.
   void CreateSerialResolver(bool check_ipv6_on_wifi = true) {
-    ProcTaskParams params = DefaultParams(proc_.get());
+    ProcTaskParams params = DefaultParams(proc_);
     params.max_retry_attempts = 0u;
     CreateResolverWithLimitsAndParams(1u, params, true /* ipv6_reachable */,
                                       check_ipv6_on_wifi);
@@ -2415,11 +2415,10 @@ TEST_F(HostResolverManagerTest, MultipleAttempts) {
   // retry at t=6001 instead of t=6000.
   base::TimeDelta kSleepFudgeFactor = base::Milliseconds(1);
 
-  scoped_refptr<LookupAttemptHostResolverProc> resolver_proc(
-      new LookupAttemptHostResolverProc(nullptr, kAttemptNumberToResolve,
-                                        kTotalAttempts));
+  auto resolver_proc = base::MakeRefCounted<LookupAttemptHostResolverProc>(
+      nullptr, kAttemptNumberToResolve, kTotalAttempts);
 
-  ProcTaskParams params = DefaultParams(resolver_proc.get());
+  ProcTaskParams params = DefaultParams(resolver_proc);
   base::TimeDelta unresponsive_delay = params.unresponsive_delay;
   int retry_factor = params.retry_factor;
 
@@ -2487,7 +2486,7 @@ TEST_F(HostResolverManagerTest, DefaultMaxRetryAttempts) {
   // expected to translate into |expected_num_retries|.
   ASSERT_NE(HostResolver::ManagerOptions::kDefaultRetryAttempts,
             expected_max_retries);
-  ProcTaskParams params(resolver_proc.get(),
+  ProcTaskParams params(resolver_proc,
                         HostResolver::ManagerOptions::kDefaultRetryAttempts);
   ASSERT_EQ(params.max_retry_attempts, expected_max_retries);
 
@@ -3803,7 +3802,7 @@ TEST_F(HostResolverManagerTest, MdnsListener_RootDomain) {
 DnsConfig CreateValidDnsConfig() {
   IPAddress dns_ip(192, 168, 1, 0);
   DnsConfig config;
-  config.nameservers.push_back(IPEndPoint(dns_ip, dns_protocol::kDefaultPort));
+  config.nameservers.emplace_back(dns_ip, dns_protocol::kDefaultPort);
   config.doh_config =
       *DnsOverHttpsConfig::FromString("https://dns.example.com/");
   config.secure_dns_mode = SecureDnsMode::kOff;
@@ -5392,7 +5391,7 @@ TEST_F(HostResolverManagerDnsTest, DontDisableDnsClientOnSporadicFailure) {
 }
 
 TEST_F(HostResolverManagerDnsTest, Ipv6Unreachable) {
-  CreateResolverWithLimitsAndParams(kMaxJobs, DefaultParams(proc_.get()),
+  CreateResolverWithLimitsAndParams(kMaxJobs, DefaultParams(proc_),
                                     false /* ipv6_reachable */,
                                     true /* check_ipv6_on_wifi */);
   ChangeDnsConfig(CreateValidDnsConfig());
@@ -5412,7 +5411,7 @@ TEST_F(HostResolverManagerDnsTest, Ipv6Unreachable) {
 
 // Without a valid DnsConfig, assume IPv6 is needed and ignore prober.
 TEST_F(HostResolverManagerDnsTest, Ipv6Unreachable_InvalidConfig) {
-  CreateResolverWithLimitsAndParams(kMaxJobs, DefaultParams(proc_.get()),
+  CreateResolverWithLimitsAndParams(kMaxJobs, DefaultParams(proc_),
                                     false /* ipv6_reachable */,
                                     true /* check_ipv6_on_wifi */);
 
@@ -5435,7 +5434,7 @@ TEST_F(HostResolverManagerDnsTest, Ipv6Unreachable_InvalidConfig) {
 }
 
 TEST_F(HostResolverManagerDnsTest, Ipv6Unreachable_UseLocalIpv6) {
-  CreateResolverWithLimitsAndParams(kMaxJobs, DefaultParams(proc_.get()),
+  CreateResolverWithLimitsAndParams(kMaxJobs, DefaultParams(proc_),
                                     false /* ipv6_reachable */,
                                     true /* check_ipv6_on_wifi */);
 
@@ -5475,7 +5474,7 @@ TEST_F(HostResolverManagerDnsTest, Ipv6Unreachable_UseLocalIpv6) {
 // global IPv6 address. See SystemHostResolverCall for rationale.
 // Test both the DnsClient and system host resolver paths.
 TEST_F(HostResolverManagerDnsTest, Ipv6Unreachable_Localhost) {
-  CreateResolverWithLimitsAndParams(kMaxJobs, DefaultParams(proc_.get()),
+  CreateResolverWithLimitsAndParams(kMaxJobs, DefaultParams(proc_),
                                     false /* ipv6_reachable */,
                                     true /* check_ipv6_on_wifi */);
 
@@ -5559,7 +5558,7 @@ TEST_F(HostResolverManagerDnsTest, Ipv6UnreachableOnlyDisablesAAAAQuery) {
       MockDnsClientRule::Result(MockDnsClientRule::ResultType::kUnexpected),
       /*delay=*/false);
 
-  CreateResolverWithLimitsAndParams(kMaxJobs, DefaultParams(proc_.get()),
+  CreateResolverWithLimitsAndParams(kMaxJobs, DefaultParams(proc_),
                                     /*ipv6_reachable=*/false,
                                     /*check_ipv6_on_wifi=*/true);
   UseMockDnsClient(CreateValidDnsConfig(), std::move(rules));
@@ -5647,7 +5646,7 @@ TEST_F(HostResolverManagerDnsTest, SeparateJobsBySecureDnsMode) {
 // Cancel a request with a single DNS transaction active.
 TEST_F(HostResolverManagerDnsTest, CancelWithOneTransactionActive) {
   // Disable ipv6 to ensure we'll only try a single transaction for the host.
-  CreateResolverWithLimitsAndParams(kMaxJobs, DefaultParams(proc_.get()),
+  CreateResolverWithLimitsAndParams(kMaxJobs, DefaultParams(proc_),
                                     false /* ipv6_reachable */,
                                     true /* check_ipv6_on_wifi */);
   DnsConfig config = CreateValidDnsConfig();
@@ -5703,7 +5702,7 @@ TEST_F(HostResolverManagerDnsTest, CancelWithTwoTransactionsActive) {
 // Delete a resolver with some active requests and some queued requests.
 TEST_F(HostResolverManagerDnsTest, DeleteWithActiveTransactions) {
   // At most 10 Jobs active at once.
-  CreateResolverWithLimitsAndParams(10u, DefaultParams(proc_.get()),
+  CreateResolverWithLimitsAndParams(10u, DefaultParams(proc_),
                                     true /* ipv6_reachable */,
                                     true /* check_ipv6_on_wifi */);
 
@@ -6849,7 +6848,7 @@ TEST_F(HostResolverManagerDnsTest, SerialResolver) {
 // completion when only part of a multi-transaction request could be initially
 // started.
 TEST_F(HostResolverManagerDnsTest, AAAAStartsAfterOtherJobFinishes) {
-  CreateResolverWithLimitsAndParams(3u, DefaultParams(proc_.get()),
+  CreateResolverWithLimitsAndParams(3u, DefaultParams(proc_),
                                     true /* ipv6_reachable */,
                                     true /* check_ipv6_on_wifi */);
   set_allow_fallback_to_proctask(false);
@@ -6887,7 +6886,7 @@ TEST_F(HostResolverManagerDnsTest, AAAAStartsAfterOtherJobFinishes) {
 // list, triggering fallback to ProcTask.
 TEST_F(HostResolverManagerDnsTest, IPv4EmptyFallback) {
   // Disable ipv6 to ensure we'll only try a single transaction for the host.
-  CreateResolverWithLimitsAndParams(kMaxJobs, DefaultParams(proc_.get()),
+  CreateResolverWithLimitsAndParams(kMaxJobs, DefaultParams(proc_),
                                     false /* ipv6_reachable */,
                                     true /* check_ipv6_on_wifi */);
   DnsConfig config = CreateValidDnsConfig();
@@ -6936,7 +6935,7 @@ TEST_F(HostResolverManagerDnsTest, InvalidDnsConfigWithPendingRequests) {
   // to make sure that aborting the first HostResolverManager::Job does not
   // trigger another DnsTransaction on the second Job when it releases its
   // second prioritized dispatcher slot.
-  CreateResolverWithLimitsAndParams(3u, DefaultParams(proc_.get()),
+  CreateResolverWithLimitsAndParams(3u, DefaultParams(proc_),
                                     true /* ipv6_reachable */,
                                     true /* check_ipv6_on_wifi */);
 
@@ -7006,7 +7005,7 @@ TEST_F(HostResolverManagerDnsTest,
   // occupying two slots has its DnsTask aborted is the case most likely to run
   // into problems.  Try limits between [1, 2 * # of non failure requests].
   for (size_t limit = 1u; limit < 10u; ++limit) {
-    CreateResolverWithLimitsAndParams(limit, DefaultParams(proc_.get()),
+    CreateResolverWithLimitsAndParams(limit, DefaultParams(proc_),
                                       true /* ipv6_reachable */,
                                       true /* check_ipv6_on_wifi */);
 
@@ -7128,7 +7127,7 @@ TEST_F(HostResolverManagerDnsTest,
   // make sure that aborting the first HostResolverManager::Job does not trigger
   // another DnsTransaction on the second Job when it releases its second
   // prioritized dispatcher slot.
-  CreateResolverWithLimitsAndParams(3u, DefaultParams(proc_.get()),
+  CreateResolverWithLimitsAndParams(3u, DefaultParams(proc_),
                                     true /* ipv6_reachable */,
                                     true /* check_ipv6_on_wifi */);
 
@@ -7214,8 +7213,7 @@ TEST_F(HostResolverManagerDnsTest,
        DnsCallsWithDisabledDnsClient_DisabledAtConstruction) {
   HostResolver::ManagerOptions options = DefaultOptions();
   options.insecure_dns_client_enabled = false;
-  CreateResolverWithOptionsAndParams(std::move(options),
-                                     DefaultParams(proc_.get()),
+  CreateResolverWithOptionsAndParams(std::move(options), DefaultParams(proc_),
                                      true /* ipv6_reachable */);
   ChangeDnsConfig(CreateValidDnsConfig());
 

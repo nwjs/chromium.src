@@ -35,6 +35,7 @@ import org.chromium.chrome.browser.ChromeApplicationImpl;
 import org.chromium.chrome.browser.dependency_injection.ChromeAppComponent;
 import org.chromium.chrome.browser.notifications.NotificationUmaTracker;
 import org.chromium.chrome.browser.notifications.StandardNotificationBuilder;
+import org.chromium.components.content_settings.ContentSettingValues;
 import org.chromium.components.embedder_support.util.Origin;
 import org.chromium.content_public.browser.UiThreadTaskTraits;
 
@@ -58,6 +59,10 @@ import java.util.concurrent.TimeoutException;
  * 2. This calls through to TestTrustedWebActivityService.
  * 3. This calls a method on MessengerService.
  * 4. This sends a Message to ResponseHandler in this class.
+ *
+ * In order for this test to work on Android S+, Digital Asset Link verification must pass for
+ * org.chromium.chrome.tests.support and www.example.com. This is accomplished with the
+ * `--approve-app-links` command passed to the test target.
  */
 @RunWith(BaseJUnit4ClassRunner.class)
 public class TrustedWebActivityClientTest {
@@ -212,16 +217,17 @@ public class TrustedWebActivityClientTest {
 
         CallbackHelper noTwaFound = new CallbackHelper();
 
-        TrustedWebActivityClient.PermissionCheckCallback callback =
-                new TrustedWebActivityClient.PermissionCheckCallback() {
-            @Override
-            public void onPermissionCheck(ComponentName answeringApp, boolean enabled) { }
+        TrustedWebActivityClient.PermissionCallback callback =
+                new TrustedWebActivityClient.PermissionCallback() {
+                    @Override
+                    public void onPermission(
+                            ComponentName app, @ContentSettingValues int settingValue) {}
 
-            @Override
-            public void onNoTwaFound() {
-                noTwaFound.notifyCalled();
-            }
-        };
+                    @Override
+                    public void onNoTwaFound() {
+                        noTwaFound.notifyCalled();
+                    }
+                };
 
         PostTask.runOrPostTask(UiThreadTaskTraits.DEFAULT,
                 () -> mClient.checkNotificationPermission(scope, callback));

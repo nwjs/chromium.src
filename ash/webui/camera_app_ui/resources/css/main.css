@@ -378,14 +378,18 @@ body:is(:not(.recording), .enable-gif-recording, .should-handle-intent-result) :
   background-image: url(/images/camera_shutter_photo_start.svg);
 }
 
-#start-takephoto:hover,
+body:not(.taking) #start-takephoto:hover,
 #video-snapshot:hover {
   background-image: url(/images/camera_shutter_photo_start_hover.svg);
 }
 
-#start-takephoto:active,
+body:not(.taking) #start-takephoto:active,
 #video-snapshot:active {
   background-image: url(/images/camera_shutter_photo_start_active.svg);
+}
+
+body.taking #start-takephoto:active {
+  transform: unset;
 }
 
 #stop-takephoto {
@@ -710,6 +714,9 @@ body.should-handle-intent-result #open-settings {
   right: 0;
   top: 0;
   visibility: hidden;
+  /* Create stacking context for every view to prevent elements in former views
+  from covering latter views. */
+  z-index: 0;
 }
 
 body.view-camera #view-camera,
@@ -826,6 +833,7 @@ body.mirror #preview-document-corner-overlay .corner-container {
 }
 
 #preview-video {
+  pointer-events: none;
   transition: opacity var(--fast2-duration) ease-in-out;
 }
 
@@ -1278,7 +1286,6 @@ body.scan #settings-video-resolution {
   align-items: center;
   display: flex;
   justify-content: center;
-  z-index: 1;
 }
 
 #view-warning {
@@ -1379,7 +1386,6 @@ body:not(.mode-switching):not(.streaming).view-expert-settings .spinner {
 
 #view-splash {
   background: no-repeat center url(/images/camera_mode_photo.svg), var(--grey-900);
-  z-index: 2;
 }
 
 .hidden {

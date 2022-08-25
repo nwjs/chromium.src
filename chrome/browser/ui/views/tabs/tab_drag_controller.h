@@ -92,7 +92,7 @@ class TabDragController : public views::WidgetObserver {
   // |tab_strip|.
   // NOTE: this returns false if the TabDragController is in the process of
   // finishing the drag.
-  static bool IsAttachedTo(const TabDragContext* tab_strip);
+  static bool IsAttachedTo(const TabDragContextBase* tab_strip);
 
   // Returns true if there is a drag underway.
   static bool IsActive();
@@ -118,32 +118,25 @@ class TabDragController : public views::WidgetObserver {
   // Returns true if a drag started.
   bool started_drag() const { return current_state_ != DragState::kNotStarted; }
 
-  // Returns true if mutating the TabStripModel.
-  bool is_mutating() const { return is_mutating_; }
-
-  // Returns true if we've detached from a tabstrip and are running a nested
-  // move message loop.
-  bool is_dragging_window() const {
-    return current_state_ == DragState::kDraggingWindow;
-  }
-
-  // Returns true if the nested move loop end was requested and we are waiting
-  // it to actually happen.
-  bool is_waiting_to_stop() const {
-    return current_state_ == DragState::kWaitingToStop;
-  }
-
   // Returns the tab group being dragged, if any. Will only return a value if
   // the user is dragging a tab group header, not an individual tab or tabs from
   // a group.
   const absl::optional<tab_groups::TabGroupId>& group() const { return group_; }
 
-  // Returns true if currently dragging a tab with |contents|.
-  bool IsDraggingTab(content::WebContents* contents);
-
   bool IsRemovingLastTabForRevert() const {
     return is_removing_last_tab_for_revert_;
   }
+
+  // Call when a tab was just added to the attached tabstrip. May end the drag.
+  void TabWasAdded();
+
+  // Call when `contents` is about to be removed from the attached tabstrip. May
+  // end the drag.
+  void OnTabWillBeRemoved(content::WebContents* contents);
+
+  // Returns true if removing `contents` from the attached tabstrip is fine, and
+  // false if that would be problematic for the drag session.
+  bool CanRemoveTabDuringDrag(content::WebContents* contents) const;
 
   // Invoked to drag to the new location, in screen coordinates.
   void Drag(const gfx::Point& point_in_screen);
@@ -182,14 +175,12 @@ class TabDragController : public views::WidgetObserver {
     // a regular drag and drop session is running (i.e. no window is being
     // dragged).  The dragged tabs are detached immediately (with one exception;
     // see |attached_context_hidden_|'s comment), but |attached_context_| stays
-    // valid.  On platforms where this state is used, the kDraggingWindow,
-    // kWaitingToDragTabs, and kWaitingToStop states are not used.
+    // valid.  On platforms where this state is used, the kDraggingWindow and
+    // kWaitingToDragTabs states are not used.
     kDraggingUsingSystemDragAndDrop,
     // The session is waiting for the nested move loop to exit to transition
     // to kDraggingTabs.  Not used on all platforms.
     kWaitingToDragTabs,
-    // The session is waiting for the nested move loop to exit to end the drag.
-    kWaitingToStop,
     // The drag session has completed or been canceled.
     kStopped
   };
@@ -462,6 +453,9 @@ class TabDragController : public views::WidgetObserver {
     return header_drag_ ? drag_data_.size() - 1 : drag_data_.size();
   }
 
+  // Returns true if currently dragging a tab with |contents|.
+  bool IsDraggingTab(content::WebContents* contents) const;
+
   // Returns the index of the first Tab, since the first dragging view may
   // instead be a TabGroupHeader.
   int first_tab_index() { return header_drag_ ? 1 : 0; }
@@ -658,10 +652,6 @@ class TabDragController : public views::WidgetObserver {
 
   // The selection model of |attached_context_| before the tabs were attached.
   ui::ListSelectionModel selection_model_before_attach_;
-
-  // Initial x-coordinates of the tabs when the drag started. Only used for
-  // touch mode.
-  std::vector<int> initial_tab_positions_;
 
   // What should occur during ConinueDragging when a tab is attempted to be
   // detached.

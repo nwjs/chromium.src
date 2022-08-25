@@ -12,21 +12,6 @@ import {addSingletonGetter, sendWithPromise} from 'chrome://resources/js/cr.m.js
  */
 export class ProjectorBrowserProxy {
   /**
-   * Notifies the embedder content that undo/redo availability changed for
-   * annotator.
-   * @param {boolean} undoAvailable
-   * @param {boolean} redoAvailable
-   */
-  onUndoRedoAvailabilityChanged(undoAvailable, redoAvailable) {}
-
-  /**
-   * Notifies the embedder content that the canvas has either succeeded or
-   * failed to initialize.
-   * @param {boolean} success
-   */
-  onCanvasInitialized(success) {}
-
-  /**
    * Gets the list of primary and secondary accounts currently available on the
    * device.
    * @return {Promise<Array<!projectorApp.Account>>}
@@ -70,9 +55,10 @@ export class ProjectorBrowserProxy {
    * @param {string=} requestBody the request body data.
    * @param {boolean=} useCredentials authorize the request with end user
    *     credentials. Used for getting streaming URL.
+   * @param {Object=} headers additional headers.
    * @return {!Promise<!projectorApp.XhrResponse>}
    */
-  sendXhr(url, method, requestBody, useCredentials) {}
+  sendXhr(url, method, requestBody, useCredentials, headers) {}
 
   /**
    * Returns true if the "install speech recognition" button should be shown to
@@ -122,23 +108,19 @@ export class ProjectorBrowserProxy {
    * @return {!Promise}
    */
   openFeedbackDialog() {}
+
+  /**
+   * Gets information about the specified screencast from DriveFS.
+   * @param {string} screencastId The Drive item id of container folder.
+   * @return {!Promise<projectorApp.Screencast>}
+   */
+  getScreencast(screencastId) {}
 }
 
 /**
  * @implements {ProjectorBrowserProxy}
  */
 export class ProjectorBrowserProxyImpl {
-  /** @override */
-  onUndoRedoAvailabilityChanged(undoAvailable, redoAvailable) {
-    return chrome.send(
-        'onUndoRedoAvailabilityChanged', [undoAvailable, redoAvailable]);
-  }
-
-  /** @override */
-  onCanvasInitialized(success) {
-    return chrome.send('onCanvasInitialized', [success]);
-  }
-
   /** @override */
   getAccounts() {
     return sendWithPromise('getAccounts');
@@ -165,9 +147,9 @@ export class ProjectorBrowserProxyImpl {
   }
 
   /** @override */
-  sendXhr(url, method, requestBody, useCredentials) {
+  sendXhr(url, method, requestBody, useCredentials, headers) {
     return sendWithPromise(
-        'sendXhr', [url, method, requestBody, useCredentials]);
+        'sendXhr', [url, method, requestBody, useCredentials, headers]);
   }
 
   /** @override */
@@ -198,6 +180,11 @@ export class ProjectorBrowserProxyImpl {
   /** @override */
   openFeedbackDialog() {
     return sendWithPromise('openFeedbackDialog');
+  }
+
+  /** @override */
+  getScreencast(screencastId) {
+    return sendWithPromise('getScreencast', [screencastId]);
   }
 }
 

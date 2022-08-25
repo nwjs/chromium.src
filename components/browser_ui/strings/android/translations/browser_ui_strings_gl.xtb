@@ -49,11 +49,13 @@
 <translation id="2182457891543959921">Preguntar antes de permitir que os sitios creen un mapa 3D do que te rodea e fagan un seguimento da posición da cámara (recomendado)</translation>
 <translation id="2212565012507486665">Permitir uso de cookies</translation>
 <translation id="2228071138934252756">Para permitir que <ph name="APP_NAME" /> acceda á cámara, actívaa tamén en <ph name="BEGIN_LINK" />Configuración de Android<ph name="END_LINK" />.</translation>
+<translation id="2238944249568001759">Buscas suxeridas baseadas na última pestana</translation>
 <translation id="2241634353105152135">Só unha vez</translation>
 <translation id="2253414712144136228">Eliminar <ph name="NAME_OF_LIST_ITEM" /></translation>
 <translation id="2289270750774289114">Preguntar cando un sitio web queira detectar dispositivos Bluetooth próximos (recomendado)</translation>
 <translation id="2315043854645842844">A selección do certificado do cliente non é compatible co sistema operativo.</translation>
 <translation id="2321958826496381788">Arrastra o control desprazable ata que poidas ler con comodidade. O texto debe ter polo menos este tamaño despois de facer dobre clic nun parágrafo.</translation>
+<translation id="2329473609445770916">Este sitio define os intereses que poden usar outros sitios para mostrarche anuncios</translation>
 <translation id="2359808026110333948">Continuar</translation>
 <translation id="2379925928934107488">Aplícaselles o tema escuro aos sitios sempre que é posible cando Chrome está configurado con ese tema</translation>
 <translation id="2387895666653383613">Axuste de texto</translation>
@@ -90,6 +92,8 @@
 <translation id="300526633675317032">Eliminaranse os <ph name="SIZE_IN_KB" /> de almacenamento do sitio web.</translation>
 <translation id="3008272652534848354">Restablecer permisos</translation>
 <translation id="301521992641321250">Bloqueado automaticamente</translation>
+<translation id="3069226013421428034">Permite o inicio de sesión de terceiros para un sitio específico.</translation>
+<translation id="3109724472072898302">Contraído</translation>
 <translation id="3114012059975132928">Reprodutor de vídeo</translation>
 <translation id="3115898365077584848">Mostrar información</translation>
 <translation id="3123473560110926937">Anuncios bloqueados nalgúns sitios</translation>
@@ -97,6 +101,7 @@
 <translation id="3203366800380907218">Da Web</translation>
 <translation id="321187648315454507">Para permitir que <ph name="APP_NAME" /> che envíe notificacións, actívaas tamén en <ph name="BEGIN_LINK" />Configuración de Android<ph name="END_LINK" />.</translation>
 <translation id="3227137524299004712">Micrófono</translation>
+<translation id="3248611290851046188">Este sitio define os intereses que poden usar outros sitios para mostrarche anuncios. Este sitio tamén obtén os teus intereses de Chrome para mostrarche anuncios máis relevantes.</translation>
 <translation id="3277252321222022663">Permitir que os sitios accedan aos sensores (recomendado)</translation>
 <translation id="3295602654194328831">Ocultar información</translation>
 <translation id="3328801116991980348">Información do sitio</translation>
@@ -110,9 +115,11 @@
 <translation id="3594780231884063836">Silenciar o vídeo</translation>
 <translation id="3596414637720633074">Bloquear cookies de terceiros no modo de incógnito</translation>
 <translation id="3600792891314830896">Silencia sitios que reproducen son</translation>
+<translation id="3628308229821498208">Buscas suxeridas</translation>
 <translation id="3744111561329211289">Sincronización en segundo plano</translation>
 <translation id="3763247130972274048">Toca dúas veces cara á esquerda ou á dereita no vídeo para saltar 10 s</translation>
 <translation id="3797520601150691162">Non se lle aplica o tema escuro a un sitio concreto</translation>
+<translation id="3804247818991980532"><ph name="TYPE_1" />. <ph name="TYPE_2" />.</translation>
 <translation id="381841723434055211">Números de teléfono</translation>
 <translation id="3826050100957962900">Inicio de sesión de terceiros</translation>
 <translation id="3835233591525155343">Uso do dispositivo</translation>
@@ -220,10 +227,12 @@
 <translation id="6196640612572343990">Bloquear cookies de terceiros</translation>
 <translation id="6216432067784365534">Opcións de <ph name="NAME_OF_LIST_ITEM" /></translation>
 <translation id="6231752747840485235">Queres desinstalar <ph name="APP_NAME" />?</translation>
+<translation id="6262191102408817757">Segundo a túa última pestana</translation>
 <translation id="6262279340360821358"><ph name="PERMISSION_1" /> e <ph name="PERMISSION_2" /> (bloqueados)</translation>
 <translation id="6270391203985052864">Os sitios poden pedir permiso para enviar notificacións</translation>
 <translation id="6295158916970320988">Todos os sitios</translation>
 <translation id="6320088164292336938">Vibrar</translation>
+<translation id="6367753977865761591">Bloquea o inicio de sesión de terceiros para un sitio específico.</translation>
 <translation id="6388207532828177975">Borrar e restablecer</translation>
 <translation id="6398765197997659313">Saír do modo de pantalla completa</translation>
 <translation id="6439114592976064011">Impide que os sitios utilicen os teus datos e dispositivos de realidade virtual</translation>
@@ -261,6 +270,7 @@
 <translation id="7141896414559753902">Non permite que os sitios mostren ventás emerxentes nin redireccións (recomendado)</translation>
 <translation id="7176368934862295254"><ph name="KILOBYTES" /> kB</translation>
 <translation id="7180611975245234373">Actualizar</translation>
+<translation id="7203150201908454328">Ampliado</translation>
 <translation id="723171743924126238">Selecciona imaxes</translation>
 <translation id="7243308994586599757">Opcións dispoñibles na parte inferior da pantalla</translation>
 <translation id="7250468141469952378">Elementos seleccionados: <ph name="ITEM_COUNT" /></translation>
@@ -275,6 +285,7 @@
 <translation id="757524316907819857">Non permite que os sitios reproduzan o contido protexido</translation>
 <translation id="7577900504646297215">Xestionar intereses</translation>
 <translation id="7594634374516752650">Estableceuse conexión cun dispositivo Bluetooth</translation>
+<translation id="7641339528570811325">Borrar datos de navegación…</translation>
 <translation id="7649070708921625228">Axuda</translation>
 <translation id="7658239707568436148">Cancelar</translation>
 <translation id="7781829728241885113">Onte</translation>

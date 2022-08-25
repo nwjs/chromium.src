@@ -87,7 +87,7 @@ class RenderView;
 class CONTENT_EXPORT ContentRendererClient {
  public:
   virtual base::FilePath GetRootPath();
-  virtual void willHandleNavigationPolicy(RenderView* rv,
+  virtual void willHandleNavigationPolicy(RenderFrame* rv,
                                           blink::WebFrame* frame,
                                           const blink::WebURLRequest& request,
                                           blink::WebNavigationPolicy* policy,
@@ -107,7 +107,8 @@ class CONTENT_EXPORT ContentRendererClient {
   virtual void RenderFrameCreated(RenderFrame* render_frame) {}
 
   // Notifies that a new WebView has been created.
-  virtual void WebViewCreated(blink::WebView* web_view) {}
+  virtual void WebViewCreated(blink::WebView* web_view,
+                              bool was_created_by_renderer) {}
 
   // Returns the bitmap to show when a plugin crashed, or NULL for none.
   virtual SkBitmap* GetSadPluginBitmap();
@@ -221,7 +222,6 @@ class CONTENT_EXPORT ContentRendererClient {
   // Returns true if the navigation was handled by the embedder and should be
   // ignored by WebKit. This method is used by CEF and android_webview.
   virtual bool HandleNavigation(RenderFrame* render_frame,
-                                bool render_view_was_created_by_renderer,
                                 blink::WebFrame* frame,
                                 const blink::WebURLRequest& request,
                                 blink::WebNavigationType type,

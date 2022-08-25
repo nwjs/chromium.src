@@ -9,12 +9,15 @@
 
 @protocol PopupMenuItem;
 @class TableViewItem;
+namespace web {
+class WebState;
+}
 
 // Delegate for the PopupMenuActionHandler.
 @protocol PopupMenuActionHandlerDelegate
 // Adds the current page to the reading list.
 - (void)readPageLater;
-// Navigates to the page associated with |item|.
+// Navigates to the page associated with `item`.
 - (void)navigateToPageForItem:(TableViewItem<PopupMenuItem>*)item;
 // Records open settings metric per profile type.
 - (void)recordSettingsMetricsPerProfile;
@@ -26,6 +29,8 @@
 // menu option has been tapped. Follows or unfollows the website according to
 // the current follow status of the website.
 - (void)updateFollowStatus;
+// The current web state.
+- (web::WebState*)currentWebState;
 @end
 
 #endif  // IOS_CHROME_BROWSER_UI_POPUP_MENU_POPUP_MENU_ACTION_HANDLER_DELEGATE_H_

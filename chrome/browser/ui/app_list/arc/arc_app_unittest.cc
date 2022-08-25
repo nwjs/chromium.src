@@ -76,10 +76,10 @@
 #include "chrome/browser/ui/ash/shelf/chrome_shelf_controller.h"
 #include "chrome/browser/ui/ash/shelf/shelf_controller_helper.h"
 #include "chrome/browser/web_applications/test/fake_web_app_provider.h"
-#include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/arc/test/fake_intent_helper_instance.h"
+#include "components/services/app_service/public/cpp/app_launch_util.h"
 #include "components/services/app_service/public/cpp/app_registry_cache.h"
 #include "components/services/app_service/public/cpp/app_types.h"
 #include "components/services/app_service/public/cpp/app_update.h"
@@ -106,6 +106,7 @@
 #include "ui/display/types/display_constants.h"
 #include "ui/events/event_constants.h"
 #include "ui/gfx/codec/png_codec.h"
+#include "ui/gfx/geometry/skia_conversions.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/image/image_skia_operations.h"
 #include "ui/gfx/image/image_unittest_util.h"
@@ -652,6 +653,23 @@ class ArcAppModelBuilderTest : public extensions::ExtensionServiceTestBase,
       EXPECT_EQ(package->last_backup_time, package_info->last_backup_time);
       EXPECT_EQ(package->sync, package_info->should_sync);
       EXPECT_EQ(package->permission_states, package_info->permissions);
+      EXPECT_EQ(package->web_app_info.is_null(),
+                package_info->web_app_info.is_null());
+      if (!package->web_app_info.is_null() &&
+          !package_info->web_app_info.is_null()) {
+        EXPECT_EQ(package->web_app_info->title,
+                  package_info->web_app_info->title);
+        EXPECT_EQ(package->web_app_info->start_url,
+                  package_info->web_app_info->start_url);
+        EXPECT_EQ(package->web_app_info->scope_url,
+                  package_info->web_app_info->scope_url);
+        EXPECT_EQ(package->web_app_info->theme_color,
+                  package_info->web_app_info->theme_color);
+        EXPECT_EQ(package->web_app_info->is_web_only_twa,
+                  package_info->web_app_info->is_web_only_twa);
+        EXPECT_EQ(package->web_app_info->certificate_sha256_fingerprint,
+                  package_info->web_app_info->certificate_sha256_fingerprint);
+      }
     }
   }
 
@@ -2146,6 +2164,10 @@ TEST_P(ArcAppModelBuilderTest, AppLifeCycleEventsOnPackageListRefresh) {
                             &arc::mojom::ArcPackageInfo::package_name,
                             fake_packages()[2]->package_name)))
       .Times(1);
+  EXPECT_CALL(observer, OnPackageInstalled(testing::Field(
+                            &arc::mojom::ArcPackageInfo::package_name,
+                            fake_packages()[3]->package_name)))
+      .Times(1);
   app_instance()->SendRefreshPackageList(
       ArcAppTest::ClonePackages(fake_packages()));
 
@@ -2159,6 +2181,9 @@ TEST_P(ArcAppModelBuilderTest, AppLifeCycleEventsOnPackageListRefresh) {
       .Times(1);
   EXPECT_CALL(observer,
               OnPackageRemoved(fake_packages()[2]->package_name, false))
+      .Times(1);
+  EXPECT_CALL(observer,
+              OnPackageRemoved(fake_packages()[3]->package_name, false))
       .Times(1);
 
   std::vector<arc::mojom::ArcPackageInfoPtr> packages;
@@ -2859,40 +2884,22 @@ TEST_P(ArcAppModelBuilderTest, IconLoaderCompressed) {
   SendRefreshAppList(apps);
 
   base::RunLoop run_loop;
-  base::RepeatingClosure quit = run_loop.QuitClosure();
 
   apps::AppServiceProxy* proxy =
       apps::AppServiceProxyFactory::GetForProfile(profile_.get());
   ASSERT_NE(nullptr, proxy);
 
-  if (base::FeatureList::IsEnabled(features::kAppServiceLoadIconWithoutMojom)) {
-    proxy->LoadIcon(
-        apps::AppType::kArc, app_id, apps::IconType::kCompressed, icon_size,
-        false /*allow_placeholder_icon*/,
-        base::BindLambdaForTesting([&](apps::IconValuePtr icon_value) {
-          EXPECT_EQ(apps::IconType::kCompressed, icon_value->icon_type);
-          std::vector<uint8_t> png_data = icon_value->compressed;
-          std::string compressed(png_data.begin(), png_data.end());
-          // Check that |compressed| starts with the 8-byte PNG magic string.
-          EXPECT_EQ(compressed.substr(0, 8),
-                    "\x89\x50\x4e\x47\x0d\x0a\x1a\x0a");
-          quit.Run();
-        }));
-  } else {
-    proxy->LoadIcon(
-        apps::mojom::AppType::kArc, app_id, apps::mojom::IconType::kCompressed,
-        icon_size, false /*allow_placeholder_icon*/,
-        base::BindLambdaForTesting([&](apps::mojom::IconValuePtr icon_value) {
-          EXPECT_EQ(apps::mojom::IconType::kCompressed, icon_value->icon_type);
-          EXPECT_TRUE(icon_value->compressed);
-          std::vector<uint8_t> png_data = icon_value->compressed.value();
-          std::string compressed(png_data.begin(), png_data.end());
-          // Check that |compressed| starts with the 8-byte PNG magic string.
-          EXPECT_EQ(compressed.substr(0, 8),
-                    "\x89\x50\x4e\x47\x0d\x0a\x1a\x0a");
-          quit.Run();
-        }));
-  }
+  proxy->LoadIcon(
+      apps::AppType::kArc, app_id, apps::IconType::kCompressed, icon_size,
+      false /*allow_placeholder_icon*/,
+      base::BindLambdaForTesting([&](apps::IconValuePtr icon_value) {
+        EXPECT_EQ(apps::IconType::kCompressed, icon_value->icon_type);
+        std::vector<uint8_t> png_data = icon_value->compressed;
+        std::string compressed(png_data.begin(), png_data.end());
+        // Check that |compressed| starts with the 8-byte PNG magic string.
+        EXPECT_EQ(compressed.substr(0, 8), "\x89\x50\x4e\x47\x0d\x0a\x1a\x0a");
+        run_loop.Quit();
+      }));
   run_loop.Run();
 }
 
@@ -3104,13 +3111,13 @@ TEST_P(ArcAppModelBuilderTest, AppLauncher) {
   {
     ArcAppLauncher launcher1(profile(), id1, nullptr, false,
                              display::kInvalidDisplayId,
-                             apps::mojom::LaunchSource::kFromChromeInternal);
+                             apps::LaunchSource::kFromChromeInternal);
     EXPECT_FALSE(launcher1.app_launched());
     EXPECT_TRUE(prefs->HasObserver(&launcher1));
 
     ArcAppLauncher launcher3(profile(), id3, nullptr, false,
                              display::kInvalidDisplayId,
-                             apps::mojom::LaunchSource::kFromChromeInternal);
+                             apps::LaunchSource::kFromChromeInternal);
     EXPECT_FALSE(launcher1.app_launched());
     EXPECT_TRUE(prefs->HasObserver(&launcher1));
     EXPECT_FALSE(launcher3.app_launched());
@@ -3140,7 +3147,7 @@ TEST_P(ArcAppModelBuilderTest, AppLauncher) {
         app2.activity, arc::kInitialStartParam, arc::kCategoryLauncher);
     ArcAppLauncher launcher2(profile(), id2, std::move(launch_intent2), false,
                              display::kInvalidDisplayId,
-                             apps::mojom::LaunchSource::kFromChromeInternal);
+                             apps::LaunchSource::kFromChromeInternal);
     EXPECT_TRUE(launcher2.app_launched());
     EXPECT_FALSE(prefs->HasObserver(&launcher2));
   }
@@ -3162,7 +3169,7 @@ TEST_P(ArcAppModelBuilderTest, AppLauncherForSuspendedApp) {
 
   ArcAppLauncher launcher(profile(), app_id, nullptr, false,
                           display::kInvalidDisplayId,
-                          apps::mojom::LaunchSource::kFromChromeInternal);
+                          apps::LaunchSource::kFromChromeInternal);
   EXPECT_FALSE(launcher.app_launched());
 
   // Register app, however it is suspended.
@@ -3568,12 +3575,12 @@ TEST_P(ArcAppLauncherForDefaultAppTest, AppLauncherForDefaultApps) {
   // Launch when app is registered and ready.
   ArcAppLauncher launcher1(profile(), id1, nullptr, false,
                            display::kInvalidDisplayId,
-                           apps::mojom::LaunchSource::kFromChromeInternal);
+                           apps::LaunchSource::kFromChromeInternal);
 
   // Launch when app is registered.
   ArcAppLauncher launcher2(profile(), id2, nullptr, true,
                            display::kInvalidDisplayId,
-                           apps::mojom::LaunchSource::kFromChromeInternal);
+                           apps::LaunchSource::kFromChromeInternal);
 
   EXPECT_FALSE(launcher1.app_launched());
 

@@ -39,6 +39,7 @@
 #include "chrome/browser/web_applications/web_app_chromeos_data.h"
 #include "chrome/browser/web_applications/web_app_icon_generator.h"
 #include "chrome/browser/web_applications/web_app_install_params.h"
+#include "chrome/browser/web_applications/web_app_sources.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
 #include "chrome/common/chrome_features.h"
 #include "components/services/app_service/public/cpp/icon_info.h"
@@ -48,6 +49,7 @@
 #include "components/webapps/browser/banners/app_banner_settings_helper.h"
 #include "components/webapps/browser/installable/installable_manager.h"
 #include "components/webapps/browser/installable/installable_metrics.h"
+#include "content/public/common/content_features.h"
 #include "mojo/public/cpp/bindings/struct_ptr.h"
 #include "net/http/http_util.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
@@ -567,8 +569,6 @@ void UpdateWebAppInfoFromManifest(const blink::mojom::Manifest& manifest,
 
   web_app_info->capture_links = manifest.capture_links;
 
-  web_app_info->handle_links = manifest.handle_links;
-
   if (manifest_url.is_valid())
     web_app_info->manifest_url = manifest_url;
 
@@ -591,16 +591,18 @@ void UpdateWebAppInfoFromManifest(const blink::mojom::Manifest& manifest,
     copy.matches_opaque_src = decl.matches_opaque_src;
     web_app_info->permissions_policy.push_back(std::move(copy));
   }
+
+  web_app_info->tab_strip = manifest.tab_strip;
 }
 
-std::vector<GURL> GetValidIconUrlsToDownload(
+base::flat_set<GURL> GetValidIconUrlsToDownload(
     const WebAppInstallInfo& web_app_info) {
-  std::vector<GURL> web_app_info_icon_urls;
+  base::flat_set<GURL> web_app_info_icon_urls;
   // App icons.
   for (const apps::IconInfo& info : web_app_info.manifest_icons) {
     if (!info.url.is_valid())
       continue;
-    web_app_info_icon_urls.push_back(info.url);
+    web_app_info_icon_urls.insert(info.url);
   }
 
   // Shortcut icons.
@@ -610,7 +612,7 @@ std::vector<GURL> GetValidIconUrlsToDownload(
            shortcut.GetShortcutIconInfosForPurpose(purpose)) {
         if (!icon.url.is_valid())
           continue;
-        web_app_info_icon_urls.push_back(icon.url);
+        web_app_info_icon_urls.insert(icon.url);
       }
     }
   }
@@ -620,7 +622,7 @@ std::vector<GURL> GetValidIconUrlsToDownload(
     for (const auto& icon : file_handler.downloaded_icons) {
       if (!icon.url.is_valid())
         continue;
-      web_app_info_icon_urls.push_back(icon.url);
+      web_app_info_icon_urls.insert(icon.url);
     }
   }
 
@@ -968,18 +970,18 @@ void SetWebAppManifestFields(const WebAppInstallInfo& web_app_info,
   web_app.SetProtocolHandlers(web_app_info.protocol_handlers);
   web_app.SetUrlHandlers(web_app_info.url_handlers);
 
-  if (base::FeatureList::IsEnabled(blink::features::kWebAppManifestLockScreen))
+  if (base::FeatureList::IsEnabled(features::kWebLockScreenApi))
     web_app.SetLockScreenStartUrl(web_app_info.lock_screen_start_url);
 
   web_app.SetNoteTakingNewNoteUrl(web_app_info.note_taking_new_note_url);
 
   web_app.SetCaptureLinks(web_app_info.capture_links);
 
-  web_app.SetHandleLinks(web_app_info.handle_links);
-
   web_app.SetManifestUrl(web_app_info.manifest_url);
 
   web_app.SetLaunchHandler(web_app_info.launch_handler);
+
+  web_app.SetTabStrip(web_app_info.tab_strip);
 }
 
 void MaybeDisableOsIntegration(const WebAppRegistrar* app_registrar,

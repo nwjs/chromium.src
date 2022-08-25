@@ -89,9 +89,16 @@ void Node::SetAssignedName(const NodeName& name) {
 }
 
 bool Node::AddLink(const NodeName& remote_node_name, Ref<NodeLink> link) {
-  absl::MutexLock lock(&mutex_);
-  auto [it, inserted] = node_links_.insert({remote_node_name, std::move(link)});
-  return inserted;
+  {
+    absl::MutexLock lock(&mutex_);
+    auto [it, inserted] = node_links_.insert({remote_node_name, link});
+    if (inserted) {
+      return true;
+    }
+  }
+
+  link->Deactivate();
+  return false;
 }
 
 NodeName Node::GenerateRandomName() const {
@@ -100,6 +107,14 @@ NodeName Node::GenerateRandomName() const {
       driver_.GenerateRandomBytes(sizeof(name), IPCZ_NO_FLAGS, nullptr, &name);
   ABSL_ASSERT(result == IPCZ_RESULT_OK);
   return name;
+}
+
+void Node::AllocateSharedMemory(size_t size,
+                                AllocateSharedMemoryCallback callback) {
+  // TODO: Implement delegated allocation when this Node is connected to another
+  // with the IPCZ_CONNECT_NODE_TO_ALLOCATION_DELEGATE flag set. For now we
+  // assume all nodes can perform direct allocation.
+  callback(DriverMemory(driver_, size));
 }
 
 void Node::ShutDown() {

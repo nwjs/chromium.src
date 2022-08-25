@@ -66,17 +66,17 @@ export class AccessCodeCastElement extends AccessCodeCastElementBase {
       accessCode: {
         type: String,
         value: '',
-        observer: 'castStateChange'
+        observer: 'castStateChange',
       },
       canCast: {
         type: Boolean,
         value: true,
-        observer: 'castStateChange'
-      }
+        observer: 'castStateChange',
+      },
     };
   }
 
-  private listenerIds: Array<number>;
+  private listenerIds: number[];
   private router: PageCallbackRouter;
 
   private static readonly ACCESS_CODE_LENGTH = 6;

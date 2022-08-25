@@ -6,7 +6,7 @@
  * @fileoverview The element for displaying a list of animation themes.
  */
 import './animation_theme_item_element.js';
-import '../../common/common_style.css.js';
+import '../../css/common.css.js';
 
 import {AnimationTheme} from '../personalization_app.mojom-webui.js';
 import {WithPersonalizationStore} from '../personalization_store.js';
@@ -27,8 +27,9 @@ export class AnimationThemeList extends WithPersonalizationStore {
       animationThemes: {
         type: Array,
         value: [
-          AnimationTheme.kSlideshow, AnimationTheme.kFeelTheBreeze,
-          AnimationTheme.kFloatOnBy
+          AnimationTheme.kSlideshow,
+          AnimationTheme.kFeelTheBreeze,
+          AnimationTheme.kFloatOnBy,
         ],
       },
 
@@ -36,7 +37,7 @@ export class AnimationThemeList extends WithPersonalizationStore {
     };
   }
 
-  animationThemes: Array<AnimationTheme>;
+  animationThemes: AnimationTheme[];
   private selectedAnimationTheme: AnimationTheme;
 
   private getAriaChecked_(

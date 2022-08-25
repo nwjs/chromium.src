@@ -7,9 +7,13 @@ import 'chrome://resources/mojo/mojo/public/mojom/base/string16.mojom-lite.js';
 
 import {FileAttachmentElement} from 'chrome://os-feedback/file_attachment.js';
 import {mojoString16ToString} from 'chrome://resources/ash/common/mojo_utils.js';
+import {getDeepActiveElement} from 'chrome://resources/js/util.m.js';
 
 import {assertArrayEquals, assertEquals, assertFalse, assertTrue} from '../../chai_assert.js';
 import {eventToPromise, flushTasks, isVisible} from '../../test_util.js';
+
+/** @type {string} */
+const fakeImageUrl = 'chrome://os_feedback/app_icon_48.png';
 
 const MAX_ATTACH_FILE_SIZE = 10 * 1024 * 1024;
 
@@ -60,6 +64,10 @@ export function fileAttachmentTestSuite() {
     await initializePage();
     // Verify the add file label is in the page.
     assertEquals('Add file', getElementContent('#addFileLabel'));
+    // Verify the i18n string is added.
+    assertTrue(page.i18nExists('addFileLabel'));
+    // Verify the replace file label is in the page.
+    assertEquals('Replace', getElementContent('#replaceFileLabel'));
     // The addFileContainer should be visible when no file is selected.
     assertTrue(isVisible(getElement('#addFileContainer')));
     // The replaceFileContainer should be invisible when no file is selected.
@@ -126,7 +134,10 @@ export function fileAttachmentTestSuite() {
 
     // Set selected file manually.
     /** @type {!File} */
-    const fakeFile = /** @type {!File} */ ({name: 'fake.zip'});
+    const fakeFile = /** @type {!File} */ ({
+      name: 'fake.zip',
+      type: 'application/zip',
+    });
     page.setSelectedFileForTesting(fakeFile);
 
     // The selected file name is set properly.
@@ -163,6 +174,7 @@ export function fileAttachmentTestSuite() {
     /** @type {!File} */
     const fakeFile = /** @type {!File} */ ({
       name: 'fake.zip',
+      type: 'application/zip',
       size: MAX_ATTACH_FILE_SIZE,
     });
     page.setSelectedFileForTesting(fakeFile);
@@ -185,6 +197,7 @@ export function fileAttachmentTestSuite() {
     /** @type {!File} */
     const fakeFile = /** @type {!File} */ ({
       name: 'fake.zip',
+      type: 'application/zip',
       size: MAX_ATTACH_FILE_SIZE,
       arrayBuffer: async () => {
         return new Uint8Array(fakeData).buffer;
@@ -216,6 +229,7 @@ export function fileAttachmentTestSuite() {
     /** @type {!File} */
     const fakeFile = /** @type {!File} */ ({
       name: 'fake.zip',
+      type: 'application/zip',
       size: MAX_ATTACH_FILE_SIZE + 1,
       arrayBuffer: async () => {
         return new Uint8Array(fakeData).buffer;
@@ -227,10 +241,95 @@ export function fileAttachmentTestSuite() {
 
     // Error message should be visible.
     assertTrue(getElement('#fileTooBigErrorMessage').open);
+    assertEquals(
+        `Can't upload file larger than 10 MB`,
+        getElementContent('#fileTooBigErrorMessage > #errorMessage'));
     // There should not be a selected file.
     assertEquals('', getElementContent('#selectedFileName'));
     const attachedFile = await page.getAttachedFile();
     // AttachedFile should be null.
     assertTrue(!attachedFile);
+  });
+
+  // Test that files that are image type have a preview.
+  test('imageFilePreview', async () => {
+    await initializePage();
+    const selectFileCheckbox = getElement('#selectFileCheckbox');
+    const fakeData = [12, 11, 99];
+
+    /** @type {!File} */
+    const fakeImageFile = /** @type {!File} */ ({
+      name: 'fake.png',
+      type: 'image/png',
+      size: MAX_ATTACH_FILE_SIZE,
+      arrayBuffer: async () => {
+        return new Uint8Array(fakeData).buffer;
+      },
+    });
+
+    page.setSelectedFileForTesting(fakeImageFile);
+    await flushTasks();
+
+    // The selected file name is set properly.
+    assertEquals('fake.png', getElementContent('#selectedFileName'));
+
+    // The selectedFileImage should have an url when file is image type.
+    const imageUrl = getElement('#selectedFileImage').src;
+    assertTrue(imageUrl.length > 0);
+    // There should be a preview image.
+    page.selectedImageUrl_ = imageUrl;
+    const selectedImage = getElement('#selectedFileImage');
+    assertTrue(!!selectedImage.src);
+    assertEquals(imageUrl, selectedImage.src);
+    assertEquals(
+        'Preview fake.png', getElement('#selectedImageButton').ariaLabel);
+  });
+
+  // Test that clicking the image will open preview dialog and set the
+  // focus on the close dialog icon button.
+  test('selectedImagePreviewDialog', async () => {
+    await initializePage();
+    const fakeData = [12, 11, 99];
+
+    /** @type {!File} */
+    const fakeImageFile = /** @type {!File} */ ({
+      name: 'fake.png',
+      type: 'image/png',
+      size: MAX_ATTACH_FILE_SIZE,
+      arrayBuffer: async () => {
+        return new Uint8Array(fakeData).buffer;
+      },
+    });
+
+    page.setSelectedFileForTesting(fakeImageFile);
+    page.selectedImageUrl_ = fakeImageUrl;
+    assertEquals(fakeImageUrl, getElement('#selectedFileImage').src);
+
+    const closeDialogButton = getElement('#closeDialogButton');
+    // The preview dialog's close icon button is not visible.
+    assertFalse(isVisible(closeDialogButton));
+
+    // The selectedImage is displayed as an image button.
+    const imageButton =
+        /** @type {!Element} */ (getElement('#selectedImageButton'));
+    const imageClickPromise = eventToPromise('click', imageButton);
+    imageButton.click();
+    await imageClickPromise;
+
+    // The preview dialog's title should be set properly.
+    assertEquals('fake.png', getElementContent('#modalDialogTitleText'));
+
+    // The preview dialog's close icon button is visible now.
+    assertTrue(isVisible(closeDialogButton));
+    // The preview dialog's close icon button is focused.
+    assertEquals(closeDialogButton, getDeepActiveElement());
+
+    // Press enter should close the preview dialog.
+    closeDialogButton.dispatchEvent(
+        new KeyboardEvent('keydown', {key: 'Enter'}));
+    await flushTasks();
+
+    // The preview dialog's close icon button is not visible now.
+    assertFalse(isVisible(closeDialogButton));
   });
 }

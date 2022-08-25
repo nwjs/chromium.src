@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "ui/accessibility/platform/ax_platform_node_auralinux.h"
+#include "base/memory/raw_ptr.h"
 
 #include <dlfcn.h>
 #include <stdint.h>
@@ -125,7 +126,7 @@ typedef struct _AXPlatformNodeAuraLinuxClass AXPlatformNodeAuraLinuxClass;
 
 struct _AXPlatformNodeAuraLinuxObject {
   AtkObject parent;
-  AXPlatformNodeAuraLinux* m_object;
+  raw_ptr<AXPlatformNodeAuraLinux> m_object;
 };
 
 struct _AXPlatformNodeAuraLinuxClass {
@@ -606,10 +607,11 @@ gboolean DoAction(AtkAction* atk_action, gint index) {
   if (!obj)
     return FALSE;
 
-  const std::vector<ax::mojom::Action> actions = obj->GetSupportedActions();
+  const std::vector<ax::mojom::Action> actions =
+      obj->GetDelegate()->GetSupportedActions();
   g_return_val_if_fail(index < static_cast<gint>(actions.size()), FALSE);
 
-  if (index == 0 && obj->HasDefaultActionVerb()) {
+  if (index == 0 && obj->GetDelegate()->HasDefaultActionVerb()) {
     // If there is a default action, it will always be at index 0.
     return obj->DoDefaultAction();
   }
@@ -627,7 +629,7 @@ gint GetNActions(AtkAction* atk_action) {
   if (!obj)
     return 0;
 
-  return static_cast<gint>(obj->GetSupportedActions().size());
+  return static_cast<gint>(obj->GetDelegate()->GetSupportedActions().size());
 }
 
 const gchar* GetDescription(AtkAction*, gint) {
@@ -645,10 +647,11 @@ const gchar* GetName(AtkAction* atk_action, gint index) {
   if (!obj)
     return nullptr;
 
-  const std::vector<ax::mojom::Action> actions = obj->GetSupportedActions();
+  const std::vector<ax::mojom::Action> actions =
+      obj->GetDelegate()->GetSupportedActions();
   g_return_val_if_fail(index < static_cast<gint>(actions.size()), nullptr);
 
-  if (index == 0 && obj->HasDefaultActionVerb()) {
+  if (index == 0 && obj->GetDelegate()->HasDefaultActionVerb()) {
     // If there is a default action, it will always be at index 0.
     return obj->GetDefaultActionName();
   }
@@ -664,10 +667,11 @@ const gchar* GetKeybinding(AtkAction* atk_action, gint index) {
   if (!obj)
     return nullptr;
 
-  const std::vector<ax::mojom::Action> actions = obj->GetSupportedActions();
+  const std::vector<ax::mojom::Action> actions =
+      obj->GetDelegate()->GetSupportedActions();
   g_return_val_if_fail(index < static_cast<gint>(actions.size()), nullptr);
 
-  if (index == 0 && obj->HasDefaultActionVerb()) {
+  if (index == 0 && obj->GetDelegate()->HasDefaultActionVerb()) {
     // If there is a default action, it will always be at index 0. Only the
     // default action has a key binding.
     return obj->GetStringAttribute(ax::mojom::StringAttribute::kAccessKey)
@@ -915,7 +919,7 @@ AtkHyperlink* GetLink(AtkHypertext* hypertext, int index) {
     return nullptr;
 
   const AXLegacyHypertext& ax_hypertext = obj->GetAXHypertext();
-  if (index > static_cast<int>(ax_hypertext.hyperlinks.size()) || index < 0)
+  if (index >= static_cast<int>(ax_hypertext.hyperlinks.size()) || index < 0)
     return nullptr;
 
   int32_t id = ax_hypertext.hyperlinks[index];
@@ -1013,10 +1017,11 @@ gunichar GetCharacterAtOffset(AtkText* atk_text, int offset) {
     return 0;
 
   std::u16string text = obj->GetHypertext();
-  int32_t text_length = text.length();
+  size_t text_length = text.length();
 
   offset = obj->UnicodeToUTF16OffsetInText(offset);
-  int32_t limited_offset = base::clamp(offset, 0, text_length);
+  offset = std::max(offset, 0);
+  size_t limited_offset = std::min(static_cast<size_t>(offset), text_length);
 
   base_icu::UChar32 code_point;
   base::ReadUnicodeCharacter(text.c_str(), text_length + 1, &limited_offset,
@@ -4343,8 +4348,8 @@ AXPlatformNodeAuraLinux::GetHypertextAdjustments() {
   text_unicode_adjustments_.emplace();
 
   std::u16string text = GetHypertext();
-  int32_t text_length = text.size();
-  for (int32_t i = 0; i < text_length; i++) {
+  size_t text_length = text.size();
+  for (size_t i = 0; i < text_length; i++) {
     base_icu::UChar32 code_point;
     size_t original_i = i;
     base::ReadUnicodeCharacter(text.c_str(), text_length + 1, &i, &code_point);
@@ -5219,30 +5224,6 @@ std::pair<int, int> AXPlatformNodeAuraLinux::GetSelectionOffsetsForAtk() {
     GetSelectionOffsets(&selection.first, &selection.second);
   }
   return selection;
-}
-
-bool AXPlatformNodeAuraLinux::HasDefaultActionVerb() const {
-  return GetData().GetDefaultActionVerb() !=
-         ax::mojom::DefaultActionVerb::kNone;
-}
-
-std::vector<ax::mojom::Action> AXPlatformNodeAuraLinux::GetSupportedActions()
-    const {
-  static const base::NoDestructor<std::vector<ax::mojom::Action>>
-      kActionsThatCanBeExposedViaAtkAction{
-          {ax::mojom::Action::kDecrement, ax::mojom::Action::kIncrement}};
-  std::vector<ax::mojom::Action> supported_actions;
-
-  // The default action, if it exists, must be listed at index 0.
-  if (HasDefaultActionVerb())
-    supported_actions.push_back(ax::mojom::Action::kDoDefault);
-
-  for (const auto& item : *kActionsThatCanBeExposedViaAtkAction) {
-    if (HasAction(item))
-      supported_actions.push_back(item);
-  }
-
-  return supported_actions;
 }
 
 }  // namespace ui

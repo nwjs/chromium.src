@@ -254,20 +254,6 @@ void PrePaintTreeWalk::InvalidatePaintForHitTesting(
       object, PaintInvalidationReason::kHitTest);
 }
 
-void PrePaintTreeWalk::UpdateAuxiliaryObjectProperties(
-    const LayoutObject& object,
-    PrePaintTreeWalk::PrePaintTreeWalkContext& context) {
-  if (!object.HasLayer())
-    return;
-
-  PaintLayer* paint_layer = To<LayoutBoxModelObject>(object).Layer();
-  paint_layer->UpdateAncestorScrollContainerLayer(
-      context.ancestor_scroll_container_paint_layer);
-
-  if (object.IsScrollContainer())
-    context.ancestor_scroll_container_paint_layer = paint_layer;
-}
-
 bool PrePaintTreeWalk::NeedsTreeBuilderContextUpdate(
     const LocalFrameView& frame_view,
     const PrePaintTreeWalkContext& context) {
@@ -316,7 +302,8 @@ bool PrePaintTreeWalk::ObjectRequiresTreeBuilderContext(
 bool PrePaintTreeWalk::ContextRequiresChildTreeBuilderContext(
     const PrePaintTreeWalkContext& context) {
   if (!context.NeedsTreeBuilderContext()) {
-    DCHECK(!context.tree_builder_context->force_subtree_update_reasons);
+    DCHECK(!context.tree_builder_context ||
+           !context.tree_builder_context->force_subtree_update_reasons);
     DCHECK(!context.paint_invalidator_context.NeedsSubtreeWalk());
     return false;
   }
@@ -363,6 +350,15 @@ FragmentData* PrePaintTreeWalk::GetOrCreateFragmentData(
   bool allow_update = context.NeedsTreeBuilderContext();
 
   FragmentData* fragment_data = &object.GetMutableForPainting().FirstFragment();
+
+  // BR elements never fragment. While there are parts of the code that depend
+  // on the correct paint offset (getBoundingClientRect(), etc.), we don't need
+  // to set fragmentation info (nor create multiple FragmentData entries). BR
+  // elements aren't necessarily marked for invalidation when laid out (which
+  // means that allow_update won't be set when it should, and the code below
+  // would get confused).
+  if (object.IsBR())
+    return fragment_data;
 
   // The need for paint properties is the same across all fragments, so if the
   // first FragmentData needs it, so do all the others.
@@ -491,10 +487,6 @@ void PrePaintTreeWalk::WalkInternal(const LayoutObject& object,
       return;
   }
 
-  // This must happen before updatePropertiesForSelf, because the latter reads
-  // some of the state computed here.
-  UpdateAuxiliaryObjectProperties(object, context);
-
   absl::optional<PaintPropertyTreeBuilder> property_tree_builder;
   if (context.tree_builder_context) {
     property_tree_builder.emplace(object, pre_paint_info,
@@ -566,7 +558,7 @@ void PrePaintTreeWalk::RebuildContextForMissedDescendant(
 
   // We don't need to pass a fragment here, since we're not actually going to
   // search for any descendant fragment. We've already determined which fragment
-  // that we're going to visit (then one we missed), since we're here.
+  // that we're going to visit (the one we missed), since we're here.
   UpdateContextForOOFContainer(object, context, /* fragment */ nullptr);
 
   if (!object.CanContainAbsolutePositionObjects() ||
@@ -674,7 +666,7 @@ void PrePaintTreeWalk::WalkFragmentationContextRootChildren(
     DCHECK(box_fragment->IsFragmentainerBox());
 
     PrePaintTreeWalkContext fragmentainer_context(
-        parent_context, NeedsTreeBuilderContextUpdate(object, parent_context));
+        parent_context, parent_context.NeedsTreeBuilderContext());
 
     fragmentainer_context.current_container.fragmentation_nesting_level++;
     fragmentainer_context.is_parent_first_for_node =

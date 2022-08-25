@@ -860,7 +860,8 @@ NavigationEntryImpl::ConstructCommitNavigationParams(
     int pending_history_list_offset,
     int current_history_list_offset,
     int current_history_list_length,
-    const blink::FramePolicy& frame_policy) {
+    const blink::FramePolicy& frame_policy,
+    bool ancestor_or_self_has_cspee) {
   // Set the redirect chain to the navigation's redirects, unless returning to a
   // completed navigation (whose previous redirects don't apply).
   // Note that this is actually does not work as intended right now because
@@ -890,8 +891,7 @@ NavigationEntryImpl::ConstructCommitNavigationParams(
           origin_to_commit,
           // The correct storage key will be computed before committing the
           // navigation.
-          blink::StorageKey(), network::mojom::WebSandboxFlags(),
-          GetIsOverridingUserAgent(), redirects,
+          blink::StorageKey(), GetIsOverridingUserAgent(), redirects,
           std::vector<network::mojom::URLResponseHeadPtr>(),
           std::vector<net::RedirectInfo>(), std::string(), original_url,
           original_method, GetCanLoadLocalResources(),
@@ -922,8 +922,8 @@ NavigationEntryImpl::ConstructCommitNavigationParams(
           absl::nullopt /* ad_auction_components */,
           /*fenced_frame_reporting_metadata=*/nullptr,
           // This timestamp will be populated when the commit IPC is sent.
-          base::TimeTicks() /* commit_sent */, false /* anonymous */,
-          std::string() /* srcdoc_value */, false /* should_load_data_url */);
+          base::TimeTicks() /* commit_sent */, std::string() /* srcdoc_value */,
+          false /* should_load_data_url */, ancestor_or_self_has_cspee);
 #if BUILDFLAG(IS_ANDROID)
   // `data_url_as_string` is saved in NavigationEntry but should only be used by
   // main frames, because loadData* navigations can only happen on the main
