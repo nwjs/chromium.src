@@ -33,6 +33,7 @@ const AcceleratorMapping kAcceleratorMap[] = {
 //      item with the appropriate modifier.
 //   2) Update GetShortcutsNotPresentInMainMenu() in
 //      global_keyboard_shortcuts_mac.mm.
+    { ui::VKEY_F4, ui::EF_ALT_DOWN, IDC_CLOSE_WINDOW },
 #if 0
     {ui::VKEY_F7, ui::EF_NONE, IDC_CARET_BROWSING_TOGGLE},
 #endif
