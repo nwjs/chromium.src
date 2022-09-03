@@ -48,6 +48,7 @@ RenderWidgetHostNSViewBridge::RenderWidgetHostNSViewBridge(
   [cocoa_view_ setWantsLayer:!content::g_force_cpu_draw];
 
   view_id_ = std::make_unique<remote_cocoa::ScopedNSViewIdMapping>(ns_view_id,
+        cocoa_view_);
 }
 
 RenderWidgetHostNSViewBridge::~RenderWidgetHostNSViewBridge() {

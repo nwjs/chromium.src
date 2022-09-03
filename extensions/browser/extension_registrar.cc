@@ -580,9 +580,11 @@ void ExtensionRegistrar::MaybeSpinUpLazyContext(const Extension* extension,
   bool has_web_request_permission =
       extension->permissions_data()->HasAPIPermission(
           mojom::APIPermissionID::kWebRequest);
+#if 0
   // Event page-based extension cannot have the webRequest permission.
   DCHECK(!has_web_request_permission ||
          BackgroundInfo::IsServiceWorkerBased(extension));
+#endif
 
   // If there aren't any special cases, we're done.
   if (!has_orphaned_dev_tools && !is_component_extension &&

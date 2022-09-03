@@ -7802,6 +7802,9 @@ grit("resources") {
   if (enable_hangout_services_extension) {
     defines += [ "enable_hangout_services_extension" ]
   }
+  if (nwjs_sdk) {
+    defines += [ "nwjs_sdk" ]
+  }
 
   output_dir = "$root_gen_dir/chrome"
   outputs = [

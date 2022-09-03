@@ -1189,7 +1189,9 @@ void ChromeMainDelegate::PreSandboxStartup() {
   // On the Mac, the child executable lives at a predefined location within
   // the app bundle's versioned directory.
   std::string product_string;
-  if (nw::package()->root()->GetString("product_string", &product_string)) {
+  str = nw::package()->root()->FindString("product_string");
+  if (str) {
+    product_string = *str;
     std::string helperProcessExecutablePath = (product_string + " Helper.app/Contents/MacOS/" + product_string + " Helper");
     base::PathService::Override(content::CHILD_PROCESS_EXE,
                                 chrome::GetFrameworkBundlePath()

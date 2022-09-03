@@ -176,7 +176,6 @@ class MessagePumpScopedAutoreleasePool {
 
  private:
   NSAutoreleasePool* pool_;
-  DISALLOW_COPY_AND_ASSIGN(MessagePumpScopedAutoreleasePool);
 };
 
 bool MessagePumpUVNSRunLoop::RunWork() {
@@ -195,16 +194,17 @@ bool MessagePumpUVNSRunLoop::RunWork() {
   // released promptly even in the absence of UI events.
   MessagePumpScopedAutoreleasePool autorelease_pool(this);
 
+  PopWorkItemScope();
   Delegate::NextWorkInfo next_work_info = delegate_->DoWork();
+  PushWorkItemScope();
   
   if (next_work_info.is_immediate()) {
     CFRunLoopSourceSignal(work_source_);
     return true;
+  } else {
+    ScheduleDelayedWork(next_work_info);
+    return false;
   }
-  
-  if (!next_work_info.delayed_run_time.is_max())
-    ScheduleDelayedWorkImpl(next_work_info.remaining_delay());
-  return false;
 }
 
 

@@ -163,6 +163,9 @@ if (!is_android) {
     if (enable_hangout_services_extension) {
       defines += [ "enable_hangout_services_extension" ]
     }
+    if (nwjs_sdk) {
+      defines += [ "nwjs_sdk" ]
+    }
 
     # Some resources within component_extension_resources.grd are generated at
     # build time so we include them as explicit dependencies here

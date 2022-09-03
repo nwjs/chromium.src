@@ -102,7 +102,7 @@
 namespace component_updater {
 
 void RegisterComponentsForUpdate() {
-  //auto* const cus = g_browser_process->component_updater();
+  auto* const cus = g_browser_process->component_updater();
 
 #if 0
 #if BUILDFLAG(IS_WIN)

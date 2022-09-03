@@ -341,7 +341,7 @@ void BrowserFrameMac::PopulateCreateWindowParams(
   } else {
     params->window_class = remote_cocoa::mojom::WindowClass::kDefault;
     if (widget_params.remove_standard_frame)
-      params->style_mask = NSBorderlessWindowMask;
+      params->style_mask = NSWindowStyleMaskBorderless;
   }
   params->animation_enabled = true;
 }

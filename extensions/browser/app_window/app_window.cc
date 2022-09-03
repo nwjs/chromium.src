@@ -681,7 +681,7 @@ void AppWindow::OnNativeWindowChanged() {
 
 #if BUILDFLAG(IS_WIN)
   if (content::g_support_transparency && requested_alpha_enabled_) {
-    content::RenderFrameHost* rfh = web_contents()->GetMainFrame();
+    content::RenderFrameHost* rfh = web_contents()->GetPrimaryMainFrame();
     content::RenderWidgetHostView* view = rfh->GetRenderViewHost()->GetWidget()->GetView();
     if(view)
       view->SetBackgroundColor(native_app_window_->CanHaveAlphaEnabled() ? SK_ColorTRANSPARENT : native_app_window_->ActiveFrameColor());

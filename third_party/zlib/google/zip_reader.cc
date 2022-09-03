@@ -150,7 +150,7 @@ bool ZipReader::OpenFromPlatformFile(base::PlatformFile zip_fd) {
   zip_file_ = internal::OpenHandleForUnzipping(zip_fd);
 #endif
   if (!zip_file_) {
-    LOG(ERROR) << "Cannot open ZIP from file handle " << zip_fd;
+    VLOG(1) << "Cannot open ZIP from file handle " << zip_fd;
     return false;
   }
 
