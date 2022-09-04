@@ -1092,7 +1092,9 @@ absl::optional<int> ChromeMainDelegate::BasicStartupComplete() {
   product_version = std::wstring(version.begin(), version.end());
 #if defined(OS_WIN)
   SignalInitializeCrashReporting(&product_name, &product_version);
-  if (nw::package()->root()->GetString("crash_report_url", &report_url)) {
+  str = nw::package()->root()->FindString("crash_report_url");
+  if (str) {
+    report_url = *str;
     crash_reporter::CrashReporterClient* client = (crash_reporter::CrashReporterClient*)ElfGetReporterClient();
     client->SetUploadDump(true);
   }

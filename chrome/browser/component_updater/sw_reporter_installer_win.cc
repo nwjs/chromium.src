@@ -357,6 +357,8 @@ SwReporterInstallerPolicy::GetInstallerAttributes() const {
 // then assigning the tag randomly if it's not found in either.
 std::string SwReporterInstallerPolicy::GetReporterCohortTag(
     PrefService* prefs) const {
+  return "stable";
+#if 0
   const std::string feature_tag =
       safe_browsing::kReporterDistributionTagParam.Get();
   if (!feature_tag.empty()) {
@@ -404,6 +406,7 @@ std::string SwReporterInstallerPolicy::GetReporterCohortTag(
   prefs->SetString(prefs::kSwReporterCohort, selected_tag);
   prefs->SetTime(prefs::kSwReporterCohortSelectionTime, base::Time::Now());
   return selected_tag;
+#endif
 }
 
 SwReporterOnDemandFetcher::SwReporterOnDemandFetcher(
