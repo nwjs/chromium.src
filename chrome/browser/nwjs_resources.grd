@@ -51,10 +51,6 @@
       </if>
       <include name="IDR_NWJS_DEFAPP_MANIFEST" file="resources\nwjs_default_app\manifest.json" type="BINDATA" />
       <include name="IDR_NWJS_DEFAPP_MANIFEST_NEWWIN" file="resources\nwjs_newwin_app\manifest.json" type="BINDATA" />
-      <if expr="is_win">
-        <include name="IDR_ABOUT_CONFLICTS_HTML" file="resources\conflicts\about_conflicts.html" compress="gzip" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
-        <include name="IDR_ABOUT_CONFLICTS_JS" file="resources\conflicts\about_conflicts.js" compress="gzip" type="BINDATA" />
-      </if>
       <if expr="not is_android">
         <include name="IDR_ABOUT_SYS_CSS" file="resources\about_sys\about_sys.css" flattenhtml="true" type="BINDATA" />
         <include name="IDR_ABOUT_SYS_JS" file="resources\about_sys\about_sys.js" preprocess="true" type="BINDATA" />
@@ -62,6 +58,11 @@
       <if expr="enable_plugins">
         <include name="IDR_ABOUT_FLASH_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
         <include name="IDR_ABOUT_FLASH_JS" file="resources\empty.js" type="BINDATA" />
+      </if>
+      <if expr="enable_webui_certificate_viewer">
+        <include name="IDR_CERTIFICATE_VIEWER_HTML" file="resources\certificate_viewer\certificate_viewer.html" type="BINDATA" />
+        <include name="IDR_CERTIFICATE_VIEWER_JS" file="${root_gen_dir}\chrome\browser\resources\certificate_viewer\tsc\certificate_viewer.js" use_base_dir="false" type="BINDATA" />
+        <include name="IDR_CERTIFICATE_VIEWER_CSS" file="resources\certificate_viewer\certificate_viewer.css" type="BINDATA" />
       </if>
       <include name="IDR_ABOUT_MEMORY_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />
       <if expr="not is_android">
