@@ -445,6 +445,7 @@ if (is_win || (is_linux && !is_component_build)) {
         "//components/crash/core/app",
         "//components/policy:generated",
         "//crypto",
+        "//headless:headless_renderer",
         "//headless:headless_shell_lib",
         "//net:net_resources",
         "//ppapi/buildflags",

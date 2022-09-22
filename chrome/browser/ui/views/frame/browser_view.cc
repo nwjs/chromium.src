@@ -3352,8 +3352,9 @@ ui::ImageModel BrowserView::GetWindowIcon() {
       Browser* browser = chrome::FindBrowserWithWebContents(inspected_contents);
       if (browser && !browser->icon_override().IsEmpty())
         return ui::ImageModel::FromImageSkia(*browser->icon_override().ToImageSkia());
-      favicon::FaviconDriver* favicon_driver =
-          favicon::ContentFaviconDriver::FromWebContents(inspected_contents);
+      favicon::FaviconDriver* favicon_driver = nullptr;
+      if (inspected_contents)
+          favicon_driver = favicon::ContentFaviconDriver::FromWebContents(inspected_contents);
       gfx::Image app_icon;
       if (favicon_driver)
         app_icon = favicon_driver->GetFavicon();

@@ -198,11 +198,6 @@ void ShareServiceImpl::Share(const std::string& title,
       return;
     }
 
-    // Check if at least one file is marked by the download protection service
-    // to send a ping to check this file type.
-    if (!should_check_url)
-      should_check_url = true;
-
     // In the case where the original blob handle was to a native file (of
     // unknown size), the serialized data does not contain an accurate file
     // size. To handle this, the comparison against kMaxSharedFileBytes should

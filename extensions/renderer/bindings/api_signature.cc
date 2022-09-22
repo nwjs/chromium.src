@@ -30,6 +30,7 @@ constexpr const char* const kNonCallbackTrailingFunctionAPINames[] = {
     "test.callbackFail",
     "automation.addTreeChangeObserver",
     "automation.removeTreeChangeObserver",
+    "nw.App.on",
 };
 
 std::vector<std::unique_ptr<ArgumentSpec>> ValueListToArgumentSpecs(

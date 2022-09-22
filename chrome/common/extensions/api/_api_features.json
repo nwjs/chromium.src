@@ -493,28 +493,6 @@
     "contexts": ["blessed_extension"],
     "disallow_for_service_workers": true
   },
-  "fileManagerPrivate": [{
-    "dependencies": ["permission:fileManagerPrivate"],
-    "contexts": ["blessed_extension"]
-  }, {
-    "channel": "stable",
-    "contexts": ["webui"],
-    "matches": [
-      "chrome://file-manager/*"
-    ]
-  }],
-  "fileManagerPrivateInternal": [{
-    "internal": true,
-    "dependencies": ["permission:fileManagerPrivate"],
-    "contexts": ["blessed_extension"]
-  }, {
-    "internal": true,
-    "channel": "stable",
-    "contexts": ["webui"],
-    "matches": [
-      "chrome://file-manager/*"
-    ]
-  }],
   "fileSystemProvider": {
     "dependencies": ["permission:fileSystemProvider"],
     "contexts": ["blessed_extension"],
@@ -735,10 +713,6 @@
     "dependencies": ["permission:rtcPrivate"],
     "contexts": ["blessed_extension"]
   },
-  "safeBrowsingPrivate": {
-    "dependencies": ["permission:safeBrowsingPrivate"],
-    "contexts": ["blessed_extension"]
-  },
   "scripting": {
     "dependencies": ["permission:scripting"],
     "contexts": ["blessed_extension"]
@@ -888,31 +862,10 @@
     "dependencies": ["permission:ttsEngine"],
     "contexts": ["blessed_extension"]
   },
-  "usersPrivate": [{
-    "dependencies": ["permission:usersPrivate"],
-    "contexts": ["blessed_extension"],
-    "platforms": ["chromeos"]
-  }, {
-    "channel": "stable",
-    "contexts": ["webui"],
-    "matches": [
-      "chrome://os-settings/*"
-    ]
-  }],
   "virtualKeyboardPrivate": {
     "dependencies": ["permission:virtualKeyboardPrivate"],
     "contexts": ["blessed_extension"]
   },
-  "wallpaper": [{
-    "dependencies": ["permission:wallpaper"],
-    "contexts": ["blessed_extension"]
-  }, {
-    "channel": "stable",
-    "contexts": ["webui"],
-    "matches": [
-      "chrome://file-manager/*"
-    ]
-  }],
   "webAuthenticationProxy": {
     "dependencies": ["permission:webAuthenticationProxy"],
     "contexts": ["blessed_extension"]
