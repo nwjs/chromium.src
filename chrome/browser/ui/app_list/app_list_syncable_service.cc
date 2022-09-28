@@ -52,7 +52,6 @@
 #include "components/services/app_service/public/cpp/app_registry_cache.h"
 #include "components/services/app_service/public/cpp/app_types.h"
 #include "components/services/app_service/public/cpp/app_update.h"
-#include "components/services/app_service/public/cpp/features.h"
 #include "components/services/app_service/public/mojom/types.mojom.h"
 #include "components/sync/driver/sync_service.h"
 #include "components/sync/model/sync_change_processor.h"
@@ -131,21 +130,12 @@ void SetAppIsDefaultForTest(Profile* profile, const std::string& id) {
       std::make_unique<apps::App>(apps::AppType::kChromeApp, id);
   delta->install_reason = apps::InstallReason::kDefault;
 
-  if (base::FeatureList::IsEnabled(apps::kAppServiceOnAppUpdateWithoutMojom)) {
-    std::vector<apps::AppPtr> deltas;
-    deltas.push_back(std::move(delta));
-    apps::AppServiceProxyFactory::GetForProfile(profile)
-        ->AppRegistryCache()
-        .OnApps(std::move(deltas), apps::AppType::kChromeApp,
-                false /* should_notify_initialized */);
-  } else {
-    std::vector<apps::mojom::AppPtr> mojom_deltas;
-    mojom_deltas.push_back(apps::ConvertAppToMojomApp(delta));
-    apps::AppServiceProxyFactory::GetForProfile(profile)
-        ->AppRegistryCache()
-        .OnApps(std::move(mojom_deltas), apps::mojom::AppType::kChromeApp,
-                false /* should_notify_initialized */);
-  }
+  std::vector<apps::AppPtr> deltas;
+  deltas.push_back(std::move(delta));
+  apps::AppServiceProxyFactory::GetForProfile(profile)
+      ->AppRegistryCache()
+      .OnApps(std::move(deltas), apps::AppType::kChromeApp,
+              false /* should_notify_initialized */);
 }
 
 bool IsUnRemovableDefaultApp(const std::string& id) {
@@ -1811,8 +1801,15 @@ void AppListSyncableService::InitNewItemPosition(ChromeAppListItem* new_item) {
 
   // TODO(https://crbug.com/1260875): handle the case that `new_item` is a
   // folder.
-  if (!ash::features::IsLauncherAppSortEnabled() || new_item->is_folder() ||
-      new_item->is_page_break()) {
+  // Calculating the crostini folder's position with the sort order serves as a
+  // quick fix for https://crbug.com/1353237. Right now, folders except for the
+  // crostini folder still use the first available position as the initial
+  // position due to the concern over the possible regression in OEM folders.
+  bool use_first_available_position =
+      (new_item->is_folder() || new_item->is_page_break()) &&
+      new_item->id() != ash::kCrostiniFolderId;
+  if (!ash::features::IsLauncherAppSortEnabled() ||
+      use_first_available_position) {
     new_item->SetChromePosition(model_updater_->GetFirstAvailablePosition());
     return;
   }

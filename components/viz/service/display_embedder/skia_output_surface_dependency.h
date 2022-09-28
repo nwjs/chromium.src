@@ -6,6 +6,7 @@
 #define COMPONENTS_VIZ_SERVICE_DISPLAY_EMBEDDER_SKIA_OUTPUT_SURFACE_DEPENDENCY_H_
 
 #include <memory>
+#include <utility>
 
 #include "base/callback.h"
 #include "base/callback_helpers.h"
@@ -29,7 +30,6 @@ class GLSurface;
 
 namespace gpu {
 
-class DisplayContext;
 class GpuDriverBugWorkarounds;
 class ImageFactory;
 class ImageTransportSurfaceDelegate;
@@ -106,9 +106,6 @@ class VIZ_SERVICE_EXPORT SkiaOutputSurfaceDependency {
       gpu::SurfaceHandle child_window) = 0;
 #endif
 
-  virtual void RegisterDisplayContext(gpu::DisplayContext* display_context) = 0;
-  virtual void UnregisterDisplayContext(
-      gpu::DisplayContext* display_context) = 0;
   virtual void DidLoseContext(gpu::error::ContextLostReason reason,
                               const GURL& active_url) = 0;
 

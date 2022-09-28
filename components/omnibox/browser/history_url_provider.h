@@ -108,7 +108,8 @@ struct HistoryURLProviderParams {
                            const AutocompleteMatch& what_you_typed_match,
                            const TemplateURL* default_search_provider,
                            const SearchTermsData* search_terms_data,
-                           bool allow_deleting_browser_history);
+                           bool allow_deleting_browser_history,
+                           const TemplateURL* starter_pack_engine);
   ~HistoryURLProviderParams();
   HistoryURLProviderParams(const HistoryURLProviderParams&) = delete;
   HistoryURLProviderParams& operator=(const HistoryURLProviderParams&) = delete;
@@ -187,6 +188,8 @@ struct HistoryURLProviderParams {
   // True if the user is allowed to delete browser history. Stored here because
   // we aren't allowed to read user preferences from the History sequence.
   const bool allow_deleting_browser_history;
+
+  const TemplateURL* starter_pack_engine;
 };
 
 // This class is an autocomplete provider and is also a pseudo-internal
@@ -213,14 +216,6 @@ class HistoryURLProvider : public HistoryProvider {
   // Estimates dynamic memory usage.
   // See base/trace_event/memory_usage_estimator.h for more info.
   size_t EstimateMemoryUsage() const override;
-
-  // Runs the history query on the history thread, called by the history
-  // system. The history database MAY BE NULL in which case it is not
-  // available and we should return no data. Also schedules returning the
-  // results to the main thread
-  void ExecuteWithDB(HistoryURLProviderParams* params,
-                     history::HistoryBackend* backend,
-                     history::URLDatabase* db);
 
  private:
   FRIEND_TEST_ALL_PREFIXES(HistoryURLProviderTest, HUPScoringExperiment);
@@ -255,6 +250,14 @@ class HistoryURLProvider : public HistoryProvider {
   static ACMatchClassifications ClassifyDescription(
       const std::u16string& input_text,
       const std::u16string& description);
+
+  // Runs the history query on the history thread, called by the history
+  // system. The history database MAY BE NULL in which case it is not
+  // available and we should return no data. Also schedules returning the
+  // results to the main thread
+  void ExecuteWithDB(HistoryURLProviderParams* params,
+                     history::HistoryBackend* backend,
+                     history::URLDatabase* db);
 
   // Actually runs the autocomplete job on the given database, which is
   // guaranteed not to be NULL.  Used by both autocomplete passes, and therefore

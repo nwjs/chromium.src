@@ -5,13 +5,14 @@
 #ifndef COMPONENTS_VIZ_SERVICE_DISPLAY_EMBEDDER_SKIA_OUTPUT_SURFACE_IMPL_ON_GPU_H_
 #define COMPONENTS_VIZ_SERVICE_DISPLAY_EMBEDDER_SKIA_OUTPUT_SURFACE_IMPL_ON_GPU_H_
 
-#include <deque>
-#include <map>
 #include <memory>
 #include <utility>
 #include <vector>
 
 #include "base/callback_forward.h"
+#include "base/containers/circular_deque.h"
+#include "base/containers/flat_map.h"
+#include "base/containers/flat_set.h"
 #include "base/containers/span.h"
 #include "base/memory/raw_ptr.h"
 #include "base/threading/thread_checker.h"
@@ -35,7 +36,6 @@
 #include "gpu/command_buffer/service/shared_image/shared_image_representation.h"
 #include "gpu/command_buffer/service/sync_point_manager.h"
 #include "gpu/ipc/service/context_url.h"
-#include "gpu/ipc/service/display_context.h"
 #include "gpu/ipc/service/image_transport_surface_delegate.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
@@ -254,8 +254,6 @@ class SkiaOutputSurfaceImplOnGpu
   void RemoveAsyncReadResultHelperWithLock(AsyncReadResultHelper* helper);
 
  private:
-  class DisplayContext;
-
   struct PlaneAccessData {
     PlaneAccessData();
     PlaneAccessData(PlaneAccessData&& other);
@@ -461,7 +459,6 @@ class SkiaOutputSurfaceImplOnGpu
   scoped_refptr<gpu::SharedContextState> context_state_;
   size_t max_resource_cache_bytes_ = 0u;
 
-  std::unique_ptr<DisplayContext> display_context_;
   bool context_is_lost_ = false;
 
   class PromiseImageAccessHelper {
@@ -514,7 +511,7 @@ class SkiaOutputSurfaceImplOnGpu
   // Pending release fence callbacks. These callbacks can be delayed if Vulkan
   // external semaphore type has copy transference, which means importing
   // semaphores has to be delayed until submission.
-  std::deque<std::pair<GrBackendSemaphore,
+  base::circular_deque<std::pair<GrBackendSemaphore,
                        base::OnceCallback<void(gfx::GpuFenceHandle)>>>
       pending_release_fence_cbs_;
 

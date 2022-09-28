@@ -33,6 +33,7 @@
 #include "ash/child_accounts/parent_access_controller_impl.h"
 #include "ash/clipboard/clipboard_history_controller_impl.h"
 #include "ash/clipboard/control_v_histogram_recorder.h"
+#include "ash/constants/ash_features.h"
 #include "ash/constants/ash_switches.h"
 #include "ash/controls/contextual_tooltip.h"
 #include "ash/dbus/ash_dbus_services.h"
@@ -66,6 +67,7 @@
 #include "ash/frame/non_client_frame_view_ash.h"
 #include "ash/frame/snap_controller_impl.h"
 #include "ash/frame_throttler/frame_throttling_controller.h"
+#include "ash/glanceables/glanceables_controller.h"
 #include "ash/high_contrast/high_contrast_controller.h"
 #include "ash/highlighter/highlighter_controller.h"
 #include "ash/host/ash_window_tree_host_init_params.h"
@@ -81,6 +83,7 @@
 #include "ash/metrics/feature_discovery_duration_reporter_impl.h"
 #include "ash/metrics/login_unlock_throughput_recorder.h"
 #include "ash/metrics/user_metrics_recorder.h"
+#include "ash/multi_capture/multi_capture_service_client.h"
 #include "ash/multi_device_setup/multi_device_notification_presenter.h"
 #include "ash/policy/policy_recommendation_restorer.h"
 #include "ash/projector/projector_controller_impl.h"
@@ -144,6 +147,7 @@
 #include "ash/system/power/power_prefs.h"
 #include "ash/system/power/power_status.h"
 #include "ash/system/power/video_activity_notifier.h"
+#include "ash/system/privacy_hub/privacy_hub_controller.h"
 #include "ash/system/screen_layout_observer.h"
 #include "ash/system/screen_security/screen_switch_check_controller.h"
 #include "ash/system/session/logout_confirmation_controller.h"
@@ -208,6 +212,7 @@
 #include "components/viz/host/host_frame_sink_manager.h"
 #include "dbus/bus.h"
 #include "media/capture/video/chromeos/video_capture_features_chromeos.h"
+#include "services/video_capture/public/mojom/multi_capture_service.mojom.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/env.h"
 #include "ui/aura/layout_manager.h"
@@ -587,6 +592,10 @@ Shell::Shell(std::unique_ptr<ShellDelegate> shell_delegate)
       native_cursor_manager_(nullptr) {
   AccelerometerReader::GetInstance()->Initialize();
 
+  if (features::AreGlanceablesEnabled()) {
+    glanceables_controller_ = std::make_unique<GlanceablesController>();
+  }
+
   login_screen_controller_ =
       std::make_unique<LoginScreenController>(system_tray_notifier_.get());
   display_manager_ = ScreenAsh::CreateDisplayManager();
@@ -625,6 +634,9 @@ Shell::~Shell() {
   login_unlock_throughput_recorder_.reset();
 
   hud_display::HUDDisplayView::Destroy();
+
+  // Observes `SessionController` and must be destroyed before it.
+  privacy_hub_controller_.reset();
 
   for (auto& observer : shell_observers_)
     observer.OnShellDestroying();
@@ -709,6 +721,11 @@ Shell::~Shell() {
   // Accelerometer file reader stops listening to tablet mode controller.
   AccelerometerReader::GetInstance()->StopListenToTabletModeController();
 
+  if (features::AreGlanceablesEnabled()) {
+    // Close all glanceables so that all widgets are destroyed.
+    glanceables_controller_->DestroyUi();
+  }
+
   // Destroy |ambient_controller_| before |assistant_controller_|.
   ambient_controller_.reset();
 
@@ -774,11 +791,16 @@ Shell::~Shell() {
   window_cycle_controller_.reset();
   overview_controller_.reset();
 
+  // This must be destroyed before deleting all the windows below in
+  // `CloseAllRootWindowChildWindows()`, since shutting down the session will
+  // need to access those windows and it will be a UAF.
+  // https://crbug.com/1350711.
+  capture_mode_controller_.reset();
+
   // Close all widgets (including the shelf) and destroy all window containers.
   CloseAllRootWindowChildWindows();
 
   multitask_menu_nudge_controller_.reset();
-  capture_mode_controller_.reset();
   tablet_mode_controller_.reset();
   login_screen_controller_.reset();
   system_notification_controller_.reset();
@@ -958,6 +980,8 @@ Shell::~Shell() {
 
   shell_delegate_.reset();
 
+  multi_capture_service_client_.reset();
+
   UsbguardClient::Shutdown();
 
   // Must be shut down after detachable_base_handler_.
@@ -993,6 +1017,7 @@ void Shell::Init(
 
   // These controllers call Shell::Get() in their constructors, so they cannot
   // be in the member initialization list.
+  privacy_hub_controller_ = std::make_unique<PrivacyHubController>();
   touch_devices_controller_ = std::make_unique<TouchDevicesController>();
   if (!ash::features::IsBluetoothRevampEnabled()) {
     bluetooth_power_controller_ =
@@ -1290,6 +1315,13 @@ void Shell::Init(
         std::make_unique<AmbientController>(std::move(fingerprint));
   }
 
+  mojo::PendingRemote<video_capture::mojom::MultiCaptureService>
+      multi_capture_service;
+  shell_delegate_->BindMultiCaptureService(
+      multi_capture_service.InitWithNewPipeAndPassReceiver());
+  multi_capture_service_client_ = std::make_unique<MultiCaptureServiceClient>(
+      std::move(multi_capture_service));
+
   // |tablet_mode_controller_| |mru_window_tracker_|, and
   // |assistant_controller_| are put before |app_list_controller_| as they are
   // used in its constructor.
@@ -1586,6 +1618,13 @@ void Shell::OnFirstSessionStarted() {
   // the session starts.
   app_list_feature_usage_metrics_ =
       std::make_unique<AppListFeatureUsageMetrics>();
+
+  if (features::AreGlanceablesEnabled()) {
+    // Show glanceables after signin.
+    // TODO(crbug.com/1353119): Show only when session restore would trigger.
+    glanceables_controller_->CreateUi();
+    glanceables_controller_->FetchData();
+  }
 }
 
 void Shell::OnSessionStateChanged(session_manager::SessionState state) {

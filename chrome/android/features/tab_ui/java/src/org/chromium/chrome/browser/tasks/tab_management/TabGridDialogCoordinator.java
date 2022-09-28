@@ -87,7 +87,7 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.DialogCon
                     activity, tabModelSelector, tabContentManager::getTabThumbnailWithCallback,
                     null, false, gridCardOnClickListenerProvider,
                     mMediator.getTabGridDialogHandler(), TabProperties.UiType.CLOSABLE, null, null,
-                    containerView, false, mComponentName, rootView);
+                    containerView, false, mComponentName, rootView, null);
             TabListRecyclerView recyclerView = mTabListCoordinator.getContainerView();
 
             TabGroupUiToolbarView toolbarView =
@@ -165,12 +165,16 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.DialogCon
     @Override
     public void hideDialog(boolean showAnimation) {
         mMediator.hideDialog(showAnimation);
-        mTabListCoordinator.postHiding();
     }
 
     @Override
     public void prepareDialog() {
         mTabListCoordinator.prepareTabGridDialogView();
+    }
+
+    @Override
+    public void postHiding() {
+        mTabListCoordinator.postHiding();
     }
 
     @Override

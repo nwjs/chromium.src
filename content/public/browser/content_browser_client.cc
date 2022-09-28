@@ -4,13 +4,6 @@
 
 #include "content/public/browser/content_browser_client.h"
 
-// content_browser_client.h is a widely included header and its size impacts
-// build time significantly. If you run into this limit, try using forward
-// declarations instead of including more headers. If that is infeasible, adjust
-// the limit. For more info, see
-// https://chromium.googlesource.com/chromium/src/+/HEAD/docs/wmax_tokens.md
-#pragma clang max_tokens_here 1110000
-
 #include "content/nw/src/browser/nw_content_browser_hooks.h"
 
 #include <utility>
@@ -532,6 +525,13 @@ bool ContentBrowserClient::IsSharedStorageAllowed(
   return true;
 }
 
+bool ContentBrowserClient::IsPrivateAggregationAllowed(
+    content::BrowserContext* browser_context,
+    const url::Origin& top_frame_origin,
+    const url::Origin& reporting_origin) {
+  return true;
+}
+
 bool ContentBrowserClient::CanSendSCTAuditingReport(
     BrowserContext* browser_context) {
   return false;
@@ -768,6 +768,14 @@ ContentBrowserClient::GetReceiverPresentationServiceDelegate(
     WebContents* web_contents) {
   return nullptr;
 }
+
+void ContentBrowserClient::AddPresentationObserver(
+    PresentationObserver* observer,
+    WebContents* web_contents) {}
+
+void ContentBrowserClient::RemovePresentationObserver(
+    PresentationObserver* observer,
+    WebContents* web_contents) {}
 
 void ContentBrowserClient::OpenURL(
     content::SiteInstance* site_instance,
@@ -1006,10 +1014,6 @@ bool ContentBrowserClient::ShouldForceDownloadResource(
   return false;
 }
 
-void ContentBrowserClient::CreateWebUsbService(
-    RenderFrameHost* render_frame_host,
-    mojo::PendingReceiver<blink::mojom::WebUsbService> receiver) {}
-
 void ContentBrowserClient::CreateDeviceInfoService(
     RenderFrameHost* render_frame_host,
     mojo::PendingReceiver<blink::mojom::DeviceAPIService> receiver) {}
@@ -1030,6 +1034,10 @@ HidDelegate* ContentBrowserClient::GetHidDelegate() {
 }
 
 BluetoothDelegate* ContentBrowserClient::GetBluetoothDelegate() {
+  return nullptr;
+}
+
+UsbDelegate* ContentBrowserClient::GetUsbDelegate() {
   return nullptr;
 }
 
@@ -1375,10 +1383,6 @@ bool ContentBrowserClient::IsFirstPartySetsEnabled() {
 
 bool ContentBrowserClient::WillProvidePublicFirstPartySets() {
   return false;
-}
-
-base::Value::Dict ContentBrowserClient::GetFirstPartySetsOverrides() {
-  return base::Value::Dict();
 }
 
 mojom::AlternativeErrorPageOverrideInfoPtr

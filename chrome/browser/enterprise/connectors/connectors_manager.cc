@@ -7,6 +7,8 @@
 #include <memory>
 
 #include "base/values.h"
+#include "build/chromeos_buildflags.h"
+#include "chrome/browser/enterprise/connectors/reporting/browser_crash_event_router.h"
 #include "chrome/browser/enterprise/connectors/reporting/extension_install_event_router.h"
 #include "components/prefs/pref_service.h"
 #include "url/gurl.h"
@@ -14,11 +16,13 @@
 namespace enterprise_connectors {
 
 ConnectorsManager::ConnectorsManager(
+    std::unique_ptr<BrowserCrashEventRouter> browser_crash_event_router,
     ExtensionInstallEventRouter extension_install_event_router,
     PrefService* pref_service,
     const ServiceProviderConfig* config,
     bool observe_prefs)
     : service_provider_config_(config),
+      browser_crash_event_router_(std::move(browser_crash_event_router)),
       extension_install_event_router_(
           std::move(extension_install_event_router)) {
   if (observe_prefs)
@@ -90,6 +94,30 @@ absl::optional<AnalysisSettings> ConnectorsManager::GetAnalysisSettings(
   return analysis_connector_settings_[connector][0].GetAnalysisSettings(url);
 }
 
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+absl::optional<AnalysisSettings> ConnectorsManager::GetAnalysisSettings(
+    content::BrowserContext* context,
+    const storage::FileSystemURL& source_url,
+    const storage::FileSystemURL& destination_url,
+    AnalysisConnector connector) {
+  if (!IsConnectorEnabled(connector))
+    return absl::nullopt;
+
+  if (analysis_connector_settings_.count(connector) == 0)
+    CacheAnalysisConnectorPolicy(connector);
+
+  // If the connector is still not in memory, it means the pref is set to an
+  // empty list or that it is not a list.
+  if (analysis_connector_settings_.count(connector) == 0)
+    return absl::nullopt;
+
+  // While multiple services can be set by the connector policies, only the
+  // first one is considered for now.
+  return analysis_connector_settings_[connector][0].GetAnalysisSettings(
+      context, source_url, destination_url);
+}
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+
 absl::optional<AnalysisSettings>
 ConnectorsManager::GetAnalysisSettingsFromConnectorPolicy(
     const GURL& url,
@@ -150,14 +178,11 @@ void ConnectorsManager::CacheAnalysisConnectorPolicy(
   const char* pref = ConnectorPref(connector);
   DCHECK(pref);
 
-  const base::Value* policy_value =
-      pref_change_registrar_.prefs()->GetList(pref);
-  if (policy_value && policy_value->is_list()) {
-    for (const base::Value& service_settings :
-         policy_value->GetListDeprecated())
-      analysis_connector_settings_[connector].emplace_back(
-          service_settings, *service_provider_config_);
-  }
+  const base::Value::List& policy_value =
+      pref_change_registrar_.prefs()->GetValueList(pref);
+  for (const base::Value& service_settings : policy_value)
+    analysis_connector_settings_[connector].emplace_back(
+        service_settings, *service_provider_config_);
 }
 
 void ConnectorsManager::CacheReportingConnectorPolicy(
@@ -168,14 +193,11 @@ void ConnectorsManager::CacheReportingConnectorPolicy(
   const char* pref = ConnectorPref(connector);
   DCHECK(pref);
 
-  const base::Value* policy_value =
-      pref_change_registrar_.prefs()->GetList(pref);
-  if (policy_value && policy_value->is_list()) {
-    for (const base::Value& service_settings :
-         policy_value->GetListDeprecated())
-      reporting_connector_settings_[connector].emplace_back(
-          service_settings, *service_provider_config_);
-  }
+  const base::Value::List& policy_value =
+      pref_change_registrar_.prefs()->GetValueList(pref);
+  for (const base::Value& service_settings : policy_value)
+    reporting_connector_settings_[connector].emplace_back(
+        service_settings, *service_provider_config_);
 }
 
 void ConnectorsManager::CacheFileSystemConnectorPolicy(
@@ -186,14 +208,11 @@ void ConnectorsManager::CacheFileSystemConnectorPolicy(
   const char* pref = ConnectorPref(connector);
   DCHECK(pref);
 
-  const base::Value* policy_value =
-      pref_change_registrar_.prefs()->GetList(pref);
-  if (policy_value && policy_value->is_list()) {
-    for (const base::Value& service_settings :
-         policy_value->GetListDeprecated())
-      file_system_connector_settings_[connector].emplace_back(
-          service_settings, *service_provider_config_);
-  }
+  const base::Value::List& policy_value =
+      pref_change_registrar_.prefs()->GetValueList(pref);
+  for (const base::Value& service_settings : policy_value)
+    file_system_connector_settings_[connector].emplace_back(
+        service_settings, *service_provider_config_);
 }
 
 bool ConnectorsManager::DelayUntilVerdict(AnalysisConnector connector) {
@@ -306,6 +325,9 @@ void ConnectorsManager::StartObservingPrefs(PrefService* pref_service) {
   StartObservingPref(AnalysisConnector::FILE_DOWNLOADED);
   StartObservingPref(AnalysisConnector::BULK_DATA_ENTRY);
   StartObservingPref(AnalysisConnector::PRINT);
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  StartObservingPref(AnalysisConnector::FILE_TRANSFER);
+#endif
   StartObservingPref(ReportingConnector::SECURITY_EVENT);
   StartObservingPref(FileSystemConnector::SEND_DOWNLOAD_TO_CLOUD);
 }

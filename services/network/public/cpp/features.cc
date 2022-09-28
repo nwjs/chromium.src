@@ -122,7 +122,7 @@ const base::Feature kMdnsResponderGeneratedNameListing{
 //
 // Implementing ORB in Chromium is tracked in https://crbug.com/1178928
 const base::Feature kOpaqueResponseBlockingV01{
-    "OpaqueResponseBlockingV01", base::FEATURE_ENABLED_BY_DEFAULT};
+    "OpaqueResponseBlockingV01", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enables preprocessing requests with the Trust Tokens API Fetch flags set,
 // and handling their responses, according to the protocol.
@@ -230,23 +230,6 @@ uint32_t GetLoaderChunkSize() {
   return kMaxNumConsumedBytesInTask;
 }
 
-// Check disk cache to see if the queued requests (especially those don't need
-// validation) have already been cached. If yes, start them as they may not
-// contend for network.
-const base::Feature kCheckCacheForQueuedRequests{
-    "CheckCacheForQueuedRequests", base::FEATURE_DISABLED_BY_DEFAULT};
-
-// The time interval before checking the cache for queued request.
-constexpr base::FeatureParam<base::TimeDelta> kQueuedRequestsCacheCheckInterval{
-    &kCheckCacheForQueuedRequests, "queued_requests_cache_check_interval",
-    base::Milliseconds(100)};
-
-// Cache check is only valid for requests queued for long than this threshold.
-constexpr base::FeatureParam<base::TimeDelta>
-    kQueuedRequestsCacheCheckTimeThreshold{
-        &kCheckCacheForQueuedRequests,
-        "queued_requests_cache_check_time_threshold", base::Milliseconds(100)};
-
 // https://fetch.spec.whatwg.org/#cors-non-wildcard-request-header-name
 const base::Feature kCorsNonWildcardRequestHeadersSupport{
     "CorsNonWildcardRequestHeadersSupport", base::FEATURE_DISABLED_BY_DEFAULT};
@@ -298,6 +281,17 @@ const base::Feature kReduceAcceptLanguage{"ReduceAcceptLanguage",
 // Disable ResourceScheduler.
 const base::Feature kDisableResourceScheduler{
     "DisableResourceScheduler", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Reduce PNA preflight response waiting time to 200ms.
+// See: https://wicg.github.io/private-network-access/#cors-preflight
+const base::Feature kPrivateNetworkAccessPreflightShortTimeout = {
+    "PrivateNetworkAccessPreflightReduceTimeout",
+    base::FEATURE_ENABLED_BY_DEFAULT};
+
+// Handle the Link header DNS prefetches and preconnects in the network
+// service instead of through the renderer process.
+const base::Feature kPreconnectInNetworkService = {
+    "PreconnectInNetworkService", base::FEATURE_DISABLED_BY_DEFAULT};
 
 }  // namespace features
 }  // namespace network

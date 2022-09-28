@@ -275,12 +275,15 @@ class SSLPrivateKeyInternal : public net::SSLPrivateKey {
 bool ShouldNotifyAboutCookie(net::CookieInclusionStatus status) {
   // Notify about cookies actually used, and those blocked by preferences ---
   // for purposes of cookie UI --- as well those carrying warnings pertaining to
-  // SameSite features, in order to issue a deprecation warning for them.
+  // SameSite features and cookies with non-ASCII domain attributes, in order to
+  // issue a deprecation warning for them.
   return status.IsInclude() || status.ShouldWarn() ||
          status.HasExclusionReason(
              net::CookieInclusionStatus::EXCLUDE_USER_PREFERENCES) ||
          status.HasExclusionReason(
-             net::CookieInclusionStatus::EXCLUDE_INVALID_SAMEPARTY);
+             net::CookieInclusionStatus::EXCLUDE_INVALID_SAMEPARTY) ||
+         status.HasExclusionReason(
+             net::CookieInclusionStatus::EXCLUDE_DOMAIN_NON_ASCII);
 }
 
 // Concerning headers that consumers probably shouldn't be allowed to set.
@@ -1117,7 +1120,7 @@ void URLLoader::FollowRedirect(
 
   // Reset the state of the PNA checker - redirects should be treated like new
   // requests by the same client.
-  private_network_access_checker_.ResetForRedirect();
+  private_network_access_checker_.Reset();
 
   memory_cache_writer_.reset();
 
@@ -1249,6 +1252,16 @@ int URLLoader::OnConnected(net::URLRequest* url_request,
   absl::optional<mojom::CorsError> cors_error =
       PrivateNetworkAccessCheckResultToCorsError(result);
   if (cors_error.has_value()) {
+    if (result == PrivateNetworkAccessCheckResult::kBlockedByPolicyBlock &&
+        (info.type == net::TransportType::kCached ||
+         info.type == net::TransportType::kCachedFromProxy)) {
+      // If the cached entry was blocked by the private network access check
+      // without a preflight, we'll start over and attempt to request from the
+      // network, so resetting the checker.
+      private_network_access_checker_.Reset();
+      return net::
+          ERR_CACHED_IP_ADDRESS_SPACE_BLOCKED_BY_PRIVATE_NETWORK_ACCESS_POLICY;
+    }
     // Remember the CORS error so we can annotate the URLLoaderCompletionStatus
     // with it later, then fail the request with the same net error code as
     // other CORS errors.
@@ -1555,8 +1568,7 @@ void URLLoader::OnResponseStarted(net::URLRequest* url_request, int net_error) {
     return;
   }
 
-  // TODO(https://crbug.com/1339708): In-memory cache should support DevTools.
-  if (memory_cache_ && !devtools_request_id().has_value()) {
+  if (memory_cache_) {
     memory_cache_writer_ = memory_cache_->MaybeCreateWriter(
         url_request_.get(), request_destination_, transport_info_, response_);
   }

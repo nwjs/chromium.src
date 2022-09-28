@@ -13,9 +13,15 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/threading/thread_task_runner_handle.h"
+#include "content/common/aggregatable_report.mojom-shared.h"
+#include "content/common/aggregatable_report.mojom.h"
+#include "content/common/private_aggregation_features.h"
+#include "content/common/private_aggregation_host.mojom-forward.h"
 #include "content/services/auction_worklet/auction_v8_helper.h"
 #include "content/services/auction_worklet/for_debugging_only_bindings.h"
+#include "content/services/auction_worklet/private_aggregation_bindings.h"
 #include "content/services/auction_worklet/public/mojom/bidder_worklet.mojom.h"
+#include "content/services/auction_worklet/public/mojom/private_aggregation_request.mojom.h"
 #include "content/services/auction_worklet/register_ad_beacon_bindings.h"
 #include "content/services/auction_worklet/report_bindings.h"
 #include "content/services/auction_worklet/set_bid_bindings.h"
@@ -24,9 +30,11 @@
 #include "gin/dictionary.h"
 #include "testing/gmock/include/gmock/gmock-matchers.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/abseil-cpp/absl/numeric/int128.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/interest_group/interest_group.h"
 #include "v8/include/v8-context.h"
+#include "v8/include/v8-primitive.h"
 
 using testing::ElementsAre;
 using testing::Pair;
@@ -71,7 +79,9 @@ class ContextRecyclerTest : public testing::Test {
     if (!maybe_arg.IsEmpty())
       args.push_back(maybe_arg);
     return helper_->RunScript(scope.GetContext(), script,
-                              /*debug_id=*/nullptr, function_name, args,
+                              /*debug_id=*/nullptr,
+                              AuctionV8Helper::ExecMode::kTopLevelAndFunction,
+                              function_name, args,
                               /*script_timeout=*/absl::nullopt, error_msgs);
   }
 
@@ -500,6 +510,803 @@ TEST_F(ContextRecyclerTest, SetPriorityBindings) {
         context_recycler.set_priority_bindings()->set_priority().has_value());
     EXPECT_EQ(10.0,
               context_recycler.set_priority_bindings()->set_priority().value());
+  }
+}
+
+class ContextRecyclerPrivateAggregationEnabledTest
+    : public ContextRecyclerTest {
+ public:
+  ContextRecyclerPrivateAggregationEnabledTest() {
+    scoped_feature_list_.InitAndEnableFeature(content::kPrivateAggregationApi);
+  }
+
+  // Wraps a debug_key into the appropriate dictionary. Templated to allow both
+  // integers and strings.
+  template <typename T>
+  v8::Local<v8::Value> WrapDebugKey(T debug_key) {
+    gin::Dictionary dict = gin::Dictionary::CreateEmpty(helper_->isolate());
+    dict.Set("debug_key", debug_key);
+    return gin::ConvertToV8(helper_->isolate(), dict);
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+// Exercise PrivateAggregationBindings, and make sure they reset properly.
+TEST_F(ContextRecyclerPrivateAggregationEnabledTest,
+       PrivateAggregationBindings) {
+  using PrivateAggregationRequests =
+      std::vector<auction_worklet::mojom::PrivateAggregationRequestPtr>;
+
+  const char kScript[] = R"(
+    function test(args) {
+      // Passing BigInts in directly is complicated so we construct them from
+      // strings.
+      if (typeof args.bucket === "string") {
+        args.bucket = BigInt(args.bucket);
+      }
+      privateAggregation.sendHistogramReport(args);
+    }
+    function enableDebugMode(arg) {
+      if (arg === undefined) {
+        privateAggregation.enableDebugMode();
+        return;
+      }
+
+      // Passing BigInts in directly is complicated so we construct them from
+      // strings.
+      if (typeof arg.debug_key === "string") {
+        arg.debug_key = BigInt(arg.debug_key);
+      }
+      privateAggregation.enableDebugMode(arg);
+    }
+    function doNothing() {}
+  )";
+
+  v8::Local<v8::UnboundScript> script = Compile(kScript);
+  ASSERT_FALSE(script.IsEmpty());
+
+  ContextRecycler context_recycler(helper_.get());
+  context_recycler.AddPrivateAggregationBindings();
+
+  // Basic test
+  {
+    ContextRecyclerScope scope(context_recycler);
+    std::vector<std::string> error_msgs;
+
+    gin::Dictionary dict = gin::Dictionary::CreateEmpty(helper_->isolate());
+    dict.Set("bucket", 123);
+    dict.Set("value", 45);
+
+    Run(scope, script, "test", error_msgs,
+        gin::ConvertToV8(helper_->isolate(), dict));
+    EXPECT_THAT(error_msgs, ElementsAre());
+
+    content::mojom::AggregatableReportHistogramContribution
+        expected_contribution(/*bucket=*/123, /*value=*/45);
+    auction_worklet::mojom::PrivateAggregationRequest expected_request(
+        expected_contribution.Clone(),
+        content::mojom::AggregationServiceMode::kDefault,
+        content::mojom::DebugModeDetails::New());
+
+    PrivateAggregationRequests pa_requests =
+        context_recycler.private_aggregation_bindings()
+            ->TakePrivateAggregationRequests();
+    ASSERT_EQ(pa_requests.size(), 1u);
+    EXPECT_EQ(pa_requests[0], expected_request.Clone());
+  }
+
+  // BigInt bucket
+  {
+    ContextRecyclerScope scope(context_recycler);
+    std::vector<std::string> error_msgs;
+
+    gin::Dictionary dict = gin::Dictionary::CreateEmpty(helper_->isolate());
+    dict.Set("bucket", std::string("123"));
+    dict.Set("value", 45);
+
+    Run(scope, script, "test", error_msgs,
+        gin::ConvertToV8(helper_->isolate(), dict));
+    EXPECT_THAT(error_msgs, ElementsAre());
+
+    content::mojom::AggregatableReportHistogramContribution
+        expected_contribution(/*bucket=*/123, /*value=*/45);
+    auction_worklet::mojom::PrivateAggregationRequest expected_request(
+        expected_contribution.Clone(),
+        content::mojom::AggregationServiceMode::kDefault,
+        content::mojom::DebugModeDetails::New());
+
+    PrivateAggregationRequests pa_requests =
+        context_recycler.private_aggregation_bindings()
+            ->TakePrivateAggregationRequests();
+    ASSERT_EQ(pa_requests.size(), 1u);
+    EXPECT_EQ(pa_requests[0], expected_request.Clone());
+  }
+
+  // Large bucket
+  {
+    ContextRecyclerScope scope(context_recycler);
+    std::vector<std::string> error_msgs;
+
+    gin::Dictionary dict = gin::Dictionary::CreateEmpty(helper_->isolate());
+    dict.Set("bucket", std::string("18446744073709551616"));
+    dict.Set("value", 45);
+
+    Run(scope, script, "test", error_msgs,
+        gin::ConvertToV8(helper_->isolate(), dict));
+    EXPECT_THAT(error_msgs, ElementsAre());
+
+    content::mojom::AggregatableReportHistogramContribution
+        expected_contribution(
+            /*bucket=*/absl::MakeUint128(/*high=*/1, /*low=*/0), /*value=*/45);
+    auction_worklet::mojom::PrivateAggregationRequest expected_request(
+        expected_contribution.Clone(),
+        content::mojom::AggregationServiceMode::kDefault,
+        content::mojom::DebugModeDetails::New());
+
+    PrivateAggregationRequests pa_requests =
+        context_recycler.private_aggregation_bindings()
+            ->TakePrivateAggregationRequests();
+    ASSERT_EQ(pa_requests.size(), 1u);
+    EXPECT_EQ(pa_requests[0], expected_request.Clone());
+  }
+
+  // Maximum bucket
+  {
+    ContextRecyclerScope scope(context_recycler);
+    std::vector<std::string> error_msgs;
+
+    gin::Dictionary dict = gin::Dictionary::CreateEmpty(helper_->isolate());
+    dict.Set("bucket", std::string("340282366920938463463374607431768211455"));
+    dict.Set("value", 45);
+
+    Run(scope, script, "test", error_msgs,
+        gin::ConvertToV8(helper_->isolate(), dict));
+    EXPECT_THAT(error_msgs, ElementsAre());
+
+    content::mojom::AggregatableReportHistogramContribution
+        expected_contribution(/*bucket=*/absl::Uint128Max(), /*value=*/45);
+    auction_worklet::mojom::PrivateAggregationRequest expected_request(
+        expected_contribution.Clone(),
+        content::mojom::AggregationServiceMode::kDefault,
+        content::mojom::DebugModeDetails::New());
+
+    PrivateAggregationRequests pa_requests =
+        context_recycler.private_aggregation_bindings()
+            ->TakePrivateAggregationRequests();
+    ASSERT_EQ(pa_requests.size(), 1u);
+    EXPECT_EQ(pa_requests[0], expected_request.Clone());
+  }
+
+  // Zero bucket
+  {
+    ContextRecyclerScope scope(context_recycler);
+    std::vector<std::string> error_msgs;
+
+    gin::Dictionary dict = gin::Dictionary::CreateEmpty(helper_->isolate());
+    dict.Set("bucket", 0);
+    dict.Set("value", 45);
+
+    Run(scope, script, "test", error_msgs,
+        gin::ConvertToV8(helper_->isolate(), dict));
+    EXPECT_THAT(error_msgs, ElementsAre());
+
+    content::mojom::AggregatableReportHistogramContribution
+        expected_contribution(/*bucket=*/0, /*value=*/45);
+    auction_worklet::mojom::PrivateAggregationRequest expected_request(
+        expected_contribution.Clone(),
+        content::mojom::AggregationServiceMode::kDefault,
+        content::mojom::DebugModeDetails::New());
+
+    PrivateAggregationRequests pa_requests =
+        context_recycler.private_aggregation_bindings()
+            ->TakePrivateAggregationRequests();
+    ASSERT_EQ(pa_requests.size(), 1u);
+    EXPECT_EQ(pa_requests[0], expected_request.Clone());
+  }
+
+  // Zero value
+  {
+    ContextRecyclerScope scope(context_recycler);
+    std::vector<std::string> error_msgs;
+
+    gin::Dictionary dict = gin::Dictionary::CreateEmpty(helper_->isolate());
+    dict.Set("bucket", 123);
+    dict.Set("value", 0);
+
+    Run(scope, script, "test", error_msgs,
+        gin::ConvertToV8(helper_->isolate(), dict));
+    EXPECT_THAT(error_msgs, ElementsAre());
+
+    content::mojom::AggregatableReportHistogramContribution
+        expected_contribution(/*bucket=*/123, /*value=*/0);
+    auction_worklet::mojom::PrivateAggregationRequest expected_request(
+        expected_contribution.Clone(),
+        content::mojom::AggregationServiceMode::kDefault,
+        content::mojom::DebugModeDetails::New());
+
+    PrivateAggregationRequests pa_requests =
+        context_recycler.private_aggregation_bindings()
+            ->TakePrivateAggregationRequests();
+    ASSERT_EQ(pa_requests.size(), 1u);
+    EXPECT_EQ(pa_requests[0], expected_request.Clone());
+  }
+
+  // Multiple requests
+  {
+    ContextRecyclerScope scope(context_recycler);
+    std::vector<std::string> error_msgs;
+
+    {
+      gin::Dictionary dict_1 = gin::Dictionary::CreateEmpty(helper_->isolate());
+      dict_1.Set("bucket", 123);
+      dict_1.Set("value", 45);
+
+      Run(scope, script, "test", error_msgs,
+          gin::ConvertToV8(helper_->isolate(), dict_1));
+      EXPECT_THAT(error_msgs, ElementsAre());
+    }
+    {
+      gin::Dictionary dict_2 = gin::Dictionary::CreateEmpty(helper_->isolate());
+      dict_2.Set("bucket", 678);
+      dict_2.Set("value", 90);
+
+      Run(scope, script, "test", error_msgs,
+          gin::ConvertToV8(helper_->isolate(), dict_2));
+      EXPECT_THAT(error_msgs, ElementsAre());
+    }
+
+    content::mojom::AggregatableReportHistogramContribution
+        expected_contribution_1(/*bucket=*/123, /*value=*/45);
+    auction_worklet::mojom::PrivateAggregationRequest expected_request_1(
+        expected_contribution_1.Clone(),
+        content::mojom::AggregationServiceMode::kDefault,
+        content::mojom::DebugModeDetails::New());
+
+    content::mojom::AggregatableReportHistogramContribution
+        expected_contribution_2(/*bucket=*/678, /*value=*/90);
+    auction_worklet::mojom::PrivateAggregationRequest expected_request_2(
+        expected_contribution_2.Clone(),
+        content::mojom::AggregationServiceMode::kDefault,
+        content::mojom::DebugModeDetails::New());
+
+    PrivateAggregationRequests pa_requests =
+        context_recycler.private_aggregation_bindings()
+            ->TakePrivateAggregationRequests();
+    ASSERT_EQ(pa_requests.size(), 2u);
+    EXPECT_EQ(pa_requests[0], expected_request_1.Clone());
+    EXPECT_EQ(pa_requests[1], expected_request_2.Clone());
+  }
+
+  // Non-integer bucket
+  {
+    ContextRecyclerScope scope(context_recycler);
+    std::vector<std::string> error_msgs;
+
+    gin::Dictionary dict = gin::Dictionary::CreateEmpty(helper_->isolate());
+    dict.Set("bucket", 12.3);
+    dict.Set("value", 45);
+
+    Run(scope, script, "test", error_msgs,
+        gin::ConvertToV8(helper_->isolate(), dict));
+    EXPECT_THAT(
+        error_msgs,
+        ElementsAre("https://example.org/script.js:8 Uncaught TypeError: "
+                    "Bucket must be either an integer Number or BigInt."));
+
+    EXPECT_TRUE(context_recycler.private_aggregation_bindings()
+                    ->TakePrivateAggregationRequests()
+                    .empty());
+  }
+
+  // Non-integer value
+  {
+    ContextRecyclerScope scope(context_recycler);
+    std::vector<std::string> error_msgs;
+
+    gin::Dictionary dict = gin::Dictionary::CreateEmpty(helper_->isolate());
+    dict.Set("bucket", 123);
+    dict.Set("value", 4.5);
+
+    Run(scope, script, "test", error_msgs,
+        gin::ConvertToV8(helper_->isolate(), dict));
+    EXPECT_THAT(
+        error_msgs,
+        ElementsAre("https://example.org/script.js:8 Uncaught TypeError: "
+                    "Value must be an integer Number."));
+
+    EXPECT_TRUE(context_recycler.private_aggregation_bindings()
+                    ->TakePrivateAggregationRequests()
+                    .empty());
+  }
+
+  // Too large bucket
+  {
+    ContextRecyclerScope scope(context_recycler);
+    std::vector<std::string> error_msgs;
+
+    gin::Dictionary dict = gin::Dictionary::CreateEmpty(helper_->isolate());
+    dict.Set("bucket", std::string("340282366920938463463374607431768211456"));
+    dict.Set("value", 45);
+
+    Run(scope, script, "test", error_msgs,
+        gin::ConvertToV8(helper_->isolate(), dict));
+    EXPECT_THAT(
+        error_msgs,
+        ElementsAre("https://example.org/script.js:8 Uncaught TypeError: "
+                    "BigInt is too large."));
+
+    EXPECT_TRUE(context_recycler.private_aggregation_bindings()
+                    ->TakePrivateAggregationRequests()
+                    .empty());
+  }
+
+  // Negative bucket
+  {
+    ContextRecyclerScope scope(context_recycler);
+    std::vector<std::string> error_msgs;
+
+    gin::Dictionary dict = gin::Dictionary::CreateEmpty(helper_->isolate());
+    dict.Set("bucket", -1);
+    dict.Set("value", 45);
+
+    Run(scope, script, "test", error_msgs,
+        gin::ConvertToV8(helper_->isolate(), dict));
+    EXPECT_THAT(
+        error_msgs,
+        ElementsAre("https://example.org/script.js:8 Uncaught TypeError: "
+                    "Bucket must be either an integer Number or BigInt."));
+
+    EXPECT_TRUE(context_recycler.private_aggregation_bindings()
+                    ->TakePrivateAggregationRequests()
+                    .empty());
+  }
+
+  // Negative BigInt bucket
+  {
+    ContextRecyclerScope scope(context_recycler);
+    std::vector<std::string> error_msgs;
+
+    gin::Dictionary dict = gin::Dictionary::CreateEmpty(helper_->isolate());
+    dict.Set("bucket", std::string("-1"));
+    dict.Set("value", 45);
+
+    Run(scope, script, "test", error_msgs,
+        gin::ConvertToV8(helper_->isolate(), dict));
+    EXPECT_THAT(
+        error_msgs,
+        ElementsAre("https://example.org/script.js:8 Uncaught TypeError: "
+                    "BigInt must be non-negative."));
+
+    EXPECT_TRUE(context_recycler.private_aggregation_bindings()
+                    ->TakePrivateAggregationRequests()
+                    .empty());
+  }
+
+  // Negative value
+  {
+    ContextRecyclerScope scope(context_recycler);
+    std::vector<std::string> error_msgs;
+
+    gin::Dictionary dict = gin::Dictionary::CreateEmpty(helper_->isolate());
+    dict.Set("bucket", 123);
+    dict.Set("value", -1);
+
+    Run(scope, script, "test", error_msgs,
+        gin::ConvertToV8(helper_->isolate(), dict));
+    EXPECT_THAT(
+        error_msgs,
+        ElementsAre("https://example.org/script.js:8 Uncaught TypeError: "
+                    "Value must be non-negative."));
+
+    EXPECT_TRUE(context_recycler.private_aggregation_bindings()
+                    ->TakePrivateAggregationRequests()
+                    .empty());
+  }
+
+  // Missing bucket
+  {
+    ContextRecyclerScope scope(context_recycler);
+    std::vector<std::string> error_msgs;
+
+    gin::Dictionary dict = gin::Dictionary::CreateEmpty(helper_->isolate());
+    dict.Set("value", 45);
+
+    Run(scope, script, "test", error_msgs,
+        gin::ConvertToV8(helper_->isolate(), dict));
+    EXPECT_THAT(
+        error_msgs,
+        ElementsAre(
+            "https://example.org/script.js:8 Uncaught TypeError: "
+            "Invalid or missing bucket in sendHistogramReport argument."));
+
+    EXPECT_TRUE(context_recycler.private_aggregation_bindings()
+                    ->TakePrivateAggregationRequests()
+                    .empty());
+  }
+
+  // Missing value
+  {
+    ContextRecyclerScope scope(context_recycler);
+    std::vector<std::string> error_msgs;
+
+    gin::Dictionary dict = gin::Dictionary::CreateEmpty(helper_->isolate());
+    dict.Set("bucket", 123);
+
+    Run(scope, script, "test", error_msgs,
+        gin::ConvertToV8(helper_->isolate(), dict));
+    EXPECT_THAT(
+        error_msgs,
+        ElementsAre(
+            "https://example.org/script.js:8 Uncaught TypeError: "
+            "Invalid or missing value in sendHistogramReport argument."));
+
+    EXPECT_TRUE(context_recycler.private_aggregation_bindings()
+                    ->TakePrivateAggregationRequests()
+                    .empty());
+  }
+
+  // Debug mode enabled with no debug key
+  {
+    ContextRecyclerScope scope(context_recycler);
+    std::vector<std::string> error_msgs;
+
+    Run(scope, script, "enableDebugMode", error_msgs);
+    EXPECT_THAT(error_msgs, ElementsAre());
+
+    gin::Dictionary dict = gin::Dictionary::CreateEmpty(helper_->isolate());
+    dict.Set("bucket", 123);
+    dict.Set("value", 45);
+
+    Run(scope, script, "test", error_msgs,
+        gin::ConvertToV8(helper_->isolate(), dict));
+    EXPECT_THAT(error_msgs, ElementsAre());
+
+    content::mojom::AggregatableReportHistogramContribution
+        expected_contribution(
+            /*bucket=*/123, /*value=*/45);
+    auction_worklet::mojom::PrivateAggregationRequest expected_request(
+        expected_contribution.Clone(),
+        content::mojom::AggregationServiceMode::kDefault,
+        content::mojom::DebugModeDetails::New(/*is_enabled=*/true,
+                                              /*debug_key=*/nullptr));
+
+    PrivateAggregationRequests pa_requests =
+        context_recycler.private_aggregation_bindings()
+            ->TakePrivateAggregationRequests();
+    ASSERT_EQ(pa_requests.size(), 1u);
+    EXPECT_EQ(pa_requests[0], expected_request.Clone());
+  }
+
+  // Debug mode enabled with debug key
+  {
+    ContextRecyclerScope scope(context_recycler);
+    std::vector<std::string> error_msgs;
+
+    Run(scope, script, "enableDebugMode", error_msgs, WrapDebugKey(1234));
+    EXPECT_THAT(error_msgs, ElementsAre());
+
+    gin::Dictionary dict = gin::Dictionary::CreateEmpty(helper_->isolate());
+    dict.Set("bucket", 123);
+    dict.Set("value", 45);
+
+    Run(scope, script, "test", error_msgs,
+        gin::ConvertToV8(helper_->isolate(), dict));
+    EXPECT_THAT(error_msgs, ElementsAre());
+
+    content::mojom::AggregatableReportHistogramContribution
+        expected_contribution(
+            /*bucket=*/123, /*value=*/45);
+    auction_worklet::mojom::PrivateAggregationRequest expected_request(
+        expected_contribution.Clone(),
+        content::mojom::AggregationServiceMode::kDefault,
+        content::mojom::DebugModeDetails::New(
+            /*is_enabled=*/true,
+            /*debug_key=*/content::mojom::DebugKey::New(1234u)));
+
+    PrivateAggregationRequests pa_requests =
+        context_recycler.private_aggregation_bindings()
+            ->TakePrivateAggregationRequests();
+    ASSERT_EQ(pa_requests.size(), 1u);
+    EXPECT_EQ(pa_requests[0], expected_request.Clone());
+  }
+
+  // Debug mode enabled with BigInt debug key
+  {
+    ContextRecyclerScope scope(context_recycler);
+    std::vector<std::string> error_msgs;
+
+    Run(scope, script, "enableDebugMode", error_msgs,
+        WrapDebugKey(std::string("18446744073709551615")));
+    EXPECT_THAT(error_msgs, ElementsAre());
+
+    gin::Dictionary dict = gin::Dictionary::CreateEmpty(helper_->isolate());
+    dict.Set("bucket", 123);
+    dict.Set("value", 45);
+
+    Run(scope, script, "test", error_msgs,
+        gin::ConvertToV8(helper_->isolate(), dict));
+    EXPECT_THAT(error_msgs, ElementsAre());
+
+    content::mojom::AggregatableReportHistogramContribution
+        expected_contribution(
+            /*bucket=*/123, /*value=*/45);
+    auction_worklet::mojom::PrivateAggregationRequest expected_request(
+        expected_contribution.Clone(),
+        content::mojom::AggregationServiceMode::kDefault,
+        content::mojom::DebugModeDetails::New(
+            /*is_enabled=*/true,
+            /*debug_key=*/content::mojom::DebugKey::New(
+                std::numeric_limits<uint64_t>::max())));
+
+    PrivateAggregationRequests pa_requests =
+        context_recycler.private_aggregation_bindings()
+            ->TakePrivateAggregationRequests();
+    ASSERT_EQ(pa_requests.size(), 1u);
+    EXPECT_EQ(pa_requests[0], expected_request.Clone());
+  }
+
+  // Negative debug key
+  {
+    ContextRecyclerScope scope(context_recycler);
+    std::vector<std::string> error_msgs;
+
+    Run(scope, script, "enableDebugMode", error_msgs, WrapDebugKey(-1));
+    EXPECT_THAT(
+        error_msgs,
+        ElementsAre("https://example.org/script.js:21 Uncaught TypeError: "
+                    "debug_key must be either a non-negative integer Number or "
+                    "BigInt."));
+
+    EXPECT_TRUE(context_recycler.private_aggregation_bindings()
+                    ->TakePrivateAggregationRequests()
+                    .empty());
+  }
+
+  // Non-integer debug key
+  {
+    ContextRecyclerScope scope(context_recycler);
+    std::vector<std::string> error_msgs;
+
+    Run(scope, script, "enableDebugMode", error_msgs, WrapDebugKey(1.5));
+    EXPECT_THAT(
+        error_msgs,
+        ElementsAre("https://example.org/script.js:21 Uncaught TypeError: "
+                    "debug_key must be either a non-negative integer Number or "
+                    "BigInt."));
+
+    EXPECT_TRUE(context_recycler.private_aggregation_bindings()
+                    ->TakePrivateAggregationRequests()
+                    .empty());
+  }
+
+  // Too large debug key
+  {
+    ContextRecyclerScope scope(context_recycler);
+    std::vector<std::string> error_msgs;
+
+    Run(scope, script, "enableDebugMode", error_msgs,
+        WrapDebugKey(std::string("18446744073709551616")));
+    EXPECT_THAT(error_msgs,
+                ElementsAre("https://example.org/script.js:21 Uncaught "
+                            "TypeError: BigInt is too large."));
+
+    EXPECT_TRUE(context_recycler.private_aggregation_bindings()
+                    ->TakePrivateAggregationRequests()
+                    .empty());
+  }
+
+  // Invalid enableDebugMode argument
+  {
+    ContextRecyclerScope scope(context_recycler);
+    std::vector<std::string> error_msgs;
+
+    // The debug key is not wrapped in a dictionary.
+    Run(scope, script, "enableDebugMode", error_msgs,
+        gin::ConvertToV8(helper_->isolate(), 1234));
+    EXPECT_THAT(
+        error_msgs,
+        ElementsAre("https://example.org/script.js:21 Uncaught TypeError: "
+                    "Invalid argument in enableDebugMode."));
+
+    EXPECT_TRUE(context_recycler.private_aggregation_bindings()
+                    ->TakePrivateAggregationRequests()
+                    .empty());
+  }
+
+  // enableDebugMode called twice: second call fails, first continues to apply
+  {
+    ContextRecyclerScope scope(context_recycler);
+    std::vector<std::string> error_msgs;
+
+    Run(scope, script, "enableDebugMode", error_msgs, WrapDebugKey(1234));
+    EXPECT_THAT(error_msgs, ElementsAre());
+
+    Run(scope, script, "enableDebugMode", error_msgs);
+    EXPECT_THAT(
+        error_msgs,
+        ElementsAre("https://example.org/script.js:12 Uncaught TypeError: "
+                    "enableDebugMode may be called at most once."));
+    error_msgs.clear();
+
+    gin::Dictionary dict = gin::Dictionary::CreateEmpty(helper_->isolate());
+    dict.Set("bucket", 123);
+    dict.Set("value", 45);
+
+    Run(scope, script, "test", error_msgs,
+        gin::ConvertToV8(helper_->isolate(), dict));
+    EXPECT_THAT(error_msgs, ElementsAre());
+
+    content::mojom::AggregatableReportHistogramContribution
+        expected_contribution(
+            /*bucket=*/123, /*value=*/45);
+    auction_worklet::mojom::PrivateAggregationRequest expected_request(
+        expected_contribution.Clone(),
+        content::mojom::AggregationServiceMode::kDefault,
+        content::mojom::DebugModeDetails::New(
+            /*is_enabled=*/true,
+            /*debug_key=*/content::mojom::DebugKey::New(1234u)));
+
+    PrivateAggregationRequests pa_requests =
+        context_recycler.private_aggregation_bindings()
+            ->TakePrivateAggregationRequests();
+    ASSERT_EQ(pa_requests.size(), 1u);
+    EXPECT_EQ(pa_requests[0], expected_request.Clone());
+  }
+
+  // enableDebugMode called after report requested: debug details still applied
+  // Note that Shared Storage worklets have different behavior in this case.
+  {
+    ContextRecyclerScope scope(context_recycler);
+    std::vector<std::string> error_msgs;
+
+    gin::Dictionary dict = gin::Dictionary::CreateEmpty(helper_->isolate());
+    dict.Set("bucket", 123);
+    dict.Set("value", 45);
+
+    Run(scope, script, "test", error_msgs,
+        gin::ConvertToV8(helper_->isolate(), dict));
+    EXPECT_THAT(error_msgs, ElementsAre());
+
+    Run(scope, script, "enableDebugMode", error_msgs, WrapDebugKey(1234));
+    EXPECT_THAT(error_msgs, ElementsAre());
+
+    content::mojom::AggregatableReportHistogramContribution
+        expected_contribution(
+            /*bucket=*/123, /*value=*/45);
+    auction_worklet::mojom::PrivateAggregationRequest expected_request(
+        expected_contribution.Clone(),
+        content::mojom::AggregationServiceMode::kDefault,
+        content::mojom::DebugModeDetails::New(
+            /*is_enabled=*/true,
+            /*debug_key=*/content::mojom::DebugKey::New(1234u)));
+
+    PrivateAggregationRequests pa_requests =
+        context_recycler.private_aggregation_bindings()
+            ->TakePrivateAggregationRequests();
+    ASSERT_EQ(pa_requests.size(), 1u);
+    EXPECT_EQ(pa_requests[0], expected_request.Clone());
+  }
+
+  // Multiple debug mode reports
+  {
+    ContextRecyclerScope scope(context_recycler);
+    std::vector<std::string> error_msgs;
+
+    Run(scope, script, "enableDebugMode", error_msgs, WrapDebugKey(1234));
+    EXPECT_THAT(error_msgs, ElementsAre());
+
+    {
+      gin::Dictionary dict_1 = gin::Dictionary::CreateEmpty(helper_->isolate());
+      dict_1.Set("bucket", 123);
+      dict_1.Set("value", 45);
+
+      Run(scope, script, "test", error_msgs,
+          gin::ConvertToV8(helper_->isolate(), dict_1));
+      EXPECT_THAT(error_msgs, ElementsAre());
+    }
+    {
+      gin::Dictionary dict_2 = gin::Dictionary::CreateEmpty(helper_->isolate());
+      dict_2.Set("bucket", 678);
+      dict_2.Set("value", 90);
+
+      Run(scope, script, "test", error_msgs,
+          gin::ConvertToV8(helper_->isolate(), dict_2));
+      EXPECT_THAT(error_msgs, ElementsAre());
+    }
+
+    content::mojom::AggregatableReportHistogramContribution
+        expected_contribution_1(/*bucket=*/123, /*value=*/45);
+    auction_worklet::mojom::PrivateAggregationRequest expected_request_1(
+        expected_contribution_1.Clone(),
+        content::mojom::AggregationServiceMode::kDefault,
+        content::mojom::DebugModeDetails::New(
+            /*is_enabled=*/true,
+            /*debug_key=*/content::mojom::DebugKey::New(1234u)));
+
+    content::mojom::AggregatableReportHistogramContribution
+        expected_contribution_2(/*bucket=*/678, /*value=*/90);
+    auction_worklet::mojom::PrivateAggregationRequest expected_request_2(
+        expected_contribution_2.Clone(),
+        content::mojom::AggregationServiceMode::kDefault,
+        content::mojom::DebugModeDetails::New(
+            /*is_enabled=*/true,
+            /*debug_key=*/content::mojom::DebugKey::New(1234u)));
+
+    PrivateAggregationRequests pa_requests =
+        context_recycler.private_aggregation_bindings()
+            ->TakePrivateAggregationRequests();
+    ASSERT_EQ(pa_requests.size(), 2u);
+    EXPECT_EQ(pa_requests[0], expected_request_1.Clone());
+    EXPECT_EQ(pa_requests[1], expected_request_2.Clone());
+  }
+
+  // API not called
+  {
+    ContextRecyclerScope scope(context_recycler);
+    std::vector<std::string> error_msgs;
+
+    gin::Dictionary dict = gin::Dictionary::CreateEmpty(helper_->isolate());
+
+    Run(scope, script, "doNothing", error_msgs,
+        gin::ConvertToV8(helper_->isolate(), dict));
+    EXPECT_THAT(error_msgs, ElementsAre());
+
+    EXPECT_TRUE(context_recycler.private_aggregation_bindings()
+                    ->TakePrivateAggregationRequests()
+                    .empty());
+  }
+}
+
+class ContextRecyclerPrivateAggregationDisabledTest
+    : public ContextRecyclerTest {
+ public:
+  ContextRecyclerPrivateAggregationDisabledTest() {
+    scoped_feature_list_.InitAndDisableFeature(content::kPrivateAggregationApi);
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+// Exercise PrivateAggregationBindings, and make sure they reset properly.
+TEST_F(ContextRecyclerPrivateAggregationDisabledTest,
+       PrivateAggregationBindings) {
+  using PrivateAggregationRequests =
+      std::vector<auction_worklet::mojom::PrivateAggregationRequestPtr>;
+
+  const char kScript[] = R"(
+    function test(args) {
+      privateAggregation.sendHistogramReport(args);
+    }
+  )";
+
+  v8::Local<v8::UnboundScript> script = Compile(kScript);
+  ASSERT_FALSE(script.IsEmpty());
+
+  ContextRecycler context_recycler(helper_.get());
+  context_recycler.AddPrivateAggregationBindings();
+
+  {
+    ContextRecyclerScope scope(context_recycler);
+    std::vector<std::string> error_msgs;
+
+    gin::Dictionary dict = gin::Dictionary::CreateEmpty(helper_->isolate());
+    dict.Set("bucket", 123);
+    dict.Set("value", 45);
+
+    Run(scope, script, "test", error_msgs,
+        gin::ConvertToV8(helper_->isolate(), dict));
+    EXPECT_THAT(
+        error_msgs,
+        ElementsAre("https://example.org/script.js:3 Uncaught ReferenceError: "
+                    "privateAggregation is not defined."));
+
+    PrivateAggregationRequests pa_requests =
+        context_recycler.private_aggregation_bindings()
+            ->TakePrivateAggregationRequests();
+    ASSERT_TRUE(pa_requests.empty());
   }
 }
 

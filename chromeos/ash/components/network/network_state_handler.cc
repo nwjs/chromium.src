@@ -18,7 +18,7 @@
 #include "base/guid.h"
 #include "base/location.h"
 #include "base/memory/ptr_util.h"
-#include "base/metrics/histogram_macros.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
@@ -31,7 +31,7 @@
 #include "chromeos/ash/components/network/tether_constants.h"
 #include "third_party/cros_system_api/dbus/service_constants.h"
 
-namespace chromeos {
+namespace ash {
 
 namespace {
 
@@ -42,12 +42,10 @@ constexpr char kReasonUpdate[] = "Update";
 constexpr char kReasonUpdateIPConfig[] = "UpdateIPConfig";
 constexpr char kReasonUpdateDeviceIPConfig[] = "UpdateDeviceIPConfig";
 constexpr char kReasonTether[] = "Tether Change";
+constexpr char kReasonPortal[] = "Portal State Change";
 
 bool ConnectionStateChanged(const NetworkState* network,
-                            const std::string& prev_connection_state,
-                            NetworkState::PortalState prev_portal_state) {
-  if (network->portal_state() != prev_portal_state)
-    return true;
+                            const std::string& prev_connection_state) {
   std::string connection_state = network->connection_state();
   bool prev_idle = prev_connection_state.empty() ||
                    prev_connection_state == shill::kStateIdle;
@@ -96,7 +94,7 @@ bool ShouldIncludeNetworkInList(const NetworkState* network_state,
 
   if (network_state->type() == shill::kTypeVPN) {
     if (network_state->GetVpnProviderType() == shill::kProviderIKEv2 &&
-        !base::FeatureList::IsEnabled(ash::features::kEnableIkev2Vpn)) {
+        !base::FeatureList::IsEnabled(features::kEnableIkev2Vpn)) {
       return false;
     }
   }
@@ -238,7 +236,7 @@ void NetworkStateHandler::SyncStubCellularNetworks() {
 
 void NetworkStateHandler::RequestTrafficCounters(
     const std::string& service_path,
-    DBusMethodCallback<base::Value> callback) {
+    chromeos::DBusMethodCallback<base::Value> callback) {
   shill_property_handler_->RequestTrafficCounters(service_path,
                                                   std::move(callback));
 }
@@ -564,19 +562,21 @@ void NetworkStateHandler::SetShillConnectError(
   network->shill_connect_error_ = shill_connect_error;
 }
 
-void NetworkStateHandler::SetNetworkChromePortalDetected(
+void NetworkStateHandler::SetNetworkChromePortalState(
     const std::string& service_path,
-    bool portal_detected) {
+    NetworkState::PortalState portal_state) {
   NetworkState* network = GetModifiableNetworkState(service_path);
-  if (!network || network->is_chrome_captive_portal_ == portal_detected)
+  if (!network)
     return;
-  bool was_captive_portal = network->IsCaptivePortal();
-  network->is_chrome_captive_portal_ = portal_detected;
-  // Only notify a connection state change if IsCaptivePortal() changed.
-  if (was_captive_portal == network->IsCaptivePortal())
+  NET_LOG(USER) << "Setting Chrome PortalState for "
+                << NetworkPathId(service_path) << " = " << portal_state;
+  auto prev_portal_state = network->GetPortalState();
+  network->set_chrome_portal_state(portal_state);
+  if (prev_portal_state == network->GetPortalState() ||
+      service_path != default_network_path_) {
     return;
-  network_list_sorted_ = false;
-  OnNetworkConnectionStateChanged(network);
+  }
+  NotifyDefaultNetworkChanged(kReasonPortal);
 }
 
 std::string NetworkStateHandler::FormattedHardwareAddressForType(
@@ -996,8 +996,7 @@ void NetworkStateHandler::SetTetherNetworkStateConnectionState(
   tether_network_state->SetConnectionState(connection_state);
   network_list_sorted_ = false;
 
-  if (ConnectionStateChanged(tether_network_state, prev_connection_state,
-                             tether_network_state->portal_state())) {
+  if (ConnectionStateChanged(tether_network_state, prev_connection_state)) {
     NET_LOG(EVENT) << "Changing connection state for Tether network with GUID "
                    << guid << ". Old state: " << prev_connection_state << ", "
                    << "New state: " << connection_state;
@@ -1430,7 +1429,6 @@ void NetworkStateHandler::UpdateNetworkStateProperties(
   DCHECK(network);
   bool network_property_updated = false;
   std::string prev_connection_state = network->connection_state();
-  NetworkState::PortalState prev_portal_state = network->portal_state();
   bool metered = false;
   bool had_icccid_before_update = !network->iccid().empty();
   for (const auto iter : properties.DictItems()) {
@@ -1457,8 +1455,7 @@ void NetworkStateHandler::UpdateNetworkStateProperties(
   // Notify observers of NetworkState changes.
   if (network_property_updated || network->update_requested()) {
     // Signal connection state changed after all properties have been updated.
-    if (ConnectionStateChanged(network, prev_connection_state,
-                               prev_portal_state)) {
+    if (ConnectionStateChanged(network, prev_connection_state)) {
       // Also notifies that the default network changed if this is the default.
       OnNetworkConnectionStateChanged(network);
     } else if (network->path() == default_network_path_ &&
@@ -1487,7 +1484,6 @@ void NetworkStateHandler::UpdateNetworkServiceProperty(
     return;
   }
   std::string prev_connection_state = network->connection_state();
-  NetworkState::PortalState prev_portal_state = network->portal_state();
   std::string prev_profile_path = network->profile_path();
   bool had_icccid_before_update = !network->iccid().empty();
   changed |= network->PropertyChanged(key, value);
@@ -1505,8 +1501,7 @@ void NetworkStateHandler::UpdateNetworkServiceProperty(
 
   if (key == shill::kStateProperty || key == shill::kVisibleProperty) {
     network_list_sorted_ = false;
-    if (ConnectionStateChanged(network, prev_connection_state,
-                               prev_portal_state)) {
+    if (ConnectionStateChanged(network, prev_connection_state)) {
       notify_connection_state = true;
       notify_active = true;
       if (notify_default)
@@ -1630,7 +1625,7 @@ void NetworkStateHandler::UpdateIPConfigProperties(
     ManagedState::ManagedType type,
     const std::string& path,
     const std::string& ip_config_path,
-    const base::Value& properties) {
+    base::Value properties) {
   if (type == ManagedState::MANAGED_TYPE_NETWORK) {
     NetworkState* network = GetModifiableNetworkState(path);
     if (!network)
@@ -1645,7 +1640,7 @@ void NetworkStateHandler::UpdateIPConfigProperties(
     DeviceState* device = GetModifiableDeviceState(path);
     if (!device)
       return;
-    device->IPConfigPropertiesChanged(ip_config_path, properties);
+    device->IPConfigPropertiesChanged(ip_config_path, std::move(properties));
     NotifyDevicePropertiesUpdated(device);
     if (!default_network_path_.empty()) {
       const NetworkState* default_network =
@@ -1777,9 +1772,9 @@ void NetworkStateHandler::UpdateNetworkStats() {
         ++shared;
     }
   }
-  UMA_HISTOGRAM_COUNTS_100("Networks.Visible", visible);
-  UMA_HISTOGRAM_COUNTS_100("Networks.RememberedShared", shared);
-  UMA_HISTOGRAM_COUNTS_100("Networks.RememberedUnshared", unshared);
+  base::UmaHistogramCounts100("Networks.Visible", visible);
+  base::UmaHistogramCounts100("Networks.RememberedShared", shared);
+  base::UmaHistogramCounts100("Networks.RememberedUnshared", unshared);
 }
 
 void NetworkStateHandler::DefaultNetworkServiceChanged(
@@ -2078,25 +2073,92 @@ void NetworkStateHandler::NotifyDefaultNetworkChanged(
   notifying_network_observers_ = true;
   for (auto& observer : observers_)
     observer.DefaultNetworkChanged(default_network);
+  notifying_network_observers_ = false;
 
+  UpdatePortalStateAndNotify(default_network);
+}
+
+void NetworkStateHandler::UpdatePortalStateAndNotify(
+    const NetworkState* default_network) {
+  NetworkState::PortalState new_portal_state;
+  std::string new_default_network_path;
   if (default_network &&
-      (default_network->portal_state() != default_network_portal_state_ ||
+      (default_network->shill_portal_state() != default_network_portal_state_ ||
        default_network->proxy_config() != default_network_proxy_config_)) {
-    default_network_portal_state_ = default_network->portal_state();
+    new_portal_state = default_network->shill_portal_state();
+    new_default_network_path = default_network->path();
     default_network_proxy_config_ = default_network->proxy_config().Clone();
-    for (auto& observer : observers_) {
-      observer.PortalStateChanged(default_network,
-                                  default_network_portal_state_);
-    }
   } else if (!default_network && (default_network_portal_state_ !=
                                       NetworkState::PortalState::kUnknown ||
                                   !default_network_proxy_config_.is_none())) {
-    default_network_portal_state_ = NetworkState::PortalState::kUnknown;
+    new_portal_state = NetworkState::PortalState::kUnknown;
     default_network_proxy_config_ = base::Value();
-    for (auto& observer : observers_)
-      observer.PortalStateChanged(nullptr, NetworkState::PortalState::kUnknown);
+  } else {
+    // No portal state changes.
+    return;
   }
-  notifying_network_observers_ = false;
+
+  // Update metrics.
+  if (new_default_network_path != default_network_path_) {
+    // When the default network changes, update time histograms with a 0 result
+    // to indicate a failure to transition to online.
+    if (time_in_portal_) {
+      SendPortalHistogramTimes(base::TimeDelta());
+      time_in_portal_.reset();
+    }
+  } else {
+    switch (new_portal_state) {
+      case NetworkState::PortalState::kUnknown:
+        // If we transition to an unknown state, update time histograms with a 0
+        // result to indicate a failure to transition to online.
+        if (time_in_portal_) {
+          SendPortalHistogramTimes(base::TimeDelta());
+          time_in_portal_.reset();
+        }
+        break;
+      case NetworkState::PortalState::kOnline:
+        if (time_in_portal_) {
+          SendPortalHistogramTimes(time_in_portal_->Elapsed());
+          time_in_portal_.reset();
+        }
+        break;
+      case NetworkState::PortalState::kPortalSuspected:
+        [[fallthrough]];
+      case NetworkState::PortalState::kPortal:
+        time_in_portal_ = base::ElapsedTimer();
+        break;
+      case NetworkState::PortalState::kProxyAuthRequired:
+        [[fallthrough]];
+      case NetworkState::PortalState::kNoInternet:
+        // We don't track these states, reset the timer.
+        time_in_portal_.reset();
+        break;
+    }
+  }
+
+  // Update the portal state after sending histograms.
+  default_network_portal_state_ = new_portal_state;
+
+  // Notify observers.
+  NET_LOG(EVENT) << "NOTIFY: PortalStateChanged: "
+                 << GetLogName(default_network) << ": "
+                 << default_network_portal_state_;
+  for (auto& observer : observers_)
+    observer.PortalStateChanged(default_network, default_network_portal_state_);
+}
+
+void NetworkStateHandler::SendPortalHistogramTimes(base::TimeDelta elapsed) {
+  switch (default_network_portal_state_) {
+    case NetworkState::PortalState::kPortal:
+      base::UmaHistogramTimes("Network.RedirectFoundToOnlineTime", elapsed);
+      break;
+    case NetworkState::PortalState::kPortalSuspected:
+      base::UmaHistogramTimes("Network.PortalSuspectedToOnlineTime", elapsed);
+      break;
+    default:
+      // Previous state was not portalled, no times to report.
+      break;
+  }
 }
 
 bool NetworkStateHandler::ActiveNetworksChanged(
@@ -2241,6 +2303,9 @@ std::vector<std::string> NetworkStateHandler::GetTechnologiesForType(
 
 void NetworkStateHandler::SetDefaultNetworkValues(const std::string& path,
                                                   bool metered) {
+  // If the default network changes, ensure that the portal state is updated.
+  if (!path.empty())
+    UpdatePortalStateAndNotify(GetNetworkState(path));
   default_network_path_ = path;
   default_network_is_metered_ = metered;
 }
@@ -2255,4 +2320,4 @@ void NetworkStateHandler::ProcessIsUserLoggedIn(
   is_user_logged_in_ = profile_list.GetListDeprecated().size() > 1;
 }
 
-}  // namespace chromeos
+}  // namespace ash

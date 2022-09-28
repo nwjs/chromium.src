@@ -9,6 +9,7 @@
 #include "base/bind.h"
 #include "base/debug/crash_logging.h"
 #include "base/logging.h"
+#include "components/web_package/web_bundle_url_loader_factory.h"
 #include "mojo/public/cpp/bindings/message.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "net/base/load_flags.h"
@@ -29,7 +30,6 @@
 #include "services/network/resource_scheduler/resource_scheduler_client.h"
 #include "services/network/url_loader.h"
 #include "services/network/url_loader_factory.h"
-#include "services/network/web_bundle/web_bundle_url_loader_factory.h"
 #include "url/origin.h"
 
 namespace network {
@@ -270,12 +270,13 @@ void CorsURLLoaderFactory::CreateLoaderAndStart(
       devtools_observer = GetDevToolsObserver(resource_request);
     }
 
-    base::WeakPtr<WebBundleURLLoaderFactory> web_bundle_url_loader_factory =
-        context_->GetWebBundleManager().CreateWebBundleURLLoaderFactory(
-            resource_request.url, *resource_request.web_bundle_token_params,
-            process_id_, std::move(devtools_observer),
-            resource_request.devtools_request_id, cross_origin_embedder_policy_,
-            coep_reporter());
+    base::WeakPtr<web_package::WebBundleURLLoaderFactory>
+        web_bundle_url_loader_factory =
+            context_->GetWebBundleManager().CreateWebBundleURLLoaderFactory(
+                resource_request.url, *resource_request.web_bundle_token_params,
+                process_id_, std::move(devtools_observer),
+                resource_request.devtools_request_id,
+                cross_origin_embedder_policy_, coep_reporter());
     client = web_bundle_url_loader_factory->MaybeWrapURLLoaderClient(
         std::move(client));
     if (!client)
@@ -299,13 +300,10 @@ void CorsURLLoaderFactory::CreateLoaderAndStart(
             factory_override_->ShouldSkipCorsEnabledSchemeCheck(),
         std::move(client), traffic_annotation, inner_url_loader_factory,
         factory_override_ ? nullptr : network_loader_factory_.get(),
-        origin_access_list_, context_->cors_preflight_controller(),
-        context_->cors_exempt_header_list(),
-        GetAllowAnyCorsExemptHeaderForBrowser(),
-        context_->cors_non_wildcard_request_headers_support(),
+        origin_access_list_, GetAllowAnyCorsExemptHeaderForBrowser(),
         HasFactoryOverride(!!factory_override_), isolation_info_,
         std::move(devtools_observer), client_security_state_.get(),
-        context_->GetMemoryCache(), cross_origin_embedder_policy_);
+        cross_origin_embedder_policy_, context_);
     auto* raw_loader = loader.get();
     OnCorsURLLoaderCreated(std::move(loader));
     raw_loader->Start();

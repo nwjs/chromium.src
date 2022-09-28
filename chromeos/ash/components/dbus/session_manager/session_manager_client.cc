@@ -28,12 +28,12 @@
 #include "base/strings/stringprintf.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/unguessable_token.h"
+#include "chromeos/ash/components/dbus/cryptohome/rpc.pb.h"
 #include "chromeos/ash/components/dbus/login_manager/arc.pb.h"
 #include "chromeos/ash/components/dbus/login_manager/login_screen_storage.pb.h"
 #include "chromeos/ash/components/dbus/login_manager/policy_descriptor.pb.h"
 #include "chromeos/ash/components/dbus/session_manager/fake_session_manager_client.h"
 #include "chromeos/dbus/common/blocking_method_caller.h"
-#include "chromeos/dbus/cryptohome/rpc.pb.h"
 #include "components/policy/proto/device_management_backend.pb.h"
 #include "dbus/bus.h"
 #include "dbus/message.h"
@@ -378,6 +378,41 @@ class SessionManagerClientImpl : public SessionManagerClient {
                        weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
   }
 
+  void UnblockDevModeForEnrollment(VoidDBusMethodCallback callback) override {
+    dbus::MethodCall method_call(
+        login_manager::kSessionManagerInterface,
+        login_manager::kSessionManagerUnblockDevModeForEnrollment);
+    dbus::MessageWriter writer(&method_call);
+    session_manager_proxy_->CallMethod(
+        &method_call, dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
+        base::BindOnce(&SessionManagerClientImpl::OnVoidMethod,
+                       weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+  }
+
+  void UnblockDevModeForCarrierLock(VoidDBusMethodCallback callback) override {
+    dbus::MethodCall method_call(
+        login_manager::kSessionManagerInterface,
+        login_manager::kSessionManagerUnblockDevModeForCarrierLock);
+    dbus::MessageWriter writer(&method_call);
+    session_manager_proxy_->CallMethod(
+        &method_call, dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
+        base::BindOnce(&SessionManagerClientImpl::OnVoidMethod,
+                       weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+  }
+
+  void UnblockDevModeForInitialStateDetermination(
+      VoidDBusMethodCallback callback) override {
+    dbus::MethodCall method_call(
+        login_manager::kSessionManagerInterface,
+        login_manager::
+            kSessionManagerUnblockDevModeForInitialStateDetermination);
+    dbus::MessageWriter writer(&method_call);
+    session_manager_proxy_->CallMethod(
+        &method_call, dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
+        base::BindOnce(&SessionManagerClientImpl::OnVoidMethod,
+                       weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+  }
+
   void StartTPMFirmwareUpdate(const std::string& update_mode) override {
     dbus::MethodCall method_call(
         login_manager::kSessionManagerInterface,
@@ -671,7 +706,8 @@ class SessionManagerClientImpl : public SessionManagerClient {
                        weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
   }
 
-  void GetArcStartTime(DBusMethodCallback<base::TimeTicks> callback) override {
+  void GetArcStartTime(
+      chromeos::DBusMethodCallback<base::TimeTicks> callback) override {
     dbus::MethodCall method_call(
         login_manager::kSessionManagerInterface,
         login_manager::kSessionManagerGetArcStartTimeTicks);
@@ -1076,7 +1112,7 @@ class SessionManagerClientImpl : public SessionManagerClient {
     std::move(callback).Run(psm_device_active_secret);
   }
 
-  void OnGetArcStartTime(DBusMethodCallback<base::TimeTicks> callback,
+  void OnGetArcStartTime(chromeos::DBusMethodCallback<base::TimeTicks> callback,
                          dbus::Response* response) {
     if (!response) {
       std::move(callback).Run(absl::nullopt);

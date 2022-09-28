@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <utility>
 
-#include "ash/components/tpm/install_attributes.h"
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_switches.h"
 #include "ash/public/cpp/locale_update_controller.h"
@@ -45,6 +44,7 @@
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
+#include "chromeos/ash/components/install_attributes/install_attributes.h"
 #include "chromeos/system/statistics_provider.h"
 #include "components/language/core/browser/pref_names.h"
 #include "components/prefs/pref_registry_simple.h"
@@ -360,37 +360,36 @@ bool DemoSession::ShouldShowWebApp(const std::string& app_id) {
 }
 
 // static
-base::Value DemoSession::GetCountryList() {
-  base::Value country_list(base::Value::Type::LIST);
+base::Value::List DemoSession::GetCountryList() {
+  base::Value::List country_list;
   std::string region(GetDefaultRegion());
   bool country_selected = false;
 
   for (CountryCodeAndFullNamePair pair :
        GetSortedCountryCodeAndNamePairList()) {
     std::string country = pair.country_id;
-    base::Value dict(base::Value::Type::DICTIONARY);
-    dict.SetStringKey("value", country);
-    dict.SetStringKey("title", pair.country_name);
+    base::Value::Dict dict;
+    dict.Set("value", country);
+    dict.Set("title", pair.country_name);
     if (country == region) {
-      dict.SetBoolKey("selected", true);
+      dict.Set("selected", true);
       g_browser_process->local_state()->SetString(prefs::kDemoModeCountry,
                                                   country);
       country_selected = true;
     } else {
-      dict.SetBoolKey("selected", false);
+      dict.Set("selected", false);
     }
     country_list.Append(std::move(dict));
   }
 
   if (!country_selected) {
-    base::Value countryNotSelectedDict(base::Value::Type::DICTIONARY);
-    countryNotSelectedDict.SetStringKey("value",
-                                        DemoSession::kCountryNotSelectedId);
-    countryNotSelectedDict.SetStringKey(
+    base::Value::Dict countryNotSelectedDict;
+    countryNotSelectedDict.Set("value", DemoSession::kCountryNotSelectedId);
+    countryNotSelectedDict.Set(
         "title",
         l10n_util::GetStringUTF16(
             IDS_OOBE_DEMO_SETUP_PREFERENCES_SCREEN_COUNTRY_NOT_SELECTED_TITLE));
-    countryNotSelectedDict.SetBoolKey("selected", true);
+    countryNotSelectedDict.Set("selected", true);
     country_list.Append(std::move(countryNotSelectedDict));
   }
   return country_list;

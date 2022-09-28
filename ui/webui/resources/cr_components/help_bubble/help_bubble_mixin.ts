@@ -169,15 +169,13 @@ export const HelpBubbleMixin = dedupingMixin(
           bubble.closeText = params.closeButtonAltText;
           bubble.position = params.position;
           bubble.bodyText = params.bodyText;
+          bubble.forceCloseButton = params.forceCloseButton;
           bubble.titleText = params.titleText || '';
-          bubble.buttons = [];
-          bubble.defaultButtonIndex = -1;
-          for (let i: number = 0; i < params.buttons.length; ++i) {
-            bubble.buttons.push(params.buttons[i].text);
-            if (params.buttons[i].isDefault) {
-              bubble.defaultButtonIndex = i;
-            }
-          }
+          bubble.progress = params.progress || null;
+          assert(
+              !bubble.progress ||
+              bubble.progress.total >= bubble.progress.current);
+          bubble.buttons = params.buttons;
           bubble.show();
           anchor!.focus();
         }

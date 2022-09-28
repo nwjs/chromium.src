@@ -13,7 +13,6 @@
 #include "ash/constants/ash_features.h"
 #include "ash/public/cpp/android_intent_helper.h"
 #include "ash/public/cpp/new_window_delegate.h"
-#include "ash/public/cpp/style/scoped_light_mode_as_default.h"
 #include "ash/public/mojom/assistant_volume_control.mojom.h"
 #include "ash/session/session_controller_impl.h"
 #include "ash/shell.h"
@@ -66,8 +65,7 @@ void AssistantControllerImpl::BindReceiver(
   assistant_volume_control_receiver_.Bind(std::move(receiver));
 }
 
-void AssistantControllerImpl::SetAssistant(
-    chromeos::assistant::Assistant* assistant) {
+void AssistantControllerImpl::SetAssistant(assistant::Assistant* assistant) {
   assistant_ = assistant;
 
   // Provide reference to sub-controllers.
@@ -78,8 +76,12 @@ void AssistantControllerImpl::SetAssistant(
 
   OnAccessibilityStatusChanged();
 
-  ScopedAssistantLightModeAsDefault scoped_light_mode_as_default;
-  OnColorModeChanged(DarkLightModeControllerImpl::Get()->IsDarkModeEnabled());
+  bool dark_mode_enabled = false;
+  if (ash::features::IsProductivityLauncherEnabled() ||
+      ash::features::IsDarkLightModeEnabled()) {
+    dark_mode_enabled = DarkLightModeControllerImpl::Get()->IsDarkModeEnabled();
+  }
+  OnColorModeChanged(dark_mode_enabled);
 
   if (assistant) {
     for (AssistantControllerObserver& observer : observers_)
@@ -175,7 +177,7 @@ void AssistantControllerImpl::OpenUrl(const GURL& url,
   if (IsAndroidIntent(url)) {
     android_helper->LaunchAndroidIntent(url.spec());
   } else {
-    chromeos::assistant::AssistantBrowserDelegate::Get()->OpenUrl(url);
+    assistant::AssistantBrowserDelegate::Get()->OpenUrl(url);
   }
   NotifyUrlOpened(url, from_server);
 }
@@ -211,13 +213,13 @@ void AssistantControllerImpl::OnDeepLinkReceived(
 
       // Close the assistant UI so that the feedback page is visible.
       assistant_ui_controller_.CloseUi(
-          chromeos::assistant::AssistantExitPoint::kUnspecified);
+          assistant::AssistantExitPoint::kUnspecified);
       break;
     case DeepLinkType::kScreenshot:
       // We close the UI before taking the screenshot as it's probably not the
       // user's intention to include the Assistant in the picture.
       assistant_ui_controller_.CloseUi(
-          chromeos::assistant::AssistantExitPoint::kScreenshot);
+          assistant::AssistantExitPoint::kScreenshot);
       CaptureModeController::Get()->CaptureScreenshotsOfAllDisplays();
       break;
     case DeepLinkType::kTaskManager:
@@ -326,16 +328,16 @@ void AssistantControllerImpl::NotifyUrlOpened(const GURL& url,
 }
 
 void AssistantControllerImpl::OnAssistantStatusChanged(
-    chromeos::assistant::AssistantStatus status) {
-  if (status == chromeos::assistant::AssistantStatus::NOT_READY)
+    assistant::AssistantStatus status) {
+  if (status == assistant::AssistantStatus::NOT_READY)
     assistant_ui_controller_.CloseUi(
-        chromeos::assistant::AssistantExitPoint::kUnspecified);
+        assistant::AssistantExitPoint::kUnspecified);
 }
 
 void AssistantControllerImpl::OnLockedFullScreenStateChanged(bool enabled) {
   if (enabled)
     assistant_ui_controller_.CloseUi(
-        chromeos::assistant::AssistantExitPoint::kUnspecified);
+        assistant::AssistantExitPoint::kUnspecified);
 }
 
 void AssistantControllerImpl::BindVolumeControl(

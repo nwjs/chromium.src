@@ -5,10 +5,11 @@
 #include "chrome/browser/ui/views/side_panel/read_anything/read_anything_coordinator.h"
 
 #include <memory>
+#include <string>
 #include <utility>
 
 #include "chrome/app/vector_icons/vector_icons.h"
-#include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/views/side_panel/read_anything/read_anything_container_view.h"
 #include "chrome/browser/ui/views/side_panel/read_anything/read_anything_controller.h"
 #include "chrome/browser/ui/views/side_panel/read_anything/read_anything_toolbar_view.h"
@@ -25,13 +26,14 @@ ReadAnythingCoordinator::ReadAnythingCoordinator(Browser* browser)
     : BrowserUserData<ReadAnythingCoordinator>(*browser) {
   // Create the model and initialize it with user prefs (if present).
   model_ = std::make_unique<ReadAnythingModel>();
-  InitModelWithUserPrefs(browser);
+  InitModelWithUserPrefs();
 
   // Create the controller.
   controller_ = std::make_unique<ReadAnythingController>(model_.get(), browser);
 }
 
-void ReadAnythingCoordinator::InitModelWithUserPrefs(Browser* browser) {
+void ReadAnythingCoordinator::InitModelWithUserPrefs() {
+  Browser* browser = &GetBrowser();
   if (!browser->profile() || !browser->profile()->GetPrefs())
     return;
 
@@ -43,9 +45,15 @@ void ReadAnythingCoordinator::InitModelWithUserPrefs(Browser* browser) {
   prefs_font_scale = browser->profile()->GetPrefs()->GetDouble(
       prefs::kAccessibilityReadAnythingFontScale);
 
+  read_anything::mojom::Colors prefs_colors;
+  prefs_colors = static_cast<read_anything::mojom::Colors>(
+      browser->profile()->GetPrefs()->GetInteger(
+          prefs::kAccessibilityReadAnythingColorInfo));
+
   model_->Init(
       /* font name = */ prefs_font_name,
-      /* font scale = */ prefs_font_scale);
+      /* font scale = */ prefs_font_scale,
+      /* colors = */ prefs_colors);
 }
 
 ReadAnythingCoordinator::~ReadAnythingCoordinator() {
@@ -83,6 +91,16 @@ void ReadAnythingCoordinator::RemoveObserver(
     ReadAnythingCoordinator::Observer* observer) {
   observers_.RemoveObserver(observer);
 }
+void ReadAnythingCoordinator::AddModelObserver(
+    ReadAnythingModel::Observer* observer) {
+  DCHECK(model_);
+  model_->AddObserver(observer);
+}
+void ReadAnythingCoordinator::RemoveModelObserver(
+    ReadAnythingModel::Observer* observer) {
+  DCHECK(model_);
+  model_->RemoveObserver(observer);
+}
 
 void ReadAnythingCoordinator::OnEntryShown(SidePanelEntry* entry) {
   DCHECK(entry->id() == SidePanelEntry::Id::kReadAnything);
@@ -103,7 +121,6 @@ std::unique_ptr<views::View> ReadAnythingCoordinator::CreateContainerView() {
 
   Browser* browser = &GetBrowser();
   auto content_web_view = std::make_unique<SidePanelWebUIViewT<ReadAnythingUI>>(
-      browser,
       /* on_show_cb= */ base::RepeatingClosure(),
       /* close_cb= */ base::RepeatingClosure(),
       /* contents_wrapper= */

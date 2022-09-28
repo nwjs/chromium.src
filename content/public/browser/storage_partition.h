@@ -113,8 +113,6 @@ class CONTENT_EXPORT StoragePartition {
   // from RenderFrameHost::CreateNetworkServiceDefaultFactory).
   virtual scoped_refptr<network::SharedURLLoaderFactory>
   GetURLLoaderFactoryForBrowserProcess() = 0;
-  virtual scoped_refptr<network::SharedURLLoaderFactory>
-  GetURLLoaderFactoryForBrowserProcessWithCORBEnabled() = 0;
   virtual std::unique_ptr<network::PendingSharedURLLoaderFactory>
   GetURLLoaderFactoryForBrowserProcessIOThread() = 0;
   virtual network::mojom::CookieManager*
@@ -191,6 +189,7 @@ class CONTENT_EXPORT StoragePartition {
     REMOVE_DATA_MASK_INTEREST_GROUP_PERMISSIONS_CACHE = 1 << 15,
 
     REMOVE_DATA_MASK_ATTRIBUTION_REPORTING_INTERNAL = 1 << 16,
+    REMOVE_DATA_MASK_PRIVATE_AGGREGATION_INTERNAL = 1 << 17,
 
     REMOVE_DATA_MASK_ALL = 0xFFFFFFFF,
 

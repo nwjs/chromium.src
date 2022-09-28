@@ -197,8 +197,8 @@ syncer::SyncService* SyncServiceFactory::GetForProfile(Profile* profile) {
 }
 
 // static
-syncer::SyncServiceImpl* SyncServiceFactory::GetAsSyncServiceImplForProfile(
-    Profile* profile) {
+syncer::SyncServiceImpl*
+SyncServiceFactory::GetAsSyncServiceImplForProfileForTesting(Profile* profile) {
   return static_cast<syncer::SyncServiceImpl*>(GetForProfile(profile));
 }
 
@@ -285,7 +285,7 @@ bool SyncServiceFactory::IsSyncAllowed(Profile* profile) {
   // infer the accessible state by looking at prefs/command line flags.
   syncer::SyncPrefs prefs(profile->GetPrefs());
   return syncer::IsSyncAllowedByFlag() &&
-         (!prefs.IsManaged() || prefs.IsLocalSyncEnabled());
+         (!prefs.IsSyncClientDisabledByPolicy() || prefs.IsLocalSyncEnabled());
 }
 
 // static

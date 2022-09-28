@@ -246,7 +246,7 @@ void LocationBarView::Init() {
         label->SetElideBehavior(gfx::NO_ELIDE);
         label->SetAutoColorReadabilityEnabled(false);
         label->SetBackground(views::CreateSolidBackground(
-            color_provider->GetColor(kColorOmniboxBackground)));
+            color_provider->GetColor(kColorLocationBarBackground)));
         label->SetEnabledColor(color_provider->GetColor(kColorOmniboxText));
         label->SetVisible(false);
         return label;
@@ -265,13 +265,6 @@ void LocationBarView::Init() {
         std::u16string(), ChromeTextContext::CONTEXT_OMNIBOX_DEEMPHASIZED,
         views::style::STYLE_LINK);
     omnibox_additional_text_view->SetHorizontalAlignment(gfx::ALIGN_LEFT);
-    int left_margin =
-        OmniboxFieldTrial::kRichAutocompletionAdditionalTextWithParenthesis
-                .Get()
-            ? 10
-            : 0;
-    omnibox_additional_text_view->SetBorder(
-        views::CreateEmptyBorder(gfx::Insets::TLBR(0, left_margin, 0, 0)));
     omnibox_additional_text_view->SetFontList(font_list);
     omnibox_additional_text_view->SetVisible(false);
     omnibox_additional_text_view_ =
@@ -315,10 +308,7 @@ void LocationBarView::Init() {
     params.types_enabled.push_back(PageActionIconType::kQRCodeGenerator);
     if (base::FeatureList::IsEnabled(kWebOTPCrossDevice))
       params.types_enabled.push_back(PageActionIconType::kSmsRemoteFetcher);
-    if (!base::FeatureList::IsEnabled(
-            autofill::features::kAutofillEnableToolbarStatusChip)) {
-      params.types_enabled.push_back(PageActionIconType::kManagePasswords);
-    }
+    params.types_enabled.push_back(PageActionIconType::kManagePasswords);
     if (!apps::features::LinkCapturingUiUpdateEnabled())
       params.types_enabled.push_back(PageActionIconType::kIntentPicker);
     params.types_enabled.push_back(PageActionIconType::kPwaInstall);
@@ -336,20 +326,17 @@ void LocationBarView::Init() {
   }
   // Add icons only when feature is not enabled. Otherwise icons will
   // be added to the ToolbarPageActionIconContainerView.
-  if (!base::FeatureList::IsEnabled(
-          autofill::features::kAutofillEnableToolbarStatusChip)) {
-    params.types_enabled.push_back(PageActionIconType::kSaveCard);
-    params.types_enabled.push_back(PageActionIconType::kLocalCardMigration);
-    params.types_enabled.push_back(
-        PageActionIconType::kVirtualCardManualFallback);
-    params.types_enabled.push_back(PageActionIconType::kVirtualCardEnroll);
+  params.types_enabled.push_back(PageActionIconType::kSaveCard);
+  params.types_enabled.push_back(PageActionIconType::kLocalCardMigration);
+  params.types_enabled.push_back(
+      PageActionIconType::kVirtualCardManualFallback);
+  params.types_enabled.push_back(PageActionIconType::kVirtualCardEnroll);
 
-    if (base::FeatureList::IsEnabled(
-            autofill::features::kAutofillAddressProfileSavePrompt)) {
-      // TODO(crbug.com/1167060): Place this in the proper order upon having
-      // final mocks.
-      params.types_enabled.push_back(PageActionIconType::kSaveAutofillAddress);
-    }
+  if (base::FeatureList::IsEnabled(
+          autofill::features::kAutofillAddressProfileSavePrompt)) {
+    // TODO(crbug.com/1167060): Place this in the proper order upon having
+    // final mocks.
+    params.types_enabled.push_back(PageActionIconType::kSaveAutofillAddress);
   }
   if (browser_) {
     if (sharing_hub::HasPageAction(profile_, is_popup_mode_))
@@ -446,18 +433,18 @@ void LocationBarView::SetOmniboxAdditionalText(const std::u16string& text) {
   if (!OmniboxFieldTrial::RichAutocompletionShowAdditionalText())
     return;
 
-  // TODO(pkasting): This should use a localizable string constant.
-  // TODO(manukh): '-' separator doesn't play nice with RTL; results in
-  //  'input[autocompletion] URL -'.
-  std::u16string wrapped_text;
+  std::u16string adjusted_text;
   if (!text.empty()) {
-    wrapped_text =
+    const int message_id =
         OmniboxFieldTrial::kRichAutocompletionAdditionalTextWithParenthesis
                 .Get()
-            ? u"(" + text + u")"
-            : u" - " + text;
+            ? IDS_OMNIBOX_ADDITIONAL_TEXT_PARENTHESIS_TEMPLATE
+            : IDS_OMNIBOX_ADDITIONAL_TEXT_DASH_TEMPLATE;
+    adjusted_text = text;
+    base::i18n::AdjustStringForLocaleDirection(&adjusted_text);
+    adjusted_text = l10n_util::GetStringFUTF16(message_id, u"", adjusted_text);
   }
-  SetOmniboxAdjacentText(omnibox_additional_text_view_, wrapped_text);
+  SetOmniboxAdjacentText(omnibox_additional_text_view_, adjusted_text);
 }
 
 std::u16string LocationBarView::GetOmniboxAdditionalText() const {
@@ -886,7 +873,7 @@ SkColor LocationBarView::GetIconLabelBubbleSurroundingForegroundColor() const {
 }
 
 SkColor LocationBarView::GetIconLabelBubbleBackgroundColor() const {
-  return GetColorProvider()->GetColor(kColorOmniboxBackground);
+  return GetColorProvider()->GetColor(kColorLocationBarBackground);
 }
 
 bool LocationBarView::ShouldHideContentSettingImage() {
@@ -994,9 +981,10 @@ void LocationBarView::RefreshBackground() {
     background_color = border_color =
         color_provider->GetColor(kColorOmniboxResultsBackground);
   } else {
-    const SkColor normal = color_provider->GetColor(kColorOmniboxBackground);
+    const SkColor normal =
+        color_provider->GetColor(kColorLocationBarBackground);
     const SkColor hovered =
-        color_provider->GetColor(kColorOmniboxBackgroundHovered);
+        color_provider->GetColor(kColorLocationBarBackgroundHovered);
     const double opacity = hover_animation_.GetCurrentValue();
     background_color = gfx::Tween::ColorValueBetween(opacity, normal, hovered);
     border_color = color_provider->GetColor(kColorLocationBarBorder);

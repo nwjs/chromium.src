@@ -15,19 +15,21 @@
 #include "base/gtest_prod_util.h"
 #include "base/observer_list.h"
 #include "base/sequence_checker.h"
+#include "base/timer/elapsed_timer.h"
 #include "chromeos/ash/components/network/managed_state.h"
 #include "chromeos/ash/components/network/network_handler.h"
 #include "chromeos/ash/components/network/network_handler_callbacks.h"
 #include "chromeos/ash/components/network/network_state.h"
 #include "chromeos/ash/components/network/network_type_pattern.h"
 #include "chromeos/ash/components/network/shill_property_handler.h"
+#include "third_party/abseil-cpp/absl/types/optional.h"
 
 namespace base {
 class Location;
 class Value;
 }  // namespace base
 
-namespace chromeos {
+namespace ash {
 
 class DeviceState;
 class NetworkStateHandlerObserver;
@@ -223,11 +225,10 @@ class COMPONENT_EXPORT(CHROMEOS_NETWORK) NetworkStateHandler
   void SetShillConnectError(const std::string& service_path,
                             const std::string& shill_connect_error);
 
-  // Called from Chrome's network portal detector to indicate whether Chrome has
-  // detected that the network is in a captive portal state. This may or may
-  // not match the network's |is_captive_portal_| which is provided by Shill.
-  void SetNetworkChromePortalDetected(const std::string& service_path,
-                                      bool portal_detected);
+  // Called from Chrome's network portal detector when Chrome has detected
+  // that a network is in a captive portal state.
+  void SetNetworkChromePortalState(const std::string& service_path,
+                                   NetworkState::PortalState portal_state);
 
   // Returns the aa:bb formatted hardware (MAC) address for the first connected
   // network matching |type|, or an empty string if none is connected.
@@ -457,7 +458,7 @@ class COMPONENT_EXPORT(CHROMEOS_NETWORK) NetworkStateHandler
 
   // Requests traffic counters for a service denoted by |service_path|.
   void RequestTrafficCounters(const std::string& service_path,
-                              DBusMethodCallback<base::Value>);
+                              chromeos::DBusMethodCallback<base::Value>);
 
   // Resets traffic counters for a service denoted by |service_path|.
   void ResetTrafficCounters(const std::string& service_path);
@@ -515,7 +516,7 @@ class COMPONENT_EXPORT(CHROMEOS_NETWORK) NetworkStateHandler
   void UpdateIPConfigProperties(ManagedState::ManagedType type,
                                 const std::string& path,
                                 const std::string& ip_config_path,
-                                const base::Value& properties) override;
+                                base::Value properties) override;
 
   void CheckPortalListChanged(const std::string& check_portal_list) override;
   void HostnameChanged(const std::string& hostname) override;
@@ -616,6 +617,15 @@ class COMPONENT_EXPORT(CHROMEOS_NETWORK) NetworkStateHandler
   // for the default network, OnDefaultNetworkConnectionStateChanged and
   // NotifyDefaultNetworkChanged.
   void OnNetworkConnectionStateChanged(NetworkState* network);
+
+  // Updates the cached portal state for the default network, sends portal
+  // timer metrics, and notifies observers of portal state changes.
+  void UpdatePortalStateAndNotify(const NetworkState* default_network);
+
+  // Send metrics for elapsed time from a redirect-found or portal-suspected
+  // to an online or non portal state. If the new state is not online then
+  // |elapsed| should be 0 to indicate a failure to transition to online.
+  void SendPortalHistogramTimes(base::TimeDelta elapsed);
 
   // Verifies the connection state of the default network. Returns false
   // if the connection state change should be ignored.
@@ -752,6 +762,9 @@ class COMPONENT_EXPORT(CHROMEOS_NETWORK) NetworkStateHandler
   NetworkState::PortalState default_network_portal_state_ =
       NetworkState::PortalState::kUnknown;
 
+  // Tracks the time spent in a Portal or PortalSuspected state.
+  absl::optional<base::ElapsedTimer> time_in_portal_;
+
   // Tracks the default network proxy config for triggering PortalStateChanged.
   base::Value default_network_proxy_config_;
 
@@ -795,11 +808,11 @@ class COMPONENT_EXPORT(CHROMEOS_NETWORK) NetworkStateHandler
   SEQUENCE_CHECKER(sequence_checker_);
 };
 
-}  // namespace chromeos
+}  // namespace ash
 
-// TODO(https://crbug.com/1164001): remove when moved to ash.
-namespace ash {
-using ::chromeos::NetworkStateHandler;
+// TODO(https://crbug.com/1164001): remove when the migration is finished.
+namespace chromeos {
+using ::ash::NetworkStateHandler;
 }
 
 #endif  // CHROMEOS_ASH_COMPONENTS_NETWORK_NETWORK_STATE_HANDLER_H_

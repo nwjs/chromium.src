@@ -8,14 +8,16 @@ assert(is_chromeos_ash, "Non-Chrome-OS builds must not depend on //ash")
 
 component("authpublic") {
   defines = [ "IS_ASH_LOGIN_AUTH_IMPL" ]
-  public_deps = [ ":challenge_response_key" ]
+  public_deps = [
+    ":challenge_response_key",
+    "//components/password_manager/core/browser:password_hash_data",
+  ]
   deps = [
-    "//ash/components/cryptohome",
     "//ash/constants",
     "//base",
+    "//chromeos/ash/components/cryptohome",
     "//chromeos/ash/components/dbus/userdataauth:userdataauth_proto",
     "//components/account_id",
-    "//components/password_manager/core/browser:password_hash_data",
     "//components/prefs",
     "//components/user_manager",
     "//crypto",
@@ -47,7 +49,8 @@ component("authpublic") {
   ]
 }
 
-# Separate target to break cyclic dependency with //ash/components/cryptohome
+# Separate target to break cyclic dependency with
+# //chromeos/ash/components/cryptohome.
 component("challenge_response_key") {
   defines = [ "IS_ASH_LOGIN_AUTH_IMPL" ]
   deps = [ "//base" ]

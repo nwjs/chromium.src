@@ -244,9 +244,6 @@ WebViewGuest::NewWindowInfo::~NewWindowInfo() = default;
 void WebViewGuest::CleanUp(content::BrowserContext* browser_context,
                            int embedder_process_id,
                            int view_instance_id) {
-  GuestViewBase::CleanUp(browser_context, embedder_process_id,
-                         view_instance_id);
-
   // Clean up rules registries for the WebView.
   WebViewKey key(embedder_process_id, view_instance_id);
   auto it = web_view_key_to_id_map.Get().find(key);
@@ -415,9 +412,10 @@ void WebViewGuest::DidInitialize(const base::Value::Dict& create_params) {
 void WebViewGuest::ClearCodeCache(base::Time remove_since,
                                   uint32_t removal_mask,
                                   base::OnceClosure callback) {
+  auto* guest_main_frame = GetGuestMainFrame();
+  DCHECK(guest_main_frame);
   content::StoragePartition* partition =
-      web_contents()->GetBrowserContext()->GetStoragePartition(
-          web_contents()->GetSiteInstance());
+      guest_main_frame->GetStoragePartition();
   DCHECK(partition);
   base::OnceClosure code_cache_removal_done_callback = base::BindOnce(
       &WebViewGuest::ClearDataInternal, weak_ptr_factory_.GetWeakPtr(),
@@ -461,9 +459,11 @@ void WebViewGuest::ClearDataInternal(base::Time remove_since,
 
   bool perform_cleanup = remove_since.is_null();
 
+  auto* guest_main_frame = GetGuestMainFrame();
+  DCHECK(guest_main_frame);
   content::StoragePartition* partition =
-      web_contents()->GetBrowserContext()->GetStoragePartition(
-          web_contents()->GetSiteInstance());
+      guest_main_frame->GetStoragePartition();
+  DCHECK(partition);
   partition->ClearData(
       storage_partition_removal_mask,
       content::StoragePartition::QUOTA_MANAGED_STORAGE_MASK_ALL,
@@ -732,9 +732,10 @@ bool WebViewGuest::ClearData(base::Time remove_since,
                              uint32_t removal_mask,
                              base::OnceClosure callback) {
   base::RecordAction(UserMetricsAction("WebView.Guest.ClearData"));
+  auto* guest_main_frame = GetGuestMainFrame();
+  DCHECK(guest_main_frame);
   content::StoragePartition* partition =
-      web_contents()->GetBrowserContext()->GetStoragePartition(
-          web_contents()->GetSiteInstance());
+      guest_main_frame->GetStoragePartition();
 
   if (!partition)
     return false;
@@ -742,8 +743,7 @@ bool WebViewGuest::ClearData(base::Time remove_since,
   if (removal_mask & webview::WEB_VIEW_REMOVE_DATA_MASK_CACHE) {
     // First clear http cache data and then clear the code cache in
     // |ClearCodeCache| and the rest is cleared in |ClearDataInternal|.
-    int render_process_id =
-        web_contents()->GetPrimaryMainFrame()->GetProcess()->GetID();
+    int render_process_id = guest_main_frame->GetProcess()->GetID();
     // We need to clear renderer cache separately for our process because
     // StoragePartitionHttpCacheDataRemover::ClearData() does not clear that.
     web_cache::WebCacheManager::GetInstance()->ClearCacheForProcess(
@@ -769,25 +769,15 @@ WebViewGuest::WebViewGuest(WebContents* owner_web_contents)
     : GuestView<WebViewGuest>(owner_web_contents),
       rules_registry_id_(RulesRegistryService::kInvalidRulesRegistryID),
       find_helper_(this),
-      is_overriding_user_agent_(false),
-      allow_transparency_(false),
       allow_nw_(false),
       javascript_dialog_helper_(this),
-      allow_scaling_(false),
-      is_guest_fullscreen_(false),
-      is_embedder_fullscreen_(false),
-      last_fullscreen_permission_was_allowed_by_embedder_(false),
-      pending_zoom_factor_(0.0),
-      did_set_explicit_zoom_(false),
+      web_view_guest_delegate_(base::WrapUnique(
+          ExtensionsAPIClient::Get()->CreateWebViewGuestDelegate(this))),
       is_spatial_navigation_enabled_(
           base::CommandLine::ForCurrentProcess()->HasSwitch(
-              switches::kEnableSpatialNavigation)) {
-  web_view_guest_delegate_.reset(
-      ExtensionsAPIClient::Get()->CreateWebViewGuestDelegate(this));
-}
+              switches::kEnableSpatialNavigation)) {}
 
-WebViewGuest::~WebViewGuest() {
-}
+WebViewGuest::~WebViewGuest() = default;
 
 void WebViewGuest::DidFinishNavigation(
     content::NavigationHandle* navigation_handle) {

@@ -20,8 +20,8 @@
 #include "chrome/browser/component_updater/component_installer_errors.h"
 #include "chrome/browser/component_updater/metadata_table_chromeos.h"
 #include "chrome/common/pref_names.h"
+#include "chromeos/ash/components/dbus/dbus_thread_manager.h"
 #include "chromeos/ash/components/dbus/image_loader/image_loader_client.h"
-#include "chromeos/dbus/dbus_thread_manager.h"
 #include "components/component_updater/component_updater_paths.h"
 #include "components/crx_file/id_util.h"
 #include "components/prefs/pref_service.h"
@@ -240,6 +240,11 @@ void LacrosInstallerPolicy::ComponentReady(const base::Version& version,
     return;
   }
   cros_component_installer_->RegisterCompatiblePath(GetName(), path);
+
+  // Clear the load cache for the newly installed component version to avoid
+  // loading stale components on successive loads, causing a version update
+  // restart loop (see crbug.com/1322678).
+  cros_component_installer_->RemoveLoadCacheEntry(GetName());
 }
 
 update_client::InstallerAttributes
@@ -273,6 +278,8 @@ DemoAppInstallerPolicy::GetInstallerAttributes() const {
       prefs->GetString(prefs::kDemoModeRetailerId);
   demo_app_installer_attributes["store_id"] =
       prefs->GetString(prefs::kDemoModeStoreId);
+  demo_app_installer_attributes["demo_country"] =
+      prefs->GetString(prefs::kDemoModeCountry);
   return demo_app_installer_attributes;
 }
 
@@ -357,6 +364,11 @@ CrOSComponentInstaller::LoadInfo::~LoadInfo() = default;
 std::map<std::string, CrOSComponentInstaller::LoadInfo>&
 CrOSComponentInstaller::GetLoadCacheForTesting() {
   return load_cache_;
+}
+
+void CrOSComponentInstaller::RemoveLoadCacheEntry(
+    const std::string& component_name) {
+  load_cache_.erase(component_name);
 }
 
 bool CrOSComponentInstaller::IsRegisteredMayBlock(const std::string& name) {

@@ -14,6 +14,7 @@
 #include "base/metrics/user_metrics.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "chrome/common/webui_url_constants.h"
 #include "components/browsing_topics/browsing_topics_service.h"
@@ -123,6 +124,10 @@ PrivacySandboxService::PrivacySandboxService(
   // must manually enable the sandbox if they stop being restricted.
   if (IsPrivacySandboxRestricted())
     pref_service_->SetBoolean(prefs::kPrivacySandboxApisEnabledV2, false);
+
+  // Check for FPS pref init at each startup.
+  // TODO(crbug.com/1351327): Remove this logic when most users have run init.
+  MaybeInitializeFirstPartySetsPref();
 
   // Record preference state for UMA at each startup.
   LogPrivacySandboxState();
@@ -295,10 +300,7 @@ void PrivacySandboxService::OnPrivacySandboxV2PrefChanged() {
   if (browsing_data_remover_) {
     browsing_data_remover_->Remove(
         base::Time::Min(), base::Time::Max(),
-        content::BrowsingDataRemover::DATA_TYPE_INTEREST_GROUPS |
-            content::BrowsingDataRemover::DATA_TYPE_AGGREGATION_SERVICE |
-            content::BrowsingDataRemover::DATA_TYPE_ATTRIBUTION_REPORTING |
-            content::BrowsingDataRemover::DATA_TYPE_TRUST_TOKENS,
+        content::BrowsingDataRemover::DATA_TYPE_PRIVACY_SANDBOX,
         content::BrowsingDataRemover::ORIGIN_TYPE_UNPROTECTED_WEB);
   }
 
@@ -320,13 +322,12 @@ void PrivacySandboxService::GetFledgeJoiningEtldPlusOneForDisplay(
 
 std::vector<std::string>
 PrivacySandboxService::GetBlockedFledgeJoiningTopFramesForDisplay() const {
-  auto* pref_value =
-      pref_service_->GetDictionary(prefs::kPrivacySandboxFledgeJoinBlocked);
-  DCHECK(pref_value->is_dict());
+  const base::Value::Dict& pref_value =
+      pref_service_->GetValueDict(prefs::kPrivacySandboxFledgeJoinBlocked);
 
   std::vector<std::string> blocked_top_frames;
 
-  for (auto entry : pref_value->DictItems())
+  for (auto entry : pref_value)
     blocked_top_frames.emplace_back(entry.first);
 
   // Apply a lexographic ordering to match other settings permission surfaces.
@@ -565,12 +566,11 @@ PrivacySandboxService::GetBlockedTopics() const {
   if (privacy_sandbox::kPrivacySandboxSettings3ShowSampleDataForTesting.Get())
     return {fake_blocked_topics_.begin(), fake_blocked_topics_.end()};
 
-  auto* pref_value =
-      pref_service_->GetList(prefs::kPrivacySandboxBlockedTopics);
-  DCHECK(pref_value->is_list());
+  const base::Value::List& pref_value =
+      pref_service_->GetValueList(prefs::kPrivacySandboxBlockedTopics);
 
   std::vector<privacy_sandbox::CanonicalTopic> blocked_topics;
-  for (const auto& entry : pref_value->GetList()) {
+  for (const auto& entry : pref_value) {
     auto blocked_topic = privacy_sandbox::CanonicalTopic::FromValue(
         *entry.GetDict().Find(kBlockedTopicsTopicKey));
     if (blocked_topic)
@@ -599,6 +599,42 @@ void PrivacySandboxService::SetTopicAllowed(
     browsing_topics_service_->ClearTopic(topic);
 
   privacy_sandbox_settings_->SetTopicAllowed(topic, allowed);
+}
+
+base::flat_map<net::SchemefulSite, net::SchemefulSite>
+PrivacySandboxService::GetFirstPartySets() {
+  if (privacy_sandbox::kPrivacySandboxFirstPartySetsUISampleSets.Get()) {
+    return {{net::SchemefulSite(GURL("https://youtube.com")),
+             net::SchemefulSite(GURL("https://google.com"))},
+            {net::SchemefulSite(GURL("https://google.com")),
+             net::SchemefulSite(GURL("https://google.com"))},
+            {net::SchemefulSite(GURL("https://google.com.au")),
+             net::SchemefulSite(GURL("https://google.com"))},
+            {net::SchemefulSite(GURL("https://google.de")),
+             net::SchemefulSite(GURL("https://google.com"))}};
+  }
+
+  // TODO(crbug.com/1332513): Retrieve set information from FPS delegate.
+  return {};
+}
+
+absl::optional<std::u16string> PrivacySandboxService::GetFpsOwnerForDisplay(
+    const GURL& site_url) {
+  auto sets = GetFirstPartySets();
+  auto schemeful_site = net::SchemefulSite(site_url);
+
+  if (!sets.count(schemeful_site))
+    return absl::nullopt;
+
+  // TODO(crbug.com/1332513): Apply formatting that correctly displays unicode
+  // domains.
+  return base::UTF8ToUTF16(sets[schemeful_site].GetURL().host());
+}
+
+bool PrivacySandboxService::ShouldShowDetailedFpsControls() {
+  // TODO(crbug.com/1332513): Consult the preference state to determine whether
+  // detailed controls should be shown.
+  return privacy_sandbox::kPrivacySandboxFirstPartySetsUISampleSets.Get();
 }
 
 /*static*/ PrivacySandboxService::PromptType
@@ -781,6 +817,34 @@ PrivacySandboxService::GetRequiredPromptTypeInternal(
   // Finally a notice is required.
   DCHECK(privacy_sandbox::kPrivacySandboxSettings3NoticeRequired.Get());
   return PromptType::kNotice;
+}
+
+void PrivacySandboxService::MaybeInitializeFirstPartySetsPref() {
+  // If initialization has already run, it is not required.
+  if (pref_service_->GetBoolean(
+          prefs::kPrivacySandboxFirstPartySetsDataAccessAllowedInitialized)) {
+    return;
+  }
+
+  // If the FPS UI is not available, no initialization is required.
+  if (!base::FeatureList::IsEnabled(
+          privacy_sandbox::kPrivacySandboxFirstPartySetsUI)) {
+    return;
+  }
+
+  // If the user blocks 3P cookies, disable the FPS data access preference.
+  // As this logic relies on checking synced preference state, it is possible
+  // that synced state is available when this decision is made. To err on the
+  // side of privacy, this init logic is run per-device (the pref recording that
+  // init has been run is not synced). If any of the user's devices local state
+  // would disable the pref, it is disabled across all devices.
+  if (AreThirdPartyCookiesBlocked(cookie_settings_)) {
+    pref_service_->SetBoolean(
+        prefs::kPrivacySandboxFirstPartySetsDataAccessAllowed, false);
+  }
+
+  pref_service_->SetBoolean(
+      prefs::kPrivacySandboxFirstPartySetsDataAccessAllowedInitialized, true);
 }
 
 void PrivacySandboxService::InformSentimentService(

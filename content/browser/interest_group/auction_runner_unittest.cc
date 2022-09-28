@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 #include "content/browser/interest_group/auction_runner.h"
-#include "build/build_config.h"
 
 #include <stdint.h>
 
@@ -27,18 +26,24 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
+#include "build/build_config.h"
 #include "content/browser/interest_group/auction_process_manager.h"
 #include "content/browser/interest_group/auction_worklet_manager.h"
 #include "content/browser/interest_group/debuggable_auction_worklet.h"
 #include "content/browser/interest_group/debuggable_auction_worklet_tracker.h"
+#include "content/browser/interest_group/interest_group_auction.h"
 #include "content/browser/interest_group/interest_group_manager_impl.h"
 #include "content/browser/interest_group/interest_group_storage.h"
+#include "content/common/aggregatable_report.mojom-shared.h"
+#include "content/common/private_aggregation_features.h"
+#include "content/common/private_aggregation_host.mojom.h"
 #include "content/public/browser/site_instance.h"
 #include "content/public/test/test_renderer_host.h"
 #include "content/services/auction_worklet/auction_v8_helper.h"
 #include "content/services/auction_worklet/auction_worklet_service_impl.h"
 #include "content/services/auction_worklet/public/mojom/auction_worklet_service.mojom.h"
 #include "content/services/auction_worklet/public/mojom/bidder_worklet.mojom.h"
+#include "content/services/auction_worklet/public/mojom/private_aggregation_request.mojom.h"
 #include "content/services/auction_worklet/public/mojom/seller_worklet.mojom.h"
 #include "content/services/auction_worklet/worklet_devtools_debug_test_util.h"
 #include "content/services/auction_worklet/worklet_test_util.h"
@@ -61,8 +66,9 @@ namespace content {
 namespace {
 
 using InterestGroupKey = blink::InterestGroupKey;
-using PostAuctionSignals = AuctionRunner::PostAuctionSignals;
+using PostAuctionSignals = InterestGroupAuction::PostAuctionSignals;
 using blink::mojom::ReportingDestination;
+using PrivateAggregationRequests = AuctionRunner::PrivateAggregationRequests;
 
 const std::string kBidder1Name{"Ad Platform"};
 const char kBidder1DebugLossReportUrl[] =
@@ -97,6 +103,53 @@ const char kPostAuctionSignalsPlaceholder[] =
 const char kTopLevelPostAuctionSignalsPlaceholder[] =
     "topLevelWinningBid=${topLevelWinningBid},"
     "topLevelMadeWinningBid=${topLevelMadeWinningBid}";
+
+const auction_worklet::mojom::PrivateAggregationRequestPtr
+    kExpectedGenerateBidPrivateAggregationRequest =
+        auction_worklet::mojom::PrivateAggregationRequest::New(
+            content::mojom::AggregatableReportHistogramContribution::New(
+                /*bucket=*/1,
+                /*value=*/2),
+            content::mojom::AggregationServiceMode::kDefault,
+            content::mojom::DebugModeDetails::New());
+
+const auction_worklet::mojom::PrivateAggregationRequestPtr
+    kExpectedReportWinPrivateAggregationRequest =
+        auction_worklet::mojom::PrivateAggregationRequest::New(
+            content::mojom::AggregatableReportHistogramContribution::New(
+                /*bucket=*/3,
+                /*value=*/4),
+            content::mojom::AggregationServiceMode::kDefault,
+            content::mojom::DebugModeDetails::New());
+
+const auction_worklet::mojom::PrivateAggregationRequestPtr
+    kExpectedScoreAdPrivateAggregationRequest =
+        auction_worklet::mojom::PrivateAggregationRequest::New(
+            content::mojom::AggregatableReportHistogramContribution::New(
+                /*bucket=*/5,
+                /*value=*/6),
+            content::mojom::AggregationServiceMode::kDefault,
+            content::mojom::DebugModeDetails::New());
+
+const auction_worklet::mojom::PrivateAggregationRequestPtr
+    kExpectedReportResultPrivateAggregationRequest =
+        auction_worklet::mojom::PrivateAggregationRequest::New(
+            content::mojom::AggregatableReportHistogramContribution::New(
+                /*bucket=*/7,
+                /*value=*/8),
+            content::mojom::AggregationServiceMode::kDefault,
+            content::mojom::DebugModeDetails::New());
+
+// Helper to avoid excess boilerplate.
+template <typename... Ts>
+auto ElementsAreRequests(Ts&... requests) {
+  static_assert(
+      std::conjunction<std::is_same<
+          std::remove_const_t<Ts>,
+          auction_worklet::mojom::PrivateAggregationRequestPtr>...>::value);
+  // Need to use `std::ref` as `mojo::StructPtr`s are move-only.
+  return testing::UnorderedElementsAre(testing::Eq(std::ref(requests))...);
+}
 
 // 0 `num_component_urls` means no component URLs, as opposed to an empty list
 // (which isn't tested at this layer).
@@ -235,6 +288,7 @@ std::string MakeBidScript(const url::Origin& seller,
       }
       if (browserSignals.dataVersion !== undefined)
         throw new Error(`wrong dataVersion (${browserSignals.dataVersion})`);
+      privateAggregation.sendHistogramReport({bucket: 1, value: 2});
       return result;
     }
 
@@ -320,6 +374,7 @@ std::string MakeBidScript(const url::Origin& seller,
       registerAdBeacon({
         "click": "https://buyer-reporting.example.com/" + 2*bid,
       });
+      privateAggregation.sendHistogramReport({bucket: 3, value: 4});
     }
   )";
   return base::StringPrintf(
@@ -459,6 +514,7 @@ std::string MakeDecisionScript(
         forDebuggingOnly.reportAdAuctionWin(
             buildDebugReportUrl(debugWinReportUrl) + bid);
       }
+      privateAggregation.sendHistogramReport({bucket: 5, value: 6});
 
       adMetadata.fromComponentAuction = true;
 
@@ -543,6 +599,8 @@ std::string MakeDecisionScript(
         }
         sendReportTo(sendReportUrl + browserSignals.bid);
       }
+      privateAggregation.sendHistogramReport({bucket: 7, value: 8});
+
       return browserSignals;
     }
 
@@ -599,6 +657,7 @@ std::string MakeAuctionScriptNoReportUrl(
 
 const char kAuctionScriptRejects2[] = R"(
   function scoreAd(adMetadata, bid, auctionConfig, browserSignals) {
+    privateAggregation.sendHistogramReport({bucket: 5, value: 6});
     if (bid === 2)
       return -1;
     return bid + 1;
@@ -607,6 +666,7 @@ const char kAuctionScriptRejects2[] = R"(
 
 const char kBasicReportResult[] = R"(
   function reportResult(auctionConfig, browserSignals) {
+    privateAggregation.sendHistogramReport({bucket: 7, value: 8});
     sendReportTo("https://reporting.example.com/" + browserSignals.bid);
     registerAdBeacon({
       "click": "https://reporting.example.com/" + 2*browserSignals.bid,
@@ -810,6 +870,7 @@ class MockBidderWorklet : public auction_worklet::mojom::BidderWorklet {
   void GenerateBid(
       auction_worklet::mojom::BidderWorkletNonSharedParamsPtr
           bidder_worklet_non_shared_params,
+      const url::Origin& interest_group_join_origin,
       const absl::optional<std::string>& auction_signals_json,
       const absl::optional<std::string>& per_buyer_signals_json,
       const absl::optional<base::TimeDelta> per_buyer_timeout,
@@ -904,7 +965,8 @@ class MockBidderWorklet : public auction_worklet::mojom::BidderWorklet {
       const absl::optional<uint32_t>& bidding_signals_data_version =
           absl::nullopt,
       const absl::optional<GURL>& debug_loss_report_url = absl::nullopt,
-      const absl::optional<GURL>& debug_win_report_url = absl::nullopt) {
+      const absl::optional<GURL>& debug_win_report_url = absl::nullopt,
+      PrivateAggregationRequests pa_requests = {}) {
     WaitForGenerateBid();
 
     if (!bid.has_value()) {
@@ -916,6 +978,7 @@ class MockBidderWorklet : public auction_worklet::mojom::BidderWorklet {
                /*debug_win_report_url=*/absl::nullopt,
                /*set_priority=*/0,
                /*has_set_priority=*/false,
+               /*pa_requests=*/std::move(pa_requests),
                /*errors=*/std::vector<std::string>());
       return;
     }
@@ -928,6 +991,7 @@ class MockBidderWorklet : public auction_worklet::mojom::BidderWorklet {
              debug_win_report_url,
              /*set_priority=*/0,
              /*has_set_priority=*/false,
+             /*pa_requests=*/std::move(pa_requests),
              /*errors=*/std::vector<std::string>());
   }
 
@@ -944,10 +1008,11 @@ class MockBidderWorklet : public auction_worklet::mojom::BidderWorklet {
 
   void InvokeReportWinCallback(
       absl::optional<GURL> report_url = absl::nullopt,
-      base::flat_map<std::string, GURL> ad_beacon_map = {}) {
+      base::flat_map<std::string, GURL> ad_beacon_map = {},
+      PrivateAggregationRequests pa_requests = {}) {
     DCHECK(report_win_callback_);
     std::move(report_win_callback_)
-        .Run(report_url, ad_beacon_map,
+        .Run(report_url, ad_beacon_map, std::move(pa_requests),
              /*errors=*/std::vector<std::string>());
   }
 
@@ -982,7 +1047,7 @@ class MockSellerWorklet : public auction_worklet::mojom::SellerWorklet {
  public:
   // Subset of parameters passed to SellerWorklet's ScoreAd method.
   struct ScoreAdParams {
-    ScoreAdCallback callback;
+    mojo::PendingRemote<auction_worklet::mojom::ScoreAdClient> score_ad_client;
     double bid;
     url::Origin interest_group_owner;
   };
@@ -1017,7 +1082,8 @@ class MockSellerWorklet : public auction_worklet::mojom::SellerWorklet {
                uint32_t browser_signal_bidding_duration_msecs,
                const absl::optional<base::TimeDelta> seller_timeout,
                uint64_t trace_id,
-               ScoreAdCallback score_ad_callback) override {
+               mojo::PendingRemote<auction_worklet::mojom::ScoreAdClient>
+                   score_ad_client) override {
     // SendPendingSignalsRequests() should only be called once all ads are
     // scored.
     EXPECT_FALSE(send_pending_signals_requests_called_);
@@ -1029,7 +1095,7 @@ class MockSellerWorklet : public auction_worklet::mojom::SellerWorklet {
     EXPECT_EQ(seller_timeout.value(), base::Milliseconds(500));
 
     ScoreAdParams score_ad_params;
-    score_ad_params.callback = std::move(score_ad_callback);
+    score_ad_params.score_ad_client = std::move(score_ad_client);
     score_ad_params.bid = bid;
     score_ad_params.interest_group_owner = browser_signal_interest_group_owner;
     score_ad_params_.emplace_front(std::move(score_ad_params));
@@ -1108,11 +1174,12 @@ class MockSellerWorklet : public auction_worklet::mojom::SellerWorklet {
   void InvokeReportResultCallback(
       absl::optional<GURL> report_url = absl::nullopt,
       base::flat_map<std::string, GURL> ad_beacon_map = {},
+      PrivateAggregationRequests pa_requests = {},
       std::vector<std::string> errors = {}) {
     DCHECK(report_result_callback_);
     std::move(report_result_callback_)
         .Run(/*signals_for_winner=*/absl::nullopt, std::move(report_url),
-             ad_beacon_map, errors);
+             ad_beacon_map, std::move(pa_requests), errors);
   }
 
   void Flush() { receiver_.FlushForTesting(); }
@@ -1420,6 +1487,8 @@ class AuctionRunnerTest : public testing::Test,
     std::vector<GURL> debug_loss_report_urls;
     std::vector<GURL> debug_win_report_urls;
     ReportingMetadata ad_beacon_map;
+    std::map<url::Origin, PrivateAggregationRequests>
+        private_aggregation_requests;
 
     std::vector<std::string> errors;
 
@@ -1433,11 +1502,13 @@ class AuctionRunnerTest : public testing::Test,
     std::vector<auction_worklet::mojom::PreviousWinPtr> bidder2_prev_wins;
   };
 
-  AuctionRunnerTest()
+  explicit AuctionRunnerTest(bool should_enable_private_aggregation = true)
       : task_environment_(base::test::TaskEnvironment::TimeSource::MOCK_TIME) {
     mojo::SetDefaultProcessErrorHandler(base::BindRepeating(
         &AuctionRunnerTest::OnBadMessage, base::Unretained(this)));
     DebuggableAuctionWorkletTracker::GetInstance()->AddObserver(this);
+    scoped_feature_list_.InitWithFeatureState(
+        content::kPrivateAggregationApi, should_enable_private_aggregation);
   }
 
   ~AuctionRunnerTest() override {
@@ -1557,7 +1628,7 @@ class AuctionRunnerTest : public testing::Test,
     for (auto& bidder : bidders) {
       for (int i = 0; i < bidder.bidding_browser_signals->join_count; i++) {
         interest_group_manager_->JoinInterestGroup(
-            bidder.interest_group, bidder.interest_group.owner.GetURL());
+            bidder.interest_group, bidder.joining_origin.GetURL());
       }
       for (int i = 0; i < bidder.bidding_browser_signals->bid_count; i++) {
         interest_group_manager_->RecordInterestGroupBids(
@@ -1600,6 +1671,8 @@ class AuctionRunnerTest : public testing::Test,
                          std::vector<GURL> debug_loss_report_urls,
                          std::vector<GURL> debug_win_report_urls,
                          ReportingMetadata ad_beacon_map,
+                         std::map<url::Origin, PrivateAggregationRequests>
+                             private_aggregation_requests,
                          std::vector<std::string> errors) {
     DCHECK(auction_run_loop_);
     DCHECK(!auction_complete_);
@@ -1621,6 +1694,8 @@ class AuctionRunnerTest : public testing::Test,
     result_.debug_loss_report_urls = std::move(debug_loss_report_urls);
     result_.debug_win_report_urls = std::move(debug_win_report_urls);
     result_.ad_beacon_map = std::move(ad_beacon_map);
+    result_.private_aggregation_requests =
+        std::move(private_aggregation_requests);
 
     // Retrieve bid count and previous wins for kBidder1 (and subsequently
     // kBidder2).
@@ -1670,14 +1745,16 @@ class AuctionRunnerTest : public testing::Test,
       std::vector<std::string> trusted_bidding_signals_keys,
       absl::optional<GURL> ad_url,
       absl::optional<std::vector<GURL>> ad_component_urls = absl::nullopt) {
-    std::vector<blink::InterestGroup::Ad> ads;
+    absl::optional<std::vector<blink::InterestGroup::Ad>> ads;
     // Give only kBidder1 an InterestGroupAd ad with non-empty metadata, to
     // better test the `ad_metadata` output.
     if (ad_url) {
+      ads.emplace();
       if (owner == kBidder1) {
-        ads.emplace_back(blink::InterestGroup::Ad(*ad_url, R"({"ads": true})"));
+        ads->emplace_back(
+            blink::InterestGroup::Ad(*ad_url, R"({"ads": true})"));
       } else {
-        ads.emplace_back(blink::InterestGroup::Ad(*ad_url, absl::nullopt));
+        ads->emplace_back(blink::InterestGroup::Ad(*ad_url, absl::nullopt));
       }
     }
 
@@ -1712,6 +1789,7 @@ class AuctionRunnerTest : public testing::Test,
     storage_group.bidding_browser_signals =
         auction_worklet::mojom::BiddingBrowserSignals::New(
             3, 5, std::move(previous_wins));
+    storage_group.joining_origin = storage_group.interest_group.owner;
     return storage_group;
   }
 
@@ -1794,7 +1872,7 @@ class AuctionRunnerTest : public testing::Test,
   // Check histogram values. If `expected_interest_groups` or `expected_owners`
   // is null, expect the auction to be aborted before the corresponding
   // histograms are recorded.
-  void CheckHistograms(AuctionRunner::AuctionResult expected_result,
+  void CheckHistograms(InterestGroupAuction::AuctionResult expected_result,
                        absl::optional<int> expected_interest_groups,
                        absl::optional<int> expected_owners,
                        absl::optional<int> expected_sellers) {
@@ -1830,14 +1908,15 @@ class AuctionRunnerTest : public testing::Test,
 
     histogram_tester_->ExpectTotalCount(
         "Ads.InterestGroup.Auction.AbortTime",
-        expected_result == AuctionRunner::AuctionResult::kAborted);
+        expected_result == InterestGroupAuction::AuctionResult::kAborted);
     histogram_tester_->ExpectTotalCount(
         "Ads.InterestGroup.Auction.CompletedWithoutWinnerTime",
-        expected_result == AuctionRunner::AuctionResult::kNoBids ||
-            expected_result == AuctionRunner::AuctionResult::kAllBidsRejected);
+        expected_result == InterestGroupAuction::AuctionResult::kNoBids ||
+            expected_result ==
+                InterestGroupAuction::AuctionResult::kAllBidsRejected);
     histogram_tester_->ExpectTotalCount(
         "Ads.InterestGroup.Auction.AuctionWithWinnerTime",
-        expected_result == AuctionRunner::AuctionResult::kSuccess);
+        expected_result == InterestGroupAuction::AuctionResult::kSuccess);
   }
 
   AuctionRunner::IsInterestGroupApiAllowedCallback
@@ -1932,7 +2011,8 @@ class AuctionRunnerTest : public testing::Test,
     auction_worklet::AddBidderJsonResponse(
         &url_loader_factory_,
         GURL(kBidder1TrustedSignalsUrl.spec() +
-             "?hostname=publisher1.com&keys=k1,k2"),
+             "?hostname=publisher1.com&keys=k1,k2"
+             "&interestGroupNames=Ad+Platform"),
         kBidder1SignalsJson);
 
     auction_worklet::AddJavascriptResponse(
@@ -1944,7 +2024,8 @@ class AuctionRunnerTest : public testing::Test,
     auction_worklet::AddBidderJsonResponse(
         &url_loader_factory_,
         GURL(kBidder2TrustedSignalsUrl.spec() +
-             "?hostname=publisher1.com&keys=l1,l2"),
+             "?hostname=publisher1.com&keys=l1,l2"
+             "&interestGroupNames=Another+Ad+Thing"),
         kBidder2SignalsJson);
 
     auction_worklet::AddJavascriptResponse(
@@ -1991,6 +2072,8 @@ class AuctionRunnerTest : public testing::Test,
   // corresponding participant types.
   std::set<url::Origin> disallowed_sellers_;
   std::set<url::Origin> disallowed_buyers_;
+
+  base::test::ScopedFeatureList scoped_feature_list_;
 
   base::test::TaskEnvironment task_environment_;
 
@@ -2047,7 +2130,7 @@ TEST_F(AuctionRunnerTest, NullBuyers) {
   EXPECT_EQ(0u, result_.bidder1_prev_wins.size());
   EXPECT_EQ(-1, result_.bidder2_bid_count);
   EXPECT_EQ(0u, result_.bidder2_prev_wins.size());
-  CheckHistograms(AuctionRunner::AuctionResult::kNoInterestGroups,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kNoInterestGroups,
                   /*expected_interest_groups=*/absl::nullopt,
                   /*expected_owners=*/absl::nullopt,
                   /*expected_sellers=*/absl::nullopt);
@@ -2069,7 +2152,7 @@ TEST_F(AuctionRunnerTest, ComponentAuctionNullBuyers) {
   EXPECT_EQ(0u, result_.bidder1_prev_wins.size());
   EXPECT_EQ(-1, result_.bidder2_bid_count);
   EXPECT_EQ(0u, result_.bidder2_prev_wins.size());
-  CheckHistograms(AuctionRunner::AuctionResult::kNoInterestGroups,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kNoInterestGroups,
                   /*expected_interest_groups=*/absl::nullopt,
                   /*expected_owners=*/absl::nullopt,
                   /*expected_sellers=*/absl::nullopt);
@@ -2089,7 +2172,7 @@ TEST_F(AuctionRunnerTest, EmptyBuyers) {
   EXPECT_EQ(0u, result_.bidder1_prev_wins.size());
   EXPECT_EQ(-1, result_.bidder2_bid_count);
   EXPECT_EQ(0u, result_.bidder2_prev_wins.size());
-  CheckHistograms(AuctionRunner::AuctionResult::kNoInterestGroups,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kNoInterestGroups,
                   /*expected_interest_groups=*/absl::nullopt,
                   /*expected_owners=*/absl::nullopt,
                   /*expected_sellers=*/absl::nullopt);
@@ -2111,7 +2194,7 @@ TEST_F(AuctionRunnerTest, ComponentAuctionEmptyBuyers) {
   EXPECT_EQ(0u, result_.bidder1_prev_wins.size());
   EXPECT_EQ(-1, result_.bidder2_bid_count);
   EXPECT_EQ(0u, result_.bidder2_prev_wins.size());
-  CheckHistograms(AuctionRunner::AuctionResult::kNoInterestGroups,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kNoInterestGroups,
                   /*expected_interest_groups=*/absl::nullopt,
                   /*expected_owners=*/absl::nullopt,
                   /*expected_sellers=*/absl::nullopt);
@@ -2131,7 +2214,7 @@ TEST_F(AuctionRunnerTest, NoInterestGroups) {
   EXPECT_EQ(0u, result_.bidder1_prev_wins.size());
   EXPECT_EQ(-1, result_.bidder2_bid_count);
   EXPECT_EQ(0u, result_.bidder2_prev_wins.size());
-  CheckHistograms(AuctionRunner::AuctionResult::kNoInterestGroups,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kNoInterestGroups,
                   /*expected_interest_groups=*/0, /*expected_owners=*/0,
                   /*expected_sellers=*/0);
 }
@@ -2155,7 +2238,7 @@ TEST_F(AuctionRunnerTest, ComponentAuctionNoInterestGroups) {
   EXPECT_EQ(0u, result_.bidder1_prev_wins.size());
   EXPECT_EQ(-1, result_.bidder2_bid_count);
   EXPECT_EQ(0u, result_.bidder2_prev_wins.size());
-  CheckHistograms(AuctionRunner::AuctionResult::kNoInterestGroups,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kNoInterestGroups,
                   /*expected_interest_groups=*/0, /*expected_owners=*/0,
                   /*expected_sellers=*/0);
 }
@@ -2179,7 +2262,7 @@ TEST_F(AuctionRunnerTest, OneInterestGroupNoAds) {
   EXPECT_EQ(3u, result_.bidder1_prev_wins.size());
   EXPECT_EQ(-1, result_.bidder2_bid_count);
   EXPECT_EQ(0u, result_.bidder2_prev_wins.size());
-  CheckHistograms(AuctionRunner::AuctionResult::kNoInterestGroups,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kNoInterestGroups,
                   /*expected_interest_groups=*/0, /*expected_owners=*/0,
                   /*expected_sellers=*/0);
 }
@@ -2203,7 +2286,7 @@ TEST_F(AuctionRunnerTest, ComponentAuctionOneInterestGroupNoAds) {
   EXPECT_EQ(3u, result_.bidder1_prev_wins.size());
   EXPECT_EQ(-1, result_.bidder2_bid_count);
   EXPECT_EQ(0u, result_.bidder2_prev_wins.size());
-  CheckHistograms(AuctionRunner::AuctionResult::kNoInterestGroups,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kNoInterestGroups,
                   /*expected_interest_groups=*/0, /*expected_owners=*/0,
                   /*expected_sellers=*/0);
 }
@@ -2227,7 +2310,7 @@ TEST_F(AuctionRunnerTest, OneInterestGroupNoBidScript) {
   EXPECT_EQ(3u, result_.bidder1_prev_wins.size());
   EXPECT_EQ(-1, result_.bidder2_bid_count);
   EXPECT_EQ(0u, result_.bidder2_prev_wins.size());
-  CheckHistograms(AuctionRunner::AuctionResult::kNoInterestGroups,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kNoInterestGroups,
                   /*expected_interest_groups=*/0, /*expected_owners=*/0,
                   /*expected_sellers=*/0);
 }
@@ -2247,7 +2330,8 @@ TEST_F(AuctionRunnerTest, OneInterestGroup) {
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder1TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=k1,k2"),
+           "?hostname=publisher1.com&keys=k1,k2"
+           "&interestGroupNames=Ad+Platform"),
       kBidder1SignalsJson);
 
   std::vector<StorageInterestGroup> bidders;
@@ -2273,7 +2357,7 @@ TEST_F(AuctionRunnerTest, OneInterestGroup) {
             result_.bidder1_prev_wins[3]->ad_json);
   EXPECT_EQ(-1, result_.bidder2_bid_count);
   EXPECT_EQ(0u, result_.bidder2_prev_wins.size());
-  CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                   /*expected_interest_groups=*/1, /*expected_owners=*/1,
                   /*expected_sellers=*/1);
   EXPECT_THAT(observer_log_,
@@ -2304,6 +2388,7 @@ TEST_F(AuctionRunnerTest, ExperimentId) {
       &url_loader_factory_,
       GURL(kBidder1TrustedSignalsUrl.spec() +
            "?hostname=publisher1.com&keys=k1,k2"
+           "&interestGroupNames=Ad+Platform"
            "&experimentGroupId=940"),
       kBidder1SignalsJson);
   auction_worklet::AddJsonResponse(
@@ -2348,12 +2433,14 @@ TEST_F(AuctionRunnerTest, ExperimentIdPerBuyer) {
       &url_loader_factory_,
       GURL(kBidder1TrustedSignalsUrl.spec() +
            "?hostname=publisher1.com&keys=k1,k2"
+           "&interestGroupNames=Ad+Platform"
            "&experimentGroupId=940"),
       kBidder1SignalsJson);
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder2TrustedSignalsUrl.spec() +
            "?hostname=publisher1.com&keys=l1,l2"
+           "&interestGroupNames=Another+Ad+Thing"
            "&experimentGroupId=93"),
       kBidder2SignalsJson);
 
@@ -2391,12 +2478,14 @@ TEST_F(AuctionRunnerTest, Basic) {
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder1TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=k1,k2"),
+           "?hostname=publisher1.com&keys=k1,k2"
+           "&interestGroupNames=Ad+Platform"),
       kBidder1SignalsJson);
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder2TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=l1,l2"),
+           "?hostname=publisher1.com&keys=l1,l2"
+           "&interestGroupNames=Another+Ad+Thing"),
       kBidder2SignalsJson);
 
   const Result& res = RunStandardAuction();
@@ -2420,6 +2509,23 @@ TEST_F(AuctionRunnerTest, Basic) {
               ReportingDestination::kBuyer,
               testing::ElementsAre(testing::Pair(
                   "click", GURL("https://buyer-reporting.example.com/4"))))));
+
+  EXPECT_THAT(
+      res.private_aggregation_requests,
+      testing::UnorderedElementsAre(
+          testing::Pair(kBidder1,
+                        ElementsAreRequests(
+                            kExpectedGenerateBidPrivateAggregationRequest)),
+          testing::Pair(
+              kBidder2,
+              ElementsAreRequests(kExpectedGenerateBidPrivateAggregationRequest,
+                                  kExpectedReportWinPrivateAggregationRequest)),
+          testing::Pair(kSeller,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest))));
+
   EXPECT_EQ(6, res.bidder1_bid_count);
   EXPECT_EQ(3u, res.bidder1_prev_wins.size());
   EXPECT_EQ(6, res.bidder2_bid_count);
@@ -2427,7 +2533,7 @@ TEST_F(AuctionRunnerTest, Basic) {
   EXPECT_EQ(R"({"render_url":"https://ad2.com/"})",
             res.bidder2_prev_wins[3]->ad_json);
   EXPECT_THAT(res.errors, testing::ElementsAre());
-  CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/1);
   EXPECT_THAT(observer_log_,
@@ -2463,12 +2569,14 @@ TEST_F(AuctionRunnerTest, BasicDebug) {
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder1TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=k1,k2"),
+           "?hostname=publisher1.com&keys=k1,k2"
+           "&interestGroupNames=Ad+Platform"),
       kBidder1SignalsJson);
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder2TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=l1,l2"),
+           "?hostname=publisher1.com&keys=l1,l2"
+           "&interestGroupNames=Another+Ad+Thing"),
       kBidder2SignalsJson);
 
   for (const GURL& debug_url : {kBidder1Url, kBidder2Url, kSellerUrl}) {
@@ -2593,6 +2701,21 @@ TEST_F(AuctionRunnerTest, BasicDebug) {
                 ReportingDestination::kBuyer,
                 testing::ElementsAre(testing::Pair(
                     "click", GURL("https://buyer-reporting.example.com/4"))))));
+    EXPECT_THAT(
+        result_.private_aggregation_requests,
+        testing::UnorderedElementsAre(
+            testing::Pair(kBidder1,
+                          ElementsAreRequests(
+                              kExpectedGenerateBidPrivateAggregationRequest)),
+            testing::Pair(kBidder2,
+                          ElementsAreRequests(
+                              kExpectedGenerateBidPrivateAggregationRequest,
+                              kExpectedReportWinPrivateAggregationRequest)),
+            testing::Pair(
+                kSeller, ElementsAreRequests(
+                             kExpectedScoreAdPrivateAggregationRequest,
+                             kExpectedScoreAdPrivateAggregationRequest,
+                             kExpectedReportResultPrivateAggregationRequest))));
   }
 }
 
@@ -2617,12 +2740,14 @@ TEST_F(AuctionRunnerTest, PauseBidder) {
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder1TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=k1,k2"),
+           "?hostname=publisher1.com&keys=k1,k2"
+           "&interestGroupNames=Ad+Platform"),
       kBidder1SignalsJson);
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder2TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=l1,l2"),
+           "?hostname=publisher1.com&keys=l1,l2"
+           "&interestGroupNames=Another+Ad+Thing"),
       kBidder2SignalsJson);
 
   StartStandardAuction();
@@ -2661,6 +2786,21 @@ TEST_F(AuctionRunnerTest, PauseBidder) {
               ReportingDestination::kBuyer,
               testing::ElementsAre(testing::Pair(
                   "click", GURL("https://buyer-reporting.example.com/4"))))));
+  EXPECT_THAT(
+      result_.private_aggregation_requests,
+      testing::UnorderedElementsAre(
+          testing::Pair(kBidder1,
+                        ElementsAreRequests(
+                            kExpectedGenerateBidPrivateAggregationRequest)),
+          testing::Pair(
+              kBidder2,
+              ElementsAreRequests(kExpectedGenerateBidPrivateAggregationRequest,
+                                  kExpectedReportWinPrivateAggregationRequest)),
+          testing::Pair(kSeller,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest))));
 }
 
 TEST_F(AuctionRunnerTest, PauseSeller) {
@@ -2688,12 +2828,14 @@ TEST_F(AuctionRunnerTest, PauseSeller) {
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder1TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=k1,k2"),
+           "?hostname=publisher1.com&keys=k1,k2"
+           "&interestGroupNames=Ad+Platform"),
       kBidder1SignalsJson);
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder2TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=l1,l2"),
+           "?hostname=publisher1.com&keys=l1,l2"
+           "&interestGroupNames=Another+Ad+Thing"),
       kBidder2SignalsJson);
 
   StartStandardAuction();
@@ -2724,6 +2866,21 @@ TEST_F(AuctionRunnerTest, PauseSeller) {
               ReportingDestination::kBuyer,
               testing::ElementsAre(testing::Pair(
                   "click", GURL("https://buyer-reporting.example.com/4"))))));
+  EXPECT_THAT(
+      result_.private_aggregation_requests,
+      testing::UnorderedElementsAre(
+          testing::Pair(kBidder1,
+                        ElementsAreRequests(
+                            kExpectedGenerateBidPrivateAggregationRequest)),
+          testing::Pair(
+              kBidder2,
+              ElementsAreRequests(kExpectedGenerateBidPrivateAggregationRequest,
+                                  kExpectedReportWinPrivateAggregationRequest)),
+          testing::Pair(kSeller,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest))));
 }
 
 // A component auction with two successful bids from different components.
@@ -2759,13 +2916,35 @@ TEST_F(AuctionRunnerTest, ComponentAuction) {
               ReportingDestination::kBuyer,
               testing::ElementsAre(testing::Pair(
                   "click", GURL("https://buyer-reporting.example.com/4"))))));
+  EXPECT_THAT(
+      result_.private_aggregation_requests,
+      testing::UnorderedElementsAre(
+          testing::Pair(kBidder1,
+                        ElementsAreRequests(
+                            kExpectedGenerateBidPrivateAggregationRequest)),
+          testing::Pair(
+              kBidder2,
+              ElementsAreRequests(kExpectedGenerateBidPrivateAggregationRequest,
+                                  kExpectedReportWinPrivateAggregationRequest)),
+          testing::Pair(kSeller,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest)),
+          testing::Pair(
+              kComponentSeller1,
+              ElementsAreRequests(kExpectedScoreAdPrivateAggregationRequest)),
+          testing::Pair(kComponentSeller2,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest))));
   EXPECT_EQ(6, result_.bidder1_bid_count);
   EXPECT_EQ(3u, result_.bidder1_prev_wins.size());
   EXPECT_EQ(6, result_.bidder2_bid_count);
   ASSERT_EQ(4u, result_.bidder2_prev_wins.size());
   EXPECT_EQ(R"({"render_url":"https://ad2.com/"})",
             result_.bidder2_prev_wins[3]->ad_json);
-  CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/3);
 }
@@ -2799,15 +2978,62 @@ TEST_F(AuctionRunnerTest, ComponentAuctionComponentSellersHaveNoBuyers) {
               ReportingDestination::kBuyer,
               testing::ElementsAre(testing::Pair(
                   "click", GURL("https://buyer-reporting.example.com/4"))))));
+  EXPECT_THAT(
+      result_.private_aggregation_requests,
+      testing::UnorderedElementsAre(
+          testing::Pair(kBidder1,
+                        ElementsAreRequests(
+                            kExpectedGenerateBidPrivateAggregationRequest)),
+          testing::Pair(
+              kBidder2,
+              ElementsAreRequests(kExpectedGenerateBidPrivateAggregationRequest,
+                                  kExpectedReportWinPrivateAggregationRequest)),
+          testing::Pair(kSeller,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest))));
   EXPECT_EQ(6, result_.bidder1_bid_count);
   EXPECT_EQ(3u, result_.bidder1_prev_wins.size());
   EXPECT_EQ(6, result_.bidder2_bid_count);
   ASSERT_EQ(4u, result_.bidder2_prev_wins.size());
   EXPECT_EQ(R"({"render_url":"https://ad2.com/"})",
             result_.bidder2_prev_wins[3]->ad_json);
-  CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/1);
+}
+
+// Test a component auction where the top level seller rejects all bids. The
+// only bids come from a component auction. This should fail with
+// kAllBidsRejected instead of kNoBids.
+TEST_F(AuctionRunnerTest, ComponentAuctionTopSellerRejectsBids) {
+  // Run a standard component auction, but replace the default seller script
+  // with one that rejects bids.
+  SetUpComponentAuctionAndResponses(/*bidder1_seller=*/kComponentSeller1,
+                                    /*bidder2_seller=*/kComponentSeller1,
+                                    /*bid_from_component_auction_wins=*/true,
+                                    /*report_post_auction_signals=*/false);
+
+  auction_worklet::AddJavascriptResponse(&url_loader_factory_, kSellerUrl,
+                                         R"(
+    function scoreAd() {
+      return {desirability: 0,
+              allowComponentAuction: true};
+    }
+)");
+
+  RunStandardAuction();
+  EXPECT_THAT(result_.errors, testing::ElementsAre());
+  EXPECT_EQ(absl::nullopt, result_.ad_url);
+  EXPECT_THAT(result_.report_urls, testing::UnorderedElementsAre());
+  EXPECT_EQ(6, result_.bidder1_bid_count);
+  EXPECT_EQ(3u, result_.bidder1_prev_wins.size());
+  EXPECT_EQ(6, result_.bidder2_bid_count);
+  ASSERT_EQ(3u, result_.bidder2_prev_wins.size());
+  CheckHistograms(InterestGroupAuction::AuctionResult::kAllBidsRejected,
+                  /*expected_interest_groups=*/2, /*expected_owners=*/2,
+                  /*expected_sellers=*/2);
 }
 
 // A component auction with one component. Both the top-level and component
@@ -2839,13 +3065,31 @@ TEST_F(AuctionRunnerTest, ComponentAuctionTopLevelSellerBidWins) {
               ReportingDestination::kBuyer,
               testing::ElementsAre(testing::Pair(
                   "click", GURL("https://buyer-reporting.example.com/4"))))));
+  EXPECT_THAT(
+      result_.private_aggregation_requests,
+      testing::UnorderedElementsAre(
+          testing::Pair(kBidder1,
+                        ElementsAreRequests(
+                            kExpectedGenerateBidPrivateAggregationRequest)),
+          testing::Pair(
+              kBidder2,
+              ElementsAreRequests(kExpectedGenerateBidPrivateAggregationRequest,
+                                  kExpectedReportWinPrivateAggregationRequest)),
+          testing::Pair(kSeller,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest)),
+          testing::Pair(
+              kComponentSeller1,
+              ElementsAreRequests(kExpectedScoreAdPrivateAggregationRequest))));
   EXPECT_EQ(6, result_.bidder1_bid_count);
   EXPECT_EQ(3u, result_.bidder1_prev_wins.size());
   EXPECT_EQ(6, result_.bidder2_bid_count);
   ASSERT_EQ(4u, result_.bidder2_prev_wins.size());
   EXPECT_EQ(R"({"render_url":"https://ad2.com/"})",
             result_.bidder2_prev_wins[3]->ad_json);
-  CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/2);
 }
@@ -2884,13 +3128,32 @@ TEST_F(AuctionRunnerTest, ComponentAuctionComponentSellerBidWins) {
               ReportingDestination::kBuyer,
               testing::ElementsAre(testing::Pair(
                   "click", GURL("https://buyer-reporting.example.com/4"))))));
+  EXPECT_THAT(
+      result_.private_aggregation_requests,
+      testing::UnorderedElementsAre(
+          testing::Pair(kBidder1,
+                        ElementsAreRequests(
+                            kExpectedGenerateBidPrivateAggregationRequest)),
+          testing::Pair(
+              kBidder2,
+              ElementsAreRequests(kExpectedGenerateBidPrivateAggregationRequest,
+                                  kExpectedReportWinPrivateAggregationRequest)),
+          testing::Pair(kSeller,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest)),
+          testing::Pair(kComponentSeller1,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest))));
   EXPECT_EQ(6, result_.bidder1_bid_count);
   EXPECT_EQ(3u, result_.bidder1_prev_wins.size());
   EXPECT_EQ(6, result_.bidder2_bid_count);
   ASSERT_EQ(4u, result_.bidder2_prev_wins.size());
   EXPECT_EQ(R"({"render_url":"https://ad2.com/"})",
             result_.bidder2_prev_wins[3]->ad_json);
-  CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/2);
 }
@@ -2913,6 +3176,7 @@ TEST_F(AuctionRunnerTest, ComponentAuctionSharedBuyer) {
   const char kBidScript[] = R"(
       function generateBid(interestGroup, auctionSignals, perBuyerSignals,
                            trustedBiddingSignals, browserSignals) {
+        privateAggregation.sendHistogramReport({bucket: 1, value: 2});
         if (browserSignals.seller == "https://component.seller1.test") {
           return {ad: [], bid: 1, render: "https://component-bid.test/",
                   allowComponentAuction: true};
@@ -2931,6 +3195,7 @@ TEST_F(AuctionRunnerTest, ComponentAuctionSharedBuyer) {
       registerAdBeacon({
         "click": "https://buyer-reporting.example.com/" + 2*browserSignals.bid,
       });
+      privateAggregation.sendHistogramReport({bucket: 3, value: 4});
     }
   )";
 
@@ -2938,6 +3203,7 @@ TEST_F(AuctionRunnerTest, ComponentAuctionSharedBuyer) {
   // on bid and seller, to make sure correct values are plumbed through.
   const std::string kSellerScript = R"(
     function scoreAd(adMetadata, bid, auctionConfig, browserSignals) {
+      privateAggregation.sendHistogramReport({bucket: 5, value: 6});
       if (auctionConfig.seller == "https://adstuff.publisher1.com")
         return {desirability: 20 + bid, allowComponentAuction: true};
       return {desirability: 10 + bid, allowComponentAuction: true};
@@ -2949,6 +3215,7 @@ TEST_F(AuctionRunnerTest, ComponentAuctionSharedBuyer) {
       registerAdBeacon({
         "click": auctionConfig.seller + "/" + 2*browserSignals.desirability,
       });
+      privateAggregation.sendHistogramReport({bucket: 7, value: 8});
     }
   )";
 
@@ -2998,6 +3265,22 @@ TEST_F(AuctionRunnerTest, ComponentAuctionSharedBuyer) {
               ReportingDestination::kBuyer,
               testing::ElementsAre(testing::Pair(
                   "click", GURL("https://buyer-reporting.example.com/4"))))));
+  EXPECT_THAT(
+      result_.private_aggregation_requests,
+      testing::UnorderedElementsAre(
+          testing::Pair(
+              kBidder1,
+              ElementsAreRequests(kExpectedGenerateBidPrivateAggregationRequest,
+                                  kExpectedGenerateBidPrivateAggregationRequest,
+                                  kExpectedReportWinPrivateAggregationRequest)),
+          testing::Pair(kSeller,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest)),
+          testing::Pair(
+              kComponentSeller1,
+              ElementsAreRequests(kExpectedScoreAdPrivateAggregationRequest))));
   // Bid count should only be incremented by 1.
   EXPECT_EQ(6, result_.bidder1_bid_count);
   ASSERT_EQ(4u, result_.bidder1_prev_wins.size());
@@ -3006,7 +3289,7 @@ TEST_F(AuctionRunnerTest, ComponentAuctionSharedBuyer) {
             result_.bidder1_prev_wins[3]->ad_json);
   // Currently an interest groups participating twice in an auction is counted
   // twice.
-  CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/2);
 
@@ -3055,6 +3338,28 @@ TEST_F(AuctionRunnerTest, ComponentAuctionSharedBuyer) {
               ReportingDestination::kBuyer,
               testing::ElementsAre(testing::Pair(
                   "click", GURL("https://buyer-reporting.example.com/6"))))));
+  EXPECT_THAT(
+      result_.private_aggregation_requests,
+      testing::UnorderedElementsAre(
+          testing::Pair(
+              kBidder1,
+              ElementsAreRequests(kExpectedGenerateBidPrivateAggregationRequest,
+                                  kExpectedGenerateBidPrivateAggregationRequest,
+                                  kExpectedGenerateBidPrivateAggregationRequest,
+                                  kExpectedReportWinPrivateAggregationRequest)),
+          testing::Pair(kSeller,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest)),
+          testing::Pair(
+              kComponentSeller1,
+              ElementsAreRequests(kExpectedScoreAdPrivateAggregationRequest)),
+          testing::Pair(kComponentSeller2,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest))));
   // Bid count should only be incremented by 1.
   EXPECT_EQ(6, result_.bidder1_bid_count);
   ASSERT_EQ(4u, result_.bidder1_prev_wins.size());
@@ -3062,7 +3367,7 @@ TEST_F(AuctionRunnerTest, ComponentAuctionSharedBuyer) {
             result_.bidder1_prev_wins[3]->ad_json);
   // Currently a bidder participating twice in an auction is counted as two
   // participating interest groups.
-  CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                   /*expected_interest_groups=*/3, /*expected_owners=*/3,
                   /*expected_sellers=*/3);
 }
@@ -3122,7 +3427,7 @@ TEST_F(AuctionRunnerTest, ComponentAuctionAcceptsBidRejectsBid) {
   EXPECT_THAT(result_.errors, testing::ElementsAre());
 
   EXPECT_EQ("https://ad1.com/", result_.ad_url);
-  CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/2);
 }
@@ -3163,13 +3468,32 @@ TEST_F(AuctionRunnerTest, ComponentAuctionOneComponentTwoBidders) {
               ReportingDestination::kBuyer,
               testing::ElementsAre(testing::Pair(
                   "click", GURL("https://buyer-reporting.example.com/2"))))));
+  EXPECT_THAT(
+      result_.private_aggregation_requests,
+      testing::UnorderedElementsAre(
+          testing::Pair(
+              kBidder1,
+              ElementsAreRequests(kExpectedGenerateBidPrivateAggregationRequest,
+                                  kExpectedReportWinPrivateAggregationRequest)),
+          testing::Pair(kBidder2,
+                        ElementsAreRequests(
+                            kExpectedGenerateBidPrivateAggregationRequest)),
+          testing::Pair(kSeller,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest)),
+          testing::Pair(kComponentSeller1,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest))));
   EXPECT_EQ(6, result_.bidder1_bid_count);
   ASSERT_EQ(4u, result_.bidder1_prev_wins.size());
   EXPECT_EQ(R"({"render_url":"https://ad1.com/","metadata":{"ads": true}})",
             result_.bidder1_prev_wins[3]->ad_json);
   EXPECT_EQ(6, result_.bidder2_bid_count);
   EXPECT_EQ(3u, result_.bidder2_prev_wins.size());
-  CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/2);
 }
@@ -3182,6 +3506,7 @@ TEST_F(AuctionRunnerTest, ComponentAuctionNoTopLevelReportResultSignals) {
   const char kBidScript[] = R"(
       function generateBid(interestGroup, auctionSignals, perBuyerSignals,
                            trustedBiddingSignals, browserSignals) {
+        privateAggregation.sendHistogramReport({bucket: 1, value: 2});
         return {ad: [], bid: 2, render: interestGroup.ads[0].renderUrl,
                 allowComponentAuction: true};
       }
@@ -3192,6 +3517,7 @@ TEST_F(AuctionRunnerTest, ComponentAuctionNoTopLevelReportResultSignals) {
       registerAdBeacon({
         "click": "https://buyer-reporting.example.com/" + 2*browserSignals.bid,
       });
+      privateAggregation.sendHistogramReport({bucket: 3, value: 4});
     }
   )";
 
@@ -3199,6 +3525,7 @@ TEST_F(AuctionRunnerTest, ComponentAuctionNoTopLevelReportResultSignals) {
   // top-level seller signals are null.
   const std::string kComponentSellerScript = R"(
     function scoreAd(adMetadata, bid, auctionConfig, browserSignals) {
+      privateAggregation.sendHistogramReport({bucket: 5, value: 6});
       return {desirability: 10, allowComponentAuction: true};
     }
 
@@ -3209,6 +3536,7 @@ TEST_F(AuctionRunnerTest, ComponentAuctionNoTopLevelReportResultSignals) {
         "click": auctionConfig.seller + "/" +
                    (browserSignals.topLevelSellerSignals === null),
       });
+      privateAggregation.sendHistogramReport({bucket: 7, value: 8});
     }
   )";
 
@@ -3216,6 +3544,7 @@ TEST_F(AuctionRunnerTest, ComponentAuctionNoTopLevelReportResultSignals) {
   // value.
   const std::string kTopLevelSellerScript = R"(
     function scoreAd(adMetadata, bid, auctionConfig, browserSignals) {
+      privateAggregation.sendHistogramReport({bucket: 5, value: 6});
       return {desirability: 10, allowComponentAuction: true};
     }
 
@@ -3224,6 +3553,7 @@ TEST_F(AuctionRunnerTest, ComponentAuctionNoTopLevelReportResultSignals) {
       registerAdBeacon({
         "click": auctionConfig.seller + "/" + 2 * browserSignals.bid,
       });
+      privateAggregation.sendHistogramReport({bucket: 7, value: 8});
       // Note that there's no return value here.
     }
   )";
@@ -3269,7 +3599,22 @@ TEST_F(AuctionRunnerTest, ComponentAuctionNoTopLevelReportResultSignals) {
               ReportingDestination::kBuyer,
               testing::ElementsAre(testing::Pair(
                   "click", GURL("https://buyer-reporting.example.com/4"))))));
-  CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+  EXPECT_THAT(
+      result_.private_aggregation_requests,
+      testing::UnorderedElementsAre(
+          testing::Pair(
+              kBidder1,
+              ElementsAreRequests(kExpectedGenerateBidPrivateAggregationRequest,
+                                  kExpectedReportWinPrivateAggregationRequest)),
+          testing::Pair(kSeller,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest)),
+          testing::Pair(kComponentSeller1,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest))));
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                   /*expected_interest_groups=*/1, /*expected_owners=*/1,
                   /*expected_sellers=*/2);
 }
@@ -3368,7 +3713,8 @@ TEST_F(AuctionRunnerTest, ComponentAuctionModifiesBid) {
               ReportingDestination::kBuyer,
               testing::ElementsAre(testing::Pair(
                   "click", GURL("https://buyer-reporting.example.com/4"))))));
-  CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+  EXPECT_TRUE(result_.private_aggregation_requests.empty());
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                   /*expected_interest_groups=*/1, /*expected_owners=*/1,
                   /*expected_sellers=*/2);
 }
@@ -3388,11 +3734,12 @@ TEST_F(AuctionRunnerTest, DisallowedSeller) {
   EXPECT_TRUE(result_.ad_component_urls.empty());
   EXPECT_THAT(result_.report_urls, testing::UnorderedElementsAre());
   EXPECT_TRUE(result_.ad_beacon_map.metadata.empty());
+  EXPECT_TRUE(result_.private_aggregation_requests.empty());
   EXPECT_EQ(5, result_.bidder1_bid_count);
   EXPECT_EQ(3u, result_.bidder1_prev_wins.size());
   EXPECT_EQ(5, result_.bidder2_bid_count);
   EXPECT_EQ(3u, result_.bidder2_prev_wins.size());
-  CheckHistograms(AuctionRunner::AuctionResult::kSellerRejected,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSellerRejected,
                   /*expected_interest_groups=*/absl::nullopt,
                   /*expected_owners=*/absl::nullopt,
                   /*expected_sellers=*/absl::nullopt);
@@ -3421,11 +3768,12 @@ TEST_F(AuctionRunnerTest, DisallowedComponentAuctionSeller) {
   EXPECT_TRUE(result_.ad_component_urls.empty());
   EXPECT_THAT(result_.report_urls, testing::UnorderedElementsAre());
   EXPECT_TRUE(result_.ad_beacon_map.metadata.empty());
+  EXPECT_TRUE(result_.private_aggregation_requests.empty());
   EXPECT_EQ(5, result_.bidder1_bid_count);
   EXPECT_EQ(3u, result_.bidder1_prev_wins.size());
   EXPECT_EQ(5, result_.bidder2_bid_count);
   EXPECT_EQ(3u, result_.bidder2_prev_wins.size());
-  CheckHistograms(AuctionRunner::AuctionResult::kNoInterestGroups,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kNoInterestGroups,
                   /*expected_interest_groups=*/absl::nullopt,
                   /*expected_owners=*/absl::nullopt,
                   /*expected_sellers=*/absl::nullopt);
@@ -3475,13 +3823,28 @@ TEST_F(AuctionRunnerTest, DisallowedComponentAuctionOneSeller) {
               ReportingDestination::kBuyer,
               testing::ElementsAre(testing::Pair(
                   "click", GURL("https://buyer-reporting.example.com/2"))))));
+  EXPECT_THAT(
+      result_.private_aggregation_requests,
+      testing::UnorderedElementsAre(
+          testing::Pair(
+              kBidder1,
+              ElementsAreRequests(kExpectedGenerateBidPrivateAggregationRequest,
+                                  kExpectedReportWinPrivateAggregationRequest)),
+          testing::Pair(kSeller,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest)),
+          testing::Pair(kComponentSeller1,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest))));
   EXPECT_EQ(6, result_.bidder1_bid_count);
   ASSERT_EQ(4u, result_.bidder1_prev_wins.size());
   EXPECT_EQ(R"({"render_url":"https://ad1.com/","metadata":{"ads": true}})",
             result_.bidder1_prev_wins[3]->ad_json);
   EXPECT_EQ(5, result_.bidder2_bid_count);
   EXPECT_EQ(3u, result_.bidder2_prev_wins.size());
-  CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                   /*expected_interest_groups=*/1, /*expected_owners=*/1,
                   /*expected_sellers=*/2);
 }
@@ -3502,11 +3865,12 @@ TEST_F(AuctionRunnerTest, DisallowedBuyers) {
   EXPECT_TRUE(result_.ad_component_urls.empty());
   EXPECT_THAT(result_.report_urls, testing::UnorderedElementsAre());
   EXPECT_TRUE(result_.ad_beacon_map.metadata.empty());
+  EXPECT_TRUE(result_.private_aggregation_requests.empty());
   EXPECT_EQ(5, result_.bidder1_bid_count);
   EXPECT_EQ(3u, result_.bidder1_prev_wins.size());
   EXPECT_EQ(5, result_.bidder2_bid_count);
   EXPECT_EQ(3u, result_.bidder2_prev_wins.size());
-  CheckHistograms(AuctionRunner::AuctionResult::kNoInterestGroups,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kNoInterestGroups,
                   /*expected_interest_groups=*/absl::nullopt,
                   /*expected_owners=*/absl::nullopt,
                   /*expected_sellers=*/absl::nullopt);
@@ -3530,7 +3894,8 @@ TEST_F(AuctionRunnerTest, DisallowedSingleBuyer) {
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder1TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=k1,k2"),
+           "?hostname=publisher1.com&keys=k1,k2"
+           "&interestGroupNames=Ad+Platform"),
       kBidder1SignalsJson);
 
   disallowed_buyers_.insert(kBidder2);
@@ -3555,13 +3920,24 @@ TEST_F(AuctionRunnerTest, DisallowedSingleBuyer) {
               ReportingDestination::kBuyer,
               testing::ElementsAre(testing::Pair(
                   "click", GURL("https://buyer-reporting.example.com/2"))))));
+  EXPECT_THAT(
+      result_.private_aggregation_requests,
+      testing::UnorderedElementsAre(
+          testing::Pair(
+              kBidder1,
+              ElementsAreRequests(kExpectedGenerateBidPrivateAggregationRequest,
+                                  kExpectedReportWinPrivateAggregationRequest)),
+          testing::Pair(kSeller,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest))));
   EXPECT_EQ(6, result_.bidder1_bid_count);
   ASSERT_EQ(4u, result_.bidder1_prev_wins.size());
   EXPECT_EQ(R"({"render_url":"https://ad1.com/","metadata":{"ads": true}})",
             result_.bidder1_prev_wins[3]->ad_json);
   EXPECT_EQ(5, result_.bidder2_bid_count);
   EXPECT_EQ(3u, result_.bidder2_prev_wins.size());
-  CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                   /*expected_interest_groups=*/1, /*expected_owners=*/1,
                   /*expected_sellers=*/1);
 
@@ -3591,11 +3967,12 @@ TEST_F(AuctionRunnerTest, DisallowedComponentAuctionBuyers) {
   EXPECT_TRUE(result_.ad_component_urls.empty());
   EXPECT_THAT(result_.report_urls, testing::UnorderedElementsAre());
   EXPECT_TRUE(result_.ad_beacon_map.metadata.empty());
+  EXPECT_TRUE(result_.private_aggregation_requests.empty());
   EXPECT_EQ(5, result_.bidder1_bid_count);
   EXPECT_EQ(3u, result_.bidder1_prev_wins.size());
   EXPECT_EQ(5, result_.bidder2_bid_count);
   EXPECT_EQ(3u, result_.bidder2_prev_wins.size());
-  CheckHistograms(AuctionRunner::AuctionResult::kNoInterestGroups,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kNoInterestGroups,
                   /*expected_interest_groups=*/absl::nullopt,
                   /*expected_owners=*/absl::nullopt,
                   /*expected_sellers=*/absl::nullopt);
@@ -3640,13 +4017,28 @@ TEST_F(AuctionRunnerTest, DisallowedComponentAuctionSingleBuyer) {
               ReportingDestination::kBuyer,
               testing::ElementsAre(testing::Pair(
                   "click", GURL("https://buyer-reporting.example.com/2"))))));
+  EXPECT_THAT(
+      result_.private_aggregation_requests,
+      testing::UnorderedElementsAre(
+          testing::Pair(
+              kBidder1,
+              ElementsAreRequests(kExpectedGenerateBidPrivateAggregationRequest,
+                                  kExpectedReportWinPrivateAggregationRequest)),
+          testing::Pair(kSeller,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest)),
+          testing::Pair(kComponentSeller1,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest))));
   EXPECT_EQ(6, result_.bidder1_bid_count);
   ASSERT_EQ(4u, result_.bidder1_prev_wins.size());
   EXPECT_EQ(R"({"render_url":"https://ad1.com/","metadata":{"ads": true}})",
             result_.bidder1_prev_wins[3]->ad_json);
   EXPECT_EQ(5, result_.bidder2_bid_count);
   EXPECT_EQ(3u, result_.bidder2_prev_wins.size());
-  CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                   /*expected_interest_groups=*/1, /*expected_owners=*/1,
                   /*expected_sellers=*/2);
 }
@@ -3673,19 +4065,21 @@ TEST_F(AuctionRunnerTest, DisallowedAsOtherParticipant) {
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder1TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=k1,k2"),
+           "?hostname=publisher1.com&keys=k1,k2"
+           "&interestGroupNames=Ad+Platform"),
       kBidder1SignalsJson);
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder2TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=l1,l2"),
+           "?hostname=publisher1.com&keys=l1,l2"
+           "&interestGroupNames=Another+Ad+Thing"),
       kBidder2SignalsJson);
 
   RunStandardAuction();
   EXPECT_THAT(result_.errors, testing::ElementsAre());
   EXPECT_EQ(InterestGroupKey(kBidder2, kBidder2Name), result_.winning_group_id);
   EXPECT_EQ(GURL("https://ad2.com/"), result_.ad_url);
-  CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/1);
 }
@@ -3703,12 +4097,14 @@ TEST_F(AuctionRunnerTest, OneBidOne404) {
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder1TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=k1,k2"),
+           "?hostname=publisher1.com&keys=k1,k2"
+           "&interestGroupNames=Ad+Platform"),
       kBidder1SignalsJson);
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder2TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=l1,l2"),
+           "?hostname=publisher1.com&keys=l1,l2"
+           "&interestGroupNames=Another+Ad+Thing"),
       kBidder2SignalsJson);
 
   const Result& res = RunStandardAuction();
@@ -3730,6 +4126,17 @@ TEST_F(AuctionRunnerTest, OneBidOne404) {
               ReportingDestination::kBuyer,
               testing::ElementsAre(testing::Pair(
                   "click", GURL("https://buyer-reporting.example.com/2"))))));
+  EXPECT_THAT(
+      result_.private_aggregation_requests,
+      testing::UnorderedElementsAre(
+          testing::Pair(
+              kBidder1,
+              ElementsAreRequests(kExpectedGenerateBidPrivateAggregationRequest,
+                                  kExpectedReportWinPrivateAggregationRequest)),
+          testing::Pair(kSeller,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest))));
   EXPECT_EQ(6, res.bidder1_bid_count);
   ASSERT_EQ(4u, res.bidder1_prev_wins.size());
   EXPECT_EQ(R"({"render_url":"https://ad1.com/","metadata":{"ads": true}})",
@@ -3740,7 +4147,7 @@ TEST_F(AuctionRunnerTest, OneBidOne404) {
       res.errors,
       testing::ElementsAre("Failed to load https://anotheradthing.com/bids.js "
                            "HTTP status = 404 Not Found."));
-  CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/1);
 
@@ -3792,11 +4199,26 @@ TEST_F(AuctionRunnerTest, ComponentAuctionOneSeller404) {
               ReportingDestination::kBuyer,
               testing::ElementsAre(testing::Pair(
                   "click", GURL("https://buyer-reporting.example.com/2"))))));
+  EXPECT_THAT(
+      result_.private_aggregation_requests,
+      testing::UnorderedElementsAre(
+          testing::Pair(
+              kBidder1,
+              ElementsAreRequests(kExpectedGenerateBidPrivateAggregationRequest,
+                                  kExpectedReportWinPrivateAggregationRequest)),
+          testing::Pair(kSeller,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest)),
+          testing::Pair(kComponentSeller1,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest))));
   EXPECT_EQ(6, result_.bidder1_bid_count);
   // The bid send to the failing component seller worklet isn't counted,
   // regardless of whether the bid completed before the worklet failed to load.
   EXPECT_EQ(5, result_.bidder2_bid_count);
-  CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/3);
 }
@@ -3818,12 +4240,14 @@ TEST_F(AuctionRunnerTest, OneBidOneNotMade) {
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder1TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=k1,k2"),
+           "?hostname=publisher1.com&keys=k1,k2"
+           "&interestGroupNames=Ad+Platform"),
       kBidder1SignalsJson);
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder2TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=l1,l2"),
+           "?hostname=publisher1.com&keys=l1,l2"
+           "&interestGroupNames=Another+Ad+Thing"),
       kBidder2SignalsJson);
 
   const Result& res = RunStandardAuction();
@@ -3845,6 +4269,17 @@ TEST_F(AuctionRunnerTest, OneBidOneNotMade) {
               ReportingDestination::kBuyer,
               testing::ElementsAre(testing::Pair(
                   "click", GURL("https://buyer-reporting.example.com/2"))))));
+  EXPECT_THAT(
+      result_.private_aggregation_requests,
+      testing::UnorderedElementsAre(
+          testing::Pair(
+              kBidder1,
+              ElementsAreRequests(kExpectedGenerateBidPrivateAggregationRequest,
+                                  kExpectedReportWinPrivateAggregationRequest)),
+          testing::Pair(kSeller,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest))));
   EXPECT_EQ(6, res.bidder1_bid_count);
   ASSERT_EQ(4u, res.bidder1_prev_wins.size());
   EXPECT_EQ(R"({"render_url":"https://ad1.com/","metadata":{"ads": true}})",
@@ -3854,7 +4289,7 @@ TEST_F(AuctionRunnerTest, OneBidOneNotMade) {
   EXPECT_THAT(res.errors,
               testing::ElementsAre("https://anotheradthing.com/bids.js "
                                    "`generateBid` is not a function."));
-  CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/1);
 }
@@ -3868,12 +4303,14 @@ TEST_F(AuctionRunnerTest, NoBids) {
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder1TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=k1,k2"),
+           "?hostname=publisher1.com&keys=k1,k2"
+           "&interestGroupNames=Ad+Platform"),
       kBidder1SignalsJson);
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder2TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=l1,l2"),
+           "?hostname=publisher1.com&keys=l1,l2"
+           "&interestGroupNames=Another+Ad+Thing"),
       kBidder2SignalsJson);
 
   const Result& res = RunStandardAuction();
@@ -3882,6 +4319,7 @@ TEST_F(AuctionRunnerTest, NoBids) {
   EXPECT_TRUE(res.ad_component_urls.empty());
   EXPECT_THAT(res.report_urls, testing::UnorderedElementsAre());
   EXPECT_TRUE(res.ad_beacon_map.metadata.empty());
+  EXPECT_TRUE(res.private_aggregation_requests.empty());
   EXPECT_EQ(5, res.bidder1_bid_count);
   EXPECT_EQ(3u, res.bidder1_prev_wins.size());
   EXPECT_EQ(5, res.bidder2_bid_count);
@@ -3892,7 +4330,7 @@ TEST_F(AuctionRunnerTest, NoBids) {
                   "HTTP status = 404 Not Found.",
                   "Failed to load https://anotheradthing.com/bids.js "
                   "HTTP status = 404 Not Found."));
-  CheckHistograms(AuctionRunner::AuctionResult::kNoBids,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kNoBids,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/1);
 }
@@ -3909,12 +4347,14 @@ TEST_F(AuctionRunnerTest, NoBidMadeByScript) {
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder1TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=k1,k2"),
+           "?hostname=publisher1.com&keys=k1,k2"
+           "&interestGroupNames=Ad+Platform"),
       kBidder1SignalsJson);
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder2TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=l1,l2"),
+           "?hostname=publisher1.com&keys=l1,l2"
+           "&interestGroupNames=Another+Ad+Thing"),
       kBidder2SignalsJson);
 
   const Result& res = RunStandardAuction();
@@ -3923,6 +4363,7 @@ TEST_F(AuctionRunnerTest, NoBidMadeByScript) {
   EXPECT_TRUE(res.ad_component_urls.empty());
   EXPECT_THAT(res.report_urls, testing::UnorderedElementsAre());
   EXPECT_TRUE(res.ad_beacon_map.metadata.empty());
+  EXPECT_TRUE(res.private_aggregation_requests.empty());
   EXPECT_EQ(5, res.bidder1_bid_count);
   EXPECT_EQ(3u, res.bidder1_prev_wins.size());
   EXPECT_EQ(5, res.bidder2_bid_count);
@@ -3933,7 +4374,7 @@ TEST_F(AuctionRunnerTest, NoBidMadeByScript) {
           "https://adplatform.com/offers.js `generateBid` is not a function.",
           "https://anotheradthing.com/bids.js `generateBid` is not a "
           "function."));
-  CheckHistograms(AuctionRunner::AuctionResult::kNoBids,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kNoBids,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/1);
 }
@@ -3958,12 +4399,14 @@ TEST_F(AuctionRunnerTest, SellerRejectsAll) {
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder1TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=k1,k2"),
+           "?hostname=publisher1.com&keys=k1,k2"
+           "&interestGroupNames=Ad+Platform"),
       kBidder1SignalsJson);
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder2TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=l1,l2"),
+           "?hostname=publisher1.com&keys=l1,l2"
+           "&interestGroupNames=Another+Ad+Thing"),
       kBidder2SignalsJson);
 
   const Result& res = RunStandardAuction();
@@ -3972,6 +4415,15 @@ TEST_F(AuctionRunnerTest, SellerRejectsAll) {
   EXPECT_TRUE(res.ad_component_urls.empty());
   EXPECT_THAT(res.report_urls, testing::UnorderedElementsAre());
   EXPECT_TRUE(res.ad_beacon_map.metadata.empty());
+  EXPECT_THAT(
+      result_.private_aggregation_requests,
+      testing::UnorderedElementsAre(
+          testing::Pair(kBidder1,
+                        ElementsAreRequests(
+                            kExpectedGenerateBidPrivateAggregationRequest)),
+          testing::Pair(kBidder2,
+                        ElementsAreRequests(
+                            kExpectedGenerateBidPrivateAggregationRequest))));
   EXPECT_EQ(6, res.bidder1_bid_count);
   EXPECT_EQ(3u, res.bidder1_prev_wins.size());
   EXPECT_EQ(6, res.bidder2_bid_count);
@@ -3981,7 +4433,7 @@ TEST_F(AuctionRunnerTest, SellerRejectsAll) {
                               "`scoreAd` is not a function.",
                               "https://adstuff.publisher1.com/auction.js "
                               "`scoreAd` is not a function."));
-  CheckHistograms(AuctionRunner::AuctionResult::kAllBidsRejected,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kAllBidsRejected,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/1);
 }
@@ -4003,12 +4455,14 @@ TEST_F(AuctionRunnerTest, SellerRejectsOne) {
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder1TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=k1,k2"),
+           "?hostname=publisher1.com&keys=k1,k2"
+           "&interestGroupNames=Ad+Platform"),
       kBidder1SignalsJson);
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder2TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=l1,l2"),
+           "?hostname=publisher1.com&keys=l1,l2"
+           "&interestGroupNames=Another+Ad+Thing"),
       kBidder2SignalsJson);
 
   const Result& res = RunStandardAuction();
@@ -4030,6 +4484,21 @@ TEST_F(AuctionRunnerTest, SellerRejectsOne) {
               ReportingDestination::kBuyer,
               testing::ElementsAre(testing::Pair(
                   "click", GURL("https://buyer-reporting.example.com/2"))))));
+  EXPECT_THAT(
+      result_.private_aggregation_requests,
+      testing::UnorderedElementsAre(
+          testing::Pair(
+              kBidder1,
+              ElementsAreRequests(kExpectedGenerateBidPrivateAggregationRequest,
+                                  kExpectedReportWinPrivateAggregationRequest)),
+          testing::Pair(kBidder2,
+                        ElementsAreRequests(
+                            kExpectedGenerateBidPrivateAggregationRequest)),
+          testing::Pair(kSeller,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest))));
   EXPECT_EQ(6, res.bidder1_bid_count);
   ASSERT_EQ(4u, res.bidder1_prev_wins.size());
   EXPECT_EQ(R"({"render_url":"https://ad1.com/","metadata":{"ads": true}})",
@@ -4037,7 +4506,7 @@ TEST_F(AuctionRunnerTest, SellerRejectsOne) {
   EXPECT_EQ(6, res.bidder2_bid_count);
   EXPECT_EQ(3u, res.bidder2_prev_wins.size());
   EXPECT_THAT(res.errors, testing::ElementsAre());
-  CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/1);
 }
@@ -4053,6 +4522,7 @@ TEST_F(AuctionRunnerTest, NoSellerScript) {
   EXPECT_TRUE(res.ad_component_urls.empty());
   EXPECT_THAT(res.report_urls, testing::UnorderedElementsAre());
   EXPECT_TRUE(res.ad_beacon_map.metadata.empty());
+  EXPECT_TRUE(res.private_aggregation_requests.empty());
 
   EXPECT_EQ(0, url_loader_factory_.NumPending());
   EXPECT_EQ(5, res.bidder1_bid_count);
@@ -4063,7 +4533,7 @@ TEST_F(AuctionRunnerTest, NoSellerScript) {
               testing::ElementsAre(
                   "Failed to load https://adstuff.publisher1.com/auction.js "
                   "HTTP status = 404 Not Found."));
-  CheckHistograms(AuctionRunner::AuctionResult::kSellerWorkletLoadFailed,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSellerWorkletLoadFailed,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/1);
 }
@@ -4110,6 +4580,21 @@ TEST_F(AuctionRunnerTest, NoTrustedBiddingSignals) {
               ReportingDestination::kBuyer,
               testing::ElementsAre(testing::Pair(
                   "click", GURL("https://buyer-reporting.example.com/4"))))));
+  EXPECT_THAT(
+      result_.private_aggregation_requests,
+      testing::UnorderedElementsAre(
+          testing::Pair(kBidder1,
+                        ElementsAreRequests(
+                            kExpectedGenerateBidPrivateAggregationRequest)),
+          testing::Pair(
+              kBidder2,
+              ElementsAreRequests(kExpectedGenerateBidPrivateAggregationRequest,
+                                  kExpectedReportWinPrivateAggregationRequest)),
+          testing::Pair(kSeller,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest))));
   EXPECT_EQ(6, res.bidder1_bid_count);
   EXPECT_EQ(3u, res.bidder1_prev_wins.size());
   EXPECT_EQ(6, res.bidder2_bid_count);
@@ -4117,7 +4602,7 @@ TEST_F(AuctionRunnerTest, NoTrustedBiddingSignals) {
   EXPECT_EQ(R"({"render_url":"https://ad2.com/"})",
             res.bidder2_prev_wins[3]->ad_json);
   EXPECT_THAT(res.errors, testing::ElementsAre());
-  CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/1);
 }
@@ -4134,12 +4619,14 @@ TEST_F(AuctionRunnerTest, TrustedBiddingSignals404) {
       MakeBidScript(kSeller, "2", "https://ad2.com/", /*num_ad_components=*/2,
                     kBidder2, kBidder2Name,
                     /*has_signals=*/false, "l2", "b"));
-  url_loader_factory_.AddResponse(
-      kBidder1TrustedSignalsUrl.spec() + "?hostname=publisher1.com&keys=k1,k2",
-      "", net::HTTP_NOT_FOUND);
-  url_loader_factory_.AddResponse(
-      kBidder2TrustedSignalsUrl.spec() + "?hostname=publisher1.com&keys=l1,l2",
-      "", net::HTTP_NOT_FOUND);
+  url_loader_factory_.AddResponse(kBidder1TrustedSignalsUrl.spec() +
+                                      "?hostname=publisher1.com&keys=k1,k2"
+                                      "&interestGroupNames=Ad+Platform",
+                                  "", net::HTTP_NOT_FOUND);
+  url_loader_factory_.AddResponse(kBidder2TrustedSignalsUrl.spec() +
+                                      "?hostname=publisher1.com&keys=l1,l2"
+                                      "&interestGroupNames=Another+Ad+Thing",
+                                  "", net::HTTP_NOT_FOUND);
   auction_worklet::AddJavascriptResponse(&url_loader_factory_, kSellerUrl,
                                          MakeAuctionScript());
 
@@ -4162,6 +4649,21 @@ TEST_F(AuctionRunnerTest, TrustedBiddingSignals404) {
               ReportingDestination::kBuyer,
               testing::ElementsAre(testing::Pair(
                   "click", GURL("https://buyer-reporting.example.com/4"))))));
+  EXPECT_THAT(
+      result_.private_aggregation_requests,
+      testing::UnorderedElementsAre(
+          testing::Pair(kBidder1,
+                        ElementsAreRequests(
+                            kExpectedGenerateBidPrivateAggregationRequest)),
+          testing::Pair(
+              kBidder2,
+              ElementsAreRequests(kExpectedGenerateBidPrivateAggregationRequest,
+                                  kExpectedReportWinPrivateAggregationRequest)),
+          testing::Pair(kSeller,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest))));
   EXPECT_EQ(6, res.bidder1_bid_count);
   EXPECT_EQ(3u, res.bidder1_prev_wins.size());
   EXPECT_EQ(6, res.bidder2_bid_count);
@@ -4171,13 +4673,15 @@ TEST_F(AuctionRunnerTest, TrustedBiddingSignals404) {
   EXPECT_THAT(res.errors, testing::UnorderedElementsAre(
                               "Failed to load "
                               "https://adplatform.com/"
-                              "signals1?hostname=publisher1.com&keys=k1,k2 "
+                              "signals1?hostname=publisher1.com&keys=k1,k2&"
+                              "interestGroupNames=Ad+Platform "
                               "HTTP status = 404 Not Found.",
                               "Failed to load "
                               "https://anotheradthing.com/"
-                              "signals2?hostname=publisher1.com&keys=l1,l2 "
+                              "signals2?hostname=publisher1.com&keys=l1,l2"
+                              "&interestGroupNames=Another+Ad+Thing "
                               "HTTP status = 404 Not Found."));
-  CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/1);
 }
@@ -4199,12 +4703,14 @@ TEST_F(AuctionRunnerTest, NoReportResultUrl) {
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder1TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=k1,k2"),
+           "?hostname=publisher1.com&keys=k1,k2"
+           "&interestGroupNames=Ad+Platform"),
       kBidder1SignalsJson);
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder2TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=l1,l2"),
+           "?hostname=publisher1.com&keys=l1,l2"
+           "&interestGroupNames=Another+Ad+Thing"),
       kBidder2SignalsJson);
 
   const Result& res = RunStandardAuction();
@@ -4220,6 +4726,21 @@ TEST_F(AuctionRunnerTest, NoReportResultUrl) {
           ReportingDestination::kBuyer,
           testing::ElementsAre(testing::Pair(
               "click", GURL("https://buyer-reporting.example.com/4"))))));
+  EXPECT_THAT(
+      result_.private_aggregation_requests,
+      testing::UnorderedElementsAre(
+          testing::Pair(kBidder1,
+                        ElementsAreRequests(
+                            kExpectedGenerateBidPrivateAggregationRequest)),
+          testing::Pair(
+              kBidder2,
+              ElementsAreRequests(kExpectedGenerateBidPrivateAggregationRequest,
+                                  kExpectedReportWinPrivateAggregationRequest)),
+          testing::Pair(kSeller,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest))));
   EXPECT_EQ(6, res.bidder1_bid_count);
   EXPECT_EQ(3u, res.bidder1_prev_wins.size());
   EXPECT_EQ(6, res.bidder2_bid_count);
@@ -4227,7 +4748,7 @@ TEST_F(AuctionRunnerTest, NoReportResultUrl) {
   EXPECT_EQ(R"({"render_url":"https://ad2.com/"})",
             res.bidder2_prev_wins[3]->ad_json);
   EXPECT_THAT(res.errors, testing::ElementsAre());
-  CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/1);
 }
@@ -4251,12 +4772,14 @@ TEST_F(AuctionRunnerTest, NoReportWinUrl) {
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder1TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=k1,k2"),
+           "?hostname=publisher1.com&keys=k1,k2"
+           "&interestGroupNames=Ad+Platform"),
       kBidder1SignalsJson);
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder2TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=l1,l2"),
+           "?hostname=publisher1.com&keys=l1,l2"
+           "&interestGroupNames=Another+Ad+Thing"),
       kBidder2SignalsJson);
 
   const Result& res = RunStandardAuction();
@@ -4271,6 +4794,21 @@ TEST_F(AuctionRunnerTest, NoReportWinUrl) {
                   ReportingDestination::kSeller,
                   testing::ElementsAre(testing::Pair(
                       "click", GURL("https://reporting.example.com/4"))))));
+  EXPECT_THAT(
+      result_.private_aggregation_requests,
+      testing::UnorderedElementsAre(
+          testing::Pair(kBidder1,
+                        ElementsAreRequests(
+                            kExpectedGenerateBidPrivateAggregationRequest)),
+          testing::Pair(kBidder2,
+                        ElementsAreRequests(
+                            // ReportWin script override doesn't send a report
+                            kExpectedGenerateBidPrivateAggregationRequest)),
+          testing::Pair(kSeller,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest))));
   EXPECT_EQ(6, res.bidder1_bid_count);
   EXPECT_EQ(3u, res.bidder1_prev_wins.size());
   EXPECT_EQ(6, res.bidder2_bid_count);
@@ -4278,7 +4816,7 @@ TEST_F(AuctionRunnerTest, NoReportWinUrl) {
   EXPECT_EQ(R"({"render_url":"https://ad2.com/"})",
             res.bidder2_prev_wins[3]->ad_json);
   EXPECT_THAT(res.errors, testing::ElementsAre());
-  CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/1);
 }
@@ -4302,12 +4840,14 @@ TEST_F(AuctionRunnerTest, NeitherReportUrl) {
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder1TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=k1,k2"),
+           "?hostname=publisher1.com&keys=k1,k2"
+           "&interestGroupNames=Ad+Platform"),
       kBidder1SignalsJson);
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder2TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=l1,l2"),
+           "?hostname=publisher1.com&keys=l1,l2"
+           "&interestGroupNames=Another+Ad+Thing"),
       kBidder2SignalsJson);
 
   const Result& res = RunStandardAuction();
@@ -4317,6 +4857,21 @@ TEST_F(AuctionRunnerTest, NeitherReportUrl) {
             res.ad_component_urls);
   EXPECT_THAT(res.report_urls, testing::UnorderedElementsAre());
   EXPECT_TRUE(res.ad_beacon_map.metadata.empty());
+  EXPECT_THAT(
+      result_.private_aggregation_requests,
+      testing::UnorderedElementsAre(
+          testing::Pair(kBidder1,
+                        ElementsAreRequests(
+                            kExpectedGenerateBidPrivateAggregationRequest)),
+          testing::Pair(kBidder2,
+                        ElementsAreRequests(
+                            // ReportWin script override doesn't send a report
+                            kExpectedGenerateBidPrivateAggregationRequest)),
+          testing::Pair(kSeller,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest))));
   EXPECT_EQ(6, res.bidder1_bid_count);
   EXPECT_EQ(3u, res.bidder1_prev_wins.size());
   EXPECT_EQ(6, res.bidder2_bid_count);
@@ -4324,7 +4879,7 @@ TEST_F(AuctionRunnerTest, NeitherReportUrl) {
   EXPECT_EQ(R"({"render_url":"https://ad2.com/"})",
             res.bidder2_prev_wins[3]->ad_json);
   EXPECT_THAT(res.errors, testing::ElementsAre());
-  CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/1);
 }
@@ -4355,12 +4910,14 @@ function scoreAd(adMetadata, bid, auctionConfig, trustedScoringSignals,
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder1TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=k1,k2"),
+           "?hostname=publisher1.com&keys=k1,k2"
+           "&interestGroupNames=Ad+Platform"),
       kBidder1SignalsJson);
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder2TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=l1,l2"),
+           "?hostname=publisher1.com&keys=l1,l2"
+           "&interestGroupNames=Another+Ad+Thing"),
       kBidder2SignalsJson);
 
   const Result& res = RunStandardAuction();
@@ -4371,6 +4928,16 @@ function scoreAd(adMetadata, bid, auctionConfig, trustedScoringSignals,
   EXPECT_THAT(res.report_urls, testing::UnorderedElementsAre(GURL(
                                    "https://seller.signals.were.null.test/")));
   EXPECT_TRUE(res.ad_beacon_map.metadata.empty());
+  EXPECT_THAT(
+      result_.private_aggregation_requests,
+      testing::UnorderedElementsAre(
+          testing::Pair(kBidder1,
+                        ElementsAreRequests(
+                            kExpectedGenerateBidPrivateAggregationRequest)),
+          testing::Pair(kBidder2,
+                        ElementsAreRequests(
+                            // ReportWin script override doesn't send a report
+                            kExpectedGenerateBidPrivateAggregationRequest))));
   EXPECT_EQ(6, res.bidder1_bid_count);
   EXPECT_EQ(3u, res.bidder1_prev_wins.size());
   EXPECT_EQ(6, res.bidder2_bid_count);
@@ -4380,7 +4947,7 @@ function scoreAd(adMetadata, bid, auctionConfig, trustedScoringSignals,
   EXPECT_THAT(res.errors, testing::ElementsAre(base::StringPrintf(
                               "%s `reportResult` is not a function.",
                               kSellerUrl.spec().c_str())));
-  CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/1);
 }
@@ -4403,12 +4970,14 @@ TEST_F(AuctionRunnerTest, TrustedScoringSignals) {
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder1TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=k1,k2"),
+           "?hostname=publisher1.com&keys=k1,k2"
+           "&interestGroupNames=Ad+Platform"),
       kBidder1SignalsJson);
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder2TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=l1,l2"),
+           "?hostname=publisher1.com&keys=l1,l2"
+           "&interestGroupNames=Another+Ad+Thing"),
       kBidder2SignalsJson);
 
   // scoreAd() that only accepts bids where the scoring signals of the
@@ -4499,13 +5068,24 @@ function reportResult(auctionConfig, browserSignals) {
               ReportingDestination::kBuyer,
               testing::ElementsAre(testing::Pair(
                   "click", GURL("https://buyer-reporting.example.com/2"))))));
+  EXPECT_THAT(
+      result_.private_aggregation_requests,
+      // Overridden script functions don't send reports
+      testing::UnorderedElementsAre(
+          testing::Pair(
+              kBidder1,
+              ElementsAreRequests(kExpectedGenerateBidPrivateAggregationRequest,
+                                  kExpectedReportWinPrivateAggregationRequest)),
+          testing::Pair(kBidder2,
+                        ElementsAreRequests(
+                            kExpectedGenerateBidPrivateAggregationRequest))));
   EXPECT_EQ(6, result_.bidder1_bid_count);
   EXPECT_EQ(4u, result_.bidder1_prev_wins.size());
   EXPECT_EQ(R"({"render_url":"https://ad1.com/","metadata":{"ads": true}})",
             result_.bidder1_prev_wins[3]->ad_json);
   EXPECT_EQ(6, result_.bidder2_bid_count);
   ASSERT_EQ(3u, result_.bidder2_prev_wins.size());
-  CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/1);
 }
@@ -4528,12 +5108,14 @@ TEST_F(AuctionRunnerTest, ProcessManagerBlocksWorkletCreation) {
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder1TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=k1,k2"),
+           "?hostname=publisher1.com&keys=k1,k2"
+           "&interestGroupNames=Ad+Platform"),
       kBidder1SignalsJson);
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder2TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=l1,l2"),
+           "?hostname=publisher1.com&keys=l1,l2"
+           "&interestGroupNames=Another+Ad+Thing"),
       kBidder2SignalsJson);
 
   // For the seller worklet, it only matters if the worklet process limit has
@@ -4657,13 +5239,29 @@ TEST_F(AuctionRunnerTest, ProcessManagerBlocksWorkletCreation) {
                   testing::ElementsAre(testing::Pair(
                       "click",
                       GURL("https://buyer-reporting.example.com/4"))))));
+      EXPECT_THAT(
+          result_.private_aggregation_requests,
+          testing::UnorderedElementsAre(
+              testing::Pair(kBidder1,
+                            ElementsAreRequests(
+                                kExpectedGenerateBidPrivateAggregationRequest)),
+              testing::Pair(kBidder2,
+                            ElementsAreRequests(
+                                kExpectedGenerateBidPrivateAggregationRequest,
+                                kExpectedReportWinPrivateAggregationRequest)),
+              testing::Pair(
+                  kSeller,
+                  ElementsAreRequests(
+                      kExpectedScoreAdPrivateAggregationRequest,
+                      kExpectedScoreAdPrivateAggregationRequest,
+                      kExpectedReportResultPrivateAggregationRequest))));
       EXPECT_EQ(6, result_.bidder1_bid_count);
       EXPECT_EQ(3u, result_.bidder1_prev_wins.size());
       EXPECT_EQ(6, result_.bidder2_bid_count);
       ASSERT_EQ(4u, result_.bidder2_prev_wins.size());
       EXPECT_EQ(R"({"render_url":"https://ad2.com/"})",
                 result_.bidder2_prev_wins[3]->ad_json);
-      CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+      CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                       /*expected_interest_groups=*/2,
                       /*expected_owners=*/2, /*expected_sellers=*/1);
     }
@@ -4833,7 +5431,30 @@ TEST_F(AuctionRunnerTest, ComponentAuctionProcessManagerBlocksWorkletCreation) {
                   testing::ElementsAre(testing::Pair(
                       "click",
                       GURL("https://buyer-reporting.example.com/4"))))));
-      CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+      EXPECT_THAT(
+          result_.private_aggregation_requests,
+          testing::UnorderedElementsAre(
+              testing::Pair(kBidder1,
+                            ElementsAreRequests(
+                                kExpectedGenerateBidPrivateAggregationRequest)),
+              testing::Pair(kBidder2,
+                            ElementsAreRequests(
+                                kExpectedGenerateBidPrivateAggregationRequest,
+                                kExpectedReportWinPrivateAggregationRequest)),
+              testing::Pair(
+                  kSeller, ElementsAreRequests(
+                               kExpectedScoreAdPrivateAggregationRequest,
+                               kExpectedScoreAdPrivateAggregationRequest,
+                               kExpectedReportResultPrivateAggregationRequest)),
+              testing::Pair(kComponentSeller1,
+                            ElementsAreRequests(
+                                kExpectedScoreAdPrivateAggregationRequest)),
+              testing::Pair(
+                  kComponentSeller2,
+                  ElementsAreRequests(
+                      kExpectedScoreAdPrivateAggregationRequest,
+                      kExpectedReportResultPrivateAggregationRequest))));
+      CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                       /*expected_interest_groups=*/2, /*expected_owners=*/2,
                       /*expected_sellers=*/3);
     }
@@ -4882,7 +5503,7 @@ TEST_F(AuctionRunnerTest, SellerLoadErrorWhileWaitingForBidders) {
   EXPECT_EQ(3u, result_.bidder1_prev_wins.size());
   EXPECT_EQ(5, result_.bidder2_bid_count);
   ASSERT_EQ(3u, result_.bidder2_prev_wins.size());
-  CheckHistograms(AuctionRunner::AuctionResult::kSellerWorkletLoadFailed,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSellerWorkletLoadFailed,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/1);
 }
@@ -4918,7 +5539,8 @@ TEST_F(AuctionRunnerTest,
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder2TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=l1,l2"),
+           "?hostname=publisher1.com&keys=l1,l2"
+           "&interestGroupNames=Another+Ad+Thing"),
       kBidder2SignalsJson);
 
   // Top-level seller uses the default script.
@@ -4986,7 +5608,22 @@ TEST_F(AuctionRunnerTest,
               ReportingDestination::kBuyer,
               testing::ElementsAre(testing::Pair(
                   "click", GURL("https://buyer-reporting.example.com/4"))))));
-  CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+  EXPECT_THAT(
+      result_.private_aggregation_requests,
+      testing::UnorderedElementsAre(
+          testing::Pair(
+              kBidder2,
+              ElementsAreRequests(kExpectedGenerateBidPrivateAggregationRequest,
+                                  kExpectedReportWinPrivateAggregationRequest)),
+          testing::Pair(kSeller,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest)),
+          testing::Pair(kComponentSeller2,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest))));
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/3);
 }
@@ -5011,7 +5648,7 @@ TEST_F(AuctionRunnerTest, ReusedBidderWorkletBatchesSignalsRequests) {
       }
       return {
         ad: 0,
-        bid: trustedBiddingSignals[interestGroup.name],
+        bid: trustedBiddingSignals['key' + interestGroup.name],
         render: interestGroup.ads[0].renderUrl
       };
     }
@@ -5043,10 +5680,10 @@ TEST_F(AuctionRunnerTest, ReusedBidderWorkletBatchesSignalsRequests) {
   std::vector<StorageInterestGroup> bidders;
   bidders.emplace_back(MakeInterestGroup(
       kBidder1, /*name=*/"0", kBidder1Url, kBidder1TrustedSignalsUrl,
-      /*trusted_bidding_signals_keys=*/{"0"}, GURL("https://ad1.com")));
+      /*trusted_bidding_signals_keys=*/{"key0"}, GURL("https://ad1.com")));
   bidders.emplace_back(MakeInterestGroup(
       kBidder1, /*name=*/"1", kBidder1Url, kBidder1TrustedSignalsUrl,
-      /*trusted_bidding_signals_keys=*/{"1"}, GURL("https://ad2.com")));
+      /*trusted_bidding_signals_keys=*/{"key1"}, GURL("https://ad2.com")));
 
   auction_worklet::AddJavascriptResponse(&url_loader_factory_, kBidder1Url,
                                          kBidderScript);
@@ -5056,8 +5693,8 @@ TEST_F(AuctionRunnerTest, ReusedBidderWorkletBatchesSignalsRequests) {
   auction_worklet::AddVersionedJsonResponse(
       &url_loader_factory_,
       GURL(kBidder1TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=0,1"),
-      R"({"0":2, "1": 1})", 4);
+           "?hostname=publisher1.com&keys=key0,key1&interestGroupNames=0,1"),
+      R"({"key0":2, "key1": 1})", 4);
 
   auction_worklet::AddJavascriptResponse(&url_loader_factory_, kSellerUrl,
                                          kSellerScript);
@@ -5072,6 +5709,7 @@ TEST_F(AuctionRunnerTest, ReusedBidderWorkletBatchesSignalsRequests) {
   EXPECT_TRUE(result_.ad_component_urls.empty());
   EXPECT_THAT(result_.report_urls, testing::UnorderedElementsAre());
   EXPECT_TRUE(result_.ad_beacon_map.metadata.empty());
+  EXPECT_TRUE(result_.private_aggregation_requests.empty());
 }
 
 TEST_F(AuctionRunnerTest, AllBiddersCrashBeforeBidding) {
@@ -5129,12 +5767,13 @@ TEST_F(AuctionRunnerTest, AllBiddersCrashBeforeBidding) {
   EXPECT_TRUE(result_.ad_component_urls.empty());
   EXPECT_THAT(result_.report_urls, testing::UnorderedElementsAre());
   EXPECT_TRUE(result_.ad_beacon_map.metadata.empty());
+  EXPECT_TRUE(result_.private_aggregation_requests.empty());
   EXPECT_EQ(5, result_.bidder1_bid_count);
   EXPECT_EQ(3u, result_.bidder1_prev_wins.size());
   EXPECT_EQ(5, result_.bidder2_bid_count);
   EXPECT_EQ(3u, result_.bidder2_prev_wins.size());
 
-  CheckHistograms(AuctionRunner::AuctionResult::kNoBids,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kNoBids,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/1);
 }
@@ -5199,13 +5838,16 @@ TEST_F(AuctionRunnerTest, BidderCrashBeforeBidding) {
     auto score_ad_params = seller_worklet->WaitForScoreAd();
     EXPECT_EQ(kBidder2, score_ad_params.interest_group_owner);
     EXPECT_EQ(7, score_ad_params.bid);
-    std::move(score_ad_params.callback)
-        .Run(/*score=*/11,
-             auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
-             /*data_version=*/0,
-             /*has_data_version=*/false,
-             /*debug_loss_report_url=*/absl::nullopt,
-             /*debug_win_report_url=*/absl::nullopt, /*errors=*/{});
+    mojo::Remote<auction_worklet::mojom::ScoreAdClient>(
+        std::move(score_ad_params.score_ad_client))
+        ->OnScoreAdComplete(
+            /*score=*/11,
+            auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
+            /*data_version=*/0,
+            /*has_data_version=*/false,
+            /*debug_loss_report_url=*/absl::nullopt,
+            /*debug_win_report_url=*/absl::nullopt, /*pa_requests=*/{},
+            /*errors=*/{});
 
     // Finish the auction.
     seller_worklet->WaitForReportResult();
@@ -5230,13 +5872,14 @@ TEST_F(AuctionRunnerTest, BidderCrashBeforeBidding) {
     EXPECT_TRUE(result_.ad_component_urls.empty());
     EXPECT_THAT(result_.report_urls, testing::UnorderedElementsAre());
     EXPECT_TRUE(result_.ad_beacon_map.metadata.empty());
+    EXPECT_TRUE(result_.private_aggregation_requests.empty());
     EXPECT_EQ(5, result_.bidder1_bid_count);
     EXPECT_EQ(3u, result_.bidder1_prev_wins.size());
     EXPECT_EQ(6, result_.bidder2_bid_count);
     ASSERT_EQ(4u, result_.bidder2_prev_wins.size());
     EXPECT_EQ(R"({"render_url":"https://ad2.com/"})",
               result_.bidder2_prev_wins[3]->ad_json);
-    CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+    CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                     /*expected_interest_groups=*/2, /*expected_owners=*/2,
                     /*expected_sellers=*/1);
   }
@@ -5256,13 +5899,32 @@ TEST_F(AuctionRunnerTest, WinningBidderCrashWhileReporting) {
       mock_auction_process_manager_->TakeBidderWorklet(kBidder2Url);
   ASSERT_TRUE(bidder2_worklet);
 
-  bidder1_worklet->InvokeGenerateBidCallback(/*bid=*/7,
-                                             GURL("https://ad1.com/"));
+  PrivateAggregationRequests bidder_1_pa_requests;
+  bidder_1_pa_requests.push_back(
+      kExpectedGenerateBidPrivateAggregationRequest.Clone());
+  bidder1_worklet->InvokeGenerateBidCallback(
+      /*bid=*/7, GURL("https://ad1.com/"),
+      /*ad_component_urls=*/absl::nullopt,
+      /*duration=*/base::TimeDelta(),
+      /*bidding_signals_data_version=*/
+      absl::nullopt,
+      /*debug_loss_report_url=*/absl::nullopt,
+      /*debug_win_report_url=*/absl::nullopt, std::move(bidder_1_pa_requests));
   // The bidder pipe should be closed after it bids.
   EXPECT_TRUE(bidder1_worklet->PipeIsClosed());
   bidder1_worklet.reset();
-  bidder2_worklet->InvokeGenerateBidCallback(/*bid=*/5,
-                                             GURL("https://ad2.com/"));
+
+  PrivateAggregationRequests bidder_2_pa_requests;
+  bidder_2_pa_requests.push_back(
+      kExpectedGenerateBidPrivateAggregationRequest.Clone());
+  bidder2_worklet->InvokeGenerateBidCallback(
+      /*bid=*/5, GURL("https://ad2.com/"),
+      /*ad_component_urls=*/absl::nullopt,
+      /*duration=*/base::TimeDelta(),
+      /*bidding_signals_data_version=*/
+      absl::nullopt,
+      /*debug_loss_report_url=*/absl::nullopt,
+      /*debug_win_report_url=*/absl::nullopt, std::move(bidder_2_pa_requests));
   // The bidder pipe should be closed after it bids.
   EXPECT_TRUE(bidder2_worklet->PipeIsClosed());
   bidder2_worklet.reset();
@@ -5271,27 +5933,47 @@ TEST_F(AuctionRunnerTest, WinningBidderCrashWhileReporting) {
   auto score_ad_params = seller_worklet->WaitForScoreAd();
   EXPECT_EQ(kBidder1, score_ad_params.interest_group_owner);
   EXPECT_EQ(7, score_ad_params.bid);
-  std::move(score_ad_params.callback)
-      .Run(/*score=*/11,
-           auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
-           /*data_version=*/0, /*has_data_version=*/false,
-           /*debug_loss_report_url=*/absl::nullopt,
-           /*debug_win_report_url=*/absl::nullopt, /*errors=*/{});
+  PrivateAggregationRequests score_ad_1_pa_requests;
+  score_ad_1_pa_requests.push_back(
+      kExpectedScoreAdPrivateAggregationRequest.Clone());
+  mojo::Remote<auction_worklet::mojom::ScoreAdClient>(
+      std::move(score_ad_params.score_ad_client))
+      ->OnScoreAdComplete(
+          /*score=*/11,
+          auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
+          /*data_version=*/0, /*has_data_version=*/false,
+          /*debug_loss_report_url=*/absl::nullopt,
+          /*debug_win_report_url=*/absl::nullopt,
+          std::move(score_ad_1_pa_requests),
+          /*errors=*/{});
 
   // Score Bidder2's bid.
   score_ad_params = seller_worklet->WaitForScoreAd();
   EXPECT_EQ(kBidder2, score_ad_params.interest_group_owner);
   EXPECT_EQ(5, score_ad_params.bid);
-  std::move(score_ad_params.callback)
-      .Run(/*score=*/10,
-           auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
-           /*data_version=*/0, /*has_data_version=*/false,
-           /*debug_loss_report_url=*/absl::nullopt,
-           /*debug_win_report_url=*/absl::nullopt, /*errors=*/{});
+  PrivateAggregationRequests score_ad_2_pa_requests;
+  score_ad_2_pa_requests.push_back(
+      kExpectedScoreAdPrivateAggregationRequest.Clone());
+  mojo::Remote<auction_worklet::mojom::ScoreAdClient>(
+      std::move(score_ad_params.score_ad_client))
+      ->OnScoreAdComplete(
+          /*score=*/10,
+          auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
+          /*data_version=*/0, /*has_data_version=*/false,
+          /*debug_loss_report_url=*/absl::nullopt,
+          /*debug_win_report_url=*/absl::nullopt,
+          std::move(score_ad_2_pa_requests),
+          /*errors=*/{});
+
+  PrivateAggregationRequests report_result_pa_requests;
+  report_result_pa_requests.push_back(
+      kExpectedReportResultPrivateAggregationRequest.Clone());
 
   // Bidder1 crashes while running ReportWin.
   seller_worklet->WaitForReportResult();
-  seller_worklet->InvokeReportResultCallback();
+  seller_worklet->InvokeReportResultCallback(
+      /*report_url=*/absl::nullopt,
+      /*ad_beacon_map=*/{}, std::move(report_result_pa_requests));
   mock_auction_process_manager_->WaitForWinningBidderReload();
   bidder1_worklet =
       mock_auction_process_manager_->TakeBidderWorklet(kBidder1Url);
@@ -5308,13 +5990,28 @@ TEST_F(AuctionRunnerTest, WinningBidderCrashWhileReporting) {
   EXPECT_TRUE(result_.ad_component_urls.empty());
   EXPECT_THAT(result_.report_urls, testing::UnorderedElementsAre());
   EXPECT_TRUE(result_.ad_beacon_map.metadata.empty());
+  EXPECT_THAT(
+      result_.private_aggregation_requests,
+      testing::UnorderedElementsAre(
+          testing::Pair(kBidder1,
+                        ElementsAreRequests(
+                            kExpectedGenerateBidPrivateAggregationRequest)),
+          testing::Pair(kBidder2,
+                        ElementsAreRequests(
+                            kExpectedGenerateBidPrivateAggregationRequest)),
+          testing::Pair(kSeller,
+                        ElementsAreRequests(
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedScoreAdPrivateAggregationRequest,
+                            kExpectedReportResultPrivateAggregationRequest))));
   EXPECT_EQ(6, result_.bidder1_bid_count);
   EXPECT_EQ(3u, result_.bidder1_prev_wins.size());
   EXPECT_EQ(6, result_.bidder2_bid_count);
   EXPECT_EQ(3u, result_.bidder2_prev_wins.size());
-  CheckHistograms(AuctionRunner::AuctionResult::kWinningBidderWorkletCrashed,
-                  /*expected_interest_groups=*/2, /*expected_owners=*/2,
-                  /*expected_sellers=*/1);
+  CheckHistograms(
+      InterestGroupAuction::AuctionResult::kWinningBidderWorkletCrashed,
+      /*expected_interest_groups=*/2, /*expected_owners=*/2,
+      /*expected_sellers=*/1);
 }
 
 // Should not have any debugging win/loss report URLs after auction when feature
@@ -5403,22 +6100,28 @@ TEST_F(AuctionRunnerTest, SellerCrash) {
       bidder1_worklet.reset();
       EXPECT_EQ(kBidder1, score_ad_params.interest_group_owner);
       EXPECT_EQ(5, score_ad_params.bid);
-      std::move(score_ad_params.callback)
-          .Run(/*score=*/10,
-               auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
-               /*data_version=*/0, /*has_data_version=*/false,
-               /*debug_loss_report_url=*/absl::nullopt,
-               /*debug_win_report_url=*/absl::nullopt, /*errors=*/{});
+      mojo::Remote<auction_worklet::mojom::ScoreAdClient>(
+          std::move(score_ad_params.score_ad_client))
+          ->OnScoreAdComplete(
+              /*score=*/10,
+              auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
+              /*data_version=*/0, /*has_data_version=*/false,
+              /*debug_loss_report_url=*/absl::nullopt,
+              /*debug_win_report_url=*/absl::nullopt, /*pa_requests=*/{},
+              /*errors=*/{});
 
       // Score Bidder2's bid.
       EXPECT_EQ(kBidder2, score_ad_params2.interest_group_owner);
       EXPECT_EQ(7, score_ad_params2.bid);
-      std::move(score_ad_params2.callback)
-          .Run(/*score=*/11,
-               auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
-               /*data_version=*/0, /*has_data_version=*/false,
-               /*debug_loss_report_url=*/absl::nullopt,
-               /*debug_win_report_url=*/absl::nullopt, /*errors=*/{});
+      mojo::Remote<auction_worklet::mojom::ScoreAdClient>(
+          std::move(score_ad_params2.score_ad_client))
+          ->OnScoreAdComplete(
+              /*score=*/11,
+              auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
+              /*data_version=*/0, /*has_data_version=*/false,
+              /*debug_loss_report_url=*/absl::nullopt,
+              /*debug_win_report_url=*/absl::nullopt, /*pa_requests=*/{},
+              /*errors=*/{});
 
       seller_worklet->WaitForReportResult();
       DCHECK_EQ(CrashPhase::kReportResult, crash_phase);
@@ -5437,6 +6140,7 @@ TEST_F(AuctionRunnerTest, SellerCrash) {
     EXPECT_TRUE(result_.ad_component_urls.empty());
     EXPECT_THAT(result_.report_urls, testing::UnorderedElementsAre());
     EXPECT_TRUE(result_.ad_beacon_map.metadata.empty());
+    EXPECT_TRUE(result_.private_aggregation_requests.empty());
     if (crash_phase != CrashPhase::kReportResult) {
       EXPECT_EQ(5, result_.bidder1_bid_count);
       EXPECT_EQ(3u, result_.bidder1_prev_wins.size());
@@ -5450,7 +6154,7 @@ TEST_F(AuctionRunnerTest, SellerCrash) {
       EXPECT_EQ(6, result_.bidder2_bid_count);
       EXPECT_EQ(3u, result_.bidder2_prev_wins.size());
     }
-    CheckHistograms(AuctionRunner::AuctionResult::kSellerWorkletCrashed,
+    CheckHistograms(InterestGroupAuction::AuctionResult::kSellerWorkletCrashed,
                     /*expected_interest_groups=*/2, /*expected_owners=*/2,
                     /*expected_sellers=*/1);
   }
@@ -5485,7 +6189,7 @@ TEST_F(AuctionRunnerTest, ComponentAuctionAllBiddersCrashBeforeBidding) {
                              kBidder2Url.spec().c_str())));
   EXPECT_FALSE(result_.ad_url);
 
-  CheckHistograms(AuctionRunner::AuctionResult::kNoBids,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kNoBids,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/3);
 }
@@ -5522,16 +6226,18 @@ TEST_F(AuctionRunnerTest, ComponentAuctionOneBidderCrashesBeforeBidding) {
   auto score_ad_params = component_seller_worklet->WaitForScoreAd();
   EXPECT_EQ(kBidder2, score_ad_params.interest_group_owner);
   EXPECT_EQ(2, score_ad_params.bid);
-  std::move(score_ad_params.callback)
-      .Run(/*score=*/3,
-           auction_worklet::mojom::ComponentAuctionModifiedBidParams::New(
-               /*ad=*/"null",
-               /*bid=*/0,
-               /*has_bid=*/false),
-           /*data_version=*/0, /*has_data_version=*/false,
-           /*debug_loss_report_url=*/absl::nullopt,
-           /*debug_win_report_url=*/absl::nullopt,
-           /*errors=*/{});
+  mojo::Remote<auction_worklet::mojom::ScoreAdClient>(
+      std::move(score_ad_params.score_ad_client))
+      ->OnScoreAdComplete(
+          /*score=*/3,
+          auction_worklet::mojom::ComponentAuctionModifiedBidParams::New(
+              /*ad=*/"null",
+              /*bid=*/0,
+              /*has_bid=*/false),
+          /*data_version=*/0, /*has_data_version=*/false,
+          /*debug_loss_report_url=*/absl::nullopt,
+          /*debug_win_report_url=*/absl::nullopt, /*pa_requests=*/{},
+          /*errors=*/{});
 
   // Top-level seller worklet scores the bid.
   auto top_level_seller_worklet =
@@ -5540,12 +6246,15 @@ TEST_F(AuctionRunnerTest, ComponentAuctionOneBidderCrashesBeforeBidding) {
   score_ad_params = top_level_seller_worklet->WaitForScoreAd();
   EXPECT_EQ(kBidder2, score_ad_params.interest_group_owner);
   EXPECT_EQ(2, score_ad_params.bid);
-  std::move(score_ad_params.callback)
-      .Run(/*score=*/4,
-           auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
-           /*data_version=*/0, /*has_data_version=*/false,
-           /*debug_loss_report_url=*/absl::nullopt,
-           /*debug_win_report_url=*/absl::nullopt, /*errors=*/{});
+  mojo::Remote<auction_worklet::mojom::ScoreAdClient>(
+      std::move(score_ad_params.score_ad_client))
+      ->OnScoreAdComplete(
+          /*score=*/4,
+          auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
+          /*data_version=*/0, /*has_data_version=*/false,
+          /*debug_loss_report_url=*/absl::nullopt,
+          /*debug_win_report_url=*/absl::nullopt, /*pa_requests=*/{},
+          /*errors=*/{});
 
   // Top-level seller worklet returns a report url.
   top_level_seller_worklet->WaitForReportResult();
@@ -5583,7 +6292,7 @@ TEST_F(AuctionRunnerTest, ComponentAuctionOneBidderCrashesBeforeBidding) {
                                             GURL("https://report3.test/")));
   EXPECT_EQ(5, result_.bidder1_bid_count);
   EXPECT_EQ(6, result_.bidder2_bid_count);
-  CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/2);
 }
@@ -5634,15 +6343,18 @@ TEST_F(AuctionRunnerTest, ComponentAuctionComponentSellersReportResultFails) {
     auto score_ad_params = component_seller_worklet->WaitForScoreAd();
     EXPECT_EQ(kBidder1, score_ad_params.interest_group_owner);
     EXPECT_EQ(2, score_ad_params.bid);
-    std::move(score_ad_params.callback)
-        .Run(/*score=*/3,
-             auction_worklet::mojom::ComponentAuctionModifiedBidParams::New(
-                 /*ad=*/"null",
-                 /*bid=*/0,
-                 /*has_bid=*/false),
-             /*data_version=*/0, /*has_data_version=*/false,
-             /*debug_loss_report_url=*/absl::nullopt,
-             /*debug_win_report_url=*/absl::nullopt, /*errors=*/{});
+    mojo::Remote<auction_worklet::mojom::ScoreAdClient>(
+        std::move(score_ad_params.score_ad_client))
+        ->OnScoreAdComplete(
+            /*score=*/3,
+            auction_worklet::mojom::ComponentAuctionModifiedBidParams::New(
+                /*ad=*/"null",
+                /*bid=*/0,
+                /*has_bid=*/false),
+            /*data_version=*/0, /*has_data_version=*/false,
+            /*debug_loss_report_url=*/absl::nullopt,
+            /*debug_win_report_url=*/absl::nullopt, /*pa_requests=*/{},
+            /*errors=*/{});
 
     // Top-level seller worklet scores the bid.
     auto top_level_seller_worklet =
@@ -5651,12 +6363,15 @@ TEST_F(AuctionRunnerTest, ComponentAuctionComponentSellersReportResultFails) {
     score_ad_params = top_level_seller_worklet->WaitForScoreAd();
     EXPECT_EQ(kBidder1, score_ad_params.interest_group_owner);
     EXPECT_EQ(2, score_ad_params.bid);
-    std::move(score_ad_params.callback)
-        .Run(/*score=*/4,
-             auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
-             /*data_version=*/0, /*has_data_version=*/false,
-             /*debug_loss_report_url=*/absl::nullopt,
-             /*debug_win_report_url=*/absl::nullopt, /*errors=*/{});
+    mojo::Remote<auction_worklet::mojom::ScoreAdClient>(
+        std::move(score_ad_params.score_ad_client))
+        ->OnScoreAdComplete(
+            /*score=*/4,
+            auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
+            /*data_version=*/0, /*has_data_version=*/false,
+            /*debug_loss_report_url=*/absl::nullopt,
+            /*debug_win_report_url=*/absl::nullopt, /*pa_requests=*/{},
+            /*errors=*/{});
 
     // Top-level seller worklet returns a report url.
     top_level_seller_worklet->WaitForReportResult();
@@ -5684,10 +6399,10 @@ TEST_F(AuctionRunnerTest, ComponentAuctionComponentSellersReportResultFails) {
                       kComponentSeller1Url.spec().c_str())));
       EXPECT_FALSE(result_.ad_url);
       EXPECT_EQ(6, result_.bidder1_bid_count);
-      CheckHistograms(
-          AuctionRunner::AuctionResult::kWinningComponentSellerWorkletCrashed,
-          /*expected_interest_groups=*/2, /*expected_owners=*/2,
-          /*expected_sellers=*/2);
+      CheckHistograms(InterestGroupAuction::AuctionResult::
+                          kWinningComponentSellerWorkletCrashed,
+                      /*expected_interest_groups=*/2, /*expected_owners=*/2,
+                      /*expected_sellers=*/2);
     } else if (test_case == TestCase::kLoadError) {
       // A load error in the winning component seller worklet will cause the
       // auction to continue to completion.
@@ -5711,7 +6426,7 @@ TEST_F(AuctionRunnerTest, ComponentAuctionComponentSellersReportResultFails) {
                   testing::UnorderedElementsAre(GURL("https://report1.test/"),
                                                 GURL("https://report3.test/")));
       EXPECT_EQ(6, result_.bidder1_bid_count);
-      CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+      CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                       /*expected_interest_groups=*/2, /*expected_owners=*/2,
                       /*expected_sellers=*/2);
     } else if (test_case == TestCase::kScriptError) {
@@ -5720,7 +6435,8 @@ TEST_F(AuctionRunnerTest, ComponentAuctionComponentSellersReportResultFails) {
       const char kScriptError[] = "Script error";
 
       component_seller_worklet->InvokeReportResultCallback(
-          /*report_url=*/absl::nullopt, /*ad_beacon_map=*/{}, {kScriptError});
+          /*report_url=*/absl::nullopt, /*ad_beacon_map=*/{},
+          /*pa_requests=*/{}, {kScriptError});
 
       // Winning bidder worklet should be reloaded and ReportWin() invoked.
       mock_auction_process_manager_->WaitForWinningBidderReload();
@@ -5738,7 +6454,7 @@ TEST_F(AuctionRunnerTest, ComponentAuctionComponentSellersReportResultFails) {
                   testing::UnorderedElementsAre(GURL("https://report1.test/"),
                                                 GURL("https://report3.test/")));
       EXPECT_EQ(6, result_.bidder1_bid_count);
-      CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+      CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                       /*expected_interest_groups=*/2, /*expected_owners=*/2,
                       /*expected_sellers=*/2);
     }
@@ -5780,7 +6496,7 @@ TEST_F(AuctionRunnerTest, ComponentAuctionComponentSellersAllCrash) {
   EXPECT_FALSE(result_.ad_url);
   EXPECT_EQ(5, result_.bidder1_bid_count);
   EXPECT_EQ(5, result_.bidder2_bid_count);
-  CheckHistograms(AuctionRunner::AuctionResult::kNoBids,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kNoBids,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/3);
 }
@@ -5854,12 +6570,14 @@ TEST_F(AuctionRunnerTest, ComponentAuctionComponentSellerBadBidParams) {
     auto score_ad_params = component_seller_worklet->WaitForScoreAd();
     EXPECT_EQ(kBidder2, score_ad_params.interest_group_owner);
     EXPECT_EQ(2, score_ad_params.bid);
-    std::move(score_ad_params.callback)
-        .Run(/*score=*/3, test_case.params.Clone(),
-             /*data_version=*/0, /*has_data_version=*/false,
-             /*debug_loss_report_url=*/absl::nullopt,
-             /*debug_win_report_url=*/absl::nullopt,
-             /*errors=*/{});
+    mojo::Remote<auction_worklet::mojom::ScoreAdClient>(
+        std::move(score_ad_params.score_ad_client))
+        ->OnScoreAdComplete(/*score=*/3, test_case.params.Clone(),
+                            /*data_version=*/0, /*has_data_version=*/false,
+                            /*debug_loss_report_url=*/absl::nullopt,
+                            /*debug_win_report_url=*/absl::nullopt,
+                            /*pa_requests=*/{},
+                            /*errors=*/{});
 
     // The auction fails, because of the bad ComponentAuctionModifiedBidParams.
     auction_run_loop_->Run();
@@ -5874,7 +6592,7 @@ TEST_F(AuctionRunnerTest, ComponentAuctionComponentSellerBadBidParams) {
 
     // The component auction failed with a Mojo error, but the top-level auction
     // sees that as no bids.
-    CheckHistograms(AuctionRunner::AuctionResult::kNoBids,
+    CheckHistograms(InterestGroupAuction::AuctionResult::kNoBids,
                     /*expected_interest_groups=*/2, /*expected_owners=*/2,
                     /*expected_sellers=*/2);
   }
@@ -5908,16 +6626,18 @@ TEST_F(AuctionRunnerTest, TopLevelSellerBadBidParams) {
   auto score_ad_params = seller_worklet->WaitForScoreAd();
   EXPECT_EQ(kBidder2, score_ad_params.interest_group_owner);
   EXPECT_EQ(2, score_ad_params.bid);
-  std::move(score_ad_params.callback)
-      .Run(/*score=*/3,
-           auction_worklet::mojom::ComponentAuctionModifiedBidParams::New(
-               /*ad=*/"null",
-               /*bid=*/0,
-               /*has_bid=*/false),
-           /*data_version=*/0, /*has_data_version=*/false,
-           /*debug_loss_report_url=*/absl::nullopt,
-           /*debug_win_report_url=*/absl::nullopt,
-           /*errors=*/{});
+  mojo::Remote<auction_worklet::mojom::ScoreAdClient>(
+      std::move(score_ad_params.score_ad_client))
+      ->OnScoreAdComplete(
+          /*score=*/3,
+          auction_worklet::mojom::ComponentAuctionModifiedBidParams::New(
+              /*ad=*/"null",
+              /*bid=*/0,
+              /*has_bid=*/false),
+          /*data_version=*/0, /*has_data_version=*/false,
+          /*debug_loss_report_url=*/absl::nullopt,
+          /*debug_win_report_url=*/absl::nullopt, /*pa_requests=*/{},
+          /*errors=*/{});
 
   auction_run_loop_->Run();
 
@@ -5932,7 +6652,7 @@ TEST_F(AuctionRunnerTest, TopLevelSellerBadBidParams) {
   EXPECT_EQ(5, result_.bidder1_bid_count);
   EXPECT_EQ(5, result_.bidder2_bid_count);
 
-  CheckHistograms(AuctionRunner::AuctionResult::kBadMojoMessage,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kBadMojoMessage,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/1);
 }
@@ -5975,12 +6695,15 @@ TEST_F(AuctionRunnerTest, NullAdComponents) {
       auto score_ad_params = seller_worklet->WaitForScoreAd();
       EXPECT_EQ(kBidder1, score_ad_params.interest_group_owner);
       EXPECT_EQ(1, score_ad_params.bid);
-      std::move(score_ad_params.callback)
-          .Run(/*score=*/11,
-               auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
-               /*data_version=*/0, /*has_data_version=*/false,
-               /*debug_loss_report_url=*/absl::nullopt,
-               /*debug_win_report_url=*/absl::nullopt, /*errors=*/{});
+      mojo::Remote<auction_worklet::mojom::ScoreAdClient>(
+          std::move(score_ad_params.score_ad_client))
+          ->OnScoreAdComplete(
+              /*score=*/11,
+              auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
+              /*data_version=*/0, /*has_data_version=*/false,
+              /*debug_loss_report_url=*/absl::nullopt,
+              /*debug_win_report_url=*/absl::nullopt, /*pa_requests=*/{},
+              /*errors=*/{});
 
       // Finish the auction.
       seller_worklet->WaitForReportResult();
@@ -6000,11 +6723,12 @@ TEST_F(AuctionRunnerTest, NullAdComponents) {
       EXPECT_TRUE(result_.ad_component_urls.empty());
       EXPECT_THAT(result_.report_urls, testing::UnorderedElementsAre());
       EXPECT_TRUE(result_.ad_beacon_map.metadata.empty());
+      EXPECT_TRUE(result_.private_aggregation_requests.empty());
       EXPECT_EQ(6, result_.bidder1_bid_count);
       ASSERT_EQ(4u, result_.bidder1_prev_wins.size());
       EXPECT_EQ(R"({"render_url":"https://ad1.com/","metadata":{"ads": true}})",
                 result_.bidder1_prev_wins[3]->ad_json);
-      CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+      CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                       /*expected_interest_groups=*/1,
                       /*expected_owners=*/1, /*expected_sellers=*/1);
     } else {
@@ -6021,9 +6745,10 @@ TEST_F(AuctionRunnerTest, NullAdComponents) {
       EXPECT_TRUE(result_.ad_component_urls.empty());
       EXPECT_THAT(result_.report_urls, testing::UnorderedElementsAre());
       EXPECT_TRUE(result_.ad_beacon_map.metadata.empty());
+      EXPECT_TRUE(result_.private_aggregation_requests.empty());
       EXPECT_EQ(5, result_.bidder1_bid_count);
       EXPECT_EQ(3u, result_.bidder1_prev_wins.size());
-      CheckHistograms(AuctionRunner::AuctionResult::kNoBids,
+      CheckHistograms(InterestGroupAuction::AuctionResult::kNoBids,
                       /*expected_interest_groups=*/1, /*expected_owners=*/1,
                       /*expected_sellers=*/1);
     }
@@ -6066,12 +6791,15 @@ TEST_F(AuctionRunnerTest, AdComponentsLimit) {
       auto score_ad_params = seller_worklet->WaitForScoreAd();
       EXPECT_EQ(kBidder1, score_ad_params.interest_group_owner);
       EXPECT_EQ(1, score_ad_params.bid);
-      std::move(score_ad_params.callback)
-          .Run(/*score=*/11,
-               auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
-               /*data_version=*/0, /*has_data_version=*/false,
-               /*debug_loss_report_url=*/absl::nullopt,
-               /*debug_win_report_url=*/absl::nullopt, /*errors=*/{});
+      mojo::Remote<auction_worklet::mojom::ScoreAdClient>(
+          std::move(score_ad_params.score_ad_client))
+          ->OnScoreAdComplete(
+              /*score=*/11,
+              auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
+              /*data_version=*/0, /*has_data_version=*/false,
+              /*debug_loss_report_url=*/absl::nullopt,
+              /*debug_win_report_url=*/absl::nullopt, /*pa_requests=*/{},
+              /*errors=*/{});
 
       // Finish the auction.
       seller_worklet->WaitForReportResult();
@@ -6091,11 +6819,12 @@ TEST_F(AuctionRunnerTest, AdComponentsLimit) {
       EXPECT_EQ(ad_component_urls, result_.ad_component_urls);
       EXPECT_THAT(result_.report_urls, testing::UnorderedElementsAre());
       EXPECT_TRUE(result_.ad_beacon_map.metadata.empty());
+      EXPECT_TRUE(result_.private_aggregation_requests.empty());
       EXPECT_EQ(6, result_.bidder1_bid_count);
       ASSERT_EQ(4u, result_.bidder1_prev_wins.size());
       EXPECT_EQ(R"({"render_url":"https://ad1.com/","metadata":{"ads": true}})",
                 result_.bidder1_prev_wins[3]->ad_json);
-      CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+      CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                       /*expected_interest_groups=*/1,
                       /*expected_owners=*/1, /*expected_sellers=*/1);
     } else {
@@ -6112,9 +6841,10 @@ TEST_F(AuctionRunnerTest, AdComponentsLimit) {
       EXPECT_TRUE(result_.ad_component_urls.empty());
       EXPECT_THAT(result_.report_urls, testing::UnorderedElementsAre());
       EXPECT_TRUE(result_.ad_beacon_map.metadata.empty());
+      EXPECT_TRUE(result_.private_aggregation_requests.empty());
       EXPECT_EQ(5, result_.bidder1_bid_count);
       EXPECT_EQ(3u, result_.bidder1_prev_wins.size());
-      CheckHistograms(AuctionRunner::AuctionResult::kNoBids,
+      CheckHistograms(InterestGroupAuction::AuctionResult::kNoBids,
                       /*expected_interest_groups=*/1, /*expected_owners=*/1,
                       /*expected_sellers=*/1);
     }
@@ -6263,11 +6993,12 @@ TEST_F(AuctionRunnerTest, BadBid) {
     EXPECT_TRUE(result_.ad_component_urls.empty());
     EXPECT_THAT(result_.report_urls, testing::UnorderedElementsAre());
     EXPECT_TRUE(result_.ad_beacon_map.metadata.empty());
+    EXPECT_TRUE(result_.private_aggregation_requests.empty());
     EXPECT_EQ(5, result_.bidder1_bid_count);
     EXPECT_EQ(3u, result_.bidder1_prev_wins.size());
     EXPECT_EQ(5, result_.bidder2_bid_count);
     EXPECT_EQ(3u, result_.bidder2_prev_wins.size());
-    CheckHistograms(AuctionRunner::AuctionResult::kNoBids,
+    CheckHistograms(InterestGroupAuction::AuctionResult::kNoBids,
                     /*expected_interest_groups=*/2, /*expected_owners=*/2,
                     /*expected_sellers=*/1);
   }
@@ -6296,12 +7027,15 @@ TEST_F(AuctionRunnerTest, BadSellerReportUrl) {
   auto score_ad_params = seller_worklet->WaitForScoreAd();
   EXPECT_EQ(kBidder1, score_ad_params.interest_group_owner);
   EXPECT_EQ(5, score_ad_params.bid);
-  std::move(score_ad_params.callback)
-      .Run(/*score=*/10,
-           auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
-           /*data_version=*/0, /*has_data_version=*/false,
-           /*debug_loss_report_url=*/absl::nullopt,
-           /*debug_win_report_url=*/absl::nullopt, /*errors=*/{});
+  mojo::Remote<auction_worklet::mojom::ScoreAdClient>(
+      std::move(score_ad_params.score_ad_client))
+      ->OnScoreAdComplete(
+          /*score=*/10,
+          auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
+          /*data_version=*/0, /*has_data_version=*/false,
+          /*debug_loss_report_url=*/absl::nullopt,
+          /*debug_win_report_url=*/absl::nullopt, /*pa_requests=*/{},
+          /*errors=*/{});
 
   // Bidder1 never gets to report anything, since the seller providing a bad
   // report URL aborts the auction.
@@ -6318,11 +7052,12 @@ TEST_F(AuctionRunnerTest, BadSellerReportUrl) {
   EXPECT_TRUE(result_.ad_component_urls.empty());
   EXPECT_THAT(result_.report_urls, testing::UnorderedElementsAre());
   EXPECT_TRUE(result_.ad_beacon_map.metadata.empty());
+  EXPECT_TRUE(result_.private_aggregation_requests.empty());
   EXPECT_EQ(6, result_.bidder1_bid_count);
   EXPECT_EQ(3u, result_.bidder1_prev_wins.size());
   EXPECT_EQ(5, result_.bidder2_bid_count);
   EXPECT_EQ(3u, result_.bidder2_prev_wins.size());
-  CheckHistograms(AuctionRunner::AuctionResult::kBadMojoMessage,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kBadMojoMessage,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/1);
 }
@@ -6350,12 +7085,15 @@ TEST_F(AuctionRunnerTest, BadSellerBeaconUrl) {
   auto score_ad_params = seller_worklet->WaitForScoreAd();
   EXPECT_EQ(kBidder1, score_ad_params.interest_group_owner);
   EXPECT_EQ(5, score_ad_params.bid);
-  std::move(score_ad_params.callback)
-      .Run(/*score=*/10,
-           auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
-           /*data_version=*/0, /*has_data_version=*/false,
-           /*debug_loss_report_url=*/absl::nullopt,
-           /*debug_win_report_url=*/absl::nullopt, /*errors=*/{});
+  mojo::Remote<auction_worklet::mojom::ScoreAdClient>(
+      std::move(score_ad_params.score_ad_client))
+      ->OnScoreAdComplete(
+          /*score=*/10,
+          auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
+          /*data_version=*/0, /*has_data_version=*/false,
+          /*debug_loss_report_url=*/absl::nullopt,
+          /*debug_win_report_url=*/absl::nullopt, /*pa_requests=*/{},
+          /*errors=*/{});
 
   // Bidder1 never gets to report anything, since the seller providing a bad
   // report URL aborts the auction.
@@ -6374,11 +7112,12 @@ TEST_F(AuctionRunnerTest, BadSellerBeaconUrl) {
   EXPECT_TRUE(result_.ad_component_urls.empty());
   EXPECT_THAT(result_.report_urls, testing::UnorderedElementsAre());
   EXPECT_TRUE(result_.ad_beacon_map.metadata.empty());
+  EXPECT_TRUE(result_.private_aggregation_requests.empty());
   EXPECT_EQ(6, result_.bidder1_bid_count);
   EXPECT_EQ(3u, result_.bidder1_prev_wins.size());
   EXPECT_EQ(5, result_.bidder2_bid_count);
   EXPECT_EQ(3u, result_.bidder2_prev_wins.size());
-  CheckHistograms(AuctionRunner::AuctionResult::kBadMojoMessage,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kBadMojoMessage,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/1);
 }
@@ -6414,26 +7153,32 @@ TEST_F(AuctionRunnerTest, BadComponentSellerReportUrl) {
   auto score_ad_params = component_seller_worklet->WaitForScoreAd();
   EXPECT_EQ(kBidder1, score_ad_params.interest_group_owner);
   EXPECT_EQ(5, score_ad_params.bid);
-  std::move(score_ad_params.callback)
-      .Run(/*score=*/10,
-           auction_worklet::mojom::ComponentAuctionModifiedBidParams::New(
-               /*ad=*/"null",
-               /*bid=*/0,
-               /*has_bid=*/false),
-           /*data_version=*/0, /*has_data_version=*/false,
-           /*debug_loss_report_url=*/absl::nullopt,
-           /*debug_win_report_url=*/absl::nullopt, /*errors=*/{});
+  mojo::Remote<auction_worklet::mojom::ScoreAdClient>(
+      std::move(score_ad_params.score_ad_client))
+      ->OnScoreAdComplete(
+          /*score=*/10,
+          auction_worklet::mojom::ComponentAuctionModifiedBidParams::New(
+              /*ad=*/"null",
+              /*bid=*/0,
+              /*has_bid=*/false),
+          /*data_version=*/0, /*has_data_version=*/false,
+          /*debug_loss_report_url=*/absl::nullopt,
+          /*debug_win_report_url=*/absl::nullopt, /*pa_requests=*/{},
+          /*errors=*/{});
 
   // Top-level seller scores the bid.
   score_ad_params = seller_worklet->WaitForScoreAd();
   EXPECT_EQ(kBidder1, score_ad_params.interest_group_owner);
   EXPECT_EQ(5, score_ad_params.bid);
-  std::move(score_ad_params.callback)
-      .Run(/*score=*/10,
-           auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
-           /*data_version=*/0, /*has_data_version=*/false,
-           /*debug_loss_report_url=*/absl::nullopt,
-           /*debug_win_report_url=*/absl::nullopt, /*errors=*/{});
+  mojo::Remote<auction_worklet::mojom::ScoreAdClient>(
+      std::move(score_ad_params.score_ad_client))
+      ->OnScoreAdComplete(
+          /*score=*/10,
+          auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
+          /*data_version=*/0, /*has_data_version=*/false,
+          /*debug_loss_report_url=*/absl::nullopt,
+          /*debug_win_report_url=*/absl::nullopt, /*pa_requests=*/{},
+          /*errors=*/{});
 
   // Top-level seller worklet returns a valid HTTPS report URL.
   seller_worklet->WaitForReportResult();
@@ -6460,11 +7205,12 @@ TEST_F(AuctionRunnerTest, BadComponentSellerReportUrl) {
   EXPECT_TRUE(result_.ad_component_urls.empty());
   EXPECT_THAT(result_.report_urls, testing::UnorderedElementsAre());
   EXPECT_TRUE(result_.ad_beacon_map.metadata.empty());
+  EXPECT_TRUE(result_.private_aggregation_requests.empty());
   EXPECT_EQ(6, result_.bidder1_bid_count);
   EXPECT_EQ(3u, result_.bidder1_prev_wins.size());
   EXPECT_EQ(5, result_.bidder2_bid_count);
   EXPECT_EQ(3u, result_.bidder2_prev_wins.size());
-  CheckHistograms(AuctionRunner::AuctionResult::kBadMojoMessage,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kBadMojoMessage,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/2);
 }
@@ -6492,12 +7238,15 @@ TEST_F(AuctionRunnerTest, BadBidderReportUrl) {
   auto score_ad_params = seller_worklet->WaitForScoreAd();
   EXPECT_EQ(kBidder1, score_ad_params.interest_group_owner);
   EXPECT_EQ(5, score_ad_params.bid);
-  std::move(score_ad_params.callback)
-      .Run(/*score=*/10,
-           auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
-           /*data_version=*/0, /*has_data_version=*/false,
-           /*debug_loss_report_url=*/absl::nullopt,
-           /*debug_win_report_url=*/absl::nullopt, /*errors=*/{});
+  mojo::Remote<auction_worklet::mojom::ScoreAdClient>(
+      std::move(score_ad_params.score_ad_client))
+      ->OnScoreAdComplete(
+          /*score=*/10,
+          auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
+          /*data_version=*/0, /*has_data_version=*/false,
+          /*debug_loss_report_url=*/absl::nullopt,
+          /*debug_win_report_url=*/absl::nullopt, /*pa_requests=*/{},
+          /*errors=*/{});
 
   seller_worklet->WaitForReportResult();
   seller_worklet->InvokeReportResultCallback(
@@ -6518,11 +7267,12 @@ TEST_F(AuctionRunnerTest, BadBidderReportUrl) {
   EXPECT_TRUE(result_.ad_component_urls.empty());
   EXPECT_THAT(result_.report_urls, testing::UnorderedElementsAre());
   EXPECT_TRUE(result_.ad_beacon_map.metadata.empty());
+  EXPECT_TRUE(result_.private_aggregation_requests.empty());
   EXPECT_EQ(6, result_.bidder1_bid_count);
   EXPECT_EQ(3u, result_.bidder1_prev_wins.size());
   EXPECT_EQ(5, result_.bidder2_bid_count);
   EXPECT_EQ(3u, result_.bidder2_prev_wins.size());
-  CheckHistograms(AuctionRunner::AuctionResult::kBadMojoMessage,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kBadMojoMessage,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/1);
 }
@@ -6550,12 +7300,15 @@ TEST_F(AuctionRunnerTest, BadBidderBeaconUrl) {
   auto score_ad_params = seller_worklet->WaitForScoreAd();
   EXPECT_EQ(kBidder1, score_ad_params.interest_group_owner);
   EXPECT_EQ(5, score_ad_params.bid);
-  std::move(score_ad_params.callback)
-      .Run(/*score=*/10,
-           auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
-           /*data_version=*/0, /*has_data_version=*/false,
-           /*debug_loss_report_url=*/absl::nullopt,
-           /*debug_win_report_url=*/absl::nullopt, /*errors=*/{});
+  mojo::Remote<auction_worklet::mojom::ScoreAdClient>(
+      std::move(score_ad_params.score_ad_client))
+      ->OnScoreAdComplete(
+          /*score=*/10,
+          auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
+          /*data_version=*/0, /*has_data_version=*/false,
+          /*debug_loss_report_url=*/absl::nullopt,
+          /*debug_win_report_url=*/absl::nullopt, /*pa_requests=*/{},
+          /*errors=*/{});
 
   seller_worklet->WaitForReportResult();
   seller_worklet->InvokeReportResultCallback(
@@ -6578,11 +7331,12 @@ TEST_F(AuctionRunnerTest, BadBidderBeaconUrl) {
   EXPECT_TRUE(result_.ad_component_urls.empty());
   EXPECT_THAT(result_.report_urls, testing::UnorderedElementsAre());
   EXPECT_TRUE(result_.ad_beacon_map.metadata.empty());
+  EXPECT_TRUE(result_.private_aggregation_requests.empty());
   EXPECT_EQ(6, result_.bidder1_bid_count);
   EXPECT_EQ(3u, result_.bidder1_prev_wins.size());
   EXPECT_EQ(5, result_.bidder2_bid_count);
   EXPECT_EQ(3u, result_.bidder2_prev_wins.size());
-  CheckHistograms(AuctionRunner::AuctionResult::kBadMojoMessage,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kBadMojoMessage,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/1);
 }
@@ -6613,12 +7367,15 @@ TEST_F(AuctionRunnerTest, DestroyBidderWorkletWithoutBid) {
   auto score_ad_params = seller_worklet->WaitForScoreAd();
   EXPECT_EQ(kBidder2, score_ad_params.interest_group_owner);
   EXPECT_EQ(7, score_ad_params.bid);
-  std::move(score_ad_params.callback)
-      .Run(/*score=*/11,
-           auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
-           /*data_version=*/0, /*has_data_version=*/false,
-           /*debug_loss_report_url=*/absl::nullopt,
-           /*debug_win_report_url=*/absl::nullopt, /*errors=*/{});
+  mojo::Remote<auction_worklet::mojom::ScoreAdClient>(
+      std::move(score_ad_params.score_ad_client))
+      ->OnScoreAdComplete(
+          /*score=*/11,
+          auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
+          /*data_version=*/0, /*has_data_version=*/false,
+          /*debug_loss_report_url=*/absl::nullopt,
+          /*debug_win_report_url=*/absl::nullopt, /*pa_requests=*/{},
+          /*errors=*/{});
 
   // Finish the auction.
   seller_worklet->WaitForReportResult();
@@ -6637,13 +7394,14 @@ TEST_F(AuctionRunnerTest, DestroyBidderWorkletWithoutBid) {
   EXPECT_TRUE(result_.ad_component_urls.empty());
   EXPECT_THAT(result_.report_urls, testing::UnorderedElementsAre());
   EXPECT_TRUE(result_.ad_beacon_map.metadata.empty());
+  EXPECT_TRUE(result_.private_aggregation_requests.empty());
   EXPECT_EQ(5, result_.bidder1_bid_count);
   EXPECT_EQ(3u, result_.bidder1_prev_wins.size());
   EXPECT_EQ(6, result_.bidder2_bid_count);
   ASSERT_EQ(4u, result_.bidder2_prev_wins.size());
   EXPECT_EQ(R"({"render_url":"https://ad2.com/"})",
             result_.bidder2_prev_wins[3]->ad_json);
-  CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+  CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                   /*expected_interest_groups=*/2, /*expected_owners=*/2,
                   /*expected_sellers=*/1);
 }
@@ -6673,12 +7431,15 @@ TEST_F(AuctionRunnerTest, Tie) {
     auto score_ad_params = seller_worklet->WaitForScoreAd();
     EXPECT_EQ(kBidder1, score_ad_params.interest_group_owner);
     EXPECT_EQ(5, score_ad_params.bid);
-    std::move(score_ad_params.callback)
-        .Run(/*score=*/10,
-             auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
-             /*data_version=*/0, /*has_data_version=*/false,
-             /*debug_loss_report_url=*/absl::nullopt,
-             /*debug_win_report_url=*/absl::nullopt, /*errors=*/{});
+    mojo::Remote<auction_worklet::mojom::ScoreAdClient>(
+        std::move(score_ad_params.score_ad_client))
+        ->OnScoreAdComplete(
+            /*score=*/10,
+            auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
+            /*data_version=*/0, /*has_data_version=*/false,
+            /*debug_loss_report_url=*/absl::nullopt,
+            /*debug_win_report_url=*/absl::nullopt, /*pa_requests=*/{},
+            /*errors=*/{});
 
     // Bidder2 returns a bid, which is then scored.
     bidder2_worklet->InvokeGenerateBidCallback(/*bid=*/5,
@@ -6686,12 +7447,15 @@ TEST_F(AuctionRunnerTest, Tie) {
     score_ad_params = seller_worklet->WaitForScoreAd();
     EXPECT_EQ(kBidder2, score_ad_params.interest_group_owner);
     EXPECT_EQ(5, score_ad_params.bid);
-    std::move(score_ad_params.callback)
-        .Run(/*score=*/10,
-             auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
-             /*data_version=*/0, /*has_data_version=*/false,
-             /*debug_loss_report_url=*/absl::nullopt,
-             /*debug_win_report_url=*/absl::nullopt, /*errors=*/{});
+    mojo::Remote<auction_worklet::mojom::ScoreAdClient>(
+        std::move(score_ad_params.score_ad_client))
+        ->OnScoreAdComplete(
+            /*score=*/10,
+            auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
+            /*data_version=*/0, /*has_data_version=*/false,
+            /*debug_loss_report_url=*/absl::nullopt,
+            /*debug_win_report_url=*/absl::nullopt, /*pa_requests=*/{},
+            /*errors=*/{});
     // Need to flush the service pipe to make sure the AuctionRunner has
     // received the score.
     seller_worklet->Flush();
@@ -6744,9 +7508,10 @@ TEST_F(AuctionRunnerTest, Tie) {
 
     EXPECT_THAT(result_.report_urls, testing::UnorderedElementsAre());
     EXPECT_TRUE(result_.ad_beacon_map.metadata.empty());
+    EXPECT_TRUE(result_.private_aggregation_requests.empty());
     EXPECT_EQ(6, result_.bidder1_bid_count);
     EXPECT_EQ(6, result_.bidder2_bid_count);
-    CheckHistograms(AuctionRunner::AuctionResult::kSuccess,
+    CheckHistograms(InterestGroupAuction::AuctionResult::kSuccess,
                     /*expected_interest_groups=*/2, /*expected_owners=*/2,
                     /*expected_sellers=*/1);
   }
@@ -6815,26 +7580,31 @@ TEST_F(AuctionRunnerTest, WorkletOrder) {
             EXPECT_EQ(10, score_ad_params2.bid);
             break;
           case Event::kBid1Scored:
-            std::move(score_ad_params1.callback)
-                .Run(/*score=*/bidder1_wins ? 11 : 9,
-                     auction_worklet::mojom::
-                         ComponentAuctionModifiedBidParamsPtr(),
-                     /*data_version=*/0, /*has_data_version=*/false,
-                     /*debug_loss_report_url=*/absl::nullopt,
-                     /*debug_win_report_url=*/absl::nullopt, /*errors=*/{});
+            mojo::Remote<auction_worklet::mojom::ScoreAdClient>(
+                std::move(score_ad_params1.score_ad_client))
+                ->OnScoreAdComplete(
+                    /*score=*/bidder1_wins ? 11 : 9,
+                    auction_worklet::mojom::
+                        ComponentAuctionModifiedBidParamsPtr(),
+                    /*data_version=*/0, /*has_data_version=*/false,
+                    /*debug_loss_report_url=*/absl::nullopt,
+                    /*debug_win_report_url=*/absl::nullopt, /*pa_requests=*/{},
+                    /*errors=*/{});
             // Wait for the AuctionRunner to receive the score.
             task_environment_.RunUntilIdle();
             break;
           case Event::kBid2Scored:
-            std::move(score_ad_params2.callback)
-                .Run(/*score=*/10,
-                     auction_worklet::mojom::
-                         ComponentAuctionModifiedBidParamsPtr(),
-                     /*data_version=*/0,
-                     /*has_data_version=*/false,
-                     /*debug_loss_report_url=*/absl::nullopt,
-                     /*debug_win_report_url=*/absl::nullopt,
-                     /*errors=*/{});
+            mojo::Remote<auction_worklet::mojom::ScoreAdClient>(
+                std::move(score_ad_params2.score_ad_client))
+                ->OnScoreAdComplete(/*score=*/10,
+                                    auction_worklet::mojom::
+                                        ComponentAuctionModifiedBidParamsPtr(),
+                                    /*data_version=*/0,
+                                    /*has_data_version=*/false,
+                                    /*debug_loss_report_url=*/absl::nullopt,
+                                    /*debug_win_report_url=*/absl::nullopt,
+                                    /*pa_requests=*/{},
+                                    /*errors=*/{});
             // Wait for the AuctionRunner to receive the score.
             task_environment_.RunUntilIdle();
             break;
@@ -6972,6 +7742,69 @@ TEST_F(AuctionRunnerTest, SizeLimitHighestPriorityGroupHasNoBidScript) {
   EXPECT_THAT(result_.errors, testing::ElementsAre());
   EXPECT_EQ(InterestGroupKey(kBidder1, kBidder1Name), result_.winning_group_id);
   EXPECT_EQ(GURL("https://ad1.com/"), result_.ad_url);
+}
+
+TEST_F(AuctionRunnerTest, ExecutionModeGroupByOrigin) {
+  // Test of GroupByOrigin execution mode at AuctionRunner level;
+  // this primarily shows that the sorting actually groups things, and that
+  // distinct groups are kept separate.
+  const char kScript[] = R"(
+    if (!('count' in globalThis))
+      globalThis.count = 0;
+    function generateBid() {
+      ++count;
+      return {ad: ["ad"], bid:count, render:"https://response.test/"};
+    }
+    function reportWin(auctionSignals, perBuyerSignals, sellerSignals,
+                       browserSignals) {
+      sendReportTo("https://adplatform.com/metrics/" + browserSignals.bid);
+    }
+  )";
+
+  const char kSellerScript[] = R"(
+    function scoreAd(adMetadata, bid, auctionConfig, trustedScoringSignals,
+                     browserSignals) {
+      return {desirability: bid,
+              ad: adMetadata};
+    }
+    function reportResult() {}
+  )";
+
+  auction_worklet::AddJavascriptResponse(&url_loader_factory_, kBidder1Url,
+                                         kScript);
+  auction_worklet::AddJavascriptResponse(&url_loader_factory_, kSellerUrl,
+                                         kSellerScript);
+
+  std::vector<StorageInterestGroup> bidders;
+  // Add 5 groupByOrigin, 2 regular execution mode IGs.
+  for (int i = 0; i < 7; ++i) {
+    StorageInterestGroup ig = MakeInterestGroup(
+        kBidder1, kBidder1Name + base::NumberToString(i), kBidder1Url,
+        /* trusted_bidding_signals_url=*/absl::nullopt,
+        /* trusted_bidding_signals_keys=*/{}, GURL("https://response.test/"));
+    ig.joining_origin = url::Origin::Create(GURL("https://sports.example.org"));
+    ig.interest_group.execution_mode =
+        i < 5 ? blink::InterestGroup::ExecutionMode::kGroupedByOriginMode
+              : blink::InterestGroup::ExecutionMode::kCompatibilityMode;
+    bidders.push_back(std::move(ig));
+  }
+
+  // Add one with different join origin.
+  StorageInterestGroup ig = MakeInterestGroup(
+      kBidder1, kBidder1Name + std::string("8"), kBidder1Url,
+      /* trusted_bidding_signals_url=*/absl::nullopt,
+      /* trusted_bidding_signals_keys=*/{}, GURL("https://response.test/"));
+  ig.joining_origin = url::Origin::Create(GURL("https://shopping.example.us"));
+  ig.interest_group.execution_mode =
+      blink::InterestGroup::ExecutionMode::kGroupedByOriginMode;
+  bidders.push_back(std::move(ig));
+
+  StartAuction(kSellerUrl, std::move(bidders));
+  auction_run_loop_->Run();
+  EXPECT_THAT(result_.errors, testing::ElementsAre());
+  ASSERT_TRUE(result_.winning_group_id);
+  EXPECT_THAT(result_.report_urls,
+              testing::ElementsAre(GURL("https://adplatform.com/metrics/5")));
 }
 
 // Enable and test forDebuggingOnly.reportAdAuctionLoss() and
@@ -7652,7 +8485,8 @@ TEST_F(AuctionRunnerBiddingAndScoringDebugReportingAPIEnabledTest,
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder1TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=k1,k2"),
+           "?hostname=publisher1.com&keys=k1,k2"
+           "&interestGroupNames=Ad+Platform"),
       kBidder1SignalsJson);
 
   component_auctions_.emplace_back(
@@ -7677,7 +8511,8 @@ TEST_F(AuctionRunnerBiddingAndScoringDebugReportingAPIEnabledTest,
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder2TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=l1,l2"),
+           "?hostname=publisher1.com&keys=l1,l2"
+           "&interestGroupNames=Another+Ad+Thing"),
       kBidder2SignalsJson);
 
   auction_worklet::AddJavascriptResponse(
@@ -7774,7 +8609,8 @@ TEST_F(AuctionRunnerBiddingAndScoringDebugReportingAPIEnabledTest,
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder1TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=k1,k2"),
+           "?hostname=publisher1.com&keys=k1,k2"
+           "&interestGroupNames=Ad+Platform"),
       kBidder1SignalsJson);
 
   component_auctions_.emplace_back(
@@ -7799,7 +8635,8 @@ TEST_F(AuctionRunnerBiddingAndScoringDebugReportingAPIEnabledTest,
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder2TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=l1,l2"),
+           "?hostname=publisher1.com&keys=l1,l2"
+           "&interestGroupNames=Another+Ad+Thing"),
       kBidder2SignalsJson);
 
   auction_worklet::AddJavascriptResponse(
@@ -7899,7 +8736,8 @@ TEST_F(AuctionRunnerBiddingAndScoringDebugReportingAPIEnabledTest,
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder1TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=k1,k2"),
+           "?hostname=publisher1.com&keys=k1,k2"
+           "&interestGroupNames=Ad+Platform"),
       kBidder1SignalsJson);
   auction_worklet::AddJavascriptResponse(
       &url_loader_factory_, kBidder2Url,
@@ -7911,7 +8749,8 @@ TEST_F(AuctionRunnerBiddingAndScoringDebugReportingAPIEnabledTest,
   auction_worklet::AddBidderJsonResponse(
       &url_loader_factory_,
       GURL(kBidder2TrustedSignalsUrl.spec() +
-           "?hostname=publisher1.com&keys=l1,l2"),
+           "?hostname=publisher1.com&keys=l1,l2"
+           "&interestGroupNames=Another+Ad+Thing"),
       kBidder2SignalsJson);
 
   auction_worklet::AddJavascriptResponse(
@@ -8130,12 +8969,15 @@ TEST_F(AuctionRunnerBiddingAndScoringDebugReportingAPIEnabledTest,
     auto score_ad_params = seller_worklet->WaitForScoreAd();
     EXPECT_EQ(kBidder1, score_ad_params.interest_group_owner);
     EXPECT_EQ(5, score_ad_params.bid);
-    std::move(score_ad_params.callback)
-        .Run(/*score=*/10,
-             auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
-             /*data_version=*/0, /*has_data_version=*/false,
-             test_case.seller_debug_loss_report_url,
-             test_case.seller_debug_win_report_url, /*errors=*/{});
+    mojo::Remote<auction_worklet::mojom::ScoreAdClient>(
+        std::move(score_ad_params.score_ad_client))
+        ->OnScoreAdComplete(
+            /*score=*/10,
+            auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
+            /*data_version=*/0, /*has_data_version=*/false,
+            test_case.seller_debug_loss_report_url,
+            test_case.seller_debug_win_report_url, /*pa_requests=*/{},
+            /*errors=*/{});
     auction_run_loop_->Run();
     EXPECT_EQ(test_case.expected_error_message, TakeBadMessage());
 
@@ -8189,12 +9031,15 @@ TEST_F(AuctionRunnerBiddingAndScoringDebugReportingAPIEnabledTest,
   auto score_ad_params = seller_worklet->WaitForScoreAd();
   EXPECT_EQ(kBidder1, score_ad_params.interest_group_owner);
   EXPECT_EQ(5, score_ad_params.bid);
-  std::move(score_ad_params.callback)
-      .Run(/*score=*/10,
-           auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
-           /*data_version=*/0, /*has_data_version=*/false,
-           GURL("https://seller-debug-loss-reporting.com/1"),
-           GURL("https://seller-debug-win-reporting.com/1"), /*errors=*/{});
+  mojo::Remote<auction_worklet::mojom::ScoreAdClient>(
+      std::move(score_ad_params.score_ad_client))
+      ->OnScoreAdComplete(
+          /*score=*/10,
+          auction_worklet::mojom::ComponentAuctionModifiedBidParamsPtr(),
+          /*data_version=*/0, /*has_data_version=*/false,
+          GURL("https://seller-debug-loss-reporting.com/1"),
+          GURL("https://seller-debug-win-reporting.com/1"), /*pa_requests=*/{},
+          /*errors=*/{});
 
   seller_worklet->WaitForReportResult();
   seller_worklet->InvokeReportResultCallback();
@@ -8370,6 +9215,46 @@ TEST_F(AuctionRunnerBiddingAndScoringDebugReportingAPIEnabledTest,
       testing::UnorderedElementsAre(GURL("https://bidder11.test/win/"),
                                     GURL("https://seller3.test/win/11"),
                                     GURL("https://seller0.test/win/11")));
+}
+
+// Enable and test forDebuggingOnly.reportAdAuctionLoss() and
+// forDebuggingOnly.reportAdAuctionWin() APIs.
+class AuctionRunnerPrivateAggregationAPIDisabledTest
+    : public AuctionRunnerTest {
+ public:
+  AuctionRunnerPrivateAggregationAPIDisabledTest()
+      : AuctionRunnerTest(/*should_enable_private_aggregation=*/false) {}
+};
+
+TEST_F(AuctionRunnerPrivateAggregationAPIDisabledTest, ReportsNotSent) {
+  auction_worklet::AddJavascriptResponse(
+      &url_loader_factory_, kBidder1Url,
+      MakeBidScript(kSeller, "1", "https://ad1.com/", /*num_ad_components=*/2,
+                    kBidder1, kBidder1Name,
+                    /*has_signals=*/true, "k1", "a",
+                    /*report_post_auction_signals=*/true));
+  auction_worklet::AddJavascriptResponse(
+      &url_loader_factory_, kBidder2Url,
+      MakeBidScript(kSeller, "2", "https://ad2.com/", /*num_ad_components=*/2,
+                    kBidder2, kBidder2Name,
+                    /*has_signals=*/true, "l2", "b",
+                    /*report_post_auction_signals=*/true));
+  auction_worklet::AddJavascriptResponse(
+      &url_loader_factory_, kSellerUrl,
+      MakeAuctionScript(/*report_post_auction_signals=*/true));
+  auction_worklet::AddBidderJsonResponse(
+      &url_loader_factory_,
+      GURL(kBidder1TrustedSignalsUrl.spec() +
+           "?hostname=publisher1.com&keys=k1,k2"),
+      kBidder1SignalsJson);
+  auction_worklet::AddBidderJsonResponse(
+      &url_loader_factory_,
+      GURL(kBidder2TrustedSignalsUrl.spec() +
+           "?hostname=publisher1.com&keys=l1,l2"),
+      kBidder2SignalsJson);
+
+  const Result& res = RunStandardAuction();
+  EXPECT_TRUE(res.private_aggregation_requests.empty());
 }
 
 }  // namespace

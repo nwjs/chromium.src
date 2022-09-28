@@ -6,8 +6,6 @@
 
 #include <memory>
 
-#include "ash/components/account_manager/account_manager_factory.h"
-#include "ash/components/cryptohome/cryptohome_parameters.h"
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_switches.h"
 #include "ash/webui/shimless_rma/shimless_rma.h"
@@ -54,6 +52,8 @@
 #include "chrome/browser/ui/webui/chromeos/shimless_rma_dialog.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
+#include "chromeos/ash/components/account_manager/account_manager_factory.h"
+#include "chromeos/ash/components/cryptohome/cryptohome_parameters.h"
 #include "chromeos/ash/components/dbus/rmad/rmad_client.h"
 #include "chromeos/ash/components/dbus/session_manager/session_manager_client.h"
 #include "components/account_id/account_id.h"

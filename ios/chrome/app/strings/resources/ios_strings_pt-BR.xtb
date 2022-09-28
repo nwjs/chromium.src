@@ -25,6 +25,7 @@ Seu mecanismo de pesquisa é o <ph name="DSE_NAME" />. Veja as instruções para
 <translation id="1112015203684611006">Falha na impressão.</translation>
 <translation id="1125564390852150847">Criar nova guia</translation>
 <translation id="1126809382673880764">Não protege você contra sites, downloads e extensões perigosos. Você ainda terá a proteção do "Navegação segura", sempre que possível, em outros Serviços do Google, como o Gmail e a Pesquisa.</translation>
+<translation id="1135212215217513471">Instale o Chrome para iOS</translation>
 <translation id="1145536944570833626">Excluir os dados atuais.</translation>
 <translation id="1147031633655575115">Conta conectada: <ph name="USER" /></translation>
 <translation id="1154984953698510061">Ver outras guias</translation>
@@ -113,6 +114,7 @@ Seu mecanismo de pesquisa é o <ph name="DSE_NAME" />. Veja as instruções para
 <translation id="1832848789136765277">Para garantir o acesso aos seus dados sincronizados, confirme sua identidade</translation>
 <translation id="1870148520156231997">Mostrar senha</translation>
 <translation id="1872096359983322073">Lanterna</translation>
+<translation id="1910975740091000991">Chrome para iOS</translation>
 <translation id="1911619930368729126">Enviar para o Google Drive</translation>
 <translation id="1923342640370224680">Última hora</translation>
 <translation id="1930989359703290198">Sua organização permite que você faça login apenas com determinadas contas. As contas que não têm permissão para fazer login ficam ocultas. <ph name="BEGIN_LINK" />Saiba mais<ph name="END_LINK" /></translation>
@@ -140,6 +142,7 @@ Seu mecanismo de pesquisa é o <ph name="DSE_NAME" />. Veja as instruções para
 <translation id="2139867232736819575">Pesquisar o texto que você copiou</translation>
 <translation id="214201757571129614">Login…</translation>
 <translation id="2149973817440762519">Editar favoritos</translation>
+<translation id="2155145621546387786">Compartilhar o Chrome</translation>
 <translation id="2175927920773552910">Código QR</translation>
 <translation id="2218443599109088993">Diminuir zoom</translation>
 <translation id="2230173723195178503">Página da Web carregada</translation>
@@ -277,6 +280,7 @@ Veja as instruções do seu mecanismo de pesquisa para excluir o histórico de p
 <translation id="3277021493514034324">Endereço do site copiado</translation>
 <translation id="3285962946108803577">Compartilhar página…</translation>
 <translation id="3290875554372353449">Escolher uma conta</translation>
+<translation id="3305294846493618482">mais</translation>
 <translation id="3311748811247479259">Desativada</translation>
 <translation id="3324193307694657476">Endereço 2</translation>
 <translation id="3328801116991980348">Informações do site</translation>
@@ -369,11 +373,12 @@ Veja as instruções do seu mecanismo de pesquisa para excluir o histórico de p
 <translation id="4121993058175073134">Para enviar dados de exportação líquida, configure sua conta de e-mail no aplicativo "Configurações".</translation>
 <translation id="4124987746317609294">Período</translation>
 <translation id="4133265950310064865">Proteção reforçada</translation>
-<translation id="4148023517926189160">Esse site quer fazer download de um arquivo e o adicionar à sua agenda.</translation>
+<translation id="4148023517926189160">Esse site quer fazer download e adicionar um arquivo à sua agenda.</translation>
 <translation id="4152011295694446843">Você verá seus favoritos aqui</translation>
 <translation id="4172051516777682613">Sempre mostrar</translation>
 <translation id="418156467088430727">Ver versão off-line em uma nova guia</translation>
 <translation id="4181841719683918333">Idiomas</translation>
+<translation id="4187450337729239226">Colar e pesquisar</translation>
 <translation id="4223967053752765281">Sua organização desativou o processo de login. Ainda é possível ver seus favoritos, seu histórico, suas senhas e outras configurações neste dispositivo. Se você fizer mudanças, elas não serão sincronizadas com sua conta.</translation>
 <translation id="4233831822770018312">Editar permissões</translation>
 <translation id="4237377247299956313">Toque em <ph name="BEGIN_BOLD" />App de navegação padrão<ph name="END_BOLD" />.</translation>
@@ -436,6 +441,7 @@ Seus dados são criptografados com sua senha longa de sincronização. Informe-a
 <translation id="473775607612524610">Atualizar</translation>
 <translation id="4747097190499141774">A criptografia por senha longa não inclui formas de pagamento e endereços do Google Pay. Só alguém com acesso a sua senha longa pode ler seus dados criptografados. Essa senha não é enviada ou armazenada pelo Google. Se você esquecer a senha longa ou quiser alterar essa configuração, será necessário redefinir a sincronização. <ph name="BEGIN_LINK" />Saiba mais<ph name="END_LINK" /></translation>
 <translation id="4751645464639803239">Nova guia anônima</translation>
+<translation id="4766112107778026136">Discover e seguindo</translation>
 <translation id="4775879719735953715">Navegador padrão</translation>
 <translation id="4778644898150334464">Usar outra senha</translation>
 <translation id="478808905805139173">Abrir na navegação anônima?</translation>
@@ -490,6 +496,7 @@ Para alterar essa configuração, <ph name="BEGIN_LINK" />redefina a sincroniza�
 <translation id="5118764316110575523">Desativado</translation>
 <translation id="5132942445612118989">Sincronize suas senhas, seu histórico e muito mais em todos os dispositivos</translation>
 <translation id="5140288047769711648">Esta senha ficará salva no Chrome. Você não precisa memorizá-la.</translation>
+<translation id="5149188072385105201">Adicionar senha…</translation>
 <translation id="5150492518600715772">Enviar para seu dispositivo</translation>
 <translation id="5168414296986405587">Desenvolvido para iPadOS</translation>
 <translation id="5173088371991956744">A sincronização precisa confirmar sua identidade</translation>
@@ -642,6 +649,7 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="6374469231428023295">Repetir</translation>
 <translation id="6377118281273296434">Segurança do site</translation>
 <translation id="6380866119319257197">Se você esquecer a senha longa ou quiser alterar essa configuração, <ph name="BEGIN_LINK" />redefina a sincronização<ph name="END_LINK" /></translation>
+<translation id="6387994324662817823">As senhas são salvas no Gerenciador de senhas do Google somente neste dispositivo.</translation>
 <translation id="6389470377220713856">Nome no cartão</translation>
 <translation id="6406506848690869874">Sincronizar</translation>
 <translation id="6410390304316730527">O "Navegação segura" protege contra invasores que podem levar você a fazer algo perigoso, como instalar um software malicioso ou revelar informações pessoais como senhas, números de telefone ou cartões de crédito. Se desativá-lo, tenha cuidado ao navegar em sites desconhecidos ou com má reputação.</translation>

@@ -351,6 +351,9 @@ bool BrowserAccessibilityAndroid::IsInterestingOnAndroid() const {
 
   // Walk up the ancestry. A non-focusable child of a control is not
   // interesting. A child of an invisible iframe is also not interesting.
+  // A link is never a leaf node so that its children can be navigated
+  // when swiping by heading, landmark, etc. So we will also mark the
+  // children of a link as not interesting to prevent double utterances.
   const BrowserAccessibility* parent = PlatformGetParent();
   while (parent) {
     if (ui::IsControl(parent->GetRole()) && !IsFocusable())
@@ -360,6 +363,9 @@ bool BrowserAccessibilityAndroid::IsInterestingOnAndroid() const {
         parent->IsInvisibleOrIgnored()) {
       return false;
     }
+
+    if (parent->GetRole() == ax::mojom::Role::kLink)
+      return false;
 
     parent = parent->PlatformGetParent();
   }
@@ -1186,6 +1192,17 @@ std::u16string BrowserAccessibilityAndroid::GetRoleDescription() const {
   }
 
   return std::u16string();
+}
+
+std::string BrowserAccessibilityAndroid::GetCSSDisplay() const {
+  std::string display =
+      node_->GetStringAttribute(ax::mojom::StringAttribute::kDisplay);
+
+  // Since this method is used to determine whether a text node is inline or
+  // block, we can filter out other values like list-item or table-cell
+  if (display == "inline" || display == "block" || display == "inline-block")
+    return display;
+  return std::string();
 }
 
 int BrowserAccessibilityAndroid::GetItemIndex() const {

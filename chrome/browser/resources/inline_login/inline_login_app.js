@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import 'chrome://resources/polymer/v3_0/paper-spinner/paper-spinner-lite.js';
-import 'chrome://resources/cr_elements/cr_button/cr_button.m.js';
+import 'chrome://resources/cr_elements/cr_button/cr_button.js';
 import 'chrome://resources/cr_elements/icons.m.js';
 import 'chrome://resources/polymer/v3_0/iron-icon/iron-icon.js';
 import 'chrome://resources/cr_elements/cr_view_manager/cr_view_manager.js';
@@ -170,12 +170,6 @@ Polymer({
    */
   isLoginPrimaryAccount_: false,
 
-  /**
-   * TODO(crbug.com/1164862): cleanup this flag, since it's enabled by default.
-   * @private {boolean}
-   */
-  enableGaiaActionButtons_: false,
-
   /** @override */
   created() {
     this.browserProxy_ = InlineLoginBrowserProxyImpl.getInstance();
@@ -317,7 +311,6 @@ Polymer({
     this.authExtHost_.load(data.authMode, data);
     this.loading_ = true;
     this.isLoginPrimaryAccount_ = data.isLoginPrimaryAccount;
-    this.enableGaiaActionButtons_ = data.enableGaiaActionButtons;
     // Skip welcome page for reauthentication.
     if (data.email) {
       this.isReauthentication_ = true;
@@ -431,8 +424,7 @@ Polymer({
    * @private
    */
   shouldShowGaiaButtons_() {
-    return this.enableGaiaActionButtons_ &&
-        this.currentView_ === View.addAccount;
+    return this.currentView_ === View.addAccount;
   },
   // </if>
 

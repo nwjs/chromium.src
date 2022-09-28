@@ -216,6 +216,13 @@
       },
     },
   },
+  'blink_tests_write_run_histories': {
+    '$mixin_append': {
+      'args': [
+        '--write-run-histories-to=${ISOLATED_OUTDIR}/run_histories.json',
+      ],
+    },
+  },
   'bullhead': {
     'swarming': {
       'dimensions': {
@@ -805,6 +812,16 @@
       },
     },
   },
+  # TODO (crbug/1351123): Adding ONLY for iOS to specify T2 only due to xcode14
+  'mac_12_t2_x64': {
+    'swarming': {
+      'dimensions': {
+        'cpu': 'x86-64',
+        'mac_model': 'Macmini8,1',
+        'os': 'Mac-12',
+      },
+    },
+  },
   'mac_12_x64': {
     'swarming': {
       'dimensions': {
@@ -829,7 +846,7 @@
       'dimensions': {
         'cpu': 'arm64',
         'mac_model': 'Macmini9,1',
-        'os': 'Mac-11|Mac-12',
+        'os': 'Mac-12.4|Mac-12.5',
         'pool': 'chromium.tests',
         'display_attached': '1',
       },
@@ -839,7 +856,7 @@
     'swarming': {
       'dimensions': {
         'cpu': 'arm64',
-        'os': 'Mac-12.4',
+        'os': 'Mac-12.4|Mac-12.5',
       },
     },
   },
@@ -847,7 +864,7 @@
     'swarming': {
       'dimensions': {
         'cpu': 'x86-64',
-        'os': 'Mac-12.4',
+        'os': 'Mac-12.4|Mac-12.5',
       },
     },
   },
@@ -866,7 +883,7 @@
       'dimensions': {
         'cpu': 'x86-64',
         'gpu': '8086:3e9b',
-        'os': 'Mac-11.5.2|Mac-12.4',
+        'os': 'Mac-12.4|Mac-12.5',
         'display_attached': '1',
       },
     },
@@ -1348,52 +1365,35 @@
 
     },
   },
-  # Xcode 13 used on beta bots.
-  'xcode_13_beta_bots': {
-    '$mixin_append': {
-      'args': [
-        '--xcode-build-version',
-        '13f17a'
-      ],
-    },
-    'swarming': {
-      'named_caches': [
-        {
-          'name': 'xcode_ios_13f17a',
-          'path': 'Xcode.app',
-        },
-      ],
-    },
-  },
-  # Default Xcode 13 on main.
-  'xcode_13_main': {
-    '$mixin_append': {
-      'args': [
-        '--xcode-build-version',
-        '13c100'
-      ],
-    },
-    'swarming': {
-      'named_caches': [
-        {
-          'name': 'xcode_ios_13c100',
-          'path': 'Xcode.app',
-        },
-      ],
-    },
-  },
   # Default Xcode 14 beta.
   'xcode_14_beta': {
     '$mixin_append': {
       'args': [
         '--xcode-build-version',
-        '14a5270f'
+        '14a5294g'
       ],
     },
     'swarming': {
       'named_caches': [
         {
-          'name': 'xcode_ios_14a5270f',
+          'name': 'xcode_ios_14a5294g',
+          'path': 'Xcode.app',
+        },
+      ],
+    },
+  },
+  # Xcode 14 on iOS main.
+  'xcode_14_main': {
+    '$mixin_append': {
+      'args': [
+        '--xcode-build-version',
+        '14a5294g'
+      ],
+    },
+    'swarming': {
+      'named_caches': [
+        {
+          'name': 'xcode_ios_14a5294g',
           'path': 'Xcode.app',
         },
       ],

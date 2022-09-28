@@ -12,12 +12,15 @@
 #include "base/task/thread_pool.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/app/vector_icons/vector_icons.h"
+#include "chrome/browser/browser_process.h"
+#include "chrome/browser/component_updater/desktop_screenshot_editor_component_installer.h"
 #include "chrome/browser/feed/web_feed_tab_helper.h"
 #include "chrome/browser/media/router/media_router_feature.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/send_tab_to_self/send_tab_to_self_util.h"
 #include "chrome/browser/share/core/share_targets.h"
 #include "chrome/browser/share/proto/share_target.pb.h"
+#include "chrome/browser/share/share_features.h"
 #include "chrome/browser/sharing_hub/sharing_hub_features.h"
 #include "chrome/browser/shell_integration.h"
 #include "chrome/browser/ui/browser_commands.h"
@@ -44,6 +47,7 @@ namespace {
 
 const char kUrlReplace[] = "%(escaped_url)";
 const char kTitleReplace[] = "%(escaped_title)";
+const char kCollectionsNickname[] = "Collections";
 
 gfx::Image DecodeIcon(std::string str) {
   std::string icon_str;
@@ -60,6 +64,10 @@ bool IsEmailEnabled(const GURL& url) {
 #else
   return true;
 #endif
+}
+
+bool IsShareToGoogleCollectionsEnabled() {
+  return base::FeatureList::IsEnabled(share::kShareToGoogleCollections);
 }
 
 }  // namespace
@@ -192,6 +200,14 @@ void SharingHubModel::PopulateFirstPartyActions() {
       &kCopyIcon, true, gfx::ImageSkia(), "SharingHubDesktop.CopyURLSelected");
 
   if (DesktopScreenshotsFeatureEnabled(context_)) {
+    // Request installation of the optional editor component.
+    // This is delay-loaded until this point to save bandwidth for users
+    // who do not use sharing features hub.
+    component_updater::ComponentUpdateService* cus =
+        g_browser_process->component_updater();
+    if (cus)
+      component_updater::RegisterDesktopScreenshotEditorComponent(cus);
+
     first_party_action_list_.emplace_back(
         IDC_SHARING_HUB_SCREENSHOT,
         l10n_util::GetStringUTF16(IDS_SHARING_HUB_SCREENSHOT_LABEL),
@@ -202,7 +218,7 @@ void SharingHubModel::PopulateFirstPartyActions() {
   first_party_action_list_.emplace_back(
       IDC_SEND_TAB_TO_SELF,
       l10n_util::GetStringUTF16(IDS_CONTEXT_MENU_SEND_TAB_TO_SELF),
-      &kSendTabToSelfIcon, true, gfx::ImageSkia(),
+      &kLaptopAndSmartphoneIcon, true, gfx::ImageSkia(),
       "SharingHubDesktop.SendTabToSelfSelected");
 
   first_party_action_list_.emplace_back(
@@ -252,6 +268,11 @@ void SharingHubModel::PopulateThirdPartyActions() {
       const GURL& url = GURL(target.url());
       // If an email handler is not available, do not show the email option.
       if (url.SchemeIs(url::kMailToScheme) && !IsEmailEnabled(url)) {
+        continue;
+      }
+
+      if (target.nickname() == kCollectionsNickname &&
+          !IsShareToGoogleCollectionsEnabled()) {
         continue;
       }
 

@@ -37,7 +37,6 @@
 #include "chrome/test/base/testing_profile_manager.h"
 #include "chromeos/ash/components/dbus/concierge/concierge_client.h"
 #include "chromeos/ash/components/dbus/upstart/fake_upstart_client.h"
-#include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/system/fake_statistics_provider.h"
 #include "components/keyed_service/content/browser_context_keyed_service_factory.h"
 #include "components/keyed_service/core/keyed_service.h"
@@ -210,11 +209,10 @@ arc::ArcPolicyBridge::GetPoliciesCallback PolicyStringCallback(
 }
 
 arc::ArcPolicyBridge::ReportComplianceCallback PolicyComplianceCallback(
-    base::OnceClosure quit_closure,
-    const std::string& expected) {
+    base::OnceClosure quit_closure) {
   auto was_run = std::make_unique<CheckedBoolean>();
   return base::BindOnce(&ExpectStringWithClosure, std::move(quit_closure),
-                        std::move(was_run), expected);
+                        std::move(was_run), kPolicyCompliantResponse);
 }
 
 }  // namespace
@@ -318,8 +316,7 @@ class ArcPolicyBridgeTestBase {
       EXPECT_CALL(observer_, OnComplianceReportReceived(_)).Times(0);
     }
     policy_bridge()->ReportCompliance(
-        compliance_report, PolicyComplianceCallback(run_loop().QuitClosure(),
-                                                    kPolicyCompliantResponse));
+        compliance_report, PolicyComplianceCallback(run_loop().QuitClosure()));
     run_loop().Run();
     Mock::VerifyAndClearExpectations(&observer_);
 
@@ -822,7 +819,6 @@ TEST_F(ArcPolicyBridgeTest, DisableAppsInSnapshot) {
   constexpr char kFalse[] = "false";
   constexpr char kTrue[] = "true";
 
-  chromeos::DBusThreadManager::Initialize();
   ash::ConciergeClient::InitializeFake(/*fake_cicerone_client=*/nullptr);
 
   auto upstart_client = std::make_unique<ash::FakeUpstartClient>();
@@ -860,7 +856,6 @@ TEST_F(ArcPolicyBridgeTest, DisableAppsInSnapshot) {
   upstart_client.reset();
   arc_session_manager.reset();
   ash::ConciergeClient::Shutdown();
-  chromeos::DBusThreadManager::Shutdown();
 }
 
 TEST_P(ArcPolicyBridgeAffiliatedTest, ApkCacheEnabledTest) {

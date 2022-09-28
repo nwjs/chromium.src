@@ -62,13 +62,13 @@ void CalculateWindowStylesFromInitParams(
       //   WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX
       *style |= WS_OVERLAPPEDWINDOW;
       if (!widget_delegate->CanMaximize())
-        *style &= ~WS_MAXIMIZEBOX;
+        *style &= static_cast<DWORD>(~WS_MAXIMIZEBOX);
       if (!widget_delegate->CanMinimize())
-        *style &= ~WS_MINIMIZEBOX;
+        *style &= static_cast<DWORD>(~WS_MINIMIZEBOX);
       if (!widget_delegate->CanResize())
-        *style &= ~(WS_THICKFRAME | WS_MAXIMIZEBOX);
+        *style &= static_cast<DWORD>(~(WS_THICKFRAME | WS_MAXIMIZEBOX));
       if (params.remove_standard_frame)
-        *style &= ~(WS_MINIMIZEBOX | WS_MAXIMIZEBOX);
+        *style &= static_cast<DWORD>(~(WS_MINIMIZEBOX | WS_MAXIMIZEBOX));
 
       if (native_widget_delegate->IsDialogBox()) {
         *style |= DS_MODALFRAME;
@@ -97,7 +97,7 @@ void CalculateWindowStylesFromInitParams(
         }
       } else {
         if (is_translucent)
-          *style &= ~(WS_THICKFRAME | WS_CAPTION);
+          *style &= static_cast<DWORD>(~(WS_THICKFRAME | WS_CAPTION));
       }
 
       break;

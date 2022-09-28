@@ -49,6 +49,7 @@
 #include "components/content_settings/core/common/content_settings_utils.h"
 #include "components/permissions/permission_util.h"
 #include "components/safe_browsing/buildflags.h"
+#include "components/safe_browsing/content/common/file_type_policies.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/disallow_activation_reason.h"
@@ -122,14 +123,14 @@ void ShowFileSystemAccessRestrictedDirectoryDialogOnUIThread(
     const base::FilePath& path,
     HandleType handle_type,
     base::OnceCallback<
-        void(ChromeFileSystemAccessPermissionContext::SensitiveDirectoryResult)>
+        void(ChromeFileSystemAccessPermissionContext::SensitiveEntryResult)>
         callback) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   content::RenderFrameHost* rfh = content::RenderFrameHost::FromID(frame_id);
   if (!rfh || !rfh->IsActive()) {
     // Requested from a no longer valid render frame host.
-    std::move(callback).Run(ChromeFileSystemAccessPermissionContext::
-                                SensitiveDirectoryResult::kAbort);
+    std::move(callback).Run(
+        ChromeFileSystemAccessPermissionContext::SensitiveEntryResult::kAbort);
     return;
   }
 
@@ -137,13 +138,42 @@ void ShowFileSystemAccessRestrictedDirectoryDialogOnUIThread(
       content::WebContents::FromRenderFrameHost(rfh);
   if (!web_contents) {
     // Requested from a worker, or a no longer existing tab.
-    std::move(callback).Run(ChromeFileSystemAccessPermissionContext::
-                                SensitiveDirectoryResult::kAbort);
+    std::move(callback).Run(
+        ChromeFileSystemAccessPermissionContext::SensitiveEntryResult::kAbort);
     return;
   }
 
   ShowFileSystemAccessRestrictedDirectoryDialog(
       origin, path, handle_type, std::move(callback), web_contents);
+}
+
+void ShowFileSystemAccessDangerousFileDialogOnUIThread(
+    content::GlobalRenderFrameHostId frame_id,
+    const url::Origin& origin,
+    const base::FilePath& path,
+    base::OnceCallback<
+        void(ChromeFileSystemAccessPermissionContext::SensitiveEntryResult)>
+        callback) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  content::RenderFrameHost* rfh = content::RenderFrameHost::FromID(frame_id);
+  if (!rfh || !rfh->IsActive()) {
+    // Requested from a no longer valid render frame host.
+    std::move(callback).Run(
+        ChromeFileSystemAccessPermissionContext::SensitiveEntryResult::kAbort);
+    return;
+  }
+
+  content::WebContents* web_contents =
+      content::WebContents::FromRenderFrameHost(rfh);
+  if (!web_contents) {
+    // Requested from a worker, or a no longer existing tab.
+    std::move(callback).Run(
+        ChromeFileSystemAccessPermissionContext::SensitiveEntryResult::kAbort);
+    return;
+  }
+
+  ShowFileSystemAccessDangerousFileDialog(origin, path, std::move(callback),
+                                          web_contents);
 }
 
 // Sentinel used to indicate that no PathService key is specified for a path in
@@ -1147,13 +1177,14 @@ bool ChromeFileSystemAccessPermissionContext::CanObtainWritePermission(
          GetWriteGuardContentSetting(origin) == CONTENT_SETTING_ALLOW;
 }
 
-void ChromeFileSystemAccessPermissionContext::ConfirmSensitiveDirectoryAccess(
+void ChromeFileSystemAccessPermissionContext::ConfirmSensitiveEntryAccess(
     const url::Origin& origin,
     PathType path_type,
     const base::FilePath& path,
     HandleType handle_type,
+    ui::SelectFileDialog::Type dialog_type,
     content::GlobalRenderFrameHostId frame_id,
-    base::OnceCallback<void(SensitiveDirectoryResult)> callback) {
+    base::OnceCallback<void(SensitiveEntryResult)> callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   // TODO(https://crbug.com/1009970): Figure out what external paths should be
@@ -1162,12 +1193,14 @@ void ChromeFileSystemAccessPermissionContext::ConfirmSensitiveDirectoryAccess(
   // should have a separate Chrome OS only code path to block for example the
   // root of certain external file systems.
   if (path_type == PathType::kExternal) {
-    std::move(callback).Run(SensitiveDirectoryResult::kAllowed);
+    DidConfirmSensitiveDirectoryAccess(origin, path, handle_type, dialog_type,
+                                       frame_id, std::move(callback),
+                                       /*should_block=*/false);
     return;
   }
 
   if (content::GetContentClient()->browser()->IsNWOrigin(origin, browser_context_)) {
-    std::move(callback).Run(SensitiveDirectoryResult::kAllowed);
+    std::move(callback).Run(SensitiveEntryResult::kAllowed);
     return;
   }
 
@@ -1176,8 +1209,8 @@ void ChromeFileSystemAccessPermissionContext::ConfirmSensitiveDirectoryAccess(
       base::BindOnce(&ShouldBlockAccessToPath, path, handle_type),
       base::BindOnce(&ChromeFileSystemAccessPermissionContext::
                          DidConfirmSensitiveDirectoryAccess,
-                     GetWeakPtr(), origin, path, handle_type, frame_id,
-                     std::move(callback)));
+                     GetWeakPtr(), origin, path, handle_type, dialog_type,
+                     frame_id, std::move(callback)));
 }
 
 void ChromeFileSystemAccessPermissionContext::PerformAfterWriteChecks(
@@ -1210,12 +1243,36 @@ void ChromeFileSystemAccessPermissionContext::
         const url::Origin& origin,
         const base::FilePath& path,
         HandleType handle_type,
+        ui::SelectFileDialog::Type dialog_type,
         content::GlobalRenderFrameHostId frame_id,
-        base::OnceCallback<void(SensitiveDirectoryResult)> callback,
+        base::OnceCallback<void(SensitiveEntryResult)> callback,
         bool should_block) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (!should_block) {
-    std::move(callback).Run(SensitiveDirectoryResult::kAllowed);
+#if 0
+    // If attempting to save a file with a dangerous extension, prompt the user
+    // to make them confirm they actually want to save the file.
+    if (dialog_type == ui::SelectFileDialog::SELECT_SAVEAS_FILE) {
+      safe_browsing::DownloadFileType::DangerLevel danger_level =
+          safe_browsing::FileTypePolicies::GetInstance()->GetFileDangerLevel(
+              path, origin.GetURL(),
+              Profile::FromBrowserContext(profile_)->GetPrefs());
+      // See https://crbug.com/1320877#c4 for justification for why we show the
+      // prompt if `danger_level` is ALLOW_ON_USER_GESTURE as well as DANGEROUS.
+      if (danger_level == safe_browsing::DownloadFileType::DANGEROUS ||
+          danger_level ==
+              safe_browsing::DownloadFileType::ALLOW_ON_USER_GESTURE) {
+        auto result_callback =
+            BindResultCallbackToCurrentSequence(std::move(callback));
+        content::GetUIThreadTaskRunner({})->PostTask(
+            FROM_HERE,
+            base::BindOnce(&ShowFileSystemAccessDangerousFileDialogOnUIThread,
+                           frame_id, origin, path, std::move(result_callback)));
+        return;
+      }
+    }
+#endif
+    std::move(callback).Run(SensitiveEntryResult::kAllowed);
     return;
   }
 
@@ -1540,8 +1597,8 @@ bool ChromeFileSystemAccessPermissionContext::OriginHasExtendedPermissions(
   return false;
 #else
   DCHECK(profile());
-  auto* web_app_provider =
-      web_app::WebAppProvider::GetForWebApps(static_cast<Profile*>(profile()));
+  auto* web_app_provider = web_app::WebAppProvider::GetForWebApps(
+      Profile::FromBrowserContext(profile()));
   if (!web_app_provider)
     return false;
 

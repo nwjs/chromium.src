@@ -41,6 +41,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/metrics_proto/omnibox_event.pb.h"
 #include "third_party/metrics_proto/omnibox_input_type.pb.h"
+#include "ui/base/page_transition_types.h"
 
 using base::ASCIIToUTF16;
 using base::Time;
@@ -570,7 +571,7 @@ TEST_F(HistoryURLProviderTest, CullRedirects) {
   redirects_to_a.push_back(GURL(test_cases[0].url));
   client_->GetHistoryService()->AddPage(
       GURL(test_cases[0].url), Time::Now(), nullptr, 0, GURL(), redirects_to_a,
-      ui::PAGE_TRANSITION_TYPED, history::SOURCE_BROWSED, true, false);
+      ui::PAGE_TRANSITION_TYPED, history::SOURCE_BROWSED, true);
 
   // Because all the results are part of a redirect chain with other results,
   // all but the first one (A) should be culled. We should get the default
@@ -1362,7 +1363,7 @@ std::unique_ptr<HistoryURLProviderParams> BuildHistoryURLProviderParams(
   history_match.url_info.set_url(GURL(url_text));
   history_match.match_in_scheme = match_in_scheme;
   auto params = std::make_unique<HistoryURLProviderParams>(
-      input, input, true, AutocompleteMatch(), nullptr, nullptr, true);
+      input, input, true, AutocompleteMatch(), nullptr, nullptr, true, nullptr);
   params->matches.push_back(history_match);
 
   return params;
@@ -1474,6 +1475,12 @@ TEST_F(HistoryURLProviderTest, KeywordModeExtractUserInput) {
   ASSERT_GT(matches_.size(), 0u);
   EXPECT_EQ(GURL("http://www.google.com/"), matches_[0].destination_url);
   EXPECT_TRUE(matches_[0].from_keyword);
+
+  // Ensure keyword and transition are set properly to keep user in keyword
+  // mode.
+  EXPECT_EQ(matches_[0].keyword, u"@history");
+  EXPECT_TRUE(PageTransitionCoreTypeIs(matches_[0].transition,
+                                       ui::PAGE_TRANSITION_KEYWORD));
 }
 
 TEST_F(HistoryURLProviderTest, MaxMatches) {

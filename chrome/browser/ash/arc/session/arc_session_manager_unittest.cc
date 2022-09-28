@@ -57,15 +57,14 @@
 #include "chromeos/ash/components/dbus/session_manager/session_manager_client.h"
 #include "chromeos/ash/components/dbus/upstart/upstart_client.h"
 #include "chromeos/ash/components/dbus/userdataauth/fake_cryptohome_misc_client.h"
-#include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/power/power_manager_client.h"
 #include "components/account_id/account_id.h"
 #include "components/policy/proto/chrome_device_policy.pb.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/testing_pref_service.h"
 #include "components/session_manager/core/session_manager.h"
-#include "components/sync/test/model/fake_sync_change_processor.h"
-#include "components/sync/test/model/sync_error_factory_mock.h"
+#include "components/sync/test/fake_sync_change_processor.h"
+#include "components/sync/test/sync_error_factory_mock.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "components/user_manager/known_user.h"
 #include "components/user_manager/scoped_user_manager.h"
@@ -158,9 +157,6 @@ class ArcSessionManagerInLoginScreenTest : public testing::Test {
  public:
   ArcSessionManagerInLoginScreenTest()
       : user_manager_enabler_(std::make_unique<ash::FakeChromeUserManager>()) {
-    // Need to initialize DBusThreadManager before ArcSessionManager's
-    // constructor calls DBusThreadManager::Get().
-    chromeos::DBusThreadManager::Initialize();
     ash::ConciergeClient::InitializeFake(/*fake_cicerone_client=*/nullptr);
     ash::SessionManagerClient::InitializeFakeInMemory();
 
@@ -184,7 +180,6 @@ class ArcSessionManagerInLoginScreenTest : public testing::Test {
     arc_service_manager_.reset();
     ash::SessionManagerClient::Shutdown();
     ash::ConciergeClient::Shutdown();
-    chromeos::DBusThreadManager::Shutdown();
   }
 
  protected:
@@ -274,7 +269,6 @@ class ArcSessionManagerTestBase : public testing::Test {
   ~ArcSessionManagerTestBase() override = default;
 
   void SetUp() override {
-    chromeos::DBusThreadManager::Initialize();
     ash::ConciergeClient::InitializeFake(/*fake_cicerone_client=*/nullptr);
     chromeos::PowerManagerClient::InitializeFake();
     ash::SessionManagerClient::InitializeFakeInMemory();
@@ -310,7 +304,6 @@ class ArcSessionManagerTestBase : public testing::Test {
     ash::SessionManagerClient::Shutdown();
     chromeos::PowerManagerClient::Shutdown();
     ash::ConciergeClient::Shutdown();
-    chromeos::DBusThreadManager::Shutdown();
   }
 
   ash::FakeChromeUserManager* GetFakeUserManager() const {
@@ -403,7 +396,7 @@ TEST_F(ArcSessionManagerTest, BaseWorkflow) {
   // Enables ARC. First time, ToS negotiation should start.
   arc_session_manager()->RequestEnable();
   base::RunLoop().RunUntilIdle();
-  ASSERT_EQ(ArcSessionManager::State::NEGOTIATING_TERMS_OF_SERVICE,
+  ASSERT_EQ(ArcSessionManager::State::CHECKING_REQUIREMENTS,
             arc_session_manager()->state());
   const base::TimeTicks after_enabled_time = base::TimeTicks::Now();
 
@@ -414,11 +407,7 @@ TEST_F(ArcSessionManagerTest, BaseWorkflow) {
   EXPECT_GE(after_enabled_time, pre_start_time);
   EXPECT_TRUE(arc_session_manager()->start_time().is_null());
 
-  arc_session_manager()->OnTermsOfServiceNegotiatedForTesting(true);
-  ASSERT_EQ(ArcSessionManager::State::CHECKING_ANDROID_MANAGEMENT,
-            arc_session_manager()->state());
-  EXPECT_TRUE(arc_session_manager()->sign_in_start_time().is_null());
-  arc_session_manager()->StartArcForTesting();
+  arc_session_manager()->EmulateRequirementCheckCompletionForTesting();
 
   const base::TimeTicks start_time = arc_session_manager()->start_time();
   EXPECT_FALSE(arc_session_manager()->sign_in_start_time().is_null());
@@ -468,8 +457,7 @@ TEST_F(ArcSessionManagerTest, ArcInitialStartFirstProvisioning) {
 
   EXPECT_FALSE(start_handler.was_called());
 
-  arc_session_manager()->OnTermsOfServiceNegotiatedForTesting(true);
-  arc_session_manager()->StartArcForTesting();
+  arc_session_manager()->EmulateRequirementCheckCompletionForTesting();
 
   EXPECT_FALSE(start_handler.was_called());
 
@@ -552,7 +540,7 @@ TEST_F(ArcSessionManagerTest, CancelFetchingDisablesArc) {
   arc_session_manager()->Initialize();
   arc_session_manager()->RequestEnable();
   base::RunLoop().RunUntilIdle();
-  ASSERT_EQ(ArcSessionManager::State::NEGOTIATING_TERMS_OF_SERVICE,
+  ASSERT_EQ(ArcSessionManager::State::CHECKING_REQUIREMENTS,
             arc_session_manager()->state());
 
   // Emulate to cancel the ToS UI (e.g. closing the window).
@@ -578,12 +566,9 @@ TEST_F(ArcSessionManagerTest, CloseUIKeepsArcEnabled) {
   arc_session_manager()->Initialize();
   arc_session_manager()->RequestEnable();
   base::RunLoop().RunUntilIdle();
-  ASSERT_EQ(ArcSessionManager::State::NEGOTIATING_TERMS_OF_SERVICE,
+  ASSERT_EQ(ArcSessionManager::State::CHECKING_REQUIREMENTS,
             arc_session_manager()->state());
-  arc_session_manager()->OnTermsOfServiceNegotiatedForTesting(true);
-  ASSERT_EQ(ArcSessionManager::State::CHECKING_ANDROID_MANAGEMENT,
-            arc_session_manager()->state());
-  arc_session_manager()->StartArcForTesting();
+  arc_session_manager()->EmulateRequirementCheckCompletionForTesting();
   ASSERT_EQ(ArcSessionManager::State::ACTIVE, arc_session_manager()->state());
 
   // When ARC is properly started, closing UI should be no-op.
@@ -608,15 +593,11 @@ TEST_F(ArcSessionManagerTest, Provisioning_Success) {
   arc_session_manager()->SetProfile(profile());
   arc_session_manager()->Initialize();
   arc_session_manager()->RequestEnable();
-  ASSERT_EQ(ArcSessionManager::State::NEGOTIATING_TERMS_OF_SERVICE,
+  ASSERT_EQ(ArcSessionManager::State::CHECKING_REQUIREMENTS,
             arc_session_manager()->state());
 
   // Emulate to accept the terms of service.
-  arc_session_manager()->OnTermsOfServiceNegotiatedForTesting(true);
-  ASSERT_EQ(ArcSessionManager::State::CHECKING_ANDROID_MANAGEMENT,
-            arc_session_manager()->state());
-  EXPECT_TRUE(arc_session_manager()->sign_in_start_time().is_null());
-  arc_session_manager()->StartArcForTesting();
+  arc_session_manager()->EmulateRequirementCheckCompletionForTesting();
   EXPECT_FALSE(arc_session_manager()->sign_in_start_time().is_null());
   EXPECT_EQ(ArcSessionManager::State::ACTIVE, arc_session_manager()->state());
 
@@ -745,12 +726,9 @@ TEST_F(ArcSessionManagerTest, RemoveDataDir) {
   base::RunLoop().RunUntilIdle();
   EXPECT_FALSE(
       profile()->GetPrefs()->GetBoolean(prefs::kArcDataRemoveRequested));
-  EXPECT_EQ(ArcSessionManager::State::NEGOTIATING_TERMS_OF_SERVICE,
+  EXPECT_EQ(ArcSessionManager::State::CHECKING_REQUIREMENTS,
             arc_session_manager()->state());
-  arc_session_manager()->OnTermsOfServiceNegotiatedForTesting(true);
-  ASSERT_EQ(ArcSessionManager::State::CHECKING_ANDROID_MANAGEMENT,
-            arc_session_manager()->state());
-  arc_session_manager()->StartArcForTesting();
+  arc_session_manager()->EmulateRequirementCheckCompletionForTesting();
   EXPECT_EQ(ArcSessionManager::State::ACTIVE, arc_session_manager()->state());
 
   // Request to remove data and stop session manager.
@@ -774,8 +752,8 @@ TEST_F(ArcSessionManagerTest, RemoveDataDir_Restart) {
   arc_session_manager()->RequestEnable();
   EXPECT_TRUE(
       profile()->GetPrefs()->GetBoolean(prefs::kArcDataRemoveRequested));
-  ASSERT_TRUE(WaitForDataRemoved(
-      ArcSessionManager::State::NEGOTIATING_TERMS_OF_SERVICE));
+  ASSERT_TRUE(
+      WaitForDataRemoved(ArcSessionManager::State::CHECKING_REQUIREMENTS));
   EXPECT_FALSE(
       profile()->GetPrefs()->GetBoolean(prefs::kArcDataRemoveRequested));
 
@@ -798,7 +776,7 @@ TEST_F(ArcSessionManagerTest, RegularToChildTransition) {
   EXPECT_EQ(static_cast<int>(ArcManagementTransition::REGULAR_TO_CHILD),
             profile()->GetPrefs()->GetInteger(prefs::kArcManagementTransition));
   base::RunLoop().RunUntilIdle();
-  EXPECT_EQ(ArcSessionManager::State::NEGOTIATING_TERMS_OF_SERVICE,
+  EXPECT_EQ(ArcSessionManager::State::CHECKING_REQUIREMENTS,
             arc_session_manager()->state());
 
   arc_session_manager()->Shutdown();
@@ -814,10 +792,9 @@ TEST_F(ArcSessionManagerTest, ClearArcTransitionOnShutdown) {
   arc_session_manager()->Initialize();
   arc_session_manager()->RequestEnable();
   base::RunLoop().RunUntilIdle();
-  ASSERT_EQ(ArcSessionManager::State::NEGOTIATING_TERMS_OF_SERVICE,
+  ASSERT_EQ(ArcSessionManager::State::CHECKING_REQUIREMENTS,
             arc_session_manager()->state());
-  arc_session_manager()->OnTermsOfServiceNegotiatedForTesting(true);
-  arc_session_manager()->StartArcForTesting();
+  arc_session_manager()->EmulateRequirementCheckCompletionForTesting();
   arc::mojom::ArcSignInResultPtr result =
       arc::mojom::ArcSignInResult::NewSuccess(
           arc::mojom::ArcSignInSuccess::SUCCESS);
@@ -848,10 +825,9 @@ TEST_F(ArcSessionManagerTest, ClearArcTransitionOnArcDataRemoval) {
   arc_session_manager()->Initialize();
   arc_session_manager()->RequestEnable();
   base::RunLoop().RunUntilIdle();
-  EXPECT_EQ(ArcSessionManager::State::NEGOTIATING_TERMS_OF_SERVICE,
+  EXPECT_EQ(ArcSessionManager::State::CHECKING_REQUIREMENTS,
             arc_session_manager()->state());
-  arc_session_manager()->OnTermsOfServiceNegotiatedForTesting(true);
-  arc_session_manager()->StartArcForTesting();
+  arc_session_manager()->EmulateRequirementCheckCompletionForTesting();
   arc::mojom::ArcSignInResultPtr result =
       arc::mojom::ArcSignInResult::NewSuccess(
           arc::mojom::ArcSignInSuccess::SUCCESS);
@@ -877,8 +853,7 @@ TEST_F(ArcSessionManagerTest, IgnoreSecondErrorReporting) {
   arc_session_manager()->SetProfile(profile());
   arc_session_manager()->Initialize();
   arc_session_manager()->RequestEnable();
-  arc_session_manager()->OnTermsOfServiceNegotiatedForTesting(true);
-  arc_session_manager()->StartArcForTesting();
+  arc_session_manager()->EmulateRequirementCheckCompletionForTesting();
   EXPECT_EQ(ArcSessionManager::State::ACTIVE, arc_session_manager()->state());
 
   // Report some failure that does not stop the bridge.
@@ -911,10 +886,9 @@ TEST_F(ArcSessionManagerTest, IsDirectlyStartedFalse) {
   arc_session_manager()->RequestEnable();
   base::RunLoop().RunUntilIdle();
   EXPECT_FALSE(arc_session_manager()->is_directly_started());
-  ASSERT_EQ(ArcSessionManager::State::NEGOTIATING_TERMS_OF_SERVICE,
+  ASSERT_EQ(ArcSessionManager::State::CHECKING_REQUIREMENTS,
             arc_session_manager()->state());
-  arc_session_manager()->OnTermsOfServiceNegotiatedForTesting(true);
-  arc_session_manager()->StartArcForTesting();
+  arc_session_manager()->EmulateRequirementCheckCompletionForTesting();
   arc::mojom::ArcSignInResultPtr result =
       arc::mojom::ArcSignInResult::NewSuccess(
           arc::mojom::ArcSignInSuccess::SUCCESS);
@@ -955,10 +929,9 @@ TEST_F(ArcSessionManagerTest, IsDirectlyStartedOnInternalRestart) {
   arc_session_manager()->Initialize();
   arc_session_manager()->RequestEnable();
   base::RunLoop().RunUntilIdle();
-  ASSERT_EQ(ArcSessionManager::State::NEGOTIATING_TERMS_OF_SERVICE,
+  ASSERT_EQ(ArcSessionManager::State::CHECKING_REQUIREMENTS,
             arc_session_manager()->state());
-  arc_session_manager()->OnTermsOfServiceNegotiatedForTesting(true);
-  arc_session_manager()->StartArcForTesting();
+  arc_session_manager()->EmulateRequirementCheckCompletionForTesting();
   arc::mojom::ArcSignInResultPtr result =
       arc::mojom::ArcSignInResult::NewSuccess(
           arc::mojom::ArcSignInSuccess::SUCCESS);
@@ -1002,12 +975,9 @@ TEST_F(ArcSessionManagerTest, DataCleanUpOnFirstStart) {
   profile()->GetPrefs()->SetBoolean(prefs::kArcEnabled, true);
 
   base::RunLoop().RunUntilIdle();
-  EXPECT_EQ(ArcSessionManager::State::NEGOTIATING_TERMS_OF_SERVICE,
+  EXPECT_EQ(ArcSessionManager::State::CHECKING_REQUIREMENTS,
             arc_session_manager()->state());
-  arc_session_manager()->OnTermsOfServiceNegotiatedForTesting(true);
-  EXPECT_EQ(ArcSessionManager::State::CHECKING_ANDROID_MANAGEMENT,
-            arc_session_manager()->state());
-  arc_session_manager()->StartArcForTesting();
+  arc_session_manager()->EmulateRequirementCheckCompletionForTesting();
   EXPECT_EQ(ArcSessionManager::State::ACTIVE, arc_session_manager()->state());
 
   arc_session_manager()->Shutdown();
@@ -1046,7 +1016,7 @@ TEST_F(ArcSessionManagerTest, RequestDisableDoesNotRemoveData) {
   arc_session_manager()->Initialize();
   arc_session_manager()->RequestEnable();
   base::RunLoop().RunUntilIdle();
-  ASSERT_EQ(ArcSessionManager::State::NEGOTIATING_TERMS_OF_SERVICE,
+  ASSERT_EQ(ArcSessionManager::State::CHECKING_REQUIREMENTS,
             arc_session_manager()->state());
 
   // Disable ARC.
@@ -1066,7 +1036,7 @@ TEST_F(ArcSessionManagerTest, RequestDisableWithArcDataRemoval) {
   arc_session_manager()->Initialize();
   arc_session_manager()->RequestEnable();
   base::RunLoop().RunUntilIdle();
-  ASSERT_EQ(ArcSessionManager::State::NEGOTIATING_TERMS_OF_SERVICE,
+  ASSERT_EQ(ArcSessionManager::State::CHECKING_REQUIREMENTS,
             arc_session_manager()->state());
 
   // Disable ARC and remove ARC data.
@@ -1400,17 +1370,13 @@ TEST_P(ArcSessionManagerPolicyTest, SkippingTerms) {
   const bool expected_terms_skipping =
       arc_enabled_pref_managed() && ((backup_managed && location_managed) ||
                                      prefs_unused || !is_arc_oobe_optin);
-  EXPECT_EQ(expected_terms_skipping
-                ? ArcSessionManager::State::CHECKING_ANDROID_MANAGEMENT
-                : ArcSessionManager::State::NEGOTIATING_TERMS_OF_SERVICE,
+  EXPECT_EQ(ArcSessionManager::State::CHECKING_REQUIREMENTS,
             arc_session_manager()->state());
   EXPECT_EQ(IsArcOobeOptInActive(), is_arc_oobe_optin);
 
   // Complete provisioning if it's not done yet.
-  if (!expected_terms_skipping)
-    arc_session_manager()->OnTermsOfServiceNegotiatedForTesting(true);
+  arc_session_manager()->EmulateRequirementCheckCompletionForTesting();
 
-  arc_session_manager()->StartArcForTesting();
   EXPECT_EQ(ArcSessionManager::State::ACTIVE, arc_session_manager()->state());
   arc::mojom::ArcSignInResultPtr result =
       arc::mojom::ArcSignInResult::NewSuccess(
@@ -1673,23 +1639,23 @@ INSTANTIATE_TEST_SUITE_P(All,
 
 TEST_P(ArcSessionOobeOptInNegotiatorTest, OobeTermsAccepted) {
   view()->Show();
-  EXPECT_EQ(ArcSessionManager::State::NEGOTIATING_TERMS_OF_SERVICE,
+  EXPECT_EQ(ArcSessionManager::State::CHECKING_REQUIREMENTS,
             arc_session_manager()->state());
   ReportAccepted();
-  EXPECT_EQ(ArcSessionManager::State::CHECKING_ANDROID_MANAGEMENT,
+  EXPECT_EQ(ArcSessionManager::State::CHECKING_REQUIREMENTS,
             arc_session_manager()->state());
 }
 
 TEST_P(ArcSessionOobeOptInNegotiatorTest, OobeTermsViewDestroyed) {
   view()->Show();
-  EXPECT_EQ(ArcSessionManager::State::NEGOTIATING_TERMS_OF_SERVICE,
+  EXPECT_EQ(ArcSessionManager::State::CHECKING_REQUIREMENTS,
             arc_session_manager()->state());
   CloseLoginDisplayHost();
   ReportViewDestroyed();
   if (!IsManagedUser()) {
     // ArcPlayStoreEnabledPreferenceHandler is not running, so the state should
     // be kept as is.
-    EXPECT_EQ(ArcSessionManager::State::NEGOTIATING_TERMS_OF_SERVICE,
+    EXPECT_EQ(ArcSessionManager::State::CHECKING_REQUIREMENTS,
               arc_session_manager()->state());
     EXPECT_FALSE(IsArcPlayStoreEnabledForProfile(profile()));
   } else {
@@ -1823,16 +1789,9 @@ TEST_P(ArcSessionRetryTest, ContainerRestarted) {
   arc_session_manager()->Initialize();
   arc_session_manager()->RequestEnable();
 
-  if (GetParam().negotiation ==
-      ArcSessionRetryTestParam::Negotiation::REQUIRED) {
-    EXPECT_EQ(ArcSessionManager::State::NEGOTIATING_TERMS_OF_SERVICE,
-              arc_session_manager()->state());
-    arc_session_manager()->OnTermsOfServiceNegotiatedForTesting(true);
-  }
-
-  EXPECT_EQ(ArcSessionManager::State::CHECKING_ANDROID_MANAGEMENT,
+  EXPECT_EQ(ArcSessionManager::State::CHECKING_REQUIREMENTS,
             arc_session_manager()->state());
-  arc_session_manager()->StartArcForTesting();
+  arc_session_manager()->EmulateRequirementCheckCompletionForTesting();
   EXPECT_EQ(ArcSessionManager::State::ACTIVE, arc_session_manager()->state());
 
   ArcProvisioningResult result1 = CreateProvisioningResult(GetParam().error);
@@ -1855,9 +1814,9 @@ TEST_P(ArcSessionRetryTest, ContainerRestarted) {
   arc_session_manager()->OnRetryClicked();
 
   if (GetParam().data_removed) {
-    // Check state goes from REMOVING_DATA_DIR to CHECKING_ANDROID_MANAGEMENT
-    EXPECT_TRUE(WaitForDataRemoved(
-        ArcSessionManager::State::CHECKING_ANDROID_MANAGEMENT));
+    // Check state goes from REMOVING_DATA_DIR to CHECKING_REQUIREMENTS
+    EXPECT_TRUE(
+        WaitForDataRemoved(ArcSessionManager::State::CHECKING_REQUIREMENTS));
   }
 
   arc_session_manager()->StartArcForTesting();
@@ -2015,10 +1974,9 @@ TEST_P(ArcTransitionToManagedTest, TransitionFlow) {
   arc_session_manager()->Initialize();
   arc_session_manager()->RequestEnable();
   base::RunLoop().RunUntilIdle();
-  ASSERT_EQ(ArcSessionManager::State::NEGOTIATING_TERMS_OF_SERVICE,
+  ASSERT_EQ(ArcSessionManager::State::CHECKING_REQUIREMENTS,
             arc_session_manager()->state());
-  arc_session_manager()->OnTermsOfServiceNegotiatedForTesting(true);
-  arc_session_manager()->StartArcForTesting();
+  arc_session_manager()->EmulateRequirementCheckCompletionForTesting();
 
   // Emulate user management state change.
   profile()->GetProfilePolicyConnector()->OverrideIsManagedForTesting(
@@ -2026,7 +1984,7 @@ TEST_P(ArcTransitionToManagedTest, TransitionFlow) {
 
   // Android management check response.
   arc_session_manager()->OnBackgroundAndroidManagementCheckedForTesting(
-      policy::AndroidManagementClient::Result::MANAGED);
+      ArcAndroidManagementChecker::CheckResult::DISALLOWED);
   base::RunLoop().RunUntilIdle();
 
   // Verify ARC state and ARC transition value.

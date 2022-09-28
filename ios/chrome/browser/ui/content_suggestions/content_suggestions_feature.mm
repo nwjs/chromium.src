@@ -18,21 +18,13 @@ const base::Feature kDiscoverFeedInNtp{"DiscoverFeedInNtp",
 const base::Feature kSingleNtp{"SingleNTP", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Feature disabled by default.
-const base::Feature kSingleCellContentSuggestions{
-    "SingleCellContentSuggestions", base::FEATURE_ENABLED_BY_DEFAULT};
-
-// Feature disabled by default.
-const base::Feature kContentSuggestionsHeaderMigration{
-    "ContentSuggestionsHeaderMigration", base::FEATURE_ENABLED_BY_DEFAULT};
-
-// Feature disabled by default.
-const base::Feature kContentSuggestionsUIViewControllerMigration{
-    "ContentSuggestionsUIViewControllerMigration",
-    base::FEATURE_ENABLED_BY_DEFAULT};
-
-// Feature disabled by default.
 const base::Feature kContentSuggestionsUIModuleRefresh{
     "ContentSuggestionsUIModuleRefresh", base::FEATURE_DISABLED_BY_DEFAULT};
+
+const char kContentSuggestionsUIModuleRefreshMinimizeSpacingParam[] =
+    "minimize_spacing";
+const char kContentSuggestionsUIModuleRefreshRemoveHeadersParam[] =
+    "remove_headers";
 
 // Feature disabled by default.
 const base::Feature kTrendingQueriesModule{"TrendingQueriesModule",
@@ -51,19 +43,6 @@ bool IsDiscoverFeedEnabled() {
   return base::FeatureList::IsEnabled(kDiscoverFeedInNtp);
 }
 
-bool IsSingleCellContentSuggestionsEnabled() {
-  return base::FeatureList::IsEnabled(kSingleCellContentSuggestions);
-}
-
-bool IsContentSuggestionsHeaderMigrationEnabled() {
-  return base::FeatureList::IsEnabled(kContentSuggestionsHeaderMigration);
-}
-
-bool IsContentSuggestionsUIViewControllerMigrationEnabled() {
-  return base::FeatureList::IsEnabled(
-      kContentSuggestionsUIViewControllerMigration);
-}
-
 bool IsContentSuggestionsUIModuleRefreshEnabled() {
   return base::FeatureList::IsEnabled(kContentSuggestionsUIModuleRefresh);
 }
@@ -72,6 +51,18 @@ bool IsTrendingQueriesModuleEnabled() {
   return base::FeatureList::IsEnabled(kContentSuggestionsUIModuleRefresh) &&
          base::FeatureList::IsEnabled(kTrendingQueriesModule) &&
          !ShouldNeverShowTrendingQueriesModule();
+}
+
+bool ShouldMinimizeSpacingForModuleRefresh() {
+  return base::GetFieldTrialParamByFeatureAsBool(
+      kContentSuggestionsUIModuleRefresh,
+      kContentSuggestionsUIModuleRefreshMinimizeSpacingParam, false);
+}
+
+bool ShouldRemoveHeadersForModuleRefresh() {
+  return base::GetFieldTrialParamByFeatureAsBool(
+      kContentSuggestionsUIModuleRefresh,
+      kContentSuggestionsUIModuleRefreshRemoveHeadersParam, false);
 }
 
 bool ShouldHideShortcutsForTrendingQueries() {

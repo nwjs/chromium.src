@@ -361,6 +361,9 @@ std::string SanitizeFrontendQueryParam(
   if (key == "enabledExperiments")
     return SanitizeEnabledExperiments(value);
 
+  if (key == "targetType" && value == "tab")
+    return value;
+
   return std::string();
 }
 

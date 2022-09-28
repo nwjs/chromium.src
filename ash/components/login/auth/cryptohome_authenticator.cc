@@ -9,10 +9,6 @@
 #include <memory>
 #include <vector>
 
-#include "ash/components/cryptohome/cryptohome_parameters.h"
-#include "ash/components/cryptohome/cryptohome_util.h"
-#include "ash/components/cryptohome/system_salt_getter.h"
-#include "ash/components/cryptohome/userdataauth_util.h"
 #include "ash/components/login/auth/auth_status_consumer.h"
 #include "ash/components/login/auth/cryptohome_parameter_utils.h"
 #include "ash/components/login/auth/public/auth_failure.h"
@@ -27,6 +23,11 @@
 #include "base/logging.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_macros.h"
+#include "chromeos/ash/components/cryptohome/common_types.h"
+#include "chromeos/ash/components/cryptohome/cryptohome_parameters.h"
+#include "chromeos/ash/components/cryptohome/cryptohome_util.h"
+#include "chromeos/ash/components/cryptohome/system_salt_getter.h"
+#include "chromeos/ash/components/cryptohome/userdataauth_util.h"
 #include "chromeos/ash/components/dbus/userdataauth/cryptohome_misc_client.h"
 #include "chromeos/ash/components/dbus/userdataauth/userdataauth_client.h"
 #include "chromeos/login/login_state/login_state.h"
@@ -38,6 +39,8 @@
 #include "components/user_manager/user_names.h"
 #include "components/user_manager/user_type.h"
 #include "third_party/cros_system_api/dbus/service_constants.h"
+
+using cryptohome::KeyLabel;
 
 namespace ash {
 
@@ -280,7 +283,7 @@ void OnGetKeyData(const base::WeakPtr<AuthAttemptState>& attempt,
         user_data_auth::GetKeyDataReplyToKeyDefinitions(reply);
     if (key_definitions.size() == 1) {
       const cryptohome::KeyDefinition& key_definition = key_definitions.front();
-      DCHECK_EQ(kCryptohomeGaiaKeyLabel, key_definition.label);
+      DCHECK_EQ(kCryptohomeGaiaKeyLabel, key_definition.label.value());
 
       // Extract the key type and salt from |key_definition|, if present.
       std::unique_ptr<int64_t> type;
@@ -400,7 +403,8 @@ void MountPublic(const base::WeakPtr<AuthAttemptState>& attempt,
   // Set the request to create a new homedir when missing.
   cryptohome::KeyDefinitionToKey(
       cryptohome::KeyDefinition::CreateForPassword(
-          std::string(), kCryptohomePublicMountLabel, cryptohome::PRIV_DEFAULT),
+          std::string(), KeyLabel(kCryptohomePublicMountLabel),
+          cryptohome::PRIV_DEFAULT),
       mount.mutable_create()->add_keys());
 
   // For public mounts, authorization secret is filled by cryptohomed, hence it

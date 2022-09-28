@@ -17,6 +17,9 @@
 #include "base/values.h"
 #include "chromeos/ash/components/dbus/hermes/hermes_clients.h"
 #include "chromeos/ash/components/dbus/hermes/hermes_manager_client.h"
+#include "chromeos/ash/components/dbus/shill/shill_clients.h"
+#include "chromeos/ash/components/dbus/shill/shill_profile_client.h"
+#include "chromeos/ash/components/dbus/shill/shill_service_client.h"
 #include "chromeos/ash/components/network/cellular_connection_handler.h"
 #include "chromeos/ash/components/network/cellular_esim_installer.h"
 #include "chromeos/ash/components/network/cellular_inhibitor.h"
@@ -37,9 +40,6 @@
 #include "chromeos/components/onc/onc_test_utils.h"
 #include "chromeos/components/onc/onc_utils.h"
 #include "chromeos/components/onc/onc_validator.h"
-#include "chromeos/dbus/shill/shill_clients.h"
-#include "chromeos/dbus/shill/shill_profile_client.h"
-#include "chromeos/dbus/shill/shill_service_client.h"
 #include "components/onc/onc_pref_names.h"
 #include "components/prefs/testing_pref_service.h"
 #include "components/proxy_config/pref_proxy_config_tracker_impl.h"
@@ -52,7 +52,7 @@
 namespace test_utils = ::chromeos::onc::test_utils;
 using base::test::DictionaryHasValues;
 
-namespace chromeos {
+namespace ash {
 
 namespace {
 
@@ -101,15 +101,6 @@ constexpr char kEmptyUnencryptedConfiguration[] =
 void ErrorCallback(const std::string& error_name) {
   ADD_FAILURE() << "Unexpected error: " << error_name;
 }
-
-class TestNetworkProfileHandler : public NetworkProfileHandler {
- public:
-  TestNetworkProfileHandler() { Init(); }
-
-  TestNetworkProfileHandler(const TestNetworkProfileHandler&) = delete;
-  TestNetworkProfileHandler& operator=(const TestNetworkProfileHandler&) =
-      delete;
-};
 
 class TestNetworkPolicyObserver : public NetworkPolicyObserver {
  public:
@@ -770,6 +761,24 @@ TEST_F(ManagedNetworkConfigurationHandlerTest, UpdatePolicyBeforeFinished) {
   EXPECT_EQ(1, policy_observer()->GetPoliciesAppliedCountAndReset());
 }
 
+// Regression test for b/240237232: A shill profile disappears before triggering
+// policy application and the actual policy application run.
+TEST_F(ManagedNetworkConfigurationHandlerTest,
+       ProfileDisappearsAfterPolicySet) {
+  InitializeStandardProfiles();
+  base::RunLoop().RunUntilIdle();
+
+  SetPolicy(::onc::ONC_SOURCE_USER_POLICY, kUser1, "policy/policy_wifi1.onc");
+
+  // Pretend that NetworkProfileHandler doesn't know the network profile
+  // anymore.
+  network_profile_handler_->OnPropertyChanged(
+      shill::kProfilesProperty, base::Value(base::Value::Type::LIST));
+
+  base::RunLoop().RunUntilIdle();
+  EXPECT_EQ(0, policy_observer()->GetPoliciesAppliedCountAndReset());
+}
+
 TEST_F(ManagedNetworkConfigurationHandlerTest, SetPolicyManageUnmanaged) {
   InitializeStandardProfiles();
   SetUpEntry("policy/shill_unmanaged_wifi1.json", kUser1ProfilePath,
@@ -1226,7 +1235,7 @@ TEST_F(ManagedNetworkConfigurationHandlerTest,
 
 TEST_F(ManagedNetworkConfigurationHandlerTest, AllowCellularSimLock) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(ash::features::kSimLockPolicy);
+  feature_list.InitAndEnableFeature(features::kSimLockPolicy);
 
   // Set 'AllowCellularSimLock' policy.
   SetPolicy(::onc::ONC_SOURCE_DEVICE_POLICY, std::string(),
@@ -1432,4 +1441,4 @@ TEST_F(ManagedNetworkConfigurationHandlerTest, ActiveProxySettingsPreference) {
   ASSERT_EQ(policy_after_pref, "Direct");
 }
 
-}  // namespace chromeos
+}  // namespace ash

@@ -25,6 +25,7 @@ Arama motorunuz <ph name="DSE_NAME" />. Arama geçmişinizi silmek için arama m
 <translation id="1112015203684611006">Yazdırılamadı.</translation>
 <translation id="1125564390852150847">Yeni sekme oluştur.</translation>
 <translation id="1126809382673880764">Sizi tehlikeli web siteleri, indirmeler ve uzantılara karşı korumaz. Gmail ve Arama gibi diğer Google hizmetlerinde, mümkün olduğunda Güvenli Tarama korumasından yararlanmaya devam edersiniz.</translation>
+<translation id="1135212215217513471">iOS için Chrome'u yükleyin</translation>
 <translation id="1145536944570833626">Mevcut verileri silin.</translation>
 <translation id="1147031633655575115"><ph name="USER" /> olarak oturum açıldı</translation>
 <translation id="1154984953698510061">Diğer Sekmeleri Göster</translation>
@@ -113,6 +114,7 @@ Arama motorunuz <ph name="DSE_NAME" />. Arama geçmişinizi silmek için arama m
 <translation id="1832848789136765277">Senkronize edilen verilerinize her zaman erişebileceğinizden emin olmak için kimliğinizi doğrulayın</translation>
 <translation id="1870148520156231997">Şifreyi Göster</translation>
 <translation id="1872096359983322073">Flaş</translation>
+<translation id="1910975740091000991">iOS için Chrome</translation>
 <translation id="1911619930368729126">Google Drive'a yükle</translation>
 <translation id="1923342640370224680">Son Bir Saat</translation>
 <translation id="1930989359703290198">Kuruluşunuz yalnızca belirli hesaplarla oturum açmanıza izin vermektedir. İzin verilmeyen hesaplar gösterilmez. <ph name="BEGIN_LINK" />Daha Fazla Bilgi<ph name="END_LINK" /></translation>
@@ -140,6 +142,7 @@ Arama motorunuz <ph name="DSE_NAME" />. Arama geçmişinizi silmek için arama m
 <translation id="2139867232736819575">Kopyalanan Metni Ara</translation>
 <translation id="214201757571129614">Oturum aç…</translation>
 <translation id="2149973817440762519">Yer İşaretini Düzenle</translation>
+<translation id="2155145621546387786">Chrome'u paylaşın</translation>
 <translation id="2175927920773552910">QR Kodu</translation>
 <translation id="2218443599109088993">Uzaklaştır</translation>
 <translation id="2230173723195178503">Web sayfası yüklendi</translation>
@@ -277,6 +280,7 @@ Arama geçmişinizi silmek için arama motorunuzun bununla ilgili talimatların�
 <translation id="3277021493514034324">Site adresi kopyalandı</translation>
 <translation id="3285962946108803577">Sayfayı Paylaş...</translation>
 <translation id="3290875554372353449">Bir Hesap Seçin</translation>
+<translation id="3305294846493618482">daha fazla</translation>
 <translation id="3311748811247479259">Kapalı</translation>
 <translation id="3324193307694657476">Adres 2</translation>
 <translation id="3328801116991980348">Site bilgileri</translation>
@@ -374,6 +378,7 @@ Arama geçmişinizi silmek için arama motorunuzun bununla ilgili talimatların�
 <translation id="4172051516777682613">Her zaman göster</translation>
 <translation id="418156467088430727">Çevrimdışı Sürümü Yeni Sekmede Göster</translation>
 <translation id="4181841719683918333">Diller</translation>
+<translation id="4187450337729239226">Yapıştır ve Ara</translation>
 <translation id="4223967053752765281">Kuruluşunuz oturum açmayı devre dışı bıraktı. Yer işaretleri, geçmiş, şifreler ve diğer ayarlarınızı bu cihazda görmeye devam edebilirsiniz. Değişiklik yaparsanız bu değişiklikler hesabınızla senkronize edilmez.</translation>
 <translation id="4233831822770018312">İzinleri düzenle</translation>
 <translation id="4237377247299956313"><ph name="BEGIN_BOLD" />Varsayılan Tarayıcı Uygulaması<ph name="END_BOLD" />'na dokunun</translation>
@@ -436,6 +441,7 @@ Verileriniz senkronizasyon parolanızla şifrelendi. Senkronizasyonu başlatmak 
 <translation id="473775607612524610">Güncelle</translation>
 <translation id="4747097190499141774">Parolayla şifreleme, Google Pay'deki adresleri ve ödeme yöntemlerini kapsamaz. Yalnızca parolanızı bilen biri, şifrelenmiş verilerinizi okuyabilir. Parola, Google'a gönderilmez veya Google tarafından saklanmaz. Parolanızı unutursanız veya bu ayarı değiştirmek isterseniz senkronizasyonu sıfırlamanız gerekir. <ph name="BEGIN_LINK" />Daha fazla bilgi<ph name="END_LINK" /></translation>
 <translation id="4751645464639803239">Yeni Gizli Sekme</translation>
+<translation id="4766112107778026136">Keşfet ve Takip Edilenler</translation>
 <translation id="4775879719735953715">Varsayılan Tarayıcı</translation>
 <translation id="4778644898150334464">Başka şifre kullan</translation>
 <translation id="478808905805139173">Gizli modda açılsın mı?</translation>
@@ -490,6 +496,7 @@ Bu ayarı değiştirmek için <ph name="BEGIN_LINK" />senkronizasyonu sıfırlay
 <translation id="5118764316110575523">Kapalı</translation>
 <translation id="5132942445612118989">Tüm cihazlardaki şifreleriniz, geçmişiniz ve diğer öğelerinizi senkronize edin</translation>
 <translation id="5140288047769711648">Chrome bu şifreyi sizin için hatırlar. Sizin şifreyi hatırlamanız gerekmez.</translation>
+<translation id="5149188072385105201">Şifre Ekleyin..</translation>
 <translation id="5150492518600715772">Cihazıma Gönder</translation>
 <translation id="5168414296986405587">iPadOS için geliştirildi</translation>
 <translation id="5173088371991956744">Senkronizasyonun, Kimliğinizi Doğrulaması Gerekiyor</translation>
@@ -642,6 +649,7 @@ Handoff'un ayrıca, Ayarlar'ın Genel bölümünde de etkinleştirilmesi ve ciha
 <translation id="6374469231428023295">Tekrar Dene</translation>
 <translation id="6377118281273296434">Site Güvenliği</translation>
 <translation id="6380866119319257197">Parolanızı unutursanız veya bu ayarı değiştirmek isterseniz <ph name="BEGIN_LINK" />senkronizasyonu sıfırlayın<ph name="END_LINK" /></translation>
+<translation id="6387994324662817823">Şifreler yalnızca bu cihazda Google Şifre Yöneticisi'ne kaydedilir.</translation>
 <translation id="6389470377220713856">Karttaki Ad</translation>
 <translation id="6406506848690869874">Senkronizasyon</translation>
 <translation id="6410390304316730527">Güvenli Tarama, sizi yanıltarak kötü amaçlı yazılım yüklemek veya kişisel bilgilerinizi (örneğin, şifreler, telefon numaraları veya kredi kartları) ifşa etmek gibi tehlikeli bir şey yapmanıza neden olabilecek saldırganlara karşı korur. Bu özelliği kapatırsanız tanıdık olmayan veya saygınlığı şüpheli sitelere göz atarken dikkatli olun.</translation>

@@ -8,9 +8,9 @@
 #include "base/callback.h"
 #include "base/component_export.h"
 #include "base/observer_list_types.h"
+#include "chromeos/ash/components/dbus/cryptohome/UserDataAuth.pb.h"
+#include "chromeos/ash/components/dbus/cryptohome/rpc.pb.h"
 #include "chromeos/dbus/common/dbus_method_call_status.h"
-#include "chromeos/dbus/cryptohome/UserDataAuth.pb.h"
-#include "chromeos/dbus/cryptohome/rpc.pb.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 
 namespace dbus {
@@ -26,16 +26,17 @@ namespace ash {
 class COMPONENT_EXPORT(USERDATAAUTH_CLIENT) InstallAttributesClient {
  public:
   using InstallAttributesGetCallback =
-      DBusMethodCallback<::user_data_auth::InstallAttributesGetReply>;
+      chromeos::DBusMethodCallback<::user_data_auth::InstallAttributesGetReply>;
   using InstallAttributesSetCallback =
-      DBusMethodCallback<::user_data_auth::InstallAttributesSetReply>;
-  using InstallAttributesFinalizeCallback =
-      DBusMethodCallback<::user_data_auth::InstallAttributesFinalizeReply>;
-  using InstallAttributesGetStatusCallback =
-      DBusMethodCallback<::user_data_auth::InstallAttributesGetStatusReply>;
-  using RemoveFirmwareManagementParametersCallback = DBusMethodCallback<
-      ::user_data_auth::RemoveFirmwareManagementParametersReply>;
-  using SetFirmwareManagementParametersCallback = DBusMethodCallback<
+      chromeos::DBusMethodCallback<::user_data_auth::InstallAttributesSetReply>;
+  using InstallAttributesFinalizeCallback = chromeos::DBusMethodCallback<
+      ::user_data_auth::InstallAttributesFinalizeReply>;
+  using InstallAttributesGetStatusCallback = chromeos::DBusMethodCallback<
+      ::user_data_auth::InstallAttributesGetStatusReply>;
+  using RemoveFirmwareManagementParametersCallback =
+      chromeos::DBusMethodCallback<
+          ::user_data_auth::RemoveFirmwareManagementParametersReply>;
+  using SetFirmwareManagementParametersCallback = chromeos::DBusMethodCallback<
       ::user_data_auth::SetFirmwareManagementParametersReply>;
 
   // Not copyable or movable.

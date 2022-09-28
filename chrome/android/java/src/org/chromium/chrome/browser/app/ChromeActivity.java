@@ -84,7 +84,7 @@ import org.chromium.chrome.browser.bookmarks.BookmarkBridge;
 import org.chromium.chrome.browser.bookmarks.BookmarkModel;
 import org.chromium.chrome.browser.bookmarks.PowerBookmarkUtils;
 import org.chromium.chrome.browser.bookmarks.TabBookmarker;
-import org.chromium.chrome.browser.commerce.shopping_list.ShoppingFeatures;
+import org.chromium.chrome.browser.commerce.ShoppingFeatures;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
 import org.chromium.chrome.browser.compositor.layouts.Layout;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerImpl;
@@ -163,6 +163,7 @@ import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab.TabState;
 import org.chromium.chrome.browser.tab.TabUtils;
+import org.chromium.chrome.browser.tab.TabUtils.LoadIfNeededCaller;
 import org.chromium.chrome.browser.tab.TabUtils.UseDesktopUserAgentCaller;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModel;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
@@ -796,6 +797,11 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         mInsetObserverViewSupplier.set(InsetObserverView.create(this));
         rootView.addView(mInsetObserverViewSupplier.get(), 0);
 
+        if (ChromeFeatureList.sOSKResizesVisualViewport.isEnabled()) {
+            getWindowAndroid().getApplicationBottomInsetProvider().addStackingSupplier(
+                    mInsetObserverViewSupplier.get().getSupplierForBottomInset());
+        }
+
         super.onInitialLayoutInflationComplete();
     }
 
@@ -987,11 +993,12 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         Tab tab = getActivityTab();
         if (tab != null) {
             if (tab.isHidden()) {
-                tab.show(TabSelectionType.FROM_USER);
+                tab.show(
+                        TabSelectionType.FROM_USER, LoadIfNeededCaller.ON_ACTIVITY_SHOWN_THEN_SHOW);
             } else {
                 // The visible Tab's renderer process may have died after the activity was
                 // paused. Ensure that it's restored appropriately.
-                tab.loadIfNeeded();
+                tab.loadIfNeeded(LoadIfNeededCaller.ON_ACTIVITY_SHOWN);
             }
         }
         VrModuleProvider.getDelegate().onActivityShown(this);
@@ -1265,7 +1272,9 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
 
         super.onNewIntentWithNative(intent);
         getLaunchCauseMetrics().onReceivedIntent();
-        if (mIntentHandler.shouldIgnoreIntent(intent, /*startedActivity=*/false)) return;
+        if (mIntentHandler.shouldIgnoreIntent(intent, /*startedActivity=*/false, isCustomTab())) {
+            return;
+        }
 
         // We send this intent so that we can enter WebVr presentation mode if needed. This
         // call doesn't consume the intent because it also has the url that we need to load.
@@ -2036,6 +2045,12 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         compositorViewHolder.setInsetObserverView(mInsetObserverViewSupplier.get());
         compositorViewHolder.setAutofillUiBottomInsetSupplier(
                 mManualFillingComponentSupplier.get().getBottomInsetSupplier());
+
+        if (ChromeFeatureList.sOSKResizesVisualViewport.isEnabled()) {
+            getWindowAndroid().getApplicationBottomInsetProvider().addStackingSupplier(
+                    mManualFillingComponentSupplier.get().getBottomInsetSupplier());
+        }
+
         compositorViewHolder.setTopUiThemeColorProvider(
                 mRootUiCoordinator.getTopUiThemeColorProvider());
         compositorViewHolder.onFinishNativeInitialization(getTabModelSelector(), this);
@@ -2104,13 +2119,13 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
             if (mTabReparentingControllerSupplier.get() != null && didChangeTabletMode()) {
                 onScreenLayoutSizeChange();
             }
-            // We only handle VR UI mode and UI mode night changes. Any other changes should follow
-            // the default behavior of recreating the activity. Note that if UI mode night changes,
-            // with or without other changes, we will still recreate() until we get a callback from
-            // the ChromeBaseAppCompatActivity#onNightModeStateChanged or the overridden method in
+            // For UI mode type, we only need to recreate for TELEVISION to update refresh rate.
+            // Note that if UI mode night changes, with or without other changes, we will
+            // still recreate() when we get a callback from the
+            // ChromeBaseAppCompatActivity#onNightModeStateChanged or the overridden method in
             // sub-classes if necessary.
-            if (didChangeNonVrUiMode(mConfig.uiMode, newConfig.uiMode)
-                    && !didChangeUiModeNight(mConfig.uiMode, newConfig.uiMode)) {
+            if (didChangeUiModeType(
+                        mConfig.uiMode, newConfig.uiMode, Configuration.UI_MODE_TYPE_TELEVISION)) {
                 recreate();
                 return;
             }
@@ -2133,18 +2148,14 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         mConfig = newConfig;
     }
 
-    private static boolean didChangeNonVrUiMode(int oldMode, int newMode) {
-        if (oldMode == newMode) return false;
-        return isInVrUiMode(oldMode) == isInVrUiMode(newMode);
+    // Checks whether the given uiModeTypes were present on oldUiMode or newUiMode but not the
+    // other.
+    private static boolean didChangeUiModeType(int oldUiMode, int newUiMode, int uiModeType) {
+        return isInUiModeType(oldUiMode, uiModeType) != isInUiModeType(newUiMode, uiModeType);
     }
 
-    private static boolean isInVrUiMode(int uiMode) {
-        return (uiMode & Configuration.UI_MODE_TYPE_MASK) == Configuration.UI_MODE_TYPE_VR_HEADSET;
-    }
-
-    private static boolean didChangeUiModeNight(int oldMode, int newMode) {
-        return (oldMode & Configuration.UI_MODE_NIGHT_MASK)
-                != (newMode & Configuration.UI_MODE_NIGHT_MASK);
+    private static boolean isInUiModeType(int uiMode, int uiModeType) {
+        return (uiMode & Configuration.UI_MODE_TYPE_MASK) == uiModeType;
     }
 
     /**
@@ -2565,9 +2576,13 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
                 RequestDesktopUtils.setRequestDesktopSiteContentSettingsForUrl(
                         profile, currentTab.getUrl(), usingDesktopUserAgent);
                 currentTab.reload();
+                RequestDesktopUtils.maybeShowUserEducationPromptForAppMenuSelection(
+                        Profile.getLastUsedRegularProfile());
             } else {
                 TabUtils.switchUserAgent(currentTab, usingDesktopUserAgent, /* forcedByUser */ true,
                         UseDesktopUserAgentCaller.ON_MENU_OR_KEYBOARD_ACTION);
+                TrackerFactory.getTrackerForProfile(Profile.getLastUsedRegularProfile())
+                        .notifyEvent(EventConstants.APP_MENU_DESKTOP_SITE_FOR_TAB_CLICKED);
             }
             RequestDesktopUtils.recordUserChangeUserAgent(usingDesktopUserAgent, getActivityTab());
             return true;
@@ -2717,6 +2732,15 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         // 20dp granularity.
         RecordHistogram.recordLinearCountHistogram(
                 "Android.DeviceSize.LargestDisplaySize2", largestDisplaySize, 200, 2000, 92);
+
+        double screenSizeInches = mRootUiCoordinator.getPrimaryDisplaySizeInInches();
+        // A sample value 10 times the screen size in inches will be used to support a granularity
+        // of 0.2" (or 2 units of the recorded value) for devices ranging from 4" to 15" (inclusive)
+        // in screen size. Two additional buckets will account for underflow and overflow screen
+        // sizes.
+        int sample = (int) (screenSizeInches * 10.0);
+        RecordHistogram.recordLinearCountHistogram(
+                "Android.DeviceSize.ScreenSizeInTensOfInches", sample, 40, 152, 58);
     }
 
     @Override

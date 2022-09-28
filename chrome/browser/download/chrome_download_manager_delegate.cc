@@ -283,12 +283,11 @@ void OnDownloadDialogClosed(
   switch (result.location_result) {
     case DownloadLocationDialogResult::USER_CONFIRMED:
       std::move(callback).Run(DownloadConfirmationResult::CONFIRMED_WITH_DIALOG,
-                              result.file_path,
-                              std::move(result.download_schedule));
+                              result.file_path);
       break;
     case DownloadLocationDialogResult::USER_CANCELED:
       std::move(callback).Run(DownloadConfirmationResult::CANCELED,
-                              base::FilePath(), absl::nullopt);
+                              base::FilePath());
       break;
     case DownloadLocationDialogResult::DUPLICATE_DIALOG:
       // TODO(xingliu): Figure out the dialog behavior on multiple downloads.
@@ -296,7 +295,7 @@ void OnDownloadDialogClosed(
       // sense.
       std::move(callback).Run(
           DownloadConfirmationResult::CONTINUE_WITHOUT_CONFIRMATION,
-          result.file_path, std::move(result.download_schedule));
+          result.file_path);
       break;
   }
 }
@@ -864,12 +863,14 @@ void ChromeDownloadManagerDelegate::OpenDownload(DownloadItem* download) {
   download::DownloadItemRenameHandler* handler = download->GetRenameHandler();
   if (handler) {
     handler->OpenDownload();
-    //RecordDownloadOpenMethod(DOWNLOAD_OPEN_METHOD_RENAME_HANDLER);
+    //RecordDownloadOpen(DOWNLOAD_OPEN_METHOD_RENAME_HANDLER,
+    //                   download->GetMimeType());
     return;
   }
 
   if (!DownloadItemModel(download).ShouldPreferOpeningInBrowser()) {
-    //RecordDownloadOpenMethod(DOWNLOAD_OPEN_METHOD_DEFAULT_PLATFORM);
+    //RecordDownloadOpen(DOWNLOAD_OPEN_METHOD_DEFAULT_PLATFORM,
+    //                   download->GetMimeType());
     OpenDownloadUsingPlatformHandler(download);
     return;
   }
@@ -895,7 +896,8 @@ void ChromeDownloadManagerDelegate::OpenDownload(DownloadItem* download) {
   else
     browser->OpenURL(params);
 
-  //RecordDownloadOpenMethod(DOWNLOAD_OPEN_METHOD_DEFAULT_BROWSER);
+  //RecordDownloadOpen(DOWNLOAD_OPEN_METHOD_DEFAULT_BROWSER,
+  //                   download->GetMimeType());
 #endif  // BUILDFLAG(IS_ANDROID)
 }
 
@@ -1034,7 +1036,7 @@ void ChromeDownloadManagerDelegate::RequestConfirmation(
       // If this is a 'Save As' download, just run without confirmation.
       std::move(callback).Run(
           DownloadConfirmationResult::CONTINUE_WITHOUT_CONFIRMATION,
-          suggested_path, absl::nullopt /*download_schedule*/);
+          suggested_path);
       return;
     }
 
@@ -1045,15 +1047,14 @@ void ChromeDownloadManagerDelegate::RequestConfirmation(
       if (reason == DownloadConfirmationReason::PREFERENCE) {
         std::move(callback).Run(
             DownloadConfirmationResult::CONTINUE_WITHOUT_CONFIRMATION,
-            suggested_path, absl::nullopt /*download_schedule*/);
+            suggested_path);
         return;
       }
 
       if (reason == DownloadConfirmationReason::TARGET_PATH_NOT_WRITEABLE) {
         OnDownloadCanceled(download, true /* has_no_external_storage */);
         std::move(callback).Run(DownloadConfirmationResult::CANCELED,
-                                base::FilePath(),
-                                absl::nullopt /*download_schedule*/);
+                                base::FilePath());
         return;
       }
 
@@ -1063,8 +1064,7 @@ void ChromeDownloadManagerDelegate::RequestConfirmation(
       // app has created the target file (not the temporary .crdownload file).
       OnDownloadCanceled(download, false /* has_no_external_storage */);
       std::move(callback).Run(DownloadConfirmationResult::CANCELED,
-                              base::FilePath(),
-                              absl::nullopt /*download_schedule*/);
+                              base::FilePath());
       return;
     }
 
@@ -1075,8 +1075,7 @@ void ChromeDownloadManagerDelegate::RequestConfirmation(
       base::FilePath download_dir;
       if (!base::android::GetDownloadsDirectory(&download_dir)) {
         std::move(callback).Run(DownloadConfirmationResult::CANCELED,
-                                base::FilePath(),
-                                absl::nullopt /*download_schedule*/);
+                                base::FilePath());
         return;
       }
 
@@ -1145,8 +1144,7 @@ void ChromeDownloadManagerDelegate::OnConfirmationCallbackComplete(
     DownloadTargetDeterminerDelegate::ConfirmationCallback callback,
     DownloadConfirmationResult result,
     const base::FilePath& virtual_path) {
-  std::move(callback).Run(result, virtual_path,
-                          absl::nullopt /*download_schedule*/);
+  std::move(callback).Run(result, virtual_path);
   if (!file_picker_callbacks_.empty()) {
     base::ThreadTaskRunnerHandle::Get()->PostTask(
         FROM_HERE, std::move(file_picker_callbacks_.front()));
@@ -1203,13 +1201,11 @@ void ChromeDownloadManagerDelegate::GenerateUniqueFileNameDone(
     // If user chose not to show download location dialog, uses current unique
     // target path.
     std::move(callback).Run(
-        DownloadConfirmationResult::CONTINUE_WITHOUT_CONFIRMATION, target_path,
-        absl::nullopt /*download_schedule*/);
+        DownloadConfirmationResult::CONTINUE_WITHOUT_CONFIRMATION, target_path);
   } else {
     // If the name generation failed, fail the download.
     std::move(callback).Run(DownloadConfirmationResult::FAILED,
-                            base::FilePath(),
-                            absl::nullopt /*download_schedule*/);
+                            base::FilePath());
   }
 }
 
@@ -1510,17 +1506,10 @@ void ChromeDownloadManagerDelegate::OnDownloadTargetDetermined(
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   DownloadItem* item = download_manager_->GetDownload(download_id);
   if (item) {
-    if (!target_info->target_path.empty() &&
-        IsOpenInBrowserPreferreredForFile(target_info->target_path) &&
-        target_info->is_filetype_handled_safely)
-      DownloadItemModel(item).SetShouldPreferOpeningInBrowser(true);
-
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-    if (item->GetOriginalMimeType() == "application/x-x509-user-cert")
-      DownloadItemModel(item).SetShouldPreferOpeningInBrowser(true);
-#endif
-
-    DownloadItemModel(item).SetDangerLevel(target_info->danger_level);
+    DownloadItemModel model(item);
+    model.DetermineAndSetShouldPreferOpeningInBrowser(
+        target_info->target_path, target_info->is_filetype_handled_safely);
+    model.SetDangerLevel(target_info->danger_level);
   }
   if (ShouldBlockFile(item, target_info->danger_type)) {
     MaybeReportDangerousDownloadBlocked(
@@ -1668,7 +1657,7 @@ void ChromeDownloadManagerDelegate::MaybeSendDangerousDownloadOpenedReport(
   if (!download->GetAutoOpened()) {
     download::DownloadContent download_content =
         download::DownloadContentFromMimeType(download->GetMimeType(), false);
-    safe_browsing::RecordDownloadOpened(
+    safe_browsing::RecordDownloadOpenedLatency(
         download->GetDangerType(), download_content, base::Time::Now(),
         download->GetEndTime(), show_download_in_folder);
   }

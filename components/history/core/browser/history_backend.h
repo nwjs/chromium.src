@@ -153,9 +153,8 @@ class HistoryBackend : public base::RefCountedThreadSafe<HistoryBackend>,
 
     // Notify HistoryService that the user is visiting a URL. The event will
     // be forwarded to the HistoryServiceObservers in the correct thread.
-    virtual void NotifyURLVisited(ui::PageTransition transition,
-                                  const URLRow& row,
-                                  base::Time visit_time) = 0;
+    virtual void NotifyURLVisited(const URLRow& url_row,
+                                  const VisitRow& visit_row) = 0;
 
     // Notify HistoryService that some URLs have been modified. The event will
     // be forwarded to the HistoryServiceObservers in the correct thread.
@@ -457,6 +456,10 @@ class HistoryBackend : public base::RefCountedThreadSafe<HistoryBackend>,
       VisitID visit_id,
       const VisitContextAnnotations& visit_context_annotations);
 
+  void SetOnCloseContextAnnotationsForVisit(
+      VisitID visit_id,
+      const VisitContextAnnotations& visit_context_annotations);
+
   std::vector<AnnotatedVisit> GetAnnotatedVisits(
       const QueryOptions& options,
       bool* limited_by_max_count = nullptr);
@@ -467,6 +470,10 @@ class HistoryBackend : public base::RefCountedThreadSafe<HistoryBackend>,
   // Like above, but will first construct `visit_rows` from each `VisitID`
   // before delegating to the overloaded `ToAnnotatedVisits()` above.
   std::vector<AnnotatedVisit> ToAnnotatedVisits(
+      const std::vector<VisitID>& visit_ids);
+
+  // Utility method to Construct `ClusterVisit`s.
+  std::vector<ClusterVisit> ToClusterVisits(
       const std::vector<VisitID>& visit_ids);
 
   // Returns the time of the most recent clustered visits; i.e. the boundary
@@ -480,10 +487,12 @@ class HistoryBackend : public base::RefCountedThreadSafe<HistoryBackend>,
 
   std::vector<Cluster> GetMostRecentClusters(base::Time inclusive_min_time,
                                              base::Time exclusive_max_time,
-                                             int max_clusters);
+                                             int max_clusters,
+                                             bool include_keywords = true);
 
-  // Get a `Cluster`.
-  Cluster GetCluster(int64_t cluster_id);
+  // Get a `Cluster`. `keyword_to_data_map` isn't always useful, and it requires
+  // an extra SQL execution. It's only populated If `include_keywords` is true.
+  Cluster GetCluster(int64_t cluster_id, bool include_keywords = true);
 
   // Finds the 1st visit in the redirect chain containing `visit`.
   // Unlike `GetRedirectsToSpecificVisit()`, this only considers actual
@@ -517,9 +526,7 @@ class HistoryBackend : public base::RefCountedThreadSafe<HistoryBackend>,
   bool GetVisitsForURL(URLID id, VisitVector* visits);
 
   // Fetches up to `max_visits` most recent visits for the passed URL.
-  bool GetMostRecentVisitsForURL(URLID id,
-                                 int max_visits,
-                                 VisitVector* visits) override;
+  bool GetMostRecentVisitsForURL(URLID id, int max_visits, VisitVector* visits);
 
   // For each element in `urls`, updates the pre-existing URLRow in the database
   // with the same ID; or ignores the element if no such row exists. Returns the
@@ -814,9 +821,8 @@ class HistoryBackend : public base::RefCountedThreadSafe<HistoryBackend>,
   // HistoryBackendNotifier:
   void NotifyFaviconsChanged(const std::set<GURL>& page_urls,
                              const GURL& icon_url) override;
-  void NotifyURLVisited(ui::PageTransition transition,
-                        const URLRow& row,
-                        base::Time visit_time) override;
+  void NotifyURLVisited(const URLRow& url_row,
+                        const VisitRow& visit_row) override;
   void NotifyURLsModified(const URLRows& changed_urls,
                           bool is_from_expiration) override;
   void NotifyURLsDeleted(DeletionInfo deletion_info) override;

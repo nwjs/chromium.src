@@ -15,18 +15,12 @@ extern const base::Feature kDiscoverFeedInNtp;
 // Feature to use one NTP for all tabs in a Browser.
 extern const base::Feature kSingleNtp;
 
-// Feature to use one cell for Content Suggestions
-extern const base::Feature kSingleCellContentSuggestions;
-
-// Feature to move the Content Suggestions header view into the Discover
-// ScrollView.
-extern const base::Feature kContentSuggestionsHeaderMigration;
-
-// Feature to move the Content Suggestions ViewController to a UIViewController.
-extern const base::Feature kContentSuggestionsUIViewControllerMigration;
-
 // Feature to section the Content Suggestions into modules.
 extern const base::Feature kContentSuggestionsUIModuleRefresh;
+
+// Feature params for kContentSuggestionsUIModuleRefresh.
+extern const char kContentSuggestionsUIModuleRefreshMinimizeSpacingParam[];
+extern const char kContentSuggestionsUIModuleRefreshRemoveHeadersParam[];
 
 // Feature to show the Trending Queries module.
 extern const base::Feature kTrendingQueriesModule;
@@ -44,18 +38,16 @@ extern const char kDiscoverFeedIsNativeUIEnabled[];
 // Whether the Discover feed is enabled instead of the Zine feed.
 bool IsDiscoverFeedEnabled();
 
-// Whether the single cell content suggestions feature is enabled.
-bool IsSingleCellContentSuggestionsEnabled();
-
-// Whether the Content Suggestions header migration feature is enabled.
-bool IsContentSuggestionsHeaderMigrationEnabled();
-
-// Whether the Content Suggestions UIViewController migration feature is
-// enabled.
-bool IsContentSuggestionsUIViewControllerMigrationEnabled();
-
 // Whether the Content Suggestions UI Module Refresh feature is enabled.
 bool IsContentSuggestionsUIModuleRefreshEnabled();
+
+// Whether some spacing should be removed for the Content Suggestions UI Module
+// Refresh feature.
+bool ShouldMinimizeSpacingForModuleRefresh();
+
+// Whether the module header should not be shown for the Content Suggestions UI
+// Module Refresh feature.
+bool ShouldRemoveHeadersForModuleRefresh();
 
 // Whether the Trending Queries module feature is enabled.
 bool IsTrendingQueriesModuleEnabled();

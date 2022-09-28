@@ -328,6 +328,13 @@ bool PrivacySandboxSettings::IsSharedStorageAllowed(
                                            top_frame_origin);
 }
 
+bool PrivacySandboxSettings::IsPrivateAggregationAllowed(
+    const url::Origin& top_frame_origin,
+    const url::Origin& reporting_origin) const {
+  return IsPrivacySandboxEnabledForContext(reporting_origin.GetURL(),
+                                           top_frame_origin);
+}
+
 bool PrivacySandboxSettings::IsPrivacySandboxEnabled() const {
   // If the delegate is restricting access the Privacy Sandbox is disabled.
   if (delegate_->IsPrivacySandboxRestricted())
@@ -420,8 +427,9 @@ bool PrivacySandboxSettings::IsPrivacySandboxEnabledForContext(
 
   // Third party cookies must also be available for this context. An empty site
   // for cookies is provided so the context is always treated as a third party.
-  return cookie_settings_->IsFullCookieAccessAllowed(url, net::SiteForCookies(),
-                                                     top_frame_origin);
+  return cookie_settings_->IsFullCookieAccessAllowed(
+      url, net::SiteForCookies(), top_frame_origin,
+      content_settings::CookieSettings::QueryReason::kPrivacySandbox);
 }
 
 void PrivacySandboxSettings::SetTopicsDataAccessibleFromNow() const {

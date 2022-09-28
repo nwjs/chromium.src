@@ -13,7 +13,7 @@
 #include "base/path_service.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
-#include "chromeos/dbus/dbus_thread_manager.h"
+#include "chromeos/ash/components/dbus/dbus_thread_manager.h"
 
 namespace ash {
 namespace {
@@ -92,13 +92,6 @@ void DemoResources::EnsureLoaded(base::OnceClosure load_callback) {
   // In unit tests, DemoModeTestHelper should set up a fake
   // CrOSComponentManager.
   DCHECK(cros_component_manager);
-
-  if (ash::features::IsDemoModeSWAEnabled()) {
-    // Skip the load of Chrome Apps when SWA enabled and mark them as loaded.
-    InstalledComponentLoaded(
-        component_updater::CrOSComponentManager::Error::NONE, base::FilePath());
-    return;
-  }
 
   cros_component_manager->Load(
       kDemoModeResourcesComponentName,

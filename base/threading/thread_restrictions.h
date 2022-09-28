@@ -143,7 +143,7 @@ class WebRtcVideoFrameAdapter;
 class LegacyWebRtcVideoFrameAdapter;
 class WorkerThread;
 namespace scheduler {
-class WorkerThread;
+class NonMainThreadImpl;
 }
 }  // namespace blink
 
@@ -579,7 +579,7 @@ class BASE_EXPORT ScopedAllowBaseSyncPrimitives {
   friend class blink::IdentifiabilityActiveSampler;
   friend class blink::SourceStream;
   friend class blink::WorkerThread;
-  friend class blink::scheduler::WorkerThread;
+  friend class blink::scheduler::NonMainThreadImpl;
   friend class chrome_cleaner::ResetShortcutsComponent;
   friend class chrome_cleaner::SystemReportComponent;
   friend class content::BrowserMainLoop;

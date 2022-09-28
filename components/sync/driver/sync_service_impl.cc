@@ -36,6 +36,7 @@
 #include "components/sync/driver/sync_api_component_factory.h"
 #include "components/sync/driver/sync_auth_manager.h"
 #include "components/sync/driver/sync_type_preference_provider.h"
+#include "components/sync/driver/trusted_vault_histograms.h"
 #include "components/sync/engine/configure_reason.h"
 #include "components/sync/engine/engine_components_factory_impl.h"
 #include "components/sync/engine/net/http_bridge.h"
@@ -276,6 +277,17 @@ void SyncServiceImpl::StartSyncingWithServer() {
 
 ModelTypeSet SyncServiceImpl::GetRegisteredDataTypesForTest() const {
   return GetRegisteredDataTypes();
+}
+
+bool SyncServiceImpl::HasAnyDatatypeErrorForTest() const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  for (const auto& data_type_with_error : data_type_error_map_) {
+    if (data_type_with_error.second.error_type() ==
+        syncer::SyncError::DATATYPE_ERROR) {
+      return true;
+    }
+  }
+  return false;
 }
 
 void SyncServiceImpl::GetThrottledDataTypesForTest(
@@ -591,7 +603,7 @@ SyncService::DisableReasonSet SyncServiceImpl::GetDisableReasons() const {
 
   // If local sync is enabled, most disable reasons don't apply.
   if (!IsLocalSyncEnabled()) {
-    if (sync_prefs_.IsManaged() || sync_disabled_by_admin_) {
+    if (sync_prefs_.IsSyncClientDisabledByPolicy() || sync_disabled_by_admin_) {
       result.Put(DISABLE_REASON_ENTERPRISE_POLICY);
     }
     if (!IsSignedIn()) {
@@ -946,12 +958,15 @@ void SyncServiceImpl::CryptoRequiredUserActionChanged() {
 
   if (should_record_trusted_vault_error_shown_on_startup_ &&
       crypto_.IsTrustedVaultKeyRequiredStateKnown() && IsSyncFeatureEnabled()) {
+    DCHECK(engine_);
+
     should_record_trusted_vault_error_shown_on_startup_ = false;
     if (crypto_.GetPassphraseType() ==
         PassphraseType::kTrustedVaultPassphrase) {
-      base::UmaHistogramBoolean(
+      RecordTrustedVaultHistogramBooleanWithMigrationSuffix(
           "Sync.TrustedVaultErrorShownOnStartup",
-          user_settings_->IsTrustedVaultKeyRequiredForPreferredDataTypes());
+          user_settings_->IsTrustedVaultKeyRequiredForPreferredDataTypes(),
+          engine_->GetDetailedStatus());
     }
   }
 }
@@ -1256,6 +1271,11 @@ void SyncServiceImpl::UpdateDataTypesForInvalidations() {
   if (!sessions_invalidations_enabled_) {
     types.Remove(SESSIONS);
   }
+#if BUILDFLAG(IS_ANDROID)
+  // On Android, don't subscribe to HISTORY invalidations, to save network
+  // traffic.
+  types.Remove(HISTORY);
+#endif
   if (!(base::FeatureList::IsEnabled(kUseSyncInvalidations) &&
         base::FeatureList::IsEnabled(kUseSyncInvalidationsForWalletAndOffer))) {
     types.RemoveAll({AUTOFILL_WALLET_DATA, AUTOFILL_WALLET_OFFER});
@@ -1284,7 +1304,8 @@ BackendMigrator* SyncServiceImpl::GetBackendMigratorForTest() {
   return migrator_.get();
 }
 
-std::unique_ptr<base::Value> SyncServiceImpl::GetTypeStatusMapForDebugging() {
+std::unique_ptr<base::Value> SyncServiceImpl::GetTypeStatusMapForDebugging()
+    const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   auto result = std::make_unique<base::ListValue>();
 
@@ -1534,30 +1555,28 @@ class GetAllNodesRequestHelper
  public:
   GetAllNodesRequestHelper(
       ModelTypeSet requested_types,
-      base::OnceCallback<void(std::unique_ptr<base::ListValue>)> callback);
+      base::OnceCallback<void(base::Value::List)> callback);
 
   GetAllNodesRequestHelper(const GetAllNodesRequestHelper&) = delete;
   GetAllNodesRequestHelper& operator=(const GetAllNodesRequestHelper&) = delete;
 
   void OnReceivedNodesForType(const ModelType type,
-                              std::unique_ptr<base::ListValue> node_list);
+                              base::Value::List node_list);
 
  private:
   friend class base::RefCountedThreadSafe<GetAllNodesRequestHelper>;
   virtual ~GetAllNodesRequestHelper();
 
-  std::unique_ptr<base::ListValue> result_accumulator_;
+  base::Value::List result_accumulator_;
   ModelTypeSet awaiting_types_;
-  base::OnceCallback<void(std::unique_ptr<base::ListValue>)> callback_;
+  base::OnceCallback<void(base::Value::List)> callback_;
   SEQUENCE_CHECKER(sequence_checker_);
 };
 
 GetAllNodesRequestHelper::GetAllNodesRequestHelper(
     ModelTypeSet requested_types,
-    base::OnceCallback<void(std::unique_ptr<base::ListValue>)> callback)
-    : result_accumulator_(std::make_unique<base::ListValue>()),
-      awaiting_types_(requested_types),
-      callback_(std::move(callback)) {}
+    base::OnceCallback<void(base::Value::List)> callback)
+    : awaiting_types_(requested_types), callback_(std::move(callback)) {}
 
 GetAllNodesRequestHelper::~GetAllNodesRequestHelper() {
   if (!awaiting_types_.Empty()) {
@@ -1571,15 +1590,14 @@ GetAllNodesRequestHelper::~GetAllNodesRequestHelper() {
 // Only return one type of nodes each time.
 void GetAllNodesRequestHelper::OnReceivedNodesForType(
     const ModelType type,
-    std::unique_ptr<base::ListValue> node_list) {
+    base::Value::List node_list) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   // Add these results to our list.
-  base::DictionaryValue type_dict;
-  type_dict.SetKey("type", base::Value(ModelTypeToDebugString(type)));
-  type_dict.SetKey("nodes",
-                   base::Value::FromUniquePtrValue(std::move(node_list)));
-  result_accumulator_->Append(std::move(type_dict));
+  base::Value::Dict type_dict;
+  type_dict.Set("type", ModelTypeToDebugString(type));
+  type_dict.Set("nodes", std::move(node_list));
+  result_accumulator_.Append(std::move(type_dict));
 
   // Remember that this part of the request is satisfied.
   awaiting_types_.Remove(type);
@@ -1592,12 +1610,12 @@ void GetAllNodesRequestHelper::OnReceivedNodesForType(
 }  // namespace
 
 void SyncServiceImpl::GetAllNodesForDebugging(
-    base::OnceCallback<void(std::unique_ptr<base::ListValue>)> callback) {
+    base::OnceCallback<void(base::Value::List)> callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   // If the engine isn't initialized yet, then there are no nodes to return.
   if (!engine_ || !engine_->IsInitialized()) {
-    std::move(callback).Run(std::make_unique<base::ListValue>());
+    std::move(callback).Run(base::Value::List());
     return;
   }
 
@@ -1623,7 +1641,7 @@ void SyncServiceImpl::GetAllNodesForDebugging(
       // This can happen e.g. if we're waiting for a custom passphrase to be
       // entered - the data types are already considered active in this case,
       // but their DataTypeControllers are still NOT_RUNNING.
-      helper->OnReceivedNodesForType(type, std::make_unique<base::ListValue>());
+      helper->OnReceivedNodesForType(type, base::Value::List());
     } else {
       controller->GetAllNodes(base::BindRepeating(
           &GetAllNodesRequestHelper::OnReceivedNodesForType, helper));

@@ -43,7 +43,7 @@
 #include "components/sync/engine/nigori/nigori.h"
 #include "components/sync/nigori/cryptographer_impl.h"
 #include "components/sync/nigori/nigori_test_utils.h"
-#include "components/sync/test/fake_server/fake_server_nigori_helper.h"
+#include "components/sync/test/fake_server_nigori_helper.h"
 #include "components/sync/trusted_vault/fake_security_domains_server.h"
 #include "components/sync/trusted_vault/securebox.h"
 #include "components/sync/trusted_vault/trusted_vault_connection.h"
@@ -53,6 +53,7 @@
 #include "crypto/ec_private_key.h"
 #include "google_apis/gaia/gaia_switches.h"
 #include "google_apis/gaia/gaia_urls.h"
+#include "net/dns/mock_host_resolver.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "url/url_constants.h"
@@ -745,6 +746,8 @@ class SingleClientNigoriWithWebApiTest : public SyncTest {
   void SetUpOnMainThread() override {
     SyncTest::SetUpOnMainThread();
 
+    host_resolver()->AddRule("*", "127.0.0.1");
+
     security_domains_server_ =
         std::make_unique<syncer::FakeSecurityDomainsServer>(
             embedded_test_server()->base_url());
@@ -981,6 +984,39 @@ IN_PROC_BROWSER_TEST_F(
                   .Wait());
 }
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+
+IN_PROC_BROWSER_TEST_F(SingleClientNigoriWithWebApiTest,
+                       ShouldAcceptEncryptionKeysFromSubFrameIfSyncEnabled) {
+  // Mimic the account being already using a trusted vault passphrase.
+  SetNigoriInFakeServer(BuildTrustedVaultNigoriSpecifics({kTestEncryptionKey}),
+                        GetFakeServer());
+
+  ASSERT_TRUE(SetupSync());
+  ASSERT_TRUE(GetSyncService(0)
+                  ->GetUserSettings()
+                  ->IsTrustedVaultKeyRequiredForPreferredDataTypes());
+  ASSERT_FALSE(GetSyncService(0)->GetActiveDataTypes().Has(syncer::PASSWORDS));
+
+  // Mimic opening a page that embeds the retrieval page as a cross-origin
+  // iframe.
+  chrome::AddTabAt(
+      GetBrowser(0),
+      embedded_test_server()->GetURL(
+          "foo.com", base::StringPrintf(
+                         "/sync/encryption_keys_retrieval_with_iframe.html?%s",
+                         GaiaUrls::GetInstance()
+                             ->signin_chrome_sync_keys_retrieval_url()
+                             .spec()
+                             .c_str())),
+      /*index=*/0,
+      /*foreground=*/true);
+
+  // Wait until the keys-missing error gets resolved.
+  EXPECT_TRUE(PasswordSyncActiveChecker(GetSyncService(0)).Wait());
+  EXPECT_FALSE(GetSyncService(0)
+                   ->GetUserSettings()
+                   ->IsTrustedVaultKeyRequiredForPreferredDataTypes());
+}
 
 IN_PROC_BROWSER_TEST_F(SingleClientNigoriWithWebApiTest,
                        PRE_ShouldAcceptEncryptionKeysFromTheWebBeforeSignIn) {
@@ -1227,9 +1263,14 @@ IN_PROC_BROWSER_TEST_F(
 IN_PROC_BROWSER_TEST_F(
     SingleClientNigoriWithWebApiTest,
     ShoudRecordTrustedVaultErrorShownOnStartupWhenErrorShown) {
+  // 4 days is an arbitrary value between 3 days and 7 days to allow testing
+  // histogram suffixes.
+  const base::Time migration_time = base::Time::Now() - base::Days(4);
+
   // Mimic the account being already using a trusted vault passphrase.
-  SetNigoriInFakeServer(BuildTrustedVaultNigoriSpecifics({kTestEncryptionKey}),
-                        GetFakeServer());
+  SetNigoriInFakeServer(
+      BuildTrustedVaultNigoriSpecifics({kTestEncryptionKey}, migration_time),
+      GetFakeServer());
 
   base::HistogramTester histogram_tester;
   ASSERT_TRUE(SetupSync());
@@ -1241,8 +1282,22 @@ IN_PROC_BROWSER_TEST_F(
                                              GetProfile(0)->GetPrefs()));
 
   histogram_tester.ExpectUniqueSample("Sync.TrustedVaultErrorShownOnStartup",
-                                      /*sample=*/1,
+                                      /*sample=*/true,
                                       /*expected_bucket_count=*/1);
+  histogram_tester.ExpectUniqueSample(
+      "Sync.TrustedVaultErrorShownOnStartup.MigratedLast28Days",
+      /*sample=*/true,
+      /*expected_bucket_count=*/1);
+  histogram_tester.ExpectUniqueSample(
+      "Sync.TrustedVaultErrorShownOnStartup.MigratedLast7Days",
+      /*sample=*/true,
+      /*expected_bucket_count=*/1);
+  histogram_tester.ExpectTotalCount(
+      "Sync.TrustedVaultErrorShownOnStartup.MigratedLast3Days",
+      /*count=*/0);
+  histogram_tester.ExpectTotalCount(
+      "Sync.TrustedVaultErrorShownOnStartup.MigratedLastDay",
+      /*count=*/0);
 }
 
 IN_PROC_BROWSER_TEST_F(
@@ -1287,7 +1342,7 @@ IN_PROC_BROWSER_TEST_F(
                                               GetProfile(0)->GetPrefs()));
 
   histogram_tester.ExpectUniqueSample("Sync.TrustedVaultErrorShownOnStartup",
-                                      /*sample=*/0,
+                                      /*sample=*/false,
                                       /*expected_bucket_count=*/1);
 }
 
@@ -1295,15 +1350,20 @@ IN_PROC_BROWSER_TEST_F(SingleClientNigoriWithWebApiTest,
                        ShouldReportDegradedTrustedVaultRecoverability) {
   base::HistogramTester histogram_tester;
 
+  // 4 days is an arbitrary value between 3 days and 7 days to allow testing
+  // histogram suffixes.
+  const base::Time migration_time = base::Time::Now() - base::Days(4);
+
   // Mimic the key being available upon startup but recoverability degraded.
   const std::vector<uint8_t> trusted_vault_key =
       GetSecurityDomainsServer()->RotateTrustedVaultKey(
           /*last_trusted_vault_key=*/syncer::GetConstantTrustedVaultKey());
   GetSecurityDomainsServer()->RequirePublicKeyToAvoidRecoverabilityDegraded(
       kTestRecoveryMethodPublicKey);
-  SetNigoriInFakeServer(BuildTrustedVaultNigoriSpecifics(
-                            /*trusted_vault_keys=*/{trusted_vault_key}),
-                        GetFakeServer());
+  SetNigoriInFakeServer(
+      BuildTrustedVaultNigoriSpecifics(
+          /*trusted_vault_keys=*/{trusted_vault_key}, migration_time),
+      GetFakeServer());
   ASSERT_TRUE(SetupClients());
   GetSyncService(0)->AddTrustedVaultDecryptionKeysFromWeb(
       kGaiaId, GetSecurityDomainsServer()->GetAllTrustedVaultKeys(),
@@ -1364,6 +1424,20 @@ IN_PROC_BROWSER_TEST_F(SingleClientNigoriWithWebApiTest,
   histogram_tester.ExpectUniqueSample(
       "Sync.TrustedVaultRecoverabilityDegradedOnStartup",
       /*sample=*/true, /*expected_bucket_count=*/1);
+  histogram_tester.ExpectUniqueSample(
+      "Sync.TrustedVaultRecoverabilityDegradedOnStartup.MigratedLast28Days",
+      /*sample=*/true,
+      /*expected_bucket_count=*/1);
+  histogram_tester.ExpectUniqueSample(
+      "Sync.TrustedVaultRecoverabilityDegradedOnStartup.MigratedLast7Days",
+      /*sample=*/true,
+      /*expected_bucket_count=*/1);
+  histogram_tester.ExpectTotalCount(
+      "Sync.TrustedVaultRecoverabilityDegradedOnStartup.MigratedLast3Days",
+      /*count=*/0);
+  histogram_tester.ExpectTotalCount(
+      "Sync.TrustedVaultRecoverabilityDegradedOnStartup.MigratedLastDay",
+      /*count=*/0);
 
   // TODO(crbug.com/1201659): Verify the recovery method hint added to the fake
   // server.

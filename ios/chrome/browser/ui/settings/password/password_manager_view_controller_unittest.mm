@@ -130,7 +130,7 @@ class PasswordManagerViewControllerTest : public ChromeTableViewControllerTest {
         static_cast<PasswordManagerViewController*>(controller());
     passwords_controller.delegate = mediator_;
     mediator_.consumer = passwords_controller;
-    [passwords_controller setPasswordsForms:{} blockedForms:{}];
+    [passwords_controller setPasswords:{} blockedSites:{}];
   }
 
   int GetSectionIndex(PasswordSectionIdentifier section) {
@@ -566,6 +566,51 @@ TEST_F(PasswordManagerViewControllerTest,
   [passwords_controller updateOnDeviceEncryptionSessionAndUpdateTableView];
 
   passwords_controller.navigationItem.searchController.active = NO;
+  // Dismiss `view_controller_` and waits for the dismissal to finish.
+  __block bool dismissal_finished = NO;
+  [root_view_controller_ dismissViewControllerAnimated:NO
+                                            completion:^{
+                                              dismissal_finished = YES;
+                                            }];
+  EXPECT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
+      base::test::ios::kWaitForUIElementTimeout, ^bool {
+        return dismissal_finished;
+      }));
+}
+
+// Tests that dismissing the Search Controller multiple times without presenting
+// it again doesn't cause a crash.
+TEST_F(PasswordManagerViewControllerTest,
+       TestDismissingSearchControllerMultipleTimesDoesntCrash) {
+  root_view_controller_ = [[UIViewController alloc] init];
+  scoped_window_.Get().rootViewController = root_view_controller_;
+
+  PasswordManagerViewController* passwords_controller =
+      static_cast<PasswordManagerViewController*>(controller());
+
+  // Present the view controller.
+  __block bool presentation_finished = NO;
+  UINavigationController* navigation_controller =
+      [[UINavigationController alloc]
+          initWithRootViewController:passwords_controller];
+  [root_view_controller_ presentViewController:navigation_controller
+                                      animated:NO
+                                    completion:^{
+                                      presentation_finished = YES;
+                                    }];
+  EXPECT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
+      base::test::ios::kWaitForUIElementTimeout, ^bool {
+        return presentation_finished;
+      }));
+
+  // Present and dismiss the search controller twice to validate that the
+  // PasswordController doesn't try to update itself after the second dismissal
+  // which would cause a crash.
+  passwords_controller.navigationItem.searchController.active = YES;
+
+  passwords_controller.navigationItem.searchController.active = NO;
+  passwords_controller.navigationItem.searchController.active = NO;
+
   // Dismiss `view_controller_` and waits for the dismissal to finish.
   __block bool dismissal_finished = NO;
   [root_view_controller_ dismissViewControllerAnimated:NO

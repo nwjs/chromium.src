@@ -210,8 +210,6 @@ class CORE_EXPORT LocalFrameClientImpl final : public LocalFrameClient {
 
   unsigned BackForwardLength() override;
 
-  BlameContext* GetFrameBlameContext() override;
-
   KURL OverrideFlashEmbedWithHTML(const KURL&) override;
 
   void NotifyUserActivation() override;

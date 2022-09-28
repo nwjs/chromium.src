@@ -22,6 +22,8 @@
 #include "content/public/browser/page.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "ui/aura/window.h"
+#include "ui/aura/window_observer.h"
 #include "ui/wm/public/activation_change_observer.h"
 #include "ui/wm/public/activation_client.h"
 #include "url/gurl.h"
@@ -54,6 +56,7 @@ extern const char kPromotableKey[];
 // TabStripModel to record the website usage time metrics.
 class WebsiteMetrics : public BrowserListObserver,
                        public TabStripModelObserver,
+                       public aura::WindowObserver,
                        public wm::ActivationChangeObserver,
                        public history::HistoryServiceObserver {
  public:
@@ -77,6 +80,9 @@ class WebsiteMetrics : public BrowserListObserver,
   void OnWindowActivated(ActivationReason reason,
                          aura::Window* gained_active,
                          aura::Window* lost_active) override;
+
+  // aura::WindowObserver:
+  void OnWindowDestroying(aura::Window* window) override;
 
   // history::HistoryServiceObserver:
   void OnURLsDeleted(history::HistoryService* history_service,
@@ -109,6 +115,8 @@ class WebsiteMetrics : public BrowserListObserver,
 
     ~ActiveTabWebContentsObserver() override;
 
+    void OnPrimaryPageChanged();
+
     // content::WebContentsObserver
     void PrimaryPageChanged(content::Page& page) override;
     void WebContentsDestroyed() override;
@@ -124,8 +132,15 @@ class WebsiteMetrics : public BrowserListObserver,
   };
 
   struct UrlInfo {
+    UrlInfo() = default;
+    explicit UrlInfo(const base::Value& value);
     base::TimeTicks start_time;
-    base::TimeDelta running_time;
+    // Running time in the past 5 minutes without noise.
+    base::TimeDelta running_time_in_five_minutes;
+    // Sum `running_time_in_five_minutes` with noise in the past 2 hours:
+    // time1 * noise1 + time2 * noise2 + time3 * noise3....
+    base::TimeDelta running_time_in_two_hours;
+
     UrlContent url_content = UrlContent::kUnknown;
     bool is_activated = false;
     bool promotable = false;
@@ -138,6 +153,14 @@ class WebsiteMetrics : public BrowserListObserver,
     // }
     base::Value ConvertToValue() const;
   };
+
+  // Observes the root window's activation client for the OnWindowActivated
+  // callback.
+  void MaybeObserveWindowActivationClient();
+
+  // Removes observing the root window's activation client when the last browser
+  // window is closed.
+  void MaybeRemoveObserveWindowActivationClient();
 
   void OnTabStripModelChangeInsert(TabStripModel* tab_strip_model,
                                    const TabStripModelChange::Insert& insert,
@@ -185,6 +208,19 @@ class WebsiteMetrics : public BrowserListObserver,
   // minutes.
   void SaveUsageTime();
 
+  // Records the website usage time metrics each 2 hours.
+  void RecordUsageTime();
+
+  // Records the usage time UKM saved in the user pref at the first 5 minutes
+  // after the user logs in.
+  void RecordUsageTimeFromPref();
+
+  void EmitUkm(const GURL& url,
+               int64_t usage_time,
+               UrlContent url_content,
+               bool promotable,
+               bool is_from_last_login);
+
   const raw_ptr<Profile> profile_;
 
   BrowserTabStripTracker browser_tab_strip_tracker_;
@@ -210,10 +246,15 @@ class WebsiteMetrics : public BrowserListObserver,
   // UKM records. `url_infos_` is cleared after recording the UKM each 2 hours.
   std::map<GURL, UrlInfo> url_infos_;
 
-  // A set of observed activation clients for all browser's windows.
-  base::ScopedMultiSourceObservation<wm::ActivationClient,
-                                     wm::ActivationChangeObserver>
-      activation_client_observations_{this};
+  int user_type_by_device_type_ = 0;
+
+  bool should_record_ukm_from_pref_ = true;
+
+  base::ScopedMultiSourceObservation<aura::Window, aura::WindowObserver>
+      observed_windows_{this};
+
+  base::ScopedObservation<wm::ActivationClient, wm::ActivationChangeObserver>
+      activation_client_observation_{this};
 
   base::ScopedObservation<history::HistoryService,
                           history::HistoryServiceObserver>

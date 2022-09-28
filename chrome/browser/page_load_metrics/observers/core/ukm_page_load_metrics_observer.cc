@@ -245,6 +245,7 @@ UkmPageLoadMetricsObserver::ObservePolicy UkmPageLoadMetricsObserver::OnStart(
   UpdateMainFrameRequestHadCookie(
       navigation_handle->GetWebContents()->GetBrowserContext(),
       navigation_handle->GetURL());
+  was_discarded_ = navigation_handle->ExistingDocumentWasDiscarded();
 
   return CONTINUE_OBSERVING;
 }
@@ -863,6 +864,9 @@ void UkmPageLoadMetricsObserver::RecordPageLoadMetrics(
   if (GetDelegate().DidCommit() && was_cached_) {
     builder.SetWasCached(1);
   }
+  if (GetDelegate().DidCommit() && was_discarded_) {
+    builder.SetWasDiscarded(true);
+  }
   if (GetDelegate().DidCommit() && navigation_is_cross_process_) {
     builder.SetIsCrossProcessNavigation(navigation_is_cross_process_);
   }
@@ -1189,8 +1193,6 @@ void UkmPageLoadMetricsObserver::RecordSmoothnessMetrics() {
       .SetAboveThreshold(smoothness_data.above_threshold)
       .SetWorstCase(smoothness_data.worst_smoothness)
       .SetVariance(smoothness_data.variance)
-      .SetTimingSinceFCPWorstCase(
-          smoothness_data.time_max_delta.InMilliseconds())
       .SetSmoothnessVeryGood(smoothness_data.buckets[0])
       .SetSmoothnessGood(smoothness_data.buckets[1])
       .SetSmoothnessOkay(smoothness_data.buckets[2])
@@ -1223,10 +1225,6 @@ void UkmPageLoadMetricsObserver::RecordSmoothnessMetrics() {
   base::UmaHistogramPercentage(
       "Graphics.Smoothness.PerSession.MaxPercentDroppedFrames_1sWindow",
       smoothness_data.worst_smoothness);
-  base::UmaHistogramCustomTimes(
-      "Graphics.Smoothness.PerSession.TimeMaxPercentDroppedFrames_1sWindow",
-      smoothness_data.time_max_delta, base::Milliseconds(1), base::Seconds(25),
-      50);
 }
 
 void UkmPageLoadMetricsObserver::RecordMobileFriendlinessMetrics() {
@@ -1323,8 +1321,9 @@ UkmPageLoadMetricsObserver::GetThirdPartyCookieBlockingEnabled() const {
   if (!cookie_settings->ShouldBlockThirdPartyCookies())
     return absl::nullopt;
 
-  return !cookie_settings->IsThirdPartyAccessAllowed(GetDelegate().GetUrl(),
-                                                     nullptr /* source */);
+  return !cookie_settings->IsThirdPartyAccessAllowed(
+      GetDelegate().GetUrl(), nullptr /* source */,
+      content_settings::CookieSettings::QueryReason::kSetting);
 }
 
 void UkmPageLoadMetricsObserver::RecordResponsivenessMetrics() {

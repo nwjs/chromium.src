@@ -68,7 +68,8 @@ public class DevicePickerBottomSheetContent implements BottomSheetContent, OnIte
         listView.setAdapter(mAdapter);
         listView.setOnItemClickListener(this);
 
-        listView.addFooterView(new ManageAccountDevicesLinkView(mContext));
+        listView.addFooterView(LayoutInflater.from(mContext).inflate(
+                R.layout.send_tab_to_self_device_picker_footer, null));
     }
 
     @Override
@@ -136,7 +137,7 @@ public class DevicePickerBottomSheetContent implements BottomSheetContent, OnIte
 
     @Override
     public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-        MetricsRecorder.recordDeviceClickedInShareSheet();
+        MetricsRecorder.recordSendingEvent(SendingEvent.CLICK_ITEM);
         TargetDeviceInfo targetDeviceInfo = mAdapter.getItem(position);
 
         SendTabToSelfAndroidBridge.addEntry(mProfile, mUrl, mTitle, targetDeviceInfo.cacheGuid);

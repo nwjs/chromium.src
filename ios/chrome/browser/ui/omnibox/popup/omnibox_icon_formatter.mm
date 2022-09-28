@@ -53,6 +53,7 @@ OmniboxSuggestionIconType IconTypeFromMatchAndAnswerType(
     case AutocompleteMatchType::CLIPBOARD_URL:
     case AutocompleteMatchType::NAVSUGGEST:
     case AutocompleteMatchType::NAVSUGGEST_PERSONALIZED:
+    case AutocompleteMatchType::STARTER_PACK:
     case AutocompleteMatchType::PHYSICAL_WEB_DEPRECATED:
     case AutocompleteMatchType::PHYSICAL_WEB_OVERFLOW_DEPRECATED:
     case AutocompleteMatchType::URL_WHAT_YOU_TYPED:
@@ -85,6 +86,7 @@ OmniboxSuggestionIconType IconTypeFromMatchAndAnswerType(
     case AutocompleteMatchType::EXTENSION_APP_DEPRECATED:
     case AutocompleteMatchType::TILE_SUGGESTION:
     case AutocompleteMatchType::TILE_NAVSUGGEST:
+    case AutocompleteMatchType::NULL_RESULT_MESSAGE:
     case AutocompleteMatchType::NUM_TYPES:
       NOTREACHED();
       return DEFAULT_FAVICON;

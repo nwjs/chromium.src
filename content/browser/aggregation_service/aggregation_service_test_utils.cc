@@ -213,6 +213,13 @@ testing::AssertionResult SharedInfoEqual(
 
 AggregatableReportRequest CreateExampleRequest(
     mojom::AggregationServiceMode aggregation_mode) {
+  return CreateExampleRequestWithReportTime(base::Time::Now(),
+                                            aggregation_mode);
+}
+
+AggregatableReportRequest CreateExampleRequestWithReportTime(
+    base::Time report_time,
+    mojom::AggregationServiceMode aggregation_mode) {
   return AggregatableReportRequest::Create(
              AggregationServicePayloadContents(
                  AggregationServicePayloadContents::Operation::kHistogram,
@@ -221,7 +228,7 @@ AggregatableReportRequest CreateExampleRequest(
                      /*value=*/456)},
                  aggregation_mode),
              AggregatableReportSharedInfo(
-                 /*scheduled_report_time=*/base::Time::Now(),
+                 /*scheduled_report_time=*/report_time,
                  /*report_id=*/
                  base::GUID::GenerateRandomV4(),
                  url::Origin::Create(GURL("https://reporting.example")),
@@ -248,7 +255,8 @@ AggregatableReport CloneAggregatableReport(const AggregatableReport& report) {
                           payload.debug_cleartext_payload);
   }
 
-  return AggregatableReport(std::move(payloads), report.shared_info());
+  return AggregatableReport(std::move(payloads), report.shared_info(),
+                            report.debug_key());
 }
 
 TestHpkeKey GenerateKey(std::string key_id) {
@@ -372,6 +380,56 @@ TestAggregationServiceStorageContext::~TestAggregationServiceStorageContext() =
 const base::SequenceBound<content::AggregationServiceStorage>&
 TestAggregationServiceStorageContext::GetStorage() {
   return storage_;
+}
+
+MockAggregationService::MockAggregationService() = default;
+
+MockAggregationService::~MockAggregationService() = default;
+
+void MockAggregationService::AddObserver(AggregationServiceObserver* observer) {
+  observers_.AddObserver(observer);
+}
+
+void MockAggregationService::RemoveObserver(
+    AggregationServiceObserver* observer) {
+  observers_.RemoveObserver(observer);
+}
+
+void MockAggregationService::NotifyRequestStorageModified() {
+  for (auto& observer : observers_) {
+    observer.OnRequestStorageModified();
+  }
+}
+
+void MockAggregationService::NotifyReportHandled(
+    AggregationServiceStorage::RequestAndId request,
+    absl::optional<AggregatableReport> report,
+    base::Time report_handled_time,
+    AggregationServiceObserver::ReportStatus status) {
+  for (auto& observer : observers_)
+    observer.OnReportHandled(request, report, report_handled_time, status);
+}
+
+AggregatableReportRequestsAndIdsBuilder::
+    AggregatableReportRequestsAndIdsBuilder() = default;
+
+AggregatableReportRequestsAndIdsBuilder::
+    ~AggregatableReportRequestsAndIdsBuilder() = default;
+
+AggregatableReportRequestsAndIdsBuilder&&
+AggregatableReportRequestsAndIdsBuilder::AddRequestWithID(
+    AggregatableReportRequest request,
+    AggregationServiceStorage::RequestId id) && {
+  requests_.push_back(AggregationServiceStorage::RequestAndId({
+      .request = std::move(request),
+      .id = id,
+  }));
+  return std::move(*this);
+}
+
+std::vector<AggregationServiceStorage::RequestAndId>
+AggregatableReportRequestsAndIdsBuilder::Build() && {
+  return std::move(requests_);
 }
 
 std::ostream& operator<<(

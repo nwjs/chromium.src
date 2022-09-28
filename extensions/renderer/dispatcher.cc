@@ -85,6 +85,7 @@
 #include "extensions/renderer/script_context_set.h"
 #include "extensions/renderer/script_injection.h"
 #include "extensions/renderer/script_injection_manager.h"
+#include "extensions/renderer/service_worker_natives.h"
 #include "extensions/renderer/set_icon_natives.h"
 #include "extensions/renderer/shared_l10n_map.h"
 #include "extensions/renderer/static_v8_external_one_byte_string_resource.h"
@@ -1042,6 +1043,9 @@ void Dispatcher::RegisterNativeHandlers(
   module_system->RegisterNativeHandler(
       "file_system_natives",
       std::unique_ptr<NativeHandler>(new FileSystemNatives(context)));
+  module_system->RegisterNativeHandler(
+      "service_worker_natives",
+      std::make_unique<ServiceWorkerNatives>(context));
 
   // Custom bindings.
   module_system->RegisterNativeHandler(
@@ -1094,10 +1098,11 @@ void Dispatcher::RegisterMojoInterfaces(
   // As well the Dispatcher is owned by the
   // ExtensionsRendererClient, which in turn is a leaky LazyInstance (and thus
   // never deleted).
-  associated_interfaces->AddInterface(base::BindRepeating(
+  associated_interfaces->AddInterface<mojom::Renderer>(base::BindRepeating(
       &Dispatcher::OnRendererAssociatedRequest, base::Unretained(this)));
-  associated_interfaces->AddInterface(base::BindRepeating(
-      &Dispatcher::OnEventDispatcherRequest, base::Unretained(this)));
+  associated_interfaces->AddInterface<mojom::EventDispatcher>(
+      base::BindRepeating(&Dispatcher::OnEventDispatcherRequest,
+                          base::Unretained(this)));
 }
 
 void Dispatcher::UnregisterMojoInterfaces(

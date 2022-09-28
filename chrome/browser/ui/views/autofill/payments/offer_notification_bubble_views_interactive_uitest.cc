@@ -18,6 +18,7 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/autofill/core/browser/data_model/autofill_offer_data.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
+#include "components/autofill/core/browser/metrics/payments/offers_metrics.h"
 #include "components/autofill/core/browser/payments/offer_notification_handler.h"
 #include "components/autofill/core/browser/test_autofill_clock.h"
 #include "components/autofill/core/browser/ui/payments/payments_bubble_closed_reasons.h"
@@ -359,7 +360,7 @@ IN_PROC_BROWSER_TEST_P(OfferNotificationBubbleViewsInteractiveUiTest,
   histogram_tester.ExpectUniqueSample(
       "Autofill.OfferNotificationBubbleResult." +
           GetSubhistogramNameForOfferType() + ".FirstShow",
-      AutofillMetrics::OfferNotificationBubbleResultMetric::
+      autofill_metrics::OfferNotificationBubbleResultMetric::
           OFFER_NOTIFICATION_BUBBLE_ACKNOWLEDGED,
       1);
 
@@ -372,7 +373,7 @@ IN_PROC_BROWSER_TEST_P(OfferNotificationBubbleViewsInteractiveUiTest,
   histogram_tester.ExpectUniqueSample(
       "Autofill.OfferNotificationBubbleResult." +
           GetSubhistogramNameForOfferType() + ".Reshows",
-      AutofillMetrics::OfferNotificationBubbleResultMetric::
+      autofill_metrics::OfferNotificationBubbleResultMetric::
           OFFER_NOTIFICATION_BUBBLE_ACKNOWLEDGED,
       1);
 }
@@ -388,7 +389,7 @@ IN_PROC_BROWSER_TEST_P(OfferNotificationBubbleViewsInteractiveUiTest,
   histogram_tester.ExpectUniqueSample(
       "Autofill.OfferNotificationBubbleResult." +
           GetSubhistogramNameForOfferType() + ".FirstShow",
-      AutofillMetrics::OfferNotificationBubbleResultMetric::
+      autofill_metrics::OfferNotificationBubbleResultMetric::
           OFFER_NOTIFICATION_BUBBLE_CLOSED,
       1);
 
@@ -401,7 +402,7 @@ IN_PROC_BROWSER_TEST_P(OfferNotificationBubbleViewsInteractiveUiTest,
   histogram_tester.ExpectUniqueSample(
       "Autofill.OfferNotificationBubbleResult." +
           GetSubhistogramNameForOfferType() + ".Reshows",
-      AutofillMetrics::OfferNotificationBubbleResultMetric::
+      autofill_metrics::OfferNotificationBubbleResultMetric::
           OFFER_NOTIFICATION_BUBBLE_CLOSED,
       1);
 }
@@ -420,7 +421,7 @@ IN_PROC_BROWSER_TEST_P(OfferNotificationBubbleViewsInteractiveUiTest,
   histogram_tester.ExpectUniqueSample(
       "Autofill.OfferNotificationBubbleResult." +
           GetSubhistogramNameForOfferType() + ".FirstShow",
-      AutofillMetrics::OfferNotificationBubbleResultMetric::
+      autofill_metrics::OfferNotificationBubbleResultMetric::
           OFFER_NOTIFICATION_BUBBLE_NOT_INTERACTED,
       1);
 }
@@ -436,7 +437,7 @@ IN_PROC_BROWSER_TEST_P(OfferNotificationBubbleViewsInteractiveUiTest,
   histogram_tester.ExpectUniqueSample(
       "Autofill.OfferNotificationBubbleResult." +
           GetSubhistogramNameForOfferType() + ".FirstShow",
-      AutofillMetrics::OfferNotificationBubbleResultMetric::
+      autofill_metrics::OfferNotificationBubbleResultMetric::
           OFFER_NOTIFICATION_BUBBLE_LOST_FOCUS,
       1);
 
@@ -449,7 +450,7 @@ IN_PROC_BROWSER_TEST_P(OfferNotificationBubbleViewsInteractiveUiTest,
   histogram_tester.ExpectUniqueSample(
       "Autofill.OfferNotificationBubbleResult." +
           GetSubhistogramNameForOfferType() + ".Reshows",
-      AutofillMetrics::OfferNotificationBubbleResultMetric::
+      autofill_metrics::OfferNotificationBubbleResultMetric::
           OFFER_NOTIFICATION_BUBBLE_LOST_FOCUS,
       1);
 }
@@ -546,6 +547,50 @@ IN_PROC_BROWSER_TEST_P(OfferNotificationBubbleViewsInteractiveUiTest,
   EXPECT_EQ(
       browser()->tab_strip_model()->GetActiveWebContents()->GetVisibleURL(),
       GURL(GetDefaultTestDetailsUrlString()));
+}
+
+IN_PROC_BROWSER_TEST_P(OfferNotificationBubbleViewsInteractiveUiTest,
+                       ReshowOfferNotificationBubble_OfferDeletedBetweenShows) {
+  // Applies to GPay promo code offers and card linked offers only.
+  if (test_offer_type_ != AutofillOfferData::OfferType::GPAY_PROMO_CODE_OFFER &&
+      test_offer_type_ !=
+          AutofillOfferData::OfferType::GPAY_CARD_LINKED_OFFER) {
+    return;
+  }
+
+  ShowBubbleForOfferAndVerify();
+  ASSERT_TRUE(GetOfferNotificationBubbleViews());
+  ASSERT_TRUE(IsIconVisible());
+
+  // Simulate the user closing the bubble.
+  CloseBubbleWithReason(views::Widget::ClosedReason::kCloseButtonClicked);
+
+  // Simulate the user clearing server data.
+  personal_data()->ClearAllServerData();
+
+  // Simulate the user re-showing the bubble by clicking on the icon.
+  SimulateClickOnIconAndReshowBubble();
+  ASSERT_TRUE(GetOfferNotificationBubbleViews());
+  ASSERT_TRUE(IsIconVisible());
+
+  if (test_offer_type_ == AutofillOfferData::OfferType::GPAY_PROMO_CODE_OFFER) {
+    auto* promo_code_styled_label =
+        GetOfferNotificationBubbleViews()->promo_code_label_.get();
+    auto* promo_code_usage_instructions_ =
+        GetOfferNotificationBubbleViews()->instructions_label_.get();
+
+    EXPECT_EQ(promo_code_styled_label->GetText(),
+              base::ASCIIToUTF16(GetDefaultTestValuePropText()) + u" " +
+                  base::ASCIIToUTF16(GetDefaultTestSeeDetailsText()));
+    EXPECT_EQ(promo_code_usage_instructions_->GetText(),
+              base::ASCIIToUTF16(GetDefaultTestUsageInstructionsText()));
+
+    // Simulate clicking on see details part of the text.
+    GetOfferNotificationBubbleViews()->OnPromoCodeSeeDetailsClicked();
+    EXPECT_EQ(
+        browser()->tab_strip_model()->GetActiveWebContents()->GetVisibleURL(),
+        GURL(GetDefaultTestDetailsUrlString()));
+  }
 }
 
 IN_PROC_BROWSER_TEST_P(

@@ -144,12 +144,12 @@ gfx::Size GetCombinedWindowConstraints(const gfx::Size& window_constraints,
                                        const gfx::Insets& frame_insets) {
   gfx::Size combined_constraints(window_constraints);
   if (content_constraints.width() > 0) {
-    combined_constraints.set_width(
-        content_constraints.width() + frame_insets.width());
+    combined_constraints.set_width(content_constraints.width() +
+                                   frame_insets.width());
   }
   if (content_constraints.height() > 0) {
-    combined_constraints.set_height(
-        content_constraints.height() + frame_insets.height());
+    combined_constraints.set_height(content_constraints.height() +
+                                    frame_insets.height());
   }
   return combined_constraints;
 }
@@ -225,20 +225,20 @@ gfx::Rect AppWindow::CreateParams::GetInitialWindowBounds(
   if (content_spec.bounds.y() != BoundsSpecification::kUnspecifiedPosition)
     combined_bounds.set_y(content_spec.bounds.y() - frame_insets.top());
   if (content_spec.bounds.width() > 0) {
-    combined_bounds.set_width(
-        content_spec.bounds.width() + frame_insets.width());
+    combined_bounds.set_width(content_spec.bounds.width() +
+                              frame_insets.width());
   }
   if (content_spec.bounds.height() > 0) {
-    combined_bounds.set_height(
-        content_spec.bounds.height() + frame_insets.height());
+    combined_bounds.set_height(content_spec.bounds.height() +
+                               frame_insets.height());
   }
 
   // Constrain the bounds.
   SizeConstraints constraints(
-      GetCombinedWindowConstraints(
-          window_spec.minimum_size, content_spec.minimum_size, frame_insets),
-      GetCombinedWindowConstraints(
-          window_spec.maximum_size, content_spec.maximum_size, frame_insets));
+      GetCombinedWindowConstraints(window_spec.minimum_size,
+                                   content_spec.minimum_size, frame_insets),
+      GetCombinedWindowConstraints(window_spec.maximum_size,
+                                   content_spec.maximum_size, frame_insets));
   combined_bounds.set_size(constraints.ClampSize(combined_bounds.size()));
 
   return combined_bounds;
@@ -247,40 +247,36 @@ gfx::Rect AppWindow::CreateParams::GetInitialWindowBounds(
 gfx::Size AppWindow::CreateParams::GetContentMinimumSize(
     const gfx::Insets& frame_insets) const {
   return GetCombinedContentConstraints(window_spec.minimum_size,
-                                       content_spec.minimum_size,
-                                       frame_insets);
+                                       content_spec.minimum_size, frame_insets);
 }
 
 gfx::Size AppWindow::CreateParams::GetContentMaximumSize(
     const gfx::Insets& frame_insets) const {
   return GetCombinedContentConstraints(window_spec.maximum_size,
-                                       content_spec.maximum_size,
-                                       frame_insets);
+                                       content_spec.maximum_size, frame_insets);
 }
 
 gfx::Size AppWindow::CreateParams::GetWindowMinimumSize(
     const gfx::Insets& frame_insets) const {
   return GetCombinedWindowConstraints(window_spec.minimum_size,
-                                      content_spec.minimum_size,
-                                      frame_insets);
+                                      content_spec.minimum_size, frame_insets);
 }
 
 gfx::Size AppWindow::CreateParams::GetWindowMaximumSize(
     const gfx::Insets& frame_insets) const {
   return GetCombinedWindowConstraints(window_spec.maximum_size,
-                                      content_spec.maximum_size,
-                                      frame_insets);
+                                      content_spec.maximum_size, frame_insets);
 }
 
 // AppWindow
 
 AppWindow::AppWindow(BrowserContext* context,
-                     AppDelegate* app_delegate,
+                     std::unique_ptr<AppDelegate> app_delegate,
                      const Extension* extension)
     : menu_(nullptr), browser_context_(context),
       extension_id_(extension->id()),
       session_id_(SessionID::NewUnique()),
-      app_delegate_(app_delegate) {
+      app_delegate_(std::move(app_delegate)) {
   ExtensionsBrowserClient* client = ExtensionsBrowserClient::Get();
   CHECK(!client->IsGuestSession(context) || context->IsOffTheRecord())
       << "Only off the record window may be opened in the guest mode.";
@@ -309,11 +305,11 @@ void AppWindow::LoadingStateChanged(content::WebContents* source, bool to_differ
 }
 
 void AppWindow::Init(const GURL& url,
-                     AppWindowContents* app_window_contents,
+                     std::unique_ptr<AppWindowContents> app_window_contents,
                      content::RenderFrameHost* creator_frame,
                      const CreateParams& params) {
   // Initialize the render interface and web contents
-  app_window_contents_.reset(app_window_contents);
+  app_window_contents_ = std::move(app_window_contents);
   app_window_contents_->Initialize(browser_context(), creator_frame, url,
                                    GetExtension(), params.new_instance || params.skip_block_parser);
 
@@ -340,8 +336,9 @@ void AppWindow::Init(const GURL& url,
   SetViewType(web_contents(), mojom::ViewType::kAppWindow);
   app_delegate_->InitWebContents(web_contents());
 
-  ExtensionWebContentsObserver::GetForWebContents(web_contents())->
-      dispatcher()->set_delegate(this);
+  ExtensionWebContentsObserver::GetForWebContents(web_contents())
+      ->dispatcher()
+      ->set_delegate(this);
 
   WebContentsModalDialogManager::CreateForWebContents(web_contents());
 
@@ -379,8 +376,8 @@ void AppWindow::Init(const GURL& url,
   show_in_shelf_ = params.show_in_shelf;
 
   AppWindowClient* app_window_client = AppWindowClient::Get();
-  native_app_window_.reset(
-      app_window_client->CreateNativeAppWindow(this, &new_params));
+  native_app_window_ =
+      app_window_client->CreateNativeAppWindow(this, &new_params);
 
   helper_ = std::make_unique<AppWebContentsHelper>(
       browser_context_, extension_id_, web_contents(), app_delegate_.get());
@@ -481,7 +478,7 @@ void AppWindow::AddNewContents(WebContents* source,
   params.skip_load = true;
   GURL new_url = new_contents->GetURL();
   app_window->Init(new_url,
-                   new extensions::AppWindowContentsImpl(app_window, std::move(new_contents)),
+                   std::make_unique<AppWindowContentsImpl>(app_window, std::move(new_contents)),
                    web_contents()->GetPrimaryMainFrame(),
                    params);
 }
@@ -717,7 +714,9 @@ const Extension* AppWindow::GetExtension() const {
       .GetByID(extension_id_);
 }
 
-NativeAppWindow* AppWindow::GetBaseWindow() { return native_app_window_.get(); }
+NativeAppWindow* AppWindow::GetBaseWindow() {
+  return native_app_window_.get();
+}
 
 gfx::NativeWindow AppWindow::GetNativeWindow() {
   return GetBaseWindow()->GetNativeWindow();
@@ -739,8 +738,9 @@ std::u16string AppWindow::GetTitle() const {
   // specified. However, we'd prefer to show the name of the extension in that
   // case, so we directly inspect the NavigationEntry's title.
   std::u16string title;
-  content::NavigationEntry* entry = web_contents() ?
-      web_contents()->GetController().GetLastCommittedEntry() : nullptr;
+  content::NavigationEntry* entry =
+      web_contents() ? web_contents()->GetController().GetLastCommittedEntry()
+                     : nullptr;
   if (!entry || entry->GetTitle().empty()) {
     title = override.empty() ? base::UTF8ToUTF16(extension->name()) : override;
   } else {
@@ -822,9 +822,13 @@ void AppWindow::Fullscreen() {
   SetFullscreen(FULLSCREEN_TYPE_WINDOW_API, true);
 }
 
-void AppWindow::Maximize() { GetBaseWindow()->Maximize(); }
+void AppWindow::Maximize() {
+  GetBaseWindow()->Maximize();
+}
 
-void AppWindow::Minimize() { GetBaseWindow()->Minimize(); }
+void AppWindow::Minimize() {
+  GetBaseWindow()->Minimize();
+}
 
 void AppWindow::Restore() {
   if (IsFullscreen()) {
@@ -909,7 +913,9 @@ void AppWindow::SetAlwaysOnTop(bool always_on_top) {
   OnNativeWindowChanged();
 }
 
-bool AppWindow::IsAlwaysOnTop() const { return cached_always_on_top_; }
+bool AppWindow::IsAlwaysOnTop() const {
+  return cached_always_on_top_;
+}
 
 void AppWindow::RestoreAlwaysOnTop() {
   if (cached_always_on_top_)
@@ -946,23 +952,17 @@ void AppWindow::GetSerializedState(base::Value* properties) const {
   gfx::Rect content_bounds = GetClientBounds();
   gfx::Size content_min_size = native_app_window_->GetContentMinimumSize();
   gfx::Size content_max_size = native_app_window_->GetContentMaximumSize();
-  SetBoundsProperties(content_bounds,
-                      content_min_size,
-                      content_max_size,
-                      "innerBounds",
-                      properties);
+  SetBoundsProperties(content_bounds, content_min_size, content_max_size,
+                      "innerBounds", properties);
 
   gfx::Insets frame_insets = native_app_window_->GetFrameInsets();
   gfx::Rect frame_bounds = native_app_window_->GetBounds();
-  gfx::Size frame_min_size = SizeConstraints::AddFrameToConstraints(
-      content_min_size, frame_insets);
-  gfx::Size frame_max_size = SizeConstraints::AddFrameToConstraints(
-      content_max_size, frame_insets);
-  SetBoundsProperties(frame_bounds,
-                      frame_min_size,
-                      frame_max_size,
-                      "outerBounds",
-                      properties);
+  gfx::Size frame_min_size =
+      SizeConstraints::AddFrameToConstraints(content_min_size, frame_insets);
+  gfx::Size frame_max_size =
+      SizeConstraints::AddFrameToConstraints(content_max_size, frame_insets);
+  SetBoundsProperties(frame_bounds, frame_min_size, frame_max_size,
+                      "outerBounds", properties);
 }
 
 //------------------------------------------------------------------------------
@@ -1170,8 +1170,8 @@ void AppWindow::SaveWindowPosition() {
   gfx::Rect screen_bounds =
       display::Screen::GetScreen()->GetDisplayMatching(bounds).work_area();
   ui::WindowShowState window_state = native_app_window_->GetRestoredState();
-  cache->SaveGeometry(
-      extension_id(), window_key_, bounds, screen_bounds, window_state);
+  cache->SaveGeometry(extension_id(), window_key_, bounds, screen_bounds,
+                      window_state);
 }
 
 void AppWindow::AdjustBoundsToBeVisibleOnScreen(
@@ -1193,10 +1193,9 @@ void AppWindow::AdjustBoundsToBeVisibleOnScreen(
     bounds->set_height(
         std::max(minimum_size.height(),
                  std::min(bounds->height(), current_screen_bounds.height())));
-    bounds->set_x(
-        std::max(current_screen_bounds.x(),
-                 std::min(bounds->x(),
-                          current_screen_bounds.right() - bounds->width())));
+    bounds->set_x(std::max(current_screen_bounds.x(),
+                           std::min(bounds->x(), current_screen_bounds.right() -
+                                                     bounds->width())));
     bounds->set_y(
         std::max(current_screen_bounds.y(),
                  std::min(bounds->y(),
@@ -1204,8 +1203,7 @@ void AppWindow::AdjustBoundsToBeVisibleOnScreen(
   }
 }
 
-AppWindow::CreateParams AppWindow::LoadDefaults(CreateParams params)
-    const {
+AppWindow::CreateParams AppWindow::LoadDefaults(CreateParams params) const {
   // Ensure width and height are specified.
   if (params.content_spec.bounds.width() == 0 &&
       params.window_spec.bounds.width() == 0) {
@@ -1227,11 +1225,8 @@ AppWindow::CreateParams AppWindow::LoadDefaults(CreateParams params)
     gfx::Rect cached_bounds;
     gfx::Rect cached_screen_bounds;
     ui::WindowShowState cached_state = ui::SHOW_STATE_DEFAULT;
-    if (cache->GetGeometry(extension_id(),
-                           params.window_key,
-                           &cached_bounds,
-                           &cached_screen_bounds,
-                           &cached_state)) {
+    if (cache->GetGeometry(extension_id(), params.window_key, &cached_bounds,
+                           &cached_screen_bounds, &cached_state)) {
       // App window has cached screen bounds, make sure it fits on screen in
       // case the screen resolution changed.
       display::Screen* screen = display::Screen::GetScreen();
@@ -1239,11 +1234,9 @@ AppWindow::CreateParams AppWindow::LoadDefaults(CreateParams params)
       gfx::Rect current_screen_bounds = display.work_area();
       SizeConstraints constraints(params.GetWindowMinimumSize(gfx::Insets()),
                                   params.GetWindowMaximumSize(gfx::Insets()));
-      AdjustBoundsToBeVisibleOnScreen(cached_bounds,
-                                      cached_screen_bounds,
-                                      current_screen_bounds,
-                                      constraints.GetMinimumSize(),
-                                      &params.window_spec.bounds);
+      AdjustBoundsToBeVisibleOnScreen(
+          cached_bounds, cached_screen_bounds, current_screen_bounds,
+          constraints.GetMinimumSize(), &params.window_spec.bounds);
       params.state = cached_state;
 
       // Since we are restoring a cached state, reset the content bounds spec to

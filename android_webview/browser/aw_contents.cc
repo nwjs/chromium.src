@@ -66,7 +66,6 @@
 #include "components/autofill/content/browser/content_autofill_driver_factory.h"
 #include "components/autofill/core/browser/webdata/autofill_webdata_service.h"
 #include "components/autofill/core/common/autofill_features.h"
-#include "components/metrics/content/content_stability_metrics_provider.h"
 #include "components/navigation_interception/intercept_navigation_delegate.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "components/security_interstitials/content/security_interstitial_tab_helper.h"
@@ -90,6 +89,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/mhtml_generation_params.h"
 #include "net/base/auth.h"
+#include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "net/cert/x509_certificate.h"
 #include "net/cert/x509_util.h"
 #include "third_party/skia/include/core/SkPicture.h"
@@ -97,6 +97,9 @@
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/image/image.h"
+#include "url/origin.h"
+#include "url/url_constants.h"
+
 struct AwDrawSWFunctionTable;
 
 using autofill::ContentAutofillDriverFactory;
@@ -239,8 +242,6 @@ AwContents::AwContents(std::unique_ptr<WebContents> web_contents)
       std::make_unique<AwRenderViewHostExt>(this, web_contents_.get());
 
   InitializePageLoadMetricsForWebContents(web_contents_.get());
-  metrics::ContentStabilityMetricsProvider::SetupWebContentsObserver(
-      web_contents_.get());
 
   permission_request_handler_ =
       std::make_unique<PermissionRequestHandler>(this, web_contents_.get());
@@ -1461,11 +1462,30 @@ void AwContents::RenderViewHostChanged(content::RenderViewHost* old_host,
 
 void AwContents::PrimaryPageChanged(content::Page& page) {
   std::string scheme = page.GetMainDocument().GetLastCommittedURL().scheme();
+  const url::Origin& origin = page.GetMainDocument().GetLastCommittedOrigin();
+  const std::string& etld_plus1 =
+      net::registry_controlled_domains::GetDomainAndRegistry(
+          origin, net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES);
   if (scheme_ != scheme) {
     scheme_ = scheme;
     AwBrowserProcess::GetInstance()
         ->visibility_metrics_logger()
         ->ClientVisibilityChanged(this);
+  }
+
+  if (scheme == url::kHttpsScheme || scheme == url::kHttpScheme) {
+    JNIEnv* env = AttachCurrentThread();
+    ScopedJavaLocalRef<jobject> j_ref = java_ref_.get(env);
+    if (j_ref) {
+      uint32_t origin_hash = base::PersistentHash(origin.Serialize());
+      uint32_t etld_plus1_hash = base::PersistentHash(etld_plus1);
+
+      jlong j_origin_hash = static_cast<jlong>(origin_hash);
+      jlong j_etld_plus1_hash = static_cast<jlong>(etld_plus1_hash);
+
+      Java_AwContents_logOriginVisit(env, j_ref, j_origin_hash);
+      Java_AwContents_logSiteVisit(env, j_ref, j_etld_plus1_hash);
+    }
   }
 }
 

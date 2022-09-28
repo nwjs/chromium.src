@@ -10,10 +10,6 @@
 #include <memory>
 #include <utility>
 
-#include "ash/components/attestation/fake_certificate.h"
-#include "ash/components/attestation/mock_attestation_flow.h"
-#include "ash/components/cryptohome/system_salt_getter.h"
-#include "ash/components/tpm/install_attributes.h"
 #include "ash/constants/ash_switches.h"
 #include "base/bind.h"
 #include "base/callback_helpers.h"
@@ -39,10 +35,14 @@
 #include "chrome/browser/prefs/browser_prefs.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
+#include "chromeos/ash/components/attestation/fake_certificate.h"
+#include "chromeos/ash/components/attestation/mock_attestation_flow.h"
+#include "chromeos/ash/components/cryptohome/system_salt_getter.h"
+#include "chromeos/ash/components/dbus/dbus_thread_manager.h"
 #include "chromeos/ash/components/dbus/session_manager/fake_session_manager_client.h"
 #include "chromeos/ash/components/dbus/userdataauth/fake_cryptohome_misc_client.h"
 #include "chromeos/ash/components/dbus/userdataauth/fake_install_attributes_client.h"
-#include "chromeos/dbus/dbus_thread_manager.h"
+#include "chromeos/ash/components/install_attributes/install_attributes.h"
 #include "chromeos/system/fake_statistics_provider.h"
 #include "chromeos/system/statistics_provider.h"
 #include "components/policy/core/common/cloud/cloud_policy_client.h"

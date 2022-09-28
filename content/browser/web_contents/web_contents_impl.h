@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "base/callback_helpers.h"
+#include "base/callback_list.h"
 #include "base/containers/flat_map.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
@@ -146,7 +147,7 @@ class CreateNewWindowParams;
 class WebContentsAndroid;
 #endif
 
-#if BUILDFLAG(ENABLE_PLUGINS)
+#if BUILDFLAG(ENABLE_PPAPI)
 class PepperPlaybackObserver;
 #endif
 
@@ -402,6 +403,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   bool IsScanningForBluetoothDevices() override;
   bool IsConnectedToSerialPort() override;
   bool IsConnectedToHidDevice() override;
+  bool IsConnectedToUsbDevice() override;
   bool HasFileSystemAccessHandles() override;
   bool HasPictureInPictureVideo() override;
   bool HasPictureInPictureDocument() override;
@@ -579,6 +581,12 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   void NotifyPreferencesChanged() override;
   void SetWebPreferences(const blink::web_pref::WebPreferences& prefs) override;
   void OnWebPreferencesChanged() override;
+
+  void DisablePrerender2() override;
+  void ResetPrerender2Disabled() override;
+  // Resets the bit to explicitly disable Prerender2 for this WebContents. Note
+  // that this may not equate to the feature being enabled.
+  bool IsPrerender2Disabled();
 
   // RenderFrameHostDelegate ---------------------------------------------------
   bool OnMessageReceived(RenderFrameHostImpl* render_frame_host,
@@ -793,7 +801,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   GetActiveTopLevelDocumentsInBrowsingContextGroup(
       RenderFrameHostImpl* render_frame_host) override;
   PrerenderHostRegistry* GetPrerenderHostRegistry() override;
-#if BUILDFLAG(ENABLE_PLUGINS)
+#if BUILDFLAG(ENABLE_PPAPI)
   void OnPepperInstanceCreated(RenderFrameHostImpl* source,
                                int32_t pp_instance) override;
   void OnPepperInstanceDeleted(RenderFrameHostImpl* source,
@@ -809,7 +817,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
                           int plugin_child_id,
                           const base::FilePath& path,
                           bool is_hung) override;
-#endif  // BUILDFLAG(ENABLE_PLUGINS)
+#endif  // BUILDFLAG(ENABLE_PPAPI)
 
   // RenderViewHostDelegate ----------------------------------------------------
   RenderViewHostDelegateView* GetDelegateView() override;
@@ -894,7 +902,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
                                AllowServiceWorkerResult allowed) override;
   void OnCookiesAccessed(NavigationHandle*,
                          const CookieAccessDetails& details) override;
-  void RegisterExistingOriginToPreventOptInIsolation(
+  void RegisterExistingOriginAsHavingDefaultIsolation(
       const url::Origin& origin,
       NavigationRequest* navigation_request_to_exclude) override;
 
@@ -1129,6 +1137,15 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   // devices.
   void IncrementHidActiveFrameCount();
   void DecrementHidActiveFrameCount();
+
+  // Notifies the delegate and observers when the connected to USB device state
+  // changes.
+  void OnIsConnectedToUsbDeviceChanged(bool is_connected_to_usb_device);
+
+  // Modify the counter of frames in this WebContents actively using USB
+  // devices.
+  void IncrementUsbActiveFrameCount();
+  void DecrementUsbActiveFrameCount();
 
   // Modify the counter of File System Access handles for this WebContents.
   void IncrementFileSystemAccessHandleCount();
@@ -1379,8 +1396,9 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
                            MaxFrameCountInjectedIframes);
   FRIEND_TEST_ALL_PREFIXES(WebContentsImplBrowserTest,
                            ForEachFrameTreeInnerContents);
-  FRIEND_TEST_ALL_PREFIXES(FencedFrameBrowserTest, FrameIteration);
-  FRIEND_TEST_ALL_PREFIXES(FencedFrameTreeBrowserTest, ShouldIgnoreJsDialog);
+  FRIEND_TEST_ALL_PREFIXES(FencedFrameMPArchBrowserTest, FrameIteration);
+  FRIEND_TEST_ALL_PREFIXES(FencedFrameParameterizedBrowserTest,
+                           ShouldIgnoreJsDialog);
   FRIEND_TEST_ALL_PREFIXES(FormStructureBrowserTest, HTMLFiles);
   FRIEND_TEST_ALL_PREFIXES(NavigationControllerTest, HistoryNavigate);
   FRIEND_TEST_ALL_PREFIXES(RenderFrameHostManagerTest, PageDoesBackAndReload);
@@ -2154,6 +2172,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   size_t bluetooth_scanning_sessions_count_ = 0;
   size_t serial_active_frame_count_ = 0;
   size_t hid_active_frame_count_ = 0;
+  size_t usb_active_frame_count_ = 0;
 
   size_t file_system_access_handle_count_ = 0;
 
@@ -2163,10 +2182,10 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   // Manages media players, CDMs, and power save blockers for media.
   std::unique_ptr<MediaWebContentsObserver> media_web_contents_observer_;
 
-#if BUILDFLAG(ENABLE_PLUGINS)
+#if BUILDFLAG(ENABLE_PPAPI)
   // Observes pepper playback changes, and notifies MediaSession.
   std::unique_ptr<PepperPlaybackObserver> pepper_playback_observer_;
-#endif  // BUILDFLAG(ENABLE_PLUGINS)
+#endif  // BUILDFLAG(ENABLE_PPAPI)
 
   std::unique_ptr<RenderWidgetHostInputEventRouter> rwh_input_event_router_;
 
@@ -2328,6 +2347,8 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
 
   VisibleTimeRequestTrigger visible_time_request_trigger_;
 
+  bool prerender2_disabled_ = false;
+
   base::WeakPtrFactory<WebContentsImpl> loading_weak_factory_{this};
   base::WeakPtrFactory<WebContentsImpl> weak_factory_{this};
 };
@@ -2342,16 +2363,14 @@ class CONTENT_EXPORT WebContentsImpl::FriendWrapper {
   FriendWrapper& operator=(const FriendWrapper&) = delete;
 
  private:
-  friend class TestNavigationObserver;
-  friend class WebContentsAddedObserver;
-  friend class ContentBrowserConsistencyChecker;
-  friend class CreateAndLoadWebContentsObserver;
+  friend base::CallbackListSubscription RegisterWebContentsCreationCallback(
+      base::RepeatingCallback<void(WebContents*)>);
 
   FriendWrapper();  // Not instantiable.
 
-  // Adds/removes a callback called on creation of each new WebContents.
-  static void AddCreatedCallbackForTesting(const CreatedCallback& callback);
-  static void RemoveCreatedCallbackForTesting(const CreatedCallback& callback);
+  // Adds a callback called on creation of each new WebContents.
+  static base::CallbackListSubscription AddCreatedCallbackForTesting(
+      const CreatedCallback& callback);
 };
 
 }  // namespace content

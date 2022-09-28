@@ -23,6 +23,7 @@
 #include "ui/gl/gl_bindings.h"
 #include "ui/gl/gl_context.h"
 #include "ui/gl/gl_surface_egl.h"
+#include "ui/gl/gl_utils.h"
 #include "ui/gl/init/gl_factory.h"
 
 #if BUILDFLAG(ENABLE_VULKAN)
@@ -39,8 +40,12 @@ std::unique_ptr<CompositorGpuThread> CompositorGpuThread::Create(
     gpu::VulkanImplementation* vulkan_implementation,
     gpu::VulkanDeviceQueue* device_queue,
     bool enable_watchdog) {
-  if (!features::IsDrDcEnabled())
+  DCHECK(gpu_channel_manager);
+
+  if (!features::IsDrDcEnabled() ||
+      gpu_channel_manager->gpu_driver_bug_workarounds().disable_drdc) {
     return nullptr;
+  }
 
 #if BUILDFLAG(IS_ANDROID)
   // When using angle via enabling passthrough command decoder on android, angle
@@ -63,7 +68,8 @@ std::unique_ptr<CompositorGpuThread> CompositorGpuThread::Create(
         device_queue->GetVulkanPhysicalDevice(),
         device_queue->GetVulkanDevice(), device_queue->GetVulkanQueue(),
         device_queue->GetVulkanQueueIndex(), device_queue->enabled_extensions(),
-        device_queue->enabled_device_features_2());
+        device_queue->enabled_device_features_2(),
+        device_queue->vma_allocator());
     vulkan_context_provider =
         VulkanInProcessContextProvider::CreateForCompositorGpuThread(
             vulkan_implementation, std::move(compositor_thread_device_queue),
@@ -108,7 +114,8 @@ CompositorGpuThread::GetSharedContextState() {
   // Create a new share group. Note that this share group is different from the
   // share group which gpu main thread uses.
   auto share_group = base::MakeRefCounted<gl::GLShareGroup>();
-  auto surface = gl::init::CreateOffscreenGLSurface(gfx::Size());
+  auto surface =
+      gl::init::CreateOffscreenGLSurface(gl::GetDefaultDisplay(), gfx::Size());
 
   const auto& gpu_preferences = gpu_channel_manager_->gpu_preferences();
 
@@ -123,6 +130,14 @@ CompositorGpuThread::GetSharedContextState() {
       attribs_helper, use_passthrough_decoder);
   attribs.angle_context_virtualization_group_number =
       gl::AngleContextVirtualizationGroup::kDrDc;
+
+  bool enable_angle_validation = features::IsANGLEValidationEnabled();
+#if DCHECK_IS_ON()
+  // Force validation on for all debug builds and testing
+  enable_angle_validation = true;
+#endif
+
+  attribs.can_skip_validation = !enable_angle_validation;
 
   // Compositor thread context doesn't need access textures and semaphores
   // created with other contexts.
@@ -283,10 +298,19 @@ void CompositorGpuThread::OnBackgroundedOnCompositorGpuThread() {
 }
 
 void CompositorGpuThread::OnBackgroundCleanup() {
+  LoseContext();
+}
+
+void CompositorGpuThread::OnForegrounded() {
+  if (watchdog_thread_)
+    watchdog_thread_->OnForegrounded();
+}
+
+void CompositorGpuThread::LoseContext() {
   if (!task_runner()->BelongsToCurrentThread()) {
-    task_runner()->PostTask(
-        FROM_HERE, base::BindOnce(&CompositorGpuThread::OnBackgroundCleanup,
-                                  weak_ptr_factory_.GetWeakPtr()));
+    task_runner()->PostTask(FROM_HERE,
+                            base::BindOnce(&CompositorGpuThread::LoseContext,
+                                           weak_ptr_factory_.GetWeakPtr()));
     return;
   }
 
@@ -294,11 +318,6 @@ void CompositorGpuThread::OnBackgroundCleanup() {
     shared_context_state_->MarkContextLost();
     shared_context_state_.reset();
   }
-}
-
-void CompositorGpuThread::OnForegrounded() {
-  if (watchdog_thread_)
-    watchdog_thread_->OnForegrounded();
 }
 
 }  // namespace viz

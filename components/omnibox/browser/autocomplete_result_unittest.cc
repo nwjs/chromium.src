@@ -1286,15 +1286,26 @@ TEST_F(AutocompleteResultTest, DemoteByType) {
   base::FieldTrialList::CreateFieldTrial(
       OmniboxFieldTrial::kBundledExperimentFieldTrialName, "A");
 
-#if !BUILDFLAG(IS_ANDROID)
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   // Where Grouping suggestions by Search vs URL kicks in, search gets
   // promoted to the top of the list.
   const std::vector<size_t> expected_natural_order{1, 2, 3, 0};
   const std::vector<size_t> expected_demoted_order{3, 2, 0, 1};
+#elif BUILDFLAG(IS_IOS)
+  // Temporary while adaptive suggestion is still in experimentation on iOS.
+  std::vector<size_t> expected_natural_order;
+  std::vector<size_t> expected_demoted_order;
+  if (base::FeatureList::IsEnabled(omnibox::kAdaptiveSuggestionsCount)) {
+    expected_natural_order = std::vector<size_t>{1, 0, 2, 3};
+    expected_demoted_order = std::vector<size_t>{3, 0, 2, 1};
+  } else {
+    expected_natural_order = std::vector<size_t>{1, 2, 3, 0};
+    expected_demoted_order = std::vector<size_t>{3, 2, 0, 1};
+  }
 #else
-  // Note: Android performs grouping by Search vs URL at a later stage, when
-  // views are built. this means the vector below will be demoted by type, but
-  // not rearranged by Search vs URL.
+  // Note: Android and iOS performs grouping by Search vs URL at a later stage,
+  // when views are built. this means the vector below will be demoted by type,
+  // but not rearranged by Search vs URL.
   const std::vector<size_t> expected_natural_order{1, 0, 2, 3};
   const std::vector<size_t> expected_demoted_order{3, 0, 2, 1};
 #endif
@@ -1796,7 +1807,7 @@ TEST_F(AutocompleteResultTest, SortAndCullPromoteDuplicateSearchURLs) {
   EXPECT_EQ(900, result.match_at(2)->relevance);
 }
 
-#if !BUILDFLAG(IS_ANDROID)
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 TEST_F(AutocompleteResultTest, SortAndCullGroupSuggestionsByType) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
@@ -1810,6 +1821,7 @@ TEST_F(AutocompleteResultTest, SortAndCullGroupSuggestionsByType) {
       {4, 1, 900, false, {}, AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED},
       {5, 2, 1000, false, {}, AutocompleteMatchType::HISTORY_BODY},
       {6, 3, 1100, false, {}, AutocompleteMatchType::BOOKMARK_TITLE},
+      {7, 3, 600, false, {}, AutocompleteMatchType::STARTER_PACK},
   };
   ACMatches matches;
   PopulateAutocompleteMatches(data, std::size(data), &matches);
@@ -1824,13 +1836,14 @@ TEST_F(AutocompleteResultTest, SortAndCullGroupSuggestionsByType) {
   const std::array<TestData, 6> expected_data{{
       // default match unmoved
       {3, 2, 800, true, {}, AutocompleteMatchType::HISTORY_TITLE},
+      // Starter pack type
+      {7, 3, 600, false, {}, AutocompleteMatchType::STARTER_PACK},
       // search types
       {4, 1, 900, false, {}, AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED},
       {2, 1, 700, false, {}, AutocompleteMatchType::SEARCH_HISTORY},
       // other types
       {6, 3, 1100, false, {}, AutocompleteMatchType::BOOKMARK_TITLE},
       {5, 2, 1000, false, {}, AutocompleteMatchType::HISTORY_BODY},
-      {1, 2, 600, false, {}, AutocompleteMatchType::HISTORY_URL},
   }};
   AssertResultMatches(result, expected_data.begin(), expected_data.size());
 }
@@ -2180,9 +2193,9 @@ TEST_F(AutocompleteResultTest, SortAndCullMaxURLMatches) {
   EXPECT_EQ(OmniboxFieldTrial::GetMaxURLMatches(), 3u);
 
   // Case 1: Eject URL match for a search.
-  // Does not apply to Android which picks top N matches and performs group by
-  // search vs URL separately (Adaptive Suggestions).
-#if !BUILDFLAG(IS_ANDROID)
+  // Does not apply to Android and iOS which picks top N matches and performs
+  // group by search vs URL separately (Adaptive Suggestions).
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   {
     ACMatches matches;
     const AutocompleteMatchTestData data[] = {

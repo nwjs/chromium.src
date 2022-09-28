@@ -1593,6 +1593,9 @@ message DeviceStatusReportRequest {
 
   // Information about LaCrOs
   repeated LaCrOsBrowserReport lacros_browser_report = 46;
+
+  // Root device size as displayed in the device UI.
+  optional int64 root_device_total_storage_bytes = 47;
 }
 
 message OsUpdateStatus {
@@ -3466,6 +3469,8 @@ message AppInstallReportLogEvent {
     DIRECT_INSTALL = 13;
     // No more regular attempts to install
     CLOUDDPC_MAIN_LOOP_FAILED = 14;
+    // PlayStore local policy was set
+    PLAYSTORE_LOCAL_POLICY_SET = 15;
   }
 
   // Enumerates the possible changes in session state.

@@ -4,11 +4,15 @@
 
 #include "content/browser/interest_group/ad_auction_service_impl.h"
 
+#include <map>
 #include <set>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "base/check.h"
 #include "base/containers/contains.h"
+#include "base/ranges/algorithm.h"
 #include "base/strings/strcat.h"
 #include "base/strings/stringprintf.h"
 #include "base/time/time.h"
@@ -19,13 +23,17 @@
 #include "content/browser/interest_group/auction_runner.h"
 #include "content/browser/interest_group/auction_worklet_manager.h"
 #include "content/browser/interest_group/interest_group_manager_impl.h"
+#include "content/browser/private_aggregation/private_aggregation_manager.h"
 #include "content/browser/renderer_host/page_impl.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
+#include "content/common/aggregatable_report.mojom.h"
+#include "content/common/private_aggregation_host.mojom.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/common/content_client.h"
+#include "content/services/auction_worklet/public/mojom/private_aggregation_request.mojom.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "net/http/http_response_headers.h"
@@ -234,12 +242,11 @@ class FencedFrameURLMappingObserver
   ~FencedFrameURLMappingObserver() override = default;
 
   void OnFencedFrameURLMappingComplete(
-      absl::optional<GURL> mapped_url,
-      absl::optional<AdAuctionData> ad_auction_data,
-      absl::optional<FencedFrameURLMapping::PendingAdComponentsMap>
-          pending_ad_components_map,
-      ReportingMetadata& reporting_metadata) override {
-    mapped_url_ = mapped_url;
+      const absl::optional<FencedFrameURLMapping::FencedFrameProperties>&
+          properties) override {
+    if (properties) {
+      mapped_url_ = properties->mapped_url;
+    }
     called_ = true;
   }
 
@@ -400,7 +407,9 @@ AdAuctionServiceImpl::AdAuctionServiceImpl(
           &GetInterestGroupManager().auction_process_manager(),
           GetTopWindowOrigin(),
           origin(),
-          this) {}
+          this),
+      private_aggregation_manager_(PrivateAggregationManager::GetManager(
+          *render_frame_host.GetBrowserContext())) {}
 
 AdAuctionServiceImpl::~AdAuctionServiceImpl() {
   while (!auctions_.empty()) {
@@ -448,6 +457,51 @@ bool AdAuctionServiceImpl::IsInterestGroupAPIAllowed(
       origin);
 }
 
+void AdAuctionServiceImpl::SendPrivateAggregationRequests(
+    std::map<url::Origin,
+             std::vector<auction_worklet::mojom::PrivateAggregationRequestPtr>>
+        private_aggregation_requests) const {
+  // Empty vectors should've been filtered out.
+  DCHECK(base::ranges::none_of(private_aggregation_requests,
+                               [](auto& it) { return it.second.empty(); }));
+
+  // TODO(crbug.com/1356654): Improve coverage of these use counters, i.e. for
+  // API usage that does not result in a successful request.
+  if (!private_aggregation_requests.empty()) {
+    GetContentClient()->browser()->LogWebFeatureForCurrentPage(
+        &render_frame_host(),
+        blink::mojom::WebFeature::kPrivateAggregationApiAll);
+    GetContentClient()->browser()->LogWebFeatureForCurrentPage(
+        &render_frame_host(),
+        blink::mojom::WebFeature::kPrivateAggregationApiFledge);
+  }
+
+  if (!private_aggregation_manager_) {
+    return;
+  }
+
+  for (auto& [origin, requests] : private_aggregation_requests) {
+    mojo::Remote<mojom::PrivateAggregationHost> remote;
+    if (!private_aggregation_manager_->BindNewReceiver(
+            origin, main_frame_origin_,
+            PrivateAggregationBudgetKey::Api::kFledge,
+            remote.BindNewPipeAndPassReceiver())) {
+      continue;
+    }
+
+    for (auction_worklet::mojom::PrivateAggregationRequestPtr& request :
+         requests) {
+      DCHECK(request);
+      std::vector<mojom::AggregatableReportHistogramContributionPtr>
+          contributions;
+      contributions.push_back(std::move(request->contribution));
+      remote->SendHistogramReport(std::move(contributions),
+                                  request->aggregation_mode,
+                                  std::move(request->debug_mode_details));
+    }
+  }
+}
+
 void AdAuctionServiceImpl::OnAuctionComplete(
     RunAdAuctionCallback callback,
     AuctionRunner* auction,
@@ -458,6 +512,9 @@ void AdAuctionServiceImpl::OnAuctionComplete(
     std::vector<GURL> debug_loss_report_urls,
     std::vector<GURL> debug_win_report_urls,
     ReportingMetadata ad_beacon_map,
+    std::map<url::Origin,
+             std::vector<auction_worklet::mojom::PrivateAggregationRequestPtr>>
+        private_aggregation_requests,
     std::vector<std::string> errors) {
   // Delete the AuctionRunner. Since all arguments are passed by value, they're
   // all safe to used after this has been done.
@@ -471,6 +528,8 @@ void AdAuctionServiceImpl::OnAuctionComplete(
         *GetFrame(), blink::mojom::ConsoleMessageLevel::kError,
         base::StrCat({"Worklet error: ", error}));
   }
+
+  SendPrivateAggregationRequests(std::move(private_aggregation_requests));
 
   auto* auction_result_metrics =
       AdAuctionResultMetrics::GetForPage(render_frame_host().GetPage());

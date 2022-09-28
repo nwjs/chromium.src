@@ -8,9 +8,9 @@
 #include "base/callback.h"
 #include "base/component_export.h"
 #include "base/observer_list_types.h"
+#include "chromeos/ash/components/dbus/cryptohome/UserDataAuth.pb.h"
+#include "chromeos/ash/components/dbus/cryptohome/rpc.pb.h"
 #include "chromeos/dbus/common/dbus_method_call_status.h"
-#include "chromeos/dbus/cryptohome/UserDataAuth.pb.h"
-#include "chromeos/dbus/cryptohome/rpc.pb.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 
 namespace dbus {
@@ -26,17 +26,17 @@ namespace ash {
 class COMPONENT_EXPORT(USERDATAAUTH_CLIENT) CryptohomeMiscClient {
  public:
   using GetSystemSaltCallback =
-      DBusMethodCallback<::user_data_auth::GetSystemSaltReply>;
+      chromeos::DBusMethodCallback<::user_data_auth::GetSystemSaltReply>;
   using GetSanitizedUsernameCallback =
-      DBusMethodCallback<::user_data_auth::GetSanitizedUsernameReply>;
+      chromeos::DBusMethodCallback<::user_data_auth::GetSanitizedUsernameReply>;
   using GetLoginStatusCallback =
-      DBusMethodCallback<::user_data_auth::GetLoginStatusReply>;
-  using LockToSingleUserMountUntilRebootCallback = DBusMethodCallback<
+      chromeos::DBusMethodCallback<::user_data_auth::GetLoginStatusReply>;
+  using LockToSingleUserMountUntilRebootCallback = chromeos::DBusMethodCallback<
       ::user_data_auth::LockToSingleUserMountUntilRebootReply>;
   using GetRsuDeviceIdCallback =
-      DBusMethodCallback<::user_data_auth::GetRsuDeviceIdReply>;
+      chromeos::DBusMethodCallback<::user_data_auth::GetRsuDeviceIdReply>;
   using CheckHealthCallback =
-      DBusMethodCallback<::user_data_auth::CheckHealthReply>;
+      chromeos::DBusMethodCallback<::user_data_auth::CheckHealthReply>;
 
   // Not copyable or movable.
   CryptohomeMiscClient(const CryptohomeMiscClient&) = delete;

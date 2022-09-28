@@ -68,6 +68,7 @@ class FullscreenControllerTestWindow : public TestBrowserWindow,
       const GURL& url,
       ExclusiveAccessBubbleType bubble_type,
       ExclusiveAccessBubbleHideCallback bubble_first_hide_callback,
+      bool notify_download,
       bool force_update) override;
   bool IsExclusiveAccessBubbleDisplayed() const override;
   void OnExclusiveAccessUserInput() override;
@@ -189,6 +190,7 @@ void FullscreenControllerTestWindow::UpdateExclusiveAccessExitBubbleContent(
     const GURL& url,
     ExclusiveAccessBubbleType bubble_type,
     ExclusiveAccessBubbleHideCallback bubble_first_hide_callback,
+    bool notify_download,
     bool force_update) {}
 
 bool FullscreenControllerTestWindow::IsExclusiveAccessBubbleDisplayed() const {
@@ -923,7 +925,7 @@ TEST_F(FullscreenControllerStateUnitTest,
   std::unique_ptr<content::WebContents> owned_wc =
       browser()->tab_strip_model()->DetachWebContentsAtForInsertion(0);
   second_browser->tab_strip_model()->InsertWebContentsAt(
-      0, std::move(owned_wc), TabStripModel::ADD_ACTIVE);
+      0, std::move(owned_wc), AddTabTypes::ADD_ACTIVE);
   EXPECT_FALSE(browser()->window()->IsFullscreen());
   EXPECT_FALSE(second_browser->window()->IsFullscreen());
   EXPECT_TRUE(wc_delegate->IsFullscreenForTabOrPending(tab));
@@ -939,7 +941,7 @@ TEST_F(FullscreenControllerStateUnitTest,
   owned_wc =
       second_browser->tab_strip_model()->DetachWebContentsAtForInsertion(0);
   browser()->tab_strip_model()->InsertWebContentsAt(0, std::move(owned_wc),
-                                                    TabStripModel::ADD_ACTIVE);
+                                                    AddTabTypes::ADD_ACTIVE);
   EXPECT_FALSE(browser()->window()->IsFullscreen());
   EXPECT_FALSE(second_browser->window()->IsFullscreen());
   EXPECT_TRUE(wc_delegate->IsFullscreenForTabOrPending(tab));

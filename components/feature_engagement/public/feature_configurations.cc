@@ -517,6 +517,25 @@ absl::optional<FeatureConfig> GetClientSideFeatureConfig(
                                              Comparator(EQUAL, 0), 15, 90));
     return config;
   }
+  if (kIPHShoppingListMenuItemFeature.name == feature->name) {
+    // Allows a shopping list menu item IPH to be displayed at most:
+    // * Once per week.
+    // * Up to 3 times per year.
+    // * And only as long as the user has never initiated price tracking from
+    // the menu.
+    absl::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(EQUAL, 1);
+    config->trigger = EventConfig("shopping_list_menu_item_iph_triggered",
+                                  Comparator(EQUAL, 0), 7, 7);
+    config->event_configs.insert(
+        EventConfig("shopping_list_menu_item_iph_triggered",
+                    Comparator(LESS_THAN, 3), 360, 360));
+    config->used = EventConfig("shopping_list_track_price_from_menu",
+                               Comparator(EQUAL, 0), 360, 360);
+    return config;
+  }
   if (kIPHTabSwitcherButtonFeature.name == feature->name) {
     absl::optional<FeatureConfig> config = FeatureConfig();
     config->valid = true;
@@ -863,6 +882,23 @@ absl::optional<FeatureConfig> GetClientSideFeatureConfig(
                                   Comparator(EQUAL, 0), 60, 60);
     config->used = EventConfig("read_later_context_menu_tapped",
                                Comparator(EQUAL, 0), 60, 60);
+    return config;
+  }
+
+  if (kIPHRequestDesktopSiteAppMenuFeature.name == feature->name) {
+    // A config that allows the RDS site-level setting user education prompt to
+    // be shown:
+    // * If the user has used the RDS (tab-level) setting on the app menu at
+    // least once.
+    // * If the prompt has never been shown before.
+    absl::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(ANY, 0);
+    config->used = EventConfig("app_menu_desktop_site_for_tab_clicked",
+                               Comparator(GREATER_THAN_OR_EQUAL, 1), 180, 180);
+    config->trigger = EventConfig("request_desktop_site_app_menu_iph_trigger",
+                                  Comparator(EQUAL, 0), 180, 180);
     return config;
   }
 #endif  // BUILDFLAG(IS_ANDROID)

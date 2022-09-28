@@ -367,7 +367,7 @@ void ScrollableShelfView::Init() {
 
   // Initializes |shelf_view_| after scrollable shelf view's children are
   // initialized.
-  shelf_view_->Init();
+  shelf_view_->Init(focus_search_.get());
 }
 
 void ScrollableShelfView::OnFocusRingActivationChanged(bool activated) {
@@ -1042,6 +1042,10 @@ void ScrollableShelfView::OnButtonWillBeRemoved() {
   }
   first_tappable_app_index_ =
       std::min(first_tappable_app_index_, last_tappable_app_index_);
+}
+
+void ScrollableShelfView::OnAppButtonActivated(const ShelfButton* button) {
+  ScrollRectToVisible(button->bounds());
 }
 
 std::unique_ptr<ScrollableShelfView::ScopedActiveInkDropCount>

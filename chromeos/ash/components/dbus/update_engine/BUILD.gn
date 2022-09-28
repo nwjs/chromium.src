@@ -15,6 +15,7 @@ component("update_engine") {
     "//base",
     "//chromeos/dbus/common",
     "//chromeos/dbus/constants",
+    "//chromeos/version",
     "//dbus",
   ]
   sources = [
@@ -29,7 +30,7 @@ source_set("unit_tests") {
   testonly = true
   deps = [
     ":update_engine",
-    "//chromeos/dbus",
+    "//chromeos/ash/components/dbus",
     "//testing/gtest",
   ]
   sources = [ "update_engine_client_unittest.cc" ]

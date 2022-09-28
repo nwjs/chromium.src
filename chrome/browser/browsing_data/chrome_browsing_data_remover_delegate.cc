@@ -59,12 +59,12 @@
 #include "chrome/browser/password_manager/password_store_factory.h"
 #include "chrome/browser/permissions/permission_actions_history_factory.h"
 #include "chrome/browser/permissions/permission_decision_auto_blocker_factory.h"
-#include "chrome/browser/prefetch/prefetch_proxy/prefetch_proxy_origin_decider.h"
-#include "chrome/browser/prefetch/prefetch_proxy/prefetch_proxy_service.h"
-#include "chrome/browser/prefetch/prefetch_proxy/prefetch_proxy_service_factory.h"
-#include "chrome/browser/prefetch/search_prefetch/search_prefetch_service.h"
-#include "chrome/browser/prefetch/search_prefetch/search_prefetch_service_factory.h"
 #include "chrome/browser/preloading/prefetch/no_state_prefetch/no_state_prefetch_manager_factory.h"
+#include "chrome/browser/preloading/prefetch/prefetch_proxy/prefetch_proxy_origin_decider.h"
+#include "chrome/browser/preloading/prefetch/prefetch_proxy/prefetch_proxy_service.h"
+#include "chrome/browser/preloading/prefetch/prefetch_proxy/prefetch_proxy_service_factory.h"
+#include "chrome/browser/preloading/prefetch/search_prefetch/search_prefetch_service.h"
+#include "chrome/browser/preloading/prefetch/search_prefetch/search_prefetch_service_factory.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_settings_factory.h"
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
@@ -171,15 +171,15 @@
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-#include "ash/components/cryptohome/cryptohome_parameters.h"
 #include "chrome/browser/ash/net/system_proxy_manager.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
+#include "chromeos/ash/components/cryptohome/cryptohome_parameters.h"
 #include "chromeos/ash/components/dbus/attestation/attestation_client.h"
 #include "chromeos/ash/components/dbus/attestation/interface.pb.h"
-#include "chromeos/dbus/constants/attestation_constants.h"  // nogncheck
-#include "chromeos/dbus/dbus_thread_manager.h"              // nogncheck
+#include "chromeos/ash/components/dbus/dbus_thread_manager.h"  // nogncheck
+#include "chromeos/dbus/constants/attestation_constants.h"     // nogncheck
 #include "components/user_manager/user.h"
 #include "device/fido/cros/credential_store.h"
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
@@ -610,6 +610,12 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
     if (auto* share_ranking = sharing::ShareRanking::Get(profile_))
       share_ranking->Clear(delete_begin_, delete_end_);
 #endif
+
+    // Also clear the last used time in bookmarks.
+    auto* bookmark_model = BookmarkModelFactory::GetForBrowserContext(profile_);
+    if (bookmark_model && bookmark_model->loaded()) {
+      bookmark_model->ClearLastUsedTimeInRange(delete_begin, delete_end);
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1132,8 +1138,11 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
           nullable_filter.is_null() || nullable_filter.Run(search_url);
     }
 
-    if (should_clear_zero_suggest_and_session_token)
+    if (should_clear_zero_suggest_and_session_token) {
       prefs->SetString(omnibox::kZeroSuggestCachedResults, std::string());
+      prefs->SetDict(omnibox::kZeroSuggestCachedResultsWithURL,
+                     base::Value::Dict());
+    }
 
     // |search_prefetch_service| is null if |profile_| is off the record.
     auto* search_prefetch_service =

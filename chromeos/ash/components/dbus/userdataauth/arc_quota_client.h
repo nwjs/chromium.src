@@ -8,9 +8,9 @@
 #include "base/callback.h"
 #include "base/component_export.h"
 #include "base/observer_list_types.h"
+#include "chromeos/ash/components/dbus/cryptohome/UserDataAuth.pb.h"
+#include "chromeos/ash/components/dbus/cryptohome/rpc.pb.h"
 #include "chromeos/dbus/common/dbus_method_call_status.h"
-#include "chromeos/dbus/cryptohome/UserDataAuth.pb.h"
-#include "chromeos/dbus/cryptohome/rpc.pb.h"
 
 namespace dbus {
 class Bus;
@@ -25,13 +25,13 @@ namespace ash {
 class COMPONENT_EXPORT(USERDATAAUTH_CLIENT) ArcQuotaClient {
  public:
   using GetArcDiskFeaturesCallback =
-      DBusMethodCallback<::user_data_auth::GetArcDiskFeaturesReply>;
-  using GetCurrentSpaceForArcUidCallback =
-      DBusMethodCallback<::user_data_auth::GetCurrentSpaceForArcUidReply>;
-  using GetCurrentSpaceForArcGidCallback =
-      DBusMethodCallback<::user_data_auth::GetCurrentSpaceForArcGidReply>;
-  using GetCurrentSpaceForArcProjectIdCallback =
-      DBusMethodCallback<::user_data_auth::GetCurrentSpaceForArcProjectIdReply>;
+      chromeos::DBusMethodCallback<::user_data_auth::GetArcDiskFeaturesReply>;
+  using GetCurrentSpaceForArcUidCallback = chromeos::DBusMethodCallback<
+      ::user_data_auth::GetCurrentSpaceForArcUidReply>;
+  using GetCurrentSpaceForArcGidCallback = chromeos::DBusMethodCallback<
+      ::user_data_auth::GetCurrentSpaceForArcGidReply>;
+  using GetCurrentSpaceForArcProjectIdCallback = chromeos::DBusMethodCallback<
+      ::user_data_auth::GetCurrentSpaceForArcProjectIdReply>;
 
   // Not copyable or movable.
   ArcQuotaClient(const ArcQuotaClient&) = delete;

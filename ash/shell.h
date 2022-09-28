@@ -132,6 +132,7 @@ class FocusCycler;
 class FrameThrottlingController;
 class FullscreenMagnifierController;
 class GeolocationController;
+class GlanceablesController;
 class HighContrastController;
 class HighlighterController;
 class HoldingSpaceController;
@@ -177,6 +178,7 @@ class PolicyRecommendationRestorer;
 class PowerButtonController;
 class PowerEventObserver;
 class PowerPrefs;
+class PrivacyHubController;
 class PrivacyScreenController;
 class ProjectingObserver;
 class ProjectorControllerImpl;
@@ -221,6 +223,7 @@ class WindowCycleController;
 class WindowPositioner;
 class WindowTreeHostManager;
 class ArcInputMethodBoundsTracker;
+class MultiCaptureServiceClient;
 
 enum class LoginStatus;
 
@@ -423,6 +426,10 @@ class ASH_EXPORT Shell : public SessionObserver,
     return display_error_observer_.get();
   }
 
+  ProjectingObserver* projecting_observer() {
+    return projecting_observer_.get();
+  }
+
   DisplayHighlightController* display_highlight_controller() {
     return display_highlight_controller_.get();
   }
@@ -453,6 +460,9 @@ class ASH_EXPORT Shell : public SessionObserver,
   }
   GeolocationController* geolocation_controller() {
     return geolocation_controller_.get();
+  }
+  GlanceablesController* glanceables_controller() {
+    return glanceables_controller_.get();
   }
   HighlighterController* highlighter_controller() {
     return highlighter_controller_.get();
@@ -542,11 +552,17 @@ class ASH_EXPORT Shell : public SessionObserver,
   PowerEventObserver* power_event_observer() {
     return power_event_observer_.get();
   }
+  PrivacyHubController* privacy_hub_controller() {
+    return privacy_hub_controller_.get();
+  }
   PrivacyScreenController* privacy_screen_controller() {
     return privacy_screen_controller_.get();
   }
   quick_pair::Mediator* quick_pair_mediator() {
     return quick_pair_mediator_.get();
+  }
+  MultiCaptureServiceClient* multi_capture_service_client() {
+    return multi_capture_service_client_.get();
   }
   ResizeShadowController* resize_shadow_controller() {
     return resize_shadow_controller_.get();
@@ -811,6 +827,7 @@ class ASH_EXPORT Shell : public SessionObserver,
   std::unique_ptr<FocusCycler> focus_cycler_;
   std::unique_ptr<FloatController> float_controller_;
   std::unique_ptr<GeolocationController> geolocation_controller_;
+  std::unique_ptr<GlanceablesController> glanceables_controller_;
   std::unique_ptr<HoldingSpaceController> holding_space_controller_;
   std::unique_ptr<PowerPrefs> power_prefs_;
   std::unique_ptr<SnoopingProtectionController> snooping_protection_controller_;
@@ -843,6 +860,7 @@ class ASH_EXPORT Shell : public SessionObserver,
   std::unique_ptr<ParentAccessController> parent_access_controller_;
   std::unique_ptr<PciePeripheralNotificationController>
       pcie_peripheral_notification_controller_;
+  std::unique_ptr<PrivacyHubController> privacy_hub_controller_;
   std::unique_ptr<UsbPeripheralNotificationController>
       usb_peripheral_notification_controller_;
   std::unique_ptr<PersistentDesksBarController>
@@ -1002,6 +1020,8 @@ class ASH_EXPORT Shell : public SessionObserver,
       login_unlock_throughput_recorder_;
 
   std::unique_ptr<OcclusionTrackerPauser> occlusion_tracker_pauser_;
+
+  std::unique_ptr<MultiCaptureServiceClient> multi_capture_service_client_;
 
   std::unique_ptr<quick_pair::Mediator> quick_pair_mediator_;
 

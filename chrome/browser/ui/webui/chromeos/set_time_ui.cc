@@ -179,8 +179,7 @@ SetTimeUI::SetTimeUI(content::WebUI* web_ui) : WebDialogUI(web_ui) {
 
   base::Value::Dict values;
   // List of list of strings: [[ID, name], [ID, name], ...]
-  values.Set("timezoneList", base::Value::FromUniquePtrValue(
-                                 chromeos::system::GetTimezoneList()));
+  values.Set("timezoneList", chromeos::system::GetTimezoneList());
 
   // If we are not logged in, we need to show the time zone dropdown.
   values.Set("showTimezone", SetTimeDialog::ShouldShowTimezone());
@@ -193,6 +192,8 @@ SetTimeUI::SetTimeUI(content::WebUI* web_ui) : WebDialogUI(web_ui) {
 
   source->AddResourcePath("set_time_browser_proxy.js",
                           IDR_SET_TIME_BROWSER_PROXY_JS);
+  source->AddResourcePath("set_time_dialog.html.js",
+                          IDR_SET_TIME_DIALOG_HTML_JS);
   source->AddResourcePath("set_time_dialog.js", IDR_SET_TIME_DIALOG_JS);
   source->SetDefaultResource(IDR_SET_TIME_HTML);
 

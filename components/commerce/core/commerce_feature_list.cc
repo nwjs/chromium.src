@@ -114,6 +114,9 @@ const base::Feature kDiscountConsentV2{"DiscountConsentV2",
 const base::Feature kCommerceHintAndroid{"CommerceHintAndroid",
                                          base::FEATURE_DISABLED_BY_DEFAULT};
 
+const base::Feature kMerchantWidePromotion{"MerchantWidePromotion",
+                                           base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Params for Discount Consent V2 in the NTP Cart module.
 const char kNtpChromeCartModuleDiscountConsentNtpVariationParam[] =
     "discount-consent-ntp-variation";
@@ -218,6 +221,11 @@ const base::FeatureParam<bool> kContextualConsentShowOnSRP{
 const char kCommerceHintAndroidHeuristicsImprovementParam[] =
     "CommerceHintAndroidHeuristicsImprovementParam";
 
+const char kReadyToFetchMerchantWidePromotionParam[] = "ready-to-fetch";
+const base::FeatureParam<bool> kReadyToFetchMerchantWidePromotion{
+    &commerce::kMerchantWidePromotion, kReadyToFetchMerchantWidePromotionParam,
+    false};
+
 bool IsPartnerMerchant(const GURL& url) {
   return commerce::IsCouponDiscountPartnerMerchant(url) ||
          IsRuleDiscountPartnerMerchant(url);
@@ -270,6 +278,20 @@ base::TimeDelta GetDiscountFetchDelay() {
     return *delay_from_component;
   }
   return kDiscountFetchDelayParam.Get();
+}
+
+bool IsNoDiscountMerchant(const GURL& url) {
+  const auto host_string = url.host_piece();
+  auto* pattern_from_component =
+      commerce_heuristics::CommerceHeuristicsData::GetInstance()
+          .GetNoDiscountMerchantPattern();
+  // If pattern from component updater is not available, merchants are
+  // considered to have no discounts by default.
+  if (!pattern_from_component)
+    return true;
+  return RE2::PartialMatch(
+      re2::StringPiece(host_string.data(), host_string.size()),
+      *pattern_from_component);
 }
 #endif
 }  // namespace commerce

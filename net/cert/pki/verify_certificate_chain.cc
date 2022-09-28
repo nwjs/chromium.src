@@ -145,7 +145,20 @@ bool VerifySignatureAlgorithmsMatch(const ParsedCertificate& cert,
   // But make a compatibility concession if alternate encodings are used
   // TODO(eroman): Turn this warning into an error.
   // TODO(eroman): Add a unit-test that exercises this case.
-  if (SignatureAlgorithm::IsEquivalent(alg1_tlv, alg2_tlv)) {
+  absl::optional<SignatureAlgorithm> alg1 =
+      ParseSignatureAlgorithm(alg1_tlv, errors);
+  if (!alg1) {
+    errors->AddError(cert_errors::kUnacceptableSignatureAlgorithm);
+    return false;
+  }
+  absl::optional<SignatureAlgorithm> alg2 =
+      ParseSignatureAlgorithm(alg2_tlv, errors);
+  if (!alg2) {
+    errors->AddError(cert_errors::kUnacceptableSignatureAlgorithm);
+    return false;
+  }
+
+  if (*alg1 == *alg2) {
     errors->AddWarning(
         cert_errors::kSignatureAlgorithmsDifferentEncoding,
         CreateCertErrorParams2Der("Certificate.algorithm", alg1_tlv,
@@ -207,9 +220,7 @@ void VerifyExtendedKeyUsage(const ParsedCertificate& cert,
         // equivalence between builtin verifier and platform verifier is less
         // important.
         if ((cert.has_basic_constraints() && cert.basic_constraints().is_ca) &&
-            (cert.signature_algorithm().algorithm() ==
-             SignatureAlgorithmId::RsaPkcs1) &&
-            (cert.signature_algorithm().digest() == DigestAlgorithm::Sha1)) {
+            cert.signature_algorithm() == SignatureAlgorithm::kRsaPkcs1Sha1) {
           return;
         }
       }
@@ -795,8 +806,10 @@ void PathVerifier::BasicCertificateProcessing(
   // Check that the signature algorithms in Certificate vs TBSCertificate
   // match. This isn't part of RFC 5280 section 6.1.3, but is mandated by
   // sections 4.1.1.2 and 4.1.2.3.
-  if (!VerifySignatureAlgorithmsMatch(cert, errors))
+  if (!VerifySignatureAlgorithmsMatch(cert, errors)) {
+    CHECK(errors->ContainsAnyErrorWithSeverity(CertError::SEVERITY_HIGH));
     *shortcircuit_chain_validation = true;
+  }
 
   // Check whether this signature algorithm is allowed.
   if (!delegate_->IsSignatureAlgorithmAcceptable(cert.signature_algorithm(),
@@ -1274,7 +1287,7 @@ void PathVerifier::Run(
         // Chains that don't start from a trusted root should short-circuit the
         // rest of the verification, as accumulating more errors from untrusted
         // certificates would not be meaningful.
-        DCHECK(cert_errors->ContainsAnyErrorWithSeverity(
+        CHECK(cert_errors->ContainsAnyErrorWithSeverity(
             CertError::SEVERITY_HIGH));
         return;
       }
@@ -1295,7 +1308,7 @@ void PathVerifier::Run(
       // Signature errors should short-circuit the rest of the verification, as
       // accumulating more errors from untrusted certificates would not be
       // meaningful.
-      DCHECK(
+      CHECK(
           cert_errors->ContainsAnyErrorWithSeverity(CertError::SEVERITY_HIGH));
       return;
     }

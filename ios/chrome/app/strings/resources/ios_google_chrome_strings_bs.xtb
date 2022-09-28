@@ -28,6 +28,7 @@
 <translation id="2576431527583832481">Chrome je postao još bolji! Dostupna je nova verzija.</translation>
 <translation id="257708665678654955">Želite li da Google Chrome sljedeći put ponudi da se stranice s ove web lokacije prevedu na <ph name="LANGUAGE_NAME" /> jezik?</translation>
 <translation id="2671426118752779020">Možete koristiti lozinke koje ste sačuvali u Googleovom Upravitelju lozinki u drugim aplikacijama na iPhoneu.</translation>
+<translation id="2689064829982324496">Da se odjavite s Google računa na svim web lokacijama, <ph name="BEGIN_LINK" />odjavite se iz Chromea<ph name="END_LINK" />.</translation>
 <translation id="2695886661449553974">Chrome nije mogao provjeriti ima li ažuriranja. Pokušajte ponovo kasnije.</translation>
 <translation id="2732745070297234559">Chrome nije mogao provjeriti sve lozinke. Pokušajte ponovo sutra.</translation>
 <translation id="2869959624320573933">Prijavite se na Chrome</translation>
@@ -39,7 +40,6 @@
 <translation id="3196546062792660320">Chrome vam štedi vrijeme povezivanjem vaših računa s webom. Možete dodati ili ukloniti račune u Postavkama.</translation>
 <translation id="3282568296779691940">Prijava na Chrome</translation>
 <translation id="3345341804167540816">Koristite Chrome svugdje</translation>
-<translation id="3428998300753080128">Prijavite se na ovu web lokaciju, Google račun i u Chrome.</translation>
 <translation id="3522659714780527202">Da vidite kartice s bilo kojeg uređaja na kojem koristite Chrome, uključite sinhronizaciju</translation>
 <translation id="3533694711092285624">Nema sačuvanih lozinki. Chrome može provjeravati vaše lozinke kada ih sačuvate.</translation>
 <translation id="3641179212828090796">Koristite lozinku koju ste sačuvali u Chromeu da se brže prijavite</translation>

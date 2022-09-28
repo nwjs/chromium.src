@@ -81,7 +81,7 @@ LacrosFirstRunSignedInFlowController::LacrosFirstRunSignedInFlowController(
     ProfilePickerWebContentsHost* host,
     Profile* profile,
     std::unique_ptr<content::WebContents> contents,
-    ProfilePicker::FirstRunExitedCallback first_run_exited_callback)
+    ProfilePicker::DebugFirstRunExitedCallback first_run_exited_callback)
     : ProfilePickerSignedInFlowController(host,
                                           profile,
                                           std::move(contents),
@@ -97,6 +97,7 @@ LacrosFirstRunSignedInFlowController::~LacrosFirstRunSignedInFlowController() {
         .Run(sync_confirmation_seen_
                  ? ProfilePicker::FirstRunExitStatus::kQuitAtEnd
                  : ProfilePicker::FirstRunExitStatus::kQuitEarly,
+             ProfilePicker::FirstRunExitSource::kControllerDestructor,
              base::BindOnce(&HideProfilePickerAndRun,
                             ProfilePicker::BrowserOpenedCallback()));
   }
@@ -108,6 +109,11 @@ void LacrosFirstRunSignedInFlowController::Init() {
 
   if (can_retry_init_observer_)
     can_retry_init_observer_.reset();
+
+  LOG(WARNING) << "Init running "
+               << (identity_manager->AreRefreshTokensLoaded() ? "with"
+                                                              : "without")
+               << " refresh tokens.";
 
   if (!identity_manager->AreRefreshTokensLoaded()) {
     // We can't proceed with the init yet, as the tokens will be needed to
@@ -121,6 +127,9 @@ void LacrosFirstRunSignedInFlowController::Init() {
   }
 
   ProfilePickerSignedInFlowController::Init();
+
+  LOG(WARNING)
+      << "Init completed and initiative handed off to TurnSyncOnHelper.";
 }
 
 void LacrosFirstRunSignedInFlowController::FinishAndOpenBrowser(
@@ -130,6 +139,7 @@ void LacrosFirstRunSignedInFlowController::FinishAndOpenBrowser(
 
   std::move(first_run_exited_callback_)
       .Run(ProfilePicker::FirstRunExitStatus::kCompleted,
+           ProfilePicker::FirstRunExitSource::kFlowFinished,
            base::BindOnce(&HideProfilePickerAndRun, std::move(callback)));
 }
 
@@ -137,4 +147,8 @@ void LacrosFirstRunSignedInFlowController::SwitchToSyncConfirmation() {
   sync_confirmation_seen_ = true;
 
   ProfilePickerSignedInFlowController::SwitchToSyncConfirmation();
+}
+
+void LacrosFirstRunSignedInFlowController::PreShowScreenForDebug() {
+  LOG(WARNING) << "Calling ShowScreen()";
 }

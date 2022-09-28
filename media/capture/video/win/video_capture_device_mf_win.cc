@@ -6,6 +6,7 @@
 
 #include <d3d11_4.h>
 #include <ks.h>
+#include <ksmedia.h>
 #include <mfapi.h>
 #include <mferror.h>
 #include <stddef.h>
@@ -606,6 +607,9 @@ HRESULT CopyTextureToGpuMemoryBuffer(ID3D11Texture2D* texture,
   return S_OK;
 }
 
+// Destruction helper. Can't use base::DoNothingAs<> since ComPtr isn't POD.
+void DestroyCaptureEngine(Microsoft::WRL::ComPtr<IMFCaptureEngine>) {}
+
 }  // namespace
 
 class MFVideoCallback final
@@ -944,6 +948,15 @@ VideoCaptureDeviceMFWin::~VideoCaptureDeviceMFWin() {
   if (video_callback_) {
     video_callback_->Shutdown();
   }
+
+  // In case there's about to be a new device created with a different config,
+  // defer destruction of the IMFCaptureEngine since it force unloads a bunch of
+  // DLLs which are expensive to reload.
+  if (engine_) {
+    main_thread_task_runner_->PostDelayedTask(
+        FROM_HERE, base::BindOnce(&DestroyCaptureEngine, std::move(engine_)),
+        base::Seconds(5));
+  }
 }
 
 bool VideoCaptureDeviceMFWin::Init() {
@@ -955,6 +968,17 @@ bool VideoCaptureDeviceMFWin::Init() {
 
   hr = source_.As(&video_control_);
   DLOG_IF_FAILED_WITH_HRESULT("Failed to retrieve IAMVideoProcAmp", hr);
+
+  ComPtr<IMFGetService> get_service;
+  hr = source_.As(&get_service);
+  DLOG_IF_FAILED_WITH_HRESULT("Failed to retrieve IMFGetService", hr);
+
+  if (get_service) {
+    hr = get_service->GetService(GUID_NULL, IID_IMFExtendedCameraController,
+                                 &extended_camera_controller_);
+    DLOG_IF_FAILED_WITH_HRESULT(
+        "Failed to retrieve IMFExtendedCameraController", hr);
+  }
 
   if (!engine_) {
     hr = CreateCaptureEngine(&engine_);
@@ -1174,14 +1198,21 @@ void VideoCaptureDeviceMFWin::AllocateAndStart(
 
 void VideoCaptureDeviceMFWin::StopAndDeAllocate() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  HRESULT hr = E_FAIL;
   if (is_started_ && engine_) {
-    hr = engine_->StopPreview();
+    engine_->StopPreview();
   }
 
-  if (SUCCEEDED(hr)) {
-    WaitOnCaptureEvent(MF_CAPTURE_ENGINE_PREVIEW_STOPPED);
-  }
+  // Ideally, we should wait for MF_CAPTURE_ENGINE_PREVIEW_STOPPED event here.
+  // However, since |engine_| is not reused for video capture after here,
+  // we can safely ignore this event to reduce the delay.
+  // It's only important to ensure that incoming events after the capture has
+  // stopped shouldn't lead to any crashes.
+  // This is achieved by ensuring that the |video_callback_| is shutdown in the
+  // destructor which will stop it from trying to use potentially destroyed
+  // VideoCaptureDeviceMFWin instance.
+  // Also, the callback itself is ref counted and |engine_| holds the reference,
+  // so we can delete this class at any time without creating use-after-free
+  // situations.
 
   is_started_ = false;
   client_.reset();
@@ -1370,6 +1401,33 @@ void VideoCaptureDeviceMFWin::GetPhotoState(GetPhotoStateCallback callback) {
         RetrieveControlRangeAndCurrent(camera_control_, CameraControl_Zoom);
   }
 
+  if (extended_camera_controller_) {
+    ComPtr<IMFExtendedCameraControl> extended_camera_control;
+    // KSPROPERTY_CAMERACONTROL_EXTENDED_BACKGROUNDSEGMENTATION is supported in
+    // Windows 10 version 20H2. It was updated in Windows 11 version 22H2 to
+    // support optional shallow focus capability (according to
+    // https://docs.microsoft.com/en-us/windows-hardware/drivers/stream/ksproperty-cameracontrol-extended-backgroundsegmentation)
+    // but that support is not needed here.
+    HRESULT hr = extended_camera_controller_->GetExtendedCameraControl(
+        MF_CAPTURE_ENGINE_MEDIASOURCE,
+        KSPROPERTY_CAMERACONTROL_EXTENDED_BACKGROUNDSEGMENTATION,
+        &extended_camera_control);
+    DLOG_IF_FAILED_WITH_HRESULT(
+        "Failed to retrieve IMFExtendedCameraControl for background "
+        "segmentation",
+        hr);
+    if (SUCCEEDED(hr) && (extended_camera_control->GetCapabilities() &
+                          KSCAMERA_EXTENDEDPROP_BACKGROUNDSEGMENTATION_BLUR)) {
+      photo_capabilities->supported_background_blur_modes = {
+          mojom::BackgroundBlurMode::OFF, mojom::BackgroundBlurMode::BLUR};
+      photo_capabilities->background_blur_mode =
+          (extended_camera_control->GetFlags() &
+           KSCAMERA_EXTENDEDPROP_BACKGROUNDSEGMENTATION_BLUR)
+              ? mojom::BackgroundBlurMode::BLUR
+              : mojom::BackgroundBlurMode::OFF;
+    }
+  }
+
   std::move(callback).Run(std::move(photo_capabilities));
 }
 
@@ -1540,6 +1598,43 @@ void VideoCaptureDeviceMFWin::SetPhotoOptions(
       DLOG_IF_FAILED_WITH_HRESULT("Zoom config failed", hr);
       if (FAILED(hr))
         return;
+    }
+  }
+
+  if (extended_camera_controller_) {
+    ComPtr<IMFExtendedCameraControl> extended_camera_control;
+    if (settings->has_background_blur_mode) {
+      HRESULT hr = extended_camera_controller_->GetExtendedCameraControl(
+          MF_CAPTURE_ENGINE_MEDIASOURCE,
+          KSPROPERTY_CAMERACONTROL_EXTENDED_BACKGROUNDSEGMENTATION,
+          &extended_camera_control);
+      DLOG_IF_FAILED_WITH_HRESULT(
+          "Failed to retrieve IMFExtendedCameraControl for background "
+          "segmentation",
+          hr);
+      if (FAILED(hr))
+        return;
+      ULONGLONG flag;
+      switch (settings->background_blur_mode) {
+        case mojom::BackgroundBlurMode::OFF:
+          flag = KSCAMERA_EXTENDEDPROP_BACKGROUNDSEGMENTATION_OFF;
+          break;
+        case mojom::BackgroundBlurMode::BLUR:
+          flag = KSCAMERA_EXTENDEDPROP_BACKGROUNDSEGMENTATION_BLUR;
+          break;
+      }
+      if (extended_camera_control->GetFlags() != flag) {
+        hr = extended_camera_control->SetFlags(flag);
+        DLOG_IF_FAILED_WITH_HRESULT("Failed to set background segmentation",
+                                    hr);
+        if (FAILED(hr))
+          return;
+        hr = extended_camera_control->CommitSettings();
+        DLOG_IF_FAILED_WITH_HRESULT("Failed to commit background segmentation",
+                                    hr);
+        if (FAILED(hr))
+          return;
+      }
     }
   }
 

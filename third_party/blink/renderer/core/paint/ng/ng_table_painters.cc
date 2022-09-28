@@ -528,6 +528,8 @@ void NGTablePainter::PaintCollapsedBorders(const PaintInfo& paint_info,
     return;
   DrawingRecorder recorder(paint_info.context, layout_table, paint_info.phase,
                            visual_rect);
+  AutoDarkMode auto_dark_mode(PaintAutoDarkMode(
+      fragment_.Style(), DarkModeFilter::ElementRole::kBackground));
 
   const wtf_size_t edges_per_row = collapsed_borders->EdgesPerRow();
   const wtf_size_t total_row_count =
@@ -579,10 +581,13 @@ void NGTablePainter::PaintCollapsedBorders(const PaintInfo& paint_info,
       const wtf_size_t fragment_table_row =
           table_row - *section_start_row_index;
 
-      // Check if we've exhausted the rows in this section. Store the final row
-      // which we painted.
+      // Check if we've exhausted the rows in this section.
       if (fragment_table_row >= section_row_offsets.size()) {
-        previous_painted_row_index = table_row - 1;
+        // Store the final row which we painted (if it wasn't fragmented).
+        if (is_end_row_fragmented)
+          previous_painted_row_index = absl::nullopt;
+        else
+          previous_painted_row_index = table_row - 1;
         break;
       }
 
@@ -716,8 +721,7 @@ void NGTablePainter::PaintCollapsedBorders(const PaintInfo& paint_info,
       }
       BoxBorderPainter::DrawBoxSide(
           paint_info.context, ToPixelSnappedRect(physical_border_rect),
-          box_side, edge.BorderColor(), edge.BorderStyle(),
-          BorderPaintAutoDarkMode(fragment_.Style(), edge.BorderColor()));
+          box_side, edge.BorderColor(), edge.BorderStyle(), auto_dark_mode);
     }
   }
 }

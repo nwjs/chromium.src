@@ -1032,9 +1032,28 @@ void GpuChannel::ReleaseSysmemBufferCollection(
 }
 #endif  // BUILDFLAG(IS_FUCHSIA)
 
-void GpuChannel::CacheShader(const std::string& key,
-                             const std::string& shader) {
-  gpu_channel_manager_->delegate()->StoreShaderToDisk(client_id_, key, shader);
+void GpuChannel::RegisterCacheHandle(const gpu::GpuDiskCacheHandle& handle) {
+  gpu::GpuDiskCacheType type = gpu::GetHandleType(handle);
+
+  // We should never be registering multiple different caches of the same type.
+  const auto it = caches_.find(type);
+  if (it != caches_.end() && it->second != handle) {
+    LOG(ERROR) << "GpuChannel cannot register multiple different caches of the "
+                  "same type.";
+    return;
+  }
+
+  caches_[gpu::GetHandleType(handle)] = handle;
+}
+
+void GpuChannel::CacheBlob(gpu::GpuDiskCacheType type,
+                           const std::string& key,
+                           const std::string& shader) {
+  auto it = caches_.find(type);
+  if (it == caches_.end()) {
+    return;
+  }
+  gpu_channel_manager_->delegate()->StoreBlobToDisk(it->second, key, shader);
 }
 
 uint64_t GpuChannel::GetMemoryUsage() const {
@@ -1065,8 +1084,6 @@ scoped_refptr<gl::GLImage> GpuChannel::CreateImageForGpuMemoryBuffer(
   switch (handle.type) {
     case gfx::SHARED_MEMORY_BUFFER: {
       if (plane != gfx::BufferPlane::DEFAULT)
-        return nullptr;
-      if (!base::IsValueInRangeForNumericType<size_t>(handle.stride))
         return nullptr;
       auto image = base::MakeRefCounted<gl::GLImageSharedMemory>(size);
       if (!image->Initialize(handle.region, handle.id, format, handle.offset,

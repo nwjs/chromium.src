@@ -100,8 +100,8 @@ namespace printing {
 using testing::_;
 
 #if BUILDFLAG(ENABLE_OOP_PRINTING)
-using OnDidInvokeUseDefaultSettingsCallback = base::RepeatingCallback<void()>;
-using OnDidInvokeGetSettingsWithUICallback = base::RepeatingCallback<void()>;
+using OnUseDefaultSettingsCallback = base::RepeatingCallback<void()>;
+using OnGetSettingsWithUICallback = base::RepeatingCallback<void()>;
 
 using ErrorCheckCallback =
     base::RepeatingCallback<void(mojom::ResultCode result)>;
@@ -128,9 +128,8 @@ using OnStopCallback = base::RepeatingCallback<void()>;
 
 // Callbacks to run for overrides in `TestPrintJobWorker`.
 struct TestPrintCallbacks {
-  OnDidInvokeUseDefaultSettingsCallback
-      did_invoke_use_default_settings_callback;
-  OnDidInvokeGetSettingsWithUICallback did_invoke_get_settings_with_ui_callback;
+  OnUseDefaultSettingsCallback did_use_default_settings_callback;
+  OnGetSettingsWithUICallback did_get_settings_with_ui_callback;
   OnStopCallback did_stop_callback;
 };
 
@@ -2312,20 +2311,20 @@ class TestPrintJobWorker : public PrintJobWorker {
   ~TestPrintJobWorker() override = default;
 
  private:
-  void InvokeUseDefaultSettings(SettingsCallback callback) override {
+  void UseDefaultSettings(SettingsCallback callback) override {
     DVLOG(1) << "Observed: invoke use default settings";
-    PrintJobWorker::InvokeUseDefaultSettings(std::move(callback));
-    callbacks_->did_invoke_use_default_settings_callback.Run();
+    PrintJobWorker::UseDefaultSettings(std::move(callback));
+    callbacks_->did_use_default_settings_callback.Run();
   }
 
-  void InvokeGetSettingsWithUI(uint32_t document_page_count,
-                               bool has_selection,
-                               bool is_scripted,
-                               SettingsCallback callback) override {
+  void GetSettingsWithUI(uint32_t document_page_count,
+                         bool has_selection,
+                         bool is_scripted,
+                         SettingsCallback callback) override {
     DVLOG(1) << "Observed: invoke get settings with UI";
-    PrintJobWorker::InvokeGetSettingsWithUI(document_page_count, has_selection,
-                                            is_scripted, std::move(callback));
-    callbacks_->did_invoke_get_settings_with_ui_callback.Run();
+    PrintJobWorker::GetSettingsWithUI(document_page_count, has_selection,
+                                      is_scripted, std::move(callback));
+    callbacks_->did_get_settings_with_ui_callback.Run();
   }
 
   void Stop() override {
@@ -2484,14 +2483,14 @@ class SystemAccessProcessPrintBrowserTestBase : public PrintBrowserTest {
           &SystemAccessProcessPrintBrowserTestBase::OnDidStop,
           base::Unretained(this));
     } else {
-      test_print_callbacks_.did_invoke_use_default_settings_callback =
-          base::BindRepeating(&SystemAccessProcessPrintBrowserTestBase::
-                                  OnDidInvokeUseDefaultSettings,
-                              base::Unretained(this));
-      test_print_callbacks_.did_invoke_get_settings_with_ui_callback =
-          base::BindRepeating(&SystemAccessProcessPrintBrowserTestBase::
-                                  OnDidInvokeGetSettingsWithUI,
-                              base::Unretained(this));
+      test_print_callbacks_.did_use_default_settings_callback =
+          base::BindRepeating(
+              &SystemAccessProcessPrintBrowserTestBase::OnUseDefaultSettings,
+              base::Unretained(this));
+      test_print_callbacks_.did_get_settings_with_ui_callback =
+          base::BindRepeating(
+              &SystemAccessProcessPrintBrowserTestBase::OnGetSettingsWithUI,
+              base::Unretained(this));
       test_print_callbacks_.did_stop_callback = base::BindRepeating(
           &SystemAccessProcessPrintBrowserTestBase::OnDidStop,
           base::Unretained(this));
@@ -2629,13 +2628,9 @@ class SystemAccessProcessPrintBrowserTestBase : public PrintBrowserTest {
         /*cause_errors=*/true);
   }
 
-  bool did_invoke_use_default_settings() const {
-    return did_invoke_use_default_settings_;
-  }
+  bool did_use_default_settings() const { return did_use_default_settings_; }
 
-  bool did_invoke_get_settings_with_ui() const {
-    return did_invoke_get_settings_with_ui_;
-  }
+  bool did_get_settings_with_ui() const { return did_get_settings_with_ui_; }
 
   bool print_backend_service_use_detected() const {
     return print_backend_service_use_detected_;
@@ -2780,14 +2775,14 @@ class SystemAccessProcessPrintBrowserTestBase : public PrintBrowserTest {
   }
 #endif  // BUILDFLAG(ENABLE_OOP_PRINTING)
 
-  void OnDidInvokeUseDefaultSettings() {
-    did_invoke_use_default_settings_ = true;
+  void OnUseDefaultSettings() {
+    did_use_default_settings_ = true;
     PrintBackendServiceDetectionCheck();
     CheckForQuit();
   }
 
-  void OnDidInvokeGetSettingsWithUI() {
-    did_invoke_get_settings_with_ui_ = true;
+  void OnGetSettingsWithUI() {
+    did_get_settings_with_ui_ = true;
     PrintBackendServiceDetectionCheck();
     CheckForQuit();
   }
@@ -2881,8 +2876,8 @@ class SystemAccessProcessPrintBrowserTestBase : public PrintBrowserTest {
   TestPrintCallbacks test_print_callbacks_;
   TestPrintOopCallbacks test_print_oop_callbacks_;
   CreatePrintJobWorkerCallback test_create_print_job_worker_callback_;
-  bool did_invoke_use_default_settings_ = false;
-  bool did_invoke_get_settings_with_ui_ = false;
+  bool did_use_default_settings_ = false;
+  bool did_get_settings_with_ui_ = false;
   bool print_backend_service_use_detected_ = false;
   bool simulate_spooling_memory_errors_ = false;
   mojo::Remote<mojom::PrintBackendService> test_remote_;
@@ -3369,8 +3364,8 @@ IN_PROC_BROWSER_TEST_F(SystemAccessProcessInBrowserPrintBrowserTest,
 
   WaitUntilCallbackReceived();
 
-  EXPECT_TRUE(did_invoke_use_default_settings());
-  EXPECT_TRUE(did_invoke_get_settings_with_ui());
+  EXPECT_TRUE(did_use_default_settings());
+  EXPECT_TRUE(did_get_settings_with_ui());
   EXPECT_TRUE(stop_invoked());
 
   // `PrintBackendService` should never be used when printing in-browser.
@@ -3557,9 +3552,8 @@ class ContentAnalysisScriptedPreviewlessPrintBrowserTest
 };
 
 // TODO(crbug.com/1256506): Re-enable test on Windows
-// TODO(crbug.com/1321689): Re-enable test on Mac
-#if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_WIN) && !BUILDFLAG(IS_MAC)
-IN_PROC_BROWSER_TEST_P(ContentAnalysisPrintBrowserTest, DISABLED_PrintNow) {
+#if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_WIN)
+IN_PROC_BROWSER_TEST_P(ContentAnalysisPrintBrowserTest, PrintNow) {
   ASSERT_TRUE(embedded_test_server()->Started());
   GURL url(embedded_test_server()->GetURL("/printing/test1.html"));
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
@@ -3577,7 +3571,12 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisPrintBrowserTest, DISABLED_PrintNow) {
              /*has_selection=*/false);
 
   print_view_manager->WaitOnScanning();
-  ASSERT_EQ(print_view_manager->print_now_called(),
+
+  // PrintNow uses the same code path as scripted prints to scan printed pages,
+  // so print_now_called() should always happen and scripted_print_called()
+  // should be called with the same result that is expected from scanning.
+  ASSERT_TRUE(print_view_manager->print_now_called());
+  ASSERT_EQ(print_view_manager->scripted_print_called(),
             content_analysis_allows_print());
 }
 
@@ -3614,7 +3613,7 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisScriptedPreviewlessPrintBrowserTest,
   RunScriptedPrintTest("window.print()");
 }
 
-#endif  // !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_WIN) && !BUILDFLAG(IS_MAC)
+#endif  // !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(IS_CHROMEOS)
 IN_PROC_BROWSER_TEST_P(ContentAnalysisPrintBrowserTest,
@@ -3643,20 +3642,18 @@ IN_PROC_BROWSER_TEST_P(ContentAnalysisPrintBrowserTest,
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 // TODO(crbug.com/1256506): Re-enable test on Windows
-// TODO(crbug.com/1321689): Re-enable test on Mac
-#if !BUILDFLAG(IS_WIN) && !BUILDFLAG(IS_MAC)
+#if !BUILDFLAG(IS_WIN)
 INSTANTIATE_TEST_SUITE_P(All, ContentAnalysisPrintBrowserTest, testing::Bool());
-#endif  // !BUILDFLAG(IS_WIN) && !BUILDFLAG(IS_MAC)
+#endif  // !BUILDFLAG(IS_WIN)
 
 // TODO(crbug.com/1256506): Re-enable test on Windows
-// TODO(crbug.com/1321689): Re-enable test on Mac
 // This test suite doesn't run on CrOS since it doesn't support non-print
 // preview scripted printing.
-#if !BUILDFLAG(IS_WIN) && !BUILDFLAG(IS_MAC) && !BUILDFLAG(IS_CHROMEOS)
+#if !BUILDFLAG(IS_WIN) && !BUILDFLAG(IS_CHROMEOS)
 INSTANTIATE_TEST_SUITE_P(All,
                          ContentAnalysisScriptedPreviewlessPrintBrowserTest,
                          testing::Bool());
-#endif  // !BUILDFLAG(IS_WIN) && !BUILDFLAG(IS_MAC) && !BUILDFLAG(IS_CHROMEOS)
+#endif  // !BUILDFLAG(IS_WIN) && !BUILDFLAG(IS_CHROMEOS)
 
 #endif  // BUILDFLAG(ENABLE_PRINT_SCANNING)
 

@@ -91,6 +91,7 @@ namespace raster {
 namespace {
 
 const uint32_t kMaxTransferCacheEntrySizeForTransferBuffer = 1024;
+const size_t kMaxImmediateDeletedPaintCachePaths = 1024;
 
 class ScopedSharedMemoryPtr {
  public:
@@ -1258,17 +1259,43 @@ constexpr size_t kNumMailboxes = SkYUVAInfo::kMaxPlanes + 1;
 void RasterImplementation::ConvertYUVAMailboxesToRGB(
     const gpu::Mailbox& dest_mailbox,
     SkYUVColorSpace planes_yuv_color_space,
+    const SkColorSpace* planes_rgb_color_space,
     SkYUVAInfo::PlaneConfig plane_config,
     SkYUVAInfo::Subsampling subsampling,
     const gpu::Mailbox yuva_plane_mailboxes[]) {
-  gpu::Mailbox mailboxes[kNumMailboxes]{};
-  for (int i = 0; i < SkYUVAInfo::NumPlanes(plane_config); ++i) {
-    mailboxes[i] = yuva_plane_mailboxes[i];
+  skcms_Matrix3x3 primaries = {{{0}}};
+  skcms_TransferFunction transfer = {0};
+  if (planes_rgb_color_space) {
+    planes_rgb_color_space->toXYZD50(&primaries);
+    planes_rgb_color_space->transferFn(&transfer);
+  } else {
+    // Specify an invalid transfer function exponent, to ensure that when
+    // SkColorSpace::MakeRGB is called in the decoder, the result is nullptr.
+    transfer.g = -99;
   }
-  mailboxes[kNumMailboxes - 1] = dest_mailbox;
+
+  constexpr size_t kByteSize = sizeof(gpu::Mailbox) * (kNumMailboxes) +
+                               sizeof(skcms_TransferFunction) +
+                               sizeof(skcms_Matrix3x3);
+  static_assert(kByteSize == 144);
+  GLbyte bytes[kByteSize] = {0};
+  size_t offset = 0;
+  for (int i = 0; i < SkYUVAInfo::NumPlanes(plane_config); ++i) {
+    memcpy(bytes + offset, yuva_plane_mailboxes + i, sizeof(gpu::Mailbox));
+    offset += sizeof(gpu::Mailbox);
+  }
+  offset = SkYUVAInfo::kMaxPlanes * sizeof(gpu::Mailbox);
+  memcpy(bytes + offset, &dest_mailbox, sizeof(gpu::Mailbox));
+  offset += sizeof(gpu::Mailbox);
+  memcpy(bytes + offset, &transfer, sizeof(transfer));
+  offset += sizeof(transfer);
+  memcpy(bytes + offset, &primaries, sizeof(primaries));
+  offset += sizeof(primaries);
+  DCHECK_EQ(offset, kByteSize);
+
   helper_->ConvertYUVAMailboxesToRGBINTERNALImmediate(
       planes_yuv_color_space, static_cast<GLenum>(plane_config),
-      static_cast<GLenum>(subsampling), reinterpret_cast<GLbyte*>(mailboxes));
+      static_cast<GLenum>(subsampling), reinterpret_cast<GLbyte*>(bytes));
 }
 
 void RasterImplementation::ConvertRGBAToYUVAMailboxes(
@@ -1858,7 +1885,23 @@ void RasterImplementation::FlushPaintCachePurgedEntries() {
 
     switch (static_cast<cc::PaintCacheDataType>(i)) {
       case cc::PaintCacheDataType::kPath:
-        helper_->DeletePaintCachePathsINTERNALImmediate(ids.size(), ids.data());
+        if (ids.size() <= kMaxImmediateDeletedPaintCachePaths) {
+          helper_->DeletePaintCachePathsINTERNALImmediate(ids.size(),
+                                                          ids.data());
+        } else {
+          size_t data_size = ids.size() * sizeof(GLuint);
+          ScopedSharedMemoryPtr dest(data_size, transfer_buffer_,
+                                     mapped_memory_.get(), helper());
+          if (dest.valid()) {
+            memcpy(dest.address(), ids.data(), data_size);
+            helper_->DeletePaintCachePathsINTERNAL(ids.size(), dest.shm_id(),
+                                                   dest.offset());
+          } else {
+            SetGLError(GL_INVALID_OPERATION, "glDeletePaintCachePathsINTERNAL",
+                       "couldn't allocate shared memory");
+            // Continue with the loop in order to clean up the ids.
+          }
+        }
         break;
     }
     ids.clear();

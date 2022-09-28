@@ -199,7 +199,6 @@
       <include name="IDR_MOST_VISITED_THUMBNAIL_CSS" file="resources\empty.css" type="BINDATA" />
       <include name="IDR_MOST_VISITED_THUMBNAIL_JS" file="resources\empty.js" type="BINDATA" />
       <include name="IDR_MOST_VISITED_WINDOW_DISPOSITION_UTIL_JS" file="resources\empty.js" type="BINDATA" />
-      <include name="IDR_OMNIBOX_ELEMENT_JS" file="resources\omnibox\omnibox_element.js" type="BINDATA" compress="gzip" />
       <include name="IDR_OMNIBOX_OUTPUT_JS" file="resources\omnibox\omnibox_output.js" type="BINDATA" compress="gzip" />
       <include name="IDR_OMNIBOX_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_OMNIBOX_CSS" file="resources\empty.css" type="BINDATA" />
@@ -211,7 +210,6 @@
         <include name="IDR_PLUGINS_MOJO_JS" file="resources\empty.js" type="BINDATA"/>
       </if>
       <include name="IDR_OMNIBOX_INPUT_CSS" file="resources\omnibox\omnibox_input.css" type="BINDATA" compress="gzip" />
-      <include name="IDR_OMNIBOX_INPUT_JS" file="resources\omnibox\omnibox_input.js" type="BINDATA" compress="gzip" />
       <include name="IDR_OUTPUT_RESULTS_GROUP_CSS" file="resources\omnibox\output_results_group.css" type="BINDATA" compress="gzip" />
       <include name="IDR_OMNIBOX_OUTPUT_COLUMN_WIDTHS_CSS" file="resources\omnibox\omnibox_output_column_widths.css" type="BINDATA" compress="gzip" />
       <include name="IDR_COMPONENTS_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />

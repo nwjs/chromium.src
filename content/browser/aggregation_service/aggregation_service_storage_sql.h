@@ -11,7 +11,10 @@
 
 #include "base/files/file_path.h"
 #include "base/sequence_checker.h"
+#include "base/strings/string_piece_forward.h"
 #include "base/thread_annotations.h"
+#include "base/time/time.h"
+#include "content/browser/aggregation_service/aggregation_service.h"
 #include "content/browser/aggregation_service/aggregation_service_storage.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/storage_partition.h"
@@ -23,7 +26,6 @@ class GURL;
 
 namespace base {
 class Clock;
-class Time;
 }  // namespace base
 
 namespace sql {
@@ -44,10 +46,18 @@ struct PublicKeyset;
 class CONTENT_EXPORT AggregationServiceStorageSql
     : public AggregationServiceStorage {
  public:
+  // Exposed for testing.
+  static const int kCurrentVersionNumber;
+  static const int kCompatibleVersionNumber;
+  static const int kDeprecatedVersionNumber;
+
   // `clock` must be a non-null pointer that is valid as long as this object.
-  AggregationServiceStorageSql(bool run_in_memory,
-                               const base::FilePath& path_to_database,
-                               const base::Clock* clock);
+  AggregationServiceStorageSql(
+      bool run_in_memory,
+      const base::FilePath& path_to_database,
+      const base::Clock* clock,
+      int max_stored_requests_per_reporting_origin =
+          AggregationService::kMaxStoredReportsPerReportingOrigin);
   AggregationServiceStorageSql(const AggregationServiceStorageSql& other) =
       delete;
   AggregationServiceStorageSql& operator=(
@@ -65,6 +75,12 @@ class CONTENT_EXPORT AggregationServiceStorageSql
       base::Time strictly_after_time) override;
   std::vector<AggregationServiceStorage::RequestAndId>
   GetRequestsReportingOnOrBefore(base::Time not_after_time) override;
+  std::vector<AggregationServiceStorage::RequestAndId> GetRequests(
+      const std::vector<AggregationServiceStorage::RequestId>& ids) override;
+  absl::optional<base::Time> AdjustOfflineReportTimes(
+      base::Time now,
+      base::TimeDelta min_delay,
+      base::TimeDelta max_delay) override;
   void ClearDataBetween(
       base::Time delete_begin,
       base::Time delete_end,
@@ -132,6 +148,9 @@ class CONTENT_EXPORT AggregationServiceStorageSql
   bool DeleteRequestImpl(RequestId request_id)
       VALID_CONTEXT_REQUIRED(sequence_checker_);
 
+  absl::optional<base::Time> NextReportTimeAfterImpl(
+      base::Time strictly_after_time) VALID_CONTEXT_REQUIRED(sequence_checker_);
+
   // Clears the report requests that were stored between `delete_begin` and
   // `delete_end` time (inclusive). Null times are treated as unbounded lower or
   // upper range. If `!filter.is_null()`, only requests with reporting origins
@@ -144,6 +163,11 @@ class CONTENT_EXPORT AggregationServiceStorageSql
 
   // Clears all stored report requests;
   void ClearAllRequests() VALID_CONTEXT_REQUIRED(sequence_checker_);
+
+  // Whether the reporting origin has space for an extra report to be stored,
+  // i.e. has not reached the `max_stored_requests_per_reporting_origin_` limit.
+  bool ReportingOriginHasCapacity(base::StringPiece serialized_reporting_origin)
+      VALID_CONTEXT_REQUIRED(sequence_checker_);
 
   // Initializes the database if necessary, and returns whether the database is
   // open. `creation_policy` indicates whether the database should be created if
@@ -170,6 +194,11 @@ class CONTENT_EXPORT AggregationServiceStorageSql
   const base::FilePath path_to_database_;
 
   const base::Clock& clock_;
+
+  // No more report requests with the same reporting origin can be stored in the
+  // database than this. Any additional requests attempted to be stored will
+  // silently be dropped until there is more capacity.
+  int max_stored_requests_per_reporting_origin_;
 
   // Current status of the database initialization. Tracks what stage `this` is
   // at for lazy initialization, and used as a signal for if the database is

@@ -11,10 +11,7 @@ import {testcase} from '../testcase.js';
 import {expandTreeItem, navigateWithDirectoryTree, remoteCall, setupAndWaitUntilReady} from './background.js';
 
 async function getBreadcrumbTagName() {
-  const isFilesAppExperimental =
-      await sendTestMessage({name: 'isFilesAppExperimental'}) === 'true';
-
-  return isFilesAppExperimental ? 'xf-breadcrumb' : 'bread-crumb';
+  return 'xf-breadcrumb';
 }
 
 testcase.breadcrumbsNavigate = async () => {
@@ -282,7 +279,7 @@ testcase.breadcrumbsMainButtonClick = async () => {
 
   // Check: the breadcrumb path should be updated due to navigation.
   await remoteCall.waitForElement(
-      appId, ['bread-crumb[path="My files/Downloads"']);
+      appId, [`${breadcrumbsTag}[path="My files/Downloads"]`]);
 };
 
 /**
@@ -317,7 +314,7 @@ testcase.breadcrumbsMainButtonEnterKey = async () => {
 
   // Check: the breadcrumb path should be updated due to navigation.
   await remoteCall.waitForElement(
-      appId, ['bread-crumb[path="My files/Downloads"']);
+      appId, [`${breadcrumbsTag}[path="My files/Downloads"]`]);
 };
 
 /**
@@ -512,7 +509,7 @@ testcase.breadcrumbsEliderMenuItemClick = async () => {
 
   // Check: the breadcrumb path should be updated due to navigation.
   await remoteCall.waitForElement(
-      appId, ['bread-crumb[path="My files/Downloads"']);
+      appId, [`${breadcrumbsTag}[path="My files/Downloads"]`]);
 };
 
 /**
@@ -650,4 +647,39 @@ testcase.breadcrumbsDontExceedAvailableViewport = async () => {
           actualDialogHeaderWidth.renderedWidth);
     }
   });
+};
+
+/**
+ * Test that navigating back from a sub-folder in Google Drive> Shared With Me
+ * using the breadcrumbs.
+ * Internally Shared With Me uses some of the Drive Search code, this confused
+ * the DirectoryModel clearing the search state in the Store.
+ */
+testcase.breadcrumbNavigateBackToSharedWithMe = async () => {
+  // Open Files app on Drive containing "Shared with me" file entries.
+  const sharedSubFolderName = ENTRIES.sharedWithMeDirectory.nameText;
+  const appId = await setupAndWaitUntilReady(
+      RootPath.DRIVE, [], [ENTRIES.sharedWithMeDirectory, ENTRIES.hello]);
+
+  // Navigate to Shared with me.
+  await remoteCall.waitAndClickElement(
+      appId, '#directory-tree [entry-label="Shared with me"]');
+
+  // Wait until the breadcrumb path is updated.
+  await remoteCall.waitUntilCurrentDirectoryIsChanged(appId, '/Shared with me');
+
+  // Navigate to the directory within Shared with me.
+  await remoteCall.waitUntilSelected(appId, sharedSubFolderName);
+  await remoteCall.fakeKeyDown(
+      appId, '#file-list', 'Enter', false, false, false);
+
+  await remoteCall.waitUntilCurrentDirectoryIsChanged(
+      appId, `/Shared with me/${sharedSubFolderName}`);
+
+  // Navigate back using breadcrumb.
+  await remoteCall.waitAndClickElement(
+      appId, ['xf-breadcrumb', 'button[id="first"]']);
+
+  // Wait until the breadcrumb path is updated.
+  await remoteCall.waitUntilCurrentDirectoryIsChanged(appId, '/Shared with me');
 };

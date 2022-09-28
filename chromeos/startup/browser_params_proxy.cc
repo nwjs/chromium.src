@@ -226,8 +226,21 @@ bool BrowserParamsProxy::EnableLacrosTtsSupport() const {
 };
 
 crosapi::mojom::BrowserInitParams::LacrosSelection
-BrowserParamsProxy::lacros_selection() const {
+BrowserParamsProxy::LacrosSelection() const {
   return BrowserInitParams::Get()->lacros_selection;
 };
+
+bool BrowserParamsProxy::IsFloatWindowEnabled() const {
+  return BrowserInitParams::Get()->enable_float_window;
+}
+
+bool BrowserParamsProxy::IsCloudGamingDevice() const {
+  return BrowserInitParams::Get()->is_cloud_gaming_device;
+}
+
+crosapi::mojom::BrowserInitParams::GpuSandboxStartMode
+BrowserParamsProxy::GpuSandboxStartMode() const {
+  return BrowserInitParams::Get()->gpu_sandbox_start_mode;
+}
 
 }  // namespace chromeos

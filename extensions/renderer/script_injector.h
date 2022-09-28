@@ -50,11 +50,11 @@ class ScriptInjector {
   // Returns the script type of this particular injection.
   virtual mojom::InjectionType script_type() const = 0;
 
+  // Returns the associated `UserActivationOption` for script evaluation.
+  virtual blink::mojom::UserActivationOption IsUserGesture() const = 0;
+
   // Returns true if the script should execute in the main world.
   virtual bool ShouldExecuteInMainWorld() const = 0;
-
-  // Returns true if the script is running inside a user gesture.
-  virtual bool IsUserGesture() const = 0;
 
   // Returns the world in which to execute the javascript code.
   virtual mojom::ExecutionWorld GetExecutionWorld() const = 0;
@@ -66,11 +66,11 @@ class ScriptInjector {
   // performed.
   virtual mojom::CSSInjection::Operation GetCSSInjectionOperation() const = 0;
 
-  // Returns true if the script expects results.
-  virtual bool ExpectsResults() const = 0;
+  // Returns the associated `WantResultOption` for script evaluation.
+  virtual blink::mojom::WantResultOption ExpectsResults() const = 0;
 
-  // Whether to wait for a promise result to resolve.
-  virtual bool ShouldWaitForPromise() const = 0;
+  // Returns the associated `PromiseResultOption` for script evaluation.
+  virtual blink::mojom::PromiseResultOption ShouldWaitForPromise() const = 0;
 
   // Returns true if the script should inject JS source at the given
   // |run_location|.

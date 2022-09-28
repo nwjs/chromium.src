@@ -43,7 +43,8 @@ bool ProgrammaticScriptInjector::ShouldExecuteInMainWorld() const {
   return params_->in_main_world;
 }
 
-bool ProgrammaticScriptInjector::IsUserGesture() const {
+blink::mojom::UserActivationOption ProgrammaticScriptInjector::IsUserGesture()
+    const {
   DCHECK(params_->injection->is_js());
   return params_->injection->get_js()->user_gesture;
 }
@@ -64,12 +65,14 @@ ProgrammaticScriptInjector::GetCSSInjectionOperation() const {
   return params_->injection->get_css()->operation;
 }
 
-bool ProgrammaticScriptInjector::ExpectsResults() const {
+blink::mojom::WantResultOption ProgrammaticScriptInjector::ExpectsResults()
+    const {
   DCHECK(params_->injection->is_js());
   return params_->injection->get_js()->wants_result;
 }
 
-bool ProgrammaticScriptInjector::ShouldWaitForPromise() const {
+blink::mojom::PromiseResultOption
+ProgrammaticScriptInjector::ShouldWaitForPromise() const {
   DCHECK(params_->injection->is_js());
   return params_->injection->get_js()->wait_for_promise;
 }

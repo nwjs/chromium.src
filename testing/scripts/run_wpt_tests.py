@@ -10,7 +10,9 @@ import contextlib
 import json
 import logging
 import os
+import shutil
 import sys
+import tempfile
 
 import wpt_common
 
@@ -26,6 +28,7 @@ SRC_DIR = os.path.abspath(
 BUILD_ANDROID = os.path.join(SRC_DIR, 'build', 'android')
 BLINK_TOOLS_DIR = os.path.join(
     SRC_DIR, 'third_party', 'blink', 'tools')
+UPSTREAM_GIT_URL = 'https://github.com/web-platform-tests/wpt.git'
 
 if BLINK_TOOLS_DIR not in sys.path:
     sys.path.append(BLINK_TOOLS_DIR)
@@ -47,6 +50,7 @@ try:
     # This import adds `devil` to `sys.path`.
     import devil_chromium
     from devil import devil_env
+    from devil.utils.parallelizer import SyncParallelizer
     from devil.android import apk_helper
     from devil.android import device_utils
     from devil.android.device_errors import CommandFailedError
@@ -99,6 +103,7 @@ BinaryPassThroughAction = _make_pass_through_action(
 class WPTAdapter(wpt_common.BaseWptScriptAdapter):
     def __init__(self):
         self._metadata_dir = None
+        self.temp_dir = os.path.join(tempfile.gettempdir(), "upstream_wpt")
         super().__init__()
         # Parent adapter adds extra arguments, so it is safe to parse the
         # arguments and set options here.
@@ -120,6 +125,18 @@ class WPTAdapter(wpt_common.BaseWptScriptAdapter):
             # Align level name for easier reading.
             format='%(asctime)s [%(levelname)-8s] %(name)s: %(message)s',
             force=True)
+
+    @property
+    def wpt_binary(self):
+        if self.options.use_upstream_wpt:
+            return os.path.join(self.temp_dir, "wpt")
+        return super().wpt_binary
+
+    @property
+    def wpt_root_dir(self):
+        if self.options.use_upstream_wpt:
+            return self.temp_dir
+        return super().wpt_root_dir
 
     @property
     def rest_args(self):
@@ -196,6 +213,17 @@ class WPTAdapter(wpt_common.BaseWptScriptAdapter):
             # empty directory to pass to wptrunner
             if not os.path.exists(self._metadata_dir):
                 os.makedirs(self._metadata_dir)
+            if self.options.use_upstream_wpt:
+                logger.info("Using upstream wpt, cloning to %s ..."
+                    % self.temp_dir)
+                # check if directory exists, if it does remove it
+                if os.path.isdir(self.temp_dir):
+                    shutil.rmtree(self.temp_dir, ignore_errors=True)
+                # make a temp directory and git pull into it
+                clone_cmd = ['git', 'clone', UPSTREAM_GIT_URL,
+                 self.temp_dir, '--depth=1']
+                common.run_command(clone_cmd)
+
             return super().run_test()
 
     def do_post_test_run_tasks(self):
@@ -206,6 +234,8 @@ class WPTAdapter(wpt_common.BaseWptScriptAdapter):
         # Avoid having a dangling reference to the temp directory
         # which was deleted
         self._metadata_dir = None
+        if self.options.use_upstream_wpt:
+            shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def add_extra_arguments(self, parser):
         super().add_extra_arguments(parser)
@@ -243,6 +273,14 @@ class WPTAdapter(wpt_common.BaseWptScriptAdapter):
                   'this number is the number of emulators started.)'
                   'The actual number of devices tested may be higher '
                   'if physical devices are available.)'))
+        parser.add_argument(
+            '--use-upstream-wpt',
+            action='store_true',
+            help=('Use the upstream wpt, this tag will clone'
+                  'the upstream github wpt to a temporary'
+                  'directory and will use the binary and'
+                  'tests from upstream')
+        )
 
     def add_metadata_arguments(self, parser):
         group = parser.add_argument_group(
@@ -522,6 +560,25 @@ class Chrome(Product):
                 or self._path_from_target(default_binary))
 
 
+class ChromeiOS(Product):
+    name = 'chrome_ios'
+
+    @property
+    def wpt_args(self):
+        wpt_args = list(super().wpt_args)
+        wpt_args.extend([
+            '--processes=%d' % self._options.processes,
+        ])
+        return wpt_args
+
+    @property
+    def expectations(self):
+        expectations = list(super().expectations)
+        expectations.append(
+            self._path_finder.path_from_web_tests('WPTOverrideExpectations'))
+        return expectations
+
+
 @contextlib.contextmanager
 def _install_apk(device, path):
     """Helper context manager for ensuring a device uninstalls an APK."""
@@ -549,8 +606,8 @@ class ChromeAndroidBase(Product):
                     'No devices attached to this host. '
                     "Make sure to provide '--avd-config' "
                     'if using only emulators.')
-            for device in devices:
-                self.provision_device(device)
+
+            self.provision_devices(devices)
             yield
 
     @property
@@ -642,19 +699,32 @@ class ChromeAndroidBase(Product):
         # Assume the product is a single APK.
         return self.get_browser_package_name()
 
-    def provision_device(self, device):
-        """Provision an Android device for a test."""
-        if self._options.browser_apk:
-            self._tasks.enter_context(
-                _install_apk(device, self._options.browser_apk))
-        for apk in self._options.additional_apk:
-            self._tasks.enter_context(_install_apk(device, apk))
-        logger.info('Provisioned device (serial: %s)', device.serial)
+    def provision_devices(self, devices):
+        """Provisions a set of Android devices in parallel."""
+        contexts = [self._provision_device(device) for device in devices]
+        self._tasks.enter_context(SyncParallelizer(contexts))
 
-        if device.serial in self.devices:
-            raise Exception('duplicate device serial: %s' % device.serial)
-        self.devices[device.serial] = device
-        self._tasks.callback(self.devices.pop, device.serial, None)
+        for device in devices:
+            if device.serial in self.devices:
+                raise Exception('duplicate device serial: %s' % device.serial)
+            self.devices[device.serial] = device
+            self._tasks.callback(self.devices.pop, device.serial, None)
+
+    @contextlib.contextmanager
+    def _provision_device(self, device):
+        """Provision a single Android device for a test.
+
+        This method will be executed in parallel on all devices, so
+        it is crucial that it is thread safe.
+        """
+        with contextlib.ExitStack() as exit_stack:
+            if self._options.browser_apk:
+                exit_stack.enter_context(
+                    _install_apk(device, self._options.browser_apk))
+            for apk in self._options.additional_apk:
+                exit_stack.enter_context(_install_apk(device, apk))
+            logger.info('Provisioned device (serial: %s)', device.serial)
+            yield
 
 
 @contextlib.contextmanager
@@ -730,9 +800,10 @@ class WebView(ChromeAndroidBase):
                 return apk_helper.GetPackageName(self._options.webview_provider)
         return super().get_version_provider_package_name()
 
-    def provision_device(self, device):
-        self._tasks.enter_context(self._install_webview(device))
-        super().provision_device(device)
+    @contextlib.contextmanager
+    def _provision_device(self, device):
+        with self._install_webview(device), super()._provision_device(device):
+            yield
 
 
 class ChromeAndroid(ChromeAndroidBase):
@@ -766,7 +837,7 @@ def _make_product_registry():
     respective classes.
     """
     product_registry = {}
-    product_classes = [Chrome]
+    product_classes = [Chrome, ChromeiOS]
     if _ANDROID_ENABLED:
         product_classes.extend([ChromeAndroid, WebView, WebLayer])
     for product_cls in product_classes:
@@ -791,19 +862,21 @@ def get_devices(args):
     instances = []
     try:
         if args.avd_config:
-          avd_config = avd.AvdConfig(args.avd_config)
-          logger.warning('Installing emulator from %s', args.avd_config)
-          avd_config.Install()
-          for _ in range(max(args.processes, 1)):
-              instance = avd_config.CreateInstance()
-              instance.Start(writable_system=True, window=args.emulator_window)
-              instances.append(instance)
+            avd_config = avd.AvdConfig(args.avd_config)
+            logger.warning('Installing emulator from %s', args.avd_config)
+            avd_config.Install()
+
+            for _ in range(max(args.processes, 1)):
+                instance = avd_config.CreateInstance()
+                instances.append(instance)
+
+            SyncParallelizer(instances).Start(
+                writable_system=True, window=args.emulator_window)
 
         #TODO(weizhong): when choose device, make sure abi matches with target
         yield device_utils.DeviceUtils.HealthyDevices()
     finally:
-        for instance in instances:
-            instance.Stop()
+        SyncParallelizer(instances).Stop()
 
 
 def main():

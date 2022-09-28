@@ -34,6 +34,8 @@ import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.feed.FeedSwipeRefreshLayout;
 import org.chromium.chrome.browser.feed.ScrollListener;
 import org.chromium.chrome.browser.feed.ScrollableContainerDelegate;
+import org.chromium.chrome.browser.flags.CachedFeatureFlags;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.fullscreen.BrowserControlsManager;
 import org.chromium.chrome.browser.init.ChromeActivityNativeDelegate;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
@@ -272,9 +274,8 @@ public class StartSurfaceCoordinator implements StartSurface {
         mTabSwitcherCustomViewManagerSupplier = new OneshotSupplierImpl<>();
         boolean excludeMVTiles = StartSurfaceConfiguration.START_SURFACE_EXCLUDE_MV_TILES.getValue()
                 || !mIsStartSurfaceEnabled;
-        boolean excludeQueryTiles =
-                StartSurfaceConfiguration.START_SURFACE_EXCLUDE_QUERY_TILES.getValue()
-                || !mIsStartSurfaceEnabled;
+        boolean excludeQueryTiles = !mIsStartSurfaceEnabled
+                || !CachedFeatureFlags.isEnabled(ChromeFeatureList.QUERY_TILES_ON_START);
         if (!mIsStartSurfaceEnabled) {
             // Create Tab switcher directly to save one layer in the view hierarchy.
             mTabSwitcher = TabManagementModuleProvider.getDelegate().createGridTabSwitcher(activity,
@@ -454,6 +455,11 @@ public class StartSurfaceCoordinator implements StartSurface {
     @Override
     public void hideTabSwitcherView(boolean animate) {
         mStartSurfaceMediator.hideTabSwitcherView(animate);
+    }
+
+    @Override
+    public void beforeHideTabSwitcherView() {
+        mStartSurfaceMediator.beforeHideTabSwitcherView();
     }
 
     @Override
@@ -677,10 +683,11 @@ public class StartSurfaceCoordinator implements StartSurface {
         initializeOffsetChangedListener();
         addHeaderOffsetChangeListener(mOffsetChangedListenerToGenerateScrollEvents);
 
-        mTasksSurfacePropertyModelChangeProcessor = PropertyModelChangeProcessor.create(
-                mPropertyModel,
-                new TasksSurfaceViewBinder.ViewHolder(mContainerView, mTasksSurface.getView()),
-                TasksSurfaceViewBinder::bind);
+        mTasksSurfacePropertyModelChangeProcessor =
+                PropertyModelChangeProcessor.create(mPropertyModel,
+                        new TasksSurfaceViewBinder.ViewHolder(
+                                mContainerView, mTasksSurface.getView(), mSwipeRefreshLayout),
+                        TasksSurfaceViewBinder::bind);
     }
 
     private TabSwitcher.Controller initializeSecondaryTasksSurface() {
@@ -708,7 +715,7 @@ public class StartSurfaceCoordinator implements StartSurface {
         mSecondaryTasksSurfacePropertyModelChangeProcessor =
                 PropertyModelChangeProcessor.create(mPropertyModel,
                         new TasksSurfaceViewBinder.ViewHolder(
-                                mContainerView, mSecondaryTasksSurface.getView()),
+                                mContainerView, mSecondaryTasksSurface.getView(), null),
                         SecondaryTasksSurfaceViewBinder::bind);
         if (mOnTabSelectingListener != null) {
             mSecondaryTasksSurface.setOnTabSelectingListener(mOnTabSelectingListener);
@@ -754,6 +761,7 @@ public class StartSurfaceCoordinator implements StartSurface {
         mContainerView.addView(mSwipeRefreshLayout);
         FrameLayout directChildHolder = new FrameLayout(mActivity);
         mSwipeRefreshLayout.addView(directChildHolder);
+        mSwipeRefreshLayout.setVisibility(View.GONE);
         mContainerView = directChildHolder;
     }
 
@@ -817,5 +825,10 @@ public class StartSurfaceCoordinator implements StartSurface {
     @VisibleForTesting
     boolean isSecondaryTasksSurfaceEmptyForTesting() {
         return mSecondaryTasksSurface == null;
+    }
+
+    @VisibleForTesting
+    FeedSwipeRefreshLayout getFeedSwipeRefreshLayoutForTesting() {
+        return mSwipeRefreshLayout;
     }
 }

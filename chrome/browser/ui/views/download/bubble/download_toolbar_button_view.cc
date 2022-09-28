@@ -20,6 +20,7 @@
 #include "chrome/browser/ui/views/download/bubble/download_bubble_security_view.h"
 #include "chrome/browser/ui/views/download/bubble/download_dialog_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -81,6 +82,16 @@ void DownloadToolbarButtonView::PaintButtonContents(gfx::Canvas* canvas) {
     return;
   }
 
+  bool is_disabled = GetVisualState() == Button::STATE_DISABLED;
+  SkColor background_color =
+      is_disabled ? GetForegroundColor(ButtonState::STATE_DISABLED)
+                  : GetColorProvider()->GetColor(
+                        kColorDownloadToolbarButtonRingBackground);
+  SkColor progress_color =
+      is_disabled
+          ? GetForegroundColor(ButtonState::STATE_DISABLED)
+          : GetColorProvider()->GetColor(kColorDownloadToolbarButtonActive);
+
   int x = width() / 2 - kProgressRingRadius;
   int y = height() / 2 - kProgressRingRadius;
   int diameter = 2 * kProgressRingRadius;
@@ -92,20 +103,16 @@ void DownloadToolbarButtonView::PaintButtonContents(gfx::Canvas* canvas) {
       scanning_animation_.Reset();
       scanning_animation_.Show();
     }
-    views::DrawSpinningRing(
-        canvas, gfx::RectFToSkRect(ring_bounds),
-        GetColorProvider()->GetColor(kColorDownloadToolbarButtonRingBackground),
-        GetColorProvider()->GetColor(kColorDownloadToolbarButtonActive),
-        kProgressRingStrokeWidth, /*start_angle=*/
-        gfx::Tween::IntValueBetween(scanning_animation_.GetCurrentValue(), 0,
-                                    360));
+    views::DrawSpinningRing(canvas, gfx::RectFToSkRect(ring_bounds),
+                            background_color, progress_color,
+                            kProgressRingStrokeWidth, /*start_angle=*/
+                            gfx::Tween::IntValueBetween(
+                                scanning_animation_.GetCurrentValue(), 0, 360));
     return;
   }
 
   views::DrawProgressRing(
-      canvas, gfx::RectFToSkRect(ring_bounds),
-      GetColorProvider()->GetColor(kColorDownloadToolbarButtonRingBackground),
-      GetColorProvider()->GetColor(kColorDownloadToolbarButtonActive),
+      canvas, gfx::RectFToSkRect(ring_bounds), background_color, progress_color,
       kProgressRingStrokeWidth, /*start_angle=*/-90,
       /*sweep_angle=*/360 * progress_info.progress_percentage / 100.0);
 }
@@ -135,6 +142,11 @@ void DownloadToolbarButtonView::Disable() {
 
 void DownloadToolbarButtonView::UpdateDownloadIcon() {
   UpdateIcon();
+}
+
+bool DownloadToolbarButtonView::IsFullscreenWithParentViewHidden() {
+  return browser_->window()->IsFullscreen() &&
+         !browser_->window()->IsToolbarVisible();
 }
 
 // This function shows the partial view. If the main view is already showing,
@@ -175,12 +187,16 @@ void DownloadToolbarButtonView::UpdateIcon() {
     new_icon = &kDownloadToolbarButtonIcon;
   }
 
-  if (icon_color != gfx::kPlaceholderColor) {
-    for (auto state : kButtonStates) {
-      SetImageModel(state,
-                    ui::ImageModel::FromVectorIcon(*new_icon, icon_color));
-    }
-  }
+  SetImageModel(ButtonState::STATE_NORMAL,
+                ui::ImageModel::FromVectorIcon(*new_icon, icon_color));
+  SetImageModel(ButtonState::STATE_HOVERED,
+                ui::ImageModel::FromVectorIcon(*new_icon, icon_color));
+  SetImageModel(ButtonState::STATE_PRESSED,
+                ui::ImageModel::FromVectorIcon(*new_icon, icon_color));
+  SetImageModel(
+      Button::STATE_DISABLED,
+      ui::ImageModel::FromVectorIcon(
+          *new_icon, GetForegroundColor(ButtonState::STATE_DISABLED)));
 }
 
 std::unique_ptr<views::View> DownloadToolbarButtonView::GetPrimaryView() {
@@ -275,6 +291,11 @@ void DownloadToolbarButtonView::ButtonPressed() {
     CreateBubbleDialogDelegate(GetPrimaryView());
   }
   controller_->OnButtonPressed();
+}
+
+void DownloadToolbarButtonView::OnThemeChanged() {
+  ToolbarButton::OnThemeChanged();
+  UpdateIcon();
 }
 
 std::unique_ptr<views::View> DownloadToolbarButtonView::CreateRowListView(

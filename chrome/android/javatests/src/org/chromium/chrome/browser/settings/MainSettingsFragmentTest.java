@@ -80,8 +80,8 @@ import org.chromium.chrome.browser.sync.settings.AccountManagementFragment;
 import org.chromium.chrome.browser.sync.settings.SyncPromoPreference;
 import org.chromium.chrome.browser.sync.settings.SyncPromoPreference.State;
 import org.chromium.chrome.browser.tracing.settings.DeveloperSettings;
-import org.chromium.chrome.browser.ui.signin.SigninPromoController;
 import org.chromium.chrome.browser.ui.signin.SyncConsentActivityLauncher;
+import org.chromium.chrome.browser.ui.signin.SyncPromoController;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.chrome.test.util.browser.Features.DisableFeatures;
@@ -108,6 +108,7 @@ import java.util.HashSet;
  */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE, "show-autofill-signatures"})
+@DisableFeatures(ChromeFeatureList.TANGIBLE_SYNC)
 public class MainSettingsFragmentTest {
     private static final String SEARCH_ENGINE_SHORT_NAME = "Google";
 
@@ -167,7 +168,7 @@ public class MainSettingsFragmentTest {
             TemplateUrlServiceFactory.setInstanceForTesting(mActualTemplateUrlService);
         }
         SharedPreferencesManager.getInstance().removeKey(
-                SigninPromoController.getPromoShowCountPreferenceName(SigninAccessPoint.SETTINGS));
+                SyncPromoController.getPromoShowCountPreferenceName(SigninAccessPoint.SETTINGS));
         SharedPreferencesManager.getInstance().removeKey(
                 ChromePreferenceKeys.SYNC_PROMO_TOTAL_SHOW_COUNT);
     }
@@ -327,8 +328,42 @@ public class MainSettingsFragmentTest {
     }
 
     @Test
+    @MediumTest
+    @EnableFeatures(ChromeFeatureList.SYNC_ANDROID_PROMOS_WITH_SINGLE_BUTTON)
+    public void testSigninRowLaunchesSignInFlowForSignedOutAccounts() {
+        // When there are no accounts, sync promo and the signin preference shows the same text.
+        mSyncTestRule.addTestAccount();
+        launchSettingsActivity();
+
+        onView(withText(R.string.sync_promo_turn_on_sync)).perform(click());
+
+        verify(mMockSyncConsentActivityLauncher)
+                .launchActivityIfAllowed(
+                        any(Activity.class), eq(SigninAccessPoint.SETTINGS_SYNC_OFF_ROW));
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures({ChromeFeatureList.TANGIBLE_SYNC,
+            ChromeFeatureList.SYNC_ANDROID_PROMOS_WITH_SINGLE_BUTTON})
+    public void
+    testSigninRowLaunchesTangibleSignInFlowForSignedOutAccounts() {
+        // When there are no accounts, sync promo and the signin preference shows the same text.
+        mSyncTestRule.addTestAccount();
+        launchSettingsActivity();
+
+        onView(withText(R.string.sync_promo_turn_on_sync)).perform(click());
+
+        onView(withText(R.string.signin_account_picker_dialog_title))
+                .inRoot(isDialog())
+                .check(matches(isDisplayed()));
+        onView(withText(R.string.signin_add_account_to_device))
+                .inRoot(isDialog())
+                .check(matches(isDisplayed()));
+    }
+
+    @Test
     @SmallTest
-    @DisableFeatures(ChromeFeatureList.TANGIBLE_SYNC)
     public void testSyncRowLaunchesSignInFlowForSignedInAccounts() {
         CoreAccountInfo accountInfo = mSyncTestRule.setUpAccountAndSignInForTesting();
         launchSettingsActivity();
@@ -346,19 +381,16 @@ public class MainSettingsFragmentTest {
     public void testSyncRowLaunchesTangibleSignInFlowForSignedInAccounts() {
         CoreAccountInfo accountInfo = mSyncTestRule.setUpAccountAndSignInForTesting();
         launchSettingsActivity();
+
         onView(withText(R.string.sync_category_title)).perform(click());
+
         onView(withText(R.string.signin_account_picker_dialog_title))
                 .inRoot(isDialog())
                 .check(matches(isDisplayed()));
+        onView(withText(accountInfo.getEmail())).inRoot(isDialog()).check(matches(isDisplayed()));
         onView(withText(R.string.signin_add_account_to_device))
                 .inRoot(isDialog())
                 .check(matches(isDisplayed()));
-
-        onView(withText(accountInfo.getEmail())).inRoot(isDialog()).perform(click());
-
-        verify(mMockSyncConsentActivityLauncher)
-                .launchActivityForPromoDefaultFlow(any(Activity.class),
-                        eq(SigninAccessPoint.SETTINGS_SYNC_OFF_ROW), eq(accountInfo.getEmail()));
     }
 
     @Test
@@ -543,7 +575,7 @@ public class MainSettingsFragmentTest {
         HistogramDelta showCountHistogram =
                 new HistogramDelta("Signin.SyncPromo.Shown.Count.Settings", 1);
         int promoShowCount = SharedPreferencesManager.getInstance().readInt(
-                SigninPromoController.getPromoShowCountPreferenceName(SigninAccessPoint.SETTINGS));
+                SyncPromoController.getPromoShowCountPreferenceName(SigninAccessPoint.SETTINGS));
         Assert.assertEquals(0, promoShowCount);
         Assert.assertEquals(0,
                 SharedPreferencesManager.getInstance().readInt(
@@ -552,7 +584,7 @@ public class MainSettingsFragmentTest {
         onViewWaiting(allOf(withId(R.id.signin_promo_view_container), isDisplayed()));
 
         promoShowCount = SharedPreferencesManager.getInstance().readInt(
-                SigninPromoController.getPromoShowCountPreferenceName(SigninAccessPoint.SETTINGS));
+                SyncPromoController.getPromoShowCountPreferenceName(SigninAccessPoint.SETTINGS));
         Assert.assertEquals(1, promoShowCount);
         Assert.assertEquals(1,
                 SharedPreferencesManager.getInstance().readInt(

@@ -18,6 +18,7 @@
 #include "services/device/public/mojom/fingerprint.mojom-forward.h"
 #include "services/media_session/public/cpp/media_session_service.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
+#include "services/video_capture/public/mojom/multi_capture_service.mojom-forward.h"
 #include "ui/gfx/native_widget_types.h"
 #include "url/gurl.h"
 
@@ -108,6 +109,12 @@ class ASH_EXPORT ShellDelegate {
       mojo::PendingReceiver<multidevice_setup::mojom::MultiDeviceSetup>
           receiver) = 0;
 
+  // Binds a MultiCaptureService receiver to start observing
+  // MultiCaptureStarted() and MultiCaptureStopped() events.
+  virtual void BindMultiCaptureService(
+      mojo::PendingReceiver<video_capture::mojom::MultiCaptureService>
+          receiver) = 0;
+
   // Returns an interface to the Media Session service, or null if not
   // available.
   virtual media_session::MediaSessionService* GetMediaSessionService();
@@ -149,6 +156,15 @@ class ASH_EXPORT ShellDelegate {
   // window when that window is closed.
   virtual void ForceSkipWarningUserOnClose(
       const std::vector<aura::Window*>& windows) = 0;
+
+  // Retrieves the official Chrome version string e.g. 105.0.5178.0.
+  virtual std::string GetVersionString() = 0;
+
+  // Forwards the ShouldExitFullscreenBeforeLock() call to the crosapi browser
+  // manager.
+  using ShouldExitFullscreenCallback = base::OnceCallback<void(bool)>;
+  virtual void ShouldExitFullscreenBeforeLock(
+      ShouldExitFullscreenCallback callback);
 };
 
 }  // namespace ash

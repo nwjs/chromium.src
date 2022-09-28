@@ -265,7 +265,7 @@ void AmbientPhotoController::ReadPhotoFromTopicQueue() {
   ResetImageData();
   DVLOG(3) << "Downloading topic photos";
   AmbientModeTopic topic = ambient_topic_queue_->Pop();
-  ambient::Photo* photo = cache_entry_.mutable_primary_photo();
+  ::ambient::Photo* photo = cache_entry_.mutable_primary_photo();
   photo->set_details(topic.details);
   photo->set_is_portrait(topic.is_portrait);
   photo->set_type(topic.topic_type);
@@ -283,7 +283,7 @@ void AmbientPhotoController::ReadPhotoFromTopicQueue() {
                      /*is_related_image=*/false, on_done));
 
   if (!topic.related_image_url.empty()) {
-    ambient::Photo* photo = cache_entry_.mutable_related_photo();
+    ::ambient::Photo* photo = cache_entry_.mutable_related_photo();
     photo->set_details(topic.related_details);
     photo->set_is_portrait(topic.is_portrait);
     photo->set_type(topic.topic_type);
@@ -304,9 +304,11 @@ void AmbientPhotoController::TryReadPhotoFromCache() {
       LOG(WARNING) << "Failed to read from cache";
       ambient_backend_model_.AddImageFailure();
       // Do not refresh image if image loading has failed repeatedly, or there
-      // are no more topics to retry.
+      // are no more topics to retry. Note |ambient_topic_queue_| may be null
+      // if AddImageFailure() ultimately led to an AmbientBackendModelObserver
+      // calling StopScreenUpdate().
       if (ambient_backend_model_.ImageLoadingFailed() ||
-          ambient_topic_queue_->IsEmpty()) {
+          !ambient_topic_queue_ || ambient_topic_queue_->IsEmpty()) {
         LOG(WARNING) << "Not attempting image refresh";
         return;
       }

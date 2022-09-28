@@ -72,6 +72,53 @@ suite('OsBluetoothDevicesSubpageTest', function() {
     assertTrue(!!bluetoothDevicesSubpage);
   });
 
+  test('Only show saved devices link row when flag is true', async function() {
+    bluetoothConfig.setSystemState(BluetoothSystemState.kEnabled);
+    await init();
+
+    bluetoothDevicesSubpage.remove();
+    // Set flag to True and check that the row is visible.
+    loadTimeData.overrideValues({'enableSavedDevicesFlag': true});
+    bluetoothDevicesSubpage =
+        document.createElement('os-settings-bluetooth-devices-subpage');
+    document.body.appendChild(bluetoothDevicesSubpage);
+    flush();
+    assertTrue(isVisible(bluetoothDevicesSubpage.shadowRoot.querySelector(
+        '#savedDevicesRowLink')));
+
+    bluetoothDevicesSubpage.remove();
+    // Set flag to False and check that the row is not visible.
+    loadTimeData.overrideValues({'enableSavedDevicesFlag': false});
+    bluetoothDevicesSubpage =
+        document.createElement('os-settings-bluetooth-devices-subpage');
+    document.body.appendChild(bluetoothDevicesSubpage);
+    flush();
+    assertFalse(isVisible(bluetoothDevicesSubpage.shadowRoot.querySelector(
+        '#savedDevicesRowLink')));
+  });
+
+  test(
+      'Selecting saved devices row routes to saved devices subpage',
+      async function() {
+        bluetoothConfig.setSystemState(BluetoothSystemState.kEnabled);
+        await init();
+
+        bluetoothDevicesSubpage.remove();
+        // Set flag to True and check that the row is visible.
+        loadTimeData.overrideValues({'enableSavedDevicesFlag': true});
+        bluetoothDevicesSubpage =
+            document.createElement('os-settings-bluetooth-devices-subpage');
+        document.body.appendChild(bluetoothDevicesSubpage);
+        flush();
+
+        bluetoothDevicesSubpage.shadowRoot.querySelector('#savedDevicesRowLink')
+            .click();
+        await flushAsync();
+        assertEquals(
+            Router.getInstance().getCurrentRoute(),
+            routes.BLUETOOTH_SAVED_DEVICES);
+      });
+
   test('Toggle button creation and a11y', async function() {
     bluetoothConfig.setSystemState(BluetoothSystemState.kEnabled);
     await init();
@@ -337,4 +384,26 @@ suite('OsBluetoothDevicesSubpageTest', function() {
     assertFalse(isVisible(bluetoothDevicesSubpage.shadowRoot.querySelector(
         '#savedDevicesRowLink')));
   });
+
+  test('Single separator line when Fast Pair UI disabled', async function() {
+    bluetoothConfig.setSystemState(BluetoothSystemState.kEnabled);
+    loadTimeData.overrideValues({'enableFastPairFlag': false});
+    await init();
+
+    const sepLines = bluetoothDevicesSubpage.shadowRoot.querySelectorAll(
+        '.device-lists-separator');
+    assertEquals(sepLines.length, 1);
+  });
+
+  test(
+      'Greater than 1 separator line when Fast Pair UI enabled',
+      async function() {
+        bluetoothConfig.setSystemState(BluetoothSystemState.kEnabled);
+        loadTimeData.overrideValues({'enableFastPairFlag': true});
+        await init();
+
+        const sepLines = bluetoothDevicesSubpage.shadowRoot.querySelectorAll(
+            '.device-lists-separator');
+        assertGT(sepLines.length, 1);
+      });
 });

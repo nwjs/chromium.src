@@ -399,6 +399,16 @@ void WebApp::SetTabStrip(absl::optional<blink::Manifest::TabStrip> tab_strip) {
   tab_strip_ = std::move(tab_strip);
 }
 
+void WebApp::SetCurrentOsIntegrationStates(
+    absl::optional<proto::WebAppOsIntegrationState>
+        current_os_integration_states) {
+  current_os_integration_states_ = std::move(current_os_integration_states);
+}
+
+void WebApp::SetIsolationData(IsolationData isolation_data) {
+  isolation_data_ = isolation_data;
+}
+
 void WebApp::AddPlaceholderInfoToManagementExternalConfigMap(
     WebAppManagement::Type type,
     bool is_placeholder) {
@@ -432,6 +442,10 @@ bool WebApp::RemoveInstallUrlForSource(WebAppManagement::Type type,
     management_to_external_config_map_.erase(type);
   }
   return removed;
+}
+
+void WebApp::SetAlwaysShowToolbarInFullscreen(bool show) {
+  always_show_toolbar_in_fullscreen_ = show;
 }
 
 WebApp::ClientData::ClientData() = default;
@@ -494,10 +508,81 @@ base::Value::Dict WebApp::ExternalManagementConfig::AsDebugValue() const {
   return root;
 }
 
+WebApp::IsolationData::IsolationData(
+    absl::variant<InstalledBundle, DevModeBundle, DevModeProxy> content)
+    : content(content) {}
+WebApp::IsolationData::~IsolationData() = default;
+WebApp::IsolationData::IsolationData(const IsolationData&) = default;
+WebApp::IsolationData& WebApp::IsolationData::operator=(
+    const WebApp::IsolationData&) = default;
+WebApp::IsolationData::IsolationData(IsolationData&&) = default;
+WebApp::IsolationData& WebApp::IsolationData::operator=(
+    WebApp::IsolationData&&) = default;
+bool WebApp::IsolationData::operator==(
+    const WebApp::IsolationData& other) const {
+  return content == other.content;
+}
+bool WebApp::IsolationData::operator!=(
+    const WebApp::IsolationData& other) const {
+  return !(*this == other);
+}
+bool WebApp::IsolationData::InstalledBundle::operator==(
+    const WebApp::IsolationData::InstalledBundle& other) const {
+  return path == other.path;
+}
+bool WebApp::IsolationData::InstalledBundle::operator!=(
+    const WebApp::IsolationData::InstalledBundle& other) const {
+  return !(*this == other);
+}
+bool WebApp::IsolationData::DevModeBundle::operator==(
+    const WebApp::IsolationData::DevModeBundle& other) const {
+  return path == other.path;
+}
+bool WebApp::IsolationData::DevModeBundle::operator!=(
+    const WebApp::IsolationData::DevModeBundle& other) const {
+  return !(*this == other);
+}
+bool WebApp::IsolationData::DevModeProxy::operator==(
+    const WebApp::IsolationData::DevModeProxy& other) const {
+  return proxy_url == other.proxy_url;
+}
+bool WebApp::IsolationData::DevModeProxy::operator!=(
+    const WebApp::IsolationData::DevModeProxy& other) const {
+  return !(*this == other);
+}
+base::Value WebApp::IsolationData::AsDebugValue() const {
+  struct ContentVisitor {
+    base::Value::Dict operator()(
+        const WebApp::IsolationData::InstalledBundle& bundle) {
+      base::Value::Dict content;
+      content.SetByDottedPath("installed_bundle.path", bundle.path);
+      return content;
+    }
+
+    base::Value::Dict operator()(
+        const WebApp::IsolationData::DevModeBundle& bundle) {
+      base::Value::Dict content;
+      content.SetByDottedPath("dev_mode_bundle.path", bundle.path);
+      return content;
+    }
+
+    base::Value::Dict operator()(
+        const WebApp::IsolationData::DevModeProxy& proxy) {
+      base::Value::Dict content;
+      content.SetByDottedPath("dev_mode_proxy.proxy_url", proxy.proxy_url);
+      return content;
+    }
+  };
+
+  base::Value::Dict value;
+  value.Set("content", absl::visit(ContentVisitor(), content));
+  return base::Value(std::move(value));
+}
+
 bool WebApp::operator==(const WebApp& other) const {
   auto AsTuple = [](const WebApp& app) {
     // Keep in order declared in web_app.h.
-    return std::tie(
+    return std::make_tuple(
         // Disable clang-format so diffs are clearer when fields are added.
         // clang-format off
         app.app_id_,
@@ -558,11 +643,14 @@ bool WebApp::operator==(const WebApp& other) const {
         app.app_size_in_bytes_,
         app.data_size_in_bytes_,
         app.management_to_external_config_map_,
-        app.tab_strip_
+        app.tab_strip_,
+        app.always_show_toolbar_in_fullscreen_,
+        app.current_os_integration_states_.value_or(proto::WebAppOsIntegrationState()).SerializeAsString(),
+        app.isolation_data_
         // clang-format on
     );
   };
-  return AsTuple(*this) == AsTuple(other);
+  return (AsTuple(*this) == AsTuple(other));
 }
 
 bool WebApp::operator!=(const WebApp& other) const {
@@ -743,7 +831,7 @@ base::Value WebApp::AsDebugValue() const {
     base::Value& launch_handler_json = *root.SetKey(
         "launch_handler", base::Value(base::Value::Type::DICTIONARY));
     launch_handler_json.SetStringKey(
-        "route_to", ConvertToString(launch_handler_->route_to));
+        "client_mode", ConvertToString(launch_handler_->client_mode));
   } else {
     root.SetKey("launch_handler", base::Value());
   }
@@ -867,6 +955,18 @@ base::Value WebApp::AsDebugValue() const {
     }
   } else {
     root.SetKey("tab_strip", base::Value());
+  }
+
+  root.SetBoolKey("always_show_toolbar_in_fullscreen",
+                  always_show_toolbar_in_fullscreen_);
+
+  if (current_os_integration_states_.has_value()) {
+    root.SetKey("current_os_integration_states", base::Value());
+    // TODO(crbug.com/1295044) : Add logic to parse and show data.
+  }
+
+  if (isolation_data_.has_value()) {
+    root.SetKey("isolation_data", isolation_data_->AsDebugValue());
   }
 
   return root;

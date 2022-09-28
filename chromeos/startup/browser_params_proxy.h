@@ -114,7 +114,14 @@ class COMPONENT_EXPORT(CHROMEOS_STARTUP) BrowserParamsProxy {
 
   bool EnableLacrosTtsSupport() const;
 
-  crosapi::mojom::BrowserInitParams::LacrosSelection lacros_selection() const;
+  crosapi::mojom::BrowserInitParams::LacrosSelection LacrosSelection() const;
+
+  bool IsFloatWindowEnabled() const;
+
+  bool IsCloudGamingDevice() const;
+
+  crosapi::mojom::BrowserInitParams::GpuSandboxStartMode GpuSandboxStartMode()
+      const;
 
  private:
   friend base::NoDestructor<BrowserParamsProxy>;

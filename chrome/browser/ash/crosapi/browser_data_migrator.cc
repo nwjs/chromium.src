@@ -7,7 +7,6 @@
 #include <string>
 #include <utility>
 
-#include "ash/components/cryptohome/cryptohome_parameters.h"
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_switches.h"
 #include "base/callback_helpers.h"
@@ -25,6 +24,7 @@
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/common/chrome_paths.h"
+#include "chromeos/ash/components/cryptohome/cryptohome_parameters.h"
 #include "chromeos/ash/components/dbus/session_manager/session_manager_client.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
@@ -500,8 +500,8 @@ void BrowserDataMigratorImpl::UpdateMigrationAttemptCountForUser(
 int BrowserDataMigratorImpl::GetMigrationAttemptCountForUser(
     PrefService* local_state,
     const std::string& user_id_hash) {
-  return local_state->GetDictionary(kMigrationAttemptCountPref)
-      ->FindIntPath(user_id_hash)
+  return local_state->GetValueDict(kMigrationAttemptCountPref)
+      .FindInt(user_id_hash)
       .value_or(0);
 }
 

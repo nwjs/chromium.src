@@ -19,7 +19,6 @@
 #include "ash/style/dark_light_mode_controller_impl.h"
 #include "ash/style/icon_button.h"
 #include "ash/style/pill_button.h"
-#include "ash/style/style_util.h"
 #include "ash/system/message_center/ash_notification_expand_button.h"
 #include "ash/system/message_center/ash_notification_input_container.h"
 #include "ash/system/message_center/message_center_constants.h"
@@ -27,7 +26,6 @@
 #include "ash/system/message_center/message_center_utils.h"
 #include "ash/system/message_center/metrics_utils.h"
 #include "ash/system/message_center/notification_grouping_controller.h"
-#include "ash/system/tray/tray_constants.h"
 #include "ash/wm/work_area_insets.h"
 #include "base/bind.h"
 #include "base/check.h"
@@ -36,8 +34,10 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/color/color_id.h"
+#include "ui/color/color_provider.h"
 #include "ui/compositor/animation_throughput_reporter.h"
 #include "ui/compositor/layer.h"
+#include "ui/compositor/layer_animator.h"
 #include "ui/compositor/scoped_animation_duration_scale_mode.h"
 #include "ui/gfx/animation/tween.h"
 #include "ui/gfx/color_utils.h"
@@ -48,7 +48,7 @@
 #include "ui/gfx/geometry/transform.h"
 #include "ui/gfx/image/image_skia_operations.h"
 #include "ui/gfx/paint_vector_icon.h"
-#include "ui/gfx/scoped_canvas.h"
+#include "ui/gfx/text_constants.h"
 #include "ui/gfx/text_elider.h"
 #include "ui/message_center/message_center.h"
 #include "ui/message_center/notification_view_controller.h"
@@ -62,9 +62,8 @@
 #include "ui/message_center/views/proportional_image_view.h"
 #include "ui/message_center/views/relative_time_formatter.h"
 #include "ui/strings/grit/ui_strings.h"
+#include "ui/views/animation/animation_builder.h"
 #include "ui/views/background.h"
-#include "ui/views/controls/button/image_button.h"
-#include "ui/views/controls/button/image_button_factory.h"
 #include "ui/views/controls/focus_ring.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/controls/scroll_view.h"
@@ -75,6 +74,7 @@
 #include "ui/views/layout/flex_layout_types.h"
 #include "ui/views/layout/flex_layout_view.h"
 #include "ui/views/layout/layout_types.h"
+#include "ui/views/layout/table_layout.h"
 #include "ui/views/metadata/view_factory_internal.h"
 #include "ui/views/style/typography.h"
 #include "ui/views/view.h"
@@ -97,6 +97,7 @@ constexpr int kActionsRowHorizontalSpacing = 8;
 constexpr auto kContentRowPadding = gfx::Insets::TLBR(16, 0, 0, 0);
 
 constexpr int kLeftContentVerticalSpacing = 4;
+constexpr int kTitleRowMinimumWidth = 186;
 constexpr int kTitleRowSpacing = 6;
 
 constexpr auto kHeaderRowExpandedPadding = gfx::Insets::TLBR(4, 0, 8, 0);
@@ -182,16 +183,18 @@ views::Builder<views::BoxLayoutView> CreateCollapsedSummaryBuilder(
       .SetBetweenChildSpacing(ash::kGroupedCollapsedSummaryLabelSpacing)
       .SetOrientation(views::BoxLayout::Orientation::kHorizontal)
       .SetVisible(false)
-      .AddChild(
-          views::Builder<views::Label>()
-              .SetText(notification.title())
-              .SetFontList(gfx::FontList({kGoogleSansFont}, gfx::Font::NORMAL,
-                                         message_center::kTitleFontSize,
-                                         gfx::Font::Weight::MEDIUM)))
+      .AddChild(views::Builder<views::Label>()
+                    .SetText(notification.title())
+                    .SetFontList(gfx::FontList(
+                        {kGoogleSansFont}, gfx::Font::NORMAL, kTitleLabelSize,
+                        gfx::Font::Weight::MEDIUM)))
       .AddChild(views::Builder<views::Label>()
                     .SetText(notification.message())
                     .SetTextContext(views::style::CONTEXT_DIALOG_BODY_TEXT)
-                    .SetTextStyle(views::style::STYLE_SECONDARY));
+                    .SetTextStyle(views::style::STYLE_SECONDARY)
+                    .SetFontList(gfx::FontList(
+                        {kGoogleSansFont}, gfx::Font::NORMAL, kMessageLabelSize,
+                        gfx::Font::Weight::MEDIUM)));
 }
 
 views::Builder<ash::AshNotificationView::GroupedNotificationsContainer>
@@ -247,6 +250,17 @@ using Orientation = views::BoxLayout::Orientation;
 BEGIN_METADATA(AshNotificationView, NotificationTitleRow, views::View)
 END_METADATA
 
+void AshNotificationView::AddedToWidget() {
+  // crbug/1337661: We need to abort animations in a grouped parent view when
+  // it's widget is being destroyed. By default when a widget is destroyed, all
+  // current animations are forced to finish. The grouped notification removal
+  // animation triggers an additional resize animation when it is finished. This
+  // needs to be aborted explicitly to prevent a crash. We do not need to this
+  // observation for grouped notification views.
+  if (!is_grouped_child_view_)
+    widget_observation_.Observe(GetWidget());
+}
+
 void AshNotificationView::Layout() {
   if (is_animating_)
     return;
@@ -273,11 +287,24 @@ AshNotificationView::NotificationTitleRow::NotificationTitleRow(
           views::style::CONTEXT_DIALOG_BODY_TEXT))),
       timestamp_in_collapsed_view_(
           AddChildView(std::make_unique<views::Label>())) {
-  SetLayoutManager(std::make_unique<views::FlexLayout>())
-      ->SetDefault(views::kMarginsKey,
-                   gfx::Insets::TLBR(0, 0, 0, kTitleRowSpacing));
+  SetLayoutManager(std::make_unique<views::TableLayout>())
+      ->AddColumn(views::LayoutAlignment::kStart,
+                  views::LayoutAlignment::kCenter, 1.0,
+                  views::TableLayout::ColumnSize::kUsePreferred, 0, 0)
+      .AddPaddingColumn(views::TableLayout::kFixedSize, kTitleRowSpacing)
+      .AddColumn(views::LayoutAlignment::kStart,
+                 views::LayoutAlignment::kCenter,
+                 views::TableLayout::kFixedSize,
+                 views::TableLayout::ColumnSize::kUsePreferred, 0, 0)
+      .AddPaddingColumn(views::TableLayout::kFixedSize, kTitleRowSpacing)
+      .AddColumn(views::LayoutAlignment::kStart,
+                 views::LayoutAlignment::kCenter, 100.0,
+                 views::TableLayout::ColumnSize::kUsePreferred, 0, 0)
+      .AddRows(1, views::TableLayout::kFixedSize);
+
   timestamp_in_collapsed_view_->SetProperty(views::kMarginsKey,
                                             kTimeStampInCollapsedStatePadding);
+  timestamp_in_collapsed_view_->SetElideBehavior(gfx::ElideBehavior::NO_ELIDE);
   title_view_->SetProperty(
       views::kFlexBehaviorKey,
       views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToMinimum,
@@ -346,6 +373,17 @@ void AshNotificationView::NotificationTitleRow::
   }
 }
 
+gfx::Size AshNotificationView::NotificationTitleRow::CalculatePreferredSize()
+    const {
+  // TODO(crbug.com/1349528): The size constraint is not passed down from the
+  // views tree in the first round of layout, so setting a fixed width to bound
+  // the view. The layout manager can size the view beyond this width if there
+  // is available space. This works similar to applying a max width on the
+  // internal labels.
+  return gfx::Size(kTitleRowMinimumWidth,
+                   GetHeightForWidth(kTitleRowMinimumWidth));
+}
+
 void AshNotificationView::NotificationTitleRow::OnThemeChanged() {
   views::View::OnThemeChanged();
 
@@ -364,7 +402,10 @@ const char AshNotificationView::kViewClassName[] = "AshNotificationView";
 AshNotificationView::AshNotificationView(
     const message_center::Notification& notification,
     bool shown_in_popup)
-    : NotificationViewBase(notification), shown_in_popup_(shown_in_popup) {
+    : NotificationViewBase(notification),
+      is_grouped_parent_view_(notification.group_parent()),
+      is_grouped_child_view_(notification.group_child()),
+      shown_in_popup_(shown_in_popup) {
   message_center_observer_.Observe(message_center::MessageCenter::Get());
   // TODO(crbug/1232197): fix views and layout to match spec.
   // Instantiate view instances and define layout and view hierarchy.
@@ -690,7 +731,10 @@ void AshNotificationView::AnimateSingleToGroup(
 void AshNotificationView::ToggleExpand() {
   SetManuallyExpandedOrCollapsed(true);
 
-  if (inline_reply()->GetVisible()) {
+  // Here we need to check if `inline_reply()` is still valid since user
+  // can click the expand button when the view is being destructed, which
+  // invalidate `inline_reply()`.
+  if (inline_reply() && inline_reply()->GetVisible()) {
     // If inline reply is visible, fade it out then set expanded.
     message_center_utils::FadeOutView(
         inline_reply(),
@@ -901,18 +945,13 @@ void AshNotificationView::UpdateViewForExpandedState(bool expanded) {
   // are collapsed.
   bool use_expanded_padding = expanded || is_grouped_parent_view_;
 
-  bool is_single_expanded_notification =
-      !is_grouped_child_view_ && !is_grouped_parent_view_ && expanded;
-  header_row()->SetVisible(is_grouped_parent_view_ ||
-                           (is_single_expanded_notification));
+  header_row()->SetVisible(is_grouped_parent_view_ || expanded);
   header_row()->SetTimestampVisible(!is_grouped_parent_view_ || !expanded);
 
   if (title_row_) {
-    title_row_->UpdateVisibility(is_grouped_child_view_ ||
-                                 (IsExpandable() && !expanded));
+    title_row_->UpdateVisibility(IsExpandable() && !expanded);
     title_row_->title_view()->SetMaxLines(
         expanded ? kTitleLabelExpandedMaxLines : kTitleLabelCollapsedMaxLines);
-    title_row_->title_view()->SetMaximumWidth(GetExpandedTitleLabelWidth());
   }
 
   if (message_label()) {
@@ -991,7 +1030,7 @@ void AshNotificationView::UpdateWithNotification(
   if (is_grouped_child_view_ && !is_nested())
     SetIsNested();
 
-  header_row()->SetVisible(!is_grouped_child_view_);
+  header_row()->SetIsInGroupChildNotification(is_grouped_child_view_);
   UpdateMessageLabelInExpandedState(notification);
 
   NotificationViewBase::UpdateWithNotification(notification);
@@ -1258,8 +1297,10 @@ void AshNotificationView::ActionButtonPressed(size_t index,
   NotificationViewBase::ActionButtonPressed(index, event);
 
   // If inline reply is visible, fade out actions button and then fade in inline
-  // reply.
-  if (inline_reply()->GetVisible()) {
+  // reply. Here we need to check if `inline_reply()` is still valid since user
+  // can click an action button when the view is being destructed, which
+  // invalidate `inline_reply()`.
+  if (inline_reply() && inline_reply()->GetVisible()) {
     message_center_utils::InitLayerForAnimations(action_buttons_row());
     message_center_utils::FadeOutView(
         action_buttons_row(),
@@ -1309,6 +1350,28 @@ void AshNotificationView::OnNotificationRemoved(
   RemoveGroupNotification(notification_id);
 }
 
+void AshNotificationView::OnWidgetClosing(views::Widget* widget) {
+  widget_observation_.Reset();
+  AbortAllAnimations();
+}
+
+void AshNotificationView::OnWidgetDestroying(views::Widget* widget) {
+  OnWidgetClosing(widget);
+}
+
+void AshNotificationView::AbortAllAnimations() {
+  std::vector<scoped_refptr<ui::LayerAnimator>> animators;
+  animators.push_back(layer()->GetAnimator());
+  for (auto* child_notification :
+       grouped_notifications_container_->children()) {
+    animators.push_back(child_notification->layer()->GetAnimator());
+  }
+
+  for (auto animator : animators) {
+    animator->AbortAllAnimations();
+  }
+}
+
 void AshNotificationView::CreateOrUpdateSnoozeButton(
     const message_center::Notification& notification) {
   if (!notification.should_show_snooze_button()) {
@@ -1325,8 +1388,10 @@ void AshNotificationView::CreateOrUpdateSnoozeButton(
   if (snooze_button_) {
     DCHECK(snooze_button_spacer_);
     // Spacer and snooze button should be at the end of action buttons row.
-    action_buttons_row()->ReorderChildView(snooze_button_spacer_, -1);
-    action_buttons_row()->ReorderChildView(snooze_button_, -1);
+    action_buttons_row()->ReorderChildView(
+        snooze_button_spacer_, action_buttons_row()->children().size());
+    action_buttons_row()->ReorderChildView(
+        snooze_button_, action_buttons_row()->children().size());
     return;
   }
 
@@ -1402,17 +1467,6 @@ void AshNotificationView::UpdateBackground(int top_radius, int bottom_radius) {
           top_radius_, bottom_radius_, background_color_)));
 }
 
-int AshNotificationView::GetExpandedTitleLabelWidth() {
-  int notification_width = shown_in_popup_ ? message_center::kNotificationWidth
-                                           : kNotificationInMessageCenterWidth;
-
-  return notification_width - kNotificationViewPadding.width() -
-         kAppIconViewSize - kMainRightViewChildPadding.width() -
-         kAppIconViewSize - right_content()->width() -
-         kRightContentExpandedPadding.width() -
-         kMessageLabelInExpandedStatePadding.width();
-}
-
 int AshNotificationView::GetExpandedMessageLabelWidth() {
   int notification_width = shown_in_popup_ ? message_center::kNotificationWidth
                                            : kNotificationInMessageCenterWidth;
@@ -1462,10 +1516,21 @@ SkColor AshNotificationView::CalculateIconAndButtonsColor(
   if (!notification)
     return default_color;
 
+  auto color_id = notification->accent_color_id();
   absl::optional<SkColor> accent_color = notification->accent_color();
-  if (!accent_color.has_value())
+
+  if ((!color_id || !GetWidget()) && !accent_color.has_value())
     return default_color;
 
+  SkColor fg_color;
+  // ColorProvider needs widget to be created.
+  if (color_id && GetWidget()) {
+    fg_color = GetColorProvider()->GetColor(color_id.value());
+  } else {
+    fg_color = accent_color.value();
+  }
+
+  // TODO(crbug/1351205): move color calculation logic to color mixer.
   // TODO(crbug/1294459): re-evaluate contrast, maybe increase or use fixed HSL
   float minContrastRatio =
       DarkLightModeControllerImpl::Get()->IsDarkModeEnabled()
@@ -1476,7 +1541,7 @@ SkColor AshNotificationView::CalculateIconAndButtonsColor(
   SkColor bg_color = AshColorProvider::Get()->GetBaseLayerColor(
       AshColorProvider::BaseLayerType::kOpaque);
   return color_utils::BlendForMinContrast(
-             *accent_color, bg_color,
+             fg_color, bg_color,
              /*high_contrast_foreground=*/absl::nullopt, minContrastRatio)
       .color;
 }
@@ -1520,9 +1585,9 @@ void AshNotificationView::AnimateResizeAfterRemoval(
 
   int group_container_previous_height =
       grouped_notifications_container_->height();
-  int removed_index =
-      grouped_notifications_container_->GetIndexOf(to_be_removed);
-  LOG(ERROR) << "Removed after animation";
+  size_t removed_index =
+      grouped_notifications_container_->GetIndexOf(to_be_removed).value();
+
   grouped_notifications_container_->RemoveChildViewT(to_be_removed).reset();
 
   auto* notification_view_controller = message_center_utils::

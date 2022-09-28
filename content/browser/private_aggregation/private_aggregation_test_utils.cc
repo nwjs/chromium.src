@@ -6,9 +6,29 @@
 
 #include <tuple>
 
+#include "base/callback_helpers.h"
 #include "content/browser/private_aggregation/private_aggregation_budget_key.h"
 
 namespace content {
+
+MockPrivateAggregationBudgeter::MockPrivateAggregationBudgeter() = default;
+MockPrivateAggregationBudgeter::~MockPrivateAggregationBudgeter() = default;
+
+MockPrivateAggregationHost::MockPrivateAggregationHost()
+    : PrivateAggregationHost(
+          /*on_report_request_received=*/base::DoNothing(),
+          &test_browser_context_) {}
+
+MockPrivateAggregationHost::~MockPrivateAggregationHost() = default;
+
+MockPrivateAggregationManager::MockPrivateAggregationManager() = default;
+MockPrivateAggregationManager::~MockPrivateAggregationManager() = default;
+
+MockPrivateAggregationContentBrowserClient::
+    MockPrivateAggregationContentBrowserClient() = default;
+
+MockPrivateAggregationContentBrowserClient::
+    ~MockPrivateAggregationContentBrowserClient() = default;
 
 bool operator==(const PrivateAggregationBudgetKey::TimeWindow& a,
                 const PrivateAggregationBudgetKey::TimeWindow& b) {

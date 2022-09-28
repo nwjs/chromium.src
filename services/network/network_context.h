@@ -208,6 +208,10 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
     return params_ && params_->allow_any_cors_exempt_header_for_browser;
   }
 
+  bool enable_preconnect() const {
+    return params_ && params_->enable_preconnect;
+  }
+
 #if BUILDFLAG(IS_ANDROID)
   base::android::ApplicationStatusListener* app_status_listener() const {
     return app_status_listener_.get();
@@ -299,6 +303,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
                             mojom::NetworkConditionsPtr conditions) override;
   void SetAcceptLanguage(const std::string& new_accept_language) override;
   void SetEnableReferrers(bool enable_referrers) override;
+  void SetEnablePreconnect(bool enable_preconnect) override;
   void SetTrustAnchors(const net::CertificateList&) override;
 #if BUILDFLAG(IS_CHROMEOS)
   void UpdateAdditionalCertificates(
@@ -464,7 +469,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
       mojom::SignedExchangeReportPtr report,
       const net::NetworkIsolationKey& network_isolation_key) override;
   void AddDomainReliabilityContextForTesting(
-      const GURL& origin,
+      const url::Origin& origin,
       const GURL& upload_url,
       AddDomainReliabilityContextForTestingCallback callback) override;
   void ForceDomainReliabilityUploadsForTesting(
@@ -651,7 +656,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   void DestroySocketManager(P2PSocketManager* socket_manager);
 #endif  // BUILDFLAG(IS_P2P_ENABLED)
 
-  void CanUploadDomainReliability(const GURL& origin,
+  void CanUploadDomainReliability(const url::Origin& origin,
                                   base::OnceCallback<void(bool)> callback);
 
   void OnVerifyCertForSignedExchangeComplete(uint64_t cert_verify_id,

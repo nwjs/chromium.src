@@ -279,6 +279,9 @@ class PLATFORM_EXPORT ResourceFetcher
 
   void LoosenLoadThrottlingPolicy() { scheduler_->LoosenThrottlingPolicy(); }
 
+  void StartBatch() { scheduler_->StartBatch(); }
+  void EndBatch() { scheduler_->EndBatch(); }
+
   // Workaround for https://crbug.com/666214.
   // TODO(hiroshige): Remove this hack.
   void EmulateLoadStartedForInspector(Resource*,
@@ -331,6 +334,9 @@ class PLATFORM_EXPORT ResourceFetcher
 
   // Access the UKMRecorder.
   ukm::MojoUkmRecorder* UkmRecorder();
+
+  void CancelWebBundleSubresourceLoadersFor(
+      const base::UnguessableToken& web_bundle_token);
 
  private:
   friend class ResourceCacheValidationSuppressor;

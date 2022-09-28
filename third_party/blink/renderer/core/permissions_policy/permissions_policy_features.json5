@@ -65,6 +65,7 @@
     {
       name: "AttributionReporting",
       permissions_policy_name: "attribution-reporting",
+      feature_default: "EnableForAll",
       depends_on: ["AttributionReporting"],
     },
     {
@@ -350,7 +351,7 @@
     {
       name: "StorageAccessAPI",
       feature_default: "EnableForAll",
-      permissions_policy_name: "storage-access-api",
+      permissions_policy_name: "storage-access",
       depends_on: ["StorageAccessAPI"],
     },
     {
@@ -367,6 +368,12 @@
       name: "Usb",
       permissions_policy_name: "usb",
       depends_on: ["WebUSB"],
+    },
+    {
+      name: "Unload",
+      permissions_policy_name: "unload",
+      feature_default: "EnableForAll",
+      depends_on: ["PermissionsPolicyUnload"],
     },
     {
       name: "VerticalScroll",

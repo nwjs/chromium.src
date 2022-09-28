@@ -31,6 +31,7 @@ public class AssistantQrCodePermissionView {
     private final Context mContext;
     private final AssistantQrCodePermissionView.Delegate mViewDelegate;
     private final AssistantQrCodePermissionCallback mPermissionCallback;
+    private final AssistantQrCodePermissionMetric mPermissionMetric;
 
     private final View mPermissionView;
     private final TextView mPermissionTextView;
@@ -38,10 +39,13 @@ public class AssistantQrCodePermissionView {
 
     private boolean mHasPermission;
     private boolean mCanPromptForPermission;
+    private boolean mHasPromptedForPermissionOnce;
+    private boolean mAlreadyHasPermission;
 
     /**
      * The AssistantQrCodePermissionView constructor.
      */
+    @SuppressWarnings("DiscouragedApi")
     public AssistantQrCodePermissionView(Context context, AssistantQrCodePermissionType permission,
             AssistantQrCodePermissionView.Delegate delegate,
             AssistantQrCodePermissionCallback permissionCallback) {
@@ -54,6 +58,10 @@ public class AssistantQrCodePermissionView {
 
         mPermissionTextView = mPermissionView.findViewById(R.id.permission_text);
         mPermissionButton = mPermissionView.findViewById(R.id.permission_button);
+
+        mPermissionMetric = permission.getAndroidPermissionMetric();
+        mHasPromptedForPermissionOnce = true;
+        mAlreadyHasPermission = AssistantQrCodePermissionUtils.hasPermission(mContext, permission);
 
         // Updating permission view image based on the permission type.
         ChromeImageView permissionImageView = mPermissionView.findViewById(R.id.permission_image);
@@ -104,6 +112,18 @@ public class AssistantQrCodePermissionView {
             return;
         }
         mHasPermission = hasPermission;
+
+        // Log when permission is granted by the user.
+        if (mHasPermission && !mAlreadyHasPermission) {
+            if (mCanPromptForPermission) {
+                mPermissionMetric.recordPermissionMetric(
+                        mPermissionMetric.getPermissionGrantedViaPromptMetric());
+            } else {
+                mPermissionMetric.recordPermissionMetric(
+                        mPermissionMetric.getPermissionGrantedViaSettingsMetric());
+            }
+        }
+
         // We do not need to change button behaviour because some other view will open when
         // permission is granted.
         mPermissionCallback.onPermissionsChanged(mHasPermission);
@@ -115,10 +135,31 @@ public class AssistantQrCodePermissionView {
      * @param canPromptForPermission Indicates whether the user can be prompted for permission
      */
     void canPromptForPermissionChanged(Boolean canPromptForPermission) {
+        // Log when the user can no longer prompt for permissions.
+        if (mCanPromptForPermission && !canPromptForPermission) {
+            mPermissionMetric.recordPermissionMetric(
+                    mPermissionMetric.getCannotPromptPermissionMetric());
+        }
+
         mCanPromptForPermission = canPromptForPermission;
 
         // When canPrompt value changes, the Permission view changes. We then ask user to open
         // settings, hence attach relevant listener.
         updatePermissionButtonBehaviour();
+    }
+
+    /**
+     * Prompt the permission once. This should be done only if the required permission is not
+     * granted and we can prompt the permission.
+     *
+     * Please ensure that both |mCanPromptForPermission| and |mHasPermission| are up to date. We
+     * only allow once to prompt the permission.
+     */
+    void maybePromptForPermissionOnce() {
+        if (mCanPromptForPermission && !mHasPermission && mHasPromptedForPermissionOnce) {
+            // Open the permission prompter to ask for the permissions.
+            mViewDelegate.promptForPermission();
+            mHasPromptedForPermissionOnce = !mHasPromptedForPermissionOnce;
+        }
     }
 }

@@ -105,7 +105,6 @@ Belirli bir siteye ait veya tüm tarama geçmişinizi sildiğinizde bununla ili�
 <translation id="1474893630593443211">Gördüğünüz reklamlar üzerinde daha fazla kontrol</translation>
 <translation id="1477626028522505441">Sunucu sorunları nedeniyle <ph name="FILE_NAME" /> dosyası indirilemedi.</translation>
 <translation id="148482509007564431">Yer işareti kaydetme akışı</translation>
-<translation id="1488775391433859242">Bu QR kodunu gösteren bilgisayarda oturum açmak için bu telefonu kullanabilirsiniz.</translation>
 <translation id="1492417797159476138">Bu site için bu kullanıcı adını zaten kaydettiniz</translation>
 <translation id="1493287004536771723"><ph name="SITE_NAME" /> kaynağını takip ediyorsunuz</translation>
 <translation id="1502010315804028179">Şifrelerinizi yönetmek için Google Play Hizmetlerini güncelleyin</translation>
@@ -235,6 +234,7 @@ Belirli bir siteye ait veya tüm tarama geçmişinizi sildiğinizde bununla ili�
 <translation id="2239812875700136898">Haberlerinizi, Keşfet için Seçenekler düğmesinden kontrol edin</translation>
 <translation id="2248941474044011069">Şifreleriniz Google Şifre Yöneticisi'ne kaydedilmeden önce cihazınızda şifrelenir</translation>
 <translation id="2259659629660284697">Şifreleri dışa aktar…</translation>
+<translation id="2276231040576210443">Neyin senkronize edileceğini istediğiniz zaman <ph name="BEGIN_LINK1" />ayarlardan<ph name="END_LINK1" /> seçebilirsiniz. Google, geçmişinize dayalı olarak Arama'yı ve diğer hizmetleri kişiselleştirebilir.</translation>
 <translation id="2276696007612801991">Şifrelerinizi kontrol etmek için Google hesabınızda oturum açın</translation>
 <translation id="2278052315791335171">Bu şifre silindiğinde <ph name="SITE" /> üzerindeki hesabınız silinmez</translation>
 <translation id="2279146068164892489"><ph name="APPNAME" /> uygulaması açılsın mı?</translation>
@@ -282,7 +282,6 @@ Belirli bir siteye ait veya tüm tarama geçmişinizi sildiğinizde bununla ili�
 <translation id="2534155362429831547"><ph name="NUMBER_OF_ITEMS" /> öğe silindi</translation>
 <translation id="2536728043171574184">Bu sayfanın çevrimdışı bir kopyası görüntüleniyor</translation>
 <translation id="2546283357679194313">Çerezler ve site verileri</translation>
-<translation id="2549516196460093976">Bu QR kodunu gösteren bilgisayarda oturum açmak için bu tableti kullanabilirsiniz.</translation>
 <translation id="2558569818338050235">Tarama geçmişiniz, gördüğünüz reklamları etkiler</translation>
 <translation id="2561519700418191927">Video önizlemeleri</translation>
 <translation id="2567385386134582609">IMAGE</translation>
@@ -308,6 +307,7 @@ Belirli bir siteye ait veya tüm tarama geçmişinizi sildiğinizde bununla ili�
 <translation id="2702516483241149200">Yeni: bu metne kaydıran bir bağlantı paylaşın</translation>
 <translation id="2704606927547763573">Kopyalandı</translation>
 <translation id="2707726405694321444">Sayfayı yenile</translation>
+<translation id="2709516037105925701">Otomatik doldurma</translation>
 <translation id="271033894570825754">Yeni</translation>
 <translation id="2711073837061989559">Denemeler</translation>
 <translation id="2718352093833049315">Yaln. Kablosuzda</translation>
@@ -396,6 +396,7 @@ Belirli bir siteye ait veya tüm tarama geçmişinizi sildiğinizde bununla ili�
 <translation id="3114507951000454849">Bugünkü haberleri <ph name="NEWS_ICON" /> okuyun</translation>
 <translation id="311958134571892113">bağlı olduğu kart:</translation>
 <translation id="3123734510202723619">Duyurular</translation>
+<translation id="3130863904455712965">Geçmiş ve daha fazlası</translation>
 <translation id="3134784203083076891">”</translation>
 <translation id="314939179385989105">Chrome’un ana sayfası</translation>
 <translation id="3166827708714933426">Sekme ve pencere kısayolları</translation>
@@ -432,6 +433,7 @@ Belirli bir siteye ait veya tüm tarama geçmişinizi sildiğinizde bununla ili�
 <translation id="3290249595466894471">Ayrıca yeni tehditlerin keşfedilmesine yardımcı olmak için sayfalar, indirmeler, uzantı etkinliği ve sistem bilgilerinden küçük bir örnek gönderir.</translation>
 <translation id="3297344142967351106">Sesli yardım</translation>
 <translation id="3303414029551471755">İçeriği indirme işlemine başlansın mı?</translation>
+<translation id="3305795716056605962">Diğer Seçenekler düğmesinden sayfaları çevirin</translation>
 <translation id="3334729583274622784">Dosya uzantısı değiştirilsin mi?</translation>
 <translation id="3341262203274374114">Takip bırakılamıyor. Bir sorun oldu.</translation>
 <translation id="3359667936385849800">Mevcut servis sağlayıcınızı kullanın</translation>
@@ -472,6 +474,7 @@ Belirli bir siteye ait veya tüm tarama geçmişinizi sildiğinizde bununla ili�
 <translation id="3557336313807607643">Kişilere ekle</translation>
 <translation id="3560491354538957576">Site, ilgi alanlarını tanımlayabilir</translation>
 <translation id="3563767357928833671">Pano içerikleri gösteriliyor</translation>
+<translation id="3566639033325271639">Ayarları güncelle</translation>
 <translation id="3566923219790363270">Chrome hâlâ VR için hazırlanıyor. Chrome'u daha sonra yeniden başlatın.</translation>
 <translation id="3568688522516854065">Diğer cihazlarınızdaki sekmelerinize ulaşmak için oturum açın ve senkronizasyonu etkinleştirin</translation>
 <translation id="357465026686164600">Telefonun, güvenlik anahtarı olarak kullanılması</translation>
@@ -555,6 +558,7 @@ Belirli bir siteye ait veya tüm tarama geçmişinizi sildiğinizde bununla ili�
 <translation id="4062305924942672200">Yasal bilgiler</translation>
 <translation id="4084682180776658562">Yer İşareti</translation>
 <translation id="4084712963632273211"><ph name="PUBLISHER_ORIGIN" /> web sitesinden - <ph name="BEGIN_DEEMPHASIZED" />Google tarafından yayınlandı<ph name="END_DEEMPHASIZED" /></translation>
+<translation id="409109920254068737">Bu QR kodunu gösteren cihazda oturum açmak için bu tableti kullanabilirsiniz.</translation>
 <translation id="4095146165863963773">Uygulama verileri silinsin mi?</translation>
 <translation id="4096227151372679484">Yer işareti kaydetme akışı ekranın yarısına kadar açıldı</translation>
 <translation id="4099578267706723511">Google'a kullanım istatistikleri ve kilitlenme raporları göndererek Chrome'u iyileştirmeye yardımcı olun.</translation>
@@ -566,6 +570,7 @@ Belirli bir siteye ait veya tüm tarama geçmişinizi sildiğinizde bununla ili�
 <translation id="4116038641877404294">Sayfaları çevrimdışı olarak kullanmak için indirin</translation>
 <translation id="4135200667068010335">Sekme paylaşılacak cihazların listesi kapalı.</translation>
 <translation id="4137746084635924146">Mevcut cihaz dili</translation>
+<translation id="414128724510021958">Masaüstü siteleri varsayılan olarak istenir</translation>
 <translation id="4141536112466364990">Chrome'u Öğrenin</translation>
 <translation id="4162867837470729563">Paylaşım seçenekleri listesi tam ekranda açıldı.</translation>
 <translation id="4165986682804962316">Site ayarları</translation>
@@ -587,8 +592,8 @@ Belirli bir siteye ait veya tüm tarama geçmişinizi sildiğinizde bununla ili�
 <translation id="4256782883801055595">Açık kaynak lisansları</translation>
 <translation id="4262915912852657291"><ph name="BEGIN_BOLD" />Kullanılan veriler:<ph name="END_BOLD" /> Tarama geçmişiniz ve bu cihazda Chrome'u kullanarak ziyaret ettiğiniz sitelerin kaydı.</translation>
 <translation id="4263656433980196874">Asistan sesli arama izni kullanıcı arayüzü tam yükseklikte açıldı</translation>
-<translation id="4266054596873078491">Bu sitede ve Chrome'da Google Hesabınızla oturum açın.</translation>
 <translation id="4269820728363426813">Bağlantı adresini kopyala</translation>
+<translation id="4283102315569707115">Varsayılan olarak masaüstü siteleri istensin mi?</translation>
 <translation id="4291407919474070700"><ph name="BEGIN_LINK" />Android ayarlarında ekran kilidini açın<ph name="END_LINK" /></translation>
 <translation id="4293476595220860475">Chrome'u kullanarak <ph name="BEGIN_TOS_LINK" />Google Hizmet Şartları<ph name="END_TOS_LINK" /> ile <ph name="BEGIN_ATOS_LINK" />Google Chrome ve ChromeOS Ek Hizmet Şartları<ph name="END_ATOS_LINK" />'nı kabul etmiş olursunuz. Ayrıca <ph name="BEGIN_PRIVACY_LINK" />Gizlilik Politikası<ph name="END_PRIVACY_LINK" /> da geçerli olur.</translation>
 <translation id="4296252229500326964">Yeni Gizli sekme</translation>
@@ -968,6 +973,7 @@ Privacy Sandbox denemeleri, hâlâ aktif geliştirme aşamasında olup belirli b
 <translation id="6342069812937806050">Az önce</translation>
 <translation id="6343495912647200061">{SHIPPING_ADDRESS,plural, =1{<ph name="SHIPPING_ADDRESS_PREVIEW" />\u2026 ve <ph name="NUMBER_OF_ADDITIONAL_ADDRESSES" /> adres daha}other{<ph name="SHIPPING_ADDRESS_PREVIEW" />\u2026 ve <ph name="NUMBER_OF_ADDITIONAL_ADDRESSES" /> adres daha}}</translation>
 <translation id="6345878117466430440">Okundu olarak işaretle</translation>
+<translation id="6357653805084533597">Bu QR kodunu gösteren cihazda oturum açmak için bu telefonu kullanabilirsiniz.</translation>
 <translation id="6363990818884053551">Senkronizasyonu başlatmak için kimliğinizi doğrulayın</translation>
 <translation id="6364438453358674297">Öneri geçmişten kaldırılsın mı?</translation>
 <translation id="6380100320871303656">Chrome'un ziyaret edebileceğinizi düşündüğü sayfaları daha sık önceden yükler. Bu ayar sonucunda veri kullanımı artabilir.</translation>
@@ -981,6 +987,7 @@ Güven jetonları, web'deki gizliliği artırır ve kim olduğunuzu bulmak için
 <translation id="6397616442223433927">İnternete yeniden bağlanıldı</translation>
 <translation id="6401458660421980302">Bu sekmeyi başka bir cihaza göndermek için ilgili cihazda Chrome'da oturum açın.</translation>
 <translation id="6402652558933147609"><ph name="VIOLATED_URL" /> adresinde <ph name="ERROR_CODE" /></translation>
+<translation id="6403371459378431832">Verilerinizi tüm cihazlarda senkronize edin</translation>
 <translation id="6404511346730675251">Yer işaretini düzenle</translation>
 <translation id="6406506848690869874">Senkronizasyon</translation>
 <translation id="6407224748847589805">Bilgisayarınıza bağlanılamıyor. Başka bir doğrulama seçeneğini deneyin.</translation>
@@ -1051,6 +1058,7 @@ Güven jetonları, web'deki gizliliği artırır ve kim olduğunuzu bulmak için
 <translation id="6671495933530132209">Resmi kopyala</translation>
 <translation id="6674571176963658787">Senkronizasyonu başlatmak için parolanızı girin</translation>
 <translation id="6676840375528380067">Chrome verileriniz bu cihazdan temizlensin mi?</translation>
+<translation id="6676927815633975364">Bu sitede ve Chrome'da oturum açın</translation>
 <translation id="6684809838922667136">Chrome'u daha iyi hale getirin</translation>
 <translation id="670498945988402717">Dün kontrol edildi</translation>
 <translation id="6710213216561001401">Önceki</translation>
@@ -1140,6 +1148,7 @@ Güven jetonları, web'deki gizliliği artırır ve kim olduğunuzu bulmak için
 <translation id="7196215469483532480">Gizlilik kılavuzu açıklaması tam ekranda açıldı</translation>
 <translation id="7207760545532569765"><ph name="TAB_COUNT" /> sekmeyi, yeni arka plan sekmeleri olarak geri yükleyin.</translation>
 <translation id="7208109991155904980">Tepki taşındı</translation>
+<translation id="7217781228893594884">Chrome'dan ayrıldığınızda gizli sekmeler kilitlenir</translation>
 <translation id="7222235798733126207">Siteler arasında kısıtlı paylaşım</translation>
 <translation id="7227218174981371415">{FILE_COUNT,plural, =1{1 indirme işlemi beklemede}other{# indirme işlemi beklemede}}</translation>
 <translation id="7242755609445462077">Stil eklenmiş vurgu <ph name="CURRENT_DATE" /></translation>
@@ -1242,7 +1251,7 @@ Güven jetonları, web'deki gizliliği artırır ve kim olduğunuzu bulmak için
 <translation id="7772032839648071052">Parolayı onayla</translation>
 <translation id="7772375229873196092"><ph name="APP_NAME" /> penceresini kapat</translation>
 <translation id="7774809984919390718">{PAYMENT_METHOD,plural, =1{<ph name="PAYMENT_METHOD_PREVIEW" />\u2026 ve <ph name="NUMBER_OF_ADDITIONAL_PAYMENT_METHODS" /> ödeme yöntemi daha}other{<ph name="PAYMENT_METHOD_PREVIEW" />\u2026 ve <ph name="NUMBER_OF_ADDITIONAL_PAYMENT_METHODS" /> ödeme yöntemi daha}}</translation>
-<translation id="7778840695157240389">Yeni hikaye için daha sonra tekrar kontrol edin</translation>
+<translation id="7778840695157240389">Yeni haberler için sonra yine gelin</translation>
 <translation id="7780645209293383778">Sizi Google uygulamalarında korumak için oturumunuz açıkken bu verileri geçici olarak Google Hesabınıza bağlar</translation>
 <translation id="7786595606756654269">Google Asistan hem web'de arama yapmak hem de açtığınız sitelerle etkileşim kurmak için daha iyi ses deneyimi sağlar. Google Asistan, Asistan'ı kullandığınız sitelerin URL'leri ile içeriklerini alır.</translation>
 <translation id="7791543448312431591">Ekle</translation>
@@ -1260,6 +1269,7 @@ Güven jetonları, web'deki gizliliği artırır ve kim olduğunuzu bulmak için
 <translation id="7853202427316060426">Etkinlik</translation>
 <translation id="7857691613771368249">Dosyaları kaydetme işleminin ne zaman yapılacağını sor</translation>
 <translation id="7859988229622350291">Asla çevirme</translation>
+<translation id="7866213166286285359">Buradan sayfaları çevirin</translation>
 <translation id="78707286264420418"><ph name="PRODUCT_NAME" /> uygulamasının, cihazınıza bağlanabilmesi için Yakındaki cihazlar iznine ihtiyacı var</translation>
 <translation id="7875915731392087153">E-posta oluşturun</translation>
 <translation id="7876243839304621966">Tümünü kaldır</translation>
@@ -1300,6 +1310,7 @@ Güven jetonları, web'deki gizliliği artırır ve kim olduğunuzu bulmak için
 <translation id="8037801708772278989">Az önce kontrol edildi</translation>
 <translation id="804335162455518893">SD kart bulunamadı</translation>
 <translation id="8048533522416101084">{TAB_COUNT,plural, =1{<ph name="TAB_COUNT_ONE" /> gizli sekme}other{<ph name="TAB_COUNT_NORMAL" /> gizli sekme}}</translation>
+<translation id="8048728378294435881">Verilerinizi yedekleyin ve istediğiniz cihazda kullanın</translation>
 <translation id="8051695050440594747"><ph name="MEGABYTES" /> MB kullanılabilir</translation>
 <translation id="8058655154417507695">Son kullanım tarihinin yılı</translation>
 <translation id="8058746566562539958">Yeni Chrome sekmesinde aç</translation>
@@ -1374,7 +1385,7 @@ Güven jetonları, web'deki gizliliği artırır ve kim olduğunuzu bulmak için
 <translation id="8430824733382774043">Yalnızca ekran görüntüsü paylaşılıyor</translation>
 <translation id="8438566539970814960">Aramaları ve göz atmayı daha iyi yap</translation>
 <translation id="8439974325294139057"><ph name="LANG" /> - Dil hazır, <ph name="APP_NAME" /> uygulamasını yeniden başlatın.</translation>
-<translation id="8442258441309440798">Kullanılabilir hikaye yok</translation>
+<translation id="8442258441309440798">Şu anda yeni haber bulunmuyor</translation>
 <translation id="8443209985646068659">Chrome güncellenemiyor</translation>
 <translation id="8445448999790540984">Şifreler dışa aktarılamıyor</translation>
 <translation id="8446884382197647889">Daha Fazla Bilgi Edinin</translation>

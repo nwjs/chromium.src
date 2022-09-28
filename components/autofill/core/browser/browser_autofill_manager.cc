@@ -52,7 +52,6 @@
 #include "components/autofill/core/browser/autofill_experiments.h"
 #include "components/autofill/core/browser/autofill_external_delegate.h"
 #include "components/autofill/core/browser/autofill_field.h"
-#include "components/autofill/core/browser/autofill_regexes.h"
 #include "components/autofill/core/browser/autofill_suggestion_generator.h"
 #include "components/autofill/core/browser/autofill_type.h"
 #include "components/autofill/core/browser/browser_autofill_manager_test_delegate.h"
@@ -77,6 +76,7 @@
 #include "components/autofill/core/browser/suggestions_context.h"
 #include "components/autofill/core/browser/ui/popup_item_ids.h"
 #include "components/autofill/core/browser/validation.h"
+#include "components/autofill/core/common/autocomplete_parsing_util.h"
 #include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_constants.h"
 #include "components/autofill/core/common/autofill_data_validation.h"
@@ -85,6 +85,7 @@
 #include "components/autofill/core/common/autofill_internals/logging_scope.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/autofill/core/common/autofill_prefs.h"
+#include "components/autofill/core/common/autofill_regexes.h"
 #include "components/autofill/core/common/autofill_tick_clock.h"
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/form_data_predictions.h"
@@ -200,6 +201,41 @@ void LogLanguageMetrics(const translate::LanguageState* language_state) {
         language_state->current_language());
     AutofillMetrics::LogFieldParsingPageTranslationStatusMetric(
         language_state->IsPageTranslated());
+  }
+}
+
+void LogAutocompletePredictionCollisionTypeMetrics(
+    const FormStructure& form_structure) {
+  for (size_t i = 0; i < form_structure.field_count(); i++) {
+    const AutofillField* field = form_structure.field(i);
+    auto heuristic_type = field->heuristic_type();
+    auto server_type = field->server_type();
+
+    auto prediction_state = AutofillMetrics::PredictionState::kNone;
+    if (IsFillableFieldType(heuristic_type)) {
+      prediction_state = IsFillableFieldType(server_type)
+                             ? AutofillMetrics::PredictionState::kBoth
+                             : AutofillMetrics::PredictionState::kHeuristics;
+    } else if (IsFillableFieldType(server_type)) {
+      prediction_state = AutofillMetrics::PredictionState::kServer;
+    }
+
+    // An unparsable autocomplete attribute is treated like kNone.
+    auto autocomplete_state = AutofillMetrics::AutocompleteState::kNone;
+    if (ShouldIgnoreAutocompleteAttribute(field->autocomplete_attribute)) {
+      autocomplete_state = AutofillMetrics::AutocompleteState::kOff;
+    } else if (auto autocomplete = ParseAutocompleteAttribute(*field)) {
+      autocomplete_state = autocomplete->field_type != HTML_TYPE_UNRECOGNIZED
+                               ? AutofillMetrics::AutocompleteState::kValid
+                               : AutofillMetrics::AutocompleteState::kGarbage;
+    }
+
+    AutofillMetrics::LogAutocompletePredictionCollisionState(
+        prediction_state, autocomplete_state);
+    if (autocomplete_state == AutofillMetrics::AutocompleteState::kGarbage) {
+      AutofillMetrics::LogAutocompletePredictionCollisionTypes(server_type,
+                                                               heuristic_type);
+    }
   }
 }
 
@@ -669,6 +705,9 @@ void BrowserAutofillManager::OnFormSubmittedImpl(const FormData& form,
     return;
   }
 
+  // Log metrics about the autocomplete attribute usage in the submitted form.
+  LogAutocompletePredictionCollisionTypeMetrics(*submitted_form);
+
   // Log interaction time metrics for the ablation study.
   if (!initial_interaction_timestamp_.is_null()) {
     base::TimeDelta time_from_interaction_to_submission =
@@ -1003,18 +1042,18 @@ void BrowserAutofillManager::OnAskForValuesToFillImpl(
     }
   }
 
-  auto ShouldOfferAutocomplete = [&] {
-    // Do not offer autocomplete if one of the following:
+  auto ShouldOfferSingleFieldFormFill = [&] {
+    // Do not offer single field form fill if one of the following is true:
     //  * There are already suggestions.
     //  * Credit card sign-in promo is offered.
-    //  * Autocomplete for the field is disabled.
-    if (!suggestions.empty() || ShouldShowCreditCardSigninPromo(form, field) ||
-        !field.should_autocomplete) {
+    if (!suggestions.empty() || ShouldShowCreditCardSigninPromo(form, field))
       return false;
-    }
 
-    // Do not offer autocomplete suggestions for credit card number, cvc and
-    // expiration date related fields.
+    // Do not offer single field form fill suggestions for credit card number,
+    // cvc, and expiration date related fields. Standalone cvc fields (used to
+    // re-authenticate the use of a credit card the website has on file) will be
+    // handled separately because those have the field type
+    // CREDIT_CARD_STANDALONE_VERIFICATION_CODE.
     ServerFieldType server_type =
         context.focused_field ? context.focused_field->Type().GetStorableType()
                               : UNKNOWN_TYPE;
@@ -1024,9 +1063,9 @@ void BrowserAutofillManager::OnAskForValuesToFillImpl(
       return false;
     }
 
-    // Do not offer autocomplete suggestions if popups are suppressed due to an
-    // unrecognized autocomplete attribute. Note that in the context of
-    // Autofill, the popup for credit card related fields is not getting
+    // Do not offer single field form fill suggestions if popups are suppressed
+    // due to an unrecognized autocomplete attribute. Note that in the context
+    // of Autofill, the popup for credit card related fields is not getting
     // suppressed due to an unrecognized autocomplete attribute.
     if (context.suppress_reason == SuppressReason::kAutocompleteUnrecognized) {
       return false;
@@ -1045,14 +1084,16 @@ void BrowserAutofillManager::OnAskForValuesToFillImpl(
     return true;
   };
 
-  if (ShouldOfferAutocomplete()) {
+  if (ShouldOfferSingleFieldFormFill()) {
     // Suggestions come back asynchronously, so the SingleFieldFormFillRouter
     // will handle sending the results back to the renderer.
-    single_field_form_fill_router_->OnGetSingleFieldSuggestions(
-        query_id, client()->IsAutocompleteEnabled(),
-        autoselect_first_suggestion, field.name, field.value,
-        field.form_control_type, weak_ptr_factory_.GetWeakPtr(), context);
-    return;
+    bool handled_by_single_field_form_filler =
+        single_field_form_fill_router_->OnGetSingleFieldSuggestions(
+            query_id, client()->IsAutocompleteEnabled(),
+            autoselect_first_suggestion, field, weak_ptr_factory_.GetWeakPtr(),
+            context);
+    if (handled_by_single_field_form_filler)
+      return;
   }
 
   single_field_form_fill_router_->CancelPendingQueries(this);
@@ -1566,14 +1607,15 @@ void BrowserAutofillManager::MaybeTriggerRefillForExpirationDate(
   if (old_value == field.value)
     return;
 
-  const char16_t* kFormatRegEx = uR"(^(\d\d)(\s?[/-]?\s?)?(\d\d|\d\d\d\d)$)";
+  static constexpr char16_t kFormatRegEx[] =
+      uR"(^(\d\d)(\s?[/-]?\s?)?(\d\d|\d\d\d\d)$)";
   std::vector<std::u16string> old_groups;
-  if (!MatchesPattern(old_value, kFormatRegEx, &old_groups))
+  if (!MatchesRegex<kFormatRegEx>(old_value, &old_groups))
     return;
   DCHECK_EQ(old_groups.size(), 4u);
 
   std::vector<std::u16string> new_groups;
-  if (!MatchesPattern(field.value, kFormatRegEx, &new_groups))
+  if (!MatchesRegex<kFormatRegEx>(field.value, &new_groups))
     return;
   DCHECK_EQ(new_groups.size(), 4u);
 
@@ -1651,6 +1693,8 @@ void BrowserAutofillManager::OnCreditCardFetched(CreditCardFetchResult result,
 
 void BrowserAutofillManager::OnDidEndTextFieldEditingImpl() {
   external_delegate_->DidEndTextFieldEditing();
+  // Should not hide the Touch To Fill surface, since it is an overlay UI
+  // which ends editing.
 }
 
 bool BrowserAutofillManager::IsAutofillEnabled() const {
@@ -1693,7 +1737,7 @@ void BrowserAutofillManager::UploadFormDataAsyncCallback(
     const TimeTicks& submission_time,
     bool observed_submission) {
   if (submitted_form->ShouldRunHeuristics() ||
-      submitted_form->ShouldRunPromoCodeHeuristics() ||
+      submitted_form->ShouldRunHeuristicsForSingleFieldForms() ||
       submitted_form->ShouldBeQueried()) {
     submitted_form->LogQualityMetrics(
         submitted_form->form_parsed_timestamp(), interaction_time,
@@ -2685,6 +2729,8 @@ void BrowserAutofillManager::GetAvailableSuggestions(
   // warning message and don't offer autofill. The warning is shown even if
   // there are no autofill suggestions available.
   if (IsFormMixedContent(client(), form) &&
+      client()->GetPrefs()->FindPreference(
+          ::prefs::kMixedFormsWarningsEnabled) &&
       client()->GetPrefs()->GetBoolean(::prefs::kMixedFormsWarningsEnabled)) {
     suggestions->clear();
     // If the user begins typing, we interpret that as dismissing the warning.

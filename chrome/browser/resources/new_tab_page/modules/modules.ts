@@ -4,7 +4,7 @@
 
 import 'chrome://resources/cr_elements/hidden_style_css.m.js';
 import 'chrome://resources/cr_elements/cr_toast/cr_toast.js';
-import 'chrome://resources/cr_elements/cr_button/cr_button.m.js';
+import 'chrome://resources/cr_elements/cr_button/cr_button.js';
 
 import {CrToastElement} from 'chrome://resources/cr_elements/cr_toast/cr_toast.js';
 import {assert} from 'chrome://resources/js/assert.m.js';
@@ -312,7 +312,7 @@ export class ModulesElement extends PolymerElement {
     for (const moduleDescriptorId of moduleDescriptorIds) {
       moduleDescriptorIds.forEach(id => {
         if (id !== moduleDescriptorId) {
-          chrome.metricsPrivate.recordSparseHashable(
+          chrome.metricsPrivate.recordSparseValueWithPersistentHash(
               `NewTabPage.Modules.LoadedWith.${moduleDescriptorId}`, id);
         }
       });
@@ -391,18 +391,18 @@ export class ModulesElement extends PolymerElement {
           restoreCallback();
         }
         NewTabPageProxy.getInstance().handler.setModuleDisabled(id, false);
-        chrome.metricsPrivate.recordSparseHashable(
+        chrome.metricsPrivate.recordSparseValueWithPersistentHash(
             'NewTabPage.Modules.Enabled', id);
-        chrome.metricsPrivate.recordSparseHashable(
+        chrome.metricsPrivate.recordSparseValueWithPersistentHash(
             'NewTabPage.Modules.Enabled.Toast', id);
       },
     };
 
     NewTabPageProxy.getInstance().handler.setModuleDisabled(id, true);
     this.$.removeModuleToast.show();
-    chrome.metricsPrivate.recordSparseHashable(
+    chrome.metricsPrivate.recordSparseValueWithPersistentHash(
         'NewTabPage.Modules.Disabled', id);
-    chrome.metricsPrivate.recordSparseHashable(
+    chrome.metricsPrivate.recordSparseValueWithPersistentHash(
         'NewTabPage.Modules.Disabled.ModuleRequest', id);
   }
 

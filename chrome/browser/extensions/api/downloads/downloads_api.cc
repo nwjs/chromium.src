@@ -1699,6 +1699,11 @@ bool ExtensionDownloadsEventRouter::IsUiEnabled() const {
   return ui_disabling_extensions_.empty();
 }
 
+bool ExtensionDownloadsEventRouter::IsDownloadObservedByExtension() const {
+  EventRouter* router = EventRouter::Get(profile_);
+  return router && router->HasEventListener(downloads::OnChanged::kEventName);
+}
+
 // The method by which extensions hook into the filename determination process
 // is based on the method by which the omnibox API allows extensions to hook
 // into the omnibox autocompletion process. Extensions that wish to play a part

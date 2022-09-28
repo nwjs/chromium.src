@@ -38,7 +38,7 @@ constexpr bool g_print_ca_layers = false;
 constexpr int kOutputLevel = 4;
 
 base::Feature kCALayerTreeOptimization{"CALayerTreeOptimization",
-                                       base::FEATURE_DISABLED_BY_DEFAULT};
+                                       base::FEATURE_ENABLED_BY_DEFAULT};
 
 void RecordIOSurfaceHistograms(
     int changed_io_surfaces_during_commit,
@@ -1256,8 +1256,7 @@ void CARendererLayerTree::ContentLayer::CommitToCA(
         } else {
           [ca_layer_ setContents:nil];
         }
-        if ([ca_layer_ respondsToSelector:(@selector(setContentsScale:))])
-          [ca_layer_ setContentsScale:tree()->scale_factor_];
+        [ca_layer_ setContentsScale:tree()->scale_factor_];
       } else {
         // Used for UMA
         if (io_surface_)

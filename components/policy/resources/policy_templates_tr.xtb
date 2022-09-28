@@ -51,6 +51,13 @@
 
       Politika ayarlanmadan bırakılırsa bu özellik, varsayılan olarak yönetilen kullanıcılar için devre dışı bırakılır, diğer kullanıcılar için etkinleştirilir.</translation>
 <translation id="1035860095382451169">Güvenli bağlantılar için çok amaçlı adres çubuğundaki kilit simgesini etkinleştirin</translation>
+<translation id="1040125341954178855">Bu özellik Chrome 100 sürümünde kaldırılmıştır.
+
+      Bu politika, Etkin değerine ayarlanırsa kullanıcı tarafından daha önce diğer cihazlara yüklenen uygulamalar için öneriler verilir. Hiçbir arama metni girilmediyse bu öneriler yerel uygulama önerilerinden sonra başlatıcıda görünür.
+
+      Bu politika, Devre Dışı değerine ayarlanır veya ayarlanmadan bırakılırsa bu öneriler görünmez.
+
+      Bu politika ayarlanırsa kullanıcılar değiştiremez.</translation>
 <translation id="1040446814317236570">PAC URL ayırmayı etkinleştir (https:// için)</translation>
 <translation id="1041719059374171202">Politikayı ayarlamak, JavaScript çalıştıramayan siteleri belirten URL kalıpları için bir liste yapmanıza olanak tanır.
 
@@ -100,13 +107,18 @@
 <translation id="1095209545735032039">Bu sitelerde Serial API'sini engelle</translation>
 <translation id="1096105751829466145">Varsayılan arama sağlayıcı</translation>
 <translation id="1099282607296956954">Site İzolasyonu'nu her site için etkinleştirme</translation>
+<translation id="1100840127293327071">Mevcut tarama verilerini saklama seçeneğini varsayılan olarak işaretleme</translation>
 <translation id="1105572260329131950">Güvenli bağlantılar için varsayılan simgeler kullanın</translation>
 <translation id="1107538157073168076">Analizler uzantısını devre dışı bırak</translation>
 <translation id="1110426799149444997"><ph name="GOOGLE_LENS_PRODUCT_NAME" /> bölge aramayı devre dışı bırakın.</translation>
-<translation id="1111781754511998498">Projektör</translation>
 <translation id="1117535567637097036">Bu politika aracılığıyla ayarlanan protokol işleyicileri, Android amaçları işlenirken kullanılmaz.</translation>
 <translation id="1118093128235245168">Sitelerin, bağlı bir USB cihazına erişmek için kullanıcıdan izin istemesine izin ver</translation>
 <translation id="111910763555783249">Bildirim ayarları</translation>
+<translation id="1120291391245112391">Cihazın coğrafi konumunu bildirir.
+
+      Politika, Etkin değerine ayarlanırsa kayıtlı cihazlar düzenli aralıklarla konumlarını bildirir.
+
+      Politika, Devre Dışı değerine ayarlanır veya ayarlanmadan bırakılırsa kayıtlı cihazlar konumlarını bildirmez.</translation>
 <translation id="1122089575901325963">Politika ayarlanırsa cihazda kullanılabilmesi halinde <ph name="WILCO_NAME" /> teşhis ve telemetri denetleyicisi (DTC) yapılandırılır. Yapılandırmanın boyutu 1 MB'tan (1.000.000 bayt) büyük olmamalı ve biçimi JSON olmalıdır. Bunun işlenmesinden <ph name="WILCO_NAME" /> DTC sorumludur. Şifreleme karma değeri, indirmenin bütünlüğünü doğrulamak için kullanılır. Yapılandırma indirilerek önbelleğe alınır. URL veya karma değer her değiştiğinde bu tekrar indirilir.
 
       Bu politikayı ayarlarsanız kullanıcılar tarafından değiştirilemez.</translation>
@@ -156,6 +168,7 @@
 <translation id="1163080558183062209">Reddetme listesinde yazıcı türlerini devre dışı bırakma</translation>
 <translation id="117059611145966538">Harici yazdırma sunucuları</translation>
 <translation id="117080706484659953"><ph name="MAC_OS_NAME" /> işletim sisteminde politika kapsamını algılamaya izin ver</translation>
+<translation id="1171106901454883937">Cihaz sürüm bilgisi raporlamasını etkinleştir</translation>
 <translation id="1171785618439752042">Politikanın ayarlanması, <ph name="MS_AD_NAME" /> sunucusundan Kerberos biletleri istenirken izin verilen şifreleme türlerini belirler.
 
       Bu politika:
@@ -211,6 +224,27 @@
 <translation id="1223789468190631420">Güvenilen kaynaklar için Güvenli Tarama etkinleştirme durumu</translation>
 <translation id="123018742985150697">Yerel kullanıcı ile uzaktan erişim ana makine sahibinin eşleşmesini zorunlu tut</translation>
 <translation id="123081309365616809">Cihaza içerik yayınlamayı etkinleştirme</translation>
+<translation id="1233477540349246382">
+Varsayılan davranış (Politika ayarlanmadıysa)
+İçerik alanına bir hesap eklendiğinde, kullanıcıdan yeni profil oluşturmasını isteyen küçük bir iletişim kutusu görünebilir.  Bu iletişim kutusu kapatılabilir.
+
+<ph name="MANAGED_ACCOUNTS_SIGNIN_RESTRICTION_POLICY_NAME" /> = <ph name="POLICY_VALUE_PRIMARY_ACCOUNT" />
+Kullanıcı, <ph name="PRODUCT_NAME" /> tarayıcıdaki bir Google hizmetinde ilk kez oturum açarsa kullanıcıdan kurumsal hesabı için yeni profil oluşturmasını isteyen bir iletişim kutusu görünür. Kullanıcı, İptal'i tıklayarak oturumu kapatabilir veya Devam'ı tıklayarak yeni profil oluşturabilir. Mevcut tarama verileri yeni profile eklenmez.   Yeni oluşturulan profilin ikincil hesapları olabilir. Örneğin kullanıcı, içerik alanındaki başka bir hesapta oturum açabilir.
+
+<ph name="MANAGED_ACCOUNTS_SIGNIN_RESTRICTION_POLICY_NAME" /> = <ph name="POLICY_VALUE_PRIMARY_ACCOUNT_STRICT" />
+Yeni oluşturulan profilin ikincil hesapları olmasına izin verilmemesi dışında bu davranış <ph name="POLICY_VALUE_PRIMARY_ACCOUNT" /> ile aynıdır.
+
+<ph name="MANAGED_ACCOUNTS_SIGNIN_RESTRICTION_POLICY_NAME" /> = <ph name="POLICY_VALUE_PRIMARY_ACCOUNT_KEEP_EXISTING_DATA" />
+Kullanıcının, yerel tarama verilerini saklamasına izin vermek için iletişim kutusuna bir onay kutusu eklenmesi dışında bu davranış <ph name="POLICY_VALUE_PRIMARY_ACCOUNT" /> ile aynıdır.
+Kullanıcı bu kutuyu işaretlerse mevcut profil verileri, yönetilen hesapla ilişkilendirilir.
+-  Mevcut tüm tarama verileri, yeni profilde de yer alır.
+-  Bu verilere yer işaretleri, geçmiş, şifre, otomatik doldurma verileri, açık sekmeler, çerezler, önbellek, web depolama alanı, uzantılar vb. dahildir.
+Kullanıcı kutuyu işaretlemezse:
+-  Eski profil mevcut kalır ve veri kaybı yaşanmaz.
+-  Yeni bir profil oluşturulur.
+
+<ph name="MANAGED_ACCOUNTS_SIGNIN_RESTRICTION_POLICY_NAME" /> = <ph name="POLICY_VALUE_PRIMARY_ACCOUNT_STRICT_KEEP_EXISTING_DATA" />
+Yeni oluşturulan profilin ikincil hesapları olmasına izin verilmemesi dışında bu davranış <ph name="POLICY_VALUE_PRIMARY_ACCOUNT_KEEP_EXISTING_DATA" /> ile aynıdır.</translation>
 <translation id="1239526922294123540">Web sitelerinin daha özel ağ uç noktalarına güvenli olmayan bir şekilde istekte bulunmasına izin verilip verilmediğini kontrol eder.
 
           Bu politika doğru değerine ayarlandığında tüm kaynaklar için tüm <ph name="PRIVATE_NETWORK_ACCESS" /> kontrolleri devre dışı bırakılır. Bu durum, saldırganlar tarafından özel ağ sunucularına <ph name="CSRF" /> saldırıları gerçekleştirilmesine imkan verebilir.
@@ -262,6 +296,7 @@
       Politika ayarlanmadan bırakılırsa veya değişiklikten sonraki değer geçerli bir ana makine adı değilse DHCP isteğinde ana makine adı ayarlanmaz.</translation>
 <translation id="1257550411839719984">Varsayılan indirme dizinini ayarlama</translation>
 <translation id="1265053460044691532">SAML kullanarak kimlik doğrulaması yapmış kullanıcının çevrimdışı olarak giriş yapabileceği süreyi sınırla</translation>
+<translation id="1271811620059192171">Politika atom gruplarını etkinleştir</translation>
 <translation id="127264587838521316"><ph name="PRODUCT_NAME" /> uzantı yükleme isteklerini etkinleştirir</translation>
 <translation id="1272798957154751008">Chromad cihazların bulut yönetimine taşınmasını etkinleştir</translation>
 <translation id="1274997165432133392">Çerezler ve diğer site verileri</translation>
@@ -441,18 +476,6 @@ Bu politikayı etkinleştirir veya yapılandırmazsanız web sayfasını URL yol
 
 Bu politikayı devre dışı bırakırsanız web sayfasını URL yoluyla belirli metin parçalarına kaydırma işlevi devre dışı bırakılır.</translation>
 <translation id="1474273443907024088">TLS Yanlış Başlatma'yı devre dışı bırak</translation>
-<translation id="1476128579011024193">
-      Politika <ph name="POLICY_VALUE_PRIMARY_ACCOUNT" /> değerine ayarlıyken, yönetilen bir hesapta bu politikaya tabi olarak oturum açıldığında, kullanıcıdan hesap için yeni bir profil oluşturması istenir.
-      Politika <ph name="POLICY_VALUE_PRIMARY_ACCOUNT_KEEP_EXISTING_DATA" /> değerine ayarlıyken, yönetilen bir hesapta bu politikaya tabi olarak oturum açıldığında, kullanıcıdan hesap için yeni bir profil oluşturması istenir ve mevcut tarama verilerini saklama seçeneği sunulur. Bu seçenek Chrome 102 ve sonraki sürümlerde desteklenmektedir.
-
-      Politika <ph name="POLICY_VALUE_PRIMARY_ACCOUNT_STRICT" /> değerine ayarlıyken, yönetilen bir hesapta bu politikaya tabi olarak oturum açıldığında, kullanıcıdan hesap için yeni bir profil oluşturması istenir. Bu profilde ikincil hesaplara izin verilmez.
-      Politika <ph name="POLICY_VALUE_PRIMARY_ACCOUNT_STRICT_KEEP_EXISTING_DATA" /> değerine ayarlıyken, yönetilen bir hesapta bu politikaya tabi olarak oturum açıldığında, kullanıcıdan hesap için yeni bir profil oluşturması istenir ve mevcut tarama verilerini saklama seçeneği sunulur. Bu profilde ikincil hesaplara izin verilmez. Bu seçenek Chrome 102 ve sonraki sürümlerde desteklenmektedir.
-
-      Bu politika <ph name="POLICY_VALUE_NONE" /> değerine ayarlanır veya ayarlanmadan bırakılırsa yönetilen hesaplarda kısıtlama olmaz. Bu durum, bir yönetilen hesabın ikincil hesap olmasına ve dolayısıyla yönetici tarafından hesapta ayarlanan politika alabilme özelliğinin devre dışı kalmasına neden olabilir.
-
-      Politika, cihaz düzeyinde ayarlanırsa tarayıcıdaki tüm hesapları etkiler.
-      Politika, hesap düzeyinde ayarlanırsa tarayıcıda yalnızca ilgili hesabı etkiler.
-    </translation>
 <translation id="1477934438414550161">TLS 1.2</translation>
 <translation id="1479427764273213107">Politikayı ayarlamak, kullanıcıların chrome.usb API'sı aracılığıyla doğrudan bir web uygulaması içinde kullanmak için çekirdek sürücüsünden çıkarabildikleri USB cihazlarının listesini tanımlar. Girişler, belirli bir donanımı tanımlamak için kullanılan USB Tedarikçi Tanımlayıcısı ve Ürün Tanımlayıcısı çiftlerinden oluşmaktadır.
 
@@ -472,6 +495,11 @@ Bu politikayı devre dışı bırakırsanız web sayfasını URL yoluyla belirli
       Harici uzantılar ve yüklenmeleri hakkında bilgiyi https://developer.chrome.com/apps/external_extensions adresinde bulabilirsiniz.
       </translation>
 <translation id="1486021504508098388">Arka ışık bilgilerini raporla</translation>
+<translation id="1486469502848499602">Manuel olarak oluşturulan yeni kayıtlar için önerilen <ph name="KRB5_CONFIG" /> yapılandırmasını değiştirir.
+
+      Politika ayarlanırsa değeri, önerilen yapılandırma olarak uygulanır ve kimlik doğrulama iletişim kutusunun "Gelişmiş" bölümünde gösterilir.
+
+      Bu politika ayarlanmazsa onun yerine önerilen <ph name="PRODUCT_OS_NAME" /> yapılandırması uygulanır. Bu ayarın, kimlik doğrulama iletişim kutusunun "Gelişmiş" bölümünde de gösterildiğini unutmayın.</translation>
 <translation id="1487916040416013623">Politikanın ayarlanması, entegre kimlik doğrulama için hangi sunuculara izin verileceğini belirtir. Entegre kimlik doğrulaması yalnızca <ph name="PRODUCT_NAME" /> bir proxy veya söz konusu izin verilenler listesindeki bir sunucudan kimlik doğrulaması daveti aldığında etkinleşir.
 
       Politika ayarlanmadan bırakılırsa <ph name="PRODUCT_NAME" />, sunucunun intranette olup olmadığını saptamaya çalışır. Yalnızca intranetteyse IWA isteklerini yanıtlar. Sunucunun internette olduğu saptanırsa sunucudan gelen IWA istekleri <ph name="PRODUCT_NAME" /> tarafından yok sayılır.
@@ -554,6 +582,7 @@ Bu politikayı devre dışı bırakırsanız web sayfasını URL yoluyla belirli
 <translation id="1583248206450240930">Varsayılan olarak <ph name="PRODUCT_FRAME_NAME" /> ürününü kullan</translation>
 <translation id="1587585749332985896">Gözetimsiz Mod'un kullanımına izin verme</translation>
 <translation id="1588240398285670601">Tarayıcı Ayarları</translation>
+<translation id="1592334921377856028">Cihaz donanım durumu raporlamasını devre dışı bırak</translation>
 <translation id="1597684038583138808">Bil Bakalım Tanımını Etkinleştir</translation>
 <translation id="1599424828227887013">Android cihazlarda Site İzolasyonu'nu belirtilen kaynaklar için etkinleştirme</translation>
 <translation id="159946228300522107">Politikayı True (Doğru) değerine ayarlamak, Chrome'un ilk çalıştırmada birinci pencereyi büyüteceği anlamına gelir.
@@ -704,6 +733,7 @@ Bu politikayı devre dışı bırakırsanız web sayfasını URL yoluyla belirli
 
       Politikayı False (Yanlış) değerine ayarlamak, kullanıcıların yer işaretleri eklemelerine, kaldırmalarına veya bunları değiştirmelerine izin verilmediği anlamına gelir. Mevcut yer işaretlerini kullanmaya devam edebilirler.</translation>
 <translation id="1715151459541210849">Dikte erişilebilirlik özelliğini etkinleştir</translation>
+<translation id="1719033799014769396">Cihaz başlatma modu raporlamasını devre dışı bırak</translation>
 <translation id="1721158690981421598">Politika ayarlanırsa uzaktan erişim ana makinelerine uygulanacak ana makine alan adlarını belirtir. Kullanıcılar bu alan adlarını değiştiremez. Ana makineler yalnızca belirtilen alan adlarından birinde kayıtlı hesaplar kullanılarak paylaşılabilir.
 
       Politika boş listeye ayarlanır veya ayarlanmazsa ana makineler herhangi bir hesap kullanılarak paylaşılabilir.
@@ -745,8 +775,21 @@ Bu politikayı devre dışı bırakırsanız web sayfasını URL yoluyla belirli
 
       Politikanın ayarlanması, yasaklanan uzantılar listesinden muaf tutulacak uzantıları belirtir. Tüm uzantıları yasaklamak üzere <ph name="EXTENSION_INSTALL_BLACKLIST_POLICY_NAME" /> için <ph name="ALL_EXTENSIONS" /> değerini kullanın. Kullanıcılar yalnızca açıkça izin verilen uzantıları yükleyebilirler. Varsayılan olarak tüm uzantılara izin verilir. Ancak uzantıları politikaya göre yasakladıysanız bu politikayı değiştirmek için izin verilen uzantılar listesini kullanın.</translation>
 <translation id="1781356041596378058">Ayrıca bu politika Android Geliştirici Seçenekleri'ne erişimi de kontrol eder. Bu politikayı doğru (true) seçeneğine ayarlarsanız kullanıcılar Geliştirici Seçenekleri'ne erişemez. Bu politikayı yanlış (false) seçeneğine ayarlar veya ayarlamadan bırakırsanız kullanıcılar, Android ayarları uygulamasında derleme numarasına yedi kez dokunarak Geliştirici Seçenekleri'ne erişebilir.</translation>
+<translation id="1783412593566930189">
+      Politika, Etkin (Doğru) değerine ayarlanırsa <ph name="PRODUCT_NAME" />, yönetilmeyen cihazlarda cihaz sinyallerini paylaşmadan önce yönetilen kullanıcıların iznini isteyerek erişim elde edebilir.
+
+      Politika, Devre Dışı (Yanlış) değerine ayarlanır veya ayarlanmadan bırakılırsa <ph name="PRODUCT_NAME" />, cihaz sinyallerini toplayamaz
+      Cihaz sinyallerine işletim sistemi bilgileri, kayıt ve dosya varlığı dahildir ancak bunlarla sınırlı değildir.</translation>
 <translation id="1787790976045065845">Bu politika, yalnızca <ph name="SECURITY_TOKEN_SESSION_BEHAVIOR_POLICY_NAME" /> politikası <ph name="SECURITY_TOKEN_SESSION_BEHAVIOR_LOCK" /> veya <ph name="SECURITY_TOKEN_SESSION_BEHAVIOR_LOGOUT" /> değerine ayarlanırsa ve akıllı kartla kimlik doğrulaması yapan kullanıcı bu akıllı kartı çıkarırsa geçerli olur. Ardından bu politika, gerçekleşmek üzere olan işlem hakkında kullanıcıyı bilgilendiren bildirimin kaç saniye görüntüleneceğini belirtir. Bu bildirim, ekranı engeller. İşlem, yalnızca bu bildirimin süresi dolduktan sonra gerçekleşir. Kullanıcı, bildirimin süresi dolmadan akıllı kartı yeniden takarak işlemin gerçekleşmesini önleyebilir. Bu politika sıfır değerine ayarlanırsa herhangi bir bildirim görüntülenmeden işlem hemen gerçekleşir.</translation>
 <translation id="1793346220873697538">Varsayılan olarak PIN ile yazdırmayı devre dışı bırak</translation>
+<translation id="1794457906032475749">Bu politika Etkin değerine ayarlanırsa kurumsal profil oluştururken, mevcut tarama verilerini saklama seçeneği varsayılan olarak işaretlenir.
+
+Bu politika ayarlanmaz veya Devre Dışı değerine ayarlanırsa kurumsal profil oluştururken, mevcut tarama verilerini saklama seçeneği varsayılan olarak işaretlenmez.
+
+Değerden bağımsız olarak kullanıcılar, kurumsal profil oluştururken mevcut tarama verilerinin saklanıp saklanmayacağına karar verebilir.
+
+Kurumsal profil ayrımının katı bir şekilde zorunlu tutulması ya da ilgili verilerin halihazırda yönetilen bir profilden gelmesi halinde, mevcut tarama verilerini saklama seçeneği sunulmaz ve bu politika etkili olmaz.
+</translation>
 <translation id="179694024208061102">Politika Etkin değerine ayarlanırsa <ph name="PRODUCT_NAME" /> bazı URL'leri alternatif bir tarayıcıda (ör. <ph name="IE_PRODUCT_NAME" />) açmaya çalışır. Bu özellik, <ph name="LEGACY_BROWSER_SUPPORT_POLICY_GROUP" /> grubundaki politikalar kullanılarak ayarlanır.
 
       Politika Devre dışı değerine ayarlanır veya ayarlanmadan bırakılırsa <ph name="PRODUCT_NAME" />, tanımlanan URL'leri alternatif tarayıcıda açmaya çalışmaz.</translation>
@@ -948,7 +991,6 @@ Bu politikayı devre dışı bırakırsanız web sayfasını URL yoluyla belirli
 <translation id="1962864958436828230">Veri sızıntısını önleme amaçlı pano kısıtlaması için minimum boyut sınırını belirleyin</translation>
 <translation id="1964634611280150550">Gizli mod devre dışı</translation>
 <translation id="1964802606569741174">Bu politikanın Android YouTube uygulaması üzerinde hiçbir etkisi yoktur. YouTube'da Güvenlik Modu uygulanacaksa Android YouTube uygulamasının yüklenmesine izin verilmemelidir.</translation>
-<translation id="1967334955994230472">Projektörü devre dışı bırak</translation>
 <translation id="1969212217917526199">Uzaktan erişim ana makinesinin Hata Ayıklama yapılarındaki politikaları geçersiz kılar.
 
           Değer, politika adı ile politika değeri eşleşmelerinin olduğu bir JSON sözlüğü olarak ayrıştırılır.</translation>
@@ -963,6 +1005,7 @@ Bu politikayı devre dışı bırakırsanız web sayfasını URL yoluyla belirli
 
       Politikada yapılacak değişiklikler yalnızca ARC çalışmıyorken (ör. ChromeOS başlatılırken) uygulanır.</translation>
 <translation id="1985598967415986700">Kullanıcı aracısı kısaltma özelliği, alan denemeleri ve kaynak denemeleri aracılığıyla kontrol edilebilecek.</translation>
+<translation id="1987789058026551147">Cihaz kiosk oturumu raporlamasını etkinleştir</translation>
 <translation id="1988345404999458987">Kullanılabilir yazdırma sunucularının yapılandırmalarını sağlar.
 
       Bu politika, harici yazdırma sunucularının yapılandırmalarını <ph name="PRODUCT_OS_NAME" /> cihazlara JSON dosyası olarak sağlamanıza olanak tanır.
@@ -1061,6 +1104,7 @@ Bu politikayı devre dışı bırakırsanız web sayfasını URL yoluyla belirli
 <translation id="2058055310819710697">Erişime kapalı uygulamalar için geliştirici modunu etkinleştir</translation>
 <translation id="2061123930713023976">Ağ paketi yakalama işlemlerinde hata ayıklamaya izin ver</translation>
 <translation id="2061810934846663491">Uzaktan erişim ana makineleri için gereken alan adlarını yapılandır</translation>
+<translation id="2062632109797189011">Kullanımdan kaldırılan window.webkitStorageInfo API'sini yeniden etkinleştir</translation>
 <translation id="2069350366303315077">Politika, Etkin değerine ayarlanırsa <ph name="PRODUCT_NAME" />, misafir oturumunu zorunlu kılıp profil ile oturum açma işlemlerini engeller. Misafir oturumları, tüm pencerelerin gizli modda olduğu <ph name="PRODUCT_NAME" /> profilleridir.
 
       Politika, Devre Dışı değerine ayarlanır, ayarlanmadan bırakılır veya tarayıcı Misafir Modu devre dışı bırakılırsa (<ph name="BROWSER_GUEST_MODE_ENABLED_POLICY_NAME" /> politikasıyla) yeni ve mevcut profiller kullanılabilir.</translation>
@@ -1299,7 +1343,6 @@ Bu politikayı devre dışı bırakırsanız web sayfasını URL yoluyla belirli
 
       Geçerli <ph name="URL_LABEL" /> kalıpları hakkında ayrıntılı bilgi için https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns adresine bakabilirsiniz. <ph name="WILDCARD_VALUE" />, bu politikada kabul edilen bir değer değildir.</translation>
 <translation id="2299220924812062390">Etkinleştirilmiş eklentilerin listesini belirt</translation>
-<translation id="2301048990069984110">Windows, Mac ve Linux'taki Chrome Uygulamaları desteğini artırma.</translation>
 <translation id="2303795211377219696">Kredi kartları için Otomatik Doldurma özelliğini etkinleştirme</translation>
 <translation id="2304009805995145854">Site izolasyonu, 67. <ph name="PRODUCT_NAME" /> sürümünden itibaren tüm masaüstü platformlarda varsayılan olarak etkinleştirilerek her sitenin kendi işleminde çalışmasına neden olur. Site, şema artı eTLD+1 olarak tanımlanır (ör. https://example.com). Bu politikanın Etkin değerine ayarlanması bu davranışı değiştirmez, yalnızca kullanıcıların bu ayarı devre dışı bırakmasını (örneğin, chrome://flags'te Site izolasyonunu devre dışı bırak seçeneğini kullanarak) engeller. 76. <ph name="PRODUCT_NAME" /> sürümünden itibaren, bu politikanın Devre dışı değerine ayarlanması veya ayarlanmadan bırakılması, site izolasyonunu kapatmaz ancak kullanıcılar tarafından devre dışı bırakılmasına izin verir.
 
@@ -1334,6 +1377,7 @@ Bu politikayı devre dışı bırakırsanız web sayfasını URL yoluyla belirli
 <translation id="2341509917222115272">Politika, Etkin değerine ayarlanır veya ayarlanmadan bırakılırsa kullanıcıların bağlantı zamanında istemcileri ve ana makineleri eşlemelerine izin verilir. Bu durumda, her defasında PIN girme gereği ortadan kalkar.
 
       Politika, Devre Dışı değerine ayarlanırsa bu özellik kullanılamaz.</translation>
+<translation id="2342066287156668839">Kalıcı kotayı etkinleştir.</translation>
 <translation id="2345547870894930157">DNS-over-HTTPS'i güvenli olmayan geçiş olmadan etkinleştir</translation>
 <translation id="2349117476121456297">Politikayı True (Doğru) değerine ayarlamak, klavyenin en üst sırasındaki tuşların işlev tuşu komutları olarak davranmasını sağlar. Arama tuşuna basmak, bunların davranışını tekrar medya tuşu olarak değiştirir.
 
@@ -1621,6 +1665,7 @@ Bu politika ayarlanmadan bırakılırsa gizlilik ekranı başta devre dışı b�
 
       <ph name="MS_WIN_NAME" /> işletim sisteminde bu işlev yalnızca Windows 10 Pro üzerinde çalışan bir <ph name="MS_AD_NAME" /> alan adına katılmış veya Chrome Tarayıcı Bulut Yönetimi'ne kaydolmuş örneklerde kullanılabilir. <ph name="MAC_OS_NAME" /> işletim sisteminde bu işlev yalnızca MDM üzerinden yönetilen veya MCX aracılığıyla bir alan adına katılmış örneklerde kullanılabilir.</translation>
 <translation id="2623014935069176671">İlk kullanıcı etkinliğini bekle</translation>
+<translation id="2625026032335150744">Mevcut tarama verilerini saklama seçeneğini varsayılan olarak işaretle</translation>
 <translation id="2625398797484317969">Bil bakalım ayarlarını kontrol eder.</translation>
 <translation id="262740370354162807">Dokümanların <ph name="CLOUD_PRINT_NAME" /> için gönderilmesini etkinleştir</translation>
 <translation id="2633084400146331575">Sözlü geribildirimi etkinleştir</translation>
@@ -1689,11 +1734,6 @@ Bu politika ayarlanmadan bırakılırsa gizlilik ekranı başta devre dışı b�
       Politika, etkin değerine ayarlanırsa analizler uzantısı yüklenir ve metrikleri raporlar.
 
       Politika ayarlanmazsa veya devre dışı değerine ayarlanırsa analizler uzantısı yüklenmez ve metrikleri raporlamaz.</translation>
-<translation id="2723692978495226412">Bu politika, Etkin değerine ayarlanırsa kullanıcı tarafından daha önce diğer cihazlara yüklenen uygulamalar için öneriler verilir. Hiçbir arama metni girilmediyse bu öneriler yerel uygulama önerilerinden sonra başlatıcıda görünür.
-
-      Bu politika, Devre Dışı değerine ayarlanır veya ayarlanmadan bırakılırsa bu öneriler görünmez.
-
-      Bu politika ayarlanırsa kullanıcılar değiştiremez.</translation>
 <translation id="2724313944474873275">Politika, Etkin değerine ayarlanır veya ayarlanmadan bırakılırsa <ph name="PRODUCT_OS_NAME" /> cihazlarının, cihazın korumalı içeriği oynatmak için uygun olduğunu onaylayan <ph name="PRODUCT_OS_NAME" /> CA'sı tarafından yayınlanan bir sertifika almak amacıyla uzaktan onay (Doğrulanmış Erişim) kullanmasına izin verilir. Bu işlem, <ph name="PRODUCT_OS_NAME" /> CA'sına cihazı benzersiz bir şekilde tanımlayan donanım onay bilgilerinin gönderilmesini içerir.
 
       Politika, Devre Dışı değerine ayarlanırsa cihaz, içerik koruması için uzaktan onay kullanmaz ve korumalı içeriği oynatmayabilir.</translation>
@@ -1832,6 +1872,7 @@ Bu politika ayarlanmadan bırakılırsa gizlilik ekranı başta devre dışı b�
 
       Politika Devre Dışı değerine ayarlanır veya ayarlanmadan bırakılırsa kayıtlı cihazlar Android durum bilgilerini rapor etmez.</translation>
 <translation id="288923520817177650"><ph name="WEBXR_API_NAME_SHORT" /> API'nin <ph name="WEBXR_AR_SESSION_ENUM_VALUE" /> oturumlarına izin ver</translation>
+<translation id="2889842394011108075">window.webkitStorageInfo kullanılabilir.</translation>
 <translation id="2890645751406497668">Bu sitelere, sağlanan tedarikçi ve ürün kimlikleriyle otomatik olarak USB cihazlarına bağlanma izni verir.</translation>
 <translation id="2891049933730408118">Politika ayarlandığında <ph name="AUTH_SCHEMES_POLICY_NAME" /> politikasından bağımsız olarak hangi kaynaklar için <ph name="PRODUCT_NAME" /> tarafından desteklenen tüm HTTP kimlik doğrulama şemalarına izin verileceğini belirtir.
 
@@ -2043,6 +2084,7 @@ Bu politika ayarlanmadan bırakılırsa gizlilik ekranı başta devre dışı b�
       Geçerli <ph name="URL_LABEL" /> kalıpları hakkında ayrıntılı bilgi için https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns adresine bakabilirsiniz. <ph name="WILDCARD_VALUE" />, bu politikada kabul edilen bir değer değildir.</translation>
 <translation id="305106159605171619">Kullanıcı aracısı kısaltma özelliği devre dışı bırakılmış ve alan denemeleri ya da kaynak denemeleri ile etkinleştirilmemiş.</translation>
 <translation id="3053265701996417839">Microsoft Windows 7</translation>
+<translation id="3063302084011279315">Ekran Kaydı'nı Devre Dışı Bırak</translation>
 <translation id="3064530882228745118">Kerberos kimlik doğrulaması sırasında CNAME aramasını kullan</translation>
 <translation id="3066446511111537292">Bu cihazın ilişkili kullanıcılarının ADB başka cihazdan yükleme işlevini kullanmalarına izin verir</translation>
 <translation id="3070119171976169951">Üçüncü taraf görsellerinin, kimlik doğrulama istemi göstermesini engelle</translation>
@@ -2083,6 +2125,7 @@ Bu politika ayarlanmadan bırakılırsa gizlilik ekranı başta devre dışı b�
 <translation id="3118552207903834734">Kullanıcının, cihazın ana makine adını yapılandırmasına izin ver</translation>
 <translation id="3122082892722698079">Güvenli olmayan içerik istisnalarının kullanımını kontrol et</translation>
 <translation id="3128072319047570212">Anahtar oluşturucu ayarları</translation>
+<translation id="3131703464330936425">Mobil veri dolaşımına izin verme</translation>
 <translation id="3135820765957090754">Bu ayar etkinleştirildiğinde kullanıcıların, <ph name="PRODUCT_OS_NAME" /> cihazları ile bağlı Android telefonları arasında kablosuz ağ yapılandırmalarını senkronize etmelerine izin verilir. Kablosuz ağ yapılandırmaları senkronize edilmeden önce kullanıcıların bir kurulum akışını tamamlayarak bu özelliğe açık bir şekilde kaydolmaları gerekir.
 
       Bu ayar devre dışı bırakılırsa kullanıcıların, kablosuz ağ yapılandırmalarını senkronize etmelerine izin verilmez.
@@ -2258,6 +2301,7 @@ Bu politika ayarlanmadan bırakılırsa gizlilik ekranı başta devre dışı b�
 <translation id="3255762580838224124">Bu politikanın ayarlanması, her ekranın her yeniden başlatmada ve politika değeri değiştikten sonraki ilk bağlantısında belirtilen yöne döndürülmesini sağlar. Kullanıcılar oturum açtıktan sonra ayarlar sayfasında ekran döndürmeyi değiştirebilir, ancak ayar bir sonraki yeniden başlatmada eski haline döner. Bu politika, birincil ve ikincil ekranlar için geçerlidir.
 
       Politika ayarlanmazsa varsayılan değer 0 derece olur ve kullanıcılar bu değeri istedikleri gibi değiştirebilir. Bu durumda, varsayılan değer yeniden başlatma sırasında tekrar uygulanmaz.</translation>
+<translation id="3257786863492892609">Ekran Kaydı ile ilgili politikaları kontrol eder.</translation>
 <translation id="3258380413685430793"><ph name="FLASH_PLUGIN_NAME" /> içeriklerinin tamamını çalıştır</translation>
 <translation id="325883417142483505">Politika ayarlanırsa kurumsal giriş URL'lerinin listesi ayarlanır (yalnızca HTTP ve HTTPS protokolleri). Şifre koruma hizmeti, bu URL'lerdeki şifrelerin rastgele oluşturulmuş karma değerlerini yakalayıp şifre yeniden kullanımı algılaması için kullanır. <ph name="PRODUCT_NAME" /> ürününün rastgele oluşturulmuş karma değerleri doğru bir şekilde yakalayabilmesi için oturum açma sayfalarınızın https://www.chromium.org/developers/design-documents/create-amazing-password-forms adresinde belirtilen yönergelere uygun olduğundan emin olun.
 
@@ -2276,7 +2320,6 @@ Bu politika ayarlanmadan bırakılırsa gizlilik ekranı başta devre dışı b�
 <translation id="328347261792478720">Varsayılan olarak tarayıcı, kullanıcıya göre kişiselleştirilmiş medya önerileri gösterir. Bu politika Devre Dışı değerine ayarlanırsa bu öneriler kullanıcıdan gizlenir. Bu politika Etkin değerine ayarlanır veya ayarlanmadan bırakılırsa kullanıcıya medya önerileri gösterilir.</translation>
 <translation id="3284094172359247914">WebUSB API'sinin kullanımını kontrol et</translation>
 <translation id="3288595667065905535">Yeni sürüm kanalı</translation>
-<translation id="3291318845269544294">Projektörü etkinleştir</translation>
 <translation id="3294430356898755483">Politika ayarlanırsa yöneticiler kullanıcıları için bir yazıcı listesi oluşturur. Yazıcı seçimi, kullanıcılar ilk kez yazdırmaya çalıştığında yapılır.
 
       Politikayı kullanarak:
@@ -2346,7 +2389,6 @@ Bu politika ayarlanmadan bırakılırsa gizlilik ekranı başta devre dışı b�
           Politika değeri milisaniye olarak belirtilmelidir. Değerler boşta kalma gecikmesinin altında veya o gecikmeye eşit olacak şekilde ayarlanır.
 
           Uyarı mesajı yalnızca boşta kalma işlemi, çıkış yapma veya cihazı kapatma olduğunda gösterilir.</translation>
-<translation id="3360280740977649313">Projektör politikalarını kontrol eder.</translation>
 <translation id="3360490004791301756">Kullanıcıların <ph name="PRODUCT_OS_NAME" /> kaydı üzerinden teklif kullanmasına izin ver</translation>
 <translation id="3363360928811201045">Yönetilen hesaplara kısıtlama ekleme</translation>
 <translation id="3373381043600809954"><ph name="PRODUCT_NAME" /> özelliğini etkinleştir</translation>
@@ -2370,6 +2412,13 @@ Bu politika ayarlanmadan bırakılırsa gizlilik ekranı başta devre dışı b�
       <ph name="DEVICE_LOCAL_ACCOUNT_AUTO_LOGIN_ID_POLICY_NAME" /> politikası ayarlanmazsa bu politikanın hiçbir etkisi olmaz.</translation>
 <translation id="3397883909301547525"><ph name="PRODUCT_OS_NAME" /> başlatıcıda uygulama önerileri gösterme</translation>
 <translation id="3399859571630358395">Hızlı Eşleme'yi (hızlı Bluetooth eşleme) devre dışı bırakmaya zorla.</translation>
+<translation id="3408078762098350617"><ph name="SYSTEM_FEATURES_DISABLE_LIST_POLICY_NAME" /> içindeki devre dışı bırakılan özelliklerle ilgili kullanıcı deneyimini kontrol eder.
+
+      Bu politika "engellendi" olarak ayarlanırsa, devre dışı bırakılan özellikler kullanılamaz hale gelir ama yine de kullanıcılar tarafından görülebilir.
+
+      Bu politika "gizli" olarak ayarlanırsa, devre dışı bırakılan özellikler kullanılamaz hale gelir ve kullanıcılar tarafından görülemez.
+
+      Bu politika ayarlanmadan bırakılırsa veya geçersiz bir değer içerirse sistem özelliklerinin devre dışı bırakma modu "engellenir".</translation>
 <translation id="341285788698114069">Bu politika, Windows üzerinde ses işleminin önceliğini kontrol eder.
       Bu politika etkinleştirilirse ses işlemi, normal üstü öncelikli çalışır.
       Bu politika devre dışı bırakılırsa ses işlemi, normal öncelikli çalışır.
@@ -2474,6 +2523,7 @@ Bu politika ayarlanmadan bırakılırsa gizlilik ekranı başta devre dışı b�
 <translation id="3539103206548425861">Politikayı ayarladığınızda <ph name="PRODUCT_NAME" /> ürününde sesli videolar otomatik (kullanıcı onayı olmadan) oynatılır. <ph name="AUTOPLAY_ALLOWED_POLICY_NAME" /> True (Doğru) değerine ayarlandığında bu politika geçerliliğini yitirir. <ph name="AUTOPLAY_ALLOWED_POLICY_NAME" /> False (Yanlış) değerine ayarlandığında bu politikadaki URL kalıpları oynatılabilir. <ph name="PRODUCT_NAME" /> çalışırken bu politika değiştirilirse sadece yeni açılan sekmelere uygulanır.
 
       Geçerli URL kalıpları hakkında ayrıntılı bilgi için https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns adresine bakabilirsiniz.</translation>
+<translation id="3540846231645422635">Cihaz ağ arayüzü raporlamasını devre dışı bırak</translation>
 <translation id="3540935459049973317">Uygulama Başına Süre Sınırları</translation>
 <translation id="3547954654003013442">Proxy ayarları</translation>
 <translation id="3548642468619496972">Kötü amaçlı indirmeleri, yaygın olmayan veya istenmeyen indirmeleri ve tehlikeli dosya türlerini engelle.</translation>
@@ -2506,6 +2556,7 @@ Bu politika ayarlanmadan bırakılırsa gizlilik ekranı başta devre dışı b�
           Çağrılar, izin verilenler listesi dışındaki bağlamlardan kaynaklandığı için
           reddedilmez. (Çağrılar yine de başka nedenlerle reddedilebilir.)</translation>
 <translation id="3568762199045490351">0 ms'lik bir zaman aşımına sahip JavaScript setTimeout(), 1 ms'ye sabitlenir.</translation>
+<translation id="3574450691573438824">Cihaz sistem günlüğünü yüklemeyi devre dışı bırak</translation>
 <translation id="3575011234198230041">HTTP kimlik doğrulaması</translation>
 <translation id="3577251398714997599">Araya giren reklamların yer aldığı siteler için reklam ayarı</translation>
 <translation id="3577628175311752799">Varsayılan yönlendirme politikası olarak "no-referrer-when-downgrade" kullan.</translation>
@@ -2546,7 +2597,6 @@ Bu politika ayarlanmadan bırakılırsa gizlilik ekranı başta devre dışı b�
 <translation id="3628480121685794414">Tek yönlü yazdırmayı etkinleştir</translation>
 <translation id="3634125384445314047">Telefonda çekilen son fotoğraflara ve videolara Telefon Merkezi aracılığıyla erişime izin ver.</translation>
 <translation id="3643284063603988867">"Şifreyi hatırla" özelliğini etkinleştir</translation>
-<translation id="3644278943784332493">Family Link kullanıcıları için Projector test sürümünü etkinleştir</translation>
 <translation id="3644735978203799620">Çoklu ekran görüntüleri için otomatik seçimi etkinleştirir</translation>
 <translation id="3646859102161347133">Ekran büyüteci türünü ayarla</translation>
 <translation id="3647212518036289905">Politikanın ayarlanması, HTTP kimlik doğrulaması için hangi GSSAPI kitaplığının kullanılacağını belirtir. Politikayı bir kitaplık adı veya tam yol olarak ayarlayın.
@@ -2596,7 +2646,6 @@ Bu politika ayarlanmadan bırakılırsa gizlilik ekranı başta devre dışı b�
 <translation id="3702647575225525306"><ph name="POLICY_NAME" /> (Tek satırlı alanlar artık kullanılmamaktadır ve yakında kaldırılacaktır. Lütfen aşağıdaki çok satırlı metin kutusunu kullanın.)</translation>
 <translation id="3709266154059827597">Uzantı kurulum kara listesini yapılandır</translation>
 <translation id="3711895659073496551">Askıya al</translation>
-<translation id="3715569262675717862">İstemci sertifikalarına dayalı kimlik doğrulama</translation>
 <translation id="3717409415785131989">Politika, etkin değerine ayarlanır veya ayarlanmadan bırakılırsa <ph name="PRODUCT_NAME" />, yeni indirme baloncuğu kullanıcı arayüzünü gösterir.
 
       Politika, devre dışı değerine ayarlanırsa <ph name="PRODUCT_NAME" />, eski indirme rafı kullanıcı arayüzünü göstermeye devam eder.</translation>
@@ -2623,11 +2672,13 @@ Bu politika ayarlanmadan bırakılırsa gizlilik ekranı başta devre dışı b�
 <translation id="3736879847913515635">Kullanıcı yöneticisinde kişi eklemeyi etkinleştir</translation>
 <translation id="3749259744154402564">Desteklenmiyor</translation>
 <translation id="3750220015372671395">Bu sitelerde anahtar oluşturmayı engelle</translation>
+<translation id="3753959315989102457">Cihaz konumu raporlamasını devre dışı bırak</translation>
 <translation id="3755237588083934849">Politikanın ayarlanması, cihaz durumu yüklemelerinin ne sıklıkla gönderileceğini (milisaniye olarak) belirler. İzin verilen minimum sıklık 60 saniyedir.
 
       Ayarlanmazsa 3 saatlik varsayılan sıklık geçerli olur.</translation>
 <translation id="3756011779061588474">Geliştirici modunu engelle</translation>
 <translation id="3756516139200532906">Yönetilen kullanıcının, cihazın ana makine adını yapılandırmasına izin ver</translation>
+<translation id="3756737071958233151">Cihaz sistem günlüğünü yüklemeyi etkinleştir</translation>
 <translation id="3758089716224084329"><ph name="PRODUCT_NAME" /> tarafından kullanılan proxy sunucuyu belirtmenize olanak tanır ve kullanıcıların proxy ayarlarını değiştirmelerini önler.
 
       Proxy sunucu kullanmamayı ve her zaman doğrudan bağlanmayı seçerseniz diğer tüm seçenekler yoksayılır.
@@ -2653,6 +2704,7 @@ Bu politika ayarlanmadan bırakılırsa gizlilik ekranı başta devre dışı b�
 
       Politika, Devre Dışı değerine ayarlanır veya ayarlanmadan bırakılırsa <ph name="PRODUCT_OS_NAME" /> kullanıcıların cihazları kapatmasına izin verir.</translation>
 <translation id="3763515772647897871">Güncelleme denetiminin haftanın hangi gününde yapılması gerektiği (cihazın yerel saat dilimine göre). Yalnızca "frequency", "WEEKLY" olarak ayarlandığında kullanılır.</translation>
+<translation id="376375951585423504">Kalıcı kotayı devre dışı bırak.</translation>
 <translation id="3765260570442823273">Boştayken çıkış yapma uyarı mesajının süresi</translation>
 <translation id="3770407495263198786">Politika ayarlanırsa yöneticiler kullanıcıları için bir yazıcı listesi oluşturur. Yazıcı seçimi, kullanıcılar ilk kez yazdırmaya çalıştığında yapılır.
 
@@ -2672,6 +2724,7 @@ Bu politika ayarlanmadan bırakılırsa gizlilik ekranı başta devre dışı b�
 
       Not: <ph name="MS_AD_NAME" /> tarafından yönetilen cihazlarda bu politika, <ph name="MACHINE_NAME_VARIABLE" /> değişkeninin <ph name="MS_AD_NAME" /> makine adına veya bunun bir alt dizesine genişletilmesini destekler. Örneğin, makine adı <ph name="MACHINE_NAME_EXAMPLE" /> ise <ph name="MACHINE_NAME_VARIABLE_EXAMPLE" />, 6. konumdan sonra başlayan 4 karakterle değiştirilir (<ph name="MACHINE_NAME_PART_EXAMPLE" /> gibi). Konum sıfır tabanlıdır.</translation>
 <translation id="377044054160169374">Kötüye Kullanım Deneyimi Müdahele Yaptırımı</translation>
+<translation id="3777833753656885744">Giriş ve kilit ekranında URL listesi için onay akışını etkinleştir</translation>
 <translation id="3778689139323007309">Yerel olarak yüklü CA sertifikaları tarafından imzalanmış başarıyla doğrulanmış sunucu sertifikaları için iptal kontrolleri gerçekleştir</translation>
 <translation id="3780152581321609624">Kerberos SPN'sine standart dışı bağlantı noktasını dahil et</translation>
 <translation id="378495749480642482">Kullanıcıların gittiği sitelerin, <ph name="WEBXR_API_NAME" /> API'yi kullanarak yoğun düzeyde Artırılmış Gerçeklik oluşturmasına izin verilip verilmeyeceğini yapılandırır.
@@ -2700,6 +2753,7 @@ Bu politika ayarlanmadan bırakılırsa gizlilik ekranı başta devre dışı b�
 <translation id="3798922329287609568">Politika ayarlanırsa dupleks modunda yazdırma kısıtlanır.
 
       Politika ayarlanmaz veya boş bırakılırsa hiçbir kısıtlama uygulanmaz.</translation>
+<translation id="3799417300383048419">Kullanıcı oturumu sona erdiğinde diskteki profil verilerini koru</translation>
 <translation id="3803171355925844705">Hiçbir sitenin engellenebilir karma içerik yüklemesine izin verme</translation>
 <translation id="3808945828600697669">Devre dışı bırakılan eklentilerin listesini belirt</translation>
 <translation id="3810642039169532482">Giriş ekranında dikte erişilebilirlik özelliğini etkinleştirin.
@@ -2742,19 +2796,6 @@ Bu politika ayarlanmadan bırakılırsa gizlilik ekranı başta devre dışı b�
 
       Kullanıcılar politika tarafından kaydedilen bir protokol işleyicisini kaldıramazlar. Ancak kullanıcılar yeni bir varsayılan işleyici yükleyerek politika tarafından kaydedilen protokol işleyicilerini değiştirebilirler.</translation>
 <translation id="3851443303439635700">JavaScript setTimeout() fonksiyonu zaman aşımına uğramaya başlamadan önceki iç içe yerleştirme eşiğini kontrol et</translation>
-<translation id="3857816702027059082">URL listesi için <ph name="CHROME_ENTERPRISE_PLATFORM_IDENTITY_CONNECTOR" /> politikasını etkinleştirin.
-
-      Bu politikanın ayarlanması, makineden sinyal grubu alma onay akışına dahil olmasına izin verilmesi gereken URL'leri belirtir.
-
-      Bu politikanın ayarlanmadan veya boş bırakılması hiçbir uç noktanın onay akışı başlatamayacağı veya makineden sinyal alamayacağı anlamına gelir.
-
-      URL'lerin HTTPS şeması olması gerekir, ör. "https://example.com".
-
-      Not: <ph name="WILDCARD_VALUE" /> joker karakterlerine izin verilir.
-
-      ChromeOS'te bu politika, uzaktan onay ile sertifikanın otomatik olarak oluşturulup Cihaz Yönetim Sunucusuna yüklenmesiyle ilgilidir.
-
-      Geçerli <ph name="URL_LABEL" /> kalıpları hakkında ayrıntılı bilgi için https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns adresine bakabilirsiniz.</translation>
 <translation id="3858128774616573616">Politika Etkin değerine ayarlanırsa Cast araç çubuğu simgesi, araç çubuğunda veya taşma menüsünde görüntülenir ve kullanıcılar tarafından kaldırılamaz.
 
       Politika Devre dışı değerine ayarlanır veya ayarlanmadan bırakılırsa kullanıcılar simgeyi içerik menüsünden sabitleyebilir veya kaldırabilir.
@@ -2808,6 +2849,7 @@ Bu politika ayarlanmadan bırakılırsa gizlilik ekranı başta devre dışı b�
 <translation id="3897218615484393758">SAML kullanarak kimlik doğrulaması yapmış kullanıcının, kilit ekranında çevrimdışı olarak giriş yapabileceği süreyi sınırla</translation>
 <translation id="3898345958122666461">NTLMv2'yi kapat</translation>
 <translation id="3898795800259311780">Ekran görüntüsü almaya izin ver veya bunu reddet</translation>
+<translation id="3903313632842363082">Cihaz kullanıcılarının raporlamasını devre dışı bırak</translation>
 <translation id="3907683835264956726">Kilit ekranında kullanıcının online oturum açma işlemini etkinleştirir. Politika true (doğru) değerine ayarlanırsa <ph name="POLICY" />, kilit ekranında yeniden online kimlik doğrulamayı tetikler.
       Yeniden kimlik doğrulama, kilit ekranı açıkken hemen ya da koşulun sağlanmasının ardından kullanıcı ekranını ilk kilitlediği zaman gerçekleşir.
       Politika false (yanlış) değerine ayarlanır ya da ayarlanmadan bırakılırsa kullanıcılar yerel kimlik bilgileriyle ekran kilitlerini açabilir.</translation>
@@ -2840,6 +2882,7 @@ Bu politika ayarlanmadan bırakılırsa gizlilik ekranı başta devre dışı b�
       Boş bırakılır veya ayarlanmazsa bu özellik devre dışı bırakılır.
 
       Not: Bu politika, <ph name="REMOTE_ACCESS_HOST_TOKEN_VALIDATION_URL_POLICY_NAME" /> politikası ile birlikte kullanılmalıdır.</translation>
+<translation id="3924506460382372403">Cihaz grafik durumu raporlamasını devre dışı bırak</translation>
 <translation id="3925377537407648234">Ekran çözünürlüğünü ve ölçek faktörünü ayarlama</translation>
 <translation id="3927137827189017535">Giriş ekranında yapışkan tuşlar erişilebilirlik özelliğini etkinleştirir.
 
@@ -2856,6 +2899,7 @@ Bu politika ayarlanmadan bırakılırsa gizlilik ekranı başta devre dışı b�
       Bu politika Devre Dışı değerine ayarlanırsa veya ayarlanmadan bırakılırsa kullanıcıdan yalnızca otomatik seçimle eşleşen sertifika olmadığında seçim yapması istenebilir.</translation>
 <translation id="3950110092991281616">Ambiyans kimlik doğrulamasını yalnızca normal oturumlarda etkinleştir.</translation>
 <translation id="3950239119790560549">Güncelleme Zamanı Kısıtlamaları</translation>
+<translation id="3956243291190637924">Yazdırma önizlemede üstbilgileri ve altbilgileri gizle</translation>
 <translation id="3956573780915784996">Kullanıcıların sistem genelinde performans izleme verilerini toplamasına izin verir.</translation>
 <translation id="3956686688560604829">Eski Tarayıcı Desteği için Internet Explorer'ın SiteList politikasını kullanma.</translation>
 <translation id="3958586912393694012">Smart Lock'un kullanılmasına izin ver</translation>
@@ -2939,6 +2983,8 @@ Bu politika ayarlanmadan bırakılırsa gizlilik ekranı başta devre dışı b�
       <ph name="MS_WIN_NAME" /> işletim sisteminde bu işlev yalnızca Windows 10 Pro üzerinde çalışan bir <ph name="MS_AD_NAME" /> alan adına katılmış veya <ph name="CHROME_BROWSER_CLOUD_MANAGEMENT_NAME" /> öğesine kaydolmuş örneklerde kullanılabilir. <ph name="MAC_OS_NAME" /> işletim sisteminde bu işlev yalnızca MDM ile çalışan veya MCX aracılığıyla bir alan adına katılmış örneklerde kullanılabilir.</translation>
 <translation id="4043796890723386527">Kullanıcıların, <ph name="LACROS_NAME" /> tarayıcıda ikinci profiller oluşturup kullanmalarını ve misafir modunu kullanmalarını engelle.</translation>
 <translation id="4051723201852944592">Pencere Kapamayı Etkinleştir</translation>
+<translation id="4052529125939620019">CryptoToken bileşen uzantısını başlangıçta yükle</translation>
+<translation id="4053157306171963473">Cihaz etkinlik zamanı raporlamasını devre dışı bırak</translation>
 <translation id="4056910949759281379">SPDY protokolünü devre dışı bırak</translation>
 <translation id="4061107397839125009">Politikayı ayarlamak, bildirimleri görüntüleyemeyen siteleri belirten URL kalıpları için bir liste yapmanıza olanak tanır.
 
@@ -2977,13 +3023,6 @@ Bu politika ayarlanmadan bırakılırsa gizlilik ekranı başta devre dışı b�
 <translation id="410068710490553233">Başka Google Hesapları ile Oturum Açmaya İzin Ver</translation>
 <translation id="4101282687722389021">Bu girişin son güncellendiği zamanı gösteren UTC zaman damgası. Zaman damgasına bir tamsayı sığmayacağından dize olarak gönderilir</translation>
 <translation id="4103289232974211388">Kullanıcı onayından sonra SAML IdP'ye yönlendir</translation>
-<translation id="4105884561459127998">SAML giriş için kimlik doğrulama türünü yapılandırır.
-
-      Bu politika ayarlanmazsa veya Varsayılan değere (0 değeri) ayarlanırsa, SAML giriş işlemlerinin çalışma biçimini, diğer unsurlara dayalı olarak tarayıcı tarafından belirlenir. Çoğu temel senaryoda, kullanıcı kimlik doğrulaması ve önbelleğe alınan kullanıcı verilerinin korunması kullanıcıların manuel olarak girdiği şifrelerle yapılır.
-
-      Bu politika ClientCertificate değerine (1 değeri) ayarlanırsa yeni eklenen ve SAML ile giriş kullanıcılar için istemci sertifikası kimlik doğrulaması kullanılır. Bu tür kullanıcılar için herhangi bir şifre kullanılmaz ve bunların önbelleğe alınan yerel verileri ilgili şifreleme anahtarlarıyla korunur. Örneğin, bu ayar, kullanıcı kimlik doğrulamasını temel alarak akıllı kartın yapılandırılmasına olanak verir (DeviceLoginScreenExtensions politikası kullanılarak akıllı kart aracı yazılım uygulamalarının yüklenmesi gerektiğini unutmayın).
-
-      Bu politika sadece SAML kullanarak kimlik doğrulaması yapan kullanıcıları etkiler.</translation>
 <translation id="4105989332710272578">Bir URL listesi için Sertifika Şeffaflığı uygulamasını devre dışı bırak</translation>
 <translation id="4114059938441379876">Politika ayarlanırsa kullanıcıların tarayıcıda bir uyarı gördükten sonra şifrelerini değiştirmeleri için hangi URL'ye gönderileceği belirlenir. Şifre koruma hizmeti, kullanıcıları bu politikayla belirlediğiniz URL'ye (yalnızca HTTP ve HTTPS protokolleri) gönderir. <ph name="PRODUCT_NAME" /> ürününün bu şifre değiştirme sayfasında yeni şifrenin rastgele oluşturulmuş karma değerini doğru bir şekilde yakalayabilmesi için şifre değiştirme sayfanızın, https://www.chromium.org/developers/design-documents/create-amazing-password-forms adresinde belirtilen yönergelere uygun olduğundan emin olun.
 
@@ -3138,6 +3177,7 @@ Bu politika Yanlış değerine ayarlanırsa <ph name="PRODUCT_NAME" /> yerel bil
 <translation id="4261964161337162399">Ağ verilerinin örneklenme ve toplanma hızı. İzin verilen minimum sıklık 1 dakikadır.
 
       Ayarlamazsa 10 dakikalık varsayılan süre geçerli olur.</translation>
+<translation id="4263788921751326798">Cihaz kilitlenme raporu bilgi raporlamasını devre dışı bırak</translation>
 <translation id="4266547484666068234">Politikanın ayarlanması <ph name="URL_BLOCKLIST_POLICY_NAME" /> politikasına istisna olarak, listelenen URL'lere erişim sağlar. Bu listedeki girişlerin biçimi için söz konusu politikanın açıklamasına bakın. Örneğin, <ph name="URL_BLOCKLIST_POLICY_NAME" /> politikasını * olarak ayarlamak tüm istekleri engeller, siz de bu politikayı sınırlı bir URL listesine erişim izni vermek için kullanabilirsiniz. Bu ayarı, (https://www.chromium.org/administrators/url-blocklist-filter-format) adresinde belirtilen biçimi kullanarak belirli şemalar, diğer alan adlarının alt alan adları, bağlantı noktaları veya belirli yollara ilişkin istisnaları açmak için kullanın. Bir URL'nin engellenip engellenmediğini, en spesifik filtre belirler. <ph name="URL_ALLOWLIST_POLICY_NAME" /> politikası, <ph name="URL_BLOCKLIST_POLICY_NAME" /> politikasına göre daha önceliklidir. Bu politika 1.000 giriş ile sınırlıdır.
 
       Bu politika ayrıca "tel:" veya "ssh:" gibi listelenmiş protokoller için protokol işleyici olarak kayıtlı harici uygulamanın tarayıcısı üzerinden otomatik çağrının etkinleştirilmesine izin verir.
@@ -3190,6 +3230,13 @@ Bu politika ayarlandığında <ph name="PRODUCT_OS_NAME" />, listenin boş olmam
 <translation id="4347908978527632940">Doğru seçeneğine ayarlanırsa ve kullanıcı denetlenen bir kullanıcıysa, diğer Android uygulamaları kullanıcının web kısıtlamalarını bir içerik sağlayıcısı aracılığıyla sorgulayabilir.
 
           Yanlış seçeneğine ayarlanırsa veya ayarlanmadan bırakılırsa içerik sağlayıcısı herhangi bir bilgi sağlamaz.</translation>
+<translation id="4357587374229381015">Kullanıcı adı alanını otomatik olarak doldurmak için SAML IdP giriş sayfasında kullanılacak bir URL parametresi adı belirtir.
+
+      URL parametresinin değeri olarak kullanıcının <ph name="PRODUCT_OS_NAME" /> profiliyle ilişkilendirilmiş e-posta adresi kullanılır. Bu nedenle, SAML IdP ile farklı e-posta adresleri kullanmayı düşünen kullanıcılar için bu ayar devre dışı bırakılmalıdır.
+
+      Bu ayar ayarlanmadan bırakılırsa kullanıcıların, SAML IdP giriş sayfasında kullanıcı adlarını manuel olarak girmeleri gerekir.
+
+      Bu politika, oturum açma ve kilit ekranlarında online kimlik doğrulamayı etkiler.</translation>
 <translation id="4363057787588706121">Farklı kaynaklara ait liste politikalarını birleştirmeye izin ver</translation>
 <translation id="4363101430102811068">Girilen kimlik bilgileri için sızıntı algılamayı etkinleştir</translation>
 <translation id="436581050240847513">Cihaz ağ arayüzlerini rapor etme</translation>
@@ -3250,10 +3297,12 @@ Bu politika ayarlandığında <ph name="PRODUCT_OS_NAME" />, listenin boş olmam
 <translation id="441686537793821907">Harici uzantıların yüklenmesini engelle</translation>
 <translation id="4423597592074154136">Proxy ayarlarını el ile belirle</translation>
 <translation id="4424004842303301809">Veri sızıntısı önleme etkinliklerinin raporlanmasını devre dışı bırak</translation>
+<translation id="4426601693403743089">Family Link kullanıcıları için Ekran Kaydı test sürümünü devre dışı bırak</translation>
 <translation id="4427173305799125784">PDF görüntüleyici PDF'lere not ekleyemez</translation>
 <translation id="4432762137771104529">Güvenli Tarama Genişletilmiş Raporlamasını Etkinleştir</translation>
 <translation id="443454694385851356">Eski (güvenli değil)</translation>
 <translation id="443665821428652897">Tarayıcı kapandığında site verilerini temizle (kullanımdan kaldırıldı)</translation>
+<translation id="4436941175475497595">Baskı önizlemeyi devre dışı bırak</translation>
 <translation id="4439336120285389675">Geçici olarak yeniden etkinleştirmek için, kullanımdan kaldırılmış web platformu özelliklerinin bir listesini belirtin.
 
       Bu politika, yöneticilere kullanımdan kaldırılmış web platformu özelliklerini sınırlı bir süre için tekrar etkinleştirebilme olanağı verir. Özellikler bir dize etiketiyle tanımlanır ve bu politikanın belirttiği listeye eklenmiş olan etiketlere karşılık gelen özellikler yeniden etkinleştirilir.
@@ -3470,7 +3519,9 @@ Bu politika ayarlandığında <ph name="PRODUCT_OS_NAME" />, listenin boş olmam
 <translation id="4674871290487541952">Uzantı güncelleme ve yükleme işlemleriyle ilgili bütünlük kontrollerinde güvenli olmayan algoritmalara izin verme</translation>
 <translation id="4680961954980851756">Otomatik Doldurmayı etkinleştir</translation>
 <translation id="4685721728282448265">CECPQ2 kuantum sonrası anahtar anlaşması, TLS için etkinleştirildi</translation>
+<translation id="4693190628432874457">Cihaz konumu raporlamasını etkinleştir</translation>
 <translation id="4693779768620889402">Uzantı tabanlı hedefler</translation>
+<translation id="4694138212536142867">Cihaz donanım durumu raporlamasını etkinleştir</translation>
 <translation id="4697581738794063407">URL parametre filtresi özelliğini kontrol et</translation>
 <translation id="4699172675775169585">Önbelleğe alınan resimler ve dosyalar</translation>
 <translation id="4699592681017489215">Bu politika, DNS müdahale kontrollerin devre dışı bırakmak için kullanılabilen yerel bir anahtarı yapılandırır. Kontroller, tarayıcının bilinmeyen ana bilgisayar adlarına yönlendirme yapan bir proxy'nin arkasında olup olmadığını anlamaya çalışır.
@@ -3481,6 +3532,7 @@ Bu politika ayarlandığında <ph name="PRODUCT_OS_NAME" />, listenin boş olmam
 <translation id="4700190441681139987">Hiçbir sitenin sensörlere erişmesine izin verme</translation>
 <translation id="4703402283970867140">Ekranın karartma süresini uzatmak için akıllı karartma modelini etkinleştir</translation>
 <translation id="4704958130749494760">Sitelere, USB seri cihazlara bağlanmak için otomatik olarak izin ver.</translation>
+<translation id="471360812659157054">window.webkitStorageInfo kullanılamaz.</translation>
 <translation id="4722122254122249791">Site İzolasyonu'nu belirtilen kaynaklar için etkinleştirme</translation>
 <translation id="4723829699367336876">Uzaktan erişim istemcisinden güvenlik duvarı geçişini etkinleştir</translation>
 <translation id="4725528134735324213">Android Backup Service'ı etkinleştir</translation>
@@ -3495,6 +3547,7 @@ Bu politika ayarlandığında <ph name="PRODUCT_OS_NAME" />, listenin boş olmam
 <translation id="475479145997699293">Politikanın <ph name="ASK_FILE_HANDLING" /> olarak ayarlanması, web uygulamalarının File Handling API üzerinden dosya türlerine erişim istemesine olanak tanır. Politikayı <ph name="BLOCK_FILE_HANDLING" /> değerine ayarlamak dosya türlerine erişime izin vermez.
 
       Politika ayarlanmazsa web uygulamaları erişim izni ister ancak kullanıcılar bu ayarı değiştirebilirler.</translation>
+<translation id="4756953551789081500">Cihaz işletim sistemi güncelleme durumu raporlamasını devre dışı bırak</translation>
 <translation id="4757053978738874325">Mono ses erişilebilirlik özelliklerini etkinleştirin.
 
           Bu özellik, farklı kulakların farklı sesleri alması için sağ ve sol kanalı içeren stereo ses çıkışından sorumludur.
@@ -3521,6 +3574,7 @@ Bu politika ayarlandığında <ph name="PRODUCT_OS_NAME" />, listenin boş olmam
       Sayfa boyutu kullanıcı tarafından seçilen yazıcıda kullanılamıyorsa bu politika yok sayılır.</translation>
 <translation id="4789450349513792856">Bu sitelerde pop-up'ları engelle</translation>
 <translation id="4790588245699320140">Google Asistan'ın ekran içeriğine erişmesine izin ver</translation>
+<translation id="4801512016965057443">Mobil veri dolaşımına izin ver</translation>
 <translation id="4802744647065138872">Acil geri alma durumunda kullanılmak üzere saklanan kullanıcı verilerinin anlık görüntü sayısını sınırlar.</translation>
 <translation id="4802905909524200151"><ph name="TPM_FIRMWARE_UPDATE_TPM" /> donanım yazılımını güncelleme davranışını yapılandır</translation>
 <translation id="4804828344300125154">Kullanıcı oturumu kapatıldığında her zaman cihazı yeniden başlat.</translation>
@@ -3532,18 +3586,12 @@ Bu politika ayarlandığında <ph name="PRODUCT_OS_NAME" />, listenin boş olmam
 <translation id="4816674326202173458">Kurumsal kullanıcının hem birincil hem de ikincil olmasına izin ver (Yönetilmeyen kullanıcılar için varsayılan çalışma biçimidir)</translation>
 <translation id="4820432864264617413"><ph name="BOREALIS_NAME" /> politikasının kullanıcı için çalışması engellensin</translation>
 <translation id="4821987881803903281">Bu sitelerde pencere yerleşimi iznini engelle</translation>
+<translation id="4825777333376170738">Cihaz kiosk oturumu raporlamasını devre dışı bırak</translation>
 <translation id="4826326557828204741">Cihaz pille çalışırken boşta kalma süresine ulaşıldığında yapılacak işlem</translation>
 <translation id="4827727182370777723">Varsayılan yerel yazı tipleri izni ayarı</translation>
 <translation id="482803100714220060">Tam URL'leri göster</translation>
 <translation id="4832852360828533362">Kullanıcı ve cihaz raporlaması</translation>
 <translation id="4834526953114077364">Yeterli boş alan sağlanıncaya kadar, son 3 ay içinde oturum açmayan ve en seyrek kullanılan kullanıcılar kaldırılır</translation>
-<translation id="483544442646753291"><ph name="SYSTEM_FEATURES_DISABLE_LIST" /> içindeki devre dışı bırakılan özelliklerle ilgili kullanıcı deneyimini kontrol eder.
-
-      Bu politika "engellendi" olarak ayarlanırsa, devre dışı bırakılan özellikler kullanılamaz hale gelir ama yine de kullanıcılar tarafından görülebilir.
-
-      Bu politika "gizli" olarak ayarlanırsa, devre dışı bırakılan özellikler kullanılamaz hale gelir ve kullanıcılar tarafından görülemez.
-
-      Bu politika ayarlanmadan bırakılırsa veya geçersiz bir değer içerirse sistem özelliklerinin devre dışı bırakma modu "engellenir".</translation>
 <translation id="4835470005923546373">Varsayılan olarak arka plan grafikleri yazdırma modunu devre dışı bırak</translation>
 <translation id="4835622243021053389">NTLMv2 kimlik doğrulamasını etkinleştir.</translation>
 <translation id="4840015507504937941">Bu politika, DataLeakPreventionRulesList politikasında belirtilen pano kısıtlama kuralları doğrultusunda kontrol edilecek pano verileri için minimum veri boyutunu (bayt cinsinden) belirler.
@@ -3691,6 +3739,11 @@ Bu politika ayarlandığında <ph name="PRODUCT_OS_NAME" />, listenin boş olmam
       Bu politikayı ayarlarsanız kullanıcılar tarafından değiştirilemez. Bu politika ayarlanmazsa kullanıcılar raporların gönderilip gönderilmeyeceğine karar verebilirler.
 
       Güvenli tarama hakkında daha fazla bilgi edinin (https://developers.google.com/safe-browsing).</translation>
+<translation id="4954352279763128540">Kerberos kimlik doğrulaması iletişim kutusuna önceden doldurulmuş bir alan adı ekler.
+
+          Bu politika ayarlanırsa "Kerberos kullanıcı adı" alanı, önceden doldurulmuş alan adını sağ tarafta gösterir. Kullanıcının girdiği kullanıcı adı, önceden doldurulmuş alan adıyla birleştirilir. Kullanıcı girişinde "@" varsa önceden doldurulmuş alan adı gösterilmez ve girişi etkilemez.
+
+          Bu politika ayarlanmazsa herhangi bir ek bilgi gösterilmez ve kayıt her zamanki gibi oluşturulur.</translation>
 <translation id="4955566229684195326">Bu ayar, kullanıcıların <ph name="LACROS_NAME" /> tarayıcıda hem ikinci profiller oluşturup kullanmalarına hem de misafir modunu kullanmalarına izin verir.
 
       <ph name="BROWSER_ADD_PERSON_ENABLED_POLICY_NAME" /> ve <ph name="BROWSER_GUEST_MODE_ENABLED_POLICY_NAME" /> ayarlarına benzer bir şekilde, bu politika yanlış değerine ayarlanır veya ayarlanmadan bırakılırsa kullanıcı ikinci profiller oluşturamaz ya da mevcut ikinci profilleri kullanamaz, ayrıca misafir modunu da kullanamaz. Varsa daha önce oluşturulmuş ikinci profiller kullanılamaz.
@@ -3748,6 +3801,7 @@ Bu politika ayarlandığında <ph name="PRODUCT_OS_NAME" />, listenin boş olmam
 <translation id="5025239932007658691">Politika, Etkin değerine ayarlanır veya ayarlanmadan bırakılırsa <ph name="PRODUCT_NAME" />, doğru zaman damgası almak için bir Google sunucusuna ara sıra sorgu gönderir.
 
       Politika, Devre Dışı değerine ayarlanırsa <ph name="PRODUCT_NAME" />, bu sorguları göndermez.</translation>
+<translation id="5034504101537897433">Cihaz kilitlenme raporu bilgi raporlamasını etkinleştir</translation>
 <translation id="5039110755072335605">CORS joker karakter olmayan istek başlıkları desteği</translation>
 <translation id="504116558738617678">Düşük disk alanı uyarılarını, yalnızca cihaz yönetilmiyorsa veya yalnızca 1 kullanıcı varsa göster</translation>
 <translation id="5055474681190962362">Cihazın ayın hangi gününde [1-31] yeniden başlatılması gerektiği (cihazın yerel saat dilimine göre). Yalnızca "sıklık", "AYLIK" olarak ayarlandığında kullanılır. Bu sayı, belirli bir aydaki maksimum gün sayısından fazlaysa ayın son günü seçilir.</translation>
@@ -3953,6 +4007,7 @@ Bu politika Yanlış değerine ayarlanırsa <ph name="PRODUCT_NAME" /> yerel bil
       Politikayı Yanlış (False) değerine ayarlar veya ayarlamadan bırakırsanız Birleşik Masaüstü kapatılır ve kullanıcılar açamazlar.</translation>
 <translation id="5255162913209987122">Önerilebilir</translation>
 <translation id="5257395339965216304">Barındırılan uygulama verileri</translation>
+<translation id="5262320080678421295">Symantec Corporation'ın Eski PKI altyapısı tarafından verilen sertifikalara güveni devre dışı bırak</translation>
 <translation id="5266173014392157048">Bu politika kullanımdan kaldırıldı. Bunun yerine lütfen "<ph name="AUTH_NEGOTIATE_DELEGATE_ALLOWLIST_POLICY_NAME" />" politikasını kullanın.
 
       Politikayı ayarlamak <ph name="PRODUCT_NAME" /> ürününün yetki verebileceği sunucular atar. Birden fazla sunucu adını virgülle ayırın. Joker karakterlere (<ph name="WILDCARD_VALUE" />) izin verilir.
@@ -3987,13 +4042,6 @@ Bu politika Yanlış değerine ayarlanırsa <ph name="PRODUCT_NAME" /> yerel bil
 
       Poltikanının ayarlanmadan bırakılması, kullanıcıların oyunu kayıtlı <ph name="PRODUCT_OS_NAME" /> ürününde oynayamayacakları, ancak diğer durumlarda oynayabilecekleri anlamına gelir.</translation>
 <translation id="529457411593078576">CCT için ilk çalıştırma sırasında Hizmet Şartları'nı etkinleştirme</translation>
-<translation id="529541406739235505">Politikanın ayarlanması, belirttiğiniz <ph name="PRODUCT_OS_NAME" /> oturumu için kullanıcıların giriş yöntemlerinden birini seçmesine izin verir.
-
-       Ayarlanmadan bırakılır veya boş bir listeye ayarlanırsa kullanıcılar tüm desteklenen giriş yöntemlerini seçebilirler.
-
-       M105 sürümünden itibaren, izin verilen giriş yöntemleri kiosk oturumunda otomatik olarak etkinleştirilir.
-
-      Not: Geçerli giriş yöntemi desteklenmiyorsa donanım klavye düzenine (izin veriliyorsa) veya bu listedeki ilk geçerli girişe geçiş yapar. Geçersiz veya desteklenmeyen giriş yöntemleri göz ardı edilir.</translation>
 <translation id="5297948043665200363">Hesabının kimlik doğrulaması geçersiz hale geldikten sonra kullanıcının oturumunun açık kalmasına izin ver</translation>
 <translation id="5298949392804966105">Yönetilen hesaplarda kısıtlama yok</translation>
 <translation id="530134925949808452">Kullanım kotasının yerel saatle günün hangi saatinde yenileneceği.</translation>
@@ -4169,6 +4217,7 @@ Bu politika Yanlış değerine ayarlanırsa <ph name="PRODUCT_NAME" /> yerel bil
 <translation id="5464816904705580310">Yönetilen kullanıcılar için ayarları yapılandırın.</translation>
 <translation id="5466596281866046569">Uygulama bilgilerini bildir</translation>
 <translation id="546726650689747237">AC güçle çalışırken ekran karartma gecikmesi</translation>
+<translation id="546830339470589966">Yeni Kerberos biletleri için alan adını otomatik tamamla</translation>
 <translation id="5469143988693423708">Kullanıcının Crostini'yi çalıştırmasına izin verilir</translation>
 <translation id="5469825884154817306">Bu sitelerdeki resimleri engelle</translation>
 <translation id="5470500958458209831">Ansible başucu kitabının indirilebileceği URL.</translation>
@@ -4215,6 +4264,7 @@ Bu politika Yanlış değerine ayarlanırsa <ph name="PRODUCT_NAME" /> yerel bil
 
       Bu politika kanal geçişlerine uygulanmaz.</translation>
 <translation id="5519331583722582543">Dokunmatik klavyede el yazısı tanıma özelliği kullanılarak giriş sağlanıp sağlanamayacağını gösteren bir boole flag'i.</translation>
+<translation id="5519619299971727565">Linux uygulamaları kullanım raporlamasını devre dışı bırak</translation>
 <translation id="5521875416764302911">Kullanıcıların <ph name="PRODUCT_NAME" /> oturumu açmasını engelle</translation>
 <translation id="5526184558582921522">Quirks Sunucusu'nu sorgulamaya ve donanıma özgü yapılandırma dosyalarını içerebilecek indirmelere izin ver</translation>
 <translation id="5526701598901867718">Hepsi (güvenli değil)</translation>
@@ -4235,6 +4285,7 @@ Bu politika Yanlış değerine ayarlanırsa <ph name="PRODUCT_NAME" /> yerel bil
 
       Belirtilmezse, Varyasyon temeli URL'sinde değişiklik yapılmaz.</translation>
 <translation id="5561811616825571914">Oturum açma ekranında bu siteler için istemci sertifikalarını otomatik olarak seç</translation>
+<translation id="5563240289883266691">Linux uygulamaları kullanım raporlamasını etkinleştir</translation>
 <translation id="5565178130821694365">Her iki günde bir (48 saat) şifre girişi gerekir</translation>
 <translation id="5566210228171064229">PIN ile ve PIN olmadan yazdırmaya izin ver</translation>
 <translation id="5572971233886879856">Sunucu yazıcıları için sorgulanacak yazdırma sunucuları alt grubunu belirtir. Bu, yalnızca <ph name="DEVICE_EXTERNAL_PRINT_SERVERS_POLICY" /> politikası için geçerlidir.
@@ -4304,6 +4355,7 @@ Bu ayarı etkinleştirirseniz veya yapılandırmazsanız kullanıcılar şifrele
       Not: Birden fazla sunucu adını virgülle ayırın. Joker karakterlere (<ph name="WILDCARD_VALUE" />) izin verilir.</translation>
 <translation id="5645779841392247734">Bu sitelerde çerezlere izin ver</translation>
 <translation id="5646234199535103501">OnBulkDataEntry Chrome Enterprise Bağlayıcı için yapılandırma politikası</translation>
+<translation id="5648016151508002741">Online <ph name="OCSP_CRL_LABEL" /> kontrollerinin yapılmasını engelle</translation>
 <translation id="5649046890958064703"><ph name="DEVICE_PRINTERS_ACCESS_MODE_POLICY_NAME" /> için <ph name="PRINTERS_BLACKLIST" /> seçiliyken <ph name="DEVICE_NATIVE_PRINTERS_BLACKLIST_POLICY_NAME" /> politikası ayarlanırsa kullanıcıların hangi yazıcıları kullanamayacağı belirlenir. Bu politikada listelenen kimlikler dışında kalan tüm yazıcılar kullanıcılara sağlanır. Kimliklerin, <ph name="DEVICE_PRINTERS_POLICY_NAME" /> politikasında belirtilen dosyadaki <ph name="ID_FIELD" /> veya <ph name="GUID_FIELD" /> alanlarına karşılık gelmesi gerekir.
 
       Bu politika kullanımdan kaldırıldı, lütfen bunun yerine <ph name="DEVICE_PRINTERS_BLOCKLIST_POLICY_NAME" /> politikasını kullanın.</translation>
@@ -4378,6 +4430,7 @@ Bu ayarı etkinleştirirseniz veya yapılandırmazsanız kullanıcılar şifrele
       Not: Cihazı yeniden başlatmak ve oturumu kapatmak önbelleğin temizlenmesine neden olur.</translation>
 <translation id="5717973246079053225">Yönetilen profil bulut raporlamasını devre dışı bırak</translation>
 <translation id="572155275267014074">Android ayarları</translation>
+<translation id="5722577409367087850">Uzantıyı yükle</translation>
 <translation id="5728154254076636808"><ph name="PRODUCT_NAME" /> profil verileri için dolaşım kopyalarının oluşturulmasını etkinleştir</translation>
 <translation id="5729308727912841256">Kerberos şifresi. <ph name="PASSWORD_PLACEHOLDER" /> yer tutucusunun yerine giriş şifresi gelir.</translation>
 <translation id="5732972008943405952">İlk çalıştırmada, otomatik doldurma formu verilerini varsayılan tarayıcıdan içe aktar</translation>
@@ -4428,9 +4481,6 @@ Bu ayarı etkinleştirirseniz veya yapılandırmazsanız kullanıcılar şifrele
       Bu politika false (yanlış) değerine ayarlanırsa veya ayarlanmadan bırakılırsa bilgi raporlanmaz.
       True (doğru) değerine ayarlanırsa cihazın VPD bilgileri raporlanır.
       Önemli Ürün Verileri (Vital Product Data-VPD), cihazla ilişkilendirilmiş yapılandırma ve bilgi amaçlı (ör. parti ve seri numarası) verileri içerir.</translation>
-<translation id="576158229686912964">Bu politika M96 sürümünde kullanımdan kaldırılmıştır. Bunun yerine lütfen <ph name="REPORT_DEVICE_NETWORK_CONFIGURATION" /> ve <ph name="REPORT_DEVICE_NETWORK_STATUS" /> politikalarını kullanın.
-
-      Politika, Etkin değerine ayarlanır veya ayarlanmadan bırakılırsa kayıtlı cihazlar, türleri ve donanım adresleriyle birlikte ağ arayüzleri listesini bildirir. Politika, Devre Dışı değerine ayarlanırsa kayıtlı cihazlar ağ arayüzünü bildirmez.</translation>
 <translation id="5762969307102447459">Adresleri otomatik doldurmayı devre dışı bırak</translation>
 <translation id="5765780083710877561">Açıklama:</translation>
 <translation id="5766438888216077649"><ph name="BLANK_PAGE_NAME" /> sayfasını hedefleyen bağlantılar için <ph name="WINDOW_OPENER_PROPERTY" /> özelliğini ayarlamayın</translation>
@@ -4552,6 +4602,7 @@ Bu ayarı etkinleştirirseniz veya yapılandırmazsanız kullanıcılar şifrele
 <translation id="5893303508158298667"><ph name="REMOTE_ACCESS_HOST_FIREWALL_TRAVERSAL_POLICY_NAME" /> politikası Etkin değerine ayarlanırsa, <ph name="REMOTE_ACCESS_HOST_ALLOW_RELAYED_CONNECTION_POLICY_NAME" /> politikasının Etkin değerine ayarlanması veya ayarlanmadan bırakılması halinde uzak istemcilerin, güvenlik duvarı kısıtlamaları gibi nedenlerden dolayı doğrudan bağlantı olmadığında geçiş sunucularını kullanarak bu makineye bağlanmasına izin verilir.
 
       Politika, Devre Dışı değerine ayarlanırsa uzaktan erişim kapatılmaz, ancak yalnızca aynı ağdan bağlantılara izin verilir (NAT geçişine veya geçiş sunucularına izin verilmez).</translation>
+<translation id="5897234314586602143">Yazdırma önizlemede üstbilgileri ve altbilgileri göster</translation>
 <translation id="5897913798715600338">Pili hızlı şarj teknolojisiyle şarj et.</translation>
 <translation id="5898486742390981550">Birden fazla kullanıcı giriş yaptığında, yalnızca birincil kullanıcı Android uygulamalarını kullanabilir.</translation>
 <translation id="5899751601113377553">Kullanıcıların <ph name="LACROS_NAME" /> tarayıcısını kullanmasını engelle</translation>
@@ -4763,6 +4814,7 @@ Bu ayarı etkinleştirirseniz veya yapılandırmazsanız kullanıcılar şifrele
 <translation id="6155936611791017817">Giriş ekranında büyük imleç modunun varsayılan durumunu ayarla</translation>
 <translation id="6157537876488211233">Proxy atlama kurallarının noktalı virgül ile ayrılmış listesi</translation>
 <translation id="6158324314836466367">Kurumsal web mağazası adı (kullanımdan kaldırıldı)</translation>
+<translation id="6164441518097008843">Oturum açmayı bir kullanıcı listesiyle sınırlı tut</translation>
 <translation id="6169768162756928771">GAIA kullanıcı kimliği yönetimi ayarları</translation>
 <translation id="6172896675583897796">Politika Etkin değerine ayarlanırsa Google Asistan, ekran içeriğine erişebilir ve bu verileri bir sunucuya gönderebilir. Politika Devre dışı değerine ayarlanırsa Google Asistan, ekran içeriğine erişemez.
 
@@ -4778,13 +4830,6 @@ Bu ayarı etkinleştirirseniz veya yapılandırmazsanız kullanıcılar şifrele
       Chrome uygulamalarını kimliklerine göre (ör. pjkljhegncpnkpknbcohdijeoejaedia); Android uygulamalarını paket adlarına göre (ör. com.google.android.gm); web uygulamalarını <ph name="WEB_APP_INSTALL_FORCE_LIST_POLICY_NAME" /> öğesinde kullanılan URL'lerine göre (ör. https://google.com/maps) belirtir.
 
       Ayarlanmadan bırakılması, kullanıcıların başlatıcıdaki sabitlenmiş uygulamalar listesini değiştirmesine izin verir.</translation>
-<translation id="6183409603139321084"><ph name="PRODUCT_OS_NAME" />, oturum açma ve kilit ekranında online kimlik doğrulama yapılırken SAML IdP sayfasındaki kullanıcı adı alanını otomatik olarak doldurmayı deneyebilir.
-
-      Kullanıcının <ph name="PRODUCT_OS_NAME" /> profiliyle ilişkilendirilmiş e-posta adresi kullanılır. Bu nedenle, SAML IdP sayfasında farklı e-posta adresleri kullanmayı düşünenler için bu ayar devre dışı bırakılmalıdır.
-
-      Bu politika aracılığıyla alınan dize, kullanıcının e-posta adresinin değer olarak belirtildiği IdP sayfasında bir URL parametresi adı olarak kullanılır.
-
-      Sunucu tarafının, Kimlik Sağlayıcılar ile destekledikleri URL parametreleri arasındaki eşlemeden sorumlu olması beklenir.</translation>
 <translation id="6190367314942602985">Kullanıcı Kimlik bilgilerini bildir</translation>
 <translation id="6191963383731098056">Bu politika, yöneticilere <ph name="PRODUCT_NAME" /> temasının rengini yapılandırma imkanı tanır. Giriş dizesi, "#RRGGBB" biçimine uygun geçerli bir onaltılık renk dizesi olmalıdır.
 
@@ -4838,6 +4883,19 @@ Bu ayarı etkinleştirirseniz veya yapılandırmazsanız kullanıcılar şifrele
       Bu politika, korumalı alanın çalışmasını etkileyen güvenlik yazılımı yapılandırmaları kullanan işletmelere ses korumalı alanını devre dışı bırakma esnekliği sunmak amacıyla tasarlanmıştır.</translation>
 <translation id="624818583115864448">bağlantı noktası 554 (15.10.2021'e kadar engellemesi kaldırılabilir)</translation>
 <translation id="6252773211180267325"><ph name="BOREALIS_NAME" /> politikasının kullanıcı için çalışması engellenmesin</translation>
+<translation id="6255671003289033162">URL listesi için <ph name="CHROME_ENTERPRISE_PLATFORM_IDENTITY_CONNECTOR" /> politikasını etkinleştirin.
+
+      Bu politikanın ayarlanması, makineden sinyal grubu alma onay akışına dahil olmasına izin verilmesi gereken URL'leri belirtir.
+
+      Bu politikanın ayarlanmadan veya boş bırakılması hiçbir uç noktanın onay akışı başlatamayacağı veya makineden sinyal alamayacağı anlamına gelir.
+
+      URL'lerin HTTPS şeması olması gerekir, ör. "https://example.com".
+
+      Not: <ph name="WILDCARD_VALUE" /> joker karakterlerine izin verilir.
+
+      ChromeOS'te bu politika, uzaktan onay ile sertifikanın otomatik olarak oluşturulup Cihaz Yönetim Sunucusuna yüklenmesiyle ilgilidir.
+
+      Geçerli <ph name="URL_LABEL" /> kalıpları hakkında ayrıntılı bilgi için https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns adresine bakabilirsiniz.</translation>
 <translation id="6258658183356534534">Kullanıcı aracısı istemci ipuçları GREASE güncelleme özelliğini kontrol et.</translation>
 <translation id="6261643884958898336">Makine Kimlik bilgilerini bildir</translation>
 <translation id="6265892395051519509">Bu sitelerde sensörlere erişime izin ver</translation>
@@ -4854,6 +4912,7 @@ Bu ayarı etkinleştirirseniz veya yapılandırmazsanız kullanıcılar şifrele
       Politikaya ait her liste öğesi, noktalı virgülle (<ph name="SEMICOLON" />) ayrılmış bir uzantı kimliği ve isteğe bağlı bir "güncelleme" URL'si içeren bir dizedir. Uzantı kimliği, örneğin geliştirici modundayken <ph name="CHROME_EXTENSIONS_LINK" /> bağlantısında bulunabilen 32 harfli bir dizedir. "Güncelleme" URL'si (belirtilmişse) <ph name="LINK_TO_EXTENSION_DOC1" /> dokümanında açıklandığı gibi bir güncelleme manifest XML dokümanına işaret etmelidir. Varsayılan olarak Chrome Web Mağazası'nın güncelleme URL'si kullanılır (şu anda "https://clients2.google.com/service/update2/crx" şeklindedir). Bu politikada ayarlanan "güncelleme" URL'sinin sadece ilk yükleme için kullanıldığına, uzantının sonraki güncellemelerinde ise uzantının manifest dosyasında belirtilen güncelleme URL'sinin kullanıldığına dikkat edin.
 
       Örneğin, <ph name="LOGIN_SCREEN_EXTENSION_POLICY_EXAMPLE" />, standart Chrome Web Mağazası "güncelleme" URL'sinden <ph name="SMART_CARD_CONNECTOR_APP_NAME" /> uygulamasını yükler. Uzantıların barındırılması hakkında daha fazla bilgi için şu adrese bakın: <ph name="LINK_TO_EXTENSION_DOC2" /></translation>
+<translation id="6274202259872570803">Ekran Kaydı</translation>
 <translation id="6275497712828649588">Tehlikeli olabilecek komut satırı işaretleri kullanıldığında güvenlik uyarılarını gizle</translation>
 <translation id="6275833043726517413">Yeni <ph name="CORS" /> yerine eski <ph name="CORS" /> uygulamasını kullan.
 
@@ -4881,13 +4940,22 @@ Bu ayarı etkinleştirirseniz veya yapılandırmazsanız kullanıcılar şifrele
 <translation id="6282524907402492171"><ph name="CLOUD_PRINT_NAME" /> için kullanımdan kaldırma uyarılarını göster</translation>
 <translation id="6282799760374509080">Ses yakalamaya izin verme veya reddetme</translation>
 <translation id="6284362063448764300">TLS 1.1</translation>
+<translation id="6287128640500683781">Tüm kullanıcıların oturum açmasına izin ver</translation>
 <translation id="6287310684159482272">Çerez ayarları</translation>
 <translation id="6299147100249359151">Politika kapsamını algılamaya izin ver.</translation>
 <translation id="6300871921951390976">Yalnızca bu politika Doğru değerine ayarlanırsa kullanıcıların cihazın sürüm kanalını değiştirmesine izin verilir. Bu politika Yanlış değerine ayarlanır veya ayarlanmadan bırakılırsa kullanıcıların kanalı değiştirmesine izin verilmez.
 
       <ph name="CHROME_OS_RELEASE_CHANNEL_POLICY_NAME" /> politikasının etkili olabilmesi için <ph name="CHROME_OS_RELEASE_CHANNEL_DELEGATED_POLICY_NAME" /> politikasının Yanlış değerine ayarlanması şarttır.</translation>
 <translation id="6305373713165475629">Politika ayarlanırsa varsayılan renkli yazdırma modu geçersiz kılınır. Mod kullanılamıyorsa bu politika yok sayılır.</translation>
+<translation id="6308109234708949641">Bu politika, Family Link kullanıcıları için Ekran Kaydı özelliğini etkinleştirir ve bu özelliğin ekran kaydı oluşturup metne dönüştürmesine, ayrıca bunları Drive'a yüklemesine izin verir.
+      Bu politika diğer kullanıcı türlerini etkilemez.
+      Bu politika kurumsal kullanıcılar için <ph name="PROJECTOR_ENABLED_POLICY_NAME" /> politikasını etkilemez.
+
+      Bu politika etkinleştirilirse Family Link kullanıcıları için Ekran Kaydı test sürümü etkinleştirilir.
+      Politika devre dışı bırakılırsa Family Link kullanıcıları için Ekran Kaydı test sürümü devre dışı kalır.
+      Politika ayarlanmazsa Family Link kullanıcıları için Ekran Kaydı test sürümü varsayılan olarak devre dışı olur.</translation>
 <translation id="6310223829319187614">Kullanıcı oturum açarken alan adı otomatik doldurma özelliğini etkinleştir</translation>
+<translation id="6310756730808079944">Ekran Kaydı'nı Etkinleştir</translation>
 <translation id="631081324835911099">Birincil hesabının kimlik doğrulama jetonu geçersiz hale geldiğinde kullanıcıyı çıkış yapmaya zorla.
         Bu politika, kullanıcıyı Google web mülklerinde kısıtlı içeriğe erişmekten koruyabilir.
         Bu politika True (Doğru) değerine ayarlanırsa kimlik doğrulama jetonu geçersiz hale gelir gelmez kullanıcı çıkış yapar ve bu jeton sorununu geri yüklemeyi dener.
@@ -4992,12 +5060,6 @@ Bu ayarı etkinleştirirseniz veya yapılandırmazsanız kullanıcılar şifrele
       Politika, Devre Dışı değerine ayarlanırsa WPAD optimizasyonu devre dışı bırakılarak <ph name="PRODUCT_NAME" /> ürününün DNS tabanlı WPAD sunucularını daha fazla beklemesine neden olur.
 
       Bu politika ayarlansa da ayarlanmasa da kullanıcılar WPAD optimizasyonu ayarını değiştiremez.</translation>
-<translation id="6365249741643189510">Bu politika, kurumsal kullanıcılar için Projector uygulamasının ekran kaydı oluşturup metne dönüştürmesine ve bunları Drive'a yüklemesine izin verir.
-      Bu politika Family Link kullanıcılarını etkilemez.
-      Bu politika Family Link kullanıcıları için <ph name="PROJECTOR_DOGFOOD_FOR_FAMILY_LINK_ENABLED_POLICY_NAME" /> politikasını etkilemez.
-
-      Politika ayarlanmazsa veya etkinleştirilirse Projector etkinleştirilir.
-      Politika devre dışı bırakılırsa Projector da devre dışı bırakılır.</translation>
 <translation id="6366574325767783825">Politika True (Doğru) değerine ayarlanır veya ayarlanmadan bırakılırsa <ph name="PRODUCT_NAME" />, İmzalanmış HTTP Takası olarak yayınlanan web içeriklerini kabul eder.
 
       Politikanın False (Yanlış) değerine ayarlanması, İmzalanmış HTTP Takası içeriğinin yüklenmesini önler.</translation>
@@ -5058,6 +5120,7 @@ Bu ayarı etkinleştirirseniz veya yapılandırmazsanız kullanıcılar şifrele
 <translation id="6440051664870270040">Sitelerin eşzamanlı olarak gezinmesine ve pop-up açmasına için izin ver</translation>
 <translation id="6447948611083700881">Yedekleme ve geri yükleme devre dışı</translation>
 <translation id="6449476513004303784">Kullanıcıların sertifikaları yönetmelerine izin verme</translation>
+<translation id="6452882999388592166">Yerleşik CryptoToken bileşen uzantısı, Etkin değerine ayarlanırsa başlangıçta yüklenir. CryptoToken, Devre Dışı değerine ayarlanırsa veya ayarlanmadan bırakılırsa tarayıcı başlatılırken yüklenmez. Bu politika, M106 sürümünden CryptoToken'in kaldırılmasının yan etkisi olarak tanımlanmayan "chrome.runtime" nedeniyle bozulmuş siteler için geçici bir çözümdür. Web siteleri, "chrome.runtime"ın koşulsuz olarak tanımlanacağını düşünmemelidir.</translation>
 <translation id="6453641799812499182">Yeni <ph name="CORS" /> uygulamasındaki azaltmaların <ph name="CORS" /> tarafından kontrol edilmesini etkinleştir</translation>
 <translation id="645425387487868471"><ph name="PRODUCT_NAME" /> için oturum açmaya zorlamayı etkinleştir</translation>
 <translation id="6455842857207956758">Password sync jetonunun değerini izleyerek ve güncellendiği için senkronize edilmesi gereken şifreler olması halinde kullanıcıyı yeniden online kimlik doğrulama sürecinden geçirerek birden fazla Chrome cihaz arasında SAML password sync özelliğini etkinleştirir.
@@ -5078,6 +5141,13 @@ Bu ayarı etkinleştirirseniz veya yapılandırmazsanız kullanıcılar şifrele
 <translation id="6478258366184919502">Giriş ve ekran kaynakları</translation>
 <translation id="6478261301433199402">Politika ayarlanırsa bir kullanıcı için <ph name="PLUGIN_VM_NAME" /> resmi belirlenir. Bu politikayı, <ph name="HASH_PLUGIN_VM_IMAGE_FIELD" /> ve resmin indirme işleminin bütünlüğünü doğrulamak için bir SHA-256 karması olacak şekilde indirileceği yeri belirten <ph name="URL_PLUGIN_VM_IMAGE_FIELD" /> ile bir JSON biçimi dize olarak belirleyin.</translation>
 <translation id="6481245670325946423">Gözetimsiz Mod'un kullanılmasına izin ver</translation>
+<translation id="648158446793103284">Politikanın ayarlanması, belirttiğiniz <ph name="PRODUCT_OS_NAME" /> oturumu için kullanıcıların giriş yöntemlerinden birini seçmesine izin verir.
+
+       Ayarlanmadan bırakılır veya boş bir listeye ayarlanırsa kullanıcılar tüm desteklenen giriş yöntemlerini seçebilirler.
+
+       M106 sürümünden itibaren, izin verilen giriş yöntemleri kiosk oturumunda otomatik olarak etkinleştirilir.
+
+      Not: Geçerli giriş yöntemi desteklenmiyorsa donanım klavye düzenine (izin veriliyorsa) veya bu listedeki ilk geçerli girişe geçiş yapar. Geçersiz veya desteklenmeyen giriş yöntemleri göz ardı edilir.</translation>
 <translation id="6489084406497912050">Kullanıcının Kerberos hesapları ekleyip ekleyemeyeceğini kontrol eder.
 
           Bu politika etkinleştirilir veya ayarlanmazsa kullanıcılar, Kerberos ayarlar sayfasındaki Kerberos Hesapları ayarlarıyla Kerberos hesapları ekleyebilirler. Ekledikleri hesaplar üzerindeki tüm kontrol kullanıcılarda olup hesapları değiştirebilir veya silebilirler.
@@ -5112,6 +5182,7 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
           Boşta kaldığında ekranı kilitlemenin önerilen yolu, askıya alındığında ekran kilidini etkinleştirmek ve boşta kalma gecikmesi ile ilgili süre dolduğunda <ph name="PRODUCT_OS_NAME" /> tarafından askıya alma işlemi yapılacak şekilde ayarlamaktır. Bu politika ancak ekran kilitleme işleminin askıya alma işleminden epey önce olması istendiğinde veya boşta kalma durumunda askıya alma işleminin hiç yapılmaması istendiğinde kullanılmalıdır.
 
           Politika değeri milisaniye olarak belirtilmelidir. Değerler boşta kalma gecikmesinden küçük olacak şekilde bir aralığa sıkıştırılır.</translation>
+<translation id="6497085755801788141">Yerleşik sertifika doğrulayıcıyı kullan</translation>
 <translation id="6506239283767807745">Bu politika kullanımdan kaldırıldı, lütfen bunun yerine <ph name="NOTE_TAKING_APPS_LOCK_SCREEN_ALLOWLIST" /> politikasını kullanın.
 
       Politikanın ayarlanması, kullanıcıların <ph name="PRODUCT_OS_NAME" /> kilit ekranında not alma uygulaması olarak açabilecekleri uygulamaları belirtir.
@@ -5128,6 +5199,7 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
 <translation id="6518102411616460786">Hedef kanalın kanal sürümü değişikliğini yakalamasını bekle</translation>
 <translation id="6520802717075138474">İlk çalıştırmada arama motorlarını varsayılan tarayıcıdan içe aktar</translation>
 <translation id="6521971538031711337">Yönetilen kullanıcının, cihazın ana makine adını yapılandırmasını engelle</translation>
+<translation id="6523079496775454310">Yönetilmeyen cihazlarda, yönetilen kullanıcılar için cihaz sinyali izni verilmesini etkinleştir</translation>
 <translation id="652593254122955308">Boşta kalan profil kapatılıncaya kadar zaman aşımı</translation>
 <translation id="6532026122543921610"><ph name="SYSTEM_TIMEZONE_POLICY_NAME" /> politikası otomatik saat dilimi algılama ayarını kapatmadıkça, politikayı ayarlamak kullanıcıların değiştiremeyeceği otomatik saat dilimi algılama yöntemini belirtir.
 
@@ -5152,6 +5224,15 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
 
       Politika ayarlanmadan bırakılırsa maksimum uzunluk uygulanmaz.</translation>
 <translation id="6553143066970470539">Ekran parlaklığı yüzdesi</translation>
+<translation id="6555557921186817432"><ph name="PRODUCT_OS_NAME" /> güncellemesi uygulandıktan sonra otomatik yeniden başlatma planlayın.
+
+      Bu politika doğru değerine ayarlanırsa <ph name="PRODUCT_OS_NAME" /> güncellemesi uygulandıktan sonra otomatik yeniden başlatma planlanır ve güncelleme işleminin tamamlanması için yeniden başlatma gerekir. Yeniden başlatma hemen planlanır ancak kullanıcı o anda cihazı kullanıyorsa cihazda 24 saate kadar gecikme yaşanabilir.
+
+      Bu politika yanlış değerine ayarlanırsa <ph name="PRODUCT_OS_NAME" /> güncellemesi uygulandıktan sonra otomatik yeniden başlatma planlanmaz. Güncelleme işlemi, kullanıcı cihazı yeniden başlattığında tamamlanır.
+
+      Bu politikayı ayarlarsanız kullanıcılar değiştiremez veya geçersiz kılamaz.
+
+      Not: Otomatik yeniden başlatmalar şu anda yalnızca giriş ekranı gösterilirken veya bir kiosk uygulaması oturumu devam ederken etkinleştirilir.</translation>
 <translation id="6559057113164934677">Hiçbir sitenin kamera ve mikrofona erişmesine izin verme</translation>
 <translation id="6559221564468029245">Politika, Etkin değerine ayarlanır veya ayarlanmadan bırakılırsa ses çalarken kullanıcı boşta olarak algılanmaz. Böylece hiçbir zaman boşta kalma zaman aşımı süresi dolmaz ve boşta kalma işlemi uygulanmaz. Ancak ses etkinliğine rağmen yapılandırılmış zaman aşımı sürelerinden sonra yine de ekran karartma, ekran kapatma ve ekran kilitleme işlemi uygulanır.
 
@@ -5195,6 +5276,7 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
       Bu politikanın, EnabledPlugins ve DisabledPluginsExceptions politikaları tarafından geçersiz kılınabileceğini unutmayın.
 
       Bu politika ayarlanmadan bırakılırsa kullanıcı, sabit kodlu, uyumsuz, eski veya tehlikeli eklentiler hariç sistemde yüklü herhangi bir eklentiyi kullanabilir.</translation>
+<translation id="6574903167639386816">Kullanıcı oturumu sona erdiğinde diskteki profil verilerini temizle</translation>
 <translation id="6575944031719151455">Politikanın ayarlanması, cihaz yerel hesapları listesinin oturum açma ekranında görüntüleneceğini belirtir. Tanımlayıcılar, farklı cihaz yerel hesaplarını ayırt eder.
 
       Politika ayarlanmazsa veya boş bir listeye ayarlanırsa hiçbir cihaz yerel hesabı yoktur.</translation>
@@ -5209,6 +5291,7 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
 <translation id="6584541828182430328">Tam ekran uyarısının gösterilmesini devre dışı bırak</translation>
 <translation id="6593350713192882944">Bil bakalım'ı etkinleştir</translation>
 <translation id="6594372503585248865">Bağlantı etkin olduğunda uzak ana makine masaüstünde bağlantıyla ilgili kullanıcı arayüzünü etkinleştir</translation>
+<translation id="65947892191748867">Yönetilmeyen cihazlarda, yönetilen kullanıcılar için cihaz sinyali izni verilmesini devre dışı bırak</translation>
 <translation id="6596675965208703569">Bu politika, daha önce erişim kodu veya QR kodu aracılığıyla seçilen bir yayın cihazının, <ph name="PRODUCT_NAME" /> yayın cihazı menüsünde kaç saniye gösterileceğini belirtir.
       Bir girişin ömrü, erişim kodunun ilk girildiği veya QR kodunun ilk tarandığı zaman başlar.
       Yayın cihazı bu süre boyunca <ph name="PRODUCT_NAME" /> menüsündeki yayın cihazları listesinde görünür.
@@ -5276,6 +5359,12 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
           False (yanlış) olarak ayarlanır veya yapılandırılmazsa, denetlenen kullanıcı oluşturma ve denetlenen kullanıcı girişi özellikleri devre dışı bırakılır. Mevcut tüm denetlenen kullanıcılar gizlenir.
 
           NOT: Tüketicilere ve kuruluşlara yönelik cihazlarda varsayılan davranış farklıdır: Tüketicilere yönelik cihazlarda, denetlenen kullanıcılar varsayılan olarak etkindir, ancak kuruluşlara yönelik cihazlarda bunlar varsayılan olarak devre dışıdır.</translation>
+<translation id="6648746349186337075">Bu politika, kurumsal kullanıcılar için Ekran Kaydı uygulamasının ekran kaydı oluşturup metne dönüştürmesine ve bunları Drive'a yüklemesine izin verir.
+      Bu politika Family Link kullanıcılarını etkilemez.
+      Bu politika Family Link kullanıcıları için <ph name="PROJECTOR_DOGFOOD_FOR_FAMILY_LINK_ENABLED_POLICY_NAME" /> politikasını etkilemez.
+
+      Politika ayarlanmazsa veya etkinleştirilirse Ekran Kaydı etkinleştirilir.
+      Politika devre dışı bırakılırsa Ekran Kaydı devre dışı bırakılır.</translation>
 <translation id="665023848306499203">Cihazların güncelleme yapacakları belirli bir sürüm seçmesine izin ver</translation>
 <translation id="6652197835259177259">Yerel olarak yönetilen kullanıcıların ayarları</translation>
 <translation id="6653897159826215341">Politika, Etkin değerine ayarlanırsa kullanıcılar çıktı almak istediğinde <ph name="PRODUCT_NAME" />, yerleşik baskı önizleme yerine sistemin yazdırma iletişim kutusunu açar.
@@ -5291,6 +5380,7 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
       Bu politika False (Yanlış) değerine ayarlanırsa varsayılan URL görüntüsü uygulanır.
       Bu politika ayarlanmadan bırakılırsa varsayılan URL görüntüsü uygulanır ve kullanıcı bir içerik menüsü seçeneği olmadan varsayılan ve tam URL görüntüsü arasında geçiş yapabilir.
       </translation>
+<translation id="6670794785040100077">Dokümanların <ph name="CLOUD_PRINT_NAME" /> adresine gönderilmesini devre dışı bırak</translation>
 <translation id="6672070613706645316">Kullanıcıların Yeni Sekme sayfasındaki arka planı özelleştirmelerin izin ver.</translation>
 <translation id="6672630473862787247">Ambiyans kimlik doğrulamasını normal, gizli ve misafir oturumlarında etkinleştir.</translation>
 <translation id="6685903773201985073">Ambiyans kimlik doğrulamasını misafir oturumlarında ve normal oturumlarda etkinleştir.</translation>
@@ -5369,6 +5459,7 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
 
       Yanlış değerine ayarlanır veya ayarlanmadan bırakılırsa siteler, SharedArrayBuffers'ı yalnızca kökler arası erişime kapalı olduğunda kullanabilir.</translation>
 <translation id="6735701345096330595">Yazım denetimi dillerini etkinleştirmeye zorla</translation>
+<translation id="6736283207617136584">Cihaz işletim sistemi güncelleme durumu raporlamasını etkinleştir</translation>
 <translation id="6740611636377710500">Bu kullanıcının PluginVm çalıştırmasına izin verir.
 
       Politika false (yanlış) olarak ayarlanır veya ayarlanmadan bırakılırsa <ph name="PLUGIN_VM_NAME" /> kullanıcı için etkinleştirilmez.
@@ -5378,8 +5469,10 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
       <ph name="DEFAULT_SEARCH_PROVIDER_SEARCH_URL_POST_PARAMS_POLICY_NAME" /> politikası ayarlanmadan bırakılırsa istekler GET yöntemi kullanılarak gönderilir.</translation>
 <translation id="6757613329154374267">Yedekleme ve geri yükleme özelliği etkinleştirildi</translation>
 <translation id="6758659208493449452">Bu politika, Gelişmiş Koruma programına kayıtlı kullanıcılara ekstra özellikler sunulup sunulmayacağını kontrol eder. Bu özelliklerin bazıları kapsamında Google ile veri paylaşılabilir (örneğin, Gelişmiş Koruma kullanıcıları indirdikleri dosyaları Google'a göndererek kötü amaçlı yazılıma karşı taranmasını sağlayabilir). Bu politika True (Doğru) değerine ayarlanır veya ayarlanmadan bırakılırsa kayıtlı kullanıcılara ekstra özellikler sunulur. Bu politika False (Yanlış) değerine ayarlanırsa Gelişmiş Koruma kullanıcılarına yalnızca standart tüketici özellikleri sunulur.</translation>
+<translation id="6763023079133439068">subjectAlternativeName uzantısı olmayıp yerel güven çapaları tarafından verilmiş olan sertifikalara izin ver</translation>
 <translation id="6766216162565713893">Sitelerin, yakınlardaki bir Bluetooth cihazına erişmek için kullanıcıdan izin istemesine izin ver</translation>
 <translation id="6770454900105963262">Aktif kiosk oturumlarıyla ilgili bilgileri raporla</translation>
+<translation id="6782331708811245959">Cihaz başlatma modu raporlamasını etkinleştir</translation>
 <translation id="6782977971207381602">Politikanın Etkin değerine ayarlanması cihazın, <ph name="PRODUCT_OS_NAME" /> işletim sistemi üstünde sanal makineleri çalıştırmasına olanak tanır. <ph name="PRODUCT_CROSTINI_NAME" /> kullanılabilmesi için <ph name="VIRTUAL_MACHINES_ALLOWED_POLICY_NAME" /> ve <ph name="CROSTINI_ALLOWED_POLICY_NAME" /> politikalarının Etkin değerine ayarlanması gerekir. Politika Devre Dışı değerine ayarlanırsa cihaz, sanal makineleri çalıştıramaz. Politika Devre Dışı olarak değiştirilirse halihazırda çalışan sanal makinelere değil, başlatılan yeni sanal makinelere uygulanmaya başlar.
 
       Yönetilen bir cihazda bu politika ayarlanmadığında cihaz, sanal makineleri çalıştıramaz. Yönetilmeyen cihazlar, sanal makineleri çalıştırabilir.</translation>
@@ -5482,8 +5575,19 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
       Politika uygulamadan bırakılırsa politika, kullanıcının kilit ekranında etkinleştirebileceği uygulama dizisini kısıtlamaz.</translation>
 <translation id="6882028194958060206">Flash içeriği ayarını tüm içeriği kapsayacak şekilde genişlet (kullanımdan kaldırııldı)</translation>
 <translation id="6889123056995503704">Kanal sürümü değiştirme davranışına kullanıcı karar verir</translation>
+<translation id="6893442532580358855">Politika ayarlanırsa yasaklı URL'leri olan web sayfalarının yüklenmesi önlenir. Yasaklı URL'leri belirten URL kalıpları listesi sağlar. Politika ayarlanmadan bırakılırsa tarayıcıda hiçbir URL yasaklanmaz. URL kalıbını şu biçime göre biçimlendirin ( https://www.chromium.org/administrators/url-blocklist-filter-format ). <ph name="URL_ALLOWLIST_POLICY_NAME" /> politikasında en çok 1.000 istisna tanımlanabilir.
+
+      <ph name="PRODUCT_NAME" /> sürüm 73'ten itibaren javascript://* URL'lerini engelleyebilirsiniz. Ancak bu engelleme yalnızca adres çubuğuna girilen JavaScript'i (veya örneğin yer işareti uygulamalarını) etkiler. Dinamik olarak yüklenen verileri olan sayfa içi JavaScript URL'leri bu politikaya tabi değildir. Örneğin, example.com/abc URL'sini engellerseniz example.com yine de XMLHTTPRequest kullanarak example.com/abc URL'sini yükleyebilir.
+
+      Bu politika, <ph name="PRODUCT_NAME" /> 92 sürümünden itibaren gözetimsiz modda da desteklenir.
+
+      Not: Dahili chrome://* ile chrome-untrusted://* URL'lerinin engellenmesi beklenmeyen hatalara yol açabilir ve belirli durumlarda bunu yapmanız engellenebilir. Belirli dahili URL'leri engellemek yerine kullanabileceğiniz daha spesifik politikalar olup olmadığını kontrol edin. Yaygın durumlar: chrome://settings/certificates URL'sini engellemek yerine use <ph name="CA_CERTIFICATE_MANAGEMENT_ALLOWED_POLICY_NAME" /> politikasını kullanın. chrome-untrusted://crosh URL'sini engellemek yerine <ph name="SYSTEM_FEATURES_DISABLE_LIST_POLICY_NAME" /> politikasını kullanın.</translation>
 <translation id="6894178810167845842">Yeni Sekme sayfasının URL'si</translation>
 <translation id="6897730193187922386"><ph name="CLOUD_PRINT_NAME" /> kullanımdan kaldırma mesajlarını gizle</translation>
+<translation id="6899495066226330266">Kalıcı kota, M106 sürümünden itibaren desteklenmeyecektir. Bu politika, kalıcı kota işlevini M107 sürümüne kadar yeniden etkinleştirir.
+      Bu politika, etkin değerine ayarlanırsa kalıcı türe sahip webkitRequestFileSystem, kalıcı kotayla çalışır.
+      Bu politika ayarlanmaz veya devre dışı değerine ayarlanırsa kalıcı türe sahip webkitRequestFileSystem, geçici kotayla çalışır.
+      </translation>
 <translation id="6899705656741990703">Proxy ayarlarını otomatik olarak algıla</translation>
 <translation id="6902561336084511004">Kullanılabilir yazdırma sunucularının yapılandırmalarını sağlar.
 
@@ -5518,6 +5622,7 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
       Bu politika yanlış değerine ayarlanırsa <ph name="PRODUCT_NAME" /> ve <ph name="LACROS_NAME" />, misafir profillerinin başlatılmasına izin vermez.
 
       Not: Bu politika yapılandırılmazsa veya doğru değerine ayarlanırsa ancak <ph name="LACROS_SECONDARY_PROFILES_ALLOWED_POLICY_NAME" /> yanlış değerine ayarlanırsa <ph name="LACROS_NAME" />, misafir profillerinin başlatılmasına izin vermez.</translation>
+<translation id="6920640961852058581">Kerberos kayıtları için varsayılan yapılandırmayı değiştirir</translation>
 <translation id="6921544339867564740">Cihazların ChromeOS'te sanal makineler çalıştırmasına izin ver</translation>
 <translation id="6922884955650325312"><ph name="FLASH_PLUGIN_NAME" /> eklentisini engelle</translation>
 <translation id="6923731550900440989">Giriş ekranında metin vurgu kutusunu etkinleştir</translation>
@@ -5534,13 +5639,6 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
       Şu anda desteklenen diller şunlardır: af, bg, ca, cs, da, de, el, en-AU, en-CA, en-GB, en-US, es, es-419, es-AR, es-ES, es-MX, es-US, et, fa, fo, fr, he, hi, hr, hu, id, it, ko, lt, lv, nb, nl, pl, pt-BR, pt-PT, ro, ru, sh, sk, sl, sq, sr, sv, ta, tg, tr, uk, vi.</translation>
 <translation id="6926703471186170050">Uzun kenar dupleks yazdırmayı etkinleştir</translation>
 <translation id="6929746927224321095">Otomatik Doldurmayı Devre Dışı Bırak</translation>
-<translation id="6930459178825296156">Bu politika, Family Link kullanıcıları için Projector özelliğini etkinleştirir ve bu özelliğin ekran kaydı oluşturup metne dönüştürmesine, ayrıca bunları Drive'a yüklemesine izin verir.
-      Bu politika diğer kullanıcı türlerini etkilemez.
-      Bu politika kurumsal kullanıcılar için <ph name="PROJECTOR_ENABLED_POLICY_NAME" /> politikasını etkilemez.
-
-      Bu politika etkinleştirilirse Family Link kullanıcıları için Projector test sürümü etkinleştirilir.
-      Politika devre dışı bırakılırsa Family Link kullanıcıları için Projector test sürümü devre dışı kalır.
-      Politika ayarlanmazsa Family Link kullanıcıları için Projector test sürümü varsayılan olarak devre dışı olur.</translation>
 <translation id="6931242315485576290">Google ile veri senkronizasyonunu devre dışı bırak</translation>
 <translation id="6940243892299228102">Kullanıcıların masa şablonları kullanmalarına izin verme</translation>
 <translation id="6943577887654905793">Mac/Linux tercih adı:</translation>
@@ -5637,6 +5735,7 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
 <translation id="7007283257527015835">Protokol işleyicinin varsayılan olarak ayarlanıp ayarlanmayacağını gösteren bir boole flag'i.</translation>
 <translation id="7008308728445338159">DNS müdahale kontrolü etkin</translation>
 <translation id="7010006999849135962">Uzaktan erişim ana makinesi için PIN'siz kimlik doğrulamayı etkinleştir</translation>
+<translation id="7016587686120059767">Misafir modunu devre dışı bırak</translation>
 <translation id="7016736684656067099">Politikayı 1 değerine ayarlamak tüm web sitelerde görsellere izin verir. Politikayı 2 değerine ayarlamak görselleri engeller.
 
       Politikayı ayarlamadan bırakırsanız görsellere izin verilir. Kullanıcılar bu ayarı değiştirebilir.</translation>
@@ -5644,6 +5743,7 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
 
       Politika Devre dışı değerine ayarlanırsa alternatif tarayıcıya son sekmeden geçilmiş olsa bile <ph name="PRODUCT_NAME" /> o sekmeyi kapatır. Bu da <ph name="PRODUCT_NAME" /> tarayıcısının tamamen çıkış yapmasına neden olur.</translation>
 <translation id="7019805045859631636">Hızlı</translation>
+<translation id="7021590945154530517">Cihaz sağlığını izlemeyi etkinleştir</translation>
 <translation id="7025332601572838001">CCT için ilk çalıştırma sırasında Hizmet Şartları davranışını yapılandırma</translation>
 <translation id="7026351325994257733"><ph name="PRODUCT_OS_NAME" /> cihazlar ve bağlı Android telefon arasında kablosuz ağ yapılandırmalarının senkronize edilmesine izin ver.</translation>
 <translation id="7027057540229843762">Açık temayı kullan</translation>
@@ -5785,6 +5885,7 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
       <ph name="ANDROID_VERSION" /> sürümünde ve sonraki sürümlerde DNS-over-TLS etkinse <ph name="PRODUCT_NAME" /> güvenli olmayan DNS istekleri göndermeyecektir.
 
       Bu politika ayarlanmazsa tarayıcı kullanıcının yapılandırılmış sistem çözümleyicisi ile ilişkilendirilmiş bir çözümleyiciye DNS-over-HTTPS istekleri gönderebilir.</translation>
+<translation id="7152640356717355643">Cihaz ağ arayüzü raporlamasını etkinleştir</translation>
 <translation id="7157329428182136164">3D grafik API'leri için desteği etkinleştir</translation>
 <translation id="7158358621906236999">Varsayılan sensörler ayarı</translation>
 <translation id="7161568070244869726">AppCache özelliğini etkinleştirmeye zorla</translation>
@@ -5906,6 +6007,7 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
       Politika Devre dışı değerine ayarlanır veya ayarlanmadan bırakılırsa KDC politikası, desteklenen platformlarda yok sayılır ve yalnızca <ph name="AUTH_NEGOTIATE_DELEGATE_ALLOWLIST_POLICY_NAME" /> politikası dikkate alınır.
 
       <ph name="MS_WIN_NAME" /> ürününde KDC politikası her zaman dikkate alınır.</translation>
+<translation id="7273785848231509306">Kullanıcı adlarını ve fotoğrafları hiçbir zaman gösterme</translation>
 <translation id="7274077256421167535">USB güç paylaşımını etkinleştir</translation>
 <translation id="7275334191706090484">Yönetilen Yer İşaretleri</translation>
 <translation id="7275689301063927473">Yerel yazı tipleri iznini tüm sitelerde varsayılan olarak reddeder</translation>
@@ -5926,6 +6028,19 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
 <translation id="7323896582714668701"><ph name="PRODUCT_NAME" /> için ek komut satırı parametreleri</translation>
 <translation id="7325801934761922681">Chrome'un, korumalı alana alınmış iframe içerisindeki harici protokollerde gezinmeyi engellemesini önle</translation>
 <translation id="7326394567531622570">Wipe (2 değeri) seçeneğine benzer, ancak kullanıcının tekrar oturum açmak zorunda kalmaması için giriş jetonlarını saklar.</translation>
+<translation id="7328028920258952696">Giriş ve kilit ekranında URL listesi için <ph name="CHROME_ENTERPRISE_PLATFORM_IDENTITY_CONNECTOR" /> politikasını etkinleştirin.
+
+      Bu politikanın ayarlanması, makineden sinyal grubu alma onay akışına dahil olmasına izin verilmesi gereken URL'leri belirtir.
+
+      Bu politikanın ayarlanmadan veya boş bırakılması hiçbir uç noktanın onay akışı başlatamayacağı veya makineden sinyal alamayacağı anlamına gelir.
+
+      URL'lerin HTTPS şeması olması gerekir, ör. "https://example.com".
+
+      Not: <ph name="WILDCARD_VALUE" /> joker karakterlerine izin verilir.
+
+      Bu politika yalnızca giriş ve kilit ekranındaki onay akışını etkiler. Oturum içi onay akışını değiştirmek için lütfen <ph name="CONTEXT_AWARE_ACCESS_SIGNALS_ALLOWLIST_POLICY_NAME" /> politikasını kullanın.
+
+      Geçerli <ph name="URL_LABEL" /> kalıpları hakkında ayrıntılı bilgi için https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns adresine bakabilirsiniz.</translation>
 <translation id="7331962793961469250">True değerine ayarlandığında, Chrome Web Mağazası uygulamalarına ilişkin tanıtımlar yeni sekme sayfasında görünmez.
 
       Bu seçeneğin False değerine ayarlanması veya ayarlanmadan bırakılması, Chrome Web Mağazası uygulamalarına ilişkin tanıtımların yeni sekme sayfasında görünmesine neden olur</translation>
@@ -5962,6 +6077,11 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
 <translation id="7375785904116479354">Politika Etkin değerine ayarlanırsa önceki varsayılan tarayıcıdaki varsayılan arama motoru ilk çalıştırmada içe aktarılır. Politika Devre dışı değerine ayarlanır veya ayarlanmadan bırakılırsa varsayılan arama motoru ilk çalıştırmada içe aktarılmaz.
 
       Kullanıcılar içe aktarma iletişim kutusunu tetikleyebilir ve varsayılan arama motoru onay kutusu, bu politikanın değerine uyacak şekilde işaretlenir veya işareti kaldırılır.</translation>
+<translation id="7383581189726479261">Bu politika M96 sürümünde kullanımdan kaldırılmıştır. Bunun yerine lütfen <ph name="REPORT_DEVICE_NETWORK_CONFIGURATION" /> ve <ph name="REPORT_DEVICE_NETWORK_STATUS" /> politikalarını kullanın.
+
+      Politika, Etkin değerine ayarlanır veya ayarlanmadan bırakılırsa kayıtlı cihazlar, türleri ve donanım adresleriyle birlikte ağ arayüzleri listesini bildirir.
+
+      Politika, Devre Dışı değerine ayarlanırsa kayıtlı cihazlar ağ arayüzünü bildirmez.</translation>
 <translation id="7389872682701720082">Bu ayarı etkinleştirirseniz eski olmayan eklentiler her zaman çalışır.
 
       Bu ayar devre dışı bırakılır veya düzenlenmezse, yetkilendirme gerektiren eklentilerin çalışması için kullanıcıdan izin istenir. Bunlar, güvenliği ihlal edebilecek eklentilerdir.</translation>
@@ -6009,6 +6129,7 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
 <translation id="7458437477941640506">OS sürümü hedeften daha yeniyse hedef sürüme geri dönmeyin. Güncellemeler de devre dışı bırakılır.</translation>
 <translation id="7459601923199346224">Sertifika yönetimi için kullanıcı ve cihaz politikalarını kontrol eder.</translation>
 <translation id="7459633275230216698">Dosya seçimi iletişim kutularına izin ver</translation>
+<translation id="7464058117970792805">Yazdırma önizlemeyi etkinleştir</translation>
 <translation id="7464991223784276288">Eşleşen URL'lerden çerezleri geçerli oturumla sınırlama</translation>
 <translation id="7468182772656807573">Politikanın ayarlanması, izleme amaçlı ağ paketlerinin ne sıklıkla gönderileceğini (milisaniye olarak) belirler. Sıklık 30 saniye ile 24 saat arasında değişir. Bu aralığın dışındaki değerler aralık içine kaydırılır.
 
@@ -6104,9 +6225,6 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
       Politika ayarlanmadan bırakılırsa varsayılan değer, kuruluş tarafından yönetilen kullanıcılar için <ph name="LACROS_AVAILABILITY_LACROS_DISALLOWED_VALUE" />, yönetilmeyen kullanıcılar için de <ph name="LACROS_AVAILABILITY_USER_CHOICE_VALUE" /> olur.
 
       İleride <ph name="LACROS_AVAILABILITY_LACROS_ONLY_VALUE" /> değeri kullanılarak <ph name="LACROS_NAME" /> tarayıcının <ph name="PRODUCT_OS_NAME" /> ile kullanılabilen tek tarayıcı olması sağlanabilecektir.</translation>
-<translation id="7509761893401042250">Bu politika, M96 sürümüyle birlikte kullanımdan kaldırılmıştır. Bunun yerine lütfen <ph name="REPORT_DEVICE_CPU_INFO" />, <ph name="REPORT_DEVICE_MEMORY_INFO" />, <ph name="REPORT_DEVICE_STORAGE_STATUS" />, <ph name="REPORT_DEVICE_SECURITY_STATUS" /> ve <ph name="REPORT_DEVICE_AUDIO_STATUS" /> politikalarını kullanın.
-
-      Politika, Etkin değerine ayarlanır veya ayarlanmadan bırakılırsa kayıtlı cihazlar CPU/RAM kullanımı gibi donanım istatistiklerini bildirir. Politika, Devre Dışı değerine ayarlanırsa kayıtlı cihazlar donanım istatistiklerini bildirmez.</translation>
 <translation id="7512065400265675158"><ph name="USER_AGENT_HEADER_NAME" /> HTTP istek başlığı kısaltılacak. Bu politika, testi ve uyumluluk sağlanmasını kolaylaştırmak amacıyla kısaltma özelliğini tüm web siteleri için etkinleştirebilir ya da özelliği etkinleştirmek üzere kaynak denemelerini veya alan denemelerini devre dışı bırakabilir.
 
       <ph name="USER_AGENT_REDUCTION_FEATURE_NAME" /> ve zaman çizelgesi hakkında daha fazla bilgiyi şu adreste bulabilirsiniz:
@@ -6153,7 +6271,6 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
 <translation id="7554382342294940216">Politika, Etkin değerine ayarlanırsa <ph name="PRODUCT_OS_NAME" /> ürünü, giriş portalı kimlik doğrulaması için proxy'leri atlayabilir. Bu kimlik doğrulama web sayfaları (giriş portalı oturum açma sayfasından itibaren Chrome başarılı bir internet bağlantısı algılayana kadar), geçerli kullanıcıyla ilgili tüm politika ayarları ve kısıtlamalar yok sayılarak ayrı bir pencerede açılır. Bu politika, yalnızca bir proxy yapılandırıldığında (politika veya uzantı aracılığıyla ya da kullanıcı tarafından chrome://settings bölümünden) geçerli olur.
 
       Politika, Devre Dışı değerine ayarlanır veya ayarlanmadan bırakılırsa giriş portalı kimlik doğrulama sayfaları, geçerli kullanıcının proxy ayarları kullanılarak yeni bir (normal) tarayıcı sekmesinde görüntülenir.</translation>
-<translation id="7566878661979235378">SAML oturum açma kimlik doğrulama türü</translation>
 <translation id="7567373982693549834">Bu politika, güvenilmeyen kaynaklardan (Google Play Store dışında) Android uygulamalarının kullanımını kullanıcı bazında kontrol eder.
 
       Bu politikanın değeri ayarlanmazsa işleve izin verilmiyor olarak değerlendirilir.
@@ -6189,6 +6306,7 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
       Politika etkinleştirilirse veya ayarlanmadan bırakılırsa Bil bakalım birim dönüşümü etkinleştirilir.
       Politika devre dışı bırakılırsa Bil bakalım birim dönüşümü devre dışı bırakılır.</translation>
 <translation id="7587345076013230465">Otomatik seçim politikası, oturum açma ekranında birden fazla sertifikayla eşleştiğinde kullanıcıdan istemci sertifikasını seçmesini iste</translation>
+<translation id="7587921466180902617">Family Link kullanıcıları için Ekran Kaydı test sürümünü etkinleştir</translation>
 <translation id="759957074386651883">Güvenli Tarama ayarları</translation>
 <translation id="7604169113182304895">Android uygulamaları, kendi tercihleriyle bu listeye uymaya karar verebilir. Bu uygulamaları listeye uymaya zorlayamazsınız.</translation>
 <translation id="7612157962821894603"><ph name="PRODUCT_NAME" /> başlatılırken uygulanan sistem genelindeki işaretler</translation>
@@ -6269,15 +6387,6 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
 <translation id="7687943045976362719">Bu politika ayarlanırsa, belirtilen içerik türleri <ph name="PRODUCT_FRAME_NAME" /> tarafından işlenir.
 
           Bu politika ayarlanmazsa, tüm siteler için varsayılan oluşturucu kullanılır. (<ph name="CHROME_FRAME_RENDERER_SETTINGS_POLICY_NAME" /> politikası, varsayılan oluşturucuyu yapılandırmak için kullanılabilir.)</translation>
-<translation id="7694807474048279351"><ph name="PRODUCT_OS_NAME" /> güncellemesi uygulandıktan sonra otomatik yeniden başlatma planla.
-
-      Bu politika true (doğru) olarak ayarlandığında, <ph name="PRODUCT_OS_NAME" /> güncellemesi uygulandıktan sonra güncelleme işleminin tamamlanması için otomatik yeniden başlatma gerekliyse bir otomatik yeniden başlatma planlanır. Yeniden başlatma derhal planlanır, ancak kullanıcı o an cihazı kullanıyorsa bu işlem cihaz üzerinden 24 saate kadar geciktirilebilir.
-
-      Bu politika false (yanlış) olarak ayarlandığında, <ph name="PRODUCT_OS_NAME" /> güncellemesi uygulandıktan sonra otomatik yeniden başlatma planlanmaz. Güncelleme işlemi, kullanıcı cihazı gelecek sefer yeniden başlattığında tamamlanır.
-
-      Bu politikayı ayarlarsanız, kullanıcılar politika üzerinde değişiklik yapamaz ve politikayı geçersiz kılamaz.
-
-      Not: Şu an için, otomatik yeniden başlatmalar yalnızca giriş ekranı gösteriliyorsa veya bir kiosk uygulama oturumu devam ediyorsa etkinleştirilir. Bu durum gelecekte değişecektir ve politika, herhangi bir özel türden oturumun devam edip etmediğinden bağımsız olarak her zaman uygulanacaktır.</translation>
 <translation id="7696412993033202071">Harici kimlik doğrulama uygulaması başlatma URL'leri</translation>
 <translation id="7701341006446125684">Uygulamalar ve Uzantılar için önbellek boyutunu ayarla (bayt olarak)</translation>
 <translation id="770339941914297201">Yeni davranış: Kiosk Chrome Uygulamaları yalnızca politikadaki güncelleme URL'si kullanılarak güncellenecektir</translation>
@@ -6354,6 +6463,10 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
 
       Geçerli <ph name="URL_LABEL" /> kalıpları hakkında ayrıntılı bilgi için https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns adresine bakabilirsiniz.  Bu politika, yalnızca kaynağa göre eşleşir. Dolayısıyla, URL kalıbındaki yollar yoksayılır.</translation>
 <translation id="7771298620150437359">İçeriği ve tercih edilen diller sıralamasını yapılandır</translation>
+<translation id="7773790010815041731"><ph name="MS_WIN_NAME" />, <ph name="MAC_OS_NAME" /> ve <ph name="LINUX_OS_NAME" /> cihazlarda Chrome Uygulamaları kullanımdan kaldırıldı.
+      Bu politika etkinleştirilirse <ph name="PRODUCT_NAME" />, Chrome Uygulamaları desteğinin tüm platformlardan kaldırılacağı son tarih olan Haziran 2022'ye kadar Chrome Uygulamalarının bu platformlarda çalıştırılmasına izin verir.
+      Bu politika devre dışı bırakılır veya ayarlanmazsa, kullanımdan kaldırma durumuna bağlı olarak Chrome Uygulamalarının çalışmasına izin verilmeyebilir.
+      Her iki durumda da, politika gereği zorunlu yüklenmiş Chrome Uygulamalarına izin verilmeye devam edilir.</translation>
 <translation id="7774768074957326919">Sistem proxy ayarlarını kullan</translation>
 <translation id="777734450201217641">Giriş ekranında erişilebilirlik özellikleri kısayollarını etkinleştirin.
 
@@ -6396,6 +6509,7 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
 <translation id="7823902813460802031">Politika Etkin değerine ayarlanırsa <ph name="PRODUCT_OS_NAME" />, cihazın Geliştirici moduna girmesini engeller.
 
        Politika Devre dışı değerine ayarlanır veya ayarlanmadan bırakılırsa Geliştirici modu cihaz için kullanılabilir durumda kalır.</translation>
+<translation id="7824000841504721945">Politika atom gruplarını devre dışı bırak</translation>
 <translation id="782661371433719637">Hiçbir sitenin File System API üzerinden dosya ve dizinlere okuma erişimi istemesine izin verme</translation>
 <translation id="7827127381981620448">Platform uygulaması</translation>
 <translation id="7833148823006528332">Android uygulaması tanımlayıcı (ör. Gmail için "com.google.android.gm")</translation>
@@ -6436,7 +6550,6 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
       Oturum açma ekranında ekran koruyucu olarak kullanılacak uzantının kimliğini belirler. Uzantı, DeviceAppPack politikası kullanılarak bu alan adı için yapılandırılmış AppPack'in bir parçası olmalıdır.</translation>
 <translation id="7882890448959833986">Desteklenmeyen OS uyarısını gizle</translation>
 <translation id="788480874436328004">Şifre yöneticisini kullanarak şifre kaydetmeyi devre dışı bırak</translation>
-<translation id="7885255514815321350">Family Link kullanıcıları için Projector test sürümünü devre dışı bırak</translation>
 <translation id="7887379840451099426">Yalnızca pil gücüyle çalışırken geçerli olan güç yönetimi ayarları</translation>
 <translation id="7891884447851425349"><ph name="DEFAULT_SEARCH_PROVIDER_ENABLED_POLICY_NAME" /> açıksa <ph name="DEFAULT_SEARCH_PROVIDER_SEARCH_URL_POLICY_NAME" /> politikasının ayarlanması, varsayılan arama sırasında kullanılan arama motorunu belirtir. URL, sorguda kullanıcının arama terimi ile değiştirilen <ph name="SEARCH_TERM_MARKER" /> dizesini içermelidir.
 
@@ -6447,6 +6560,8 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
 
       Öneri: Boşta kaldığında ekranı kilitlemek için askıya alındığında ekran kilidini etkinleştirin ve boşta kalma gecikmesi ile ilgili süre dolduğunda <ph name="PRODUCT_OS_NAME" /> tarafından askıya alma işlemi yapılacak şekilde ayarlayın. Bu politikayı yalnızca ekran kilitleme işleminin askıya alma işleminden epey önce olması istendiğinde veya boşta kalma durumunda askıya alma işleminin yapılmasını istemediğinizde kullanın.</translation>
 <translation id="7895553628261067384">Uzaktan erişim</translation>
+<translation id="7899952578398457262">Yönetilmeyen cihazlarda cihaz sinyallerini paylaşmak için yönetilen kullanıcılardan izin isteyerek erişim elde et</translation>
+<translation id="7900469325540540107">Kurumsal profil oluştururken tarama verilerini varsayılan olarak sakla</translation>
 <translation id="7902040092815978832">Şifre için sayısal klavyeyi gösterir</translation>
 <translation id="7904177352786629708">Politika Etkin değerine ayarlanırsa CNAME araması atlanır. Kerberos SPN oluşturulurken sunucu adı girildiği şekliyle kullanılır.
 
@@ -6481,6 +6596,7 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
 <translation id="793473937901685727">ARC uygulamaları için sertifika kullanılabilirliğini ayarla</translation>
 <translation id="7936302526928951356">User-Agent dizesi, ana sürümü dondurmaz.</translation>
 <translation id="7937766917976512374">Video yakalamaya izin verme veya reddetme</translation>
+<translation id="7941528208359969119">Online <ph name="OCSP_CRL_LABEL" /> kontrollerinin yapılmasına izin ver</translation>
 <translation id="7941975817681987555">Ağ bağlantılarında ağ işlemlerini tahmin etme</translation>
 <translation id="7946350455013548764">Politikayı 3 değerine ayarlarsanız web siteleri HID cihazlara erişim izni isteyebilir. Politikayı 2 değerine ayarlarsanız HID cihazlara erişime izin verilmez.
 
@@ -6530,6 +6646,7 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
           Bu ayar devre dışı bırakılırsa ve giden UDP bağlantılarına güvenlik duvarı tarafından filtre uygulanıyorsa, bu makine yalnızca yerel ağ içindeki ana makinelere bağlanabilir.</translation>
 <translation id="7976157349247117979"><ph name="PRODUCT_NAME" /> hedefinin adı</translation>
 <translation id="7985242821674907985"><ph name="PRODUCT_NAME" /></translation>
+<translation id="7986473886676689183">Android raporlamasını etkinleştir</translation>
 <translation id="7991022023019679916">Bu politikanın artık kullanılmadığını ve <ph name="PRODUCT_OS_NAME" /> sürüm 85'te kaldırılacağını unutmayın. Lütfen bunun yerine <ph name="POWER_MANAGEMENT_IDLE_SETTINGS_POLICY_NAME" /> politikasını kullanın.
 
           AC gücüyle çalışırken, ekran kapatılmadan önce kullanıcı girişi olmadan geçecek süreyi belirtir.
@@ -6546,6 +6663,7 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
 <translation id="7999023147219236247">Uygulamalar için yapılan izin istekleriyle ilgili politika. PERMISSION_POLICY_UNSPECIFIED: Politika belirtilmemiştir. Herhangi bir düzeyde bir izin için politika belirtilmemişse varsayılan olarak "PROMPT" davranışı kullanılır. PROMPT: Kullanıcıdan izin vermesi istenir. GRANT: Otomatik olarak izin verilir. DENY: İzin isteği otomatik olarak reddedilir.</translation>
 <translation id="7999818120028621358">Veri sızıntısı önleme etkinliklerinin raporlanmasını etkinleştir</translation>
 <translation id="8001701200415781021"><ph name="PRODUCT_NAME" /> dahilinde hangi Google hesaplarının tarayıcı birincil hesapları olarak ayarlanmasına izin verileceğini kısıtlama</translation>
+<translation id="800595420827930383">Eski platform sertifikası doğrulayıcıyı kullan</translation>
 <translation id="8006219716745491366"><ph name="DEFAULT_SEARCH_PROVIDER_ENABLED_POLICY_NAME" /> açıksa <ph name="DEFAULT_SEARCH_PROVIDER_ALTERNATE_URLS_POLICY_NAME" /> protokolünün ayarlanması, arama motorundan arama terimlerini çıkartmak için alternatif URL'lerin bir listesini belirtir. Bu URL'ler, <ph name="SEARCH_TERM_MARKER" /> dizesini içermelidir.
 
       <ph name="DEFAULT_SEARCH_PROVIDER_ALTERNATE_URLS_POLICY_NAME" /> protokolü ayarlanmadan bırakılırsa arama terimlerini çıkartmak için alternatif URL kullanılmaz.</translation>
@@ -6554,6 +6672,7 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
           Doğru değerine ayarlanırsa, boş bırakılırsa veya ayarlanmazsa bu politikanın hiçbir etkisi olmaz.</translation>
 <translation id="8008421342605619236">Yerel Mesajlaşma için politikaları yapılandırır. Engellenen yerel mesajlaşma ana makinelerine, beyaz listeye eklenmedikçe izin verilmez.</translation>
 <translation id="8011935490612940798"><ph name="PRODUCT_NAME" /> özelliğini kontrol eder.</translation>
+<translation id="8013646845541206453">Herhangi bir sertifika doğrulayıcıyı kullan</translation>
 <translation id="8013739405949922317">Bu ayar kullanımdan kaldırılmıştır. Bunun yerine <ph name="LACROS_AVAILABILITY_POLICY_NAME" /> politikasını kullanın.
 
       Bu politika Devre Dışı değerine ayarlanırsa veya ayarlanmadan bırakılırsa kullanıcı <ph name="LACROS_NAME" /> tarayıcıyı kullanamaz.
@@ -6613,6 +6732,11 @@ Bu ayar devre dışı bırakılır veya herhangi bir değer belirlenmezse <ph na
 <translation id="8091982561085048989">Yazıcıyı kurmak için IPP Everywhere'in kullanılıp kullanılmayacağını belirten boole flag'i. Bu işaret, <ph name="PRODUCT_OS_NAME" /> sürüm 76 ve sonrasındaki sürümlerde desteklenir.</translation>
 <translation id="8099880303030573137">Pil gücüyle çalışırken boşta kalma gecikmesi</translation>
 <translation id="8101381354936029836">Politika atom grubu:</translation>
+<translation id="8102504778644322990">Standart olmayan window.webkitStorageInfo API'si, M106 sürümünden itibaren kaldırılacaktır.
+      Bu politika, API'yi M107'ye kadar yeniden etkinleştirir.
+      Bu politika, Etkin değerine ayarlanırsa window.webkitStorageInfo API'si kullanılabilir.
+      Bu politika, Devre Dışı değerine ayarlanırsa veya ayarlanmadan bırakılırsa window.webkitStorageInfo API'si kullanılamaz.
+      </translation>
 <translation id="8102913158860568230">Varsayılan medya akışı ayarı</translation>
 <translation id="8104962233214241919">Bu siteler için istemci sertifikalarını otomatik olarak seç</translation>
 <translation id="8114382167597081590">YouTube'da Kısıtlı Mod'u zorunlu kılma</translation>
@@ -6662,6 +6786,11 @@ Bu politika False (Yanlış) değerine ayarlanırsa giriş ekranı gösterildiğ
 Bu politika ayarlandığında kullanıcı, giriş ekranı gösterilirken değeri geçersiz kılamaz.
 
 Bu politika ayarlanmadan bırakılırsa gizlilik ekranı başta devre dışı bırakılır, ancak giriş ekranı gösterildiğinde kullanıcı tarafından kontrol edilebilmeye devam eder.</translation>
+<translation id="814753199998535240">Bu politika, M96 sürümüyle birlikte kullanımdan kaldırılmıştır. Bunun yerine lütfen <ph name="REPORT_DEVICE_CPU_INFO" />, <ph name="REPORT_DEVICE_MEMORY_INFO" />, <ph name="REPORT_DEVICE_STORAGE_STATUS" />, <ph name="REPORT_DEVICE_SECURITY_STATUS" /> ve <ph name="REPORT_DEVICE_AUDIO_STATUS" /> politikalarını kullanın.
+
+      Politika, Etkin değerine ayarlanır veya ayarlanmadan bırakılırsa kayıtlı cihazlar CPU/RAM kullanımı gibi donanım istatistiklerini bildirir.
+
+      Politika, Devre Dışı değerine ayarlanırsa kayıtlı cihazlar donanım istatistiklerini bildirmez.</translation>
 <translation id="8147730407149297036">Şifre sızıntısı algılamayı devre dışı bırak</translation>
 <translation id="815061180603915310">Bu politika etkinleştirilirse profil geçici moda geçmeye zorlanır. Bu politika bir OS politikası olarak belirlenirse (ör. Windows'da GPO) sistemdeki tüm profiller için geçerli olur; Bulut politikası olarak belirlenirse yalnızca yönetilen hesapla oturum açılan bir profil için geçerli olur.
 
@@ -6691,6 +6820,7 @@ Bu politika ayarlanmadan bırakılırsa gizlilik ekranı başta devre dışı b�
 <translation id="8164687848393015214">Politika Etkin değerine ayarlanırsa izleme amaçlı ağ paketleri (<ph name="HEARTBEATS_TERM" />), bağlantı durumunun izlenmesini ve cihazın çevrimdışı olup olmadığının belirlenmesini sağlamak için yönetim sunucusuna gönderilir.
 
       Politika Devre Dışı değerine ayarlanır veya ayarlanmadan bırakılırsa paket gönderilmez.</translation>
+<translation id="8169452762291746260">Cihaz sağlığını izlemeyi devre dışı bırak</translation>
 <translation id="8171924760436219650">Giriş ekranında birincil fare düğmesini sağ düğme yap</translation>
 <translation id="8173864651667424191">Resim olarak yazdır, PDF dokümanların yazdırma önizlemelerinde kullanılabildiği durumlarda varsayılan olarak seçilir.</translation>
 <translation id="8176035528522326671">Kurumsal kullanıcının sadece birincil çok profilli kullanıcı olmasına izin ver (Kurumsal olarak yönetilen kullanıcılar için varsayılan çalışma biçimidir)</translation>
@@ -6742,6 +6872,7 @@ Bu politika ayarlanmadan bırakılırsa gizlilik ekranı başta devre dışı b�
 <translation id="8229912067600517877">Geliştirici Araçları'nı etkinleştir</translation>
 <translation id="8238421250255592181">Dokunmatik klavyede otomatik tamamlama özelliği sunulup sunulamayacağını gösteren bir boole flag'i.</translation>
 <translation id="8239109177194627162">Kredi kartlarını otomatik doldurmayı devre dışı bırak</translation>
+<translation id="8239143983379015783">Kalıcı kotanın etkinleştirilmesini zorunlu tut</translation>
 <translation id="8244171102276095471">TLS'deki RC4 şifre paketlerini etkinleştir</translation>
 <translation id="8244525275280476362">Bir politika iptal edildikten sonra maksimum getirme gecikmesi</translation>
 <translation id="8245574649143980200">Politika ayarlanmadan bırakılır veya Etkin değerine ayarlanırsa kullanıcıların <ph name="GOOGLE_LENS_PRODUCT_NAME" /> bölge arama menü öğesini içerik menüsünde görüntüleyip kullanmasına izin verilir. Politika, Devre Dışı değerine ayarlanırsa <ph name="GOOGLE_LENS_PRODUCT_NAME" /> bölge arama desteklendiğinde kullanıcılar <ph name="GOOGLE_LENS_PRODUCT_NAME" /> bölge arama menü öğesini içerik menüsünde görmez.</translation>
@@ -6865,6 +6996,7 @@ Windows'da politika yapılandırmak için önerilen yol GPO kullanmaktır. Ancak
 
       <ph name="DEFAULT_SEARCH_PROVIDER_IMAGE_URL_POST_PARMS_POLICY_NAME" /> politikası ayarlanmazsa resim araması isteği, GET yöntemi kullanılarak gönderilir.</translation>
 <translation id="8314214821702356835">Cihaz kilitliyken kullanıcının medya oynatmasına izin verir</translation>
+<translation id="8316940611391250886">subjectAlternativeName uzantısına sahip olmayan sertifikalara izin verme</translation>
 <translation id="8319678975002906774">Belirli kaynaklar için web sitelerine yönetilen yapılandırma değerleri ayarla</translation>
 <translation id="8320149248919453401">Pil şarj modu</translation>
 <translation id="8327651196906278510">Bu kaynakların Sekme yakalamasına izin ver</translation>
@@ -6947,6 +7079,7 @@ Windows'da politika yapılandırmak için önerilen yol GPO kullanmaktır. Ancak
 
        Bu politika, <ph name="PRODUCT_NAME" /> 95 sürümünde kaldırılacaktır.</translation>
 <translation id="8427466947904008809">CRD'nin uzak bir ana makineden proxy kullanılarak gelen WebAuthn API isteklerini yürütmesine izin ver.</translation>
+<translation id="8428635849021776523">Android raporlamasını devre dışı bırak</translation>
 <translation id="8433186206711564395">Ağ ayarları</translation>
 <translation id="8433769814000220721">Önerilen İçeriği Etkinleştir</translation>
 <translation id="843609873781525167">Politikayı True (Doğru) değerine ayarlamak, <ph name="PRODUCT_NAME" /> ürününün her zaman başlangıçta varsayılan tarayıcı olup olmadığını denetlemesini ve mümkünse kendini otomatik olarak kaydetmesini sağlar. Politikayı False (Yanlış) değerine ayarlamak, <ph name="PRODUCT_NAME" /> ürününün varsayılan olup olmadığını kontrol etmesini durdurup bu seçenek için kullanıcı denetimlerini kapatır.
@@ -7014,6 +7147,7 @@ Politika ayarlanırsa sınıra uymak için eski anlık görüntüler gerektiğin
       "1412.24.34": Yalnızca bu sürüme güncelle
 
       Uyarı: Kullanıcıların yazılım güncellemelerini ve kritik güvenlik düzeltmelerini almasını engelleyebileceği için sürüm kısıtlamalarının yapılandırılması önerilmez. Güncellemeleri belirli bir sürüm ön ekiyle sınırlamak, kullanıcıları risk altında bırakabilir.</translation>
+<translation id="8508489378025029342">Cihaz etkinlik zamanı raporlamasını etkinleştir</translation>
 <translation id="8519264904050090490">Yönetilen kullanıcı manuel istisna URL'leri</translation>
 <translation id="8519516251436131647">Erişilebilirlik özellikleri kısayollarını etkinleştirin.
 
@@ -7089,6 +7223,7 @@ Politika ayarlanırsa sınıra uymak için eski anlık görüntüler gerektiğin
 Bu politika "true" (doğru) olarak ayarlanırsa kullanıcının tarayıcıyı kullanmadan önce <ph name="PRODUCT_NAME" /> ürününde kendi profiliyle oturum açması gerekir. BrowserGuestModeEnabled varsayılan değeri "false" (yanlış) olarak ayarlanır. Bu politika etkinleştirildikten sonra mevcut imzasız profillerin kilitleneceğini ve erişilemez hale geleceğini unutmayın. Daha fazla bilgi edinmek için yardım merkezi makalesine bakabilirsiniz.
 
       Bu politika "false" (yanlış) değerine ayarlanır veya yapılandırılmazsa kullanıcı <ph name="PRODUCT_NAME" /> ürününde oturum açmadan tarayıcıyı kullanabilir.</translation>
+<translation id="8575739761246140675">Symantec Corporation'ın Eski PKI altyapısı tarafından verilen sertifikalara güveni etkinleştir</translation>
 <translation id="8575746110808109915">Politika ayarlanarak tam geri yükleme özelliği etkinleştirilir.
       Bu politika Doğru değerine ayarlanırsa, uygulama geri yükleme ayarına bağlı olarak bir kilitlenme veya yeniden başlatma sonrasında uygulamalar ve uygulama pencereleri geri yüklenir ya da yüklenmez.
       Bu politika Yanlış değerine ayarlanırsa sadece tarayıcı pencereleri otomatik olarak başlatılır.</translation>
@@ -7128,13 +7263,6 @@ Bu politika "true" (doğru) olarak ayarlanırsa kullanıcının tarayıcıyı ku
       Politika true (doğru) değerine ayarlanırsa en az 5 dakikadır arka planda bulunan sekmeler dondurulabilir. Sekme dondurma işlemi CPU, pil ve bellek kullanımını azaltır. <ph name="PRODUCT_NAME" />, arka planda faydalı işler yapan sekmelerin (ör. bildirimleri görüntüleme, ses çalma, video yayınlama) dondurulmaması için sezgisel yöntemler kullanır. Web geliştiricileri, sitelerinin dondurma kapsamı dışında kalmasını seçebilir (https://chromium.googlesource.com/chromium/src/+/HEAD/chrome/browser/performance_manager/docs/freezing_opt_out_opt_in.md).
 
       Politika false (yanlış) değerine ayarlanırsa hiçbir sekme dondurulmaz.</translation>
-<translation id="8619480582976056396">Politika ayarlanırsa yasaklı URL'leri olan web sayfalarının yüklenmesi önlenir. Yasaklı URL'leri belirten URL kalıpları listesi sağlar. Politika ayarlanmadan bırakılırsa tarayıcıda hiçbir URL yasaklanmaz. URL kalıbını şu biçime göre biçimlendirin ( https://www.chromium.org/administrators/url-blocklist-filter-format ). <ph name="URL_ALLOWLIST_POLICY_NAME" /> politikasında en çok 1.000 istisna tanımlanabilir.
-
-      <ph name="PRODUCT_NAME" /> sürüm 73'ten itibaren javascript://* URL'lerini engelleyebilirsiniz. Ancak bu engelleme yalnızca adres çubuğuna girilen JavaScript'i (veya örneğin yer işareti uygulamalarını) etkiler. Dinamik olarak yüklenen verileri olan sayfa içi JavaScript URL'leri bu politikaya tabi değildir. Örneğin, example.com/abc URL'sini engellerseniz example.com yine de XMLHTTPRequest kullanarak example.com/abc URL'sini yükleyebilir.
-
-      Bu politika, <ph name="PRODUCT_NAME" /> 92 sürümünden itibaren gözetimsiz modda da desteklenir.
-
-      Not: Dahili chrome://* URL'lerinin engellenmesi beklenmedik hatalara neden olabilir.</translation>
 <translation id="8619748440665904084">İlk çalıştırmada form otomatik doldurma verilerinin içe aktarılmasını devre dışı bırak</translation>
 <translation id="8623672932476443039">Politika, etkin değerine ayarlanırsa kullanıcılar erişime kapalı uygulamalar için geliştirici moduna erişebilir.
       Politika, devre dışı değerine ayarlanırsa kullanıcılar bu özelliklere erişemez.
@@ -7190,6 +7318,7 @@ Bu politika "true" (doğru) olarak ayarlanırsa kullanıcının tarayıcıyı ku
 
       <ph name="PRODUCT_NAME" /> çalışırken bu politika değiştirilirse bu değişiklik sadece yeni açılan sekmeler için geçerli olur.</translation>
 <translation id="8685748277907759932">Kullanıcıların Dokun ve Ara özelliğini kullanmalarını engelle</translation>
+<translation id="8686700500128191717">Cihaz kullanıcılarının raporlamasını etkinleştir</translation>
 <translation id="8687958770985542440">Web Bileşenleri v0 API'sini M84'e kadar yeniden etkinleştirin.</translation>
 <translation id="8693243869659262736">Dahili DNS istemcisini kullan</translation>
 <translation id="8698286761337647563">SAML kullanıcılarına şifrelerinin son kullanma tarihinin önceden bildirileceği gün sayısı</translation>
@@ -7261,6 +7390,8 @@ Bu politika "true" (doğru) olarak ayarlanırsa kullanıcının tarayıcıyı ku
       Varsayılan olarak tüm yerel mesajlaşma ana makinelerine izin verilir. Ancak tüm yerel mesajlaşma ana makineleri politikaya göre yasaklandıysa yönetici, bu politikayı değiştirmek için izin verilenler listesini kullanabilir.</translation>
 <translation id="877557628527387598">Şifreyle oturum açma</translation>
 <translation id="8777369558049831576">Harici protokol iletişim kutusunda "Her zaman aç" onay kutusu göster.</translation>
+<translation id="8778320022586618010">Cihaz grafik durumu raporlamasını etkinleştir</translation>
+<translation id="8780039702448388726">Cihaz sürüm bilgisi raporlamasını devre dışı bırak</translation>
 <translation id="8786409859071107656">Politikayı Etkin değerine ayarlamak USB güç paylaşımı güç yönetim politikasını etkinleştirir.
 
       Bazı cihazlarda, cihazları sistem pilini kullanarak şarj etmek için kullanılabilen, şimşek veya pil simgesi olan özel bir USB bağlantı noktası vardır. Bu politika, sistem uyku ve kapalı modundayken bu bağlantı noktasının şarj çalışma biçimini etkiler. USB bağlantı noktası sürekli güç sağladığında sistem uyanık durumdayken diğer USB bağlantı noktalarını ve şarj çalışma biçimini etkilemez.
@@ -7283,9 +7414,6 @@ Bu politika "true" (doğru) olarak ayarlanırsa kullanıcının tarayıcıyı ku
 <translation id="8807313206348471682">Oturum kapatma onayı iletişimini göster</translation>
 <translation id="8812091410765157924">Yalnızca <ph name="BLANK_PAGE_NAME" /> sayfasını hedefleyerek açılan pop-up'lara, pop-up'ı açan sayfayla etkileşimde bulunma izni ver. Bu izin, pop-up'ı açan sayfa böyle bir etkileşimi açıkça etkinleştirirse verilir.</translation>
 <translation id="8816370949847593408">Kullanımdan kaldırma durumuna bağlı olarak Chrome Uygulamalarının çalışmasına izin verilmeyebilir.</translation>
-<translation id="8818173863808665831">Cihazın coğrafi konumunu bildirin.
-
-      Bu politika ayarlanmazsa veya yanlış seçeneğine ayarlanırsa konum bildirilmez.</translation>
 <translation id="8818768076343557335">Hücresel olmayan ağlarda ağ işlemlerini tahmin et.
           (50'de kullanımdan kaldırılmıştır, 52'de kaldırılmıştır. 52'den sonra, 1 değeri ayarlanırsa 0 olarak (ağ bağlantılarında ağ işlemlerini tahmin et değeri gibi) işlem görür.)</translation>
 <translation id="8821678641132607468">Politika Etkin değerine ayarlanırsa önceki varsayılan tarayıcıdan tarama geçmişi ilk çalıştırmada içe aktarılır. Politika Devre dışı değerine ayarlanır veya ayarlanmadan bırakılırsa tarama geçmişi ilk çalıştırmada içe aktarılmaz.
@@ -7423,11 +7551,6 @@ Bu politika "true" (doğru) olarak ayarlanırsa kullanıcının tarayıcıyı ku
 <translation id="8951350807133946005">Disk önbellek dizinini ayarla</translation>
 <translation id="8955719471735800169">Başa dön</translation>
 <translation id="8956312248048980644">Varsayılan olarak kaynak içeren veya kaynaklarla ilişkili aracı kümelemeye izin verir.</translation>
-<translation id="8959992920425111821">Varsayılan yapılandırma</translation>
-<translation id="8967125680876068695">Chrome Uygulamaları; Windows, Mac ve Linux'ta kullanımdan kaldırıldı.
-      Bu politika etkinleştirilirse <ph name="PRODUCT_NAME" />, Chrome Uygulamaları desteğinin tüm platformlardan kaldırılacağı son tarih olan Haziran 2022'ye kadar Chrome Uygulamalarının bu platformlarda çalıştırılmasına izin verir.
-      Bu politika devre dışı bırakılır veya ayarlanmazsa, kullanımdan kaldırma durumuna bağlı olarak Chrome Uygulamalarının çalışmasına izin verilmeyebilir.
-      Her iki durumda da, politika gereği zorunlu yüklenmiş Chrome Uygulamalarına izin verilmeye devam edilir.</translation>
 <translation id="8970205333161758602"><ph name="PRODUCT_FRAME_NAME" /> reddetme sorusunu engelle</translation>
 <translation id="8976248126101463034">Uzak erişim ana makineleri için gnubby kimlik doğrulamasına izin ver</translation>
 <translation id="8976531594979650914">Varsayılan Olarak Sistem Varsayılan Yazıcısını Kullan</translation>
@@ -7469,6 +7592,7 @@ Bu politika "true" (doğru) olarak ayarlanırsa kullanıcının tarayıcıyı ku
 
       Geçerli giriş kalıpları hakkında ayrıntılı bilgi için https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns adresine bakabilirsiniz. <ph name="WILDCARD_VALUE" />, bu politikada kabul edilen bir değer değildir. Bu politika, yalnızca kaynağa göre eşleşir. Dolayısıyla, URL kalıbındaki yollar yok sayılır.</translation>
 <translation id="9010080992450148617">Gelişmiş Koruma programına kayıtlı kullanıcıların indirdikleri dosyaları ayrıntılı tarama için Google'a göndermelerine izin ver</translation>
+<translation id="9012101302849557459"><ph name="MS_WIN_NAME" />, <ph name="MAC_OS_NAME" /> ve <ph name="LINUX_OS_NAME" /> cihazlarda Chrome Uygulamaları'na yönelik desteğin kapsamını genişlet.</translation>
 <translation id="9013875414788074110"><ph name="PRODUCT_OS_NAME" /> giriş yapılırken bir sunucu (online) veya önbelleğe alınmış bir şifre (çevrimdışı) ile kimlik doğrulaması yapabilir.
 
       Bu politika -1 değerine ayarlandığında, kullanıcı süresiz şekilde çevrimdışı olarak kimlik doğrulaması yapabilir. Bu politika başka herhangi bir değere ayarlandığında, kullanıcının online kimlik doğrulamayı tekrar kullanması gereken, en son online kimlik doğrulama işleminden beri geçen zamanı belirtir.
@@ -7550,6 +7674,7 @@ Bu politika "true" (doğru) olarak ayarlanırsa kullanıcının tarayıcıyı ku
 <translation id="9073405975862312795">Politika Etkin değerine ayarlanır veya ayarlanmadan bırakılırsa kayıtlı cihazlar bir kullanıcının cihazı aktif olarak kullandığı zamanları bildirir.
 
       Politika Devre Dışı değerine ayarlanırsa kayıtlı cihazlar etkinlik zamanlarını kaydetmez veya bildirmez.</translation>
+<translation id="9076477053438828079">Kullanıcı adlarını ve fotoğrafları her zaman göster</translation>
 <translation id="9077227880520270584">Cihaz yerel hesabına otomatik giriş zamanlayıcısı</translation>
 <translation id="9079531125758468956">İlk çalıştırmada yer işaretlerinin içe aktarılmasını devre dışı bırak</translation>
 <translation id="9084985621503260744">Video etkinliğinin güç yönetimini etkileyip etkilemeyeceğini belirtme</translation>
@@ -7604,6 +7729,7 @@ Bu politika "true" (doğru) olarak ayarlanırsa kullanıcının tarayıcıyı ku
 <translation id="9135033364005346124"><ph name="CLOUD_PRINT_NAME" /> proxy'sini etkinleştir</translation>
 <translation id="9136212796239682721">İndirme baloncuğu kullanıcı arayüzünü devre dışı bırak</translation>
 <translation id="9136399279941091445">Belirtilen cihaz politikaları etkinleştirildiğinde kapalı olduğu saat aralıkları</translation>
+<translation id="9148720248753722892">SHA-1 imzalı sertifikalara izin verme</translation>
 <translation id="9150416707757015439">Bu politika uygun bulunmamaktadır. Lütfen, bunun yerine IncognitoModeAvailability politikasını kullanın.
       <ph name="PRODUCT_NAME" /> Gizli modunu etkinleştirir.
 
@@ -7698,6 +7824,7 @@ Bu politika "true" (doğru) olarak ayarlanırsa kullanıcının tarayıcıyı ku
       Bu politika yanlış değerine ayarlanırsa yalnızca <ph name="DEVICE_USER_ALLOWLIST_POLICY_NAME" /> içerisinde mevcut olan kullanıcılar giriş yapabilir.
 
       Bu politika doğru değerine ayarlanır veya yapılandırılmadan bırakılırsa tüm kullanıcılar giriş yapabilir.</translation>
+<translation id="966425658642788645">Varsayılan davranışı uygula</translation>
 <translation id="971677226939413180">Resim olarak yazdır seçeneği kullanıcı tarafından seçilemez.</translation>
 <translation id="974349541138387272">İstenen DNS-over-HTTPS çözümleyicisinin URI şablonunu belirler</translation>
 <translation id="979467274961593903">Uzaktan hata ayıklama kullanımına izin verme</translation>

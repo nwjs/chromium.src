@@ -337,9 +337,14 @@ absl::optional<AggregatableReportRequest> ConvertReportRequestFromProto(
     return absl::nullopt;
   }
 
+  absl::optional<uint64_t> debug_key;
+  if (request_proto.has_debug_key()) {
+    debug_key = request_proto.debug_key();
+  }
+
   return AggregatableReportRequest::Create(
       std::move(payload_contents.value()), std::move(shared_info.value()),
-      std::move(*request_proto.mutable_reporting_path()));
+      std::move(*request_proto.mutable_reporting_path()), debug_key);
 }
 
 void ConvertPayloadContentsToProto(
@@ -406,6 +411,9 @@ proto::AggregatableReportRequest ConvertReportRequestToProto(
   ConvertSharedInfoToProto(request.shared_info(),
                            /*out=*/request_proto.mutable_shared_info());
   *request_proto.mutable_reporting_path() = request.reporting_path();
+  if (request.debug_key().has_value()) {
+    request_proto.set_debug_key(request.debug_key().value());
+  }
 
   return request_proto;
 }
@@ -502,11 +510,13 @@ std::string AggregatableReportSharedInfo::SerializeAsJson() const {
 absl::optional<AggregatableReportRequest> AggregatableReportRequest::Create(
     AggregationServicePayloadContents payload_contents,
     AggregatableReportSharedInfo shared_info,
-    std::string reporting_path) {
+    std::string reporting_path,
+    absl::optional<uint64_t> debug_key) {
   std::vector<GURL> processing_urls =
       GetDefaultProcessingUrls(payload_contents.aggregation_mode);
   return CreateInternal(std::move(processing_urls), std::move(payload_contents),
-                        std::move(shared_info), std::move(reporting_path));
+                        std::move(shared_info), std::move(reporting_path),
+                        debug_key);
 }
 
 // static
@@ -515,9 +525,11 @@ AggregatableReportRequest::CreateForTesting(
     std::vector<GURL> processing_urls,
     AggregationServicePayloadContents payload_contents,
     AggregatableReportSharedInfo shared_info,
-    std::string reporting_path) {
+    std::string reporting_path,
+    absl::optional<uint64_t> debug_key) {
   return CreateInternal(std::move(processing_urls), std::move(payload_contents),
-                        std::move(shared_info), std::move(reporting_path));
+                        std::move(shared_info), std::move(reporting_path),
+                        debug_key);
 }
 
 // static
@@ -526,7 +538,8 @@ AggregatableReportRequest::CreateInternal(
     std::vector<GURL> processing_urls,
     AggregationServicePayloadContents payload_contents,
     AggregatableReportSharedInfo shared_info,
-    std::string reporting_path) {
+    std::string reporting_path,
+    absl::optional<uint64_t> debug_key) {
   if (!AggregatableReport::IsNumberOfProcessingUrlsValid(
           processing_urls.size(), payload_contents.aggregation_mode)) {
     return absl::nullopt;
@@ -554,24 +567,32 @@ AggregatableReportRequest::CreateInternal(
     return absl::nullopt;
   }
 
+  if (debug_key.has_value() &&
+      shared_info.debug_mode ==
+          AggregatableReportSharedInfo::DebugMode::kDisabled) {
+    return absl::nullopt;
+  }
+
   // Ensure the ordering of urls is deterministic. This is required for
   // AggregatableReport construction later.
   base::ranges::sort(processing_urls);
 
   return AggregatableReportRequest(
       std::move(processing_urls), std::move(payload_contents),
-      std::move(shared_info), std::move(reporting_path));
+      std::move(shared_info), std::move(reporting_path), debug_key);
 }
 
 AggregatableReportRequest::AggregatableReportRequest(
     std::vector<GURL> processing_urls,
     AggregationServicePayloadContents payload_contents,
     AggregatableReportSharedInfo shared_info,
-    std::string reporting_path)
+    std::string reporting_path,
+    absl::optional<uint64_t> debug_key)
     : processing_urls_(std::move(processing_urls)),
       payload_contents_(std::move(payload_contents)),
       shared_info_(std::move(shared_info)),
-      reporting_path_(std::move(reporting_path)) {}
+      reporting_path_(std::move(reporting_path)),
+      debug_key_(debug_key) {}
 
 AggregatableReportRequest::AggregatableReportRequest(
     AggregatableReportRequest&& other) = default;
@@ -636,8 +657,11 @@ AggregatableReport::AggregationServicePayload::~AggregationServicePayload() =
 
 AggregatableReport::AggregatableReport(
     std::vector<AggregationServicePayload> payloads,
-    std::string shared_info)
-    : payloads_(std::move(payloads)), shared_info_(std::move(shared_info)) {}
+    std::string shared_info,
+    absl::optional<uint64_t> debug_key)
+    : payloads_(std::move(payloads)),
+      shared_info_(std::move(shared_info)),
+      debug_key_(debug_key) {}
 
 AggregatableReport::AggregatableReport(const AggregatableReport& other) =
     default;
@@ -666,7 +690,7 @@ AggregatableReport::Provider::~Provider() = default;
 
 absl::optional<AggregatableReport>
 AggregatableReport::Provider::CreateFromRequestAndPublicKeys(
-    AggregatableReportRequest report_request,
+    const AggregatableReportRequest& report_request,
     std::vector<PublicKey> public_keys) const {
   const size_t num_processing_urls = public_keys.size();
   DCHECK_EQ(num_processing_urls, report_request.processing_urls().size());
@@ -730,7 +754,8 @@ AggregatableReport::Provider::CreateFromRequestAndPublicKeys(
   }
 
   return AggregatableReport(std::move(encrypted_payloads),
-                            std::move(encoded_shared_info));
+                            std::move(encoded_shared_info),
+                            report_request.debug_key());
 }
 
 base::Value::Dict AggregatableReport::GetAsJson() const {
@@ -738,21 +763,29 @@ base::Value::Dict AggregatableReport::GetAsJson() const {
 
   value.Set("shared_info", shared_info_);
 
-  base::Value::List payloads_list_value;
-  for (const AggregationServicePayload& payload : payloads_) {
-    base::Value::Dict payload_dict_value;
-    payload_dict_value.Set("payload", base::Base64Encode(payload.payload));
-    payload_dict_value.Set("key_id", payload.key_id);
-    if (payload.debug_cleartext_payload.has_value()) {
-      payload_dict_value.Set(
-          "debug_cleartext_payload",
-          base::Base64Encode(payload.debug_cleartext_payload.value()));
+  // When invoked for reports being shown in the WebUI, `payloads_` may be empty
+  // prior to assembly or if assembly failed.
+  if (!payloads_.empty()) {
+    base::Value::List payloads_list_value;
+    for (const AggregationServicePayload& payload : payloads_) {
+      base::Value::Dict payload_dict_value;
+      payload_dict_value.Set("payload", base::Base64Encode(payload.payload));
+      payload_dict_value.Set("key_id", payload.key_id);
+      if (payload.debug_cleartext_payload.has_value()) {
+        payload_dict_value.Set(
+            "debug_cleartext_payload",
+            base::Base64Encode(payload.debug_cleartext_payload.value()));
+      }
+
+      payloads_list_value.Append(std::move(payload_dict_value));
     }
 
-    payloads_list_value.Append(std::move(payload_dict_value));
+    value.Set("aggregation_service_payloads", std::move(payloads_list_value));
   }
 
-  value.Set("aggregation_service_payloads", std::move(payloads_list_value));
+  if (debug_key_.has_value()) {
+    value.Set("debug_key", base::NumberToString(debug_key_.value()));
+  }
 
   return value;
 }

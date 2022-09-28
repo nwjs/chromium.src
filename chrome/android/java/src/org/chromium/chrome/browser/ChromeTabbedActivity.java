@@ -176,7 +176,6 @@ import org.chromium.chrome.browser.tasks.tab_management.CloseAllTabsDialog;
 import org.chromium.chrome.browser.tasks.tab_management.TabGroupUi;
 import org.chromium.chrome.browser.tasks.tab_management.TabManagementModuleProvider;
 import org.chromium.chrome.browser.tasks.tab_management.TabSwitcher;
-import org.chromium.chrome.browser.tasks.tab_management.TabSwitcherBackPressHandler;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiFeatureUtilities;
 import org.chromium.chrome.browser.toolbar.ToolbarButtonInProductHelpController;
 import org.chromium.chrome.browser.toolbar.ToolbarIntentMetadata;
@@ -387,7 +386,6 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
 
     private ReturnToChromeBackPressHandler mReturnToChromeBackPressHandler;
     private ReadingListBackPressHandler mReadingListBackPressHandler;
-    private TabSwitcherBackPressHandler mTabSwitcherBackPressHandler;
     private MinimizeAppAndCloseTabBackPressHandler mMinimizeAppAndCloseTabBackPressHandler;
 
     // ID assigned to each ChromeTabbedActivity instance in Android S+ where multi-instance feature
@@ -596,7 +594,7 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
             }
             mTabModelObserver = new TabModelSelectorTabModelObserver(mTabModelSelector) {
                 @Override
-                public void didCloseTab(Tab tab) {
+                public void onFinishingTabClosure(Tab tab) {
                     closeIfNoTabsAndHomepageEnabled(false);
                     openTabletTabSwitcherIfNoTabs();
                 }
@@ -817,12 +815,10 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
             mUndoBarPopupController.initialize();
 
             OnClickListener tabSwitcherClickHandler = v -> {
-                if (ChromeFeatureList.isEnabled(ChromeFeatureList.TOOLBAR_IPH_ANDROID)) {
-                    Profile profile = mTabModelProfileSupplier.get();
-                    if (profile != null) {
-                        TrackerFactory.getTrackerForProfile(profile).notifyEvent(
-                                EventConstants.TAB_SWITCHER_BUTTON_CLICKED);
-                    }
+                Profile profile = mTabModelProfileSupplier.get();
+                if (profile != null) {
+                    TrackerFactory.getTrackerForProfile(profile).notifyEvent(
+                            EventConstants.TAB_SWITCHER_BUTTON_CLICKED);
                 }
 
                 if (getFullscreenManager().getPersistentFullscreenMode()) {
@@ -1097,7 +1093,6 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
         mLocaleManager.stopObservingPhoneChanges();
 
         NavigationPredictorBridge.onPause();
-        StartSurfaceUserData.getInstance().setUnusedTabRestoredAtStartup(false);
 
         super.onPauseWithNative();
     }
@@ -2272,17 +2267,6 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
             return true;
         }
 
-        // If we are in the tab switcher mode (not in the Start surface homepage) and not a tablet,
-        // then leave tab switcher mode on back.
-        if (isInOverviewMode() && !isTablet()
-                && (mStartSurfaceSupplier.get() == null
-                        || mStartSurfaceSupplier.get().getStartSurfaceState()
-                                == StartSurfaceState.SHOWN_TABSWITCHER)) {
-            mLayoutManager.showLayout(LayoutType.BROWSING, true);
-            BackPressManager.record(BackPressHandler.Type.TAB_SWITCHER_TO_BROWSING);
-            return true;
-        }
-
         final WebContents webContents = currentTab.getWebContents();
         if (webContents != null) {
             RenderFrameHost focusedFrame = webContents.getFocusedFrame();
@@ -2364,13 +2348,6 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
                     new ReadingListBackPressHandler(getTabModelSelectorSupplier());
             mBackPressManager.addHandler(
                     mReadingListBackPressHandler, BackPressHandler.Type.SHOW_READING_LIST);
-        }
-        if (mTabSwitcherBackPressHandler == null && !isTablet()) {
-            mTabSwitcherBackPressHandler = new TabSwitcherBackPressHandler(
-                    mLayoutStateProviderSupplier, mStartSurfaceSupplier,
-                    () -> mLayoutManager.showLayout(LayoutType.BROWSING, true));
-            mBackPressManager.addHandler(
-                    mTabSwitcherBackPressHandler, BackPressHandler.Type.TAB_SWITCHER_TO_BROWSING);
         }
         if (mMinimizeAppAndCloseTabBackPressHandler == null) {
             mMinimizeAppAndCloseTabBackPressHandler =
@@ -2495,15 +2472,15 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
                     intent, IntentHandler.EXTRA_OPEN_ADDITIONAL_URLS_IN_TAB_GROUP, false);
             if (additionalUrls != null) {
                 final Tab parent = openAdditionalUrlsInTabGroup ? firstTab : null;
+                @TabLaunchType
+                int additionalUrlLaunchType = openAdditionalUrlsInTabGroup
+                        ? TabLaunchType.FROM_LONGPRESS_BACKGROUND_IN_GROUP
+                        : TabLaunchType.FROM_RESTORE;
                 for (int i = 0; i < additionalUrls.size(); i++) {
-                    // Tabs with a parent are always inserted at parent_index +1. In order for the
-                    // final order of tabs to reflect the order given in additionalUrls, we need to
-                    // iterate in reverse order.
-                    String url = parent == null ? additionalUrls.get(i)
-                                                : additionalUrls.get(additionalUrls.size() - i - 1);
+                    String url = additionalUrls.get(i);
                     LoadUrlParams copy = LoadUrlParams.copy(loadUrlParams);
                     copy.setUrl(url);
-                    tabCreator.createNewTab(copy, TabLaunchType.FROM_RESTORE, parent);
+                    tabCreator.createNewTab(copy, additionalUrlLaunchType, parent);
                 }
             }
             return firstTab;
@@ -2635,10 +2612,6 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
         if (mReadingListBackPressHandler != null) {
             mReadingListBackPressHandler.destroy();
             mReadingListBackPressHandler = null;
-        }
-        if (mTabSwitcherBackPressHandler != null) {
-            mTabSwitcherBackPressHandler.destroy();
-            mTabSwitcherBackPressHandler = null;
         }
         if (mMinimizeAppAndCloseTabBackPressHandler != null) {
             mMinimizeAppAndCloseTabBackPressHandler.destroy();
@@ -2837,7 +2810,9 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
 
     @Override
     public boolean isInOverviewMode() {
-        return mLayoutManager != null && mLayoutManager.isLayoutVisible(LayoutType.TAB_SWITCHER);
+        return mLayoutManager != null
+                && (mLayoutManager.isLayoutVisible(LayoutType.TAB_SWITCHER)
+                        || mLayoutManager.isLayoutVisible(LayoutType.START_SURFACE));
     }
 
     @Override
@@ -2935,11 +2910,6 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
         if (TabManagementModuleProvider.getDelegate() != null) {
             TabManagementModuleProvider.getDelegate().applyThemeOverlays(this);
         }
-    }
-
-    @Override
-    protected boolean supportsDynamicColors() {
-        return ChromeFeatureList.sDynamicColorAndroid.isEnabled();
     }
 
     /**

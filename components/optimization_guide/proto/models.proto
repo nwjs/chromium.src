@@ -161,6 +161,8 @@ message GetModelsRequest {
   // included when it adds no distinguishing information to the language tag
   // (e.g. both "en-US" and "fr" are correct here).
   optional string locale = 5;
+  // Information about the request origin.
+  optional OriginInfo origin_info = 6;
 }
 
 // Response to the GetModels request.
@@ -312,6 +314,8 @@ enum ModelEngineVersion {
   MODEL_ENGINE_VERSION_TFLITE_2_9_0_1 = 8;
   // A model using only operations that are supported by TensorflowLite 2.10.0.
   MODEL_ENGINE_VERSION_TFLITE_2_10 = 9;
+  // A model using only operations that are supported by TensorflowLite 2.11.0.
+  MODEL_ENGINE_VERSION_TFLITE_2_11 = 10;
 }
 
 // A set of model features and the host that it applies to.

@@ -1483,19 +1483,21 @@ gfx::Rect LayerTreeImpl::RootScrollLayerDeviceViewportBounds() const {
       gfx::Rect(root_scroll_node->bounds));
 }
 
-void LayerTreeImpl::ApplySentScrollAndScaleDeltasFromAbortedCommit() {
+void LayerTreeImpl::ApplySentScrollAndScaleDeltasFromAbortedCommit(
+    bool main_frame_applied_deltas) {
   DCHECK(IsActiveTree());
 
-  page_scale_factor()->AbortCommit();
-  top_controls_shown_ratio()->AbortCommit();
-  elastic_overscroll()->AbortCommit();
+  page_scale_factor()->AbortCommit(main_frame_applied_deltas);
+  top_controls_shown_ratio()->AbortCommit(main_frame_applied_deltas);
+  bottom_controls_shown_ratio()->AbortCommit(main_frame_applied_deltas);
+  elastic_overscroll()->AbortCommit(main_frame_applied_deltas);
 
   if (layer_list_.empty())
     return;
 
   property_trees()
       ->scroll_tree_mutable()
-      .ApplySentScrollDeltasFromAbortedCommit();
+      .ApplySentScrollDeltasFromAbortedCommit(main_frame_applied_deltas);
 }
 
 void LayerTreeImpl::SetViewportPropertyIds(const ViewportPropertyIds& ids) {
@@ -2549,7 +2551,7 @@ LayerTreeImpl::FindAllLayersUpToAndIncludingFirstScrollable(
     if (!layer->HitTestable())
       continue;
 
-    if (first_hit &&
+    if (first_hit && layer->Is3dSorted() &&
         layer->GetSortingContextId() != first_hit->GetSortingContextId())
       continue;
 
@@ -2568,7 +2570,7 @@ LayerTreeImpl::FindAllLayersUpToAndIncludingFirstScrollable(
     if (!first_hit)
       first_hit = layer;
 
-    if (first_hit->Is3dSorted()) {
+    if (first_hit->Is3dSorted() && layer->Is3dSorted()) {
       layers_3d.emplace_back(
           std::pair<const LayerImpl*, float>(layer, distance_to_intersection));
     } else {
@@ -2585,7 +2587,7 @@ LayerTreeImpl::FindAllLayersUpToAndIncludingFirstScrollable(
   }
 
   if (first_hit->Is3dSorted()) {
-    DCHECK(layers.empty());
+    std::vector<const LayerImpl*> result;
     DCHECK(!layers_3d.empty());
 
     // Since we hit a layer in a rendering context, we need to sort the layers
@@ -2600,10 +2602,13 @@ LayerTreeImpl::FindAllLayersUpToAndIncludingFirstScrollable(
     for (const auto& pair : layers_3d) {
       const LayerImpl* layer = pair.first;
 
-      layers.push_back(layer);
+      result.push_back(layer);
       if (layer->IsScrollerOrScrollbar())
-        break;
+        return result;
     }
+    // Append 2D layers if none of the 3D layers were scrollable.
+    result.insert(result.end(), layers.begin(), layers.end());
+    return result;
   } else {
     DCHECK(!layers.empty());
     DCHECK(layers_3d.empty());

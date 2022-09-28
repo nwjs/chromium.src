@@ -79,6 +79,7 @@ void ChromeExtensionsClient::InitializeWebStoreUrls(
         GURL(command_line->GetSwitchValueASCII(switches::kAppsGalleryURL));
   } else {
     webstore_base_url_ = GURL(extension_urls::kChromeWebstoreBaseURL);
+    new_webstore_base_url_ = GURL(extension_urls::kNewChromeWebstoreBaseURL);
   }
   if (command_line->HasSwitch(switches::kAppsGalleryUpdateURL)) {
     webstore_update_url_ = GURL(
@@ -160,6 +161,10 @@ bool ChromeExtensionsClient::IsScriptableURL(
 
 const GURL& ChromeExtensionsClient::GetWebstoreBaseURL() const {
   return webstore_base_url_;
+}
+
+const GURL& ChromeExtensionsClient::GetNewWebstoreBaseURL() const {
+  return new_webstore_base_url_;
 }
 
 const GURL& ChromeExtensionsClient::GetWebstoreUpdateURL() const {

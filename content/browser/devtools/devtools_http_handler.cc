@@ -725,7 +725,10 @@ void DevToolsHttpHandler::RespondToJsonList(
     if (web_contents && web_contents->GetPrimaryMainFrame())
       if (!web_contents->GetPrimaryMainFrame()->context_created())
         continue;
-    list_value.Append(SerializeDescriptor(agent_host, host));
+    // TODO(caseq): figure out if it makes sense exposing tab target to
+    // HTTP clients and potentially compatibility risks involved.
+    if (agent_host->GetType() != DevToolsAgentHost::kTypeTab)
+      list_value.Append(SerializeDescriptor(agent_host, host));
   }
   SendJson(connection_id, net::HTTP_OK, &list_value, std::string());
 }

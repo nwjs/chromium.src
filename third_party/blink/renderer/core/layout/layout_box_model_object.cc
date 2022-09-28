@@ -225,6 +225,14 @@ void LayoutBoxModelObject::StyleDidChange(StyleDifference diff,
     Parent()->SetNeedsLayout(layout_invalidation_reason::kChildChanged,
                              kMarkContainerChain);
 
+  if (Layer() && old_style->HasStickyConstrainedPosition() &&
+      !StyleRef().HasStickyConstrainedPosition()) {
+    if (const auto* scroll_container =
+            Layer()->ContainingScrollContainerLayer()) {
+      scroll_container->GetScrollableArea()->RemoveStickyLayer(Layer());
+    }
+  }
+
   PaintLayerType type = LayerTypeRequired();
   if (type != kNoPaintLayer) {
     if (!Layer()) {
@@ -1135,6 +1143,9 @@ PhysicalOffset LayoutBoxModelObject::AdjustedPositionRelativeTo(
         reference_point +=
             To<LayoutBox>(offset_parent_object)->PhysicalLocation();
       }
+    } else if (UNLIKELY(IsBox() &&
+                        To<LayoutBox>(this)->AnchorScrollContainer())) {
+      reference_point += To<LayoutBox>(this)->ComputeAnchorScrollOffset();
     }
 
     if (offset_parent_object->IsLayoutInline()) {

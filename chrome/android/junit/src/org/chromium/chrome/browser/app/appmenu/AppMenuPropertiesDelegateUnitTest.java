@@ -53,6 +53,7 @@ import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.app.appmenu.AppMenuPropertiesDelegateImpl.MenuGroup;
 import org.chromium.chrome.browser.bookmarks.BookmarkBridge;
 import org.chromium.chrome.browser.bookmarks.PowerBookmarkUtils;
+import org.chromium.chrome.browser.commerce.ShoppingServiceFactory;
 import org.chromium.chrome.browser.device.DeviceConditions;
 import org.chromium.chrome.browser.device.ShadowDeviceConditions;
 import org.chromium.chrome.browser.enterprise.util.ManagedBrowserUtils;
@@ -85,6 +86,7 @@ import org.chromium.components.bookmarks.BookmarkId;
 import org.chromium.components.browser_ui.accessibility.PageZoomCoordinator;
 import org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridge;
 import org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridgeJni;
+import org.chromium.components.commerce.core.ShoppingService;
 import org.chromium.components.content_settings.ContentSettingValues;
 import org.chromium.components.power_bookmarks.PowerBookmarkMeta;
 import org.chromium.components.power_bookmarks.PowerBookmarkType;
@@ -94,10 +96,12 @@ import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.components.user_prefs.UserPrefsJni;
 import org.chromium.components.webapps.AppBannerManager;
+import org.chromium.content_public.browser.ContentFeatureList;
 import org.chromium.content_public.browser.NavigationController;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.net.ConnectionType;
+import org.chromium.url.GURL;
 import org.chromium.url.JUnitTestGURLs;
 
 import java.util.ArrayList;
@@ -165,6 +169,8 @@ public class AppMenuPropertiesDelegateUnitTest {
     private ManagedBrowserUtils.Natives mManagedBrowserUtilsJniMock;
     @Mock
     private IncognitoReauthController mIncognitoReauthControllerMock;
+    @Mock
+    private ShoppingService mShoppingService;
 
     private OneshotSupplierImpl<IncognitoReauthController> mIncognitoReauthControllerSupplier =
             new OneshotSupplierImpl<>();
@@ -221,12 +227,15 @@ public class AppMenuPropertiesDelegateUnitTest {
                 mMultiWindowModeStateDispatcher, mTabModelSelector, mToolbarManager, mDecorView,
                 mLayoutStateProviderSupplier, mStartSurfaceSupplier, mBookmarkBridgeSupplier,
                 mIncognitoReauthControllerSupplier));
+
+        ShoppingServiceFactory.setShoppingServiceForTesting(mShoppingService);
     }
 
     private void setupFeatureDefaults() {
         setBookmarkItemRowEnabled(false);
         setReadingListItemRowEnabled(false);
         setShoppingListItemRowEnabled(false);
+        setDesktopSiteExceptionsEnabled(false);
         FeatureList.setTestValues(mTestValues);
     }
 
@@ -257,6 +266,11 @@ public class AppMenuPropertiesDelegateUnitTest {
         mTestValues.addFeatureFlagOverride(ChromeFeatureList.SHOPPING_LIST, enabled);
         when(mPrefService.getBoolean(Pref.WEB_AND_APP_ACTIVITY_ENABLED_FOR_SHOPPING))
                 .thenReturn(true);
+    }
+
+    private void setDesktopSiteExceptionsEnabled(boolean enabled) {
+        mTestValues.addFeatureFlagOverride(
+                ContentFeatureList.REQUEST_DESKTOP_SITE_EXCEPTIONS, enabled);
     }
 
     @After
@@ -343,6 +357,28 @@ public class AppMenuPropertiesDelegateUnitTest {
                 R.id.downloads_menu_id, R.id.all_bookmarks_menu_id, R.id.recent_tabs_menu_id,
                 R.id.divider_line_id, R.id.request_desktop_site_row_menu_id, R.id.divider_line_id,
                 R.id.preferences_id, R.id.help_id};
+        assertMenuItemsAreEqual(menu, expectedItems);
+    }
+
+    @Test
+    @Config(qualifiers = "sw320dp")
+    public void testPageMenuItems_Phone_Ntp_RequestDesktopSiteExceptionsEnabled() {
+        setUpMocksForPageMenu();
+        setDesktopSiteExceptionsEnabled(true);
+        when(mTab.getUrl()).thenReturn(JUnitTestGURLs.getGURL(JUnitTestGURLs.NTP_URL));
+        when(mTab.isNativePage()).thenReturn(true);
+        doReturn(false)
+                .when(mAppMenuPropertiesDelegate)
+                .shouldShowTranslateMenuItem(any(Tab.class));
+
+        Assert.assertEquals(MenuGroup.PAGE_MENU, mAppMenuPropertiesDelegate.getMenuGroup());
+        Menu menu = createTestMenu();
+        mAppMenuPropertiesDelegate.prepareMenu(menu, null);
+
+        Integer[] expectedItems = {R.id.icon_row_menu_id, R.id.new_tab_menu_id,
+                R.id.new_incognito_tab_menu_id, R.id.divider_line_id, R.id.open_history_menu_id,
+                R.id.downloads_menu_id, R.id.all_bookmarks_menu_id, R.id.recent_tabs_menu_id,
+                R.id.divider_line_id, R.id.preferences_id, R.id.help_id};
         assertMenuItemsAreEqual(menu, expectedItems);
     }
 
@@ -804,6 +840,9 @@ public class AppMenuPropertiesDelegateUnitTest {
                 .when(mBookmarkBridge)
                 .getBookmarksOfType(eq(PowerBookmarkType.SHOPPING));
         Long clusterId = 1L;
+        doReturn(new ShoppingService.ProductInfo("", new GURL(""), clusterId, 0, "", 0, ""))
+                .when(mShoppingService)
+                .getAvailableProductInfoForUrl(any());
         PowerBookmarkMeta meta =
                 PowerBookmarkMeta.newBuilder()
                         .setType(PowerBookmarkType.SHOPPING)
@@ -821,6 +860,27 @@ public class AppMenuPropertiesDelegateUnitTest {
                 startPriceTrackingMenuItem, stopPriceTrackingMenuItem, mTab);
         verify(stopPriceTrackingMenuItem).setVisible(true);
         verify(stopPriceTrackingMenuItem).setEnabled(true);
+        verify(startPriceTrackingMenuItem).setVisible(false);
+    }
+
+    @Test
+    public void enablePriceTrackingItemRow_PriceTrackingEnabled_NoProductInfo() {
+        setShoppingListItemRowEnabled(true);
+
+        PowerBookmarkUtils.setPriceTrackingEligibleForTesting(false);
+        doReturn(true).when(mBookmarkBridge).isEditBookmarksEnabled();
+
+        BookmarkId bookmarkId = mock(BookmarkId.class);
+        doReturn(bookmarkId).when(mBookmarkBridge).getUserBookmarkIdForTab(any());
+        doReturn(new ArrayList<BookmarkId>())
+                .when(mBookmarkBridge)
+                .getBookmarksOfType(eq(PowerBookmarkType.SHOPPING));
+
+        MenuItem startPriceTrackingMenuItem = mock(MenuItem.class);
+        MenuItem stopPriceTrackingMenuItem = mock(MenuItem.class);
+        mAppMenuPropertiesDelegate.updatePriceTrackingMenuItemRow(
+                startPriceTrackingMenuItem, stopPriceTrackingMenuItem, mTab);
+        verify(stopPriceTrackingMenuItem).setVisible(false);
         verify(startPriceTrackingMenuItem).setVisible(false);
     }
 

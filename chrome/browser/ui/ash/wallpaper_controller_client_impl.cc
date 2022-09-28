@@ -9,7 +9,6 @@
 #include <utility>
 #include <vector>
 
-#include "ash/components/cryptohome/system_salt_getter.h"
 #include "ash/components/settings/cros_settings_names.h"
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_switches.h"
@@ -55,6 +54,7 @@
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/pref_names.h"
+#include "chromeos/ash/components/cryptohome/system_salt_getter.h"
 #include "components/account_id/account_id.h"
 #include "components/prefs/pref_service.h"
 #include "components/services/app_service/public/cpp/app_launch_util.h"
@@ -384,7 +384,8 @@ void WallpaperControllerClientImpl::SetPolicyWallpaper(
   if (!data || !IsKnownUser(account_id))
     return;
 
-  wallpaper_controller_->SetPolicyWallpaper(account_id, *data);
+  wallpaper_controller_->SetPolicyWallpaper(account_id, GetUserType(account_id),
+                                            *data);
 }
 
 bool WallpaperControllerClientImpl::SetThirdPartyWallpaper(
@@ -560,9 +561,9 @@ bool WallpaperControllerClientImpl::IsWallpaperSyncEnabled(
 }
 
 void WallpaperControllerClientImpl::OnVolumeMounted(
-    chromeos::MountError error_code,
+    ash::MountError error_code,
     const file_manager::Volume& volume) {
-  if (error_code != chromeos::MOUNT_ERROR_NONE) {
+  if (error_code != ash::MountError::kNone) {
     return;
   }
   if (volume.type() != file_manager::VolumeType::VOLUME_TYPE_GOOGLE_DRIVE) {

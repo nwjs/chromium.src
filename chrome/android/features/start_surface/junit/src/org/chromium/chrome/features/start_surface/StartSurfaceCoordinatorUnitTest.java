@@ -8,6 +8,9 @@ import static org.mockito.Mockito.when;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.view.View;
+
+import androidx.test.filters.MediumTest;
 
 import org.hamcrest.Matchers;
 import org.junit.Assert;
@@ -30,13 +33,14 @@ import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tasks.ReturnToChromeUtil;
 import org.chromium.chrome.test.util.browser.Features;
+import org.chromium.chrome.test.util.browser.Features.EnableFeatures;
 
 /** Tests for {@link StartSurfaceCoordinator}. */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
 @Features.EnableFeatures(ChromeFeatureList.START_SURFACE_ANDROID)
 @Features.DisableFeatures({ChromeFeatureList.WEB_FEED, ChromeFeatureList.FEED_INTERACTIVE_REFRESH,
-        ChromeFeatureList.SHOPPING_LIST})
+        ChromeFeatureList.SHOPPING_LIST, ChromeFeatureList.TAB_SELECTION_EDITOR_V2})
 public class StartSurfaceCoordinatorUnitTest {
     private static final long MILLISECONDS_PER_MINUTE = TimeUtils.SECONDS_PER_MINUTE * 1000;
 
@@ -53,6 +57,7 @@ public class StartSurfaceCoordinatorUnitTest {
         MockitoAnnotations.initMocks(this);
         UmaRecorderHolder.resetForTesting();
         mCoordinator = mTestRule.getCoordinator();
+        mCoordinator.initWithNative();
     }
 
     @Test
@@ -304,6 +309,34 @@ public class StartSurfaceCoordinatorUnitTest {
                 mActivity, mActivity.getIntent(), mTabModelSelector, mChromeInactivityTracker));
 
         ReturnToChromeUtil.setSyncForTesting(false);
+    }
+    @Test
+    @MediumTest
+    @EnableFeatures({ChromeFeatureList.FEED_INTERACTIVE_REFRESH})
+    public void testFeedSwipeLayoutVisibility() {
+        assert mCoordinator.getStartSurfaceState() == StartSurfaceState.NOT_SHOWN;
+        Assert.assertEquals(
+                View.GONE, mCoordinator.getFeedSwipeRefreshLayoutForTesting().getVisibility());
+
+        mCoordinator.setStartSurfaceState(StartSurfaceState.SHOWING_HOMEPAGE);
+        mCoordinator.showOverview(false);
+        Assert.assertEquals(
+                View.VISIBLE, mCoordinator.getFeedSwipeRefreshLayoutForTesting().getVisibility());
+
+        mCoordinator.setStartSurfaceState(StartSurfaceState.NOT_SHOWN);
+        mCoordinator.onHide();
+        Assert.assertEquals(
+                View.GONE, mCoordinator.getFeedSwipeRefreshLayoutForTesting().getVisibility());
+
+        mCoordinator.setStartSurfaceState(StartSurfaceState.SHOWN_TABSWITCHER);
+        mCoordinator.showOverview(false);
+        Assert.assertEquals(
+                View.VISIBLE, mCoordinator.getFeedSwipeRefreshLayoutForTesting().getVisibility());
+
+        mCoordinator.setStartSurfaceState(StartSurfaceState.NOT_SHOWN);
+        mCoordinator.onHide();
+        Assert.assertEquals(
+                View.GONE, mCoordinator.getFeedSwipeRefreshLayoutForTesting().getVisibility());
     }
 
     /**

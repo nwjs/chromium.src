@@ -13,6 +13,7 @@
 
 #include "base/callback_forward.h"
 #include "base/callback_helpers.h"
+#include "base/feature_list.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/apps/intent_helper/apps_navigation_types.h"
@@ -60,10 +61,6 @@ class DownloadBubbleUIController;
 namespace autofill {
 class AutofillBubbleHandler;
 }  // namespace autofill
-
-namespace base {
-struct Feature;
-}
 
 namespace content {
 class WebContents;
@@ -623,8 +620,8 @@ class BrowserWindow : public ui::BaseWindow {
   // handle that can be used to end the promo when it is destructed. The handle
   // will be valid (i.e. have a true boolean value) if the promo was showing,
   // invalid otherwise.
-  virtual user_education::FeaturePromoController::PromoHandle
-  CloseFeaturePromoAndContinue(const base::Feature& iph_feature) = 0;
+  virtual user_education::FeaturePromoHandle CloseFeaturePromoAndContinue(
+      const base::Feature& iph_feature) = 0;
 
   // Records that the user has engaged with a particular feature that has an
   // associated promo; this information is used to determine whether to show

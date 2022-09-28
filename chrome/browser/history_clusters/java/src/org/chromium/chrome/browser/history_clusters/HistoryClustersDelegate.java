@@ -73,6 +73,14 @@ public interface HistoryClustersDelegate {
     /** Called when the info header's visibility should be toggled. */
     default void toggleInfoHeaderVisibility() {}
 
+    /**
+     * Returns whether the user has other forms of browsing history, indicating the need to show a
+     * disclaimer.
+     */
+    default boolean hasOtherFormsOfBrowsingHistory() {
+        return false;
+    }
+
     /** Returns a view containing a link to a UI where the user can clear their browsing data. */
     @Nullable
     default ViewGroup getClearBrowsingDataView(ViewGroup parent) {
@@ -97,4 +105,9 @@ public interface HistoryClustersDelegate {
      * that it should remove the HistoryClusters UI.
      */
     default void onOptOut() {}
+
+    /** Whether tab group creation is enabled. */
+    default boolean areTabGroupsEnabled() {
+        return true;
+    }
 }

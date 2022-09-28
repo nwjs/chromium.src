@@ -7,7 +7,7 @@
  * 'settings-downloads-page' is the settings page containing downloads
  * settings.
  */
-import 'chrome://resources/cr_elements/cr_button/cr_button.m.js';
+import 'chrome://resources/cr_elements/cr_button/cr_button.js';
 import 'chrome://resources/cr_elements/shared_style_css.m.js';
 import 'chrome://resources/polymer/v3_0/iron-flex-layout/iron-flex-layout-classes.js';
 import '../controls/controlled_button.js';
@@ -24,11 +24,11 @@ import {PrefsMixin} from '../prefs/prefs_mixin.js';
 import {DownloadsBrowserProxy, DownloadsBrowserProxyImpl} from './downloads_browser_proxy.js';
 import {getTemplate} from './downloads_page.html.js';
 
-type AccountInfo = {
-  linked: boolean,
-  account: {name: string, login: string},
-  folder: {name: string, link: string},
-};
+interface AccountInfo {
+  linked: boolean;
+  account: {name: string, login: string};
+  folder: {name: string, link: string};
+}
 
 const SettingsDownloadsPageElementBase =
     WebUIListenerMixin(PrefsMixin(PolymerElement));

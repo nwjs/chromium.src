@@ -10,6 +10,7 @@
 #import "base/metrics/field_trial_params.h"
 #import "base/time/time.h"
 #import "components/segmentation_platform/embedder/default_model/feed_user_segment.h"
+#import "components/segmentation_platform/internal/stats.h"
 #import "components/segmentation_platform/public/config.h"
 #import "components/segmentation_platform/public/features.h"
 #import "components/segmentation_platform/public/model_provider.h"
@@ -32,9 +33,8 @@ constexpr int kFeedUserSegmentUnknownSelectionTTLDays = 14;
 std::unique_ptr<Config> GetConfigForFeedSegments() {
   auto config = std::make_unique<Config>();
   config->segmentation_key = kFeedUserSegmentationKey;
-  config->segment_ids = {
-      SegmentId::OPTIMIZATION_TARGET_SEGMENTATION_FEED_USER,
-  };
+  config->segmentation_uma_name = kFeedUserSegmentUmaName;
+  config->AddSegmentId(SegmentId::OPTIMIZATION_TARGET_SEGMENTATION_FEED_USER);
   config->segment_selection_ttl =
       base::Days(base::GetFieldTrialParamByFeatureAsInt(
           features::kSegmentationPlatformFeedSegmentFeature,
@@ -61,16 +61,6 @@ std::vector<std::unique_ptr<Config>> GetSegmentationPlatformConfig() {
   // Add new configs here.
 
   return configs;
-}
-
-std::unique_ptr<ModelProvider> GetDefaultModelProvider(
-    proto::SegmentId target) {
-  if (target == proto::OPTIMIZATION_TARGET_SEGMENTATION_FEED_USER) {
-    return std::make_unique<FeedUserSegment>();
-  }
-
-  // Add default models here.
-  return nullptr;
 }
 
 IOSFieldTrialRegisterImpl::IOSFieldTrialRegisterImpl() = default;

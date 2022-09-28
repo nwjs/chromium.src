@@ -54,6 +54,8 @@
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/common/referrer.h"
 #include "content/public/common/result_codes.h"
+#include "content/public/common/url_constants.h"
+#include "content/public/common/url_utils.h"
 #include "net/base/filename_util.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/public/common/manifest/manifest_util.h"
@@ -196,13 +198,12 @@ PageHandler::PageHandler(
     EmulationHandler* emulation_handler,
     BrowserHandler* browser_handler,
     bool allow_unsafe_operations,
-    bool may_capture_screenshots_not_from_surface,
+    bool is_trusted,
     absl::optional<url::Origin> navigation_initiator_origin,
     bool may_read_local_files)
     : DevToolsDomainHandler(Page::Metainfo::domainName),
       allow_unsafe_operations_(allow_unsafe_operations),
-      may_capture_screenshots_not_from_surface_(
-          may_capture_screenshots_not_from_surface),
+      is_trusted_(is_trusted),
       navigation_initiator_origin_(navigation_initiator_origin),
       may_read_local_files_(may_read_local_files),
       enabled_(false),
@@ -497,6 +498,14 @@ void PageHandler::Navigate(const std::string& url,
     return;
   }
 
+  // chrome-untrusted:// WebUIs might perform high-priviledged actions on
+  // navigation, disallow navigation to them unless the client is trusted.
+  if (gurl.SchemeIs(kChromeUIUntrustedScheme) && !is_trusted_) {
+    callback->sendFailure(Response::ServerError(
+        "Navigating to a URL with a privileged scheme is not allowed"));
+    return;
+  }
+
   ui::PageTransition type;
   std::string transition_type =
       maybe_transition_type.fromMaybe(Page::TransitionTypeEnum::Typed);
@@ -781,7 +790,7 @@ void PageHandler::CaptureScreenshot(
 
   // We don't support clip/emulation when capturing from window, bail out.
   if (!from_surface.fromMaybe(true)) {
-    if (!may_capture_screenshots_not_from_surface_) {
+    if (!is_trusted_) {
       callback->sendFailure(
           Response::ServerError("Only screenshots from surface are allowed."));
       return;
@@ -1410,6 +1419,8 @@ Page::PrerenderFinalStatus PrerenderFinalStatusToProtocol(
       return Page::PrerenderFinalStatusEnum::CrossOriginNavigation;
     case PrerenderHost::FinalStatus::kCrossOriginRedirect:
       return Page::PrerenderFinalStatusEnum::CrossOriginRedirect;
+    case PrerenderHost::FinalStatus::kDataSaverEnabled:
+      return Page::PrerenderFinalStatusEnum::DataSaverEnabled;
     case PrerenderHost::FinalStatus::kDestroyed:
       return Page::PrerenderFinalStatusEnum::Destroyed;
     case PrerenderHost::FinalStatus::kDidFailLoad:
@@ -1419,11 +1430,11 @@ Page::PrerenderFinalStatus PrerenderFinalStatusToProtocol(
     case PrerenderHost::FinalStatus::kEmbedderTriggeredAndCrossOriginRedirected:
       return Page::PrerenderFinalStatusEnum::
           EmbedderTriggeredAndCrossOriginRedirected;
-    case PrerenderHost::FinalStatus::kEmbedderTriggeredAndDestroyed:
-      return Page::PrerenderFinalStatusEnum::EmbedderTriggeredAndDestroyed;
     case PrerenderHost::FinalStatus::kEmbedderTriggeredAndSameOriginRedirected:
       return Page::PrerenderFinalStatusEnum::
           EmbedderTriggeredAndSameOriginRedirected;
+    case PrerenderHost::FinalStatus::kFailToGetMemoryUsage:
+      return Page::PrerenderFinalStatusEnum::FailToGetMemoryUsage;
     case PrerenderHost::FinalStatus::kInProgressNavigation:
       return Page::PrerenderFinalStatusEnum::InProgressNavigation;
     case PrerenderHost::FinalStatus::kInvalidSchemeNavigation:
@@ -1438,6 +1449,8 @@ Page::PrerenderFinalStatus PrerenderFinalStatusToProtocol(
       return Page::PrerenderFinalStatusEnum::MainFrameNavigation;
     case PrerenderHost::FinalStatus::kMaxNumOfRunningPrerendersExceeded:
       return Page::PrerenderFinalStatusEnum::MaxNumOfRunningPrerendersExceeded;
+    case PrerenderHost::FinalStatus::kMemoryLimitExceeded:
+      return Page::PrerenderFinalStatusEnum::MemoryLimitExceeded;
     case PrerenderHost::FinalStatus::kMixedContent:
       return Page::PrerenderFinalStatusEnum::MixedContent;
     case PrerenderHost::FinalStatus::kMojoBinderPolicy:
@@ -1936,13 +1949,17 @@ void PageHandler::DidActivatePrerender(const NavigationRequest& nav_request) {
 
 void PageHandler::DidCancelPrerender(const GURL& prerendering_url,
                                      const std::string& initiating_frame_id,
-                                     PrerenderHost::FinalStatus status) {
+                                     PrerenderHost::FinalStatus status,
+                                     const std::string& reason_details) {
   if (!enabled_)
     return;
   DCHECK_NE(status, PrerenderHost::FinalStatus::kActivated);
-  frontend_->PrerenderAttemptCompleted(initiating_frame_id,
-                                       prerendering_url.spec(),
-                                       PrerenderFinalStatusToProtocol(status));
+  Maybe<std::string> opt_reason = reason_details.empty()
+                                      ? Maybe<std::string>()
+                                      : Maybe<std::string>(reason_details);
+  frontend_->PrerenderAttemptCompleted(
+      initiating_frame_id, prerendering_url.spec(),
+      PrerenderFinalStatusToProtocol(status), std::move(opt_reason));
 }
 
 bool PageHandler::ShouldBypassCSP() {

@@ -26,6 +26,7 @@
 #include "components/omnibox/browser/actions/omnibox_pedal.h"
 #include "components/omnibox/browser/actions/omnibox_pedal_provider.h"
 #include "components/omnibox/browser/autocomplete_input.h"
+#include "components/omnibox/browser/autocomplete_match_type.h"
 #include "components/omnibox/browser/autocomplete_provider.h"
 #include "components/omnibox/browser/autocomplete_provider_client.h"
 #include "components/omnibox/browser/base_search_provider.h"
@@ -83,10 +84,15 @@ struct MatchGURLHash {
 // static
 size_t AutocompleteResult::GetMaxMatches(bool is_zero_suggest) {
 #if BUILDFLAG(IS_ANDROID)
-  constexpr size_t kDefaultMaxAutocompleteMatches = 8;
+  constexpr size_t kDefaultMaxAutocompleteMatches = 10;
   constexpr size_t kDefaultMaxZeroSuggestMatches = 15;
 #elif BUILDFLAG(IS_IOS)
   constexpr size_t kDefaultMaxAutocompleteMatches = 6;
+  // By default, iPad has the same max as iPhone.
+  // `kDefaultMaxAutocompleteMatches` defines a hard limit on the number of
+  // autocomplete suggestions on iPad, so if an experiment defines
+  // MaxZeroSuggestMatches to 15, it would be 15 on iPhone and 10 on iPad.
+  constexpr size_t kMaxAutocompleteMatchesOnIPad = 10;
   constexpr size_t kDefaultMaxZeroSuggestMatches = 6;
   // By default, iPad has the same max as iPhone. `kMaxZeroSuggestMatchesOnIPad`
   // defines a hard limit on the number of ZPS suggestions on iPad, so if an
@@ -132,6 +138,12 @@ size_t AutocompleteResult::GetMaxMatches(bool is_zero_suggest) {
       OmniboxFieldTrial::kUIMaxAutocompleteMatchesParam,
       kDefaultMaxAutocompleteMatches);
   DCHECK(kMaxAutocompletePositionValue > field_trial_value);
+#if BUILDFLAG(IS_IOS)
+  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
+    field_trial_value =
+        std::min(field_trial_value, kMaxAutocompleteMatchesOnIPad);
+  }
+#endif
   return field_trial_value;
 }
 
@@ -169,9 +181,11 @@ void AutocompleteResult::TransferOldMatches(const AutocompleteInput& input,
   // input changes, e.g. 'gooooooooo[oogle.com]'.
   if (OmniboxFieldTrial::kAutocompleteStabilityDontCopyDoneProviders.Get()) {
     old_matches->matches_.erase(
-        base::ranges::remove_if(
-            *old_matches,
-            [](const auto& old_match) { return old_match.provider->done(); }),
+        base::ranges::remove_if(*old_matches,
+                                [](const auto& old_match) {
+                                  return old_match.provider &&
+                                         old_match.provider->done();
+                                }),
         old_matches->matches_.end());
   }
 
@@ -967,9 +981,15 @@ std::u16string AutocompleteResult::GetHeaderForSuggestionGroup(
 bool AutocompleteResult::IsSuggestionGroupHidden(
     PrefService* prefs,
     SuggestionGroupId suggestion_group_id) const {
+  const auto& it = suggestion_groups_map_.find(suggestion_group_id);
+  DCHECK(it != suggestion_groups_map_.end());
+  if (!it->second.original_group_id.has_value()) {
+    return false;
+  }
+
   omnibox::SuggestionGroupVisibility user_preference =
       omnibox::GetUserPreferenceForSuggestionGroupVisibility(
-          prefs, static_cast<int>(suggestion_group_id));
+          prefs, it->second.original_group_id.value());
 
   if (user_preference == omnibox::SuggestionGroupVisibility::HIDDEN)
     return true;
@@ -977,9 +997,21 @@ bool AutocompleteResult::IsSuggestionGroupHidden(
     return false;
 
   DCHECK_EQ(user_preference, omnibox::SuggestionGroupVisibility::DEFAULT);
+  return it->second.hidden;
+}
+
+void AutocompleteResult::SetSuggestionGroupHidden(
+    PrefService* prefs,
+    SuggestionGroupId suggestion_group_id,
+    bool hidden) const {
   const auto& it = suggestion_groups_map_.find(suggestion_group_id);
   DCHECK(it != suggestion_groups_map_.end());
-  return it->second.hidden;
+  DCHECK(it->second.original_group_id.has_value());
+
+  omnibox::SetUserPreferenceForSuggestionGroupVisibility(
+      prefs, it->second.original_group_id.value(),
+      hidden ? omnibox::SuggestionGroupVisibility::HIDDEN
+             : omnibox::SuggestionGroupVisibility::SHOWN);
 }
 
 SuggestionGroupPriority AutocompleteResult::GetPriorityForSuggestionGroup(
@@ -1180,7 +1212,13 @@ void AutocompleteResult::GroupSuggestionsBySearchVsURL(iterator begin,
   if (begin == end)
     return;
 
-  std::stable_partition(begin, end, [](const AutocompleteMatch& match) {
-    return AutocompleteMatch::IsSearchType(match.type);
-  });
+  base::ranges::stable_sort(
+      begin, end, [](int a, int b) { return a < b; },
+      [](const auto& m) {
+        if (AutocompleteMatch::IsStarterPackType(m.type))
+          return 0;
+        if (AutocompleteMatch::IsSearchType(m.type))
+          return 1;
+        return 2;
+      });
 }

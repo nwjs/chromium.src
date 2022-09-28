@@ -97,7 +97,6 @@ namespace mojom {
 class DeviceAPIService;
 class ManagedConfigurationService;
 class RendererPreferenceWatcher;
-class WebUsbService;
 class WindowFeatures;
 enum class WebFeature : int32_t;
 }  // namespace mojom
@@ -216,6 +215,7 @@ class NavigationHandle;
 class NavigationThrottle;
 class NavigationUIData;
 class PrefetchServiceDelegate;
+class PresentationObserver;
 class QuotaPermissionContext;
 class ReceiverPresentationServiceDelegate;
 class RenderFrameHost;
@@ -228,6 +228,7 @@ class StoragePartition;
 class TracingDelegate;
 class TtsPlatform;
 class URLLoaderRequestInterceptor;
+class UsbDelegate;
 class VideoOverlayWindow;
 class VideoPictureInPictureWindowController;
 class VpnServiceProxy;
@@ -874,6 +875,13 @@ class CONTENT_EXPORT ContentBrowserClient {
                                       const url::Origin& top_frame_origin,
                                       const url::Origin& accessing_origin);
 
+  // Allows the embedder to control if Private Aggregation API operations can
+  // happen in a given context.
+  virtual bool IsPrivateAggregationAllowed(
+      content::BrowserContext* browser_context,
+      const url::Origin& top_frame_origin,
+      const url::Origin& reporting_origin);
+
 #if BUILDFLAG(IS_CHROMEOS)
   // Notification that a trust anchor was used by the given user.
   virtual void OnTrustAnchorUsed(BrowserContext* browser_context) {}
@@ -1250,6 +1258,12 @@ class CONTENT_EXPORT ContentBrowserClient {
   // must belong to an incognito profile.
   virtual ReceiverPresentationServiceDelegate*
   GetReceiverPresentationServiceDelegate(WebContents* web_contents);
+
+  // Add or remove an observer for presentations associated with `web_contents`.
+  virtual void AddPresentationObserver(PresentationObserver* observer,
+                                       WebContents* web_contents);
+  virtual void RemovePresentationObserver(PresentationObserver* observer,
+                                          WebContents* web_contents);
 
   // Allows programmatic opening of a new tab/window without going through
   // another WebContents. For example, from a Worker. |site_instance|
@@ -1797,10 +1811,6 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual bool ShouldForceDownloadResource(const GURL& url,
                                            const std::string& mime_type);
 
-  virtual void CreateWebUsbService(
-      RenderFrameHost* render_frame_host,
-      mojo::PendingReceiver<blink::mojom::WebUsbService> receiver);
-
   virtual void CreateDeviceInfoService(
       RenderFrameHost* render_frame_host,
       mojo::PendingReceiver<blink::mojom::DeviceAPIService> receiver);
@@ -1820,6 +1830,9 @@ class CONTENT_EXPORT ContentBrowserClient {
 
   // Allows the embedder to provide an implementation of the Web Bluetooth API.
   virtual BluetoothDelegate* GetBluetoothDelegate();
+
+  // Allows the embedder to provide an implementation of the WebUSB API.
+  virtual UsbDelegate* GetUsbDelegate();
 
   // Allows the embedder to provide an implementation of the Local Font Access
   // API.
@@ -2278,12 +2291,6 @@ class CONTENT_EXPORT ContentBrowserClient {
   // (e.g. in tests), an empty list will be used instead of waiting for the
   // embedder to call content::FirstPartySetsHandler::SetPublicFirstPartySets.
   virtual bool WillProvidePublicFirstPartySets();
-
-  // Returns a base::Value::Dict containing the value of the First-Party Sets
-  // Overrides enterprise policy.
-  // If the policy was not present or it was invalid, this returns an empty
-  // base::Value::Dict.
-  virtual base::Value::Dict GetFirstPartySetsOverrides();
 
   // Gets information required for an alternative error page from web app's
   // manifest for |url|, including theme color, background color and app short

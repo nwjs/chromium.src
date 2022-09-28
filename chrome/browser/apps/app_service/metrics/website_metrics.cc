@@ -4,8 +4,13 @@
 
 #include "chrome/browser/apps/app_service/metrics/website_metrics.h"
 
+#include <random>
+
+#include "ash/shell.h"
 #include "base/containers/contains.h"
 #include "base/json/values_util.h"
+#include "base/rand_util.h"
+#include "chrome/browser/apps/app_service/metrics/app_platform_metrics_utils.h"
 #include "chrome/browser/apps/app_service/web_contents_app_id_utils.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/ui/browser_finder.h"
@@ -13,14 +18,29 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "components/history/core/browser/history_types.h"
+#include "services/metrics/public/cpp/ukm_builders.h"
+#include "services/metrics/public/cpp/ukm_recorder.h"
+#include "services/metrics/public/cpp/ukm_source_id.h"
 #include "third_party/blink/public/common/manifest/manifest_util.h"
 #include "third_party/blink/public/common/permissions_policy/permissions_policy.h"
 #include "third_party/blink/public/mojom/installation/installation.mojom.h"
 #include "third_party/blink/public/mojom/manifest/manifest.mojom.h"
 #include "ui/aura/window.h"
 #include "ui/wm/core/window_util.h"
+#include "ui/wm/public/activation_client.h"
 
 namespace {
+
+const double mean = 1.0;
+const double stddev = 0.025;
+
+std::default_random_engine random_generator(base::RandDouble());
+std::normal_distribution<double> distribution(mean, stddev);
+
+// Generate random noise following normal_distribution.
+double GetRandomNoise() {
+  return distribution(random_generator);
+}
 
 // Checks if a given browser is running a windowed app. It will return true for
 // web apps, hosted apps, and packaged V1 apps.
@@ -47,18 +67,6 @@ aura::Window* GetWindowWithTabStripModel(TabStripModel* tab_strip_model) {
   return nullptr;
 }
 
-wm::ActivationClient* GetActivationClientWithTabStripModel(
-    TabStripModel* tab_strip_model) {
-  auto* window = GetWindowWithTabStripModel(tab_strip_model);
-  if (!window) {
-    return nullptr;
-  }
-
-  auto* root_window = window->GetRootWindow();
-  DCHECK(root_window);
-  return wm::GetActivationClient(root_window);
-}
-
 }  // namespace
 
 namespace apps {
@@ -76,8 +84,7 @@ WebsiteMetrics::ActiveTabWebContentsObserver::ActiveTabWebContentsObserver(
 WebsiteMetrics::ActiveTabWebContentsObserver::~ActiveTabWebContentsObserver() =
     default;
 
-void WebsiteMetrics::ActiveTabWebContentsObserver::PrimaryPageChanged(
-    content::Page& page) {
+void WebsiteMetrics::ActiveTabWebContentsObserver::OnPrimaryPageChanged() {
   owner_->OnWebContentsUpdated(web_contents());
 
   if (app_banner_manager_observer_.IsObserving()) {
@@ -92,6 +99,11 @@ void WebsiteMetrics::ActiveTabWebContentsObserver::PrimaryPageChanged(
   }
 }
 
+void WebsiteMetrics::ActiveTabWebContentsObserver::PrimaryPageChanged(
+    content::Page& page) {
+  OnPrimaryPageChanged();
+}
+
 void WebsiteMetrics::ActiveTabWebContentsObserver::WebContentsDestroyed() {
   app_banner_manager_observer_.Reset();
 }
@@ -101,10 +113,37 @@ void WebsiteMetrics::ActiveTabWebContentsObserver::
   owner_->OnInstallableWebAppStatusUpdated(web_contents());
 }
 
+WebsiteMetrics::UrlInfo::UrlInfo(const base::Value& value) {
+  const base::Value::Dict* data_dict = value.GetIfDict();
+  if (!data_dict) {
+    return;
+  }
+
+  absl::optional<base::TimeDelta> running_time_value =
+      base::ValueToTimeDelta(data_dict->Find(kRunningTimeKey));
+  if (!running_time_value.has_value()) {
+    return;
+  }
+
+  auto url_content_value = data_dict->FindInt(kUrlContentKey);
+  if (!url_content_value.has_value()) {
+    return;
+  }
+
+  auto promotable_value = data_dict->FindBool(kPromotableKey);
+  if (!promotable_value.has_value()) {
+    return;
+  }
+
+  running_time_in_two_hours = running_time_value.value();
+  url_content = static_cast<UrlContent>(url_content_value.value());
+  promotable = promotable_value.value();
+}
+
 base::Value WebsiteMetrics::UrlInfo::ConvertToValue() const {
   base::Value usage_time_dict(base::Value::Type::DICTIONARY);
   usage_time_dict.SetPath(kRunningTimeKey,
-                          base::TimeDeltaToValue(running_time));
+                          base::TimeDeltaToValue(running_time_in_two_hours));
   usage_time_dict.SetIntKey(kUrlContentKey, static_cast<int>(url_content));
   usage_time_dict.SetBoolKey(kPromotableKey, promotable);
   return usage_time_dict;
@@ -114,6 +153,7 @@ WebsiteMetrics::WebsiteMetrics(Profile* profile)
     : profile_(profile), browser_tab_strip_tracker_(this, nullptr) {
   BrowserList::GetInstance()->AddObserver(this);
   browser_tab_strip_tracker_.Init();
+  user_type_by_device_type_ = GetUserTypeByDeviceTypeMetrics();
   history::HistoryService* history_service =
       HistoryServiceFactory::GetForProfileWithoutCreating(profile);
   if (history_service) {
@@ -132,6 +172,8 @@ void WebsiteMetrics::OnBrowserAdded(Browser* browser) {
 
   auto* window = GetWindowWithBrowser(browser);
   if (window) {
+    observed_windows_.AddObservation(window);
+    MaybeObserveWindowActivationClient();
     window_to_web_contents_[window] = nullptr;
   }
 }
@@ -189,6 +231,14 @@ void WebsiteMetrics::OnURLsDeleted(history::HistoryService* history_service,
   dict.clear();
 }
 
+void WebsiteMetrics::OnWindowDestroying(aura::Window* window) {
+  if (base::Contains(window_to_web_contents_, window)) {
+    window_to_web_contents_.erase(window);
+  }
+  observed_windows_.RemoveObservation(window);
+  MaybeRemoveObserveWindowActivationClient();
+}
+
 void WebsiteMetrics::HistoryServiceBeingDeleted(
     history::HistoryService* history_service) {
   DCHECK(history_observation_.IsObservingSource(history_service));
@@ -196,12 +246,21 @@ void WebsiteMetrics::HistoryServiceBeingDeleted(
 }
 
 void WebsiteMetrics::OnFiveMinutes() {
+  // When the user logs in, there might be usage time for some websites saved in
+  // the user pref for the last login, and they haven't been recorded yet. So
+  // for the first five minutes, read the usage time saved in the user pref, and
+  // record the UKM, then save the new usage time to the user pref.
+  if (should_record_ukm_from_pref_) {
+    RecordUsageTimeFromPref();
+    should_record_ukm_from_pref_ = false;
+  }
+
   SaveUsageTime();
 }
 
 void WebsiteMetrics::OnTwoHours() {
-  // TODO(crbug.com/1334173): Records the usage time UKM, and reset the local
-  // variables after recording the UKM.
+  SaveUsageTime();
+  RecordUsageTime();
 
   std::map<GURL, UrlInfo> url_infos;
   for (const auto& it : webcontents_to_ukm_key_) {
@@ -212,6 +271,28 @@ void WebsiteMetrics::OnTwoHours() {
   url_infos.swap(url_infos_);
 }
 
+void WebsiteMetrics::MaybeObserveWindowActivationClient() {
+  if (activation_client_observation_.IsObserving() ||
+      !ash::Shell::HasInstance()) {
+    return;
+  }
+
+  aura::Window* root_window = ash::Shell::Get()->GetPrimaryRootWindow();
+  if (root_window) {
+    auto* activation_client = wm::GetActivationClient(root_window);
+    if (activation_client) {
+      activation_client_observation_.Observe(activation_client);
+    }
+  }
+}
+
+void WebsiteMetrics::MaybeRemoveObserveWindowActivationClient() {
+  if (window_to_web_contents_.empty() &&
+      activation_client_observation_.IsObserving()) {
+    activation_client_observation_.Reset();
+  }
+}
+
 void WebsiteMetrics::OnTabStripModelChangeInsert(
     TabStripModel* tab_strip_model,
     const TabStripModelChange::Insert& insert,
@@ -219,15 +300,14 @@ void WebsiteMetrics::OnTabStripModelChangeInsert(
   if (insert.contents.size() == 0) {
     return;
   }
-  // First tab attached.
-  if (tab_strip_model->count() == static_cast<int>(insert.contents.size())) {
-    // Observe the activation client of the root window of the browser's aura
-    // window if this is the first browser matching it (there is no other
-    // tracked browser matching it).
-    auto* activation_client =
-        GetActivationClientWithTabStripModel(tab_strip_model);
-    if (!activation_client_observations_.IsObservingSource(activation_client)) {
-      activation_client_observations_.AddObservation(activation_client);
+
+  for (const auto& inserted_tab : insert.contents) {
+    content::WebContents* contents = inserted_tab.contents;
+    // The tab is new.
+    if (!base::Contains(webcontents_to_observer_map_, contents)) {
+      webcontents_to_observer_map_[contents] =
+          std::make_unique<WebsiteMetrics::ActiveTabWebContentsObserver>(
+              contents, this);
     }
   }
 }
@@ -243,20 +323,15 @@ void WebsiteMetrics::OnTabStripModelChangeRemove(
 
   // Last tab detached.
   if (tab_strip_model->count() == 0) {
-    // Unobserve the activation client of the root window of the browser's aura
-    // window if the last browser using it was just removed.
-    auto* activation_client =
-        GetActivationClientWithTabStripModel(tab_strip_model);
-    if (activation_client_observations_.IsObservingSource(activation_client)) {
-      activation_client_observations_.RemoveObservation(activation_client);
-    }
-
     // The browser window will be closed, so remove the window and the web
     // contents.
     auto it = window_to_web_contents_.find(window);
     if (it != window_to_web_contents_.end()) {
-      OnTabClosed(it->second);
+      if (it->second) {
+        OnTabClosed(it->second);
+      }
       window_to_web_contents_.erase(it);
+      MaybeRemoveObserveWindowActivationClient();
     }
   }
 }
@@ -274,18 +349,27 @@ void WebsiteMetrics::OnActiveTabChanged(aura::Window* window,
 
     // Clear `old_contents` from `window_to_web_contents_`.
     auto it = window_to_web_contents_.find(window);
-    if (it != window_to_web_contents_.end())
+    if (it != window_to_web_contents_.end()) {
       it->second = nullptr;
+    }
   }
 
   if (new_contents) {
-    SetTabActivated(new_contents);
-
     window_to_web_contents_[window] = new_contents;
-    if (!base::Contains(webcontents_to_observer_map_, new_contents)) {
-      webcontents_to_observer_map_[new_contents] =
-          std::make_unique<WebsiteMetrics::ActiveTabWebContentsObserver>(
-              new_contents, this);
+    // When the tab is drag to a new browser window, PrimaryPageChanged might
+    // not be called, so `webcontents_to_ukm_key_` doesn't include
+    // `new_contents`. So call PrimaryPageChanged to update web contents and add
+    // the website url.
+    if (!base::Contains(webcontents_to_ukm_key_, new_contents)) {
+      auto it = webcontents_to_observer_map_.find(new_contents);
+      if (it != webcontents_to_observer_map_.end()) {
+        it->second->OnPrimaryPageChanged();
+        it->second->OnInstallableWebAppStatusUpdated();
+      }
+      return;
+    }
+    if (wm::IsActiveWindow(window)) {
+      SetTabActivated(new_contents);
     }
   }
 }
@@ -318,8 +402,12 @@ void WebsiteMetrics::OnWebContentsUpdated(content::WebContents* web_contents) {
   // contents::WebContentsObserver::PrimaryPageChanged(), set the visible url as
   // default value for the ukm key url.
   webcontents_to_ukm_key_[web_contents] = web_contents->GetVisibleURL();
+  auto it = window_to_web_contents_.find(window);
+  bool is_activated = wm::IsActiveWindow(window) &&
+                      it != window_to_web_contents_.end() &&
+                      it->second == web_contents;
   AddUrlInfo(web_contents->GetVisibleURL(), base::TimeTicks::Now(),
-             UrlContent::kFullUrl, wm::IsActiveWindow(window),
+             UrlContent::kFullUrl, is_activated,
              /*promotable=*/false);
 }
 
@@ -338,9 +426,10 @@ void WebsiteMetrics::OnInstallableWebAppStatusUpdated(
   // start url if there is a manifest.
   auto* app_banner_manager =
       webapps::AppBannerManager::FromWebContents(web_contents);
-  DCHECK(app_banner_manager);
 
-  if (blink::IsEmptyManifest(app_banner_manager->manifest())) {
+  // In some test cases, AppBannerManager might be null.
+  if (!app_banner_manager ||
+      blink::IsEmptyManifest(app_banner_manager->manifest())) {
     return;
   }
 
@@ -351,8 +440,12 @@ void WebsiteMetrics::OnInstallableWebAppStatusUpdated(
   }
 
   DCHECK(!app_banner_manager->manifest().scope.is_empty());
+  auto window_it = window_to_web_contents_.find(window);
+  bool is_activated = wm::IsActiveWindow(window) &&
+                      window_it != window_to_web_contents_.end() &&
+                      window_it->second == web_contents;
   UpdateUrlInfo(it->second, app_banner_manager->manifest().scope,
-                UrlContent::kScope, wm::IsActiveWindow(window),
+                UrlContent::kScope, is_activated,
                 /*promotable=*/true);
   it->second = app_banner_manager->manifest().scope;
 }
@@ -375,26 +468,33 @@ void WebsiteMetrics::UpdateUrlInfo(const GURL& old_url,
                                    bool is_activated,
                                    bool promotable) {
   base::TimeTicks start_time = base::TimeTicks::Now();
+  base::TimeDelta running_time_in_five_minutes;
+  base::TimeDelta running_time_in_two_hours;
 
   auto it = url_infos_.find(old_url);
   if (it != url_infos_.end()) {
+    running_time_in_five_minutes = it->second.running_time_in_five_minutes;
+    running_time_in_two_hours = it->second.running_time_in_two_hours;
     start_time = it->second.start_time;
     url_infos_.erase(old_url);
   }
 
   AddUrlInfo(new_url, start_time, url_content, is_activated, promotable);
+  url_infos_[new_url].running_time_in_five_minutes =
+      running_time_in_five_minutes;
+  url_infos_[new_url].running_time_in_two_hours = running_time_in_two_hours;
 }
 
 void WebsiteMetrics::SetWindowActivated(aura::Window* window) {
   auto it = window_to_web_contents_.find(window);
-  if (it != window_to_web_contents_.end()) {
+  if (it != window_to_web_contents_.end() && it->second) {
     SetTabActivated(it->second);
   }
 }
 
 void WebsiteMetrics::SetWindowInActivated(aura::Window* window) {
   auto it = window_to_web_contents_.find(window);
-  if (it != window_to_web_contents_.end()) {
+  if (it != window_to_web_contents_.end() && it->second) {
     SetTabInActivated(it->second);
   }
 }
@@ -425,8 +525,10 @@ void WebsiteMetrics::SetTabInActivated(content::WebContents* web_contents) {
     return;
   }
 
-  DCHECK_GE(base::TimeTicks::Now(), it->second.start_time);
-  it->second.running_time += base::TimeTicks::Now() - it->second.start_time;
+  auto current_time = base::TimeTicks::Now();
+  DCHECK_GE(current_time, it->second.start_time);
+  it->second.running_time_in_five_minutes +=
+      current_time - it->second.start_time;
   it->second.is_activated = false;
 }
 
@@ -435,14 +537,76 @@ void WebsiteMetrics::SaveUsageTime() {
                                          kWebsiteUsageTime);
   auto& dict = usage_time_update->GetDict();
   dict.clear();
-  for (auto it : url_infos_) {
+  for (auto& it : url_infos_) {
     if (it.second.is_activated) {
-      it.second.running_time += base::TimeTicks::Now() - it.second.start_time;
-      it.second.start_time = base::TimeTicks::Now();
+      auto current_time = base::TimeTicks::Now();
+      it.second.running_time_in_five_minutes +=
+          current_time - it.second.start_time;
+      it.second.start_time = current_time;
     }
-    if (!it.second.running_time.is_zero()) {
+    if (!it.second.running_time_in_five_minutes.is_zero()) {
+      // Based on the privacy review result, randomly multiply a noise factor to
+      // the raw data collected in a 5 minutes slot.
+      it.second.running_time_in_two_hours +=
+          GetRandomNoise() * it.second.running_time_in_five_minutes;
+      it.second.running_time_in_five_minutes = base::TimeDelta();
+    }
+    // Save all urls running time in the past two hours to the user pref.
+    if (!it.second.running_time_in_two_hours.is_zero()) {
       dict.Set(it.first.spec(), it.second.ConvertToValue());
     }
+  }
+}
+
+void WebsiteMetrics::RecordUsageTime() {
+  for (auto& it : url_infos_) {
+    if (!it.second.running_time_in_two_hours.is_zero()) {
+      EmitUkm(it.first, it.second.running_time_in_two_hours.InMilliseconds(),
+              it.second.url_content, it.second.promotable,
+              /*is_from_last_login=*/false);
+      it.second.running_time_in_two_hours = base::TimeDelta();
+    }
+  }
+
+  // The app usage time AppKMs have been recorded, so clear the saved usage time
+  // in the user pref.
+  DictionaryPrefUpdate usage_time_update(profile_->GetPrefs(),
+                                         kWebsiteUsageTime);
+  usage_time_update->GetDict().clear();
+}
+
+void WebsiteMetrics::RecordUsageTimeFromPref() {
+  DictionaryPrefUpdate usage_time_update(profile_->GetPrefs(),
+                                         kWebsiteUsageTime);
+  if (!usage_time_update->is_dict()) {
+    return;
+  }
+
+  for (const auto [url, url_info_value] : usage_time_update->GetDict()) {
+    auto url_info = std::make_unique<UrlInfo>(url_info_value);
+    if (!url_info->running_time_in_two_hours.is_zero()) {
+      EmitUkm(GURL(url), url_info->running_time_in_two_hours.InMilliseconds(),
+              url_info->url_content, url_info->promotable,
+              /*is_from_last_login=*/true);
+    }
+  }
+}
+
+void WebsiteMetrics::EmitUkm(const GURL& url,
+                             int64_t usage_time,
+                             UrlContent url_content,
+                             bool promotable,
+                             bool is_from_last_login) {
+  auto source_id = ukm::UkmRecorder::GetSourceIdForWebsiteUrl(
+      base::PassKey<WebsiteMetrics>(), url);
+  if (source_id != ukm::kInvalidSourceId) {
+    ukm::builders::ChromeOS_WebsiteUsageTime builder(source_id);
+    builder.SetDuration(usage_time)
+        .SetUrlContent(static_cast<int>(url_content))
+        .SetIsFromLastLogin(is_from_last_login)
+        .SetPromotable(promotable)
+        .SetUserDeviceMatrix(user_type_by_device_type_)
+        .Record(ukm::UkmRecorder::Get());
   }
 }
 

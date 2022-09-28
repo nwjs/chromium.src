@@ -84,17 +84,6 @@ COMPONENT_EXPORT(NETWORK_CPP)
 extern uint32_t GetLoaderChunkSize();
 
 COMPONENT_EXPORT(NETWORK_CPP)
-extern const base::Feature kCheckCacheForQueuedRequests;
-
-COMPONENT_EXPORT(NETWORK_CPP)
-extern const base::FeatureParam<base::TimeDelta>
-    kQueuedRequestsCacheCheckInterval;
-
-COMPONENT_EXPORT(NETWORK_CPP)
-extern const base::FeatureParam<base::TimeDelta>
-    kQueuedRequestsCacheCheckTimeThreshold;
-
-COMPONENT_EXPORT(NETWORK_CPP)
 extern const base::Feature kCorsNonWildcardRequestHeadersSupport;
 
 COMPONENT_EXPORT(NETWORK_CPP)
@@ -127,6 +116,12 @@ extern const base::Feature kReduceAcceptLanguage;
 
 COMPONENT_EXPORT(NETWORK_CPP)
 extern const base::Feature kDisableResourceScheduler;
+
+COMPONENT_EXPORT(NETWORK_CPP)
+extern const base::Feature kPrivateNetworkAccessPreflightShortTimeout;
+
+COMPONENT_EXPORT(NETWORK_CPP)
+extern const base::Feature kPreconnectInNetworkService;
 
 }  // namespace features
 }  // namespace network

@@ -12,6 +12,7 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "chrome/browser/ash/system_web_apps/types/system_web_app_data.h"
+#include "chrome/browser/web_applications/proto/web_app_os_integration_state.pb.h"
 #include "chrome/browser/web_applications/user_display_mode.h"
 #include "chrome/browser/web_applications/web_app_chromeos_data.h"
 #include "chrome/browser/web_applications/web_app_constants.h"
@@ -25,6 +26,7 @@
 #include "components/sync/model/string_ordinal.h"
 #include "components/webapps/browser/installable/installable_metrics.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
+#include "third_party/abseil-cpp/absl/types/variant.h"
 #include "third_party/blink/public/common/permissions_policy/permissions_policy.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "url/gurl.h"
@@ -296,6 +298,57 @@ class WebApp {
     return tab_strip_;
   }
 
+  // Only used on Mac.
+  bool always_show_toolbar_in_fullscreen() const {
+    return always_show_toolbar_in_fullscreen_;
+  }
+
+  const absl::optional<proto::WebAppOsIntegrationState>&
+  current_os_integration_states() const {
+    return current_os_integration_states_;
+  }
+
+  struct IsolationData {
+    struct InstalledBundle {
+      bool operator==(const InstalledBundle& other) const;
+      bool operator!=(const InstalledBundle& other) const;
+
+      std::string path;
+    };
+    struct DevModeBundle {
+      bool operator==(const DevModeBundle& other) const;
+      bool operator!=(const DevModeBundle& other) const;
+
+      std::string path;
+    };
+    struct DevModeProxy {
+      bool operator==(const DevModeProxy& other) const;
+      bool operator!=(const DevModeProxy& other) const;
+
+      std::string proxy_url;
+    };
+
+    explicit IsolationData(
+        absl::variant<InstalledBundle, DevModeBundle, DevModeProxy> content);
+    ~IsolationData();
+    IsolationData(const IsolationData&);
+    IsolationData& operator=(const IsolationData&);
+    IsolationData(IsolationData&&);
+    IsolationData& operator=(IsolationData&&);
+
+    bool operator==(const IsolationData&) const;
+    bool operator!=(const IsolationData&) const;
+    base::Value AsDebugValue() const;
+
+    absl::variant<InstalledBundle, DevModeBundle, DevModeProxy> content;
+  };
+
+  // If present, signals that this app is an Isolated Web App, and contains
+  // IWA-specific information like bundle location.
+  const absl::optional<IsolationData>& isolation_data() const {
+    return isolation_data_;
+  }
+
   // A Web App can be installed from multiple sources simultaneously. Installs
   // add a source to the app. Uninstalls remove a source from the app.
   void AddSource(WebAppManagement::Type source);
@@ -380,6 +433,10 @@ class WebApp {
   void SetWebAppManagementExternalConfigMap(
       ExternalConfigMap management_to_external_config_map);
   void SetTabStrip(absl::optional<blink::Manifest::TabStrip> tab_strip);
+  void SetCurrentOsIntegrationStates(
+      absl::optional<proto::WebAppOsIntegrationState>
+          current_os_integration_states);
+  void SetIsolationData(IsolationData isolation_data);
 
   void AddPlaceholderInfoToManagementExternalConfigMap(
       WebAppManagement::Type source_type,
@@ -397,6 +454,10 @@ class WebApp {
                                     bool is_placeholder);
 
   bool RemoveInstallUrlForSource(WebAppManagement::Type type, GURL install_url);
+
+  // Only used on Mac, determines if the toolbar should be permanently shown
+  // when in fullscreen.
+  void SetAlwaysShowToolbarInFullscreen(bool show);
 
   // For logging and debug purposes.
   bool operator==(const WebApp&) const;
@@ -493,12 +554,23 @@ class WebApp {
 
   absl::optional<blink::Manifest::TabStrip> tab_strip_;
 
+  // Only used on Mac.
+  bool always_show_toolbar_in_fullscreen_ = true;
+
+  absl::optional<proto::WebAppOsIntegrationState>
+      current_os_integration_states_ = absl::nullopt;
+
+  absl::optional<IsolationData> isolation_data_;
+
   // New fields must be added to:
   //  - |operator==|
   //  - AsDebugValue()
   //  - WebAppDatabase::CreateWebApp()
   //  - WebAppDatabase::CreateWebAppProto()
   //  - CreateRandomWebApp()
+  //  - WebAppTest.EmptyAppAsDebugValue
+  //  - WebAppTest.SampleAppAsDebugValue
+  //  - web_app.proto
   // If parsed from manifest, also add to:
   //  - ManifestUpdateTask::IsUpdateNeededForManifest()
   //  - SetWebAppManifestFields()

@@ -17,7 +17,8 @@ extern NSString* const kCameraSymbol;
 extern NSString* const kCameraFillSymbol;
 extern NSString* const kPlusCircleFillSymbol;
 extern NSString* const kPopupBadgeMinusSymbol;
-
+extern NSString* const kPhotoBadgePlusSymbol;
+extern NSString* const kPhotoBadgeMagnifyingglassSymbol;
 // Default symbol names.
 extern NSString* const kCreditCardSymbol;
 extern NSString* const kMicrophoneFillSymbol;
@@ -40,6 +41,7 @@ extern NSString* const kCheckMarkCircleFillSymbol;
 extern NSString* const kFailMarkCircleFillSymbol;
 extern NSString* const kTrashSymbol;
 extern NSString* const kInfoCircleSymbol;
+extern NSString* const kClockArrowSymbol;
 
 // Returns a SF symbol named `symbol_name` configured with the given
 // `configuration`.

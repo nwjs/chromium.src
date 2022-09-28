@@ -45,7 +45,6 @@
 #include "content/public/renderer/render_frame.h"
 #include "content/public/renderer/render_frame_media_playback_options.h"
 #include "content/renderer/content_security_policy_util.h"
-#include "content/renderer/frame_blame_context.h"
 #include "content/renderer/media/media_factory.h"
 #include "ipc/ipc_message.h"
 #include "ipc/ipc_platform_file.h"
@@ -115,7 +114,7 @@
 #include "url/origin.h"
 #include "v8/include/v8-forward.h"
 
-#if BUILDFLAG(ENABLE_PLUGINS)
+#if BUILDFLAG(ENABLE_PPAPI)
 #include "content/common/pepper_plugin.mojom.h"
 #endif
 
@@ -162,7 +161,6 @@ class PepperPluginInstanceImpl;
 class RendererPpapiHost;
 class RenderAccessibilityManager;
 class RenderFrameObserver;
-class RenderViewImpl;
 
 class CONTENT_EXPORT RenderFrameImpl
     : public RenderFrame,
@@ -174,12 +172,12 @@ class CONTENT_EXPORT RenderFrameImpl
       public blink::WebLocalFrameClient,
       service_manager::mojom::InterfaceProvider {
  public:
+  // Creates a new RenderFrame as the main frame of `web_view`.
   bool skip_blocking_parser_;
   void SetSkipBlockingParser(bool) override;
-  // Creates a new RenderFrame as the main frame of |render_view|.
   static RenderFrameImpl* CreateMainFrame(
       AgentSchedulingGroup& agent_scheduling_group,
-      RenderViewImpl* render_view,
+      blink::WebView* web_view,
       blink::WebFrame* opener,
       bool is_for_nested_main_frame,
       bool is_for_scalable_page,
@@ -216,6 +214,8 @@ class CONTENT_EXPORT RenderFrameImpl
       mojo::PendingAssociatedReceiver<mojom::Frame> frame_receiver,
       mojo::PendingRemote<blink::mojom::BrowserInterfaceBroker>
           browser_interface_broker,
+      mojo::PendingAssociatedRemote<blink::mojom::AssociatedInterfaceProvider>
+          associated_interface_provider,
       const absl::optional<blink::FrameToken>& previous_frame_token,
       const absl::optional<blink::FrameToken>& opener_frame_token,
       const absl::optional<blink::FrameToken>& parent_frame_token,
@@ -236,24 +236,27 @@ class CONTENT_EXPORT RenderFrameImpl
 
   // Constructor parameters are bundled into a struct.
   struct CONTENT_EXPORT CreateParams {
-    CreateParams(AgentSchedulingGroup& agent_scheduling_group,
-                 RenderViewImpl* render_view,
-                 int32_t routing_id,
-                 mojo::PendingAssociatedReceiver<mojom::Frame> frame_receiver,
-                 mojo::PendingRemote<blink::mojom::BrowserInterfaceBroker>
-                     browser_interface_broker,
-                 const base::UnguessableToken& devtools_frame_token);
+    CreateParams(
+        AgentSchedulingGroup& agent_scheduling_group,
+        int32_t routing_id,
+        mojo::PendingAssociatedReceiver<mojom::Frame> frame_receiver,
+        mojo::PendingRemote<blink::mojom::BrowserInterfaceBroker>
+            browser_interface_broker,
+        mojo::PendingAssociatedRemote<blink::mojom::AssociatedInterfaceProvider>
+            associated_interface_provider,
+        const base::UnguessableToken& devtools_frame_token);
     ~CreateParams();
 
     CreateParams(CreateParams&&);
     CreateParams& operator=(CreateParams&&);
 
     AgentSchedulingGroup* agent_scheduling_group;
-    RenderViewImpl* render_view;
     int32_t routing_id;
     mojo::PendingAssociatedReceiver<mojom::Frame> frame_receiver;
     mojo::PendingRemote<blink::mojom::BrowserInterfaceBroker>
         browser_interface_broker;
+    mojo::PendingAssociatedRemote<blink::mojom::AssociatedInterfaceProvider>
+        associated_interface_provider;
     base::UnguessableToken devtools_frame_token;
   };
 
@@ -273,10 +276,6 @@ class CONTENT_EXPORT RenderFrameImpl
 
   // Returns the unique name of the RenderFrame.
   const std::string& unique_name() const { return unique_name_helper_.value(); }
-
-  // TODO(jam): this is a temporary getter until all the code is transitioned
-  // to using RenderFrame instead of RenderView.
-  RenderViewImpl* render_view() { return render_view_; }
 
   // Returns the blink::WebFrameWidget attached to the local root of this
   // frame.
@@ -314,7 +313,7 @@ class CONTENT_EXPORT RenderFrameImpl
   // gone, and clean up code that depends on it.
   bool in_frame_tree() { return in_frame_tree_; }
 
-#if BUILDFLAG(ENABLE_PLUGINS)
+#if BUILDFLAG(ENABLE_PPAPI)
   mojom::PepperHost* GetPepperHost();
 
   // Notification that a PPAPI plugin has been created.
@@ -330,7 +329,7 @@ class CONTENT_EXPORT RenderFrameImpl
   // Informs the render view that a PPAPI plugin has changed selection.
   void PepperSelectionChanged(PepperPluginInstanceImpl* instance);
 
-#endif  // BUILDFLAG(ENABLE_PLUGINS)
+#endif  // BUILDFLAG(ENABLE_PPAPI)
 
   // IPC::Sender
   bool Send(IPC::Message* msg) override;
@@ -364,10 +363,6 @@ class CONTENT_EXPORT RenderFrameImpl
       mojo::ScopedMessagePipeHandle interface_pipe) override;
   blink::AssociatedInterfaceRegistry* GetAssociatedInterfaceRegistry() override;
   blink::AssociatedInterfaceProvider* GetRemoteAssociatedInterfaces() override;
-#if BUILDFLAG(ENABLE_PLUGINS)
-  void PluginDidStartLoading() override;
-  void PluginDidStopLoading() override;
-#endif
   void SetSelectedText(const std::u16string& selection_text,
                        size_t offset,
                        const gfx::Range& range) override;
@@ -499,7 +494,6 @@ class CONTENT_EXPORT RenderFrameImpl
       override;
   std::unique_ptr<blink::ResourceLoadInfoNotifierWrapper>
   CreateResourceLoadInfoNotifierWrapper() override;
-  blink::BlameContext* GetFrameBlameContext() override;
   std::unique_ptr<blink::WebServiceWorkerProvider> CreateServiceWorkerProvider()
       override;
   blink::AssociatedInterfaceProvider* GetRemoteNavigationAssociatedInterfaces()
@@ -514,20 +508,8 @@ class CONTENT_EXPORT RenderFrameImpl
       blink::WebPolicyContainerBindParams policy_container_bind_params)
       override;
   void InitializeAsChildFrame(blink::WebLocalFrame* parent) override;
-  std::pair<blink::WebRemoteFrame*, blink::PortalToken> CreatePortal(
-      blink::CrossVariantMojoAssociatedReceiver<
-          blink::mojom::PortalInterfaceBase> portal_endpoint,
-      blink::CrossVariantMojoAssociatedRemote<
-          blink::mojom::PortalClientInterfaceBase> client_endpoint,
-      const blink::WebElement& portal_element) override;
-  blink::WebRemoteFrame* AdoptPortal(
-      const blink::PortalToken& portal_token,
-      const blink::WebElement& portal_element) override;
-  blink::WebRemoteFrame* CreateFencedFrame(
-      const blink::WebElement& fenced_frame_element,
-      blink::CrossVariantMojoAssociatedReceiver<
-          blink::mojom::FencedFrameOwnerHostInterfaceBase> receiver,
-      blink::mojom::FencedFrameMode mode) override;
+  void DidCreateFencedFrame(
+      const blink::RemoteFrameToken& frame_token) override;
   blink::WebFrame* FindFrame(const blink::WebString& name) override;
   void WillDetach() override;
   void FrameDetached() override;
@@ -614,11 +596,9 @@ class CONTENT_EXPORT RenderFrameImpl
   void PreloadSubresourceOptimizationsForOrigins(
       const std::vector<blink::WebSecurityOrigin>& origins) override;
   blink::WebMediaStreamDeviceObserver* MediaStreamDeviceObserver() override;
-  bool AllowRTCLegacyTLSProtocols() override;
   blink::WebEncryptedMediaClient* EncryptedMediaClient() override;
   blink::WebString UserAgentOverride() override;
   absl::optional<blink::UserAgentMetadata> UserAgentMetadataOverride() override;
-  blink::WebString DoNotTrackValue() override;
   blink::mojom::RendererAudioInputStreamFactory* GetAudioInputStreamFactory();
   bool AllowContentInitiatedDataUrlNavigations(
       const blink::WebURL& url) override;
@@ -634,6 +614,18 @@ class CONTENT_EXPORT RenderFrameImpl
   void OnStopLoading() override;
   void DraggableRegionsChanged() override;
   blink::BrowserInterfaceBrokerProxy* GetBrowserInterfaceBroker() override;
+  blink::WebView* CreateNewWindow(
+      const blink::WebURLRequest& request,
+      const blink::WebWindowFeatures& features,
+      const blink::WebString& frame_name,
+      blink::WebNavigationPolicy policy,
+      network::mojom::WebSandboxFlags sandbox_flags,
+      const blink::SessionStorageNamespaceId& session_storage_namespace_id,
+      bool& consumed_user_gesture,
+      const absl::optional<blink::Impression>& impression,
+      const absl::optional<blink::WebPictureInPictureWindowOptions>&
+      pip_options,
+      blink::WebString* manifest) override;
 
   // Dispatches the current state of selection on the webpage to the browser if
   // it has changed or if the forced flag is passed. The forced flag is used
@@ -720,7 +712,7 @@ class CONTENT_EXPORT RenderFrameImpl
 
   // Plugin-related functions --------------------------------------------------
 
-#if BUILDFLAG(ENABLE_PLUGINS)
+#if BUILDFLAG(ENABLE_PPAPI)
   PepperPluginInstanceImpl* focused_pepper_plugin() {
     return focused_pepper_plugin_;
   }
@@ -740,7 +732,7 @@ class CONTENT_EXPORT RenderFrameImpl
   void PepperFocusChanged(PepperPluginInstanceImpl* instance, bool focused);
 
   void OnSetPepperVolume(int32_t pp_instance, double volume);
-#endif  // ENABLE_PLUGINS
+#endif  // BUILDFLAG(ENABLE_PPAPI)
 
   const blink::RendererPreferences& GetRendererPreferences() const;
 
@@ -823,17 +815,17 @@ class CONTENT_EXPORT RenderFrameImpl
 
   class FrameURLLoaderFactory;
 
-  // Creates a new RenderFrame. |render_view| is the RenderView object that this
-  // frame belongs to, and |browser_interface_broker| is the RenderFrameHost's
-  // BrowserInterfaceBroker through which services are exposed to the
-  // RenderFrame.
+  // Creates a new RenderFrame. |browser_interface_broker| is the
+  // RenderFrameHost's BrowserInterfaceBroker through which services are exposed
+  // to the RenderFrame.
   static RenderFrameImpl* Create(
       AgentSchedulingGroup& agent_scheduling_group,
-      RenderViewImpl* render_view,
       int32_t routing_id,
       mojo::PendingAssociatedReceiver<mojom::Frame> frame_receiver,
       mojo::PendingRemote<blink::mojom::BrowserInterfaceBroker>
           browser_interface_broker,
+      mojo::PendingAssociatedRemote<blink::mojom::AssociatedInterfaceProvider>
+          associated_interface_provider,
       const base::UnguessableToken& devtools_frame_token);
 
   // Functions to add and remove observers for this object.
@@ -856,16 +848,16 @@ class CONTENT_EXPORT RenderFrameImpl
       bool is_loading,
       blink::mojom::FrameReplicationStatePtr replicated_frame_state,
       const blink::RemoteFrameToken& frame_token,
-      mojom::RemoteFrameInterfacesFromBrowserPtr remote_frame_interfaces,
-      mojom::RemoteMainFrameInterfacesPtr remote_main_frame_interfaces)
+      blink::mojom::RemoteFrameInterfacesFromBrowserPtr remote_frame_interfaces,
+      blink::mojom::RemoteMainFrameInterfacesPtr remote_main_frame_interfaces)
       override;
   void Delete(mojom::FrameDeleteIntention intent) override;
   void UndoCommitNavigation(
       bool is_loading,
       blink::mojom::FrameReplicationStatePtr replicated_frame_state,
       const blink::RemoteFrameToken& frame_token,
-      mojom::RemoteFrameInterfacesFromBrowserPtr remote_frame_interfaces,
-      mojom::RemoteMainFrameInterfacesPtr remote_main_frame_interfaces)
+      blink::mojom::RemoteFrameInterfacesFromBrowserPtr remote_frame_interfaces,
+      blink::mojom::RemoteMainFrameInterfacesPtr remote_main_frame_interfaces)
       override;
   void BlockRequests() override;
   void ResumeBlockedRequests() override;
@@ -997,8 +989,6 @@ class CONTENT_EXPORT RenderFrameImpl
 
   void RegisterMojoInterfaces();
 
-  void InitializeBlameContext(RenderFrameImpl* parent_frame);
-
   // service_manager::mojom::InterfaceProvider:
   void GetInterface(const std::string& interface_name,
                     mojo::ScopedMessagePipeHandle interface_pipe) override;
@@ -1119,7 +1109,7 @@ class CONTENT_EXPORT RenderFrameImpl
   // Debounces many updates in quick succession.
   void StartDelayedSyncTimer();
 
-  // Swaps out the RenderFrame, creating a new RenderFrameProxy and then
+  // Swaps out the RenderFrame, creating a new `blink::RemoteFrame` and then
   // swapping it into the frame tree to replace `this`. Returns false if
   // swapping out `this` ends up detaching this frame instead when running the
   // unload handlers, and true otherwise.
@@ -1129,8 +1119,8 @@ class CONTENT_EXPORT RenderFrameImpl
       bool is_loading,
       blink::mojom::FrameReplicationStatePtr replicated_frame_state,
       const blink::RemoteFrameToken& frame_token,
-      mojom::RemoteFrameInterfacesFromBrowserPtr remote_frame_interfaces,
-      mojom::RemoteMainFrameInterfacesPtr remote_main_frame_interfaces);
+      blink::mojom::RemoteFrameInterfacesFromBrowserPtr remote_frame_interfaces,
+      blink::mojom::RemoteMainFrameInterfacesPtr remote_main_frame_interfaces);
 
   // Stores the WebLocalFrame we are associated with.  This is null from the
   // constructor until BindToFrame() is called, and it is null after
@@ -1177,15 +1167,14 @@ class CONTENT_EXPORT RenderFrameImpl
   //
   // When a frame is created by the browser process, it is for a pending
   // navigation. In this case, it is not immediately attached to the frame tree
-  // if there is a RenderFrameProxy for the same frame. It is inserted into the
-  // frame tree at the time the pending navigation commits.
-  // Frames added by the parent document are created from the renderer process
-  // and are immediately inserted in the frame tree.
+  // if there is a `blink::RemoteFrame` for the same frame. It is inserted into
+  // the frame tree at the time the pending navigation commits. Frames added by
+  // the parent document are created from the renderer process and are
+  // immediately inserted in the frame tree.
   // TODO(dcheng): Remove this once we have FrameTreeHandle and can use the
   // Blink Web* layer to check for provisional frames.
   bool in_frame_tree_;
 
-  RenderViewImpl* render_view_;
   const int routing_id_;
 
   // Keeps track of which future subframes the browser process has history items
@@ -1245,13 +1234,11 @@ class CONTENT_EXPORT RenderFrameImpl
   // Valid during the entire life time of the RenderFrame.
   std::unique_ptr<RenderAccessibilityManager> render_accessibility_manager_;
 
-  std::unique_ptr<FrameBlameContext> blame_context_;
-
   std::unique_ptr<blink::WeakWrapperResourceLoadInfoNotifier>
       weak_wrapper_resource_load_info_notifier_;
 
   // Plugins -------------------------------------------------------------------
-#if BUILDFLAG(ENABLE_PLUGINS)
+#if BUILDFLAG(ENABLE_PPAPI)
   typedef std::set<PepperPluginInstanceImpl*> PepperPluginSet;
   PepperPluginSet active_pepper_instances_;
 
@@ -1308,7 +1295,21 @@ class CONTENT_EXPORT RenderFrameImpl
   //
   // If a navigation will commit in the same RenderFrameImpl that owns the
   // request NavigationClient, the request NavigationClient will be reused as
-  // the commit NavigationClient.
+  // the commit NavigationClient. The way this works is:
+  //   1.) RenderFrameHostImpl::BeginNavigation() accepts an always-bound remote
+  //       to the RenderFrameImpl's `navigation_client_impl_`.
+  //   2.) In `NavigationRequest::ctor()`, the request consumes the
+  //       NavigationClient remote, and `NavigationRequest::SetNavigationClient()`
+  //       assigns `NavigationRequest::request_navigation_client_` to it.
+  //   3.) Eventually, `NavigationRequest` picks a `RenderFrameHostImpl` to commit
+  //       to. In `NavigationRequest::CommitNavigation()`, the request needs to
+  //       set its `commit_navigation_client_` to the `NavigationClient`
+  //       implementation in the target RenderFrameImpl. If we detect that the
+  //       navigation will commit to the same frame that
+  //       `NavigationRequest::request_navigation_client_` points to, then the
+  //       browser will reuse the request navigation client as the commit one.
+  //       Otherwise, it requests a *new* client from the renderer, to act as the
+  //       target RenderFrameImpl's `NavigationClient`.
   //
   // ## Navigation Cancellation ##
   // Cancellation is signalled by closing the NavigationClient message pipe.
@@ -1338,6 +1339,16 @@ class CONTENT_EXPORT RenderFrameImpl
   MediaFactory media_factory_;
 
   blink::AssociatedInterfaceRegistry associated_interfaces_;
+  // `remote_associated_interfaces_` cannot be constructed/bound at
+  // RenderFrameImpl construction because it needs the underlying WebFrame to
+  // get a TaskRunner. It also cannot be constructed/bound later in
+  // `RenderFrame::Initialize()` (where we bind the `mojom::Frame` receiver),
+  // because that happens *after* the `WebFrame` is initialized, and its
+  // initialization relies on the interface provider being bound. So we stash
+  // the pending remote here, and we bind it lazily in
+  // `GetRemoteAssociatedInterfaces()`.
+  mojo::PendingAssociatedRemote<blink::mojom::AssociatedInterfaceProvider>
+      pending_associated_interface_provider_remote_;
   std::unique_ptr<blink::AssociatedInterfaceProvider>
       remote_associated_interfaces_;
 

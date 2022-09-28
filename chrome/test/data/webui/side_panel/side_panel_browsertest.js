@@ -6,6 +6,7 @@
 
 GEN_INCLUDE(['//chrome/test/data/webui/polymer_browser_test_base.js']);
 
+GEN('#include "chrome/browser/ui/ui_features.h"');
 GEN('#include "content/public/test/browser_test.h"');
 GEN('#include "ui/accessibility/accessibility_features.h"');
 
@@ -22,6 +23,11 @@ var SidePanelAppTest = class extends SidePanelBrowserTest {
   /** @override */
   get browsePreload() {
     return 'chrome://read-later.top-chrome/test_loader.html?module=side_panel/side_panel_app_test.js';
+  }
+
+  /** @override */
+  get featureList() {
+    return {disabled: ['features::kUnifiedSidePanel']};
   }
 };
 
@@ -40,6 +46,17 @@ TEST_F('SidePanelBookmarksListTest', 'All', function() {
   mocha.run();
 });
 
+
+var ShoppingListTest = class extends SidePanelBrowserTest {
+  /** @override */
+  get browsePreload() {
+    return 'chrome://read-later.top-chrome/test_loader.html?module=side_panel/bookmarks/commerce/shopping_list_test.js';
+  }
+};
+
+TEST_F('ShoppingListTest', 'All', function() {
+  mocha.run();
+});
 
 var SidePanelBookmarkFolderTest = class extends SidePanelBrowserTest {
   /** @override */

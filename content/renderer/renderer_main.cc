@@ -75,7 +75,7 @@
 #include "chromeos/system/core_scheduling.h"
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-#if BUILDFLAG(ENABLE_PLUGINS)
+#if BUILDFLAG(ENABLE_PPAPI)
 #include "content/renderer/pepper/pepper_plugin_registry.h"
 #endif
 
@@ -237,7 +237,7 @@ int RendererMain(MainFunctionParams parameters) {
 
   platform.PlatformInitialize();
 
-#if BUILDFLAG(ENABLE_PLUGINS)
+#if BUILDFLAG(ENABLE_PPAPI)
   // Load pepper plugins before engaging the sandbox.
   PepperPluginRegistry::GetInstance();
 #endif
@@ -248,9 +248,17 @@ int RendererMain(MainFunctionParams parameters) {
   InitializeWebRtcModule();
 
   {
+    content::ContentRendererClient* client = GetContentClient()->renderer();
     bool should_run_loop = true;
     bool need_sandbox =
         !command_line.HasSwitch(sandbox::policy::switches::kNoSandbox);
+
+    if (!need_sandbox) {
+      // The post-sandbox actions still need to happen at some point.
+      if (client) {
+        client->PostSandboxInitialized();
+      }
+    }
 
 #if !BUILDFLAG(IS_WIN) && !BUILDFLAG(IS_MAC)
     // Sandbox is enabled before RenderProcess initialization on all platforms,
@@ -259,6 +267,9 @@ int RendererMain(MainFunctionParams parameters) {
     if (need_sandbox) {
       should_run_loop = platform.EnableSandbox();
       need_sandbox = false;
+      if (client) {
+        client->PostSandboxInitialized();
+      }
     }
 #endif
 
@@ -297,8 +308,12 @@ int RendererMain(MainFunctionParams parameters) {
     }
 #endif
 
-    if (need_sandbox)
+    if (need_sandbox) {
       should_run_loop = platform.EnableSandbox();
+      if (client) {
+        client->PostSandboxInitialized();
+      }
+    }
 
 #if BUILDFLAG(MOJO_RANDOM_DELAYS_ENABLED)
     mojo::BeginRandomMojoDelays();

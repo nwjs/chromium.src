@@ -2110,7 +2110,7 @@ static const CSSValue& ComputeRegisteredPropertyValue(
                 : mojom::blink::ColorScheme::kLight;
       Color color = document.GetTextLinkColors().ColorFromCSSValue(
           value, Color(), scheme, false);
-      return *cssvalue::CSSColor::Create(color.Rgb());
+      return *cssvalue::CSSColor::Create(color);
     }
   }
 
@@ -2123,9 +2123,18 @@ static const CSSValue& ComputeRegisteredPropertyValue(
 const CSSValue& StyleBuilderConverter::ConvertRegisteredPropertyInitialValue(
     const Document& document,
     const CSSValue& value) {
+  CSSToLengthConversionData::FontSizes font_sizes;
+  CSSToLengthConversionData::ViewportSize viewport_size(
+      document.GetLayoutView());
+  CSSToLengthConversionData::ContainerSizes container_sizes;
+  CSSToLengthConversionData conversion_data(
+      /* style */ nullptr, WritingMode::kHorizontalTb, font_sizes,
+      viewport_size, container_sizes,
+      /* zoom */ 1.0f);
+
   return ComputeRegisteredPropertyValue(
-      document, nullptr /* state */, CSSToLengthConversionData(), value,
-      document.BaseURL(), document.Encoding());
+      document, nullptr /* state */, conversion_data, value, document.BaseURL(),
+      document.Encoding());
 }
 
 const CSSValue& StyleBuilderConverter::ConvertRegisteredPropertyValue(
@@ -2160,6 +2169,10 @@ StyleBuilderConverter::ConvertRegisteredPropertyVariableData(
 
   Vector<String> backing_strings;
   backing_strings.push_back(text);
+  // CSSTokenizer may allocate new strings for some tokens (e.g. for escapes)
+  // and produce tokens that point to those strings. We need to retain those
+  // strings (if any) as well.
+  backing_strings.AppendVector(tokenizer.StringPool());
 
   const bool has_font_units = false;
   const bool has_root_font_units = false;

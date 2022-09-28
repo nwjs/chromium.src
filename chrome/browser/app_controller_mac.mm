@@ -88,6 +88,7 @@
 #include "chrome/browser/ui/startup/startup_browser_creator_impl.h"
 #include "chrome/browser/ui/startup/startup_tab.h"
 #include "chrome/browser/ui/startup/startup_types.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/web_applications/os_integration/web_app_shortcut_mac.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
@@ -543,6 +544,7 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
 
 - (void)dealloc {
   [[_closeTabMenuItem menu] setDelegate:nil];
+  [NSMenu cr_setMenuItemForKeyEquivalentEventPreSearchBlock:nil];
   [super dealloc];
 }
 
@@ -1849,6 +1851,14 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
 #endif
 }
 
+// This only has an effect on macOS 12+, and requests any state restoration
+// archive to be created with secure encoding. See the article at
+// https://sector7.computest.nl/post/2022-08-process-injection-breaking-all-macos-security-layers-with-a-single-vulnerability/
+// for more details.
+- (BOOL)applicationSupportsSecureRestorableState:(NSApplication*)app {
+  return YES;
+}
+
 - (BOOL)application:(NSApplication*)application
     willContinueUserActivityWithType:(NSString*)userActivityType {
   return [userActivityType isEqualToString:NSUserActivityTypeBrowsingWeb];
@@ -2029,7 +2039,7 @@ void OpenUrlsInBrowserWithProfile(const std::vector<GURL>& urls,
       (startupContent->GetVisibleURL() == chrome::kChromeUINewTabURL ||
        startupContent->GetVisibleURL() == chrome::kChromeUINewTabPageURL)) {
     browser->tab_strip_model()->CloseWebContentsAt(startupIndex,
-                                                   TabStripModel::CLOSE_NONE);
+                                                   TabCloseTypes::CLOSE_NONE);
   }
 }
 

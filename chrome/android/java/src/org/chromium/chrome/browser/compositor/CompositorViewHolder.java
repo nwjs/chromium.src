@@ -47,6 +47,7 @@ import org.chromium.chrome.browser.compositor.layouts.LayoutManagerImpl;
 import org.chromium.chrome.browser.compositor.layouts.LayoutRenderHost;
 import org.chromium.chrome.browser.compositor.layouts.content.ContentOffsetProvider;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.fullscreen.BrowserControlsManager;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.layouts.components.VirtualView;
@@ -54,6 +55,7 @@ import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabObserver;
+import org.chromium.chrome.browser.tab.TabUtils.LoadIfNeededCaller;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
@@ -96,6 +98,7 @@ public class CompositorViewHolder extends FrameLayout
                    ChromeAccessibilityUtil.Observer, TabObscuringHandler.Observer,
                    ViewGroup.OnHierarchyChangeListener {
     private static final long SYSTEM_UI_VIEWPORT_UPDATE_DELAY_MS = 500;
+    private Runnable mSetBackgroundRunnable;
 
     /**
      * Initializer interface used to decouple initialization from the class that owns
@@ -118,7 +121,7 @@ public class CompositorViewHolder extends FrameLayout
                 ViewGroup contentContainer, ControlContainer controlContainer);
     }
 
-    private ObserverList<TouchEventObserver> mTouchEventObservers = new ObserverList<>();
+    private final ObserverList<TouchEventObserver> mTouchEventObservers = new ObserverList<>();
 
     private EventOffsetHandler mEventOffsetHandler;
     private boolean mIsKeyboardShowing;
@@ -173,7 +176,6 @@ public class CompositorViewHolder extends FrameLayout
     private final Rect mCacheRect = new Rect();
     private final Point mCachePoint = new Point();
 
-    // If we've drawn at least one frame.
     private boolean mHasDrawnOnce;
 
     private boolean mIsInVr;
@@ -182,7 +184,7 @@ public class CompositorViewHolder extends FrameLayout
     private boolean mInGesture;
     private boolean mContentViewScrolling;
     private ApplicationViewportInsetSupplier mApplicationBottomInsetSupplier;
-    private Callback<Integer> mBottomInsetObserver = (inset) -> updateViewportSize();
+    private final Callback<Integer> mBottomInsetObserver = (inset) -> bottomInsetChanged();
 
     /**
      * Tracks whether geometrychange event is fired for the active tab when the keyboard
@@ -193,9 +195,9 @@ public class CompositorViewHolder extends FrameLayout
 
     private OnscreenContentProvider mOnscreenContentProvider;
 
-    private Set<Runnable> mOnCompositorLayoutCallbacks = new HashSet<>();
-    private Set<Runnable> mDidSwapFrameCallbacks = new HashSet<>();
-    private Set<Runnable> mDidSwapBuffersCallbacks = new HashSet<>();
+    private final Set<Runnable> mOnCompositorLayoutCallbacks = new HashSet<>();
+    private final Set<Runnable> mDidSwapFrameCallbacks = new HashSet<>();
+    private final Set<Runnable> mDidSwapBuffersCallbacks = new HashSet<>();
 
     /**
      * Last MotionEvent dispatched to this object for a currently active gesture. If there is no
@@ -345,28 +347,25 @@ public class CompositorViewHolder extends FrameLayout
             }
         };
 
-        addOnLayoutChangeListener(new OnLayoutChangeListener() {
-            @Override
-            public void onLayoutChange(View v, int left, int top, int right, int bottom,
-                    int oldLeft, int oldTop, int oldRight, int oldBottom) {
-                Tab tab = getCurrentTab();
-                // Set the size of NTP if we're in the attached state as it may have not been sized
-                // properly when initializing tab. See the comment in #initializeTab() for why.
-                if (tab != null && tab.isNativePage() && isAttachedToWindow(tab.getView())) {
-                    Point viewportSize = getViewportSize();
-                    setSize(tab.getWebContents(), tab.getView(), viewportSize.x, viewportSize.y);
-                }
-                onViewportChanged();
+        addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight,
+                                          oldBottom) -> {
+            Tab tab = getCurrentTab();
+            // Set the size of NTP if we're in the attached state as it may have not been sized
+            // properly when initializing tab. See the comment in #initializeTab() for why.
+            if (tab != null && tab.isNativePage() && isAttachedToWindow(tab.getView())) {
+                Point viewportSize = getViewportSize();
+                setSize(tab.getWebContents(), tab.getView(), viewportSize.x, viewportSize.y);
+            }
+            onViewportChanged();
 
-                // If there's an event that needs to occur after the keyboard is hidden, post
-                // it as a delayed event.  Otherwise this happens in the midst of the
-                // ContentView's relayout, which causes the ContentView to relayout on top of the
-                // stack view.  The 30ms is arbitrary, hoping to let the view get one repaint
-                // in so the full page is shown.
-                if (mPostHideKeyboardTask != null) {
-                    new Handler().postDelayed(mPostHideKeyboardTask, 30);
-                    mPostHideKeyboardTask = null;
-                }
+            // If there's an event that needs to occur after the keyboard is hidden, post
+            // it as a delayed event.  Otherwise this happens in the midst of the
+            // ContentView's relayout, which causes the ContentView to relayout on top of the
+            // stack view.  The 30ms is arbitrary, hoping to let the view get one repaint
+            // in so the full page is shown.
+            if (mPostHideKeyboardTask != null) {
+                new Handler().postDelayed(mPostHideKeyboardTask, 30);
+                mPostHideKeyboardTask = null;
             }
         });
 
@@ -375,12 +374,7 @@ public class CompositorViewHolder extends FrameLayout
         addView(mCompositorView, 0,
                 new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
 
-        setOnSystemUiVisibilityChangeListener(new OnSystemUiVisibilityChangeListener() {
-            @Override
-            public void onSystemUiVisibilityChange(int visibility) {
-                handleSystemUiVisibilityChange();
-            }
-        });
+        setOnSystemUiVisibilityChangeListener(visibility -> handleSystemUiVisibilityChange());
         handleSystemUiVisibilityChange();
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -400,7 +394,7 @@ public class CompositorViewHolder extends FrameLayout
         // contents.
         //
         // [1] - https://developer.android.com/reference/android/view/WindowManager.LayoutParams.html#FLAG_FULLSCREEN
-        if (mShowingFullscreen
+        if (mShowingFullscreen && (!ChromeFeatureList.sOSKResizesVisualViewport.isEnabled())
                 && KeyboardVisibilityDelegate.getInstance().isKeyboardShowing(getContext(), this)) {
             getWindowVisibleDisplayFrame(mCacheRect);
 
@@ -484,6 +478,18 @@ public class CompositorViewHolder extends FrameLayout
             loader.registerResource(
                     R.id.control_container, mControlContainer.getToolbarResourceAdapter());
         }
+
+        mSetBackgroundRunnable = () -> {
+            // Wait until the second frame to turn off the placeholder background for the
+            // CompositorView and the tab strip, to ensure the compositor frame has been drawn.
+            final ViewGroup controlContainerVG = (ViewGroup) mControlContainer;
+            mCompositorView.setBackgroundResource(0);
+            if (controlContainerVG != null) {
+                controlContainerVG.setBackgroundResource(0);
+            }
+
+            mSetBackgroundRunnable = null;
+        };
     }
 
     /**
@@ -525,6 +531,13 @@ public class CompositorViewHolder extends FrameLayout
     }
 
     private void handleWindowInsetChanged() {
+        // The InsetObserverView is used to monitor keyboard resizes while
+        // fullscreened to simulate a view resize. This is unneeded when the
+        // OSK resizes only the visual viewport.
+        if (ChromeFeatureList.sOSKResizesVisualViewport.isEnabled()) {
+            return;
+        }
+
         // Notify the WebContents that the size has changed.
         View contentView = getContentView();
         if (contentView != null) {
@@ -738,7 +751,7 @@ public class CompositorViewHolder extends FrameLayout
         return currentTab;
     }
 
-    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    @VisibleForTesting
     ViewGroup getContentView() {
         Tab tab = getCurrentTab();
         return tab != null ? tab.getContentView() : null;
@@ -799,7 +812,13 @@ public class CompositorViewHolder extends FrameLayout
             // Also the geometrychange event should only fire to the foreground tab.
             int keyboardHeight = 0;
             boolean overlayContentForegroundTab = shouldVirtualKeyboardOverlayContent(webContents);
-            if (overlayContentForegroundTab) {
+
+            // In fullscreen, the keyboard doesn't resize the view so there's
+            // no need to adjust the layout height by the keyboard height to
+            // keep it from changing in response.
+            if (!mShowingFullscreen
+                    && (overlayContentForegroundTab
+                            || ChromeFeatureList.sOSKResizesVisualViewport.isEnabled())) {
                 // During orientation changes, width of the |WebContents| changes to match the width
                 // of the screen and so does the keyboard. We fire geometrychange with the updated
                 // keyboard size as well as resize the viewport so the height resize doesn't affect
@@ -985,6 +1004,22 @@ public class CompositorViewHolder extends FrameLayout
         }
     }
 
+    /**
+     * Called when keyboard-related UI insets the bottom of the viewport
+     */
+    private void bottomInsetChanged() {
+        // updateViewportSize only needs to be called if OSK related UI
+        // actually resizes the view. Otherwise the inset only resizes the
+        // visual viewport which is communicated to the renderer by observing
+        // the inset provider in TabViewAndroidDelegate. This is a no-op in
+        // CompositorViewHolder.
+        if (ChromeFeatureList.sOSKResizesVisualViewport.isEnabled()) {
+            return;
+        }
+
+        updateViewportSize();
+    }
+
     // View.OnHierarchyChangeListener implementation
 
     @Override
@@ -1066,7 +1101,7 @@ public class CompositorViewHolder extends FrameLayout
         TraceEvent.begin("CompositorViewHolder:layout");
         if (mLayoutManager != null) {
             mLayoutManager.onUpdate();
-            mCompositorView.finalizeLayers(mLayoutManager, false);
+            mCompositorView.finalizeLayers(mLayoutManager);
         }
 
         mDidSwapFrameCallbacks.addAll(mOnCompositorLayoutCallbacks);
@@ -1135,19 +1170,8 @@ public class CompositorViewHolder extends FrameLayout
     public void didSwapFrame(int pendingFrameCount) {
         TraceEvent.instant("didSwapFrame");
 
-        // Wait until the second frame to turn off the placeholder background for the CompositorView
-        // and the tab strip, to ensure the compositor frame has been drawn.
-        final ViewGroup controlContainer = (ViewGroup) mControlContainer;
-        if (mHasDrawnOnce) {
-            post(new Runnable() {
-                @Override
-                public void run() {
-                    mCompositorView.setBackgroundResource(0);
-                    if (controlContainer != null) {
-                        controlContainer.setBackgroundResource(0);
-                    }
-                }
-            });
+        if (mHasDrawnOnce && mSetBackgroundRunnable != null) {
+            post(mSetBackgroundRunnable);
         }
 
         mHasDrawnOnce = true;
@@ -1193,9 +1217,6 @@ public class CompositorViewHolder extends FrameLayout
         }
         mDebugOverlay.pushRect(rect, color);
     }
-
-    @Override
-    public void loadPersitentTextureDataIfNeeded() {}
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
@@ -1258,6 +1279,13 @@ public class CompositorViewHolder extends FrameLayout
      * @return The inset height in pixels.
      */
     private int getKeyboardBottomInsetForControlsPixels() {
+        // If osk-resizes-visual-viewport is enabled, the OSK and its
+        // accessories don't resize the view/page so the autofill inset
+        // supplier must not have been set.
+        if (ChromeFeatureList.sOSKResizesVisualViewport.isEnabled()) {
+            return 0;
+        }
+
         return mAutofillUiBottomInsetSupplier != null
                         && mAutofillUiBottomInsetSupplier.get() != null
                 ? mAutofillUiBottomInsetSupplier.get()
@@ -1409,7 +1437,7 @@ public class CompositorViewHolder extends FrameLayout
         // Tab needs to be loaded. Once a new Tab is opening and Start surface is hiding, this flag
         // will be reset.
         if (tab != null && !StartSurfaceUserData.getInstance().getUnusedTabRestoredAtStartup()) {
-            tab.loadIfNeeded();
+            tab.loadIfNeeded(LoadIfNeededCaller.SET_TAB);
         }
 
         View newView = tab != null ? tab.getView() : null;
@@ -1553,7 +1581,7 @@ public class CompositorViewHolder extends FrameLayout
         if (enabled && (mNodeProvider == null)) {
             mAccessibilityView = new View(getContext()) {
                 boolean mIsCheckingForVirtualViews;
-                List<VirtualView> mVirtualViews = new ArrayList<>();
+                final List<VirtualView> mVirtualViews = new ArrayList<>();
 
                 /**
                  * Checks if there are any a11y focusable VirtualViews. If there are, set the view

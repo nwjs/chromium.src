@@ -275,6 +275,10 @@ class ContentAnalysisDelegate : public ContentAnalysisDelegateBase {
   void UpdateFinalResult(FinalContentAnalysisResult message,
                          const std::string& tag);
 
+  // Send an acknowledgement to the service provider of the final result
+  // for the requests of this ContentAnalysisDelegate instance.
+  void AckAllRequests();
+
   // Returns the BinaryUploadService used to upload content for deep scanning.
   // Virtual to override in tests.
   virtual safe_browsing::BinaryUploadService* GetBinaryUploadService();
@@ -284,6 +288,9 @@ class ContentAnalysisDelegate : public ContentAnalysisDelegateBase {
 
   // The GURL corresponding to the page where the scan triggered.
   GURL url_;
+
+  // The title corresponding to the WebContents triggering the scan.
+  std::string title_;
 
   // Description of the data being scanned and the results of the scan.
   Data data_;
@@ -340,6 +347,10 @@ class ContentAnalysisDelegate : public ContentAnalysisDelegateBase {
   // Responsible for opening and scanning multiple files on parallel threads.
   // Always nullptr for non-file content scanning.
   std::unique_ptr<FilesRequestHandler> files_request_handler_;
+
+  // The request tokens of all the requests that make up the user action
+  // represented by this ContentAnalysisDelegate instance.
+  std::vector<std::string> request_tokens_;
 
   base::TimeTicks upload_start_time_;
 

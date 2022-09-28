@@ -44,8 +44,10 @@
 #include "extensions/browser/extension_file_task_runner.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_system.h"
+#include "extensions/browser/pref_names.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
+#include "extensions/common/extension_features.h"
 #include "extensions/common/extension_l10n_util.h"
 #include "extensions/common/file_util.h"
 #include "extensions/common/manifest_constants.h"
@@ -94,10 +96,11 @@ static bool enable_background_extensions_during_testing = false;
 
 std::string GenerateId(const base::DictionaryValue* manifest,
                        const base::FilePath& path) {
-  std::string raw_key;
   std::string id_input;
-  CHECK(manifest->GetString(manifest_keys::kPublicKey, &raw_key));
-  CHECK(Extension::ParsePEMKeyBytes(raw_key, &id_input));
+  const std::string* raw_key =
+      manifest->GetDict().FindString(manifest_keys::kPublicKey);
+  CHECK(raw_key != nullptr);
+  CHECK(Extension::ParsePEMKeyBytes(*raw_key, &id_input));
   std::string id = crx_file::id_util::GenerateId(id_input);
   return id;
 }
@@ -399,17 +402,6 @@ void ComponentLoader::AddFileManagerExtension() {
   }
 }
 
-void ComponentLoader::AddAudioPlayerExtension() {
-  // TODO(b/189172062): Delete this entirely around M106 when it has has a
-  // chance to be cleaned up.
-  if (extensions::ExtensionPrefs::Get(profile_)
-          ->ShouldInstallObsoleteComponentExtension(
-              file_manager::kAudioPlayerAppId)) {
-    Add(IDR_AUDIO_PLAYER_MANIFEST,
-        base::FilePath(FILE_PATH_LITERAL("audio_player")));
-  }
-}
-
 void ComponentLoader::AddImageLoaderExtension() {
   Add(IDR_IMAGE_LOADER_MANIFEST,
       base::FilePath(FILE_PATH_LITERAL("image_loader")));
@@ -460,7 +452,7 @@ void ComponentLoader::AddDefaultComponentExtensions(
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
   AddKeyboardApp();
-#else  // BUILDFLAG(IS_CHROMEOS_ASH)
+#else   // BUILDFLAG(IS_CHROMEOS_ASH)
   DCHECK(!skip_session_components);
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
@@ -589,7 +581,6 @@ void ComponentLoader::AddDefaultComponentExtensionsWithBackgroundPages(
           switches::kLoadGuestModeTestExtension));
       AddGuestModeTestExtension(path);
     }
-    AddAudioPlayerExtension();
     AddFileManagerExtension();
     AddImageLoaderExtension();
 
@@ -613,14 +604,16 @@ void ComponentLoader::AddDefaultComponentExtensionsWithBackgroundPages(
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 #endif //nwjs
-
-#if 1 // need this to enable 'chrome.runtime.connect' in web pages as
+      // need this to enable 'chrome.runtime.connect' in web pages as
       // in upstream. Google Drive need this API to work correctly
       // Other API may need this as well e.g. 2FA NWJS#6966
-
-  Add(IDR_CRYPTOTOKEN_MANIFEST,
-      base::FilePath(FILE_PATH_LITERAL("cryptotoken")));
-#endif
+  if (base::FeatureList::IsEnabled(
+          extensions_features::kLoadCryptoTokenExtension) ||
+      ExtensionPrefs::Get(profile_)->pref_service()->GetBoolean(
+          pref_names::kLoadCryptoTokenExtension)) {
+    Add(IDR_CRYPTOTOKEN_MANIFEST,
+        base::FilePath(FILE_PATH_LITERAL("cryptotoken")));
+  }
 }
 
 void ComponentLoader::

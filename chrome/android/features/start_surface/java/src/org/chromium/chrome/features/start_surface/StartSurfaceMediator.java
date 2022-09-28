@@ -224,7 +224,7 @@ class StartSurfaceMediator implements TabSwitcher.TabSwitcherViewObserver, View.
             // normal tabs.
             mNormalTabModelObserver = new TabModelObserver() {
                 @Override
-                public void willCloseTab(Tab tab, boolean animate) {
+                public void willCloseTab(Tab tab, boolean animate, boolean didCloseAlone) {
                     if (mStartSurfaceState == StartSurfaceState.SHOWN_HOMEPAGE
                             && mTabModelSelector.getModel(false).getCount() <= 1) {
                         setTabCarouselVisibility(false);
@@ -525,8 +525,7 @@ class StartSurfaceMediator implements TabSwitcher.TabSwitcherViewObserver, View.
             setMVTilesVisibility(!mIsIncognito);
             setTabCarouselVisibility(hasNormalTab && !mIsIncognito);
             setExploreSurfaceVisibility(!mIsIncognito && mExploreSurfaceCoordinatorFactory != null);
-            // TODO(qinmin): show query tiles when flag is enabled.
-            setQueryTilesVisibility(false);
+            setQueryTilesVisibility(!mIsIncognito);
             setFakeBoxVisibility(!mIsIncognito);
             setSecondaryTasksSurfaceVisibility(mIsIncognito, /* skipUpdateController = */ false);
             setTopToolbarPlaceholderHeight(getPixelSize(R.dimen.control_container_height)
@@ -595,6 +594,10 @@ class StartSurfaceMediator implements TabSwitcher.TabSwitcherViewObserver, View.
 
     void hideTabSwitcherView(boolean animate) {
         mController.hideTabSwitcherView(animate);
+    }
+
+    public void beforeHideTabSwitcherView() {
+        mController.prepareHideTabSwitcherView();
     }
 
     void showOverview(boolean animate) {
@@ -813,10 +816,9 @@ class StartSurfaceMediator implements TabSwitcher.TabSwitcherViewObserver, View.
         assert mStartSurfaceState == StartSurfaceState.SHOWN_HOMEPAGE;
 
         if (mSecondaryTasksSurfacePropertyModel == null) {
-            mSecondaryTasksSurfaceController = mSecondaryTasksSurfaceInitializer.initialize();
+            TabSwitcher.Controller controller = mSecondaryTasksSurfaceInitializer.initialize();
             assert mSecondaryTasksSurfacePropertyModel != null;
-            mSecondaryTasksSurfaceController.isDialogVisibleSupplier().addObserver(
-                    (x) -> notifyBackPressStateChanged());
+            setSecondaryTasksSurfaceController(controller);
         }
 
         RecordUserAction.record("StartSurface.SinglePane.MoreTabs");
@@ -849,6 +851,8 @@ class StartSurfaceMediator implements TabSwitcher.TabSwitcherViewObserver, View.
             TabSwitcher.Controller secondaryTasksSurfaceController) {
         mSecondaryTasksSurfaceController = secondaryTasksSurfaceController;
         mSecondaryTasksSurfaceController.isDialogVisibleSupplier().addObserver(
+                (v) -> notifyBackPressStateChanged());
+        mSecondaryTasksSurfaceController.getHandleBackPressChangedSupplier().addObserver(
                 (v) -> notifyBackPressStateChanged());
     }
 
@@ -924,7 +928,6 @@ class StartSurfaceMediator implements TabSwitcher.TabSwitcherViewObserver, View.
         // StartSurface is being supplied with OneShotSupplier, notification sends after
         // StartSurface is available to avoid missing events. More detail see:
         // https://crrev.com/c/2427428.
-        notifyBackPressStateChanged();
         mController.onHomepageChanged(mStartSurfaceState == StartSurfaceState.SHOWN_HOMEPAGE);
         if (mSecondaryTasksSurfaceController != null) {
             mSecondaryTasksSurfaceController.onHomepageChanged(
@@ -935,6 +938,7 @@ class StartSurfaceMediator implements TabSwitcher.TabSwitcherViewObserver, View.
                 observer.onStateChanged(mStartSurfaceState, shouldShowTabSwitcherToolbar());
             }
         });
+        notifyBackPressStateChanged();
     }
 
     private boolean hasFakeSearchBox() {

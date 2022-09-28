@@ -22,6 +22,7 @@
 #include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/html/canvas/text_metrics.h"
 #include "third_party/blink/renderer/core/html/media/html_video_element.h"
+#include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_filter.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_pattern.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/path_2d.h"
@@ -83,15 +84,15 @@ const base::TimeDelta kTryRestoreContextInterval = base::Milliseconds(500);
 
 BaseRenderingContext2D::BaseRenderingContext2D()
     : dispatch_context_lost_event_timer_(
-          Thread::Current()->GetTaskRunner(),
+          Thread::Current()->GetDeprecatedTaskRunner(),
           this,
           &BaseRenderingContext2D::DispatchContextLostEvent),
       dispatch_context_restored_event_timer_(
-          Thread::Current()->GetTaskRunner(),
+          Thread::Current()->GetDeprecatedTaskRunner(),
           this,
           &BaseRenderingContext2D::DispatchContextRestoredEvent),
       try_restore_context_event_timer_(
-          Thread::Current()->GetTaskRunner(),
+          Thread::Current()->GetDeprecatedTaskRunner(),
           this,
           &BaseRenderingContext2D::TryRestoreContextEvent),
       clip_antialiasing_(kNotAntiAliased),
@@ -158,6 +159,22 @@ void BaseRenderingContext2D::restore() {
   PopAndRestore();
 }
 
+sk_sp<PaintFilter> BaseRenderingContext2D::StateGetFilter(
+    CanvasRenderingContext2DState::GlobalAlphaFilterMode
+        globalAlphaFilterMode) {
+  // If the globalAlphaFilterMode is set to kInclude, a ComposePaintFilter
+  // is created with the regular filter PaintFilter and the globalAlpha
+  // PaintFilter.
+  if (globalAlphaFilterMode ==
+          CanvasRenderingContext2DState::GlobalAlphaFilterMode::kInclude &&
+      GetState().GlobalAlpha() != 1.0) {
+    gfx::Size size(Width(), Height());
+    return sk_make_sp<ComposePaintFilter>(
+        StateGetFilterImpl(), GetState().GetGlobalAlphaAsFilter(size, this));
+  }
+  return StateGetFilterImpl();
+}
+
 void BaseRenderingContext2D::beginLayer() {
   if (isContextLost())
     return;
@@ -190,9 +207,11 @@ void BaseRenderingContext2D::beginLayer() {
     GetState().FillStyle()->ApplyToFlags(flags);
     flags.setColor(GetState().FillStyle()->PaintColor());
     flags.setBlendMode(GetState().GlobalComposite());
-    flags.setImageFilter(GetState().ShouldDrawShadows()
-                             ? GetState().ShadowAndForegroundImageFilter()
-                             : StateGetFilter());
+    flags.setImageFilter(
+        GetState().ShouldDrawShadows()
+            ? GetState().ShadowAndForegroundImageFilter()
+            : StateGetFilter(CanvasRenderingContext2DState::
+                                 GlobalAlphaFilterMode::kExclude));
     canvas->saveLayer(nullptr, &flags);
 
     // Push to state stack to keep stack size up to date.
@@ -204,8 +223,10 @@ void BaseRenderingContext2D::beginLayer() {
     GetState().FillStyle()->ApplyToFlags(extra_flags);
     extra_flags.setColor(GetState().FillStyle()->PaintColor());
     extra_flags.setAlpha(globalAlpha() * 255);
-    if (GetState().ShouldDrawShadows())
-      extra_flags.setImageFilter(StateGetFilter());
+    if (GetState().ShouldDrawShadows()) {
+      extra_flags.setImageFilter(StateGetFilter(
+          CanvasRenderingContext2DState::GlobalAlphaFilterMode::kExclude));
+    }
     canvas->saveLayer(nullptr, &extra_flags);
   } else {
     cc::PaintFlags flags;
@@ -215,7 +236,9 @@ void BaseRenderingContext2D::beginLayer() {
     // This ComposePaintFilter will work always, whether there is only
     // shadows, or filters, both of them, or none of them.
     flags.setImageFilter(sk_make_sp<ComposePaintFilter>(
-        GetState().ShadowAndForegroundImageFilter(), StateGetFilter()));
+        GetState().ShadowAndForegroundImageFilter(),
+        StateGetFilter(
+            CanvasRenderingContext2DState::GlobalAlphaFilterMode::kExclude)));
     flags.setAlpha(globalAlpha() * 255);
     canvas->saveLayer(nullptr, &flags);
   }
@@ -226,7 +249,7 @@ void BaseRenderingContext2D::beginLayer() {
   setShadowOffsetX(0);
   setShadowOffsetY(0);
   setShadowBlur(0);
-  GetState().SetShadowColor(Color::kTransparent);
+  GetState().SetShadowColor(SK_ColorTRANSPARENT);
   DCHECK(!GetState().ShouldDrawShadows());
   setGlobalAlpha(1.0);
   setGlobalCompositeOperation("source-over");
@@ -462,7 +485,7 @@ void BaseRenderingContext2D::setStrokeStyle(
       color_string = style->GetAsString();
       if (color_string == GetState().UnparsedStrokeColor())
         return;
-      Color parsed_color = 0;
+      Color parsed_color = Color::kTransparent;
       if (!ParseColorOrCurrentColor(parsed_color, color_string))
         return;
       if (GetState().StrokeStyle()->IsEquivalentRGBA(parsed_color.Rgb())) {
@@ -521,7 +544,7 @@ void BaseRenderingContext2D::setFillStyle(
       color_string = style->GetAsString();
       if (color_string == GetState().UnparsedFillColor())
         return;
-      Color parsed_color = 0;
+      Color parsed_color = Color::kTransparent;
       if (!ParseColorOrCurrentColor(parsed_color, color_string))
         return;
       if (GetState().FillStyle()->IsEquivalentRGBA(parsed_color.Rgb())) {
@@ -652,14 +675,16 @@ void BaseRenderingContext2D::setShadowBlur(double blur) {
 }
 
 String BaseRenderingContext2D::shadowColor() const {
-  return Color(GetState().ShadowColor()).Serialized();
+  // TODO(https://1351544): CanvasRenderingContext2DState's shadow color should
+  // be a Color, not an SkColor or SkColor4f.
+  return Color::FromSkColor(GetState().ShadowColor()).Serialized();
 }
 
 void BaseRenderingContext2D::setShadowColor(const String& color_string) {
   Color color;
   if (!ParseColorOrCurrentColor(color, color_string))
     return;
-  if (GetState().ShadowColor() == color)
+  if (Color::FromSkColor(GetState().ShadowColor()) == color)
     return;
   if (identifiability_study_helper_.ShouldUpdateBuilder()) {
     identifiability_study_helper_.UpdateBuilder(CanvasOps::kSetShadowColor,
@@ -773,6 +798,8 @@ void BaseRenderingContext2D::setFilter(
           filter_string == GetState().UnparsedCSSFilter()) {
         return;
       }
+      if (!execution_context)
+        return;
       const CSSValue* css_value = CSSParser::ParseSingleValue(
           CSSPropertyID::kFilter, filter_string,
           MakeGarbageCollected<CSSParserContext>(
@@ -1811,7 +1838,6 @@ CanvasPattern* BaseRenderingContext2D::createPattern(
 }
 
 CanvasPattern* BaseRenderingContext2D::createPattern(
-
     CanvasImageSource* image_source,
     const String& repetition_type,
     ExceptionState& exception_state) {
@@ -1844,6 +1870,8 @@ CanvasPattern* BaseRenderingContext2D::createPattern(
                                  .width()
                              ? "height"
                              : "width"));
+      return nullptr;
+    case kZeroSizeImageSourceStatus:
       return nullptr;
     case kUndecodableSourceImageStatus:
       exception_state.ThrowDOMException(
@@ -2001,6 +2029,25 @@ ImageData* BaseRenderingContext2D::getImageDataInternal(
   // that those get drawn here
   FinalizeFrame();
 
+  num_readbacks_performed_++;
+  if (num_readbacks_performed_ == 2 && GetCanvasRenderingContextHost() &&
+      GetCanvasRenderingContextHost()->RenderingContext()) {
+    bool will_read_frequently_enabled = GetCanvasRenderingContextHost()
+                                            ->RenderingContext()
+                                            ->CreationAttributes()
+                                            .will_read_frequently;
+    if (!will_read_frequently_enabled) {
+      const String& message =
+          "Canvas2D: Multiple readback operations using getImageData are "
+          "faster with the willReadFrequently attribute set to true. See: "
+          "https://html.spec.whatwg.org/multipage/"
+          "canvas.html#concept-canvas-will-read-frequently";
+      GetTopExecutionContext()->AddConsoleMessage(
+          MakeGarbageCollected<ConsoleMessage>(
+              mojom::blink::ConsoleMessageSource::kRendering,
+              mojom::blink::ConsoleMessageLevel::kWarning, message));
+    }
+  }
   if (!base::FeatureList::IsEnabled(features::kCanvas2dStaysGPUOnReadback)) {
     // GetImagedata is faster in Unaccelerated canvases.
     // In Desynchronized canvas disabling the acceleration will break

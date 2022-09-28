@@ -14,7 +14,6 @@
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
 #include "chrome/common/buildflags.h"
-#include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/search_engines/template_url_service.h"
 #include "content/public/browser/browsing_data_filter_builder.h"
 #include "content/public/browser/storage_partition.h"
@@ -140,10 +139,12 @@ void DeleteStoragePartitionDataWithFilter(
               : base::NullCallback();
 
   const uint32_t removal_mask =
+      content::StoragePartition::REMOVE_DATA_MASK_AGGREGATION_SERVICE |
       content::StoragePartition::
           REMOVE_DATA_MASK_ATTRIBUTION_REPORTING_SITE_CREATED |
       content::StoragePartition::
-          REMOVE_DATA_MASK_ATTRIBUTION_REPORTING_INTERNAL;
+          REMOVE_DATA_MASK_ATTRIBUTION_REPORTING_INTERNAL |
+      content::StoragePartition::REMOVE_DATA_MASK_PRIVATE_AGGREGATION_INTERNAL;
   const uint32_t quota_removal_mask = 0;
   storage_partition->ClearData(
       removal_mask, quota_removal_mask, std::move(storage_key_matcher),
@@ -261,9 +262,10 @@ BrowsingDataHistoryObserverService::Factory::GetInstance() {
 }
 
 BrowsingDataHistoryObserverService::Factory::Factory()
-    : BrowserContextKeyedServiceFactory(
-          "BrowsingDataHistoryObserverService",
-          BrowserContextDependencyManager::GetInstance()) {
+    : ProfileKeyedServiceFactory("BrowsingDataHistoryObserverService",
+                                 ProfileSelections::Builder()
+                                     .WithGuest(ProfileSelection::kNone)
+                                     .Build()) {
   DependsOn(HistoryServiceFactory::GetInstance());
   DependsOn(TabRestoreServiceFactory::GetInstance());
 #if BUILDFLAG(ENABLE_SESSION_SERVICE)
@@ -279,8 +281,6 @@ KeyedService*
 BrowsingDataHistoryObserverService::Factory::BuildServiceInstanceFor(
     content::BrowserContext* context) const {
   Profile* profile = Profile::FromBrowserContext(context);
-  if (profile->IsOffTheRecord() || profile->IsGuestSession())
-    return nullptr;
   return new BrowsingDataHistoryObserverService(profile);
 }
 

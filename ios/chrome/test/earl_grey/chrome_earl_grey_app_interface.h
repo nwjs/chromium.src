@@ -540,6 +540,12 @@
 // Returns whether the OmniboxPopupUpdatedUI feature is enabled.
 + (BOOL)isNewOmniboxPopupEnabled;
 
+// Returns whether the kIOSNewOmniboxImplementation feature is enabled.
++ (BOOL)isExperimentalOmniboxEnabled;
+
+// Returns whether the UseLensToSearchForImage feature is enabled.
++ (BOOL)isUseLensToSearchForImageEnabled;
+
 // Returns whether the Thumbstrip feature is enabled for window with given
 // number.
 + (BOOL)isThumbstripEnabledForWindowWithNumber:(int)windowNumber;

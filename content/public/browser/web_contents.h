@@ -39,7 +39,7 @@
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/public/mojom/favicon/favicon_url.mojom-forward.h"
 #include "third_party/blink/public/mojom/frame/find_in_page.mojom-forward.h"
-#include "third_party/blink/public/mojom/frame/frame.mojom-forward.h"
+#include "third_party/blink/public/mojom/frame/remote_frame.mojom-forward.h"
 #include "third_party/blink/public/mojom/input/pointer_lock_result.mojom.h"
 #include "third_party/blink/public/mojom/media/capture_handle_config.mojom-forward.h"
 #include "third_party/perfetto/include/perfetto/tracing/traced_value_forward.h"
@@ -221,11 +221,12 @@ class WebContents : public PageNavigator,
       kOkayToHaveRendererProcess,
 
       // Ensures that the created WebContents are backed by an OS process which
-      // has an initialized RenderView.
+      // has an initialized `blink::WebView`.
       //
       // TODO(lukasza): https://crbug.com/848366: Remove
       // kInitializeAndWarmupRendererProcess value - warming up the renderer by
-      // initializing the RenderView is redundant with the warm-up that can be
+      // initializing the `blink::WebView` is redundant with the warm-up that
+      // can be
       // achieved by either 1) warming up the spare renderer before creating
       // WebContents and/or 2) speculative RenderFrameHost used internally
       // during a navigation.
@@ -704,6 +705,10 @@ class WebContents : public PageNavigator,
   // device.
   virtual bool IsConnectedToHidDevice() = 0;
 
+  // Indicates whether any frame in the WebContents is connected to a USB
+  // device.
+  virtual bool IsConnectedToUsbDevice() = 0;
+
   // Indicates whether any frame in the WebContents has File System Access
   // handles.
   virtual bool HasFileSystemAccessHandles() = 0;
@@ -1100,10 +1105,9 @@ class WebContents : public PageNavigator,
   // be called with the bitmaps received from the renderer.
   // If |is_favicon| is true, the cookies are not sent and not accepted during
   // download.
-  // Bitmaps with pixel sizes larger than |max_bitmap_size| are filtered out
-  // from the bitmap results. If there are no bitmap results <=
-  // |max_bitmap_size|, the smallest bitmap is resized to |max_bitmap_size| and
-  // is the only result. A |max_bitmap_size| of 0 means unlimited.
+  // If there are no bitmap results <= |max_bitmap_size|, the smallest bitmap
+  // is resized to |max_bitmap_size| and is the only result.
+  // A |max_bitmap_size| of 0 means unlimited.
   // For vector images, |preferred_size| will serve as a viewport into which
   // the image will be rendered. This would usually be the dimensions of the
   // rectangle where the bitmap will be rendered. If |preferred_size| is empty,
@@ -1365,6 +1369,14 @@ class WebContents : public PageNavigator,
       PreloadingAttempt* preloading_attempt,
       absl::optional<base::RepeatingCallback<bool(const GURL&)>>
           url_match_predicate = absl::nullopt) = 0;
+
+  // Disables Prerender2 for this WebContents.
+  // See
+  // https://docs.google.com/document/d/1P2VKCLpmnNm_cRAjUeE-bqLL0bslL_zKqiNeCzNom_w/
+  virtual void DisablePrerender2() = 0;
+  // Set Prerender2 disabled = false, but this does not imply Prerender2 is
+  // enabled.
+  virtual void ResetPrerender2Disabled() = 0;
 
  private:
   // This interface should only be implemented inside content.

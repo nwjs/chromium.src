@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import 'chrome://resources/polymer/v3_0/iron-pages/iron-pages.js';
-import 'chrome://resources/cr_elements/cr_button/cr_button.m.js';
+import 'chrome://resources/cr_elements/cr_button/cr_button.js';
 import 'chrome://resources/cr_elements/cr_toast/cr_toast.js';
 import './data_collectors.js';
 import './issue_details.js';
@@ -33,11 +33,11 @@ export enum SupportToolPageIndex {
   DATA_EXPORT_DONE,
 }
 
-export type DataExportResult = {
-  success: boolean,
-  path: string,
-  error: string,
-};
+export interface DataExportResult {
+  success: boolean;
+  path: string;
+  error: string;
+}
 
 export interface SupportToolElement {
   $: {

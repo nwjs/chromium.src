@@ -7,7 +7,7 @@
 
 #import <UIKit/UIKit.h>
 
-#include "ios/chrome/browser/discover_feed/feed_constants.h"
+#import "ios/chrome/browser/discover_feed/feed_constants.h"
 
 @protocol FeedControlDelegate;
 @protocol NewTabPageFollowDelegate;
@@ -232,6 +232,9 @@ class Time;
                                          spywEnabled:(BOOL)spywEnabled
                                      lastRefreshTime:
                                          (base::Time)lastRefreshTime;
+
+// Records a user action for the Following feed sort type being selected.
+- (void)recordFollowingFeedSortTypeSelected:(FollowingFeedSortType)sortType;
 
 #pragma mark - Follow
 

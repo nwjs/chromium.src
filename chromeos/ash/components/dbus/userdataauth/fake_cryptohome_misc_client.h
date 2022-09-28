@@ -8,7 +8,7 @@
 #include "chromeos/ash/components/dbus/userdataauth/cryptohome_misc_client.h"
 
 #include "base/component_export.h"
-#include "chromeos/dbus/cryptohome/UserDataAuth.pb.h"
+#include "chromeos/ash/components/dbus/cryptohome/UserDataAuth.pb.h"
 
 namespace ash {
 
@@ -95,8 +95,9 @@ class COMPONENT_EXPORT(USERDATAAUTH_CLIENT) FakeCryptohomeMiscClient
  private:
   // Helper that returns the protobuf reply.
   template <typename ReplyType>
-  void ReturnProtobufMethodCallback(const ReplyType& reply,
-                                    DBusMethodCallback<ReplyType> callback);
+  void ReturnProtobufMethodCallback(
+      const ReplyType& reply,
+      chromeos::DBusMethodCallback<ReplyType> callback);
 
   // The next error code to return for various functions.
   ::user_data_auth::CryptohomeErrorCode cryptohome_error_ =

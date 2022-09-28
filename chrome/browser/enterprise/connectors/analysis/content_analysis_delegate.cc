@@ -117,6 +117,25 @@ bool* UIEnabledStorage() {
   return &enabled;
 }
 
+ContentAnalysisAcknowledgement::FinalAction GetFinalAction(
+    FinalContentAnalysisResult final_result) {
+  auto final_action = ContentAnalysisAcknowledgement::ALLOW;
+  switch (final_result) {
+    case FinalContentAnalysisResult::FAILURE:
+    case FinalContentAnalysisResult::LARGE_FILES:
+    case FinalContentAnalysisResult::ENCRYPTED_FILES:
+      final_action = ContentAnalysisAcknowledgement::BLOCK;
+      break;
+    case FinalContentAnalysisResult::WARNING:
+      final_action = ContentAnalysisAcknowledgement::WARN;
+      break;
+    case FinalContentAnalysisResult::SUCCESS:
+      break;
+  }
+
+  return final_action;
+}
+
 }  // namespace
 
 ContentAnalysisDelegate::Data::Data() = default;
@@ -161,7 +180,7 @@ void ContentAnalysisDelegate::BypassWarnings(
     result_.page_result = true;
 
     ReportAnalysisConnectorWarningBypass(
-        profile_, url_, "Printed page", /*sha256*/ std::string(),
+        profile_, url_, title_, /*sha256*/ std::string(),
         /*mime_type*/ std::string(),
         extensions::SafeBrowsingPrivateEventRouter::kTriggerPagePrint,
         access_point_, /*content_size*/ -1, page_response_, user_justification);
@@ -332,6 +351,7 @@ ContentAnalysisDelegate::ContentAnalysisDelegate(
   DCHECK(web_contents);
   profile_ = Profile::FromBrowserContext(web_contents->GetBrowserContext());
   url_ = web_contents->GetLastCommittedURL();
+  title_ = base::UTF16ToUTF8(web_contents->GetTitle());
   result_.text_results.resize(data_.text.size(), false);
   result_.paths_results.resize(data_.paths.size(), false);
   result_.page_result = false;
@@ -340,6 +360,10 @@ ContentAnalysisDelegate::ContentAnalysisDelegate(
 void ContentAnalysisDelegate::StringRequestCallback(
     BinaryUploadService::Result result,
     enterprise_connectors::ContentAnalysisResponse response) {
+  // Remember to send an ack for this response.
+  if (result == safe_browsing::BinaryUploadService::Result::SUCCESS)
+    request_tokens_.push_back(response.request_token());
+
   int64_t content_size = 0;
   for (const std::string& entry : data_.text)
     content_size += entry.size();
@@ -378,6 +402,9 @@ void ContentAnalysisDelegate::StringRequestCallback(
 
 void ContentAnalysisDelegate::FilesRequestCallback(
     std::vector<RequestHandlerResult> results) {
+  // Remember to send acks for any responses.
+  files_request_handler_->AppendRequestTokensTo(&request_tokens_);
+
   // No reporting here, because the MultiFileRequestHandler does that.
   DCHECK_EQ(results.size(), result_.paths_results.size());
   for (size_t index = 0; index < results.size(); ++index) {
@@ -417,6 +444,10 @@ bool ContentAnalysisDelegate::CancelDialog() {
 void ContentAnalysisDelegate::PageRequestCallback(
     BinaryUploadService::Result result,
     enterprise_connectors::ContentAnalysisResponse response) {
+  // Remember to send an ack for this response.
+  if (result == safe_browsing::BinaryUploadService::Result::SUCCESS)
+    request_tokens_.push_back(response.request_token());
+
   RecordDeepScanMetrics(access_point_,
                         base::TimeTicks::Now() - upload_start_time_,
                         page_size_bytes_, result, response);
@@ -431,7 +462,7 @@ void ContentAnalysisDelegate::PageRequestCallback(
                      FinalContentAnalysisResult::WARNING;
 
   MaybeReportDeepScanningVerdict(
-      profile_, url_, "Printed page", /*sha256*/ std::string(),
+      profile_, url_, title_, /*sha256*/ std::string(),
       /*mime_type*/ std::string(),
       extensions::SafeBrowsingPrivateEventRouter::kTriggerPagePrint,
       access_point_, /*content_size*/ -1, result, response,
@@ -520,6 +551,7 @@ void ContentAnalysisDelegate::PreparePageRequest() {
                        weak_ptr_factory_.GetWeakPtr()));
 
     PrepareRequest(enterprise_connectors::PRINT, request.get());
+    request->set_filename(title_);
     UploadPageForDeepScanning(std::move(request));
   }
 }
@@ -581,6 +613,8 @@ void ContentAnalysisDelegate::MaybeCompleteScanRequest() {
     return;
   }
 
+  AckAllRequests();
+
   // If showing the warning message, wait before running the callback. The
   // callback will be called either in BypassWarnings or Cancel.
   if (final_result_ != FinalContentAnalysisResult::WARNING)
@@ -604,6 +638,24 @@ void ContentAnalysisDelegate::UpdateFinalResult(
   if (result < final_result_) {
     final_result_ = result;
     final_result_tag_ = tag;
+  }
+}
+
+void ContentAnalysisDelegate::AckAllRequests() {
+  BinaryUploadService* upload_service = GetBinaryUploadService();
+  if (!upload_service)
+    return;
+
+  // Calculate final action applied to all requests.
+  auto final_action = GetFinalAction(final_result_);
+
+  for (auto& token : request_tokens_) {
+    auto ack = std::make_unique<safe_browsing::BinaryUploadService::Ack>(
+        data_.settings.cloud_or_local_settings);
+    ack->set_request_token(token);
+    ack->set_status(ContentAnalysisAcknowledgement::SUCCESS);
+    ack->set_final_action(final_action);
+    upload_service->MaybeAcknowledge(std::move(ack));
   }
 }
 

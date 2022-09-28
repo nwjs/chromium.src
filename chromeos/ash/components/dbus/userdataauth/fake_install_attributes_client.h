@@ -8,7 +8,7 @@
 #include "chromeos/ash/components/dbus/userdataauth/install_attributes_client.h"
 
 #include "base/component_export.h"
-#include "chromeos/dbus/cryptohome/UserDataAuth.pb.h"
+#include "chromeos/ash/components/dbus/cryptohome/UserDataAuth.pb.h"
 
 namespace ash {
 
@@ -84,8 +84,9 @@ class COMPONENT_EXPORT(USERDATAAUTH_CLIENT) FakeInstallAttributesClient
  private:
   // Helper that returns the protobuf reply.
   template <typename ReplyType>
-  void ReturnProtobufMethodCallback(const ReplyType& reply,
-                                    DBusMethodCallback<ReplyType> callback);
+  void ReturnProtobufMethodCallback(
+      const ReplyType& reply,
+      chromeos::DBusMethodCallback<ReplyType> callback);
 
   // Loads install attributes from the stub file.
   bool LoadInstallAttributes();

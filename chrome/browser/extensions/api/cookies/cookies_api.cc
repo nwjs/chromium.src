@@ -15,7 +15,6 @@
 #include "base/json/json_writer.h"
 #include "base/lazy_instance.h"
 #include "base/time/time.h"
-#include "base/values.h"
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/extensions/api/cookies/cookies_api_constants.h"
 #include "chrome/browser/extensions/api/cookies/cookies_helpers.h"
@@ -164,17 +163,18 @@ void CookiesEventRouter::OnCookieChange(bool otr,
                                         const net::CookieChangeInfo& change) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
-  std::unique_ptr<base::ListValue> args(new base::ListValue());
-  base::Value dict(base::Value::Type::DICTIONARY);
-  dict.SetBoolKey(cookies_api_constants::kRemovedKey,
-                  change.cause != net::CookieChangeCause::INSERTED);
+  base::Value::List args;
+  base::Value::Dict dict;
+  dict.Set(cookies_api_constants::kRemovedKey,
+           change.cause != net::CookieChangeCause::INSERTED);
 
   Profile* profile =
       otr ? profile_->GetPrimaryOTRProfile(/*create_if_needed=*/true)
           : profile_->GetOriginalProfile();
   api::cookies::Cookie cookie = cookies_helpers::CreateCookie(
       change.cookie, cookies_helpers::GetStoreIdFromProfile(profile));
-  dict.SetKey(cookies_api_constants::kCookieKey, std::move(*cookie.ToValue()));
+  dict.Set(cookies_api_constants::kCookieKey,
+           base::Value::FromUniquePtrValue(cookie.ToValue()));
 
   // Map the internal cause to an external string.
   std::string cause_dict_entry;
@@ -205,9 +205,9 @@ void CookiesEventRouter::OnCookieChange(bool otr,
     case net::CookieChangeCause::UNKNOWN_DELETION:
       NOTREACHED();
   }
-  dict.SetStringKey(cookies_api_constants::kCauseKey, cause_dict_entry);
+  dict.Set(cookies_api_constants::kCauseKey, cause_dict_entry);
 
-  args->Append(std::move(dict));
+  args.Append(std::move(dict));
 
   DispatchEvent(profile, events::COOKIES_ON_CHANGED,
                 api::cookies::OnChanged::kEventName, std::move(args),
@@ -261,17 +261,16 @@ void CookiesEventRouter::OnConnectionError(
   MaybeStartListening();
 }
 
-void CookiesEventRouter::DispatchEvent(
-    content::BrowserContext* context,
-    events::HistogramValue histogram_value,
-    const std::string& event_name,
-    std::unique_ptr<base::ListValue> event_args,
-    const GURL& cookie_domain) {
-  EventRouter* router = context ? EventRouter::Get(context) : NULL;
+void CookiesEventRouter::DispatchEvent(content::BrowserContext* context,
+                                       events::HistogramValue histogram_value,
+                                       const std::string& event_name,
+                                       base::Value::List event_args,
+                                       const GURL& cookie_domain) {
+  EventRouter* router = context ? EventRouter::Get(context) : nullptr;
   if (!router)
     return;
-  auto event = std::make_unique<Event>(
-      histogram_value, event_name, std::move(event_args->GetList()), context);
+  auto event = std::make_unique<Event>(histogram_value, event_name,
+                                       std::move(event_args), context);
   event->event_url = cookie_domain;
   router->BroadcastEvent(std::move(event));
 }
@@ -325,7 +324,7 @@ void CookiesGetFunction::GetCookieListCallback(
   }
 
   // The cookie doesn't exist; return null.
-  Respond(OneArgument(base::Value()));
+  Respond(WithArguments(base::Value()));
 }
 
 CookiesGetAllFunction::CookiesGetAllFunction() {
@@ -382,7 +381,7 @@ void CookiesGetAllFunction::GetAllCookiesCallback(
         ArgumentList(api::cookies::GetAll::Results::Create(match_vector));
   } else {
     // TODO(devlin): When can |extension()| be null for this function?
-    response = NoArguments();
+    response = WithArguments();
   }
   Respond(std::move(response));
 }
@@ -401,7 +400,7 @@ void CookiesGetAllFunction::GetCookieListCallback(
         ArgumentList(api::cookies::GetAll::Results::Create(match_vector));
   } else {
     // TODO(devlin): When can |extension()| be null for this function?
-    response = NoArguments();
+    response = WithArguments();
   }
   Respond(std::move(response));
 }
@@ -543,7 +542,7 @@ void CookiesSetFunction::GetCookieListCallback(
     }
   }
 
-  Respond(value ? std::move(value) : NoArguments());
+  Respond(value ? std::move(value) : WithArguments());
 }
 
 CookiesRemoveFunction::CookiesRemoveFunction() {

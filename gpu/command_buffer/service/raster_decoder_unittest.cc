@@ -203,7 +203,7 @@ class RasterDecoderOOPTest : public testing::Test, DecoderClient {
 
     scoped_refptr<gl::GLShareGroup> share_group = new gl::GLShareGroup();
     scoped_refptr<gl::GLSurface> surface =
-        gl::init::CreateOffscreenGLSurface(gfx::Size());
+        gl::init::CreateOffscreenGLSurface(display_, gfx::Size());
     scoped_refptr<gl::GLContext> context = gl::init::CreateGLContext(
         share_group.get(), surface.get(), gl::GLContextAttribs());
     ASSERT_TRUE(context->MakeCurrent(surface.get()));
@@ -265,8 +265,9 @@ class RasterDecoderOOPTest : public testing::Test, DecoderClient {
 
   // DecoderClient implementation.
   void OnConsoleMessage(int32_t id, const std::string& message) override {}
-  void CacheShader(const std::string& key, const std::string& shader) override {
-  }
+  void CacheBlob(gpu::GpuDiskCacheType type,
+                 const std::string& key,
+                 const std::string& blob) override {}
   void OnFenceSyncRelease(uint64_t release) override {}
   void OnDescheduleUntilFinished() override {}
   void OnRescheduleAfterFinished() override {}

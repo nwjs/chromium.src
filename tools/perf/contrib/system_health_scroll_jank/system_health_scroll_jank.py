@@ -8,7 +8,7 @@ from telemetry import benchmark
 from contrib.system_health_scroll_jank import janky_story_set
 
 _BENCHMARK_UMA = [
-    'Browser.Responsiveness.JankyIntervalsPerThirtySeconds',
+    'Browser.MainThreadsCongestion',
     'Compositing.Display.DrawToSwapUs',
     'CompositorLatency.TotalLatency',
     'CompositorLatency.Type',
@@ -29,6 +29,9 @@ _BENCHMARK_UMA = [
     'Graphics.Smoothness.PercentDroppedFrames.AllAnimations',
     'Graphics.Smoothness.PercentDroppedFrames.AllInteractions',
     'Graphics.Smoothness.PercentDroppedFrames.AllSequences',
+    'Graphics.Smoothness.PercentDroppedFrames3.AllAnimations',
+    'Graphics.Smoothness.PercentDroppedFrames3.AllInteractions',
+    'Graphics.Smoothness.PercentDroppedFrames3.AllSequences',
     'Memory.GPU.PeakMemoryUsage2.Scroll',
     'Memory.GPU.PeakMemoryUsage2.PageLoad',
 ]

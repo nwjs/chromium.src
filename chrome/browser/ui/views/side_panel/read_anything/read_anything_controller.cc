@@ -29,17 +29,28 @@ void ReadAnythingController::Activate(bool active) {
   DistillAXTree();
 }
 
-void ReadAnythingController::OnFontChoiceChanged(int new_choice) {
-  model_->SetSelectedFontByIndex(new_choice);
+///////////////////////////////////////////////////////////////////////////////
+// ReadAnythingFontCombobox::Delegate:
+///////////////////////////////////////////////////////////////////////////////
+
+void ReadAnythingController::OnFontChoiceChanged(int new_index) {
+  if (!model_->GetFontModel()->IsValidFontIndex(new_index))
+    return;
+
+  model_->SetSelectedFontByIndex(new_index);
 
   browser_->profile()->GetPrefs()->SetString(
       prefs::kAccessibilityReadAnythingFontName,
-      model_->GetFontModel()->GetFontNameAt(new_choice));
+      model_->GetFontModel()->GetFontNameAt(new_index));
 }
 
 ui::ComboboxModel* ReadAnythingController::GetFontComboboxModel() {
-  return static_cast<ui::ComboboxModel*>(model_->GetFontModel());
+  return model_->GetFontModel();
 }
+
+///////////////////////////////////////////////////////////////////////////////
+// ReadAnythingToolbarView::Delegate:
+///////////////////////////////////////////////////////////////////////////////
 
 void ReadAnythingController::OnFontSizeChanged(bool increase) {
   if (increase) {
@@ -52,6 +63,24 @@ void ReadAnythingController::OnFontSizeChanged(bool increase) {
       prefs::kAccessibilityReadAnythingFontScale, model_->GetFontScale());
 }
 
+void ReadAnythingController::OnColorsChanged(int new_index) {
+  if (!model_->GetColorsModel()->IsValidColorsIndex(new_index))
+    return;
+
+  model_->SetSelectedColorsByIndex(new_index);
+
+  browser_->profile()->GetPrefs()->SetInteger(
+      prefs::kAccessibilityReadAnythingColorInfo, new_index);
+}
+
+ui::ComboboxModel* ReadAnythingController::GetColorsModel() {
+  return model_->GetColorsModel();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// ReadAnythingPageHandler::Delegate:
+///////////////////////////////////////////////////////////////////////////////
+
 void ReadAnythingController::OnUIReady() {
   ui_ready_ = true;
   DistillAXTree();
@@ -60,6 +89,10 @@ void ReadAnythingController::OnUIReady() {
 void ReadAnythingController::OnUIDestroyed() {
   ui_ready_ = false;
 }
+
+///////////////////////////////////////////////////////////////////////////////
+// TabStripModelObserver:
+///////////////////////////////////////////////////////////////////////////////
 
 void ReadAnythingController::OnTabStripModelChanged(
     TabStripModel* tab_strip_model,
@@ -79,6 +112,10 @@ void ReadAnythingController::OnTabStripModelDestroyed(
   browser_ = nullptr;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// content::WebContentsObserver:
+///////////////////////////////////////////////////////////////////////////////
+
 void ReadAnythingController::DidStopLoading() {
   DistillAXTree();
 }
@@ -86,6 +123,8 @@ void ReadAnythingController::DidStopLoading() {
 void ReadAnythingController::WebContentsDestroyed() {
   active_contents_ = nullptr;
 }
+
+///////////////////////////////////////////////////////////////////////////////
 
 void ReadAnythingController::DistillAXTree() {
   DCHECK(browser_);

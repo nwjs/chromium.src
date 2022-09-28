@@ -39,12 +39,12 @@
 #include "ui/views/widget/widget.h"
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-#include "ash/components/cryptohome/cryptohome_parameters.h"
 #include "base/memory/ptr_util.h"
 #include "chrome/browser/ash/login/users/fake_chrome_user_manager.h"
 #include "chrome/browser/ash/ownership/owner_settings_service_ash.h"
 #include "chrome/browser/ash/ownership/owner_settings_service_ash_factory.h"
 #include "chrome/browser/ash/settings/about_flags.h"
+#include "chromeos/ash/components/cryptohome/cryptohome_parameters.h"
 #include "chromeos/ash/components/dbus/session_manager/fake_session_manager_client.h"
 #include "components/user_manager/scoped_user_manager.h"
 #include "components/user_manager/user_manager.h"
@@ -612,18 +612,17 @@ TEST_F(ChromeLabsViewControllerTest, DISABLED_ShowFeedbackPage) {
 // This test checks that experiments that are removed from the model will be
 // removed from the PrefService when updating new badge prefs.
 TEST_F(ChromeLabsViewControllerTest, CleanUpNewBadgePrefsTest) {
+  const base::Value::Dict& new_badge_prefs =
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-  const base::Value* new_badge_prefs =
-      browser_view()->browser()->profile()->GetPrefs()->GetDictionary(
+      browser_view()->browser()->profile()->GetPrefs()->GetValueDict(
           chrome_labs_prefs::kChromeLabsNewBadgeDictAshChrome);
 #else
-  const base::Value* new_badge_prefs =
-      g_browser_process->local_state()->GetDictionary(
+      g_browser_process->local_state()->GetValueDict(
           chrome_labs_prefs::kChromeLabsNewBadgeDict);
 #endif
 
-  EXPECT_TRUE(new_badge_prefs->FindKey(kFirstTestFeatureId));
-  EXPECT_TRUE(new_badge_prefs->FindKey(kTestFeatureWithVariationId));
+  EXPECT_TRUE(new_badge_prefs.contains(kFirstTestFeatureId));
+  EXPECT_TRUE(new_badge_prefs.contains(kTestFeatureWithVariationId));
 
   // Remove two experiments.
   std::vector<LabInfo> test_experiments = TestLabInfo();
@@ -638,6 +637,6 @@ TEST_F(ChromeLabsViewControllerTest, CleanUpNewBadgePrefsTest) {
 
   UpdateChromeLabsNewBadgePrefs(browser_view()->browser()->profile(),
                                 chrome_labs_model());
-  EXPECT_FALSE(new_badge_prefs->FindKey(kFirstTestFeatureId));
-  EXPECT_FALSE(new_badge_prefs->FindKey(kTestFeatureWithVariationId));
+  EXPECT_FALSE(new_badge_prefs.contains(kFirstTestFeatureId));
+  EXPECT_FALSE(new_badge_prefs.contains(kTestFeatureWithVariationId));
 }

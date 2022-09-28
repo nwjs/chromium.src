@@ -147,6 +147,7 @@
 #include "chrome/browser/ui/tab_dialogs.h"
 #include "chrome/browser/ui/tab_helpers.h"
 #include "chrome/browser/ui/tab_modal_confirm_dialog.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_group.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_menu_model.h"
@@ -544,7 +545,6 @@ Browser::Browser(const CreateParams& params)
       command_controller_(new chrome::BrowserCommandController(this)),
       window_has_shown_(false),
       user_title_(params.user_title),
-      picture_in_picture_window_title_(params.picture_in_picture_window_title),
       signin_view_controller_(this),
       breadcrumb_manager_browser_agent_(
           breadcrumbs::IsEnabled()
@@ -795,9 +795,6 @@ std::u16string Browser::GetWindowTitleForCurrentTab(
     bool include_app_name) const {
   if (!user_title_.empty())
     return base::UTF8ToUTF16(user_title_);
-  if (!picture_in_picture_window_title_.empty()) {
-    return base::UTF8ToUTF16(picture_in_picture_window_title_);
-  }
   return GetWindowTitleFromWebContents(
       include_app_name, tab_strip_model_->GetActiveWebContents());
 }
@@ -1561,14 +1558,7 @@ bool Browser::IsBackForwardCacheSupported() {
 bool Browser::IsPrerender2Supported(content::WebContents& web_contents) {
   Profile* profile =
       Profile::FromBrowserContext(web_contents.GetBrowserContext());
-  bool disabled =
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-      web_contents.GetBrowserContext()->GetUserData(
-          extensions::kIsPrerender2DisabledKey);
-#else
-      false;
-#endif
-  return prefetch::IsSomePreloadingEnabled(*profile->GetPrefs()) && !disabled;
+  return prefetch::IsSomePreloadingEnabled(*profile->GetPrefs());
 }
 
 std::unique_ptr<content::WebContents> Browser::ActivatePortalWebContents(
@@ -1684,7 +1674,7 @@ WebContents* Browser::OpenURLFromTab(WebContents* source,
   NavigateParams nav_params(this, params.url, params.transition);
   nav_params.FillNavigateParamsFromOpenURLParams(params);
   nav_params.source_contents = source;
-  nav_params.tabstrip_add_types = TabStripModel::ADD_NONE;
+  nav_params.tabstrip_add_types = AddTabTypes::ADD_NONE;
   if (params.user_gesture)
     nav_params.window_action = NavigateParams::SHOW_WINDOW;
   bool is_popup =
@@ -2142,6 +2132,11 @@ blink::mojom::DisplayMode Browser::GetDisplayMode(
     // browser_view()->IsWindowControlsOverlayEnabled().
     if (app_controller_ && app_controller_->AppUsesWindowControlsOverlay())
       return blink::mojom::DisplayMode::kWindowControlsOverlay;
+
+    // TODO(crbug.com/1325830): Add check for the Window Management API
+    // permission status.
+    if (app_controller_ && app_controller_->AppUsesBorderlessMode())
+      return blink::mojom::DisplayMode::kBorderless;
 
     return blink::mojom::DisplayMode::kStandalone;
   }
@@ -3325,4 +3320,11 @@ void Browser::RunScreenAIAnnotator() {
   }
   screen_ai_annotator_->Run();
 }
+
+void Browser::SetScreenAIAnnotatorForTesting(
+    std::unique_ptr<screen_ai::AXScreenAIAnnotator> annotator) {
+  DCHECK(!screen_ai_annotator_);
+  screen_ai_annotator_.swap(annotator);
+}
+
 #endif

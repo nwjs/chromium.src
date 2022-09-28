@@ -49,6 +49,7 @@ class CORE_EXPORT InspectedFrames final
   }
   bool Contains(LocalFrame*) const;
   LocalFrame* FrameWithSecurityOrigin(const String& origin_raw_string);
+  LocalFrame* FrameWithStorageKey(const String& key_raw_string);
   Iterator begin();
   Iterator end();
 

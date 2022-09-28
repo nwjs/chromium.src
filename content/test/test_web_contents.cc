@@ -396,6 +396,14 @@ void TestWebContents::SetLastActiveTime(base::TimeTicks last_active_time) {
   last_active_time_ = last_active_time;
 }
 
+void TestWebContents::TestIncrementUsbActiveFrameCount() {
+  IncrementUsbActiveFrameCount();
+}
+
+void TestWebContents::TestDecrementUsbActiveFrameCount() {
+  DecrementUsbActiveFrameCount();
+}
+
 void TestWebContents::TestIncrementBluetoothConnectedDeviceCount() {
   IncrementBluetoothConnectedDeviceCount();
 }
@@ -415,7 +423,7 @@ const blink::PortalToken& TestWebContents::CreatePortal(
   const blink::PortalToken& token = portal->portal_token();
   // Create stub RemoteFrameInterfaces.
   auto remote_frame_interfaces =
-      mojom::RemoteFrameInterfacesFromRenderer::New();
+      blink::mojom::RemoteFrameInterfacesFromRenderer::New();
   remote_frame_interfaces->frame_host_receiver =
       mojo::AssociatedRemote<blink::mojom::RemoteFrameHost>()
           .BindNewEndpointAndPassDedicatedReceiver();

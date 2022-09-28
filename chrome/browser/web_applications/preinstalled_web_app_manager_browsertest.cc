@@ -53,11 +53,20 @@
 #include "ui/events/devices/device_data_manager_test_api.h"
 #include "ui/events/devices/touchscreen_device.h"
 
+#if BUILDFLAG(IS_CHROMEOS)
+#include "chromeos/constants/chromeos_features.h"
+#endif
+
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "ash/public/cpp/test/app_list_test_api.h"
 #include "chrome/browser/ui/app_list/app_list_client_impl.h"
 #include "chrome/browser/ui/app_list/app_list_syncable_service.h"
 #include "chrome/browser/ui/app_list/app_list_syncable_service_factory.h"
+#endif
+
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+#include "chromeos/crosapi/mojom/crosapi.mojom.h"
+#include "chromeos/startup/browser_init_params.h"
 #endif
 
 namespace web_app {
@@ -768,6 +777,38 @@ IN_PROC_BROWSER_TEST_P(PreinstalledWebAppManagerTestWithExternalPrefRead,
   EXPECT_EQ(disabled_configs.size(), 0u);
 }
 
+IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
+                       IgnoreCorruptUserUninstalledPreinstalledWebAppPrefs) {
+  PreinstalledWebAppManager::BypassOfflineManifestRequirementForTesting();
+  ASSERT_TRUE(embedded_test_server()->Start());
+
+  constexpr char kAppConfigTemplate[] =
+      R"({
+        "app_url": "$1",
+        "launch_container": "window",
+        "user_type": ["unmanaged"]
+      })";
+  std::string app_config = base::ReplaceStringPlaceholders(
+      kAppConfigTemplate, {GetAppUrl().spec()}, nullptr);
+  EXPECT_EQ(SyncPreinstalledAppConfig(GetAppUrl(), app_config),
+            webapps::InstallResultCode::kSuccessNewInstall);
+
+  AppId app_id = GenerateAppId(/*manifest_id=*/absl::nullopt, GetAppUrl());
+  EXPECT_TRUE(registrar().IsInstalledByDefaultManagement(app_id));
+
+  // Simulate the effects of https://crbug.com/1359205 by adding an installed
+  // preinstalled web app to the "has been uninstalled by the user" pref even
+  // though the web app is still kDefault installed.
+  UserUninstalledPreinstalledWebAppPrefs(profile()->GetPrefs())
+      .Add(app_id, {GetAppUrl()});
+
+  // Check that the PreinstalledWebAppManager doesn't uninstall the web app
+  // just because the prefs say it's uninstalled.
+  EXPECT_EQ(SyncPreinstalledAppConfig(GetAppUrl(), app_config),
+            webapps::InstallResultCode::kSuccessAlreadyInstalled);
+  EXPECT_TRUE(registrar().IsInstalledByDefaultManagement(app_id));
+}
+
 // The offline manifest JSON config functionality is only available on Chrome
 // OS.
 #if BUILDFLAG(IS_CHROMEOS)
@@ -1188,7 +1229,7 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
 
   // Uninstall default app.
   proxy->UninstallSilently(preinstalled_app_id,
-                           apps::mojom::UninstallSource::kUnknown);
+                           apps::UninstallSource::kUnknown);
 
   // Ensure the UI receives the app uninstall.
   proxy->FlushMojoCallsForTesting();
@@ -1263,6 +1304,46 @@ IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerBrowserTest,
     ExpectInitialManifestFieldsFromBasicWebApp(icon_manager(), web_app,
                                                start_url, scope);
   }
+}
+
+class PreinstalledWebAppManagerWithCloudGamingBrowserTest
+    : public PreinstalledWebAppManagerBrowserTest {
+ public:
+  PreinstalledWebAppManagerWithCloudGamingBrowserTest() {
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+    auto params = crosapi::mojom::BrowserInitParams::New();
+    params->is_cloud_gaming_device = true;
+    chromeos::BrowserInitParams::SetInitParamsForTests(std::move(params));
+#else
+    scoped_feature_list_.InitAndEnableFeature(
+        chromeos::features::kCloudGamingDevice);
+#endif
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+// Tests that the custom behavior for the "CloudGamingDevice" feature works on
+// both Ash and Lacros.
+IN_PROC_BROWSER_TEST_F(PreinstalledWebAppManagerWithCloudGamingBrowserTest,
+                       GateOnCloudGamingFeature) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+
+  constexpr char kAppConfigTemplate[] =
+      R"({
+        "app_url": "$1",
+        "launch_container": "window",
+        "user_type": ["unmanaged"],
+        "feature_name": "$2"
+      })";
+  std::string app_config = base::ReplaceStringPlaceholders(
+      kAppConfigTemplate,
+      {GetAppUrl().spec(), chromeos::features::kCloudGamingDevice.name},
+      nullptr);
+
+  EXPECT_EQ(SyncPreinstalledAppConfig(GetAppUrl(), app_config),
+            webapps::InstallResultCode::kSuccessNewInstall);
 }
 
 #endif  // BUILDFLAG(IS_CHROMEOS)
