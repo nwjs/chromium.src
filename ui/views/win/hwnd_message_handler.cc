@@ -2732,12 +2732,12 @@ void HWNDMessageHandler::OnSizing(UINT param, RECT* rect) {
   *rect = window_rect.ToRECT();
 }
 
-void HWNDMessageHandler::OnStyleChanging(int nStyleType, LPSTYLESTRUCT lpStyleStruct) {
+void HWNDMessageHandler::OnStyleChanging(UINT nStyleType, LPSTYLESTRUCT lpStyleStruct) {
   if (!content::g_support_transparency)
     return;
-  if (nStyleType == GWL_EXSTYLE)
+  if (nStyleType == (UINT)GWL_EXSTYLE)
     set_window_ex_style(lpStyleStruct->styleNew);
-  else if (nStyleType == GWL_STYLE)
+  else if (nStyleType == (UINT)GWL_STYLE)
     set_window_style(lpStyleStruct->styleNew);
 }
 

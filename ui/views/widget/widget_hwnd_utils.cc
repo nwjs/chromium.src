@@ -89,7 +89,7 @@ void CalculateWindowStylesFromInitParams(
       // See layered window comment below.
       if (content::g_support_transparency && is_translucent) {
         if (params.remove_standard_frame) {
-          *style &= ~(WS_CAPTION);
+          *style &= static_cast<DWORD>(~(WS_CAPTION));
         }
         if (!native_widget_delegate->IsDialogBox() && !native_widget_delegate->IsModal()) {
           if (content::g_force_cpu_draw)

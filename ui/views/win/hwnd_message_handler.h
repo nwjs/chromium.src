@@ -517,7 +517,7 @@ class VIEWS_EXPORT HWNDMessageHandler : public gfx::WindowImpl,
   void OnSettingChange(UINT flags, const wchar_t* section);
   void OnSize(UINT param, const gfx::Size& size);
   void OnSizing(UINT param, RECT* rect);
-  void OnStyleChanging(int nStyleType, LPSTYLESTRUCT lpStyleStruct);
+  void OnStyleChanging(UINT nStyleType, LPSTYLESTRUCT lpStyleStruct);
   void OnSysCommand(UINT notification_code, const gfx::Point& point);
   void OnThemeChanged();
   void OnTimeChange();
