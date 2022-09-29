@@ -226,7 +226,9 @@ void MessagePumpUVNSRunLoop::RunIdleWork() {
 
   // Call DoIdleWork once, and if something was done, arrange to come back here
   // again as long as the loop is still running.
+  PopWorkItemScope();
   bool did_work = delegate_->DoIdleWork();
+  PushWorkItemScope();
   if (did_work) {
     CFRunLoopSourceSignal(idle_work_source_);
   }
