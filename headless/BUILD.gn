@@ -304,8 +304,6 @@ source_set("headless_shared_sources") {
   sources = [
     "app/headless_shell_switches.cc",
     "app/headless_shell_switches.h",
-    "lib/headless_content_main_delegate.cc",
-    "lib/headless_content_main_delegate.h",
     "lib/headless_content_client.cc",
     "lib/headless_content_client.h",
     "public/headless_browser.cc",
@@ -629,6 +627,8 @@ if (!is_component_build) {
     sources = [
       #"lib/browser/headless_web_contents_impl.cc",
       #"lib/browser/headless_web_contents_impl.h",
+      "lib/headless_content_main_delegate.cc",
+      "lib/headless_content_main_delegate.h",
       "lib/renderer/headless_content_renderer_client.cc",
       "lib/renderer/headless_content_renderer_client.h",
       "lib/utility/headless_content_utility_client.cc",
