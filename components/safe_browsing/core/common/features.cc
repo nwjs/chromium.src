@@ -1,4 +1,4 @@
-// Copyright (c) 2017 The Chromium Authors. All rights reserved.
+// Copyright 2017 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -31,14 +31,8 @@ const base::Feature kBetterTelemetryAcrossReports{
     "SafeBrowsingBetterTelemetryAcrossReports",
     base::FEATURE_ENABLED_BY_DEFAULT};
 
-// Enable only for Android
-#if BUILDFLAG(IS_ANDROID)
 const base::Feature kClientSideDetectionModelIsFlatBuffer{
     "ClientSideDetectionModelIsFlatBuffer", base::FEATURE_ENABLED_BY_DEFAULT};
-#else
-const base::Feature kClientSideDetectionModelIsFlatBuffer{
-    "ClientSideDetectionModelIsFlatBuffer", base::FEATURE_DISABLED_BY_DEFAULT};
-#endif
 
 extern const base::Feature kClientSideDetectionModelTag{
     "ClientSideDetectionTag", base::FEATURE_DISABLED_BY_DEFAULT};
@@ -47,13 +41,7 @@ const base::Feature kClientSideDetectionReferrerChain{
     "ClientSideDetectionReferrerChain", base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kClientSideDetectionKillswitch{
-  "ClientSideDetectionKillswitch",
-#if BUILDFLAG(IS_MAC)
-      base::FEATURE_ENABLED_BY_DEFAULT
-#else
-      base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-};
+    "ClientSideDetectionKillswitch", base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kConnectorsScanningAccessToken{
     "ConnectorsScanningAccessToken", base::FEATURE_ENABLED_BY_DEFAULT};
@@ -81,6 +69,9 @@ const base::Feature kDownloadBubble{"DownloadBubble",
 
 const base::Feature kDownloadBubbleV2{"DownloadBubbleV2",
                                       base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kDownloadTailoredWarnings{"DownloadTailoredWarnings",
+                                              base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kEnhancedProtection{"SafeBrowsingEnhancedProtection",
                                         base::FEATURE_ENABLED_BY_DEFAULT};
@@ -138,6 +129,10 @@ const base::Feature kOmitNonUserGesturesFromReferrerChain{
     "SafeBrowsingOmitNonUserGesturesFromReferrerChain",
     base::FEATURE_ENABLED_BY_DEFAULT};
 
+const base::Feature kRealTimeUrlLookupForEnterpriseAllowlistBypass{
+    "SafeBrowsingRealTimeUrlLookupForEnterpriseAllowlistBypass",
+    base::FEATURE_DISABLED_BY_DEFAULT};
+
 const base::Feature kSafeBrowsingCsbrrWithToken{
     "SafeBrowsingCsbrrWithToken", base::FEATURE_DISABLED_BY_DEFAULT};
 
@@ -159,6 +154,12 @@ const base::Feature kSendSampledPingsForProtegoAllowlistDomains{
     "SafeBrowsingSendSampledPingsForProtegoAllowlistDomains",
     base::FEATURE_ENABLED_BY_DEFAULT};
 
+const base::Feature kSevenZipReaderInInstaller{
+    "SafeBrowsingSevenZipReaderInInstaller", base::FEATURE_ENABLED_BY_DEFAULT};
+
+const base::Feature kSevenZipEvaluationEnabled{
+    "SafeBrowsingSevenZipEvaluationEnabled", base::FEATURE_DISABLED_BY_DEFAULT};
+
 const base::Feature kSuspiciousSiteTriggerQuotaFeature{
     "SafeBrowsingSuspiciousSiteTriggerQuota", base::FEATURE_ENABLED_BY_DEFAULT};
 
@@ -173,6 +174,9 @@ const base::Feature kVisualFeaturesSizes{"VisualFeaturesSizes",
 
 const base::Feature kVisualFeaturesInCsppPings{
     "VisualFeaturesInCsppPings", base::FEATURE_ENABLED_BY_DEFAULT};
+
+const base::Feature kVisualFeaturesForReusePings{
+    "VisualFeaturesInReusePings", base::FEATURE_DISABLED_BY_DEFAULT};
 
 namespace {
 // List of Safe Browsing features. Boolean value for each list member should
@@ -192,6 +196,7 @@ constexpr struct {
     {&kDelayedWarnings, true},
     {&kDownloadBubble, true},
     {&kDownloadBubbleV2, true},
+    {&kDownloadTailoredWarnings, true},
     {&kEnhancedProtection, true},
     {&kEnhancedProtectionPhase2IOS, true},
     {&kExtensionTelemetry, true},
@@ -199,6 +204,7 @@ constexpr struct {
     {&kExtensionTelemetryPersistence, true},
     {&kFileTypePoliciesTag, true},
     {&kOmitNonUserGesturesFromReferrerChain, true},
+    {&kRealTimeUrlLookupForEnterpriseAllowlistBypass, true},
     {&kSafeBrowsingCsbrrWithToken, true},
     {&kSafeBrowsingPageLoadToken, true},
     {&kSafeBrowsingRemoveCookiesInAuthRequests, true},
@@ -251,7 +257,7 @@ std::string GetClientSideDetectionTag() {
 #if BUILDFLAG(IS_ANDROID)
   return "android_1";
 #else
-  return "desktop_1";
+  return "desktop_1_flatbuffer";
 #endif
 }
 

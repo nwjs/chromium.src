@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors. All rights reserved.
+// Copyright 2020 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -28,6 +28,8 @@ gfx::RectF AdjustSubsurfaceBounds(const gfx::RectF& bounds_px,
       gfx::ScaleRect(parent_bounds_px, 1.0f / buffer_scale);
   return wl::TranslateBoundsToParentCoordinatesF(bounds_dip, parent_bounds_dip);
 }
+
+const wl_fixed_t kMinusOne = wl_fixed_from_int(-1);
 
 }  // namespace
 
@@ -105,6 +107,7 @@ void WaylandSubsurface::CreateSubsurface() {
 void WaylandSubsurface::ConfigureAndShowSurface(
     const gfx::RectF& bounds_px,
     const gfx::RectF& parent_bounds_px,
+    const absl::optional<gfx::Rect>& clip_rect_px,
     float buffer_scale,
     WaylandSubsurface* new_below,
     WaylandSubsurface* new_above) {
@@ -131,6 +134,33 @@ void WaylandSubsurface::ConfigureAndShowSurface(
           gfx::ToEnclosedRect(bounds_dip_in_parent_surface);
       wl_subsurface_set_position(subsurface_.get(), enclosed_rect_in_parent.x(),
                                  enclosed_rect_in_parent.y());
+    }
+  }
+
+  if (augmented_subsurface_ &&
+      connection_->surface_augmenter()->SupportsClipRect()) {
+    absl::optional<gfx::RectF> clip_dip_in_parent_surface;
+    if (clip_rect_px) {
+      clip_dip_in_parent_surface = AdjustSubsurfaceBounds(
+          gfx::RectF(*clip_rect_px), parent_bounds_px,
+          connection_->surface_submission_in_pixel_coordinates()
+              ? 1.f
+              : buffer_scale);
+    }
+    if (clip_dip_in_parent_surface != clip_dip_) {
+      clip_dip_ = clip_dip_in_parent_surface;
+      if (clip_dip_) {
+        augmented_sub_surface_set_clip_rect(
+            augmented_subsurface_.get(), wl_fixed_from_double(clip_dip_->x()),
+            wl_fixed_from_double(clip_dip_->y()),
+            wl_fixed_from_double(clip_dip_->width()),
+            wl_fixed_from_double(clip_dip_->height()));
+      } else {
+        // Call set_clip_rect with all values -1 to clear the clip rect.
+        augmented_sub_surface_set_clip_rect(augmented_subsurface_.get(),
+                                            kMinusOne, kMinusOne, kMinusOne,
+                                            kMinusOne);
+      }
     }
   }
 

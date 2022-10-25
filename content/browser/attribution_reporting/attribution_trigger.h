@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors. All rights reserved.
+// Copyright 2020 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -110,10 +110,10 @@ class CONTENT_EXPORT AttributionTrigger {
       std::vector<AttributionAggregatableTriggerData> aggregatable_trigger_data,
       AttributionAggregatableValues aggregatable_values);
 
-  AttributionTrigger(const AttributionTrigger& other);
-  AttributionTrigger& operator=(const AttributionTrigger& other);
-  AttributionTrigger(AttributionTrigger&& other);
-  AttributionTrigger& operator=(AttributionTrigger&& other);
+  AttributionTrigger(const AttributionTrigger&);
+  AttributionTrigger& operator=(const AttributionTrigger&);
+  AttributionTrigger(AttributionTrigger&&);
+  AttributionTrigger& operator=(AttributionTrigger&&);
   ~AttributionTrigger();
 
   const url::Origin& destination_origin() const { return destination_origin_; }

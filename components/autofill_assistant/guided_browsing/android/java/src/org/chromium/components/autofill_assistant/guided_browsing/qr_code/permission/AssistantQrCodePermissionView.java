@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -65,10 +65,8 @@ public class AssistantQrCodePermissionView {
 
         // Updating permission view image based on the permission type.
         ChromeImageView permissionImageView = mPermissionView.findViewById(R.id.permission_image);
-        int permissionImageResouce = mContext.getResources().getIdentifier(
-                permission.getAndroidPermissionImage(), "drawable", mContext.getPackageName());
         permissionImageView.setImageDrawable(
-                ContextCompat.getDrawable(mContext, permissionImageResouce));
+                ContextCompat.getDrawable(mContext, permission.getAndroidPermissionImage()));
 
         updatePermissionButtonBehaviour();
     }

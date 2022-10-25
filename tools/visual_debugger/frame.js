@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -264,6 +264,11 @@ class DrawFrame {
   appendLogs(logContainer) {
     for (const log of this.logs_) {
       if (log.drawindex > this.submissionFreezeIndex()) break;
+
+      // If thread not enabled, then skip draw call from this thread.
+      if (!this.threadMapping_[log.thread_id].threadEnabled) {
+        continue;
+      }
 
       var color;
       let filter;

@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -39,14 +39,12 @@ class CONTENT_EXPORT AttributionDataHostManagerImpl
  public:
   explicit AttributionDataHostManagerImpl(
       AttributionManager* attribution_manager);
-  AttributionDataHostManagerImpl(const AttributionDataHostManager& other) =
-      delete;
+  AttributionDataHostManagerImpl(const AttributionDataHostManager&) = delete;
   AttributionDataHostManagerImpl& operator=(
-      const AttributionDataHostManagerImpl& other) = delete;
-  AttributionDataHostManagerImpl(AttributionDataHostManagerImpl&& other) =
+      const AttributionDataHostManagerImpl&) = delete;
+  AttributionDataHostManagerImpl(AttributionDataHostManagerImpl&&) = delete;
+  AttributionDataHostManagerImpl& operator=(AttributionDataHostManagerImpl&&) =
       delete;
-  AttributionDataHostManagerImpl& operator=(
-      AttributionDataHostManagerImpl&& other) = delete;
   ~AttributionDataHostManagerImpl() override;
 
   // AttributionDataHostManager:

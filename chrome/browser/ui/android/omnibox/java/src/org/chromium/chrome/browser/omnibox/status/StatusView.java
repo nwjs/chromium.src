@@ -1,15 +1,18 @@
-// Copyright 2018 The Chromium Authors. All rights reserved.
+// Copyright 2018 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 package org.chromium.chrome.browser.omnibox.status;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Rect;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.RotateDrawable;
 import android.graphics.drawable.TransitionDrawable;
+import android.graphics.drawable.VectorDrawable;
 import android.os.SystemClock;
 import android.util.AttributeSet;
 import android.view.TouchDelegate;
@@ -186,6 +189,7 @@ public class StatusView extends LinearLayout {
                     .alpha(0.0f)
                     .withEndAction(() -> {
                         mIconView.setVisibility(View.GONE);
+                        mIconView.setAlpha(1f);
                         mAnimatingStatusIconHide = false;
                         allowBrowserControlsHide();
                         updateTouchDelegate();
@@ -330,8 +334,32 @@ public class StatusView extends LinearLayout {
      */
     void setStatusIconResources(@Nullable Drawable statusIconDrawable,
             @IconTransitionType int transitionType, @Nullable Runnable animationFinishedCallback) {
+        // TransitionDrawable and VectorDrawable do not play nicely together. Use BitmapDrawable
+        // instead otherwise the crossfade breaks, one of the icons will be fully visible when it
+        // should be fading. Solution from https://stackoverflow.com/q/49777302.
+        if (statusIconDrawable instanceof VectorDrawable) {
+            statusIconDrawable = convertToBitmapDrawable(statusIconDrawable);
+        }
+
         mStatusIconDrawable = statusIconDrawable;
         animateStatusIcon(transitionType, animationFinishedCallback);
+    }
+
+    private BitmapDrawable convertToBitmapDrawable(Drawable drawable) {
+        Bitmap bitmap = Bitmap.createBitmap(drawable.getIntrinsicWidth(),
+                drawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+
+        // See https://crbug.com/1365377. This approach to convert between drawables has a downside
+        // that it flattens the tint if it's a color state list to a single value. We must choose
+        // a state value when this draw happens. Drawables default to false for all states, which is
+        // mostly fine, except for state_enabled. This causes many of our CSLs to add an alpha
+        // component. So set to enabled to avoid this.
+        drawable.setState(new int[] {android.R.attr.state_enabled});
+
+        drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+        drawable.draw(canvas);
+        return new BitmapDrawable(getResources(), bitmap);
     }
 
     /** Specify the status icon alpha. */

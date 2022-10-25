@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -834,9 +834,9 @@ std::unique_ptr<SSLClientSocket> MockClientSocketFactory::CreateSSLClientSocket(
   if (next_ssl_data->expected_host_and_port) {
     EXPECT_EQ(*next_ssl_data->expected_host_and_port, host_and_port);
   }
-  if (next_ssl_data->expected_network_isolation_key) {
-    EXPECT_EQ(*next_ssl_data->expected_network_isolation_key,
-              ssl_config.network_isolation_key);
+  if (next_ssl_data->expected_network_anonymization_key) {
+    EXPECT_EQ(*next_ssl_data->expected_network_anonymization_key,
+              ssl_config.network_anonymization_key);
   }
   if (next_ssl_data->expected_disable_legacy_crypto) {
     EXPECT_EQ(*next_ssl_data->expected_disable_legacy_crypto,
@@ -1840,8 +1840,8 @@ void MockTransportClientSocketPool::MockConnectJob::OnConnect(int rv) {
     // sockets.
     LoadTimingInfo::ConnectTiming connect_timing;
     base::TimeTicks now = base::TimeTicks::Now();
-    connect_timing.dns_start = now;
-    connect_timing.dns_end = now;
+    connect_timing.domain_lookup_start = now;
+    connect_timing.domain_lookup_end = now;
     connect_timing.connect_start = now;
     connect_timing.connect_end = now;
     handle_->set_connect_timing(connect_timing);

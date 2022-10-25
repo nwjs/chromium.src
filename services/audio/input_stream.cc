@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors. All rights reserved.
+// Copyright 2018 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -72,7 +72,7 @@ InputStream::InputStream(
     mojo::PendingRemote<media::mojom::AudioInputStreamObserver> observer,
     mojo::PendingRemote<media::mojom::AudioLog> log,
     media::AudioManager* audio_manager,
-    AecdumpRecordingManager* aecdump_recording_manager,
+    media::AecdumpRecordingManager* aecdump_recording_manager,
     std::unique_ptr<UserInputMonitor> user_input_monitor,
     InputStreamActivityMonitor* activity_monitor,
     DeviceOutputListener* device_output_listener,

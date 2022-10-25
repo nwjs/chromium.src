@@ -61,6 +61,7 @@ Các quyền bạn từng cấp cho trang web và ứng dụng có thể áp d�
 <translation id="2583187216237139145">Quản trị viên hồ sơ công việc có thể xóa mọi dữ liệu trên Chromium được tạo trong quá trình sử dụng hồ sơ này (chẳng hạn như hoạt động tạo dấu trang, các trang web đã truy cập, mật khẩu và các tùy chọn cài đặt khác). <ph name="LEARN_MORE" /></translation>
 <translation id="2648074677641340862">Đã xảy ra lỗi hệ điều hành khi cài đặt. Hãy tải xuống Chromium lại lần nữa.</translation>
 <translation id="2661879430930417727">Nếu các bạn dùng chung một thiết bị, thì bạn bè và gia đình có thể duyệt web một cách riêng biệt cũng như thiết lập Chromium theo ý muốn</translation>
+<translation id="2669853942967761236">Chromium đã chặn tệp lưu trữ này vì tệp này có thể ẩn chứa phần mềm độc hại</translation>
 <translation id="268602741124540128">Chào mừng <ph name="ACCOUNT_FIRST_NAME" /> đến với Chromium!</translation>
 <translation id="2711502716910134313">Thẻ Chromium</translation>
 <translation id="2718390899429598676">Để bảo mật hơn, Chromium sẽ mã hóa dữ liệu của bạn.</translation>
@@ -208,6 +209,7 @@ Các quyền bạn từng cấp cho trang web và ứng dụng có thể áp d�
 <translation id="6072279588547424923"><ph name="EXTENSION_NAME" /> đã được thêm vào Chromium</translation>
 <translation id="608006075545470555">Thêm Hồ sơ công việc vào trình duyệt này</translation>
 <translation id="6096348254544841612">Tùy chỉnh và kiểm soát Chromium. Đã có bản cập nhật.</translation>
+<translation id="6119438414301547735">Cho phép tiện ích hiện các yêu cầu truy cập trong thanh công cụ của Chromium</translation>
 <translation id="6120345080069858279">Chromium sẽ lưu mật khẩu này trong Tài khoản Google của bạn. Bạn sẽ không phải nhớ mật khẩu này.</translation>
 <translation id="6129621093834146363"><ph name="FILE_NAME" /> nguy hiểm, do đó Chromium đã chặn tệp.</translation>
 <translation id="6134968993075716475">Tính năng Duyệt web an toàn đang tắt. Bạn nên bật tính năng này trên Chromium.</translation>
@@ -301,6 +303,7 @@ Chromium không thể khôi phục cài đặt của bạn.</translation>
 <translation id="7682601070171973634">Chromium đang khám phá các tính năng mới cho phép các trang web mang lại trải nghiệm duyệt web như nhau nhưng tiêu tốn ít dữ liệu hơn</translation>
 <translation id="7686590090926151193">Chromium không phải là trình duyệt mặc định của bạn</translation>
 <translation id="7689606757190482937">Đồng bộ hóa và cá nhân hóa Chromium trên các thiết bị của bạn</translation>
+<translation id="7714577916146996629">Khi bật, Chromium sẽ lấy lại bộ nhớ từ những thẻ mà bạn hiện không sử dụng. Việc này sẽ giải phóng tài nguyên của máy tính để thực hiện các tác vụ khác và giúp Chromium luôn chạy nhanh. Các thẻ không hoạt động sẽ ở trạng thái trống và tự động tải lại khi bạn nhấp vào thẻ. <ph name="BEGIN_LINK" />Tìm hiểu thêm<ph name="END_LINK" /> hoặc <ph name="BEGIN_LINK_2" />gửi ý kiến phản hồi<ph name="END_LINK_2" /></translation>
 <translation id="7745317241717453663">Thao tác này sẽ xóa dữ liệu duyệt web của bạn khỏi thiết bị này. Để truy xuất dữ liệu của bạn sau, hãy đăng nhập vào Chromium dưới dạng <ph name="USER_EMAIL" />.</translation>
 <translation id="7747138024166251722">Trình cài đặt không thể tạo thư mục tạm thời. Vui lòng kiểm tra dung lượng ổ đĩa còn trống và quyền cài đặt phần mềm.</translation>
 <translation id="7790626492778995050"><ph name="PAGE_TITLE" /> - Chromium Canary</translation>
@@ -330,6 +333,7 @@ Chromium không thể khôi phục cài đặt của bạn.</translation>
 <translation id="8453117565092476964">Tệp lưu trữ trình cài đặt bị hỏng hoặc không hợp lệ. Hãy tải xuống Chromium lại lần nữa.</translation>
 <translation id="8463672209299734063">Không bắt buộc: Giúp cải thiện hiệu suất và các tính năng của ChromiumOS bằng cách tự động gửi dữ liệu sử dụng và chẩn đoán cho Google.</translation>
 <translation id="8493179195440786826">Chromium đã lỗi thời</translation>
+<translation id="8522220489792889625">Khi cần, Chromium sẽ lấy lại bộ nhớ từ những thẻ mà bạn hiện không sử dụng. Bạn có thể thay đổi chế độ cài đặt này bất kỳ lúc nào trong phần cài đặt.</translation>
 <translation id="8550334526674375523">Hồ sơ công việc này hoàn toàn riêng biệt với hồ sơ cá nhân của bạn.</translation>
 <translation id="8558383651099478961">Cha mẹ bạn đã tắt tùy chọn "Quyền của các trang web, ứng dụng và tiện ích" đối với Chromium. Bạn không được phép thêm <ph name="EXTENSION_TYPE_PARAMETER" /> này.</translation>
 <translation id="8561285221328166383">Để nhận các bản cập nhật Chromium sau này, bạn cần có macOS 10.13 trở lên. Máy tính này đang sử dụng macOS 10.12.</translation>

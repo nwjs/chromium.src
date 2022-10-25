@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -32,6 +32,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/webapps/common/constants.h"
+#include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -42,6 +43,7 @@
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/image/image_skia.h"
+#include "ui/gfx/text_elider.h"
 #include "ui/views/animation/bounds_animator.h"
 #include "ui/views/animation/ink_drop.h"
 #include "ui/views/background.h"
@@ -302,7 +304,10 @@ void ShowWebAppDetailedInstallDialog(
                             gfx::Size(kIconSize, kIconSize));
 
   auto title = install_info->title;
-  auto description = install_info->description;
+  auto start_url_host = install_info->start_url.host();
+  const std::u16string description = gfx::TruncateString(
+      install_info->description, webapps::kMaximumDescriptionLength,
+      gfx::CHARACTER_BREAK);
 
   auto delegate =
       std::make_unique<web_app::WebAppDetailedInstallDialogDelegate>(
@@ -312,9 +317,12 @@ void ShowWebAppDetailedInstallDialog(
   auto dialog_model =
       ui::DialogModel::Builder(std::move(delegate))
           .SetIcon(ui::ImageModel::FromImageSkia(icon_image))
-          .SetTitle(title)  // TODO(pbos): Add secondary-title support for
-                            // base::UTF8ToUTF16(install_info->start_url.host())
-          .AddBodyText(ui::DialogModelLabel(description))
+          .SetTitle(title)
+          .SetSubtitle(base::UTF8ToUTF16(start_url_host))
+          .AddParagraph(
+              ui::DialogModelLabel(description).set_is_secondary(),
+              l10n_util::GetStringUTF16(
+                  IDS_WEB_APP_DETAILED_INSTALL_DIALOG_DESCRIPTION_TITLE))
           .AddOkButton(
               base::BindOnce(
                   &web_app::WebAppDetailedInstallDialogDelegate::OnAccept,
@@ -327,6 +335,11 @@ void ShowWebAppDetailedInstallDialog(
               std::make_unique<views::BubbleDialogModelHost::CustomView>(
                   std::make_unique<ImageCarouselView>(screenshots),
                   views::BubbleDialogModelHost::FieldType::kControl))
+          .SetDialogDestroyingCallback(base::BindOnce(
+              [](web_app::WebAppDetailedInstallDialogDelegate* delegate) {
+                delegate->OnCancel();
+              },
+              base::Unretained(delegate_ptr)))
           .Build();
 
   auto dialog = views::BubbleDialogModelHost::CreateModal(
@@ -347,7 +360,8 @@ WebAppDetailedInstallDialogDelegate::WebAppDetailedInstallDialogDelegate(
     chrome::PwaInProductHelpState iph_state,
     PrefService* prefs,
     feature_engagement::Tracker* tracker)
-    : web_contents_(web_contents),
+    : WebContentsObserver(web_contents),
+      web_contents_(web_contents),
       install_info_(std::move(web_app_info)),
       callback_(std::move(callback)),
       iph_state_(std::move(iph_state)),
@@ -364,10 +378,18 @@ WebAppDetailedInstallDialogDelegate::~WebAppDetailedInstallDialogDelegate() {
     return;
 
   BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
-  // Dehighlight the install icon when this dialog is closed.
-  browser_view->toolbar_button_provider()
-      ->GetPageActionIconView(PageActionIconType::kPwaInstall)
-      ->SetHighlighted(false);
+
+  if (browser_view && browser_view->toolbar_button_provider()) {
+    PageActionIconView* install_icon =
+        browser_view->toolbar_button_provider()->GetPageActionIconView(
+            PageActionIconType::kPwaInstall);
+    if (install_icon) {
+      // Dehighlight the install icon when this dialog is closed.
+      browser_view->toolbar_button_provider()
+          ->GetPageActionIconView(PageActionIconType::kPwaInstall)
+          ->SetHighlighted(false);
+    }
+  }
 }
 
 void WebAppDetailedInstallDialogDelegate::OnAccept() {
@@ -383,6 +405,9 @@ void WebAppDetailedInstallDialogDelegate::OnAccept() {
 }
 
 void WebAppDetailedInstallDialogDelegate::OnCancel() {
+  if (callback_.is_null())
+    return;
+
   base::RecordAction(base::UserMetricsAction("WebAppDetailedInstallCancelled"));
   if (iph_state_ == chrome::PwaInProductHelpState::kShown && install_info_) {
     web_app::AppId app_id = web_app::GenerateAppId(install_info_->manifest_id,
@@ -391,6 +416,36 @@ void WebAppDetailedInstallDialogDelegate::OnCancel() {
   }
 
   std::move(callback_).Run(false, std::move(install_info_));
+}
+
+void WebAppDetailedInstallDialogDelegate::OnVisibilityChanged(
+    content::Visibility visibility) {
+  if (visibility == content::Visibility::HIDDEN)
+    CloseDialog();
+}
+
+void WebAppDetailedInstallDialogDelegate::WebContentsDestroyed() {
+  CloseDialog();
+}
+
+void WebAppDetailedInstallDialogDelegate::DidFinishNavigation(
+    content::NavigationHandle* navigation_handle) {
+  if (!navigation_handle->IsInPrimaryMainFrame() ||
+      !navigation_handle->HasCommitted()) {
+    return;
+  }
+
+  // Close dialog when navigating to a different domain.
+  if (!url::IsSameOriginWith(
+          navigation_handle->GetPreviousPrimaryMainFrameURL(),
+          navigation_handle->GetURL())) {
+    CloseDialog();
+  }
+}
+
+void WebAppDetailedInstallDialogDelegate::CloseDialog() {
+  if (dialog_model() && dialog_model()->host())
+    dialog_model()->host()->Close();
 }
 
 }  // namespace web_app

@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -102,7 +102,7 @@ void WaylandZwpLinuxDmabuf::CreateBuffer(const base::ScopedFD& fd,
     // created buffer and notify the client about it via the |callback|.
     pending_params_.emplace(std::move(params), std::move(callback));
   }
-  connection_->ScheduleFlush();
+  connection_->Flush();
 }
 
 bool WaylandZwpLinuxDmabuf::CanCreateBufferImmed() const {
@@ -148,7 +148,7 @@ void WaylandZwpLinuxDmabuf::NotifyRequestCreateBufferDone(
 
   pending_params_.erase(it);
 
-  connection_->ScheduleFlush();
+  connection_->Flush();
 }
 
 // static

@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -300,8 +300,8 @@ v8::Local<v8::Object> TrustedSignals::Result::GetScoringSignals(
   if (!ad_component_render_urls.empty()) {
     v8::Local<v8::Object> ad_components_v8_object = CreateObjectFromMap(
         ad_component_render_urls, *ad_component_json_data_, v8_helper, context);
-    bool result = v8_helper->InsertValue("adComponentRenderUrls",
-                                         ad_components_v8_object, out);
+    result = v8_helper->InsertValue("adComponentRenderUrls",
+                                    ad_components_v8_object, out);
     DCHECK(result);
   }
 

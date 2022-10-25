@@ -23,6 +23,7 @@ Seu mecanismo de pesquisa é o <ph name="DSE_NAME" />. Veja as instruções para
 <translation id="1104948393051856124">Aceitar e continuar</translation>
 <translation id="110724200315609752">Mudar para janela aberta</translation>
 <translation id="1112015203684611006">Falha na impressão.</translation>
+<translation id="1118569444314402022">Que bom que você voltou, <ph name="USER_NAME" /></translation>
 <translation id="1125564390852150847">Criar nova guia</translation>
 <translation id="1126809382673880764">Não protege você contra sites, downloads e extensões perigosos. Você ainda terá a proteção do "Navegação segura", sempre que possível, em outros Serviços do Google, como o Gmail e a Pesquisa.</translation>
 <translation id="1135212215217513471">Instale o Chrome para iOS</translation>
@@ -46,6 +47,7 @@ Seu mecanismo de pesquisa é o <ph name="DSE_NAME" />. Veja as instruções para
 <translation id="1272079795634619415">Parar</translation>
 <translation id="1275718070701477396">Linha selecionada</translation>
 <translation id="1281818060020671000">Gerenciar dados</translation>
+<translation id="1282311502488501110">Não fazer login</translation>
 <translation id="1283524564873030414">Últimas 24 horas</translation>
 <translation id="1285320974508926690">Nunca traduzir este site</translation>
 <translation id="1291506870746876680">As permissões de <ph name="BEGIN_BOLD" /><ph name="SITE_NAME" /><ph name="END_BOLD" /> serão redefinidas como desativadas quando você sair desse site.</translation>
@@ -54,6 +56,7 @@ Seu mecanismo de pesquisa é o <ph name="DSE_NAME" />. Veja as instruções para
 <translation id="1322735045095424339">Sua organização requer o uso do modo de navegação anônima</translation>
 <translation id="1323735185997015385">Excluir</translation>
 <translation id="132683371494960526">Toque duas vezes para alterar a pasta pai.</translation>
+<translation id="1335348992705722518">Gerenciar configurações…</translation>
 <translation id="1340643665687018190">Fechar menu</translation>
 <translation id="1358214951266274152">Visitar o link que você copiou</translation>
 <translation id="1360432990279830238">Sair e desativar a sincronização?</translation>
@@ -61,6 +64,7 @@ Seu mecanismo de pesquisa é o <ph name="DSE_NAME" />. Veja as instruções para
 <translation id="1377255359165588604">A sincronização parou de funcionar.</translation>
 <translation id="1377321085342047638">Número do cartão</translation>
 <translation id="1383876407941801731">Pesquisar</translation>
+<translation id="138618066238211776">Continuar como <ph name="USER_NAME" /></translation>
 <translation id="1400642268715879018">Últimas quatro semanas</translation>
 <translation id="1404330357948037222">Sua conta está desconectada</translation>
 <translation id="1407135791313364759">Abrir todas</translation>
@@ -174,9 +178,11 @@ Eles também não podem usar cookies para ver sua atividade de navegação em di
 <translation id="2421044535038393232">Continuar editando</translation>
 <translation id="2434405374328098816">Você já salvou uma senha para "<ph name="USERNAME" />" em <ph name="WEBSITE" /></translation>
 <translation id="2435457462613246316">Mostrar senha</translation>
+<translation id="2461070143328828326">Configurações de senha</translation>
 <translation id="2469960372084740698">Desativar o recurso Navegação segura?</translation>
 <translation id="2473876017985765807">Você já salvou uma senha em <ph name="WEBSITE" /></translation>
 <translation id="2476359652512522418">Não selecionada</translation>
+<translation id="2482878487686419369">Notificações</translation>
 <translation id="2500374554657206846">Opções para salvar senha</translation>
 <translation id="2523363575747517183">Este site está tentando repetidamente abrir outro aplicativo.</translation>
 <translation id="2529021024822217800">Abrir todos</translation>
@@ -327,6 +333,7 @@ Veja as instruções do seu mecanismo de pesquisa para excluir o histórico de p
 <translation id="3709582977625132201">Marcar como não lido</translation>
 <translation id="371230970611282515">Prevê e avisa sobre eventos perigosos antes que eles aconteçam.</translation>
 <translation id="37207012422556617">Pesquisas em alta</translation>
+<translation id="3726360487031500941">Faça login novamente na sua conta <ph name="USER_NAME" /></translation>
 <translation id="3740397331642243698">Abre os URLs inseridos na navegação anônima do Google Chrome.</translation>
 <translation id="3762232513783804601">Criado para o iPad</translation>
 <translation id="3771033907050503522">Guias anônimas</translation>
@@ -381,6 +388,7 @@ Veja as instruções do seu mecanismo de pesquisa para excluir o histórico de p
 <translation id="4187450337729239226">Colar e pesquisar</translation>
 <translation id="4223967053752765281">Sua organização desativou o processo de login. Ainda é possível ver seus favoritos, seu histórico, suas senhas e outras configurações neste dispositivo. Se você fizer mudanças, elas não serão sincronizadas com sua conta.</translation>
 <translation id="4233831822770018312">Editar permissões</translation>
+<translation id="4236584471598725073">Monitorando preço</translation>
 <translation id="4237377247299956313">Toque em <ph name="BEGIN_BOLD" />App de navegação padrão<ph name="END_BOLD" />.</translation>
 <translation id="424315890655130736">Informar senha longa</translation>
 <translation id="4249955472157341256">Ordenar por mais recentes</translation>
@@ -393,6 +401,7 @@ Veja as instruções do seu mecanismo de pesquisa para excluir o histórico de p
 <translation id="430793432425771671">Sincronizar tudo</translation>
 <translation id="4309403553630140242">Toque duas vezes para ver mais informações</translation>
 <translation id="430967081421617822">Todo o período</translation>
+<translation id="4324952538601951430">Favoritos, senhas, configurações e muito mais salvos aqui</translation>
 <translation id="4334428914252001502">1 artigo não lido.</translation>
 <translation id="4338650699862464074">Envia URLs das páginas que você visita para o Google.</translation>
 <translation id="4343046787186034850">Acesso à câmera e ao microfone permitido</translation>
@@ -471,6 +480,7 @@ Para alterar essa configuração, <ph name="BEGIN_LINK" />redefina a sincroniza�
 <translation id="4901778704868714008">Salvar…</translation>
 <translation id="4904877109095351937">Marcar como lidas</translation>
 <translation id="4908869848243824489">Discover do Google</translation>
+<translation id="4916679969857390442">Lupa</translation>
 <translation id="4930714375720679147">Ativar</translation>
 <translation id="4941089862236492464">Ocorreu um problema ao compartilhar seu item.</translation>
 <translation id="4944543191714094452">Localizar na página…</translation>
@@ -738,6 +748,7 @@ Na navegação anônima, eles não podem usar cookies para ver suas atividades d
 <translation id="6930799952781667037">Toque para mudar para esse idioma.</translation>
 <translation id="6944369514868857500">Escolher outra conta</translation>
 <translation id="6945221475159498467">Selecionar</translation>
+<translation id="6965382102122355670">OK</translation>
 <translation id="6973630695168034713">Pastas</translation>
 <translation id="6979158407327259162">Google Drive</translation>
 <translation id="6988572888918530647">Gerenciar sua Conta do Google</translation>
@@ -766,7 +777,6 @@ Na navegação anônima, eles não podem usar cookies para ver suas atividades d
 <translation id="7192050974311852563">Iniciar registro</translation>
 <translation id="7203585745079012652">Falar as respostas</translation>
 <translation id="7207023858769244910">Sincronize para receber conteúdo com base nos seus interesses.</translation>
-<translation id="7207383424303353046">Novidade: defina o Chrome como seu navegador padrão para abrir sites automaticamente nele. <ph name="BEGIN_LINK" />Abrir Configurações<ph name="END_LINK" /></translation>
 <translation id="721597782417389033">Apelido do cartão inválido</translation>
 <translation id="722454870747268814">Nova guia anônima</translation>
 <translation id="7265758999917665941">Nunca para este site</translation>
@@ -916,7 +926,6 @@ Eles também podem usar cookies para ver sua atividade de navegação em diferen
 <translation id="8533670235862049797">O Navegação segura está ativado</translation>
 <translation id="8534481786647257214">A postagem no Google+ foi concluída.</translation>
 <translation id="8548878600947630424">Encontrar na página...</translation>
-<translation id="8574235780160508979">Os Termos de Serviço do Chrome serão atualizados em 31 de março. <ph name="BEGIN_LINK" />Leia aqui<ph name="END_LINK" /></translation>
 <translation id="8588404856427128947">Desativada</translation>
 <translation id="8590913940444621808">Nunca perguntar</translation>
 <translation id="8591976964826315682">Bloquear cookies de terceiros na navegação anônima</translation>

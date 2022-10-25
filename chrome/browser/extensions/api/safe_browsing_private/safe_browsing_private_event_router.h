@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors. All rights reserved.
+// Copyright 2018 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -53,6 +53,8 @@ class SafeBrowsingPrivateEventRouter : public KeyedService {
   // Key names used with when building the dictionary to pass to the real-time
   // reporting API.
   static const char kKeyUrl[];
+  static const char kKeySource[];
+  static const char kKeyDestination[];
   static const char kKeyUserName[];
   static const char kKeyIsPhishingUrl[];
   static const char kKeyProfileUserName[];
@@ -98,6 +100,7 @@ class SafeBrowsingPrivateEventRouter : public KeyedService {
   static const char kTriggerFileUpload[];
   static const char kTriggerWebContentUpload[];
   static const char kTriggerPagePrint[];
+  static const char kTriggerFileTransfer[];
 
   explicit SafeBrowsingPrivateEventRouter(content::BrowserContext* context);
 
@@ -144,6 +147,8 @@ class SafeBrowsingPrivateEventRouter : public KeyedService {
   // Notifies listeners that the analysis connector detected a violation.
   void OnAnalysisConnectorResult(
       const GURL& url,
+      const std::string& source,
+      const std::string& destination,
       const std::string& file_name,
       const std::string& download_digest_sha256,
       const std::string& mime_type,
@@ -157,6 +162,8 @@ class SafeBrowsingPrivateEventRouter : public KeyedService {
   // Notifies listeners that an analysis connector violation was bypassed.
   void OnAnalysisConnectorWarningBypassed(
       const GURL& url,
+      const std::string& source,
+      const std::string& destination,
       const std::string& file_name,
       const std::string& download_digest_sha256,
       const std::string& mime_type,
@@ -169,6 +176,8 @@ class SafeBrowsingPrivateEventRouter : public KeyedService {
 
   // Notifies listeners that deep scanning failed, for the given |reason|.
   void OnUnscannedFileEvent(const GURL& url,
+                            const std::string& source,
+                            const std::string& destination,
                             const std::string& file_name,
                             const std::string& download_digest_sha256,
                             const std::string& mime_type,
@@ -244,6 +253,8 @@ class SafeBrowsingPrivateEventRouter : public KeyedService {
   // Notifies listeners that deep scanning detected a dangerous download.
   void OnDangerousDeepScanningResult(
       const GURL& url,
+      const std::string& source,
+      const std::string& destination,
       const std::string& file_name,
       const std::string& download_digest_sha256,
       const std::string& threat_type,
@@ -259,6 +270,8 @@ class SafeBrowsingPrivateEventRouter : public KeyedService {
   // Notifies listeners that the analysis connector detected a violation.
   void OnSensitiveDataEvent(
       const GURL& url,
+      const std::string& source,
+      const std::string& destination,
       const std::string& file_name,
       const std::string& download_digest_sha256,
       const std::string& mime_type,

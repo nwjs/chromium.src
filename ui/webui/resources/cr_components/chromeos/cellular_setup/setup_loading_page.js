@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,7 +6,18 @@
  * Loading subpage in Cellular Setup flow that shows an in progress operation or
  * an error. This element contains error image asset and loading animation.
  */
+import './base_page.js';
+import '../../../cr_elements/cr_hidden_style.css.js';
+import '//resources/polymer/v3_0/iron-flex-layout/iron-flex-layout-classes.js';
+import '//resources/cr_elements/cr_lottie/cr_lottie.js';
+import '//resources/polymer/v3_0/iron-media-query/iron-media-query.js';
+
+import {html, Polymer} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+
+import {I18nBehavior} from '../../../cr_elements/i18n_behavior.js';
+
 Polymer({
+  _template: html`{__html_template__}`,
   is: 'setup-loading-page',
 
   behaviors: [I18nBehavior],

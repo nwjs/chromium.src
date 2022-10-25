@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -151,7 +151,7 @@ class PrerenderHostObserverImpl : public PrerenderHost::Observer {
       std::move(waiting_for_activation_).Run();
   }
 
-  void OnHostDestroyed() override {
+  void OnHostDestroyed(PrerenderHost::FinalStatus final_status) override {
     observation_.Reset();
     if (waiting_for_destruction_)
       std::move(waiting_for_destruction_).Run();

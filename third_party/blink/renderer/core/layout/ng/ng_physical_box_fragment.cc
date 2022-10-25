@@ -193,14 +193,14 @@ const NGPhysicalBoxFragment* NGPhysicalBoxFragment::Create(
       has_fragment_items = true;
   }
 
-  bool has_rare_data = builder->frame_set_layout_data_ ||
-                       builder->mathml_paint_info_ ||
-                       builder->table_grid_rect_ ||
-                       !builder->table_column_geometries_.IsEmpty() ||
-                       builder->table_collapsed_borders_ ||
-                       builder->table_collapsed_borders_geometry_ ||
-                       builder->table_cell_column_index_ ||
-                       !builder->table_section_row_offsets_.IsEmpty();
+  bool has_rare_data =
+      builder->frame_set_layout_data_ || builder->mathml_paint_info_ ||
+      builder->table_grid_rect_ ||
+      !builder->table_column_geometries_.IsEmpty() ||
+      builder->table_collapsed_borders_ ||
+      builder->table_collapsed_borders_geometry_ ||
+      builder->table_cell_column_index_ ||
+      !builder->table_section_row_offsets_.IsEmpty() || builder->page_name_;
 
   wtf_size_t num_fragment_items =
       builder->ItemsBuilder() ? builder->ItemsBuilder()->Size() : 0;
@@ -390,7 +390,7 @@ NGPhysicalBoxFragment::NGPhysicalBoxFragment(
     *const_cast<PhysicalRect*>(ComputeLayoutOverflowAddress()) =
         layout_overflow;
   }
-  ink_overflow_type_ = NGInkOverflow::kNotSet;
+  SetInkOverflowType(NGInkOverflow::Type::kNotSet);
   has_borders_ = has_borders;
   if (has_borders_)
     *const_cast<NGPhysicalBoxStrut*>(ComputeBordersAddress()) = borders;
@@ -421,12 +421,12 @@ NGPhysicalBoxFragment::NGPhysicalBoxFragment(
 
   const bool allow_baseline = !layout_object_->ShouldApplyLayoutContainment() ||
                               layout_object_->IsTableCell();
-  if (allow_baseline && builder->baseline_.has_value()) {
-    has_baseline_ = true;
-    baseline_ = *builder->baseline_;
+  if (allow_baseline && builder->first_baseline_.has_value()) {
+    has_first_baseline_ = true;
+    first_baseline_ = *builder->first_baseline_;
   } else {
-    has_baseline_ = false;
-    baseline_ = LayoutUnit::Min();
+    has_first_baseline_ = false;
+    first_baseline_ = LayoutUnit::Min();
   }
   if (allow_baseline && builder->last_baseline_.has_value()) {
     has_last_baseline_ = true;
@@ -435,6 +435,8 @@ NGPhysicalBoxFragment::NGPhysicalBoxFragment(
     has_last_baseline_ = false;
     last_baseline_ = LayoutUnit::Min();
   }
+  use_last_baseline_for_inline_baseline_ =
+      builder->use_last_baseline_for_inline_baseline_;
 
   has_descendants_for_table_part_ =
       const_num_children_ || NeedsOOFPositionedInfoPropagation();
@@ -466,7 +468,7 @@ NGPhysicalBoxFragment::NGPhysicalBoxFragment(
       has_descendants_for_table_part_(other.has_descendants_for_table_part_),
       is_fragmentation_context_root_(other.is_fragmentation_context_root_),
       const_num_children_(other.const_num_children_),
-      baseline_(other.baseline_),
+      first_baseline_(other.first_baseline_),
       last_baseline_(other.last_baseline_),
       ink_overflow_(other.InkOverflowType(), other.ink_overflow_) {
   // Shallow-clone the children.
@@ -505,12 +507,12 @@ NGPhysicalBoxFragment::NGPhysicalBoxFragment(
 NGPhysicalBoxFragment::~NGPhysicalBoxFragment() {
   // Note: This function may not always be called because the dtor of
   // NGPhysicalFragment is made non-virtual for memory efficiency.
-  ink_overflow_type_ = ink_overflow_.Reset(InkOverflowType());
+  SetInkOverflowType(ink_overflow_.Reset(InkOverflowType()));
 }
 
 void NGPhysicalBoxFragment::Dispose() {
   if (HasInkOverflow())
-    ink_overflow_type_ = ink_overflow_.Reset(InkOverflowType());
+    SetInkOverflowType(ink_overflow_.Reset(InkOverflowType()));
   if (const_has_fragment_items_)
     ComputeItemsAddress()->~NGFragmentItems();
   if (const_has_rare_data_)
@@ -600,10 +602,15 @@ NGPhysicalBoxFragment::RareData::RareData(NGBoxFragmentBuilder* builder)
     table_section_start_row_index = builder->table_section_start_row_index_;
     table_section_row_offsets = std::move(builder->table_section_row_offsets_);
   }
+  page_name = builder->page_name_;
 }
 
 NGPhysicalBoxFragment::RareData::RareData(const RareData& other)
-    : mathml_paint_info(other.mathml_paint_info
+    : frame_set_layout_data(
+          other.frame_set_layout_data
+              ? new FrameSetLayoutData(*other.frame_set_layout_data)
+              : nullptr),
+      mathml_paint_info(other.mathml_paint_info
                             ? new NGMathMLPaintInfo(*other.mathml_paint_info)
                             : nullptr),
       table_grid_rect(other.table_grid_rect),
@@ -616,7 +623,8 @@ NGPhysicalBoxFragment::RareData::RareData(const RareData& other)
               : nullptr),
       table_cell_column_index(other.table_cell_column_index),
       table_section_start_row_index(other.table_section_start_row_index),
-      table_section_row_offsets(other.table_section_row_offsets) {}
+      table_section_row_offsets(other.table_section_row_offsets),
+      page_name(other.page_name) {}
 
 const LayoutBox* NGPhysicalBoxFragment::OwnerLayoutBox() const {
   // TODO(layout-dev): We should probably get rid of this method, now that it
@@ -1125,8 +1133,8 @@ NGPhysicalBoxFragment::InlineContainerFragmentIfOutlineOwner() const {
 
 void NGPhysicalBoxFragment::SetInkOverflow(const PhysicalRect& self,
                                            const PhysicalRect& contents) {
-  ink_overflow_type_ =
-      ink_overflow_.Set(InkOverflowType(), self, contents, Size());
+  SetInkOverflowType(
+      ink_overflow_.Set(InkOverflowType(), self, contents, Size()));
 }
 
 void NGPhysicalBoxFragment::RecalcInkOverflow(const PhysicalRect& contents) {
@@ -1278,7 +1286,7 @@ PhysicalRect NGPhysicalBoxFragment::ComputeSelfInkOverflow() const {
 
 #if DCHECK_IS_ON()
 void NGPhysicalBoxFragment::InvalidateInkOverflow() {
-  ink_overflow_type_ = ink_overflow_.Invalidate(InkOverflowType());
+  SetInkOverflowType(ink_overflow_.Invalidate(InkOverflowType()));
 }
 #endif
 
@@ -1753,7 +1761,7 @@ void NGPhysicalBoxFragment::CheckSameForSimplifiedLayout(
 
   // Legacy layout can (incorrectly) shift baseline position(s) during
   // "simplified" layout.
-  DCHECK(IsLegacyLayoutRoot() || Baseline() == other.Baseline());
+  DCHECK(IsLegacyLayoutRoot() || FirstBaseline() == other.FirstBaseline());
   if (check_same_block_size) {
     DCHECK(IsLegacyLayoutRoot() || LastBaseline() == other.LastBaseline());
   } else {

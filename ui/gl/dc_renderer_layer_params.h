@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors. All rights reserved.
+// Copyright 2017 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -57,7 +57,7 @@ struct GL_EXPORT DCRendererLayerParams {
 
   gfx::HDRMetadata hdr_metadata;
 
-  bool is_video_fullscreen_mode;
+  bool is_video_fullscreen_letterboxing;
 };
 
 }  // namespace ui

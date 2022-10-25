@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -15,8 +15,7 @@
 #include "components/exo/wm_helper.h"
 #include "ui/views/window/caption_button_layout_constants.h"
 
-namespace ash {
-namespace full_restore {
+namespace ash::full_restore {
 
 namespace {
 
@@ -152,7 +151,7 @@ void ArcGhostWindowHandler::OnAppInstanceConnected() {
 
   // Send all pending window info updates to ARC.
   for (auto& window_info_pr : session_id_to_pending_window_info_) {
-    arc::UpdateWindowInfo(std::move(window_info_pr.second));
+    ::arc::UpdateWindowInfo(std::move(window_info_pr.second));
   }
   session_id_to_pending_window_info_.clear();
 
@@ -164,14 +163,14 @@ void ArcGhostWindowHandler::OnWindowInfoUpdated(int window_id,
                                                 int state,
                                                 int64_t display_id,
                                                 gfx::Rect bounds) {
-  auto window_info = arc::mojom::WindowInfo::New();
+  auto window_info = ::arc::mojom::WindowInfo::New();
   window_info->window_id = window_id;
   window_info->display_id = display_id;
   window_info->bounds = gfx::Rect(bounds);
   window_info->state = state;
 
   if (is_app_instance_connected_) {
-    arc::UpdateWindowInfo(std::move(window_info));
+    ::arc::UpdateWindowInfo(std::move(window_info));
     return;
   }
 
@@ -179,5 +178,4 @@ void ArcGhostWindowHandler::OnWindowInfoUpdated(int window_id,
       std::move(window_info);
 }
 
-}  // namespace full_restore
-}  // namespace ash
+}  // namespace ash::full_restore

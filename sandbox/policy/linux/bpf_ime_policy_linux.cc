@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors. All rights reserved.
+// Copyright 2018 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -41,6 +41,10 @@ ResultExpr ImeProcessPolicy::EvaluateSyscall(int sysno) const {
 #if defined(__NR_getrusage)
     case __NR_getrusage:
       return RestrictGetrusage();
+#endif
+#if defined(__NR_sched_getaffinity)
+    case __NR_sched_getaffinity:
+      return RestrictSchedTarget(GetPolicyPid(), sysno);
 #endif
     default:
       auto* sandbox_linux = SandboxLinux::GetInstance();

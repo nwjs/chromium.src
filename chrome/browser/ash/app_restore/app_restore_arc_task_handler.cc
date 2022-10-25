@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -14,8 +14,7 @@
 #include "components/app_restore/app_restore_arc_info.h"
 #include "components/app_restore/features.h"
 
-namespace ash {
-namespace app_restore {
+namespace ash::app_restore {
 namespace {
 
 constexpr int kFullRestoreId = -1;
@@ -184,5 +183,4 @@ void AppRestoreArcTaskHandler::CreateFullRestoreHandlerForTest() {
   }
 }
 
-}  // namespace app_restore
-}  // namespace ash
+}  // namespace ash::app_restore

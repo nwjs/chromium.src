@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors. All rights reserved.
+// Copyright 2013 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -219,7 +219,8 @@ public class WebContentsImpl implements WebContents, RenderFrameHostDelegate, Wi
     }
 
     @CalledByNative
-    private static WebContentsImpl create(
+    @VisibleForTesting
+    static WebContentsImpl create(
             long nativeWebContentsAndroid, NavigationController navigationController) {
         return new WebContentsImpl(nativeWebContentsAndroid, navigationController);
     }
@@ -287,7 +288,8 @@ public class WebContentsImpl implements WebContents, RenderFrameHostDelegate, Wi
     }
 
     @CalledByNative
-    private void clearNativePtr() {
+    @VisibleForTesting
+    void clearNativePtr() {
         mNativeDestroyThrowable = new RuntimeException("clearNativePtr");
         mNativeWebContentsAndroid = 0;
         mNavigationController = null;

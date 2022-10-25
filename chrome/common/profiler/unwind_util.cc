@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -151,17 +151,17 @@ std::vector<std::unique_ptr<base::Unwinder>> CreateCoreUnwinders(
 // are only embedded into certain builds of Chrome.
 bool AreUnwinderAssetsAvailable() {
   const version_info::Channel channel = chrome::GetChannel();
-  // CFI is currently only embedded into dev and canary builds of Chrome:
-  // https://crsrc.org/c/chrome/android/chrome_public_apk_tmpl.gni;l=30-36;drc=2b4d4975755c2394a9d45a77a8acf7597ff67dfc
+  // CFI is currently only embedded into dev, canary, and beta builds of Chrome:
+  // https://crsrc.org/c/chrome/android/chrome_public_apk_tmpl.gni;l=30-36;drc=32cca7e9d8c49d42e393c75ffb404a0f8899704d
   return channel == version_info::Channel::CANARY ||
-         channel == version_info::Channel::DEV;
+         channel == version_info::Channel::DEV ||
+         channel == version_info::Channel::BETA;
 }
 #endif  // ANDROID_ARM32_UNWINDING_SUPPORTED
 
 }  // namespace
 
-// static
-void UnwindPrerequisites::RequestInstallation() {
+void RequestUnwindPrerequisitesInstallation() {
   CHECK_EQ(metrics::CallStackProfileParams::Process::kBrowser,
            GetProfileParamsProcess(*base::CommandLine::ForCurrentProcess()));
 #if ANDROID_ARM32_UNWINDING_SUPPORTED
@@ -171,8 +171,7 @@ void UnwindPrerequisites::RequestInstallation() {
 #endif  // ANDROID_ARM32_UNWINDING_SUPPORTED
 }
 
-// static
-bool UnwindPrerequisites::Available() {
+bool AreUnwindPrerequisitesAvailable() {
 #if ANDROID_ARM32_UNWINDING_SUPPORTED
   // We need both (1) unwinder assets and (2) unwinder module to be available.
   return AreUnwinderAssetsAvailable() && stack_unwinder::Module::IsInstalled();
@@ -182,7 +181,7 @@ bool UnwindPrerequisites::Available() {
 }
 
 base::StackSamplingProfiler::UnwindersFactory CreateCoreUnwindersFactory() {
-  if (!UnwindPrerequisites::Available()) {
+  if (!AreUnwindPrerequisitesAvailable()) {
     return base::StackSamplingProfiler::UnwindersFactory();
   }
 #if ANDROID_ARM32_UNWINDING_SUPPORTED

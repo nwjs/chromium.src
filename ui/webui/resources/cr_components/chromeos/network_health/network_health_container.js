@@ -1,9 +1,9 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 import '//resources/polymer/v3_0/iron-icon/iron-icon.js';
-import '//resources/cr_elements/icons.m.js';
+import '//resources/cr_elements/icons.html.js';
 
 import {html, Polymer} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 

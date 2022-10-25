@@ -1,10 +1,9 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "content/browser/renderer_host/render_view_host_impl.h"
 
-#include <algorithm>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -22,6 +21,7 @@
 #include "base/metrics/field_trial.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
+#include "base/ranges/algorithm.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -113,10 +113,6 @@
 #include "content/browser/host_zoom_map_impl.h"
 #endif
 
-#if defined(USE_OZONE)
-#include "ui/base/ui_base_features.h"
-#endif
-
 using blink::WebInputEvent;
 
 namespace content {
@@ -173,11 +169,10 @@ class PerProcessRenderViewHostSet : public base::SupportsUserData::Data {
   }
 
   bool HasNonBackForwardCachedInstances() const {
-    return std::find_if(render_view_host_instances_.begin(),
-                        render_view_host_instances_.end(),
-                        [](const RenderViewHostImpl* rvh) {
-                          return !rvh->is_in_back_forward_cache();
-                        }) != render_view_host_instances_.end();
+    return base::ranges::find_if_not(
+               render_view_host_instances_,
+               &RenderViewHostImpl::is_in_back_forward_cache) !=
+           render_view_host_instances_.end();
   }
 
  private:
@@ -428,7 +423,7 @@ bool RenderViewHostImpl::CreateRenderView(
         RenderFrameProxyHost::FromID(GetProcess()->GetID(), proxy_route_id);
     DCHECK(main_rfph);
   }
-  const FrameTreeNode* const frame_tree_node =
+  FrameTreeNode* const frame_tree_node =
       main_rfh ? main_rfh->frame_tree_node() : main_rfph->frame_tree_node();
 
   mojom::CreateViewParamsPtr params = mojom::CreateViewParams::New();
@@ -498,6 +493,14 @@ bool RenderViewHostImpl::CreateRenderView(
   params->window_was_opened_by_another_window =
       window_was_opened_by_another_window;
   params->base_background_color = delegate_->GetBaseBackgroundColor();
+  if (auto* parent_rfh = frame_tree_node->GetParentOrOuterDocument()) {
+    url::Origin outermost_origin =
+        parent_rfh->GetOutermostMainFrame()->GetLastCommittedOrigin();
+    if (GetContentClient()->browser()->ShouldSendOutermostOriginToRenderer(
+            outermost_origin)) {
+      params->outermost_origin = outermost_origin;
+    }
+  }
 
   bool is_portal = frame_tree_->delegate()->IsPortal();
   bool is_guest_view = delegate_->IsGuest();

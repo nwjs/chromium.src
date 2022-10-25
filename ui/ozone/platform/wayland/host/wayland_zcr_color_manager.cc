@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -27,7 +27,6 @@ void WaylandZcrColorManager::Instantiate(WaylandConnection* connection,
                                          const std::string& interface,
                                          uint32_t version) {
   DCHECK_EQ(interface, kInterfaceName);
-
   if (connection->zcr_color_manager_)
     return;
 

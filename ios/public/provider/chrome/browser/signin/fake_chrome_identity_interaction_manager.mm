@@ -1,9 +1,10 @@
-// Copyright 2016 The Chromium Authors. All rights reserved.
+// Copyright 2016 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #import "ios/public/provider/chrome/browser/signin/fake_chrome_identity_interaction_manager.h"
 
+#import "ios/public/provider/chrome/browser/signin/chrome_identity.h"
 #import "ios/public/provider/chrome/browser/signin/chrome_identity_interaction_manager.h"
 #import "ios/public/provider/chrome/browser/signin/fake_chrome_identity_interaction_manager_constants.h"
 #import "ios/public/provider/chrome/browser/signin/fake_chrome_identity_service.h"

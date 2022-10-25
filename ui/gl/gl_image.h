@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -151,10 +151,6 @@ class GL_EXPORT GLImage : public base::RefCounted<GLImage> {
     DCOMP_SURFACE,
   };
   virtual Type GetType() const;
-
-  // Workaround for StreamTexture which must be re-copied on each access.
-  // TODO(ericrk): Remove this once SharedImage transition is complete.
-  virtual bool HasMutableState() const;
 
   // Returns the NativePixmap backing the GLImage. If not backed by a
   // NativePixmap, returns null.

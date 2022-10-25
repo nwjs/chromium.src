@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors. All rights reserved.
+// Copyright 2015 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -17,10 +17,10 @@ import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Point;
-import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Handler;
 import android.os.SystemClock;
@@ -42,7 +42,7 @@ import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
-import androidx.appcompat.graphics.drawable.DrawableWrapper;
+import androidx.appcompat.graphics.drawable.DrawableWrapperCompat;
 import androidx.core.widget.ImageViewCompat;
 
 import org.chromium.base.ApiCompatibilityUtils;
@@ -143,6 +143,7 @@ public class ToolbarPhone extends ToolbarLayout implements OnClickListener, TabC
     protected ImageView mToolbarShadow;
     private OptionalButtonCoordinator mOptionalButton;
     private boolean mOptionalButtonUsesTint;
+    private boolean mShouldShowModernizeVisualUpdate;
 
     @ViewDebug.ExportedProperty(category = "chrome")
     protected int mTabSwitcherState;
@@ -193,7 +194,7 @@ public class ToolbarPhone extends ToolbarLayout implements OnClickListener, TabC
     protected ColorDrawable mToolbarBackground;
 
     /** The omnibox background (white with a shadow). */
-    private Drawable mLocationBarBackground;
+    private GradientDrawable mLocationBarBackground;
     private Drawable mActiveLocationBarBackground;
 
     protected boolean mForceDrawLocationBarBackground;
@@ -286,7 +287,8 @@ public class ToolbarPhone extends ToolbarLayout implements OnClickListener, TabC
      */
     public ToolbarPhone(Context context, AttributeSet attrs) {
         super(context, attrs);
-        final int edgePaddingRes = OmniboxFeatures.shouldShowModernizeVisualUpdate(context)
+        mShouldShowModernizeVisualUpdate = OmniboxFeatures.shouldShowModernizeVisualUpdate(context);
+        final int edgePaddingRes = mShouldShowModernizeVisualUpdate
                 ? R.dimen.toolbar_edge_padding_modern
                 : R.dimen.toolbar_edge_padding;
         mToolbarSidePadding = getResources().getDimensionPixelOffset(edgePaddingRes);
@@ -332,6 +334,11 @@ public class ToolbarPhone extends ToolbarLayout implements OnClickListener, TabC
     @Override
     void destroy() {
         cancelAnimations();
+        Handler handler = getHandler();
+        if (handler != null) {
+            handler.removeCallbacksAndMessages(null);
+        }
+
         super.destroy();
     }
 
@@ -351,13 +358,11 @@ public class ToolbarPhone extends ToolbarLayout implements OnClickListener, TabC
      * @param context The activity {@link Context}.
      * @return The drawable for the modern location bar background.
      */
-    public static Drawable createModernLocationBarBackground(Context context) {
-        Drawable drawable = context.getDrawable(
+    public static GradientDrawable createModernLocationBarBackground(Context context) {
+        GradientDrawable drawable = (GradientDrawable) context.getDrawable(
                 R.drawable.modern_toolbar_text_box_background_with_primary_color);
         drawable.mutate();
-        final int tint = ChromeColors.getSurfaceColor(context, R.dimen.toolbar_text_box_elevation);
-        // TODO(https://crbug.com/1239289): Change back to #setTint once our min API level is 23.
-        drawable.setColorFilter(tint, PorterDuff.Mode.SRC_IN);
+        drawable.setTint(ChromeColors.getSurfaceColor(context, R.dimen.toolbar_text_box_elevation));
 
         return drawable;
     }
@@ -368,11 +373,24 @@ public class ToolbarPhone extends ToolbarLayout implements OnClickListener, TabC
     private void updateModernLocationBarColor(int color) {
         if (mCurrentLocationBarColor == color) return;
         mCurrentLocationBarColor = color;
-        // TODO(https://crbug.com/1239289): Change back to #setTint once our min API level is 23.
-        mLocationBarBackground.setColorFilter(color, PorterDuff.Mode.SRC_IN);
+        mLocationBarBackground.setTint(color);
         if (mOptionalButton != null) {
             mOptionalButton.setBackgroundColorFilter(color);
         }
+    }
+
+    private void updateModernLocationBarCorners() {
+        if (!mShouldShowModernizeVisualUpdate
+                || !OmniboxFeatures.shouldShowActiveColorOnOmnibox()) {
+            return;
+        }
+        int nonFocusedRadius = getResources().getDimensionPixelSize(
+                R.dimen.modern_toolbar_background_corner_radius);
+        int focusedRadius = getResources().getDimensionPixelSize(
+                R.dimen.omnibox_suggestion_bg_round_corner_radius);
+        int radius = (int) MathUtils.interpolate(
+                nonFocusedRadius, focusedRadius, mUrlFocusChangeFraction);
+        mLocationBarBackground.setCornerRadius(radius);
     }
 
     /**
@@ -383,6 +401,36 @@ public class ToolbarPhone extends ToolbarLayout implements OnClickListener, TabC
     private int getLocationBarColorForToolbarColor(int toolbarColor) {
         return ThemeUtils.getTextBoxColorForToolbarBackgroundInNonNativePage(
                 getContext(), toolbarColor, isIncognito());
+    }
+
+    /**
+     * Get the toolbar default color depending on the toolbar's status.
+     */
+    private int getToolbarDefaultColor() {
+        if (mShouldShowModernizeVisualUpdate && mLocationBar.getPhoneCoordinator().hasFocus()) {
+            return mLocationBar.getDropdownBackgroundColor(isIncognito());
+        }
+        return ChromeColors.getDefaultThemeColor(getContext(), isIncognito());
+    }
+
+    /**
+     * Get the corresponding default location bar color for a toolbar color.
+     * If location bar has focus, return the Omnibox suggestion background color.
+     * If location bar does not have focus, return {@link getLocationBarColorForToolbarColor(int
+     * toolbarColor)}.
+     * @param toolbarColor The color of the toolbar.
+     * @return The default location bar color.
+     */
+    private int getLocationBarDefaultColorForToolbarColor(int toolbarColor) {
+        if (mShouldShowModernizeVisualUpdate && mLocationBar.getPhoneCoordinator().hasFocus()) {
+            if (OmniboxFeatures.shouldShowActiveColorOnOmnibox()) {
+                // Omnibox has same background as the Omnibox suggestion.
+                return mLocationBar.getSuggestionBackgroundColor(isIncognito());
+            }
+            // Omnibox has same background as the toolbar.
+            return getToolbarDefaultColor();
+        }
+        return getLocationBarColorForToolbarColor(toolbarColor);
     }
 
     private void inflateTabSwitchingResources() {
@@ -545,6 +593,11 @@ public class ToolbarPhone extends ToolbarLayout implements OnClickListener, TabC
     @VisibleForTesting
     public ColorDrawable getBackgroundDrawable() {
         return mToolbarBackground;
+    }
+
+    @VisibleForTesting
+    void setLocationBarBackgroundDrawableForTesting(GradientDrawable background) {
+        mLocationBarBackground = background;
     }
 
     @SuppressLint("RtlHardcoded")
@@ -1018,9 +1071,14 @@ public class ToolbarPhone extends ToolbarLayout implements OnClickListener, TabC
 
             // Only transition theme colors if in static tab mode that is not the NTP. In practice
             // this only runs when you focus the omnibox on a web page.
-            if (!isLocationBarShownInNTP() && mTabSwitcherState == STATIC_TAB) {
-                int defaultColor = ChromeColors.getDefaultThemeColor(getContext(), isIncognito());
-                int defaultLocationBarColor = getLocationBarColorForToolbarColor(defaultColor);
+            // But for the mShouldShowModernizeVisualUpdate, toolbar and locationbar will have
+            // different color when they are focused than in NTP, so the color need to be updated in
+            // this case.
+            if ((mShouldShowModernizeVisualUpdate || !isLocationBarShownInNTP())
+                    && mTabSwitcherState == STATIC_TAB) {
+                int defaultColor = getToolbarDefaultColor();
+                int defaultLocationBarColor =
+                        getLocationBarDefaultColorForToolbarColor(defaultColor);
                 int primaryColor = getToolbarDataProvider().getPrimaryColor();
                 int themedLocationBarColor = getLocationBarColorForToolbarColor(primaryColor);
 
@@ -1029,6 +1087,8 @@ public class ToolbarPhone extends ToolbarLayout implements OnClickListener, TabC
 
                 updateModernLocationBarColor(ColorUtils.getColorWithOverlay(
                         themedLocationBarColor, defaultLocationBarColor, mUrlFocusChangeFraction));
+
+                updateModernLocationBarCorners();
             }
         }
 
@@ -1813,7 +1873,7 @@ public class ToolbarPhone extends ToolbarLayout implements OnClickListener, TabC
         animator.setInterpolator(BakedBezierInterpolator.TRANSFORM_CURVE);
         animators.add(animator);
 
-        mLocationBar.getPhoneCoordinator().populateFadeAnimations(
+        mLocationBar.getPhoneCoordinator().populateFadeAnimation(
                 animators, 0, URL_FOCUS_CHANGE_ANIMATION_DURATION_MS, 0);
 
         float density = getContext().getResources().getDisplayMetrics().density;
@@ -1873,7 +1933,7 @@ public class ToolbarPhone extends ToolbarLayout implements OnClickListener, TabC
             animators.add(animator);
         }
 
-        mLocationBar.getPhoneCoordinator().populateFadeAnimations(
+        mLocationBar.getPhoneCoordinator().populateFadeAnimation(
                 animators, URL_FOCUS_TOOLBAR_BUTTONS_DURATION_MS, URL_CLEAR_FOCUS_MENU_DELAY_MS, 1);
 
         if (isLocationBarShownInNTP() && mNtpSearchBoxScrollFraction == 0f) return;
@@ -2102,12 +2162,11 @@ public class ToolbarPhone extends ToolbarLayout implements OnClickListener, TabC
         // TODO(tedchoc): Move away from updating based on the search engine change and instead
         //                add the toolbar as a listener to the NewTabPage and udpate only when
         //                it notifies the listeners that it has changed its state.
-        post(new Runnable() {
-            @Override
-            public void run() {
-                updateVisualsForLocationBarState();
-                updateNtpAnimationState();
-            }
+        Handler handler = getHandler();
+        if (handler == null) return;
+        handler.post(() -> {
+            updateVisualsForLocationBarState();
+            updateNtpAnimationState();
         });
     }
 
@@ -2437,7 +2496,7 @@ public class ToolbarPhone extends ToolbarLayout implements OnClickListener, TabC
      * NTP.  This allows animations to continue as the drawable is switched between the two owning
      * views.
      */
-    private static class NtpSearchBoxDrawable extends DrawableWrapper {
+    private static class NtpSearchBoxDrawable extends DrawableWrapperCompat {
         private final Drawable.Callback mCallback;
 
         private int mBoundsLeft;

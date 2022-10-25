@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -24,8 +24,7 @@ export function changeDirectory(
     return emptyDir;
   }
 
-  // TODO(lucmult): Find a correct way to grab the VolumeManager.
-  const volumeManager = window.fileManager.volumeManager;
+  const volumeManager = window.fileManager?.volumeManager;
   if (!volumeManager) {
     console.debug(`VolumeManager not available yet.`);
     return currentState.currentDirectory || emptyDir;

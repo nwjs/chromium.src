@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright 2011 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -56,7 +56,7 @@
 #include "chromeos/services/tts/tts_sandbox_hook.h"
 
 #if BUILDFLAG(ENABLE_CROS_LIBASSISTANT)
-#include "chromeos/services/libassistant/libassistant_sandbox_hook.h"  // nogncheck
+#include "chromeos/ash/services/libassistant/libassistant_sandbox_hook.h"  // nogncheck
 #endif  // BUILDFLAG(ENABLE_CROS_LIBASSISTANT)
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 

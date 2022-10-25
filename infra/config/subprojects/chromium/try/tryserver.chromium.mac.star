@@ -1,4 +1,4 @@
-# Copyright 2021 The Chromium Authors. All rights reserved.
+# Copyright 2021 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 """Definitions of builders in the tryserver.chromium.mac builder group."""
@@ -103,8 +103,11 @@ try_.orchestrator_builder(
     experiments = {
         "remove_src_checkout_experiment": 100,
         "enable_weetbix_queries": 100,
+        "weetbix.retry_weak_exonerations": 100,
     },
-    use_orchestrator_pool = True,
+    # TODO(crbug.com/1372179): Use orchestrator pool once overloaded test pools
+    # are addressed
+    # use_orchestrator_pool = True,
 )
 
 try_.compilator_builder(
@@ -274,9 +277,6 @@ ios_builder(
 
 ios_builder(
     name = "ios-catalyst",
-
-    # TODO(crbug.com/1350126): Move ios-catalyst to xcode.x14main when fixed.
-    xcode = xcode.x13main,
     mirrors = [
         "ci/ios-catalyst",
     ],
@@ -309,8 +309,9 @@ ios_builder(
     cpu = cpu.ARM64,
 )
 
-ios_builder(
+try_.orchestrator_builder(
     name = "ios-simulator",
+    compilator = "ios-simulator-compilator",
     branch_selector = branches.STANDARD_MILESTONE,
     mirrors = [
         "ci/ios-simulator",
@@ -322,8 +323,28 @@ ios_builder(
     coverage_test_types = ["overall", "unit"],
     tryjob = try_.job(),
     experiments = {
+        "remove_src_checkout_experiment": 100,
         "enable_weetbix_queries": 100,
+        "weetbix.retry_weak_exonerations": 100,
+        "weetbix.enable_weetbix_exonerations": 100,
     },
+    # TODO(crbug.com/1372179): Use orchestrator pool once overloaded test pools
+    # are addressed
+    # use_orchestrator_pool = True,
+)
+
+try_.compilator_builder(
+    name = "ios-simulator-compilator",
+    builderless = False,
+    check_for_flakiness = True,
+    branch_selector = branches.STANDARD_MILESTONE,
+    main_list_view = "try",
+    experiments = {
+        "luci.buildbucket.omit_python2": 100,
+    },
+    os = os.MAC_DEFAULT,
+    ssd = None,
+    xcode = xcode.x14main,
 )
 
 ios_builder(
@@ -360,6 +381,7 @@ ios_builder(
     tryjob = try_.job(
         location_regexp = [
             ".+/[+]/ios/.+",
+            ".+/[+]/testing/variations/fieldtrial_testing_config.json",
         ],
     ),
 )

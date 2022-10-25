@@ -1,14 +1,14 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome/browser/ui/tab_contents/chrome_web_contents_view_handle_drop.h"
 
+#include "base/containers/contains.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_util.h"
 #include "base/memory/weak_ptr.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/task/task_runner_util.h"
 #include "base/task/thread_pool.h"
 #include "chrome/browser/enterprise/connectors/analysis/content_analysis_delegate.h"
 #include "chrome/browser/profiles/profile.h"
@@ -27,11 +27,8 @@ void CompletionCallback(
     const enterprise_connectors::ContentAnalysisDelegate::Data& data,
     const enterprise_connectors::ContentAnalysisDelegate::Result& result) {
   // If any result is negative, block the drop.
-  const auto all_true_fn = [](const auto& vec) {
-    return std::all_of(vec.cbegin(), vec.cend(), [](bool b) { return b; });
-  };
-  bool all_true =
-      all_true_fn(result.text_results) && all_true_fn(result.paths_results);
+  bool all_true = !base::Contains(result.text_results, false) &&
+                  !base::Contains(result.paths_results, false);
 
   std::move(callback).Run(
       all_true

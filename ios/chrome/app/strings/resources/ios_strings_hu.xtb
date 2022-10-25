@@ -23,6 +23,7 @@ Az Ön keresőmotorja a következő: <ph name="DSE_NAME" />. A keresési előzm�
 <translation id="1104948393051856124">Elfogadás és folytatás</translation>
 <translation id="110724200315609752">Váltás megnyitott ablakra</translation>
 <translation id="1112015203684611006">A nyomtatás sikertelen.</translation>
+<translation id="1118569444314402022">Üdvözöljük ismét, kedves <ph name="USER_NAME" />!</translation>
 <translation id="1125564390852150847">Új lap létrehozása.</translation>
 <translation id="1126809382673880764">Nem védi meg Önt a veszélyes webhelyek, letöltések vagy bővítmények ellen. Ahol lehetséges (más Google-szolgáltatásokban, például a Gmailben és a Keresőben) továbbra is megkapja a Biztonságos Böngészés által nyújtott védelmet.</translation>
 <translation id="1135212215217513471">A Chrome letöltése iOS rendszerhez</translation>
@@ -46,6 +47,7 @@ Az Ön keresőmotorja a következő: <ph name="DSE_NAME" />. A keresési előzm�
 <translation id="1272079795634619415">Leállítás</translation>
 <translation id="1275718070701477396">Kijelölve</translation>
 <translation id="1281818060020671000">Adatok kezelése</translation>
+<translation id="1282311502488501110">Bejelentkezés leállítása</translation>
 <translation id="1283524564873030414">Az elmúlt 24 órából</translation>
 <translation id="1285320974508926690">Ezt a webhelyet soha ne fordítsa le</translation>
 <translation id="1291506870746876680">A(z) <ph name="BEGIN_BOLD" />„<ph name="SITE_NAME" />”<ph name="END_BOLD" /> webhelyre vonatkozó engedélyeket a rendszer letiltott beállításra állítja vissza, amikor Ön elhagyja ezt a webhelyet.</translation>
@@ -54,6 +56,7 @@ Az Ön keresőmotorja a következő: <ph name="DSE_NAME" />. A keresési előzm�
 <translation id="1322735045095424339">Szervezete megköveteli az inkognitó mód használatát</translation>
 <translation id="1323735185997015385">Törlés</translation>
 <translation id="132683371494960526">Koppintson duplán a szülőmappa módosításához.</translation>
+<translation id="1335348992705722518">Beállítások kezelése…</translation>
 <translation id="1340643665687018190">Menü bezárása</translation>
 <translation id="1358214951266274152">A vágólapra másolt link megnyitása</translation>
 <translation id="1360432990279830238">Kijelentkezik, és kikapcsolja a szinkronizálást?</translation>
@@ -61,6 +64,7 @@ Az Ön keresőmotorja a következő: <ph name="DSE_NAME" />. A keresési előzm�
 <translation id="1377255359165588604">A szinkronizálás leállt.</translation>
 <translation id="1377321085342047638">Kártyaszám</translation>
 <translation id="1383876407941801731">Keresés</translation>
+<translation id="138618066238211776">Folytatás mint <ph name="USER_NAME" /></translation>
 <translation id="1400642268715879018">Elmúlt négy hét</translation>
 <translation id="1404330357948037222">Ön nincs bejelentkezve</translation>
 <translation id="1407135791313364759">Összes megnyitása</translation>
@@ -174,9 +178,11 @@ A webhelyek nem használhatnak cookie-kat arra, hogy megfigyeljék más webhelye
 <translation id="2421044535038393232">Szerkesztés folytatása</translation>
 <translation id="2434405374328098816">Már mentett jelszót a(z) „<ph name="USERNAME" />” felhasználónévhez a(z) <ph name="WEBSITE" /> webhelyen</translation>
 <translation id="2435457462613246316">Jelszó megjelenítése</translation>
+<translation id="2461070143328828326">Jelszóbeállítások</translation>
 <translation id="2469960372084740698">Kikapcsolja a Biztonságos Böngészést?</translation>
 <translation id="2473876017985765807">Már mentett jelszót a(z) „<ph name="WEBSITE" />” webhelyhez.</translation>
 <translation id="2476359652512522418">Nincs kiválasztva</translation>
+<translation id="2482878487686419369">Értesítések</translation>
 <translation id="2500374554657206846">A jelszó mentésére szolgáló lehetőségek</translation>
 <translation id="2523363575747517183">Ez a webhely folyamatosan próbál megnyitni egy másik alkalmazást.</translation>
 <translation id="2529021024822217800">Az összes megnyitása</translation>
@@ -327,6 +333,7 @@ A keresési előzmények törléséről a keresőmotorja útmutatójából táj�
 <translation id="3709582977625132201">Megjelölés olvasatlanként</translation>
 <translation id="371230970611282515">Előrejelzi a veszélyes eseményeket, és figyelmezteti Önt rájuk még a bekövetkezésük előtt.</translation>
 <translation id="37207012422556617">Felkapott keresések</translation>
+<translation id="3726360487031500941">Jelentkezzen be újra a fiókjába (<ph name="USER_NAME" />)</translation>
 <translation id="3740397331642243698">A megadott URL-eket a Google Chrome böngészőben, inkognitó módban nyitja meg.</translation>
 <translation id="3762232513783804601">iPadhez készült</translation>
 <translation id="3771033907050503522">Inkognitó lapok</translation>
@@ -381,6 +388,7 @@ A keresési előzmények törléséről a keresőmotorja útmutatójából táj�
 <translation id="4187450337729239226">Beillesztés és keresés</translation>
 <translation id="4223967053752765281">Szervezete kikapcsolta a bejelentkezést. Továbbra is láthatja könyvjelzőit, előzményeit, jelszavait és más beállításait ezen az eszközön. A módosítások azonban nem szinkronizálódnak az Ön fiókjába.</translation>
 <translation id="4233831822770018312">Engedélyek módosítása</translation>
+<translation id="4236584471598725073">Ár nyomon követve</translation>
 <translation id="4237377247299956313">Koppintson az <ph name="BEGIN_BOLD" />Alapértelmezett böngésző<ph name="END_BOLD" /> lehetőségre.</translation>
 <translation id="424315890655130736">Összetett jelszó megadása</translation>
 <translation id="4249955472157341256">Rendezés a legutóbbiak szerint</translation>
@@ -393,6 +401,7 @@ A keresési előzmények törléséről a keresőmotorja útmutatójából táj�
 <translation id="430793432425771671">Az összes szinkronizálása</translation>
 <translation id="4309403553630140242">További információért koppintson duplán.</translation>
 <translation id="430967081421617822">Mindenkori</translation>
+<translation id="4324952538601951430">Mentett könyvjelzői, jelszavai, beállításai és még sok más mostantól itt található</translation>
 <translation id="4334428914252001502">1 olvasatlan cikk.</translation>
 <translation id="4338650699862464074">Elküldi a felkeresett oldalak URL-címét a Google-nak.</translation>
 <translation id="4343046787186034850">Kamera- és mikrofon-hozzáférés engedélyezve</translation>
@@ -471,6 +480,7 @@ A beállítás módosításához <ph name="BEGIN_LINK" />állítsa vissza a szin
 <translation id="4901778704868714008">Mentés…</translation>
 <translation id="4904877109095351937">Megjelölés olvasottként</translation>
 <translation id="4908869848243824489">Discover by Google</translation>
+<translation id="4916679969857390442">Lencse</translation>
 <translation id="4930714375720679147">Bekapcsolás</translation>
 <translation id="4941089862236492464">Sajnos hiba történt az elem megosztásakor.</translation>
 <translation id="4944543191714094452">Keresés az oldalon…</translation>
@@ -738,6 +748,7 @@ Inkognitó módban a webhelyek nem használhatnak cookie-kat arra, hogy megfigye
 <translation id="6930799952781667037">Koppintson a nyelv módosításához.</translation>
 <translation id="6944369514868857500">Másik fiók választása</translation>
 <translation id="6945221475159498467">Kiválasztás</translation>
+<translation id="6965382102122355670">OK</translation>
 <translation id="6973630695168034713">Mappák</translation>
 <translation id="6979158407327259162">Google Drive</translation>
 <translation id="6988572888918530647">Google-fiók kezelése</translation>
@@ -766,7 +777,6 @@ Inkognitó módban a webhelyek nem használhatnak cookie-kat arra, hogy megfigye
 <translation id="7192050974311852563">Naplózás indítása</translation>
 <translation id="7203585745079012652">Mondja ki a válaszokat</translation>
 <translation id="7207023858769244910">Szinkronizáljon, ha az érdeklődési körein alapuló tartalmakat szeretne látni.</translation>
-<translation id="7207383424303353046">Újdonság: Ha alapértelmezett böngészőként állítja be a Chrome-ot, automatikusan nyithat meg benne webhelyeket. <ph name="BEGIN_LINK" />Beállítások megnyitása<ph name="END_LINK" />.</translation>
 <translation id="721597782417389033">Érvénytelen egyedi kártyanév</translation>
 <translation id="722454870747268814">Új inkognitó lap</translation>
 <translation id="7265758999917665941">Ezen a webhelyen soha</translation>
@@ -916,7 +926,6 @@ A webhelyek használhatnak cookie-kat arra, hogy megfigyeljék más webhelyekre 
 <translation id="8533670235862049797">A Biztonságos Böngészés be van kapcsolva</translation>
 <translation id="8534481786647257214">A Google+-bejegyzés kész.</translation>
 <translation id="8548878600947630424">Keresés az oldalon...</translation>
-<translation id="8574235780160508979">A Chrome Általános Szerződési Feltételei március 31-én módosulnak. <ph name="BEGIN_LINK" />Kérjük, tekintse meg<ph name="END_LINK" />.</translation>
 <translation id="8588404856427128947">Kikapcsolva</translation>
 <translation id="8590913940444621808">Ne kérdezzen rá</translation>
 <translation id="8591976964826315682">Harmadik felektől származó cookie-k letiltása Inkognitó módban</translation>

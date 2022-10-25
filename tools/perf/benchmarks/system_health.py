@@ -1,4 +1,4 @@
-# Copyright 2016 The Chromium Authors. All rights reserved.
+# Copyright 2016 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 import logging
@@ -17,13 +17,10 @@ import page_sets
 
 
 SYSTEM_HEALTH_BENCHMARK_UMA = [
-    'Event.Latency.ScrollBegin.TimeToScrollUpdateSwapBegin2',
-    'Event.Latency.ScrollUpdate.TimeToScrollUpdateSwapBegin2',
     'EventLatency.FirstGestureScrollUpdate.Touchscreen.TotalLatency',
     'EventLatency.FirstGestureScrollUpdate.Wheel.TotalLatency',
     'EventLatency.GestureScrollUpdate.Touchscreen.TotalLatency',
-    'EventLatency.GestureScrollUpdate.Wheel.TotalLatency'
-    'Graphics.Smoothness.PercentDroppedFrames.AllSequences',
+    'EventLatency.GestureScrollUpdate.Wheel.TotalLatency',
     'Graphics.Smoothness.PercentDroppedFrames3.AllSequences',
     'Memory.GPU.PeakMemoryUsage2.Scroll',
     'Memory.GPU.PeakMemoryUsage2.PageLoad',

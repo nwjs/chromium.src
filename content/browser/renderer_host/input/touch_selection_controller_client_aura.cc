@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors. All rights reserved.
+// Copyright 2015 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -269,7 +269,8 @@ void TouchSelectionControllerClientAura::ShowQuickMenu() {
 
   aura::Window* parent = rwhva_->GetNativeView();
   ui::TouchSelectionMenuRunner::GetInstance()->OpenMenu(
-      active_menu_client_, ConvertRectToScreen(parent, anchor_rect),
+      active_menu_client_->GetWeakPtr(),
+      ConvertRectToScreen(parent, anchor_rect),
       gfx::ToRoundedSize(max_handle_size), parent->GetToplevelWindow());
 }
 

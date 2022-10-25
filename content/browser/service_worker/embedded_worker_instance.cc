@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors. All rights reserved.
+// Copyright 2013 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -284,7 +284,8 @@ void EmbeddedWorkerInstance::Start(
       process_manager->AllocateWorkerProcess(
           embedded_worker_id(), params->script_url,
           owner_version_->cross_origin_embedder_policy_value(),
-          can_use_existing_process, process_info.get());
+          can_use_existing_process, owner_version_->ancestor_frame_type(),
+          process_info.get());
   if (status != blink::ServiceWorkerStatusCode::kOk) {
     OnSetupFailed(std::move(callback), status);
     return;
@@ -332,10 +333,10 @@ void EmbeddedWorkerInstance::Start(
           storage_partition->GetWeakPtr(), params->script_url,
           coep->reporting_endpoint, coep->report_only_reporting_endpoint,
           owner_version_->reporting_source(),
-          // TODO(https://crbug.com/1147281): This is the NetworkIsolationKey of
-          // a top-level browsing context, which shouldn't be use for
-          // ServiceWorkers used in iframes.
-          net::NetworkIsolationKey::ToDoUseTopFrameOriginAsWell(
+          // TODO(https://crbug.com/1147281): This is the
+          // NetworkAnonymizationKey of a top-level browsing context, which
+          // shouldn't be use for ServiceWorkers used in iframes.
+          net::NetworkAnonymizationKey::ToDoUseTopFrameOriginAsWell(
               url::Origin::Create(params->script_url)));
       coep_reporter_->BindObserver(std::move(reporting_observer_remote));
 

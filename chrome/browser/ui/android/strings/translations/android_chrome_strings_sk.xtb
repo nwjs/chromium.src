@@ -454,6 +454,7 @@ Keď odstránite históriu prehliadania (buď celú, alebo pre konkrétny web), 
 <translation id="3435465986463792564">Máte veľa okien? Tu ich môžete spravovať.</translation>
 <translation id="3443221991560634068">Opätovné načítanie aktuálnej stránky</translation>
 <translation id="3444179773590444986">Chcete zdieľať spätnú väzbu k tmavému motívu pre weby?</translation>
+<translation id="3452832259067974318">V záujme ochrany vášho súkromia nebude Chrome do tohto poľa automaticky dopĺňať heslá.</translation>
 <translation id="3469665409713263828">{FILE_COUNT,plural, =1{Bolo naplánované 1 sťahovanie}few{Boli naplánované # sťahovania}many{# downloads scheduled}other{Bolo naplánovaných # sťahovaní}}</translation>
 <translation id="3474624961160222204">Pokračovať ako <ph name="NAME" /></translation>
 <translation id="3478363558367712427">Môžete si vybrať vyhľadávač</translation>
@@ -679,6 +680,7 @@ Váš účet Google môže mať na adrese <ph name="BEGIN_LINK" />myactivity.goo
 <translation id="4763480195061959176">video</translation>
 <translation id="4766313118839197559">Heslá sa ukladajú do Správcu hesiel v tomto zariadení</translation>
 <translation id="4766678251456904326">Pridať účet do zariadenia</translation>
+<translation id="4787736314074622408">Chcete súbor <ph name="ITEM_TITLE" /> odstrániť?</translation>
 <translation id="4791358705705538979">Pomáha vám dokončiť úlohy na internete, napríklad platenie</translation>
 <translation id="4794291718671962615">(<ph name="MEGABYTES" />) <ph name="URL" /></translation>
 <translation id="4802417911091824046">Šifrovanie prístupovej frázy nezahŕňa spôsoby platby a adresy zo služby Google Pay.
@@ -748,6 +750,7 @@ Ak chcete toto nastavenie zmeniť, <ph name="BEGIN_LINK" />resetujte synchroniz�
 <translation id="5091199029769593641">Keď otvoríte novú kartu, čoskoro sa vám budú zobrazovať príbehy z webu <ph name="SITE_NAME" />. Weby, ktoré sledujete, sa ukladajú do vášho účtu Google. Môžete ich spravovať v nastaveniach kanála Objaviť.</translation>
 <translation id="5091249083535528968">Rozšírené údaje o používaní</translation>
 <translation id="509429900233858213">Vyskytla sa chyba.</translation>
+<translation id="5099845111805573968">Keď raz vyberiete web pre počítače, toto nastavenie sa použije pri každej návšteve príslušného webu</translation>
 <translation id="5102401324271069229">Ak sa vám určitý web pokúsi ukradnúť heslo alebo stiahnete škodlivý súbor, Chrome môže odoslať Bezpečnému prehliadaniu webové adresy vrátane častí obsahu stránok</translation>
 <translation id="510275257476243843">Zostáva: 1 h</translation>
 <translation id="5115811374190515607">do služby <ph name="PRODUCT_NAME" /></translation>
@@ -907,6 +910,7 @@ Ak chcete toto nastavenie zmeniť, <ph name="BEGIN_LINK" />resetujte synchroniz�
 <translation id="5958275228015807058">Nájdite stiahnuté súbory a stránky</translation>
 <translation id="5962718611393537961">Klepnutím zbaliť</translation>
 <translation id="5964869237734432770">Zastaviť popisy obrázkov</translation>
+<translation id="5966233851250124270">Chrome si vašu voľbu zapamätá</translation>
 <translation id="5979084224081478209">Skontrolovať heslá</translation>
 <translation id="5995726099713306770">Chcete stránku znova stiahnuť?</translation>
 <translation id="6000066717592683814">Ponechať Google</translation>
@@ -946,6 +950,7 @@ Skúšobné obdobia technológií Privacy Sandbox sú stále v aktívnom vývoj
 <translation id="6192907950379606605">Získať popisy obrázkov</translation>
 <translation id="6196315980958524839">Heslá sa ukladajú do Správcu hesiel Google v tomto zariadení.</translation>
 <translation id="620197886010707372">Chcete otvoriť aplikáciu pre aplikáciu <ph name="APPNAME" /> pomocou služby Google Play?</translation>
+<translation id="6202812185118613467">Ak chcete spustiť synchronizáciu, znova sa prihláste</translation>
 <translation id="6203593061661911168">Sťahovanie sa začne po pripojení k sieti Wi‑Fi</translation>
 <translation id="6210748933810148297">Nie som <ph name="EMAIL" /></translation>
 <translation id="6211386937064921208">Je zobrazená ukážka tejto stránky</translation>
@@ -1083,6 +1088,7 @@ Tokeny dôveryhodnosti zlepšujú ochranu súkromia na internete a nedá sa pod
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6824899148643461612"><ph name="TAB_TITLE" />, karta, vybrané</translation>
 <translation id="6828070228333235514">Prestať sledovať cenu</translation>
+<translation id="6830728435402077660">Nezabezpečené</translation>
 <translation id="6833996806551876956">Skúšobné obdobie karantény ochrany súkromia</translation>
 <translation id="6836206421467243968">Obnovte skupinu kariet <ph name="TITLE_OF_GROUP" /> ako novú skupinu kariet na pozadí.</translation>
 <translation id="6846298663435243399">Načítava sa…</translation>

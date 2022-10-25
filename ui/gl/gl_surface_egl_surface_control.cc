@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors. All rights reserved.
+// Copyright 2018 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -561,7 +561,7 @@ void GLSurfaceEGLSurfaceControl::OnTransactionAckOnGpuThread(
 
   // If we don't use OnCommit, we advance transaction queue after we received
   // OnComplete.
-  if (!using_on_commit_callback_)
+  if (!use_target_deadline_ && !using_on_commit_callback_)
     AdvanceTransactionQueue();
 }
 

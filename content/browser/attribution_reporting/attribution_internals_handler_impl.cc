@@ -1,8 +1,10 @@
-// Copyright 2020 The Chromium Authors. All rights reserved.
+// Copyright 2020 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "content/browser/attribution_reporting/attribution_internals_handler_impl.h"
+
+#include <stdint.h>
 
 #include <iterator>
 #include <string>
@@ -13,6 +15,7 @@
 #include "base/callback_helpers.h"
 #include "base/command_line.h"
 #include "base/containers/flat_map.h"
+#include "base/functional/overloaded.h"
 #include "base/notreached.h"
 #include "base/ranges/algorithm.h"
 #include "base/time/time.h"
@@ -21,6 +24,7 @@
 #include "content/browser/attribution_reporting/attribution_info.h"
 #include "content/browser/attribution_reporting/attribution_observer_types.h"
 #include "content/browser/attribution_reporting/attribution_report.h"
+#include "content/browser/attribution_reporting/attribution_reporting_constants.h"
 #include "content/browser/attribution_reporting/attribution_trigger.h"
 #include "content/browser/attribution_reporting/attribution_utils.h"
 #include "content/browser/attribution_reporting/common_source_info.h"
@@ -42,6 +46,11 @@ namespace content {
 
 namespace {
 
+static_assert(kAttributionAggregatableBudgetPerSource == 65536,
+              "please update BUDGET_PER_SOURCE in "
+              "content/browser/resources/attribution_reporting/"
+              "attribution_internals.ts with new value");
+
 using Attributability =
     ::attribution_internals::mojom::WebUISource::Attributability;
 using Empty = ::attribution_internals::mojom::Empty;
@@ -57,11 +66,13 @@ attribution_internals::mojom::DebugKeyPtr WebUIDebugKey(
 attribution_internals::mojom::WebUISourcePtr WebUISource(
     const CommonSourceInfo& source,
     Attributability attributability,
-    const std::vector<uint64_t>& dedup_keys) {
+    const std::vector<uint64_t>& dedup_keys,
+    int64_t aggregatable_budget_consumed) {
+  DCHECK_GE(aggregatable_budget_consumed, 0);
   return attribution_internals::mojom::WebUISource::New(
-      source.source_event_id(), source.impression_origin(),
-      source.ConversionDestination().Serialize(), source.reporting_origin(),
-      source.impression_time().ToJsTime(), source.expiry_time().ToJsTime(),
+      source.source_event_id(), source.source_origin(),
+      source.DestinationSite().Serialize(), source.reporting_origin(),
+      source.source_time().ToJsTime(), source.expiry_time().ToJsTime(),
       source.source_type(), source.priority(),
       WebUIDebugKey(source.debug_key()), dedup_keys,
       source.filter_data().filter_values(),
@@ -71,7 +82,7 @@ attribution_internals::mojom::WebUISourcePtr WebUISource(
             return std::make_pair(key.first,
                                   HexEncodeAggregationKey(key.second));
           }),
-      attributability);
+      aggregatable_budget_consumed, attributability);
 }
 
 void ForwardSourcesToWebUI(
@@ -99,8 +110,9 @@ void ForwardSourcesToWebUI(
       }
     }
 
-    web_ui_sources.push_back(WebUISource(source.common_info(), attributability,
-                                         source.dedup_keys()));
+    web_ui_sources.push_back(
+        WebUISource(source.common_info(), attributability, source.dedup_keys(),
+                    source.aggregatable_budget_consumed()));
   }
 
   std::move(web_ui_callback).Run(std::move(web_ui_sources));
@@ -110,45 +122,40 @@ attribution_internals::mojom::WebUIReportPtr WebUIReport(
     const AttributionReport& report,
     bool is_debug_report,
     ReportStatusPtr status) {
-  struct Visitor {
-    StoredSource::AttributionLogic attribution_logic;
-
-    attribution_internals::mojom::WebUIReportDataPtr operator()(
-        const AttributionReport::EventLevelData& event_level_data) {
-      return attribution_internals::mojom::WebUIReportData::NewEventLevelData(
-          attribution_internals::mojom::WebUIReportEventLevelData::New(
-              event_level_data.priority,
-              attribution_logic ==
-                  StoredSource::AttributionLogic::kTruthfully));
-    }
-
-    attribution_internals::mojom::WebUIReportDataPtr operator()(
-        const AttributionReport::AggregatableAttributionData&
-            aggregatable_data) {
-      std::vector<
-          attribution_internals::mojom::AggregatableHistogramContributionPtr>
-          contributions;
-      base::ranges::transform(
-          aggregatable_data.contributions, std::back_inserter(contributions),
-          [](const auto& contribution) {
-            return attribution_internals::mojom::
-                AggregatableHistogramContribution::New(
-                    HexEncodeAggregationKey(contribution.key()),
-                    contribution.value());
-          });
-      return attribution_internals::mojom::WebUIReportData::
-          NewAggregatableAttributionData(
-              attribution_internals::mojom::
-                  WebUIReportAggregatableAttributionData::New(
-                      std::move(contributions)));
-    }
-  };
+  namespace ai_mojom = attribution_internals::mojom;
 
   const AttributionInfo& attribution_info = report.attribution_info();
 
-  attribution_internals::mojom::WebUIReportDataPtr data = absl::visit(
-      Visitor{.attribution_logic = attribution_info.source.attribution_logic()},
+  ai_mojom::WebUIReportDataPtr data = absl::visit(
+      base::Overloaded{
+          [attribution_info](
+              const AttributionReport::EventLevelData& event_level_data) {
+            return ai_mojom::WebUIReportData::NewEventLevelData(
+                ai_mojom::WebUIReportEventLevelData::New(
+                    event_level_data.priority,
+                    attribution_info.source.attribution_logic() ==
+                        StoredSource::AttributionLogic::kTruthfully));
+          },
+
+          [](const AttributionReport::AggregatableAttributionData&
+                 aggregatable_data) {
+            std::vector<ai_mojom::AggregatableHistogramContributionPtr>
+                contributions;
+            base::ranges::transform(
+                aggregatable_data.contributions,
+                std::back_inserter(contributions),
+                [](const auto& contribution) {
+                  return ai_mojom::AggregatableHistogramContribution::New(
+                      HexEncodeAggregationKey(contribution.key()),
+                      contribution.value());
+                });
+            return ai_mojom::WebUIReportData::NewAggregatableAttributionData(
+                ai_mojom::WebUIReportAggregatableAttributionData::New(
+                    std::move(contributions)));
+          },
+      },
       report.data());
+
   return attribution_internals::mojom::WebUIReport::New(
       report.ReportId(), report.ReportURL(is_debug_report),
       /*trigger_time=*/attribution_info.time.ToJsTime(),
@@ -186,10 +193,10 @@ void AttributionInternalsHandlerImpl::IsAttributionReportingEnabled(
   content::WebContents* contents = web_ui_->GetWebContents();
   bool attribution_reporting_enabled =
       AttributionManager::FromWebContents(contents) &&
-      GetContentClient()->browser()->IsConversionMeasurementOperationAllowed(
+      GetContentClient()->browser()->IsAttributionReportingOperationAllowed(
           contents->GetBrowserContext(),
-          ContentBrowserClient::ConversionMeasurementOperation::kAny,
-          /*impression_origin=*/nullptr, /*conversion_origin=*/nullptr,
+          ContentBrowserClient::AttributionReportingOperation::kAny,
+          /*source_origin=*/nullptr, /*destination_origin=*/nullptr,
           /*reporting_origin=*/nullptr);
   bool debug_mode = base::CommandLine::ForCurrentProcess()->HasSwitch(
       switches::kAttributionReportingDebugMode);
@@ -271,17 +278,6 @@ void AttributionInternalsHandlerImpl::OnReportsChanged(
     observer->OnReportsChanged(report_type);
 }
 
-void AttributionInternalsHandlerImpl::OnSourceDeactivated(
-    const StoredSource& deactivated_source) {
-  auto source = WebUISource(deactivated_source.common_info(),
-                            Attributability::kReplacedByNewerSource,
-                            deactivated_source.dedup_keys());
-
-  for (auto& observer : observers_) {
-    observer->OnSourceRejectedOrDeactivated(source.Clone());
-  }
-}
-
 void AttributionInternalsHandlerImpl::OnSourceHandled(
     const StorableSource& source,
     StorableSource::Result result) {
@@ -307,10 +303,11 @@ void AttributionInternalsHandlerImpl::OnSourceHandled(
   }
 
   auto web_ui_source =
-      WebUISource(source.common_info(), attributability, /*dedup_keys=*/{});
+      WebUISource(source.common_info(), attributability, /*dedup_keys=*/{},
+                  /*aggregatable_budget_consumed=*/0);
 
   for (auto& observer : observers_) {
-    observer->OnSourceRejectedOrDeactivated(web_ui_source.Clone());
+    observer->OnSourceRejected(web_ui_source.Clone());
   }
 }
 

@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -127,7 +127,7 @@ void GetUIARoot(ui::AXPlatformNodeDelegate* start,
       content::BrowserAccessibility::FromAXPlatformNodeDelegate(start);
   // Start by getting the root element for the HWND hosting the web content.
   HWND hwnd = start_internal->manager()
-                  ->GetRoot()
+                  ->GetBrowserAccessibilityRoot()
                   ->GetTargetForNativeAccessibilityEvent();
   uia->ElementFromHandle(hwnd, root);
 }

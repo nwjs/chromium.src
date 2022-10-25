@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors. All rights reserved.
+// Copyright 2020 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -283,6 +283,42 @@ TEST_F(AttributionStorageSqlMigrationsTest, MigrateVersion34ToCurrent) {
     ASSERT_TRUE(s.Step());
     EXPECT_EQ(0, s.ColumnInt64(9));  // expiry_time for attribution
     ASSERT_FALSE(s.Step());
+  }
+
+  // DB creation histograms should be recorded.
+  histograms.ExpectTotalCount("Conversions.Storage.CreationTime", 0);
+  histograms.ExpectTotalCount("Conversions.Storage.MigrationTime", 1);
+}
+
+TEST_F(AttributionStorageSqlMigrationsTest, MigrateVersion35ToCurrent) {
+  base::HistogramTester histograms;
+  LoadDatabase(GetVersionFilePath(35), DbPath());
+
+  // Verify pre-conditions.
+  {
+    sql::Database db;
+    ASSERT_TRUE(db.Open(DbPath()));
+    ASSERT_TRUE(db.DoesIndexExist("sources_by_origin"));
+    ASSERT_FALSE(db.DoesIndexExist("active_sources_by_source_origin"));
+  }
+
+  MigrateDatabase();
+
+  // Verify schema is current.
+  {
+    sql::Database db;
+    ASSERT_TRUE(db.Open(DbPath()));
+
+    // Check version.
+    EXPECT_EQ(AttributionStorageSql::kCurrentVersionNumber,
+              VersionFromDatabase(&db));
+
+    // Compare without quotes as sometimes migrations cause table names to be
+    // string literals.
+    EXPECT_EQ(RemoveQuotes(GetCurrentSchema()), RemoveQuotes(db.GetSchema()));
+
+    ASSERT_FALSE(db.DoesIndexExist("sources_by_origin"));
+    ASSERT_TRUE(db.DoesIndexExist("active_sources_by_source_origin"));
   }
 
   // DB creation histograms should be recorded.

@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors. All rights reserved.
+// Copyright 2020 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,6 +11,7 @@
 #include "gpu/command_buffer/service/shared_image/ozone_image_backing.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_backing_factory.h"
 #include "gpu/config/gpu_driver_bug_workarounds.h"
+#include "gpu/config/gpu_preferences.h"
 #include "gpu/gpu_gles2_export.h"
 
 struct DawnProcTable;
@@ -24,7 +25,8 @@ class GPU_GLES2_EXPORT OzoneImageBackingFactory
     : public SharedImageBackingFactory {
  public:
   explicit OzoneImageBackingFactory(SharedContextState* shared_context_state,
-                                    const GpuDriverBugWorkarounds& workarounds);
+                                    const GpuDriverBugWorkarounds& workarounds,
+                                    const GpuPreferences& gpu_preferences);
 
   ~OzoneImageBackingFactory() override;
 
@@ -65,11 +67,11 @@ class GPU_GLES2_EXPORT OzoneImageBackingFactory
 
   bool IsSupported(uint32_t usage,
                    viz::ResourceFormat format,
+                   const gfx::Size& size,
                    bool thread_safe,
                    gfx::GpuMemoryBufferType gmb_type,
                    GrContextType gr_context_type,
-                   bool* allow_legacy_mailbox,
-                   bool is_pixel_used) override;
+                   base::span<const uint8_t> pixel_data) override;
 
  private:
   bool CanImportNativePixmapToVulkan();
@@ -78,6 +80,7 @@ class GPU_GLES2_EXPORT OzoneImageBackingFactory
   const raw_ptr<SharedContextState> shared_context_state_;
   scoped_refptr<base::RefCountedData<DawnProcTable>> dawn_procs_;
   const GpuDriverBugWorkarounds workarounds_;
+  bool use_passthrough_;
 
   std::unique_ptr<OzoneImageBacking> CreateSharedImageInternal(
       const Mailbox& mailbox,

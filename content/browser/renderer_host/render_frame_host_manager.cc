@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors. All rights reserved.
+// Copyright 2013 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -252,10 +252,6 @@ ShouldSwapBrowsingInstanceToProto(ShouldSwapBrowsingInstance result) {
     case ShouldSwapBrowsingInstance::kNo_HasNotComittedAnyNavigation:
       return ProtoLevel::
           SHOULD_SWAP_BROWSING_INSTANCE_NO_HAS_NOT_COMMITTED_ANY_NAVIGATION;
-    case ShouldSwapBrowsingInstance::
-        kNo_UnloadHandlerExistsOnSameSiteNavigation:
-      return ProtoLevel::
-          SHOULD_SWAP_BROWSING_INSTANCE_NO_UNLOAD_HANDLER_EXISTS_ON_SAME_SITE_NAVIGATION;
     case ShouldSwapBrowsingInstance::kNo_NotPrimaryMainFrame:
       return ProtoLevel::
           SHOULD_SWAP_BROWSING_INSTANCE_NO_NOT_PRIMARY_MAIN_FRAME;
@@ -303,11 +299,9 @@ void ReuseDefaultProcessFromDifferentBrowsingInstanceIfPossible(
   while (root->IsFencedFrameRoot()) {
     root = root->GetParentOrOuterDocument()->GetMainFrame();
   }
-  root->ForEachRenderFrameHost(base::BindRepeating(
-      [](scoped_refptr<SiteInstance> site_instance, RenderFrameHost* root,
-         RenderFrameHost* rfh) {
-        RenderFrameHostImpl* rfhi = static_cast<RenderFrameHostImpl*>(rfh);
-
+  root->ForEachRenderFrameHostWithAction(
+      [site_instance = std::move(new_instance),
+       root](RenderFrameHostImpl* rfhi) {
         if (rfhi->GetParent())
           return RenderFrameHost::FrameIterationAction::kContinue;
 
@@ -329,8 +323,7 @@ void ReuseDefaultProcessFromDifferentBrowsingInstanceIfPossible(
         }
 
         return RenderFrameHost::FrameIterationAction::kContinue;
-      },
-      new_instance, root));
+      });
 }
 
 }  // namespace
@@ -781,6 +774,11 @@ void RenderFrameHostManager::UnloadOldFrame(
   // RenderFrameHost should not be trying to commit a navigation.
   old_render_frame_host->ResetNavigationRequests();
 
+  if (base::FeatureList::IsEnabled(blink::features::kPendingBeaconAPI) &&
+      blink::features::kPendingBeaconAPIForcesSendingOnNavigation.Get()) {
+    old_render_frame_host->SendAllPendingBeaconsOnNavigation();
+  }
+
   NavigationEntryImpl* last_committed_entry =
       GetNavigationController().GetLastCommittedEntry();
   BackForwardCacheMetrics* old_page_back_forward_cache_metrics =
@@ -971,7 +969,7 @@ bool RenderFrameHostManager::HasPendingCommitForCrossDocumentNavigation()
     return true;
   if (speculative_render_frame_host_) {
     return speculative_render_frame_host_
-               ->HasPendingCommitForCrossDocumentNavigation();
+        ->HasPendingCommitForCrossDocumentNavigation();
   }
   return false;
 }
@@ -1829,27 +1827,14 @@ RenderFrameHostManager::ShouldProactivelySwapBrowsingInstance(
       render_frame_host_->IsNavigationSameSite(destination_url_info);
   if (is_same_site) {
     // If it's a same-site navigation, we should only swap if same-site
-    // ProactivelySwapBrowsingInstance is enabled, or if same-site
-    // BackForwardCache is enabled and the current RFH is eligible for
-    // back-forward cache (checked later).
+    // ProactivelySwapBrowsingInstance is enabled, or if BackForwardCache
+    // is enabled and the current RFH is eligible for back/forward cache
+    // (checked later).
     if (IsProactivelySwapBrowsingInstanceOnSameSiteNavigationEnabled()) {
       return ShouldSwapBrowsingInstance::kYes_SameSiteProactiveSwap;
     }
-    if (!IsSameSiteBackForwardCacheEnabled())
+    if (!IsBackForwardCacheEnabled())
       return ShouldSwapBrowsingInstance::kNo_SameSiteNavigation;
-    // We should not do a proactive BrowsingInstance swap on pages with unload
-    // handlers if we explicitly specified to do so to avoid exposing a
-    // web-observable behavior change (unload handlers running after a same-site
-    // navigation). Note that we're only checking for unload handlers in frames
-    // that share the same SiteInstance as the main frame, because unload
-    // handlers that exist in cross-SiteInstance subframes will be dispatched
-    // after we committed the navigation, regardless of our decision to swap
-    // BrowsingInstances or not.
-    if (ShouldSkipSameSiteBackForwardCacheForPageWithUnload() &&
-        render_frame_host_->UnloadHandlerExistsInSameSiteInstanceSubtree()) {
-      return ShouldSwapBrowsingInstance::
-          kNo_UnloadHandlerExistsOnSameSiteNavigation;
-    }
   }
 
   if (IsProactivelySwapBrowsingInstanceEnabled())
@@ -2067,13 +2052,13 @@ RenderFrameHostManager::GetSiteInstanceForNavigation(
     reuse_current_process_if_possible = true;
   }
 
-  // 2) When BackForwardCache is enabled on same-site navigations.
+  // 2) When BackForwardCache is enabled.
   // Note 1: When BackForwardCache is disabled, we typically reuse processes on
   // same-site navigations. This follows that behavior.
   // Note 2: This doesn't cover cross-site navigations. Cross-site process-reuse
   // is being experimented independently and is covered in path #1 above.
   // See crbug.com/1122974 for further details.
-  if (IsSameSiteBackForwardCacheEnabled() && is_same_site_proactive_swap) {
+  if (IsBackForwardCacheEnabled() && is_same_site_proactive_swap) {
     reuse_current_process_if_possible = true;
   }
 
@@ -2087,7 +2072,7 @@ RenderFrameHostManager::GetSiteInstanceForNavigation(
       !new_instance->IsRelatedSiteInstance(current_instance);
   bool is_same_site_proactive_swap_enabled =
       IsProactivelySwapBrowsingInstanceOnSameSiteNavigationEnabled() ||
-      IsSameSiteBackForwardCacheEnabled();
+      IsBackForwardCacheEnabled();
   if (is_same_site_proactive_swap_enabled && is_history_navigation &&
       swapped_browsing_instance &&
       render_frame_host_->IsNavigationSameSite(dest_url_info)) {
@@ -2560,7 +2545,8 @@ scoped_refptr<SiteInstance> RenderFrameHostManager::ConvertToSiteInstance(
   // Otherwise return a new SiteInstance in a new BrowsingInstance.
   return SiteInstanceImpl::CreateForUrlInfo(
       GetNavigationController().GetBrowserContext(), dest_url_info,
-      current_instance->IsGuest());
+      current_instance->IsGuest(),
+      current_instance->GetIsolationContext().is_fenced());
 }
 
 bool RenderFrameHostManager::CanUseSourceSiteInstance(
@@ -2642,9 +2628,6 @@ bool RenderFrameHostManager::IsCandidateSameSite(RenderFrameHostImpl* candidate,
   // this object with the URL & origin of `candidate`. This is to determine if
   // `dest_url_info` would be considered "same site" if `candidate` occupied the
   // position of this object in the frame tree.
-  // TODO(crbug.com/1314749): With MPArch there may be multiple main frames and
-  // so IsMainFrame should not be used to identify subframes. Follow up to
-  // confirm correctness.
   return candidate->GetSiteInstance()->IsNavigationSameSite(
       candidate->last_successful_url(), candidate->GetLastCommittedOrigin(),
       frame_tree_node_->IsOutermostMainFrame(), dest_url_info);
@@ -3235,7 +3218,7 @@ RenderFrameHostManager::GetSiteInstanceForNavigationRequest(
       // iframes are normally considered to have the same origin as their
       // parents, so this seems reasonable.
       return parent->GetSiteInstance()->GetCompatibleSandboxedSiteInstance(
-          request->GetNavigationId());
+          url_info, parent->GetLastCommittedOrigin());
     }
     AppendReason(reason,
                  "GetSiteInstanceForNavigationRequest => parent-instance"

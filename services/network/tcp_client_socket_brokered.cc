@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,6 +12,7 @@
 #include "net/socket/tcp_client_socket.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "services/network/brokered_client_socket_factory.h"
+#include "services/network/public/cpp/transferable_socket.h"
 
 namespace network {
 
@@ -98,13 +99,14 @@ void TCPClientSocketBrokered::DidCompleteConnect(
     int result) {
   DCHECK_NE(result, net::ERR_IO_PENDING);
 
-  std::move(callback).Run(result);
   is_connect_in_progress_ = false;
+  // The callback may delete {this}.
+  std::move(callback).Run(result);
 }
 
 void TCPClientSocketBrokered ::DidCompleteCreate(
     net::CompletionOnceCallback callback,
-    mojo::PlatformHandle fd,
+    network::TransferableSocket socket,
     int result) {
   if (result != net::OK) {
     std::move(callback).Run(result);
@@ -115,12 +117,7 @@ void TCPClientSocketBrokered ::DidCompleteCreate(
   // browser process.
   std::unique_ptr<net::TCPSocket> tcp_socket = std::make_unique<net::TCPSocket>(
       std::move(socket_performance_watcher_), net_log_, source_);
-// TODO(https://crbug.com/1311014): call TCPSocketWin::AdoptUnconnectedSocket
-#if BUILDFLAG(IS_WIN)
-  tcp_socket->Open(addresses_.begin()->GetFamily());
-#else
-  tcp_socket->AdoptUnconnectedSocket(fd.ReleaseFD());
-#endif
+  tcp_socket->AdoptUnconnectedSocket(socket.TakeSocket());
 
   // TODO(liza): Pass through the NetworkHandle.
   brokered_socket_ = std::make_unique<net::TCPClientSocket>(

@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -44,7 +44,8 @@ std::unique_ptr<VideoDecoder> CreatePlatformVideoDecoder(
     return VdaVideoDecoder::Create(
         traits.task_runner, traits.gpu_task_runner, traits.media_log->Clone(),
         *traits.target_color_space, traits.gpu_preferences,
-        *traits.gpu_workarounds, traits.get_command_buffer_stub_cb);
+        *traits.gpu_workarounds, traits.get_command_buffer_stub_cb,
+        VideoDecodeAccelerator::Config::OutputMode::ALLOCATE);
   }
   // Report that HDR is enabled if any display has HDR enabled.
   bool hdr_enabled = false;
@@ -74,6 +75,8 @@ GetPlatformSupportedVideoDecoderConfigs(
     const gpu::GPUInfo& gpu_info,
     base::OnceCallback<SupportedVideoDecoderConfigs()> get_vda_configs) {
   SupportedVideoDecoderConfigs supported_configs;
+  if (gpu_preferences.disable_accelerated_video_decode)
+    return supported_configs;
   if (ShouldUseD3D11VideoDecoder(gpu_workarounds)) {
     supported_configs = D3D11VideoDecoder::GetSupportedVideoDecoderConfigs(
         gpu_preferences, gpu_workarounds, GetD3D11DeviceCallback());

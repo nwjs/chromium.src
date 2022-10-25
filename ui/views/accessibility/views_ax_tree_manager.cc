@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors. All rights reserved.
+// Copyright 2020 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -58,16 +58,16 @@ void ViewsAXTreeManager::UnsetGeneratedEventCallbackForTesting() {
 }
 
 ui::AXNode* ViewsAXTreeManager::GetNodeFromTree(
-    const ui::AXTreeID tree_id,
+    const ui::AXTreeID& tree_id,
     const ui::AXNodeID node_id) const {
   if (!widget_ || !widget_->GetRootView())
     return nullptr;
 
   const ui::AXTreeManager* manager = ui::AXTreeManager::FromID(tree_id);
-  return manager ? manager->GetNodeFromTree(node_id) : nullptr;
+  return manager ? manager->GetNode(node_id) : nullptr;
 }
 
-ui::AXNode* ViewsAXTreeManager::GetNodeFromTree(
+ui::AXNode* ViewsAXTreeManager::GetNode(
     const ui::AXNodeID node_id) const {
   if (!widget_ || !widget_->GetRootView() || !ax_tree_)
     return nullptr;

@@ -1,8 +1,8 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {fakeSearchResponse} from 'chrome://os-feedback/fake_data.js';
+import {fakeEmptySearchResponse, fakeSearchResponse} from 'chrome://os-feedback/fake_data.js';
 import {FakeHelpContentProvider} from 'chrome://os-feedback/fake_help_content_provider.js';
 import {FeedbackFlowState} from 'chrome://os-feedback/feedback_flow.js';
 import {setHelpContentProviderForTesting} from 'chrome://os-feedback/mojo_interface_provider.js';
@@ -148,6 +148,43 @@ export function searchPageTestSuite() {
     assertEquals('abc123', provider.lastQuery);
   });
 
+  test('HelpContentSearchResultCountColdStart', async () => {
+    /** {?Element} */
+    let textAreaElement = null;
+
+    await initializePage();
+    textAreaElement = getElement('#descriptionText');
+    // Verify the textarea is empty now.
+    assertEquals('', textAreaElement.value);
+
+    // Enter three chars.
+    textAreaElement.value = 'abc';
+    // Setting the value of the textarea in code does not trigger the
+    // input event. So we trigger it here.
+    textAreaElement.dispatchEvent(new Event('input'));
+    await flushTasks();
+    // Verify that getHelpContent() has been called with query 'abc'.
+    assertEquals('abc', provider.lastQuery);
+    // Search result count should be 5.
+    assertEquals(5, page.getSearchResultCountForTesting());
+
+    provider.setFakeSearchResponse(fakeEmptySearchResponse);
+    const longTextNoResult =
+        'Whenever I try to open ANY file (MS or otherwise) I get a notice ' +
+        'that says “checking to find Microsoft 365 Subscription” I have ' +
+        'Office on my PC, but not on my Chromebook. How do I run Word Online ' +
+        'on a Chromebook? ';
+    textAreaElement.value = longTextNoResult;
+    textAreaElement.dispatchEvent(new Event('input'));
+    await flushTasks();
+
+    // Verify that getHelpContent() has been called with query
+    // longTextNoSearchResult.
+    assertEquals(longTextNoResult, provider.lastQuery);
+    // Search result count should be 0.
+    assertEquals(0, page.getSearchResultCountForTesting());
+  });
+
   /**
    * Test that the search page can send help content to embedded untrusted page
    * via postMessage.
@@ -197,7 +234,7 @@ export function searchPageTestSuite() {
   test('DescriptionEmptyError', async () => {
     await initializePage();
 
-    const errorMsg = getElement('#descriptionEmptyError');
+    const errorMsg = getElement('#emptyErrorContainer');
     // Verify that the error message is hidden in the beginning.
     assertTrue(errorMsg.hidden);
 

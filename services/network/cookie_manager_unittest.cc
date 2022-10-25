@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors. All rights reserved.
+// Copyright 2017 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -28,8 +28,8 @@
 #include "net/cookies/cookie_store_test_callbacks.h"
 #include "net/cookies/cookie_store_test_helpers.h"
 #include "net/cookies/cookie_util.h"
-#include "net/cookies/same_party_context.h"
 #include "net/cookies/test_cookie_access_delegate.h"
+#include "net/first_party_sets/same_party_context.h"
 #include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_context_builder.h"
 #include "net/url_request/url_request_test_util.h"

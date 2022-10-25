@@ -159,6 +159,10 @@ cc::LayerTreeSettings GenerateLayerTreeSettings(
   const base::CommandLine& cmd = *base::CommandLine::ForCurrentProcess();
   cc::LayerTreeSettings settings;
 
+  settings.skip_commits_if_not_synchronizing_compositor_state =
+      base::FeatureList::IsEnabled(
+          ::features::kSkipCommitsIfNotSynchronizingCompositorState) &&
+      !RuntimeEnabledFeatures::DocumentTransitionEnabled();
   settings.enable_synchronized_scrolling =
       base::FeatureList::IsEnabled(::features::kSynchronizedScrolling);
   Platform* platform = Platform::Current();
@@ -448,8 +452,9 @@ cc::LayerTreeSettings GenerateLayerTreeSettings(
     settings.scrollbar_thinning_duration =
         ui::kOverlayScrollbarThinningDuration;
     settings.scrollbar_flash_after_any_scroll_update = true;
-    settings.enable_fluent_scrollbar = ui::IsFluentScrollbarEnabled();
   }
+
+  settings.enable_fluent_scrollbar = ui::IsFluentScrollbarEnabled();
 
   // If there's over 4GB of RAM, increase the working set size to 256MB for both
   // gpu and software.
@@ -540,6 +545,9 @@ cc::LayerTreeSettings GenerateLayerTreeSettings(
 
   settings.enable_scroll_update_optimizations =
       RuntimeEnabledFeatures::ScrollUpdateOptimizationsEnabled();
+
+  settings.disable_frame_rate_limit =
+      cmd.HasSwitch(::switches::kDisableFrameRateLimit);
 
   return settings;
 }

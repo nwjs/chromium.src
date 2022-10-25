@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,16 +16,15 @@ namespace app_restore {
 struct AppRestoreData;
 }  // namespace app_restore
 
-namespace ash {
-namespace full_restore {
+namespace ash::full_restore {
 
 // The ArcGhostWindowHandler class provides control for ARC ghost window.
 class ArcGhostWindowHandler : public exo::WMHelper::LifetimeManager::Observer {
   // Map from window_session_id to exo::ClientControlledShellSurface.
   using ShellSurfaceMap =
       std::map<int, std::unique_ptr<exo::ClientControlledShellSurface>>;
-  // Map from window_session_id to arc::mojom::WindowInfoPtr.
-  using WindowInfoMap = std::map<int, arc::mojom::WindowInfoPtr>;
+  // Map from window_session_id to ::arc::mojom::WindowInfoPtr.
+  using WindowInfoMap = std::map<int, ::arc::mojom::WindowInfoPtr>;
 
   // This class populates the exo::ShellSurfaceBase to PropertyHandler by
   // the corresponding window session id.
@@ -109,7 +108,6 @@ class ArcGhostWindowHandler : public exo::WMHelper::LifetimeManager::Observer {
   base::WeakPtrFactory<ArcGhostWindowHandler> weak_ptr_factory_{this};
 };
 
-}  // namespace full_restore
-}  // namespace ash
+}  // namespace ash::full_restore
 
 #endif  // CHROME_BROWSER_ASH_APP_RESTORE_ARC_GHOST_WINDOW_HANDLER_H_

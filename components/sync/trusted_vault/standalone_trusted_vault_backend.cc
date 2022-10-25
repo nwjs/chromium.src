@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors. All rights reserved.
+// Copyright 2020 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -35,6 +35,7 @@
 #include "components/sync/trusted_vault/securebox.h"
 #include "components/sync/trusted_vault/trusted_vault_server_constants.h"
 #include "google_apis/gaia/gaia_auth_util.h"
+#include "google_apis/gaia/google_service_auth_error.h"
 
 namespace syncer {
 
@@ -158,9 +159,15 @@ void UpgradeToVersion2(sync_pb::LocalTrustedVault* local_trusted_vault) {
 }
 
 void RecordVerifyRegistrationStatus(
+    int device_registered_version,
     TrustedVaultDownloadKeysStatusForUMA status) {
   base::UmaHistogramEnumeration(
       "Sync.TrustedVaultVerifyDeviceRegistrationState", status);
+
+  if (device_registered_version == 1) {
+    base::UmaHistogramEnumeration(
+        "Sync.TrustedVaultVerifyDeviceRegistrationStateV1", status);
+  }
 }
 
 }  // namespace
@@ -229,10 +236,8 @@ void StandaloneTrustedVaultBackend::WriteDegradedRecoverabilityState(
   WriteToDisk(data_, file_path_);
 }
 
-void StandaloneTrustedVaultBackend::OnDegradedRecoverabilityChanged(
-    bool value) {
-  // TODO(crbug.com/1247990): To be implemented.
-  NOTIMPLEMENTED();
+void StandaloneTrustedVaultBackend::OnDegradedRecoverabilityChanged() {
+  delegate_->NotifyRecoverabilityDegradedChanged();
 }
 
 void StandaloneTrustedVaultBackend::ReadDataFromDisk() {
@@ -370,28 +375,44 @@ void StandaloneTrustedVaultBackend::StoreKeys(
   }
 
   WriteToDisk(data_, file_path_);
-  // This codepath doesn't record Sync.TrustedVaultDeviceRegistrationState, so
-  // it's safe to pass any value for |has_persistent_auth_error_for_uma|.
-  MaybeRegisterDevice(
-      /*has_persistent_auth_error_for_uma=*/false);
+  MaybeRegisterDevice();
 }
 
 void StandaloneTrustedVaultBackend::SetPrimaryAccount(
     const absl::optional<CoreAccountInfo>& primary_account,
     bool has_persistent_auth_error) {
+  const bool had_persistent_auth_error_before = has_persistent_auth_error_;
+  has_persistent_auth_error_ = has_persistent_auth_error;
+
   if (primary_account == primary_account_) {
     // Still need to complete deferred deletion, e.g. if primary account was
     // cleared before browser shutdown but not handled here.
     RemoveNonPrimaryAccountKeysIfMarkedForDeletion();
+
+    // A persistent auth error could have just been resolved.
+    if (had_persistent_auth_error_before && !has_persistent_auth_error) {
+      MaybeProcessPendingTrustedRecoveryMethod();
+      MaybeRegisterDevice();
+
+      // |degraded_recoverability_handler_| is null unless
+      // |kSyncTrustedVaultPeriodicDegradedRecoverabilityPolling| is set.
+      if (degraded_recoverability_handler_) {
+        // TODO(crbug.com/1247990): Add Integration test.
+        degraded_recoverability_handler_->HintDegradedRecoverabilityChanged();
+      }
+    }
+
     return;
   }
+
   primary_account_ = primary_account;
   AbandonConnectionRequest();
+  degraded_recoverability_handler_ = nullptr;
   ongoing_get_recoverability_request_.reset();
   ongoing_add_recovery_method_request_.reset();
   RemoveNonPrimaryAccountKeysIfMarkedForDeletion();
+
   if (!primary_account_.has_value()) {
-    DCHECK(!pending_trusted_recovery_method_.has_value());
     return;
   }
 
@@ -401,9 +422,16 @@ void StandaloneTrustedVaultBackend::SetPrimaryAccount(
     per_user_vault = data_.add_user();
     per_user_vault->set_gaia_id(primary_account->gaia);
   }
+  if (base::FeatureList::IsEnabled(
+          kSyncTrustedVaultPeriodicDegradedRecoverabilityPolling)) {
+    degraded_recoverability_handler_ =
+        std::make_unique<TrustedVaultDegradedRecoverabilityHandler>(
+            connection_.get(), /*delegate=*/this, primary_account_.value(),
+            per_user_vault->degraded_recoverability_state());
+  }
 
   const absl::optional<TrustedVaultDeviceRegistrationStateForUMA>
-      registration_state = MaybeRegisterDevice(has_persistent_auth_error);
+      registration_state = MaybeRegisterDevice();
 
   if (registration_state.has_value() &&
       !device_registration_state_recorded_to_uma_) {
@@ -432,16 +460,7 @@ void StandaloneTrustedVaultBackend::SetPrimaryAccount(
     }
   }
 
-  if (pending_trusted_recovery_method_.has_value()) {
-    PendingTrustedRecoveryMethod recovery_method =
-        std::move(*pending_trusted_recovery_method_);
-    pending_trusted_recovery_method_.reset();
-
-    AddTrustedRecoveryMethod(recovery_method.gaia_id,
-                             recovery_method.public_key,
-                             recovery_method.method_type_hint,
-                             std::move(recovery_method.completion_callback));
-  }
+  MaybeProcessPendingTrustedRecoveryMethod();
 }
 
 void StandaloneTrustedVaultBackend::UpdateAccountsInCookieJarInfo(
@@ -496,8 +515,22 @@ bool StandaloneTrustedVaultBackend::MarkLocalKeysAsStale(
 void StandaloneTrustedVaultBackend::GetIsRecoverabilityDegraded(
     const CoreAccountInfo& account_info,
     base::OnceCallback<void(bool)> cb) {
-  // TODO(crbug.com/1201659): Improve this logic properly and add test coverage,
-  // including throttling and periodic polling.
+  if (base::FeatureList::IsEnabled(
+          kSyncTrustedVaultPeriodicDegradedRecoverabilityPolling)) {
+    sync_pb::LocalTrustedVaultPerUser* per_user_vault =
+        FindUserVault(account_info.gaia);
+    if (!per_user_vault) {
+      // If the account does not exist, then the recoverability state is
+      // unknown.
+      // TODO(crbug.com/1247990): Pass optional value with nullopt indicating
+      // that value is not yet known.
+      std::move(cb).Run(false);
+      return;
+    }
+    std::move(cb).Run(per_user_vault->degraded_recoverability_state()
+                          .is_recoverability_degraded());
+    return;
+  }
   ongoing_get_recoverability_request_ =
       connection_->DownloadIsRecoverabilityDegraded(
           account_info,
@@ -515,7 +548,7 @@ void StandaloneTrustedVaultBackend::AddTrustedRecoveryMethod(
     return;
   }
 
-  if (!primary_account_.has_value()) {
+  if (!primary_account_.has_value() || has_persistent_auth_error_) {
     // Defer until SetPrimaryAccount() gets called.
     pending_trusted_recovery_method_ = PendingTrustedRecoveryMethod();
     pending_trusted_recovery_method_->gaia_id = gaia_id;
@@ -586,7 +619,7 @@ void StandaloneTrustedVaultBackend::ClearDataForAccount(
   // resetting primary account, this is not the case for Chrome OS and Butter
   // mode. Trigger device registration attempt immediately as it can succeed in
   // these cases.
-  MaybeRegisterDevice(/*has_persistent_auth_error_for_uma=*/false);
+  MaybeRegisterDevice();
 }
 
 absl::optional<CoreAccountInfo>
@@ -624,9 +657,13 @@ void StandaloneTrustedVaultBackend::SetClockForTesting(base::Clock* clock) {
   clock_ = clock;
 }
 
+bool StandaloneTrustedVaultBackend::HasPendingTrustedRecoveryMethodForTesting()
+    const {
+  return pending_trusted_recovery_method_.has_value();
+}
+
 absl::optional<TrustedVaultDeviceRegistrationStateForUMA>
-StandaloneTrustedVaultBackend::MaybeRegisterDevice(
-    bool has_persistent_auth_error_for_uma) {
+StandaloneTrustedVaultBackend::MaybeRegisterDevice() {
   // TODO(crbug.com/1102340): in case of transient failure this function is
   // likely to be not called until the browser restart; implement retry logic.
   if (!connection_) {
@@ -721,7 +758,7 @@ StandaloneTrustedVaultBackend::MaybeRegisterDevice(
   }
 
   DCHECK(ongoing_connection_request_);
-  if (has_persistent_auth_error_for_uma) {
+  if (has_persistent_auth_error_) {
     return TrustedVaultDeviceRegistrationStateForUMA::
         kAttemptingRegistrationWithPersistentAuthError;
   }
@@ -730,6 +767,24 @@ StandaloneTrustedVaultBackend::MaybeRegisterDevice(
                                       kAttemptingRegistrationWithExistingKeyPair
                                 : TrustedVaultDeviceRegistrationStateForUMA::
                                       kAttemptingRegistrationWithNewKeyPair;
+}
+
+void StandaloneTrustedVaultBackend::MaybeProcessPendingTrustedRecoveryMethod() {
+  if (!primary_account_.has_value() || has_persistent_auth_error_ ||
+      !pending_trusted_recovery_method_.has_value() ||
+      pending_trusted_recovery_method_->gaia_id != primary_account_->gaia) {
+    return;
+  }
+
+  PendingTrustedRecoveryMethod recovery_method =
+      std::move(*pending_trusted_recovery_method_);
+  pending_trusted_recovery_method_.reset();
+
+  AddTrustedRecoveryMethod(recovery_method.gaia_id, recovery_method.public_key,
+                           recovery_method.method_type_hint,
+                           std::move(recovery_method.completion_callback));
+
+  DCHECK(!pending_trusted_recovery_method_.has_value());
 }
 
 void StandaloneTrustedVaultBackend::OnDeviceRegistered(
@@ -761,6 +816,7 @@ void StandaloneTrustedVaultBackend::OnDeviceRegistered(
       return;
     case TrustedVaultRegistrationStatus::kLocalDataObsolete:
       per_user_vault->set_keys_are_stale(true);
+      WriteToDisk(data_, file_path_);
       return;
     case TrustedVaultRegistrationStatus::kAccessTokenFetchingFailure:
       // Request wasn't sent to the server, so there is no need for throttling.
@@ -883,7 +939,12 @@ void StandaloneTrustedVaultBackend::OnTrustedRecoveryMethodAdded(
   ongoing_add_recovery_method_request_ = nullptr;
 
   std::move(cb).Run();
-  delegate_->NotifyRecoverabilityDegradedChanged();
+  if (base::FeatureList::IsEnabled(
+          kSyncTrustedVaultPeriodicDegradedRecoverabilityPolling)) {
+    degraded_recoverability_handler_->HintDegradedRecoverabilityChanged();
+  } else {
+    delegate_->NotifyRecoverabilityDegradedChanged();
+  }
 }
 
 void StandaloneTrustedVaultBackend::AbandonConnectionRequest() {
@@ -993,6 +1054,8 @@ void StandaloneTrustedVaultBackend::VerifyDeviceRegistrationForUMA(
   if (AreConnectionRequestsThrottled()) {
     // Keys download attempt is not possible.
     RecordVerifyRegistrationStatus(
+        per_user_vault->local_device_registration_info()
+            .device_registered_version(),
         TrustedVaultDownloadKeysStatusForUMA::kThrottledClientSide);
     return;
   }
@@ -1002,13 +1065,20 @@ void StandaloneTrustedVaultBackend::VerifyDeviceRegistrationForUMA(
           ProtoStringToBytes(per_user_vault->local_device_registration_info()
                                  .private_key_material()));
   if (!key_pair) {
-    RecordVerifyRegistrationStatus(TrustedVaultDownloadKeysStatusForUMA::
-                                       kCorruptedLocalDeviceRegistration);
+    RecordVerifyRegistrationStatus(
+        per_user_vault->local_device_registration_info()
+            .device_registered_version(),
+        TrustedVaultDownloadKeysStatusForUMA::
+            kCorruptedLocalDeviceRegistration);
     return;
   }
 
   // Guaranteed by |device_registered| check above.
   DCHECK(!per_user_vault->vault_key().empty());
+
+  const int device_registered_version =
+      per_user_vault->local_device_registration_info()
+          .device_registered_version();
 
   ongoing_verify_registration_request_ = connection_->DownloadNewKeys(
       *primary_account_,
@@ -1017,12 +1087,16 @@ void StandaloneTrustedVaultBackend::VerifyDeviceRegistrationForUMA(
               per_user_vault->vault_key().rbegin()->key_material()),
           per_user_vault->last_vault_key_version()),
       std::move(key_pair),
-      base::BindOnce([](TrustedVaultDownloadKeysStatus status,
-                        const std::vector<std::vector<uint8_t>>& new_vault_keys,
-                        int last_vault_key_version) {
-        RecordVerifyRegistrationStatus(
-            GetDownloadKeysStatusForUMAFromResponse(status));
-      }));
+      base::BindOnce(
+          [](int device_registered_version,
+             TrustedVaultDownloadKeysStatus status,
+             const std::vector<std::vector<uint8_t>>& new_vault_keys,
+             int last_vault_key_version) {
+            RecordVerifyRegistrationStatus(
+                device_registered_version,
+                GetDownloadKeysStatusForUMAFromResponse(status));
+          },
+          device_registered_version));
 }
 
 }  // namespace syncer

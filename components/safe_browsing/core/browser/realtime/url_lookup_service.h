@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -76,6 +76,7 @@ class RealTimeUrlLookupService : public RealTimeUrlLookupServiceBase {
   bool CanPerformFullURLLookup() const override;
   bool CanCheckSubresourceURL() const override;
   bool CanCheckSafeBrowsingDb() const override;
+  bool CanCheckSafeBrowsingHighConfidenceAllowlist() const override;
   void Shutdown() override;
   bool CanSendRTSampleRequest() const override;
 

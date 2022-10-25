@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors. All rights reserved.
+// Copyright 2017 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -605,4 +605,56 @@ suite('SiteEntry_EnabledConsolidatedControls', function() {
         routes.SITE_SETTINGS_SITE_DETAILS.path,
         Router.getInstance().getCurrentRoute().path);
   });
+
+  test('first party set information showed when available', async function() {
+    // Set unowned site group.
+    testElement.siteGroup = JSON.parse(JSON.stringify(TEST_SINGLE_SITE_GROUP));
+    flush();
+
+    const fpsMembershipLabel = testElement.$.fpsMembership;
+    // Assert first party set membership information when no fps owner is set.
+    assertTrue(fpsMembershipLabel.hidden);
+
+    // Update first party set information and set siteGroup
+    const fooSiteGroup = JSON.parse(JSON.stringify(TEST_SINGLE_SITE_GROUP));
+    fooSiteGroup.fpsOwner = 'foo.com';
+    fooSiteGroup.fpsNumMembers = 1;
+    testElement.siteGroup = fooSiteGroup;
+    flush();
+
+    await localDataBrowserProxy.whenCalled('getFpsMembershipLabel');
+    // Assert first party set membership information is set correctly.
+    assertFalse(fpsMembershipLabel.hidden);
+    assertEquals(
+        '· Allowed for 1 foo.com site', fpsMembershipLabel.innerText.trim());
+  });
+
+  test('first party set policy shown when managed key is true', function() {
+    // Set site group with first party set information.
+    const fooSiteGroup = JSON.parse(JSON.stringify(TEST_SINGLE_SITE_GROUP));
+    fooSiteGroup.fpsOwner = 'foo.com';
+    fooSiteGroup.fpsNumMembers = 1;
+    fooSiteGroup.fpsEnterpriseManaged = true;
+    testElement.siteGroup = fooSiteGroup;
+    flush();
+    // Assert first party set policy is shown.
+    const fpsPolicy =
+        testElement.shadowRoot!.querySelector<HTMLElement>('#fpsPolicy');
+    assertFalse(fpsPolicy!.hidden);
+  });
+
+  test(
+      'first party set policy undefined when managed key is false', function() {
+        // Set site group with first party set information.
+        const fooSiteGroup = JSON.parse(JSON.stringify(TEST_SINGLE_SITE_GROUP));
+        fooSiteGroup.fpsOwner = 'foo.com';
+        fooSiteGroup.fpsNumMembers = 1;
+        fooSiteGroup.fpsEnterpriseManaged = false;
+        testElement.siteGroup = fooSiteGroup;
+        flush();
+        // Assert first party set policy is null.
+        const fpsPolicy =
+            testElement.shadowRoot!.querySelector<HTMLElement>('#fpsPolicy');
+        assertEquals(null, fpsPolicy);
+      });
 });

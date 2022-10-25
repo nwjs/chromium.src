@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors. All rights reserved.
+// Copyright 2013 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -140,7 +140,6 @@ class CONTENT_EXPORT RenderFrameObserver : public IPC::Listener,
                                         int32_t world_id) {}
   virtual void DidClearWindowObject() {}
   virtual void DidChangeScrollOffset() {}
-  virtual void WillSendSubmitEvent(const blink::WebFormElement& form) {}
   virtual void WillSubmitForm(const blink::WebFormElement& form) {}
   virtual void DidMatchCSS(
       const blink::WebVector<blink::WebString>& newly_matching_selectors,

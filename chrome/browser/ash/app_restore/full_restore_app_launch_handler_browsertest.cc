@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -85,8 +85,7 @@
 #include "ui/message_center/public/cpp/notification.h"
 #include "ui/wm/core/window_util.h"
 
-namespace ash {
-namespace full_restore {
+namespace ash::full_restore {
 
 namespace {
 
@@ -3195,5 +3194,4 @@ IN_PROC_BROWSER_TEST_P(FullRestoreAppLaunchHandlerSystemWebAppsBrowserTest,
 INSTANTIATE_SYSTEM_WEB_APP_MANAGER_TEST_SUITE_REGULAR_PROFILE_P(
     FullRestoreAppLaunchHandlerSystemWebAppsBrowserTest);
 
-}  // namespace full_restore
-}  // namespace ash
+}  // namespace ash::full_restore

@@ -1,4 +1,4 @@
-// Copyright (c) 2017 The Chromium Authors. All rights reserved.
+// Copyright 2017 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -77,6 +77,10 @@ extern const base::Feature kDownloadBubble;
 // kDownloadBubble is already enabled.
 extern const base::Feature kDownloadBubbleV2;
 
+// The kill switch for download tailored warnings. The main control is on the
+// server-side.
+extern const base::Feature kDownloadTailoredWarnings;
+
 // Enables Enhanced Safe Browsing.
 extern const base::Feature kEnhancedProtection;
 
@@ -118,6 +122,9 @@ extern const base::Feature kLogAccountEnhancedProtectionStateInProtegoPings;
 // Enable omitting non-user gesture from referrer chain.
 extern const base::Feature kOmitNonUserGesturesFromReferrerChain;
 
+// Bypass RealTime URL Lookup allowlist for enterprise users.
+extern const base::Feature kRealTimeUrlLookupForEnterpriseAllowlistBypass;
+
 // Controls whether Client Safe Browsing Reports are sent with a GAIA-tied token
 // for Enhanced Safe Browsing users
 extern const base::Feature kSafeBrowsingCsbrrWithToken;
@@ -142,6 +149,12 @@ extern const base::Feature kSuspiciousSiteTriggerQuotaFeature;
 // Controls whether to send sample pings of Protego allowlist domains on
 // the allowlist to Safe Browsing.
 extern const base::Feature kSendSampledPingsForProtegoAllowlistDomains;
+
+// Killswitch for using the SevenZipReader in the installer.
+extern const base::Feature kSevenZipReaderInInstaller;
+
+// Controls whether the new 7z evaluation is performed on downloads.
+extern const base::Feature kSevenZipEvaluationEnabled;
 
 // Status of the SimplifiedUrlDisplay experiments. This does not control the
 // individual experiments, those are controlled by their own feature flags.
@@ -176,6 +189,9 @@ extern const base::Feature kVisualFeaturesSizes;
 
 // Controls whether we send visual features in CSPP pings.
 extern const base::Feature kVisualFeaturesInCsppPings;
+
+// Controls whether we send visual features in password reuse pings.
+extern const base::Feature kVisualFeaturesForReusePings;
 
 base::Value::List GetFeatureStatusList();
 

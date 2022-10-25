@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors. All rights reserved.
+// Copyright 2020 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,6 +16,7 @@
 #include "components/viz/common/resources/resource_format_utils.h"
 #include "gpu/command_buffer/common/gpu_memory_buffer_support.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
+#include "gpu/command_buffer/service/service_utils.h"
 #include "gpu/command_buffer/service/shared_image/ozone_image_backing.h"
 #include "gpu/command_buffer/service/shared_memory_region_wrapper.h"
 #include "gpu/vulkan/vulkan_device_queue.h"
@@ -45,8 +46,12 @@ gfx::BufferUsage GetBufferUsage(uint32_t usage) {
 
 OzoneImageBackingFactory::OzoneImageBackingFactory(
     SharedContextState* shared_context_state,
-    const GpuDriverBugWorkarounds& workarounds)
-    : shared_context_state_(shared_context_state), workarounds_(workarounds) {
+    const GpuDriverBugWorkarounds& workarounds,
+    const GpuPreferences& gpu_preferences)
+    : shared_context_state_(shared_context_state),
+      workarounds_(workarounds),
+      use_passthrough_(gpu_preferences.use_passthrough_cmd_decoder &&
+                       gles2::PassthroughCommandDecoderSupported()) {
 #if BUILDFLAG(USE_DAWN)
   dawn_procs_ = base::MakeRefCounted<base::RefCountedData<DawnProcTable>>(
       dawn::native::GetProcs());
@@ -90,7 +95,7 @@ OzoneImageBackingFactory::CreateSharedImageInternal(
   return std::make_unique<OzoneImageBacking>(
       mailbox, format, gfx::BufferPlane::DEFAULT, size, color_space,
       surface_origin, alpha_type, usage, shared_context_state_.get(),
-      std::move(pixmap), dawn_procs_, workarounds_);
+      std::move(pixmap), dawn_procs_, workarounds_, use_passthrough_);
 }
 
 std::unique_ptr<SharedImageBacking> OzoneImageBackingFactory::CreateSharedImage(
@@ -167,19 +172,20 @@ std::unique_ptr<SharedImageBacking> OzoneImageBackingFactory::CreateSharedImage(
   auto backing = std::make_unique<OzoneImageBacking>(
       mailbox, plane_format, plane, plane_size, color_space, surface_origin,
       alpha_type, usage, shared_context_state_.get(), std::move(pixmap),
-      dawn_procs_, workarounds_);
+      dawn_procs_, workarounds_, use_passthrough_);
   backing->SetCleared();
 
   return backing;
 }
 
-bool OzoneImageBackingFactory::IsSupported(uint32_t usage,
-                                           viz::ResourceFormat format,
-                                           bool thread_safe,
-                                           gfx::GpuMemoryBufferType gmb_type,
-                                           GrContextType gr_context_type,
-                                           bool* allow_legacy_mailbox,
-                                           bool is_pixel_used) {
+bool OzoneImageBackingFactory::IsSupported(
+    uint32_t usage,
+    viz::ResourceFormat format,
+    const gfx::Size& size,
+    bool thread_safe,
+    gfx::GpuMemoryBufferType gmb_type,
+    GrContextType gr_context_type,
+    base::span<const uint8_t> pixel_data) {
   if (gmb_type != gfx::EMPTY_BUFFER && gmb_type != gfx::NATIVE_PIXMAP) {
     return false;
   }
@@ -213,12 +219,11 @@ bool OzoneImageBackingFactory::IsSupported(uint32_t usage,
   constexpr uint32_t kPrimaryPlaneUsageFlags = SHARED_IMAGE_USAGE_DISPLAY |
                                                SHARED_IMAGE_USAGE_SCANOUT |
                                                SHARED_IMAGE_USAGE_RASTER;
-  if (usage != kPrimaryPlaneUsageFlags || gmb_type != gfx::NATIVE_PIXMAP) {
+  if (usage != kPrimaryPlaneUsageFlags || gmb_type != gfx::EMPTY_BUFFER) {
     return false;
   }
 #endif
 
-  *allow_legacy_mailbox = false;
   return true;
 }
 

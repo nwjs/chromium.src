@@ -1,4 +1,4 @@
-# Copyright 2017 The Chromium Authors. All rights reserved.
+# Copyright 2017 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -231,6 +231,8 @@ component("network_service") {
 
   if (is_win) {
     sources += [
+      "broker_helper_win.cc",
+      "broker_helper_win.h",
       "windows_system_proxy_resolver_mojo.cc",
       "windows_system_proxy_resolver_mojo.h",
     ]
@@ -340,6 +342,7 @@ source_set("tests") {
     "cookie_settings_unittest.cc",
     "cors/cors_url_loader_factory_unittest.cc",
     "cors/cors_url_loader_private_network_access_unittest.cc",
+    "cors/cors_url_loader_tao_unittest.cc",
     "cors/cors_url_loader_test_util.cc",
     "cors/cors_url_loader_test_util.h",
     "cors/cors_url_loader_unittest.cc",
@@ -431,7 +434,10 @@ source_set("tests") {
   }
 
   if (is_win) {
-    sources += [ "windows_system_proxy_resolver_mojo_unittest.cc" ]
+    sources += [
+      "broker_helper_win_unittest.cc",
+      "windows_system_proxy_resolver_mojo_unittest.cc",
+    ]
   }
 
   deps = [

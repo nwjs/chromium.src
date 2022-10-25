@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -159,6 +159,11 @@ bool CreateWebAppFromManifest(content::WebContents* web_contents,
   auto* provider = WebAppProvider::GetForWebContents(web_contents);
   if (!provider)
     return false;
+
+  if (provider->install_manager().IsInstallingForWebContents(web_contents) ||
+      provider->command_manager().IsInstallingForWebContents(web_contents)) {
+    return false;
+  }
 
   provider->command_manager().ScheduleCommand(
       std::make_unique<FetchManifestAndInstallCommand>(

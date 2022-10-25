@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors. All rights reserved.
+// Copyright 2015 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -49,12 +49,15 @@
 #include "url/gurl.h"
 #include "url/scheme_host_port.h"
 
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+#include "chrome/browser/device_reauth/chrome_biometric_authenticator_factory.h"
+#endif
+
 #if BUILDFLAG(IS_WIN)
 #include "chrome/browser/password_manager/password_manager_util_win.h"
 #endif
 
 #if BUILDFLAG(IS_MAC)
-#include "chrome/browser/device_reauth/chrome_biometric_authenticator_factory.h"
 #include "chrome/browser/password_manager/password_manager_util_mac.h"
 #endif
 
@@ -64,6 +67,7 @@
 
 namespace {
 
+using password_manager::CredentialFacet;
 using password_manager::CredentialUIEntry;
 
 // The error message returned to the UI when Chrome refuses to start multiple
@@ -158,10 +162,6 @@ CreatePasswordUiEntryFromCredentialUiEntry(
   extensions::api::passwords_private::PasswordUiEntry entry;
   entry.urls = extensions::CreateUrlCollectionFromCredential(credential);
   entry.username = base::UTF16ToUTF8(credential.username);
-  // TODO(crbug.com/1345899): Fill the note field after authentication in
-  // OnRequestCredentialDetailsAuthResult
-  entry.note =
-      std::make_unique<std::string>(base::UTF16ToUTF8(credential.note.value));
   entry.id = id;
   entry.stored_in = extensions::StoreSetFromCredential(credential);
   entry.is_android_credential =
@@ -172,9 +172,8 @@ CreatePasswordUiEntryFromCredentialUiEntry(
             credential.federation_origin,
             url_formatter::SchemeDisplay::OMIT_CRYPTOGRAPHIC);
 
-    entry.federation_text =
-        std::make_unique<std::string>(l10n_util::GetStringFUTF8(
-            IDS_PASSWORDS_VIA_FEDERATION, formatted_origin));
+    entry.federation_text = l10n_util::GetStringFUTF8(
+        IDS_PASSWORDS_VIA_FEDERATION, formatted_origin);
   }
   return entry;
 }
@@ -299,9 +298,14 @@ bool PasswordsPrivateDelegateImpl::AddPassword(
       use_account_store ? password_manager::PasswordForm::Store::kAccountStore
                         : password_manager::PasswordForm::Store::kProfileStore;
   CredentialUIEntry credential;
-  credential.url = password_manager_util::StripAuthAndParams(
+
+  CredentialFacet facet;
+  facet.url = password_manager_util::StripAuthAndParams(
       password_manager_util::ConstructGURLWithScheme(url));
-  credential.signon_realm = password_manager::GetSignonRealm(credential.url);
+  facet.signon_realm = password_manager::GetSignonRealm(facet.url);
+  // TODO(crbug.com/1360896): Remove this in part 2.
+  credential.signon_realm = facet.signon_realm;
+  credential.facets.push_back(std::move(facet));
   credential.username = username;
   credential.password = password;
   credential.note = password_manager::PasswordNote(
@@ -436,17 +440,28 @@ void PasswordsPrivateDelegateImpl::OsReauthCall(
     password_manager::PasswordAccessAuthenticator::AuthResultCallback
         callback) {
 #if BUILDFLAG(IS_WIN)
-  DCHECK(web_contents_);
-  bool result = password_manager_util_win::AuthenticateUser(
-      web_contents_->GetTopLevelNativeWindow(), purpose);
-  std::move(callback).Run(result);
+  scoped_refptr<device_reauth::BiometricAuthenticator> biometric_authenticator =
+      ChromeBiometricAuthenticatorFactory::GetInstance()
+          ->GetOrCreateBiometricAuthenticator();
+  base::OnceCallback<void()> on_reauth_completed =
+      base::BindOnce(&PasswordsPrivateDelegateImpl::OnReauthCompleted,
+                     weak_ptr_factory_.GetWeakPtr());
+
+  biometric_authenticator->AuthenticateWithMessage(
+      device_reauth::BiometricAuthRequester::kPasswordsInSettings,
+      password_manager_util_win::GetMessageForLoginPrompt(purpose),
+      std::move(callback).Then(std::move(on_reauth_completed)));
+
+  biometric_authenticator_ = std::move(biometric_authenticator);
 #elif BUILDFLAG(IS_MAC)
-  if (base::FeatureList::IsEnabled(
+  scoped_refptr<device_reauth::BiometricAuthenticator> biometric_authenticator =
+      ChromeBiometricAuthenticatorFactory::GetInstance()
+          ->GetOrCreateBiometricAuthenticator();
+  // TODO(crbug.com/1358442): Remove this check.
+  if (biometric_authenticator->CanAuthenticate(
+          device_reauth::BiometricAuthRequester::kPasswordsInSettings) &&
+      base::FeatureList::IsEnabled(
           password_manager::features::kBiometricAuthenticationInSettings)) {
-    scoped_refptr<device_reauth::BiometricAuthenticator>
-        biometric_authenticator =
-            ChromeBiometricAuthenticatorFactory::GetInstance()
-                ->GetOrCreateBiometricAuthenticator();
     base::OnceCallback<void()> on_reauth_completed =
         base::BindOnce(&PasswordsPrivateDelegateImpl::OnReauthCompleted,
                        weak_ptr_factory_.GetWeakPtr());
@@ -456,11 +471,12 @@ void PasswordsPrivateDelegateImpl::OsReauthCall(
         password_manager_util_mac::GetMessageForBiometricLoginPrompt(purpose),
         std::move(callback).Then(std::move(on_reauth_completed)));
 
-    // If AuthenticateWithMessage is called again(UI isn't blocked so user might
-    // click multiple times on the button), it invalidates the old request which
-    // triggers PasswordsPrivateDelegateImpl::OnReauthCompleted which resets
-    // biometric_authenticator_. Having a local variable solves that problem as
-    // there's a second scoped_refptr for the authenticator object.
+    // If AuthenticateWithMessage is called again(UI on Mac isn't blocked so
+    // user might click multiple times on the button), it invalidates the old
+    // request which triggers PasswordsPrivateDelegateImpl::OnReauthCompleted
+    // which resets biometric_authenticator_. Having a local variable solves
+    // that problem as there's a second scoped_refptr for the authenticator
+    // object.
     biometric_authenticator_ = std::move(biometric_authenticator);
   } else {
     bool result = password_manager_util_mac::AuthenticateUser(purpose);
@@ -478,10 +494,12 @@ void PasswordsPrivateDelegateImpl::OsReauthCall(
 }
 
 void PasswordsPrivateDelegateImpl::OsReauthTimeoutCall() {
+#if !BUILDFLAG(IS_LINUX)
   PasswordsPrivateEventRouter* router =
       PasswordsPrivateEventRouterFactory::GetForProfile(profile_);
   if (router)
     router->OnPasswordManagerAuthTimeout();
+#endif
 }
 
 void PasswordsPrivateDelegateImpl::SetCredentials(
@@ -707,6 +725,10 @@ PasswordsPrivateDelegateImpl::GetInsecureCredentialsManager() {
   return password_check_delegate_.GetInsecureCredentialsManager();
 }
 
+void PasswordsPrivateDelegateImpl::ExtendAuthValidity() {
+  password_access_authenticator_.ExtendAuthValidity();
+}
+
 void PasswordsPrivateDelegateImpl::OnPasswordsExportProgress(
     password_manager::ExportProgressStatus status,
     const std::string& folder_name) {
@@ -764,8 +786,8 @@ void PasswordsPrivateDelegateImpl::OnRequestCredentialDetailsAuthResult(
 
   api::passwords_private::PasswordUiEntry password_ui_entry =
       CreatePasswordUiEntryFromCredentialUiEntry(id, *credential);
-  password_ui_entry.password =
-      std::make_unique<std::string>(base::UTF16ToUTF8(credential->password));
+  password_ui_entry.password = base::UTF16ToUTF8(credential->password);
+  password_ui_entry.note = base::UTF16ToUTF8(credential->note.value);
   std::move(callback).Run(std::move(password_ui_entry));
 
   EmitHistogramsForCredentialAccess(
@@ -837,7 +859,7 @@ void PasswordsPrivateDelegateImpl::EmitHistogramsForCredentialAccess(
     sync_service = SyncServiceFactory::GetForProfile(profile_);
   }
   if (password_manager::sync_util::IsSyncAccountCredential(
-          entry.url, entry.username, sync_service,
+          entry.GetURL(), entry.username, sync_service,
           IdentityManagerFactory::GetForProfile(profile_))) {
     base::RecordAction(
         base::UserMetricsAction("PasswordManager_SyncCredentialShown"));

@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -60,4 +60,19 @@ void HistoryClustersSidePanelUI::BindInterface(
           std::move(pending_page_handler), Profile::FromWebUI(web_ui()),
           web_ui()->GetWebContents());
   history_clusters_handler_->SetSidePanelUIEmbedder(this->embedder());
+}
+
+base::WeakPtr<HistoryClustersSidePanelUI>
+HistoryClustersSidePanelUI::GetWeakPtr() {
+  return weak_ptr_factory_.GetWeakPtr();
+}
+
+void HistoryClustersSidePanelUI::SetQuery(const std::string& query) {
+  // If the handler has already been created, pass to the existing WebUI.
+  // Otherwise, we don't need to do anything, because
+  // HistoryClustersSidePanelCoordinator will pass it to the newly created WebUI
+  // via a URL parameter.
+  if (history_clusters_handler_) {
+    history_clusters_handler_->SetQuery(query);
+  }
 }

@@ -1,4 +1,4 @@
-// Copyright 2016 The Chromium Authors. All rights reserved.
+// Copyright 2016 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -39,7 +39,7 @@ media::AudioParameters MockGetOutputDeviceParameters(
     const base::UnguessableToken& session_id,
     const std::string& device_id) {
   return media::AudioParameters(media::AudioParameters::AUDIO_PCM_LOW_LATENCY,
-                                media::CHANNEL_LAYOUT_STEREO,
+                                media::ChannelLayoutConfig::Stereo(),
                                 kHardwareSampleRate, kHardwareBufferSize);
 }
 

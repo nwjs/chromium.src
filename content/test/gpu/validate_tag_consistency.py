@@ -1,5 +1,5 @@
 #!/usr/bin/env vpython3
-# Copyright 2020 The Chromium Authors. All rights reserved.
+# Copyright 2020 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 """Script to ensure that the same tags are in all expectation files."""
@@ -14,7 +14,7 @@ import sys
 TAG_HEADER = """\
 # OS
 # tags: [ android android-lollipop android-marshmallow android-nougat
-#             android-pie android-r android-s
+#             android-pie android-r android-s android-t
 #         chromeos
 #         fuchsia
 #         linux ubuntu
@@ -43,8 +43,12 @@ TAG_HEADER = """\
 #               intel-0x9bc5
 #         nvidia nvidia-0xfe9 nvidia-0x1cb3 nvidia-0x2184
 #         qualcomm ]
+# Architecture
+# tags: [ mac-arm64 mac-x86_64 ]
 # Decoder
 # tags: [ passthrough no-passthrough ]
+# Browser Target CPU
+# tags: [ target-cpu-64 target-cpu-32 target-cpu-31 ]
 # ANGLE Backend
 # tags: [ angle-disabled
 #         angle-d3d9 angle-d3d11

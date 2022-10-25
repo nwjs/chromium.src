@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors. All rights reserved.
+// Copyright 2015 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -13,10 +13,9 @@
 #include "remoting/protocol/video_frame_pump.h"
 #include "third_party/webrtc/modules/desktop_capture/desktop_capturer.h"
 
-namespace remoting {
-namespace protocol {
+namespace remoting::protocol {
 
-FakeVideoStream::FakeVideoStream() {}
+FakeVideoStream::FakeVideoStream() = default;
 FakeVideoStream::~FakeVideoStream() = default;
 
 void FakeVideoStream::SetEventTimestampsSource(
@@ -116,5 +115,4 @@ WebrtcEventLogData* FakeConnectionToClient::rtc_event_log() {
   return nullptr;
 }
 
-}  // namespace protocol
-}  // namespace remoting
+}  // namespace remoting::protocol

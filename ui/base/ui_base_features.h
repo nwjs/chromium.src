@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors. All rights reserved.
+// Copyright 2017 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -215,6 +215,11 @@ COMPONENT_EXPORT(UI_BASE_FEATURES)
 extern const base::Feature kWaylandScreenCoordinatesEnabled;
 COMPONENT_EXPORT(UI_BASE_FEATURES)
 bool IsWaylandScreenCoordinatesEnabled();
+
+COMPONENT_EXPORT(UI_BASE_FEATURES)
+extern const base::Feature kLacrosColorManagement;
+COMPONENT_EXPORT(UI_BASE_FEATURES)
+bool IsLacrosColorManagementEnabled();
 
 }  // namespace features
 

@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -34,8 +34,8 @@ class WaylandDesktopCapturer : public webrtc::DesktopCapturer,
 #if defined(WEBRTC_USE_GIO)
   // Gets session related details in the metadata so that input injection
   // module can make use of the same remote desktop session to inject inputs
-  // on the remote host. Valid metadata can only be populated after the
-  // capturer has been started using call to `Start()`.
+  // on the remote host. This must be called only if capturer has been
+  // successfully started.
   webrtc::DesktopCaptureMetadata GetMetadata() override;
 #endif
 

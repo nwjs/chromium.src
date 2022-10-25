@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,6 +6,7 @@
 
 #include "base/auto_reset.h"
 #include "base/check.h"
+#include "base/ranges/algorithm.h"
 #include "ui/accessibility/ax_action_data.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
@@ -85,8 +86,7 @@ void RadioButton::RequestFocusFromEvent() {
   // Take focus only if another radio button in the group has focus.
   Views views;
   GetViewsInGroupFromParent(GetGroup(), &views);
-  if (std::any_of(views.begin(), views.end(),
-                  [](View* v) { return v->HasFocus(); }))
+  if (base::ranges::any_of(views, [](View* v) { return v->HasFocus(); }))
     RequestFocus();
 }
 

@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright 2021 The Chromium Authors. All rights reserved.
-     Use of this source code is governed by a BSD-style license that can be
-     found in the LICENSE file. -->
+<!--
+Copyright 2021 The Chromium Authors
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
 
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Main menu item dimens. -->
@@ -63,4 +65,5 @@
 
     <!-- Menu footer chip dimensions. -->
     <item name="menu_footer_chip_background_alpha" format="float" type="dimen">0.1</item>
+    <dimen name="menu_footer_second_row_margin_start">16dp</dimen>
 </resources>

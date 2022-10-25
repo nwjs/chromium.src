@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -58,11 +58,9 @@ class NetworkFieldTrialBrowserTest : public ContentBrowserTest {
     // so that the NetworkService will automatically be informed of its
     // existence.
     base::MockEntropyProvider entropy_provider;
-    base::FieldTrial* trial =
-        base::FieldTrialList::FactoryGetFieldTrialWithRandomizationSeed(
-            kFieldTrialName, 1 /* total_probability */, kFieldTrialGroup,
-            base::FieldTrial::ONE_TIME_RANDOMIZED, 0 /* randomization_seed */,
-            nullptr /* default_group_number */, &entropy_provider);
+    base::FieldTrial* trial = base::FieldTrialList::FactoryGetFieldTrial(
+        kFieldTrialName, 1 /* total_probability */, kFieldTrialGroup,
+        entropy_provider);
     EXPECT_TRUE(trial);
   }
 

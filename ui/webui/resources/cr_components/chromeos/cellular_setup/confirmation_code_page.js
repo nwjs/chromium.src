@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors. All rights reserved.
+// Copyright 2020 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,7 +7,17 @@
  * confirmation code to install. This element contains an input for the user to
  * enter the confirmation code.
  */
+import '//resources/polymer/v3_0/iron-flex-layout/iron-flex-layout-classes.js';
+import '//resources/polymer/v3_0/iron-media-query/iron-media-query.js';
+import '//resources/polymer/v3_0/paper-spinner/paper-spinner-lite.js';
+import './base_page.js';
+
+import {html, Polymer} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+
+import {I18nBehavior} from '../../../cr_elements/i18n_behavior.js';
+
 Polymer({
+  _template: html`{__html_template__}`,
   is: 'confirmation-code-page',
 
   behaviors: [I18nBehavior],

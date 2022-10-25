@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -95,7 +95,7 @@ class AggregationServiceInternalsWebUiBrowserTest : public ContentBrowserTest {
   }
 
  protected:
-  raw_ptr<MockAggregationService> aggregation_service_;
+  raw_ptr<MockAggregationService, DanglingUntriaged> aggregation_service_;
 };
 
 IN_PROC_BROWSER_TEST_F(AggregationServiceInternalsWebUiBrowserTest,

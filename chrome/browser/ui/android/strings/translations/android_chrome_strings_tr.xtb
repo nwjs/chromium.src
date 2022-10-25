@@ -454,6 +454,7 @@ Belirli bir siteye ait veya tüm tarama geçmişinizi sildiğinizde bununla ili�
 <translation id="3435465986463792564">Çok fazla pencere mi açık? Hepsini buradan yönetebilirsiniz</translation>
 <translation id="3443221991560634068">Geçerli sayfayı yeniden yükler</translation>
 <translation id="3444179773590444986">Sitelerdeki koyu temayla ilgili geri bildirim paylaşmak ister misiniz?</translation>
+<translation id="3452832259067974318">Gizliliğinizi korumak için Chrome, bu alanda şifrenizi otomatik olarak doldurmayacaktır.</translation>
 <translation id="3469665409713263828">{FILE_COUNT,plural, =1{1 indirme işlemi programlandı}other{# indirme işlemi programlandı}}</translation>
 <translation id="3474624961160222204"><ph name="NAME" /> olarak devam et</translation>
 <translation id="3478363558367712427">Arama motorunuzu seçebilirsiniz</translation>
@@ -679,6 +680,7 @@ Diğer Google hizmetlerinden yapılan aramalar ve etkinlikler gibi Google hesab�
 <translation id="4763480195061959176">video</translation>
 <translation id="4766313118839197559">Şifreler bu cihazda Şifre Yöneticisi'ne kaydedilir</translation>
 <translation id="4766678251456904326">Hesabı cihaza ekleyin</translation>
+<translation id="4787736314074622408"><ph name="ITEM_TITLE" /> adlı dosyayı silmek istiyor musunuz?</translation>
 <translation id="4791358705705538979">Web'de çeşitli görevleri (ör. ödeme yapma) tamamlamanıza yardımcı olur</translation>
 <translation id="4794291718671962615">(<ph name="MEGABYTES" />) <ph name="URL" /></translation>
 <translation id="4802417911091824046">Parolayla şifreleme, Google Pay'deki adresleri ve ödeme yöntemlerini kapsamaz.
@@ -748,6 +750,7 @@ Bu ayarı değiştirmek için <ph name="BEGIN_LINK" />senkronizasyonu sıfırlay
 <translation id="5091199029769593641">Yakında yeni sekme açtığınızda <ph name="SITE_NAME" /> kaynağından haberler göreceksiniz. Takip ettiğiniz siteler Google hesabınıza kaydedilir. Bunları Keşfet ayarlarından yönetebilirsiniz.</translation>
 <translation id="5091249083535528968">Genişletilmiş kullanım verileri</translation>
 <translation id="509429900233858213">Bir hata oluştu.</translation>
+<translation id="5099845111805573968">Masaüstü sitesini bir kez seçtiğinizde bu ayar her ziyaret ettiğinizde siteye uygulanır</translation>
 <translation id="5102401324271069229">Chrome, bir sitenin şifrenizi çalmaya çalışması veya zararlı bir dosya indirmeniz halinde Güvenli Tarama'ya sayfa içeriğinden parçalarla birlikte URL'ler gönderebilir</translation>
 <translation id="510275257476243843">1 saat kaldı</translation>
 <translation id="5115811374190515607">Hedef: <ph name="PRODUCT_NAME" /></translation>
@@ -907,6 +910,7 @@ Bu ayarı değiştirmek için <ph name="BEGIN_LINK" />senkronizasyonu sıfırlay
 <translation id="5958275228015807058">Dosyalarınızı ve sayfalarınızı İndirilenler bölümünde bulabilirsiniz</translation>
 <translation id="5962718611393537961">Daraltmak için dokunun</translation>
 <translation id="5964869237734432770">Resim açıklamasını durdur</translation>
+<translation id="5966233851250124270">Chrome seçiminizi hatırlar</translation>
 <translation id="5979084224081478209">Şifreleri kontrol et</translation>
 <translation id="5995726099713306770">Sayfa tekrar indirilsin mi?</translation>
 <translation id="6000066717592683814">Google kalsın</translation>
@@ -946,6 +950,7 @@ Privacy Sandbox denemeleri, hâlâ aktif geliştirme aşamasında olup belirli b
 <translation id="6192907950379606605">Resim açıklaması al</translation>
 <translation id="6196315980958524839">Şifreler bu cihazda Google Şifre Yöneticisi'ne kaydedilir</translation>
 <translation id="620197886010707372"><ph name="APPNAME" /> uygulaması Google Play ile açılsın mı?</translation>
+<translation id="6202812185118613467">Senkronizasyonu başlatmak için tekrar oturum açın</translation>
 <translation id="6203593061661911168">İndirme kablosuz bağlantı üzerinden başlatılacak</translation>
 <translation id="6210748933810148297"><ph name="EMAIL" /> değil misiniz?</translation>
 <translation id="6211386937064921208">Sayfanın önizlemesi gösteriliyor</translation>
@@ -1083,6 +1088,7 @@ Güven jetonları, web'deki gizliliği artırır ve kim olduğunuzu bulmak için
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6824899148643461612"><ph name="TAB_TITLE" /> sekmesi seçildi</translation>
 <translation id="6828070228333235514">Fiyat takibini durdur</translation>
+<translation id="6830728435402077660">Güvenli değil</translation>
 <translation id="6833996806551876956">Privacy Sandbox denemesi</translation>
 <translation id="6836206421467243968"><ph name="TITLE_OF_GROUP" /> sekme grubunu, yeni bir arka plan sekme grubu olarak geri yükleyin.</translation>
 <translation id="6846298663435243399">Yükleniyor...</translation>

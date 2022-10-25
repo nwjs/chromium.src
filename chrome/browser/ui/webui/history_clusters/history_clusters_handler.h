@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -62,6 +62,8 @@ class HistoryClustersHandler : public mojom::PageHandler,
   void SetSidePanelUIEmbedder(
       base::WeakPtr<ui::MojoBubbleWebUIController::Embedder>
           side_panel_embedder);
+  // Used to set the in-page query from the browser.
+  void SetQuery(const std::string& query);
 
   // mojom::PageHandler:
   void OpenHistoryCluster(

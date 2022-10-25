@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -450,6 +450,9 @@ export class FileTasks {
         } else if (parsedActionId === 'open-web-drive-office-powerpoint') {
           task.iconType = 'gslides';
           task.title = loadTimeData.getString('TASK_OPEN_GSLIDES');
+          task.verb = chrome.fileManagerPrivate.Verb.OPEN_WITH;
+        } else if (parsedActionId === 'open-in-office') {
+          task.title = loadTimeData.getString('TASK_OPEN_OFFICE');
           task.verb = chrome.fileManagerPrivate.Verb.OPEN_WITH;
         } else if (parsedActionId === 'install-linux-package') {
           task.iconType = 'crostini';
@@ -1385,10 +1388,6 @@ function hasOfficeExtension(entry) {
  * @return {string}
  */
 export function parseActionId(actionId) {
-  if (window.isSWA) {
-    const swaUrl = SWA_FILES_APP_URL.toString() + '?';
-    return actionId.replace(swaUrl, '');
-  }
-
-  return actionId;
+  const swaUrl = SWA_FILES_APP_URL.toString() + '?';
+  return actionId.replace(swaUrl, '');
 }

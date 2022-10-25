@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -176,9 +176,11 @@ Shell* OpenPopup(const ToRenderFrameHost& opener,
 class FileChooserDelegate : public WebContentsDelegate {
  public:
   // Constructs a WebContentsDelegate that mocks a file dialog.
-  // The mocked file dialog will always reply that the user selected |file|.
-  // |callback| is invoked when RunFileChooser() is called.
+  // The mocked file dialog will always reply that the user selected |file| or
+  // |files|. |callback| is invoked when RunFileChooser() is called.
   FileChooserDelegate(const base::FilePath& file, base::OnceClosure callback);
+  FileChooserDelegate(std::vector<base::FilePath> files,
+                      base::OnceClosure callback);
   ~FileChooserDelegate() override;
 
   // Implementation of WebContentsDelegate::RunFileChooser.
@@ -190,7 +192,7 @@ class FileChooserDelegate : public WebContentsDelegate {
   const blink::mojom::FileChooserParams& params() const { return *params_; }
 
  private:
-  base::FilePath file_;
+  std::vector<base::FilePath> files_;
   base::OnceClosure callback_;
   blink::mojom::FileChooserParamsPtr params_;
 };

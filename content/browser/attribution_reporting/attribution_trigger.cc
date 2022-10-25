@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors. All rights reserved.
+// Copyright 2020 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -45,15 +45,14 @@ AttributionTrigger::AttributionTrigger(
   DCHECK(network::IsOriginPotentiallyTrustworthy(destination_origin_));
 }
 
-AttributionTrigger::AttributionTrigger(const AttributionTrigger& other) =
+AttributionTrigger::AttributionTrigger(const AttributionTrigger&) = default;
+
+AttributionTrigger& AttributionTrigger::operator=(const AttributionTrigger&) =
     default;
 
-AttributionTrigger& AttributionTrigger::operator=(
-    const AttributionTrigger& other) = default;
+AttributionTrigger::AttributionTrigger(AttributionTrigger&&) = default;
 
-AttributionTrigger::AttributionTrigger(AttributionTrigger&& other) = default;
-
-AttributionTrigger& AttributionTrigger::operator=(AttributionTrigger&& other) =
+AttributionTrigger& AttributionTrigger::operator=(AttributionTrigger&&) =
     default;
 
 AttributionTrigger::~AttributionTrigger() = default;

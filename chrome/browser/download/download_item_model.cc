@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,7 +12,6 @@
 #include "base/memory/ptr_util.h"
 #include "base/metrics/field_trial.h"
 #include "base/observer_list.h"
-#include "base/run_loop.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/supports_user_data.h"
@@ -47,6 +46,8 @@
 #include "components/safe_browsing/content/browser/web_ui/safe_browsing_ui.h"
 #include "components/safe_browsing/content/common/file_type_policies.h"
 #include "components/safe_browsing/content/common/proto/download_file_types.pb.h"
+#include "components/safe_browsing/core/common/features.h"
+#include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/download_item_utils.h"
@@ -56,6 +57,7 @@
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/browser.h"
+#include "ui/views/vector_icons.h"
 #endif
 
 using download::DownloadItem;
@@ -63,6 +65,7 @@ using MixedContentStatus = download::DownloadItem::MixedContentStatus;
 using safe_browsing::DownloadFileType;
 using ReportThreatDetailsResult =
     safe_browsing::PingManager::ReportThreatDetailsResult;
+using TailoredVerdict = safe_browsing::ClientDownloadResponse::TailoredVerdict;
 
 namespace {
 
@@ -113,6 +116,9 @@ class DownloadItemModelData : public base::SupportsUserData::Data {
   // then as all in-progress downloads are.
   absl::optional<base::Time> ephemeral_warning_ui_shown_time_;
 
+  // Was the UI actioned on.
+  bool actioned_on_ = false;
+
  private:
   DownloadItemModelData();
 
@@ -133,7 +139,7 @@ DownloadItemModelData* DownloadItemModelData::GetOrCreate(
     DownloadItem* download) {
   DownloadItemModelData* data =
       static_cast<DownloadItemModelData*>(download->GetUserData(kKey));
-  if (data == NULL) {
+  if (data == nullptr) {
     data = new DownloadItemModelData();
     data->should_show_in_shelf_ = !download->IsTransient();
     download->SetUserData(kKey, base::WrapUnique(data));
@@ -412,6 +418,16 @@ void DownloadItemModel::SetWasUINotified(bool was_ui_notified) {
   data->was_ui_notified_ = was_ui_notified;
 }
 
+bool DownloadItemModel::WasActionedOn() const {
+  const DownloadItemModelData* data = DownloadItemModelData::Get(download_);
+  return data && data->actioned_on_;
+}
+
+void DownloadItemModel::SetActionedOn(bool actioned_on) {
+  DownloadItemModelData* data = DownloadItemModelData::GetOrCreate(download_);
+  data->actioned_on_ = actioned_on;
+}
+
 bool DownloadItemModel::WasUIWarningShown() const {
   const DownloadItemModelData* data = DownloadItemModelData::Get(download_);
   return data && data->was_ui_warning_shown_;
@@ -442,19 +458,10 @@ bool DownloadItemModel::ShouldPreferOpeningInBrowser() {
   if (!data->should_prefer_opening_in_browser_ && IsBubbleV2Enabled()) {
     base::FilePath path = GetTargetFilePath();
     std::string mime_type = GetMimeType();
-    base::RunLoop run_loop;
-    DownloadTargetDeterminer::DetermineIfHandledSafelyHelper(
-        download_, path, mime_type,
-        base::BindOnce(
-            [](base::OnceClosure quit_run_loop,
-               base::WeakPtr<DownloadUIModel> model, const base::FilePath& path,
-               bool is_handled_safely) {
-              model->DetermineAndSetShouldPreferOpeningInBrowser(
-                  path, is_handled_safely);
-              std::move(quit_run_loop).Run();
-            },
-            run_loop.QuitClosure(), GetWeakPtr(), path));
-    run_loop.Run();
+    DetermineAndSetShouldPreferOpeningInBrowser(
+        path,
+        DownloadTargetDeterminer::DetermineIfHandledSafelyHelperSynchronous(
+            download_, path, mime_type));
   }
 #endif  // !BUILDFLAG(IS_ANDROID)
   return data->should_prefer_opening_in_browser_.value_or(false);
@@ -820,26 +827,13 @@ void DownloadItemModel::ExecuteCommand(DownloadCommands* download_commands,
                download::IsDownloadBubbleEnabled(profile()));
         safe_browsing::SafeBrowsingService* sb_service =
             g_browser_process->safe_browsing_service();
-        // Compiles the dangerous download warning report.
-        auto report =
-            std::make_unique<safe_browsing::ClientSafeBrowsingReportRequest>();
-        report->set_type(safe_browsing::ClientSafeBrowsingReportRequest::
-                             DANGEROUS_DOWNLOAD_WARNING);
-        report->set_download_verdict(
-            safe_browsing::DownloadDangerTypeToDownloadResponseVerdict(
-                GetDangerType()));
-        report->set_url(GetURL().spec());
-        report->set_did_proceed(true);
-        std::string token =
-            safe_browsing::DownloadProtectionService::GetDownloadPingToken(
-                download_);
         if (sb_service) {
-          if (!token.empty())
-            report->set_token(token);
-
-          ReportThreatDetailsResult result =
-              sb_service->SendDownloadReport(profile(), std::move(report));
-          DCHECK(result == ReportThreatDetailsResult::SUCCESS);
+          bool is_successful = sb_service->SendDownloadReport(
+              download_,
+              safe_browsing::ClientSafeBrowsingReportRequest::
+                  DANGEROUS_DOWNLOAD_WARNING,
+              /*did_proceed=*/true, /*show_download_in_folder=*/absl::nullopt);
+          DCHECK(is_successful);
         }
       }
 #endif
@@ -914,6 +908,86 @@ void DownloadItemModel::ExecuteCommand(DownloadCommands* download_commands,
 #endif
       break;
   }
+}
+
+DownloadItemModel::BubbleUIInfo
+DownloadItemModel::GetBubbleUIInfoForTailoredWarning() const {
+#if 0
+  download::DownloadDangerType danger_type = GetDangerType();
+  TailoredVerdict tailored_verdict = safe_browsing::DownloadProtectionService::
+      GetDownloadProtectionTailoredVerdict(download_);
+
+  // Suspicious archives
+  if (danger_type == download::DOWNLOAD_DANGER_TYPE_UNCOMMON_CONTENT &&
+      tailored_verdict.tailored_verdict_type() ==
+          TailoredVerdict::SUSPICIOUS_ARCHIVE) {
+    return DownloadUIModel::BubbleUIInfo(
+               l10n_util::GetStringUTF16(
+                   IDS_DOWNLOAD_BUBBLE_SUBPAGE_SUMMARY_SUSPICIOUS_ARCHIVE))
+        .AddIconAndColor(views::kInfoIcon, ui::kColorAlertMediumSeverity)
+        .AddPrimaryButton(DownloadCommands::Command::DISCARD)
+        .AddSubpageButton(l10n_util::GetStringUTF16(IDS_DOWNLOAD_BUBBLE_DELETE),
+                          DownloadCommands::Command::DISCARD,
+                          /*is_prominent=*/true)
+        .AddSubpageButton(
+            l10n_util::GetStringUTF16(IDS_DOWNLOAD_BUBBLE_CONTINUE),
+            DownloadCommands::Command::KEEP,
+            /*is_prominent=*/false);
+  }
+
+  // Cookie theft
+  if (danger_type ==
+          download::DOWNLOAD_DANGER_TYPE_DANGEROUS_ACCOUNT_COMPROMISE &&
+      tailored_verdict.tailored_verdict_type() ==
+          TailoredVerdict::COOKIE_THEFT) {
+    // TODO(crbug.com/1351925): Check the adjustments field and add the account
+    // information in the subpage summary.
+    return DownloadUIModel::BubbleUIInfo(
+               l10n_util::GetStringUTF16(
+                   IDS_DOWNLOAD_BUBBLE_SUBPAGE_SUMMARY_COOKIE_THEFT))
+        .AddIconAndColor(vector_icons::kNotSecureWarningIcon,
+                         ui::kColorAlertHighSeverity)
+        .AddPrimaryButton(DownloadCommands::Command::DISCARD)
+        .AddSubpageButton(l10n_util::GetStringUTF16(IDS_DOWNLOAD_BUBBLE_DELETE),
+                          DownloadCommands::Command::DISCARD,
+                          /*is_prominent=*/true);
+  }
+
+  NOTREACHED();
+#endif
+  return DownloadUIModel::BubbleUIInfo();
+}
+
+bool DownloadItemModel::ShouldShowTailoredWarning() const {
+  return false;
+#if 0
+  if (!IsBubbleV2Enabled() ||
+      !base::FeatureList::IsEnabled(safe_browsing::kDownloadTailoredWarnings)) {
+    return false;
+  }
+
+  static const struct ValidCombination {
+    download::DownloadDangerType danger_type;
+    TailoredVerdict::TailoredVerdictType tailored_verdict_type;
+  } kValidTailoredWarningCombinations[]{
+      {download::DOWNLOAD_DANGER_TYPE_UNCOMMON_CONTENT,
+       TailoredVerdict::SUSPICIOUS_ARCHIVE},
+      {download::DOWNLOAD_DANGER_TYPE_DANGEROUS_ACCOUNT_COMPROMISE,
+       TailoredVerdict::COOKIE_THEFT}};
+
+  download::DownloadDangerType danger_type = GetDangerType();
+  TailoredVerdict tailored_verdict = safe_browsing::DownloadProtectionService::
+      GetDownloadProtectionTailoredVerdict(download_);
+  for (const auto& combination : kValidTailoredWarningCombinations) {
+    if (danger_type == combination.danger_type &&
+        tailored_verdict.tailored_verdict_type() ==
+            combination.tailored_verdict_type) {
+      return true;
+    }
+  }
+
+  return false;
+#endif
 }
 
 bool DownloadItemModel::ShouldShowInBubble() const {

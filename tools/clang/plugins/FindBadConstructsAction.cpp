@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -49,8 +49,6 @@ bool FindBadConstructsAction::ParseArgs(const CompilerInstance& instance,
       options_.check_base_classes = true;
     } else if (args[i] == "check-ipc") {
       options_.check_ipc = true;
-    } else if (args[i] == "check-gmock-objects") {
-      options_.check_gmock_objects = true;
     } else if (args[i] == "check-layout-object-methods") {
       options_.check_layout_object_methods = true;
     } else if (args[i] == "raw-ref-template-as-trivial-member") {

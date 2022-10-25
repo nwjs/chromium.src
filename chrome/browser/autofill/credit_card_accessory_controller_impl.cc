@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -14,6 +14,7 @@
 #include "base/debug/dump_without_crashing.h"
 #include "base/memory/ptr_util.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/trace_event/trace_event.h"
 #include "chrome/browser/android/preferences/autofill/autofill_profile_bridge.h"
 #include "chrome/browser/autofill/manual_filling_controller.h"
 #include "chrome/browser/autofill/manual_filling_utils.h"
@@ -322,12 +323,16 @@ CreditCardAccessoryController* CreditCardAccessoryController::GetIfExisting(
 }
 
 void CreditCardAccessoryControllerImpl::RefreshSuggestions() {
-  absl::optional<AccessorySheetData> data = GetSheetData();
+  TRACE_EVENT0("passwords",
+               "CreditCardAccessoryControllerImpl::RefreshSuggestions");
   if (source_observer_) {
-    source_observer_.Run(this, IsFillingSourceAvailable(data.has_value()));
+    source_observer_.Run(
+        this, IsFillingSourceAvailable(!GetAllCreditCards().empty() ||
+                                       !GetPromoCodeOffers().empty()));
   } else {
     // TODO(crbug.com/1169167): Remove once filling controller pulls this
     // information instead of waiting to get it pushed.
+    absl::optional<AccessorySheetData> data = GetSheetData();
     DCHECK(data.has_value());
     GetManualFillingController()->RefreshSuggestions(std::move(data.value()));
   }
@@ -445,9 +450,9 @@ CreditCardAccessoryControllerImpl::GetUnmaskedCreditCards() const {
 
 std::vector<const AutofillOfferData*>
 CreditCardAccessoryControllerImpl::GetPromoCodeOffers() const {
-  AutofillManager* autofill_manager = GetManager();
-  if (!GetWebContents().GetFocusedFrame() || !personal_data_manager_ ||
-      !autofill_manager)
+  AutofillManager* autofill_manager =
+      GetWebContents().GetFocusedFrame() ? GetManager() : nullptr;
+  if (!personal_data_manager_ || !autofill_manager)
     return std::vector<const AutofillOfferData*>();
 
   return personal_data_manager_->GetActiveAutofillPromoCodeOffersForOrigin(

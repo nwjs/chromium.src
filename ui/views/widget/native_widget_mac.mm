@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -17,6 +17,7 @@
 #include "base/strings/sys_string_conversions.h"
 #include "components/crash/core/common/crash_key.h"
 #import "components/remote_cocoa/app_shim/bridged_content_view.h"
+#import "components/remote_cocoa/app_shim/immersive_mode_controller.h"
 #import "components/remote_cocoa/app_shim/native_widget_mac_nswindow.h"
 #import "components/remote_cocoa/app_shim/native_widget_ns_window_bridge.h"
 #import "components/remote_cocoa/app_shim/views_nswindow_delegate.h"
@@ -42,8 +43,7 @@
 #include "ui/views/widget/native_widget_delegate.h"
 #include "ui/views/widget/widget_aura_utils.h"
 #include "ui/views/widget/widget_delegate.h"
-#include "ui/views/widget/widget_utils_mac.h"
-#include "ui/views/window/native_frame_view.h"
+#include "ui/views/window/native_frame_view_mac.h"
 
 using remote_cocoa::mojom::WindowVisibilityState;
 
@@ -228,7 +228,9 @@ void NativeWidgetMac::InitNativeWidget(Widget::InitParams params) {
 
   // In immersive fullscreen, bubbles will be shown under the toolbar by
   // default. Fix it by explicitly StackAbove() its parent.
-  if (params.parent && views::IsNSToolbarFullScreenWindow(
+  // TODO(mek): Figure out how to make this work with remote remote_cocoa
+  // windows.
+  if (params.parent && remote_cocoa::IsNSToolbarFullScreenWindow(
                            params.parent.GetNativeNSView().window)) {
     StackAbove(params.parent);
   }
@@ -269,7 +271,7 @@ void NativeWidgetMac::OnWidgetInitDone() {
 
 std::unique_ptr<NonClientFrameView>
 NativeWidgetMac::CreateNonClientFrameView() {
-  return std::make_unique<NativeFrameView>(GetWidget());
+  return std::make_unique<NativeFrameViewMac>(GetWidget());
 }
 
 bool NativeWidgetMac::ShouldUseNativeFrame() const {
@@ -532,6 +534,22 @@ void NativeWidgetMac::StackAbove(gfx::NativeView native_view) {
 void NativeWidgetMac::StackAtTop() {
   if (GetNSWindowMojo())
     GetNSWindowMojo()->StackAtTop();
+}
+
+bool NativeWidgetMac::IsStackedAbove(gfx::NativeView native_view) {
+  // -[NSApplication orderedWindows] are ordered front-to-back.
+  NSWindow* first = GetNativeWindow().GetNativeNSWindow();
+  NSWindow* second = [native_view.GetNativeNSView() window];
+
+  for (NSWindow* window in [NSApp orderedWindows]) {
+    if (window == second)
+      return !first;
+
+    if (window == first)
+      first = nil;
+  }
+
+  return false;
 }
 
 void NativeWidgetMac::SetShape(std::unique_ptr<Widget::ShapeRects> shape) {

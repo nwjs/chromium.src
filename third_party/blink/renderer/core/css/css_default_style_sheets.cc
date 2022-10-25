@@ -60,8 +60,11 @@ String OverflowForSVGRules() {
   if (!RuntimeEnabledFeatures::CSSOverflowForReplacedElementsEnabled())
     return "";
 
+  // SVG uses an overflow value of 'hidden' for backwards compatibility with
+  // flex layout. 'overflow-clip-margin' below still applies because the used
+  // value of overflow at paint time is 'clip'.
+  // See https://github.com/w3c/csswg-drafts/issues/7714 for context.
   return String(R"CSS(svg:not(:root) {
-    overflow: clip;
     overflow-clip-margin: content-box;
         })CSS");
 }
@@ -323,7 +326,7 @@ bool CSSDefaultStyleSheets::EnsureDefaultStyleSheetsForElement(
     }
   }
 
-  if (!popup_style_sheet_ && element.HasValidPopupAttribute()) {
+  if (!popup_style_sheet_ && element.HasPopupAttribute()) {
     // TODO: We should assert that this sheet only contains rules for popups.
     DCHECK(RuntimeEnabledFeatures::HTMLPopupAttributeEnabled(
         element.GetDocument().GetExecutionContext()));

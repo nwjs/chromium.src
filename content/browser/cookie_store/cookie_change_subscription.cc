@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors. All rights reserved.
+// Copyright 2018 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,7 +11,7 @@
 #include "content/public/common/content_client.h"
 #include "net/cookies/cookie_constants.h"
 #include "net/cookies/cookie_util.h"
-#include "net/cookies/same_party_context.h"
+#include "net/first_party_sets/same_party_context.h"
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
 
 namespace content {

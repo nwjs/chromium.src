@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors. All rights reserved.
+// Copyright 2020 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -59,14 +59,10 @@ void TestAXTreeManager::SetTree(std::unique_ptr<AXTree> tree) {
     GetMap().AddTreeManager(GetTreeID(), this);
 }
 
-AXNode* TestAXTreeManager::GetNodeFromTree(const AXTreeID tree_id,
+AXNode* TestAXTreeManager::GetNodeFromTree(const AXTreeID& tree_id,
                                            const AXNodeID node_id) const {
   return (ax_tree_ && GetTreeID() == tree_id) ? ax_tree_->GetFromId(node_id)
                                               : nullptr;
-}
-
-AXNode* TestAXTreeManager::GetNodeFromTree(const AXNodeID node_id) const {
-  return ax_tree_ ? ax_tree_->GetFromId(node_id) : nullptr;
 }
 
 AXNode* TestAXTreeManager::GetParentNodeFromParentTreeAsAXNode() const {

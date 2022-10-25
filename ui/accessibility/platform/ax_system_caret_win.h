@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors. All rights reserved.
+// Copyright 2017 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -48,7 +48,7 @@ class AX_EXPORT AXSystemCaretWin : private AXPlatformNodeDelegateBase {
   bool ShouldIgnoreHoveredStateForTesting() override;
   const ui::AXUniqueId& GetUniqueId() const override;
 
-  raw_ptr<AXPlatformNodeWin> caret_;
+  raw_ptr<AXPlatformNodeWin, DanglingUntriaged> caret_;
   gfx::AcceleratedWidget event_target_;
   AXNodeData data_;
   ui::AXUniqueId unique_id_;

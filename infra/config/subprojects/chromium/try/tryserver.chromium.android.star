@@ -1,4 +1,4 @@
-# Copyright 2021 The Chromium Authors. All rights reserved.
+# Copyright 2021 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 """Definitions of builders in the tryserver.chromium.android builder group."""
@@ -73,9 +73,10 @@ try_.compilator_builder(
 )
 
 try_.builder(
-    name = "android-12l-x86-rel",
+    name = "android-12l-x64-dbg",
     mirrors = [
-        "ci/android-12l-x86-rel",
+        "ci/Android x64 Builder (dbg)",
+        "ci/android-12l-x64-dbg-tests",
     ],
     tryjob = try_.job(
         experiment_percentage = 2,
@@ -121,6 +122,7 @@ try_.builder(
     },
     experiments = {
         "enable_weetbix_queries": 100,
+        "weetbix.retry_weak_exonerations": 100,
     },
     tryjob = try_.job(),
     ssd = True,
@@ -241,41 +243,10 @@ try_.builder(
     mirrors = builder_config.copy_from("try/android-pie-x86-rel"),
 )
 
-try_.builder(
-    name = "android-marshmallow-x86-fyi-rel-reviver",
-)
-
 try_.orchestrator_builder(
-    name = "android-marshmallow-arm64-rel",
+    name = "android-nougat-x86-rel",
     mirrors = [
-        "ci/android-marshmallow-arm64-rel",
-        "ci/Android Release (Nexus 5X)",
-    ],
-    check_for_flakiness = True,
-    compilator = "android-marshmallow-arm64-rel-compilator",
-    branch_selector = branches.STANDARD_MILESTONE,
-    main_list_view = "try",
-    use_java_coverage = True,
-    coverage_test_types = ["unit", "overall"],
-    tryjob = try_.job(),
-    experiments = {
-        "remove_src_checkout_experiment": 100,
-        "enable_weetbix_queries": 100,
-    },
-)
-
-try_.compilator_builder(
-    name = "android-marshmallow-arm64-rel-compilator",
-    branch_selector = branches.STANDARD_MILESTONE,
-    check_for_flakiness = True,
-    cores = 64 if settings.is_main else 32,
-    main_list_view = "try",
-)
-
-try_.orchestrator_builder(
-    name = "android-marshmallow-x86-rel",
-    mirrors = [
-        "ci/android-marshmallow-x86-rel",
+        "ci/android-nougat-x86-rel",
     ],
     try_settings = builder_config.try_settings(
         rts_config = builder_config.rts_config(
@@ -283,37 +254,26 @@ try_.orchestrator_builder(
         ),
     ),
     check_for_flakiness = True,
-    compilator = "android-marshmallow-x86-rel-compilator",
+    compilator = "android-nougat-x86-rel-compilator",
     branch_selector = branches.STANDARD_MILESTONE,
     main_list_view = "try",
-    use_java_coverage = True,
-    coverage_test_types = ["unit", "overall"],
     tryjob = try_.job(),
     experiments = {
         "enable_weetbix_queries": 100,
+        "weetbix.retry_weak_exonerations": 100,
+        "remove_src_checkout_experiment": 100,
+        "weetbix.enable_weetbix_exonerations": 100,
     },
+    # TODO(crbug.com/1372179): Use orchestrator pool once overloaded test pools
+    # are addressed
+    # use_orchestrator_pool = True,
 )
 
 try_.compilator_builder(
-    name = "android-marshmallow-x86-rel-compilator",
+    name = "android-nougat-x86-rel-compilator",
     branch_selector = branches.STANDARD_MILESTONE,
     check_for_flakiness = True,
     main_list_view = "try",
-)
-
-try_.builder(
-    name = "android-marshmallow-x86-rel-non-cq",
-    mirrors = [
-        "ci/android-marshmallow-x86-rel-non-cq",
-    ],
-)
-
-try_.builder(
-    name = "android-nougat-x86-rel",
-    mirrors = ["ci/android-nougat-x86-rel"],
-    tryjob = try_.job(
-        experiment_percentage = 5,
-    ),
 )
 
 try_.builder(
@@ -392,6 +352,8 @@ try_.orchestrator_builder(
     tryjob = try_.job(),
     experiments = {
         "enable_weetbix_queries": 100,
+        "weetbix.retry_weak_exonerations": 100,
+        "remove_src_checkout_experiment": 20,
     },
 )
 
@@ -573,8 +535,11 @@ try_.builder(
 try_.builder(
     name = "android_compile_x64_dbg",
     branch_selector = branches.STANDARD_MILESTONE,
+    # Since we expect this builder to compile all, let it mirror
+    # "Android x64 Builder All Targets (dbg)" rather than
+    # "Android x64 Builder (dbg)"
     mirrors = [
-        "ci/Android x64 Builder (dbg)",
+        "ci/Android x64 Builder All Targets (dbg)",
     ],
     try_settings = builder_config.try_settings(
         include_all_triggered_testers = True,
@@ -638,6 +603,7 @@ try_.builder(
     tryjob = try_.job(),
     experiments = {
         "enable_weetbix_queries": 100,
+        "weetbix.retry_weak_exonerations": 100,
     },
 )
 
@@ -668,6 +634,7 @@ try_.builder(
     tryjob = try_.job(),
     experiments = {
         "enable_weetbix_queries": 100,
+        "weetbix.retry_weak_exonerations": 100,
     },
 )
 

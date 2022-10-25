@@ -1,4 +1,4 @@
-// Copyright (c) 2017 The Chromium Authors. All rights reserved.
+// Copyright 2017 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -845,7 +845,7 @@ IFACEMETHODIMP BrowserAccessibilityComWin::get_URL(BSTR* url) {
   if (!url)
     return E_INVALIDARG;
 
-  if (owner() != manager->GetRoot())
+  if (owner() != manager->GetBrowserAccessibilityRoot())
     return E_FAIL;
 
   std::string str = manager->GetTreeData().url;
@@ -1408,7 +1408,8 @@ IFACEMETHODIMP BrowserAccessibilityComWin::QueryService(REFGUID guid_service,
     // on the root document vs on an iframe.
     BrowserAccessibility* node = owner();
     while (node->PlatformGetParent())
-      node = node->PlatformGetParent()->manager()->GetRoot();
+      node =
+          node->PlatformGetParent()->manager()->GetBrowserAccessibilityRoot();
     return ToBrowserAccessibilityComWin(node)->QueryInterface(IID_IAccessible2,
                                                               object);
   }
@@ -1707,7 +1708,7 @@ void BrowserAccessibilityComWin::FireNativeEvent(LONG win_event_type) const {
   // list popup is not part of the tree when its parent is collapsed but events
   // should be fired anyway.
   if (owner()->IsChildOfLeaf() &&
-      !owner()->GetCollapsedMenuListPopUpButtonAncestor()) {
+      !owner()->GetCollapsedMenuListSelectAncestor()) {
     return;
   }
 

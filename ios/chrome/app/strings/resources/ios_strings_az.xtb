@@ -23,6 +23,7 @@ Axtarış mexanizminiz: <ph name="DSE_NAME" />. Axtarış tarixçənizi silmək 
 <translation id="1104948393051856124">Qəbul edin və Davam edin</translation>
 <translation id="110724200315609752">Açıq Pəncərəyə keçirin</translation>
 <translation id="1112015203684611006">Çap alınmadı.</translation>
+<translation id="1118569444314402022">Təkrar xoş gəldiniz, <ph name="USER_NAME" /></translation>
 <translation id="1125564390852150847">Yeni panel yaradın.</translation>
 <translation id="1126809382673880764">Sizi təhlükəli veb sayt, endirmə və artırmalardan qorumur. Hələ də Gmail və Axtarış kimi digər Google xidmətlərində mümkün olduğu qədər Təhlükəsiz Baxış qoruması əldə edəcəksiniz.</translation>
 <translation id="1135212215217513471">iOS üçün Chrome əldə edin</translation>
@@ -46,6 +47,7 @@ Axtarış mexanizminiz: <ph name="DSE_NAME" />. Axtarış tarixçənizi silmək 
 <translation id="1272079795634619415">Dayandırın</translation>
 <translation id="1275718070701477396">Seçilib</translation>
 <translation id="1281818060020671000">Datanı idarə edin</translation>
+<translation id="1282311502488501110">Daxil olmayın</translation>
 <translation id="1283524564873030414">Son 24 Saat</translation>
 <translation id="1285320974508926690">Bu saytı heç vaxt tərcümə etməyin</translation>
 <translation id="1291506870746876680">Bu saytdan çıxdığınız zaman <ph name="BEGIN_BOLD" />"<ph name="SITE_NAME" />"<ph name="END_BOLD" /> icazələri sıfırlanaraq deaktiv olacaq.</translation>
@@ -54,6 +56,7 @@ Axtarış mexanizminiz: <ph name="DSE_NAME" />. Axtarış tarixçənizi silmək 
 <translation id="1322735045095424339">Təşkilatınız Anonim rejimi tələb edir</translation>
 <translation id="1323735185997015385">Silin</translation>
 <translation id="132683371494960526">Valideyn qovluğunu dəyişmək üçün iki dəfə tıklayın.</translation>
+<translation id="1335348992705722518">Ayarları idarə edin...</translation>
 <translation id="1340643665687018190">Menyunu Bağlayın</translation>
 <translation id="1358214951266274152">Kopyalanmış Linkə Daxil Olun</translation>
 <translation id="1360432990279830238">Sinxronizasiya deaktiv edilsin?</translation>
@@ -61,6 +64,7 @@ Axtarış mexanizminiz: <ph name="DSE_NAME" />. Axtarış tarixçənizi silmək 
 <translation id="1377255359165588604">Sinxronizasiya işləmir.</translation>
 <translation id="1377321085342047638">Kart Nömrəsi</translation>
 <translation id="1383876407941801731">Axtar</translation>
+<translation id="138618066238211776"><ph name="USER_NAME" /> kimi davam edin</translation>
 <translation id="1400642268715879018">Son 4 Həftə</translation>
 <translation id="1404330357948037222">Hesabdan Çıxdınız</translation>
 <translation id="1407135791313364759">Hamısını açın</translation>
@@ -174,9 +178,11 @@ Saytlar müxtəlif saytlarda baxış fəaliyyətinizi görmək üçün kukiləri
 <translation id="2421044535038393232">Redaktəyə Davam Edin</translation>
 <translation id="2434405374328098816">Artıq <ph name="WEBSITE" /> saytında "<ph name="USERNAME" />" üçün parolu yadda saxlamısınız</translation>
 <translation id="2435457462613246316">Parol görünsün</translation>
+<translation id="2461070143328828326">Parol Ayarları</translation>
 <translation id="2469960372084740698">Təhlükəsiz Baxış Deaktiv edilsin?</translation>
 <translation id="2473876017985765807">Artıq <ph name="WEBSITE" /> üçün parolu yadda saxlamısınız</translation>
 <translation id="2476359652512522418">Seçilməyib</translation>
+<translation id="2482878487686419369">Bildirişlər</translation>
 <translation id="2500374554657206846">Parolu Yadda Saxlamaq üçün Seçimlər</translation>
 <translation id="2523363575747517183">Bu veb sayt davamlı olaraq digər tətbiqi açmağa çalışır.</translation>
 <translation id="2529021024822217800">Hamısını açın</translation>
@@ -327,6 +333,7 @@ Axtarış tarixçənizi silmək üçün axtarış mexanizminizin təlimatlarına
 <translation id="3709582977625132201">Oxunmamış kimi qeyd edin</translation>
 <translation id="371230970611282515">Təhlükəli hadisələr baş vermədən əvvəl onları proqnozlaşdırır və sizə xəbərdarlıq edir.</translation>
 <translation id="37207012422556617">Aktual Axtarışlar</translation>
+<translation id="3726360487031500941"><ph name="USER_NAME" /> hesabınıza yenidən daxil olun</translation>
 <translation id="3740397331642243698">Daxil edilən keçidləri Google Chrome'da Anonim rejimdə açır.</translation>
 <translation id="3762232513783804601">iPad'iniz üçün hazırlanıb</translation>
 <translation id="3771033907050503522">Gizli Panellər</translation>
@@ -381,6 +388,7 @@ Axtarış tarixçənizi silmək üçün axtarış mexanizminizin təlimatlarına
 <translation id="4187450337729239226">Yerləşdirin və Axtarın</translation>
 <translation id="4223967053752765281">Təşkilatınız girişi deaktiv edib. Hələ də bu cihazda bütün əlfəcinlər, tarixçə, parol və digər ayarları görə bilərsiniz. Dəyişiklik etsəniz, onlar hesabınızla sinxronizasiya edilməyəcək.</translation>
 <translation id="4233831822770018312">İcazələri redaktə edin</translation>
+<translation id="4236584471598725073">Qiymət izlənir</translation>
 <translation id="4237377247299956313"><ph name="BEGIN_BOLD" />Defolt Brauzer Tətbiqi<ph name="END_BOLD" /> seçiminə toxunun</translation>
 <translation id="424315890655130736">Parol sözü daxil edin</translation>
 <translation id="4249955472157341256">Ən sonuncular üzrə sıalayın</translation>
@@ -393,6 +401,7 @@ Axtarış tarixçənizi silmək üçün axtarış mexanizminizin təlimatlarına
 <translation id="430793432425771671">Hər şeyi Sinxronlaşdırın</translation>
 <translation id="4309403553630140242">Ətraflı məlumat üçün iki dəfə toxunun</translation>
 <translation id="430967081421617822">Bütün Vaxt</translation>
+<translation id="4324952538601951430">Yadda saxladığınız əlfəcinlər, parollar, ayarlar və s. indi buradadır</translation>
 <translation id="4334428914252001502">1 oxunmamış məqalə.</translation>
 <translation id="4338650699862464074">Daxil olduğunuz səhifələrin linklərini Google'a göndərir.</translation>
 <translation id="4343046787186034850">Kamera və Mikrofona giriş icazəsi verilib</translation>
@@ -471,6 +480,7 @@ Ayarı dəyişmək üçün <ph name="BEGIN_LINK" />sinxronizasiyanı sıfırlay�
 <translation id="4901778704868714008">Yadda saxlayın...</translation>
 <translation id="4904877109095351937">Oxunmuş Kimi Qeyd Edin</translation>
 <translation id="4908869848243824489">Google Təkliflər</translation>
+<translation id="4916679969857390442">Obyektiv</translation>
 <translation id="4930714375720679147">Aktiv Edin</translation>
 <translation id="4941089862236492464">Üzr istəyirik, elementi paylaşarkən problem baş verdi.</translation>
 <translation id="4944543191714094452">Səhifədə tapın…</translation>
@@ -738,6 +748,7 @@ Anonim rejimdə olduqda saytlar müxtəlif saytlarda baxış tarixçənizi görm
 <translation id="6930799952781667037">Bu dilə dəyişmək üçün toxunun.</translation>
 <translation id="6944369514868857500">Başqa Hesab Seçin</translation>
 <translation id="6945221475159498467">Seçin</translation>
+<translation id="6965382102122355670">OK</translation>
 <translation id="6973630695168034713">Qovluqlar</translation>
 <translation id="6979158407327259162">Google Disk</translation>
 <translation id="6988572888918530647">Google Hesabını İdarə Edin</translation>
@@ -766,7 +777,6 @@ Anonim rejimdə olduqda saytlar müxtəlif saytlarda baxış tarixçənizi görm
 <translation id="7192050974311852563">Qeydiyyata Başlayın</translation>
 <translation id="7203585745079012652">Geri Cavab</translation>
 <translation id="7207023858769244910">Maraqlarınıza əsaslanan məzmun əldə etmək üçün sinxronizasiya edin.</translation>
-<translation id="7207383424303353046">Yeni: Defolt Brauzer tətbiqiniz etməklə, saytları Chrome'da avtomatik açın. <ph name="BEGIN_LINK" />Ayarları açın<ph name="END_LINK" /></translation>
 <translation id="721597782417389033">Yanlış Kart Ləqəbi</translation>
 <translation id="722454870747268814">Yeni Gizli Panel</translation>
 <translation id="7265758999917665941">Bu sayt üçün heç vaxt yadda saxlamayın</translation>
@@ -916,7 +926,6 @@ Saytlar müxtəlif saytlarda baxış fəaliyyətinizi görmək üçün kukilərd
 <translation id="8533670235862049797">Təhlükəsiz Baxış aktivdir</translation>
 <translation id="8534481786647257214">Google+ postu tamamladı.</translation>
 <translation id="8548878600947630424">Səhifədə tapın...</translation>
-<translation id="8574235780160508979">Chrome’un Xidmət Şərtləri 31 martda dəyişəcək. <ph name="BEGIN_LINK" />Nəzərdən keçirin<ph name="END_LINK" /></translation>
 <translation id="8588404856427128947">Deaktiv</translation>
 <translation id="8590913940444621808">Heç vaxt soruşmayın</translation>
 <translation id="8591976964826315682">Anonim rejimdə üçüncü tərəf kukilərini bloklayın</translation>

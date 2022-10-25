@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,6 +16,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/types/strong_alias.h"
 #include "build/build_config.h"
+#include "components/autofill/core/browser/fast_checkout_delegate.h"
 #include "components/autofill/core/browser/payments/legal_message_line.h"
 #include "components/autofill/core/browser/payments/risk_data_loader.h"
 #include "components/autofill/core/browser/ui/popup_item_ids.h"
@@ -55,13 +56,14 @@ enum class Channel;
 namespace autofill {
 
 class AddressNormalizer;
+class AutocompleteHistoryManager;
 class AutofillAblationStudy;
 class AutofillDriver;
+struct AutofillErrorDialogContext;
 class AutofillOfferData;
-class AutofillProfile;
-class AutocompleteHistoryManager;
 class AutofillOfferManager;
 class AutofillPopupDelegate;
+class AutofillProfile;
 enum class AutofillProgressDialogType;
 struct CardUnmaskChallengeOption;
 class CardUnmaskDelegate;
@@ -71,6 +73,7 @@ enum class CreditCardFetchResult;
 class CreditCardOtpAuthenticator;
 class FormDataImporter;
 class FormStructure;
+class IBANManager;
 class LogManager;
 class MigratableCreditCard;
 class MerchantPromoCodeManager;
@@ -321,6 +324,9 @@ class AutofillClient : public RiskDataLoader {
   // Gets the AutocompleteHistoryManager instance associated with the client.
   virtual AutocompleteHistoryManager* GetAutocompleteHistoryManager() = 0;
 
+  // Gets the IBANManager instance associated with the client.
+  virtual IBANManager* GetIBANManager();
+
   // Gets the MerchantPromoCodeManager instance associated with the
   // client (can be null for unsupported platforms).
   virtual MerchantPromoCodeManager* GetMerchantPromoCodeManager();
@@ -330,8 +336,9 @@ class AutofillClient : public RiskDataLoader {
   virtual CreditCardOtpAuthenticator* GetOtpAuthenticator();
 
   // Creates and returns a SingleFieldFormFillRouter using the
-  // AutocompleteHistoryManager instance associated with the client.
-  std::unique_ptr<SingleFieldFormFillRouter> GetSingleFieldFormFillRouter();
+  // AutocompleteHistoryManager, IBANManager and MerchantPromoCodeManager
+  // instances associated with the client.
+  std::unique_ptr<SingleFieldFormFillRouter> CreateSingleFieldFormFillRouter();
 
   // Gets the preferences associated with the client.
   virtual PrefService* GetPrefs() = 0;
@@ -587,6 +594,26 @@ class AutofillClient : public RiskDataLoader {
   // HasCreditCardScanFeature() returns true.
   virtual void ScanCreditCard(CreditCardScanCallback callback) = 0;
 
+  // Returns true if the Fast Checkout feature is both supported by platform and
+  // enabled. Should be called before `ShowFastCheckout` or `HideFastCheckout`.
+  virtual bool IsFastCheckoutSupported() = 0;
+
+  // Returns true if the form is one of the trigger forms for Fast Checkout on
+  // the domain. Should be called before `ShowFastCheckout`.
+  virtual bool IsFastCheckoutTriggerForm(const FormData& form,
+                                         const FormFieldData& field) = 0;
+
+  // Shows the FastCheckout surface (for autofilling information during the
+  // checkout flow) and returns `true` on success. `delegate` will be notified
+  // of events. Should be called only if `IsFastCheckoutSupported` returns true.
+  virtual bool ShowFastCheckout(
+      base::WeakPtr<FastCheckoutDelegate> delegate) = 0;
+
+  // Hides the Fast Checkout surface (for autofilling information during the
+  // checkout flow) if one is currently shown. Should be called only if
+  // `IsFastCheckoutSupported` returns true.
+  virtual void HideFastCheckout() = 0;
+
   // Returns true if the Touch To Fill feature is both supported by platform and
   // enabled. Should be called before |ShowTouchToFillCreditCard| or
   // |HideTouchToFillCreditCard|.
@@ -661,8 +688,13 @@ class AutofillClient : public RiskDataLoader {
       const gfx::Image& card_image = gfx::Image());
 
   // Called when some virtual card retrieval errors happened. Will show the
-  // error dialog with virtual card related messages.
-  virtual void ShowVirtualCardErrorDialog(bool is_permanent_error);
+  // error dialog with virtual card related messages. The type of error dialog
+  // that is shown will match the `type` in `context`. If the
+  // `server_returned_title` and `server_returned_description` in `context` are
+  // both set, the virtual card error dialog that is displayed will have these
+  // fields displayed for the title and description, respectively.
+  virtual void ShowVirtualCardErrorDialog(
+      const AutofillErrorDialogContext& context);
 
   // Show/dismiss the progress dialog which contains a throbber and a text
   // message indicating that something is in progress.

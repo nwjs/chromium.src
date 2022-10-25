@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -31,6 +31,8 @@ class WebsiteApprovalViewBinder {
         } else if (propertyKey == WebsiteApprovalProperties.ON_CLICK_DENY) {
             view.getDenyButton().setOnClickListener(
                     model.get(WebsiteApprovalProperties.ON_CLICK_DENY));
+        } else if (propertyKey == WebsiteApprovalProperties.FAVICON) {
+            view.setFaviconBitmap(model.get(WebsiteApprovalProperties.FAVICON));
         } else {
             assert false : "Unhandled update to property: " + propertyKey;
         }

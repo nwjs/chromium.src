@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -52,7 +52,7 @@ const base::Value* FindDictionaryWithValue(const base::Value& list,
                                            const std::string& key,
                                            const std::string& value) {
   DCHECK(list.is_list());
-  for (const base::Value& item : list.GetListDeprecated()) {
+  for (const base::Value& item : list.GetList()) {
     if (!item.is_dict())
       continue;
     // Finds a path because the |key| may include '.'.
@@ -158,7 +158,7 @@ std::unique_ptr<VerifiedContents> VerifiedContents::Create(
   if (!hashes_list)
     return nullptr;
 
-  for (const base::Value& hashes : hashes_list->GetListDeprecated()) {
+  for (const base::Value& hashes : hashes_list->GetList()) {
     if (!hashes.is_dict())
       return nullptr;
 
@@ -182,7 +182,7 @@ std::unique_ptr<VerifiedContents> VerifiedContents::Create(
     if (!files)
       return nullptr;
 
-    for (const base::Value& data : files->GetListDeprecated()) {
+    for (const base::Value& data : files->GetList()) {
       if (!data.is_dict())
         return nullptr;
 

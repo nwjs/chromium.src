@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors. All rights reserved.
+// Copyright 2018 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -57,6 +57,12 @@ const base::Feature kRealboxUseGoogleGIcon{"NtpRealboxUseGoogleGIcon",
 // If enabled, chrome cart module will be shown.
 const base::Feature kNtpChromeCartModule{"NtpChromeCartModule",
                                          base::FEATURE_ENABLED_BY_DEFAULT};
+
+// If enabled, Comprehensive Theming color changes will be applied to elements
+// on the New Tab Page.
+const base::Feature kNtpComprehensiveTheming{"NtpComprehensiveTheming",
+                                             base::FEATURE_DISABLED_BY_DEFAULT};
+
 #if !defined(OFFICIAL_BUILD)
 // If enabled, dummy modules will be shown.
 const base::Feature kNtpDummyModules{"NtpDummyModules",
@@ -65,7 +71,7 @@ const base::Feature kNtpDummyModules{"NtpDummyModules",
 
 // If enabled, Google Drive module will be shown.
 const base::Feature kNtpDriveModule{"NtpDriveModule",
-                                    base::FEATURE_DISABLED_BY_DEFAULT};
+                                    base::FEATURE_ENABLED_BY_DEFAULT};
 
 // If enabled, handles navigations from the Most Visited tiles explicitly and
 // overrides the navigation's transition type to bookmark navigation before the
@@ -153,6 +159,10 @@ const base::Feature kNtpFeedModule{"NtpFeedModule",
 const base::Feature kNtpRecipeTasksModule{"NtpRecipeTasksModule",
                                           base::FEATURE_ENABLED_BY_DEFAULT};
 
+// Controls whether the scrim is removed.
+const base::Feature kNtpRemoveScrim{"NtpRemoveScrim",
+                                    base::FEATURE_DISABLED_BY_DEFAULT};
+
 // If enabled, SafeBrowsing module will be shown to a target user.
 const base::Feature kNtpSafeBrowsingModule{"NtpSafeBrowsingModule",
                                            base::FEATURE_DISABLED_BY_DEFAULT};
@@ -161,6 +171,14 @@ const base::Feature kNtpSafeBrowsingModule{"NtpSafeBrowsingModule",
 const base::Feature kNtpShortcuts{"NtpShortcuts",
                                   base::FEATURE_ENABLED_BY_DEFAULT};
 
+const base::FeatureParam<std::string> kNtpOgbButtonSelectorParam{
+    &kNtpRemoveScrim, "NtpOgbButtonSelectorParam", ".gb_A"};
+
+const base::FeatureParam<std::string> kNtpOgbUnprotectedTextSelectorParam{
+    &kNtpRemoveScrim, "NtpOgbUnprotectedTextSelectorParam", ".gb_d"};
+
+const char kNtpModulesEligibleForHappinessTrackingSurveyParam[] =
+    "NtpModulesEligibleForHappinessTrackingSurveyParam";
 const char kNtpModulesLoadTimeoutMillisecondsParam[] =
     "NtpModulesLoadTimeoutMillisecondsParam";
 const char kNtpModulesOrderParam[] = "NtpModulesOrderParam";

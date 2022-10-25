@@ -81,7 +81,6 @@ chrome.automation.EventType = {
   MEDIA_STOPPED_PLAYING: 'mediaStoppedPlaying',
   MENU_END: 'menuEnd',
   MENU_ITEM_SELECTED: 'menuItemSelected',
-  MENU_LIST_ITEM_SELECTED: 'menuListItemSelected',
   MENU_LIST_VALUE_CHANGED: 'menuListValueChanged',
   MENU_POPUP_END: 'menuPopupEnd',
   MENU_POPUP_START: 'menuPopupStart',
@@ -165,6 +164,7 @@ chrome.automation.RoleType = {
   COLUMN_HEADER: 'columnHeader',
   COMBO_BOX_GROUPING: 'comboBoxGrouping',
   COMBO_BOX_MENU_BUTTON: 'comboBoxMenuButton',
+  COMBO_BOX_SELECT: 'comboBoxSelect',
   COMMENT: 'comment',
   COMPLEMENTARY: 'complementary',
   CONTENT_DELETION: 'contentDeletion',
@@ -423,6 +423,7 @@ chrome.automation.ActionType = {
   START_DUCKING_MEDIA: 'startDuckingMedia',
   STOP_DUCKING_MEDIA: 'stopDuckingMedia',
   SUSPEND_MEDIA: 'suspendMedia',
+  LONG_CLICK: 'longClick',
 };
 
 /**
@@ -1267,6 +1268,20 @@ chrome.automation.AutomationNode.prototype.roleDescription;
  * @see https://developer.chrome.com/extensions/automation#type-name
  */
 chrome.automation.AutomationNode.prototype.name;
+
+/**
+ * Explains what will happen when the doDefault action is performed.
+ * @type {(string|undefined)}
+ * @see https://developer.chrome.com/extensions/automation#type-doDefaultLabel
+ */
+chrome.automation.AutomationNode.prototype.doDefaultLabel;
+
+/**
+ * Explains what will happen when the long click action is performed.
+ * @type {(string|undefined)}
+ * @see https://developer.chrome.com/extensions/automation#type-longClickLabel
+ */
+chrome.automation.AutomationNode.prototype.longClickLabel;
 
 /**
  * The tooltip of the node, if any.
@@ -2344,6 +2359,12 @@ chrome.automation.AutomationNode.prototype.stopDuckingMedia = function() {};
  * @see https://developer.chrome.com/extensions/automation#method-suspendMedia
  */
 chrome.automation.AutomationNode.prototype.suspendMedia = function() {};
+
+/**
+ * Simulates long click on node.
+ * @see https://developer.chrome.com/extensions/automation#method-longClick
+ */
+ chrome.automation.AutomationNode.prototype.longClick = function() {};
 
 /**
  * Scrolls this scrollable container backward.

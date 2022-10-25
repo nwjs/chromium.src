@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,7 +6,9 @@
 
 namespace autofill_assistant {
 
-FakeCommonDependencies::FakeCommonDependencies() = default;
+FakeCommonDependencies::FakeCommonDependencies(
+    signin::IdentityManager* identity_manager)
+    : identity_manager_(identity_manager) {}
 FakeCommonDependencies::~FakeCommonDependencies() = default;
 
 std::unique_ptr<AssistantFieldTrialUtil>
@@ -22,8 +24,8 @@ std::string FakeCommonDependencies::GetCountryCode() const {
   return country_code_;
 }
 
-autofill::PersonalDataManager* FakeCommonDependencies::GetPersonalDataManager(
-    content::BrowserContext* browser_context) const {
+autofill::PersonalDataManager* FakeCommonDependencies::GetPersonalDataManager()
+    const {
   return nullptr;
 }
 
@@ -33,24 +35,24 @@ FakeCommonDependencies::GetPasswordManagerClient(
   return nullptr;
 }
 
-std::string FakeCommonDependencies::GetSignedInEmail(
-    content::BrowserContext* browser_context) const {
+PrefService* FakeCommonDependencies::GetPrefs() const {
+  return nullptr;
+}
+
+std::string FakeCommonDependencies::GetSignedInEmail() const {
   return signed_in_email_;
 }
 
-bool FakeCommonDependencies::IsSupervisedUser(
-    content::BrowserContext* browser_context) const {
+bool FakeCommonDependencies::IsSupervisedUser() const {
   return is_supervised_user_;
 }
 
-bool FakeCommonDependencies::IsAllowedForMachineLearning(
-    content::BrowserContext* browser_context) const {
+bool FakeCommonDependencies::IsAllowedForMachineLearning() const {
   return is_allowed_for_machine_learning_;
 }
 
 AnnotateDomModelService*
-FakeCommonDependencies::GetOrCreateAnnotateDomModelService(
-    content::BrowserContext* browser_context) const {
+FakeCommonDependencies::GetOrCreateAnnotateDomModelService() const {
   return nullptr;
 }
 
@@ -58,22 +60,24 @@ bool FakeCommonDependencies::IsWebLayer() const {
   return is_weblayer_;
 }
 
-signin::IdentityManager* FakeCommonDependencies::GetIdentityManager(
-    content::BrowserContext* browser_context) const {
-  return nullptr;
+signin::IdentityManager* FakeCommonDependencies::GetIdentityManager() const {
+  return identity_manager_;
+}
+
+consent_auditor::ConsentAuditor* FakeCommonDependencies::GetConsentAuditor()
+    const {
+  return consent_auditor_.get();
 }
 
 version_info::Channel FakeCommonDependencies::GetChannel() const {
   return channel_;
 }
 
-bool FakeCommonDependencies::GetMakeSearchesAndBrowsingBetterEnabled(
-    content::BrowserContext* browser_context) const {
+bool FakeCommonDependencies::GetMakeSearchesAndBrowsingBetterEnabled() const {
   return msbb_enabled_;
 }
 
-bool FakeCommonDependencies::GetMetricsReportingEnabled(
-    content::BrowserContext* browser_context) const {
+bool FakeCommonDependencies::GetMetricsReportingEnabled() const {
   return uma_enabled_;
 }
 

@@ -1,8 +1,8 @@
-// Copyright 2017 The Chromium Authors. All rights reserved.
+// Copyright 2017 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {NativeEventTarget as EventTarget} from 'chrome://resources/js/cr/event_target.m.js';
+import {NativeEventTarget as EventTarget} from 'chrome://resources/js/cr/event_target.js';
 
 import {DriveSyncHandler} from '../../externs/background/drive_sync_handler.js';
 import {DriveDialogControllerInterface} from '../../externs/drive_dialog_controller.js';

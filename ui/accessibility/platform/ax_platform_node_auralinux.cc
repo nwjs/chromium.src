@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors. All rights reserved.
+// Copyright 2017 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -32,6 +32,7 @@
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/accessibility/ax_role_properties.h"
+#include "ui/accessibility/ax_selection.h"
 #include "ui/accessibility/platform/atk_util_auralinux.h"
 #include "ui/accessibility/platform/ax_platform_atk_hyperlink.h"
 #include "ui/accessibility/platform/ax_platform_node_delegate.h"
@@ -2691,6 +2692,8 @@ AtkRole AXPlatformNodeAuraLinux::GetAtkRole() const {
       return ATK_ROLE_COMBO_BOX;
     case ax::mojom::Role::kComboBoxMenuButton:
       return ATK_ROLE_COMBO_BOX;
+    case ax::mojom::Role::kComboBoxSelect:
+      return ATK_ROLE_COMBO_BOX;
     case ax::mojom::Role::kComplementary:
       return ATK_ROLE_LANDMARK;
     case ax::mojom::Role::kContentDeletion:
@@ -2935,13 +2938,8 @@ AtkRole AXPlatformNodeAuraLinux::GetAtkRole() const {
       return ATK_ROLE_DOCUMENT_FRAME;
     case ax::mojom::Role::kPluginObject:
       return ATK_ROLE_EMBEDDED;
-    case ax::mojom::Role::kPopUpButton: {
-      std::string html_tag =
-          GetStringAttribute(ax::mojom::StringAttribute::kHtmlTag);
-      if (html_tag == "select")
-        return ATK_ROLE_COMBO_BOX;
+    case ax::mojom::Role::kPopUpButton:
       return ATK_ROLE_PUSH_BUTTON;
-    }
     case ax::mojom::Role::kPortal:
       return ATK_ROLE_PUSH_BUTTON;
     case ax::mojom::Role::kPre:
@@ -3194,15 +3192,14 @@ void AXPlatformNodeAuraLinux::GetAtkState(AtkStateSet* atk_state_set) {
   if (!atk_object)
     return;
 
-  if (delegate_->GetFocus() == atk_object)
-    atk_state_set_add_state(atk_state_set, ATK_STATE_FOCUSED);
-
   // It is insufficient to compare with g_current_activedescendant due to both
   // timing and event ordering for objects which implement AtkSelection and also
   // have an active descendant. For instance, if we check the state set of a
   // selectable child, it will only have ATK_STATE_FOCUSED if we've processed
   // the activedescendant change.
-  if (GetActiveDescendantOfCurrentFocused() == atk_object)
+  AtkObject* descendant = GetActiveDescendantOfCurrentFocused();
+  AtkObject* effective_focus = descendant ? descendant : delegate_->GetFocus();
+  if (effective_focus == atk_object)
     atk_state_set_add_state(atk_state_set, ATK_STATE_FOCUSED);
 }
 
@@ -3774,8 +3771,7 @@ bool AXPlatformNodeAuraLinux::SelectionAndFocusAreTheSame() {
       return !GetDelegate()->IsWebContent();
     if (role == ax::mojom::Role::kListBox &&
         !container->HasState(ax::mojom::State::kMultiselectable)) {
-      return container->GetDelegate()->GetFocus() ==
-             container->GetNativeViewAccessible();
+      return GetDelegate()->GetFocus() == GetNativeViewAccessible();
     }
   }
 
@@ -3833,7 +3829,7 @@ void AXPlatformNodeAuraLinux::GetFullSelection(int32_t* anchor_node_id,
     return;
   }
 
-  AXTree::Selection selection = GetDelegate()->GetUnignoredSelection();
+  AXSelection selection = GetDelegate()->GetUnignoredSelection();
   *anchor_node_id = selection.anchor_object_id;
   *anchor_offset = selection.anchor_offset;
   *focus_node_id = selection.focus_object_id;
@@ -5199,8 +5195,7 @@ std::pair<int, int> AXPlatformNodeAuraLinux::GetSelectionOffsetsForAtk() {
   // no longer part of the visual selection.
   std::pair<int, int> selection;
   if (GetDelegate()->IsWebContent()) {
-    AXTree::Selection unignored_selection =
-        GetDelegate()->GetUnignoredSelection();
+    AXSelection unignored_selection = GetDelegate()->GetUnignoredSelection();
     GetSelectionOffsetsFromTree(&unignored_selection, &selection.first,
                                 &selection.second);
   } else {

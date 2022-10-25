@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -86,18 +86,17 @@ BrowserAccessibilityManagerFuchsia::GetAccessibilityBridge() const {
   return accessibility_bridge_registry->GetAccessibilityBridge(root_window);
 }
 
-void BrowserAccessibilityManagerFuchsia::FireFocusEvent(
-    BrowserAccessibility* node) {
-  BrowserAccessibilityManager::FireFocusEvent(node);
+void BrowserAccessibilityManagerFuchsia::FireFocusEvent(ui::AXNode* node) {
+  ui::AXTreeManager::FireFocusEvent(node);
 
   if (!GetAccessibilityBridge())
     return;
 
   BrowserAccessibilityFuchsia* new_focus_fuchsia =
-      ToBrowserAccessibilityFuchsia(node);
+      ToBrowserAccessibilityFuchsia(GetFromAXNode(node));
 
   BrowserAccessibilityFuchsia* old_focus_fuchsia =
-      ToBrowserAccessibilityFuchsia(GetLastFocusedNode());
+      ToBrowserAccessibilityFuchsia(GetFromAXNode(GetLastFocusedNode()));
 
   if (old_focus_fuchsia)
     old_focus_fuchsia->OnDataChanged();

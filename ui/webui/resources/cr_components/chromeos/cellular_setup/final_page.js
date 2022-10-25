@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,13 +7,22 @@
  * message depending on the outcome of the flow. This element contains an image
  * asset and description that indicates that the setup flow has completed.
  */
+import './base_page.js';
+
+import {html, Polymer} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+
+import {I18nBehavior} from '../../../cr_elements/i18n_behavior.js';
+
+import {CellularSetupDelegate} from './cellular_setup_delegate.js';
+
 Polymer({
+  _template: html`{__html_template__}`,
   is: 'final-page',
 
   behaviors: [I18nBehavior],
 
   properties: {
-    /** @type {!cellular_setup.CellularSetupDelegate} */
+    /** @type {!CellularSetupDelegate} */
     delegate: Object,
 
     /**

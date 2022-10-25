@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors. All rights reserved.
+// Copyright 2017 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -431,11 +431,11 @@ void AddDetailsLocalizedStrings(content::WebUIDataSource* html_source) {
       {"networkProxyWpad", IDS_SETTINGS_INTERNET_NETWORK_PROXY_WPAD},
       {"networkProxyWpadNone", IDS_SETTINGS_INTERNET_NETWORK_PROXY_WPAD_NONE},
       {"remove", IDS_REMOVE},
+      {"controlledSettingPolicy",
+       IDS_SETTINGS_INTERNET_NETWORK_SETTING_MANAGED_BY_ADMIN_TOOLTIP},
   };
   html_source->AddLocalizedStrings(kLocalizedStrings);
 
-  html_source->AddBoolean("useAttachApn",
-                          chromeos::features::ShouldUseAttachApn());
   html_source->AddBoolean("isSimLockPolicyEnabled",
                           chromeos::features::IsSimLockPolicyEnabled());
 }

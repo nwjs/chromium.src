@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,6 +12,8 @@
 #include "third_party/abseil-cpp/absl/types/optional.h"
 
 namespace content {
+
+class Portal;
 
 class CONTENT_EXPORT WebContentsDevToolsAgentHost
     : public DevToolsAgentHostImpl,
@@ -28,6 +30,12 @@ class CONTENT_EXPORT WebContentsDevToolsAgentHost
       delete;
 
   static void AddAllAgentHosts(DevToolsAgentHost::List* result);
+
+  // Instrumentation methods
+  void PortalActivated(const Portal& portal);
+  // TODO(caseq): replace with PortalAttached / PortalDetached with a
+  // specific portal instead?
+  void PortalUpdated();
 
  private:
   class AutoAttacher;
@@ -61,6 +69,7 @@ class CONTENT_EXPORT WebContentsDevToolsAgentHost
       const std::string& id) override;
 
   // DevToolsAgentHostImpl overrides.
+  DevToolsSession::Mode GetSessionMode() override;
   bool AttachSession(DevToolsSession* session, bool acquire_wake_lock) override;
   protocol::TargetAutoAttacher* auto_attacher() override;
 

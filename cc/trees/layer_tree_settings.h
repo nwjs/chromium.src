@@ -1,4 +1,4 @@
-// Copyright 2011 The Chromium Authors. All rights reserved.
+// Copyright 2011 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -215,6 +215,14 @@ class CC_EXPORT LayerTreeSettings {
 
   // This corresponds to the ScrollUpdateOptimizations feature.
   bool enable_scroll_update_optimizations = false;
+
+  // Whether to disable the frame rate limit in the scheduler.
+  bool disable_frame_rate_limit = false;
+
+  // When enabled commits are aborted if scroll and viewport state from CC could
+  // not be synchronized at the beginning of the frame because main frames were
+  // being deferred.
+  bool skip_commits_if_not_synchronizing_compositor_state = true;
 };
 
 class CC_EXPORT LayerListSettings : public LayerTreeSettings {

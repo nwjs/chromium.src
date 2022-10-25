@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -24,11 +24,6 @@
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/models/dialog_model.h"
 #include "ui/gfx/native_widget_types.h"
-
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || \
-    (BUILDFLAG(IS_LINUX) && !BUILDFLAG(IS_CHROMEOS_LACROS))
-#include "chrome/browser/web_applications/web_app_id.h"
-#endif
 
 class Browser;
 class GURL;
@@ -179,6 +174,9 @@ void ShowWebAppIdentityUpdateDialog(
     content::WebContents* web_contents,
     web_app::AppIdentityDialogCallback callback);
 
+// Returns true if the App Identity Dialog has been requested.
+bool AppIdentityUpdateDialogWasRequestedForTesting();
+
 // Sets whether |ShowWebAppIdentityUpdateDialog| should accept immediately
 // without any user interaction.
 void SetAutoAcceptAppIdentityUpdateForTesting(bool auto_accept);
@@ -211,6 +209,9 @@ void ShowWebAppFileLaunchDialog(const std::vector<base::FilePath>& file_paths,
 // checkbox is checked.
 void SetAutoAcceptWebAppDialogForTesting(bool auto_accept,
                                          bool auto_open_in_window);
+
+// Sets an override title for the installation.
+void SetOverrideTitleForTesting(const char* title_to_use);
 
 // Describes the state of in-product-help being shown to the user.
 enum class PwaInProductHelpState {

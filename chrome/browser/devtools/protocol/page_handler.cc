@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors. All rights reserved.
+// Copyright 2017 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,7 +8,6 @@
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "components/payments/content/payment_request_web_contents_manager.h"
 #include "components/subresource_filter/content/browser/devtools_interaction_tracker.h"
-#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/manifest/manifest_util.h"
 #include "ui/gfx/image/image.h"
 
@@ -288,8 +287,7 @@ void PageHandler::GetAppId(std::unique_ptr<GetAppIdCallback> callback) {
 
 void PageHandler::OnDidGetManifest(std::unique_ptr<GetAppIdCallback> callback,
                                    const webapps::InstallableData& data) {
-  if (blink::IsEmptyManifest(data.manifest) ||
-      !base::FeatureList::IsEnabled(blink::features::kWebAppEnableManifestId)) {
+  if (blink::IsEmptyManifest(data.manifest)) {
     callback->sendSuccess(protocol::Maybe<protocol::String>(),
                           protocol::Maybe<protocol::String>());
     return;

@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,8 +10,6 @@
 #include <algorithm>
 #include <memory>
 
-#include "ash/components/geolocation/geoposition.h"
-#include "ash/components/geolocation/simple_geolocation_provider.h"
 #include "ash/components/timezone/timezone_provider.h"
 #include "base/bind.h"
 #include "base/callback_helpers.h"
@@ -22,6 +20,8 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
+#include "chromeos/ash/components/geolocation/geoposition.h"
+#include "chromeos/ash/components/geolocation/simple_geolocation_provider.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"

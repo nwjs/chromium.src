@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -501,8 +501,16 @@ void ContinueSectionView::OnActiveAppListModelsChanged(
 void ContinueSectionView::OnAppListVisibilityChanged(bool shown,
                                                      int64_t display_id) {
   if (!shown && privacy_toast_) {
-    RemoveChildViewT(privacy_toast_);
-    privacy_toast_ = nullptr;
+    // Abort any in-progress privacy toast animation. This may delete the toast
+    // view. Explicitly aborting the animation avoids a double-delete in
+    // RemoveChildViewT() below. https://crbug.com/1357434
+    if (privacy_toast_->layer())
+      privacy_toast_->layer()->GetAnimator()->AbortAllAnimations();
+
+    if (privacy_toast_) {
+      RemoveChildViewT(privacy_toast_);
+      privacy_toast_ = nullptr;
+    }
   }
 
   // Update the nudge type in nudge controller if the privacy notice is

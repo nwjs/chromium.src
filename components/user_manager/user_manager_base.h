@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -166,10 +166,6 @@ class USER_MANAGER_EXPORT UserManagerBase : public UserManager {
                      const std::set<AccountId>& existing_users,
                      std::vector<AccountId>* users_vector,
                      std::set<AccountId>* users_set);
-
-  void AddUserRecordForTesting(User* user) {
-    return AddUserRecord(user);
-  }
 
   // Returns true if device is enterprise managed.
   virtual bool IsEnterpriseManaged() const = 0;

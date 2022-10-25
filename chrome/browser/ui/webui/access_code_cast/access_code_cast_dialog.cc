@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -107,7 +107,8 @@ void AccessCodeCastDialog::ShowForDesktopMirroring(
     AccessCodeCastDialogOpenLocation open_location) {
   CastModeSet desktop_mode = {MediaCastMode::DESKTOP_MIRROR};
   std::unique_ptr<MediaRouteStarter> starter =
-      std::make_unique<MediaRouteStarter>(desktop_mode, nullptr, nullptr);
+      std::make_unique<MediaRouteStarter>(
+          MediaRouterUIParameters(desktop_mode, nullptr));
   Show(desktop_mode, std::move(starter), open_location,
        AccessCodeCastDialogMode::kSystem);
 }
@@ -144,9 +145,9 @@ void AccessCodeCastDialog::OnWidgetActivationChanged(views::Widget* widget,
 }
 
 ui::ModalType AccessCodeCastDialog::GetDialogModalType() const {
-  // If there are no web_contents_, that means that the dialog was launched
-  // from the system tray, so therefore it shuold be a system dialog.
-  return web_contents_ ? ui::MODAL_TYPE_NONE : ui::MODAL_TYPE_SYSTEM;
+  // Make our dialog have no modality, so it will always close if another
+  // window is focused.
+  return ui::MODAL_TYPE_NONE;
 }
 
 std::u16string AccessCodeCastDialog::GetDialogTitle() const {

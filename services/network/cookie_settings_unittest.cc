@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors. All rights reserved.
+// Copyright 2018 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -75,7 +75,8 @@ class CookieSettingsTest : public testing::TestWithParam<bool> {
     return ContentSettingPatternSource(
         ContentSettingsPattern::FromString(primary_pattern),
         ContentSettingsPattern::FromString(secondary_pattern),
-        base::Value(setting), std::string(), false /* incognito */, expiration);
+        base::Value(setting), std::string(), false /* incognito */,
+        {.expiration = expiration});
   }
 
   void FastForwardTime(base::TimeDelta delta) {

@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors. All rights reserved.
+// Copyright 2015 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -17,8 +17,7 @@
 #include "remoting/protocol/video_stream.h"
 #include "remoting/protocol/video_stub.h"
 
-namespace remoting {
-namespace protocol {
+namespace remoting::protocol {
 
 class FakeVideoStream : public protocol::VideoStream {
  public:
@@ -126,7 +125,6 @@ class FakeConnectionToClient : public ConnectionToClient {
   ErrorCode disconnect_error_ = OK;
 };
 
-}  // namespace protocol
-}  // namespace remoting
+}  // namespace remoting::protocol
 
 #endif  // REMOTING_PROTOCOL_FAKE_CONNECTION_TO_CLIENT_H_

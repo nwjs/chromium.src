@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -383,6 +383,13 @@ void RenderWidgetHostViewAura::InitAsPopup(
 
   device_scale_factor_ = GetDeviceScaleFactor();
 
+  // If HiDPI capture mode is active for the parent, propagate the scale
+  // override to the popup window also. Its content was created assuming
+  // that the new window will share the parent window's scale. See
+  // https://crbug.com/1354703 .
+  SetScaleOverrideForCapture(
+      popup_parent_host_view_->GetScaleOverrideForCapture());
+
   auto* cursor_client = aura::client::GetCursorClient(root);
   if (cursor_client)
     UpdateSystemCursorSize(cursor_client->GetSystemCursorSize());
@@ -439,13 +446,14 @@ gfx::NativeViewAccessible RenderWidgetHostViewAura::GetNativeViewAccessible() {
   BrowserAccessibilityManager* manager =
       host()->GetOrCreateRootBrowserAccessibilityManager();
   if (manager)
-    return ToBrowserAccessibilityWin(manager->GetRoot())->GetCOM();
+    return ToBrowserAccessibilityWin(manager->GetBrowserAccessibilityRoot())
+        ->GetCOM();
 
 #elif BUILDFLAG(IS_LINUX)
   BrowserAccessibilityManager* manager =
       host()->GetOrCreateRootBrowserAccessibilityManager();
-  if (manager && manager->GetRoot())
-    return manager->GetRoot()->GetNativeViewAccessible();
+  if (manager && manager->GetBrowserAccessibilityRoot())
+    return manager->GetBrowserAccessibilityRoot()->GetNativeViewAccessible();
 #endif
 
   NOTIMPLEMENTED_LOG_ONCE();
@@ -1894,10 +1902,9 @@ void RenderWidgetHostViewAura::OnWindowDestroying(aura::Window* window) {
   // RenderWidgetHostViewAura instance goes away etc. To avoid that we
   // destroy the LegacyRenderWidgetHostHWND instance here.
   if (legacy_render_widget_host_HWND_) {
-    legacy_render_widget_host_HWND_->Destroy();
-    // The Destroy call above will delete the LegacyRenderWidgetHostHWND
+    // The Destroy call below will delete the LegacyRenderWidgetHostHWND
     // instance.
-    legacy_render_widget_host_HWND_ = nullptr;
+    legacy_render_widget_host_HWND_.ExtractAsDangling()->Destroy();
   }
 #endif
 
@@ -2645,7 +2652,7 @@ void RenderWidgetHostViewAura::OnUpdateTextInputStateCalled(
       text_input_manager_->GetTextInputState();
 
 #if BUILDFLAG(IS_CHROMEOS)
-  if (state) {
+  if (state && state->type != ui::TEXT_INPUT_TYPE_NONE) {
     if (state->last_vk_visibility_request ==
         ui::mojom::VirtualKeyboardVisibilityRequest::SHOW) {
       GetInputMethod()->SetVirtualKeyboardVisibilityIfEnabled(true);

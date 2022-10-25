@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -82,6 +82,10 @@ const char* FinalStatusToString(PrerenderHost::FinalStatus final_status) {
       return "FailToGetMemoryUsage";
     case PrerenderHost::FinalStatus::kDataSaverEnabled:
       return "DataSaverEnabled";
+    case PrerenderHost::FinalStatus::kHasEffectiveUrl:
+      return "HasEffectiveUrl";
+    case PrerenderHost::FinalStatus::kActivatedBeforeStarted:
+      return "ActivatedBeforeStarted";
   }
   NOTREACHED();
   return "";

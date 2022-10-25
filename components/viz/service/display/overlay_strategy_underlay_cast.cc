@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors. All rights reserved.
+// Copyright 2017 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -264,7 +264,7 @@ void OverlayStrategyUnderlayCast::CommitCandidate(
   DCHECK(GetVideoGeometrySetter());
   GetVideoGeometrySetter()->SetVideoGeometry(
       proposed_candidate.candidate.display_rect,
-      proposed_candidate.candidate.transform,
+      absl::get<gfx::OverlayTransform>(proposed_candidate.candidate.transform),
       VideoHoleDrawQuad::MaterialCast(*proposed_candidate.quad_iter)
           ->overlay_plane_id);
 

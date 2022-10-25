@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -37,9 +37,11 @@
 #include "ui/views/focus/focus_manager_factory.h"
 #include "ui/views/focus/widget_focus_manager.h"
 #include "ui/views/views_delegate.h"
+#include "ui/views/views_features.h"
 #include "ui/views/widget/any_widget_observer_singleton.h"
 #include "ui/views/widget/native_widget_private.h"
 #include "ui/views/widget/root_view.h"
+#include "ui/views/widget/sublevel_manager.h"
 #include "ui/views/widget/tooltip_manager.h"
 #include "ui/views/widget/widget_delegate.h"
 #include "ui/views/widget/widget_deletion_observer.h"
@@ -327,7 +329,8 @@ void Widget::Init(InitParams params) {
       params.name = params.delegate->GetContentsView()->GetClassName();
   }
 
-  parent_ = params.parent ? GetWidgetForNativeView(params.parent) : nullptr;
+  if (params.parent && GetWidgetForNativeView(params.parent))
+    parent_ = GetWidgetForNativeView(params.parent)->GetWeakPtr();
 
   // Subscripbe to parent's paint-as-active change.
   if (parent_) {
@@ -376,9 +379,16 @@ void Widget::Init(InitParams params) {
     params.delegate->WidgetInitializing(this);
 
   ownership_ = params.ownership;
+
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   background_elevation_ = params.background_elevation;
 #endif
+
+  if (base::FeatureList::IsEnabled(features::kWidgetLayering)) {
+    sublevel_manager_ =
+        std::make_unique<SublevelManager>(this, params.sublevel);
+  }
+
   native_widget_ = CreateNativeWidget(params, this)->AsNativeWidgetPrivate();
   root_view_.reset(CreateRootView());
 
@@ -426,6 +436,11 @@ void Widget::Init(InitParams params) {
   } else if (delegate) {
     SetContentsView(delegate->TransferOwnershipOfContentsView());
     SetInitialBoundsForFramelessWindow(bounds);
+  }
+
+  if (base::FeatureList::IsEnabled(features::kWidgetLayering)) {
+    if (parent_)
+      parent_->GetSublevelManager()->TrackChildWidget(this);
   }
 
   native_theme_observation_.Observe(GetNativeTheme());
@@ -648,6 +663,10 @@ void Widget::StackAtTop() {
   native_widget_->StackAtTop();
 }
 
+bool Widget::IsStackedAbove(gfx::NativeView native_view) {
+  return native_widget_->IsStackedAbove(native_view);
+}
+
 void Widget::SetShape(std::unique_ptr<ShapeRects> shape) {
   native_widget_->SetShape(std::move(shape));
 }
@@ -748,6 +767,10 @@ void Widget::Show() {
   } else {
     native_widget_->Show(preferred_show_state, gfx::Rect());
   }
+
+  if (base::FeatureList::IsEnabled(features::kWidgetLayering))
+    sublevel_manager_->EnsureOwnerSublevel();
+
   internal::AnyWidgetObserverSingleton::GetInstance()->OnAnyWidgetShown(this);
 }
 
@@ -789,6 +812,14 @@ void Widget::SetZOrderLevel(ui::ZOrderLevel order) {
 
 ui::ZOrderLevel Widget::GetZOrderLevel() const {
   return native_widget_->GetZOrderLevel();
+}
+
+void Widget::SetZOrderSublevel(int sublevel) {
+  sublevel_manager_->SetSublevel(sublevel);
+}
+
+int Widget::GetZOrderSublevel() const {
+  return sublevel_manager_->GetSublevel();
 }
 
 void Widget::SetVisibleOnAllWorkspaces(bool always_visible) {
@@ -912,6 +943,10 @@ ui::InputMethod* Widget::GetInputMethod() {
     return (toplevel && toplevel != this) ? toplevel->GetInputMethod()
                                           : nullptr;
   }
+}
+
+SublevelManager* Widget::GetSublevelManager() {
+  return sublevel_manager_.get();
 }
 
 void Widget::RunShellDrag(View* view,
@@ -1840,10 +1875,8 @@ const ui::NativeTheme* Widget::GetNativeTheme() const {
     return parent_->GetNativeTheme();
 
 #if BUILDFLAG(IS_LINUX)
-  if (const ui::LinuxUi* linux_ui = ui::LinuxUi::instance()) {
-    if (auto* native_theme = linux_ui->GetNativeTheme(GetNativeWindow()))
-      return native_theme;
-  }
+  if (auto* linux_ui_theme = ui::LinuxUiTheme::GetForWindow(GetNativeWindow()))
+    return linux_ui_theme->GetNativeTheme();
 #endif
 
   return ui::NativeTheme::GetInstanceForNativeUi();
@@ -1919,10 +1952,11 @@ void Widget::SetInitialBoundsForFramelessWindow(const gfx::Rect& bounds) {
 }
 
 void Widget::SetParent(Widget* parent) {
-  if (parent == parent_)
+  if (parent == parent_.get())
     return;
 
-  parent_ = parent;
+  Widget* old_parent = parent_.get();
+  parent_ = parent ? parent->GetWeakPtr() : nullptr;
 
   // Release the paint-as-active lock on the old parent.
   bool has_lock_on_parent = !!parent_paint_as_active_lock_;
@@ -1937,6 +1971,13 @@ void Widget::SetParent(Widget* parent) {
         parent->RegisterPaintAsActiveChangedCallback(
             base::BindRepeating(&Widget::OnParentShouldPaintAsActiveChanged,
                                 base::Unretained(this)));
+  }
+
+  if (base::FeatureList::IsEnabled(features::kWidgetLayering)) {
+    if (old_parent)
+      old_parent->GetSublevelManager()->UntrackChildWidget(this);
+    if (parent)
+      parent->GetSublevelManager()->TrackChildWidget(this);
   }
 }
 

@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -65,7 +65,7 @@ GtkPrimarySelectionDevice* GtkPrimarySelectionDeviceManager::GetDevice() {
         connection_,
         gtk_primary_selection_device_manager_get_device(
             device_manager_.get(), connection_->seat()->wl_object()));
-    connection_->ScheduleFlush();
+    connection_->Flush();
   }
   DCHECK(device_);
   return device_.get();
@@ -76,7 +76,7 @@ GtkPrimarySelectionDeviceManager::CreateSource(
     GtkPrimarySelectionSource::Delegate* delegate) {
   auto* data_source =
       gtk_primary_selection_device_manager_create_source(device_manager_.get());
-  connection_->ScheduleFlush();
+  connection_->Flush();
   return std::make_unique<GtkPrimarySelectionSource>(data_source, connection_,
                                                      delegate);
 }

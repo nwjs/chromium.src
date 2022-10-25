@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -120,10 +120,10 @@ suite('PasswordViewTest', function() {
                   assertEquals(
                       NOTE,
                       page.shadowRoot!.querySelector(
-                                          'settings-textarea')!.value);
+                                          '#note')!.innerHTML.trim());
                 } else {
-                  assertFalse(isVisible(
-                      page.shadowRoot!.querySelector('settings-textarea')));
+                  assertFalse(
+                      isVisible(page.shadowRoot!.querySelector('#note')));
                 }
               }));
 
@@ -203,7 +203,7 @@ suite('PasswordViewTest', function() {
     const page = await loadViewPage(passwordEntry);
     assertEquals(
         'No note added',
-        page.shadowRoot!.querySelector('settings-textarea')!.value);
+        page.shadowRoot!.querySelector('#note')!.innerHTML.trim());
   });
 
   test('Federated credential layout', async function() {
@@ -400,4 +400,21 @@ suite('PasswordViewTest', function() {
         await flushTasks();
         assertEquals(1, eventCount);
       });
+
+  test('Timeout listener closes the view page', async function() {
+    const passwordEntry =
+        createPasswordEntry({url: SITE, username: USERNAME, id: ID});
+
+    const page = await loadViewPage(passwordEntry);
+
+    assertTrue(
+        !!passwordManager.lastCallback.addPasswordManagerAuthTimeoutListener);
+    assertTrue(!!page.credential);
+
+    passwordManager.lastCallback.addPasswordManagerAuthTimeoutListener();
+    await flushTasks();
+
+    assertFalse(!!page.credential);
+    assertEquals(routes.PASSWORDS, Router.getInstance().getCurrentRoute());
+  });
 });

@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -17,7 +17,6 @@
 #include "components/viz/common/resources/resource_format_utils.h"
 #include "gpu/command_buffer/common/mailbox.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
-#include "gpu/command_buffer/service/mailbox_manager.h"
 #include "gpu/command_buffer/service/memory_tracking.h"
 #include "gpu/command_buffer/service/shared_context_state.h"
 #include "gpu/command_buffer/service/shared_image/gl_ozone_image_representation.h"
@@ -138,11 +137,6 @@ void OzoneImageBacking::Update(std::unique_ptr<gfx::GpuFence> in_fence) {
   }
 }
 
-bool OzoneImageBacking::ProduceLegacyMailbox(MailboxManager* mailbox_manager) {
-  NOTREACHED();
-  return false;
-}
-
 scoped_refptr<gfx::NativePixmap> OzoneImageBacking::GetNativePixmap() {
   return pixmap_;
 }
@@ -194,7 +188,12 @@ std::unique_ptr<SkiaImageRepresentation> OzoneImageBacking::ProduceSkia(
     MemoryTypeTracker* tracker,
     scoped_refptr<SharedContextState> context_state) {
   if (context_state->GrContextIsGL()) {
-    auto gl_representation = ProduceGLTexture(manager, tracker);
+    std::unique_ptr<GLTextureImageRepresentationBase> gl_representation;
+    if (use_passthrough_) {
+      gl_representation = ProduceGLTexturePassthrough(manager, tracker);
+    } else {
+      gl_representation = ProduceGLTexture(manager, tracker);
+    }
     if (!gl_representation) {
       LOG(ERROR) << "OzoneImageBacking::ProduceSkia failed to create GL "
                     "representation";
@@ -250,7 +249,8 @@ OzoneImageBacking::OzoneImageBacking(
     scoped_refptr<SharedContextState> context_state,
     scoped_refptr<gfx::NativePixmap> pixmap,
     scoped_refptr<base::RefCountedData<DawnProcTable>> dawn_procs,
-    const GpuDriverBugWorkarounds& workarounds)
+    const GpuDriverBugWorkarounds& workarounds,
+    bool use_passthrough)
     : ClearTrackingSharedImageBacking(mailbox,
                                       format,
                                       size,
@@ -264,7 +264,8 @@ OzoneImageBacking::OzoneImageBacking(
       pixmap_(std::move(pixmap)),
       dawn_procs_(std::move(dawn_procs)),
       context_state_(std::move(context_state)),
-      workarounds_(workarounds) {
+      workarounds_(workarounds),
+      use_passthrough_(use_passthrough) {
   bool used_by_skia = (usage & SHARED_IMAGE_USAGE_RASTER) ||
                       (usage & SHARED_IMAGE_USAGE_DISPLAY);
   bool used_by_gl =

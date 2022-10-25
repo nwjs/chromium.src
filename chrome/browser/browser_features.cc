@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors. All rights reserved.
+// Copyright 2018 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -175,4 +175,14 @@ const base::Feature kRestartNetworkServiceUnsandboxedForFailedLaunch{
 const base::Feature kAppBoundEncryptionMetrics{
     "AppBoundEncryptionMetrics", base::FEATURE_ENABLED_BY_DEFAULT};
 #endif
+
+// Enables showing the email of the flex org admin that setup CBCM in the
+// management disclosures.
+#if BUILDFLAG(IS_CHROMEOS)
+extern const base::Feature kFlexOrgManagementDisclosure{
+    "FlexOrgManagementDisclosure", base::FEATURE_DISABLED_BY_DEFAULT};
+#else
+extern const base::Feature kFlexOrgManagementDisclosure{
+    "FlexOrgManagementDisclosure", base::FEATURE_ENABLED_BY_DEFAULT};
+#endif  // BUILDFLAG(IS_CHROMEOS)
 }  // namespace features

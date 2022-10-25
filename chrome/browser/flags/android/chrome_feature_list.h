@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors. All rights reserved.
+// Copyright 2015 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -52,8 +52,10 @@ extern const base::Feature kCCTResizable90MaximumHeight;
 extern const base::Feature kCCTResizableAllowResizeByUserGesture;
 extern const base::Feature kCCTResizableForFirstParties;
 extern const base::Feature kCCTResizableForThirdParties;
+extern const base::Feature kCCTResizableWindowAboveNavbar;
 extern const base::Feature kCCTResourcePrefetch;
 extern const base::Feature kCCTRetainingState;
+extern const base::Feature kCCTShowAboutBlankUrl;
 extern const base::Feature kCCTToolbarCustomizations;
 extern const base::Feature kDontAutoHideBrowserControls;
 extern const base::Feature kCacheDeprecatedSystemLocationSetting;
@@ -81,7 +83,6 @@ extern const base::Feature kContextualSearchThinWebViewImplementation;
 extern const base::Feature kContextualTriggersSelectionHandles;
 extern const base::Feature kContextualTriggersSelectionMenu;
 extern const base::Feature kContextualTriggersSelectionSize;
-extern const base::Feature kDelayToolbarUpdateOnLoadStarted;
 extern const base::Feature kDirectActions;
 extern const base::Feature kDisableCompositedProgressBar;
 extern const base::Feature kDontPrefetchLibraries;
@@ -134,6 +135,12 @@ extern const base::Feature kRelatedSearchesInBar;
 extern const base::Feature kRelatedSearchesSimplifiedUx;
 extern const base::Feature kRelatedSearchesUi;
 extern const base::Feature kRequestDesktopSiteDefaults;
+extern const base::Feature kRequestDesktopSiteDefaultsControl;
+extern const base::Feature kRequestDesktopSiteDefaultsControlSynthetic;
+extern const base::Feature kRequestDesktopSiteDefaultsSynthetic;
+extern const base::Feature kRequestDesktopSiteOptInControlSynthetic;
+extern const base::Feature kRequestDesktopSiteOptInSynthetic;
+extern const base::Feature kRequestDesktopSiteDefaultsDowngrade;
 extern const base::Feature kSearchEnginePromoExistingDevice;
 extern const base::Feature kSearchEnginePromoExistingDeviceV2;
 extern const base::Feature kSearchEnginePromoNewDevice;
@@ -160,6 +167,7 @@ extern const base::Feature kTabGridLayoutAndroid;
 extern const base::Feature kTabReparenting;
 extern const base::Feature kTabSelectionEditorV2;
 extern const base::Feature kTabStripImprovements;
+extern const base::Feature kDiscoverFeedMultiColumn;
 extern const base::Feature kTabSwitcherOnReturn;
 extern const base::Feature kTabToGTSAnimation;
 extern const base::Feature kTestDefaultDisabled;
@@ -174,6 +182,7 @@ extern const base::Feature kTrustedWebActivityQualityEnforcementForced;
 extern const base::Feature kTrustedWebActivityQualityEnforcementWarning;
 extern const base::Feature kShowExtendedPreloadingSetting;
 extern const base::Feature kStartSurfaceAndroid;
+extern const base::Feature kStartSurfaceReturnTime;
 extern const base::Feature kStartSurfaceRefactor;
 extern const base::Feature kUmaBackgroundSessions;
 extern const base::Feature kUpdateHistoryEntryPointsInIncognito;
@@ -184,7 +193,6 @@ extern const base::Feature kVoiceSearchAudioCapturePolicy;
 extern const base::Feature kVoiceButtonInTopToolbar;
 extern const base::Feature kVrBrowsingFeedback;
 extern const base::Feature kWebOtpCrossDeviceSimpleString;
-extern const base::Feature kWebApkInstallCompleteNotification;
 extern const base::Feature kWebApkInstallService;
 extern const base::Feature kWebApkTrampolineOnInitialIntent;
 

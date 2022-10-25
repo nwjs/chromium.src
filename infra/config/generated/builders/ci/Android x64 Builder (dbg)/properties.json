@@ -39,12 +39,6 @@
           "builder": "Android x64 Builder (dbg)",
           "project": "chromium"
         }
-      ],
-      "mirroring_builder_group_and_names": [
-        {
-          "builder": "android_compile_x64_dbg",
-          "group": "tryserver.chromium.android"
-        }
       ]
     }
   },

@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors. All rights reserved.
+// Copyright 2018 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -166,12 +166,7 @@ InlineLoginDialogChromeOS::InlineLoginDialogChromeOS()
     : InlineLoginDialogChromeOS(GetInlineLoginUrl(std::string())) {}
 
 InlineLoginDialogChromeOS::InlineLoginDialogChromeOS(const GURL& url)
-    : SystemWebDialogDelegate(url, std::u16string() /* title */),
-      delegate_(this),
-      url_(url) {
-  DCHECK(!dialog);
-  dialog = this;
-}
+    : InlineLoginDialogChromeOS(url, absl::nullopt, base::DoNothing()) {}
 
 InlineLoginDialogChromeOS::InlineLoginDialogChromeOS(
     const GURL& url,

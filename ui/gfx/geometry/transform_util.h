@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -66,7 +66,7 @@ GEOMETRY_SKIA_EXPORT bool SnapTransform(Transform* out,
 // Calculates a transform with a transformed origin. The resulting transform is
 // created by composing P * T * P^-1 where P is a constant transform to the new
 // origin.
-GEOMETRY_SKIA_EXPORT Transform TransformAboutPivot(const Point& pivot,
+GEOMETRY_SKIA_EXPORT Transform TransformAboutPivot(const PointF& pivot,
                                                    const Transform& transform);
 
 // Calculates a transform which would transform |src| to |dst|.

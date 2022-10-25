@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -104,7 +104,8 @@ class ChromeFileSystemAccessPermissionContext
   PathInfo GetLastPickedDirectory(const url::Origin& origin,
                                   const std::string& id) override;
   base::FilePath GetWellKnownDirectoryPath(
-      blink::mojom::WellKnownDirectory directory) override;
+      blink::mojom::WellKnownDirectory directory,
+      const url::Origin& origin) override;
 
   std::u16string GetPickerTitle(
       const blink::mojom::FilePickerOptionsPtr& options) override;
@@ -123,7 +124,8 @@ class ChromeFileSystemAccessPermissionContext
     kUpdatePersistedPermission,
   };
 
-  // Returns a snapshot of the currently granted active permissions.
+  // Returns a snapshot of both the currently granted active and persisted
+  // permissions.
   struct Grants {
     Grants();
     ~Grants();

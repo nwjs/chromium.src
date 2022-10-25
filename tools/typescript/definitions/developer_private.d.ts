@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -243,6 +243,7 @@ declare global {
         views: ExtensionView[],
         webStoreUrl: string,
         showSafeBrowsingAllowlistWarning: boolean,
+        showAccessRequestsInToolbar: boolean,
       };
 
       export type ProfileInfo = {
@@ -259,6 +260,7 @@ declare global {
         incognitoAccess?: boolean,
         errorCollection?: boolean,
         hostAccess?: HostAccess,
+        showAccessRequestsInToolbar?: boolean,
       };
 
       export type ProfileConfigurationUpdate = {
@@ -318,9 +320,10 @@ declare global {
         SERVICE_WORKER_STOPPED = 'SERVICE_WORKER_STOPPED',
       }
 
-      export enum UserSiteSet {
-        PERMITTED = 'PERMITTED',
-        RESTRICTED = 'RESTRICTED',
+      export enum SiteSet {
+        USER_PERMITTED = 'USER_PERMITTED',
+        USER_RESTRICTED = 'USER_RESTRICTED',
+        EXTENSION_SPECIFIED = 'EXTENSION_SPECIFIED',
       }
 
       export type PackDirectoryResponse = {
@@ -387,12 +390,14 @@ declare global {
       };
 
       export type UserSiteSettingsOptions = {
-        siteList: UserSiteSet,
+        siteSet: SiteSet,
         hosts: string[],
       };
 
       export type SiteInfo = {
-        siteList?: UserSiteSet, numExtensions: number, site: string,
+        siteSet: SiteSet,
+        numExtensions: number,
+        site: string,
       };
 
       export type SiteGroup = {

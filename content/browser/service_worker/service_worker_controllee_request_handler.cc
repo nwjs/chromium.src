@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -424,6 +424,11 @@ void ServiceWorkerControlleeRequestHandler::ContinueWithActivatedVersion(
   DCHECK_EQ(active_version, container_host_->controller());
   DCHECK_NE(active_version->fetch_handler_existence(),
             ServiceWorkerVersion::FetchHandlerExistence::UNKNOWN);
+
+  base::UmaHistogramEnumeration(
+      "ServiceWorker.FetchHandler."
+      "TypeAtContinueWithActivatedVersion",
+      active_version->fetch_handler_type());
 
   if (blink::IsRequestDestinationFrame(destination_))
     container_host_->AddServiceWorkerToUpdate(active_version);

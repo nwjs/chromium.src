@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -21,6 +21,7 @@
 #include "base/check.h"
 #include "base/command_line.h"
 #include "base/containers/contains.h"
+#include "base/containers/cxx20_erase.h"
 #include "base/debug/alias.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
@@ -75,6 +76,7 @@
 #include "content/browser/renderer_host/input/synthetic_gesture_target.h"
 #include "content/browser/renderer_host/input/timeout_monitor.h"
 #include "content/browser/renderer_host/input/touch_emulator.h"
+#include "content/browser/renderer_host/render_process_host_impl.h"
 #include "content/browser/renderer_host/render_view_host_delegate.h"
 #include "content/browser/renderer_host/render_view_host_delegate_view.h"
 #include "content/browser/renderer_host/render_view_host_impl.h"
@@ -85,6 +87,7 @@
 #include "content/browser/renderer_host/render_widget_host_view_child_frame.h"
 #include "content/browser/renderer_host/visible_time_request_trigger.h"
 #include "content/browser/scheduler/browser_task_executor.h"
+#include "content/browser/scheduler/browser_ui_thread_scheduler.h"
 #include "content/browser/storage_partition_impl.h"
 #include "content/common/content_constants_internal.h"
 #include "content/common/cursors/webcursor.h"
@@ -98,6 +101,7 @@
 #include "content/public/browser/notification_types.h"
 #include "content/public/browser/peak_gpu_memory_tracker.h"
 #include "content/public/browser/render_frame_metadata_provider.h"
+#include "content/public/browser/render_process_host_priority_client.h"
 #include "content/public/browser/render_widget_host_iterator.h"
 #include "content/public/browser/render_widget_host_observer.h"
 #include "content/public/browser/storage_partition.h"
@@ -1617,6 +1621,8 @@ void RenderWidgetHostImpl::ForwardGestureEventWithLatencyInfo(
         !is_in_gesture_scroll_[static_cast<int>(gesture_event.SourceDevice())]);
     is_in_gesture_scroll_[static_cast<int>(gesture_event.SourceDevice())] =
         true;
+    NotifyUISchedulerOfScrollStateUpdate(
+        BrowserUIThreadScheduler::ScrollState::kGestureScrollActive);
     scroll_peak_gpu_mem_tracker_ =
         PeakGpuMemoryTracker::Create(PeakGpuMemoryTracker::Usage::SCROLL);
   } else if (gesture_event.GetType() ==
@@ -1625,6 +1631,8 @@ void RenderWidgetHostImpl::ForwardGestureEventWithLatencyInfo(
         is_in_gesture_scroll_[static_cast<int>(gesture_event.SourceDevice())]);
     is_in_gesture_scroll_[static_cast<int>(gesture_event.SourceDevice())] =
         false;
+    NotifyUISchedulerOfScrollStateUpdate(
+        BrowserUIThreadScheduler::ScrollState::kNone);
     is_in_touchpad_gesture_fling_ = false;
     if (view_) {
       if (scroll_peak_gpu_mem_tracker_ &&
@@ -1642,6 +1650,8 @@ void RenderWidgetHostImpl::ForwardGestureEventWithLatencyInfo(
     scroll_peak_gpu_mem_tracker_ = nullptr;
   } else if (gesture_event.GetType() ==
              blink::WebInputEvent::Type::kGestureFlingStart) {
+    NotifyUISchedulerOfScrollStateUpdate(
+        BrowserUIThreadScheduler::ScrollState::kFlingActive);
     if (gesture_event.SourceDevice() == blink::WebGestureDevice::kTouchpad) {
       // TODO(crbug.com/797322): Remove the VR specific case when motion events
       // are used for Android VR event processing and VR touchpad scrolling is
@@ -1894,33 +1904,35 @@ void RenderWidgetHostImpl::DisableResizeAckCheckForTesting() {
 
 void RenderWidgetHostImpl::AddKeyPressEventCallback(
     const KeyPressEventCallback& callback) {
+  DCHECK(!base::Contains(key_press_event_callbacks_, callback));
   key_press_event_callbacks_.push_back(callback);
 }
 
 void RenderWidgetHostImpl::RemoveKeyPressEventCallback(
     const KeyPressEventCallback& callback) {
-  for (size_t i = 0; i < key_press_event_callbacks_.size(); ++i) {
-    if (key_press_event_callbacks_[i] == callback) {
-      key_press_event_callbacks_.erase(
-          key_press_event_callbacks_.begin() + i);
-      return;
-    }
-  }
+  base::Erase(key_press_event_callbacks_, callback);
 }
 
 void RenderWidgetHostImpl::AddMouseEventCallback(
     const MouseEventCallback& callback) {
+  DCHECK(!base::Contains(mouse_event_callbacks_, callback));
   mouse_event_callbacks_.push_back(callback);
 }
 
 void RenderWidgetHostImpl::RemoveMouseEventCallback(
     const MouseEventCallback& callback) {
-  for (size_t i = 0; i < mouse_event_callbacks_.size(); ++i) {
-    if (mouse_event_callbacks_[i] == callback) {
-      mouse_event_callbacks_.erase(mouse_event_callbacks_.begin() + i);
-      return;
-    }
-  }
+  base::Erase(mouse_event_callbacks_, callback);
+}
+
+void RenderWidgetHostImpl::AddSuppressShowingImeCallback(
+    const SuppressShowingImeCallback& callback) {
+  DCHECK(!base::Contains(suppress_showing_ime_callbacks_, callback));
+  suppress_showing_ime_callbacks_.push_back(callback);
+}
+
+void RenderWidgetHostImpl::RemoveSuppressShowingImeCallback(
+    const SuppressShowingImeCallback& callback) {
+  base::Erase(suppress_showing_ime_callbacks_, callback);
 }
 
 void RenderWidgetHostImpl::AddInputEventObserver(
@@ -2113,8 +2125,8 @@ void RenderWidgetHostImpl::InsertVisualStateCallback(
       mojo::WrapCallbackWithDefaultInvokeIfNotRun(std::move(callback), false)));
 }
 
-RenderProcessHost::Priority RenderWidgetHostImpl::GetPriority() {
-  RenderProcessHost::Priority priority = {
+RenderProcessHostPriorityClient::Priority RenderWidgetHostImpl::GetPriority() {
+  RenderProcessHostPriorityClient::Priority priority = {
     is_hidden_,
     frame_depth_,
     intersects_viewport_,
@@ -2787,7 +2799,8 @@ void RenderWidgetHostImpl::StartDragging(
     blink::mojom::DragDataPtr drag_data,
     blink::DragOperationsMask drag_operations_mask,
     const SkBitmap& bitmap,
-    const gfx::Vector2d& bitmap_offset_in_dip,
+    const gfx::Vector2d& cursor_offset_in_dip,
+    const gfx::Rect& drag_obj_rect_in_dip,
     blink::mojom::DragEventSourceInfoPtr event_info) {
   RenderViewHostDelegateView* view = delegate_->GetDelegateView();
   if (!view || !GetView()) {
@@ -2854,17 +2867,20 @@ void RenderWidgetHostImpl::StartDragging(
 
   float scale = GetScaleFactorForView(GetView());
   gfx::ImageSkia image = gfx::ImageSkia::CreateFromBitmap(bitmap, scale);
-  gfx::Vector2d offset = bitmap_offset_in_dip;
-#if !BUILDFLAG(IS_MAC)
+  gfx::Vector2d offset = cursor_offset_in_dip;
+  gfx::Rect rect = drag_obj_rect_in_dip;
+#if BUILDFLAG(IS_WIN)
   // Scale the offset by device scale factor, otherwise the drag
   // image location doesn't line up with the drop location (drag destination).
-  // (TODO: crbug.com/1298831) Remove !BUILDFLAG(IS_MAC) after fixing the drag
-  // icon position.
+  // TODO(crbug.com/1354831): this conversion should not be necessary.
   gfx::Vector2dF scaled_offset = static_cast<gfx::Vector2dF>(offset);
   scaled_offset.Scale(scale);
   offset = gfx::ToRoundedVector2d(scaled_offset);
+  gfx::RectF scaled_rect = static_cast<gfx::RectF>(rect);
+  scaled_rect.Scale(scale);
+  rect = gfx::ToRoundedRect(scaled_rect);
 #endif
-  view->StartDragging(filtered_data, drag_operations_mask, image, offset,
+  view->StartDragging(filtered_data, drag_operations_mask, image, offset, rect,
                       *event_info, this);
 }
 
@@ -2890,8 +2906,15 @@ TouchEmulator* RenderWidgetHostImpl::GetExistingTouchEmulator() {
 
 void RenderWidgetHostImpl::TextInputStateChanged(
     ui::mojom::TextInputStatePtr state) {
-  if (view_)
-    view_->TextInputStateChanged(*state);
+  if (!view_)
+    return;
+  for (auto& callback : suppress_showing_ime_callbacks_) {
+    if (callback.Run()) {
+      state->always_hide_ime = true;
+      break;
+    }
+  }
+  view_->TextInputStateChanged(*state);
 }
 
 void RenderWidgetHostImpl::OnImeCompositionRangeChanged(
@@ -3116,6 +3139,11 @@ void RenderWidgetHostImpl::IncrementInFlightEventCount() {
     StartInputEventAckTimeout();
 }
 
+void RenderWidgetHostImpl::NotifyUISchedulerOfScrollStateUpdate(
+    BrowserUIThreadScheduler::ScrollState scroll_state) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  BrowserUIThreadScheduler::Get()->OnScrollStateUpdate(scroll_state);
+}
 void RenderWidgetHostImpl::DecrementInFlightEventCount(
     blink::mojom::InputEventResultSource ack_source) {
   --in_flight_event_count_;

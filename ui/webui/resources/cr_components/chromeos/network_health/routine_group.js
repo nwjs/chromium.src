@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors. All rights reserved.
+// Copyright 2020 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,7 +12,7 @@ import './network_health_container.js';
 import {html, Polymer} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import {RoutineResult, RoutineVerdict} from 'chrome://resources/mojo/chromeos/services/network_health/public/mojom/network_diagnostics.mojom-webui.js';
 
-import {I18nBehavior} from '../../../js/i18n_behavior.m.js';
+import {I18nBehavior} from '../../../cr_elements/i18n_behavior.js';
 
 import {Icons, Routine} from './network_diagnostics_types.js';
 

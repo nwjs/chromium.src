@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors. All rights reserved.
+// Copyright 2013 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -613,12 +613,6 @@ void VideoResourceUpdater::AppendQuads(
       break;
     }
     case VideoFrameResourceType::YUV: {
-      const gfx::Size ya_tex_size = coded_size;
-
-      int u_width = frame->columns(VideoFrame::kUPlane);
-      int u_height = frame->rows(VideoFrame::kUPlane);
-      gfx::Size uv_tex_size(u_width, u_height);
-
       DCHECK_EQ(frame_resources_.size(),
                 VideoFrame::NumPlanes(frame->format()));
       if (frame->HasTextures()) {
@@ -627,34 +621,24 @@ void VideoResourceUpdater::AppendQuads(
                frame->format() == PIXEL_FORMAT_I420);
       }
 
-      // Compute the UV sub-sampling factor based on the ratio between
-      // |ya_tex_size| and |uv_tex_size|.
-      float uv_subsampling_factor_x =
-          static_cast<float>(ya_tex_size.width()) / uv_tex_size.width();
-      float uv_subsampling_factor_y =
-          static_cast<float>(ya_tex_size.height()) / uv_tex_size.height();
-      gfx::RectF ya_tex_coord_rect(visible_rect);
-      gfx::RectF uv_tex_coord_rect(
-          visible_rect.x() / uv_subsampling_factor_x,
-          visible_rect.y() / uv_subsampling_factor_y,
-          visible_rect.width() / uv_subsampling_factor_x,
-          visible_rect.height() / uv_subsampling_factor_y);
+      // Get the scaling factor of the YA texture relative to the UV texture.
+      const gfx::Size uv_sample_size =
+          VideoFrame::SampleSize(frame->format(), VideoFrame::kUPlane);
 
       auto* yuv_video_quad =
           render_pass->CreateAndAppendDrawQuad<viz::YUVVideoDrawQuad>();
       yuv_video_quad->SetNew(
           shared_quad_state, quad_rect, visible_quad_rect, needs_blending,
-          ya_tex_coord_rect, uv_tex_coord_rect, ya_tex_size, uv_tex_size,
-          frame_resources_[0].id, frame_resources_[1].id,
+          coded_size, visible_rect, uv_sample_size, frame_resources_[0].id,
+          frame_resources_[1].id,
           frame_resources_.size() > 2 ? frame_resources_[2].id
                                       : frame_resources_[1].id,
           frame_resources_.size() > 3 ? frame_resources_[3].id
                                       : viz::kInvalidResourceId,
           frame->ColorSpace(), frame_resource_offset_,
-          frame_resource_multiplier_, frame_bits_per_channel_);
-      yuv_video_quad->hdr_metadata = frame->hdr_metadata();
-      yuv_video_quad->protected_video_type =
-          ProtectedVideoTypeFromMetadata(frame->metadata());
+          frame_resource_multiplier_, frame_bits_per_channel_,
+          ProtectedVideoTypeFromMetadata(frame->metadata()),
+          frame->hdr_metadata());
 
       for (viz::ResourceId resource_id : yuv_video_quad->resources) {
         resource_provider_->ValidateResource(resource_id);
@@ -838,11 +822,11 @@ void VideoResourceUpdater::CopyHardwarePlane(
                              gpu::SyncToken());
   gpu::SyncToken sync_token = video_frame->UpdateReleaseSyncToken(&client);
 
-  auto transferable_resource = viz::TransferableResource::MakeGL(
+  auto transferable_resource = viz::TransferableResource::MakeGpu(
       hardware_resource->mailbox(), GL_LINEAR, GL_TEXTURE_2D, sync_token,
-      output_plane_resource_size, false /* is_overlay_candidate */);
+      output_plane_resource_size, copy_resource_format,
+      false /* is_overlay_candidate */);
   transferable_resource.color_space = resource_color_space;
-  transferable_resource.format = copy_resource_format;
   external_resources->resources.push_back(std::move(transferable_resource));
 
   external_resources->release_callbacks.push_back(base::BindOnce(
@@ -877,10 +861,12 @@ VideoFrameExternalResources VideoResourceUpdater::CreateForHardwarePlanes(
                 << VideoPixelFormatToString(video_frame->format());
     return external_resources;
   }
+  absl::optional<gfx::ColorSpace> resource_color_space_when_sampled;
   if (external_resources.type == VideoFrameResourceType::RGB ||
       external_resources.type == VideoFrameResourceType::RGBA ||
       external_resources.type == VideoFrameResourceType::RGBA_PREMULTIPLIED) {
-    resource_color_space = resource_color_space.GetAsFullRangeRGB();
+    resource_color_space_when_sampled =
+        resource_color_space.GetAsFullRangeRGB();
   }
 
   const size_t num_textures = video_frame->NumTextures();
@@ -890,23 +876,27 @@ VideoFrameExternalResources VideoResourceUpdater::CreateForHardwarePlanes(
       break;
 
     if (copy_required) {
-      CopyHardwarePlane(video_frame.get(), resource_color_space, mailbox_holder,
-                        &external_resources);
+      CopyHardwarePlane(
+          video_frame.get(),
+          resource_color_space_when_sampled.value_or(resource_color_space),
+          mailbox_holder, &external_resources);
     } else {
       const size_t width = video_frame->columns(i);
       const size_t height = video_frame->rows(i);
       const gfx::Size plane_size(width, height);
-      auto transfer_resource = viz::TransferableResource::MakeGL(
+      auto transfer_resource = viz::TransferableResource::MakeGpu(
           mailbox_holder.mailbox, GL_LINEAR, mailbox_holder.texture_target,
           mailbox_holder.sync_token, plane_size,
+          viz::GetResourceFormat(buffer_formats[i]),
           video_frame->metadata().allow_overlay);
       transfer_resource.color_space = resource_color_space;
+      transfer_resource.color_space_when_sampled =
+          resource_color_space_when_sampled;
       transfer_resource.hdr_metadata = video_frame->hdr_metadata();
       if (video_frame->metadata().read_lock_fences_enabled) {
         transfer_resource.synchronization_type = viz::TransferableResource::
             SynchronizationType::kGpuCommandsCompleted;
       }
-      transfer_resource.format = viz::GetResourceFormat(buffer_formats[i]);
       transfer_resource.ycbcr_info = video_frame->ycbcr_info();
 
 #if BUILDFLAG(IS_ANDROID)
@@ -1117,15 +1107,14 @@ VideoFrameExternalResources VideoResourceUpdater::CreateForSoftwarePlanes(
       gpu::SyncToken sync_token;
       auto* gl = ContextGL();
       GenerateCompositorSyncToken(gl, &sync_token);
-      transferable_resource = viz::TransferableResource::MakeGL(
+      transferable_resource = viz::TransferableResource::MakeGpu(
           hardware_resource->mailbox(), GL_LINEAR,
           hardware_resource->texture_target(), sync_token,
-          hardware_resource->resource_size(),
+          hardware_resource->resource_size(), output_resource_format,
           hardware_resource->overlay_candidate());
     }
 
     transferable_resource.color_space = output_color_space;
-    transferable_resource.format = output_resource_format;
     external_resources.resources.push_back(std::move(transferable_resource));
     external_resources.release_callbacks.push_back(base::BindOnce(
         &VideoResourceUpdater::RecycleResource, weak_ptr_factory_.GetWeakPtr(),
@@ -1238,7 +1227,7 @@ VideoFrameExternalResources VideoResourceUpdater::CreateForSoftwarePlanes(
           uint16_t* dst = reinterpret_cast<uint16_t*>(
               &upload_pixels_[upload_image_stride * row]);
           const uint16_t* src = reinterpret_cast<uint16_t*>(
-              video_frame->data(i) + (video_stride_bytes * row));
+              video_frame->writable_data(i) + (video_stride_bytes * row));
           half_float_maker->MakeHalfFloats(src, bytes_per_row / 2, dst);
         }
       } else if (needs_bit_downshifting) {
@@ -1246,7 +1235,7 @@ VideoFrameExternalResources VideoResourceUpdater::CreateForSoftwarePlanes(
                plane_resource_format == viz::RED_8);
         const int scale = 0x10000 >> (bits_per_channel - 8);
         libyuv::Convert16To8Plane(
-            reinterpret_cast<uint16_t*>(video_frame->data(i)),
+            reinterpret_cast<uint16_t*>(video_frame->writable_data(i)),
             video_stride_bytes / 2, upload_pixels_.get(), upload_image_stride,
             scale, bytes_per_row, resource_size_pixels.height());
       } else {
@@ -1284,12 +1273,11 @@ VideoFrameExternalResources VideoResourceUpdater::CreateForSoftwarePlanes(
 
   for (size_t i = 0; i < plane_resources.size(); ++i) {
     HardwarePlaneResource* plane_resource = plane_resources[i]->AsHardware();
-    auto transferable_resource = viz::TransferableResource::MakeGL(
+    auto transferable_resource = viz::TransferableResource::MakeGpu(
         plane_resource->mailbox(), GL_LINEAR, plane_resource->texture_target(),
-        sync_token, plane_resource->resource_size(),
+        sync_token, plane_resource->resource_size(), output_resource_format,
         plane_resource->overlay_candidate());
     transferable_resource.color_space = output_color_space;
-    transferable_resource.format = output_resource_format;
     external_resources.resources.push_back(std::move(transferable_resource));
     external_resources.release_callbacks.push_back(base::BindOnce(
         &VideoResourceUpdater::RecycleResource, weak_ptr_factory_.GetWeakPtr(),

@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -1578,7 +1578,8 @@ TEST_F(ManagePasswordsUIControllerTest, OpenSafeStateBubble) {
   std::vector<std::unique_ptr<PasswordForm>> results;
   results.push_back(std::make_unique<PasswordForm>(submitted_form()));
   EXPECT_CALL(*controller(), OnUpdateBubbleAndIconVisibility());
-  post_save_helper->OnGetPasswordStoreResults(std::move(results));
+  post_save_helper->OnGetPasswordStoreResultsOrErrorFrom(
+      client().GetProfilePasswordStore(), std::move(results));
   WaitForPasswordStore();
 
   EXPECT_TRUE(controller()->opened_automatic_bubble());
@@ -1627,7 +1628,8 @@ TEST_F(ManagePasswordsUIControllerTest, OpenMoreToFixBubble) {
   EXPECT_CALL(*controller(), OnUpdateBubbleAndIconVisibility());
   controller()->OnBubbleHidden();
   EXPECT_CALL(*controller(), OnUpdateBubbleAndIconVisibility());
-  post_save_helper->OnGetPasswordStoreResults(std::move(results));
+  post_save_helper->OnGetPasswordStoreResultsOrErrorFrom(
+      client().GetProfilePasswordStore(), std::move(results));
   WaitForPasswordStore();
 
   EXPECT_TRUE(controller()->opened_automatic_bubble());

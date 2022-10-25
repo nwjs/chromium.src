@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors. All rights reserved.
+// Copyright 2013 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -760,14 +760,14 @@ void ShellContentBrowserClient::OnNetworkServiceCreated(
   }
 }
 
-blink::ParsedPermissionsPolicy
+absl::optional<blink::ParsedPermissionsPolicy>
 ShellContentBrowserClient::GetPermissionsPolicyForIsolatedApp(
     content::BrowserContext* browser_context,
     const url::Origin& app_origin) {
   blink::ParsedPermissionsPolicyDeclaration decl(
       blink::mojom::PermissionsPolicyFeature::kDirectSockets, {app_origin},
       /*matches_all_origins=*/false, /*matches_opaque_src=*/false);
-  return {decl};
+  return {{decl}};
 }
 
 }  // namespace content

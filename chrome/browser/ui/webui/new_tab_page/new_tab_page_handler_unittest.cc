@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors. All rights reserved.
+// Copyright 2020 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,6 +8,7 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/mock_callback.h"
+#include "base/test/scoped_feature_list.h"
 #include "chrome/browser/new_tab_page/promos/promo_data.h"
 #include "chrome/browser/new_tab_page/promos/promo_service.h"
 #include "chrome/browser/new_tab_page/promos/promo_service_factory.h"
@@ -21,8 +22,11 @@
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_observer.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
+#include "chrome/browser/ui/hats/hats_service_factory.h"
+#include "chrome/browser/ui/hats/mock_hats_service.h"
 #include "chrome/browser/ui/webui/new_tab_page/new_tab_page.mojom.h"
 #include "chrome/browser/ui/webui/webui_util.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/theme_resources.h"
@@ -77,6 +81,7 @@ class MockPage : public new_tab_page::mojom::Page {
   MOCK_METHOD2(SetDisabledModules, void(bool, const std::vector<std::string>&));
   MOCK_METHOD1(SetModulesFreVisibility, void(bool));
   MOCK_METHOD1(CustomizeChromeSidePanelVisibilityChanged, void(bool));
+  MOCK_METHOD1(SetPromo, void(new_tab_page::mojom::PromoPtr));
 
   mojo::Receiver<new_tab_page::mojom::Page> receiver_{this};
 };
@@ -182,7 +187,13 @@ class NewTabPageHandlerTest : public testing::Test {
         mock_ntp_custom_background_service_(profile_.get()),
         mock_promo_service_(*static_cast<MockPromoService*>(
             PromoServiceFactory::GetForProfile(profile_.get()))),
-        web_contents_(factory_.CreateWebContents(profile_.get())) {}
+        web_contents_(factory_.CreateWebContents(profile_.get())) {
+    mock_hats_service_ = static_cast<MockHatsService*>(
+        HatsServiceFactory::GetInstance()->SetTestingFactoryAndUse(
+            profile_.get(), base::BindRepeating(&BuildMockHatsService)));
+    EXPECT_CALL(*mock_hats_service(), CanShowAnySurvey(_))
+        .WillRepeatedly(testing::Return(true));
+  }
 
   ~NewTabPageHandlerTest() override = default;
 
@@ -255,6 +266,7 @@ class NewTabPageHandlerTest : public testing::Test {
   testing::NiceMock<MockThemeService> mock_theme_service_;
   MockLogoService mock_logo_service_;
   MockColorProviderSource mock_color_provider_source_;
+  MockHatsService* mock_hats_service() { return mock_hats_service_; }
   testing::NiceMock<MockThemeProvider> mock_theme_provider_;
   MockPromoService& mock_promo_service_;
   content::TestWebContentsFactory factory_;
@@ -264,9 +276,29 @@ class NewTabPageHandlerTest : public testing::Test {
   ThemeServiceObserver* theme_service_observer_;
   NtpCustomBackgroundServiceObserver* ntp_custom_background_service_observer_;
   PromoServiceObserver* promo_service_observer_;
+
+ private:
+  raw_ptr<MockHatsService> mock_hats_service_;
 };
 
-TEST_F(NewTabPageHandlerTest, SetTheme) {
+class NewTabPageHandlerThemeTest : public NewTabPageHandlerTest,
+                                   public ::testing::WithParamInterface<bool> {
+ public:
+  NewTabPageHandlerThemeTest() {
+    if (RemoveScrim()) {
+      feature_list_.InitAndEnableFeature(ntp_features::kNtpRemoveScrim);
+    } else {
+      feature_list_.InitAndDisableFeature(ntp_features::kNtpRemoveScrim);
+    }
+  }
+
+  bool RemoveScrim() const { return GetParam(); }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+TEST_P(NewTabPageHandlerThemeTest, SetTheme) {
   new_tab_page::mojom::ThemePtr theme;
   EXPECT_CALL(mock_page_, SetTheme)
       .Times(1)
@@ -300,32 +332,6 @@ TEST_F(NewTabPageHandlerTest, SetTheme) {
       .WillByDefault(testing::Return(true));
   mock_color_provider_source_.SetColor(
       kColorNewTabPageMostVisitedTileBackground, SkColorSetRGB(0, 0, 4));
-  mock_color_provider_source_.SetColor(kColorNewTabPageSearchBoxBackground,
-                                       SkColorSetRGB(0, 0, 5));
-  mock_color_provider_source_.SetColor(kColorOmniboxResultsIcon,
-                                       SkColorSetRGB(0, 0, 6));
-  mock_color_provider_source_.SetColor(kColorOmniboxResultsIconSelected,
-                                       SkColorSetRGB(0, 0, 7));
-  mock_color_provider_source_.SetColor(kColorOmniboxTextDimmed,
-                                       SkColorSetRGB(0, 0, 8));
-  mock_color_provider_source_.SetColor(kColorOmniboxResultsBackground,
-                                       SkColorSetRGB(0, 0, 9));
-  mock_color_provider_source_.SetColor(kColorOmniboxResultsBackgroundHovered,
-                                       SkColorSetRGB(0, 0, 10));
-  mock_color_provider_source_.SetColor(kColorOmniboxResultsBackgroundSelected,
-                                       SkColorSetRGB(0, 0, 11));
-  mock_color_provider_source_.SetColor(kColorOmniboxResultsTextDimmed,
-                                       SkColorSetRGB(0, 0, 12));
-  mock_color_provider_source_.SetColor(kColorOmniboxResultsTextDimmedSelected,
-                                       SkColorSetRGB(0, 0, 13));
-  mock_color_provider_source_.SetColor(kColorOmniboxText,
-                                       SkColorSetRGB(0, 0, 14));
-  mock_color_provider_source_.SetColor(kColorOmniboxResultsTextSelected,
-                                       SkColorSetRGB(0, 0, 15));
-  mock_color_provider_source_.SetColor(kColorOmniboxResultsUrl,
-                                       SkColorSetRGB(0, 0, 16));
-  mock_color_provider_source_.SetColor(kColorOmniboxResultsUrlSelected,
-                                       SkColorSetRGB(0, 0, 17));
 
   theme_service_observer_->OnThemeChanged();
   mock_page_.FlushForTesting();
@@ -349,6 +355,12 @@ TEST_F(NewTabPageHandlerTest, SetTheme) {
   EXPECT_EQ("no-repeat", theme->background_image->repeat_y);
   EXPECT_EQ("center", theme->background_image->position_x);
   EXPECT_EQ("top", theme->background_image->position_y);
+  if (RemoveScrim()) {
+    EXPECT_TRUE(theme->background_image->scrim_display.has_value());
+    EXPECT_EQ("none", theme->background_image->scrim_display.value());
+  } else {
+    EXPECT_FALSE(theme->background_image->scrim_display.has_value());
+  }
   EXPECT_FALSE(theme->background_image_attribution_1.has_value());
   EXPECT_FALSE(theme->background_image_attribution_2.has_value());
   EXPECT_FALSE(theme->background_image_attribution_url.has_value());
@@ -357,23 +369,9 @@ TEST_F(NewTabPageHandlerTest, SetTheme) {
   EXPECT_TRUE(theme->most_visited->use_white_tile_icon);
   EXPECT_TRUE(theme->most_visited->use_title_pill);
   EXPECT_EQ(false, theme->most_visited->is_dark);
-  EXPECT_EQ(SkColorSetRGB(0, 0, 5), theme->search_box->bg);
-  EXPECT_EQ(SkColorSetRGB(0, 0, 6), theme->search_box->icon);
-  EXPECT_EQ(SkColorSetRGB(0, 0, 7), theme->search_box->icon_selected);
-  EXPECT_EQ(SkColorSetRGB(0, 0, 8), theme->search_box->placeholder);
-  EXPECT_EQ(SkColorSetRGB(0, 0, 9), theme->search_box->results_bg);
-  EXPECT_EQ(SkColorSetRGB(0, 0, 10), theme->search_box->results_bg_hovered);
-  EXPECT_EQ(SkColorSetRGB(0, 0, 11), theme->search_box->results_bg_selected);
-  EXPECT_EQ(SkColorSetRGB(0, 0, 12), theme->search_box->results_dim);
-  EXPECT_EQ(SkColorSetRGB(0, 0, 13), theme->search_box->results_dim_selected);
-  EXPECT_EQ(SkColorSetRGB(0, 0, 14), theme->search_box->results_text);
-  EXPECT_EQ(SkColorSetRGB(0, 0, 15), theme->search_box->results_text_selected);
-  EXPECT_EQ(SkColorSetRGB(0, 0, 16), theme->search_box->results_url);
-  EXPECT_EQ(SkColorSetRGB(0, 0, 17), theme->search_box->results_url_selected);
-  EXPECT_EQ(SkColorSetRGB(0, 0, 14), theme->search_box->text);
 }
 
-TEST_F(NewTabPageHandlerTest, SetCustomBackground) {
+TEST_P(NewTabPageHandlerThemeTest, SetCustomBackground) {
   new_tab_page::mojom::ThemePtr theme;
   EXPECT_CALL(mock_page_, SetTheme)
       .Times(1)
@@ -413,7 +411,15 @@ TEST_F(NewTabPageHandlerTest, SetCustomBackground) {
   EXPECT_EQ("bar line", theme->background_image_attribution_2);
   EXPECT_EQ("https://foo.com/action", theme->background_image_attribution_url);
   EXPECT_EQ("baz collection", theme->daily_refresh_collection_id);
+  if (RemoveScrim()) {
+    EXPECT_TRUE(theme->background_image->scrim_display.has_value());
+    EXPECT_EQ("none", theme->background_image->scrim_display.value());
+  } else {
+    EXPECT_FALSE(theme->background_image->scrim_display.has_value());
+  }
 }
+
+INSTANTIATE_TEST_SUITE_P(All, NewTabPageHandlerThemeTest, ::testing::Bool());
 
 TEST_F(NewTabPageHandlerTest, Histograms) {
   histogram_tester_.ExpectTotalCount(
@@ -549,7 +555,7 @@ TEST_F(NewTabPageHandlerTest, GetInteractiveDoodle) {
   EXPECT_EQ("alt text", doodle->description);
 }
 
-TEST_F(NewTabPageHandlerTest, GetPromo) {
+TEST_F(NewTabPageHandlerTest, UpdatePromoData) {
   PromoData promo_data;
   promo_data.middle_slot_json = R"({
     "part": [{
@@ -578,13 +584,13 @@ TEST_F(NewTabPageHandlerTest, GetPromo) {
   EXPECT_CALL(mock_promo_service_, Refresh).Times(1);
 
   new_tab_page::mojom::PromoPtr promo;
-  base::MockCallback<NewTabPageHandler::GetPromoCallback> callback;
-  EXPECT_CALL(callback, Run(testing::_))
+  EXPECT_CALL(mock_page_, SetPromo)
       .Times(1)
       .WillOnce(testing::Invoke([&promo](new_tab_page::mojom::PromoPtr arg) {
         promo = std::move(arg);
       }));
-  handler_->GetPromo(callback.Get());
+  handler_->UpdatePromoData();
+  mock_page_.FlushForTesting();
 
   ASSERT_TRUE(promo);
   EXPECT_EQ("foo", promo->id);
@@ -675,6 +681,40 @@ TEST_F(NewTabPageHandlerTest, GetModulesOrder) {
 
   handler_->GetModulesOrder(callback.Get());
   EXPECT_THAT(module_ids, ElementsAre("foo", "bar", "baz"));
+}
+
+TEST_F(NewTabPageHandlerTest, SurveyLaunchedEligibleModulesCriteria) {
+  base::test::ScopedFeatureList features;
+  features.InitWithFeaturesAndParameters(
+      {
+          {features::kHappinessTrackingSurveysForDesktopNtpModules,
+           {{ntp_features::kNtpModulesEligibleForHappinessTrackingSurveyParam,
+             "recipe_tasks,drive"}}},
+      },
+      {});
+
+  EXPECT_CALL(*mock_hats_service(),
+              LaunchDelayedSurveyForWebContents(_, _, _, _, _, _))
+      .Times(1);
+  const std::vector<std::string> module_ids = {"recipe_tasks", "cart"};
+  handler_->OnModulesLoadedWithData(module_ids);
+}
+
+TEST_F(NewTabPageHandlerTest, SurveyLaunchSkippedEligibleModulesCriteria) {
+  base::test::ScopedFeatureList features;
+  features.InitWithFeaturesAndParameters(
+      {
+          {features::kHappinessTrackingSurveysForDesktopNtpModules,
+           {{ntp_features::kNtpModulesEligibleForHappinessTrackingSurveyParam,
+             "drive"}}},
+      },
+      {});
+
+  EXPECT_CALL(*mock_hats_service(),
+              LaunchDelayedSurveyForWebContents(_, _, _, _, _, _))
+      .Times(0);
+  const std::vector<std::string> module_ids = {"recipe_tasks"};
+  handler_->OnModulesLoadedWithData(module_ids);
 }
 
 TEST_F(NewTabPageHandlerTest, UpdateNtpModulesFreVisibility) {

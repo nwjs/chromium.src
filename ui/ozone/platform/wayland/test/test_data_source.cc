@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -27,7 +27,7 @@ void DataSourceSetActions(wl_client* client,
 }
 
 struct WlDataSourceImpl : public TestSelectionSource::Delegate {
-  explicit WlDataSourceImpl(TestDataSource* offer) : source_(offer) {}
+  explicit WlDataSourceImpl(TestDataSource* source) : source_(source) {}
   ~WlDataSourceImpl() override = default;
 
   WlDataSourceImpl(const WlDataSourceImpl&) = delete;
@@ -46,6 +46,11 @@ struct WlDataSourceImpl : public TestSelectionSource::Delegate {
 
   void SendCancelled() override {
     wl_data_source_send_cancelled(source_->resource());
+  }
+
+  void SendDndAction(uint32_t action) override {
+    wl_data_source_send_action(source_->resource(), action);
+    wl_client_flush(wl_resource_get_client(source_->resource()));
   }
 
   void OnDestroying() override { delete this; }

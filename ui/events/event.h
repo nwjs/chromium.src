@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -324,7 +324,7 @@ class EVENTS_EXPORT Event {
   // responsible for tracking it.
   //
   // TODO(crbug.com/1298696): Breaks events_unittests.
-  raw_ptr<EventTarget, DegradeToNoOpWhenMTE> target_ = nullptr;
+  raw_ptr<EventTarget, DanglingUntriagedDegradeToNoOpWhenMTE> target_ = nullptr;
   EventPhase phase_ = EP_PREDISPATCH;
   EventResult result_ = ER_UNHANDLED;
 

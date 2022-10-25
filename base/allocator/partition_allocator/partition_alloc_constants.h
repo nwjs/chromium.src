@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The Chromium Authors. All rights reserved.
+// Copyright 2018 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -179,6 +179,7 @@ constexpr size_t kHighThresholdForAlternateDistribution =
 //     | Metadata page (4 KiB) |
 //     | Guard pages (8 KiB)   |
 //     | TagBitmap             |
+//     | Free Slot Bitmap      |
 //     | *Scan State Bitmap    |
 //     | Slot span             |
 //     | Slot span             |
@@ -188,8 +189,9 @@ constexpr size_t kHighThresholdForAlternateDistribution =
 //     +-----------------------+
 //
 // TagBitmap is only present when
-// defined(PA_USE_MTE_CHECKED_PTR_WITH_64_BITS_POINTERS) is true. State Bitmap
-// is inserted for partitions that may have quarantine enabled.
+// defined(PA_ENABLE_MTE_CHECKED_PTR_SUPPORT_WITH_64_BITS_POINTERS) is true.
+// Free Slot Bitmap is only present when USE_FREESLOT_BITMAP is true. State
+// Bitmap is inserted for partitions that may have quarantine enabled.
 //
 // If refcount_at_end_allocation is enabled, RefcountBitmap(4KiB) is inserted
 // after the Metadata page for BackupRefPtr. The guard pages after the bitmap
@@ -368,8 +370,10 @@ constexpr size_t kMinBucketedOrder =
 constexpr size_t kMaxBucketedOrder = 20;
 constexpr size_t kNumBucketedOrders =
     (kMaxBucketedOrder - kMinBucketedOrder) + 1;
-// 4 buckets per order (for the higher orders).
-constexpr size_t kNumBucketsPerOrderBits = 2;
+// 8 buckets per order (for the higher orders).
+// Note: this is not what is used by default, but the maximum amount of buckets
+// per order. By default, only 4 are used.
+constexpr size_t kNumBucketsPerOrderBits = 3;
 constexpr size_t kNumBucketsPerOrder = 1 << kNumBucketsPerOrderBits;
 constexpr size_t kNumBuckets = kNumBucketedOrders * kNumBucketsPerOrder;
 constexpr size_t kSmallestBucket = 1 << (kMinBucketedOrder - 1);
@@ -447,6 +451,17 @@ constexpr unsigned char kQuarantinedByte = 0xEF;
 // static_cast<uint32_t>(-1) is too close to a "real" size.
 constexpr size_t kInvalidBucketSize = 1;
 
+#if defined(PA_ENABLE_MAC11_MALLOC_SIZE_HACK)
+// Requested size that require the hack.
+constexpr size_t kMac11MallocSizeHackRequestedSize = 32;
+// Usable size for allocations that require the hack.
+constexpr size_t kMac11MallocSizeHackUsableSize =
+#if BUILDFLAG(PA_DCHECK_IS_ON)
+    40;
+#else
+    44;
+#endif  // BUILDFLAG(PA_DCHECK_IS_ON)
+#endif  // defined(PA_ENABLE_MAC11_MALLOC_SIZE_HACK)
 }  // namespace internal
 
 // These constants are used outside PartitionAlloc itself, so we provide

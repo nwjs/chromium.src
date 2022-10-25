@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -303,7 +303,7 @@ class AURA_EXPORT WindowTreeHost : public ui::ImeKeyEventDispatcher,
   // absl::nullopt if the state is not known.
   absl::optional<bool> on_current_workspace() const {
     return on_current_workspace_;
-  };
+  }
 
   // Determining if a host's window is on the current workspace can be very
   // expensive COM call on Windows, so this caches that information.

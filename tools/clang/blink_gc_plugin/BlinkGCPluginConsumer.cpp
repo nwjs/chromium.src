@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors. All rights reserved.
+// Copyright 2015 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -253,9 +253,13 @@ void BlinkGCPluginConsumer::CheckClass(RecordInfo* info) {
     if (!info->IsGCMixin()) {
       CheckLeftMostDerived(info);
       CheckDispatch(info);
-      if (CXXMethodDecl* newop = info->DeclaresNewOperator())
-        if (!Config::IsIgnoreAnnotated(newop))
+      if (CXXMethodDecl* newop = info->DeclaresNewOperator()) {
+        if (!info->IsStackAllocated() &&
+            !Config::IsGCBase(newop->getParent()->getName()) &&
+            !Config::IsIgnoreAnnotated(newop)) {
           reporter_.ClassOverridesNew(info, newop);
+        }
+      }
     }
 
     {
@@ -423,7 +427,7 @@ void BlinkGCPluginConsumer::CheckDispatch(RecordInfo* info) {
   // If this is a non-abstract class check that it is dispatched to.
   // TODO: Create a global variant of this local check. We can only check if
   // the dispatch body is known in this compilation unit.
-  if (info->IsConsideredAbstract())
+  if (info->IsConsideredAbstract(options_.fix_bugs_of_is_considered_abstract))
     return;
 
   const FunctionDecl* defn;

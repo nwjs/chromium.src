@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors. All rights reserved.
+// Copyright 2018 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -487,11 +487,11 @@ base::UnguessableToken Portal::GetDevToolsFrameToken() const {
   return portal_contents_->GetPrimaryMainFrame()->GetDevToolsFrameToken();
 }
 
-WebContentsImpl* Portal::GetPortalContents() {
+WebContentsImpl* Portal::GetPortalContents() const {
   return portal_contents_.get();
 }
 
-WebContentsImpl* Portal::GetPortalHostContents() {
+WebContentsImpl* Portal::GetPortalHostContents() const {
   return static_cast<WebContentsImpl*>(
       WebContents::FromRenderFrameHost(owner_render_frame_host_));
 }
@@ -651,8 +651,6 @@ void Portal::ActivateImpl(blink::TransferableMessage data,
 
   TakeHistoryForActivation(successor_contents_raw, outer_contents);
 
-  devtools_instrumentation::PortalActivated(
-      outer_contents->GetPrimaryMainFrame());
   successor_contents_raw->set_portal(nullptr);
 
   // It's important we call this before destroying the outer contents'
@@ -664,6 +662,8 @@ void Portal::ActivateImpl(blink::TransferableMessage data,
       delegate->ActivatePortalWebContents(outer_contents,
                                           std::move(successor_contents));
   DCHECK_EQ(predecessor_web_contents.get(), outer_contents);
+
+  devtools_instrumentation::PortalActivated(*this);
 
   if (outer_contents_main_frame_view) {
     portal_contents_main_frame_view->TransferTouches(touch_events);

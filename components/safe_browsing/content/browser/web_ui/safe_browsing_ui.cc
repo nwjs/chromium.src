@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors. All rights reserved.
+// Copyright 2017 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -734,6 +734,10 @@ base::Value::Dict SerializeChromeUserPopulation(
     page_load_tokens.Append(std::move(token_dict));
   }
   population_dict.Set("page_load_tokens", std::move(page_load_tokens));
+
+  if (population.has_is_signed_in()) {
+    population_dict.Set("is_signed_in", population.is_signed_in());
+  }
 
   return population_dict;
 }

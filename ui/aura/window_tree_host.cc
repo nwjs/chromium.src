@@ -1,4 +1,4 @@
-// Copyright (c) 2013 The Chromium Authors. All rights reserved.
+// Copyright 2013 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -435,6 +435,7 @@ void WindowTreeHost::SetNativeWindowOcclusionState(
     return;
 
   occlusion_state_ = state;
+  occluded_region_ = occluded_region;
 
   if (compositor() && accelerated_widget_made_visible_ &&
       NativeWindowOcclusionTracker::

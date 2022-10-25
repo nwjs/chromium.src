@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors. All rights reserved.
+// Copyright 2018 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -244,6 +244,13 @@ class WaylandDataDragControllerTest : public WaylandDragDropTest {
           self->Sync();
         },
         base::Unretained(this)));
+  }
+
+  void ScheduleDataDeviceAction(uint32_t action) {
+    ScheduleTestTask(base::BindLambdaForTesting([this, action]() {
+      SendDndAction(action);
+      Sync();
+    }));
   }
 
   void FocusAndPressLeftPointerButton(WaylandWindow* window,
@@ -676,6 +683,7 @@ TEST_P(WaylandDataDragControllerTest, ValidateDroppedXMozUrl) {
 TEST_P(WaylandDataDragControllerTest, StartAndCancel) {
   FocusAndPressLeftPointerButton(window_.get(), &delegate_);
 
+  ScheduleDataDeviceAction(WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE);
   // Schedule a wl_data_source::cancelled event to be sent asynchronously
   // once the drag session gets started.
   ScheduleDragCancel();

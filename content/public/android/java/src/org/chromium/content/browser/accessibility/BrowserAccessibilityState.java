@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors. All rights reserved.
+// Copyright 2018 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -200,6 +200,7 @@ public class BrowserAccessibilityState {
         ArrayList<String> runningServiceNames = new ArrayList<String>();
         int i = 0;
         for (AccessibilityServiceInfo service : services) {
+            if (service == null) continue;
             sEventTypeMask |= service.eventTypes;
             sFeedbackTypeMask |= service.feedbackType;
             sFlagsMask |= service.flags;

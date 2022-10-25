@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors. All rights reserved.
+// Copyright 2013 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -440,6 +440,18 @@ class CONTENT_EXPORT NavigationControllerImpl : public NavigationController {
     return in_navigate_to_pending_entry_;
   }
 
+  // Whether to maintain a session history with just one entry.
+  //
+  // This returns true for a prerendering page and for fenced frames.
+  // `frame_tree_node` is checked to see if it belongs to a frame tree for
+  // prerendering or for a fenced frame.
+  // Explainer:
+  // https://github.com/jeremyroman/alternate-loading-modes/blob/main/browsing-context.md#session-history)
+  //
+  // TODO(crbug.com/914108): Consider portals here as well.
+  bool ShouldMaintainTrivialSessionHistory(
+      const FrameTreeNode* frame_tree_node) const;
+
  private:
   friend class RestoreHelper;
 
@@ -776,18 +788,6 @@ class CONTENT_EXPORT NavigationControllerImpl : public NavigationController {
       FrameNavigationEntry* current_entry,
       FrameNavigationEntry* target_entry,
       const std::string& navigation_api_key);
-
-  // Whether to maintain a session history with just one entry.
-  //
-  // This returns true for a prerendering page and for fenced frames.
-  // `frame_tree_node` is checked to see if it belongs to a frame tree for
-  // prerendering or for a fenced frame.
-  // Explainer:
-  // https://github.com/jeremyroman/alternate-loading-modes/blob/main/browsing-context.md#session-history)
-  //
-  // Portals will be added to this in the future.
-  bool ShouldMaintainTrivialSessionHistory(
-      const FrameTreeNode* frame_tree_node) const;
 
   // ---------------------------------------------------------------------------
 

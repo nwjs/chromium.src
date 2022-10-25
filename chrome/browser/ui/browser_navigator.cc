@@ -1,5 +1,4 @@
-
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -533,10 +532,10 @@ class ScopedBrowserShower {
         window->Activate();
       }
     } else if (params_->window_action == NavigateParams::SHOW_WINDOW_FULLSCREEN) {
-      BrowserWindow* window = params_->browser->window();
+      BrowserWindow* window2 = params_->browser->window();
       BrowserFrame* frame = BrowserView::GetBrowserViewForBrowser(params_->browser)->frame();
       frame->SetFullscreen(true);
-      window->Show();
+      window2->Show();
     }
   }
 

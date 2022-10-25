@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -290,7 +290,7 @@ TEST_F(ContentSuggestionsMediatorTest,
   [mediator_ loadSuggestedQuery:config];
   EXPECT_EQ(url, url_loader_->last_params.web_params.url);
   EXPECT_TRUE(ui::PageTransitionCoreTypeIs(
-      ui::PAGE_TRANSITION_AUTO_BOOKMARK,
+      ui::PAGE_TRANSITION_LINK,
       url_loader_->last_params.web_params.transition_type));
   histogram_tester_->ExpectUniqueSample(
       "IOS.ContentSuggestions.ActionOnNTP",

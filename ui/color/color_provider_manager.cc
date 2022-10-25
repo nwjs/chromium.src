@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors. All rights reserved.
+// Copyright 2020 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,6 +8,7 @@
 
 #include "base/bind.h"
 #include "base/check.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/no_destructor.h"
 #include "build/build_config.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
@@ -147,6 +148,8 @@ ColorProvider* ColorProviderManager::GetColorProviderFor(Key key) {
 
     provider->GenerateColorMap();
     iter = color_providers_.Put(key, std::move(provider));
+    base::UmaHistogramExactLinear("Views.ColorProviderCacheSize",
+                                  color_providers_.size(), kCacheSize);
   }
   ColorProvider* provider = iter->second.get();
   DCHECK(provider);

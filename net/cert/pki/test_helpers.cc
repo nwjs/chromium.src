@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors. All rights reserved.
+// Copyright 2015 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -236,7 +236,7 @@ bool ReadVerifyCertChainTestFromFile(const std::string& file_path_ascii,
       ReadCertChainFromFile(chain_path, &test->chain);
     } else if (GetValue("utc_time: ", line_piece, &value, &has_time)) {
       if (value == "DEFAULT") {
-        value = "211005120000Z";
+        value = "221005120000Z";
       }
       if (!der::ParseUTCTime(der::Input(&value), &test->time)) {
         ADD_FAILURE() << "Failed parsing UTC time";

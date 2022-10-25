@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors. All rights reserved.
+// Copyright 2020 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -162,7 +162,6 @@ class CONTENT_EXPORT AttributionManagerImpl : public AttributionManager {
 
   void NotifySourcesChanged();
   void NotifyReportsChanged(AttributionReport::ReportType report_type);
-  void NotifySourceDeactivated(const StoredSource& source);
   void NotifyReportSent(bool is_debug_report, AttributionReport, SendResult);
 
   bool IsReportAllowed(const AttributionReport&) const;

@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -299,7 +299,7 @@ class TestBluetoothDelegate : public BluetoothDelegate {
       PairingKind pairing_kind,
       const absl::optional<std::u16string>& pin) override {
     std::move(callback).Run(PairPromptResult(PairPromptStatus::kCancelled));
-  };
+  }
 
   blink::WebBluetoothDeviceId GetWebBluetoothDeviceId(
       RenderFrameHost* frame,

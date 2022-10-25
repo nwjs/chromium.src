@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -29,8 +29,6 @@
 #include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/browser/web_applications/web_app_helpers.h"
-#include "chrome/browser/web_applications/web_app_install_info.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -785,7 +783,7 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest, SwitchToTabCorrectWindow) {
 #if !BUILDFLAG(IS_CHROMEOS_LACROS)
 // This test verifies that "switch to tab" prefers the latest used browser,
 // if multiple exist.
-IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest, SwitchToTabLatestWindow) {
+IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest, DISABLED_SwitchToTabLatestWindow) {
   // Navigate to a site.
   NavigateHelper(GURL("http://maps.google.com/"), browser(),
                  WindowOpenDisposition::CURRENT_TAB, true);

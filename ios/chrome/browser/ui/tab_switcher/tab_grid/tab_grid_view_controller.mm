@@ -1,15 +1,15 @@
-// Copyright 2018 The Chromium Authors. All rights reserved.
+// Copyright 2018 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/tab_grid_view_controller.h"
 
-#include "base/bind.h"
-#include "base/metrics/histogram_macros.h"
-#include "base/metrics/user_metrics.h"
-#include "base/metrics/user_metrics_action.h"
-#include "base/strings/sys_string_conversions.h"
-#include "ios/chrome/browser/crash_report/crash_keys_helper.h"
+#import "base/bind.h"
+#import "base/metrics/histogram_macros.h"
+#import "base/metrics/user_metrics.h"
+#import "base/metrics/user_metrics_action.h"
+#import "base/strings/sys_string_conversions.h"
+#import "ios/chrome/browser/crash_report/crash_keys_helper.h"
 #import "ios/chrome/browser/ui/commands/application_commands.h"
 #import "ios/chrome/browser/ui/commands/popup_menu_commands.h"
 #import "ios/chrome/browser/ui/default_promo/default_browser_utils.h"
@@ -35,18 +35,17 @@
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/thumb_strip_plus_sign_button.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/transitions/grid_transition_layout.h"
 #import "ios/chrome/browser/ui/table_view/chrome_table_view_styler.h"
-#include "ios/chrome/browser/ui/ui_feature_flags.h"
+#import "ios/chrome/browser/ui/ui_feature_flags.h"
 #import "ios/chrome/browser/ui/util/layout_guide_names.h"
 #import "ios/chrome/browser/ui/util/named_guide.h"
 #import "ios/chrome/browser/ui/util/rtl_geometry.h"
-#include "ios/chrome/browser/ui/util/rtl_geometry.h"
 #import "ios/chrome/browser/ui/util/uikit_ui_util.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
-#include "ios/chrome/grit/ios_strings.h"
-#include "ios/web/public/thread/web_task_traits.h"
-#include "ios/web/public/thread/web_thread.h"
-#include "ui/base/l10n/l10n_util.h"
+#import "ios/chrome/grit/ios_strings.h"
+#import "ios/web/public/thread/web_task_traits.h"
+#import "ios/web/public/thread/web_thread.h"
+#import "ui/base/l10n/l10n_util.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
 #error "This file requires ARC support."
@@ -1255,7 +1254,6 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   // The styler must be set before the view controller is loaded.
   ChromeTableViewStyler* styler = [[ChromeTableViewStyler alloc] init];
   styler.tableViewBackgroundColor = [UIColor colorNamed:kGridBackgroundColor];
-  styler.cellHighlightColor = [UIColor colorNamed:kTableViewRowHighlightColor];
   self.remoteTabsViewController.overrideUserInterfaceStyle =
       UIUserInterfaceStyleDark;
   self.remoteTabsViewController.styler = styler;
@@ -1499,27 +1497,7 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   self.bottomToolbar.mode = self.tabGridMode;
   self.topToolbar.mode = self.tabGridMode;
 
-  GridViewController* gridViewController =
-      [self gridViewControllerForPage:self.currentPage];
-  NSArray<NSString*>* items =
-      gridViewController.selectedShareableItemIDsForEditing;
-  UIMenu* menu = nil;
-  switch (self.currentPage) {
-    case TabGridPageIncognitoTabs:
-      menu =
-          [UIMenu menuWithChildren:[self.incognitoTabsDelegate
-                                       addToButtonMenuElementsForItems:items]];
-      break;
-    case TabGridPageRegularTabs:
-      menu =
-          [UIMenu menuWithChildren:[self.regularTabsDelegate
-                                       addToButtonMenuElementsForItems:items]];
-      break;
-    case TabGridPageRemoteTabs:
-      // No-op, Add To button inaccessible in remote tabs page.
-      break;
-  }
-  [self.bottomToolbar setAddToButtonMenu:menu];
+  [self configureAddToButtonMenuForSelectedItems];
   BOOL incognitoTabsNeedsAuth =
       (self.currentPage == TabGridPageIncognitoTabs &&
        self.incognitoTabsViewController.contentNeedsAuthentication);
@@ -1560,6 +1538,31 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   [self configureDoneButtonBasedOnPage:self.currentPage];
   [self configureNewTabButtonBasedOnContentPermissions];
   [self configureCloseAllButtonForCurrentPageAndUndoAvailability];
+}
+
+// Updates the add to menu items with all the currently selected items.
+- (void)configureAddToButtonMenuForSelectedItems {
+  GridViewController* gridViewController =
+      [self gridViewControllerForPage:self.currentPage];
+  NSArray<NSString*>* items =
+      gridViewController.selectedShareableItemIDsForEditing;
+  UIMenu* menu = nil;
+  switch (self.currentPage) {
+    case TabGridPageIncognitoTabs:
+      menu =
+          [UIMenu menuWithChildren:[self.incognitoTabsDelegate
+                                       addToButtonMenuElementsForItems:items]];
+      break;
+    case TabGridPageRegularTabs:
+      menu =
+          [UIMenu menuWithChildren:[self.regularTabsDelegate
+                                       addToButtonMenuElementsForItems:items]];
+      break;
+    case TabGridPageRemoteTabs:
+      // No-op, Add To button inaccessible in remote tabs page.
+      break;
+  }
+  [self.bottomToolbar setAddToButtonMenu:menu];
 }
 
 - (void)configureNewTabButtonBasedOnContentPermissions {
@@ -1756,6 +1759,8 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   } else {
     [self.topToolbar configureSelectAllButtonTitle];
   }
+
+  [self configureAddToButtonMenuForSelectedItems];
 }
 
 // Records when the user switches between incognito and regular pages in the tab

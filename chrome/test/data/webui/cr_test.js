@@ -1,15 +1,9 @@
-// Copyright 2020 The Chromium Authors. All rights reserved.
+// Copyright 2020 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-var EventTarget;
-
-function setUp() {
-  EventTarget = cr.EventTarget;
-}
-
 function testDefineProperty() {
-  var obj = new EventTarget();
+  const obj = new EventTarget();
   Object.defineProperty(obj, 'test', cr.getPropertyDescriptor('test'));
 
   obj.test = 1;
@@ -22,7 +16,7 @@ function testDefinePropertyOnClass() {
 
   Object.defineProperty(C.prototype, 'test', cr.getPropertyDescriptor('test'));
 
-  var obj = new C();
+  const obj = new C();
   assertEquals(undefined, obj.test);
 
   obj.test = 1;
@@ -31,9 +25,9 @@ function testDefinePropertyOnClass() {
 }
 
 function testDefinePropertyWithSetter() {
-  var obj = new EventTarget();
+  const obj = new EventTarget();
 
-  var hit = false;
+  let hit = false;
   function onTestSet(value, oldValue) {
     assertEquals(obj, this);
     assertEquals(2, this.test);
@@ -49,11 +43,11 @@ function testDefinePropertyWithSetter() {
 }
 
 function testDefinePropertyEvent() {
-  var obj = new EventTarget();
+  const obj = new EventTarget();
   Object.defineProperty(obj, 'test', cr.getPropertyDescriptor('test'));
   obj.test = 1;
 
-  var count = 0;
+  let count = 0;
   function f(e) {
     assertEquals('testChange', e.type);
     assertEquals('test', e.propertyName);
@@ -72,11 +66,11 @@ function testDefinePropertyEvent() {
 }
 
 function testDefinePropertyEventWithDefault() {
-  var obj = new EventTarget();
+  const obj = new EventTarget();
   Object.defineProperty(
       obj, 'test', cr.getPropertyDescriptor('test', cr.PropertyKind.JS));
 
-  var count = 0;
+  let count = 0;
   function f(e) {
     assertEquals('testChange', e.type);
     assertEquals('test', e.propertyName);
@@ -99,7 +93,7 @@ function testDefinePropertyEventWithDefault() {
 }
 
 function testDefinePropertyAttr() {
-  var obj = document.createElement('div');
+  const obj = document.createElement('div');
   Object.defineProperty(
       obj, 'test', cr.getPropertyDescriptor('test', cr.PropertyKind.ATTR));
 
@@ -113,7 +107,7 @@ function testDefinePropertyAttr() {
 }
 
 function testDefinePropertyAttrOnClass() {
-  var obj = document.createElement('button');
+  const obj = document.createElement('button');
   Object.defineProperty(
       obj, 'test', cr.getPropertyDescriptor('test', cr.PropertyKind.ATTR));
 
@@ -129,9 +123,9 @@ function testDefinePropertyAttrOnClass() {
 }
 
 function testDefinePropertyAttrWithSetter() {
-  var obj = document.createElement('div');
+  const obj = document.createElement('div');
 
-  var hit = false;
+  let hit = false;
 
   function onTestSet(value, oldValue) {
     assertEquals(obj, this);
@@ -148,11 +142,11 @@ function testDefinePropertyAttrWithSetter() {
 }
 
 function testDefinePropertyAttrEvent() {
-  var obj = document.createElement('div');
+  const obj = document.createElement('div');
   Object.defineProperty(
       obj, 'test', cr.getPropertyDescriptor('test', cr.PropertyKind.ATTR));
 
-  var count = 0;
+  let count = 0;
   function f(e) {
     assertEquals('testChange', e.type);
     assertEquals('test', e.propertyName);
@@ -175,7 +169,7 @@ function testDefinePropertyAttrEvent() {
 }
 
 function testDefinePropertyBoolAttr() {
-  var obj = document.createElement('div');
+  const obj = document.createElement('div');
   Object.defineProperty(
       obj, 'test', cr.getPropertyDescriptor('test', cr.PropertyKind.BOOL_ATTR));
 
@@ -192,11 +186,11 @@ function testDefinePropertyBoolAttr() {
 }
 
 function testDefinePropertyBoolAttrEvent() {
-  var obj = document.createElement('div');
+  const obj = document.createElement('div');
   Object.defineProperty(
       obj, 'test', cr.getPropertyDescriptor('test', cr.PropertyKind.BOOL_ATTR));
 
-  var count = 0;
+  let count = 0;
   function f(e) {
     assertEquals('testChange', e.type);
     assertEquals('test', e.propertyName);
@@ -215,8 +209,8 @@ function testDefinePropertyBoolAttrEvent() {
 }
 
 function testDefinePropertyBoolAttrEventWithHook() {
-  var obj = document.createElement('div');
-  var hit = false;
+  const obj = document.createElement('div');
+  let hit = false;
 
   function onTestSet(value, oldValue) {
     assertEquals(obj, this);
@@ -239,16 +233,16 @@ function testAddSingletonGetter() {
   assertEquals(
       'function', typeof Foo.getInstance, 'Should add get instance function');
 
-  var x = Foo.getInstance();
+  const x = Foo.getInstance();
   assertEquals('object', typeof x, 'Should successfully create an object');
   assertNotEqual(null, x, 'Created object should not be null');
 
-  var y = Foo.getInstance();
+  const y = Foo.getInstance();
   assertEquals(x, y, 'Should return the same object');
 
   delete Foo.instance_;
 
-  var z = Foo.getInstance();
+  const z = Foo.getInstance();
   assertEquals('object', typeof z, 'Should work after clearing for testing');
   assertNotEqual(null, z, 'Created object should not be null');
 
@@ -257,7 +251,7 @@ function testAddSingletonGetter() {
 }
 
 function testDefineWithGetter() {
-  var v = 0;
+  let v = 0;
   cr.define('foo', function() {
     return {
       get v() {

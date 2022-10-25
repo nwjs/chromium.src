@@ -1,4 +1,4 @@
-// Copyright 2016 The Chromium Authors. All rights reserved.
+// Copyright 2016 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -62,7 +62,8 @@ class ClientNativePixmapDmaBuf : public gfx::ClientNativePixmap {
 
   const gfx::NativePixmapHandle pixmap_handle_;
   const gfx::Size size_;
-  const std::array<PlaneInfo, kMaxPlanes> plane_info_;
+  std::array<PlaneInfo, kMaxPlanes> plane_info_;
+  bool mapped_ = false;
 };
 
 }  // namespace gfx

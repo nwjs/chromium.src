@@ -1,4 +1,4 @@
-# Copyright 2020 The Chromium Authors. All rights reserved.
+# Copyright 2020 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -185,10 +185,10 @@ xcode = struct(
     x13main = xcode_enum("13c100"),
     # A newer Xcode 13 version used on beta bots.
     x13betabots = xcode_enum("13f17a"),
-    # Xcode14 beta 5 will be used to build Main iOS
-    x14main = xcode_enum("14a5294g"),
-    # A newer Xcode 14 version used on beta bots.
-    x14betabots = xcode_enum("14a5294g"),
+    # Xcode14 RC will be used to build Main iOS
+    x14main = xcode_enum("14a309"),
+    # A newer Xcode 14 RC  used on beta bots.
+    x14betabots = xcode_enum("14a309"),
     # in use by ios-webkit-tot
     x13wk = xcode_enum("13a1030dwk"),
 )
@@ -321,6 +321,7 @@ def _reclient_property(*, instance, service, jobs, rewrapper_env, profiler_servi
     ensure_verified = defaults.get_value("reclient_ensure_verified", ensure_verified)
     if ensure_verified:
         reclient["ensure_verified"] = True
+
     return reclient
 
 ################################################################################
@@ -343,6 +344,7 @@ defaults = args.defaults(
     goma_debug = False,
     goma_enable_ats = args.COMPUTE,
     goma_jobs = None,
+    console_view = args.COMPUTE,
     list_view = args.COMPUTE,
     os = None,
     pool = None,
@@ -827,7 +829,9 @@ def builder(
 
             console_view = entry.console_view
             if console_view == None:
-                console_view = builder_group
+                console_view = defaults.console_view.get()
+                if console_view == args.COMPUTE:
+                    console_view = builder_group
                 if not console_view:
                     fail("Builder does not have builder group and " +
                          "console_view_entry does not have console view: {}".format(entry))

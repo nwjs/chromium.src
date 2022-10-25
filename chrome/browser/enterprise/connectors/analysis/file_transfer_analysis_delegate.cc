@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,6 +11,7 @@
 #include "base/callback_forward.h"
 #include "chrome/browser/ash/file_manager/volume_manager.h"
 #include "chrome/browser/enterprise/connectors/analysis/files_request_handler.h"
+#include "chrome/browser/enterprise/connectors/analysis/source_destination_matcher_ash.h"
 #include "chrome/browser/enterprise/connectors/connectors_service.h"
 #include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router.h"
 #include "chrome/browser/profiles/profile.h"
@@ -140,9 +141,11 @@ bool IsInSameFileSystem(Profile* profile,
 
 namespace enterprise_connectors {
 
-absl::optional<AnalysisSettings> FileTransferAnalysisDelegate::IsEnabled(
+// static
+std::vector<absl::optional<AnalysisSettings>>
+FileTransferAnalysisDelegate::IsEnabledVec(
     Profile* profile,
-    storage::FileSystemURL source_url,
+    const std::vector<storage::FileSystemURL>& source_urls,
     storage::FileSystemURL destination_url) {
   DCHECK(profile);
   auto* service =
@@ -151,16 +154,29 @@ absl::optional<AnalysisSettings> FileTransferAnalysisDelegate::IsEnabled(
   // If the corresponding Connector policy isn't set, don't perform scans.
   if (!service ||
       !service->IsConnectorEnabled(enterprise_connectors::FILE_TRANSFER)) {
-    return absl::nullopt;
+    // Return an empty vector.
+    return {};
   }
 
-  if (IsInSameFileSystem(profile, source_url, destination_url)) {
-    // Scanning is disabled for transfers on the same file system.
-    return absl::nullopt;
+  std::vector<absl::optional<AnalysisSettings>> settings(source_urls.size());
+
+  bool at_least_one_enabled = false;
+  for (size_t i = 0; i < source_urls.size(); ++i) {
+    if (IsInSameFileSystem(profile, source_urls[i], destination_url)) {
+      // Scanning is disabled for transfers on the same file system.
+      continue;
+    }
+
+    settings[i] = service->GetAnalysisSettings(
+        source_urls[i], destination_url, enterprise_connectors::FILE_TRANSFER);
+    at_least_one_enabled |= settings[i].has_value();
+  }
+  if (!at_least_one_enabled) {
+    // Return an empty vector.
+    return {};
   }
 
-  return service->GetAnalysisSettings(source_url, destination_url,
-                                      enterprise_connectors::FILE_TRANSFER);
+  return settings;
 }
 
 FileTransferAnalysisDelegate::FileTransferAnalysisResult
@@ -198,13 +214,14 @@ FileTransferAnalysisDelegate::FileTransferAnalysisDelegate(
     : settings_{std::move(settings)},
       profile_{profile},
       access_point_{access_point},
+      source_url_(std::move(source_url)),
       destination_url_{std::move(destination_url)},
       callback_{std::move(callback)} {
   DCHECK(profile);
   DCHECK(!callback_.is_null());
 
   get_file_urls_delegate_ = std::make_unique<GetFileURLsDelegate>(
-      file_system_context, source_url,
+      file_system_context, source_url_,
       base::BindOnce(&FileTransferAnalysisDelegate::OnGotFileSourceURLs,
                      weak_ptr_factory_.GetWeakPtr()));
 }
@@ -263,7 +280,12 @@ void FileTransferAnalysisDelegate::OnGotFileSourceURLs(
 
   request_handler_ = FilesRequestHandler::Create(
       safe_browsing::BinaryUploadService::GetForProfile(profile_, settings_),
-      profile_, settings_, GURL{}, access_point_, std::move(paths),
+      profile_, settings_, GURL{},
+      SourceDestinationMatcherAsh::GetVolumeDescriptionFromPath(
+          profile_, source_url_.path()),
+      SourceDestinationMatcherAsh::GetVolumeDescriptionFromPath(
+          profile_, destination_url_.path()),
+      access_point_, std::move(paths),
       base::BindOnce(&FileTransferAnalysisDelegate::ContentAnalysisCompleted,
                      weak_ptr_factory_.GetWeakPtr()));
   request_handler_->UploadData();

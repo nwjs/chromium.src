@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -93,19 +93,15 @@ void StarterDelegateDesktop::SetProactiveHelpSettingEnabled(bool enabled) {
 }
 
 bool StarterDelegateDesktop::GetIsLoggedIn() {
-  return !common_dependencies_
-              ->GetSignedInEmail(GetWebContents().GetBrowserContext())
-              .empty();
+  return !common_dependencies_->GetSignedInEmail().empty();
 }
 
 bool StarterDelegateDesktop::GetIsSupervisedUser() {
-  return common_dependencies_->IsSupervisedUser(
-      GetWebContents().GetBrowserContext());
+  return common_dependencies_->IsSupervisedUser();
 }
 
 bool StarterDelegateDesktop::GetIsAllowedForMachineLearning() {
-  return common_dependencies_->IsAllowedForMachineLearning(
-      GetWebContents().GetBrowserContext());
+  return common_dependencies_->IsAllowedForMachineLearning();
 }
 
 bool StarterDelegateDesktop::GetIsCustomTab() const {

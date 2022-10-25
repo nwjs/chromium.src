@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -321,7 +321,7 @@ public class StartSurfaceTabSwitcherTest {
     @EnableFeatures(ChromeFeatureList.TAB_GROUPS_ANDROID)
     // clang-format off
     @CommandLineFlags.Add({START_SURFACE_TEST_BASE_PARAMS
-        + "show_tabs_in_mru_order/true/open_ntp_instead_of_start/false",
+        + "show_tabs_in_mru_order/true/open_ntp_instead_of_start/false/open_start_as_homepage/true",
         DISABLE_ANIMATION_SWITCH})
     public void testShowV2_GridTabSwitcher_AlwaysShowTabsInCreationOrder() {
         // clang-format on

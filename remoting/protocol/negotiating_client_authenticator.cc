@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors. All rights reserved.
+// Copyright 2013 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -22,8 +22,7 @@
 #include "remoting/protocol/v2_authenticator.h"
 #include "third_party/libjingle_xmpp/xmllite/xmlelement.h"
 
-namespace remoting {
-namespace protocol {
+namespace remoting::protocol {
 
 NegotiatingClientAuthenticator::NegotiatingClientAuthenticator(
     const std::string& local_id,
@@ -220,5 +219,4 @@ bool NegotiatingClientAuthenticator::is_paired() {
   return !config_.pairing_client_id.empty() && !config_.pairing_secret.empty();
 }
 
-}  // namespace protocol
-}  // namespace remoting
+}  // namespace remoting::protocol

@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -84,13 +84,16 @@ base::StringPiece ContrastModeName(
   }
 }
 
-base::StringPiece SystemThemeName(
-    ColorProviderManager::SystemTheme system_theme) {
+base::StringPiece SystemThemeName(ui::SystemTheme system_theme) {
   switch (system_theme) {
-    case ColorProviderManager::SystemTheme::kDefault:
+    case ui::SystemTheme::kDefault:
       return "kDefault";
-    case ColorProviderManager::SystemTheme::kCustom:
-      return "kCustom";
+#if BUILDFLAG(IS_LINUX)
+    case ui::SystemTheme::kGtk:
+      return "kGtk";
+    case ui::SystemTheme::kQt:
+      return "kQt";
+#endif
     default:
       return "<invalid>";
   }

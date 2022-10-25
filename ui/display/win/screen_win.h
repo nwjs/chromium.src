@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -147,6 +147,10 @@ class DISPLAY_EXPORT ScreenWin : public Screen,
   // Set information gathered from DXGI adapters and outputs (e.g, HDR
   // parameters).
   static void SetDXGIInfo(gfx::mojom::DXGIInfoPtr dxgi_info);
+
+  // Returns the ScreenWinDisplay with the given id, or a default object if an
+  // unrecognized id was specified or if this was called during a screen update.
+  static ScreenWinDisplay GetScreenWinDisplayWithDisplayId(int64_t id);
 
   // Returns the HWND associated with the NativeWindow.
   virtual HWND GetHWNDFromNativeWindow(gfx::NativeWindow view) const;

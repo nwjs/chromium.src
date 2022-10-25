@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -201,6 +201,7 @@ MockHttpRequest::MockHttpRequest(const MockTransaction& t) {
   load_flags = t.load_flags;
   SchemefulSite site(url);
   network_isolation_key = NetworkIsolationKey(site, site);
+  network_anonymization_key = NetworkAnonymizationKey(site, site);
 }
 
 std::string MockHttpRequest::CacheKey() {

@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors. All rights reserved.
+// Copyright 2013 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -36,6 +36,8 @@
 #include "ash/wm/desks/desks_bar_view.h"
 #include "ash/wm/desks/desks_test_util.h"
 #include "ash/wm/desks/desks_util.h"
+#include "ash/wm/desks/templates/saved_desk_save_desk_button.h"
+#include "ash/wm/desks/templates/saved_desk_util.h"
 #include "ash/wm/drag_window_resizer.h"
 #include "ash/wm/gestures/back_gesture/back_gesture_event_handler.h"
 #include "ash/wm/mru_window_tracker.h"
@@ -3110,11 +3112,11 @@ TEST_P(OverviewSessionTest, FadeIn) {
 // Tests exiting the overview session using kFadeOutExit type.
 TEST_P(OverviewSessionTest, FadeOutExit) {
   EnterTabletMode();
-  // Create a test window.
-  std::unique_ptr<views::Widget> test_widget(CreateTestWidget());
+  std::unique_ptr<aura::Window> test_window(CreateAppWindow());
+
   ToggleOverview();
   ASSERT_TRUE(InOverviewSession());
-  EXPECT_FALSE(test_widget->IsMinimized());
+  EXPECT_FALSE(WindowState::Get(test_window.get())->IsMinimized());
 
   ui::ScopedAnimationDurationScaleMode test_duration_mode(
       ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
@@ -3124,7 +3126,7 @@ TEST_P(OverviewSessionTest, FadeOutExit) {
   // that NON_ZERO_DURATION animation duration scale, it should be safe to
   // dereference the widget pointer immediately (synchronously) after the
   // session ends.
-  OverviewItem* item = GetOverviewItemForWindow(test_widget->GetNativeWindow());
+  OverviewItem* item = GetOverviewItemForWindow(test_window.get());
   views::Widget* grid_item_widget = item->item_widget();
   gfx::Rect item_bounds = grid_item_widget->GetWindowBoundsInScreen();
 
@@ -3132,7 +3134,7 @@ TEST_P(OverviewSessionTest, FadeOutExit) {
   ASSERT_FALSE(InOverviewSession());
 
   // The test window should be minimized as overview fade out exit starts.
-  EXPECT_TRUE(test_widget->IsMinimized());
+  EXPECT_TRUE(WindowState::Get(test_window.get())->IsMinimized());
 
   // Verify that the item widget's transform is not animated as part of the
   // animation, and that item widget bounds are not changed after minimizing the
@@ -3150,9 +3152,64 @@ TEST_P(OverviewSessionTest, FadeOutExit) {
 // Tests that accessibility overrides are set as expected on overview related
 // widgets.
 TEST_P(OverviewSessionTest, AccessibilityFocusAnnotator) {
+  // TODO(crbug.com/1360638): The body of this test is only run when Desk
+  // Templates is turned OFF *and* Save & Recall is turned ON. Once the flag
+  // flip for Save & Recall has truly landed, remove the `NoSavedDesks` variant
+  // of this test below and remove the Save & Recall feature check at the start
+  // of this test.
+  if (GetParam() || !saved_desk_util::IsDeskSaveAndRecallEnabled())
+    return;
+
+  auto window3 = CreateTestWindow(gfx::Rect(100, 100));
+  auto window2 = CreateTestWindow(gfx::Rect(100, 100));
+  auto window1 = CreateTestWindow(gfx::Rect(100, 100));
+
+  ToggleOverview();
+  WaitForOverviewEnterAnimation();
+
+  auto* focus_widget = views::Widget::GetWidgetForNativeWindow(
+      GetOverviewSession()->GetOverviewFocusWindow());
+  DCHECK(focus_widget);
+
+  OverviewGrid* grid = GetOverviewSession()->grid_list()[0].get();
+  auto* desk_widget = const_cast<views::Widget*>(grid->desks_widget());
+  DCHECK(desk_widget);
+
+  SavedDeskSaveDeskButton* save_button = grid->GetSaveDeskForLaterButton();
+  DCHECK(save_button);
+  auto* save_widget = save_button->GetWidget();
+
+  // Overview items are in MRU order, so the expected order in the grid list is
+  // the reverse creation order.
+  auto* item_widget1 = GetOverviewItemForWindow(window1.get())->item_widget();
+  auto* item_widget2 = GetOverviewItemForWindow(window2.get())->item_widget();
+  auto* item_widget3 = GetOverviewItemForWindow(window3.get())->item_widget();
+
+  // Order should be [focus_widget, item_widget1, item_widget2, item_widget3,
+  // desk_widget, save_widget].
+  CheckA11yOverrides("focus", focus_widget, save_widget, item_widget1);
+  CheckA11yOverrides("item1", item_widget1, focus_widget, item_widget2);
+  CheckA11yOverrides("item2", item_widget2, item_widget1, item_widget3);
+  CheckA11yOverrides("item3", item_widget3, item_widget2, desk_widget);
+  CheckA11yOverrides("desk", desk_widget, item_widget3, save_widget);
+  CheckA11yOverrides("save", save_widget, desk_widget, focus_widget);
+
+  // Remove |window2|. The new order should be [focus_widget, item_widget1,
+  // item_widget3, desk_widget, save_widget].
+  window2.reset();
+  CheckA11yOverrides("focus", focus_widget, save_widget, item_widget1);
+  CheckA11yOverrides("item1", item_widget1, focus_widget, item_widget3);
+  CheckA11yOverrides("item3", item_widget3, item_widget1, desk_widget);
+  CheckA11yOverrides("desk", desk_widget, item_widget3, save_widget);
+  CheckA11yOverrides("save", save_widget, desk_widget, focus_widget);
+}
+
+// Tests that accessibility overrides are set as expected on overview related
+// widgets.
+TEST_P(OverviewSessionTest, AccessibilityFocusAnnotatorNoSavedDesks) {
   // If desks templates is enabled, the a11y order changes. This is tested in
   // the desks templates test suite.
-  if (GetParam())
+  if (GetParam() || saved_desk_util::IsDeskSaveAndRecallEnabled())
     return;
 
   auto window3 = CreateTestWindow(gfx::Rect(100, 100));

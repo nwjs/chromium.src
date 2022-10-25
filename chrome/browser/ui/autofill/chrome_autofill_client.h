@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -29,7 +29,8 @@
 
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/autofill/android/save_update_address_profile_flow_manager.h"
-#include "chrome/browser/touch_to_fill/payments/touch_to_fill_credit_card_controller.h"
+#include "chrome/browser/fast_checkout/fast_checkout_client.h"
+#include "chrome/browser/touch_to_fill/payments/android/touch_to_fill_credit_card_controller.h"
 #include "chrome/browser/ui/android/autofill/save_card_message_controller_android.h"
 #include "components/autofill/core/browser/ui/payments/card_expiration_date_fix_flow_controller_impl.h"
 #include "components/autofill/core/browser/ui/payments/card_name_fix_flow_controller_impl.h"
@@ -41,6 +42,7 @@
 
 namespace autofill {
 
+struct AutofillErrorDialogContext;
 class AutofillPopupControllerImpl;
 struct VirtualCardEnrollmentFields;
 class VirtualCardEnrollmentManager;
@@ -70,6 +72,7 @@ class ChromeAutofillClient
   version_info::Channel GetChannel() const override;
   PersonalDataManager* GetPersonalDataManager() override;
   AutocompleteHistoryManager* GetAutocompleteHistoryManager() override;
+  IBANManager* GetIBANManager() override;
   MerchantPromoCodeManager* GetMerchantPromoCodeManager() override;
   CreditCardCVCAuthenticator* GetCVCAuthenticator() override;
   CreditCardOtpAuthenticator* GetOtpAuthenticator() override;
@@ -170,6 +173,11 @@ class ChromeAutofillClient
       AddressProfileSavePromptCallback callback) override;
   bool HasCreditCardScanFeature() override;
   void ScanCreditCard(CreditCardScanCallback callback) override;
+  bool IsFastCheckoutSupported() override;
+  bool IsFastCheckoutTriggerForm(const FormData& form,
+                                 const FormFieldData& field) override;
+  bool ShowFastCheckout(base::WeakPtr<FastCheckoutDelegate> delegate) override;
+  void HideFastCheckout() override;
   bool IsTouchToFillCreditCardSupported() override;
   bool ShowTouchToFillCreditCard(
       base::WeakPtr<TouchToFillDelegate> delegate) override;
@@ -194,7 +202,8 @@ class ChromeAutofillClient
       const CreditCard* credit_card,
       const std::u16string& cvc,
       const gfx::Image& card_image) override;
-  void ShowVirtualCardErrorDialog(bool is_permanent_error) override;
+  void ShowVirtualCardErrorDialog(
+      const AutofillErrorDialogContext& context) override;
   void ShowAutofillProgressDialog(
       AutofillProgressDialogType autofill_progress_dialog_type,
       base::OnceClosure cancel_callback) override;

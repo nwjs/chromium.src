@@ -1,9 +1,9 @@
-// Copyright 2014 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 import {assert, assertNotReached} from 'chrome://resources/js/assert.m.js';
-import {Command} from 'chrome://resources/js/cr/ui/command.js';
+import {Command} from './ui/command.js';
 import {$} from 'chrome://resources/js/util.m.js';
 
 import {DialogType} from '../../common/js/dialog_type.js';

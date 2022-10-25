@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -14,6 +14,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.DrawableRes;
@@ -293,7 +294,8 @@ public class WebFeedMainMenuItem extends FrameLayout {
             tracker.notifyEvent(EventConstants.CROW_TAB_MENU_ITEM_CLICKED);
             Activity activity = mTab.getWindowAndroid().getActivity().get();
             mCrowButtonDelegate.requestCanonicalUrl(mTab, (canonicalUrl) -> {
-                mCrowButtonDelegate.launchCustomTab(activity, mUrl, canonicalUrl, isFollowing);
+                mCrowButtonDelegate.launchCustomTab(
+                        mTab, activity, mUrl, canonicalUrl, isFollowing);
             });
         });
         RecordUserAction.record("Crow.EntryPointShown.AppMenu");
@@ -308,8 +310,15 @@ public class WebFeedMainMenuItem extends FrameLayout {
     }
 
     private void moveChipsToDedicatedRow() {
-        ViewGroup secondRow = (ViewGroup) findViewById(R.id.footer_second_chip_row);
-        ViewGroup chipGroup = (ViewGroup) findViewById(R.id.chip_container);
+        ViewGroup secondRow = findViewById(R.id.footer_second_chip_row);
+        ViewGroup chipGroup = findViewById(R.id.chip_container);
+        // Set the margin start to align with the icon if the chips are moved to a second row.
+        LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(
+                LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        int marginStart = mContext.getResources().getDimensionPixelSize(
+                R.dimen.menu_footer_second_row_margin_start);
+        layoutParams.setMarginStart(marginStart);
+        chipGroup.setLayoutParams(layoutParams);
         UiUtils.removeViewFromParent(chipGroup);
         secondRow.addView(chipGroup);
         secondRow.setVisibility(View.VISIBLE);

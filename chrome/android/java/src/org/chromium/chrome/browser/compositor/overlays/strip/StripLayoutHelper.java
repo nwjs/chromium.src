@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors. All rights reserved.
+// Copyright 2015 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,6 +16,7 @@ import android.os.Message;
 import android.os.SystemClock;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
+import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup.MarginLayoutParams;
@@ -109,6 +110,7 @@ public class StripLayoutHelper implements StripLayoutTab.StripLayoutTabDelegate 
     private static final int ANIM_TAB_SELECTION_DELAY = 150;
     private static final int ANIM_TAB_MOVE_MS = 125;
     private static final int ANIM_TAB_SLIDE_OUT_MS = 250;
+    private static final int ANIM_TAB_DIM_MS = 150;
     private static final long INVALID_TIME = 0L;
     static final long DROP_INTO_GROUP_MS = 300L;
 
@@ -1746,9 +1748,10 @@ public class StripLayoutHelper implements StripLayoutTab.StripLayoutTabDelegate 
             mScroller.startScroll(Math.round(mScrollOffset), 0, (int) fastExpandDelta, 0, time,
                     getExpandDuration());
         } else if (mTabGroupsEnabled) {
+            Tab tab = getTabById(mInteractingTab.getId());
             computeAndUpdateTabGroupMargins(true, true);
-            setTabGroupDimmed(
-                    mTabGroupModelFilter.getRootId(getTabById(mInteractingTab.getId())), false);
+            setTabGroupDimmed(mTabGroupModelFilter.getRootId(tab), false);
+            performHapticFeedback(tab);
         }
 
         // 7. Request an update.
@@ -1922,14 +1925,26 @@ public class StripLayoutHelper implements StripLayoutTab.StripLayoutTabDelegate 
         startAnimationList(animationList, getTabGroupMarginAnimatorListener());
     }
 
+    private void setTabDimmed(StripLayoutTab tab, boolean dimmed) {
+        if (tab != mInteractingTab) {
+            float brightness =
+                    dimmed ? BACKGROUND_TAB_BRIGHTNESS_DIMMED : BACKGROUND_TAB_BRIGHTNESS_DEFAULT;
+            if (!mAnimationsDisabledForTesting && tab.isVisible()) {
+                CompositorAnimator
+                        .ofFloatProperty(mUpdateHost.getAnimationHandler(), tab,
+                                StripLayoutTab.BRIGHTNESS, tab.getBrightness(), brightness,
+                                ANIM_TAB_DIM_MS)
+                        .start();
+            } else {
+                tab.setBrightness(brightness);
+            }
+        }
+    }
+
     private void setBackgroundTabsDimmed(boolean dimmed) {
         for (int i = 0; i < mStripTabs.length; i++) {
             final StripLayoutTab tab = mStripTabs[i];
-
-            if (tab != mInteractingTab) {
-                tab.setBrightness(dimmed ? BACKGROUND_TAB_BRIGHTNESS_DIMMED
-                                         : BACKGROUND_TAB_BRIGHTNESS_DEFAULT);
-            }
+            setTabDimmed(tab, dimmed);
         }
     }
 
@@ -1939,17 +1954,16 @@ public class StripLayoutHelper implements StripLayoutTab.StripLayoutTabDelegate 
         for (int i = 0; i < mStripTabs.length; i++) {
             final StripLayoutTab tab = mStripTabs[i];
 
-            if (mTabGroupModelFilter.getRootId(getTabById(tab.getId())) == groupId
-                    && tab != mInteractingTab) {
-                tab.setBrightness(dimmed ? BACKGROUND_TAB_BRIGHTNESS_DIMMED
-                                         : BACKGROUND_TAB_BRIGHTNESS_DEFAULT);
+            if (mTabGroupModelFilter.getRootId(getTabById(tab.getId())) == groupId) {
+                setTabDimmed(tab, dimmed);
             }
         }
     }
 
     /**
-     * This method determines the new index for the interacting tab, based on whether or not it has
-     * met the conditions to be moved out of its tab group.
+     * This method checks whether or not interacting tab has met the conditions to be moved out of 
+     * its tab group. It moves tab out of group if so and returns the new index for the interacting 
+     * tab.
      *
      * @param offset The distance the interacting tab has been dragged from its ideal x-position.
      * @param curIndex The index of the interacting tab.
@@ -1964,7 +1978,7 @@ public class StripLayoutHelper implements StripLayoutTab.StripLayoutTabDelegate 
 
             setTabGroupDimmed(mTabGroupModelFilter.getRootId(getTabById(tabId)), true);
             mTabGroupModelFilter.moveTabOutOfGroupInDirection(tabId, towardEnd);
-
+            RecordUserAction.record("MobileToolbarReorderTab.TabRemovedFromGroup");
             return curIndex;
         }
 
@@ -1972,8 +1986,9 @@ public class StripLayoutHelper implements StripLayoutTab.StripLayoutTabDelegate 
     }
 
     /**
-     * This method determines the new index for the interacting tab, based on whether or not it has
-     * met the conditions to be merged into a neighboring tab group.
+     * This method checks whether or not interacting tab has met the conditions to be merged into a 
+     * neighbouring tab group. It merges tab to group if so and returns the new index for the 
+     * interacting tab.
      *
      * @param offset The distance the interacting tab has been dragged from its ideal x-position.
      * @param curIndex The index of the interacting tab.
@@ -2015,6 +2030,7 @@ public class StripLayoutHelper implements StripLayoutTab.StripLayoutTabDelegate 
                 1 + (int) Math.floor((Math.abs(offset) - minFlipOffset) / effectiveWidth);
 
         mTabGroupModelFilter.mergeTabsToGroup(mInteractingTab.getId(), destinationTabId, true);
+        RecordUserAction.record("MobileToolbarReorderTab.TabAddedToGroup");
 
         return towardEnd ? curIndex + 1 + numTabsToSkip : curIndex - numTabsToSkip;
     }
@@ -2351,6 +2367,7 @@ public class StripLayoutHelper implements StripLayoutTab.StripLayoutTabDelegate 
     @VisibleForTesting
     public void testSetScrollOffset(float offset) {
         mScrollOffset = offset;
+        updateStrip();
     }
 
     /**
@@ -2643,5 +2660,11 @@ public class StripLayoutHelper implements StripLayoutTab.StripLayoutTabDelegate 
         builder.append(mContext.getResources().getString(resId));
 
         stripTab.setAccessibilityDescription(builder.toString(), title);
+    }
+
+    private void performHapticFeedback(Tab tab) {
+        View tabView = tab.getView();
+        if (tabView == null) return;
+        tabView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
     }
 }

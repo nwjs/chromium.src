@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors. All rights reserved.
+// Copyright 2018 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -13,6 +13,7 @@
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node.h"
 #include "ui/accessibility/ax_role_properties.h"
+#include "ui/accessibility/ax_selection.h"
 #include "ui/accessibility/ax_serializable_tree.h"
 #include "ui/accessibility/platform/ax_android_constants.h"
 #include "ui/gfx/geometry/rect_conversions.h"
@@ -122,8 +123,9 @@ std::u16string GetText(const AXNode* node) {
 
     switch (node->GetRole()) {
       case ax::mojom::Role::kComboBoxMenuButton:
-      case ax::mojom::Role::kTextFieldWithComboBox:
+      case ax::mojom::Role::kComboBoxSelect:
       case ax::mojom::Role::kPopUpButton:
+      case ax::mojom::Role::kTextFieldWithComboBox:
       case ax::mojom::Role::kTextField:
         return value;
       default:
@@ -276,7 +278,7 @@ void WalkAXTreeDepthFirst(const AXNode* node,
   if (IsLeaf(node) && update.has_tree_data) {
     int start_selection = 0;
     int end_selection = 0;
-    AXTree::Selection unignored_selection = tree->GetUnignoredSelection();
+    AXSelection unignored_selection = tree->GetUnignoredSelection();
     if (unignored_selection.anchor_object_id == node->id()) {
       start_selection = unignored_selection.anchor_offset;
       config->should_select_leaf = true;

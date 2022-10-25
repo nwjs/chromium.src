@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors. All rights reserved.
+// Copyright 2018 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -45,8 +45,9 @@ std::unique_ptr<OutputDeviceMixerManager> MaybeCreateOutputDeviceMixerManager(
 constexpr base::TimeDelta kReatimeThreadPeriod = base::Milliseconds(10);
 }  // namespace
 
-StreamFactory::StreamFactory(media::AudioManager* audio_manager,
-                             AecdumpRecordingManager* aecdump_recording_manager)
+StreamFactory::StreamFactory(
+    media::AudioManager* audio_manager,
+    media::AecdumpRecordingManager* aecdump_recording_manager)
     : audio_manager_(audio_manager),
       aecdump_recording_manager_(aecdump_recording_manager),
 #if BUILDFLAG(CHROME_WIDE_ECHO_CANCELLATION)

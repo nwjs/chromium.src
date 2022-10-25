@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,12 +6,12 @@
 
 #include <algorithm>
 
-#include "ash/components/geolocation/geoposition.h"
 #include "ash/shell.h"
 #include "ash/system/time/time_of_day.h"
 #include "base/bind.h"
 #include "base/logging.h"
 #include "base/time/clock.h"
+#include "chromeos/ash/components/geolocation/geoposition.h"
 #include "third_party/icu/source/i18n/astro.h"
 
 namespace ash {

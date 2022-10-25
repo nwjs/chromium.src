@@ -1,4 +1,4 @@
-# Copyright 2014 The Chromium Authors. All rights reserved.
+# Copyright 2014 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -48,8 +48,6 @@ target(link_target_type, "renderer") {
     "accessibility/blink_ax_action_target.h",
     "//base/message_loop/message_pumpuv_mac.mm",
     "//base/message_loop/message_pumpuv_mac.h",
-    "accessibility/blink_ax_tree_source.cc",
-    "accessibility/blink_ax_tree_source.h",
     "accessibility/render_accessibility_impl.cc",
     "accessibility/render_accessibility_impl.h",
     "accessibility/render_accessibility_manager.cc",

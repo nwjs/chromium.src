@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors. All rights reserved.
+// Copyright 2018 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -18,6 +18,7 @@
 #import "components/search_engines/default_search_manager.h"
 #import "components/search_engines/template_url.h"
 #import "components/search_engines/template_url_service.h"
+#import "components/signin/public/identity_manager/objc/identity_manager_observer_bridge.h"
 #import "ios/chrome/app/application_delegate/app_state.h"
 #import "ios/chrome/app/tests_hook.h"
 #import "ios/chrome/browser/browser_state/chrome_browser_state.h"
@@ -31,7 +32,7 @@
 #import "ios/chrome/browser/main/browser.h"
 #import "ios/chrome/browser/ntp/features.h"
 #import "ios/chrome/browser/ntp/new_tab_page_tab_helper.h"
-#import "ios/chrome/browser/pref_names.h"
+#import "ios/chrome/browser/prefs/pref_names.h"
 #import "ios/chrome/browser/reading_list/reading_list_model_factory.h"
 #import "ios/chrome/browser/search_engines/template_url_service_factory.h"
 #import "ios/chrome/browser/signin/authentication_service.h"
@@ -42,6 +43,7 @@
 #import "ios/chrome/browser/ui/commands/application_commands.h"
 #import "ios/chrome/browser/ui/commands/browser_coordinator_commands.h"
 #import "ios/chrome/browser/ui/commands/command_dispatcher.h"
+#import "ios/chrome/browser/ui/commands/lens_commands.h"
 #import "ios/chrome/browser/ui/commands/omnibox_commands.h"
 #import "ios/chrome/browser/ui/commands/open_new_tab_command.h"
 #import "ios/chrome/browser/ui/commands/snackbar_commands.h"
@@ -64,16 +66,15 @@
 #import "ios/chrome/browser/ui/ntp/feed_management/feed_management_coordinator.h"
 #import "ios/chrome/browser/ui/ntp/feed_management/feed_management_navigation_delegate.h"
 #import "ios/chrome/browser/ui/ntp/feed_menu_commands.h"
-#import "ios/chrome/browser/ui/ntp/feed_metrics_recorder.h"
 #import "ios/chrome/browser/ui/ntp/feed_top_section/feed_top_section_coordinator.h"
 #import "ios/chrome/browser/ui/ntp/feed_wrapper_view_controller.h"
 #import "ios/chrome/browser/ui/ntp/incognito_view_controller.h"
+#import "ios/chrome/browser/ui/ntp/metrics/feed_metrics_recorder.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_content_delegate.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_delegate.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_feature.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_follow_delegate.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_view_controller.h"
-#import "ios/chrome/browser/ui/ntp/notification_promo_whats_new.h"
 #import "ios/chrome/browser/ui/overscroll_actions/overscroll_actions_controller.h"
 #import "ios/chrome/browser/ui/settings/utils/pref_backed_boolean.h"
 #import "ios/chrome/browser/ui/ui_feature_flags.h"
@@ -109,6 +110,7 @@ const base::Feature kEnableCheckForNewFollowContent{
                                      FeedManagementNavigationDelegate,
                                      FeedMenuCommands,
                                      FeedWrapperViewControllerDelegate,
+                                     IdentityManagerObserverBridgeDelegate,
                                      NewTabPageContentDelegate,
                                      NewTabPageDelegate,
                                      NewTabPageFollowDelegate,
@@ -122,6 +124,10 @@ const base::Feature kEnableCheckForNewFollowContent{
   std::unique_ptr<PrefObserverBridge> _prefObserverBridge;
   // Registrar for pref changes notifications.
   std::unique_ptr<PrefChangeRegistrar> _prefChangeRegistrar;
+
+  // Observes changes in the IdentityManager.
+  std::unique_ptr<signin::IdentityManagerObserverBridge>
+      _identityObserverBridge;
 
   // Observes changes in the DiscoverFeed.
   std::unique_ptr<DiscoverFeedObserverBridge> _discoverFeedObserverBridge;
@@ -216,12 +222,14 @@ const base::Feature kEnableCheckForNewFollowContent{
 @property(nonatomic, strong)
     FeedTopSectionCoordinator* feedTopSectionCoordinator;
 
+// Currently selected feed. Redefined to readwrite.
+@property(nonatomic, assign, readwrite) FeedType selectedFeed;
+
 @end
 
 @implementation NewTabPageCoordinator
 
 // Synthesize NewTabPageConfiguring properties.
-@synthesize selectedFeed = _selectedFeed;
 @synthesize shouldScrollIntoFeed = _shouldScrollIntoFeed;
 @synthesize baseViewController = _baseViewController;
 
@@ -273,11 +281,14 @@ const base::Feature kEnableCheckForNewFollowContent{
   // Start observing Prefs.
   _prefChangeRegistrar = std::make_unique<PrefChangeRegistrar>();
   _prefChangeRegistrar->Init(_prefService);
-  _prefObserverBridge.reset(new PrefObserverBridge(self));
+  _prefObserverBridge = std::make_unique<PrefObserverBridge>(self);
   _prefObserverBridge->ObserveChangesForPreference(
       prefs::kArticlesForYouEnabled, _prefChangeRegistrar.get());
   _prefObserverBridge->ObserveChangesForPreference(
       prefs::kNTPContentSuggestionsEnabled, _prefChangeRegistrar.get());
+  _prefObserverBridge->ObserveChangesForPreference(
+      prefs::kNTPContentSuggestionsForSupervisedUserEnabled,
+      _prefChangeRegistrar.get());
   _prefObserverBridge->ObserveChangesForPreference(
       DefaultSearchManager::kDefaultSearchProviderDataPrefName,
       _prefChangeRegistrar.get());
@@ -286,6 +297,14 @@ const base::Feature kEnableCheckForNewFollowContent{
                  prefName:feed::prefs::kArticlesListVisible];
   // Observer is necessary for multiwindow NTPs to remain in sync.
   [self.feedExpandedPref setObserver:self];
+
+  // Start observing IdentityManager.
+  signin::IdentityManager* identityManager =
+      IdentityManagerFactory::GetForBrowserState(
+          self.browser->GetBrowserState());
+  _identityObserverBridge =
+      std::make_unique<signin::IdentityManagerObserverBridge>(identityManager,
+                                                              self);
 
   // Start observing DiscoverFeedService.
   _discoverFeedObserverBridge = std::make_unique<DiscoverFeedObserverBridge>(
@@ -296,11 +315,14 @@ const base::Feature kEnableCheckForNewFollowContent{
   self.feedMetricsRecorder.followDelegate = self;
 
   self.headerController = [[ContentSuggestionsHeaderViewController alloc] init];
+  self.headerController.isGoogleDefaultSearchEngine =
+      [self isGoogleDefaultSearchEngine];
   // TODO(crbug.com/1045047): Use HandlerForProtocol after commands protocol
   // clean up.
   self.headerController.dispatcher =
       static_cast<id<ApplicationCommands, BrowserCommands, OmniboxCommands,
-                     FakeboxFocuser>>(self.browser->GetCommandDispatcher());
+                     FakeboxFocuser, LensCommands>>(
+          self.browser->GetCommandDispatcher());
   self.headerController.commandHandler = self;
   self.headerController.delegate = self.ntpMediator;
 
@@ -325,21 +347,17 @@ const base::Feature kEnableCheckForNewFollowContent{
     }
   }
 
-  if (IsDiscoverFeedTopSyncPromoEnabled()) {
-    self.feedTopSectionCoordinator = [self createFeedTopSectionCoordinator];
-  }
-
   self.contentSuggestionsCoordinator =
       [self createContentSuggestionsCoordinator];
-
-  self.headerController.promoCanShow =
-      [self.contentSuggestionsCoordinator notificationPromo]->CanShow();
 
   // Fetches feed header and conditionally fetches feed. Feed can only be
   // visible if feed header is visible.
   if ([self isFeedHeaderVisible]) {
     [self configureFeedAndHeader];
   }
+
+  // Updates feed asynchronously if the account is subject to parental controls.
+  [self updateFeedVisibilityForSupervision];
 
   [self configureNTPViewController];
 
@@ -385,6 +403,9 @@ const base::Feature kEnableCheckForNewFollowContent{
   self.ntpViewController = nil;
   self.feedHeaderViewController.ntpDelegate = nil;
   self.feedHeaderViewController = nil;
+  self.feedTopSectionCoordinator.ntpDelegate = nil;
+  self.feedTopSectionCoordinator = nil;
+
   self.alertCoordinator = nil;
   self.authService = nil;
   self.templateURLService = nil;
@@ -405,6 +426,7 @@ const base::Feature kEnableCheckForNewFollowContent{
   _prefChangeRegistrar.reset();
   _prefObserverBridge.reset();
   _discoverFeedObserverBridge.reset();
+  _identityObserverBridge.reset();
 
   self.started = NO;
 }
@@ -439,6 +461,26 @@ const base::Feature kEnableCheckForNewFollowContent{
                               base::TimeTicks::Now() - self.didAppearTime);
       self.didAppearTime = base::TimeTicks();
     }
+  }
+}
+
+#pragma mark - IdentityManagerObserverBridgeDelegate
+
+- (void)onPrimaryAccountChanged:
+    (const signin::PrimaryAccountChangeEvent&)event {
+  // An account change may trigger after the coordinator has been stopped.
+  // In this case do not process the event.
+  if (!self.started) {
+    return;
+  }
+  switch (event.GetEventTypeFor(signin::ConsentLevel::kSignin)) {
+    case signin::PrimaryAccountChangeEvent::Type::kSet:
+    case signin::PrimaryAccountChangeEvent::Type::kCleared: {
+      [self updateFeedVisibilityForSupervision];
+      break;
+    }
+    case signin::PrimaryAccountChangeEvent::Type::kNone:
+      break;
   }
 }
 
@@ -595,18 +637,9 @@ const base::Feature kEnableCheckForNewFollowContent{
     return;
   }
   // When the visible feed has been updated, recalculate the minimum NTP height.
-  if (![self isFollowingFeedAvailable] ||
-      ([self isFollowingFeedAvailable] && feedType == self.selectedFeed)) {
+  if (feedType == self.selectedFeed) {
     [self.ntpViewController updateFeedInsetsForMinimumHeight];
   }
-}
-
-- (void)selectFeedType:(FeedType)feedType {
-  if (!self.ntpViewController.viewDidAppear) {
-    self.selectedFeed = feedType;
-    return;
-  }
-  [self handleFeedSelected:feedType];
 }
 
 - (void)ntpDidChangeVisibility:(BOOL)visible {
@@ -845,9 +878,25 @@ const base::Feature kEnableCheckForNewFollowContent{
 }
 
 - (BOOL)isStartSurface {
+  DCHECK(self.webState);
   NewTabPageTabHelper* NTPHelper =
       NewTabPageTabHelper::FromWebState(self.webState);
   return NTPHelper && NTPHelper->ShouldShowStartSurface();
+}
+
+- (void)handleFeedTopSectionClosed {
+  [self.ntpViewController updateScrollPositionForFeedTopSectionClosed];
+}
+
+#pragma mark - NewTabPageConfiguring
+
+- (void)selectFeedType:(FeedType)feedType {
+  if (!self.ntpViewController.viewDidAppear ||
+      ![self isFollowingFeedAvailable]) {
+    self.selectedFeed = feedType;
+    return;
+  }
+  [self handleFeedSelected:feedType];
 }
 
 #pragma mark - AppStateObserver
@@ -1029,7 +1078,8 @@ const base::Feature kEnableCheckForNewFollowContent{
     return;
   }
   if (preferenceName == prefs::kArticlesForYouEnabled ||
-      preferenceName == prefs::kNTPContentSuggestionsEnabled) {
+      preferenceName == prefs::kNTPContentSuggestionsEnabled ||
+      preferenceName == prefs::kNTPContentSuggestionsForSupervisedUserEnabled) {
     [self updateNTPForFeed];
   }
   if (preferenceName ==
@@ -1058,6 +1108,21 @@ const base::Feature kEnableCheckForNewFollowContent{
 
 #pragma mark - Private
 
+// Updates the feed visibility or content based on the supervision state
+// of the account defined in `value`.
+- (void)updateFeedWithIsSupervisedUser:(BOOL)value {
+  // This may be called asynchronously after the NTP has
+  // been stopped and the object has been stopped. Ignore
+  // the invocation.
+  PrefService* prefService = self.prefService;
+  if (!prefService) {
+    return;
+  }
+
+  prefService->SetBoolean(prefs::kNTPContentSuggestionsForSupervisedUserEnabled,
+                          !value);
+}
+
 // Updates the NTP to take into account a new feed, or a change in feed
 // visibility.
 - (void)updateNTPForFeed {
@@ -1077,6 +1142,7 @@ const base::Feature kEnableCheckForNewFollowContent{
   self.ntpViewController.feedTopSectionViewController = nil;
   self.feedWrapperViewController = nil;
   self.feedViewController = nil;
+  self.feedTopSectionCoordinator = nil;
 
   // Fetches feed header and conditionally fetches feed. Feed can only be
   // visible if feed header is visible.
@@ -1102,6 +1168,7 @@ const base::Feature kEnableCheckForNewFollowContent{
       self.feedWrapperViewController;
 
   [self.ntpViewController layoutContentInParentCollectionView];
+  [self updateFeedLayout];
 }
 
 // Creates and configures the feed and feed header based on user prefs.
@@ -1110,6 +1177,10 @@ const base::Feature kEnableCheckForNewFollowContent{
 
   self.ntpViewController.feedHeaderViewController =
       self.feedHeaderViewController;
+
+  if ([self isFeedTopSectionVisible]) {
+    self.feedTopSectionCoordinator = [self createFeedTopSectionCoordinator];
+  }
 
   // Requests feeds here if the correct flags and prefs are enabled.
   if ([self shouldFeedBeVisible]) {
@@ -1133,7 +1204,8 @@ const base::Feature kEnableCheckForNewFollowContent{
 - (BOOL)isFeedHeaderVisible {
   return self.prefService->GetBoolean(prefs::kArticlesForYouEnabled) &&
          self.prefService->GetBoolean(prefs::kNTPContentSuggestionsEnabled) &&
-         !IsFeedAblationEnabled();
+         !IsFeedAblationEnabled() &&
+         IsContentSuggestionsForSupervisedUserEnabled(self.prefService);
 }
 
 // Returns `YES` if the feed is currently visible on the NTP.
@@ -1143,11 +1215,12 @@ const base::Feature kEnableCheckForNewFollowContent{
 
 // Whether the feed top section, which contains all content between the feed
 // header and the feed, is currently visible.
-// TODO(crbug.com/1331010): The feed top section should still work with the
-// sticky header, but for now we only show the content without it.
+// TODO(crbug.com/1331010): The feed top section may include content that is not
+// the signin promo, which may need to be visible when the user is signed in.
 - (BOOL)isFeedTopSectionVisible {
   return IsDiscoverFeedTopSyncPromoEnabled() && [self shouldFeedBeVisible] &&
-         ![self isContentHeaderSticky];
+         self.authService &&
+         !self.authService->HasPrimaryIdentity(signin::ConsentLevel::kSignin);
 }
 
 // Creates, configures and returns a Discover feed view controller.
@@ -1191,6 +1264,29 @@ const base::Feature kEnableCheckForNewFollowContent{
   viewControllerConfig.previewDelegate = self;
 
   return viewControllerConfig;
+}
+
+// Updates the visibility of the content suggestions on the NTP if the account
+// is subject to parental controls.
+- (void)updateFeedVisibilityForSupervision {
+  DCHECK(self.prefService);
+  DCHECK(self.authService);
+
+  ios::ChromeIdentityService* identity_service =
+      ios::GetChromeBrowserProvider().GetChromeIdentityService();
+  ChromeIdentity* identity =
+      self.authService->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
+  if (!identity) {
+    [self updateFeedWithIsSupervisedUser:NO];
+    return;
+  }
+
+  __weak NewTabPageCoordinator* weakSelf = self;
+  identity_service->IsSubjectToParentalControls(
+      identity, ^(ios::ChromeIdentityCapabilityResult result) {
+        [weakSelf updateFeedWithIsSupervisedUser:
+                      result == ios::ChromeIdentityCapabilityResult::kTrue];
+      });
 }
 
 // Handles how the NTP reacts when the default search engine is changed.

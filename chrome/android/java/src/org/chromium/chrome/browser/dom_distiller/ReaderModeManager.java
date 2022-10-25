@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors. All rights reserved.
+// Copyright 2015 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -434,11 +434,10 @@ public class ReaderModeManager extends EmptyTabObserver implements UserData {
             }
 
             @Override
-            public void didFinishNavigation(NavigationHandle navigation) {
+            public void didFinishNavigationInPrimaryMainFrame(NavigationHandle navigation) {
                 // TODO(cjhopman): This should possibly ignore navigations that replace the entry
                 // (like those from history.replaceState()).
-                if (!navigation.hasCommitted() || !navigation.isInPrimaryMainFrame()
-                        || navigation.isSameDocument()) {
+                if (!navigation.hasCommitted() || navigation.isSameDocument()) {
                     return;
                 }
 
@@ -463,6 +462,11 @@ public class ReaderModeManager extends EmptyTabObserver implements UserData {
                 mReaderModePageUrl = null;
 
                 if (mDistillationStatus == DistillationStatus.POSSIBLE) tryShowingPrompt();
+            }
+
+            @Override
+            public void didFinishNavigationNoop(NavigationHandle navigation) {
+                if (!navigation.isInPrimaryMainFrame()) return;
             }
 
             @Override

@@ -136,9 +136,7 @@ class CORE_EXPORT NGBoxFragmentPainter : public BoxPainterBase {
                         const PhysicalOffset& paint_offset,
                         const PhysicalOffset& parent_offset,
                         NGInlineCursor* cursor);
-  void PaintLineBoxChildren(NGInlineCursor* children,
-                            const PaintInfo&,
-                            const PhysicalOffset& paint_offset);
+  void PaintLineBoxes(const PaintInfo&, const PhysicalOffset& paint_offset);
   void PaintLineBoxChildItems(NGInlineCursor* children,
                               const PaintInfo&,
                               const PhysicalOffset& paint_offset);
@@ -150,8 +148,6 @@ class CORE_EXPORT NGBoxFragmentPainter : public BoxPainterBase {
   void PaintBackplate(NGInlineCursor* descendants,
                       const PaintInfo&,
                       const PhysicalOffset& paint_offset);
-  void PaintBlockFlowContents(const PaintInfo&,
-                              const PhysicalOffset& paint_offset);
   void PaintTextItem(const NGInlineCursor& cursor,
                      const PaintInfo&,
                      const PhysicalOffset& paint_offset,
@@ -289,6 +285,9 @@ class CORE_EXPORT NGBoxFragmentPainter : public BoxPainterBase {
 
   bool HitTestOverflowControl(const HitTestContext&,
                               PhysicalOffset accumulated_offset);
+
+  bool UpdateHitTestResultForView(const PhysicalRect& bounds_rect,
+                                  const HitTestContext& hit_test) const;
 
   const NGPhysicalBoxFragment& PhysicalFragment() const {
     return box_fragment_;

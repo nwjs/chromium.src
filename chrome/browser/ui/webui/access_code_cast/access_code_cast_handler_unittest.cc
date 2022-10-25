@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -149,8 +149,8 @@ class AccessCodeCastHandlerTest : public ChromeRenderViewHostTestHarness {
         mock_time_task_runner_);
 
     std::unique_ptr<MediaRouteStarter> starter =
-        std::make_unique<MediaRouteStarter>(
-            cast_modes, web_contents(), std::move(start_presentation_context));
+        std::make_unique<MediaRouteStarter>(MediaRouterUIParameters(
+            cast_modes, web_contents(), std::move(start_presentation_context)));
 
     handler_ = base::WrapUnique(new AccessCodeCastHandler(
         mojo::PendingReceiver<access_code_cast::mojom::PageHandler>(),

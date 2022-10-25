@@ -1,4 +1,4 @@
-// Copyright (c) 2013 The Chromium Authors. All rights reserved.
+// Copyright 2013 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -166,7 +166,7 @@ class OmniboxViewViewsTest : public InProcessBrowserTest {
 };
 
 IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, PasteAndGoDoesNotLeavePopupOpen) {
-  OmniboxView* view = NULL;
+  OmniboxView* view = nullptr;
   ASSERT_NO_FATAL_FAILURE(GetOmniboxViewForBrowser(browser(), &view));
   OmniboxViewViews* omnibox_view_views = static_cast<OmniboxViewViews*>(view);
 
@@ -181,7 +181,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, PasteAndGoDoesNotLeavePopupOpen) {
 }
 
 IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, DoNotNavigateOnDrop) {
-  OmniboxView* view = NULL;
+  OmniboxView* view = nullptr;
   ASSERT_NO_FATAL_FAILURE(GetOmniboxViewForBrowser(browser(), &view));
   OmniboxViewViews* omnibox_view_views = static_cast<OmniboxViewViews*>(view);
 
@@ -227,7 +227,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, AyncDropCallback) {
 
 // Flaky: https://crbug.com/915591.
 IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, DISABLED_SelectAllOnClick) {
-  OmniboxView* omnibox_view = NULL;
+  OmniboxView* omnibox_view = nullptr;
   ASSERT_NO_FATAL_FAILURE(GetOmniboxViewForBrowser(browser(), &omnibox_view));
   omnibox_view->SetUserText(u"http://www.google.com/");
 
@@ -342,7 +342,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, SelectionClipboard) {
 #if !BUILDFLAG(IS_MAC) || defined(USE_AURA)
 
 IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, SelectAllOnTap) {
-  OmniboxView* omnibox_view = NULL;
+  OmniboxView* omnibox_view = nullptr;
   ASSERT_NO_FATAL_FAILURE(GetOmniboxViewForBrowser(browser(), &omnibox_view));
   omnibox_view->SetUserText(u"http://www.google.com/");
 
@@ -392,7 +392,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, SelectAllOnTap) {
 // Tests if executing a command hides touch editing handles.
 IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest,
                        DeactivateTouchEditingOnExecuteCommand) {
-  OmniboxView* view = NULL;
+  OmniboxView* view = nullptr;
   ASSERT_NO_FATAL_FAILURE(GetOmniboxViewForBrowser(browser(), &view));
   OmniboxViewViews* omnibox_view_views = static_cast<OmniboxViewViews*>(view);
   views::TextfieldTestApi textfield_test_api(omnibox_view_views);
@@ -416,7 +416,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest,
 #endif  // !BUILDFLAG(IS_MAC) || defined(USE_AURA)
 
 IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, SelectAllOnTabToFocus) {
-  OmniboxView* omnibox_view = NULL;
+  OmniboxView* omnibox_view = nullptr;
   ASSERT_NO_FATAL_FAILURE(GetOmniboxViewForBrowser(browser(), &omnibox_view));
   ASSERT_TRUE(
       ui_test_utils::NavigateToURL(browser(), GURL("http://www.google.com/")));
@@ -460,7 +460,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, CloseOmniboxPopupOnTextDrag) {
       input, TemplateURLServiceFactory::GetForProfile(browser()->profile()));
 
   // The omnibox popup should open with suggestions displayed.
-  omnibox_view->model()->OnPopupResultChanged();
+  autocomplete_controller->NotifyChanged();
   EXPECT_TRUE(omnibox_view->model()->PopupIsOpen());
 
   // The omnibox text should be selected.
@@ -508,7 +508,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, MaintainCursorAfterFocusCycle) {
       input, TemplateURLServiceFactory::GetForProfile(browser()->profile()));
 
   // The omnibox popup should open with suggestions displayed.
-  omnibox_view->model()->OnPopupResultChanged();
+  autocomplete_controller->NotifyChanged();
   EXPECT_TRUE(omnibox_view->model()->PopupIsOpen());
 
   // TODO(krb): For some reason, we need to hit End twice to be registered.
@@ -545,7 +545,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, BackgroundIsOpaque) {
 
 IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, FocusedTextInputClient) {
   chrome::FocusLocationBar(browser());
-  OmniboxView* view = NULL;
+  OmniboxView* view = nullptr;
   ASSERT_NO_FATAL_FAILURE(GetOmniboxViewForBrowser(browser(), &view));
   OmniboxViewViews* omnibox_view_views = static_cast<OmniboxViewViews*>(view);
   ui::InputMethod* input_method =
@@ -611,7 +611,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, FriendlyAccessibleLabel) {
 
   // The omnibox popup should open with suggestions displayed.
   chrome::FocusLocationBar(browser());
-  omnibox_view->model()->OnPopupResultChanged();
+  autocomplete_controller->NotifyChanged();
   EXPECT_TRUE(omnibox_view->model()->PopupIsOpen());
   OmniboxViewViews* omnibox_view_views =
       static_cast<OmniboxViewViews*>(omnibox_view);
@@ -710,7 +710,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, AccessiblePopup) {
       input, TemplateURLServiceFactory::GetForProfile(browser()->profile()));
 
   // The omnibox popup should open with suggestions displayed.
-  omnibox_view->model()->OnPopupResultChanged();
+  autocomplete_controller->NotifyChanged();
   EXPECT_TRUE(omnibox_view->model()->PopupIsOpen());
   ui::AXNodeData popup_node_data_2;
   popup_view->GetAccessibleNodeData(&popup_node_data_2);
@@ -833,7 +833,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsUIATest, AccessibleOmnibox) {
       input, TemplateURLServiceFactory::GetForProfile(browser()->profile()));
 
   // The omnibox popup should open with suggestions displayed.
-  omnibox_view->model()->OnPopupResultChanged();
+  autocomplete_controller->NotifyChanged();
 
   // Wait for ControllerFor property changed event.
   open_waiter.Wait();

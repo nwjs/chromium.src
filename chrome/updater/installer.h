@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -120,7 +120,6 @@ class Installer final : public update_client::CrxInstaller {
   // Runs the installer code with sync primitives to allow the code to
   // create processes and wait for them to exit.
   void InstallWithSyncPrimitives(const base::FilePath& unpack_path,
-                                 const std::string& public_key,
                                  std::unique_ptr<InstallParams> install_params,
                                  ProgressCallback progress_callback,
                                  Callback callback);

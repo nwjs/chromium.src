@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors. All rights reserved.
+// Copyright 2015 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -302,7 +302,7 @@ TEST(URLRequestContextConfigTest, TestExperimentalOptionParsing) {
   // All host resolution expected to be mapped to an immediately-resolvable IP.
   std::unique_ptr<net::HostResolver::ResolveHostRequest> resolve_request =
       context->host_resolver()->CreateRequest(
-          net::HostPortPair("abcde", 80), net::NetworkIsolationKey(),
+          net::HostPortPair("abcde", 80), net::NetworkAnonymizationKey(),
           net::NetLogWithSource(), absl::nullopt);
   EXPECT_EQ(net::OK, resolve_request->Start(
                          base::BindOnce([](int error) { NOTREACHED(); })));

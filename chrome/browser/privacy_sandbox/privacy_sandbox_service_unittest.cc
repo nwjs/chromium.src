@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -13,6 +13,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/content_settings/cookie_settings_factory.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
+#include "chrome/browser/first_party_sets/first_party_sets_pref_names.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_settings_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/common/chrome_features.h"
@@ -32,7 +33,7 @@
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/sync/base/user_selectable_type.h"
-#include "components/sync/driver/test_sync_service.h"
+#include "components/sync/test/test_sync_service.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "content/public/browser/browsing_data_remover.h"
 #include "content/public/browser/interest_group_manager.h"
@@ -49,7 +50,7 @@
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "chrome/browser/ash/login/users/fake_chrome_user_manager.h"
-#include "chromeos/login/login_state/login_state.h"
+#include "chromeos/login/login_state/scoped_test_public_session_login_state.h"
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
@@ -661,8 +662,7 @@ void SetupDialogTestState(
 // returning them to their default value.
 void ClearFpsUserPrefs(
     sync_preferences::TestingPrefServiceSyncable* pref_service) {
-  pref_service->RemoveUserPref(
-      prefs::kPrivacySandboxFirstPartySetsDataAccessAllowed);
+  pref_service->RemoveUserPref(first_party_sets::kFirstPartySetsEnabled);
   pref_service->RemoveUserPref(
       prefs::kPrivacySandboxFirstPartySetsDataAccessAllowedInitialized);
 }
@@ -1372,10 +1372,7 @@ TEST_F(PrivacySandboxServiceTest, DeviceLocalAccountUser) {
                         /*confirmation_not_shown=*/false});
   // No prompt should be shown for a public session account.
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-  chromeos::LoginState::Initialize();
-  ash::LoginState::Get()->SetLoggedInState(
-      ash::LoginState::LoggedInState::LOGGED_IN_ACTIVE,
-      ash::LoginState::LoggedInUserType::LOGGED_IN_USER_PUBLIC_ACCOUNT);
+  chromeos::ScopedTestPublicSessionLoginState login_state;
 #elif BUILDFLAG(IS_CHROMEOS_LACROS)
   crosapi::mojom::BrowserInitParamsPtr init_params =
       crosapi::mojom::BrowserInitParams::New();
@@ -1980,13 +1977,21 @@ TEST_F(PrivacySandboxServiceTest, SampleFpsData) {
   feature_list()->InitAndEnableFeatureWithParameters(
       privacy_sandbox::kPrivacySandboxFirstPartySetsUI,
       {{"use-sample-sets", "true"}});
+  prefs()->SetUserPref(
+      prefs::kCookieControlsMode,
+      std::make_unique<base::Value>(static_cast<int>(
+          content_settings::CookieControlsMode::kBlockThirdParty)));
+  prefs()->SetBoolean(first_party_sets::kFirstPartySetsEnabled, true);
 
-  EXPECT_EQ(u"google.com", privacy_sandbox_service()->GetFpsOwnerForDisplay(
-                               GURL("https://mail.google.com.au")));
-  EXPECT_EQ(u"google.com", privacy_sandbox_service()->GetFpsOwnerForDisplay(
-                               GURL("https://youtube.com")));
-  EXPECT_EQ(absl::nullopt, privacy_sandbox_service()->GetFpsOwnerForDisplay(
-                               GURL("https://example.com")));
+  EXPECT_EQ(u"google.com",
+            privacy_sandbox_service()->GetFirstPartySetOwnerForDisplay(
+                GURL("https://mail.google.com.au")));
+  EXPECT_EQ(u"google.com",
+            privacy_sandbox_service()->GetFirstPartySetOwnerForDisplay(
+                GURL("https://youtube.com")));
+  EXPECT_EQ(absl::nullopt,
+            privacy_sandbox_service()->GetFirstPartySetOwnerForDisplay(
+                GURL("https://example.com")));
 }
 
 TEST_F(PrivacySandboxServiceTest, FpsPrefInit) {
@@ -2002,8 +2007,7 @@ TEST_F(PrivacySandboxServiceTest, FpsPrefInit) {
       privacy_sandbox::kPrivacySandboxFirstPartySetsUI);
 
   CreateService();
-  EXPECT_TRUE(prefs()->GetBoolean(
-      prefs::kPrivacySandboxFirstPartySetsDataAccessAllowed));
+  EXPECT_TRUE(prefs()->GetBoolean(first_party_sets::kFirstPartySetsEnabled));
   EXPECT_FALSE(prefs()->GetBoolean(
       prefs::kPrivacySandboxFirstPartySetsDataAccessAllowedInitialized));
 
@@ -2015,8 +2019,7 @@ TEST_F(PrivacySandboxServiceTest, FpsPrefInit) {
       privacy_sandbox::kPrivacySandboxFirstPartySetsUI);
 
   CreateService();
-  EXPECT_FALSE(prefs()->GetBoolean(
-      prefs::kPrivacySandboxFirstPartySetsDataAccessAllowed));
+  EXPECT_FALSE(prefs()->GetBoolean(first_party_sets::kFirstPartySetsEnabled));
   EXPECT_TRUE(prefs()->GetBoolean(
       prefs::kPrivacySandboxFirstPartySetsDataAccessAllowedInitialized));
 
@@ -2028,8 +2031,7 @@ TEST_F(PrivacySandboxServiceTest, FpsPrefInit) {
                            content_settings::CookieControlsMode::kOff)));
 
   CreateService();
-  EXPECT_TRUE(prefs()->GetBoolean(
-      prefs::kPrivacySandboxFirstPartySetsDataAccessAllowed));
+  EXPECT_TRUE(prefs()->GetBoolean(first_party_sets::kFirstPartySetsEnabled));
   EXPECT_TRUE(prefs()->GetBoolean(
       prefs::kPrivacySandboxFirstPartySetsDataAccessAllowedInitialized));
 
@@ -2038,8 +2040,7 @@ TEST_F(PrivacySandboxServiceTest, FpsPrefInit) {
       std::make_unique<base::Value>(static_cast<int>(
           content_settings::CookieControlsMode::kBlockThirdParty)));
   CreateService();
-  EXPECT_TRUE(prefs()->GetBoolean(
-      prefs::kPrivacySandboxFirstPartySetsDataAccessAllowed));
+  EXPECT_TRUE(prefs()->GetBoolean(first_party_sets::kFirstPartySetsEnabled));
   EXPECT_TRUE(prefs()->GetBoolean(
       prefs::kPrivacySandboxFirstPartySetsDataAccessAllowedInitialized));
 
@@ -2051,10 +2052,56 @@ TEST_F(PrivacySandboxServiceTest, FpsPrefInit) {
 
   cookie_settings()->SetDefaultCookieSetting(CONTENT_SETTING_BLOCK);
   CreateService();
-  EXPECT_FALSE(prefs()->GetBoolean(
-      prefs::kPrivacySandboxFirstPartySetsDataAccessAllowed));
+  EXPECT_FALSE(prefs()->GetBoolean(first_party_sets::kFirstPartySetsEnabled));
   EXPECT_TRUE(prefs()->GetBoolean(
       prefs::kPrivacySandboxFirstPartySetsDataAccessAllowedInitialized));
+}
+
+TEST_F(PrivacySandboxServiceTest, NoFpsWhileNotAffected) {
+  // Confirm that when FPS is not involved in access decisions, that the set
+  // of returned First Party Sets is empty.
+  // TODO(crbug.com/1332513): Move away from this demo parameter.
+  feature_list()->InitAndEnableFeatureWithParameters(
+      privacy_sandbox::kPrivacySandboxFirstPartySetsUI,
+      {{"use-sample-sets", "true"}});
+
+  // When 3PC are blocked, and FPS is enabled, sets should be returned.
+  prefs()->SetUserPref(
+      prefs::kCookieControlsMode,
+      std::make_unique<base::Value>(static_cast<int>(
+          content_settings::CookieControlsMode::kBlockThirdParty)));
+  cookie_settings()->SetDefaultCookieSetting(CONTENT_SETTING_ALLOW);
+  prefs()->SetBoolean(first_party_sets::kFirstPartySetsEnabled, true);
+  EXPECT_GT(privacy_sandbox_service()->GetFirstPartySets().size(), 0u);
+
+  // When 3PC are enabled, no sets should be returned.
+  prefs()->SetUserPref(prefs::kCookieControlsMode,
+                       std::make_unique<base::Value>(static_cast<int>(
+                           content_settings::CookieControlsMode::kOff)));
+  EXPECT_EQ(0u, privacy_sandbox_service()->GetFirstPartySets().size());
+
+  // When all cookies are blocked, no sets should be returned.
+  prefs()->SetUserPref(
+      prefs::kCookieControlsMode,
+      std::make_unique<base::Value>(static_cast<int>(
+          content_settings::CookieControlsMode::kBlockThirdParty)));
+  cookie_settings()->SetDefaultCookieSetting(CONTENT_SETTING_BLOCK);
+
+  EXPECT_EQ(0u, privacy_sandbox_service()->GetFirstPartySets().size());
+
+  // When FPS is disabled, no sets should be returned.
+  cookie_settings()->SetDefaultCookieSetting(CONTENT_SETTING_ALLOW);
+  prefs()->SetBoolean(first_party_sets::kFirstPartySetsEnabled, false);
+
+  EXPECT_EQ(0u, privacy_sandbox_service()->GetFirstPartySets().size());
+
+  // When the UI feature is disabled, no sets should be returned.
+  feature_list()->Reset();
+  feature_list()->InitAndDisableFeature(
+      privacy_sandbox::kPrivacySandboxFirstPartySetsUI);
+  prefs()->SetBoolean(first_party_sets::kFirstPartySetsEnabled, true);
+
+  EXPECT_EQ(0u, privacy_sandbox_service()->GetFirstPartySets().size());
 }
 
 class PrivacySandboxServiceTestNonRegularProfile

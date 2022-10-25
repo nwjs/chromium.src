@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -26,6 +26,42 @@ FilesRequestHandler::Factory* GetFactoryStorage() {
   return factory.get();
 }
 
+AnalysisConnector AccessPointToEnterpriseConnector(
+    safe_browsing::DeepScanAccessPoint access_point) {
+  switch (access_point) {
+    case safe_browsing::DeepScanAccessPoint::FILE_TRANSFER:
+      return enterprise_connectors::FILE_TRANSFER;
+    case safe_browsing::DeepScanAccessPoint::UPLOAD:
+    case safe_browsing::DeepScanAccessPoint::DRAG_AND_DROP:
+    case safe_browsing::DeepScanAccessPoint::PASTE:
+      // A file can be uploaded to a website by either a normal file picker, a
+      // dragNdrop event or using copy+paste.
+      return enterprise_connectors::FILE_ATTACHED;
+    case safe_browsing::DeepScanAccessPoint::DOWNLOAD:
+    case safe_browsing::DeepScanAccessPoint::PRINT:
+      NOTREACHED();
+  }
+  return enterprise_connectors::FILE_ATTACHED;
+}
+
+std::string AccessPointToTriggerString(
+    safe_browsing::DeepScanAccessPoint access_point) {
+  switch (access_point) {
+    case safe_browsing::DeepScanAccessPoint::FILE_TRANSFER:
+      return extensions::SafeBrowsingPrivateEventRouter::kTriggerFileTransfer;
+    case safe_browsing::DeepScanAccessPoint::UPLOAD:
+    case safe_browsing::DeepScanAccessPoint::DRAG_AND_DROP:
+    case safe_browsing::DeepScanAccessPoint::PASTE:
+      // A file can be uploaded to a website by either a normal file picker, a
+      // dragNdrop event or using copy+paste.
+      return extensions::SafeBrowsingPrivateEventRouter::kTriggerFileUpload;
+    case safe_browsing::DeepScanAccessPoint::DOWNLOAD:
+    case safe_browsing::DeepScanAccessPoint::PRINT:
+      NOTREACHED();
+  }
+  return "";
+}
+
 }  // namespace
 
 FilesRequestHandler::FileInfo::FileInfo() = default;
@@ -37,6 +73,8 @@ FilesRequestHandler::FilesRequestHandler(
     Profile* profile,
     const enterprise_connectors::AnalysisSettings& analysis_settings,
     GURL url,
+    const std::string& source,
+    const std::string& destination,
     safe_browsing::DeepScanAccessPoint access_point,
     const std::vector<base::FilePath>& paths,
     CompletionCallback callback)
@@ -44,6 +82,8 @@ FilesRequestHandler::FilesRequestHandler(
                          profile,
                          analysis_settings,
                          url,
+                         source,
+                         destination,
                          access_point),
       paths_(paths),
       callback_(std::move(callback)) {
@@ -57,18 +97,20 @@ std::unique_ptr<FilesRequestHandler> FilesRequestHandler::Create(
     Profile* profile,
     const enterprise_connectors::AnalysisSettings& analysis_settings,
     GURL url,
+    const std::string& source,
+    const std::string& destination,
     safe_browsing::DeepScanAccessPoint access_point,
     const std::vector<base::FilePath>& paths,
     CompletionCallback callback) {
   if (GetFactoryStorage()->is_null()) {
-    return base::WrapUnique(
-        new FilesRequestHandler(upload_service, profile, analysis_settings, url,
-                                access_point, paths, std::move(callback)));
+    return base::WrapUnique(new FilesRequestHandler(
+        upload_service, profile, analysis_settings, url, source, destination,
+        access_point, paths, std::move(callback)));
   } else {
     // Use the factory to create a fake FilesRequestHandler.
     return GetFactoryStorage()->Run(upload_service, profile, analysis_settings,
-                                    url, access_point, paths,
-                                    std::move(callback));
+                                    url, source, destination, access_point,
+                                    paths, std::move(callback));
   }
 }
 
@@ -92,11 +134,10 @@ void FilesRequestHandler::ReportWarningBypass(
     size_t index = warning.first;
 
     ReportAnalysisConnectorWarningBypass(
-        profile_, url_, paths_[index].AsUTF8Unsafe(), file_info_[index].sha256,
-        file_info_[index].mime_type,
-        extensions::SafeBrowsingPrivateEventRouter::kTriggerFileUpload,
-        access_point_, file_info_[index].size, warning.second,
-        user_justification);
+        profile_, url_, source_, destination_, paths_[index].AsUTF8Unsafe(),
+        file_info_[index].sha256, file_info_[index].mime_type,
+        AccessPointToTriggerString(access_point_), access_point_,
+        file_info_[index].size, warning.second, user_justification);
   }
 }
 
@@ -144,7 +185,7 @@ safe_browsing::FileAnalysisRequest* FilesRequestHandler::PrepareFileRequest(
       base::BindOnce(&FilesRequestHandler::FileRequestCallback,
                      weak_ptr_factory_.GetWeakPtr(), index));
   safe_browsing::FileAnalysisRequest* request_raw = request.get();
-  PrepareRequest(enterprise_connectors::FILE_ATTACHED, request_raw);
+  PrepareRequest(AccessPointToEnterpriseConnector(access_point_), request_raw);
   request_raw->GetRequestData(base::BindOnce(
       &FilesRequestHandler::OnGotFileInfo, weak_ptr_factory_.GetWeakPtr(),
       std::move(request), index));
@@ -244,10 +285,10 @@ void FilesRequestHandler::FileRequestCallback(
   }
 
   MaybeReportDeepScanningVerdict(
-      profile_, url_, path.AsUTF8Unsafe(), file_info_[index].sha256,
-      file_info_[index].mime_type,
-      extensions::SafeBrowsingPrivateEventRouter::kTriggerFileUpload,
-      access_point_, file_info_[index].size, upload_result, response,
+      profile_, url_, source_, destination_, path.AsUTF8Unsafe(),
+      file_info_[index].sha256, file_info_[index].mime_type,
+      AccessPointToTriggerString(access_point_), access_point_,
+      file_info_[index].size, upload_result, response,
       CalculateEventResult(analysis_settings_, request_handler_result.complies,
                            result_is_warning));
 

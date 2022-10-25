@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors. All rights reserved.
+// Copyright 2020 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -189,8 +189,8 @@ IN_PROC_BROWSER_TEST_F(AttributionInternalsWebUiBrowserTest,
                        DisabledByEmbedder_MeasurementConsideredDisabled) {
   MockAttributionReportingContentBrowserClient browser_client;
   EXPECT_CALL(browser_client,
-              IsConversionMeasurementOperationAllowed(
-                  _, ContentBrowserClient::ConversionMeasurementOperation::kAny,
+              IsAttributionReportingOperationAllowed(
+                  _, ContentBrowserClient::AttributionReportingOperation::kAny,
                   IsNull(), IsNull(), IsNull()))
       .WillRepeatedly(Return(false));
   ScopedContentBrowserClientSetting setting(&browser_client);
@@ -261,6 +261,7 @@ IN_PROC_BROWSER_TEST_F(AttributionInternalsWebUiBrowserTest,
                .SetSourceType(AttributionSourceType::kEvent)
                .SetPriority(std::numeric_limits<int64_t>::max())
                .SetDedupKeys({13, 17})
+               .SetAggregatableBudgetConsumed(1300)
                .SetFilterData(*AttributionFilterData::FromSourceFilterValues(
                    {{"a", {"b", "c"}}}))
                .SetAggregationKeys(
@@ -270,9 +271,6 @@ IN_PROC_BROWSER_TEST_F(AttributionInternalsWebUiBrowserTest,
                .SetActiveState(StoredSource::ActiveState::
                                    kReachedEventLevelAttributionLimit)
                .BuildStored()}));
-
-  manager()->NotifySourceDeactivated(
-      SourceBuilder(now + base::Hours(3)).BuildStored());
 
   // This shouldn't result in a row, as registration succeeded.
   manager()->NotifySourceHandled(SourceBuilder(now).Build(),
@@ -297,7 +295,7 @@ IN_PROC_BROWSER_TEST_F(AttributionInternalsWebUiBrowserTest,
     let table = document.querySelector('#sourceTable')
         .shadowRoot.querySelector('tbody');
     let obs = new MutationObserver((_, obs) => {
-      if (table.children.length === 8 &&
+      if (table.children.length === 7 &&
           table.children[0].children[0].innerText === $1 &&
           table.children[0].children[7].innerText === "Navigation" &&
           table.children[1].children[7].innerText === "Event" &&
@@ -307,18 +305,19 @@ IN_PROC_BROWSER_TEST_F(AttributionInternalsWebUiBrowserTest,
           table.children[1].children[9].innerText === '{\n "a": [\n  "b",\n  "c"\n ]\n}' &&
           table.children[0].children[10].innerText === "{}" &&
           table.children[1].children[10].innerText === '{\n "a": "0x1"\n}' &&
-          table.children[0].children[11].innerText === "19" &&
-          table.children[1].children[11].innerText === "" &&
-          table.children[0].children[12].innerText === "" &&
-          table.children[1].children[12].innerText === "13, 17" &&
+          table.children[0].children[11].innerText === "0 / 65536" &&
+          table.children[1].children[11].innerText === "1300 / 65536" &&
+          table.children[0].children[12].innerText === "19" &&
+          table.children[1].children[12].innerText === "" &&
+          table.children[0].children[13].innerText === "" &&
+          table.children[1].children[13].innerText === "13, 17" &&
           table.children[0].children[1].innerText === "Unattributable: noised" &&
           table.children[1].children[1].innerText === "Attributable" &&
           table.children[2].children[1].innerText === "Attributable: reached event-level attribution limit" &&
-          table.children[3].children[1].innerText === "Unattributable: replaced by newer source" &&
-          table.children[4].children[1].innerText === "Rejected: internal error" &&
-          table.children[5].children[1].innerText === "Rejected: insufficient source capacity" &&
-          table.children[6].children[1].innerText === "Rejected: insufficient unique destination capacity" &&
-          table.children[7].children[1].innerText === "Rejected: excessive reporting origins") {
+          table.children[3].children[1].innerText === "Rejected: internal error" &&
+          table.children[4].children[1].innerText === "Rejected: insufficient source capacity" &&
+          table.children[5].children[1].innerText === "Rejected: insufficient unique destination capacity" &&
+          table.children[6].children[1].innerText === "Rejected: excessive reporting origins") {
         obs.disconnect();
         document.title = $3;
       }
@@ -632,8 +631,9 @@ IN_PROC_BROWSER_TEST_F(AttributionInternalsWebUiBrowserTest,
       .WillByDefault(InvokeCallback(
           {SourceBuilder(now).SetSourceEventId(5).BuildStored()}));
 
-  manager()->NotifySourceDeactivated(
-      SourceBuilder(now + base::Hours(2)).SetSourceEventId(6).BuildStored());
+  manager()->NotifySourceHandled(
+      SourceBuilder(now + base::Hours(2)).SetSourceEventId(6).Build(),
+      StorableSource::Result::kInternalError);
 
   EXPECT_CALL(*manager(),
               ClearData(base::Time::Min(), base::Time::Max(), _, true, _))

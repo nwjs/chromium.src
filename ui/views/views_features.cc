@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -22,6 +22,10 @@ const base::Feature kEnablePlatformHighContrastInkDrop{
 // an invalid rectangle on the layer.
 const base::Feature kEnableViewPaintOptimization{
     "EnableViewPaintOptimization", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// When enabled, widgets will be shown based on their z-order level
+const base::Feature kWidgetLayering{"WidgetLayering",
+                                    base::FEATURE_DISABLED_BY_DEFAULT};
 
 }  // namespace features
 }  // namespace views

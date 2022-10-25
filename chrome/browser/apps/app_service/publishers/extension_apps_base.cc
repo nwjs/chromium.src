@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors. All rights reserved.
+// Copyright 2020 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -389,8 +389,6 @@ void ExtensionAppsBase::Initialize() {
   extensions::ExtensionSystem::Get(profile_)->ready().Post(
       FROM_HERE, base::BindOnce(&ExtensionAppsBase::OnExtensionsReady,
                                 weak_factory_.GetWeakPtr()));
-
-  app_service_ = proxy()->AppService().get();
 }
 
 void ExtensionAppsBase::OnExtensionsReady() {
@@ -517,15 +515,20 @@ void ExtensionAppsBase::LaunchAppWithFiles(
   LaunchImpl(std::move(params));
 }
 
-void ExtensionAppsBase::LaunchAppWithIntent(
-    const std::string& app_id,
-    int32_t event_flags,
-    IntentPtr intent,
-    LaunchSource launch_source,
-    WindowInfoPtr window_info,
-    base::OnceCallback<void(bool)> callback) {
-  LaunchAppWithIntentImpl(app_id, event_flags, std::move(intent), launch_source,
-                          std::move(window_info), std::move(callback));
+void ExtensionAppsBase::LaunchAppWithIntent(const std::string& app_id,
+                                            int32_t event_flags,
+                                            IntentPtr intent,
+                                            LaunchSource launch_source,
+                                            WindowInfoPtr window_info,
+                                            LaunchCallback callback) {
+  LaunchAppWithIntentImpl(
+      app_id, event_flags, std::move(intent), launch_source,
+      std::move(window_info),
+      base::BindOnce(
+          [](LaunchCallback callback, bool success) {
+            std::move(callback).Run(ConvertBoolToLaunchResult(success));
+          },
+          std::move(callback)));
 }
 
 void ExtensionAppsBase::LaunchAppWithParams(AppLaunchParams&& params,
@@ -959,9 +962,14 @@ void ExtensionAppsBase::LaunchAppWithIntentWhenEnabled(
     LaunchSource launch_source,
     WindowInfoPtr window_info,
     CallbackWrapper wrapper) {
-  LaunchAppWithIntent(app_id, event_flags, std::move(intent),
-                      std::move(launch_source), std::move(window_info),
-                      std::move(wrapper.callback));
+  LaunchAppWithIntent(
+      app_id, event_flags, std::move(intent), std::move(launch_source),
+      std::move(window_info),
+      base::BindOnce(
+          [](LaunchAppWithIntentCallback callback, LaunchResult&& result) {
+            std::move(callback).Run(ConvertLaunchResultToBool(result));
+          },
+          std::move(wrapper.callback)));
 }
 
 void ExtensionAppsBase::LaunchMojom(const std::string& app_id,

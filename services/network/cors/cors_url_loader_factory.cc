@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors. All rights reserved.
+// Copyright 2018 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,6 +9,7 @@
 #include "base/bind.h"
 #include "base/debug/crash_logging.h"
 #include "base/logging.h"
+#include "base/types/optional_util.h"
 #include "components/web_package/web_bundle_url_loader_factory.h"
 #include "mojo/public/cpp/bindings/message.h"
 #include "mojo/public/cpp/bindings/remote.h"
@@ -79,6 +80,12 @@ bool VerifyTrustTokenParamsIntegrityIfPresent(
   }
 
   return true;
+}
+
+base::debug::CrashKeyString* GetRequestInitiatorOriginLockCrashKey() {
+  static auto* crash_key = base::debug::AllocateCrashKeyString(
+      "request_initiator_origin_lock", base::debug::CrashKeySize::Size256);
+  return crash_key;
 }
 
 }  // namespace
@@ -367,9 +374,9 @@ bool CorsURLLoaderFactory::IsValidRequest(const ResourceRequest& request,
     return false;
   }
 
-  // request's NetworkIsolationKey is not present. This is because the
+  // request's NetworkAnonymizationKey is not present. This is because the
   // restricted prefetch flag is only used when the browser sets the request's
-  // NetworkIsolationKey to correctly cache-partition the resource.
+  // NetworkAnonymizationKey to correctly cache-partition the resource.
   bool request_network_isolation_key_present =
       request.trusted_params &&
       !request.trusted_params->isolation_info.IsEmpty();
@@ -496,6 +503,9 @@ bool CorsURLLoaderFactory::IsValidRequest(const ResourceRequest& request,
 
     case InitiatorLockCompatibility::kIncorrectLock:
       // Requests from the renderer need to always specify a correct initiator.
+      url::debug::ScopedOriginCrashKey initiator_origin_lock_crash_key(
+          GetRequestInitiatorOriginLockCrashKey(),
+          base::OptionalToPtr(request_initiator_origin_lock_));
       mojo::ReportBadMessage(
           "CorsURLLoaderFactory: lock VS initiator mismatch");
       return false;

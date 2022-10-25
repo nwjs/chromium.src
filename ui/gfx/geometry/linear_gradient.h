@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -33,7 +33,7 @@ class GEOMETRY_SKIA_EXPORT LinearGradient {
   };
   static LinearGradient& GetEmpty();
 
-  static constexpr size_t kMaxStepSize = 6;
+  static constexpr size_t kMaxStepSize = 8;
   using StepArray = std::array<Step, kMaxStepSize>;
 
   LinearGradient();

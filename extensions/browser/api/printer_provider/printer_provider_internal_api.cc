@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors. All rights reserved.
+// Copyright 2015 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -15,6 +15,7 @@
 #include "base/location.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/observer_list.h"
+#include "base/types/optional_util.h"
 #include "base/values.h"
 #include "content/public/browser/blob_handle.h"
 #include "content/public/browser/browser_context.h"
@@ -127,9 +128,8 @@ PrinterProviderInternalReportPrinterCapabilityFunction::Run() {
   if (params->capability) {
     PrinterProviderInternalAPI::GetFactoryInstance()
         ->Get(browser_context())
-        ->NotifyGetCapabilityResult(
-            extension(), params->request_id,
-            params->capability->additional_properties.GetDict());
+        ->NotifyGetCapabilityResult(extension(), params->request_id,
+                                    params->capability->additional_properties);
   } else {
     PrinterProviderInternalAPI::GetFactoryInstance()
         ->Get(browser_context())
@@ -241,8 +241,9 @@ PrinterProviderInternalReportUsbPrinterInfoFunction::Run() {
 
   PrinterProviderInternalAPI::GetFactoryInstance()
       ->Get(browser_context())
-      ->NotifyGetUsbPrinterInfoResult(extension(), params->request_id,
-                                      params->printer_info.get());
+      ->NotifyGetUsbPrinterInfoResult(
+          extension(), params->request_id,
+          base::OptionalToPtr(params->printer_info));
   return RespondNow(NoArguments());
 }
 

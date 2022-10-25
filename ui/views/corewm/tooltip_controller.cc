@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -17,13 +17,11 @@
 #include "ui/aura/window.h"
 #include "ui/display/screen.h"
 #include "ui/events/event.h"
-#include "ui/views/corewm/tooltip.h"
 #include "ui/views/corewm/tooltip_state_manager.h"
 #include "ui/views/widget/tooltip_manager.h"
 #include "ui/wm/public/activation_client.h"
 
-namespace views {
-namespace corewm {
+namespace views::corewm {
 namespace {
 
 constexpr auto kDefaultHideTooltipTimeoutInMs = base::Seconds(10);
@@ -455,5 +453,4 @@ bool TooltipController::ShouldHideBecauseMouseWasOncePressed() {
          wm::GetTooltipText(observed_window_) == tooltip_text_at_mouse_press_;
 }
 
-}  // namespace corewm
-}  // namespace views
+}  // namespace views::corewm

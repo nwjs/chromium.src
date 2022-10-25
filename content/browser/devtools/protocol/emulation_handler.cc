@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors. All rights reserved.
+// Copyright 2015 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -588,7 +588,9 @@ WebContentsImpl* EmulationHandler::GetWebContents() {
 }
 
 void EmulationHandler::UpdateTouchEventEmulationState() {
-  DCHECK(host_);
+  if (!host_)
+    return;
+
   // We only have a single TouchEmulator for all frames, so let the main frame's
   // EmulationHandler enable/disable it.
   DCHECK(!host_->GetParentOrOuterDocument());
@@ -613,7 +615,9 @@ void EmulationHandler::UpdateTouchEventEmulationState() {
 }
 
 void EmulationHandler::UpdateDeviceEmulationState() {
-  DCHECK(host_);
+  if (!host_)
+    return;
+
   // Device emulation only happens on the outermost main frame.
   DCHECK(!host_->GetParentOrOuterDocument());
 
@@ -624,15 +628,13 @@ void EmulationHandler::UpdateDeviceEmulationState() {
   // this is tricky since we'd have to track the DevTools message id with the
   // WidgetMsg and acknowledgment, as well as plump the acknowledgment back to
   // the EmulationHandler somehow. Mojo callbacks should make this much simpler.
-  host_->ForEachRenderFrameHostIncludingSpeculative(base::BindRepeating(
-      [](EmulationHandler* handler, RenderFrameHostImpl* host) {
+  host_->ForEachRenderFrameHostIncludingSpeculative(
+      [this](RenderFrameHostImpl* host) {
         // The main frame of nested subpages (ex. fenced frames, portals) inside
         // this page are updated as well.
         if (host->is_main_frame())
-          handler->UpdateDeviceEmulationStateForHost(
-              host->GetRenderWidgetHost());
-      },
-      this));
+          UpdateDeviceEmulationStateForHost(host->GetRenderWidgetHost());
+      });
 }
 
 void EmulationHandler::UpdateDeviceEmulationStateForHost(

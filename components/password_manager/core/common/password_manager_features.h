@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors. All rights reserved.
+// Copyright 2015 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,6 +10,7 @@
 
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/time/time.h"
 #include "build/build_config.h"
 
 #if BUILDFLAG(IS_ANDROID)
@@ -47,7 +48,10 @@ extern const base::Feature kIOSPasswordUISplit;
 extern const base::Feature kIOSPasswordManagerCrossOriginIframeSupport;
 #endif  // IS_IOS
 extern const base::Feature kMuteCompromisedPasswords;
+
+extern const base::FeatureParam<base::TimeDelta> kPasswordNotesAuthValidity;
 extern const base::Feature kPasswordNotes;
+
 extern const base::Feature kPasswordViewPageInSettings;
 extern const base::Feature kSendPasswords;
 extern const base::Feature kLeakDetectionUnauthenticated;
@@ -61,6 +65,7 @@ extern const base::Feature kPasswordManagerRedesign;
 #endif
 extern const base::Feature kPasswordReuseDetectionEnabled;
 extern const base::Feature kPasswordScriptsFetching;
+extern const base::Feature kPasswordsGrouping;
 extern const base::Feature kPasswordStrengthIndicator;
 extern const base::Feature kRecoverFromNeverSaveAndroid;
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
@@ -77,11 +82,17 @@ extern const base::Feature kUnifiedCredentialManagerDryRun;
 extern const base::Feature kUnifiedPasswordManagerAndroid;
 extern const base::Feature kUnifiedPasswordManagerErrorMessages;
 extern const base::Feature kUnifiedPasswordManagerSyncUsingAndroidBackendOnly;
+extern const base::Feature kUnifiedPasswordManagerReenrollment;
 #endif
-extern const base::Feature kUnifiedPasswordManagerDesktop;
 extern const base::Feature kUsernameFirstFlowFallbackCrowdsourcing;
 
 // All features parameters are in alphabetical order.
+
+// If `true`, then password change in settings will also be offered for
+// insecure credentials that are weak (and not phished or leaked).
+constexpr base::FeatureParam<bool>
+    kPasswordChangeInSettingsWeakCredentialsParam = {&kPasswordChangeInSettings,
+                                                     "weak_credentials", false};
 
 // True if the client is part of the live_experiment group for
 // |kPasswordDomainCapabilitiesFetching|, otherwise, the client is assumed to be
@@ -91,6 +102,52 @@ constexpr base::FeatureParam<bool> kPasswordChangeLiveExperimentParam = {
 
 #if BUILDFLAG(IS_ANDROID)
 extern const base::FeatureParam<int> kMigrationVersion;
+
+// Current version of the GMS Core API errors lists. Users save this value on
+// eviction due to error and will only be re-enrolled to the experiment if the
+// configured version is greater than the saved one.
+constexpr base::FeatureParam<int> kGmsApiErrorListVersion = {
+    &kUnifiedPasswordManagerAndroid, "api_error_list_version", 0};
+
+// Current list of the GMS Core API error codes that should be ignored and not
+// result in user eviction.
+// Codes DEVELOPER_ERROR=10, BAD_REQUEST=11008 are ignored to keep the default
+// pre-M107 behaviour.
+constexpr base::FeatureParam<std::string> kIgnoredGmsApiErrors = {
+    &kUnifiedPasswordManagerAndroid, "ignored_api_errors", "10,11008"};
+
+// Current list of the GMS Core API error codes considered retriable.
+// User could still be evicted if retries do not resolve the error.
+constexpr base::FeatureParam<std::string> kRetriableGmsApiErrors = {
+    &kUnifiedPasswordManagerAndroid, "retriable_api_errors", ""};
+
+// Enables fallback to the Chrome built-in backend if the operation executed on
+// the GMS Core backend returns with error. Errors listed in the
+// |kIgnoredGmsApiErrors| will not fallback and will be directly returned to the
+// caller to be addressed in a specific way.
+
+// Fallback on AddLogin and UpdateLogin operations. This is default behaviour
+// since M103.
+constexpr base::FeatureParam<bool> kFallbackOnModifyingOperations = {
+    &kUnifiedPasswordManagerAndroid, "fallback_on_modifying_operations", true};
+
+// Fallback on RemoveLogin* operations.
+constexpr base::FeatureParam<bool> kFallbackOnRemoveOperations = {
+    &kUnifiedPasswordManagerAndroid, "fallback_on_remove_operations", false};
+
+// Fallback on FillMatchingLogins which is needed to perform autofill and could
+// affect user experience.
+constexpr base::FeatureParam<bool> kFallbackOnUserAffectingReadOperations = {
+    &kUnifiedPasswordManagerAndroid,
+    "fallback_on_user_affecting_read_operations", false};
+
+// Fallback on GetAllLogins* and GetAutofillableLogins operations which are
+// needed for certain features (e.g. PhishGuard) but do not affect the core
+// experience.
+constexpr base::FeatureParam<bool> kFallbackOnNonUserAffectingReadOperations = {
+    &kUnifiedPasswordManagerAndroid,
+    "fallback_on_non_user_affecting_read_operations", false};
+
 constexpr base::FeatureParam<UpmExperimentVariation>::Option
     kUpmExperimentVariationOption[] = {
         {UpmExperimentVariation::kEnableForSyncingUsers, "0"},
@@ -104,6 +161,10 @@ constexpr base::FeatureParam<UpmExperimentVariation>
                                  UpmExperimentVariation::kEnableForSyncingUsers,
                                  &kUpmExperimentVariationOption};
 
+extern const base::FeatureParam<int> kMaxUPMReenrollments;
+extern const base::FeatureParam<int> kMaxUPMReenrollmentAttempts;
+
+extern const base::FeatureParam<bool> kIgnoreAuthErrorMessageTimeouts;
 #endif
 
 // Field trial and corresponding parameters.

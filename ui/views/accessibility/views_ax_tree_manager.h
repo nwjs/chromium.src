@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors. All rights reserved.
+// Copyright 2020 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -79,9 +79,9 @@ class VIEWS_EXPORT ViewsAXTreeManager : public ui::AXTreeManager,
   void UnsetGeneratedEventCallbackForTesting();
 
   // AXTreeManager implementation.
-  ui::AXNode* GetNodeFromTree(const ui::AXTreeID tree_id,
+  ui::AXNode* GetNodeFromTree(const ui::AXTreeID& tree_id,
                               const ui::AXNodeID node_id) const override;
-  ui::AXNode* GetNodeFromTree(const ui::AXNodeID node_id) const override;
+  ui::AXNode* GetNode(const ui::AXNodeID node_id) const override;
   ui::AXTreeID GetParentTreeID() const override;
   ui::AXNode* GetParentNodeFromParentTreeAsAXNode() const override;
 

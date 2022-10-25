@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -883,7 +883,8 @@ class TestTabMirroringSession : public mirroring::mojom::SessionObserver,
     const std::string receiver_model_name{};
     auto session_params = mirroring::mojom::SessionParameters::New(
         mirroring::mojom::SessionType::AUDIO_AND_VIDEO, endpoint.address(),
-        receiver_model_name, base::Milliseconds(kTargetPlayoutDelayMs));
+        receiver_model_name, "sender-123", "receiver-456",
+        base::Milliseconds(kTargetPlayoutDelayMs));
 
     host_->Start(std::move(session_params), std::move(observer_remote),
                  std::move(channel_remote),

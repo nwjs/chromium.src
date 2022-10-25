@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors. All rights reserved.
+// Copyright 2015 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -275,6 +275,7 @@ void TestRenderFrame::Navigate(
           blink::mojom::PolicyContainerPolicies::New(),
           mock_policy_container_host.BindNewEndpointAndPassDedicatedRemote()),
       mojo::NullRemote() /* code_cache_host */, nullptr, nullptr,
+      /* not_restored_reasons */ nullptr,
       base::BindOnce(&MockFrameHost::DidCommitProvisionalLoad,
                      base::Unretained(mock_frame_host_.get())));
 }

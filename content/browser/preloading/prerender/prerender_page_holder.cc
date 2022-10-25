@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -198,17 +198,15 @@ std::unique_ptr<StoredPage> PrerenderPageHolder::Activate(
   }
 
   page->render_frame_host->ForEachRenderFrameHostIncludingSpeculative(
-      base::BindRepeating(
-          [](const WebContentsImpl& web_contents, RenderFrameHostImpl* rfh) {
-            // The visibility state of the prerendering page has not been
-            // updated by
-            // WebContentsImpl::UpdateVisibilityAndNotifyPageAndView(). So
-            // updates the visibility state using the PageVisibilityState of
-            // |web_contents|.
-            rfh->render_view_host()->SetFrameTreeVisibility(
-                web_contents.GetPageVisibilityState());
-          },
-          std::cref(web_contents_)));
+      [this](RenderFrameHostImpl* rfh) {
+        // The visibility state of the prerendering page has not been
+        // updated by
+        // WebContentsImpl::UpdateVisibilityAndNotifyPageAndView(). So
+        // updates the visibility state using the PageVisibilityState of
+        // |web_contents|.
+        rfh->render_view_host()->SetFrameTreeVisibility(
+            web_contents_.GetPageVisibilityState());
+      });
 
   frame_tree_->Shutdown();
   frame_tree_.reset();

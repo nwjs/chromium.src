@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -28,6 +28,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/task/sequenced_task_runner.h"
+#include "base/task/task_runner_util.h"
 #include "base/threading/sequenced_task_runner_handle.h"
 #include "base/time/time.h"
 #include "components/services/storage/public/cpp/buckets/bucket_locator.h"
@@ -732,11 +733,17 @@ void CacheStorageManager::GetStorageKeys(
       std::tuple<storage::BucketLocator, storage::mojom::StorageUsageInfoPtr>>
       usage_tuples;
 
+  // Note that we don't want `GetStorageKeysAndLastModifiedOnTaskRunner()` to
+  // call `QuotaManagerProxy::UpdateOrCreateBucket()` because doing so creates
+  // a deadlock. Specifically, `GetStorageKeys()` would wait for the bucket
+  // information to be returned and the QuotaManager won't respond with
+  // bucket information until the `GetStorageKeys()` call finishes (as part of
+  // the QuotaDatabase bootstrapping process). We don't need the bucket ID to
+  // build a list of StorageKeys anyway.
   cache_task_runner_->PostTask(
       FROM_HERE,
       base::BindOnce(
-          &GetStorageKeysAndLastModifiedOnTaskRunner,
-          base::WrapRefCounted(quota_manager_proxy_.get()),
+          &GetStorageKeysAndLastModifiedOnTaskRunner, nullptr,
           base::WrapRefCounted(scheduler_task_runner_.get()),
           std::move(usage_tuples), profile_path_, owner,
           base::BindOnce(&CacheStorageManager::ListStorageKeysOnTaskRunner,
@@ -800,9 +807,6 @@ void CacheStorageManager::DeleteStorageKeyDataGotAllBucketInfo(
   }
 }
 
-// TODO(https://crbug.com/1218097): Delete this method in favor of the one that
-// takes in a `BucketLocator` once `StoragePolicyUpdate` uses more than just
-// origin. Note: This only deletes data associated with the default bucket.
 void CacheStorageManager::DeleteStorageKeyData(
     const blink::StorageKey& storage_key,
     storage::mojom::CacheStorageOwner owner,
@@ -919,9 +923,6 @@ void CacheStorageManager::DeleteBucketDataDidGetExists(
                      std::move(callback), base::WrapUnique(cache_storage)));
 }
 
-// TODO(https://crbug.com/1218097): Delete this method in favor of the one that
-// takes in a `BucketLocator` if we can convert `StoragePolicyUpdate` to
-// provide enough info to reconstruct a `storage::BucketLocator`.
 // Note: This only deletes data associated with the default bucket for a given
 // `blink::StorageKey`.
 void CacheStorageManager::DeleteStorageKeyData(
@@ -1056,12 +1057,13 @@ void CacheStorageManager::ListStorageKeysOnTaskRunner(
     storage::mojom::QuotaClient::GetStorageKeysForTypeCallback callback,
     std::vector<std::tuple<storage::BucketLocator,
                            storage::mojom::StorageUsageInfoPtr>> usage_tuples) {
+  // Note that bucket IDs will not be populated in the `usage_tuples` entries.
   std::vector<blink::StorageKey> out_storage_keys;
   for (const std::tuple<storage::BucketLocator,
                         storage::mojom::StorageUsageInfoPtr>& usage_tuple :
        usage_tuples) {
     const storage::BucketLocator bucket_locator = std::get<0>(usage_tuple);
-    if (!bucket_locator.id || !bucket_locator.is_default) {
+    if (!bucket_locator.is_default) {
       continue;
     }
     out_storage_keys.emplace_back(bucket_locator.storage_key);

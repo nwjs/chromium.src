@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -115,13 +115,13 @@ suite('PostMessageAPIModuleTest', function() {
   });
 
   test('PostMessageCommTest', async function() {
-    var server = new TestPostMessageAPIServer(this.innerFrame);
+    const server = new TestPostMessageAPIServer(this.innerFrame);
     let success = await server.getTestFinalized();
     assertTrue(success);
 
     //  Bootstraps a duplex communication channel between this server and the
     //  client handler in the iframe.
-    var client = new TestClient(this.innerFrame);
+    const client = new TestClient(this.innerFrame);
 
     // Test non-rejected request.
     success = await client.rejectedPromiseTest(/*reject=*/ false);

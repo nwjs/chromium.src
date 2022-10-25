@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors. All rights reserved.
+// Copyright 2015 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,6 +6,18 @@
  * @fileoverview Polymer element for displaying the IP Config properties for
  * a network state.
  */
+
+import '../../../cr_elements/cr_toggle/cr_toggle.js';
+import '../../../cr_elements/policy/cr_policy_indicator.js';
+import './network_property_list_mojo.js';
+import './network_shared_css.js';
+
+import {html, Polymer} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+
+import {I18nBehavior} from '../../../cr_elements/i18n_behavior.js';
+
+import {CrPolicyNetworkBehaviorMojo} from './cr_policy_network_behavior_mojo.js';
+import {OncMojo} from './onc_mojo.js';
 
 /**
  * Returns the routing prefix as a string for a given prefix length. If
@@ -90,6 +102,7 @@ const getRoutingPrefixAsLength = function(netmask) {
 };
 
 Polymer({
+  _template: html`{__html_template__}`,
   is: 'network-ip-config',
 
   behaviors: [I18nBehavior, CrPolicyNetworkBehaviorMojo],

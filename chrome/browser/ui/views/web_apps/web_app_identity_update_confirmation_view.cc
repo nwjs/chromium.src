@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -40,6 +40,9 @@ const int kNameColumnWidth = 170;
 // when the dialog is set to show (and what that action should be: true = accept
 // the dialog, false = do not accept).
 absl::optional<bool> g_auto_resolve_app_identity_update_dialog_for_testing;
+
+// Keeps track of whether there was a request to show the App Identity dialog.
+bool g_app_identity_dialog_was_requested = false;
 
 }  // namespace
 
@@ -178,9 +181,11 @@ void WebAppIdentityUpdateConfirmationView::OnDialogAccepted() {
 }
 
 void WebAppIdentityUpdateConfirmationView::OnWebAppUninstallDialogClosed(
-    bool uninstalled) {
-  if (uninstalled)
+    webapps::UninstallResultCode code) {
+  if (code == webapps::UninstallResultCode::kSuccess ||
+      code == webapps::UninstallResultCode::kNoAppToUninstall) {
     GetWidget()->Close();  // An uninstall is already in progress.
+  }
 }
 
 bool WebAppIdentityUpdateConfirmationView::Cancel() {
@@ -209,6 +214,8 @@ void ShowWebAppIdentityUpdateDialog(
     const SkBitmap& new_icon,
     content::WebContents* web_contents,
     web_app::AppIdentityDialogCallback callback) {
+  g_app_identity_dialog_was_requested = true;
+
   if (g_auto_resolve_app_identity_update_dialog_for_testing &&
       *g_auto_resolve_app_identity_update_dialog_for_testing == false) {
     std::move(callback).Run(web_app::AppIdentityUpdate::kSkipped);
@@ -233,6 +240,10 @@ void ShowWebAppIdentityUpdateDialog(
 
 void SetAutoAcceptAppIdentityUpdateForTesting(bool auto_accept) {
   g_auto_resolve_app_identity_update_dialog_for_testing = auto_accept;
+}
+
+bool AppIdentityUpdateDialogWasRequestedForTesting() {
+  return g_app_identity_dialog_was_requested;
 }
 
 }  // namespace chrome

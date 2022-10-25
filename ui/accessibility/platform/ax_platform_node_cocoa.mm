@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -184,7 +184,8 @@ bool HasImplicitAction(const ui::AXPlatformNodeBase& node,
 bool AlsoUseShowMenuActionForDefaultAction(const ui::AXPlatformNodeBase& node) {
   return HasImplicitAction(node, ax::mojom::Action::kDoDefault) &&
          !node.HasAction(ax::mojom::Action::kShowContextMenu) &&
-         node.GetRole() == ax::mojom::Role::kPopUpButton;
+         (node.GetRole() == ax::mojom::Role::kPopUpButton ||
+          node.GetRole() == ax::mojom::Role::kComboBoxSelect);
 }
 
 // Check whether |selector| is an accessibility setter. This is a heuristic but
@@ -484,6 +485,9 @@ bool IsAXSetter(SEL selector) {
       return NSAccessibilityComboBoxRole;
     case ax::mojom::Role::kComboBoxMenuButton:
       return NSAccessibilityComboBoxRole;
+    case ax::mojom::Role::kComboBoxSelect:
+      // TODO(crbug.com/1362834): Can this be NSAccessibilityComboBoxRole?
+      return NSAccessibilityPopUpButtonRole;
     case ax::mojom::Role::kDate:
       return @"AXDateField";
     case ax::mojom::Role::kDateTime:
@@ -1018,6 +1022,15 @@ bool IsAXSetter(SEL selector) {
   if (_node->HasStringAttribute(ax::mojom::StringAttribute::kAutoComplete))
     [axAttributes addObject:NSAccessibilityAutocompleteValueAttribute];
 
+  // AriaBrailleLabel.
+  if (_node->HasStringAttribute(ax::mojom::StringAttribute::kAriaBrailleLabel))
+    [axAttributes addObject:NSAccessibilityBrailleLabelAttribute];
+
+  // AriaBrailleRoleDescription.
+  if (_node->HasStringAttribute(
+          ax::mojom::StringAttribute::kAriaBrailleRoleDescription))
+    [axAttributes addObject:NSAccessibilityBrailleRoleDescription];
+
   // Details.
   if (_node->HasIntListAttribute(ax::mojom::IntListAttribute::kDetailsIds)) {
     [axAttributes addObject:NSAccessibilityDetailsElementsAttribute];
@@ -1242,6 +1255,22 @@ bool IsAXSetter(SEL selector) {
     return nil;
 
   return [self getStringAttribute:ax::mojom::StringAttribute::kAutoComplete];
+}
+
+- (NSString*)AXBrailleLabel {
+  if (![self instanceActive])
+    return nil;
+
+  return
+      [self getStringAttribute:ax::mojom::StringAttribute::kAriaBrailleLabel];
+}
+
+- (NSString*)AXBrailleRoleDescription {
+  if (![self instanceActive])
+    return nil;
+
+  return [self getStringAttribute:ax::mojom::StringAttribute::
+                                      kAriaBrailleRoleDescription];
 }
 
 - (id)AXBlockQuoteLevel {

@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -15,6 +15,11 @@ import static org.junit.Assert.assertTrue;
 
 import static org.chromium.base.test.util.Restriction.RESTRICTION_TYPE_LOW_END_DEVICE;
 import static org.chromium.base.test.util.Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE;
+import static org.chromium.chrome.browser.flags.ChromeFeatureList.GRID_TAB_SWITCHER_FOR_TABLETS;
+import static org.chromium.chrome.browser.flags.ChromeFeatureList.TAB_GROUPS_ANDROID;
+import static org.chromium.chrome.browser.flags.ChromeFeatureList.TAB_GROUPS_FOR_TABLETS;
+import static org.chromium.chrome.browser.flags.ChromeFeatureList.TAB_STRIP_IMPROVEMENTS;
+import static org.chromium.chrome.browser.flags.ChromeFeatureList.TAB_TO_GTS_ANIMATION;
 
 import android.support.test.InstrumentationRegistry;
 import android.view.MenuItem;
@@ -23,7 +28,6 @@ import android.view.ViewGroup;
 import android.widget.Button;
 
 import androidx.core.view.MenuItemCompat;
-import androidx.test.espresso.Espresso;
 import androidx.test.filters.LargeTest;
 import androidx.test.filters.MediumTest;
 
@@ -51,6 +55,7 @@ import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.tasks.tab_management.TabSelectionEditorAction.ButtonType;
 import org.chromium.chrome.browser.tasks.tab_management.TabSelectionEditorAction.IconPosition;
 import org.chromium.chrome.browser.tasks.tab_management.TabSelectionEditorAction.ShowMode;
@@ -77,12 +82,16 @@ import java.util.Map;
  * End-to-end test for TabSelectionEditor.
  */
 @RunWith(ChromeJUnit4ClassRunner.class)
-@Restriction(UiRestriction.RESTRICTION_TYPE_PHONE)
-@CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
-@EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID})
-@DisableFeatures(ChromeFeatureList.TAB_TO_GTS_ANIMATION)
+@CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE, "force-fieldtrials=Study/Group",
+        "force-fieldtrial-params=Study.Group:enable_launch_polish/true"})
+@EnableFeatures({TAB_GROUPS_ANDROID, GRID_TAB_SWITCHER_FOR_TABLETS + "<Study",
+        TAB_STRIP_IMPROVEMENTS, TAB_GROUPS_FOR_TABLETS})
+@DisableFeatures(TAB_TO_GTS_ANIMATION)
 @Batch(Batch.PER_CLASS)
 public class TabSelectionEditorTest {
+    private static final String TAB_GROUP_LAUNCH_POLISH_PARAMS =
+            "force-fieldtrial-params=Study.Group:enable_launch_polish/true";
+
     @ClassRule
     public static ChromeTabbedActivityTestRule sActivityTestRule =
             new ChromeTabbedActivityTestRule();
@@ -112,11 +121,14 @@ public class TabSelectionEditorTest {
     public void setUp() throws Exception {
         mTabModelSelector = sActivityTestRule.getActivity().getTabModelSelector();
         mParentView = (ViewGroup) sActivityTestRule.getActivity().findViewById(R.id.coordinator);
+        final boolean displayGroups =
+                ChromeFeatureList.isEnabled(ChromeFeatureList.TAB_SELECTION_EDITOR_V2);
         TestThreadUtils.runOnUiThreadBlocking(() -> {
             mTabSelectionEditorCoordinator = new TabSelectionEditorCoordinator(
                     sActivityTestRule.getActivity(), mParentView, mTabModelSelector,
                     sActivityTestRule.getActivity().getTabContentManager(), getMode(),
-                    sActivityTestRule.getActivity().getCompositorViewHolderForTesting());
+                    sActivityTestRule.getActivity().getCompositorViewHolderForTesting(),
+                    displayGroups);
 
             mTabSelectionEditorController = mTabSelectionEditorCoordinator.getController();
             mTabSelectionEditorLayout =
@@ -164,6 +176,27 @@ public class TabSelectionEditorTest {
         } else {
             TabUiTestHelper.prepareTabsWithThumbnail(sActivityTestRule, num, 0, "about:blank");
         }
+    }
+
+    private void prepareBlankTabGroup(int num, boolean isIncognito) {
+        for (int i = 0; i < num; i++) {
+            ChromeTabUtils.newTabFromMenu(InstrumentationRegistry.getInstrumentation(),
+                    sActivityTestRule.getActivity(), isIncognito, true);
+            sActivityTestRule.loadUrl("about:blank");
+        }
+        if (num == 1) return;
+
+        TestThreadUtils.runOnUiThreadBlocking(() -> {
+            ArrayList<Tab> tabs = new ArrayList<>();
+            TabModel model = mTabModelSelector.getCurrentModel();
+            TabGroupModelFilter filter =
+                    (TabGroupModelFilter) mTabModelSelector.getTabModelFilterProvider()
+                            .getCurrentTabModelFilter();
+            for (int i = model.getCount() - num; i < model.getCount(); i++) {
+                tabs.add(model.getTabAt(i));
+            }
+            filter.mergeListOfTabsToGroup(tabs.subList(1, tabs.size()), tabs.get(0), false, true);
+        });
     }
 
     @Test
@@ -383,6 +416,43 @@ public class TabSelectionEditorTest {
         mRobot.actionRobot.clickItemAtAdapterPosition(0).clickToolbarActionView(closeId);
 
         assertEquals(1, getTabsInCurrentTabModel().size());
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures({ChromeFeatureList.TAB_SELECTION_EDITOR_V2})
+    public void testToolbarMenuItem_CloseActionView_WithGroups() {
+        prepareBlankTab(2, false);
+        prepareBlankTabGroup(3, false);
+        prepareBlankTabGroup(1, false);
+        prepareBlankTabGroup(2, false);
+        List<Tab> tabs = getTabsInCurrentTabModelFilter();
+
+        TestThreadUtils.runOnUiThreadBlocking(() -> {
+            List<TabSelectionEditorAction> actions = new ArrayList<>();
+            actions.add(TabSelectionEditorCloseAction.createAction(
+                    ShowMode.IF_ROOM, ButtonType.TEXT, IconPosition.START));
+
+            mTabSelectionEditorController.configureToolbarWithMenuItems(actions, null);
+            mTabSelectionEditorController.show(tabs);
+        });
+
+        final int closeId = R.id.tab_selection_editor_close_menu_item;
+        mRobot.resultRobot.verifyToolbarActionViewDisabled(closeId);
+
+        mRobot.actionRobot.clickItemAtAdapterPosition(0)
+                .clickItemAtAdapterPosition(2)
+                .clickItemAtAdapterPosition(3);
+
+        mRobot.resultRobot.verifyToolbarActionViewEnabled(closeId).verifyToolbarSelectionText(
+                "5 selected");
+
+        View close = mTabSelectionEditorLayout.getToolbar().findViewById(closeId);
+        assertEquals("Close 5 selected tabs", close.getContentDescription());
+
+        mRobot.actionRobot.clickToolbarActionView(closeId);
+
+        assertEquals(3, getTabsInCurrentTabModel().size());
     }
 
     @Test
@@ -705,7 +775,7 @@ public class TabSelectionEditorTest {
 
     @Test
     @MediumTest
-    @DisableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID})
+    @DisableFeatures({TAB_GROUPS_ANDROID})
     public void testTabSelectionEditorLayoutCanBeGarbageCollected() {
         TestThreadUtils.runOnUiThreadBlocking(() -> {
             mTabSelectionEditorCoordinator.destroy();
@@ -844,7 +914,9 @@ public class TabSelectionEditorTest {
         TestThreadUtils.runOnUiThreadBlocking(() -> mTabSelectionEditorController.show(tabs));
         mRobot.resultRobot.verifyTabSelectionEditorIsVisible();
 
-        Espresso.pressBack();
+        TestThreadUtils.runOnUiThreadBlockingNoException(
+                () -> mTabSelectionEditorController.handleBackPressed());
+        mRobot.resultRobot.verifyTabSelectionEditorIsHidden();
         TestThreadUtils.runOnUiThreadBlocking(() -> mTabSelectionEditorController.show(tabs));
         mRobot.resultRobot.verifyTabSelectionEditorIsVisible();
     }
@@ -909,6 +981,19 @@ public class TabSelectionEditorTest {
         TabModel currentTabModel = mTabModelSelector.getCurrentModel();
         for (int i = 0; i < currentTabModel.getCount(); i++) {
             tabs.add(currentTabModel.getTabAt(i));
+        }
+
+        return tabs;
+    }
+
+    private List<Tab> getTabsInCurrentTabModelFilter() {
+        List<Tab> tabs = new ArrayList<>();
+
+        TabGroupModelFilter filter =
+                (TabGroupModelFilter) mTabModelSelector.getTabModelFilterProvider()
+                        .getCurrentTabModelFilter();
+        for (int i = 0; i < filter.getCount(); i++) {
+            tabs.add(filter.getTabAt(i));
         }
 
         return tabs;

@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,7 +6,6 @@
 
 #include <memory>
 
-#include "ash/components/login/auth/public/saml_password_attributes.h"
 #include "ash/constants/ash_switches.h"
 #include "base/bind.h"
 #include "base/command_line.h"
@@ -22,7 +21,11 @@
 #include "chrome/browser/ui/webui/webui_util.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/browser_resources.h"
+#include "chrome/grit/gaia_auth_host_resources_map.h"
 #include "chrome/grit/generated_resources.h"
+#include "chrome/grit/password_change_resources.h"
+#include "chrome/grit/password_change_resources_map.h"
+#include "chromeos/ash/components/login/auth/public/saml_password_attributes.h"
 #include "chromeos/strings/grit/chromeos_strings.h"
 #include "components/prefs/pref_service.h"
 #include "components/strings/grit/components_strings.h"
@@ -94,13 +97,16 @@ PasswordChangeUI::PasswordChangeUI(content::WebUI* web_ui)
   source->AddString("hostedHeader", GetHostedHeaderText(password_change_url));
   source->UseStringsJs();
 
-  source->SetDefaultResource(IDR_PASSWORD_CHANGE_HTML);
+  source->AddResourcePaths(
+      base::make_span(kPasswordChangeResources, kPasswordChangeResourcesSize));
+  source->SetDefaultResource(IDR_PASSWORD_CHANGE_PASSWORD_CHANGE_APP_HTML);
 
-  source->AddResourcePath("authenticator.js",
-                          IDR_PASSWORD_CHANGE_AUTHENTICATOR_JS);
   source->AddResourcePath("webview_saml_injected.js",
                           IDR_GAIA_AUTH_WEBVIEW_SAML_INJECTED_JS);
-  source->AddResourcePath("password_change.js", IDR_PASSWORD_CHANGE_JS);
+
+  // Add Gaia Authenticator resources
+  source->AddResourcePaths(
+      base::make_span(kGaiaAuthHostResources, kGaiaAuthHostResourcesSize));
 
   content::WebUIDataSource::Add(profile, source);
 }
@@ -140,9 +146,10 @@ ConfirmPasswordChangeUI::ConfirmPasswordChangeUI(content::WebUI* web_ui)
   AddSize(source, "OldNew", ConfirmPasswordChangeDialog::GetSize(true, true));
 
   source->UseStringsJs();
-  source->SetDefaultResource(IDR_CONFIRM_PASSWORD_CHANGE_HTML);
-  source->AddResourcePath("confirm_password_change.js",
-                          IDR_CONFIRM_PASSWORD_CHANGE_JS);
+
+  source->AddResourcePaths(
+      base::make_span(kPasswordChangeResources, kPasswordChangeResourcesSize));
+  source->SetDefaultResource(IDR_PASSWORD_CHANGE_CONFIRM_PASSWORD_CHANGE_HTML);
 
   // The ConfirmPasswordChangeHandler is added by the dialog, so no need to add
   // it here.
@@ -179,9 +186,11 @@ UrgentPasswordExpiryNotificationUI::UrgentPasswordExpiryNotificationUI(
   source->AddLocalizedStrings(kLocalizedStrings);
 
   source->UseStringsJs();
-  source->SetDefaultResource(IDR_URGENT_PASSWORD_EXPIRY_NOTIFICATION_HTML);
-  source->AddResourcePath("urgent_password_expiry_notification_app.js",
-                          IDR_URGENT_PASSWORD_EXPIRY_NOTIFICATION_APP_JS);
+
+  source->AddResourcePaths(
+      base::make_span(kPasswordChangeResources, kPasswordChangeResourcesSize));
+  source->SetDefaultResource(
+      IDR_PASSWORD_CHANGE_URGENT_PASSWORD_EXPIRY_NOTIFICATION_HTML);
 
   web_ui->AddMessageHandler(
       std::make_unique<UrgentPasswordExpiryNotificationHandler>());

@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,9 +11,6 @@
 
 namespace mirroring {
 namespace features {
-
-COMPONENT_EXPORT(MIRRORING_SERVICE)
-extern const base::Feature kOpenscreenCastStreamingSession;
 
 COMPONENT_EXPORT(MIRRORING_SERVICE)
 extern const base::Feature kCastStreamingAv1;

@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -219,15 +219,12 @@ bool EnrollmentDialogAllowed(Profile* profile) {
     case LoginState::LOGGED_IN_USER_GUEST:
       return true;
     case LoginState::LOGGED_IN_USER_PUBLIC_ACCOUNT:
-    case LoginState::LOGGED_IN_USER_PUBLIC_ACCOUNT_MANAGED:
       return false;
     case LoginState::LOGGED_IN_USER_KIOSK:
       return false;
     case LoginState::LOGGED_IN_USER_CHILD:
       return true;
   }
-  NOTREACHED();
-  return false;
 }
 
 }  // namespace

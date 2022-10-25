@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -585,8 +585,9 @@ void BindSocketManager(
     RenderFrameHostImpl* frame,
     mojo::PendingReceiver<network::mojom::P2PSocketManager> receiver) {
   static_cast<RenderProcessHostImpl*>(frame->GetProcess())
-      ->BindP2PSocketManager(frame->GetNetworkIsolationKey(),
-                             std::move(receiver), frame->GetGlobalId());
+      ->BindP2PSocketManager(
+          frame->GetIsolationInfoForSubresources().network_anonymization_key(),
+          std::move(receiver), frame->GetGlobalId());
 }
 
 void BindGamepadMonitor(
@@ -997,10 +998,8 @@ void PopulateBinderMapWithContext(
         base::BindRepeating(&BrowsingTopicsDocumentHost::CreateMojoService));
   }
 #if !BUILDFLAG(IS_ANDROID)
-  if (SiteIsolationPolicy::IsApplicationIsolationLevelEnabled()) {
-    map->Add<blink::mojom::DirectSocketsService>(
-        base::BindRepeating(&DirectSocketsServiceImpl::CreateForFrame));
-  }
+  map->Add<blink::mojom::DirectSocketsService>(
+      base::BindRepeating(&DirectSocketsServiceImpl::CreateForFrame));
   map->Add<media::mojom::SpeechRecognitionContext>(base::BindRepeating(
       &EmptyBinderForFrame<media::mojom::SpeechRecognitionContext>));
   map->Add<media::mojom::SpeechRecognitionClientBrowserInterface>(
@@ -1156,6 +1155,14 @@ void PopulateDedicatedWorkerBinders(DedicatedWorkerHost* host,
   map->Add<blink::mojom::SerialService>(base::BindRepeating(
       &DedicatedWorkerHost::BindSerialService, base::Unretained(host)));
 #endif  // !BUILDFLAG(IS_ANDROID)
+  map->Add<blink::mojom::BucketManagerHost>(base::BindRepeating(
+      &DedicatedWorkerHost::CreateBucketManagerHost, base::Unretained(host)));
+
+#if BUILDFLAG(IS_FUCHSIA)
+  map->Add<media::mojom::FuchsiaMediaResourceProvider>(base::BindRepeating(
+      &DedicatedWorkerHost::BindFuchsiaMediaResourceProvider,
+      base::Unretained(host)));
+#endif  // BUILDFLAG(IS_FUCHSIA)
 
   // RenderProcessHost binders
   map->Add<media::mojom::VideoDecodePerfHistory>(BindWorkerReceiver(
@@ -1177,8 +1184,6 @@ void PopulateDedicatedWorkerBinders(DedicatedWorkerHost* host,
       &RenderProcessHostImpl::CreateLockManager, host));
   map->Add<blink::mojom::QuotaManagerHost>(BindWorkerReceiverForStorageKey(
       &RenderProcessHostImpl::BindQuotaManagerHost, host));
-  map->Add<blink::mojom::BucketManagerHost>(BindWorkerReceiverForStorageKey(
-      &RenderProcessHostImpl::BindBucketManagerHostForWorker, host));
 }
 
 void PopulateBinderMapWithContext(
@@ -1246,6 +1251,8 @@ void PopulateSharedWorkerBinders(SharedWorkerHost* host, mojo::BinderMap* map) {
                           base::Unretained(host)));
   map->Add<blink::mojom::ReportingServiceProxy>(base::BindRepeating(
       &CreateReportingServiceProxyForSharedWorker, base::Unretained(host)));
+  map->Add<blink::mojom::BucketManagerHost>(base::BindRepeating(
+      &SharedWorkerHost::CreateBucketManagerHost, base::Unretained(host)));
 
   // RenderProcessHost binders
   map->Add<media::mojom::VideoDecodePerfHistory>(BindWorkerReceiver(
@@ -1269,8 +1276,6 @@ void PopulateSharedWorkerBinders(SharedWorkerHost* host, mojo::BinderMap* map) {
       &RenderProcessHostImpl::CreateLockManager, host));
   map->Add<blink::mojom::QuotaManagerHost>(BindWorkerReceiverForStorageKey(
       &RenderProcessHostImpl::BindQuotaManagerHost, host));
-  map->Add<blink::mojom::BucketManagerHost>(BindWorkerReceiverForStorageKey(
-      &RenderProcessHostImpl::BindBucketManagerHostForWorker, host));
 }
 
 void PopulateBinderMapWithContext(
@@ -1340,6 +1345,8 @@ void PopulateServiceWorkerBinders(ServiceWorkerHost* host,
   map->Add<blink::mojom::HidService>(base::BindRepeating(
       &ServiceWorkerHost::BindHidService, base::Unretained(host)));
 #endif
+  map->Add<blink::mojom::BucketManagerHost>(base::BindRepeating(
+      &ServiceWorkerHost::CreateBucketManagerHost, base::Unretained(host)));
 
   // RenderProcessHost binders
   map->Add<media::mojom::VideoDecodePerfHistory>(BindServiceWorkerReceiver(
@@ -1398,9 +1405,6 @@ void PopulateBinderMapWithContext(
   map->Add<blink::mojom::QuotaManagerHost>(
       BindServiceWorkerReceiverForStorageKey(
           &RenderProcessHostImpl::BindQuotaManagerHost, host));
-  map->Add<blink::mojom::BucketManagerHost>(
-      BindServiceWorkerReceiverForStorageKey(
-          &RenderProcessHostImpl::BindBucketManagerHostForWorker, host));
 
   // RenderProcessHost binders taking a frame id and an origin
   map->Add<blink::mojom::NotificationService>(

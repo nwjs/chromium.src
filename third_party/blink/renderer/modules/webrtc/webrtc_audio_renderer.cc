@@ -202,25 +202,6 @@ class SharedAudioRenderer : public WebMediaStreamAudioRenderer {
 
 }  // namespace
 
-class WebRtcAudioRenderer::InternalFrame {
- public:
-  explicit InternalFrame(WebLocalFrame* web_frame)
-      : frame_(web_frame ? static_cast<LocalFrame*>(
-                               WebLocalFrame::ToCoreFrame(*web_frame))
-                         : nullptr) {}
-
-  LocalFrame* frame() { return frame_.Get(); }
-  WebLocalFrame* web_frame() {
-    if (!frame_)
-      return nullptr;
-
-    return static_cast<WebLocalFrame*>(WebFrame::FromCoreFrame(frame()));
-  }
-
- private:
-  WeakPersistent<LocalFrame> frame_;
-};
-
 WebRtcAudioRenderer::AudioStreamTracker::AudioStreamTracker(
     scoped_refptr<base::SingleThreadTaskRunner> task_runner,
     WebRtcAudioRenderer* renderer,
@@ -305,13 +286,13 @@ void WebRtcAudioRenderer::AudioStreamTracker::CheckAlive(TimerBase*) {
 WebRtcAudioRenderer::WebRtcAudioRenderer(
     const scoped_refptr<base::SingleThreadTaskRunner>& signaling_thread,
     MediaStreamDescriptor* media_stream_descriptor,
-    WebLocalFrame* web_frame,
+    WebLocalFrame& web_frame,
     const base::UnguessableToken& session_id,
     const String& device_id,
     base::RepeatingCallback<void()> on_render_error_callback)
-    : task_runner_(Thread::Current()->GetDeprecatedTaskRunner()),
+    : task_runner_(web_frame.GetTaskRunner(TaskType::kInternalMediaRealTime)),
       state_(kUninitialized),
-      source_internal_frame_(std::make_unique<InternalFrame>(web_frame)),
+      source_frame_(To<LocalFrame>(WebFrame::ToCoreFrame(web_frame))),
       session_id_(session_id),
       signaling_thread_(signaling_thread),
       media_stream_descriptor_(media_stream_descriptor),
@@ -319,12 +300,12 @@ WebRtcAudioRenderer::WebRtcAudioRenderer(
       source_(nullptr),
       play_ref_count_(0),
       start_ref_count_(0),
-      sink_params_(kFormat, media::CHANNEL_LAYOUT_STEREO, 0, 0),
+      sink_params_(kFormat, media::ChannelLayoutConfig::Stereo(), 0, 0),
       output_device_id_(device_id),
       on_render_error_callback_(std::move(on_render_error_callback)) {
-  if (web_frame && web_frame->Client()) {
+  if (web_frame.Client()) {
     speech_recognition_client_ =
-        web_frame->Client()->CreateSpeechRecognitionClient(
+        web_frame.Client()->CreateSpeechRecognitionClient(
             media::BindToCurrentLoop(
                 ConvertToBaseOnceCallback(CrossThreadBindOnce(
                     &WebRtcAudioRenderer::EnableSpeechRecognition,
@@ -356,7 +337,8 @@ bool WebRtcAudioRenderer::Initialize(WebRtcAudioRendererSource* source) {
 
   media::AudioSinkParameters sink_params(session_id_, output_device_id_.Utf8());
   sink_ = Platform::Current()->NewAudioRendererSink(
-      WebAudioDeviceSourceType::kWebRtc, source_internal_frame_->web_frame(),
+      WebAudioDeviceSourceType::kWebRtc,
+      static_cast<WebLocalFrame*>(WebFrame::FromCoreFrame(source_frame_)),
       sink_params);
 
   media::OutputDeviceStatus sink_status =
@@ -564,17 +546,13 @@ void WebRtcAudioRenderer::SwitchOutputDevice(
     DCHECK_NE(state_, kUninitialized);
   }
 
-  auto* web_frame = source_internal_frame_->web_frame();
-#if !BUILDFLAG(IS_ANDROID)
-  // Frames are allowed to be null in Android due to an issue in tests.
-  // In practice, this is not an issue, since Android does not support
-  // setSinkId(). https://crbug.com/1119689
+  auto* web_frame =
+      static_cast<WebLocalFrame*>(WebFrame::FromCoreFrame(source_frame_));
   if (!web_frame) {
     SendLogMessage(String::Format("%s => (ERROR: No Frame)", __func__));
     std::move(callback).Run(media::OUTPUT_DEVICE_STATUS_ERROR_INTERNAL);
     return;
   }
-#endif
 
   media::AudioSinkParameters sink_params(session_id_, device_id);
   scoped_refptr<media::AudioRendererSink> new_sink =
@@ -921,11 +899,8 @@ void WebRtcAudioRenderer::PrepareSink() {
   }
   const int sink_frames_per_buffer = media::AudioLatency::GetRtcBufferSize(
       sample_rate, device_info.output_params().frames_per_buffer());
-  new_sink_params.Reset(kFormat, channel_layout, sample_rate,
+  new_sink_params.Reset(kFormat, {channel_layout, channels}, sample_rate,
                         sink_frames_per_buffer);
-  if (channel_layout == media::CHANNEL_LAYOUT_DISCRETE) {
-    new_sink_params.set_channels_for_discrete(channels);
-  }
   DCHECK(new_sink_params.IsValid());
 
   // Create a FIFO if re-buffering is required to match the source input with

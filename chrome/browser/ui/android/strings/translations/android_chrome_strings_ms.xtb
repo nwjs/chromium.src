@@ -454,6 +454,7 @@ Apabila anda memadamkan sejarah penyemakan imbas anda — semua atau untuk laman
 <translation id="3435465986463792564">Ada banyak tetingkap? Anda boleh mengurus tetingkap tersebut dari sini</translation>
 <translation id="3443221991560634068">Muat semula halaman semasa</translation>
 <translation id="3444179773590444986">Kongsikan maklum balas tentang tema gelap untuk laman?</translation>
+<translation id="3452832259067974318">Untuk melindungi privasi anda, Chrome tidak akan mengisi kata laluan anda ke dalam medan ini secara automatik.</translation>
 <translation id="3469665409713263828">{FILE_COUNT,plural, =1{1 muat turun dijadualkan}other{# muat turun dijadualkan}}</translation>
 <translation id="3474624961160222204">Teruskan sebagai <ph name="NAME" /></translation>
 <translation id="3478363558367712427">Anda boleh memilih enjin carian anda</translation>
@@ -679,6 +680,7 @@ Akaun Google anda mungkin mempunyai sejarah penyemakan imbas dalam bentuk lain s
 <translation id="4763480195061959176">video</translation>
 <translation id="4766313118839197559">Kata laluan disimpan pada Password Manager pada peranti ini</translation>
 <translation id="4766678251456904326">Tambahkan akaun pada peranti</translation>
+<translation id="4787736314074622408">Mahu padamkan <ph name="ITEM_TITLE" />?</translation>
 <translation id="4791358705705538979">Membantu anda menyelesaikan tugas, seperti daftar keluar, pada seluruh web</translation>
 <translation id="4794291718671962615">(<ph name="MEGABYTES" />) <ph name="URL" /></translation>
 <translation id="4802417911091824046">Penyulitan ungkapan laluan tidak termasuk kaedah pembayaran dan alamat daripada Google Pay.
@@ -748,6 +750,7 @@ Untuk menukar tetapan ini, <ph name="BEGIN_LINK" />tetapkan semula penyegerakan<
 <translation id="5091199029769593641">Tidak lama lagi, anda akan melihat cerita daripada <ph name="SITE_NAME" /> apabila anda membuka tab baharu. Laman yang anda ikuti disimpan pada Google Account anda. Anda boleh mengurus laman tersebut dalam tetapan Discover.</translation>
 <translation id="5091249083535528968">Data penggunaan lanjutan</translation>
 <translation id="509429900233858213">Ralat telah berlaku.</translation>
+<translation id="5099845111805573968">Apabila anda memilih laman desktop sekali, tetapan itu akan digunakan pada laman setiap kali anda melawati laman itu</translation>
 <translation id="5102401324271069229">Jika laman cuba mencuri kata laluan anda atau apabila anda memuat turun fail yang berbahaya, Chrome mungkin menghantar URL termasuk sedikit kandungan halaman kepada Penyemakan Imbas Selamat</translation>
 <translation id="510275257476243843">1 jam lagi</translation>
 <translation id="5115811374190515607">ke <ph name="PRODUCT_NAME" /></translation>
@@ -907,6 +910,7 @@ Untuk menukar tetapan ini, <ph name="BEGIN_LINK" />tetapkan semula penyegerakan<
 <translation id="5958275228015807058">Cari fail dan halaman anda dalam Muat Turun</translation>
 <translation id="5962718611393537961">Ketik untuk runtuhkan</translation>
 <translation id="5964869237734432770">Hentikan perihalan imej</translation>
+<translation id="5966233851250124270">Chrome akan mengingati pilihan anda</translation>
 <translation id="5979084224081478209">Semak kata laluan</translation>
 <translation id="5995726099713306770">Muat turun halaman sekali lagi?</translation>
 <translation id="6000066717592683814">Kekalkan Google</translation>
@@ -946,6 +950,7 @@ Percubaan Kotak Pasir Privasi masih aktif dibangunkan dan tersedia di rantau ter
 <translation id="6192907950379606605">Dapatkan perihalan imej</translation>
 <translation id="6196315980958524839">Kata laluan disimpan pada Google Password Manager pada peranti ini</translation>
 <translation id="620197886010707372">Buka apl <ph name="APPNAME" /> dengan Google Play?</translation>
+<translation id="6202812185118613467">Log masuk semula untuk memulakan penyegerakan</translation>
 <translation id="6203593061661911168">Muat turun akan bermula apabila menggunakan Wi-Fi</translation>
 <translation id="6210748933810148297">Bukan <ph name="EMAIL" />?</translation>
 <translation id="6211386937064921208">Memaparkan pratonton halaman ini</translation>
@@ -1083,6 +1088,7 @@ Token amanah meningkatkan privasi pada web dan tidak boleh digunakan untuk menge
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6824899148643461612"><ph name="TAB_TITLE" />, tab, dipilih</translation>
 <translation id="6828070228333235514">Berhenti menjejaki harga</translation>
+<translation id="6830728435402077660">Tidak selamat</translation>
 <translation id="6833996806551876956">Percubaan Kotak Pasir Privasi</translation>
 <translation id="6836206421467243968">Pulihkan kumpulan tab <ph name="TITLE_OF_GROUP" /> sebagai kumpulan tab latar baharu.</translation>
 <translation id="6846298663435243399">Memuatkan…</translation>

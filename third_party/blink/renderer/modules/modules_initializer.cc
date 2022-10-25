@@ -52,6 +52,7 @@
 #include "third_party/blink/renderer/modules/device_orientation/device_orientation_controller.h"
 #include "third_party/blink/renderer/modules/device_orientation/device_orientation_inspector_agent.h"
 #include "third_party/blink/renderer/modules/document_metadata/document_metadata_server.h"
+#include "third_party/blink/renderer/modules/document_picture_in_picture/picture_in_picture_controller_impl.h"
 #include "third_party/blink/renderer/modules/encryptedmedia/html_media_element_encrypted_media.h"
 #include "third_party/blink/renderer/modules/encryptedmedia/media_keys_controller.h"
 #include "third_party/blink/renderer/modules/event_interface_modules_names.h"
@@ -72,7 +73,6 @@
 #include "third_party/blink/renderer/modules/media_controls/media_controls_impl.h"
 #include "third_party/blink/renderer/modules/mediasource/media_source_registry_impl.h"
 #include "third_party/blink/renderer/modules/peerconnection/peer_connection_tracker.h"
-#include "third_party/blink/renderer/modules/picture_in_picture/picture_in_picture_controller_impl.h"
 #include "third_party/blink/renderer/modules/presentation/presentation.h"
 #include "third_party/blink/renderer/modules/push_messaging/push_messaging_client.h"
 #include "third_party/blink/renderer/modules/remoteplayback/html_media_element_remote_playback.h"
@@ -82,6 +82,7 @@
 #include "third_party/blink/renderer/modules/screen_enumeration/window_screens.h"
 #include "third_party/blink/renderer/modules/screen_orientation/screen_orientation_controller.h"
 #include "third_party/blink/renderer/modules/service_worker/navigator_service_worker.h"
+#include "third_party/blink/renderer/modules/speech/speech_synthesis.h"
 #include "third_party/blink/renderer/modules/storage/dom_window_storage.h"
 #include "third_party/blink/renderer/modules/storage/dom_window_storage_controller.h"
 #include "third_party/blink/renderer/modules/storage/inspector_dom_storage_agent.h"
@@ -99,7 +100,6 @@
 #include "third_party/blink/renderer/modules/worklet/animation_and_paint_worklet_thread.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
-#include "third_party/blink/renderer/platform/mojo/mojo_helper.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
 #include "third_party/blink/renderer/platform/widget/compositing/categorized_worker_pool.h"
@@ -107,6 +107,7 @@
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
+#include "ui/accessibility/accessibility_features.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "third_party/blink/public/platform/modules/video_capture/web_video_capture_impl_manager.h"
@@ -188,6 +189,8 @@ void ModulesInitializer::Initialize() {
   ClipPathPaintImageGenerator::Init(ClipPathPaintImageGeneratorImpl::Create);
   WebDatabaseHost::GetInstance().Init();
   MediaSourceRegistryImpl::Init();
+  if (::features::IsTextBasedAudioDescriptionEnabled())
+    SpeechSynthesisBase::Init(SpeechSynthesis::Create);
 
   CoreInitializer::Initialize();
 

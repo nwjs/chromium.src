@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The Chromium Authors. All rights reserved.
+// Copyright 2020 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -69,8 +69,8 @@ class MockPasswordManagerClient
               (const GURL&),
               (const, override));
   MOCK_METHOD(password_manager::MockWebAuthnCredentialsDelegate*,
-              GetWebAuthnCredentialsDelegate,
-              (),
+              GetWebAuthnCredentialsDelegateForDriver,
+              (password_manager::PasswordManagerDriver*),
               (override));
 };
 
@@ -179,7 +179,8 @@ class WebsiteLoginManagerImplTest : public content::RenderViewHostTestHarness {
               [account_store = account_store_.get()](
                   base::WeakPtr<password_manager::PasswordStoreConsumer>
                       consumer) {
-                consumer->OnGetPasswordStoreResultsFrom(account_store, {});
+                consumer->OnGetPasswordStoreResultsOrErrorFrom(account_store,
+                                                               {});
               }));
     }
     ON_CALL(*store(), GetLogins(_, _))
@@ -189,8 +190,8 @@ class WebsiteLoginManagerImplTest : public content::RenderViewHostTestHarness {
               std::vector<std::unique_ptr<PasswordForm>> result;
               result.push_back(
                   std::make_unique<PasswordForm>(MakeSimplePasswordForm()));
-              consumer->OnGetPasswordStoreResultsFrom(store(),
-                                                      std::move(result));
+              consumer->OnGetPasswordStoreResultsOrErrorFrom(store(),
+                                                             std::move(result));
             }));
 
     manager_ =
@@ -198,7 +199,7 @@ class WebsiteLoginManagerImplTest : public content::RenderViewHostTestHarness {
     password_manager_ = std::make_unique<PasswordManager>(&client_);
     ON_CALL(client_, GetPasswordManager())
         .WillByDefault(Return(password_manager_.get()));
-    ON_CALL(client_, GetWebAuthnCredentialsDelegate())
+    ON_CALL(client_, GetWebAuthnCredentialsDelegateForDriver)
         .WillByDefault(Return(&webauthn_credentials_delegate_));
     ON_CALL(webauthn_credentials_delegate_, IsWebAuthnAutofillEnabled)
         .WillByDefault(Return(false));
@@ -231,7 +232,7 @@ MATCHER_P(FormMatches, form, "") {
 }
 
 ACTION_P(InvokeEmptyConsumerWithForms, store) {
-  arg0->OnGetPasswordStoreResultsFrom(
+  arg0->OnGetPasswordStoreResultsOrErrorFrom(
       store, std::vector<std::unique_ptr<PasswordForm>>());
 }
 

@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -25,6 +25,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_piece.h"
+#include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
@@ -41,9 +42,11 @@
 #include "chrome/browser/ui/hats/hats_service.h"
 #include "chrome/browser/ui/hats/hats_service_factory.h"
 #include "chrome/browser/ui/side_panel/customize_chrome/customize_chrome_tab_helper.h"
+#include "chrome/browser/ui/side_panel/customize_chrome/customize_chrome_utils.h"
 #include "chrome/browser/ui/webui/new_tab_page/ntp_pref_names.h"
 #include "chrome/browser/ui/webui/realbox/realbox.mojom.h"
 #include "chrome/browser/ui/webui/webui_util.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/grit/generated_resources.h"
@@ -72,6 +75,16 @@ namespace {
 
 const int64_t kMaxDownloadBytes = 1024 * 1024;
 const int64_t kMaxModuleFreImpressions = 8;
+
+// Returns a list of module IDs that are eligible for HATS.
+std::vector<std::string> GetSurveyEligibleModuleIds() {
+  return base::SplitString(
+      base::GetFieldTrialParamValueByFeature(
+          features::kHappinessTrackingSurveysForDesktopNtpModules,
+          ntp_features::kNtpModulesEligibleForHappinessTrackingSurveyParam),
+      ",:;", base::WhitespaceHandling::TRIM_WHITESPACE,
+      base::SplitResult::SPLIT_WANT_NONEMPTY);
+}
 
 // Returns true if the scrim (dark gradient overlay) should be hidden for the
 // NTP's background image. This is done to fix specific GWS themes where the
@@ -227,6 +240,13 @@ new_tab_page::mojom::ThemePtr MakeTheme(
     background_image = nullptr;
   }
 
+  if (base::FeatureList::IsEnabled(ntp_features::kNtpRemoveScrim) &&
+      background_image) {
+    // If a background image is defined and the scrim removal flag is active
+    // disable the scrim.
+    background_image->scrim_display = "none";
+  }
+
   // The special case handling that removes the scrim and forces dark foreground
   // colors should only be applied when the user does not have a custom
   // background selected and has installed a GWS theme with a bundled background
@@ -257,40 +277,6 @@ new_tab_page::mojom::ThemePtr MakeTheme(
   }
 
   theme->most_visited = std::move(most_visited);
-
-  auto search_box = realbox::mojom::SearchBoxTheme::New();
-  search_box->bg = color_provider.GetColor(kColorNewTabPageSearchBoxBackground);
-  search_box->bg_hovered =
-      color_provider.GetColor(kColorNewTabPageSearchBoxBackgroundHovered);
-  search_box->border_color =
-      webui::GetNativeTheme(web_contents)->UserHasContrastPreference()
-          ? color_provider.GetColor(kColorLocationBarBorder)
-          : SkColorSetRGB(218, 220, 224);  // google-grey-300
-  search_box->icon = color_provider.GetColor(kColorOmniboxResultsIcon);
-  search_box->icon_selected =
-      color_provider.GetColor(kColorOmniboxResultsIconSelected);
-  search_box->is_dark = !color_utils::IsDark(text_color);
-  search_box->ntp_bg = color_provider.GetColor(kColorNewTabPageBackground);
-  search_box->placeholder = color_provider.GetColor(kColorOmniboxTextDimmed);
-  search_box->results_bg =
-      color_provider.GetColor(kColorOmniboxResultsBackground);
-  search_box->results_bg_hovered =
-      color_provider.GetColor(kColorOmniboxResultsBackgroundHovered);
-  search_box->results_bg_selected =
-      color_provider.GetColor(kColorOmniboxResultsBackgroundSelected);
-  search_box->results_dim =
-      color_provider.GetColor(kColorOmniboxResultsTextDimmed);
-  search_box->results_dim_selected =
-      color_provider.GetColor(kColorOmniboxResultsTextDimmedSelected);
-  search_box->results_text = color_provider.GetColor(kColorOmniboxText);
-  search_box->results_text_selected =
-      color_provider.GetColor(kColorOmniboxResultsTextSelected);
-  search_box->results_url = color_provider.GetColor(kColorOmniboxResultsUrl);
-  search_box->results_url_selected =
-      color_provider.GetColor(kColorOmniboxResultsUrlSelected);
-  search_box->text = color_provider.GetColor(kColorOmniboxText);
-  theme->search_box = std::move(search_box);
-
   return theme;
 }
 
@@ -466,7 +452,7 @@ NewTabPageHandler::NewTabPageHandler(
       ntp_custom_background_service_.get());
   promo_service_observation_.Observe(promo_service_.get());
   OnThemeChanged();
-  if (base::FeatureList::IsEnabled(ntp_features::kCustomizeChromeSidePanel)) {
+  if (customize_chrome::IsSidePanelEnabled()) {
     auto* customize_chrome_tab_helper =
         CustomizeChromeTabHelper::FromWebContents(web_contents_);
     // Lifetime is tied to NewTabPageUI which owns the NewTabPageHandler.
@@ -625,8 +611,7 @@ void NewTabPageHandler::ChooseLocalCustomBackground(
       nullptr);
 }
 
-void NewTabPageHandler::GetPromo(GetPromoCallback callback) {
-  promo_callbacks_.push_back(std::move(callback));
+void NewTabPageHandler::UpdatePromoData() {
   if (promo_service_->promo_data().has_value()) {
     OnPromoDataUpdated();
   }
@@ -679,7 +664,7 @@ void NewTabPageHandler::UpdateDisabledModules() {
   // (if invisible) or no modules (if visible).
   if (!profile_->GetPrefs()->IsManagedPreference(prefs::kNtpModulesVisible)) {
     const auto& module_ids_value =
-        profile_->GetPrefs()->GetValueList(prefs::kNtpDisabledModules);
+        profile_->GetPrefs()->GetList(prefs::kNtpDisabledModules);
     for (const auto& id : module_ids_value) {
       module_ids.push_back(id.GetString());
     }
@@ -689,7 +674,18 @@ void NewTabPageHandler::UpdateDisabledModules() {
       std::move(module_ids));
 }
 
-void NewTabPageHandler::OnModulesLoadedWithData() {
+void NewTabPageHandler::OnModulesLoadedWithData(
+    const std::vector<std::string>& module_ids) {
+  std::vector<std::string> survey_eligible_module_ids =
+      GetSurveyEligibleModuleIds();
+  // If none of the loaded modules are eligible for HATS, return early.
+  if (!std::any_of(module_ids.begin(), module_ids.end(),
+                   [&survey_eligible_module_ids](std::string id) {
+                     return base::Contains(survey_eligible_module_ids, id);
+                   })) {
+    return;
+  }
+
   HatsService* hats_service =
       HatsServiceFactory::GetForProfile(profile_, /*create_if_necessary=*/true);
   CHECK(hats_service);
@@ -713,7 +709,7 @@ void NewTabPageHandler::GetModulesOrder(GetModulesOrderCallback callback) {
   // First, apply order as set by the last drag&drop interaction.
   if (base::FeatureList::IsEnabled(ntp_features::kNtpModulesDragAndDrop)) {
     const auto& module_ids_value =
-        profile_->GetPrefs()->GetValueList(prefs::kNtpModulesOrder);
+        profile_->GetPrefs()->GetList(prefs::kNtpModulesOrder);
     for (const auto& id : module_ids_value) {
       module_ids.push_back(id.GetString());
     }
@@ -818,6 +814,8 @@ void NewTabPageHandler::OnPromoDataUpdated() {
       UMA_HISTOGRAM_MEDIUM_TIMES(
           "NewTabPage.Promos.RequestLatency2.SuccessWithoutPromo", duration);
     } else {
+      DCHECK(promo_service_->promo_status() !=
+             PromoService::Status::NOT_UPDATED);
       UMA_HISTOGRAM_MEDIUM_TIMES("NewTabPage.Promos.RequestLatency2.Failure",
                                  duration);
     }
@@ -825,14 +823,12 @@ void NewTabPageHandler::OnPromoDataUpdated() {
   }
 
   const auto& data = promo_service_->promo_data();
-  for (auto& callback : promo_callbacks_) {
-    if (data.has_value()) {
-      std::move(callback).Run(MakePromo(data.value()));
-    } else {
-      std::move(callback).Run(nullptr);
-    }
+  if (data.has_value() &&
+      promo_service_->promo_status() != PromoService::Status::OK_BUT_BLOCKED) {
+    page_->SetPromo(MakePromo(data.value()));
+  } else {
+    page_->SetPromo(nullptr);
   }
-  promo_callbacks_.clear();
 }
 
 void NewTabPageHandler::OnPromoServiceShuttingDown() {

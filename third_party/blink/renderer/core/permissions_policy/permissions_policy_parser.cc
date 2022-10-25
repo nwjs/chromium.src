@@ -3,10 +3,10 @@
 
 #include "third_party/blink/renderer/core/permissions_policy/permissions_policy_parser.h"
 
-#include <algorithm>
+#include <bitset>
 #include <utility>
 
-#include <bitset>
+#include "base/containers/contains.h"
 #include "base/metrics/histogram_macros.h"
 #include "net/http/structured_headers.h"
 #include "third_party/blink/public/mojom/permissions_policy/permissions_policy.mojom-blink.h"
@@ -261,6 +261,15 @@ ParsingContext::ParseFeatureName(const String& feature_name) {
   mojom::blink::PermissionsPolicyFeature feature =
       feature_names_.at(feature_name);
 
+  // Counter is required for Origin Trial.
+  // TODO(https://crbug.com/1324111): Remove this after OT.
+  if (feature == mojom::blink::PermissionsPolicyFeature::kUnload) {
+    if (execution_context_ && execution_context_->IsWindow() &&
+        RuntimeEnabledFeatures::PermissionsPolicyUnloadEnabled(
+            execution_context_)) {
+      execution_context_->CountUse(WebFeature::kPermissionsPolicyUnload);
+    }
+  }
   return feature;
 }
 
@@ -650,10 +659,8 @@ ParsedPermissionsPolicy PermissionsPolicyParser::ParsePermissionsPolicyForTest(
 
 bool IsFeatureDeclared(mojom::blink::PermissionsPolicyFeature feature,
                        const ParsedPermissionsPolicy& policy) {
-  return std::any_of(policy.begin(), policy.end(),
-                     [feature](const auto& declaration) {
-                       return declaration.feature == feature;
-                     });
+  return base::Contains(policy, feature,
+                        &ParsedPermissionsPolicyDeclaration::feature);
 }
 
 bool RemoveFeatureIfPresent(mojom::blink::PermissionsPolicyFeature feature,

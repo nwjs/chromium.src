@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -1011,12 +1011,26 @@ bool EventRewriterChromeOS::RewriteModifierKeys(const KeyEvent& key_event,
       KeycodeConverter::IsDomKeyForModifier(state->key);
   if (key_event.type() == ET_KEY_PRESSED) {
     state->flags |= characteristic_flag;
-    if (non_modifier_to_modifier)
+    if (non_modifier_to_modifier) {
+      // Edge case: User remaps key while still holding it. Remove the
+      // previously mapped latch.
+      if (previous_non_modifier_latches_.contains(incoming.code)) {
+        pressed_modifier_latches_ &=
+            ~previous_non_modifier_latches_[incoming.code];
+      }
       pressed_modifier_latches_ |= characteristic_flag;
+      previous_non_modifier_latches_[incoming.code] = characteristic_flag;
+    }
   } else {
     state->flags &= ~characteristic_flag;
-    if (non_modifier_to_modifier)
+    if (non_modifier_to_modifier) {
       pressed_modifier_latches_ &= ~characteristic_flag;
+    }
+    if (previous_non_modifier_latches_.contains(incoming.code)) {
+      pressed_modifier_latches_ &=
+          ~previous_non_modifier_latches_[incoming.code];
+      previous_non_modifier_latches_.erase(incoming.code);
+    }
   }
 
   if (key_event.type() == ET_KEY_PRESSED) {

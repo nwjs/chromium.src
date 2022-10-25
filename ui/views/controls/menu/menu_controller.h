@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -389,7 +389,7 @@ class VIEWS_EXPORT MenuController
   // Invoked when the user accepts the selected item. This is only used
   // when blocking. This schedules the loop to quit.
   void Accept(MenuItemView* item, int event_flags);
-  void ReallyAccept(MenuItemView* item, int event_flags);
+  void ReallyAccept();
 
   bool ShowSiblingMenu(SubmenuView* source, const gfx::Point& mouse_location);
 

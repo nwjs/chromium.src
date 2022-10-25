@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,6 +7,7 @@
 #include "base/files/file.h"
 #include "base/guid.h"
 #include "base/location.h"
+#include "base/logging.h"
 #include "components/autofill_assistant/content/common/proto/semantic_feature_overrides.pb.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
@@ -77,9 +78,9 @@ void ContentAutofillAssistantDriver::GetAnnotateDomModel(
     base::TimeDelta timeout,
     GetAnnotateDomModelCallback callback) {
   if (!annotate_dom_model_service_) {
-    NOTREACHED() << "No model service";
+    LOG(ERROR) << "No model service";
     std::move(callback).Run(mojom::ModelStatus::kUnexpectedError, base::File(),
-                            GetOverridesPolicy());
+                            /*overrides_policy=*/"");
     return;
   }
 

@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors. All rights reserved.
+// Copyright 2020 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -162,7 +162,7 @@ NearbyDependenciesProvider::GetWebRtcDependencies() {
 
   // Create socket manager.
   GetNetworkContext()->CreateP2PSocketManager(
-      net::NetworkIsolationKey::CreateTransient(),
+      net::NetworkAnonymizationKey::CreateTransient(),
       std::move(socket_manager_client.remote),
       std::move(trusted_socket_manager.receiver),
       std::move(socket_manager.receiver));

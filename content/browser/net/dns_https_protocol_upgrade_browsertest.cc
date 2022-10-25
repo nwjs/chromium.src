@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -34,7 +34,16 @@ class DohHttpsProtocolUpgradeBrowserTest : public content::ContentBrowserTest {
   DohHttpsProtocolUpgradeBrowserTest() {
     features_.InitAndEnableFeatureWithParameters(
         net::features::kUseDnsHttpsSvcb,
-        {{"UseDnsHttpsSvcbHttpUpgrade", "true"}});
+        {{"UseDnsHttpsSvcbHttpUpgrade", "true"},
+         // Disable timeouts.
+         {"UseDnsHttpsSvcbInsecureExtraTimeMax", "0"},
+         {"UseDnsHttpsSvcbInsecureExtraTimePercent", "0"},
+         {"UseDnsHttpsSvcbInsecureExtraTimeMin", "0"},
+         {"UseDnsHttpsSvcbSecureExtraTimeMax", "0"},
+         {"UseDnsHttpsSvcbSecureExtraTimePercent", "0"},
+         {"UseDnsHttpsSvcbSecureExtraTimeMin", "0"},
+         {"UseDnsHttpsSvcbExtraTimeAbsolute", "0"},
+         {"UseDnsHttpsSvcbExtraTimePercent", "0"}});
   }
 
  protected:

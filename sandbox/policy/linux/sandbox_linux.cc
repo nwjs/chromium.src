@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -556,7 +556,7 @@ void SandboxLinux::SealSandbox() {
 void SandboxLinux::CheckForBrokenPromises(
     sandbox::mojom::Sandbox sandbox_type) {
   if (sandbox_type != sandbox::mojom::Sandbox::kRenderer
-#if BUILDFLAG(ENABLE_PLUGINS)
+#if BUILDFLAG(ENABLE_PPAPI)
       && sandbox_type != sandbox::mojom::Sandbox::kPpapi
 #endif
   ) {

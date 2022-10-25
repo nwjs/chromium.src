@@ -1,4 +1,4 @@
-// Copyright (c) 2014 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -596,6 +596,17 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
                        AccessibilityEventsCSSDisplay) {
   RunEventTest(FILE_PATH_LITERAL("css-display.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
+                       AccessibilityEventsAriaExpandedAndCollapsed) {
+  RunEventTest(FILE_PATH_LITERAL("aria-expanded-and-collapsed.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,
+                       AccessibilityEventsAriaExpandedAndCollapsedReparenting) {
+  RunEventTest(
+      FILE_PATH_LITERAL("aria-expanded-and-collapsed-reparenting.html"));
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityEventsTest,

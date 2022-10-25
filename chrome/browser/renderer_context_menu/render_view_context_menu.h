@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -130,8 +130,9 @@ class RenderViewContextMenu
  protected:
   Profile* GetProfile() const;
 
-  // This may return nullptr (e.g. for WebUI dialogs).
-  Browser* GetBrowser() const;
+  // This may return nullptr (e.g. for WebUI dialogs). Virtual to allow tests to
+  // override.
+  virtual Browser* GetBrowser() const;
 
   // Returns a (possibly truncated) version of the current selection text
   // suitable for putting in the title of a menu item.
@@ -279,6 +280,7 @@ class RenderViewContextMenu
   bool IsAddANoteEnabled() const;
 
   // Command execution functions.
+  void ExecSearchWebInSidePanel(const GURL& url);
   void ExecOpenWebApp();
   void ExecProtocolHandler(int event_flags, int handler_index);
   void ExecOpenLinkInProfile(int profile_index);

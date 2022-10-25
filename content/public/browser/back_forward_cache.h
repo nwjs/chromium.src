@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -29,8 +29,6 @@ class CONTENT_EXPORT BackForwardCache {
  public:
   // Returns true if BackForwardCache is enabled.
   static bool IsBackForwardCacheFeatureEnabled();
-  // Returns true if BackForwardCache is enabled for same-site navigations.
-  static bool IsSameSiteBackForwardCacheFeatureEnabled();
 
   // Back/forward cache can be disabled from within content and also from
   // embedders. This means we cannot have a unified enum that covers reasons

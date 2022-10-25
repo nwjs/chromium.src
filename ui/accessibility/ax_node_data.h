@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors. All rights reserved.
+// Copyright 2013 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -296,6 +296,9 @@ struct AX_BASE_EXPORT AXNodeData {
 
   // Return a string representation of this data, for debugging.
   virtual std::string ToString() const;
+
+  // Returns the approximate size in bytes.
+  size_t ByteSize() const;
 
   // Return a string representation of |aria-dropeffect| values, for testing
   // and debugging.

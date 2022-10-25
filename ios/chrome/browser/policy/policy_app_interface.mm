@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors. All rights reserved.
+// Copyright 2020 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,7 +11,6 @@
 #import "base/json/json_string_value_serializer.h"
 #import "base/path_service.h"
 #import "base/strings/sys_string_conversions.h"
-#import "base/task/task_runner_util.h"
 #import "base/task/thread_pool.h"
 #import "base/threading/scoped_blocking_call.h"
 #import "base/values.h"
@@ -30,10 +29,10 @@
 #import "components/policy/core/common/policy_namespace.h"
 #import "components/policy/core/common/policy_types.h"
 #import "components/policy/policy_constants.h"
-#import "ios/chrome/browser/application_context.h"
+#import "ios/chrome/browser/application_context/application_context.h"
 #import "ios/chrome/browser/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/browser_state/chrome_browser_state_manager.h"
-#import "ios/chrome/browser/chrome_paths.h"
+#import "ios/chrome/browser/paths/paths.h"
 #import "ios/chrome/browser/policy/browser_policy_connector_ios.h"
 #import "ios/chrome/browser/policy/test_platform_policy_provider.h"
 #import "ios/chrome/browser/policy_url_blocking/policy_url_blocking_service.h"
@@ -55,8 +54,8 @@ const char kDmTokenBaseDir[] =
 // "components/enterprise/browser/controller/chrome_browser_cloud_management_controller.cc"
 const base::FilePath::CharType kPolicyDir[] = FILE_PATH_LITERAL("Policy");
 
-// Returns a JSON-encoded string representing the given |base::Value|. If
-// |value| is nullptr, returns a string representing a |base::Value| of type
+// Returns a JSON-encoded string representing the given `base::Value`. If
+// `value` is nullptr, returns a string representing a `base::Value` of type
 // NONE.
 NSString* SerializeValue(const base::Value* value) {
   base::Value none_value(base::Value::Type::NONE);
@@ -72,9 +71,9 @@ NSString* SerializeValue(const base::Value* value) {
   return base::SysUTF8ToNSString(serialized_value);
 }
 
-// Takes a JSON-encoded string representing a |base::Value|, and deserializes
-// into a |base::Value| pointer. If nullptr is given, returns a pointer to a
-// |base::Value| of type NONE.
+// Takes a JSON-encoded string representing a `base::Value`, and deserializes
+// into a `base::Value` pointer. If nullptr is given, returns a pointer to a
+// `base::Value` of type NONE.
 absl::optional<base::Value> DeserializeValue(NSString* json_value) {
   if (!json_value) {
     return base::Value(base::Value::Type::NONE);
@@ -110,7 +109,7 @@ absl::optional<base::Value> DeserializeValue(NSString* json_value) {
   const policy::PolicyBundle& policyBundle = platformProvider->policies();
   const policy::PolicyMap& policyMap = policyBundle.Get(
       policy::PolicyNamespace(policy::POLICY_DOMAIN_CHROME, ""));
-  // |GetValueUnsafe| is used due to multiple policy types being handled.
+  // `GetValueUnsafe` is used due to multiple policy types being handled.
   return SerializeValue(policyMap.GetValueUnsafe(key));
 }
 

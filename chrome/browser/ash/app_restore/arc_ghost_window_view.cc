@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -44,6 +44,8 @@ class Throbber : public views::View {
   }
 
   void GetAccessibleNodeData(ui::AXNodeData* node_data) override {
+    // A valid role must be set prior to setting the name.
+    node_data->role = ax::mojom::Role::kProgressIndicator;
     node_data->SetName(
         l10n_util::GetStringUTF16(IDS_ARC_GHOST_WINDOW_APP_LAUNCHING_THROBBER));
   }
@@ -56,8 +58,7 @@ class Throbber : public views::View {
 
 }  // namespace
 
-namespace ash {
-namespace full_restore {
+namespace ash::full_restore {
 
 ArcGhostWindowView::ArcGhostWindowView(int throbber_diameter,
                                        uint32_t theme_color) {
@@ -118,5 +119,4 @@ void ArcGhostWindowView::OnIconLoaded(apps::IconValuePtr icon_value) {
 BEGIN_METADATA(ArcGhostWindowView, views::View)
 END_METADATA
 
-}  // namespace full_restore
-}  // namespace ash
+}  // namespace ash::full_restore

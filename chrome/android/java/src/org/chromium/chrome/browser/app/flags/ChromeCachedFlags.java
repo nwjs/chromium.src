@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors. All rights reserved.
+// Copyright 2020 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -86,6 +86,7 @@ public class ChromeCachedFlags {
                 add(ChromeFeatureList.sCctResizableAllowResizeByUserGesture);
                 add(ChromeFeatureList.sCctResizableForFirstParties);
                 add(ChromeFeatureList.sCctResizableForThirdParties);
+                add(ChromeFeatureList.sCctResizableWindowAboveNavbar);
                 add(ChromeFeatureList.sCctToolbarCustomizations);
                 add(ChromeFeatureList.sCloseTabSuggestions);
                 add(ChromeFeatureList.sCommandLineOnNonRooted);
@@ -93,6 +94,7 @@ public class ChromeCachedFlags {
                 add(ChromeFeatureList.sCommerceCoupons);
                 add(ChromeFeatureList.sCreateSafebrowsingOnStartup);
                 add(ChromeFeatureList.sCriticalPersistedTabData);
+                add(ChromeFeatureList.sDiscoverMultiColumn);
                 add(ChromeFeatureList.sDownloadsAutoResumptionNative);
                 add(ChromeFeatureList.sEarlyLibraryLoad);
                 add(ChromeFeatureList.sElasticOverscroll);
@@ -146,6 +148,7 @@ public class ChromeCachedFlags {
                         add(FilePersistedTabDataStorage.DELAY_SAVES_UNTIL_DEFERRED_STARTUP_PARAM);
                         add(OptimizationGuidePushNotificationManager.MAX_CACHE_SIZE);
                         add(OmniboxFeatures.ENABLE_MODERNIZE_VISUAL_UPDATE_ON_TABLET);
+                        add(OmniboxFeatures.MODERNIZE_VISUAL_UPDATE_ACTIVE_COLOR_ON_OMNIBOX);
                         add(PageAnnotationsServiceConfig.PAGE_ANNOTATIONS_BASE_URL);
                         add(ReturnToChromeUtil.TAB_SWITCHER_ON_RETURN_MS);
                         add(CustomTabIntentDataProvider.THIRD_PARTIES_DEFAULT_POLICY);
@@ -161,16 +164,15 @@ public class ChromeCachedFlags {
                         add(StartSurfaceConfiguration
                                         .SIGNIN_PROMO_NTP_SINCE_FIRST_TIME_SHOWN_LIMIT_HOURS);
                         add(StartSurfaceConfiguration.SIGNIN_PROMO_NTP_RESET_AFTER_HOURS);
-                        add(StartSurfaceConfiguration.SPARE_RENDERER_DELAY_MS);
                         add(StartSurfaceConfiguration.START_SURFACE_EXCLUDE_MV_TILES);
                         add(StartSurfaceConfiguration.START_SURFACE_HIDE_INCOGNITO_SWITCH_NO_TAB);
                         add(StartSurfaceConfiguration.START_SURFACE_LAST_ACTIVE_TAB_ONLY);
                         add(StartSurfaceConfiguration.START_SURFACE_OPEN_NTP_INSTEAD_OF_START);
+                        add(StartSurfaceConfiguration.START_SURFACE_OPEN_START_AS_HOMEPAGE);
                         add(StartSurfaceConfiguration.START_SURFACE_VARIATION);
                         add(StartSurfaceConfiguration.SUPPORT_ACCESSIBILITY);
                         add(StartSurfaceConfiguration.TAB_COUNT_BUTTON_ON_START_SURFACE);
                         add(StartSurfaceConfiguration.USER_CLICK_THRESHOLD);
-                        add(StartSurfaceConfiguration.WARM_UP_RENDERER);
                         add(StartupPaintPreviewHelper.ACCESSIBILITY_SUPPORT_PARAM);
                         add(PaintPreviewTabService.ALLOW_SRP);
                         add(TabContentManager.ALLOW_TO_REFETCH_TAB_THUMBNAIL_VARIATION);

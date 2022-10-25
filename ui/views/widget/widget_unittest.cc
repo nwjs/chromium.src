@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -43,6 +43,7 @@
 #include "ui/views/test/native_widget_factory.h"
 #include "ui/views/test/test_views.h"
 #include "ui/views/test/test_widget_observer.h"
+#include "ui/views/test/views_test_utils.h"
 #include "ui/views/test/widget_test.h"
 #include "ui/views/view_test_api.h"
 #include "ui/views/views_test_suite.h"
@@ -55,13 +56,20 @@
 #include "ui/views/window/dialog_delegate.h"
 #include "ui/views/window/native_frame_view.h"
 
-#if BUILDFLAG(IS_WIN)
+#if defined(USE_AURA)
 #include "ui/aura/window.h"
 #include "ui/aura/window_tree_host.h"
 #include "ui/base/view_prop.h"
-#include "ui/base/win/window_event_target.h"
 #include "ui/views/test/test_platform_native_widget.h"
-#include "ui/views/widget/desktop_aura/desktop_native_widget_aura.h"
+#include "ui/views/widget/native_widget_aura.h"
+#include "ui/wm/core/base_focus_rules.h"
+#include "ui/wm/core/focus_controller.h"
+#include "ui/wm/core/shadow_controller.h"
+#include "ui/wm/core/shadow_controller_delegate.h"
+#endif
+
+#if BUILDFLAG(IS_WIN)
+#include "ui/base/win/window_event_target.h"
 #include "ui/views/win/hwnd_util.h"
 #endif
 
@@ -69,11 +77,8 @@
 #include "base/mac/mac_util.h"
 #endif
 
-#if defined(USE_AURA) && !BUILDFLAG(ENABLE_DESKTOP_AURA)
-#include "ui/wm/core/base_focus_rules.h"
-#include "ui/wm/core/focus_controller.h"
-#include "ui/wm/core/shadow_controller.h"
-#include "ui/wm/core/shadow_controller_delegate.h"
+#if BUILDFLAG(ENABLE_DESKTOP_AURA)
+#include "ui/views/widget/desktop_aura/desktop_native_widget_aura.h"
 #endif
 
 #if defined(USE_OZONE)
@@ -1482,6 +1487,39 @@ TEST_F(DesktopWidgetTest, MinimumSizeConstraints) {
   EXPECT_EQ(minimum_size, widget->GetClientAreaBoundsInScreen().size());
 }
 
+// When a non-desktop widget has a desktop child widget, due to the
+// async nature of desktop widget shutdown, the parent can be destroyed before
+// its child. Make sure that parent() returns nullptr at this time.
+#if BUILDFLAG(ENABLE_DESKTOP_AURA)
+TEST_F(DesktopWidgetTest, GetPossiblyDestroyedParent) {
+  WidgetAutoclosePtr root(CreateTopLevelNativeWidget());
+
+  const auto create_widget = [](Widget* parent, bool is_desktop) {
+    Widget* widget = new Widget;
+    Widget::InitParams init_params(Widget::InitParams::TYPE_WINDOW);
+    init_params.parent = parent->GetNativeView();
+    init_params.context = parent->GetNativeView();
+    if (is_desktop) {
+      init_params.native_widget =
+          new test::TestPlatformNativeWidget<DesktopNativeWidgetAura>(
+              widget, false, nullptr);
+    } else {
+      init_params.native_widget =
+          new test::TestPlatformNativeWidget<NativeWidgetAura>(widget, false,
+                                                               nullptr);
+    }
+    widget->Init(std::move(init_params));
+    return widget;
+  };
+
+  WidgetAutoclosePtr child(create_widget(root.get(), /* non-desktop */ false));
+  WidgetAutoclosePtr grandchild(create_widget(child.get(), /* desktop */ true));
+
+  child.reset();
+  EXPECT_EQ(grandchild->parent(), nullptr);
+}
+#endif  // BUILDFLAG(ENABLE_DESKTOP_AURA)
+
 // Tests that SetBounds() and GetWindowBoundsInScreen() is symmetric when the
 // widget is visible and not maximized or fullscreen.
 TEST_F(WidgetTest, GetWindowBoundsInScreen) {
@@ -1637,7 +1675,8 @@ TEST_F(DesktopWidgetTest, TestViewWidthAfterMinimizingWidget) {
   non_client_view->SetFrameView(
       std::make_unique<MinimumSizeFrameView>(widget.get()));
   // Setting the frame view doesn't do a layout, so force one.
-  non_client_view->Layout();
+  non_client_view->InvalidateLayout();
+  views::test::RunScheduledLayout(non_client_view);
   widget->Show();
   EXPECT_NE(0, non_client_view->frame_view()->width());
   widget->Minimize();
@@ -4441,6 +4480,63 @@ TEST_F(DesktopWidgetTest, WindowModalOwnerDestroyedEnabledTest) {
   EXPECT_TRUE(!!IsWindowEnabled(top_hwnd));
 
   top_level_widget->CloseNow();
+}
+
+TEST_F(DesktopWidgetTest, StackAboveTest) {
+  WidgetAutoclosePtr root_one(CreateTopLevelNativeWidget());
+  WidgetAutoclosePtr root_two(CreateTopLevelNativeWidget());
+  Widget* child_one = CreateChildNativeWidgetWithParent(root_one->AsWidget());
+  Widget* child_one_b = CreateChildNativeWidgetWithParent(root_one->AsWidget());
+  Widget* child_two = CreateChildNativeWidgetWithParent(root_two->AsWidget());
+  Widget* grandchild_one =
+      CreateChildNativeWidgetWithParent(child_one->AsWidget());
+  Widget* grandchild_two =
+      CreateChildNativeWidgetWithParent(child_two->AsWidget());
+
+  root_one->ShowInactive();
+  child_one->ShowInactive();
+  child_one_b->ShowInactive();
+  grandchild_one->ShowInactive();
+  root_two->ShowInactive();
+  child_two->ShowInactive();
+  grandchild_two->ShowInactive();
+
+  // Creates the following where Z-Order is from Left to Right.
+  //            Root_one                    Root_two
+  //             /    \                         /
+  //       child_one  child_one_b           child_two
+  //          /                               /
+  // grandchild_one                     grandchild_two
+
+  // Child elements are stacked above parent.
+  EXPECT_TRUE(child_one->IsStackedAbove(root_one->GetNativeView()));
+  EXPECT_TRUE(child_one_b->IsStackedAbove(root_one->GetNativeView()));
+  EXPECT_TRUE(grandchild_one->IsStackedAbove(child_one->GetNativeView()));
+  EXPECT_TRUE(grandchild_two->IsStackedAbove(root_two->GetNativeView()));
+
+  // Siblings with higher z-order are stacked correctly.
+  EXPECT_TRUE(child_one_b->IsStackedAbove(child_one->GetNativeView()));
+  EXPECT_TRUE(child_one_b->IsStackedAbove(grandchild_one->GetNativeView()));
+
+  // Root elements are stacked above child of a root with lower z-order.
+  EXPECT_TRUE(root_two->IsStackedAbove(root_one->GetNativeView()));
+  EXPECT_TRUE(root_two->IsStackedAbove(child_one_b->GetNativeView()));
+
+  // Child elements are stacked above child of root with lower z-order.
+  EXPECT_TRUE(child_two->IsStackedAbove(child_one_b->GetNativeView()));
+  EXPECT_TRUE(child_two->IsStackedAbove(grandchild_one->GetNativeView()));
+  EXPECT_TRUE(grandchild_two->IsStackedAbove(child_one->GetNativeView()));
+  EXPECT_TRUE(grandchild_two->IsStackedAbove(root_one->GetNativeView()));
+
+  // False cases to verify function is not just returning true for all cases.
+  EXPECT_FALSE(root_one->IsStackedAbove(grandchild_two->GetNativeView()));
+  EXPECT_FALSE(root_one->IsStackedAbove(grandchild_one->GetNativeView()));
+  EXPECT_FALSE(child_two->IsStackedAbove(grandchild_two->GetNativeView()));
+  EXPECT_FALSE(child_one->IsStackedAbove(grandchild_two->GetNativeView()));
+  EXPECT_FALSE(child_one_b->IsStackedAbove(child_two->GetNativeView()));
+  EXPECT_FALSE(grandchild_one->IsStackedAbove(grandchild_two->GetNativeView()));
+  EXPECT_FALSE(grandchild_one->IsStackedAbove(root_two->GetNativeView()));
+  EXPECT_FALSE(grandchild_one->IsStackedAbove(child_one_b->GetNativeView()));
 }
 
 #endif  // BUILDFLAG(IS_WIN)

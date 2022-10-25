@@ -1,4 +1,4 @@
-// Copyright 2016 The Chromium Authors. All rights reserved.
+// Copyright 2016 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -335,6 +335,11 @@ void ScopedFeatureList::Reset() {
   // Restore params to how they were before.
   FieldTrialParamAssociator::GetInstance()->ClearAllParamsForTesting();
   if (!original_params_.empty()) {
+    // Before restoring params, we need to make all field trials in-active,
+    // because FieldTrialParamAssociator checks whether the given field trial
+    // is active or not, and associates no parameters if the trial is active.
+    // So temporarily restore field trial list to be nullptr.
+    FieldTrialList::RestoreInstanceForTesting(nullptr);
     AssociateFieldTrialParamsFromString(original_params_, &HexDecodeString);
   }
 
@@ -359,7 +364,7 @@ void ScopedFeatureList::InitWithNullFeatureAndFieldTrialLists() {
   DCHECK(!init_called_);
 
   // Back up the current field trial parameters to be restored in Reset().
-  original_params_ = FieldTrialList::AllParamsToString(true, &HexEncodeString);
+  original_params_ = FieldTrialList::AllParamsToString(&HexEncodeString);
 
   // Back up the current field trial list, to be restored in Reset().
   original_field_trial_list_ = FieldTrialList::BackupInstanceForTesting();
@@ -501,7 +506,7 @@ void ScopedFeatureList::InitWithMergedFeatures(
 
   std::vector<FieldTrial::State> all_states =
       FieldTrialList::GetAllFieldTrialStates(PassKey());
-  original_params_ = FieldTrialList::AllParamsToString(true, &HexEncodeString);
+  original_params_ = FieldTrialList::AllParamsToString(&HexEncodeString);
 
   std::vector<ScopedFeatureList::FeatureWithStudyGroup>
       parsed_current_enabled_features;

@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -696,6 +696,13 @@ TEST(ParseInspectorError, InvalidArgumentCode) {
       "{\"code\": -32602, \"message\": \"Error description\"}");
   ASSERT_EQ(kInvalidArgument, status.code());
   ASSERT_EQ("invalid argument: Error description", status.message());
+}
+
+TEST(ParseInspectorError, NoTargetWithGivenIdFound) {
+  Status status = internal::ParseInspectorError(
+      "{\"code\": -32602, \"message\": \"No target with given id found\"}");
+  ASSERT_EQ(kNoSuchWindow, status.code());
+  ASSERT_EQ("no such window: No target with given id found", status.message());
 }
 
 TEST(ParseInspectorError, UnknownError) {

@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -321,7 +321,7 @@ AccessibilityPrivateSendSyntheticKeyEventFunction::Run() {
   accessibility_private::SyntheticKeyboardEvent* key_data = &params->key_event;
 
   int modifiers = 0;
-  if (key_data->modifiers.get()) {
+  if (key_data->modifiers) {
     if (key_data->modifiers->ctrl && *key_data->modifiers->ctrl)
       modifiers |= ui::EF_CONTROL_DOWN;
     if (key_data->modifiers->alt && *key_data->modifiers->alt)

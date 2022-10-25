@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -53,6 +53,9 @@ void CreditCardCVCAuthenticator::OnFullCardRequestSucceeded(
     const payments::FullCardRequest& full_card_request,
     const CreditCard& card,
     const std::u16string& cvc) {
+  if (!requester_)
+    return;
+
   payments::PaymentsClient::UnmaskResponseDetails response =
       full_card_request.unmask_response_details();
   requester_->OnCVCAuthenticationComplete(
@@ -67,6 +70,9 @@ void CreditCardCVCAuthenticator::OnFullCardRequestSucceeded(
 
 void CreditCardCVCAuthenticator::OnFullCardRequestFailed(
     payments::FullCardRequest::FailureType failure_type) {
+  if (!requester_)
+    return;
+
   requester_->OnCVCAuthenticationComplete(
       CVCAuthenticationResponse().with_did_succeed(false));
 }

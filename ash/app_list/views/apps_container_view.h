@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors. All rights reserved.
+// Copyright 2013 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -76,6 +76,7 @@ class ASH_EXPORT AppsContainerView
 
   // Updates the visibility of the items in this view according to
   // |app_list_state| and |is_in_drag|.
+  // TODO(crbug.com/1356674): Remove |is_in_drag| from parameters.
   void UpdateControlVisibility(AppListViewState app_list_state,
                                bool is_in_drag);
 

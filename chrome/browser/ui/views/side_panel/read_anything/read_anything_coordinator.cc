@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -50,10 +50,16 @@ void ReadAnythingCoordinator::InitModelWithUserPrefs() {
       browser->profile()->GetPrefs()->GetInteger(
           prefs::kAccessibilityReadAnythingColorInfo));
 
+  read_anything::mojom::LetterSpacing prefs_letter_spacing;
+  prefs_letter_spacing = static_cast<read_anything::mojom::LetterSpacing>(
+      browser->profile()->GetPrefs()->GetInteger(
+          prefs::kAccessibilityReadAnythingLetterSpacing));
+
   model_->Init(
       /* font name = */ prefs_font_name,
       /* font scale = */ prefs_font_scale,
-      /* colors = */ prefs_colors);
+      /* colors = */ prefs_colors,
+      /* letter spacing = */ prefs_letter_spacing);
 }
 
 ReadAnythingCoordinator::~ReadAnythingCoordinator() {
@@ -103,12 +109,12 @@ void ReadAnythingCoordinator::RemoveModelObserver(
 }
 
 void ReadAnythingCoordinator::OnEntryShown(SidePanelEntry* entry) {
-  DCHECK(entry->id() == SidePanelEntry::Id::kReadAnything);
+  DCHECK(entry->key().id() == SidePanelEntry::Id::kReadAnything);
   controller_->Activate(true);
 }
 
 void ReadAnythingCoordinator::OnEntryHidden(SidePanelEntry* entry) {
-  DCHECK(entry->id() == SidePanelEntry::Id::kReadAnything);
+  DCHECK(entry->key().id() == SidePanelEntry::Id::kReadAnything);
   controller_->Activate(false);
 }
 

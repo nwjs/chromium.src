@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors. All rights reserved.
+// Copyright 2015 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -184,6 +184,9 @@ export class DirectoryTreeNamingController {
 
       this.currentDirectoryItem_.entry = newEntry;
       this.currentDirectoryItem_.updateSubDirectories(/* recursive= */ true);
+      if (window.IN_TEST) {
+        this.currentDirectoryItem_.setAttribute('entry-label', newName);
+      }
 
       // If renamed directory was current directory, change it to new one.
       if (renamingCurrentDirectory) {

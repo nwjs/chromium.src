@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -30,11 +30,13 @@ class CONTENT_EXPORT BrowserAccessibilityManagerFuchsia
 
   static ui::AXTreeUpdate GetEmptyDocument();
 
+  // AXTreeManager override.
+  void FireFocusEvent(ui::AXNode* node) override;
+
   // BrowserAccessibilityManager overrides.
   void FireBlinkEvent(ax::mojom::Event event_type,
                       BrowserAccessibility* node,
                       int action_request_id) override;
-  void FireFocusEvent(BrowserAccessibility* node) override;
   void UpdateDeviceScaleFactor() override;
 
   // Sends hit test result to fuchsia.

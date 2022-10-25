@@ -1,4 +1,4 @@
-// Copyright 2016 The Chromium Authors. All rights reserved.
+// Copyright 2016 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -178,7 +178,7 @@ class DnsRequest {
 
     const char* hostname = data_provider_->PickValueInArray(kHostNames);
     request_ = host_resolver_->CreateRequest(
-        net::HostPortPair(hostname, 80), net::NetworkIsolationKey(),
+        net::HostPortPair(hostname, 80), net::NetworkAnonymizationKey(),
         net::NetLogWithSource(), parameters);
     int rv = request_->Start(
         base::BindOnce(&DnsRequest::OnCallback, base::Unretained(this)));

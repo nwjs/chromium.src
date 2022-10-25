@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -58,10 +58,12 @@ class TabSelectionEditorMediator
 
     private final Context mContext;
     private final TabModelSelector mTabModelSelector;
+    private final TabListCoordinator mTabListCoordinator;
     private final ResetHandler mResetHandler;
     private final PropertyModel mModel;
     private final SelectionDelegate<Integer> mSelectionDelegate;
     private final TabSelectionEditorToolbar mTabSelectionEditorToolbar;
+    private final boolean mActionOnRelatedTabs;
     private final TabModelSelectorTabModelObserver mTabModelObserver;
     private final TabModelSelectorObserver mTabModelSelectorObserver;
     private TabSelectionEditorActionProvider mActionProvider;
@@ -97,20 +99,28 @@ class TabSelectionEditorMediator
     };
 
     TabSelectionEditorMediator(Context context, TabModelSelector tabModelSelector,
-            ResetHandler resetHandler, PropertyModel model,
+            TabListCoordinator tabListCoordinator, ResetHandler resetHandler, PropertyModel model,
             SelectionDelegate<Integer> selectionDelegate,
-            TabSelectionEditorToolbar tabSelectionEditorToolbar) {
+            TabSelectionEditorToolbar tabSelectionEditorToolbar, boolean actionOnRelatedTabs) {
         mContext = context;
         mTabModelSelector = tabModelSelector;
+        mTabListCoordinator = tabListCoordinator;
         mResetHandler = resetHandler;
         mModel = model;
         mSelectionDelegate = selectionDelegate;
         mTabSelectionEditorToolbar = tabSelectionEditorToolbar;
+        mActionOnRelatedTabs = actionOnRelatedTabs;
 
         mModel.set(
                 TabSelectionEditorProperties.TOOLBAR_NAVIGATION_LISTENER, mNavigationClickListener);
         mModel.set(TabSelectionEditorProperties.TOOLBAR_ACTION_BUTTON_LISTENER,
                 mActionButtonOnClickListener);
+        if (mActionOnRelatedTabs) {
+            mModel.set(TabSelectionEditorProperties.RELATED_TAB_COUNT_PROVIDER, (tabIdList) -> {
+                return TabSelectionEditorAction.getTabCountIncludingRelatedTabs(
+                        mTabModelSelector, tabIdList);
+            });
+        }
 
         mTabModelObserver = new TabModelSelectorTabModelObserver(mTabModelSelector) {
             @Override
@@ -194,6 +204,9 @@ class TabSelectionEditorMediator
 
     @Override
     public void show(List<Tab> tabs, int preSelectedTabCount) {
+        // We don't call TabListCoordinator#prepareTabSwitcherView, since not all the logic (e.g.
+        // requiring one tab to be selected) is applicable here.
+        mTabListCoordinator.prepareTabGridView();
         mVisibleTabs.clear();
         mVisibleTabs.addAll(tabs);
         mSelectionDelegate.setSelectionModeEnabledForZeroItems(true);
@@ -263,7 +276,7 @@ class TabSelectionEditorMediator
 
         mActionListModel.clear();
         for (TabSelectionEditorAction action : actions) {
-            action.configure(mTabModelSelector, mSelectionDelegate, this);
+            action.configure(mTabModelSelector, mSelectionDelegate, this, mActionOnRelatedTabs);
             mActionListModel.add(action.getPropertyModel());
         }
         if (navigationProvider != null) {
@@ -292,6 +305,7 @@ class TabSelectionEditorMediator
 
     @Override
     public void hide() {
+        mTabListCoordinator.cleanupTabGridView();
         mVisibleTabs.clear();
         mResetHandler.resetWithListOfTabs(null, 0, /*quickMode=*/false);
         mModel.set(TabSelectionEditorProperties.IS_VISIBLE, false);

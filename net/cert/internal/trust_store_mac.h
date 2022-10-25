@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors. All rights reserved.
+// Copyright 2017 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -154,8 +154,6 @@ class NET_EXPORT TrustStoreMac : public TrustStore {
   class TrustImplDomainCacheFullCerts;
   class TrustImplNoCache;
   class TrustImplLRUCache;
-
-  FRIEND_TEST_ALL_PREFIXES(TrustStoreMacImplTest, MultiRootNotTrusted);
 
   // Finds certificates in the OS keychains whose Subject matches |name_data|.
   // The result is an array of CRYPTO_BUFFERs containing the DER certificate

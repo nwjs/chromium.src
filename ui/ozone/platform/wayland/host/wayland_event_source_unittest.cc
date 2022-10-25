@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors. All rights reserved.
+// Copyright 2020 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -92,6 +92,7 @@ TEST_P(WaylandEventSourceTest, CheckPointerButtonHandling) {
   wl_pointer_send_frame(pointer_res);
   wl_pointer_send_button(pointer_res, serial++, tstamp++, BTN_LEFT,
                          WL_POINTER_BUTTON_STATE_PRESSED);
+  wl_pointer_send_frame(pointer_res);
   EXPECT_CALL(delegate, DispatchEvent(_)).Times(2);
   Sync();
 
@@ -99,6 +100,7 @@ TEST_P(WaylandEventSourceTest, CheckPointerButtonHandling) {
 
   wl_pointer_send_button(pointer_res, serial++, tstamp++, BTN_RIGHT,
                          WL_POINTER_BUTTON_STATE_PRESSED);
+  wl_pointer_send_frame(pointer_res);
   EXPECT_CALL(delegate, DispatchEvent(_)).Times(1);
   Sync();
 
@@ -106,8 +108,10 @@ TEST_P(WaylandEventSourceTest, CheckPointerButtonHandling) {
 
   wl_pointer_send_button(pointer_res, serial++, tstamp++, BTN_LEFT,
                          WL_POINTER_BUTTON_STATE_RELEASED);
+  wl_pointer_send_frame(pointer_res);
   wl_pointer_send_button(pointer_res, serial++, tstamp++, BTN_RIGHT,
                          WL_POINTER_BUTTON_STATE_RELEASED);
+  wl_pointer_send_frame(pointer_res);
   EXPECT_CALL(delegate, DispatchEvent(_)).Times(2);
   Sync();
 

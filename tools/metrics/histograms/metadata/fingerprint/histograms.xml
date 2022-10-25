@@ -1,5 +1,5 @@
 <!--
-Copyright 2020 The Chromium Authors. All rights reserved.
+Copyright 2020 The Chromium Authors
 Use of this source code is governed by a BSD-style license that can be
 found in the LICENSE file.
 -->
@@ -23,7 +23,7 @@ chromium-metrics-reviews@google.com.
 <histograms>
 
 <histogram name="Fingerprint.Auth.Error" enum="FingerprintError"
-    expires_after="2022-10-10">
+    expires_after="2023-04-10">
   <owner>patrykd@google.com</owner>
   <owner>tomhughes@chromium.org</owner>
   <owner>cros-lurs@google.com</owner>

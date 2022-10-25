@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -99,10 +99,6 @@
 #include "ui/ozone/public/gpu_platform_support_host.h"
 #include "ui/ozone/public/ozone_platform.h"
 #include "ui/ozone/public/ozone_switches.h"
-#endif
-
-#if BUILDFLAG(IS_LINUX)
-#include "ui/gfx/switches.h"
 #endif
 
 #if BUILDFLAG(USE_ZYGOTE_HANDLE)
@@ -400,15 +396,19 @@ class GpuSandboxedProcessLauncherDelegate
   // backend. Note that the GPU process is connected to the interactive
   // desktop.
   bool PreSpawnTarget(sandbox::TargetPolicy* policy) override {
+    sandbox::TargetConfig* config = policy->GetConfig();
+    if (config->IsConfigured())
+      return true;
+
     if (UseOpenGLRenderer()) {
       // Open GL path.
-      policy->SetTokenLevel(sandbox::USER_RESTRICTED_SAME_ACCESS,
+      config->SetTokenLevel(sandbox::USER_RESTRICTED_SAME_ACCESS,
                             sandbox::USER_LIMITED);
       sandbox::policy::SandboxWin::SetJobLevel(sandbox::mojom::Sandbox::kGpu,
                                                sandbox::JobLevel::kUnprotected,
-                                               0, policy);
+                                               0, config);
     } else {
-      policy->SetTokenLevel(sandbox::USER_RESTRICTED_SAME_ACCESS,
+      config->SetTokenLevel(sandbox::USER_RESTRICTED_SAME_ACCESS,
                             sandbox::USER_LIMITED);
 
       // UI restrictions break when we access Windows from outside our job.
@@ -422,7 +422,7 @@ class GpuSandboxedProcessLauncherDelegate
           JOB_OBJECT_UILIMIT_SYSTEMPARAMETERS | JOB_OBJECT_UILIMIT_DESKTOP |
               JOB_OBJECT_UILIMIT_EXITWINDOWS |
               JOB_OBJECT_UILIMIT_DISPLAYSETTINGS,
-          policy);
+          config);
     }
 
     // Check if we are running on the winlogon desktop and set a delayed
@@ -433,20 +433,17 @@ class GpuSandboxedProcessLauncherDelegate
     // the normal integrity and delay the switch to low integrity until after
     // the gpu process has started and has access to the desktop.
     if (ShouldSetDelayedIntegrity())
-      policy->SetDelayedIntegrityLevel(sandbox::INTEGRITY_LEVEL_LOW);
+      config->SetDelayedIntegrityLevel(sandbox::INTEGRITY_LEVEL_LOW);
     else
-      policy->SetIntegrityLevel(sandbox::INTEGRITY_LEVEL_LOW);
-
-    if (policy->GetConfig()->IsConfigured())
-      return true;
+      config->SetIntegrityLevel(sandbox::INTEGRITY_LEVEL_LOW);
 
     // Block this DLL even if it is not loaded by the browser process.
-    policy->GetConfig()->AddDllToUnload(L"cmsetac.dll");
+    config->AddDllToUnload(L"cmsetac.dll");
 
     if (cmd_line_.HasSwitch(switches::kEnableLogging)) {
       std::wstring log_file_path = logging::GetLogFileFullPath();
       if (!log_file_path.empty()) {
-        sandbox::ResultCode result = policy->GetConfig()->AddRule(
+        sandbox::ResultCode result = config->AddRule(
             sandbox::SubSystem::kFiles, sandbox::Semantics::kFilesAllowAny,
             log_file_path.c_str());
         if (result != sandbox::SBOX_ALL_OK)

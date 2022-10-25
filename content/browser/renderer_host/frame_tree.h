@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors. All rights reserved.
+// Copyright 2013 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -143,9 +143,6 @@ class CONTENT_EXPORT FrameTree {
     // corresponds to the browser UI stop showing a spinner or other visual
     // indicator for loading.
     virtual void DidStopLoading() = 0;
-
-    // The load progress was changed.
-    virtual void DidChangeLoadProgress() = 0;
 
     // Returns the delegate's top loading tree, which should be used to infer
     // the values of loading-related states. The state of

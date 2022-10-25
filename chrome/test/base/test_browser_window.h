@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "base/callback_helpers.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/download/test_download_shelf.h"
@@ -152,6 +153,7 @@ class TestBrowserWindow : public BrowserWindow {
   bool IsToolbarVisible() const override;
   bool IsLocationBarVisible() const override;
   bool IsToolbarShowing() const override;
+  bool IsBorderlessModeEnabled() const override;
   SharingDialog* ShowSharingDialog(content::WebContents* contents,
                                    SharingDialogData data) override;
   void ShowUpdateChromeDialog() override {}
@@ -188,14 +190,11 @@ class TestBrowserWindow : public BrowserWindow {
       translate::TranslateStep step,
       const std::string& source_language,
       const std::string& target_language,
-      translate::TranslateErrors::Type error_type,
+      translate::TranslateErrors error_type,
       bool is_user_gesture) override;
-  void ShowPartialTranslateBubble(
-      PartialTranslateBubbleModel::ViewState view_state,
-      const std::string& source_language,
-      const std::string& target_language,
-      const std::u16string& text_selection,
-      translate::TranslateErrors::Type error_type) override;
+  void StartPartialTranslate(const std::string& source_language,
+                             const std::string& target_language,
+                             const std::u16string& text_selection) override;
   void ShowOneClickSigninConfirmation(
       const std::u16string& email,
       base::OnceCallback<void(bool)> confirmed_callback) override {}
@@ -244,13 +243,19 @@ class TestBrowserWindow : public BrowserWindow {
   void CloseTabSearchBubble() override {}
 
   user_education::FeaturePromoController* GetFeaturePromoController() override;
-  bool IsFeaturePromoActive(
-      const base::Feature& iph_feature,
-      bool include_continued_promos = false) const override;
+  bool IsFeaturePromoActive(const base::Feature& iph_feature) const override;
   bool MaybeShowFeaturePromo(
       const base::Feature& iph_feature,
       user_education::FeaturePromoSpecification::StringReplacements
           body_text_replacements = {},
+      user_education::FeaturePromoController::BubbleCloseCallback
+          close_callback = base::DoNothing()) override;
+  bool MaybeShowStartupFeaturePromo(
+      const base::Feature& iph_feature,
+      user_education::FeaturePromoSpecification::StringReplacements
+          body_text_replacements = {},
+      user_education::FeaturePromoController::StartupPromoCallback
+          promo_callback = base::DoNothing(),
       user_education::FeaturePromoController::BubbleCloseCallback
           close_callback = base::DoNothing()) override;
   bool CloseFeaturePromo(const base::Feature& iph_feature) override;
@@ -270,6 +275,10 @@ class TestBrowserWindow : public BrowserWindow {
   }
   void set_is_active(bool active) { is_active_ = active; }
   void set_is_minimized(bool minimized) { is_minimized_ = minimized; }
+
+  void set_element_context(ui::ElementContext element_context) {
+    element_context_ = element_context;
+  }
 
  protected:
   void DestroyBrowser() override {}
@@ -314,6 +323,7 @@ class TestBrowserWindow : public BrowserWindow {
   std::unique_ptr<user_education::FeaturePromoController>
       feature_promo_controller_;
 
+  ui::ElementContext element_context_;
   base::OnceClosure close_callback_;
 };
 

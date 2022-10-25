@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -447,7 +447,7 @@ void WebContentsFrameTracker::OnPossibleTargetChange() {
     frame_sink_id = context_->GetFrameSinkIdForCapture();
   }
 
-  // TODO(crbug.com/1247761): Clear |crop_id_| when share-this-tab-instead
+  // TODO(crbug.com/1264849): Clear |crop_id_| when share-this-tab-instead
   // is clicked.
   if (frame_sink_id != target_frame_sink_id_) {
     target_frame_sink_id_ = frame_sink_id;

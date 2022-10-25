@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -62,6 +62,7 @@
 #include "chrome/browser/file_system_access/chrome_file_system_access_permission_context.h"
 #include "chrome/browser/file_system_access/file_system_access_permission_context_factory.h"
 #include "chrome/browser/heavy_ad_intervention/heavy_ad_service_factory.h"
+#include "chrome/browser/k_anonymity_service/k_anonymity_service_client.h"
 #include "chrome/browser/media/media_device_id_salt.h"
 #include "chrome/browser/notifications/platform_notification_service_factory.h"
 #include "chrome/browser/notifications/platform_notification_service_impl.h"
@@ -113,6 +114,7 @@
 #include "chrome/common/buildflags.h"
 #include "chrome/common/channel_info.h"
 #include "chrome/common/chrome_constants.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_paths_internal.h"
 #include "chrome/common/chrome_switches.h"
@@ -146,6 +148,7 @@
 #include "components/prefs/scoped_user_pref_update.h"
 #include "components/profile_metrics/browser_profile_type.h"
 #include "components/security_interstitials/content/stateful_ssl_host_state_delegate.h"
+#include "components/services/screen_ai/buildflags/buildflags.h"
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/site_isolation/site_isolation_policy.h"
@@ -199,6 +202,7 @@
 #include "components/session_manager/core/session_manager.h"
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_manager.h"
+#include "components/version_info/version_info.h"
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
@@ -232,6 +236,11 @@
 #include "chrome/browser/plugins/plugin_prefs.h"
 #endif
 
+#if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
+#include "chrome/browser/accessibility/ax_screen_ai_annotator_factory.h"
+#include "ui/accessibility/accessibility_features.h"
+#endif
+
 #if BUILDFLAG(ENABLE_SESSION_SERVICE)
 #include "chrome/browser/sessions/session_service_factory.h"
 #endif
@@ -244,11 +253,7 @@
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
-#include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/api/file_system/volume_list_provider_lacros.h"
-#include "chrome/browser/profiles/profile_attributes_entry.h"
-#include "chrome/browser/profiles/profile_attributes_storage.h"
-#include "chrome/browser/profiles/profile_manager.h"
 #include "chromeos/crosapi/mojom/crosapi.mojom.h"
 #include "chromeos/lacros/lacros_service.h"
 #include "components/policy/core/common/async_policy_provider.h"
@@ -773,9 +778,11 @@ void ProfileImpl::DoFinalInit(CreateMode create_mode) {
 
 #if !BUILDFLAG(IS_CHROMEOS_ASH)
   // Listen for bookmark model load, to bootstrap the sync service.
+  // Not necessary for profiles that don't have a BookmarkModel.
   // On CrOS sync service will be initialized after sign in.
   BookmarkModel* model = BookmarkModelFactory::GetForBrowserContext(this);
-  model->AddObserver(new BookmarkModelLoadedObserver(this));
+  if (model)
+    model->AddObserver(new BookmarkModelLoadedObserver(this));
 #endif
 
   HeavyAdServiceFactory::GetForBrowserContext(this)->Initialize(GetPath());
@@ -836,6 +843,12 @@ void ProfileImpl::DoFinalInit(CreateMode create_mode) {
 
   AnnouncementNotificationServiceFactory::GetForProfile(this)
       ->MaybeShowNotification();
+
+#if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
+  // TODO(https://crbug.com/1278249): Implement settings to replace flag.
+  if (features::IsPdfOcrEnabled())
+    screen_ai::AXScreenAIAnnotatorFactory::GetForBrowserContext(this);
+#endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 
   if (breadcrumbs::IsEnabled()) {
     breadcrumbs::BreadcrumbManagerKeyedService* breadcrumb_service =
@@ -1107,6 +1120,30 @@ void ProfileImpl::OnLocaleReady(CreateMode create_mode) {
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   arc::ArcServiceLauncher::Get()->MaybeSetProfile(this);
+
+  // If the user is a new user, mark profile migration to Lacros as completed.
+  // Because setting migration as marked changes the return value of
+  // `crosapi::browser_util::IsLacrosEnabled()`, the check should happen before
+  // `CreateBrowserContextServices()` is called. Otherwise the value of
+  // `IsLacrosEnabled()` can change after these services are initialized.
+  const user_manager::User* user =
+      ash::ProfileHelper::Get()->GetUserByProfile(this);
+  if (user && IsNewProfile() && Profile::IsRegularProfile() &&
+      ash::ProfileHelper::IsPrimaryProfile(this) &&
+      crosapi::browser_util::IsLacrosEnabledForMigration(
+          user, crosapi::browser_util::PolicyInitState::kAfterInit)) {
+    // TODO(crbug.com/1277848): Once `BrowserDataMigrator` stabilises, remove
+    // this log message.
+    LOG(WARNING) << "Setting migration as completed since it is a new user.";
+    const std::string user_id_hash = user->username_hash();
+    PrefService* local_state = g_browser_process->local_state();
+    crosapi::browser_util::RecordDataVer(local_state, user_id_hash,
+                                         version_info::GetVersion());
+    crosapi::browser_util::SetProfileMigrationCompletedForUser(
+        local_state, user_id_hash,
+        crosapi::browser_util::GetMigrationMode(
+            user, crosapi::browser_util::PolicyInitState::kAfterInit));
+  }
 #endif
 
   FullBrowserTransitionManager::Get()->OnProfileCreated(this);
@@ -1349,6 +1386,17 @@ ProfileImpl::GetFederatedIdentityActiveSessionPermissionContext() {
 content::FederatedIdentitySharingPermissionContextDelegate*
 ProfileImpl::GetFederatedIdentitySharingPermissionContext() {
   return FederatedIdentitySharingPermissionContextFactory::GetForProfile(this);
+}
+
+std::unique_ptr<content::KAnonymityServiceDelegate>
+ProfileImpl::CreateKAnonymityServiceDelegate() {
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  if (!base::FeatureList::IsEnabled(features::kKAnonymityService))
+    return nullptr;
+  return std::make_unique<KAnonymityServiceClient>(this);
+#else
+  return nullptr;
+#endif
 }
 
 content::ReduceAcceptLanguageControllerDelegate*

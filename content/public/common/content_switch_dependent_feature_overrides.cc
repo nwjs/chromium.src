@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -88,6 +88,9 @@ GetSwitchDependentFeatureOverrides(const base::CommandLine& command_line) {
      base::FeatureList::OVERRIDE_ENABLE_FEATURE},
     {switches::kEnableExperimentalWebPlatformFeatures,
      std::cref(blink::features::kEditContext),
+     base::FeatureList::OVERRIDE_ENABLE_FEATURE},
+    {switches::kEnableExperimentalWebPlatformFeatures,
+     std::cref(blink::features::kPendingBeaconAPI),
      base::FeatureList::OVERRIDE_ENABLE_FEATURE},
 
     // Overrides for --enable-experimental-cookie-features.

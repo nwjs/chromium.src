@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,7 +10,7 @@
 import './bluetooth_icons.js';
 
 import {html, PolymerElement} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
-import {BluetoothDeviceProperties, DeviceType} from 'chrome://resources/mojo/chromeos/services/bluetooth_config/public/mojom/cros_bluetooth_config.mojom-webui.js';
+import {BluetoothDeviceProperties, DeviceType} from 'chrome://resources/mojo/chromeos/ash/services/bluetooth_config/public/mojom/cros_bluetooth_config.mojom-webui.js';
 
 import {hasDefaultImage} from './bluetooth_utils.js';
 

@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors. All rights reserved.
+// Copyright 2018 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -278,7 +278,7 @@ void TestURLLoaderFactory::SimulateResponse(
 
   if ((response_flags & kSendHeadersOnNetworkError) ||
       status.error_code == net::OK) {
-    client->OnReceiveResponse(std::move(head), std::move(body));
+    client->OnReceiveResponse(std::move(head), std::move(body), absl::nullopt);
   }
 
   client->OnComplete(status);

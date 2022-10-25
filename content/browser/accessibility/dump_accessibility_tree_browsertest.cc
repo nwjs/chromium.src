@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -606,6 +606,16 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityAriaBanner) {
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityAriaBlockquote) {
   RunAriaTest(FILE_PATH_LITERAL("aria-blockquote.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityAriaBrailleLabel) {
+  RunAriaTest(FILE_PATH_LITERAL("aria-braillelabel.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityAriaBrailleRoleDescription) {
+  RunAriaTest(FILE_PATH_LITERAL("aria-brailleroledescription.html"));
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityAriaBusy) {
@@ -1221,7 +1231,8 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityAriaParagraph) {
   RunAriaTest(FILE_PATH_LITERAL("aria-paragraph.html"));
 }
 
-IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityAriaPosinset) {
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       DISABLED_AccessibilityAriaPosinset) {
   RunAriaTest(FILE_PATH_LITERAL("aria-posinset.html"));
 }
 
@@ -3405,8 +3416,7 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, DisplayContentsSelectCrash) {
   RunRegressionTest(FILE_PATH_LITERAL("display-contents-select-crash.html"));
 }
 
-// Flaky on all platforms. http://crbug.com/1055764
-IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, DISABLED_XmlInIframeCrash) {
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, XmlInIframeCrash) {
   RunRegressionTest(FILE_PATH_LITERAL("xml-in-iframe-crash.html"));
 }
 

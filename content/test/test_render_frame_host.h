@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors. All rights reserved.
+// Copyright 2013 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -267,7 +267,7 @@ class TestRenderFrameHost : public RenderFrameHostImpl,
       blink::mojom::ServiceWorkerContainerInfoForClientPtr container_info,
       mojo::PendingRemote<network::mojom::URLLoaderFactory>
           prefetch_loader_factory,
-      const blink::ParsedPermissionsPolicy& permissions_policy,
+      const absl::optional<blink::ParsedPermissionsPolicy>& permissions_policy,
       blink::mojom::PolicyContainerPtr policy_container,
       const base::UnguessableToken& devtools_navigation_token) override;
   void SendCommitFailedNavigation(

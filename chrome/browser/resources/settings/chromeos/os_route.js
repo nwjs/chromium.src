@@ -1,4 +1,4 @@
-// Copyright 2016 The Chromium Authors. All rights reserved.
+// Copyright 2016 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -158,14 +158,6 @@ function createOSSettingsRoutes() {
     r.PERSONALIZATION = createSection(
         r.BASIC, routesMojomWebui.PERSONALIZATION_SECTION_PATH,
         Section.kPersonalization);
-    // Top level PERSONALIZATION section only contains a link to personalization
-    // hub if hub is enabled. The subpages should only be accessible if hub is
-    // off.
-    if (!loadTimeData.getBoolean('isPersonalizationHubEnabled')) {
-      r.CHANGE_PICTURE = createSubpage(
-          r.PERSONALIZATION, routesMojomWebui.CHANGE_PICTURE_SUBPAGE_PATH,
-          Subpage.kChangePicture);
-    }
   }
 
   // Search and Assistant section.
@@ -240,8 +232,9 @@ function createOSSettingsRoutes() {
         r.OS_ACCESSIBILITY, routesMojomWebui.AUDIO_AND_CAPTIONS_SUBPAGE_PATH,
         Subpage.kAudioAndCaptions);
     r.MANAGE_TTS_SETTINGS = createSubpage(
-        r.A11Y_TEXT_TO_SPEECH, routesMojomWebui.TEXT_TO_SPEECH_SUBPAGE_PATH,
-        Subpage.kTextToSpeech);
+        loadTimeData.getBoolean('isKioskModeActive') ? r.MANAGE_ACCESSIBILITY :
+                                                       r.A11Y_TEXT_TO_SPEECH,
+        routesMojomWebui.TEXT_TO_SPEECH_SUBPAGE_PATH, Subpage.kTextToSpeech);
     r.MANAGE_SWITCH_ACCESS_SETTINGS = createSubpage(
         r.A11Y_KEYBOARD_AND_TEXT_INPUT,
         routesMojomWebui.SWITCH_ACCESS_OPTIONS_SUBPAGE_PATH,

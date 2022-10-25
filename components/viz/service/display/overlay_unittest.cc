@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -417,10 +417,9 @@ static ResourceId CreateResourceInLayerTree(
     const gfx::Size& size,
     bool is_overlay_candidate,
     ResourceFormat resource_format) {
-  auto resource = TransferableResource::MakeGL(
+  auto resource = TransferableResource::MakeGpu(
       gpu::Mailbox::Generate(), GL_LINEAR, GL_TEXTURE_2D, gpu::SyncToken(),
-      size, is_overlay_candidate);
-  resource.format = resource_format;
+      size, resource_format, is_overlay_candidate);
 
   ResourceId resource_id =
       child_resource_provider->ImportResource(resource, base::DoNothing());
@@ -1679,29 +1678,7 @@ TEST_F(SingleOverlayOnTopTest, AcceptBlending) {
   EXPECT_FALSE(overlay_damage_rect.IsEmpty());
 }
 
-TEST_F(SingleOverlayOnTopTest, RejectBackgroundColor) {
-  auto pass = CreateRenderPass();
-  TextureDrawQuad* quad = CreateFullscreenCandidateQuad(
-      resource_provider_.get(), child_resource_provider_.get(),
-      child_provider_.get(), pass->shared_quad_state_list.back(), pass.get());
-  quad->background_color = SkColors::kRed;
-
-  OverlayCandidateList candidate_list;
-  OverlayProcessorInterface::FilterOperationsMap render_pass_filters;
-  OverlayProcessorInterface::FilterOperationsMap render_pass_backdrop_filters;
-  AggregatedRenderPassList pass_list;
-  pass_list.push_back(std::move(pass));
-  SurfaceDamageRectList surface_damage_rect_list;
-
-  overlay_processor_->ProcessForOverlays(
-      resource_provider_.get(), &pass_list, GetIdentityColorMatrix(),
-      render_pass_filters, render_pass_backdrop_filters,
-      std::move(surface_damage_rect_list), nullptr, &candidate_list,
-      &damage_rect_, &content_bounds_);
-  EXPECT_EQ(0U, candidate_list.size());
-}
-
-TEST_F(SingleOverlayOnTopTest, AcceptBlackBackgroundColor) {
+TEST_F(SingleOverlayOnTopTest, AcceptBackgroundColorWithoutBlending) {
   auto pass = CreateRenderPass();
   TextureDrawQuad* quad = CreateFullscreenCandidateQuad(
       resource_provider_.get(), child_resource_provider_.get(),
@@ -1723,13 +1700,40 @@ TEST_F(SingleOverlayOnTopTest, AcceptBlackBackgroundColor) {
   EXPECT_EQ(1U, candidate_list.size());
 }
 
-TEST_F(SingleOverlayOnTopTest, RejectBlackBackgroundColorWithBlending) {
+TEST_F(SingleOverlayOnTopTest, RejectBackgroundColorWithBlending) {
   auto pass = CreateRenderPass();
   TextureDrawQuad* quad = CreateFullscreenCandidateQuad(
       resource_provider_.get(), child_resource_provider_.get(),
       child_provider_.get(), pass->shared_quad_state_list.back(), pass.get());
   quad->background_color = SkColors::kBlack;
   quad->needs_blending = true;
+
+  OverlayCandidateList candidate_list;
+  OverlayProcessorInterface::FilterOperationsMap render_pass_filters;
+  OverlayProcessorInterface::FilterOperationsMap render_pass_backdrop_filters;
+  AggregatedRenderPassList pass_list;
+  pass_list.push_back(std::move(pass));
+  SurfaceDamageRectList surface_damage_rect_list;
+
+  overlay_processor_->ProcessForOverlays(
+      resource_provider_.get(), &pass_list, GetIdentityColorMatrix(),
+      render_pass_filters, render_pass_backdrop_filters,
+      std::move(surface_damage_rect_list), nullptr, &candidate_list,
+      &damage_rect_, &content_bounds_);
+  EXPECT_EQ(0U, candidate_list.size());
+}
+
+TEST_F(SingleOverlayOnTopTest, RejectBackgroundColorWithGradient) {
+  auto pass = CreateRenderPass();
+
+  auto* sqs = pass->shared_quad_state_list.back();
+  sqs->mask_filter_info =
+      gfx::MaskFilterInfo(gfx::RectF(kOverlayRect), gfx::RoundedCornersF(1.f),
+                          gfx::LinearGradient(3));
+  TextureDrawQuad* quad = CreateFullscreenCandidateQuad(
+      resource_provider_.get(), child_resource_provider_.get(),
+      child_provider_.get(), sqs, pass.get());
+  quad->background_color = SkColors::kBlack;
 
   OverlayCandidateList candidate_list;
   OverlayProcessorInterface::FilterOperationsMap render_pass_filters;
@@ -1911,7 +1915,7 @@ TEST_F(UnderlayTest, AllowVerticalFlip) {
       &damage_rect_, &content_bounds_);
   ASSERT_EQ(1U, candidate_list.size());
   EXPECT_EQ(gfx::OVERLAY_TRANSFORM_FLIP_VERTICAL,
-            candidate_list.back().transform);
+            absl::get<gfx::OverlayTransform>(candidate_list.back().transform));
 }
 
 TEST_F(UnderlayTest, AllowHorizontalFlip) {
@@ -1939,7 +1943,7 @@ TEST_F(UnderlayTest, AllowHorizontalFlip) {
       &damage_rect_, &content_bounds_);
   ASSERT_EQ(1U, candidate_list.size());
   EXPECT_EQ(gfx::OVERLAY_TRANSFORM_FLIP_HORIZONTAL,
-            candidate_list.back().transform);
+            absl::get<gfx::OverlayTransform>(candidate_list.back().transform));
 }
 
 TEST_F(SingleOverlayOnTopTest, AllowPositiveScaleTransform) {
@@ -2063,7 +2067,8 @@ TEST_F(UnderlayTest, Allow90DegreeRotation) {
       std::move(surface_damage_rect_list), nullptr, &candidate_list,
       &damage_rect_, &content_bounds_);
   ASSERT_EQ(1U, candidate_list.size());
-  EXPECT_EQ(gfx::OVERLAY_TRANSFORM_ROTATE_90, candidate_list.back().transform);
+  EXPECT_EQ(gfx::OVERLAY_TRANSFORM_ROTATE_90,
+            absl::get<gfx::OverlayTransform>(candidate_list.back().transform));
 }
 
 TEST_F(UnderlayTest, Allow180DegreeRotation) {
@@ -2089,7 +2094,8 @@ TEST_F(UnderlayTest, Allow180DegreeRotation) {
       std::move(surface_damage_rect_list), nullptr, &candidate_list,
       &damage_rect_, &content_bounds_);
   ASSERT_EQ(1U, candidate_list.size());
-  EXPECT_EQ(gfx::OVERLAY_TRANSFORM_ROTATE_180, candidate_list.back().transform);
+  EXPECT_EQ(gfx::OVERLAY_TRANSFORM_ROTATE_180,
+            absl::get<gfx::OverlayTransform>(candidate_list.back().transform));
 }
 
 TEST_F(UnderlayTest, Allow270DegreeRotation) {
@@ -2115,7 +2121,8 @@ TEST_F(UnderlayTest, Allow270DegreeRotation) {
       std::move(surface_damage_rect_list), nullptr, &candidate_list,
       &damage_rect_, &content_bounds_);
   ASSERT_EQ(1U, candidate_list.size());
-  EXPECT_EQ(gfx::OVERLAY_TRANSFORM_ROTATE_270, candidate_list.back().transform);
+  EXPECT_EQ(gfx::OVERLAY_TRANSFORM_ROTATE_270,
+            absl::get<gfx::OverlayTransform>(candidate_list.back().transform));
 }
 
 TEST_F(UnderlayTest, AllowsOpaqueCandidates) {
@@ -2125,6 +2132,34 @@ TEST_F(UnderlayTest, AllowsOpaqueCandidates) {
       child_provider_.get(), pass->shared_quad_state_list.back(), pass.get())
       ->needs_blending = false;
   pass->shared_quad_state_list.front()->opacity = 1.0;
+
+  OverlayCandidateList candidate_list;
+  OverlayProcessorInterface::FilterOperationsMap render_pass_filters;
+  OverlayProcessorInterface::FilterOperationsMap render_pass_backdrop_filters;
+  AggregatedRenderPassList pass_list;
+  pass_list.push_back(std::move(pass));
+  SurfaceDamageRectList surface_damage_rect_list;
+
+  overlay_processor_->ProcessForOverlays(
+      resource_provider_.get(), &pass_list, GetIdentityColorMatrix(),
+      render_pass_filters, render_pass_backdrop_filters,
+      std::move(surface_damage_rect_list), nullptr, &candidate_list,
+      &damage_rect_, &content_bounds_);
+  ASSERT_EQ(1U, candidate_list.size());
+}
+
+TEST_F(UnderlayTest, AllowRoundedCornerRectWithBackgroundColor) {
+  auto pass = CreateRenderPass();
+  auto* sqs = pass->shared_quad_state_list.back();
+  sqs->mask_filter_info =
+      gfx::MaskFilterInfo(gfx::RectF(kOverlayRect), gfx::RoundedCornersF(10.f),
+                          gfx::LinearGradient::GetEmpty());
+  auto* quad = CreateFullscreenCandidateQuad(
+      resource_provider_.get(), child_resource_provider_.get(),
+      child_provider_.get(), sqs, pass.get());
+  quad->needs_blending = false;
+  // Any color is valid for this tests except transparent.
+  quad->background_color = SkColors::kYellow;
 
   OverlayCandidateList candidate_list;
   OverlayProcessorInterface::FilterOperationsMap render_pass_filters;

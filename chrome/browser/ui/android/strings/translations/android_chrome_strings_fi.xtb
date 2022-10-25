@@ -454,6 +454,7 @@ Kun poistat selaushistorian (kokonaan tai vain tietyn sivuston osalta), poistat 
 <translation id="3435465986463792564">Onko monta ikkunaa auki? Voit ylläpitää niitä täältä</translation>
 <translation id="3443221991560634068">Päivitä nykyinen sivu</translation>
 <translation id="3444179773590444986">Haluatko antaa palautetta sivustojen tummasta teemasta?</translation>
+<translation id="3452832259067974318">Yksityisyytesi suojaamiseksi Chrome ei täytä salasanaasi automaattisesti tähän kenttään.</translation>
 <translation id="3469665409713263828">{FILE_COUNT,plural, =1{1 lataus ajoitettu}other{# latausta ajoitettu}}</translation>
 <translation id="3474624961160222204">Jatka käyttäjänä <ph name="NAME" /></translation>
 <translation id="3478363558367712427">Voit valita hakukoneen</translation>
@@ -679,6 +680,7 @@ Google-tililläsi voi olla muita selaushistoriatietoja, kuten hakuja ja toiminta
 <translation id="4763480195061959176">video</translation>
 <translation id="4766313118839197559">Salasanat tallennetaan Google Salasanoihin tällä laitteella</translation>
 <translation id="4766678251456904326">Lisää tili laitteelle</translation>
+<translation id="4787736314074622408">Poistetaanko <ph name="ITEM_TITLE" />?</translation>
 <translation id="4791358705705538979">Auttaa hoitamaan asioita verkossa, esim. maksamaan</translation>
 <translation id="4794291718671962615">(<ph name="MEGABYTES" />) <ph name="URL" /></translation>
 <translation id="4802417911091824046">Google Payn maksutapoja tai osoitteita ei salata tunnuslauseella.
@@ -748,6 +750,7 @@ Jos haluat muokata asetusta, <ph name="BEGIN_LINK" />nollaa synkronointi<ph name
 <translation id="5091199029769593641">Näet pian tarinoita täältä avatessasi uuden välilehden: <ph name="SITE_NAME" />. Seuraamasi sivustot tallennetaan Google-tilillesi. Voit ylläpitää niitä Discoverin asetuksissa.</translation>
 <translation id="5091249083535528968">Laajennettu käyttödata</translation>
 <translation id="509429900233858213">Tapahtui virhe.</translation>
+<translation id="5099845111805573968">Kun valitset tietokonesivuston kerran, asetusta käytetään sivustolla jokaisella käyntikerralla</translation>
 <translation id="5102401324271069229">Jos sivusto yrittää varastaa salasanaasi tai jos lataat haitallisen tiedoston, Chrome voi lähettää Selaussuojan tarkistettavaksi URL-osoitteita, mukaan lukien osia sivujen sisällöstä</translation>
 <translation id="510275257476243843">1 tunti jäljellä</translation>
 <translation id="5115811374190515607">kohde: <ph name="PRODUCT_NAME" /></translation>
@@ -907,6 +910,7 @@ Jos haluat muokata asetusta, <ph name="BEGIN_LINK" />nollaa synkronointi<ph name
 <translation id="5958275228015807058">Löydät tiedostosi ja sivusi Latauksista</translation>
 <translation id="5962718611393537961">Tiivistä napauttamalla.</translation>
 <translation id="5964869237734432770">Lopeta kuvaselitykset</translation>
+<translation id="5966233851250124270">Chrome muistaa valintasi</translation>
 <translation id="5979084224081478209">Tarkista salasanat</translation>
 <translation id="5995726099713306770">Ladataanko sivu uudelleen?</translation>
 <translation id="6000066717592683814">Käytä Googlea</translation>
@@ -946,6 +950,7 @@ Privacy Sandbox ‑kokeiluja kehitetään yhä aktiivisesti, ja ne ovat saatavil
 <translation id="6192907950379606605">Muodosta kuvaselitykset</translation>
 <translation id="6196315980958524839">Salasanat tallennetaan Google Salasanoihin tällä laitteella</translation>
 <translation id="620197886010707372">Avataanko <ph name="APPNAME" /> Google Playlla?</translation>
+<translation id="6202812185118613467">Kirjaudu takaisin sisään, jotta voit aloittaa synkronoinnin</translation>
 <translation id="6203593061661911168">Lataus alkaa, kun yhdistät Wi-Fi-verkkoon</translation>
 <translation id="6210748933810148297">Etkö ole <ph name="EMAIL" />?</translation>
 <translation id="6211386937064921208">Tätä sivua esikatsellaan</translation>
@@ -1083,6 +1088,7 @@ Luottamusmerkit parantavat yksityisyyttä verkossa, eikä sinua voi tunnistaa ni
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6824899148643461612"><ph name="TAB_TITLE" />, välilehti, valittu</translation>
 <translation id="6828070228333235514">Lopeta hinnan seuranta</translation>
+<translation id="6830728435402077660">Ei turvallinen</translation>
 <translation id="6833996806551876956">Tietosuojan hiekkalaatikko ‑kokeilu</translation>
 <translation id="6836206421467243968">Palauta välilehtiryhmä (<ph name="TITLE_OF_GROUP" />) uutena taustavälilehtiryhmänä.</translation>
 <translation id="6846298663435243399">Ladataan…</translation>

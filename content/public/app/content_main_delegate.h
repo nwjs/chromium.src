@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -119,6 +119,14 @@ class CONTENT_EXPORT ContentMainDelegate {
   // Embedders that need to control when and/or how FeatureList should be
   // created should override and return false.
   virtual bool ShouldCreateFeatureList(InvokedIn invoked_in);
+
+  // Returns true if content should initialize Mojo before calling
+  // PostEarlyInitialization(). Returns true by default. If this returns false,
+  // the embedder must initialize Mojo. Embedders may wish to override this to
+  // control when Mojo is initialized; for example, Mojo needs to be initialized
+  // after FeatureList, so embedders who delay FeatureList setup must also delay
+  // Mojo setup.
+  virtual bool ShouldInitializeMojo(InvokedIn invoked_in);
 
   // Creates and returns the VariationsIdsProvider. If null is returned,
   // a VariationsIdsProvider is created with a mode of `kUseSignedInState`.

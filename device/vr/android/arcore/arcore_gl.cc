@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors. All rights reserved.
+// Copyright 2018 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -83,10 +83,10 @@ gfx::Transform GetContentTransform(const gfx::RectF& bounds) {
   // old WebVR convention with origin at top left, so the Y range needs to be
   // mirrored.
   gfx::Transform transform;
-  transform.matrix().setRC(0, 0, bounds.width());
-  transform.matrix().setRC(1, 1, bounds.height());
-  transform.matrix().setRC(0, 3, bounds.x());
-  transform.matrix().setRC(1, 3, 1.f - bounds.y() - bounds.height());
+  transform.set_rc(0, 0, bounds.width());
+  transform.set_rc(1, 1, bounds.height());
+  transform.set_rc(0, 3, bounds.x());
+  transform.set_rc(1, 3, 1.f - bounds.y() - bounds.height());
   return transform;
 }
 
@@ -97,10 +97,8 @@ gfx::Size GetCameraImageSize(const gfx::Size& in, const gfx::Transform& xform) {
   // leaving just the scaling factors.
   double x = in.width();
   double y = in.height();
-  int width = std::round(
-      std::abs(x * xform.matrix().rc(0, 0) + y * xform.matrix().rc(1, 0)));
-  int height = std::round(
-      std::abs(x * xform.matrix().rc(0, 1) + y * xform.matrix().rc(1, 1)));
+  int width = std::round(std::abs(x * xform.rc(0, 0) + y * xform.rc(1, 0)));
+  int height = std::round(std::abs(x * xform.rc(0, 1) + y * xform.rc(1, 1)));
 
   DVLOG(3) << __func__ << ": uncropped size=" << in.ToString()
            << " cropped/rotated size=" << gfx::Size(width, height).ToString()
@@ -575,11 +573,12 @@ void ArCoreGl::RecalculateUvsAndProjection() {
   constexpr float depth_near = 0.1f;
   constexpr float depth_far = 1000.f;
   projection_ = arcore_->GetProjectionMatrix(depth_near, depth_far);
-  auto m = projection_.matrix();
-  float left = depth_near * (m.rc(2, 0) - 1.f) / m.rc(0, 0);
-  float right = depth_near * (m.rc(2, 0) + 1.f) / m.rc(0, 0);
-  float bottom = depth_near * (m.rc(2, 1) - 1.f) / m.rc(1, 1);
-  float top = depth_near * (m.rc(2, 1) + 1.f) / m.rc(1, 1);
+  float left = depth_near * (projection_.rc(2, 0) - 1.f) / projection_.rc(0, 0);
+  float right =
+      depth_near * (projection_.rc(2, 0) + 1.f) / projection_.rc(0, 0);
+  float bottom =
+      depth_near * (projection_.rc(2, 1) - 1.f) / projection_.rc(1, 1);
+  float top = depth_near * (projection_.rc(2, 1) + 1.f) / projection_.rc(1, 1);
 
   // Also calculate the inverse projection which is needed for converting
   // screen touches to world rays.
@@ -696,10 +695,10 @@ void ArCoreGl::GetFrameData(
   // Warn the compositor that we're expecting to have data to submit this frame.
   if (ar_compositor_) {
     base::TimeDelta frametime = EstimatedArCoreFrameTime();
-    base::TimeTicks now = base::TimeTicks::Now();
     base::TimeDelta render_margin =
         kScheduleFrametimeMarginForRender * frametime;
-    base::TimeTicks deadline = now + (frametime - render_margin);
+    base::TimeTicks deadline =
+        base::TimeTicks::Now() + (frametime - render_margin);
     ar_compositor_->RequestBeginFrame(frametime, deadline);
   }
 
@@ -1807,6 +1806,12 @@ void ArCoreGl::Resume() {
 
   arcore_->Resume();
   is_paused_ = false;
+
+  // This call appears to fix a spurious ARCoreError "texture names are not
+  // set" aka AR_ERROR_TEXTURE_NOT_SET. The documentation mentions that
+  // the texture contents aren't valid across pause/resume, but it's unclear
+  // why that also makes the registered texture name invalid.
+  arcore_->SetCameraTexture(ar_image_transport_->GetCameraTextureId());
 }
 
 void ArCoreGl::OnBindingDisconnect() {

@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -30,6 +30,7 @@
 #include "ash/wm/wm_event.h"
 #include "base/bind.h"
 #include "base/containers/contains.h"
+#include "base/ranges/algorithm.h"
 #include "chromeos/ui/base/chromeos_ui_constants.h"
 #include "chromeos/ui/frame/interior_resize_handler_targeter.h"
 #include "ui/aura/client/aura_constants.h"
@@ -268,12 +269,19 @@ void MinimizeAndHideWithoutAnimation(
     // minimization. We minimize ARC windows first so they receive occlusion
     // updates before losing focus from being hidden. See crbug.com/910304.
     // TODO(oshima): Investigate better way to handle ARC apps immediately.
-    WindowState::Get(window)->Minimize();
+
+    // Suspect some callsites may use this on a window without a window state
+    // (`aura::client::WINDOW_TYPE_CONTROL`) or windows that cannot be
+    // minimized. See https://crbug.com/1200596.
+    auto* window_state = WindowState::Get(window);
+    if (window_state && window_state->CanMinimize())
+      window_state->Minimize();
 
     window->Hide();
   }
+
   if (windows.size()) {
-    // Disable the animations using |disable|. However, doing so will skip
+    // Disabling the animations using `ScopedAnimationDisabler` will skip
     // detaching the resources associated with the layer. So we have to trick
     // the compositor into releasing the resources.
     // crbug.com/924802.
@@ -314,8 +322,7 @@ void ExpandArcPipWindow() {
     return;
 
   auto pip_window_iter =
-      std::find_if(pip_container->children().begin(),
-                   pip_container->children().end(), IsArcPipWindow);
+      base::ranges::find_if(pip_container->children(), IsArcPipWindow);
   if (pip_window_iter == pip_container->children().end())
     return;
 
@@ -416,9 +423,8 @@ gfx::RectF GetTransformedBounds(aura::Window* transformed_window,
       continue;
     }
     gfx::RectF window_bounds(window->GetTargetBounds());
-    gfx::Transform new_transform =
-        TransformAboutPivot(gfx::ToRoundedPoint(window_bounds.origin()),
-                            window->layer()->GetTargetTransform());
+    const gfx::Transform new_transform = TransformAboutPivot(
+        window_bounds.origin(), window->layer()->GetTargetTransform());
     new_transform.TransformRect(&window_bounds);
 
     // The preview title is shown above the preview window. Hide the window

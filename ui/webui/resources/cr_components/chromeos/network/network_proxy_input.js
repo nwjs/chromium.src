@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors. All rights reserved.
+// Copyright 2015 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,7 +9,17 @@
  * string, url:port.
  */
 
+import '../../../cr_elements/cr_input/cr_input.js';
+import './network_shared_css.js';
+
+import {html, Polymer} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+
+import {I18nBehavior} from '../../../cr_elements/i18n_behavior.js';
+
+import {OncMojo} from './onc_mojo.js';
+
 Polymer({
+  _template: html`{__html_template__}`,
   is: 'network-proxy-input',
 
   behaviors: [I18nBehavior],

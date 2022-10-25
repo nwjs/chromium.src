@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -21,6 +21,8 @@
 #include "components/autofill_assistant/browser/public/password_change/website_login_manager_impl.h"
 #include "components/autofill_assistant/browser/public/ui_state.h"
 #include "components/autofill_assistant/browser/service/access_token_fetcher.h"
+#include "components/autofill_assistant/browser/service/local_script_store.h"
+#include "components/autofill_assistant/browser/service/no_round_trip_service.h"
 #include "components/autofill_assistant/browser/switches.h"
 #include "components/password_manager/content/browser/password_change_success_tracker_factory.h"
 #include "components/password_manager/core/browser/password_change_success_tracker.h"
@@ -74,6 +76,11 @@ void ClientHeadless::Start(
     return;
   }
   script_ended_callback_ = std::move(script_ended_callback);
+  if (trigger_context->GetScriptParameters().GetIsNoRoundtrip().value_or(
+          false)) {
+    service =
+        NoRoundTripService::Create(web_contents_->GetBrowserContext(), this);
+  }
   controller_ = std::make_unique<Controller>(
       web_contents_, /* client= */ this, tick_clock_, runtime_manager_,
       std::move(service), std::move(web_controller), ukm_recorder_,
@@ -103,8 +110,7 @@ std::string ClientHeadless::GetEmailAddressForAccessTokenAccount() const {
 }
 
 std::string ClientHeadless::GetSignedInEmail() const {
-  return common_dependencies_->GetSignedInEmail(
-      GetWebContents()->GetBrowserContext());
+  return common_dependencies_->GetSignedInEmail();
 }
 
 absl::optional<std::pair<int, int>> ClientHeadless::GetWindowSize() const {
@@ -127,8 +133,7 @@ AccessTokenFetcher* ClientHeadless::GetAccessTokenFetcher() {
 }
 
 autofill::PersonalDataManager* ClientHeadless::GetPersonalDataManager() const {
-  return common_dependencies_->GetPersonalDataManager(
-      GetWebContents()->GetBrowserContext());
+  return common_dependencies_->GetPersonalDataManager();
 }
 
 WebsiteLoginManager* ClientHeadless::GetWebsiteLoginManager() const {
@@ -215,8 +220,7 @@ void ClientHeadless::FetchAccessToken(
     base::OnceCallback<void(bool, const std::string&)> callback) {
   DCHECK(!fetch_access_token_callback_);
   fetch_access_token_callback_ = std::move(callback);
-  auto* identity_manager = common_dependencies_->GetIdentityManager(
-      GetWebContents()->GetBrowserContext());
+  auto* identity_manager = common_dependencies_->GetIdentityManager();
   access_token_fetcher_ = identity_manager->CreateAccessTokenFetcherForAccount(
       identity_manager->GetPrimaryAccountId(signin::ConsentLevel::kSync),
       kConsumerName, {kOAuth2Scope},
@@ -243,21 +247,18 @@ void ClientHeadless::OnAccessTokenFetchComplete(
 }
 
 void ClientHeadless::InvalidateAccessToken(const std::string& access_token) {
-  auto* identity_manager = common_dependencies_->GetIdentityManager(
-      GetWebContents()->GetBrowserContext());
+  auto* identity_manager = common_dependencies_->GetIdentityManager();
   identity_manager->RemoveAccessTokenFromCache(
       identity_manager->GetPrimaryAccountId(signin::ConsentLevel::kSync),
       {kOAuth2Scope}, access_token);
 }
 
 bool ClientHeadless::GetMakeSearchesAndBrowsingBetterEnabled() const {
-  return common_dependencies_->GetMakeSearchesAndBrowsingBetterEnabled(
-      GetWebContents()->GetBrowserContext());
+  return common_dependencies_->GetMakeSearchesAndBrowsingBetterEnabled();
 }
 
 bool ClientHeadless::GetMetricsReportingEnabled() const {
-  return common_dependencies_->GetMetricsReportingEnabled(
-      GetWebContents()->GetBrowserContext());
+  return common_dependencies_->GetMetricsReportingEnabled();
 }
 
 }  // namespace autofill_assistant

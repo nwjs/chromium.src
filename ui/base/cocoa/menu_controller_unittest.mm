@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors. All rights reserved.
+// Copyright 2013 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -677,9 +677,8 @@ TEST_F(MenuControllerTest, OwningDelegate) {
     item = [[controller menu] itemAtIndex:0];
     EXPECT_TRUE(item);
 
-    // Simulate opening the menu and selecting an item. Without setting
-    // -setPostItemSelectedAsTask:YES, methods are always invoked by AppKit in
-    // the following order.
+    // Simulate opening the menu and selecting an item. Methods are always
+    // invoked by AppKit in the following order.
     [controller menuWillOpen:[controller menu]];
     [controller menuDidClose:[controller menu]];
   }

@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -38,8 +38,10 @@ class CONTENT_EXPORT BrowserAccessibilityManagerMac
 
   BrowserAccessibility* GetFocus() const override;
 
-  // Implementation of BrowserAccessibilityManager.
-  void FireFocusEvent(BrowserAccessibility* node) override;
+  // AXTreeManager overrides.
+  void FireFocusEvent(ui::AXNode* node) override;
+
+  // BrowserAccessibilityManager overrides.
   void FireBlinkEvent(ax::mojom::Event event_type,
                       BrowserAccessibility* node,
                       int action_request_id) override;

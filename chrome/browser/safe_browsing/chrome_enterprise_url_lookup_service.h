@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors. All rights reserved.
+// Copyright 2020 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -54,6 +54,7 @@ class ChromeEnterpriseRealTimeUrlLookupService
   bool CanPerformFullURLLookup() const override;
   bool CanCheckSubresourceURL() const override;
   bool CanCheckSafeBrowsingDb() const override;
+  bool CanCheckSafeBrowsingHighConfidenceAllowlist() const override;
   bool CanSendRTSampleRequest() const override;
 
  private:

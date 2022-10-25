@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors. All rights reserved.
+// Copyright 2017 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -54,7 +54,8 @@ bool IsUrlPotentiallySecure(const GURL& url) {
 // This method should return the same results as
 // SchemeRegistry::shouldTreatURLSchemeAsRestrictingMixedContent.
 bool DoesOriginSchemeRestrictMixedContent(const url::Origin& origin) {
-  return origin.scheme() == url::kHttpsScheme;
+  return origin.GetTupleOrPrecursorTupleIfOpaque().scheme() ==
+         url::kHttpsScheme;
 }
 
 void UpdateRendererOnMixedContentFound(NavigationRequest* navigation_request,

@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors. All rights reserved.
+// Copyright 2020 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -307,7 +307,6 @@ class SkiaReadbackPixelTest : public cc::PixelTest {
       SurfaceDamageRectList surface_damage_rect_list;
       pass_list.push_back(std::move(pass));
 
-      renderer_->DecideRenderPassAllocationsForFrame(pass_list);
       renderer_->DrawFrame(
           &pass_list, 1.0f, gfx::Size(bitmap.width(), bitmap.height()),
           gfx::DisplayColorSpaces(), std::move(surface_damage_rect_list));
@@ -367,10 +366,9 @@ class SkiaReadbackPixelTest : public cc::PixelTest {
         kPremul_SkAlphaType, gpu::SHARED_IMAGE_USAGE_DISPLAY, pixels);
     gpu::SyncToken sync_token = sii->GenUnverifiedSyncToken();
 
-    TransferableResource gl_resource = TransferableResource::MakeGL(
-        mailbox, GL_LINEAR, GL_TEXTURE_2D, sync_token, size,
+    TransferableResource gl_resource = TransferableResource::MakeGpu(
+        mailbox, GL_LINEAR, GL_TEXTURE_2D, sync_token, size, format,
         /*is_overlay_candidate=*/false);
-    gl_resource.format = format;
     auto release_callback =
         base::BindOnce(&DeleteSharedImage, child_context_provider_, mailbox);
     return child_resource_provider_->ImportResource(

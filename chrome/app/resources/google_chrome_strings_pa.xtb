@@ -32,6 +32,7 @@
 <translation id="1587223624401073077">Google Chrome ਤੁਹਾਡਾ ਕੈਮਰਾ ਵਰਤ ਰਿਹਾ ਹੈ।</translation>
 <translation id="1587325591171447154"><ph name="FILE_NAME" /> ਖਤਰਨਾਕ ਹੈ, ਇਸ ਲਈ Chrome ਨੇ ਇਸਨੂੰ ਬਲਾਕ ਕਰ ਦਿੱਤਾ ਹੈ।</translation>
 <translation id="1597911401261118146">ਇਹ ਜਾਂਚ ਕਰਨ ਲਈ ਕਿ ਤੁਹਾਡੇ ਪਾਸਵਰਡ ਡਾਟਾ ਉਲੰਘਣਾਵਾਂ ਅਤੇ ਹੋਰ ਸੁਰੱਖਿਆ ਸੰਬੰਧੀ ਸਮੱਸਿਆਵਾਂ ਤੋਂ ਸੁਰੱਖਿਅਤ ਹਨ ਜਾਂ ਨਹੀਂ, <ph name="BEGIN_LINK" />Chrome ਵਿੱਚ ਸਾਈਨ-ਇਨ ਕਰੋ<ph name="END_LINK" />।</translation>
+<translation id="1599904803480101533">Chrome ਨੇ ਇਸ ਪੁਰਾਲੇਖ ਫ਼ਾਈਲ ਨੂੰ ਬਲਾਕ ਕਰ ਦਿੱਤਾ ਹੈ ਕਿਉਂਕਿ ਇਸ ਵਿੱਚ ਮਾਲਵੇਅਰ ਲੁਕਿਆ ਹੋ ਸਕਦਾ ਹੈ</translation>
 <translation id="1619887657840448962">Chrome ਨੂੰ ਵੱਧ ਸੁਰੱਖਿਅਤ ਬਣਾਉਣ ਲਈ, ਅਸੀਂ ਹੇਠਾਂ ਦਿੱਤੀ ਐਕਸਟੈਂਸ਼ਨ ਨੂੰ ਬੰਦ ਕੀਤਾ ਹੈ, ਜੋ <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> ਵਿੱਚ ਸੂਚੀਬੱਧ ਨਹੀਂ ਹੈ ਅਤੇ ਤੁਹਾਡੀ ਜਾਣਕਾਰੀ ਤੋਂ ਬਿਨਾਂ ਸ਼ਾਮਲ ਕੀਤੀਆਂ ਗਈਆਂ ਹੋ ਸਕਦੀਆਂ ਹਨ।</translation>
 <translation id="1627304841979541023"><ph name="BEGIN_BOLD" />ਤੁਸੀਂ ਆਪਣੇ ਡਾਟੇ ਦਾ ਪ੍ਰਬੰਧਨ ਕਿਵੇਂ ਕਰ ਸਕਦੇ ਹੋ:<ph name="END_BOLD" /> ਤੁਹਾਡੀ ਪਰਦੇਦਾਰੀ ਦੀ ਸੁਰੱਖਿਆ ਲਈ, ਅਸੀਂ ਤੁਹਾਡੀਆਂ ਉਨ੍ਹਾਂ ਦਿਲਚਸਪੀਆਂ ਨੂੰ ਸਵੈਚਲਿਤ-ਮਿਟਾਉਂਦੇ ਹਾਂ ਜੋ 4 ਹਫ਼ਤਿਆਂ ਤੋਂ ਵੱਧ ਪੁਰਾਣੀਆਂ ਹਨ। ਤੁਹਾਡੇ ਬ੍ਰਾਊਜ਼ ਕਰਦੇ ਰਹਿਣ 'ਤੇ, ਸੂਚੀ ਵਿੱਚ ਕੋਈ ਦਿਲਚਸਪੀ ਦੁਬਾਰਾ ਦਿਸ ਸਕਦੀ ਹੈ। ਜਾਂ ਤੁਸੀਂ ਉਨ੍ਹਾਂ ਦਿਲਚਸਪੀਆਂ ਨੂੰ ਹਟਾ ਸਕਦੇ ਹੋ ਜਿਨ੍ਹਾਂ 'ਤੇ ਤੁਸੀਂ ਨਹੀਂ ਚਾਹੁੰਦੇ ਕਿ Chrome ਵਿਚਾਰ ਕਰੇ।</translation>
 <translation id="1628000112320670027">Chrome ਬਾਰੇ ਮਦਦ ਪ੍ਰਾਪਤ ਕਰੋ</translation>
@@ -61,6 +62,7 @@
 <translation id="2094648590148273905">ChromeOS Flex ਦੇ ਨਿਯਮ</translation>
 <translation id="2094919256425865063">ਕੀ ਫਿਰ ਵੀ Chrome ਨੂੰ ਛੱਡਣਾ ਹੈ?</translation>
 <translation id="2106831557840787829">ChromeOS Flex ਨੂੰ ਵਧੀਕ <ph name="BEGIN_LINK_CROS_OSS" />ਖੁੱਲ੍ਹੇ ਸਰੋਤ ਸਾਫ਼ਟਵੇਅਰ<ph name="END_LINK_CROS_OSS" /> ਕਰਕੇ ਸੰਭਵ ਬਣਾਇਆ ਗਿਆ ਹੈ, ਜਿਵੇਂ ਕਿ <ph name="BEGIN_LINK_LINUX_OSS" />Linux ਵਿਕਾਸ ਵਾਤਾਵਰਨ<ph name="END_LINK_LINUX_OSS" />।</translation>
+<translation id="2112742052114331084">ਚਾਲੂ ਹੋਣ 'ਤੇ, Chrome ਉਨ੍ਹਾਂ ਟੈਬਾਂ ਤੋਂ ਮੈਮੋਰੀ ਦਾ ਮੁੜ-ਦਾਅਵਾ ਕਰਦਾ ਹੈ ਜਿਸਨੂੰ ਤੁਸੀਂ ਸਰਗਰਮੀ ਨਾਲ ਨਹੀਂ ਵਰਤ ਰਹੇ ਹੋ। ਇਹ ਤੁਹਾਡੇ ਕੰਪਿਊਟਰ ਦੇ ਸਰੋਤਾਂ ਨੂੰ ਹੋਰ ਕਾਰਜਾਂ ਲਈ ਖਾਲੀ ਕਰਦਾ ਹੈ ਅਤੇ Chrome ਨੂੰ ਤੇਜ਼ ਬਣਾਈ ਰੱਖਦਾ ਹੈ। ਅਕਿਰਿਆਸ਼ੀਲ ਟੈਬ ਖਾਲੀ ਦਿਸਦੇ ਹਨ ਅਤੇ ਤੁਹਾਡੇ ਵੱਲੋਂ ਉਨ੍ਹਾਂ 'ਤੇ ਕਲਿੱਕ ਕਰਨ 'ਤੇ ਰੀਲੋਡ ਹੋ ਜਾਂਦੇ ਹਨ। <ph name="BEGIN_LINK" />ਹੋਰ ਜਾਣੋ<ph name="END_LINK" /> ਜਾਂ <ph name="BEGIN_LINK_2" />ਵਿਚਾਰ ਭੇਜੋ<ph name="END_LINK_2" /></translation>
 <translation id="2120620239521071941">ਇਸ ਨਾਲ ਇਸ ਡੀਵਾਈਸ ਤੋਂ <ph name="ITEMS_COUNT" /> ਆਈਟਮਾਂ ਮਿਟਾ ਦਿੱਤੀਆਂ ਜਾਣਗੀਆਂ। ਬਾਅਦ ਵਿੱਚ ਆਪਣੇ ਡਾਟੇ ਨੂੰ ਮੁੜ-ਪ੍ਰਾਪਤ ਕਰਨ ਲਈ, Chrome 'ਤੇ <ph name="USER_EMAIL" /> ਵਜੋਂ ਸਾਈਨ-ਇਨ ਕਰੋ।</translation>
 <translation id="2121284319307530122">&amp;Chrome ਨੂੰ ਅੱਪਡੇਟ ਕਰਨ ਲਈ ਮੁੜ-ਲਾਂਚ ਕਰੋ</translation>
 <translation id="2123055963409958220"><ph name="BEGIN_LINK" />ਵਰਤਮਾਨ ਸੈਟਿੰਗਾਂ<ph name="END_LINK" /> ਦੀ ਰਿਪੋਰਟ ਕਰਕੇ Chrome ਨੂੰ ਬਿਹਤਰ ਬਣਾਉਣ ਵਿੱਚ ਮਦਦ ਕਰੋ</translation>
@@ -177,6 +179,7 @@
 <translation id="4262915912852657291"><ph name="BEGIN_BOLD" />ਕਿਹੜਾ ਡਾਟਾ ਵਰਤਿਆ ਜਾਂਦਾ ਹੈ:<ph name="END_BOLD" /> ਤੁਹਾਡਾ ਬ੍ਰਾਊਜ਼ਿੰਗ ਇਤਿਹਾਸ, ਇਸ ਡੀਵਾਈਸ 'ਤੇ ਉਨ੍ਹਾਂ ਸਾਈਟਾਂ ਦਾ ਰਿਕਾਰਡ ਜਿਨ੍ਹਾਂ 'ਤੇ ਤੁਸੀਂ Chrome ਦੀ ਵਰਤੋਂ ਨਾਲ ਗਏ ਹੋ।</translation>
 <translation id="4281844954008187215">ਸੇਵਾ ਦੀਆਂ ਮਦਾਂ</translation>
 <translation id="4293420128516039005">ਸਿੰਕ ਕਰਨ ਲਈ ਸਾਈਨ-ਇਨ ਕਰਕੇ ਆਪਣੇ ਡੀਵਾਈਸਾਂ ਵਿਚਾਲੇ Chrome ਨੂੰ ਵਿਅਕਤੀਗਤ ਬਣਾਓ</translation>
+<translation id="430327780270213103">ਐਕਸਟੈਂਸ਼ਨ ਨੂੰ Chrome ਟੂਲਬਾਰ ਵਿੱਚ ਪਹੁੰਚ ਬੇਨਤੀਆਂ ਦਿਖਾਉਣ ਦੀ ਆਗਿਆ ਦਿਓ</translation>
 <translation id="4328355335528187361">Google Chrome Dev (mDNS-In)</translation>
 <translation id="4334294535648607276">ਡਾਉਨਲੋਡ ਪੂਰਾ ਹੋਇਆ</translation>
 <translation id="4335235004908507846">ਡਾਟਾ ਉਲੰਘਣਾਵਾਂ, ਮਾੜੀਆਂ ਐਕਸਟੈਂਸ਼ਨਾਂ ਅਤੇ ਹੋਰ ਚੀਜ਼ਾਂ ਤੋਂ ਸੁਰੱਖਿਅਤ ਰਹਿਣ ਵਿੱਚ Chrome ਤੁਹਾਡੀ ਮਦਦ ਕਰ ਸਕਦਾ ਹੈ</translation>
@@ -278,6 +281,7 @@ Google Chrome ਤੁਹਾਡੀਆਂ ਸੈਟਿੰਗਾਂ ਮੁੜ-ਹਾ
 <translation id="6735387454586646204">ChromeOS Flex ਸਿਸਟਮ</translation>
 <translation id="6739177684496155661">ਕੀ ਨਵੇਂ Chrome ਪ੍ਰੋਫਾਈਲ ਵਿੱਚ ਜਾਰੀ ਰੱਖਣਾ ਹੈ?</translation>
 <translation id="6750954913813541382">ਸ਼ਬਦ-ਜੋੜ ਗੜਬੜੀਆਂ ਠੀਕ ਕਰਨ ਲਈ, Chrome, ਬ੍ਰਾਊਜ਼ਰ ਵਿੱਚ ਤੁਹਾਡੇ ਵੱਲੋਂ ਟਾਈਪ ਕੀਤੀ ਜਾਣ ਵਾਲੀ ਲਿਖਤ Google ਨੂੰ ਭੇਜਦਾ ਹੈ</translation>
+<translation id="6756581345161130259">ਲੋੜ ਅਨੁਸਾਰ, Chrome ਉਨ੍ਹਾਂ ਟੈਬਾਂ ਤੋਂ ਮੈਮੋਰੀ ਦਾ ਮੁੜ-ਦਾਅਵਾ ਕਰਦਾ ਹੈ ਜਿਸਨੂੰ ਤੁਸੀਂ ਸਰਗਰਮੀ ਨਾਲ ਨਹੀਂ ਵਰਤ ਰਹੇ ਹੋ। ਤੁਸੀਂ ਕਿਸੇ ਵੇਲੇ ਵੀ ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਜਾ ਕੇ ਇਸਨੂੰ ਬਦਲ ਸਕਦੇ ਹੋ।</translation>
 <translation id="677276454032249905">ਕੀ ਫਿਰ ਵੀ Chrome ਤੋਂ ਬਾਹਰ ਜਾਣਾ ਹੈ?</translation>
 <translation id="6785872064505734160">Chrome ਵਿੱਚ Google Assistant ਸਾਰੀਆਂ ਵੈੱਬਸਾਈਟਾਂ 'ਤੇ ਤੁਹਾਡੇ ਲਈ ਕਾਰਵਾਈਆਂ ਪੂਰੀ ਕਰ ਸਕਦੀ ਹੈ</translation>
 <translation id="683440813066116847">mDNS ਟਰੈਫ਼ਿਕ ਦੀ ਇਜਾਜ਼ਤ ਦੇਣ ਲਈ Google Chrome Canary ਲਈ ਇਨਬਾਊਂਡ ਨਿਯਮ।</translation>

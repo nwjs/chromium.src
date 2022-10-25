@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -15,8 +15,7 @@ namespace views {
 class ImageView;
 }  // namespace views
 
-namespace ash {
-namespace full_restore {
+namespace ash::full_restore {
 
 // The view of ARC ghost window content. It shows the icon of app and a
 // throbber. It is used on ARC ghost window shell surface overlay, so it will
@@ -45,7 +44,6 @@ class ArcGhostWindowView : public views::View {
   base::WeakPtrFactory<ArcGhostWindowView> weak_ptr_factory_{this};
 };
 
-}  // namespace full_restore
-}  // namespace ash
+}  // namespace ash::full_restore
 
 #endif  // CHROME_BROWSER_ASH_APP_RESTORE_ARC_GHOST_WINDOW_VIEW_H_

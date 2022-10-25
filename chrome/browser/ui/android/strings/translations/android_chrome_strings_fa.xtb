@@ -454,6 +454,7 @@
 <translation id="3435465986463792564">پنجره‌های زیادی دارید؟ می‌توانید از اینجا مدیریتشان کنید</translation>
 <translation id="3443221991560634068">بار کردن مجدد صفحه کنونی</translation>
 <translation id="3444179773590444986">مایلید بازخوردتان را درباره زمینه تیره برای سایت‌ها هم‌رسانی کنید؟</translation>
+<translation id="3452832259067974318">‏برای حفظ حریم‌خصوصی‌تان، Chrome گذرواژه‌تان را به‌طور خودکار در این فیلد وارد نخواهد کرد.</translation>
 <translation id="3469665409713263828">{FILE_COUNT,plural, =1{یک بارگیری زمان‌بندی شد}one{# بارگیری زمان‌بندی شد}other{# بارگیری زمان‌بندی شد}}</translation>
 <translation id="3474624961160222204">ادامه دادن به‌عنوان <ph name="NAME" /></translation>
 <translation id="3478363558367712427">می‌توانید موتور جستجویتان را انتخاب کنید</translation>
@@ -679,6 +680,7 @@
 <translation id="4763480195061959176">ویدئو</translation>
 <translation id="4766313118839197559">گذرواژه‌ها در «مدیر گذرواژه» در این دستگاه ذخیره می‌شوند</translation>
 <translation id="4766678251456904326">افزودن حساب به دستگاه</translation>
+<translation id="4787736314074622408">می‌خواهید <ph name="ITEM_TITLE" /> را حذف کنید؟</translation>
 <translation id="4791358705705538979">به شما کمک می‌کند برخی کارها، مثل تسویه‌حساب، را در وب انجام دهید</translation>
 <translation id="4794291718671962615">(<ph name="MEGABYTES" />) <ph name="URL" /></translation>
 <translation id="4802417911091824046">‏رمزگذاری گذرعبارت شامل روش‌های پرداخت و نشانی‌های موجود در Google Pay نمی‌شود.
@@ -748,6 +750,7 @@
 <translation id="5091199029769593641">‏به‌زودی وقتی برگه جدیدی باز می‌کنید، داستان‌هایی از <ph name="SITE_NAME" /> را خواهید دید. سایت‌هایی که دنبال می‌کنید در «حساب Google» شما ذخیره می‌شوند. می‌توانید در تنظیمات «یافته‌ها»، آن‌ها را مدیریت کنید.</translation>
 <translation id="5091249083535528968">داده‌های استفاده گسترده</translation>
 <translation id="509429900233858213">خطایی روی داد.</translation>
+<translation id="5099845111805573968">وقتی سایت ویژه رایانه را یک‌بار انتخاب کنید، هربار که از آن سایت بازدید کنید این تنظیم اعمال می‌شود</translation>
 <translation id="5102401324271069229">‏اگر سایتی تلاش کند گذرواژه شما را به‌سرقت ببرد، یا وقتی فایل مخربی بارگیری می‌کنید، Chrome ممکن است نشانی‌های وب را به‌همراه بخش‌های کوچکی از محتوای صفحه به «مرور ایمن» ارسال کند</translation>
 <translation id="510275257476243843">۱ ساعت باقی‌مانده است</translation>
 <translation id="5115811374190515607">به <ph name="PRODUCT_NAME" /></translation>
@@ -907,6 +910,7 @@
 <translation id="5958275228015807058">فایل‌ها و صفحه‌هایتان را در «بارگیری‌ها» پیدا کنید</translation>
 <translation id="5962718611393537961">برای کوچک کردن ضربه بزنید</translation>
 <translation id="5964869237734432770">توقف توضیحات تصویر</translation>
+<translation id="5966233851250124270">‏Chrome انتخابتان را به‌خاطر می‌سپارد</translation>
 <translation id="5979084224081478209">بررسی گذرواژه‌ها</translation>
 <translation id="5995726099713306770">صفحه دوباره بارگیری شود؟</translation>
 <translation id="6000066717592683814">‏حفظ Google</translation>
@@ -946,6 +950,7 @@
 <translation id="6192907950379606605">دریافت توضیحات تصویر</translation>
 <translation id="6196315980958524839">‏گذرواژه‌ها در «مدیر گذرواژه Google» در این دستگاه ذخیره می‌شوند</translation>
 <translation id="620197886010707372">‏برنامه <ph name="APPNAME" /> با Google Play باز شود؟</translation>
+<translation id="6202812185118613467">برای شروع همگام‌سازی دوباره به سیستم وارد شوید</translation>
 <translation id="6203593061661911168">‏بارگیری هنگام اتصال به Wi-Fi شروع خواهد شد</translation>
 <translation id="6210748933810148297"><ph name="EMAIL" /> ایمیل شما نیست؟</translation>
 <translation id="6211386937064921208">درحال پیش‌نمایش این صفحه</translation>
@@ -1083,6 +1088,7 @@
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6824899148643461612"><ph name="TAB_TITLE" />، برگه، انتخاب‌شده</translation>
 <translation id="6828070228333235514">توقف پیگیری قیمت</translation>
+<translation id="6830728435402077660">امن نیست</translation>
 <translation id="6833996806551876956">دوره آزمایشی «جعبه ایمنی حریم خصوصی»</translation>
 <translation id="6836206421467243968">بازیابی گروه برگه <ph name="TITLE_OF_GROUP" /> به‌عنوان گروه برگه جدید پس‌زمینه.</translation>
 <translation id="6846298663435243399">درحال بارگیری…</translation>

@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -335,7 +335,7 @@ void BackendIO::ExecuteBackendOperation() {
     case OP_CLOSE_ENTRY:
       // Collect the reference to |entry_| to balance with the AddRef() in
       // LeakEntryImpl.
-      entry_->Release();
+      entry_.ExtractAsDangling()->Release();
       result_ = net::OK;
       break;
     case OP_DOOM_ENTRY:

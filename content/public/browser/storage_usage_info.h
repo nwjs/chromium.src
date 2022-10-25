@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors. All rights reserved.
+// Copyright 2018 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,6 +9,7 @@
 
 #include "base/time/time.h"
 #include "content/common/content_export.h"
+#include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "url/origin.h"
 
 namespace content {
@@ -16,17 +17,32 @@ namespace content {
 // Used to report per-origin storage info for a storage type. The storage type
 // (Cache API, Indexed DB, Local Storage, etc) is implied by context.
 struct CONTENT_EXPORT StorageUsageInfo {
+  StorageUsageInfo(const blink::StorageKey& storage_key,
+                   int64_t total_size_bytes,
+                   base::Time last_modified)
+      : storage_key(storage_key),
+        origin(storage_key.origin()),
+        total_size_bytes(total_size_bytes),
+        last_modified(last_modified) {}
+
+  // DEPRECATED: Use the above StorageKey constructor
+  // (https://crbug.com/1361545).
   StorageUsageInfo(const url::Origin& origin,
                    int64_t total_size_bytes,
                    base::Time last_modified)
-      : origin(origin),
+      : storage_key(blink::StorageKey(origin)),
+        origin(origin),
         total_size_bytes(total_size_bytes),
         last_modified(last_modified) {}
 
   // For assignment into maps without wordy emplace(std::make_pair()) syntax.
   StorageUsageInfo() = default;
 
+  // The storage key this object is describing.
+  blink::StorageKey storage_key;
+
   // The origin this object is describing.
+  // DEPRECATED, use storage_key instead (https://crbug.com/1361545).
   url::Origin origin;
 
   // The total size, including resources, in bytes.

@@ -28,7 +28,6 @@
 <translation id="1111021433905331574">אפשר לשנות את הצבע של התאורה האחורית של המקלדת בהגדרות &gt; <ph name="APP_TITLE" /></translation>
 <translation id="112308213915226829">הסתרה אוטומטית של המדף</translation>
 <translation id="1142002900084379065">תמונות אחרונות</translation>
-<translation id="114451698114044150">הזום האוטומטי מופעל.</translation>
 <translation id="1148499908455722006">פתיחת תיבת דו-שיח עם מידע על <ph name="USER_NAME" /></translation>
 <translation id="1150989369772528668">יומן</translation>
 <translation id="1153356358378277386">מכשירים מותאמים</translation>
@@ -216,6 +215,7 @@
 <translation id="2132302418721800944">הקלטה של מסך מלא</translation>
 <translation id="2135456203358955318">מגדיל במצב מעוגן</translation>
 <translation id="2148716181193084225">היום</translation>
+<translation id="2161132820593978283">אפשר להפעיל את הפריים האוטומטי במצלמה כדי למקם את עצמך במרכז המסך בשיחות וידאו. ניתן להפעיל אותו בהגדרות המהירות.</translation>
 <translation id="2170530631236737939">כדי לצאת מ'מסכים אחרונים', יש להחליק למטה בעזרת שלוש אצבעות</translation>
 <translation id="219905428774326614">מפעיל האפליקציות, כל האפליקציות</translation>
 <translation id="2201071101391734388">תמונה אחרונה: <ph name="INDEX" /> מתוך <ph name="TOTAL_COUNT" />.</translation>
@@ -254,6 +254,7 @@
 <translation id="2405664212338326887">לא מחובר</translation>
 <translation id="2408955596600435184">יש להזין את קוד האימות</translation>
 <translation id="2412593942846481727">יש עדכון זמין</translation>
+<translation id="2426051945783024481">פריים המצלמה מורכז באופן אוטומטי</translation>
 <translation id="2427507373259914951">לחיצה שמאלית</translation>
 <translation id="2429753432712299108">‏מכשיר ה-Bluetooth ‏"<ph name="DEVICE_NAME" />" מבקש הרשאה לבצע התאמה. לפני מתן אישור, יש לוודא שמפתח הסיסמה הבא מוצג במכשיר הזה: <ph name="PASSKEY" /></translation>
 <translation id="2435457462613246316">הצגת סיסמה</translation>
@@ -330,7 +331,6 @@
 <translation id="2894949423239620203">חיבור כבל עשוי להשפיע על הביצועים</translation>
 <translation id="2903844815300039659">מחובר אל <ph name="NAME" />, <ph name="STRENGTH" /></translation>
 <translation id="2914580577416829331">צילומי מסך</translation>
-<translation id="2925246975070834767">באמצעות הזום האוטומטי ניתן למקם את עצמך במרכז המסך. רוצה לנסות? אפשר להפעיל אותו בהגדרות המהירות.</translation>
 <translation id="2941112035454246133">נמוכה</translation>
 <translation id="2942350706960889382">זכוכית מגדלת במצב עגינה</translation>
 <translation id="2942516765047364088">מיקום המדף</translation>
@@ -375,6 +375,7 @@
 <translation id="3151786313568798007">כיוון</translation>
 <translation id="3153444934357957346">אפשר לכלול עד <ph name="MULTI_PROFILE_USER_LIMIT" /> חשבונות בכניסה עם מספר חשבונות.</translation>
 <translation id="3154351730702813399">ייתכן שמנהל המכשיר עוקב אחרי פעילות הגלישה שלך.</translation>
+<translation id="3157931365184549694">שחזור</translation>
 <translation id="316086887565479535">האפליקציות בתבנית לא נתמכות</translation>
 <translation id="3161500364292033097">סגירה של שולחן העבודה הווירטואלי והחלונות</translation>
 <translation id="316356270129335934">ה-<ph name="DEVICE_TYPE" /> יוחזר לגרסה הקודמת על ידי <ph name="MANAGER" />. המכשיר יעבור איפוס וכל הנתונים שבו יימחקו.</translation>
@@ -474,12 +475,10 @@
 <translation id="3708186454126126312">מכשירים שחוברו בעבר</translation>
 <translation id="371370241367527062">מיקרופון קדמי</translation>
 <translation id="3713734891607377840">פתיחה לאחר השלמת ההורדה</translation>
-<translation id="3724279623330129812">מיקוד המצלמה נקבע על ידי הזום האוטומטי</translation>
 <translation id="3726171378575546917"><ph name="UNAVAILABLE_APPS_ONE" />, <ph name="UNAVAILABLE_APPS_TWO" /> ועוד <ph name="UNAVAILABLE_APPS_COUNT" /> אפליקציות נוספות לא נמצאות במכשיר הזה.</translation>
 <translation id="3735740477244556633">מיון לפי</translation>
 <translation id="3742055079367172538">צילום המסך בוצע</translation>
 <translation id="3765841986579723851">נערך היום</translation>
-<translation id="3771549900096082774">מצב ניגודיות גבוהה</translation>
 <translation id="3773700760453577392">מנהל מערכת ביטל הרשאה של כניסה עם מספר חשבונות עבור <ph name="USER_EMAIL" />. כדי להמשיך, כל המשתמשים חייבים לבצע יציאה.</translation>
 <translation id="3779139509281456663">מתבצע חיבור של <ph name="NAME" /></translation>
 <translation id="3783640748446814672">alt</translation>
@@ -508,6 +507,7 @@
 <translation id="3922427723338465344">{0,plural, =1{שינוי המכשיר לגרסה קודמת בתוך דקה}two{שינוי המכשיר לגרסה קודמת בתוך # דקות}many{שינוי המכשיר לגרסה קודמת בתוך # דקות}other{שינוי המכשיר לגרסה קודמת בתוך # דקות}}</translation>
 <translation id="3923494859158167397">לא הוגדרו רשתות סלולריות</translation>
 <translation id="3925540965556789199"><ph name="DATE" />, האירועים בטעינה.</translation>
+<translation id="392627956579011934">נדרשת הפעלה מחדש כדי להתקין את קובצי זיהוי הדיבור.</translation>
 <translation id="3932043219784172185">אין מכשיר מחובר</translation>
 <translation id="3934456833412894880">הטעינה הדינמית מופעלת. רמת הטעינה של הסוללה תישאר על 80% כדי להאריך את חיי הסוללה, ותתבצע טעינה מלאה כשיהיה בכך צורך.</translation>
 <translation id="3943857333388298514">הדבקה</translation>
@@ -562,6 +562,7 @@
 <translation id="4242533952199664413">פתיחת ההגדרות</translation>
 <translation id="4247123849143712100">עדכון וכיבוי</translation>
 <translation id="4250229828105606438">צילום מסך</translation>
+<translation id="4250899820387052060">קבצים מהירים</translation>
 <translation id="425364040945105958">‏אין כרטיס SIM</translation>
 <translation id="4261870227682513959">צפייה בהגדרות של הודעות. ההודעות מושבתות</translation>
 <translation id="4269883910223712419">מנהל המכשיר הזה יכול:</translation>
@@ -577,12 +578,10 @@
 <translation id="4312840429157639164">המצלמה מוצמדת לפינה השמאלית העליונה. התנגשות עם תצוגת המערכת.</translation>
 <translation id="4316910396681052118">כל האפליקציות</translation>
 <translation id="4321179778687042513">ctrl</translation>
-<translation id="4321776623976362024">הקשת על מקש הקיצור של ניגודיות גבוהה. להפעיל אותה?</translation>
 <translation id="4322742403972824594">‏מקשי הקיצור Ctrl ‏+ ‏Alt + חץ למעלה הוחלפו. כדי לדמות את הפעולה של המקש Home, יש להקיש על <ph name="LAUNCHER_KEY_NAME" /> + החץ שמאלה.</translation>
 <translation id="4333628967105022692">‏אין תמיכה בדפדפן Lacros כאשר יש כמה משתמשים מחוברים.</translation>
 <translation id="4338109981321384717">זכוכית מגדלת</translation>
 <translation id="4351433414020964307">‏Assistant בטעינה...</translation>
-<translation id="4356930093361201197">מצב ניגודיות גבוהה</translation>
 <translation id="4371348193907997655">‏הגדרות העברה (cast)</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" />, עוצמת אות <ph name="SIGNAL_STRENGTH" /> אחוז</translation>
 <translation id="4378551569595875038">התחברות...</translation>
@@ -746,6 +745,7 @@
 <translation id="5283198616748585639">הוספת דקה</translation>
 <translation id="528468243742722775">סיום</translation>
 <translation id="5286194356314741248">הסריקה מתבצעת</translation>
+<translation id="5293671101077843611">אין אירועים היום</translation>
 <translation id="5297423144044956168">לא נמצאו מכשירים ניידים</translation>
 <translation id="5297704307811127955">כבויה</translation>
 <translation id="5300589172476337783">הצגה</translation>
@@ -877,7 +877,6 @@
 <translation id="5980301590375426705">יציאה מהפעלת אורח</translation>
 <translation id="598407983968395253">שימוש בתבנית</translation>
 <translation id="598882571027504733">‏כדי להתקין את העדכון, יש להפעיל מחדש את ה-Chromebook כשהמקלדת מחוברת.</translation>
-<translation id="5992218262414051481">‏מצב ניגודיות גבוהה פועל. יש להקיש שוב על Ctrl+Search+H כדי לכבות אותו.</translation>
 <translation id="6012623610530968780">דף <ph name="SELECTED_PAGE" /> מתוך <ph name="TOTAL_PAGE_NUM" /></translation>
 <translation id="6018164090099858612">יציאה ממצב שיקוף</translation>
 <translation id="602001110135236999">גלילה שמאלה</translation>
@@ -908,7 +907,6 @@
 <translation id="6137566720514957455">פתיחת תיבת דו-דיח להסרה של <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="6141988275892716286">אישור הורדה</translation>
 <translation id="6154006699632741460">אין תמיכה בציוד ההיקפי</translation>
-<translation id="6156262341071374681">הרחבה לכל האפליקציות</translation>
 <translation id="615957422585914272">הצגת מקלדת במסך</translation>
 <translation id="6165508094623778733">למידע נוסף</translation>
 <translation id="6166852626429024716">חיפוש במכשיר, באפליקציות, בהגדרות, באינטרנט...</translation>
@@ -1032,7 +1030,6 @@
 <translation id="685782768769951078">{NUM_DIGITS,plural, =1{נשארה ספרה אחת}two{נשארו # ספרות}many{נשארו # ספרות}other{נשארו # ספרות}}</translation>
 <translation id="6867938213751067702">ההורדה של <ph name="FILENAME" /> הושהתה</translation>
 <translation id="6878400149835617132">קיצור הדרך מושבת</translation>
-<translation id="6878709625737492815">הזום האוטומטי מושבת.</translation>
 <translation id="6884665277231944629">חזרה להיום</translation>
 <translation id="6886172995547742638">‏ייתכן שהביצועים של <ph name="DEVICE_TYPE" /> יהיו נמוכים יותר. יש להשתמש במתאם מתח מאושר בהספק של <ph name="PREFERRED_MINIMUM_POWER" /> ואט לפחות, או מסוג USB-C.</translation>
 <translation id="688631446150864480">יש להקיש על מקש החץ למטה כדי לעבור בין חלונות</translation>
@@ -1045,6 +1042,7 @@
 <translation id="6960565108681981554">הרשת לא פעילה. עליך לפנות לספק חבילת הסלולר שלך.</translation>
 <translation id="6961121602502368900">השתקת הטלפון לא זמינה בפרופיל העבודה</translation>
 <translation id="6961840794482373852">‏מקשי הקיצור Alt + חץ למעלה הוחלפו. כדי לדמות את הפעולה של המקש Page Up, יש להקיש על <ph name="LAUNCHER_KEY_NAME" /> + החץ למעלה.</translation>
+<translation id="696267987219125751">הפריים האוטומטי מושבת במצלמה.</translation>
 <translation id="6965382102122355670">אישור</translation>
 <translation id="6972754398087986839">תחילת העבודה</translation>
 <translation id="6979158407327259162">Google Drive</translation>
@@ -1135,6 +1133,7 @@
 <translation id="7513922695575567867">יומן, השבוע של <ph name="DATE" />, התאריך שנבחר הוא <ph name="SELECTED_DATE" />.</translation>
 <translation id="7514365320538308">הורדה</translation>
 <translation id="7515998400212163428">Android</translation>
+<translation id="7519206258459640379">הפריים האוטומטי פועל במצלמה.</translation>
 <translation id="7526573455193969409">ייתכן שהרשת מנוטרת</translation>
 <translation id="7536035074519304529">‏כתובת IP: <ph name="ADDRESS" /></translation>
 <translation id="7543399541175347147">‏בשלב הזה, אין תמיכה באפליקציות Linux ובחלונות פרטיים. אפליקציות אחרות יישמרו.</translation>
@@ -1155,10 +1154,12 @@
 <translation id="7607002721634913082">ההורדה בהשהיה</translation>
 <translation id="7609951632080598826">תצוגת היומן, <ph name="DATE" />,‏ <ph name="TIME" /></translation>
 <translation id="7611213136657090146">המצלמה מחוברת שוב.</translation>
+<translation id="761736749114493194">החלפת מצב של הפריים האוטומטי במצלמה. <ph name="STATE_TEXT" /></translation>
 <translation id="7624117708979618027">‎<ph name="TEMPERATURE_F" />° F</translation>
 <translation id="7633755430369750696">הצגה של הרשאות שיתוף בקרבת מקום.</translation>
 <translation id="7634648064048557203">המצלמה מוצמדת לפינה השמאלית התחתונה</translation>
 <translation id="7641938616688887143">הקלטה</translation>
+<translation id="7642106959537987271">מצב היפוך צבעים</translation>
 <translation id="7642647758716480637">פתיחת ההגדרות של <ph name="NETWORK_NAME" />, <ph name="CONNECTION_STATUS" /></translation>
 <translation id="7645176681409127223"><ph name="USER_NAME" /> (בעלים)</translation>
 <translation id="7647488630410863958">יש לבטל את נעילת המכשיר כדי להציג את ההודעות</translation>
@@ -1200,7 +1201,6 @@
 <translation id="7868900307798234037">ביטול נעילה באמצעות טביעת אצבע</translation>
 <translation id="7872195908557044066">‏ה-eSIM הזה עובר איפוס בהוראת האדמין שלך. עליך להמתין מספר דקות.</translation>
 <translation id="7872786842639831132">כבוי</translation>
-<translation id="7875280185395705476">זום אוטומטי</translation>
 <translation id="7875575368831396199">‏נראה שה-Bluetooth כבוי ב-<ph name="DEVICE_TYPE" /> שלך. יש להפעיל את Bluetooth כדי להשתמש ב-Phone Hub.</translation>
 <translation id="7877557217297072640">{0,plural, =0{עליך לשנות את המכשיר לגרסה הקודמת עכשיו}=1{עליך לשנות את המכשיר לגרסה הקודמת בתוך שנייה}two{עליך לשנות את המכשיר לגרסה קודמת בתוך # שניות}many{עליך לשנות את המכשיר לגרסה קודמת בתוך # שניות}other{עליך לשנות את המכשיר לגרסה קודמת בתוך # שניות}}</translation>
 <translation id="7886169021410746335">התאמת הגדרות הפרטיות</translation>
@@ -1238,7 +1238,6 @@
 <translation id="8051716679295756675">קיימת כבר תבנית בשם <ph name="DESK_TEMPLATE_NAME" /></translation>
 <translation id="8052898407431791827">הועתק ללוח</translation>
 <translation id="8054466585765276473">מחשב זמן סוללה</translation>
-<translation id="8061464966246066292">ניגודיות גבוהה</translation>
 <translation id="8083540854303889870">שולחן העבודה נשמר למועד מאוחר יותר</translation>
 <translation id="8091387634532529612">עדכונים אוטומטיים</translation>
 <translation id="8098591350844501178">הפסקת העברת המסך אל <ph name="RECEIVER_NAME" /></translation>
@@ -1256,6 +1255,7 @@
 <translation id="8152264887680882389"><ph name="TEXT" />, השלמה אוטומטית</translation>
 <translation id="8155007568264258537"><ph name="FEATURE_NAME" /> ההגדרה הזו מנוהלת על-ידי מנהל המערכת שלך.</translation>
 <translation id="8155628902202578800">פתיחת תיבת דו-שיח עם מידע על <ph name="USER_EMAIL_ADDRESS" /></translation>
+<translation id="8157728322324420120">הצעות בשבילך</translation>
 <translation id="8167567890448493835">המיקום הנוכחי הוא<ph name="LOCALE_NAME" /></translation>
 <translation id="8183592608247778598">הצגת התמונות, המדיה, ההתראות והאפליקציות שבטלפון מהזמן האחרון ב-<ph name="DEVICE_TYPE" /></translation>
 <translation id="8192202700944119416">ההתראות מוסתרות.</translation>
@@ -1265,6 +1265,7 @@
 <translation id="8209010265547628927">איפוס</translation>
 <translation id="8214996719228530800">‏ערוץ Canary</translation>
 <translation id="8219451629189078428">‏בפרק הזמן הזה, יש להקפיד להשאיר את ה-Chromebook פועל ומחובר לחשמל. יש לוודא שהכבלים של המטען או של המתאם מחוברים כראוי אל ה-Chromebook ואל שקע החשמל. אין לכבות את ה-Chromebook.</translation>
+<translation id="8230305195727960608">מצב היפוך צבעים</translation>
 <translation id="8236042855478648955">הגיע הזמן להפסקה</translation>
 <translation id="8246282815785366524">שמחים שחזרת, <ph name="GIVEN_NAME" /></translation>
 <translation id="8247060538831475781"><ph name="CONNECTION_STATUS" />, עוצמת האות: <ph name="SIGNAL_STRENGTH" />, סוללת הטלפון <ph name="BATTERY_STATUS" /></translation>
@@ -1316,6 +1317,7 @@
 <translation id="851458219935658693">הצגת חלונות משולחן העבודה הווירטואלי הנוכחי, לחצן הבחירה נבחר</translation>
 <translation id="8517041960877371778">ייתכן שה-<ph name="DEVICE_TYPE" /> לא ייטען כשהוא פועל.</translation>
 <translation id="8535393432370007982">ביטול של סדר המיון לפי צבע</translation>
+<translation id="8541078764854166027">הפריים במצלמה</translation>
 <translation id="8542053257095774575">אין תבניות או שולחנות עבודה וירטואליים שמורים</translation>
 <translation id="8546059259582788728">הביטול של המיון הצליח</translation>
 <translation id="8551588720239073785">הגדרות תאריך ושעה</translation>
@@ -1323,7 +1325,6 @@
 <translation id="856298576161209842">לפי ההמלצה של <ph name="MANAGER" />, כדאי לעדכן את ה-<ph name="DEVICE_TYPE" /></translation>
 <translation id="8563862697512465947">הגדרות התראה</translation>
 <translation id="857201607579416096">התפריט הועבר לפינה השמאלית התחתונה של המסך.</translation>
-<translation id="8576288697319745668">החלפת המצב של הזום האוטומטי. <ph name="STATE_TEXT" /></translation>
 <translation id="8594115950068821369">-<ph name="FORMATTED_TIME" /></translation>
 <translation id="8598235756057743477">מיון אפליקציות לפי שם או לפי צבע</translation>
 <translation id="8614517853887502247">ההתראות מהאפליקציות <ph name="APP_1_TITLE" /> וכן <ph name="APP_2_TITLE" /> מוסתרות כי מופעלת הגנה על תצוגה</translation>
@@ -1391,6 +1392,7 @@
 <translation id="8982906748181120328">גישה בסביבה</translation>
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590">מקלדת בשימוש: <ph name="IME_NAME" /></translation>
+<translation id="8991617137207906966">‏מצב היפוך הצבעים מופעל. יש להקיש שוב על Ctrl+Search+H כדי להשבית אותו.</translation>
 <translation id="899350903320462459">יש לבטל את נעילת המכשיר כ-<ph name="LOGIN_ID" /> על מנת לבצע את פעולת ההודעה</translation>
 <translation id="9000771174482730261">ניהול האחסון</translation>
 <translation id="9017320285115481645">‏יש להזין את קוד הגישה להורים עבור Family Link.</translation>
@@ -1437,9 +1439,11 @@
 <translation id="9211490828691860325">כל שולחנות העבודה הווירטואליים</translation>
 <translation id="9211681782751733685"><ph name="TIME_REMAINING" /> עד לטעינה מלאה של הסוללה.</translation>
 <translation id="9215934040295798075">הגדרת טפט</translation>
+<translation id="9219103736887031265">תמונות</translation>
 <translation id="921989828232331238">הורה נעל את המכשיר שלך להיום</translation>
 <translation id="9220525904950070496">הסרת חשבון</translation>
 <translation id="923686485342484400">‏יש להקיש פעמיים על Control Shift Q כדי לצאת.</translation>
+<translation id="92580429198593979">הקשת על מקש הקיצור להיפוך צבעים. רוצה להפעיל אותו?</translation>
 <translation id="925832987464884575">הסתרה של תצוגות מקדימות</translation>
 <translation id="937214777182567951">בהתאם לדרישה של <ph name="MANAGER" />, עליך לעדכן את ה-<ph name="DEVICE_TYPE" /> באופן מיידי</translation>
 <translation id="938963181863597773">אירועים קרובים ביומן שלי</translation>

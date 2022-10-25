@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -450,13 +450,14 @@ WebContents* AppWindow::OpenURLFromTab(WebContents* source,
   return helper_->OpenURLFromTab(params);
 }
 
-void AppWindow::AddNewContents(WebContents* source,
-                               std::unique_ptr<WebContents> new_contents,
-                               const GURL& target_url,
-                               WindowOpenDisposition disposition,
-                               const gfx::Rect& initial_rect,
-                               bool user_gesture,
-                               bool* was_blocked) {
+void AppWindow::AddNewContents(
+    WebContents* source,
+    std::unique_ptr<WebContents> new_contents,
+    const GURL& target_url,
+    WindowOpenDisposition disposition,
+    const blink::mojom::WindowFeatures& window_features,
+    bool user_gesture,
+    bool* was_blocked) {
   DCHECK(new_contents->GetBrowserContext() == browser_context_);
   const extensions::Extension* extension = GetExtension();
   extensions::AppWindow* app_window =
@@ -472,8 +473,8 @@ void AppWindow::AddNewContents(WebContents* source,
     nw_inject_js_doc_end = js_doc_end;
   new_contents->SyncRendererPrefs();
 
-  if(initial_rect.width() != 0) {
-    params.content_spec.bounds = initial_rect; //NWJS#5517
+  if(window_features.bounds.width() != 0) {
+    params.content_spec.bounds = window_features.bounds; //NWJS#5517
   }
   params.skip_load = true;
   GURL new_url = new_contents->GetURL();

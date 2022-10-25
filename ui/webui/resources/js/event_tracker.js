@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright 2011 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,8 +11,7 @@
  * calling Function.bind.
  */
 
-cr.define('cr', function() {
-  /* #export */ class EventTracker {
+  export class EventTracker {
     /**
      * Create an EventTracker to track a set of events.
      * EventTracker instances are typically tied 1:1 with other objects or
@@ -89,7 +88,3 @@ cr.define('cr', function() {
    */
   let EventTrackerEntry;
 
-  // #cr_define_end
-  console.warn('crbug/1173575, non-JS module files deprecated.');
-  return {EventTracker};
-});

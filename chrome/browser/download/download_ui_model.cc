@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors. All rights reserved.
+// Copyright 2018 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -436,6 +436,12 @@ bool DownloadUIModel::WasUINotified() const {
 }
 
 void DownloadUIModel::SetWasUINotified(bool should_notify) {}
+
+bool DownloadUIModel::WasActionedOn() const {
+  return false;
+}
+
+void DownloadUIModel::SetActionedOn(bool actioned_on) {}
 
 bool DownloadUIModel::WasUIWarningShown() const {
   return false;
@@ -948,6 +954,10 @@ DownloadUIModel::GetBubbleUIInfoForInProgressOrComplete(
     }
   }
 
+  if (ShouldShowTailoredWarning()) {
+    return GetBubbleUIInfoForTailoredWarning();
+  }
+
   DownloadUIModel::BubbleUIInfo ui_info;
   switch (GetDangerType()) {
     case download::DOWNLOAD_DANGER_TYPE_DANGEROUS_FILE:
@@ -1185,6 +1195,12 @@ DownloadUIModel::GetBubbleUIInfoForInProgressOrComplete(
   return bubble_ui_info;
 }
 
+DownloadUIModel::BubbleUIInfo
+DownloadUIModel::GetBubbleUIInfoForTailoredWarning() const {
+  NOTREACHED();
+  return DownloadUIModel::BubbleUIInfo();
+}
+
 DownloadUIModel::BubbleUIInfo DownloadUIModel::GetBubbleUIInfo(
     bool is_download_bubble_v2) const {
   switch (GetState()) {
@@ -1204,6 +1220,10 @@ DownloadUIModel::BubbleUIInfo DownloadUIModel::GetBubbleUIInfo(
           .AddIconAndColor(vector_icons::kFileDownloadOffIcon,
                            ui::kColorSecondaryForeground);
   }
+}
+
+bool DownloadUIModel::ShouldShowTailoredWarning() const {
+  return false;
 }
 
 bool DownloadUIModel::ShouldShowInBubble() const {

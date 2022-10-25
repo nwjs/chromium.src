@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,6 +16,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
 #include "base/test/bind.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
@@ -32,20 +33,21 @@
 #include "components/sync/base/features.h"
 #include "components/sync/base/model_type.h"
 #include "components/sync/base/pref_names.h"
+#include "components/sync/base/stop_source.h"
 #include "components/sync/base/sync_util.h"
 #include "components/sync/base/user_selectable_type.h"
 #include "components/sync/driver/configure_context.h"
 #include "components/sync/driver/data_type_manager_impl.h"
-#include "components/sync/driver/fake_data_type_controller.h"
-#include "components/sync/driver/fake_sync_api_component_factory.h"
-#include "components/sync/driver/mock_trusted_vault_client.h"
-#include "components/sync/driver/sync_client_mock.h"
-#include "components/sync/driver/sync_service_impl_bundle.h"
 #include "components/sync/driver/sync_service_observer.h"
 #include "components/sync/driver/sync_service_utils.h"
 #include "components/sync/driver/sync_token_status.h"
 #include "components/sync/engine/nigori/key_derivation_params.h"
+#include "components/sync/test/fake_data_type_controller.h"
+#include "components/sync/test/fake_sync_api_component_factory.h"
 #include "components/sync/test/fake_sync_engine.h"
+#include "components/sync/test/mock_trusted_vault_client.h"
+#include "components/sync/test/sync_client_mock.h"
+#include "components/sync/test/sync_service_impl_bundle.h"
 #include "components/version_info/version_info_values.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -1042,6 +1044,68 @@ TEST_F(SyncServiceImplTest, DisableSyncOnClient) {
 
   EXPECT_FALSE(service()->IsSyncFeatureEnabled());
   EXPECT_FALSE(service()->IsSyncFeatureActive());
+}
+
+TEST_F(SyncServiceImplTest,
+       DisableSyncOnClientLogsPassphraseTypeForNotMyBirthday) {
+  const PassphraseType kPassphraseType = PassphraseType::kKeystorePassphrase;
+
+  SignIn();
+  CreateService(SyncServiceImpl::MANUAL_START);
+  InitializeForNthSync();
+
+  service()->GetEncryptionObserverForTest()->OnPassphraseTypeChanged(
+      kPassphraseType, /*passphrase_time=*/base::Time());
+
+  ASSERT_EQ(SyncService::TransportState::ACTIVE,
+            service()->GetTransportState());
+  ASSERT_TRUE(service()->IsSyncFeatureEnabled());
+  ASSERT_EQ(kPassphraseType, service()->GetUserSettings()->GetPassphraseType());
+
+  SyncProtocolError client_cmd;
+  client_cmd.action = DISABLE_SYNC_ON_CLIENT;
+  client_cmd.error_type = NOT_MY_BIRTHDAY;
+
+  base::HistogramTester histogram_tester;
+  service()->OnActionableError(client_cmd);
+
+  ASSERT_FALSE(service()->IsSyncFeatureEnabled());
+
+  histogram_tester.ExpectUniqueSample(
+      "Sync.PassphraseTypeUponNotMyBirthdayOrEncryptionObsolete",
+      /*sample=*/kPassphraseType,
+      /*expected_bucket_count=*/1);
+}
+
+TEST_F(SyncServiceImplTest,
+       DisableSyncOnClientLogsPassphraseTypeForEncryptionObsolete) {
+  const PassphraseType kPassphraseType = PassphraseType::kKeystorePassphrase;
+
+  SignIn();
+  CreateService(SyncServiceImpl::MANUAL_START);
+  InitializeForNthSync();
+
+  service()->GetEncryptionObserverForTest()->OnPassphraseTypeChanged(
+      kPassphraseType, /*passphrase_time=*/base::Time());
+
+  ASSERT_EQ(SyncService::TransportState::ACTIVE,
+            service()->GetTransportState());
+  ASSERT_TRUE(service()->IsSyncFeatureEnabled());
+  ASSERT_EQ(kPassphraseType, service()->GetUserSettings()->GetPassphraseType());
+
+  SyncProtocolError client_cmd;
+  client_cmd.action = DISABLE_SYNC_ON_CLIENT;
+  client_cmd.error_type = ENCRYPTION_OBSOLETE;
+
+  base::HistogramTester histogram_tester;
+  service()->OnActionableError(client_cmd);
+
+  ASSERT_FALSE(service()->IsSyncFeatureEnabled());
+
+  histogram_tester.ExpectUniqueSample(
+      "Sync.PassphraseTypeUponNotMyBirthdayOrEncryptionObsolete",
+      /*sample=*/kPassphraseType,
+      /*expected_bucket_count=*/1);
 }
 
 // Verify a that local sync mode isn't impacted by sync being disabled.

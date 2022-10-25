@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -354,6 +354,18 @@ public class StartSurfaceCoordinator implements StartSurface {
     }
 
     @Override
+    public void show(boolean animate) {
+        getCarouselOrSingleTabListDelegate().prepareTabSwitcherView();
+        mStartSurfaceMediator.show(animate);
+    }
+
+    @Override
+    public void hide(boolean animate) {
+        hideTabSwitcherView(false);
+        onHide();
+    }
+
+    @Override
     public void addHeaderOffsetChangeListener(
             AppBarLayout.OnOffsetChangedListener onOffsetChangedListener) {
         // TODO (crbug.com/1113852): Add a header offset change listener for incognito homepage.
@@ -572,9 +584,15 @@ public class StartSurfaceCoordinator implements StartSurface {
             Log.i(TAG, "Recorded %s = %b", START_SHOWN_AT_STARTUP_UMA, isOverviewShownOnStartup);
             RecordHistogram.recordBooleanHistogram(
                     START_SHOWN_AT_STARTUP_UMA, isOverviewShownOnStartup);
-        }
-        if (!TextUtils.isEmpty(StartSurfaceConfiguration.BEHAVIOURAL_TARGETING.getValue())) {
-            ReturnToChromeUtil.cacheSegmentationResult();
+
+            // The segmentation results should only be cached when Start is enabled, for example,
+            // not on tablet.
+            if (CachedFeatureFlags.isEnabled(ChromeFeatureList.START_SURFACE_RETURN_TIME)) {
+                ReturnToChromeUtil.cacheReturnTimeFromSegmentation();
+            }
+            if (!TextUtils.isEmpty(StartSurfaceConfiguration.BEHAVIOURAL_TARGETING.getValue())) {
+                ReturnToChromeUtil.cacheSegmentationResult();
+            }
         }
     }
 

@@ -1,19 +1,16 @@
-// Copyright 2018 The Chromium Authors. All rights reserved.
+// Copyright 2018 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "components/mirroring/service/media_remoter.h"
 
-#include "base/base64.h"
 #include "base/bind.h"
-#include "base/callback.h"
-#include "base/json/json_writer.h"
 #include "base/logging.h"
-#include "base/strings/string_piece.h"
-#include "base/values.h"
-#include "components/mirroring/service/message_dispatcher.h"
 #include "components/mirroring/service/remoting_sender.h"
+#include "components/mirroring/service/rpc_dispatcher.h"
+#include "media/base/media_switches.h"
 #include "media/cast/net/cast_transport.h"
+#include "third_party/openscreen/src/cast/streaming/sender.h"
 
 using media::cast::Codec;
 using media::cast::FrameSenderConfig;
@@ -21,18 +18,13 @@ using media::cast::FrameSenderConfig;
 namespace mirroring {
 
 MediaRemoter::MediaRemoter(
-    Client* client,
+    Client& client,
     const media::mojom::RemotingSinkMetadata& sink_metadata,
-    MessageDispatcher* message_dispatcher)
+    RpcDispatcher& rpc_dispatcher)
     : client_(client),
       sink_metadata_(sink_metadata),
-      message_dispatcher_(message_dispatcher),
-      cast_environment_(nullptr),
-      transport_(nullptr),
+      rpc_dispatcher_(rpc_dispatcher),
       state_(MIRRORING) {
-  DCHECK(client_);
-  DCHECK(message_dispatcher_);
-
   client_->ConnectToRemotingSource(
       receiver_.BindNewPipeAndPassRemote(),
       remoting_source_.BindNewPipeAndPassReceiver());
@@ -46,10 +38,25 @@ MediaRemoter::~MediaRemoter() {
   Stop(media::mojom::RemotingStopReason::ROUTE_TERMINATED);
 }
 
-void MediaRemoter::OnMessageFromSink(const ReceiverResponse& response) {
-  DCHECK_EQ(ResponseType::RPC, response.type());
-  remoting_source_->OnMessageFromSink(
-      std::vector<uint8_t>(response.rpc().begin(), response.rpc().end()));
+void MediaRemoter::OnMessageFromSink(const std::vector<uint8_t>& response) {
+  remoting_source_->OnMessageFromSink(response);
+}
+
+void MediaRemoter::StartRpcMessaging(
+    scoped_refptr<media::cast::CastEnvironment> cast_environment,
+    openscreen::cast::Sender* audio_sender,
+    openscreen::cast::Sender* video_sender,
+    const FrameSenderConfig& audio_config,
+    const FrameSenderConfig& video_config) {
+  DCHECK(audio_sender || video_sender);
+  DCHECK(!openscreen_audio_sender_);
+  DCHECK(!openscreen_video_sender_);
+  DCHECK(!transport_);
+
+  openscreen_audio_sender_ = audio_sender;
+  openscreen_video_sender_ = video_sender;
+  StartRpcMessagingInternal(std::move(cast_environment), audio_config,
+                            video_config);
 }
 
 void MediaRemoter::StartRpcMessaging(
@@ -57,24 +64,34 @@ void MediaRemoter::StartRpcMessaging(
     media::cast::CastTransport* transport,
     const FrameSenderConfig& audio_config,
     const FrameSenderConfig& video_config) {
-  DCHECK(!cast_environment_);
+  DCHECK(!openscreen_audio_sender_);
+  DCHECK(!openscreen_video_sender_);
   DCHECK(!transport_);
-  DCHECK_EQ(Codec::CODEC_UNKNOWN, audio_config_.codec);
-  DCHECK_EQ(Codec::CODEC_UNKNOWN, video_config_.codec);
-  DCHECK(audio_config.codec == Codec::CODEC_AUDIO_REMOTE ||
-         video_config.codec == Codec::CODEC_VIDEO_REMOTE);
 
-  if (state_ != STARTING_REMOTING)
+  transport_ = transport;
+  StartRpcMessagingInternal(cast_environment, audio_config, video_config);
+}
+
+void MediaRemoter::StartRpcMessagingInternal(
+    scoped_refptr<media::cast::CastEnvironment> cast_environment,
+    const FrameSenderConfig& audio_config,
+    const FrameSenderConfig& video_config) {
+  DCHECK(!cast_environment_);
+
+  if (state_ != STARTING_REMOTING) {
+    transport_ = nullptr;
+    openscreen_audio_sender_ = nullptr;
+    openscreen_video_sender_ = nullptr;
     return;  // Start operation was canceled.
+  }
+
   // A remoting streaming session started. Start RPC message transport and
   // notify the remoting source to start data streaming.
   cast_environment_ = std::move(cast_environment);
-  transport_ = transport;
   audio_config_ = audio_config;
   video_config_ = video_config;
-  message_dispatcher_->Subscribe(
-      ResponseType::RPC, base::BindRepeating(&MediaRemoter::OnMessageFromSink,
-                                             weak_factory_.GetWeakPtr()));
+  rpc_dispatcher_->Subscribe(base::BindRepeating(
+      &MediaRemoter::OnMessageFromSink, weak_factory_.GetWeakPtr()));
   state_ = REMOTING_STARTED;
   remoting_source_->OnStarted();
 }
@@ -104,11 +121,13 @@ void MediaRemoter::Stop(media::mojom::RemotingStopReason reason) {
   if (state_ != STARTING_REMOTING && state_ != REMOTING_STARTED)
     return;
   if (state_ == REMOTING_STARTED) {
-    message_dispatcher_->Unsubscribe(ResponseType::RPC);
+    rpc_dispatcher_->Unsubscribe();
     audio_sender_.reset();
     video_sender_.reset();
     cast_environment_ = nullptr;
     transport_ = nullptr;
+    openscreen_audio_sender_ = nullptr;
+    openscreen_video_sender_ = nullptr;
     audio_config_ = FrameSenderConfig();
     video_config_ = FrameSenderConfig();
   }
@@ -139,17 +158,69 @@ void MediaRemoter::StartDataStreams(
   if (state_ != REMOTING_STARTED)
     return;  // Stop() was called before.
   DCHECK(cast_environment_);
-  DCHECK(transport_);
+  if (base::FeatureList::IsEnabled(media::kOpenscreenCastStreamingSession)) {
+    StartOpenscreenDataStreams(std::move(audio_pipe), std::move(video_pipe),
+                               std::move(audio_sender_receiver),
+                               std::move(video_sender_receiver));
+  } else {
+    StartLegacyDataStreams(std::move(audio_pipe), std::move(video_pipe),
+                           std::move(audio_sender_receiver),
+                           std::move(video_sender_receiver));
+  }
+}
+
+void MediaRemoter::StartOpenscreenDataStreams(
+    mojo::ScopedDataPipeConsumerHandle audio_pipe,
+    mojo::ScopedDataPipeConsumerHandle video_pipe,
+    mojo::PendingReceiver<media::mojom::RemotingDataStreamSender>
+        audio_sender_receiver,
+    mojo::PendingReceiver<media::mojom::RemotingDataStreamSender>
+        video_sender_receiver) {
+  DCHECK(openscreen_audio_sender_ || openscreen_video_sender_);
+
+  if (audio_pipe.is_valid() &&
+      audio_config_.codec == Codec::CODEC_AUDIO_REMOTE &&
+      openscreen_audio_sender_) {
+    // NOTE: use of base::Unretained is safe because we own the sender.
+    audio_sender_ = std::make_unique<RemotingSender>(
+        cast_environment_, openscreen_audio_sender_, audio_config_,
+        std::move(audio_pipe), std::move(audio_sender_receiver),
+        base::BindOnce(&MediaRemoter::OnRemotingDataStreamError,
+                       base::Unretained(this)));
+  }
+
+  if (video_pipe.is_valid() &&
+      video_config_.codec == Codec::CODEC_VIDEO_REMOTE &&
+      openscreen_video_sender_) {
+    // NOTE: use of base::Unretained is safe because we own the sender.
+    video_sender_ = std::make_unique<RemotingSender>(
+        cast_environment_, openscreen_video_sender_, video_config_,
+        std::move(video_pipe), std::move(video_sender_receiver),
+        base::BindOnce(&MediaRemoter::OnRemotingDataStreamError,
+                       base::Unretained(this)));
+  }
+}
+
+void MediaRemoter::StartLegacyDataStreams(
+    mojo::ScopedDataPipeConsumerHandle audio_pipe,
+    mojo::ScopedDataPipeConsumerHandle video_pipe,
+    mojo::PendingReceiver<media::mojom::RemotingDataStreamSender>
+        audio_sender_receiver,
+    mojo::PendingReceiver<media::mojom::RemotingDataStreamSender>
+        video_sender_receiver) {
   if (audio_pipe.is_valid() &&
       audio_config_.codec == Codec::CODEC_AUDIO_REMOTE) {
+    DCHECK(transport_);
     audio_sender_ = std::make_unique<RemotingSender>(
         cast_environment_, transport_, audio_config_, std::move(audio_pipe),
         std::move(audio_sender_receiver),
         base::BindOnce(&MediaRemoter::OnRemotingDataStreamError,
                        base::Unretained(this)));
   }
+
   if (video_pipe.is_valid() &&
       video_config_.codec == Codec::CODEC_VIDEO_REMOTE) {
+    DCHECK(transport_);
     video_sender_ = std::make_unique<RemotingSender>(
         cast_environment_, transport_, video_config_, std::move(video_pipe),
         std::move(video_sender_receiver),
@@ -161,20 +232,7 @@ void MediaRemoter::StartDataStreams(
 void MediaRemoter::SendMessageToSink(const std::vector<uint8_t>& message) {
   if (state_ != REMOTING_STARTED)
     return;
-  std::string encoded_rpc;
-  base::Base64Encode(
-      base::StringPiece(reinterpret_cast<const char*>(message.data()),
-                        message.size()),
-      &encoded_rpc);
-  base::Value::Dict rpc;
-  rpc.Set("type", "RPC");
-  rpc.Set("rpc", std::move(encoded_rpc));
-  mojom::CastMessagePtr rpc_message = mojom::CastMessage::New();
-  rpc_message->message_namespace = mojom::kRemotingNamespace;
-  const bool did_serialize_rpc =
-      base::JSONWriter::Write(rpc, &rpc_message->json_format_data);
-  DCHECK(did_serialize_rpc);
-  message_dispatcher_->SendOutboundMessage(std::move(rpc_message));
+  rpc_dispatcher_->SendOutboundMessage(message);
 }
 
 void MediaRemoter::EstimateTransmissionCapacity(

@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -25,6 +25,7 @@
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
+#include "third_party/blink/public/mojom/window_features/window_features.mojom.h"
 #include "ui/base/page_transition_types.h"
 #include "url/gurl.h"
 
@@ -69,7 +70,7 @@ void AddWebContents(Browser* browser,
                     std::unique_ptr<content::WebContents> new_contents,
                     const GURL& target_url,
                     WindowOpenDisposition disposition,
-                    const gfx::Rect& initial_rect,
+                    const blink::mojom::WindowFeatures& window_features,
                     NavigateParams::WindowAction window_action,
 		    std::string manifest) {
   // No code for this yet.
@@ -77,7 +78,7 @@ void AddWebContents(Browser* browser,
   // Can't create a new contents for the current tab - invalid case.
   DCHECK(disposition != WindowOpenDisposition::CURRENT_TAB);
 
-  gfx::Rect rect = initial_rect;
+  gfx::Rect rect = window_features.bounds;
   int height = 0; int width = 0;
   int x = 0; int y = 0;
   bool has_frame = true;

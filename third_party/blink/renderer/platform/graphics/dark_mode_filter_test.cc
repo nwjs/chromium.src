@@ -4,6 +4,8 @@
 
 #include "third_party/blink/renderer/platform/graphics/dark_mode_filter.h"
 
+#include "base/logging.h"
+#include "base/time/time.h"
 #include "cc/paint/paint_flags.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
@@ -35,7 +37,7 @@ TEST(DarkModeFilterTest, ApplyDarkModeToColorsAndFlags) {
   cc::PaintFlags flags;
   flags.setColor(SK_ColorWHITE);
   auto flags_or_nullopt = filter.ApplyToFlagsIfNeeded(
-      flags, DarkModeFilter::ElementRole::kBackground);
+      flags, DarkModeFilter::ElementRole::kBackground, 0);
   ASSERT_NE(flags_or_nullopt, absl::nullopt);
   EXPECT_EQ(SK_ColorBLACK, flags_or_nullopt.value().getColor());
 }
@@ -76,9 +78,66 @@ TEST(DarkModeFilterTest, ApplyDarkModeToColorsAndFlagsWithInvertLightnessLAB) {
   cc::PaintFlags flags;
   flags.setColor(SK_ColorBLACK);
   auto flags_or_nullopt = filter.ApplyToFlagsIfNeeded(
-      flags, DarkModeFilter::ElementRole::kBackground);
+      flags, DarkModeFilter::ElementRole::kBackground, 0);
   ASSERT_NE(flags_or_nullopt, absl::nullopt);
   EXPECT_EQ(SK_ColorWHITE, flags_or_nullopt.value().getColor());
+}
+
+TEST(DarkModeFilterTest, ApplyDarkModeToColorsAndFlagsWithContrast) {
+  DarkModeSettings settings;
+  settings.mode = DarkModeInversionAlgorithm::kInvertLightnessLAB;
+  settings.background_brightness_threshold = 205;
+  DarkModeFilter filter(settings);
+
+  constexpr SkColor SK_Target_For_White = SkColorSetRGB(0x12, 0x12, 0x12);
+  constexpr SkColor SK_Target_For_Black = SkColorSetRGB(0x57, 0x57, 0x57);
+
+  EXPECT_EQ(
+      SK_Target_For_White,
+      filter.InvertColorIfNeeded(
+          SK_ColorWHITE, DarkModeFilter::ElementRole::kBorder, SK_ColorBLACK));
+  EXPECT_EQ(
+      SK_Target_For_Black,
+      filter.InvertColorIfNeeded(
+          SK_ColorBLACK, DarkModeFilter::ElementRole::kBorder, SK_ColorBLACK));
+
+  cc::PaintFlags flags;
+  flags.setColor(SK_ColorWHITE);
+  auto flags_or_nullopt = filter.ApplyToFlagsIfNeeded(
+      flags, DarkModeFilter::ElementRole::kBorder, SK_ColorBLACK);
+  ASSERT_NE(flags_or_nullopt, absl::nullopt);
+  EXPECT_EQ(SK_Target_For_White, flags_or_nullopt.value().getColor());
+}
+
+// crbug.com/1365680
+TEST(DarkModeFilterTest, AdjustDarkenColorDoesNotInfiniteLoop) {
+  DarkModeSettings settings;
+  settings.mode = DarkModeInversionAlgorithm::kInvertLightnessLAB;
+  settings.foreground_brightness_threshold = 150;
+  settings.background_brightness_threshold = 205;
+  DarkModeFilter filter(settings);
+
+  constexpr SkColor SK_Darken_To_Black = SkColorSetRGB(0x09, 0xe6, 0x0c);
+  constexpr SkColor SK_High_Contrast = SkColorSetRGB(0x4c, 0xdc, 0x6d);
+
+  constexpr SkColor SK_Darken_To_Black1 = SkColorSetRGB(0x02, 0xd7, 0x72);
+  constexpr SkColor SK_High_Contrast1 = SkColorSetRGB(0xcf, 0xea, 0x3b);
+
+  constexpr SkColor SK_Darken_To_Black2 = SkColorSetRGB(0x09, 0xe6, 0x0c);
+  constexpr SkColor SK_High_Contrast2 = SkColorSetRGB(0x4c, 0xdc, 0x6d);
+
+  EXPECT_EQ(SK_ColorBLACK,
+            filter.InvertColorIfNeeded(SK_Darken_To_Black,
+                                       DarkModeFilter::ElementRole::kBorder,
+                                       SK_High_Contrast));
+  EXPECT_EQ(SK_ColorBLACK,
+            filter.InvertColorIfNeeded(SK_Darken_To_Black1,
+                                       DarkModeFilter::ElementRole::kBorder,
+                                       SK_High_Contrast1));
+  EXPECT_EQ(SK_ColorBLACK,
+            filter.InvertColorIfNeeded(SK_Darken_To_Black2,
+                                       DarkModeFilter::ElementRole::kBorder,
+                                       SK_High_Contrast2));
 }
 
 TEST(DarkModeFilterTest, InvertedColorCacheSize) {

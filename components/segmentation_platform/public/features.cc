@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -24,6 +24,9 @@ const base::Feature kSegmentationPlatformLowEngagementFeature{
     "SegmentationPlatformLowEngagementFeature",
     base::FEATURE_ENABLED_BY_DEFAULT};
 
+const base::Feature kShoppingUserSegmentFeature{
+    "ShoppingUserSegmentFeature", base::FEATURE_ENABLED_BY_DEFAULT};
+
 const base::Feature kSegmentationPlatformFeedSegmentFeature{
   "SegmentationPlatformFeedSegmentFeature",
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
@@ -39,5 +42,8 @@ const base::Feature kContextualPageActions{"ContextualPageActions",
 
 const base::Feature kContextualPageActionPriceTracking{
     "ContextualPageActionPriceTracking", base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kSegmentationPlatformSegmentInfoCache{
+    "SegmentationPlatformSegmentInfoCache", base::FEATURE_DISABLED_BY_DEFAULT};
 
 }  // namespace segmentation_platform::features

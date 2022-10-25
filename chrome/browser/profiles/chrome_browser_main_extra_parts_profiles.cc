@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors. All rights reserved.
+// Copyright 2013 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -115,6 +115,7 @@
 #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
 #include "chrome/browser/undo/bookmark_undo_service_factory.h"
 #include "chrome/browser/unified_consent/unified_consent_service_factory.h"
+#include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_reader_registry_factory.h"
 #include "chrome/browser/web_data_service_factory.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/chrome_features.h"
@@ -168,6 +169,7 @@
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "ash/constants/ash_features.h"
+#include "chrome/browser/apps/app_preload_service/app_preload_service_factory.h"
 #include "chrome/browser/ash/account_manager/account_apps_availability_factory.h"
 #include "chrome/browser/ash/browser_context_keyed_service_factories.h"
 #include "chrome/browser/ash/login/security_token_session_controller_factory.h"
@@ -247,7 +249,7 @@
 #endif
 
 #if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
-#include "chrome/browser/permissions/prediction_model_handler_factory.h"
+#include "chrome/browser/permissions/prediction_model_handler_provider_factory.h"
 #endif
 
 #if BUILDFLAG(IS_MAC)
@@ -313,6 +315,7 @@ void ChromeBrowserMainExtraPartsProfiles::
   AdaptiveQuietNotificationPermissionUiEnabler::Factory::GetInstance();
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   app_list::AppListSyncableServiceFactory::GetInstance();
+  apps::AppPreloadServiceFactory::GetInstance();
   ash::AccountAppsAvailabilityFactory::GetInstance();
   ash::SystemWebAppManagerFactory::GetInstance();
 #endif
@@ -494,8 +497,10 @@ void ChromeBrowserMainExtraPartsProfiles::
 #endif
 #if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
   if (base::FeatureList::IsEnabled(
-          permissions::features::kPermissionOnDeviceNotificationPredictions)) {
-    PredictionModelHandlerFactory::GetInstance();
+          permissions::features::kPermissionOnDeviceNotificationPredictions) ||
+      base::FeatureList::IsEnabled(
+          permissions::features::kPermissionOnDeviceGeolocationPredictions)) {
+    PredictionModelHandlerProviderFactory::GetInstance();
   }
 #endif  // BUILDFLAG(BUILD_WITH_TFLITE_LIB)
   predictors::AutocompleteActionPredictorFactory::GetInstance();
@@ -609,6 +614,7 @@ void ChromeBrowserMainExtraPartsProfiles::
   web_app::WebAppMetricsFactory::GetInstance();
   web_app::WebAppProviderFactory::GetInstance();
   web_app::WebAppAdjustmentsFactory::GetInstance();
+  web_app::IsolatedWebAppReaderRegistryFactory::GetInstance();
 #endif
   WebDataServiceFactory::GetInstance();
   webrtc_event_logging::WebRtcEventLogManagerKeyedServiceFactory::GetInstance();

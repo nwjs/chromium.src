@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors. All rights reserved.
+// Copyright 2017 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -97,7 +97,7 @@ class WaylandKeyboardTest : public WaylandTest {
           static_cast<base::RunLoop*>(data)->Quit();
         }};
     wl_callback_add_listener(sync_callback.get(), &listener, &run_loop);
-    connection_->ScheduleFlush();
+    connection_->Flush();
     Sync();
 
     server_.Resume();

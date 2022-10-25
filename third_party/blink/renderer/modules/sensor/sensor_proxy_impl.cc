@@ -9,7 +9,6 @@
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/renderer/modules/sensor/sensor_provider_proxy.h"
 #include "third_party/blink/renderer/modules/sensor/sensor_reading_remapper.h"
-#include "third_party/blink/renderer/platform/mojo/mojo_helper.h"
 
 using device::mojom::blink::SensorCreationResult;
 
@@ -188,7 +187,12 @@ void SensorProxyImpl::OnSensorCreated(
     return;
   }
 
-  shared_buffer_reader_->GetReading(&reading_);
+  device::SensorReading reading;
+  if (!shared_buffer_reader_->GetReading(&reading)) {
+    HandleSensorError();
+    return;
+  }
+  reading_ = std::move(reading);
 
   frequency_limits_.first = params->minimum_frequency;
   frequency_limits_.second = params->maximum_frequency;

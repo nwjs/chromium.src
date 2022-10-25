@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -165,6 +165,10 @@ public class LocationBarModel implements ToolbarDataProvider, LocationBarDataPro
 
     private Tab mTab;
     private int mPrimaryColor;
+    private int mDropdownStandardBgColor;
+    private int mDropdownIncognitoBgColor;
+    private int mSuggestionStandardBgColor;
+    private int mSuggestionIncognitoBgColor;
     private LayoutStateProvider mLayoutStateProvider;
 
     private boolean mIsIncognito;
@@ -197,6 +201,12 @@ public class LocationBarModel implements ToolbarDataProvider, LocationBarDataPro
         mOfflineStatus = offlineStatus;
         mPrimaryColor = ChromeColors.getDefaultThemeColor(context, false);
         mSearchEngineLogoUtils = searchEngineLogoUtils;
+        mDropdownStandardBgColor = ChromeColors.getSurfaceColor(
+                mContext, R.dimen.omnibox_suggestion_dropdown_bg_elevation);
+        mDropdownIncognitoBgColor = mContext.getColor(R.color.omnibox_dropdown_bg_incognito);
+        mSuggestionStandardBgColor =
+                ChromeColors.getSurfaceColor(context, R.dimen.omnibox_suggestion_bg_elevation);
+        mSuggestionIncognitoBgColor = context.getColor(R.color.omnibox_suggestion_bg_incognito);
     }
 
     /**
@@ -605,6 +615,26 @@ public class LocationBarModel implements ToolbarDataProvider, LocationBarDataPro
     @StringRes
     public int getSecurityIconContentDescriptionResourceId() {
         return SecurityStatusIcon.getSecurityIconContentDescriptionResourceId(getSecurityLevel());
+    }
+
+    @Override
+    public int getDropdownStandardBackgroundColor() {
+        return mDropdownStandardBgColor;
+    }
+
+    @Override
+    public int getDropdownIncognitoBackgroundColor() {
+        return mDropdownIncognitoBgColor;
+    }
+
+    @Override
+    public int getSuggestionStandardBackgroundColor() {
+        return mSuggestionStandardBgColor;
+    }
+
+    @Override
+    public int getSuggestionIncognitoBackgroundColor() {
+        return mSuggestionIncognitoBgColor;
     }
 
     @VisibleForTesting

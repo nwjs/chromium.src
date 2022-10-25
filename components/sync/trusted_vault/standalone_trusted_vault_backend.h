@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors. All rights reserved.
+// Copyright 2020 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -20,6 +20,7 @@
 #include "components/sync/protocol/local_trusted_vault.pb.h"
 #include "components/sync/trusted_vault/trusted_vault_connection.h"
 #include "components/sync/trusted_vault/trusted_vault_degraded_recoverability_handler.h"
+#include "google_apis/gaia/google_service_auth_error.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 
 namespace base {
@@ -70,7 +71,7 @@ class StandaloneTrustedVaultBackend
   void WriteDegradedRecoverabilityState(
       const sync_pb::LocalTrustedVaultDegradedRecoverabilityState&
           degraded_recoverability_state) override;
-  void OnDegradedRecoverabilityChanged(bool value) override;
+  void OnDegradedRecoverabilityChanged() override;
 
   // Restores state saved in |file_path_|, should be called before using the
   // object.
@@ -131,6 +132,8 @@ class StandaloneTrustedVaultBackend
 
   void SetClockForTesting(base::Clock* clock);
 
+  bool HasPendingTrustedRecoveryMethodForTesting() const;
+
  private:
   friend class base::RefCountedThreadSafe<StandaloneTrustedVaultBackend>;
 
@@ -149,8 +152,12 @@ class StandaloneTrustedVaultBackend
   // registration is desirable (i.e. feature toggle enabled and user signed in),
   // it returns an enum representing the registration state, intended to be used
   // for metric recording. Otherwise it returns nullopt.
-  absl::optional<TrustedVaultDeviceRegistrationStateForUMA> MaybeRegisterDevice(
-      bool has_persistent_auth_error_for_uma);
+  absl::optional<TrustedVaultDeviceRegistrationStateForUMA>
+  MaybeRegisterDevice();
+
+  // Attempts to honor the pending operation stored in
+  // |pending_trusted_recovery_method_|.
+  void MaybeProcessPendingTrustedRecoveryMethod();
 
   // Called when device registration for |gaia_id| is completed (either
   // successfully or not). |data_| must contain LocalTrustedVaultPerUser for
@@ -205,6 +212,9 @@ class StandaloneTrustedVaultBackend
   // vault server.
   absl::optional<CoreAccountInfo> primary_account_;
 
+  // Whether |primary_account_| has a persistent auth error.
+  bool has_persistent_auth_error_ = false;
+
   // If AddTrustedRecoveryMethod() gets invoked before SetPrimaryAccount(), the
   // execution gets deferred until SetPrimaryAccount() is invoked.
   struct PendingTrustedRecoveryMethod {
@@ -244,6 +254,12 @@ class StandaloneTrustedVaultBackend
   // Used to determine current time, set to base::DefaultClock in prod and can
   // be overridden in tests.
   raw_ptr<base::Clock> clock_;
+
+  // Used to take care of polling the degraded recoverability state from the
+  // server for the |primary_account|. Instance changes whenever
+  // |primary_account| changes.
+  std::unique_ptr<TrustedVaultDegradedRecoverabilityHandler>
+      degraded_recoverability_handler_;
 
   std::vector<uint8_t> last_added_recovery_method_public_key_for_testing_;
 

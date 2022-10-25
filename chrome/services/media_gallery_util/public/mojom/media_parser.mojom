@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors. All rights reserved.
+// Copyright 2017 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -84,7 +84,7 @@ struct MediaStreamInfo {
   string type;
 
   // A string->string dictionary of tags for the media stream.
-  mojo_base.mojom.DeprecatedDictionaryValue additional_properties;
+  mojo_base.mojom.DictionaryValue additional_properties;
 };
 
 // All data are parsed from user-defined media data. The consumer of this API should filter special

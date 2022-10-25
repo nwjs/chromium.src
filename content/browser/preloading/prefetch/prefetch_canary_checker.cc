@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -360,9 +360,9 @@ std::string PrefetchCanaryChecker::AppendNameToHistogram(
 }
 
 void PrefetchCanaryChecker::StartDNSResolution(const GURL& url) {
-  net::NetworkIsolationKey nik =
+  net::NetworkAnonymizationKey nik =
       net::IsolationInfo::CreateForInternalRequest(url::Origin::Create(url))
-          .network_isolation_key();
+          .network_anonymization_key();
 
   network::mojom::ResolveHostParametersPtr resolve_host_parameters =
       network::mojom::ResolveHostParameters::New();
@@ -382,10 +382,13 @@ void PrefetchCanaryChecker::StartDNSResolution(const GURL& url) {
           base::BindOnce(&PrefetchCanaryChecker::OnDNSResolved, GetWeakPtr())),
       client_remote.InitWithNewPipeAndPassReceiver());
 
+  // TODO(crbug.com/1355169): Consider passing a SchemeHostPort to trigger HTTPS
+  // DNS resource record query.
   browser_context_->GetDefaultStoragePartition()
       ->GetNetworkContext()
-      ->ResolveHost(net::HostPortPair::FromURL(url), nik,
-                    std::move(resolve_host_parameters),
+      ->ResolveHost(network::mojom::HostResolverHost::NewHostPortPair(
+                        net::HostPortPair::FromURL(url)),
+                    nik, std::move(resolve_host_parameters),
                     std::move(client_remote));
 
   timeout_timer_ = std::make_unique<base::OneShotTimer>();

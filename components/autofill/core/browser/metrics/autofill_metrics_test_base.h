@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -13,7 +13,7 @@
 #include "components/autofill/core/browser/test_autofill_client.h"
 #include "components/autofill/core/browser/test_autofill_driver.h"
 #include "components/autofill/core/browser/test_browser_autofill_manager.h"
-#include "components/sync/driver/test_sync_service.h"
+#include "components/sync/test/test_sync_service.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -127,16 +127,17 @@ class AutofillMetricsBaseTest : public testing::Test {
 
   const bool is_in_any_main_frame_ = true;
   base::test::TaskEnvironment task_environment_;
+  test::AutofillEnvironment autofill_environment_;
   std::unique_ptr<MockAutofillClient> autofill_client_;
   raw_ptr<ukm::TestUkmRecorder> test_ukm_recorder_;
   syncer::TestSyncService sync_service_;
   std::unique_ptr<TestAutofillDriver> autofill_driver_;
   raw_ptr<AutofillExternalDelegate> external_delegate_;
-  base::test::ScopedFeatureList scoped_feature_list_;
 
  private:
   void CreateTestAutofillProfiles();
 
+  base::test::ScopedFeatureList scoped_feature_list_async_parse_form_;
   CreditCard credit_card_ = test::GetMaskedServerCard();
 };
 

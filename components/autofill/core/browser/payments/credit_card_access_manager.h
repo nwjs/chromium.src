@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -195,6 +195,9 @@ class CreditCardAccessManager : public CreditCardCVCAuthenticator::Requester,
   FRIEND_TEST_ALL_PREFIXES(
       CreditCardAccessManagerTest,
       RiskBasedVirtualCardUnmasking_CreditCardAccessManagerReset_TriggersOtpAuthenticatorResetOnFlowCancelled);
+  FRIEND_TEST_ALL_PREFIXES(
+      CreditCardAccessManagerTest,
+      RiskBasedVirtualCardUnmasking_Failure_MerchantOptedOut);
   FRIEND_TEST_ALL_PREFIXES(
       CreditCardAccessManagerTest,
       RiskBasedVirtualCardUnmasking_Failure_NoOptionReturned);

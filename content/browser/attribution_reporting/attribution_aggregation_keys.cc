@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -50,11 +50,11 @@ absl::optional<AttributionAggregationKeys> AttributionAggregationKeys::FromJSON(
   Keys::container_type keys;
   keys.reserve(num_keys);
 
-  for (auto [key_id, value] : *dict) {
+  for (auto [key_id, maybe_string_value] : *dict) {
     if (key_id.size() > blink::kMaxBytesPerAttributionAggregationKeyId)
       return absl::nullopt;
 
-    const std::string* s = value.GetIfString();
+    const std::string* s = maybe_string_value.GetIfString();
     if (!s)
       return absl::nullopt;
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -244,6 +244,9 @@ struct COMPONENT_EXPORT(SQL) DatabaseDiagnostics {
   // Sanity checks used for all errors.
   bool has_valid_header = false;
   bool has_valid_schema = false;
+
+  // Corresponds to `Database::GetErrorMessage()`.
+  std::string error_message;
 };
 
 // Handle to an open SQLite database.

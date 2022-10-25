@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -109,6 +109,10 @@ enum class PreloadingEligibility {
 
   // Preloading was ineligible because the Data Saver setting was enabled.
   kDataSaverEnabled = 7,
+
+  // Preloading was ineligible because it was triggered from a page that has an
+  // effective url.
+  kHasEffectiveUrl = 8,
 
   // TODO(crbug.com/1309934): Add more specific ineligibility reasons subject to
   // each preloading operation

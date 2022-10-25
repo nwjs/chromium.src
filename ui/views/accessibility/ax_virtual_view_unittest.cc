@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors. All rights reserved.
+// Copyright 2018 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -119,7 +119,7 @@ class AXVirtualViewTest : public ViewsTestBase {
   std::vector<
       std::pair<const ui::AXPlatformNodeDelegate*, const ax::mojom::Event>>
       accessibility_events_;
-  ui::testing::ScopedAxModeSetter ax_mode_setter_;
+  ScopedAXModeSetter ax_mode_setter_;
 };
 
 TEST_F(AXVirtualViewTest, AccessibilityRoleAndName) {

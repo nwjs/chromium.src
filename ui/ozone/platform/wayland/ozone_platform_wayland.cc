@@ -1,4 +1,4 @@
-// Copyright 2016 The Chromium Authors. All rights reserved.
+// Copyright 2016 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -349,6 +349,7 @@ class OzonePlatformWayland : public OzonePlatform,
           buffer_manager_->supports_viewporter();
       properties.supports_native_pixmaps =
           surface_factory_->SupportsNativePixmaps();
+      properties.supports_clip_rect = buffer_manager_->supports_clip_rect();
     }
     return properties;
   }

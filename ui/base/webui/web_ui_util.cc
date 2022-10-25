@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors. All rights reserved.
+// Copyright 2013 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -177,11 +177,6 @@ void ParsePathAndScale(const GURL& url,
                        std::string* path,
                        float* scale_factor) {
   ParsePathAndImageSpec(url, path, scale_factor, nullptr);
-}
-
-void SetLoadTimeDataDefaults(const std::string& app_locale,
-                             base::Value* localized_strings) {
-  SetLoadTimeDataDefaults(app_locale, localized_strings->GetIfDict());
 }
 
 void SetLoadTimeDataDefaults(const std::string& app_locale,

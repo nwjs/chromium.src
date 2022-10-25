@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -118,6 +118,7 @@ TEST_F(AccessCodeMediaSinkUtilTest, MissingPort) {
       net::IPEndPoint(expected_ip, kCastControlPort);
   expected_extra_data.discovery_type =
       CastDiscoveryType::kAccessCodeManualEntry;
+  expected_extra_data.model_name = "Chromecast Cast Moderator";
 
   media_router::MediaSink expected_sink(
       base::StringPrintf("cast:<%s>", kExpectedSinkId), kExpectedDisplayName,
@@ -169,6 +170,7 @@ TEST_F(AccessCodeMediaSinkUtilTest, MediaSinkCreatedCorrectly) {
   expected_extra_data.ip_endpoint = net::IPEndPoint(expected_ip, port_value);
   expected_extra_data.discovery_type =
       CastDiscoveryType::kAccessCodeManualEntry;
+  expected_extra_data.model_name = "Chromecast Cast Moderator";
 
   media_router::MediaSink expected_sink(
       base::StringPrintf("cast:<%s>", kExpectedSinkId), kExpectedDisplayName,

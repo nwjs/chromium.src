@@ -1,10 +1,14 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome/browser/first_party_sets/first_party_sets_policy_service.h"
 
+#include "base/stl_util.h"
+#include "base/types/optional_util.h"
+#include "chrome/browser/profiles/profile.h"
 #include "content/public/browser/first_party_sets_handler.h"
+#include "net/first_party_sets/first_party_sets_context_config.h"
 #include "services/network/public/mojom/first_party_sets_access_delegate.mojom.h"
 
 namespace first_party_sets {
@@ -12,17 +16,18 @@ namespace first_party_sets {
 namespace {
 
 network::mojom::FirstPartySetsReadyEventPtr MakeReadyEvent(
-    FirstPartySetsPolicyService::PolicyCustomization customizations) {
+    net::FirstPartySetsContextConfig config) {
   auto ready_event = network::mojom::FirstPartySetsReadyEvent::New();
-  ready_event->customizations = std::move(customizations);
+  ready_event->config = std::move(config);
   return ready_event;
 }
 
 }  // namespace
 
 FirstPartySetsPolicyService::FirstPartySetsPolicyService(
-    content::BrowserContext* context,
-    const base::Value::Dict& policy) {
+    content::BrowserContext* browser_context,
+    const base::Value::Dict& policy)
+    : browser_context_(browser_context) {
   policy_ = policy.Clone();
   // Immediately send `policy` to the FirstPartySetsHandler to retrieve its
   // associated "ProfileCustomization". We can do this since the value of the
@@ -41,11 +46,11 @@ void FirstPartySetsPolicyService::AddRemoteAccessDelegate(
     mojo::Remote<network::mojom::FirstPartySetsAccessDelegate>
         access_delegate) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (customizations_.has_value()) {
+  if (config_.has_value()) {
     // Since the list of First-Party Sets is static after initialization and
     // the FirstPartySetsOverrides policy doesn't support dynamic refresh, a
-    // profile's `customizations_` is static as well.
-    access_delegate->NotifyReady(MakeReadyEvent(customizations_.value()));
+    // profile's `config_` is static as well.
+    access_delegate->NotifyReady(MakeReadyEvent(config_->Clone()));
     return;
   }
   access_delegates_.Add(std::move(access_delegate));
@@ -54,15 +59,40 @@ void FirstPartySetsPolicyService::AddRemoteAccessDelegate(
 void FirstPartySetsPolicyService::Shutdown() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   access_delegates_.Clear();
+  browser_context_ = nullptr;
   weak_factory_.InvalidateWeakPtrs();
 }
 
 void FirstPartySetsPolicyService::OnCustomizationsReady(
-    PolicyCustomization customizations) {
+    net::FirstPartySetsContextConfig config) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  customizations_ = customizations;
+  config_ = std::move(config);
+
+  // Representation of the current profile to be persisted on disk.
+  const std::string browser_context_id =
+      Profile::FromBrowserContext(browser_context_)
+          ->GetBaseName()
+          .AsUTF8Unsafe();
+
+  base::RepeatingCallback<content::BrowserContext*()> browser_context_getter =
+      base::BindRepeating(
+          [](base::WeakPtr<FirstPartySetsPolicyService> weak_ptr) {
+            return weak_ptr ? weak_ptr->browser_context() : nullptr;
+          },
+          weak_factory_.GetWeakPtr());
+
+  content::FirstPartySetsHandler::GetInstance()
+      ->ClearSiteDataOnChangedSetsForContext(
+          browser_context_getter, browser_context_id,
+          base::OptionalToPtr(config_),
+          base::BindOnce(&FirstPartySetsPolicyService::OnSiteDataCleared,
+                         weak_factory_.GetWeakPtr()));
+}
+
+void FirstPartySetsPolicyService::OnSiteDataCleared() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   for (auto& delegate : access_delegates_) {
-    delegate->NotifyReady(MakeReadyEvent(customizations_.value()));
+    delegate->NotifyReady(MakeReadyEvent(config_.value().Clone()));
   }
   access_delegates_.Clear();
 }

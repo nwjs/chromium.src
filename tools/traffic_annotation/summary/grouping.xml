@@ -1,5 +1,5 @@
 <!--
-Copyright 2020 The Chromium Authors. All rights reserved.
+Copyright 2020 The Chromium Authors
 Use of this source code is governed by a BSD-style license that can be
 found in the LICENSE file.
 
@@ -199,8 +199,6 @@ after discussions on the right group.
       <annotation id="service_worker_script_load"/>
       <annotation id="download_web_contents_frame"/>
       <annotation id="sigined_exchange_cert_fetcher"/>
-      <annotation id="sigined_exchange_validity_pinger"/>
-      <annotation id="sigined_exchange_validity_pinger"/>
       <annotation id="web_bundle_loader"/>
       <annotation id="worker_script_load"/>
       <annotation id="blink_resource_loader"/>
@@ -246,7 +244,6 @@ after discussions on the right group.
       <annotation id="share_preview_image_fetch"/>
       <annotation id="fast_pair_image_decoder"/>
       <annotation id="drivefs_http_client"/>
-      <annotation id="borealis_splash_logo_loader"/>
       <annotation id="pending_beacon_api"/>
       <annotation id="download_bubble_retry_download"/>
       <annotation id="quick_answers_loader"/>
@@ -256,6 +253,10 @@ after discussions on the right group.
       <annotation id="chrome_commerce_subscriptions_delete"/>
       <annotation id="chrome_commerce_subscriptions_get"/>
       <annotation id="cryptauth_get_my_devices"/>
+      <annotation id="chrome_commerce_waa_fetcher"/>
+      <annotation id="shopping_list_ui_image_fetcher"/>
+      <annotation id="chrome_commerce_price_email_pref_fetcher"/>
+      <annotation id="chrome_commerce_price_email_pref_sender"/>
     </sender>
   </group>
   <group name="Admin Features" hidden="true">
@@ -364,6 +365,11 @@ after discussions on the right group.
       <annotation id="payments_sync_cards"/>
     </sender>
   </group>
+  <group name="K-Anonymity Service" hidden="true">
+    <sender name="K-Anonymity Service">
+      <annotation id="k_anonymity_service_get_token"/>
+    </sender>
+  </group>
   <group name="Location" hidden="true">
     <sender name="Location">
       <annotation id="geo_language_provider"/>
@@ -466,6 +472,7 @@ after discussions on the right group.
     <sender name="Favicon">
       <annotation id="content_suggestion_get_favicon"/>
       <annotation id="icon_catcher_get_large_icon"/>
+      <annotation id="favicon_fetcher_get_favicon"/>
     </sender>
     <sender name="Images">
       <annotation id="image_annotation"/>

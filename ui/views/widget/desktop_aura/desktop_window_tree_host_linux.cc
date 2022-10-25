@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -259,9 +259,6 @@ gfx::Rect DesktopWindowTreeHostLinux::GetGuessedFullScreenSizeInPx() const {
 void DesktopWindowTreeHostLinux::AddAdditionalInitProperties(
     const Widget::InitParams& params,
     ui::PlatformWindowInitProperties* properties) {
-  const ui::LinuxUi* linux_ui = ui::LinuxUi::instance();
-  properties->prefer_dark_theme = linux_ui && linux_ui->PreferDarkTheme();
-
   // Set the background color on startup to make the initial flickering
   // happening between the XWindow is mapped and the first expose event
   // is completely handled less annoying. If possible, we use the content

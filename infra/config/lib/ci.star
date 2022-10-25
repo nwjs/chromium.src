@@ -1,4 +1,4 @@
-# Copyright 2020 The Chromium Authors. All rights reserved.
+# Copyright 2020 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -116,7 +116,7 @@ def ci_builder(
             predicate = resultdb.test_result_predicate(
                 # Match the "blink_web_tests" target and all of its
                 # flag-specific versions, e.g. "vulkan_swiftshader_blink_web_tests".
-                test_id_regexp = "ninja://[^/]*blink_web_tests/.+",
+                test_id_regexp = "(ninja://[^/]*blink_web_tests/.+)|(ninja://[^/]*blink_wpt_tests/.+)",
             ),
         ),
     ]
@@ -172,6 +172,8 @@ def ci_builder(
         if branches.matches(entry.branch_selector):
             console_view = entry.console_view
             if console_view == None:
+                console_view = defaults.console_view.get()
+            if console_view == args.COMPUTE:
                 console_view = defaults.get_value_from_kwargs("builder_group", kwargs)
 
             bucket = defaults.get_value_from_kwargs("bucket", kwargs)
@@ -287,6 +289,7 @@ ci = struct(
     # CONSTANTS
     DEFAULT_EXECUTABLE = "recipe:chromium",
     DEFAULT_EXECUTION_TIMEOUT = 3 * time.hour,
+    DEFAULT_FYI_PRIORITY = 35,
     DEFAULT_POOL = "luci.chromium.ci",
     DEFAULT_SERVICE_ACCOUNT = "chromium-ci-builder@chops-service-accounts.iam.gserviceaccount.com",
 

@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -41,7 +41,7 @@ class TestTouchPassthroughManager : public TouchPassthroughManager {
     target2.relative_bounds.bounds = gfx::RectF(100, 200, 400, 100);
 
     browser_accessibility_manager_.reset(BrowserAccessibilityManager::Create(
-        MakeAXTreeUpdate(root, target1, target2), nullptr));
+        MakeAXTreeUpdateForTesting(root, target1, target2), nullptr));
   }
 
   ~TestTouchPassthroughManager() override = default;
@@ -63,8 +63,8 @@ class TestTouchPassthroughManager : public TouchPassthroughManager {
       base::OnceCallback<void(BrowserAccessibilityManager* hit_manager,
                               int hit_node_id)> callback) override {
     BrowserAccessibility* result =
-        browser_accessibility_manager_->GetRoot()->ApproximateHitTest(
-            point_in_frame_pixels);
+        browser_accessibility_manager_->GetBrowserAccessibilityRoot()
+            ->ApproximateHitTest(point_in_frame_pixels);
     int hit_node_id = result ? result->GetId() : 0;
     std::move(callback).Run(browser_accessibility_manager_.get(), hit_node_id);
   }

@@ -1,4 +1,4 @@
-# Copyright 2017 The Chromium Authors. All rights reserved.
+# Copyright 2017 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -122,75 +122,6 @@
       },
     },
 
-    # List gtests with ci_only set to True so that they run on the CI of
-    # android-marshmallow-arm64-rel but not the mirrored CQ.
-    # Includes the following compound test suites:
-    # * android_modern_smoke_tests
-    # * android_smoke_tests
-    # * chromium_gtests_for_devices_with_graphical_output
-    # * chrome_public_tests
-    # * linux_flavor_specific_chromium_gtests
-    'android_marshmallow_device_ci_only_gtests': {
-      'cc_unittests': {
-        'ci_only': True,
-      },
-      'chrome_modern_public_bundle_smoke_test': {
-        'ci_only': True,
-      },
-      'chrome_public_smoke_test': {
-        'ci_only': True,
-      },
-      'chrome_public_test_apk': {
-        'ci_only': True,
-        'swarming': {
-          'shards': 20,
-        },
-        'mixins': [
-          'skia_gold_test',
-        ],
-      },
-      'chrome_public_unit_test_apk': {
-        'ci_only': True,
-        'mixins': [
-          'skia_gold_test',
-        ],
-      },
-      'device_unittests': {
-        'ci_only': True,
-      },
-      'display_unittests': {
-        'ci_only': True,
-      },
-      'gfx_unittests': {
-        'ci_only': True,
-      },
-      'sandbox_linux_unittests': {
-        'ci_only': True,
-      },
-      'unit_tests': {
-        'ci_only': True,
-        'android_swarming': {
-          'shards': 2,
-        },
-      },
-      'viz_unittests': {
-        'ci_only': True,
-      },
-    },
-
-    # List gtests that are part of other composition test suites.
-    # MM emulator CQ builder currently has limited capacity so some composition
-    # test suites cannot be fullly enabled at once.
-    'android_marshmallow_emulator_limited_capacity_gtests': {
-      # Tests from chromium_gtests
-      'webkit_unit_tests':{
-        'test': 'blink_unittests',
-          'android_swarming': {
-            'shards': 6,
-          },
-      },
-    },
-
     'android_modern_smoke_tests': {
       'chrome_modern_public_bundle_smoke_test': {},
     },
@@ -307,6 +238,7 @@
           '--dont-restore-color-profile-after-test',
           '--test-machine-name',
           '${buildername}',
+          '$$MAGIC_SUBSTITUTION_GPUTelemetryNoRootForUnrootedDevices',
         ],
         'mixins': [
           'skia_gold_test',
@@ -552,6 +484,7 @@
     'chrome_public_wpt': {
       'chrome_public_wpt': {
         'args': [
+          '--no-wpt-internal',
           '--log-wptreport',
         ],
         'swarming': {
@@ -1536,16 +1469,6 @@
       },
     },
 
-    # TODO(crbug.com/1255748): Remove after chromium_gtests are enabled on
-    # android_marshmallow_emulator_gtests
-    'components_capacity_tests': {
-      'components_unittests': {
-        'android_swarming': {
-          'shards': 6,
-        },
-      },
-    },
-
     'components_perftests_isolated_scripts' : {
       'components_perftests': {
         'merge': {
@@ -1629,6 +1552,17 @@
           'pie_fleet',
           'walleye',
         ],
+      },
+    },
+
+    # At the moment only content_browsertests passes with dangling pointer
+    # detection on.
+    'dangling_pointer_detection_tests': {
+      'dangling_pointer_detection_content_browsertests': {
+        'args': [
+          '--enable-features=PartitionAllocDanglingPtr:mode/crash',
+        ],
+        'test': 'content_browsertests',
       },
     },
 
@@ -2127,30 +2061,6 @@
 
     # BEGIN tests which run on the GPU bots
 
-    'gpu_angle_end2end_gtests': {
-      'angle_end2end_tests': {
-        'android_args': [
-          '--shard-timeout=180',
-          '-v',
-        ],
-        'android_swarming': {
-          'shards': 4,
-        },
-        'args': [
-          '--gtest_filter=-*Vulkan_SwiftShader*',
-        ],
-        'linux_args': [
-          # Linux has issues with creating too many windows at once.
-          '--max-processes=4',
-          '--no-xvfb',
-        ],
-        'swarming': {
-          'shards': 2,
-        },
-        'use_isolated_scripts_api': True,
-      },
-    },
-
     'gpu_angle_fuchsia_unittests_isolated_scripts': {
       'angle_unittests': {
         'args': [
@@ -2160,18 +2070,29 @@
       },
     },
 
+    'gpu_angle_ios_end2end_gtests': {
+      'angle_end2end_tests': {
+        'args': [
+          '--release',
+        ],
+        'use_isolated_scripts_api': True,
+      },
+    },
+
+    'gpu_angle_ios_white_box_gtests': {
+      'angle_white_box_tests': {
+        'args': [
+          '--release',
+        ],
+        'use_isolated_scripts_api': True,
+      },
+    },
+
     'gpu_angle_unit_gtests': {
       'angle_unittests': {
         'android_args': [
           '-v',
         ],
-        'linux_args': ['--no-xvfb'],
-        'use_isolated_scripts_api': True,
-      },
-    },
-
-    'gpu_angle_white_box_gtests': {
-      'angle_white_box_tests': {
         'linux_args': ['--no-xvfb'],
         'use_isolated_scripts_api': True,
       },
@@ -2208,6 +2129,9 @@
           # On dual-GPU devices we want the high-performance GPU to be active
           '--extra-browser-args=--force_high_performance_gpu',
         ],
+        'android_args': [
+          '$$MAGIC_SUBSTITUTION_GPUTelemetryNoRootForUnrootedDevices',
+        ],
         'chromeos_args': [
           '$$MAGIC_SUBSTITUTION_ChromeOSTelemetryRemote',
         ],
@@ -2223,6 +2147,9 @@
         ],
       },
       'trace_test': {
+        'android_args': [
+          '$$MAGIC_SUBSTITUTION_GPUTelemetryNoRootForUnrootedDevices',
+        ],
         'chromeos_args': [
           '$$MAGIC_SUBSTITUTION_ChromeOSTelemetryRemote',
         ],
@@ -2653,6 +2580,9 @@
           # On dual-GPU devices we want the high-performance GPU to be active
           '--extra-browser-args=--force_high_performance_gpu',
         ],
+        'android_args': [
+          '$$MAGIC_SUBSTITUTION_GPUTelemetryNoRootForUnrootedDevices',
+        ],
         'mixins': [
           'has_native_resultdb_integration',
         ],
@@ -2665,6 +2595,9 @@
         'telemetry_test_name': 'mediapipe',
         'args': [
           '--extra-browser-args=--force_higher_performance_gpu --use-cmd-decoder=passthrough --use-gl=angle',
+        ],
+        'android_args': [
+          '$$MAGIC_SUBSTITUTION_GPUTelemetryNoRootForUnrootedDevices',
         ],
         'chromeos_args': [
           '$$MAGIC_SUBSTITUTION_ChromeOSTelemetryRemote',
@@ -2688,6 +2621,9 @@
         'telemetry_test_name': 'mediapipe',
         'args': [
           '--extra-browser-args=--force_higher_performance_gpu --use-cmd-decoder=validating',
+        ],
+        'android_args': [
+          '$$MAGIC_SUBSTITUTION_GPUTelemetryNoRootForUnrootedDevices',
         ],
         'chromeos_args': [
           '$$MAGIC_SUBSTITUTION_ChromeOSTelemetryRemote',
@@ -2713,6 +2649,9 @@
       # to keep this new script simpler and to just configure this by
       # hand in waterfalls.pyl.
       'noop_sleep': {
+        'android_args': [
+          '$$MAGIC_SUBSTITUTION_GPUTelemetryNoRootForUnrootedDevices',
+        ],
         'chromeos_args': [
           '$$MAGIC_SUBSTITUTION_ChromeOSTelemetryRemote',
         ],
@@ -2723,6 +2662,9 @@
       'context_lost_passthrough': {
         'name': 'context_lost_passthrough_tests',
         'telemetry_test_name': 'context_lost',
+        'android_args': [
+          '$$MAGIC_SUBSTITUTION_GPUTelemetryNoRootForUnrootedDevices',
+        ],
         'chromeos_args': [
           '$$MAGIC_SUBSTITUTION_ChromeOSTelemetryRemote',
         ],
@@ -2742,6 +2684,9 @@
       },
       'gpu_process': {
         'name': 'gpu_process_launch_tests',
+        'android_args': [
+          '$$MAGIC_SUBSTITUTION_GPUTelemetryNoRootForUnrootedDevices',
+        ],
         'chromeos_args': [
           '$$MAGIC_SUBSTITUTION_ChromeOSTelemetryRemote',
         ],
@@ -2757,6 +2702,9 @@
         ],
       },
       'hardware_accelerated_feature': {
+        'android_args': [
+          '$$MAGIC_SUBSTITUTION_GPUTelemetryNoRootForUnrootedDevices',
+        ],
         'chromeos_args': [
           '$$MAGIC_SUBSTITUTION_ChromeOSTelemetryRemote',
         ],
@@ -2783,6 +2731,7 @@
         'android_args': [
           # TODO(crbug.com/1093085): Remove this once we fix the tests.
           '--extra-browser-args=--force-online-connection-state-for-indicator',
+          '$$MAGIC_SUBSTITUTION_GPUTelemetryNoRootForUnrootedDevices',
         ],
         'chromeos_args': [
           '$$MAGIC_SUBSTITUTION_ChromeOSTelemetryRemote',
@@ -2810,6 +2759,7 @@
         'android_args': [
           # TODO(crbug.com/1093085): Remove this once we fix the tests.
           '--extra-browser-args=--force-online-connection-state-for-indicator',
+          '$$MAGIC_SUBSTITUTION_GPUTelemetryNoRootForUnrootedDevices',
         ],
         'chromeos_args': [
           '$$MAGIC_SUBSTITUTION_ChromeOSTelemetryRemote',
@@ -2837,6 +2787,7 @@
         'android_args': [
           # TODO(crbug.com/1093085): Remove this once we fix the tests.
           '--extra-browser-args=--force-online-connection-state-for-indicator',
+          '$$MAGIC_SUBSTITUTION_GPUTelemetryNoRootForUnrootedDevices',
         ],
         'chromeos_args': [
           '$$MAGIC_SUBSTITUTION_ChromeOSTelemetryRemote',
@@ -2866,6 +2817,7 @@
         'android_args': [
           # TODO(crbug.com/1093085): Remove this once we fix the tests.
           '--extra-browser-args=--force-online-connection-state-for-indicator',
+          '$$MAGIC_SUBSTITUTION_GPUTelemetryNoRootForUnrootedDevices',
         ],
         'mixins': [
           'skia_gold_test',
@@ -2879,6 +2831,9 @@
       'context_lost_validating': {
         'name': 'context_lost_validating_tests',
         'telemetry_test_name': 'context_lost',
+        'android_args': [
+          '$$MAGIC_SUBSTITUTION_GPUTelemetryNoRootForUnrootedDevices',
+        ],
         'chromeos_args': [
           '$$MAGIC_SUBSTITUTION_ChromeOSTelemetryRemote',
         ],
@@ -2898,6 +2853,9 @@
       },
       'gpu_process': {
         'name': 'gpu_process_launch_tests',
+        'android_args': [
+          '$$MAGIC_SUBSTITUTION_GPUTelemetryNoRootForUnrootedDevices',
+        ],
         'chromeos_args': [
           '$$MAGIC_SUBSTITUTION_ChromeOSTelemetryRemote',
         ],
@@ -2913,6 +2871,9 @@
         ],
       },
       'hardware_accelerated_feature': {
+        'android_args': [
+          '$$MAGIC_SUBSTITUTION_GPUTelemetryNoRootForUnrootedDevices',
+        ],
         'chromeos_args': [
           '$$MAGIC_SUBSTITUTION_ChromeOSTelemetryRemote',
         ],
@@ -2939,6 +2900,7 @@
         'android_args': [
           # TODO(crbug.com/1093085): Remove this once we fix the tests.
           '--extra-browser-args=--force-online-connection-state-for-indicator',
+          '$$MAGIC_SUBSTITUTION_GPUTelemetryNoRootForUnrootedDevices',
         ],
         'chromeos_args': [
           '$$MAGIC_SUBSTITUTION_ChromeOSTelemetryRemote',
@@ -2966,6 +2928,7 @@
         'android_args': [
           # TODO(crbug.com/1093085): Remove this once we fix the tests.
           '--extra-browser-args=--force-online-connection-state-for-indicator',
+          '$$MAGIC_SUBSTITUTION_GPUTelemetryNoRootForUnrootedDevices',
         ],
         'chromeos_args': [
           '$$MAGIC_SUBSTITUTION_ChromeOSTelemetryRemote',
@@ -2993,6 +2956,7 @@
         'android_args': [
           # TODO(crbug.com/1093085): Remove this once we fix the tests.
           '--extra-browser-args=--force-online-connection-state-for-indicator',
+          '$$MAGIC_SUBSTITUTION_GPUTelemetryNoRootForUnrootedDevices',
         ],
         'chromeos_args': [
           '$$MAGIC_SUBSTITUTION_ChromeOSTelemetryRemote',
@@ -3020,8 +2984,19 @@
 
     'gpu_webcodecs_telemetry_test': {
       'webcodecs': {
+        'android_args': [
+          '$$MAGIC_SUBSTITUTION_GPUTelemetryNoRootForUnrootedDevices',
+        ],
         'chromeos_args': [
           '$$MAGIC_SUBSTITUTION_ChromeOSTelemetryRemote',
+        ],
+        # TODO(https://crbug.com/1359405): having --xvfb and --no-xvfb is confusing.
+        'lacros_args': [
+          '--extra-browser-args=--enable-features=UseOzonePlatform --ozone-platform=wayland',
+          '--xvfb',
+          '--no-xvfb',
+          '--use-weston',
+          '--weston-use-gl',
         ],
       },
     },
@@ -3031,8 +3006,19 @@
         'args': [
           '--extra-browser-args=--use-cmd-decoder=validating',
         ],
+        'android_args': [
+          '$$MAGIC_SUBSTITUTION_GPUTelemetryNoRootForUnrootedDevices',
+        ],
         'chromeos_args': [
           '$$MAGIC_SUBSTITUTION_ChromeOSTelemetryRemote',
+        ],
+        # TODO(https://crbug.com/1359405): having --xvfb and --no-xvfb is confusing.
+        'lacros_args': [
+          '--extra-browser-args=--enable-features=UseOzonePlatform --ozone-platform=wayland',
+          '--xvfb',
+          '--no-xvfb',
+          '--use-weston',
+          '--weston-use-gl',
         ],
       },
     },
@@ -3074,6 +3060,9 @@
           '--extra-browser-args=--use-gl=angle --use-angle=gl --use-cmd-decoder=passthrough --force_high_performance_gpu',
           '$$MAGIC_SUBSTITUTION_GPUParallelJobs',
         ],
+        'android_args': [
+          '$$MAGIC_SUBSTITUTION_GPUTelemetryNoRootForUnrootedDevices',
+        ],
         'chromeos_args': [
           '$$MAGIC_SUBSTITUTION_ChromeOSTelemetryRemote',
         ],
@@ -3107,6 +3096,9 @@
           # On dual-GPU devices we want the high-performance GPU to be active
           '--extra-browser-args=--use-gl=angle --use-angle=gles --use-cmd-decoder=passthrough --force_high_performance_gpu',
           '$$MAGIC_SUBSTITUTION_GPUParallelJobs',
+        ],
+        'android_args': [
+          '$$MAGIC_SUBSTITUTION_GPUTelemetryNoRootForUnrootedDevices',
         ],
         'chromeos_args': [
           '$$MAGIC_SUBSTITUTION_ChromeOSTelemetryRemote',
@@ -3157,6 +3149,9 @@
           '--extra-browser-args=--force_high_performance_gpu',
           '$$MAGIC_SUBSTITUTION_GPUParallelJobs',
         ],
+        'android_args': [
+          '$$MAGIC_SUBSTITUTION_GPUTelemetryNoRootForUnrootedDevices',
+        ],
         'mixins': [
           'has_native_resultdb_integration',
         ],
@@ -3180,6 +3175,9 @@
           # On dual-GPU devices we want the high-performance GPU to be active
           '--extra-browser-args=--use-cmd-decoder=validating --force_high_performance_gpu',
           '$$MAGIC_SUBSTITUTION_GPUParallelJobs',
+        ],
+        'android_args': [
+          '$$MAGIC_SUBSTITUTION_GPUTelemetryNoRootForUnrootedDevices',
         ],
         'chromeos_args': [
           '$$MAGIC_SUBSTITUTION_ChromeOSTelemetryRemote',
@@ -3256,6 +3254,9 @@
           '--read-abbreviated-json-results-from=../../content/test/data/gpu/webgl_conformance_tests_output.json',
           '$$MAGIC_SUBSTITUTION_GPUParallelJobs',
         ],
+        'android_args': [
+          '$$MAGIC_SUBSTITUTION_GPUTelemetryNoRootForUnrootedDevices',
+        ],
         'chromeos_args': [
           '$$MAGIC_SUBSTITUTION_ChromeOSTelemetryRemote',
         ],
@@ -3286,6 +3287,9 @@
           # it.
           '--read-abbreviated-json-results-from=../../content/test/data/gpu/webgl_conformance_tests_output.json',
           '$$MAGIC_SUBSTITUTION_GPUParallelJobs',
+        ],
+        'android_args': [
+          '$$MAGIC_SUBSTITUTION_GPUTelemetryNoRootForUnrootedDevices',
         ],
         'mixins': [
           'has_native_resultdb_integration',
@@ -3368,6 +3372,9 @@
           '--read-abbreviated-json-results-from=../../content/test/data/gpu/webgl_conformance_tests_output.json',
           '$$MAGIC_SUBSTITUTION_GPUParallelJobs',
         ],
+        'android_args': [
+          '$$MAGIC_SUBSTITUTION_GPUTelemetryNoRootForUnrootedDevices',
+        ],
         'mixins': [
           'has_native_resultdb_integration',
         ],
@@ -3386,6 +3393,9 @@
     'gpu_webgl_conformance_validating_telemetry_tests': {
       'webgl_conformance_validating': {
         'telemetry_test_name': 'webgl_conformance',
+        'android_args': [
+          '$$MAGIC_SUBSTITUTION_GPUTelemetryNoRootForUnrootedDevices',
+        ],
         'chromeos_args': [
           '$$MAGIC_SUBSTITUTION_ChromeOSTelemetryRemote',
         ],
@@ -3506,7 +3516,7 @@
       },
       'ios_chrome_signin_eg2tests_module': {
       'swarming': {
-          'shards': 10,
+          'shards': 6,
         },
       },
       'ios_chrome_ui_eg2tests_module': {
@@ -3779,6 +3789,10 @@
     'linux_chromeos_specific_gtests': {
       # Chrome OS only.
       'ash_components_unittests': {},
+      # TODO(crbug.com/1351793) Enable on CQ when stable.
+      'ash_crosapi_browsertests': {
+        'ci_only': True,
+      },
       'ash_unittests': {
         'swarming': {
           'shards': 5,
@@ -3834,6 +3848,9 @@
         'args': [
           '--test-launcher-filter-file=../../testing/buildbot/filters/linux-lacros.lacros_chrome_browsertests.filter',
         ],
+        'swarming': {
+          'shards': 2,
+        },
       },
     },
 
@@ -3847,6 +3864,9 @@
         'args': [
           '--test-launcher-filter-file=../../testing/buildbot/filters/linux-lacros.lacros_chrome_browsertests.skew.filter',
         ],
+        'swarming': {
+          'shards': 2,
+        },
       },
     },
 
@@ -3864,8 +3884,17 @@
       },
     },
 
+    'linux_lacros_reviver_tests': {
+      'browser_tests': {
+        'swarming': {
+          'shards': 10,
+        },
+      },
+    },
+
     'linux_lacros_specific_gtests': {
       'lacros_chrome_unittests': {},
+      'ozone_unittests': {},
     },
 
     'linux_specific_chromium_isolated_scripts': {
@@ -4447,6 +4476,9 @@
 
     'system_webview_wpt': {
       'system_webview_wpt': {
+        'args': [
+          '--no-wpt-internal',
+        ],
         'swarming': {
           'shards': 25,
           'expiration': 18000,
@@ -4724,6 +4756,12 @@
           '--vmodule=test_navigation_listener=1',
         ],
       },
+      'web_engine_integration_tests_cfv1': {
+        'args': [
+          '--',
+          '--vmodule=test_navigation_listener=1',
+        ],
+      },
       'web_engine_unittests': {},
       'web_runner_integration_tests': {},
     },
@@ -4752,6 +4790,9 @@
 
     'weblayer_shell_wpt': {
       'weblayer_shell_wpt': {
+        'args': [
+          '--no-wpt-internal',
+        ],
         'swarming': {
           'shards': 18,
           'expiration': 18000,
@@ -4805,11 +4846,6 @@
           '--test-launcher-bot-mode',
           '--test-launcher-print-test-stdio=always',
         ],
-        'annotate': 'graphing',
-        'perf_config': {
-          'a_default_rev': 'r_webrtc_git',
-          'r_webrtc_git': '${webrtc_got_rev}'
-        },
       },
       # Run capture unittests as well since our bots have real webcams.
       'capture_unittests': {
@@ -4881,7 +4917,7 @@
             {
               "cipd_package": 'chromium/android_webview/tools/cts_archive',
               'location': 'android_webview/tools/cts_archive',
-              'revision': 'qF6dhyFMW7qFOzHo_Lu-bWxpbe-zRfL1KvHPQtQA3d0C',
+              'revision': 'C4m9-gZKvvtS0-KQ9cMRi6wEfZH_TeWSiXEgsgtGtsMC',
             }
           ]
         },
@@ -4918,7 +4954,7 @@
             {
               "cipd_package": 'chromium/android_webview/tools/cts_archive',
               'location': 'android_webview/tools/cts_archive',
-              'revision': 'qF6dhyFMW7qFOzHo_Lu-bWxpbe-zRfL1KvHPQtQA3d0C',
+              'revision': 'C4m9-gZKvvtS0-KQ9cMRi6wEfZH_TeWSiXEgsgtGtsMC',
             }
           ]
         },
@@ -4936,7 +4972,7 @@
             {
               "cipd_package": 'chromium/android_webview/tools/cts_archive',
               'location': 'android_webview/tools/cts_archive',
-              'revision': 'qF6dhyFMW7qFOzHo_Lu-bWxpbe-zRfL1KvHPQtQA3d0C',
+              'revision': 'C4m9-gZKvvtS0-KQ9cMRi6wEfZH_TeWSiXEgsgtGtsMC',
             }
           ]
         },
@@ -4945,11 +4981,31 @@
     },
 
     'webview_trichrome_64_cts_tests': {
-      'webview_trichrome_64_cts_tests': {},
+      'webview_trichrome_64_cts_tests': {
+        'swarming': {
+          'cipd_packages': [
+            {
+              'cipd_package': 'chromium/android_webview/tools/cts_archive',
+              'location': 'android_webview/tools/cts_archive',
+              'revision': 'C4m9-gZKvvtS0-KQ9cMRi6wEfZH_TeWSiXEgsgtGtsMC',
+            }
+          ]
+        },
+      },
     },
 
     'webview_trichrome_cts_tests': {
-      'webview_trichrome_cts_tests': {},
+      'webview_trichrome_cts_tests': {
+        'swarming': {
+          'cipd_packages': [
+            {
+              'cipd_package': 'chromium/android_webview/tools/cts_archive',
+              'location': 'android_webview/tools/cts_archive',
+              'revision': 'C4m9-gZKvvtS0-KQ9cMRi6wEfZH_TeWSiXEgsgtGtsMC',
+            }
+          ]
+        },
+      },
     },
 
     'webview_ui_instrumentation_tests': {
@@ -5084,9 +5140,11 @@
     'wpt_web_tests': {
       'wpt_tests_suite': {
         'args': [
+          '--no-wpt-internal',
           '--child-processes=8',
           '--run-by-dir=0',
           '--no-restart-on-new-group',
+          '--log-wptreport',
         ],
         'merge': {
           'args': [
@@ -5103,9 +5161,34 @@
       },
     },
 
+    'wpt_web_tests_content_shell': {
+      'wpt_tests_suite': {
+        'args': [
+          '--child-processes=8',
+          '--run-by-dir=0',
+          '--no-restart-on-new-group',
+          '--log-wptreport',
+          '--xvfb'
+        ],
+        'merge': {
+          'args': [
+            '--verbose',
+          ],
+          'script': '//third_party/blink/tools/merge_web_test_results.py',
+        },
+        'isolate_name': 'wpt_tests_isolate_content_shell',
+        'results_handler': 'layout tests',
+        'swarming': {
+          'shards': 15,
+        },
+        'experiment_percentage': 100,
+      },
+    },
+
     'wpt_web_tests_identity': {
       'wpt_tests_suite': {
         'args': [
+          '--no-wpt-internal',
           'webauthn/',
         ],
         'merge': {
@@ -5125,6 +5208,7 @@
     'wpt_web_tests_input': {
       'wpt_tests_suite': {
         'args': [
+          '--no-wpt-internal',
           'infrastructure/testdriver/actions/',
           'input-events/',
           'pointerevents/',
@@ -5141,6 +5225,29 @@
         'results_handler': 'layout tests',
         'swarming': {
           'shards': 1,
+        },
+        'experiment_percentage': 100,
+      },
+    },
+
+    'wpt_web_tests_ios': {
+      'wpt_tests_suite': {
+        'args': [
+          '--child-processes=8',
+          '--run-by-dir=0',
+          '--no-restart-on-new-group',
+          '--product=chrome_ios'
+        ],
+        'merge': {
+          'args': [
+            '--verbose',
+          ],
+          'script': '//third_party/blink/tools/merge_web_test_results.py',
+        },
+        'isolate_name': 'wpt_tests_isolate',
+        'results_handler': 'layout tests',
+        'swarming': {
+          'shards': 15,
         },
         'experiment_percentage': 100,
       },
@@ -5179,60 +5286,6 @@
       'weblayer_gtests',
       'webview_cts_tests_gtest',
       'webview_ui_instrumentation_tests',
-    ],
-
-    # List gtests that run on android-marshmallow-arm64-rel builder.
-    # TODO(crbug.com/1127110): Use android_marshmallow_gtests when
-    # android-marshmallow-x86-rel is not mirrored to CQ.
-    'android_marshmallow_device_gtests': [
-      'android_marshmallow_device_ci_only_gtests',
-
-      # TODO(crbug.com/1127110): Remove once webview_instrumentation_test_apk
-      # and content_shell_test_apk are enabled on android-marshmallow-x86-rel
-      'android_specific_chromium_gtests',  # Already includes gl_gtests.
-
-      'chromium_gtests',
-      'vr_android_specific_chromium_tests',
-      'vr_platform_specific_chromium_gtests',
-      'weblayer_android_gtests',
-      'weblayer_gtests',
-    ],
-
-    # List gtests that run on android-marshmallow-x86-rel builder.
-    # Test suites will be gradually moved from
-    # android_marshmallow_emulator_non_cq_gtests
-    # to this one, when there are more GCE capacity.
-    'android_marshmallow_emulator_gtests': [
-      'android_emulator_specific_chrome_public_tests',
-      # TODO(crbug.com/1127110): Deprecate this when all the test suites below
-      # it are re-enabled.
-      'android_marshmallow_emulator_limited_capacity_gtests',
-
-      'android_modern_smoke_tests',
-      'android_smoke_tests',
-      'android_specific_chromium_gtests',  # Already includes gl_gtests.
-      'android_wpr_record_replay_tests',
-      #'chromium_gtests',
-      'chromium_gtests_for_devices_with_graphical_output',
-      # TODO(crbug.com/1255748): Remove components_capacity_tests when
-      # chromium_gtests are enabled in this suite.
-      'components_capacity_tests',
-      'linux_flavor_specific_chromium_gtests',
-      #'weblayer_android_gtests',
-      #'weblayer_gtests',
-    ],
-
-    # Note that tests here are gradually moved to
-    # android_marshmallow_emulator_gtests (crbug.com/1127110)
-    #
-    # The diff between android_marshmallow_device_gtests and
-    # (android_marshmallow_emulator_non_cq_gtests +
-    # android_marshmallow_emulator_gtests)
-    # is android_wpr_record_replay_tests
-    'android_marshmallow_emulator_non_cq_gtests': [
-      'chromium_gtests',
-      'weblayer_android_gtests',
-      'weblayer_gtests',
     ],
 
     'android_marshmallow_gtests': [
@@ -5372,6 +5425,24 @@
       'desktop_chromium_isolated_scripts',
       'performance_smoke_test_isolated_scripts',
       'telemetry_perf_unittests_isolated_scripts',
+    ],
+
+    'chromium_linux_and_dangling_pointer_detection_gtests': [
+      'dangling_pointer_detection_tests',
+      'aura_gtests',
+      'chromium_gtests',
+      'chromium_gtests_for_devices_with_graphical_output',
+      'chromium_gtests_for_linux_and_chromeos_only',
+      'chromium_gtests_for_linux_and_mac_only',
+      'chromium_gtests_for_linux_only',
+      'chromium_gtests_for_win_and_linux_only',
+      'linux_flavor_specific_chromium_gtests',
+      'linux_specific_xr_gtests',
+      'non_android_and_cast_and_chromeos_chromium_gtests',
+      'non_android_chromium_gtests',
+      'vr_platform_specific_chromium_gtests',
+      'overlay_prioritization_gtests',
+      'weblayer_gtests',
     ],
 
     # This is meant to be a superset of 'chromium_linux_and_gl_gtests'. Any
@@ -5625,7 +5696,6 @@
       'gpu_webgl2_conformance_d3d11_passthrough_telemetry_tests',
       'gpu_webgl_conformance_d3d9_passthrough_telemetry_tests',
       'gpu_webgl_conformance_d3d11_passthrough_telemetry_tests',
-      'gpu_webgl_conformance_gl_passthrough_telemetry_tests',
       'gpu_webgl_conformance_vulkan_passthrough_telemetry_tests',
     ],
 
@@ -5863,7 +5933,6 @@
       'gpu_passthrough_telemetry_tests',
       'gpu_webgl_conformance_d3d11_passthrough_telemetry_tests',
       'gpu_webgl_conformance_d3d9_passthrough_telemetry_tests',
-      'gpu_webgl_conformance_gl_passthrough_telemetry_tests',
       'gpu_webgl_conformance_vulkan_passthrough_telemetry_tests',
     ],
 
@@ -5886,7 +5955,6 @@
       'gpu_webgl2_conformance_d3d11_passthrough_telemetry_tests',
       'gpu_webgl_conformance_d3d11_passthrough_telemetry_tests',
       'gpu_webgl_conformance_d3d9_passthrough_telemetry_tests',
-      'gpu_webgl_conformance_gl_passthrough_telemetry_tests',
       'gpu_webgl_conformance_vulkan_passthrough_telemetry_tests',
       'gpu_win_intel_specific_telemetry_tests',
     ],
@@ -5901,7 +5969,6 @@
       'gpu_webgl2_conformance_d3d11_passthrough_telemetry_tests',
       'gpu_webgl_conformance_d3d11_passthrough_telemetry_tests',
       'gpu_webgl_conformance_d3d9_passthrough_telemetry_tests',
-      'gpu_webgl_conformance_gl_passthrough_telemetry_tests',
       'gpu_webgl_conformance_vulkan_passthrough_telemetry_tests',
     ],
 
@@ -6006,19 +6073,13 @@
       'gpu_fyi_vulkan_swiftshader_gtests',
     ],
 
-    'marshmallow_nougat_pie_isolated_scripts_with_proguard': [
-      'android_isolated_scripts',
-      'components_perftests_isolated_scripts',
-      'telemetry_android_minidump_unittests_isolated_scripts',
-      'telemetry_perf_unittests_isolated_scripts_android',
-    ],
-
-    'marshmallow_pie_isolated_scripts': [
-      'android_isolated_scripts',
-      'components_perftests_isolated_scripts',
-      'telemetry_android_minidump_unittests_isolated_scripts',
-      'telemetry_perf_unittests_isolated_scripts_android',
-    ],
+    # TODO(crbug.com/1111436): Re-enable this if/when additional capacity
+    #'marshmallow_nougat_pie_isolated_scripts_with_proguard': [
+    #  'android_isolated_scripts',
+    #  'components_perftests_isolated_scripts',
+    #  'telemetry_android_minidump_unittests_isolated_scripts',
+    #  'telemetry_perf_unittests_isolated_scripts_android',
+    #],
 
     'monochrome_public_apk_checker_isolated_script_and_sizes': [
       'chrome_sizes_android',
@@ -6128,6 +6189,21 @@
       'webview_ui_instrumentation_tests': {},
     },
 
+    'android_12l_emulator_gtests': {
+      'android_emulator_specific_chrome_public_tests': {},
+      'android_monochrome_smoke_tests': {},
+      'android_smoke_tests': {},
+      'android_specific_chromium_gtests': {},  # Already includes gl_gtests.
+      'chromium_gtests': {},
+      'chromium_gtests_for_devices_with_graphical_output': {},
+      'linux_flavor_specific_chromium_gtests': {},
+      'system_webview_shell_instrumentation_tests': {}, # Not an experimental test
+      'weblayer_android_gtests': {},
+      'weblayer_gtests': {},
+      'webview_ui_instrumentation_tests': {},
+    },
+
+
     'android_weblayer_x86_10_gtests': {
       'weblayer_instrumentation_tests': {
         'variants': [
@@ -6196,8 +6272,8 @@
           'disable_field_trial_config_for_earl_grey',
         ],
         'variants': [
-          'SIM_IPAD_AIR_2_15_2',
-          'SIM_IPHONE_6S_15_2',
+          'SIM_IPAD_AIR_2_15_5',
+          'SIM_IPHONE_6S_15_5',
         ]
       },
       'ios_eg2_tests': {
@@ -6206,21 +6282,21 @@
           'disable_field_trial_config_for_earl_grey',
         ],
         'variants': [
-          'SIM_IPAD_AIR_2_15_2',
-          'SIM_IPHONE_6S_15_2',
+          'SIM_IPAD_AIR_2_15_5',
+          'SIM_IPHONE_6S_15_5',
         ]
       },
     },
 
     'gpu_angle_ios_gtests': {
-      'gpu_angle_end2end_gtests': {
+      'gpu_angle_ios_end2end_gtests': {
         'variants': [
-          'SIM_IPHONE_X_14_4',
+          'SIM_IPHONE_X_16_0',
         ],
       },
-      'gpu_angle_white_box_gtests': {
+      'gpu_angle_ios_white_box_gtests': {
         'variants': [
-          'SIM_IPHONE_X_14_4',
+          'SIM_IPHONE_X_16_0',
         ],
       },
     },
@@ -6330,6 +6406,7 @@
           'SIM_IPHONE_8_16_0',
           'SIM_IPAD_AIR_3RD_GEN_16_0',
           'SIM_IPAD_6_GEN_16_0',
+          'SIM_IPAD_PRO_3RD_GEN_16_0',
         ]
       },
       'ios_eg2_cq_tests': {
@@ -6338,6 +6415,7 @@
           'SIM_IPHONE_8_16_0',
           'SIM_IPHONE_X_16_0',
           'SIM_IPAD_6_GEN_16_0',
+          'SIM_IPAD_PRO_3RD_GEN_16_0',
         ]
       },
       'ios_screen_size_dependent_tests': {
@@ -6345,6 +6423,7 @@
           'SIM_IPHONE_8_PLUS_16_0',
           'SIM_IPHONE_X_16_0',
           'SIM_IPAD_AIR_3RD_GEN_16_0',
+          'SIM_IPAD_PRO_3RD_GEN_16_0',
         ],
       },
       'ios_crash_xcuitests': {
@@ -6383,6 +6462,8 @@
           'SIM_IPHONE_7_14_4',
           'SIM_IPAD_AIR_2_14_4',
           'SIM_IPHONE_X_14_4',
+          'SIM_IPAD_PRO_3RD_GEN_15_5',
+          'SIM_IPAD_PRO_3RD_GEN_16_0',
         ]
       },
       'ios_eg2_cq_tests': {
@@ -6397,6 +6478,8 @@
           'SIM_IPHONE_7_14_4',
           'SIM_IPAD_AIR_2_14_4',
           'SIM_IPHONE_X_14_4',
+          'SIM_IPAD_PRO_3RD_GEN_15_5',
+          'SIM_IPAD_PRO_3RD_GEN_16_0',
         ]
       },
       'ios_screen_size_dependent_tests': {
@@ -6405,6 +6488,7 @@
           'SIM_IPHONE_8_16_0',
           'SIM_IPHONE_SE_3RD_GEN_16_0',
           'SIM_IPAD_AIR_3RD_GEN_16_0',
+          'SIM_IPAD_PRO_3RD_GEN_16_0',
         ],
       },
     },
@@ -6412,14 +6496,14 @@
     'ios_asan_tests': {
       'ios_common_tests': {
         'variants': [
-          'SIM_IPHONE_X_15_2',
-          'SIM_IPAD_AIR_2_15_2',
+          'SIM_IPHONE_X_15_5',
+          'SIM_IPAD_AIR_2_15_5',
         ]
       },
       'ios_screen_size_dependent_tests': {
         'variants': [
-          'SIM_IPHONE_X_15_2',
-          'SIM_IPAD_AIR_2_15_2',
+          'SIM_IPHONE_X_15_5',
+          'SIM_IPAD_AIR_2_15_5',
         ]
       }
     },
@@ -6435,7 +6519,7 @@
     'ios_clang_tot_sim_tests': {
       'ios_clang_tests': {
         'variants': [
-          'SIM_IPHONE_6S_15_2',
+          'SIM_IPHONE_6S_15_5',
         ]
       }
     },
@@ -6458,6 +6542,8 @@
           'SIM_IPHONE_8_16_0',
           'SIM_IPHONE_X_16_0',
           'SIM_IPAD_AIR_3RD_GEN_16_0',
+          'SIM_IPAD_PRO_3RD_GEN_15_5',
+          'SIM_IPAD_PRO_3RD_GEN_16_0',
         ],
       },
       'ios_eg2_tests': {
@@ -6469,6 +6555,8 @@
           'SIM_IPHONE_8_16_0',
           'SIM_IPAD_AIR_3RD_GEN_16_0',
           'SIM_IPHONE_X_16_0',
+          'SIM_IPAD_PRO_3RD_GEN_15_5',
+          'SIM_IPAD_PRO_3RD_GEN_16_0',
         ],
       },
       'ios_screen_size_dependent_tests': {
@@ -6481,6 +6569,8 @@
           'SIM_IPHONE_8_16_0',
           'SIM_IPHONE_SE_3RD_GEN_16_0',
           'SIM_IPAD_AIR_3RD_GEN_16_0',
+          'SIM_IPAD_PRO_3RD_GEN_15_5',
+          'SIM_IPAD_PRO_3RD_GEN_16_0',
         ],
       },
     },
@@ -6524,7 +6614,7 @@
     'ios_simulator_cronet_tests': {
       'ios_cronet_tests': {
         'variants': [
-          'SIM_IPHONE_X_15_2',
+          'SIM_IPHONE_X_15_5',
         ]
       }
     },
@@ -6545,6 +6635,8 @@
           'SIM_IPHONE_8_16_0',
           'SIM_IPHONE_X_16_0',
           'SIM_IPAD_AIR_3RD_GEN_16_0',
+          'SIM_IPAD_PRO_3RD_GEN_15_5',
+          'SIM_IPAD_PRO_3RD_GEN_16_0',
         ]
       },
       'ios_eg2_cq_tests': {
@@ -6555,6 +6647,8 @@
           'SIM_IPAD_AIR_2_15_5',
           'SIM_IPHONE_8_16_0',
           'SIM_IPAD_AIR_3RD_GEN_16_0',
+          'SIM_IPAD_PRO_3RD_GEN_15_5',
+          'SIM_IPAD_PRO_3RD_GEN_16_0',
         ]
       },
       'ios_screen_size_dependent_tests': {
@@ -6563,6 +6657,7 @@
           'SIM_IPHONE_6S_15_5',
           'SIM_IPHONE_SE_1ST_GEN_15_5',
           'SIM_IPAD_AIR_2_15_5',
+          'SIM_IPAD_PRO_3RD_GEN_15_5',
         ]
       }
     },
@@ -6570,24 +6665,24 @@
     'ios_simulator_multi_window_tests': {
       'ios_common_tests': {
         'variants': [
-          'SIM_IPAD_AIR_2_15_2',
+          'SIM_IPAD_AIR_2_15_5',
         ]
       },
       'ios_eg2_cq_tests': {
         'mixins': ['xcode_parallelization'],
         'variants': [
-          'SIM_IPAD_AIR_2_15_2',
+          'SIM_IPAD_AIR_2_15_5',
         ]
       },
       'ios_eg2_tests': {
         'mixins': ['xcode_parallelization'],
         'variants': [
-          'SIM_IPAD_AIR_2_15_2',
+          'SIM_IPAD_AIR_2_15_5',
         ]
       },
       'ios_screen_size_dependent_tests': {
         'variants': [
-          'SIM_IPAD_AIR_2_15_2',
+          'SIM_IPAD_AIR_2_15_5',
         ]
       }
     },
@@ -6653,6 +6748,7 @@
           'SIM_IPHONE_X_16_0',
           'SIM_IPAD_AIR_3RD_GEN_16_0',
           'SIM_IPHONE_SE_3RD_GEN_16_0',
+          'SIM_IPAD_PRO_3RD_GEN_16_0',
         ]
       }
     },
@@ -6703,6 +6799,16 @@
         ]
       },
     },
+
+    'lacros_arm64_generic_rel_skylab_fyi': {
+      'lacros_skylab_poc': {
+        'variants': [
+          'CROS_JACUZZI_PUBLIC',
+          'CROS_KEVIN_PUBLIC',
+        ]
+      },
+    },
+
 
     'lacros_device_arm_tests': {
       'lacros_all_tast_tests': {
@@ -7045,12 +7151,6 @@
         ],
       },
       'gpu_webgl_conformance_d3d9_passthrough_telemetry_tests': {
-        'variants': [
-          'WIN10_INTEL_HD_630_STABLE',
-          'WIN10_NVIDIA_GTX_1660_STABLE',
-        ],
-      },
-      'gpu_webgl_conformance_gl_passthrough_telemetry_tests': {
         'variants': [
           'WIN10_INTEL_HD_630_STABLE',
           'WIN10_NVIDIA_GTX_1660_STABLE',

@@ -454,6 +454,7 @@ Jeśli usuniesz swoją historię przeglądania – całą lub dotyczącą okre�
 <translation id="3435465986463792564">Masz sporo okien? Tutaj możesz nimi zarządzać</translation>
 <translation id="3443221991560634068">Ponownie załaduj bieżącą stronę</translation>
 <translation id="3444179773590444986">Co sądzisz o ciemnym motywie witryn?</translation>
+<translation id="3452832259067974318">Aby chronić Twoją prywatność, Chrome nie będzie autouzupełniać hasła w tym polu.</translation>
 <translation id="3469665409713263828">{FILE_COUNT,plural, =1{Zaplanowano pobranie 1 pliku}few{Zaplanowano pobranie # plików}many{Zaplanowano pobranie # plików}other{Zaplanowano pobranie # pliku}}</translation>
 <translation id="3474624961160222204">Nadal używaj konta użytkownika <ph name="NAME" /></translation>
 <translation id="3478363558367712427">Możesz wybrać wyszukiwarkę</translation>
@@ -679,6 +680,7 @@ Na stronie <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> n
 <translation id="4763480195061959176">film</translation>
 <translation id="4766313118839197559">Hasła są zapisywane w Menedżerze haseł na tym urządzeniu.</translation>
 <translation id="4766678251456904326">Dodaj konto do urządzenia</translation>
+<translation id="4787736314074622408">Na pewno usunąć <ph name="ITEM_TITLE" />?</translation>
 <translation id="4791358705705538979">Pomaga wykonywać różne czynności w internecie (np. dokonywać płatności)</translation>
 <translation id="4794291718671962615">(<ph name="MEGABYTES" />) <ph name="URL" /></translation>
 <translation id="4802417911091824046">Szyfrowanie hasłem nie obejmuje form płatności ani adresów w Google Pay.
@@ -748,6 +750,7 @@ Aby zmienić to ustawienie, <ph name="BEGIN_LINK" />zresetuj synchronizację<ph 
 <translation id="5091199029769593641">Już niedługo po otwarciu nowej karty będziesz widzieć relacje ze strony <ph name="SITE_NAME" />. Strony, które obserwujesz, są zapisywane na Twoim koncie Google. Możesz nimi zarządzać w ustawieniach kart Discover.</translation>
 <translation id="5091249083535528968">Rozszerzone dane o korzystaniu</translation>
 <translation id="509429900233858213">Wystąpił błąd.</translation>
+<translation id="5099845111805573968">Jeśli raz wybierzesz stronę na komputery, to ustawienie będzie stosowane w jej przypadku przy każdej wizycie</translation>
 <translation id="5102401324271069229">Jeśli strona próbuje wykraść Twoje hasło lub pobierasz szkodliwy plik, Chrome może wysłać URL wraz z fragmentami zawartości strony do usługi Bezpieczne przeglądanie</translation>
 <translation id="510275257476243843">Pozostała godzina</translation>
 <translation id="5115811374190515607">do: <ph name="PRODUCT_NAME" /></translation>
@@ -907,6 +910,7 @@ Aby zmienić to ustawienie, <ph name="BEGIN_LINK" />zresetuj synchronizację<ph 
 <translation id="5958275228015807058">Znajdź pliki i strony w Pobranych plikach</translation>
 <translation id="5962718611393537961">Kliknij, by zwinąć</translation>
 <translation id="5964869237734432770">Wstrzymaj opisy obrazów</translation>
+<translation id="5966233851250124270">Chrome zapamięta Twój wybór</translation>
 <translation id="5979084224081478209">Sprawdź hasła</translation>
 <translation id="5995726099713306770">Pobrać stronę ponownie?</translation>
 <translation id="6000066717592683814">Zachowaj Google</translation>
@@ -946,6 +950,7 @@ Prace nad rozwojem Piaskownicy prywatności wciąż trwają, więc wersja próbn
 <translation id="6192907950379606605">Pobieraj opisy obrazów</translation>
 <translation id="6196315980958524839">Hasła są zapisywane w Menedżerze haseł Google na tym urządzeniu.</translation>
 <translation id="620197886010707372">Otworzyć aplikację <ph name="APPNAME" /> w Google Play?</translation>
+<translation id="6202812185118613467">Zaloguj się z powrotem, aby rozpocząć synchronizację</translation>
 <translation id="6203593061661911168">Pobieranie rozpocznie się po połączeniu z siecią Wi-Fi</translation>
 <translation id="6210748933810148297"><ph name="EMAIL" /> to nie Ty?</translation>
 <translation id="6211386937064921208">Wyświetlam podgląd tej strony</translation>
@@ -1083,6 +1088,7 @@ Tokeny zaufania zwiększają prywatność w sieci i nie można za ich pomocą 
 <translation id="6820686453637990663">Kod CVC</translation>
 <translation id="6824899148643461612">Wybrano kartę <ph name="TAB_TITLE" /></translation>
 <translation id="6828070228333235514">Przestań monitorować cenę</translation>
+<translation id="6830728435402077660">Niezabezpieczona</translation>
 <translation id="6833996806551876956">Okres próbny piaskownicy prywatności</translation>
 <translation id="6836206421467243968">Przywróć grupę kart <ph name="TITLE_OF_GROUP" /> jako nową grupę kart w tle.</translation>
 <translation id="6846298663435243399">Wczytuję…</translation>

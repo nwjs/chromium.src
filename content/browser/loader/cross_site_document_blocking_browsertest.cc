@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors. All rights reserved.
+// Copyright 2017 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -390,8 +390,8 @@ class RequestInterceptor {
       ASSERT_EQ(mojo::CreateDataPipe(response_body.size() + 1, producer_handle,
                                      consumer_handle),
                 MOJO_RESULT_OK);
-      original_client_->OnReceiveResponse(std::move(response_head),
-                                          std::move(consumer_handle));
+      original_client_->OnReceiveResponse(
+          std::move(response_head), std::move(consumer_handle), absl::nullopt);
 
       uint32_t num_bytes = response_body.size();
       EXPECT_EQ(MOJO_RESULT_OK,

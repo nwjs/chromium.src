@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors. All rights reserved.
+// Copyright 2017 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -19,10 +19,8 @@ int WINAPI wWinMain(HINSTANCE /* instance */,
   updater::ProcessExitResult result =
       updater::WMain(reinterpret_cast<HMODULE>(&__ImageBase));
 
-  if (result.exit_code != updater::SUCCESS_EXIT_CODE &&
-      wcslen(command_line) == 0) {
-    std::wstring error = L"Updater error ";
-    error.append(std::to_wstring(result.exit_code));
+  if (result.exit_code != updater::SUCCESS_EXIT_CODE) {
+    std::wstring error = updater::GetLocalizedErrorString(result.exit_code);
     ::MessageBoxEx(nullptr, error.c_str(), nullptr, 0, 0);
   }
 

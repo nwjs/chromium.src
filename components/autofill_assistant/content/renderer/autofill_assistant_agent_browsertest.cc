@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -14,6 +14,7 @@
 #include "components/autofill_assistant/content/common/autofill_assistant_agent.mojom.h"
 #include "components/autofill_assistant/content/common/autofill_assistant_driver.mojom.h"
 #include "components/autofill_assistant/content/common/proto/semantic_feature_overrides.pb.h"
+#include "components/autofill_assistant/content/common/switches.h"
 #include "content/public/renderer/render_frame.h"
 #include "content/public/test/render_view_test.h"
 #include "mojo/public/cpp/bindings/associated_receiver_set.h"
@@ -52,7 +53,6 @@ class MockAutofillAssistantDriver : public mojom::AutofillAssistantDriver {
            void(mojom::ModelStatus, base::File, const std::string&)> callback),
       (override));
 
- private:
   mojo::AssociatedReceiverSet<mojom::AutofillAssistantDriver> receivers_;
 };
 
@@ -114,6 +114,61 @@ TEST_F(AutofillAssistantAgentBrowserTest, GetSemanticNodes) {
       <h1>Shipping address</h1>
       <label for="street">Street Address</label><input id="street">
     </div>)");
+
+  autofill_assistant_agent_->GetSemanticNodes(
+      /* role= */ 47 /* ADDRESS_LINE1 */,
+      /* objective= */ 7 /* FILL_DELIVERY_ADDRESS */,
+      /* ignore_objective= */ false,
+      /* model_timeout= */ base::Milliseconds(1000), callback.Get());
+
+  base::RunLoop().RunUntilIdle();
+
+  const auto web_element =
+      GetMainRenderFrame()
+          ->GetWebFrame()
+          ->GetDocument()
+          .GetElementById(blink::WebString::FromUTF8("street"))
+          .To<blink::WebFormControlElement>();
+  // Ensure we don't create semantic prediction attribute when not in debug mode
+  EXPECT_FALSE(web_element.HasAttribute("semantic-prediction"));
+}
+
+TEST_F(AutofillAssistantAgentBrowserTest, ReconnectsAfterDisconnect) {
+  EXPECT_CALL(autofill_assistant_driver_, GetAnnotateDomModel)
+      .Times(2)
+      .WillRepeatedly(
+          [&](base::TimeDelta model_timeout,
+              base::OnceCallback<void(mojom::ModelStatus, base::File,
+                                      const std::string&)> callback) {
+            std::move(callback).Run(mojom::ModelStatus::kSuccess,
+                                    model_file_.Duplicate(), std::string());
+          });
+
+  base::MockCallback<base::OnceCallback<void(mojom::NodeDataStatus,
+                                             const std::vector<NodeData>&)>>
+      callback;
+
+  EXPECT_CALL(callback, Run(mojom::NodeDataStatus::kSuccess, SizeIs(1)))
+      .Times(2);
+
+  LoadHTML(R"(
+    <div>
+      <h1>Shipping address</h1>
+      <label for="street">Street Address</label><input id="street">
+    </div>)");
+
+  autofill_assistant_agent_->GetSemanticNodes(
+      /* role= */ 47 /* ADDRESS_LINE1 */,
+      /* objective= */ 7 /* FILL_DELIVERY_ADDRESS */,
+      /* ignore_objective= */ false,
+      /* model_timeout= */ base::Milliseconds(1000), callback.Get());
+
+  base::RunLoop().RunUntilIdle();
+
+  // Simulate a destroyed driver:
+  autofill_assistant_driver_.receivers_.Clear();
+
+  base::RunLoop().RunUntilIdle();
 
   autofill_assistant_agent_->GetSemanticNodes(
       /* role= */ 47 /* ADDRESS_LINE1 */,
@@ -361,6 +416,44 @@ TEST_F(AutofillAssistantAgentBrowserTest,
       web_element.GetDevToolsNodeIdForTest(), u"value",
       /* send_events= */ true, callback.Get());
   base::RunLoop().RunUntilIdle();
+}
+
+TEST_F(AutofillAssistantAgentBrowserTest,
+       SemanticPredictionsAreAddedAsAttributesWhenDebugging) {
+  // Add the debug switch to turn on DOM annotation
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+      switches::kAutofillAssistantDebugAnnotateDom);
+
+  EXPECT_CALL(autofill_assistant_driver_, GetAnnotateDomModel)
+      .WillOnce(RunOnceCallback<1>(mojom::ModelStatus::kSuccess,
+                                   model_file_.Duplicate(), std::string()));
+
+  base::MockCallback<base::OnceCallback<void(mojom::NodeDataStatus,
+                                             const std::vector<NodeData>&)>>
+      callback;
+  EXPECT_CALL(callback, Run(mojom::NodeDataStatus::kSuccess, SizeIs(1)));
+
+  LoadHTML(R"(
+    <div>
+      <h1>Shipping address</h1>
+      <label for="street">Street Address</label><input id="street">
+    </div>)");
+
+  autofill_assistant_agent_->GetSemanticNodes(
+      /* role= */ 47 /* ADDRESS_LINE1 */,
+      /* objective= */ 7 /* FILL_DELIVERY_ADDRESS */,
+      /* ignore_objective= */ false,
+      /* model_timeout= */ base::Milliseconds(1000), callback.Get());
+  base::RunLoop().RunUntilIdle();
+
+  const auto web_element =
+      GetMainRenderFrame()
+          ->GetWebFrame()
+          ->GetDocument()
+          .GetElementById(blink::WebString::FromUTF8("street"))
+          .To<blink::WebFormControlElement>();
+  EXPECT_EQ(web_element.GetAttribute("semantic-prediction").Ascii(),
+            "{role: 47, objective: 7}");
 }
 
 }  // namespace

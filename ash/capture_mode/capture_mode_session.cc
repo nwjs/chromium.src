@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors. All rights reserved.
+// Copyright 2020 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -695,6 +695,7 @@ void CaptureModeSession::Shutdown() {
   aura::Env::GetInstance()->RemovePreTargetHandler(this);
   display_observer_.reset();
   user_nudge_controller_.reset();
+  capture_window_observer_.reset();
   TabletModeController::Get()->RemoveObserver(this);
   if (input_capture_window_) {
     input_capture_window_->RemoveObserver(this);
@@ -718,15 +719,17 @@ void CaptureModeSession::Shutdown() {
   UpdateFloatingPanelBoundsIfNeeded();
 
   if (!is_stopping_to_start_video_recording_) {
+    // Kill the camera preview when the capture mode session ends without
+    // starting any recording. Note that we need to kill the camera preview
+    // before aborting the projector session to avoid repareting the camera
+    // preview widget which will lead to crash.
+    if (!controller_->is_recording_in_progress())
+      controller_->camera_controller()->SetShouldShowPreview(false);
+
     // Stopping the session for any reason other than starting video recording
     // means a cancellation to an ongoing projector session (if any).
     if (is_in_projector_mode_)
       ProjectorControllerImpl::Get()->OnRecordingStartAborted();
-
-    // Kill the camera preview when the capture mode session ends without
-    // starting any recording.
-    if (!controller_->is_recording_in_progress())
-      controller_->camera_controller()->SetShouldShowPreview(false);
   }
 
   Shell::Get()->RemoveShellObserver(this);
@@ -883,7 +886,7 @@ void CaptureModeSession::ReportSessionHistograms() {
 
   RecordCaptureModeSwitchesFromInitialMode(capture_source_changed_);
   RecordCaptureModeConfiguration(controller_->type(), controller_->source(),
-                                 controller_->enable_audio_recording(),
+                                 controller_->GetAudioRecordingEnabled(),
                                  is_in_projector_mode_);
 }
 
@@ -978,7 +981,8 @@ void CaptureModeSession::OnDefaultCaptureFolderSelectionChanged() {
   capture_mode_settings_view_->OnDefaultCaptureFolderSelectionChanged();
 }
 
-aura::Window* CaptureModeSession::GetCameraPreviewParentWindow() const {
+aura::Window* CaptureModeSession::GetOnCaptureSurfaceWidgetParentWindow()
+    const {
   auto* controller = CaptureModeController::Get();
   DCHECK(!controller->is_recording_in_progress());
   auto* menu_container =
@@ -998,12 +1002,12 @@ aura::Window* CaptureModeSession::GetCameraPreviewParentWindow() const {
   }
 }
 
-gfx::Rect CaptureModeSession::GetCameraPreviewConfineBounds() const {
+gfx::Rect CaptureModeSession::GetCaptureSurfaceConfineBounds() const {
   auto* controller = CaptureModeController::Get();
   DCHECK(!controller->is_recording_in_progress());
   switch (controller->source()) {
     case CaptureModeSource::kFullscreen: {
-      auto* parent = GetCameraPreviewParentWindow();
+      auto* parent = GetOnCaptureSurfaceWidgetParentWindow();
       DCHECK(parent);
       return display::Screen::GetScreen()
           ->GetDisplayNearestWindow(parent)

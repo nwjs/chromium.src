@@ -1,10 +1,6 @@
-// Copyright 2016 The Chromium Authors. All rights reserved.
+// Copyright 2016 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-
-// clang-format off
-// #import {OncMojo} from './onc_mojo.m.js';
-// clang-format on
 
 /**
  * @fileoverview
@@ -12,7 +8,9 @@
  * NetworkListItem.
  */
 
-/* #export */ const NetworkList = {};
+import {OncMojo} from './onc_mojo.js';
+
+export const NetworkList = {};
 
 /** @enum {number} */
 NetworkList.CustomItemType = {

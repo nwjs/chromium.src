@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -126,7 +126,7 @@ TEST_F(AttributionDataHostManagerImplTest, SourceDataHost_SourceRegistered) {
       mock_manager_,
       HandleSource(
           AllOf(SourceTypeIs(AttributionSourceType::kEvent),
-                SourceEventIdIs(10), ConversionOriginIs(destination_origin),
+                SourceEventIdIs(10), DestinationOriginIs(destination_origin),
                 ImpressionOriginIs(page_origin), SourcePriorityIs(20),
                 SourceDebugKeyIs(789),
                 AggregationKeysAre(*AttributionAggregationKeys::FromKeys(
@@ -1052,7 +1052,7 @@ TEST_F(AttributionDataHostManagerImplTest,
         mock_manager_,
         HandleSource(AllOf(
             SourceTypeIs(AttributionSourceType::kNavigation),
-            SourceEventIdIs(10), ConversionOriginIs(destination_origin),
+            SourceEventIdIs(10), DestinationOriginIs(destination_origin),
             ImpressionOriginIs(page_origin), SourcePriorityIs(20),
             SourceDebugKeyIs(789),
             AggregationKeysAre(*AttributionAggregationKeys::FromKeys(

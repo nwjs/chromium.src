@@ -1,5 +1,5 @@
 <!--
-Copyright 2020 The Chromium Authors. All rights reserved.
+Copyright 2020 The Chromium Authors
 Use of this source code is governed by a BSD-style license that can be
 found in the LICENSE file.
 -->
@@ -185,17 +185,6 @@ chromium-metrics-reviews@google.com.
                  window."/>
     <variant name="Total" summary="Should be same as BorealisTotal."/>
   </token>
-</histogram>
-
-<histogram name="Borealis.GameMode.Result" enum="BorealisGameModeResult"
-    expires_after="2023-02-01">
-  <owner>lqu@google.com</owner>
-  <owner>src/chrome/browser/ash/borealis/OWNERS</owner>
-  <summary>
-    Records when game mode is entered and when the previous game mode call timed
-    out/failed. They will only be recorded the first time we detect that game
-    mode is entered/failed for each time that game mode is initially entered.
-  </summary>
 </histogram>
 
 <histogram name="Borealis.Install.NumAttempts" enum="BooleanAttempted"

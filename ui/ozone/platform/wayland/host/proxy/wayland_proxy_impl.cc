@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -72,10 +72,6 @@ void WaylandProxyImpl::DestroyShmForWlBuffer(wl_buffer* buffer) {
                    [buffer](const auto& buf) { return buf.get() == buffer; });
   DCHECK(it != shm_buffers_.end());
   shm_buffers_.erase(it);
-}
-
-void WaylandProxyImpl::ScheduleDisplayFlush() {
-  connection_->ScheduleFlush();
 }
 
 void WaylandProxyImpl::FlushForTesting() {

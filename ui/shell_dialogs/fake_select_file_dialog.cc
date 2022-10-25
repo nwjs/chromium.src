@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -82,6 +82,11 @@ bool FakeSelectFileDialog::CallFileSelected(const base::FilePath& file_path,
     }
   }
   return false;
+}
+
+void FakeSelectFileDialog::CallMultiFilesSelected(
+    const std::vector<base::FilePath>& files) {
+  listener_->MultiFilesSelected(files, params_);
 }
 
 }  // namespace ui

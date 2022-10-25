@@ -23,6 +23,7 @@
 <translation id="1104948393051856124">پذیرش و ادامه</translation>
 <translation id="110724200315609752">رفتن به پنجره باز</translation>
 <translation id="1112015203684611006">چاپ انجام نشد.</translation>
+<translation id="1118569444314402022"><ph name="USER_NAME" />، دوباره خوش آمدید</translation>
 <translation id="1125564390852150847">ایجاد برگه جدید</translation>
 <translation id="1126809382673880764">‏دربرابر وب‌سایت‌ها، بارگیری‌ها، و افزونه‌های خطرناک از شما محافظت نمی‌کند. درصورت موجود بودن، همچنان ویژگی حفاظتی «مرور ایمن» را در سرویس‌های دیگر Google مثل Gmail و «جستجو» دریافت می‌کنید.</translation>
 <translation id="1135212215217513471">‏دریافت Chrome ویژه iOS</translation>
@@ -46,6 +47,7 @@
 <translation id="1272079795634619415">توقف</translation>
 <translation id="1275718070701477396">انتخاب شد</translation>
 <translation id="1281818060020671000">مدیریت داده‌ها</translation>
+<translation id="1282311502488501110">وارد سیستم نشود</translation>
 <translation id="1283524564873030414">۲۴ ساعت گذشته</translation>
 <translation id="1285320974508926690">این سایت هرگز ترجمه نشود</translation>
 <translation id="1291506870746876680">هرگاه این سایت را ترک کنید، اجازه‌های <ph name="BEGIN_BOLD" />«<ph name="SITE_NAME" />»<ph name="END_BOLD" /> به حالت خاموش برمی‌گردد.</translation>
@@ -54,6 +56,7 @@
 <translation id="1322735045095424339">سازمانتان استفاده از «حالت ناشناس» را الزامی کرده است</translation>
 <translation id="1323735185997015385">حذف</translation>
 <translation id="132683371494960526">برای تغییر پوشه والد دو ضربه سریع بزنید.</translation>
+<translation id="1335348992705722518">مدیریت تنظیمات…</translation>
 <translation id="1340643665687018190">بستن منو</translation>
 <translation id="1358214951266274152">رفتن به پیوندی که کپی کردید</translation>
 <translation id="1360432990279830238">از سیستم خارج و همگام‌سازی خاموش شود؟</translation>
@@ -61,6 +64,7 @@
 <translation id="1377255359165588604">همگام‌سازی متوقف شد.</translation>
 <translation id="1377321085342047638">شماره کارت</translation>
 <translation id="1383876407941801731">جستجو</translation>
+<translation id="138618066238211776">ادامه دادن به‌عنوان <ph name="USER_NAME" /></translation>
 <translation id="1400642268715879018">۴ هفته گذشته</translation>
 <translation id="1404330357948037222">از سیستم خارج شده‌اید</translation>
 <translation id="1407135791313364759">باز کردن همه</translation>
@@ -174,9 +178,11 @@
 <translation id="2421044535038393232">ادامه ویرایش</translation>
 <translation id="2434405374328098816">قبلاً گذرواژه‌ای برای «<ph name="USERNAME" />» در <ph name="WEBSITE" /> ذخیره کرده‌اید</translation>
 <translation id="2435457462613246316">نمایش گذرواژه</translation>
+<translation id="2461070143328828326">تنظیمات رمز عبور</translation>
 <translation id="2469960372084740698">«مرور ایمن» خاموش شود؟</translation>
 <translation id="2473876017985765807">قبلاً گذرواژه‌ای برای <ph name="WEBSITE" /> ذخیره کرده‌اید</translation>
 <translation id="2476359652512522418">انتخاب نشده</translation>
+<translation id="2482878487686419369">اعلان‌ها</translation>
 <translation id="2500374554657206846">گزینه‌هایی برای ذخیره گذرواژه</translation>
 <translation id="2523363575747517183">این وب‌سایت به‌طور مکرر تلاش می‌کند برنامه دیگری را باز کند.</translation>
 <translation id="2529021024822217800">باز کردن همه</translation>
@@ -327,6 +333,7 @@
 <translation id="3709582977625132201">علامت‌گذاری به‌عنوان خوانده‌نشده</translation>
 <translation id="371230970611282515">رویدادهای خطرناک را پیش از اینکه اتفاق بیفتند پیش‌بینی می‌کند و درباره آن‌ها به شما هشدار می‌دهد.</translation>
 <translation id="37207012422556617">جستجوهای پرطرفدار</translation>
+<translation id="3726360487031500941">دوباره به سیستم حساب خود وارد شوید <ph name="USER_NAME" /></translation>
 <translation id="3740397331642243698">‏نشانی‌های واردشده را در Google Chrome در حالت «ناشناس» باز می‌کند.</translation>
 <translation id="3762232513783804601">‏ساخته‌شده برای iPad شما</translation>
 <translation id="3771033907050503522">برگه‌های ناشناس</translation>
@@ -381,6 +388,7 @@
 <translation id="4187450337729239226">جای‌گذاری و جستجو</translation>
 <translation id="4223967053752765281">سازمانتان ورود به سیستم را خاموش کرده است. همچنان می‌توانید نشانک‌ها، سابقه، گذرواژه‌ها، و دیگر تنظیماتتان را در این دستگاه ببینید. اگر تغییری ایجاد کنید، با حسابتان همگام‌سازی نمی‌شود.</translation>
 <translation id="4233831822770018312">ویرایش اجازه‌ها</translation>
+<translation id="4236584471598725073">پیگیری قیمت</translation>
 <translation id="4237377247299956313">روی <ph name="BEGIN_BOLD" />برنامه مرور پیش‌فرض<ph name="END_BOLD" /> ضربه بزنید</translation>
 <translation id="424315890655130736">گذرعبارت را وارد کنید</translation>
 <translation id="4249955472157341256">مرتب‌سازی براساس جدیدترین</translation>
@@ -393,6 +401,7 @@
 <translation id="430793432425771671">همگام‌سازی همه چیز</translation>
 <translation id="4309403553630140242">برای اطلاعات بیشتر دو ضربه بزنید</translation>
 <translation id="430967081421617822">از ابتدا تا الآن</translation>
+<translation id="4324952538601951430">اکنون نشانک‌ها، گذرواژه‌ها، تنظیمات، و دیگر موارد ذخیره‌شده در اینجا هستند</translation>
 <translation id="4334428914252001502">۱ مقاله خوانده‌نشده.</translation>
 <translation id="4338650699862464074">‏نشانی وب صفحه‌هایی را که بازدید می‌کنید برای Google ارسال می‌کند.</translation>
 <translation id="4343046787186034850">دسترسی به دوربین و میکروفون مجاز است</translation>
@@ -471,6 +480,7 @@
 <translation id="4901778704868714008">ذخیره...</translation>
 <translation id="4904877109095351937">علامت‌گذاری به‌عنوان خوانده‌شده</translation>
 <translation id="4908869848243824489">‏«یافته‌ها» از Google</translation>
+<translation id="4916679969857390442">لنز</translation>
 <translation id="4930714375720679147">روشن کردن</translation>
 <translation id="4941089862236492464">متأسفیم! مشكلی در اشتراک‌گذاری مورد شما وجود داشت.</translation>
 <translation id="4944543191714094452">یافتن در صفحه…</translation>
@@ -738,6 +748,7 @@ Handoff باید در بخش عمومی تنظیمات نیز فعال شود و
 <translation id="6930799952781667037">برای تغییر به این زبان، ضربه بزنید.</translation>
 <translation id="6944369514868857500">انتخاب یک حساب دیگر</translation>
 <translation id="6945221475159498467">انتخاب</translation>
+<translation id="6965382102122355670">قبول</translation>
 <translation id="6973630695168034713">پوشه‌ها</translation>
 <translation id="6979158407327259162">Google Drive</translation>
 <translation id="6988572888918530647">‏مدیریت «حساب Google»</translation>
@@ -766,7 +777,6 @@ Handoff باید در بخش عمومی تنظیمات نیز فعال شود و
 <translation id="7192050974311852563">شروع گزارش‌گیری</translation>
 <translation id="7203585745079012652">پاسخ گفتاری</translation>
 <translation id="7207023858769244910">برای دریافت محتوا براساس علایقتان، همگام‌سازی کنید.</translation>
-<translation id="7207383424303353046">‏جدید: Chrome را به‌عنوان برنامه مرورگر پیش‌فرض تنظیم کنید تا سایت‌ها به‌طور خودکار در آن باز شوند. <ph name="BEGIN_LINK" />باز کردن تنظیمات<ph name="END_LINK" /></translation>
 <translation id="721597782417389033">نام مستعار کارت نامعتبر است</translation>
 <translation id="722454870747268814">برگه ناشناس جدید</translation>
 <translation id="7265758999917665941">هرگز برای این سایت</translation>
@@ -916,7 +926,6 @@ Handoff باید در بخش عمومی تنظیمات نیز فعال شود و
 <translation id="8533670235862049797">«مرور ایمن» روشن است</translation>
 <translation id="8534481786647257214">‏پست +Google ارسال شد.</translation>
 <translation id="8548878600947630424">یافتن در صفحه…</translation>
-<translation id="8574235780160508979">‏«شرایط خدمات» Chrome، ‏۳۱ مارس تغییر می‌کند. <ph name="BEGIN_LINK" />لطفاً بازبینی کنید<ph name="END_LINK" /></translation>
 <translation id="8588404856427128947">خاموش</translation>
 <translation id="8590913940444621808">هرگز سؤال نشود</translation>
 <translation id="8591976964826315682">مسدود کردن کوکی‌های شخص ثالث در «حالت ناشناس»</translation>

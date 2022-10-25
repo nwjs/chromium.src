@@ -1,4 +1,4 @@
-// Copyright 2016 The Chromium Authors. All rights reserved.
+// Copyright 2016 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -27,6 +27,7 @@ import android.content.res.Resources;
 import android.os.Build;
 import android.text.TextUtils;
 import android.util.DisplayMetrics;
+import android.view.HapticFeedbackConstants;
 import android.view.View;
 import android.view.ViewGroup.MarginLayoutParams;
 
@@ -71,6 +72,8 @@ import java.util.List;
 public class StripLayoutHelperTest {
     @Rule
     public TestRule mFeaturesProcessorRule = new Features.JUnitProcessor();
+    @Mock
+    private View mInteractingTabView;
     @Mock
     private LayoutUpdateHost mUpdateHost;
     @Mock
@@ -505,15 +508,14 @@ public class StripLayoutHelperTest {
         TabUiFeatureUtilities.setTabMinWidthForTesting(TAB_WIDTH_MEDIUM);
         StripLayoutTab[] tabs = getMockedStripLayoutTabs(TAB_WIDTH_MEDIUM, 150.f, 10);
         mStripLayoutHelper.setStripLayoutTabsForTest(tabs);
-        mStripLayoutHelper.testSetScrollOffset(1200);
+        mStripLayoutHelper.testSetScrollOffset(-1200);
 
         // Set screen width to 800dp.
         mStripLayoutHelper.onSizeChanged(SCREEN_WIDTH, SCREEN_HEIGHT, false, TIMESTAMP);
 
         mStripLayoutHelper.scrollTabToView(TIMESTAMP, false);
 
-        int expectedFinalX = 490; // delta(optimalRight(514) - tabOverlapWidth(24)
-                                  // - scrollOffset(1200)) + scrollOffset(1200)
+        int expectedFinalX = 0; // optimalLeft(0) - scrollOffset(-1200)) + scrollOffset(-1200)
         assertEquals(expectedFinalX, mStripLayoutHelper.getScroller().getFinalX());
     }
 
@@ -526,15 +528,14 @@ public class StripLayoutHelperTest {
         TabUiFeatureUtilities.setTabMinWidthForTesting(TAB_WIDTH_MEDIUM);
         StripLayoutTab[] tabs = getMockedStripLayoutTabs(TAB_WIDTH_MEDIUM, 150.f, 10);
         mStripLayoutHelper.setStripLayoutTabsForTest(tabs);
-        mStripLayoutHelper.testSetScrollOffset(1200);
+        mStripLayoutHelper.testSetScrollOffset(-1200);
 
         // Set screen width to 800dp.
         mStripLayoutHelper.onSizeChanged(SCREEN_WIDTH, SCREEN_HEIGHT, false, TIMESTAMP);
 
         mStripLayoutHelper.scrollTabToView(TIMESTAMP, false);
 
-        int expectedFinalX = 538; // delta(optimalRight(562) - tabOverlapWidth(24)
-        // - scrollOffset(1200)) + scrollOffset(1200)
+        int expectedFinalX = 0; // optimalLeft(0) - scrollOffset(-1200)) + scrollOffset(-1200)
         assertEquals(expectedFinalX, mStripLayoutHelper.getScroller().getFinalX());
     }
 
@@ -686,8 +687,8 @@ public class StripLayoutHelperTest {
     public void testScrollDuration() {
         initializeTest(false, true, 3);
 
-        // Act: Set scroll offset less than 960.
-        mStripLayoutHelper.testSetScrollOffset(800);
+        // Act: Set scroll offset greater than -960.
+        mStripLayoutHelper.testSetScrollOffset(-800);
 
         // Assert: Expand duration is 250.
         assertEquals(mStripLayoutHelper.getExpandDurationForTesting(), 250);
@@ -696,10 +697,10 @@ public class StripLayoutHelperTest {
     @Test
     @Feature("Tab Strip Improvements")
     public void testScrollDuration_Medium() {
-        initializeTest(false, true, 3);
+        initializeTest(false, true, false, 3, 10);
 
-        // Act: Set scroll offset between 960 and 1920.
-        mStripLayoutHelper.testSetScrollOffset(1000);
+        // Act: Set scroll offset between -960 and -1920.
+        mStripLayoutHelper.testSetScrollOffset(-1000);
 
         // Assert: Expand duration is 350.
         assertEquals(mStripLayoutHelper.getExpandDurationForTesting(), 350);
@@ -708,10 +709,10 @@ public class StripLayoutHelperTest {
     @Test
     @Feature("Tab Strip Improvements")
     public void testScrollDuration_Large() {
-        initializeTest(false, true, 3);
+        initializeTest(false, true, false, 3, 15);
 
-        // Act: Set scroll offset greater than 1920
-        mStripLayoutHelper.testSetScrollOffset(2000);
+        // Act: Set scroll offset less than -1920
+        mStripLayoutHelper.testSetScrollOffset(-2000);
 
         // Assert: Expand duration is 450.
         assertEquals(mStripLayoutHelper.getExpandDurationForTesting(), 450);
@@ -1224,6 +1225,19 @@ public class StripLayoutHelperTest {
 
     @Test
     @Feature("Tab Groups on Tab Strip")
+    public void testReorder_HapticFeedback() {
+        // Mock 5 tabs.
+        initializeTest(false, false, 0);
+
+        // Start reorder mode on first tab.
+        mStripLayoutHelper.startReorderModeAtIndexForTesting(0);
+
+        // Verify we performed haptic feedback for a long-press.
+        verify(mInteractingTabView).performHapticFeedback(eq(HapticFeedbackConstants.LONG_PRESS));
+    }
+
+    @Test
+    @Feature("Tab Groups on Tab Strip")
     public void testReorder_NoGroups() {
         // Mock 5 tabs.
         initializeTest(false, false, true, 0, 5);
@@ -1645,12 +1659,14 @@ public class StripLayoutHelperTest {
             for (int i = 0; i < numTabs; i++) {
                 mModel.addTab(TEST_TAB_TITLES[i]);
                 when(mModel.getTabAt(i).isHidden()).thenReturn(tabIndex != i);
+                when(mModel.getTabAt(i).getView()).thenReturn(mInteractingTabView);
                 when(mTabGroupModelFilter.getRootId(eq(mModel.getTabAt(i)))).thenReturn(i);
             }
         } else {
             for (int i = 0; i < numTabs; i++) {
                 mModel.addTab("Tab " + i);
                 when(mModel.getTabAt(i).isHidden()).thenReturn(tabIndex != i);
+                when(mModel.getTabAt(i).getView()).thenReturn(mInteractingTabView);
                 when(mTabGroupModelFilter.getRootId(eq(mModel.getTabAt(i)))).thenReturn(i);
             }
         }

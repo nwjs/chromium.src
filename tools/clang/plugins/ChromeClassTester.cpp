@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -60,11 +60,6 @@ void ChromeClassTester::CheckTag(TagDecl* tag) {
     // checker (i.e., we don't handle extern templates very well).
     std::string base_name = record->getNameAsString();
     if (IsIgnoredType(base_name))
-      return;
-
-    // We ignore all classes that end with "Matcher" because they're probably
-    // GMock artifacts.
-    if (!options_.check_gmock_objects && ends_with(base_name, "Matcher"))
       return;
 
     CheckChromeClass(location_type, location, record);

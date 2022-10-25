@@ -33,7 +33,6 @@ import multiprocessing
 import optparse
 import sys
 import traceback
-import six
 
 from blinkpy.common import exit_codes
 from blinkpy.common.host import Host
@@ -60,7 +59,7 @@ def main(argv, stderr):
     else:
         host = Host()
 
-    if six.PY3 and stderr.isatty():
+    if stderr.isatty():
         stderr.reconfigure(write_through=True)
     printer = printing.Printer(host, options, stderr)
 
@@ -329,10 +328,10 @@ def parse_args(args):
                 dest='build',
                 action='store_false',
                 help="Don't check to see if the build is up to date."),
-            optparse.make_option('--no-virtual-tests',
+            optparse.make_option('--wpt-only',
                                  action='store_true',
                                  default=False,
-                                 help=('Do not run virtual tests.')),
+                                 help=('Run web platform tests only.')),
             optparse.make_option('--child-processes',
                                  '--jobs',
                                  '-j',
@@ -723,7 +722,10 @@ def _set_up_derived_options(port, options, args):
                                   str(port.default_max_locked_shards())))
 
     if not options.configuration:
-        options.configuration = port.default_configuration()
+        options.configuration = port.get_option('configuration')
+
+    if not options.target:
+        options.target = port.get_option('target')
 
     if not options.timeout_ms:
         options.timeout_ms = str(port.timeout_ms())
@@ -776,9 +778,3 @@ def run(port, options, args, printer):
     _log.debug('Testing completed. Exit status: %d', run_details.exit_code)
     printer.flush()
     return run_details
-
-
-if __name__ == '__main__':
-    if not six.PY2:
-        multiprocessing.set_start_method('spawn')
-    sys.exit(main(sys.argv[1:], sys.stderr))

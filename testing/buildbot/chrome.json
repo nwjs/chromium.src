@@ -1328,6 +1328,7 @@
               "pool": "chrome.tests"
             }
           ],
+          "hard_timeout": 7200,
           "idempotent": false,
           "io_timeout": 3600,
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
@@ -1879,7 +1880,7 @@
       {
         "args": [],
         "cros_board": "atlas",
-        "cros_img": "atlas-release/R106-15054.50.0",
+        "cros_img": "atlas-release/R107-15117.42.0",
         "name": "lacros_all_tast_tests ATLAS_RELEASE_BETA",
         "resultdb": {
           "enable": true,
@@ -1895,7 +1896,7 @@
       {
         "args": [],
         "cros_board": "atlas",
-        "cros_img": "atlas-release/R105-14989.85.0",
+        "cros_img": "atlas-release/R105-14989.107.0",
         "name": "lacros_all_tast_tests ATLAS_RELEASE_STABLE",
         "resultdb": {
           "enable": true,
@@ -1911,7 +1912,7 @@
       {
         "args": [],
         "cros_board": "eve",
-        "cros_img": "eve-release/R106-15054.50.0",
+        "cros_img": "eve-release/R107-15117.67.0",
         "name": "lacros_all_tast_tests EVE_RELEASE_BETA",
         "resultdb": {
           "enable": true,
@@ -1986,7 +1987,7 @@
       {
         "args": [],
         "cros_board": "jacuzzi",
-        "cros_img": "jacuzzi-release/R106-15054.50.0",
+        "cros_img": "jacuzzi-release/R107-15117.66.0",
         "name": "lacros_all_tast_tests JACUZZI_RELEASE_BETA",
         "resultdb": {
           "enable": true,
@@ -2002,7 +2003,7 @@
       {
         "args": [],
         "cros_board": "jacuzzi",
-        "cros_img": "jacuzzi-release/R105-14989.107.0",
+        "cros_img": "jacuzzi-release/R106-15054.114.0",
         "name": "lacros_all_tast_tests JACUZZI_RELEASE_STABLE",
         "resultdb": {
           "enable": true,
@@ -2241,6 +2242,26 @@
         },
         "test": "ash_components_unittests",
         "test_id_prefix": "ninja://ash/components:ash_components_unittests/"
+      },
+      {
+        "ci_only": true,
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "os": "Ubuntu-18.04",
+              "pool": "chrome.tests",
+              "ssd": "0"
+            }
+          ],
+          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "ash_crosapi_browsertests",
+        "test_id_prefix": "ninja://chrome/test:ash_crosapi_browsertests/"
       },
       {
         "merge": {

@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,21 +9,21 @@
 #import "base/metrics/field_trial_params.h"
 #import "components/version_info/channel.h"
 #import "ios/chrome/app/background_mode_buildflags.h"
-#import "ios/chrome/browser/system_flags.h"
+#import "ios/chrome/browser/flags/system_flags.h"
 #import "ios/chrome/common/channel_info.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
 #error "This file requires ARC support."
 #endif
 
-const base::Feature kBlockNewTabPagePendingLoad{
-    "BlockNewTabPagePendingLoad", base::FEATURE_DISABLED_BY_DEFAULT};
-
 const base::Feature kEnableWebChannels{"EnableWebChannels",
                                        base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kEnableFeedBackgroundRefresh{
     "EnableFeedBackgroundRefresh", base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kCreateDiscoverFeedServiceEarly{
+    "CreateDiscoverFeedServiceEarly", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Key for NSUserDefaults containing a bool indicating whether the next run
 // should enable feed backround refresh. This is used because registering for
@@ -51,6 +51,10 @@ bool IsWebChannelsEnabled() {
   return base::FeatureList::IsEnabled(kEnableWebChannels);
 }
 
+bool IsDiscoverFeedServiceCreatedEarly() {
+  return base::FeatureList::IsEnabled(kCreateDiscoverFeedServiceEarly);
+}
+
 bool IsFeedBackgroundRefreshEnabled() {
 #if !BUILDFLAG(IOS_BACKGROUND_MODE_ENABLED)
   return false;
@@ -67,6 +71,16 @@ void SaveFeedBackgroundRefreshEnabledForNextColdStart() {
   [[NSUserDefaults standardUserDefaults]
       setBool:base::FeatureList::IsEnabled(kEnableFeedBackgroundRefresh)
        forKey:kEnableFeedBackgroundRefreshForNextColdStart];
+}
+
+void SetFeedRefreshTimestamp(NSDate* timestamp, NSString* NSUserDefaultsKey) {
+  NSDateFormatter* dateFormatter = [[NSDateFormatter alloc] init];
+  dateFormatter.dateStyle = NSDateFormatterShortStyle;
+  dateFormatter.timeStyle = NSDateFormatterShortStyle;
+  dateFormatter.locale = [NSLocale autoupdatingCurrentLocale];
+  [[NSUserDefaults standardUserDefaults]
+      setObject:[dateFormatter stringFromDate:timestamp]
+         forKey:NSUserDefaultsKey];
 }
 
 bool IsFeedOverrideDefaultsEnabled() {

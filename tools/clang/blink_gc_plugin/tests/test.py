@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2015 The Chromium Authors. All rights reserved.
+# Copyright 2015 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -26,6 +26,12 @@ class BlinkGcPluginTest(plugin_testing.ClangPluginTest):
     clang_cmd.append('-Wno-inaccessible-base')
     if self.use_cppgc:
       clang_cmd.append('-DUSE_V8_OILPAN')
+    clang_cmd.extend([
+        '-Xclang',
+        '-plugin-arg-blink-gc-plugin',
+        '-Xclang',
+        'fix-bugs-of-is-considered-abstract',
+    ])
 
   def ProcessOneResult(self, test_name, actual):
     # Some Blink GC plugins dump a JSON representation of the object graph, and

@@ -23,6 +23,7 @@
 <translation id="1104948393051856124">လက်ခံရန် &amp; ဆက်လုပ်ရန်</translation>
 <translation id="110724200315609752">'ဖွင့်ထားသော ဝင်းဒိုး' သို့ပြောင်းရန်</translation>
 <translation id="1112015203684611006">ပုံနှိပ်ခြင်း မအောင်မြင်ပါ။</translation>
+<translation id="1118569444314402022">ပြန်လည်ကြိုဆိုပါသည် <ph name="USER_NAME" /></translation>
 <translation id="1125564390852150847">တဘ်အသစ်ဖန်တီးပါ</translation>
 <translation id="1126809382673880764">အန္တရာယ်ရှိသော ဝဘ်ဆိုက်၊ ဒေါင်းလုဒ်နှင့် နောက်ဆက်တွဲများ၏ ရန်မှ ကာကွယ်မပေးပါ။ ရနိုင်သည့်အခါ Gmail နှင့် Search ကဲ့သို့ အခြား Google ဝန်ဆောင်မှုများတွင် 'ဘေးကင်းစွာ အင်တာနက်အသုံးပြုခြင်းစနစ်' ကာကွယ်မှုဆက်လက်ရရှိနေပါမည်။</translation>
 <translation id="1135212215217513471">iOS အတွက် Chrome ရယူနိုင်သည်</translation>
@@ -46,6 +47,7 @@
 <translation id="1272079795634619415">ရပ်ရန်</translation>
 <translation id="1275718070701477396">ရွေးထား</translation>
 <translation id="1281818060020671000">ဒေတာ စီမံခြင်း</translation>
+<translation id="1282311502488501110">လက်မှတ်ထိုး မဝင်ပါနှင့်</translation>
 <translation id="1283524564873030414">ပြီးခဲ့သည့် ၂၄ နာရီ</translation>
 <translation id="1285320974508926690">ဒီဆိုက်ကို ဘယ်တော့မှ ဘာသာမပြန်ပါနှင့်</translation>
 <translation id="1291506870746876680">ဤဝဘ်ဆိုက်မှထွက်သည့်အခါ <ph name="BEGIN_BOLD" />“<ph name="SITE_NAME" />”<ph name="END_BOLD" /> အတွက် ခွင့်ပြုချက်များပိတ်ရန် ပြင်ဆင်သတ်မှတ်ပါမည်။</translation>
@@ -54,6 +56,7 @@
 <translation id="1322735045095424339">'ရုပ်ဖျက်မုဒ်' အသုံးပြုရန် သင့်အဖွဲ့အစည်းက သတ်မှတ်ထားသည်</translation>
 <translation id="1323735185997015385">ဖျက်ရန်</translation>
 <translation id="132683371494960526">ပင်ရင်းဖိုင်တွဲကိုပြောင်းရန် နှစ်ချက်တို့ပါ။</translation>
+<translation id="1335348992705722518">ဆက်တင်များကို စီမံရန်…</translation>
 <translation id="1340643665687018190">မီနူးကို ပိတ်ရန်</translation>
 <translation id="1358214951266274152">သင်မိတ္တူကူးထားသော လင့်ခ်ကို ဝင်ကြည့်ပါ</translation>
 <translation id="1360432990279830238">ထွက်ပြီး စင့်ခ်လုပ်ခြင်းကို ပိတ်လိုသလား။</translation>
@@ -61,6 +64,7 @@
 <translation id="1377255359165588604">စင့်ခ်ပြုလုပ်ခြင်း ရပ်တန့်သွားပါပြီ။</translation>
 <translation id="1377321085342047638">ကဒ်နံပါတ်</translation>
 <translation id="1383876407941801731">ရှာဖွေမှု</translation>
+<translation id="138618066238211776"><ph name="USER_NAME" /> အဖြစ် ရှေ့ဆက်ရန်</translation>
 <translation id="1400642268715879018">နောက်ဆုံး ၄ ပတ်</translation>
 <translation id="1404330357948037222">ထွက်ထားပါသည်</translation>
 <translation id="1407135791313364759">အားလုံး ဖွင့်ရန်</translation>
@@ -174,9 +178,11 @@
 <translation id="2421044535038393232">ဆက်လက်တည်းဖြတ်ရန်</translation>
 <translation id="2434405374328098816"><ph name="WEBSITE" /> တွင် “<ph name="USERNAME" />” အတွက် စကားဝှက်ကို သိမ်းပြီးဖြစ်သည်</translation>
 <translation id="2435457462613246316">စကားဝှက်ကို ပြပါ</translation>
+<translation id="2461070143328828326">စကားဝှက် ဆက်တင်များ</translation>
 <translation id="2469960372084740698">ဘေးကင်းစွာ ကြည့်ရှုခြင်းကို ပိတ်မလား။</translation>
 <translation id="2473876017985765807"><ph name="WEBSITE" /> အတွက် စကားဝှက်ကို သိမ်းပြီးဖြစ်သည်</translation>
 <translation id="2476359652512522418">ရွေးမထားပါ</translation>
+<translation id="2482878487686419369">အကြောင်းကြားစာ</translation>
 <translation id="2500374554657206846">'စကားဝှက် သိမ်းရန်' ရွေးစရာများ</translation>
 <translation id="2523363575747517183">ဤဝဘ်ဆိုက်က နောက်ထပ် အပလီကေးရှင်းတစ်ခုကို ထပ်တလဲလဲ ဖွင့်နေပါသည်။</translation>
 <translation id="2529021024822217800">အားလုံးကို ဖွင့်ရန်</translation>
@@ -327,6 +333,7 @@
 <translation id="3709582977625132201">မဖတ်ရသေးအဖြစ် မှတ်သားရန်</translation>
 <translation id="371230970611282515">အန္တရာယ်ရှိသည့် ဖြစ်ရပ်များ မဖြစ်ပွားမီ ခန့်မှန်းပြီး သင့်အား သတိပေးသည်။</translation>
 <translation id="37207012422556617">ခေတ်စားနေသည့် ရှာဖွေမှုများ</translation>
+<translation id="3726360487031500941">သင့်အကောင့် <ph name="USER_NAME" /> သို့ ပြန်လည်လက်မှတ်ထိုးဝင်ပါ</translation>
 <translation id="3740397331642243698">ထည့်သွင်းထားသော URL များကို Google Chrome ရုပ်ဖျက်မုဒ်တွင် ဖွင့်သည်။</translation>
 <translation id="3762232513783804601">သင့် iPad အတွက် ပြုလုပ်ထားသည်</translation>
 <translation id="3771033907050503522">ကိုယ်ပျောက် တဲဘ်များ</translation>
@@ -381,6 +388,7 @@
 <translation id="4187450337729239226">ကူးထည့်ပြီး ရှာရန်</translation>
 <translation id="4223967053752765281">လက်မှတ်ထိုးဝင်ခြင်းကို သင့်အဖွဲ့အစည်းက ပိတ်ထားသည်။ ဤစက်ပေါ်တွင် သင့်လိပ်စာ၊ မှတ်တမ်း၊ စကားဝှက်နှင့် အခြားဆက်တင်များကို ကြည့်နိုင်ပါသေးသည်။ အပြောင်းအလဲများ ပြုလုပ်ပါက ၎င်းတို့ကို သင်၏အကောင့်နှင့် စင့်ခ်လုပ်မည်မဟုတ်ပါ။</translation>
 <translation id="4233831822770018312">ခွင့်ပြုချက်များ ပြင်ဆင်ခြင်း</translation>
+<translation id="4236584471598725073">ဈေးနှုန်း စောင့်ကြည့်ခြင်း</translation>
 <translation id="4237377247299956313"><ph name="BEGIN_BOLD" />မူရင်း ဘရောင်ဇာအက်ပ်<ph name="END_BOLD" /> ကို တို့ပါ</translation>
 <translation id="424315890655130736">စကားဝှက်ကိုထည့်ပါ</translation>
 <translation id="4249955472157341256">နောက်ဆုံးရရှိမှုအလိုက် စီရန်</translation>
@@ -393,6 +401,7 @@
 <translation id="430793432425771671">အားလုံး စင့်ခ်မည်</translation>
 <translation id="4309403553630140242">နောက်ထပ်အချက်အလက်အတွက် နှစ်ချက်တို့ပါ</translation>
 <translation id="430967081421617822">အစအဆုံး</translation>
+<translation id="4324952538601951430">သင်သိမ်းထားသည့် လိပ်စာ၊ စကားဝှက်၊ ဆက်တင် စသည်တို့ကို ဤနေရာတွင် တွေ့ရမည်</translation>
 <translation id="4334428914252001502">မဖတ်ရသေးသော ဆောင်းပါး ၁ ပုဒ်။</translation>
 <translation id="4338650699862464074">သင်ဝင်ကြည့်သည့် စာမျက်နှာများ၏ URL များကို Google သို့ ပို့သည်။</translation>
 <translation id="4343046787186034850">ကင်မရာနှင့် မိုက်ခရိုဖုန်း သုံးခွင့်ပြုထားသည်</translation>
@@ -471,6 +480,7 @@
 <translation id="4901778704868714008">သိမ်းရန်...</translation>
 <translation id="4904877109095351937">ဖတ်ပြီးကြောင်း အမှတ်အသားလုပ်ရန်</translation>
 <translation id="4908869848243824489">Discover by Google</translation>
+<translation id="4916679969857390442">မှန်ဘီလူး</translation>
 <translation id="4930714375720679147">ဖွင့်ရန်</translation>
 <translation id="4941089862236492464">ဝမ်းနည်းပါသည်၊ သင့်အကြောင်းအရာကို မျှဝေရာတွင် ပြဿနာတစ်ခုရှိနေသည်။</translation>
 <translation id="4944543191714094452">စာမျက်နှာတွင် ရှာရန်…</translation>
@@ -737,6 +747,7 @@ Handoff ကို ဆက်တင်များ၏ ယေဘူယျအပိ�
 <translation id="6930799952781667037">ဤဘာသာစကားသို့ ပြောင်းရန် တို့ပါ</translation>
 <translation id="6944369514868857500">အခြားအကောင့် ရွေးရန်</translation>
 <translation id="6945221475159498467">ရွေးရန်</translation>
+<translation id="6965382102122355670">OK</translation>
 <translation id="6973630695168034713">ဖိုင်တွဲ</translation>
 <translation id="6979158407327259162">Google Drive</translation>
 <translation id="6988572888918530647">သင့် Google Account ကို စီမံခြင်း</translation>
@@ -765,7 +776,6 @@ Handoff ကို ဆက်တင်များ၏ ယေဘူယျအပိ�
 <translation id="7192050974311852563">မှတ်တမ်းစတင်ရန်</translation>
 <translation id="7203585745079012652">အဖြေများကို ပြန်လည်ပြောကြားမည်</translation>
 <translation id="7207023858769244910">သင့်စိတ်ဝင်စားမှုများအပေါ် အခြေခံသည့် အကြောင်းအရာများ ရယူရန် စင့်ခ်လုပ်နိုင်သည်။</translation>
-<translation id="7207383424303353046">အသစ်- Chrome ကို 'မူရင်း ဘရောင်ဇာအက်ပ်' ပြုလုပ်ခြင်းဖြင့် ဝဘ်ဆိုက်များကို ၎င်းတွင် အလိုအလျောက်ဖွင့်နိုင်သည်။ <ph name="BEGIN_LINK" />ဆက်တင်များ ဖွင့်ရန်<ph name="END_LINK" /></translation>
 <translation id="721597782417389033">မမှန်ကန်သော ကတ်နာမည်ပြောင်</translation>
 <translation id="722454870747268814">ရုပ်ဖျက်တဘ်အသစ်</translation>
 <translation id="7265758999917665941">ဤဝဘ်ဆိုက်အတွက် လုံးဝမလုပ်ရန်</translation>
@@ -915,7 +925,6 @@ Handoff ကို ဆက်တင်များ၏ ယေဘူယျအပိ�
 <translation id="8533670235862049797">'လုံခြုံစွာ ဖွင့်ကြည့်ခြင်း' ကို ဖွင့်ထားသည်</translation>
 <translation id="8534481786647257214">Google+ မှာ တင်ပြခြင်း ပြီးစီးပါပြီ။</translation>
 <translation id="8548878600947630424">...စာမျက်နှာတွင်ရှာပါ</translation>
-<translation id="8574235780160508979">'Chrome ၏ ဝန်ဆောင်မှု စည်းမျဉ်းများ' ကို မတ် ၃၁ တွင် ပြောင်းပါမည်။ <ph name="BEGIN_LINK" />ပြန်ကြည့်ပေးပါ<ph name="END_LINK" /></translation>
 <translation id="8588404856427128947">ပိတ်ရန်</translation>
 <translation id="8590913940444621808">ဘယ်တော့မှမမေးပါနှင့်</translation>
 <translation id="8591976964826315682">ရုပ်ဖျက်မုဒ်တွင် ပြင်ပအဖွဲ့၏ကွတ်ကီးများကို ပိတ်ထားရန်</translation>

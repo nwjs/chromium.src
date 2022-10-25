@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -21,6 +21,7 @@
 #include "build/buildflag.h"
 #include "chrome/browser/apps/app_service/app_icon/app_icon_factory.h"
 #include "chrome/browser/apps/app_service/app_icon/icon_key_util.h"
+#include "chrome/browser/apps/app_service/launch_result_type.h"
 #include "chrome/browser/apps/app_service/paused_apps.h"
 #include "chrome/browser/web_applications/app_registrar_observer.h"
 #include "chrome/browser/web_applications/user_display_mode.h"
@@ -125,12 +126,13 @@ class WebAppPublisherHelper : public AppRegistrarObserver,
   WebAppPublisherHelper(Profile* profile,
                         WebAppProvider* provider,
                         ash::SystemWebAppManager* swa_manager,
-                        apps::AppType app_type,
                         Delegate* delegate,
                         bool observe_media_requests);
   WebAppPublisherHelper(const WebAppPublisherHelper&) = delete;
   WebAppPublisherHelper& operator=(const WebAppPublisherHelper&) = delete;
   ~WebAppPublisherHelper() override;
+
+  static apps::AppType GetWebAppType();
 
   // Indicates if |permission_type| is supported by Web Applications.
   static bool IsSupportedWebAppPermissionType(
@@ -220,7 +222,7 @@ class WebAppPublisherHelper : public AppRegistrarObserver,
                            apps::IntentPtr intent,
                            apps::LaunchSource launch_source,
                            apps::WindowInfoPtr window_info,
-                           base::OnceCallback<void(bool)> callback);
+                           apps::LaunchCallback callback);
 
   content::WebContents* LaunchAppWithParams(apps::AppLaunchParams params);
 
@@ -234,8 +236,7 @@ class WebAppPublisherHelper : public AppRegistrarObserver,
 
   apps::WindowMode GetWindowMode(const std::string& app_id);
 
-  void SetWindowMode(const std::string& app_id,
-                     apps::mojom::WindowMode window_mode);
+  void SetWindowMode(const std::string& app_id, apps::WindowMode window_mode);
 
   void SetRunOnOsLoginMode(const std::string& app_id,
                            apps::mojom::RunOnOsLoginMode run_on_os_login_mode);
@@ -371,6 +372,8 @@ class WebAppPublisherHelper : public AppRegistrarObserver,
       ContentSettingsTypeSet content_type_set) override;
 
   void Init(bool observe_media_requests);
+
+  void ObserveWebAppSubsystems();
 
   apps::IconEffects GetIconEffects(const WebApp* web_app);
 

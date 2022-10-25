@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors. All rights reserved.
+// Copyright 2015 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -81,7 +81,7 @@ base::flat_set<std::string> GetIMEsFromPref(PrefService* prefs,
 // Returns the set of allowed UI locales.
 base::flat_set<std::string> GetAllowedLanguages(PrefService* prefs) {
   const auto& allowed_languages_values =
-      prefs->GetValueList(prefs::kAllowedLanguages);
+      prefs->GetList(prefs::kAllowedLanguages);
   return base::MakeFlatSet<std::string>(
       allowed_languages_values, {},
       [](const auto& locale_value) { return locale_value.GetString(); });
@@ -245,23 +245,23 @@ LanguageSettingsPrivateGetLanguageListFunction::Run() {
 
     // Set optional fields only if they differ from the default.
     if (base::Contains(spellcheck_language_set, entry.code)) {
-      language.supports_spellcheck = std::make_unique<bool>(true);
+      language.supports_spellcheck = true;
     }
     if (entry.supports_translate) {
-      language.supports_translate = std::make_unique<bool>(true);
+      language.supports_translate = true;
     }
 
     if (l10n_util::IsUserFacingUILocale(entry.code)) {
-      language.supports_ui = std::make_unique<bool>(true);
+      language.supports_ui = true;
     }
 #if BUILDFLAG(IS_CHROMEOS_ASH)
     if (!allowed_ui_locales.empty() &&
         !base::Contains(allowed_ui_locales, language.code)) {
-      language.is_prohibited_language = std::make_unique<bool>(true);
+      language.is_prohibited_language = true;
     }
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
-    language_list_.Append(base::Value::FromUniquePtrValue(language.ToValue()));
+    language_list_.Append(language.ToValue());
   }
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -273,7 +273,7 @@ LanguageSettingsPrivateGetLanguageListFunction::Run() {
     language.code = ash::extension_ime_util::kArcImeLanguage;
     language.display_name =
         l10n_util::GetStringUTF8(IDS_SETTINGS_LANGUAGES_KEYBOARD_APPS);
-    language_list_.Append(base::Value::FromUniquePtrValue(language.ToValue()));
+    language_list_.Append(base::Value(language.ToValue()));
   }
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
@@ -297,7 +297,7 @@ LanguageSettingsPrivateGetLanguageListFunction::Run() {
   }
 #endif  // BUILDFLAG(IS_WIN)
 
-  return RespondNow(OneArgument(base::Value(std::move(language_list_))));
+  return RespondNow(WithArguments(std::move(language_list_)));
 #endif
 }
 
@@ -305,7 +305,7 @@ LanguageSettingsPrivateGetLanguageListFunction::Run() {
 void LanguageSettingsPrivateGetLanguageListFunction::
     OnDictionariesInitialized() {
   UpdateSupportedPlatformDictionaries();
-  Respond(OneArgument(base::Value(std::move(language_list_))));
+  Respond(WithArguments(std::move(language_list_)));
   // Matches the AddRef in Run().
   Release();
 }
@@ -441,7 +441,7 @@ LanguageSettingsPrivateGetAlwaysTranslateLanguagesFunction::Run() {
     always_translate_languages_->Append(entry);
   }
 
-  return RespondNow(OneArgument(
+  return RespondNow(WithArguments(
       base::Value::FromUniquePtrValue(std::move(always_translate_languages_))));
 #endif
   return RespondNow(NoArguments());
@@ -484,11 +484,11 @@ LanguageSettingsPrivateGetNeverTranslateLanguagesFunction::Run() {
   std::vector<std::string> languages =
       translate_prefs->GetNeverTranslateLanguages();
 
-  base::Value never_translate_languages(base::Value::Type::LIST);
+  base::Value::List never_translate_languages;
   for (auto& entry : languages) {
     never_translate_languages.Append(std::move(entry));
   }
-  return RespondNow(OneArgument(std::move(never_translate_languages)));
+  return RespondNow(WithArguments(std::move(never_translate_languages)));
 #endif
   return RespondNow(NoArguments());
 }
@@ -576,7 +576,7 @@ LanguageSettingsPrivateGetSpellcheckWordsFunction::Run() {
 
   if (dictionary->IsLoaded())
     return RespondNow(
-        OneArgument(base::Value::FromUniquePtrValue(GetSpellcheckWords())));
+        WithArguments(base::Value::FromUniquePtrValue(GetSpellcheckWords())));
 
   dictionary->AddObserver(this);
   AddRef();  // Balanced in OnCustomDictionaryLoaded().
@@ -588,7 +588,7 @@ void LanguageSettingsPrivateGetSpellcheckWordsFunction::
   SpellcheckService* service =
       SpellcheckServiceFactory::GetForContext(browser_context());
   service->GetCustomDictionary()->RemoveObserver(this);
-  Respond(OneArgument(base::Value::FromUniquePtrValue(GetSpellcheckWords())));
+  Respond(WithArguments(base::Value::FromUniquePtrValue(GetSpellcheckWords())));
   Release();
 }
 
@@ -638,7 +638,7 @@ LanguageSettingsPrivateAddSpellcheckWordFunction::Run() {
   }
 #endif
 
-  return RespondNow(OneArgument(base::Value(success)));
+  return RespondNow(WithArguments(success));
 }
 
 LanguageSettingsPrivateRemoveSpellcheckWordFunction::
@@ -664,7 +664,7 @@ LanguageSettingsPrivateRemoveSpellcheckWordFunction::Run() {
   }
 #endif
 
-  return RespondNow(OneArgument(base::Value(success)));
+  return RespondNow(WithArguments(success));
 }
 
 LanguageSettingsPrivateGetTranslateTargetLanguageFunction::
@@ -679,9 +679,9 @@ LanguageSettingsPrivateGetTranslateTargetLanguageFunction::Run() {
   language::LanguageModel* language_model =
       LanguageModelManagerFactory::GetForBrowserContext(browser_context())
           ->GetPrimaryModel();
-  return RespondNow(OneArgument(base::Value(TranslateService::GetTargetLanguage(
+  return RespondNow(WithArguments(TranslateService::GetTargetLanguage(
       Profile::FromBrowserContext(browser_context())->GetPrefs(),
-      language_model))));
+      language_model)));
 #else
   return RespondNow(NoArguments());
 #endif
@@ -750,11 +750,11 @@ void PopulateInputMethodListFromDescriptors(
     input_method.language_codes = descriptor.language_codes();
     input_method.tags = GetInputMethodTags(&input_method);
     if (base::Contains(enabled_ids, input_method.id))
-      input_method.enabled = std::make_unique<bool>(true);
+      input_method.enabled = true;
     if (descriptor.options_page_url().is_valid())
-      input_method.has_options_page = std::make_unique<bool>(true);
+      input_method.has_options_page = true;
     if (!allowed_ids.empty() && !base::Contains(allowed_ids, input_method.id)) {
-      input_method.is_prohibited_by_policy = std::make_unique<bool>(true);
+      input_method.is_prohibited_by_policy = true;
     }
     input_map[base::UTF8ToUTF16(util->GetLocalizedDisplayName(descriptor))] =
         std::move(input_method);
@@ -796,8 +796,7 @@ LanguageSettingsPrivateGetInputMethodListsFunction::Run() {
         ext_ime_descriptors, &input_method_lists.third_party_extension_imes);
   }
 
-  return RespondNow(OneArgument(
-      base::Value::FromUniquePtrValue(input_method_lists.ToValue())));
+  return RespondNow(WithArguments(input_method_lists.ToValue()));
 #endif
 }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -120,8 +120,8 @@ TestRunner::TestRunner(JobLevel job_level,
   if (!policy_)
     return;
 
-  policy_->SetJobLevel(job_level, 0);
-  policy_->SetTokenLevel(startup_token, main_token);
+  policy_->GetConfig()->SetJobLevel(job_level, 0);
+  policy_->GetConfig()->SetTokenLevel(startup_token, main_token);
 
   is_init_ = true;
 }
@@ -207,7 +207,7 @@ int TestRunner::InternalRunTest(const wchar_t* command) {
   }
 
   if (disable_csrss_)
-    policy_->SetDisconnectCsrss();
+    policy_->GetConfig()->SetDisconnectCsrss();
 
   // Get the path to the sandboxed process.
   wchar_t prog_name[MAX_PATH];

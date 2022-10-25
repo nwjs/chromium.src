@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -29,6 +29,7 @@ class SocketTag;
 namespace network {
 
 class BrokeredClientSocketFactory;
+class TransferableSocket;
 
 // A client socket used exclusively with a socket broker. Currently intended for
 // Windows and Android only. Not intended to be used by non-brokered
@@ -104,7 +105,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) TCPClientSocketBrokered
   void DidCompleteConnect(net::CompletionOnceCallback callback, int result);
 
   void DidCompleteCreate(net::CompletionOnceCallback callback,
-                         mojo::PlatformHandle fd,
+                         network::TransferableSocket socket,
                          int result);
 
   // The list of addresses we should try in order to establish a connection.

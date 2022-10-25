@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors. All rights reserved.
+// Copyright 2015 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -124,6 +124,11 @@ const base::Feature kMuteCompromisedPasswords {
 #endif
 };
 
+// Decides how long the user does not require reuathentication after
+// successfully authenticated.
+const base::FeatureParam<base::TimeDelta> kPasswordNotesAuthValidity{
+    &kPasswordNotes, "authentication_validity_duration", base::Minutes(5)};
+
 // Enables adding, displaying and modifying extra notes to stored credentials.
 // When enabled, "PasswordViewPageInSettings" feature is ignored and the new
 // password view subpage is force enabled.
@@ -180,6 +185,12 @@ const base::Feature kPasswordReuseDetectionEnabled = {
 const base::Feature kPasswordScriptsFetching = {
     "PasswordScriptsFetching", base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Enables requesting and saving passwords grouping information from the
+// affiliation service.
+// TODO(crbug.com/1359392): Remove once launched.
+const base::Feature kPasswordsGrouping = {"PasswordsGrouping",
+                                          base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Enables showing UI which allows users to easily revert their choice to
 // never save passwords on a certain website.
 const base::Feature kRecoverFromNeverSaveAndroid = {
@@ -200,7 +211,7 @@ const base::Feature kSkipUndecryptablePasswords = {
 // When enabled, all undecryptable passwords are deleted from the local database
 // during initial sync flow.
 const base::Feature kSyncUndecryptablePasswordsLinux = {
-    "SyncUndecryptablePasswordsLinux", base::FEATURE_DISABLED_BY_DEFAULT};
+    "SyncUndecryptablePasswordsLinux", base::FEATURE_ENABLED_BY_DEFAULT};
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
@@ -236,11 +247,13 @@ const base::Feature kUnifiedPasswordManagerErrorMessages{
 const base::Feature kUnifiedPasswordManagerSyncUsingAndroidBackendOnly{
     "UnifiedPasswordManagerSyncUsingAndroidBackendOnly",
     base::FEATURE_DISABLED_BY_DEFAULT};
-#endif
 
-// TODO(crbug.com/1310270): Remove after full launch and cleaning up the code.
-const base::Feature kUnifiedPasswordManagerDesktop = {
-    "UnifiedPasswordManagerDesktop", base::FEATURE_ENABLED_BY_DEFAULT};
+// Enables automatic reenrollment into the Unified Password Manager for clients
+// that were previously evicted after experiencing errors.
+const base::Feature kUnifiedPasswordManagerReenrollment{
+             "UnifiedPasswordManagerReenrollment",
+             base::FEATURE_DISABLED_BY_DEFAULT};
+#endif
 
 // Enables support of sending additional votes on username first flow. The votes
 // are sent on single password forms and contain information about preceding
@@ -256,6 +269,23 @@ const base::Feature kUsernameFirstFlowFallbackCrowdsourcing = {
 // is lower than 'kMigrationVersion' passwords will be re-uploaded.
 extern const base::FeatureParam<int> kMigrationVersion = {
     &kUnifiedPasswordManagerAndroid, "migration_version", 1};
+
+// The maximum possible number of reenrollments into the UPM. Needed to avoid a
+// patchy experience for users who experience errors in communication with
+// Google Mobile Services on a regular basis.
+extern const base::FeatureParam<int> kMaxUPMReenrollments = {
+    &kUnifiedPasswordManagerReenrollment, "max_reenrollments", 0};
+
+// The maximum possible number of reenrollment migration attempts. Needed to
+// avoid wasting resources of users who have persistent errors.
+extern const base::FeatureParam<int> kMaxUPMReenrollmentAttempts = {
+    &kUnifiedPasswordManagerReenrollment, "max_reenrollment_attempts", 0};
+
+// Whether to ignore the 24h timeout in between auth error messages as
+// well as the 30 mins distance to sync error messages.
+extern const base::FeatureParam<bool> kIgnoreAuthErrorMessageTimeouts = {
+    &kUnifiedPasswordManagerErrorMessages, "ignore_auth_error_message_timeouts",
+    false};
 #endif
 
 // Field trial identifier for password generation requirements.

@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -68,7 +68,8 @@ class FakeFileSystemAccessPermissionContext
   // Retrieves a path which was earlier specified via SetWellKnownDirectoryPath.
   // Otherwise, returns an empty path.
   base::FilePath GetWellKnownDirectoryPath(
-      blink::mojom::WellKnownDirectory directory) override;
+      blink::mojom::WellKnownDirectory directory,
+      const url::Origin& origin) override;
 
   // Returns `kPickerTitle`.
   std::u16string GetPickerTitle(

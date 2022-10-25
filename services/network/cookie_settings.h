@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors. All rights reserved.
+// Copyright 2018 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,7 +16,7 @@
 #include "net/base/features.h"
 #include "net/base/network_delegate.h"
 #include "net/cookies/canonical_cookie.h"
-#include "net/cookies/same_party_context.h"
+#include "net/first_party_sets/same_party_context.h"
 #include "services/network/public/cpp/session_cookie_delete_predicate.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 

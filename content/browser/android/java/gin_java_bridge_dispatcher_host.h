@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -24,6 +24,8 @@ class ListValue;
 }
 
 namespace content {
+
+class WebContentsImpl;
 
 // This class handles injecting Java objects into a single WebContents /
 // WebView. The Java object itself lives in the browser process on a background
@@ -86,6 +88,7 @@ class GinJavaBridgeDispatcherHost
 
   // Run on the UI thread.
   void InstallFilterAndRegisterAllRoutingIds();
+  WebContentsImpl* web_contents() const;
 
   // Run on any thread.
   GinJavaBoundObject::ObjectID AddObject(

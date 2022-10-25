@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -221,7 +221,7 @@ bool DevToolsAgentHostImpl::AttachClient(DevToolsAgentHostClient* client) {
   if (SessionByClient(client))
     return false;
   return AttachInternal(
-      std::make_unique<DevToolsSession>(client, /*session_id=*/""),
+      std::make_unique<DevToolsSession>(client, GetSessionMode()),
       /*acquire_wake_lock=*/true);
 }
 
@@ -230,7 +230,7 @@ bool DevToolsAgentHostImpl::AttachClientWithoutWakeLock(
   if (SessionByClient(client))
     return false;
   return AttachInternal(
-      std::make_unique<DevToolsSession>(client, /*session_id=*/""),
+      std::make_unique<DevToolsSession>(client, GetSessionMode()),
       /*acquire_wake_lock=*/false);
 }
 
@@ -334,6 +334,10 @@ void DevToolsAgentHostImpl::DisconnectWebContents() {
 }
 
 void DevToolsAgentHostImpl::ConnectWebContents(WebContents* wc) {
+}
+
+DevToolsSession::Mode DevToolsAgentHostImpl::GetSessionMode() {
+  return DevToolsSession::Mode::kDoesNotSupportTabTarget;
 }
 
 bool DevToolsAgentHostImpl::Inspect() {

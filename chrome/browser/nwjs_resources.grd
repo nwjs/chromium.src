@@ -110,9 +110,12 @@
       <if expr="not is_android">
         <!-- Page not available for guest. -->
         <include name="IDR_PAGE_NOT_AVAILABLE_FOR_GUEST_APP_HTML" file="resources\page_not_available_for_guest\app.html" type="BINDATA" />
-        <include name="IDR_INLINE_LOGIN_HTML" file="resources\inline_login\inline_login.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
-        <include name="IDR_INLINE_LOGIN_APP_JS" file="${root_gen_dir}\chrome\browser\resources\inline_login\inline_login_app.js" use_base_dir="false" type ="BINDATA" preprocess="true" />
-        <include name="IDR_INLINE_LOGIN_BROWSER_PROXY_JS" file="resources\inline_login\inline_login_browser_proxy.js" type ="BINDATA"/>
+        <!-- In-session login flow -->
+        <include name="IDR_INLINE_LOGIN_HTML" file="resources\inline_login\inline_login.html" type="BINDATA" />
+        <include name="IDR_INLINE_LOGIN_APP_JS" file="${root_gen_dir}\chrome\browser\resources\inline_login\preprocessed\inline_login_app.js" use_base_dir="false" type ="BINDATA" />
+        <include name="IDR_INLINE_LOGIN_APP_HTML_JS" file="${root_gen_dir}\chrome\browser\resources\inline_login\preprocessed\inline_login_app.html.js" use_base_dir="false" type ="BINDATA" />
+        <include name="IDR_INLINE_LOGIN_BROWSER_PROXY_JS" file="${root_gen_dir}\chrome\browser\resources\inline_login\preprocessed\inline_login_browser_proxy.js" use_base_dir="false" type ="BINDATA"/>
+        <include name="IDR_GAIA_AUTH_WEBVIEW_SAML_INJECTED_JS" file="resources\gaia_auth_host\webview_saml_injected.js" flattenhtml="true" type="BINDATA" />
       </if>
       <include name="IDR_CRASHES_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_CRASHES_JS" file="resources\empty.js" type="BINDATA" />
@@ -125,7 +128,6 @@
         <include name="IDR_EXTENSION_COMMAND_LIST_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />
         <include name="IDR_EXTENSION_LIST_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />
         <include name="IDR_EXTENSIONS_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />
-        <include name="IDR_GAIA_AUTH_WEBVIEW_SAML_INJECTED_JS" file="resources\gaia_auth_host\webview_saml_injected.js" flattenhtml="true" type="BINDATA" />
       </if>
       <if expr="not is_android">
         <include name="IDR_DOWNLOADS_IMAGES_INCOGNITO_MARKER_SVG" file="resources\downloads\images\incognito_marker.svg" type="BINDATA" />
@@ -218,18 +220,6 @@
       <include name="IDR_MEMORY_INTERNALS_JS" file="resources\empty.js" type="BINDATA" />
       <if expr="enable_plugins">
         <include name="IDR_PDF_MANIFEST" file="resources\pdf\manifest.json" type="BINDATA" />
-      </if>
-      <if expr="is_win">
-        <include name="IDR_PLUGIN_DB_JSON" file="resources\plugin_metadata\plugins_win.json" type="BINDATA" />
-      </if>
-      <if expr="is_macosx">
-        <include name="IDR_PLUGIN_DB_JSON" file="resources\plugin_metadata\plugins_mac.json" type="BINDATA" />
-      </if>
-      <if expr="chromeos_ash">
-        <include name="IDR_PLUGIN_DB_JSON" file="resources\plugin_metadata\plugins_chromeos.json" type="BINDATA" />
-      </if>
-      <if expr="is_linux or chromeos_lacros">
-        <include name="IDR_PLUGIN_DB_JSON" file="resources\plugin_metadata\plugins_linux.json" type="BINDATA" />
       </if>
       <if expr="is_android">
         <include name="IDR_POLICY_CSS" file="resources\empty.css" type="BINDATA"/>

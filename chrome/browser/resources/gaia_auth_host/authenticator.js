@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,7 +6,7 @@
 // Note: webview_event_manager.js is already included by saml_handler.js.
 
 // clang-format off
-// #import {NativeEventTarget as EventTarget} from 'chrome://resources/js/cr/event_target.m.js'
+// #import {NativeEventTarget as EventTarget} from 'chrome://resources/js/cr/event_target.js'
 // #import {assert} from 'chrome://resources/js/assert.m.js';
 // #import {$, appendParam} from 'chrome://resources/js/util.m.js';
 // #import {sendWithPromise, getPropertyDescriptor} from 'chrome://resources/js/cr.m.js';
@@ -252,7 +252,7 @@ cr.define('cr.login', function() {
    */
   const messageHandlers = {
     'attemptLogin'(msg) {
-      this.email_ = msg.email;
+      this.setEmail_(msg.email);
       if (this.authMode === AuthMode.DESKTOP) {
         this.password_ = msg.password;
       }
@@ -281,6 +281,7 @@ cr.define('cr.login', function() {
           new CustomEvent('menuItemClicked', {detail: msg.item}));
     },
     'identifierEntered'(msg) {
+      this.setEmail_(msg.accountIdentifier);
       this.dispatchEvent(new CustomEvent(
           'identifierEntered',
           {detail: {accountIdentifier: msg.accountIdentifier}}));
@@ -385,24 +386,34 @@ cr.define('cr.login', function() {
     constructor(webview) {
       super();
 
+      // --------------------  SPECIAL PROPERTIES ---------------------
+      // Whenever these properties change, an event is fired to notify
+      // observers of the change. Event name: [propertyNameChange]
+      // Refer to the bottom of the class definition for more details.
+      //
+      /** @type {AuthFlow} The current auth flow of the hosted page.*/
+      this.authFlow = AuthFlow.DEFAULT;
+      /** @type {string} The domain name of the current auth page. */
+      this.authDomain = '';
+      /** @type {boolean}  Whether media access was requested. */
+      this.videoEnabled = false;
+      // --------------------  SPECIAL PROPERTIES ---------------------
+
       this.isLoaded_ = false;
       this.email_ = null;
       this.password_ = null;
       this.gaiaId_ = null, this.sessionIndex_ = null;
       this.chooseWhatToSync_ = false;
       this.skipForNow_ = false;
-      this.authFlow = AuthFlow.DEFAULT;
       /** @type {AuthMode} */
       this.authMode = AuthMode.DEFAULT;
       this.dontResizeNonEmbeddedPages = false;
 
-      this.authDomain = '';
       /**
        * @type {!cr.login.SamlHandler|undefined}
        * @private
        */
       this.samlHandler_ = undefined;
-      this.videoEnabled = false;
       this.idpOrigin_ = null;
       this.initialFrameUrl_ = null;
       this.reloadUrl_ = null;
@@ -520,7 +531,7 @@ cr.define('cr.login', function() {
       this.webviewEventManager_.addEventListener(
           this.samlHandler_, 'authPageLoaded', e => this.onAuthPageLoaded_(e));
       this.webviewEventManager_.addEventListener(
-          this.samlHandler_, 'videoEnabled', e => this.onVideoEnabled_(e));
+          this.samlHandler_, 'videoEnabled', () => this.videoEnabled = true);
       this.webviewEventManager_.addEventListener(
           this.samlHandler_, 'apiPasswordAdded',
           e => this.onSamlApiPasswordAdded_(e));
@@ -652,7 +663,7 @@ cr.define('cr.login', function() {
       this.initialFrameUrl_ = this.constructInitialFrameUrl_(data);
       this.reloadUrl_ = data.frameUrl || this.initialFrameUrl_;
       this.samlAclUrl_ = data.samlAclUrl;
-      this.email_ = data.email;
+      this.setEmail_(data.email);
 
       if (data.startsOnSamlPage) {
         this.samlHandler_.startsOnSamlPage = true;
@@ -663,7 +674,6 @@ cr.define('cr.login', function() {
           this.idpOrigin_.startsWith('https://');
       this.samlHandler_.extractSamlPasswordAttributes =
           data.extractSamlPasswordAttributes;
-      this.samlHandler_.email = data.email;
       this.samlHandler_.urlParameterToAutofillSAMLUsername =
           data.urlParameterToAutofillSAMLUsername;
 
@@ -889,8 +899,7 @@ cr.define('cr.login', function() {
 
     /**
      * Invoked when headers are received in the main frame of the webview. It
-     * 1) reads the authenticated user info from a signin header,
-     * 2) signals the start of a saml flow upon receiving a saml header.
+     * reads the authenticated user info from a signin header.
      * @param {OnHeadersReceivedDetails} details
      * @private
      */
@@ -919,7 +928,8 @@ cr.define('cr.login', function() {
             signinDetails[pair[0].trim()] = pair[1].trim();
           });
           // Removes "" around.
-          this.email_ = signinDetails['email'].slice(1, -1);
+          const email = signinDetails['email'].slice(1, -1);
+          this.setEmail_(email);
           this.gaiaId_ = signinDetails['obfuscatedid'].slice(1, -1);
           this.sessionIndex_ = signinDetails['sessionindex'];
         } else if (headerName === LOCATION_HEADER) {
@@ -1228,14 +1238,6 @@ cr.define('cr.login', function() {
     }
 
     /**
-     * Invoked when |samlHandler_| fires 'videoEnabled' event.
-     * @private
-     */
-    onVideoEnabled_(e) {
-      this.videoEnabled = true;
-    }
-
-    /**
      * Invoked when |samlHandler_| fires 'apiPasswordAdded' event. Could be from
      * 3rd-party SAML IdP or Gaia which also uses the API.
      * @private
@@ -1435,38 +1437,29 @@ cr.define('cr.login', function() {
       window.clearTimeout(this.gaiaDoneTimer_);
       this.gaiaDoneTimer_ = null;
     }
+
+    /**
+     * Set the user's email.
+     * @param {string} email New email value.
+     * @private
+     */
+    setEmail_(email) {
+      this.email_ = email;
+      this.samlHandler_.email = email;
+    }
   }
 
-  /**
-   * The current auth flow of the hosted auth page.
-   * @type {AuthFlow}
-   */
-  Authenticator.prototype.authFlow;
-  Object.defineProperty(
-      Authenticator.prototype, 'authFlow',
-      cr.getPropertyDescriptor('authFlow'));
-
-  /**
-   * The domain name of the current auth page.
-   * @type {string}
-   */
-  Authenticator.prototype.authDomain;
-  Object.defineProperty(
-      Authenticator.prototype, 'authDomain',
-      cr.getPropertyDescriptor('authDomain'));
-
-  /**
-   * True if the page has requested media access.
-   * @type {boolean}
-   */
-  Authenticator.prototype.videoEnabled;
-  Object.defineProperty(
-      Authenticator.prototype, 'videoEnabled',
-      cr.getPropertyDescriptor('videoEnabled'));
-
-  Authenticator.AuthFlow = AuthFlow;
-  Authenticator.AuthMode = AuthMode;
-  Authenticator.SUPPORTED_PARAMS = SUPPORTED_PARAMS;
+  // ---------------------  SPECIAL PROPERTIES ----------------------
+  // These properties are special since they fire an event whenever
+  // they change. The event name is 'propertyNameChange' and it is
+  // used by the Custom Elements that use the Authenticator to listen
+  // for changes.
+  Object.defineProperties(Authenticator.prototype, {
+    'authFlow': cr.getPropertyDescriptor('authFlow'),
+    'authDomain': cr.getPropertyDescriptor('authDomain'),
+    'videoEnabled': cr.getPropertyDescriptor('videoEnabled'),
+  });
+  // ---------------------  SPECIAL PROPERTIES ----------------------
 
   // #cr_define_end
   return {Authenticator: Authenticator};

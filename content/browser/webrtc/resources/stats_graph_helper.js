@@ -1,4 +1,4 @@
-// Copyright (c) 2013 The Chromium Authors. All rights reserved.
+// Copyright 2013 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -246,6 +246,15 @@ export function drawSingleReport(
     if (!graphViews[graphViewId]) {
       graphViews[graphViewId] =
           createStatsGraphView(peerConnectionElement, report, graphType);
+      const searchParameters = new URLSearchParams(window.location.search);
+      if (searchParameters.has('statsInterval')) {
+        const statsInterval = Math.max(
+            parseInt(searchParameters.get('statsInterval'), 10),
+            100);
+        if (isFinite(statsInterval)) {
+          graphViews[graphViewId].setScale(statsInterval);
+        }
+      }
       const date = new Date(stats.timestamp);
       graphViews[graphViewId].setDateRange(date, date);
     }

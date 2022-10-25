@@ -31,6 +31,7 @@
 <translation id="1587223624401073077">‏Google Chrome آپ کا کیمرا استعمال کر رہا ہے۔</translation>
 <translation id="1587325591171447154">‏<ph name="FILE_NAME" /> خطرناک ہے، اس لیے Chrome نے اسے مسدود کر دیا ہے۔</translation>
 <translation id="1597911401261118146">‏یہ دیکھنے کے لئے کہ آیا آپ کے پاس ورڈز ڈیٹا کی خلاف ورزیوں اور دیگر سیکیورٹی مسائل سے محفوظ ہیں، <ph name="BEGIN_LINK" />Chrome میں سائن ان کریں<ph name="END_LINK" />۔</translation>
+<translation id="1599904803480101533">‏Chrome نے اس آرکائیو فائل کو مسدود کر دیا کیونکہ یہ میلوئیر کو پوشیدہ رکھ سکتی ہے</translation>
 <translation id="1619887657840448962">‏Chrome کو محفوظ تر بنانے کیلئے، ہم نے مندرجہ ذیل ایکسٹینشن کو غیر فعال کر دیا ہے جو <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> میں مندرج نہیں ہے اور ممکن ہے کہ اسے آپ کے علم کے بغیر شامل کر دیا گیا ہو۔</translation>
 <translation id="1627304841979541023">‏<ph name="BEGIN_BOLD" />آپ کس طرح اپنے ڈیٹا کا نظم کر سکتے ہیں:<ph name="END_BOLD" /> آپ کی رازداری کے تحفظ کے لئے، ہم 4 ہفتے سے زیادہ پرانی آپ کی دلچسپیوں کو خودکار طور پر حذف کر دیتے ہیں۔ جب تک آپ براؤزنگ جاری رکھتے ہیں، فہرست پر دلچسپی دوبارہ ظاہر ہو سکتی ہے۔ یا آپ ان دلچسپیوں کو ہٹا سکتے ہیں جنہیں آپ چاہتے ہیں کہ Chrome نہ دکھائے۔</translation>
 <translation id="1628000112320670027">‏Chrome کے بارے میں مدد حاصل کریں</translation>
@@ -60,6 +61,7 @@
 <translation id="2094648590148273905">‏ChromeOS Flex کی شرائط</translation>
 <translation id="2094919256425865063">‏بہر حال Chrome بند کریں؟</translation>
 <translation id="2106831557840787829">‏hromeOS Flex کو اضافی <ph name="BEGIN_LINK_CROS_OSS" />اوپن سورس سافٹ ویئر<ph name="END_LINK_CROS_OSS" /> کے ذریعے ممکن بنایا گیا ہے، جیسے کہ <ph name="BEGIN_LINK_LINUX_OSS" />Linux ڈیولپمنٹ انوائرنمنٹ<ph name="END_LINK_LINUX_OSS" />۔</translation>
+<translation id="2112742052114331084">‏آن ہونے پر، Chrome ان ٹیبز سے میموری کا دوبارہ دعویٰ کرتا ہے جنہیں آپ فعال طور پر استعمال نہیں کر رہے ہیں۔ یہ آپ کے کمپیوٹر کے وسائل کو دوسرے ٹاسکس کے لیے خالی کر دیتا ہے اور Chrome کو تیز رفتار رکھتا ہے۔ غیر فعال ٹیبز خالی دکھائی دیتی ہیں اور جب آپ ان پر کلک کرتے ہیں تو خودکار طور پر دوبارہ لوڈ ہو جاتے ہیں۔ <ph name="BEGIN_LINK" />مزید جانیں<ph name="END_LINK" /> یا <ph name="BEGIN_LINK_2" />تاثرات بھیجیں<ph name="END_LINK_2" /></translation>
 <translation id="2120620239521071941">‏یہ اس آلہ سے <ph name="ITEMS_COUNT" /> آئٹمز کو حذف کر دے گا۔ بعد میں اپنے ڈیٹا کی بازیافت کرنے کیلئے، Chrome میں <ph name="USER_EMAIL" /> کے بطور سائن ان کریں۔</translation>
 <translation id="2121284319307530122">‏Chrome&amp; کو اپ ڈیٹ کرنے کیلئے بند کر کے دوبارہ چلائیں</translation>
 <translation id="2123055963409958220">‏<ph name="BEGIN_LINK" />موجودہ ترتیبات<ph name="END_LINK" /> کی اطلاع دے کر Chrome کو بہتر بنانے میں مدد کریں</translation>
@@ -176,6 +178,7 @@
 <translation id="4262915912852657291">‏<ph name="BEGIN_BOLD" />کون سا ڈیٹا استعمال کیا جاتا ہے:<ph name="END_BOLD" /> آپ کی براؤزنگ کی سرگزشت، ان سائٹس کا ریکارڈ جو آپ اس آلے پر Chrome کا استعمال کر کے ملاحظہ کر چکے ہیں۔</translation>
 <translation id="4281844954008187215">سروس کی شرائط</translation>
 <translation id="4293420128516039005">‏اپنے آلات پر Chrome کو مطابقت پذیر اور ذاتی نوعیت کا بنانے کے لیے سائن ان کریں</translation>
+<translation id="430327780270213103">‏ایکسٹینشن کو Chrome ٹول بار میں رسائی کی درخواستیں دکھانے کی اجازت دیں</translation>
 <translation id="4328355335528187361">Google Chrome Dev (mDNS-In)‎</translation>
 <translation id="4334294535648607276">ڈاؤن لوڈ مکمل ہوگیا۔</translation>
 <translation id="4335235004908507846">‏Chrome آپ کو ڈیٹا کی خلاف ورزیوں، غلط ایکسٹینشنز اور مزید بہت کچھ سے محفوظ رکھنے میں مدد کر سکتا ہے</translation>
@@ -277,6 +280,7 @@ Google Chrome آپ کی ترتیبات کو بازیافت کرنے سے قاص�
 <translation id="6735387454586646204">‏ChromeOS Flex سسٹم</translation>
 <translation id="6739177684496155661">‏ایک نئی Chrome پروفائل میں جاری رکھیں؟</translation>
 <translation id="6750954913813541382">‏املا کی غلطیوں کو درست کرنے کے لیے، آپ براؤزر میں جو متن ٹائپ کرتے ہیں، Chrome اسے Google کو بھیج دیتا ہے</translation>
+<translation id="6756581345161130259">‏ضرورت کے مطابق، Chrome ان ٹیبز سے میموری کا دوبارہ دعویٰ کرتا ہے جنہیں آپ فعال طور پر استعمال نہیں کر رہے ہیں۔ آپ اسے ترتیبات میں کسی بھی وقت تبدیل کر سکتے ہیں۔</translation>
 <translation id="677276454032249905">‏بہر حال Chrome کو بند کریں؟</translation>
 <translation id="6785872064505734160">‏Chrome میں موجود Google اسسٹنٹ سبھی ویب سائٹوں پر آپ کے لیے کارروائیوں کو مکمل کر سکتی ہے</translation>
 <translation id="683440813066116847">‏mDNS ٹریفک کی اجازت دینے کیلئے Google Chrome Canary کیلئے ان باؤنڈ اصول۔</translation>

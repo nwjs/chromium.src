@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -74,11 +74,6 @@ class VIEWS_EXPORT DesktopNativeWidgetAura
   // Maps from window to DesktopNativeWidgetAura. |window| must be a root
   // window.
   static DesktopNativeWidgetAura* ForWindow(aura::Window* window);
-
-  // Used to explicitly set a DesktopWindowTreeHost. Must be called before
-  // InitNativeWidget().
-  void SetDesktopWindowTreeHost(
-      std::unique_ptr<DesktopWindowTreeHost> desktop_window_tree_host);
 
   // Called by our DesktopWindowTreeHost after it has deleted native resources;
   // this is the signal that we should start our shutdown.
@@ -157,6 +152,7 @@ class VIEWS_EXPORT DesktopNativeWidgetAura
   void SetSize(const gfx::Size& size) override;
   void StackAbove(gfx::NativeView native_view) override;
   void StackAtTop() override;
+  bool IsStackedAbove(gfx::NativeView native_view) override;
   void SetShape(std::unique_ptr<Widget::ShapeRects> shape) override;
   void Close() override;
   void CloseNow() override;
@@ -281,7 +277,7 @@ class VIEWS_EXPORT DesktopNativeWidgetAura
                    ui::mojom::DragOperation& output_drag_op);
 
   std::unique_ptr<aura::WindowTreeHost> host_;
-  raw_ptr<DesktopWindowTreeHost, DanglingUntriaged> desktop_window_tree_host_;
+  raw_ptr<DesktopWindowTreeHost> desktop_window_tree_host_;
 
   // See class documentation for Widget in widget.h for a note about ownership.
   Widget::InitParams::Ownership ownership_;
@@ -295,8 +291,7 @@ class VIEWS_EXPORT DesktopNativeWidgetAura
   // WARNING: this may be NULL, in particular during shutdown it becomes NULL.
   raw_ptr<aura::Window, DanglingUntriaged> content_window_;
 
-  raw_ptr<internal::NativeWidgetDelegate, DanglingUntriaged>
-      native_widget_delegate_;
+  raw_ptr<internal::NativeWidgetDelegate> native_widget_delegate_;
 
   std::unique_ptr<wm::FocusController> focus_client_;
   std::unique_ptr<aura::client::ScreenPositionClient> position_client_;

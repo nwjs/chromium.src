@@ -1,4 +1,4 @@
-// Copyright 2016 The Chromium Authors. All rights reserved.
+// Copyright 2016 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -20,6 +20,7 @@
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/accessibility/ax_node_position.h"
 #include "ui/accessibility/ax_range.h"
+#include "ui/accessibility/ax_selection.h"
 #include "ui/accessibility/ax_tree.h"
 #include "ui/accessibility/ax_tree_data.h"
 #include "ui/accessibility/ax_tree_id.h"
@@ -4419,7 +4420,7 @@ TEST_F(AXPositionTest, AsUnignoredPosition) {
 
   // TODO(nektar): AXTree has a bug whereby it doesn't update the unignored
   // cached values when the ignored state is flipped on the root.
-  GetNodeFromTree(root_data.id)->UpdateUnignoredCachedValues();
+  GetNode(root_data.id)->UpdateUnignoredCachedValues();
 
   text_position = AXNodePosition::CreateTextPosition(
       GetTreeID(), root_data.id, 0 /* text_offset */,
@@ -5204,7 +5205,7 @@ TEST_F(AXPositionTest, CreatePositionAtNextFormatEndOnEmbeddedObject) {
 
   AXNodeData popup_button_5;
   popup_button_5.id = 5;
-  popup_button_5.role = ax::mojom::Role::kPopUpButton;
+  popup_button_5.role = ax::mojom::Role::kComboBoxSelect;
   popup_button_5.AddState(ax::mojom::State::kCollapsed);
   popup_button_5.SetName("option 1");
 
@@ -5235,7 +5236,7 @@ TEST_F(AXPositionTest, CreatePositionAtNextFormatEndOnEmbeddedObject) {
 
   AXNodeData popup_button_11;
   popup_button_11.id = 11;
-  popup_button_11.role = ax::mojom::Role::kPopUpButton;
+  popup_button_11.role = ax::mojom::Role::kComboBoxSelect;
   popup_button_11.AddState(ax::mojom::State::kCollapsed);
   popup_button_11.SetName("option 2");
 
@@ -5252,7 +5253,7 @@ TEST_F(AXPositionTest, CreatePositionAtNextFormatEndOnEmbeddedObject) {
 
   AXNodeData popup_button_14;
   popup_button_14.id = 14;
-  popup_button_14.role = ax::mojom::Role::kPopUpButton;
+  popup_button_14.role = ax::mojom::Role::kComboBoxSelect;
   popup_button_14.AddState(ax::mojom::State::kCollapsed);
   popup_button_14.SetName("option 3");
 
@@ -7856,7 +7857,7 @@ TEST_F(AXPositionTest, CreateParentPositionWithMoveDirection) {
       AXNodePosition::BEFORE_TEXT /* child_index */);
   ASSERT_NE(nullptr, tree_position);
   TestPositionType ancestor_position = tree_position->CreateAncestorPosition(
-      GetRootAsAXNode(), ax::mojom::MoveDirection::kForward);
+      GetRoot(), ax::mojom::MoveDirection::kForward);
   ASSERT_NE(nullptr, ancestor_position);
   EXPECT_TRUE(ancestor_position->IsTreePosition());
   EXPECT_EQ(root_1.id, ancestor_position->anchor_id());
@@ -7873,7 +7874,7 @@ TEST_F(AXPositionTest, CreateParentPositionWithMoveDirection) {
       AXNodePosition::BEFORE_TEXT /* child_index */);
   ASSERT_NE(nullptr, tree_position);
   ancestor_position = tree_position->CreateAncestorPosition(
-      GetRootAsAXNode(), ax::mojom::MoveDirection::kBackward);
+      GetRoot(), ax::mojom::MoveDirection::kBackward);
   ASSERT_NE(nullptr, ancestor_position);
   EXPECT_TRUE(ancestor_position->IsTreePosition());
   EXPECT_EQ(root_1.id, ancestor_position->anchor_id());
@@ -7889,7 +7890,7 @@ TEST_F(AXPositionTest, CreateParentPositionWithMoveDirection) {
       GetTreeID(), inline_box_4.id, 0 /* child_index */);
   ASSERT_NE(nullptr, tree_position);
   ancestor_position = tree_position->CreateAncestorPosition(
-      GetRootAsAXNode(), ax::mojom::MoveDirection::kForward);
+      GetRoot(), ax::mojom::MoveDirection::kForward);
   ASSERT_NE(nullptr, ancestor_position);
   EXPECT_TRUE(ancestor_position->IsTreePosition());
   EXPECT_EQ(root_1.id, ancestor_position->anchor_id());
@@ -7904,7 +7905,7 @@ TEST_F(AXPositionTest, CreateParentPositionWithMoveDirection) {
       GetTreeID(), inline_box_4.id, 0 /* child_index */);
   ASSERT_NE(nullptr, tree_position);
   ancestor_position = tree_position->CreateAncestorPosition(
-      GetRootAsAXNode(), ax::mojom::MoveDirection::kBackward);
+      GetRoot(), ax::mojom::MoveDirection::kBackward);
   ASSERT_NE(nullptr, ancestor_position);
   EXPECT_TRUE(ancestor_position->IsTreePosition());
   EXPECT_EQ(root_1.id, ancestor_position->anchor_id());
@@ -7919,7 +7920,7 @@ TEST_F(AXPositionTest, CreateParentPositionWithMoveDirection) {
       GetTreeID(), inline_box_7.id, 0 /* child_index */);
   ASSERT_NE(nullptr, tree_position);
   ancestor_position = tree_position->CreateAncestorPosition(
-      GetRootAsAXNode(), ax::mojom::MoveDirection::kForward);
+      GetRoot(), ax::mojom::MoveDirection::kForward);
   ASSERT_NE(nullptr, ancestor_position);
   EXPECT_TRUE(ancestor_position->IsTreePosition());
   EXPECT_EQ(root_1.id, ancestor_position->anchor_id());
@@ -7935,7 +7936,7 @@ TEST_F(AXPositionTest, CreateParentPositionWithMoveDirection) {
       GetTreeID(), inline_box_7.id, 0 /* child_index */);
   ASSERT_NE(nullptr, tree_position);
   ancestor_position = tree_position->CreateAncestorPosition(
-      GetRootAsAXNode(), ax::mojom::MoveDirection::kBackward);
+      GetRoot(), ax::mojom::MoveDirection::kBackward);
   ASSERT_NE(nullptr, ancestor_position);
   EXPECT_TRUE(ancestor_position->IsTreePosition());
   EXPECT_EQ(root_1.id, ancestor_position->anchor_id());
@@ -7956,7 +7957,7 @@ TEST_F(AXPositionTest, CreateParentPositionWithMoveDirection) {
       ax::mojom::TextAffinity::kDownstream);
   ASSERT_NE(nullptr, text_position);
   ancestor_position = text_position->CreateAncestorPosition(
-      GetRootAsAXNode(), ax::mojom::MoveDirection::kForward);
+      GetRoot(), ax::mojom::MoveDirection::kForward);
   ASSERT_NE(nullptr, ancestor_position);
   EXPECT_TRUE(ancestor_position->IsTextPosition());
   EXPECT_EQ(root_1.id, ancestor_position->anchor_id());
@@ -7975,7 +7976,7 @@ TEST_F(AXPositionTest, CreateParentPositionWithMoveDirection) {
       ax::mojom::TextAffinity::kDownstream);
   ASSERT_NE(nullptr, text_position);
   ancestor_position = text_position->CreateAncestorPosition(
-      GetRootAsAXNode(), ax::mojom::MoveDirection::kBackward);
+      GetRoot(), ax::mojom::MoveDirection::kBackward);
   ASSERT_NE(nullptr, ancestor_position);
   EXPECT_TRUE(ancestor_position->IsTextPosition());
   EXPECT_EQ(root_1.id, ancestor_position->anchor_id());
@@ -7994,7 +7995,7 @@ TEST_F(AXPositionTest, CreateParentPositionWithMoveDirection) {
       ax::mojom::TextAffinity::kDownstream);
   ASSERT_NE(nullptr, text_position);
   ancestor_position = text_position->CreateAncestorPosition(
-      GetRootAsAXNode(), ax::mojom::MoveDirection::kForward);
+      GetRoot(), ax::mojom::MoveDirection::kForward);
   ASSERT_NE(nullptr, ancestor_position);
   EXPECT_TRUE(ancestor_position->IsTextPosition());
   EXPECT_EQ(root_1.id, ancestor_position->anchor_id());
@@ -8012,7 +8013,7 @@ TEST_F(AXPositionTest, CreateParentPositionWithMoveDirection) {
       ax::mojom::TextAffinity::kDownstream);
   ASSERT_NE(nullptr, text_position);
   ancestor_position = text_position->CreateAncestorPosition(
-      GetRootAsAXNode(), ax::mojom::MoveDirection::kBackward);
+      GetRoot(), ax::mojom::MoveDirection::kBackward);
   ASSERT_NE(nullptr, ancestor_position);
   EXPECT_TRUE(ancestor_position->IsTextPosition());
   EXPECT_EQ(root_1.id, ancestor_position->anchor_id());
@@ -8030,7 +8031,7 @@ TEST_F(AXPositionTest, CreateParentPositionWithMoveDirection) {
       ax::mojom::TextAffinity::kDownstream);
   ASSERT_NE(nullptr, text_position);
   ancestor_position = text_position->CreateAncestorPosition(
-      GetRootAsAXNode(), ax::mojom::MoveDirection::kForward);
+      GetRoot(), ax::mojom::MoveDirection::kForward);
   ASSERT_NE(nullptr, ancestor_position);
   EXPECT_TRUE(ancestor_position->IsTextPosition());
   EXPECT_EQ(root_1.id, ancestor_position->anchor_id());
@@ -8048,7 +8049,7 @@ TEST_F(AXPositionTest, CreateParentPositionWithMoveDirection) {
       ax::mojom::TextAffinity::kDownstream);
   ASSERT_NE(nullptr, text_position);
   ancestor_position = text_position->CreateAncestorPosition(
-      GetRootAsAXNode(), ax::mojom::MoveDirection::kBackward);
+      GetRoot(), ax::mojom::MoveDirection::kBackward);
   ASSERT_NE(nullptr, ancestor_position);
   EXPECT_TRUE(ancestor_position->IsTextPosition());
   EXPECT_EQ(root_1.id, ancestor_position->anchor_id());
@@ -12158,7 +12159,7 @@ TEST_F(AXPositionTest, TextNavigationWithCollapsedCombobox) {
   // ++1 kRootWebArea
   // ++++2 kStaticText "Hi"
   // ++++++3 kInlineTextBox "Hi"
-  // ++++4 kPopUpButton
+  // ++++4 kComboBoxSelect
   // ++++++5 kMenuListPopup
   // ++++++++6 kMenuListOption "Option"
   // ++++7 kStaticText "3.14"
@@ -12198,7 +12199,7 @@ TEST_F(AXPositionTest, TextNavigationWithCollapsedCombobox) {
                                    {0});
   inline_box_3.AddIntListAttribute(ax::mojom::IntListAttribute::kWordEnds, {2});
 
-  popup_button_4.role = ax::mojom::Role::kPopUpButton;
+  popup_button_4.role = ax::mojom::Role::kComboBoxSelect;
   popup_button_4.child_ids = {menu_list_popup_5.id};
   popup_button_4.AddState(ax::mojom::State::kCollapsed);
 
@@ -12385,7 +12386,7 @@ TEST_F(AXPositionTest, GetUnignoredSelectionWithLeafNodes) {
     tree->UpdateDataForTesting(data);
 
     // Should not crash.
-    AXNode::OwnerTree::Selection s = tree->GetUnignoredSelection();
+    AXSelection s = tree->GetUnignoredSelection();
     EXPECT_EQ(valid->anchor_id(), s.anchor_object_id);
     EXPECT_EQ(valid->child_index(), s.anchor_offset);
     EXPECT_EQ(valid->anchor_id(), s.focus_object_id);

@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -45,6 +45,7 @@ base::BatteryLevelProvider::BatteryState MakeBatteryDischarginState(
       .is_external_power_connected = false,
       .current_capacity = battery_percent,
       .full_charged_capacity = 100,
+      .charge_unit = base::BatteryLevelProvider::BatteryLevelUnit::kMAh,
       .capture_time = base::TimeTicks::Now()};
 }
 #endif  // BUILDFLAG(HAS_BATTERY_LEVEL_PROVIDER_IMPL)
@@ -59,7 +60,8 @@ struct HistogramSampleExpectation {
   std::string histogram_name_prefix;
   base::Histogram::Sample sample;
 };
-
+  
+#if !BUILDFLAG(IS_WIN) || !defined(ARCH_CPU_ARM64)
 // For each histogram named after the combination of prefixes from
 // `expectations` and suffixes from `suffixes`, verifies that there is a unique
 // sample `expectation.sample`.
@@ -77,6 +79,7 @@ void ExpectHistogramSamples(
     }
   }
 }
+#endif  // !BUILDFLAG(IS_WIN) || !defined(ARCH_CPU_ARM64)
 
 using UkmEntry = ukm::builders::PowerUsageScenariosIntervalData;
 
@@ -246,10 +249,14 @@ TEST_F(PowerMetricsReporterUnitTest, LongIntervalHistograms) {
 
   task_environment_.FastForwardBy(kLongPowerMetricsIntervalDuration);
 
+// Windows ARM64 does not support Constant Rate TSC so
+// PerformanceMonitor.AverageCPU6.Total is not recorded there.
+#if !BUILDFLAG(IS_WIN) || !defined(ARCH_CPU_ARM64)
   const char* kScenarioSuffix = ".VideoCapture";
   const std::vector<const char*> suffixes({"", kScenarioSuffix});
   ExpectHistogramSamples(&histogram_tester_, suffixes,
-                         {{"PerformanceMonitor.AverageCPU5.Total", 500}});
+                         {{"PerformanceMonitor.AverageCPU6.Total", 500}});
+#endif
 }
 
 #if BUILDFLAG(IS_MAC)
@@ -507,6 +514,7 @@ TEST_F(PowerMetricsReporterUnitTest, UKMsPluggedIn) {
       .is_external_power_connected = true,
       .current_capacity = 50,
       .full_charged_capacity = 100,
+      .charge_unit = base::BatteryLevelProvider::BatteryLevelUnit::kMAh,
       .capture_time = base::TimeTicks::Now()});
 
   UsageScenarioDataStore::IntervalData fake_interval_data;
@@ -540,6 +548,7 @@ TEST_F(PowerMetricsReporterUnitTest, UKMsBatteryStateChanges) {
       .is_external_power_connected = true,
       .current_capacity = 100,
       .full_charged_capacity = 100,
+      .charge_unit = base::BatteryLevelProvider::BatteryLevelUnit::kMAh,
       .capture_time = base::TimeTicks::Now()});
 
   UsageScenarioDataStore::IntervalData fake_interval_data;
@@ -604,6 +613,7 @@ TEST_F(PowerMetricsReporterUnitTest, UKMsNoBattery) {
       .is_external_power_connected = true,
       .current_capacity = absl::nullopt,
       .full_charged_capacity = absl::nullopt,
+      .charge_unit = absl::nullopt,
       .capture_time = base::TimeTicks::Now()});
 
   UsageScenarioDataStore::IntervalData fake_interval_data;

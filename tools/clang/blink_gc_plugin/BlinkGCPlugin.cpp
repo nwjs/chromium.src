@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -43,6 +43,8 @@ class BlinkGCPluginAction : public PluginASTAction {
         options_.enable_persistent_in_unique_ptr_check = true;
       } else if (arg == "enable-members-on-stack-check") {
         options_.enable_members_on_stack_check = true;
+      } else if (arg == "fix-bugs-of-is-considered-abstract") {
+        options_.fix_bugs_of_is_considered_abstract = true;
       } else {
         llvm::errs() << "Unknown blink-gc-plugin argument: " << arg << "\n";
         return false;

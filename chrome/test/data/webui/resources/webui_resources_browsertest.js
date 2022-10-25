@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,8 +9,6 @@ GEN_INCLUDE(['//chrome/test/data/webui/polymer_browser_test_base.js']);
 
 GEN('#include "build/chromeos_buildflags.h"');
 GEN('#include "content/public/test/browser_test.h"');
-
-/* eslint-disable no-var */
 
 var WebUIResourcesBrowserTest = class extends PolymerTest {
   /** @override */
@@ -29,7 +27,7 @@ var WebUIResourcesListPropertyUpdateBehaviorTest =
     class extends WebUIResourcesBrowserTest {
   /** @override */
   get browsePreload() {
-    return 'chrome://test/test_loader.html?module=resources/list_property_update_behavior_tests.js';
+    return 'chrome://webui-test/test_loader.html?module=resources/list_property_update_behavior_tests.js';
   }
 };
 
@@ -42,7 +40,7 @@ var WebUIResourcesListPropertyUpdateMixinTest =
     class extends WebUIResourcesBrowserTest {
   /** @override */
   get browsePreload() {
-    return 'chrome://test/test_loader.html?module=resources/list_property_update_mixin_tests.js';
+    return 'chrome://webui-test/test_loader.html?module=resources/list_property_update_mixin_tests.js';
   }
 };
 

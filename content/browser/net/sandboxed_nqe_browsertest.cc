@@ -1,9 +1,10 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include <vector>
 
+#include "base/containers/contains.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "content/public/browser/network_service_instance.h"
@@ -55,10 +56,7 @@ class TestNetworkQualityObserver
   }
 
   void WaitForNotification(net::EffectiveConnectionType run_loop_wait_type) {
-    if (std::any_of(received_types_.begin(), received_types_.end(),
-                    [=](net::EffectiveConnectionType type) {
-                      return type == run_loop_wait_type;
-                    })) {
+    if (base::Contains(received_types_, run_loop_wait_type)) {
       received_types_.clear();
       return;
     }

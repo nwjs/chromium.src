@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -60,6 +60,8 @@ class ReadAnythingController : public ReadAnythingToolbarView::Delegate,
   void OnFontSizeChanged(bool increase) override;
   void OnColorsChanged(int new_index) override;
   ui::ComboboxModel* GetColorsModel() override;
+  void OnLetterSpacingChanged(int new_index) override;
+  ui::ComboboxModel* GetLetterSpacingModel() override;
 
   // ReadAnythingPageHandler::Delegate:
   void OnUIReady() override;

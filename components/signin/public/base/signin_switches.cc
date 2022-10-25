@@ -1,8 +1,9 @@
-// Copyright 2014 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "components/signin/public/base/signin_switches.h"
+#include "base/feature_list.h"
 
 namespace switches {
 
@@ -18,6 +19,15 @@ const base::Feature kAccountIdMigration{"AccountIdMigration",
 // Sync feature forced on.
 const base::Feature kAllowSyncOffForChildAccounts{
     "AllowSyncOffForChildAccounts", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// If enabled, SigninChecker is created before displaying the sync consent
+// fragment during FRE.
+//
+// This should have no user-visible impact, the flag is present as a
+// kill-switch.
+const base::Feature kCreateSigninCheckerBeforeSyncConsentFragment{
+    "CreateSigninCheckerBeforeSyncConsentFragment",
+    base::FEATURE_ENABLED_BY_DEFAULT};
 #endif
 
 // If enabled, performs the URL-based check first when proving that the
@@ -46,17 +56,23 @@ const base::Feature kEnableFetchingAccountCapabilities{
     "EnableFetchingAccountCapabilities", base::FEATURE_ENABLED_BY_DEFAULT};
 #endif  // BUILDFLAG(IS_IOS)
 
+// Decouples signing out from clearing browsing data on Android. Users are
+// no longer signed-out when they clear browsing data. Instead they may
+// choose to sign out separately by pressing another button.
+// Disabled by default in IOS because the launch process is behind android.
+#if BUILDFLAG(IS_ANDROID)
+const base::Feature kEnableCbdSignOut{"EnableCbdSignOut",
+                                      base::FEATURE_ENABLED_BY_DEFAULT};
+#elif BUILDFLAG(IS_IOS)
+const base::Feature kEnableCbdSignOut{"EnableCbdSignOut",
+                                      base::FEATURE_DISABLED_BY_DEFAULT};
+#endif
+
 // This feature disables all extended sync promos.
 const base::Feature kForceDisableExtendedSyncPromos{
     "ForceDisableExtendedSyncPromos", base::FEATURE_DISABLED_BY_DEFAULT};
 
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
-// Decouples signing out from clearing browsing data on Android. Users are
-// no longer signed-out when they clear browsing data. Instead they may
-// choose to sign out separately by pressing another button.
-const base::Feature kEnableCbdSignOut{"EnableCbdSignOut",
-                                      base::FEATURE_DISABLED_BY_DEFAULT};
-
 // Features to trigger the startup sign-in promo at boot.
 const base::Feature kForceStartupSigninPromo{"ForceStartupSigninPromo",
                                              base::FEATURE_DISABLED_BY_DEFAULT};

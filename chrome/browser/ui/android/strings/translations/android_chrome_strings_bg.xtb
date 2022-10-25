@@ -454,6 +454,7 @@
 <translation id="3435465986463792564">Отворили сте много прозорци? Можете да ги управлявате оттук</translation>
 <translation id="3443221991560634068">Презареждане на текущата страница</translation>
 <translation id="3444179773590444986">Искате ли да споделите отзиви за тъмната тема за сайтовете?</translation>
+<translation id="3452832259067974318">За да защити поверителността ви, Chrome няма да попълни автоматично паролата ви в това поле.</translation>
 <translation id="3469665409713263828">{FILE_COUNT,plural, =1{Насрочено е 1 изтегляне}other{Насрочени са # изтегляния}}</translation>
 <translation id="3474624961160222204">Продължаване като <ph name="NAME" /></translation>
 <translation id="3478363558367712427">Можете да изберете търсещата си машина</translation>
@@ -679,6 +680,7 @@
 <translation id="4763480195061959176">видео</translation>
 <translation id="4766313118839197559">Паролите се запазват в Мениджър на пароли на това устройство</translation>
 <translation id="4766678251456904326">Добавяне на профил към устройството</translation>
+<translation id="4787736314074622408">Искате ли да изтриете <ph name="ITEM_TITLE" />?</translation>
 <translation id="4791358705705538979">Помага ви да изпълнявате задачи в мрежата, като например плащане</translation>
 <translation id="4794291718671962615">(<ph name="MEGABYTES" />) <ph name="URL" /></translation>
 <translation id="4802417911091824046">Шифроването с пропуск не включва начините на плащане и адресите от Google Pay.
@@ -748,6 +750,7 @@
 <translation id="5091199029769593641">Скоро ще виждате материали от <ph name="SITE_NAME" />, когато отворите нов раздел. Сайтовете, които следвате, се запазват в профила ви в Google. Можете да ги управлявате от настройките за Discover.</translation>
 <translation id="5091249083535528968">Разширени данни за употребата</translation>
 <translation id="509429900233858213">Възникна грешка.</translation>
+<translation id="5099845111805573968">След като изберете настолната версия веднъж, настройката се прилага за сайта при всяко посещение</translation>
 <translation id="5102401324271069229">Ако сайт се опита да открадне паролата ви или ако изтеглите опасен файл, Chrome може да изпрати до Безопасно сърфиране URL адресите и част от съдържанието на страницата</translation>
 <translation id="510275257476243843">Остава 1 час</translation>
 <translation id="5115811374190515607">до <ph name="PRODUCT_NAME" /></translation>
@@ -907,6 +910,7 @@
 <translation id="5958275228015807058">Намерете файловете и страниците си в „Изтегляния“</translation>
 <translation id="5962718611393537961">Докоснете за свиване</translation>
 <translation id="5964869237734432770">Спиране на описанията</translation>
+<translation id="5966233851250124270">Chrome ще запомни избора ви</translation>
 <translation id="5979084224081478209">Проверка на паролите</translation>
 <translation id="5995726099713306770">Искате ли отново да изтеглите страницата?</translation>
 <translation id="6000066717592683814">Запазване на Google</translation>
@@ -946,6 +950,7 @@
 <translation id="6192907950379606605">Описания на изображенията</translation>
 <translation id="6196315980958524839">Паролите се запазват в Google Мениджър на пароли на това устройство</translation>
 <translation id="620197886010707372">Искате ли да отворите приложението за <ph name="APPNAME" /> чрез Google Play?</translation>
+<translation id="6202812185118613467">Влезте отново в профила си, за да стартирате синхронизирането</translation>
 <translation id="6203593061661911168">Изтеглянето ще стартира при връзка с Wi-Fi мрежа</translation>
 <translation id="6210748933810148297">Не сте <ph name="EMAIL" />?</translation>
 <translation id="6211386937064921208">Страницата се визуализира</translation>
@@ -1083,6 +1088,7 @@
 <translation id="6820686453637990663">Код за сигурност</translation>
 <translation id="6824899148643461612">Избрахте раздела <ph name="TAB_TITLE" /></translation>
 <translation id="6828070228333235514">Проследяване на цената: Спиране</translation>
+<translation id="6830728435402077660">Няма защита</translation>
 <translation id="6833996806551876956">Пробен период за Privacy Sandbox</translation>
 <translation id="6836206421467243968">Възстановяване на групата раздели „<ph name="TITLE_OF_GROUP" />“ като нова група на заден план.</translation>
 <translation id="6846298663435243399">Зарежда се…</translation>

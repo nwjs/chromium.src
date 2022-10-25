@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors. All rights reserved.
+// Copyright 2013 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -740,13 +740,36 @@ void IsHandledBySafePlugin(content::BrowserContext* browser_context,
   }
   // In practice, we assume that retrying once is enough.
   DCHECK(!is_stale);
-  bool is_handled_safely =
-      plugin_found &&
-      (plugin_info.type == WebPluginInfo::PLUGIN_TYPE_PEPPER_IN_PROCESS ||
-       plugin_info.type == WebPluginInfo::PLUGIN_TYPE_PEPPER_OUT_OF_PROCESS ||
-       plugin_info.type == WebPluginInfo::PLUGIN_TYPE_BROWSER_PLUGIN);
   content::GetUIThreadTaskRunner({})->PostTask(
-      FROM_HERE, base::BindOnce(std::move(callback), is_handled_safely));
+      FROM_HERE, base::BindOnce(std::move(callback),
+                                /*is_handled_safely=*/plugin_found));
+}
+
+bool IsHandledBySafePluginSynchronous(content::BrowserContext* browser_context,
+                                      const GURL& url,
+                                      const std::string& mime_type) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  DCHECK(!mime_type.empty());
+  using content::WebPluginInfo;
+
+  std::string actual_mime_type;
+  bool is_stale = false;
+  WebPluginInfo plugin_info;
+
+  content::PluginService* plugin_service =
+      content::PluginService::GetInstance();
+  bool plugin_found =
+      plugin_service->GetPluginInfo(browser_context, url, mime_type, false,
+                                    &is_stale, &plugin_info, &actual_mime_type);
+  if (is_stale) {
+    plugin_service->GetPluginsSynchronous();
+    plugin_found = plugin_service->GetPluginInfo(
+        browser_context, url, mime_type, false, &is_stale, &plugin_info,
+        &actual_mime_type);
+  }
+  // In practice, we assume that retrying once is enough.
+  DCHECK(!is_stale);
+  return plugin_found;
 }
 
 }  // namespace
@@ -769,6 +792,24 @@ void DownloadTargetDeterminer::DetermineIfHandledSafelyHelper(
 
 #else
   std::move(callback).Run(false);
+#endif
+}
+
+bool DownloadTargetDeterminer::DetermineIfHandledSafelyHelperSynchronous(
+    download::DownloadItem* download,
+    const base::FilePath& local_path,
+    const std::string& mime_type) {
+  if (blink::IsSupportedMimeType(mime_type)) {
+    return true;
+  }
+
+#if BUILDFLAG(ENABLE_PLUGINS)
+  return IsHandledBySafePluginSynchronous(
+      content::DownloadItemUtils::GetBrowserContext(download),
+      net::FilePathToFileURL(local_path), mime_type);
+
+#else
+  return false;
 #endif
 }
 

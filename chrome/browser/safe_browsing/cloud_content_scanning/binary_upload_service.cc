@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -135,6 +135,16 @@ void BinaryUploadService::Request::set_analysis_connector(
 
 void BinaryUploadService::Request::set_url(const std::string& url) {
   content_analysis_request_.mutable_request_data()->set_url(url);
+}
+
+void BinaryUploadService::Request::set_source(const std::string& source) {
+  content_analysis_request_.mutable_request_data()->set_source(source);
+}
+
+void BinaryUploadService::Request::set_destination(
+    const std::string& destination) {
+  content_analysis_request_.mutable_request_data()->set_destination(
+      destination);
 }
 
 void BinaryUploadService::Request::set_csd(ClientDownloadRequest csd) {

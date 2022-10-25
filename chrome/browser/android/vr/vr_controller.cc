@@ -1,4 +1,4 @@
-// Copyright 2016 The Chromium Authors. All rights reserved.
+// Copyright 2016 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -191,8 +191,7 @@ gfx::Point3F VrController::Position() const {
 
 void VrController::GetTransform(gfx::Transform* out) const {
   *out = gfx::Transform(Orientation());
-  const gfx::Point3F& position = Position();
-  out->matrix().postTranslate(position.x(), position.y(), position.z());
+  out->PostTranslate3d(Position().OffsetFromOrigin());
 }
 
 void VrController::GetRelativePointerTransform(gfx::Transform* out) const {

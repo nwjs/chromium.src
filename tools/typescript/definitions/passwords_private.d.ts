@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -195,6 +195,7 @@ declare global {
           url: string, callback: (urlCollection: UrlCollection) => void): void;
       export function addPassword(
           options: AddPasswordOptions, callback?: () => void): void;
+      export function extendAuthValidity(callback?: () => void): void;
 
       export const onSavedPasswordsListChanged:
           ChromeEvent<(entries: Array<PasswordUiEntry>) => void>;

@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors. All rights reserved.
+// Copyright 2017 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -57,7 +57,8 @@ bool Sandbox::Initialize(sandbox::mojom::Sandbox sandbox_type,
       // the process to swap its window station. During this time all the UI
       // will be broken. This has to run before threads and windows are created.
       ResultCode result =
-          broker_services->CreatePolicy()->CreateAlternateDesktop(true);
+          broker_services->CreatePolicy()->CreateAlternateDesktop(
+              Desktop::kAlternateWinstation);
       CHECK(SBOX_ERROR_FAILED_TO_SWITCH_BACK_WINSTATION != result);
     }
     return true;

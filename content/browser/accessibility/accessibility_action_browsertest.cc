@@ -1,4 +1,4 @@
-// Copyright 2016 The Chromium Authors. All rights reserved.
+// Copyright 2016 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -49,7 +49,7 @@ class AccessibilityActionBrowserTest : public ContentBrowserTest {
  protected:
   BrowserAccessibility* FindNode(ax::mojom::Role role,
                                  const std::string& name_or_value) {
-    BrowserAccessibility* root = GetManager()->GetRoot();
+    BrowserAccessibility* root = GetManager()->GetBrowserAccessibilityRoot();
     CHECK(root);
     return FindNodeInSubtree(*root, role, name_or_value);
   }
@@ -116,7 +116,8 @@ class AccessibilityActionBrowserTest : public ContentBrowserTest {
         will_scroll_horizontally
             ? ui::AXEventGenerator::Event::SCROLL_HORIZONTAL_POSITION_CHANGED
             : ui::AXEventGenerator::Event::SCROLL_VERTICAL_POSITION_CHANGED);
-    BrowserAccessibility* document = GetManager()->GetRoot();
+    BrowserAccessibility* document =
+        GetManager()->GetBrowserAccessibilityRoot();
     ui::AXActionData action_data;
     action_data.target_node_id = document->GetData().id;
     action_data.action = ax::mojom::Action::kSetScrollOffset;
@@ -1050,7 +1051,7 @@ IN_PROC_BROWSER_TEST_F(AccessibilityActionBrowserTest, ScrollIntoView) {
       </html>"
       )HTML");
 
-  BrowserAccessibility* root = GetManager()->GetRoot();
+  BrowserAccessibility* root = GetManager()->GetBrowserAccessibilityRoot();
   gfx::Rect doc_bounds = root->GetClippedScreenBoundsRect();
 
   int one_third_doc_height = base::ClampRound(doc_bounds.height() / 3.0f);
@@ -1223,7 +1224,8 @@ IN_PROC_BROWSER_TEST_F(AccessibilityActionBrowserTest,
       </body>
       )HTML");
 
-  BrowserAccessibility* target = FindNode(ax::mojom::Role::kPopUpButton, "One");
+  BrowserAccessibility* target =
+      FindNode(ax::mojom::Role::kComboBoxSelect, "One");
   ASSERT_NE(nullptr, target);
 
   EXPECT_EQ(0U, target->PlatformChildCount());

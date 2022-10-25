@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -49,6 +49,7 @@
 #include "ui/base/win/shell.h"
 #include "ui/base/win/touch_input.h"
 #include "ui/base/win/win_cursor.h"
+#include "ui/display/types/display_constants.h"
 #include "ui/display/win/dpi.h"
 #include "ui/display/win/screen_win.h"
 #include "ui/events/event.h"
@@ -721,7 +722,7 @@ void HWNDMessageHandler::Show(ui::WindowShowState show_state,
         break;
       case ui::SHOW_STATE_FULLSCREEN:
         native_show_state = SW_SHOWNORMAL;
-        SetFullscreen(true);
+        SetFullscreen(true, display::kInvalidDisplayId);
         break;
       default:
         native_show_state = delegate_->GetInitialShowState();
@@ -981,7 +982,8 @@ void HWNDMessageHandler::SetWindowIcons(const gfx::ImageSkia& window_icon,
   }
 }
 
-void HWNDMessageHandler::SetFullscreen(bool fullscreen) {
+void HWNDMessageHandler::SetFullscreen(bool fullscreen,
+                                       int64_t target_display_id) {
   // Avoid setting fullscreen mode when in headless mode, but keep track
   // of the requested state for IsFullscreen() to report.
   if (IsHeadless()) {
@@ -989,22 +991,23 @@ void HWNDMessageHandler::SetFullscreen(bool fullscreen) {
     return;
   }
 
+  // Erase any prior reference to this window in the fullscreen window map.
+  HMONITOR monitor = MonitorFromWindow(hwnd(), MONITOR_DEFAULTTOPRIMARY);
+  FullscreenWindowMonitorMap::iterator iter =
+      fullscreen_monitor_map_.Get().find(monitor);
+  if (iter != fullscreen_monitor_map_.Get().end())
+    fullscreen_monitor_map_.Get().erase(iter);
+
   background_fullscreen_hack_ = false;
   auto ref = msg_handler_weak_factory_.GetWeakPtr();
-  fullscreen_handler()->SetFullscreen(fullscreen);
+  fullscreen_handler()->SetFullscreen(fullscreen, target_display_id);
   if (!ref)
     return;
 
-  // Add the fullscreen window to the fullscreen window map which is used to
-  // handle window activations.
-  HMONITOR monitor = MonitorFromWindow(hwnd(), MONITOR_DEFAULTTOPRIMARY);
+  // Add an entry in the fullscreen window map if the window is now fullscreen.
   if (fullscreen) {
-    (fullscreen_monitor_map_.Get())[monitor] = this;
-  } else {
-    FullscreenWindowMonitorMap::iterator iter =
-        fullscreen_monitor_map_.Get().find(monitor);
-    if (iter != fullscreen_monitor_map_.Get().end())
-      fullscreen_monitor_map_.Get().erase(iter);
+    HMONITOR new_monitor = MonitorFromWindow(hwnd(), MONITOR_DEFAULTTOPRIMARY);
+    (fullscreen_monitor_map_.Get())[new_monitor] = this;
   }
   // If we are out of fullscreen and there was a pending DWM transition for the
   // window, then go ahead and do it now.
@@ -3717,6 +3720,7 @@ void HWNDMessageHandler::CheckAndHandleBackgroundFullscreenOnMonitor(
 }
 
 void HWNDMessageHandler::OnBackgroundFullscreen() {
+  DCHECK(IsFullscreen());
   // Reduce the bounds of the window by 1px to ensure that Windows does
   // not treat this like a fullscreen window.
   MONITORINFO monitor_info = {sizeof(monitor_info)};

@@ -1,11 +1,10 @@
-// Copyright 2016 The Chromium Authors. All rights reserved.
+// Copyright 2016 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "content/web_test/renderer/fake_subresource_filter.h"
 
-#include <algorithm>
-
+#include "base/ranges/algorithm.h"
 #include "base/strings/string_util.h"
 #include "third_party/blink/public/platform/web_url.h"
 #include "url/gurl.h"
@@ -43,9 +42,8 @@ FakeSubresourceFilter::GetLoadPolicyImpl(const blink::WebURL& url) {
   GURL gurl(url);
   base::StringPiece path(gurl.path_piece());
 
-  auto it = std::find_if(
-      disallowed_path_suffixes_.begin(), disallowed_path_suffixes_.end(),
-      [&path](const std::string& suffix) {
+  auto it = base::ranges::find_if(
+      disallowed_path_suffixes_, [&path](const std::string& suffix) {
         return base::EndsWith(path, suffix, base::CompareCase::SENSITIVE);
       });
   // Allows things not listed in |disallowed_path_suffixes_|.

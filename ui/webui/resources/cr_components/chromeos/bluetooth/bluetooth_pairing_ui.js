@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -15,7 +15,7 @@ import './bluetooth_pairing_confirm_code_page.js';
 import './bluetooth_spinner_page.js';
 
 import {html, PolymerElement} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
-import {BluetoothDeviceProperties, BluetoothDiscoveryDelegateInterface, BluetoothDiscoveryDelegateReceiver, BluetoothSystemState, DevicePairingDelegateInterface, DevicePairingDelegateReceiver, DevicePairingHandlerInterface, KeyEnteredHandlerInterface, KeyEnteredHandlerPendingReceiver, KeyEnteredHandlerReceiver, PairingResult, SystemPropertiesObserverInterface, SystemPropertiesObserverReceiver} from 'chrome://resources/mojo/chromeos/services/bluetooth_config/public/mojom/cros_bluetooth_config.mojom-webui.js';
+import {BluetoothDeviceProperties, BluetoothDiscoveryDelegateInterface, BluetoothDiscoveryDelegateReceiver, BluetoothSystemState, DevicePairingDelegateInterface, DevicePairingDelegateReceiver, DevicePairingHandlerInterface, KeyEnteredHandlerInterface, KeyEnteredHandlerPendingReceiver, KeyEnteredHandlerReceiver, PairingResult, SystemPropertiesObserverInterface, SystemPropertiesObserverReceiver} from 'chrome://resources/mojo/chromeos/ash/services/bluetooth_config/public/mojom/cros_bluetooth_config.mojom-webui.js';
 
 import {assert, assertNotReached} from '../../../js/assert.m.js';
 

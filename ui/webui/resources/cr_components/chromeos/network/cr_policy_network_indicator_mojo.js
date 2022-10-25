@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,7 +7,17 @@
  * properties.
  */
 
+import '../../../cr_elements/policy/cr_tooltip_icon.js';
+import '../../../cr_elements/cr_hidden_style.css.js';
+
+import {html, Polymer} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+
+import {CrPolicyIndicatorBehavior, CrPolicyIndicatorType} from '../../../cr_elements/policy/cr_policy_indicator_behavior.js';
+
+import {CrPolicyNetworkBehaviorMojo} from './cr_policy_network_behavior_mojo.js';
+
 Polymer({
+  _template: html`{__html_template__}`,
   is: 'cr-policy-network-indicator-mojo',
 
   behaviors: [CrPolicyIndicatorBehavior, CrPolicyNetworkBehaviorMojo],

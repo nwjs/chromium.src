@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium Authors. All rights reserved.
+// Copyright 2020 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -185,8 +185,8 @@ std::unique_ptr<OutputPresenterGL> OutputPresenterGL::Create(
     return nullptr;
   // TODO(https://crbug.com/1012401): don't depend on GL.
   auto gl_surface = base::MakeRefCounted<gl::GLSurfaceEGLSurfaceControl>(
-      gl::GLSurfaceEGL::GetGLDisplayEGL(), window,
-      base::ThreadTaskRunnerHandle::Get());
+      deps->GetSharedContextState()->display()->GetAs<gl::GLDisplayEGL>(),
+      window, base::ThreadTaskRunnerHandle::Get());
   if (!gl_surface->Initialize(gl::GLSurfaceFormat())) {
     LOG(ERROR) << "Failed to initialize GLSurfaceEGLSurfaceControl.";
     return nullptr;
@@ -412,7 +412,6 @@ void OutputPresenterGL::ScheduleOverlayPlane(
       LOG_IF(FATAL, !overlay_plane_candidate.color.has_value())
           << "Solid color quads must have color set.";
     }
-    CHECK(!overlay_plane_candidate.gpu_fence_id);
 
     if (acquire_fence && !acquire_fence->GetGpuFenceHandle().is_null()) {
       CHECK(access);
@@ -436,7 +435,7 @@ void OutputPresenterGL::ScheduleOverlayPlane(
         gl_image, std::move(acquire_fence),
         gfx::OverlayPlaneData(
             overlay_plane_candidate.plane_z_order,
-            overlay_plane_candidate.transform,
+            absl::get<gfx::OverlayTransform>(overlay_plane_candidate.transform),
             overlay_plane_candidate.display_rect,
             overlay_plane_candidate.uv_rect, !overlay_plane_candidate.is_opaque,
             ToEnclosingRect(overlay_plane_candidate.damage_rect),
@@ -445,7 +444,8 @@ void OutputPresenterGL::ScheduleOverlayPlane(
             overlay_plane_candidate.rounded_corners,
             overlay_plane_candidate.color_space,
             overlay_plane_candidate.hdr_metadata, overlay_plane_candidate.color,
-            overlay_plane_candidate.is_solid_color));
+            overlay_plane_candidate.is_solid_color,
+            overlay_plane_candidate.clip_rect));
   }
 #elif BUILDFLAG(IS_APPLE)
   gl_surface_->ScheduleCALayer(ui::CARendererLayerParams(

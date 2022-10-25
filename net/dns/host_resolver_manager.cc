@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -44,7 +44,6 @@
 #include "base/observer_list.h"
 #include "base/ranges/algorithm.h"
 #include "base/sequence_checker.h"
-#include "base/stl_util.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_piece.h"
@@ -59,6 +58,7 @@
 #include "base/time/default_tick_clock.h"
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
+#include "base/types/optional_util.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "net/base/address_family.h"
@@ -69,8 +69,8 @@
 #include "net/base/ip_address.h"
 #include "net/base/ip_endpoint.h"
 #include "net/base/net_errors.h"
+#include "net/base/network_anonymization_key.h"
 #include "net/base/network_interfaces.h"
-#include "net/base/network_isolation_key.h"
 #include "net/base/prioritized_dispatcher.h"
 #include "net/base/request_priority.h"
 #include "net/base/trace_constants.h"
@@ -87,11 +87,11 @@
 #include "net/dns/host_resolver_mdns_listener_impl.h"
 #include "net/dns/host_resolver_mdns_task.h"
 #include "net/dns/host_resolver_proc.h"
-#include "net/dns/host_resolver_results.h"
 #include "net/dns/httpssvc_metrics.h"
 #include "net/dns/mdns_client.h"
 #include "net/dns/public/dns_protocol.h"
 #include "net/dns/public/dns_query_type.h"
+#include "net/dns/public/host_resolver_results.h"
 #include "net/dns/public/resolve_error_info.h"
 #include "net/dns/public/secure_dns_mode.h"
 #include "net/dns/public/secure_dns_policy.h"
@@ -605,7 +605,7 @@ class HostResolverManager::RequestImpl
  public:
   RequestImpl(NetLogWithSource source_net_log,
               HostResolver::Host request_host,
-              NetworkIsolationKey network_isolation_key,
+              NetworkAnonymizationKey network_anonymization_key,
               absl::optional<ResolveHostParameters> optional_parameters,
               base::WeakPtr<ResolveContext> resolve_context,
               HostCache* host_cache,
@@ -613,11 +613,11 @@ class HostResolverManager::RequestImpl
               const base::TickClock* tick_clock)
       : source_net_log_(std::move(source_net_log)),
         request_host_(std::move(request_host)),
-        network_isolation_key_(
+        network_anonymization_key_(
             base::FeatureList::IsEnabled(
                 features::kSplitHostCacheByNetworkIsolationKey)
-                ? std::move(network_isolation_key)
-                : NetworkIsolationKey()),
+                ? std::move(network_anonymization_key)
+                : NetworkAnonymizationKey()),
         parameters_(optional_parameters ? std::move(optional_parameters).value()
                                         : ResolveHostParameters()),
         resolve_context_(std::move(resolve_context)),
@@ -668,13 +668,13 @@ class HostResolverManager::RequestImpl
 
   const AddressList* GetAddressResults() const override {
     DCHECK(complete_);
-    return base::OptionalOrNullptr(legacy_address_results_);
+    return base::OptionalToPtr(legacy_address_results_);
   }
 
   const std::vector<HostResolverEndpointResult>* GetEndpointResults()
       const override {
     DCHECK(complete_);
-    return base::OptionalOrNullptr(endpoint_results_);
+    return base::OptionalToPtr(endpoint_results_);
   }
 
   const absl::optional<std::vector<std::string>>& GetTextResults()
@@ -710,7 +710,7 @@ class HostResolverManager::RequestImpl
     }
 #endif  // DCHECK_IS_ON()
 
-    return base::OptionalOrNullptr(fixed_up_dns_alias_results_);
+    return base::OptionalToPtr(fixed_up_dns_alias_results_);
   }
 
   const std::vector<bool>* GetExperimentalResultsForTesting() const override {
@@ -781,8 +781,8 @@ class HostResolverManager::RequestImpl
 
   const HostResolver::Host& request_host() const { return request_host_; }
 
-  const NetworkIsolationKey& network_isolation_key() const {
-    return network_isolation_key_;
+  const NetworkAnonymizationKey& network_anonymization_key() const {
+    return network_anonymization_key_;
   }
 
   const ResolveHostParameters& parameters() const { return parameters_; }
@@ -838,8 +838,8 @@ class HostResolverManager::RequestImpl
                    parameters_.cache_usage !=
                        ResolveHostParameters::CacheUsage::DISALLOWED);
           dict.Set("is_speculative", parameters_.is_speculative);
-          dict.Set("network_isolation_key",
-                   network_isolation_key_.ToDebugString());
+          dict.Set("network_anonymization_key",
+                   network_anonymization_key_.ToDebugString());
           dict.Set("secure_dns_policy",
                    base::strict_cast<int>(parameters_.secure_dns_policy));
           return base::Value(std::move(dict));
@@ -871,7 +871,7 @@ class HostResolverManager::RequestImpl
   const NetLogWithSource source_net_log_;
 
   const HostResolver::Host request_host_;
-  const NetworkIsolationKey network_isolation_key_;
+  const NetworkAnonymizationKey network_anonymization_key_;
   ResolveHostParameters parameters_;
   base::WeakPtr<ResolveContext> resolve_context_;
   const raw_ptr<HostCache> host_cache_;
@@ -1865,7 +1865,7 @@ class HostResolverManager::DnsTask : public base::SupportsWeakPtr<DnsTask> {
 
     net_log_.EndEvent(NetLogEventType::HOST_RESOLVER_MANAGER_DNS_TASK, [&] {
       return NetLogDnsTaskFailedParams(net_error, failed_transaction_type, ttl,
-                                       base::OptionalOrNullptr(saved_results_));
+                                       base::OptionalToPtr(saved_results_));
     });
 
     // Expect this to result in destroying `this` and thus cancelling any
@@ -2086,11 +2086,11 @@ struct HostResolverManager::JobKey {
   bool operator<(const JobKey& other) const {
     return std::forward_as_tuple(query_types.ToEnumBitmask(), flags, source,
                                  secure_dns_mode, &*resolve_context, host,
-                                 network_isolation_key) <
+                                 network_anonymization_key) <
            std::forward_as_tuple(other.query_types.ToEnumBitmask(), other.flags,
                                  other.source, other.secure_dns_mode,
                                  &*other.resolve_context, other.host,
-                                 other.network_isolation_key);
+                                 other.network_anonymization_key);
   }
 
   bool operator==(const JobKey& other) const {
@@ -2098,7 +2098,7 @@ struct HostResolverManager::JobKey {
   }
 
   absl::variant<url::SchemeHostPort, std::string> host;
-  NetworkIsolationKey network_isolation_key;
+  NetworkAnonymizationKey network_anonymization_key;
   DnsQueryTypeSet query_types;
   HostResolverFlags flags;
   HostResolverSource source;
@@ -2122,7 +2122,7 @@ struct HostResolverManager::JobKey {
                                                 ? *query_types.begin()
                                                 : DnsQueryType::UNSPECIFIED;
     HostCache::Key key(host, query_type_for_key, flags, source,
-                       network_isolation_key);
+                       network_anonymization_key);
     key.secure = secure;
     return key;
   }
@@ -2472,8 +2472,8 @@ class HostResolverManager::Job : public PrioritizedDispatcher::Job,
       query_types_list.Append(kDnsQueryTypes.at(query_type));
     dict.Set("dns_query_types", std::move(query_types_list));
     dict.Set("secure_dns_mode", base::strict_cast<int>(key_.secure_dns_mode));
-    dict.Set("network_isolation_key",
-             key_.network_isolation_key.ToDebugString());
+    dict.Set("network_anonymization_key",
+             key_.network_anonymization_key.ToDebugString());
     return base::Value(std::move(dict));
   }
 
@@ -2591,6 +2591,12 @@ class HostResolverManager::Job : public PrioritizedDispatcher::Job,
                           int net_error,
                           const AddressList& addr_list) {
     DCHECK(proc_task_);
+
+    base::TimeDelta duration = tick_clock_->NowTicks() - start_time;
+    if (net_error == OK)
+      UMA_HISTOGRAM_LONG_TIMES_100("Net.DNS.ProcTask.SuccessTime", duration);
+    else
+      UMA_HISTOGRAM_LONG_TIMES_100("Net.DNS.ProcTask.FailureTime", duration);
 
     if (dns_task_error_ != OK && net_error == OK) {
       // This ProcTask was a fallback resolution after a failed insecure
@@ -3186,7 +3192,7 @@ HostResolverManager::CreateNetworkBoundHostResolverManager(
 std::unique_ptr<HostResolver::ResolveHostRequest>
 HostResolverManager::CreateRequest(
     HostResolver::Host host,
-    NetworkIsolationKey network_isolation_key,
+    NetworkAnonymizationKey network_anonymization_key,
     NetLogWithSource net_log,
     absl::optional<ResolveHostParameters> optional_parameters,
     ResolveContext* resolve_context,
@@ -3199,10 +3205,14 @@ HostResolverManager::CreateRequest(
   // ensure cached data is invalidated on network and configuration changes.
   DCHECK(registered_contexts_.HasObserver(resolve_context));
 
-  return std::make_unique<RequestImpl>(
-      std::move(net_log), std::move(host), std::move(network_isolation_key),
-      std::move(optional_parameters), resolve_context->GetWeakPtr(), host_cache,
-      weak_ptr_factory_.GetWeakPtr(), tick_clock_);
+return std::make_unique<RequestImpl>(std::move(net_log),
+                                     std::move(host),
+                                     std::move(network_anonymization_key),
+                                     std::move(optional_parameters),
+                                     resolve_context->GetWeakPtr(),
+                                     host_cache,
+                                     weak_ptr_factory_.GetWeakPtr(),
+                                     tick_clock_);
 }
 
 std::unique_ptr<HostResolver::ProbeRequest>
@@ -3395,7 +3405,7 @@ int HostResolverManager::Resolve(RequestImpl* request) {
   job_key.host =
       CreateHostForJobKey(request->request_host(), parameters.dns_query_type,
                           https_svcb_options_.enable);
-  job_key.network_isolation_key = request->network_isolation_key();
+  job_key.network_anonymization_key = request->network_anonymization_key();
   job_key.source = parameters.source;
 
   IPAddress ip_address;

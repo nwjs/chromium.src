@@ -1,4 +1,4 @@
-// Copyright 2016 The Chromium Authors. All rights reserved.
+// Copyright 2016 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -125,10 +125,6 @@ GLImage::GetAHardwareBuffer() {
   return nullptr;
 }
 #endif
-
-bool GLImage::HasMutableState() const {
-  return true;
-}
 
 scoped_refptr<gfx::NativePixmap> GLImage::GetNativePixmap() {
   return nullptr;

@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,6 +7,7 @@
 #include "chrome/browser/history_clusters/history_clusters_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/grit/generated_resources.h"
 #include "components/history_clusters/core/config.h"
 #include "components/history_clusters/core/history_clusters_prefs.h"
 #include "components/history_clusters/core/history_clusters_service.h"
@@ -37,11 +38,13 @@ void HistoryClustersUtil::PopulateSource(content::WebUIDataSource* source,
 
   static constexpr webui::LocalizedString kHistoryClustersStrings[] = {
       {"actionMenuDescription", IDS_HISTORY_CLUSTERS_ACTION_MENU_DESCRIPTION},
+      {"clearSearch", IDS_CLEAR_SEARCH},
       {"disableHistoryClusters", IDS_HISTORY_CLUSTERS_DISABLE_MENU_ITEM_LABEL},
       {"enableHistoryClusters", IDS_HISTORY_CLUSTERS_ENABLE_MENU_ITEM_LABEL},
       {"historyClustersTabLabel", IDS_HISTORY_CLUSTERS_JOURNEYS_TAB_LABEL},
       {"historyListTabLabel", IDS_HISTORY_CLUSTERS_LIST_TAB_LABEL},
       {"loadMoreButtonLabel", IDS_HISTORY_CLUSTERS_LOAD_MORE_BUTTON_LABEL},
+      {"noResults", IDS_HISTORY_CLUSTERS_NO_RESULTS},
       {"noSearchResults", IDS_HISTORY_CLUSTERS_NO_SEARCH_RESULTS},
       {"openAllInTabGroup", IDS_HISTORY_CLUSTERS_OPEN_ALL_IN_TABGROUP},
       {"relatedSearchesHeader", IDS_HISTORY_CLUSTERS_RELATED_SEARCHES_HEADER},
@@ -49,6 +52,7 @@ void HistoryClustersUtil::PopulateSource(content::WebUIDataSource* source,
       {"removeFromHistory", IDS_HISTORY_CLUSTERS_REMOVE_PAGE},
       {"removeFromHistoryToast", IDS_HISTORY_CLUSTERS_REMOVE_ITEM_TOAST},
       {"savedInTabGroup", IDS_HISTORY_CLUSTERS_SAVED_IN_TABGROUP_LABEL},
+      {"searchPrompt", IDS_HISTORY_CLUSTERS_SEARCH_PROMPT},
       {"toggleButtonLabelLess", IDS_HISTORY_CLUSTERS_SHOW_LESS_BUTTON_LABEL},
       {"toggleButtonLabelMore", IDS_HISTORY_CLUSTERS_SHOW_MORE_BUTTON_LABEL},
   };

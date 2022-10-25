@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -1127,6 +1127,8 @@ void WebContentsViewAura::OnCapturerCountChanged() {
   }
 }
 
+void WebContentsViewAura::FullscreenStateChanged(bool is_fullscreen) {}
+
 ////////////////////////////////////////////////////////////////////////////////
 // WebContentsViewAura, RenderViewHostDelegateView implementation:
 
@@ -1149,7 +1151,8 @@ void WebContentsViewAura::StartDragging(
     const DropData& drop_data,
     blink::DragOperationsMask operations,
     const gfx::ImageSkia& image,
-    const gfx::Vector2d& image_offset,
+    const gfx::Vector2d& cursor_offset,
+    const gfx::Rect& drag_obj_rect,
     const blink::mojom::DragEventSourceInfo& event_info,
     RenderWidgetHostImpl* source_rwh) {
   aura::Window* root_window = GetNativeView()->GetRootWindow();
@@ -1192,7 +1195,9 @@ void WebContentsViewAura::StartDragging(
     data->MarkAsFromPrivileged();
 
   if (!image.isNull())
-    data->provider().SetDragImage(image, image_offset);
+    data->provider().SetDragImage(image, cursor_offset);
+
+  // TODO(crbug.com/1302094): The param `drag_obj_rect` is unused.
 
   std::unique_ptr<WebDragSourceAura> drag_source(
       new WebDragSourceAura(GetNativeView(), web_contents_));
