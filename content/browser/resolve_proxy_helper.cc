@@ -69,7 +69,7 @@ bool ResolveProxyHelper::SendRequestToNetworkService(
   // TODO(https://crbug.com/1021661): Pass in a non-empty NetworkIsolationKey.
   render_process_host->GetStoragePartition()
       ->GetNetworkContext()
-    ->LookUpProxyForURL(url, net::NetworkIsolationKey::CreateTransient(),
+    ->LookUpProxyForURL(url, net::NetworkAnonymizationKey::CreateTransient(),
                           std::move(proxy_lookup_client));
   return true;
 }
