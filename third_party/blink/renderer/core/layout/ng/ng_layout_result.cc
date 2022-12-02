@@ -1,4 +1,4 @@
-// Copyright 2016 The Chromium Authors. All rights reserved.
+// Copyright 2016 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -97,6 +97,8 @@ NGLayoutResult::NGLayoutResult(NGBoxFragmentBuilderPassKey passkey,
     bitfields_.has_forced_break = builder->has_forced_break_;
   }
   bitfields_.disable_simplified_layout = builder->disable_simplified_layout;
+  bitfields_.is_truncated_by_fragmentation_line =
+      builder->is_truncated_by_fragmentation_line;
 
   if (builder->ConstraintSpace().ShouldPropagateChildBreakValues() &&
       !builder->layout_object_->ShouldApplyLayoutContainment()) {
@@ -316,11 +318,12 @@ NGLayoutResult::RareData* NGLayoutResult::EnsureRareData() {
 #if DCHECK_IS_ON()
 void NGLayoutResult::CheckSameForSimplifiedLayout(
     const NGLayoutResult& other,
-    bool check_same_block_size) const {
+    bool check_same_block_size,
+    bool check_no_fragmentation) const {
   To<NGPhysicalBoxFragment>(*physical_fragment_)
       .CheckSameForSimplifiedLayout(
           To<NGPhysicalBoxFragment>(*other.physical_fragment_),
-          check_same_block_size);
+          check_same_block_size, check_no_fragmentation);
 
   DCHECK(LinesUntilClamp() == other.LinesUntilClamp());
   ExclusionSpace().CheckSameForSimplifiedLayout(other.ExclusionSpace());

@@ -41,6 +41,7 @@ void ArcAppPerformanceTracingTestHelper::SetUp(Profile* profile) {
 
 void ArcAppPerformanceTracingTestHelper::TearDown() {
   DCHECK(profile_);
+  exo::WMHelper::GetInstance()->RemoveActivationObserver(GetTracing());
   wm_helper_.reset();
   profile_ = nullptr;
 }
@@ -124,19 +125,11 @@ void ArcAppPerformanceTracingTestHelper::DisableAppSync() {
   DCHECK(profile_);
   syncer::SyncUserSettings* sync_user_settings =
       SyncServiceFactory::GetForProfile(profile_)->GetUserSettings();
-  if (chromeos::features::IsSyncSettingsCategorizationEnabled()) {
-    syncer::UserSelectableOsTypeSet selected_sync_types =
-        sync_user_settings->GetSelectedOsTypes();
-    selected_sync_types.Remove(syncer::UserSelectableOsType::kOsApps);
-    sync_user_settings->SetSelectedOsTypes(
-        /*sync_all_os_types=*/false, selected_sync_types);
-  } else {
-    syncer::UserSelectableTypeSet selected_sync_types =
-        sync_user_settings->GetSelectedTypes();
-    selected_sync_types.Remove(syncer::UserSelectableType::kApps);
-    sync_user_settings->SetSelectedTypes(
-        /*sync_everything=*/false, selected_sync_types);
-  }
+  syncer::UserSelectableOsTypeSet selected_sync_types =
+      sync_user_settings->GetSelectedOsTypes();
+  selected_sync_types.Remove(syncer::UserSelectableOsType::kOsApps);
+  sync_user_settings->SetSelectedOsTypes(
+      /*sync_all_os_types=*/false, selected_sync_types);
 }
 
 }  // namespace arc

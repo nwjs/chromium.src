@@ -234,7 +234,7 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   mojom::blink::ColorScheme GetOwnerColorScheme() const {
     return owner_color_scheme_;
   }
-  void ViewportRulesChanged();
+  void ViewportStyleSettingChanged();
 
   void InjectSheet(const StyleSheetKey&,
                    StyleSheetContents*,
@@ -246,6 +246,24 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
     DCHECK(global_rule_set_);
     return global_rule_set_->WatchedSelectorsRuleSet();
   }
+
+  // Helper class for making sure RuleSets that are ensured when collecting
+  // sheets for a TreeScope are not shared between two equal sheets which
+  // contain @layer rules since anonymous layers need to be unique.
+  class RuleSetScope {
+    STACK_ALLOCATED();
+
+   public:
+    RuleSetScope() = default;
+
+    // Ensure a RuleSet for the passed in css_sheet
+    RuleSet* RuleSetForSheet(StyleEngine& engine, CSSStyleSheet* css_sheet);
+
+   private:
+    // Keep track of ensured RuleSets with @layer rules to detect
+    // StyleSheetContents sharing.
+    HeapHashSet<Member<const RuleSet>> layer_rule_sets_;
+  };
 
   RuleSet* RuleSetForSheet(CSSStyleSheet&);
   void MediaQueryAffectingValueChanged(MediaValueChange change);
@@ -374,6 +392,7 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   AncestorAnalysis AnalyzeAncestors(const Node&);
 
   bool MarkReattachAllowed() const;
+  bool MarkStyleDirtyAllowed() const;
 
   // Returns true if we can skip style recalc for a size container subtree and
   // resume it during layout.
@@ -443,6 +462,7 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
       Element* parent,
       Node* node_before_change,
       Element& element);
+  void ScheduleInvalidationsForHasPseudoWhenAllChildrenRemoved(Element& parent);
 
   void NodeWillBeRemoved(Node&);
   void ChildrenRemoved(ContainerNode& parent);
@@ -568,6 +588,7 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   mojom::PreferredColorScheme GetPreferredColorScheme() const {
     return preferred_color_scheme_;
   }
+  bool GetForceDarkModeEnabled() const { return force_dark_mode_enabled_; }
   ForcedColors GetForcedColors() const { return forced_colors_; }
   void UpdateColorSchemeBackground(bool color_scheme_changed = false);
   Color ForcedBackgroundColor() const { return forced_background_color_; }
@@ -744,23 +765,16 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   void ReattachContainerSubtree(Element& container);
 
   // Invalidate ancestors or siblings affected by :has() state change
-  inline void InvalidateElementAffectedByHas(Element&, bool for_pseudo_change);
-  void InvalidateAncestorsOrSiblingsAffectedByHas(Element* parent,
-                                                  Element* previous_sibling,
-                                                  bool for_pseudo_change);
+  inline void InvalidateElementAffectedByHas(
+      Element&,
+      bool for_element_affected_by_pseudo_in_has);
+  class PseudoHasInvalidationTraversalContext;
   inline void InvalidateAncestorsOrSiblingsAffectedByHas(
-      Element& changed_element);
-  void InvalidateAncestorsOrSiblingsAffectedByHas(Element* parent,
-                                                  Element* previous_sibling);
-  inline void InvalidateAncestorsOrSiblingsAffectedByHasForPseudoChange(
-      Element& changed_element);
-  void InvalidateAncestorsOrSiblingsAffectedByHasForPseudoChange(
-      Element* parent,
-      Element* previous_sibling);
+      const PseudoHasInvalidationTraversalContext&);
   // Invalidate changed element affected by logical combinations in :has()
   inline void InvalidateChangedElementAffectedByLogicalCombinationsInHas(
       Element& changed_element,
-      bool for_pseudo_change);
+      bool for_element_affected_by_pseudo_in_has);
 
   // Initialization value for SkipStyleRecalcScope.
   bool AllowSkipStyleRecalcForScope() const;
@@ -929,6 +943,8 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   ForcedColors forced_colors_{ForcedColors::kNone};
 
   Color forced_background_color_;
+
+  bool force_dark_mode_enabled_{false};
 
   friend class NodeTest;
   friend class StyleEngineTest;

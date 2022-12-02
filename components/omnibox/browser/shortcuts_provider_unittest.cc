@@ -37,6 +37,7 @@
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/metrics_proto/omnibox_event.pb.h"
 #include "third_party/metrics_proto/omnibox_focus_type.pb.h"
+#include "third_party/omnibox_proto/groups.pb.h"
 
 using base::ASCIIToUTF16;
 using ExpectedURLs = std::vector<ExpectedURLAndAllowedToBeDefault>;
@@ -906,7 +907,7 @@ TEST_F(ShortcutsProviderTest, HistoryClusterSuggestions) {
   AutocompleteInput input(u"tex", metrics::OmniboxEventProto::OTHER,
                           TestSchemeClassifier());
   provider_->Start(input, false);
-  const auto& matches = provider_->matches();
+  const auto matches = provider_->matches();
 
   // Expect 3 (i.e. `provider_max_matches_`) non-cluster matches, and all
   // cluster matches.
@@ -931,9 +932,21 @@ TEST_F(ShortcutsProviderTest, HistoryClusterSuggestions) {
   EXPECT_EQ(matches[0].suggestion_group_id, absl::nullopt);
   EXPECT_EQ(matches[1].suggestion_group_id, absl::nullopt);
   EXPECT_EQ(matches[2].suggestion_group_id, absl::nullopt);
-  EXPECT_EQ(matches[3].suggestion_group_id, omnibox::GroupId::HISTORY_CLUSTER);
-  EXPECT_EQ(matches[4].suggestion_group_id, omnibox::GroupId::HISTORY_CLUSTER);
-  EXPECT_EQ(matches[5].suggestion_group_id, omnibox::GroupId::HISTORY_CLUSTER);
-  EXPECT_EQ(matches[6].suggestion_group_id, omnibox::GroupId::HISTORY_CLUSTER);
+  EXPECT_EQ(matches[3].suggestion_group_id, omnibox::GROUP_HISTORY_CLUSTER);
+  EXPECT_EQ(matches[4].suggestion_group_id, omnibox::GROUP_HISTORY_CLUSTER);
+  EXPECT_EQ(matches[5].suggestion_group_id, omnibox::GROUP_HISTORY_CLUSTER);
+  EXPECT_EQ(matches[6].suggestion_group_id, omnibox::GROUP_HISTORY_CLUSTER);
+
+  // With `omnibox_history_cluster_provider_free_ranking`, should not have
+  // groups.
+  config.omnibox_history_cluster_provider_free_ranking = true;
+  history_clusters::SetConfigForTesting(config);
+  provider_->Start(input, false);
+  const auto matches_with_free_ranking = provider_->matches();
+  ASSERT_EQ(matches.size(), matches_with_free_ranking.size());
+  for (size_t i = 0; i < matches.size(); ++i) {
+    EXPECT_EQ(matches[i].contents, matches_with_free_ranking[i].contents);
+    EXPECT_EQ(matches_with_free_ranking[i].suggestion_group_id, absl::nullopt);
+  }
 }
 #endif  // !BUILDFLAG(IS_IOS)

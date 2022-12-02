@@ -33,6 +33,7 @@
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/mediastream/media_stream.mojom-shared.h"
 #include "third_party/blink/public/mojom/mediastream/media_stream.mojom.h"
 #include "third_party/blink/public/mojom/permissions_policy/permissions_policy_feature.mojom.h"
@@ -53,13 +54,6 @@ std::u16string GetApplicationTitle(content::WebContents* web_contents) {
       web_contents->GetPrimaryMainFrame()->GetLastCommittedOrigin(),
       url_formatter::SchemeDisplay::OMIT_CRYPTOGRAPHIC);
 }
-
-// When navigator.mediaDevices.getDisplayMedia() is called, a media picker
-// is shown to the user, offering a selection of possible sources.
-// If this feature is enabled, the order is: tabs / windows / screens
-// If this feature is disabled, the order is: screens / windows / tabs
-const base::Feature kNewGetDisplayMediaPickerOrder CONSTINIT{
-    "NewGetDisplayMediaPickerOrder", base::FEATURE_DISABLED_BY_DEFAULT};
 
 }  // namespace
 
@@ -180,25 +174,18 @@ void DisplayMediaAccessHandler::HandleRequest(
       return;
     }
 
-    Profile* profile =
-        Profile::FromBrowserContext(web_contents->GetBrowserContext());
-    // The kDisplayCapturePermissionsPolicyEnabled preference controls whether
-    // the display-capture permissions-policy is applied or skipped.
-    if (profile->GetPrefs()->GetBoolean(
-            prefs::kDisplayCapturePermissionsPolicyEnabled)) {
-      // If the display-capture permissions-policy disallows capture, the render
-      // process was not supposed to send this message.
-      if (!rfh->IsFeatureEnabled(
-              blink::mojom::PermissionsPolicyFeature::kDisplayCapture)) {
-        bad_message::ReceivedBadMessage(
-            rfh->GetProcess(), bad_message::BadMessageReason::
-                                   RFH_DISPLAY_CAPTURE_PERMISSION_MISSING);
-        std::move(callback).Run(
-            blink::mojom::StreamDevicesSet(),
-            blink::mojom::MediaStreamRequestResult::PERMISSION_DENIED,
-            /*ui=*/nullptr);
-        return;
-      }
+    // If the display-capture permissions-policy disallows capture, the render
+    // process was not supposed to send this message.
+    if (!rfh->IsFeatureEnabled(
+            blink::mojom::PermissionsPolicyFeature::kDisplayCapture)) {
+      bad_message::ReceivedBadMessage(
+          rfh->GetProcess(), bad_message::BadMessageReason::
+                                 RFH_DISPLAY_CAPTURE_PERMISSION_MISSING);
+      std::move(callback).Run(
+          blink::mojom::StreamDevicesSet(),
+          blink::mojom::MediaStreamRequestResult::PERMISSION_DENIED,
+          /*ui=*/nullptr);
+      return;
     }
   }
 
@@ -313,7 +300,8 @@ void DisplayMediaAccessHandler::ProcessQueuedPickerRequest(
                    DesktopMediaList::Type::kWebContents,
                    DesktopMediaList::Type::kWindow,
                    DesktopMediaList::Type::kScreen};
-  } else if (base::FeatureList::IsEnabled(kNewGetDisplayMediaPickerOrder) ||
+  } else if (base::FeatureList::IsEnabled(
+                 blink::features::kNewGetDisplayMediaPickerOrder) ||
              content::desktop_capture::CanUsePipeWire()) {
     // 1. The new order is tabs-windows-screens, and is applied so long as the
     // killswitch is not engaged.

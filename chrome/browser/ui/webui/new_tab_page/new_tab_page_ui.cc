@@ -137,11 +137,8 @@ void AddResourcesForCartDiscountConsentV2(content::WebUIDataSource* source) {
       "modulesCartStepOneUseStaticContent",
       commerce::kNtpChromeCartModuleDiscountConsentNtpStepOneUseStaticContent
           .Get());
-  // This does not have a raw string resource.
-  source->AddString(
-      "modulesCartStepOneStaticContent",
-      commerce::kNtpChromeCartModuleDiscountConsentNtpStepOneStaticContent
-          .Get());
+  source->AddLocalizedString("modulesCartStepOneStaticContent",
+                             IDS_NTP_CART_DISCOUNT_STEP_ONE_CONTENT);
 
   AddRawStringOrDefault(
       source, "modulesCartConsentStepOneOneMerchantContent",
@@ -284,6 +281,31 @@ content::WebUIDataSource* CreateNewTabPageUiHtmlSource(Profile* profile) {
       {"tryAgain", IDS_NEW_TAB_VOICE_TRY_AGAIN},
       {"voiceSearchButtonLabel", IDS_TOOLTIP_MIC_SEARCH},
       {"waiting", IDS_NEW_TAB_VOICE_WAITING},
+
+      // Lens image search.
+      {"lensSearchButtonLabel", IDS_TOOLTIP_LENS_SEARCH},
+      {"lensSearchUploadDialogCloseButtonLabel",
+       IDS_LENS_SEARCH_UPLOAD_DIALOG_CLOSE_BUTTON_LABEL},
+      {"lensSearchUploadDialogTitle", IDS_LENS_SEARCH_UPLOAD_DIALOG_TITLE},
+      {"lensSearchUploadDialogDragTitle",
+       IDS_LENS_SEARCH_UPLOAD_DIALOG_DRAG_TITLE},
+      {"lensSearchUploadDialogUploadFileTitle",
+       IDS_LENS_SEARCH_UPLOAD_DIALOG_UPLOAD_FILE_TITLE},
+      {"lensSearchUploadDialogOrText", IDS_LENS_SEARCH_UPLOAD_DIALOG_OR_TEXT},
+      {"lensSearchUploadDialogTextPlaceholder",
+       IDS_LENS_SEARCH_UPLOAD_DIALOG_TEXT_PLACEHOLDER},
+      {"lensSearchUploadDialogSearchButtonLabel",
+       IDS_LENS_SEARCH_UPLOAD_DIALOG_SEARCH_BUTTON_LABEL},
+      {"lensSearchUploadDialogDragDropTitle",
+       IDS_LENS_SEARCH_UPLOAD_DIALOG_DRAG_DROP_TITLE},
+      {"lensSearchUploadDialogLoadingText",
+       IDS_LENS_SEARCH_UPLOAD_DIALOG_LOADING_TEXT},
+      {"lensSearchUploadDialogOfflineText",
+       IDS_LENS_SEARCH_UPLOAD_DIALOG_OFFLINE_TEXT},
+      {"lensSearchUploadDialogOfflineSubtitleText",
+       IDS_LENS_SEARCH_UPLOAD_DIALOG_OFFLINE_SUBTITLE_TEXT},
+      {"lensSearchUploadDialogOfflineButtonLabel",
+       IDS_LENS_SEARCH_UPLOAD_DIALOG_OFFLINE_BUTTON_LABEL},
 
       // Logo/doodle.
       {"copyLink", IDS_NTP_DOODLE_SHARE_DIALOG_COPY_LABEL},

@@ -4,7 +4,7 @@
 
 import {ZoomBehavior, ZoomManager} from 'chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/pdf_viewer_wrapper.js';
 import {EventTracker} from 'chrome://resources/js/event_tracker.js';
-import {PromiseResolver} from 'chrome://resources/js/promise_resolver.m.js';
+import {PromiseResolver} from 'chrome://resources/js/promise_resolver.js';
 
 chrome.test.runTests(function() {
   'use strict';
@@ -18,10 +18,10 @@ chrome.test.runTests(function() {
     addZoomListeners(target: EventTarget) {
       this.tracker_.add(
           target, 'set-zoom',
-          e => this.setZoom((e as CustomEvent<number>).detail));
+          (e: Event) => this.setZoom((e as CustomEvent<number>).detail));
       this.tracker_.add(
           target, 'update-zoom-from-browser',
-          e => this.updateZoomFromBrowserChange(
+          (e: Event) => this.updateZoomFromBrowserChange(
               (e as CustomEvent<number>).detail));
     }
 

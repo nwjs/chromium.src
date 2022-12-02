@@ -41,8 +41,10 @@
 #include "components/autofill/core/browser/form_processing/label_processing_util.h"
 #include "components/autofill/core/browser/form_processing/name_processing_util.h"
 #include "components/autofill/core/browser/form_structure_rationalizer.h"
+#include "components/autofill/core/browser/form_structure_sectioning_util.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
+#include "components/autofill/core/browser/metrics/autofill_metrics_utils.h"
 #include "components/autofill/core/browser/metrics/shadow_prediction_metrics.h"
 #include "components/autofill/core/browser/randomized_encoder.h"
 #include "components/autofill/core/browser/validation.h"
@@ -149,9 +151,8 @@ void EncodePasswordAttributesVote(
     const int password_symbol_vote,
     AutofillUploadContents* upload) {
   switch (password_attributes_vote.first) {
-    case PasswordAttribute::kHasLowercaseLetter:
-      upload->set_password_has_lowercase_letter(
-          password_attributes_vote.second);
+    case PasswordAttribute::kHasLetter:
+      upload->set_password_has_letter(password_attributes_vote.second);
       break;
     case PasswordAttribute::kHasSpecialSymbol:
       upload->set_password_has_special_symbol(password_attributes_vote.second);
@@ -801,86 +802,136 @@ bool FormStructure::ShouldBeUploaded() const {
          ShouldBeParsed();
 }
 
-void FormStructure::RetrieveFromCache(
-    const FormStructure& cached_form,
-    const bool should_keep_cached_value,
-    const bool only_server_and_autofill_state) {
+void FormStructure::RetrieveFromCache(const FormStructure& cached_form,
+                                      RetrieveFromCacheReason reason) {
+  // Build a table to lookup AutofillFields by their FieldGlobalId.
   std::map<FieldGlobalId, const AutofillField*> cached_fields_by_id;
-  for (size_t i = 0; i < cached_form.field_count(); ++i) {
-    auto* const field = cached_form.field(i);
-    cached_fields_by_id[field->global_id()] = field;
-  }
+  for (const std::unique_ptr<autofill::AutofillField>& field : cached_form)
+    cached_fields_by_id[field->global_id()] = field.get();
+
+  // Lookup field by global_id in cached_fields_by_id.
+  auto find_field_by_id = [&cached_fields_by_id](FieldGlobalId global_id) {
+    const auto& it = cached_fields_by_id.find(global_id);
+    return it != cached_fields_by_id.end() ? it->second : nullptr;
+  };
+
+  // Lookup field by field signature and return it in case only a single field
+  // with the signature exists.
+  auto find_field_with_unique_field_signature =
+      [&cached_fields_by_id](
+          FieldSignature field_signature) -> const AutofillField* {
+    const AutofillField* match = nullptr;
+    // Iterate over the fields to find the field with the same form signature.
+    for (const auto& entry : cached_fields_by_id) {
+      if (entry.second->GetFieldSignature() == field_signature) {
+        // If there are multiple matches, do not retrieve the field and stop
+        // the process.
+        if (match)
+          return nullptr;
+        match = entry.second;
+      }
+    }
+    return match;
+  };
+
   for (auto& field : *this) {
-    const AutofillField* cached_field = nullptr;
-    const auto& it = cached_fields_by_id.find(field->global_id());
-    if (it != cached_fields_by_id.end())
-      cached_field = it->second;
+    const AutofillField* cached_field = find_field_by_id(field->global_id());
 
     // If the unique renderer id (or the name) is not stable due to some Java
     // Script magic in the website, use the field signature as a fallback
     // solution to find the field in the cached form.
     if (!cached_field) {
-      // Iterates over the fields to find the field with the same form
-      // signature.
-      for (size_t i = 0; i < cached_form.field_count(); ++i) {
-        auto* const cfield = cached_form.field(i);
-        if (field->GetFieldSignature() == cfield->GetFieldSignature()) {
-          // If there are multiple matches, do not retrieve the field and stop
-          // the process.
-          if (cached_field) {
-            cached_field = nullptr;
-            break;
-          } else {
-            cached_field = cfield;
-          }
-        }
-      }
+      cached_field =
+          find_field_with_unique_field_signature(field->GetFieldSignature());
     }
 
-    if (cached_field) {
-      if (!only_server_and_autofill_state) {
-        // Transfer attributes of the cached AutofillField to the newly created
-        // AutofillField.
-        for (int i = 0; i <= static_cast<int>(PatternSource::kMaxValue); ++i) {
-          PatternSource s = static_cast<PatternSource>(i);
-          field->set_heuristic_type(s, cached_field->heuristic_type(s));
-        }
-        field->SetHtmlType(cached_field->html_type(),
-                           cached_field->html_mode());
-        field->section = cached_field->section;
-        field->set_only_fill_when_focused(
-            cached_field->only_fill_when_focused());
-      }
-      if (should_keep_cached_value) {
-        field->is_autofilled = cached_field->is_autofilled;
-      }
-      if (field->form_control_type != "select-one") {
-        if (should_keep_cached_value) {
+    // Skip fields that we could not find.
+    if (!cached_field)
+      continue;
+
+    switch (reason) {
+      case RetrieveFromCacheReason::kFormParsing:
+        // During form parsing (as in "assigning field types to fields")
+        // the `value` represents the initial value found at page load and needs
+        // to be preserved.
+        if (field->form_control_type != "select-one") {
           field->value = cached_field->value;
           value_from_dynamic_change_form_ = true;
-        } else if (field->value == cached_field->value &&
-                   (field->server_type() != ADDRESS_HOME_COUNTRY &&
-                    field->server_type() != ADDRESS_HOME_STATE)) {
-          // From the perspective of learning user data, text fields containing
-          // default values are equivalent to empty fields.
-          // Since a website can prefill country and state values basedw on
-          // GeoIp, the mechanism is deactivated for state and country fields.
+        }
+        break;
+      case RetrieveFromCacheReason::kFormImport:
+        // From the perspective of learning user data, text fields containing
+        // default values are equivalent to empty fields. So if the value of
+        // a submitted form corresponds to the initial value of the field, we
+        // clear that value.
+        // Since a website can prefill country and state values based on
+        // GeoIP, we want to hold on to these values.
+        const bool same_value_as_on_page_load =
+            field->value == cached_field->value;
+        const bool field_is_neither_state_nor_country =
+            field->server_type() != ADDRESS_HOME_COUNTRY &&
+            field->server_type() != ADDRESS_HOME_STATE;
+        if (field->form_control_type != "select-one" &&
+            same_value_as_on_page_load && field_is_neither_state_nor_country) {
           field->value = std::u16string();
         }
-      }
-      field->set_server_predictions(cached_field->server_predictions());
-      field->set_previously_autofilled(cached_field->previously_autofilled());
+        break;
+    }
 
-      if (cached_field->value_not_autofilled_over_existing_value_hash()) {
-        field->set_value_not_autofilled_over_existing_value_hash(
-            *cached_field->value_not_autofilled_over_existing_value_hash());
+    field->set_server_predictions(cached_field->server_predictions());
+
+    // TODO(crbug.com/1373362): The following is the statement which we want
+    // to have here once features::kAutofillDontPreserveAutofillState is
+    // launched:
+    // ---
+    // We don't preserve the `is_autofilled` state from the cache, because
+    // form parsing and form import both start in the renderer and the renderer
+    // shares it's most recent status of whether the fields are currently
+    // in autofilled state. Any modifications by JavaScript or the user
+    // may take a field out of the autofilled state and get propagated to the
+    // AutofillManager via OnTextFieldDidChangeImpl anyways.
+    // ---
+    // For now we gate this behavioral change by a feature flag to ensure that
+    // it does not cause a regression.
+    if (!base::FeatureList::IsEnabled(
+            features::kAutofillDontPreserveAutofillState)) {
+      // Preserve state whether the field was autofilled before.
+      if (reason == RetrieveFromCacheReason::kFormParsing)
+        field->is_autofilled = cached_field->is_autofilled;
+    }
+
+    field->set_previously_autofilled(cached_field->previously_autofilled());
+    if (cached_field->value_not_autofilled_over_existing_value_hash()) {
+      field->set_value_not_autofilled_over_existing_value_hash(
+          *cached_field->value_not_autofilled_over_existing_value_hash());
+    }
+
+    // During form parsing, we don't care for heuristic field classifications
+    // and information derived from the autocomplete attribute as those are
+    // either regenerated or copied from the form that the renderer sent.
+    // During import, no parsing happens and we want to preserve the last field
+    // classification.
+    if (reason == RetrieveFromCacheReason::kFormImport) {
+      // Transfer attributes of the cached AutofillField to the newly created
+      // AutofillField.
+      for (int i = 0; i <= static_cast<int>(PatternSource::kMaxValue); ++i) {
+        PatternSource s = static_cast<PatternSource>(i);
+        field->set_heuristic_type(s, cached_field->heuristic_type(s));
       }
+      field->SetHtmlType(cached_field->html_type(), cached_field->html_mode());
+      field->section = cached_field->section;
+      field->set_only_fill_when_focused(cached_field->only_fill_when_focused());
 
       // Only retrieve an overall prediction from cache if a server prediction
       // is set.
+      // The following is just gated behind a flag because it changes behavior.
+      // We are pretty convinced that this should be enabled by default.
       if (base::FeatureList::IsEnabled(
-              features::kAutofillRetrieveOverallPredictionsFromCache) &&
-          field->server_type() != NO_SERVER_DATA) {
+              features::kAutofillRetrieveOverallPredictionsFromCache)) {
+        // During import the final field type is used to decide which
+        // information to store in an address profile or credit card. As
+        // rationalization is an important component of determinig the final
+        // field type, the output should be preserved.
         field->SetTypeTo(cached_field->Type());
       }
     }
@@ -984,13 +1035,29 @@ void FormStructure::LogQualityMetrics(
     if (!field->value.empty() && !field->is_autofilled)
       perfect_filling = false;
 
+    // Field filling statistics that are only emitted if the form was submitted
+    // but independent of the existence of a possible type.
+    if (observed_submission) {
+      // If the field was either autofilled and accepted or corrected, emit the
+      // FieldWiseCorrectness metric.
+      if (field->is_autofilled || field->previously_autofilled()) {
+        AutofillMetrics::LogEditedAutofilledFieldAtSubmission(
+            form_interactions_ukm_logger, *this, *field);
+      }
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    /// WARNING: Everything below this line is conditioned on having a possible
+    /// field type. This means the field must contain a value that can be found
+    /// in one of the stored Autofill profiles.
+    ///////////////////////////////////////////////////////////////////////////
     const ServerFieldTypeSet& field_types = field->possible_types();
     DCHECK(!field_types.empty());
 
-    if (field_types.count(EMPTY_TYPE) || field_types.count(UNKNOWN_TYPE)) {
-      DCHECK_EQ(field_types.size(), 1u);
+    // Skip all remaining metrics if there wasn't a single possible field type
+    // detected.
+    if (!FieldHasMeaningfulFieldTypes(*field))
       continue;
-    }
 
     ++num_detected_field_types;
 
@@ -1027,7 +1094,9 @@ void FormStructure::LogQualityMetrics(
     // subsequently edited by the user.
     if (observed_submission) {
       if (field->is_autofilled || field->previously_autofilled()) {
-        AutofillMetrics::LogEditedAutofilledFieldAtSubmission(
+        // TODO(crbug.com/1368096): This metric is defective because it is
+        // confitioned on having a possible field type. Remove after M112.
+        AutofillMetrics::LogEditedAutofilledFieldAtSubmissionDeprecated(
             form_interactions_ukm_logger, *this, *field);
 
         // If the field was a |ADDRESS_HOME_STATE| field which was autofilled,
@@ -1604,6 +1673,12 @@ void FormStructure::IdentifySections(bool ignore_autocomplete) {
     return;
   }
 
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillUseParameterizedSectioning)) {
+    AssignSections(fields_);
+    return;
+  }
+
   // Use unique local frame tokens of the fields to generate sections.
   base::flat_map<LocalFrameToken, size_t> frame_token_ids;
 
@@ -1852,9 +1927,7 @@ std::ostream& operator<<(std::ostream& buffer, const FormStructure& form) {
                   {", html: ", FieldTypeToStringPiece(field->html_type())})
             : "";
     if (field->html_type() == HtmlFieldType::kUnrecognized &&
-        (!base::FeatureList::IsEnabled(
-             features::kAutofillServerTypeTakesPrecedence) ||
-         !field->server_type_prediction_is_override())) {
+        !field->server_type_prediction_is_override()) {
       html_type_description += " (disabling autofill)";
     }
 
@@ -1929,9 +2002,7 @@ LogBuffer& operator<<(LogBuffer& buffer, const FormStructure& form) {
                   {", html: ", FieldTypeToStringPiece(field->html_type())})
             : "";
     if (field->html_type() == HtmlFieldType::kUnrecognized &&
-        (!base::FeatureList::IsEnabled(
-             features::kAutofillServerTypeTakesPrecedence) ||
-         !field->server_type_prediction_is_override())) {
+        !field->server_type_prediction_is_override()) {
       html_type_description += " (disabling autofill)";
     }
 

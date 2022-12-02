@@ -21,9 +21,11 @@
 #include "chrome/browser/ash/app_mode/web_app/web_kiosk_app_launcher.h"
 #include "chrome/browser/ash/app_mode/web_app/web_kiosk_app_manager.h"
 #include "chrome/browser/ash/app_mode/web_app/web_kiosk_app_service_launcher.h"
+#include "chrome/browser/ash/crosapi/browser_data_migrator.h"
 #include "chrome/browser/ash/crosapi/browser_util.h"
 #include "chrome/browser/ash/crosapi/crosapi_ash.h"
 #include "chrome/browser/ash/crosapi/crosapi_manager.h"
+#include "chrome/browser/ash/crosapi/force_installed_tracker_ash.h"
 #include "chrome/browser/ash/login/enterprise_user_session_metrics.h"
 #include "chrome/browser/ash/login/screens/encryption_migration_screen.h"
 #include "chrome/browser/ash/login/ui/login_display_host.h"
@@ -277,6 +279,21 @@ bool KioskLaunchController::HandleAccelerator(LoginAcceleratorAction action) {
 
 void KioskLaunchController::OnProfileLoaded(Profile* profile) {
   SYSLOG(INFO) << "Profile loaded... Starting app launch.";
+
+  // Call `ClearMigrationStep()` once per signin so that the check for migration
+  // is run exactly once per signin. Check the comment for `kMigrationStep` in
+  // browser_data_migrator.h for details.
+  BrowserDataMigratorImpl::ClearMigrationStep(g_browser_process->local_state());
+
+  const user_manager::User* user =
+      ProfileHelper::Get()->GetUserByProfile(profile);
+  if (BrowserDataMigratorImpl::MaybeRestartToMigrate(
+          user->GetAccountId(), user->username_hash(),
+          crosapi::browser_util::PolicyInitState::kAfterInit)) {
+    LOG(WARNING) << "Restarting chrome to run profile migration.";
+    return;
+  }
+
   profile_ = profile;
 
   // This is needed to trigger input method extensions being loaded.
@@ -464,13 +481,22 @@ void KioskLaunchController::OnAppPrepared() {
 
   // Launch lacros-chrome if the corresponding feature flags are enabled.
   if (crosapi::browser_util::IsLacrosEnabledInWebKioskSession()) {
-    // Start observing the installation status of extensions in Lacros.
-    force_installed_observation_for_lacros_.Observe(
-        GetForceInstalledTrackerAsh());
-    StartTimerToWaitForExtensions();
+    crosapi::ForceInstalledTrackerAsh* tracker_ash =
+        GetForceInstalledTrackerAsh();
+
+    if (tracker_ash && !tracker_ash->IsReady()) {
+      // Start observing the installation status of extensions in Lacros.
+      force_installed_observation_for_lacros_.Observe(
+          GetForceInstalledTrackerAsh());
+      StartTimerToWaitForExtensions();
+    } else {
+      FinishForcedExtensionsInstall(/*timeout=*/false);
+    }
 
     // Initialize and start Lacros for preparing force-installed extensions.
-    crosapi::BrowserManager::Get()->InitializeAndStartIfNeeded();
+    if (!crosapi::BrowserManager::Get()->IsRunningOrWillRun())
+      crosapi::BrowserManager::Get()->InitializeAndStartIfNeeded();
+
     return;
   }
 

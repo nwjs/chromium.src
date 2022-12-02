@@ -77,7 +77,7 @@ bool AllowLocalHistoryZeroSuggestSuggestions(AutocompleteProviderClient* client,
   if (base::FeatureList::IsEnabled(
           omnibox::kLocalHistoryZeroSuggestBeyondNTP)) {
     // Allow local history zero-suggest where remote zero-suggest is eligible.
-    return ZeroSuggestProvider::ResultTypeToRun(client, input) !=
+    return ZeroSuggestProvider::ResultTypeToRun(input) !=
            ZeroSuggestProvider::ResultType::kNone;
   }
 
@@ -239,12 +239,11 @@ void LocalHistoryZeroSuggestProvider::QueryURLDatabase(
         /*relevance_from_server=*/false,
         /*input_text=*/base::ASCIIToUTF16(std::string()));
 
-    // Only provide a group ID, as the client does not know the header or the
-    // priority for omnibox::GroupId::PERSONALIZED_ZERO_SUGGEST. The suggestion
-    // group info will either be provided by the server (i.e., on SRP/Web) or
-    // this group ID will be dropped (i.e., on NTP).
+    // If the appropriate header text and section are not provided by the server
+    // the default omnibox::SECTION_LOCAL_HISTORY_ZPS will be used and the local
+    // history zero-prefix suggestions will be shown without a header.
     suggestion.set_suggestion_group_id(
-        omnibox::GroupId::PERSONALIZED_ZERO_SUGGEST);
+        omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST);
 
     AutocompleteMatch match = BaseSearchProvider::CreateSearchSuggestion(
         this, input, /*in_keyword_mode=*/false, suggestion,

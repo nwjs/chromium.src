@@ -954,9 +954,7 @@ bool ContentBrowserClient::WillCreateRestrictedCookieManager(
 std::vector<std::unique_ptr<URLLoaderRequestInterceptor>>
 ContentBrowserClient::WillCreateURLLoaderRequestInterceptors(
     content::NavigationUIData* navigation_ui_data,
-    int frame_tree_node_id,
-    const scoped_refptr<network::SharedURLLoaderFactory>&
-        network_loader_factory) {
+    int frame_tree_node_id) {
   return std::vector<std::unique_ptr<URLLoaderRequestInterceptor>>();
 }
 
@@ -1232,7 +1230,8 @@ void ContentBrowserClient::AugmentNavigationDownloadPolicy(
 std::vector<blink::mojom::EpochTopicPtr>
 ContentBrowserClient::GetBrowsingTopicsForJsApi(
     const url::Origin& context_origin,
-    RenderFrameHost* main_frame) {
+    RenderFrameHost* main_frame,
+    bool observe) {
   return {};
 }
 
@@ -1410,6 +1409,12 @@ bool ContentBrowserClient::OpenExternally(RenderFrameHost* opener,
 
 bool ContentBrowserClient::ShouldSendOutermostOriginToRenderer(
     const url::Origin& outermost_origin) {
+  return false;
+}
+
+bool ContentBrowserClient::IsFileSystemURLNavigationAllowed(
+    content::BrowserContext* browser_context,
+    const GURL& url) {
   return false;
 }
 

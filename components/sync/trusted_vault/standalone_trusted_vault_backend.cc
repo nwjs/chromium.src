@@ -16,6 +16,7 @@
 #include "base/feature_list.h"
 #include "base/files/file_util.h"
 #include "base/files/important_file_writer.h"
+#include "base/hash/md5.h"
 #include "base/logging.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_functions.h"
@@ -30,6 +31,7 @@
 #include "components/signin/public/identity_manager/accounts_in_cookie_jar_info.h"
 #include "components/sync/base/features.h"
 #include "components/sync/base/time.h"
+#include "components/sync/driver/trusted_vault_histograms.h"
 #include "components/sync/protocol/local_trusted_vault.pb.h"
 #include "components/sync/trusted_vault/proto_string_bytes_conversion.h"
 #include "components/sync/trusted_vault/securebox.h"
@@ -64,8 +66,46 @@ sync_pb::LocalTrustedVault ReadEncryptedFile(const base::FilePath& file_path) {
   return proto;
 }
 
-void WriteToDisk(const sync_pb::LocalTrustedVault& data,
-                 const base::FilePath& file_path) {
+sync_pb::LocalTrustedVault ReadMD5HashedFile(const base::FilePath& file_path) {
+  std::string file_content;
+
+  sync_pb::LocalTrustedVault data_proto;
+  if (!base::PathExists(file_path)) {
+    RecordTrustedVaultFileReadStatus(
+        TrustedVaultFileReadStatusForUMA::kNotFound);
+    return data_proto;
+  }
+  if (!base::ReadFileToString(file_path, &file_content)) {
+    RecordTrustedVaultFileReadStatus(
+        TrustedVaultFileReadStatusForUMA::kFileReadFailed);
+    return data_proto;
+  }
+  sync_pb::LocalTrustedVaultFileContent file_proto;
+  if (!file_proto.ParseFromString(file_content)) {
+    RecordTrustedVaultFileReadStatus(
+        TrustedVaultFileReadStatusForUMA::kFileProtoDeserializationFailed);
+    return data_proto;
+  }
+
+  if (base::MD5String(file_proto.serialized_local_trusted_vault()) !=
+      file_proto.md5_digest_hex_string()) {
+    RecordTrustedVaultFileReadStatus(
+        TrustedVaultFileReadStatusForUMA::kMD5DigestMismatch);
+    return data_proto;
+  }
+
+  if (!data_proto.ParseFromString(
+          file_proto.serialized_local_trusted_vault())) {
+    RecordTrustedVaultFileReadStatus(
+        TrustedVaultFileReadStatusForUMA::kDataProtoDeserializationFailed);
+    return data_proto;
+  }
+  RecordTrustedVaultFileReadStatus(TrustedVaultFileReadStatusForUMA::kSuccess);
+  return data_proto;
+}
+
+void WriteEncryptedFileToDisk(const sync_pb::LocalTrustedVault& data,
+                              const base::FilePath& file_path) {
   std::string encrypted_data;
   const bool encryption_success =
       OSCrypt::EncryptString(data.SerializeAsString(), &encrypted_data);
@@ -79,6 +119,36 @@ void WriteToDisk(const sync_pb::LocalTrustedVault& data,
   if (!base::ImportantFileWriter::WriteFileAtomically(file_path,
                                                       encrypted_data)) {
     DLOG(ERROR) << "Failed to write trusted vault file.";
+  }
+}
+
+void WriteMD5HashedFileToDisk(const sync_pb::LocalTrustedVault& data,
+                              const base::FilePath& file_path) {
+  sync_pb::LocalTrustedVaultFileContent file_proto;
+  file_proto.set_serialized_local_trusted_vault(data.SerializeAsString());
+  file_proto.set_md5_digest_hex_string(
+      base::MD5String(file_proto.serialized_local_trusted_vault()));
+  bool success = base::ImportantFileWriter::WriteFileAtomically(
+      file_path, file_proto.SerializeAsString());
+  if (!success) {
+    DLOG(ERROR) << "Failed to write trusted vault file.";
+  }
+  base::UmaHistogramBoolean("Sync.TrustedVaultFileWriteSuccess", success);
+}
+
+void MaybeMigrateDataFile(const base::FilePath& old_file_path,
+                          const base::FilePath& new_file_path) {
+  if (!base::PathExists(old_file_path)) {
+    return;
+  }
+  if (!base::PathExists(new_file_path)) {
+    // Only write to `new_file_path` if it doesn't exist yet to prevent
+    // overwriting the content with stale data.
+    sync_pb::LocalTrustedVault proto = ReadEncryptedFile(old_file_path);
+    WriteMD5HashedFileToDisk(proto, new_file_path);
+  }
+  if (base::PathExists(new_file_path)) {
+    base::DeleteFile(old_file_path);
   }
 }
 
@@ -145,15 +215,16 @@ void UpgradeToVersion1(sync_pb::LocalTrustedVault* local_trusted_vault) {
   local_trusted_vault->set_data_version(1);
 }
 
-// Version 1 may contain `keys_are_stale` accidentally set to true, upgrade to
-// version 2 resets it to false.
+// Version 1 may contain `keys_marked_as_stale_by_consumer` (before the field
+// was renamed) accidentally set to true, upgrade to version 2 resets it to
+// false.
 void UpgradeToVersion2(sync_pb::LocalTrustedVault* local_trusted_vault) {
   DCHECK(local_trusted_vault);
   DCHECK_EQ(local_trusted_vault->data_version(), 1);
 
   for (sync_pb::LocalTrustedVaultPerUser& per_user_vault :
        *local_trusted_vault->mutable_user()) {
-    per_user_vault.set_keys_are_stale(false);
+    per_user_vault.set_keys_marked_as_stale_by_consumer(false);
   }
   local_trusted_vault->set_data_version(2);
 }
@@ -215,10 +286,12 @@ StandaloneTrustedVaultBackend::GetDownloadKeysStatusForUMAFromResponse(
 }
 
 StandaloneTrustedVaultBackend::StandaloneTrustedVaultBackend(
-    const base::FilePath& file_path,
+    const base::FilePath& md5_hashed_file_path,
+    const base::FilePath& deprecated_encrypted_file_path,
     std::unique_ptr<Delegate> delegate,
     std::unique_ptr<TrustedVaultConnection> connection)
-    : file_path_(file_path),
+    : md5_hashed_file_path_(md5_hashed_file_path),
+      deprecated_encrypted_file_path_(deprecated_encrypted_file_path),
       delegate_(std::move(delegate)),
       connection_(std::move(connection)),
       clock_(base::DefaultClock::GetInstance()) {}
@@ -233,7 +306,7 @@ void StandaloneTrustedVaultBackend::WriteDegradedRecoverabilityState(
       FindUserVault(primary_account_->gaia);
   *per_user_vault->mutable_degraded_recoverability_state() =
       degraded_recoverability_state;
-  WriteToDisk(data_, file_path_);
+  WriteDataToDisk();
 }
 
 void StandaloneTrustedVaultBackend::OnDegradedRecoverabilityChanged() {
@@ -241,7 +314,14 @@ void StandaloneTrustedVaultBackend::OnDegradedRecoverabilityChanged() {
 }
 
 void StandaloneTrustedVaultBackend::ReadDataFromDisk() {
-  data_ = ReadEncryptedFile(file_path_);
+  if (base::FeatureList::IsEnabled(kSyncTrustedVaultUseMD5HashedFile)) {
+    MaybeMigrateDataFile(deprecated_encrypted_file_path_,
+                         md5_hashed_file_path_);
+    data_ = ReadMD5HashedFile(md5_hashed_file_path_);
+  } else {
+    data_ = ReadEncryptedFile(deprecated_encrypted_file_path_);
+  }
+
   if (data_.user_size() == 0) {
     // No data, set the current version and omit writing the file.
     data_.set_data_version(kCurrentLocalTrustedVaultVersion);
@@ -249,13 +329,13 @@ void StandaloneTrustedVaultBackend::ReadDataFromDisk() {
 
   if (data_.data_version() == 0) {
     UpgradeToVersion1(&data_);
-    WriteToDisk(data_, file_path_);
+    WriteDataToDisk();
   }
 
   if (base::FeatureList::IsEnabled(kSyncTrustedVaultResetKeysAreStale) &&
       data_.data_version() == 1) {
     UpgradeToVersion2(&data_);
-    WriteToDisk(data_, file_path_);
+    WriteDataToDisk();
   }
 
   // TODO(crbug.com/1362513): DCHECK against kCurrentLocalTrustedVaultVersion
@@ -278,7 +358,7 @@ void StandaloneTrustedVaultBackend::FetchKeys(
       FindUserVault(account_info.gaia);
 
   if (per_user_vault && HasNonConstantKey(*per_user_vault) &&
-      !per_user_vault->keys_are_stale()) {
+      !per_user_vault->keys_marked_as_stale_by_consumer()) {
     // There are locally available keys, which weren't marked as stale. Keys
     // download attempt is not needed.
     FulfillOngoingFetchKeys(/*status_for_uma=*/absl::nullopt);
@@ -365,16 +445,21 @@ void StandaloneTrustedVaultBackend::StoreKeys(
     per_user_vault->set_gaia_id(gaia_id);
   }
 
+  // Having retrieved (or downloaded) new keys indicates that past failures may
+  // no longer be relevant.
+  per_user_vault->mutable_local_device_registration_info()
+      ->set_last_registration_returned_local_data_obsolete(false);
+
   // Replace all keys.
   per_user_vault->set_last_vault_key_version(last_key_version);
-  per_user_vault->set_keys_are_stale(false);
+  per_user_vault->set_keys_marked_as_stale_by_consumer(false);
   per_user_vault->clear_vault_key();
   for (const std::vector<uint8_t>& key : keys) {
     AssignBytesToProtoString(
         key, per_user_vault->add_vault_key()->mutable_key_material());
   }
 
-  WriteToDisk(data_, file_path_);
+  WriteDataToDisk();
   MaybeRegisterDevice();
 }
 
@@ -495,20 +580,20 @@ void StandaloneTrustedVaultBackend::UpdateAccountsInCookieJarInfo(
   data_.mutable_user()->erase(
       base::ranges::remove_if(*data_.mutable_user(), should_remove_user_data),
       data_.mutable_user()->end());
-  WriteToDisk(data_, file_path_);
+  WriteDataToDisk();
 }
 
 bool StandaloneTrustedVaultBackend::MarkLocalKeysAsStale(
     const CoreAccountInfo& account_info) {
   sync_pb::LocalTrustedVaultPerUser* per_user_vault =
       FindUserVault(account_info.gaia);
-  if (!per_user_vault || per_user_vault->keys_are_stale()) {
+  if (!per_user_vault || per_user_vault->keys_marked_as_stale_by_consumer()) {
     // No keys available for |account_info| or they are already marked as stale.
     return false;
   }
 
-  per_user_vault->set_keys_are_stale(true);
-  WriteToDisk(data_, file_path_);
+  per_user_vault->set_keys_marked_as_stale_by_consumer(true);
+  WriteDataToDisk();
   return true;
 }
 
@@ -613,7 +698,7 @@ void StandaloneTrustedVaultBackend::ClearDataForAccount(
 
   *per_user_vault = sync_pb::LocalTrustedVaultPerUser();
   per_user_vault->set_gaia_id(account_info.gaia);
-  WriteToDisk(data_, file_path_);
+  WriteDataToDisk();
 
   // This codepath invoked as part of sync reset. While sync reset can cause
   // resetting primary account, this is not the case for Chrome OS and Butter
@@ -650,7 +735,17 @@ void StandaloneTrustedVaultBackend::SetDeviceRegisteredVersionForTesting(
   DCHECK(per_user_vault);
   per_user_vault->mutable_local_device_registration_info()
       ->set_device_registered_version(version);
-  WriteToDisk(data_, file_path_);
+  WriteDataToDisk();
+}
+
+void StandaloneTrustedVaultBackend::
+    SetLastRegistrationReturnedLocalDataObsoleteForTesting(
+        const std::string& gaia_id) {
+  sync_pb::LocalTrustedVaultPerUser* per_user_vault = FindUserVault(gaia_id);
+  DCHECK(per_user_vault);
+  per_user_vault->mutable_local_device_registration_info()
+      ->set_last_registration_returned_local_data_obsolete(true);
+  WriteDataToDisk();
 }
 
 void StandaloneTrustedVaultBackend::SetClockForTesting(base::Clock* clock) {
@@ -660,6 +755,10 @@ void StandaloneTrustedVaultBackend::SetClockForTesting(base::Clock* clock) {
 bool StandaloneTrustedVaultBackend::HasPendingTrustedRecoveryMethodForTesting()
     const {
   return pending_trusted_recovery_method_.has_value();
+}
+
+bool StandaloneTrustedVaultBackend::AreConnectionRequestsThrottledForTesting() {
+  return AreConnectionRequestsThrottled();
 }
 
 absl::optional<TrustedVaultDeviceRegistrationStateForUMA>
@@ -702,7 +801,8 @@ StandaloneTrustedVaultBackend::MaybeRegisterDevice() {
     return TrustedVaultDeviceRegistrationStateForUMA::kAlreadyRegisteredV0;
   }
 
-  if (per_user_vault->keys_are_stale()) {
+  if (per_user_vault->local_device_registration_info()
+          .last_registration_returned_local_data_obsolete()) {
     // Client already knows that existing vault keys (or their absence) isn't
     // sufficient for device registration. Fresh keys should be obtained first.
     return TrustedVaultDeviceRegistrationStateForUMA::kLocalKeysAreStale;
@@ -733,7 +833,7 @@ StandaloneTrustedVaultBackend::MaybeRegisterDevice() {
         key_pair->private_key().ExportToBytes(),
         per_user_vault->mutable_local_device_registration_info()
             ->mutable_private_key_material());
-    WriteToDisk(data_, file_path_);
+    WriteDataToDisk();
   }
 
   // Cancel existing callbacks passed to |connection_| to ensure there is only
@@ -803,6 +903,13 @@ void StandaloneTrustedVaultBackend::OnDeviceRegistered(
       FindUserVault(primary_account_->gaia);
   DCHECK(per_user_vault);
 
+  // Registration is only attempted if the was no previous failure with
+  // |kLocalDataObsolete|. If this precondition wasn't guaranteed here, the
+  // field would need to be reset for some cases below such as `kSuccess` and
+  // `kAlreadyRegistered`.
+  DCHECK(!per_user_vault->local_device_registration_info()
+              .last_registration_returned_local_data_obsolete());
+
   switch (status) {
     case TrustedVaultRegistrationStatus::kSuccess:
     case TrustedVaultRegistrationStatus::kAlreadyRegistered:
@@ -812,11 +919,12 @@ void StandaloneTrustedVaultBackend::OnDeviceRegistered(
           ->set_device_registered(true);
       per_user_vault->mutable_local_device_registration_info()
           ->set_device_registered_version(kCurrentDeviceRegistrationVersion);
-      WriteToDisk(data_, file_path_);
+      WriteDataToDisk();
       return;
     case TrustedVaultRegistrationStatus::kLocalDataObsolete:
-      per_user_vault->set_keys_are_stale(true);
-      WriteToDisk(data_, file_path_);
+      per_user_vault->mutable_local_device_registration_info()
+          ->set_last_registration_returned_local_data_obsolete(true);
+      WriteDataToDisk();
       return;
     case TrustedVaultRegistrationStatus::kAccessTokenFetchingFailure:
       // Request wasn't sent to the server, so there is no need for throttling.
@@ -906,7 +1014,6 @@ void StandaloneTrustedVaultBackend::OnKeysDownloaded(
     case TrustedVaultDownloadKeysStatus::kMembershipNotFound:
     case TrustedVaultDownloadKeysStatus::kMembershipCorrupted:
     case TrustedVaultDownloadKeysStatus::kMembershipEmpty:
-    case TrustedVaultDownloadKeysStatus::kNoNewKeys:
     case TrustedVaultDownloadKeysStatus::kKeyProofsVerificationFailed: {
       // Unable to download new keys due to known protocol errors. The only way
       // to go out of these states is to receive new vault keys through external
@@ -917,9 +1024,16 @@ void StandaloneTrustedVaultBackend::OnKeysDownloaded(
           ->set_device_registered(false);
       per_user_vault->mutable_local_device_registration_info()
           ->clear_device_registered_version();
-      WriteToDisk(data_, file_path_);
+      WriteDataToDisk();
       break;
     }
+    case TrustedVaultDownloadKeysStatus::kNoNewKeys:
+      // The registration itself exists, but there's no additional keys to
+      // download. This is bad because key download attempts are triggered for
+      // the case where local keys have been marked as stale, which means the
+      // user is likely in an unrecoverable state.
+      RecordFailedConnectionRequestForThrottling();
+      break;
     case TrustedVaultDownloadKeysStatus::kAccessTokenFetchingFailure:
       // Request wasn't sent to the server, so there is no need for throttling.
       break;
@@ -959,12 +1073,19 @@ void StandaloneTrustedVaultBackend::FulfillOngoingFetchKeys(
   }
   DCHECK(!ongoing_fetch_keys_callback_.is_null());
 
-  if (status_for_uma.has_value()) {
-    RecordTrustedVaultDownloadKeysStatus(*status_for_uma);
-  }
-
   const sync_pb::LocalTrustedVaultPerUser* per_user_vault =
       FindUserVault(*ongoing_fetch_keys_gaia_id_);
+
+  if (status_for_uma.has_value()) {
+    const bool also_log_with_v1_suffx =
+        per_user_vault &&
+        per_user_vault->local_device_registration_info().device_registered() &&
+        per_user_vault->local_device_registration_info()
+                .device_registered_version() == 1;
+    RecordTrustedVaultDownloadKeysStatus(*status_for_uma,
+                                         also_log_with_v1_suffx);
+  }
+
   std::vector<std::vector<uint8_t>> vault_keys;
   if (per_user_vault) {
     vault_keys = GetAllVaultKeys(*per_user_vault);
@@ -1009,7 +1130,7 @@ void StandaloneTrustedVaultBackend::
   FindUserVault(primary_account_->gaia)
       ->set_last_failed_request_millis_since_unix_epoch(
           TimeToProtoTime(clock_->Now()));
-  WriteToDisk(data_, file_path_);
+  WriteDataToDisk();
 }
 
 void StandaloneTrustedVaultBackend::
@@ -1025,7 +1146,7 @@ void StandaloneTrustedVaultBackend::
   data_.mutable_user()->erase(
       base::ranges::remove_if(*data_.mutable_user(), should_remove_user_data),
       data_.mutable_user()->end());
-  WriteToDisk(data_, file_path_);
+  WriteDataToDisk();
 }
 
 sync_pb::LocalTrustedVaultPerUser* StandaloneTrustedVaultBackend::FindUserVault(
@@ -1097,6 +1218,14 @@ void StandaloneTrustedVaultBackend::VerifyDeviceRegistrationForUMA(
                 GetDownloadKeysStatusForUMAFromResponse(status));
           },
           device_registered_version));
+}
+
+void StandaloneTrustedVaultBackend::WriteDataToDisk() {
+  if (base::FeatureList::IsEnabled(kSyncTrustedVaultUseMD5HashedFile)) {
+    WriteMD5HashedFileToDisk(data_, md5_hashed_file_path_);
+  } else {
+    WriteEncryptedFileToDisk(data_, deprecated_encrypted_file_path_);
+  }
 }
 
 }  // namespace syncer

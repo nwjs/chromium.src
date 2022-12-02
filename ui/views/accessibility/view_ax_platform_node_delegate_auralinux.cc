@@ -4,9 +4,9 @@
 
 #include "ui/views/accessibility/view_ax_platform_node_delegate_auralinux.h"
 
+#include <algorithm>
 #include "content/public/browser/browser_thread.h"
 
-#include <algorithm>
 #include <memory>
 #include <vector>
 
@@ -143,7 +143,7 @@ class AuraLinuxApplication : public ui::AXPlatformNodeDelegateBase,
     // retrieved.
     if (data_.GetStringAttribute(ax::mojom::StringAttribute::kName).empty() &&
         ViewsDelegate::GetInstance()) {
-      data_.SetName(ViewsDelegate::GetInstance()->GetApplicationName());
+      data_.SetNameChecked(ViewsDelegate::GetInstance()->GetApplicationName());
     }
 
     return data_;

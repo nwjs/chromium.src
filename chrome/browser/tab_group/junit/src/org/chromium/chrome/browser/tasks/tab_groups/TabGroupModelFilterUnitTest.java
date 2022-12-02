@@ -801,6 +801,30 @@ public class TabGroupModelFilterUnitTest {
     }
 
     @Test
+    public void mergeListOfTabsToGroup_BackGroup() {
+        Tab newTab0 = prepareTab(NEW_TAB_ID_0, NEW_TAB_ID_0, Tab.INVALID_TAB_ID);
+        addTabToTabModel(-1, newTab0);
+        Tab newTab1 = prepareTab(NEW_TAB_ID_1, NEW_TAB_ID_1, Tab.INVALID_TAB_ID);
+        addTabToTabModel(-1, newTab1);
+        Tab newTab2 = prepareTab(NEW_TAB_ID_2, NEW_TAB_ID_1, Tab.INVALID_TAB_ID);
+        addTabToTabModel(-1, newTab2);
+        List<Tab> expectedTabModel = new ArrayList<>(
+                Arrays.asList(mTab1, mTab2, mTab3, mTab4, mTab5, mTab6, newTab1, newTab2, newTab0));
+        List<Tab> tabsToMerge = new ArrayList<>(Arrays.asList(newTab1, newTab2, newTab0));
+
+        mTabGroupModelFilter.mergeListOfTabsToGroup(tabsToMerge, newTab1, false, false);
+
+        verify(mTabGroupModelFilterObserver).willMergeTabToGroup(newTab1, newTab1.getId());
+        verify(mTabGroupModelFilterObserver).willMergeTabToGroup(newTab2, newTab1.getId());
+        verify(mTabGroupModelFilterObserver).willMergeTabToGroup(newTab0, newTab1.getId());
+        verify(mTabModel).moveTab(newTab0.getId(), 9);
+        // Skip newTab1
+        verify(mTabGroupModelFilterObserver).didMoveWithinGroup(newTab2, 8, 8);
+        verify(mTabGroupModelFilterObserver).didMergeTabToGroup(newTab0, newTab1.getId());
+        assertArrayEquals(mTabs.toArray(), expectedTabModel.toArray());
+    }
+
+    @Test
     public void merge_OtherGroupsLastShownIdUnchanged() {
         List<Tab> expectedGroup = new ArrayList<>(Arrays.asList(mTab1, mTab4));
         List<Tab> expectedTabModel =
@@ -974,6 +998,75 @@ public class TabGroupModelFilterUnitTest {
         assertArrayEquals(mTabs.toArray(), expectedTabModel.toArray());
         assertThat(CriticalPersistedTabData.from(mTab4).getRootId(), equalTo(TAB4_ROOT_ID));
         assertThat(mTabGroupModelFilter.indexOf(mTab4), equalTo(2));
+    }
+
+    @Test
+    public void undoGroupedTab_MultipleGroupUndoNoMovement() {
+        List<Tab> expectedTabModel =
+                new ArrayList<>(Arrays.asList(mTab1, mTab2, mTab3, mTab4, mTab5, mTab6));
+
+        // Simulate we just grouped mTab4 and the group (mTab5, mTab6) with the group (mTab2,
+        // mTab3).
+        CriticalPersistedTabData.from(mTab4).setRootId(TAB2_ROOT_ID);
+        CriticalPersistedTabData.from(mTab5).setRootId(TAB2_ROOT_ID);
+        CriticalPersistedTabData.from(mTab6).setRootId(TAB2_ROOT_ID);
+        mTabGroupModelFilter.resetFilterState();
+        assertThat(CriticalPersistedTabData.from(mTab4).getRootId(), equalTo(TAB2_ROOT_ID));
+        assertThat(CriticalPersistedTabData.from(mTab5).getRootId(), equalTo(TAB2_ROOT_ID));
+        assertThat(CriticalPersistedTabData.from(mTab6).getRootId(), equalTo(TAB2_ROOT_ID));
+        assertThat(mTabGroupModelFilter.indexOf(mTab4), equalTo(1));
+        assertThat(mTabGroupModelFilter.indexOf(mTab5), equalTo(1));
+        assertThat(mTabGroupModelFilter.indexOf(mTab6), equalTo(1));
+        assertArrayEquals(mTabs.toArray(), expectedTabModel.toArray());
+
+        // Undo the grouped action in reverse order so indexes are correct.
+        mTabGroupModelFilter.undoGroupedTab(mTab6, POSITION6, TAB5_ROOT_ID);
+        verify(mTabGroupModelFilterObserver).didMoveTabOutOfGroup(mTab6, POSITION2);
+        mTabGroupModelFilter.undoGroupedTab(mTab5, POSITION5, TAB5_ROOT_ID);
+        verify(mTabGroupModelFilterObserver).didMoveTabOutOfGroup(mTab5, POSITION2);
+        verify(mTabGroupModelFilterObserver).didMergeTabToGroup(mTab5, mTab6.getId());
+        mTabGroupModelFilter.undoGroupedTab(mTab4, POSITION4, TAB4_ROOT_ID);
+        verify(mTabGroupModelFilterObserver).didMoveTabOutOfGroup(mTab4, POSITION2);
+
+        assertArrayEquals(mTabs.toArray(), expectedTabModel.toArray());
+        assertThat(CriticalPersistedTabData.from(mTab4).getRootId(), equalTo(TAB4_ROOT_ID));
+        assertThat(CriticalPersistedTabData.from(mTab5).getRootId(), equalTo(TAB5_ROOT_ID));
+        assertThat(CriticalPersistedTabData.from(mTab6).getRootId(), equalTo(TAB5_ROOT_ID));
+        assertThat(mTabGroupModelFilter.indexOf(mTab4), equalTo(2));
+        assertThat(mTabGroupModelFilter.indexOf(mTab5), equalTo(3));
+        assertThat(mTabGroupModelFilter.indexOf(mTab6), equalTo(3));
+    }
+
+    @Test
+    public void undoGroupedTab_MultipleGroupUndoWithMovement() {
+        List<Tab> expectedTabModel =
+                new ArrayList<>(Arrays.asList(mTab1, mTab2, mTab3, mTab6, mTab5, mTab4));
+
+        // Simulate we just grouped the group (mTab5, mTab6) with the group (mTab2, mTab3).
+        CriticalPersistedTabData.from(mTab5).setRootId(TAB2_ROOT_ID);
+        CriticalPersistedTabData.from(mTab6).setRootId(TAB2_ROOT_ID);
+        mTabModel.moveTab(mTab5.getId(), POSITION3 + 1);
+        mTabModel.moveTab(mTab6.getId(), POSITION3 + 1);
+        mTabGroupModelFilter.resetFilterState();
+        assertThat(CriticalPersistedTabData.from(mTab5).getRootId(), equalTo(TAB2_ROOT_ID));
+        assertThat(CriticalPersistedTabData.from(mTab6).getRootId(), equalTo(TAB2_ROOT_ID));
+        assertThat(mTabGroupModelFilter.indexOf(mTab5), equalTo(1));
+        assertThat(mTabGroupModelFilter.indexOf(mTab6), equalTo(1));
+        assertArrayEquals(mTabs.toArray(), expectedTabModel.toArray());
+
+        // Undo the grouped action in reverse order so indexes are correct.
+        expectedTabModel = new ArrayList<>(Arrays.asList(mTab1, mTab2, mTab3, mTab4, mTab5, mTab6));
+        mTabGroupModelFilter.undoGroupedTab(mTab6, POSITION6, TAB5_ROOT_ID);
+        verify(mTabGroupModelFilterObserver).didMoveTabOutOfGroup(mTab6, POSITION2);
+        mTabGroupModelFilter.undoGroupedTab(mTab5, POSITION5, TAB5_ROOT_ID);
+        verify(mTabGroupModelFilterObserver).didMoveTabOutOfGroup(mTab5, POSITION2);
+        verify(mTabGroupModelFilterObserver).didMergeTabToGroup(mTab5, mTab6.getId());
+
+        assertThat(CriticalPersistedTabData.from(mTab5).getRootId(), equalTo(TAB5_ROOT_ID));
+        assertThat(CriticalPersistedTabData.from(mTab6).getRootId(), equalTo(TAB5_ROOT_ID));
+        assertThat(mTabGroupModelFilter.indexOf(mTab5), equalTo(3));
+        assertThat(mTabGroupModelFilter.indexOf(mTab6), equalTo(3));
+        assertArrayEquals(mTabs.toArray(), expectedTabModel.toArray());
     }
 
     @Test(expected = AssertionError.class)

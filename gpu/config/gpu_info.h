@@ -209,6 +209,8 @@ enum class OverlaySupport {
 GPU_EXPORT const char* OverlaySupportToString(OverlaySupport support);
 
 struct GPU_EXPORT OverlayInfo {
+  OverlayInfo() = default;
+  OverlayInfo(const OverlayInfo& other) = default;
   OverlayInfo& operator=(const OverlayInfo& other) = default;
   bool operator==(const OverlayInfo& other) const {
     return direct_composition == other.direct_composition &&
@@ -442,6 +444,9 @@ struct GPU_EXPORT GPUInfo {
 
   // The GPU hardware overlay info.
   OverlayInfo overlay_info;
+
+  // Are d3d shared images supported.
+  bool shared_image_d3d = false;
 #endif
   VideoDecodeAcceleratorSupportedProfiles
       video_decode_accelerator_supported_profiles;

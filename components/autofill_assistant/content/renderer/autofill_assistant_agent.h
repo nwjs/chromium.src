@@ -82,6 +82,11 @@ class AutofillAssistantAgent : public content::RenderFrameObserver,
                            const std::u16string& value,
                            bool send_events);
 
+  using SemanticPredictionLabelMap = base::flat_map<int, std::string>;
+  using SemanticLabelsPair =
+      std::pair<SemanticPredictionLabelMap, SemanticPredictionLabelMap>;
+  SemanticLabelsPair semantic_labels;
+
   mojo::AssociatedRemote<mojom::AutofillAssistantDriver> driver_;
 
   mojo::AssociatedReceiver<mojom::AutofillAssistantAgent> receiver_{this};

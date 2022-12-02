@@ -71,6 +71,7 @@ class CONTENT_EXPORT VideoPictureInPictureWindowControllerImpl
   void UpdateLayerBounds() override;
   bool IsPlayerActive() override;
   WebContents* GetWebContents() override;
+  WebContents* GetChildWebContents() override;
   bool TogglePlayPause() override;
   void SkipAd() override;
   void NextTrack() override;
@@ -79,6 +80,7 @@ class CONTENT_EXPORT VideoPictureInPictureWindowControllerImpl
   void ToggleCamera() override;
   void HangUp() override;
   const gfx::Rect& GetSourceBounds() const override;
+  absl::optional<gfx::Rect> GetWindowBounds() override;
 
   // Called by the MediaSessionImpl when the MediaSessionInfo changes.
   void MediaSessionInfoChanged(

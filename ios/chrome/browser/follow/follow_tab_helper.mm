@@ -17,7 +17,6 @@
 #import "components/history/core/browser/history_types.h"
 #import "components/keyed_service/core/service_access_type.h"
 #import "ios/chrome/browser/browser_state/chrome_browser_state.h"
-#import "ios/chrome/browser/chrome_url_util.h"
 #import "ios/chrome/browser/feature_engagement/tracker_factory.h"
 #import "ios/chrome/browser/flags/system_flags.h"
 #import "ios/chrome/browser/follow/follow_action_state.h"
@@ -31,6 +30,7 @@
 #import "ios/chrome/browser/ntp/features.h"
 #import "ios/chrome/browser/signin/authentication_service.h"
 #import "ios/chrome/browser/signin/authentication_service_factory.h"
+#import "ios/chrome/browser/url/url_util.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/web/public/js_messaging/web_frame.h"
 #import "ios/web/public/js_messaging/web_frame_util.h"
@@ -63,15 +63,6 @@ constexpr base::TimeDelta kShowFollowIPHAfterLoaded = base::Seconds(3);
 
 FollowTabHelper::~FollowTabHelper() {
   DCHECK(!web_state_);
-}
-
-// static
-void FollowTabHelper::CreateForWebState(web::WebState* web_state) {
-  DCHECK(web_state);
-  if (!FromWebState(web_state)) {
-    web_state->SetUserData(UserDataKey(),
-                           base::WrapUnique(new FollowTabHelper(web_state)));
-  }
 }
 
 FollowTabHelper::FollowTabHelper(web::WebState* web_state)

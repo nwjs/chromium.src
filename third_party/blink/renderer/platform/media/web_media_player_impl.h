@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors. All rights reserved.
+// Copyright 2013 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -179,6 +179,8 @@ class PLATFORM_EXPORT WebMediaPlayerImpl
   WebTimeRanges Buffered() const override;
   WebTimeRanges Seekable() const override;
 
+  void OnFrozen() override;
+
   // paint() the current video frame into |canvas|. This is used to support
   // various APIs and functionalities, including but not limited to: <canvas>,
   // ImageBitmap, printing and capturing capabilities.
@@ -229,6 +231,8 @@ class PLATFORM_EXPORT WebMediaPlayerImpl
   unsigned DroppedFrameCount() const override;
   uint64_t AudioDecodedByteCount() const override;
   uint64_t VideoDecodedByteCount() const override;
+
+  bool PassedTimingAllowOriginCheck() const override;
 
   void SetVolumeMultiplier(double multiplier) override;
   void SetPersistentState(bool persistent) override;

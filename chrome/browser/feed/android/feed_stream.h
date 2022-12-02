@@ -25,6 +25,7 @@ class FeedStream : public ::feed::FeedStreamSurface {
  public:
   explicit FeedStream(const base::android::JavaRef<jobject>& j_this,
                       jint stream_kind,
+                      std::string web_feed_id,
                       FeedReliabilityLoggingBridge* reliability_logging_bridge);
   FeedStream(const FeedStream&) = delete;
   FeedStream& operator=(const FeedStream&) = delete;
@@ -139,6 +140,11 @@ class FeedStream : public ::feed::FeedStreamSurface {
       JNIEnv* env,
       const base::android::JavaParamRef<jobject>& obj,
       jint stream_kind);
+
+  void ReportContentSliceVisibleTimeForGoodVisits(
+      JNIEnv* env,
+      const base::android::JavaParamRef<jobject>& obj,
+      jlong elapsed_ms);
 
  private:
   base::android::ScopedJavaGlobalRef<jobject> java_ref_;

@@ -26,7 +26,6 @@ import './privacy_page/security_keys_phones_list.js';
 import './privacy_page/security_keys_phones_dialog.js';
 import './privacy_page/security_page.js';
 import './site_settings/all_sites.js';
-import './site_settings/site_data_details_subpage.js';
 import './site_settings_page/site_settings_page.js';
 import './site_settings/category_default_setting.js';
 import './site_settings/category_setting_exceptions.js';
@@ -35,7 +34,6 @@ import './site_settings/media_picker.js';
 import './site_settings/pdf_documents.js';
 import './site_settings/protocol_handlers.js';
 import './site_settings/settings_category_default_radio_group.js';
-import './site_settings/site_data.js';
 import './site_settings/site_details.js';
 import './site_settings/zoom_levels.js';
 // <if expr="not is_chromeos">
@@ -88,6 +86,7 @@ export {BlockingRequestManager} from './autofill_page/blocking_request_manager.j
 export {SettingsCreditCardEditDialogElement} from './autofill_page/credit_card_edit_dialog.js';
 // <if expr="is_win or is_macosx">
 export {Passkey, PasskeysBrowserProxy, PasskeysBrowserProxyImpl} from './autofill_page/passkeys_browser_proxy.js';
+export {SettingsPasskeysDeleteConfirmationDialogElement} from './autofill_page/passkeys_delete_confirmation_dialog.js';
 export {SettingsPasskeysSubpageElement} from './autofill_page/passkeys_subpage.js';
 // </if>
 export {SettingsPasswordCheckElement} from './autofill_page/password_check.js';
@@ -168,11 +167,11 @@ export {PrivacyGuideWelcomeFragmentElement} from './privacy_page/privacy_guide/p
 export {SettingsSecureDnsElement} from './privacy_page/secure_dns.js';
 export {SecureDnsInputElement} from './privacy_page/secure_dns_input.js';
 export {BioEnrollDialogPage, SettingsSecurityKeysBioEnrollDialogElement} from './privacy_page/security_keys_bio_enroll_dialog.js';
-export {Ctap2Status, SampleStatus, SecurityKeysBioEnrollProxy, SecurityKeysBioEnrollProxyImpl, SecurityKeysCredentialBrowserProxy, SecurityKeysCredentialBrowserProxyImpl, SecurityKeysPhone, SecurityKeysPhonesBrowserProxy, SecurityKeysPhonesBrowserProxyImpl, SecurityKeysPhonesList, SecurityKeysPINBrowserProxy, SecurityKeysPINBrowserProxyImpl, SecurityKeysResetBrowserProxy, SecurityKeysResetBrowserProxyImpl} from './privacy_page/security_keys_browser_proxy.js';
+export {Ctap2Status, SampleStatus, SecurityKeysBioEnrollProxy, SecurityKeysBioEnrollProxyImpl, SecurityKeysCredentialBrowserProxy, SecurityKeysCredentialBrowserProxyImpl, SecurityKeysPhone, SecurityKeysPhonesBrowserProxy, SecurityKeysPhonesBrowserProxyImpl, SecurityKeysPhonesList, SecurityKeysPinBrowserProxy, SecurityKeysPinBrowserProxyImpl, SecurityKeysResetBrowserProxy, SecurityKeysResetBrowserProxyImpl} from './privacy_page/security_keys_browser_proxy.js';
 export {CredentialManagementDialogPage, SettingsSecurityKeysCredentialManagementDialogElement} from './privacy_page/security_keys_credential_management_dialog.js';
 export {SecurityKeysPhonesSubpageElement} from './privacy_page/security_keys_phones_subpage.js';
 export {ResetDialogPage, SettingsSecurityKeysResetDialogElement} from './privacy_page/security_keys_reset_dialog.js';
-export {SetPINDialogPage, SettingsSecurityKeysSetPinDialogElement} from './privacy_page/security_keys_set_pin_dialog.js';
+export {SetPinDialogPage, SettingsSecurityKeysSetPinDialogElement} from './privacy_page/security_keys_set_pin_dialog.js';
 export {SafeBrowsingSetting, SettingsSecurityPageElement} from './privacy_page/security_page.js';
 export {SettingsResetPageElement} from './reset_page/reset_page.js';
 export {SettingsResetProfileDialogElement} from './reset_page/reset_profile_dialog.js';
@@ -192,14 +191,10 @@ export {CategorySettingExceptionsElement} from './site_settings/category_setting
 export {ChooserExceptionListElement} from './site_settings/chooser_exception_list.js';
 export {ChooserExceptionListEntryElement} from './site_settings/chooser_exception_list_entry.js';
 export {ChooserType, ContentSetting, ContentSettingsTypes, CookieControlsMode, NotificationSetting, SITE_EXCEPTION_WILDCARD, SiteSettingSource, SortMethod} from './site_settings/constants.js';
-export {CookieDetails, cookieInfo} from './site_settings/cookie_info.js';
 export {SettingsEditExceptionDialogElement} from './site_settings/edit_exception_dialog.js';
-export {LocalDataBrowserProxy, LocalDataBrowserProxyImpl, LocalDataItem} from './site_settings/local_data_browser_proxy.js';
 export {AppHandlerEntry, AppProtocolEntry, HandlerEntry, ProtocolEntry, ProtocolHandlersElement} from './site_settings/protocol_handlers.js';
 export {SettingsReviewNotificationPermissionsElement} from './site_settings/review_notification_permissions.js';
 export {SettingsCategoryDefaultRadioGroupElement} from './site_settings/settings_category_default_radio_group.js';
-export {SiteDataElement} from './site_settings/site_data.js';
-export {SiteDataDetailsSubpageElement} from './site_settings/site_data_details_subpage.js';
 export {SiteDetailsElement} from './site_settings/site_details.js';
 export {SiteDetailsPermissionElement} from './site_settings/site_details_permission.js';
 export {SiteEntryElement} from './site_settings/site_entry.js';

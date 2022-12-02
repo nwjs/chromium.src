@@ -10,8 +10,8 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 
-#include "base/containers/flat_map.h"
 #include "base/no_destructor.h"
 #include "base/numerics/checked_math.h"
 #include "base/strings/string_number_conversions.h"
@@ -33,9 +33,16 @@ namespace ui {
 
 namespace {
 
-// A function to call when focus changes, for testing only.
-base::LazyInstance<std::map<ax::mojom::Event, base::RepeatingClosure>>::
-    DestructorAtExit g_on_notify_event_for_testing;
+using OnNotifyEventCallbackMap =
+    std::map<ax::mojom::Event,
+             // A function to call when focus changes, for testing only.
+             base::RepeatingClosure>;
+
+OnNotifyEventCallbackMap& GetOnNotifyEventCallbackMap() {
+  static base::NoDestructor<OnNotifyEventCallbackMap>
+      on_notify_event_for_testing;
+  return *on_notify_event_for_testing;
+}
 
 // Check for descendant comment, using limited depth first search.
 bool FindDescendantRoleWithMaxDepth(const AXPlatformNodeBase* node,
@@ -67,7 +74,7 @@ bool FindDescendantRoleWithMaxDepth(const AXPlatformNodeBase* node,
 const char16_t AXPlatformNodeBase::kEmbeddedCharacter = u'\xfffc';
 
 // Map from each AXPlatformNode's unique id to its instance.
-using UniqueIdMap = base::flat_map<int32_t, AXPlatformNode*>;
+using UniqueIdMap = std::unordered_map<int32_t, AXPlatformNode*>;
 base::LazyInstance<UniqueIdMap>::Leaky g_unique_id_map =
     LAZY_INSTANCE_INITIALIZER;
 
@@ -101,7 +108,8 @@ size_t AXPlatformNodeBase::GetInstanceCountForTesting() {
 void AXPlatformNodeBase::SetOnNotifyEventCallbackForTesting(
     ax::mojom::Event event_type,
     base::RepeatingClosure callback) {
-  g_on_notify_event_for_testing.Get()[event_type] = std::move(callback);
+  OnNotifyEventCallbackMap& callback_map = GetOnNotifyEventCallbackMap();
+  callback_map[event_type] = std::move(callback);
 }
 
 AXPlatformNodeBase::AXPlatformNodeBase() = default;
@@ -399,10 +407,10 @@ gfx::NativeViewAccessible AXPlatformNodeBase::GetNativeViewAccessible() {
 }
 
 void AXPlatformNodeBase::NotifyAccessibilityEvent(ax::mojom::Event event_type) {
-  if (g_on_notify_event_for_testing.Get().find(event_type) !=
-          g_on_notify_event_for_testing.Get().end() &&
-      g_on_notify_event_for_testing.Get()[event_type]) {
-    g_on_notify_event_for_testing.Get()[event_type].Run();
+  OnNotifyEventCallbackMap& callback_map = GetOnNotifyEventCallbackMap();
+  if (callback_map.find(event_type) != callback_map.end() &&
+      callback_map[event_type]) {
+    callback_map[event_type].Run();
   }
 }
 
@@ -1846,9 +1854,14 @@ int AXPlatformNodeBase::GetHypertextOffsetFromEndpoint(
 
     // If the endpoint is after this node, then return the node's
     // hypertext length, otherwise 0 as the endpoint points before the node.
-    if (endpoint_offset >
-        static_cast<int>(*closest_ancestor->GetIndexInParent()))
+    absl::optional<size_t> index_in_parent =
+        closest_ancestor->GetIndexInParent();
+    DCHECK(index_in_parent)
+        << "No index in parent for ancestor: " << *closest_ancestor;
+    if (index_in_parent &&
+        endpoint_offset > static_cast<int>(*index_in_parent)) {
       return static_cast<int>(GetHypertext().size());
+    }
     return 0;
   }
 

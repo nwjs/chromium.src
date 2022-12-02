@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -297,7 +297,7 @@ void CSSToggle::SetValueAndCheckGroup(const State& value) {
     if (specifier)
       states = &specifier->StateSet();
 
-    if (!ValueMatches(State(0u), states)) {
+    if (ValueIsActive(states)) {
       MakeRestOfToggleGroupZero();
     }
   }
@@ -553,7 +553,7 @@ void CSSToggle::ChangeToggle(const ToggleTrigger& action,
 
   // If t’s value does not match 0, and group is true, then set the value of
   // all other toggles in the same toggle group as t to 0.
-  if (is_group && !ValueMatches(State(0u), &states))
+  if (is_group && ValueIsActive(&states))
     MakeRestOfToggleGroupZero();
 }
 

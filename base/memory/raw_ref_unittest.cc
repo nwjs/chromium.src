@@ -349,6 +349,16 @@ TEST(RawRefDeathTest, MoveConstructAfterMoveUpCast) {
       { [[maybe_unused]] auto r2 = raw_ref<BaseClass>(std::move(r)); });
 }
 
+TEST(RawRef, FromPtr) {
+  int i = 42;
+  auto ref = raw_ref<int>::from_ptr(&i);
+  EXPECT_EQ(&i, &*ref);
+}
+
+TEST(RawRefDeathTest, FromPtrWithNullptr) {
+  EXPECT_CHECK_DEATH({ raw_ref<int>::from_ptr(nullptr); });
+}
+
 TEST(RawRef, CopyAssignUpCast) {
   {
     auto s = SubClass();
@@ -715,7 +725,7 @@ TEST(RawRef, CTAD) {
 }
 
 using RawPtrCountingImpl =
-    base::internal::RawPtrCountingImplWrapperForTest<base::DefaultRawPtrImpl>;
+    base::internal::RawPtrCountingImplWrapperForTest<base::DefaultRawPtrType>;
 
 template <typename T>
 using CountingRawRef = raw_ref<T, RawPtrCountingImpl>;
@@ -775,8 +785,7 @@ TEST(RawRef, StdLess) {
 #if BUILDFLAG(USE_ASAN_BACKUP_REF_PTR)
 
 TEST(AsanBackupRefPtrImpl, RawRefGet) {
-  if (base::RawPtrAsanService::GetInstance().mode() !=
-      base::RawPtrAsanService::Mode::kEnabled) {
+  if (!base::RawPtrAsanService::GetInstance().IsEnabled()) {
     base::RawPtrAsanService::GetInstance().Configure(
         base::EnableDereferenceCheck(true), base::EnableExtractionCheck(true),
         base::EnableInstantiationCheck(true));

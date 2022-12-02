@@ -238,9 +238,10 @@ const char* ProtoEnumToString(sync_pb::SessionTab::FaviconType favicon_type) {
 }
 
 const char* ProtoEnumToString(sync_pb::SyncEnums::BrowserType browser_type) {
-  ASSERT_ENUM_BOUNDS(sync_pb::SyncEnums, BrowserType, TYPE_TABBED,
+  ASSERT_ENUM_BOUNDS(sync_pb::SyncEnums, BrowserType, BROWSER_TYPE_UNKNOWN,
                      TYPE_CUSTOM_TAB);
   switch (browser_type) {
+    ENUM_CASE(sync_pb::SyncEnums, BROWSER_TYPE_UNKNOWN);
     ENUM_CASE(sync_pb::SyncEnums, TYPE_TABBED);
     ENUM_CASE(sync_pb::SyncEnums, TYPE_POPUP);
     ENUM_CASE(sync_pb::SyncEnums, TYPE_CUSTOM_TAB);
@@ -543,6 +544,20 @@ const char* ProtoEnumToString(
     ENUM_CASE(sync_pb::WalletMaskedCreditCard, ENROLLED);
     ENUM_CASE(sync_pb::WalletMaskedCreditCard, UNENROLLED_AND_NOT_ELIGIBLE);
     ENUM_CASE(sync_pb::WalletMaskedCreditCard, UNENROLLED_AND_ELIGIBLE);
+  }
+  NOTREACHED();
+  return "";
+}
+
+const char* ProtoEnumToString(
+    sync_pb::WalletMaskedCreditCard::VirtualCardEnrollmentType
+        virtual_card_enrollment_type) {
+  ASSERT_ENUM_BOUNDS(sync_pb::WalletMaskedCreditCard, VirtualCardEnrollmentType,
+                     TYPE_UNSPECIFIED, NETWORK);
+  switch (virtual_card_enrollment_type) {
+    ENUM_CASE(sync_pb::WalletMaskedCreditCard, TYPE_UNSPECIFIED);
+    ENUM_CASE(sync_pb::WalletMaskedCreditCard, ISSUER);
+    ENUM_CASE(sync_pb::WalletMaskedCreditCard, NETWORK);
   }
   NOTREACHED();
   return "";

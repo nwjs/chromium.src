@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "base/callback_helpers.h"
+#include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/no_destructor.h"
 #include "base/strings/string_util.h"
@@ -19,6 +20,7 @@
 #include "chrome/browser/metrics/ukm_background_recorder_service.h"
 #include "chrome/browser/permissions/adaptive_quiet_notification_permission_ui_enabler.h"
 #include "chrome/browser/permissions/contextual_notification_permission_ui_selector.h"
+#include "chrome/browser/permissions/origin_keyed_permission_action_service_factory.h"
 #include "chrome/browser/permissions/permission_actions_history_factory.h"
 #include "chrome/browser/permissions/permission_decision_auto_blocker_factory.h"
 #include "chrome/browser/permissions/permission_revocation_request.h"
@@ -193,6 +195,13 @@ ChromePermissionsClient::GetChooserContext(
   }
 }
 
+permissions::OriginKeyedPermissionActionService*
+ChromePermissionsClient::GetOriginKeyedPermissionActionService(
+    content::BrowserContext* browser_context) {
+  return OriginKeyedPermissionActionServiceFactory::GetForProfile(
+      Profile::FromBrowserContext(browser_context));
+}
+
 permissions::PermissionActionsHistory*
 ChromePermissionsClient::GetPermissionActionsHistory(
     content::BrowserContext* browser_context) {
@@ -237,15 +246,9 @@ void ChromePermissionsClient::AreSitesImportant(
             net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES);
     if (registerable_domain.empty())
       registerable_domain = host;  // IP address or internal hostname.
-    auto important_domain_search =
-        [&registerable_domain](
-            const site_engagement::ImportantSitesUtil::ImportantDomainInfo&
-                item) {
-          return item.registerable_domain == registerable_domain;
-        };
-    entry.second =
-        std::find_if(important_domains.begin(), important_domains.end(),
-                     important_domain_search) != important_domains.end();
+    entry.second = base::Contains(important_domains, registerable_domain,
+                                  &site_engagement::ImportantSitesUtil::
+                                      ImportantDomainInfo::registerable_domain);
   }
 }
 

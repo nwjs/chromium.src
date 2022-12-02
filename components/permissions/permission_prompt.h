@@ -89,7 +89,7 @@ class PermissionPrompt {
 
     // Set whether the permission prompt bubble was shown for the current
     // request.
-    virtual void SetBubbleShown() = 0;
+    virtual void SetPromptShown() = 0;
 
     // Set when the user made any decision for the currentrequest.
     virtual void SetDecisionTime() = 0;
@@ -118,7 +118,9 @@ class PermissionPrompt {
   virtual ~PermissionPrompt() {}
 
   // Updates where the prompt should be anchored. ex: fullscreen toggle.
-  virtual void UpdateAnchor() = 0;
+  // Returns true, if the update was successful, and false if the caller should
+  // recreate the view instead.
+  virtual bool UpdateAnchor() = 0;
 
   // Get the behavior of this prompt when the user switches away from the
   // associated tab.

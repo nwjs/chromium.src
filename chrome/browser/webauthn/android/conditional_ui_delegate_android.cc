@@ -9,9 +9,9 @@
 #include "base/callback.h"
 #include "chrome/browser/password_manager/chrome_webauthn_credentials_delegate.h"
 #include "chrome/browser/password_manager/chrome_webauthn_credentials_delegate_factory.h"
+#include "chrome/browser/webauthn/webauthn_metrics_util.h"
 #include "content/public/browser/web_contents.h"
 #include "device/fido/discoverable_credential_metadata.h"
-#include "third_party/blink/public/common/tokens/tokens.h"
 
 // static
 ConditionalUiDelegateAndroid*
@@ -31,15 +31,17 @@ ConditionalUiDelegateAndroid::GetConditionalUiDelegate(
   return delegate;
 }
 
-ConditionalUiDelegateAndroid::ConditionalUiDelegateAndroid() {}
+ConditionalUiDelegateAndroid::ConditionalUiDelegateAndroid() = default;
 
-ConditionalUiDelegateAndroid::~ConditionalUiDelegateAndroid() {}
+ConditionalUiDelegateAndroid::~ConditionalUiDelegateAndroid() = default;
 
 void ConditionalUiDelegateAndroid::OnWebAuthnRequestPending(
     content::RenderFrameHost* frame_host,
     const std::vector<device::DiscoverableCredentialMetadata>& credentials,
     base::OnceCallback<void(const std::vector<uint8_t>& id)> callback) {
   webauthn_account_selection_callback_ = std::move(callback);
+
+  ReportConditionalUiPasskeyCount(credentials.size());
 
   ChromeWebAuthnCredentialsDelegateFactory::GetFactory(
       content::WebContents::FromRenderFrameHost(frame_host))
@@ -49,13 +51,11 @@ void ConditionalUiDelegateAndroid::OnWebAuthnRequestPending(
 
 void ConditionalUiDelegateAndroid::CancelWebAuthnRequest(
     content::RenderFrameHost* frame_host) {
-  // Calling OnCredentialsReceived() with an empty list will prevent autofill
-  // from offering WebAuthn credentials in the popup.
+  // Prevent autofill from offering WebAuthn credentials in the popup.
   ChromeWebAuthnCredentialsDelegateFactory::GetFactory(
       content::WebContents::FromRenderFrameHost(frame_host))
       ->GetDelegateForFrame(frame_host)
-      ->OnCredentialsReceived(
-          std::vector<device::DiscoverableCredentialMetadata>());
+      ->NotifyWebAuthnRequestAborted();
   std::move(webauthn_account_selection_callback_).Run(std::vector<uint8_t>());
 }
 

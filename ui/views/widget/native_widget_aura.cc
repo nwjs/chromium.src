@@ -126,8 +126,7 @@ bool FindLayersInOrder(const std::vector<ui::Layer*>& children,
 NativeWidgetAura::NativeWidgetAura(internal::NativeWidgetDelegate* delegate)
     : delegate_(delegate),
       window_(new aura::Window(this, aura::client::WINDOW_TYPE_UNKNOWN)),
-      ownership_(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET),
-      destroying_(false) {
+      ownership_(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET) {
   aura::client::SetFocusChangeObserver(window_, this);
   wm::SetActivationChangeObserver(window_, this);
 }
@@ -598,6 +597,9 @@ void NativeWidgetAura::StackAtTop() {
 }
 
 bool NativeWidgetAura::IsStackedAbove(gfx::NativeView native_view) {
+  if (!window_)
+    return false;
+
   // If the root windows are not shared between two native views
   // it is likely that they are child windows of different top level windows.
   // In that scenario, just check the top level windows.
@@ -636,7 +638,18 @@ void NativeWidgetAura::Close() {
 }
 
 void NativeWidgetAura::CloseNow() {
-  delete window_;
+  // We cannot use `raw_ptr::ClearAndDelete` here:
+  // In `window_` destructor, `OnWindowDestroying` will be called on this
+  // instance and `OnWindowDestroying` contains logic that still needs reference
+  // in `window_`. `ClearAndDelete` would have cleared the value in `window_`
+  // first before deleting `window_` causing problem in `OnWindowDestroying`.
+
+  if (window_)
+    delete window_;
+
+  // `window_` destructor may delete this `NativeWidgetAura` instance. Therefore
+  // we must NOT access anything through `this` after `delete window_`.
+  // Therefore, we should NOT attempt to set `window_` to `nullptr`.
 }
 
 void NativeWidgetAura::Show(ui::WindowShowState show_state,
@@ -991,6 +1004,9 @@ void NativeWidgetAura::OnDeviceScaleFactorChanged(
 
 void NativeWidgetAura::OnWindowDestroying(aura::Window* window) {
   window_->RemoveObserver(this);
+  if (wm::TransientWindowManager::GetIfExists(window_)) {
+    wm::TransientWindowManager::GetOrCreate(window_)->RemoveObserver(this);
+  }
   delegate_->OnNativeWidgetDestroying();
 
   // If the aura::Window is destroyed, we can no longer show tooltips.
@@ -1171,7 +1187,6 @@ void NativeWidgetAura::OnTransientParentChanged(aura::Window* new_parent) {
 // NativeWidgetAura, protected:
 
 NativeWidgetAura::~NativeWidgetAura() {
-  destroying_ = true;
   if (ownership_ == Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET) {
     // `drop_helper_` and `window_reorderer_` hold a pointer to `delegate_`'s
     // root view. Reset them before deleting `delegate_` to avoid holding a

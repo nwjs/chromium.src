@@ -62,6 +62,7 @@ class CORE_EXPORT PerformanceResourceTiming : public PerformanceEntry {
       const AtomicString& name,
       base::TimeTicks time_origin,
       bool cross_origin_isolated_capability,
+      mojom::blink::CacheState cache_state,
       bool is_secure_transport,
       HeapVector<Member<PerformanceServerTiming>> server_timing,
       ExecutionContext* context);
@@ -77,6 +78,7 @@ class CORE_EXPORT PerformanceResourceTiming : public PerformanceEntry {
 
   // Related doc: https://goo.gl/uNecAj.
   virtual AtomicString initiatorType() const;
+  AtomicString deliveryType() const;
   AtomicString nextHopProtocol() const;
   virtual AtomicString renderBlockingStatus() const;
   DOMHighResTimeStamp workerStart() const;
@@ -138,6 +140,7 @@ class CORE_EXPORT PerformanceResourceTiming : public PerformanceEntry {
 
   // Do not access private fields directly. Use getter methods.
   AtomicString initiator_type_;
+  AtomicString delivery_type_;
   AtomicString alpn_negotiated_protocol_;
   AtomicString connection_info_;
   RenderBlockingStatusType render_blocking_status_;

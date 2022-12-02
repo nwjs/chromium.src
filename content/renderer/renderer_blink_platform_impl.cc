@@ -33,6 +33,7 @@
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
+#include "cc/trees/raster_context_provider_wrapper.h"
 #include "components/url_formatter/url_formatter.h"
 #include "content/child/child_process.h"
 #include "content/common/android/sync_compositor_statics.h"
@@ -92,6 +93,7 @@
 #include "third_party/blink/public/platform/scheduler/web_thread_scheduler.h"
 #include "third_party/blink/public/platform/url_conversion.h"
 #include "third_party/blink/public/platform/web_audio_latency_hint.h"
+#include "third_party/blink/public/platform/web_audio_sink_descriptor.h"
 #include "third_party/blink/public/platform/web_code_cache_loader.h"
 #include "third_party/blink/public/platform/web_security_origin.h"
 #include "third_party/blink/public/platform/web_theme_engine.h"
@@ -125,6 +127,7 @@
 using blink::Platform;
 using blink::WebAudioDevice;
 using blink::WebAudioLatencyHint;
+using blink::WebAudioSinkDescriptor;
 using blink::WebMediaStreamTrack;
 using blink::WebString;
 using blink::WebURL;
@@ -486,19 +489,26 @@ base::TimeDelta RendererBlinkPlatformImpl::GetHungRendererDelay() {
 }
 
 std::unique_ptr<WebAudioDevice> RendererBlinkPlatformImpl::CreateAudioDevice(
-    unsigned output_channels,
+    const WebAudioSinkDescriptor& sink_descriptor,
+    unsigned number_of_output_channels,
     const blink::WebAudioLatencyHint& latency_hint,
     WebAudioDevice::RenderCallback* callback) {
-  // The |output_channels| does not exactly identify the channel layout of the
-  // device. The switch statement below assigns a best guess to the channel
-  // layout based on number of channels.
-  media::ChannelLayout layout = media::GuessChannelLayout(output_channels);
-  if (layout == media::CHANNEL_LAYOUT_UNSUPPORTED)
-    layout = media::CHANNEL_LAYOUT_DISCRETE;
+  // The `number_of_output_channels` does not manifest the actual channel
+  // layout of the audio output device. We use the best guess to the channel
+  // layout based on the number of channels.
+  media::ChannelLayout layout =
+      media::GuessChannelLayout(number_of_output_channels);
 
+  // Use "discrete" channel layout when the best guess was not successful.
+  if (layout == media::CHANNEL_LAYOUT_UNSUPPORTED) {
+    layout = media::CHANNEL_LAYOUT_DISCRETE;
+  }
+
+  // Using `UnguessableToken()` prevents from guessing the session ID to gain
+  // access to a capture stream.
   return RendererWebAudioDeviceImpl::Create(
-      layout, output_channels, latency_hint, callback,
-      /*session_id=*/base::UnguessableToken());
+      sink_descriptor, layout, number_of_output_channels, latency_hint,
+      callback, /*session_id=*/base::UnguessableToken());
 }
 
 bool RendererBlinkPlatformImpl::DecodeAudioFileData(
@@ -516,7 +526,7 @@ RendererBlinkPlatformImpl::NewAudioCapturerSource(
     blink::WebLocalFrame* web_frame,
     const media::AudioSourceParameters& params) {
   return blink::AudioDeviceFactory::GetInstance()->NewAudioCapturerSource(
-      web_frame->GetLocalFrameToken(), params);
+      web_frame, params);
 }
 
 scoped_refptr<viz::RasterContextProvider>
@@ -524,9 +534,11 @@ RendererBlinkPlatformImpl::SharedMainThreadContextProvider() {
   return RenderThreadImpl::current()->SharedMainThreadContextProvider();
 }
 
-scoped_refptr<viz::RasterContextProvider>
-RendererBlinkPlatformImpl::SharedCompositorWorkerContextProvider() {
-  return RenderThreadImpl::current()->SharedCompositorWorkerContextProvider();
+scoped_refptr<cc::RasterContextProviderWrapper>
+RendererBlinkPlatformImpl::SharedCompositorWorkerContextProvider(
+    cc::RasterDarkModeFilter* dark_mode_filter) {
+  return RenderThreadImpl::current()->SharedCompositorWorkerContextProvider(
+      dark_mode_filter);
 }
 
 scoped_refptr<gpu::GpuChannelHost>

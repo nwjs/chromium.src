@@ -250,6 +250,7 @@
 <translation id="3484914941826596830">Ikke koble fra denne eksterne enheten eller slå av datamaskinen mens fastvaren oppdateres. Du kan minimere dette vinduet. Denne oppdateringen kan ta noen minutter, og det kan hende den eksterne enheten ikke fungerer i dette tidsrommet.</translation>
 <translation id="3486220673238053218">definisjon</translation>
 <translation id="3488065109653206955">Delvis aktivert</translation>
+<translation id="3510890413042482857">Send <ph name="BEGIN_LINK1" />ytelsessporingsdata<ph name="END_LINK1" /></translation>
 <translation id="3517001332549868749">ChromeOS-oppdatering</translation>
 <translation id="3527036260304016759">Mislykket – ukjent feil</translation>
 <translation id="3532980081107202182">Omtrent <ph name="MIN_REMAINING" /> minutter igjen</translation>
@@ -469,6 +470,7 @@ Prøv å trykke på mikrofonen for å spørre meg om noe.</translation>
 <translation id="5502931783115429516">Android kjører ikke</translation>
 <translation id="5519195206574732858">LTE</translation>
 <translation id="554517032089923082">GTC</translation>
+<translation id="5559898619118303662">Bytt automatisk til mørkt tema ved solnedgang</translation>
 <translation id="5578477003638479617">UMTS</translation>
 <translation id="5578519639599103840">Skann på nytt</translation>
 <translation id="5583640892426849032">Tilbake-tasten</translation>

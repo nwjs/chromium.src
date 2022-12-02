@@ -106,6 +106,7 @@ bool WaylandDataDragController::StartSession(const OSExchangeData& data,
                                              DragEventSource source) {
   DCHECK_EQ(state_, State::kIdle);
   DCHECK(!origin_window_);
+  DCHECK(!icon_surface_);
 
   WaylandWindow* origin_window =
       source == DragEventSource::kTouch
@@ -139,10 +140,10 @@ bool WaylandDataDragController::StartSession(const OSExchangeData& data,
     icon_surface_ = std::make_unique<WaylandSurface>(connection_, nullptr);
     if (icon_surface_->Initialize()) {
       // Corresponds to actual scale factor of the origin surface.
-      icon_surface_->SetSurfaceBufferScale(origin_window->window_scale());
+      icon_surface_->set_surface_buffer_scale(origin_window->window_scale());
       // Icon surface do not need input.
       const gfx::Rect empty_region_px;
-      icon_surface_->SetInputRegion(&empty_region_px);
+      icon_surface_->set_input_region(&empty_region_px);
       icon_surface_->ApplyPendingState();
 
       auto icon_offset = -data.provider().GetDragImageOffset();
@@ -368,6 +369,8 @@ void WaylandDataDragController::OnDataSourceFinish(bool completed) {
   data_source_.reset();
   data_offer_.reset();
   icon_buffer_.reset();
+  icon_surface_.reset();
+  icon_bitmap_ = nullptr;
   icon_frame_callback_.reset();
   offered_exchange_data_provider_.reset();
   data_device_->ResetDragDelegate();

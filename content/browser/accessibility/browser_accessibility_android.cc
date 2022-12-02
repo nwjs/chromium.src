@@ -5,9 +5,9 @@
 #include "content/browser/accessibility/browser_accessibility_android.h"
 
 #include <algorithm>
+#include <unordered_map>
 
 #include "base/bind.h"
-#include "base/containers/flat_map.h"
 #include "base/cxx17_backports.h"
 #include "base/i18n/break_iterator.h"
 #include "base/lazy_instance.h"
@@ -84,7 +84,7 @@ std::unique_ptr<BrowserAccessibility> BrowserAccessibility::Create(
       new BrowserAccessibilityAndroid(manager, node));
 }
 
-using UniqueIdMap = base::flat_map<int32_t, BrowserAccessibilityAndroid*>;
+using UniqueIdMap = std::unordered_map<int32_t, BrowserAccessibilityAndroid*>;
 // Map from each AXPlatformNode's unique id to its instance.
 base::LazyInstance<UniqueIdMap>::Leaky g_unique_id_map =
     LAZY_INSTANCE_INITIALIZER;
@@ -639,6 +639,20 @@ bool BrowserAccessibilityAndroid::IsLeafConsideringChildren() const {
   return true;
 }
 
+std::u16string BrowserAccessibilityAndroid::GetBrailleLabel() const {
+  if (HasStringAttribute(ax::mojom::StringAttribute::kAriaBrailleLabel))
+    return GetString16Attribute(ax::mojom::StringAttribute::kAriaBrailleLabel);
+  return std::u16string();
+}
+
+std::u16string BrowserAccessibilityAndroid::GetBrailleRoleDescription() const {
+  if (HasStringAttribute(
+          ax::mojom::StringAttribute::kAriaBrailleRoleDescription))
+    return GetString16Attribute(
+        ax::mojom::StringAttribute::kAriaBrailleRoleDescription);
+  return std::u16string();
+}
+
 std::u16string BrowserAccessibilityAndroid::GetTextContentUTF16() const {
   return GetSubstringTextContentUTF16(absl::nullopt);
 }
@@ -698,7 +712,7 @@ std::u16string BrowserAccessibilityAndroid::GetSubstringTextContentUTF16(
   // Append image description strings to the text.
   auto* manager =
       static_cast<BrowserAccessibilityManagerAndroid*>(this->manager());
-  if (manager->should_allow_image_descriptions()) {
+  if (manager->ShouldAllowImageDescriptions()) {
     auto status = GetData().GetImageAnnotationStatus();
     switch (status) {
       case ax::mojom::ImageAnnotationStatus::kEligibleForAnnotation:
@@ -1122,7 +1136,7 @@ std::u16string BrowserAccessibilityAndroid::GetRoleDescription() const {
   // If this node is an image, check status and potentially add unlabeled role.
   auto* manager =
       static_cast<BrowserAccessibilityManagerAndroid*>(this->manager());
-  if (manager->should_allow_image_descriptions()) {
+  if (manager->ShouldAllowImageDescriptions()) {
     auto status = GetData().GetImageAnnotationStatus();
     switch (status) {
       case ax::mojom::ImageAnnotationStatus::kEligibleForAnnotation:

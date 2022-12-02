@@ -105,6 +105,11 @@ class Profile : public content::BrowserContext {
     // Creates a unique OTR profile id to be used for media router.
     static OTRProfileID CreateUniqueForMediaRouter();
 
+#if BUILDFLAG(IS_CHROMEOS)
+    // Creates a unique OTR profile id to be used for captive portal signin on
+    // ChromeOS.
+    static OTRProfileID CreateUniqueForCaptivePortal();
+#endif
     // Creates a unique OTR profile id for tests.
     static OTRProfileID CreateUniqueForTesting();
 
@@ -500,6 +505,10 @@ class Profile : public content::BrowserContext {
   virtual bool IsSignedIn() = 0;
 
  private:
+  friend class ProfileDestroyer;
+
+  base::WeakPtr<Profile> GetWeakPtr();
+
   // Created on the UI thread, and returned by GetResourceContext(), but
   // otherwise lives on and is destroyed on the IO thread.
   //

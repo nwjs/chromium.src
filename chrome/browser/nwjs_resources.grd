@@ -113,9 +113,7 @@
         <!-- In-session login flow -->
         <include name="IDR_INLINE_LOGIN_HTML" file="resources\inline_login\inline_login.html" type="BINDATA" />
         <include name="IDR_INLINE_LOGIN_APP_JS" file="${root_gen_dir}\chrome\browser\resources\inline_login\preprocessed\inline_login_app.js" use_base_dir="false" type ="BINDATA" />
-        <include name="IDR_INLINE_LOGIN_APP_HTML_JS" file="${root_gen_dir}\chrome\browser\resources\inline_login\preprocessed\inline_login_app.html.js" use_base_dir="false" type ="BINDATA" />
         <include name="IDR_INLINE_LOGIN_BROWSER_PROXY_JS" file="${root_gen_dir}\chrome\browser\resources\inline_login\preprocessed\inline_login_browser_proxy.js" use_base_dir="false" type ="BINDATA"/>
-        <include name="IDR_GAIA_AUTH_WEBVIEW_SAML_INJECTED_JS" file="resources\gaia_auth_host\webview_saml_injected.js" flattenhtml="true" type="BINDATA" />
       </if>
       <include name="IDR_CRASHES_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_CRASHES_JS" file="resources\empty.js" type="BINDATA" />

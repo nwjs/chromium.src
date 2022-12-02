@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -100,6 +100,11 @@ class CORE_EXPORT CSSToggle : public ScriptWrappable, public ToggleRoot {
 
   bool ValueMatches(const State& other,
                     const States* states_override = nullptr) const;
+
+  // Is the value a non-zero (active) value?
+  bool ValueIsActive(const States* states_override = nullptr) const {
+    return !ValueMatches(State(0u), states_override);
+  }
 
  private:
   void setStatesInternal(const States& states, ExceptionState& exception_state);

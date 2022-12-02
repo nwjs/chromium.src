@@ -889,6 +889,11 @@ class CONTENT_EXPORT RenderWidgetHostImpl
 
   SiteInstanceGroup* GetSiteInstanceGroup();
 
+  // Updates the browser controls by directly IPCing onto the compositor thread.
+  void UpdateBrowserControlsState(cc::BrowserControlsState constraints,
+                                  cc::BrowserControlsState current,
+                                  bool animate);
+
  protected:
   // |routing_id| must not be MSG_ROUTING_NONE.
   // If this object outlives |delegate|, DetachDelegate() must be called when
@@ -1188,8 +1193,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // The delegate of the owner of this object.
   // This member is non-null if and only if this RenderWidgetHost is associated
   // with a main frame RenderWidget.
-  raw_ptr<RenderWidgetHostOwnerDelegate, DanglingUntriaged> owner_delegate_ =
-      nullptr;
+  raw_ptr<RenderWidgetHostOwnerDelegate> owner_delegate_ = nullptr;
 
   // AgentSchedulingGroupHost to be used for IPC with the corresponding
   // (renderer-side) AgentSchedulingGroup. Its channel may be nullptr if the
@@ -1302,6 +1306,10 @@ class CONTENT_EXPORT RenderWidgetHostImpl
 
   // This is true if the renderer is currently unresponsive.
   bool is_unresponsive_ = false;
+
+  // We access this value quite a lot, so we cache switches::kDisableHangMonitor
+  // here.
+  const bool should_disable_hang_monitor_;
 
   // This value denotes the number of input events yet to be acknowledged
   // by the renderer.

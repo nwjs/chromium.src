@@ -252,6 +252,7 @@ class REMOTE_COCOA_APP_SHIM_EXPORT NativeWidgetNSWindowBridge
   void SetTransitionsToAnimate(
       remote_cocoa::mojom::VisibilityTransition transitions) override;
   void SetVisibleOnAllSpaces(bool always_visible) override;
+  void SetZoomed(bool zoomed) override;
   void EnterFullscreen(int64_t target_display_id) override;
   void ExitFullscreen() override;
   void SetCanAppearInExistingFullscreenSpaces(
@@ -321,6 +322,10 @@ class REMOTE_COCOA_APP_SHIM_EXPORT NativeWidgetNSWindowBridge
   // Remove the specified child window without closing it.
   void RemoveChildWindow(NativeWidgetNSWindowBridge* child);
 
+  // Check if the window's zoomed state has changed. If changes happen, notify
+  // the clients.
+  void CheckAndNotifyZoomedStateChanged();
+
   // Notify descendants of a visibility change.
   void NotifyVisibilityChangeDown();
 
@@ -340,6 +345,9 @@ class REMOTE_COCOA_APP_SHIM_EXPORT NativeWidgetNSWindowBridge
 
   // Returns true if window restoration data exists from session restore.
   bool HasWindowRestorationData();
+
+  // Returns true if the window is fullscreen.
+  bool IsFullscreen();
 
   // CocoaMouseCaptureDelegate:
   bool PostCapturedEvent(NSEvent* event) override;
@@ -408,6 +416,10 @@ class REMOTE_COCOA_APP_SHIM_EXPORT NativeWidgetNSWindowBridge
   // Stores the value last read from -[NSWindow isVisible], to detect visibility
   // changes.
   bool window_visible_ = false;
+
+  // Stores the value last read from -[NSWindow isZoomed], to detect zoomed
+  // state changes.
+  bool window_zoomed_ = false;
 
   // If true, the window is either visible, or wants to be visible but is
   // currently hidden due to having a hidden parent.

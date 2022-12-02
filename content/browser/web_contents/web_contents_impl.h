@@ -76,6 +76,7 @@
 #include "ui/accessibility/ax_mode.h"
 #include "ui/accessibility/platform/inspect/ax_event_recorder.h"
 #include "ui/base/dragdrop/mojom/drag_drop_types.mojom-forward.h"
+#include "ui/base/ime/mojom/virtual_keyboard_types.mojom.h"
 #include "ui/color/color_provider_source_observer.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/native_theme/native_theme.h"
@@ -563,7 +564,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   void RequestFindMatchRects(int current_version) override;
   service_manager::InterfaceProvider* GetJavaInterfaces() override;
 #endif
-  bool HasRecentInteractiveInputEvent() override;
+  bool HasRecentInteraction() override;
   void SetIgnoreInputEvents(bool ignore_input_events) override;
   bool HasActiveEffectivelyFullscreenVideo() override;
   void WriteIntoTrace(perfetto::TracedValue context) override;
@@ -1017,6 +1018,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   void OnThemeColorChanged(PageImpl& page) override;
   void OnBackgroundColorChanged(PageImpl& page) override;
   void DidInferColorScheme(PageImpl& page) override;
+  void OnVirtualKeyboardModeChanged(PageImpl& page) override;
 
   // blink::mojom::ColorChooserFactory ---------------------------------------
   void OnColorChooserFactoryReceiver(
@@ -1349,6 +1351,8 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   bool last_navigation_was_prerender_activation_for_devtools() {
     return last_navigation_was_prerender_activation_for_devtools_;
   }
+
+  ui::mojom::VirtualKeyboardMode GetVirtualKeyboardMode() const;
 
  private:
   using FrameTreeIterationCallback = base::RepeatingCallback<void(FrameTree*)>;
@@ -1738,7 +1742,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
 
   // TODO(creis): This should take in a FrameTreeNode to know which node's
   // render manager to return.  For now, we just return the root's.
-  RenderFrameHostManager* GetRenderManager() const;
+  RenderFrameHostManager* GetRenderManager();
 
   // Removes browser plugin embedder if there is one.
   void RemoveBrowserPluginEmbedder();
@@ -2066,10 +2070,13 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   // the WebContents creation time.
   base::TimeTicks last_active_time_;
 
-  // The time that this WebContents last received an 'interactive' input event
-  // from the user. Interactive input events are things like mouse clicks and
-  // keyboard input, but not mouse wheel scrolling or mouse moves.
-  base::TimeTicks last_interactive_input_event_time_;
+  // The most recent time that this WebContents was interacted with. Currently,
+  // this counts:
+  // * 'interactive' input events from the user, like mouse clicks and keyboard
+  // input but not mouse wheel scrolling
+  // * editing commands such as `Paste()`, which are invoked programmatically,
+  // presumably in response to user action
+  base::TimeTicks last_interaction_time_;
 
   // See description above setter.
   bool closed_by_user_gesture_;

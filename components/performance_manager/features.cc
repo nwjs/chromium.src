@@ -14,19 +14,22 @@
 
 namespace performance_manager::features {
 
-const base::Feature kRunOnMainThread{"RunOnMainThread",
-                                     base::FEATURE_DISABLED_BY_DEFAULT};
+BASE_FEATURE(kRunOnMainThread,
+             "RunOnMainThread",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if !BUILDFLAG(IS_ANDROID)
-const base::Feature kBackgroundTabLoadingFromPerformanceManager{
-    "BackgroundTabLoadingFromPerformanceManager",
-    base::FEATURE_DISABLED_BY_DEFAULT};
+BASE_FEATURE(kBackgroundTabLoadingFromPerformanceManager,
+             "BackgroundTabLoadingFromPerformanceManager",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
-const base::Feature kHighEfficiencyModeAvailable{
-    "HighEfficiencyModeAvailable", base::FEATURE_DISABLED_BY_DEFAULT};
+BASE_FEATURE(kHighEfficiencyModeAvailable,
+             "HighEfficiencyModeAvailable",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
-const base::Feature kBatterySaverModeAvailable{
-    "BatterySaverModeAvailable", base::FEATURE_DISABLED_BY_DEFAULT};
+BASE_FEATURE(kBatterySaverModeAvailable,
+             "BatterySaverModeAvailable",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 const base::FeatureParam<base::TimeDelta> kHighEfficiencyModeTimeBeforeDiscard{
     &kHighEfficiencyModeAvailable, "time_before_discard", base::Hours(2)};
@@ -40,12 +43,40 @@ const base::FeatureParam<int> kHighEfficiencyModePromoTabCountThreshold{
     "tab_count_threshold",
     10,
 };
+
+const base::FeatureParam<int> kHighEfficiencyModePromoMemoryPercentThreshold{
+    &kHighEfficiencyModeAvailable,
+    "memory_percent_threshold",
+    70,
+};
+
+// On ChromeOS, the adjustment generally seems to be around 3%, sometimes 2%. We
+// choose 3% because it gets us close enough, or overestimates (which is better
+// than underestimating in this instance).
+const base::FeatureParam<int>
+    kBatterySaverModeThresholdAdjustmentForDisplayLevel {
+  &kBatterySaverModeAvailable, "low_battery_threshold_adjustment",
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+      3,
+#else
+      0,
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+};
 #endif
 
-const base::Feature kBFCachePerformanceManagerPolicy{
-    "BFCachePerformanceManagerPolicy", base::FEATURE_DISABLED_BY_DEFAULT};
+BASE_FEATURE(kBFCachePerformanceManagerPolicy,
+             "BFCachePerformanceManagerPolicy",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
-const base::Feature kUrgentPageDiscarding{"UrgentPageDiscarding",
-                                          base::FEATURE_ENABLED_BY_DEFAULT};
+BASE_FEATURE(kUrgentPageDiscarding,
+             "UrgentPageDiscarding",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kPageTimelineMonitor,
+             "PageTimelineMonitor",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+const base::FeatureParam<base::TimeDelta> kPageTimelineStateIntervalTime{
+    &kPageTimelineMonitor, "time_between_collect_slice", base::Minutes(5)};
 
 }  // namespace performance_manager::features

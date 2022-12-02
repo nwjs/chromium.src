@@ -163,6 +163,10 @@ WebContents* VideoPictureInPictureWindowControllerImpl::GetWebContents() {
   return web_contents();
 }
 
+WebContents* VideoPictureInPictureWindowControllerImpl::GetChildWebContents() {
+  return nullptr;
+}
+
 void VideoPictureInPictureWindowControllerImpl::UpdatePlaybackState() {
   if (!window_)
     return;
@@ -440,6 +444,13 @@ void VideoPictureInPictureWindowControllerImpl::CloseInternal(
 const gfx::Rect& VideoPictureInPictureWindowControllerImpl::GetSourceBounds()
     const {
   return source_bounds_;
+}
+
+absl::optional<gfx::Rect>
+VideoPictureInPictureWindowControllerImpl::GetWindowBounds() {
+  if (!window_)
+    return absl::nullopt;
+  return window_->GetBounds();
 }
 
 void VideoPictureInPictureWindowControllerImpl::

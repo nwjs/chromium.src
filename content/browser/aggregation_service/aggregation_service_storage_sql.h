@@ -71,10 +71,15 @@ class CONTENT_EXPORT AggregationServiceStorageSql
   void ClearPublicKeysExpiredBy(base::Time delete_end) override;
   void StoreRequest(AggregatableReportRequest request) override;
   void DeleteRequest(AggregationServiceStorage::RequestId request_id) override;
+  void UpdateReportForSendFailure(
+      AggregationServiceStorage::RequestId request_id,
+      base::Time new_report_time) override;
   absl::optional<base::Time> NextReportTimeAfter(
       base::Time strictly_after_time) override;
   std::vector<AggregationServiceStorage::RequestAndId>
-  GetRequestsReportingOnOrBefore(base::Time not_after_time) override;
+  GetRequestsReportingOnOrBefore(
+      base::Time not_after_time,
+      absl::optional<int> limit = absl::nullopt) override;
   std::vector<AggregationServiceStorage::RequestAndId> GetRequests(
       const std::vector<AggregationServiceStorage::RequestId>& ids) override;
   absl::optional<base::Time> AdjustOfflineReportTimes(

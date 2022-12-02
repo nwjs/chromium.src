@@ -407,11 +407,14 @@ void DownloadTargetDeterminer::NotifyExtensionsDone(
         suggested_path).NormalizePathSeparators());
 
     // If this is a local file, don't allow extensions to override its
-    // extension.
+    // name.
     if (download_->GetURL().SchemeIsFile()) {
       base::FilePath file_path;
       net::FileURLToFilePath(download_->GetURL(), &file_path);
-      new_path = new_path.ReplaceExtension(file_path.Extension());
+      base::FilePath file_name = file_path.BaseName();
+      // Check if file name is a dir.
+      if (file_name.BaseName() != file_name.DirName())
+        new_path = new_path.DirName().Append(file_name);
     } else {
       // If the (Chrome) extension does not suggest an file extension, or if the
       // suggested extension matches that of the |virtual_path_|, do not
@@ -1168,8 +1171,7 @@ DownloadConfirmationReason DownloadTargetDeterminer::NeedsConfirmation(
   // The user may still be prompted even if this pref is disabled due to, for
   // example, there being an unresolvable filename conflict or the target path
   // is not writeable.
-  return (download_prefs_->PromptForDownload() ||
-          download_prefs_->PromptDownloadLater())
+  return download_prefs_->PromptForDownload()
              ? DownloadConfirmationReason::PREFERENCE
              : DownloadConfirmationReason::NONE;
 }

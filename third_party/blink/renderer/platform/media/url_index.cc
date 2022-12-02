@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors. All rights reserved.
+// Copyright 2015 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -120,6 +120,11 @@ void UrlData::set_has_access_control() {
 
 void UrlData::set_mime_type(std::string mime_type) {
   mime_type_ = std::move(mime_type);
+}
+
+void UrlData::set_passed_timing_allow_origin_check(
+    bool passed_timing_allow_origin_check) {
+  passed_timing_allow_origin_check_ = passed_timing_allow_origin_check;
 }
 
 void UrlData::RedirectTo(const scoped_refptr<UrlData>& url_data) {

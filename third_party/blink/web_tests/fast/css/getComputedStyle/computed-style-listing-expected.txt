@@ -197,9 +197,11 @@ grid-template-columns: none
 grid-template-rows: none
 height: 0px
 hyphenate-character: auto
+hyphenate-limit-chars: auto
 hyphens: manual
 image-orientation: from-image
 image-rendering: auto
+initial-letter: normal
 inline-size: 769px
 inset-block-end: auto
 inset-block-start: auto
@@ -341,6 +343,7 @@ text-underline-position: auto
 toggle-group: none
 toggle-root: none
 toggle-trigger: none
+toggle-visibility: normal
 top: auto
 touch-action: auto
 transform: none

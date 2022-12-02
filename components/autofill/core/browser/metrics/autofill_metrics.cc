@@ -1409,7 +1409,7 @@ void AutofillMetrics::LogOverallPredictionQualityMetrics(
       true /*log_rationalization_metrics*/);
 }
 
-void AutofillMetrics::LogEditedAutofilledFieldAtSubmission(
+void AutofillMetrics::LogEditedAutofilledFieldAtSubmissionDeprecated(
     FormInteractionsUkmLogger* form_interactions_ukm_logger,
     const FormStructure& form,
     const AutofillField& field) {
@@ -1440,6 +1440,47 @@ void AutofillMetrics::LogEditedAutofilledFieldAtSubmission(
     const std::string autocomplete_histogram = base::StrCat(
         {"Autofill.Autocomplete.", autocomplete_off ? "Off" : "NotOff",
          ".EditedAutofilledFieldAtSubmission.",
+         form_type == FormType::kAddressForm ? "Address" : "CreditCard"});
+    base::UmaHistogramEnumeration(autocomplete_histogram, editing_metric);
+  }
+
+  // If the field was edited, record the event to UKM.
+  // TODO(crbug.com/1368096): Recording of this metric is stopped and moved to
+  // the LogEditedAutofilledFieldAtSubmission method.
+}
+
+// static
+void AutofillMetrics::LogEditedAutofilledFieldAtSubmission(
+    FormInteractionsUkmLogger* form_interactions_ukm_logger,
+    const FormStructure& form,
+    const AutofillField& field) {
+  const std::string aggregate_histogram =
+      "Autofill.EditedAutofilledFieldAtSubmission2.Aggregate";
+  const std::string type_specific_histogram =
+      "Autofill.EditedAutofilledFieldAtSubmission2.ByFieldType";
+
+  AutofilledFieldUserEditingStatusMetric editing_metric =
+      field.previously_autofilled()
+          ? AutofilledFieldUserEditingStatusMetric::AUTOFILLED_FIELD_WAS_EDITED
+          : AutofilledFieldUserEditingStatusMetric::
+                AUTOFILLED_FIELD_WAS_NOT_EDITED;
+
+  // Record the aggregated UMA statistics.
+  base::UmaHistogramEnumeration(aggregate_histogram, editing_metric);
+
+  // Record the type specific UMA statistics.
+  base::UmaHistogramSparse(type_specific_histogram,
+                           GetFieldTypeUserEditStatusMetric(
+                               field.Type().GetStorableType(), editing_metric));
+
+  // Record the UMA statistics spliced by the autocomplete attribute value.
+  FormType form_type = FieldTypeGroupToFormType(field.Type().group());
+  if (form_type == FormType::kAddressForm ||
+      form_type == FormType::kCreditCardForm) {
+    bool autocomplete_off = field.autocomplete_attribute == "off";
+    const std::string autocomplete_histogram = base::StrCat(
+        {"Autofill.Autocomplete.", autocomplete_off ? "Off" : "NotOff",
+         ".EditedAutofilledFieldAtSubmission2.",
          form_type == FormType::kAddressForm ? "Address" : "CreditCard"});
     base::UmaHistogramEnumeration(autocomplete_histogram, editing_metric);
   }
@@ -1667,19 +1708,29 @@ void AutofillMetrics::LogIsAutofillCreditCardEnabledAtPageLoad(
 }
 
 // static
-void AutofillMetrics::LogStoredProfileCount(size_t num_profiles) {
+void AutofillMetrics::LogStoredProfileCountStatistics(
+    size_t num_profiles,
+    size_t num_disused_profiles,
+    size_t num_countryless_profiles) {
   UMA_HISTOGRAM_COUNTS_1M("Autofill.StoredProfileCount", num_profiles);
-}
 
-// static
-void AutofillMetrics::LogStoredProfilesWithoutCountry(size_t num_profiles) {
+  // For users without any profiles do not record the other metrics.
+  if (num_profiles == 0)
+    return;
+
+  DCHECK_LE(num_disused_profiles, num_profiles);
+  size_t num_used_profiles = num_profiles - num_disused_profiles;
+
+  UMA_HISTOGRAM_COUNTS_1000("Autofill.StoredProfileUsedCount",
+                            num_used_profiles);
+  UMA_HISTOGRAM_COUNTS_1000("Autofill.StoredProfileDisusedCount",
+                            num_disused_profiles);
   UMA_HISTOGRAM_COUNTS_1M("Autofill.StoredProfileWithoutCountryCount",
-                          num_profiles);
-}
+                          num_countryless_profiles);
 
-// static
-void AutofillMetrics::LogStoredProfileDisusedCount(size_t num_profiles) {
-  UMA_HISTOGRAM_COUNTS_1000("Autofill.StoredProfileDisusedCount", num_profiles);
+  int use_percentage = (100 * num_used_profiles) / num_profiles;
+  UMA_HISTOGRAM_PERCENTAGE("Autofill.StoredProfileUsedPercentage",
+                           use_percentage);
 }
 
 // static
@@ -2387,6 +2438,26 @@ void AutofillMetrics::LogDeveloperEngagementUkm(
       .Record(ukm_recorder);
 }
 
+// static
+void AutofillMetrics::LogAddressProfileImportUkm(
+    ukm::UkmRecorder* ukm_recorder,
+    ukm::SourceId source_id,
+    AutofillProfileImportType import_type,
+    AutofillClient::SaveAddressProfileOfferUserDecision user_decision,
+    const ProfileImportMetadata& profile_import_metadata,
+    size_t num_edited_fields) {
+  ukm::builders::Autofill_AddressProfileImport(source_id)
+      .SetAutocompleteUnrecognizedImport(
+          profile_import_metadata
+              .did_import_from_unrecognized_autocomplete_field)
+      .SetImportType(static_cast<int64_t>(import_type))
+      .SetNumberOfEditedFields(num_edited_fields)
+      .SetPhoneNumberStatus(
+          static_cast<int64_t>(profile_import_metadata.phone_import_status))
+      .SetUserDecision(static_cast<int64_t>(user_decision))
+      .Record(ukm_recorder);
+}
+
 AutofillMetrics::FormInteractionsUkmLogger::FormInteractionsUkmLogger(
     ukm::UkmRecorder* ukm_recorder,
     const ukm::SourceId source_id)
@@ -2987,12 +3058,9 @@ void AutofillMetrics::LogRemovedSettingInaccessibleField(
 
 // static
 void AutofillMetrics::LogPhoneNumberImportParsingResult(
-    bool with_variation_country_code,
-    bool with_app_locale) {
-  base::UmaHistogramEnumeration(
-      "Autofill.ProfileImport.PhoneNumberParsingResult",
-      static_cast<AutofillMetrics::PhoneNumberImportParsingResult>(
-          (with_variation_country_code << 1) | with_app_locale));
+    bool parsed_successfully) {
+  base::UmaHistogramBoolean("Autofill.ProfileImport.PhoneNumberParsed",
+                            parsed_successfully);
 }
 
 // static

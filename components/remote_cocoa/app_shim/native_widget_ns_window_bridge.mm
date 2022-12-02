@@ -19,6 +19,7 @@
 #import "base/mac/foundation_util.h"
 #include "base/mac/mac_util.h"
 #include "base/no_destructor.h"
+#include "base/ranges/algorithm.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #import "components/remote_cocoa/app_shim/bridged_content_view.h"
@@ -470,7 +471,7 @@ void NativeWidgetNSWindowBridge::InitWindow(
   // Validate the window's initial state, otherwise the bridge's initial
   // tracking state will be incorrect.
   DCHECK(![window_ isVisible]);
-  DCHECK_EQ(0u, [window_ styleMask] & NSWindowStyleMaskFullScreen);
+  DCHECK(!IsFullscreen());
 
   // Include "regular" windows without the standard frame in the window cycle.
   // These use NSWindowStyleMaskBorderless so do not get it by default.
@@ -891,6 +892,11 @@ bool NativeWidgetNSWindowBridge::HasWindowRestorationData() {
   return !pending_restoration_data_.empty();
 }
 
+bool NativeWidgetNSWindowBridge::IsFullscreen() {
+  return ([window_ styleMask] & NSWindowStyleMaskFullScreen) ==
+         NSWindowStyleMaskFullScreen;
+}
+
 bool NativeWidgetNSWindowBridge::RunMoveLoop(const gfx::Vector2d& drag_offset) {
   // https://crbug.com/876493
   CHECK(!HasCapture());
@@ -948,12 +954,16 @@ void NativeWidgetNSWindowBridge::DisableImmersiveFullscreen() {
 }
 
 void NativeWidgetNSWindowBridge::UpdateToolbarVisibility(bool always_show) {
-  immersive_mode_controller_->UpdateToolbarVisibility(always_show);
+  if (immersive_mode_controller_) {
+    immersive_mode_controller_->UpdateToolbarVisibility(always_show);
+  }
 }
 
 void NativeWidgetNSWindowBridge::OnTopContainerViewBoundsChanged(
     const gfx::Rect& bounds) {
-  immersive_mode_controller_->OnTopViewBoundsChanged(bounds);
+  if (immersive_mode_controller_) {
+    immersive_mode_controller_->OnTopViewBoundsChanged(bounds);
+  }
 }
 
 void NativeWidgetNSWindowBridge::SetCanGoBack(bool can_go_back) {
@@ -1311,9 +1321,10 @@ void NativeWidgetNSWindowBridge::FullscreenControllerToggleFullscreen() {
   }
 
   bool is_key_window = [window_ isKeyWindow];
+  bool was_fullscreen = IsFullscreen();
   [window_ toggleFullScreen:nil];
   // Ensure the transitioning window maintains focus (crbug.com/1338659).
-  if (is_key_window)
+  if (!was_fullscreen && is_key_window)
     [window_ makeKeyAndOrderFront:nil];
 }
 
@@ -1387,6 +1398,13 @@ NSWindow* NativeWidgetNSWindowBridge::GetWindow() const {
 
 void NativeWidgetNSWindowBridge::SetVisibleOnAllSpaces(bool always_visible) {
   gfx::SetNSWindowVisibleOnAllWorkspaces(window_, always_visible);
+}
+
+void NativeWidgetNSWindowBridge::SetZoomed(bool zoomed) {
+  const bool window_zoomed = [window_ isZoomed];
+  if (window_zoomed == zoomed)
+    return;
+  [window_ performZoom:nil];
 }
 
 void NativeWidgetNSWindowBridge::EnterFullscreen(int64_t target_display_id) {
@@ -1606,8 +1624,7 @@ void NativeWidgetNSWindowBridge::RedispatchKeyEvent(
 
 void NativeWidgetNSWindowBridge::RemoveChildWindow(
     NativeWidgetNSWindowBridge* child) {
-  auto location =
-      std::find(child_windows_.begin(), child_windows_.end(), child);
+  auto location = base::ranges::find(child_windows_, child);
   DCHECK(location != child_windows_.end());
   child_windows_.erase(location);
 
@@ -1657,6 +1674,17 @@ void NativeWidgetNSWindowBridge::RemoveOrDestroyChildren() {
   }
 }
 
+void NativeWidgetNSWindowBridge::CheckAndNotifyZoomedStateChanged() {
+  const bool window_zoomed = [window_ isZoomed];
+  if (window_zoomed_ == window_zoomed)
+    return;
+
+  window_zoomed_ = window_zoomed;
+
+  // Notify that the window's zoomed state has changed.
+  host_->OnWindowZoomedChanged(window_zoomed_);
+}
+
 void NativeWidgetNSWindowBridge::NotifyVisibilityChangeDown() {
   // Child windows sometimes like to close themselves in response to visibility
   // changes. That's supported, but only with the asynchronous Widget::Close().
@@ -1691,6 +1719,8 @@ void NativeWidgetNSWindowBridge::UpdateWindowGeometry() {
   content_dip_size_ = content_in_screen.size();
 
   host_->OnWindowGeometryChanged(window_in_screen, content_in_screen);
+
+  CheckAndNotifyZoomedStateChanged();
 
   if (content_resized && !ca_transaction_sync_suppressed_)
     ui::CATransactionCoordinator::Get().Synchronize();

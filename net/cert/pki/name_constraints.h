@@ -9,7 +9,6 @@
 
 #include <memory>
 
-#include "base/strings/string_piece_forward.h"
 #include "net/base/ip_address.h"
 #include "net/base/net_export.h"
 #include "net/cert/pki/general_names.h"
@@ -56,7 +55,7 @@ class NET_EXPORT NameConstraints {
   // would not be permitted if "bar.com" is permitted and "foo.bar.com" is
   // excluded, while "*.baz.com" would only be permitted if "baz.com" is
   // permitted.
-  bool IsPermittedDNSName(base::StringPiece name) const;
+  bool IsPermittedDNSName(std::string_view name) const;
 
   // Returns true if the directoryName |name_rdn_sequence| is permitted.
   // |name_rdn_sequence| should be the DER-encoded RDNSequence value (not

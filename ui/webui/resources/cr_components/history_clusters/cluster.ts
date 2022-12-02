@@ -10,7 +10,7 @@ import './url_visit.js';
 import '../../cr_elements/cr_icons.css.js';
 import 'chrome://resources/polymer/v3_0/iron-collapse/iron-collapse.js';
 
-import {I18nMixin} from 'chrome://resources/js/i18n_mixin.js';
+import {I18nMixin} from 'chrome://resources/cr_elements/i18n_mixin.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import {assert} from '../../js/assert_ts.js';
@@ -37,7 +37,6 @@ const HistoryClusterElementBase = I18nMixin(PolymerElement);
 interface HistoryClusterElement {
   $: {
     label: HTMLElement,
-    labelSidePanel: HTMLElement,
     container: HTMLElement,
   };
 }
@@ -311,9 +310,8 @@ class HistoryClusterElement extends HistoryClusterElementBase {
       return 'no_label';
     }
 
-    const label = this.inSidePanel_ ? this.$.labelSidePanel : this.$.label;
     insertHighlightedTextWithMatchesIntoElement(
-        label, this.cluster.label!, this.cluster.labelMatchPositions);
+        this.$.label, this.cluster.label!, this.cluster.labelMatchPositions);
     return this.cluster.label!;
   }
 

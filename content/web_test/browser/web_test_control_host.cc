@@ -102,6 +102,7 @@
 #include "ui/shell_dialogs/select_file_dialog.h"
 #include "ui/shell_dialogs/select_file_dialog_factory.h"
 #include "ui/shell_dialogs/select_file_policy.h"
+#include "url/gurl.h"
 #include "url/url_constants.h"
 
 #if BUILDFLAG(IS_MAC)
@@ -1511,7 +1512,8 @@ class FakeSelectFileDialog : public ui::SelectFileDialog {
                       int file_type_index,
                       const base::FilePath::StringType& default_extension,
                       gfx::NativeWindow owning_window,
-                      void* params) override {
+                      void* params,
+                      const GURL* caller) override {
     listener_->FileSelected(result_, 0, params);
   }
 
@@ -1826,9 +1828,10 @@ void WebTestControlHost::PrepareRendererForNextWebTest() {
   BackForwardCache::DisableForRenderFrameHost(
       web_contents->GetPrimaryMainFrame(),
       BackForwardCache::DisabledReason(
-          {BackForwardCache::DisabledSource::kTesting, 0,
-           "disabled for web_test not to cache the test page after the test "
-           "ends."}));
+          BackForwardCache::DisabledSource::kTesting, 0,
+          "disabled for web_test not to cache the test page after the test "
+          "ends.",
+          /*context=*/"", "disabled"));
 
   // Flush all the back/forward cache to avoid side effects in the next test.
   for (auto* shell : Shell::windows()) {

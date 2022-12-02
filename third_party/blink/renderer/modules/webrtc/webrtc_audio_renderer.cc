@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,6 +11,7 @@
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/ranges/algorithm.h"
 #include "base/threading/thread_checker.h"
 #include "build/build_config.h"
 #include "media/audio/audio_sink_parameters.h"
@@ -378,8 +379,8 @@ WebRtcAudioRenderer::CreateSharedAudioRendererProxy(
   SharedAudioRenderer::OnPlayStateChanged on_play_state_changed =
       WTF::BindRepeating(&WebRtcAudioRenderer::OnPlayStateChanged,
                          WrapRefCounted(this));
-  SharedAudioRenderer::OnPlayStateRemoved on_play_state_removed =
-      WTF::Bind(&WebRtcAudioRenderer::OnPlayStateRemoved, WrapRefCounted(this));
+  SharedAudioRenderer::OnPlayStateRemoved on_play_state_removed = WTF::BindOnce(
+      &WebRtcAudioRenderer::OnPlayStateRemoved, WrapRefCounted(this));
   return new SharedAudioRenderer(this, media_stream_descriptor,
                                  std::move(on_play_state_changed),
                                  std::move(on_play_state_removed));
@@ -774,7 +775,7 @@ bool WebRtcAudioRenderer::RemovePlayingState(
     return false;
 
   PlayingStates& array = found->second;
-  auto state_it = std::find(array.begin(), array.end(), state);
+  auto state_it = base::ranges::find(array, state);
   if (state_it == array.end())
     return false;
 

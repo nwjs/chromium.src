@@ -49,6 +49,7 @@
 #include "build/chromeos_buildflags.h"
 #include "components/discardable_memory/service/discardable_shared_memory_manager.h"
 #include "components/download/public/common/download_task_runner.h"
+#include "components/optimization_guide/machine_learning_tflite_buildflags.h"
 #include "components/power_scheduler/power_mode_arbiter.h"
 #include "components/variations/variations_ids_provider.h"
 #include "content/app/mojo/mojo_init.h"
@@ -95,6 +96,7 @@
 #include "mojo/core/embedder/embedder.h"
 #include "mojo/public/cpp/base/shared_memory_utils.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
+#include "mojo/public/cpp/bindings/sync_call_restrictions.h"
 #include "mojo/public/cpp/platform/platform_channel.h"
 #include "mojo/public/cpp/system/dynamic_library_support.h"
 #include "mojo/public/cpp/system/invitation.h"
@@ -186,6 +188,11 @@
 
 #if BUILDFLAG(IS_FUCHSIA)
 #include "base/fuchsia/system_info.h"
+#include "content/public/common/result_codes.h"
+#endif
+
+#if BUILDFLAG(BUILD_TFLITE_WITH_XNNPACK)
+#include "third_party/cpuinfo/src/include/cpuinfo.h"
 #endif
 
 namespace content {
@@ -426,6 +433,13 @@ void PreSandboxInit() {
   PreloadLibraryCdms();
 #endif
   InitializeWebRtcModule();
+
+#if BUILDFLAG(BUILD_TFLITE_WITH_XNNPACK)
+  // cpuinfo needs to parse /proc/cpuinfo, or its equivalent.
+  if (!cpuinfo_initialize()) {
+    LOG(ERROR) << "Failed to initialize cpuinfo";
+  }
+#endif
 
   // Set the android SkFontMgr for blink. We need to ensure this is done
   // before the sandbox is initialized to allow the font manager to access
@@ -832,7 +846,11 @@ int ContentMainRunnerImpl::Initialize(ContentMainParams params) {
   // ensure the cache is populated.
   // Making the blocking call now also avoids the potential for blocking later
   // in when it might be user-visible.
-  base::FetchAndCacheSystemInfo();
+  if (!base::FetchAndCacheSystemInfo()) {
+    // Returning `RESULT_CODE_KILLED` instead of
+    // TerminateForFatalInitializationError() to avoid CHECK.
+    return ResultCode::RESULT_CODE_KILLED;
+  }
 #endif
 
   if (!GetContentClient())
@@ -841,7 +859,6 @@ int ContentMainRunnerImpl::Initialize(ContentMainParams params) {
       delegate_->BasicStartupComplete();
   if (basic_startup_exit_code.has_value())
     return basic_startup_exit_code.value();
-  completed_basic_startup_ = true;
 
   const base::CommandLine& command_line =
       *base::CommandLine::ForCurrentProcess();
@@ -1104,6 +1121,11 @@ int ContentMainRunnerImpl::RunBrowser(MainFunctionParams main_params,
   if (is_browser_main_loop_started_)
     return -1;
 
+  if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kSingleProcess)) {
+    mojo::SyncCallRestrictions::DisableSyncCallInterrupts();
+  }
+
   if (!mojo_ipc_support_) {
     const ContentMainDelegate::InvokedInBrowserProcess invoked_in_browser{
         .is_running_test = !main_params.ui_task.is_null()};
@@ -1229,7 +1251,6 @@ int ContentMainRunnerImpl::RunBrowser(MainFunctionParams main_params,
     return -1;
   }
 
-  DVLOG(0) << "Chrome is running in full browser mode.";
   is_browser_main_loop_started_ = true;
   main_params.startup_data = mojo_ipc_support_->CreateBrowserStartupData();
   return RunBrowserProcessMain(std::move(main_params), delegate_);
@@ -1241,14 +1262,11 @@ void ContentMainRunnerImpl::Shutdown() {
 
   mojo_ipc_support_.reset();
 
-  if (completed_basic_startup_) {
-    const base::CommandLine& command_line =
-        *base::CommandLine::ForCurrentProcess();
-    std::string process_type =
-        command_line.GetSwitchValueASCII(switches::kProcessType);
-
-    delegate_->ProcessExiting(process_type);
-  }
+  const base::CommandLine& command_line =
+      *base::CommandLine::ForCurrentProcess();
+  std::string process_type =
+      command_line.GetSwitchValueASCII(switches::kProcessType);
+  delegate_->ProcessExiting(process_type);
 
   // The BrowserTaskExecutor needs to be destroyed before |exit_manager_|.
   BrowserTaskExecutor::Shutdown();

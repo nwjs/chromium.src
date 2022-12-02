@@ -33,9 +33,6 @@ class ConsolidatedConsentScreen
     // The user accepted terms of service in online demo mode.
     ACCEPTED_DEMO_ONLINE,
 
-    // The user accepted terms of service in offline demo mode.
-    ACCEPTED_DEMO_OFFLINE,
-
     // Consolidated Consent screen skipped.
     NOT_APPLICABLE,
   };
@@ -73,7 +70,8 @@ class ConsolidatedConsentScreen
   void OnAccept(bool enable_stats_usage,
                 bool enable_backup_restore,
                 bool enable_location_services,
-                const std::string& tos_content);
+                const std::string& tos_content,
+                bool enable_recovery);
 
   // arc::ArcOptInPreferenceHandlerObserver:
   void OnMetricsModeChanged(bool enabled, bool managed) override;

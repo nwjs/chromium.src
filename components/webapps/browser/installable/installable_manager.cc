@@ -474,8 +474,8 @@ bool InstallableManager::IsComplete(const InstallableParams& params) const {
          (!params.valid_splash_icon || IsIconFetchComplete(IconUsage::kSplash));
 }
 
-void InstallableManager::Reset(absl::optional<InstallableStatusCode> error) {
-  DCHECK(!error || error.value() != NO_ERROR_DETECTED);
+void InstallableManager::Reset(InstallableStatusCode error) {
+  DCHECK(error != NO_ERROR_DETECTED);
   // Prevent any outstanding callbacks to or from this object from being called.
   weak_factory_.InvalidateWeakPtrs();
   icons_.clear();
@@ -484,11 +484,9 @@ void InstallableManager::Reset(absl::optional<InstallableStatusCode> error) {
   screenshots_downloading_ = 0;
   is_screenshots_fetch_complete_ = false;
 
-  // If we have paused tasks, we are waiting for a service worker.
-  if (error)
-    task_queue_.ResetWithError(error.value());
-  else
-    task_queue_.Reset();
+  // If we have paused tasks, we are waiting for a service worker. Execute the
+  // callbacks with the status_code being passed for the paused tasks.
+  task_queue_.ResetWithError(error);
 
   eligibility_ = std::make_unique<EligiblityProperty>();
   manifest_ = std::make_unique<ManifestProperty>();
@@ -901,17 +899,20 @@ void InstallableManager::CheckAndFetchScreenshots(bool check_form_factor) {
   screenshots_downloading_ = 0;
 
   int num_of_screenshots = 0;
-
   for (const auto& url : manifest().screenshots) {
 #if BUILDFLAG(IS_ANDROID)
-    auto reject_form_factor =
-        blink::mojom::ManifestScreenshot::FormFactor::kWide;
-#else
-    auto reject_form_factor =
-        blink::mojom::ManifestScreenshot::FormFactor::kNarrow;
-#endif  // BUILDFLAG(IS_ANDROID)
-    if (check_form_factor && url->form_factor == reject_form_factor)
+    if (check_form_factor &&
+        url->form_factor ==
+            blink::mojom::ManifestScreenshot::FormFactor::kWide) {
       continue;
+    }
+#else
+    if (check_form_factor &&
+        url->form_factor !=
+            blink::mojom::ManifestScreenshot::FormFactor::kWide) {
+      continue;
+    }
+#endif  // BUILDFLAG(IS_ANDROID)
 
     if (++num_of_screenshots > kMaximumNumOfScreenshots)
       break;
@@ -940,15 +941,8 @@ void InstallableManager::CheckAndFetchScreenshots(bool check_form_factor) {
   }
 
   if (!screenshots_downloading_) {
-    // If there is no screenshot that matches all the criteria, populate again
-    // without checking form_factor to fallback to screenshots with mismatching
-    // form_factor instead of showing nothing.
-    if (screenshots_.size() == 0 && check_form_factor) {
-      CheckAndFetchScreenshots(/*check_form_factor=*/false);
-    } else {
-      is_screenshots_fetch_complete_ = true;
-      WorkOnTask();
-    }
+    is_screenshots_fetch_complete_ = true;
+    WorkOnTask();
   }
 }
 
@@ -984,9 +978,9 @@ void InstallableManager::OnScreenshotFetched(GURL screenshot_url,
       // dimensions checks portrait vs landscape mode (1:2 vs 2:1 for instance).
       if (screenshots_.size() &&
           screenshot.dimensions().width() *
-                  screenshots_[0].dimensions().height() !=
+                  screenshots_[0].image.dimensions().height() !=
               screenshot.dimensions().height() *
-                  screenshots_[0].dimensions().width()) {
+                  screenshots_[0].image.dimensions().width()) {
         continue;
       }
 
@@ -995,7 +989,7 @@ void InstallableManager::OnScreenshotFetched(GURL screenshot_url,
       if (dimensions.second > dimensions.first * kMaximumScreenshotRatio)
         continue;
 
-      screenshots_.push_back(screenshot);
+      screenshots_.emplace_back(std::move(screenshot), url->label);
     }
 
     downloaded_screenshots_.clear();
@@ -1042,7 +1036,9 @@ void InstallableManager::DidUpdateWebManifestURL(content::RenderFrameHost* rfh,
 }
 
 void InstallableManager::WebContentsDestroyed() {
-  Reset();
+  // This ensures that we do not just hang callbacks on web_contents being
+  // destroyed.
+  Reset(RENDERER_EXITING);
   Observe(nullptr);
 }
 

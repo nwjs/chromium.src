@@ -10,7 +10,7 @@
 
 import '../../settings_shared.css.js';
 
-import {I18nMixin, I18nMixinInterface} from 'chrome://resources/js/i18n_mixin.js';
+import {I18nMixin, I18nMixinInterface} from 'chrome://resources/cr_elements/i18n_mixin.js';
 import {IronResizableBehavior} from 'chrome://resources/polymer/v3_0/iron-resizable-behavior/iron-resizable-behavior.js';
 import {PaperRippleBehavior} from 'chrome://resources/polymer/v3_0/paper-behaviors/paper-ripple-behavior.js';
 import {PaperRippleElement} from 'chrome://resources/polymer/v3_0/paper-ripple/paper-ripple.js';
@@ -44,11 +44,6 @@ type TrackEvent = CustomEvent<{
   ddx: number,
   ddy: number,
 }>;
-
-interface PrefObject extends chrome.settingsPrivate.PrefObject {
-  type: chrome.settingsPrivate.PrefType.NUMBER;
-  value: number;
-}
 
 const HOURS_PER_DAY = 24;
 const MIN_KNOBS_DISTANCE_MINUTES = 60;
@@ -151,8 +146,8 @@ class SettingsSchedulerSliderElement extends
     ];
   }
 
-  prefStartTime: PrefObject;
-  prefEndTime: PrefObject;
+  prefStartTime: chrome.settingsPrivate.PrefObject<number>;
+  prefEndTime: chrome.settingsPrivate.PrefObject<number>;
   private dragObject_: HTMLElement|null;
   private isReady_: boolean;
   private isRTL_: boolean;

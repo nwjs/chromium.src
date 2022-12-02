@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -39,7 +39,7 @@ import java.util.Set;
  * Represents a single tab in a browser. More specifically, owns a NavigationController, and allows
  * configuring state of the tab, such as delegates and callbacks.
  */
-public class Tab {
+class Tab {
     // Maps from id (as returned from ITab.getId()) to Tab.
     private static final Map<Integer, Tab> sTabMap = new HashMap<Integer, Tab>();
 

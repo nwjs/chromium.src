@@ -6,27 +6,21 @@
 
 #import <Foundation/Foundation.h>
 
+#import "base/time/time.h"
 #import "components/password_manager/core/browser/password_manager_util.h"
 #import "components/prefs/pref_service.h"
+#import "ios/chrome/browser/application_context/application_context.h"
 #import "ios/chrome/browser/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/main/browser.h"
+#import "ios/chrome/browser/promos_manager/constants.h"
+#import "ios/chrome/browser/promos_manager/promos_manager.h"
+#import "ios/chrome/browser/ui/app_store_rating/constants.h"
 #import "ios/chrome/browser/ui/default_promo/default_browser_utils.h"
 #import "ios/chrome/browser/ui/main/browser_interface_provider.h"
-#import "ios/chrome/browser/ui/main/scene_delegate.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
 #error "This file requires ARC support."
 #endif
-
-namespace {
-// Key used to store the total number of unique days that the user has
-// started a session.
-NSString* const kTotalDaysOnChrome = @"TotalDaysOnChrome";
-
-// Key used to store an array of unique days that the user has started
-// a session in the past 7 days.
-NSString* const kActiveDaysInPastWeek = @"ActiveDaysInPastWeek";
-}  // namespace
 
 @interface AppStoreRatingSceneAgent ()
 
@@ -44,13 +38,17 @@ NSString* const kActiveDaysInPastWeek = @"ActiveDaysInPastWeek";
 // Provider Extension.
 @property(nonatomic, assign, readonly, getter=isCPEEnabled) BOOL CPEEnabled;
 
+// The PromosManager is used to register promos.
+@property(nonatomic, assign) PromosManager* promosManager;
+
 @end
 
 @implementation AppStoreRatingSceneAgent
 
-- (instancetype)init {
-  self = [super init];
-
+- (instancetype)initWithPromosManager:(PromosManager*)promosManager {
+  if (self = [super init]) {
+    _promosManager = promosManager;
+  }
   return self;
 }
 
@@ -86,20 +84,24 @@ NSString* const kActiveDaysInPastWeek = @"ActiveDaysInPastWeek";
 
 - (BOOL)isChromeUsed3DaysInPastWeek {
   if (![[NSUserDefaults standardUserDefaults]
-          objectForKey:kActiveDaysInPastWeek]) {
+          objectForKey:kAppStoreRatingActiveDaysInPastWeekKey]) {
     return NO;
   }
   return [[[NSUserDefaults standardUserDefaults]
-             objectForKey:kActiveDaysInPastWeek] count] >= 3 ? YES : NO;
+             objectForKey:kAppStoreRatingActiveDaysInPastWeekKey] count] >= 3
+             ? YES
+             : NO;
 }
 
 - (BOOL)isChromeUsed15Days {
   if (![[NSUserDefaults standardUserDefaults]
-          integerForKey:kTotalDaysOnChrome]) {
+          integerForKey:kAppStoreRatingTotalDaysOnChromeKey]) {
     return NO;
   }
   return [[NSUserDefaults standardUserDefaults]
-             integerForKey:kTotalDaysOnChrome] >= 15 ? YES : NO;
+             integerForKey:kAppStoreRatingTotalDaysOnChromeKey] >= 15
+             ? YES
+             : NO;
 }
 
 - (BOOL)isCPEEnabled {
@@ -112,23 +114,30 @@ NSString* const kActiveDaysInPastWeek = @"ActiveDaysInPastWeek";
 }
 
 #pragma mark - Private
-
 // Calls the PromosManager to request iOS displays the
 // App Store Rating prompt to the user.
 - (void)requestPromoDisplay {
+  if (!_promosManager)
+    return;
+  _promosManager->RegisterPromoForSingleDisplay(
+      promos_manager::Promo::AppStoreRating);
 }
 
-// Updates kTotalDaysOnChrome and kActiveDaysInPastWeek in NSUserDefaults.
+// Updates `kAppStoreRatingTotalDaysOnChromeKey` and
+// `kAppStoreRatingActiveDaysInPastWeekKey` in NSUserDefaults. This method is
+// destructive and may modify `kAppStoreRatingActiveDaysInPastWeekKey`.
 - (void)updateUserDefaults {
   NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
   NSCalendar* calendar = [NSCalendar currentCalendar];
 
-  // Add kActiveDaysInPastWeek to NSUserDefaults if it doesn't already exist.
-  if ([defaults objectForKey:kActiveDaysInPastWeek] == nil) {
-    [defaults setObject:[NSMutableArray alloc] forKey:kActiveDaysInPastWeek];
+  // Add `kAppStoreRatingActiveDaysInPastWeekKey` to NSUserDefaults if it
+  // doesn't already exist.
+  if ([defaults objectForKey:kAppStoreRatingActiveDaysInPastWeekKey] == nil) {
+    [defaults setObject:[[NSMutableArray alloc] init]
+                 forKey:kAppStoreRatingActiveDaysInPastWeekKey];
   }
-  NSMutableArray* activeDaysInPastWeek =
-      [defaults objectForKey:kActiveDaysInPastWeek];
+  NSMutableArray* activeDaysInPastWeek = [[defaults
+      objectForKey:kAppStoreRatingActiveDaysInPastWeekKey] mutableCopy];
 
   // Exit early if the last recorded day was today.
   if ([activeDaysInPastWeek lastObject] != nil &&
@@ -138,22 +147,27 @@ NSString* const kActiveDaysInPastWeek = @"ActiveDaysInPastWeek";
 
   NSDate* today = [NSDate date];
 
-  // Remove dates longer than 7 days ago from kActiveDaysInPastWeek.
-  for (NSDate* day in activeDaysInPastWeek) {
-    NSDateComponents* dayComponents = [calendar components:NSCalendarUnitDay
-                                                  fromDate:day
-                                                    toDate:today
-                                                   options:0];
-    if (dayComponents.day > 7) {
-      [activeDaysInPastWeek removeObject:day];
-    }
-  }
-  
-  // Update kTotalDaysOnChrome and kActiveDaysInPastWeek.
-  [defaults setInteger:[defaults integerForKey:kTotalDaysOnChrome] + 1
-                forKey:kTotalDaysOnChrome];
+  // Remove dates longer than 7 days ago from
+  // `kAppStoreRatingActiveDaysInPastWeekKey`.
+  // TODO(crbug.com/1376577): Move `oneWeekAgoInterval` to constants file
+  // once the file is merged.
+  base::TimeDelta oneWeekAgoInterval = base::Days(-7);
+  NSDate* oneWeekAgo =
+      [[NSDate alloc] initWithTimeInterval:oneWeekAgoInterval.InSecondsF()
+                                 sinceDate:today];
+  NSPredicate* greaterThan =
+      [NSPredicate predicateWithFormat:@"SELF > %@", oneWeekAgo];
+  [activeDaysInPastWeek filterUsingPredicate:greaterThan];
+
+  // Update `kAppStoreRatingTotalDaysOnChromeKey` and
+  // `kAppStoreRatingActiveDaysInPastWeekKey`.
+  [defaults
+      setInteger:[defaults integerForKey:kAppStoreRatingTotalDaysOnChromeKey] +
+                 1
+          forKey:kAppStoreRatingTotalDaysOnChromeKey];
   [activeDaysInPastWeek addObject:today];
-  [defaults setObject:activeDaysInPastWeek forKey:kActiveDaysInPastWeek];
+  [defaults setObject:activeDaysInPastWeek
+               forKey:kAppStoreRatingActiveDaysInPastWeekKey];
 }
 
 @end

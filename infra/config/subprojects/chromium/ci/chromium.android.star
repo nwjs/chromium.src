@@ -21,6 +21,9 @@ ci.defaults.set(
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
     service_account = ci.DEFAULT_SERVICE_ACCOUNT,
     sheriff_rotations = sheriff_rotations.ANDROID,
+
+    # TODO(crbug.com/1362440): remove this.
+    omit_python2 = False,
 )
 
 consoles.console_view(
@@ -44,7 +47,6 @@ ci.builder(
             config = "chromium",
             apply_configs = [
                 "android",
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -105,6 +107,7 @@ ci.thin_tester(
     ),
     cq_mirrors_console_view = "mirrors",
     triggered_by = ["ci/Android arm64 Builder (dbg)"],
+    sheriff_rotations = args.ignore_default(None),
 )
 
 ci.thin_tester(
@@ -223,7 +226,6 @@ ci.builder(
             config = "chromium",
             apply_configs = [
                 "android",
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -258,7 +260,6 @@ ci.builder(
             config = "chromium",
             apply_configs = [
                 "android",
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -306,7 +307,6 @@ ci.builder(
             config = "chromium",
             apply_configs = [
                 "android",
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -344,7 +344,6 @@ ci.builder(
             config = "chromium",
             apply_configs = [
                 "android",
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -391,7 +390,6 @@ ci.builder(
             config = "chromium",
             apply_configs = [
                 "android",
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -422,7 +420,6 @@ ci.builder(
             config = "chromium",
             apply_configs = [
                 "android",
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -481,7 +478,6 @@ ci.builder(
             config = "chromium",
             apply_configs = [
                 "android",
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -566,6 +562,7 @@ ci.thin_tester(
     ),
     cq_mirrors_console_view = "mirrors",
     triggered_by = ["ci/Android arm64 Builder (dbg)"],
+    sheriff_rotations = args.ignore_default(None),
 )
 
 ci.thin_tester(
@@ -601,6 +598,7 @@ ci.thin_tester(
     # tests in parallel, hence the high timeout.
     execution_timeout = 15 * time.hour,
     triggered_by = ["ci/Android arm Builder (dbg)"],
+    sheriff_rotations = args.ignore_default(None),
 )
 
 ci.thin_tester(
@@ -678,7 +676,6 @@ ci.builder(
             apply_configs = [
                 "android",
                 "enable_wpr_tests",
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -710,7 +707,6 @@ ci.builder(
             config = "chromium",
             apply_configs = [
                 "android",
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -744,7 +740,6 @@ ci.builder(
             config = "chromium",
             apply_configs = [
                 "android",
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -772,6 +767,7 @@ ci.builder(
     goma_backend = goma.backend.RBE_PROD,
     goma_jobs = goma.jobs.MANY_JOBS_FOR_CI,
     reclient_instance = None,
+    sheriff_rotations = args.ignore_default(None),
 )
 
 ci.builder(
@@ -781,7 +777,6 @@ ci.builder(
             config = "chromium",
             apply_configs = [
                 "android",
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -803,6 +798,7 @@ ci.builder(
         category = "bfcache",
         short_name = "bfc",
     ),
+    sheriff_rotations = args.ignore_default(None),
 )
 
 ci.builder(
@@ -826,7 +822,6 @@ ci.builder(
             config = "chromium",
             apply_configs = [
                 "android",
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -860,7 +855,6 @@ ci.builder(
             config = "chromium",
             apply_configs = [
                 "android",
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -941,7 +935,6 @@ ci.builder(
             config = "chromium",
             apply_configs = [
                 "android",
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -975,7 +968,6 @@ ci.thin_tester(
             config = "chromium",
             apply_configs = [
                 "android",
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -1010,7 +1002,6 @@ ci.thin_tester(
             config = "chromium",
             apply_configs = [
                 "android",
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -1045,7 +1036,6 @@ ci.thin_tester(
             config = "chromium",
             apply_configs = [
                 "android",
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -1080,7 +1070,6 @@ ci.thin_tester(
             config = "chromium",
             apply_configs = [
                 "android",
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -1116,7 +1105,6 @@ ci.thin_tester(
             config = "chromium",
             apply_configs = [
                 "android",
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -1151,7 +1139,6 @@ ci.thin_tester(
             config = "chromium",
             apply_configs = [
                 "android",
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -1205,7 +1192,7 @@ ci.builder(
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
-            apply_configs = ["android", "enable_reclient", "enable_wpr_tests"],
+            apply_configs = ["android", "enable_wpr_tests"],
         ),
         chromium_config = builder_config.chromium_config(
             config = "android",
@@ -1278,7 +1265,6 @@ ci.builder(
             config = "chromium",
             apply_configs = [
                 "android",
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -1311,7 +1297,6 @@ ci.builder(
             config = "chromium",
             apply_configs = [
                 "android",
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -1344,7 +1329,6 @@ ci.builder(
             config = "chromium",
             apply_configs = [
                 "android",
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -1378,7 +1362,6 @@ ci.builder(
             config = "chromium",
             apply_configs = [
                 "android",
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -1403,198 +1386,4 @@ ci.builder(
     # TODO(crbug.com/1225851): Add it back to sheriff once the builder is more
     # stable.
     sheriff_rotations = args.ignore_default(None),
-)
-
-ci.thin_tester(
-    name = "android-weblayer-10-x86-rel-tests",
-    builder_spec = builder_config.builder_spec(
-        execution_mode = builder_config.execution_mode.TEST,
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = [
-                "android",
-            ],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "android",
-            apply_configs = [
-                "mb",
-            ],
-            build_config = builder_config.build_config.RELEASE,
-            target_bits = 32,
-            target_platform = builder_config.target_platform.ANDROID,
-        ),
-        android_config = builder_config.android_config(
-            config = "x86_builder",
-        ),
-        build_gs_bucket = "chromium-android-archive",
-    ),
-    console_view_entry = consoles.console_view_entry(
-        category = "tester|weblayer",
-        short_name = "10",
-    ),
-    triggered_by = ["android-weblayer-with-aosp-webview-x86-rel"],
-    notifies = ["weblayer-sheriff"],
-)
-
-ci.thin_tester(
-    name = "android-weblayer-marshmallow-x86-rel-tests",
-    builder_spec = builder_config.builder_spec(
-        execution_mode = builder_config.execution_mode.TEST,
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = [
-                "android",
-            ],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "android",
-            apply_configs = [
-                "mb",
-            ],
-            build_config = builder_config.build_config.RELEASE,
-            target_bits = 32,
-            target_platform = builder_config.target_platform.ANDROID,
-        ),
-        android_config = builder_config.android_config(
-            config = "x86_builder",
-        ),
-        build_gs_bucket = "chromium-android-archive",
-    ),
-    console_view_entry = consoles.console_view_entry(
-        category = "tester|weblayer",
-        short_name = "M",
-    ),
-    triggered_by = ["android-weblayer-with-aosp-webview-x86-rel"],
-    notifies = ["weblayer-sheriff"],
-)
-
-ci.thin_tester(
-    name = "android-weblayer-oreo-x86-rel-tests",
-    builder_spec = builder_config.builder_spec(
-        execution_mode = builder_config.execution_mode.TEST,
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = [
-                "android",
-            ],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "android",
-            apply_configs = [
-                "mb",
-            ],
-            build_config = builder_config.build_config.RELEASE,
-            target_bits = 32,
-            target_platform = builder_config.target_platform.ANDROID,
-        ),
-        android_config = builder_config.android_config(
-            config = "x86_builder",
-        ),
-        build_gs_bucket = "chromium-android-archive",
-    ),
-    console_view_entry = consoles.console_view_entry(
-        category = "tester|weblayer",
-        short_name = "O",
-    ),
-    triggered_by = ["android-weblayer-x86-rel"],
-    notifies = ["weblayer-sheriff"],
-)
-
-ci.thin_tester(
-    name = "android-weblayer-pie-x86-rel-tests",
-    builder_spec = builder_config.builder_spec(
-        execution_mode = builder_config.execution_mode.TEST,
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = [
-                "android",
-            ],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "android",
-            apply_configs = [
-                "mb",
-            ],
-            build_config = builder_config.build_config.RELEASE,
-            target_bits = 32,
-            target_platform = builder_config.target_platform.ANDROID,
-        ),
-        android_config = builder_config.android_config(
-            config = "x86_builder",
-        ),
-        build_gs_bucket = "chromium-android-archive",
-    ),
-    console_view_entry = consoles.console_view_entry(
-        category = "tester|weblayer",
-        short_name = "P",
-    ),
-    triggered_by = ["android-weblayer-x86-rel"],
-    notifies = ["weblayer-sheriff"],
-)
-
-ci.builder(
-    name = "android-weblayer-with-aosp-webview-x86-rel",
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = [
-                "android",
-                "enable_reclient",
-            ],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "android",
-            apply_configs = [
-                "mb",
-            ],
-            build_config = builder_config.build_config.RELEASE,
-            target_bits = 32,
-            target_platform = builder_config.target_platform.ANDROID,
-        ),
-        android_config = builder_config.android_config(
-            config = "x86_builder",
-        ),
-        build_gs_bucket = "chromium-android-archive",
-    ),
-    console_view_entry = consoles.console_view_entry(
-        category = "builder|weblayer_with_aosp_webview",
-        short_name = "x86",
-    ),
-    goma_backend = goma.backend.RBE_PROD,
-    goma_jobs = goma.jobs.J150,
-    reclient_instance = None,
-)
-
-ci.builder(
-    name = "android-weblayer-x86-rel",
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = [
-                "android",
-                "enable_reclient",
-            ],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "android",
-            apply_configs = [
-                "mb",
-            ],
-            build_config = builder_config.build_config.RELEASE,
-            target_bits = 32,
-            target_platform = builder_config.target_platform.ANDROID,
-        ),
-        android_config = builder_config.android_config(
-            config = "x86_builder",
-        ),
-        build_gs_bucket = "chromium-android-archive",
-    ),
-    console_view_entry = consoles.console_view_entry(
-        category = "builder|weblayer",
-        short_name = "x86",
-    ),
-    goma_backend = goma.backend.RBE_PROD,
-    goma_jobs = goma.jobs.J150,
-    reclient_instance = None,
 )

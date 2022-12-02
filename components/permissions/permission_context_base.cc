@@ -33,9 +33,7 @@
 #include "components/permissions/permissions_client.h"
 #include "components/permissions/request_type.h"
 #include "components/permissions/unused_site_permissions_service.h"
-#include "content/public/browser/back_forward_cache.h"
 #include "content/public/browser/browser_thread.h"
-#include "content/public/browser/disallow_activation_reason.h"
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_frame_host.h"
@@ -82,14 +80,6 @@ const char kPermissionBlockedRepeatedIgnoresMessage[] =
 const char kPermissionBlockedPermissionsPolicyMessage[] =
     "%s permission has been blocked because of a permissions policy applied to"
     " the current document. See https://goo.gl/EuHzyv for more details.";
-
-const char kPermissionBlockedPortalsMessage[] =
-    "%s permission has been blocked because it was requested inside a portal. "
-    "Portals don't currently support permission requests.";
-
-const char kPermissionBlockedFencedFrameMessage[] =
-    "%s permission has been blocked because it was requested inside a fenced "
-    "frame. Fenced frames don't currently support permission requests.";
 
 void LogPermissionBlockedMessage(content::RenderFrameHost* rfh,
                                  const char* message,
@@ -201,13 +191,7 @@ void PermissionContextBase::RequestPermission(
                                     content_settings_type_);
         break;
       case PermissionStatusSource::PORTAL:
-        LogPermissionBlockedMessage(rfh, kPermissionBlockedPortalsMessage,
-                                    content_settings_type_);
-        break;
       case PermissionStatusSource::FENCED_FRAME:
-        LogPermissionBlockedMessage(rfh, kPermissionBlockedFencedFrameMessage,
-                                    content_settings_type_);
-        break;
       case PermissionStatusSource::INSECURE_ORIGIN:
       case PermissionStatusSource::UNSPECIFIED:
       case PermissionStatusSource::VIRTUAL_URL_DIFFERENT_ORIGIN:
@@ -223,20 +207,6 @@ void PermissionContextBase::RequestPermission(
     return;
   }
 
-  // Don't show request permission UI for an inactive RenderFrameHost as the
-  // page might not distinguish properly between user denying the permission and
-  // automatic rejection, leading to an inconsistent UX once the page becomes
-  // active again.
-  // - If this is called when RenderFrameHost is in BackForwardCache, evict the
-  // document from the cache.
-  // - If this is called when RenderFrameHost is in prerendering, cancel
-  // prerendering.
-  if (rfh->IsInactiveAndDisallowActivation(
-          content::DisallowActivationReasonId::kRequestPermission)) {
-    std::move(callback).Run(result.content_setting);
-    return;
-  }
-
   // We are going to show a prompt now.
   PermissionUmaUtil::PermissionRequested(content_settings_type_,
                                          requesting_origin);
@@ -245,6 +215,10 @@ void PermissionContextBase::RequestPermission(
 
   DecidePermission(id, requesting_origin, embedding_origin, user_gesture,
                    std::move(callback));
+}
+
+bool PermissionContextBase::IsRestrictedToSecureOrigins() const {
+  return true;
 }
 
 void PermissionContextBase::UserMadePermissionDecision(
@@ -293,18 +267,6 @@ PermissionResult PermissionContextBase::GetPermissionStatus(
   if (render_frame_host) {
     content::WebContents* web_contents =
         content::WebContents::FromRenderFrameHost(render_frame_host);
-
-    // Permissions are denied for portals.
-    if (web_contents && web_contents->IsPortal()) {
-      return PermissionResult(CONTENT_SETTING_BLOCK,
-                              PermissionStatusSource::PORTAL);
-    }
-
-    // Permissions are denied for fenced frames.
-    if (render_frame_host->IsNestedWithinFencedFrame()) {
-      return PermissionResult(CONTENT_SETTING_BLOCK,
-                              PermissionStatusSource::FENCED_FRAME);
-    }
 
     // Automatically deny all HTTP or HTTPS requests where the virtual URL and
     // the loaded URL are for different origins. The loaded URL is the one

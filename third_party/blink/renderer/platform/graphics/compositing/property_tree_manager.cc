@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors. All rights reserved.
+// Copyright 2015 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -52,7 +52,7 @@ void PropertyTreeManager::Finalize() {
   while (effect_stack_.size())
     CloseCcEffect();
 
-  DCHECK(effect_stack_.IsEmpty());
+  DCHECK(effect_stack_.empty());
 
   UpdatePixelMovingFilterClipExpanders();
 }
@@ -399,16 +399,12 @@ int PropertyTreeManager::EnsureCompositorTransformNode(
       EnsureCompositorTransformNode(transform_node.Parent()->Unalias());
   id = transform_tree_.Insert(cc::TransformNode(), parent_id);
 
-  // ScrollUnification creates the entire scroll tree and will already have done
-  // this.
-  if (!base::FeatureList::IsEnabled(features::kScrollUnification)) {
-    if (auto* scroll_translation_for_fixed =
-            transform_node.ScrollTranslationForFixed()) {
-      // Fixed-position can cause different topologies of the transform tree and
-      // the scroll tree. This ensures the ancestor scroll nodes of the scroll
-      // node for a descendant transform node below is created.
-      EnsureCompositorTransformNode(*scroll_translation_for_fixed);
-    }
+  if (auto* scroll_translation_for_fixed =
+          transform_node.ScrollTranslationForFixed()) {
+    // Fixed-position can cause different topologies of the transform tree and
+    // the scroll tree. This ensures the ancestor scroll nodes of the scroll
+    // node for a descendant transform node below is created.
+    EnsureCompositorTransformNode(*scroll_translation_for_fixed);
   }
 
   cc::TransformNode& compositor_node = *transform_tree_.Node(id);
@@ -954,7 +950,7 @@ int PropertyTreeManager::SynthesizeCcEffectsForClipsIfNeeded(
     return cc::kInvalidPropertyNodeId;
   }
 
-  if (pending_clips.IsEmpty())
+  if (pending_clips.empty())
     return cc::kInvalidPropertyNodeId;
 
   int cc_effect_id_for_backdrop_effect = cc::kInvalidPropertyNodeId;

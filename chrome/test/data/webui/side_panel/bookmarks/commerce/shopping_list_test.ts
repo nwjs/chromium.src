@@ -13,7 +13,8 @@ import {BookmarkProductInfo} from 'chrome://read-later.top-chrome/bookmarks/comm
 import {ShoppingListApiProxyImpl} from 'chrome://read-later.top-chrome/bookmarks/commerce/shopping_list_api_proxy.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.m.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
-import {flushTasks, isVisible} from 'chrome://webui-test/test_util.js';
+import {flushTasks} from 'chrome://webui-test/polymer_test_util.js';
+import {isVisible} from 'chrome://webui-test/test_util.js';
 
 import {fakeMetricsPrivate, MetricsTracker} from '../../metrics_test_support.js';
 import {TestBookmarksApiProxy} from '../test_bookmarks_api_proxy.js';
@@ -32,7 +33,7 @@ suite('SidePanelShoppingListTest', () => {
       info: {
         title: 'Product Foo',
         domain: 'foo.com',
-        imageUrl: {url: 'https://foo.com/image'},
+        imageUrl: {url: 'chrome://resources/images/error.svg'},
         productUrl: {url: 'https://foo.com/product'},
         currentPrice: '$12',
         previousPrice: '$34',
@@ -114,7 +115,8 @@ suite('SidePanelShoppingListTest', () => {
   }
 
   setup(async () => {
-    document.body.innerHTML = '';
+    document.body.innerHTML =
+        window.trustedTypes!.emptyHTML as unknown as string;
 
     metrics = fakeMetricsPrivate();
 
@@ -351,7 +353,7 @@ suite('SidePanelShoppingListTest', () => {
       info: {
         title: 'Product Baz',
         domain: 'baz.com',
-        imageUrl: {url: 'https://baz.com/image'},
+        imageUrl: {url: 'chrome://resources/images/error.svg'},
         productUrl: {url: 'https://baz.com/product'},
         currentPrice: '$56',
         previousPrice: '$78',

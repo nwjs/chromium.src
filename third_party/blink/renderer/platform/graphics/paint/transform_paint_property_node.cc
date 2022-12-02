@@ -1,4 +1,4 @@
-// Copyright 2016 The Chromium Authors. All rights reserved.
+// Copyright 2016 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -18,6 +18,13 @@ TransformPaintPropertyNode::TransformAndOrigin::TransformAndOrigin(
     matrix_and_origin_ = std::make_unique<MatrixAndOrigin>(
         TransformationMatrix(transform), gfx::Point3F());
   }
+}
+
+TransformationMatrix
+TransformPaintPropertyNode::TransformAndOrigin::SlowMatrix() const {
+  return matrix_and_origin_ ? matrix_and_origin_->matrix
+                            : TransformationMatrix::MakeTranslation(
+                                  translation_2d_.x(), translation_2d_.y());
 }
 
 PaintPropertyChangeType
@@ -83,6 +90,10 @@ PaintPropertyChangeType TransformPaintPropertyNode::State::ComputeChange(
       backface_visibility != other.backface_visibility ||
       rendering_context_id != other.rendering_context_id ||
       compositor_element_id != other.compositor_element_id ||
+      // This change affects cull rect expansion for scrolling contents.
+      UsesCompositedScrolling() != other.UsesCompositedScrolling() ||
+      // This change affects cull rect expansion for the element itself.
+      RequiresCullRectExpansion() != other.RequiresCullRectExpansion() ||
       scroll != other.scroll ||
       scroll_translation_for_fixed != other.scroll_translation_for_fixed ||
       !base::ValuesEquivalent(sticky_constraint, other.sticky_constraint) ||

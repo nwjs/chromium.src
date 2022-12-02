@@ -43,6 +43,7 @@ import org.chromium.url.Origin;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -240,6 +241,7 @@ public class Fido2CredentialRequest implements Callback<Pair<Integer, Intent>> {
     public void cancelConditionalGetAssertion(RenderFrameHost frameHost) {
         if (mConditionalUiState == ConditionalUiState.WAITING_FOR_CREDENTIAL_LIST) {
             mConditionalUiState = ConditionalUiState.CANCEL_PENDING;
+            returnErrorAndResetCallback(AuthenticatorStatus.ABORT_ERROR);
             return;
         }
 
@@ -276,6 +278,47 @@ public class Fido2CredentialRequest implements Callback<Pair<Integer, Intent>> {
         task.addOnFailureListener((e) -> { Log.e(TAG, "FIDO2 API call failed", e); });
     }
 
+    public void handleGetMatchingCredentialIdsRequest(RenderFrameHost frameHost,
+            String relyingPartyId, byte[][] allowCredentialIds, boolean requireThirdPartyPayment,
+            GetMatchingCredentialIdsResponseCallback callback,
+            FidoErrorResponseCallback errorCallback) {
+        assert mErrorCallback == null;
+        mErrorCallback = errorCallback;
+        if (mWebContents == null) {
+            mWebContents = WebContentsStatics.fromRenderFrameHost(frameHost);
+        }
+
+        if (!apiAvailable()) {
+            Log.e(TAG, "Google Play Services' Fido2PrivilegedApi is not available.");
+            returnErrorAndResetCallback(AuthenticatorStatus.UNKNOWN_ERROR);
+            return;
+        }
+
+        Fido2ApiCallHelper.getInstance().invokeFido2GetCredentials(relyingPartyId, mSupportLevel,
+                (credentials)
+                        -> onGetMatchingCredentialIdsListReceived(credentials, allowCredentialIds,
+                                requireThirdPartyPayment, callback),
+                this::onBinderCallException);
+        return;
+    }
+
+    private void onGetMatchingCredentialIdsListReceived(
+            List<WebAuthnCredentialDetails> retrievedCredentials, byte[][] allowCredentialIds,
+            boolean requireThirdPartyPayment, GetMatchingCredentialIdsResponseCallback callback) {
+        List<byte[]> matchingCredentialIds = new ArrayList<>();
+        for (WebAuthnCredentialDetails credential : retrievedCredentials) {
+            if (requireThirdPartyPayment && !credential.mIsPayment) continue;
+
+            for (byte[] allowedId : allowCredentialIds) {
+                if (Arrays.equals(allowedId, credential.mCredentialId)) {
+                    matchingCredentialIds.add(credential.mCredentialId);
+                    break;
+                }
+            }
+        }
+        callback.onResponse(matchingCredentialIds);
+    }
+
     @VisibleForTesting
     public void overrideBrowserBridgeForTesting(WebAuthnBrowserBridge bridge) {
         mBrowserBridge = bridge;
@@ -293,7 +336,7 @@ public class Fido2CredentialRequest implements Callback<Pair<Integer, Intent>> {
                 || mConditionalUiState == ConditionalUiState.CANCEL_PENDING;
 
         if (mConditionalUiState == ConditionalUiState.CANCEL_PENDING) {
-            returnErrorAndResetCallback(AuthenticatorStatus.ABORT_ERROR);
+            // The request was completed synchronously when the cancellation was received.
             return;
         }
 

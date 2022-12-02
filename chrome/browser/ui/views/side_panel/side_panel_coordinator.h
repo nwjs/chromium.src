@@ -21,6 +21,7 @@ class BrowserView;
 class SidePanelComboboxModel;
 
 namespace views {
+class ImageButton;
 class Combobox;
 class View;
 }  // namespace views
@@ -53,6 +54,10 @@ class SidePanelCoordinator final : public SidePanelRegistryObserver,
   void Close();
   void Toggle();
 
+  // Opens the current side panel contents in a new tab. This is called by the
+  // header button, when it's visible.
+  void OpenInNewTab();
+
   SidePanelRegistry* GetGlobalSidePanelRegistry();
 
   // Prevent content swapping delays from happening for testing.
@@ -76,6 +81,10 @@ class SidePanelCoordinator final : public SidePanelRegistryObserver,
   SidePanelEntry* GetLoadingEntryForTesting() const;
 
   bool IsSidePanelShowing();
+
+  // Re-runs open new tab URL check and sets button state to enabled/disabled
+  // accordingly.
+  void UpdateNewTabButtonState();
 
   void AddSidePanelViewStateObserver(SidePanelViewStateObserver* observer);
 
@@ -164,6 +173,9 @@ class SidePanelCoordinator final : public SidePanelRegistryObserver,
   // their availability in the observed side panel registries.
   std::unique_ptr<SidePanelComboboxModel> combobox_model_;
   raw_ptr<views::Combobox> header_combobox_ = nullptr;
+
+  // Used to update the visibility of the 'Open in New Tab' header button.
+  raw_ptr<views::ImageButton> header_open_in_new_tab_button_ = nullptr;
 
   base::ObserverList<SidePanelViewStateObserver> view_state_observers_;
 

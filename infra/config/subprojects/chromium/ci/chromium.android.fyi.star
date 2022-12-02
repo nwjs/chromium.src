@@ -56,16 +56,6 @@ ci.builder(
     ),
 )
 
-ci.thin_tester(
-    name = "android-weblayer-11-x86-rel-tests",
-    console_view_entry = consoles.console_view_entry(
-        category = "tester|weblayer",
-        short_name = "11",
-    ),
-    triggered_by = ["android-weblayer-with-aosp-webview-x86-fyi-rel"],
-    notifies = ["weblayer-sheriff"],
-)
-
 ci.builder(
     name = "android-weblayer-pie-x86-wpt-fyi-rel",
     console_view_entry = consoles.console_view_entry(
@@ -90,14 +80,6 @@ ci.builder(
     ),
 )
 
-ci.builder(
-    name = "android-weblayer-with-aosp-webview-x86-fyi-rel",
-    console_view_entry = consoles.console_view_entry(
-        category = "builder|weblayer_with_aosp_webview",
-        short_name = "x86",
-    ),
-)
-
 # TODO(crbug.com/1022533#c40): Remove this builder once there are no associated
 # disabled tests.
 ci.builder(
@@ -119,7 +101,6 @@ ci.builder(
             config = "chromium",
             apply_configs = [
                 "android",
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -173,7 +154,6 @@ ci.builder(
             config = "chromium",
             apply_configs = [
                 "android",
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -273,7 +253,7 @@ ci.builder(
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
-            apply_configs = ["android", "enable_reclient"],
+            apply_configs = ["android"],
         ),
         chromium_config = builder_config.chromium_config(
             config = "android",

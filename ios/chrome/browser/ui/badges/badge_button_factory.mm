@@ -79,11 +79,14 @@ const CGFloat kSymbolIncognitoFullScreenPointSize = 14.;
 }
 
 - (BadgeButton*)passwordsSaveBadgeButton {
-  BadgeButton* button = [self
-      createButtonForType:kBadgeTypePasswordSave
-                    image:[[UIImage imageNamed:[self passwordKeyAssetName]]
-                              imageWithRenderingMode:
-                                  UIImageRenderingModeAlwaysTemplate]];
+  UIImage* image =
+      UseSymbols()
+          ? CustomSymbolWithPointSize(kPasswordSymbol, kSymbolImagePointSize)
+          : [UIImage imageNamed:[self passwordKeyAssetName]];
+  BadgeButton* button =
+      [self createButtonForType:kBadgeTypePasswordSave
+                          image:[image imageWithRenderingMode:
+                                           UIImageRenderingModeAlwaysTemplate]];
   [button addTarget:self.delegate
                 action:@selector(passwordsBadgeButtonTapped:)
       forControlEvents:UIControlEventTouchUpInside];
@@ -95,11 +98,14 @@ const CGFloat kSymbolIncognitoFullScreenPointSize = 14.;
 }
 
 - (BadgeButton*)passwordsUpdateBadgeButton {
-  BadgeButton* button = [self
-      createButtonForType:kBadgeTypePasswordUpdate
-                    image:[[UIImage imageNamed:[self passwordKeyAssetName]]
-                              imageWithRenderingMode:
-                                  UIImageRenderingModeAlwaysTemplate]];
+  UIImage* image =
+      UseSymbols()
+          ? CustomSymbolWithPointSize(kPasswordSymbol, kSymbolImagePointSize)
+          : [UIImage imageNamed:[self passwordKeyAssetName]];
+  BadgeButton* button =
+      [self createButtonForType:kBadgeTypePasswordUpdate
+                          image:[image imageWithRenderingMode:
+                                           UIImageRenderingModeAlwaysTemplate]];
   [button addTarget:self.delegate
                 action:@selector(passwordsBadgeButtonTapped:)
       forControlEvents:UIControlEventTouchUpInside];
@@ -149,8 +155,18 @@ const CGFloat kSymbolIncognitoFullScreenPointSize = 14.;
 - (BadgeButton*)incognitoBadgeButton {
   BadgeButton* button;
   if (UseSymbols()) {
-    UIImage* image = CustomSymbolTemplateWithPointSize(
-        kIncognitoCircleFillSymbol, kSymbolIncognitoPointSize);
+    UIImage* image;
+    if (@available(iOS 15, *)) {
+      image = CustomPaletteSymbol(
+          kIncognitoCircleFillSymbol, kSymbolIncognitoPointSize,
+          UIImageSymbolWeightMedium, UIImageSymbolScaleMedium, @[
+            [UIColor colorNamed:kGrey400Color],
+            [UIColor colorNamed:kGrey100Color]
+          ]);
+    } else {
+      image = [[UIImage imageNamed:@"incognito_badge_ios14"]
+          imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
+    }
     button = [self createButtonForType:kBadgeTypeIncognito image:image];
     button.fullScreenImage = CustomSymbolTemplateWithPointSize(
         kIncognitoSymbol, kSymbolIncognitoFullScreenPointSize);

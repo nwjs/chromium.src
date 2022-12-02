@@ -308,6 +308,13 @@ void LocalDeskDataManager::DeleteEntry(const base::GUID& uuid,
   std::vector<std::unique_ptr<ash::DeskTemplate>> entry;
   auto& saved_desks = saved_desks_list_[desk_type];
   auto existing_it = saved_desks.find(uuid);
+
+  // The deletion is successful if the entry does not exist.
+  if (existing_it == saved_desks.end()) {
+    std::move(callback).Run(DeleteEntryStatus::kOk);
+    return;
+  }
+
   entry.push_back(std::move(existing_it->second));
   saved_desks_list_[desk_type].erase(existing_it);
 
@@ -444,18 +451,34 @@ LocalDeskDataManager::LoadCacheOnBackgroundSequence(
     // This local storage cannot load any entry of `type` from disk.
     return {CacheStatus::kInvalidPath, std::move(entries)};
   }
+
   while (dir_reader.Next()) {
     if (!IsValidTemplateFileName(dir_reader.name())) {
       continue;
     }
+
     base::FilePath fully_qualified_path =
         base::FilePath(local_saved_desk_path.Append(dir_reader.name()));
     std::unique_ptr<ash::DeskTemplate> entry =
         ReadFileToTemplate(fully_qualified_path);
-    // TODO(crbug/1359398): Record metrics about files that failed to parse.
-    if (entry) {
-      entries.push_back(std::move(entry));
+
+    // TODO(b/248645596): Record metrics about files that failed to parse.
+    if (entry == nullptr)
+      continue;
+
+    // Rename file for saved desk if uuid in file and file name are different.
+    std::string entry_uuid_string = entry->uuid().AsLowercaseString();
+    entry_uuid_string.append(kFileExtension);
+
+    if (dir_reader.name() != entry_uuid_string) {
+      const base::FilePath renamed_fully_qualified_path =
+          GetFullyQualifiedPath(local_saved_desk_path, entry->uuid());
+      if (!base::Move(fully_qualified_path, renamed_fully_qualified_path)) {
+        DVLOG(1) << "Fail to rename saved desk template to proper UUID";
+      }
     }
+
+    entries.push_back(std::move(entry));
   }
   return {CacheStatus::kOk, std::move(entries)};
 }

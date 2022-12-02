@@ -49,13 +49,9 @@ class WebUIResourceBrowserTest : public InProcessBrowserTest {
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 IN_PROC_BROWSER_TEST_F(WebUIResourceBrowserTest, CrTest) {
-  LoadTestUrl("cr_test.html");
+  LoadTestUrl("chromeos/ash_common/cr_test.html");
 }
 #endif
-
-IN_PROC_BROWSER_TEST_F(WebUIResourceBrowserTest, I18nProcessCssTest) {
-  LoadTestUrl("i18n_process_css_test.html");
-}
 
 IN_PROC_BROWSER_TEST_F(WebUIResourceBrowserTest, MockTimerTest) {
   LoadTestUrl("?module=mock_timer_test.js");

@@ -36,4 +36,14 @@ bool IsFedCmIdpSigninStatusEnabled() {
       false);
 }
 
+bool IsFedCmIframeSupportEnabled() {
+  return GetFieldTrialParamByFeatureAsBool(
+      features::kFedCm, features::kFedCmIframeSupportFieldTrialParamName,
+      false);
+}
+
+bool IsFedCmMetricsEndpointEnabled() {
+  return base::FeatureList::IsEnabled(features::kFedCmMetricsEndpoint);
+}
+
 }  // namespace content

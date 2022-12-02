@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "components/webapps/browser/features.h"
+#include "components/webapps/browser/installable/installable_data.h"
 #include "components/webapps/browser/installable/installable_manager.h"
 
 #include <memory>
@@ -175,7 +176,7 @@ class CallbackTester {
   const GURL& splash_icon_url() const { return splash_icon_url_; }
   bool has_maskable_splash_icon() const { return has_maskable_splash_icon_; }
   const SkBitmap* splash_icon() const { return splash_icon_.get(); }
-  const std::vector<SkBitmap>& screenshots() const { return screenshots_; }
+  const std::vector<Screenshot>& screenshots() const { return screenshots_; }
   bool valid_manifest() const { return valid_manifest_; }
   bool worker_check_passed() const { return worker_check_passed_; }
 
@@ -189,7 +190,7 @@ class CallbackTester {
   bool has_maskable_primary_icon_;
   GURL splash_icon_url_;
   std::unique_ptr<SkBitmap> splash_icon_;
-  std::vector<SkBitmap> screenshots_;
+  std::vector<Screenshot> screenshots_;
   bool has_maskable_splash_icon_;
   bool valid_manifest_;
   bool worker_check_passed_;
@@ -1957,11 +1958,11 @@ IN_PROC_BROWSER_TEST_F(InstallableManagerBrowserTest, CheckScreenshots) {
   // Corresponding form_factor should filter out the screenshot with mismatched
   // form_factor.
 #if BUILDFLAG(IS_ANDROID)
-  EXPECT_LT(tester->screenshots()[0].width(),
-            tester->screenshots()[0].height());
+  EXPECT_LT(tester->screenshots()[0].image.width(),
+            tester->screenshots()[0].image.height());
 #else
-  EXPECT_GT(tester->screenshots()[0].width(),
-            tester->screenshots()[0].height());
+  EXPECT_GT(tester->screenshots()[0].image.width(),
+            tester->screenshots()[0].image.height());
 #endif
   EXPECT_EQ(std::vector<InstallableStatusCode>{}, tester->errors());
 }
@@ -1975,18 +1976,22 @@ IN_PROC_BROWSER_TEST_F(InstallableManagerBrowserTest,
   InstallableParams params = GetManifestParams();
   params.fetch_screenshots = true;
 
-  // Check if only screenshots with mismatched form_factor are available, they
-  // are still used.
+  size_t num_of_screenshots = 0;
 #if BUILDFLAG(IS_ANDROID)
   NavigateAndRunInstallableManager(
       browser(), tester.get(), params,
       GetURLOfPageWithServiceWorkerAndManifest(
-          "/banners/manifest_with_only_wide_screenshots.json"));
+          "/banners/manifest_with_narrow_screenshots.json"));
+  // Screenshots with unspecified form_factor is not filtered out.
+  num_of_screenshots = 2;
+  EXPECT_EQ(2u, tester->screenshots().size());
 #else
   NavigateAndRunInstallableManager(
       browser(), tester.get(), params,
       GetURLOfPageWithServiceWorkerAndManifest(
-          "/banners/manifest_with_only_narrow_screenshots.json"));
+          "/banners/manifest_with_wide_screenshots.json"));
+  // Screenshots with unspecified form_factor is filtered out.
+  num_of_screenshots = 1;
 #endif
   run_loop.Run();
 
@@ -1994,7 +1999,7 @@ IN_PROC_BROWSER_TEST_F(InstallableManagerBrowserTest,
   EXPECT_FALSE(tester->manifest_url().is_empty());
 
   EXPECT_FALSE(tester->valid_manifest());
-  EXPECT_EQ(1u, tester->screenshots().size());
+  EXPECT_EQ(num_of_screenshots, tester->screenshots().size());
   EXPECT_EQ(std::vector<InstallableStatusCode>{}, tester->errors());
 }
 
@@ -2042,8 +2047,8 @@ IN_PROC_BROWSER_TEST_F(InstallableManagerBrowserTest,
 
   EXPECT_FALSE(tester->valid_manifest());
   EXPECT_EQ(1u, tester->screenshots().size());
-  EXPECT_EQ(551, tester->screenshots()[0].width());
-  EXPECT_EQ(541, tester->screenshots()[0].height());
+  EXPECT_EQ(551, tester->screenshots()[0].image.width());
+  EXPECT_EQ(541, tester->screenshots()[0].image.height());
   EXPECT_EQ(std::vector<InstallableStatusCode>{}, tester->errors());
 }
 

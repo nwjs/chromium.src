@@ -17,6 +17,7 @@
 #include "base/auto_reset.h"
 #include "base/bind.h"
 #include "base/command_line.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/files/file_path.h"
 #include "base/mac/foundation_util.h"
 #include "base/mac/mac_util.h"
@@ -43,7 +44,7 @@
 #include "chrome/browser/download/download_core_service_factory.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/first_run/first_run.h"
-#include "chrome/browser/lifetime/application_lifetime.h"
+#include "chrome/browser/lifetime/application_lifetime_desktop.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/mac/auth_session_request.h"
 #include "chrome/browser/mac/key_window_notifier.h"
@@ -1123,7 +1124,16 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
     [self setLastProfile:last_used_profile];
   }
 
-  _profileBookmarkMenuBridgeMap.erase(profilePath);
+  auto it = _profileBookmarkMenuBridgeMap.find(profilePath);
+  if (it != _profileBookmarkMenuBridgeMap.end() &&
+      (!base::FeatureList::IsEnabled(features::kDestroyProfileOnBrowserClose) ||
+       (it->second->GetProfile() && !isOffTheRecord))) {
+    // Clean up the dangling Profile* in |_profileBookmarkMenuBridgeMap|.
+    //
+    // No need to clean up when |isOffTheRecord|, because BookmarkMenuBridge
+    // always points to a non-OTR profile.
+    _profileBookmarkMenuBridgeMap.erase(it);
+  }
 }
 
 // Returns true if there is a modal window (either window- or application-
@@ -1764,18 +1774,28 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
 
   _profilePrefRegistrar.reset();
 
-  // Rebuild the menus with the new profile. The bookmarks submenu is cached to
-  // avoid slowdowns when switching between profiles with large numbers of
-  // bookmarks. Before caching, store whether it is hidden, make the menu item
-  // visible, and restore its original hidden state after resetting the submenu.
-  // This works around an apparent AppKit bug where setting a *different* NSMenu
-  // submenu on a *hidden* menu item forces the item to become visible.
-  // See https://crbug.com/497813 for more details.
 #if 0
   NSMenuItem* bookmarkItem = [[NSApp mainMenu] itemWithTag:IDC_BOOKMARKS_MENU];
   BOOL hidden = [bookmarkItem isHidden];
-  [bookmarkItem setHidden:NO];
-  _bookmarkMenuBridge = nullptr;
+  if (profile != nullptr) {
+    // Rebuild the menus with the new profile. The bookmarks submenu is cached
+    // to avoid slowdowns when switching between profiles with large numbers of
+    // bookmarks. Before caching, store whether it is hidden, make the menu item
+    // visible, and restore its original hidden state after resetting the
+    // submenu. This works around an apparent AppKit bug where setting a
+    // *different* NSMenu submenu on a *hidden* menu item forces the item to
+    // become visible. See https://crbug.com/497813 for more details.
+    [bookmarkItem setHidden:NO];
+    _bookmarkMenuBridge = nullptr;
+  } else if (_bookmarkMenuBridge && !_isShuttingDown) {
+    DCHECK_EQ(_bookmarkMenuBridge->GetProfile(),
+              _lastProfile->GetOriginalProfile());
+    // |_bookmarkMenuBridge| always points to the original profile. So, no need
+    // to call OnProfileWillBeDestroyed() when the OTR profile is destroyed.
+    if (!_lastProfile->IsOffTheRecord()) {
+      _bookmarkMenuBridge->OnProfileWillBeDestroyed();
+    }
+  }
 #endif
 
   _lastProfile = profile;
@@ -1786,14 +1806,17 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
 
 #if 0
   auto& entry = _profileBookmarkMenuBridgeMap[profile->GetPath()];
-  if (!entry) {
+  if (!entry || !entry->GetProfile()) {
     // This creates a deep copy, but only the first 3 items in the root menu
     // are really wanted. This can probably be optimized, but lazy-loading of
     // the menu should reduce the impact in most flows.
     base::scoped_nsobject<NSMenu> submenu([[bookmarkItem submenu] copy]);
     [submenu setDelegate:nil];  // The delegate is also copied. Remove it.
 
-    entry = std::make_unique<BookmarkMenuBridge>(profile, submenu);
+    // The original profile outlives the OTR profile. Always create the bridge
+    // on the original profile, to prevent bugs WRT profile lifetime.
+    entry = std::make_unique<BookmarkMenuBridge>(profile->GetOriginalProfile(),
+                                                 submenu);
 
     // Clear bookmarks from the old profile.
     entry->ClearBookmarkMenu();
@@ -1821,7 +1844,18 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
 }
 
 - (const ui::ColorProvider&)lastActiveColorProvider {
-  DCHECK(_lastActiveColorProvider);
+  // In rare situation the last active color provider is not properly tracked,
+  // probably because -windowDidBecomeMain: is not fired.
+  // TODO(crbug.com/1364279): DCHECK(_lastActiveColorProvider). If this is not
+  // possible, investigate if we should make a GetDefaultColorProvider(), or
+  // GetColorProviderForProfile().
+  if (!_lastActiveColorProvider) {
+    base::debug::DumpWithoutCrashing();
+    return *ui::ColorProviderManager::Get().GetColorProviderFor(
+        ui::NativeTheme::GetInstanceForNativeUi()->GetColorProviderKey(
+            nullptr));
+  }
+
   return *_lastActiveColorProvider;
 }
 

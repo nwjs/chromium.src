@@ -12,8 +12,6 @@ namespace promos_manager {
 const std::string kImpressionPromoKey = "promo";
 const std::string kImpressionDayKey = "day";
 const int kNumDaysImpressionHistoryStored = 365;
-
-// Prefix used when stringifying promos.
 const std::string kPromoStringifyPrefix = "promos_manager::Promo::";
 
 // WARNING - PLEASE READ: Sadly, we cannot switch over strings in C++, so be
@@ -37,6 +35,9 @@ absl::optional<Promo> PromoForName(std::string promo) {
   if (promo == "promos_manager::Promo::PostRestoreSignInAlert")
     return promos_manager::Promo::PostRestoreSignInAlert;
 
+  if (promo == "promos_manager::Promo::WhatsNew")
+    return promos_manager::Promo::WhatsNew;
+
   return absl::nullopt;
 }
 
@@ -54,6 +55,8 @@ std::string ShortNameForPromo(Promo promo) {
       return "PostRestoreSignInFullscreen";
     case promos_manager::Promo::PostRestoreSignInAlert:
       return "PostRestoreSignInAlert";
+    case promos_manager::Promo::WhatsNew:
+      return "WhatsNew";
   }
 }
 

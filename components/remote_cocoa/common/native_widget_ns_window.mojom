@@ -191,6 +191,8 @@ interface NativeWidgetNSWindow {
   // Miniaturize or deminiaturize the window.
   SetMiniaturized(bool miniaturized);
 
+  // Zoom or un-zoom the window.
+  SetZoomed(bool zoomed);
   SetMaximized(bool maximized);
   [Sync] IsMaximized() => (bool maximized);
   [Sync] GetRestoredBounds() => (gfx.mojom.Rect bounds);

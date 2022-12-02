@@ -9,8 +9,9 @@ import {assert} from 'chrome://resources/js/assert_ts.js';
 import {getTrustedHTML} from 'chrome://resources/js/static_types.js';
 import {Origin} from 'chrome://resources/mojo/url/mojom/origin.mojom-webui.js';
 
-import {Handler as AttributionInternalsHandler, HandlerRemote as AttributionInternalsHandlerRemote, ObserverInterface, ObserverReceiver, ReportID, ReportType, SourceType, WebUIReport, WebUISource, WebUISource_Attributability, WebUITrigger, WebUITrigger_Status} from './attribution_internals.mojom-webui.js';
+import {FailedSourceRegistration, Handler as AttributionInternalsHandler, HandlerRemote as AttributionInternalsHandlerRemote, ObserverInterface, ObserverReceiver, ReportID, WebUIReport, WebUISource, WebUISource_Attributability, WebUITrigger, WebUITrigger_Status} from './attribution_internals.mojom-webui.js';
 import {AttributionInternalsTableElement} from './attribution_internals_table.js';
+import {ReportType, SourceRegistrationError, SourceType} from './attribution_reporting.mojom-webui.js';
 import {Column, TableModel} from './table_model.js';
 
 // If kAttributionAggregatableBudgetPerSource changes, update this value
@@ -203,6 +204,7 @@ class Source {
   priority: bigint;
   status: string;
   aggregatableBudgetConsumed: bigint;
+  aggregatableDedupKeys: string;
 
   constructor(mojo: WebUISource) {
     this.sourceEventId = mojo.sourceEventId;
@@ -219,6 +221,7 @@ class Source {
     this.debugKey = mojo.debugKey ? mojo.debugKey.value.toString() : '';
     this.dedupKeys = mojo.dedupKeys.join(', ');
     this.aggregatableBudgetConsumed = mojo.aggregatableBudgetConsumed;
+    this.aggregatableDedupKeys = mojo.aggregatableDedupKeys.join(', ');
     this.status = attributabilityToText(mojo.attributability);
   }
 }
@@ -249,6 +252,8 @@ class SourceTableModel extends TableModel<Source> {
           (e) => `${e.aggregatableBudgetConsumed} / ${BUDGET_PER_SOURCE}`),
       new ValueColumn<Source, string>('Debug Key', (e) => e.debugKey),
       new ValueColumn<Source, string>('Dedup Keys', (e) => e.dedupKeys),
+      new ValueColumn<Source, string>(
+          'Aggregatable Dedup Keys', (e) => e.aggregatableDedupKeys),
     ];
 
     this.emptyRowText = 'No sources.';
@@ -296,6 +301,7 @@ class Trigger {
   aggregatableStatus: string;
   aggregatableTriggers: string;
   aggregatableValues: string;
+  aggregatableDedupKey: string;
 
   constructor(mojo: WebUITrigger) {
     this.triggerTime = new Date(mojo.triggerTime);
@@ -340,6 +346,9 @@ class Trigger {
     this.aggregatableValues =
         JSON.stringify(mojo.aggregatableValues, null, ' ');
 
+    this.aggregatableDedupKey = mojo.aggregatableDedupKey ?
+        mojo.aggregatableDedupKey.value.toString() : '';
+
     this.eventLevelStatus = triggerStatusToText(mojo.eventLevelStatus);
     this.aggregatableStatus = triggerStatusToText(mojo.aggregatableStatus);
   }
@@ -368,6 +377,8 @@ class TriggerTableModel extends TableModel<Trigger> {
           'Aggregatable Triggers', (e) => e.aggregatableTriggers),
       new CodeColumn<Trigger>(
           'Aggregatable Values', (e) => e.aggregatableValues),
+      new ValueColumn<Trigger, string>(
+          'Aggregatable Dedup Key', (e) => e.aggregatableDedupKey),
     ];
 
     this.emptyRowText = 'No triggers.';
@@ -641,6 +652,130 @@ class AggregatableAttributionReportTableModel extends ReportTableModel {
   }
 }
 
+class Log {
+  json: string;
+  failureReason: string;
+  time: Date;
+  reportingOrigin: string;
+
+  constructor(mojo: FailedSourceRegistration) {
+    this.time = new Date(mojo.time);
+    this.json = mojo.headerValue;
+    this.reportingOrigin = originToText(mojo.reportingOrigin);
+
+    switch (mojo.error) {
+      case SourceRegistrationError.kInvalidJson:
+        this.failureReason = 'invalid JSON';
+        break;
+      case SourceRegistrationError.kRootWrongType:
+        this.failureReason =
+            'root JSON value has wrong type (must be a dictionary)';
+        break;
+      case SourceRegistrationError.kDestinationMissing:
+        this.failureReason = 'destination missing';
+        break;
+      case SourceRegistrationError.kDestinationWrongType:
+        this.failureReason = 'destination has wrong type (must be a string)';
+        break;
+      case SourceRegistrationError.kDestinationUntrustworthy:
+        this.failureReason = 'destination not potentially trustworthy';
+        break;
+      case SourceRegistrationError.kDestinationMismatched:
+        this.failureReason =
+            'destination differs from that of previous source in redirect chain';
+        break;
+      case SourceRegistrationError.kFilterDataWrongType:
+        this.failureReason =
+            'filter_data has wrong type (must be a dictionary)';
+        break;
+      case SourceRegistrationError.kFilterDataTooManyKeys:
+        this.failureReason = 'filter_data has too many keys';
+        break;
+      case SourceRegistrationError.kFilterDataHasSourceTypeKey:
+        this.failureReason = 'filter_data must not have a source_type key';
+        break;
+      case SourceRegistrationError.kFilterDataKeyTooLong:
+        this.failureReason = 'filter_data key too long';
+        break;
+      case SourceRegistrationError.kFilterDataListWrongType:
+        this.failureReason =
+            'filter_data value has wrong type (must be a list)';
+        break;
+      case SourceRegistrationError.kFilterDataListTooLong:
+        this.failureReason = 'filter_data list too long';
+        break;
+      case SourceRegistrationError.kFilterDataValueWrongType:
+        this.failureReason =
+            'filter_data list value has wrong type (must be a string)';
+        break;
+      case SourceRegistrationError.kFilterDataValueTooLong:
+        this.failureReason = 'filter_data list value too long';
+        break;
+      case SourceRegistrationError.kAggregationKeysWrongType:
+        this.failureReason =
+            'aggregation_keys has wrong type (must be a dictionary)';
+        break;
+      case SourceRegistrationError.kAggregationKeysTooManyKeys:
+        this.failureReason = 'aggregation_keys has too many keys';
+        break;
+      case SourceRegistrationError.kAggregationKeysKeyTooLong:
+        this.failureReason = 'aggregation_keys key too long';
+        break;
+      case SourceRegistrationError.kAggregationKeysValueWrongType:
+        this.failureReason =
+            'aggregation_keys value has wrong type (must be a string)';
+        break;
+      case SourceRegistrationError.kAggregationKeysValueWrongFormat:
+        this.failureReason =
+            'aggregation_keys value must be a base-16 integer starting with 0x';
+        break;
+      default:
+        this.failureReason = 'unknown error';
+        break;
+    }
+  }
+}
+
+class LogTableModel extends TableModel<Log> {
+  logs: Log[] = [];
+
+  constructor() {
+    super();
+
+    this.cols = [
+      new DateColumn<Log>('Time', (e) => e.time),
+      new CodeColumn<Log>('Failure Reason', (e) => e.failureReason),
+      new ValueColumn<Log, string>('Report To', (e) => e.reportingOrigin),
+      new CodeColumn<Log>(
+          'Attribution-Reporting-Register-Source Header', (e) => e.json),
+    ];
+
+    this.emptyRowText = 'No logs.';
+
+    // Sort by time by default.
+    this.sortIdx = 0;
+  }
+
+  override getRows() {
+    return this.logs;
+  }
+
+  addLog(log: Log) {
+    // Prevent the page from consuming ever more memory if the user leaves the
+    // page open for a long time.
+    if (this.logs.length >= 1000) {
+      this.logs = [];
+    }
+
+    this.logs.push(log);
+    this.notifyRowsChanged();
+  }
+
+  clear() {
+    this.logs = [];
+    this.notifyRowsChanged();
+  }
+}
 
 /**
  * Reference to the backend providing all the data.
@@ -652,6 +787,8 @@ let sourceTableModel: SourceTableModel|null = null;
 let triggerTableModel: TriggerTableModel|null = null;
 
 let eventLevelReportTableModel: EventLevelReportTableModel|null = null;
+
+let logTableModel: LogTableModel|null = null;
 
 let aggregatableAttributionReportTableModel:
     AggregatableAttributionReportTableModel|null = null;
@@ -833,6 +970,8 @@ function clearStorage() {
   eventLevelReportTableModel.clear();
   assert(aggregatableAttributionReportTableModel);
   aggregatableAttributionReportTableModel.clear();
+  assert(logTableModel);
+  logTableModel.clear();
   assert(pageHandler);
   pageHandler.clearStorage();
 }
@@ -875,6 +1014,11 @@ class Observer implements ObserverInterface {
     assert(triggerTableModel);
     triggerTableModel.addTrigger(new Trigger(mojo));
   }
+
+  onFailedSourceRegistration(mojo: FailedSourceRegistration) {
+    assert(logTableModel);
+    logTableModel.addLog(new Log(mojo));
+  }
 }
 
 function installUnreadIndicator(model: TableModel<any>, tab: HTMLElement|null) {
@@ -910,6 +1054,7 @@ document.addEventListener('DOMContentLoaded', function() {
   aggregatableAttributionReportTableModel =
       new AggregatableAttributionReportTableModel(
           showDebugAggregatableReports, sendAggregatableReports);
+  logTableModel = new LogTableModel();
 
   const tabBox = document.querySelector('cr-tab-box');
   assert(tabBox);
@@ -928,6 +1073,8 @@ document.addEventListener('DOMContentLoaded', function() {
   installUnreadIndicator(
       aggregatableAttributionReportTableModel,
       document.querySelector<HTMLElement>('#aggregatable-reports-tab'));
+  installUnreadIndicator(
+      logTableModel, document.querySelector<HTMLElement>('#logs-tab'));
 
   const refresh = document.querySelector('#refresh');
   assert(refresh);
@@ -956,6 +1103,11 @@ document.addEventListener('DOMContentLoaded', function() {
           '#aggregatableReportTable');
   assert(aggregatableReportTable);
   aggregatableReportTable.setModel(aggregatableAttributionReportTableModel!);
+  const logTable =
+      document.querySelector<AttributionInternalsTableElement<Log>>(
+          '#logTable');
+  assert(logTable);
+  logTable.setModel(logTableModel);
 
   tabBox.hidden = false;
 

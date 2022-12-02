@@ -229,6 +229,10 @@ void WebURLResponse::SetHasRangeRequested(bool value) {
   resource_response_->SetHasRangeRequested(value);
 }
 
+bool WebURLResponse::TimingAllowPassed() const {
+  return resource_response_->TimingAllowPassed();
+}
+
 void WebURLResponse::SetTimingAllowPassed(bool value) {
   resource_response_->SetTimingAllowPassed(value);
 }
@@ -413,6 +417,11 @@ WebString WebURLResponse::AlpnNegotiatedProtocol() const {
 void WebURLResponse::SetAlpnNegotiatedProtocol(
     const WebString& alpn_negotiated_protocol) {
   resource_response_->SetAlpnNegotiatedProtocol(alpn_negotiated_protocol);
+}
+
+void WebURLResponse::SetAlternateProtocolUsage(
+    const net::AlternateProtocolUsage alternate_protocol_usage) {
+  resource_response_->SetAlternateProtocolUsage(alternate_protocol_usage);
 }
 
 bool WebURLResponse::HasAuthorizationCoveredByWildcardOnPreflight() const {

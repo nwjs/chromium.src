@@ -27,6 +27,7 @@ import org.chromium.chrome.browser.compositor.layouts.LayoutProvider;
 import org.chromium.chrome.browser.compositor.layouts.LayoutRenderHost;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.compositor.resources.StaticResourcePreloads;
+import org.chromium.chrome.browser.compositor.resources.SystemResourcePreloads;
 import org.chromium.chrome.browser.externalnav.IntentWithRequestMetadataHandler;
 import org.chromium.chrome.browser.layouts.scene_layer.SceneLayer;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
@@ -117,15 +118,8 @@ public class CompositorView
             }
         }
 
-        public void surfaceDestroyed(Surface surface) {
-            mLastDestroyedSurface = surface;
-        }
-
-        public void surfaceCreated(Surface surface) {
-            // If surface is created successfully when screen is on again, don't
-            // reset CompositorSurfaceManager.
-            mNeedsReset = mNeedsReset && (mLastDestroyedSurface != surface);
-            mLastDestroyedSurface = null;
+        public void clearNeedsReset() {
+            mNeedsReset = false;
         }
     }
 
@@ -450,7 +444,9 @@ public class CompositorView
     public void surfaceCreated(Surface surface) {
         if (mNativeCompositorView == 0) return;
 
-        if (mScreenStateReceiver != null) mScreenStateReceiver.surfaceCreated(surface);
+        // if a requested surface is created successfully, CompositorSurfaceManager doesn't need to
+        // be reset.
+        if (mScreenStateReceiver != null) mScreenStateReceiver.clearNeedsReset();
         mFramesUntilHideBackground = 2;
         mHaveSwappedFramesSinceSurfaceCreated = false;
         updateNeedsDidSwapBuffersCallback();
@@ -473,7 +469,6 @@ public class CompositorView
         CompositorViewJni.get().surfaceDestroyed(mNativeCompositorView, CompositorView.this);
 
         if (mScreenStateReceiver != null) {
-            mScreenStateReceiver.surfaceDestroyed(surface);
             mScreenStateReceiver.maybeResetCompositorSurfaceManager();
         }
     }
@@ -643,6 +638,9 @@ public class CompositorView
             mResourceManager.preloadResources(AndroidResourceType.STATIC,
                     StaticResourcePreloads.getSynchronousResources(getContext()),
                     StaticResourcePreloads.getAsynchronousResources(getContext()));
+            mResourceManager.preloadResources(AndroidResourceType.SYSTEM,
+                    SystemResourcePreloads.getSynchronousResources(),
+                    SystemResourcePreloads.getAsynchronousResources());
             mPreloadedResources = true;
         }
 

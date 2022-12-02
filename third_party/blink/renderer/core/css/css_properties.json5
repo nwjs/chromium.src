@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors. All rights reserved.
+// Copyright 2017 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -1343,7 +1343,6 @@
     {
       name: "zoom",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
-      is_descriptor: true,
       field_group: "visual",
       field_template: "primitive",
       default_value: "1.0",
@@ -2797,7 +2796,6 @@
     {
       name: "height",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
-      is_descriptor: true,
       interpolable: true,
       layout_dependent: true,
       field_group: "box",
@@ -2813,6 +2811,19 @@
       supports_incremental_style: true,
       valid_for_formatted_text: true,
       valid_for_position_fallback: true,
+    },
+    {
+      name: "hyphenate-limit-chars",
+      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
+      inherited: true,
+      field_group: "*",
+      field_template: "external",
+      keywords: ["auto"],
+      type_name: "StyleHyphenateLimitChars",
+      default_value: "StyleHyphenateLimitChars()",
+      include_paths: ["third_party/blink/renderer/core/style/style_hyphenate_limit_chars.h"],
+      converter: "ConvertHyphenateLimitChars",
+      runtime_flag: "CSSHyphenateLimitChars",
     },
     {
       name: "hyphens",
@@ -2849,6 +2860,20 @@
       name_for_methods: "RespectImageOrientation",
       type_name: "bool",
       converter: "ConvertImageOrientation",
+    },
+    {
+      name: "initial-letter",
+      converter: "ConvertInitialLetter",
+      default_value: "StyleInitialLetter()",
+      field_group: "*",
+      field_template: "external",
+      include_paths: ["third_party/blink/renderer/core/style/style_initial_letter.h"],
+      inherited: false,
+      keywords: ["drop", "normal", "raise"],
+      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
+      runtime_flag: "CSSInitialLetter",
+      type_name: "StyleInitialLetter",
+      valid_for_first_letter: true,
     },
     {
       name: "isolation",
@@ -3177,7 +3202,6 @@
     {
       name: "max-height",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
-      is_descriptor: true,
       interpolable: true,
       field_group: "box",
       field_template: "<length>",
@@ -3195,7 +3219,6 @@
     {
       name: "max-width",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
-      is_descriptor: true,
       interpolable: true,
       field_group: "box",
       field_template: "<length>",
@@ -3213,7 +3236,6 @@
     {
       name: "min-height",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
-      is_descriptor: true,
       interpolable: true,
       field_group: "box",
       field_template: "<length>",
@@ -3230,7 +3252,6 @@
     {
       name: "min-width",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
-      is_descriptor: true,
       interpolable: true,
       field_group: "box",
       field_template: "<length>",
@@ -4741,6 +4762,19 @@
       typedom_types: ["Keyword"],
     },
     {
+      name: "toggle-visibility",
+      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
+      runtime_flag: "CSSToggles",
+      field_group: "*",
+      field_template: "external",
+      type_name: "AtomicString",
+      converter: "ConvertToggleVisibility",
+      default_value: "g_null_atom",
+      supports_incremental_style: true,
+      keywords: ["normal"],
+      typedom_types: ["Keyword"],
+    },
+    {
       name: "top",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
       interpolable: true,
@@ -5644,7 +5678,6 @@
     {
       name: "width",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
-      is_descriptor: true,
       interpolable: true,
       layout_dependent: true,
       field_group: "box",
@@ -6184,21 +6217,6 @@
       is_property: false,
     },
     {
-      name: "max-zoom",
-      is_descriptor: true,
-      is_property: false,
-    },
-    {
-      name: "min-zoom",
-      is_descriptor: true,
-      is_property: false,
-    },
-    {
-      name: "orientation",
-      is_descriptor: true,
-      is_property: false,
-    },
-    {
       name: "src",
       is_descriptor: true,
       is_property: false,
@@ -6207,17 +6225,6 @@
       name: "unicode-range",
       is_descriptor: true,
       is_property: false,
-    },
-    {
-      name: "user-zoom",
-      is_descriptor: true,
-      is_property: false,
-    },
-    {
-      name: "viewport-fit",
-      is_descriptor: true,
-      is_property: false,
-      runtime_flag: "DisplayCutoutAPI",
     },
     {
       name: "syntax",

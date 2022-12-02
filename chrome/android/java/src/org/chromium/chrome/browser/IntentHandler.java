@@ -185,6 +185,10 @@ public class IntentHandler {
     public static final String EXTRA_OPEN_ADDITIONAL_URLS_IN_TAB_GROUP =
             "org.chromium.chrome.browser.open_additional_urls_in_tab_group";
 
+    /** Extra specifying to show regular overview mode. */
+    public static final String EXTRA_OPEN_REGULAR_OVERVIEW_MODE =
+            "org.chromium.chrome.browser.open_regular_overview_mode";
+
     /**
      * Key to associate a timestamp with an intent.
      */
@@ -873,6 +877,7 @@ public class IntentHandler {
 
             if (!HttpUtil.isAllowedHeader(key, value)) {
                 Log.w(TAG, "Ignoring forbidden header " + key + " in EXTRA_HEADERS.");
+                continue;
             }
 
             // Strip the custom header that can only be added by ourselves.

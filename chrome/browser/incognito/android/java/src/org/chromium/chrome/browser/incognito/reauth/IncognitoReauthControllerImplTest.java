@@ -13,9 +13,11 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import androidx.test.filters.MediumTest;
+import androidx.test.filters.SmallTest;
 
 import org.junit.After;
 import org.junit.Before;
@@ -56,6 +58,8 @@ import org.chromium.components.user_prefs.UserPrefsJni;
 @RunWith(BaseRobolectricTestRunner.class)
 @LooperMode(LooperMode.Mode.LEGACY)
 public class IncognitoReauthControllerImplTest {
+    public static final int TASK_ID = 123;
+
     @Rule
     public JniMocker mJniMocker = new JniMocker();
 
@@ -81,11 +85,15 @@ public class IncognitoReauthControllerImplTest {
     private PrefService mPrefServiceMock;
     @Mock
     private Runnable mBackPressInReauthFullScreenRunnableMock;
+    @Mock
+    private IncognitoReauthManager.IncognitoReauthCallback mIncognitoReauthCallbackMock;
 
     @Captor
     ArgumentCaptor<TabModelSelectorObserver> mTabModelSelectorObserverCaptor;
     @Captor
     ArgumentCaptor<IncognitoTabModelObserver> mIncognitoTabModelObserverCaptor;
+    @Captor
+    ArgumentCaptor<LayoutStateProvider.LayoutStateObserver> mLayoutStateObserverArgumentCaptor;
 
     private IncognitoReauthControllerImpl mIncognitoReauthController;
     private OneshotSupplierImpl<LayoutStateProvider> mLayoutStateProviderOneshotSupplier;
@@ -156,8 +164,11 @@ public class IncognitoReauthControllerImplTest {
 
         mIncognitoReauthController = new IncognitoReauthControllerImpl(mTabModelSelectorMock,
                 mActivityLifecycleDispatcherMock, mLayoutStateProviderOneshotSupplier,
-                mProfileObservableSupplier, mIncognitoReauthCoordinatorFactoryMock);
+                mProfileObservableSupplier, mIncognitoReauthCoordinatorFactoryMock, TASK_ID);
         mProfileObservableSupplier.set(mProfileMock);
+
+        verify(mLayoutStateProviderMock, times(1))
+                .addObserver(mLayoutStateObserverArgumentCaptor.capture());
     }
 
     @After
@@ -195,7 +206,7 @@ public class IncognitoReauthControllerImplTest {
     }
 
     /**
-     *  This tests that we do show a re-auth when Incognito tabs already exists after Chrome comes
+     * This tests that we do show a re-auth when Incognito tabs already exists after Chrome comes
      * to foreground.
      */
     @Test
@@ -205,7 +216,7 @@ public class IncognitoReauthControllerImplTest {
         doReturn(1).when(mIncognitoTabModelMock).getCount();
         switchToIncognitoTabModel();
 
-        mIncognitoReauthController.onStopWithNative();
+        mIncognitoReauthController.onTaskVisibilityChanged(TASK_ID, false);
         mIncognitoReauthController.onStartWithNative();
 
         assertTrue("IncognitoReauthCoordinator should be created when Incognito tabs"
@@ -218,7 +229,7 @@ public class IncognitoReauthControllerImplTest {
     @MediumTest
     public void testRegularTabModel_DoesNotShowReauth() {
         switchToRegularTabModel();
-        mIncognitoReauthController.onStopWithNative();
+        mIncognitoReauthController.onTaskVisibilityChanged(TASK_ID, false);
         mIncognitoReauthController.onStartWithNative();
 
         assertFalse("IncognitoReauthCoordinator should not be created on regular"
@@ -231,7 +242,7 @@ public class IncognitoReauthControllerImplTest {
     public void testIncognitoTabsExisting_AndChromeForegroundedWithRegularTabs_DoesNotShowReauth() {
         doReturn(1).when(mIncognitoTabModelMock).getCount();
         doReturn(false).when(mTabModelSelectorMock).isIncognitoSelected();
-        mIncognitoReauthController.onStopWithNative();
+        mIncognitoReauthController.onTaskVisibilityChanged(TASK_ID, false);
         mIncognitoReauthController.onStartWithNative();
 
         assertFalse("IncognitoReauthCoordinator should not be created on regular"
@@ -250,7 +261,7 @@ public class IncognitoReauthControllerImplTest {
                 mIncognitoReauthController.isReauthPageShowing());
 
         // Chrome went to background.
-        mIncognitoReauthController.onStopWithNative();
+        mIncognitoReauthController.onTaskVisibilityChanged(TASK_ID, false);
         // Chrome coming to foregrounded. Re-auth would now be required since there are existing
         // Incognito tabs.
         mIncognitoReauthController.onStartWithNative();
@@ -308,7 +319,7 @@ public class IncognitoReauthControllerImplTest {
                 mIncognitoReauthController.isReauthPageShowing());
 
         // Chrome went to background.
-        mIncognitoReauthController.onStopWithNative();
+        mIncognitoReauthController.onTaskVisibilityChanged(TASK_ID, false);
         // Chrome coming to foregrounded. Re-auth would now be required since there are existing
         // Incognito tabs.
         doReturn(true).when(mTabModelSelectorMock).isIncognitoSelected();
@@ -328,6 +339,56 @@ public class IncognitoReauthControllerImplTest {
         switchToIncognitoTabModel();
         assertFalse("IncognitoReauthCoordinator should not be created when starting a"
                         + " fresh Incognito session.",
+                mIncognitoReauthController.isReauthPageShowing());
+    }
+
+    @Test
+    @SmallTest
+    public void testAddIncognitoReauthCallback_IsHookedWithMainCallback() {
+        doNothing().when(mIncognitoReauthCallbackMock).onIncognitoReauthSuccess();
+        mIncognitoReauthController.addIncognitoReauthCallback(mIncognitoReauthCallbackMock);
+        mIncognitoReauthController.getIncognitoReauthCallbackForTesting()
+                .onIncognitoReauthSuccess();
+        verify(mIncognitoReauthCallbackMock, times(1)).onIncognitoReauthSuccess();
+    }
+
+    @Test
+    @SmallTest
+    public void testRemoveIncognitoReauthCallback_IsUnHookedWithMainCallback() {
+        doNothing().when(mIncognitoReauthCallbackMock).onIncognitoReauthSuccess();
+        mIncognitoReauthController.addIncognitoReauthCallback(mIncognitoReauthCallbackMock);
+        mIncognitoReauthController.getIncognitoReauthCallbackForTesting()
+                .onIncognitoReauthSuccess();
+        verify(mIncognitoReauthCallbackMock, times(1)).onIncognitoReauthSuccess();
+
+        mIncognitoReauthController.removeIncognitoReauthCallback(mIncognitoReauthCallbackMock);
+        mIncognitoReauthController.getIncognitoReauthCallbackForTesting()
+                .onIncognitoReauthSuccess();
+        verifyNoMoreInteractions(mIncognitoReauthCallbackMock);
+    }
+
+    @Test
+    @SmallTest
+    public void testLayoutStateChange_HidesOrShowsReauthScreen() {
+        doReturn(1).when(mIncognitoTabModelMock).getCount();
+        switchToIncognitoTabModel();
+
+        // Chrome went to background.
+        mIncognitoReauthController.onTaskVisibilityChanged(TASK_ID, false);
+        // Chrome coming to foregrounded. Re-auth would now be required since there are existing
+        // Incognito tabs.
+        doReturn(true).when(mTabModelSelectorMock).isIncognitoSelected();
+        mIncognitoReauthController.onStartWithNative();
+        assertTrue(mIncognitoReauthController.isReauthPageShowing());
+
+        // Trigger layout state change to indicate tab switcher is hidden.
+        mLayoutStateObserverArgumentCaptor.getValue().onFinishedHiding(LayoutType.TAB_SWITCHER);
+        assertFalse("Re-auth screen shouldn't be shown if we came out of tab switcher.",
+                mIncognitoReauthController.isReauthPageShowing());
+
+        // Trigger layout state change to indicate we are now showing a tab.
+        mLayoutStateObserverArgumentCaptor.getValue().onStartedShowing(LayoutType.BROWSING, false);
+        assertTrue("Re-auth screen should be shown if we are about to show a tab.",
                 mIncognitoReauthController.isReauthPageShowing());
     }
 }

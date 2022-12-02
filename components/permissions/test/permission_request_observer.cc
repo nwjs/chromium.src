@@ -17,13 +17,17 @@ void PermissionRequestObserver::Wait() {
   loop_.Run();
 }
 
-void PermissionRequestObserver::OnBubbleAdded() {
+void PermissionRequestObserver::OnPromptAdded() {
   request_shown_ = true;
   loop_.Quit();
 }
 
 void PermissionRequestObserver::OnRequestsFinalized() {
   loop_.Quit();
+}
+
+void PermissionRequestObserver::OnPermissionRequestManagerDestructed() {
+  observation_.Reset();
 }
 
 }  // namespace permissions

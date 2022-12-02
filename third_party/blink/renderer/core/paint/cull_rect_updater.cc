@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -23,7 +23,11 @@ namespace blink {
 
 namespace {
 
-bool g_is_overriding_cull_rects = false;
+using FragmentCullRects = OverriddenCullRectScope::FragmentCullRects;
+// This is set to non-null when we are updating overridden cull rects for
+// special painting. The current cull rects will be saved during the update,
+// and will be restored when we exit the OverriddenCullRectScope.
+Vector<FragmentCullRects>* g_original_cull_rects = nullptr;
 
 void SetLayerNeedsRepaintOnCullRectChange(PaintLayer& layer) {
   if (layer.PreviousPaintResult() == kMayBeClippedByCullRect ||
@@ -38,8 +42,13 @@ void SetFragmentCullRect(PaintLayer& layer,
   if (cull_rect == fragment.GetCullRect())
     return;
 
+  if (g_original_cull_rects) {
+    g_original_cull_rects->emplace_back(fragment);
+  } else {
+    SetLayerNeedsRepaintOnCullRectChange(layer);
+  }
+
   fragment.SetCullRect(cull_rect);
-  SetLayerNeedsRepaintOnCullRectChange(layer);
 }
 
 // Returns true if the contents cull rect changed.
@@ -49,13 +58,23 @@ bool SetFragmentContentsCullRect(PaintLayer& layer,
   if (contents_cull_rect == fragment.GetContentsCullRect())
     return false;
 
+  if (g_original_cull_rects) {
+    if (g_original_cull_rects->empty() ||
+        g_original_cull_rects->back().fragment != &fragment) {
+      g_original_cull_rects->emplace_back(fragment);
+    }
+  } else {
+    SetLayerNeedsRepaintOnCullRectChange(layer);
+  }
+
   fragment.SetContentsCullRect(contents_cull_rect);
-  SetLayerNeedsRepaintOnCullRectChange(layer);
   return true;
 }
 
-bool ShouldUseInfiniteCullRect(const PaintLayer& layer,
-                               bool& subtree_should_use_infinite_cull_rect) {
+bool ShouldUseInfiniteCullRect(
+    const PaintLayer& layer,
+    DocumentTransitionSupplement* document_transition_supplement,
+    bool& subtree_should_use_infinite_cull_rect) {
   if (RuntimeEnabledFeatures::InfiniteCullRectEnabled())
     return true;
 
@@ -129,11 +148,11 @@ bool ShouldUseInfiniteCullRect(const PaintLayer& layer,
     }
   }
 
-  if (auto* supplement =
-          DocumentTransitionSupplement::FromIfExists(object.GetDocument())) {
+  if (document_transition_supplement) {
     // This means that the contents of the object are drawn elsewhere, so we
     // shouldn't cull it.
-    if (supplement->GetTransition()->IsRepresentedViaPseudoElements(object)) {
+    if (document_transition_supplement->GetTransition()
+            ->IsRepresentedViaPseudoElements(object)) {
       return true;
     }
   }
@@ -160,14 +179,16 @@ bool HasScrolledEnough(const LayoutObject& object) {
 CullRectUpdater::CullRectUpdater(PaintLayer& starting_layer)
     : starting_layer_(starting_layer) {
   DCHECK(RuntimeEnabledFeatures::ScrollUpdateOptimizationsEnabled());
+  document_transition_supplement_ = DocumentTransitionSupplement::FromIfExists(
+      starting_layer.GetLayoutObject().GetDocument());
 }
 
-void CullRectUpdater::Update() {
+void CullRectUpdater::Update(const CullRect& input_cull_rect) {
   TRACE_EVENT0("blink,benchmark", "CullRectUpdate");
   SCOPED_BLINK_UMA_HISTOGRAM_TIMER_HIGHRES("Blink.CullRect.UpdateTime");
 
   DCHECK(starting_layer_.IsRootLayer());
-  UpdateInternal(CullRect::Infinite());
+  UpdateInternal(input_cull_rect);
 #if DCHECK_IS_ON()
   if (VLOG_IS_ON(2)) {
     VLOG(2) << "PaintLayer tree after cull rect update:";
@@ -188,7 +209,8 @@ void CullRectUpdater::UpdateInternal(const CullRect& input_cull_rect) {
   Context context;
   context.current.container = &starting_layer_;
   bool should_use_infinite = ShouldUseInfiniteCullRect(
-      starting_layer_, context.current.subtree_should_use_infinite_cull_rect);
+      starting_layer_, document_transition_supplement_,
+      context.current.subtree_should_use_infinite_cull_rect);
 
   auto& fragment = object.GetMutableForPainting().FirstFragment();
   SetFragmentCullRect(
@@ -251,16 +273,18 @@ void CullRectUpdater::UpdateRecursively(const Context& parent_context,
        layer.HasFixedPositionDescendant());
   if (should_traverse_children) {
     context.current.container = &layer;
-    if (object.CanContainAbsolutePositionObjects())
+    // We pretend the starting layer can contain all descendants.
+    if (&layer == &starting_layer_ ||
+        object.CanContainAbsolutePositionObjects()) {
       context.absolute = context.current;
-    if (object.CanContainFixedPositionObjects())
+    }
+    if (&layer == &starting_layer_ || object.CanContainFixedPositionObjects()) {
       context.fixed = context.current;
+    }
     UpdateForDescendants(context, layer);
   }
 
-  if (g_is_overriding_cull_rects)
-    layer.SetNeedsCullRectUpdate();
-  else
+  if (!g_original_cull_rects)
     layer.ClearNeedsCullRectUpdate();
 }
 
@@ -318,7 +342,8 @@ bool CullRectUpdater::UpdateForSelf(Context& context, PaintLayer& layer) {
   bool should_use_infinite_cull_rect =
       !context.current.subtree_is_out_of_cull_rect &&
       ShouldUseInfiniteCullRect(
-          layer, context.current.subtree_should_use_infinite_cull_rect);
+          layer, document_transition_supplement_,
+          context.current.subtree_should_use_infinite_cull_rect);
 
   for (auto* fragment = &first_fragment; fragment;
        fragment = fragment->NextFragment()) {
@@ -462,9 +487,11 @@ void CullRectUpdater::PaintPropertiesChanged(
   bool should_use_infinite_cull_rect = false;
   if (object.HasLayer()) {
     bool subtree_should_use_infinite_cull_rect = false;
-    should_use_infinite_cull_rect =
-        ShouldUseInfiniteCullRect(*To<LayoutBoxModelObject>(object).Layer(),
-                                  subtree_should_use_infinite_cull_rect);
+    auto* document_transition_supplement =
+        DocumentTransitionSupplement::FromIfExists(object.GetDocument());
+    should_use_infinite_cull_rect = ShouldUseInfiniteCullRect(
+        *To<LayoutBoxModelObject>(object).Layer(),
+        document_transition_supplement, subtree_should_use_infinite_cull_rect);
     if (should_use_infinite_cull_rect &&
         object.FirstFragment().GetCullRect().IsInfinite() &&
         object.FirstFragment().GetContentsCullRect().IsInfinite()) {
@@ -520,11 +547,24 @@ void CullRectUpdater::PaintPropertiesChanged(
   }
 }
 
+bool CullRectUpdater::IsOverridingCullRects() {
+  return !!g_original_cull_rects;
+}
+
+FragmentCullRects::FragmentCullRects(FragmentData& fragment)
+    : fragment(&fragment),
+      cull_rect(fragment.GetCullRect()),
+      contents_cull_rect(fragment.GetContentsCullRect()) {}
+
 OverriddenCullRectScope::OverriddenCullRectScope(PaintLayer& starting_layer,
                                                  const CullRect& cull_rect) {
   if (!RuntimeEnabledFeatures::ScrollUpdateOptimizationsEnabled())
     return;
-  if (starting_layer.GetLayoutObject().GetFrame()->IsLocalRoot() &&
+
+  outer_original_cull_rects_ = g_original_cull_rects;
+
+  if (starting_layer.IsRootLayer() &&
+      starting_layer.GetLayoutObject().GetFrame()->IsLocalRoot() &&
       !starting_layer.NeedsCullRectUpdate() &&
       !starting_layer.DescendantNeedsCullRectUpdate() &&
       cull_rect ==
@@ -533,10 +573,7 @@ OverriddenCullRectScope::OverriddenCullRectScope(PaintLayer& starting_layer,
     return;
   }
 
-  DCHECK(!g_is_overriding_cull_rects);
-  g_is_overriding_cull_rects = true;
-
-  starting_layer.SetNeedsCullRectUpdate();
+  g_original_cull_rects = &original_cull_rects_;
   CullRectUpdater(starting_layer).UpdateInternal(cull_rect);
 }
 
@@ -544,7 +581,15 @@ OverriddenCullRectScope::~OverriddenCullRectScope() {
   if (!RuntimeEnabledFeatures::ScrollUpdateOptimizationsEnabled())
     return;
 
-  g_is_overriding_cull_rects = false;
+  if (outer_original_cull_rects_ == g_original_cull_rects)
+    return;
+
+  DCHECK_EQ(g_original_cull_rects, &original_cull_rects_);
+  g_original_cull_rects = outer_original_cull_rects_;
+  for (FragmentCullRects& cull_rects : original_cull_rects_) {
+    cull_rects.fragment->SetCullRect(cull_rects.cull_rect);
+    cull_rects.fragment->SetContentsCullRect(cull_rects.contents_cull_rect);
+  }
 }
 
 }  // namespace blink

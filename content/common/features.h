@@ -16,8 +16,13 @@ namespace content {
 // Unifies RenderWidgetHostViewAndroid with the other platforms in their usage
 // of OnShowWithPageVisibility. Disabling will revert the refactor and use the
 // direct ShowInternal path.
-extern CONSTINIT base::Feature kOnShowWithPageVisibility;
+BASE_DECLARE_FEATURE(kOnShowWithPageVisibility);
 #endif  // BUILDFLAG(IS_ANDROID)
+
+// When enabled, queues navigations instead of cancelling the previous
+// navigation if the previous navigation is already waiting for commit.
+// See https://crbug.com/838348 and https://crbug.com/1220337.
+BASE_DECLARE_FEATURE(kQueueNavigationsWhileWaitingForCommit);
 
 // Please keep features in alphabetical order.
 

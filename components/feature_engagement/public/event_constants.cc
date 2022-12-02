@@ -49,6 +49,10 @@ const char kFocusHelpBubbleAcceleratorPromoRead[] =
 
 const char kBatterySaverDialogShown[] = "battery_saver_info_shown";
 
+const char kHighEfficiencyDialogShown[] = "high_efficiency_info_shown";
+
+const char kPerformanceMenuItemActivated[] = "performance_activated";
+
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA)
 
@@ -57,6 +61,7 @@ const char kChromeOpened[] = "chrome_opened";
 const char kIncognitoTabOpened[] = "incognito_tab_opened";
 const char kClearedBrowsingData[] = "cleared_browsing_data";
 const char kViewedReadingList[] = "viewed_reading_list";
+const char kViewedWhatsNew[] = "viewed_whats_new";
 const char kTriggeredTranslateInfobar[] = "triggered_translate_infobar";
 const char kBottomToolbarOpened[] = "bottom_toolbar_opened";
 const char kDiscoverFeedLoaded[] = "discover_feed_loaded";

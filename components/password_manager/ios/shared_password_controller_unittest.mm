@@ -384,6 +384,41 @@ TEST_F(SharedPasswordControllerTest, ReturnsNoSuggestionsIfNoneAreAvailable) {
   EXPECT_TRUE(completion_was_called);
 }
 
+// Tests that no suggestions are returned if the frame was destroyed.
+TEST_F(SharedPasswordControllerTest, ReturnsNoSuggestionsIfFrameDestroyed) {
+  FormSuggestionProviderQuery* form_query = [[FormSuggestionProviderQuery alloc]
+      initWithFormName:@"form"
+          uniqueFormID:autofill::FormRendererId(0)
+       fieldIdentifier:@"field"
+         uniqueFieldID:autofill::FieldRendererId(1)
+             fieldType:kPasswordFieldType  // Ensures this is a password form.
+                  type:@"focus"
+            typedValue:@""
+               frameID:kTestFrameID];
+
+  web::WebFrame* frame = nullptr;
+
+  [[[suggestion_helper_ expect] andReturn:@[]]
+      retrieveSuggestionsWithFormID:form_query.uniqueFormID
+                    fieldIdentifier:form_query.uniqueFieldID
+                            inFrame:frame
+                          fieldType:form_query.fieldType];
+
+  OCMExpect([driver_helper_ PasswordManagerDriver:frame]);
+
+  __block BOOL completion_was_called = NO;
+  [controller_
+      retrieveSuggestionsForForm:form_query
+                        webState:&web_state_
+               completionHandler:^(NSArray<FormSuggestion*>* suggestions,
+                                   id<FormSuggestionProvider> delegate) {
+                 EXPECT_EQ(0UL, suggestions.count);
+                 EXPECT_EQ(delegate, controller_);
+                 completion_was_called = YES;
+               }];
+  EXPECT_TRUE(completion_was_called);
+}
+
 // Tests that suggestions are returned if PasswordSuggestionHelper has some.
 TEST_F(SharedPasswordControllerTest, ReturnsSuggestionsIfAvailable) {
   FormSuggestionProviderQuery* form_query = [[FormSuggestionProviderQuery alloc]
@@ -863,13 +898,13 @@ TEST_F(SharedPasswordControllerTestWithRealSuggestionHelper,
       form.url.spec(), "", form.unique_renderer_id.value(), "",
       form.fields[0].unique_renderer_id.value(), "john.doe@gmail.com", "",
       form.fields[1].unique_renderer_id.value(), "super!secret", nullptr,
-      nullptr, false, &form_fill_data);
-  OCMExpect([form_helper_ fillPasswordForm:form_fill_data
+      nullptr, &form_fill_data);
+
+  [controller_ processPasswordFormFillData:form_fill_data
                                    inFrame:frame
-                         completionHandler:nil]);
-  [controller_ fillPasswordForm:form_fill_data
-                        inFrame:frame
-              completionHandler:nil];
+                               isMainFrame:frame->IsMainFrame()
+                         forSecurityOrigin:frame->GetSecurityOrigin()];
+
   // Check that completion handler was called.
   EXPECT_TRUE(completion_was_called);
 }
@@ -949,14 +984,12 @@ TEST_F(SharedPasswordControllerTestWithRealSuggestionHelper,
       form.url.spec(), "", form.unique_renderer_id.value(), "",
       form.fields[0].unique_renderer_id.value(), "john.doe@gmail.com", "",
       form.fields[1].unique_renderer_id.value(), "super!secret", nullptr,
-      nullptr, false, &form_fill_data);
+      nullptr, &form_fill_data);
 
-  OCMExpect([form_helper_ fillPasswordForm:form_fill_data
+  [controller_ processPasswordFormFillData:form_fill_data
                                    inFrame:frame
-                         completionHandler:nil]);
-  [controller_ fillPasswordForm:form_fill_data
-                        inFrame:frame
-              completionHandler:nil];
+                               isMainFrame:frame->IsMainFrame()
+                         forSecurityOrigin:frame->GetSecurityOrigin()];
 
   // Check that completion handler was called for the second form query.
   EXPECT_FALSE(completion_was_called1);
@@ -983,22 +1016,20 @@ TEST_F(SharedPasswordControllerTestWithRealSuggestionHelper,
   web::WebFrame* frame = web_frame.get();
   web_frames_manager_->AddWebFrame(std::move(web_frame));
 
-  ASSERT_TRUE(IsCrossOriginIframe(&web_state_, frame));
+  ASSERT_TRUE(IsCrossOriginIframe(&web_state_, frame->IsMainFrame(),
+                                  frame->GetSecurityOrigin()));
 
   PasswordFormFillData form_fill_data;
   test_helpers::SetPasswordFormFillData(
       kTestURL, "", form.unique_renderer_id.value(), "",
       form.fields[0].unique_renderer_id.value(), "john.doe@gmail.com", "",
       form.fields[1].unique_renderer_id.value(), "super!secret", nullptr,
-      nullptr, false, &form_fill_data);
+      nullptr, &form_fill_data);
 
-  OCMExpect([form_helper_ fillPasswordForm:form_fill_data
+  [controller_ processPasswordFormFillData:form_fill_data
                                    inFrame:frame
-                         completionHandler:nil]);
-
-  [controller_ fillPasswordForm:form_fill_data
-                        inFrame:frame
-              completionHandler:nil];
+                               isMainFrame:frame->IsMainFrame()
+                         forSecurityOrigin:frame->GetSecurityOrigin()];
 
   FormSuggestionProviderQuery* form_query = [[FormSuggestionProviderQuery alloc]
       initWithFormName:@"form"
@@ -1059,7 +1090,8 @@ TEST_P(SharedPasswordControllerTestCrossOrigin,
   web::WebFrame* frame = web_frame.get();
   web_frames_manager_->AddWebFrame(std::move(web_frame));
 
-  ASSERT_TRUE(IsCrossOriginIframe(&web_state_, frame));
+  ASSERT_TRUE(IsCrossOriginIframe(&web_state_, frame->IsMainFrame(),
+                                  frame->GetSecurityOrigin()));
 
   [[[form_helper_ expect] ignoringNonObjectArgs]
       setUpForUniqueIDsWithInitialState:1
@@ -1089,7 +1121,8 @@ TEST_P(SharedPasswordControllerTestCrossOrigin,
   web::WebFrame* frame = web_frame.get();
   web_frames_manager_->AddWebFrame(std::move(web_frame));
 
-  ASSERT_TRUE(IsCrossOriginIframe(&web_state_, frame));
+  ASSERT_TRUE(IsCrossOriginIframe(&web_state_, frame->IsMainFrame(),
+                                  frame->GetSecurityOrigin()));
 
   if (IsCrossOriginSupportEnabled()) {
     OCMExpect([driver_helper_ PasswordManagerDriver:frame]);
@@ -1113,7 +1146,8 @@ TEST_P(SharedPasswordControllerTestCrossOrigin,
   web::WebFrame* frame = web_frame.get();
   web_frames_manager_->AddWebFrame(std::move(web_frame));
 
-  ASSERT_TRUE(IsCrossOriginIframe(&web_state_, frame));
+  ASSERT_TRUE(IsCrossOriginIframe(&web_state_, frame->IsMainFrame(),
+                                  frame->GetSecurityOrigin()));
 
   FormSuggestionProviderQuery* form_query = [[FormSuggestionProviderQuery alloc]
       initWithFormName:@"form"
@@ -1160,7 +1194,8 @@ TEST_P(SharedPasswordControllerTestCrossOrigin,
   web::WebFrame* frame = web_frame.get();
   web_frames_manager_->AddWebFrame(std::move(web_frame));
 
-  ASSERT_TRUE(IsCrossOriginIframe(&web_state_, frame));
+  ASSERT_TRUE(IsCrossOriginIframe(&web_state_, frame->IsMainFrame(),
+                                  frame->GetSecurityOrigin()));
 
   FormSuggestionProviderQuery* form_query = [[FormSuggestionProviderQuery alloc]
       initWithFormName:@"form"
@@ -1213,7 +1248,8 @@ TEST_P(SharedPasswordControllerTestCrossOrigin,
   web::WebFrame* frame = web_frame.get();
   web_frames_manager_->AddWebFrame(std::move(web_frame));
 
-  ASSERT_TRUE(IsCrossOriginIframe(&web_state_, frame));
+  ASSERT_TRUE(IsCrossOriginIframe(&web_state_, frame->IsMainFrame(),
+                                  frame->GetSecurityOrigin()));
 
   OCMExpect([driver_helper_ PasswordManagerDriver:frame]);
 
@@ -1240,7 +1276,8 @@ TEST_P(SharedPasswordControllerTestCrossOrigin,
   web::WebFrame* frame = web_frame.get();
   web_frames_manager_->AddWebFrame(std::move(web_frame));
 
-  ASSERT_TRUE(IsCrossOriginIframe(&web_state_, frame));
+  ASSERT_TRUE(IsCrossOriginIframe(&web_state_, frame->IsMainFrame(),
+                                  frame->GetSecurityOrigin()));
 
   id mock_completion_handler =
       [OCMArg checkWithBlock:^(void (^completionHandler)(
@@ -1279,7 +1316,8 @@ TEST_P(SharedPasswordControllerTestCrossOrigin,
   web::WebFrame* frame = web_frame.get();
   web_frames_manager_->AddWebFrame(std::move(web_frame));
 
-  ASSERT_TRUE(IsCrossOriginIframe(&web_state_, frame));
+  ASSERT_TRUE(IsCrossOriginIframe(&web_state_, frame->IsMainFrame(),
+                                  frame->GetSecurityOrigin()));
 
   if (IsCrossOriginSupportEnabled()) {
     OCMExpect([driver_helper_ PasswordManagerDriver:frame]);

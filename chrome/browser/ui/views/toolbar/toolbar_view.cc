@@ -95,6 +95,7 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/theme_provider.h"
 #include "ui/base/window_open_disposition.h"
+#include "ui/base/window_open_disposition_utils.h"
 #include "ui/color/color_id.h"
 #include "ui/color/color_provider.h"
 #include "ui/compositor/layer.h"
@@ -350,7 +351,7 @@ void ToolbarView::Init() {
   bool show_avatar_toolbar_button = true;
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   // ChromeOS only badges Incognito and Guest icons in the browser window.
-  show_avatar_toolbar_button = browser_->profile()->IsOffTheRecord() ||
+  show_avatar_toolbar_button = browser_->profile()->IsIncognitoProfile() ||
                                browser_->profile()->IsGuestSession();
 #elif BUILDFLAG(IS_CHROMEOS_LACROS)
   show_avatar_toolbar_button = !profiles::IsPublicSession();

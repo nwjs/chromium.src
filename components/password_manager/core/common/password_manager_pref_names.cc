@@ -50,6 +50,7 @@ const char kTimesReenrolledToGoogleMobileServices[] =
 
 const char kTimesAttemptedToReenrollToGoogleMobileServices[] =
     "times_attempted_to_reenroll_to_google_mobile_services";
+const char kTimesUPMAuthErrorShown[] = "times_upm_auth_error_shown";
 #endif
 
 #if BUILDFLAG(IS_WIN)
@@ -108,6 +109,10 @@ const char kPasswordChangeSuccessTrackerVersion[] =
     "password_manager.password_change_success_tracker.version";
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+const char kBiometricAuthBeforeFillingPromoShownCounter[] =
+    "password_manager.biometric_authentication_filling_promo_counter";
+const char kHasUserInteractedWithBiometricAuthPromo[] =
+    "password_manager.has_user_interacted_with_biometric_authentication_promo";
 const char kBiometricAuthenticationBeforeFilling[] =
     "password_manager.biometric_authentication_filling";
 const char kHadBiometricsAvailable[] =

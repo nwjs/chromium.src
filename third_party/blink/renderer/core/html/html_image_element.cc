@@ -114,7 +114,7 @@ HTMLImageElement::HTMLImageElement(Document& document, bool created_by_parser)
       is_ad_related_(false),
       is_lcp_element_(false),
       is_changed_shortly_after_mouseover_(false),
-      has_sizes_attribute_(false),
+      has_sizes_attribute_in_img_or_sibling_(false),
       is_lazy_loaded_(false),
       referrer_policy_(network::mojom::ReferrerPolicy::kDefault) {
   SetHasCustomStyleCallbacks();
@@ -296,7 +296,6 @@ void HTMLImageElement::SetBestFitURLAndDPRFromImageCandidate(
       listener_ = MakeGarbageCollected<ViewportChangeListener>(this);
 
     GetDocument().GetMediaQueryMatcher().AddViewportListener(listener_);
-    // If we have a listener, that means a viewport dependent image
   } else if (listener_) {
     GetDocument().GetMediaQueryMatcher().RemoveViewportListener(listener_);
   }
@@ -371,17 +370,12 @@ void HTMLImageElement::ParseAttribute(
     }
   } else if (name == html_names::kAttributionsrcAttr) {
     LocalDOMWindow* window = GetDocument().domWindow();
-    if (!params.new_value.IsEmpty() && window && window->GetFrame()) {
+    if (!params.new_value.empty() && window && window->GetFrame()) {
       window->GetFrame()->GetAttributionSrcLoader()->Register(
           GetDocument().CompleteURL(params.new_value), this);
     }
   } else {
     HTMLElement::ParseAttribute(params);
-  }
-  if (has_sizes_attribute_ && is_lazy_loaded_ && listener_) {
-    UseCounter::Count(
-        GetDocument(),
-        WebFeature::kViewportDependentLazyLoadedImageWithSizesAttribute);
   }
 }
 
@@ -408,7 +402,7 @@ bool HTMLImageElement::SupportedImageType(
     const HashSet<String>* disabled_image_types) {
   String trimmed_type = ContentType(type).GetType();
   // An empty type attribute is implicitly supported.
-  if (trimmed_type.IsEmpty())
+  if (trimmed_type.empty())
     return true;
   if (disabled_image_types && disabled_image_types->Contains(trimmed_type)) {
     return false;
@@ -439,7 +433,7 @@ ImageCandidate HTMLImageElement::FindBestFitImageFromPictureParent() {
                                     WebFeature::kPictureSourceSrc);
     }
     String srcset = source->FastGetAttribute(html_names::kSrcsetAttr);
-    if (srcset.IsEmpty())
+    if (srcset.empty())
       continue;
     String type = source->FastGetAttribute(html_names::kTypeAttr);
     if (!SupportedImageType(type, &disabled_image_types))
@@ -803,7 +797,8 @@ FetchParameters::ResourceWidth HTMLImageElement::GetResourceWidth() const {
 float HTMLImageElement::SourceSize(Element& element) {
   float value;
   // We only care if the sizes attribute exist here for use counter purposes..
-  has_sizes_attribute_ = SourceSizeValue(&element, GetDocument(), value);
+  has_sizes_attribute_in_img_or_sibling_ =
+      SourceSizeValue(&element, GetDocument(), value);
   return value;
 }
 
@@ -889,6 +884,17 @@ void HTMLImageElement::EnsurePrimaryContent() {
 
 bool HTMLImageElement::IsCollapsed() const {
   return layout_disposition_ == LayoutDisposition::kCollapsed;
+}
+
+void HTMLImageElement::SetAutoSizesUsecounter() {
+  if (is_lazy_loaded_ && listener_) {
+    UseCounter::Count(
+        GetDocument(),
+        has_sizes_attribute_in_img_or_sibling_
+            ? WebFeature::kViewportDependentLazyLoadedImageWithSizesAttribute
+            : WebFeature::
+                  kViewportDependentLazyLoadedImageWithoutSizesAttribute);
+  }
 }
 
 void HTMLImageElement::SetLayoutDisposition(

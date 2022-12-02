@@ -10,6 +10,7 @@ import org.chromium.build.BuildConfig;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.customtabs.CustomTabActivity;
 import org.chromium.chrome.browser.customtabs.CustomTabIntentDataProvider;
+import org.chromium.chrome.browser.customtabs.PartialCustomTabHeightStrategy;
 import org.chromium.chrome.browser.customtabs.features.branding.BrandingController;
 import org.chromium.chrome.browser.feed.FeedPlaceholderLayout;
 import org.chromium.chrome.browser.firstrun.FirstRunUtils;
@@ -84,6 +85,7 @@ public class ChromeCachedFlags {
                 add(ChromeFeatureList.sCctRemoveRemoteViewIds);
                 add(ChromeFeatureList.sCctResizable90MaximumHeight);
                 add(ChromeFeatureList.sCctResizableAllowResizeByUserGesture);
+                add(ChromeFeatureList.sCctResizableAlwaysShowNavBarButtons);
                 add(ChromeFeatureList.sCctResizableForFirstParties);
                 add(ChromeFeatureList.sCctResizableForThirdParties);
                 add(ChromeFeatureList.sCctResizableWindowAboveNavbar);
@@ -95,6 +97,8 @@ public class ChromeCachedFlags {
                 add(ChromeFeatureList.sCreateSafebrowsingOnStartup);
                 add(ChromeFeatureList.sCriticalPersistedTabData);
                 add(ChromeFeatureList.sDiscoverMultiColumn);
+                add(ChromeFeatureList.sTabStripRedesign);
+                add(ChromeFeatureList.sDiscardOccludedBitmaps);
                 add(ChromeFeatureList.sDownloadsAutoResumptionNative);
                 add(ChromeFeatureList.sEarlyLibraryLoad);
                 add(ChromeFeatureList.sElasticOverscroll);
@@ -108,14 +112,17 @@ public class ChromeCachedFlags {
                 add(ChromeFeatureList.sInterestFeedV2);
                 add(ChromeFeatureList.sNewWindowAppMenu);
                 add(ChromeFeatureList.sOmniboxModernizeVisualUpdate);
+                add(ChromeFeatureList.sOmniboxRemoveExcessiveRecycledViewClearCalls);
                 add(ChromeFeatureList.sOptimizationGuidePushNotifications);
-                add(ChromeFeatureList.sOSKResizesVisualViewport);
+                add(ChromeFeatureList.sOSKResizesVisualViewportByDefault);
                 add(ChromeFeatureList.sPaintPreviewDemo);
                 add(ChromeFeatureList.sPaintPreviewShowOnStartup);
                 add(ChromeFeatureList.sQueryTiles);
                 add(ChromeFeatureList.sQueryTilesOnStart);
                 add(ChromeFeatureList.sReadLater);
                 add(ChromeFeatureList.sStartSurfaceAndroid);
+                add(ChromeFeatureList.sStartSurfaceDisabledFeedImprovement);
+                add(ChromeFeatureList.sStartSurfaceReturnTime);
                 add(ChromeFeatureList.sStartSurfaceRefactor);
                 add(ChromeFeatureList.sStoreHoursAndroid);
                 add(ChromeFeatureList.sSwapPixelFormatToFixConvertFromTranslucent);
@@ -123,10 +130,12 @@ public class ChromeCachedFlags {
                 add(ChromeFeatureList.sTabGroupsAndroid);
                 add(ChromeFeatureList.sTabGroupsContinuationAndroid);
                 add(ChromeFeatureList.sTabGroupsForTablets);
+                add(ChromeFeatureList.sTabSelectionEditorV2);
                 add(ChromeFeatureList.sTabStripImprovements);
                 add(ChromeFeatureList.sTabToGTSAnimation);
                 add(ChromeFeatureList.sToolbarUseHardwareBitmapDraw);
                 add(ChromeFeatureList.sUseChimeAndroidSdk);
+                add(ChromeFeatureList.sUseLibunwindstackNativeUnwinderAndroid);
                 add(ChromeFeatureList.sWebApkTrampolineOnInitialIntent);
             }
         };
@@ -149,14 +158,16 @@ public class ChromeCachedFlags {
                         add(OptimizationGuidePushNotificationManager.MAX_CACHE_SIZE);
                         add(OmniboxFeatures.ENABLE_MODERNIZE_VISUAL_UPDATE_ON_TABLET);
                         add(OmniboxFeatures.MODERNIZE_VISUAL_UPDATE_ACTIVE_COLOR_ON_OMNIBOX);
+                        add(OmniboxFeatures.MODERNIZE_VISUAL_UPDATE_SMALL_BOTTOM_MARGIN);
                         add(PageAnnotationsServiceConfig.PAGE_ANNOTATIONS_BASE_URL);
+                        add(PartialCustomTabHeightStrategy.LOG_IMMERSIVE_MODE_CONFIRMATIONS);
                         add(ReturnToChromeUtil.TAB_SWITCHER_ON_RETURN_MS);
                         add(CustomTabIntentDataProvider.THIRD_PARTIES_DEFAULT_POLICY);
                         add(CustomTabIntentDataProvider.DENYLIST_ENTRIES);
                         add(CustomTabIntentDataProvider.ALLOWLIST_ENTRIES);
-                        add(StartSurfaceConfiguration.CHECK_SYNC_BEFORE_SHOW_START_AT_STARTUP);
-                        add(StartSurfaceConfiguration.HIDE_START_WHEN_LAST_VISITED_TAB_IS_SRP);
                         add(StartSurfaceConfiguration.IS_DOODLE_SUPPORTED);
+                        add(StartSurfaceConfiguration.START_SURFACE_RETURN_TIME_SECONDS);
+                        add(StartSurfaceConfiguration.START_SURFACE_RETURN_TIME_USE_MODEL);
                         add(StartSurfaceConfiguration.NUM_DAYS_KEEP_SHOW_START_AT_STARTUP);
                         add(StartSurfaceConfiguration.NUM_DAYS_USER_CLICK_BELOW_THRESHOLD);
                         add(StartSurfaceConfiguration.SHOW_TABS_IN_MRU_ORDER);
@@ -164,7 +175,6 @@ public class ChromeCachedFlags {
                         add(StartSurfaceConfiguration
                                         .SIGNIN_PROMO_NTP_SINCE_FIRST_TIME_SHOWN_LIMIT_HOURS);
                         add(StartSurfaceConfiguration.SIGNIN_PROMO_NTP_RESET_AFTER_HOURS);
-                        add(StartSurfaceConfiguration.START_SURFACE_EXCLUDE_MV_TILES);
                         add(StartSurfaceConfiguration.START_SURFACE_HIDE_INCOGNITO_SWITCH_NO_TAB);
                         add(StartSurfaceConfiguration.START_SURFACE_LAST_ACTIVE_TAB_ONLY);
                         add(StartSurfaceConfiguration.START_SURFACE_OPEN_NTP_INSTEAD_OF_START);
@@ -191,6 +201,7 @@ public class ChromeCachedFlags {
                         add(TabUiFeatureUtilities.THUMBNAIL_ASPECT_RATIO);
                         add(TabUiFeatureUtilities.GRID_TAB_SWITCHER_FOR_TABLETS_POLISH);
                         add(TabUiFeatureUtilities.TAB_STRIP_TAB_WIDTH);
+                        add(TabUiFeatureUtilities.ENABLE_TAB_SELECTION_EDITOR_V2_SHARE);
                         add(VersionNumberGetter.MIN_SDK_VERSION);
                     }
                 };

@@ -218,7 +218,7 @@ class COMPONENT_EXPORT(UI_BASE) DialogModel final {
         const DialogModelButton::Params& params = DialogModelButton::Params());
 
     // Adds an extra link to the dialog.
-    Builder& AddExtraLink(ui::DialogModelLabel::Link link);
+    Builder& AddExtraLink(DialogModelLabel::TextReplacement link);
 
     // Adds a paragraph. See DialogModel::AddParagraph().
     Builder& AddParagraph(const DialogModelLabel& label,
@@ -282,6 +282,10 @@ class COMPONENT_EXPORT(UI_BASE) DialogModel final {
       model_->AddCustomField(std::move(field), id);
       return *this;
     }
+
+    // Overrides default button. Can only be called once. The new default button
+    // must exist.
+    Builder& OverrideDefaultButton(DialogButton button);
 
     // Sets which field should be initially focused in the dialog model. Must be
     // called after that field has been added. Can only be called once.
@@ -407,6 +411,11 @@ class COMPONENT_EXPORT(UI_BASE) DialogModel final {
     return dark_mode_banner_;
   }
 
+  const absl::optional<DialogButton>& override_default_button(
+      base::PassKey<DialogModelHost>) const {
+    return override_default_button_;
+  }
+
   ElementIdentifier initially_focused_field(
       base::PassKey<DialogModelHost>) const {
     return initially_focused_field_;
@@ -428,7 +437,8 @@ class COMPONENT_EXPORT(UI_BASE) DialogModel final {
     return extra_button_.has_value() ? &extra_button_.value() : nullptr;
   }
 
-  DialogModelLabel::Link* extra_link(base::PassKey<DialogModelHost>) {
+  DialogModelLabel::TextReplacement* extra_link(
+      base::PassKey<DialogModelHost>) {
     return extra_link_.has_value() ? &extra_link_.value() : nullptr;
   }
 
@@ -467,6 +477,7 @@ class COMPONENT_EXPORT(UI_BASE) DialogModel final {
   ImageModel banner_;
   ImageModel dark_mode_banner_;
 
+  absl::optional<DialogButton> override_default_button_;
   std::vector<std::unique_ptr<DialogModelField>> fields_;
   ElementIdentifier initially_focused_field_;
   bool is_alert_dialog_ = false;
@@ -474,7 +485,7 @@ class COMPONENT_EXPORT(UI_BASE) DialogModel final {
   absl::optional<DialogModelButton> ok_button_;
   absl::optional<DialogModelButton> cancel_button_;
   absl::optional<DialogModelButton> extra_button_;
-  absl::optional<DialogModelLabel::Link> extra_link_;
+  absl::optional<DialogModelLabel::TextReplacement> extra_link_;
 
   base::OnceClosure accept_action_callback_;
   base::OnceClosure cancel_action_callback_;

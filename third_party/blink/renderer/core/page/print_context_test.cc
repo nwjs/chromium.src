@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -130,14 +130,17 @@ class PrintContextTest : public PaintTestConfigurations, public RenderingTest {
     GetDocument().body()->setInnerHTML(body_content);
   }
 
-  void PrintSinglePage(SkCanvas& canvas) {
-    gfx::Rect page_rect(0, 0, kPageWidth, kPageHeight);
+  gfx::Rect PrintSinglePage(SkCanvas& canvas, int page_number = 0) {
     GetDocument().SetPrinting(Document::kBeforePrinting);
     Event* event = MakeGarbageCollected<BeforePrintEvent>();
     GetPrintContext().GetFrame()->DomWindow()->DispatchEvent(*event);
-    GetPrintContext().BeginPrintMode(page_rect.width(), page_rect.height());
+    GetPrintContext().BeginPrintMode(kPageWidth, kPageHeight);
     GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint(
         DocumentUpdateReason::kTest);
+
+    GetPrintContext().ComputePageRects(gfx::SizeF(kPageWidth, kPageHeight));
+    gfx::Rect page_rect = GetPrintContext().PageRect(page_number);
+
     auto* builder = MakeGarbageCollected<PaintRecordBuilder>();
     GraphicsContext& context = builder->Context();
     context.SetPrinting(true);
@@ -151,6 +154,7 @@ class PrintContextTest : public PaintTestConfigurations, public RenderingTest {
     }
     builder->EndRecording()->Playback(&canvas);
     GetPrintContext().EndPrintMode();
+    return page_rect;
   }
 
   static String AbsoluteBlockHtmlForLink(int x,
@@ -466,6 +470,57 @@ TEST_P(PrintContextTest, LinkTargetBoundingBox) {
   EXPECT_SKRECT_EQ(50, 60, 200, 100, operations[0].rect);
 }
 
+TEST_P(PrintContextTest, LinkInFragmentedContainer) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      body {
+        margin: 0;
+        line-height: 50px;
+        orphans: 1;
+        widows: 1;
+      }
+    </style>
+    <div style="height:calc(100vh - 90px);"></div>
+    <div>
+      <a href="http://www.google.com">link 1</a><br>
+      <!-- Page break here. -->
+      <a href="http://www.google.com">link 2</a><br>
+      <a href="http://www.google.com">link 3</a><br>
+    </div>
+  )HTML");
+
+  MockPageContextCanvas first_page_canvas;
+  gfx::Rect page_rect = PrintSinglePage(first_page_canvas, 0);
+  Vector<MockPageContextCanvas::Operation> operations =
+      first_page_canvas.RecordedOperations();
+
+  // TODO(crbug.com/1392701): Should be 1.
+  ASSERT_EQ(operations.size(), 3u);
+
+  const auto& page1_link1 = operations[0];
+  EXPECT_EQ(page1_link1.type, MockPageContextCanvas::kDrawRect);
+  EXPECT_GE(page1_link1.rect.y(), page_rect.height() - 90);
+  EXPECT_LE(page1_link1.rect.bottom(), page_rect.height() - 40);
+
+  MockPageContextCanvas second_page_canvas;
+  page_rect = PrintSinglePage(second_page_canvas, 1);
+  operations = second_page_canvas.RecordedOperations();
+
+  // TODO(crbug.com/1392701): Should be 2.
+  ASSERT_EQ(operations.size(), 3u);
+  // TODO(crbug.com/1392701): Should be operations[0]
+  const auto& page2_link1 = operations[1];
+  // TODO(crbug.com/1392701): Should be operations[1]
+  const auto& page2_link2 = operations[2];
+
+  EXPECT_EQ(page2_link1.type, MockPageContextCanvas::kDrawRect);
+  EXPECT_GE(page2_link1.rect.y(), page_rect.y());
+  EXPECT_LE(page2_link1.rect.bottom(), page_rect.y() + 50);
+  EXPECT_EQ(page2_link2.type, MockPageContextCanvas::kDrawRect);
+  EXPECT_GE(page2_link2.rect.y(), page_rect.y() + 50);
+  EXPECT_LE(page2_link2.rect.bottom(), page_rect.y() + 100);
+}
+
 // Here are a few tests to check that shrink to fit doesn't mess up page count.
 
 TEST_P(PrintContextTest, ScaledVerticalRL1) {
@@ -733,9 +788,9 @@ TEST_P(PrintContextTest, Canvas2DAutoFlushingSuppressed) {
   // Verify that the auto-flush was suppressed by checking that the first
   // fillRect call flowed through to 'canvas'.
   testing::Sequence s;
-  // The initial clear and the first fillRect call
+  // The first fillRect call
   EXPECT_CALL(canvas, onDrawRect(_, _))
-      .Times(testing::Exactly(2))
+      .Times(testing::Exactly(1))
       .InSequence(s);
   // The drawImage call
   EXPECT_CALL(canvas, onDrawImageRect2(_, _, _, _, _, _)).InSequence(s);
@@ -790,8 +845,8 @@ TEST_P(PrintContextAcceleratedCanvasTest, Canvas2DBeforePrint) {
       "});");
   GetDocument().body()->AppendChild(script_element);
 
-  // Initial clear + 2 fillRects.
-  EXPECT_CALL(canvas, onDrawRect(_, _)).Times(testing::Exactly(3));
+  // 2 fillRects.
+  EXPECT_CALL(canvas, onDrawRect(_, _)).Times(testing::Exactly(2));
 
   PrintSinglePage(canvas);
 }
@@ -853,8 +908,8 @@ TEST_P(PrintContextOOPRCanvasTest, Canvas2DBeforePrint) {
       "});");
   GetDocument().body()->AppendChild(script_element);
 
-  // Initial clear + 2 fillRects.
-  EXPECT_CALL(canvas, onDrawRect(_, _)).Times(testing::Exactly(3));
+  // 2 fillRects.
+  EXPECT_CALL(canvas, onDrawRect(_, _)).Times(testing::Exactly(2));
 
   PrintSinglePage(canvas);
 }
@@ -892,8 +947,6 @@ TEST_P(PrintContextOOPRCanvasTest, Canvas2DFlushForImageListener) {
   // Verify that the auto-flush caused the canvas printing to fall out of
   // vector mode.
   testing::Sequence s;
-  // The initial clear
-  EXPECT_CALL(canvas, onDrawRect(_, _)).InSequence(s);
   // The bitmap blit
   EXPECT_CALL(canvas, onDrawImageRect2(_, _, _, _, _, _)).InSequence(s);
   // The fill rect in the event listener should leave no trace here because
@@ -932,9 +985,9 @@ TEST_P(PrintContextOOPRCanvasTest, Canvas2DNoFlushForImageListener) {
   // Verify that the auto-flush caused the canvas printing to fall out of
   // vector mode.
   testing::Sequence s;
-  // The initial clear and the fillRect call
+  // The fillRect call
   EXPECT_CALL(canvas, onDrawRect(_, _))
-      .Times(testing::Exactly(2))
+      .Times(testing::Exactly(1))
       .InSequence(s);
   // The drawImage
   EXPECT_CALL(canvas, onDrawImageRect2(_, _, _, _, _, _)).InSequence(s);
@@ -976,8 +1029,6 @@ TEST_P(PrintContextTest, Canvas2DAutoFlushBeforePrinting) {
   // Verify that the auto-flush caused the canvas printing to fall out of
   // vector mode.
   testing::Sequence s;
-  // The initial clear
-  EXPECT_CALL(canvas, onDrawRect(_, _)).InSequence(s);
   // The bitmap blit
   EXPECT_CALL(canvas, onDrawImageRect2(_, _, _, _, _, _)).InSequence(s);
   // The fill rect in the event listener should leave no trace here because
@@ -1038,6 +1089,45 @@ TEST_P(PrintContextFrameTest, DISABLED_SubframePrintPageLayout) {
   //  The child frame should return to the original size.
   EXPECT_EQ(child->OffsetWidth(), 800);
   EXPECT_EQ(target->OffsetWidth(), 800);
+}
+
+TEST_P(PrintContextTest,
+       TransparentRootBackgroundWithShouldPrintBackgroundDisabled) {
+  MockPageContextCanvas canvas;
+  SetBodyInnerHTML("");
+
+  GetDocument().GetSettings()->SetShouldPrintBackgrounds(false);
+  EXPECT_CALL(canvas, onDrawRect(_, _)).Times(0);
+  PrintSinglePage(canvas);
+}
+
+TEST_P(PrintContextTest,
+       TransparentRootBackgroundWithShouldPrintBackgroundEnabled) {
+  MockPageContextCanvas canvas;
+  SetBodyInnerHTML("");
+
+  GetDocument().GetSettings()->SetShouldPrintBackgrounds(true);
+  EXPECT_CALL(canvas, onDrawRect(_, _)).Times(0);
+  PrintSinglePage(canvas);
+}
+
+TEST_P(PrintContextTest, WhiteRootBackgroundWithShouldPrintBackgroundDisabled) {
+  MockPageContextCanvas canvas;
+  SetBodyInnerHTML("<style>body { background: white; }</style>");
+
+  GetDocument().GetSettings()->SetShouldPrintBackgrounds(false);
+  EXPECT_CALL(canvas, onDrawRect(_, _)).Times(0);
+  PrintSinglePage(canvas);
+}
+
+TEST_P(PrintContextTest, WhiteRootBackgroundWithShouldPrintBackgroundEnabled) {
+  MockPageContextCanvas canvas;
+  SetBodyInnerHTML("<style>body { background: white; }</style>");
+
+  GetDocument().GetSettings()->SetShouldPrintBackgrounds(true);
+  // We should paint the specified white background.
+  EXPECT_CALL(canvas, onDrawRect(_, _)).Times(1);
+  PrintSinglePage(canvas);
 }
 
 }  // namespace blink

@@ -903,7 +903,7 @@ void HTMLFrameOwnerElement::MaybeSetTimeoutToStartFrameLoading(
       .GetTaskRunner(TaskType::kInternalLoading)
       ->PostDelayedTask(
           FROM_HERE,
-          WTF::Bind(
+          WTF::BindOnce(
               base::IgnoreResult(&HTMLFrameOwnerElement::LoadImmediatelyIfLazy),
               WrapWeakPersistent(this)),
           timeout_ms);

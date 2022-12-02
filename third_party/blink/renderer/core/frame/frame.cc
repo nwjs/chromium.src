@@ -508,7 +508,8 @@ Frame::Frame(FrameClient* client,
       navigation_rate_limiter_(*this),
       window_agent_factory_(inheriting_agent_factory
                                 ? inheriting_agent_factory
-                                : MakeGarbageCollected<WindowAgentFactory>()),
+                                : MakeGarbageCollected<WindowAgentFactory>(
+									   page.GetAgentGroupScheduler())),
       devtools_jail_(nullptr),
       dev_jail_owner_(nullptr),
       nodejs_(false),
@@ -594,12 +595,13 @@ base::OnceClosure Frame::ScheduleFormSubmission(
     FormSubmission* form_submission) {
   form_submit_navigation_task_ = PostCancellableTask(
       *scheduler->GetTaskRunner(TaskType::kDOMManipulation), FROM_HERE,
-      WTF::Bind(&FormSubmission::Navigate, WrapPersistent(form_submission)));
+      WTF::BindOnce(&FormSubmission::Navigate,
+                    WrapPersistent(form_submission)));
   form_submit_navigation_task_version_++;
 
-  return WTF::Bind(&Frame::CancelFormSubmissionWithVersion,
-                   WrapWeakPersistent(this),
-                   form_submit_navigation_task_version_);
+  return WTF::BindOnce(&Frame::CancelFormSubmissionWithVersion,
+                       WrapWeakPersistent(this),
+                       form_submit_navigation_task_version_);
 }
 
 void Frame::CancelFormSubmission() {
@@ -720,7 +722,7 @@ bool Frame::FocusCrossesFencedBoundary() {
   return false;
 }
 
-bool Frame::ShouldAllowScriptFocus() {
+bool Frame::AllowFocusWithoutUserActivation() {
   const auto& ff_impl = GetPage()->FencedFramesImplementationType();
   if (!ff_impl)
     return true;

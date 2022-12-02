@@ -112,6 +112,10 @@ class CORE_EXPORT HTMLDocumentParser : public ScriptableDocumentParser,
 
   bool DidPumpTokenizerForTesting() const { return did_pump_tokenizer_; }
 
+  HTMLTokenProducer* TokenProducerForTesting() { return token_producer_.get(); }
+
+  unsigned GetChunkCountForTesting() const;
+
   TextPosition GetTextPosition() const final;
   OrdinalNumber LineNumber() const final;
 
@@ -121,6 +125,9 @@ class CORE_EXPORT HTMLDocumentParser : public ScriptableDocumentParser,
   void Flush() final;
   void SetDecoder(std::unique_ptr<TextResourceDecoder>) final;
   void NotifyNoRemainingAsyncScripts() final;
+
+  static void ResetCachedFeaturesForTesting();
+  static void FlushPreloadScannerThreadForTesting();
 
  protected:
   HTMLDocumentParser(HTMLDocument&,
@@ -163,6 +170,7 @@ class CORE_EXPORT HTMLDocumentParser : public ScriptableDocumentParser,
   void DocumentElementAvailable() override;
   void CommitPreloadedData() override;
   void FlushPendingPreloads() override;
+  BackgroundScanCallback TakeBackgroundScanCallback() override;
 
   // HTMLParserScriptRunnerHost
   void NotifyScriptLoaded() final;
@@ -178,8 +186,9 @@ class CORE_EXPORT HTMLDocumentParser : public ScriptableDocumentParser,
   NextTokenStatus CanTakeNextToken(base::TimeDelta& time_executing_script);
   bool PumpTokenizer();
   void PumpTokenizerIfPossible();
-  void DeferredPumpTokenizerIfPossible();
-  void SchedulePumpTokenizer();
+  void DeferredPumpTokenizerIfPossible(bool from_finish_append,
+                                       base::TimeTicks schedule_time);
+  void SchedulePumpTokenizer(bool from_finish_append);
   void ScheduleEndIfDelayed();
   void ConstructTreeFromToken(AtomicHTMLToken& atomic_token);
 
@@ -214,21 +223,27 @@ class CORE_EXPORT HTMLDocumentParser : public ScriptableDocumentParser,
   void ScanInBackground(const String& source);
 
   // Called on the background thread by |background_scanner_|.
-  void AddPreloadDataOnBackgroundThread(
+  static void AddPreloadDataOnBackgroundThread(
+      CrossThreadWeakPersistent<HTMLDocumentParser> weak_parser,
       scoped_refptr<base::SequencedTaskRunner> task_runner,
       std::unique_ptr<PendingPreloadData> preload_data);
 
   bool HasPendingPreloads() {
     base::AutoLock lock(pending_preload_lock_);
-    return !pending_preload_data_.IsEmpty();
+    return !pending_preload_data_.empty();
   }
 
   void CreateTokenProducer(
       bool can_use_background_token_producer = true,
       HTMLTokenizer::State initial_state = HTMLTokenizer::kDataState);
 
-  const HTMLParserOptions options_;
+  // Returns true if the data should be processed (tokenizer pumped) now. If
+  // this returns false, SchedulePumpTokenizer() should be called. This is
+  // called when data is available.
+  bool ShouldPumpTokenizerNowForFinishAppend() const;
+
   HTMLInputStream input_;
+  const HTMLParserOptions options_;
   Member<HTMLParserReentryPermit> reentry_permit_ =
       MakeGarbageCollected<HTMLParserReentryPermit>();
 
@@ -240,7 +255,10 @@ class CORE_EXPORT HTMLDocumentParser : public ScriptableDocumentParser,
   // A scanner used only for input provided to the insert() method.
   std::unique_ptr<HTMLPreloadScanner> insertion_preload_scanner_;
   WTF::SequenceBound<BackgroundHTMLScanner> background_script_scanner_;
-  WTF::SequenceBound<HTMLPreloadScanner> background_scanner_;
+  HTMLPreloadScanner::BackgroundPtr background_scanner_;
+  using BackgroundScanFn =
+      WTF::CrossThreadRepeatingFunction<void(const KURL&, const String&)>;
+  BackgroundScanFn background_scan_fn_;
 
   scoped_refptr<base::SingleThreadTaskRunner> loading_task_runner_;
 

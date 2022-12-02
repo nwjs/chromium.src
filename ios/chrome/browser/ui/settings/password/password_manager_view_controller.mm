@@ -10,6 +10,7 @@
 #import "base/mac/foundation_util.h"
 #import "base/metrics/histogram_functions.h"
 #import "base/metrics/user_metrics.h"
+#import "base/ranges/algorithm.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/google/core/common/google_util.h"
 #import "components/keyed_service/core/service_access_type.h"
@@ -28,7 +29,6 @@
 #import "components/sync/driver/sync_user_settings.h"
 #import "ios/chrome/browser/application_context/application_context.h"
 #import "ios/chrome/browser/browser_state/chrome_browser_state.h"
-#import "ios/chrome/browser/chrome_url_constants.h"
 #import "ios/chrome/browser/flags/system_flags.h"
 #import "ios/chrome/browser/main/browser.h"
 #import "ios/chrome/browser/net/crurl.h"
@@ -38,6 +38,8 @@
 #import "ios/chrome/browser/ui/settings/cells/settings_check_cell.h"
 #import "ios/chrome/browser/ui/settings/cells/settings_check_item.h"
 #import "ios/chrome/browser/ui/settings/elements/enterprise_info_popover_view_controller.h"
+#import "ios/chrome/browser/ui/settings/password/branded_navigation_item_title_view.h"
+#import "ios/chrome/browser/ui/settings/password/create_password_manager_title_view.h"
 #import "ios/chrome/browser/ui/settings/password/password_exporter.h"
 #import "ios/chrome/browser/ui/settings/password/password_manager_view_controller_delegate.h"
 #import "ios/chrome/browser/ui/settings/password/password_manager_view_controller_presentation_delegate.h"
@@ -62,6 +64,7 @@
 #import "ios/chrome/browser/ui/table_view/table_view_navigation_controller_constants.h"
 #import "ios/chrome/browser/ui/table_view/table_view_utils.h"
 #import "ios/chrome/browser/ui/util/uikit_ui_util.h"
+#import "ios/chrome/browser/url/chrome_url_constants.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/elements/popover_label_view_controller.h"
 #import "ios/chrome/common/ui/favicon/favicon_view.h"
@@ -320,12 +323,6 @@ bool ShouldShowSettingsUI() {
     _sharedPasswordAutoFillStatusManager =
         [PasswordAutoFillStatusManager sharedManager];
 
-    int titleStringID =
-        base::FeatureList::IsEnabled(
-            password_manager::features::kIOSEnablePasswordManagerBrandingUpdate)
-            ? IDS_IOS_PASSWORD_MANAGER
-            : IDS_IOS_PASSWORDS;
-    self.title = l10n_util::GetNSString(titleStringID);
     self.shouldDisableDoneButtonOnEdit = YES;
     self.searchTerm = @"";
     _passwordManagerEnabled = [[PrefBackedBoolean alloc]
@@ -363,12 +360,7 @@ bool ShouldShowSettingsUI() {
 - (void)viewDidLoad {
   [super viewDidLoad];
 
-  // Configure this now, rather than at initialization, because the superclass
-  // viewDidLoad will wipe out our value if we set it too early.
-  if (!ShouldShowSettingsUI()) {
-    self.navigationItem.largeTitleDisplayMode =
-        UINavigationItemLargeTitleDisplayModeAlways;
-  }
+  [self setUpTitle];
 
   self.tableView.allowsMultipleSelectionDuringEditing = YES;
   self.tableView.accessibilityIdentifier = kPasswordsTableViewId;
@@ -971,8 +963,8 @@ bool ShouldShowSettingsUI() {
   passwordItem.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
   if (self.mostRecentlyUpdatedPassword) {
     if (self.mostRecentlyUpdatedPassword->username == credential.username &&
-        self.mostRecentlyUpdatedPassword->signon_realm ==
-            credential.signon_realm) {
+        self.mostRecentlyUpdatedPassword->GetFirstSignonRealm() ==
+            credential.GetFirstSignonRealm()) {
       self.mostRecentlyUpdatedItem = passwordItem;
       self.mostRecentlyUpdatedPassword = absl::nullopt;
     }
@@ -1007,8 +999,8 @@ bool ShouldShowSettingsUI() {
   passwordItem.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
   if (self.mostRecentlyUpdatedPassword) {
     if (self.mostRecentlyUpdatedPassword->username == credential.username &&
-        self.mostRecentlyUpdatedPassword->signon_realm ==
-            credential.signon_realm) {
+        self.mostRecentlyUpdatedPassword->GetFirstSignonRealm() ==
+            credential.GetFirstSignonRealm()) {
       self.legacyMostRecentlyUpdatedItem = passwordItem;
       self.mostRecentlyUpdatedPassword = absl::nullopt;
     }
@@ -1159,7 +1151,7 @@ bool ShouldShowSettingsUI() {
     _blockedSites = std::move(blockedSites);
     _passwords = std::move(passwords);
     TableViewModel* model = self.tableViewModel;
-    NSMutableIndexSet* sectionsToUpdate = [NSMutableIndexSet indexSet];
+    NSMutableIndexSet* sectionIdentifiersToUpdate = [NSMutableIndexSet indexSet];
 
     // Hold in reverse order of section indexes (bottom up of section
     // displayed). If we don't we'll cause a crash.
@@ -1180,7 +1172,7 @@ bool ShouldShowSettingsUI() {
       }
       // If section exists and it should - reload it.
       else if (needsSection && hasSection) {
-        [sectionsToUpdate addIndex:[model sectionForSectionIdentifier:section]];
+        [sectionIdentifiersToUpdate addIndex:section];
       }
       // If section doesn't exist but it should - add it.
       else if (needsSection && !hasSection) {
@@ -1192,6 +1184,16 @@ bool ShouldShowSettingsUI() {
     }
 
     [self updateExportPasswordsButton];
+
+    // After deleting any sections, calculate the indices of sections to be
+    // updated. Doing this before deleting sections will lead to incorrect indices
+    // and possible crashes.
+    NSMutableIndexSet* sectionsToUpdate = [NSMutableIndexSet indexSet];
+    [sectionIdentifiersToUpdate
+        enumerateIndexesUsingBlock:^(NSUInteger sectionIdentifier, BOOL* stop) {
+          [sectionsToUpdate
+              addIndex:[model sectionForSectionIdentifier:sectionIdentifier]];
+        }];
 
     // Reload items in sections.
     if (sectionsToUpdate.count > 0) {
@@ -1211,7 +1213,8 @@ bool ShouldShowSettingsUI() {
         _sharedPasswordAutoFillStatusManager.autoFillEnabled
             ? l10n_util::GetNSString(IDS_IOS_SETTING_ON)
             : l10n_util::GetNSString(IDS_IOS_SETTING_OFF);
-    [self reconfigureCellsForItems:@[ _passwordsInOtherAppsItem ]];
+    [self reloadCellsForItems:@[ _passwordsInOtherAppsItem ]
+             withRowAnimation:UITableViewRowAnimationNone];
   }
 }
 
@@ -1227,6 +1230,12 @@ bool ShouldShowSettingsUI() {
 #pragma mark - UISearchControllerDelegate
 
 - (void)willPresentSearchController:(UISearchController*)searchController {
+  // This is needed to remove the transparency of the navigation bar at scroll
+  // edge in iOS 15+ to prevent the following UITableViewRowAnimationTop
+  // animations from being visible through the navigation bar.
+  self.navigationController.navigationBar.backgroundColor =
+      [UIColor colorNamed:kGroupedPrimaryBackgroundColor];
+
   _shouldUpdateAfterSearchControllerDismissed = YES;
   [self showScrim];
   // Remove save passwords switch section, password check section and
@@ -1259,6 +1268,10 @@ bool ShouldShowSettingsUI() {
 }
 
 - (void)willDismissSearchController:(UISearchController*)searchController {
+  // This is needed to restore the transparency of the navigation bar at scroll
+  // edge in iOS 15+.
+  self.navigationController.navigationBar.backgroundColor = nil;
+
   // No need to restore UI if the Password Manager is being dismissed or if a
   // previous call to `willDismissSearchController` already restored the UI.
   if (self.navigationController.isBeingDismissed ||
@@ -1824,12 +1837,11 @@ bool ShouldShowSettingsUI() {
     auto removeCredential =
         [](std::vector<password_manager::CredentialUIEntry>& credentials,
            const password_manager::CredentialUIEntry& credential) {
-          auto iterator =
-              std::find(credentials.begin(), credentials.end(), credential);
+          auto iterator = base::ranges::find(credentials, credential);
           if (iterator != credentials.end())
             credentials.erase(iterator);
         };
-    
+
     if (itemType == ItemTypeBlocked) {
       removeCredential(_blockedSites, credential);
     } else {
@@ -1954,6 +1966,22 @@ bool ShouldShowSettingsUI() {
   return !(_browserState->GetPrefs()->IsManagedPreference(
                password_manager::prefs::kCredentialsEnableService) &&
            ![_passwordManagerEnabled value]);
+}
+
+// Configures the title of this ViewController. Results may vary based on
+// feature flags.
+- (void)setUpTitle {
+  int titleStringID =
+      base::FeatureList::IsEnabled(
+          password_manager::features::kIOSEnablePasswordManagerBrandingUpdate)
+          ? IDS_IOS_PASSWORD_MANAGER
+          : IDS_IOS_PASSWORDS;
+  self.title = l10n_util::GetNSString(titleStringID);
+
+  if (!ShouldShowSettingsUI()) {
+    self.navigationItem.titleView =
+        password_manager::CreatePasswordManagerTitleView(/*title=*/self.title);
+  }
 }
 
 #pragma mark - UITableViewDelegate

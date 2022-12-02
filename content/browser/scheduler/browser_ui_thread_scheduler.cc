@@ -44,8 +44,9 @@ namespace features {
 // a first input event is received. Checking for native messages more frequently
 // incurs some overhead, but allows the browser to handle input more
 // consistently.
-constexpr base::Feature kBrowserPrioritizeNativeWork{
-    "BrowserPrioritizeNativeWork", base::FEATURE_DISABLED_BY_DEFAULT};
+BASE_FEATURE(kBrowserPrioritizeNativeWork,
+             "BrowserPrioritizeNativeWork",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 constexpr base::FeatureParam<base::TimeDelta>
     kBrowserPrioritizeNativeWorkAfterInputForNMsParam{
         &kBrowserPrioritizeNativeWork, "prioritize_for_next_ms",
@@ -118,13 +119,7 @@ BrowserUIThreadScheduler::BrowserUIThreadScheduler()
                   .SetMessagePumpType(base::MessagePumpType::UI)
                   .Build())),
       task_queues_(BrowserThread::UI, owned_sequence_manager_.get()),
-      handle_(task_queues_.GetHandle()),
-      yield_to_native_for_normal_input_after_ms_(
-          base::kBrowserPeriodicYieldingToNativeNormalInputAfterMsParam.Get()),
-      yield_to_native_for_fling_input_after_ms_(
-          base::kBrowserPeriodicYieldingToNativeFlingInputAfterMsParam.Get()),
-      yield_to_native_for_default_after_ms_(
-          base::kBrowserPeriodicYieldingToNativeNoInputAfterMsParam.Get()) {
+      handle_(task_queues_.GetHandle()) {
   CommonSequenceManagerSetup(owned_sequence_manager_.get());
   owned_sequence_manager_->SetDefaultTaskRunner(
       handle_->GetDefaultTaskRunner());
@@ -137,13 +132,7 @@ BrowserUIThreadScheduler::BrowserUIThreadScheduler()
 BrowserUIThreadScheduler::BrowserUIThreadScheduler(
     base::sequence_manager::SequenceManager* sequence_manager)
     : task_queues_(BrowserThread::UI, sequence_manager),
-      handle_(task_queues_.GetHandle()),
-      yield_to_native_for_normal_input_after_ms_(
-          base::kBrowserPeriodicYieldingToNativeNormalInputAfterMsParam.Get()),
-      yield_to_native_for_fling_input_after_ms_(
-          base::kBrowserPeriodicYieldingToNativeFlingInputAfterMsParam.Get()),
-      yield_to_native_for_default_after_ms_(
-          base::kBrowserPeriodicYieldingToNativeNoInputAfterMsParam.Get()) {
+      handle_(task_queues_.GetHandle()) {
   CommonSequenceManagerSetup(sequence_manager);
   g_browser_ui_thread_scheduler = this;
 }
@@ -255,6 +244,16 @@ void BrowserUIThreadScheduler::EnableBrowserPrioritizesNativeWork() {
 }
 
 void BrowserUIThreadScheduler::EnableAlternatingScheduler() {
+  // Initialize feature parameters. This can't be done in the constructor
+  // because the FeatureList hasn't been initialized when the
+  // BrowserUIThreadScheduler is created.
+  yield_to_native_for_normal_input_after_ms_ =
+      base::kBrowserPeriodicYieldingToNativeNormalInputAfterMsParam.Get();
+  yield_to_native_for_fling_input_after_ms_ =
+      base::kBrowserPeriodicYieldingToNativeFlingInputAfterMsParam.Get();
+  yield_to_native_for_default_after_ms_ =
+      base::kBrowserPeriodicYieldingToNativeNoInputAfterMsParam.Get();
+
   // Rather than just enable immediately we post a task at default priority.
   // This ensures most start up work should be finished before we start using
   // this policy.

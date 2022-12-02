@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "chrome/browser/ui/browser_user_data.h"
+#include "components/prefs/pref_change_registrar.h"
 
 class Browser;
 class HistoryClustersSidePanelUI;
@@ -35,6 +36,14 @@ class HistoryClustersSidePanelCoordinator
   // this was successful.
   bool Show(const std::string& query);
 
+  // Gets the URL needed to open the current Journeys side panel contents into
+  // a new tab.
+  GURL GetOpenInNewTabURL() const;
+
+  // Toggles the registration of the Journeys in the side panel based on
+  // Journeys preferences
+  void OnHistoryClustersPreferenceChanged();
+
  private:
   friend class BrowserUserData<HistoryClustersSidePanelCoordinator>;
 
@@ -45,6 +54,8 @@ class HistoryClustersSidePanelCoordinator
 
   // Used to store the initial query for the next-created WebUI instance.
   std::string initial_query_;
+
+  PrefChangeRegistrar pref_change_registrar_;
 
   BROWSER_USER_DATA_KEY_DECL();
 };

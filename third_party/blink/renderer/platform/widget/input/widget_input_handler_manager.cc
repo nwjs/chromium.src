@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors. All rights reserved.
+// Copyright 2017 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -766,6 +766,16 @@ void WidgetInputHandlerManager::OnDeferCommitsChanged(
   }
 }
 
+void WidgetInputHandlerManager::OnPauseRenderingChanged(bool paused) {
+  if (paused) {
+    suppressing_input_events_state_ |=
+        static_cast<uint16_t>(SuppressingInputEventsBits::kRenderingPaused);
+  } else {
+    suppressing_input_events_state_ &=
+        ~static_cast<uint16_t>(SuppressingInputEventsBits::kRenderingPaused);
+  }
+}
+
 void WidgetInputHandlerManager::InitOnInputHandlingThread(
     const base::WeakPtr<cc::CompositorDelegateForInput>& compositor_delegate,
     bool sync_compositing) {
@@ -1099,6 +1109,16 @@ WidgetInputHandlerManager::GetSynchronousCompositorRegistry() {
 
 void WidgetInputHandlerManager::ClearClient() {
   input_event_queue_->ClearClient();
+}
+
+void WidgetInputHandlerManager::UpdateBrowserControlsState(
+    cc::BrowserControlsState constraints,
+    cc::BrowserControlsState current,
+    bool animate) {
+  DCHECK(InputThreadTaskRunner()->BelongsToCurrentThread());
+  DCHECK(input_handler_proxy_);
+  input_handler_proxy_->UpdateBrowserControlsState(constraints, current,
+                                                   animate);
 }
 
 }  // namespace blink

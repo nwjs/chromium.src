@@ -184,8 +184,8 @@ void AutofillPopupControllerImpl::UpdateDataListValues(
   // Add a separator if there are any other values.
   if (!suggestions_.empty() &&
       suggestions_[0].frontend_id != POPUP_ITEM_ID_SEPARATOR) {
-    suggestions_.insert(suggestions_.begin(), Suggestion());
-    suggestions_[0].frontend_id = POPUP_ITEM_ID_SEPARATOR;
+    suggestions_.insert(suggestions_.begin(),
+                        Suggestion(POPUP_ITEM_ID_SEPARATOR));
   }
 
   // Prepend the parameters to the suggestions we already have.
@@ -328,9 +328,7 @@ void AutofillPopupControllerImpl::AcceptSuggestion(int index) {
         ->NotifyEvent("autofill_virtual_card_suggestion_accepted");
   }
 
-  delegate_->DidAcceptSuggestion(suggestion.main_text.value,
-                                 suggestion.frontend_id, suggestion.payload,
-                                 index);
+  delegate_->DidAcceptSuggestion(suggestion, index);
 }
 
 gfx::NativeView AutofillPopupControllerImpl::container_view() const {
@@ -437,6 +435,13 @@ void AutofillPopupControllerImpl::SetSelectedLine(
   }
 
   if (selected_line_ == selected_line)
+    return;
+
+  // Prevent the race condition, when the view is supposed to be hidden but the
+  // line is selected via the popup and thus there is a call to
+  // `SetSelectedLine`. See crbug.com/1358647 for details on how this can
+  // happen.
+  if (!view_)
     return;
 
   if (selected_line) {

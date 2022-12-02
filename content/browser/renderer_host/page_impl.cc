@@ -5,8 +5,10 @@
 #include "content/browser/renderer_host/page_impl.h"
 
 #include "base/barrier_closure.h"
+#include "base/feature_list.h"
 #include "base/i18n/character_encoding.h"
 #include "base/trace_event/optional_trace_event.h"
+#include "cc/base/features.h"
 #include "content/browser/manifest/manifest_manager_host.h"
 #include "content/browser/renderer_host/frame_tree_node.h"
 #include "content/browser/renderer_host/page_delegate.h"
@@ -156,14 +158,14 @@ void PageImpl::SetActivationStartTime(base::TimeTicks activation_start) {
 }
 
 void PageImpl::ActivateForPrerendering(
-    std::set<RenderViewHostImpl*>& render_view_hosts) {
+    StoredPage::RenderViewHostImplSafeRefSet& render_view_hosts) {
   base::OnceClosure did_activate_render_views =
       base::BindOnce(&PageImpl::DidActivateAllRenderViewsForPrerendering,
                      weak_factory_.GetWeakPtr());
 
   base::RepeatingClosure barrier = base::BarrierClosure(
       render_view_hosts.size(), std::move(did_activate_render_views));
-  for (RenderViewHostImpl* rvh : render_view_hosts) {
+  for (const auto& rvh : render_view_hosts) {
     base::TimeTicks navigation_start_to_send;
     // Only send navigation_start to the RenderViewHost for the main frame to
     // avoid sending the info cross-origin. Only this RenderViewHost needs the
@@ -173,7 +175,7 @@ void PageImpl::ActivateForPrerendering(
     // not yet committed. These RenderViews still need to know about activation
     // so their documents are created in the non-prerendered state once their
     // navigation is committed.
-    if (main_document_.GetRenderViewHost() == rvh)
+    if (main_document_.GetRenderViewHost() == &*rvh)
       navigation_start_to_send = *activation_start_time_for_prerendering_;
 
     auto params = blink::mojom::PrerenderPageActivationParams::New();
@@ -249,8 +251,14 @@ void PageImpl::UpdateBrowserControlsState(cc::BrowserControlsState constraints,
   if (!GetMainDocument().IsRenderFrameLive())
     return;
 
-  GetMainDocument().GetAssociatedLocalMainFrame()->UpdateBrowserControlsState(
-      constraints, current, animate);
+  if (base::FeatureList::IsEnabled(
+          features::kUpdateBrowserControlsWithoutProxy)) {
+    GetMainDocument().GetRenderWidgetHost()->UpdateBrowserControlsState(
+        constraints, current, animate);
+  } else {
+    GetMainDocument().GetAssociatedLocalMainFrame()->UpdateBrowserControlsState(
+        constraints, current, animate);
+  }
 }
 
 float PageImpl::GetPageScaleFactor() const {
@@ -270,9 +278,19 @@ void PageImpl::NotifyVirtualKeyboardOverlayRect(
     const gfx::Rect& keyboard_rect) {
   // TODO(https://crbug.com/1317002): send notification to outer frames if
   // needed.
-  DCHECK(virtual_keyboard_overlays_content());
+  DCHECK_EQ(virtual_keyboard_mode(),
+            ui::mojom::VirtualKeyboardMode::kOverlaysContent);
   GetMainDocument().GetAssociatedLocalFrame()->NotifyVirtualKeyboardOverlayRect(
       keyboard_rect);
+}
+
+void PageImpl::SetVirtualKeyboardMode(ui::mojom::VirtualKeyboardMode mode) {
+  if (virtual_keyboard_mode_ == mode)
+    return;
+
+  virtual_keyboard_mode_ = mode;
+
+  delegate_.OnVirtualKeyboardModeChanged(*this);
 }
 
 base::flat_map<std::string, std::string> PageImpl::GetKeyboardLayoutMap() {

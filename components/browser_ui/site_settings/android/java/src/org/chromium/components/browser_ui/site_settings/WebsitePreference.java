@@ -88,6 +88,16 @@ class WebsitePreference extends ChromeImageViewPreference {
     private void refresh() {
         setTitle(mSite.getTitle());
 
+        if (mSiteSettingsDelegate.isPrivacySandboxFirstPartySetsUIFeatureEnabled()
+                && mSiteSettingsDelegate.isFirstPartySetsDataAccessEnabled()
+                && mSite.getFPSCookieInfo() != null) {
+            var fpsInfo = mSite.getFPSCookieInfo();
+            setSummary(getContext().getResources().getQuantityString(
+                    R.plurals.allsites_fps_list_summary, fpsInfo.getMembersCount(),
+                    Integer.toString(fpsInfo.getMembersCount()), fpsInfo.getOwner()));
+            return;
+        }
+
         if (mSite.getEmbedder() == null) {
             if (mSite.isEmbargoed(mCategory.getContentSettingsType())) {
                 setSummary(getContext().getString(R.string.automatically_blocked));

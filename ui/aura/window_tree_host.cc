@@ -294,7 +294,7 @@ void WindowTreeHost::ConvertDIPToPixels(gfx::Point* point) const {
 }
 
 void WindowTreeHost::ConvertDIPToPixels(gfx::PointF* point) const {
-  GetRootTransform().TransformPoint(point);
+  *point = GetRootTransform().MapPoint(*point);
 }
 
 void WindowTreeHost::ConvertPixelsToDIP(gfx::Point* point) const {
@@ -304,7 +304,7 @@ void WindowTreeHost::ConvertPixelsToDIP(gfx::Point* point) const {
 }
 
 void WindowTreeHost::ConvertPixelsToDIP(gfx::PointF* point) const {
-  GetInverseRootTransform().TransformPoint(point);
+  *point = GetInverseRootTransform().MapPoint(*point);
 }
 
 void WindowTreeHost::SetCursor(gfx::NativeCursor cursor) {
@@ -742,9 +742,7 @@ void WindowTreeHost::OnDisplayMetricsChanged(const display::Display& display,
 
 gfx::Rect WindowTreeHost::GetTransformedRootWindowBoundsFromPixelSize(
     const gfx::Size& size_in_pixels) const {
-  gfx::RectF new_bounds = gfx::RectF(gfx::Rect(size_in_pixels));
-  GetInverseRootTransform().TransformRect(&new_bounds);
-  return gfx::ToEnclosingRect(new_bounds);
+  return GetInverseRootTransform().MapRect(gfx::Rect(size_in_pixels));
 }
 
 void WindowTreeHost::SetNativeWindowOcclusionEnabled(bool enable) {

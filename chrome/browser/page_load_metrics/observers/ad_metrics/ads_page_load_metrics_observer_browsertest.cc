@@ -137,9 +137,9 @@ class AdsPageLoadMetricsObserverBrowserTest
   }
 
   void SetUp() override {
-    std::vector<base::Feature> enabled = {
+    std::vector<base::test::FeatureRef> enabled = {
         subresource_filter::kAdTagging, features::kV8PerFrameMemoryMonitoring};
-    std::vector<base::Feature> disabled = {};
+    std::vector<base::test::FeatureRef> disabled = {};
 
     scoped_feature_list_.InitWithFeatures(enabled, disabled);
     subresource_filter::SubresourceFilterBrowserTest::SetUp();
@@ -306,12 +306,12 @@ IN_PROC_BROWSER_TEST_F(AdsPageLoadMetricsObserverBrowserTest,
       ui_test_utils::NavigateToURL(browser(), GURL(url::kAboutBlankURL)));
 
   auto entries = ukm_recorder.GetEntriesByName(
-      ukm::builders::AdPageLoadCustomSampling::kEntryName);
+      ukm::builders::AdPageLoadCustomSampling2::kEntryName);
   EXPECT_EQ(1u, entries.size());
 
   const int64_t* reported_average_viewport_density =
       ukm_recorder.GetEntryMetric(entries.front(),
-                                  ukm::builders::AdPageLoadCustomSampling::
+                                  ukm::builders::AdPageLoadCustomSampling2::
                                       kAverageViewportAdDensityName);
 
   EXPECT_TRUE(reported_average_viewport_density);
@@ -2434,9 +2434,9 @@ class AdsMemoryMeasurementBrowserTest
   void SetUp() override {
     performance_manager::v8_memory::internal::
         SetEagerMemoryMeasurementEnabledForTesting(true);
-    std::vector<base::Feature> enabled = {
+    std::vector<base::test::FeatureRef> enabled = {
         subresource_filter::kAdTagging, features::kV8PerFrameMemoryMonitoring};
-    std::vector<base::Feature> disabled = {};
+    std::vector<base::test::FeatureRef> disabled = {};
     scoped_feature_list_.InitWithFeatures(enabled, disabled);
 
     subresource_filter::SubresourceFilterBrowserTest::SetUp();

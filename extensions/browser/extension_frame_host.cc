@@ -49,6 +49,12 @@ void ExtensionFrameHost::Request(mojom::RequestParamsPtr params,
 void ExtensionFrameHost::WatchedPageChange(
     const std::vector<std::string>& css_selectors) {}
 
+void ExtensionFrameHost::DetailedConsoleMessageAdded(
+    const std::u16string& message,
+    const std::u16string& source,
+    const StackTrace& stack_trace,
+    blink::mojom::ConsoleMessageLevel level) {}
+
 void ExtensionFrameHost::RequestSync(mojom::RequestParamsPtr params,
                                      RequestSyncCallback callback) {
   content::RenderFrameHost* render_frame_host =

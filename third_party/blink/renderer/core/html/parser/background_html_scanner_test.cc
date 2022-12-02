@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -114,10 +114,10 @@ TEST_F(BackgroundHTMLScannerTest, InsideHTMLPreloadScanner) {
               .task_runner = task_runner_, .min_size = 0u, .enabled = true},
           /*pretokenize_css_params=*/
           OptimizationParams{
-              .task_runner = task_runner_, .min_size = 0u, .enabled = true}));
-  preload_scanner.ScanInBackground(
-      "<script>foo</script>", GetDocument().ValidBaseElementURL(),
+              .task_runner = task_runner_, .min_size = 0u, .enabled = true}),
       CrossThreadBindRepeating([](std::unique_ptr<PendingPreloadData>) {}));
+  preload_scanner.ScanInBackground("<script>foo</script>",
+                                   GetDocument().ValidBaseElementURL());
   FlushTaskRunner();
   EXPECT_NE(parser->TakeInlineScriptStreamer("foo"), nullptr);
 }

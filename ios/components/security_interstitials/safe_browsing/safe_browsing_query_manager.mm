@@ -30,17 +30,6 @@ size_t CreateQueryID() {
 
 #pragma mark - SafeBrowsingQueryManager
 
-// static
-void SafeBrowsingQueryManager::CreateForWebState(web::WebState* web_state,
-                                                 SafeBrowsingClient* client) {
-  if (FromWebState(web_state))
-    return;
-
-  web_state->SetUserData(
-      UserDataKey(),
-      std::make_unique<SafeBrowsingQueryManager>(web_state, client));
-}
-
 SafeBrowsingQueryManager::SafeBrowsingQueryManager(web::WebState* web_state,
                                                    SafeBrowsingClient* client)
     : web_state_(web_state),
@@ -79,9 +68,11 @@ void SafeBrowsingQueryManager::StartQuery(const Query& query) {
   std::unique_ptr<safe_browsing::SafeBrowsingUrlCheckerImpl> url_checker =
       safe_browsing_service->CreateUrlChecker(request_destination, web_state_,
                                               client_);
-  base::OnceCallback<void(bool proceed, bool show_error_page)> callback =
-      base::BindOnce(&SafeBrowsingQueryManager::UrlCheckFinished,
-                     weak_factory_.GetWeakPtr(), query);
+  base::OnceCallback<void(bool proceed, bool show_error_page,
+                          bool did_perform_real_time_check,
+                          bool did_check_allowlist)>
+      callback = base::BindOnce(&SafeBrowsingQueryManager::UrlCheckFinished,
+                                weak_factory_.GetWeakPtr(), query);
   web::GetIOThreadTaskRunner({})->PostTask(
       FROM_HERE,
       base::BindOnce(&UrlCheckerClient::CheckUrl,
@@ -110,9 +101,12 @@ void SafeBrowsingQueryManager::StoreUnsafeResource(
 
 #pragma mark Private
 
-void SafeBrowsingQueryManager::UrlCheckFinished(const Query query,
-                                                bool proceed,
-                                                bool show_error_page) {
+void SafeBrowsingQueryManager::UrlCheckFinished(
+    const Query query,
+    bool proceed,
+    bool show_error_page,
+    bool did_perform_real_time_check,
+    bool did_check_allowlist) {
   auto query_result_pair = results_.find(query);
   DCHECK(query_result_pair != results_.end());
 
@@ -183,7 +177,10 @@ void SafeBrowsingQueryManager::UrlCheckerClient::CheckUrl(
     std::unique_ptr<safe_browsing::SafeBrowsingUrlCheckerImpl> url_checker,
     const GURL& url,
     const std::string& method,
-    base::OnceCallback<void(bool proceed, bool show_error_page)> callback) {
+    base::OnceCallback<void(bool proceed,
+                            bool show_error_page,
+                            bool did_perform_real_time_check,
+                            bool did_check_allowlist)> callback) {
   DCHECK_CURRENTLY_ON(web::WebThread::IO);
   safe_browsing::SafeBrowsingUrlCheckerImpl* url_checker_ptr =
       url_checker.get();
@@ -198,7 +195,9 @@ void SafeBrowsingQueryManager::UrlCheckerClient::OnCheckUrlResult(
     safe_browsing::SafeBrowsingUrlCheckerImpl::NativeUrlCheckNotifier*
         slow_check_notifier,
     bool proceed,
-    bool showed_interstitial) {
+    bool showed_interstitial,
+    bool did_perform_real_time_check,
+    bool did_check_allowlist) {
   DCHECK_CURRENTLY_ON(web::WebThread::IO);
   DCHECK(url_checker);
   if (slow_check_notifier) {
@@ -207,20 +206,24 @@ void SafeBrowsingQueryManager::UrlCheckerClient::OnCheckUrlResult(
     return;
   }
 
-  OnCheckComplete(url_checker, proceed, showed_interstitial);
+  OnCheckComplete(url_checker, proceed, showed_interstitial,
+                  did_perform_real_time_check, did_check_allowlist);
 }
 
 void SafeBrowsingQueryManager::UrlCheckerClient::OnCheckComplete(
     safe_browsing::SafeBrowsingUrlCheckerImpl* url_checker,
     bool proceed,
-    bool showed_interstitial) {
+    bool showed_interstitial,
+    bool did_perform_real_time_check,
+    bool did_check_allowlist) {
   DCHECK_CURRENTLY_ON(web::WebThread::IO);
   DCHECK(url_checker);
 
   auto it = active_url_checkers_.find(url_checker);
   web::GetUIThreadTaskRunner({})->PostTask(
       FROM_HERE,
-      base::BindOnce(std::move(it->second), proceed, showed_interstitial));
+      base::BindOnce(std::move(it->second), proceed, showed_interstitial,
+                     did_perform_real_time_check, did_check_allowlist));
 
   active_url_checkers_.erase(it);
 }

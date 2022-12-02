@@ -30,12 +30,6 @@ export function setPersonalizationSearchHandlerForTesting(testSearchHandler) {
  *     handler.
  */
 export function getPersonalizationSearchHandler() {
-  assert(
-      loadTimeData.getBoolean('isPersonalizationHubEnabled'),
-      'personalization hub feature is required');
-  assert(
-      !loadTimeData.getBoolean('isGuest'),
-      'guest must not request personalization search handler');
   if (!personalizationSearchHandler) {
     personalizationSearchHandler = SearchHandler.getRemote();
   }

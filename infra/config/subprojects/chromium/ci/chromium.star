@@ -46,7 +46,6 @@ ci.builder(
             config = "chromium",
             apply_configs = [
                 "android",
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -83,7 +82,6 @@ ci.builder(
             config = "chromium",
             apply_configs = [
                 "android",
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -130,7 +128,6 @@ ci.builder(
             config = "chromium",
             apply_configs = [
                 "android",
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -188,7 +185,7 @@ ci.builder(
         consoles.console_view_entry(
             branch_selector = branches.MAIN,
             console_view = "sheriff.fuchsia",
-            category = "ci|x64",
+            category = "gardener|ci|x64",
             short_name = "off",
         ),
     ],
@@ -342,7 +339,6 @@ ci.builder(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
             apply_configs = [
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -373,7 +369,6 @@ ci.builder(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
             apply_configs = [
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -417,7 +412,6 @@ ci.builder(
             config = "chromium",
             apply_configs = [
                 "checkout_pgo_profiles",
-                "enable_reclient",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -465,6 +459,9 @@ ci.builder(
     cores = 4,
     os = os.MAC_DEFAULT,
     tree_closing = True,
+    goma_backend = None,
+    reclient_jobs = reclient.jobs.DEFAULT,
+    reclient_instance = reclient.instance.DEFAULT_TRUSTED,
 )
 
 ci.builder(
@@ -502,6 +499,9 @@ ci.builder(
         },
     },
     tree_closing = True,
+    goma_backend = None,
+    reclient_jobs = reclient.jobs.DEFAULT,
+    reclient_instance = reclient.instance.DEFAULT_TRUSTED,
 )
 
 ci.builder(
@@ -527,6 +527,9 @@ ci.builder(
     cores = 12,
     os = os.MAC_DEFAULT,
     tree_closing = True,
+    goma_backend = None,
+    reclient_jobs = reclient.jobs.DEFAULT,
+    reclient_instance = reclient.instance.DEFAULT_TRUSTED,
 )
 
 ci.builder(
@@ -564,6 +567,9 @@ ci.builder(
         },
     },
     tree_closing = True,
+    goma_backend = None,
+    reclient_jobs = reclient.jobs.DEFAULT,
+    reclient_instance = reclient.instance.DEFAULT_TRUSTED,
 )
 
 ci.builder(
@@ -593,6 +599,9 @@ ci.builder(
     # Keep in sync with mac-official in try/chromium.star.
     execution_timeout = 7 * time.hour,
     os = os.MAC_ANY,
+    goma_backend = None,
+    reclient_jobs = reclient.jobs.DEFAULT,
+    reclient_instance = reclient.instance.DEFAULT_TRUSTED,
 )
 
 ci.builder(

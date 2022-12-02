@@ -65,8 +65,9 @@
   NSURL* TOSURL = nil;
   switch (fre_field_trial::GetNewMobileIdentityConsistencyFRE()) {
     case NewMobileIdentityConsistencyFRE::kTwoSteps:
-    case NewMobileIdentityConsistencyFRE::kThreeSteps:
-    case NewMobileIdentityConsistencyFRE::kUMADialog: {
+    case NewMobileIdentityConsistencyFRE::kTangibleSyncA:
+    case NewMobileIdentityConsistencyFRE::kTangibleSyncB:
+    case NewMobileIdentityConsistencyFRE::kTangibleSyncC: {
       TOSURL =
           net::NSURLWithGURL(GetUnifiedTermsOfServiceURL(/*embbeded=*/true));
       break;

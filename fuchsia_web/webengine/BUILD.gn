@@ -163,6 +163,7 @@ component("web_engine_core") {
     "//components/media_control/browser",
     "//components/media_control/renderer",
     "//components/memory_pressure",
+    "//components/network_session_configurator/common",
     "//components/on_load_script_injector/browser",
     "//components/on_load_script_injector/renderer",
     "//components/permissions",
@@ -575,7 +576,6 @@ test("web_engine_browsertests") {
     "//ui/gfx",
     "//ui/ozone",
   ]
-  use_cfv1 = false
 
   test_runner_shard =
       "//build/config/fuchsia/test/elf_test_ambient_exec_runner.shard.test-cml"
@@ -652,7 +652,6 @@ test("web_engine_unittests") {
     "//ui/events:test_support",
     "//ui/ozone",
   ]
-  use_cfv1 = false
 
   additional_manifest_fragments = [
     "//build/config/fuchsia/test/cfv1_launcher.shard.test-cml",
@@ -704,7 +703,7 @@ test("web_engine_integration_tests") {
         ":web_engine",
         "web_engine",
       ] ]
-  use_cfv1 = false
+
   additional_manifest_fragments = [
     "//build/config/fuchsia/test/archivist.shard.test-cml",
     "//build/config/fuchsia/test/audio_output.shard.test-cml",
@@ -721,7 +720,9 @@ test("web_engine_integration_tests_cfv1") {
   sources = [
     "test_debug_listener.cc",
     "test_debug_listener.h",
-    "web_engine_debug_integration_test.cc",
+
+    # Disabled due to challenges connecting to fuchsia.web.Debug.
+    # "web_engine_debug_integration_test.cc",
     "web_engine_integration_logging_test.cc",
     "web_engine_integration_test.cc",
     "web_engine_integration_test_base.cc",
@@ -755,14 +756,10 @@ test("web_engine_integration_tests_cfv1") {
         ":web_engine",
         "web_engine",
       ] ]
-  use_cfv2 = false
   additional_manifest_fragments = [
-    "//build/config/fuchsia/test/audio_capabilities.test-cmx",
-    "//build/config/fuchsia/test/network_capabilities.test-cmx",
-    "//build/config/fuchsia/test/read_debug_data.test-cmx",
-    "//build/config/fuchsia/test/vulkan_capabilities.test-cmx",
-    "//build/config/fuchsia/test/web_engine_required_capabilities.test-cmx",
-    "//build/config/fuchsia/test/web_instance_host_capabilities.test-cmx",
+    "//build/config/fuchsia/test/cfv1_launcher.shard.test-cml",
+    "//build/config/fuchsia/test/web_instance.shard.test-cml",
+    "//build/config/fuchsia/test/web_instance_host.shard.test-cml",
   ]
 }
 
@@ -795,7 +792,7 @@ source_set("cast_streaming_receiver_browsertests") {
     ":browsertest_core",
     ":web_engine_core",
     "//components/cast/message_port",
-    "//components/cast_streaming/browser:test_sender",
+    "//components/cast_streaming/test:test_sender",
     "//content/test:test_support",
     "//fuchsia_web/common/test:test_support",
   ]

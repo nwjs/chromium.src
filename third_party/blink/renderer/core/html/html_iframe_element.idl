@@ -29,7 +29,7 @@
 ] interface HTMLIFrameElement : HTMLElement {
     [CEReactions, Reflect] attribute boolean nwdisable;
     [CEReactions, Reflect] attribute boolean nwfaketop;
-    [CEReactions, Reflect, TreatNullAs=EmptyString, Custom=Setter] attribute DOMString nwUserAgent;
+    [CEReactions, Reflect, Custom=Setter] attribute [TreatNullAs=EmptyString] DOMString nwUserAgent;
     [CEReactions, Reflect, URL] attribute USVString src;
     [CEReactions, Reflect, RaisesException=Setter] attribute HTMLString srcdoc;
     [CEReactions, Reflect] attribute DOMString name;

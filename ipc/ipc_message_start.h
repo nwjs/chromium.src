@@ -19,7 +19,6 @@ enum IPCMessageStart {
   PpapiMsgStart,
   ExtensionMsgStart,
   ShellMsgStart,
-  ChromotingMsgStart,
   NaClHostMsgStart,
   EncryptedMediaMsgStart,
   GinJavaBridgeMsgStart,

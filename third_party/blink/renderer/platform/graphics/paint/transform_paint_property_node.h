@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors. All rights reserved.
+// Copyright 2015 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -115,15 +115,13 @@ class PLATFORM_EXPORT TransformPaintPropertyNode
       DCHECK(IsIdentityOr2DTranslation());
       return translation_2d_;
     }
+
     const TransformationMatrix& Matrix() const {
       DCHECK(matrix_and_origin_);
       return matrix_and_origin_->matrix;
     }
-    TransformationMatrix SlowMatrix() const {
-      return matrix_and_origin_ ? matrix_and_origin_->matrix
-                                : TransformationMatrix().Translate(
-                                      translation_2d_.x(), translation_2d_.y());
-    }
+    TransformationMatrix SlowMatrix() const;
+
     gfx::Point3F Origin() const {
       return matrix_and_origin_ ? matrix_and_origin_->origin : gfx::Point3F();
     }
@@ -231,6 +229,14 @@ class PLATFORM_EXPORT TransformPaintPropertyNode
     PaintPropertyChangeType ComputeChange(
         const State& other,
         const AnimationState& animation_state) const;
+
+    bool UsesCompositedScrolling() const {
+      return direct_compositing_reasons & CompositingReason::kOverflowScrolling;
+    }
+    bool RequiresCullRectExpansion() const {
+      return direct_compositing_reasons &
+             CompositingReason::kRequiresCullRectExpansion;
+    }
   };
 
   // This node is really a sentinel, and does not represent a real transform
@@ -273,15 +279,20 @@ class PLATFORM_EXPORT TransformPaintPropertyNode
   const TransformationMatrix& Matrix() const {
     return state_.transform_and_origin.Matrix();
   }
+
   TransformationMatrix MatrixWithOriginApplied() const {
-    return TransformationMatrix(Matrix()).ApplyTransformOrigin(Origin());
+    TransformationMatrix result = Matrix();
+    result.ApplyTransformOrigin(Origin());
+    return result;
   }
+
   // The slow version always return meaningful TransformationMatrix regardless
   // of IsIdentityOr2DTranslation(). Should be used only in contexts that are
   // not performance sensitive.
   TransformationMatrix SlowMatrix() const {
     return state_.transform_and_origin.SlowMatrix();
   }
+
   gfx::Point3F Origin() const { return state_.transform_and_origin.Origin(); }
 
   PaintPropertyChangeType DirectlyUpdateTransformAndOrigin(
@@ -426,8 +437,7 @@ class PLATFORM_EXPORT TransformPaintPropertyNode
   // Cull rect expansion is required if the compositing reasons hint requirement
   // of high-performance movement, to avoid frequent change of cull rect.
   bool RequiresCullRectExpansion() const {
-    return state_.direct_compositing_reasons &
-           CompositingReason::kRequiresCullRectExpansion;
+    return state_.RequiresCullRectExpansion();
   }
 
   const CompositorElementId& GetCompositorElementId() const {

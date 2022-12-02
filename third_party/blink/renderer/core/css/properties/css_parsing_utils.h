@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium Authors. All rights reserved.
+// Copyright 2017 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -281,6 +281,8 @@ bool IsDefaultKeyword(StringView);
 bool IsHashIdentifier(const CSSParserToken&);
 CORE_EXPORT bool IsDashedIdent(const CSSParserToken&);
 
+CSSValue* ConsumeCSSWideKeyword(CSSParserTokenRange&);
+
 // This function returns false for CSS-wide keywords, 'default', and any
 // template parameters provided.
 //
@@ -453,6 +455,9 @@ bool ConsumeGridTemplateShorthand(bool important,
                                   const CSSValue*& template_columns,
                                   const CSSValue*& template_areas);
 
+CSSValue* ConsumeHyphenateLimitChars(CSSParserTokenRange&,
+                                     const CSSParserContext&);
+
 // The fragmentation spec says that page-break-(after|before|inside) are to be
 // treated as shorthands for their break-(after|before|inside) counterparts.
 // We'll do the same for the non-standard properties
@@ -476,6 +481,7 @@ CSSValue* ConsumeScrollPadding(CSSParserTokenRange&, const CSSParserContext&);
 CSSValue* ConsumeOffsetPath(CSSParserTokenRange&, const CSSParserContext&);
 CSSValue* ConsumePathOrNone(CSSParserTokenRange&);
 CSSValue* ConsumeOffsetRotate(CSSParserTokenRange&, const CSSParserContext&);
+CSSValue* ConsumeInitialLetter(CSSParserTokenRange&, const CSSParserContext&);
 
 CSSValue* ConsumeBasicShape(
     CSSParserTokenRange&,

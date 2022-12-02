@@ -14,8 +14,10 @@
 #include "ash/style/ash_color_provider.h"
 #include "ash/style/color_util.h"
 #include "ash/system/model/system_tray_model.h"
+#include "ash/system/network/active_network_icon.h"
 #include "ash/system/network/network_icon.h"
 #include "ash/system/network/network_icon_animation.h"
+#include "ash/system/network/network_utils.h"
 #include "ash/system/network/tray_network_state_model.h"
 #include "ash/system/power/power_status.h"
 #include "ash/system/tray/hover_highlight_view.h"
@@ -25,6 +27,7 @@
 #include "base/i18n/number_formatting.h"
 #include "chromeos/services/network_config/public/cpp/cros_network_config_util.h"
 #include "chromeos/services/network_config/public/mojom/cros_network_config.mojom.h"
+#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/gfx/image/image_skia.h"
@@ -48,6 +51,7 @@ using chromeos::network_config::mojom::NetworkStateProperties;
 using chromeos::network_config::mojom::NetworkStatePropertiesPtr;
 using chromeos::network_config::mojom::NetworkType;
 using chromeos::network_config::mojom::OncSource;
+using chromeos::network_config::mojom::PortalState;
 using chromeos::network_config::mojom::ProxyMode;
 using chromeos::network_config::mojom::SecurityType;
 
@@ -342,12 +346,26 @@ void NetworkListNetworkItemView::SetupCellularSubtext() {
 }
 
 void NetworkListNetworkItemView::SetupNetworkSubtext() {
-  if (StateIsConnected(network_properties()->connection_state)) {
-    SetupConnectedScrollListItem(this);
-  } else if (network_properties_.get()->connection_state ==
-             ConnectionStateType::kConnecting) {
+  if (network_properties()->connection_state ==
+      ConnectionStateType::kConnecting) {
     SetupConnectingScrollListItem(this);
+    return;
   }
+
+  if (!StateIsConnected(network_properties()->connection_state)) {
+    return;
+  }
+
+  if (ash::features::IsCaptivePortalUI2022Enabled()) {
+    absl::optional<std::u16string> portal_subtext =
+        GetPortalStateSubtext(network_properties()->portal_state);
+    if (portal_subtext) {
+      SetWarningSubText(this, *portal_subtext);
+      return;
+    }
+  }
+
+  SetupConnectedScrollListItem(this);
 }
 
 void NetworkListNetworkItemView::UpdateDisabledTextColor() {
@@ -397,6 +415,13 @@ void NetworkListNetworkItemView::AddPolicyView() {
 
 std::u16string NetworkListNetworkItemView::GenerateAccessibilityLabel(
     const std::u16string& label) {
+  absl::optional<std::u16string> portal_subtext =
+      GetPortalStateSubtext(network_properties()->portal_state);
+  if (portal_subtext) {
+    return l10n_util::GetStringFUTF16(
+        IDS_ASH_STATUS_TRAY_NETWORK_A11Y_LABEL_SUBTEXT, label, *portal_subtext);
+  }
+
   if (IsNetworkConnectable(network_properties())) {
     return l10n_util::GetStringFUTF16(
         IDS_ASH_STATUS_TRAY_NETWORK_A11Y_LABEL_CONNECT, label);
@@ -420,8 +445,14 @@ std::u16string NetworkListNetworkItemView::GenerateAccessibilityDescription() {
   std::u16string connection_status;
 
   if (StateIsConnected(network_properties()->connection_state)) {
-    connection_status =
-        l10n_util::GetStringUTF16(IDS_ASH_STATUS_TRAY_NETWORK_STATUS_CONNECTED);
+    absl::optional<std::u16string> portal_subtext =
+        GetPortalStateSubtext(network_properties()->portal_state);
+    if (portal_subtext) {
+      connection_status = *portal_subtext;
+    } else {
+      connection_status = l10n_util::GetStringUTF16(
+          IDS_ASH_STATUS_TRAY_NETWORK_STATUS_CONNECTED);
+    }
   } else if (network_properties()->connection_state ==
              ConnectionStateType::kConnecting) {
     connection_status = l10n_util::GetStringUTF16(

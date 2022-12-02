@@ -11,6 +11,7 @@
 #import "base/metrics/user_metrics_action.h"
 #import "base/time/time.h"
 #import "components/feed/core/v2/public/common_enums.h"
+#import "ios/chrome/browser/ntp/features.h"
 #import "ios/chrome/browser/ui/content_suggestions/ntp_home_metrics.h"
 #import "ios/chrome/browser/ui/ntp/feed_control_delegate.h"
 #import "ios/chrome/browser/ui/ntp/metrics/feed_session_recorder.h"
@@ -38,8 +39,27 @@ using feed::FeedUserActionType;
 // FeedEngagementType::kFeedScrolled.
 @property(nonatomic, assign) BOOL scrolledReportedDiscover;
 @property(nonatomic, assign) BOOL scrolledReportedFollowing;
-// The time when the first metric is being recorded for this session.
+
+// Tracking property to avoid duplicate recordings of
+// FeedEngagementType::kGoodVisit.
+@property(nonatomic, assign) BOOL goodVisitReported;
+// Tracking property to record a scroll for Good Visits.
+// TODO(crbug.com/1373650) separate the property below in two, one for each
+// feed.
+@property(nonatomic, assign) BOOL goodVisitScroll;
+// The timestamp when the first metric is being recorded for this session.
 @property(nonatomic, assign) base::Time sessionStartTime;
+// The timestamp when the last interaction happens for Good Visits.
+@property(nonatomic, assign) base::Time lastInteractionTimeForGoodVisits;
+// The timestamp when the feed becomes visible again for Good Visits. It
+// is reset when a new Good Visit session starts
+@property(nonatomic, assign)
+    base::Time feedBecameVisibleTimeForGoodVisitSession;
+// The time the user has spent in the feed during a Good Visit session.
+// This property is preserved across NTP usages if they are part of the same
+// Good Visit Session.
+@property(nonatomic, assign)
+    NSTimeInterval previousTimeInFeedForGoodVisitSession;
 
 @end
 
@@ -58,6 +78,11 @@ using feed::FeedUserActionType;
 
 - (void)recordFeedScrolled:(int)scrollDistance {
   [self recordEngagement:scrollDistance interacted:NO];
+
+  if (IsGoodVisitsMetricEnabled()) {
+    self.goodVisitScroll = YES;
+    [self checkEngagementGoodVisitWithInteraction:NO];
+  }
 
   // If neither feed has been scrolled into, log "AllFeeds" scrolled.
   if (!self.scrolledReportedDiscover && !self.scrolledReportedFollowing) {
@@ -90,6 +115,41 @@ using feed::FeedUserActionType;
              orientation == UIDeviceOrientationLandscapeRight) {
     base::RecordAction(base::UserMetricsAction(
         kDiscoverFeedHistogramDeviceOrientationChangedToLandscape));
+  }
+}
+
+- (void)recordNTPDidChangeVisibility:(BOOL)visible {
+  if (!IsGoodVisitsMetricEnabled()) {
+    return;
+  }
+  NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
+  if (visible) {
+    self.previousTimeInFeedForGoodVisitSession =
+        [defaults doubleForKey:kLongFeedVisitTimeAggregateKey];
+    // Checks if there is a timestamp in defaults for when a user clicked
+    // on an article in order to be able to trigger a non-short click
+    // interaction.
+    NSDate* articleVisitStart = base::mac::ObjCCast<NSDate>(
+        [defaults objectForKey:kArticleVisitTimestampKey]);
+    self.feedBecameVisibleTimeForGoodVisitSession = base::Time::Now();
+
+    if (articleVisitStart) {
+      // Report Good Visit if user came back to the NTP after spending
+      // kNonShortClickSeconds in a feed article.
+      if (base::Time::FromNSDate(articleVisitStart) - base::Time::Now() >
+          base::Seconds(kNonShortClickSeconds)) {
+        [self recordEngagedGoodVisits];
+      }
+      // Clear defaults for new session.
+      [defaults setObject:nil forKey:kArticleVisitTimestampKey];
+    }
+  } else {
+    // Once the NTP becomes hidden, check for Good Visit which updates
+    // `self.previousTimeInFeedForGoodVisitSession` and then we save it to
+    // defaults.
+    [self checkEngagementGoodVisitWithInteraction:NO];
+    [defaults setDouble:self.previousTimeInFeedForGoodVisitSession
+                 forKey:kLongFeedVisitTimeAggregateKey];
   }
 }
 
@@ -301,42 +361,58 @@ using feed::FeedUserActionType;
 - (void)recordFeedArticlesFetchDurationInSeconds:
             (NSTimeInterval)durationInSeconds
                                          success:(BOOL)success {
+  [self recordFeedArticlesFetchDuration:base::Seconds(durationInSeconds)
+                                success:success];
+}
+
+- (void)recordFeedArticlesFetchDuration:(base::TimeDelta)duration
+                                success:(BOOL)success {
   if (success) {
     UMA_HISTOGRAM_MEDIUM_TIMES(kDiscoverFeedArticlesFetchNetworkDurationSuccess,
-                               base::Seconds(durationInSeconds));
+                               duration);
   } else {
     UMA_HISTOGRAM_MEDIUM_TIMES(kDiscoverFeedArticlesFetchNetworkDurationFailure,
-                               base::Seconds(durationInSeconds));
+                               duration);
   }
-  [self recordNetworkRequestDurationInSeconds:durationInSeconds];
+  [self recordNetworkRequestDuration:duration];
 }
 
 - (void)recordFeedMoreArticlesFetchDurationInSeconds:
             (NSTimeInterval)durationInSeconds
                                              success:(BOOL)success {
+  [self recordFeedMoreArticlesFetchDuration:base::Seconds(durationInSeconds)
+                                    success:success];
+}
+
+- (void)recordFeedMoreArticlesFetchDuration:(base::TimeDelta)duration
+                                    success:(BOOL)success {
   if (success) {
     UMA_HISTOGRAM_MEDIUM_TIMES(
-        kDiscoverFeedMoreArticlesFetchNetworkDurationSuccess,
-        base::Seconds(durationInSeconds));
+        kDiscoverFeedMoreArticlesFetchNetworkDurationSuccess, duration);
   } else {
     UMA_HISTOGRAM_MEDIUM_TIMES(
-        kDiscoverFeedMoreArticlesFetchNetworkDurationFailure,
-        base::Seconds(durationInSeconds));
+        kDiscoverFeedMoreArticlesFetchNetworkDurationFailure, duration);
   }
-  [self recordNetworkRequestDurationInSeconds:durationInSeconds];
+  [self recordNetworkRequestDuration:duration];
 }
 
 - (void)recordFeedUploadActionsDurationInSeconds:
             (NSTimeInterval)durationInSeconds
                                          success:(BOOL)success {
+  [self recordFeedUploadActionsDuration:base::Seconds(durationInSeconds)
+                                success:success];
+}
+
+- (void)recordFeedUploadActionsDuration:(base::TimeDelta)duration
+                                success:(BOOL)success {
   if (success) {
     UMA_HISTOGRAM_MEDIUM_TIMES(kDiscoverFeedUploadActionsNetworkDurationSuccess,
-                               base::Seconds(durationInSeconds));
+                               duration);
   } else {
     UMA_HISTOGRAM_MEDIUM_TIMES(kDiscoverFeedUploadActionsNetworkDurationFailure,
-                               base::Seconds(durationInSeconds));
+                               duration);
   }
-  [self recordNetworkRequestDurationInSeconds:durationInSeconds];
+  [self recordNetworkRequestDuration:duration];
 }
 
 - (void)recordNativeContextMenuVisibilityChanged:(BOOL)shown {
@@ -652,6 +728,27 @@ using feed::FeedUserActionType;
   if (isInteraction) {
     [self recordInteraction];
   }
+
+  // Check if actionType warrants a Good Explicit Visit
+  // If actionType is any of the cases below, trigger a Good Explicit
+  // interaction by calling recordEngagementGoodVisit
+  if (!IsGoodVisitsMetricEnabled()) {
+    return;
+  }
+  switch (actionType) {
+    case FeedUserActionType::kAddedToReadLater:
+    case FeedUserActionType::kOpenedNativeContextMenu:
+    case FeedUserActionType::kTappedOpenInNewIncognitoTab:
+      [self checkEngagementGoodVisitWithInteraction:YES];
+      break;
+    default:
+      // Default will handle the remaining FeedUserActionTypes that
+      // do not trigger a Good Explicit interaction, but might trigger a good
+      // visit due to other checks e.g. Using the feed for
+      // `kGoodVisitTimeInFeedSeconds`.
+      [self checkEngagementGoodVisitWithInteraction:NO];
+      break;
+  }
 }
 
 // Records Feed engagement.
@@ -664,19 +761,20 @@ using feed::FeedUserActionType;
   if (now - self.sessionStartTime > visitTimeout) {
     [self finalizeSession];
   }
+
   // Reset the last active time for session measurement.
   self.sessionStartTime = now;
 
   // Report the user as engaged-simple if they have scrolled any amount or
-  // interacted with the card, and we have not already reported it for this
-  // chrome run.
+  // interacted with the card, and it has not already been reported for this
+  // Chrome run.
   if (scrollDistance > 0 || interacted) {
     [self recordEngagedSimple];
   }
 
   // Report the user as engaged if they have scrolled more than the threshold or
-  // interacted with the card, and we have not already reported it this chrome
-  // run.
+  // interacted with the card, and it has not already been reported this
+  // Chrome run.
   if (scrollDistance > kMinScrollThreshold || interacted) {
     [self recordEngaged];
   }
@@ -684,10 +782,46 @@ using feed::FeedUserActionType;
   [self.sessionRecorder recordUserInteractionOrScrolling];
 }
 
+// Checks if a Good Visit should be recorded. `interacted` is YES if it was
+// triggered by an explicit interaction. (e.g. Opening a new Tab in Incognito.)
+- (void)checkEngagementGoodVisitWithInteraction:(BOOL)interacted {
+  DCHECK(IsGoodVisitsMetricEnabled());
+  // Determine if this interaction is part of a new session.
+  base::Time now = base::Time::Now();
+  if ((now - self.lastInteractionTimeForGoodVisits) >
+      base::Minutes(kMinutesBetweenSessions)) {
+    [self resetGoodVisitSession];
+  }
+  self.lastInteractionTimeForGoodVisits = now;
+
+  // If the sessions hasn't been reseted and a GoodVisit has already been
+  // reported return early as an optimization
+  if (self.goodVisitReported) {
+    return;
+  }
+
+  // Report a Good Visit if any of the conditions below is YES and
+  // no Good Visit has been recorded for the past `kMinutesBetweenSessions`:
+  // 1. Good Explicit Interaction (add to reading list, long press, open in
+  // new incognito tab ...).
+
+  if (interacted) {
+    [self recordEngagedGoodVisits];
+    return;
+  }
+  // 2. Good time in feed (`kGoodVisitTimeInFeedSeconds` with >= 1 scroll in an
+  // entire session).
+  if (([self timeSpentInFeedForCurrentGoodVisitSession] >
+       kGoodVisitTimeInFeedSeconds) &&
+      self.goodVisitScroll) {
+    [self recordEngagedGoodVisits];
+    return;
+  }
+}
+
 // Records any direct interaction with the Feed, this doesn't include scrolling.
 - (void)recordInteraction {
   [self recordEngagement:0 interacted:YES];
-
   // Log interaction for all feeds
   UMA_HISTOGRAM_ENUMERATION(kAllFeedsEngagementTypeHistogram,
                             FeedEngagementType::kFeedInteracted);
@@ -735,7 +869,7 @@ using feed::FeedUserActionType;
 - (void)recordEngaged {
   // If neither feed has been engaged with, log "AllFeeds" engagement.
   if (!self.engagedReportedDiscover && !self.engagedReportedFollowing) {
-    // If the user has engaged with a feed, we record this as a user default.
+    // If the user has engaged with a feed, this is recorded as a user default.
     // This can be used for things which require feed engagement as a condition,
     // such as the top-of-feed signin promo.
     NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
@@ -766,16 +900,46 @@ using feed::FeedUserActionType;
 
     // Log follow count when engaging with Following feed.
     // TODO(crbug.com/1322640): `followDelegate` is nil when navigating to an
-    // article, since NTPCoordinator is stopped first. When this is fixed, we
-    // should call `recordFollowCount` here.
+    // article, since NTPCoordinator is stopped first. When this is fixed,
+    // `recordFollowCount` should be called here.
   }
 
   // TODO(crbug.com/1322640): Separate user action for Following feed
   base::RecordAction(base::UserMetricsAction(kDiscoverFeedUserActionEngaged));
 }
 
+// Records Good Visits for both the Following and Discover feed.
+- (void)recordEngagedGoodVisits {
+  // Check if the user has previously engaged with the feed in the same
+  // session.
+  // If neither feed has been engaged with, log "AllFeeds" engagement.
+  DCHECK(IsGoodVisitsMetricEnabled());
+  if (!self.goodVisitReported) {
+    UMA_HISTOGRAM_ENUMERATION(kAllFeedsEngagementTypeHistogram,
+                              FeedEngagementType::kGoodVisit);
+    self.goodVisitReported = YES;
+  }
+
+  // TODO(crbug.com/1373650): Implement separate feed logging for
+  // Good Visits.
+}
+
+// Calculates the time the user has spent in the feed during a good
+// visit session.
+- (NSTimeInterval)timeSpentInFeedForCurrentGoodVisitSession {
+  // Add the time spent since last recording.
+  base::Time now = base::Time::Now();
+  base::TimeDelta additionalTimeInFeed =
+      now - self.feedBecameVisibleTimeForGoodVisitSession;
+  self.previousTimeInFeedForGoodVisitSession =
+      self.previousTimeInFeedForGoodVisitSession +
+      additionalTimeInFeed.InSecondsF();
+
+  return self.previousTimeInFeedForGoodVisitSession;
+}
+
 // Resets the session tracking values, this occurs if there's been
-// kMinutesBetweenSessions minutes between sessions.
+// `kMinutesBetweenSessions` minutes between sessions.
 - (void)finalizeSession {
   // If simple engagement hasn't been logged, then there's no session to
   // finalize.
@@ -794,17 +958,37 @@ using feed::FeedUserActionType;
   self.scrolledReportedFollowing = NO;
 }
 
-// Records the `durationInSeconds` it took to Discover feed to perform any
+// Resets the Good Visits session tracking values, this occurs if there's been
+// kMinutesBetweenSessions minutes between sessions.
+- (void)resetGoodVisitSession {
+  // Reset defaults for new session.
+  NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
+  [defaults setObject:nil forKey:kArticleVisitTimestampKey];
+  [defaults setDouble:0 forKey:kLongFeedVisitTimeAggregateKey];
+
+  self.lastInteractionTimeForGoodVisits = base::Time::Now();
+  self.feedBecameVisibleTimeForGoodVisitSession = base::Time::Now();
+
+  self.previousTimeInFeedForGoodVisitSession = 0;
+
+  self.goodVisitScroll = NO;
+  self.goodVisitReported = NO;
+}
+
+// Records the `duration` it took to Discover feed to perform any
 // network operation.
-- (void)recordNetworkRequestDurationInSeconds:
-    (NSTimeInterval)durationInSeconds {
-  UMA_HISTOGRAM_MEDIUM_TIMES(kDiscoverFeedNetworkDuration,
-                             base::Seconds(durationInSeconds));
+- (void)recordNetworkRequestDuration:(base::TimeDelta)duration {
+  UMA_HISTOGRAM_MEDIUM_TIMES(kDiscoverFeedNetworkDuration, duration);
 }
 
 // Records that a URL was opened regardless of the target surface (e.g. New Tab,
 // Same Tab, Incognito Tab, etc.)
 - (void)recordOpenURL {
+  // Save the time of the open so we can then calculate how long the user spent
+  // in that page.
+  [[NSUserDefaults standardUserDefaults] setObject:[[NSDate alloc] init]
+                                            forKey:kArticleVisitTimestampKey];
+
   if (self.isShownOnStartSurface) {
     UMA_HISTOGRAM_ENUMERATION(kActionOnStartSurface,
                               IOSContentSuggestionsActionType::kFeedCard);

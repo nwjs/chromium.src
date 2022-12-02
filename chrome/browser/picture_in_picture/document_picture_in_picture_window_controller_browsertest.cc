@@ -200,6 +200,7 @@ IN_PROC_BROWSER_TEST_F(DocumentPictureInPictureWindowControllerBrowserTest,
                        MAYBE_CreateTwice) {
   LoadTabAndEnterPictureInPicture(browser());
 
+  ASSERT_TRUE(window_controller()->GetWebContents());
   ASSERT_TRUE(window_controller()->GetChildWebContents());
   DestructionObserver w(window_controller()->GetChildWebContents());
 
@@ -318,6 +319,25 @@ IN_PROC_BROWSER_TEST_F(DocumentPictureInPictureWindowControllerBrowserTest,
   ASSERT_EQ(true, EvalJs(active_web_contents,
                          "addScriptToPictureInPictureWindow();"));
   base::RunLoop().RunUntilIdle();
+}
+
+// Window controller bounds should be same as the web content bounds.
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+// Document PiP is not supported in Lacros yet.
+#define MAYBE_CheckWindowBoundsSameAsWebContents \
+  DISABLED_CheckWindowBoundsSameAsWebContents
+#else
+#define MAYBE_CheckWindowBoundsSameAsWebContents \
+  CheckWindowBoundsSameAsWebContents
+#endif
+IN_PROC_BROWSER_TEST_F(DocumentPictureInPictureWindowControllerBrowserTest,
+                       MAYBE_CheckWindowBoundsSameAsWebContents) {
+  LoadTabAndEnterPictureInPicture(browser());
+  auto* web_contents = window_controller()->GetChildWebContents();
+  ASSERT_TRUE(web_contents);
+
+  EXPECT_EQ(web_contents->GetContainerBounds(),
+            window_controller()->GetWindowBounds());
 }
 
 // Make sure that document PiP fails without a secure context.

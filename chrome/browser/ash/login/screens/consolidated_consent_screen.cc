@@ -8,6 +8,7 @@
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_switches.h"
 #include "base/bind.h"
+#include "base/check_op.h"
 #include "base/command_line.h"
 #include "base/hash/sha1.h"
 #include "base/i18n/timezone.h"
@@ -87,7 +88,6 @@ std::string ConsolidatedConsentScreen::GetResultString(Result result) {
     case Result::ACCEPTED:
       return "AcceptedRegular";
     case Result::ACCEPTED_DEMO_ONLINE:
-    case Result::ACCEPTED_DEMO_OFFLINE:
       return "AcceptedDemo";
     case Result::BACK_DEMO:
       return "BackDemo";
@@ -184,6 +184,12 @@ void ConsolidatedConsentScreen::ShowImpl() {
   // URL for Chrome and ChromeOS additional terms of service, the URL should
   // include the locale.
   data.Set("crosEulaUrl", GetCrosEulaOnlineUrl());
+  // Option that controls if Recovery factor opt-in should be shown for the
+  // user.
+  data.Set("showRecoveryOption", context()->ask_about_recovery_consent);
+  // Default value for recovery opt toggle.
+  data.Set("recoveryOptionDefault", context()->ask_about_recovery_consent);
+
   view_->Show(std::move(data));
 }
 
@@ -196,12 +202,14 @@ void ConsolidatedConsentScreen::OnUserAction(const base::Value::List& args) {
   if (action_id == kBackDemoButtonClicked) {
     exit_callback_.Run(Result::BACK_DEMO);
   } else if (action_id == kAcceptButtonClicked) {
-    CHECK_EQ(args.size(), 5);
+    CHECK_EQ(args.size(), 6u);
     const bool enable_usage = args[1].GetBool();
     const bool enable_backup = args[2].GetBool();
     const bool enable_location = args[3].GetBool();
     const std::string& tos_content = args[4].GetString();
-    OnAccept(enable_usage, enable_backup, enable_location, tos_content);
+    const bool enable_recovery = args[5].GetBool();
+    OnAccept(enable_usage, enable_backup, enable_location, tos_content,
+             enable_recovery);
   } else {
     BaseScreen::OnUserAction(args);
   }
@@ -261,7 +269,7 @@ void ConsolidatedConsentScreen::OnOwnershipStatusCheckDone(
   // If the user is not the owner and the owner disabled metrics, the user
   // is not allowed to update the usage opt-in.
   if (view_) {
-    view_->SetUsageOptinOptinHidden(
+    view_->SetUsageOptinHidden(
         !is_owner_.value_or(false) &&
         !ash::StatsReportingController::Get()->IsEnabled());
   }
@@ -382,8 +390,11 @@ void ConsolidatedConsentScreen::ReportUsageOptIn(bool is_enabled) {
 void ConsolidatedConsentScreen::OnAccept(bool enable_stats_usage,
                                          bool enable_backup_restore,
                                          bool enable_location_services,
-                                         const std::string& tos_content) {
+                                         const std::string& tos_content,
+                                         bool enable_recovery) {
   ReportUsageOptIn(enable_stats_usage);
+
+  context()->recovery_factor_opted_in = enable_recovery;
 
   if (arc::IsArcDemoModeSetupFlow() ||
       !arc::IsArcTermsOfServiceOobeNegotiationNeeded()) {

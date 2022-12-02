@@ -37,6 +37,10 @@ COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kAudioMute[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kAudioOutputAllowed[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kAudioVolumePercent[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kAudioDevicesState[];
+COMPONENT_EXPORT(ASH_CONSTANTS)
+extern const char kAudioInputDevicesUserPriority[];
+COMPONENT_EXPORT(ASH_CONSTANTS)
+extern const char kAudioOutputDevicesUserPriority[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kEduCoexistenceId[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kEduCoexistenceToSVersion[];
@@ -327,6 +331,10 @@ COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kShelfAlignment[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kShelfAlignmentLocal[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kShelfAutoHideBehavior[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kShelfAutoHideBehaviorLocal[];
+COMPONENT_EXPORT(ASH_CONSTANTS)
+extern const char kShelfAutoHideTabletModeBehavior[];
+COMPONENT_EXPORT(ASH_CONSTANTS)
+extern const char kShelfAutoHideTabletModeBehaviorLocal[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kShelfLauncherNudge[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kShelfPreferences[];
 

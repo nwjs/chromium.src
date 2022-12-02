@@ -2,13 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {assert} from 'chrome://resources/js/assert.m.js';
+import {assert} from 'chrome://resources/js/assert.js';
 import {decorate} from 'chrome://resources/js/cr/ui.js';
 import {Menu} from './menu.js';
 import {HideType} from './menu_button.js';
 import {MenuItem} from './menu_item.js';
 import {AnchorType, positionPopupAroundElement} from './position_util.js';
-import {EventTracker} from 'chrome://resources/js/event_tracker.js';
+import {EventTracker} from 'chrome://resources/ash/common/event_tracker.js';
 
 import {util} from '../../../common/js/util.js';
 

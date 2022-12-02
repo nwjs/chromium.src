@@ -40,6 +40,8 @@ class ArcPictureInPictureWindowControllerImpl
   void CloseAndFocusInitiator() override;
   void OnWindowDestroyed(bool should_pause_video) override;
   content::WebContents* GetWebContents() override;
+  absl::optional<gfx::Rect> GetWindowBounds() override;
+  content::WebContents* GetChildWebContents() override;
 
  private:
   arc::ArcPipBridge* const arc_pip_bridge_;

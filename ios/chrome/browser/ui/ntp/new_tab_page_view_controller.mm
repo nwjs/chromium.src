@@ -86,6 +86,11 @@
 @property(nonatomic, strong)
     NSMutableArray<UIViewController*>* viewControllersAboveFeed;
 
+// Identity disc shown in the NTP.
+// TODO(crbug.com/1170995): Remove once the Feed header properly supports
+// ContentSuggestions.
+@property(nonatomic, weak) UIButton* identityDiscButton;
+
 @end
 
 @implementation NewTabPageViewController
@@ -139,12 +144,15 @@
     [self.view addSubview:gradientView];
     AddSameConstraints(self.view, gradientView);
   } else {
-    self.view.backgroundColor = ntp_home::kNTPBackgroundColor();
+    self.view.backgroundColor = ntp_home::NTPBackgroundColor();
   }
 
   [self registerNotifications];
 
   [self layoutContentInParentCollectionView];
+
+  self.identityDiscButton = [self.headerController identityDiscButton];
+  DCHECK(self.identityDiscButton);
 }
 
 - (void)viewWillLayoutSubviews {
@@ -420,6 +428,9 @@
 
 - (void)updateNTPLayout {
   [self updateFeedInsetsForContentAbove];
+  if (self.feedVisible) {
+    [self updateFeedInsetsForMinimumHeight];
+  }
 
   // Reload data to ensure the Most Visited tiles and fake omnibox are correctly
   // positioned, in particular during a rotation while a ViewController is
@@ -501,6 +512,10 @@
   if (self.fakeOmniboxPinnedToTop) {
     [self setContentOffset:[self scrollPosition] + [self feedTopSectionHeight]];
   }
+}
+
+- (void)updateStickyElements {
+  [self handleStickyElementsForScrollPosition:[self scrollPosition] force:YES];
 }
 
 #pragma mark - UIScrollViewDelegate
@@ -723,7 +738,7 @@
     self.feedHeaderConstraints = @[
       [self.feedHeaderViewController.view.topAnchor
           constraintEqualToAnchor:self.headerController.view.bottomAnchor
-                         constant:-(content_suggestions::headerBottomPadding() +
+                         constant:-(content_suggestions::HeaderBottomPadding() +
                                     [self.feedHeaderViewController
                                             customSearchEngineViewHeight])],
       [self.collectionView.topAnchor
@@ -1015,7 +1030,7 @@
     offset = -(self.headerController.view.frame.size.height -
                [self stickyOmniboxHeight] -
                [self.feedHeaderViewController customSearchEngineViewHeight] -
-               content_suggestions::headerBottomPadding());
+               content_suggestions::HeaderBottomPadding());
   } else {
     offset = -[self feedHeaderHeight];
   }

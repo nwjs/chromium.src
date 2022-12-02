@@ -61,8 +61,13 @@ void RecordTrustedVaultURLFetchResponse(
 }
 
 void RecordTrustedVaultDownloadKeysStatus(
-    TrustedVaultDownloadKeysStatusForUMA status) {
+    TrustedVaultDownloadKeysStatusForUMA status,
+    bool also_log_with_v1_suffx) {
   base::UmaHistogramEnumeration("Sync.TrustedVaultDownloadKeysStatus", status);
+  if (also_log_with_v1_suffx) {
+    base::UmaHistogramEnumeration("Sync.TrustedVaultDownloadKeysStatusV1",
+                                  status);
+  }
 }
 
 void RecordTrustedVaultHistogramBooleanWithMigrationSuffix(
@@ -97,6 +102,10 @@ void RecordTrustedVaultHistogramBooleanWithMigrationSuffix(
   if (time_delta_since_migration < base::Days(1)) {
     base::UmaHistogramBoolean(histogram_name + ".MigratedLastDay", sample);
   }
+}
+
+void RecordTrustedVaultFileReadStatus(TrustedVaultFileReadStatusForUMA status) {
+  base::UmaHistogramEnumeration("Sync.TrustedVaultFileReadStatus", status);
 }
 
 }  // namespace syncer

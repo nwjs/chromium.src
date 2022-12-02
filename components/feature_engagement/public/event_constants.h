@@ -79,6 +79,12 @@ extern const char kFocusHelpBubbleAcceleratorPromoRead[];
 // The user has opened the battery saver bubble dialog
 extern const char kBatterySaverDialogShown[];
 
+// The user has opened the high efficiency page action chip
+extern const char kHighEfficiencyDialogShown[];
+
+// The user clicked on the performance menu item
+extern const char kPerformanceMenuItemActivated[];
+
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA)
 
@@ -94,6 +100,9 @@ extern const char kClearedBrowsingData[];
 
 // The user has viewed their reading list.
 extern const char kViewedReadingList[];
+
+// The user has viewed What's New.
+extern const char kViewedWhatsNew[];
 
 // The user has triggered the translate infobar manually.
 extern const char kTriggeredTranslateInfobar[];

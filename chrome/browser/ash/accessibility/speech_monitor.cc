@@ -49,7 +49,9 @@ void SpeechMonitor::Speak(int utterance_id,
          "empty string in a test, that's probably not the correct way to "
          "achieve stopping speech. If it is unintended, it indicates a deeper "
          "underlying issue.";
-
+  content::TtsController::GetInstance()->OnTtsEvent(
+      utterance_id, content::TTS_EVENT_START, 0,
+      static_cast<int>(utterance.size()), std::string());
   content::TtsController::GetInstance()->OnTtsEvent(
       utterance_id, content::TTS_EVENT_END, static_cast<int>(utterance.size()),
       0, std::string());
@@ -104,6 +106,11 @@ void SpeechMonitor::FinalizeVoiceOrdering(
     std::vector<content::VoiceData>& voices) {}
 
 void SpeechMonitor::RefreshVoices() {}
+
+content::ExternalPlatformDelegate*
+SpeechMonitor::GetExternalPlatformDelegate() {
+  return nullptr;
+}
 
 double SpeechMonitor::CalculateUtteranceDelayMS() {
   std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();

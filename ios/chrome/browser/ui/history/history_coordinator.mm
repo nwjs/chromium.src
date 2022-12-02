@@ -29,7 +29,6 @@
 #import "ios/chrome/browser/ui/menu/menu_histograms.h"
 #import "ios/chrome/browser/ui/sharing/sharing_coordinator.h"
 #import "ios/chrome/browser/ui/table_view/table_view_navigation_controller.h"
-#import "ios/chrome/browser/ui/util/ui_util.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
 #error "This file requires ARC support."
@@ -138,6 +137,10 @@
   [self stopWithCompletion:nil];
 }
 
+- (void)dealloc {
+  self.historyTableViewController.historyService = nullptr;
+}
+
 // This method should always execute the `completionHandler`.
 - (void)stopWithCompletion:(ProceduralBlock)completionHandler {
   [self.sharingCoordinator stop];
@@ -169,6 +172,7 @@
                                                        completion:completion];
   self.historyNavigationController = nil;
   self.historyClearBrowsingDataCoordinator = nil;
+  self.historyTableViewController.historyService = nullptr;
   _browsingHistoryDriver = nullptr;
   _browsingHistoryService = nullptr;
   _browsingHistoryDriverDelegate = nullptr;

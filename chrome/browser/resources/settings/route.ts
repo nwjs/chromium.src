@@ -20,7 +20,9 @@ function addPrivacyChildRoutes(r: Partial<SettingsRoutes>) {
 
   r.SAFETY_CHECK = r.PRIVACY.createSection('/safetyCheck', 'safetyCheck');
 
-  r.PRIVACY_GUIDE = r.PRIVACY.createChild('guide');
+  if (loadTimeData.getBoolean('showPrivacyGuide')) {
+    r.PRIVACY_GUIDE = r.PRIVACY.createChild('guide');
+  }
   r.SITE_SETTINGS = r.PRIVACY.createChild('/content');
   r.COOKIES = r.PRIVACY.createChild('/cookies');
   r.SECURITY = r.PRIVACY.createChild('/security');
@@ -55,11 +57,6 @@ function addPrivacyChildRoutes(r: Partial<SettingsRoutes>) {
       r.SITE_SETTINGS.createChild('backgroundSync');
   r.SITE_SETTINGS_CAMERA = r.SITE_SETTINGS.createChild('camera');
   r.SITE_SETTINGS_CLIPBOARD = r.SITE_SETTINGS.createChild('clipboard');
-  if (!loadTimeData.getBoolean('consolidatedSiteStorageControlsEnabled')) {
-    r.SITE_SETTINGS_SITE_DATA = r.COOKIES.createChild('/siteData');
-    r.SITE_SETTINGS_DATA_DETAILS =
-        r.SITE_SETTINGS_SITE_DATA.createChild('/cookies/detail');
-  }
   r.SITE_SETTINGS_IDLE_DETECTION = r.SITE_SETTINGS.createChild('idleDetection');
   r.SITE_SETTINGS_IMAGES = r.SITE_SETTINGS.createChild('images');
   r.SITE_SETTINGS_MIXEDSCRIPT = r.SITE_SETTINGS.createChild('insecureContent');
@@ -95,8 +92,9 @@ function addPrivacyChildRoutes(r: Partial<SettingsRoutes>) {
     r.SITE_SETTINGS_BLUETOOTH_SCANNING =
         r.SITE_SETTINGS.createChild('bluetoothScanning');
   }
-  r.SITE_SETTINGS_WINDOW_PLACEMENT =
-      r.SITE_SETTINGS.createChild('windowPlacement');
+
+  r.SITE_SETTINGS_WINDOW_MANAGEMENT =
+      r.SITE_SETTINGS.createChild('windowManagement');
   r.SITE_SETTINGS_FILE_SYSTEM_WRITE = r.SITE_SETTINGS.createChild('filesystem');
   r.SITE_SETTINGS_LOCAL_FONTS = r.SITE_SETTINGS.createChild('localFonts');
 }

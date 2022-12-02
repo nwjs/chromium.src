@@ -130,16 +130,18 @@ Status SendKeysToElement(Session* session,
 
 }  // namespace
 
-Status ExecuteElementCommand(
-    const ElementCommand& command,
-    Session* session,
-    WebView* web_view,
-    const base::DictionaryValue& params,
-    std::unique_ptr<base::Value>* value,
-    Timeout* timeout) {
-  std::string id;
-  if (params.GetString("id", &id) || params.GetString("element", &id))
-    return command.Run(session, web_view, id, params, value);
+Status ExecuteElementCommand(const ElementCommand& command,
+                             Session* session,
+                             WebView* web_view,
+                             const base::Value::Dict& params,
+                             std::unique_ptr<base::Value>* value,
+                             Timeout* timeout) {
+  const std::string* id = params.FindString("id");
+  if (!id)
+    id = params.FindString("element");
+  if (id) {
+    return command.Run(session, web_view, *id, params, value);
+  }
   return Status(kInvalidArgument, "element identifier must be a string");
 }
 
@@ -147,7 +149,7 @@ Status ExecuteFindChildElement(int interval_ms,
                                Session* session,
                                WebView* web_view,
                                const std::string& element_id,
-                               const base::DictionaryValue& params,
+                               const base::Value::Dict& params,
                                std::unique_ptr<base::Value>* value) {
   return FindElement(
       interval_ms, true, &element_id, session, web_view, params, value);
@@ -158,7 +160,7 @@ Status ExecuteFindChildElementFromShadowRoot(
     Session* session,
     WebView* web_view,
     const std::string& shadow_root_id,
-    const base::DictionaryValue& params,
+    const base::Value::Dict& params,
     std::unique_ptr<base::Value>* value) {
   return FindShadowElement(interval_ms, true, &shadow_root_id, session,
                            web_view, params, value);
@@ -169,7 +171,7 @@ Status ExecuteFindChildElementsFromShadowRoot(
     Session* session,
     WebView* web_view,
     const std::string& shadow_root_id,
-    const base::DictionaryValue& params,
+    const base::Value::Dict& params,
     std::unique_ptr<base::Value>* value) {
   return FindShadowElement(interval_ms, false, &shadow_root_id, session,
                            web_view, params, value);
@@ -178,7 +180,7 @@ Status ExecuteFindChildElementsFromShadowRoot(
 Status ExecuteGetElementShadowRoot(Session* session,
                                    WebView* web_view,
                                    const std::string& element_id,
-                                   const base::DictionaryValue& params,
+                                   const base::Value::Dict& params,
                                    std::unique_ptr<base::Value>* value) {
   Status status = CheckElement(element_id);
 
@@ -213,7 +215,7 @@ Status ExecuteFindChildElements(int interval_ms,
                                 Session* session,
                                 WebView* web_view,
                                 const std::string& element_id,
-                                const base::DictionaryValue& params,
+                                const base::Value::Dict& params,
                                 std::unique_ptr<base::Value>* value) {
   return FindElement(
       interval_ms, false, &element_id, session, web_view, params, value);
@@ -222,7 +224,7 @@ Status ExecuteFindChildElements(int interval_ms,
 Status ExecuteClickElement(Session* session,
                            WebView* web_view,
                            const std::string& element_id,
-                           const base::DictionaryValue& params,
+                           const base::Value::Dict& params,
                            std::unique_ptr<base::Value>* value) {
   std::string tag_name;
   Status status = GetElementTagName(session, web_view, element_id, &tag_name);
@@ -278,7 +280,7 @@ Status ExecuteClickElement(Session* session,
 Status ExecuteTouchSingleTap(Session* session,
                              WebView* web_view,
                              const std::string& element_id,
-                             const base::DictionaryValue& params,
+                             const base::Value::Dict& params,
                              std::unique_ptr<base::Value>* value) {
   WebPoint location;
   Status status = GetElementClickableLocation(
@@ -300,7 +302,7 @@ Status ExecuteTouchSingleTap(Session* session,
 Status ExecuteTouchDoubleTap(Session* session,
                              WebView* web_view,
                              const std::string& element_id,
-                             const base::DictionaryValue& params,
+                             const base::Value::Dict& params,
                              std::unique_ptr<base::Value>* value) {
   if (!session->chrome->HasTouchScreen()) {
     // TODO(samuong): remove this once we stop supporting M44.
@@ -317,7 +319,7 @@ Status ExecuteTouchDoubleTap(Session* session,
 Status ExecuteTouchLongPress(Session* session,
                              WebView* web_view,
                              const std::string& element_id,
-                             const base::DictionaryValue& params,
+                             const base::Value::Dict& params,
                              std::unique_ptr<base::Value>* value) {
   if (!session->chrome->HasTouchScreen()) {
     // TODO(samuong): remove this once we stop supporting M44.
@@ -334,7 +336,7 @@ Status ExecuteTouchLongPress(Session* session,
 Status ExecuteFlick(Session* session,
                     WebView* web_view,
                     const std::string& element_id,
-                    const base::DictionaryValue& params,
+                    const base::Value::Dict& params,
                     std::unique_ptr<base::Value>* value) {
   WebPoint location;
   Status status = GetElementClickableLocation(
@@ -344,17 +346,17 @@ Status ExecuteFlick(Session* session,
 
   int xoffset, yoffset, speed;
 
-  absl::optional<int> maybe_xoffset = params.FindIntKey("xoffset");
+  absl::optional<int> maybe_xoffset = params.FindInt("xoffset");
   if (!maybe_xoffset)
     return Status(kInvalidArgument, "'xoffset' must be an integer");
   xoffset = *maybe_xoffset;
 
-  absl::optional<int> maybe_yoffset = params.FindIntKey("yoffset");
+  absl::optional<int> maybe_yoffset = params.FindInt("yoffset");
   if (!maybe_yoffset)
     return Status(kInvalidArgument, "'yoffset' must be an integer");
   yoffset = *maybe_yoffset;
 
-  speed = params.FindIntKey("speed").value_or(-1);
+  speed = params.FindInt("speed").value_or(-1);
   if (speed < 1)
     return Status(kInvalidArgument, "'speed' must be a positive integer");
 
@@ -388,7 +390,7 @@ Status ExecuteFlick(Session* session,
 Status ExecuteClearElement(Session* session,
                            WebView* web_view,
                            const std::string& element_id,
-                           const base::DictionaryValue& params,
+                           const base::Value::Dict& params,
                            std::unique_ptr<base::Value>* value) {
   Status status = CheckElement(element_id);
   if (status.IsError())
@@ -431,9 +433,9 @@ Status ExecuteClearElement(Session* session,
 
   std::unique_ptr<base::Value> get_readonly;
   bool is_readonly = false;
-  base::DictionaryValue params_readOnly;
+  base::Value::Dict params_readOnly;
   if (!is_content_editable) {
-    params_readOnly.SetString("name", "readOnly");
+    params_readOnly.Set("name", "readOnly");
     status = ExecuteGetElementProperty(session, web_view, element_id,
                                        params_readOnly, &get_readonly);
     if (status.IsError())
@@ -480,7 +482,7 @@ Status ExecuteClearElement(Session* session,
 Status ExecuteSendKeysToElement(Session* session,
                                 WebView* web_view,
                                 const std::string& element_id,
-                                const base::DictionaryValue& params,
+                                const base::Value::Dict& params,
                                 std::unique_ptr<base::Value>* value) {
   Status status = CheckElement(element_id);
   if (status.IsError())
@@ -489,13 +491,13 @@ Status ExecuteSendKeysToElement(Session* session,
   base::Value::List key_list_local;
   const base::Value* text = nullptr;
   if (session->w3c_compliant) {
-    text = params.FindKey("text");
+    text = params.Find("text");
     if (text == nullptr || !text->is_string())
       return Status(kInvalidArgument, "'text' must be a string");
     key_list_local.Append(text->Clone());
     key_list = &key_list_local;
   } else {
-    key_list = params.GetDict().FindList("value");
+    key_list = params.FindList("value");
   }
 
   bool is_input = false;
@@ -672,7 +674,7 @@ Status ExecuteSendKeysToElement(Session* session,
 Status ExecuteSubmitElement(Session* session,
                             WebView* web_view,
                             const std::string& element_id,
-                            const base::DictionaryValue& params,
+                            const base::Value::Dict& params,
                             std::unique_ptr<base::Value>* value) {
   Status status = CheckElement(element_id);
   if (status.IsError())
@@ -689,7 +691,7 @@ Status ExecuteSubmitElement(Session* session,
 Status ExecuteGetElementText(Session* session,
                              WebView* web_view,
                              const std::string& element_id,
-                             const base::DictionaryValue& params,
+                             const base::Value::Dict& params,
                              std::unique_ptr<base::Value>* value) {
   Status status = CheckElement(element_id);
   if (status.IsError())
@@ -706,7 +708,7 @@ Status ExecuteGetElementText(Session* session,
 Status ExecuteGetElementValue(Session* session,
                               WebView* web_view,
                               const std::string& element_id,
-                              const base::DictionaryValue& params,
+                              const base::Value::Dict& params,
                               std::unique_ptr<base::Value>* value) {
   Status status = CheckElement(element_id);
   if (status.IsError())
@@ -721,20 +723,20 @@ Status ExecuteGetElementValue(Session* session,
 }
 
 Status ExecuteGetElementProperty(Session* session,
-                              WebView* web_view,
-                              const std::string& element_id,
-                              const base::DictionaryValue& params,
-                              std::unique_ptr<base::Value>* value) {
+                                 WebView* web_view,
+                                 const std::string& element_id,
+                                 const base::Value::Dict& params,
+                                 std::unique_ptr<base::Value>* value) {
   Status status = CheckElement(element_id);
   if (status.IsError())
     return status;
   base::Value::List args;
   args.Append(CreateElement(element_id));
 
-  std::string name;
-  if (!params.GetString("name", &name))
+  const std::string* name = params.FindString("name");
+  if (!name)
     return Status(kInvalidArgument, "missing 'name'");
-  args.Append(name);
+  args.Append(*name);
 
   return web_view->CallFunction(
       session->GetCurrentFrameId(),
@@ -746,7 +748,7 @@ Status ExecuteGetElementProperty(Session* session,
 Status ExecuteGetElementTagName(Session* session,
                                 WebView* web_view,
                                 const std::string& element_id,
-                                const base::DictionaryValue& params,
+                                const base::Value::Dict& params,
                                 std::unique_ptr<base::Value>* value) {
   Status status = CheckElement(element_id);
   if (status.IsError())
@@ -763,7 +765,7 @@ Status ExecuteGetElementTagName(Session* session,
 Status ExecuteIsElementSelected(Session* session,
                                 WebView* web_view,
                                 const std::string& element_id,
-                                const base::DictionaryValue& params,
+                                const base::Value::Dict& params,
                                 std::unique_ptr<base::Value>* value) {
   Status status = CheckElement(element_id);
   if (status.IsError())
@@ -780,7 +782,7 @@ Status ExecuteIsElementSelected(Session* session,
 Status ExecuteIsElementEnabled(Session* session,
                                WebView* web_view,
                                const std::string& element_id,
-                               const base::DictionaryValue& params,
+                               const base::Value::Dict& params,
                                std::unique_ptr<base::Value>* value) {
   Status status = CheckElement(element_id);
   if (status.IsError())
@@ -808,7 +810,7 @@ Status ExecuteIsElementEnabled(Session* session,
 Status ExecuteGetComputedLabel(Session* session,
                                WebView* web_view,
                                const std::string& element_id,
-                               const base::DictionaryValue& params,
+                               const base::Value::Dict& params,
                                std::unique_ptr<base::Value>* value) {
   std::unique_ptr<base::Value> axNode;
   Status status = GetAXNodeByElementId(session, web_view, element_id, &axNode);
@@ -836,7 +838,7 @@ Status ExecuteGetComputedLabel(Session* session,
 Status ExecuteGetComputedRole(Session* session,
                               WebView* web_view,
                               const std::string& element_id,
-                              const base::DictionaryValue& params,
+                              const base::Value::Dict& params,
                               std::unique_ptr<base::Value>* value) {
   std::unique_ptr<base::Value> axNode;
   Status status = GetAXNodeByElementId(session, web_view, element_id, &axNode);
@@ -863,7 +865,7 @@ Status ExecuteGetComputedRole(Session* session,
 Status ExecuteIsElementDisplayed(Session* session,
                                  WebView* web_view,
                                  const std::string& element_id,
-                                 const base::DictionaryValue& params,
+                                 const base::Value::Dict& params,
                                  std::unique_ptr<base::Value>* value) {
   Status status = CheckElement(element_id);
   if (status.IsError())
@@ -880,7 +882,7 @@ Status ExecuteIsElementDisplayed(Session* session,
 Status ExecuteGetElementLocation(Session* session,
                                  WebView* web_view,
                                  const std::string& element_id,
-                                 const base::DictionaryValue& params,
+                                 const base::Value::Dict& params,
                                  std::unique_ptr<base::Value>* value) {
   Status status = CheckElement(element_id);
   if (status.IsError())
@@ -897,7 +899,7 @@ Status ExecuteGetElementLocation(Session* session,
 Status ExecuteGetElementRect(Session* session,
                              WebView* web_view,
                              const std::string& element_id,
-                             const base::DictionaryValue& params,
+                             const base::Value::Dict& params,
                              std::unique_ptr<base::Value>* value) {
   Status status = CheckElement(element_id);
   if (status.IsError())
@@ -958,7 +960,7 @@ Status ExecuteGetElementLocationOnceScrolledIntoView(
     Session* session,
     WebView* web_view,
     const std::string& element_id,
-    const base::DictionaryValue& params,
+    const base::Value::Dict& params,
     std::unique_ptr<base::Value>* value) {
   WebPoint offset(0, 0);
   WebPoint location;
@@ -973,7 +975,7 @@ Status ExecuteGetElementLocationOnceScrolledIntoView(
 Status ExecuteGetElementSize(Session* session,
                              WebView* web_view,
                              const std::string& element_id,
-                             const base::DictionaryValue& params,
+                             const base::Value::Dict& params,
                              std::unique_ptr<base::Value>* value) {
   Status status = CheckElement(element_id);
   if (status.IsError())
@@ -990,21 +992,39 @@ Status ExecuteGetElementSize(Session* session,
 Status ExecuteGetElementAttribute(Session* session,
                                   WebView* web_view,
                                   const std::string& element_id,
-                                  const base::DictionaryValue& params,
+                                  const base::Value::Dict& params,
                                   std::unique_ptr<base::Value>* value) {
-  std::string name;
-  if (!params.GetString("name", &name))
+  const std::string* attribute_name = params.FindString("name");
+  if (!attribute_name)
     return Status(kInvalidArgument, "missing 'name'");
-  return GetElementAttribute(session, web_view, element_id, name,
-                             value);
+
+  // In legacy mode, use old behavior for backward compatibility.
+  //if (!session->w3c_compliant) {
+  return GetElementAttribute(session, web_view, element_id, *attribute_name,
+                               value);
+    //}
+#if 0
+  Status status = CheckElement(element_id);
+  if (status.IsError())
+    return status;
+  base::Value::List args;
+  args.Append(CreateElement(element_id));
+  args.Append(*attribute_name);
+  return web_view->CallFunction(
+      session->GetCurrentFrameId(),
+      booleanAttributes.count(base::ToLowerASCII(*attribute_name))
+          ? "(elem, attribute) => elem.hasAttribute(attribute) ? 'true' : null"
+          : "(elem, attribute) => elem.getAttribute(attribute)",
+      args, value);
+#endif
 }
 
 Status ExecuteGetElementValueOfCSSProperty(
-                                      Session* session,
-                                      WebView* web_view,
-                                      const std::string& element_id,
-                                      const base::DictionaryValue& params,
-                                      std::unique_ptr<base::Value>* value) {
+    Session* session,
+    WebView* web_view,
+    const std::string& element_id,
+    const base::Value::Dict& params,
+    std::unique_ptr<base::Value>* value) {
   bool is_xml = false;
   Status status = IsDocumentTypeXml(session, web_view, &is_xml);
   if (status.IsError())
@@ -1013,12 +1033,12 @@ Status ExecuteGetElementValueOfCSSProperty(
   if (is_xml) {
     *value = std::make_unique<base::Value>("");
   } else {
-    std::string property_name;
-    if (!params.GetString("propertyName", &property_name))
+    const std::string* property_name = params.FindString("propertyName");
+    if (!property_name)
       return Status(kInvalidArgument, "missing 'propertyName'");
     std::string property_value;
-    status = GetElementEffectiveStyle(
-        session, web_view, element_id, property_name, &property_value);
+    status = GetElementEffectiveStyle(session, web_view, element_id,
+                                      *property_name, &property_value);
     if (status.IsError())
       return status;
     *value = std::make_unique<base::Value>(property_value);
@@ -1029,19 +1049,19 @@ Status ExecuteGetElementValueOfCSSProperty(
 Status ExecuteElementEquals(Session* session,
                             WebView* web_view,
                             const std::string& element_id,
-                            const base::DictionaryValue& params,
+                            const base::Value::Dict& params,
                             std::unique_ptr<base::Value>* value) {
-  std::string other_element_id;
-  if (!params.GetString("other", &other_element_id))
+  const std::string* other_element_id = params.FindString("other");
+  if (!other_element_id)
     return Status(kInvalidArgument, "'other' must be a string");
-  *value = std::make_unique<base::Value>(element_id == other_element_id);
+  *value = std::make_unique<base::Value>(element_id == *other_element_id);
   return Status(kOk);
 }
 
 Status ExecuteElementScreenshot(Session* session,
                                 WebView* web_view,
                                 const std::string& element_id,
-                                const base::DictionaryValue& params,
+                                const base::Value::Dict& params,
                                 std::unique_ptr<base::Value>* value) {
   Status status = session->chrome->ActivateWebView(web_view->GetId());
   if (status.IsError())
@@ -1091,8 +1111,8 @@ Status ExecuteElementScreenshot(Session* session,
   if (!clip->is_dict())
     return Status(kUnknownError, "Element Rect is not a dictionary");
 
-  base::DictionaryValue screenshot_params;
-  base::Value* clip_dict = screenshot_params.SetKey(
+  base::Value::Dict screenshot_params;
+  base::Value* clip_dict = screenshot_params.Set(
       "clip", base::Value::FromUniquePtrValue(std::move(clip)));
   // |clip_dict| already contains the right width and height of the target
   // element, but its x and y are relative to containing frame. We replace them

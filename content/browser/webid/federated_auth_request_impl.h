@@ -126,12 +126,14 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
   void OnManifestReady(const IdentityProviderInfo& idp_info);
   void OnClientMetadataResponseReceived(
       const IdentityProviderInfo& idp_info,
+      const IdpNetworkRequestManager::AccountList& accounts,
       IdpNetworkRequestManager::FetchStatus status,
-      IdpNetworkRequestManager::ClientMetadata data);
+      IdpNetworkRequestManager::ClientMetadata client_metadata);
+  void MaybeShowAccountsDialog(
+      const IdentityProviderInfo& idp_info,
+      const IdpNetworkRequestManager::AccountList& accounts,
+      const IdpNetworkRequestManager::ClientMetadata& client_metadata);
 
-  // Only send accounts fetch request if the user is signed in with the IDP or
-  // the IDP is used in FedCM for the first time.
-  void MaybeFetchAccounts(const IdentityProviderInfo& idp_info);
   // Updates the IdpSigninStatus in case of accounts fetch failure and shows a
   // failure UI if applicable.
   void HandleAccountsFetchFailure(
@@ -168,6 +170,7 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
   void CompleteRequest(
       blink::mojom::FederatedAuthRequestResult result,
       absl::optional<content::FedCmRequestIdTokenStatus> token_status,
+      const absl::optional<GURL>& selected_idp_config_url,
       const std::string& token,
       bool should_delay_callback);
   void CompleteLogoutRequest(blink::mojom::LogoutRpsStatus);
@@ -188,6 +191,9 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
   // ensure that the Issues panel contains all of the needed debugging
   // information and then we can remove the console error messages.
   void AddConsoleErrorMessage(blink::mojom::FederatedAuthRequestResult result);
+
+  void MaybeAddResponseCodeToConsole(const char* fetch_description,
+                                     int response_code);
 
   bool ShouldCompleteRequestImmediately();
 
@@ -233,7 +239,6 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
   raw_ptr<FederatedIdentitySharingPermissionContextDelegate>
       sharing_permission_delegate_ = nullptr;
 
-  IdpNetworkRequestManager::ClientMetadata client_metadata_;
   // The account that was selected by the user. This is only applicable to the
   // mediation flow.
   std::string account_id_;
@@ -258,6 +263,9 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
   std::vector<GURL> idp_order_;
   // Map of processed IDPs' data keyed by IDP config URL to display on the UI.
   base::flat_map<GURL, IdentityProviderData> idp_data_;
+
+  // Whether to show the iframe requester on the FedCM UI.
+  bool show_iframe_requester_ = false;
 
   base::WeakPtrFactory<FederatedAuthRequestImpl> weak_ptr_factory_{this};
 };

@@ -202,7 +202,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="FileBrowser.DownloadDestination.IsGoogleDrive.Changed"
-    enum="BooleanEnabled" expires_after="M108">
+    enum="BooleanEnabled" expires_after="M120">
   <owner>simmonsjosh@google.com</owner>
   <owner>src/ui/file_manager/OWNERS</owner>
   <summary>
@@ -212,7 +212,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="FileBrowser.DownloadDestination.IsGoogleDrive.Started"
-    enum="BooleanEnabled" expires_after="2023-04-15">
+    enum="BooleanEnabled" expires_after="M120">
   <owner>simmonsjosh@google.com</owner>
   <owner>src/ui/file_manager/OWNERS</owner>
   <summary>
@@ -402,7 +402,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="FileBrowser.Load{FileBrowserLoad}" units="ms"
-    expires_after="M108">
+    expires_after="M120">
   <owner>simmonsjosh@google.com</owner>
   <owner>src/ui/file_manager/OWNERS</owner>
   <summary>
@@ -441,7 +441,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="FileBrowser.Location.OnEntryExpandedOrCollapsed.NonTopLevel"
-    enum="FileManagerRootType" expires_after="M108">
+    enum="FileManagerRootType" expires_after="M120">
   <owner>simmonsjosh@google.com</owner>
   <owner>src/ui/file_manager/OWNERS</owner>
   <summary>
@@ -452,7 +452,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="FileBrowser.Location.OnEntryExpandedOrCollapsed.TopLevel"
-    enum="FileManagerRootType" expires_after="2023-04-15">
+    enum="FileManagerRootType" expires_after="M120">
   <owner>simmonsjosh@google.com</owner>
   <owner>src/ui/file_manager/OWNERS</owner>
   <summary>
@@ -755,7 +755,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="FileBrowser.TeamDrivesCount" units="Team Drives"
-    expires_after="M108">
+    expires_after="M120">
   <owner>simmonsjosh@google.com</owner>
   <owner>src/ui/file_manager/OWNERS</owner>
   <summary>
@@ -773,6 +773,35 @@ chromium-metrics-reviews@google.com.
   <summary>
     Chrome OS Files App: Recorded when the Grid View/List View toggle menu icon
     is selected.
+  </summary>
+</histogram>
+
+<histogram name="FileBrowser.Trash.DirectorySetupFailed"
+    enum="FileManagerTrashDirectorySetupFailedStep" expires_after="2023-03-20">
+  <owner>simmonsjosh@google.com</owner>
+  <owner>src/ui/file_manager/OWNERS</owner>
+  <summary>
+    Recorded when failing to create the trash folder (e.g. .Trash) and it's
+    children (e.g. info and files).
+  </summary>
+</histogram>
+
+<histogram name="FileBrowser.Trash.FailedTrashing" enum="FailedTrashingType"
+    expires_after="2023-10-01">
+  <owner>simmonsjosh@google.com</owner>
+  <owner>src/ui/file_manager/OWNERS</owner>
+  <summary>
+    Recorded when an item is attempted to be sent to the trash but fails.
+  </summary>
+</histogram>
+
+<histogram name="FileBrowser.Trash.RestoreFailedNoParent"
+    enum="RestoreFailedNoParentType" expires_after="2023-10-01">
+  <owner>simmonsjosh@google.com</owner>
+  <owner>src/ui/file_manager/OWNERS</owner>
+  <summary>
+    Recorded when an item is attempted to be restored but the parent folder it
+    originally came from no longer exists.
   </summary>
 </histogram>
 
@@ -810,7 +839,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="FileBrowser.ViewingFileType" enum="ViewFileType"
-    expires_after="M108">
+    expires_after="M120">
   <owner>simmonsjosh@google.com</owner>
   <owner>src/ui/file_manager/OWNERS</owner>
   <summary>
@@ -820,7 +849,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="FileBrowser.ViewingFileType.Offline" enum="ViewFileType"
-    expires_after="2023-06-01">
+    expires_after="M120">
   <owner>simmonsjosh@google.com</owner>
   <owner>src/ui/file_manager/OWNERS</owner>
   <summary>
@@ -831,7 +860,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="FileBrowser.ViewingFileType.Online" enum="ViewFileType"
-    expires_after="2023-06-01">
+    expires_after="M120">
   <owner>simmonsjosh@google.com</owner>
   <owner>src/ui/file_manager/OWNERS</owner>
   <summary>

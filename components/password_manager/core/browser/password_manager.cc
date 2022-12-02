@@ -147,7 +147,7 @@ bool HasSingleUsernameVote(const FormPredictions& form) {
 bool HasNewPasswordVote(const FormPredictions& form) {
   if (!base::FeatureList::IsEnabled(
           password_manager::features::
-              KEnablePasswordGenerationForClearTextFields))
+              kEnablePasswordGenerationForClearTextFields))
     return false;
   for (const auto& field : form.fields) {
     if (field.type == ACCOUNT_CREATION_PASSWORD || field.type == NEW_PASSWORD)
@@ -296,12 +296,17 @@ void PasswordManager::RegisterProfilePrefs(
                                 0);
   registry->RegisterIntegerPref(
       prefs::kTimesAttemptedToReenrollToGoogleMobileServices, 0);
+  registry->RegisterIntegerPref(prefs::kTimesUPMAuthErrorShown, 0);
 #endif
   // Preferences for |PasswordChangeSuccessTracker|.
   registry->RegisterIntegerPref(prefs::kPasswordChangeSuccessTrackerVersion, 0);
   registry->RegisterListPref(prefs::kPasswordChangeSuccessTrackerFlows);
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+  registry->RegisterIntegerPref(
+      prefs::kBiometricAuthBeforeFillingPromoShownCounter, 0);
+  registry->RegisterBooleanPref(prefs::kHasUserInteractedWithBiometricAuthPromo,
+                                false);
   registry->RegisterBooleanPref(prefs::kBiometricAuthenticationBeforeFilling,
                                 false);
 #endif

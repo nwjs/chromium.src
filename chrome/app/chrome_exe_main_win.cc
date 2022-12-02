@@ -389,10 +389,6 @@ int main() {
   // The exit manager is in charge of calling the dtors of singletons.
   base::AtExitManager exit_manager;
 
-  // Only enable High DPI support for browser and GPU process.
-  if (process_type.empty() || process_type == switches::kGpuProcess)
-    base::win::EnableHighDPISupport();
-
 #if 0 //FIXME(nwjs)
   if (AttemptFastNotify(*command_line))
     return 0;

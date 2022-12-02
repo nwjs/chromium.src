@@ -250,6 +250,7 @@
 <translation id="3484914941826596830">Enquanto o firmware está a ser atualizado, não desligue este dispositivo externo nem encerre o computador. Pode minimizar esta janela. Esta atualização pode demorar alguns minutos e o seu dispositivo externo pode não funcionar durante este período.</translation>
 <translation id="3486220673238053218">definição</translation>
 <translation id="3488065109653206955">Parcialmente activado</translation>
+<translation id="3510890413042482857">Enviar <ph name="BEGIN_LINK1" />dados de rastreio do desempenho<ph name="END_LINK1" /></translation>
 <translation id="3517001332549868749">Atualiz. Chrome OS</translation>
 <translation id="3527036260304016759">Falha – Erro desconhecido</translation>
 <translation id="3532980081107202182">Faltam cerca de <ph name="MIN_REMAINING" /> minutos.</translation>
@@ -469,6 +470,7 @@ Experimente tocar no microfone para me perguntar o que quiser.</translation>
 <translation id="5502931783115429516">O Android não está a funcionar</translation>
 <translation id="5519195206574732858">LTE</translation>
 <translation id="554517032089923082">GTC</translation>
+<translation id="5559898619118303662">Mude automaticamente para o tema escuro ao pôr do sol</translation>
 <translation id="5578477003638479617">UMTS</translation>
 <translation id="5578519639599103840">Ler novamente</translation>
 <translation id="5583640892426849032">Retrocesso</translation>

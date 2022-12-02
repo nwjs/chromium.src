@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium Authors. All rights reserved.
+// Copyright 2021 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -585,6 +585,87 @@ TEST_P(CullRectUpdaterTest, PerspectiveDescendants) {
     </div>
   )HTML");
   EXPECT_TRUE(GetCullRect("target").IsInfinite());
+}
+
+// Test case for crbug.com/1382842.
+TEST_P(CullRectUpdaterTest, UpdateOnCompositedScrollingStatusChange) {
+  GetDocument().GetSettings()->SetPreferCompositingToLCDTextEnabled(false);
+  SetBodyInnerHTML(R"HTML(
+    <style>body {position: absolute}</style>
+    <div id="scroller" style="width: 100px; height: 100px;
+                              overflow: auto; position: relative">
+      <div style="height: 1000px">TEXT</div>
+    <div>
+  )HTML");
+
+  EXPECT_EQ(gfx::Rect(100, 100), GetContentsCullRect("scroller").Rect());
+
+  auto* scroller = GetDocument().getElementById("scroller");
+  scroller->SetInlineStyleProperty(CSSPropertyID::kBackgroundColor, "yellow");
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_EQ(gfx::Rect(100, 1000), GetContentsCullRect("scroller").Rect());
+
+  scroller->RemoveInlineStyleProperty(CSSPropertyID::kBackgroundColor);
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_EQ(gfx::Rect(100, 100), GetContentsCullRect("scroller").Rect());
+}
+
+TEST_P(CullRectUpdaterTest, NestedOverriddenCullRectScopes) {
+  SetBodyInnerHTML(R"HTML(
+    <div id="div1" style="contain: paint; height: 100px"></div>
+    <div id="div2" style="contain: paint; height: 100px"></div>
+  )HTML");
+
+  auto& layer1 = *GetPaintLayerByElementId("div1");
+  auto& layer2 = *GetPaintLayerByElementId("div2");
+  CullRect cull_rect1 = GetCullRect(layer1);
+  CullRect cull_rect2 = GetCullRect(layer2);
+  CullRect special_cull_rect1(gfx::Rect(12, 34, 56, 78));
+  CullRect special_cull_rect2(gfx::Rect(87, 65, 43, 21));
+
+  {
+    OverriddenCullRectScope scope1(layer1, cull_rect1);
+    {
+      OverriddenCullRectScope scope2(layer2, cull_rect2);
+      EXPECT_EQ(cull_rect2, GetCullRect(layer2));
+    }
+    EXPECT_EQ(cull_rect1, GetCullRect(layer1));
+  }
+  EXPECT_EQ(cull_rect1, GetCullRect(layer1));
+  EXPECT_EQ(cull_rect2, GetCullRect(layer2));
+
+  {
+    OverriddenCullRectScope scope1(layer1, special_cull_rect1);
+    {
+      OverriddenCullRectScope scope2(layer2, cull_rect2);
+      EXPECT_EQ(cull_rect2, GetCullRect(layer2));
+    }
+    EXPECT_EQ(special_cull_rect1, GetCullRect(layer1));
+  }
+  EXPECT_EQ(cull_rect1, GetCullRect(layer1));
+  EXPECT_EQ(cull_rect2, GetCullRect(layer2));
+
+  {
+    OverriddenCullRectScope scope1(layer1, cull_rect1);
+    {
+      OverriddenCullRectScope scope2(layer2, special_cull_rect2);
+      EXPECT_EQ(special_cull_rect2, GetCullRect(layer2));
+    }
+    EXPECT_EQ(cull_rect1, GetCullRect(layer1));
+  }
+  EXPECT_EQ(cull_rect1, GetCullRect(layer1));
+  EXPECT_EQ(cull_rect2, GetCullRect(layer2));
+
+  {
+    OverriddenCullRectScope scope1(layer1, special_cull_rect1);
+    {
+      OverriddenCullRectScope scope2(layer2, special_cull_rect2);
+      EXPECT_EQ(special_cull_rect2, GetCullRect(layer2));
+    }
+    EXPECT_EQ(special_cull_rect1, GetCullRect(layer1));
+  }
+  EXPECT_EQ(cull_rect1, GetCullRect(layer1));
+  EXPECT_EQ(cull_rect2, GetCullRect(layer2));
 }
 
 class CullRectUpdateOnPaintPropertyChangeTest : public CullRectUpdaterTest {

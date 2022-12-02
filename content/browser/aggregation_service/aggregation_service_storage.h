@@ -64,6 +64,12 @@ class AggregationServiceStorage {
   // Deletes the report request with the given `request_id`, if any.
   virtual void DeleteRequest(RequestId request_id) = 0;
 
+  // Increments the number of failed send attempts associated with the given
+  // report, and sets its report time to the given value. Should be called after
+  // a transient failure to send the report so that it is retried later.
+  virtual void UpdateReportForSendFailure(RequestId request_id,
+                                          base::Time new_report_time) = 0;
+
   // Returns the earliest report time for a stored pending request strictly
   // after `strictly_after_time`. If there are no such requests stored, returns
   // `absl::nullopt`.
@@ -71,11 +77,14 @@ class AggregationServiceStorage {
       base::Time strictly_after_time) = 0;
 
   // Returns requests with report times on or before `not_after_time`. The
-  // returned requests are ordered by report time.
+  // returned requests are ordered by report time. `limit` limits the number of
+  // requests to return and cannot have a non-positive value; use
+  // `absl::nullopt` for no limit.
   // TODO(crbug.com/1340046): Limit the number of in-progress reports kept in
   // memory at the same time.
   virtual std::vector<RequestAndId> GetRequestsReportingOnOrBefore(
-      base::Time not_after_time) = 0;
+      base::Time not_after_time,
+      absl::optional<int> limit = absl::nullopt) = 0;
 
   // Returns the requests with the given IDs. Empty vector is returned if `ids`
   // is empty.

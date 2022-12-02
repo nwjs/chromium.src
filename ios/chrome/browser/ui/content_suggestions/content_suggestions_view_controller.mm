@@ -152,7 +152,7 @@ CGFloat ModuleVerticalSpacing() {
   if (IsContentSuggestionsUIModuleRefreshEnabled()) {
     self.view.backgroundColor = [UIColor clearColor];
   } else {
-    self.view.backgroundColor = ntp_home::kNTPBackgroundColor();
+    self.view.backgroundColor = ntp_home::NTPBackgroundColor();
   }
   self.view.accessibilityIdentifier = kContentSuggestionsCollectionIdentifier;
 
@@ -206,11 +206,13 @@ CGFloat ModuleVerticalSpacing() {
           withCustomBottomSpacing:content_suggestions::
                                       kReturnToRecentTabSectionBottomMargin];
     }
-    CGFloat cardWidth = content_suggestions::searchFieldWidth(
+    CGFloat cardWidth = content_suggestions::SearchFieldWidth(
         self.view.bounds.size.width, self.traitCollection);
-    [NSLayoutConstraint
-        activateConstraints:@[ [parentView.widthAnchor
-                                constraintEqualToConstant:cardWidth] ]];
+    [NSLayoutConstraint activateConstraints:@[
+      [parentView.widthAnchor constraintEqualToConstant:cardWidth],
+      [parentView.heightAnchor
+          constraintEqualToConstant:ReturnToRecentTabHeight()]
+    ]];
   }
   if (IsContentSuggestionsUIModuleRefreshEnabled() ||
       [self.mostVisitedViews count] > 0) {
@@ -221,7 +223,7 @@ CGFloat ModuleVerticalSpacing() {
 
     if (IsContentSuggestionsUIModuleRefreshEnabled()) {
       self.mostVisitedStackView.backgroundColor =
-          ntp_home::kNTPBackgroundColor();
+          ntp_home::NTPBackgroundColor();
       self.mostVisitedStackView.alignment = UIStackViewAlignmentTop;
       self.mostVisitedModuleContainer =
           [[ContentSuggestionsModuleContainer alloc]
@@ -301,7 +303,7 @@ CGFloat ModuleVerticalSpacing() {
     self.shortcutsStackView.spacing = horizontalSpacing;
     if (IsContentSuggestionsUIModuleRefreshEnabled()) {
       self.shortcutsStackView.alignment = UIStackViewAlignmentTop;
-      self.shortcutsStackView.backgroundColor = ntp_home::kNTPBackgroundColor();
+      self.shortcutsStackView.backgroundColor = ntp_home::NTPBackgroundColor();
     } else {
       self.shortcutsStackView.alignment = UIStackViewAlignmentTop;
     }
@@ -435,7 +437,7 @@ CGFloat ModuleVerticalSpacing() {
                                kReturnToRecentTabSectionBottomMargin
                  afterView:self.returnToRecentTabTile];
     }
-    CGFloat cardWidth = content_suggestions::searchFieldWidth(
+    CGFloat cardWidth = content_suggestions::SearchFieldWidth(
         self.view.bounds.size.width, self.traitCollection);
     [NSLayoutConstraint activateConstraints:@[
       [parentView.widthAnchor constraintEqualToConstant:cardWidth],
@@ -506,6 +508,7 @@ CGFloat ModuleVerticalSpacing() {
     index++;
   }
   [self populateMostVisitedModule];
+  base::RecordAction(base::UserMetricsAction("MobileNTPShowMostVisited"));
 }
 
 - (void)setShortcutTilesWithConfigs:
@@ -618,7 +621,10 @@ CGFloat ModuleVerticalSpacing() {
     }
   }
   if (self.returnToRecentTabTile) {
-    height += (ReturnToRecentTabHeight() + ModuleVerticalSpacing());
+    height += ReturnToRecentTabHeight();
+    if (IsContentSuggestionsUIModuleRefreshEnabled()) {
+      height += ModuleVerticalSpacing();
+    }
   }
   return height;
 }

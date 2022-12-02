@@ -18,6 +18,7 @@
 #include "base/metrics/user_metrics.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/time/time.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "components/browser_ui/util/android/url_constants.h"
@@ -32,10 +33,11 @@
 #include "components/content_settings/core/common/content_settings_utils.h"
 #include "components/page_info/page_info_delegate.h"
 #include "components/page_info/page_info_ui.h"
-#include "components/password_manager/core/browser/password_manager_metrics_util.h"
 #include "components/permissions/object_permission_context_base.h"
+#include "components/permissions/origin_keyed_permission_action_service.h"
 #include "components/permissions/permission_decision_auto_blocker.h"
 #include "components/permissions/permission_manager.h"
+#include "components/permissions/permission_request_manager.h"
 #include "components/permissions/permission_result.h"
 #include "components/permissions/permission_uma_util.h"
 #include "components/permissions/permission_util.h"
@@ -45,6 +47,7 @@
 #endif
 #include "build/chromeos_buildflags.h"
 #include "components/page_info/core/features.h"
+#include "components/permissions/permission_uma_util.h"
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "components/safe_browsing/buildflags.h"
 #include "components/safe_browsing/content/browser/password_protection/password_protection_service.h"
@@ -95,7 +98,7 @@ ContentSettingsType kPermissionType[] = {
     ContentSettingsType::IMAGES,
 #endif
     ContentSettingsType::POPUPS,
-    ContentSettingsType::WINDOW_PLACEMENT,
+    ContentSettingsType::WINDOW_MANAGEMENT,
     ContentSettingsType::ADS,
     ContentSettingsType::BACKGROUND_SYNC,
     ContentSettingsType::SOUND,
@@ -292,7 +295,7 @@ const char kPageInfoTimePrefix[] = "Security.PageInfo.TimeOpen";
 const char kPageInfoTimeActionPrefix[] = "Security.PageInfo.TimeOpen.Action";
 const char kPageInfoTimeNoActionPrefix[] =
     "Security.PageInfo.TimeOpen.NoAction";
-
+const base::TimeDelta kRecordPageInfoPermissionChangeWindow = base::Minutes(1);
 }  // namespace
 
 PageInfo::PageInfo(std::unique_ptr<PageInfoDelegate> delegate,
@@ -313,6 +316,9 @@ PageInfo::PageInfo(std::unique_ptr<PageInfoDelegate> delegate,
   DCHECK(delegate_);
   security_level_ = delegate_->GetSecurityLevel();
   visible_security_state_for_metrics_ = delegate_->GetVisibleSecurityState();
+#if !BUILDFLAG(IS_ANDROID)
+  isolated_web_app_name_ = delegate_->GetWebAppShortName();
+#endif
 
   // TabSpecificContentSetting needs to be created before page load.
   DCHECK(GetPageSpecificContentSettings());
@@ -649,6 +655,32 @@ void PageInfo::OnSitePermissionChanged(ContentSettingsType type,
   }
 
   DCHECK(web_contents_);
+
+  permissions::PermissionRequestManager* manager =
+      permissions::PermissionRequestManager::FromWebContents(
+          web_contents_.get());
+
+  if (manager) {
+    // Retrieve latest permission action for the current origin and the current
+    // content settings type. Note that these values are only kept in memory and
+    // not persisted across browser sessions.
+    absl::optional<permissions::PermissionActionTime> entry =
+        permissions::PermissionsClient::Get()
+            ->GetOriginKeyedPermissionActionService(
+                web_contents_->GetBrowserContext())
+            ->GetLastActionEntry(
+                permissions::PermissionUtil::GetLastCommittedOriginAsURL(
+                    web_contents_->GetPrimaryMainFrame()),
+                type);
+    // If a value was found, and the record is from less than a minute ago,
+    // record the change of mind of the user to UMA.
+    if (entry.has_value() && (base::TimeTicks::Now() - entry->second <=
+                              kRecordPageInfoPermissionChangeWindow)) {
+      permissions::PermissionUmaUtil::RecordPageInfoPermissionChangeWithin1m(
+          type, entry->first, setting);
+    }
+  }
+
   permissions::PermissionUmaUtil::ScopedRevocationReporter
       scoped_revocation_reporter(web_contents_->GetBrowserContext(), site_url_,
                                  site_url_, type,
@@ -826,6 +858,12 @@ std::u16string PageInfo::GetSimpleSiteName() const {
 
   return url_formatter::FormatUrlForDisplayOmitSchemePathAndTrivialSubdomains(
       site_url_);
+}
+
+std::u16string PageInfo::GetSiteOriginOrAppNameToDisplay() const {
+  return IsIsolatedWebApp() && !isolated_web_app_name_.empty()
+             ? isolated_web_app_name_
+             : GetSimpleSiteName();
 }
 
 void PageInfo::ComputeUIInputs(const GURL& url) {
@@ -1205,15 +1243,17 @@ void PageInfo::PresentSiteDataInternal(base::OnceClosure done) {
     cookies_info.blocked_sites_count =
         GetThirdPartySitesWithBlockedCookiesAccessCount(site_url_);
 
+#if !BUILDFLAG(IS_ANDROID)
     if (base::FeatureList::IsEnabled(
             privacy_sandbox::kPrivacySandboxFirstPartySetsUI)) {
-#if !BUILDFLAG(IS_ANDROID)
       auto fps_owner = delegate_->GetFpsOwner(site_url_);
-      if (fps_owner)
+      if (fps_owner) {
         cookies_info.fps_info = PageInfoUI::CookiesFpsInfo(*fps_owner);
-
-#endif
+        cookies_info.fps_info->is_managed = delegate_->IsFpsManaged();
+      }
     }
+#endif
+
     cookies_info.status = status_;
     cookies_info.enforcement = enforcement_;
     ui_->SetCookieInfo(cookies_info);
@@ -1328,6 +1368,12 @@ std::vector<ContentSettingsType> PageInfo::GetAllPermissionsForTesting() {
 void PageInfo::SetSiteNameForTesting(const std::u16string& site_name) {
   site_name_for_testing_ = site_name;
   PresentSiteIdentity();
+}
+
+void PageInfo::SetIsolatedWebAppNameForTesting(
+    const std::u16string& isolated_web_app_name) {
+  is_isolated_web_app_for_testing_ = true;
+  isolated_web_app_name_ = isolated_web_app_name;
 }
 
 void PageInfo::GetSafeBrowsingStatusByMaliciousContentStatus(
@@ -1461,4 +1507,14 @@ int PageInfo::GetThirdPartyBlockedCookiesCount(const GURL& site_url) {
 
   return settings->blocked_local_shared_objects().GetObjectCount() -
          GetFirstPartyBlockedCookiesCount(site_url);
+}
+
+bool PageInfo::IsIsolatedWebApp() const {
+  if (is_isolated_web_app_for_testing_)
+    return true;
+
+  return web_contents_ &&
+         web_contents_->GetPrimaryMainFrame()->GetWebExposedIsolationLevel() >=
+             content::RenderFrameHost::WebExposedIsolationLevel::
+                 kMaybeIsolatedApplication;
 }

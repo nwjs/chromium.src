@@ -8,10 +8,10 @@
 #include "extensions/browser/api/execute_code_function.h"
 #include "content/nw/src/browser/nw_chrome_browser_hooks.h"
 
-#include <algorithm>
 #include <utility>
 
 #include "base/bind.h"
+#include "base/ranges/algorithm.h"
 #include "extensions/browser/api/extension_types_utils.h"
 #include "extensions/browser/extension_api_frame_id_map.h"
 #include "extensions/browser/extensions_browser_client.h"
@@ -219,11 +219,8 @@ void ExecuteCodeFunction::OnExecuteCodeFinished(
     std::vector<ScriptExecutor::FrameResult> results) {
   DCHECK(!results.empty());
 
-  auto root_frame_result =
-      std::find_if(results.begin(), results.end(),
-                   [root_frame_id = root_frame_id_](const auto& frame_result) {
-                     return frame_result.frame_id == root_frame_id;
-                   });
+  auto root_frame_result = base::ranges::find(
+      results, root_frame_id_, &ScriptExecutor::FrameResult::frame_id);
 
   DCHECK(root_frame_result != results.end());
 

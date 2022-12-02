@@ -13,7 +13,7 @@ import './privacy_guide_fragment_shared.css.js';
 import './privacy_guide_fragment_shared.css.js';
 import '../../controls/settings_toggle_button.js';
 
-import {WebUIListenerMixin, WebUIListenerMixinInterface} from 'chrome://resources/js/web_ui_listener_mixin.js';
+import {WebUIListenerMixin, WebUIListenerMixinInterface} from 'chrome://resources/cr_elements/web_ui_listener_mixin.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import {BaseMixin} from '../../base_mixin.js';
@@ -86,7 +86,7 @@ export class PrivacyGuideHistorySyncFragmentElement extends
    * set with the next sync prefs update.
    */
   private syncAllCache_: boolean|null = null;
-  private historySyncVirtualPref_: chrome.settingsPrivate.PrefObject;
+  private historySyncVirtualPref_: chrome.settingsPrivate.PrefObject<boolean>;
   private metricsBrowserProxy_: MetricsBrowserProxy =
       MetricsBrowserProxyImpl.getInstance();
   private startStateHistorySyncOn_: boolean;

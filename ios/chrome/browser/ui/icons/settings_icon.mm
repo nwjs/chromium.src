@@ -16,13 +16,15 @@ const CGFloat kSettingsRootSymbolImagePointSize = 18;
 NSString* const kPrivacySymbol = @"checkerboard_shield";
 NSString* const kSyncDisabledSymbol = @"arrow_triangle_slash_circlepath";
 NSString* const kSafetyCheckSymbol = @"checkermark_shield";
+#if BUILDFLAG(IOS_USE_BRANDED_SYMBOLS)
+NSString* const kGoogleIconSymbol = @"google_icon";
+#endif  // BUILDFLAG(IOS_USE_BRANDED_SYMBOLS)
 
 // Default symbol names.
-NSString* const kSyncErrorSymbol =
-    @"exclamationmark.arrow.triangle.2.circlepath";
 NSString* const kSyncEnabledSymbol = @"arrow.triangle.2.circlepath";
 NSString* const kDefaultBrowserSymbol = @"app.badge.checkmark";
 NSString* const kDiscoverSymbol = @"flame";
+NSString* const kBellSymbol = @"bell";
 
 UIImage* DefaultSettingsRootSymbol(NSString* symbol_name) {
   return DefaultSymbolWithPointSize(symbol_name,
@@ -32,4 +34,8 @@ UIImage* DefaultSettingsRootSymbol(NSString* symbol_name) {
 UIImage* CustomSettingsRootSymbol(NSString* symbol_name) {
   return CustomSymbolWithPointSize(symbol_name,
                                    kSettingsRootSymbolImagePointSize);
+}
+
+UIImage* CustomSettingsRootMulticolorSymbol(NSString* symbol_name) {
+  return CustomMulticolorSymbol(symbol_name, kSettingsRootSymbolImagePointSize);
 }

@@ -117,11 +117,25 @@ void PictureInPictureWindowManager::ExitPictureInPicture() {
     CloseWindowInternal();
 }
 
-content::WebContents* PictureInPictureWindowManager::GetWebContents() {
+content::WebContents* PictureInPictureWindowManager::GetWebContents() const {
   if (!pip_window_controller_)
     return nullptr;
 
   return pip_window_controller_->GetWebContents();
+}
+
+content::WebContents* PictureInPictureWindowManager::GetChildWebContents()
+    const {
+  if (!pip_window_controller_)
+    return nullptr;
+
+  return pip_window_controller_->GetChildWebContents();
+}
+
+absl::optional<gfx::Rect>
+PictureInPictureWindowManager::GetPictureInPictureWindowBounds() const {
+  return pip_window_controller_ ? pip_window_controller_->GetWindowBounds()
+                                : absl::nullopt;
 }
 
 void PictureInPictureWindowManager::CreateWindowInternal(

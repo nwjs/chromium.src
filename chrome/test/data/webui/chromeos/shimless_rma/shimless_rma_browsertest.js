@@ -55,13 +55,14 @@ const debug_suites_list = [
   'OnboardingChooseWpDisableMethodPageTest',
   'OnboardingEnterRsuWpDisableCodePageTest',
   'OnboardingLandingPageTest',
-  'OnboardingNetworkPageTest',
-  'OnboardingSelectComponentsPageTest',
+  // TODO(crbug/1296829): Re-enable below tests once fixed.
+  // 'OnboardingNetworkPageTest',
+  // 'OnboardingSelectComponentsPageTest',
+  // 'ReimagingCalibrationFailedPageTest',
   'OnboardingUpdatePageTest',
   'OnboardingWaitForManualWpDisablePageTest',
   'OnboardingWpDisableCompletePageTest',
   'RebootPageTest',
-  'ReimagingCalibrationFailedPageTest',
   'ReimagingCalibrationRunPageTest',
   'ReimagingCalibrationSetupPageTest',
   'ReimagingFirmwareUpdatePageTest',
@@ -75,7 +76,7 @@ const debug_suites_list = [
   'WrapupWaitForManualWpEnablePageTest',
 ];
 
-TEST_F('ShimlessRMABrowserTest', 'All', function() {
+TEST_F('ShimlessRMABrowserTest', 'DISABLED_All', function() {
   assertDeepEquals(
       debug_suites_list, test_suites_list,
       'List of registered tests suites and debug suites do not match.\n' +

@@ -49,8 +49,6 @@ HotfixSignalResponse& HotfixSignalResponse::operator=(
 HotfixSignalResponse::~HotfixSignalResponse() = default;
 #endif  // BUILDFLAG(IS_WIN)
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
-
 GetSettingsOptions::GetSettingsOptions() = default;
 GetSettingsOptions::GetSettingsOptions(const GetSettingsOptions&) = default;
 
@@ -59,6 +57,11 @@ GetSettingsOptions& GetSettingsOptions::operator=(const GetSettingsOptions&) =
 
 GetSettingsOptions::~GetSettingsOptions() = default;
 
+bool GetSettingsOptions::operator==(const GetSettingsOptions& other) const {
+  return path == other.path && key == other.key &&
+         get_value == other.get_value && hive == other.hive;
+}
+
 SettingsItem::SettingsItem() = default;
 
 SettingsItem::SettingsItem(const SettingsItem& other) {
@@ -66,8 +69,8 @@ SettingsItem::SettingsItem(const SettingsItem& other) {
   key = other.key;
   hive = other.hive;
   presence = other.presence;
-  if (other.setting_value) {
-    setting_value = other.setting_value->Clone();
+  if (other.setting_json_value) {
+    setting_json_value = other.setting_json_value;
   }
 }
 
@@ -76,13 +79,18 @@ SettingsItem& SettingsItem::operator=(const SettingsItem& other) {
   key = other.key;
   hive = other.hive;
   presence = other.presence;
-  if (other.setting_value) {
-    setting_value = other.setting_value->Clone();
+  if (other.setting_json_value) {
+    setting_json_value = other.setting_json_value;
   }
   return *this;
 }
 
 SettingsItem::~SettingsItem() = default;
+
+bool SettingsItem::operator==(const SettingsItem& other) const {
+  return path == other.path && presence == other.presence && key == other.key &&
+         hive == other.hive && setting_json_value == other.setting_json_value;
+}
 
 SettingsResponse::SettingsResponse() = default;
 SettingsResponse::SettingsResponse(const SettingsResponse&) = default;
@@ -91,8 +99,6 @@ SettingsResponse& SettingsResponse::operator=(const SettingsResponse&) =
     default;
 
 SettingsResponse::~SettingsResponse() = default;
-
-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
 
 FileSystemInfoResponse::FileSystemInfoResponse() = default;
 FileSystemInfoResponse::FileSystemInfoResponse(const FileSystemInfoResponse&) =

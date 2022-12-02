@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,6 +12,7 @@
 #include "base/check_op.h"
 #include "base/containers/contains.h"
 #include "base/notreached.h"
+#include "base/ranges/algorithm.h"
 #include "third_party/blink/renderer/modules/peerconnection/mock_data_channel_impl.h"
 #include "third_party/blink/renderer/modules/peerconnection/mock_peer_connection_dependency_factory.h"
 #include "third_party/blink/renderer/modules/peerconnection/mock_rtc_peer_connection_handler_platform.h"
@@ -120,8 +121,8 @@ FakeRtpSender::FakeRtpSender(
 FakeRtpSender::~FakeRtpSender() {}
 
 bool FakeRtpSender::SetTrack(webrtc::MediaStreamTrackInterface* track) {
-  NOTIMPLEMENTED();
-  return false;
+  track_ = track;
+  return true;
 }
 
 rtc::scoped_refptr<webrtc::MediaStreamTrackInterface> FakeRtpSender::track()
@@ -407,19 +408,14 @@ webrtc::RTCError MockPeerConnectionImpl::RemoveTrackOrError(
     rtc::scoped_refptr<webrtc::RtpSenderInterface> s) {
   rtc::scoped_refptr<FakeRtpSender> sender(
       static_cast<FakeRtpSender*>(s.get()));
-  auto it = std::find(senders_.begin(), senders_.end(), sender);
-  if (it == senders_.end()) {
+  if (!base::Contains(senders_, sender)) {
     return webrtc::RTCError(webrtc::RTCErrorType::INVALID_PARAMETER,
                             "Mock: sender not found in senders");
   }
-  // TODO(https://crbug.com/1302249): This is old Plan B behavior, don't remove
-  // the sender.
-  senders_.erase(it);
-  auto track = sender->track();
+  sender->SetTrack(nullptr);
 
   for (const auto& stream_id : sender->stream_ids()) {
-    auto local_stream_it = std::find(local_stream_ids_.begin(),
-                                     local_stream_ids_.end(), stream_id);
+    auto local_stream_it = base::ranges::find(local_stream_ids_, stream_id);
     if (local_stream_it != local_stream_ids_.end())
       local_stream_ids_.erase(local_stream_it);
   }

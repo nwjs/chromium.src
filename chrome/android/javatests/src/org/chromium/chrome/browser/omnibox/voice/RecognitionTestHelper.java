@@ -28,6 +28,7 @@ import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteCoordinator;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteDelegate;
 import org.chromium.chrome.browser.omnibox.suggestions.OmniboxPedalDelegate;
 import org.chromium.chrome.browser.omnibox.suggestions.OmniboxSuggestionsDropdownEmbedder;
+import org.chromium.chrome.browser.omnibox.suggestions.OmniboxSuggestionsDropdownScrollListener;
 import org.chromium.chrome.browser.omnibox.voice.VoiceRecognitionHandler.VoiceInteractionSource;
 import org.chromium.chrome.browser.omnibox.voice.VoiceRecognitionHandler.VoiceResult;
 import org.chromium.chrome.browser.preferences.Pref;
@@ -43,6 +44,7 @@ import org.chromium.ui.base.WindowAndroid.IntentCallback;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.permissions.AndroidPermissionDelegate;
 import org.chromium.ui.permissions.PermissionCallback;
+import org.chromium.url.GURL;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -266,7 +268,7 @@ public class RecognitionTestHelper {
           () -> modalDialogManager, null, null, dataProvider,
           profileSupplier, (tab) -> {
           }, null, (url) -> false, new DummyJankTracker(),
-          pedalDelegate);
+          pedalDelegate, new OmniboxSuggestionsDropdownScrollListener() {});
             // clang-format on
         }
 
@@ -506,6 +508,11 @@ public class RecognitionTestHelper {
         }
 
         @Override
+        public GURL getCurrentGurl() {
+            return GURL.emptyGURL();
+        }
+
+        @Override
         public NewTabPageDelegate getNewTabPageDelegate() {
             return NewTabPageDelegate.EMPTY;
         }
@@ -551,7 +558,7 @@ public class RecognitionTestHelper {
         }
 
         @Override
-        public int getPageClassification(boolean isFocusedFromFakebox) {
+        public int getPageClassification(boolean isFocusedFromFakebox, boolean isPrefetch) {
             return PageClassification.NTP_VALUE;
         }
 
@@ -567,26 +574,6 @@ public class RecognitionTestHelper {
 
         @Override
         public int getSecurityIconContentDescriptionResourceId() {
-            return 0;
-        }
-
-        @Override
-        public int getDropdownStandardBackgroundColor() {
-            return 0;
-        }
-
-        @Override
-        public int getDropdownIncognitoBackgroundColor() {
-            return 0;
-        }
-
-        @Override
-        public int getSuggestionStandardBackgroundColor() {
-            return 0;
-        }
-
-        @Override
-        public int getSuggestionIncognitoBackgroundColor() {
             return 0;
         }
     }

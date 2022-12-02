@@ -381,6 +381,9 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   LayerTreeHostImpl& GetImplDeprecated() override;
   const LayerTreeHostImpl& GetImplDeprecated() const override;
   void SetDeferBeginMainFrame(bool defer_begin_main_frame) const override;
+  void UpdateBrowserControlsState(BrowserControlsState constraints,
+                                  BrowserControlsState current,
+                                  bool animate) override;
 
   bool CanInjectJankOnMain() const;
   FrameSequenceTrackerCollection& frame_trackers() { return frame_trackers_; }
@@ -678,6 +681,7 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   bool IsPinchGestureActive() const;
   // See comment in equivalent InputHandler method for what this means.
   ActivelyScrollingType GetActivelyScrollingType() const;
+  bool IsCurrentScrollMainRepainted() const;
   bool ScrollAffectsScrollHandler() const;
   bool CurrentScrollCheckerboardsDueToNoRecording() const {
     return current_scroll_did_checkerboard_large_area_;
@@ -1312,6 +1316,8 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
 
   bool downsample_metrics_ = true;
   base::MetricsSubSampler metrics_subsampler_;
+
+  const bool use_dmsaa_for_tiles_;
 
   // Must be the last member to ensure this is destroyed first in the
   // destruction order and invalidates all weak pointers.

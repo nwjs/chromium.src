@@ -399,6 +399,9 @@
   "enterprise.reportingPrivate.getFileSystemInfo": {
     "platforms": ["win", "mac", "linux"]
   },
+  "enterprise.reportingPrivate.getSettings": {
+    "platforms": ["win", "mac"]
+  },
   "enterprise.reportingPrivate.getAvInfo": {
     "platforms": ["win"]
   },
@@ -739,7 +742,8 @@
     "contexts": ["webui"],
     "matches": [
       "chrome://os-settings/*",
-      "chrome://settings/*"
+      "chrome://settings/*",
+      "chrome://password-manager/*"
     ]
   }],
   "sidePanel": {

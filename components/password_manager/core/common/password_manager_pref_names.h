@@ -119,6 +119,12 @@ extern const char kTimesReenrolledToGoogleMobileServices[];
 // migration in an attempt to reenroll into the UPM experiment. Reset to zero
 // after a successful reenrollment.
 extern const char kTimesAttemptedToReenrollToGoogleMobileServices[];
+
+// Integer value indicating the number of consecutive times the password manager
+// auth error UI was displayed to the user. Reset once the error is resolved
+// (detected by a successful backend request) or when the user is unenrolled
+// from UPM.
+extern const char kTimesUPMAuthErrorShown[];
 #endif
 
 #if BUILDFLAG(IS_WIN)
@@ -201,6 +207,12 @@ extern const char kPasswordChangeSuccessTrackerFlows[];
 extern const char kPasswordChangeSuccessTrackerVersion[];
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+// Integer indicating how many times user saw biometric authentication before
+// filling promo.
+extern const char kBiometricAuthBeforeFillingPromoShownCounter[];
+// Boolean indicating whether user interacted with biometric authentication
+// before filling promo.
+extern const char kHasUserInteractedWithBiometricAuthPromo[];
 // Boolean indicating whether user enabled biometric authentication before
 // filling.
 extern const char kBiometricAuthenticationBeforeFilling[];

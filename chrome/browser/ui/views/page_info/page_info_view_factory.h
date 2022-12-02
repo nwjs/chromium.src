@@ -65,6 +65,7 @@ class PageInfoViewFactory {
     VIEW_ID_PAGE_INFO_HISTORY_BUTTON,
     VIEW_ID_PAGE_INFO_AD_PERSONALIZATION_BUTTON,
     VIEW_ID_PAGE_INFO_MORE_ABOUT_THIS_PAGE_BUTTON,
+    VIEW_ID_PERMISSION_TOGGLE_ROW_TOGGLE_BUTTON,
   };
 
   // Creates a separator view with padding on top and bottom. Use with flex
@@ -133,8 +134,15 @@ class PageInfoViewFactory {
   // Returns the icon for the 'Ad personalization' button.
   static const ui::ImageModel GetAdPersonalizationIcon();
 
+  static const ui::ImageModel GetEnforcedByPolicyIcon();
+  static const ui::ImageModel GetEnforcedByExtensionIcon();
+  static const ui::ImageModel GetEnforcedBySettingsIcon();
+
   // Returns the icon for the 'Block third party cookies' button.
   static const ui::ImageModel GetBlockingThirdPartyCookiesIcon();
+
+  // Returns the icon for the first party sets button.
+  static const ui::ImageModel GetFpsIcon();
 
   [[nodiscard]] std::unique_ptr<views::View> CreateMainPageView(
       base::OnceClosure initialized_callback);

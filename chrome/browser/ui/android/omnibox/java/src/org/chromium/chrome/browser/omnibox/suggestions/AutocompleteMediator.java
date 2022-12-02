@@ -29,6 +29,7 @@ import org.chromium.base.supplier.Supplier;
 import org.chromium.base.task.PostTask;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.omnibox.LocationBarDataProvider;
+import org.chromium.chrome.browser.omnibox.OmniboxFeatures;
 import org.chromium.chrome.browser.omnibox.OmniboxSuggestionType;
 import org.chromium.chrome.browser.omnibox.R;
 import org.chromium.chrome.browser.omnibox.UrlBarEditingTextStateProvider;
@@ -66,7 +67,8 @@ import java.util.List;
  * Handles updating the model state for the currently visible omnibox suggestions.
  */
 class AutocompleteMediator implements OnSuggestionsReceivedListener,
-                                      OmniboxSuggestionsDropdown.Observer, SuggestionHost {
+                                      OmniboxSuggestionsDropdown.GestureObserver,
+                                      OmniboxSuggestionsDropdownScrollListener, SuggestionHost {
     private static final int SUGGESTION_NOT_FOUND = -1;
     private static final int SCHEDULE_FOR_IMMEDIATE_EXECUTION = -1;
 
@@ -101,6 +103,9 @@ class AutocompleteMediator implements OnSuggestionsReceivedListener,
     private boolean mClearFocusAfterNavigation;
     private boolean mClearFocusAfterNavigationAsynchronously;
 
+    // TODO(crbug.com/1373795): Remove interface SuggestionVisibilityState and
+    // mSuggestionVisibilityState after feature OmniboxRemoveExcessiveRecycledViewClearCalls is
+    // released to stable and ready to be removed.
     @IntDef({SuggestionVisibilityState.DISALLOWED, SuggestionVisibilityState.PENDING_ALLOW,
             SuggestionVisibilityState.ALLOWED})
     @Retention(RetentionPolicy.SOURCE)
@@ -202,11 +207,15 @@ class AutocompleteMediator implements OnSuggestionsReceivedListener,
         mDropdownViewInfoListBuilder.destroy();
     }
 
+    // TODO(crbug.com/1373795): Remove this function after feature
+    // OmniboxRemoveExcessiveRecycledViewClearCalls is released to stable and ready to be removed.
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     void setSuggestionVisibilityState(@SuggestionVisibilityState int state) {
         mSuggestionVisibilityState = state;
     }
 
+    // TODO(crbug.com/1373795): Remove this function after feature
+    // OmniboxRemoveExcessiveRecycledViewClearCalls is released to stable and ready to be removed.
     private @SuggestionVisibilityState int getSuggestionVisibilityState() {
         return mSuggestionVisibilityState;
     }
@@ -292,6 +301,7 @@ class AutocompleteMediator implements OnSuggestionsReceivedListener,
                 ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
                         ChromeFeatureList.CLEAR_OMNIBOX_FOCUS_AFTER_NAVIGATION,
                         "clear_focus_asynchronously", false);
+        mDropdownViewInfoListManager.onNativeInitialized();
         mDropdownViewInfoListBuilder.onNativeInitialized();
         runPendingAutocompleteRequests();
     }
@@ -306,7 +316,9 @@ class AutocompleteMediator implements OnSuggestionsReceivedListener,
             mUrlFocusTime = System.currentTimeMillis();
             mJankTracker.startTrackingScenario(JankScenario.OMNIBOX_FOCUS);
 
-            setSuggestionVisibilityState(SuggestionVisibilityState.PENDING_ALLOW);
+            if (!OmniboxFeatures.shouldRemoveExcessiveRecycledViewClearCalls()) {
+                setSuggestionVisibilityState(SuggestionVisibilityState.PENDING_ALLOW);
+            }
 
             // Ask directly for zero-suggestions related to current input, unless the user is
             // currently visiting SearchActivity and the input is populated from the launch intent.
@@ -316,7 +328,8 @@ class AutocompleteMediator implements OnSuggestionsReceivedListener,
             // suggestion would take the user to the DSE home page.
             // This is tracked by MobileStartup.LaunchCause / EXTERNAL_SEARCH_ACTION_INTENT
             // metric.
-            if (mDataProvider.getPageClassification(false)
+            if (mDataProvider.getPageClassification(
+                        /*isFocusedFromFakebox=*/false, /*isPrefetch=*/false)
                     != PageClassification.ANDROID_SEARCH_WIDGET_VALUE) {
                 postAutocompleteRequest(this::startZeroSuggest, SCHEDULE_FOR_IMMEDIATE_EXECUTION);
             } else {
@@ -330,10 +343,13 @@ class AutocompleteMediator implements OnSuggestionsReceivedListener,
                     mOmniboxFocusResultedInNavigation);
             SuggestionsMetrics.recordRefineActionUsage(mRefineActionUsage);
             SuggestionsMetrics.recordSuggestionsListScrolled(
-                    mDataProvider.getPageClassification(mDelegate.didFocusUrlFromFakebox()),
+                    mDataProvider.getPageClassification(
+                            mDelegate.didFocusUrlFromFakebox(), /*isPrefetch=*/false),
                     mSuggestionsListScrolled);
 
-            setSuggestionVisibilityState(SuggestionVisibilityState.DISALLOWED);
+            if (!OmniboxFeatures.shouldRemoveExcessiveRecycledViewClearCalls()) {
+                setSuggestionVisibilityState(SuggestionVisibilityState.DISALLOWED);
+            }
             mEditSessionState = EditSessionState.INACTIVE;
             mNewOmniboxEditSessionTimestamp = -1;
             // Prevent any upcoming omnibox suggestions from showing once a URL is loaded (and as
@@ -349,9 +365,13 @@ class AutocompleteMediator implements OnSuggestionsReceivedListener,
      * org.chromium.chrome.browser.omnibox.UrlFocusChangeListener#onUrlAnimationFinished(boolean)
      */
     void onUrlAnimationFinished(boolean hasFocus) {
-        setSuggestionVisibilityState(hasFocus ? SuggestionVisibilityState.ALLOWED
-                                              : SuggestionVisibilityState.DISALLOWED);
-        updateOmniboxSuggestionsVisibility();
+        if (OmniboxFeatures.shouldRemoveExcessiveRecycledViewClearCalls()) {
+            updateOmniboxSuggestionsVisibility(hasFocus);
+        } else {
+            setSuggestionVisibilityState(hasFocus ? SuggestionVisibilityState.ALLOWED
+                                                  : SuggestionVisibilityState.DISALLOWED);
+            updateOmniboxSuggestionsVisibility();
+        }
     }
 
     /**
@@ -683,8 +703,8 @@ class AutocompleteMediator implements OnSuggestionsReceivedListener,
                                 == mUrlBarEditingTextProvider.getSelectionEnd()
                         ? mUrlBarEditingTextProvider.getSelectionStart()
                         : -1;
-                int pageClassification =
-                        mDataProvider.getPageClassification(mDelegate.didFocusUrlFromFakebox());
+                int pageClassification = mDataProvider.getPageClassification(
+                        mDelegate.didFocusUrlFromFakebox(), /*isPrefetch=*/false);
                 String currentUrl = mDataProvider.getCurrentUrl();
 
                 postAutocompleteRequest(() -> {
@@ -700,9 +720,11 @@ class AutocompleteMediator implements OnSuggestionsReceivedListener,
     @Override
     public void onSuggestionsReceived(
             AutocompleteResult autocompleteResult, String inlineAutocompleteText, boolean isFinal) {
-        if (mShouldPreventOmniboxAutocomplete
-                || getSuggestionVisibilityState() == SuggestionVisibilityState.DISALLOWED) {
-            return;
+        if (!OmniboxFeatures.shouldRemoveExcessiveRecycledViewClearCalls()) {
+            if (mShouldPreventOmniboxAutocomplete
+                    || getSuggestionVisibilityState() == SuggestionVisibilityState.DISALLOWED) {
+                return;
+            }
         }
 
         if (mShouldCacheSuggestions) {
@@ -718,14 +740,16 @@ class AutocompleteMediator implements OnSuggestionsReceivedListener,
             List<DropdownItemViewInfo> viewInfoList =
                     mDropdownViewInfoListBuilder.buildDropdownViewInfoList(autocompleteResult);
             mDropdownViewInfoListManager.setSourceViewInfoList(
-                    viewInfoList, autocompleteResult.getGroupsDetails());
+                    viewInfoList, autocompleteResult.getGroupsInfo());
             boolean defaultMatchIsSearch = true;
             if (!TextUtils.isEmpty(mUrlBarEditingTextProvider.getTextWithoutAutocomplete())
                     && !newSuggestions.isEmpty()) {
                 defaultMatchIsSearch = newSuggestions.get(0).isSearchSuggestion();
             }
             mDelegate.onSuggestionsChanged(inlineAutocompleteText, defaultMatchIsSearch);
-            updateOmniboxSuggestionsVisibility();
+            if (!OmniboxFeatures.shouldRemoveExcessiveRecycledViewClearCalls()) {
+                updateOmniboxSuggestionsVisibility();
+            }
         }
 
         mListPropertyModel.set(SuggestionListProperties.LIST_IS_FINAL, isFinal);
@@ -872,8 +896,11 @@ class AutocompleteMediator implements OnSuggestionsReceivedListener,
      * Sends a zero suggest request to the server in order to pre-populate the result cache.
      */
     /* package */ void startPrefetch() {
-        postAutocompleteRequest(
-                () -> mAutocomplete.startPrefetch(), SCHEDULE_FOR_IMMEDIATE_EXECUTION);
+        int pageClassification = mDataProvider.getPageClassification(
+                /*isFocusedFromFakebox=*/false, /*isPrefetch=*/true);
+        postAutocompleteRequest(() -> {
+            mAutocomplete.startPrefetch(mDataProvider.getCurrentUrl(), pageClassification);
+        }, SCHEDULE_FOR_IMMEDIATE_EXECUTION);
     }
 
     /**
@@ -892,8 +919,8 @@ class AutocompleteMediator implements OnSuggestionsReceivedListener,
 
         if (mDelegate.isUrlBarFocused()
                 && (mDataProvider.hasTab() || mDataProvider.isInOverviewAndShowingOmnibox())) {
-            int pageClassification =
-                    mDataProvider.getPageClassification(mDelegate.didFocusUrlFromFakebox());
+            int pageClassification = mDataProvider.getPageClassification(
+                    mDelegate.didFocusUrlFromFakebox(), /*isPrefetch=*/false);
             mShouldCacheSuggestions =
                     pageClassification == PageClassification.ANDROID_SEARCH_WIDGET_VALUE;
             mAutocomplete.startZeroSuggest(mUrlBarEditingTextProvider.getTextWithAutocomplete(),
@@ -901,6 +928,8 @@ class AutocompleteMediator implements OnSuggestionsReceivedListener,
         }
     }
 
+    // TODO(crbug.com/1373795): Remove this function after feature
+    // OmniboxRemoveExcessiveRecycledViewClearCalls is released to stable and ready to be removed.
     /**
      * Update whether the omnibox suggestions are visible.
      */
@@ -908,6 +937,15 @@ class AutocompleteMediator implements OnSuggestionsReceivedListener,
         boolean shouldBeVisible =
                 getSuggestionVisibilityState() == SuggestionVisibilityState.ALLOWED
                 && getSuggestionCount() > 0;
+        updateOmniboxSuggestionsVisibility(shouldBeVisible);
+    }
+
+    /**
+     * Update whether the omnibox suggestions are visible.
+     *
+     * @param shouldBeVisible whether the omnibox suggestions are visible
+     */
+    private void updateOmniboxSuggestionsVisibility(boolean shouldBeVisible) {
         boolean wasVisible = mListPropertyModel.get(SuggestionListProperties.VISIBLE);
         mListPropertyModel.set(SuggestionListProperties.VISIBLE, shouldBeVisible);
         if (shouldBeVisible && !wasVisible) {
@@ -930,7 +968,10 @@ class AutocompleteMediator implements OnSuggestionsReceivedListener,
 
         mDropdownViewInfoListManager.clear();
         mAutocompleteResult = AutocompleteResult.EMPTY_RESULT;
-        updateOmniboxSuggestionsVisibility();
+
+        if (!OmniboxFeatures.shouldRemoveExcessiveRecycledViewClearCalls()) {
+            updateOmniboxSuggestionsVisibility();
+        }
     }
 
     /**
@@ -953,7 +994,9 @@ class AutocompleteMediator implements OnSuggestionsReceivedListener,
         stopAutocomplete(false);
         if (mDataProvider.hasTab()) {
             mAutocomplete.start(mDataProvider.getCurrentUrl(),
-                    mDataProvider.getPageClassification(false), query, -1, false);
+                    mDataProvider.getPageClassification(
+                            /*isFocusedFromFakebox=*/false, /*isPrefetch=*/false),
+                    query, -1, false);
         }
     }
 
@@ -964,7 +1007,6 @@ class AutocompleteMediator implements OnSuggestionsReceivedListener,
      *
      * @param newHeightPx New height of the suggestion list in pixels.
      */
-    @Override
     public void onSuggestionDropdownHeightChanged(@Px int newHeight) {
         // Report the dropdown height whenever we intend to - or do show soft keyboard. This
         // addresses cases where hardware keyboard is attached to a device, or where user explicitly
@@ -999,8 +1041,8 @@ class AutocompleteMediator implements OnSuggestionsReceivedListener,
         if (mAutocompleteResult.isFromCachedResult()) return;
 
         String currentPageUrl = mDataProvider.getCurrentUrl();
-        int pageClassification =
-                mDataProvider.getPageClassification(mDelegate.didFocusUrlFromFakebox());
+        int pageClassification = mDataProvider.getPageClassification(
+                mDelegate.didFocusUrlFromFakebox(), /*isPrefetch=*/false);
         long elapsedTimeSinceModified = getElapsedTimeSinceInputChange();
         int autocompleteLength = mUrlBarEditingTextProvider.getTextWithAutocomplete().length()
                 - mUrlBarEditingTextProvider.getTextWithoutAutocomplete().length();

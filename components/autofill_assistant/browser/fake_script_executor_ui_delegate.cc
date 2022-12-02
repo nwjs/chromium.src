@@ -157,13 +157,33 @@ void FakeScriptExecutorUiDelegate::SetGenericUi(
     std::unique_ptr<GenericUserInterfaceProto> generic_ui,
     base::OnceCallback<void(const ClientStatus&)> end_action_callback,
     base::OnceCallback<void(const ClientStatus&)>
-        view_inflation_finished_callback) {}
+        view_inflation_finished_callback,
+    base::RepeatingCallback<void(const RequestBackendDataProto&)>
+        request_backend_data_callback,
+    base::RepeatingCallback<void(const ShowAccountScreenProto&)>
+        show_account_screen_callback) {
+  generic_ui_ = std::move(generic_ui);
+  end_action_callback_ = std::move(end_action_callback);
+  view_inflation_finished_callback_ =
+      std::move(view_inflation_finished_callback);
+  request_backend_data_callback_ = std::move(request_backend_data_callback);
+  show_account_screen_callback_ = std::move(show_account_screen_callback);
+}
+
+void FakeScriptExecutorUiDelegate::ShowAccountScreen(
+    const ShowAccountScreenProto& proto,
+    const std::string& email_address) {
+  show_account_screen_proto_ = proto;
+  user_email_ = email_address;
+}
 
 void FakeScriptExecutorUiDelegate::SetPersistentGenericUi(
     std::unique_ptr<GenericUserInterfaceProto> generic_ui,
     base::OnceCallback<void(const ClientStatus&)>
         view_inflation_finished_callback) {
   persistent_generic_ui_ = std::move(generic_ui);
+  view_inflation_finished_callback_ =
+      std::move(view_inflation_finished_callback);
 }
 
 void FakeScriptExecutorUiDelegate::ClearGenericUi() {}

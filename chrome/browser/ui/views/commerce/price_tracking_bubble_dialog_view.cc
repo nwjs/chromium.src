@@ -4,7 +4,7 @@
 
 #include "chrome/browser/ui/views/commerce/price_tracking_bubble_dialog_view.h"
 
-#include "base/callback_helpers.h"
+#include "base/functional/callback_helpers.h"
 #include "base/metrics/user_metrics.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -188,9 +188,20 @@ void PriceTrackingBubbleCoordinator::Show(
   PriceTrackingBubbleDialogView::CreateBubble(std::move(bubble))->Show();
 }
 
+void PriceTrackingBubbleCoordinator::Hide() {
+  if (IsShowing()) {
+    tracker_.view()->GetWidget()->Close();
+  }
+  tracker_.SetView(nullptr);
+}
+
 PriceTrackingBubbleDialogView* PriceTrackingBubbleCoordinator::GetBubble()
     const {
   return tracker_.view() ? views::AsViewClass<PriceTrackingBubbleDialogView>(
                                const_cast<views::View*>(tracker_.view()))
                          : nullptr;
+}
+
+bool PriceTrackingBubbleCoordinator::IsShowing() {
+  return tracker_.view() != nullptr;
 }

@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -740,6 +740,18 @@ typedef uint32_t IpczTrapConditionFlags;
 // Triggers a trap event whenever the number of queued remote parcels decreases
 // by any amount. Edge-triggered.
 #define IPCZ_TRAP_CONSUMED_REMOTE_PARCEL IPCZ_FLAG_BIT(8)
+
+// Indicates that the trap event is being fired from within the extent of an
+// ipcz API call (i.e., as opposed to being fired from within the extent of an
+// incoming driver transport notification.) For example if a trap is monitoring
+// a portal for incoming parcels, and the application puts a parcel into the
+// portal's peer on the same node, the trap event will be fired within the
+// extent of the corresponding Put() call, and this flag will be set on the
+// event.
+//
+// This flag is ignored when specifying conditions to watch for Trap(), and it
+// may be set on any event dispatched to an IpczTrapEventHandler.
+#define IPCZ_TRAP_WITHIN_API_CALL IPCZ_FLAG_BIT(9)
 
 // A structure describing portal conditions necessary to trigger a trap and
 // invoke its event handler.

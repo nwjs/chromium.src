@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,7 +7,6 @@
 #include <ctype.h>
 #include <string.h>
 
-#include <algorithm>
 #include <functional>
 #include <memory>
 #include <set>
@@ -16,6 +15,7 @@
 #include <vector>
 
 #include "base/bind.h"
+#include "base/containers/contains.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/memory/scoped_refptr.h"
@@ -190,21 +190,6 @@ void CopyConstraintsIntoRtcConfiguration(
   // advanced constraints). The sets are iterated until a value is found.
   std::vector<const GoogMediaConstraintsSet*> all_constraints_sets =
       AllMediaConstraintSets(media_constraints);
-
-  absl::optional<bool> goog_ipv6;
-  for (auto* constraints_set : all_constraints_sets) {
-    if (constraints_set->hasGoogIPv6()) {
-      goog_ipv6 = constraints_set->googIPv6();
-      break;
-    }
-  }
-  bool enable_ipv6 = goog_ipv6.value_or(true);  // googIPv6 is true by default.
-  if (!enable_ipv6) {
-    // Setting googIPv6 to the non-default value triggers count deprecation.
-    Deprecation::CountDeprecation(context,
-                                  WebFeature::kLegacyConstraintGoogIPv6);
-  }
-  configuration->disable_ipv6 = !enable_ipv6;
 
   // TODO(crbug.com/804275): Delete when Fuchsia no longer depends on it.
   absl::optional<bool> dtls_srtp_key_agreement;
@@ -2277,7 +2262,7 @@ void RTCPeerConnectionHandler::OnModifyTransceivers(
   // removed transceivers are reflected as "stopped" in JavaScript.
   Vector<uintptr_t> removed_transceivers;
   for (auto transceiver_id : previous_transceiver_ids_) {
-    if (std::find(ids.begin(), ids.end(), transceiver_id) == ids.end()) {
+    if (!base::Contains(ids, transceiver_id)) {
       removed_transceivers.emplace_back(transceiver_id);
       rtp_transceivers_.erase(FindTransceiver(transceiver_id));
     }

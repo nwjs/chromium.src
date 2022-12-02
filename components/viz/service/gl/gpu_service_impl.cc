@@ -101,6 +101,7 @@
 
 #if BUILDFLAG(IS_WIN)
 #include "components/viz/common/overlay_state/win/overlay_state_service.h"
+#include "gpu/command_buffer/service/shared_image/d3d_image_backing_factory.h"
 #include "media/base/win/mf_feature_checks.h"
 #include "mojo/public/cpp/system/platform_handle.h"
 #include "ui/gl/dcomp_surface_registry.h"
@@ -512,6 +513,11 @@ void GpuServiceImpl::UpdateGPUInfo() {
     gpu_info_.image_decode_accelerator_supported_profiles =
         image_decode_accelerator_worker_->GetSupportedProfiles();
   }
+
+#if BUILDFLAG(IS_WIN)
+  gpu_info_.shared_image_d3d =
+      gpu::D3DImageBackingFactory::IsD3DSharedImageSupported(gpu_preferences_);
+#endif
 
   // Record initialization only after collecting the GPU info because that can
   // take a significant amount of time.
@@ -960,6 +966,13 @@ void GpuServiceImpl::StoreBlobToDisk(const gpu::GpuDiskCacheHandle& handle,
                                      const std::string& key,
                                      const std::string& shader) {
   gpu_host_->StoreBlobToDisk(handle, key, shader);
+}
+
+void GpuServiceImpl::GetIsolationKey(
+    int client_id,
+    const blink::WebGPUExecutionContextToken& token,
+    GetIsolationKeyCallback cb) {
+  gpu_host_->GetIsolationKey(client_id, token, std::move(cb));
 }
 
 void GpuServiceImpl::MaybeExitOnContextLost() {

@@ -51,6 +51,11 @@ const char kEnableDoNotTrack[] = "enable_do_not_track";
 // Number of times the First Follow UI has been shown.
 const char kFirstFollowUIShownCount[] = "follow.first_follow_ui_modal_count";
 
+// A dictionary mapping push notification enabled features to their permission
+// to send notifications to the user.
+const char kFeaturePushNotificationPermissions[] =
+    "push_notifications.feature_permissions";
+
 // Prefs for persisting HttpServerProperties.
 const char kHttpServerProperties[] = "net.http_server_properties";
 
@@ -86,6 +91,9 @@ const char kIosBookmarkSigninPromoDisplayedCount[] =
 // The time when the DiscoverFeed was last refreshed.
 const char kIosDiscoverFeedLastRefreshTime[] =
     "ios.discover_feed.last_refresh_time";
+
+// The user's account info from before a device restore.
+const char kIosPreRestoreAccountInfo[] = "ios.pre_restore_account_info";
 
 // List preference maintaining the list of continuous-display, active promo
 // campaigns.
@@ -141,6 +149,10 @@ const char kNTPContentSuggestionsForSupervisedUserEnabled[] =
 
 // Preference that represents the sorting order of the Following feed content.
 const char kNTPFollowingFeedSortType[] = "ios.ntp.following_feed.sort_type";
+
+// Preference that determines if the user changed the Following feed sort type.
+const char kDefaultFollowingFeedSortTypeChanged[] =
+    "ios.ntp.following_feed_default_sort_type_changed";
 
 // Dictionary preference which tracks day(s) a given destination is clicked from
 // the new overflow menu carousel.

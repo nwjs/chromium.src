@@ -18,6 +18,7 @@
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/memory/ref_counted.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/ash/mobile/mobile_activator.h"
@@ -75,7 +76,7 @@ std::unique_ptr<message_center::Notification> CreatePost2022Notification(
   }
 
   std::unique_ptr<message_center::Notification> notification =
-      ash::CreateSystemNotification(
+      CreateSystemNotification(
           message_center::NOTIFICATION_TYPE_SIMPLE,
           NetworkPortalNotificationController::kNotificationId,
           l10n_util::GetStringUTF16(
@@ -96,20 +97,23 @@ std::unique_ptr<message_center::Notification> CreatePre2022Notification(
     scoped_refptr<message_center::NotificationDelegate> delegate,
     message_center::NotifierId notifier_id,
     bool is_wifi) {
-  return ash::CreateSystemNotification(
-      message_center::NOTIFICATION_TYPE_SIMPLE,
-      NetworkPortalNotificationController::kNotificationId,
-      l10n_util::GetStringUTF16(
-          is_wifi ? IDS_PORTAL_DETECTION_NOTIFICATION_TITLE_WIFI
-                  : IDS_PORTAL_DETECTION_NOTIFICATION_TITLE_WIRED),
-      l10n_util::GetStringFUTF16(
-          is_wifi ? IDS_PORTAL_DETECTION_NOTIFICATION_MESSAGE_WIFI
-                  : IDS_PORTAL_DETECTION_NOTIFICATION_MESSAGE_WIRED,
-          base::UTF8ToUTF16(network->name())),
-      /*display_source=*/std::u16string(), /*origin_url=*/GURL(), notifier_id,
-      message_center::RichNotificationData(), std::move(delegate),
-      kNotificationCaptivePortalIcon,
-      message_center::SystemNotificationWarningLevel::WARNING);
+  std::unique_ptr<message_center::Notification> notification =
+      CreateSystemNotification(
+          message_center::NOTIFICATION_TYPE_SIMPLE,
+          NetworkPortalNotificationController::kNotificationId,
+          l10n_util::GetStringUTF16(
+              is_wifi ? IDS_PORTAL_DETECTION_NOTIFICATION_TITLE_WIFI
+                      : IDS_PORTAL_DETECTION_NOTIFICATION_TITLE_WIRED),
+          l10n_util::GetStringFUTF16(
+              is_wifi ? IDS_PORTAL_DETECTION_NOTIFICATION_MESSAGE_WIFI
+                      : IDS_PORTAL_DETECTION_NOTIFICATION_MESSAGE_WIRED,
+              base::UTF8ToUTF16(network->name())),
+          /*display_source=*/std::u16string(), /*origin_url=*/GURL(),
+          notifier_id, message_center::RichNotificationData(),
+          std::move(delegate), kNotificationCaptivePortalIcon,
+          message_center::SystemNotificationWarningLevel::WARNING);
+  notification->set_never_timeout(true);
+  return notification;
 }
 
 void CloseNotification() {
@@ -172,6 +176,7 @@ void NetworkPortalNotificationController::PortalStateChanged(
        portal_state != NetworkState::PortalState::kPortalSuspected &&
        portal_state != NetworkState::PortalState::kProxyAuthRequired)) {
     last_network_guid_.clear();
+    last_portal_state_ = portal_state;
 
     // In browser tests we initiate fake network portal detection, but network
     // state usually stays connected. This way, after dialog is shown, it is
@@ -191,10 +196,16 @@ void NetworkPortalNotificationController::PortalStateChanged(
     return;
 
   // Don't do anything if notification for |network| already was
-  // displayed.
-  if (network->guid() == last_network_guid_)
-    return;
+  // displayed with the same portal_state.
+  if (network->guid() == last_network_guid_ &&
+      portal_state == last_portal_state_) {
+        return;
+  }
   last_network_guid_ = network->guid();
+  last_portal_state_ = portal_state;
+
+  base::UmaHistogramEnumeration("Network.NetworkPortalNotificationState",
+                                portal_state);
 
   std::unique_ptr<message_center::Notification> notification =
       CreateDefaultCaptivePortalNotification(network, portal_state);
@@ -231,7 +242,7 @@ NetworkPortalNotificationController::CreateDefaultCaptivePortalNotification(
       NotificationCatalogName::kNetworkPortalDetector);
   bool is_wifi = NetworkTypePattern::WiFi().MatchesType(network->type());
   std::unique_ptr<message_center::Notification> notification;
-  if (ash::features::IsCaptivePortalUI2022Enabled()) {
+  if (features::IsCaptivePortalUI2022Enabled()) {
     notification = CreatePost2022Notification(
         network, notification_delegate, notifier_id, is_wifi, portal_state);
   } else {
