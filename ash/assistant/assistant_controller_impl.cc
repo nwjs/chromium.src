@@ -12,6 +12,7 @@
 #include "ash/capture_mode/capture_mode_controller.h"
 #include "ash/constants/ash_features.h"
 #include "ash/public/cpp/android_intent_helper.h"
+#include "ash/public/cpp/assistant/assistant_state.h"
 #include "ash/public/cpp/new_window_delegate.h"
 #include "ash/public/mojom/assistant_volume_control.mojom.h"
 #include "ash/session/session_controller_impl.h"
@@ -62,6 +63,9 @@ void AssistantControllerImpl::RegisterProfilePrefs(
 
 void AssistantControllerImpl::BindReceiver(
     mojo::PendingReceiver<mojom::AssistantVolumeControl> receiver) {
+  if (assistant_volume_control_receiver_.is_bound()) {
+    assistant_volume_control_receiver_.reset();
+  }
   assistant_volume_control_receiver_.Bind(std::move(receiver));
 }
 
@@ -75,13 +79,7 @@ void AssistantControllerImpl::SetAssistant(assistant::Assistant* assistant) {
   assistant_ui_controller_.SetAssistant(assistant);
 
   OnAccessibilityStatusChanged();
-
-  bool dark_mode_enabled = false;
-  if (ash::features::IsProductivityLauncherEnabled() ||
-      ash::features::IsDarkLightModeEnabled()) {
-    dark_mode_enabled = DarkLightModeControllerImpl::Get()->IsDarkModeEnabled();
-  }
-  OnColorModeChanged(dark_mode_enabled);
+  OnColorModeChanged(DarkLightModeControllerImpl::Get()->IsDarkModeEnabled());
 
   if (assistant) {
     for (AssistantControllerObserver& observer : observers_)
@@ -93,6 +91,10 @@ void AssistantControllerImpl::SendAssistantFeedback(
     bool assistant_debug_info_allowed,
     const std::string& feedback_description,
     const std::string& screenshot_png) {
+  if (!IsAssistantReady()) {
+    return;
+  }
+
   assistant::AssistantFeedback assistant_feedback;
   assistant_feedback.assistant_debug_info_allowed =
       assistant_debug_info_allowed;
@@ -154,7 +156,7 @@ void AssistantControllerImpl::OpenUrl(const GURL& url,
                                       bool from_server) {
   // app_list search result will be opened by `OpenUrl()`. However, the
   // `assistant_` may not be ready. Show a toast to indicate it.
-  if (!assistant_) {
+  if (!IsAssistantReady()) {
     assistant_ui_controller_.ShowUnboundErrorToast();
     return;
   }
@@ -272,8 +274,9 @@ void AssistantControllerImpl::OnOutputNodeVolumeChanged(uint64_t node,
 }
 
 void AssistantControllerImpl::OnAccessibilityStatusChanged() {
-  if (!assistant_)
+  if (!IsAssistantReady()) {
     return;
+  }
 
   // The Assistant service needs to be informed of changes to accessibility
   // state so that it can turn on/off A11Y features appropriately.
@@ -282,14 +285,24 @@ void AssistantControllerImpl::OnAccessibilityStatusChanged() {
 }
 
 void AssistantControllerImpl::OnColorModeChanged(bool dark_mode_enabled) {
-  if (!assistant_)
+  if (!IsAssistantReady()) {
     return;
+  }
 
   assistant_->OnColorModeChanged(dark_mode_enabled);
 }
 
 bool AssistantControllerImpl::IsAssistantReady() const {
-  return !!assistant_;
+  if (!assistant_) {
+    return false;
+  }
+
+  if (AssistantState::Get()->assistant_status() ==
+      assistant::AssistantStatus::NOT_READY) {
+    return false;
+  }
+
+  return true;
 }
 
 void AssistantControllerImpl::NotifyConstructed() {
@@ -329,9 +342,11 @@ void AssistantControllerImpl::NotifyUrlOpened(const GURL& url,
 
 void AssistantControllerImpl::OnAssistantStatusChanged(
     assistant::AssistantStatus status) {
-  if (status == assistant::AssistantStatus::NOT_READY)
+  if (status == assistant::AssistantStatus::NOT_READY) {
+    assistant_volume_control_receiver_.reset();
     assistant_ui_controller_.CloseUi(
         assistant::AssistantExitPoint::kUnspecified);
+  }
 }
 
 void AssistantControllerImpl::OnLockedFullScreenStateChanged(bool enabled) {

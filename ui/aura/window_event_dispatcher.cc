@@ -10,11 +10,12 @@
 
 #include "base/bind.h"
 #include "base/check_op.h"
-#include "base/notreached.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/observer_list.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
+#include "cc/metrics/custom_metrics_recorder.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/client/capture_client.h"
 #include "ui/aura/client/cursor_client.h"
@@ -496,7 +497,7 @@ void WindowEventDispatcher::OnEventProcessingStarted(ui::Event* event) {
     return;
   }
 
-  if (host_->compositor()) {
+  if (host_->compositor() && cc::CustomMetricRecorder::Get()) {
     event_metrics_monitors_.push_back(
         CreateScropedMetricsMonitorForEvent(*event));
   }
@@ -510,18 +511,37 @@ void WindowEventDispatcher::OnEventProcessingStarted(ui::Event* event) {
   observer_notifiers_.push(std::make_unique<ObserverNotifier>(this, *event));
 }
 
-void WindowEventDispatcher::OnEventProcessingFinished(ui::Event* event) {
+void WindowEventDispatcher::OnEventProcessingFinished(
+    ui::Event* event,
+    ui::EventTarget* target,
+    const ui::EventDispatchDetails& details) {
   if (in_shutdown_)
     return;
 
   observer_notifiers_.pop();
-  if (host_->compositor()) {
+  if (host_->compositor() && cc::CustomMetricRecorder::Get()) {
     std::unique_ptr<cc::EventsMetricsManager::ScopedMonitor> monitor =
         std::move(event_metrics_monitors_.back());
     event_metrics_monitors_.pop_back();
-    if (event->handled())
+    if (event->handled() && ShouldReportEventLatency(target, details))
       monitor->SetSaveMetrics();
   }
+}
+
+bool WindowEventDispatcher::ShouldReportEventLatency(
+    ui::EventTarget* target,
+    const ui::EventDispatchDetails& details) {
+  // If a target getting destroyed, we expect ui::Compositor has a frame to
+  // reflect it.
+  if (details.target_destroyed)
+    return true;
+  if (details.dispatcher_destroyed || !target)
+    return false;
+  const aura::Window* target_window = static_cast<aura::Window*>(target);
+  const std::string& name = target_window->GetName();
+  // We shouldn't report the latency in ui::Compositor for exo windows and aura
+  // windows backing web contents.
+  return name != "RenderWidgetHostViewAura" && !base::StartsWith(name, "Exo");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -570,6 +590,21 @@ ui::EventDispatchDetails WindowEventDispatcher::PreDispatchEvent(
   }
   if (details.dispatcher_destroyed || details.target_destroyed)
     return details;
+
+  // TODO(crbug/1381787): Remove.
+  // Suspect there is a code path that "target_destroyed" is not reported.
+  if (target_window_tracker.windows().empty()) {
+    // Dump once per chrome run.
+    static bool has_dumped = false;
+    if (!has_dumped) {
+      LOG(ERROR) << "Target destroyed not reported"
+                 << ", event=" << event->ToString();
+      has_dumped = base::debug::DumpWithoutCrashing();
+    }
+
+    details.target_destroyed = true;
+    return details;
+  }
 
   old_dispatch_target_ = event_dispatch_target_;
   event_dispatch_target_ = target_window;

@@ -162,6 +162,15 @@ void Mediator::OnFastPairEnabledChanged(bool is_enabled) {
 
 void Mediator::OnDeviceFound(scoped_refptr<Device> device) {
   QP_LOG(INFO) << __func__ << ": " << device;
+  // Get the device name and add it to the device object, the device will only
+  // have a name in the cache if this is a subsequent pairing scenario.
+  if (device->protocol == Protocol::kFastPairSubsequent &&
+      device->account_key().has_value()) {
+    device->set_display_name(
+        fast_pair_repository_->GetDeviceDisplayNameFromCache(
+            device->account_key().value()));
+  }
+
   // On discovery, download and decode device images. TODO (b/244472452):
   // remove logic that is executed for every advertisement even if no
   // notification is shown.
@@ -259,14 +268,9 @@ void Mediator::OnDiscoveryAction(scoped_refptr<Device> device,
 
   switch (action) {
     case DiscoveryAction::kPairToDevice: {
-      absl::optional<std::vector<uint8_t>> additional_data =
-          device->GetAdditionalData(
-              Device::AdditionalDataType::kFastPairVersion);
-
       // Skip showing the in-progress UI for Fast Pair v1 because that pairing
       // is not handled by us E2E.
-      if (!additional_data.has_value() || additional_data->size() != 1 ||
-          (*additional_data)[0] != 1) {
+      if (device->version().value() == DeviceFastPairVersion::kHigherThanV1) {
         ui_broker_->ShowPairing(device);
       }
 

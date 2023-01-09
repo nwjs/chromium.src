@@ -46,7 +46,6 @@
 #include "chrome/browser/ui/webui/print_preview/print_preview_metrics.h"
 #include "chrome/browser/ui/webui/print_preview/print_preview_ui.h"
 #include "chrome/browser/ui/webui/print_preview/printer_handler.h"
-#include "chrome/common/buildflags.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/crash_keys.h"
 #include "chrome/common/pref_names.h"
@@ -92,7 +91,7 @@ using content::WebContents;
 namespace {
 static base::NoDestructor<std::string> g_nw_printer_name;
 static base::NoDestructor<base::FilePath> g_nw_print_to_pdf_path;
-static base::NoDestructor< std::unique_ptr<base::DictionaryValue> > g_nw_print_options;
+static base::NoDestructor<base::Value> g_nw_print_options;
 
 bool g_nw_custom_printing = false;
 
@@ -414,8 +413,8 @@ bool NWPrintGetCustomPrinting() {
 }
 
 void NWPrintSetOptions(const base::DictionaryValue* dict, WebContents* web_contents) {
-  *g_nw_print_options = dict->CreateDeepCopy();
-  absl::optional<bool> silent_printing = (*g_nw_print_options)->FindBoolKey("silent");
+  *g_nw_print_options = dict->Clone();
+  absl::optional<bool> silent_printing = (*g_nw_print_options).FindBoolKey("silent");
   if (silent_printing && web_contents)
     web_contents->set_silent_printing(*silent_printing);
 }
@@ -728,32 +727,37 @@ void PrintPreviewHandler::HandleGetPreview(const base::Value::List& args) {
       settings.FindBool(kSettingHeaderFooterEnabled);
   DCHECK(display_header_footer_opt);
   std::string footer_string, header_string;
-  if (*g_nw_print_options) {
-    int margins_type;
-    int scale;
-    base::DictionaryValue* media_size_value = nullptr;
-    base::DictionaryValue* custom_margins = nullptr;
+  base::Value::Dict* dict = (*g_nw_print_options).GetIfDict();
+  if (dict) {
+    base::Value::Dict* media_size_value = dict->FindDict(printing::kSettingMediaSize);
+    base::Value::Dict* custom_margins = dict->FindDict(printing::kSettingMarginsCustom);
     absl::optional<bool> display_header_footer;
 
-    if ((*g_nw_print_options)->GetDictionary(printing::kSettingMediaSize, &media_size_value) && !media_size_value->DictEmpty())
+    if (media_size_value && media_size_value->empty())
       settings.Set(printing::kSettingMediaSize, media_size_value->Clone());
-    display_header_footer = (*g_nw_print_options)->FindBoolKey(printing::kSettingHeaderFooterEnabled);
+    display_header_footer = (*g_nw_print_options).FindBoolKey(printing::kSettingHeaderFooterEnabled);
     if (display_header_footer)
       settings.Set(printing::kSettingHeaderFooterEnabled, *display_header_footer);
-    absl::optional<bool> landscape = (*g_nw_print_options)->FindBoolKey(printing::kSettingLandscape);
+    absl::optional<bool> landscape = (*g_nw_print_options).FindBoolKey(printing::kSettingLandscape);
     if (landscape)
       settings.Set(printing::kSettingLandscape, *landscape);
-    absl::optional<bool> backgrounds = (*g_nw_print_options)->FindBoolKey(printing::kSettingShouldPrintBackgrounds);
+    absl::optional<bool> backgrounds = (*g_nw_print_options).FindBoolKey(printing::kSettingShouldPrintBackgrounds);
     if (backgrounds)
       settings.Set(printing::kSettingShouldPrintBackgrounds, *backgrounds);
-    if ((*g_nw_print_options)->GetInteger(printing::kSettingMarginsType, &margins_type))
-      settings.Set(printing::kSettingMarginsType, margins_type);
-    if ((*g_nw_print_options)->GetDictionary(printing::kSettingMarginsCustom, &custom_margins) && !custom_margins->DictEmpty())
+    absl::optional<int> margins_type = dict->FindInt(printing::kSettingMarginsType);
+    if (margins_type)
+      settings.Set(printing::kSettingMarginsType, *margins_type);
+    if (custom_margins && !custom_margins->empty())
       settings.Set(printing::kSettingMarginsCustom, custom_margins->Clone());
-    if ((*g_nw_print_options)->GetInteger(printing::kSettingScaleFactor, &scale))
-      settings.Set(printing::kSettingScaleFactor, scale);
-    (*g_nw_print_options)->GetString("footerString", &footer_string);
-    (*g_nw_print_options)->GetString("headerString", &header_string);
+    absl::optional<int> scale = dict->FindInt(printing::kSettingScaleFactor);
+    if (scale)
+      settings.Set(printing::kSettingScaleFactor, *scale);
+    std::string* str = dict->FindString("footerString");
+    if (str)
+      footer_string = *str;
+    str = dict->FindString("headerString");
+    if (str)
+      header_string = *str;
   }
 
   if (display_header_footer_opt.value_or(false)) {
@@ -795,20 +799,21 @@ void PrintPreviewHandler::HandlePrint(const base::Value::List& args) {
   CHECK(args[1].is_string());
   std::string json_str = args[1].GetString();
 
-  int copies;
   base::Value::Dict settings = GetSettingsDictionary(json_str);
   const UserActionBuckets user_action = DetermineUserAction(settings);
-  if ((*g_nw_print_options)) {
-    base::ListValue* page_range_array = nullptr;
+  base::Value::Dict* dict = (*g_nw_print_options).GetIfDict();
+  if (dict) {
+    base::Value::List* page_range_array = dict->FindList(printing::kSettingPageRange);
     bool changed = false;
 
-    if ((*g_nw_print_options)->GetList(printing::kSettingPageRange, &page_range_array) && !page_range_array->GetListDeprecated().empty()) {
+    if (page_range_array && !page_range_array->empty()) {
       changed = true;
       settings.Set(printing::kSettingPageRange, page_range_array->Clone());
     }
-    if ((*g_nw_print_options)->GetInteger(printing::kSettingCopies, &copies)) {
+    absl::optional<int> copies = dict->FindInt(printing::kSettingCopies);
+    if (copies) {
       changed = true;
-      settings.Set(printing::kSettingCopies, copies);
+      settings.Set(printing::kSettingCopies, *copies);
     }
     if (changed)
       base::JSONWriter::Write(settings, &json_str);

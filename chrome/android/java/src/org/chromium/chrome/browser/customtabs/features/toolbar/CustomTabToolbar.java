@@ -55,7 +55,6 @@ import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntent
 import org.chromium.chrome.browser.compositor.bottombar.ephemeraltab.EphemeralTabCoordinator;
 import org.chromium.chrome.browser.crash.ChromePureJavaExceptionReporter;
 import org.chromium.chrome.browser.customtabs.features.branding.ToolbarBrandingDelegate;
-import org.chromium.chrome.browser.flags.CachedFeatureFlags;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.omnibox.LocationBar;
 import org.chromium.chrome.browser.omnibox.LocationBarDataProvider;
@@ -336,7 +335,7 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
         mHandleStrategy = strategy;
         mHandleStrategy.setCloseClickHandler(mCloseButton::callOnClick);
 
-        if (!CachedFeatureFlags.isEnabled(ChromeFeatureList.CCT_BRAND_TRANSPARENCY)) {
+        if (!ChromeFeatureList.sCctBrandTransparency.isEnabled()) {
             mLocationBar.showBranding();
         }
     }
@@ -640,7 +639,7 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
     public CaptureReadinessResult isReadyForTextureCapture() {
         if (ToolbarFeatures.shouldBlockCapturesForAblation()) {
             return CaptureReadinessResult.notReady(TopToolbarBlockCaptureReason.SCROLL_ABLATION);
-        } else if (ChromeFeatureList.isEnabled(ChromeFeatureList.SUPPRESS_TOOLBAR_CAPTURES)) {
+        } else if (ToolbarFeatures.shouldSuppressCaptures()) {
             CaptureStateToken currentToken = generateCaptureStateToken();
             final @ToolbarSnapshotDifference int difference =
                     currentToken.getAnyDifference(mLastCaptureStateToken);
@@ -760,6 +759,7 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
         private final Runnable[] mAfterBrandingRunnables = new Runnable[TOTAL_POST_BRANDING_KEYS];
         private boolean mCurrentlyShowingBranding;
         private boolean mBrandingStarted;
+        private boolean mAnimateIconTransition = true;
         private CallbackController mCallbackController = new CallbackController();
         // Cached the state before branding start so we can reset to the state when its done.
         private @Nullable Integer mPreBandingState;
@@ -845,6 +845,11 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
                             -> mBrowserControlsVisibilityDelegate.releasePersistentShowingToken(
                                     token),
                     MIN_URL_BAR_VISIBLE_TIME_POST_BRANDING_MS);
+        }
+
+        @Override
+        public void setIconTransitionEnabled(boolean enabled) {
+            mAnimateIconTransition = enabled;
         }
 
         private void cacheRegularState() {
@@ -941,7 +946,7 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
                 mLocationBarModel.notifyUrlChanged();
                 mLocationBarModel.notifySecurityStateChanged();
             } else {
-                if (CachedFeatureFlags.isEnabled(ChromeFeatureList.CCT_BRAND_TRANSPARENCY)) {
+                if (ChromeFeatureList.sCctBrandTransparency.isEnabled()) {
                     if (mState == STATE_EMPTY) {
                         // If state is empty, that means Location bar is recovering from empty
                         // location bar to what ever new state it is. We skip the state assertion
@@ -1069,7 +1074,7 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
             ColorStateList colorStateList = AppCompatResources.getColorStateList(
                     getContext(), mLocationBarDataProvider.getSecurityIconColorStateList());
             ApiCompatibilityUtils.setImageTintList(mSecurityButton, colorStateList);
-            mAnimDelegate.updateSecurityButton(R.drawable.chromelogo16);
+            mAnimDelegate.updateSecurityButton(R.drawable.chromelogo16, mAnimateIconTransition);
 
             mUrlBar.setText(R.string.twa_running_in_chrome);
         }
@@ -1100,7 +1105,7 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
                         getContext(), mLocationBarDataProvider.getSecurityIconColorStateList());
                 ApiCompatibilityUtils.setImageTintList(mSecurityButton, colorStateList);
             }
-            mAnimDelegate.updateSecurityButton(securityIconResource);
+            mAnimDelegate.updateSecurityButton(securityIconResource, mAnimateIconTransition);
 
             int contentDescriptionId =
                     mLocationBarDataProvider.getSecurityIconContentDescriptionResourceId();

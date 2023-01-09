@@ -14,7 +14,6 @@
 #include "base/compiler_specific.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
-#include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "base/scoped_observation.h"
@@ -284,6 +283,11 @@ class EventRouter : public KeyedService,
                                          const std::string& event_name,
                                          int instance_id = -1,
                                          std::string* out_extension_id = nullptr) const;
+
+  // Returns true if the URL is listening to the given event.
+  // (virtual for testing only.)
+  virtual bool URLHasEventListener(const GURL& url,
+                                   const std::string& event_name) const;
 
   // Broadcasts an event to every listener registered for that event.
   virtual void BroadcastEvent(std::unique_ptr<Event> event);

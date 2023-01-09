@@ -62,7 +62,7 @@ class FastPairRepositoryImpl : public FastPairRepository,
   FastPairRepositoryImpl& operator=(const FastPairRepositoryImpl&) = delete;
   ~FastPairRepositoryImpl() override;
 
-  // FastPairRepository::
+  // FastPairRepository:
   void GetDeviceMetadata(const std::string& hex_model_id,
                          DeviceMetadataCallback callback) override;
   void CheckAccountKeys(const AccountKeyFilter& account_key_filter,
@@ -78,6 +78,8 @@ class FastPairRepositoryImpl : public FastPairRepository,
       const std::vector<uint8_t>& account_key,
       DeleteAssociatedDeviceByAccountKeyCallback callback) override;
   void FetchDeviceImages(scoped_refptr<Device> device) override;
+  absl::optional<std::string> GetDeviceDisplayNameFromCache(
+      std::vector<uint8_t> account_key) override;
   bool PersistDeviceImages(scoped_refptr<Device> device) override;
   bool EvictDeviceImages(const device::BluetoothDevice* device) override;
   absl::optional<bluetooth_config::DeviceImageInfo> GetImagesForDevice(
@@ -119,12 +121,12 @@ class FastPairRepositoryImpl : public FastPairRepository,
                                 const std::vector<uint8_t> account_key,
                                 DeviceMetadata* device_metadata,
                                 bool has_retryable_error);
-  void AddDeviceToFootprints(const std::string& hex_model_id,
+  void WriteDeviceToFootprints(const std::string& hex_model_id,
                              const std::string& mac_address,
                              const std::vector<uint8_t>& account_key,
                              DeviceMetadata* metadata,
                              bool has_retryable_error);
-  void OnAddDeviceToFootprintsComplete(const std::string& mac_address,
+  void OnWriteDeviceToFootprintsComplete(const std::string& mac_address,
                                        const std::vector<uint8_t>& account_key,
                                        bool success);
   void OnCheckOptInStatus(

@@ -130,7 +130,7 @@ class BackForwardCacheBrowserTest
   using SameOriginMatcher = testing::Matcher<
       const blink::mojom::SameOriginBfcacheNotRestoredDetailsPtr&>;
   ReasonsMatcher MatchesNotRestoredReasons(
-      const testing::Matcher<bool>& blocked,
+      const testing::Matcher<blink::mojom::BFCacheBlocked>& blocked,
       const SameOriginMatcher* same_origin_details);
   SameOriginMatcher MatchesSameOriginDetails(
       const testing::Matcher<std::string>& id,
@@ -165,9 +165,6 @@ class BackForwardCacheBrowserTest
 
   const ukm::TestAutoSetUkmRecorder& ukm_recorder() override;
   const base::HistogramTester& histogram_tester() override;
-
-  const int kMaxBufferedBytesPerProcess = 10000;
-  const base::TimeDelta kGracePeriodToFinishLoading = base::Seconds(5);
 
  private:
   content::ContentMockCertVerifier mock_cert_verifier_;
@@ -217,7 +214,7 @@ class PageLifecycleStateManagerTestDelegate
 
   // Waits for the renderer finishing to set the state of being in back/forward
   // cache.
-  void WaitForInBackForwardCacheAck();
+  [[nodiscard]] bool WaitForInBackForwardCacheAck();
 
   void OnStoreInBackForwardCacheSent(base::OnceClosure cb);
   void OnDisableJsEvictionSent(base::OnceClosure cb);

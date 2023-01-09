@@ -536,15 +536,6 @@ bool SharedArrayBufferConstructorEnabledCallback(
   return execution_context->SharedArrayBufferTransferAllowed();
 }
 
-bool WasmExceptionsEnabledCallback(v8::Local<v8::Context> context) {
-  ExecutionContext* execution_context = ToExecutionContext(context);
-  if (!execution_context)
-    return false;
-
-  return RuntimeEnabledFeatures::WebAssemblyExceptionsEnabled(
-      execution_context);
-}
-
 v8::Local<v8::Value> NewRangeException(v8::Isolate* isolate,
                                        const char* message) {
   return v8::Exception::RangeError(
@@ -709,7 +700,6 @@ void InitializeV8Common(v8::Isolate* isolate) {
   isolate->SetWasmInstanceCallback(WasmInstanceOverride);
   isolate->SetSharedArrayBufferConstructorEnabledCallback(
       SharedArrayBufferConstructorEnabledCallback);
-  isolate->SetWasmExceptionsEnabledCallback(WasmExceptionsEnabledCallback);
   isolate->SetHostImportModuleDynamicallyCallback(HostImportModuleDynamically);
   isolate->SetHostInitializeImportMetaObjectCallback(
       HostGetImportMetaProperties);

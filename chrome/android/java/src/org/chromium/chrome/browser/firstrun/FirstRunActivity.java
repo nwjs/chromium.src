@@ -29,7 +29,6 @@ import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.BackPressHelper;
 import org.chromium.chrome.browser.customtabs.CustomTabActivity;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.fonts.FontPreloader;
 import org.chromium.chrome.browser.metrics.UmaUtils;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
@@ -37,6 +36,7 @@ import org.chromium.chrome.browser.signin.SigninCheckerProvider;
 import org.chromium.chrome.browser.signin.SigninFirstRunFragment;
 import org.chromium.chrome.browser.signin.services.FREMobileIdentityConsistencyFieldTrial;
 import org.chromium.components.browser_ui.modaldialog.AppModalPresenter;
+import org.chromium.components.metrics.LowEntropySource;
 import org.chromium.ui.base.LocalizationUtils;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modaldialog.ModalDialogManager.ModalDialogType;
@@ -184,16 +184,11 @@ public class FirstRunActivity extends FirstRunActivityBase implements FirstRunPa
         assert !mPostNativeAndPolicyPagesCreated;
         assert areNativeAndPoliciesInitialized();
 
-        if (ChromeFeatureList.isEnabled(
-                    ChromeFeatureList.CREATE_SIGNIN_CHECKER_BEFORE_SYNC_CONSENT_FRAGMENT)) {
-            // Initialize SigninChecker, to kick off sign-in for child accounts as early as
-            // possible.
-            //
-            // TODO(b/245912657): explicitly sign in supervised users in {@link
-            // SigninFirstRunMediator#handleContinueWithNative} rather than relying on
-            // SigninChecker.
-            SigninCheckerProvider.get();
-        }
+        // Initialize SigninChecker, to kick off sign-in for child accounts as early as possible.
+        //
+        // TODO(b/245912657): explicitly sign in supervised users in {@link
+        // SigninFirstRunMediator#handleContinueWithNative} rather than relying on SigninChecker.
+        SigninCheckerProvider.get();
 
         mFirstRunFlowSequencer.updateFirstRunProperties(mFreProperties);
 
@@ -488,6 +483,9 @@ public class FirstRunActivity extends FirstRunActivityBase implements FirstRunPa
                 SystemClock.elapsedRealtime() - mIntentCreationElapsedRealtimeMs);
 
         FirstRunFlowSequencer.markFlowAsCompleted();
+
+        // LowEntropySource can't be used after the FRE has been completed.
+        LowEntropySource.markFirstRunComplete();
 
         if (sObserver != null) sObserver.onUpdateCachedEngineName(this);
 

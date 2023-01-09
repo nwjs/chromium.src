@@ -22,6 +22,7 @@
 #include "components/history_clusters/core/content_annotations_cluster_processor.h"
 #include "components/history_clusters/core/content_visibility_cluster_finalizer.h"
 #include "components/history_clusters/core/features.h"
+#include "components/history_clusters/core/full_membership_cluster_processor.h"
 #include "components/history_clusters/core/history_clusters_util.h"
 #include "components/history_clusters/core/keyword_cluster_finalizer.h"
 #include "components/history_clusters/core/label_cluster_finalizer.h"
@@ -340,6 +341,8 @@ OnDeviceClusteringBackend::ClusterVisitsOnBackgroundThread(
   // The cluster finalizers to be run.
   std::vector<std::unique_ptr<ClusterFinalizer>> cluster_finalizers;
 
+  cluster_processors.push_back(
+      std::make_unique<FullMembershipClusterProcessor>());
   if (GetConfig().content_clustering_enabled) {
     cluster_processors.push_back(
         std::make_unique<ContentAnnotationsClusterProcessor>(
@@ -381,16 +384,25 @@ OnDeviceClusteringBackend::ClusterVisitsOnBackgroundThread(
   }
 
   // Group visits into clusters.
+  base::ElapsedThreadTimer clusterer_timer;
   std::vector<history::Cluster> clusters =
       clusterer->CreateInitialClustersFromVisits(std::move(visits));
+  base::UmaHistogramTimes(
+      "History.Clusters.Backend.ContextClusterer.ThreadTime",
+      clusterer_timer.Elapsed());
 
   // Process clusters.
+  base::ElapsedThreadTimer cluster_processors_timer;
   for (const auto& processor : cluster_processors) {
-    clusters = processor->ProcessClusters(clusters);
+    processor->ProcessClusters(&clusters);
   }
+  base::UmaHistogramTimes(
+      "History.Clusters.Backend.ClusterProcessors.ThreadTime",
+      cluster_processors_timer.Elapsed());
 
   // Run finalizers that dedupe and score visits within a cluster and
   // log several metrics about the result.
+  base::ElapsedThreadTimer cluster_finalizers_timer;
   std::vector<int> keyword_sizes;
   std::vector<int> visits_in_clusters;
   keyword_sizes.reserve(clusters.size());
@@ -408,10 +420,9 @@ OnDeviceClusteringBackend::ClusterVisitsOnBackgroundThread(
     visits_in_clusters.emplace_back(cluster.visits.size());
     keyword_sizes.emplace_back(cluster.keyword_to_data_map.size());
   }
-
-  // It's a bit strange that this is essentially a `ClusterProcessor` but has
-  // to operate after the finalizers.
-  SortClusters(&clusters);
+  base::UmaHistogramTimes(
+      "History.Clusters.Backend.ClusterFinalizers.ThreadTime",
+      cluster_finalizers_timer.Elapsed());
 
   if (!visits_in_clusters.empty()) {
     // We check for empty to ensure the below code doesn't crash, but

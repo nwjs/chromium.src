@@ -7,15 +7,17 @@
 #include <cmath>
 #include <vector>
 
-#include "base/bind.h"
 #include "base/feature_list.h"
+#include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/strcat.h"
+#include "base/time/default_clock.h"
 #include "base/time/default_tick_clock.h"
 #include "base/time/time.h"
 #include "chrome/browser/dips/cookie_access_filter.h"
 #include "chrome/browser/dips/dips_service.h"
 #include "chrome/browser/dips/dips_utils.h"
+#include "chrome/browser/profiles/profile.h"
 #include "components/site_engagement/content/site_engagement_service.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/cookie_access_details.h"
@@ -24,6 +26,10 @@
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
 #include "third_party/blink/public/mojom/site_engagement/site_engagement.mojom-shared.h"
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+#include "chrome/browser/ash/profiles/profile_helper.h"
+#endif
 
 using blink::mojom::EngagementLevel;
 using content::NavigationHandle;
@@ -94,6 +100,27 @@ inline void UmaHistogramTimeToBounce(base::TimeDelta sample) {
 
 }  // namespace
 
+/* static */
+void DIPSWebContentsObserver::MaybeCreateForWebContents(
+    content::WebContents* web_contents) {
+  Profile* profile =
+      Profile::FromBrowserContext(web_contents->GetBrowserContext());
+
+  if (profile->IsSystemProfile())
+    return;
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  // ChromeOS creates various irregular profiles (login, lock screen...); they
+  // are of type kRegular (returns true for `Profile::IsRegular()`), that aren't
+  // used to browse the web and users can't configure. Don't collect metrics
+  // about them.
+  if (!ash::ProfileHelper::IsUserProfile(profile))
+    return;
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+
+  DIPSWebContentsObserver::CreateForWebContents(web_contents);
+}
+
 DIPSWebContentsObserver::DIPSWebContentsObserver(
     content::WebContents* web_contents)
     : content::WebContentsObserver(web_contents),
@@ -101,13 +128,17 @@ DIPSWebContentsObserver::DIPSWebContentsObserver(
       dips_service_(DIPSService::Get(web_contents->GetBrowserContext())),
       site_engagement_service_(site_engagement::SiteEngagementService::Get(
           web_contents->GetBrowserContext())),
-      detector_(this, base::DefaultTickClock::GetInstance()) {}
+      detector_(this,
+                base::DefaultTickClock::GetInstance(),
+                base::DefaultClock::GetInstance()) {}
 
 DIPSWebContentsObserver::~DIPSWebContentsObserver() = default;
 
 DIPSBounceDetector::DIPSBounceDetector(DIPSBounceDetectorDelegate* delegate,
-                                       const base::TickClock* clock)
-    : clock_(clock),
+                                       const base::TickClock* tick_clock,
+                                       const base::Clock* clock)
+    : tick_clock_(tick_clock),
+      clock_(clock),
       delegate_(delegate),
       // It's safe to use unretained because the callback is owned by the
       // DIPSRedirectContext which is owned by this.
@@ -275,9 +306,48 @@ void DIPSBounceDetector::HandleRedirect(const DIPSRedirectInfo& redirect,
     return;
   }
 
+  // Record this bounce in the DIPS database.
+  if (redirect.access_type != CookieAccessType::kUnknown) {
+    DIPSRecordedEvent bounce = redirect.access_type > CookieAccessType::kRead
+                                   ? DIPSRecordedEvent::kStatefulBounce
+                                   : DIPSRecordedEvent::kStatelessBounce;
+    delegate_->RecordEvent(bounce, redirect.url, clock_->Now());
+  }
+
   RedirectCategory category = ClassifyRedirect(redirect.access_type, level);
   UmaHistogramBounceCategory(category, delegate_->GetCookieMode(),
                              redirect.redirect_type);
+}
+
+void DIPSWebContentsObserver::RecordEvent(DIPSRecordedEvent event,
+                                          const GURL& url,
+                                          const base::Time& time) {
+  switch (event) {
+    case DIPSRecordedEvent::kStorage: {
+      dips_service_->storage()
+          ->AsyncCall(&DIPSStorage::RecordStorage)
+          .WithArgs(url, time, GetCookieMode());
+      return;
+    }
+    case DIPSRecordedEvent::kInteraction: {
+      dips_service_->storage()
+          ->AsyncCall(&DIPSStorage::RecordInteraction)
+          .WithArgs(url, time, GetCookieMode());
+      return;
+    }
+    case DIPSRecordedEvent::kStatelessBounce: {
+      dips_service_->storage()
+          ->AsyncCall(&DIPSStorage::RecordStatelessBounce)
+          .WithArgs(url, time);
+      return;
+    }
+    case DIPSRecordedEvent::kStatefulBounce: {
+      dips_service_->storage()
+          ->AsyncCall(&DIPSStorage::RecordStatefulBounce)
+          .WithArgs(url, time);
+      return;
+    }
+  }
 }
 
 const GURL& DIPSWebContentsObserver::GetLastCommittedURL() const {
@@ -334,7 +404,7 @@ void DIPSWebContentsObserver::DidStartNavigation(
 
 void DIPSBounceDetector::DidStartNavigation(
     DIPSNavigationHandle* navigation_handle) {
-  base::TimeTicks now = clock_->NowTicks();
+  base::TimeTicks now = tick_clock_->NowTicks();
 
   DIPSRedirectInfoPtr client_redirect;
   if (client_detection_state_.has_value()) {
@@ -390,6 +460,9 @@ void DIPSWebContentsObserver::OnCookiesAccessed(
 
 void DIPSBounceDetector::OnClientCookiesAccessed(const GURL& url,
                                                  CookieOperation op) {
+  if (op == CookieOperation::kChange) {
+    delegate_->RecordEvent(DIPSRecordedEvent::kStorage, url, clock_->Now());
+  }
   if (client_detection_state_ &&
       GetSiteForDIPS(url) == client_detection_state_->current_site) {
     client_detection_state_->cookie_access_type =
@@ -414,6 +487,9 @@ void DIPSBounceDetector::OnServerCookiesAccessed(
     DIPSNavigationHandle* navigation_handle,
     const GURL& url,
     CookieOperation op) {
+  if (op == CookieOperation::kChange) {
+    delegate_->RecordEvent(DIPSRecordedEvent::kStorage, url, clock_->Now());
+  }
   ServerBounceDetectionState* state = navigation_handle->GetServerState();
   if (state) {
     state->filter.AddAccess(url, op);
@@ -433,7 +509,7 @@ void DIPSWebContentsObserver::DidFinishNavigation(
 
 void DIPSBounceDetector::DidFinishNavigation(
     DIPSNavigationHandle* navigation_handle) {
-  base::TimeTicks now = clock_->NowTicks();
+  base::TimeTicks now = tick_clock_->NowTicks();
   // Iff the primary page changed, reset the client detection state while
   // storing the page load time and previous_url. A primary page change is
   // verified by checking IsInPrimaryMainFrame, !IsSameDocument, and
@@ -485,15 +561,26 @@ void DIPSBounceDetector::DidFinishNavigation(
     client_detection_state_->cookie_access_type = access_types.back();
   }
 }
-
+// TODO(kaklilu): Follow up on how this interacts with Fenced Frames.
 void DIPSWebContentsObserver::FrameReceivedUserActivation(
     content::RenderFrameHost* render_frame_host) {
+  // Ignore iframe activations since we only care for its associated main-frame
+  // interactions on the top-level site.
+  if (!render_frame_host->IsInPrimaryMainFrame())
+    return;
+
   detector_.OnUserActivation();
 }
 
 void DIPSBounceDetector::OnUserActivation() {
+  GURL url = delegate_->GetLastCommittedURL();
+  if (!url.SchemeIsHTTPOrHTTPS())
+    return;
+
   if (client_detection_state_.has_value())
     client_detection_state_->received_user_activation = true;
+
+  delegate_->RecordEvent(DIPSRecordedEvent::kInteraction, url, clock_->Now());
 }
 
 void DIPSWebContentsObserver::WebContentsDestroyed() {

@@ -3,7 +3,11 @@
 // found in the LICENSE file.
 
 #include "ash/system/keyboard_brightness/keyboard_backlight_color_controller.h"
+
+#include <memory>
+
 #include "ash/constants/ash_features.h"
+#include "ash/public/cpp/session/session_types.h"
 #include "ash/rgb_keyboard/rgb_keyboard_util.h"
 #include "ash/shell.h"
 #include "ash/test/ash_test_base.h"
@@ -80,8 +84,14 @@ class KeyboardBacklightColorControllerTest : public AshTestBase {
   void SetUp() override {
     AshTestBase::SetUp();
 
-    controller_ = Shell::Get()->keyboard_backlight_color_controller();
+    controller_ = std::make_unique<KeyboardBacklightColorController>();
+    controller_->OnRgbKeyboardSupportedChanged(true);
     wallpaper_controller_ = Shell::Get()->wallpaper_controller();
+  }
+
+  void TearDown() override {
+    controller_.reset();
+    AshTestBase::TearDown();
   }
 
  protected:
@@ -97,7 +107,7 @@ class KeyboardBacklightColorControllerTest : public AshTestBase {
     controller_->displayed_color_for_testing_ = SK_ColorTRANSPARENT;
   }
 
-  KeyboardBacklightColorController* controller_ = nullptr;
+  std::unique_ptr<KeyboardBacklightColorController> controller_;
   WallpaperControllerImpl* wallpaper_controller_ = nullptr;
 
  private:
@@ -174,4 +184,41 @@ TEST_F(KeyboardBacklightColorControllerTest, DisplayWhiteBacklightOnOobe) {
             displayed_color());
 }
 
+TEST_F(KeyboardBacklightColorControllerTest,
+       DisplayWhiteBacklightOnOobeWithLateInitialization) {
+  controller_->OnRgbKeyboardSupportedChanged(false);
+
+  // Initialize an OOBE session before rgb keyboard is initialized.
+  SessionInfo session_info;
+  session_info.state = session_manager::SessionState::OOBE;
+  Shell::Get()->session_controller()->SetSessionInfo(session_info);
+  EXPECT_NE(ConvertBacklightColorToSkColor(
+                personalization_app::mojom::BacklightColor::kWhite),
+            displayed_color());
+
+  // Once initialized, rgb keyboard should be set to white.
+  controller_->OnRgbKeyboardSupportedChanged(true);
+  EXPECT_EQ(ConvertBacklightColorToSkColor(
+                personalization_app::mojom::BacklightColor::kWhite),
+            displayed_color());
+}
+
+TEST_F(KeyboardBacklightColorControllerTest,
+       DisplaysWallpaperColorWithLateInitialization) {
+  controller_->OnRgbKeyboardSupportedChanged(false);
+
+  TestWallpaperObserver observer;
+  SimulateUserLogin(account_id_1);
+  gfx::ImageSkia one_shot_wallpaper =
+      CreateImage(640, 480, SkColorSetRGB(/*r=*/0, /*g=*/0, /*b=*/10));
+  wallpaper_controller_->ShowOneShotWallpaper(one_shot_wallpaper);
+  observer.WaitForWallpaperColorsChanged();
+
+  // Color should not be set here as rgb keyboard is not yet initialized.
+  EXPECT_NE(kDefaultColor, displayed_color());
+
+  // Once initialized, the color should be set to the default color.
+  controller_->OnRgbKeyboardSupportedChanged(true);
+  EXPECT_EQ(kDefaultColor, displayed_color());
+}
 }  // namespace ash

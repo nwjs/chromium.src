@@ -23,6 +23,7 @@
 #include "url/gurl.h"
 
 namespace base {
+class Clock;
 class TickClock;
 }
 
@@ -164,6 +165,9 @@ class DIPSBounceDetectorDelegate {
   virtual ukm::SourceId GetPageUkmSourceId() const = 0;
   virtual blink::mojom::EngagementLevel GetEngagementLevel(
       const GURL&) const = 0;
+  virtual void RecordEvent(DIPSRecordedEvent event,
+                           const GURL& url,
+                           const base::Time& time) = 0;
 };
 
 // ServerBounceDetectionState gets attached to NavigationHandle (which is a
@@ -214,15 +218,17 @@ class DIPSNavigationHandle {
 };
 
 // Detects client/server-side bounces and handles them (currently by collecting
-// metrics).
+// metrics and storing them in the DIPSDatabase).
 class DIPSBounceDetector {
  public:
   explicit DIPSBounceDetector(DIPSBounceDetectorDelegate* delegate,
-                              const base::TickClock* clock);
+                              const base::TickClock* tick_clock,
+                              const base::Clock* clock);
   ~DIPSBounceDetector();
   DIPSBounceDetector(const DIPSBounceDetector&) = delete;
   DIPSBounceDetector& operator=(const DIPSBounceDetector&) = delete;
 
+  void SetClockForTesting(base::Clock* clock) { clock_ = clock; }
   // The following methods are based on WebContentsObserver, simplified.
   void DidStartNavigation(DIPSNavigationHandle* navigation_handle);
   void OnClientCookiesAccessed(const GURL& url, CookieOperation op);
@@ -240,7 +246,8 @@ class DIPSBounceDetector {
   void SetRedirectHandlerForTesting(DIPSRedirectHandler handler);
 
  private:
-  raw_ptr<const base::TickClock> clock_;
+  raw_ptr<const base::TickClock> tick_clock_;
+  raw_ptr<const base::Clock> clock_;
   raw_ptr<DIPSBounceDetectorDelegate> delegate_;
   absl::optional<ClientBounceDetectionState> client_detection_state_;
   DIPSRedirectContext redirect_context_;
@@ -252,10 +259,16 @@ class DIPSWebContentsObserver
       public content::WebContentsUserData<DIPSWebContentsObserver>,
       public DIPSBounceDetectorDelegate {
  public:
+  static void MaybeCreateForWebContents(content::WebContents* web_contents);
+
   ~DIPSWebContentsObserver() override;
 
   void SetRedirectHandlerForTesting(DIPSRedirectHandler handler) {
     detector_.SetRedirectHandlerForTesting(handler);
+  }
+
+  void SetClockForTesting(base::Clock* clock) {
+    detector_.SetClockForTesting(clock);
   }
 
  private:
@@ -268,6 +281,9 @@ class DIPSWebContentsObserver
   const GURL& GetLastCommittedURL() const override;
   ukm::SourceId GetPageUkmSourceId() const override;
   blink::mojom::EngagementLevel GetEngagementLevel(const GURL&) const override;
+  void RecordEvent(DIPSRecordedEvent event,
+                   const GURL& url,
+                   const base::Time& time) override;
 
   // WebContentsObserver overrides:
   void DidStartNavigation(

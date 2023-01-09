@@ -72,6 +72,7 @@
 #import "ios/chrome/browser/ui/ntp/incognito_view_controller.h"
 #import "ios/chrome/browser/ui/ntp/metrics/feed_metrics_recorder.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_content_delegate.h"
+#import "ios/chrome/browser/ui/ntp/new_tab_page_coordinator+private.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_delegate.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_feature.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_follow_delegate.h"
@@ -423,7 +424,7 @@ BASE_FEATURE(kEnableCheckForNewFollowContent,
 
 - (void)handleFeedModelDidEndUpdates:(FeedType)feedType {
   DCHECK(self.ntpViewController);
-  if (!self.feedViewController) {
+  if (!self.feedViewController || !self.ntpViewController.viewDidAppear) {
     return;
   }
   // When the visible feed has been updated, recalculate the minimum NTP height.
@@ -435,12 +436,8 @@ BASE_FEATURE(kEnableCheckForNewFollowContent,
 
 - (void)ntpDidChangeVisibility:(BOOL)visible {
   if (!self.browser->GetBrowserState()->IsOffTheRecord()) {
+    [self updateStartForVisibilityChange:visible];
     if (visible && self.started) {
-      if (NewTabPageTabHelper::FromWebState(self.webState)
-              ->ShouldShowStartSurface()) {
-        self.headerController.isStartShowing = YES;
-        [self.contentSuggestionsCoordinator configureStartSurfaceIfNeeded];
-      }
       if ([self isFollowingFeedAvailable]) {
         self.ntpViewController.shouldScrollIntoFeed = self.shouldScrollIntoFeed;
         self.shouldScrollIntoFeed = NO;
@@ -535,16 +532,13 @@ BASE_FEATURE(kEnableCheckForNewFollowContent,
   self.sceneInForeground =
       sceneState.activationLevel >= SceneActivationLevelForegroundInactive;
 
-  // Only handle app state for the new First Run UI.
-  if (base::FeatureList::IsEnabled(kEnableFREUIModuleIOS)) {
-    AppState* appState = sceneState.appState;
-    [appState addObserver:self];
+  AppState* appState = sceneState.appState;
+  [appState addObserver:self];
 
-    // Do not focus on omnibox for voice over if there are other screens to
-    // show.
-    if (appState.initStage < InitStageFinal) {
-      self.headerController.focusOmniboxWhenViewAppears = NO;
-    }
+  // Do not focus on omnibox for voice over if there are other screens to
+  // show.
+  if (appState.initStage < InitStageFinal) {
+    self.headerController.focusOmniboxWhenViewAppears = NO;
   }
 }
 
@@ -629,6 +623,10 @@ BASE_FEATURE(kEnableCheckForNewFollowContent,
   self.headerController.toolbarDelegate = self.toolbarDelegate;
   self.headerController.baseViewController = self.baseViewController;
   self.headerController.collectionSynchronizer = self.headerSynchronizer;
+  if (NewTabPageTabHelper::FromWebState(self.webState)
+          ->ShouldShowStartSurface()) {
+    self.headerController.isStartShowing = YES;
+  }
 }
 
 // Configures `self.ntpMediator`.
@@ -864,6 +862,10 @@ BASE_FEATURE(kEnableCheckForNewFollowContent,
 - (void)handleFeedSelected:(FeedType)feedType {
   DCHECK([self isFollowingFeedAvailable]);
 
+  if (self.selectedFeed == feedType) {
+    return;
+  }
+
   self.selectedFeed = feedType;
 
   // Saves scroll position before changing feed.
@@ -918,6 +920,10 @@ BASE_FEATURE(kEnableCheckForNewFollowContent,
          self.authService->HasPrimaryIdentity(signin::ConsentLevel::kSignin);
 }
 
+- (NSUInteger)lastVisibleFeedCardIndex {
+  return [self.feedWrapperViewController lastVisibleFeedCardIndex];
+}
+
 #pragma mark - FeedDelegate
 
 - (void)contentSuggestionsWasUpdated {
@@ -966,8 +972,8 @@ BASE_FEATURE(kEnableCheckForNewFollowContent,
   return [self isFollowingFeedAvailable] && [self isFeedHeaderVisible];
 }
 
-- (void)feedTopSectionHasChangedVisibility:(BOOL)visible {
-  [self.feedTopSectionCoordinator feedTopSectionHasChangedVisibility:visible];
+- (void)signinPromoHasChangedVisibility:(BOOL)visible {
+  [self.feedTopSectionCoordinator signinPromoHasChangedVisibility:visible];
 }
 
 #pragma mark - NewTabPageDelegate
@@ -1112,13 +1118,11 @@ BASE_FEATURE(kEnableCheckForNewFollowContent,
 
 - (void)appState:(AppState*)appState
     didTransitionFromInitStage:(InitStage)previousInitStage {
-  if (base::FeatureList::IsEnabled(kEnableFREUIModuleIOS)) {
-    if (previousInitStage == InitStageFirstRun) {
-      self.headerController.focusOmniboxWhenViewAppears = YES;
-      [self.headerController focusAccessibilityOnOmnibox];
+  if (previousInitStage == InitStageFirstRun) {
+    self.headerController.focusOmniboxWhenViewAppears = YES;
+    [self.headerController focusAccessibilityOnOmnibox];
 
-      [appState removeObserver:self];
-    }
+    [appState removeObserver:self];
   }
 }
 
@@ -1204,6 +1208,25 @@ BASE_FEATURE(kEnableCheckForNewFollowContent,
 
   prefService->SetBoolean(prefs::kNTPContentSuggestionsForSupervisedUserEnabled,
                           !value);
+}
+
+- (void)updateStartForVisibilityChange:(BOOL)visible {
+  if (visible && self.started &&
+      NewTabPageTabHelper::FromWebState(self.webState)
+          ->ShouldShowStartSurface()) {
+    // Start is being shown on an existing NTP, so configure it
+    // appropriately.
+    self.headerController.isStartShowing = YES;
+    [self.contentSuggestionsCoordinator configureStartSurfaceIfNeeded];
+  }
+  if (!visible && NewTabPageTabHelper::FromWebState(self.webState)
+                      ->ShouldShowStartSurface()) {
+    // This means the NTP going away was showing Start. Reset configuration
+    // since it should not show Start after disappearing.
+    NewTabPageTabHelper::FromWebState(self.webState)
+        ->SetShowStartSurface(false);
+    self.headerController.isStartShowing = NO;
+  }
 }
 
 // Updates the visible property based on viewPresented and sceneInForeground
@@ -1447,6 +1470,7 @@ BASE_FEATURE(kEnableCheckForNewFollowContent,
            followingSegmentDotVisible:followingSegmentDotVisible];
     _feedHeaderViewController.feedControlDelegate = self;
     _feedHeaderViewController.ntpDelegate = self;
+    _feedHeaderViewController.feedMetricsRecorder = self.feedMetricsRecorder;
     [_feedHeaderViewController.menuButton
                addTarget:self
                   action:@selector(openFeedMenu)

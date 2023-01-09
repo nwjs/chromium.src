@@ -388,7 +388,7 @@ const char kArcPrivacyPolicyPathFormat[] = "arc_tos/%s/privacy_policy.pdf";
 const char kEolNotificationURL[] = "https://www.google.com/chromebook/older/";
 
 const char kAutoUpdatePolicyURL[] =
-    "http://support.google.com/chrome/a?p=auto-update-policy";
+    "https://support.google.com/chrome/a?p=auto-update-policy";
 
 const char kGoogleNameserversLearnMoreURL[] =
     "https://developers.google.com/speed/public-dns";
@@ -453,7 +453,7 @@ const char kWifiSyncLearnMoreURL[] =
     "https://support.google.com/chromebook/?p=wifisync";
 
 const char kWifiHiddenNetworkURL[] =
-    "http://support.google.com/chromebook?p=hidden_networks";
+    "https://support.google.com/chromebook?p=hidden_networks";
 
 const char kNearbyShareLearnMoreURL[] =
     "https://support.google.com/chromebook?p=nearby_share";
@@ -504,10 +504,8 @@ const char kChromeAppsDeprecationLearnMoreURL[] =
 #endif
 
 #if BUILDFLAG(CHROME_ROOT_STORE_SUPPORTED)
-// TODO(b/1339340): add help center link when help center link is created.
 const char kChromeRootStoreSettingsHelpCenterURL[] =
-    "https://chromium.googlesource.com/chromium/src/+/main/net/data/ssl/"
-    "chrome_root_store/root_store.md";
+    "https://support.google.com/chrome?p=root_store";
 #endif
 
 }  // namespace chrome

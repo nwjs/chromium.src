@@ -35,6 +35,7 @@
 #include "third_party/blink/renderer/core/dom/abort_signal.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
+#include "third_party/blink/renderer/core/dom/scoped_abort_state.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/navigator.h"
@@ -1427,21 +1428,22 @@ ScriptPromise NavigatorAuction::runAdAuction(ScriptState* script_state,
   auto* resolver = MakeGarbageCollected<ScriptPromiseResolver>(script_state);
   mojo::PendingReceiver<mojom::blink::AbortableAdAuction> abort_receiver;
   ScriptPromise promise = resolver->Promise();
-  if (config->hasSignal()) {
-    if (config->signal()->aborted()) {
-      resolver->Reject(config->signal()->reason(script_state));
+  std::unique_ptr<ScopedAbortState> scoped_abort_state = nullptr;
+  if (auto* signal = config->getSignalOr(nullptr)) {
+    if (signal->aborted()) {
+      resolver->Reject(signal->reason(script_state));
       return promise;
     }
     auto* auction_handle = MakeGarbageCollected<AuctionHandle>(
         context, abort_receiver.InitWithNewPipeAndPassRemote());
-    config->signal()->AddAlgorithm(auction_handle);
+    auto* abort_handle = signal->AddAlgorithm(auction_handle);
+    scoped_abort_state =
+        std::make_unique<ScopedAbortState>(signal, abort_handle);
   }
   ad_auction_service_->RunAdAuction(
       std::move(mojo_config), std::move(abort_receiver),
-      WTF::BindOnce(
-          &NavigatorAuction::AuctionComplete, WrapPersistent(this),
-          WrapPersistent(resolver),
-          WrapPersistent(config->hasSignal() ? config->signal() : nullptr)));
+      WTF::BindOnce(&NavigatorAuction::AuctionComplete, WrapPersistent(this),
+                    WrapPersistent(resolver), std::move(scoped_abort_state)));
   return promise;
 }
 
@@ -1503,6 +1505,7 @@ Vector<String> NavigatorAuction::adAuctionComponents(
 ScriptPromise NavigatorAuction::deprecatedURNToURL(
     ScriptState* script_state,
     const String& uuid_url_string,
+    bool send_reports,
     ExceptionState& exception_state) {
   KURL uuid_url(uuid_url_string);
   if (!blink::IsValidUrnUuidURL(GURL(uuid_url))) {
@@ -1513,7 +1516,7 @@ ScriptPromise NavigatorAuction::deprecatedURNToURL(
   auto* resolver = MakeGarbageCollected<ScriptPromiseResolver>(script_state);
   ScriptPromise promise = resolver->Promise();
   ad_auction_service_->DeprecatedGetURLFromURN(
-      std::move(uuid_url),
+      std::move(uuid_url), send_reports,
       resolver->WrapCallbackInScriptScope(WTF::BindOnce(
           &NavigatorAuction::GetURLFromURNComplete, WrapPersistent(this))));
   return promise;
@@ -1523,9 +1526,11 @@ ScriptPromise NavigatorAuction::deprecatedURNToURL(
     ScriptState* script_state,
     Navigator& navigator,
     const String& uuid_url,
+    bool send_reports,
     ExceptionState& exception_state) {
   return From(ExecutionContext::From(script_state), navigator)
-      .deprecatedURNToURL(script_state, uuid_url, exception_state);
+      .deprecatedURNToURL(script_state, uuid_url, send_reports,
+                          exception_state);
 }
 
 ScriptPromise NavigatorAuction::deprecatedReplaceInURN(
@@ -1732,13 +1737,16 @@ void NavigatorAuction::LeaveComplete(bool is_cross_origin,
   resolver->Resolve();
 }
 
-void NavigatorAuction::AuctionComplete(ScriptPromiseResolver* resolver,
-                                       AbortSignal* abort_signal,
-                                       bool manually_aborted,
-                                       const absl::optional<KURL>& result_url) {
+void NavigatorAuction::AuctionComplete(
+    ScriptPromiseResolver* resolver,
+    std::unique_ptr<ScopedAbortState> scoped_abort_state,
+    bool manually_aborted,
+    const absl::optional<KURL>& result_url) {
   if (!resolver->GetExecutionContext() ||
       resolver->GetExecutionContext()->IsContextDestroyed())
     return;
+  AbortSignal* abort_signal =
+      scoped_abort_state ? scoped_abort_state->Signal() : nullptr;
   ScriptState* script_state = resolver->GetScriptState();
   ScriptState::Scope script_state_scope(script_state);
   if (manually_aborted) {

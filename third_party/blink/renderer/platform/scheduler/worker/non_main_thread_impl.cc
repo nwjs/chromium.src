@@ -104,11 +104,6 @@ scoped_refptr<base::SingleThreadTaskRunner> NonMainThreadImpl::GetTaskRunner()
   return thread_->GetDefaultTaskRunner();
 }
 
-scoped_refptr<base::SingleThreadTaskRunner>
-NonMainThreadImpl::GetDeprecatedTaskRunner() const {
-  return GetTaskRunner();
-}
-
 void NonMainThreadImpl::ShutdownOnThread() {
   thread_->ShutdownOnThread();
   Scheduler()->Shutdown();

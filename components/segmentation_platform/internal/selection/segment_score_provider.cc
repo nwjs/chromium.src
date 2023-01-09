@@ -39,7 +39,7 @@ class SegmentScoreProviderImpl : public SegmentScoreProvider {
     SegmentScore result;
     auto iter = scores_last_session_.find(segment_id);
     if (iter != scores_last_session_.end())
-      result.score = iter->second;
+      result.scores = iter->second;
 
     base::ThreadTaskRunnerHandle::Get()->PostTask(
         FROM_HERE, base::BindOnce(std::move(callback), result));
@@ -56,8 +56,9 @@ class SegmentScoreProviderImpl : public SegmentScoreProvider {
       if (!info.has_prediction_result())
         continue;
 
-      float score = info.prediction_result().result();
-      scores_last_session_.emplace(std::make_pair(id, score));
+      const auto& scores = info.prediction_result().result();
+      scores_last_session_.emplace(
+          id, ModelProvider::Response(scores.begin(), scores.end()));
     }
 
     initialized_ = true;
@@ -72,7 +73,7 @@ class SegmentScoreProviderImpl : public SegmentScoreProvider {
 
   // Model scores that are read from db on startup and used for serving the
   // clients in the current session.
-  std::map<SegmentId, float> scores_last_session_;
+  std::map<SegmentId, ModelProvider::Response> scores_last_session_;
 
   // Whether the initialization is complete through an Initialize call.
   bool initialized_{false};

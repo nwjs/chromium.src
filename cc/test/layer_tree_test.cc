@@ -493,9 +493,6 @@ class LayerTreeHostClientForTesting : public LayerTreeHostClient,
       uint32_t frame_token,
       const gfx::PresentationFeedback& feedback) override {}
 
-  void ReportEventLatency(
-      std::vector<EventLatencyTracker::LatencyData> latencies) override {}
-
  private:
   explicit LayerTreeHostClientForTesting(TestHooks* test_hooks)
       : test_hooks_(test_hooks) {}
@@ -699,7 +696,7 @@ LayerTreeTest::LayerTreeTest(viz::RendererType renderer_type)
 #elif defined(ADDRESS_SANITIZER) || defined(_DEBUG)
     // ASAN and Debug builds are slower than release builds, as expected.
     timeout_seconds_ = 30;
-#elif defined(USE_OZONE)
+#elif BUILDFLAG(IS_OZONE)
     // Ozone builds go through a slower path than regular Linux builds.
     timeout_seconds_ = 30;
 #endif

@@ -109,7 +109,8 @@ class ArcAppListPrefs : public KeyedService,
             bool need_fixup,
             absl::optional<uint64_t> app_size_in_bytes,
             absl::optional<uint64_t> data_size_in_bytes);
-    AppInfo(const AppInfo& other);
+    AppInfo(AppInfo&& other);
+    AppInfo& operator=(AppInfo&& other);
     ~AppInfo();
 
     std::string name;
@@ -164,6 +165,7 @@ class ArcAppListPrefs : public KeyedService,
                 bool should_sync,
                 bool system,
                 bool vpn_provider,
+                bool preinstalled,
                 base::flat_map<arc::mojom::AppPermission,
                                arc::mojom::PermissionStatePtr> permissions,
                 arc::mojom::WebAppInfoPtr web_app_info);
@@ -174,8 +176,11 @@ class ArcAppListPrefs : public KeyedService,
     int64_t last_backup_android_id;
     int64_t last_backup_time;
     bool should_sync;
-    bool system;
+    bool system;  // TODO(b/255671011): This is unused. Remove this.
     bool vpn_provider;
+    // If the package is pre-installed in the system image. This is true even
+    // after the package is updated.
+    bool preinstalled;
     // Maps app permission to permission states
     base::flat_map<arc::mojom::AppPermission, arc::mojom::PermissionStatePtr>
         permissions;
@@ -604,6 +609,8 @@ class ArcAppListPrefs : public KeyedService,
   // Sets timeout to wait for default app installed or installation started if
   // some default app is not available yet.
   void MaybeSetDefaultAppLoadingTimeout();
+  // Cancels timeout to wait for default app installed or installation started.
+  void CancelDefaultAppLoadingTimeout();
 
   bool IsIconRequestRecorded(const std::string& app_id,
                              const ArcAppIconDescriptor& descriptor) const;

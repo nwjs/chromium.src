@@ -51,6 +51,7 @@
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/tabs/browser_tab_strip_controller.h"
+#include "chrome/browser/ui/views/tabs/compound_tab_container.h"
 #include "chrome/browser/ui/views/tabs/tab.h"
 #include "chrome/browser/ui/views/tabs/tab_container_impl.h"
 #include "chrome/browser/ui/views/tabs/tab_drag_controller.h"
@@ -71,10 +72,10 @@
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/theme_resources.h"
+#include "components/crash/core/common/crash_key.h"
 #include "components/tab_groups/tab_group_color.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_visual_data.h"
-#include "compound_tab_container.h"
 #include "third_party/skia/include/core/SkColorFilter.h"
 #include "third_party/skia/include/core/SkPath.h"
 #include "third_party/skia/include/pathops/SkPathOps.h"
@@ -141,6 +142,17 @@ std::unique_ptr<TabContainer> MakeTabContainer(
   }
   return std::make_unique<TabContainerImpl>(
       *tab_strip, hover_card_controller, drag_context, *tab_strip, tab_strip);
+}
+
+void UpdateDragEventSourceCrashKey(
+    absl::optional<ui::mojom::DragEventSource> event_source) {
+  static crash_reporter::CrashKeyString<8> key("tabdrag-event-source");
+  if (!event_source.has_value()) {
+    key.Clear();
+    return;
+  }
+  key.Set(*event_source == ui::mojom::DragEventSource::kTouch ? "touch"
+                                                              : "mouse");
 }
 
 }  // namespace
@@ -291,6 +303,8 @@ class TabStrip::TabDragContextImpl : public TabDragContext,
     drag_controller_->Init(this, source, dragging_views, gfx::Point(x, y),
                            event.x(), std::move(selection_model),
                            EventSourceFromEvent(event));
+
+    UpdateDragEventSourceCrashKey(drag_controller_->event_source());
     if (drag_controller_set_callback_)
       std::move(drag_controller_set_callback_).Run(drag_controller_.get());
   }
@@ -556,6 +570,7 @@ class TabStrip::TabDragContextImpl : public TabDragContext,
   void StoppedDragging(const std::vector<TabSlotView*>& views) override {
     // Let the controller know that the user stopped dragging tabs.
     tab_strip_->controller_->OnStoppedDragging();
+    UpdateDragEventSourceCrashKey({});
 
     // Animate the dragged views to their ideal positions. We'll hand them back
     // to TabContainer when the animation ends.
@@ -655,6 +670,10 @@ class TabStrip::TabDragContextImpl : public TabDragContext,
     }
   }
 
+  views::ScrollView* GetScrollView() override {
+    return views::ScrollView::GetScrollViewForContents(tab_strip_);
+  }
+
  private:
   // Animates tabs after a drag has ended, then hands them back to
   // |tab_container_|.
@@ -688,7 +707,7 @@ class TabStrip::TabDragContextImpl : public TabDragContext,
 
    private:
     const raw_ref<TabContainer> tab_container_;
-    const raw_ref<TabSlotView> slot_view_;
+    const raw_ref<TabSlotView, DanglingUntriaged> slot_view_;
   };
 
   // Determines the index to move the dragged tabs to. The dragged tabs must
@@ -853,7 +872,7 @@ class TabStrip::TabDragContextImpl : public TabDragContext,
     return 0;
   }
 
-  const raw_ptr<TabStrip> tab_strip_;
+  const raw_ptr<TabStrip, DanglingUntriaged> tab_strip_;
 
   // Responsible for animating tabs during drag sessions.
   views::BoundsAnimator bounds_animator_;

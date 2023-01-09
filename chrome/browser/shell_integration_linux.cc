@@ -821,7 +821,8 @@ bool SetAsDefaultProtocolClient(const std::string& protocol) {
   return shell_integration_linux::SetDefaultWebClient(protocol);
 }
 
-DefaultWebClientSetPermission GetDefaultWebClientSetPermission() {
+DefaultWebClientSetPermission
+GetPlatformSpecificDefaultWebClientSetPermission() {
   return SET_DEFAULT_UNATTENDED;
 }
 

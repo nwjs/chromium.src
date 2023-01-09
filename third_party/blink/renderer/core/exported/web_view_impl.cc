@@ -154,8 +154,8 @@
 #include "third_party/blink/renderer/core/page/scrolling/scrolling_coordinator.h"
 #include "third_party/blink/renderer/core/page/scrolling/top_document_root_scroller_controller.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
-#include "third_party/blink/renderer/core/paint/paint_timing.h"
-#include "third_party/blink/renderer/core/paint/paint_timing_detector.h"
+#include "third_party/blink/renderer/core/paint/timing/paint_timing.h"
+#include "third_party/blink/renderer/core/paint/timing/paint_timing_detector.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/core/scroll/scroll_into_view_util.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme.h"
@@ -573,7 +573,8 @@ WebViewImpl::WebViewImpl(
       receiver_(this,
                 std::move(page_handle),
                 agent_group_scheduler.DefaultTaskRunner()),
-      session_storage_namespace_id_(session_storage_namespace_id) {
+      session_storage_namespace_id_(session_storage_namespace_id),
+      web_agent_group_scheduler_(agent_group_scheduler) {
   if (receiver_) {
     // Typically, the browser process closes the corresponding peer handle
     // to signal the renderer process to destroy `this`. In certain
@@ -587,7 +588,7 @@ WebViewImpl::WebViewImpl(
     DCHECK(!does_composite_);
   page_ = Page::CreateOrdinary(*chrome_client_,
                                opener ? opener->GetPage() : nullptr,
-                               agent_group_scheduler);
+                               agent_group_scheduler.GetAgentGroupScheduler());
   CoreInitializer::GetInstance().ProvideModulesToPage(
       *page_, session_storage_namespace_id_);
 
@@ -1025,7 +1026,7 @@ WebPagePopupImpl* WebViewImpl::OpenPagePopup(PagePopupClient* client) {
       std::move(widget));
   WebFrameWidgetImpl* opener_widget = web_opener_frame->LocalRootFrameWidget();
 
-  scheduler::WebAgentGroupScheduler& agent_group_scheduler =
+  AgentGroupScheduler& agent_group_scheduler =
       opener_frame->GetPage()->GetPageScheduler()->GetAgentGroupScheduler();
   // The returned WebPagePopup is self-referencing, so the pointer here is not
   // an owning pointer. It is de-referenced by the PopupWidgetHost disconnecting
@@ -1809,6 +1810,7 @@ void WebView::ApplyWebPreferences(const web_pref::WebPreferences& prefs,
   settings->SetTouchDragDropEnabled(prefs.touch_drag_drop_enabled);
   settings->SetTouchDragEndContextMenu(prefs.touch_dragend_context_menu);
   settings->SetWebXRImmersiveArAllowed(prefs.webxr_immersive_ar_allowed);
+  settings->SetModalContextMenu(prefs.modal_context_menu);
 
 #if BUILDFLAG(IS_MAC)
   web_view_impl->SetMaximumLegibleScale(
@@ -2615,15 +2617,15 @@ void WebViewImpl::DispatchPersistedPageshow(base::TimeTicks navigation_start) {
     }
     if (frame->DomWindow() && frame->DomWindow()->IsLocalDOMWindow()) {
       auto pageshow_start_time = base::TimeTicks::Now();
+      LocalDOMWindow* window = frame->DomWindow()->ToLocalDOMWindow();
 
-      frame->DomWindow()->ToLocalDOMWindow()->DispatchPersistedPageshowEvent(
-          navigation_start);
+      window->DispatchPersistedPageshowEvent(navigation_start);
 
-      if (RuntimeEnabledFeatures::NavigationIdEnabled()) {
+      if (RuntimeEnabledFeatures::NavigationIdEnabled(window)) {
         auto pageshow_end_time = base::TimeTicks::Now();
 
-        WindowPerformance* performance = DOMWindowPerformance::performance(
-            *frame->DomWindow()->ToLocalDOMWindow());
+        WindowPerformance* performance =
+            DOMWindowPerformance::performance(*window);
         DCHECK(performance);
 
         performance->AddBackForwardCacheRestoration(
@@ -2632,8 +2634,7 @@ void WebViewImpl::DispatchPersistedPageshow(base::TimeTicks navigation_start) {
       if (frame->IsOutermostMainFrame()) {
         UMA_HISTOGRAM_BOOLEAN(
             "BackForwardCache.MainFrameHasPageshowListenersOnRestore",
-            frame->DomWindow()->ToLocalDOMWindow()->HasEventListeners(
-                event_type_names::kPageshow));
+            window->HasEventListeners(event_type_names::kPageshow));
       }
     }
   }
@@ -3138,15 +3139,14 @@ void WebViewImpl::SetCompositorDeviceScaleFactorOverride(
   }
 }
 
-void WebViewImpl::SetDeviceEmulationTransform(
-    const TransformationMatrix& transform) {
+void WebViewImpl::SetDeviceEmulationTransform(const gfx::Transform& transform) {
   if (transform == device_emulation_transform_)
     return;
   device_emulation_transform_ = transform;
   UpdateDeviceEmulationTransform();
 }
 
-TransformationMatrix WebViewImpl::GetDeviceEmulationTransform() const {
+gfx::Transform WebViewImpl::GetDeviceEmulationTransform() const {
   return device_emulation_transform_;
 }
 
@@ -3156,7 +3156,7 @@ void WebViewImpl::EnableDeviceEmulation(const DeviceEmulationParams& params) {
 
 void WebViewImpl::ActivateDevToolsTransform(
     const DeviceEmulationParams& params) {
-  TransformationMatrix device_emulation_transform =
+  gfx::Transform device_emulation_transform =
       dev_tools_emulator_->EnableDeviceEmulation(params);
   SetDeviceEmulationTransform(device_emulation_transform);
 }
@@ -3167,7 +3167,7 @@ void WebViewImpl::DisableDeviceEmulation() {
 
 void WebViewImpl::DeactivateDevToolsTransform() {
   dev_tools_emulator_->DisableDeviceEmulation();
-  SetDeviceEmulationTransform(TransformationMatrix());
+  SetDeviceEmulationTransform(gfx::Transform());
 }
 
 void WebViewImpl::PerformCustomContextMenuAction(unsigned action) {
@@ -3398,10 +3398,10 @@ void WebViewImpl::UpdateRendererPreferences(
   GetSettings()->SetCaretBrowsingEnabled(
       renderer_preferences_.caret_browsing_enabled);
 
-#if defined(USE_OZONE)
+#if BUILDFLAG(IS_OZONE)
   GetSettings()->SetSelectionClipboardBufferAvailable(
       renderer_preferences_.selection_clipboard_buffer_available);
-#endif  // defined(USE_OZONE)
+#endif  // BUILDFLAG(IS_OZONE)
 
   SetExplicitlyAllowedPorts(
       renderer_preferences_.explicitly_allowed_network_ports);
@@ -3615,7 +3615,7 @@ void WebViewImpl::PageScaleFactorChanged() {
     // not, we can enforce that when setting it and DCHECK IsOutermostMainFrame
     // instead.
     if (MainFrameImpl()->IsOutermostMainFrame()) {
-      TransformationMatrix device_emulation_transform =
+      gfx::Transform device_emulation_transform =
           dev_tools_emulator_->OutermostMainFrameScrollOrScaleChanged();
       SetDeviceEmulationTransform(device_emulation_transform);
     }
@@ -3626,7 +3626,7 @@ void WebViewImpl::OutermostMainFrameScrollOffsetChanged() {
   DCHECK(MainFrameImpl());
   DCHECK(MainFrameImpl()->IsOutermostMainFrame());
   if (dev_tools_emulator_->HasViewportOverride()) {
-    TransformationMatrix device_emulation_transform =
+    gfx::Transform device_emulation_transform =
         dev_tools_emulator_->OutermostMainFrameScrollOrScaleChanged();
     SetDeviceEmulationTransform(device_emulation_transform);
   }
@@ -3923,6 +3923,10 @@ void WebViewImpl::CreateRemoteMainFrame(
   DidAttachRemoteMainFrame(
       std::move(remote_main_frame_interfaces->main_frame_host),
       std::move(remote_main_frame_interfaces->main_frame));
+}
+
+scheduler::WebAgentGroupScheduler& WebViewImpl::GetWebAgentGroupScheduler() {
+  return web_agent_group_scheduler_;
 }
 
 }  // namespace blink

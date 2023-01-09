@@ -67,6 +67,7 @@
 #include "third_party/blink/renderer/core/timing/performance_event_timing.h"
 #include "third_party/blink/renderer/core/timing/performance_observer.h"
 #include "third_party/blink/renderer/core/timing/performance_timing.h"
+#include "third_party/blink/renderer/core/timing/performance_timing_for_reporting.h"
 #include "third_party/blink/renderer/core/timing/responsiveness_metrics.h"
 #include "third_party/blink/renderer/core/timing/soft_navigation_entry.h"
 #include "third_party/blink/renderer/core/timing/visibility_state_entry.h"
@@ -218,6 +219,15 @@ PerformanceTiming* WindowPerformance::timing() const {
   return timing_.Get();
 }
 
+PerformanceTimingForReporting* WindowPerformance::timingForReporting() const {
+  if (!timing_for_reporting_) {
+    timing_for_reporting_ =
+        MakeGarbageCollected<PerformanceTimingForReporting>(DomWindow());
+  }
+
+  return timing_for_reporting_.Get();
+}
+
 PerformanceNavigation* WindowPerformance::navigation() const {
   if (!navigation_)
     navigation_ = MakeGarbageCollected<PerformanceNavigation>(DomWindow());
@@ -263,7 +273,8 @@ WindowPerformance::CreateNavigationTimingInstance() {
 
   return MakeGarbageCollected<PerformanceNavigationTiming>(
       DomWindow(), info, time_origin_,
-      DomWindow()->CrossOriginIsolatedCapability(), std::move(server_timing));
+      DomWindow()->CrossOriginIsolatedCapability(), std::move(server_timing),
+      document_loader->GetNavigationDeliveryType());
 }
 
 void WindowPerformance::BuildJSONValue(V8ObjectBuilder& builder) const {
@@ -278,6 +289,7 @@ void WindowPerformance::Trace(Visitor* visitor) const {
   visitor->Trace(event_counts_);
   visitor->Trace(navigation_);
   visitor->Trace(timing_);
+  visitor->Trace(timing_for_reporting_);
   visitor->Trace(responsiveness_metrics_);
   visitor->Trace(current_event_);
   Performance::Trace(visitor);
@@ -657,15 +669,19 @@ void WindowPerformance::AddVisibilityStateEntry(bool is_visible,
 
 void WindowPerformance::AddSoftNavigationEntry(const AtomicString& name,
                                                base::TimeTicks timestamp) {
-  if (!RuntimeEnabledFeatures::SoftNavigationHeuristicsEnabled()) {
+  if (!RuntimeEnabledFeatures::SoftNavigationHeuristicsEnabled(
+          GetExecutionContext())) {
     return;
   }
   SoftNavigationEntry* entry = MakeGarbageCollected<SoftNavigationEntry>(
       name, MonotonicTimeToDOMHighResTimeStamp(timestamp),
       PerformanceEntry::GetNavigationId(GetExecutionContext()));
 
-  if (HasObserverFor(PerformanceEntry::kSoftNavigation))
+  if (HasObserverFor(PerformanceEntry::kSoftNavigation)) {
+    UseCounter::Count(GetExecutionContext(),
+                      WebFeature::kSoftNavigationHeuristics);
     NotifyObserversOfEntry(*entry);
+  }
 
   AddSoftNavigationToPerformanceTimeline(entry);
 }

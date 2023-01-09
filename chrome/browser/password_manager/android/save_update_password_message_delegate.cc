@@ -197,9 +197,9 @@ void SaveUpdatePasswordMessageDelegate::CreateMessage(bool update_password) {
 
   update_password_ = update_password;
 
-  bool use_followup_button_text = HasMultipleCredentialsStored();
+  bool use_followup_button = HasMultipleCredentialsStored();
   message_->SetPrimaryButtonText(l10n_util::GetStringUTF16(
-      GetPrimaryButtonTextId(update_password, use_followup_button_text)));
+      GetPrimaryButtonTextId(update_password, use_followup_button)));
 
   if (password_manager::features::UsesUnifiedPasswordManagerBranding()) {
     message_->SetIconResourceId(ResourceMapper::MapToJavaDrawableId(
@@ -210,11 +210,18 @@ void SaveUpdatePasswordMessageDelegate::CreateMessage(bool update_password) {
         ResourceMapper::MapToJavaDrawableId(IDR_ANDROID_INFOBAR_SAVE_PASSWORD));
   }
 
-  // With detailed dialog feature enabled the cog button is always shown
-  // (it was shown only for Save password dialog before)
-  if (base::FeatureList::IsEnabled(kPasswordEditDialogWithDetails)) {
+  // With kPasswordEditDialogWithDetails feature on: the cog button is always
+  // shown for the save message and for the update message when there is
+  // just one password stored for the web site. When there are multiple
+  // credentials stored, the dialog will be called anyway from the followup
+  // button, so there are no options to put under the cog.
+  // With kPasswordEditDialogWithDetails feature off: the cog button is
+  // shown only for the Save password message.
+  if (base::FeatureList::IsEnabled(kPasswordEditDialogWithDetails) &&
+      (!update_password || !use_followup_button)) {
     SetupCogMenuForDialogWithDetails(message_, update_password);
-  } else if (!update_password) {
+  } else if (!base::FeatureList::IsEnabled(kPasswordEditDialogWithDetails) &&
+             !update_password) {
     SetupCogMenu(message_, update_password);
   }
 }
@@ -249,7 +256,9 @@ void SaveUpdatePasswordMessageDelegate::SetupCogMenuForDialogWithDetails(
     message_->AddSecondaryMenuItem(
         static_cast<int>(SavePasswordDialogMenuItem::kNeverSave),
         /*resource_id=*/0,
-        l10n_util::GetStringUTF16(IDS_PASSWORD_MESSAGE_NEVER_SAVE_MENU_ITEM));
+        l10n_util::GetStringUTF16(IDS_PASSWORD_MESSAGE_NEVER_SAVE_MENU_ITEM),
+        l10n_util::GetStringUTF16(
+            IDS_PASSWORD_MESSAGE_NEVER_SAVE_MENU_ITEM_DESC));
     message_->AddSecondaryMenuItem(
         static_cast<int>(SavePasswordDialogMenuItem::kEditPassword),
         /*resource_id=*/0,
@@ -332,28 +341,15 @@ unsigned int SaveUpdatePasswordMessageDelegate::GetDisplayUsernames(
       password_forms = passwords_state_.GetCurrentForms();
   const std::u16string& default_username =
       passwords_state_.form_manager()->GetPendingCredentials().username_value;
-  if (password_forms.size() > 1) {
-    // If multiple credentials can be updated, we display a dropdown with all
-    // the corresponding usernames.
-    for (const auto& form : password_forms) {
-      const std::u16string username =
-          base::FeatureList::IsEnabled(kPasswordEditDialogWithDetails)
-              ? form->username_value
-              : GetDisplayUsername(*form);
-      usernames->push_back(std::move(username));
-      if (form->username_value == default_username) {
-        selected_username_index = usernames->size() - 1;
-      }
-    }
-  } else {
+  for (const auto& form : password_forms) {
     const std::u16string username =
         base::FeatureList::IsEnabled(kPasswordEditDialogWithDetails)
-            ? passwords_state_.form_manager()
-                  ->GetPendingCredentials()
-                  .username_value
-            : GetDisplayUsername(
-                  passwords_state_.form_manager()->GetPendingCredentials());
+            ? form->username_value
+            : GetDisplayUsername(*form);
     usernames->push_back(username);
+    if (form->username_value == default_username) {
+      selected_username_index = usernames->size() - 1;
+    }
   }
   return selected_username_index;
 }
@@ -390,14 +386,14 @@ void SaveUpdatePasswordMessageDelegate::DisplayEditDialog(
   if (!password_edit_dialog_)
     return;
 
-  if (update_password) {
-    std::vector<std::u16string> usernames;
-    int selected_username_index = GetDisplayUsernames(&usernames);
-    password_edit_dialog_->ShowUpdatePasswordDialog(
-        usernames, selected_username_index, current_password, account_email_);
+  std::vector<std::u16string> usernames;
+  int selected_username_index = GetDisplayUsernames(&usernames);
+  if (base::FeatureList::IsEnabled(kPasswordEditDialogWithDetails)) {
+    password_edit_dialog_->ShowPasswordEditDialog(
+        usernames, current_username, current_password, account_email_);
   } else {
-    password_edit_dialog_->ShowSavePasswordDialog(
-        current_username, current_password, account_email_);
+    password_edit_dialog_->ShowLegacyPasswordEditDialog(
+        usernames, selected_username_index, account_email_);
   }
 
   DismissSaveUpdatePasswordMessage(messages::DismissReason::SECONDARY_ACTION);

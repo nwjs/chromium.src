@@ -11,6 +11,7 @@
 
 #include "base/bind.h"
 #include "base/command_line.h"
+#include "base/feature_list.h"
 #include "base/mac/bundle_locations.h"
 #import "base/mac/foundation_util.h"
 #include "base/mac/mac_util.h"
@@ -31,8 +32,10 @@
 #import "chrome/browser/mac/keystone_glue.h"
 #include "chrome/browser/mac/mac_startup_profiler.h"
 #include "chrome/browser/ui/cocoa/main_menu_builder.h"
+#include "chrome/browser/updater/browser_updater_client_util.h"
 #include "chrome/browser/updater/scheduler.h"
 #include "chrome/common/channel_info.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
@@ -49,10 +52,6 @@
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/resource/resource_handle.h"
 #include "ui/native_theme/native_theme_mac.h"
-
-#if BUILDFLAG(ENABLE_CHROMIUM_UPDATER)
-#include "chrome/browser/mac/install_updater.h"
-#endif  // BUILDFLAG(ENABLE_CHROMIUM_UPDATER)
 
 // ChromeBrowserMainPartsMac ---------------------------------------------------
 
@@ -85,13 +84,13 @@ void ChromeBrowserMainPartsMac::PreCreateMainMessageLoop() {
   CHECK(ui::ResourceBundle::HasSharedInstance());
 
 #if !BUILDFLAG(GOOGLE_CHROME_FOR_TESTING_BRANDING)
-#if BUILDFLAG(ENABLE_CHROMIUM_UPDATER)
-  InstallUpdaterAndRegisterBrowser();
-#else
-  // This is a no-op if the KeystoneRegistration framework is not present.
-  // The framework is only distributed with branded Google Chrome builds.
-  [[KeystoneGlue defaultKeystoneGlue] registerWithKeystone];
-#endif  // BUILDFLAG(ENABLE_CHROMIUM_UPDATER)
+  if (base::FeatureList::IsEnabled(features::kUseChromiumUpdater)) {
+    EnsureUpdater(base::DoNothing(), base::DoNothing());
+  } else {
+    // This is a no-op if the KeystoneRegistration framework is not present.
+    // The framework is only distributed with branded Google Chrome builds.
+    [[KeystoneGlue defaultKeystoneGlue] registerWithKeystone];
+  }
   updater::SchedulePeriodicTasks();
 
 #if 0

@@ -15,6 +15,7 @@
 #include "third_party/blink/renderer/core/loader/speculation_rule_loader.h"
 #include "third_party/blink/renderer/platform/scheduler/public/event_loop.h"
 #include "third_party/blink/renderer/platform/weborigin/referrer.h"
+#include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/weborigin/security_policy.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 
@@ -23,10 +24,12 @@ namespace blink {
 namespace {
 
 // https://wicg.github.io/nav-speculation/prefetch.html#list-of-sufficiently-strict-speculative-navigation-referrer-policies
-bool AcceptableReferrerPolicy(mojom::blink::SpeculationAction action,
-                              const Referrer& referrer) {
-  // TODO(1355146): This restriction should also apply to prerenders.
-  if (action == mojom::blink::SpeculationAction::kPrerender)
+bool AcceptableReferrerPolicy(const Referrer& referrer,
+                              bool is_initially_same_site) {
+  // Lax referrer policies are acceptable for same-site. The browser is
+  // responsible for aborting in the case of cross-site redirects with lax
+  // referrer policies.
+  if (is_initially_same_site)
     return true;
 
   switch (referrer.referrer_policy) {
@@ -48,9 +51,21 @@ bool AcceptableReferrerPolicy(mojom::blink::SpeculationAction action,
   }
 }
 
-String MakeReferrerWarning(const KURL& url, const Referrer& referrer) {
-  return "Ignored attempt to prefetch " + url.ElidedString() +
-         " due to unacceptable referrer policy (" +
+String SpeculationActionAsString(mojom::blink::SpeculationAction action) {
+  switch (action) {
+    case mojom::blink::SpeculationAction::kPrefetch:
+    case mojom::blink::SpeculationAction::kPrefetchWithSubresources:
+      return "prefetch";
+    case mojom::blink::SpeculationAction::kPrerender:
+      return "prerender";
+  }
+}
+
+String MakeReferrerWarning(mojom::blink::SpeculationAction action,
+                           const KURL& url,
+                           const Referrer& referrer) {
+  return "Ignored attempt to " + SpeculationActionAsString(action) + " " +
+         url.ElidedString() + " due to unacceptable referrer policy (" +
          SecurityPolicy::ReferrerPolicyAsString(referrer.referrer_policy) +
          ").";
 }
@@ -143,25 +158,45 @@ void DocumentSpeculationRules::UpdateSpeculationCandidates() {
   if (!host || !execution_context)
     return;
 
-  network::mojom::ReferrerPolicy referrer_policy =
+  network::mojom::ReferrerPolicy document_referrer_policy =
       execution_context->GetReferrerPolicy();
   String outgoing_referrer = execution_context->OutgoingReferrer();
 
   Vector<mojom::blink::SpeculationCandidatePtr> candidates;
-  auto push_candidates = [&candidates, &referrer_policy, &outgoing_referrer,
-                          &execution_context](
+  auto push_candidates = [&candidates, &document_referrer_policy,
+                          &outgoing_referrer, &execution_context](
                              mojom::blink::SpeculationAction action,
                              const HeapVector<Member<SpeculationRule>>& rules) {
     for (SpeculationRule* rule : rules) {
+      network::mojom::ReferrerPolicy referrer_policy =
+          rule->referrer_policy().value_or(document_referrer_policy);
       for (const KURL& url : rule->urls()) {
+        scoped_refptr<const SecurityOrigin> url_origin =
+            SecurityOrigin::Create(url);
+        const bool is_initially_same_site =
+            url_origin->IsSameSiteWith(execution_context->GetSecurityOrigin());
         Referrer referrer = SecurityPolicy::GenerateReferrer(
             referrer_policy, url, outgoing_referrer);
 
-        if (!AcceptableReferrerPolicy(action, referrer)) {
+        // TODO(mcnee): Speculation rules initially shipped with a bug where a
+        // policy of "no-referrer" would be assumed and the referrer policy
+        // restriction was not enforced. We emulate that behaviour here as sites
+        // don't currently have a means of specifying a suitable policy. Once
+        // SpeculationRulesReferrerPolicyKey ships, this workaround should be
+        // removed. See https://crbug.com/1398772.
+        if (!RuntimeEnabledFeatures::
+                SpeculationRulesReferrerPolicyKeyEnabled() &&
+            !AcceptableReferrerPolicy(referrer, is_initially_same_site)) {
+          referrer = SecurityPolicy::GenerateReferrer(
+              network::mojom::ReferrerPolicy::kNever, url, outgoing_referrer);
+          DCHECK(AcceptableReferrerPolicy(referrer, is_initially_same_site));
+        }
+
+        if (!AcceptableReferrerPolicy(referrer, is_initially_same_site)) {
           execution_context->AddConsoleMessage(
               mojom::blink::ConsoleMessageSource::kOther,
               mojom::blink::ConsoleMessageLevel::kWarning,
-              MakeReferrerWarning(url, referrer));
+              MakeReferrerWarning(action, url, referrer));
           continue;
         }
 

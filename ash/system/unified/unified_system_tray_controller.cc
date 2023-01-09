@@ -83,8 +83,7 @@
 namespace ash {
 
 // TODO(amehfooz): Add histograms for pagination metrics in system tray.
-void RecordPageSwitcherSourceByEventType(ui::EventType type,
-                                         bool is_tablet_mode) {}
+void RecordPageSwitcherSourceByEventType(ui::EventType type) {}
 
 void ReportExpandAnimationSmoothness(int smoothness) {
   UMA_HISTOGRAM_PERCENTAGE(
@@ -122,8 +121,7 @@ UnifiedSystemTrayController::UnifiedSystemTrayController(
 
   pagination_controller_ = std::make_unique<PaginationController>(
       model_->pagination_model(), PaginationController::SCROLL_AXIS_HORIZONTAL,
-      base::BindRepeating(&RecordPageSwitcherSourceByEventType),
-      Shell::Get()->tablet_mode_controller()->InTabletMode());
+      base::BindRepeating(&RecordPageSwitcherSourceByEventType));
 }
 
 UnifiedSystemTrayController::~UnifiedSystemTrayController() {
@@ -722,6 +720,14 @@ void UnifiedSystemTrayController::ResetToCollapsedIfRequired() {
 void UnifiedSystemTrayController::CollapseWithoutAnimating() {
   unified_view_->SetExpandedAmount(0.0);
   animation_->Reset(0);
+}
+
+bool UnifiedSystemTrayController::IsDetailedViewShown() const {
+  if (quick_settings_view_)
+    return quick_settings_view_->IsDetailedViewShown();
+  if (unified_view_)
+    return unified_view_->IsDetailedViewShown();
+  return false;
 }
 
 void UnifiedSystemTrayController::UpdateDragThreshold() {

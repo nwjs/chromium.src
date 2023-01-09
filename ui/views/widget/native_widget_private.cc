@@ -8,8 +8,7 @@
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
 
-namespace views {
-namespace internal {
+namespace views::internal {
 
 #if defined(OS_WIN)
 void NativeWidgetPrivate::SetPosition(const gfx::Point& pos) {
@@ -35,5 +34,4 @@ bool NativeWidgetPrivate::IsMoveLoopSupported() const {
   return true;
 }
 
-}  // namespace internal
-}  // namespace views
+}  // namespace views::internal

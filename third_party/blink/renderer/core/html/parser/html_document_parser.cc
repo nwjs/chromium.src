@@ -1762,8 +1762,15 @@ bool HTMLDocumentParser::ShouldPumpTokenizerNowForFinishAppend() const {
   // commit. Processing the data now can lead to unexpected states.
   // TODO(https://crbug.com/1364695): see if this limitation can be removed.
   if (auto* sink = probe::ToCoreProbeSink(GetDocument())) {
-    if (sink->HasAgentsGlobal(CoreProbeSink::kInspectorDOMDebuggerAgent))
+    if (sink->HasAgentsGlobal(CoreProbeSink::kDevToolsSession))
       return false;
+  }
+
+  if (GetDocument()->IsInOutermostMainFrame()) {
+    if (!features::kProcessHtmlDataImmediatelyMainFrame.Get())
+      return false;
+  } else if (!features::kProcessHtmlDataImmediatelyChildFrame.Get()) {
+    return false;
   }
 
   return did_pump_tokenizer_

@@ -27,7 +27,6 @@
 #include "chrome/browser/banners/app_banner_manager_desktop.h"
 #include "chrome/browser/browser_features.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/devtools/protocol/browser_handler.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/scoped_disable_client_side_decorations_for_test.h"
@@ -54,6 +53,7 @@
 #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
 #include "chrome/browser/ui/web_applications/web_app_menu_model.h"
 #include "chrome/browser/ui/web_applications/web_app_ui_utils.h"
+#include "chrome/browser/ui/window_sizer/window_sizer.h"
 #include "chrome/browser/web_applications/external_install_options.h"
 #include "chrome/browser/web_applications/os_integration/web_app_shortcut.h"
 #include "chrome/browser/web_applications/test/web_app_test_observers.h"
@@ -94,11 +94,14 @@
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/clipboard/clipboard_buffer.h"
 #include "ui/base/window_open_disposition.h"
+#include "ui/display/screen.h"
 #include "ui/gfx/color_utils.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
+#include "ash/constants/ash_features.h"
+#include "chrome/browser/ash/system_web_apps/color_helpers.h"
 #include "chrome/browser/ash/system_web_apps/test_support/test_system_web_app_installation.h"
 #include "chrome/browser/ui/ash/shelf/chrome_shelf_controller.h"
 #endif
@@ -237,17 +240,6 @@ class WebAppBrowserTest : public WebAppControllerBrowserTest {
 
     return result;
   }
-};
-
-// A dedicated test fixture for WindowControlsOverlay, which requires a command
-// line switch to enable manifest parsing.
-class WebAppBrowserTest_WindowControlsOverlay : public WebAppBrowserTest {
- public:
-  WebAppBrowserTest_WindowControlsOverlay() = default;
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_{
-      features::kWebAppWindowControlsOverlay};
 };
 
 // A dedicated test fixture for Borderless, which requires a command
@@ -406,26 +398,16 @@ IN_PROC_BROWSER_TEST_F(WebAppBrowserTest, BackgroundColorChange) {
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 
-class BackgroundColorChangeSystemWebAppBrowserTest
-    : public WebAppBrowserTest,
-      public testing::WithParamInterface<
-          /*prefer_manifest_background_color=*/bool> {
+class ColorSystemWebAppBrowserTest : public WebAppBrowserTest {
  public:
-  BackgroundColorChangeSystemWebAppBrowserTest() {
+  ColorSystemWebAppBrowserTest() {
     system_web_app_installation_ =
         ash::TestSystemWebAppInstallation::SetUpAppWithColors(
             /*theme_color=*/SK_ColorWHITE,
             /*dark_mode_theme_color=*/SK_ColorBLACK,
             /*background_color=*/SK_ColorWHITE,
             /*dark_mode_background_color=*/SK_ColorBLACK);
-    static_cast<ash::UnittestingSystemAppDelegate*>(
-        system_web_app_installation_->GetDelegate())
-        ->SetPreferManifestBackgroundColor(PreferManifestBackgroundColor());
   }
-
-  // Returns whether the web app under test prefers manifest background colors
-  // over web contents background colors.
-  bool PreferManifestBackgroundColor() const { return GetParam(); }
 
   // Installs the web app under test, blocking until installation is complete,
   // and returning the `AppId` for the installed web app.
@@ -434,9 +416,44 @@ class BackgroundColorChangeSystemWebAppBrowserTest
     return system_web_app_installation_->GetAppId();
   }
 
- private:
+ protected:
   std::unique_ptr<ash::TestSystemWebAppInstallation>
       system_web_app_installation_;
+};
+
+class BackgroundColorChangeSystemWebAppBrowserTest
+    : public ColorSystemWebAppBrowserTest,
+      public testing::WithParamInterface<
+          /*prefer_manifest_background_color=*/bool> {
+ public:
+  BackgroundColorChangeSystemWebAppBrowserTest() {
+    static_cast<ash::UnittestingSystemAppDelegate*>(
+        system_web_app_installation_->GetDelegate())
+        ->SetPreferManifestBackgroundColor(PreferManifestBackgroundColor());
+  }
+
+  // Returns whether the web app under test prefers manifest background colors
+  // over web contents background colors.
+  bool PreferManifestBackgroundColor() const { return GetParam(); }
+};
+
+class DynamicColorSystemWebAppBrowserTest
+    : public ColorSystemWebAppBrowserTest,
+      public testing::WithParamInterface</*use_system_theme_color=*/bool> {
+ public:
+  DynamicColorSystemWebAppBrowserTest() {
+    auto* delegate = static_cast<ash::UnittestingSystemAppDelegate*>(
+        system_web_app_installation_->GetDelegate());
+
+    delegate->SetUseSystemThemeColor(GetParam());
+  }
+
+  // Returns whether the web app under test wants to use a system sourced theme
+  // color.
+  bool UseSystemThemeColor() const { return GetParam(); }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_{ash::features::kJelly};
 };
 
 INSTANTIATE_TEST_SUITE_P(All,
@@ -486,6 +503,40 @@ IN_PROC_BROWSER_TEST_P(BackgroundColorChangeSystemWebAppBrowserTest,
               PreferManifestBackgroundColor()
                   ? (is_dark_mode_state ? SK_ColorBLACK : SK_ColorWHITE)
                   : SK_ColorCYAN);
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         DynamicColorSystemWebAppBrowserTest,
+                         /*use_system_theme_color=*/::testing::Bool(),
+                         [](const testing::TestParamInfo<
+                             /*use_system_theme_color=*/bool>& info) {
+                           return info.param ? "WithUseSystemThemeColor"
+                                             : "WithoutUseSystemThemeColor";
+                         });
+
+IN_PROC_BROWSER_TEST_P(DynamicColorSystemWebAppBrowserTest, BackgroundColor) {
+  const AppId app_id = WaitForSwaInstall();
+  Browser* const app_browser = LaunchWebAppBrowser(app_id);
+  auto* app_controller = app_browser->app_controller();
+
+  // Ensure app controller is pulling the color from the OS.
+  EXPECT_EQ(app_controller->GetBackgroundColor().value(),
+            ash::GetSystemBackgroundColor());
+}
+
+IN_PROC_BROWSER_TEST_P(DynamicColorSystemWebAppBrowserTest, ThemeColor) {
+  const AppId app_id = WaitForSwaInstall();
+  Browser* const app_browser = LaunchWebAppBrowser(app_id);
+  auto* app_controller = app_browser->app_controller();
+  auto theme_color = app_controller->GetThemeColor().value();
+  if (UseSystemThemeColor()) {
+    // Ensure app controller is pulling the color from the OS.
+    EXPECT_EQ(theme_color, ash::GetSystemThemeColor());
+  } else {
+    // If SWA has opted out, theme color should default to white or black
+    // depending on launch context.
+    EXPECT_TRUE(theme_color == SK_ColorWHITE || theme_color == SK_ColorBLACK);
   }
 }
 
@@ -706,7 +757,7 @@ IN_PROC_BROWSER_TEST_F(WebAppBrowserTest, PWASizeIsCorrectlyRestored) {
 
   const gfx::Rect bounds = gfx::Rect(50, 50, 550, 500);
   app_browser->window()->SetBounds(bounds);
-  app_browser->window()->Close();
+  CloseAndWait(app_browser);
 
   Browser* const new_browser = LaunchWebAppBrowser(app_id);
   EXPECT_EQ(new_browser->window()->GetBounds(), bounds);
@@ -732,7 +783,7 @@ IN_PROC_BROWSER_TEST_F(WebAppTabRestoreBrowserTest,
 
   const gfx::Rect bounds = gfx::Rect(50, 50, 550, 500);
   app_browser->window()->SetBounds(bounds);
-  app_browser->window()->Close();
+  CloseAndWait(app_browser);
 
   content::WebContentsAddedObserver new_contents_observer;
 
@@ -843,7 +894,7 @@ IN_PROC_BROWSER_TEST_F(WebAppTabRestoreBrowserTest, RestoreAppWindow) {
   Browser* const app_browser = LaunchWebAppBrowserAndWait(app_id);
 
   ASSERT_TRUE(app_browser->is_type_app());
-  app_browser->window()->Close();
+  CloseAndWait(app_browser);
 
   content::WebContentsAddedObserver new_contents_observer;
 
@@ -867,7 +918,7 @@ IN_PROC_BROWSER_TEST_F(WebAppTabRestoreBrowserTest, RestoreAppPopupWindow) {
       profile(), app_id, WindowOpenDisposition::NEW_POPUP);
 
   ASSERT_TRUE(app_browser->is_type_app_popup());
-  app_browser->window()->Close();
+  CloseAndWait(app_browser);
 
   content::WebContentsAddedObserver new_contents_observer;
 
@@ -1207,6 +1258,59 @@ IN_PROC_BROWSER_TEST_F(WebAppBrowserTest_DetailedInstallDialog,
   EXPECT_EQ(1u, provider().command_manager().GetCommandCountForTesting());
 }
 
+IN_PROC_BROWSER_TEST_F(WebAppBrowserTest, WindowsOffsetForMultiWindowPWA) {
+  const GURL app_url(kExampleURL);
+  const AppId app_id = InstallPWA(app_url);
+
+  Browser* first_browser = LaunchWebAppBrowserAndWait(app_id);
+  // We should have the original (tabbed) browser for this BrowserTest, plus a
+  // new one for the PWA.
+  EXPECT_NE(nullptr, first_browser);
+  EXPECT_EQ(BrowserList::GetInstance()->size(), 2u);
+
+  // Make the window small so that we don't hit the edge when creating a new
+  // one that is offset.
+  first_browser->window()->SetBounds(gfx::Rect(0, 0, 50, 50));
+
+  Browser* second_browser = LaunchWebAppBrowserAndWait(app_id);
+  EXPECT_NE(nullptr, second_browser);
+  EXPECT_EQ(BrowserList::GetInstance()->size(), 3u);
+
+  auto bounds1 = first_browser->window()->GetRestoredBounds();
+  auto bounds2 = second_browser->window()->GetRestoredBounds();
+  EXPECT_EQ(bounds1.x() + WindowSizer::kWindowTilePixels, bounds2.x());
+  EXPECT_EQ(bounds1.y() + WindowSizer::kWindowTilePixels, bounds2.y());
+
+  // On Chrome OS and Mac we aggressively move the entire window on screen if it
+  // would otherwise be partially off-screen. On other platforms we merely make
+  // sure at least some of the window is visible, but don't force the entire
+  // window on screen. As such, only run these checks on Mac and Chrome OS.
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_CHROMEOS)
+  const gfx::Rect work_area =
+      display::Screen::GetScreen()
+          ->GetDisplayMatching(first_browser->window()->GetRestoredBounds())
+          .work_area();
+
+  // Resize the second window larger so that subsequent new windows will hit the
+  // edge of the screen when offset.
+  second_browser->window()->SetBounds(work_area);
+
+  // Open a windows until they start stacking.
+  bool hit_the_bottom_right = false;
+  gfx::Rect previous_bounds = second_browser->window()->GetRestoredBounds();
+  for (int i = 0; i < 10; i++) {
+    Browser* next_browser = LaunchWebAppBrowserAndWait(app_id);
+    if (previous_bounds == next_browser->window()->GetRestoredBounds()) {
+      hit_the_bottom_right = true;
+      break;
+    }
+    previous_bounds = next_browser->window()->GetRestoredBounds();
+  }
+
+  EXPECT_TRUE(hit_the_bottom_right);
+#endif
+}
+
 class WebAppBrowserTest_ExternalPrefMigration
     : public WebAppBrowserTest,
       public testing::WithParamInterface<bool> {
@@ -1282,9 +1386,7 @@ IN_PROC_BROWSER_TEST_F(WebAppBrowserTest,
   WebAppInstallManagerObserverAdapter observer(profile());
   observer.SetWebAppInstalledWithOsHooksDelegate(base::BindLambdaForTesting(
       [&](const AppId& installed_app_id) { run_loop_install.Quit(); }));
-  content::WindowedNotificationObserver app_loaded_observer(
-      content::NOTIFICATION_LOAD_COMPLETED_MAIN_FRAME,
-      content::NotificationService::AllSources());
+  content::CreateAndLoadWebContentsObserver app_loaded_observer;
   const AppId app_id = test::InstallPwaForCurrentUrl(browser());
   run_loop_install.Run();
   app_loaded_observer.Wait();
@@ -1375,9 +1477,7 @@ IN_PROC_BROWSER_TEST_F(WebAppBrowserTest_ShortcutMenu, ShortcutsMenuSuccess) {
             BucketsAre(base::Bucket(true, 1)));
         run_loop_install.Quit();
       }));
-  content::WindowedNotificationObserver app_loaded_observer(
-      content::NOTIFICATION_LOAD_COMPLETED_MAIN_FRAME,
-      content::NotificationService::AllSources());
+  content::CreateAndLoadWebContentsObserver app_loaded_observer;
   const AppId app_id = test::InstallPwaForCurrentUrl(browser());
   run_loop_install.Run();
   app_loaded_observer.Wait();
@@ -1458,9 +1558,7 @@ IN_PROC_BROWSER_TEST_F(WebAppBrowserTest_ShortcutMenu,
             BucketsAre(base::Bucket(false, 1)));
         run_loop_install.Quit();
       }));
-  content::WindowedNotificationObserver app_loaded_observer(
-      content::NOTIFICATION_LOAD_COMPLETED_MAIN_FRAME,
-      content::NotificationService::AllSources());
+  content::CreateAndLoadWebContentsObserver app_loaded_observer;
   const AppId app_id = test::InstallPwaForCurrentUrl(browser());
   run_loop_install.Run();
   app_loaded_observer.Wait();
@@ -1501,9 +1599,7 @@ IN_PROC_BROWSER_TEST_F(WebAppBrowserTest, WebAppCreateAndDeleteShortcut) {
   WebAppInstallManagerObserverAdapter observer(profile());
   observer.SetWebAppInstalledWithOsHooksDelegate(base::BindLambdaForTesting(
       [&](const AppId& installed_app_id) { run_loop_install.Quit(); }));
-  content::WindowedNotificationObserver app_loaded_observer(
-      content::NOTIFICATION_LOAD_COMPLETED_MAIN_FRAME,
-      content::NotificationService::AllSources());
+  content::CreateAndLoadWebContentsObserver app_loaded_observer;
   const AppId app_id = test::InstallPwaForCurrentUrl(browser());
   run_loop_install.Run();
   app_loaded_observer.Wait();
@@ -1891,7 +1987,7 @@ IN_PROC_BROWSER_TEST_F(WebAppBrowserTest, BrowserDisplayNotInstallable) {
   EXPECT_EQ(GetAppMenuCommandState(IDC_INSTALL_PWA, new_browser), kNotPresent);
 }
 
-IN_PROC_BROWSER_TEST_F(WebAppBrowserTest_WindowControlsOverlay,
+IN_PROC_BROWSER_TEST_F(WebAppBrowserTest,
                        DISABLE_POSIX(WindowControlsOverlay)) {
   GURL test_url = https_server()->GetURL(
       "/banners/"

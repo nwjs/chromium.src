@@ -124,7 +124,6 @@
 <translation id="2079545284768500474">చర్య రద్దు</translation>
 <translation id="2084108471225856927">పరికర సెట్టింగ్‌లు</translation>
 <translation id="2084809735218147718">సంజ్ఞ ద్వారా థ్యాంక్ యు చెబుతున్న వ్యక్తి</translation>
-<translation id="2085470240340828803">"<ph name="FILENAME" />" ఫైల్ పేరు ఇప్పటికే ఉంది. మీరు ఏమి చేయాలనుకుంటున్నారు?</translation>
 <translation id="2088690981887365033">VPN నెట్‌వర్క్</translation>
 <translation id="2122305276694332719">దాచబడిన నెట్‌వర్క్‌కు ఆటోమేటిక్‌గా కనెక్ట్ చేయడం వలన మీ పరికరాన్ని, కొన్ని నెట్‌వర్క్‌ల సెట్టింగ్‌లను ఇతరులు చూడగలుగుతారు, కనుక ఇది సిఫార్సు చేయబడదు.</translation>
 <translation id="2125607626296734455">ఖ్మేర్</translation>
@@ -304,7 +303,7 @@
 <translation id="3634507049637220048"><ph name="NETWORK_COUNT" />లో <ph name="NETWORK_INDEX" /> నెట్‌వర్క్, <ph name="NETWORK_NAME" />, <ph name="CONNECTION_STATUS" />, మీ అడ్మినిస్ట్రేటర్ ద్వారా నిర్వహించబడుతోంది, వివరాలు</translation>
 <translation id="3645233063072417428"><ph name="NUMBER_OF_ITEMS" /> ఐటెమ్‌లు తరలించబడ్డాయి.</translation>
 <translation id="3685122418104378273">మొబైల్ డేటాను ఉపయోగిస్తున్నప్పుడు Google Drive సింక్ డిఫాల్ట్‌గా నిలిపివేయబడుతుంది.</translation>
-<translation id="3689865792480713551"><ph name="ACTIVITY_DESCRIPTION" />ను రద్దు చేయి.</translation>
+<translation id="3689865792480713551"><ph name="ACTIVITY_DESCRIPTION" />ను రద్దు చేయండి.</translation>
 <translation id="3690128548376345212"><ph name="NETWORK_COUNT" />లోని నెట్‌వర్క్ <ph name="NETWORK_INDEX" />, <ph name="NETWORK_NAME" />, యాక్టివేట్ చేయబడలేదు, <ph name="CONNECTION_STATUS" />, సిగ్నల్ సామర్థ్యం <ph name="SIGNAL_STRENGTH" />%, వివరాలు</translation>
 <translation id="3691184985318546178">సింహళం</translation>
 <translation id="3722341589402358578">ఎర్రర్ ఏర్పడింది. కొన్ని ఐటెమ్‌లు ట్రాష్ చేయబడకపోవచ్చు.</translation>
@@ -456,7 +455,6 @@
 <translation id="4900532980794411603">Parallels Desktopతో షేర్ చేయండి</translation>
 <translation id="4902546322522096650"><ph name="NETWORK_COUNT" />లో <ph name="NETWORK_INDEX" /> నెట్‌వర్క్, <ph name="NETWORK_NAME" />, <ph name="SECURITY_STATUS" />, సిగ్నల్ సామర్థ్యం <ph name="SIGNAL_STRENGTH" />%, కనెక్ట్ చేయండి</translation>
 <translation id="4906580650526544301"><ph name="NETWORK_COUNT" />లో <ph name="NETWORK_INDEX" /> నెట్‌వర్క్, <ph name="PHONE_NAME" />, <ph name="PROVIDER_NAME" />, <ph name="CONNECTION_STATUS" />, సిగ్నల్ సామర్థ్యం <ph name="SIGNAL_STRENGTH" />%, ఫోన్ బ్యాటరీ <ph name="BATTERY_STATUS" />%, వివరాలు</translation>
-<translation id="4929673617759421391">ఈ ఫైల్‌ను పేస్ట్ చేయడాన్ని అడ్మినిస్ట్రేటర్ పాలసీ బ్లాక్ చేసింది</translation>
 <translation id="4935975195727477204">గజేనియా పుష్పం</translation>
 <translation id="4943368462779413526">ఫుట్‌బాల్</translation>
 <translation id="4961158930123534723">Parallels Desktopతో 1 ఫోల్డర్ షేర్ చేయబడింది</translation>
@@ -500,7 +498,7 @@
 <translation id="5194713942430106590">నిలువు వరుసను ఆరోహణ క్రమంలో వర్గీకరించడానికి క్లిక్ చేయండి.</translation>
 <translation id="5211614973734216083">ఫారోస్</translation>
 <translation id="5218183485292899140">స్విస్ ఫ్రెంచ్</translation>
-<translation id="5234764350956374838">తొలగించు</translation>
+<translation id="5234764350956374838">తొలగించండి</translation>
 <translation id="5253070652067921974">సృష్టించినవారు</translation>
 <translation id="5257456363153333584">తూనీగ</translation>
 <translation id="5262311848634918433"><ph name="MARKUP_1" />ఫైళ్లను ఎక్కడి నుండైనా యాక్సెస్ చేయండి, ఆఫ్‌లైన్‌లో ఉన్నా కూడా.<ph name="MARKUP_2" />
@@ -534,6 +532,7 @@
 <translation id="5428105026674456456">స్పానిష్</translation>
 <translation id="5438282218546237410"><ph name="SEARCH_TERM" />కు సంబంధించిన శోధన ఫలితాలేవీ లేవు.</translation>
 <translation id="5449551289610225147">పాస్‌వర్డ్ చెల్లదు</translation>
+<translation id="5459064203055649751">"<ph name="FILENAME" />" పేరు గల ఫైల్ ఇప్పటికే వినియోగంలో ఉంది. మీరు తరలిస్తున్న దానితో దాన్ని భర్తీ చేయాలనుకుంటున్నారా?</translation>
 <translation id="5463231940765244860">నమోదు చేయండి</translation>
 <translation id="5469868506864199649">ఇటాలియన్</translation>
 <translation id="5473333559083690127">కొత్త PINని మళ్లీ నమోదు చేయండి</translation>
@@ -654,6 +653,7 @@
 <translation id="6495925982925244349"><ph name="NETWORK_COUNT" />లో <ph name="NETWORK_INDEX" /> నెట్‌వర్క్, <ph name="NETWORK_NAME" />, <ph name="SECURITY_STATUS" />, <ph name="CONNECTION_STATUS" />, సిగ్నల్ సామర్థ్యం <ph name="SIGNAL_STRENGTH" />%, మీ అడ్మినిస్ట్రేటర్ ద్వారా నిర్వహించబడుతోంది, వివరాలు</translation>
 <translation id="649877868557234318"><ph name="FILE_NAME" /> <ph name="FOLDER_NAME" />‌కు సంగ్రహించబడుతోంది</translation>
 <translation id="6499681088828539489">భాగస్వామ్య నెట్‌వర్క్‌ల కోసం ప్రాక్సీలను అనుమతించవద్దు</translation>
+<translation id="6503285896705205014"><ph name="COUNT" /> ఫైల్స్‌ను కాపీ చేయడాన్ని అడ్మినిస్ట్రేటర్ పాలసీ బ్లాక్ చేసింది</translation>
 <translation id="6509122719576673235">నార్వేజియన్</translation>
 <translation id="6528513914570774834">ఈ నెట్‌వర్క్‌ను ఉపయోగించడానికి ఈ పరికరం యొక్క ఇతర వినియోగదారులను అనుమతించండి</translation>
 <translation id="653019979737152879"><ph name="FILE_NAME" />ని సింక్ చేస్తోంది...</translation>
@@ -704,7 +704,7 @@
 <translation id="6943836128787782965">HTTP పొందడంలో విఫలమైంది</translation>
 <translation id="6949408524333579394">సెర్బియన్ ట్రాన్స్‌లిటరేషన్</translation>
 <translation id="6960565108681981554">యాక్టివేట్ చేయబడలేదు. మీ క్యారియర్‌ను సంప్రదించండి.</translation>
-<translation id="696203921837389374">మొబైల్ డేటా ఉపయోగించి సింక్ చేయడం ప్రారంభించు</translation>
+<translation id="696203921837389374">మొబైల్ డేటా ఉపయోగించి సింక్ చేయడం ప్రారంభించండి</translation>
 <translation id="6965382102122355670">సరే</translation>
 <translation id="6965648386495488594">పోర్ట్</translation>
 <translation id="6970230597523682626">బల్గేరియన్</translation>
@@ -735,9 +735,9 @@
 <translation id="714034171374937760">Chromebase</translation>
 <translation id="7165320105431587207">నెట్‌వర్క్‌ను కాన్ఫిగర్ చేయడంలో విఫలమైంది</translation>
 <translation id="7170041865419449892">పరిధిని దాటింది</translation>
-<translation id="7180611975245234373">రిఫ్రెష్ చేయి</translation>
+<translation id="7180611975245234373">రిఫ్రెష్ చేయండి</translation>
 <translation id="7189874332498648577"><ph name="NUMBER_OF_GB" /> GB</translation>
-<translation id="7191454237977785534">ఫైల్‌ను ఇలా సేవ్ చేయి</translation>
+<translation id="7191454237977785534">ఫైల్‌ను ఇలా సేవ్ చేయండి</translation>
 <translation id="7229570126336867161">EVDO అవసరం</translation>
 <translation id="7230898482850090046">మీరు "లాక్ SIM" సెట్టింగ్‌ను ఆఫ్ చేయవలసిందిగా మీ అడ్మినిస్ట్రేటర్ రిక్వెస్ట్ చేశారు</translation>
 <translation id="7238097264433196391">డ్రైవ్ పేరు</translation>
@@ -756,6 +756,7 @@
 <translation id="7357762654218998920">ఈ ఫైల్ రకం సపోర్ట్ చేయదు. ChromeOSలో ఫైల్స్‌ను తెరవడం గురించి <ph name="BEGIN_LINK_HELP" />మరింత తెలుసుకోండి<ph name="END_LINK_HELP" />.</translation>
 <translation id="7359359531237882347"><ph name="NUMBER_OF_ITEMS" /> అంశాలను కాపీ చేస్తోంది...</translation>
 <translation id="7375951387215729722">ఫైల్ లిస్ట్‌ <ph name="COLUMN_NAME" /> ప్రకారం అవరోహణ క్రమంలో వర్గీకరించబడింది.</translation>
+<translation id="7377161162143020057">ఈ ఫైల్‌ను కాపీ చేయడాన్ని అడ్మినిస్ట్రేటర్ పాలసీ బ్లాక్ చేసింది</translation>
 <translation id="7402503521691663770">ChromeOS Flex పరికరాలు</translation>
 <translation id="7408870451288633753">చెక్</translation>
 <translation id="7417453074306512035">ఇథియోపిక్ కీబోర్డ్</translation>
@@ -818,9 +819,9 @@
 <translation id="7827012282502221009"><ph name="NUMBER_OF_TB" /> TB</translation>
 <translation id="7831491651892296503">నెట్‌వర్క్‌ను కాన్ఫిగర్ చేయడంలో ఎర్రర్</translation>
 <translation id="7839804798877833423">ఈ ఫైళ్లను పొందడానికి మొబైల్ డేటాలో సుమారుగా <ph name="FILE_SIZE" /> ఉపయోగించబడుతుంది.</translation>
-<translation id="7846076177841592234">ఎంపికను రద్దు చేయి</translation>
+<translation id="7846076177841592234">ఎంపికను రద్దు చేయండి</translation>
 <translation id="7853966320808728790">ఫ్రెంచ్ BÉPO</translation>
-<translation id="7857117644404132472">మినహాయింపును జోడించు</translation>
+<translation id="7857117644404132472">మినహాయింపును జోడించండి</translation>
 <translation id="7868774406711971383">పోలిష్</translation>
 <translation id="7874321682039004450">ఫిలిప్పినో</translation>
 <translation id="78946041517601018">షేర్ చేసిన డ్రైవ్‌లు</translation>
@@ -863,7 +864,7 @@
 <translation id="8250690786522693009">లాటిన్</translation>
 <translation id="8250920743982581267">డాక్యుమెంట్లు</translation>
 <translation id="8255595130163158297">ట్రాష్‌లోని అన్ని ఐటెమ్‌లు తొలగించబడతాయి, ఇంకా మీరు వాటిని రీస్టోర్ చేయలేరు.</translation>
-<translation id="8261506727792406068">తొలగించు</translation>
+<translation id="8261506727792406068">తొలగించండి</translation>
 <translation id="8261561378965667560">చైనీస్ శ్రేణి</translation>
 <translation id="8262872909443689080">అడ్మినిస్ట్రేటర్ పాలసీ</translation>
 <translation id="8264024885325823677">ఈ సెట్టింగ్ మీ నిర్వాహకుడి ద్వారా నిర్వహించబడుతుంది.</translation>
@@ -970,14 +971,13 @@
 <translation id="9133055936679483811">జిప్ చేయడంలో విఫలమైంది. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="9144340019284012223">కేటలాన్</translation>
 <translation id="914873105831852105">పిన్ చెల్లదు. మీకు 1 ప్రయత్నం మిగిలి ఉంది.</translation>
-<translation id="9153934054460603056">గుర్తింపు మరియు పాస్‌వర్డ్‌ సేవ్ చేయి</translation>
+<translation id="9153934054460603056">గుర్తింపు మరియు పాస్‌వర్డ్‌ సేవ్ చేయండి</translation>
 <translation id="9171921933192916600">పుస్తకాలను తినే పురుగు</translation>
 <translation id="9172592259078059678">గుజరాతీ ట్రాన్స్‌లిటరేషన్</translation>
 <translation id="9173120999827300720">అంతర్జాతీయ కీబోర్డ్‌తో ఇంగ్లీష్ (US)</translation>
 <translation id="9183302530794969518">Google Docs</translation>
 <translation id="9189836632794948435">కజక్</translation>
 <translation id="9200427192836333033"><ph name="NUMBER_OF_ITEMS" /> ఐటెమ్‌లు సంగ్రహించబడ్డాయి.</translation>
-<translation id="9210751050717126865"><ph name="COUNT" /> ఫైల్స్‌ను పేస్ట్ చేయడాన్ని అడ్మినిస్ట్రేటర్ పాలసీ బ్లాక్ చేసింది</translation>
 <translation id="9213073329713032541">ఇన్‌స్టాలేషన్ విజయవంతంగా ప్రారంభించబడింది.</translation>
 <translation id="9219103736887031265">ఇమేజ్‌లు</translation>
 <translation id="9219908252191632183">లూనార్</translation>

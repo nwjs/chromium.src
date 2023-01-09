@@ -27,6 +27,7 @@
 #include "components/segmentation_platform/internal/selection/segment_selector_impl.h"
 #include "components/segmentation_platform/internal/selection/segmentation_result_prefs.h"
 #include "components/segmentation_platform/internal/stats.h"
+#include "components/segmentation_platform/internal/sync_device_info_observer.h"
 #include "components/segmentation_platform/public/config.h"
 #include "components/segmentation_platform/public/field_trial_register.h"
 #include "components/segmentation_platform/public/input_context.h"
@@ -34,6 +35,7 @@
 #include "components/segmentation_platform/public/model_provider.h"
 
 namespace segmentation_platform {
+
 namespace {
 
 using proto::SegmentId;
@@ -116,6 +118,10 @@ SegmentationPlatformServiceImpl::SegmentationPlatformServiceImpl(
   storage_service_->Initialize(
       base::BindOnce(&SegmentationPlatformServiceImpl::OnDatabaseInitialized,
                      weak_ptr_factory_.GetWeakPtr()));
+
+  // Create sync device info observer.
+  sync_device_info_observer_ = std::make_unique<SyncDeviceInfoObserver>(
+      init_params->device_info_tracker);
 }
 
 SegmentationPlatformServiceImpl::~SegmentationPlatformServiceImpl() {
@@ -141,13 +147,20 @@ void SegmentationPlatformServiceImpl::GetSelectedSegmentOnDemand(
     const std::string& segmentation_key,
     scoped_refptr<InputContext> input_context,
     SegmentSelectionCallback callback) {
-  if (!storage_initialized_) {
+  if (!storage_init_status_.has_value()) {
     // If the platform isn't fully initialized, cache the input arguments to run
     // later.
     pending_actions_.push_back(base::BindOnce(
         &SegmentationPlatformServiceImpl::GetSelectedSegmentOnDemand,
         weak_ptr_factory_.GetWeakPtr(), segmentation_key,
         std::move(input_context), std::move(callback)));
+    return;
+  }
+
+  if (!storage_init_status_.value()) {
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        base::BindOnce(std::move(callback), SegmentSelectionResult()));
     return;
   }
 
@@ -178,11 +191,11 @@ ServiceProxy* SegmentationPlatformServiceImpl::GetServiceProxy() {
 }
 
 bool SegmentationPlatformServiceImpl::IsPlatformInitialized() {
-  return storage_initialized_;
+  return storage_init_status_.has_value() && storage_init_status_.value();
 }
 
 void SegmentationPlatformServiceImpl::OnDatabaseInitialized(bool success) {
-  storage_initialized_ = true;
+  storage_init_status_ = success;
   OnServiceStatusChanged();
 
   if (!success) {
@@ -254,7 +267,7 @@ void SegmentationPlatformServiceImpl::OnModelRefreshNeeded() {
 }
 
 void SegmentationPlatformServiceImpl::OnServiceStatusChanged() {
-  proxy_->OnServiceStatusChanged(storage_initialized_,
+  proxy_->OnServiceStatusChanged(storage_init_status_.has_value(),
                                  storage_service_->GetServiceStatus());
 }
 

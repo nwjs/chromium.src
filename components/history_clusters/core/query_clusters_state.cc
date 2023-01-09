@@ -35,6 +35,10 @@ class QueryClustersState::PostProcessor
     ApplySearchQuery(query_, clusters);
     CullNonProminentOrDuplicateClusters(query_, clusters,
                                         &seen_single_visit_cluster_urls_);
+
+    // Only sort after we figured out what we are showing.
+    SortClusters(&clusters);
+
     // We have to do this AFTER applying the search query, because applying the
     // search query re-scores matching visits to promote them above non-matching
     // visits.
@@ -149,10 +153,14 @@ void QueryClustersState::OnGotClusters(
   // than just doing this simple computation on the main thread.
   UpdateUniqueRawLabels(clusters);
 
+  size_t clusters_size = clusters.size();
+
+  bool is_continuation = number_clusters_sent_to_page_ > 0;
   std::move(callback).Run(query_, std::move(clusters),
                           !continuation_params.exhausted_all_visits,
-                          is_continuation_);
-  is_continuation_ = true;
+                          is_continuation);
+
+  number_clusters_sent_to_page_ += clusters_size;
 
   // Log metrics after delivering the results to the page.
   base::TimeDelta service_latency = base::TimeTicks::Now() - query_start_time;

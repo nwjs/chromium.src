@@ -4,7 +4,6 @@
 
 #include "content/renderer/render_frame_impl.h"
 
-#include <algorithm>
 #include <map>
 #include <memory>
 #include <string>
@@ -34,6 +33,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/observer_list.h"
 #include "base/process/process.h"
+#include "base/ranges/algorithm.h"
 #include "base/run_loop.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_piece.h"
@@ -55,6 +55,7 @@
 #include "content/common/associated_interfaces.mojom.h"
 #include "content/common/content_navigation_policy.h"
 #include "content/common/debug_utils.h"
+#include "content/common/features.h"
 #include "content/common/frame.mojom.h"
 #include "content/common/frame_messages.mojom.h"
 #include "content/common/main_frame_counter.h"
@@ -160,6 +161,7 @@
 #include "third_party/blink/public/mojom/frame/frame_owner_properties.mojom.h"
 #include "third_party/blink/public/mojom/frame/user_activation_notification_type.mojom.h"
 #include "third_party/blink/public/mojom/frame/user_activation_update_types.mojom.h"
+#include "third_party/blink/public/mojom/frame/view_transition_state.mojom.h"
 #include "third_party/blink/public/mojom/input/focus_type.mojom.h"
 #include "third_party/blink/public/mojom/input/input_handler.mojom-shared.h"
 #include "third_party/blink/public/mojom/loader/referrer.mojom.h"
@@ -190,7 +192,6 @@
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/platform/web_url.h"
 #include "third_party/blink/public/platform/web_url_error.h"
-#include "third_party/blink/public/platform/web_url_loader.h"
 #include "third_party/blink/public/platform/web_url_request_extra_data.h"
 #include "third_party/blink/public/platform/web_url_request_util.h"
 #include "third_party/blink/public/platform/web_url_response.h"
@@ -213,7 +214,7 @@
 #include "third_party/blink/public/web/web_navigation_policy.h"
 #include "third_party/blink/public/web/web_navigation_timings.h"
 #include "third_party/blink/public/web/web_navigation_type.h"
-#include "third_party/blink/public/web/web_performance.h"
+#include "third_party/blink/public/web/web_performance_metrics_for_nested_contexts.h"
 #include "third_party/blink/public/web/web_picture_in_picture_window_options.h"
 #include "third_party/blink/public/web/web_plugin.h"
 #include "third_party/blink/public/web/web_plugin_container.h"
@@ -491,9 +492,8 @@ void FillNavigationParamsRequest(
         blink::WebNavigationParams::PrefetchedSignedExchange>>();
 
     for (const auto& exchange : commit_params.prefetched_signed_exchanges) {
-      blink::WebURLResponse web_response;
-      blink::WebURLLoader::PopulateURLResponse(
-          exchange->inner_url, *exchange->inner_response, &web_response,
+      blink::WebURLResponse web_response = blink::WebURLResponse::Create(
+          exchange->inner_url, *exchange->inner_response,
           false /* report_security_info*/, -1 /* request_id */);
       navigation_params->prefetched_signed_exchanges.emplace_back(
           std::make_unique<
@@ -729,8 +729,7 @@ class MHTMLPartsGenerationDelegate
     DCHECK(std::is_sorted(params_.digests_of_uris_to_skip.begin(),
                           params_.digests_of_uris_to_skip.end()));
     // URLs are not duplicated.
-    DCHECK(std::adjacent_find(params_.digests_of_uris_to_skip.begin(),
-                              params_.digests_of_uris_to_skip.end()) ==
+    DCHECK(base::ranges::adjacent_find(params_.digests_of_uris_to_skip) ==
            params_.digests_of_uris_to_skip.end());
   }
 
@@ -1518,7 +1517,6 @@ RenderFrameImpl* RenderFrameImpl::CreateMainFrame(
       is_for_nested_main_frame, is_for_scalable_page,
       /*hidden=*/true);
   web_frame_widget->InitializeCompositing(
-      agent_scheduling_group.agent_group_scheduler(),
       params->widget_params->visual_properties.screen_infos,
       /*settings=*/nullptr);
 
@@ -1710,7 +1708,6 @@ void RenderFrameImpl::CreateFrame(
         /*is_for_scalable_page=*/!is_for_nested_main_frame,
         /*hidden=*/true);
     web_frame_widget->InitializeCompositing(
-        agent_scheduling_group.agent_group_scheduler(),
         widget_params->visual_properties.screen_infos,
         /*settings=*/nullptr);
 
@@ -1753,7 +1750,6 @@ void RenderFrameImpl::CreateFrame(
         /*is_for_scalable_page=*/false,
         /*hidden=*/true);
     web_frame_widget->InitializeCompositing(
-        agent_scheduling_group.agent_group_scheduler(),
         widget_params->visual_properties.screen_infos,
         /*settings=*/nullptr);
 
@@ -2591,11 +2587,12 @@ void RenderFrameImpl::CommitNavigation(
     mojo::PendingRemote<blink::mojom::CodeCacheHost> code_cache_host,
     mojom::CookieManagerInfoPtr cookie_manager_info,
     mojom::StorageInfoPtr storage_info,
-    blink::mojom::BackForwardCacheNotRestoredReasonsPtr not_restored_reasons,
     mojom::NavigationClient::CommitNavigationCallback commit_callback) {
   DCHECK(navigation_client_impl_);
   DCHECK(!blink::IsRendererDebugURL(common_params->url));
   DCHECK(!NavigationTypeUtils::IsSameDocument(common_params->navigation_type));
+  // `origin_to_commit` must only be set on failed navigations.
+  CHECK(!commit_params->origin_to_commit);
   LogCommitHistograms(commit_params->commit_sent, is_main_frame_);
 
   AssertNavigationCommits assert_navigation_commits(
@@ -2624,11 +2621,15 @@ void RenderFrameImpl::CommitNavigation(
       !!(common_params->transition & ui::PAGE_TRANSITION_CLIENT_REDIRECT);
   auto navigation_params = std::make_unique<WebNavigationParams>(
       document_token, devtools_navigation_token);
+  navigation_params->navigation_delivery_type =
+      commit_params->navigation_delivery_type;
   navigation_params->is_client_redirect = is_client_redirect;
   FillMiscNavigationParams(*common_params, *commit_params,
                            navigation_params.get());
   navigation_params->policy_container =
       ToWebPolicyContainer(std::move(policy_container));
+  navigation_params->view_transition_state =
+      std::move(commit_params->view_transition_state);
 
   if (frame_->IsOutermostMainFrame() && permissions_policy) {
     navigation_params->permissions_policy_override = permissions_policy;
@@ -2641,7 +2642,7 @@ void RenderFrameImpl::CommitNavigation(
       std::move(controller_service_worker_info), std::move(container_info),
       std::move(prefetch_loader_factory), std::move(code_cache_host),
       std::move(cookie_manager_info), std::move(storage_info),
-      std::move(document_state), std::move(not_restored_reasons));
+      std::move(document_state));
 
   // Handle a navigation that has a non-empty `data_url_as_string`, or perform
   // a "loadDataWithBaseURL" navigation, which is different from a normal data:
@@ -2762,7 +2763,6 @@ void RenderFrameImpl::CommitNavigationWithParams(
     mojom::CookieManagerInfoPtr cookie_manager_info,
     mojom::StorageInfoPtr storage_info,
     std::unique_ptr<DocumentState> document_state,
-    blink::mojom::BackForwardCacheNotRestoredReasonsPtr not_restored_reasons,
     std::unique_ptr<WebNavigationParams> navigation_params) {
   if (common_params->url.IsAboutSrcdoc()) {
     WebNavigationParams::FillStaticResponse(navigation_params.get(),
@@ -2783,13 +2783,11 @@ void RenderFrameImpl::CommitNavigationWithParams(
   if (commit_params->is_view_source)
     frame_->EnableViewSourceMode(true);
 
-  if (not_restored_reasons) {
+  if (commit_params->not_restored_reasons) {
     // Save the Back/Forward Cache NotRestoredReasons struct to WebLocalFrame to
     // report for PerformanceNavigationTiming API.
-    frame_->SetNotRestoredReasons(std::move(not_restored_reasons));
-    // For cross-document main frame history navigations, |not_restored_reasons|
-    // should be populated and has blocking reasons.
-    DCHECK(frame_->HasBlockingReasons());
+    frame_->SetNotRestoredReasons(
+        std::move(commit_params->not_restored_reasons));
   }
 
   // Note: this intentionally does not call |Detach()| before |reset()|. If
@@ -2881,6 +2879,8 @@ void RenderFrameImpl::CommitFailedNavigation(
                "RenderFrameImpl::CommitFailedNavigation", "id", routing_id_);
   DCHECK(navigation_client_impl_);
   DCHECK(!NavigationTypeUtils::IsSameDocument(common_params->navigation_type));
+  // `origin_to_commit` must be set on failed navigations.
+  CHECK(commit_params->origin_to_commit);
 
   AssertNavigationCommits assert_navigation_commits(
       this, kMayReplaceInitialEmptyDocument);
@@ -2998,6 +2998,9 @@ void RenderFrameImpl::CommitFailedNavigation(
 
   navigation_params->policy_container =
       ToWebPolicyContainer(std::move(policy_container));
+
+  navigation_params->view_transition_state =
+      std::move(commit_params->view_transition_state);
 
   // The error page load (not to confuse with a failed load of original page)
   // was not initiated through BeginNavigation, therefore
@@ -3838,9 +3841,6 @@ void RenderFrameImpl::DidCommitDocumentReplacementNavigation(
 }
 
 void RenderFrameImpl::DidClearWindowObject() {
-  v8::MicrotasksScope microtasks(blink::MainThreadIsolate(),
-                                 v8::MicrotasksScope::kDoNotRunMicrotasks);
-
   if (enabled_bindings_ & BINDINGS_POLICY_WEB_UI)
     WebUIExtension::Install(frame_);
 
@@ -4358,6 +4358,7 @@ void RenderFrameImpl::DidObserveLayoutNg(uint32_t all_block_count,
 void RenderFrameImpl::DidCreateScriptContext(v8::Local<v8::Context> context,
                                              int world_id) {
   v8::MicrotasksScope microtasks(blink::MainThreadIsolate(),
+                                 context->GetMicrotaskQueue(),
                                  v8::MicrotasksScope::kDoNotRunMicrotasks);
   if (((enabled_bindings_ & BINDINGS_POLICY_MOJO_WEB_UI) ||
        enable_mojo_js_bindings_) &&
@@ -4727,10 +4728,13 @@ RenderFrameImpl::MakeDidCommitProvisionalLoadParams(
   }
   params->request_id = document_state->request_id();
 
-  params->unload_start = GetWebFrame()->Performance().UnloadStart();
-  params->unload_end = GetWebFrame()->Performance().UnloadEnd();
-  params->commit_navigation_end =
-      GetWebFrame()->Performance().CommitNavigationEnd();
+  params->unload_start =
+      GetWebFrame()->PerformanceMetricsForNestedContexts().UnloadStart();
+  params->unload_end =
+      GetWebFrame()->PerformanceMetricsForNestedContexts().UnloadEnd();
+  params->commit_navigation_end = GetWebFrame()
+                                      ->PerformanceMetricsForNestedContexts()
+                                      .CommitNavigationEnd();
 
   return params;
 }
@@ -5162,6 +5166,12 @@ void RenderFrameImpl::BeginNavigation(
     }
   }
 
+  if (IsTopLevelNavigation(frame_) && url.SchemeIsHTTPOrHTTPS() &&
+      !url.is_empty() &&
+      base::FeatureList::IsEnabled(kSpeculativeServiceWorkerStartup)) {
+    frame_->WillPotentiallyStartNavigation(url);
+  }
+
   if (info->navigation_policy == blink::kWebNavigationPolicyCurrentTab) {
     // Execute the BeforeUnload event. If asked not to proceed or the frame is
     // destroyed, ignore the navigation.
@@ -5286,7 +5296,11 @@ void RenderFrameImpl::SynchronouslyCommitAboutBlankForBug778318(
   // https://html.spec.whatwg.org/multipage/browsers.html#creating-a-new-browsing-context,
   // which sets the new Document's `referrer` member to the initiator frame's
   // full unredacted URL, in the case of new browsing context creation.
-  if (info->initiator_frame_token.has_value()) {
+  //
+  // The initiator might no longer exist however, in which case we cannot get
+  // its document's full URL to use as the referrer.
+  if (info->initiator_frame_token.has_value() &&
+      WebFrame::FromFrameToken(info->initiator_frame_token.value())) {
     WebFrame* initiator =
         WebFrame::FromFrameToken(info->initiator_frame_token.value());
     DCHECK(initiator->IsWebLocalFrame());

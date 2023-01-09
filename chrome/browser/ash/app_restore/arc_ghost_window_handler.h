@@ -46,7 +46,8 @@ class ArcGhostWindowHandler : public exo::WMHelper::LifetimeManager::Observer {
   };
 
  public:
-  // This class is used to notify observers that AppInstance is connected.
+  // This class is used to notify observers that App and ghost window handler
+  // states change.
   class Observer : public base::CheckedObserver {
    public:
     // Observer for app instance connection ready.
@@ -59,6 +60,9 @@ class ArcGhostWindowHandler : public exo::WMHelper::LifetimeManager::Observer {
     virtual void OnAppStatesUpdate(const std::string& app_id,
                                    bool ready,
                                    bool need_fixup) {}
+
+    // Observer for ghost window handler destroy.
+    virtual void OnGhostWindowHandlerDestroy() {}
 
    protected:
     ~Observer() override = default;
@@ -76,10 +80,12 @@ class ArcGhostWindowHandler : public exo::WMHelper::LifetimeManager::Observer {
   static ArcGhostWindowHandler* Get();
 
   // Returns true if the ghost window is created and launched. Otherwise,
-  // returns false.
-  bool LaunchArcGhostWindow(const std::string& app_id,
-                            int32_t session_id,
-                            ::app_restore::AppRestoreData* restore_data);
+  // returns false. virtual for test usage.
+  // TODO(sstan): Add mock class.
+  virtual bool LaunchArcGhostWindow(
+      const std::string& app_id,
+      int32_t session_id,
+      ::app_restore::AppRestoreData* restore_data);
 
   bool UpdateArcGhostWindowType(int32_t session_id,
                                 arc::GhostWindowType window_type);

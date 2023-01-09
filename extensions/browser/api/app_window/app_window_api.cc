@@ -185,7 +185,7 @@ ExtensionFunction::ResponseAction AppWindowCreateFunction::Run() {
       create_params.title = *options->title;
 
     if (options->icon) {
-      base::ThreadRestrictions::ScopedAllowIO allow_io;
+      base::ScopedAllowBlocking allow_io;
       gfx::Image app_icon;
       nw::Package* package = nw::package();
       if (nw::GetPackageImage(package,

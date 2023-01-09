@@ -82,7 +82,7 @@ void BrowserPluginGuest::InitInternal(WebContentsImpl* owner_web_contents) {
   // navigations still continue to function inside the app.
   renderer_prefs->browser_handles_all_top_level_requests = false;
 
-  base::ThreadRestrictions::ScopedAllowIO allow_io;
+  base::ScopedAllowBlocking allow_io;
   nw::Package* package = nw::package();
   std::string js_doc_start, js_doc_end;
   std::string* str = package->root()->FindString(::switches::kmInjectJSDocStart);

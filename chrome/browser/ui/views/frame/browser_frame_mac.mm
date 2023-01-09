@@ -362,6 +362,12 @@ void BrowserFrameMac::PopulateCreateWindowParams(
     // Hosted apps draw their own window title.
     if (browser_view_->GetIsWebAppType())
       params->window_title_hidden = true;
+  } else if (browser_view_->GetIsPictureInPictureType()) {
+    // Somewhat confusingly, `kDefault` is required for `NS...Borderless` to do
+    // anything.  Setting it to `kFrameless` causes it to have a frame.
+    params->window_class = remote_cocoa::mojom::WindowClass::kDefault;
+    params->style_mask = NSWindowStyleMaskBorderless;
+    params->window_title_hidden = true;
   } else if (browser_view_->browser()->is_frameless()) {
     params->window_class = remote_cocoa::mojom::WindowClass::kFrameless;
     params->style_mask = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
@@ -444,7 +450,7 @@ views::Widget::InitParams BrowserFrameMac::GetWidgetParams() {
 }
 
 bool BrowserFrameMac::UseCustomFrame() const {
-  return false;
+  return browser_view_->GetIsPictureInPictureType();
 }
 
 bool BrowserFrameMac::UsesNativeSystemMenu() const {

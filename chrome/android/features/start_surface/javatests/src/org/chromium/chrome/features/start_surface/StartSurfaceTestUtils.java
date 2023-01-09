@@ -322,7 +322,7 @@ public class StartSurfaceTestUtils {
         // Drag the Feed header title to scroll the toolbar to the top.
         int toY = -cta.getResources().getDimensionPixelOffset(R.dimen.toolbar_height_no_shadow);
         TestTouchUtils.dragCompleteView(InstrumentationRegistry.getInstrumentation(),
-                cta.findViewById(R.id.header_title), 0, 0, 0, toY, 1);
+                cta.findViewById(R.id.header_title), 0, 0, 0, toY, 10);
 
         // The start surface toolbar should be scrolled up and not be displayed.
         CriteriaHelper.pollInstrumentationThread(
@@ -333,9 +333,6 @@ public class StartSurfaceTestUtils {
 
         // Toolbar layout view should show.
         onViewWaiting(withId(R.id.toolbar));
-        // The home button shouldn't show on homepage whether it's scrolled or not.
-        onView(withId(R.id.home_button))
-                .check(matches(withEffectiveVisibility(ViewMatchers.Visibility.GONE)));
 
         // The start surface toolbar should be scrolled up and not be displayed.
         onView(withId(R.id.tab_switcher_toolbar)).check(matches(not(isDisplayed())));

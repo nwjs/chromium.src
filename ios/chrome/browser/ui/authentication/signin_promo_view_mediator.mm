@@ -19,6 +19,7 @@
 #import "ios/chrome/browser/signin/authentication_service.h"
 #import "ios/chrome/browser/signin/chrome_account_manager_service.h"
 #import "ios/chrome/browser/signin/chrome_account_manager_service_observer_bridge.h"
+#import "ios/chrome/browser/signin/system_identity.h"
 #import "ios/chrome/browser/ui/authentication/cells/signin_promo_view_configurator.h"
 #import "ios/chrome/browser/ui/authentication/cells/signin_promo_view_consumer.h"
 #import "ios/chrome/browser/ui/authentication/signin/signin_utils.h"
@@ -27,7 +28,6 @@
 #import "ios/chrome/browser/ui/commands/show_signin_command.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_feature.h"
 #import "ios/chrome/grit/ios_strings.h"
-#import "ios/public/provider/chrome/browser/signin/chrome_identity.h"
 #import "ui/base/l10n/l10n_util.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
@@ -804,7 +804,11 @@ const char* AlreadySeenSigninViewPreferenceKey(
 - (void)signinPromoViewDidTapSigninWithNewAccount:
     (SigninPromoView*)signinPromoView {
   DCHECK(!self.identity);
-  DCHECK(self.signinPromoViewVisible);
+  // The promo on top of the feed is only logged as visible when most of it can
+  // be seen, so it can be used without `self.signinPromoViewVisible`.
+  DCHECK(self.signinPromoViewVisible ||
+         self.accessPoint ==
+             signin_metrics::AccessPoint::ACCESS_POINT_NTP_FEED_TOP_PROMO);
   DCHECK(!self.invalidClosedOrNeverVisible);
   [self sendImpressionsTillSigninButtonsHistogram];
   // On iOS, the promo does not have a button to add and account when there is
@@ -841,8 +845,12 @@ const char* AlreadySeenSigninViewPreferenceKey(
 }
 
 - (void)signinPromoViewCloseButtonWasTapped:(SigninPromoView*)view {
-  DCHECK(self.signinPromoViewVisible);
   DCHECK(!self.invalidClosedOrNeverVisible);
+  // The promo on top of the feed is only logged as visible when most of it can
+  // be seen, so it can be dismissed without `self.signinPromoViewVisible`.
+  DCHECK(self.signinPromoViewVisible ||
+         self.accessPoint ==
+             signin_metrics::AccessPoint::ACCESS_POINT_NTP_FEED_TOP_PROMO);
   self.signinPromoViewState = ios::SigninPromoViewState::Closed;
   const char* alreadySeenSigninViewPreferenceKey =
       AlreadySeenSigninViewPreferenceKey(self.accessPoint);

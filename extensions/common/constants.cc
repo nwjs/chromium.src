@@ -130,6 +130,7 @@ const int kCurrentWindowId = -2;
 #if BUILDFLAG(IS_CHROMEOS)
 // The extension id for the built-in component extension.
 const char kChromeVoxExtensionId[] = "mndnfokpggljbaajbnioimlmbfngpief";
+
 #else
 // The extension id for the web store extension.
 const char kChromeVoxExtensionId[] = "kgejglhpjiefppelpmljglcjbhoiplfn";
@@ -169,12 +170,10 @@ const char kGoogleDocsAppId[] = "aohghmighlieiainnegkcijnfilokake";
 const char kGoogleSheetsAppId[] = "felcaaldnbdncclmgdcncolpebgiejap";
 const char kGoogleSlidesAppId[] = "aapocclcgogkmnckokdopfmhonfmgoek";
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 // TODO(michaelpg): Deprecate old app IDs before adding new ones to avoid bloat.
 const char kHighlightsAppId[] = "lpmakjfjcconjeehbidjclhdlpjmfjjj";
 const char kScreensaverAppId[] = "mnoijifedipmbjaoekhadjcijipaijjc";
-const char kSigninProfileTestExtensionId[] = "mecfefiddjlmabpeilblgegnbioikfmp";
-const char kGuestModeTestExtensionId[] = "behllobkkfkfnphdnhnkndlbkcpglgmj";
 
 const char kStagingAttractLoopAppId[] = "aefaeciooibphdopnjjmgjdlckdcfbae";
 const char kStagingHighlightsAppId[] = "glochkamldfopmdlegmcnjmgkopfiplb";
@@ -185,22 +184,6 @@ const char kNewHighlightsAppId[] = "enchmnkoajljphdmahljlebfmpkkbnkj";
 // Specialized demo apps for blazey devices
 const char kBlazeyAttractLoopAppId[] = "lceekekmpiieklnpocjfahfakahjkhha";
 const char kBlazeyHighlightsAppId[] = "jbpnmbcpgemgfblnjfhnmlffhkofekmf";
-
-bool IsSystemUIApp(base::StringPiece extension_id) {
-  static const char* const kApps[] = {
-      // clang-format off
-      kChromeVoxExtensionId,
-      kFilesManagerAppId,
-      kHighlightsAppId,
-      kScreensaverAppId,
-      // clang-format on
-  };
-  for (const char* id : kApps) {
-    if (extension_id == id)
-      return true;
-  }
-  return false;
-}
 
 bool IsDemoModeChromeApp(base::StringPiece extension_id) {
   static const char* const kDemoModeApps[] = {
@@ -221,6 +204,28 @@ bool IsDemoModeChromeApp(base::StringPiece extension_id) {
   }
   return false;
 }
+#endif  // BUILDFLAG(IS_CHROMEOS)
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+const char kSigninProfileTestExtensionId[] = "mecfefiddjlmabpeilblgegnbioikfmp";
+const char kGuestModeTestExtensionId[] = "behllobkkfkfnphdnhnkndlbkcpglgmj";
+
+bool IsSystemUIApp(base::StringPiece extension_id) {
+  static const char* const kApps[] = {
+      // clang-format off
+      kChromeVoxExtensionId,
+      kFilesManagerAppId,
+      kHighlightsAppId,
+      kScreensaverAppId,
+      // clang-format on
+  };
+  for (const char* id : kApps) {
+    if (extension_id == id)
+      return true;
+  }
+  return false;
+}
+
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 bool IsQuickOfficeExtension(const std::string& id) {
@@ -257,10 +262,9 @@ const char kIncognitoSessionOnlyErrorMessage[] =
     "You cannot set a preference with scope 'incognito_session_only' when no "
     "incognito window is open.";
 
+const char kInvalidColorError[] =
+    "The color specification could not be parsed.";
+
 const int kContentVerificationDefaultBlockSize = 4096;
-
-const char kCryptotokenExtensionId[] = "kmendfapggjehodndflmmgagdbamhnfd";
-
-const char kCryptotokenDeprecationTrialName[] = "U2FSecurityKeyAPI";
 
 }  // namespace extension_misc

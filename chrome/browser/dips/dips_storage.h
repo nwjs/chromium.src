@@ -17,15 +17,20 @@
 
 class GURL;
 
+using UrlPredicate = base::RepeatingCallback<bool(const GURL&)>;
+
 // Manages the storage of DIPSState values.
 class DIPSStorage {
  public:
-  DIPSStorage();
+  explicit DIPSStorage(const absl::optional<base::FilePath>& path);
   ~DIPSStorage();
 
-  void Init(const absl::optional<base::FilePath>& path);
-
   DIPSState Read(const GURL& url);
+
+  void RemoveEvents(base::Time delete_begin,
+                    base::Time delete_end,
+                    const UrlPredicate& predicate,
+                    const DIPSEventRemovalType type);
 
   // DIPS Helper Method Impls --------------------------------------------------
 
@@ -33,9 +38,32 @@ class DIPSStorage {
   void RecordStorage(const GURL& url, base::Time time, DIPSCookieMode mode);
   // Record that the user interacted on |url|.
   void RecordInteraction(const GURL& url, base::Time time, DIPSCookieMode mode);
+  // Record that |url| redirected the user while also writing to storage.
+  void RecordStatefulBounce(const GURL& url, base::Time time);
+  // Record that |url| redirected the user without writing to storage.
+  void RecordStatelessBounce(const GURL& url, base::Time time);
 
-  // Empty method intended for testing use only.
-  void DoNothing() {}
+  // Storage querying Methods
+  // -----------------------------------------------------------
+  // Returns all sites that did a bounce after |range_start| with their last
+  // user interaction occurring before |last_interaction|.
+  std::vector<std::string> GetSitesThatBounced(
+      base::Time range_start,
+      base::Time last_interaction) const;
+
+  // Returns all sites that did a stateful bounce after |range_start| with their
+  // last user interaction occurring before |last_interaction|.
+  std::vector<std::string> GetSitesThatBouncedWithState(
+      base::Time range_start,
+      base::Time last_interaction) const;
+
+  // Returns all sites which use storage after |range_start| with their last
+  // user interaction occurring before |last_interaction|.
+  std::vector<std::string> GetSitesThatUsedStorage(
+      base::Time range_start,
+      base::Time last_interaction) const;
+
+  // Utility Methods -----------------------------------------------------------
 
   static size_t SetPrepopulateChunkSizeForTesting(size_t size);
 
@@ -61,10 +89,12 @@ class DIPSStorage {
     std::vector<std::string> sites;
   };
 
+ protected:
+  void Write(const DIPSState& state);
+
  private:
   friend class DIPSState;
   DIPSState ReadSite(std::string site);
-  void Write(const DIPSState& state);
   // Prepopulate the DB with one chunk of |args.sites|, and schedule another
   // task to continue if more sites remain.
   void PrepopulateChunk(PrepopulateArgs args);

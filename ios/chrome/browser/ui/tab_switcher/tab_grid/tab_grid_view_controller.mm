@@ -4,7 +4,10 @@
 
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/tab_grid_view_controller.h"
 
+#import <objc/runtime.h>
+
 #import "base/bind.h"
+#import "base/ios/ios_util.h"
 #import "base/logging.h"
 #import "base/metrics/histogram_macros.h"
 #import "base/metrics/user_metrics.h"
@@ -16,6 +19,8 @@
 #import "ios/chrome/browser/ui/default_promo/default_browser_utils.h"
 #import "ios/chrome/browser/ui/gestures/view_controller_trait_collection_observer.h"
 #import "ios/chrome/browser/ui/gestures/view_revealing_vertical_pan_handler.h"
+#import "ios/chrome/browser/ui/keyboard/UIKeyCommand+Chrome.h"
+#import "ios/chrome/browser/ui/keyboard/features.h"
 #import "ios/chrome/browser/ui/menu/action_factory.h"
 #import "ios/chrome/browser/ui/recent_tabs/recent_tabs_table_view_controller.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/disabled_tab_view_controller.h"
@@ -72,6 +77,8 @@ typedef NS_ENUM(NSUInteger, PageChangeInteraction) {
   PageChangeInteractionPageControlTap,
   // The user dragged the page control slider to change pages.
   PageChangeInteractionPageControlDrag,
+  // The user dragged an item in another scroll view to change pages.
+  PageChangeInteractionItemDrag,
 };
 
 // Key of the UMA IOS.TabSwitcher.PageChangeInteraction histogram.
@@ -84,7 +91,8 @@ enum class TabSwitcherPageChangeInteraction {
   kScrollDrag = 1,
   kControlTap = 2,
   kControlDrag = 3,
-  kMaxValue = kControlDrag,
+  kItemDrag = 4,
+  kMaxValue = kItemDrag,
 };
 
 // Convenience function to record a page change interaction.
@@ -122,12 +130,12 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
 
 @interface TabGridViewController () <DisabledTabViewControllerDelegate,
                                      GridViewControllerDelegate,
-                                     SuggestedActionsDelegate,
                                      LayoutSwitcher,
+                                     SuggestedActionsDelegate,
+                                     UIGestureRecognizerDelegate,
                                      UIScrollViewAccessibilityDelegate,
                                      UISearchBarDelegate,
-                                     ViewRevealingAnimatee,
-                                     UIGestureRecognizerDelegate>
+                                     ViewRevealingAnimatee>
 // Whether the view is visible. Bookkeeping is based on `-viewWillAppear:` and
 // `-viewWillDisappear methods. Note that the `Did` methods are not reliably
 // called (e.g., edge case in multitasking).
@@ -381,7 +389,14 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
 }
 
 - (void)scrollViewDidEndScrollingAnimation:(UIScrollView*)scrollView {
-  self.currentPage = GetPageFromScrollView(scrollView);
+  TabGridPage currentPage = GetPageFromScrollView(scrollView);
+  if (currentPage != self.currentPage) {
+    // This happens when the user drags an item from one scroll view into
+    // another.
+    self.pageChangeInteraction = PageChangeInteractionItemDrag;
+    [self recordActionSwitchingToPage:currentPage];
+  }
+  self.currentPage = currentPage;
   self.scrollViewAnimatingContentOffset = NO;
   [self broadcastIncognitoContentVisibility];
   [self configureButtonsForActiveAndCurrentPage];
@@ -1351,9 +1366,8 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
 
 // Adds the top toolbar and sets constraints.
 - (void)setupTopToolbar {
-  bool dynamic_island_toolbar_blur_fix = ShouldUseToolbarBlurFix();
   UIVisualEffectView* topToolbarBlurView;
-  if (dynamic_island_toolbar_blur_fix) {
+  if (base::ios::HasDynamicIsland()) {
     UIBlurEffect* blurEffect =
         [UIBlurEffect effectWithStyle:UIBlurEffectStyleDark];
     topToolbarBlurView = [[UIVisualEffectView alloc] initWithEffect:blurEffect];
@@ -1397,7 +1411,7 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
     [topToolbar.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor]
   ]];
 
-  if (dynamic_island_toolbar_blur_fix) {
+  if (base::ios::HasDynamicIsland()) {
     [NSLayoutConstraint activateConstraints:@[
       [topToolbarBlurView.topAnchor
           constraintEqualToAnchor:self.view.topAnchor],
@@ -1814,6 +1828,9 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
       RecordPageChangeInteraction(
           TabSwitcherPageChangeInteraction::kControlDrag);
       break;
+    case PageChangeInteractionItemDrag:
+      RecordPageChangeInteraction(TabSwitcherPageChangeInteraction::kItemDrag);
+      break;
   }
   // Don't reset `self.pageChangeInteraction` here, because a drag may still be
   // in process.
@@ -1867,7 +1884,7 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
       [self openNewRegularTabForKeyboardCommand];
       break;
     case TabGridPageRemoteTabs:
-      // Tabs cannot be opened with ⌘-t from the remote tabs page.
+      NOTREACHED() << "It is invalid to have an active tab in remote tabs.";
       break;
   }
 }
@@ -2511,26 +2528,45 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
 
 #pragma mark - UIResponder
 
-- (NSArray*)keyCommands {
-  UIKeyCommand* newWindowShortcut = [UIKeyCommand
-      keyCommandWithInput:@"n"
-            modifierFlags:UIKeyModifierCommand
-                   action:@selector(openNewRegularTabForKeyboardCommand)];
-  newWindowShortcut.discoverabilityTitle =
-      l10n_util::GetNSStringWithFixup(IDS_IOS_TOOLS_MENU_NEW_TAB);
-  UIKeyCommand* newIncognitoWindowShortcut = [UIKeyCommand
-      keyCommandWithInput:@"n"
-            modifierFlags:UIKeyModifierCommand | UIKeyModifierShift
-                   action:@selector(openNewIncognitoTabForKeyboardCommand)];
-  newIncognitoWindowShortcut.discoverabilityTitle =
-      l10n_util::GetNSStringWithFixup(IDS_IOS_TOOLS_MENU_NEW_INCOGNITO_TAB);
-  UIKeyCommand* newTabShortcut = [UIKeyCommand
-      keyCommandWithInput:@"t"
-            modifierFlags:UIKeyModifierCommand
-                   action:@selector(openNewTabInCurrentPageForKeyboardCommand)];
-  newTabShortcut.discoverabilityTitle =
-      l10n_util::GetNSStringWithFixup(IDS_IOS_TOOLS_MENU_NEW_TAB);
-  return @[ newWindowShortcut, newIncognitoWindowShortcut, newTabShortcut ];
+- (NSArray<UIKeyCommand*>*)keyCommands {
+  if (IsKeyboardShortcutsMenuEnabled()) {
+    // Other key commands are already declared in the menu.
+    return @[
+      UIKeyCommand.cr_openNewRegularTab,
+    ];
+  } else {
+    return @[
+      UIKeyCommand.cr_openNewTab,
+      UIKeyCommand.cr_openNewIncognitoTab,
+      UIKeyCommand.cr_openNewRegularTab,
+    ];
+  }
+}
+
+- (BOOL)canPerformAction:(SEL)action withSender:(id)sender {
+  if (sel_isEqual(action, @selector(keyCommand_openNewTab)) ||
+      sel_isEqual(action, @selector(keyCommand_openNewRegularTab)) ||
+      sel_isEqual(action, @selector(keyCommand_openNewIncognitoTab))) {
+    return self.currentPage != TabGridPageRemoteTabs;
+  }
+  return [super canPerformAction:action withSender:sender];
+}
+
+- (void)keyCommand_openNewTab {
+  base::RecordAction(base::UserMetricsAction("MobileKeyCommandOpenNewTab"));
+  [self openNewTabInCurrentPageForKeyboardCommand];
+}
+
+- (void)keyCommand_openNewRegularTab {
+  base::RecordAction(
+      base::UserMetricsAction("MobileKeyCommandOpenNewRegularTab"));
+  [self openNewRegularTabForKeyboardCommand];
+}
+
+- (void)keyCommand_openNewIncognitoTab {
+  base::RecordAction(
+      base::UserMetricsAction("MobileKeyCommandOpenNewIncognitoTab"));
+  [self openNewIncognitoTabForKeyboardCommand];
 }
 
 @end

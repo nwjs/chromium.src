@@ -56,7 +56,6 @@ import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.night_mode.WebContentsDarkModeController;
 import org.chromium.chrome.browser.omaha.UpdateMenuItemHelper;
 import org.chromium.chrome.browser.partnercustomizations.PartnerBrowserCustomizations;
-import org.chromium.chrome.browser.price_tracking.PriceTrackingUtilities;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.read_later.ReadingListUtils;
 import org.chromium.chrome.browser.share.ShareHelper;
@@ -503,8 +502,11 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
                 .setVisible(isCurrentTabNotNull
                         && shouldShowPaintPreview(isChromeScheme, currentTab, isIncognito));
 
-        // Enable image descriptions if touch exploration is currently enabled.
-        if (ImageDescriptionsController.getInstance().shouldShowImageDescriptionsMenuItem()) {
+        // Enable image descriptions if touch exploration is currently enabled, but not on the
+        // native NTP or Start surface.
+        if (isCurrentTabNotNull && shouldShowWebContentsDependentMenuItem(currentTab)
+                && ImageDescriptionsController.getInstance()
+                           .shouldShowImageDescriptionsMenuItem()) {
             menu.findItem(R.id.get_image_descriptions_id).setVisible(true);
 
             int titleId = R.string.menu_stop_image_descriptions;
@@ -525,12 +527,16 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
             menu.findItem(R.id.get_image_descriptions_id).setVisible(false);
         }
 
-        // Conditionally add the Zoom menu item.
-        menu.findItem(R.id.page_zoom_id).setVisible(PageZoomCoordinator.shouldShowMenuItem());
+        // Conditionally add the Zoom menu item, but not on the native NTP or on Start surface.
+        menu.findItem(R.id.page_zoom_id)
+                .setVisible(isCurrentTabNotNull
+                        && shouldShowWebContentsDependentMenuItem(currentTab)
+                        && PageZoomCoordinator.shouldShowMenuItem());
 
         // Disable find in page on the native NTP or on Start surface.
         menu.findItem(R.id.find_in_page_id)
-                .setVisible(isCurrentTabNotNull && shouldShowFindInPage(currentTab));
+                .setVisible(
+                        isCurrentTabNotNull && shouldShowWebContentsDependentMenuItem(currentTab));
 
         // Prepare translate menu button.
         prepareTranslateMenuItem(menu, currentTab);
@@ -595,10 +601,6 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
                             > 1;
         }
 
-        boolean isPriceTrackingVisible = isOverviewModeMenu
-                && PriceTrackingUtilities.shouldShowPriceTrackingMenu()
-                && !DeviceClassManager.enableAccessibilityLayout(mContext) && !isIncognito;
-        boolean isPriceTrackingEnabled = isPriceTrackingVisible;
         boolean hasItemBetweenDividers = false;
 
         for (int i = 0; i < menu.size(); ++i) {
@@ -649,10 +651,6 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
             if (item.getItemId() == R.id.menu_select_tabs) {
                 item.setVisible(isMenuSelectTabsVisible);
                 item.setEnabled(isMenuSelectTabsEnabled);
-            }
-            if (item.getItemId() == R.id.track_prices_row_menu_id) {
-                item.setVisible(isPriceTrackingVisible);
-                item.setEnabled(isPriceTrackingEnabled);
             }
             if (item.getItemId() == R.id.close_all_tabs_menu_id) {
                 boolean hasTabs = mTabModelSelector.getTotalTabCount() > 0;
@@ -835,9 +833,10 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
 
     /**
      * @param currentTab The currentTab for which the app menu is showing.
-     * @return Whether the find in page menu item should be displayed.
+     * @return Whether the currentTab should show an app menu item that requires a webContents.
+     *         This will return false for the Start service or native NTP, and true otherwise.
      */
-    protected boolean shouldShowFindInPage(@NonNull Tab currentTab) {
+    protected boolean shouldShowWebContentsDependentMenuItem(@NonNull Tab currentTab) {
         return !currentTab.isNativePage() && currentTab.getWebContents() != null;
     }
 
@@ -1193,7 +1192,7 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
         // If price tracking isn't enabled or the page isn't eligible, then hide both items.
         if (!ShoppingFeatures.isShoppingListEnabled()
                 || !PowerBookmarkUtils.isPriceTrackingEligible(currentTab)
-                || mIsTypeSpecificBookmarkItemRowPresent) {
+                || mIsTypeSpecificBookmarkItemRowPresent || !mBookmarkModelSupplier.hasValue()) {
             startPriceTrackingMenuItem.setVisible(false);
             stopPriceTrackingMenuItem.setVisible(false);
             return;

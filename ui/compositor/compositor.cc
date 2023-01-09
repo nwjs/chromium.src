@@ -32,6 +32,7 @@
 #include "cc/input/input_handler.h"
 #include "cc/layers/layer.h"
 #include "cc/metrics/begin_main_frame_metrics.h"
+#include "cc/metrics/custom_metrics_recorder.h"
 #include "cc/metrics/frame_sequence_tracker.h"
 #include "cc/metrics/web_vital_metrics.h"
 #include "cc/trees/layer_tree_host.h"
@@ -766,11 +767,6 @@ void Compositor::NotifyThroughputTrackerResults(
     ReportMetricsForTracker(pair.first, std::move(pair.second));
 }
 
-void Compositor::ReportEventLatency(
-    std::vector<cc::EventLatencyTracker::LatencyData> latencies) {
-  // TODO(crbug.com/1321193): Report EventLatency as appropriate.
-}
-
 void Compositor::DidReceiveCompositorFrameAck() {
   ++activated_frame_count_;
   for (auto& observer : observer_list_)
@@ -893,6 +889,11 @@ void Compositor::SetLayerTreeDebugState(
 void Compositor::RequestPresentationTimeForNextFrame(
     PresentationTimeCallback callback) {
   host_->RequestPresentationTimeForNextFrame(std::move(callback));
+}
+
+void Compositor::RequestSuccessfulPresentationTimeForNextFrame(
+    SuccessfulPresentationTimeCallback callback) {
+  host_->RequestSuccessfulPresentationTimeForNextFrame(std::move(callback));
 }
 
 void Compositor::ReportMetricsForTracker(

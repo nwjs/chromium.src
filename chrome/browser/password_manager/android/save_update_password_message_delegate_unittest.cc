@@ -67,16 +67,16 @@ constexpr char kConfirmUsernameMessageDismissalReason[] =
 class MockPasswordEditDialog : public PasswordEditDialog {
  public:
   MOCK_METHOD(void,
-              ShowSavePasswordDialog,
-              (const std::u16string& username,
+              ShowPasswordEditDialog,
+              (const std::vector<std::u16string>& usernames,
+               const std::u16string& username,
                const std::u16string& password,
                const std::string& account_email),
               (override));
   MOCK_METHOD(void,
-              ShowUpdatePasswordDialog,
+              ShowLegacyPasswordEditDialog,
               (const std::vector<std::u16string>& usernames,
                int selected_username_index,
-               const std::u16string& password,
                const std::string& account_email),
               (override));
   MOCK_METHOD(void, Dismiss, (), (override));
@@ -442,6 +442,70 @@ TEST_P(SaveUpdatePasswordMessageDelegateTest,
   DismissMessage(messages::DismissReason::UNKNOWN);
 }
 
+// Tests that secondary menu icon is set for the save password message
+// with kPasswordEditDialogWithDetails feature on.
+TEST_P(SaveUpdatePasswordMessageDelegateTest,
+       CogButton_SavePassword_PasswordEditDialogWithDetails) {
+  base::test::ScopedFeatureList scoped_feature_state;
+  scoped_feature_state.InitWithFeatures(
+      {password_manager::features::kPasswordEditDialogWithDetails,
+       password_manager::features::kUnifiedPasswordManagerAndroidBranding},
+      {});
+  SetPendingCredentials(kUsername, kPassword);
+  auto form_manager =
+      CreateFormManager(GURL(kDefaultUrl), empty_best_matches());
+  EnqueueMessage(std::move(form_manager), /*user_signed_in=*/false,
+                 /*update_password=*/false);
+
+  EXPECT_EQ(ResourceMapper::MapToJavaDrawableId(IDR_ANDROID_MESSAGE_SETTINGS),
+            GetMessageWrapper()->GetSecondaryIconResourceId());
+
+  DismissMessage(messages::DismissReason::UNKNOWN);
+}
+
+// Tests that secondary menu icon is set for the update password message
+// in case when user has only single credential stored for the web site
+// with kPasswordEditDialogWithDetails feature on.
+TEST_P(SaveUpdatePasswordMessageDelegateTest,
+       CogButton_SingleCredUpdatePassword_PasswordEditDialogWithDetails) {
+  base::test::ScopedFeatureList scoped_feature_state;
+  scoped_feature_state.InitWithFeatures(
+      {password_manager::features::kPasswordEditDialogWithDetails,
+       password_manager::features::kUnifiedPasswordManagerAndroidBranding},
+      {});
+  SetPendingCredentials(kUsername, kPassword);
+  auto form_manager =
+      CreateFormManager(GURL(kDefaultUrl), empty_best_matches());
+  EnqueueMessage(std::move(form_manager), /*user_signed_in=*/false,
+                 /*update_password=*/true);
+
+  EXPECT_EQ(ResourceMapper::MapToJavaDrawableId(IDR_ANDROID_MESSAGE_SETTINGS),
+            GetMessageWrapper()->GetSecondaryIconResourceId());
+
+  DismissMessage(messages::DismissReason::UNKNOWN);
+}
+
+// Tests that secondary menu icon is not set for the update password message
+// in case when user has multiple credentials stored for the web site
+// with kPasswordEditDialogWithDetails feature on.
+TEST_P(SaveUpdatePasswordMessageDelegateTest,
+       NoCogButton_MultipleCredUpdatePassword_PasswordEditDialogWithDetails) {
+  base::test::ScopedFeatureList scoped_feature_state;
+  scoped_feature_state.InitWithFeatures(
+      {password_manager::features::kPasswordEditDialogWithDetails,
+       password_manager::features::kUnifiedPasswordManagerAndroidBranding},
+      {});
+  SetPendingCredentials(kUsername, kPassword);
+  auto form_manager =
+      CreateFormManager(GURL(kDefaultUrl), two_forms_best_matches());
+  EnqueueMessage(std::move(form_manager), /*user_signed_in=*/false,
+                 /*update_password=*/true);
+
+  EXPECT_EQ(0, GetMessageWrapper()->GetSecondaryIconResourceId());
+
+  DismissMessage(messages::DismissReason::UNKNOWN);
+}
+
 // Tests that the description is set correctly when signed-in user saves a
 // password.
 TEST_P(SaveUpdatePasswordMessageDelegateTest,
@@ -619,11 +683,10 @@ TEST_P(SaveUpdatePasswordMessageDelegateTest, DialogPropertiesSignedIn) {
       CreateFormManager(GURL(kDefaultUrl), two_forms_best_matches());
   MockPasswordEditDialog* mock_dialog = PreparePasswordEditDialog();
   // Verify parameters to Show() call.
-  EXPECT_CALL(*mock_dialog, ShowUpdatePasswordDialog(
+  EXPECT_CALL(*mock_dialog, ShowLegacyPasswordEditDialog(
                                 ElementsAre(std::u16string(kUsername),
                                             std::u16string(kUsername2)),
-                                /*selected_username_index=*/0,
-                                std::u16string(kPassword), kAccountEmail));
+                                0, kAccountEmail));
   EnqueueMessage(std::move(form_manager), /*user_signed_in=*/true,
                  /*update_password=*/true);
   TriggerActionClick();
@@ -636,11 +699,10 @@ TEST_P(SaveUpdatePasswordMessageDelegateTest, DialogPropertiesSignedOut) {
       CreateFormManager(GURL(kDefaultUrl), two_forms_best_matches());
   MockPasswordEditDialog* mock_dialog = PreparePasswordEditDialog();
   // Verify parameters to Show() call.
-  EXPECT_CALL(*mock_dialog, ShowUpdatePasswordDialog(
+  EXPECT_CALL(*mock_dialog, ShowLegacyPasswordEditDialog(
                                 ElementsAre(std::u16string(kUsername),
                                             std::u16string(kUsername2)),
-                                /*selected_username_index=*/0,
-                                std::u16string(kPassword), std::string()));
+                                0, std::string()));
   EnqueueMessage(std::move(form_manager), /*user_signed_in=*/false,
                  /*update_password=*/true);
   TriggerActionClick();
@@ -657,7 +719,7 @@ TEST_P(SaveUpdatePasswordMessageDelegateTest, TriggerEditDialog_Accept) {
       CreateFormManager(GURL(kDefaultUrl), two_forms_best_matches());
   EXPECT_CALL(*form_manager, Save());
   MockPasswordEditDialog* mock_dialog = PreparePasswordEditDialog();
-  EXPECT_CALL(*mock_dialog, ShowUpdatePasswordDialog);
+  EXPECT_CALL(*mock_dialog, ShowLegacyPasswordEditDialog);
   EnqueueMessage(std::move(form_manager), /*user_signed_in=*/false,
                  /*update_password=*/true);
   EXPECT_NE(nullptr, GetMessageWrapper());
@@ -692,7 +754,7 @@ TEST_P(SaveUpdatePasswordMessageDelegateTest,
                  /*update_password=*/true);
   EXPECT_NE(nullptr, GetMessageWrapper());
   MockPasswordEditDialog* mock_dialog = PreparePasswordEditDialog();
-  EXPECT_CALL(*mock_dialog, ShowUpdatePasswordDialog);
+  EXPECT_CALL(*mock_dialog, ShowLegacyPasswordEditDialog);
   TriggerActionClick();
   EXPECT_EQ(nullptr, GetMessageWrapper());
 
@@ -713,7 +775,7 @@ TEST_P(SaveUpdatePasswordMessageDelegateTest, TriggerEditDialog_Cancel) {
       CreateFormManager(GURL(kDefaultUrl), two_forms_best_matches());
   EXPECT_CALL(*form_manager, Save).Times(0);
   MockPasswordEditDialog* mock_dialog = PreparePasswordEditDialog();
-  EXPECT_CALL(*mock_dialog, ShowUpdatePasswordDialog);
+  EXPECT_CALL(*mock_dialog, ShowLegacyPasswordEditDialog);
   EnqueueMessage(std::move(form_manager), /*user_signed_in=*/false,
                  /*update_password=*/true);
   EXPECT_NE(nullptr, GetMessageWrapper());
@@ -748,7 +810,7 @@ TEST_P(SaveUpdatePasswordMessageDelegateTest,
       CreateFormManager(GURL(kDefaultUrl), two_forms_best_matches());
   EXPECT_CALL(*form_manager, Save());
   MockPasswordEditDialog* mock_dialog = PreparePasswordEditDialog();
-  EXPECT_CALL(*mock_dialog, ShowUpdatePasswordDialog);
+  EXPECT_CALL(*mock_dialog, ShowPasswordEditDialog);
   EnqueueMessage(std::move(form_manager), /*user_signed_in=*/false,
                  /*update_password=*/true);
   EXPECT_NE(nullptr, GetMessageWrapper());
@@ -801,7 +863,7 @@ TEST_P(SaveUpdatePasswordMessageDelegateTest,
   EnqueueMessage(std::move(form_manager), /*user_signed_in=*/false,
                  /*update_password=*/false);
   EXPECT_NE(nullptr, GetMessageWrapper());
-  EXPECT_CALL(*mock_dialog, ShowSavePasswordDialog);
+  EXPECT_CALL(*mock_dialog, ShowPasswordEditDialog);
   TriggerPasswordEditDialog(/*update_password=*/false);
 
   EXPECT_EQ(nullptr, GetMessageWrapper());
@@ -894,7 +956,7 @@ TEST_P(SaveUpdatePasswordMessageDelegateTest,
   EnqueueMessage(std::move(form_manager), /*user_signed_in=*/true,
                  /*update_password=*/true);
   EXPECT_NE(nullptr, GetMessageWrapper());
-  EXPECT_CALL(*mock_dialog, ShowUpdatePasswordDialog);
+  EXPECT_CALL(*mock_dialog, ShowPasswordEditDialog);
   TriggerPasswordEditDialog(/*update_password=*/true);
 
   EXPECT_EQ(nullptr, GetMessageWrapper());
@@ -947,7 +1009,7 @@ TEST_P(SaveUpdatePasswordMessageDelegateTest,
   EnqueueMessage(std::move(form_manager), /*user_signed_in=*/false,
                  /*update_password=*/false);
   EXPECT_NE(nullptr, GetMessageWrapper());
-  EXPECT_CALL(*mock_dialog, ShowSavePasswordDialog);
+  EXPECT_CALL(*mock_dialog, ShowPasswordEditDialog);
   TriggerPasswordEditDialog(/*update_password=*/false);
   EXPECT_EQ(nullptr, GetMessageWrapper());
   EXPECT_CALL(*form_manager_pointer, Save()).Times(0);

@@ -211,7 +211,6 @@ class CONTENT_EXPORT NavigationEntryImpl : public NavigationEntry {
   blink::mojom::CommitNavigationParamsPtr ConstructCommitNavigationParams(
       const FrameNavigationEntry& frame_entry,
       const GURL& original_url,
-      const absl::optional<url::Origin>& origin_to_commit,
       const std::string& original_method,
       const base::flat_map<std::string, bool>& subframe_unique_names,
       bool intended_as_new_entry,
@@ -305,6 +304,13 @@ class CONTENT_EXPORT NavigationEntryImpl : public NavigationEntry {
   // |frame_tree_node|.
   void RemoveEntryForFrame(FrameTreeNode* frame_tree_node,
                            bool only_if_different_position);
+
+  // Update NotRestoredReasons for |navigation_request| which should be a
+  // cross-document main frame navigation and is not served from back/forward
+  // cache. This will create a metrics object if there is none, which can happen
+  // when doing a session restore.
+  void UpdateBackForwardCacheNotRestoredReasons(
+      NavigationRequest* navigation_request);
 
   void set_unique_id(int unique_id) { unique_id_ = unique_id; }
 
@@ -428,6 +434,10 @@ class CONTENT_EXPORT NavigationEntryImpl : public NavigationEntry {
 
   BackForwardCacheMetrics* back_forward_cache_metrics() {
     return back_forward_cache_metrics_.get();
+  }
+
+  scoped_refptr<BackForwardCacheMetrics> TakeBackForwardCacheMetrics() {
+    return std::move(back_forward_cache_metrics_);
   }
 
   void set_back_forward_cache_metrics(

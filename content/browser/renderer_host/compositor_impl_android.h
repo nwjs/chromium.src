@@ -125,6 +125,8 @@ class CONTENT_EXPORT CompositorImpl
   void PreserveChildSurfaceControls() override;
   void RequestPresentationTimeForNextFrame(
       PresentationTimeCallback callback) override;
+  void RequestSuccessfulPresentationTimeForNextFrame(
+      SuccessfulPresentationTimeCallback callback) override;
   void SetDidSwapBuffersCallbackEnabled(bool enable) override;
 
   // LayerTreeHostClient implementation.
@@ -150,7 +152,7 @@ class CONTENT_EXPORT CompositorImpl
   void DidInitializeLayerTreeFrameSink() override;
   void DidFailToInitializeLayerTreeFrameSink() override;
   void WillCommit(const cc::CommitState&) override {}
-  void DidCommit(base::TimeTicks, base::TimeTicks) override;
+  void DidCommit(base::TimeTicks, base::TimeTicks) override {}
   void DidCommitAndDrawFrame() override {}
   void DidReceiveCompositorFrameAck() override;
   void DidCompletePageScaleAnimation() override {}
@@ -169,8 +171,6 @@ class CONTENT_EXPORT CompositorImpl
   void DidObserveFirstScrollDelay(
       base::TimeDelta first_scroll_delay,
       base::TimeTicks first_scroll_timestamp) override {}
-  void ReportEventLatency(
-      std::vector<cc::EventLatencyTracker::LatencyData> latencies) override {}
 
   // LayerTreeHostSingleThreadClient implementation.
   void DidSubmitCompositorFrame() override;

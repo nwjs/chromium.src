@@ -57,12 +57,9 @@ Browser* SystemWebAppDelegate::LaunchAndNavigateSystemWebApp(
         kOmitFromSessionRestore, ShouldAllowResize(), ShouldAllowMaximize());
     started_new_navigation = true;
   } else if (!reuse_existing_window) {
-    gfx::Rect initial_bounds = browser->window()->GetRestoredBounds();
-    initial_bounds.Offset(20, 20);
     browser = web_app::CreateWebApplicationWindow(
         profile, params.app_id, params.disposition, params.restore_id,
-        kOmitFromSessionRestore, ShouldAllowResize(), ShouldAllowMaximize(),
-        initial_bounds);
+        kOmitFromSessionRestore, ShouldAllowResize(), ShouldAllowMaximize());
     started_new_navigation = true;
   }
 

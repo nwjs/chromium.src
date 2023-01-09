@@ -32,8 +32,8 @@
 #include "chrome/browser/ash/arc/nearby_share/ui/progress_bar_dialog_view.h"
 #include "chrome/browser/ash/file_manager/fileapi_util.h"
 #include "chrome/browser/ash/file_manager/path_util.h"
+#include "chrome/browser/ash/fileapi/external_file_url_util.h"
 #include "chrome/browser/ash/fusebox/fusebox_server.h"
-#include "chrome/browser/chromeos/fileapi/external_file_url_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sharesheet/sharesheet_service.h"
 #include "chrome/browser/sharesheet/sharesheet_service_factory.h"
@@ -144,7 +144,7 @@ absl::optional<fusebox::Moniker> ConvertToMoniker(Profile* profile,
   GURL external_file_url = arc::ArcUrlToExternalFileUrl(content_url);
 
   const base::FilePath virtual_path =
-      chromeos::ExternalFileURLToVirtualPath(external_file_url);
+      ash::ExternalFileURLToVirtualPath(external_file_url);
 
   const storage::FileSystemURL fs_url =
       file_manager::util::GetFileManagerFileSystemContext(profile)
@@ -167,6 +167,20 @@ absl::optional<fusebox::Moniker> ConvertToMoniker(Profile* profile,
 
 bool FileSharingThroughFuseBoxEnabled() {
   return base::FeatureList::IsEnabled(arc::kEnableArcNearbyShareFuseBox);
+}
+
+bool IsValidArcWindow(aura::Window* const window, uint32_t task_id) {
+  if (!ash::IsArcWindow(window)) {
+    return false;
+  }
+
+  absl::optional<int> maybe_task_id = arc::GetWindowTaskId(window);
+  if (!maybe_task_id.has_value() || maybe_task_id.value() < 0 ||
+      static_cast<uint32_t>(maybe_task_id.value()) != task_id) {
+    return false;
+  }
+
+  return true;
 }
 
 }  // namespace
@@ -242,14 +256,10 @@ void NearbyShareSessionImpl::OnWindowInitialized(aura::Window* const window) {
   DCHECK(window);
 
   DVLOG(1) << __func__;
-  if (!ash::IsArcWindow(window))
-    return;
-
-  absl::optional<int> maybe_id = arc::GetWindowTaskId(window);
-  if (!maybe_id.has_value() || maybe_id.value() < 0 ||
-      static_cast<uint32_t>(maybe_id.value()) != task_id_) {
+  if (!IsValidArcWindow(window, task_id_)) {
     return;
   }
+
   env_observation_.Reset();
   arc_window_observation_.Observe(window);
 }
@@ -261,18 +271,17 @@ void NearbyShareSessionImpl::OnWindowVisibilityChanged(
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
   DVLOG(1) << __func__;
-  absl::optional<int> task_id = arc::GetWindowTaskId(window);
-  DCHECK(task_id.has_value());
-  DCHECK_GE(task_id.value(), 0);
-  if (visible && (base::checked_cast<uint32_t>(task_id.value()) == task_id_)) {
-    VLOG(1) << "ARC Window is visible";
-    if (window_initialization_timer_.IsRunning()) {
-      window_initialization_timer_.Stop();
-    }
-    base::ThreadTaskRunnerHandle::Get()->PostTask(
-        FROM_HERE, base::BindOnce(&NearbyShareSessionImpl::OnArcWindowFound,
-                                  weak_ptr_factory_.GetWeakPtr(), window));
+  if (!IsValidArcWindow(window, task_id_) || !visible) {
+    return;
   }
+
+  VLOG(1) << "ARC Window is visible";
+  if (window_initialization_timer_.IsRunning()) {
+    window_initialization_timer_.Stop();
+  }
+  base::ThreadTaskRunnerHandle::Get()->PostTask(
+      FROM_HERE, base::BindOnce(&NearbyShareSessionImpl::OnArcWindowFound,
+                                weak_ptr_factory_.GetWeakPtr(), window));
 }
 
 void NearbyShareSessionImpl::OnArcWindowFound(aura::Window* const arc_window) {

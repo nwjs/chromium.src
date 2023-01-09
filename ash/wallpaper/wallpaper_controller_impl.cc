@@ -893,13 +893,17 @@ void WallpaperControllerImpl::RestoreWallpaperBlurForLockState(float blur) {
 }
 
 bool WallpaperControllerImpl::ShouldApplyShield() const {
-  // Apply a shield on the wallpaper in a blocked user session or overview or in
-  // tablet mode unless during wallpaper preview.
-  const bool needs_shield =
-      Shell::Get()->session_controller()->IsUserSessionBlocked() ||
-      Shell::Get()->overview_controller()->InOverviewSession() ||
-      (Shell::Get()->tablet_mode_controller()->InTabletMode() &&
-       !confirm_preview_wallpaper_callback_);
+  bool needs_shield = false;
+
+  if (Shell::Get()->overview_controller()->InOverviewSession()) {
+    needs_shield = !features::IsJellyrollEnabled();
+  } else if (Shell::Get()->session_controller()->IsUserSessionBlocked()) {
+    needs_shield = true;
+  } else if (Shell::Get()->tablet_mode_controller()->InTabletMode() &&
+             !confirm_preview_wallpaper_callback_) {
+    needs_shield = true;
+  }
+
   return needs_shield && !IsOneShotWallpaper();
 }
 
@@ -1195,12 +1199,39 @@ void WallpaperControllerImpl::SetGooglePhotosWallpaper(
   }
 }
 
+void WallpaperControllerImpl::SetGooglePhotosDailyRefreshAlbumId(
+    const AccountId& account_id,
+    const std::string& album_id) {
+  WallpaperInfo info;
+  if (!GetUserWallpaperInfo(account_id, &info)) {
+    LOG(ERROR) << __func__ << " Failed to get user wallpaper info.";
+    return;
+  }
+
+  // If daily refresh is being enabled.
+  if (!album_id.empty()) {
+    info.type = WallpaperType::kDailyGooglePhotos;
+    info.collection_id = album_id;
+  }
+
+  // If Daily Refresh is disabled without selecting another wallpaper, we should
+  // keep the current wallpaper and change to type
+  // `WallpaperType::kOnceGooglePhotos`, so daily refreshes stop.
+  if (album_id.empty() && info.type == WallpaperType::kDailyGooglePhotos) {
+    info.type = WallpaperType::kOnceGooglePhotos;
+  }
+  SetUserWallpaperInfo(account_id, info);
+  StartDailyRefreshTimer();
+}
+
 std::string WallpaperControllerImpl::GetGooglePhotosDailyRefreshAlbumId(
     const AccountId& account_id) const {
-  absl::optional<WallpaperInfo> info = GetActiveUserWallpaperInfo();
-  if (!info || info->type != WallpaperType::kDailyGooglePhotos)
+  WallpaperInfo info;
+  if (!GetUserWallpaperInfo(account_id, &info))
     return std::string();
-  return info->collection_id;
+  if (info.type != WallpaperType::kDailyGooglePhotos)
+    return std::string();
+  return info.collection_id;
 }
 
 bool WallpaperControllerImpl::SetDailyGooglePhotosWallpaperIdCache(
@@ -1824,6 +1855,26 @@ void WallpaperControllerImpl::OnOverviewModeWillStart() {
   // preview is active (http://crbug.com/895265), cancel wallpaper preview and
   // close its front-end before toggling overview mode.
   MaybeClosePreviewWallpaper();
+}
+
+void WallpaperControllerImpl::OnOverviewModeStarting() {
+  // Only in tablet mode, we need to call `RepaintWallpaper` to update the
+  // wallpaper shield on overview mode changes, since in clamshell mode, we
+  // don't apply the wallpaper shield no matter it's in overview mode or not if
+  // the feature `kJellyroll` is enabled. However, in tablet mode, we need to
+  // apply the wallpaper shield when it's not in the overview mode.
+  if (features::IsJellyrollEnabled() &&
+      Shell::Get()->tablet_mode_controller()->InTabletMode()) {
+    RepaintWallpaper();
+  }
+}
+
+void WallpaperControllerImpl::OnOverviewModeEnded() {
+  // Refer to the comment in `OnOverviewModeStarting`.
+  if (features::IsJellyrollEnabled() &&
+      Shell::Get()->tablet_mode_controller()->InTabletMode()) {
+    RepaintWallpaper();
+  }
 }
 
 void WallpaperControllerImpl::CompositorLockTimedOut() {
@@ -2963,6 +3014,7 @@ void WallpaperControllerImpl::SetDailyRefreshCollectionId(
     info.type = WallpaperType::kOnline;
   }
   SetUserWallpaperInfo(account_id, info);
+  StartDailyRefreshTimer();
 }
 
 std::string WallpaperControllerImpl::GetDailyRefreshCollectionId(

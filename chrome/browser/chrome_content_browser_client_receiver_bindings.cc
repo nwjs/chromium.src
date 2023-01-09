@@ -610,7 +610,7 @@ void ChromeContentBrowserClient::
           [](content::RenderFrameHost* render_frame_host,
              mojo::PendingAssociatedReceiver<printing::mojom::PrintManagerHost>
                  receiver) {
-            if (headless::IsChromeNativeHeadless()) {
+            if (headless::IsHeadlessMode()) {
               headless::HeadlessPrintManager::BindPrintManagerHost(
                   std::move(receiver), render_frame_host);
             } else {
@@ -618,8 +618,8 @@ void ChromeContentBrowserClient::
               printing::PrintViewManager::BindPrintManagerHost(
                   std::move(receiver), render_frame_host);
 #else
-                printing::PrintViewManagerBasic::BindPrintManagerHost(
-                    std::move(receiver), render_frame_host);
+              printing::PrintViewManagerBasic::BindPrintManagerHost(
+                  std::move(receiver), render_frame_host);
 #endif  // BUILDFLAG(ENABLE_PRINT_PREVIEW)
             }
           },

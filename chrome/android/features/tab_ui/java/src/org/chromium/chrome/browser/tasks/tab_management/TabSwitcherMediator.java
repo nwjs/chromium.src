@@ -25,6 +25,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
+import org.chromium.base.Callback;
 import org.chromium.base.CallbackController;
 import org.chromium.base.Log;
 import org.chromium.base.ObserverList;
@@ -120,6 +121,7 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
             new ObservableSupplierImpl<>();
     private final ObservableSupplierImpl<Boolean> mIsDialogVisibleSupplier =
             new ObservableSupplierImpl<>();
+    private final Callback<Boolean> mNotifyBackPressedCallback = this::notifyBackPressStateChanged;
 
     /**
      * The callback which is supplied to the {@link IncognitoReauthController} that takes care of
@@ -334,6 +336,7 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
                 TabList currentTabModelFilter =
                         mTabModelSelector.getTabModelFilterProvider().getCurrentTabModelFilter();
                 mContainerViewModel.set(IS_INCOGNITO, currentTabModelFilter.isIncognito());
+                notifyBackPressStateChangedInternal();
                 if (mTabGridDialogController != null) {
                     mTabGridDialogController.hideDialog(false);
                 }
@@ -524,6 +527,7 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
             }
         };
         mMultiWindowModeStateDispatcher.addObserver(mMultiWindowModeObserver);
+        notifyBackPressStateChangedInternal();
     }
 
     /**
@@ -548,7 +552,7 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
         if (tabSelectionEditorController != null) {
             mTabSelectionEditorController = tabSelectionEditorController;
             mTabSelectionEditorController.getHandleBackPressChangedSupplier().addObserver(
-                    this::notifyBackPressStateChanged);
+                    mNotifyBackPressedCallback);
         }
     }
 
@@ -560,7 +564,7 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
             TabGridDialogMediator.DialogController tabGridDialogController) {
         mTabGridDialogController = tabGridDialogController;
         mTabGridDialogController.getHandleBackPressChangedSupplier().addObserver(
-                this::notifyBackPressStateChanged);
+                mNotifyBackPressedCallback);
     }
 
     @VisibleForTesting
@@ -921,14 +925,6 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
     }
 
     @Override
-    public void showTabSelectionEditor(List<Tab> tabs) {
-        if (mTabSelectionEditorController == null) {
-            return;
-        }
-        mTabSelectionEditorController.show(tabs);
-    }
-
-    @Override
     public void enableRecordingFirstMeaningfulPaint(long activityCreateTimeMs) {
         mFirstMeaningfulPaintRecorder = new FirstMeaningfulPaintRecorder(activityCreateTimeMs);
     }
@@ -1031,12 +1027,12 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
     public void destroy() {
         if (mTabSelectionEditorController != null) {
             mTabSelectionEditorController.getHandleBackPressChangedSupplier().removeObserver(
-                    this::notifyBackPressStateChanged);
+                    mNotifyBackPressedCallback);
         }
 
         if (mTabGridDialogController != null) {
             mTabGridDialogController.getHandleBackPressChangedSupplier().removeObserver(
-                    this::notifyBackPressStateChanged);
+                    mNotifyBackPressedCallback);
         }
 
         if (mIncognitoReauthController != null) {

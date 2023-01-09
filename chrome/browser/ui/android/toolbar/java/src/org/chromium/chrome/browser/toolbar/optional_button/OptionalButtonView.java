@@ -29,6 +29,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.appcompat.content.res.AppCompatResources;
+import androidx.core.view.OneShotPreDrawListener;
+import androidx.core.view.ViewCompat;
 
 import com.google.android.material.color.MaterialColors;
 
@@ -215,6 +217,17 @@ class OptionalButtonView extends FrameLayout implements TransitionListener {
         mContentDescription =
                 getContext().getResources().getString(buttonSpec.getContentDescriptionResId());
 
+        // If the button hasn't been laid out then try again before the next draw. This may happen
+        // if the view gets initialized while the activity is not visible (e.g. when a setting
+        // change forces an activity reset).
+        if (!ViewCompat.isLaidOut(this)) {
+            OneShotPreDrawListener.add(this, () -> startTransitionToNewButton(canAnimate));
+        } else {
+            startTransitionToNewButton(canAnimate);
+        }
+    }
+
+    private void startTransitionToNewButton(boolean canAnimate) {
         if (mState == State.HIDDEN && mActionChipLabelString == null) {
             showIcon(canAnimate);
         } else if (canAnimate && mActionChipLabelString != null) {
@@ -357,7 +370,7 @@ class OptionalButtonView extends FrameLayout implements TransitionListener {
         // When finished expanding the action chip schedule the collapse transition in 3 seconds.
         if (mState == State.SHOWING_ACTION_CHIP) {
             getHandler().postDelayed(mCollapseActionChipRunnable,
-                    AdaptiveToolbarFeatures.getContextualPageActionDelayMs());
+                    AdaptiveToolbarFeatures.getContextualPageActionDelayMs(mCurrentButtonVariant));
         }
     }
 
@@ -574,7 +587,7 @@ class OptionalButtonView extends FrameLayout implements TransitionListener {
         mButton.setImageDrawable(mIconDrawable);
         mButton.setVisibility(GONE);
 
-        if (AdaptiveToolbarFeatures.shouldUseAlternativeActionChipColor()) {
+        if (AdaptiveToolbarFeatures.shouldUseAlternativeActionChipColor(mCurrentButtonVariant)) {
             int highlightColor = MaterialColors.getColor(this, R.attr.colorSecondaryContainer);
             mBackground.setColorFilter(highlightColor);
         } else {

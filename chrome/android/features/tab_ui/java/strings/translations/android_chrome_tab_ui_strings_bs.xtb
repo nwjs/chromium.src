@@ -4,8 +4,6 @@
 <translation id="1075622780330595106">U zadnje vrijeme niste koristili sljedeći broj kartica: <ph name="NUMBER_OF_TABS" /> Zatvoriti ih?</translation>
 <translation id="1181037720776840403">Ukloni</translation>
 <translation id="125153950246128346">Dodirnite da vidite drugu karticu</translation>
-<translation id="1302104331113804646">Postavke praćenja cijena</translation>
-<translation id="1378979118429748177">Primajte obavještenja kada cijene padnu</translation>
 <translation id="1403228085774130835">Zatvorene kartice možete pronaći u Nedavnim karticama u glavnom meniju Chromea</translation>
 <translation id="1455506303394048917">Vaša aktivnost u ovim anonimnim karticama će se obrisati s ovog uređaja</translation>
 <translation id="1499635324672558517">Zatvoriti sve anonimne kartice?</translation>
@@ -34,6 +32,7 @@
 <translation id="3291470810748040983">Primit ćete obavještenje kada bude niža cijena na otvorenoj kartici</translation>
 <translation id="3328308545011660196">Prijedlog: čini se da su neke kartice povezane (njih <ph name="NUMBER_OF_TABS" />). Grupirati ih?</translation>
 <translation id="3652027618765638838"><ph name="CURRENT_RATING" /> od <ph name="RATING_BASELINE" /></translation>
+<translation id="374923079891132274">Sličica pregleda lista za dijeljenje.</translation>
 <translation id="3819916404117584598">{TABS_COUNT,plural, =1{Sužavanje <ph name="TABS_COUNT_ONE" /> kartice.}one{Sužavanje grupe kartica <ph name="TITLE_OF_GROUP" /> s <ph name="TABS_COUNT_MANY" /> karticom.}few{Sužavanje grupe kartica <ph name="TITLE_OF_GROUP" /> s <ph name="TABS_COUNT_MANY" /> kartice.}other{Sužavanje grupe kartica <ph name="TITLE_OF_GROUP" /> s <ph name="TABS_COUNT_MANY" /> kartica.}}</translation>
 <translation id="3882834874697329510">Da dobijete obavještenje kada je niža cijena na otvorenoj kartici, uključite obavještenja u Postavkama.</translation>
 <translation id="3940195383040445971">Pratite cijene na karticama</translation>
@@ -58,6 +57,7 @@
 <translation id="5556417849629758491">Prikaz informacija o trgovini. Opcija je dostupna pri vrhu ekrana</translation>
 <translation id="5558362125926932819">Zatvaranje grupe kartica sa sljedećim brojem kartica: <ph name="NUMBER_OF_TABS" /></translation>
 <translation id="5580090775658607195">Grupisan je sljedeći broj kartica: <ph name="TAB_COUNT" /></translation>
+<translation id="5656738671621697952">{TABS_COUNT,plural, =1{<ph name="TABS_COUNT_ONE" /> link iz Chromea}one{<ph name="TABS_COUNT_MANY" /> link iz Chromea}few{<ph name="TABS_COUNT_MANY" /> linka iz Chromea}other{<ph name="TABS_COUNT_MANY" /> linkova iz Chromea}}</translation>
 <translation id="575494663145460764">Slati obavještenja o padu cijena?</translation>
 <translation id="58326064309361797">Prevucite kartice da ih grupišete</translation>
 <translation id="5846292395804797011">Zatvaranje grupe kartica <ph name="TITLE_OF_GROUP" /> sa sljedećim brojem kartica: <ph name="NUMBER_OF_TABS" /></translation>
@@ -96,7 +96,6 @@
 <translation id="8304833501377495048">Ne prikazivati ponovo traku kartice?</translation>
 <translation id="83556505225171773">{TABS_COUNT,plural, =1{Zatvaranje <ph name="TABS_COUNT_ONE" /> odabrane kartice}one{Zatvaranje <ph name="TABS_COUNT_MANY" /> odabrane kartice}few{Zatvaranje <ph name="TABS_COUNT_MANY" /> odabrane kartice}other{Zatvaranje <ph name="TABS_COUNT_MANY" /> odabranih kartica}}</translation>
 <translation id="8557923272772633250">Proširivanje grupe kartica sa sljedećim brojem kartica: <ph name="NUMBER_OF_TABS" />.</translation>
-<translation id="860282621117673749">Obavještenja o padu cijena</translation>
 <translation id="8714939927607906138">Niža cijena</translation>
 <translation id="8749939518995770034">Zatvorena traka kartice</translation>
 <translation id="8820741577754260431">Vidite pad cijena na svojim karticama</translation>

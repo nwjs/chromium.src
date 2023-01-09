@@ -36,6 +36,7 @@
 #include "components/history/core/browser/keyword_id.h"
 #include "components/history/core/browser/sync/history_backend_for_sync.h"
 #include "components/history/core/browser/visit_tracker.h"
+#include "components/version_info/channel.h"
 #include "sql/init_status.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "url/origin.h"
@@ -48,6 +49,10 @@ class SingleThreadTaskRunner;
 
 namespace favicon {
 class FaviconBackend;
+}
+
+namespace sql {
+class Transaction;
 }
 
 namespace syncer {
@@ -825,6 +830,16 @@ class HistoryBackend : public base::RefCountedThreadSafe<HistoryBackend>,
   // does nothing.
   void CancelScheduledCommit();
 
+  // Begins the singleton transaction and checks all invariants. Caller MUST
+  // make sure `singleton_transaction_` is nullptr beforehand. If this succeeds,
+  // `singleton_transaction_` will be defined after this call.
+  void BeginSingletonTransaction();
+
+  // If the singleton transaction exists, commits it and checks all invariants.
+  // Does nothing if `singleton_transaction_` is nullptr. Caller is responsible
+  // for starting a new singleton transaction.
+  void CommitSingletonTransactionIfItExists();
+
   // Segments ------------------------------------------------------------------
 
   // Walks back a segment chain to find the last visit with a non null segment
@@ -913,12 +928,22 @@ class HistoryBackend : public base::RefCountedThreadSafe<HistoryBackend>,
   // Directory where database files will be stored, empty until Init is called.
   base::FilePath history_dir_;
 
+  // Used to control error reporting.
+  version_info::Channel channel_ = version_info::Channel::UNKNOWN;
+
   // The history/favicon databases. Either may be null if the database could
   // not be opened, all users must first check for null and return immediately
   // if it is. The favicon DB may be null when the history one isn't, but not
   // vice-versa.
   std::unique_ptr<HistoryDatabase> db_;
-  bool scheduled_kill_db_;  // Database is being killed due to error.
+
+  // The singleton long-running transaction used to batch together History for
+  // optimization purposes. There can only ever be one, because transaction
+  // nesting doesn't actually exist, and leads to unexpected bugs. This is
+  // nullptr if the transaction didn't successfully begin.
+  std::unique_ptr<sql::Transaction> singleton_transaction_;
+
+  bool scheduled_kill_db_ = false;  // Database is being killed due to error.
   std::unique_ptr<favicon::FaviconBackend> favicon_backend_;
 
   // Manages expiration between the various databases.
@@ -966,7 +991,8 @@ class HistoryBackend : public base::RefCountedThreadSafe<HistoryBackend>,
 
   // Contains diagnostic information about the sql database that is non-empty
   // when a catastrophic error occurs.
-  std::string db_diagnostics_;
+  std::string diagnostics_string_;
+  sql::DatabaseDiagnostics diagnostics_;
 
   // List of observers
   base::ObserverList<HistoryBackendObserver>::Unchecked observers_;

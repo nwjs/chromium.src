@@ -137,16 +137,6 @@ class ComputedStyleBase {
     );
   }
 
-  enum IsAtShadowBoundary {
-    kAtShadowBoundary,
-    kNotAtShadowBoundary,
-  };
-
-  void InheritFrom(const ComputedStyleBase& other,
-                                      IsAtShadowBoundary isAtShadowBoundary);
-  void CopyNonInheritedFromCached(
-      const ComputedStyleBase& other);
-
   // Copies the values of any independent inherited properties from the parent
   // style that are marked as inherited by this style.
   void PropagateIndependentInheritedProperties(
@@ -201,6 +191,9 @@ class ComputedStyleBase {
   ~ComputedStyleBase() = default;
 
  private:
+  friend class ComputedStyleBuilder;
+  friend class ComputedStyleBuilderBase;
+
   // Storage.
   {% for subgroup in computed_style.subgroups %}
   DataRef<{{subgroup.type_name}}> {{subgroup.member_name}};
@@ -209,6 +202,42 @@ class ComputedStyleBase {
   {% for field in computed_style.fields %}
   {{declare_storage(field)}}
   {% endfor %}
+};
+
+class ComputedStyleBuilderBase {
+  STACK_ALLOCATED();
+ public:
+
+  enum IsAtShadowBoundary {
+    kAtShadowBoundary,
+    kNotAtShadowBoundary,
+  };
+
+  {% for field in computed_style_builder.all_fields|sort(attribute='name') %}
+  // {{field.property_name}}
+  {{field_templates[field.field_template].decl_public_methods(field)|indent(2)}}
+
+  {% endfor %}
+
+ protected:
+  ComputedStyleBuilderBase() = default;
+  explicit ComputedStyleBuilderBase(ComputedStyleBase& style) : style_(&style) {}
+
+  void SetStyleBase(ComputedStyleBase& style) {
+    style_ = &style;
+  }
+
+  CORE_EXPORT void InheritFrom(const ComputedStyleBase& other, IsAtShadowBoundary isAtShadowBoundary);
+  void CopyNonInheritedFromCached(const ComputedStyleBase& other);
+
+  {% for field in computed_style_builder.all_fields|sort(attribute='name') %}
+  // {{field.property_name}}
+  {{field_templates[field.field_template].decl_protected_methods(field)|indent(2)}}
+
+  {% endfor %}
+
+ private:
+  ComputedStyleBase* style_ = nullptr;
 };
 
 }  // namespace blink

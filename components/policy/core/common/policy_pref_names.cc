@@ -99,10 +99,6 @@ const char kBackForwardCacheEnabled[] = "policy.back_forward_cache_enabled";
 const char kUserAgentClientHintsGREASEUpdateEnabled[] =
     "policy.user_agent_client_hints_grease_update_enabled";
 
-// Boolean policy preference to disable the URL parameter
-// filter.
-const char kUrlParamFilterEnabled[] = "policy.url_param_filter_enabled";
-
 // Boolean policy to allow isolated apps developer mode.
 const char kIsolatedAppsDeveloperModeAllowed[] =
     "policy.isolated_apps_developer_mode_allowed";
@@ -124,6 +120,16 @@ const char kUserPolicyNotificationWasShown[] =
 // should eventually be disabled and removed.
 // https://chromestatus.com/feature/5726124632965120
 const char kEventPathEnabled[] = "policy.event_path_enabled";
+
+// A boolean indicating whether the newly specified behavior for
+// Element.offsetParent is in effect.
+const char kOffsetParentNewSpecBehaviorEnabled[] =
+    "policy.offset_parent_new_spec_behavior_enabled";
+
+// A boolean indicating whether the new behavior for event dispatching on
+// disabled form controls is in effect.
+const char kSendMouseEventsDisabledFormControlsEnabled[] =
+    "policy.send_mouse_events_disabled_form_controls_enabled";
 
 }  // namespace policy_prefs
 }  // namespace policy

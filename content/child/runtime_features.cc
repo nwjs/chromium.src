@@ -9,6 +9,7 @@
 #include "base/base_switches.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
+#include "base/memory/raw_ref.h"
 #include "base/metrics/field_trial.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/strings/string_number_conversions.h"
@@ -321,12 +322,12 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
            features::kLegacyWindowsDWriteFontFallback},
           {"OriginIsolationHeader", features::kOriginIsolationHeader},
           {"FirstPartySets", features::kFirstPartySets},
+          {"ReduceAcceptLanguage", network::features::kReduceAcceptLanguage},
           {"StorageAccessAPI", net::features::kStorageAccessAPI},
           {"TopicsAPI", features::kPrivacySandboxAdsAPIsOverride,
            kSetOnlyIfOverridden},
+          {"TrustedTypesFromLiteral", features::kTrustedTypesFromLiteral},
           {"WebAppTabStrip", features::kDesktopPWAsTabStrip},
-          {"WebAppWindowControlsOverlay",
-           features::kWebAppWindowControlsOverlay},
           {"WebAuthenticationConditionalUI", features::kWebAuthConditionalUI},
           {"WGIGamepadTriggerRumble",
            features::kEnableWindowsGamingInputDataFetcher},
@@ -435,6 +436,34 @@ void SetRuntimeFeaturesFromCommandLine(const base::CommandLine& command_line) {
       WebRuntimeFeatures::EnableEventPath(true);
     if (value == blink::switches::kEventPathPolicy_ForceDisable)
       WebRuntimeFeatures::EnableEventPath(false);
+  }
+
+  // Enable or disable OffsetParentNewSpecBehavior for Enterprise Policy. This
+  // overrides any existing settings via base::Feature.
+  if (command_line.HasSwitch(
+          blink::switches::kOffsetParentNewSpecBehaviorPolicy)) {
+    const std::string value = command_line.GetSwitchValueASCII(
+        blink::switches::kOffsetParentNewSpecBehaviorPolicy);
+    if (value ==
+        blink::switches::kOffsetParentNewSpecBehaviorPolicy_ForceEnable)
+      WebRuntimeFeatures::EnableOffsetParentNewSpecBehavior(true);
+    if (value ==
+        blink::switches::kOffsetParentNewSpecBehaviorPolicy_ForceDisable)
+      WebRuntimeFeatures::EnableOffsetParentNewSpecBehavior(false);
+  }
+
+  // Enable or disable SendMouseEventsDisabledFormControls for Enterprise
+  // Policy. This overrides any existing settings via base::Feature.
+  if (command_line.HasSwitch(
+          blink::switches::kSendMouseEventsDisabledFormControlsPolicy)) {
+    const std::string value = command_line.GetSwitchValueASCII(
+        blink::switches::kSendMouseEventsDisabledFormControlsPolicy);
+    if (value ==
+        blink::switches::kSendMouseEventsDisabledFormControlsPolicy_ForceEnable)
+      WebRuntimeFeatures::EnableSendMouseEventsDisabledFormControls(true);
+    if (value == blink::switches::
+                     kSendMouseEventsDisabledFormControlsPolicy_ForceDisable)
+      WebRuntimeFeatures::EnableSendMouseEventsDisabledFormControls(false);
   }
 }
 

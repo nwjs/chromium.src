@@ -591,16 +591,6 @@ void ComponentLoader::AddDefaultComponentExtensionsWithBackgroundPages(
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 #endif //nwjs
-      // need this to enable 'chrome.runtime.connect' in web pages as
-      // in upstream. Google Drive need this API to work correctly
-      // Other API may need this as well e.g. 2FA NWJS#6966
-  if (base::FeatureList::IsEnabled(
-          extensions_features::kLoadCryptoTokenExtension) ||
-      ExtensionPrefs::Get(profile_)->pref_service()->GetBoolean(
-          pref_names::kLoadCryptoTokenExtension)) {
-    Add(IDR_CRYPTOTOKEN_MANIFEST,
-        base::FilePath(FILE_PATH_LITERAL("cryptotoken")));
-  }
 }
 
 void ComponentLoader::

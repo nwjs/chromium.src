@@ -11,6 +11,7 @@
 #include "base/test/task_environment.h"
 #include "components/history_clusters/core/clustering_test_utils.h"
 #include "components/history_clusters/core/config.h"
+#include "components/history_clusters/core/history_clusters_util.h"
 #include "components/history_clusters/core/on_device_clustering_features.h"
 #include "components/optimization_guide/core/entity_metadata_provider.h"
 #include "components/optimization_guide/core/new_optimization_guide_decider.h"
@@ -167,6 +168,8 @@ class OnDeviceClusteringWithoutContentBackendTest : public ::testing::Test {
         visits);
     run_loop.Run();
 
+    // Sort clusters here for easier verification.
+    SortClusters(&clusters);
     return clusters;
   }
 
@@ -710,7 +713,8 @@ TEST_F(OnDeviceClusteringWithAllTheBackendsTest,
                   .model_annotations.entities.empty());
   EXPECT_TRUE(third_result_visit.annotated_visit.content_annotations
                   .model_annotations.categories.empty());
-  EXPECT_TRUE(cluster.keyword_to_data_map.empty());
+  // Search query terms are keywords.
+  EXPECT_THAT(cluster.GetKeywords(), UnorderedElementsAre(u"nometadata"));
 
   history::Cluster cluster2 = result_clusters.at(1);
   ASSERT_EQ(cluster2.visits.size(), 1u);
@@ -733,18 +737,18 @@ TEST_F(OnDeviceClusteringWithAllTheBackendsTest,
   // The second visit should have a URL.
   EXPECT_EQ(cluster2.visits.at(0).duplicate_visits.at(0).url,
             GURL("http://default-engine.com/?q=foo&otherstuff"));
-  // Cluster should have 2 keywords.
+  // Cluster should have 3 keywords with the search term "foo" included.
   EXPECT_THAT(cluster2.GetKeywords(),
-              UnorderedElementsAre(u"rewritten-foo", u"alias-foo"));
+              UnorderedElementsAre(u"rewritten-foo", u"alias-foo", u"foo"));
 
   histogram_tester.ExpectUniqueSample(
       "History.Clusters.Backend.ClusterSize.Min", 1, 1);
   histogram_tester.ExpectUniqueSample(
       "History.Clusters.Backend.ClusterSize.Max", 1, 1);
   histogram_tester.ExpectUniqueSample(
-      "History.Clusters.Backend.NumKeywordsPerCluster.Min", 0, 1);
+      "History.Clusters.Backend.NumKeywordsPerCluster.Min", 1, 1);
   histogram_tester.ExpectUniqueSample(
-      "History.Clusters.Backend.NumKeywordsPerCluster.Max", 2, 1);
+      "History.Clusters.Backend.NumKeywordsPerCluster.Max", 3, 1);
   histogram_tester.ExpectTotalCount(
       "History.Clusters.Backend.BatchEntityLookupLatency2", 1);
   histogram_tester.ExpectUniqueSample(

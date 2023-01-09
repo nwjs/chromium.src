@@ -79,6 +79,7 @@
 #include "components/tracing/common/tracing_switches.h"
 #include "components/viz/common/switches.h"
 #include "components/viz/host/gpu_client.h"
+#include "content/browser/attribution_reporting/attribution_manager.h"
 #include "content/browser/bad_message.h"
 #include "content/browser/blob_storage/blob_registry_wrapper.h"
 #include "content/browser/browser_child_process_host_impl.h"
@@ -195,6 +196,7 @@
 #include "third_party/blink/public/common/page/launching_process_state.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "third_party/blink/public/common/switches.h"
+#include "third_party/blink/public/mojom/conversions/attribution_reporting.mojom.h"
 #include "third_party/blink/public/mojom/disk_allocator.mojom.h"
 #include "third_party/blink/public/mojom/plugins/plugin_registry.mojom.h"
 #include "third_party/blink/public/public_buildflags.h"
@@ -265,7 +267,7 @@
 #include "content/browser/hyphenation/hyphenation_impl.h"
 #endif
 
-#if defined(USE_OZONE)
+#if BUILDFLAG(IS_OZONE)
 #include "ui/ozone/public/ozone_switches.h"
 #endif
 
@@ -1729,10 +1731,11 @@ bool RenderProcessHostImpl::Init() {
       GetContentClient()->browser()->GetFullUserAgent(),
       GetContentClient()->browser()->GetReducedUserAgent(),
       GetContentClient()->browser()->GetUserAgentMetadata(),
-      storage_partition_impl_->cors_exempt_header_list());
+      storage_partition_impl_->cors_exempt_header_list(),
+      AttributionManager::GetOsSupport());
 
   if (run_renderer_in_process()) {
-    base::ThreadRestrictions::ScopedAllowIO allow_io;
+    base::ScopedAllowBlocking allow_io;
     nw::LoadNodeSymbols();
     DCHECK(g_renderer_main_thread_factory);
     // Crank up a thread and run the initialization there.  With the way that
@@ -2033,7 +2036,7 @@ void RenderProcessHostImpl::BindQuotaManagerHost(
     mojo::PendingReceiver<blink::mojom::QuotaManagerHost> receiver) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   storage_partition_impl_->GetQuotaContext()->BindQuotaManagerHost(
-      GetID(), MSG_ROUTING_NONE, storage_key, std::move(receiver));
+      storage_key, std::move(receiver));
 }
 
 void RenderProcessHostImpl::CreateLockManager(
@@ -2077,25 +2080,32 @@ void RenderProcessHostImpl::CreatePaymentManagerForOrigin(
 }
 
 void RenderProcessHostImpl::CreateNotificationService(
-    int render_frame_id,
+    GlobalRenderFrameHostId rfh_id,
+    const RenderProcessHost::NotificationServiceCreatorType creator_type,
     const url::Origin& origin,
     mojo::PendingReceiver<blink::mojom::NotificationService> receiver) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  RenderFrameHost* rfh = RenderFrameHost::FromID(rfh_id);
+  WeakDocumentPtr weak_document_ptr =
+      rfh ? rfh->GetWeakDocumentPtr() : WeakDocumentPtr();
+  switch (creator_type) {
+    case RenderProcessHost::NotificationServiceCreatorType::kServiceWorker:
+    case RenderProcessHost::NotificationServiceCreatorType::kSharedWorker:
+    case RenderProcessHost::NotificationServiceCreatorType::kDedicatedWorker: {
+      storage_partition_impl_->GetPlatformNotificationContext()->CreateService(
+          this, origin, /*document_url=*/GURL(), weak_document_ptr,
+          creator_type, std::move(receiver));
+      break;
+    }
+    case RenderProcessHost::NotificationServiceCreatorType::kDocument: {
+      CHECK(rfh);
 
-  // For workers:
-  if (render_frame_id == MSG_ROUTING_NONE) {
-    storage_partition_impl_->GetPlatformNotificationContext()->CreateService(
-        this, origin, /*document_url=*/GURL(),
-        /*weak_document_ptr=*/WeakDocumentPtr(), std::move(receiver));
-    return;
+      storage_partition_impl_->GetPlatformNotificationContext()->CreateService(
+          this, origin, rfh->GetLastCommittedURL(), weak_document_ptr,
+          creator_type, std::move(receiver));
+      break;
+    }
   }
-
-  // For document:
-  RenderFrameHost* rfh = RenderFrameHost::FromID(GetID(), render_frame_id);
-  CHECK(rfh);
-  storage_partition_impl_->GetPlatformNotificationContext()->CreateService(
-      this, origin, rfh->GetLastCommittedURL(), rfh->GetWeakDocumentPtr(),
-      std::move(receiver));
 }
 
 void RenderProcessHostImpl::CreateWebSocketConnector(
@@ -3105,12 +3115,17 @@ void RenderProcessHostImpl::NotifyRendererOfLockedStateUpdate() {
       process_lock.GetWebExposedIsolationInfo().is_isolated());
 
   bool isolated_apps_developer_mode_allowed =
-      GetContentClient()->browser()->IsIsolatedAppsDeveloperModeAllowed(
+      GetContentClient()->browser()->IsIsolatedWebAppsDeveloperModeAllowed(
           GetBrowserContext());
 
-  GetRendererInterface()->SetIsIsolatedApplication(
-      isolated_apps_developer_mode_allowed &&
-      process_lock.GetWebExposedIsolationInfo().is_isolated_application());
+  bool is_isolated_context_allowed_by_embedder =
+      GetContentClient()->browser()->IsIsolatedContextAllowedForUrl(
+          GetBrowserContext(), process_lock.lock_url());
+
+  GetRendererInterface()->SetIsIsolatedContext(
+      (isolated_apps_developer_mode_allowed &&
+       process_lock.GetWebExposedIsolationInfo().is_isolated_application()) ||
+      is_isolated_context_allowed_by_embedder);
 
   if (!process_lock.IsASiteOrOrigin())
     return;
@@ -3450,7 +3465,7 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kTrySupportedChannelLayouts,
     switches::kRaiseTimerFrequency,
 #endif
-#if defined(USE_OZONE)
+#if BUILDFLAG(IS_OZONE)
     switches::kOzonePlatform,
 #endif
 #if defined(ENABLE_IPC_FUZZER)
@@ -5384,6 +5399,11 @@ void RenderProcessHostImpl::ProvideSwapFileForRenderer() {
               allocator->ProvideTemporaryFile(std::move(file));
           },
           std::move(allocator)));
+}
+
+void RenderProcessHostImpl::SetOsSupportForAttributionReporting(
+    blink::mojom::AttributionOsSupport os_support) {
+  GetRendererInterface()->SetOsSupportForAttributionReporting(os_support);
 }
 
 }  // namespace content

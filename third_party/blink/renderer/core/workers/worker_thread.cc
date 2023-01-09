@@ -59,6 +59,7 @@
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_client_settings_object_snapshot.h"
 #include "third_party/blink/renderer/platform/loader/fetch/worker_resource_timing_notifier.h"
 #include "third_party/blink/renderer/platform/scheduler/public/event_loop.h"
+#include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
 #include "third_party/blink/renderer/platform/scheduler/public/worker_scheduler.h"
 #include "third_party/blink/renderer/platform/scheduler/worker/non_main_thread_impl.h"
 #include "third_party/blink/renderer/platform/scheduler/worker/worker_thread_scheduler.h"
@@ -465,7 +466,7 @@ void WorkerThread::ChildThreadTerminatedOnWorkerThread(WorkerThread* child) {
 
 WorkerThread::WorkerThread(WorkerReportingProxy& worker_reporting_proxy)
     : WorkerThread(worker_reporting_proxy,
-                   Thread::Current()->GetDeprecatedTaskRunner()) {}
+                   ThreadScheduler::Current()->CleanupTaskRunner()) {}
 
 WorkerThread::WorkerThread(WorkerReportingProxy& worker_reporting_proxy,
                            scoped_refptr<base::SingleThreadTaskRunner>
@@ -608,10 +609,11 @@ void WorkerThread::InitializeOnWorkerThread(
     const absl::optional<WorkerBackingThreadStartupData>& thread_startup_data,
     std::unique_ptr<WorkerDevToolsParams> devtools_params) {
   DCHECK(IsCurrentThread());
+  backing_thread_weak_factory_.emplace(this);
+
   bool isNodeJS = global_scope_creation_params->nodejs_;
   std::string main_script = global_scope_creation_params->main_script_;
 
-  backing_thread_weak_factory_.emplace(this);
   worker_reporting_proxy_.WillInitializeWorkerContext();
   {
     TRACE_EVENT0("blink.worker", "WorkerThread::InitializeWorkerContext");

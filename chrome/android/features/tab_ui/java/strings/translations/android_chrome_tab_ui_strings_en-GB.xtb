@@ -4,8 +4,6 @@
 <translation id="1075622780330595106"><ph name="NUMBER_OF_TABS" /> of your tabs haven't been used lately. Close them?</translation>
 <translation id="1181037720776840403">Remove</translation>
 <translation id="125153950246128346">Tap to see another tab</translation>
-<translation id="1302104331113804646">Price tracking settings</translation>
-<translation id="1378979118429748177">Get notified when prices drop</translation>
 <translation id="1403228085774130835">You can find your closed tabs in Recent tabs under the Chrome main menu</translation>
 <translation id="1455506303394048917">Your activity in these incognito tabs will be cleared from this device</translation>
 <translation id="1499635324672558517">Close all incognito tabs?</translation>
@@ -34,6 +32,7 @@
 <translation id="3291470810748040983">You'll get an alert when there's a lower price in an open tab</translation>
 <translation id="3328308545011660196">Suggestion: <ph name="NUMBER_OF_TABS" /> tabs seem related. Group them?</translation>
 <translation id="3652027618765638838"><ph name="CURRENT_RATING" />/<ph name="RATING_BASELINE" /></translation>
+<translation id="374923079891132274">Thumbnail for share sheet preview.</translation>
 <translation id="3819916404117584598">{TABS_COUNT,plural, =1{Collapse <ph name="TABS_COUNT_ONE" /> tab.}other{Collapse <ph name="TITLE_OF_GROUP" /> tab group with <ph name="TABS_COUNT_MANY" /> tabs.}}</translation>
 <translation id="3882834874697329510">To get an alert when there's a lower price in an open tab, turn on notifications in Settings.</translation>
 <translation id="3940195383040445971">Track prices on tabs</translation>
@@ -58,6 +57,7 @@
 <translation id="5556417849629758491">View shop info, option available near top of the screen</translation>
 <translation id="5558362125926932819">Close tab group with <ph name="NUMBER_OF_TABS" /> tabs</translation>
 <translation id="5580090775658607195"><ph name="TAB_COUNT" /> tabs grouped</translation>
+<translation id="5656738671621697952">{TABS_COUNT,plural, =1{<ph name="TABS_COUNT_ONE" /> link from Chrome}other{<ph name="TABS_COUNT_MANY" /> links from Chrome}}</translation>
 <translation id="575494663145460764">Get alerts for price drops?</translation>
 <translation id="58326064309361797">Drag tabs to group them</translation>
 <translation id="5846292395804797011">Close <ph name="TITLE_OF_GROUP" /> group with <ph name="NUMBER_OF_TABS" /> tabs</translation>
@@ -96,7 +96,6 @@
 <translation id="8304833501377495048">Don't show tab strip again?</translation>
 <translation id="83556505225171773">{TABS_COUNT,plural, =1{Close <ph name="TABS_COUNT_ONE" /> selected tab}other{Close <ph name="TABS_COUNT_MANY" /> selected tabs}}</translation>
 <translation id="8557923272772633250">Expand tab group with <ph name="NUMBER_OF_TABS" /> tabs.</translation>
-<translation id="860282621117673749">Price drop alerts</translation>
 <translation id="8714939927607906138">Lower price</translation>
 <translation id="8749939518995770034">Closed tab strip</translation>
 <translation id="8820741577754260431">See price drops on your tabs</translation>

@@ -4,8 +4,6 @@
 <translation id="1075622780330595106">ផ្ទាំង <ph name="NUMBER_OF_TABS" /> របស់អ្នក​មិនត្រូវបាន​ប្រើទេ​នាពេល​ថ្មីៗនេះ។ បិទផ្ទាំង​ទាំងនោះឬ?</translation>
 <translation id="1181037720776840403">ដកចេញ</translation>
 <translation id="125153950246128346">ចុចដើម្បីមើល​ផ្ទាំងផ្សេងទៀត</translation>
-<translation id="1302104331113804646">ការកំណត់ការតាមដានតម្លៃ</translation>
-<translation id="1378979118429748177">ទទួលបានការជូនដំណឹងនៅពេលធ្លាក់ថ្លៃ</translation>
 <translation id="1403228085774130835">អ្នកអាចស្វែងរក​ផ្ទាំងដែលអ្នកបានបិទ​នៅក្នុងផ្ទាំង "ថ្មីៗ" ខាងក្រោមម៉ឺនុយ​ចម្បងរបស់ Chrome</translation>
 <translation id="1455506303394048917">សកម្មភាព​របស់អ្នក​នៅក្នុង​ផ្ទាំងឯកជន​ទាំងនេះ​នឹងត្រូវបាន​សម្អាតចេញពី​ឧបករណ៍នេះ</translation>
 <translation id="1499635324672558517">បិទ​ផ្ទាំងឯកជន​ទាំងអស់ឬ?</translation>
@@ -34,6 +32,7 @@
 <translation id="3291470810748040983">អ្នកនឹងទទួលបាន​ការជូនដំណឹង នៅពេលមានតម្លៃទាបជាងមុននៅក្នុងផ្ទាំងដែលកំពុងបើក</translation>
 <translation id="3328308545011660196">ការណែនាំ៖ ផ្ទាំង <ph name="NUMBER_OF_TABS" /> ហាក់ដូចជាពាក់ព័ន្ធគ្នា។ បញ្ចូលផ្ទាំងទាំងនេះទៅក្នុងក្រុមឬ?</translation>
 <translation id="3652027618765638838"><ph name="CURRENT_RATING" />/<ph name="RATING_BASELINE" /></translation>
+<translation id="374923079891132274">រូបក្របតំណាងការមើលសាកល្បងនៃបញ្ជីដែលបានចែករំលែក។</translation>
 <translation id="3819916404117584598">{TABS_COUNT,plural, =1{បង្រួមផ្ទាំង <ph name="TABS_COUNT_ONE" />។}other{បង្រួមក្រុមផ្ទាំង <ph name="TITLE_OF_GROUP" /> ដែលមាន <ph name="TABS_COUNT_MANY" />ផ្ទាំង។}}</translation>
 <translation id="3882834874697329510">ដើម្បី​ទទួលបាន​ការជូនដំណឹង នៅពេល​មានតម្លៃទាបជាងមុន​នៅក្នុងផ្ទាំងដែល​កំពុងបើក សូមបើក​ការជូនដំណឹង​នៅក្នុងការកំណត់។</translation>
 <translation id="3940195383040445971">តាមដានតម្លៃនៅក្នុងផ្ទាំង</translation>
@@ -58,6 +57,7 @@
 <translation id="5556417849629758491">មើលព័ត៌មានអំពីហាង ជម្រើសមាននៅជិតផ្នែកខាងលើអេក្រង់</translation>
 <translation id="5558362125926932819">បិទក្រុមផ្ទាំង​ដែលមាន <ph name="NUMBER_OF_TABS" />ផ្ទាំង</translation>
 <translation id="5580090775658607195">បានដាក់ផ្ទាំង <ph name="TAB_COUNT" /> ជាក្រុម</translation>
+<translation id="5656738671621697952">{TABS_COUNT,plural, =1{តំណ <ph name="TABS_COUNT_ONE" /> ពី Chrome}other{តំណ <ph name="TABS_COUNT_MANY" /> ពី Chrome}}</translation>
 <translation id="575494663145460764">ទទួលបានការជូនដំណឹងអំពីការធ្លាក់ថ្លៃឬ?</translation>
 <translation id="58326064309361797">អូសផ្ទាំង​នានា ដើម្បី​ដាក់ផ្ទាំង​ទាំងនោះ​ជាក្រុម</translation>
 <translation id="5846292395804797011">បិទក្រុម <ph name="TITLE_OF_GROUP" /> ដែលមាន <ph name="NUMBER_OF_TABS" />ផ្ទាំង</translation>
@@ -96,7 +96,6 @@
 <translation id="8304833501377495048">កុំបង្ហាញរបារផ្ទាំងម្ដងទៀតឬ?</translation>
 <translation id="83556505225171773">{TABS_COUNT,plural, =1{បិទ​ផ្ទាំង​ដែលបាន​ជ្រើសរើស <ph name="TABS_COUNT_ONE" />}other{បិទ​ផ្ទាំង​ដែលបាន​ជ្រើសរើស <ph name="TABS_COUNT_MANY" />}}</translation>
 <translation id="8557923272772633250">ពង្រីកក្រុមផ្ទាំង​ដែលមាន <ph name="NUMBER_OF_TABS" />ផ្ទាំង។</translation>
-<translation id="860282621117673749">ការជូនដំណឹងអំពីការធ្លាក់ថ្លៃ</translation>
 <translation id="8714939927607906138">តម្លៃ​ទាប​ជាង​មុន</translation>
 <translation id="8749939518995770034">បានបិទរបារផ្ទាំង</translation>
 <translation id="8820741577754260431">មើលការធ្លាក់ថ្លៃនៅក្នុងផ្ទាំងរបស់អ្នក</translation>

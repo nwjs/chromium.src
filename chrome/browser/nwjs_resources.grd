@@ -199,7 +199,7 @@
       <include name="IDR_MOST_VISITED_THUMBNAIL_CSS" file="resources\empty.css" type="BINDATA" />
       <include name="IDR_MOST_VISITED_THUMBNAIL_JS" file="resources\empty.js" type="BINDATA" />
       <include name="IDR_MOST_VISITED_WINDOW_DISPOSITION_UTIL_JS" file="resources\empty.js" type="BINDATA" />
-      <include name="IDR_OMNIBOX_OUTPUT_JS" file="resources\omnibox\omnibox_output.js" type="BINDATA" compress="gzip" />
+      <include name="IDR_OMNIBOX_OUTPUT_JS" file="resources\empty.js" type="BINDATA" compress="gzip" />
       <include name="IDR_OMNIBOX_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_OMNIBOX_CSS" file="resources\empty.css" type="BINDATA" />
       <include name="IDR_OMNIBOX_JS" file="resources\empty.js" type="BINDATA" />
@@ -247,7 +247,6 @@
         <include name="IDR_WEBRTC_LOGS_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
         <include name="IDR_WEBRTC_LOGS_JS" file="resources\empty.js" type="BINDATA" />
       <include name="IDR_WEBSTORE_MANIFEST" file="resources\empty.json" type="BINDATA" />
-      <include name="IDR_CRYPTOTOKEN_MANIFEST" file="resources\cryptotoken\manifest.json" type="BINDATA" />
       <include name="IDR_GAIA_AUTH_MANIFEST" file="resources\empty.json" type="BINDATA" />
       <include name="IDR_GAIA_AUTH_KEYBOARD_MANIFEST" file="resources\empty.json" type="BINDATA" />
       <if expr="chromeos_ash">

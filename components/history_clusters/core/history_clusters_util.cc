@@ -151,6 +151,10 @@ GURL ComputeURLForDeduping(const GURL& url) {
   if (url.has_ref())
     replacements.ClearRef();
 
+  if (GetConfig().use_host_for_visit_deduping && url.has_path()) {
+    replacements.ClearPath();
+  }
+
   url_for_deduping = url_for_deduping.ReplaceComponents(replacements);
   return url_for_deduping;
 }
@@ -314,6 +318,31 @@ void CoalesceRelatedSearches(std::vector<history::Cluster>& clusters) {
       }
     }
   }
+}
+
+void SortClusters(std::vector<history::Cluster>* clusters) {
+  DCHECK(clusters);
+  // Within each cluster, sort visits.
+  for (auto& cluster : *clusters) {
+    StableSortVisits(cluster.visits);
+  }
+
+  // After that, sort clusters reverse-chronologically based on their highest
+  // scored visit.
+  base::ranges::stable_sort(*clusters, [&](auto& c1, auto& c2) {
+    if (c1.visits.empty()) {
+      return false;
+    }
+    if (c2.visits.empty()) {
+      return true;
+    }
+
+    base::Time c1_time = c1.visits.front().annotated_visit.visit_row.visit_time;
+    base::Time c2_time = c2.visits.front().annotated_visit.visit_row.visit_time;
+
+    // Use c1 > c2 to get more recent clusters BEFORE older clusters.
+    return c1_time > c2_time;
+  });
 }
 
 }  // namespace history_clusters

@@ -354,10 +354,10 @@ size_t NetworkListViewControllerImpl::CreateSeparatorIfMissingAndReorder(
 
   if (separator_view == &wifi_separator_view_) {
     separator->SetID(
-        static_cast<int>(NetworkListViewControllerViewChildId::kWifiSeperator));
+        static_cast<int>(NetworkListViewControllerViewChildId::kWifiSeparator));
   } else if (separator_view == &mobile_separator_view_) {
     separator->SetID(static_cast<int>(
-        NetworkListViewControllerViewChildId::kMobileSeperator));
+        NetworkListViewControllerViewChildId::kMobileSeparator));
   } else {
     NOTREACHED();
   }
@@ -598,6 +598,7 @@ size_t NetworkListViewControllerImpl::CreateItemViewsIfMissingAndReorder(
     network_view->UpdateViewForNetwork(network);
     network_detailed_network_view()->network_list()->ReorderChildView(
         network_view, index);
+    network_view->SetEnabled(!IsNetworkDisabled(network));
 
     // Only emit ethernet metric each time we show Ethernet section
     // for the first time. We use |has_reordered_a_network| to determine
@@ -628,7 +629,7 @@ void NetworkListViewControllerImpl::ShowConnectionWarning() {
       AshColorProvider::Get()->GetContentLayerColor(
           AshColorProvider::ContentLayerType::kIconColorPrimary)));
   image_view->SetBackground(views::CreateSolidBackground(SK_ColorTRANSPARENT));
-  connection_warning->AddView(TriView::Container::START, image_view.release());
+  connection_warning->AddView(TriView::Container::START, std::move(image_view));
 
   // Set message label in middle of row.
   std::unique_ptr<views::Label> label =
@@ -643,7 +644,7 @@ void NetworkListViewControllerImpl::ShowConnectionWarning() {
   label->SetID(static_cast<int>(
       NetworkListViewControllerViewChildId::kConnectionWarningLabel));
 
-  connection_warning->AddView(TriView::Container::CENTER, label.release());
+  connection_warning->AddView(TriView::Container::CENTER, std::move(label));
   connection_warning->SetContainerBorder(
       TriView::Container::CENTER, views::CreateEmptyBorder(gfx::Insets::TLBR(
                                       0, 0, 0, kTrayPopupLabelRightPadding)));

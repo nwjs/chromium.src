@@ -1,4 +1,4 @@
-<style>
+<style include="cr-icons">
   :host {
     --ntp-realbox-border-radius: calc(0.5 * var(--ntp-realbox-height));
     --ntp-realbox-height: 44px;
@@ -24,17 +24,16 @@
   }
 
   :host([match-searchbox]) {
-    --ntp-realbox-height: 46px;
     box-shadow: none;
   }
 
   :host([match-searchbox]:not([matches-are-visible]):hover) {
+    border: 1px solid transparent;
     box-shadow: var(--ntp-realbox-shadow);
   }
 
   :host([match-searchbox]:not([is-dark]):not([matches-are-visible]):not(:hover)) {
     border: 1px solid var(--color-realbox-border);
-    height: calc(var(--ntp-realbox-height) - 2px);
   }
 
   #inputWrapper {
@@ -106,6 +105,10 @@
   }
 
   .realbox-icon-button {
+    background-color: transparent;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 21px 21px;
     border: none;
     border-radius: 2px;
     cursor: pointer;
@@ -118,15 +121,28 @@
     width: 26px;
   }
 
-  #voiceSearchButton {
-    background: url(icons/googlemic_clr_24px.svg) no-repeat center;
-    background-size: 21px 21px;
+  :host([single-colored-icons]) #voiceSearchButton,
+  :host([single-colored-icons]) #lensSearchButton {
+    -webkit-mask-position: center;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-size: 21px 21px;
+    background-color: var(--color-new-tab-page-primary-foreground);
   }
 
-  #lensSearchButton {
-    /* TODO: Update background to use Lens logo. See crbug.com/1370120 */
-    background: lime;
-    background-size: 21px 21px;
+  :host([single-colored-icons]) #voiceSearchButton {
+    -webkit-mask-image: url(icons/googlemic_clr_24px.svg);
+  }
+
+  :host(:not([single-colored-icons])) #voiceSearchButton {
+    background-image: url(icons/googlemic_clr_24px.svg);
+  }
+
+  :host([single-colored-icons]) #lensSearchButton {
+    -webkit-mask-image: url(chrome://new-tab-page/icons/lens_icon.svg);
+  }
+
+  :host(:not([single-colored-icons])) #lensSearchButton {
+    background-image: url(chrome://new-tab-page/icons/lens_icon.svg);
   }
 
   :host([realbox-lens-search-enabled_]):host-context([dir='rtl']) #voiceSearchButton {
@@ -172,9 +188,9 @@
       default-icon="[[realboxIcon_]]" in-searchbox>
   </ntp-realbox-icon>
   <button id="voiceSearchButton"
-      class="realbox-icon-button" 
-      on-click="onVoiceSearchClick_"
-      title="$i18n{voiceSearchButtonLabel}">
+    class="realbox-icon-button"
+    on-click="onVoiceSearchClick_"
+    title="$i18n{voiceSearchButtonLabel}">
   </button>
   <template is="dom-if" if="[[realboxLensSearchEnabled_]]">
     <button id="lensSearchButton"

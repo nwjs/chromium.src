@@ -6,11 +6,11 @@
 
 #include <memory>
 
-#include "base/bind.h"
 #include "base/files/file_path.h"
+#include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/strcat.h"
-#include "base/threading/sequenced_task_runner_handle.h"
+#include "base/task/sequenced_task_runner.h"
 #include "base/threading/thread_restrictions.h"
 #include "chrome/browser/dips/dips_utils.h"
 #include "sql/init_status.h"
@@ -53,28 +53,13 @@ DIPSStorage::PrepopulateArgs::PrepopulateArgs(PrepopulateArgs&&) = default;
 
 DIPSStorage::PrepopulateArgs::~PrepopulateArgs() = default;
 
-DIPSStorage::DIPSStorage() {
+DIPSStorage::DIPSStorage(const absl::optional<base::FilePath>& path)
+    : db_(std::make_unique<DIPSDatabase>(path)) {
   base::AssertLongCPUWorkAllowed();
 }
 
 DIPSStorage::~DIPSStorage() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-}
-
-void DIPSStorage::Init(const absl::optional<base::FilePath>& path) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
-  db_ = std::make_unique<DIPSDatabase>(path);
-
-  if (db_->Init() != sql::INIT_OK) {
-    CHECK(!db_->in_memory()) << "In-memory db failed to initialize.";
-    // TODO: collect a UMA metric so we know if problems are widespread.
-
-    // Try making an in-memory database instead.
-    db_ = std::make_unique<DIPSDatabase>(absl::nullopt);
-    sql::InitStatus status = db_->Init();
-    CHECK_EQ(status, sql::INIT_OK);
-  }
 }
 
 // DIPSDatabase interaction functions ------------------------------------------
@@ -85,9 +70,21 @@ DIPSState DIPSStorage::Read(const GURL& url) {
 
 DIPSState DIPSStorage::ReadSite(std::string site) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  DCHECK(db_);
+
   absl::optional<StateValue> state = db_->Read(site);
 
   if (state.has_value()) {
+    // We should not have entries in the DB without any timestamps.
+    DCHECK(state->site_storage_times.first.has_value() ||
+           state->site_storage_times.last.has_value() ||
+           state->user_interaction_times.first.has_value() ||
+           state->user_interaction_times.last.has_value() ||
+           state->stateful_bounce_times.first.has_value() ||
+           state->stateful_bounce_times.last.has_value() ||
+           state->stateless_bounce_times.first.has_value() ||
+           state->stateless_bounce_times.last.has_value());
+
     return DIPSState(this, std::move(site), state.value());
   }
   return DIPSState(this, std::move(site));
@@ -95,10 +92,29 @@ DIPSState DIPSStorage::ReadSite(std::string site) {
 
 void DIPSStorage::Write(const DIPSState& state) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  db_->Write(state.site(), state.first_site_storage_time(),
-             state.last_site_storage_time(),
-             state.first_user_interaction_time(),
-             state.last_user_interaction_time());
+  DCHECK(db_);
+
+  db_->Write(state.site(), state.site_storage_times(),
+             state.user_interaction_times(), state.stateful_bounce_times(),
+             state.stateless_bounce_times());
+}
+
+void DIPSStorage::RemoveEvents(base::Time delete_begin,
+                               base::Time delete_end,
+                               const UrlPredicate& predicate,
+                               const DIPSEventRemovalType type) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  DCHECK(db_);
+  DCHECK(delete_end.is_null() || delete_begin <= delete_end);
+
+  if (delete_end.is_null())
+    delete_end = base::Time::Max();
+
+  // Currently, only time-based deletions are supported.
+  if (!predicate.is_null())
+    return;
+
+  db_->RemoveEventsByTime(delete_begin, delete_end, type);
 }
 
 // DIPSTabHelper Function Impls ------------------------------------------------
@@ -110,11 +126,11 @@ void DIPSStorage::RecordStorage(const GURL& url,
   DCHECK(db_);
 
   DIPSState state = Read(url);
-  if (!state.first_site_storage_time().has_value() &&
-      state.last_user_interaction_time().has_value()) {
+  if (!state.site_storage_times().first.has_value() &&
+      state.user_interaction_times().last.has_value()) {
     // First storage, but previous interaction.
-    UmaHistogramTimeToStorage(time - state.last_user_interaction_time().value(),
-                              mode);
+    UmaHistogramTimeToStorage(
+        time - state.user_interaction_times().last.value(), mode);
   }
 
   state.update_site_storage_time(time);
@@ -127,15 +143,51 @@ void DIPSStorage::RecordInteraction(const GURL& url,
   DCHECK(db_);
 
   DIPSState state = Read(url);
-  if (!state.first_user_interaction_time().has_value() &&
-      state.first_site_storage_time().has_value()) {
+  if (!state.user_interaction_times().first.has_value() &&
+      state.site_storage_times().first.has_value()) {
     // Site previously wrote to storage. Record metric for the time delay
     // between first storage and interaction.
     UmaHistogramTimeToInteraction(
-        time - state.first_site_storage_time().value(), mode);
+        time - state.site_storage_times().first.value(), mode);
   }
 
   state.update_user_interaction_time(time);
+}
+
+void DIPSStorage::RecordStatefulBounce(const GURL& url, base::Time time) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  DCHECK(db_);
+  Read(url).update_stateful_bounce_time(time);
+}
+
+void DIPSStorage::RecordStatelessBounce(const GURL& url, base::Time time) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  DCHECK(db_);
+  Read(url).update_stateless_bounce_time(time);
+}
+
+std::vector<std::string> DIPSStorage::GetSitesThatBounced(
+    base::Time range_start,
+    base::Time last_interaction) const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  DCHECK(db_);
+  return db_->GetSitesThatBounced(range_start, last_interaction);
+}
+
+std::vector<std::string> DIPSStorage::GetSitesThatBouncedWithState(
+    base::Time range_start,
+    base::Time last_interaction) const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  DCHECK(db_);
+  return db_->GetSitesThatBouncedWithState(range_start, last_interaction);
+}
+
+std::vector<std::string> DIPSStorage::GetSitesThatUsedStorage(
+    base::Time range_start,
+    base::Time last_interaction) const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  DCHECK(db_);
+  return db_->GetSitesThatUsedStorage(range_start, last_interaction);
 }
 
 /* static */
@@ -151,13 +203,13 @@ void DIPSStorage::PrepopulateChunk(PrepopulateArgs args) {
       std::min(args.sites.size() - args.offset, g_prepopulate_chunk_size);
   for (size_t i = 0; i < chunk_size; i++) {
     DIPSState state = ReadSite(args.sites[args.offset + i]);
-    if (state.first_user_interaction_time()) {
+    if (state.user_interaction_times().first) {
       continue;
     }
 
     state.update_user_interaction_time(args.time);
 
-    if (!state.first_site_storage_time()) {
+    if (!state.site_storage_times().first) {
       // If we set a fake interaction time but no storage time, then when
       // storage does happen we'll report an incorrect
       // TimeFromInteractionToStorage metric. So set the storage time too.
@@ -168,7 +220,7 @@ void DIPSStorage::PrepopulateChunk(PrepopulateArgs args) {
   // Increment chunk offset in args and resubmit task if incomplete.
   args.offset += chunk_size;
   if (args.offset < args.sites.size()) {
-    base::SequencedTaskRunnerHandle::Get()->PostTask(
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, base::BindOnce(&DIPSStorage::PrepopulateChunk,
                                   weak_factory_.GetWeakPtr(), std::move(args)));
   }

@@ -11,6 +11,7 @@ import static android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION;
 import static android.view.View.SYSTEM_UI_FLAG_LOW_PROFILE;
 
 import android.app.Activity;
+import android.graphics.Rect;
 import android.os.Handler;
 import android.os.Message;
 import android.view.LayoutInflater;
@@ -18,6 +19,7 @@ import android.view.View;
 import android.view.View.OnLayoutChangeListener;
 import android.view.ViewGroup;
 import android.view.ViewPropertyAnimator;
+import android.view.ViewTreeObserver.OnGlobalLayoutListener;
 import android.view.Window;
 import android.view.WindowManager;
 
@@ -47,11 +49,13 @@ import org.chromium.chrome.browser.tab.TabUtils;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabObserver;
 import org.chromium.chrome.browser.vr.VrModuleProvider;
+import org.chromium.components.browser_ui.util.DimensionCompat;
 import org.chromium.components.embedder_support.view.ContentView;
 import org.chromium.content_public.browser.GestureListenerManager;
 import org.chromium.content_public.browser.NavigationHandle;
 import org.chromium.content_public.browser.SelectionPopupController;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.ui.base.ViewUtils;
 
 import java.lang.ref.WeakReference;
 
@@ -141,6 +145,26 @@ public class FullscreenHtmlApiHandler implements ActivityStateListener, WindowFo
     // in the current Tab.
     private ContentView mContentView;
 
+    private DimensionCompat mDimensionCompat;
+    private int mNavbarHeight;
+
+    // Monitors the window layout change while the fullscreen toast is on.
+    private OnGlobalLayoutListener mWindowLayoutListener = new OnGlobalLayoutListener() {
+        @Override
+        public void onGlobalLayout() {
+            if (mContentViewInFullscreen == null || mNotificationToast == null) return;
+            Rect bounds = new Rect();
+            mContentViewInFullscreen.getWindowVisibleDisplayFrame(bounds);
+            var lp = (ViewGroup.MarginLayoutParams) mNotificationToast.getLayoutParams();
+            int bottomMargin = mContentViewInFullscreen.getHeight() - bounds.bottom;
+            // If positioned at the bottom of the display, shift it up to avoid overlapping
+            // with the bottom nav bar when it appears by user gestures.
+            if (bottomMargin == 0) bottomMargin = mNavbarHeight;
+            lp.setMargins(0, 0, 0, bottomMargin);
+            mNotificationToast.requestLayout();
+        }
+    };
+
     // This static inner class holds a WeakReference to the outer object, to avoid triggering the
     // lint HandlerLeak warning.
     private static class FullscreenHandler extends Handler {
@@ -202,7 +226,8 @@ public class FullscreenHtmlApiHandler implements ActivityStateListener, WindowFo
                         }
                     });
 
-                    contentView.requestLayout();
+                    ViewUtils.requestLayout(contentView,
+                            "FullscreenHtmlApiHandler.FullscreenHandler.handleMessage");
                     break;
                 }
                 case MSG_ID_CLEAR_LAYOUT_FULLSCREEN_FLAG: {
@@ -249,6 +274,7 @@ public class FullscreenHtmlApiHandler implements ActivityStateListener, WindowFo
         mPersistentModeSupplier.set(false);
         mExitFullscreenOnStop = exitFullscreenOnStop;
         mFadeOutNotificationToastRunnable = this::fadeOutNotificationToast;
+        mDimensionCompat = DimensionCompat.create(mActivity, () -> {});
     }
 
     /**
@@ -526,7 +552,6 @@ public class FullscreenHtmlApiHandler implements ActivityStateListener, WindowFo
             : "Cannot enter fullscreen with both status and navigation bars visible!";
 
         if (DEBUG_LOGS) Log.i(TAG, "enterFullscreen, options=" + options.toString());
-
         WebContents webContents = tab.getWebContents();
         if (webContents == null) return;
         mFullscreenOptions = options;
@@ -586,7 +611,10 @@ public class FullscreenHtmlApiHandler implements ActivityStateListener, WindowFo
                 // onLayoutChange would have no effect.
                 mHandler.sendEmptyMessage(MSG_ID_SET_FULLSCREEN_SYSTEM_UI_FLAGS);
 
-                if ((bottom - top) <= (oldBottom - oldTop)) return;
+                if ((bottom - top) <= (oldBottom - oldTop)
+                        && (right - left) <= (oldRight - oldLeft)) {
+                    return;
+                }
 
                 beginNotificationToast();
                 contentView.removeOnLayoutChangeListener(this);
@@ -600,11 +628,17 @@ public class FullscreenHtmlApiHandler implements ActivityStateListener, WindowFo
 
         // Request a layout so the updated system visibility takes affect.
         // The flow will continue in the handler of MSG_ID_SET_FULLSCREEN_SYSTEM_UI_FLAGS message.
-        contentView.requestLayout();
+        ViewUtils.requestLayout(contentView, "FullscreenHtmlApiHandler.enterFullScreen");
 
         mWebContentsInFullscreen = webContents;
         mContentViewInFullscreen = contentView;
         mTabInFullscreen = tab;
+
+        // Cache the navigation bar height before entering fullscreen mode in which the dimension
+        // is zero.
+        mNavbarHeight = mDimensionCompat.getNavbarHeight();
+        mActivity.getWindow().getDecorView().getViewTreeObserver().addOnGlobalLayoutListener(
+                mWindowLayoutListener);
     }
 
     /**
@@ -666,7 +700,7 @@ public class FullscreenHtmlApiHandler implements ActivityStateListener, WindowFo
         if (addView) {
             mActivity.addContentView(mNotificationToast,
                     new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.WRAP_CONTENT));
+                            ViewGroup.LayoutParams.MATCH_PARENT));
             // Ensure the toast is visible on bottom sheet CCT which is elevated for shadow effect.
             // Does no harm on other embedders.
             mNotificationToast.setElevation(mActivity.getResources().getDimensionPixelSize(
@@ -695,6 +729,10 @@ public class FullscreenHtmlApiHandler implements ActivityStateListener, WindowFo
         assert mToastFadeAnimation != null;
         mToastFadeAnimation.cancel();
         mToastFadeAnimation = null;
+
+        mActivity.getWindow().getDecorView().getViewTreeObserver().removeOnGlobalLayoutListener(
+                mWindowLayoutListener);
+
         // We can't actually remove it, so this will do.
         mNotificationToast.setVisibility(View.GONE);
         mNotificationToast = null;
@@ -892,13 +930,31 @@ public class FullscreenHtmlApiHandler implements ActivityStateListener, WindowFo
         setContentView(null);
         if (mActiveTabObserver != null) mActiveTabObserver.destroy();
         if (mTabFullscreenObserver != null) mTabFullscreenObserver.destroy();
+        mObservers.clear();
     }
 
     void setTabForTesting(Tab tab) {
         mTab = tab;
     }
 
+    ObserverList<FullscreenManager.Observer> getObserversForTesting() {
+        return mObservers;
+    }
+
     boolean isToastVisibleForTesting() {
         return mNotificationToast != null;
+    }
+
+    int getToastBottomMarginForTesting() {
+        var lp = (ViewGroup.MarginLayoutParams) mNotificationToast.getLayoutParams();
+        return lp.bottomMargin;
+    }
+
+    void setVersionCompatForTesting(DimensionCompat compat) {
+        mDimensionCompat = compat;
+    }
+
+    void triggerWindowLayoutChangeForTesting() {
+        mWindowLayoutListener.onGlobalLayout();
     }
 }

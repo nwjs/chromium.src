@@ -58,11 +58,12 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
   // blink::mojom::FederatedAuthRequest:
   void RequestToken(std::vector<blink::mojom::IdentityProviderPtr> idp_ptrs,
                     bool prefer_auto_sign_in,
-                    bool show_iframe_requester,
                     RequestTokenCallback) override;
   void CancelTokenRequest() override;
   void LogoutRps(std::vector<blink::mojom::LogoutRpsRequestPtr> logout_requests,
                  LogoutRpsCallback) override;
+  void SetIdpSigninStatus(const url::Origin& origin,
+                          blink::mojom::IdpSigninStatus status) override;
 
   void SetTokenRequestDelayForTests(base::TimeDelta delay);
   void SetNetworkManagerForTests(
@@ -93,6 +94,7 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
 
     blink::mojom::IdentityProvider provider;
     Endpoints endpoints;
+    bool has_failing_idp_signin_status{false};
     bool manifest_list_checked{false};
     absl::optional<IdentityProviderMetadata> metadata;
   };
@@ -137,7 +139,7 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
   // Updates the IdpSigninStatus in case of accounts fetch failure and shows a
   // failure UI if applicable.
   void HandleAccountsFetchFailure(
-      const GURL& idp_url,
+      const url::Origin& idp_origin,
       blink::mojom::FederatedAuthRequestResult result,
       absl::optional<content::FedCmRequestIdTokenStatus> token_status);
 
@@ -221,15 +223,6 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
 
   bool prefer_auto_sign_in_;
 
-  // Fetched from the IDP FedCM manifest configuration.
-  struct {
-    GURL idp;
-    GURL token;
-    GURL accounts;
-    GURL client_metadata;
-    GURL metrics;
-  } endpoints_;
-
   base::flat_map<GURL, IdentityProviderInfo> idp_info_;
 
   raw_ptr<FederatedIdentityApiPermissionContextDelegate>
@@ -263,9 +256,6 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
   std::vector<GURL> idp_order_;
   // Map of processed IDPs' data keyed by IDP config URL to display on the UI.
   base::flat_map<GURL, IdentityProviderData> idp_data_;
-
-  // Whether to show the iframe requester on the FedCM UI.
-  bool show_iframe_requester_ = false;
 
   base::WeakPtrFactory<FederatedAuthRequestImpl> weak_ptr_factory_{this};
 };

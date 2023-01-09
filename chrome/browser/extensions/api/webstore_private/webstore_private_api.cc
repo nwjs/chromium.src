@@ -742,7 +742,7 @@ void WebstorePrivateBeginInstallWithManifest3Function::OnInstallPromptDone(
     ExtensionInstallPrompt::DoneCallbackPayload payload) {
   switch (payload.result) {
     case ExtensionInstallPrompt::Result::ACCEPTED:
-    case ExtensionInstallPrompt::Result::ACCEPTED_AND_OPTION_CHECKED: {
+    case ExtensionInstallPrompt::Result::ACCEPTED_WITH_WITHHELD_PERMISSIONS: {
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
       // Handle parent permission for child accounts on ChromeOS.
       if (!dummy_extension_->is_theme()  // Parent permission not required for
@@ -759,7 +759,10 @@ void WebstorePrivateBeginInstallWithManifest3Function::OnInstallPromptDone(
         }
       }
 #endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS)
-      HandleInstallProceed();
+      bool withhold_permissions =
+          payload.result ==
+          ExtensionInstallPrompt::Result::ACCEPTED_WITH_WITHHELD_PERMISSIONS;
+      HandleInstallProceed(withhold_permissions);
       break;
     }
     case ExtensionInstallPrompt::Result::USER_CANCELED:
@@ -783,7 +786,7 @@ void WebstorePrivateBeginInstallWithManifest3Function::OnRequestPromptDone(
     case ExtensionInstallPrompt::Result::USER_CANCELED:
     case ExtensionInstallPrompt::Result::ABORTED:
       break;
-    case ExtensionInstallPrompt::Result::ACCEPTED_AND_OPTION_CHECKED:
+    case ExtensionInstallPrompt::Result::ACCEPTED_WITH_WITHHELD_PERMISSIONS:
       NOTREACHED();
   }
 
@@ -800,7 +803,8 @@ void WebstorePrivateBeginInstallWithManifest3Function::
   Release();
 }
 
-void WebstorePrivateBeginInstallWithManifest3Function::HandleInstallProceed() {
+void WebstorePrivateBeginInstallWithManifest3Function::HandleInstallProceed(
+    bool withhold_permissions) {
   // This gets cleared in CrxInstaller::ConfirmInstall(). TODO(asargent) - in
   // the future we may also want to add time-based expiration, where an
   // allowlist entry is only valid for some number of minutes.
@@ -814,6 +818,7 @@ void WebstorePrivateBeginInstallWithManifest3Function::HandleInstallProceed() {
   approval->dummy_extension = dummy_extension_.get();
   approval->installing_icon = gfx::ImageSkia::CreateFrom1xBitmap(icon_);
   approval->bypassed_safebrowsing_friction = friction_dialog_shown_;
+  approval->withhold_permissions = withhold_permissions;
   if (details().authuser)
     approval->authuser = *details().authuser;
   g_pending_approvals.Get().PushApproval(std::move(approval));

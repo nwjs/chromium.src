@@ -8,7 +8,7 @@
 #import "components/omnibox/common/omnibox_features.h"
 #import "ios/chrome/browser/ui/elements/extended_touch_target_button.h"
 #import "ios/chrome/browser/ui/elements/fade_truncating_label.h"
-#import "ios/chrome/browser/ui/icons/chrome_symbol.h"
+#import "ios/chrome/browser/ui/icons/symbols.h"
 #import "ios/chrome/browser/ui/omnibox/omnibox_ui_features.h"
 #import "ios/chrome/browser/ui/omnibox/popup/autocomplete_suggestion.h"
 #import "ios/chrome/browser/ui/omnibox/popup/omnibox_icon_view.h"
@@ -38,7 +38,7 @@ const CGFloat kTextSpacingActionsEnabled = 2.0f;
 // fancy layout guide setup and can get away with simple margins.
 const CGFloat kImageOffsetVariation2 = 8.0f;
 const CGFloat kTextOffsetVariation2 = 8.0f;
-const CGFloat kTrailingButtonPointSizeVariation2 = 17.0f;
+const CGFloat kTrailingButtonPointSize = 17.0f;
 
 NSString* const kOmniboxPopupRowSwitchTabAccessibilityIdentifier =
     @"OmniboxPopupRowSwitchTabAccessibilityIdentifier";
@@ -216,6 +216,9 @@ NSString* const kOmniboxPopupRowSwitchTabAccessibilityIdentifier =
 
 - (void)setOmniboxSemanticContentAttribute:
     (UISemanticContentAttribute)omniboxSemanticContentAttribute {
+  if (omniboxSemanticContentAttribute == _omniboxSemanticContentAttribute) {
+    return;
+  }
   _omniboxSemanticContentAttribute = omniboxSemanticContentAttribute;
   self.contentView.semanticContentAttribute = omniboxSemanticContentAttribute;
   self.textStackView.semanticContentAttribute = omniboxSemanticContentAttribute;
@@ -223,6 +226,12 @@ NSString* const kOmniboxPopupRowSwitchTabAccessibilityIdentifier =
   if (self.showingDeleteConfirmation) {
     [self unfreezeLayoutGuidePositions];
     [self freezeLayoutGuidePositions];
+  } else if (self.window) {
+    // The layout guides may have been repositioned, so remove the constraints
+    // and add them again.
+    [NSLayoutConstraint
+        deactivateConstraints:self.nonDeletingLayoutGuideConstraints];
+    [self attachToLayoutGuides];
   }
 }
 
@@ -550,27 +559,35 @@ NSString* const kOmniboxPopupRowSwitchTabAccessibilityIdentifier =
 
   UIImage* trailingButtonImage = nil;
   if (IsOmniboxActionsVisualTreatment2()) {
-    UIImageSymbolConfiguration* configuration = [UIImageSymbolConfiguration
-        configurationWithPointSize:kTrailingButtonPointSizeVariation2
-                            weight:UIImageSymbolWeightMedium];
-
-    trailingButtonImage = self.suggestion.isTabMatch
-                              ? DefaultSymbolWithConfiguration(
-                                    @"arrow.right.circle", configuration)
-                              : DefaultSymbolWithConfiguration(
-                                    @"arrow.up.backward", configuration);
+    trailingButtonImage =
+        self.suggestion.isTabMatch
+            ? DefaultSymbolWithPointSize(kNavigateToTabSymbol,
+                                         kTrailingButtonPointSize)
+            : DefaultSymbolWithPointSize(kRefineQuerySymbol,
+                                         kTrailingButtonPointSize);
     trailingButtonImage =
         trailingButtonImage.imageFlippedForRightToLeftLayoutDirection;
   } else {
-    if (self.suggestion.isTabMatch) {
-      trailingButtonImage = [UIImage imageNamed:@"omnibox_popup_tab_match"];
+    if (UseSymbolsInOmnibox()) {
+      trailingButtonImage =
+          self.suggestion.isTabMatch
+              ? DefaultSymbolWithPointSize(kNavigateToTabSymbol,
+                                           kTrailingButtonPointSize)
+              : DefaultSymbolWithPointSize(kRefineQuerySymbol,
+                                           kTrailingButtonPointSize);
       trailingButtonImage =
           trailingButtonImage.imageFlippedForRightToLeftLayoutDirection;
     } else {
-      int trailingButtonResourceID = 0;
-      trailingButtonResourceID = IDR_IOS_OMNIBOX_KEYBOARD_VIEW_APPEND;
-      trailingButtonImage =
-          NativeReversableImage(trailingButtonResourceID, YES);
+      if (self.suggestion.isTabMatch) {
+        trailingButtonImage = [UIImage imageNamed:@"omnibox_popup_tab_match"];
+        trailingButtonImage =
+            trailingButtonImage.imageFlippedForRightToLeftLayoutDirection;
+      } else {
+        int trailingButtonResourceID = 0;
+        trailingButtonResourceID = IDR_IOS_OMNIBOX_KEYBOARD_VIEW_APPEND;
+        trailingButtonImage =
+            NativeReversableImage(trailingButtonResourceID, YES);
+      }
     }
   }
   trailingButtonImage = [trailingButtonImage

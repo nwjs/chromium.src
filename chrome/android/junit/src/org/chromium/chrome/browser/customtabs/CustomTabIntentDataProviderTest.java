@@ -11,6 +11,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.when;
 
 import android.app.Activity;
@@ -301,41 +302,41 @@ public class CustomTabIntentDataProviderTest {
     }
 
     @Test
-    public void partialCustomTabResizeBehavior_Default() {
-        Intent intent =
-                new Intent().putExtra(CustomTabIntentDataProvider.EXTRA_ACTIVITY_RESIZE_BEHAVIOR,
-                        BrowserServicesIntentDataProvider.ACTIVITY_HEIGHT_DEFAULT);
+    public void partialCustomTabHeightResizeBehavior_Default() {
+        Intent intent = new Intent().putExtra(
+                CustomTabIntentDataProvider.EXTRA_ACTIVITY_HEIGHT_RESIZE_BEHAVIOR,
+                BrowserServicesIntentDataProvider.ACTIVITY_HEIGHT_DEFAULT);
 
         CustomTabIntentDataProvider dataProvider =
                 new CustomTabIntentDataProvider(intent, mContext, COLOR_SCHEME_LIGHT);
 
-        assertFalse("The default resize behavior should return false",
+        assertFalse("The default height resize behavior should return false",
                 dataProvider.isPartialCustomTabFixedHeight());
     }
 
     @Test
-    public void partialCustomTabResizeBehavior_Adjustable() {
-        Intent intent =
-                new Intent().putExtra(CustomTabIntentDataProvider.EXTRA_ACTIVITY_RESIZE_BEHAVIOR,
-                        BrowserServicesIntentDataProvider.ACTIVITY_HEIGHT_ADJUSTABLE);
+    public void partialCustomTabHeightResizeBehavior_Adjustable() {
+        Intent intent = new Intent().putExtra(
+                CustomTabIntentDataProvider.EXTRA_ACTIVITY_HEIGHT_RESIZE_BEHAVIOR,
+                BrowserServicesIntentDataProvider.ACTIVITY_HEIGHT_ADJUSTABLE);
 
         CustomTabIntentDataProvider dataProvider =
                 new CustomTabIntentDataProvider(intent, mContext, COLOR_SCHEME_LIGHT);
 
-        assertFalse("The adjustable resize behavior should return false",
+        assertFalse("The adjustable height resize behavior should return false",
                 dataProvider.isPartialCustomTabFixedHeight());
     }
 
     @Test
-    public void partialCustomTabResizeBehavior_Fixed() {
-        Intent intent =
-                new Intent().putExtra(CustomTabIntentDataProvider.EXTRA_ACTIVITY_RESIZE_BEHAVIOR,
-                        BrowserServicesIntentDataProvider.ACTIVITY_HEIGHT_FIXED);
+    public void partialCustomTabHeightResizeBehavior_Fixed() {
+        Intent intent = new Intent().putExtra(
+                CustomTabIntentDataProvider.EXTRA_ACTIVITY_HEIGHT_RESIZE_BEHAVIOR,
+                BrowserServicesIntentDataProvider.ACTIVITY_HEIGHT_FIXED);
 
         CustomTabIntentDataProvider dataProvider =
                 new CustomTabIntentDataProvider(intent, mContext, COLOR_SCHEME_LIGHT);
 
-        assertTrue("The fixed resize behavior should return true",
+        assertTrue("The fixed height resize behavior should return true",
                 dataProvider.isPartialCustomTabFixedHeight());
     }
 
@@ -393,6 +394,20 @@ public class CustomTabIntentDataProviderTest {
                 new CustomTabIntentDataProvider(intent, mContext, COLOR_SCHEME_LIGHT);
 
         Assert.assertNull(dataProvider.getClientPackageName());
+    }
+
+    @Test
+    public void testIsTrustedCustomTab_NoServiceConnection() {
+        CustomTabsConnection connection = Mockito.mock(CustomTabsConnection.class);
+        when(connection.getClientPackageNameForSession(any())).thenReturn(null);
+        when(connection.isFirstParty(eq("com.foo.bar"))).thenReturn(true);
+        CustomTabsConnection.setInstanceForTesting(connection);
+
+        Intent intent = new Intent();
+        Assert.assertFalse(CustomTabIntentDataProvider.isTrustedCustomTab(intent, null));
+
+        intent.putExtra(IntentHandler.EXTRA_CALLING_ACTIVITY_PACKAGE, "com.foo.bar");
+        Assert.assertTrue(CustomTabIntentDataProvider.isTrustedCustomTab(intent, null));
     }
 
     private Bundle createActionButtonInToolbarBundle() {

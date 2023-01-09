@@ -18,6 +18,7 @@
 #include "base/callback_helpers.h"
 #include "base/command_line.h"
 #include "base/debug/crash_logging.h"
+#include "base/feature_list.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
 #include "base/memory/discardable_memory_allocator.h"
@@ -33,13 +34,13 @@
 #include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
-#include "base/strings/stringprintf.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "base/threading/simple_thread.h"
 #include "base/threading/thread_local.h"
@@ -245,6 +246,12 @@ static_assert(
         base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_CRITICAL) ==
         v8::MemoryPressureLevel::kCritical,
     "critical level not align");
+
+// Feature to migrate the Media thread to a SequencedTaskRunner backed from
+// the base::ThreadPool. Does not currently work on Fuchsia due to FIDL
+// requiring thread affinity.
+BASE_DECLARE_FEATURE(kUseThreadPoolForMediaTaskRunner){
+    "UseThreadPoolForMediaTaskRunner", base::FEATURE_DISABLED_BY_DEFAULT};
 
 void AddCrashKey(v8::CrashKeyId id, const std::string& value) {
   using base::debug::AllocateCrashKeyString;
@@ -712,9 +719,9 @@ RenderThreadImpl::~RenderThreadImpl() {
   g_main_task_runner.Get() = nullptr;
 
   // Need to make sure this reference is removed on the correct task runner;
-  if (video_frame_compositor_task_runner_ &&
+  if (video_frame_compositor_thread_ &&
       video_frame_compositor_context_provider_) {
-    video_frame_compositor_task_runner_->ReleaseSoon(
+    video_frame_compositor_thread_->task_runner()->ReleaseSoon(
         FROM_HERE, std::move(video_frame_compositor_context_provider_));
   }
 }
@@ -841,17 +848,18 @@ void RenderThreadImpl::InitializeCompositorThread() {
 
 scoped_refptr<base::SingleThreadTaskRunner>
 RenderThreadImpl::CreateVideoFrameCompositorTaskRunner() {
-  if (!video_frame_compositor_task_runner_) {
+  if (!video_frame_compositor_thread_) {
     // All of Chromium's GPU code must know which thread it's running on, and
     // be the same thread on which the rendering context was initialized. This
     // is why this must be a SingleThreadTaskRunner instead of a
     // SequencedTaskRunner.
-    video_frame_compositor_task_runner_ =
-        base::ThreadPool::CreateSingleThreadTaskRunner(
-            {base::MayBlock(), base::TaskPriority::USER_VISIBLE});
+    video_frame_compositor_thread_ =
+        std::make_unique<base::Thread>("VideoFrameCompositor");
+    video_frame_compositor_thread_->StartWithOptions(
+        base::Thread::Options(base::ThreadType::kCompositing));
   }
 
-  return video_frame_compositor_task_runner_;
+  return video_frame_compositor_thread_->task_runner();
 }
 
 void RenderThreadImpl::InitializeWebKit(mojo::BinderMap* binders) {
@@ -895,6 +903,11 @@ void RenderThreadImpl::InitializeWebKit(mojo::BinderMap* binders) {
     isolate->IsolateInBackgroundNotification();
   }
 
+  if (base::FeatureList::IsEnabled(
+          features::kLowerV8MemoryLimitForNonMainRenderers)) {
+    isolate->IsolateInBackgroundNotification();
+  }
+
   // Hook up blink's codecs so skia can call them. Since only the renderer
   // processes should be doing image decoding, this is not done in the common
   // skia initialization code for the GPU.
@@ -907,7 +920,8 @@ void RenderThreadImpl::InitializeRenderer(
     const std::string& full_user_agent,
     const std::string& reduced_user_agent,
     const blink::UserAgentMetadata& user_agent_metadata,
-    const std::vector<std::string>& cors_exempt_header_list) {
+    const std::vector<std::string>& cors_exempt_header_list,
+    blink::mojom::AttributionOsSupport attribution_os_support) {
   DCHECK(user_agent_.IsNull());
   DCHECK(reduced_user_agent_.IsNull());
   DCHECK(full_user_agent_.IsNull());
@@ -918,6 +932,7 @@ void RenderThreadImpl::InitializeRenderer(
   reduced_user_agent_ = WebString::FromUTF8(reduced_user_agent);
   user_agent_metadata_ = user_agent_metadata;
   cors_exempt_header_list_ = cors_exempt_header_list;
+  attribution_os_support_ = attribution_os_support;
 }
 
 void RenderThreadImpl::RegisterSchemes() {
@@ -1000,7 +1015,7 @@ media::GpuVideoAcceleratorFactories* RenderThreadImpl::GetGpuFactories() {
     if (!gpu_factories_.back()->CheckContextProviderLostOnMainThread())
       return gpu_factories_.back().get();
 
-    GetMediaThreadTaskRunner()->PostTask(
+    GetMediaSequencedTaskRunner()->PostTask(
         FROM_HERE,
         base::BindOnce(&GpuVideoAcceleratorFactoriesImpl::DestroyContext,
                        base::Unretained(gpu_factories_.back().get())));
@@ -1035,12 +1050,10 @@ media::GpuVideoAcceleratorFactories* RenderThreadImpl::GetGpuFactories() {
           kGpuStreamPriorityMedia);
 
   const bool enable_video_decode_accelerator =
-
 #if BUILDFLAG(IS_LINUX)
       base::FeatureList::IsEnabled(media::kVaapiVideoDecodeLinux) &&
-#else
-      !cmd_line->HasSwitch(switches::kDisableAcceleratedVideoDecode) &&
 #endif  // BUILDFLAG(IS_LINUX)
+      !cmd_line->HasSwitch(switches::kDisableAcceleratedVideoDecode) &&
       (gpu_channel_host->gpu_feature_info()
            .status_values[gpu::GPU_FEATURE_TYPE_ACCELERATED_VIDEO_DECODE] ==
        gpu::kGpuFeatureStatusEnabled);
@@ -1085,7 +1098,7 @@ media::GpuVideoAcceleratorFactories* RenderThreadImpl::GetGpuFactories() {
 
   gpu_factories_.push_back(GpuVideoAcceleratorFactoriesImpl::Create(
       std::move(gpu_channel_host), base::ThreadTaskRunnerHandle::Get(),
-      GetMediaThreadTaskRunner(), std::move(media_context_provider),
+      GetMediaSequencedTaskRunner(), std::move(media_context_provider),
       enable_video_gpu_memory_buffers, enable_media_stream_gpu_memory_buffers,
       enable_video_decode_accelerator, enable_video_encode_accelerator,
       std::move(interface_factory), std::move(vea_provider)));
@@ -1096,7 +1109,7 @@ media::GpuVideoAcceleratorFactories* RenderThreadImpl::GetGpuFactories() {
 scoped_refptr<viz::RasterContextProvider>
 RenderThreadImpl::GetVideoFrameCompositorContextProvider(
     scoped_refptr<viz::RasterContextProvider> unwanted_context_provider) {
-  DCHECK(video_frame_compositor_task_runner_);
+  DCHECK(video_frame_compositor_thread_);
   if (video_frame_compositor_context_provider_ &&
       video_frame_compositor_context_provider_ != unwanted_context_provider) {
     return video_frame_compositor_context_provider_;
@@ -1104,7 +1117,7 @@ RenderThreadImpl::GetVideoFrameCompositorContextProvider(
 
   // Need to make sure these references are removed on the correct task runner;
   if (video_frame_compositor_context_provider_) {
-    video_frame_compositor_task_runner_->ReleaseSoon(
+    video_frame_compositor_thread_->task_runner()->ReleaseSoon(
         FROM_HERE, std::move(video_frame_compositor_context_provider_));
   }
 
@@ -1158,6 +1171,10 @@ RenderThreadImpl::SharedMainThreadContextProvider() {
   // Enable automatic flushes to improve canvas throughput.
   // See https://crbug.com/880901
   bool automatic_flushes = true;
+  // We use kGpuStreamIdDefault here, the same as in
+  // PepperVideoDecodeContextProvider, so we don't need to handle
+  // synchronization between the pepper context and the shared main thread
+  // context.
   shared_main_thread_contexts_ = CreateOffscreenContext(
       std::move(gpu_channel_host), GetGpuMemoryBufferManager(),
       gpu::SharedMemoryLimits(), support_locking, support_gles2_interface,
@@ -1165,10 +1182,48 @@ RenderThreadImpl::SharedMainThreadContextProvider() {
       automatic_flushes,
       viz::command_buffer_metrics::ContextType::RENDERER_MAIN_THREAD,
       kGpuStreamIdDefault, kGpuStreamPriorityDefault);
-  auto result = shared_main_thread_contexts_->BindToCurrentThread();
+  auto result = shared_main_thread_contexts_->BindToCurrentSequence();
   if (result != gpu::ContextResult::kSuccess)
     shared_main_thread_contexts_ = nullptr;
   return shared_main_thread_contexts_;
+}
+
+scoped_refptr<viz::ContextProviderCommandBuffer>
+RenderThreadImpl::PepperVideoDecodeContextProvider() {
+  DCHECK(IsMainThread());
+  if (pepper_video_decode_contexts_ &&
+      pepper_video_decode_contexts_->ContextGL()->GetGraphicsResetStatusKHR() ==
+          GL_NO_ERROR)
+    return pepper_video_decode_contexts_;
+
+  scoped_refptr<gpu::GpuChannelHost> gpu_channel_host(
+      EstablishGpuChannelSync());
+  if (!gpu_channel_host) {
+    pepper_video_decode_contexts_ = nullptr;
+    return nullptr;
+  }
+
+  bool support_locking = false;
+  bool support_raster_interface = false;
+  bool support_oop_rasterization = false;
+  bool support_gles2_interface = true;
+  bool support_grcontext = !support_oop_rasterization;
+  bool automatic_flushes = false;
+  // We use kGpuStreamIdDefault here, the same as in
+  // SharedMainThreadContextProvider, so we don't need to handle
+  // synchronization between the pepper context and the shared main thread
+  // context.
+  pepper_video_decode_contexts_ = CreateOffscreenContext(
+      std::move(gpu_channel_host), GetGpuMemoryBufferManager(),
+      gpu::SharedMemoryLimits::ForMailboxContext(), support_locking,
+      support_gles2_interface, support_raster_interface,
+      support_oop_rasterization, support_grcontext, automatic_flushes,
+      viz::command_buffer_metrics::ContextType::RENDERER_MAIN_THREAD,
+      kGpuStreamIdDefault, kGpuStreamPriorityDefault);
+  auto result = pepper_video_decode_contexts_->BindToCurrentSequence();
+  if (result != gpu::ContextResult::kSuccess)
+    pepper_video_decode_contexts_ = nullptr;
+  return pepper_video_decode_contexts_;
 }
 
 #if BUILDFLAG(IS_ANDROID)
@@ -1200,7 +1255,7 @@ scoped_refptr<DCOMPTextureFactory> RenderThreadImpl::GetDCOMPTextureFactory() {
       return nullptr;
     }
     dcomp_texture_factory_ = DCOMPTextureFactory::Create(
-        std::move(channel), GetMediaThreadTaskRunner());
+        std::move(channel), GetMediaSequencedTaskRunner());
   }
   return dcomp_texture_factory_;
 }
@@ -1390,8 +1445,8 @@ void RenderThreadImpl::SetIsCrossOriginIsolated(bool value) {
   blink::SetIsCrossOriginIsolated(value);
 }
 
-void RenderThreadImpl::SetIsIsolatedApplication(bool value) {
-  blink::SetIsIsolatedApplication(value);
+void RenderThreadImpl::SetIsIsolatedContext(bool value) {
+  blink::SetIsIsolatedContext(value);
 }
 
 void RenderThreadImpl::CompositingModeFallbackToSoftware() {
@@ -1589,9 +1644,16 @@ void RenderThreadImpl::OnMemoryPressure(
   }
 }
 
-scoped_refptr<base::SingleThreadTaskRunner>
-RenderThreadImpl::GetMediaThreadTaskRunner() {
+scoped_refptr<base::SequencedTaskRunner>
+RenderThreadImpl::GetMediaSequencedTaskRunner() {
   DCHECK(main_thread_runner()->BelongsToCurrentThread());
+  if (base::FeatureList::IsEnabled(kUseThreadPoolForMediaTaskRunner)) {
+    if (!media_task_runner_) {
+      media_task_runner_ = base::ThreadPool::CreateSequencedTaskRunner(
+          base::TaskTraits{base::TaskPriority::USER_VISIBLE, base::MayBlock()});
+    }
+    return media_task_runner_;
+  }
   if (!media_thread_) {
     media_thread_ = std::make_unique<base::Thread>("Media");
 #if BUILDFLAG(IS_FUCHSIA)
@@ -1647,7 +1709,7 @@ RenderThreadImpl::SharedCompositorWorkerContextProvider(
           viz::command_buffer_metrics::ContextType::RENDER_WORKER,
           kGpuStreamIdWorker, kGpuStreamPriorityWorker);
 
-  auto result = shared_worker_context_provider->BindToCurrentThread();
+  auto result = shared_worker_context_provider->BindToCurrentSequence();
   if (result != gpu::ContextResult::kSuccess)
     return nullptr;
 
@@ -1665,11 +1727,7 @@ bool RenderThreadImpl::RendererIsHidden() const {
 }
 
 void RenderThreadImpl::OnRendererHidden() {
-  if (!base::FeatureList::IsEnabled(
-          features::kLowerV8MemoryLimitForNonMainRenderers) ||
-      MainFrameCounter::has_main_frame()) {
-    blink::MainThreadIsolate()->IsolateInBackgroundNotification();
-  }
+  blink::MainThreadIsolate()->IsolateInBackgroundNotification();
   // TODO(rmcilroy): Remove IdleHandler and replace it with an IdleTask
   // scheduled by the RendererScheduler - http://crbug.com/469210.
   if (!GetContentClient()->renderer()->RunIdleHandlerWhenWidgetsHidden())
@@ -1678,7 +1736,11 @@ void RenderThreadImpl::OnRendererHidden() {
 }
 
 void RenderThreadImpl::OnRendererVisible() {
-  blink::MainThreadIsolate()->IsolateInForegroundNotification();
+  if (!base::FeatureList::IsEnabled(
+          features::kLowerV8MemoryLimitForNonMainRenderers) ||
+      MainFrameCounter::has_main_frame()) {
+    blink::MainThreadIsolate()->IsolateInForegroundNotification();
+  }
   if (!GetContentClient()->renderer()->RunIdleHandlerWhenWidgetsHidden())
     return;
   main_thread_scheduler_->SetRendererHidden(false);
@@ -1760,6 +1822,16 @@ void RenderThreadImpl::SetRenderingColorSpace(
 gfx::ColorSpace RenderThreadImpl::GetRenderingColorSpace() {
   DCHECK(IsMainThread());
   return rendering_color_space_;
+}
+
+blink::mojom::AttributionOsSupport
+RenderThreadImpl::GetOsSupportForAttributionReporting() {
+  return attribution_os_support_;
+}
+
+void RenderThreadImpl::SetOsSupportForAttributionReporting(
+    blink::mojom::AttributionOsSupport attribution_os_support) {
+  attribution_os_support_ = attribution_os_support;
 }
 
 }  // namespace content

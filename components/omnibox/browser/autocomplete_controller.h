@@ -206,6 +206,9 @@ class AutocompleteController : public AutocompleteProviderListener,
 
   const AutocompleteInput& input() const { return input_; }
   const AutocompleteResult& result() const;
+  // Groups result_ by search vs URL.
+  // See also AutocompleteResult::GroupSuggestionsBySearchVsURL()
+  void GroupSuggestionsBySearchVsURL(size_t begin, size_t end);
   bool done() const { return done_; }
   bool in_start() const { return in_start_; }
   // TODO(manukh): Once we have a smarter `expire_timer_` that early runs when
@@ -408,7 +411,7 @@ class AutocompleteController : public AutocompleteProviderListener,
   // to every provider.  This is intended to avoid the disruptive effect of
   // belated omnibox updates, updates that come after the user has had to time
   // to read the whole dropdown and doesn't expect it to change.
-  base::TimeDelta stop_timer_duration_;
+  base::TimeDelta stop_timer_duration_ = base::Milliseconds(1500);
 
   // Debouncer to avoid invoking `NotifyChange()` after updating results in
   // quick succession. The last call, i.e. when all providers complete and
