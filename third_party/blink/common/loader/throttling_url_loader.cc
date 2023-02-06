@@ -14,7 +14,6 @@
 #include "base/strings/string_piece.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/single_thread_task_runner.h"
-#include "base/threading/thread_task_runner_handle.h"
 #include "base/trace_event/trace_event.h"
 #include "net/http/http_status_code.h"
 #include "net/http/http_util.h"
@@ -22,6 +21,7 @@
 #include "net/url_request/redirect_util.h"
 #include "services/network/public/cpp/cors/cors.h"
 #include "services/network/public/cpp/features.h"
+#include "services/network/public/cpp/record_ontransfersizeupdate_utils.h"
 #include "services/network/public/mojom/early_hints.mojom.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
 
@@ -265,7 +265,7 @@ class ThrottlingURLLoader::ForwardingThrottleDelegate
     const raw_ptr<ForwardingThrottleDelegate> owner_;
   };
 
-  raw_ptr<ThrottlingURLLoader> loader_;
+  raw_ptr<ThrottlingURLLoader, DanglingUntriaged> loader_;
   const raw_ptr<URLLoaderThrottle> throttle_;
 };
 
@@ -334,8 +334,8 @@ ThrottlingURLLoader::~ThrottlingURLLoader() {
 
     auto throttles =
         std::make_unique<std::vector<ThrottleEntry>>(std::move(throttles_));
-    base::ThreadTaskRunnerHandle::Get()->DeleteSoon(FROM_HERE,
-                                                    std::move(throttles));
+    base::SingleThreadTaskRunner::GetCurrentDefault()->DeleteSoon(
+        FROM_HERE, std::move(throttles));
   }
 }
 
@@ -865,6 +865,8 @@ void ThrottlingURLLoader::OnUploadProgress(
 void ThrottlingURLLoader::OnTransferSizeUpdated(int32_t transfer_size_diff) {
   DCHECK_EQ(DEFERRED_NONE, deferred_stage_);
   DCHECK(!loader_completed_);
+  network::RecordOnTransferSizeUpdatedUMA(
+      network::OnTransferSizeUpdatedFrom::kThrottlingURLLoader);
 
   forwarding_client_->OnTransferSizeUpdated(transfer_size_diff);
 }

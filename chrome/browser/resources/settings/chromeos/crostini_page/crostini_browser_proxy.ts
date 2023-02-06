@@ -10,7 +10,7 @@
 import 'chrome://resources/cr_elements/cr_input/cr_input.js';
 
 import {sendWithPromise} from 'chrome://resources/js/cr.js';
-import {loadTimeData} from 'chrome://resources/js/load_time_data.m.js';
+import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {SkColor} from 'chrome://resources/mojo/skia/public/mojom/skcolor.mojom-webui.js';
 
 import {GuestId, TERMINA_VM_TYPE} from '../guest_os/guest_os_browser_proxy.js';
@@ -273,6 +273,28 @@ export interface CrostiniBrowserProxy {
    * @return Returns a filepath to the selected file.
    */
   openContainerFileSelector(): Promise<string>;
+
+  /**
+   * Fetches vmdevice sharing info for all known containers and invokes listener
+   * callback.
+   */
+  requestSharedVmDevices(): void;
+
+  /**
+   * @param id GuestId in question.
+   * @param device VmDevice which might be shared.
+   * @return Whether the device is shared.
+   */
+  isVmDeviceShared(id: GuestId, device: string): Promise<boolean>;
+
+  /**
+   * @param id GuestId in question.
+   * @param device VmDevice which might be shared.
+   * @param shared Whether to share the device with the guest.
+   * @return Whether the sharing could be applied.
+   */
+  setVmDeviceShared(id: GuestId, device: string, shared: boolean):
+      Promise<boolean>;
 }
 
 let instance: CrostiniBrowserProxy|null = null;
@@ -429,5 +451,18 @@ export class CrostiniBrowserProxyImpl implements CrostiniBrowserProxy {
 
   openContainerFileSelector(): Promise<string> {
     return sendWithPromise('openContainerFileSelector');
+  }
+
+  requestSharedVmDevices() {
+    chrome.send('requestSharedVmDevices');
+  }
+
+  isVmDeviceShared(id: GuestId, device: string): Promise<boolean> {
+    return sendWithPromise('isVmDeviceShared', id, device);
+  }
+
+  setVmDeviceShared(id: GuestId, device: string, shared: boolean):
+      Promise<boolean> {
+    return sendWithPromise('setVmDeviceShared', id, device, shared);
   }
 }

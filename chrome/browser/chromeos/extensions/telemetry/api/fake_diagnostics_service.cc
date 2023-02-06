@@ -200,6 +200,17 @@ void FakeDiagnosticsService::RunDnsResolverPresentRoutine(
       base::BindOnce(std::move(callback), run_routine_response_.Clone()));
 }
 
+void FakeDiagnosticsService::RunEmmcLifetimeRoutine(
+    RunEmmcLifetimeRoutineCallback callback) {
+  actual_passed_parameters_.clear();
+  actual_called_routine_ =
+      crosapi::mojom::DiagnosticsRoutineEnum::kEmmcLifetime;
+
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE,
+      base::BindOnce(std::move(callback), run_routine_response_.Clone()));
+}
+
 void FakeDiagnosticsService::RunFloatingPointAccuracyRoutine(
     uint32_t length_seconds,
     RunFloatingPointAccuracyRoutineCallback callback) {
@@ -213,6 +224,17 @@ void FakeDiagnosticsService::RunFloatingPointAccuracyRoutine(
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE,
       base::BindOnce(std::move(callback), run_routine_response_->Clone()));
+}
+
+void FakeDiagnosticsService::RunFingerprintAliveRoutine(
+    RunFingerprintAliveRoutineCallback callback) {
+  actual_passed_parameters_.clear();
+  actual_called_routine_ =
+      crosapi::mojom::DiagnosticsRoutineEnum::kFingerprintAlive;
+
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE,
+      base::BindOnce(std::move(callback), run_routine_response_.Clone()));
 }
 
 void FakeDiagnosticsService::RunGatewayCanBePingedRoutine(
@@ -249,7 +271,7 @@ void FakeDiagnosticsService::RunNvmeSelfTestRoutine(
     crosapi::mojom::DiagnosticsNvmeSelfTestTypeEnum nvme_self_test_type,
     RunNvmeSelfTestRoutineCallback callback) {
   actual_passed_parameters_.clear();
-  actual_passed_parameters_.Set("nvme_self_test_type",
+  actual_passed_parameters_.Set("test_type",
                                 static_cast<int32_t>(nvme_self_test_type));
 
   actual_called_routine_ =
@@ -289,6 +311,16 @@ void FakeDiagnosticsService::RunPrimeSearchRoutine(
       base::BindOnce(std::move(callback), run_routine_response_->Clone()));
 }
 
+void FakeDiagnosticsService::RunSensitiveSensorRoutine(
+    RunSensitiveSensorRoutineCallback callback) {
+  actual_passed_parameters_.clear();
+  actual_called_routine_ =
+      crosapi::mojom::DiagnosticsRoutineEnum::kSensitiveSensor;
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE,
+      base::BindOnce(std::move(callback), run_routine_response_->Clone()));
+}
+
 void FakeDiagnosticsService::RunSignalStrengthRoutine(
     RunSignalStrengthRoutineCallback callback) {
   actual_passed_parameters_.clear();
@@ -300,10 +332,21 @@ void FakeDiagnosticsService::RunSignalStrengthRoutine(
 }
 
 void FakeDiagnosticsService::RunSmartctlCheckRoutine(
+    crosapi::mojom::UInt32ValuePtr percentage_used_threshold,
     RunSmartctlCheckRoutineCallback callback) {
   actual_passed_parameters_.clear();
-  actual_called_routine_ =
-      crosapi::mojom::DiagnosticsRoutineEnum::kSmartctlCheck;
+
+  if (percentage_used_threshold) {
+    actual_passed_parameters_.Set(
+        "percentage_used_threshold",
+        static_cast<int32_t>(percentage_used_threshold->value));
+    actual_called_routine_ = crosapi::mojom::DiagnosticsRoutineEnum::
+        kSmartctlCheckWithPercentageUsed;
+  } else {
+    actual_called_routine_ =
+        crosapi::mojom::DiagnosticsRoutineEnum::kSmartctlCheck;
+  }
+
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE,
       base::BindOnce(std::move(callback), run_routine_response_->Clone()));

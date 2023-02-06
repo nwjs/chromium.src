@@ -77,6 +77,10 @@
 #include "content/public/browser/tts_environment_android.h"
 #endif
 
+#if BUILDFLAG(IS_CHROMEOS)
+#include "content/public/browser/firewall_hole_proxy.h"
+#endif
+
 namespace content {
 
 std::unique_ptr<BrowserMainParts> ContentBrowserClient::CreateBrowserMainParts(
@@ -346,11 +350,6 @@ bool ContentBrowserClient::IsIsolatedContextAllowedForUrl(
   return false;
 }
 
-bool ContentBrowserClient::IsIsolatedWebAppsDeveloperModeAllowed(
-    BrowserContext* context) {
-  return true;
-}
-
 bool ContentBrowserClient::IsGetDisplayMediaSetSelectAllScreensAllowed(
     content::BrowserContext* context,
     const url::Origin& origin) {
@@ -526,6 +525,7 @@ bool ContentBrowserClient::IsAttributionReportingOperationAllowed(
 
 bool ContentBrowserClient::IsSharedStorageAllowed(
     content::BrowserContext* browser_context,
+    content::RenderFrameHost* rfh,
     const url::Origin& top_frame_origin,
     const url::Origin& accessing_origin) {
   // TODO(crbug.com/1325103): Change this to false and override in
@@ -1328,7 +1328,7 @@ void ContentBrowserClient::OnKeepaliveRequestFinished() {}
 #if BUILDFLAG(IS_MAC)
 bool ContentBrowserClient::SetupEmbedderSandboxParameters(
     sandbox::mojom::Sandbox sandbox_type,
-    sandbox::SeatbeltExecClient* client) {
+    sandbox::SandboxCompiler* compiler) {
   return false;
 }
 #endif  // BUILDFLAG(IS_MAC)

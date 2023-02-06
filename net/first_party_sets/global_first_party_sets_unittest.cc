@@ -8,8 +8,10 @@
 #include <string>
 
 #include "base/containers/flat_map.h"
+#include "base/version.h"
 #include "net/base/schemeful_site.h"
 #include "net/first_party_sets/first_party_set_entry.h"
+#include "net/first_party_sets/first_party_set_entry_override.h"
 #include "net/first_party_sets/first_party_set_metadata.h"
 #include "net/first_party_sets/first_party_sets_context_config.h"
 #include "testing/gmock/include/gmock/gmock-matchers.h"
@@ -27,6 +29,7 @@ namespace net {
 
 namespace {
 
+const base::Version kVersion("1.2.3");
 const SchemefulSite kPrimary(GURL("https://primary.test"));
 const SchemefulSite kPrimary2(GURL("https://primary2.test"));
 const SchemefulSite kPrimary3(GURL("https://primary3.test"));
@@ -65,7 +68,24 @@ class GlobalFirstPartySetsTest : public ::testing::Test {
   GlobalFirstPartySetsTest() = default;
 };
 
+TEST_F(GlobalFirstPartySetsTest, CtorSkipsInvalidVersion) {
+  GlobalFirstPartySets sets(
+      base::Version(), /*entries=*/
+      {
+          {kPrimary,
+           FirstPartySetEntry(kPrimary, SiteType::kPrimary, absl::nullopt)},
+          {kAssociated1,
+           FirstPartySetEntry(kPrimary, SiteType::kAssociated, 0)},
+      },
+      /*aliases=*/{});
+
+  EXPECT_THAT(
+      sets.FindEntries({kPrimary, kAssociated1}, FirstPartySetsContextConfig()),
+      IsEmpty());
+}
+
 TEST_F(GlobalFirstPartySetsTest, Clone) {
+  base::Version version("1.2.3.4.5");
   const SchemefulSite example(GURL("https://example.test"));
   const SchemefulSite example_cctld(GURL("https://example.cctld"));
   const SchemefulSite member1(GURL("https://member1.test"));
@@ -77,10 +97,10 @@ TEST_F(GlobalFirstPartySetsTest, Clone) {
   const FirstPartySetEntry foo_entry(foo, SiteType::kPrimary, absl::nullopt);
   const FirstPartySetEntry member2_entry(foo, SiteType::kAssociated, 1);
 
-  GlobalFirstPartySets sets(
-      /*entries=*/
-      {{example, entry}, {member1, member1_entry}},
-      /*aliases=*/{{example_cctld, example}});
+  GlobalFirstPartySets sets(version,
+                            /*entries=*/
+                            {{example, entry}, {member1, member1_entry}},
+                            /*aliases=*/{{example_cctld, example}});
   sets.ApplyManuallySpecifiedSet({{foo, foo_entry}, {member2, member2_entry}});
 
   EXPECT_EQ(sets, sets.Clone());
@@ -100,12 +120,12 @@ TEST_F(GlobalFirstPartySetsTest, FindEntry_Exists) {
   FirstPartySetEntry entry(example, SiteType::kPrimary, absl::nullopt);
   FirstPartySetEntry decoy_entry(example, SiteType::kAssociated, 1);
 
-  EXPECT_THAT(GlobalFirstPartySets(
-                  {
-                      {example, entry},
-                      {decoy_site, decoy_entry},
-                  },
-                  {})
+  EXPECT_THAT(GlobalFirstPartySets(kVersion,
+                                   {
+                                       {example, entry},
+                                       {decoy_site, decoy_entry},
+                                   },
+                                   {})
                   .FindEntry(example, FirstPartySetsContextConfig()),
               Optional(entry));
 }
@@ -115,11 +135,11 @@ TEST_F(GlobalFirstPartySetsTest, FindEntry_ExistsWhenNormalized) {
   SchemefulSite wss_example(GURL("wss://example.test"));
   FirstPartySetEntry entry(https_example, SiteType::kPrimary, absl::nullopt);
 
-  EXPECT_THAT(GlobalFirstPartySets(
-                  {
-                      {https_example, entry},
-                  },
-                  {})
+  EXPECT_THAT(GlobalFirstPartySets(kVersion,
+                                   {
+                                       {https_example, entry},
+                                   },
+                                   {})
                   .FindEntry(wss_example, FirstPartySetsContextConfig()),
               Optional(entry));
 }
@@ -129,13 +149,14 @@ TEST_F(GlobalFirstPartySetsTest, FindEntry_ExistsViaOverride) {
   FirstPartySetEntry public_entry(example, SiteType::kPrimary, absl::nullopt);
   FirstPartySetEntry override_entry(example, SiteType::kAssociated, 1);
 
-  FirstPartySetsContextConfig config({{example, override_entry}});
+  FirstPartySetsContextConfig config(
+      {{example, net::FirstPartySetEntryOverride(override_entry)}});
 
-  EXPECT_THAT(GlobalFirstPartySets(
-                  {
-                      {example, public_entry},
-                  },
-                  {})
+  EXPECT_THAT(GlobalFirstPartySets(kVersion,
+                                   {
+                                       {example, public_entry},
+                                   },
+                                   {})
                   .FindEntry(example, config),
               Optional(override_entry));
 }
@@ -144,13 +165,14 @@ TEST_F(GlobalFirstPartySetsTest, FindEntry_RemovedViaOverride) {
   SchemefulSite example(GURL("https://example.test"));
   FirstPartySetEntry public_entry(example, SiteType::kPrimary, absl::nullopt);
 
-  FirstPartySetsContextConfig config({{example, absl::nullopt}});
+  FirstPartySetsContextConfig config(
+      {{example, net::FirstPartySetEntryOverride()}});
 
-  EXPECT_THAT(GlobalFirstPartySets(
-                  {
-                      {example, public_entry},
-                  },
-                  {})
+  EXPECT_THAT(GlobalFirstPartySets(kVersion,
+                                   {
+                                       {example, public_entry},
+                                   },
+                                   {})
                   .FindEntry(example, config),
               absl::nullopt);
 }
@@ -160,11 +182,11 @@ TEST_F(GlobalFirstPartySetsTest, FindEntry_ExistsViaAlias) {
   SchemefulSite example_cctld(GURL("https://example.cctld"));
   FirstPartySetEntry entry(example, SiteType::kPrimary, absl::nullopt);
 
-  EXPECT_THAT(GlobalFirstPartySets(
-                  {
-                      {example, entry},
-                  },
-                  {{example_cctld, example}})
+  EXPECT_THAT(GlobalFirstPartySets(kVersion,
+                                   {
+                                       {example, entry},
+                                   },
+                                   {{example_cctld, example}})
                   .FindEntry(example_cctld, FirstPartySetsContextConfig()),
               Optional(entry));
 }
@@ -175,13 +197,14 @@ TEST_F(GlobalFirstPartySetsTest, FindEntry_ExistsViaOverrideWithDecoyAlias) {
   FirstPartySetEntry public_entry(example, SiteType::kPrimary, absl::nullopt);
   FirstPartySetEntry override_entry(example, SiteType::kAssociated, 1);
 
-  FirstPartySetsContextConfig config({{example_cctld, override_entry}});
+  FirstPartySetsContextConfig config(
+      {{example_cctld, net::FirstPartySetEntryOverride(override_entry)}});
 
-  EXPECT_THAT(GlobalFirstPartySets(
-                  {
-                      {example, public_entry},
-                  },
-                  {{example_cctld, example}})
+  EXPECT_THAT(GlobalFirstPartySets(kVersion,
+                                   {
+                                       {example, public_entry},
+                                   },
+                                   {{example_cctld, example}})
                   .FindEntry(example_cctld, config),
               Optional(override_entry));
 }
@@ -191,13 +214,14 @@ TEST_F(GlobalFirstPartySetsTest, FindEntry_RemovedViaOverrideWithDecoyAlias) {
   SchemefulSite example_cctld(GURL("https://example.cctld"));
   FirstPartySetEntry public_entry(example, SiteType::kPrimary, absl::nullopt);
 
-  FirstPartySetsContextConfig config({{example_cctld, absl::nullopt}});
+  FirstPartySetsContextConfig config(
+      {{example_cctld, net::FirstPartySetEntryOverride()}});
 
-  EXPECT_THAT(GlobalFirstPartySets(
-                  {
-                      {example, public_entry},
-                  },
-                  {{example_cctld, example}})
+  EXPECT_THAT(GlobalFirstPartySets(kVersion,
+                                   {
+                                       {example, public_entry},
+                                   },
+                                   {{example_cctld, example}})
                   .FindEntry(example_cctld, config),
               absl::nullopt);
 }
@@ -208,15 +232,16 @@ TEST_F(GlobalFirstPartySetsTest, FindEntry_AliasesIgnoredForConfig) {
   FirstPartySetEntry public_entry(example, SiteType::kPrimary, absl::nullopt);
   FirstPartySetEntry override_entry(example, SiteType::kAssociated, 1);
 
-  FirstPartySetsContextConfig config({{example, override_entry}});
+  FirstPartySetsContextConfig config(
+      {{example, net::FirstPartySetEntryOverride(override_entry)}});
 
   // FindEntry should ignore aliases when using the customizations. Public
   // aliases only apply to sites in the public sets.
-  EXPECT_THAT(GlobalFirstPartySets(
-                  {
-                      {example, public_entry},
-                  },
-                  {{example_cctld, example}})
+  EXPECT_THAT(GlobalFirstPartySets(kVersion,
+                                   {
+                                       {example, public_entry},
+                                   },
+                                   {{example_cctld, example}})
                   .FindEntry(example_cctld, config),
               public_entry);
 }
@@ -228,6 +253,7 @@ TEST_F(GlobalFirstPartySetsTest, Empty_Empty) {
 TEST_F(GlobalFirstPartySetsTest, Empty_NonemptyEntries) {
   EXPECT_FALSE(
       GlobalFirstPartySets(
+          kVersion,
           {
               {kPrimary,
                FirstPartySetEntry(kPrimary, SiteType::kPrimary, absl::nullopt)},
@@ -246,6 +272,36 @@ TEST_F(GlobalFirstPartySetsTest, Empty_NonemptyManualSet) {
       {kAssociated4, FirstPartySetEntry(kPrimary, SiteType::kAssociated, 0)},
   });
   EXPECT_FALSE(sets.empty());
+}
+
+TEST_F(GlobalFirstPartySetsTest, InvalidPublicSetsVersion_NonemptyManualSet) {
+  GlobalFirstPartySets sets(
+      base::Version(), /*entries=*/
+      {
+          {kPrimary,
+           FirstPartySetEntry(kPrimary, SiteType::kPrimary, absl::nullopt)},
+          {kAssociated1,
+           FirstPartySetEntry(kPrimary, SiteType::kAssociated, 0)},
+      },
+      /*aliases=*/{});
+  ASSERT_TRUE(sets.empty());
+  sets.ApplyManuallySpecifiedSet({
+      {kPrimary,
+       FirstPartySetEntry(kPrimary, SiteType::kPrimary, absl::nullopt)},
+      {kAssociated4, FirstPartySetEntry(kPrimary, SiteType::kAssociated, 0)},
+  });
+
+  // The manual set should still be available, even though the component was
+  // invalid.
+  EXPECT_FALSE(sets.empty());
+  EXPECT_THAT(
+      sets.FindEntries({kPrimary, kAssociated1, kAssociated4},
+                       FirstPartySetsContextConfig()),
+      UnorderedElementsAre(
+          Pair(kPrimary,
+               FirstPartySetEntry(kPrimary, SiteType::kPrimary, absl::nullopt)),
+          Pair(kAssociated4,
+               FirstPartySetEntry(kPrimary, SiteType::kAssociated, 0))));
 }
 
 TEST_F(GlobalFirstPartySetsTest,
@@ -301,6 +357,7 @@ class PopulatedGlobalFirstPartySetsTest : public GlobalFirstPartySetsTest {
  public:
   PopulatedGlobalFirstPartySetsTest()
       : global_sets_(
+            kVersion,
             {
                 {kPrimary, FirstPartySetEntry(kPrimary,
                                               SiteType::kPrimary,
@@ -1010,6 +1067,7 @@ TEST_F(PopulatedGlobalFirstPartySetsTest, ComputeMetadata) {
 
 TEST_F(GlobalFirstPartySetsTest, ComputeConfig_Empty) {
   EXPECT_EQ(GlobalFirstPartySets(
+                kVersion,
                 /*entries=*/
                 {
                     {kPrimary, FirstPartySetEntry(kPrimary, SiteType::kPrimary,
@@ -1025,6 +1083,7 @@ TEST_F(GlobalFirstPartySetsTest, ComputeConfig_Empty) {
 TEST_F(GlobalFirstPartySetsTest,
        ComputeConfig_Replacements_NoIntersection_NoRemoval) {
   GlobalFirstPartySets sets(
+      kVersion,
       /*entries=*/
       {
           {kPrimary,
@@ -1061,6 +1120,7 @@ TEST_F(
     GlobalFirstPartySetsTest,
     ComputeConfig_Replacements_ReplacesExistingAssociatedSite_RemovedFromFormerSet) {
   GlobalFirstPartySets sets(
+      kVersion,
       /*entries=*/
       {
           {kPrimary,
@@ -1099,6 +1159,7 @@ TEST_F(
     GlobalFirstPartySetsTest,
     ComputeConfig_Replacements_ReplacesExistingPrimary_RemovesFormerAssociatedSites) {
   GlobalFirstPartySets sets(
+      kVersion,
       /*entries=*/
       {
           {kPrimary,
@@ -1136,6 +1197,7 @@ TEST_F(
     GlobalFirstPartySetsTest,
     ComputeConfig_Replacements_ReplacesExistingAssociatedSite_RemovesSingletons) {
   GlobalFirstPartySets sets(
+      kVersion,
       /*entries=*/
       {
           {kPrimary,
@@ -1171,6 +1233,7 @@ TEST_F(
 TEST_F(GlobalFirstPartySetsTest,
        ComputeConfig_Additions_NoIntersection_AddsWithoutUpdating) {
   GlobalFirstPartySets sets(
+      kVersion,
       /*entries=*/
       {
           {kPrimary,
@@ -1207,6 +1270,7 @@ TEST_F(
     GlobalFirstPartySetsTest,
     ComputeConfig_Additions_PolicyPrimaryIsExistingAssociatedSite_PolicySetAbsorbsExistingSet) {
   GlobalFirstPartySets sets(
+      kVersion,
       /*entries=*/
       {
           {kPrimary,
@@ -1254,6 +1318,7 @@ TEST_F(
     GlobalFirstPartySetsTest,
     ComputeConfig_Additions_PolicyPrimaryIsExistingPrimary_PolicySetAbsorbsExistingAssociatedSites) {
   GlobalFirstPartySets sets(
+      kVersion,
       /*entries=*/
       {
           {kPrimary,
@@ -1291,6 +1356,7 @@ TEST_F(
     GlobalFirstPartySetsTest,
     ComputeConfig_ReplacementsAndAdditions_SetListsOverlapWithSameExistingSet) {
   GlobalFirstPartySets sets(
+      kVersion,
       /*entries=*/
       {
           {kPrimary,
@@ -1352,6 +1418,7 @@ TEST_F(GlobalFirstPartySetsTest, TransitiveOverlap_TwoCommonPrimaries) {
   // the normalized addition set since it was provided first. The other addition
   // sets are unaffected.
   GlobalFirstPartySets sets(
+      kVersion,
       /*entries=*/
       {
           {primary1,
@@ -1433,6 +1500,7 @@ TEST_F(GlobalFirstPartySetsTest, TransitiveOverlap_TwoCommonAssociatedSites) {
   // the normalized addition set since it was provided first. The other addition
   // sets are unaffected.
   GlobalFirstPartySets sets(
+      kVersion,
       /*entries=*/
       {
           {primary2,
@@ -1500,23 +1568,69 @@ TEST_F(GlobalFirstPartySetsTest, TransitiveOverlap_TwoCommonAssociatedSites) {
                                              absl::nullopt))));
 }
 
+TEST_F(GlobalFirstPartySetsTest, InvalidPublicSetsVersion_ComputeConfig) {
+  const GlobalFirstPartySets sets(
+      base::Version(), /*entries=*/
+      {
+          {kPrimary,
+           FirstPartySetEntry(kPrimary, SiteType::kPrimary, absl::nullopt)},
+          {kAssociated1,
+           FirstPartySetEntry(kPrimary, SiteType::kAssociated, 0)},
+      },
+      /*aliases=*/{});
+  ASSERT_TRUE(sets.empty());
+
+  FirstPartySetsContextConfig config = sets.ComputeConfig(
+      /*replacement_sets=*/
+      {
+          {
+              {kPrimary2, FirstPartySetEntry(kPrimary2, SiteType::kPrimary,
+                                             absl::nullopt)},
+              {kAssociated2,
+               FirstPartySetEntry(kPrimary2, SiteType::kAssociated,
+                                  absl::nullopt)},
+          },
+      },
+      /*addition_sets=*/{});
+
+  // The config should still be nonempty, even though the component was invalid.
+  EXPECT_FALSE(config.empty());
+
+  EXPECT_THAT(
+      sets.FindEntries(
+          {
+              kPrimary,
+              kPrimary2,
+              kAssociated1,
+              kAssociated2,
+          },
+          config),
+      UnorderedElementsAre(
+          Pair(kAssociated2,
+               FirstPartySetEntry(kPrimary2, SiteType::kAssociated,
+                                  absl::nullopt)),
+          Pair(kPrimary2, FirstPartySetEntry(kPrimary2, SiteType::kPrimary,
+                                             absl::nullopt))));
+}
+
 class GlobalFirstPartySetsWithConfigTest
     : public PopulatedGlobalFirstPartySetsTest {
  public:
   GlobalFirstPartySetsWithConfigTest()
       : config_({
             // New entry:
-            {kPrimary3,
-             {FirstPartySetEntry(kPrimary3,
-                                 SiteType::kPrimary,
-                                 absl::nullopt)}},
+            {kPrimary3, net::FirstPartySetEntryOverride(
+                            FirstPartySetEntry(kPrimary3,
+                                               SiteType::kPrimary,
+                                               absl::nullopt))},
             // Removed entry:
-            {kAssociated1, absl::nullopt},
+            {kAssociated1, net::FirstPartySetEntryOverride()},
             // Remapped entry:
             {kAssociated3,
-             {FirstPartySetEntry(kPrimary3, SiteType::kAssociated, 0)}},
+             net::FirstPartySetEntryOverride(
+                 FirstPartySetEntry(kPrimary3, SiteType::kAssociated, 0))},
             // Removed alias:
-            {kAssociated1Cctld, absl::nullopt},
+            {kAssociated1Cctld, net::FirstPartySetEntryOverride()},
         }) {}
 
   FirstPartySetsContextConfig& config() { return config_; }

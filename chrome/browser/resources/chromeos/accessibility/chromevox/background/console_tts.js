@@ -6,7 +6,8 @@
  * @fileoverview A TTS engine that writes to globalThis.console.
  */
 import {SpeechLog} from '../common/log_types.js';
-import {QueueMode, TtsCategory, TtsInterface} from '../common/tts_interface.js';
+import {TtsInterface} from '../common/tts_interface.js';
+import {QueueMode, TtsCategory} from '../common/tts_types.js';
 
 import {LogStore} from './logging/log_store.js';
 import {ChromeVoxPrefs} from './prefs.js';
@@ -18,9 +19,8 @@ export class ConsoleTts {
      * True if the console TTS is enabled by the user.
      * @private {boolean}
      */
-    this.enabled_ =
-        ChromeVoxPrefs.instance.getPrefs()['enableSpeechLogging'] ===
-        String(true);
+    this.enabled_ = /** @type {boolean} */ (
+        ChromeVoxPrefs.instance.getPrefs()['enableSpeechLogging']);
   }
 
   /**

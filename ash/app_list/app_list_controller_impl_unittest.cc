@@ -181,16 +181,6 @@ class AppListControllerImplTest : public AshTestBase {
     return widget_layer && widget_layer->GetAnimator()->is_animating();
   }
 
-  int CountPageBreakItems() {
-    auto* top_list = GetAppListModel()->top_level_item_list();
-    int count = 0;
-    for (size_t index = 0; index < top_list->item_count(); ++index) {
-      if (top_list->item_at(index)->is_page_break())
-        ++count;
-    }
-    return count;
-  }
-
  private:
   // The count of the items created by `PopulateItem()`.
   int populated_item_count_ = 0;
@@ -264,12 +254,12 @@ TEST_F(AppListControllerImplTest, PageResetByTimerInTabletMode) {
   Shell::Get()->tablet_mode_controller()->SetEnabledForTest(true);
   PopulateItem(30);
 
-  ShowAppListNow(AppListViewState::kFullscreenAllApps);
-
   PagedAppsGridView* apps_grid_view = GetAppsGridView();
   apps_grid_view->pagination_model()->SelectPage(1, false /* animate */);
 
-  DismissAppListNow();
+  // Create a test window to hide the app list.
+  std::unique_ptr<views::Widget> dummy = CreateTestWidget();
+  EXPECT_FALSE(Shell::Get()->app_list_controller()->IsVisible());
 
   // When timer is not skipped the selected page should not change when app list
   // is closed.
@@ -278,13 +268,36 @@ TEST_F(AppListControllerImplTest, PageResetByTimerInTabletMode) {
   // Skip the page reset timer to simulate timer exipration.
   GetAppListView()->SetSkipPageResetTimerForTesting(true);
 
-  ShowAppListNow(AppListViewState::kFullscreenAllApps);
+  dummy->Minimize();
+
+  EXPECT_TRUE(Shell::Get()->app_list_controller()->IsVisible());
   EXPECT_EQ(1, apps_grid_view->pagination_model()->selected_page());
-  DismissAppListNow();
+
+  dummy->Show();
+  EXPECT_FALSE(Shell::Get()->app_list_controller()->IsVisible());
 
   // Once the app list is closed, the page should be reset when the timer is
   // skipped.
   EXPECT_EQ(0, apps_grid_view->pagination_model()->selected_page());
+}
+
+TEST_F(AppListControllerImplTest, PagePersistanceTabletModeTest) {
+  PopulateItem(30);
+  Shell::Get()->tablet_mode_controller()->SetEnabledForTest(true);
+
+  EXPECT_TRUE(Shell::Get()->app_list_controller()->IsVisible());
+
+  PagedAppsGridView* const apps_grid_view = GetAppsGridView();
+  apps_grid_view->pagination_model()->SelectPage(1, false /* animate */);
+
+  // Close and re-open the app list to ensure the current page persists.
+  std::unique_ptr<views::Widget> dummy = CreateTestWidget();
+  EXPECT_FALSE(Shell::Get()->app_list_controller()->IsVisible());
+  dummy->Minimize();
+  EXPECT_TRUE(Shell::Get()->app_list_controller()->IsVisible());
+
+  // The current page should not be reset for the tablet mode app list.
+  EXPECT_EQ(1, apps_grid_view->pagination_model()->selected_page());
 }
 
 // Verifies that the the virtual keyboard does not get shown if the search box
@@ -419,7 +432,7 @@ TEST_F(AppListControllerImplTest,
   const base::TimeDelta delta = base::Milliseconds(200);
   do {
     base::RunLoop run_loop;
-    base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
         FROM_HERE, run_loop.QuitClosure(), delta);
     run_loop.Run();
   } while (IsAppListBoundsAnimationRunning());
@@ -673,15 +686,12 @@ TEST_F(AppListControllerImplTest, CreatePage) {
   ShowAppListNow(AppListViewState::kFullscreenAllApps);
   PagedAppsGridView* apps_grid_view = GetAppsGridView();
   test::AppsGridViewTestApi test_api(apps_grid_view);
-  PopulateItem(test_api.TilesPerPage(0));
+  PopulateItem(test_api.TilesPerPageInPagedGrid(0));
   EXPECT_EQ(1, apps_grid_view->pagination_model()->total_pages());
 
   // Add an extra item and verify that the page count is 2 now.
   PopulateItem(1);
   EXPECT_EQ(2, apps_grid_view->pagination_model()->total_pages());
-
-  // Verify that there is no page break items.
-  EXPECT_EQ(0, CountPageBreakItems());
 }
 
 // The test parameter indicates whether the shelf should auto-hide. In either
@@ -853,7 +863,7 @@ TEST_P(AppListAnimationTest, SearchBoxOpacityDuringShowAndClose) {
   ui::ScopedAnimationDurationScaleMode non_zero_duration_mode(
       ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
 
-  ShowAppListNow(AppListViewState::kFullscreenAllApps);
+  Shell::Get()->tablet_mode_controller()->SetEnabledForTest(true);
 
   SearchBoxView* const search_box = GetSearchBoxView();
 
@@ -863,7 +873,7 @@ TEST_P(AppListAnimationTest, SearchBoxOpacityDuringShowAndClose) {
 
   // If the app list is closed while the animation is still in progress, the
   // search box opacity should animate from the current opacity.
-  DismissAppListNow();
+  Shell::Get()->tablet_mode_controller()->SetEnabledForTest(false);
 
   EXPECT_EQ(0.0f, search_box->layer()->opacity());
   EXPECT_EQ(0.0f, search_box->layer()->GetTargetOpacity());
@@ -871,7 +881,7 @@ TEST_P(AppListAnimationTest, SearchBoxOpacityDuringShowAndClose) {
   search_box->layer()->GetAnimator()->StopAnimating();
 
   // When show again, verify the app list animates from 0 opacity again.
-  ShowAppListNow(AppListViewState::kFullscreenAllApps);
+  Shell::Get()->tablet_mode_controller()->SetEnabledForTest(true);
 
   EXPECT_EQ(0.0f, search_box->layer()->opacity());
   EXPECT_EQ(1.0f, search_box->layer()->GetTargetOpacity());
@@ -881,14 +891,14 @@ TEST_P(AppListAnimationTest, SearchBoxOpacityDuringShowAndClose) {
 
   // Search box opacity animates from the current (full opacity) when closed
   // from shown state.
-  DismissAppListNow();
+  Shell::Get()->tablet_mode_controller()->SetEnabledForTest(false);
 
   EXPECT_EQ(1.0f, search_box->layer()->opacity());
   EXPECT_EQ(0.0f, search_box->layer()->GetTargetOpacity());
 
   // If the app list is show again during close animation, the search box
   // opacity should animate from the current value.
-  ShowAppListNow(AppListViewState::kFullscreenAllApps);
+  Shell::Get()->tablet_mode_controller()->SetEnabledForTest(true);
 
   EXPECT_EQ(1.0f, search_box->layer()->opacity());
   EXPECT_EQ(1.0f, search_box->layer()->GetTargetOpacity());
@@ -896,7 +906,7 @@ TEST_P(AppListAnimationTest, SearchBoxOpacityDuringShowAndClose) {
 
 TEST_F(AppListControllerImplTest, ShowAppListOpensBubble) {
   auto* controller = Shell::Get()->app_list_controller();
-  controller->ShowAppList();
+  controller->ShowAppList(AppListShowSource::kSearchKey);
 
   EXPECT_TRUE(controller->bubble_presenter_for_test()->IsShowing());
   EXPECT_TRUE(controller->IsVisible());
@@ -914,7 +924,7 @@ TEST_F(AppListControllerImplTest, ToggleAppListOpensBubble) {
 
 TEST_F(AppListControllerImplTest, DismissAppListClosesBubble) {
   auto* controller = Shell::Get()->app_list_controller();
-  controller->ShowAppList();
+  controller->ShowAppList(AppListShowSource::kSearchKey);
 
   controller->DismissAppList();
 
@@ -926,7 +936,7 @@ TEST_F(AppListControllerImplTest, ShowAppListDoesNotOpenBubbleInTabletMode) {
   EnableTabletMode();
 
   auto* controller = Shell::Get()->app_list_controller();
-  controller->ShowAppList();
+  controller->ShowAppList(AppListShowSource::kSearchKey);
 
   EXPECT_FALSE(controller->bubble_presenter_for_test()->IsShowing());
   EXPECT_TRUE(controller->IsVisible());
@@ -946,7 +956,7 @@ TEST_F(AppListControllerImplTest, ToggleAppListDoesNotOpenBubbleInTabletMode) {
 
 TEST_F(AppListControllerImplTest, EnteringTabletModeClosesBubble) {
   auto* controller = Shell::Get()->app_list_controller();
-  controller->ShowAppList();
+  controller->ShowAppList(AppListShowSource::kSearchKey);
 
   EnableTabletMode();
 
@@ -955,7 +965,7 @@ TEST_F(AppListControllerImplTest, EnteringTabletModeClosesBubble) {
 
 TEST_F(AppListControllerImplTest, WallpaperColorChangeDoesNotCrash) {
   auto* controller = Shell::Get()->app_list_controller();
-  controller->ShowAppList();
+  controller->ShowAppList(AppListShowSource::kSearchKey);
   // Simulate synced wallpaper update while bubble is open.
   controller->OnWallpaperColorsChanged();
   // No crash.
@@ -1032,7 +1042,7 @@ TEST_F(AppListControllerImplNotLoggedInTest, ToggleAppListOnLoginScreen) {
 
 TEST_F(AppListControllerImplNotLoggedInTest, ShowAppListOnLoginScreen) {
   auto* controller = Shell::Get()->app_list_controller();
-  controller->ShowAppList();
+  controller->ShowAppList(AppListShowSource::kSearchKey);
 
   EXPECT_FALSE(controller->bubble_presenter_for_test()->IsShowing());
   EXPECT_FALSE(controller->fullscreen_presenter()->GetTargetVisibility());
@@ -1040,7 +1050,7 @@ TEST_F(AppListControllerImplNotLoggedInTest, ShowAppListOnLoginScreen) {
 
   // Verify app list cannot be toggled in logged in but inactive state.
   SetSessionState(session_manager::SessionState::LOGGED_IN_NOT_ACTIVE);
-  controller->ShowAppList();
+  controller->ShowAppList(AppListShowSource::kSearchKey);
 
   EXPECT_FALSE(controller->bubble_presenter_for_test()->IsShowing());
   EXPECT_FALSE(controller->fullscreen_presenter()->GetTargetVisibility());
@@ -1048,7 +1058,7 @@ TEST_F(AppListControllerImplNotLoggedInTest, ShowAppListOnLoginScreen) {
 
   // Toggle app list works when session is active.
   SetSessionState(session_manager::SessionState::ACTIVE);
-  controller->ShowAppList();
+  controller->ShowAppList(AppListShowSource::kSearchKey);
 
   EXPECT_TRUE(controller->bubble_presenter_for_test()->IsShowing());
   EXPECT_FALSE(controller->fullscreen_presenter()->GetTargetVisibility());
@@ -1089,7 +1099,7 @@ TEST_F(AppListControllerImplNotLoggedInTest, ToggleAppListInOobe) {
 TEST_F(AppListControllerImplNotLoggedInTest, ShowAppListInOobe) {
   SetSessionState(session_manager::SessionState::OOBE);
   auto* controller = Shell::Get()->app_list_controller();
-  controller->ShowAppList();
+  controller->ShowAppList(AppListShowSource::kSearchKey);
 
   EXPECT_FALSE(controller->bubble_presenter_for_test()->IsShowing());
   EXPECT_FALSE(controller->fullscreen_presenter()->GetTargetVisibility());
@@ -1097,7 +1107,7 @@ TEST_F(AppListControllerImplNotLoggedInTest, ShowAppListInOobe) {
 
   // Verify app list cannot be toggled in logged in but inactive state.
   SetSessionState(session_manager::SessionState::LOGGED_IN_NOT_ACTIVE);
-  controller->ShowAppList();
+  controller->ShowAppList(AppListShowSource::kSearchKey);
 
   EXPECT_FALSE(controller->bubble_presenter_for_test()->IsShowing());
   EXPECT_FALSE(controller->fullscreen_presenter()->GetTargetVisibility());
@@ -1105,7 +1115,7 @@ TEST_F(AppListControllerImplNotLoggedInTest, ShowAppListInOobe) {
 
   // Toggle app list works when session is active.
   SetSessionState(session_manager::SessionState::ACTIVE);
-  controller->ShowAppList();
+  controller->ShowAppList(AppListShowSource::kSearchKey);
 
   EXPECT_TRUE(controller->bubble_presenter_for_test()->IsShowing());
   EXPECT_FALSE(controller->fullscreen_presenter()->GetTargetVisibility());
@@ -1157,7 +1167,7 @@ TEST_F(AppListControllerImplNotLoggedInTest, ShowAppListOnLockScreen) {
 
   // Lock screen - toggling app list should fail.
   SetSessionState(session_manager::SessionState::LOCKED);
-  controller->ShowAppList();
+  controller->ShowAppList(AppListShowSource::kSearchKey);
 
   EXPECT_FALSE(controller->bubble_presenter_for_test()->IsShowing());
   EXPECT_FALSE(controller->fullscreen_presenter()->GetTargetVisibility());
@@ -1165,7 +1175,7 @@ TEST_F(AppListControllerImplNotLoggedInTest, ShowAppListOnLockScreen) {
 
   // Unlock and verify toggling app list works.
   SetSessionState(session_manager::SessionState::ACTIVE);
-  controller->ShowAppList();
+  controller->ShowAppList(AppListShowSource::kSearchKey);
 
   EXPECT_TRUE(controller->bubble_presenter_for_test()->IsShowing());
   EXPECT_FALSE(controller->fullscreen_presenter()->GetTargetVisibility());
@@ -1178,7 +1188,7 @@ TEST_F(AppListControllerImplNotLoggedInTest, ShowAppListOnLockScreen) {
   EXPECT_FALSE(controller->fullscreen_presenter()->GetTargetVisibility());
   EXPECT_FALSE(controller->IsVisible());
 
-  controller->ShowAppList();
+  controller->ShowAppList(AppListShowSource::kSearchKey);
   EXPECT_FALSE(controller->bubble_presenter_for_test()->IsShowing());
   EXPECT_FALSE(controller->fullscreen_presenter()->GetTargetVisibility());
   EXPECT_FALSE(controller->IsVisible());
@@ -1280,7 +1290,7 @@ TEST_F(AppListControllerImplKioskTest,
        DoNotShowAnyAppListInClamshellModeWhenShowAppListCalled) {
   auto* controller = Shell::Get()->app_list_controller();
 
-  controller->ShowAppList();
+  controller->ShowAppList(AppListShowSource::kSearchKey);
 
   EXPECT_FALSE(controller->bubble_presenter_for_test()->IsShowing());
   EXPECT_FALSE(controller->IsVisible());
@@ -1291,7 +1301,7 @@ TEST_F(AppListControllerImplKioskTest,
   EnableTabletMode();
   auto* controller = Shell::Get()->app_list_controller();
 
-  controller->ShowAppList();
+  controller->ShowAppList(AppListShowSource::kSearchKey);
 
   EXPECT_FALSE(controller->bubble_presenter_for_test()->IsShowing());
   EXPECT_FALSE(controller->IsVisible());

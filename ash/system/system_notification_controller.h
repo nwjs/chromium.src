@@ -15,9 +15,11 @@ class CapsLockNotificationController;
 class GestureEducationNotificationController;
 class CastNotificationController;
 class CellularSetupNotifier;
+class DoNotDisturbNotificationController;
 class ManagedSimLockNotifier;
 class MicrophoneMuteNotificationController;
 class PowerNotificationController;
+class PowerSoundsController;
 class PrivacyHubNotificationController;
 class ScreenSecurityController;
 class SessionLimitNotificationController;
@@ -44,18 +46,21 @@ class SystemNotificationController {
   friend class AutoConnectNotifierTest;
   friend class CellularSetupNotifierTest;
   friend class ManagedSimLockNotifier;
+  friend class PowerSoundsControllerTest;
   friend class PrivacyHubNotificationControllerTest;
   friend class UpdateNotificationControllerTest;
   const std::unique_ptr<AutoConnectNotifier> auto_connect_;
   const std::unique_ptr<CapsLockNotificationController> caps_lock_;
   const std::unique_ptr<CastNotificationController> cast_;
   const std::unique_ptr<CellularSetupNotifier> cellular_setup_notifier_;
+  const std::unique_ptr<DoNotDisturbNotificationController> do_not_disturb_;
   const std::unique_ptr<GestureEducationNotificationController>
       gesture_education_;
   // TODO(b/228093904): Make |managed_sim_lock_notifier_| const during cleanup.
   std::unique_ptr<ManagedSimLockNotifier> managed_sim_lock_notifier_;
   std::unique_ptr<MicrophoneMuteNotificationController> microphone_mute_;
   const std::unique_ptr<PowerNotificationController> power_;
+  const std::unique_ptr<PowerSoundsController> power_sounds_;
   std::unique_ptr<PrivacyHubNotificationController> privacy_hub_;
   const std::unique_ptr<ScreenSecurityController> screen_security_;
   const std::unique_ptr<SessionLimitNotificationController> session_limit_;

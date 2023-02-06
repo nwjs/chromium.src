@@ -132,7 +132,6 @@ class CORE_EXPORT ElementRuleCollector {
                        const StyleRecalcContext&,
                        const SelectorFilter&,
                        MatchResult&,
-                       ComputedStyle*,
                        EInsideLink);
   ElementRuleCollector(const ElementRuleCollector&) = delete;
   ElementRuleCollector& operator=(const ElementRuleCollector&) = delete;
@@ -248,6 +247,10 @@ class CORE_EXPORT ElementRuleCollector {
                     const CSSStyleSheet* style_sheet,
                     int style_sheet_index);
 
+  // Find the CSSRule within the CSSRuleCollection that corresponds to the
+  // incoming StyleRule. This mapping is needed because Inspector needs to
+  // interact with the CSSOM-wrappers (i.e. CSSRules) of the matched rules, but
+  // ElementRuleCollector's result is a list of StyleRules.
   template <class CSSRuleCollection>
   CSSRule* FindStyleRule(CSSRuleCollection*, StyleRule*);
   void AppendCSSOMWrapperForRule(CSSStyleSheet*, const RuleData*, wtf_size_t);
@@ -264,8 +267,6 @@ class CORE_EXPORT ElementRuleCollector {
   const ElementResolveContext& context_;
   StyleRecalcContext style_recalc_context_;
   const SelectorFilter& selector_filter_;
-  scoped_refptr<ComputedStyle>
-      style_;  // FIXME: This can be mutated during matching!
 
   StyleRequest pseudo_style_request_;
   SelectorChecker::Mode mode_;

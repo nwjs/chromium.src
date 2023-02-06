@@ -16,6 +16,7 @@
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_view_controller.h"
 #import "ios/chrome/browser/ui/content_suggestions/ntp_home_constant.h"
 #import "ios/chrome/browser/ui/gestures/view_revealing_vertical_pan_handler.h"
+#import "ios/chrome/browser/ui/ntp/discover_feed_constants.h"
 #import "ios/chrome/browser/ui/ntp/feed_header_view_controller.h"
 #import "ios/chrome/browser/ui/ntp/feed_wrapper_view_controller.h"
 #import "ios/chrome/browser/ui/ntp/metrics/feed_metrics_constants.h"
@@ -338,20 +339,19 @@
                                      kContentSuggestionsReset];
   }
 
-  // Configures the feed header in the view hierarchy if it is visible.
-  if (self.feedHeaderViewController) {
-    // Ensure that sticky header is not covered by omnibox.
-    if ([self.ntpContentDelegate isContentHeaderSticky]) {
-      self.feedHeaderViewController.view.layer.zPosition = FLT_MAX;
-    }
-    [self addViewControllerAboveFeed:self.feedHeaderViewController];
-  }
   [self addViewControllerAboveFeed:self.contentSuggestionsViewController];
 
   // Adds the feed top section to the view hierarchy if it exists.
   if (IsDiscoverFeedTopSyncPromoEnabled() &&
       self.feedTopSectionViewController) {
     [self addViewControllerAboveFeed:self.feedTopSectionViewController];
+  }
+
+  // Configures the feed header in the view hierarchy if it is visible. Add it
+  // in the order that guarantees it is behind `headerController` and in front
+  // of all other views.
+  if (self.feedHeaderViewController) {
+    [self addViewControllerAboveFeed:self.feedHeaderViewController];
   }
 
   [self addViewControllerAboveFeed:self.headerController];
@@ -901,6 +901,21 @@
   }
 }
 
+// The Discover Feed component seems to add an unwanted width constraint
+// (<= 360) in some circumstances, including multiwindow on iPad. This
+// cleans up the width constraints so proper constraints can be added.
+- (void)cleanUpCollectionViewConstraints {
+  auto* collectionWidthAnchor = self.collectionView.widthAnchor;
+  auto predicate =
+      [NSPredicate predicateWithBlock:^BOOL(NSLayoutConstraint* constraint,
+                                            NSDictionary* bindings) {
+        return constraint.firstAnchor == collectionWidthAnchor;
+      }];
+  auto collectionWidthConstraints =
+      [self.collectionView.constraints filteredArrayUsingPredicate:predicate];
+  [NSLayoutConstraint deactivateConstraints:collectionWidthConstraints];
+}
+
 // Applies constraints to the NTP collection view, along with the constraints
 // for the content suggestions within it.
 - (void)applyCollectionViewConstraints {
@@ -908,20 +923,32 @@
   contentSuggestionsView.translatesAutoresizingMaskIntoConstraints = NO;
 
   if (self.feedHeaderViewController) {
+    [self cleanUpCollectionViewConstraints];
+
+    NSLayoutConstraint* headerWidthConstraint =
+        [self.feedHeaderViewController.view.widthAnchor
+            constraintEqualToAnchor:self.collectionView.widthAnchor];
+    headerWidthConstraint.priority = UILayoutPriorityDefaultHigh;
+
     [NSLayoutConstraint activateConstraints:@[
-      [self.feedHeaderViewController.view.leadingAnchor
-          constraintEqualToAnchor:[self containerView].leadingAnchor],
-      [self.feedHeaderViewController.view.trailingAnchor
-          constraintEqualToAnchor:[self containerView].trailingAnchor],
+      [self.feedHeaderViewController.view.centerXAnchor
+          constraintEqualToAnchor:self.collectionView.centerXAnchor],
+      [self.feedHeaderViewController.view.widthAnchor
+          constraintLessThanOrEqualToConstant:kDiscoverFeedContentWidth],
+      headerWidthConstraint,
+      [self.collectionView.centerXAnchor
+          constraintEqualToAnchor:[self containerView].centerXAnchor],
+      [self.collectionView.widthAnchor
+          constraintLessThanOrEqualToConstant:kDiscoverFeedContentWidth],
     ]];
     [self setInitialFeedHeaderConstraints];
     if (IsDiscoverFeedTopSyncPromoEnabled() &&
         self.feedTopSectionViewController) {
       [NSLayoutConstraint activateConstraints:@[
-        [self.feedTopSectionViewController.view.leadingAnchor
-            constraintEqualToAnchor:[self containerView].leadingAnchor],
-        [self.feedTopSectionViewController.view.trailingAnchor
-            constraintEqualToAnchor:[self containerView].trailingAnchor],
+        [self.feedTopSectionViewController.view.leftAnchor
+            constraintEqualToAnchor:self.collectionView.leftAnchor],
+        [self.feedTopSectionViewController.view.widthAnchor
+            constraintEqualToAnchor:self.collectionView.widthAnchor],
         [self.feedTopSectionViewController.view.topAnchor
             constraintEqualToAnchor:self.feedHeaderViewController.view
                                         .bottomAnchor],

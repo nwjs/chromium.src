@@ -254,12 +254,10 @@ ElementRuleCollector::ElementRuleCollector(
     const StyleRecalcContext& style_recalc_context,
     const SelectorFilter& filter,
     MatchResult& result,
-    ComputedStyle* style,
     EInsideLink inside_link)
     : context_(context),
       style_recalc_context_(style_recalc_context),
       selector_filter_(filter),
-      style_(style),
       mode_(SelectorChecker::kResolvingStyle),
       can_use_fast_reject_(
           selector_filter_.ParentStackIsConsistent(context.ParentNode())),
@@ -345,6 +343,7 @@ void ElementRuleCollector::CollectMatchingRulesForListInternal(
   SelectorChecker::SelectorCheckingContext context(&context_.GetElement());
   context.scope = match_request.Scope();
   context.pseudo_id = pseudo_style_request_.pseudo_id;
+  context.pseudo_argument = &pseudo_style_request_.pseudo_argument;
   context.vtt_originating_element = match_request.VTTOriginatingElement();
   context.style_scope_frame = &style_scope_frame;
 
@@ -753,19 +752,31 @@ CSSRule* ElementRuleCollector::FindStyleRule(CSSRuleCollection* css_rules,
                                              StyleRule* style_rule) {
   if (!css_rules)
     return nullptr;
-  CSSRule* result = nullptr;
-  for (unsigned i = 0; i < css_rules->length() && !result; ++i) {
+
+  for (unsigned i = 0; i < css_rules->length(); ++i) {
     CSSRule* css_rule = css_rules->item(i);
     if (auto* css_style_rule = DynamicTo<CSSStyleRule>(css_rule)) {
-      if (css_style_rule->GetStyleRule() == style_rule)
-        result = css_rule;
+      if (css_style_rule->GetStyleRule() == style_rule) {
+        return css_rule;
+      }
+      if (CSSRule* result =
+              FindStyleRule(css_style_rule->cssRules(), style_rule);
+          result) {
+        return result;
+      }
     } else if (auto* css_import_rule = DynamicTo<CSSImportRule>(css_rule)) {
-      result = FindStyleRule(css_import_rule->styleSheet(), style_rule);
-    } else {
-      result = FindStyleRule(css_rule->cssRules(), style_rule);
+      if (CSSRule* result =
+              FindStyleRule(css_import_rule->styleSheet(), style_rule);
+          result) {
+        return result;
+      }
+    } else if (CSSRule* result =
+                   FindStyleRule(css_rule->cssRules(), style_rule);
+               result) {
+      return result;
     }
   }
-  return result;
+  return nullptr;
 }
 
 void ElementRuleCollector::AppendCSSOMWrapperForRule(
@@ -850,8 +861,7 @@ void ElementRuleCollector::DidMatchRule(
     if (mode_ == SelectorChecker::kCollectingCSSRules ||
         mode_ == SelectorChecker::kCollectingStyleRules)
       return;
-    // FIXME: Matching should not modify the style directly.
-    if (!style_ || dynamic_pseudo > kLastTrackedPublicPseudoId)
+    if (dynamic_pseudo > kLastTrackedPublicPseudoId)
       return;
     if ((dynamic_pseudo == kPseudoIdBefore ||
          dynamic_pseudo == kPseudoIdAfter) &&
@@ -860,7 +870,7 @@ void ElementRuleCollector::DidMatchRule(
     if (rule_data->Rule()->Properties().IsEmpty())
       return;
 
-    style_->SetHasPseudoElementStyle(dynamic_pseudo);
+    result_.SetHasPseudoElementStyle(dynamic_pseudo);
 
     if (IsHighlightPseudoElement(dynamic_pseudo)) {
       // Determine whether the selector definitely matches the highlight pseudo

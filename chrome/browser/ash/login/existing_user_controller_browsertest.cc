@@ -25,6 +25,7 @@
 #include "base/threading/thread_restrictions.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/timer/timer.h"
+#include "chrome/browser/ash/app_list/arc/arc_app_list_prefs_factory.h"
 #include "chrome/browser/ash/arc/arc_util.h"
 #include "chrome/browser/ash/arc/session/arc_session_manager.h"
 #include "chrome/browser/ash/authpolicy/authpolicy_credentials_manager.h"
@@ -59,7 +60,6 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/ui/app_list/arc/arc_app_list_prefs_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/webui/ash/login/gaia_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/locale_switch_screen_handler.h"
@@ -106,6 +106,7 @@
 #include "ui/base/l10n/l10n_util.h"
 
 namespace ash {
+
 namespace {
 
 namespace em = ::enterprise_management;
@@ -262,7 +263,7 @@ class ExistingUserControllerTest : public policy::DevicePolicyCrosBrowserTest {
 
     // Prevent browser start in user session so that we do not need to wait
     // for its initialization.
-    ash::test::UserSessionManagerTestApi(ash::UserSessionManager::GetInstance())
+    test::UserSessionManagerTestApi(UserSessionManager::GetInstance())
         .SetShouldLaunchBrowserInTests(false);
   }
 
@@ -877,7 +878,13 @@ IN_PROC_BROWSER_TEST_F(ExistingUserControllerSecondPublicSessionTest,
 class ExistingUserControllerActiveDirectoryTest
     : public ExistingUserControllerTest {
  public:
-  ExistingUserControllerActiveDirectoryTest() = default;
+  ExistingUserControllerActiveDirectoryTest() {
+    // All tests related to Active Directory login don't make sense when the
+    // kChromadAvailable feature is disabled. We also don't need to verify that
+    // the device is disabled in that case, because the Chromad disabling
+    // feature is already tested in `device_disabling_manager_unittest.cc`.
+    scoped_feature_list_.InitAndEnableFeature(features::kChromadAvailable);
+  }
 
   // Overriden from ExistingUserControllerTest:
   void SetUp() override {
@@ -1011,6 +1018,7 @@ class ExistingUserControllerActiveDirectoryTest
 
  private:
   testing::NiceMock<policy::MockConfigurationPolicyProvider> policy_provider_;
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 class ExistingUserControllerActiveDirectoryTestCreateProfileDir

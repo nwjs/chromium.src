@@ -81,7 +81,8 @@ class CONTENT_EXPORT WebAuthenticationDelegate {
   // Returns true if the tab security level is acceptable to allow WebAuthn
   // requests, false otherwise.
   virtual bool IsSecurityLevelAcceptableForWebAuthn(
-      content::RenderFrameHost* rfh);
+      content::RenderFrameHost* rfh,
+      const url::Origin& caller_origin);
 
 #if !BUILDFLAG(IS_ANDROID)
   // Permits the embedder to override the Relying Party ID for a WebAuthn call,
@@ -279,12 +280,14 @@ class CONTENT_EXPORT AuthenticatorRequestClientDelegate
   // ConfigureCable optionally configures Cloud-assisted Bluetooth Low Energy
   // transports. |origin| is the origin of the calling site and
   // |pairings_from_extension| are caBLEv1 pairings that have been provided in
-  // an extension to the WebAuthn get() call. If the embedder wishes, it may use
-  // this to configure caBLE on the |FidoDiscoveryFactory| for use in this
-  // request.
+  // an extension to the WebAuthn get() call. |resident_key_requirement| is only
+  // set when provided (i.e. for makeCredential calls) and reflects the value
+  // requested by the site. If the embedder wishes, it may use this to configure
+  // caBLE on the |FidoDiscoveryFactory| for use in this request.
   virtual void ConfigureCable(
       const url::Origin& origin,
       device::CableRequestType request_type,
+      absl::optional<device::ResidentKeyRequirement> resident_key_requirement,
       base::span<const device::CableDiscoveryData> pairings_from_extension,
       device::FidoDiscoveryFactory* fido_discovery_factory);
 

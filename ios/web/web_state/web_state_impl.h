@@ -23,8 +23,6 @@
 #import "ios/web/navigation/navigation_manager_delegate.h"
 #import "ios/web/navigation/navigation_manager_impl.h"
 #import "ios/web/public/navigation/web_state_policy_decider.h"
-#import "ios/web/public/ui/java_script_dialog_callback.h"
-#include "ios/web/public/ui/java_script_dialog_type.h"
 #import "ios/web/public/web_state.h"
 #import "ios/web/public/web_state_delegate.h"
 #include "url/gurl.h"
@@ -34,6 +32,7 @@
 @protocol CRWWebViewProxy;
 @protocol CRWWebViewNavigationProxy;
 @class UIViewController;
+enum WKPermissionDecision : NSInteger;
 
 namespace web {
 
@@ -164,13 +163,6 @@ class WebStateImpl final : public WebState {
       WebStatePolicyDecider::RequestInfo request_info,
       WebStatePolicyDecider::PolicyDecisionCallback callback);
 
-  // Decides whether the navigation corresponding to `response` should
-  // be allowed to display an error page if an error occurs, by asking its
-  // policy deciders. If at least one policy decider's decision is false,
-  // returns false; otherwise returns true.
-  bool ShouldAllowErrorPageToBeDisplayed(NSURLResponse* response,
-                                         bool for_main_frame);
-
   // Decides whether the navigation corresponding to `response` should be
   // allowed to continue by asking its policy deciders, and calls `callback`
   // with the decision. Defaults to PolicyDecision::Allow(). If at least one
@@ -209,30 +201,28 @@ class WebStateImpl final : public WebState {
   // Notifies the delegate that a Form Repost dialog needs to be presented.
   void ShowRepostFormWarningDialog(base::OnceCallback<void(bool)> callback);
 
-  // Notifies the delegate that a JavaScript dialog needs to be presented.
-  void RunJavaScriptDialog(const GURL& origin_url,
-                           JavaScriptDialogType java_script_dialog_type,
-                           NSString* message_text,
-                           NSString* default_prompt_text,
-                           DialogClosedCallback callback);
+  // Notifies the delegate that a JavaScript alert dialog needs to be presented.
+  void RunJavaScriptAlertDialog(const GURL& origin_url,
+                                NSString* message_text,
+                                base::OnceClosure callback);
+
+  // Notifies the delegate that a JavaScript confirmation dialog needs to be
+  // presented.
+  void RunJavaScriptConfirmDialog(
+      const GURL& origin_url,
+      NSString* message_text,
+      base::OnceCallback<void(bool success)> callback);
+
+  // Notifies the delegate that a JavaScript prompt dialog needs to be
+  // presented.
+  void RunJavaScriptPromptDialog(
+      const GURL& origin_url,
+      NSString* message_text,
+      NSString* default_prompt_text,
+      base::OnceCallback<void(NSString* user_input)> callback);
 
   // Returns true if a javascript dialog is running.
   bool IsJavaScriptDialogRunning();
-
-  // DISCOURAGED. Prefer using `WebFrame CallJavaScriptFunction` instead because
-  // it restricts JavaScript execution to functions within __gCrWeb and can also
-  // call those functions on any frame in the page. ExecuteJavaScript here can
-  // execute arbitrary JavaScript code, which is not as safe and is restricted
-  // to executing only on the main frame.
-  // Runs JavaScript in the main frame's context. If a callback is provided, it
-  // will be used to return the result, when the result is available or script
-  // execution has failed due to an error.
-  // NOTE: Integer values will be returned as Type::DOUBLE because of underlying
-  // library limitation.
-  typedef base::OnceCallback<void(const base::Value*)> JavaScriptResultCallback;
-  void ExecuteJavaScript(const std::u16string& javascript);
-  void ExecuteJavaScript(const std::u16string& javascript,
-                         JavaScriptResultCallback callback);
 
   // Instructs the delegate to create a new web state. Called when this WebState
   // wants to open a new window. `url` is the URL of the new window;
@@ -268,6 +258,13 @@ class WebStateImpl final : public WebState {
   // Removes all current web frames.
   void RemoveAllWebFrames();
 
+  // Requests the user's permission to access requested `permissions`.
+  typedef void (^PermissionDecisionHandler)(WKPermissionDecision decision)
+      API_AVAILABLE(ios(15.0));
+  void RequestPermissionsWithDecisionHandler(NSArray<NSNumber*>* permissions,
+                                             PermissionDecisionHandler handler)
+      API_AVAILABLE(ios(15.0));
+
   // WebState:
   WebStateDelegate* GetDelegate() final;
   void SetDelegate(WebStateDelegate* delegate) final;
@@ -301,7 +298,6 @@ class WebStateImpl final : public WebState {
       const final;
   SessionCertificatePolicyCache* GetSessionCertificatePolicyCache() final;
   CRWSessionStorage* BuildSessionStorage() final;
-  CRWJSInjectionReceiver* GetJSInjectionReceiver() const final;
   void LoadData(NSData* data, NSString* mime_type, const GURL& url) final;
   void ExecuteUserJavaScript(NSString* javaScript) final;
   NSString* GetStableIdentifier() const final;

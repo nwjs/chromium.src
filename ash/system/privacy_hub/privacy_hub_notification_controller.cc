@@ -4,12 +4,18 @@
 
 #include "ash/system/privacy_hub/privacy_hub_notification_controller.h"
 
+#include <iterator>
+
 #include "ash/public/cpp/notification_utils.h"
+#include "ash/public/cpp/sensor_disabled_notification_delegate.h"
+#include "ash/public/cpp/system_tray_client.h"
 #include "ash/shell.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/system/microphone_mute/microphone_mute_notification_controller.h"
+#include "ash/system/model/system_tray_model.h"
 #include "ash/system/privacy_hub/camera_privacy_switch_controller.h"
 #include "ash/system/privacy_hub/privacy_hub_controller.h"
+#include "ash/system/privacy_hub/privacy_hub_metrics.h"
 #include "components/vector_icons/vector_icons.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/message_center/message_center.h"
@@ -42,6 +48,11 @@ void PrivacyHubNotificationController::RemoveSensorDisabledNotification(
   ShowAllActiveNotifications(sensor);
 }
 
+void PrivacyHubNotificationController::OpenPrivacyHubSettingsPage() {
+  privacy_hub_metrics::LogPrivacyHubOpenedFromNotification();
+  Shell::Get()->system_tray_model()->client()->ShowPrivacyHubSettings();
+}
+
 void PrivacyHubNotificationController::ShowCameraDisabledNotification() const {
   if (Shell::Get()->privacy_hub_controller()) {
     Shell::Get()
@@ -66,19 +77,52 @@ void PrivacyHubNotificationController::ShowLocationDisabledNotification()
   // will get them in future CLs.
 }
 
+std::u16string PrivacyHubNotificationController::
+    GenerateMicrophoneAndCameraDisabledNotificationMessage() {
+  SensorDisabledNotificationDelegate* delegate =
+      SensorDisabledNotificationDelegate::Get();
+  DCHECK(delegate);
+
+  auto camera_apps = delegate->GetAppsAccessingSensor(
+      SensorDisabledNotificationDelegate::Sensor::kCamera);
+  auto mic_apps = delegate->GetAppsAccessingSensor(
+      SensorDisabledNotificationDelegate::Sensor::kMicrophone);
+
+  // Take mathematical union of the apps. Two different apps can have the same
+  // short name, we'll display it only once.
+  std::set<std::u16string> all_apps;
+  all_apps.insert(camera_apps.begin(), camera_apps.end());
+  all_apps.insert(mic_apps.begin(), mic_apps.end());
+
+  if (all_apps.size() == 1) {
+    return l10n_util::GetStringFUTF16(
+        IDS_PRIVACY_HUB_MICROPHONE_AND_CAMERA_OFF_NOTIFICATION_MESSAGE_WITH_ONE_APP_NAME,
+        *all_apps.begin());
+  }
+  if (all_apps.size() == 2) {
+    return l10n_util::GetStringFUTF16(
+        IDS_PRIVACY_HUB_MICROPHONE_AND_CAMERA_OFF_NOTIFICATION_MESSAGE_WITH_TWO_APP_NAMES,
+        *all_apps.begin(), *std::next(all_apps.begin()));
+  }
+
+  // Return generic text by default.
+  return l10n_util::GetStringUTF16(
+      IDS_PRIVACY_HUB_MICROPHONE_AND_CAMERA_OFF_NOTIFICATION_MESSAGE);
+}
+
 void PrivacyHubNotificationController::
     ShowMicrophoneAndCameraDisabledNotification() {
   message_center::RichNotificationData notification_data;
   notification_data.buttons.emplace_back(l10n_util::GetStringUTF16(
       IDS_PRIVACY_HUB_MICROPHONE_AND_CAMERA_OFF_NOTIFICATION_BUTTON));
+  notification_data.remove_on_click = true;
 
   message_center::MessageCenter::Get()->AddNotification(
-      CreateSystemNotification(
+      CreateSystemNotificationPtr(
           message_center::NOTIFICATION_TYPE_SIMPLE, kCombinedNotificationId,
           l10n_util::GetStringUTF16(
               IDS_PRIVACY_HUB_MICROPHONE_AND_CAMERA_OFF_NOTIFICATION_TITLE),
-          l10n_util::GetStringUTF16(
-              IDS_PRIVACY_HUB_MICROPHONE_AND_CAMERA_OFF_NOTIFICATION_MESSAGE),
+          GenerateMicrophoneAndCameraDisabledNotificationMessage(),
           /*display_source=*/std::u16string(),
           /*origin_url=*/GURL(),
           message_center::NotifierId(
@@ -157,14 +201,9 @@ void PrivacyHubNotificationController::ShowAllActiveNotifications(
 
 void PrivacyHubNotificationController::HandleNotificationClicked(
     absl::optional<int> button_index) {
-  message_center::MessageCenter::Get()->RemoveNotification(
-      PrivacyHubNotificationController::kCombinedNotificationId,
-      /*by_user=*/true);
-
   if (!button_index) {
     ignore_new_combinable_notifications_ = true;
-    // TODO(b/253165478) Clicking on any of the sensor notifications outside
-    // the button will open Privacy Hub in a future CL.
+    OpenPrivacyHubSettingsPage();
     return;
   }
 

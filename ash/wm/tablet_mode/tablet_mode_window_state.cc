@@ -369,12 +369,9 @@ void TabletModeWindowState::OnWMEvent(WindowState* window_state,
       break;
     case WM_EVENT_SNAP_PRIMARY:
     case WM_EVENT_SNAP_SECONDARY:
-      DoTabletSnap(
-          window_state, event->type(),
-          WindowSnapWMEvent::GetFloatValueForSnapRatio(
-              event->IsSnapInfoAvailable()
-                  ? static_cast<const WindowSnapWMEvent*>(event)->snap_ratio()
-                  : WindowSnapWMEvent::SnapRatio::kDefaultSnapRatio));
+      // TODO(b/259302867): Remove `window_state->snap_ratio()` since it can be
+      // gotten from `window_state`.
+      DoTabletSnap(window_state, event->type(), window_state->snap_ratio());
       return;
     case WM_EVENT_CYCLE_SNAP_PRIMARY:
       CycleTabletSnap(window_state,
@@ -479,6 +476,10 @@ void TabletModeWindowState::AttachState(WindowState* window_state,
   if (current_state_type_ != WindowStateType::kMaximized &&
       current_state_type_ != WindowStateType::kMinimized &&
       current_state_type_ != WindowStateType::kFullscreen &&
+      // Skip updating float here as the minimum size of the window may not be
+      // updated at this point and float tablet bounds depend on minimum size.
+      // It will get updated later in `FloatController::OnTabletModeStarted`.
+      current_state_type_ != WindowStateType::kFloated &&
       current_state_type_ != WindowStateType::kPinned &&
       current_state_type_ != WindowStateType::kTrustedPinned) {
     UpdateWindow(window_state, state_type_on_attach_, animate_bounds_on_attach_,

@@ -297,6 +297,16 @@ enum class ContentSettingsType : int32_t {
   PRIVATE_NETWORK_GUARD,
   PRIVATE_NETWORK_CHOOSER_DATA,
 
+  // Website setting which stores whether the browser has observed the user
+  // signing into an identity-provider based on observing the IdP-SignIn-Status
+  // HTTP header.
+  FEDERATED_IDENTITY_IDENTITY_PROVIDER_SIGNIN_STATUS,
+
+  // Website setting which is used for UnusedSitePermissionsService to
+  // store revoked permissions of unused sites from unused site permissions
+  // feature.
+  REVOKED_UNUSED_SITE_PERMISSIONS,
+
   NUM_TYPES,
 };
 

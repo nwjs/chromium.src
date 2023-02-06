@@ -8,6 +8,7 @@
 #include <memory>
 #include <string>
 
+#include "base/memory/raw_ptr.h"
 #include "base/strings/string_piece_forward.h"
 #include "base/test/bind.h"
 #include "base/test/task_environment.h"
@@ -76,8 +77,7 @@ FamilyMember* AddFamilyMember(ListFamilyMembersResponse& response,
   member->set_role(role);
   *member->mutable_profile()->mutable_display_name() =
       std::string(display_name);
-  *member->mutable_profile()->mutable_obfuscated_user_id() =
-      std::string(user_id);
+  *member->mutable_user_id() = std::string(user_id);
   *member->mutable_profile()->mutable_email() = std::string(email);
   return member;
 }
@@ -123,19 +123,18 @@ class KidsManagementServiceTest : public ::testing::Test {
   network::TestURLLoaderFactory test_url_loader_factory_;
   std::unique_ptr<TestingProfile> profile_ =
       MakeTestingProfile(test_url_loader_factory_);
-  KidsManagementService* under_test_ =
+  raw_ptr<KidsManagementService> under_test_ =
       KidsManagementServiceFactory::GetForProfile(profile_.get());
   IdentityTestEnvironmentProfileAdaptor
       identity_test_environment_profile_adaptor_{
           profile_.get()};  // Must be owned by test fixture.
-  IdentityTestEnvironment* identity_test_environment{
+  raw_ptr<IdentityTestEnvironment> identity_test_environment{
       identity_test_environment_profile_adaptor_.identity_test_env()};
 };
 
 // Test if the data from endpoint is properly stored in the service.
 TEST_F(KidsManagementServiceTest, FetchesData) {
   ListFamilyMembersResponse response;
-  response.set_self_obfuscated_gaia_id("gaia_id");
   FamilyMember* member = AddChildTo(response);
 
   identity_test_environment->MakePrimaryAccountAvailable(
@@ -156,7 +155,6 @@ TEST_F(KidsManagementServiceTest, FetchesData) {
 // Test if the parent and head of household are set.
 TEST_F(KidsManagementServiceTest, SetsCustodians) {
   ListFamilyMembersResponse response;
-  response.set_self_obfuscated_gaia_id("gaia_id");
   FamilyMember* child = AddChildTo(response);
   FamilyMember* parent = AddParentTo(response);
   FamilyMember* head_of_household = AddHeadOfHouseholdTo(response);
@@ -182,7 +180,6 @@ TEST_F(KidsManagementServiceTest, SetsCustodians) {
 // Test if the daily fetches are scheduled.
 TEST_F(KidsManagementServiceTest, SchedulesNextFetch) {
   ListFamilyMembersResponse response;
-  response.set_self_obfuscated_gaia_id("gaia_id");
   FamilyMember* child = AddChildTo(response);
 
   CreatePrimaryAccount(child->profile().email());

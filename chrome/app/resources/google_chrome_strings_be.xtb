@@ -84,7 +84,6 @@
 <translation id="2401189691232800402">Сістэма Chrome OS</translation>
 <translation id="2467438592969358367">Google Chrome запытвае дазвол на экспартаванне вашых пароляў. Каб дазволіць гэта, увядзіце пароль Windows.</translation>
 <translation id="2485422356828889247">Выдаліць</translation>
-<translation id="2494974097748878569">Памочнік Google у Chrome</translation>
 <translation id="2534507159460261402">Google Pay (скапіравана з Chrome)</translation>
 <translation id="2559253115192232574">Пасля гэтага сайты, якія вы наведваеце, могуць запытваць у браўзера Chrome інфармацыю пра вашы інтарэсы, каб персаналізаваць для вас рэкламу. Chrome можа абагуліць не больш за 3 інтарэсы.</translation>
 <translation id="2563121210305478421">Перазапусціць Chrome?</translation>
@@ -129,6 +128,7 @@
 <translation id="3140883423282498090">Змены ўступяць у сілу пасля перазапуску Google Chrome.</translation>
 <translation id="3149510190863420837">Праграмы Chrome</translation>
 <translation id="3169523567916669830">Пры тэсціраванні пробных функцый вы можаце праглядаць і выдаляць цікавыя вам тэмы, якія сайты выкарыстоўваюць для паказу вам рэкламы. Chrome вызначае вашы інтарэсы на аснове нядаўняй гісторыі прагляду вамі сайтаў.</translation>
+<translation id="3211604354460514046">{NUM_DEVICES,plural, =1{Браўзер Google Chrome падключаны да прылады HID}one{Браўзер Google Chrome падключаны да прылад HID}few{Браўзер Google Chrome падключаны да прылад HID}many{Браўзер Google Chrome падключаны да прылад HID}other{Браўзер Google Chrome падключаны да прылад HID}}</translation>
 <translation id="3245429137663807393">Калі вы абагульваеце справаздачы пра выкарыстанне браўзера Chrome, у іх уключаюцца URL-адрасы наведаных вамі старонак.</translation>
 <translation id="3282568296779691940">Увайсці ў Chrome</translation>
 <translation id="3286538390144397061">Перазапусціць</translation>
@@ -289,7 +289,6 @@
 <translation id="6739177684496155661">Працягнуць працу ў новым профілі Chrome?</translation>
 <translation id="6750954913813541382">Для выпраўлення арфаграфічных памылак Chrome адпраўляе ў Google тэкст, які вы набіраеце ў браўзеры</translation>
 <translation id="677276454032249905">Усё роўна выйсці з Chrome?</translation>
-<translation id="6785872064505734160">Памочнік Google у браўзеры Chrome можа завяршаць за вас дзеянні на розных вэб-сайтах</translation>
 <translation id="683440813066116847">Уваходнае правіла для Google Chrome Canary, якое дазваляе трафік mDNS.</translation>
 <translation id="6881299373831449287">Ідзе абнаўленне браўзера Chrome</translation>
 <translation id="6885412569789873916">Праграмы бэта-версіі Chrome</translation>

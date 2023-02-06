@@ -69,13 +69,13 @@ class TabStripSceneLayer : public SceneLayer {
       JNIEnv* env,
       const base::android::JavaParamRef<jobject>& jobj,
       jint resource_id,
+      jint bg_resource_id,
       jfloat x,
       jfloat y,
-      jfloat width,
-      jfloat height,
       jfloat touch_target_offset,
       jboolean visible,
       jint tint,
+      jint background_tint,
       jfloat button_alpha,
       const base::android::JavaParamRef<jobject>& jresource_manager);
 
@@ -113,9 +113,11 @@ class TabStripSceneLayer : public SceneLayer {
       const base::android::JavaParamRef<jobject>& jobj,
       jint id,
       jint close_resource_id,
+      jint divider_resource_id,
       jint handle_resource_id,
       jint handle_outline_resource_id,
       jint close_tint,
+      jint divider_tint,
       jint handle_tint,
       jint handle_outline_tint,
       jboolean foreground,
@@ -126,7 +128,10 @@ class TabStripSceneLayer : public SceneLayer {
       jfloat width,
       jfloat height,
       jfloat content_offset_x,
+      jfloat divider_offset_x,
+      jfloat bottom_offset_y,
       jfloat close_button_alpha,
+      jfloat divider_alpha,
       jboolean is_loading,
       jfloat spinner_rotation,
       jfloat brightness,
@@ -147,6 +152,7 @@ class TabStripSceneLayer : public SceneLayer {
   scoped_refptr<cc::Layer> scrollable_strip_layer_;
   scoped_refptr<cc::SolidColorLayer> scrim_layer_;
   scoped_refptr<cc::UIResourceLayer> new_tab_button_;
+  scoped_refptr<cc::UIResourceLayer> new_tab_button_background_;
   scoped_refptr<cc::UIResourceLayer> left_fade_;
   scoped_refptr<cc::UIResourceLayer> right_fade_;
   scoped_refptr<cc::UIResourceLayer> model_selector_button_;

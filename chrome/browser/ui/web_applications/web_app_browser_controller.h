@@ -9,6 +9,7 @@
 #include <string>
 
 #include "base/callback.h"
+#include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
@@ -91,8 +92,10 @@ class WebAppBrowserController : public AppBrowserController,
   bool IsHostedApp() const override;
   std::unique_ptr<TabMenuModelFactory> GetTabMenuModelFactory() const override;
   bool AppUsesWindowControlsOverlay() const override;
+  bool AppUsesTabbed() const override;
   bool IsWindowControlsOverlayEnabled() const override;
-  void ToggleWindowControlsOverlayEnabled() override;
+  void ToggleWindowControlsOverlayEnabled(
+      base::OnceClosure on_complete) override;
   bool AppUsesBorderlessMode() const override;
   bool IsIsolatedWebApp() const override;
   gfx::Rect GetDefaultBounds() const override;
@@ -130,7 +133,7 @@ class WebAppBrowserController : public AppBrowserController,
   // Invoked when the icon is loaded.
   void OnLoadIcon(apps::IconValuePtr icon_value);
 
-  void OnReadIcon(SkBitmap bitmap);
+  void OnReadIcon(IconPurpose purpose, SkBitmap bitmap);
   void PerformDigitalAssetLinkVerification(Browser* browser);
 
 #if BUILDFLAG(IS_CHROMEOS)

@@ -83,7 +83,6 @@
 <translation id="2401189691232800402">ChromeOS সিস্টেম</translation>
 <translation id="2467438592969358367">Google Chrome আপনার পাসওয়ার্ড এক্সপোর্ট করতে চাইছে। অনুমতি দিতে Windows এর পাসওয়ার্ড টাইপ করুন।</translation>
 <translation id="2485422356828889247">আনইনস্টল</translation>
-<translation id="2494974097748878569">Chrome-এ Google অ্যাসিস্ট্যান্ট</translation>
 <translation id="2534507159460261402">Google Pay (Chrome এ কপি করা হয়েছে)</translation>
 <translation id="2559253115192232574">পরে, আপনি যে সাইটটি দেখেন সেটি আপনার দেখা বিজ্ঞাপনগুলিকে পছন্দমতো করার জন্য Chrome-কে আপনার আগ্রহগুলি দেখতে বলতে পারে। Chrome সর্বাধিক ৩টি আগ্রহ শেয়ার করতে পারে।</translation>
 <translation id="2563121210305478421">Chrome আবার লঞ্চ করবেন?</translation>
@@ -128,6 +127,7 @@
 <translation id="3140883423282498090">আপনি পরবর্তী সময়ে যখন Google Chrome আবার লঞ্চ করবেন আপনার পরিবর্তনগুলি কার্যকর হবে৷</translation>
 <translation id="3149510190863420837">Chrome অ্যাপগুলি</translation>
 <translation id="3169523567916669830">ট্রায়াল চলাকালীন, আপনি বিজ্ঞাপন দেখানোর জন্য আগ্রহের সাইটগুলির বিষয়গুলি দেখতে এবং সরাতে পারেন। Chrome আপনার সাম্প্রতিক ব্রাউজিং ইতিহাসের উপর ভিত্তি করে আপনার আগ্রহের বিষয়গুলি অনুমান করে।</translation>
+<translation id="3211604354460514046">{NUM_DEVICES,plural, =1{Google Chrome HID ডিভাইসে কানেক্ট আছে}one{Google Chrome HID ডিভাইসে কানেক্ট আছে}other{Google Chrome HID ডিভাইসে কানেক্ট আছে}}</translation>
 <translation id="3245429137663807393">আপনি Chrome ব্যবহারের রিপোর্ট শেয়ার করলেও, আপনার দেখা URL তার মধ্যে অন্তর্ভুক্ত থাকে</translation>
 <translation id="3282568296779691940">Chrome-এ সাইন-ইন করুন</translation>
 <translation id="3286538390144397061">এখন পুর্নসূচনা করবেন</translation>
@@ -286,7 +286,6 @@
 <translation id="6739177684496155661">নতুন Chrome প্রোফাইলে কাজ চালিয়ে যেতে চান?</translation>
 <translation id="6750954913813541382">বানান ভুল ঠিক করতে, আপনি ব্রাউজারে যে টেক্সট লেখেন Chrome সেটি Google-এ পাঠায়</translation>
 <translation id="677276454032249905">তা স্বত্তেও Chrome বন্ধ করতে চান?</translation>
-<translation id="6785872064505734160">Chrome-এ Google Assistant আপনার হয়ে সমস্ত ওয়েবসাইটে বিভিন্ন অ্যাকশন সম্পূর্ণ করতে পারে</translation>
 <translation id="683440813066116847">mDNS ট্রাফিকের অনুমতি দিতে Google Chrome Canary এর জন্য ইনবাউন্ড নিয়ম।</translation>
 <translation id="6881299373831449287">Chrome আপডেট হচ্ছে</translation>
 <translation id="6885412569789873916">Chrome বিটা অ্যাপ</translation>

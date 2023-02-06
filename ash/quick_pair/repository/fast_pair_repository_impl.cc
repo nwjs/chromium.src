@@ -94,7 +94,7 @@ FastPairRepositoryImpl::FastPairRepositoryImpl(
       saved_device_registry_(std::move(saved_device_registry)),
       pending_write_store_(std::move(pending_write_store)),
       footprints_last_updated_(base::Time::UnixEpoch()),
-      retry_write_last_attempted_(base::Time::UnixEpoch()) {}
+      retry_write_or_delete_last_attempted_(base::Time::UnixEpoch()) {}
 
 FastPairRepositoryImpl::~FastPairRepositoryImpl() {
   chromeos::NetworkHandler::Get()->network_state_handler()->RemoveObserver(
@@ -329,7 +329,8 @@ void FastPairRepositoryImpl::AssociateAccountKey(
       device->metadata_id,
       base::BindOnce(&FastPairRepositoryImpl::WriteDeviceToFootprints,
                      weak_ptr_factory_.GetWeakPtr(), device->metadata_id,
-                     device->classic_address().value(), account_key));
+                     device->classic_address().value(), account_key,
+                     device->protocol));
 }
 
 bool FastPairRepositoryImpl::AssociateAccountKeyLocally(
@@ -353,6 +354,7 @@ void FastPairRepositoryImpl::WriteDeviceToFootprints(
     const std::string& hex_model_id,
     const std::string& mac_address,
     const std::vector<uint8_t>& account_key,
+    absl::optional<Protocol> device_protocol,
     DeviceMetadata* metadata,
     bool has_retryable_error) {
   if (!metadata) {
@@ -360,16 +362,21 @@ void FastPairRepositoryImpl::WriteDeviceToFootprints(
     return;
   }
 
-  pending_write_store_->WritePairedDevice(mac_address, hex_model_id);
+  const nearby::fastpair::FastPairInfo fast_pair_info =
+      BuildFastPairInfo(hex_model_id, account_key, mac_address, metadata);
+
+  pending_write_store_->WritePairedDevice(mac_address, fast_pair_info);
   footprints_fetcher_->AddUserFastPairInfo(
-      BuildFastPairInfo(hex_model_id, account_key, mac_address, metadata),
+      fast_pair_info,
       base::BindOnce(&FastPairRepositoryImpl::OnWriteDeviceToFootprintsComplete,
-                     weak_ptr_factory_.GetWeakPtr(), mac_address, account_key));
+                     weak_ptr_factory_.GetWeakPtr(), mac_address, account_key,
+                     device_protocol));
 }
 
 void FastPairRepositoryImpl::OnWriteDeviceToFootprintsComplete(
     const std::string& mac_address,
     const std::vector<uint8_t>& account_key,
+    absl::optional<Protocol> device_protocol,
     bool success) {
   if (!success) {
     QP_LOG(WARNING)
@@ -380,12 +387,19 @@ void FastPairRepositoryImpl::OnWriteDeviceToFootprintsComplete(
   }
   QP_LOG(INFO) << __func__ << ": Successfully added device to Footprints.";
 
-  // Remove pending write on successful Footprints write
+  // TODO(b/261917790): Capture a pending successful Footprint write in the
+  // Retroactive Pairing Flow.
+  if (device_protocol.has_value() &&
+      device_protocol.value() == Protocol::kFastPairRetroactive) {
+    RecordRetroactiveSuccessFunnelFlow(
+        FastPairRetroactiveSuccessFunnelEvent::kSaveComplete);
+  }
+
+  // Remove pending write on successful Footprints write.
   pending_write_store_->OnPairedDeviceSaved(mac_address);
 
-  // save/update account key in saved device registry
+  // Save/Update account key in the saved device registry.
   saved_device_registry_->SaveAccountKey(mac_address, account_key);
-
   if (saved_device_registry_->IsAccountKeySavedToRegistry(account_key)) {
     QP_LOG(INFO) << __func__
                  << ": Successfully wrote device to Saved Device Registry.";
@@ -556,19 +570,51 @@ void FastPairRepositoryImpl::DefaultNetworkChanged(
     return;
   }
 
-  if (pending_write_store_->GetPendingDeletes().empty())
-    return;
-
   // To prevent API call spam, only try to retry once per timeout.
-  if ((base::Time::Now() - retry_write_last_attempted_) <
+  if ((base::Time::Now() - retry_write_or_delete_last_attempted_) <
       kOfflineRetryTimeout) {
     return;
   }
 
-  retry_write_last_attempted_ = base::Time::Now();
+  retry_write_or_delete_last_attempted_ = base::Time::Now();
 
-  GetSavedDevices(base::BindOnce(&FastPairRepositoryImpl::RetryPendingDeletes,
-                                 weak_ptr_factory_.GetWeakPtr()));
+  // A call to |GetSavedDevices| isn't necessary; we don't have to check
+  // the devices' most recent footprint before retrying a write since, in the
+  // worst case, an already saved device will be updated with the same
+  // information.
+  if (!pending_write_store_->GetPendingWrites().empty()) {
+    RetryPendingWrites();
+  }
+
+  // We must check whether there is a footprint in Footprints for the device
+  // we want to delete; otherwise, the delete will fail, and the delete
+  // will remain in the PendingDelete store forever.
+  if (!pending_write_store_->GetPendingDeletes().empty()) {
+    GetSavedDevices(base::BindOnce(&FastPairRepositoryImpl::RetryPendingDeletes,
+                                   weak_ptr_factory_.GetWeakPtr()));
+  }
+}
+
+void FastPairRepositoryImpl::RetryPendingWrites() {
+  for (const PendingWriteStore::PendingWrite& pending_write :
+       pending_write_store_->GetPendingWrites()) {
+    QP_LOG(VERBOSE) << __func__
+                    << ": Retrying write for device with mac address: "
+                    << pending_write.mac_address;
+
+    // Parse device account key from device fast pair info.
+    const std::string& account_key_str =
+        pending_write.fast_pair_info.device().account_key();
+    std::vector<uint8_t> account_key =
+        std::vector<uint8_t>{account_key_str.begin(), account_key_str.end()};
+
+    footprints_fetcher_->AddUserFastPairInfo(
+        pending_write.fast_pair_info,
+        base::BindOnce(
+            &FastPairRepositoryImpl::OnWriteDeviceToFootprintsComplete,
+            weak_ptr_factory_.GetWeakPtr(), pending_write.mac_address,
+            account_key, /*device_protocol=*/absl::nullopt));
+  }
 }
 
 // Parameter |status| is passed but not used.

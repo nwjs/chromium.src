@@ -141,7 +141,7 @@ ShellContentUtilityClient::ShellContentUtilityClient(bool is_browsertest) {
   if (is_browsertest &&
       base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
           switches::kProcessType) == switches::kUtilityProcess) {
-    network_service_test_helper_ = std::make_unique<NetworkServiceTestHelper>();
+    network_service_test_helper_ = NetworkServiceTestHelper::Create();
     audio_service_test_helper_ = std::make_unique<AudioServiceTestHelper>();
     storage::InjectTestApiImplementation();
     register_sandbox_status_helper_ = true;
@@ -154,13 +154,13 @@ void ShellContentUtilityClient::ExposeInterfacesToBrowser(
     mojo::BinderMap* binders) {
   binders->Add<mojom::PowerMonitorTest>(
       base::BindRepeating(&PowerMonitorTestImpl::MakeSelfOwnedReceiver),
-      base::ThreadTaskRunnerHandle::Get());
+      base::SingleThreadTaskRunner::GetCurrentDefault());
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
   if (register_sandbox_status_helper_) {
     binders->Add<content::mojom::SandboxStatusService>(
         base::BindRepeating(
             &content::SandboxStatusService::MakeSelfOwnedReceiver),
-        base::ThreadTaskRunnerHandle::Get());
+        base::SingleThreadTaskRunner::GetCurrentDefault());
   }
 #endif
 }
@@ -169,12 +169,6 @@ void ShellContentUtilityClient::RegisterIOThreadServices(
     mojo::ServiceFactory& services) {
   services.Add(RunTestService);
   services.Add(RunEchoService);
-}
-
-void ShellContentUtilityClient::RegisterNetworkBinders(
-    service_manager::BinderRegistry* registry) {
-  if (network_service_test_helper_)
-    network_service_test_helper_->RegisterNetworkBinders(registry);
 }
 
 }  // namespace content

@@ -18,6 +18,7 @@
 #import "ios/testing/earl_grey/app_launch_configuration.h"
 #import "ios/testing/earl_grey/app_launch_manager.h"
 #import "ios/testing/earl_grey/earl_grey_test.h"
+#import "ios/testing/earl_grey/system_alert_handler.h"
 #import "ios/testing/nserror_util.h"
 #import "ios/web/public/test/element_selector.h"
 #import "net/base/mac/url_conversions.h"
@@ -373,6 +374,8 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
     EG_TEST_HELPER_ASSERT_TRUE(
         [ChromeEarlGreyAppInterface waitForWindowIDInjectionIfNeeded],
         @"WindowID failed to inject");
+    // Loading URL (especially the first time) can trigger alerts.
+    [SystemAlertHandler handleSystemAlertIfVisible];
   }
 }
 
@@ -502,7 +505,7 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
                              @"The script response is not iterable.");
 
   NSMutableDictionary* cookies = [NSMutableDictionary dictionary];
-  for (const auto& option : result.GetListDeprecated()) {
+  for (const auto& option : result.GetList()) {
     if (option.is_string()) {
       NSString* nameValuePair = base::SysUTF8ToNSString(option.GetString());
       NSMutableArray* cookieNameValue =
@@ -885,11 +888,18 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
       deleteAutofillProfileFromFakeSyncServerWithGUID:GUID];
 }
 
-- (void)waitForSyncInitialized:(BOOL)isInitialized
-                   syncTimeout:(base::TimeDelta)timeout {
+- (void)waitForSyncEngineInitialized:(BOOL)isInitialized
+                         syncTimeout:(base::TimeDelta)timeout {
   EG_TEST_HELPER_ASSERT_NO_ERROR([ChromeEarlGreyAppInterface
-      waitForSyncInitialized:isInitialized
-                 syncTimeout:timeout]);
+      waitForSyncEngineInitialized:isInitialized
+                       syncTimeout:timeout]);
+}
+
+- (void)waitForSyncFeatureEnabled:(BOOL)isEnabled
+                      syncTimeout:(base::TimeDelta)timeout {
+  EG_TEST_HELPER_ASSERT_NO_ERROR([ChromeEarlGreyAppInterface
+      waitForSyncFeatureEnabled:isEnabled
+                    syncTimeout:timeout]);
 }
 
 - (const std::string)syncCacheGUID {
@@ -1022,6 +1032,8 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
         [ChromeEarlGreyAppInterface
             waitForWindowIDInjectionIfNeededInWindowWithNumber:windowNumber],
         @"WindowID failed to inject");
+    // Loading URL (especially the first time) can trigger alerts.
+    [SystemAlertHandler handleSystemAlertIfVisible];
   }
 }
 
@@ -1296,6 +1308,10 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
 
 - (BOOL)isWebChannelsEnabled {
   return [ChromeEarlGreyAppInterface isWebChannelsEnabled];
+}
+
+- (BOOL)isSFSymbolEnabled {
+  return [ChromeEarlGreyAppInterface isSFSymbolEnabled];
 }
 
 #pragma mark - ContentSettings

@@ -405,7 +405,7 @@ WebPagePopupImpl::WebPagePopupImpl(
 
   // TODO(https://crbug.com/1355751) Initialize `storage_key`.
   frame->Init(/*opener=*/nullptr, DocumentToken(), /*policy_container=*/nullptr,
-              StorageKey());
+              StorageKey(), /*document_ukm_source_id=*/ukm::kInvalidSourceId);
   frame->View()->SetParentVisible(true);
   frame->View()->SetSelfVisible(true);
 
@@ -698,6 +698,13 @@ WebInputEventResult WebPagePopupImpl::HandleKeyEvent(
 
 cc::LayerTreeHost* WebPagePopupImpl::LayerTreeHostForTesting() {
   return widget_base_->LayerTreeHost();
+}
+
+void WebPagePopupImpl::OnCommitRequested() {
+  if (page_ && page_->MainFrame()) {
+    if (auto* view = MainFrame().View())
+      view->OnCommitRequested();
+  }
 }
 
 void WebPagePopupImpl::BeginMainFrame(base::TimeTicks last_frame_time) {

@@ -20,9 +20,9 @@
 #include "chromeos/ash/components/network/network_device_handler.h"
 #include "chromeos/ash/components/settings/cros_settings_names.h"
 #include "chromeos/ash/components/settings/cros_settings_provider.h"
+#include "chromeos/ash/components/system/statistics_provider.h"
 #include "chromeos/components/onc/onc_parsed_certificates.h"
 #include "chromeos/components/onc/onc_utils.h"
-#include "chromeos/system/statistics_provider.h"
 #include "components/policy/policy_constants.h"
 #include "content/public/browser/browser_thread.h"
 #include "net/cert/x509_certificate.h"
@@ -122,8 +122,9 @@ void DeviceNetworkConfigurationUpdaterAsh::ApplyNetworkPolicy(
   // expansions.
   base::flat_map<std::string, std::string> substitutions;
   substitutions[::onc::substitutes::kDeviceSerialNumber] =
-      chromeos::system::StatisticsProvider::GetInstance()
-          ->GetEnterpriseMachineID();
+      std::string(chromeos::system::StatisticsProvider::GetInstance()
+                      ->GetMachineID()
+                      .value_or(""));
   substitutions[::onc::substitutes::kDeviceAssetId] =
       device_asset_id_fetcher_.Run();
 

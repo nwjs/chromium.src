@@ -110,7 +110,6 @@ source_set("permissions") {
   deps = [
     "//base",
     "//build:chromeos_buildflags",
-    "//components/autofill_assistant/browser/public:public",
     "//components/back_forward_cache",
     "//components/content_settings/browser",
     "//components/content_settings/core/browser",
@@ -270,12 +269,12 @@ source_set("unit_tests") {
     "permission_request_manager_unittest.cc",
     "permission_request_queue_unittest.cc",
     "permission_uma_util_unittest.cc",
-    "unused_site_permissions_service_unittest.cc",
   ]
   if (!is_android) {
     sources += [
       "bluetooth_chooser_controller_unittest.cc",
       "bluetooth_scanning_prompt_controller_unittest.cc",
+      "unused_site_permissions_service_unittest.cc",
     ]
   }
   if (is_android) {

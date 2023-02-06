@@ -7,18 +7,18 @@ package org.chromium.chrome.browser.touch_to_fill.payments;
 import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.widget.ImageView;
 import android.widget.RelativeLayout;
 
 import androidx.annotation.Nullable;
-import androidx.core.content.res.ResourcesCompat;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import org.chromium.base.Callback;
-import org.chromium.base.ContextUtils;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
 import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
+import org.chromium.ui.base.LocalizationUtils;
 
 /**
  * This class is responsible for rendering the bottom sheet which displays the
@@ -28,10 +28,9 @@ import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
 class TouchToFillCreditCardView implements BottomSheetContent {
     private final BottomSheetController mBottomSheetController;
     private final RelativeLayout mContentView;
+    private final RecyclerView mSheetItemListView;
     private Callback<Integer> mDismissHandler;
-    // TODO(): show gpay logo if there is at least one card coming from GPay,
-    // if there are only local cards show chrome logo
-    private boolean mOnlyLocalCards;
+    private Runnable mScanCreditCardHandler;
 
     // TODO(crbug.com/1247698): Reuse this logic between different sheets.
     private final BottomSheetObserver mBottomSheetObserver = new EmptyBottomSheetObserver() {
@@ -63,10 +62,24 @@ class TouchToFillCreditCardView implements BottomSheetContent {
         mBottomSheetController = bottomSheetController;
         mContentView = (RelativeLayout) LayoutInflater.from(context).inflate(
                 R.layout.touch_to_fill_credit_card_sheet, null);
-        ImageView brandingIcon = mContentView.findViewById(R.id.branding_icon);
-        brandingIcon.setImageDrawable(ResourcesCompat.getDrawable(mContentView.getResources(),
-                mOnlyLocalCards ? R.drawable.fre_product_logo : R.drawable.google_pay,
-                ContextUtils.getApplicationContext().getTheme()));
+        // Apply RTL layout changes.
+        int layoutDirection = LocalizationUtils.isLayoutRtl() ? View.LAYOUT_DIRECTION_RTL
+                                                              : View.LAYOUT_DIRECTION_LTR;
+        mContentView.setLayoutDirection(layoutDirection);
+        mSheetItemListView = mContentView.findViewById(R.id.sheet_item_list);
+        mSheetItemListView.setLayoutManager(
+                new LinearLayoutManager(context, LinearLayoutManager.VERTICAL, false));
+    }
+
+    void setScanCreditCardButton(boolean shouldShowScanCreditCard) {
+        View scanCreditCard = mContentView.findViewById(R.id.scan_new_card);
+        if (shouldShowScanCreditCard) {
+            scanCreditCard.setVisibility(View.VISIBLE);
+            scanCreditCard.setOnClickListener(unused -> mScanCreditCardHandler.run());
+        } else {
+            scanCreditCard.setVisibility(View.GONE);
+            scanCreditCard.setOnClickListener(null);
+        }
     }
 
     /**
@@ -76,6 +89,15 @@ class TouchToFillCreditCardView implements BottomSheetContent {
      */
     void setDismissHandler(Callback<Integer> dismissHandler) {
         mDismissHandler = dismissHandler;
+    }
+
+    void setScanCreditCardCallback(Runnable callback) {
+        mScanCreditCardHandler = callback;
+    }
+
+    void setShowCreditCardSettingsCallback(Runnable callback) {
+        View managePaymentMethodsButton = mContentView.findViewById(R.id.manage_payment_methods);
+        managePaymentMethodsButton.setOnClickListener(unused -> callback.run());
     }
 
     /**
@@ -96,6 +118,10 @@ class TouchToFillCreditCardView implements BottomSheetContent {
             return false;
         }
         return true;
+    }
+
+    void setSheetItemListAdapter(RecyclerView.Adapter adapter) {
+        mSheetItemListView.setAdapter(adapter);
     }
 
     @Override

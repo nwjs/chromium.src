@@ -625,7 +625,9 @@ class BuildConfigGenerator extends DefaultTask {
         }
 
         switch (dependencyId) {
-            case 'androidx_annotation_annotation':
+            case 'androidx_annotation_annotation_jvm':
+                sb.append('  # https://crbug.com/989505\n')
+                sb.append('  jar_excluded_patterns = ["META-INF/proguard/*"]\n')
                 break
             case 'androidx_core_core':
                 sb.with {
@@ -711,10 +713,6 @@ class BuildConfigGenerator extends DefaultTask {
                     append('      "res/layout*/*time*",\n')
                     append('  ]\n')
                 }
-                break
-            case 'com_android_support_support_annotations':
-                sb.append('  # https://crbug.com/989505\n')
-                sb.append('  jar_excluded_patterns = ["META-INF/proguard/*"]\n')
                 break
             case 'com_android_support_support_compat':
                 sb.append('\n')
@@ -840,19 +838,9 @@ class BuildConfigGenerator extends DefaultTask {
                     append('  # target for them. See crbug.com/1103399 for discussion.\n')
                     append('  jar_excluded_patterns = [\n')
                     append('    "com/google/protobuf/Any*",\n')
-                    append('    "com/google/protobuf/Api*",\n')
                     append('    "com/google/protobuf/Duration*",\n')
-                    append('    "com/google/protobuf/Empty*",\n')
                     append('    "com/google/protobuf/FieldMask*",\n')
-                    append('    "com/google/protobuf/SourceContext*",\n')
-                    append('    "com/google/protobuf/Struct\\$1.class",\n')
-                    append('    "com/google/protobuf/Struct\\$Builder.class",\n')
-                    append('    "com/google/protobuf/Struct.class",\n')
-                    append('    "com/google/protobuf/StructOrBuilder.class",\n')
-                    append('    "com/google/protobuf/StructProto.class",\n')
                     append('    "com/google/protobuf/Timestamp*",\n')
-                    append('    "com/google/protobuf/Type*",\n')
-                    append('    "com/google/protobuf/Wrappers*",\n')
                     append('  ]')
                 }
                 break

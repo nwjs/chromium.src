@@ -205,6 +205,15 @@ void TestAutofillClient::ShowLocalCardMigrationResults(
     const std::u16string& tip_message,
     const std::vector<MigratableCreditCard>& migratable_credit_cards,
     MigrationDeleteCardCallback delete_local_card_callback) {}
+
+void TestAutofillClient::ConfirmSaveIBANLocally(
+    const IBAN& iban,
+    bool should_show_prompt,
+    LocalSaveIBANPromptCallback callback) {
+  confirm_save_iban_locally_called_ = true;
+  offer_to_save_iban_bubble_was_shown_ = should_show_prompt;
+}
+
 void TestAutofillClient::ShowWebauthnOfferDialog(
     WebauthnDialogCallback offer_dialog_callback) {}
 
@@ -290,15 +299,6 @@ bool TestAutofillClient::IsFastCheckoutSupported() {
 
 bool TestAutofillClient::IsFastCheckoutTriggerForm(const FormData& form,
                                                    const FormFieldData& field) {
-  return false;
-}
-
-bool TestAutofillClient::FastCheckoutScriptSupportsConsentlessExecution(
-    const url::Origin& origin) {
-  return false;
-}
-
-bool TestAutofillClient::FastCheckoutClientSupportsConsentlessExecution() {
   return false;
 }
 
@@ -397,7 +397,7 @@ void TestAutofillClient::LoadRiskData(
 }
 
 #if BUILDFLAG(IS_IOS)
-bool TestAutofillClient::IsQueryIDRelevant(int query_id) {
+bool TestAutofillClient::IsLastQueriedField(FieldGlobalId field_id) {
   return true;
 }
 #endif

@@ -79,7 +79,7 @@ class UrlCheckerDelegate;
 }  // namespace safe_browsing
 
 namespace sandbox {
-class SeatbeltExecClient;
+class SandboxCompiler;
 }  // namespace sandbox
 
 namespace ui {
@@ -242,8 +242,6 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       bool origin_matches_flag) override;
   bool IsIsolatedContextAllowedForUrl(content::BrowserContext* browser_context,
                                       const GURL& lock_url) override;
-  bool IsIsolatedWebAppsDeveloperModeAllowed(
-      content::BrowserContext* context) override;
   bool IsGetDisplayMediaSetSelectAllScreensAllowed(
       content::BrowserContext* context,
       const url::Origin& origin) override;
@@ -323,6 +321,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       const url::Origin* conversion_origin,
       const url::Origin* reporting_origin) override;
   bool IsSharedStorageAllowed(content::BrowserContext* browser_context,
+                              content::RenderFrameHost* rfh,
                               const url::Origin& top_frame_origin,
                               const url::Origin& accessing_origin) override;
   bool IsPrivateAggregationAllowed(
@@ -784,7 +783,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
 #if BUILDFLAG(IS_MAC)
   bool SetupEmbedderSandboxParameters(
       sandbox::mojom::Sandbox sandbox_type,
-      sandbox::SeatbeltExecClient* client) override;
+      sandbox::SandboxCompiler* compiler) override;
 #endif  // BUILDFLAG(IS_MAC)
 
   void GetHyphenationDictionary(

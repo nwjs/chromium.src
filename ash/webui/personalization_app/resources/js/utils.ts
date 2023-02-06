@@ -6,7 +6,7 @@
  * @fileoverview Utility functions to be used throughout personalization app.
  */
 
-import {loadTimeData} from '//resources/js/load_time_data.m.js';
+import {loadTimeData} from '//resources/ash/common/load_time_data.m.js';
 import {String16} from 'chrome://resources/mojo/mojo/public/mojom/base/string16.mojom-webui.js';
 import {Url} from 'chrome://resources/mojo/url/mojom/url.mojom-webui.js';
 
@@ -91,4 +91,14 @@ export function isImageDataUrl(maybeDataUrl: Url|null|
   return !!maybeDataUrl && typeof maybeDataUrl.url === 'string' &&
       (maybeDataUrl.url.startsWith('data:image/png;base64') ||
        maybeDataUrl.url.startsWith('data:image/jpeg;base64'));
+}
+
+/** Returns the RGB hex in #ffffff format. */
+export function convertToRgbHexStr(hexVal: number): string {
+  const PADDING_LENGTH = 6;
+  const STRING_LENGTH = 16;
+  return `#${
+      (hexVal & 0x0FFFFFF)
+          .toString(STRING_LENGTH)
+          .padStart(PADDING_LENGTH, '0')}`;
 }

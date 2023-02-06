@@ -13,6 +13,7 @@
 #include "components/viz/common/resources/resource_format.h"
 #include "mojo/public/cpp/bindings/struct_traits.h"
 #include "mojo/public/cpp/bindings/union_traits.h"
+#include "ui/gfx/geometry/size.h"
 
 namespace viz {
 
@@ -60,6 +61,9 @@ class SharedImageFormat {
   };
 
   static const SharedImageFormat kRGBA_8888;
+  static const SharedImageFormat kBGRA_8888;
+  static const SharedImageFormat kRGBA_F16;
+  static const SharedImageFormat kBGR_565;
 
   SharedImageFormat() = default;
   static constexpr SharedImageFormat SinglePlane(
@@ -94,6 +98,11 @@ class SharedImageFormat {
   }
   bool is_multi_plane() const { return plane_type_ == PlaneType::kMultiPlane; }
 
+  // Stub function that always returns false for preferring external sampler.
+  // TODO(hitawala): Check if external sampler support is needed for clients and
+  // if needed return accordingly.
+  bool PrefersExternalSampler() const { return false; }
+
   // Returns whether the resource format can be used as a software bitmap for
   // export to the display compositor.
   bool IsBitmapFormatSupported() const;
@@ -101,7 +110,29 @@ class SharedImageFormat {
   // Return the number of planes associated with the format.
   int NumberOfPlanes() const;
 
+  // Returns true is `plane_index` is valid.
+  bool IsValidPlaneIndex(int plane_index) const;
+
+  // Returns the size for a plane given `plane_index`.
+  gfx::Size GetPlaneSize(int plane_index, const gfx::Size& size) const;
+
+  // Returns number of channels for a plane for multiplanar formats.
+  int NumChannelsInPlane(int plane_index) const;
+
+  // Returns the bit depth for multiplanar format based on the channel format.
+  int MultiplanarBitDepth() const;
+
   std::string ToString() const;
+
+  // Returns true if the format contains alpha.
+  bool HasAlpha() const;
+
+  // Returns true if the format is ETC1 compressed.
+  bool IsCompressed() const;
+
+  // Returns true if format is legacy multiplanar ResourceFormat i.e.
+  // YUV_420_BIPLANAR, YVU_420, YUVA_420_TRIPLANAR, P010.
+  bool IsLegacyMultiplanar() const;
 
   bool operator==(const SharedImageFormat& o) const;
   bool operator!=(const SharedImageFormat& o) const;
@@ -166,6 +197,12 @@ class SharedImageFormat {
 
 constexpr SharedImageFormat SharedImageFormat::kRGBA_8888 =
     SharedImageFormat::SinglePlane(ResourceFormat::RGBA_8888);
+constexpr SharedImageFormat SharedImageFormat::kBGRA_8888 =
+    SharedImageFormat::SinglePlane(ResourceFormat::BGRA_8888);
+constexpr SharedImageFormat SharedImageFormat::kRGBA_F16 =
+    SharedImageFormat::SinglePlane(ResourceFormat::RGBA_F16);
+constexpr SharedImageFormat SharedImageFormat::kBGR_565 =
+    SharedImageFormat::SinglePlane(ResourceFormat::BGR_565);
 
 }  // namespace viz
 

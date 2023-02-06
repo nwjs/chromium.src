@@ -36,6 +36,7 @@
 #include "gpu/command_buffer/service/shared_image/gl_texture_android_image_representation.h"
 #include "gpu/command_buffer/service/shared_image/gl_texture_passthrough_android_image_representation.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_backing.h"
+#include "gpu/command_buffer/service/shared_image/shared_image_format_utils.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_representation.h"
 #include "gpu/command_buffer/service/shared_image/skia_gl_image_representation.h"
 #include "gpu/command_buffer/service/shared_image/skia_vk_android_image_representation.h"
@@ -137,7 +138,8 @@ class AHardwareBufferImageBacking : public AndroidImageBacking {
       size_t estimated_size,
       bool is_thread_safe,
       base::ScopedFD initial_upload_fd,
-      scoped_refptr<base::RefCountedData<DawnProcTable>> dawn_procs);
+      scoped_refptr<base::RefCountedData<DawnProcTable>> dawn_procs,
+      bool use_passthrough);
 
   AHardwareBufferImageBacking(const AHardwareBufferImageBacking&) = delete;
   AHardwareBufferImageBacking& operator=(const AHardwareBufferImageBacking&) =
@@ -176,13 +178,15 @@ class AHardwareBufferImageBacking : public AndroidImageBacking {
       SharedImageManager* manager,
       MemoryTypeTracker* tracker,
       WGPUDevice device,
-      WGPUBackendType backend_type) override;
+      WGPUBackendType backend_type,
+      std::vector<WGPUTextureFormat> view_formats) override;
 
  private:
   const base::android::ScopedHardwareBufferHandle hardware_buffer_handle_;
 
   scoped_refptr<OverlayImage> overlay_image_ GUARDED_BY(lock_);
   scoped_refptr<base::RefCountedData<DawnProcTable>> dawn_procs_;
+  const bool use_passthrough_;
 };
 
 // Vk backed Skia representation of AHardwareBufferImageBacking.
@@ -261,7 +265,8 @@ AHardwareBufferImageBacking::AHardwareBufferImageBacking(
     size_t estimated_size,
     bool is_thread_safe,
     base::ScopedFD initial_upload_fd,
-    scoped_refptr<base::RefCountedData<DawnProcTable>> dawn_procs)
+    scoped_refptr<base::RefCountedData<DawnProcTable>> dawn_procs,
+    bool use_passthrough)
     : AndroidImageBacking(mailbox,
                           format,
                           size,
@@ -273,7 +278,8 @@ AHardwareBufferImageBacking::AHardwareBufferImageBacking(
                           is_thread_safe,
                           std::move(initial_upload_fd)),
       hardware_buffer_handle_(std::move(handle)),
-      dawn_procs_(std::move(dawn_procs)) {
+      dawn_procs_(std::move(dawn_procs)),
+      use_passthrough_(use_passthrough) {
   DCHECK(hardware_buffer_handle_.is_valid());
 }
 
@@ -323,7 +329,7 @@ AHardwareBufferImageBacking::ProduceGLTexture(SharedImageManager* manager,
   // if GL_OES_EGL_image is supported then <target> may also be TEXTURE_2D.
   auto* texture =
       GenGLTexture(hardware_buffer_handle_.get(), GL_TEXTURE_2D, color_space(),
-                   size(), estimated_size(), ClearedRect());
+                   size(), GetEstimatedSize(), ClearedRect());
   if (!texture)
     return nullptr;
 
@@ -346,7 +352,7 @@ AHardwareBufferImageBacking::ProduceGLTexturePassthrough(
   // if GL_OES_EGL_image is supported then <target> may also be TEXTURE_2D.
   auto texture = GenGLTexturePassthrough(hardware_buffer_handle_.get(),
                                          GL_TEXTURE_2D, color_space(), size(),
-                                         estimated_size(), ClearedRect());
+                                         GetEstimatedSize(), ClearedRect());
   if (!texture)
     return nullptr;
 
@@ -382,14 +388,13 @@ AHardwareBufferImageBacking::ProduceSkia(
   }
   DCHECK(context_state->GrContextIsGL());
   DCHECK(hardware_buffer_handle_.is_valid());
-  auto* texture =
-      GenGLTexture(hardware_buffer_handle_.get(), GL_TEXTURE_2D, color_space(),
-                   size(), estimated_size(), ClearedRect());
-  if (!texture)
-    return nullptr;
-  auto gl_representation =
-      std::make_unique<GLTextureAndroidImageRepresentation>(
-          manager, this, tracker, std::move(texture));
+
+  std::unique_ptr<GLTextureImageRepresentationBase> gl_representation;
+  if (use_passthrough_)
+    gl_representation = ProduceGLTexturePassthrough(manager, tracker);
+  else
+    gl_representation = ProduceGLTexture(manager, tracker);
+
   return SkiaGLImageRepresentation::Create(std::move(gl_representation),
                                            std::move(context_state), manager,
                                            this, tracker);
@@ -403,10 +408,12 @@ AHardwareBufferImageBacking::ProduceOverlay(SharedImageManager* manager,
 }
 
 std::unique_ptr<DawnImageRepresentation>
-AHardwareBufferImageBacking::ProduceDawn(SharedImageManager* manager,
-                                         MemoryTypeTracker* tracker,
-                                         WGPUDevice device,
-                                         WGPUBackendType backend_type) {
+AHardwareBufferImageBacking::ProduceDawn(
+    SharedImageManager* manager,
+    MemoryTypeTracker* tracker,
+    WGPUDevice device,
+    WGPUBackendType backend_type,
+    std::vector<WGPUTextureFormat> view_formats) {
 #if BUILDFLAG(USE_DAWN)
   // Use same texture for all the texture representations generated from same
   // backing.
@@ -415,13 +422,13 @@ AHardwareBufferImageBacking::ProduceDawn(SharedImageManager* manager,
 
   // Only Vulkan is supported on Android currently
   DCHECK_EQ(backend_type, WGPUBackendType_Vulkan);
-  WGPUTextureFormat webgpu_format = viz::ToWGPUFormat(format());
+  WGPUTextureFormat webgpu_format = ToWGPUFormat(format());
   if (webgpu_format == WGPUTextureFormat_Undefined) {
     LOG(ERROR) << "Unable to fine a suitable WebGPU format.";
     return nullptr;
   }
   return std::make_unique<DawnAHardwareBufferImageRepresentation>(
-      manager, this, tracker, device, webgpu_format,
+      manager, this, tracker, device, webgpu_format, std::move(view_formats),
       hardware_buffer_handle_.get(), dawn_procs_);
 #else
   return nullptr;
@@ -467,7 +474,10 @@ void AHardwareBufferImageBacking::EndOverlayAccess() {
 }
 
 AHardwareBufferImageBackingFactory::AHardwareBufferImageBackingFactory(
-    const gles2::FeatureInfo* feature_info) {
+    const gles2::FeatureInfo* feature_info,
+    const GpuPreferences& gpu_preferences)
+    : use_passthrough_(gpu_preferences.use_passthrough_cmd_decoder &&
+                       gl::PassthroughCommandDecoderSupported()) {
   DCHECK(base::AndroidHardwareBufferCompat::IsSupportAvailable());
   const gles2::Validators* validators = feature_info->validators();
   const bool is_egl_image_supported =
@@ -603,7 +613,7 @@ AHardwareBufferImageBackingFactory::MakeBacking(
     bool is_thread_safe,
     base::span<const uint8_t> pixel_data) {
   DCHECK(base::AndroidHardwareBufferCompat::IsSupportAvailable());
-  DCHECK(!viz::IsResourceFormatCompressed(format));
+  DCHECK(!format.IsCompressed());
 
   if (!ValidateUsage(usage, size, format)) {
     return nullptr;
@@ -689,7 +699,7 @@ AHardwareBufferImageBackingFactory::MakeBacking(
   auto backing = std::make_unique<AHardwareBufferImageBacking>(
       mailbox, format, size, color_space, surface_origin, alpha_type, usage,
       std::move(handle), estimated_size, is_thread_safe,
-      std::move(initial_upload_fd), dawn_procs_);
+      std::move(initial_upload_fd), dawn_procs_, use_passthrough_);
 
   // If we uploaded initial data, set the backing as cleared.
   if (!pixel_data.empty())
@@ -740,6 +750,10 @@ bool AHardwareBufferImageBackingFactory::IsSupported(
     gfx::GpuMemoryBufferType gmb_type,
     GrContextType gr_context_type,
     base::span<const uint8_t> pixel_data) {
+  if (format.is_multi_plane()) {
+    return false;
+  }
+
   if (gmb_type != gfx::EMPTY_BUFFER && !CanImportGpuMemoryBuffer(gmb_type)) {
     return false;
   }
@@ -773,7 +787,6 @@ AHardwareBufferImageBackingFactory::CreateSharedImage(
     gfx::GpuMemoryBufferHandle handle,
     gfx::BufferFormat buffer_format,
     gfx::BufferPlane plane,
-    SurfaceHandle surface_handle,
     const gfx::Size& size,
     const gfx::ColorSpace& color_space,
     GrSurfaceOrigin surface_origin,
@@ -804,7 +817,7 @@ AHardwareBufferImageBackingFactory::CreateSharedImage(
   auto backing = std::make_unique<AHardwareBufferImageBacking>(
       mailbox, si_format, size, color_space, surface_origin, alpha_type, usage,
       std::move(handle.android_hardware_buffer), estimated_size, false,
-      base::ScopedFD(), dawn_procs_);
+      base::ScopedFD(), dawn_procs_, use_passthrough_);
 
   backing->SetCleared();
   return backing;

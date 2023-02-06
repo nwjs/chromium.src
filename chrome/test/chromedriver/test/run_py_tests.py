@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env vpython3
 # Copyright 2013 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -96,8 +96,6 @@ _NEGATIVE_FILTER = [
     'ChromeSwitchesCapabilityTest.*',
     'ChromeExtensionsCapabilityTest.*',
     'MobileEmulationCapabilityTest.*',
-    # Flaky https://bugs.chromium.org/p/chromium/issues/detail?id=1378464
-    'BidiTest.*',
 ]
 
 
@@ -143,9 +141,6 @@ _OS_SPECIFIC_FILTER['mac'] = [
     'ChromeDriverTest.testTakeElementScreenshotPartlyVisible',
     'ChromeDriverTest.testTakeLargeElementScreenshot',
     'ChromeDriverSiteIsolation.testCanClickOOPIF',
-    # https://bugs.chromium.org/p/chromium/issues/detail?id=1367160
-    # Flaky test.
-    'ChromeDriverTest.testClickElementThatRestartsBrowser',
 ]
 
 _DESKTOP_NEGATIVE_FILTER = [
@@ -1001,17 +996,6 @@ class ChromeDriverTest(ChromeDriverBaseTestWithWebServer):
     alert_button = self._driver.FindElement('css selector', '#aa1')
     alert_button.Click()
     self.assertTrue(self._driver.IsAlertOpen())
-
-  def testClickElementThatRestartsBrowser(self):
-    # https://bugs.chromium.org/p/chromedriver/issues/detail?id=4221
-    self._driver.Load('chrome://flags')
-    reset_all = self._driver.FindElement('css selector',
-                                         '#experiment-reset-all')
-    reset_all.Click()
-    relaunch = self._driver.FindElement('css selector',
-                                        '#experiment-restart-button')
-    # Clicking Relaunch should not crash chromedriver.
-    relaunch.Click()
 
   def testClickElementJustOutsidePage(self):
     # https://bugs.chromium.org/p/chromedriver/issues/detail?id=3878
@@ -3021,7 +3005,7 @@ class ChromeDriverTest(ChromeDriverBaseTestWithWebServer):
         'state': 'denied'})
 
   def testPermissionStates(self):
-    """ Confirms that denied and granted can be set. """
+    """ Confirms that denied, granted, and prompt can be set. """
     self._driver.Load(self.GetHttpUrlForFile('/chromedriver/empty.html'))
     self._driver.SetPermission({
       'descriptor': { 'name': 'geolocation' },
@@ -3033,6 +3017,11 @@ class ChromeDriverTest(ChromeDriverBaseTestWithWebServer):
       'state': 'granted'
     })
     self.CheckPermission(self.GetPermission('geolocation'), 'granted')
+    self._driver.SetPermission({
+      'descriptor': { 'name': 'geolocation' },
+      'state': 'prompt'
+    })
+    self.CheckPermission(self.GetPermission('geolocation'), 'prompt')
 
   def testSettingPermissionDoesNotAffectOthers(self):
     """ Confirm permissions do not affect unset permissions. """
@@ -3055,10 +3044,15 @@ class ChromeDriverTest(ChromeDriverBaseTestWithWebServer):
       'state': 'denied'
     })
     self._driver.SetPermission({
+      'descriptor': { 'name': 'background-fetch' },
+      'state': 'prompt'
+    })
+    self._driver.SetPermission({
       'descriptor': { 'name': 'background-sync' },
       'state': 'granted'
     })
     self.CheckPermission(self.GetPermission('geolocation'), 'denied')
+    self.CheckPermission(self.GetPermission('background-fetch'), 'prompt')
     self.CheckPermission(self.GetPermission('background-sync'), 'granted')
 
   def testSensorPermissions(self):
@@ -3162,11 +3156,11 @@ class ChromeDriverTest(ChromeDriverBaseTestWithWebServer):
 
     parameters = {
       'descriptor': { 'name': 'clipboard-write' },
-      'state': 'denied'
+      'state': 'prompt'
     }
     self._driver.SetPermission(parameters)
     self.CheckPermission(self.GetPermission('clipboard-read'), 'granted')
-    self.CheckPermission(self.GetPermission('clipboard-write'), 'denied')
+    self.CheckPermission(self.GetPermission('clipboard-write'), 'prompt')
 
   def testPersistentStoragePermissions(self):
     self._driver.Load(self.GetHttpUrlForFile('/chromedriver/empty.html'))
@@ -3257,14 +3251,14 @@ class ChromeDriverTest(ChromeDriverBaseTestWithWebServer):
     self._driver.SwitchToWindow(another_window_handle)
 
     # Set permission.
-    parameters = { 'descriptor': { 'name': 'geolocation' }, 'state': 'granted' }
+    parameters = { 'descriptor': { 'name': 'geolocation' }, 'state': 'prompt' }
 
     # Test that they are present across the same domain.
     self._driver.SetPermission(parameters)
-    self.CheckPermission(self.GetPermission('geolocation'), 'granted')
+    self.CheckPermission(self.GetPermission('geolocation'), 'prompt')
 
     self._driver.SwitchToWindow(window_handle)
-    self.CheckPermission(self.GetPermission('geolocation'), 'granted')
+    self.CheckPermission(self.GetPermission('geolocation'), 'prompt')
 
     # Assert different domain is not the same.
     self._driver.SwitchToWindow(different_domain)
@@ -4084,16 +4078,14 @@ class ChromeDriverFencedFrame(ChromeDriverBaseTestWithWebServer):
     self._https_server.SetDataForPath('/nesting.html', None)
     self._https_server.SetCallbackForPath('/fencedframe.html', None)
 
-  def _initDriver(self, fenced_frame_implementation):
+  def _initDriver(self):
     self._driver = self.CreateDriver(
         accept_insecure_certs = True,
         chrome_switches=['--site-per-process',
-            '--enable-features=FencedFrames:'
-            'implementation_type/%s,PrivacySandboxAdsAPIsOverride' %
-            fenced_frame_implementation])
+            '--enable-features=FencedFrames,PrivacySandboxAdsAPIsOverride'])
 
-  def _testCanSwitchToFencedFrame(self, fenced_frame_implementation):
-    self._initDriver(fenced_frame_implementation)
+  def testCanSwitchToFencedFrame(self):
+    self._initDriver()
     self._driver.Load(self.GetHttpsUrlForFile('/main.html'))
     self._driver.SetTimeouts({'implicit': 2000})
     fencedframe = self._driver.FindElement('tag name', 'fencedframe')
@@ -4101,8 +4093,8 @@ class ChromeDriverFencedFrame(ChromeDriverBaseTestWithWebServer):
     button = self._driver.FindElement('tag name', 'button')
     self.assertIsNotNone(button)
 
-  def _testAppendEmptyFencedFrame(self, fenced_frame_implementation):
-    self._initDriver(fenced_frame_implementation)
+  def testAppendEmptyFencedFrame(self):
+    self._initDriver()
     self._driver.Load(self.GetHttpsUrlForFile('/chromedriver/empty.html'))
     self._driver.ExecuteScript(
         'document.body.appendChild(document.createElement("fencedframe"));')
@@ -4110,31 +4102,13 @@ class ChromeDriverFencedFrame(ChromeDriverBaseTestWithWebServer):
     self.assertIsNotNone(fencedframe)
     self._driver.SwitchToFrame(fencedframe)
 
-  def _testFencedFrameInsideIframe(self, fenced_frame_implementation):
-    self._initDriver(fenced_frame_implementation)
+  def testFencedFrameInsideIframe(self):
+    self._initDriver()
     self._driver.Load(self.GetHttpsUrlForFile('/nesting.html'))
     self._driver.SwitchToFrameByIndex(0)
     fencedframe = self._driver.FindElement('tag name', 'fencedframe')
     self.assertIsNotNone(fencedframe)
     self._driver.SwitchToFrame(fencedframe)
-
-  def testCanSwitchToFencedFrame_ShadowDom(self):
-    self._testCanSwitchToFencedFrame('shadow_dom')
-
-  def testCanSwitchToFencedFrame_MPArch(self):
-    self._testCanSwitchToFencedFrame('mparch')
-
-  def testAppendEmptyFencedFrame_ShadowDom(self):
-    self._testAppendEmptyFencedFrame('shadow_dom')
-
-  def testAppendEmptyFencedFrame_MPArch(self):
-    self._testAppendEmptyFencedFrame('mparch')
-
-  def testFencedFrameInsideIframe_ShadowDom(self):
-    self._testFencedFrameInsideIframe('shadow_dom')
-
-  def testFencedFrameInsideIframe_MPArch(self):
-    self._testFencedFrameInsideIframe('mparch')
 
 class ChromeDriverSiteIsolation(ChromeDriverBaseTestWithWebServer):
   """Tests for ChromeDriver with the new Site Isolation Chrome feature.
@@ -5056,7 +5030,8 @@ class RemoteBrowserTest(ChromeDriverBaseTest):
               '--remote-debugging-port=%d' % port,
               '--user-data-dir=%s' % temp_dir,
               '--use-mock-keychain',
-              '--password-store=basic']
+              '--password-store=basic',
+              'about:blank']
         process = subprocess.Popen(cmd)
         try:
           driver = self.CreateDriver(
@@ -5861,7 +5836,10 @@ if __name__ == '__main__':
     if platform == 'linux':
       chrome_path = os.path.join(driver_path, 'chrome')
     elif platform == 'mac':
-      if os.path.exists(os.path.join(driver_path, 'Google Chrome.app')):
+      if os.path.exists(os.path.join(driver_path, 'Google Chrome for Testing.app')):
+          chrome_path = os.path.join(driver_path, 'Google Chrome for Testing.app',
+                                     'Contents', 'MacOS', 'Google Chrome for Testing')
+      elif os.path.exists(os.path.join(driver_path, 'Google Chrome.app')):
         chrome_path = os.path.join(driver_path, 'Google Chrome.app',
                                    'Contents', 'MacOS', 'Google Chrome')
       else:

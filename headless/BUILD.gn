@@ -311,7 +311,6 @@ source_set("headless_shared_sources") {
     "public/headless_browser.cc",
     "public/headless_browser.h",
     "public/headless_export.h",
-    "public/internal/headless_devtools_client_impl.h",
     "public/internal/message_dispatcher.h",
     "public/internal/value_conversions.h",
     "public/util/error_reporter.cc",
@@ -372,6 +371,8 @@ source_set("headless_shared_sources") {
 # Code that is not needed in a renderer process.
 component("headless_non_renderer") {
   sources = [
+    "lib/browser/directory_enumerator.cc",
+    "lib/browser/directory_enumerator.h",
     "lib/browser/headless_browser_context_impl.cc",
     "lib/browser/headless_browser_context_impl.h",
     "lib/browser/headless_browser_context_options.cc",
@@ -384,7 +385,6 @@ component("headless_non_renderer") {
     "lib/browser/headless_devtools.h",
     "lib/browser/headless_devtools_agent_host_client.cc",
     "lib/browser/headless_devtools_agent_host_client.h",
-    "lib/browser/headless_devtools_client_impl.cc",
     "lib/browser/headless_devtools_manager_delegate.cc",
     "lib/browser/headless_devtools_manager_delegate.h",
     "lib/browser/headless_permission_manager.cc",
@@ -713,7 +713,6 @@ group("headless_tests") {
 
   deps = [
     ":headless_browsertests",
-    ":headless_example",
     ":headless_unittests",
   ]
 }
@@ -777,7 +776,6 @@ if (is_mac) {
 test("headless_browsertests") {
   configs += [
     "//net:net_test_config",
-    "//tools/v8_context_snapshot:use_v8_context_snapshot",
     "//v8:external_startup_data",
   ]
   sources = [
@@ -867,6 +865,7 @@ test("headless_browsertests") {
     "//services/network/public/mojom",
     "//testing/gmock",
     "//testing/gtest",
+    "//tools/v8_context_snapshot:buildflags",
     "//ui/base/clipboard",
     "//ui/shell_dialogs",
   ]
@@ -904,6 +903,8 @@ if (is_win) {
     sources = [
       "app/headless_shell.cc",
       "app/headless_shell.h",
+      "app/headless_shell_command_line.cc",
+      "app/headless_shell_command_line.h",
       "app/headless_shell_switches.h",
       "lib/browser/headless_content_browser_client.cc",
       "lib/browser/headless_content_browser_client.h",
@@ -940,6 +941,8 @@ static_library("headless_shell_lib") {
   sources = [
     "app/headless_shell.cc",
     "app/headless_shell.h",
+    "app/headless_shell_command_line.cc",
+    "app/headless_shell_command_line.h",
     "app/headless_shell_switches.h",
     "public/headless_shell.h",
   ]
@@ -1062,23 +1065,4 @@ process_version("version_header") {
     lastchange_file,
   ]
   output = "$target_gen_dir/public/version.h"
-}
-
-executable("headless_example") {
-  sources = [ "app/headless_example.cc" ]
-  defines = []
-
-  deps = [
-    ":headless_shell_lib",
-    "//content",
-    "//sandbox",
-    "//skia",  # we need this to override font render hinting in headless build
-    "//ui/gfx/geometry",
-  ]
-
-  if (is_win) {
-    deps += [ "//content/public/app" ]
-  }
-
-  configs += [ ":headless_defines_config" ]
 }

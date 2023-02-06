@@ -50,6 +50,7 @@ class ColorSpace;
 
 namespace gl {
 class GLSurface;
+class Presenter;
 }
 
 namespace gpu {
@@ -143,7 +144,6 @@ class SkiaOutputSurfaceImplOnGpu
   const base::WeakPtr<SkiaOutputSurfaceImplOnGpu>& weak_ptr() const {
     return weak_ptr_;
   }
-  gl::GLSurface* gl_surface() const { return gl_surface_.get(); }
 
   void Reshape(const SkSurfaceCharacterization& characterization,
                const gfx::ColorSpace& color_space,
@@ -265,6 +265,9 @@ class SkiaOutputSurfaceImplOnGpu
                                    const SkColor4f& color,
                                    const gfx::ColorSpace& color_space);
   void DestroySharedImage(gpu::Mailbox mailbox);
+
+  // Called on the viz thread!
+  base::ScopedClosureRunner GetCacheBackBufferCb();
 
  private:
   struct PlaneAccessData {
@@ -473,7 +476,9 @@ class SkiaOutputSurfaceImplOnGpu
 
   gpu::GpuPreferences gpu_preferences_;
   gfx::Size size_;
+  // Only one of GLSurface of Presenter exists at the time.
   scoped_refptr<gl::GLSurface> gl_surface_;
+  scoped_refptr<gl::Presenter> presenter_;
   scoped_refptr<gpu::SharedContextState> context_state_;
   size_t max_resource_cache_bytes_ = 0u;
 
@@ -552,6 +557,11 @@ class SkiaOutputSurfaceImplOnGpu
   // A cache of solid color image mailboxes so we can destroy them in the
   // destructor.
   base::flat_set<gpu::Mailbox> solid_color_images_;
+
+  // The format that will be used to CreateSolidColorSharedImage(). This should
+  // be either RGBA_8888 by default, or BGRA_8888 if the default is not
+  // supported on Linux.
+  ResourceFormat solid_color_image_format_ = RGBA_8888;
 
   THREAD_CHECKER(thread_checker_);
 

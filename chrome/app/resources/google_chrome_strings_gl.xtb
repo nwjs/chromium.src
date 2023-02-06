@@ -84,7 +84,6 @@
 <translation id="2401189691232800402">Sistema Chrome OS</translation>
 <translation id="2467438592969358367">Google Chrome quere exportar os teus contrasinais. Escribe o teu contrasinal de Windows para permitir esta acción.</translation>
 <translation id="2485422356828889247">Desinstalar</translation>
-<translation id="2494974097748878569">Asistente de Google en Chrome</translation>
 <translation id="2534507159460261402">Google Pay (copiouse en Chrome)</translation>
 <translation id="2559253115192232574">Máis tarde, un sitio que visites pode consultarlle a Chrome os teus intereses para personalizar os anuncios que se che mostren. Chrome pode compartir ata 3 intereses.</translation>
 <translation id="2563121210305478421">Queres reiniciar Chrome?</translation>
@@ -129,6 +128,7 @@
 <translation id="3140883423282498090">Os cambios terán efecto a próxima vez que reinicies Google Chrome.</translation>
 <translation id="3149510190863420837">Aplicacións de Chrome</translation>
 <translation id="3169523567916669830">Durante as probas, podes ver e eliminar temas de interese que usan os sitios para mostrarche anuncios. Chrome estima os teus intereses en función do teu historial de navegación recente.</translation>
+<translation id="3211604354460514046">{NUM_DEVICES,plural, =1{Google Chrome está conectado a un dispositivo de interface humana}other{Google Chrome está conectado a dispositivos de interface humana}}</translation>
 <translation id="3245429137663807393">Se, ademais, compartes os informes de uso de Chrome, neles inclúense os URL que visitas</translation>
 <translation id="3282568296779691940">Iniciar sesión en Chrome</translation>
 <translation id="3286538390144397061">Reiniciar agora</translation>
@@ -289,7 +289,6 @@ Google Chrome non pode recuperar a túa configuración.</translation>
 <translation id="6739177684496155661">Queres continuar nun perfil de Chrome novo?</translation>
 <translation id="6750954913813541382">Para corrixir erros ortográficos, Chrome enviaralle a Google o texto que escribas no navegador</translation>
 <translation id="677276454032249905">Queres saír de Chrome de todas formas?</translation>
-<translation id="6785872064505734160">O Asistente de Google en Chrome pode completar accións por ti nos sitios web</translation>
 <translation id="683440813066116847">Regra de entrada para Google Chrome Canary para permitir tráfico mDNS.</translation>
 <translation id="6881299373831449287">Actualizando Chrome</translation>
 <translation id="6885412569789873916">Aplicacións de Chrome Beta</translation>

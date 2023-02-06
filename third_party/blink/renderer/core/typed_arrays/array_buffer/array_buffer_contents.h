@@ -67,8 +67,11 @@ class CORE_EXPORT ArrayBufferContents {
       const base::subtle::PlatformSharedMemoryRegion& shared_memory_region,
       uint64_t offset,
       size_t length);
+
   ArrayBufferContents(ArrayBufferContents&&) = default;
+
   ArrayBufferContents(const ArrayBufferContents&) = default;
+
   explicit ArrayBufferContents(std::shared_ptr<v8::BackingStore> backing_store)
       : backing_store_(std::move(backing_store)) {}
 

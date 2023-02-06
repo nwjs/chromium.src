@@ -745,8 +745,8 @@ TEST_P(MAYBE_PaintLayerScrollableAreaTest,
   scrollable_area->SetScrollOffset(ScrollOffset(0, 1),
                                    mojom::blink::ScrollType::kProgrammatic);
   UpdateAllLifecyclePhasesExceptPaint();
-  EXPECT_EQ(!RuntimeEnabledFeatures::ScrollUpdateOptimizationsEnabled(),
-            GetDocument().View()->GetPaintArtifactCompositor()->NeedsUpdate());
+  EXPECT_FALSE(
+      GetDocument().View()->GetPaintArtifactCompositor()->NeedsUpdate());
   UpdateAllLifecyclePhasesForTest();
   EXPECT_EQ(ScrollOffset(0, 1), scrollable_area->GetScrollOffset());
 }
@@ -1123,7 +1123,7 @@ TEST_P(MAYBE_PaintLayerScrollableAreaTest, CompositedStickyDescendant) {
   EXPECT_EQ(gfx::Vector2dF(0, 50), sticky->FirstFragment()
                                        .PaintProperties()
                                        ->StickyTranslation()
-                                       ->Translation2D());
+                                       ->Get2dTranslation());
 }
 
 TEST_P(MAYBE_PaintLayerScrollableAreaTest, StickyPositionUseCounter) {

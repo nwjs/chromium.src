@@ -31,7 +31,6 @@
 #include "base/task/thread_pool.h"
 #include "base/threading/thread.h"
 #include "base/threading/thread_restrictions.h"
-#include "base/threading/thread_task_runner_handle.h"
 #include "base/time/default_clock.h"
 #include "base/time/default_tick_clock.h"
 #include "base/trace_event/trace_event.h"
@@ -169,6 +168,7 @@
 #include "chrome/browser/devtools/devtools_auto_opener.h"
 #include "chrome/browser/gcm/gcm_product_util.h"
 #include "chrome/browser/hid/hid_policy_allowed_devices.h"
+#include "chrome/browser/hid/hid_system_tray_icon.h"
 #include "chrome/browser/intranet_redirect_detector.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
 #include "chrome/browser/resource_coordinator/tab_manager.h"
@@ -221,6 +221,9 @@
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/chromeos/extensions/telemetry/chromeos_telemetry_extensions_browser_api_provider.h"
+#include "chrome/browser/hid/hid_pinned_notification.h"
+#elif !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/hid/hid_status_icon.h"
 #endif
 
 #if BUILDFLAG(IS_WIN) || (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS))
@@ -365,6 +368,14 @@ void BrowserProcessImpl::Init() {
         std::make_unique<ChromeWebAuthnClientAndroid>());
   }
 #endif
+
+#if !BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_CHROMEOS)
+  hid_system_tray_icon_ = std::make_unique<HidPinnedNotification>();
+#else
+  hid_system_tray_icon_ = std::make_unique<HidStatusIcon>();
+#endif  // BUILDFLAG(IS_CHROMEOS)
+#endif  // !BUILDFLAG(IS_ANDROID)
 }
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -422,6 +433,13 @@ void BrowserProcessImpl::StartTearDown() {
       browser_policy_connector_->chrome_browser_cloud_management_controller();
   if (cloud_management_controller)
     cloud_management_controller->ShutDown();
+#endif
+
+#if !BUILDFLAG(IS_ANDROID)
+  // |hid_system_tray_icon_| must be destroyed before
+  // |system_notification_helper_| for ChromeOS and |status_tray_| for
+  // non-ChromeOS.
+  hid_system_tray_icon_.reset();
 #endif
 
   system_notification_helper_.reset();
@@ -957,6 +975,11 @@ HidPolicyAllowedDevices* BrowserProcessImpl::hid_policy_allowed_devices() {
   }
   return hid_policy_allowed_devices_.get();
 }
+
+HidSystemTrayIcon* BrowserProcessImpl::hid_system_tray_icon() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  return hid_system_tray_icon_.get();
+}
 #endif
 
 BuildState* BrowserProcessImpl::GetBuildState() {
@@ -1221,7 +1244,7 @@ void BrowserProcessImpl::PreMainMessageLoopRun() {
     // Get stored persistent breadcrumbs from last run to set on crash reports.
     GetBreadcrumbPersistentStorageManager()->GetStoredEvents(
         base::BindOnce([](std::vector<std::string> events) {
-          breadcrumbs::CrashReporterBreadcrumbObserver::GetInstance()
+          breadcrumbs::BreadcrumbManager::GetInstance()
               .SetPreviousSessionEvents(events);
         }));
   } else {
@@ -1411,7 +1434,7 @@ void BrowserProcessImpl::Unpin() {
   CHECK(base::RunLoop::IsRunningOnCurrentThread());
 
 #if BUILDFLAG(IS_MAC)
-  base::ThreadTaskRunnerHandle::Get()->PostTask(
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE,
       base::BindOnce(ChromeBrowserMainPartsMac::DidEndMainMessageLoop));
 #endif

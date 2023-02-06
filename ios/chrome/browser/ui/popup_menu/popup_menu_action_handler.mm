@@ -63,6 +63,8 @@ using base::UserMetricsAction;
       break;
     case PopupMenuActionOpenNewTab:
       RecordAction(UserMetricsAction("MobileMenuNewTab"));
+      RecordAction(UserMetricsAction("MobileTabNewTab"));
+
       [self.dispatcher
           openURLInNewTab:[OpenNewTabCommand commandWithIncognito:NO
                                                       originPoint:origin]];
@@ -203,6 +205,11 @@ using base::UserMetricsAction;
     case PopupMenuActionSearchCopiedImage: {
       RecordAction(UserMetricsAction("MobileMenuSearchCopiedImage"));
       [self.delegate searchCopiedImage];
+      break;
+    }
+    case PopupMenuActionLensCopiedImage: {
+      RecordAction(UserMetricsAction("MobileMenuLensCopiedImage"));
+      [self.delegate lensCopiedImage];
       break;
     }
     case PopupMenuActionSearchCopiedText: {

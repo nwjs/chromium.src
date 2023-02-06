@@ -30,6 +30,7 @@ chromium-metrics-reviews@google.com.
 <variants name="DownloadClient">
   <variant name="__Test__"/>
   <variant name="BackgroundFetch"/>
+  <variant name="Bruschetta"/>
   <variant name="Debugging"/>
   <variant name="MountainInternal"/>
   <variant name="OfflinePage"/>
@@ -61,7 +62,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <histogram name="Download.ApiFunctions" enum="DownloadFunctions"
-    expires_after="2023-04-09">
+    expires_after="2023-06-11">
   <owner>dtrainor@chromium.org</owner>
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
@@ -81,7 +82,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Download.BandwidthOverallBytesPerSecond2" units="bytes/second"
-    expires_after="2023-03-19">
+    expires_after="2023-06-04">
   <owner>qinmin@chromium.org</owner>
   <summary>
     Overall bandwidth seen for a completed download. This includes all file
@@ -194,7 +195,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Download.CancelReason" enum="DownloadCancelReason"
-    expires_after="2023-03-26">
+    expires_after="2023-06-04">
   <owner>qinmin@chromium.org</owner>
   <owner>clank-downloads@google.com</owner>
   <summary>Records why the download is canceled.</summary>
@@ -291,7 +292,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Download.DangerousFile.DownloadValidatedByType"
-    enum="SBClientDownloadExtensions" expires_after="2023-03-19">
+    enum="SBClientDownloadExtensions" expires_after="2023-06-04">
   <owner>drubery@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -334,7 +335,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Download.DOMEvent" enum="DownloadDOMEvent"
-    expires_after="2023-03-20">
+    expires_after="2023-06-04">
   <owner>dtrainor@chromium.org</owner>
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
@@ -641,7 +642,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Download.IOSPresentQLPreviewControllerResult"
-    enum="PresentQLPreviewController" expires_after="2022-12-05">
+    enum="PresentQLPreviewController" expires_after="2023-12-05">
   <owner>sdefresne@chromium.org</owner>
   <owner>ewannpv@chromium.org</owner>
   <owner>mrefaat@chromium.org</owner>
@@ -715,9 +716,9 @@ chromium-metrics-reviews@google.com.
     enum="MixedContentDownloadDialogEvent" expires_after="2022-12-11">
   <owner>qinmin@chromium.org</owner>
   <summary>
-    Records user interactions with the mixed content download dialog on Android.
-    Records when the dialog is shown, or when user clicks on a button or
-    dismisses the dialog.
+    Records user interactions with the insecure download (formerly the mixed
+    content download) dialog on Android. Records when the dialog is shown, or
+    when user clicks on a button or dismisses the dialog.
   </summary>
 </histogram>
 
@@ -739,7 +740,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram base="true" name="Download.NetworkConnectionType.StartNew"
-    enum="NetworkConnectionType" expires_after="2023-03-26">
+    enum="NetworkConnectionType" expires_after="2023-06-04">
 <!-- Name completed by histogram_suffixes name="DownloadSource" -->
 
   <owner>dtrainor@chromium.org</owner>
@@ -774,7 +775,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Download.Open.ContentType" enum="DownloadContentType"
-    expires_after="2023-03-26">
+    expires_after="2023-06-04">
   <owner>drubery@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1366,7 +1367,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Download.ShowedDownloadWarning" enum="DownloadItem.DangerType"
-    expires_after="2023-03-19">
+    expires_after="2023-06-04">
   <owner>drubery@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1426,7 +1427,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Download.UserValidatedDangerousDownload"
-    enum="DownloadItem.DangerType" expires_after="2023-03-19">
+    enum="DownloadItem.DangerType" expires_after="2023-06-04">
   <owner>drubery@chromium.org</owner>
   <owner>chrome-safebrowsing-team@chromium.org</owner>
   <summary>
@@ -1444,6 +1445,41 @@ chromium-metrics-reviews@google.com.
   <owner>dtrainor@chromium.org</owner>
   <owner>qinmin@chromium.org</owner>
   <summary>Records events for local video thumbnail retrieval.</summary>
+</histogram>
+
+<histogram name="Download.WarningData.ActionAdded" enum="DownloadWarningAction"
+    expires_after="2023-06-07">
+  <owner>xinghuilu@chromium.org</owner>
+  <owner>chrome-counter-abuse-alerts@google.com</owner>
+  <summary>
+    Records the warning action that is successfully added in warning action
+    event. Logged each time an action is taken on the download warning. For the
+    SHOWN action, only logged for the first time. Not logged if the action is
+    not added because the first warning is missing or the events have exceeded
+    the max length.
+  </summary>
+</histogram>
+
+<histogram name="Download.WarningData.AddWarningActionEventOutcome"
+    enum="DownloadAddWarningActionEventOutcome" expires_after="2023-05-22">
+  <owner>xinghuilu@chromium.org</owner>
+  <owner>chrome-counter-abuse-alerts@google.com</owner>
+  <summary>
+    Records whether a download warning action event was sent, or if not, then
+    why not. Logged each time an action is taken on the download warning.
+  </summary>
+</histogram>
+
+<histogram name="Download.WarningData.SurfaceWithoutWarningShown"
+    enum="DownloadWarningSurface" expires_after="2023-05-29">
+  <owner>xinghuilu@chromium.org</owner>
+  <owner>chrome-counter-abuse-alerts@google.com</owner>
+  <summary>
+    Records the warning surface that does not have a warning shown event logged
+    in advance. Logged each time an action is taken on the download warning and
+    there is no warning shown event logged (the NOT_ADDED_MISSING_FIRST_WARNING
+    bucket in DownloadAddWarningActionEventOutcome).
+  </summary>
 </histogram>
 
 <histogram name="Download.WinFileMoveError" enum="WinIFileOperationError"

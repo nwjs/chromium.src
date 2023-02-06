@@ -20,7 +20,6 @@
 #include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/task/single_thread_task_runner.h"
-#include "base/threading/thread_task_runner_handle.h"
 #include "content/public/renderer/render_thread.h"
 #include "content/renderer/pepper/pepper_video_decoder_host.h"
 #include "content/renderer/render_thread_impl.h"
@@ -176,7 +175,7 @@ VideoDecoderShim::DecoderImpl::DecoderImpl(
     const base::WeakPtr<VideoDecoderShim>& proxy,
     bool use_hw_decoder)
     : shim_(proxy),
-      main_task_runner_(base::ThreadTaskRunnerHandle::Get()),
+      main_task_runner_(base::SingleThreadTaskRunner::GetCurrentDefault()),
       timestamp_to_id_cache_(kTimestampCacheSize),
       use_hw_decoder_(use_hw_decoder) {}
 
@@ -222,7 +221,7 @@ void VideoDecoderShim::DecoderImpl::InitializeHardwareDecoder(
     media::VideoDecoderConfig config,
     media::GpuVideoAcceleratorFactories* gpu_factories) {
   DCHECK(use_hw_decoder_);
-  CHECK(base::FeatureList::IsEnabled(media::kUseMojoVideoDecoderForPepper));
+  CHECK(media::IsUseMojoVideoDecoderForPepperEnabled());
 
   DCHECK(gpu_factories->GetTaskRunner()->RunsTasksInCurrentSequence());
   if (!gpu_factories->IsGpuVideoDecodeAcceleratorEnabled()) {
@@ -283,8 +282,9 @@ void VideoDecoderShim::DecoderImpl::Stop() {
   // media::kUseMojoVideoDecoderForPepper path. However we keep it here because
   // we don't want to change anything about the previous codepath as part of
   // introducing the new flag-guarded codepath.
-  if (!base::FeatureList::IsEnabled(media::kUseMojoVideoDecoderForPepper))
+  if (!media::IsUseMojoVideoDecoderForPepperEnabled()) {
     DCHECK(decoder_);
+  }
 
   // Clear pending decodes now. We don't want OnDecodeComplete to call DoDecode
   // again.
@@ -413,7 +413,7 @@ std::unique_ptr<VideoDecoderShim> VideoDecoderShim::Create(
   scoped_refptr<viz::ContextProviderCommandBuffer>
       shared_main_thread_context_provider =
           RenderThreadImpl::current()->SharedMainThreadContextProvider();
-  if (base::FeatureList::IsEnabled(media::kUseMojoVideoDecoderForPepper) &&
+  if (media::IsUseMojoVideoDecoderForPepperEnabled() &&
       !shared_main_thread_context_provider) {
     return nullptr;
   }
@@ -452,8 +452,7 @@ VideoDecoderShim::VideoDecoderShim(
       texture_pool_size_(texture_pool_size),
       num_pending_decodes_(0),
       use_hw_decoder_(use_hw_decoder) {
-  CHECK(!use_hw_decoder_ ||
-        base::FeatureList::IsEnabled(media::kUseMojoVideoDecoderForPepper));
+  CHECK(!use_hw_decoder_ || media::IsUseMojoVideoDecoderForPepperEnabled());
   DCHECK(host_);
   DCHECK(media_task_runner_.get());
   DCHECK(shared_main_thread_context_provider_.get());

@@ -13,6 +13,7 @@
 
 #include "base/bind.h"
 #include "base/memory/raw_ptr.h"
+#include "base/task/single_thread_task_runner.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_destroyer.h"
 #include "components/media_router/browser/presentation/presentation_navigation_policy.h"
@@ -25,7 +26,6 @@
 #include "third_party/blink/public/mojom/mediastream/media_stream.mojom.h"
 
 #if defined(USE_AURA)
-#include "base/threading/thread_task_runner_handle.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
@@ -78,7 +78,7 @@ class OffscreenTab::WindowAdoptionAgent final : protected aura::WindowObserver {
     // Post a task to return to the event loop before finding a new parent, to
     // avoid clashing with the currently-in-progress window tree hierarchy
     // changes.
-    base::ThreadTaskRunnerHandle::Get()->PostTask(
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, base::BindOnce(&WindowAdoptionAgent::FindNewParent,
                                   weak_ptr_factory_.GetWeakPtr()));
   }
@@ -111,7 +111,7 @@ class OffscreenTab::WindowAdoptionAgent final : protected aura::WindowObserver {
     aura::Window* native_window =
         active_window ? active_window->GetNativeWindow() : nullptr;
     if (!native_window) {
-      Profile* profile = ProfileManager::GetActiveUserProfile();
+      Profile* profile = ProfileManager::GetLastUsedProfileIfLoaded();
       const extensions::AppWindowRegistry::AppWindowList& app_windows =
         extensions::AppWindowRegistry::Get(profile)->app_windows();
       native_window = (*app_windows.begin())->GetNativeWindow();

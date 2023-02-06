@@ -3407,8 +3407,11 @@
       "intel_gpu_series": [
         "icelake",
         "tigerlake",
+        "rocketlake",
+        "dg1",
         "alderlake",
-        "alchemist"
+        "alchemist",
+        "raptorlake"
       ],
       "features": [
         "force_rgb10a2_overlay_support_flags"
@@ -4196,6 +4199,46 @@
       ],
       "features": [
         "disable_rendering_to_rgb_external_texture"
+      ]
+    },
+    {
+      "id": 408,
+      "description": "Disable Media Foundation Clear Playback on older AMD drivers.",
+      "comment": [
+        "We see an increased frequency of crashes with Media Foundation for Clear",
+        "playback on older AMD drivers. Disabling the feature for all drivers upto",
+        "the highest observed driver for the failure."
+      ],
+      "os": {
+        "type": "win"
+      },
+      "vendor_id": "0x1002",
+      "driver_version": {
+        "op": "<=",
+        "value": "26.20.15002.61 "
+      },
+      "features": [
+        "disable_media_foundation_clear_playback"
+      ]
+    },
+    {
+      "id": 409,
+      "cr_bugs": [1393646],
+      "description": "QC7c requires a flush prior to the creation of a fence.",
+      "comment": [
+        "The hypothesis behind why need a flush on the QC7c is as follows.",
+        "The driver has associated queues per buffer. These buffers are in ",
+        "order say A, B and C. We append our fence to queue C. On submission ",
+        "to the gpu these are reordered to say C, B, and then A. By flushing ",
+        "prior to fence insertion we insure that A, B, and C are submitted to ",
+        "the GPU prior to the fence."
+      ],
+      "os": {
+        "type": "chromeos"
+      },
+      "gl_vendor": "freedreno",
+      "features": [
+        "flush_before_create_fence"
       ]
     }
   ]

@@ -137,6 +137,9 @@ class ChromeAutofillClient
       const std::u16string& tip_message,
       const std::vector<MigratableCreditCard>& migratable_credit_cards,
       MigrationDeleteCardCallback delete_local_card_callback) override;
+  void ConfirmSaveIBANLocally(const IBAN& iban,
+                              bool should_show_prompt,
+                              LocalSaveIBANPromptCallback callback) override;
   void ShowWebauthnOfferDialog(
       WebauthnDialogCallback offer_dialog_callback) override;
   void ShowWebauthnVerifyPendingDialog(
@@ -179,9 +182,6 @@ class ChromeAutofillClient
   bool IsFastCheckoutSupported() override;
   bool IsFastCheckoutTriggerForm(const FormData& form,
                                  const FormFieldData& field) override;
-  bool FastCheckoutScriptSupportsConsentlessExecution(
-      const url::Origin& origin) override;
-  bool FastCheckoutClientSupportsConsentlessExecution() override;
   bool ShowFastCheckout(base::WeakPtr<FastCheckoutDelegate> delegate) override;
   void HideFastCheckout() override;
   bool IsTouchToFillCreditCardSupported() override;
@@ -213,7 +213,6 @@ class ChromeAutofillClient
       base::OnceClosure cancel_callback) override;
   void CloseAutofillProgressDialog(
       bool show_confirmation_before_closing) override;
-  bool IsAutofillAssistantShowing() override;
   bool IsAutocompleteEnabled() const override;
   bool IsPasswordManagerEnabled() override;
   void PropagateAutofillPredictions(

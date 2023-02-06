@@ -8,7 +8,8 @@
 
 #include <stdint.h>
 
-#include <limits>
+#include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 

@@ -11,6 +11,7 @@
 #include "base/containers/flat_set.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
+#include "base/test/gtest_tags.h"
 #include "chrome/browser/chrome_content_browser_client.h"
 #include "chrome/browser/media/webrtc/webrtc_browsertest_base.h"
 #include "chrome/browser/ui/browser.h"
@@ -26,7 +27,7 @@
 #include "third_party/blink/public/common/features.h"
 #include "ui/display/test/display_manager_test_api.h"
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 
 namespace {
 
@@ -51,6 +52,8 @@ bool RunGetDisplayMediaSet(content::WebContents* tab,
   return true;
 }
 
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+
 bool CheckScreenDetailedExists(content::WebContents* tab,
                                const std::string& track_id) {
   std::string result;
@@ -63,6 +66,8 @@ bool CheckScreenDetailedExists(content::WebContents* tab,
       &result));
   return result == "success-screen-detailed";
 }
+
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 class ContentBrowserClientMock : public ChromeContentBrowserClient {
  public:
@@ -154,6 +159,8 @@ IN_PROC_BROWSER_TEST_F(GetDisplayMediaSetBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(GetDisplayMediaSetBrowserTest,
                        GetDisplayMediaSetMultipleScreensSuccess) {
+  base::AddTagToTestResult("feature_id",
+                           "screenplay-f3601ae4-bff7-495a-a51f-3c0997a46445");
   SetScreens(/*screen_count=*/5u);
   std::vector<std::string> track_ids;
   EXPECT_TRUE(RunGetDisplayMediaSet(contents_, "{autoSelectAllScreens: true}",
@@ -199,4 +206,4 @@ IN_PROC_BROWSER_TEST_F(GetDisplayMediaSetBrowserTest,
   EXPECT_EQ("NotAllowedError", error_name);
 }
 
-#endif
+#endif  // #if BUILDFLAG(IS_CHROMEOS)

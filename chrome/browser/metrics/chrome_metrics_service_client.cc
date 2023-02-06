@@ -32,10 +32,10 @@
 #include "base/rand_util.h"
 #include "base/strings/string_piece.h"
 #include "base/task/sequenced_task_runner.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "base/threading/platform_thread.h"
-#include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
@@ -43,7 +43,6 @@
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/google/google_brand.h"
 #include "chrome/browser/history/history_service_factory.h"
-#include "chrome/browser/metrics/bluetooth_metrics_provider.h"
 #include "chrome/browser/metrics/cached_metrics_profile.h"
 #include "chrome/browser/metrics/chrome_metrics_extensions_helper.h"
 #include "chrome/browser/metrics/chrome_metrics_service_accessor.h"
@@ -196,6 +195,10 @@
 #if BUILDFLAG(IS_MAC)
 #include "chrome/browser/metrics/power/power_metrics_provider_mac.h"
 #endif
+
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#include "chrome/browser/metrics/bluetooth_metrics_provider.h"
+#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 
 namespace {
 
@@ -385,7 +388,7 @@ bool IsProcessRunning(base::ProcessId pid) {
   if (kill(pid, 0) == 0 || errno != ESRCH)
     return true;
 #elif BUILDFLAG(IS_FUCHSIA)
-  // TODO(crbug.com/1235293)
+  // TODO(crbug.com/967028): Implement along with metrics support.
   NOTIMPLEMENTED_LOG_ONCE();
 #else
 #error Unsupported OS. Might be okay to just return false.
@@ -792,8 +795,10 @@ void ChromeMetricsServiceClient::RegisterMetricsServiceProviders() {
   metrics_service_->RegisterMetricsProvider(
       std::make_unique<safe_browsing::SafeBrowsingMetricsProvider>());
 
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
   metrics_service_->RegisterMetricsProvider(
       std::make_unique<metrics::BluetoothMetricsProvider>());
+#endif
 
 #if BUILDFLAG(IS_ANDROID)
   metrics_service_->RegisterMetricsProvider(
@@ -940,6 +945,11 @@ void ChromeMetricsServiceClient::RegisterUKMProviders() {
               cros_system_profile_provider_.get())));
 #endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
 
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+  ukm_service_->RegisterMetricsProvider(
+      std::make_unique<LacrosMetricsProvider>());
+#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
+
   ukm_service_->RegisterMetricsProvider(
       std::make_unique<metrics::GPUMetricsProvider>());
 
@@ -1008,8 +1018,9 @@ void ChromeMetricsServiceClient::OnMemoryDetailCollectionDone() {
   // Set up the callback task to call after we receive histograms from all
   // child processes. `timeout` specifies how long to wait before absolutely
   // calling us back on the task.
-  content::FetchHistogramsAsynchronously(base::ThreadTaskRunnerHandle::Get(),
-                                         std::move(callback), timeout);
+  content::FetchHistogramsAsynchronously(
+      base::SingleThreadTaskRunner::GetCurrentDefault(), std::move(callback),
+      timeout);
 }
 
 void ChromeMetricsServiceClient::OnHistogramSynchronizationDone() {
@@ -1159,21 +1170,41 @@ void ChromeMetricsServiceClient::OnHistoryDeleted() {
     ukm_service_->Purge();
 }
 
-void ChromeMetricsServiceClient::OnUkmAllowedStateChanged(bool total_purge) {
+void ChromeMetricsServiceClient::OnUkmAllowedStateChanged(
+    bool total_purge,
+    ukm::UkmConsentState previous_consent_state) {
   if (!ukm_service_)
     return;
 
   const ukm::UkmConsentState consent_state = GetUkmConsentState();
 
-  // Purge recording if the required consent has been revoked.
+  // Manages purging of events and sources.
   if (total_purge) {
     ukm_service_->Purge();
     ukm_service_->ResetClientState(ukm::ResetReason::kOnUkmAllowedStateChanged);
   } else {
-    if (!consent_state.Has(ukm::UkmConsentType::EXTENSIONS))
+    // Purge recording if required consent has been revoked.
+    if (!consent_state.Has(ukm::MSBB))
+      ukm_service_->PurgeMsbbData();
+    if (!consent_state.Has(ukm::EXTENSIONS))
       ukm_service_->PurgeExtensionsData();
-    if (!consent_state.Has(ukm::UkmConsentType::APPS))
+    if (!consent_state.Has(ukm::APPS))
       ukm_service_->PurgeAppsData();
+
+    // If MSBB or App-sync consent changed from on to off then,
+    // the client id, or client state, must be reset. When
+    // kAppMetricsOnlyRelyOnAppSync feature is disabled function will no-op.
+    //
+    // In the non-feature case client reset is handled above because
+    // |total_purge| will be true. MSBB is used to determine if UKM is enabled
+    // or disabled. When the consent is revoked UkmService will be disabled,
+    // triggering |total_purge| to be true. At which point the client state will
+    // be reset.
+    //
+    // When the feature is enabled disabling MSBB or App-Sync will not trigger a
+    // total purge. Resetting the client state has to be handled specifically
+    // for this case.
+    ResetClientStateWhenMsbbOrAppConsentIsRevoked(previous_consent_state);
   }
 
   // Notify the recording service of changed metrics consent.
@@ -1376,4 +1407,26 @@ absl::optional<std::string> ChromeMetricsServiceClient::GetCurrentUserId()
   return absl::nullopt;
 }
 
-#endif
+#endif  //  BUILDFLAG(IS_CHROMEOS_ASH)
+
+void ChromeMetricsServiceClient::ResetClientStateWhenMsbbOrAppConsentIsRevoked(
+    ukm::UkmConsentState previous_consent_state) {
+  // TODO(crbug/1396481): enable by default once validated.
+  if (!base::FeatureList::IsEnabled(ukm::kAppMetricsOnlyRelyOnAppSync))
+    return;
+
+  const auto ukm_consent_state = GetUkmConsentState();
+
+  // True if MSBB consent change from on to off, False otherwise.
+  const bool msbb_revoked = previous_consent_state.Has(ukm::MSBB) &&
+                            !ukm_consent_state.Has(ukm::MSBB);
+
+  // True if APPS consent change from on to off, False otherwise.
+  const bool apps_revoked = previous_consent_state.Has(ukm::APPS) &&
+                            !ukm_consent_state.Has(ukm::APPS);
+
+  // If either condition is true, then reset client state.
+  if (msbb_revoked || apps_revoked) {
+    ukm_service_->ResetClientState(ukm::ResetReason::kOnUkmAllowedStateChanged);
+  }
+}

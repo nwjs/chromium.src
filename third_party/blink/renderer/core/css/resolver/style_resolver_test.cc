@@ -18,6 +18,7 @@
 #include "third_party/blink/renderer/core/css/css_value_list.h"
 #include "third_party/blink/renderer/core/css/properties/computed_style_utils.h"
 #include "third_party/blink/renderer/core/css/properties/css_property_ref.h"
+#include "third_party/blink/renderer/core/css/properties/longhands.h"
 #include "third_party/blink/renderer/core/css/resolver/scoped_style_resolver.h"
 #include "third_party/blink/renderer/core/css/resolver/style_resolver_state.h"
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
@@ -74,11 +75,9 @@ class StyleResolverTest : public PageTestBase {
 };
 
 class StyleResolverTestCQ : public StyleResolverTest,
-                            public ScopedCSSContainerQueriesForTest,
                             public ScopedLayoutNGForTest {
  protected:
-  StyleResolverTestCQ()
-      : ScopedCSSContainerQueriesForTest(true), ScopedLayoutNGForTest(true) {}
+  StyleResolverTestCQ() : ScopedLayoutNGForTest(true) {}
 };
 
 TEST_F(StyleResolverTest, StyleForTextInDisplayNone) {
@@ -909,6 +908,80 @@ TEST_F(StyleResolverTest, EnsureComputedStyleSlotFallback) {
             fallback_style->VisitedDependentColor(GetCSSPropertyColor()));
 }
 
+TEST_F(StyleResolverTest, EnsureComputedStyleOutsideFlatTree) {
+  GetDocument()
+      .documentElement()
+      ->setInnerHTMLWithDeclarativeShadowDOMForTesting(R"HTML(
+    <div id=host>
+      <template shadowroot=open>
+      </template>
+      <div id=a>
+        <div id=b>
+          <div id=c>
+            <div id=d>
+              <div id=e>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+
+  Element* host = GetElementById("host");
+  ASSERT_TRUE(host);
+  ASSERT_TRUE(host->GetShadowRoot());
+
+  Element* a = GetElementById("a");
+  Element* b = GetElementById("b");
+  Element* c = GetElementById("c");
+  Element* d = GetElementById("d");
+  Element* e = GetElementById("e");
+  ASSERT_TRUE(a);
+  ASSERT_TRUE(b);
+  ASSERT_TRUE(c);
+  ASSERT_TRUE(d);
+  ASSERT_TRUE(e);
+
+  EXPECT_FALSE(a->GetComputedStyle());
+  EXPECT_FALSE(b->GetComputedStyle());
+  EXPECT_FALSE(c->GetComputedStyle());
+  EXPECT_FALSE(d->GetComputedStyle());
+  EXPECT_FALSE(e->GetComputedStyle());
+
+  c->EnsureComputedStyle();
+
+  scoped_refptr<const ComputedStyle> a_style = a->GetComputedStyle();
+  scoped_refptr<const ComputedStyle> b_style = b->GetComputedStyle();
+  scoped_refptr<const ComputedStyle> c_style = c->GetComputedStyle();
+
+  ASSERT_TRUE(a_style);
+  ASSERT_TRUE(b_style);
+  ASSERT_TRUE(c_style);
+  EXPECT_FALSE(d->GetComputedStyle());
+  EXPECT_FALSE(e->GetComputedStyle());
+
+  // Dirty style of #a.
+  a->SetInlineStyleProperty(CSSPropertyID::kZIndex, "42");
+
+  // Note that there is no call to UpdateAllLifecyclePhasesForTest here,
+  // because #a is outside the flat tree, hence that process would anyway not
+  // reach #a.
+
+  // Ensuring the style of some deep descendant must discover that some ancestor
+  // is marked for recalc.
+  e->EnsureComputedStyle();
+  EXPECT_TRUE(a->GetComputedStyle());
+  EXPECT_TRUE(b->GetComputedStyle());
+  EXPECT_TRUE(c->GetComputedStyle());
+  EXPECT_TRUE(d->GetComputedStyle());
+  EXPECT_TRUE(e->GetComputedStyle());
+  EXPECT_NE(a_style.get(), a->GetComputedStyle());
+  EXPECT_NE(b_style.get(), b->GetComputedStyle());
+  EXPECT_NE(c_style.get(), c->GetComputedStyle());
+}
+
 TEST_F(StyleResolverTest, ComputeValueStandardProperty) {
   GetDocument().body()->setInnerHTML(R"HTML(
     <style>
@@ -925,7 +998,7 @@ TEST_F(StyleResolverTest, ComputeValueStandardProperty) {
   CSSPropertyID property_id = CSSPropertyID::kColor;
   auto* set =
       MakeGarbageCollected<MutableCSSPropertyValueSet>(kHTMLStandardMode);
-  MutableCSSPropertyValueSet::SetResult result = set->SetProperty(
+  MutableCSSPropertyValueSet::SetResult result = set->ParseAndSetProperty(
       property_id, "var(--color)", false, SecureContextMode::kInsecureContext,
       /*context_style_sheet=*/nullptr);
   ASSERT_NE(MutableCSSPropertyValueSet::kParseError, result);
@@ -1001,7 +1074,7 @@ TEST_F(StyleResolverTest, TreeScopedReferences) {
     SelectorFilter filter;
     MatchResult match_result;
     ElementRuleCollector collector(state.ElementContext(), StyleRecalcContext(),
-                                   filter, match_result, state.Style(),
+                                   filter, match_result,
                                    EInsideLink::kNotInsideLink);
     GetDocument().GetStyleEngine().GetStyleResolver().MatchAllRules(
         state, collector, false /* include_smil_properties */);
@@ -1028,7 +1101,7 @@ TEST_F(StyleResolverTest, TreeScopedReferences) {
     SelectorFilter filter;
     MatchResult match_result;
     ElementRuleCollector collector(state.ElementContext(), StyleRecalcContext(),
-                                   filter, match_result, state.Style(),
+                                   filter, match_result,
                                    EInsideLink::kNotInsideLink);
     GetDocument().GetStyleEngine().GetStyleResolver().MatchAllRules(
         state, collector, false /* include_smil_properties */);
@@ -1428,7 +1501,7 @@ TEST_F(StyleResolverTest, NoCascadeLayers) {
   SelectorFilter filter;
   MatchResult match_result;
   ElementRuleCollector collector(state.ElementContext(), StyleRecalcContext(),
-                                 filter, match_result, state.Style(),
+                                 filter, match_result,
                                  EInsideLink::kNotInsideLink);
   MatchAllRules(state, collector);
   const auto& properties = match_result.GetMatchedProperties();
@@ -1475,7 +1548,7 @@ TEST_F(StyleResolverTest, CascadeLayersInDifferentSheets) {
   SelectorFilter filter;
   MatchResult match_result;
   ElementRuleCollector collector(state.ElementContext(), StyleRecalcContext(),
-                                 filter, match_result, state.Style(),
+                                 filter, match_result,
                                  EInsideLink::kNotInsideLink);
   MatchAllRules(state, collector);
   const auto& properties = match_result.GetMatchedProperties();
@@ -1534,7 +1607,7 @@ TEST_F(StyleResolverTest, CascadeLayersInDifferentTreeScopes) {
   SelectorFilter filter;
   MatchResult match_result;
   ElementRuleCollector collector(state.ElementContext(), StyleRecalcContext(),
-                                 filter, match_result, state.Style(),
+                                 filter, match_result,
                                  EInsideLink::kNotInsideLink);
   MatchAllRules(state, collector);
   const auto& properties = match_result.GetMatchedProperties();
@@ -1588,7 +1661,7 @@ TEST_F(StyleResolverTest, CascadeLayersAfterModifyingAnotherSheet) {
   SelectorFilter filter;
   MatchResult match_result;
   ElementRuleCollector collector(state.ElementContext(), StyleRecalcContext(),
-                                 filter, match_result, state.Style(),
+                                 filter, match_result,
                                  EInsideLink::kNotInsideLink);
   MatchAllRules(state, collector);
   const auto& properties = match_result.GetMatchedProperties();
@@ -1631,7 +1704,7 @@ TEST_F(StyleResolverTest, CascadeLayersAddLayersWithImportantDeclarations) {
   SelectorFilter filter;
   MatchResult match_result;
   ElementRuleCollector collector(state.ElementContext(), StyleRecalcContext(),
-                                 filter, match_result, state.Style(),
+                                 filter, match_result,
                                  EInsideLink::kNotInsideLink);
   MatchAllRules(state, collector);
   const auto& properties = match_result.GetMatchedProperties();
@@ -2959,13 +3032,13 @@ TEST_F(StyleResolverTest, ScopedAnchorScroll) {
   Element* inner_anchor = shadow->getElementById("inner-anchor");
 
   EXPECT_EQ(*MakeGarbageCollected<ScopedCSSName>("--outer", &GetDocument()),
-            *outer_anchor->ComputedStyleRef().AnchorScroll());
+            outer_anchor->ComputedStyleRef().AnchorScroll()->GetName());
   EXPECT_EQ(*MakeGarbageCollected<ScopedCSSName>("--host", shadow),
-            *host->ComputedStyleRef().AnchorScroll());
+            host->ComputedStyleRef().AnchorScroll()->GetName());
   EXPECT_EQ(*MakeGarbageCollected<ScopedCSSName>("--part", &GetDocument()),
-            *part->ComputedStyleRef().AnchorScroll());
+            part->ComputedStyleRef().AnchorScroll()->GetName());
   EXPECT_EQ(*MakeGarbageCollected<ScopedCSSName>("--inner", shadow),
-            *inner_anchor->ComputedStyleRef().AnchorScroll());
+            inner_anchor->ComputedStyleRef().AnchorScroll()->GetName());
 }
 
 // |length| must be a calculated value of a single anchor query node.
@@ -2974,7 +3047,7 @@ static const TreeScope* GetAnchorQueryTreeScope(const Length& length) {
   DCHECK(length.GetCalculationValue().IsExpression());
   const auto& query = To<CalculationExpressionAnchorQueryNode>(
       *length.GetCalculationValue().GetOrCreateExpression());
-  return query.AnchorName().GetTreeScope();
+  return query.AnchorName() ? query.AnchorName()->GetTreeScope() : nullptr;
 }
 
 TEST_F(StyleResolverTest, ScopedAnchorFunction) {

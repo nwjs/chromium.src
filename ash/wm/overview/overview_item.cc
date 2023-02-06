@@ -130,27 +130,6 @@ class AnimationObserver : public ui::ImplicitAnimationObserver {
   base::OnceClosure on_animation_finished_;
 };
 
-OverviewAnimationType GetExitOverviewAnimationTypeForMinimizedWindow(
-    OverviewEnterExitType type,
-    bool should_animate_when_exiting) {
-  // We should never get here when overview mode should exit immediately. The
-  // minimized window's |item_widget_| should be closed and destroyed
-  // immediately.
-  DCHECK_NE(type, OverviewEnterExitType::kImmediateExit);
-
-  // OverviewEnterExitType can only be set to kWindowMinimized in talbet mode.
-  // Fade out the minimized window without animation if switch from tablet mode
-  // to clamshell mode.
-  if (type == OverviewEnterExitType::kFadeOutExit) {
-    return Shell::Get()->tablet_mode_controller()->InTabletMode()
-               ? OVERVIEW_ANIMATION_EXIT_TO_HOME_LAUNCHER
-               : OVERVIEW_ANIMATION_NONE;
-  }
-  return should_animate_when_exiting
-             ? OVERVIEW_ANIMATION_EXIT_OVERVIEW_MODE_FADE_OUT
-             : OVERVIEW_ANIMATION_RESTORE_WINDOW_ZERO;
-}
-
 // Applies |new_bounds_in_screen| to |widget|, animating and observing the
 // transform if necessary.
 void SetWidgetBoundsAndMaybeAnimateTransform(
@@ -216,7 +195,7 @@ bool OverviewItem::Contains(const aura::Window* target) const {
   return transform_window_.Contains(target);
 }
 
-void OverviewItem::HideForDesksTemplatesGrid(bool animate) {
+void OverviewItem::HideForSavedDeskLibrary(bool animate) {
   // To hide the window, we will set its layer opacity to 0. This would normally
   // also hide the window from the mini view, which we don't want. By setting a
   // property on the window, we can force it to stay visible.
@@ -249,8 +228,8 @@ void OverviewItem::HideForDesksTemplatesGrid(bool animate) {
   HideCannotSnapWarning(animate);
 }
 
-void OverviewItem::RevertHideForDesksTemplatesGrid(bool animate) {
-  // This might run before `HideForDesksTemplatesGrid()`, thus cancel the
+void OverviewItem::RevertHideForSavedDeskLibrary(bool animate) {
+  // This might run before `HideForSavedDeskLibrary()`, thus cancel the
   // callback to prevent such case.
   hide_window_in_overview_callback_.Cancel();
 
@@ -287,7 +266,7 @@ void OverviewItem::OnMovingWindowToAnotherDesk() {
 }
 
 void OverviewItem::RestoreWindow(bool reset_transform,
-                                 bool was_desks_templates_grid_showing) {
+                                 bool was_saved_desk_library_showing) {
   // TODO(oshima): SplitViewController has its own logic to adjust the
   // target state in |SplitViewController::OnOverviewModeEnding|.
   // Unify the mechanism to control it and remove ifs.
@@ -303,7 +282,7 @@ void OverviewItem::RestoreWindow(bool reset_transform,
 
   overview_item_view_->OnOverviewItemWindowRestoring();
   transform_window_.RestoreWindow(reset_transform,
-                                  was_desks_templates_grid_showing);
+                                  was_saved_desk_library_showing);
 
   if (!transform_window_.IsMinimized())
     return;
@@ -319,8 +298,7 @@ void OverviewItem::RestoreWindow(bool reset_transform,
   }
 
   OverviewAnimationType animation_type =
-      GetExitOverviewAnimationTypeForMinimizedWindow(
-          enter_exit_type, should_animate_when_exiting_);
+      GetExitOverviewAnimationTypeForMinimizedWindow(enter_exit_type);
   FadeOutWidgetFromOverview(std::move(item_widget_), animation_type);
 }
 
@@ -1171,8 +1149,8 @@ void OverviewItem::OnItemBoundsAnimationEnded() {
   if (!Shell::Get()->overview_controller()->InOverviewSession())
     return;
 
-  if (overview_session_->IsShowingDesksTemplatesGrid()) {
-    HideForDesksTemplatesGrid(false);
+  if (overview_session_->IsShowingSavedDeskLibrary()) {
+    HideForSavedDeskLibrary(false);
     return;
   }
 
@@ -1359,6 +1337,36 @@ void OverviewItem::UpdateHeaderLayout(OverviewAnimationType animation_type) {
   widget_window->SetTransform(label_transform);
 }
 
+OverviewAnimationType
+OverviewItem::GetExitOverviewAnimationTypeForMinimizedWindow(
+    OverviewEnterExitType type) {
+  // We should never get here when overview mode should exit immediately. The
+  // minimized window's `item_widget_` should be closed and destroyed
+  // immediately.
+  DCHECK_NE(type, OverviewEnterExitType::kImmediateExit);
+
+  // If the managed window has been hidden by the saved desk library, then
+  // we must avoid animating a minimized window. See http://b/260001863.
+  if (ScopedOverviewHideWindows* hide_windows =
+          overview_session_->hide_windows_for_saved_desks_grid()) {
+    if (hide_windows->HasWindow(item_widget_->GetNativeWindow())) {
+      return OVERVIEW_ANIMATION_NONE;
+    }
+  }
+
+  // OverviewEnterExitType can only be set to `kWindowMinimized` in tablet mode.
+  // Fade out the minimized window without animation if switch from tablet mode
+  // to clamshell mode.
+  if (type == OverviewEnterExitType::kFadeOutExit) {
+    return Shell::Get()->tablet_mode_controller()->InTabletMode()
+               ? OVERVIEW_ANIMATION_EXIT_TO_HOME_LAUNCHER
+               : OVERVIEW_ANIMATION_NONE;
+  }
+  return should_animate_when_exiting_
+             ? OVERVIEW_ANIMATION_EXIT_OVERVIEW_MODE_FADE_OUT
+             : OVERVIEW_ANIMATION_RESTORE_WINDOW_ZERO;
+}
+
 void OverviewItem::AnimateOpacity(float opacity,
                                   OverviewAnimationType animation_type) {
   DCHECK_GE(opacity, 0.f);
@@ -1381,14 +1389,15 @@ void OverviewItem::AnimateOpacity(float opacity,
 }
 
 void OverviewItem::StartDrag() {
-  aura::Window* widget_window = item_widget_->GetNativeWindow();
+  // Stack the window and the widget window at the top. This is to ensure that
+  // they appear above other app windows, as well as above the desks bar. Note
+  // that the stacking operations are done in this order to make sure that that
+  // the window appears above the widget window.
+  if (aura::Window* widget_window = item_widget_->GetNativeWindow())
+    widget_window->parent()->StackChildAtTop(widget_window);
+
   aura::Window* window = GetWindow();
-  if (widget_window && widget_window->parent() == window->parent()) {
-    // TODO(xdai): This might not work if there is an always on top window.
-    // See crbug.com/733760.
-    widget_window->parent()->StackChildAtTop(window);
-    widget_window->parent()->StackChildBelow(widget_window, window);
-  }
+  window->parent()->StackChildAtTop(window);
 }
 
 void OverviewItem::CloseButtonPressed() {

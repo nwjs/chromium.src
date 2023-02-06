@@ -12,6 +12,7 @@ import android.os.Bundle;
 import androidx.appcompat.widget.SwitchCompat;
 import androidx.fragment.app.testing.FragmentScenario;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -23,6 +24,7 @@ import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.JniMocker;
+import org.chromium.base.test.util.UserActionTester;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.signin.services.UnifiedConsentServiceBridge;
 import org.chromium.chrome.browser.signin.services.UnifiedConsentServiceBridgeJni;
@@ -44,11 +46,17 @@ public class MSBBFragmentTest {
 
     private FragmentScenario mScenario;
     private SwitchCompat mMSBBButton;
+    private final UserActionTester mActionTester = new UserActionTester();
 
     @Before
     public void setUp() {
         Profile.setLastUsedProfileForTesting(mProfile);
         mocker.mock(UnifiedConsentServiceBridgeJni.TEST_HOOKS, mNativeMock);
+    }
+
+    @After
+    public void tearDown() {
+        mActionTester.tearDown();
     }
 
     private void initFragmentWithMSBBState(boolean isMSBBOn) {
@@ -84,5 +92,19 @@ public class MSBBFragmentTest {
         initFragmentWithMSBBState(true);
         mMSBBButton.performClick();
         Mockito.verify(mNativeMock).setUrlKeyedAnonymizedDataCollectionEnabled(mProfile, false);
+    }
+
+    @Test
+    public void testTurnMSBBOff_changeMSBBOffUserAction() {
+        initFragmentWithMSBBState(true);
+        mMSBBButton.performClick();
+        assertTrue(mActionTester.getActions().contains("Settings.PrivacyGuide.ChangeMSBBOff"));
+    }
+
+    @Test
+    public void testTurnMSBBOn_changeMSBBOnUserAction() {
+        initFragmentWithMSBBState(false);
+        mMSBBButton.performClick();
+        assertTrue(mActionTester.getActions().contains("Settings.PrivacyGuide.ChangeMSBBOn"));
     }
 }

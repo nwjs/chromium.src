@@ -6,7 +6,7 @@
 
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/threading/sequenced_task_runner_handle.h"
+#include "base/task/sequenced_task_runner.h"
 #include "build/build_config.h"
 #include "cc/paint/skia_paint_canvas.h"
 #include "media/base/bind_to_current_loop.h"
@@ -353,7 +353,7 @@ void VideoTrackRecorderImpl::Encoder::StartFrameEncode(
     base::TimeTicks capture_timestamp) {
   // Cache the thread sending frames on first frame arrival.
   if (!origin_task_runner_.get())
-    origin_task_runner_ = base::SequencedTaskRunnerHandle::Get();
+    origin_task_runner_ = base::SequencedTaskRunner::GetCurrentDefault();
 
   DCHECK_CALLED_ON_VALID_SEQUENCE(origin_sequence_checker_);
   if (paused_)
@@ -893,10 +893,10 @@ void VideoTrackRecorderPassthrough::HandleEncodedVideoFrame(
   auto span = encoded_frame->Data();
   const char* span_begin = reinterpret_cast<const char*>(span.data());
   std::string data(span_begin, span_begin + span.size());
-  media::WebmMuxer::VideoParameters params(encoded_frame->Resolution(),
-                                           /*framerate=*/0.0f,
-                                           /*codec=*/encoded_frame->Codec(),
-                                           color_space);
+  media::Muxer::VideoParameters params(encoded_frame->Resolution(),
+                                       /*frame_rate=*/0.0f,
+                                       /*codec=*/encoded_frame->Codec(),
+                                       color_space);
   callback_.Run(params, std::move(data), {}, estimated_capture_time,
                 encoded_frame->IsKeyFrame());
 }

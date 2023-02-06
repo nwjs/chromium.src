@@ -37,17 +37,6 @@ public class TabUiFeatureUtilities {
             new DoubleCachedFieldTrialParameter(
                     ChromeFeatureList.TAB_GRID_LAYOUT_ANDROID, THUMBNAIL_ASPECT_RATIO_PARAM, 0.85);
 
-    private static final String SEARCH_CHIP_PARAM = "enable_search_term_chip";
-    public static final BooleanCachedFieldTrialParameter ENABLE_SEARCH_CHIP =
-            new BooleanCachedFieldTrialParameter(
-                    ChromeFeatureList.TAB_GRID_LAYOUT_ANDROID, SEARCH_CHIP_PARAM, false);
-
-    private static final String SEARCH_CHIP_ADAPTIVE_PARAM =
-            "enable_search_term_chip_adaptive_icon";
-    public static final BooleanCachedFieldTrialParameter ENABLE_SEARCH_CHIP_ADAPTIVE =
-            new BooleanCachedFieldTrialParameter(
-                    ChromeFeatureList.TAB_GRID_LAYOUT_ANDROID, SEARCH_CHIP_ADAPTIVE_PARAM, false);
-
     private static final String LAUNCH_BUG_FIX_PARAM = "enable_launch_bug_fix";
     public static final BooleanCachedFieldTrialParameter ENABLE_LAUNCH_BUG_FIX =
             new BooleanCachedFieldTrialParameter(
@@ -126,6 +115,12 @@ public class TabUiFeatureUtilities {
     public static final BooleanCachedFieldTrialParameter ENABLE_TAB_SELECTION_EDITOR_V2_SHARE =
             new BooleanCachedFieldTrialParameter(ChromeFeatureList.TAB_SELECTION_EDITOR_V2,
                     TAB_SELECTION_EDITOR_V2_SHARE_PARAM, false);
+
+    // Field trial parameter for controlling bookmark tabs in TabSelectionEditorV2.
+    private static final String TAB_SELECTION_EDITOR_V2_BOOKMARKS_PARAM = "enable_bookmarks";
+    public static final BooleanCachedFieldTrialParameter ENABLE_TAB_SELECTION_EDITOR_V2_BOOKMARKS =
+            new BooleanCachedFieldTrialParameter(ChromeFeatureList.TAB_SELECTION_EDITOR_V2,
+                    TAB_SELECTION_EDITOR_V2_BOOKMARKS_PARAM, false);
 
     private static Boolean sTabManagementModuleSupportedForTesting;
     private static Boolean sGridTabSwitcherPolishEnabledForTesting;

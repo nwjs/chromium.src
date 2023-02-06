@@ -283,7 +283,9 @@ class RealtimeEngagementSignalObserver extends CustomTabTabObserver {
         int mMaxReportedScrollPercentage;
 
         void onScrollStarted(boolean isDirectionUp) {
-            assert !mIsScrollActive;
+            // We shouldn't get an |onScrollStarted()| call while a scroll is still in progress,
+            // but it can happen. Call |onScrollEnded()| to make sure we're in a valid state.
+            if (mIsScrollActive) onScrollEnded();
             mIsScrollActive = true;
             mIsDirectionUp = isDirectionUp;
         }
@@ -349,6 +351,11 @@ class RealtimeEngagementSignalObserver extends CustomTabTabObserver {
     }
 
     private static boolean shouldSendRealValues() {
+        boolean enabledWithOverride =
+                CustomTabsConnection.getInstance().isDynamicFeatureEnabledWithOverrides(
+                        ChromeFeatureList.CCT_REAL_TIME_ENGAGEMENT_SIGNALS);
+        if (enabledWithOverride) return true;
+
         return ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
                 ChromeFeatureList.CCT_REAL_TIME_ENGAGEMENT_SIGNALS, REAL_VALUES, true);
     }

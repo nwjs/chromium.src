@@ -16,10 +16,11 @@
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
+#include "base/task/sequenced_task_runner.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/test/bind.h"
 #include "base/test/mock_callback.h"
 #include "base/test/scoped_feature_list.h"
-#include "base/threading/thread_task_runner_handle.h"
 #include "base/unguessable_token.h"
 #include "build/build_config.h"
 #include "content/browser/renderer_host/media/media_stream_manager.h"
@@ -46,6 +47,10 @@
 #include "ui/gfx/native_widget_types.h"
 #include "url/gurl.h"
 #include "url/origin.h"
+
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+#include "chromeos/lacros/lacros_test_helper.h"
+#endif
 
 #if defined(USE_ALSA)
 #include "media/audio/alsa/audio_manager_alsa.h"
@@ -200,7 +205,7 @@ class ScreenEnumeratorMock : public media::ScreenEnumerator {
   }
 
  private:
-  const size_t* screen_count_;
+  raw_ptr<const size_t> screen_count_;
 };
 
 class MediaStreamProviderListenerMock
@@ -239,7 +244,7 @@ class TestBrowserClient : public ContentBrowserClient {
 
  private:
   raw_ptr<MediaObserver> media_observer_;
-  const size_t* screen_count_;
+  raw_ptr<const size_t> screen_count_;
 };
 
 class MockMediaStreamUIProxy : public FakeMediaStreamUIProxy {
@@ -258,10 +263,20 @@ class MockMediaStreamUIProxy : public FakeMediaStreamUIProxy {
 
 }  // namespace
 
-class MediaStreamManagerTest : public ::testing::Test {
+class MediaStreamManagerTest : public ::testing::Test
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+    ,
+                               public crosapi::mojom::MultiCaptureService
+#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
+{
  public:
   MediaStreamManagerTest()
-      : task_environment_(content::BrowserTaskEnvironment::IO_MAINLOOP) {
+      : task_environment_(content::BrowserTaskEnvironment::IO_MAINLOOP)
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+        ,
+        receiver_(this)
+#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
+  {
     audio_manager_ = std::make_unique<MockAudioManager>();
     audio_system_ =
         std::make_unique<media::AudioSystemImpl>(audio_manager_.get());
@@ -279,9 +294,29 @@ class MediaStreamManagerTest : public ::testing::Test {
         .WillByDefault(Invoke(
             [](VideoCaptureProvider::GetDeviceInfosCallback result_callback) {
               std::vector<media::VideoCaptureDeviceInfo> stub_results;
-              std::move(result_callback).Run(stub_results);
+              std::move(result_callback)
+                  .Run(media::mojom::DeviceEnumerationResult::kSuccess,
+                       stub_results);
             }));
   }
+
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+  void SetUp() override {
+    chromeos::LacrosService::Get()->InjectRemoteForTesting(
+        receiver_.BindNewPipeAndPassRemote());
+  }
+
+  // crosapi::mojom::MultiCaptureService:
+  MOCK_METHOD(void,
+              MultiCaptureStarted,
+              (const std::string& label, const std::string& host),
+              (override));
+  MOCK_METHOD(void,
+              MultiCaptureStopped,
+              (const std::string& label),
+              (override));
+
+#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
 
   MediaStreamManagerTest(const MediaStreamManagerTest&) = delete;
   MediaStreamManagerTest& operator=(const MediaStreamManagerTest&) = delete;
@@ -294,8 +329,8 @@ class MediaStreamManagerTest : public ::testing::Test {
       const blink::mojom::StreamDevicesSet& stream_devices_set,
       std::unique_ptr<MediaStreamUIProxy> ui_proxy) {
     Response(index);
-    base::ThreadTaskRunnerHandle::Get()->PostTask(FROM_HERE,
-                                                  run_loop_.QuitClosure());
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, run_loop_.QuitClosure());
   }
 
  protected:
@@ -331,6 +366,9 @@ class MediaStreamManagerTest : public ::testing::Test {
                     _, _, _, _,
                     blink::mojom::MediaStreamType::DISPLAY_VIDEO_CAPTURE_SET,
                     MEDIA_REQUEST_STATE_OPENING));
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+    EXPECT_CALL(*this, MultiCaptureStarted(_, _));
+#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
     stream_provider_listener_ =
         std::make_unique<MediaStreamProviderListenerMock>();
     media_stream_manager_->video_capture_manager_->RegisterListener(
@@ -550,6 +588,10 @@ class MediaStreamManagerTest : public ::testing::Test {
   std::unique_ptr<MockMediaObserver> media_observer_;
   std::unique_ptr<ContentBrowserClient> browser_content_client_;
   content::BrowserTaskEnvironment task_environment_;
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+  chromeos::ScopedLacrosServiceTestHelper lacros_service_test_helper_;
+  mojo::Receiver<crosapi::mojom::MultiCaptureService> receiver_;
+#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
   std::unique_ptr<MockAudioManager> audio_manager_;
   std::unique_ptr<media::AudioSystem> audio_system_;
   raw_ptr<MockVideoCaptureProvider> video_capture_provider_;
@@ -1066,7 +1108,7 @@ TEST_F(MediaStreamManagerTest, GetMediaDeviceIDForHMAC) {
 
   MediaStreamManager::GetMediaDeviceIDForHMAC(
       blink::mojom::MediaStreamType::DEVICE_AUDIO_CAPTURE, kSalt, kOrigin,
-      kExistingHmacDeviceId, base::SequencedTaskRunnerHandle::Get(),
+      kExistingHmacDeviceId, base::SequencedTaskRunner::GetCurrentDefault(),
       base::BindOnce(
           [](const std::string& expected_raw_device_id,
              const absl::optional<std::string>& raw_device_id) {
@@ -1079,7 +1121,7 @@ TEST_F(MediaStreamManagerTest, GetMediaDeviceIDForHMAC) {
   const std::string kNonexistingHmacDeviceId = "does not exist";
   MediaStreamManager::GetMediaDeviceIDForHMAC(
       blink::mojom::MediaStreamType::DEVICE_AUDIO_CAPTURE, kSalt, kOrigin,
-      kNonexistingHmacDeviceId, base::SequencedTaskRunnerHandle::Get(),
+      kNonexistingHmacDeviceId, base::SequencedTaskRunner::GetCurrentDefault(),
       base::BindOnce([](const absl::optional<std::string>& raw_device_id) {
         EXPECT_FALSE(raw_device_id.has_value());
       }));
@@ -1125,7 +1167,6 @@ TEST_F(MediaStreamManagerTest, MultiCaptureOnMediaStreamUIWindowId) {
 TEST_F(MediaStreamManagerTest, MultiCaptureAllDevicesOpened) {
   base::UnguessableToken session = base::UnguessableToken::Create();
   RequestMultiScreenCapture(/*screen_count=*/3u, session);
-
   const std::vector<base::UnguessableToken>& session_ids =
       stream_provider_listener_->capture_session_ids();
   EXPECT_EQ(3u, session_ids.size());
@@ -1196,6 +1237,9 @@ TEST_F(MediaStreamManagerTest, MultiCaptureIntermediateErrorOnOpening) {
           _, _, _, _, blink::mojom::MediaStreamType::DISPLAY_VIDEO_CAPTURE_SET,
           MEDIA_REQUEST_STATE_DONE))
       .Times(0);
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+  EXPECT_CALL(*this, MultiCaptureStopped(_));
+#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
 }
 
 class MediaStreamManagerTestForTransfers : public MediaStreamManagerTest {

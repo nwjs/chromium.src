@@ -31,7 +31,6 @@
 #include "base/threading/simple_thread.h"
 #include "base/threading/thread.h"
 #include "base/threading/thread_checker.h"
-#include "base/threading/thread_task_runner_handle.h"
 #include "cc/animation/animation_host.h"
 #include "cc/base/switches.h"
 #include "cc/input/input_handler.h"
@@ -363,7 +362,7 @@ CompositorImpl::CompositorImpl(CompositorClient* client,
       needs_animate_(false),
       pending_frames_(0U),
       layer_tree_frame_sink_request_pending_(false),
-      lock_manager_(base::ThreadTaskRunnerHandle::Get()) {
+      lock_manager_(base::SingleThreadTaskRunner::GetCurrentDefault()) {
   DCHECK(client);
 
   SetRootWindow(root_window);
@@ -434,36 +433,26 @@ void CompositorImpl::SetRootLayer(scoped_refptr<cc::Layer> root_layer) {
 
 void CompositorImpl::SetSurface(const base::android::JavaRef<jobject>& surface,
                                 bool can_be_used_with_surface_control) {
-  JNIEnv* env = base::android::AttachCurrentThread();
   gpu::GpuSurfaceTracker* tracker = gpu::GpuSurfaceTracker::Get();
 
   if (window_) {
     // Shut down GL context before unregistering surface.
     SetVisible(false);
     tracker->RemoveSurface(surface_handle_);
-    ANativeWindow_release(window_);
     window_ = nullptr;
     surface_handle_ = gpu::kNullSurfaceHandle;
   }
 
-  ANativeWindow* window = nullptr;
-  if (surface) {
-    // Note: This ensures that any local references used by
-    // ANativeWindow_fromSurface are released immediately. This is needed as a
-    // workaround for https://code.google.com/p/android/issues/detail?id=68174
-    base::android::ScopedJavaLocalFrame scoped_local_reference_frame(env);
-    window = ANativeWindow_fromSurface(env, surface.obj());
-  }
+  gl::ScopedJavaSurface scoped_surface(surface, /*auto_release=*/false);
+  gl::ScopedANativeWindow window(scoped_surface);
 
   if (window) {
-    window_ = window;
-    ANativeWindow_acquire(window);
+    window_ = std::move(window);
     // Register first, SetVisible() might create a LayerTreeFrameSink.
     surface_handle_ = tracker->AddSurfaceForNativeWidget(
         gpu::GpuSurfaceTracker::SurfaceRecord(
-            window, surface, can_be_used_with_surface_control));
+            std::move(scoped_surface), can_be_used_with_surface_control));
     SetVisible(true);
-    ANativeWindow_release(window);
   }
 }
 
@@ -643,7 +632,7 @@ void CompositorImpl::DidInitializeLayerTreeFrameSink() {
 
 void CompositorImpl::DidFailToInitializeLayerTreeFrameSink() {
   layer_tree_frame_sink_request_pending_ = false;
-  base::ThreadTaskRunnerHandle::Get()->PostTask(
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE, base::BindOnce(&CompositorImpl::RequestNewLayerTreeFrameSink,
                                 weak_factory_.GetWeakPtr()));
 }

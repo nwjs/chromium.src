@@ -68,6 +68,7 @@
 #import "ios/components/security_interstitials/safe_browsing/safe_browsing_service_impl.h"
 #import "ios/public/provider/chrome/browser/app_distribution/app_distribution_api.h"
 #import "ios/public/provider/chrome/browser/push_notification/push_notification_api.h"
+#import "ios/public/provider/chrome/browser/signin/signin_identity_api.h"
 #import "ios/public/provider/chrome/browser/signin/signin_sso_api.h"
 #import "ios/web/public/thread/web_task_traits.h"
 #import "ios/web/public/thread/web_thread.h"
@@ -312,11 +313,13 @@ ApplicationContextImpl::GetSystemURLRequestContext() {
 
 scoped_refptr<network::SharedURLLoaderFactory>
 ApplicationContextImpl::GetSharedURLLoaderFactory() {
+  DCHECK(thread_checker_.CalledOnValidThread());
   return ios_chrome_io_thread_->GetSharedURLLoaderFactory();
 }
 
 network::mojom::NetworkContext*
 ApplicationContextImpl::GetSystemNetworkContext() {
+  DCHECK(thread_checker_.CalledOnValidThread());
   return ios_chrome_io_thread_->GetSystemNetworkContext();
 }
 
@@ -431,6 +434,7 @@ SafeBrowsingService* ApplicationContextImpl::GetSafeBrowsingService() {
 
 network::NetworkConnectionTracker*
 ApplicationContextImpl::GetNetworkConnectionTracker() {
+  DCHECK(thread_checker_.CalledOnValidThread());
   if (!network_connection_tracker_) {
     if (!network_change_manager_) {
       network_change_manager_ =
@@ -496,6 +500,7 @@ ApplicationContextImpl::GetBreadcrumbPersistentStorageManager() {
 }
 
 id<SingleSignOnService> ApplicationContextImpl::GetSSOService() {
+  DCHECK(thread_checker_.CalledOnValidThread());
   if (!single_sign_on_service_) {
     single_sign_on_service_ = ios::provider::CreateSSOService();
     DCHECK(single_sign_on_service_);
@@ -503,8 +508,24 @@ id<SingleSignOnService> ApplicationContextImpl::GetSSOService() {
   return single_sign_on_service_;
 }
 
+SystemIdentityManager* ApplicationContextImpl::GetSystemIdentityManager() {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  if (!system_identity_manager_) {
+    // Give the opportunity for the test hook to override the factory from
+    // the provider (allowing EG tests to use a fake SystemIdentityManager).
+    system_identity_manager_ = tests_hook::CreateSystemIdentityManager();
+    if (!system_identity_manager_) {
+      system_identity_manager_ =
+          ios::provider::CreateSystemIdentityManager(GetSSOService());
+    }
+    DCHECK(system_identity_manager_);
+  }
+  return system_identity_manager_.get();
+}
+
 segmentation_platform::OTRWebStateObserver*
 ApplicationContextImpl::GetSegmentationOTRWebStateObserver() {
+  DCHECK(thread_checker_.CalledOnValidThread());
   if (!segmentation_otr_web_state_observer_) {
     segmentation_otr_web_state_observer_ =
         std::make_unique<segmentation_platform::OTRWebStateObserver>(
@@ -514,6 +535,7 @@ ApplicationContextImpl::GetSegmentationOTRWebStateObserver() {
 }
 
 PushNotificationService* ApplicationContextImpl::GetPushNotificationService() {
+  DCHECK(thread_checker_.CalledOnValidThread());
   if (!push_notification_service_) {
     push_notification_service_ = ios::provider::CreatePushNotificationService();
     DCHECK(push_notification_service_);

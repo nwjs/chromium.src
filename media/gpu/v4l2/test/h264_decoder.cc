@@ -28,7 +28,6 @@ constexpr uint8_t zigzag_8x8[] = {
     58, 59, 52, 45, 38, 31, 39, 46, 53, 60, 61, 54, 47, 55, 62, 63};
 
 constexpr uint32_t kNumberOfBuffersInCaptureQueue = 10;
-constexpr uint32_t kUncompressedFourcc = v4l2_fourcc('M', 'M', '2', '1');
 
 static_assert(kNumberOfBuffersInCaptureQueue <= 16,
               "Too many CAPTURE buffers are used. The number of CAPTURE "
@@ -210,6 +209,38 @@ v4l2_ctrl_h264_decode_params SetupDecodeParams(const H264SliceHeader slice) {
   return v4l2_decode_param;
 }
 
+// Determines whether the current slice is part of the same
+// frame as the previous slice.
+// From h264 specification 7.4.1.2.4
+bool IsNewFrame(H264SliceHeader* prev_slice,
+                H264SliceHeader* curr_slice,
+                const H264SPS* sps) {
+  bool nalu_size_error = prev_slice->nalu_size < 1;
+
+  bool slice_changed =
+      curr_slice->frame_num != prev_slice->frame_num ||
+      curr_slice->pic_parameter_set_id != prev_slice->pic_parameter_set_id ||
+      curr_slice->nal_ref_idc != prev_slice->nal_ref_idc ||
+      curr_slice->idr_pic_flag != prev_slice->idr_pic_flag ||
+      curr_slice->idr_pic_id != prev_slice->idr_pic_id;
+
+  bool slice_pic_order_changed = false;
+
+  if (sps->pic_order_cnt_type == 0) {
+    slice_pic_order_changed =
+        curr_slice->pic_order_cnt_lsb != prev_slice->pic_order_cnt_lsb ||
+        curr_slice->delta_pic_order_cnt_bottom !=
+            prev_slice->delta_pic_order_cnt_bottom;
+
+  } else if (sps->pic_order_cnt_type == 1) {
+    slice_pic_order_changed =
+        curr_slice->delta_pic_order_cnt0 != prev_slice->delta_pic_order_cnt0 ||
+        curr_slice->delta_pic_order_cnt1 != prev_slice->delta_pic_order_cnt1;
+  }
+
+  return (nalu_size_error || slice_changed || slice_pic_order_changed);
+}
+
 }  // namespace
 
 VideoDecoder::Result H264Decoder::StartNewFrame(const int sps_id,
@@ -243,31 +274,67 @@ VideoDecoder::Result H264Decoder::StartNewFrame(const int sps_id,
   return VideoDecoder::kOk;
 }
 
-H264Parser::Result H264Decoder::ProcessNextFrame(H264SliceHeader* curr_slice) {
-  H264NALU nalu;
+// Processes NALU's until reaching the end of the current frame.  To
+// know the end of the current frame it may be necessary to start parsing
+// the next frame.  If this occurs the NALU that was parsed needs to be
+// held over until the next frame.  This is done in |pending_nalu_|
+// Not every frame has a SPS/PPS associated with it.  The SPS/PPS must
+// occur on an IDR frame.  Store the last seen slice header in
+// |pending_slice_header_| so it will be available for the next frame.
+H264Parser::Result H264Decoder::ProcessNextFrame(
+    std::unique_ptr<H264SliceHeader>* resulting_slice_header) {
   bool reached_end_of_frame = false;
+  std::unique_ptr<H264SliceHeader> curr_slice_header =
+      std::move(pending_slice_header_);
+  std::unique_ptr<H264NALU> nalu = std::move(pending_nalu_);
   while (!reached_end_of_frame) {
-    if (parser_->AdvanceToNextNALU(&nalu) == H264Parser::kEOStream)
-      return H264Parser::kEOStream;
+    if (!nalu) {
+      nalu = std::make_unique<H264NALU>();
+      if (parser_->AdvanceToNextNALU(nalu.get()) == H264Parser::kEOStream)
+        break;
+    }
 
-    VLOG(4) << "NALU ID: " << nalu.nal_unit_type;
+    switch (nalu->nal_unit_type) {
+      case H264NALU::kIDRSlice:
+      case H264NALU::kNonIDRSlice: {
+        if (!curr_slice_header) {
+          curr_slice_header = std::make_unique<H264SliceHeader>();
+          if (parser_->ParseSliceHeader(*nalu, curr_slice_header.get()) !=
+              H264Parser::kOk)
+            return H264Parser::kInvalidStream;
+        }
 
-    switch (nalu.nal_unit_type) {
-      case H264NALU::kNonIDRSlice:
-      case H264NALU::kIDRSlice: {
-        if (parser_->ParseSliceHeader(nalu, curr_slice) != H264Parser::kOk)
-          return H264Parser::kInvalidStream;
+        const int pps_id = curr_slice_header->pic_parameter_set_id;
+        const int sps_id =
+            parser_->GetPPS(curr_slice_header->pic_parameter_set_id)
+                ->seq_parameter_set_id;
 
-        const int pps_id = curr_slice->pic_parameter_set_id;
-        const int sps_id = parser_->GetPPS(curr_slice->pic_parameter_set_id)
-                               ->seq_parameter_set_id;
+        if (!pending_slice_header_) {
+          if (StartNewFrame(sps_id, pps_id) != VideoDecoder::kOk)
+            return H264Parser::kInvalidStream;
 
+          pending_slice_header_ = std::move(curr_slice_header);
+          break;
+        }
+
+        if (IsNewFrame(pending_slice_header_.get(), curr_slice_header.get(),
+                       parser_->GetSPS(sps_id))) {
+          // The parser has read into the next frame.  This is the only
+          // way that the end of the current frame is indicated.  The
+          // parser can not be rewound, so the decoder needs to execute
+          // the end of this frame and save the next frames nalu data.
+          reached_end_of_frame = true;
+          *resulting_slice_header = std::move(pending_slice_header_);
+          pending_slice_header_ = std::move(curr_slice_header);
+          pending_nalu_ = std::move(nalu);
+
+          // |pending_slice_header_| needs to be set after
+          // |resulting_slice_header| which can't be done at the end of the
+          // function, so return here.
+          return H264Parser::kOk;
+        }
         // TODO(bchoobineh): Add additional logic for when
         // there are multiple slices per frame.
-
-        if (StartNewFrame(sps_id, pps_id) != VideoDecoder::kOk)
-          return H264Parser::kInvalidStream;
-
         break;
       }
       case H264NALU::kSPS: {
@@ -275,7 +342,7 @@ H264Parser::Result H264Decoder::ProcessNextFrame(H264SliceHeader* curr_slice) {
         if (parser_->ParseSPS(&sps_id) != H264Parser::kOk)
           return H264Parser::kInvalidStream;
 
-        if (curr_slice->nalu_size > 0)
+        if (pending_slice_header_)
           reached_end_of_frame = true;
         break;
       }
@@ -284,21 +351,20 @@ H264Parser::Result H264Decoder::ProcessNextFrame(H264SliceHeader* curr_slice) {
         if (parser_->ParsePPS(&pps_id) != H264Parser::kOk)
           return H264Parser::kInvalidStream;
 
-        if (curr_slice->nalu_size > 0)
+        if (pending_slice_header_)
           reached_end_of_frame = true;
         break;
       }
-      case H264NALU::kAUD:
-      case H264NALU::kEOSeq:
-      case H264NALU::kEOStream: {
-        break;
-      }
       default: {
+        reached_end_of_frame = true;
         break;
       }
     }
+
+    nalu = nullptr;
   }
 
+  *resulting_slice_header = std::move(pending_slice_header_);
   return H264Parser::kOk;
 }
 
@@ -375,17 +441,23 @@ std::unique_ptr<H264Decoder> H264Decoder::Create(
   CHECK(coded_size);
   LOG(INFO) << "h.264 coded size : " << coded_size->ToString();
 
-  // Currently only MM21 as an uncompressed format is supported
-  // because it can be converted by libyuv to NV12, which is then
-  // used to verify via MD5sum.
   constexpr uint32_t kDriverCodecFourcc = V4L2_PIX_FMT_H264_SLICE;
 
-  auto v4l2_ioctl = std::make_unique<V4L2IoctlShim>();
+  auto v4l2_ioctl = std::make_unique<V4L2IoctlShim>(kDriverCodecFourcc);
+  uint32_t uncompressed_fourcc = V4L2_PIX_FMT_NV12;
+  int num_planes = 1;
 
   if (!v4l2_ioctl->VerifyCapabilities(kDriverCodecFourcc,
-                                      kUncompressedFourcc)) {
-    LOG(ERROR) << "Device doesn't support the required FourCCs.";
-    return nullptr;
+                                      uncompressed_fourcc)) {
+    // Fall back to MM21 for MediaTek platforms
+    uncompressed_fourcc = v4l2_fourcc('M', 'M', '2', '1');
+    num_planes = 2;
+
+    if (!v4l2_ioctl->VerifyCapabilities(kDriverCodecFourcc,
+                                        uncompressed_fourcc)) {
+      LOG(ERROR) << "Device doesn't support the provided FourCCs.";
+      return nullptr;
+    }
   }
 
   // TODO(stevecho): might need to consider using more than 1 file descriptor
@@ -399,9 +471,9 @@ std::unique_ptr<H264Decoder> H264Decoder::Create(
   // |num_planes| represents separate memory buffers, not planes for Y, U, V.
   // https://www.kernel.org/doc/html/v5.10/userspace-api/media/v4l/pixfmt-v4l2-mplane.html#c.V4L.v4l2_plane_pix_format
   auto CAPTURE_queue = std::make_unique<V4L2Queue>(
-      V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, kUncompressedFourcc,
+      V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, uncompressed_fourcc,
       coded_size.value(),
-      /*num_planes=*/2, V4L2_MEMORY_MMAP,
+      /*num_planes=*/num_planes, V4L2_MEMORY_MMAP,
       /*num_buffers=*/kNumberOfBuffersInCaptureQueue);
 
   return base::WrapUnique(
@@ -425,16 +497,16 @@ VideoDecoder::Result H264Decoder::DecodeNextFrame(std::vector<char>& y_plane,
                                                   std::vector<char>& v_plane,
                                                   gfx::Size& size,
                                                   const int frame_number) {
-  H264SliceHeader slice;
-  if (ProcessNextFrame(&slice) == H264Parser::kInvalidStream) {
+  std::unique_ptr<H264SliceHeader> resulting_slice_header;
+  if (ProcessNextFrame(&resulting_slice_header) != H264Parser::kOk) {
     VLOG(4) << "Frame Processing Failed";
     return VideoDecoder::kError;
   }
 
-  if (slice.nalu_size <= 0)
+  if (!resulting_slice_header)
     return VideoDecoder::kEOStream;
 
-  if (SubmitSlice(slice, frame_number) != VideoDecoder::kOk) {
+  if (SubmitSlice(*resulting_slice_header, frame_number) != VideoDecoder::kOk) {
     VLOG(4) << "Slice Submission Failed";
     return VideoDecoder::kError;
   }
@@ -448,16 +520,25 @@ VideoDecoder::Result H264Decoder::DecodeNextFrame(std::vector<char>& y_plane,
       << "Capture Queue Index greater than number of buffers";
 
   scoped_refptr<MmapedBuffer> buffer = CAPTURE_queue_->GetBuffer(CAPTURE_index);
-  CHECK_EQ(buffer->mmaped_planes().size(), 2u)
-      << "MM21 should have exactly 2 planes but CAPTURE queue does not.";
-
-  CHECK_EQ(media::FourccToString(CAPTURE_queue_->fourcc()),
-           media::FourccToString(kUncompressedFourcc));
   size = CAPTURE_queue_->display_size();
-  ConvertMM21ToYUV(y_plane, u_plane, v_plane, size,
-                   static_cast<char*>(buffer->mmaped_planes()[0].start_addr),
-                   static_cast<char*>(buffer->mmaped_planes()[1].start_addr),
-                   CAPTURE_queue_->coded_size());
+  if (CAPTURE_queue_->fourcc() == V4L2_PIX_FMT_NV12) {
+    CHECK_EQ(buffer->mmaped_planes().size(), 1u)
+        << "NV12 should have exactly 1 plane but CAPTURE queue does not.";
+
+    ConvertNV12ToYUV(y_plane, u_plane, v_plane, size,
+                     static_cast<char*>(buffer->mmaped_planes()[0].start_addr),
+                     CAPTURE_queue_->coded_size());
+  } else if (CAPTURE_queue_->fourcc() == v4l2_fourcc('M', 'M', '2', '1')) {
+    CHECK_EQ(buffer->mmaped_planes().size(), 2u)
+        << "MM21 should have exactly 2 planes but CAPTURE queue does not.";
+
+    ConvertMM21ToYUV(y_plane, u_plane, v_plane, size,
+                     static_cast<char*>(buffer->mmaped_planes()[0].start_addr),
+                     static_cast<char*>(buffer->mmaped_planes()[1].start_addr),
+                     CAPTURE_queue_->coded_size());
+  } else {
+    LOG(FATAL) << "Unsupported CAPTURE queue format";
+  }
 
   if (!v4l2_ioctl_->QBuf(CAPTURE_queue_, CAPTURE_index)) {
     VLOG(4) << "VIDIOC_QBUF failed for CAPTURE queue.";

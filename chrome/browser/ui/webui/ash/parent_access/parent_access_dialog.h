@@ -13,8 +13,11 @@
 #include "chrome/browser/ui/webui/ash/parent_access/parent_access_ui.mojom.h"
 #include "chrome/browser/ui/webui/ash/parent_access/parent_access_ui_handler_delegate.h"
 #include "chrome/browser/ui/webui/ash/system_web_dialog_delegate.h"
+#include "third_party/abseil-cpp/absl/types/optional.h"
 
 namespace ash {
+
+class WindowDimmer;
 
 // Dialog which embeds the Parent Access UI, which verifies a
 // parent during a child session.
@@ -24,12 +27,12 @@ class ParentAccessDialog : public ParentAccessUIHandlerDelegate,
   struct Result {
     // The status of the result.
     enum class Status {
-      kApproved,   // The parent was verified and they approved.
-      kDeclined,   // The request was explicitly declined by the parent.
-      kCancelled,  // The request was cancelled/dismissed by the parent.
-      kError,      // An error occurred while handling the request.
+      kApproved,  // The parent was verified and they approved.
+      kDeclined,  // The request was explicitly declined by the parent.
+      kCanceled,  // The request was canceled/dismissed by the parent.
+      kError,     // An error occurred while handling the request.
     };
-    Status status = Status::kCancelled;
+    Status status = Status::kCanceled;
 
     // The Parent Access Token.  Only set if status is kVerified.
     std::string parent_access_token = "";
@@ -67,6 +70,9 @@ class ParentAccessDialog : public ParentAccessUIHandlerDelegate,
       parent_access_ui::mojom::ParentAccessParamsPtr params,
       Callback callback);
 
+  // Creates and shows additional dimmer underneath the dialog.
+  void ShowDimmer();
+
  protected:
   ~ParentAccessDialog() override;
 
@@ -75,6 +81,10 @@ class ParentAccessDialog : public ParentAccessUIHandlerDelegate,
 
   parent_access_ui::mojom::ParentAccessParamsPtr parent_access_params_;
   Callback callback_;
+
+  // The dimmer shown underneath the dialog in order to mitigate spoofing by the
+  // malicious website. The dimmer clearly renders over the browser UI.
+  std::unique_ptr<WindowDimmer> dimmer_;
 
   // The Parent Access Dialog result passed back to the caller when the dialog
   // completes.
@@ -107,6 +117,23 @@ class ParentAccessDialogProvider {
   // error.  virtual so it can be overridden for tests to fake dialog behavior.
   virtual ShowError Show(parent_access_ui::mojom::ParentAccessParamsPtr params,
                          ParentAccessDialog::Callback callback);
+
+  // Used for metrics. Those values are logged to UMA. Entries should not be
+  // renumbered and numeric values should never be reused. Please keep in sync
+  // with "FamilyLinkUserParentAccessWidgetShowDialogError" in
+  // src/tools/metrics/histograms/enums.xml.
+  enum class ShowErrorType {
+    kUnknown = 0,
+    kAlreadyVisible = 1,
+    kNotAChildUser = 2,
+    kMaxValue = kNotAChildUser
+  };
+
+  // Returns the name of parent access widget error histogram for a flow type.
+  static const std::string
+  GetParentAccessWidgetShowDialogErrorHistogramForFlowType(
+      absl::optional<parent_access_ui::mojom::ParentAccessParams::FlowType>
+          flow_type);
 };
 
 }  // namespace ash

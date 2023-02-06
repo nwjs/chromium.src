@@ -16,7 +16,6 @@
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/loader/resource_type_util.h"
-#include "third_party/blink/public/common/mobile_metrics/mobile_friendliness.h"
 #include "third_party/blink/public/web/web_document.h"
 #include "third_party/blink/public/web/web_document_loader.h"
 #include "third_party/blink/public/web/web_local_frame.h"
@@ -49,22 +48,21 @@ class MojoPageTimingSender : public PageTimingSender {
 
   ~MojoPageTimingSender() override = default;
 
-  void SendTiming(
-      const mojom::PageLoadTimingPtr& timing,
-      const mojom::FrameMetadataPtr& metadata,
-      const std::vector<blink::UseCounterFeature>& new_features,
-      std::vector<mojom::ResourceDataUpdatePtr> resources,
-      const mojom::FrameRenderDataUpdate& render_data,
-      const mojom::CpuTimingPtr& cpu_timing,
-      mojom::InputTimingPtr input_timing_delta,
-      const absl::optional<blink::MobileFriendliness>& mobile_friendliness,
-      uint32_t soft_navigation_count) override {
+  void SendTiming(const mojom::PageLoadTimingPtr& timing,
+                  const mojom::FrameMetadataPtr& metadata,
+                  const std::vector<blink::UseCounterFeature>& new_features,
+                  std::vector<mojom::ResourceDataUpdatePtr> resources,
+                  const mojom::FrameRenderDataUpdate& render_data,
+                  const mojom::CpuTimingPtr& cpu_timing,
+                  mojom::InputTimingPtr input_timing_delta,
+                  mojom::SubresourceLoadMetricsPtr subresource_load_metrics,
+                  uint32_t soft_navigation_count) override {
     DCHECK(page_load_metrics_);
     page_load_metrics_->UpdateTiming(
         limited_sending_mode_ ? CreatePageLoadTiming() : timing->Clone(),
         metadata->Clone(), new_features, std::move(resources),
         render_data.Clone(), cpu_timing->Clone(), std::move(input_timing_delta),
-        std::move(mobile_friendliness), soft_navigation_count);
+        std::move(subresource_load_metrics), soft_navigation_count);
   }
 
   void SetUpSmoothnessReporting(
@@ -136,6 +134,15 @@ void MetricsRenderFrameObserver::DidObserveLoadingBehavior(
     page_timing_metrics_sender_->DidObserveLoadingBehavior(behavior);
 }
 
+void MetricsRenderFrameObserver::DidObserveSubresourceLoad(
+    uint32_t number_of_subresources_loaded,
+    uint32_t number_of_subresource_loads_handled_by_service_worker) {
+  if (page_timing_metrics_sender_)
+    page_timing_metrics_sender_->DidObserveSubresourceLoad(
+        number_of_subresources_loaded,
+        number_of_subresource_loads_handled_by_service_worker);
+}
+
 void MetricsRenderFrameObserver::DidObserveNewFeatureUsage(
     const blink::UseCounterFeature& feature) {
   if (page_timing_metrics_sender_)
@@ -154,15 +161,6 @@ void MetricsRenderFrameObserver::DidObserveLayoutShift(
   if (page_timing_metrics_sender_)
     page_timing_metrics_sender_->DidObserveLayoutShift(score,
                                                        after_input_or_scroll);
-}
-
-void MetricsRenderFrameObserver::DidObserveLayoutNg(uint32_t all_block_count,
-                                                    uint32_t ng_block_count,
-                                                    uint32_t all_call_count,
-                                                    uint32_t ng_call_count) {
-  if (page_timing_metrics_sender_)
-    page_timing_metrics_sender_->DidObserveLayoutNg(
-        all_block_count, ng_block_count, all_call_count, ng_call_count);
 }
 
 void MetricsRenderFrameObserver::DidStartResponse(
@@ -392,12 +390,6 @@ void MetricsRenderFrameObserver::OnMainFrameViewportRectangleChanged(
 
 void MetricsRenderFrameObserver::OnFrameDetached() {
   WillDetach();
-}
-
-void MetricsRenderFrameObserver::DidChangeMobileFriendliness(
-    const blink::MobileFriendliness& mf) {
-  if (page_timing_metrics_sender_)
-    page_timing_metrics_sender_->DidObserveMobileFriendlinessChanged(mf);
 }
 
 bool MetricsRenderFrameObserver::SetUpSmoothnessReporting(
@@ -646,6 +638,9 @@ MetricsRenderFrameObserver::Timing MetricsRenderFrameObserver::GetTiming()
         ClampDelta(perf.LargestTextPaintForMetrics(), start);
     timing->paint_timing->largest_contentful_paint->largest_text_paint_size =
         perf.LargestTextPaintSizeForMetrics();
+    timing->paint_timing->largest_contentful_paint->type =
+        LargestContentfulPaintTypeToUKMFlags(
+            perf.LargestContentfulPaintTypeForMetrics());
   }
   if (perf.ExperimentalLargestImagePaintSize() > 0) {
     timing->paint_timing->experimental_largest_contentful_paint

@@ -8,7 +8,8 @@
 
 #include "base/bind.h"
 #include "base/callback_helpers.h"
-#include "base/threading/thread_task_runner_handle.h"
+#include "base/task/single_thread_task_runner.h"
+#include "chrome/browser/apps/app_service/app_icon/app_icon_factory.h"
 #include "chrome/browser/apps/app_service/app_icon/app_icon_util.h"
 #include "chrome/browser/apps/app_service/browser_app_instance_registry.h"
 #include "chrome/browser/apps/app_service/browser_app_instance_tracker.h"
@@ -26,7 +27,6 @@
 #include "chrome/browser/chromeos/policy/dlp/dlp_rules_manager_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/supervised_user/grit/supervised_user_unscaled_resources.h"
-#include "chrome/browser/web_applications/app_service/web_apps.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
 #include "components/account_id/account_id.h"
 #include "components/app_constants/constants.h"
@@ -40,6 +40,7 @@
 #include "components/services/app_service/public/cpp/preferred_apps_list.h"
 #include "components/services/app_service/public/cpp/types_util.h"
 #include "components/user_manager/user.h"
+#include "extensions/grit/extensions_browser_resources.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 
 namespace apps {
@@ -55,7 +56,9 @@ policy::DlpFilesController* GetDlpFilesController() {
 }  // namespace
 
 AppServiceProxyAsh::AppServiceProxyAsh(Profile* profile)
-    : AppServiceProxyBase(profile), icon_reader(profile), icon_writer(profile) {
+    : AppServiceProxyBase(profile),
+      icon_reader_(profile),
+      icon_writer_(profile) {
   if (web_app::IsWebAppsCrosapiEnabled()) {
     browser_app_instance_tracker_ =
         std::make_unique<apps::BrowserAppInstanceTracker>(profile_,
@@ -146,7 +149,7 @@ void AppServiceProxyAsh::Initialize() {
   if (!profile_->AsTestingProfile()) {
     app_platform_metrics_service_ =
         std::make_unique<AppPlatformMetricsService>(profile_);
-    base::ThreadTaskRunnerHandle::Get()->PostTask(
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, base::BindOnce(&AppServiceProxyAsh::InitAppPlatformMetrics,
                                   weak_ptr_factory_.GetWeakPtr()));
   }
@@ -212,11 +215,6 @@ void AppServiceProxyAsh::OnApps(std::vector<apps::mojom::AppPtr> deltas,
 
 void AppServiceProxyAsh::PauseApps(
     const std::map<std::string, PauseData>& pause_data) {
-  if (!base::FeatureList::IsEnabled(kAppServiceWithoutMojom) &&
-      !app_service_.is_connected()) {
-    return;
-  }
-
   for (auto& data : pause_data) {
     auto app_type = app_registry_cache_.GetAppType(data.first);
     if (app_type == AppType::kUnknown) {
@@ -232,14 +230,9 @@ void AppServiceProxyAsh::PauseApps(
 
     // The app pause dialog can't be loaded for unit tests.
     if (!data.second.should_show_pause_dialog || is_using_testing_profile_) {
-      if (base::FeatureList::IsEnabled(kAppServiceWithoutMojom)) {
-        auto* publisher = GetPublisher(app_type);
-        if (publisher) {
-          publisher->PauseApp(data.first);
-        }
-      } else {
-        app_service_->PauseApp(ConvertAppTypeToMojomAppType(app_type),
-                               data.first);
+      auto* publisher = GetPublisher(app_type);
+      if (publisher) {
+        publisher->PauseApp(data.first);
       }
       continue;
     }
@@ -256,11 +249,6 @@ void AppServiceProxyAsh::PauseApps(
 }
 
 void AppServiceProxyAsh::UnpauseApps(const std::set<std::string>& app_ids) {
-  if (!base::FeatureList::IsEnabled(kAppServiceWithoutMojom) &&
-      !app_service_.is_connected()) {
-    return;
-  }
-
   for (auto& app_id : app_ids) {
     auto app_type = app_registry_cache_.GetAppType(app_id);
     if (app_type == AppType::kUnknown) {
@@ -268,13 +256,9 @@ void AppServiceProxyAsh::UnpauseApps(const std::set<std::string>& app_ids) {
     }
 
     pending_pause_requests_.MaybeRemoveApp(app_id);
-    if (base::FeatureList::IsEnabled(kAppServiceWithoutMojom)) {
-      auto* publisher = GetPublisher(app_type);
-      if (publisher) {
-        publisher->UnpauseApp(app_id);
-      }
-    } else {
-      app_service_->UnpauseApp(ConvertAppTypeToMojomAppType(app_type), app_id);
+    auto* publisher = GetPublisher(app_type);
+    if (publisher) {
+      publisher->UnpauseApp(app_id);
     }
   }
 }
@@ -284,15 +268,6 @@ void AppServiceProxyAsh::SetResizeLocked(const std::string& app_id,
   auto* publisher = GetPublisher(app_registry_cache_.GetAppType(app_id));
   if (publisher) {
     publisher->SetResizeLocked(app_id, locked);
-  }
-}
-
-void AppServiceProxyAsh::SetResizeLocked(const std::string& app_id,
-                                         apps::mojom::OptionalBool locked) {
-  if (app_service_.is_connected()) {
-    auto app_type = app_registry_cache_.GetAppType(app_id);
-    app_service_->SetResizeLocked(ConvertAppTypeToMojomAppType(app_type),
-                                  app_id, locked);
   }
 }
 
@@ -367,6 +342,16 @@ void AppServiceProxyAsh::RegisterPublishersForTesting() {
   if (publisher_host_) {
     publisher_host_->RegisterPublishersForTesting();
   }
+}
+
+void AppServiceProxyAsh::ReadIconsForTesting(AppType app_type,
+                                             const std::string& app_id,
+                                             int32_t size_in_dip,
+                                             const IconKey& icon_key,
+                                             IconType icon_type,
+                                             LoadIconCallback callback) {
+  ReadIcons(app_type, app_id, size_in_dip, icon_key, icon_type,
+            std::move(callback));
 }
 
 void AppServiceProxyAsh::Shutdown() {
@@ -596,13 +581,9 @@ void AppServiceProxyAsh::OnPauseDialogClosed(apps::AppType app_type,
         });
   }
   if (should_pause_app) {
-    if (base::FeatureList::IsEnabled(kAppServiceWithoutMojom)) {
-      auto* publisher = GetPublisher(app_type);
-      if (publisher) {
-        publisher->PauseApp(app_id);
-      }
-    } else if (app_service_.is_connected()) {
-      app_service_->PauseApp(ConvertAppTypeToMojomAppType(app_type), app_id);
+    auto* publisher = GetPublisher(app_type);
+    if (publisher) {
+      publisher->PauseApp(app_id);
     }
   }
 }
@@ -709,27 +690,66 @@ bool AppServiceProxyAsh::ShouldReadIcons() {
   return base::FeatureList::IsEnabled(kUnifiedAppServiceIconLoading);
 }
 
-void AppServiceProxyAsh::ReadIcons(const std::string& app_id,
-                                   int32_t size_hint_in_dip,
+void AppServiceProxyAsh::ReadIcons(AppType app_type,
+                                   const std::string& app_id,
+                                   int32_t size_in_dip,
                                    const IconKey& icon_key,
                                    IconType icon_type,
                                    LoadIconCallback callback) {
-  icon_reader.ReadIcons(
-      app_id, size_hint_in_dip, static_cast<IconEffects>(icon_key.icon_effects),
-      icon_type,
+  icon_reader_.ReadIcons(
+      app_id, size_in_dip, icon_key, icon_type,
       base::BindOnce(&AppServiceProxyAsh::OnIconRead,
-                     weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+                     weak_ptr_factory_.GetWeakPtr(), app_type, app_id,
+                     size_in_dip,
+                     static_cast<IconEffects>(icon_key.icon_effects), icon_type,
+                     std::move(callback)));
 }
 
-void AppServiceProxyAsh::OnIconRead(LoadIconCallback callback,
+void AppServiceProxyAsh::OnIconRead(AppType app_type,
+                                    const std::string& app_id,
+                                    int32_t size_in_dip,
+                                    IconEffects icon_effects,
+                                    IconType icon_type,
+                                    LoadIconCallback callback,
                                     IconValuePtr iv) {
   if (!iv || (iv->uncompressed.isNull() && iv->compressed.empty())) {
-    // TODO(crbug.com/1380608): Call the publisher to fetch the icon.
-    std::move(callback).Run(std::make_unique<apps::IconValue>());
+    auto* publisher = GetPublisher(app_type);
+    if (!publisher) {
+      LOG(WARNING) << "No publisher for requested icon";
+      LoadIconFromResource(icon_type, size_in_dip, IDR_APP_DEFAULT_ICON,
+                           /*is_placeholder_icon=*/false, icon_effects,
+                           std::move(callback));
+      return;
+    }
+
+    icon_writer_.InstallIcon(
+        publisher, app_id, size_in_dip, icon_effects, icon_type,
+        base::BindOnce(&AppServiceProxyAsh::OnIconInstalled,
+                       weak_ptr_factory_.GetWeakPtr(), app_id, size_in_dip,
+                       icon_effects, icon_type, std::move(callback)));
     return;
   }
 
   std::move(callback).Run(std::move(iv));
+}
+
+void AppServiceProxyAsh::OnIconInstalled(const std::string& app_id,
+                                         int32_t size_in_dip,
+                                         IconEffects icon_effects,
+                                         IconType icon_type,
+                                         LoadIconCallback callback,
+                                         bool install_success) {
+  if (!install_success) {
+    LoadIconFromResource(icon_type, size_in_dip, IDR_APP_DEFAULT_ICON,
+                         /*is_placeholder_icon=*/false, icon_effects,
+                         std::move(callback));
+    return;
+  }
+
+  IconKey icon_key;
+  icon_key.icon_effects = icon_effects;
+  icon_reader_.ReadIcons(app_id, size_in_dip, icon_key, icon_type,
+                         std::move(callback));
 }
 
 }  // namespace apps

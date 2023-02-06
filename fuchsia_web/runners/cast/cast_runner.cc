@@ -138,14 +138,14 @@ void EnsureSoftwareVideoDecodersAreDisabled(
 // Exits the Runner process if creation of data storage fails for any reason.
 void SetDataParamsForMainContext(fuchsia::web::CreateContextParams* params) {
   // Set the web data quota based on the CastRunner configuration.
-  const absl::optional<base::Value>& config =
+  const absl::optional<base::Value::Dict>& config =
       fuchsia_component_support::LoadPackageConfig();
   if (!config)
     return;
 
   constexpr char kDataQuotaBytesSwitch[] = "data-quota-bytes";
   const absl::optional<int> data_quota_bytes =
-      config->FindIntPath(kDataQuotaBytesSwitch);
+      config->FindInt(kDataQuotaBytesSwitch);
   if (!data_quota_bytes)
     return;
 
@@ -171,12 +171,12 @@ void SetDataParamsForMainContext(fuchsia::web::CreateContextParams* params) {
 // CDM data persistence is always enabled, with an optional soft quota.
 // Exits the Runner if creation of CDM storage fails for any reason.
 void SetCdmParamsForMainContext(fuchsia::web::CreateContextParams* params) {
-  const absl::optional<base::Value>& config =
+  const absl::optional<base::Value::Dict>& config =
       fuchsia_component_support::LoadPackageConfig();
   if (config) {
     constexpr char kCdmDataQuotaBytesSwitch[] = "cdm-data-quota-bytes";
     const absl::optional<int> cdm_data_quota_bytes =
-        config->FindIntPath(kCdmDataQuotaBytesSwitch);
+        config->FindInt(kCdmDataQuotaBytesSwitch);
     if (cdm_data_quota_bytes)
       params->set_cdm_data_quota_bytes(*cdm_data_quota_bytes);
   }
@@ -249,13 +249,14 @@ class FrameHostComponent final
 
 }  // namespace
 
-CastRunner::CastRunner(WebInstanceHost* web_instance_host, bool is_headless)
+CastRunner::CastRunner(WebInstanceHostV1& web_instance_host, Options options)
     : web_instance_host_(web_instance_host),
-      is_headless_(is_headless),
+      is_headless_(options.headless),
+      disable_codegen_(options.disable_codegen),
       main_services_(std::make_unique<base::FilteredServiceDirectory>(
           base::ComponentContextForProcess()->svc())),
       main_context_(std::make_unique<WebContentRunner>(
-          web_instance_host_,
+          *web_instance_host_,
           base::BindRepeating(&CastRunner::GetMainWebInstanceConfig,
                               base::Unretained(this)))),
       isolated_services_(std::make_unique<base::FilteredServiceDirectory>(
@@ -428,6 +429,11 @@ WebContentRunner::WebInstanceConfig CastRunner::GetCommonWebInstanceConfig() {
         fuchsia::web::ContextFeatureFlags::VULKAN;
   }
 
+  if (disable_codegen_) {
+    *config.params.mutable_features() |=
+        fuchsia::web::ContextFeatureFlags::DISABLE_DYNAMIC_CODE_GENERATION;
+  }
+
   // When tests require that VULKAN be disabled, DRM must also be disabled.
   if (disable_vulkan_for_test_) {
     *config.params.mutable_features() &=
@@ -545,8 +551,8 @@ CastRunner::GetWebInstanceConfigForAppConfig(
 WebContentRunner* CastRunner::CreateIsolatedRunner(
     WebContentRunner::WebInstanceConfig config) {
   // Create an isolated context which will own the CastComponent.
-  auto context =
-      std::make_unique<WebContentRunner>(web_instance_host_, std::move(config));
+  auto context = std::make_unique<WebContentRunner>(*web_instance_host_,
+                                                    std::move(config));
   context->SetOnEmptyCallback(
       base::BindOnce(&CastRunner::OnIsolatedContextEmpty,
                      base::Unretained(this), base::Unretained(context.get())));

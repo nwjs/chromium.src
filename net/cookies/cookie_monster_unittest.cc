@@ -385,7 +385,6 @@ class CookieMonsterTestBase : public CookieStoreTest<T> {
   }
 
   void TestHostGarbageCollectHelper() {
-    const char kHistogramName[] = "Cookie.NumDomainPurgedKeys";
     int domain_max_cookies = CookieMonster::kDomainMaxCookies;
     int domain_purge_cookies = CookieMonster::kDomainPurgeCookies;
     const int more_than_enough_cookies = domain_max_cookies + 10;
@@ -401,10 +400,6 @@ class CookieMonsterTestBase : public CookieStoreTest<T> {
         // Count the number of cookies.
         EXPECT_LE(base::ranges::count(cookies, '='), domain_max_cookies);
       }
-      base::HistogramTester histogram_tester;
-      EXPECT_TRUE(cm->DoRecordPeriodicStatsForTesting());
-      histogram_tester.ExpectUniqueSample(kHistogramName, 1 /* sample */,
-                                          1 /* count */);
     }
 
     // Add a bunch of cookies on multiple hosts within a single eTLD.
@@ -438,11 +433,6 @@ class CookieMonsterTestBase : public CookieStoreTest<T> {
                            base::ranges::count(cookies_specific, '='));
       EXPECT_GE(total_cookies, domain_max_cookies - domain_purge_cookies);
       EXPECT_LE(total_cookies, domain_max_cookies);
-
-      base::HistogramTester histogram_tester;
-      EXPECT_TRUE(cm->DoRecordPeriodicStatsForTesting());
-      histogram_tester.ExpectUniqueSample(kHistogramName, 1 /* sample */,
-                                          1 /* count */);
     }
 
     // Test histogram for the number of registrable domains affected by domain
@@ -461,10 +451,6 @@ class CookieMonsterTestBase : public CookieStoreTest<T> {
           // Count the number of cookies.
           EXPECT_LE(base::ranges::count(cookies, '='), domain_max_cookies);
         }
-        base::HistogramTester histogram_tester;
-        EXPECT_TRUE(cm->DoRecordPeriodicStatsForTesting());
-        histogram_tester.ExpectUniqueSample(
-            kHistogramName, domain_num + 1 /* sample */, 1 /* count */);
       }
 
       // Triggering eviction again for a previously affected registrable domain
@@ -479,10 +465,6 @@ class CookieMonsterTestBase : public CookieStoreTest<T> {
         // Count the number of cookies.
         EXPECT_LE(base::ranges::count(cookies, '='), domain_max_cookies);
       }
-      base::HistogramTester histogram_tester;
-      EXPECT_TRUE(cm->DoRecordPeriodicStatsForTesting());
-      histogram_tester.ExpectUniqueSample(kHistogramName, 3 /* sample */,
-                                          1 /* count */);
     }
   }
 
@@ -1875,6 +1857,32 @@ TEST_F(CookieMonsterTest, SetCookieableSchemes) {
           CanonicalCookie::Create(http_url, "y=1", now, server_time,
                                   absl::nullopt /* cookie_partition_key */),
           http_url, false /*modify_httponly*/)
+          .status.HasExactlyExclusionReasonsForTesting(
+              {CookieInclusionStatus::EXCLUDE_NONCOOKIEABLE_SCHEME}));
+}
+
+TEST_F(CookieMonsterTest, SetCookieableSchemes_StoreInitialized) {
+  auto cm = std::make_unique<CookieMonster>(nullptr, net::NetLog::Get());
+  // Initializes the cookie store.
+  this->GetCookies(cm.get(), https_www_foo_.url(),
+                   CookiePartitionKeyCollection());
+
+  std::vector<std::string> schemes;
+  schemes.push_back("foo");
+  ResultSavingCookieCallback<bool> cookie_scheme_callback;
+  cm->SetCookieableSchemes(schemes, cookie_scheme_callback.MakeCallback());
+  cookie_scheme_callback.WaitUntilDone();
+  EXPECT_FALSE(cookie_scheme_callback.result());
+
+  base::Time now = base::Time::Now();
+  absl::optional<base::Time> server_time = absl::nullopt;
+  GURL foo_url("foo://host/path");
+  EXPECT_TRUE(
+      SetCanonicalCookieReturnAccessResult(
+          cm.get(),
+          CanonicalCookie::Create(foo_url, "y=1", now, server_time,
+                                  absl::nullopt /* cookie_partition_key */),
+          foo_url, false /*modify_httponly*/)
           .status.HasExactlyExclusionReasonsForTesting(
               {CookieInclusionStatus::EXCLUDE_NONCOOKIEABLE_SCHEME}));
 }

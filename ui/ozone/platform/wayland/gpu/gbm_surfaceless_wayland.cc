@@ -109,7 +109,7 @@ GbmSurfacelessWayland::GbmSurfacelessWayland(
     gl::GLDisplayEGL* display,
     WaylandBufferManagerGpu* buffer_manager,
     gfx::AcceleratedWidget widget)
-    : SurfacelessEGL(display, gfx::Size()),
+    : Presenter(display, gfx::Size()),
       buffer_manager_(buffer_manager),
       widget_(widget),
       solid_color_buffers_holder_(std::make_unique<SolidColorBufferHolder>()),
@@ -214,7 +214,7 @@ void GbmSurfacelessWayland::SwapBuffersAsync(
   PendingFrame* frame = unsubmitted_frames_.back().get();
   frame->completion_callback = std::move(completion_callback);
   frame->presentation_callback = std::move(presentation_callback);
-  frame->data = std::move(data);
+  frame->data = data;
 
   unsubmitted_frames_.push_back(
       std::make_unique<PendingFrame>(next_frame_id()));
@@ -258,7 +258,7 @@ void GbmSurfacelessWayland::PostSubBufferAsync(
     PresentationCallback presentation_callback,
     gl::FrameData data) {
   SwapBuffersAsync(std::move(completion_callback),
-                   std::move(presentation_callback), std::move(data));
+                   std::move(presentation_callback), data);
 }
 
 EGLConfig GbmSurfacelessWayland::GetConfig() {
@@ -345,6 +345,7 @@ void GbmSurfacelessWayland::MaybeSubmitFrames() {
     }
 
     buffer_manager_->CommitOverlays(widget_, submitted_frame->frame_id,
+                                    submitted_frame->data,
                                     std::move(submitted_frame->configs));
     submitted_frames_.push_back(std::move(submitted_frame));
   }

@@ -757,8 +757,6 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
     gpu_info_.sandboxed = sandbox_helper_->EnsureSandboxInitialized(
         watchdog_thread_.get(), &gpu_info_, gpu_preferences_);
   }
-  UMA_HISTOGRAM_BOOLEAN("GPU.Sandbox.InitializedSuccessfully",
-                        gpu_info_.sandboxed);
 
   init_successful_ = true;
 #if BUILDFLAG(IS_OZONE)
@@ -782,6 +780,9 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
 #if defined(USE_EGL) && !BUILDFLAG(IS_MAC)
   if (gpu_feature_info_.IsWorkaroundEnabled(CHECK_EGL_FENCE_BEFORE_WAIT))
     gl::GLFenceEGL::CheckEGLFenceBeforeWait();
+
+  if (gpu_feature_info_.IsWorkaroundEnabled(FLUSH_BEFORE_CREATE_FENCE))
+    gl::GLFenceEGL::FlushBeforeCreateFence();
 #endif
 
   return true;

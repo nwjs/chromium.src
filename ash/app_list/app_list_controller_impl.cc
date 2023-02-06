@@ -9,7 +9,6 @@
 
 #include "ash/app_list/app_list_badge_controller.h"
 #include "ash/app_list/app_list_bubble_presenter.h"
-#include "ash/app_list/app_list_metrics.h"
 #include "ash/app_list/app_list_model_provider.h"
 #include "ash/app_list/app_list_presenter_impl.h"
 #include "ash/app_list/views/app_list_main_view.h"
@@ -367,13 +366,20 @@ void AppListControllerImpl::GetAppInfoDialogBounds(
   std::move(callback).Run(bounds);
 }
 
-void AppListControllerImpl::ShowAppList() {
+void AppListControllerImpl::ShowAppList(AppListShowSource source) {
   if (Shell::Get()->session_controller()->GetSessionState() !=
       session_manager::SessionState::ACTIVE) {
     return;
   }
 
-  Show(GetDisplayIdToShowAppListOn(), absl::nullopt, base::TimeTicks());
+  last_open_source_ = source;
+  Show(GetDisplayIdToShowAppListOn(), source, base::TimeTicks(),
+       /*should_record_metrics=*/true);
+}
+
+AppListShowSource AppListControllerImpl::LastAppListShowSource() {
+  DCHECK(last_open_source_.has_value());
+  return last_open_source_.value();
 }
 
 aura::Window* AppListControllerImpl::GetWindow() {
@@ -430,7 +436,7 @@ void AppListControllerImpl::OnSessionStateChanged(
   // list is not considered shown since the browser window is shown over app
   // list upon login.
   if (!fullscreen_presenter_->GetTargetVisibility())
-    ShowHomeScreen();
+    ShowHomeScreen(AppListShowSource::kTabletMode);
 
   // Hide app list UI initially to prevent app list from flashing in background
   // while the initial app window is being shown.
@@ -468,13 +474,15 @@ bool AppListControllerImpl::GetTargetVisibility(
 }
 
 void AppListControllerImpl::Show(int64_t display_id,
-                                 absl::optional<AppListShowSource> show_source,
-                                 base::TimeTicks event_time_stamp) {
+                                 AppListShowSource show_source,
+                                 base::TimeTicks event_time_stamp,
+                                 bool should_record_metrics) {
   if (IsKioskSession())
     return;
 
-  if (show_source.has_value())
-    LogAppListShowSource(show_source.value(), !IsTabletMode());
+  last_open_source_ = show_source;
+  if (should_record_metrics)
+    LogAppListShowSource(show_source, !IsTabletMode());
 
   if (IsTabletMode()) {
     fullscreen_presenter_->Show(AppListViewState::kFullscreenAllApps,
@@ -544,12 +552,15 @@ ShelfAction AppListControllerImpl::ToggleAppList(
       return SHELF_ACTION_APP_LIST_BACK;
     }
     LogAppListShowSource(show_source, /*app_list_bubble=*/false);
+    last_open_source_ = show_source;
     return SHELF_ACTION_APP_LIST_SHOWN;
   }
 
   ShelfAction action = bubble_presenter_->Toggle(display_id);
-  if (action == SHELF_ACTION_APP_LIST_SHOWN)
+  if (action == SHELF_ACTION_APP_LIST_SHOWN) {
     LogAppListShowSource(show_source, /*app_list_bubble=*/true);
+    last_open_source_ = show_source;
+  }
   return action;
 }
 
@@ -798,12 +809,10 @@ void AppListControllerImpl::OnTabletModeStarted() {
 
   bubble_presenter_->Dismiss();
 
-  fullscreen_presenter_->OnTabletModeChanged(true);
-
   // Show the app list if the tablet mode starts.
   if (Shell::Get()->session_controller()->GetSessionState() ==
       session_manager::SessionState::ACTIVE) {
-    ShowHomeScreen();
+    ShowHomeScreen(AppListShowSource::kTabletMode);
   }
   UpdateFullscreenLauncherContainer();
 
@@ -834,7 +843,6 @@ void AppListControllerImpl::OnTabletModeEnded() {
       window && RootWindowController::ForWindow(window)
                     ->GetShelfLayoutManager()
                     ->HasVisibleWindow());
-  fullscreen_presenter_->OnTabletModeChanged(false);
   UpdateFullscreenLauncherContainer();
 
   // Dismiss the app list if the tablet mode ends.
@@ -900,7 +908,7 @@ void AppListControllerImpl::OnDisplayConfigurationChanged() {
       should_be_shown == fullscreen_presenter_->GetTargetVisibility()) {
     return;
   }
-  ShowHomeScreen();
+  ShowHomeScreen(AppListShowSource::kTabletMode);
 }
 
 void AppListControllerImpl::OnAssistantReady() {
@@ -933,7 +941,8 @@ void AppListControllerImpl::OnUiVisibilityChanged(
         }
 
         Show(GetDisplayIdToShowAppListOn(),
-             AppListShowSource::kAssistantEntryPoint, base::TimeTicks());
+             AppListShowSource::kAssistantEntryPoint, base::TimeTicks(),
+             /*should_record_metrics=*/true);
       }
       if (!IsTabletMode()) {
         bubble_presenter_->ShowEmbeddedAssistantUI();
@@ -1686,7 +1695,7 @@ void AppListControllerImpl::ResetHomeLauncherIfShown() {
   StartSearch(std::u16string());
 }
 
-void AppListControllerImpl::ShowHomeScreen() {
+void AppListControllerImpl::ShowHomeScreen(AppListShowSource show_source) {
   DCHECK(Shell::Get()->tablet_mode_controller()->InTabletMode());
 
   if (!Shell::Get()->session_controller()->IsActiveUserSessionStarted() ||
@@ -1696,16 +1705,16 @@ void AppListControllerImpl::ShowHomeScreen() {
   // App list is only considered shown for metrics if there are currently no
   // other visible windows shown over the app list after the tablet
   // transition.
-  absl::optional<AppListShowSource> show_source;
-  if (!GetTopVisibleWindow())
-    show_source = AppListShowSource::kTabletMode;
+  bool should_record_metrics = !GetTopVisibleWindow();
 
-  Show(GetDisplayIdToShowAppListOn(), show_source, base::TimeTicks());
+  Show(GetDisplayIdToShowAppListOn(), show_source, base::TimeTicks(),
+       should_record_metrics);
   UpdateHomeScreenVisibility();
 
   aura::Window* window = GetHomeScreenWindow();
   if (window)
     Shelf::ForWindow(window)->MaybeUpdateShelfBackground();
+  last_open_source_ = show_source;
 }
 
 void AppListControllerImpl::UpdateHomeScreenVisibility() {
@@ -1920,6 +1929,13 @@ int AppListControllerImpl::GetFullscreenLauncherContainerId() const {
       app_list_page_ != AppListState::kStateEmbeddedAssistant;
   return should_show_behind_apps ? kShellWindowId_HomeScreenContainer
                                  : kShellWindowId_AppListContainer;
+}
+
+int AppListControllerImpl::GetPreferredBubbleWidth(
+    aura::Window* root_window) const {
+  DCHECK(bubble_presenter_);
+
+  return bubble_presenter_->GetPreferredBubbleWidth(root_window);
 }
 
 }  // namespace ash

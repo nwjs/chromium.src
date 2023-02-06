@@ -109,7 +109,7 @@ SkiaOutputDeviceGL::SkiaOutputDeviceGL(
   int alpha_bits = 0;
   glBindFramebufferEXT(GL_FRAMEBUFFER, 0);
   gr_context->resetContext(kRenderTarget_GrGLBackendState);
-  const auto* version = current_gl->Version;
+  const auto* version = current_gl->Version.get();
   if (version->is_desktop_core_profile) {
     glGetFramebufferAttachmentParameterivEXT(
         GL_FRAMEBUFFER, GL_BACK_LEFT, GL_FRAMEBUFFER_ATTACHMENT_ALPHA_SIZE,
@@ -182,25 +182,12 @@ bool SkiaOutputDeviceGL::Reshape(
   GrGLFramebufferInfo framebuffer_info = {0};
   DCHECK_EQ(gl_surface_->GetBackingFramebufferObject(), 0u);
 
-  switch (color_type) {
-    case kRGBA_8888_SkColorType:
-      framebuffer_info.fFormat = GL_RGBA8;
-      break;
-    case kRGB_888x_SkColorType:
-      framebuffer_info.fFormat = GL_RGB8;
-      break;
-    case kRGB_565_SkColorType:
-      framebuffer_info.fFormat = GL_RGB565;
-      break;
-    case kRGBA_1010102_SkColorType:
-      framebuffer_info.fFormat = GL_RGB10_A2_EXT;
-      break;
-    case kRGBA_F16_SkColorType:
-      framebuffer_info.fFormat = GL_RGBA16F;
-      break;
-    default:
-      NOTREACHED() << "color_type: " << color_type;
-  }
+  auto* gr_context = context_state_->gr_context();
+
+  GrBackendFormat backend_format =
+      gr_context->defaultBackendFormat(color_type, GrRenderable::kYes);
+  DCHECK(backend_format.isValid()) << "color_type: " << color_type;
+  framebuffer_info.fFormat = backend_format.asGLFormatEnum();
 
   GrBackendRenderTarget render_target(size.width(), size.height(),
                                       characterization.sampleCount(),
@@ -209,12 +196,11 @@ bool SkiaOutputDeviceGL::Reshape(
                     ? kTopLeft_GrSurfaceOrigin
                     : kBottomLeft_GrSurfaceOrigin;
   sk_surface_ = SkSurface::MakeFromBackendRenderTarget(
-      context_state_->gr_context(), render_target, origin, color_type,
+      gr_context, render_target, origin, color_type,
       characterization.refColorSpace(), &surface_props);
   if (!sk_surface_) {
     LOG(ERROR) << "Couldn't create surface:"
-               << "\n  abandoned()="
-               << context_state_->gr_context()->abandoned()
+               << "\n  abandoned()=" << gr_context->abandoned()
                << "\n  color_type=" << color_type
                << "\n  framebuffer_info.fFBOID=" << framebuffer_info.fFBOID
                << "\n  framebuffer_info.fFormat=" << framebuffer_info.fFormat
@@ -247,16 +233,16 @@ void SkiaOutputDeviceGL::SwapBuffers(BufferPresentedCallback feedback,
   gfx::Size surface_size =
       gfx::Size(sk_surface_->width(), sk_surface_->height());
 
-  auto data = std::move(frame.data);
+  auto data = frame.data;
   if (supports_async_swap_) {
     auto callback = base::BindOnce(
         &SkiaOutputDeviceGL::DoFinishSwapBuffersAsync,
         weak_ptr_factory_.GetWeakPtr(), surface_size, std::move(frame));
     gl_surface_->SwapBuffersAsync(std::move(callback), std::move(feedback),
-                                  std::move(data));
+                                  data);
   } else {
     gfx::SwapResult result =
-        gl_surface_->SwapBuffers(std::move(feedback), std::move(data));
+        gl_surface_->SwapBuffers(std::move(feedback), data);
     DoFinishSwapBuffers(surface_size, std::move(frame),
                         gfx::SwapCompletionResult(result));
   }
@@ -270,18 +256,18 @@ void SkiaOutputDeviceGL::PostSubBuffer(const gfx::Rect& rect,
   gfx::Size surface_size =
       gfx::Size(sk_surface_->width(), sk_surface_->height());
 
-  auto data = std::move(frame.data);
+  auto data = frame.data;
   if (supports_async_swap_) {
     auto callback = base::BindOnce(
         &SkiaOutputDeviceGL::DoFinishSwapBuffersAsync,
         weak_ptr_factory_.GetWeakPtr(), surface_size, std::move(frame));
     gl_surface_->PostSubBufferAsync(rect.x(), rect.y(), rect.width(),
                                     rect.height(), std::move(callback),
-                                    std::move(feedback), std::move(data));
+                                    std::move(feedback), data);
   } else {
-    gfx::SwapResult result = gl_surface_->PostSubBuffer(
-        rect.x(), rect.y(), rect.width(), rect.height(), std::move(feedback),
-        std::move(data));
+    gfx::SwapResult result =
+        gl_surface_->PostSubBuffer(rect.x(), rect.y(), rect.width(),
+                                   rect.height(), std::move(feedback), data);
     DoFinishSwapBuffers(surface_size, std::move(frame),
                         gfx::SwapCompletionResult(result));
   }
@@ -294,16 +280,16 @@ void SkiaOutputDeviceGL::CommitOverlayPlanes(BufferPresentedCallback feedback,
   gfx::Size surface_size =
       gfx::Size(sk_surface_->width(), sk_surface_->height());
 
-  auto data = std::move(frame.data);
+  auto data = frame.data;
   if (supports_async_swap_) {
     auto callback = base::BindOnce(
         &SkiaOutputDeviceGL::DoFinishSwapBuffersAsync,
         weak_ptr_factory_.GetWeakPtr(), surface_size, std::move(frame));
     gl_surface_->CommitOverlayPlanesAsync(std::move(callback),
-                                          std::move(feedback), std::move(data));
+                                          std::move(feedback), data);
   } else {
     gfx::SwapResult result =
-        gl_surface_->CommitOverlayPlanes(std::move(feedback), std::move(data));
+        gl_surface_->CommitOverlayPlanes(std::move(feedback), data);
     DoFinishSwapBuffers(surface_size, std::move(frame),
                         gfx::SwapCompletionResult(result));
   }
@@ -322,23 +308,6 @@ void SkiaOutputDeviceGL::DoFinishSwapBuffers(const gfx::Size& size,
                                              gfx::SwapCompletionResult result) {
   DCHECK(result.release_fence.is_null());
   FinishSwapBuffers(std::move(result), size, std::move(frame));
-}
-
-bool SkiaOutputDeviceGL::SetDrawRectangle(const gfx::Rect& draw_rectangle) {
-  return gl_surface_->SetDrawRectangle(draw_rectangle);
-}
-
-void SkiaOutputDeviceGL::SetGpuVSyncEnabled(bool enabled) {
-  gl_surface_->SetGpuVSyncEnabled(enabled);
-}
-
-void SkiaOutputDeviceGL::SetEnableDCLayers(bool enable) {
-  gl_surface_->SetEnableDCLayers(enable);
-}
-
-void SkiaOutputDeviceGL::ScheduleOverlays(
-    SkiaOutputSurface::OverlayList overlays) {
-  NOTREACHED();
 }
 
 void SkiaOutputDeviceGL::EnsureBackbuffer() {

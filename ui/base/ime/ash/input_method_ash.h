@@ -14,6 +14,7 @@
 #include "base/callback_forward.h"
 #include "base/component_export.h"
 #include "base/memory/weak_ptr.h"
+#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/base/ime/ash/text_input_method.h"
 #include "ui/base/ime/ash/text_input_target.h"
 #include "ui/base/ime/ash/typing_session_manager.h"
@@ -21,6 +22,7 @@
 #include "ui/base/ime/composition_text.h"
 #include "ui/base/ime/input_method_base.h"
 #include "ui/base/ime/text_input_client.h"
+#include "ui/events/event_dispatcher.h"
 
 namespace ui {
 
@@ -78,7 +80,6 @@ class COMPONENT_EXPORT(UI_BASE_IME_ASH) InputMethodAsh
   bool ClearGrammarFragments(const gfx::Range& range) override;
   bool AddGrammarFragments(
       const std::vector<GrammarFragment>& fragments) override;
-  bool SetSelectionRange(uint32_t start, uint32_t end) override;
   void UpdateCompositionText(const CompositionText& text,
                              uint32_t cursor_pos,
                              bool visible) override;
@@ -87,7 +88,7 @@ class COMPONENT_EXPORT(UI_BASE_IME_ASH) InputMethodAsh
   SurroundingTextInfo GetSurroundingTextInfo() override;
   void SendKeyEvent(KeyEvent* event) override;
   InputMethod* GetInputMethod() override;
-  void ConfirmCompositionText(bool reset_engine, bool keep_selection) override;
+  void ConfirmComposition(bool reset_engine) override;
   bool HasCompositionText() override;
   std::u16string GetCompositionText() override;
   ukm::SourceId GetClientSourceForMetrics() override;
@@ -173,9 +174,6 @@ class COMPONENT_EXPORT(UI_BASE_IME_ASH) InputMethodAsh
   // Hides the composition text.
   void HidePreeditText();
 
-  // Whether the focused text input client supports inline composition.
-  bool CanComposeInline() const;
-
   TextInputMethod::InputContext GetInputContext() const;
 
   // Called from the engine when it completes processing.
@@ -224,6 +222,11 @@ class COMPONENT_EXPORT(UI_BASE_IME_ASH) InputMethodAsh
   bool handling_key_event_ = false;
 
   TypingSessionManager typing_session_manager_;
+
+  // Use by `DispatchKeyEvent` to return a proper event dispatch details
+  // when IME engine's `ProcessKeyEvent` invokes `ProcessKeyEventDone`
+  // synchronously.
+  absl::optional<EventDispatchDetails> dispatch_details_;
 
   // Used for making callbacks.
   base::WeakPtrFactory<InputMethodAsh> weak_ptr_factory_{this};

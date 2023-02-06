@@ -469,8 +469,13 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // that data types are configured and ready to use. See
 // SyncService::IsEngineInitialized() for details. If not succeeded a GREYAssert
 // is induced.
-- (void)waitForSyncInitialized:(BOOL)isInitialized
-                   syncTimeout:(base::TimeDelta)timeout;
+- (void)waitForSyncEngineInitialized:(BOOL)isInitialized
+                         syncTimeout:(base::TimeDelta)timeout;
+
+// Waits for the sync feature to be enabled/disabled. See SyncService::
+// IsSyncFeatureEnabled() for details. If not succeeded a GREYAssert is induced.
+- (void)waitForSyncFeatureEnabled:(BOOL)isEnabled
+                      syncTimeout:(base::TimeDelta)timeout;
 
 // Returns the current sync cache GUID. The sync server must be running when
 // calling this.
@@ -674,6 +679,9 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // Returns whether the Web Channels feature is enabled.
 - (BOOL)isWebChannelsEnabled;
 
+// Returns whether SF Symbols are used.
+- (BOOL)isSFSymbolEnabled;
+
 #pragma mark - ContentSettings
 
 // Gets the current value of the popup content setting preference for the
@@ -792,14 +800,6 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 
 // Clear the watcher list, stopping monitoring.
 - (void)stopWatcher;
-
-@end
-
-// Helpers that only compile under EarlGrey 1 are included in this "EG1"
-// category.
-// TODO(crbug.com/922813): Update these helpers to compile under EG2 and move
-// them into the main class declaration as they are converted.
-@interface ChromeEarlGreyImpl (EG1)
 
 @end
 

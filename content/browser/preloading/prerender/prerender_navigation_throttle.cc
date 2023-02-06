@@ -108,11 +108,9 @@ PrerenderNavigationThrottle::MaybeCreateThrottleFor(
   auto* navigation_request = NavigationRequest::From(navigation_handle);
   FrameTreeNode* frame_tree_node = navigation_request->frame_tree_node();
   if (frame_tree_node->IsMainFrame() &&
-      frame_tree_node->frame_tree()->is_prerendering()) {
-    DCHECK(blink::features::IsPrerender2Enabled());
-
+      frame_tree_node->frame_tree().is_prerendering()) {
     PrerenderHost* prerender_host =
-        static_cast<PrerenderHost*>(frame_tree_node->frame_tree()->delegate());
+        static_cast<PrerenderHost*>(frame_tree_node->frame_tree().delegate());
     DCHECK(prerender_host);
 
     return base::WrapUnique(new PrerenderNavigationThrottle(navigation_handle));
@@ -139,7 +137,7 @@ PrerenderNavigationThrottle::PrerenderNavigationThrottle(
     : NavigationThrottle(navigation_handle) {
   auto* navigation_request = NavigationRequest::From(navigation_handle);
   PrerenderHost* prerender_host = static_cast<PrerenderHost*>(
-      navigation_request->frame_tree_node()->frame_tree()->delegate());
+      navigation_request->frame_tree_node()->frame_tree().delegate());
   DCHECK(prerender_host);
 
   // This throttle is responsible for setting the initial navigation id on the
@@ -157,13 +155,11 @@ PrerenderNavigationThrottle::PrerenderNavigationThrottle(
 
 NavigationThrottle::ThrottleCheckResult
 PrerenderNavigationThrottle::WillStartOrRedirectRequest(bool is_redirection) {
-  DCHECK(blink::features::IsPrerender2Enabled());
-
   // Take the root frame tree node of the prerendering page.
   auto* navigation_request = NavigationRequest::From(navigation_handle());
   FrameTreeNode* frame_tree_node = navigation_request->frame_tree_node();
   DCHECK(frame_tree_node->IsMainFrame());
-  DCHECK(frame_tree_node->frame_tree()->is_prerendering());
+  DCHECK(frame_tree_node->frame_tree().is_prerendering());
 
   PrerenderHostRegistry* prerender_host_registry =
       frame_tree_node->current_frame_host()
@@ -172,7 +168,7 @@ PrerenderNavigationThrottle::WillStartOrRedirectRequest(bool is_redirection) {
 
   // Get the prerender host of the prerendering page.
   PrerenderHost* prerender_host =
-      static_cast<PrerenderHost*>(frame_tree_node->frame_tree()->delegate());
+      static_cast<PrerenderHost*>(frame_tree_node->frame_tree().delegate());
   DCHECK(prerender_host);
 
   // Navigations after the initial prerendering navigation are disallowed.
@@ -283,7 +279,7 @@ PrerenderNavigationThrottle::WillProcessResponse() {
 
   FrameTreeNode* frame_tree_node = navigation_request->frame_tree_node();
   DCHECK(frame_tree_node->IsMainFrame());
-  DCHECK(frame_tree_node->frame_tree()->is_prerendering());
+  DCHECK(frame_tree_node->frame_tree().is_prerendering());
 
   PrerenderHostRegistry* prerender_host_registry =
       frame_tree_node->current_frame_host()

@@ -14,7 +14,6 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/types/pass_key.h"
 #include "build/build_config.h"
-#include "components/viz/common/resources/resource_format.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_backing.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_manager.h"
 #include "gpu/gpu_gles2_export.h"
@@ -42,6 +41,11 @@ class IUnknown;
 #include "base/android/scoped_hardware_buffer_fence_sync.h"
 
 extern "C" typedef struct AHardwareBuffer AHardwareBuffer;
+#endif
+
+#if BUILDFLAG(IS_WIN)
+#include <d3d11.h>
+#include <wrl/client.h>
 #endif
 
 typedef unsigned int GLenum;
@@ -497,6 +501,8 @@ class GPU_GLES2_EXPORT OverlayImageRepresentation
     DCompLayerContent(
         Microsoft::WRL::ComPtr<IDCompositionSurface> dcomp_surface,
         uint64_t surface_serial);
+    DCompLayerContent(const DCompLayerContent&);
+    DCompLayerContent& operator=(const DCompLayerContent&);
     ~DCompLayerContent();
 
     IUnknown* content() const { return content_.Get(); }
@@ -788,6 +794,38 @@ class GPU_GLES2_EXPORT RasterImageRepresentation
       const absl::optional<SkColor4f>& clear_color,
       bool visible) = 0;
   virtual void EndWriteAccess(base::OnceClosure callback) = 0;
+};
+
+class GPU_GLES2_EXPORT VideoDecodeImageRepresentation
+    : public SharedImageRepresentation {
+ public:
+  class GPU_GLES2_EXPORT ScopedWriteAccess
+      : public ScopedAccessBase<VideoDecodeImageRepresentation> {
+   public:
+    ScopedWriteAccess(base::PassKey<VideoDecodeImageRepresentation> pass_key,
+                      VideoDecodeImageRepresentation* representation);
+    ~ScopedWriteAccess();
+
+#if BUILDFLAG(IS_WIN)
+    Microsoft::WRL::ComPtr<ID3D11Texture2D> GetD3D11Texture() const {
+      return representation()->GetD3D11Texture();
+    }
+#endif  // BUILDFLAG(IS_WIN)
+  };
+
+  VideoDecodeImageRepresentation(SharedImageManager* manager,
+                                 SharedImageBacking* backing,
+                                 MemoryTypeTracker* tracker);
+  ~VideoDecodeImageRepresentation() override;
+
+  virtual std::unique_ptr<ScopedWriteAccess> BeginScopedWriteAccess();
+
+ protected:
+#if BUILDFLAG(IS_WIN)
+  virtual Microsoft::WRL::ComPtr<ID3D11Texture2D> GetD3D11Texture() const = 0;
+#endif  // BUILDFLAG(IS_WIN)
+  virtual bool BeginWriteAccess() = 0;
+  virtual void EndWriteAccess() = 0;
 };
 
 }  // namespace gpu

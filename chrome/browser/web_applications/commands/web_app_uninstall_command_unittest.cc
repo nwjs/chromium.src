@@ -6,11 +6,13 @@
 
 #include <memory>
 
+#include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/test/bind.h"
 #include "base/test/gmock_callback_support.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/task_environment.h"
+#include "build/buildflag.h"
 #include "chrome/browser/web_applications/test/fake_web_app_provider.h"
 #include "chrome/browser/web_applications/test/mock_file_utils_wrapper.h"
 #include "chrome/browser/web_applications/test/mock_os_integration_manager.h"
@@ -32,6 +34,10 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/origin.h"
 
+#if BUILDFLAG(IS_WIN)
+#include "base/test/gmock_callback_support.h"
+#endif
+
 namespace web_app {
 namespace {
 
@@ -47,6 +53,10 @@ class WebAppUninstallCommandTest : public WebAppTest {
         base::MakeRefCounted<testing::StrictMock<MockFileUtilsWrapper>>();
     provider->SetIconManager(
         std::make_unique<WebAppIconManager>(profile(), file_utils_wrapper_));
+    auto manager =
+        std::make_unique<testing::StrictMock<MockOsIntegrationManager>>();
+    os_integration_manager_ = manager.get();
+    provider->SetOsIntegrationManager(std::move(manager));
     test::AwaitStartWebAppProviderAndSubsystems(profile());
   }
 
@@ -57,7 +67,8 @@ class WebAppUninstallCommandTest : public WebAppTest {
 
   WebAppProvider* provider() { return WebAppProvider::GetForTest(profile()); }
 
-  testing::StrictMock<MockOsIntegrationManager> os_integration_manager_;
+  raw_ptr<testing::StrictMock<MockOsIntegrationManager>>
+      os_integration_manager_;
   scoped_refptr<testing::StrictMock<MockFileUtilsWrapper>> file_utils_wrapper_;
   base::HistogramTester histogram_tester_;
 };
@@ -72,7 +83,9 @@ TEST_F(WebAppUninstallCommandTest, SimpleUninstallInternal) {
   }
 
   OsHooksErrors result;
-  EXPECT_CALL(os_integration_manager_, UninstallAllOsHooks(app_id, testing::_))
+  EXPECT_CALL(*os_integration_manager_, Synchronize(app_id, testing::_))
+      .WillOnce(base::test::RunOnceCallback<1>());
+  EXPECT_CALL(*os_integration_manager_, UninstallAllOsHooks(app_id, testing::_))
       .WillOnce(base::test::RunOnceCallback<1>(result));
 
   base::FilePath deletion_path = GetManifestResourcesDirectoryForApp(
@@ -89,12 +102,10 @@ TEST_F(WebAppUninstallCommandTest, SimpleUninstallInternal) {
             EXPECT_EQ(webapps::UninstallResultCode::kSuccess, code);
             loop.Quit();
           }),
-          profile(), &os_integration_manager_, &provider()->sync_bridge(),
-          &provider()->icon_manager(), &provider()->registrar(),
-          &provider()->install_manager(), &provider()->translation_manager()));
+          profile()));
 
   loop.Run();
-  EXPECT_EQ(provider()->registrar().GetAppById(app_id), nullptr);
+  EXPECT_EQ(provider()->registrar_unsafe().GetAppById(app_id), nullptr);
 }
 
 TEST_F(WebAppUninstallCommandTest, SimpleUninstallExternal) {
@@ -107,7 +118,9 @@ TEST_F(WebAppUninstallCommandTest, SimpleUninstallExternal) {
   }
 
   OsHooksErrors result;
-  EXPECT_CALL(os_integration_manager_, UninstallAllOsHooks(app_id, testing::_))
+  EXPECT_CALL(*os_integration_manager_, Synchronize(app_id, testing::_))
+      .WillOnce(base::test::RunOnceCallback<1>());
+  EXPECT_CALL(*os_integration_manager_, UninstallAllOsHooks(app_id, testing::_))
       .WillOnce(base::test::RunOnceCallback<1>(result));
 
   base::FilePath deletion_path = GetManifestResourcesDirectoryForApp(
@@ -125,12 +138,10 @@ TEST_F(WebAppUninstallCommandTest, SimpleUninstallExternal) {
             EXPECT_EQ(webapps::UninstallResultCode::kSuccess, code);
             loop.Quit();
           }),
-          profile(), &os_integration_manager_, &provider()->sync_bridge(),
-          &provider()->icon_manager(), &provider()->registrar(),
-          &provider()->install_manager(), &provider()->translation_manager()));
+          profile()));
 
   loop.Run();
-  EXPECT_EQ(provider()->registrar().GetAppById(app_id), nullptr);
+  EXPECT_EQ(provider()->registrar_unsafe().GetAppById(app_id), nullptr);
 }
 
 TEST_F(WebAppUninstallCommandTest, FailedDataDeletion) {
@@ -143,7 +154,9 @@ TEST_F(WebAppUninstallCommandTest, FailedDataDeletion) {
   }
 
   OsHooksErrors result;
-  EXPECT_CALL(os_integration_manager_, UninstallAllOsHooks(app_id, testing::_))
+  EXPECT_CALL(*os_integration_manager_, Synchronize(app_id, testing::_))
+      .WillOnce(base::test::RunOnceCallback<1>());
+  EXPECT_CALL(*os_integration_manager_, UninstallAllOsHooks(app_id, testing::_))
       .WillOnce(base::test::RunOnceCallback<1>(result));
 
   base::FilePath deletion_path = GetManifestResourcesDirectoryForApp(
@@ -160,12 +173,10 @@ TEST_F(WebAppUninstallCommandTest, FailedDataDeletion) {
             EXPECT_EQ(webapps::UninstallResultCode::kError, code);
             loop.Quit();
           }),
-          profile(), &os_integration_manager_, &provider()->sync_bridge(),
-          &provider()->icon_manager(), &provider()->registrar(),
-          &provider()->install_manager(), &provider()->translation_manager()));
+          profile()));
 
   loop.Run();
-  EXPECT_EQ(provider()->registrar().GetAppById(app_id), nullptr);
+  EXPECT_EQ(provider()->registrar_unsafe().GetAppById(app_id), nullptr);
 }
 
 TEST_F(WebAppUninstallCommandTest, FailedOsHooksSetting) {
@@ -179,7 +190,9 @@ TEST_F(WebAppUninstallCommandTest, FailedOsHooksSetting) {
 
   OsHooksErrors result;
   result.set(true);
-  EXPECT_CALL(os_integration_manager_, UninstallAllOsHooks(app_id, testing::_))
+  EXPECT_CALL(*os_integration_manager_, Synchronize(app_id, testing::_))
+      .WillOnce(base::test::RunOnceCallback<1>());
+  EXPECT_CALL(*os_integration_manager_, UninstallAllOsHooks(app_id, testing::_))
       .WillOnce(base::test::RunOnceCallback<1>(result));
 
   base::FilePath deletion_path = GetManifestResourcesDirectoryForApp(
@@ -196,12 +209,10 @@ TEST_F(WebAppUninstallCommandTest, FailedOsHooksSetting) {
             EXPECT_EQ(webapps::UninstallResultCode::kError, code);
             loop.Quit();
           }),
-          profile(), &os_integration_manager_, &provider()->sync_bridge(),
-          &provider()->icon_manager(), &provider()->registrar(),
-          &provider()->install_manager(), &provider()->translation_manager()));
+          profile()));
 
   loop.Run();
-  EXPECT_EQ(provider()->registrar().GetAppById(app_id), nullptr);
+  EXPECT_EQ(provider()->registrar_unsafe().GetAppById(app_id), nullptr);
 }
 
 TEST_F(WebAppUninstallCommandTest, TryToUninstallNonExistentApp) {
@@ -209,7 +220,9 @@ TEST_F(WebAppUninstallCommandTest, TryToUninstallNonExistentApp) {
                                     WebAppManagement::kSync);
   AppId app_id = web_app->app_id();
 
-  EXPECT_CALL(os_integration_manager_, UninstallAllOsHooks(app_id, testing::_))
+  EXPECT_CALL(*os_integration_manager_, Synchronize(app_id, testing::_))
+      .Times(0);
+  EXPECT_CALL(*os_integration_manager_, UninstallAllOsHooks(app_id, testing::_))
       .Times(0);
 
   base::FilePath deletion_path = GetManifestResourcesDirectoryForApp(
@@ -226,12 +239,10 @@ TEST_F(WebAppUninstallCommandTest, TryToUninstallNonExistentApp) {
             EXPECT_EQ(webapps::UninstallResultCode::kNoAppToUninstall, code);
             loop.Quit();
           }),
-          profile(), &os_integration_manager_, &provider()->sync_bridge(),
-          &provider()->icon_manager(), &provider()->registrar(),
-          &provider()->install_manager(), &provider()->translation_manager()));
+          profile()));
 
   loop.Run();
-  EXPECT_EQ(provider()->registrar().GetAppById(app_id), nullptr);
+  EXPECT_EQ(provider()->registrar_unsafe().GetAppById(app_id), nullptr);
 }
 
 TEST_F(WebAppUninstallCommandTest, CommandManagerShutdownThrowsError) {
@@ -243,7 +254,9 @@ TEST_F(WebAppUninstallCommandTest, CommandManagerShutdownThrowsError) {
     update->CreateApp(std::move(web_app));
   }
 
-  EXPECT_CALL(os_integration_manager_, UninstallAllOsHooks(app_id, testing::_))
+  EXPECT_CALL(*os_integration_manager_, Synchronize(app_id, testing::_))
+      .Times(0);
+  EXPECT_CALL(*os_integration_manager_, UninstallAllOsHooks(app_id, testing::_))
       .Times(0);
 
   base::FilePath deletion_path = GetManifestResourcesDirectoryForApp(
@@ -258,13 +271,11 @@ TEST_F(WebAppUninstallCommandTest, CommandManagerShutdownThrowsError) {
           base::BindLambdaForTesting([&](webapps::UninstallResultCode code) {
             EXPECT_EQ(webapps::UninstallResultCode::kError, code);
           }),
-          profile(), &os_integration_manager_, &provider()->sync_bridge(),
-          &provider()->icon_manager(), &provider()->registrar(),
-          &provider()->install_manager(), &provider()->translation_manager()));
+          profile()));
 
   provider()->command_manager().Shutdown();
   // App is not uninstalled.
-  EXPECT_NE(provider()->registrar().GetAppById(app_id), nullptr);
+  EXPECT_NE(provider()->registrar_unsafe().GetAppById(app_id), nullptr);
 }
 
 TEST_F(WebAppUninstallCommandTest, UserUninstalledPrefsFilled) {
@@ -281,7 +292,9 @@ TEST_F(WebAppUninstallCommandTest, UserUninstalledPrefsFilled) {
                    .DoesAppIdExist(app_id));
 
   OsHooksErrors result;
-  EXPECT_CALL(os_integration_manager_, UninstallAllOsHooks(app_id, testing::_))
+  EXPECT_CALL(*os_integration_manager_, Synchronize(app_id, testing::_))
+      .WillOnce(base::test::RunOnceCallback<1>());
+  EXPECT_CALL(*os_integration_manager_, UninstallAllOsHooks(app_id, testing::_))
       .WillOnce(base::test::RunOnceCallback<1>(result));
 
   base::FilePath deletion_path = GetManifestResourcesDirectoryForApp(
@@ -298,12 +311,10 @@ TEST_F(WebAppUninstallCommandTest, UserUninstalledPrefsFilled) {
             EXPECT_EQ(webapps::UninstallResultCode::kSuccess, code);
             loop.Quit();
           }),
-          profile(), &os_integration_manager_, &provider()->sync_bridge(),
-          &provider()->icon_manager(), &provider()->registrar(),
-          &provider()->install_manager(), &provider()->translation_manager()));
+          profile()));
 
   loop.Run();
-  EXPECT_EQ(provider()->registrar().GetAppById(app_id), nullptr);
+  EXPECT_EQ(provider()->registrar_unsafe().GetAppById(app_id), nullptr);
   EXPECT_TRUE(UserUninstalledPreinstalledWebAppPrefs(profile()->GetPrefs())
                   .DoesAppIdExist(app_id));
 }
@@ -316,9 +327,11 @@ TEST_F(WebAppUninstallCommandTest, ExternalConfigMapMissing) {
     ScopedRegistryUpdate update(&provider()->sync_bridge());
     update->CreateApp(std::move(web_app));
   }
-  EXPECT_TRUE(provider()->registrar().IsLocallyInstalled(app_id));
+  EXPECT_TRUE(provider()->registrar_unsafe().IsLocallyInstalled(app_id));
   OsHooksErrors result;
-  EXPECT_CALL(os_integration_manager_, UninstallAllOsHooks(app_id, testing::_))
+  EXPECT_CALL(*os_integration_manager_, Synchronize(app_id, testing::_))
+      .WillOnce(base::test::RunOnceCallback<1>());
+  EXPECT_CALL(*os_integration_manager_, UninstallAllOsHooks(app_id, testing::_))
       .WillOnce(base::test::RunOnceCallback<1>(result));
 
   base::FilePath deletion_path = GetManifestResourcesDirectoryForApp(
@@ -335,12 +348,10 @@ TEST_F(WebAppUninstallCommandTest, ExternalConfigMapMissing) {
             EXPECT_EQ(webapps::UninstallResultCode::kSuccess, code);
             loop.Quit();
           }),
-          profile(), &os_integration_manager_, &provider()->sync_bridge(),
-          &provider()->icon_manager(), &provider()->registrar(),
-          &provider()->install_manager(), &provider()->translation_manager()));
+          profile()));
 
   loop.Run();
-  EXPECT_EQ(provider()->registrar().GetAppById(app_id), nullptr);
+  EXPECT_EQ(provider()->registrar_unsafe().GetAppById(app_id), nullptr);
 
   EXPECT_THAT(histogram_tester_.GetAllSamples(
                   "WebApp.Preinstalled.ExternalConfigMapAbsentDuringUninstall"),
@@ -360,20 +371,24 @@ TEST_F(WebAppUninstallCommandTest, RemoveSourceAndTriggerOSUninstallation) {
     update->CreateApp(std::move(web_app));
   }
 
-  EXPECT_CALL(os_integration_manager_, UninstallAllOsHooks(app_id, testing::_))
+  EXPECT_CALL(*os_integration_manager_, Synchronize(app_id, testing::_))
+      .Times(0);
+  EXPECT_CALL(*os_integration_manager_, UninstallAllOsHooks(app_id, testing::_))
       .Times(0);
 
 // This is called once on Windows because OsUninstallRegistration is limited to
 // WIN.
 #if BUILDFLAG(IS_WIN)
-  EXPECT_CALL(os_integration_manager_,
+  EXPECT_CALL(*os_integration_manager_,
               MacAppShimOnAppInstalledForProfile(app_id))
       .Times(1);
-  EXPECT_CALL(os_integration_manager_,
+  EXPECT_CALL(*os_integration_manager_,
               RegisterWebAppOsUninstallation(app_id, testing::_))
       .Times(1);
+  EXPECT_CALL(*os_integration_manager_, Synchronize(app_id, testing::_))
+      .WillOnce(base::test::RunOnceCallback<1>());
 #else
-  EXPECT_CALL(os_integration_manager_,
+  EXPECT_CALL(*os_integration_manager_,
               RegisterWebAppOsUninstallation(app_id, testing::_))
       .Times(0);
 #endif
@@ -392,16 +407,16 @@ TEST_F(WebAppUninstallCommandTest, RemoveSourceAndTriggerOSUninstallation) {
         EXPECT_EQ(webapps::UninstallResultCode::kSuccess, code);
         run_loop.Quit();
       }),
-      profile(), &os_integration_manager_, &provider()->sync_bridge(),
-      &provider()->icon_manager(), &provider()->registrar(),
-      &provider()->install_manager(), &provider()->translation_manager());
+      profile());
 
   command->SetRemoveManagementTypeCallbackForTesting(
       base::BindLambdaForTesting([&](const AppId& app_id) {
         // The policy source will be removed and WebAppOsUninstallation is
         // registered.
-        EXPECT_FALSE(
-            provider()->registrar().GetAppById(app_id)->IsPolicyInstalledApp());
+        EXPECT_FALSE(provider()
+                         ->registrar_unsafe()
+                         .GetAppById(app_id)
+                         ->IsPolicyInstalledApp());
       }));
   provider()->command_manager().ScheduleCommand(std::move(command));
   run_loop.Run();
@@ -431,7 +446,9 @@ TEST_P(WebAppUninstallCommandSourceTest, RunTestForUninstallSource) {
   }
 
   OsHooksErrors result;
-  EXPECT_CALL(os_integration_manager_, UninstallAllOsHooks(app_id, testing::_))
+  EXPECT_CALL(*os_integration_manager_, Synchronize(app_id, testing::_))
+      .WillOnce(base::test::RunOnceCallback<1>());
+  EXPECT_CALL(*os_integration_manager_, UninstallAllOsHooks(app_id, testing::_))
       .WillOnce(base::test::RunOnceCallback<1>(result));
 
   base::FilePath deletion_path = GetManifestResourcesDirectoryForApp(
@@ -448,12 +465,10 @@ TEST_P(WebAppUninstallCommandSourceTest, RunTestForUninstallSource) {
             EXPECT_EQ(webapps::UninstallResultCode::kSuccess, code);
             loop.Quit();
           }),
-          profile(), &os_integration_manager_, &provider()->sync_bridge(),
-          &provider()->icon_manager(), &provider()->registrar(),
-          &provider()->install_manager(), &provider()->translation_manager()));
+          profile()));
 
   loop.Run();
-  EXPECT_EQ(provider()->registrar().GetAppById(app_id), nullptr);
+  EXPECT_EQ(provider()->registrar_unsafe().GetAppById(app_id), nullptr);
 }
 
 INSTANTIATE_TEST_SUITE_P(

@@ -162,16 +162,10 @@ class BASE_EXPORT CurrentThread {
     const bool previous_state_;
   };
 
-  // TODO(https://crbug.com/781352): Remove usage of this old class. Either
-  // renaming it to ScopedAllowApplicationTasksInNativeNestedLoop when truly
-  // native or migrating it to RunLoop::Type::kNestableTasksAllowed otherwise.
-  using ScopedNestableTaskAllower =
-      ScopedAllowApplicationTasksInNativeNestedLoop;
-
   // Returns true if nestable tasks are allowed on the current thread at this
-  // time (i.e. if a nested loop would start from the callee's point in the
-  // stack, would it be allowed to run application tasks).
-  bool NestableTasksAllowed() const;
+  // time (i.e. if a native nested loop would start from the callee's point in
+  // the stack, would it be allowed to run application tasks).
+  bool ApplicationTasksAllowedInNativeNestedLoop() const;
 
   // Returns true if this instance is bound to the current thread.
   bool IsBoundToCurrentThread() const;

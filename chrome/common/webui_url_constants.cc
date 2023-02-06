@@ -11,6 +11,7 @@
 #include "components/history_clusters/history_clusters_internals/webui/url_constants.h"
 #include "components/nacl/common/buildflags.h"
 #include "components/optimization_guide/optimization_guide_internals/webui/url_constants.h"
+#include "components/password_manager/content/common/web_ui_constants.h"
 #include "components/safe_browsing/core/common/web_ui_constants.h"
 #include "extensions/buildflags/buildflags.h"
 #include "third_party/blink/public/common/chrome_debug_urls.h"
@@ -28,7 +29,6 @@ const char kChromeUIActivateSafetyCheckSettingsURL[] =
     "chrome://settings/safetyCheck?activateSafetyCheck";
 const char kChromeUIAccessibilityHost[] = "accessibility";
 const char kChromeUIAllSitesPath[] = "/content/all";
-const char kChromeUIAPCInternalsHost[] = "apc-internals";
 const char kChromeUIAppIconHost[] = "app-icon";
 const char kChromeUIAppIconURL[] = "chrome://app-icon/";
 const char kChromeUIAppLauncherPageHost[] = "apps";
@@ -156,7 +156,6 @@ const char kChromeUIOsUrlAppURL[] = "chrome://internal/";
 #endif
 const char kChromeUIPasswordManagerInternalsHost[] =
     "password-manager-internals";
-const char kChromeUIPasswordManagerHost[] = "password-manager";
 const char kChromeUIPerformanceSettingsURL[] = "chrome://settings/performance";
 const char kChromeUIPolicyHost[] = "policy";
 const char kChromeUIPolicyURL[] = "chrome://policy/";
@@ -166,6 +165,8 @@ const char kChromeUIPrintURL[] = "chrome://print/";
 const char kChromeUIPrivacySandboxDialogHost[] = "privacy-sandbox-dialog";
 const char kChromeUIPrivacySandboxDialogURL[] =
     "chrome://privacy-sandbox-dialog";
+const char kChromeUIPrivacySandboxDialogCombinedPath[] = "combined";
+const char kChromeUIPrivacySandboxDialogNoticePath[] = "notice";
 const char kChromeUIQuitHost[] = "quit";
 const char kChromeUIQuitURL[] = "chrome://quit/";
 const char kChromeUIQuotaInternalsHost[] = "quota-internals";
@@ -270,6 +271,8 @@ const char kChromeUIUserNotesSidePanelHost[] =
     "user-notes-side-panel.top-chrome";
 const char kChromeUIUserNotesSidePanelURL[] =
     "chrome://user-notes-side-panel.top-chrome/";
+const char kChromeUIOmniboxPopupHost[] = "omnibox-popup.top-chrome";
+const char kChromeUIOmniboxPopupURL[] = "chrome://omnibox-popup.top-chrome/";
 const char kChromeUIWebAppInternalsHost[] = "web-app-internals";
 const char kChromeUIWebUITestHost[] = "webui-test";
 #endif
@@ -672,13 +675,14 @@ const char* const kChromeHostURLs[] = {
     kChromeUIManagementHost,
 #endif
     kChromeUIMediaEngagementHost,
+    kChromeUIMetricsInternalsHost,
     kChromeUINetExportHost,
     kChromeUINetInternalsHost,
     kChromeUINewTabHost,
     kChromeUIOmniboxHost,
     optimization_guide_internals::kChromeUIOptimizationGuideInternalsHost,
     kChromeUIPasswordManagerInternalsHost,
-    kChromeUIPasswordManagerHost,
+    password_manager::kChromeUIPasswordManagerHost,
     kChromeUIPolicyHost,
     kChromeUIPredictorsHost,
     kChromeUIPrefsInternalsHost,

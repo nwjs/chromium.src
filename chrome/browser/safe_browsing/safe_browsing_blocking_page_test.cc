@@ -457,6 +457,26 @@ class TestSafeBrowsingBlockingPageFactory
         display_options, should_trigger_reporting);
   }
 
+  security_interstitials::SecurityInterstitialPage* CreateEnterpriseWarnPage(
+      BaseUIManager* ui_manager,
+      content::WebContents* web_contents,
+      const GURL& main_frame_url,
+      const SafeBrowsingBlockingPage::UnsafeResourceList& unsafe_resources)
+      override {
+    NOTREACHED();
+    return nullptr;
+  }
+
+  security_interstitials::SecurityInterstitialPage* CreateEnterpriseBlockPage(
+      BaseUIManager* ui_manager,
+      content::WebContents* web_contents,
+      const GURL& main_frame_url,
+      const SafeBrowsingBlockingPage::UnsafeResourceList& unsafe_resources)
+      override {
+    NOTREACHED();
+    return nullptr;
+  }
+
  private:
   bool always_show_back_to_safety_;
 };
@@ -2604,7 +2624,7 @@ IN_PROC_BROWSER_TEST_P(SafeBrowsingBlockingPageDelayedWarningBrowserTest,
       "document.getElementById('retry_password_field').value = 'pw';"
       "document.getElementById('retry_submit_button').click()";
   ASSERT_TRUE(content::ExecuteScript(contents, fill_and_submit));
-  observer2.Wait();
+  ASSERT_TRUE(observer2.Wait());
   EXPECT_FALSE(prompt_observer->IsSavePromptShownAutomatically());
   PasswordManagerBrowserTestBase::WaitForPasswordStore(browser());
   AssertNoInterstitial(browser(), false);

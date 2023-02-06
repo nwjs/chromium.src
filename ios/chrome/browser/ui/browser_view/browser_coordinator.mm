@@ -20,6 +20,8 @@
 #import "ios/chrome/browser/app_launcher/app_launcher_tab_helper.h"
 #import "ios/chrome/browser/autofill/autofill_tab_helper.h"
 #import "ios/chrome/browser/browser_state/chrome_browser_state.h"
+#import "ios/chrome/browser/commerce/price_notifications/price_notifications_tab_helper.h"
+#import "ios/chrome/browser/commerce/push_notification/push_notification_feature.h"
 #import "ios/chrome/browser/download/download_directory_util.h"
 #import "ios/chrome/browser/download/external_app_util.h"
 #import "ios/chrome/browser/download/pass_kit_tab_helper.h"
@@ -41,7 +43,6 @@
 #import "ios/chrome/browser/signin/account_consistency_service_factory.h"
 #import "ios/chrome/browser/ssl/captive_portal_tab_helper.h"
 #import "ios/chrome/browser/store_kit/store_kit_coordinator.h"
-#import "ios/chrome/browser/store_kit/store_kit_tab_helper.h"
 #import "ios/chrome/browser/sync/sync_error_browser_agent.h"
 #import "ios/chrome/browser/tabs/tab_title_util.h"
 #import "ios/chrome/browser/translate/chrome_ios_translate_client.h"
@@ -57,6 +58,7 @@
 #import "ios/chrome/browser/ui/bookmarks/bookmark_interaction_controller.h"
 #import "ios/chrome/browser/ui/browser_container/browser_container_coordinator.h"
 #import "ios/chrome/browser/ui/browser_container/browser_container_view_controller.h"
+#import "ios/chrome/browser/ui/browser_view/browser_coordinator+private.h"
 #import "ios/chrome/browser/ui/browser_view/browser_view_controller+delegates.h"
 #import "ios/chrome/browser/ui/browser_view/browser_view_controller+private.h"
 #import "ios/chrome/browser/ui/browser_view/browser_view_controller.h"
@@ -83,6 +85,7 @@
 #import "ios/chrome/browser/ui/commands/show_signin_command.h"
 #import "ios/chrome/browser/ui/commands/snackbar_commands.h"
 #import "ios/chrome/browser/ui/commands/text_zoom_commands.h"
+#import "ios/chrome/browser/ui/commands/web_content_commands.h"
 #import "ios/chrome/browser/ui/commands/whats_new_commands.h"
 #import "ios/chrome/browser/ui/context_menu/context_menu_configuration_provider.h"
 #import "ios/chrome/browser/ui/default_promo/default_browser_promo_coordinator.h"
@@ -108,6 +111,7 @@
 #import "ios/chrome/browser/ui/lens/lens_coordinator.h"
 #import "ios/chrome/browser/ui/main/browser_interface_provider.h"
 #import "ios/chrome/browser/ui/main/default_browser_scene_agent.h"
+#import "ios/chrome/browser/ui/main/layout_guide_util.h"
 #import "ios/chrome/browser/ui/main/scene_state_browser_agent.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_coordinator.h"
 #import "ios/chrome/browser/ui/open_in/features.h"
@@ -119,6 +123,7 @@
 #import "ios/chrome/browser/ui/passwords/password_suggestion_coordinator.h"
 #import "ios/chrome/browser/ui/popup_menu/popup_menu_coordinator.h"
 #import "ios/chrome/browser/ui/presenters/vertical_animation_container.h"
+#import "ios/chrome/browser/ui/price_notifications/price_notifications_iph_coordinator.h"
 #import "ios/chrome/browser/ui/price_notifications/price_notifications_view_coordinator.h"
 #import "ios/chrome/browser/ui/print/print_controller.h"
 #import "ios/chrome/browser/ui/promos_manager/promos_manager_coordinator.h"
@@ -199,8 +204,7 @@ enum class ToolbarKind {
 
 }  // anonymous namespace
 
-@interface BrowserCoordinator () <ActivityServiceCommands,
-                                  BrowserCoordinatorCommands,
+@interface BrowserCoordinator () <BrowserCoordinatorCommands,
                                   CRWWebStateObserver,
                                   DefaultBrowserPromoCommands,
                                   DefaultPromoNonModalPresentationDelegate,
@@ -224,6 +228,7 @@ enum class ToolbarKind {
                                   SnapshotGeneratorDelegate,
                                   ToolbarAccessoryCoordinatorDelegate,
                                   URLLoadingDelegate,
+                                  WebContentCommands,
                                   WebStateListObserving,
                                   WebNavigationNTPDelegate>
 
@@ -318,6 +323,10 @@ enum class ToolbarKind {
 // Coordinator for the password suggestion UI presentation.
 @property(nonatomic, strong)
     PasswordSuggestionCoordinator* passwordSuggestionCoordinator;
+
+// Coordinator for the price notifications IPH feature.
+@property(nonatomic, strong)
+    PriceNotificationsIPHCoordinator* priceNotificationsIPHCoordinator;
 
 // Coordinator for the price notifications UI presentation.
 @property(nonatomic, strong)
@@ -444,8 +453,6 @@ enum class ToolbarKind {
   [self startMediators];
   [self installDelegatesForAllWebStates];
   [self startChildCoordinators];
-  // TODO(crbug.com/1392109) remove this special case.
-  [self installPostCoordinatorDelegatesForAllWebStates];
   // Browser delegates can have dependencies on coordinators.
   [self installDelegatesForBrowser];
   [self installDelegatesForBrowserState];
@@ -637,6 +644,7 @@ enum class ToolbarKind {
     @protocol(PolicyChangeCommands),
     @protocol(PriceNotificationsCommands),
     @protocol(TextZoomCommands),
+    @protocol(WebContentCommands),
   ];
 
   for (Protocol* protocol in protocols) {
@@ -682,6 +690,8 @@ enum class ToolbarKind {
       [[BubblePresenter alloc] initWithBrowserState:browserState];
   _bubblePresenter.toolbarHandler =
       HandlerForProtocol(_dispatcher, ToolbarCommands);
+  _bubblePresenter.layoutGuideCenter =
+      LayoutGuideCenterForBrowser(self.browser);
   [_dispatcher startDispatchingToTarget:_bubblePresenter
                             forProtocol:@protocol(HelpCommands)];
 
@@ -902,10 +912,6 @@ enum class ToolbarKind {
                                                    browser:self.browser];
   [self.vcardCoordinator start];
 
-  self.passKitCoordinator =
-      [[PassKitCoordinator alloc] initWithBaseViewController:self.viewController
-                                                     browser:self.browser];
-
   self.printController =
       [[PrintController alloc] initWithBaseViewController:self.viewController];
 
@@ -943,20 +949,14 @@ enum class ToolbarKind {
 
   /* SharingCoordinator is created and started by an ActivityServiceCommand */
 
-  self.storeKitCoordinator = [[StoreKitCoordinator alloc]
-      initWithBaseViewController:self.viewController
-                         browser:self.browser];
-
   self.addCreditCardCoordinator = [[AutofillAddCreditCardCoordinator alloc]
       initWithBaseViewController:self.viewController
                          browser:self.browser];
 
-  if (base::FeatureList::IsEnabled(safe_browsing::kEnhancedProtection)) {
-    self.safeBrowsingCoordinator = [[SafeBrowsingCoordinator alloc]
-        initWithBaseViewController:self.viewController
-                           browser:self.browser];
-    [self.safeBrowsingCoordinator start];
-  }
+  self.safeBrowsingCoordinator = [[SafeBrowsingCoordinator alloc]
+      initWithBaseViewController:self.viewController
+                         browser:self.browser];
+  [self.safeBrowsingCoordinator start];
 
   self.textFragmentsCoordinator = [[TextFragmentsCoordinator alloc]
       initWithBaseViewController:self.viewController
@@ -992,6 +992,14 @@ enum class ToolbarKind {
   [self.infobarBannerOverlayContainerCoordinator start];
   self.viewController.infobarBannerOverlayContainerViewController =
       self.infobarBannerOverlayContainerCoordinator.viewController;
+
+  if (IsPriceNotificationsEnabled()) {
+    self.priceNotificationsIPHCoordinator =
+        [[PriceNotificationsIPHCoordinator alloc]
+            initWithBaseViewController:self.viewController
+                               browser:self.browser];
+    [self.priceNotificationsIPHCoordinator start];
+  }
 }
 
 // Stops child coordinators.
@@ -1056,12 +1064,8 @@ enum class ToolbarKind {
   [self.sadTabCoordinator disconnect];
   self.sadTabCoordinator = nil;
 
-  if (base::FeatureList::IsEnabled(safe_browsing::kEnhancedProtection)) {
-    [self.safeBrowsingCoordinator stop];
-    self.safeBrowsingCoordinator = nil;
-  } else {
-    DCHECK(!self.safeBrowsingCoordinator);
-  }
+  [self.safeBrowsingCoordinator stop];
+  self.safeBrowsingCoordinator = nil;
 
   [self.sharingCoordinator stop];
   self.sharingCoordinator = nil;
@@ -1105,6 +1109,9 @@ enum class ToolbarKind {
   [self.passwordSettingsCoordinator stop];
   self.passwordSettingsCoordinator.delegate = nil;
   self.passwordSettingsCoordinator = nil;
+
+  [self.priceNotificationsIPHCoordinator stop];
+  self.priceNotificationsIPHCoordinator = nil;
 }
 
 // Starts mediators owned by this coordinator.
@@ -1787,14 +1794,6 @@ enum class ToolbarKind {
               atIndex:(int)index
            activating:(BOOL)activating {
   [self installDelegatesForWebState:webState];
-  // TODO(crbug.com/1392109): remove these special cases.
-  DCHECK(self.passKitCoordinator);
-  PassKitTabHelper::FromWebState(webState)->SetDelegate(
-      self.passKitCoordinator);
-
-  DCHECK(self.storeKitCoordinator);
-  StoreKitTabHelper::FromWebState(webState)->SetLauncher(
-      self.storeKitCoordinator);
 }
 
 - (void)webStateList:(WebStateList*)webStateList
@@ -1854,24 +1853,6 @@ enum class ToolbarKind {
   for (int i = 0; i < self.browser->GetWebStateList()->count(); i++) {
     web::WebState* webState = self.browser->GetWebStateList()->GetWebStateAt(i);
     [self installDelegatesForWebState:webState];
-  }
-}
-// Temporary fix for crbug.com/1380980. Webstate delegates which depend on
-// coordinators are set up here.
-// TODO(crbug.com/1392109) Remove this workaround and stop having coordinators
-// which are delegates of webstates that start themselves.
-- (void)installPostCoordinatorDelegatesForAllWebStates {
-  for (int i = 0; i < self.browser->GetWebStateList()->count(); i++) {
-    web::WebState* webState = self.browser->GetWebStateList()->GetWebStateAt(i);
-    // Add delegates for webstates where those delegates are other coorindators.
-    // (Please don't add further code here).
-    DCHECK(self.passKitCoordinator);
-    PassKitTabHelper::FromWebState(webState)->SetDelegate(
-        self.passKitCoordinator);
-
-    DCHECK(self.storeKitCoordinator);
-    StoreKitTabHelper::FromWebState(webState)->SetLauncher(
-        self.storeKitCoordinator);
   }
 }
 
@@ -2000,6 +1981,13 @@ enum class ToolbarKind {
     AnnotationsTabHelper::FromWebState(webState)->SetBaseViewController(
         self.viewController);
   }
+
+  PriceNotificationsTabHelper* priceNotificationsTabHelper =
+      PriceNotificationsTabHelper::FromWebState(webState);
+  if (priceNotificationsTabHelper) {
+    priceNotificationsTabHelper->SetPriceNotificationsIPHPresenter(
+        self.priceNotificationsIPHCoordinator);
+  }
 }
 
 // Uninstalls delegates for `webState`.
@@ -2013,17 +2001,11 @@ enum class ToolbarKind {
     AutofillTabHelper::FromWebState(webState)->SetBaseViewController(nil);
   }
 
-  PassKitTabHelper::FromWebState(webState)->SetDelegate(nil);
-
   if (PrintTabHelper::FromWebState(webState)) {
     PrintTabHelper::FromWebState(webState)->set_printer(nil);
   }
 
   RepostFormTabHelper::FromWebState(webState)->SetDelegate(nil);
-
-  if (StoreKitTabHelper::FromWebState(webState)) {
-    StoreKitTabHelper::FromWebState(webState)->SetLauncher(nil);
-  }
 
   FollowTabHelper* followTabHelper = FollowTabHelper::FromWebState(webState);
   if (followTabHelper) {
@@ -2041,6 +2023,12 @@ enum class ToolbarKind {
 
   if (AnnotationsTabHelper::FromWebState(webState)) {
     AnnotationsTabHelper::FromWebState(webState)->SetBaseViewController(nil);
+  }
+
+  PriceNotificationsTabHelper* priceNotificationsTabHelper =
+      PriceNotificationsTabHelper::FromWebState(webState);
+  if (priceNotificationsTabHelper) {
+    priceNotificationsTabHelper->SetPriceNotificationsIPHPresenter(nil);
   }
 }
 
@@ -2114,6 +2102,10 @@ enum class ToolbarKind {
   [self.priceNotificationsViewCoordiantor stop];
 }
 
+- (void)presentPriceNotificationsWhileBrowsingIPH {
+  [_bubblePresenter presentPriceNotificationsWhileBrowsingTipBubble];
+}
+
 #pragma mark - PolicyChangeCommands
 
 - (void)showForceSignedOutPrompt {
@@ -2159,6 +2151,30 @@ enum class ToolbarKind {
                      [weakSelf showRestrictAccountSignedOutPrompt];
                    });
   }
+}
+
+#pragma mark - WebContentCommands
+
+- (void)showAppStoreWithParameters:(NSDictionary*)productParameters {
+  self.storeKitCoordinator = [[StoreKitCoordinator alloc]
+      initWithBaseViewController:self.viewController
+                         browser:self.browser];
+  self.storeKitCoordinator.iTunesProductParameters = productParameters;
+  [self.storeKitCoordinator start];
+}
+
+- (void)showDialogForPassKitPass:(PKPass*)pass {
+  if (self.passKitCoordinator.pass) {
+    // Another pass is being displayed -- early return (this is unexpected).
+    return;
+  }
+
+  self.passKitCoordinator =
+      [[PassKitCoordinator alloc] initWithBaseViewController:self.viewController
+                                                     browser:self.browser];
+
+  self.passKitCoordinator.pass = pass;
+  [self.passKitCoordinator start];
 }
 
 #pragma mark - DefaultBrowserPromoNonModalCommands

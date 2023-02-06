@@ -85,7 +85,6 @@
 <translation id="2401189691232800402">ລະບົບ ChromeOS</translation>
 <translation id="2467438592969358367">Google Chrome ຕ້ອງການສົ່ງອອກລະຫັດຜ່ານຂອງທ່ານ. ກະລຸນາພິມລະຫັດຜ່ານ Windows ຂອງທ່ານ ເພື່ອອະນຸຍາດສິ່ງນີ້.</translation>
 <translation id="2485422356828889247">ຖອນ​ຕິດ​ຕັ້ງ</translation>
-<translation id="2494974097748878569">ຜູ້ຊ່ວຍ Google ໃນ Chrome</translation>
 <translation id="2534507159460261402">Google Pay (ສຳເນົາໄວ້ໃນ Chrome ແລ້ວ)</translation>
 <translation id="2559253115192232574">ເວັບໄຊໃດໜຶ່ງທີ່ທ່ານເຂົ້າເບິ່ງຈະສາມາດຂໍ Chrome ເພື່ອເບິ່ງຄວາມສົນໃຈຂອງທ່ານໃນພາຍຫຼັງໄດ້ເພື່ອປັບແຕ່ງໂຄສະນາທີ່ທ່ານເຫັນໃຫ້ເປັນສ່ວນຕົວ. Chrome ສາມາດແບ່ງປັນຄວາມສົນໃຈໄດ້ສູງສຸດ 3 ຢ່າງ.</translation>
 <translation id="2563121210305478421">ເລີ່ມເປີດໃຊ້ Chrome ໃໝ່ບໍ?</translation>
@@ -130,6 +129,7 @@
 <translation id="3140883423282498090">ການປ່ຽນແປງຂອງທ່ານຈະມີຜົນຄັ້ງຕໍ່ໄປທີ່ທ່ານເລີ່ມເປີດໃຊ້ Google Chrome ໃໝ່.</translation>
 <translation id="3149510190863420837">ແອັບ Chrome</translation>
 <translation id="3169523567916669830">ໃນລະຫວ່າງການທົດລອງໃຊ້, ທ່ານສາມາດເບິ່ງ ແລະ ລຶບຫົວຂໍ້ຂອງຄວາມສົນໃຈທີ່ເວັບໄຊຕ່າງໆໃຊ້ເພື່ອສະແດງໂຄສະນາໃຫ້ທ່ານເຫັນໄດ້. Chrome ປະເມີນຄວາມສົນໃຈຂອງທ່ານໂດຍອ້າງອີງໃສ່ປະຫວັດການທ່ອງເວັບຫຼ້າສຸດຂອງທ່ານ.</translation>
+<translation id="3211604354460514046">{NUM_DEVICES,plural, =1{Google Chrome ເຊື່ອມຕໍ່ກັບອຸປະກອນ HID}other{Google Chrome ເຊື່ອມຕໍ່ກັບອຸປະກອນ HID}}</translation>
 <translation id="3245429137663807393">ຫາກທ່ານແບ່ງປັນລາຍງານການນຳໃຊ້ Chrome ນຳ, ລາຍງານເຫຼົ່ານັ້ນຈະຮວມເອົາ URL ທີ່ທ່ານເຂົ້າໄວ້ພ້ອມ</translation>
 <translation id="3282568296779691940">ລົງຊື່ເຂົ້າ​ໃຊ້ Chrome</translation>
 <translation id="3286538390144397061">ປິດເປີດໃໝ່ດຽວນີ້</translation>
@@ -290,7 +290,6 @@ Google Chrome ບໍ່ສາມາດກູ້ຄືນການຕັ້ງຄ
 <translation id="6739177684496155661">ສືບຕໍ່ໃນໂປຣໄຟລ໌ Chrome ໃໝ່ບໍ?</translation>
 <translation id="6750954913813541382">ເພື່ອແກ້ໄຂຂໍ້ຜິດພາດກ່ຽວກັບການສະກົດຄຳ, Chrome ສົ່ງຂໍ້ຄວາມທີ່ທ່ານພິມໃນໂປຣແກຣມທ່ອງເວັບໃຫ້ Google</translation>
 <translation id="677276454032249905">ຢືນຢັນການອອກຈາກ Chrome ບໍ?</translation>
-<translation id="6785872064505734160">ຜູ້ຊ່ວຍ Google ໃນ Chrome ສາມາດເຮັດຄຳສັ່ງຕ່າງໆໃຫ້ສຳເລັດໃນທົ່ວເວັບໄຊໃຫ້ທ່ານໄດ້</translation>
 <translation id="683440813066116847">ກົດລະບຽບຂາເຂົ້າສໍາລັບ Google Chrome Canary ເພື່ອອະນຸຍາດໃຫ້ການຈາລະຈອນ mDNS.</translation>
 <translation id="6881299373831449287">ກຳລັງອັບເດດ Chrome</translation>
 <translation id="6885412569789873916">ແອັບ Chrome Beta</translation>

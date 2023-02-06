@@ -35,11 +35,11 @@
 #include "chrome/test/base/scoped_testing_local_state.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile_manager.h"
+#include "chromeos/ash/components/login/login_state/login_state.h"
+#include "chromeos/ash/components/system/fake_statistics_provider.h"
 #include "chromeos/crosapi/cpp/crosapi_constants.h"
 #include "chromeos/crosapi/mojom/crosapi.mojom.h"
-#include "chromeos/login/login_state/login_state.h"
 #include "chromeos/startup/startup_switches.h"
-#include "chromeos/system/fake_statistics_provider.h"
 #include "components/account_id/account_id.h"
 #include "components/user_manager/fake_user_manager.h"
 #include "content/public/test/browser_task_environment.h"
@@ -194,9 +194,9 @@ TEST_F(TestMojoConnectionManagerTest, ConnectMultipleClients) {
   content::BrowserTaskEnvironment task_environment{
       base::test::TaskEnvironment::MainThreadType::IO};
 
-  chromeos::LoginState::Initialize();
+  ash::LoginState::Initialize();
   base::ScopedClosureRunner login_state_teardown(
-      base::BindOnce(&chromeos::LoginState::Shutdown));
+      base::BindOnce(&ash::LoginState::Shutdown));
 
   // Constructing CrosapiManager requires ProfileManager.
   // Also, constructing BrowserInitParams requires local state prefs.

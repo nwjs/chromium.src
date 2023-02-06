@@ -352,12 +352,14 @@ mojom("url_loader_base") {
     "network_change_manager.mojom",
     "network_interface.mojom",
     "network_types.mojom",
+    "no_vary_search.mojom",
     "parsed_headers.mojom",
     "referrer_policy.mojom",
     "request_priority.mojom",
     "source_location.mojom",
     "supports_loading_mode.mojom",
     "timing_allow_origin.mojom",
+    "trust_token_access_observer.mojom",
     "trust_tokens.mojom",
     "url_loader.mojom",
     "url_loader_completion_status.mojom",
@@ -509,6 +511,7 @@ mojom("url_loader_base") {
       traits_private_headers = [
         "//services/network/public/mojom/devtools_observer.mojom.h",
         "//services/network/public/mojom/cookie_access_observer.mojom.h",
+        "//services/network/public/mojom/trust_token_access_observer.mojom.h",
       ]
       traits_public_deps = [
         "//base",
@@ -871,6 +874,10 @@ mojom("mojom_first_party_sets") {
               cpp = "::net::FirstPartySetsCacheFilter"
               move_only = true
             },
+            {
+              mojom = "network.mojom.FirstPartySetEntryOverride"
+              cpp = "::net::FirstPartySetEntryOverride"
+            },
           ]
           traits_headers = [
             "//services/network/public/cpp/first_party_sets_mojom_traits.h",
@@ -938,6 +945,7 @@ mojom("cookies_mojom") {
     ":mojom_schemeful_site",
     "//components/content_settings/core/common:mojo_bindings",
     "//mojo/public/mojom/base",
+    "//sandbox/policy/mojom",
     "//url/mojom:url_mojom_gurl",
     "//url/mojom:url_mojom_origin",
   ]

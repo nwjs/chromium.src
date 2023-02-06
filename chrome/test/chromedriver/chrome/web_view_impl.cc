@@ -145,21 +145,19 @@ const char* GetAsString(PointerType type) {
   }
 }
 
-std::unique_ptr<base::DictionaryValue> GenerateTouchPoint(
-    const TouchEvent& event) {
-  std::unique_ptr<base::DictionaryValue> point(new base::DictionaryValue());
-  base::Value::Dict& dict = point->GetDict();
-  dict.Set("x", event.x);
-  dict.Set("y", event.y);
-  dict.Set("radiusX", event.radiusX);
-  dict.Set("radiusY", event.radiusY);
-  dict.Set("rotationAngle", event.rotationAngle);
-  dict.Set("force", event.force);
-  dict.Set("tangentialPressure", event.tangentialPressure);
-  dict.Set("tiltX", event.tiltX);
-  dict.Set("tiltY", event.tiltY);
-  dict.Set("twist", event.twist);
-  dict.Set("id", event.id);
+base::Value::Dict GenerateTouchPoint(const TouchEvent& event) {
+  base::Value::Dict point;
+  point.Set("x", event.x);
+  point.Set("y", event.y);
+  point.Set("radiusX", event.radiusX);
+  point.Set("radiusY", event.radiusY);
+  point.Set("rotationAngle", event.rotationAngle);
+  point.Set("force", event.force);
+  point.Set("tangentialPressure", event.tangentialPressure);
+  point.Set("tiltX", event.tiltX);
+  point.Set("tiltY", event.tiltY);
+  point.Set("twist", event.twist);
+  point.Set("id", event.id);
   return point;
 }
 
@@ -188,33 +186,6 @@ class RemoteObjectReleaseGuard {
   std::string object_id_;
 };
 
-bool IsFencedFrameNode(const base::Value& node) {
-  if (!node.is_dict())
-    return false;
-  const std::string* node_name = node.GetDict().FindString("nodeName");
-  return node_name && *node_name == "FENCEDFRAME";
-}
-
-const base::Value* GetFencedFrameUserAgentShadowRoot(const base::Value& node) {
-  DCHECK(IsFencedFrameNode(node));
-  const base::Value* shadow_roots = node.GetDict().Find("shadowRoots");
-  if (!shadow_roots)
-    return nullptr;
-
-  // Find user-agent shadow root inside fenced frame.
-  for (const base::Value& shadow_root : shadow_roots->GetList()) {
-    if (shadow_root.is_dict()) {
-      const std::string* shadow_root_type =
-          shadow_root.GetDict().FindString("shadowRootType");
-      if (shadow_root_type && *shadow_root_type == "user-agent") {
-        return &shadow_root;
-      }
-    }
-  }
-
-  return nullptr;
-}
-
 Status DescribeNode(DevToolsClient* client,
                     const std::string& object_id,
                     int depth,
@@ -222,7 +193,7 @@ Status DescribeNode(DevToolsClient* client,
                     base::Value* result_node) {
   DCHECK(result_node);
   base::Value::Dict params;
-  base::Value cmd_result;
+  base::Value::Dict cmd_result;
   params.Set("objectId", object_id);
   params.Set("depth", depth);
   params.Set("pierce", pierce);
@@ -233,9 +204,7 @@ Status DescribeNode(DevToolsClient* client,
     return status;
   }
 
-  DCHECK(cmd_result.is_dict());
-
-  base::Value* node = cmd_result.GetDict().Find("node");
+  base::Value* node = cmd_result.Find("node");
   if (!node || !node->is_dict()) {
     return Status(kUnknownError, "DOM.describeNode missing dictionary 'node'");
   }
@@ -251,10 +220,8 @@ Status GetFrameIdForObjectId(DevToolsClient* client,
                              std::string* frame_id) {
   DCHECK(frame_id);
   DCHECK(found_node);
-  base::DictionaryValue cmd_result;
 
   Status status{kOk};
-
   base::Value node;
   status = DescribeNode(client, object_id, 0, false, &node);
 
@@ -266,46 +233,6 @@ Status GetFrameIdForObjectId(DevToolsClient* client,
     *frame_id = *maybe_frame_id;
     *found_node = true;
     return Status(kOk);
-  }
-
-  if (IsFencedFrameNode(node)) {
-    status = DescribeNode(client, object_id, 3, true, &node);
-    if (status.IsError()) {
-      return status;
-    }
-    const base::Value* ua_shadow_root = GetFencedFrameUserAgentShadowRoot(node);
-    if (!ua_shadow_root)
-      return Status(kUnknownError, "Shadow not found in fenced frame");
-
-    if (ua_shadow_root->FindIntKey("childNodeCount").value_or(0) == 0)
-      return Status(kUnknownError,
-                    "Attribute childNodeCount not found in fenced frame");
-
-    // Find iframe inside fenced frame's shadow dom.
-    const base::Value* iframe_node = nullptr;
-    const base::Value* shadow_root_children =
-        ua_shadow_root->FindListKey("children");
-    if (!shadow_root_children)
-      return Status(kUnknownError,
-                    "Children attribute not found in fenced frame");
-
-    for (const base::Value& child : shadow_root_children->GetList()) {
-      if (*child.FindStringKey("nodeName") == "IFRAME") {
-        iframe_node = &child;
-        break;
-      }
-    }
-    if (!iframe_node)
-      return Status(kUnknownError, "IFrame child not found under fenced frame");
-
-    // Associate fenced frame element with nested iframe's frame id.
-    const std::string* child_frame_id =
-        iframe_node->GetDict().FindString("frameId");
-    if (child_frame_id) {
-      *frame_id = *child_frame_id;
-      *found_node = true;
-      return Status{kOk};
-    }
   }
 
   return Status(kOk);
@@ -415,31 +342,13 @@ bool WebViewImpl::WasCrashed() {
   return client_->WasCrashed();
 }
 
-Status WebViewImpl::ConnectIfNecessary() {
-  // The root client must never be IsNull as it has an instance of socket_.
-  // The child client can be IsNull but, by definition, the view has a parent.
-  DCHECK(!client_->IsNull() || parent_ != nullptr);
-  if (client_->IsNull() && parent_ == nullptr) {
-    return Status{kUnknownError, "Root WebView cannot be IsNull"};
-  }
-
-  if (parent_ != nullptr && client_->IsNull()) {
-    DevToolsClientImpl* root_client = static_cast<DevToolsClientImpl*>(
-        parent_->client_.get()->GetRootClient());
-    DevToolsClientImpl* client =
-        static_cast<DevToolsClientImpl*>(client_.get());
-    Status status = client->AttachTo(root_client);
-    if (status.IsError()) {
-      return status;
-    }
-  }
-  DCHECK(!client_->IsNull());
-  return client_->ConnectIfNecessary();
-}
-
 Status WebViewImpl::AttachTo(DevToolsClient* parent) {
   return static_cast<DevToolsClientImpl*>(client_.get())
       ->AttachTo(static_cast<DevToolsClientImpl*>(parent));
+}
+
+Status WebViewImpl::AttachChildView(WebViewImpl* child) {
+  return child->AttachTo(client_->GetRootClient());
 }
 
 Status WebViewImpl::HandleEventsUntil(const ConditionalFunc& conditional_func,
@@ -453,15 +362,15 @@ Status WebViewImpl::HandleReceivedEvents() {
 
 Status WebViewImpl::GetUrl(std::string* url) {
   base::Value::Dict params;
-  base::DictionaryValue result;
+  base::Value::Dict result;
   Status status = client_->SendCommandAndGetResult("Page.getNavigationHistory",
                                                    params, &result);
   if (status.IsError())
     return status;
-  absl::optional<int> current_index = result.GetDict().FindInt("currentIndex");
+  absl::optional<int> current_index = result.FindInt("currentIndex");
   if (!current_index)
     return Status(kUnknownError, "navigation history missing currentIndex");
-  base::Value::List* entries = result.GetDict().FindList("entries");
+  base::Value::List* entries = result.FindList("entries");
   if (!entries)
     return Status(kUnknownError, "navigation history missing entries");
   if (static_cast<int>(entries->size()) <= *current_index ||
@@ -538,28 +447,27 @@ Status WebViewImpl::SendCommandAndGetResult(
     const std::string& cmd,
     const base::Value::Dict& params,
     std::unique_ptr<base::Value>* value) {
-  std::unique_ptr<base::DictionaryValue> result =
-      std::make_unique<base::DictionaryValue>();
-  Status status = client_->SendCommandAndGetResult(cmd, params, result.get());
+  base::Value::Dict result;
+  Status status = client_->SendCommandAndGetResult(cmd, params, &result);
   if (status.IsError())
     return status;
-  *value = std::move(result);
+  *value = std::make_unique<base::Value>(std::move(result));
   return Status(kOk);
 }
 
 Status WebViewImpl::TraverseHistory(int delta, const Timeout* timeout) {
   base::Value::Dict params;
-  base::DictionaryValue result;
+  base::Value::Dict result;
   Status status = client_->SendCommandAndGetResult("Page.getNavigationHistory",
                                                    params, &result);
   if (status.IsError())
     return status;
 
-  absl::optional<int> current_index = result.GetDict().FindInt("currentIndex");
+  absl::optional<int> current_index = result.FindInt("currentIndex");
   if (!current_index)
     return Status(kUnknownError, "DevTools didn't return currentIndex");
 
-  base::Value::List* entries = result.GetDict().FindList("entries");
+  base::Value::List* entries = result.FindList("entries");
   if (!entries)
     return Status(kUnknownError, "DevTools didn't return entries");
 
@@ -814,8 +722,8 @@ Status WebViewImpl::DispatchTouchEvent(const TouchEvent& event,
   base::Value::List point_list;
   Status status(kOk);
   if (type == "touchStart" || type == "touchMove") {
-    std::unique_ptr<base::DictionaryValue> point = GenerateTouchPoint(event);
-    point_list.Append(base::Value::FromUniquePtrValue(std::move(point)));
+    base::Value::Dict point = GenerateTouchPoint(event);
+    point_list.Append(std::move(point));
   }
   params.Set("touchPoints", std::move(point_list));
   if (async_dispatch_events) {
@@ -858,8 +766,7 @@ Status WebViewImpl::DispatchTouchEventWithMultiPoints(
     if (type == "touchCancel")
       continue;
 
-    point_list.Append(
-        base::Value::FromUniquePtrValue(GenerateTouchPoint(event)));
+    point_list.Append(GenerateTouchPoint(event));
     params.Set("touchPoints", std::move(point_list));
 
     if (async_dispatch_events || touch_count < events.size()) {
@@ -968,7 +875,7 @@ Status WebViewImpl::DispatchKeyEvents(const std::vector<KeyEvent>& events,
 Status WebViewImpl::GetCookies(base::Value* cookies,
                                const std::string& current_page_url) {
   base::Value::Dict params;
-  base::DictionaryValue result;
+  base::Value::Dict result;
 
   if (browser_info_->browser_name != "webview") {
     base::Value::List url_list;
@@ -985,10 +892,10 @@ Status WebViewImpl::GetCookies(base::Value* cookies,
       return status;
   }
 
-  base::Value* const cookies_tmp = result.FindListKey("cookies");
+  base::Value::List* const cookies_tmp = result.FindList("cookies");
   if (!cookies_tmp)
     return Status(kUnknownError, "DevTools didn't return cookies");
-  *cookies = cookies_tmp->Clone();
+  *cookies = base::Value(std::move(*cookies_tmp));
   return Status(kOk);
 }
 
@@ -1028,12 +935,12 @@ Status WebViewImpl::AddCookie(const std::string& name,
   if (expiry >= 0)
     params.Set("expires", expiry);
 
-  base::DictionaryValue result;
+  base::Value::Dict result;
   Status status =
       client_->SendCommandAndGetResult("Network.setCookie", params, &result);
   if (status.IsError())
     return Status(kUnableToSetCookie);
-  if (!result.FindBoolKey("success").value_or(false))
+  if (!result.FindBool("success").value_or(false))
     return Status(kUnableToSetCookie);
   return Status(kOk);
 }
@@ -1112,14 +1019,16 @@ Status WebViewImpl::OverrideDownloadDirectoryIfNeeded(
 
 Status WebViewImpl::CaptureScreenshot(std::string* screenshot,
                                       const base::Value::Dict& params) {
-  base::DictionaryValue result;
+  base::Value::Dict result;
   Timeout timeout(base::Seconds(10));
   Status status = client_->SendCommandAndGetResultWithTimeout(
       "Page.captureScreenshot", params, &timeout, &result);
   if (status.IsError())
     return status;
-  if (!result.GetString("data", screenshot))
+  std::string* data = result.FindString("data");
+  if (!data)
     return Status(kUnknownError, "expected string 'data' in response");
+  *screenshot = std::move(*data);
   return Status(kOk);
 }
 
@@ -1130,7 +1039,7 @@ Status WebViewImpl::PrintToPDF(const base::Value::Dict& params,
     return Status(kUnknownError,
                   "PrintToPDF is only supported in headless mode");
   }
-  base::DictionaryValue result;
+  base::Value::Dict result;
   Timeout timeout(base::Seconds(10));
   Status status = client_->SendCommandAndGetResultWithTimeout(
       "Page.printToPDF", params, &timeout, &result);
@@ -1140,8 +1049,10 @@ Status WebViewImpl::PrintToPDF(const base::Value::Dict& params,
     }
     return status;
   }
-  if (!result.GetString("data", pdf))
+  std::string* data = result.FindString("data");
+  if (!data)
     return Status(kUnknownError, "expected string 'data' in response");
+  *pdf = std::move(*data);
   return Status(kOk);
 }
 
@@ -1195,21 +1106,24 @@ Status WebViewImpl::SetFileInputFiles(const std::string& frame,
     // Convert the node_id to a Runtime.RemoteObject
     std::string inner_remote_object_id;
     {
-      base::DictionaryValue cmd_result;
+      base::Value::Dict cmd_result;
       base::Value::Dict params;
       params.Set("backendNodeId", backend_node_id);
       status = client_->SendCommandAndGetResult("DOM.resolveNode", params,
                                                 &cmd_result);
       if (status.IsError())
         return status;
-      if (!cmd_result.GetString("object.objectId", &inner_remote_object_id))
+      std::string* object_id =
+          cmd_result.FindStringByDottedPath("object.objectId");
+      if (!object_id)
         return Status(kUnknownError, "DevTools didn't return objectId");
+      inner_remote_object_id = std::move(*object_id);
     }
 
     // figure out how many files there are
     absl::optional<int> number_of_files;
     {
-      base::DictionaryValue cmd_result;
+      base::Value::Dict cmd_result;
       base::Value::Dict params;
       params.Set("functionDeclaration",
                  "function() { return this.files.length }");
@@ -1218,7 +1132,7 @@ Status WebViewImpl::SetFileInputFiles(const std::string& frame,
                                                 params, &cmd_result);
       if (status.IsError())
         return status;
-      number_of_files = cmd_result.FindIntPath("result.value");
+      number_of_files = cmd_result.FindIntByDottedPath("result.value");
       if (!number_of_files)
         return Status(kUnknownError, "DevTools didn't return value");
     }
@@ -1227,7 +1141,7 @@ Status WebViewImpl::SetFileInputFiles(const std::string& frame,
     for (int i = 0; i < *number_of_files; i++) {
       std::string file_object_id;
       {
-        base::DictionaryValue cmd_result;
+        base::Value::Dict cmd_result;
         base::Value::Dict params;
         params.Set("functionDeclaration", "function() { return this.files[" +
                                               std::to_string(i) + "] }");
@@ -1237,24 +1151,27 @@ Status WebViewImpl::SetFileInputFiles(const std::string& frame,
                                                   params, &cmd_result);
         if (status.IsError())
           return status;
-        if (!cmd_result.GetString("result.objectId", &file_object_id))
+        std::string* object_id =
+            cmd_result.FindStringByDottedPath("result.objectId");
+        if (!object_id)
           return Status(kUnknownError, "DevTools didn't return objectId");
+        file_object_id = std::move(*object_id);
       }
 
       // Now convert each RemoteObject into the full path
       {
         base::Value::Dict params;
         params.Set("objectId", file_object_id);
-        base::DictionaryValue get_file_info_result;
+        base::Value::Dict get_file_info_result;
         status = client_->SendCommandAndGetResult("DOM.getFileInfo", params,
                                                   &get_file_info_result);
         if (status.IsError())
           return status;
         // Add the full path to the file_list
-        std::string full_path;
-        if (!get_file_info_result.GetString("path", &full_path))
+        std::string* full_path = get_file_info_result.FindString("path");
+        if (!full_path)
           return Status(kUnknownError, "DevTools didn't return path");
-        file_list.Append(full_path);
+        file_list.Append(std::move(*full_path));
       }
     }
   }
@@ -1313,11 +1230,10 @@ Status WebViewImpl::StartProfile() {
 
 Status WebViewImpl::EndProfile(std::unique_ptr<base::Value>* profile_data) {
   base::Value::Dict params;
-  std::unique_ptr<base::DictionaryValue> profile_result =
-      std::make_unique<base::DictionaryValue>();
+  base::Value::Dict profile_result;
 
   Status status = client_->SendCommandAndGetResult("Profiler.stop", params,
-                                                   profile_result.get());
+                                                   &profile_result);
 
   if (status.IsError()) {
     Status disable_profile_status = StopProfileInternal();
@@ -1326,7 +1242,7 @@ Status WebViewImpl::EndProfile(std::unique_ptr<base::Value>* profile_data) {
     return status;
   }
 
-  *profile_data = std::move(profile_result);
+  *profile_data = std::make_unique<base::Value>(std::move(profile_result));
   return status;
 }
 
@@ -1402,19 +1318,19 @@ Status WebViewImpl::CallAsyncFunctionInternal(
       return status;
     }
 
-    base::DictionaryValue* result_info = nullptr;
-    if (!query_value->GetAsDictionary(&result_info))
+    base::Value::Dict* result_info = query_value->GetIfDict();
+    if (!result_info)
       return Status(kUnknownError, "async result info is not a dictionary");
-    absl::optional<int> status_code = result_info->FindIntKey("status");
+    absl::optional<int> status_code = result_info->FindInt("status");
     if (!status_code)
       return Status(kUnknownError, "async result info has no int 'status'");
     if (*status_code != kOk) {
-      std::string message;
-      result_info->GetString("value", &message);
-      return Status(static_cast<StatusCode>(*status_code), message);
+      const std::string* message = result_info->FindString("value");
+      return Status(static_cast<StatusCode>(*status_code),
+                    message ? *message : "");
     }
 
-    if (base::Value* value = result_info->FindKey("value")) {
+    if (base::Value* value = result_info->Find("value")) {
       *result = base::Value::ToUniquePtrValue(value->Clone());
       return Status(kOk);
     }
@@ -1555,7 +1471,7 @@ Status EvaluateScript(DevToolsClient* client,
   }
   params.Set("returnByValue", return_type == ReturnByValue);
   params.Set("awaitPromise", await_promise);
-  base::Value cmd_result;
+  base::Value::Dict cmd_result;
 
   Timeout local_timeout(timeout);
   Status status = client->SendCommandAndGetResultWithTimeout(
@@ -1563,18 +1479,17 @@ Status EvaluateScript(DevToolsClient* client,
   if (status.IsError())
     return status;
 
-  base::Value::Dict* cmd_dict = cmd_result.GetIfDict();
-  if (cmd_dict && cmd_dict->contains("exceptionDetails")) {
+  if (cmd_result.contains("exceptionDetails")) {
     std::string description = "unknown";
     if (const std::string* maybe_description =
-            cmd_dict->FindStringByDottedPath("result.description")) {
+            cmd_result.FindStringByDottedPath("result.description")) {
       description = *maybe_description;
     }
     return Status(kUnknownError,
                   "Runtime.evaluate threw exception: " + description);
   }
 
-  base::Value::Dict* unscoped_result = cmd_dict->FindDict("result");
+  base::Value::Dict* unscoped_result = cmd_result.FindDict("result");
   if (!unscoped_result)
     return Status(kUnknownError, "evaluate missing dictionary 'result'");
   result = std::move(*unscoped_result);
@@ -1634,20 +1549,20 @@ Status EvaluateScriptAndGetValue(DevToolsClient* client,
 
 Status ParseCallFunctionResult(const base::Value& temp_result,
                                std::unique_ptr<base::Value>* result) {
-  const base::DictionaryValue* dict;
-  if (!temp_result.GetAsDictionary(&dict))
+  const base::Value::Dict* dict = temp_result.GetIfDict();
+  if (!dict)
     return Status(kUnknownError, "call function result must be a dictionary");
-  absl::optional<int> status_code = dict->FindIntKey("status");
+  absl::optional<int> status_code = dict->FindInt("status");
   if (!status_code) {
     return Status(kUnknownError,
                   "call function result missing int 'status'");
   }
   if (*status_code != kOk) {
-    std::string message;
-    dict->GetString("value", &message);
-    return Status(static_cast<StatusCode>(*status_code), message);
+    const std::string* message = dict->FindString("value");
+    return Status(static_cast<StatusCode>(*status_code),
+                  message ? *message : "");
   }
-  const base::Value* unscoped_value = dict->FindKey("value");
+  const base::Value* unscoped_value = dict->Find("value");
   if (unscoped_value == nullptr) {
     // Missing 'value' indicates the JavaScript code didn't return a value.
     return Status(kOk);
@@ -1693,7 +1608,7 @@ Status GetBackendNodeIdFromFunction(DevToolsClient* client,
 
   RemoteObjectReleaseGuard release_guard(client, element_id);
 
-  base::DictionaryValue cmd_result;
+  base::Value::Dict cmd_result;
   {
     base::Value::Dict params;
     params.Set("objectId", element_id);
@@ -1703,9 +1618,7 @@ Status GetBackendNodeIdFromFunction(DevToolsClient* client,
   if (status.IsError())
     return status;
 
-  DCHECK(cmd_result.is_dict());
-
-  base::Value* node = cmd_result.GetDict().Find("node");
+  base::Value* node = cmd_result.Find("node");
   if (!node || !node->is_dict()) {
     return Status(kUnknownError, "Dom.describeNode missing dictionary 'node'");
   }

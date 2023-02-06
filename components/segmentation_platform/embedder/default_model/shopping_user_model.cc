@@ -7,7 +7,7 @@
 #include <array>
 
 #include "base/metrics/field_trial_params.h"
-#include "base/threading/sequenced_task_runner_handle.h"
+#include "base/task/sequenced_task_runner.h"
 #include "components/segmentation_platform/internal/metadata/metadata_writer.h"
 #include "components/segmentation_platform/public/config.h"
 #include "components/segmentation_platform/public/constants.h"
@@ -75,6 +75,7 @@ std::unique_ptr<Config> ShoppingUserModel::GetConfig() {
           features::kShoppingUserSegmentFeature,
           kVariationsParamNameUnknownSelectionTTLDays,
           kShoppingUserDefaultUnknownSelectionTTLDays));
+  config->is_boolean_segment = true;
   return config;
 }
 
@@ -95,7 +96,7 @@ void ShoppingUserModel::InitAndFetchModel(
   writer.AddUmaFeatures(kShoppingUserUMAFeatures.data(),
                         kShoppingUserUMAFeatures.size());
 
-  base::SequencedTaskRunnerHandle::Get()->PostTask(
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE,
       base::BindRepeating(model_updated_callback, kShoppingUserSegmentId,
                           std::move(shopping_user_metadata), kModelVersion));
@@ -106,7 +107,7 @@ void ShoppingUserModel::ExecuteModelWithInput(
     ExecutionCallback callback) {
   // Invalid inputs.
   if (inputs.size() != kShoppingUserUMAFeatures.size()) {
-    base::SequencedTaskRunnerHandle::Get()->PostTask(
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, base::BindOnce(std::move(callback), absl::nullopt));
     return;
   }
@@ -119,7 +120,7 @@ void ShoppingUserModel::ExecuteModelWithInput(
     result = 1;  // User classified as shopping user;
   }
 
-  base::SequencedTaskRunnerHandle::Get()->PostTask(
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE,
       base::BindOnce(std::move(callback), ModelProvider::Response(1, result)));
 }

@@ -233,8 +233,10 @@ DeviceActivityClient::DeviceActivityClient(
     std::unique_ptr<base::RepeatingTimer> report_timer,
     const std::string& fresnel_base_url,
     const std::string& api_key,
-    std::vector<std::unique_ptr<DeviceActiveUseCase>> use_cases)
-    : network_state_handler_(handler),
+    std::vector<std::unique_ptr<DeviceActiveUseCase>> use_cases,
+    base::Time chrome_first_run_time)
+    : chrome_first_run_time_(chrome_first_run_time),
+      network_state_handler_(handler),
       url_loader_factory_(url_loader_factory),
       report_timer_(std::move(report_timer)),
       fresnel_base_url_(fresnel_base_url),
@@ -318,9 +320,10 @@ DeviceActivityClient::GetSaveStatusRequest() {
             private_computing::PrivateComputingUseCase::CROS_FRESNEL_DAILY);
         status.set_last_ping_utc_date(last_ping_utc_date);
         break;
-      case psm_rlwe::RlweUseCase::CROS_FRESNEL_7DAY_ACTIVE:
-        break;
       case psm_rlwe::RlweUseCase::CROS_FRESNEL_28DAY_ACTIVE:
+        status.set_use_case(private_computing::PrivateComputingUseCase::
+                                CROS_FRESNEL_28DAY_ACTIVE);
+        status.set_last_ping_utc_date(last_ping_utc_date);
         break;
       case psm_rlwe::RlweUseCase::CROS_FRESNEL_FIRST_ACTIVE:
         break;
@@ -425,8 +428,15 @@ void DeviceActivityClient::OnGetLastPingDatesStatusFetched(
               GetUseCasePtr(psm_rlwe::RlweUseCase::CROS_FRESNEL_FIRST_ACTIVE);
           break;
         default:
-          VLOG(1) << "PSM use case is not supported yet.";
+          LOG(ERROR) << "PSM use case is not supported yet.";
           continue;
+      }
+
+      // Crashes may occur due to device_active_use_case_ptr not being defined
+      // at this point.
+      if (device_active_use_case_ptr == nullptr) {
+        LOG(ERROR) << "Device active use case is not defined.";
+        return;
       }
 
       if (!device_active_use_case_ptr->IsLastKnownPingTimestampSet()) {
@@ -446,10 +456,23 @@ void DeviceActivityClient::OnGetLastPingDatesStatusFetched(
       }
     }
   } else {
-    RecordPreservedFileState(
-        DeviceActivityClient::PreservedFileState::kReadFail);
-    LOG(ERROR)
-        << "Preserved File read failed. State of local states is not checked.";
+    base::Time current_time = base::Time::Now();
+    // If the device is not a new device and the local pref is empty, then
+    // record the error count in uma histogram.
+    if ((current_time - chrome_first_run_time_) > base::Days(1)) {
+      DeviceActiveUseCase* device_active_use_case_ptr =
+          GetUseCasePtr(psm_rlwe::RlweUseCase::CROS_FRESNEL_DAILY);
+      if (!device_active_use_case_ptr->IsLastKnownPingTimestampSet()) {
+        // Local pref is empty. To avoid when the chrome signout or reboot
+        // to record unnecessary uma hisgtogram.
+        RecordPreservedFileState(
+            DeviceActivityClient::PreservedFileState::kReadFail);
+        LOG(ERROR)
+            << "Preserved File read has failed. State of local states is "
+               "not checked. "
+            << "Error from DBus: " << response.error_message();
+      }
+    }
   }
 
   // Always trigger step to check for network status changing after reading the
@@ -660,6 +683,27 @@ void DeviceActivityClient::TransitionOutOfIdle(
         }
 
         break;
+      case psm_rlwe::RlweUseCase::CROS_FRESNEL_28DAY_ACTIVE:
+        // Check membership continues when the cached local state pref
+        // is not set. The local state pref may not be set if the device is
+        // new, powerwashed, recovered, RMA, or the local state was corrupted.
+        if (base::FeatureList::IsEnabled(
+                features::kDeviceActiveClient28DayActiveCheckMembership) &&
+            !current_use_case->IsLastKnownPingTimestampSet()) {
+          TransitionToCheckMembershipOprf(current_use_case);
+          return;
+        }
+
+        // |TransitionToCheckIn| if the local state pref is set.
+        if (base::FeatureList::IsEnabled(
+                features::kDeviceActiveClient28DayActiveCheckIn)) {
+          // During rollout, we perform CheckIn without CheckMembership for
+          // powerwash, recovery, or RMA devices.
+          TransitionToCheckIn(current_use_case);
+          return;
+        }
+
+        break;
       default:
         VLOG(1) << "Use case is not supported yet. "
                 << psm_rlwe::RlweUseCase_Name(
@@ -765,6 +809,13 @@ void DeviceActivityClient::TransitionToCheckMembershipOprf(
 
   // Report UMA histogram for transitioning state to |kCheckingMembershipOprf|.
   RecordStateCountMetric(state_);
+
+  std::vector<psm_rlwe::RlwePlaintextId> psm_ids =
+      current_use_case->GetPsmIdentifiersToQuery();
+
+  // Initializes the PSM rlwe client with the appropriate psm id values that we
+  // want to check membership for. This varies by fixed and n-day use cases.
+  current_use_case->SetPsmRlweClient(psm_ids);
 
   // Generate PSM Oprf request body.
   const auto status_or_oprf_request =
@@ -1038,7 +1089,7 @@ void DeviceActivityClient::TransitionToCheckIn(
   }
 
   // Generate Fresnel PSM import request body.
-  device_activity::ImportDataRequest import_request =
+  FresnelImportDataRequest import_request =
       current_use_case->GenerateImportRequestBody();
 
   std::string request_body;

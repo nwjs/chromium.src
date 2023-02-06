@@ -397,6 +397,7 @@ void AuthenticatorCommonImpl::StartMakeCredentialRequest(
 
   request_delegate_->ConfigureCable(
       caller_origin_, cable_request_type,
+      make_credential_options_->resident_key,
       base::span<const device::CableDiscoveryData>(), discovery_factory());
 
   make_credential_options_->allow_skipping_pin_touch = allow_skipping_pin_touch;
@@ -439,6 +440,7 @@ void AuthenticatorCommonImpl::StartGetAssertionRequest(
   }
   request_delegate_->ConfigureCable(caller_origin_,
                                     device::CableRequestType::kGetAssertion,
+                                    /*resident_key_requirement=*/absl::nullopt,
                                     cable_pairings, discovery_factory());
 #if BUILDFLAG(IS_CHROMEOS)
   discovery_factory()->set_get_assertion_request_for_legacy_credential_check(
@@ -523,12 +525,6 @@ void AuthenticatorCommonImpl::MakeCredential(
   DCHECK(make_credential_response_callback_.is_null());
   make_credential_response_callback_ = std::move(callback);
 
-  if (!GetWebAuthenticationDelegate()->IsSecurityLevelAcceptableForWebAuthn(
-          GetRenderFrameHost())) {
-    CompleteMakeCredentialRequest(
-        blink::mojom::AuthenticatorStatus::CERTIFICATE_ERROR);
-    return;
-  }
   BeginRequestTimeout(options->timeout);
 
   WebAuthRequestSecurityChecker::RequestType request_type =
@@ -564,6 +560,14 @@ void AuthenticatorCommonImpl::MakeCredential(
   if (!request_delegate_) {
     CompleteMakeCredentialRequest(
         blink::mojom::AuthenticatorStatus::PENDING_REQUEST);
+    return;
+  }
+
+  if (!request_delegate_->IsVirtualEnvironmentEnabled() &&
+      !GetWebAuthenticationDelegate()->IsSecurityLevelAcceptableForWebAuthn(
+          GetRenderFrameHost(), caller_origin)) {
+    CompleteMakeCredentialRequest(
+        blink::mojom::AuthenticatorStatus::CERTIFICATE_ERROR);
     return;
   }
 
@@ -841,12 +845,6 @@ void AuthenticatorCommonImpl::GetAssertion(
   DCHECK(get_assertion_response_callback_.is_null());
   get_assertion_response_callback_ = std::move(callback);
 
-  if (!GetWebAuthenticationDelegate()->IsSecurityLevelAcceptableForWebAuthn(
-          GetRenderFrameHost())) {
-    CompleteGetAssertionRequest(
-        blink::mojom::AuthenticatorStatus::CERTIFICATE_ERROR);
-    return;
-  }
   if (!options->is_conditional) {
     BeginRequestTimeout(options->timeout);
   }
@@ -891,6 +889,13 @@ void AuthenticatorCommonImpl::GetAssertion(
   if (!request_delegate_) {
     CompleteGetAssertionRequest(
         blink::mojom::AuthenticatorStatus::PENDING_REQUEST);
+    return;
+  }
+  if (!request_delegate_->IsVirtualEnvironmentEnabled() &&
+      !GetWebAuthenticationDelegate()->IsSecurityLevelAcceptableForWebAuthn(
+          GetRenderFrameHost(), caller_origin)) {
+    CompleteGetAssertionRequest(
+        blink::mojom::AuthenticatorStatus::CERTIFICATE_ERROR);
     return;
   }
 

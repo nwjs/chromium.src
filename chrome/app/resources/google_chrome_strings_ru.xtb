@@ -80,7 +80,6 @@
 <translation id="2401189691232800402">Chrome OS</translation>
 <translation id="2467438592969358367">Чтобы экспортировать пароли из Google Chrome, введите пароль своего аккаунта Windows.</translation>
 <translation id="2485422356828889247">Удалить</translation>
-<translation id="2494974097748878569">Google Ассистент в Chrome</translation>
 <translation id="2534507159460261402">Google Pay (скопирована в Chrome)</translation>
 <translation id="2559253115192232574">Сайты, на которые вы зайдете в дальнейшем, смогут запрашивать у Chrome сведения о ваших интересах, чтобы показывать вам подходящую рекламу. Chrome может предоставлять информацию не более чем о трех интересах.</translation>
 <translation id="2563121210305478421">Перезапустить Chrome?</translation>
@@ -125,6 +124,7 @@
 <translation id="3140883423282498090">Внесенные изменения станут активны после перезапуска Google Chrome.</translation>
 <translation id="3149510190863420837">Приложения Chrome</translation>
 <translation id="3169523567916669830">Во время тестирования новых функций вы сможете просматривать и удалять потенциально интересные вам темы, используемые сайтами для показа рекламы. Chrome определяет такие темы на основе вашей недавней истории браузера.</translation>
+<translation id="3211604354460514046">{NUM_DEVICES,plural, =1{Google Chrome подключен к HID-устройству}one{Google Chrome подключен к HID-устройствам}few{Google Chrome подключен к HID-устройствам}many{Google Chrome подключен к HID-устройствам}other{Google Chrome подключен к HID-устройствам}}</translation>
 <translation id="3245429137663807393">Если вы также отправляете отчеты об использовании Chrome, в них включаются URL посещенных вами страниц.</translation>
 <translation id="3282568296779691940">Войти в Chrome</translation>
 <translation id="3286538390144397061">Перезапустить сейчас</translation>
@@ -271,7 +271,7 @@
 <translation id="6418662306461808273">Переключиться на существующий профиль Chrome?</translation>
 <translation id="6506909944137591434">Для создания 3D-карты места, в котором вы находитесь, браузеру Chrome требуется доступ к камере.</translation>
 <translation id="6515495397637126556"><ph name="PAGE_TITLE" /> – Google Chrome для разработчиков</translation>
-<translation id="659498884637196217">В Менеджере паролей Google на этом устройстве</translation>
+<translation id="659498884637196217">В Google Менеджере паролей на этом устройстве</translation>
 <translation id="6632473616050862500">Chrome OS Flex работает благодаря дополнительному <ph name="BEGIN_LINK_CROS_OSS" />программному обеспечению с открытым исходным кодом<ph name="END_LINK_CROS_OSS" />.</translation>
 <translation id="6676384891291319759">Доступ в Интернет</translation>
 <translation id="6679975945624592337">Разрешить Google Chrome работать в фоновом режиме</translation>
@@ -281,7 +281,6 @@
 <translation id="6739177684496155661">Продолжить работу в новом профиле Chrome?</translation>
 <translation id="6750954913813541382">Для проверки правописания Chrome отправляет в Google текст, который вы вводите в браузере.</translation>
 <translation id="677276454032249905">Закрыть Chrome?</translation>
-<translation id="6785872064505734160">Google Ассистент в Chrome может помогать вам выполнять действия на сайтах.</translation>
 <translation id="683440813066116847">Разрешить в Google Chrome Canary передачу входящего трафика по протоколу mDNS</translation>
 <translation id="6881299373831449287">Обновление Chrome</translation>
 <translation id="6885412569789873916">Приложения Chrome (бета)</translation>
@@ -346,7 +345,7 @@
 <translation id="7930071585467473040">Google Chrome пытается скопировать пароли</translation>
 <translation id="7951272445806340501">Чтобы установить обновление, перезапустите Chrome OS Flex.</translation>
 <translation id="7962410387636238736">Google Chrome больше не будет обновляться на этом компьютере, так как поддержка Windows XP и Windows Vista прекращена.</translation>
-<translation id="8005666035647241369">В Менеджере паролей Google на этом устройстве</translation>
+<translation id="8005666035647241369">В Google Менеджере паролей на этом устройстве</translation>
 <translation id="8008534537613507642">Переустановить Chrome</translation>
 <translation id="8013993649590906847">Если у изображения нет понятного описания, Chrome попытается его найти. Для создания описаний изображения отправляются в Google.</translation>
 <translation id="80471789339884597">Спасибо, что установили <ph name="BUNDLE_NAME" />. Чтобы изменения вступили в силу, перезапустите все открытые браузеры.</translation>

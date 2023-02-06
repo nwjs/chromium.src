@@ -8,8 +8,13 @@
 
 #include "ash/constants/ash_features.h"
 #include "ash/system/diagnostics/diagnostics_log_controller.h"
+#include "ash/webui/diagnostics_ui/diagnostics_ui.h"
 #include "ash/webui/diagnostics_ui/url_constants.h"
 #include "base/strings/strcat.h"
+#include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
+#include "chrome/browser/ui/browser_window.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
 
@@ -37,6 +42,17 @@ const float kDiagnosticsDialogScale = .8;
 // static
 void DiagnosticsDialog::ShowDialog(DiagnosticsDialog::DiagnosticsPage page,
                                    gfx::NativeWindow parent) {
+  // Close any instance of Diagnostics opened as an SWA.
+  auto* profile = ProfileManager::GetActiveUserProfile();
+  auto* browser =
+      ash::FindSystemWebAppBrowser(profile, ash::SystemWebAppType::DIAGNOSTICS);
+  if (browser) {
+    browser->window()->Close();
+  }
+
+  // Close any existing Diagnostics dialog before reopening.
+  MaybeCloseExistingDialog();
+
   DiagnosticsDialog* dialog = new DiagnosticsDialog(page);
 
   // Ensure log controller configuration matches current session.
@@ -48,15 +64,19 @@ void DiagnosticsDialog::ShowDialog(DiagnosticsDialog::DiagnosticsPage page,
   dialog->ShowSystemDialog(parent);
 }
 
+void DiagnosticsDialog::MaybeCloseExistingDialog() {
+  SystemWebDialogDelegate* existing_dialog =
+      SystemWebDialogDelegate::FindInstance(kDiagnosticsDialogId);
+  if (existing_dialog) {
+    existing_dialog->Close();
+  }
+}
+
 DiagnosticsDialog::DiagnosticsDialog(DiagnosticsDialog::DiagnosticsPage page)
     : SystemWebDialogDelegate(GURL(GetUrlForPage(page)),
                               /*title=*/std::u16string()) {}
 
 DiagnosticsDialog::~DiagnosticsDialog() = default;
-
-const std::string& DiagnosticsDialog::Id() {
-  return id_;
-}
 
 void DiagnosticsDialog::GetDialogSize(gfx::Size* size) const {
   const display::Display display =
@@ -68,6 +88,10 @@ void DiagnosticsDialog::GetDialogSize(gfx::Size* size) const {
                            display_size.height() * kDiagnosticsDialogScale);
 
   *size = display_size;
+}
+
+bool DiagnosticsDialog::ShouldCloseDialogOnEscape() const {
+  return DiagnosticsDialogUI::ShouldCloseDialogOnEscape();
 }
 
 }  // namespace ash

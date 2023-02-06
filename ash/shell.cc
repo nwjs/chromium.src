@@ -10,6 +10,7 @@
 #include <utility>
 
 #include "ash/accelerators/accelerator_controller_impl.h"
+#include "ash/accelerators/accelerator_tracker.h"
 #include "ash/accelerators/ash_accelerator_configuration.h"
 #include "ash/accelerators/ash_focus_manager_factory.h"
 #include "ash/accelerators/magnifier_key_scroller.h"
@@ -35,8 +36,6 @@
 #include "ash/clipboard/clipboard_history_controller_impl.h"
 #include "ash/clipboard/control_v_histogram_recorder.h"
 #include "ash/color_enhancement/color_enhancement_controller.h"
-#include "ash/components/fwupd/firmware_update_manager.h"
-#include "ash/components/peripheral_notification/peripheral_notification_manager.h"
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_switches.h"
 #include "ash/controls/contextual_tooltip.h"
@@ -99,8 +98,9 @@
 #include "ash/public/cpp/shelf_config.h"
 #include "ash/public/cpp/shelf_model.h"
 #include "ash/public/cpp/shell_window_ids.h"
+#include "ash/public/cpp/system_sounds_delegate.h"
 #include "ash/public/cpp/tab_cluster/tab_cluster_ui_controller.h"
-#include "ash/public/cpp/views_text_services_context_menu_impl.h"
+#include "ash/public/cpp/views_text_services_context_menu_ash.h"
 #include "ash/quick_pair/keyed_service/quick_pair_mediator.h"
 #include "ash/rgb_keyboard/rgb_keyboard_manager.h"
 #include "ash/root_window_controller.h"
@@ -121,6 +121,7 @@
 #include "ash/system/brightness/brightness_controller_chromeos.h"
 #include "ash/system/brightness_control_delegate.h"
 #include "ash/system/camera/autozoom_controller_impl.h"
+#include "ash/system/camera/camera_effects_controller.h"
 #include "ash/system/caps_lock_notification_controller.h"
 #include "ash/system/diagnostics/diagnostics_log_controller.h"
 #include "ash/system/federated/federated_service_controller.h"
@@ -159,9 +160,10 @@
 #include "ash/system/toast/toast_manager_impl.h"
 #include "ash/system/tray/system_tray_notifier.h"
 #include "ash/system/usb_peripheral/usb_peripheral_notification_controller.h"
-#include "ash/system/video_conference/video_conference_tray_controller.h"
+#include "ash/system/video_conference/fake_video_conference_tray_controller.h"
 #include "ash/touch/ash_touch_transform_controller.h"
 #include "ash/touch/touch_devices_controller.h"
+#include "ash/touch/touch_selection_magnifier_runner_ash.h"
 #include "ash/tray_action/tray_action.h"
 #include "ash/utility/occlusion_tracker_pauser.h"
 #include "ash/wallpaper/wallpaper_controller_impl.h"
@@ -208,10 +210,12 @@
 #include "base/trace_event/trace_event.h"
 #include "chromeos/ash/components/dbus/fwupd/fwupd_client.h"
 #include "chromeos/ash/components/dbus/usb/usbguard_client.h"
+#include "chromeos/ash/components/fwupd/firmware_update_manager.h"
+#include "chromeos/ash/components/peripheral_notification/peripheral_notification_manager.h"
+#include "chromeos/ash/components/system/devicemode.h"
 #include "chromeos/ash/services/assistant/public/cpp/features.h"
 #include "chromeos/dbus/init/initialize_dbus_client.h"
 #include "chromeos/dbus/power/power_policy_controller.h"
-#include "chromeos/system/devicemode.h"
 #include "chromeos/ui/wm/features.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
@@ -227,6 +231,7 @@
 #include "ui/base/cursor/mojom/cursor_type.mojom-shared.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/base/user_activity/user_activity_detector.h"
+#include "ui/chromeos/events/keyboard_capability.h"
 #include "ui/chromeos/user_activity_power_manager_notifier.h"
 #include "ui/color/color_provider_manager.h"
 #include "ui/compositor/layer.h"
@@ -571,6 +576,11 @@ void Shell::NotifyShelfAlignmentChanged(aura::Window* root_window,
     observer.OnShelfAlignmentChanged(root_window, old_alignment);
 }
 
+void Shell::NotifyDisplayForNewWindowsChanged() {
+  for (auto& observer : shell_observers_)
+    observer.OnDisplayForNewWindowsChanged();
+}
+
 void Shell::AddAccessibilityEventHandler(
     ui::EventHandler* handler,
     AccessibilityEventHandlerManager::HandlerType type) {
@@ -680,6 +690,7 @@ Shell::~Shell() {
   overlay_filter_.reset();
 
   RemovePreTargetHandler(control_v_histogram_recorder_.get());
+  RemovePreTargetHandler(accelerator_tracker_.get());
   RemovePreTargetHandler(accelerator_filter_.get());
   RemovePreTargetHandler(event_transformation_handler_.get());
   if (back_gesture_event_handler_)
@@ -814,6 +825,7 @@ Shell::~Shell() {
   system_notification_controller_.reset();
   // Should be destroyed after Shelf and |system_notification_controller_|.
   system_tray_model_.reset();
+  system_sounds_delegate_.reset();
 
   // MruWindowTracker must be destroyed after all windows have been deleted to
   // avoid a possible crash when Shell is destroyed from a non-normal shutdown
@@ -916,11 +928,6 @@ Shell::~Shell() {
   // Depends on |focus_controller_|, so must be destroyed before.
   window_tree_host_manager_.reset();
 
-  // The UI has been destructed, so it's now OK to destruct the video conference
-  // UI controller.
-  if (features::IsVcControlsUiEnabled())
-    video_conference_tray_controller_.reset();
-
   // The desks controller is destroyed after the window tree host manager and
   // before the focus controller. At this point it is guaranteed that querying
   // the active desk is no longer needed.
@@ -938,6 +945,8 @@ Shell::~Shell() {
   projector_controller_.reset();
 
   partial_magnifier_controller_.reset();
+
+  touch_selection_magnifier_runner_ash_.reset();
 
   laser_pointer_controller_.reset();
 
@@ -977,6 +986,8 @@ Shell::~Shell() {
 
   usb_peripheral_notification_controller_.reset();
 
+  keyboard_capability_.reset();
+
   message_center_ash_impl_.reset();
 
   // Destroys the MessageCenter singleton, so must happen late.
@@ -989,6 +1000,8 @@ Shell::~Shell() {
   // `CalendarController` observes `SessionController` and must be destructed
   // before it.
   calendar_controller_.reset();
+
+  camera_effects_controller_.reset();
 
   shell_delegate_.reset();
 
@@ -1032,6 +1045,9 @@ void Shell::Init(
   message_center_controller_ = std::make_unique<MessageCenterController>();
 
   message_center_ash_impl_ = std::make_unique<MessageCenterAshImpl>();
+
+  // Initialized early since it is used by some other objects.
+  keyboard_capability_ = std::make_unique<ui::KeyboardCapability>();
 
   // These controllers call Shell::Get() in their constructors, so they cannot
   // be in the member initialization list.
@@ -1235,6 +1251,10 @@ void Shell::Init(
 
   calendar_controller_ = std::make_unique<CalendarController>();
 
+  if (CameraEffectsController::IsCameraEffectsSupported()) {
+    camera_effects_controller_ = std::make_unique<CameraEffectsController>();
+  }
+
   shelf_config_ = std::make_unique<ShelfConfig>();
   shelf_controller_ = std::make_unique<ShelfController>();
 
@@ -1256,6 +1276,12 @@ void Shell::Init(
 
   control_v_histogram_recorder_ = std::make_unique<ControlVHistogramRecorder>();
   AddPreTargetHandler(control_v_histogram_recorder_.get());
+
+  // AcceleratorTracker should be placed before AcceleratorFilter to make sure
+  // the accelerators won't be filtered out before getting AcceleratorTracker.
+  accelerator_tracker_ = std::make_unique<AcceleratorTracker>(
+      base::make_span(kAcceleratorTrackerList, kAcceleratorTrackerListLength));
+  AddPreTargetHandler(accelerator_tracker_.get());
 
   accelerator_filter_ = std::make_unique<::wm::AcceleratorFilter>(
       std::make_unique<PreTargetAcceleratorHandler>());
@@ -1315,6 +1341,10 @@ void Shell::Init(
   partial_magnifier_controller_ =
       std::make_unique<PartialMagnifierController>();
   highlighter_controller_ = std::make_unique<HighlighterController>();
+  if (::features::IsTouchTextEditingRedesignEnabled()) {
+    touch_selection_magnifier_runner_ash_ =
+        std::make_unique<TouchSelectionMagnifierRunnerAsh>();
+  }
 
   fullscreen_magnifier_controller_ =
       std::make_unique<FullscreenMagnifierController>();
@@ -1323,7 +1353,7 @@ void Shell::Init(
 
   // |assistant_controller_| is put before |ambient_controller_| as it will be
   // used by the latter.
-  if (chromeos::features::IsAmbientModeEnabled()) {
+  if (features::IsAmbientModeEnabled()) {
     mojo::PendingRemote<device::mojom::Fingerprint> fingerprint;
     shell_delegate_->BindFingerprint(
         fingerprint.InitWithNewPipeAndPassReceiver());
@@ -1405,6 +1435,15 @@ void Shell::Init(
   nearby_share_delegate_ = shell_delegate_->CreateNearbyShareDelegate(
       nearby_share_controller_.get());
 
+  // System sounds delegate should be initialized before
+  // `SystemNotificationController` is created, because
+  // `SystemNotificationController` ctor will creat an instance of
+  // `PowerSoundsController`, which will access and play the initialized sounds.
+  if (features::AreSystemSoundsEnabled()) {
+    system_sounds_delegate_ = shell_delegate_->CreateSystemSoundsDelegate();
+    system_sounds_delegate_->Init();
+  }
+
   system_notification_controller_ =
       std::make_unique<SystemNotificationController>();
 
@@ -1418,15 +1457,6 @@ void Shell::Init(
   // hosts the WM mode tray button.
   if (features::IsWmModeEnabled())
     wm_mode_controller_ = std::make_unique<WmModeController>();
-
-  // This controller MUST be initialized before the UI is constructed. The
-  // video conferencing views will have their own reference to this controller,
-  // may be observers of it, and will assume it exists for as long as they
-  // themselves exist.
-  if (features::IsVcControlsUiEnabled()) {
-    video_conference_tray_controller_ =
-        std::make_unique<VideoConferenceTrayController>();
-  }
 
   window_tree_host_manager_->InitHosts();
 
@@ -1489,7 +1519,7 @@ void Shell::Init(
         glanceables_controller_.get()));
   }
 
-  if (chromeos::features::IsProjectorEnabled())
+  if (features::IsProjectorEnabled())
     projector_controller_ = std::make_unique<ProjectorControllerImpl>();
 
   if (chromeos::wm::features::IsFloatWindowEnabled())
@@ -1506,8 +1536,8 @@ void Shell::Init(
       base::BindRepeating(
           [](ui::SimpleMenuModel* menu_model, views::Textfield* textfield)
               -> std::unique_ptr<views::ViewsTextServicesContextMenu> {
-            return std::make_unique<ViewsTextServicesContextMenuImpl>(
-                menu_model, textfield);
+            return std::make_unique<ViewsTextServicesContextMenuAsh>(menu_model,
+                                                                     textfield);
           }));
 
   for (auto& observer : shell_observers_)

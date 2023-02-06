@@ -75,6 +75,7 @@
   E_CPONLY(kColorExtensionMenuIconDisabled) \
   E_CPONLY(kColorExtensionMenuPinButtonIcon) \
   E_CPONLY(kColorExtensionMenuPinButtonIconDisabled) \
+  E_CPONLY(kColorExtensionsMenuHighlightedBackground) \
   E_CPONLY(kColorExtensionsToolbarControlsBackground) \
   /* Eyedropper colors. */ \
   E_CPONLY(kColorEyedropperBoundary) \
@@ -161,6 +162,7 @@
   E_CPONLY(kColorNewTabPageFocusShadow) \
   E_CPONLY(kColorNewTabPageHeader) \
   E_CPONLY(kColorNewTabPagePromoBackground) \
+  E_CPONLY(kColorNewTabPagePromoImageBackground) \
   E_CPONLY(kColorNewTabPageIconButtonBackground) \
   E_CPONLY(kColorNewTabPageIconButtonBackgroundActive) \
   E_CPONLY(kColorNewTabPageLink) \
@@ -203,8 +205,7 @@
   E_CPONLY(kColorOmniboxAnswerIconForeground) \
   E_CPONLY(kColorOmniboxBubbleOutline) \
   E_CPONLY(kColorOmniboxBubbleOutlineExperimentalKeywordMode) \
-  E_CPONLY(kColorOmniboxChipBackgroundLowVisibility) \
-  E_CPONLY(kColorOmniboxChipBackgroundNormalVisibility) \
+  E_CPONLY(kColorOmniboxChipBackground) \
   E_CPONLY(kColorOmniboxChipForegroundLowVisibility) \
   E_CPONLY(kColorOmniboxChipForegroundNormalVisibility) \
   E_CPONLY(kColorOmniboxKeywordSelected) \

@@ -13,7 +13,7 @@
 #include "chrome/browser/ash/policy/handlers/device_name_policy_handler.h"
 #include "chrome/browser/ash/settings/cros_settings.h"
 #include "chromeos/ash/components/network/network_state_handler_observer.h"
-#include "chromeos/system/statistics_provider.h"
+#include "chromeos/ash/components/system/statistics_provider.h"
 
 namespace ash {
 class NetworkState;
@@ -68,7 +68,8 @@ class DeviceNamePolicyHandlerImpl : public DeviceNamePolicyHandler,
 
   // Sets new device name and policy if different from the current device name
   // and/or policy.
-  void SetDeviceNamePolicy(DeviceNamePolicy policy, std::string& new_hostname);
+  void SetDeviceNamePolicy(DeviceNamePolicy policy,
+                           const std::string& new_hostname);
 
   ash::CrosSettings* cros_settings_;
   chromeos::system::StatisticsProvider* statistics_provider_;

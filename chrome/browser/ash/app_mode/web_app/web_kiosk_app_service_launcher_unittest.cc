@@ -19,7 +19,6 @@
 #include "chrome/browser/apps/app_service/app_service_test.h"
 #include "chrome/browser/ash/app_mode/web_app/web_kiosk_app_data.h"
 #include "chrome/browser/ash/app_mode/web_app/web_kiosk_app_manager.h"
-#include "chrome/browser/ash/system_web_apps/system_web_app_manager.h"
 #include "chrome/browser/ui/web_applications/web_app_launch_manager.h"
 #include "chrome/browser/web_applications/external_install_options.h"
 #include "chrome/browser/web_applications/externally_managed_app_manager.h"
@@ -37,6 +36,7 @@
 #include "chrome/browser/web_applications/web_app_ui_manager.h"
 #include "chrome/test/base/browser_with_test_window_test.h"
 #include "chrome/test/base/testing_profile.h"
+#include "chromeos/ash/components/login/login_state/login_state.h"
 #include "components/services/app_service/public/cpp/app_types.h"
 #include "components/services/app_service/public/cpp/instance.h"
 #include "components/webapps/browser/install_result_code.h"
@@ -91,6 +91,10 @@ class WebKioskAppServiceLauncherTest : public BrowserWithTestWindowTest {
  public:
   void SetUp() override {
     BrowserWithTestWindowTest::SetUp();
+
+    LoginState::Get()->SetLoggedInState(LoginState::LOGGED_IN_ACTIVE,
+                                        LoginState::LOGGED_IN_USER_KIOSK);
+
     app_service_test_.UninstallAllApps(profile());
     app_service_test_.SetUp(profile());
     app_service_ = apps::AppServiceProxyFactory::GetForProfile(profile());
@@ -116,7 +120,7 @@ class WebKioskAppServiceLauncherTest : public BrowserWithTestWindowTest {
                   /*manifest_id=*/absl::nullopt, start_url);
               // Uninstall placeholder if reinstall_placeholder is set to true.
               auto placeholder_id =
-                  web_app_provider()->registrar().LookupPlaceholderAppId(
+                  web_app_provider()->registrar_unsafe().LookupPlaceholderAppId(
                       install_url, web_app::WebAppManagement::Type::kKiosk);
               if (placeholder_id.has_value()) {
                 if (install_options.reinstall_placeholder) {
@@ -155,7 +159,7 @@ class WebKioskAppServiceLauncherTest : public BrowserWithTestWindowTest {
 
     delegate_ = std::make_unique<MockAppLauncherDelegate>();
     launcher_ = std::make_unique<WebKioskAppServiceLauncher>(
-        profile(), delegate_.get(), AccountId::FromUserEmail(kAppEmail));
+        profile(), AccountId::FromUserEmail(kAppEmail), delegate_.get());
   }
 
   void TearDown() override {
@@ -230,19 +234,15 @@ class WebKioskAppServiceLauncherTest : public BrowserWithTestWindowTest {
   }
 
   web_app::WebAppRegistrar& app_registrar() {
-    return web_app_provider()->registrar();
+    return web_app_provider()->registrar_unsafe();
   }
 
   web_app::WebAppSyncBridge& sync_bridge() {
-    return web_app_provider()->sync_bridge();
+    return web_app_provider()->sync_bridge_unsafe();
   }
 
   web_app::WebAppUiManager& ui_manager() {
     return web_app_provider()->ui_manager();
-  }
-
-  SystemWebAppManager* system_web_app_manager() {
-    return SystemWebAppManager::GetForTest(profile());
   }
 
   web_app::FakeExternallyManagedAppManager& externally_managed_app_manager() {
@@ -358,7 +358,7 @@ TEST_F(WebKioskAppServiceLauncherTest, PlaceholderReplaced) {
 
   set_install_placeholder(true);
   SetupAppData(/*installed=*/true);
-  EXPECT_TRUE(web_app_provider()->registrar().LookupPlaceholderAppId(
+  EXPECT_TRUE(web_app_provider()->registrar_unsafe().LookupPlaceholderAppId(
       GURL(kAppInstallUrl), web_app::WebAppManagement::Type::kKiosk));
 
   set_install_placeholder(false);
@@ -374,7 +374,7 @@ TEST_F(WebKioskAppServiceLauncherTest, PlaceholderReplaced) {
 
   EXPECT_EQ(app_data()->status(), WebKioskAppData::Status::kInstalled);
   EXPECT_EQ(app_data()->launch_url(), kAppLaunchUrl);
-  EXPECT_FALSE(web_app_provider()->registrar().LookupPlaceholderAppId(
+  EXPECT_FALSE(web_app_provider()->registrar_unsafe().LookupPlaceholderAppId(
       GURL(kAppInstallUrl), web_app::WebAppManagement::Type::kKiosk));
 
   // App isn't always ready by the time it's being launched. Therefore we check

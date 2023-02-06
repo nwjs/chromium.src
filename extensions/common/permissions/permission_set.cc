@@ -18,6 +18,7 @@ using extensions::mojom::APIPermissionID;
 namespace extensions {
 
 PermissionSet::PermissionSet(): allow_all_override_(false) {}
+
 PermissionSet::PermissionSet(APIPermissionSet apis,
                              ManifestPermissionSet manifest_permissions,
                              URLPatternSet explicit_hosts,

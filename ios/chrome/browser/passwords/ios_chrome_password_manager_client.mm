@@ -212,11 +212,6 @@ IOSChromePasswordManagerClient::GetPasswordReuseManager() const {
       bridge_.browserState);
 }
 
-password_manager::PasswordScriptsFetcher*
-IOSChromePasswordManagerClient::GetPasswordScriptsFetcher() {
-  return nullptr;
-}
-
 password_manager::PasswordChangeSuccessTracker*
 IOSChromePasswordManagerClient::GetPasswordChangeSuccessTracker() {
   return IOSChromePasswordChangeSuccessTrackerFactory::GetForBrowserState(
@@ -336,10 +331,6 @@ bool IOSChromePasswordManagerClient::IsNewTabPage() const {
 password_manager::FieldInfoManager*
 IOSChromePasswordManagerClient::GetFieldInfoManager() const {
   return nullptr;
-}
-
-bool IOSChromePasswordManagerClient::IsAutofillAssistantUIVisible() const {
-  return false;
 }
 
 safe_browsing::PasswordProtectionService*

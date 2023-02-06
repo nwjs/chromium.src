@@ -118,7 +118,7 @@ class MainThreadIPCMessageSender : public IPCMessageSender {
 
   void SendAddFilteredEventListenerIPC(ScriptContext* context,
                                        const std::string& event_name,
-                                       const base::DictionaryValue& filter,
+                                       const base::Value::Dict& filter,
                                        bool is_lazy) override {
     DCHECK(!context->IsForServiceWorker());
     DCHECK_EQ(kMainThreadId, content::WorkerThread::GetCurrentId());
@@ -129,7 +129,7 @@ class MainThreadIPCMessageSender : public IPCMessageSender {
 
   void SendRemoveFilteredEventListenerIPC(ScriptContext* context,
                                           const std::string& event_name,
-                                          const base::DictionaryValue& filter,
+                                          const base::Value::Dict& filter,
                                           bool remove_lazy_listener) override {
     DCHECK(!context->IsForServiceWorker());
     DCHECK_EQ(kMainThreadId, content::WorkerThread::GetCurrentId());
@@ -349,7 +349,7 @@ class WorkerThreadIPCMessageSender : public IPCMessageSender {
 
   void SendAddFilteredEventListenerIPC(ScriptContext* context,
                                        const std::string& event_name,
-                                       const base::DictionaryValue& filter,
+                                       const base::Value::Dict& filter,
                                        bool is_lazy) override {
     DCHECK(context->IsForServiceWorker());
     DCHECK_NE(kMainThreadId, content::WorkerThread::GetCurrentId());
@@ -364,7 +364,7 @@ class WorkerThreadIPCMessageSender : public IPCMessageSender {
 
   void SendRemoveFilteredEventListenerIPC(ScriptContext* context,
                                           const std::string& event_name,
-                                          const base::DictionaryValue& filter,
+                                          const base::Value::Dict& filter,
                                           bool remove_lazy_listener) override {
     DCHECK(context->IsForServiceWorker());
     DCHECK_NE(kMainThreadId, content::WorkerThread::GetCurrentId());

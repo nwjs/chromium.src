@@ -85,7 +85,6 @@
 <translation id="2401189691232800402">Систем Chrome OS</translation>
 <translation id="2467438592969358367">Google Chrome сака да ги извезе вашите лозинки. Внесете ја лозинката за Windows за да го дозволите ова.</translation>
 <translation id="2485422356828889247">Деинсталирај</translation>
-<translation id="2494974097748878569">„Помошникот на Google“ во Chrome</translation>
 <translation id="2534507159460261402">Google Pay (копирана во Chrome)</translation>
 <translation id="2559253115192232574">Подоцна, сајтот што го посетувате може да побара од Chrome да ги види вашите интереси за да ги персонализира рекламите што ги гледате. Chrome може да сподели до 3 интереси.</translation>
 <translation id="2563121210305478421">Да се рестартира Chrome?</translation>
@@ -130,6 +129,7 @@
 <translation id="3140883423282498090">Вашите промени ќе делуваат со следното рестартирање на Google Chrome.</translation>
 <translation id="3149510190863420837">Апликации на Chrome</translation>
 <translation id="3169523567916669830">За време на пробните периоди може да ги гледате и отстранувате темите на интерес што сајтовите ги користеле за да ви прикажуваат реклами. Chrome ги проценува вашите интереси според вашата неодамнешна историја на прелистувањето.</translation>
+<translation id="3211604354460514046">{NUM_DEVICES,plural, =1{Google Chrome е поврзан со HID-уред}one{Google Chrome е поврзан со HID-уреди}other{Google Chrome е поврзан со HID-уреди}}</translation>
 <translation id="3245429137663807393">Ако ги споделувате и извештаите за користењето на Chrome, тие ги содржат URL-адресите што ги посетувате</translation>
 <translation id="3282568296779691940">Најави се на Chrome</translation>
 <translation id="3286538390144397061">Рестартирај веднаш</translation>
@@ -290,7 +290,6 @@ Google Chrome не може да ги обнови вашите поставки
 <translation id="6739177684496155661">Сакате да продолжите на нов профил на Chrome?</translation>
 <translation id="6750954913813541382">За исправка на правописни грешки, Chrome го испраќа текстот што го пишувате во прелистувачот до Google</translation>
 <translation id="677276454032249905">Сепак да се излезе од Chrome?</translation>
-<translation id="6785872064505734160">„Помошникот на Google“ во Chrome може да извршува дејства за вас на веб-сајтовите</translation>
 <translation id="683440813066116847">Дојдовно правило за Google Chrome Canary за да овозможи сообраќај mDNS.</translation>
 <translation id="6881299373831449287">Chrome се ажурира</translation>
 <translation id="6885412569789873916">Апликации на Chrome Beta</translation>

@@ -18,7 +18,7 @@
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/common/url_constants.h"
-#include "chromeos/system/statistics_provider.h"
+#include "chromeos/ash/components/system/statistics_provider.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
 
@@ -95,12 +95,18 @@ void EchoPrivateAsh::GetRegistrationCode(mojom::RegistrationCodeType type,
   std::string result;
   switch (type) {
     case mojom::RegistrationCodeType::kCoupon:
-      provider->GetMachineStatistic(chromeos::system::kOffersCouponCodeKey,
-                                    &result);
+      if (const absl::optional<base::StringPiece> offers_code =
+              provider->GetMachineStatistic(
+                  chromeos::system::kOffersCouponCodeKey)) {
+        result = std::string(offers_code.value());
+      }
       break;
     case mojom::RegistrationCodeType::kGroup:
-      provider->GetMachineStatistic(chromeos::system::kOffersGroupCodeKey,
-                                    &result);
+      if (const absl::optional<base::StringPiece> offers_code =
+              provider->GetMachineStatistic(
+                  chromeos::system::kOffersGroupCodeKey)) {
+        result = std::string(offers_code.value());
+      }
       break;
   }
 

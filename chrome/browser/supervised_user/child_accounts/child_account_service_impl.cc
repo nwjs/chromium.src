@@ -102,10 +102,10 @@ FamilyInfoFetcher::FamilyMember ConvertProtoFamilyMember(
     const kids_chrome_management::FamilyMember& member) {
   FamilyInfoFetcher::FamilyMember converted;
   converted.display_name = member.profile().display_name();
-  converted.profile_image_url = member.profile().default_profile_image_url();
-  converted.profile_url = member.profile().profile_image_url();
+  converted.profile_image_url = member.profile().profile_image_url();
+  converted.profile_url = member.profile().profile_url();
   converted.email = member.profile().email();
-  converted.obfuscated_gaia_id = member.profile().obfuscated_user_id();
+  converted.obfuscated_gaia_id = member.user_id();
   converted.role = ConvertProtoRole(member.role());
   return converted;
 }
@@ -196,20 +196,13 @@ void ChildAccountServiceImpl::SetActive(bool active) {
   active_ = active;
 
   if (active_) {
-#if !BUILDFLAG(IS_CHROMEOS)
-    bool allow_sync_off = false;
 #if BUILDFLAG(IS_ANDROID)
-    allow_sync_off =
-        base::FeatureList::IsEnabled(switches::kAllowSyncOffForChildAccounts);
-#endif  // BUILDFLAG(IS_ANDROID)
-    if (allow_sync_off) {
-      signin_util::UserSignoutSetting::GetForProfile(profile_)
-          ->SetClearPrimaryAccountAllowed(false);
-    } else {
-      signin_util::UserSignoutSetting::GetForProfile(profile_)
-          ->SetRevokeSyncConsentAllowed(false);
-    }
-#endif  // !BUILDFLAG(IS_CHROMEOS)
+    signin_util::UserSignoutSetting::GetForProfile(profile_)
+        ->SetClearPrimaryAccountAllowed(false);
+#elif !BUILDFLAG(IS_CHROMEOS)
+    signin_util::UserSignoutSetting::GetForProfile(profile_)
+        ->SetRevokeSyncConsentAllowed(false);
+#endif
 
     StartFetchingFamilyInfo();
 

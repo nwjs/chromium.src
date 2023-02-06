@@ -14,8 +14,8 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/system/sys_info.h"
 #include "base/task/sequenced_task_runner.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/threading/sequenced_task_runner_handle.h"
-#include "base/threading/thread_task_runner_handle.h"
 #include "base/time/clock.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/segmentation_platform/internal/constants.h"
@@ -23,6 +23,7 @@
 #include "components/segmentation_platform/internal/platform_options.h"
 #include "components/segmentation_platform/internal/proto/model_prediction.pb.h"
 #include "components/segmentation_platform/internal/scheduler/model_execution_scheduler_impl.h"
+#include "components/segmentation_platform/internal/selection/request_dispatcher.h"
 #include "components/segmentation_platform/internal/selection/segment_score_provider.h"
 #include "components/segmentation_platform/internal/selection/segment_selector_impl.h"
 #include "components/segmentation_platform/internal/selection/segmentation_result_prefs.h"
@@ -95,6 +96,20 @@ SegmentationPlatformServiceImpl::SegmentationPlatformServiceImpl(
           &SegmentationPlatformServiceImpl::OnModelRefreshNeeded,
           weak_ptr_factory_.GetWeakPtr()));
 
+  std::map<std::string, std::unique_ptr<SegmentResultProvider>>
+      result_providers;
+  for (const auto& config : configs_) {
+    result_providers[config->segmentation_key] = SegmentResultProvider::Create(
+        storage_service_->segment_info_database(),
+        storage_service_->signal_storage_config(),
+        storage_service_->default_model_manager(), &execution_service_, clock_,
+        platform_options_.force_refresh_results);
+  }
+
+  // Central class to delegate the client requests.
+  request_dispatcher_ = std::make_unique<RequestDispatcher>(
+      configs_, std::move(result_providers));
+
   for (const auto& config : configs_) {
     segment_selectors_[config->segmentation_key] =
         std::make_unique<SegmentSelectorImpl>(
@@ -136,6 +151,15 @@ void SegmentationPlatformServiceImpl::GetSelectedSegment(
   selector->GetSelectedSegment(std::move(callback));
 }
 
+void SegmentationPlatformServiceImpl::GetClassificationResult(
+    const std::string& segmentation_key,
+    const PredictionOptions& prediction_options,
+    scoped_refptr<InputContext> input_context,
+    ClassificationResultCallback callback) {
+  request_dispatcher_->GetClassificationResult(
+      segmentation_key, prediction_options, input_context, std::move(callback));
+}
+
 SegmentSelectionResult SegmentationPlatformServiceImpl::GetCachedSegmentResult(
     const std::string& segmentation_key) {
   CHECK(segment_selectors_.find(segmentation_key) != segment_selectors_.end());
@@ -147,6 +171,7 @@ void SegmentationPlatformServiceImpl::GetSelectedSegmentOnDemand(
     const std::string& segmentation_key,
     scoped_refptr<InputContext> input_context,
     SegmentSelectionCallback callback) {
+  // TODO(shaktisahu): Delete this API after enabling RequestDispatcher.
   if (!storage_init_status_.has_value()) {
     // If the platform isn't fully initialized, cache the input arguments to run
     // later.
@@ -229,12 +254,14 @@ void SegmentationPlatformServiceImpl::OnDatabaseInitialized(bool success) {
     selector.second->OnPlatformInitialized(&execution_service_);
   }
 
+  request_dispatcher_->OnPlatformInitialized(success);
+
   // Run any method calls that were received during initialization.
   while (!pending_actions_.empty()) {
     auto callback = std::move(pending_actions_.front());
     pending_actions_.pop_front();
-    base::ThreadTaskRunnerHandle::Get()->PostTask(FROM_HERE,
-                                                  std::move(callback));
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, std::move(callback));
   }
 
   // Run any daily maintenance tasks.
@@ -256,7 +283,7 @@ void SegmentationPlatformServiceImpl::OnSegmentationModelUpdated(
   execution_service_.OnNewModelInfoReady(segment_info);
 
   // Update the service status for proxy.
-  base::ThreadTaskRunnerHandle::Get()->PostTask(
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE,
       base::BindOnce(&SegmentationPlatformServiceImpl::OnServiceStatusChanged,
                      weak_ptr_factory_.GetWeakPtr()));
@@ -275,7 +302,7 @@ void SegmentationPlatformServiceImpl::RunDailyTasks(bool is_startup) {
   execution_service_.RunDailyTasks(is_startup);
   storage_service_->ExecuteDatabaseMaintenanceTasks(is_startup);
 
-  base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
       FROM_HERE,
       base::BindOnce(&SegmentationPlatformServiceImpl::RunDailyTasks,
                      weak_ptr_factory_.GetWeakPtr(), /*is_startup=*/false),

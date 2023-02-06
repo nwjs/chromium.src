@@ -38,11 +38,12 @@ class ChromeContentClient : public content::ContentClient {
 
   static const char kPDFExtensionPluginName[];
   static const char kPDFInternalPluginName[];
-  static const base::FilePath::CharType kPDFPluginPath[];
+  static const base::FilePath::CharType kPDFExtensionPluginPath[];
+  static const base::FilePath::CharType kPDFInternalPluginPath[];
 
   ChromeContentClient();
   ~ChromeContentClient() override;
-  void LoadNWAppAsExtension(base::DictionaryValue* manifest,
+  void LoadNWAppAsExtension(base::Value::Dict* manifest,
                             const base::FilePath& path,
                             std::string* error) override;
 

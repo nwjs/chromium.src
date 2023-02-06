@@ -91,8 +91,8 @@ void ContentsView::Init() {
 
   // Search results UI.
   auto search_result_page_view = std::make_unique<SearchResultPageView>();
-  search_result_page_view->InitializeContainers(
-      view_delegate, GetAppListMainView(), GetSearchBoxView());
+  search_result_page_view->InitializeContainers(view_delegate,
+                                                GetSearchBoxView());
 
   search_result_page_view_ = AddLauncherPage(std::move(search_result_page_view),
                                              AppListState::kStateSearchResults);
@@ -139,13 +139,12 @@ void ContentsView::ResetForShow() {
     assistant_page_view_->SetVisible(false);
   SetActiveState(AppListState::kStateApps, /*animate=*/false);
 
-  // In tablet mode, opacity of the elements is controlled by the
-  // AppListControllerImpl which expects these elements to be opaque.
-  // Otherwise the contents animate from 0 to 1 so set the initial opacity to 0.
-  if (app_list_view_->is_tablet_mode()) {
+  if (app_list_features::IsAnimateScaleOnTabletModeTransitionEnabled() ||
+      app_list_view_->app_list_state() != AppListViewState::kClosed) {
     AnimateToViewState(AppListViewState::kFullscreenAllApps, base::TimeDelta());
-  } else if (!last_target_view_state_.has_value() ||
-             *last_target_view_state_ != AppListViewState::kClosed) {
+  } else if (app_list_view_->app_list_state() == AppListViewState::kClosed &&
+             (!last_target_view_state_.has_value() ||
+              *last_target_view_state_ != AppListViewState::kClosed)) {
     AnimateToViewState(AppListViewState::kClosed, base::TimeDelta());
   }
 }
@@ -173,10 +172,6 @@ void ContentsView::OnAppListViewTargetStateChanged(
     CancelDrag();
     return;
   }
-}
-
-void ContentsView::OnTabletModeChanged(bool started) {
-  apps_container_view_->OnTabletModeChanged(started);
 }
 
 void ContentsView::SetActiveState(AppListState state) {
@@ -289,8 +284,10 @@ void ContentsView::ShowSearchResults(bool show) {
   int search_page = GetPageIndexForState(AppListState::kStateSearchResults);
   DCHECK_GE(search_page, 0);
 
-  // Hide or Show results
-  search_result_page_view()->SetVisible(show);
+  // SetVisible() only when showing search results, the search results page will
+  // be hidden at the end of its own bounds animation.
+  if (show)
+    search_result_page_view()->SetVisible(true);
   SetActiveStateInternal(show ? search_page : page_before_search_,
                          true /*animate*/);
   if (show)
@@ -347,7 +344,6 @@ void ContentsView::InitializeSearchBoxAnimation(AppListState current_state,
 
   search_box->UpdateLayout(target_state,
                            GetSearchBoxSize(target_state).height());
-  search_box->UpdateBackground(target_state);
 
   gfx::Rect target_bounds = GetSearchBoxBounds(target_state);
   target_bounds = search_box->GetViewBoundsForSearchBoxContentsBounds(
@@ -477,13 +473,11 @@ bool ContentsView::Back() {
           apps_container_view_->apps_grid_view()->pagination_model();
       if (apps_container_view_->IsInFolderView()) {
         apps_container_view_->app_list_folder_view()->CloseFolderPage();
-      } else if (app_list_view_->is_tablet_mode() &&
-                 pagination_model->total_pages() > 0 &&
+      } else if (pagination_model->total_pages() > 0 &&
                  pagination_model->selected_page() > 0) {
         bool animate = !ui::ScopedAnimationDurationScaleMode::is_zero();
         pagination_model->SelectPage(0, animate);
       } else {
-        // Close the app list when Back() is called from the apps page.
         return false;
       }
       break;

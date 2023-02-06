@@ -45,8 +45,10 @@ class DevToolsClient {
 
   virtual bool IsNull() const = 0;
 
+  virtual bool IsConnected() const = 0;
+
   // Connect to DevTools if the DevToolsClient is disconnected.
-  virtual Status ConnectIfNecessary() = 0;
+  virtual Status Connect() = 0;
 
   virtual Status PostBidiCommand(base::Value::Dict command) = 0;
 
@@ -64,17 +66,15 @@ class DevToolsClient {
   virtual Status SendAsyncCommand(const std::string& method,
                                   const base::Value::Dict& params) = 0;
 
-  // A base::Value(base::Value::Type::DICTIONARY) gets assigned to |result|.
   virtual Status SendCommandAndGetResult(const std::string& method,
                                          const base::Value::Dict& params,
-                                         base::Value* result) = 0;
+                                         base::Value::Dict* result) = 0;
 
-  // A base::Value(base::Value::Type::DICTIONARY) gets assigned to |result|.
   virtual Status SendCommandAndGetResultWithTimeout(
       const std::string& method,
       const base::Value::Dict& params,
       const Timeout* timeout,
-      base::Value* result) = 0;
+      base::Value::Dict* result) = 0;
 
   virtual Status SendCommandAndIgnoreResponse(
       const std::string& method,

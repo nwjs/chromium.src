@@ -33,7 +33,7 @@
 #include "chrome/browser/web_applications/test/web_app_test_utils.h"
 #include "chrome/browser/web_applications/user_display_mode.h"
 #include "chrome/browser/web_applications/web_app.h"
-#include "chrome/browser/web_applications/web_app_command_manager.h"
+#include "chrome/browser/web_applications/web_app_command_scheduler.h"
 #include "chrome/browser/web_applications/web_app_install_finalizer.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
@@ -125,8 +125,8 @@ class TestExternallyManagedAppInstallTaskManager {
       return;
     }
     // Post a task to simulate tasks completing asynchronously.
-    base::ThreadTaskRunnerHandle::Get()->PostTask(FROM_HERE,
-                                                  std::move(install_request));
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, std::move(install_request));
   }
 
   void ProcessSavedRequests() {
@@ -284,7 +284,7 @@ class TestExternallyManagedAppManager : public ExternallyManagedAppManagerImpl {
               externally_managed_app_manager_impl->registrar(),
               externally_managed_app_manager_impl->ui_manager(),
               externally_managed_app_manager_impl->finalizer(),
-              externally_managed_app_manager_impl->command_manager(),
+              externally_managed_app_manager_impl->command_scheduler(),
               std::move(install_options)),
           externally_managed_app_manager_impl_(
               externally_managed_app_manager_impl),
@@ -339,7 +339,7 @@ class TestExternallyManagedAppManager : public ExternallyManagedAppManagerImpl {
     }
 
    protected:
-    WebAppRegistrar& registrar() { return provider().registrar(); }
+    WebAppRegistrar& registrar() { return provider().registrar_unsafe(); }
 
     FakeWebAppProvider& provider() {
       return externally_managed_app_manager_impl_->provider();
@@ -362,7 +362,7 @@ class TestExternallyManagedAppManager : public ExternallyManagedAppManagerImpl {
         : ExternallyManagedAppRegistrationTaskBase(install_url),
           externally_managed_app_manager_impl_(
               externally_managed_app_manager_impl) {
-      base::ThreadTaskRunnerHandle::Get()->PostTask(
+      base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
           FROM_HERE,
           base::BindOnce(&TestExternallyManagedAppRegistrationTask::OnProgress,
                          weak_ptr_factory_.GetWeakPtr(), install_url));
@@ -408,17 +408,35 @@ class TestExternallyManagedAppManager : public ExternallyManagedAppManagerImpl {
 
 class ExternallyManagedAppManagerImplTest
     : public WebAppTest,
-      public testing::WithParamInterface<bool> {
+      public testing::WithParamInterface<test::ExternalPrefMigrationTestCases> {
  public:
   ExternallyManagedAppManagerImplTest() {
-    bool enable_migration = GetParam();
-    if (enable_migration) {
-      scoped_feature_list_.InitWithFeatures(
-          {features::kUseWebAppDBInsteadOfExternalPrefs}, {});
-    } else {
-      scoped_feature_list_.InitWithFeatures(
-          {}, {features::kUseWebAppDBInsteadOfExternalPrefs});
+    std::vector<base::test::FeatureRef> enabled_features;
+    std::vector<base::test::FeatureRef> disabled_features;
+
+    switch (GetParam()) {
+      case test::ExternalPrefMigrationTestCases::kDisableMigrationReadPref:
+        disabled_features.push_back(features::kMigrateExternalPrefsToWebAppDB);
+        disabled_features.push_back(
+            features::kUseWebAppDBInsteadOfExternalPrefs);
+        break;
+      case test::ExternalPrefMigrationTestCases::kDisableMigrationReadDB:
+        disabled_features.push_back(features::kMigrateExternalPrefsToWebAppDB);
+        enabled_features.push_back(
+            features::kUseWebAppDBInsteadOfExternalPrefs);
+        break;
+      case test::ExternalPrefMigrationTestCases::kEnableMigrationReadPref:
+        enabled_features.push_back(features::kMigrateExternalPrefsToWebAppDB);
+        disabled_features.push_back(
+            features::kUseWebAppDBInsteadOfExternalPrefs);
+        break;
+      case test::ExternalPrefMigrationTestCases::kEnableMigrationReadDB:
+        enabled_features.push_back(features::kMigrateExternalPrefsToWebAppDB);
+        enabled_features.push_back(
+            features::kUseWebAppDBInsteadOfExternalPrefs);
+        break;
     }
+    scoped_feature_list_.InitWithFeatures(enabled_features, disabled_features);
   }
 
   ExternallyManagedAppManagerImplTest(
@@ -448,7 +466,7 @@ class ExternallyManagedAppManagerImplTest
   }
 
   void TearDown() override {
-    command_manager().Shutdown();
+    command_scheduler().Shutdown();
     WebAppTest::TearDown();
   }
 
@@ -562,7 +580,7 @@ class ExternallyManagedAppManagerImplTest
     return *externally_managed_app_manager_impl_;
   }
 
-  WebAppRegistrar& registrar() { return provider().registrar(); }
+  WebAppRegistrar& registrar() { return provider().registrar_unsafe(); }
 
   WebAppSyncBridge& sync_bridge() { return provider().sync_bridge(); }
 
@@ -578,9 +596,7 @@ class ExternallyManagedAppManagerImplTest
 
   FakeInstallFinalizer& install_finalizer() { return *install_finalizer_; }
 
-  WebAppCommandManager& command_manager() {
-    return provider().command_manager();
-  }
+  WebAppCommandScheduler& command_scheduler() { return provider().scheduler(); }
 
  private:
   raw_ptr<FakeWebAppProvider> provider_;
@@ -1735,8 +1751,14 @@ TEST_P(ExternallyManagedAppManagerImplTest,
   }
 }
 
-INSTANTIATE_TEST_SUITE_P(All,
-                         ExternallyManagedAppManagerImplTest,
-                         ::testing::Bool());
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    ExternallyManagedAppManagerImplTest,
+    ::testing::Values(
+        test::ExternalPrefMigrationTestCases::kDisableMigrationReadPref,
+        test::ExternalPrefMigrationTestCases::kDisableMigrationReadDB,
+        test::ExternalPrefMigrationTestCases::kEnableMigrationReadPref,
+        test::ExternalPrefMigrationTestCases::kEnableMigrationReadDB),
+    test::GetExternalPrefMigrationTestName);
 
 }  // namespace web_app

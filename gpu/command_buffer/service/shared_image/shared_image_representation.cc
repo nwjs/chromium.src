@@ -9,11 +9,13 @@
 #include "build/build_config.h"
 #include "components/viz/common/resources/resource_format_utils.h"
 #include "gpu/command_buffer/service/shared_context_state.h"
+#include "gpu/command_buffer/service/shared_image/shared_image_format_utils.h"
 #include "gpu/command_buffer/service/texture_manager.h"
 #include "third_party/skia/include/core/SkColorSpace.h"
 #include "third_party/skia/include/core/SkPromiseImageTexture.h"
 #include "third_party/skia/include/gpu/GrBackendSurfaceMutableState.h"
 #include "third_party/skia/include/gpu/GrDirectContext.h"
+#include "third_party/skia/include/gpu/GrYUVABackendTextures.h"
 #include "ui/gl/gl_fence.h"
 
 #if BUILDFLAG(IS_WIN)
@@ -269,16 +271,42 @@ sk_sp<SkImage> SkiaImageRepresentation::ScopedReadAccess::CreateSkImage(
     GrDirectContext* context,
     SkImage::TextureReleaseProc texture_release_proc,
     SkImage::ReleaseContext release_context) const {
+  auto format = representation()->format();
   auto surface_origin = representation()->surface_origin();
-  auto color_type =
-      viz::ResourceFormatToClosestSkColorType(true, representation()->format());
-  auto alpha_type = representation()->alpha_type();
   auto sk_color_space =
       representation()->color_space().GetAsFullRangeRGB().ToSkColorSpace();
-  return SkImage::MakeFromTexture(
-      context, promise_image_texture()->backendTexture(), surface_origin,
-      color_type, alpha_type, sk_color_space, texture_release_proc,
-      release_context);
+  if (format.is_single_plane() || format.PrefersExternalSampler()) {
+    DCHECK_EQ(static_cast<int>(promise_image_textures_.size()), 1);
+    auto alpha_type = representation()->alpha_type();
+    auto color_type = viz::ToClosestSkColorType(true, format);
+    return SkImage::MakeFromTexture(
+        context, promise_image_texture()->backendTexture(), surface_origin,
+        color_type, alpha_type, sk_color_space, texture_release_proc,
+        release_context);
+  } else {
+    DCHECK_EQ(static_cast<int>(promise_image_textures_.size()),
+              format.NumberOfPlanes());
+    std::array<GrBackendTexture, SkYUVAInfo::kMaxPlanes> yuva_textures;
+    // Get the texture per plane.
+    for (int plane_index = 0; plane_index < format.NumberOfPlanes();
+         plane_index++) {
+      yuva_textures[plane_index] =
+          promise_image_texture(plane_index)->backendTexture();
+    }
+
+    SkISize sk_size = gfx::SizeToSkISize(representation()->size());
+    // TODO(crbug.com/828599): This should really default to rec709.
+    SkYUVColorSpace yuv_color_space = kRec601_SkYUVColorSpace;
+    representation()->color_space().ToSkYUVColorSpace(
+        format.MultiplanarBitDepth(), &yuv_color_space);
+    SkYUVAInfo yuva_info(sk_size, ToSkYUVAPlaneConfig(format),
+                         ToSkYUVASubsampling(format), yuv_color_space);
+    GrYUVABackendTextures yuva_backend_textures(yuva_info, yuva_textures.data(),
+                                                surface_origin);
+    return SkImage::MakeFromYUVATextures(context, yuva_backend_textures,
+                                         sk_color_space, texture_release_proc,
+                                         release_context);
+  }
 }
 
 std::unique_ptr<GrBackendSurfaceMutableState>
@@ -340,6 +368,11 @@ OverlayImageRepresentation::DCompLayerContent::DCompLayerContent(
     Microsoft::WRL::ComPtr<IDCompositionSurface> dcomp_surface,
     uint64_t surface_serial)
     : content_(std::move(dcomp_surface)), surface_serial_(surface_serial) {}
+OverlayImageRepresentation::DCompLayerContent::DCompLayerContent(
+    const OverlayImageRepresentation::DCompLayerContent&) = default;
+OverlayImageRepresentation::DCompLayerContent&
+OverlayImageRepresentation::DCompLayerContent::operator=(
+    const OverlayImageRepresentation::DCompLayerContent&) = default;
 OverlayImageRepresentation::DCompLayerContent::~DCompLayerContent() = default;
 
 OverlayImageRepresentation::DCompLayerContent
@@ -512,6 +545,32 @@ RasterImageRepresentation::BeginScopedWriteAccess(
       base::PassKey<RasterImageRepresentation>(), this,
       BeginWriteAccess(std::move(context_state), final_msaa_count,
                        surface_props, clear_color, visible));
+}
+
+VideoDecodeImageRepresentation::VideoDecodeImageRepresentation(
+    SharedImageManager* manager,
+    SharedImageBacking* backing,
+    MemoryTypeTracker* tracker)
+    : SharedImageRepresentation(manager, backing, tracker) {}
+
+VideoDecodeImageRepresentation::~VideoDecodeImageRepresentation() = default;
+
+VideoDecodeImageRepresentation::ScopedWriteAccess::ScopedWriteAccess(
+    base::PassKey<VideoDecodeImageRepresentation> /* pass_key */,
+    VideoDecodeImageRepresentation* representation)
+    : ScopedAccessBase(representation) {}
+
+VideoDecodeImageRepresentation::ScopedWriteAccess::~ScopedWriteAccess() {
+  representation()->EndWriteAccess();
+}
+
+std::unique_ptr<VideoDecodeImageRepresentation::ScopedWriteAccess>
+VideoDecodeImageRepresentation::BeginScopedWriteAccess() {
+  if (!BeginWriteAccess())
+    return nullptr;
+
+  return std::make_unique<ScopedWriteAccess>(
+      base::PassKey<VideoDecodeImageRepresentation>(), this);
 }
 
 }  // namespace gpu

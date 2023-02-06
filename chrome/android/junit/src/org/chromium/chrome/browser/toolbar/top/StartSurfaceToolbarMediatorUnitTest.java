@@ -67,7 +67,7 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
 import org.chromium.chrome.browser.toolbar.ButtonData.ButtonSpec;
 import org.chromium.chrome.browser.toolbar.ButtonDataImpl;
-import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarFeatures.AdaptiveToolbarButtonVariant;
+import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarButtonVariant;
 import org.chromium.chrome.browser.toolbar.menu_button.MenuButtonCoordinator;
 import org.chromium.chrome.browser.user_education.IPHCommandBuilder;
 import org.chromium.chrome.browser.util.ChromeAccessibilityUtil;
@@ -357,12 +357,12 @@ public class StartSurfaceToolbarMediatorUnitTest {
 
         // If default search engine doesn't have logo, logo shouldn't be visible.
         when(mTemplateUrlService.doesDefaultSearchEngineHaveLogo()).thenReturn(false);
-        mMediator.getLogoCoordinatorForTesting().onTemplateURLServiceChanged();
+        mMediator.getLogoCoordinatorForTesting().onTemplateURLServiceChangedForTesting();
         assertFalse(mMediator.isLogoVisibleForTesting());
 
         // If default search engine has logo, logo should be visible.
         when(mTemplateUrlService.doesDefaultSearchEngineHaveLogo()).thenReturn(true);
-        mMediator.getLogoCoordinatorForTesting().onTemplateURLServiceChanged();
+        mMediator.getLogoCoordinatorForTesting().onTemplateURLServiceChangedForTesting();
         assertTrue(mMediator.isLogoVisibleForTesting());
     }
 

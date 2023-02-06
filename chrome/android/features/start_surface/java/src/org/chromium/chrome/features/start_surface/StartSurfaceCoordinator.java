@@ -278,7 +278,8 @@ public class StartSurfaceCoordinator implements StartSurface {
         mTabSwitcherCustomViewManagerSupplier = new OneshotSupplierImpl<>();
         boolean excludeQueryTiles = !mIsStartSurfaceEnabled
                 || !ChromeFeatureList.sQueryTilesOnStart.isEnabled();
-        if (!mIsStartSurfaceEnabled) {
+        if (!mIsStartSurfaceEnabled
+                && !ReturnToChromeUtil.isStartSurfaceRefactorEnabled(mActivity)) {
             // Create Tab switcher directly to save one layer in the view hierarchy.
             mTabSwitcher = TabManagementModuleProvider.getDelegate().createGridTabSwitcher(activity,
                     activityLifecycleDispatcher, tabModelSelector, tabContentManager,
@@ -309,7 +310,8 @@ public class StartSurfaceCoordinator implements StartSurface {
                 mIsStartSurfaceEnabled, mActivity, mBrowserControlsManager,
                 this::isActivityFinishingOrDestroyed, excludeQueryTiles,
                 startSurfaceOneshotSupplier, hadWarmStart, jankTracker, initializeMVTilesRunnable,
-                mParentTabSupplier, logoContainerView, backPressManager, feedPlaceholderParentView);
+                mParentTabSupplier, logoContainerView, backPressManager, feedPlaceholderParentView,
+                mActivityLifecycleDispatcher);
 
         startSurfaceOneshotSupplier.set(this);
     }
@@ -346,6 +348,7 @@ public class StartSurfaceCoordinator implements StartSurface {
     public void onHide() {
         if (mIsInitializedWithNative) {
             if (mTasksSurface != null) {
+                mStartSurfaceMediator.mayRecordHomepageSessionEnd();
                 mTasksSurface.onHide();
             }
             if (mSecondaryTasksSurface != null) {
@@ -492,6 +495,16 @@ public class StartSurfaceCoordinator implements StartSurface {
     }
 
     @Override
+    public void setLaunchOrigin(int launchOrigin) {
+        mStartSurfaceMediator.setLaunchOrigin(launchOrigin);
+    }
+
+    @Override
+    public void resetScrollPosition() {
+        mStartSurfaceMediator.resetScrollPosition();
+    }
+
+    @Override
     public boolean onBackPressed() {
         return mStartSurfaceMediator.onBackPressed();
     }
@@ -577,6 +590,9 @@ public class StartSurfaceCoordinator implements StartSurface {
             mStartSurfaceMediator.onOverviewShownAtLaunch(activityCreationTimeMs);
         }
         if (ReturnToChromeUtil.isStartSurfaceEnabled(mActivity)) {
+            if (isOverviewShownOnStartup) {
+                ReturnToChromeUtil.recordHistogramsWhenOverviewIsShownAtLaunch();
+            }
             Log.i(TAG, "Recorded %s = %b", START_SHOWN_AT_STARTUP_UMA, isOverviewShownOnStartup);
             RecordHistogram.recordBooleanHistogram(
                     START_SHOWN_AT_STARTUP_UMA, isOverviewShownOnStartup);

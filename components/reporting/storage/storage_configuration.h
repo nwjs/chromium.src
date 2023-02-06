@@ -10,16 +10,11 @@
 #include <vector>
 
 #include "base/files/file_path.h"
-#include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/strings/string_piece.h"
-#include "base/time/default_tick_clock.h"
-#include "base/time/tick_clock.h"
 #include "base/time/time.h"
 #include "components/reporting/proto/synced/record_constants.pb.h"
-#include "components/reporting/resources/disk_resource_impl.h"
-#include "components/reporting/resources/memory_resource_impl.h"
-#include "components/reporting/resources/resource_interface.h"
+#include "components/reporting/resources/resource_manager.h"
 
 namespace reporting {
 
@@ -37,8 +32,7 @@ class StorageOptions {
  public:
   using QueuesOptionsList = std::vector<std::pair<Priority, QueueOptions>>;
 
-  explicit StorageOptions(
-      const base::TickClock* clock = base::DefaultTickClock::GetInstance());
+  StorageOptions();
   StorageOptions(const StorageOptions& options);
   StorageOptions& operator=(const StorageOptions& options) = delete;
   virtual ~StorageOptions();
@@ -64,12 +58,12 @@ class StorageOptions {
   }
   StorageOptions& set_max_total_files_size(uint64_t max_total_files_size) {
     disk_space_resource_ =
-        base::MakeRefCounted<DiskResourceImpl>(max_total_files_size);
+        base::MakeRefCounted<ResourceManager>(max_total_files_size);
     return *this;
   }
   StorageOptions& set_max_total_memory_size(uint64_t max_total_memory_size) {
     memory_resource_ =
-        base::MakeRefCounted<MemoryResourceImpl>(max_total_memory_size);
+        base::MakeRefCounted<ResourceManager>(max_total_memory_size);
     return *this;
   }
   const base::FilePath& directory() const { return directory_; }
@@ -84,14 +78,12 @@ class StorageOptions {
     return memory_resource_->GetTotal();
   }
 
-  scoped_refptr<ResourceInterface> disk_space_resource() const {
+  scoped_refptr<ResourceManager> disk_space_resource() const {
     return disk_space_resource_.get();
   }
-  scoped_refptr<ResourceInterface> memory_resource() const {
+  scoped_refptr<ResourceManager> memory_resource() const {
     return memory_resource_;
   }
-
-  const base::TickClock* clock() const { return clock_.get(); }
 
  private:
   // Subdirectory of the location assigned for this Storage.
@@ -105,11 +97,8 @@ class StorageOptions {
   size_t max_record_size_ = 1U * 1024UL * 1024UL;  // 1 MiB
 
   // Resources managements.
-  scoped_refptr<ResourceInterface> memory_resource_;
-  scoped_refptr<ResourceInterface> disk_space_resource_;
-
-  // Clock reference (real clock for prod, simulated clock for tests).
-  const base::raw_ptr<const base::TickClock> clock_;
+  scoped_refptr<ResourceManager> memory_resource_;
+  scoped_refptr<ResourceManager> disk_space_resource_;
 };
 
 // Single queue options class allowing to set parameters individually, e.g.:
@@ -161,13 +150,12 @@ class QueueOptions {
   base::TimeDelta upload_period() const { return upload_period_; }
   base::TimeDelta upload_retry_delay() const { return upload_retry_delay_; }
   bool can_shed_records() const { return can_shed_records_; }
-  scoped_refptr<ResourceInterface> disk_space_resource() const {
+  scoped_refptr<ResourceManager> disk_space_resource() const {
     return storage_options_.disk_space_resource();
   }
-  scoped_refptr<ResourceInterface> memory_resource() const {
+  scoped_refptr<ResourceManager> memory_resource() const {
     return storage_options_.memory_resource();
   }
-  const base::TickClock* clock() const { return storage_options_.clock(); }
 
  private:
   // Whole storage options, which this queue options are based on.

@@ -13,10 +13,6 @@
 #include "components/prefs/pref_service.h"
 #include "components/sync/driver/sync_service.h"
 
-#if !BUILDFLAG(IS_IOS)
-#include "components/autofill_assistant/browser/public/prefs.h"
-#endif  // !BUILDFLAG(IS_IOS)
-
 namespace password_manager {
 
 PasswordFeatureManagerImpl::PasswordFeatureManagerImpl(
@@ -34,28 +30,6 @@ bool PasswordFeatureManagerImpl::IsGenerationEnabled() const {
     case SyncState::kSyncingWithCustomPassphrase:
     case SyncState::kSyncingNormalEncryption:
     case SyncState::kAccountPasswordsActiveNormalEncryption:
-      return true;
-  }
-}
-
-bool PasswordFeatureManagerImpl::
-    AreRequirementsForAutomatedPasswordChangeFulfilled() const {
-  // Only offer APC if Autofill Assistant is not disabled (by user choice
-  // or by enterprise policy).
-#if !BUILDFLAG(IS_IOS)
-  if (!pref_service_->GetBoolean(
-          autofill_assistant::prefs::kAutofillAssistantEnabled)) {
-    return false;
-  }
-#endif  // !BUILDFLAG(IS_IOS)
-
-  switch (password_manager_util::GetPasswordSyncState(sync_service_)) {
-    case SyncState::kNotSyncing:
-    case SyncState::kAccountPasswordsActiveNormalEncryption:
-      return base::FeatureList::IsEnabled(
-          features::kPasswordChangeAccountStoreUsers);
-    case SyncState::kSyncingWithCustomPassphrase:
-    case SyncState::kSyncingNormalEncryption:
       return true;
   }
 }

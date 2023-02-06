@@ -6,7 +6,10 @@
 
 #include "ash/public/cpp/metrics_util.h"
 #include "ash/public/cpp/shelf_model.h"
+#include "ash/root_window_controller.h"
 #include "ash/session/session_controller_impl.h"
+#include "ash/shelf/hotseat_widget.h"
+#include "ash/shelf/scrollable_shelf_view.h"
 #include "ash/shelf/shelf_view.h"
 #include "ash/shell.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
@@ -14,8 +17,9 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/utf_string_conversions.h"
-#include "chromeos/login/login_state/login_state.h"
-#include "chromeos/metrics/login_event_recorder.h"
+#include "base/trace_event/trace_event.h"
+#include "chromeos/ash/components/login/login_state/login_state.h"
+#include "chromeos/ash/components/metrics/login_event_recorder.h"
 #include "components/app_constants/constants.h"
 #include "components/app_restore/window_properties.h"
 #include "ui/aura/window.h"
@@ -28,6 +32,13 @@
 
 namespace ash {
 namespace {
+
+// Tracing ID and trace events row name.
+// This must be a constexpr.
+constexpr char kLoginThroughput[] = "LoginThroughput";
+
+// Unit tests often miss initialization and thus we use different label.
+constexpr char kLoginThroughputUnordered[] = "LoginThroughput-unordered";
 
 // A class used to wait for animations.
 class AnimationObserver : public views::BoundsAnimatorObserver {
@@ -90,12 +101,18 @@ void RecordMetrics(const base::TimeTicks& start,
 
   std::string suffix = GetDeviceModeSuffix();
   base::UmaHistogramPercentage(smoothness_name + suffix, smoothness);
+  ash::Shell::Get()->login_unlock_throughput_recorder()->AddLoginTimeMarker(
+      smoothness_name + suffix);
   base::UmaHistogramPercentage(jank_name + suffix, jank);
+  ash::Shell::Get()->login_unlock_throughput_recorder()->AddLoginTimeMarker(
+      jank_name + suffix);
   // TODO(crbug.com/1143898): Deprecate this metrics once the login/unlock
   // performance issue is resolved.
   base::UmaHistogramCustomTimes(duration_name + suffix,
                                 base::Milliseconds(duration_ms),
                                 base::Milliseconds(100), base::Seconds(5), 50);
+  ash::Shell::Get()->login_unlock_throughput_recorder()->AddLoginTimeMarker(
+      duration_name + suffix);
 }
 
 void ReportLogin(base::TimeTicks start,
@@ -105,11 +122,12 @@ void ReportLogin(base::TimeTicks start,
     return;
   }
 
-  chromeos::LoginEventRecorder::Get()->AddLoginTimeMarker(
-      "LoginAnimationEnd",
-      /*send_to_uma=*/false,
-      /*write_to_file=*/false);
-  chromeos::LoginEventRecorder::Get()->RunScheduledWriteLoginTimes();
+  LoginEventRecorder::Get()->AddLoginTimeMarker("LoginAnimationEnd",
+                                                /*send_to_uma=*/false,
+                                                /*write_to_file=*/false);
+  ash::Shell::Get()->login_unlock_throughput_recorder()->AddLoginTimeMarker(
+      "LoginAnimationEnd");
+  LoginEventRecorder::Get()->RunScheduledWriteLoginTimes();
   RecordMetrics(start, data, "Ash.LoginAnimation.Smoothness.",
                 "Ash.LoginAnimation.Jank.", "Ash.LoginAnimation.Duration.");
 }
@@ -136,20 +154,19 @@ void OnRestoredWindowPresentationTimeReceived(
 
 LoginUnlockThroughputRecorder::LoginUnlockThroughputRecorder() {
   Shell::Get()->session_controller()->AddObserver(this);
-  chromeos::LoginState::Get()->AddObserver(this);
+  LoginState::Get()->AddObserver(this);
 }
 
 LoginUnlockThroughputRecorder::~LoginUnlockThroughputRecorder() {
   Shell::Get()->session_controller()->RemoveObserver(this);
-  chromeos::LoginState::Get()->RemoveObserver(this);
+  LoginState::Get()->RemoveObserver(this);
 }
 
 void LoginUnlockThroughputRecorder::OnLockStateChanged(bool locked) {
-  auto logged_in_user = chromeos::LoginState::Get()->GetLoggedInUserType();
+  auto logged_in_user = LoginState::Get()->GetLoggedInUserType();
 
-  if (!locked &&
-      (logged_in_user == chromeos::LoginState::LOGGED_IN_USER_OWNER ||
-       logged_in_user == chromeos::LoginState::LOGGED_IN_USER_REGULAR)) {
+  if (!locked && (logged_in_user == LoginState::LOGGED_IN_USER_OWNER ||
+                  logged_in_user == LoginState::LOGGED_IN_USER_REGULAR)) {
     auto* primary_root = Shell::GetPrimaryRootWindow();
     new ui::TotalAnimationThroughputReporter(
         primary_root->GetHost()->compositor(),
@@ -158,8 +175,11 @@ void LoginUnlockThroughputRecorder::OnLockStateChanged(bool locked) {
   }
 }
 
+LoginUnlockThroughputRecorder::TimeMarker::TimeMarker(const std::string& name)
+    : name_(name) {}
+
 void LoginUnlockThroughputRecorder::LoggedInStateChanged() {
-  auto* login_state = chromeos::LoginState::Get();
+  auto* login_state = LoginState::Get();
   auto logged_in_user = login_state->GetLoggedInUserType();
 
   if (user_logged_in_)
@@ -168,8 +188,13 @@ void LoginUnlockThroughputRecorder::LoggedInStateChanged() {
   if (!login_state->IsUserLoggedIn())
     return;
 
-  if (logged_in_user != chromeos::LoginState::LOGGED_IN_USER_OWNER &&
-      logged_in_user != chromeos::LoginState::LOGGED_IN_USER_REGULAR) {
+  // The first event will name the tracing row.
+  if (login_time_markers_.empty())
+    AddLoginTimeMarker(kLoginThroughput);
+
+  if (logged_in_user != LoginState::LOGGED_IN_USER_OWNER &&
+      logged_in_user != LoginState::LOGGED_IN_USER_REGULAR) {
+    // Kiosk users fall here.
     return;
   }
 
@@ -177,6 +202,7 @@ void LoginUnlockThroughputRecorder::LoggedInStateChanged() {
   ui_recorder_.OnUserLoggedIn();
   auto* primary_root = Shell::GetPrimaryRootWindow();
   primary_user_logged_in_ = base::TimeTicks::Now();
+
   auto* rec = new ui::TotalAnimationThroughputReporter(
       primary_root->GetHost()->compositor(),
       base::BindOnce(&LoginUnlockThroughputRecorder::OnLoginAnimationFinish,
@@ -215,9 +241,12 @@ void LoginUnlockThroughputRecorder::OnRestoredWindowCreated(
   if (windows_to_restore_.empty() && !primary_user_logged_in_.is_null()) {
     const base::TimeDelta duration_ms =
         base::TimeTicks::Now() - primary_user_logged_in_;
-    UMA_HISTOGRAM_CUSTOM_TIMES(
-        "Ash.LoginSessionRestore.AllBrowserWindowsCreated", duration_ms,
-        base::Milliseconds(1), base::Seconds(100), 100);
+    constexpr char kAshLoginSessionRestoreAllBrowserWindowsCreated[] =
+        "Ash.LoginSessionRestore.AllBrowserWindowsCreated";
+    UMA_HISTOGRAM_CUSTOM_TIMES(kAshLoginSessionRestoreAllBrowserWindowsCreated,
+                               duration_ms, base::Milliseconds(1),
+                               base::Seconds(100), 100);
+    AddLoginTimeMarker(kAshLoginSessionRestoreAllBrowserWindowsCreated);
   }
   restore_windows_not_shown_.insert(restore_window_id);
 }
@@ -234,9 +263,12 @@ void LoginUnlockThroughputRecorder::OnBeforeRestoredWindowShown(
       !primary_user_logged_in_.is_null()) {
     const base::TimeDelta duration_ms =
         base::TimeTicks::Now() - primary_user_logged_in_;
+    constexpr char kAshLoginSessionRestoreAllBrowserWindowsShown[] =
+        "Ash.LoginSessionRestore.AllBrowserWindowsShown";
     UMA_HISTOGRAM_CUSTOM_TIMES("Ash.LoginSessionRestore.AllBrowserWindowsShown",
                                duration_ms, base::Milliseconds(1),
                                base::Seconds(100), 100);
+    AddLoginTimeMarker(kAshLoginSessionRestoreAllBrowserWindowsShown);
   }
 
   if (!compositor)
@@ -260,9 +292,12 @@ void LoginUnlockThroughputRecorder::OnRestoredWindowPresented(
       !primary_user_logged_in_.is_null()) {
     const base::TimeDelta duration_ms =
         base::TimeTicks::Now() - primary_user_logged_in_;
+    constexpr char kAshLoginSessionRestoreAllBrowserWindowsPresented[] =
+        "Ash.LoginSessionRestore.AllBrowserWindowsPresented";
     UMA_HISTOGRAM_CUSTOM_TIMES(
-        "Ash.LoginSessionRestore.AllBrowserWindowsPresented", duration_ms,
+        kAshLoginSessionRestoreAllBrowserWindowsPresented, duration_ms,
         base::Milliseconds(1), base::Seconds(100), 100);
+    AddLoginTimeMarker(kAshLoginSessionRestoreAllBrowserWindowsPresented);
   }
   restore_windows_presented_.insert(restore_window_id);
 }
@@ -317,28 +352,56 @@ void LoginUnlockThroughputRecorder::OnLoginAnimationFinish(
   ReportLogin(start, data);
 }
 
-void LoginUnlockThroughputRecorder::SetShelfViewIfNotSet(
-    ShelfView* shelf_view) {
-  if (!shelf_view_)
-    shelf_view_ = shelf_view;
+void LoginUnlockThroughputRecorder::OnArcOptedIn() {
+  arc_opt_in_time_ = base::TimeTicks::Now();
+}
+
+void LoginUnlockThroughputRecorder::OnArcAppListReady() {
+  if (arc_app_list_ready_reported_)
+    return;
+
+  // |Ash.ArcAppInitialAppsInstallDuration| histogram is only reported for
+  // the first user session after they opted into the ARC++.
+  // |arc_opt_in_time_| will only have value if user opted in into the ARC++
+  // in this session (in this browser instance).
+  if (arc_opt_in_time_.has_value()) {
+    const auto duration = base::TimeTicks::Now() - arc_opt_in_time_.value();
+    UmaHistogramCustomTimes("Ash.ArcAppInitialAppsInstallDuration", duration,
+                            base::Seconds(1) /* min */,
+                            base::Hours(1) /* max */, 100 /* buckets */);
+  }
+
+  arc_app_list_ready_reported_ = true;
+}
+
+bool LoginUnlockThroughputRecorder::NeedReportArcAppListReady() const {
+  return arc_opt_in_time_.has_value() && !arc_app_list_ready_reported_;
 }
 
 void LoginUnlockThroughputRecorder::ScheduleWaitForShelfAnimationEnd() {
-  DCHECK(shelf_view_);
-  if (!shelf_view_)
-    return;
-
+  ShelfView* shelf_view =
+      RootWindowController::ForWindow(
+          Shell::Get()->window_tree_host_manager()->GetPrimaryRootWindow())
+          ->shelf()
+          ->hotseat_widget()
+          ->scrollable_shelf_view()
+          ->shelf_view();
   base::OnceCallback on_animation_end = base::BindOnce(
       [](base::TimeTicks primary_user_logged_in) {
         const base::TimeDelta duration_ms =
             base::TimeTicks::Now() - primary_user_logged_in;
+        constexpr char kAshLoginSessionRestoreShelfLoginAnimationEnd[] =
+            "Ash.LoginSessionRestore.ShelfLoginAnimationEnd";
         UMA_HISTOGRAM_CUSTOM_TIMES(
-            "Ash.LoginSessionRestore.ShelfLoginAnimationEnd", duration_ms,
+            kAshLoginSessionRestoreShelfLoginAnimationEnd, duration_ms,
             base::Milliseconds(1), base::Seconds(100), 100);
+        ash::Shell::Get()
+            ->login_unlock_throughput_recorder()
+            ->AddLoginTimeMarker(kAshLoginSessionRestoreShelfLoginAnimationEnd);
       },
       primary_user_logged_in_);
 
-  (new AnimationObserver(shelf_view_, on_animation_end))->StartObserving();
+  (new AnimationObserver(shelf_view, on_animation_end))->StartObserving();
 }
 
 void LoginUnlockThroughputRecorder::OnAllExpectedShelfIconsLoaded() {
@@ -350,10 +413,78 @@ void LoginUnlockThroughputRecorder::OnAllExpectedShelfIconsLoaded() {
   shelf_icons_loaded_ = true;
   const base::TimeDelta duration_ms =
       base::TimeTicks::Now() - primary_user_logged_in_;
-  UMA_HISTOGRAM_CUSTOM_TIMES("Ash.LoginSessionRestore.AllShelfIconsLoaded",
+  constexpr char kAshLoginSessionRestoreAllShelfIconsLoaded[] =
+      "Ash.LoginSessionRestore.AllShelfIconsLoaded";
+  UMA_HISTOGRAM_CUSTOM_TIMES(kAshLoginSessionRestoreAllShelfIconsLoaded,
                              duration_ms, base::Milliseconds(1),
                              base::Seconds(100), 100);
+  AddLoginTimeMarker(kAshLoginSessionRestoreAllShelfIconsLoaded);
   ScheduleWaitForShelfAnimationEnd();
+}
+
+void LoginUnlockThroughputRecorder::AddLoginTimeMarker(
+    const std::string& marker_name) {
+  // Unit tests often miss the full initialization flow so we use a
+  // different label in this case.
+  if (login_time_markers_.empty() && marker_name != kLoginThroughput) {
+    login_time_markers_.emplace_back(kLoginThroughputUnordered);
+  }
+
+  login_time_markers_.emplace_back(marker_name);
+  bool reported = false;
+
+#define REPORT_LOGIN_THROUGHPUT_EVENT(metric)                        \
+  if (marker_name == metric) {                                       \
+    TRACE_EVENT_NESTABLE_ASYNC_BEGIN_WITH_TIMESTAMP0(                \
+        "startup", metric, TRACE_ID_LOCAL(kLoginThroughput), begin); \
+    TRACE_EVENT_NESTABLE_ASYNC_END_WITH_TIMESTAMP0(                  \
+        "startup", metric, TRACE_ID_LOCAL(kLoginThroughput), end);   \
+    reported = true;                                                 \
+  }                                                                  \
+  class __STUB__
+
+  if (login_time_markers_.size() > 1) {
+    const base::TimeTicks begin =
+        login_time_markers_[login_time_markers_.size() - 2].time();
+    const base::TimeTicks end =
+        login_time_markers_[login_time_markers_.size() - 1].time();
+
+    REPORT_LOGIN_THROUGHPUT_EVENT(
+        "Ash.LoginSessionRestore.AllBrowserWindowsCreated");
+    REPORT_LOGIN_THROUGHPUT_EVENT(
+        "Ash.LoginSessionRestore.AllBrowserWindowsShown");
+    REPORT_LOGIN_THROUGHPUT_EVENT(
+        "Ash.LoginSessionRestore.AllShelfIconsLoaded");
+    REPORT_LOGIN_THROUGHPUT_EVENT(
+        "Ash.LoginSessionRestore.AllBrowserWindowsPresented");
+    REPORT_LOGIN_THROUGHPUT_EVENT(
+        "Ash.LoginSessionRestore.ShelfLoginAnimationEnd");
+    REPORT_LOGIN_THROUGHPUT_EVENT("LoginAnimationEnd");
+    REPORT_LOGIN_THROUGHPUT_EVENT(
+        "Ash.LoginAnimation.Smoothness.ClamshellMode");
+    REPORT_LOGIN_THROUGHPUT_EVENT("Ash.LoginAnimation.Smoothness.TabletMode");
+    REPORT_LOGIN_THROUGHPUT_EVENT("Ash.LoginAnimation.Jank.ClamshellMode");
+    REPORT_LOGIN_THROUGHPUT_EVENT("Ash.LoginAnimation.Jank.TabletMode");
+    REPORT_LOGIN_THROUGHPUT_EVENT("Ash.LoginAnimation.Duration.ClamshellMode");
+    REPORT_LOGIN_THROUGHPUT_EVENT("Ash.LoginAnimation.Duration.TabletMode");
+    REPORT_LOGIN_THROUGHPUT_EVENT(
+        "Ash.UnlockAnimation.Smoothness.ClamshellMode");
+    REPORT_LOGIN_THROUGHPUT_EVENT("Ash.UnlockAnimation.Smoothness.TabletMode");
+    REPORT_LOGIN_THROUGHPUT_EVENT("Ash.UnlockAnimation.Jank.ClamshellMode");
+    REPORT_LOGIN_THROUGHPUT_EVENT("Ash.UnlockAnimation.Jank.TabletMode");
+    REPORT_LOGIN_THROUGHPUT_EVENT("Ash.UnlockAnimation.Duration.ClamshellMode");
+    REPORT_LOGIN_THROUGHPUT_EVENT("Ash.UnlockAnimation.Duration.TabletMode");
+  } else {
+    // The first event will be used as a row name in the tracing UI.
+    const base::TimeTicks begin = login_time_markers_.front().time();
+    const base::TimeTicks end = begin;
+
+    REPORT_LOGIN_THROUGHPUT_EVENT(kLoginThroughput);
+  }
+#undef REPORT_LOGIN_THROUGHPUT_EVENT
+  DCHECK(reported) << "Failed to report " << marker_name
+                   << ", login_time_markers_.size()="
+                   << login_time_markers_.size();
 }
 
 }  // namespace ash

@@ -21,7 +21,6 @@
 #include "base/system/sys_info.h"
 #include "base/system/system_monitor.h"
 #include "base/task/single_thread_task_runner.h"
-#include "base/threading/thread_task_runner_handle.h"
 #include "chromeos/ash/components/audio/audio_device.h"
 #include "chromeos/ash/components/audio/audio_devices_pref_handler_stub.h"
 #include "chromeos/ash/components/dbus/audio/floss_media_client.h"
@@ -734,6 +733,7 @@ void CrasAudioHandler::AdjustOutputVolumeByPercent(int adjust_by_percent) {
 
 void CrasAudioHandler::IncreaseOutputVolumeByOneStep(int one_step_percent) {
   // Set all active devices to the same volume.
+  int new_output_volume = 0;
   for (const auto& item : audio_devices_) {
     const AudioDevice& device = item.second;
     if (!device.is_input && device.active) {
@@ -752,19 +752,20 @@ void CrasAudioHandler::IncreaseOutputVolumeByOneStep(int one_step_percent) {
           volume_level = 1;
         }
         // increase one level and convert to volume
-        output_volume_ = std::min(
+        new_output_volume = std::min(
             100, static_cast<int>(std::floor(((double)(volume_level + 1)) /
                                              number_of_volume_steps * 100)));
       } else {
-        output_volume_ = std::min(100, output_volume_ + one_step_percent);
+        new_output_volume = std::min(100, output_volume_ + one_step_percent);
       }
-      SetOutputNodeVolumePercent(device.id, output_volume_);
+      SetOutputNodeVolumePercent(device.id, new_output_volume);
     }
   }
 }
 
 void CrasAudioHandler::DecreaseOutputVolumeByOneStep(int one_step_percent) {
   // Set all active devices to the same volume.
+  int new_output_volume = 0;
   for (const auto& item : audio_devices_) {
     const AudioDevice& device = item.second;
     if (!device.is_input && device.active) {
@@ -780,13 +781,13 @@ void CrasAudioHandler::DecreaseOutputVolumeByOneStep(int one_step_percent) {
             (double)output_volume_ * (double)number_of_volume_steps * 0.01);
 
         // decrease one level and convert to volume
-        output_volume_ = std::max(
+        new_output_volume = std::max(
             0, static_cast<int>(std::floor(((double)(volume_level - 1)) /
                                            number_of_volume_steps * 100)));
       } else {
-        output_volume_ = std::max(0, output_volume_ - one_step_percent);
+        new_output_volume = std::max(0, output_volume_ - one_step_percent);
       }
-      SetOutputNodeVolumePercent(device.id, output_volume_);
+      SetOutputNodeVolumePercent(device.id, new_output_volume);
     }
   }
 }
@@ -971,8 +972,8 @@ CrasAudioHandler::CrasAudioHandler(
   BindMediaControllerObserver();
   InitializeAudioState();
   // Unittest may not have the task runner for the current thread.
-  if (base::ThreadTaskRunnerHandle::IsSet())
-    main_task_runner_ = base::ThreadTaskRunnerHandle::Get();
+  if (base::SingleThreadTaskRunner::HasCurrentDefault())
+    main_task_runner_ = base::SingleThreadTaskRunner::GetCurrentDefault();
 
   DCHECK(!g_cras_audio_handler);
   g_cras_audio_handler = this;
@@ -1133,10 +1134,8 @@ AudioDevice CrasAudioHandler::ConvertAudioNodeWithModifiedPriority(
       (device.type == AudioDeviceType::kBluetooth))
     device.priority = 0;
 
-  if (base::FeatureList::IsEnabled(
-          chromeos::features::kRobustAudioDeviceSelectLogic)) {
+  if (base::FeatureList::IsEnabled(features::kRobustAudioDeviceSelectLogic))
     device.user_priority = audio_pref_handler_->GetUserPriority(device);
-  }
 
   return device;
 }
@@ -1266,14 +1265,14 @@ void CrasAudioHandler::InitializeAudioAfterCrasServiceAvailable(
       &CrasAudioHandler::GetNodes, weak_ptr_factory_.GetWeakPtr()));
   GetNumberOfOutputStreams();
   GetNumberOfInputStreamsWithPermissionInternal();
-  CrasAudioClient::Get()->SetFixA2dpPacketSize(base::FeatureList::IsEnabled(
-      chromeos::features::kBluetoothFixA2dpPacketSize));
+  CrasAudioClient::Get()->SetFixA2dpPacketSize(
+      base::FeatureList::IsEnabled(features::kBluetoothFixA2dpPacketSize));
 
   // When the BluetoothWbsDogfood feature flag is enabled, don't bother
   // calling GetDeprioritizeBtWbsMic().
   // Otherwise override the Bluetooth WBS mic's priority according to the
   // |deprioritize_bt_wbs_mic| value returned by CRAS.
-  if (!base::FeatureList::IsEnabled(chromeos::features::kBluetoothWbsDogfood)) {
+  if (!base::FeatureList::IsEnabled(features::kBluetoothWbsDogfood)) {
     CrasAudioClient::Get()->GetDeprioritizeBtWbsMic(
         base::BindOnce(&CrasAudioHandler::HandleGetDeprioritizeBtWbsMic,
                        weak_ptr_factory_.GetWeakPtr()));
@@ -1428,8 +1427,7 @@ bool CrasAudioHandler::ChangeActiveDevice(
   }
 
   // Update user priority whenever the audio device is activated.
-  if (base::FeatureList::IsEnabled(
-          chromeos::features::kRobustAudioDeviceSelectLogic)) {
+  if (base::FeatureList::IsEnabled(features::kRobustAudioDeviceSelectLogic)) {
     const AudioDevice* current_active_device =
         GetDeviceFromId(current_active_node_id);
     audio_pref_handler_->SetUserPriorityHigherThan(new_active_device,
@@ -1700,8 +1698,7 @@ void CrasAudioHandler::HandleHotPlugDeviceByUserPriority(
 void CrasAudioHandler::HandleHotPlugDevice(
     const AudioDevice& hotplug_device,
     const AudioDevicePriorityQueue& device_priority_queue) {
-  if (base::FeatureList::IsEnabled(
-          chromeos::features::kRobustAudioDeviceSelectLogic)) {
+  if (base::FeatureList::IsEnabled(features::kRobustAudioDeviceSelectLogic)) {
     return HandleHotPlugDeviceByUserPriority(hotplug_device);
   }
 

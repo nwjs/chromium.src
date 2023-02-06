@@ -7,6 +7,7 @@
 <translation id="1024364763893396229">Zapisz urządzenie <ph name="NAME" /></translation>
 <translation id="1032891413405719768">Niski poziom baterii rysika</translation>
 <translation id="1036073649888683237">Aby zarządzać powiadomieniami, otwórz Ustawienia</translation>
+<translation id="1036348656032585052">Wyłącz</translation>
 <translation id="1036672894875463507">To ja, Twój Asystent Google. Chętnie Ci pomogę.
 Oto kilka rzeczy, które możesz wypróbować na początek.</translation>
 <translation id="1037492556044956303">Dodano urządzenie <ph name="DEVICE_NAME" /></translation>
@@ -31,12 +32,12 @@ Oto kilka rzeczy, które możesz wypróbować na początek.</translation>
 <translation id="1148499908455722006">Otwórz okno informacyjne dla konta <ph name="USER_NAME" /></translation>
 <translation id="1150989369772528668">Kalendarz</translation>
 <translation id="1153356358378277386">Sparowane urządzenia</translation>
-<translation id="1165712434476988950">Aby zastosować aktualizację, musisz ponownie uruchomić urządzenie.</translation>
 <translation id="1170753161936175256"><ph name="EVENT_SUMMARY" />, <ph name="TIME_RANGE" /></translation>
 <translation id="1171742223880403396">Kabel USB-C może nie łączyć się prawidłowo z wyświetlaczami</translation>
 <translation id="1175572348579024023">Przewijanie</translation>
 <translation id="1178581264944972037">Wstrzymaj</translation>
 <translation id="1181037720776840403">Usuń</translation>
+<translation id="1182225749592316782">Zezwala na dostęp wszystkim aplikacjom i stronom internetowym, które mają uprawnienia do korzystania z kamery i mikrofonu.</translation>
 <translation id="1183863904939664422">Ta sugestia mnie nie interesuje</translation>
 <translation id="118437560755358292">Dla większego bezpieczeństwa podaj kod PIN lub hasło</translation>
 <translation id="118532027333893379">Aby zrobić zrzut całego ekranu, kliknij w dowolnym miejscu</translation>
@@ -52,6 +53,7 @@ Oto kilka rzeczy, które możesz wypróbować na początek.</translation>
 <translation id="1218444235442067213"><ph name="APP_NAME" />, aplikacja ze Sklepu Play</translation>
 <translation id="1225748608451425081">Ten Chromebook został zablokowany z powodu znanego błędu. Zalogowanie się będzie możliwe za <ph name="TIME_LEFT" />.</translation>
 <translation id="1229194443904279055">Wyjdź z trybu wybierania danych</translation>
+<translation id="1235458158152011030">Znane sieci</translation>
 <translation id="1239161794459865856">Funkcja <ph name="FEATURE_NAME" /> ma połączenie.</translation>
 <translation id="1240638468526743569">Aplikacja</translation>
 <translation id="1246890715821376239">Nieobsługiwane aplikacje</translation>
@@ -100,6 +102,7 @@ Oto kilka rzeczy, które możesz wypróbować na początek.</translation>
 <translation id="1447641497144572814">Wygaszacz ekranu uruchamia się</translation>
 <translation id="1455242230282523554">Pokaż ustawienia języka</translation>
 <translation id="1460620680449458626">Dźwięk jest wyciszony.</translation>
+<translation id="14648076227129703">Spowoduje to przyznanie dostępu do aparatu aplikacjom <ph name="APP1_NAME" /> i <ph name="APP2_NAME" /> oraz wszystkim aplikacjom i stronom internetowym, które mają uprawnienia do korzystania z niego</translation>
 <translation id="1467432559032391204">W lewo</translation>
 <translation id="146902737843070955">Administrator poprosił o tę zmianę</translation>
 <translation id="147310119694673958">Bateria telefonu: <ph name="BATTERY_PERCENTAGE" />%</translation>
@@ -118,6 +121,7 @@ Oto kilka rzeczy, które możesz wypróbować na początek.</translation>
 <translation id="15373452373711364">Duży kursor myszy</translation>
 <translation id="1546492247443594934">Biurko 2</translation>
 <translation id="1546930421365146760">Poproś administratora o skonfigurowanie tego urządzenia w konsoli administracyjnej Google</translation>
+<translation id="1550406609415860283">Dostępne urządzenia</translation>
 <translation id="1550523713251050646">Kliknij, by wyświetlić więcej opcji</translation>
 <translation id="1555130319947370107">Niebieski</translation>
 <translation id="1589090746204042747">uzyskiwać dostęp do całej Twojej aktywności w tej sesji;</translation>
@@ -125,6 +129,7 @@ Oto kilka rzeczy, które możesz wypróbować na początek.</translation>
 <translation id="1611993646327628135">Włączono</translation>
 <translation id="1620510694547887537">Kamera</translation>
 <translation id="1632985212731562677">Funkcję Switch Access możesz wyłączyć, otwierając Ustawienia &gt; Ułatwienia dostępu.</translation>
+<translation id="163517899691012366">Po włączeniu trybu Nie przeszkadzać powiadomienia są wyciszone</translation>
 <translation id="1637505162081889933">Urządzenia: <ph name="NUM_DEVICES" /></translation>
 <translation id="1639239467298939599">Wczytuję</translation>
 <translation id="1654477262762802994">Rozpocznij zapytanie głosowe</translation>
@@ -159,6 +164,7 @@ Oto kilka rzeczy, które możesz wypróbować na początek.</translation>
 <translation id="1797271123677381264">Nie pamiętam hasła</translation>
 <translation id="181103072419391116">Siła sygnału: <ph name="SIGNAL_STRENGTH" />, zarządzana przez administratora</translation>
 <translation id="1812997170047690955">Co widać na moim ekranie?</translation>
+<translation id="1816896987747843206">Spowoduje to przyznanie dostępu do aparatu wszystkim aplikacjom i stronom internetowym, które mają uprawnienia do korzystania z niego</translation>
 <translation id="1823280932251546115">Pasek stanu, godzina <ph name="TIME" />,
         <ph name="BATTERY" />
         <ph name="CHANNEL" />
@@ -172,10 +178,10 @@ Oto kilka rzeczy, które możesz wypróbować na początek.</translation>
 <translation id="1830308660060964064">Element <ph name="ITEM_TITLE" /> został odpięty</translation>
 <translation id="1836215606488044471">Asystent (ładuję…)</translation>
 <translation id="1838895407229022812">Podświetlenie nocne jest wyłączone.</translation>
+<translation id="1854180393107901205">Zatrzymaj przesyłanie</translation>
 <translation id="1862380676329487333">Zaktualizuj i wyloguj się</translation>
 <translation id="1864454756846565995">Urządzenie USB-C (tylny port)</translation>
 <translation id="1869497990620230175">Szybkie pliki</translation>
-<translation id="1871703283152909317">Włącz dostęp w obu przypadkach</translation>
 <translation id="1879018240766558464">Okna incognito nie są obecnie obsługiwane. Inne aplikacje zostaną zapisane.</translation>
 <translation id="1882814835921407042">Brak sieci komórkowej</translation>
 <translation id="1882897271359938046">Kopia na <ph name="DISPLAY_NAME" /></translation>
@@ -213,7 +219,6 @@ Oto kilka rzeczy, które możesz wypróbować na początek.</translation>
 <translation id="2064048859448024834">Podgląd z aparatu jest włączony</translation>
 <translation id="2067602449040652523">Jasność klawiatury</translation>
 <translation id="2078034614700056995">Aby przełączyć się na następne biurko, przesuń 4 palcami w prawo</translation>
-<translation id="2079504693865562705">Ukryj aplikacje na półce</translation>
 <translation id="2079545284768500474">Cofnij</translation>
 <translation id="2083190527011054446">Dobranoc <ph name="GIVEN_NAME" />,</translation>
 <translation id="2088116547584365419">gry</translation>
@@ -357,7 +362,6 @@ Oto kilka rzeczy, które możesz wypróbować na początek.</translation>
 <translation id="296762781903199866">Nie udało się pobrać plików z mową w języku: <ph name="LANGUAGE" /></translation>
 <translation id="2970920913501714344">instalować aplikacje, rozszerzenia i motywy;</translation>
 <translation id="2977598380246111477">Następny numer</translation>
-<translation id="2981684127883932071">Wyświetlam sugestie</translation>
 <translation id="2985148236010982088">Zobacz wszystkie aplikacje</translation>
 <translation id="2992327365391326550">Przycisk mikrofonu urządzenia jest wyłączony.</translation>
 <translation id="2996462380875591307">Lupa zadokowana została włączona. Aby ją wyłączyć, naciśnij ponownie Ctrl+Search+D.</translation>
@@ -374,6 +378,7 @@ Oto kilka rzeczy, które możesz wypróbować na początek.</translation>
 <translation id="3047761520276763270">Powiedz:</translation>
 <translation id="3051189971848907985">Zmieniam nazwę profilu. Odczekaj kilka minut.</translation>
 <translation id="3055162170959710888">Urządzenie było dziś przez Ciebie używane przez <ph name="USED_TIME" /></translation>
+<translation id="3062298103034426069">Nieobsługiwana</translation>
 <translation id="3068711042108640621">Półka po lewej</translation>
 <translation id="3077734595579995578">shift</translation>
 <translation id="3081696990447829002">Rozwiń menu</translation>
@@ -386,7 +391,6 @@ Oto kilka rzeczy, które możesz wypróbować na początek.</translation>
 <translation id="3120421559657122717">Wyłączyć urządzenie?</translation>
 <translation id="3126026824346185272">Ctrl</translation>
 <translation id="3126069444801937830">Uruchom ponownie i zaktualizuj</translation>
-<translation id="3139382871451988441">Wyłącz dostęp do kamery.</translation>
 <translation id="3139942575505304791">Biurko 1</translation>
 <translation id="315116470104423982">Mobilna transmisja danych</translation>
 <translation id="3151786313568798007">Orientacja</translation>
@@ -409,6 +413,7 @@ Oto kilka rzeczy, które możesz wypróbować na początek.</translation>
 <translation id="3249513730522716925">Okno <ph name="WINDOW_TITLE" /> zostało przeniesione z biurka <ph name="ACTIVE_DESK" /> na biurko <ph name="TARGET_DESK" /></translation>
 <translation id="3252573918265662711">Konfiguracja</translation>
 <translation id="3255483164551725916">Co potrafisz?</translation>
+<translation id="3260969790895726815">Mowa jest przetwarzana lokalnie, a dyktowanie działa offline, ale niektóre polecenia głosowe nie będą działać.</translation>
 <translation id="3269597722229482060">Kliknij prawym</translation>
 <translation id="3289544412142055976">Aplikacje na Linuksa nie są obecnie obsługiwane</translation>
 <translation id="3289674678944039601">Ładowanie z zasilacza.</translation>
@@ -456,9 +461,12 @@ Oto kilka rzeczy, które możesz wypróbować na początek.</translation>
 <translation id="3513798432020909783">Kontem zarządza <ph name="MANAGER_EMAIL" /></translation>
 <translation id="352245152354538528">{0,plural, =1{Aktualizacja urządzenia nastąpi w ciągu 1 minuty}few{Aktualizacja urządzenia nastąpi w ciągu # minut}many{Aktualizacja urządzenia nastąpi w ciągu # minut}other{Aktualizacja urządzenia nastąpi w ciągu # minuty}}</translation>
 <translation id="353086728817903341">Połączono z <ph name="NUM_DEVICES" /> urządzeniami</translation>
+<translation id="3533126039236445965">Aplikacje na półce</translation>
 <translation id="3542066395059568317">Zobaczysz rekomendacje, dzięki którym możesz kontynuować od ostatniego miejsca. Możesz je usunąć kliknięciem prawym przyciskiem.</translation>
 <translation id="3552189655002856821">Wi-Fi jest wyłączone</translation>
 <translation id="3554637740840164787">Element <ph name="ITEM_TITLE" /> został przypięty</translation>
+<translation id="3558768885091059911">Włączyć dostęp do kamery i mikrofonu?</translation>
+<translation id="3560174576767922131">Nagraj film</translation>
 <translation id="3563775809269155755">Włącz hotspot</translation>
 <translation id="3566240529365775567">Otwierane przed chwilą</translation>
 <translation id="3571734092741541777">Konfiguruj</translation>
@@ -519,7 +527,6 @@ Podłącz urządzenie do zasilania.</translation>
 <translation id="385051799172605136">Wstecz</translation>
 <translation id="385300504083504382">Początek</translation>
 <translation id="3861651314799684201">Aby nagrać pełny ekran, naciśnij Enter</translation>
-<translation id="3885531177412808398">Zezwala na dostęp do mikrofonu w przypadku wszystkich aplikacji i stron internetowych, które mają uprawnienia do korzystania z niego</translation>
 <translation id="3886872229787704059">Otwierane dzisiaj</translation>
 <translation id="3891340733213178823">Naciśnij dwukrotnie Ctrl+Shift+Q, by się wylogować.</translation>
 <translation id="3893630138897523026">ChromeVox (komunikaty głosowe)</translation>
@@ -555,6 +562,7 @@ Podłącz urządzenie do zasilania.</translation>
 <translation id="4065525899979931964">{NUM_APPS,plural, =1{Wyłączono (1 aplikacja)}few{Wyłączono (# aplikacje)}many{Wyłączono (# aplikacji)}other{Wyłączono (# aplikacji)}}</translation>
 <translation id="4066027111132117168">Włączone. Pozostały czas: <ph name="REMAINING_TIME" />.</translation>
 <translation id="4072264167173457037">średni sygnał</translation>
+<translation id="4086921558679520050">Włącz fizyczny przełącznik mikrofonu na urządzeniu</translation>
 <translation id="4112140312785995938">Przewiń do tyłu</translation>
 <translation id="4114315158543974537">Włącz Phone Hub</translation>
 <translation id="4115378294792113321">Magenta</translation>
@@ -600,6 +608,7 @@ Podłącz urządzenie do zasilania.</translation>
 <translation id="4316910396681052118">WSZYSTKIE APLIKACJE</translation>
 <translation id="4321179778687042513">ctrl</translation>
 <translation id="4322742403972824594">Skrót klawiszowy Ctrl + Alt + strzałka w górę został zmieniony. Aby użyć klawisza Home, naciśnij klawisz <ph name="LAUNCHER_KEY_NAME" /> + strzałka w lewo.</translation>
+<translation id="4324840740119394760">Spowoduje to przyznanie dostępu do aparatu aplikacji <ph name="APP_NAME" /> oraz wszystkim aplikacjom i stronom internetowym, które mają uprawnienia do korzystania z niego</translation>
 <translation id="4333628967105022692">Kiedy zalogowanych jest wielu użytkowników, przeglądarka Lacros nie jest obsługiwana.</translation>
 <translation id="4338109981321384717">Lupa</translation>
 <translation id="4351433414020964307">Trwa ładowanie Asystenta…</translation>
@@ -607,6 +616,7 @@ Podłącz urządzenie do zasilania.</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" />, siła sygnału <ph name="SIGNAL_STRENGTH" /> procent</translation>
 <translation id="4378551569595875038">Łączę...</translation>
 <translation id="4379531060876907730">To są Twoje narzędzia rysika</translation>
+<translation id="4381031910344220229">Zezwala to na dostęp do mikrofonu w przypadku aplikacji <ph name="APP_NAME" /> oraz wszystkich aplikacji i stron internetowych, które mają uprawnienia do korzystania z niego</translation>
 <translation id="4389184120735010762">Naciśnięto skrót klawiszowy lupy zadokowanej. Czy chcesz ją włączyć?</translation>
 <translation id="439598569299422042">Wstrzymano, <ph name="SIZE_INFO" /></translation>
 <translation id="440113666232554208">Nie udało się zapisać screencastu</translation>
@@ -648,11 +658,9 @@ Podłącz urządzenie do zasilania.</translation>
 <translation id="4573176682887762361">„Wpisz [słowo/wyrażenie]”</translation>
 <translation id="4577274620589681794">Czas minął · <ph name="LABEL" /></translation>
 <translation id="4577990005084629481">Pokaż podglądy</translation>
-<translation id="4578196883126898996">Mikrofon jest wyłączony. Włącz przycisk mikrofonu na urządzeniu.</translation>
 <translation id="4578906031062871102">Otwarto menu ustawień</translation>
-<translation id="4581047786858252841">Mikrofon jest włączony</translation>
+<translation id="458210817642223147">Nagraj GIF-a</translation>
 <translation id="4585337515783392668">Zakończ przesyłanie do nieznanego odbiornika</translation>
-<translation id="4587299710837179226">Mikrofon jest wyłączony</translation>
 <translation id="4596144739579517758">Ciemny motyw jest wyłączony</translation>
 <translation id="4611292653554630842">Zaloguj się</translation>
 <translation id="4623167406982293031">Zweryfikuj konto</translation>
@@ -668,11 +676,13 @@ Podłącz urządzenie do zasilania.</translation>
 <ph name="QUERY" /></translation>
 <translation id="4659419629803378708">Włączono ChromeVox</translation>
 <translation id="4665114317261903604">Włącz lub wyłącz tryb Nie przeszkadzać. <ph name="STATE_TEXT" /></translation>
-<translation id="4666082839192943839">Wyłącz dostęp do kamery na tym urządzeniu, aby na stałe zablokować wszystkie kamery.</translation>
+<translation id="4666911709726371538">Więcej aplikacji</translation>
 <translation id="4667099493359681081">Pobieram <ph name="FILENAME" /></translation>
+<translation id="468293128311738995">Aplikacje z telefonu</translation>
 <translation id="4690510401873698237">Półka na dole</translation>
 <translation id="4696813013609194136">Odblokuj urządzenie kodem rodzica</translation>
 <translation id="4702647871202761252">Ekran chroniący prywatność jest wyłączony</translation>
+<translation id="4706121060329443414">Spróbuję je pobrać później. Na razie mowa będzie wysyłana do Google i tam będzie przetwarzana.</translation>
 <translation id="470644585772471629">Odwrócenie kolorów</translation>
 <translation id="4717575069099566988">Twój kabel USB-C nie obsługuje standardu USB4. Wydajność urządzenia może być ograniczona.</translation>
 <translation id="4730374152663651037">CZĘSTO UŻYWANE</translation>
@@ -698,7 +708,6 @@ Podłącz urządzenie do zasilania.</translation>
 <translation id="485592688953820832">Brak działania (wstrzymaj)</translation>
 <translation id="485634149294284819">Otwórz menu klawiatury</translation>
 <translation id="4860284199500934869">Aby pobrać plik <ph name="FILENAME" />, sprawdź połączenie sieciowe</translation>
-<translation id="486056901304535126">Spróbuję je pobrać później. Do momentu ukończenia pobierania mowa będzie wysyłana do Google i tam przetwarzana.</translation>
 <translation id="4864369630010738180">Loguję...</translation>
 <translation id="4864648187878336334">Biurko 15</translation>
 <translation id="4868492592575313542">aktywna</translation>
@@ -730,7 +739,9 @@ Podłącz urządzenie do zasilania.</translation>
         <ph name="NUM_OTHER_NOTIFICATION" /></translation>
 <translation id="4987738733603015246">Biurko 16</translation>
 <translation id="5003993274120026347">Następne zdanie</translation>
+<translation id="5004607513195820459">Sieć jest zarządzana</translation>
 <translation id="5016558321564993266">Włącz lub wyłącz pisak. <ph name="STATE_TEXT" /></translation>
+<translation id="5029356738310729434">Dostęp do mikrofonu urządzenia jest włączony</translation>
 <translation id="5030687792513154421">Czas minął</translation>
 <translation id="5033299697334913360">Aby zrobić zrzut całego ekranu, kliknij w dowolnym miejscu</translation>
 <translation id="5035236842988137213">Urządzenie <ph name="DEVICE_NAME" /> zostało połączone z nowym telefonem</translation>
@@ -788,10 +799,13 @@ Podłącz urządzenie do zasilania.</translation>
 <translation id="5331975486040154427">Urządzenie USB-C (tylny port na lewym boku)</translation>
 <translation id="533282197239610265">Pokaż urządzenia przesyłające</translation>
 <translation id="5344128444027639014"><ph name="BATTERY_PERCENTAGE" />% (prawa)</translation>
+<translation id="5351427059191534258">Wyłączyć dostęp do kamery?</translation>
 <translation id="5352250171825660495">Ciemny motyw jest włączony</translation>
 <translation id="5356963482258194581">Przełącz między ciemnym i jasnym motywem. Kliknij prawym przyciskiem na pulpicie i wybierz Tapeta i styl.</translation>
 <translation id="536019650977002321">Administrator nie zezwala na rejestrowanie dźwięku. Aby dowiedzieć się więcej, skontaktuj się z administratorem.</translation>
+<translation id="5361524080961918551">Pliki z mową w języku: <ph name="LANGUAGE" /> zostały częściowo pobrane</translation>
 <translation id="5363163447017455357"><ph name="DELIMITER" /> przejdź do tej karty</translation>
+<translation id="5377367976106153749">Włączyć dostęp do aparatu?</translation>
 <translation id="5379115545237091094">Zbyt wiele prób</translation>
 <translation id="5391307769715781764">Zastąpić zapisane biurko?</translation>
 <translation id="5393156353051693207">Naciśnij i przytrzymaj dowolne miejsce, aby zmienić kolejność aplikacji</translation>
@@ -862,6 +876,7 @@ Podłącz urządzenie do zasilania.</translation>
 <translation id="5763928712329149804">Tryb Shelf Party jest wyłączony.</translation>
 <translation id="576453121877257266">Podświetlenie nocne jest włączone.</translation>
 <translation id="5769373120130404283">Ekran chroniący prywatność</translation>
+<translation id="5773950591113557721">Zezwala na dostęp aplikacji <ph name="APP_NAME" /> oraz wszystkim aplikacjom i stronom internetowym, które mają uprawnienia do korzystania z kamery i mikrofonu</translation>
 <translation id="5777841717266010279">Zakończyć udostępnianie ekranu?</translation>
 <translation id="5779721926447984944">Przypięte pliki</translation>
 <translation id="5788127256798019331">Pliki Play</translation>
@@ -895,11 +910,11 @@ Podłącz urządzenie do zasilania.</translation>
 <translation id="5958529069007801266">Użytkownik nadzorowany</translation>
 <translation id="5965524703725988602">Przełącz ciemny motyw. <ph name="STATE_TEXT" />.</translation>
 <translation id="5976112937189445008">Aby nagrać okno, naciśnij Enter</translation>
-<translation id="5977415296283489383">Słuchawki</translation>
 <translation id="5978382165065462689">Udostępnianie sterowania ekranem przy użyciu pomocy zdalnej.</translation>
 <translation id="5980301590375426705">Zakończ sesję gościa</translation>
 <translation id="598407983968395253">Użyj szablonu</translation>
 <translation id="598882571027504733">Aby pobrać aktualizację, uruchom Chromebooka ponownie z podłączoną klawiaturą.</translation>
+<translation id="6002179289567220515">Wyłączyłeś(-aś) 1 kamerę za pomocą fizycznego przełącznika. Możesz też wyłączyć dostęp do wszystkich kamer.</translation>
 <translation id="6012623610530968780">Strona <ph name="SELECTED_PAGE" /> z <ph name="TOTAL_PAGE_NUM" /></translation>
 <translation id="6018164090099858612">Wyłączam tryb odbicia lustrzanego</translation>
 <translation id="602001110135236999">Przewiń w lewo</translation>
@@ -924,14 +939,11 @@ Podłącz urządzenie do zasilania.</translation>
 <translation id="6095008505822982596">Prędkość mowy</translation>
 <translation id="6099678161144790572">Edytowane w zeszłym miesiącu</translation>
 <translation id="6103838137565245112">system</translation>
-<translation id="6107292179555508368">Dostęp do mikrofonu i aparatu na tym urządzeniu jest wyłączony</translation>
 <translation id="6114505516289286752">Pliki z mową w języku: <ph name="LANGUAGE" /> zostały pobrane</translation>
-<translation id="6116825164611323644">Dostęp do aparatu jest wyłączony na tym urządzeniu</translation>
 <translation id="6119360623251949462"><ph name="CHARGING_STATE" />. <ph name="BATTERY_SAVER_STATE" /></translation>
 <translation id="6121838516699723042">Potwierdź pobieranie pliku <ph name="FILENAME" /></translation>
 <translation id="612734058257491180">Asystent Google jest niedostępny w sesji gościa.</translation>
 <translation id="6129953537138746214">Spacja</translation>
-<translation id="6134259848159370930">Przeszukaj urządzenie, aplikacje, ustawienia i internet.</translation>
 <translation id="6137566720514957455">Otwórz okno usuwania konta <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="6141988275892716286">Potwierdź pobranie</translation>
 <translation id="6154006699632741460">Nieobsługiwane urządzenie peryferyjne</translation>
@@ -943,9 +955,11 @@ Podłącz urządzenie do zasilania.</translation>
 <translation id="619279033188484792">Wyświetlaj najnowsze zdjęcia, pliki multimedialne i powiadomienia z telefonu na urządzeniu <ph name="DEVICE_TYPE" /></translation>
 <translation id="619335566042889110">Naładuj do pełna teraz</translation>
 <translation id="6193431488227440296">Deweloperska</translation>
+<translation id="6200515304866777730">Nieobsługiwana przez aplikację</translation>
 <translation id="6210042900243040400">Połącz urządzenie <ph name="NAME" /> wcześniej zapisane na koncie <ph name="EMAIL" /></translation>
 <translation id="6220928844947387476">Teraz możesz jednocześnie nagrywać siebie i swój ekran</translation>
 <translation id="622484624075952240">W dół</translation>
+<translation id="623116199192908855">Przesyłanie ekranu z Chromebooka</translation>
 <translation id="6231419273573514727">Wydajność urządzeń peryferyjnych może być ograniczona</translation>
 <translation id="6232891689835436217"><ph name="APP_NAME" /> używa teraz kamery i mikrofonu</translation>
 <translation id="6237231532760393653">1X</translation>
@@ -953,7 +967,6 @@ Podłącz urządzenie do zasilania.</translation>
 <translation id="6259254695169772643">Zaznacz rysikiem</translation>
 <translation id="6267036997247669271"><ph name="NAME" />: aktywuję...</translation>
 <translation id="6274202259872570803">Screencast</translation>
-<translation id="6282694724099204652">Włącz dostęp, aby zezwolić aplikacjom i stronom internetowym z uprawnieniami na korzystanie z mikrofonów i aparatów na tym urządzeniu.</translation>
 <translation id="6283712521836204486">Tryb Nie przeszkadzać jest wyłączony.</translation>
 <translation id="6284232397434400372">Rozdzielczość została zmieniona</translation>
 <translation id="6288235558961782912">Adres <ph name="USER_EMAIL_ADDRESS" /> będzie można dodać ponownie później po uzyskaniu zgody rodzica.</translation>
@@ -963,9 +976,11 @@ Podłącz urządzenie do zasilania.</translation>
 <translation id="6338485349199627913"><ph name="DISPLAY_NAME" /> jest sesją zarządzaną, którą zarządza <ph name="MANAGER" /></translation>
 <translation id="6344138931392227467">Urządzenie <ph name="DEVICE_NAME" /> zostało połączone</translation>
 <translation id="6351032674660237738">SUGEROWANE APLIKACJE</translation>
+<translation id="6352082849089527770">Nieznane sieci</translation>
 <translation id="6359587239691116345">Zainstaluj najnowsze funkcje i poprawki zabezpieczeń. Jeśli odrzucisz tę aktualizację, urządzenie może przestać działać prawidłowo i możesz mieć problemy z bezpieczeństwem i wydajnością.</translation>
 <translation id="6376931439017688372">Bluetooth jest włączony</translation>
 <translation id="6381109794406942707">Aby odblokować urządzenie, wpisz kod PIN.</translation>
+<translation id="638716340450135524">Włącz dostęp do aparatu</translation>
 <translation id="639644700271529076">CAPS LOCK jest wyłączony</translation>
 <translation id="6406704438230478924">altgr</translation>
 <translation id="6417265370957905582">Asystent Google</translation>
@@ -973,6 +988,7 @@ Podłącz urządzenie do zasilania.</translation>
 <translation id="642644398083277086">Wyczyść wszystkie powiadomienia</translation>
 <translation id="643147933154517414">Wszystko gotowe</translation>
 <translation id="6431865393913628856">Nagrywanie ekranu</translation>
+<translation id="6442259747294754014">Dostęp do mikrofonu urządzenia jest wyłączony</translation>
 <translation id="6445835306623867477"><ph name="ROUTE_TITLE" /> na urządzeniu <ph name="RECEIVER_NAME" /></translation>
 <translation id="6447111710783417522"><ph name="DATE" />, <ph name="NUMBER" /> zdarzenie</translation>
 <translation id="6449483711453944360">Aplikacje na Linuksa ani okna incognito nie są obecnie obsługiwane</translation>
@@ -985,8 +1001,10 @@ Podłącz urządzenie do zasilania.</translation>
 <translation id="6491071886865974820"><ph name="MANAGER" /> wymaga zaktualizowania tego urządzenia <ph name="DEVICE_TYPE" /> przed podanym terminem</translation>
 <translation id="649452524636452238">Kod PIN karty elektronicznej</translation>
 <translation id="6495400115277918834">Uruchomiono obraz w obrazie, Alt+Shift+V, aby zaznaczyć</translation>
+<translation id="6497418457565568043">Tryb Nie przeszkadzać jest włączony</translation>
 <translation id="6500896621837555595">Zaktualizuj</translation>
 <translation id="6501401484702599040">Przesyłam ekran do: <ph name="RECEIVER_NAME" /></translation>
+<translation id="6508923215158854599">Upewnij się, że Chromebook jest połączony z tą samą siecią Wi-Fi co Chromecast.</translation>
 <translation id="6515727200518652613">Brak sygnału z kamery. Łączę ponownie.</translation>
 <translation id="6520517963145875092">Wybierz okno, które chcesz przechwycić</translation>
 <translation id="652139407789908527">Podczas aktualizacji ekran wygaśnie na dłuższą chwilę (do minuty). W tym czasie nie naciskaj przycisku zasilania.</translation>
@@ -1023,6 +1041,7 @@ Podłącz urządzenie do zasilania.</translation>
 <translation id="6670153871843998651">Biurko 3</translation>
 <translation id="6671495933530132209">Kopiuj grafikę</translation>
 <translation id="6671661918848783005">Nie udało się odblokować Chromebooka</translation>
+<translation id="6683022854667115063">Słuchawki</translation>
 <translation id="6696025732084565524">Odłączana klawiatura wymaga krytycznej aktualizacji</translation>
 <translation id="6700713906295497288">Przycisk menu IME</translation>
 <translation id="6707693040195709527">Minął termin przywrócenia na tym urządzeniu wcześniejszej wersji systemu operacyjnego</translation>
@@ -1044,6 +1063,7 @@ Podłącz urządzenie do zasilania.</translation>
 <translation id="6787595647772650851">Przywróć ostatnią sesję</translation>
 <translation id="6790428901817661496">Odtwórz</translation>
 <translation id="6801878137098616817">Niedawno edytowane</translation>
+<translation id="6802687695197837794">Zezwala na dostęp aplikacjom <ph name="APP1_NAME" /> i <ph name="APP2_NAME" /> oraz wszystkim aplikacjom i stronom internetowym, które mają uprawnienia do korzystania z kamery i mikrofonu</translation>
 <translation id="6803622936009808957">Nie można wyświetlić odbicia lustrzanego, ponieważ nie znaleziono obsługiwanych rozdzielczości. Zamiast tego został włączony pulpit rozszerzony.</translation>
 <translation id="6812232930908427253">Nie udało się zapisać biurka. Zbyt wiele okien lub kart.</translation>
 <translation id="6818242057446442178">Cofnij o jedno słowo</translation>
@@ -1066,6 +1086,7 @@ Podłącz urządzenie do zasilania.</translation>
 <translation id="6901883536534621389">Poruszaj się za pomocą gestów</translation>
 <translation id="6919251195245069855">Nie udało się rozpoznać karty elektronicznej. Spróbuj ponownie.</translation>
 <translation id="6931576957638141829">Zapisz w</translation>
+<translation id="6942518653766415536">Menu formatu nagrywania</translation>
 <translation id="6945221475159498467">Wybierz</translation>
 <translation id="6960565108681981554">Nie aktywowano. Skontaktuj się ze swoim operatorem.</translation>
 <translation id="6961121602502368900">Funkcja Wyciszenie telefonu jest niedostępna w profilu służbowym</translation>
@@ -1075,6 +1096,7 @@ Podłącz urządzenie do zasilania.</translation>
 <translation id="6965382102122355670">OK</translation>
 <translation id="6972754398087986839">Rozpocznij</translation>
 <translation id="6979158407327259162">Dysk Google</translation>
+<translation id="6981291220124935078">Włącz dostęp</translation>
 <translation id="6981982820502123353">Ułatwienia dostępu</translation>
 <translation id="698231206551913481">Usunięcie tego użytkownika spowoduje trwałe usunięcie wszystkich związanych z nim plików i danych lokalnych.</translation>
 <translation id="7005239792648594238">Aby rozpocząć, otwórz aplikację</translation>
@@ -1135,6 +1157,7 @@ Podłącz urządzenie do zasilania.</translation>
 <translation id="7360036564632145207">Wydajność może się poprawić, jeśli zmienisz ustawienie Zabezpieczenie przed dostępem do danych przez urządzenia peryferyjne</translation>
 <translation id="736045644501761622">Ustaw tapetę i styl</translation>
 <translation id="7371404428569700291">Nagraj okno</translation>
+<translation id="737315737514430195">Zezwala to na dostęp do mikrofonu w przypadku wszystkich aplikacji i stron internetowych, które mają uprawnienia do korzystania z niego</translation>
 <translation id="7377169924702866686">Caps Lock jest włączony.</translation>
 <translation id="7377481913241237033">Połącz przy użyciu kodu</translation>
 <translation id="7378203170292176219">Przeciągnij, by wybrać obszar, który chcesz nagrać</translation>
@@ -1175,7 +1198,6 @@ Podłącz urządzenie do zasilania.</translation>
 <translation id="7557816257942363084"><ph name="APP_NAME" /> używa teraz mikrofonu</translation>
 <translation id="7561982940498449837">Zamknij menu</translation>
 <translation id="7564874036684306347">Przenoszenie okien na inny pulpit może spowodować nieoczekiwane zachowanie. Kolejne powiadomienia, okna i okna dialogowe mogą pojawiać się na różnych pulpitach.</translation>
-<translation id="7567076708801803118">Czy chcesz wyłączyć dostęp do kamery na tym urządzeniu?</translation>
 <translation id="7569509451529460200">Włączono Braille'a i ChromeVox</translation>
 <translation id="7573585051776738856">Aktywne okno zadokowano po prawej.</translation>
 <translation id="7579778809502851308">Zrzut ekranu</translation>
@@ -1188,7 +1210,6 @@ Podłącz urządzenie do zasilania.</translation>
 <translation id="761736749114493194">Przełącz kadrowanie. <ph name="STATE_TEXT" /></translation>
 <translation id="7624117708979618027"><ph name="TEMPERATURE_F" />° F</translation>
 <translation id="7634648064048557203">Podgląd z kamery został przyciągnięty do prawego dolnego rogu</translation>
-<translation id="7641938616688887143">Nagraj</translation>
 <translation id="7642106959537987271">tryb odwrócenia kolorów</translation>
 <translation id="7642647758716480637">Otwórz ustawienia sieci <ph name="NETWORK_NAME" />, <ph name="CONNECTION_STATUS" /></translation>
 <translation id="7645176681409127223"><ph name="USER_NAME" /> (właściciel)</translation>
@@ -1203,13 +1224,14 @@ Podłącz urządzenie do zasilania.</translation>
 <translation id="7671610481353807627">Aplikacje są posortowane według koloru</translation>
 <translation id="7672095158465655885">Połączono z: <ph name="NAME" />, <ph name="SUBTEXT" /></translation>
 <translation id="7684531502177797067">Zmieniono kamerę. Obecnie podłączone urządzenie to <ph name="CAMERA_NAME" />.</translation>
+<translation id="7689817529363080918">Zezwala to na dostęp do mikrofonu w przypadku aplikacji <ph name="APP1_NAME" />, <ph name="APP2_NAME" /> oraz wszystkich aplikacji i stron internetowych, które mają uprawnienia do korzystania z niego</translation>
 <translation id="7705524343798198388">VPN</translation>
 <translation id="7714767791242455379">Dodaj nową sieć komórkową</translation>
 <translation id="7720400844887872976">Włączone do <ph name="TIME" /></translation>
 <translation id="7720410380936703141">SPRÓBUJ PONOWNIE</translation>
 <translation id="7723389094756330927">{NUM_NOTIFICATIONS,plural, =1{1 powiadomienie}few{# powiadomienia}many{# powiadomień}other{# powiadomienia}}</translation>
 <translation id="7724603315864178912">Wytnij</translation>
-<translation id="7745560842763881396">Pokaż aplikacje na półce</translation>
+<translation id="7742327441377685481">Brak powiadomień</translation>
 <translation id="7749443890790263709">Osiągnięto maksymalną liczbę biurek.</translation>
 <translation id="776344839111254542">Kliknij, by wyświetlić szczegóły aktualizacji</translation>
 <translation id="7768784765476638775">Przeczytaj na głos</translation>
@@ -1249,6 +1271,7 @@ Podłącz urządzenie do zasilania.</translation>
 <translation id="79341161159229895">Kontem zarządzają <ph name="FIRST_PARENT_EMAIL" /> i <ph name="SECOND_PARENT_EMAIL" /></translation>
 <translation id="793716872548410480">Naciśnij <ph name="SHORTCUT_KEY_NAME" /> + V, by przejrzeć zawartość schowka. Znajdziesz tam ostatnie 5 skopiowanych elementów.</translation>
 <translation id="7942349550061667556">Czerwony</translation>
+<translation id="7963992254934562106">Źródło: <ph name="PHONE_NAME" /></translation>
 <translation id="7968693143708939792">Wybierz folder...</translation>
 <translation id="7977927628060636163">Szukam sieci komórkowych…</translation>
 <translation id="7982789257301363584">Sieć</translation>
@@ -1284,6 +1307,7 @@ Podłącz urządzenie do zasilania.</translation>
 <translation id="8142441511840089262">Dwukrotne kliknięcie</translation>
 <translation id="8142699993796781067">Sieć prywatna</translation>
 <translation id="8144760705599030999">Aby szybciej parować urządzenie <ph name="NAME" /> z innymi urządzeniami, zapisz je na koncie <ph name="EMAIL" /></translation>
+<translation id="8144914663975476336">Wybierz format nagrywania</translation>
 <translation id="8149413265954228307">Pokaż ustawienia Bluetooth. <ph name="STATE_TEXT" />.</translation>
 <translation id="8152092012181020186">Aby zamknąć, naciśnij CTRL + W.</translation>
 <translation id="8152264887680882389"><ph name="TEXT" />, autouzupełnianie</translation>
@@ -1365,6 +1389,7 @@ Podłącz urządzenie do zasilania.</translation>
 <translation id="8598235756057743477">Posortuj aplikacje według nazwy lub koloru</translation>
 <translation id="8614517853887502247">Powiadomienia z aplikacji <ph name="APP_1_TITLE" /> i <ph name="APP_2_TITLE" /> zostały ukryte, bo masz włączoną ochronę przeglądania</translation>
 <translation id="8627191004499078455">Połączono z urządzeniem <ph name="DEVICE_NAME" /></translation>
+<translation id="8630991711272431708">Wyłącz dostęp do kamery</translation>
 <translation id="8631727435199967028">Ustawienia ułatwień dostępu</translation>
 <translation id="8637598503828012618"><ph name="CONNECTION_STATUS" />, siła sygnału: <ph name="SIGNAL_STRENGTH" />, zarządzana przez administratora</translation>
 <translation id="8639760480004882931">Pozostało <ph name="PERCENTAGE" /></translation>
@@ -1380,8 +1405,6 @@ Podłącz urządzenie do zasilania.</translation>
 <translation id="8666856788528804727">Otwórz aplikację <ph name="NAME" />, aby skonfigurować urządzenie</translation>
 <translation id="8676770494376880701">Podłączono ładowarkę o małej mocy</translation>
 <translation id="8683506306463609433">Śledzenie wydajności jest aktywne</translation>
-<translation id="8684405646663021166">Zezwala na dostęp do mikrofonu w przypadku aplikacji <ph name="APP_NAME" /> oraz wszystkich aplikacji i stron internetowych, które mają uprawnienia do korzystania z niego</translation>
-<translation id="8685326675965865247">Przeszukaj urządzenie, aplikacje, ustawienia i internet. Aby poruszać się po aplikacjach, użyj klawiszy strzałek.</translation>
 <translation id="8703634754197148428">Rozpocznij nagrywanie. Po rozpoczęciu nagrywania możesz za pomocą Alt + Shift + L przejść na półkę, na której znajdziesz przycisk zatrzymujący nagrywanie.</translation>
 <translation id="8721053961083920564">Przełącz głośność. <ph name="STATE_TEXT" /></translation>
 <translation id="8724318433625452070">Zrzut całego ekranu</translation>
@@ -1390,7 +1413,6 @@ Podłącz urządzenie do zasilania.</translation>
 <translation id="8735678380411481005">Kolor podświetlenia klawiatury</translation>
 <translation id="8747464587821437069"><ph name="CAMERA_AND_MICROPHONE_ACCESS_STATUS" />,
         <ph name="SCREEN_SHARE_STATUS" /></translation>
-<translation id="8752416742247198423">Włącz dostęp do aparatu, aby zezwolić aplikacjom i stronom z uprawnieniami na korzystanie z aparatów podłączonych do tego urządzenia.</translation>
 <translation id="8755498163081687682">Weryfikacja tożsamości: strona <ph name="ORIGIN_NAME" /> wymaga potwierdzenia, że to Ty</translation>
 <translation id="875593634123171288">Pokaż ustawienia VPN</translation>
 <translation id="8759408218731716181">Nie można skonfigurować wielokrotnego logowania</translation>
@@ -1405,7 +1427,6 @@ Podłącz urządzenie do zasilania.</translation>
 <translation id="8819728065740986820">Włączono ładowanie adaptacyjne</translation>
 <translation id="8825863694328519386">Aby wrócić, przesuń palcem od lewej strony</translation>
 <translation id="8834539327799336565">Obecnie połączone</translation>
-<translation id="8834657930627018205">Włącz dostęp do aparatu</translation>
 <translation id="8841375032071747811">Przycisk Wstecz</translation>
 <translation id="8843682306134542540">Włącz lub wyłącz blokadę obracania. <ph name="STATE_TEXT" /></translation>
 <translation id="8850991929411075241">Szukaj+Esc</translation>
@@ -1458,7 +1479,6 @@ Podłącz urządzenie do zasilania.</translation>
 <translation id="9089416786594320554">Wprowadzanie tekstu</translation>
 <translation id="9091626656156419976">Wyświetlacz <ph name="DISPLAY_NAME" /> został usunięty</translation>
 <translation id="9098969848082897657">Wycisz telefon</translation>
-<translation id="9099154003160514616">Dostępna jest aktualizacja Lacros</translation>
 <translation id="9100887602489003640">Dodaję profil. Odczekaj kilka minut.</translation>
 <translation id="9105450214093926548">Gdy uruchomiona jest przeglądarka Lacros, logowanie 2 użytkownika nie jest obsługiwane. Użyj 2 profilu przeglądarki w Lacros lub zamknij Lacros i spróbuj ponownie.</translation>
 <translation id="9121941381564890244"><ph name="SNIP" /> lub <ph name="CTRL" /><ph name="SEPARATOR1" /><ph name="SHIFT" /><ph name="SEPARATOR2" /><ph name="OVERVIEW" /></translation>
@@ -1490,6 +1510,7 @@ Podłącz urządzenie do zasilania.</translation>
 <translation id="954052413789300507">Za mało miejsca na plik <ph name="FILENAME" />. Zwolnij miejsce.</translation>
 <translation id="974545358917229949">Wyświetlam wyniki (<ph name="RESULT_COUNT" />) dla zapytania <ph name="QUERY" /></translation>
 <translation id="98515147261107953">Poziomo</translation>
+<translation id="989374776391122812">Sterowanie kamerą i dźwiękiem</translation>
 <translation id="990277280839877440">Okno <ph name="WINDOW_TITILE" /> zostało zamknięte.</translation>
 <translation id="994354411665877646"><ph name="NETWORK_NAME" />, <ph name="SUBTEXT" /></translation>
 <translation id="996204416024568215">Zainstaluj najnowsze funkcje i poprawki zabezpieczeń. Aktualizacje są przeprowadzane w tle.</translation>

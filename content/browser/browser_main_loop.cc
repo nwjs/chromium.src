@@ -28,7 +28,7 @@
 #include "base/path_service.h"
 #include "base/pending_task.h"
 #include "base/power_monitor/power_monitor.h"
-#include "base/power_monitor/power_monitor_device_source.h"
+#include "base/power_monitor/power_monitor_source.h"
 #include "base/process/process_metrics.h"
 #include "base/run_loop.h"
 #include "base/scoped_observation.h"
@@ -38,11 +38,11 @@
 #include "base/system/system_monitor.h"
 #include "base/task/current_thread.h"
 #include "base/task/deferred_sequenced_task_runner.h"
+#include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool/initialization_util.h"
 #include "base/threading/thread.h"
 #include "base/threading/thread_restrictions.h"
-#include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time.h"
 #include "base/timer/hi_res_timer_manager.h"
 #include "base/trace_event/memory_dump_manager.h"
@@ -54,6 +54,7 @@
 #include "cc/base/histograms.h"
 #include "components/discardable_memory/service/discardable_shared_memory_manager.h"
 #include "components/memory_pressure/multi_source_memory_pressure_monitor.h"
+#include "components/power_monitor/make_power_monitor_device_source.h"
 #include "components/services/storage/dom_storage/storage_area_impl.h"
 #include "components/tracing/common/trace_startup_config.h"
 #include "components/tracing/common/tracing_switches.h"
@@ -77,6 +78,7 @@
 #include "content/browser/gpu/gpu_process_host.h"
 #include "content/browser/media/media_internals.h"
 #include "content/browser/media/media_keys_listener_manager_impl.h"
+#include "content/browser/memory_pressure/user_level_memory_pressure_signal_generator.h"
 #include "content/browser/metrics/histogram_synchronizer.h"
 #include "content/browser/network/browser_online_state_observer.h"
 #include "content/browser/network_service_instance_impl.h"
@@ -633,10 +635,10 @@ void BrowserMainLoop::CreateMainMessageLoop() {
 
   // Register the main thread. The main thread's task runner should already have
   // been initialized but it's not yet known as BrowserThread::UI.
-  DCHECK(base::ThreadTaskRunnerHandle::IsSet());
+  DCHECK(base::SingleThreadTaskRunner::HasCurrentDefault());
   DCHECK(base::CurrentUIThread::IsSet());
   main_thread_.reset(new BrowserThreadImpl(
-      BrowserThread::UI, base::ThreadTaskRunnerHandle::Get()));
+      BrowserThread::UI, base::SingleThreadTaskRunner::GetCurrentDefault()));
 }
 
 void BrowserMainLoop::PostCreateMainMessageLoop() {
@@ -647,10 +649,8 @@ void BrowserMainLoop::PostCreateMainMessageLoop() {
   }
   {
     TRACE_EVENT0("startup", "BrowserMainLoop::Subsystem:PowerMonitor");
-    if (!base::PowerMonitor::IsInitialized()) {
-      base::PowerMonitor::Initialize(
-          std::make_unique<base::PowerMonitorDeviceSource>());
-    }
+    if (!base::PowerMonitor::IsInitialized())
+      base::PowerMonitor::Initialize(MakePowerMonitorDeviceSource());
   }
   {
     TRACE_EVENT0("startup", "BrowserMainLoop::Subsystem:HighResTimerManager");
@@ -757,6 +757,9 @@ int BrowserMainLoop::PreCreateThreads() {
   }
 
   InitializeMemoryManagementComponent();
+#if BUILDFLAG(IS_ANDROID)
+  memory_pressure::UserLevelMemoryPressureSignalGenerator::Initialize();
+#endif
 
 #if BUILDFLAG(ENABLE_PLUGINS)
   // Prior to any processing happening on the IO thread, we create the
@@ -780,7 +783,8 @@ int BrowserMainLoop::PreCreateThreads() {
   // The WindowResizeHelper allows the UI thread to wait on specific renderer
   // and GPU messages from the IO thread. Initializing it before the IO thread
   // starts ensures the affected IO thread messages always have somewhere to go.
-  ui::WindowResizeHelperMac::Get()->Init(base::ThreadTaskRunnerHandle::Get());
+  ui::WindowResizeHelperMac::Get()->Init(
+      base::SingleThreadTaskRunner::GetCurrentDefault());
 #endif
 
   // GpuDataManager should be initialized in parts_->PreCreateThreads through
@@ -825,7 +829,8 @@ void BrowserMainLoop::CreateStartupTasks() {
       GetUIThreadTaskRunner({BrowserTaskType::kDefault}));
 #else
   startup_task_runner_ = std::make_unique<StartupTaskRunner>(
-      base::OnceCallback<void(int)>(), base::ThreadTaskRunnerHandle::Get());
+      base::OnceCallback<void(int)>(),
+      base::SingleThreadTaskRunner::GetCurrentDefault());
 #endif
   StartupTask pre_create_threads = base::BindOnce(
       &BrowserMainLoop::PreCreateThreads, base::Unretained(this));
@@ -872,9 +877,10 @@ BrowserMainLoop::GetResizeTaskRunner() {
   scoped_refptr<base::SingleThreadTaskRunner> task_runner =
       ui::WindowResizeHelperMac::Get()->task_runner();
   // In tests, WindowResizeHelperMac task runner might not be initialized.
-  return task_runner ? task_runner : base::ThreadTaskRunnerHandle::Get();
+  return task_runner ? task_runner
+                     : base::SingleThreadTaskRunner::GetCurrentDefault();
 #else
-  return base::ThreadTaskRunnerHandle::Get();
+  return base::SingleThreadTaskRunner::GetCurrentDefault();
 #endif
 }
 
@@ -908,7 +914,7 @@ int BrowserMainLoop::CreateThreads() {
 
   // TODO(https://crbug.com/863341): Replace with a better API
   GetContentClient()->browser()->PostAfterStartupTask(
-      FROM_HERE, base::SequencedTaskRunnerHandle::Get(),
+      FROM_HERE, base::SequencedTaskRunner::GetCurrentDefault(),
       base::BindOnce(
           [](BrowserMainLoop* browser_main_loop) {
             // Informs BrowserTaskExecutor that startup is complete.
@@ -1379,7 +1385,8 @@ void BrowserMainLoop::PostCreateThreadsImpl() {
     TRACE_EVENT0("startup",
                  "BrowserMainLoop::PostCreateThreads::InitUserInputMonitor");
     user_input_monitor_ = media::UserInputMonitor::Create(
-        io_thread_->task_runner(), base::ThreadTaskRunnerHandle::Get());
+        io_thread_->task_runner(),
+        base::SingleThreadTaskRunner::GetCurrentDefault());
   }
 
   {

@@ -86,6 +86,7 @@ void WebAuthnBrowserBridge::OnCredentialsDetailsListReceived(
     const base::android::JavaParamRef<jobject>&,
     const base::android::JavaParamRef<jobjectArray>& credentials,
     const base::android::JavaParamRef<jobject>& jframe_host,
+    jboolean is_conditional_request,
     const base::android::JavaParamRef<jobject>& jcallback) const {
   auto* client = components::WebAuthnClientAndroid::GetClient();
   auto* render_frame_host =
@@ -108,7 +109,7 @@ void WebAuthnBrowserBridge::OnCredentialsDetailsListReceived(
   ConvertJavaCredentialArrayToMetadataVector(env, credentials,
                                              &credentials_metadata);
   client->OnWebAuthnRequestPending(
-      render_frame_host, credentials_metadata,
+      render_frame_host, credentials_metadata, is_conditional_request,
       base::BindOnce(
           &OnWebAuthnCredentialSelected,
           base::android::ScopedJavaGlobalRef<jobject>(env, jcallback)));

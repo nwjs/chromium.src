@@ -193,7 +193,6 @@
 <translation id="5048398596102334565">Надати сайтам доступ до датчиків руху (рекомендовано)</translation>
 <translation id="5050380848339752099">Цей сайт збирається надіслати інформацію зовнішньому додатку, поки ви в режимі анонімного перегляду.</translation>
 <translation id="5063480226653192405">Використання</translation>
-<translation id="5082281938627763039">Буде видалено файли cookie й інші дані сайту <ph name="FPS_MEMBER" /> і сайтів у групі сайту-власника <ph name="FPS_OWNER" /></translation>
 <translation id="5091013926750941408">Мобільний сайт</translation>
 <translation id="509133520954049755">Запит на версію для ПК</translation>
 <translation id="5100237604440890931">Згорнуто – натисніть, щоб розгорнути.</translation>
@@ -207,7 +206,6 @@
 <translation id="528192093759286357">Щоб вийти з повноекранного режиму, проведіть пальцем по екрану згори вниз і торкніться кнопки "Назад".</translation>
 <translation id="5300589172476337783">Показати</translation>
 <translation id="5301954838959518834">OK</translation>
-<translation id="5313967007315987356">Додати сайт</translation>
 <translation id="5317780077021120954">Зберегти</translation>
 <translation id="5335288049665977812">Дозволити сайтам запускати JavaScript (рекомендується)</translation>
 <translation id="534295439873310000">Пристрої NFC</translation>
@@ -241,9 +239,11 @@
 <translation id="5922853908706496913">Доступ до вашого екрана</translation>
 <translation id="5922967540311291836">Блокувати сторонні файли cookie:</translation>
 <translation id="5939518447894949180">Скинути</translation>
+<translation id="5968921426641056619">Введіть веб-адресу</translation>
 <translation id="5975083100439434680">Зменшити масштаб</translation>
 <translation id="5976059395673079613">"<ph name="PERMISSION" />" – <ph name="WARNING_MESSAGE" /></translation>
 <translation id="6015775454662021376">Керуйте доступом цього сайту до вашого пристрою</translation>
+<translation id="6018815681665454784">Очистити й скинути?</translation>
 <translation id="6040143037577758943">Закрити</translation>
 <translation id="6042308850641462728">Більше</translation>
 <translation id="6064125863973209585">Завершені завантаження</translation>
@@ -307,6 +307,7 @@
 <translation id="7250468141469952378">Вибрано <ph name="ITEM_COUNT" /></translation>
 <translation id="7260727271532453612">Дозволено: "<ph name="PERMISSION_1" />" і "<ph name="PERMISSION_2" />"</translation>
 <translation id="7302486331832100261">Зазвичай ви блокуєте сповіщення. Щоб дозволити, натисніть "Деталі".</translation>
+<translation id="7366415735885268578">Додати сайт</translation>
 <translation id="7383715096023715447">Налаштування для домену <ph name="DOMAIN" /></translation>
 <translation id="7423098979219808738">Спершу запитувати</translation>
 <translation id="7423538860840206698">Заборонено переглядати буфер обміну</translation>
@@ -322,6 +323,7 @@
 <translation id="7658239707568436148">Скасувати</translation>
 <translation id="7667547420449112975">Чарівник країни Оз</translation>
 <translation id="7690549345586282764">Показувати масштаб</translation>
+<translation id="7695658402549134106">Налаштування сайту <ph name="SITE_NAME" /></translation>
 <translation id="7719367874908701697">Масштабування сторінки</translation>
 <translation id="7781829728241885113">Учора</translation>
 <translation id="7791543448312431591">Додати</translation>
@@ -348,6 +350,7 @@
 <translation id="813082847718468539">Перегляд інформації про сайт</translation>
 <translation id="8131740175452115882">Підтвердити</translation>
 <translation id="8154912474061769055">Функції на багатьох сайтах можуть не працювати</translation>
+<translation id="8168435359814927499">Вміст</translation>
 <translation id="8197286292360124385">Дозволено: "<ph name="PERMISSION_1" />"</translation>
 <translation id="8200772114523450471">Відновити</translation>
 <translation id="8206354486702514201">Це налаштування застосовується вашим адміністратором.</translation>
@@ -364,6 +367,7 @@
 <translation id="8380167699614421159">Цей сайт показує нав’язливі чи оманливі оголошення</translation>
 <translation id="8394832520002899662">Натисніть, щоб повернутися на сайт</translation>
 <translation id="8409345997656833551">Отримувати сповіщення, коли статтю можна показати в режимі спрощеного перегляду</translation>
+<translation id="8423565414844018592">Масштаб тексту: <ph name="TEXT_SCALING" /></translation>
 <translation id="8428213095426709021">Налаштування</translation>
 <translation id="8441146129660941386">Назад</translation>
 <translation id="8444433999583714703">Щоб надати додатку <ph name="APP_NAME" /> доступ до геоданих, також увімкніть їх у <ph name="BEGIN_LINK" />налаштуваннях Android<ph name="END_LINK" />.</translation>
@@ -394,7 +398,6 @@
 <translation id="8921772741368021346"><ph name="POSITION" />/<ph name="DURATION" /></translation>
 <translation id="8926666909099850184">NFC вимкнено на цьому пристрої. Увімкніть цю функцію в <ph name="BEGIN_LINK" />налаштуваннях Android<ph name="END_LINK" />.</translation>
 <translation id="8928445016601307354">Заборонити сайтам переглядати й змінювати інформацію на пристроях NFC</translation>
-<translation id="8941729603749328384">www.example.com</translation>
 <translation id="8958424370300090006">Блокувати файли cookie з конкретного сайту.</translation>
 <translation id="8959122750345127698">Веб-сторінка <ph name="URL" /> недоступна</translation>
 <translation id="8986362086234534611">Забути</translation>

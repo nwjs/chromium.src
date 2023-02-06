@@ -28,9 +28,8 @@
 #include "chrome/browser/about_flags.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/buildflags.h"
-#include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/lifetime/switch_utils.h"
-#include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/profiles/nuke_profile_directory_utils.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
@@ -57,6 +56,7 @@
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "chrome/browser/ash/boot_times_recorder.h"
+#include "chrome/browser/lifetime/application_lifetime_chromeos.h"
 #include "chrome/browser/lifetime/termination_notification.h"
 #endif
 
@@ -289,7 +289,7 @@ void ShutdownPostThreadsStop(RestartMode restart_mode) {
 
   // crbug.com/95079 - This needs to happen after the browser process object
   // goes away.
-  ProfileManager::NukeDeletedProfilesFromDisk();
+  NukeDeletedProfilesFromDisk();
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   ash::BootTimesRecorder::Get()->AddLogoutTimeMarker("BrowserDeleted", true);
@@ -365,7 +365,7 @@ void ShutdownPostThreadsStop(RestartMode restart_mode) {
   }
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-  NotifyAndTerminate(false /* fast_path */);
+  chrome::StopSession();
 #endif
 }
 #endif  // !BUILDFLAG(IS_ANDROID)

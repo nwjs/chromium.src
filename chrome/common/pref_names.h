@@ -518,6 +518,7 @@ extern const char kPrintingMaxSheetsAllowed[];
 extern const char kPrintJobHistoryExpirationPeriod[];
 extern const char kDeletePrintJobHistoryAllowed[];
 extern const char kPrintingClientNameTemplate[];
+extern const char kPrintingOAuth2AuthorizationServers[];
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 extern const char kDefaultSupervisedUserFilteringBehavior[];
@@ -635,6 +636,8 @@ extern const char kDefaultTasksBySuffix[];
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 extern const char kDefaultHandlersForFileExtensions[];
+extern const char kOfficeSetupComplete[];
+extern const char kOfficeFilesAlwaysMove[];
 #endif
 
 extern const char kSharedClipboardEnabled[];
@@ -872,6 +875,10 @@ extern const char kKerberosEnabled[];
 extern const char kIsolatedWebAppInstallForceList[];
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
+#if BUILDFLAG(IS_WIN)
+extern const char kCloudApAuthEnabled[];
+#endif  // BUILDFLAG(IS_WIN)
+
 extern const char kCertRevocationCheckingEnabled[];
 extern const char kCertRevocationCheckingRequiredLocalAnchors[];
 extern const char kSSLVersionMin[];
@@ -885,6 +892,10 @@ extern const char kEncryptedClientHelloEnabled[];
 extern const char kBuiltInDnsClientEnabled[];
 extern const char kDnsOverHttpsMode[];
 extern const char kDnsOverHttpsTemplates[];
+#if BUILDFLAG(IS_CHROMEOS)
+extern const char kDnsOverHttpsTemplatesWithIdentifiers[];
+extern const char kDnsOverHttpsSalt[];
+#endif  // BUILDFLAG(IS_CHROMEOS)
 extern const char kAdditionalDnsQueryTypesEnabled[];
 
 #if BUILDFLAG(IS_MAC)
@@ -1197,6 +1208,7 @@ extern const char kShowCaretBrowsingDialog[];
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 extern const char kLacrosLaunchSwitch[];
+extern const char kLacrosSelection[];
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -1266,7 +1278,8 @@ extern const char kOriginAgentClusterDefaultEnabled[];
 
 extern const char kForceMajorVersionToMinorPositionInUserAgent[];
 
-extern const char kIdleProfileCloseTimeout[];
+extern const char kIdleTimeout[];
+extern const char kIdleTimeoutActions[];
 
 extern const char kSCTAuditingHashdanceReportCount[];
 
@@ -1291,6 +1304,9 @@ extern const char kVirtualKeyboardResizesLayoutByDefault[];
 extern const char kAccessControlAllowMethodsInCORSPreflightSpecConformant[];
 
 extern const char kDIPSTimerLastUpdate[];
+
+extern const char kThrottleNonVisibleCrossOriginIframesAllowed[];
+extern const char kNewBaseUrlInheritanceBehaviorAllowed[];
 
 }  // namespace prefs
 

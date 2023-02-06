@@ -32,6 +32,7 @@
 #include "ash/wm/window_util.h"
 #include "base/logging.h"
 #include "base/no_destructor.h"
+#include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/trace_event/trace_event.h"
@@ -446,10 +447,12 @@ void ClientControlledShellSurface::SetPinned(chromeos::WindowPinType type) {
     CreateShellSurfaceWidget(ui::SHOW_STATE_NORMAL);
 
   if (type == chromeos::WindowPinType::kNone) {
-    ash::WindowState::Get(widget_->GetNativeWindow())->Restore();
+    // Set other window state mode will automatically cancelled pin mode.
+    // TODO: Add NOTREACH() here after ARC side integration fully landed.
   } else {
     bool trusted = type == chromeos::WindowPinType::kTrustedPinned;
-    ash::window_util::PinWindow(widget_->GetNativeWindow(), trusted);
+    pending_window_state_ = trusted ? chromeos::WindowStateType::kTrustedPinned
+                                    : chromeos::WindowStateType::kPinned;
   }
 }
 
@@ -783,12 +786,12 @@ void ClientControlledShellSurface::OnSetFrameColors(SkColor active_color,
   }
 }
 
-void ClientControlledShellSurface::SetSnappedToPrimary() {
+void ClientControlledShellSurface::SetSnapPrimary(float snap_ratio) {
   TRACE_EVENT0("exo", "ClientControlledShellSurface::SetSnappedToPrimary");
   pending_window_state_ = chromeos::WindowStateType::kPrimarySnapped;
 }
 
-void ClientControlledShellSurface::SetSnappedToSecondary() {
+void ClientControlledShellSurface::SetSnapSecondary(float snap_ratio) {
   TRACE_EVENT0("exo", "ClientControlledShellSurface::SetSnappedToSecondary");
   pending_window_state_ = chromeos::WindowStateType::kSecondarySnapped;
 }
@@ -1193,8 +1196,10 @@ bool ClientControlledShellSurface::OnPreWidgetCommit() {
     return true;
   }
 
-  if (IsPinned(window_state)) {
-    VLOG(1) << "State change was requested while pinned";
+  if (IsPinned(window_state) &&
+      (pending_window_state_ == chromeos::WindowStateType::kPinned ||
+       pending_window_state_ == chromeos::WindowStateType::kTrustedPinned)) {
+    VLOG(1) << "Pinned was requested while pinned";
     return true;
   }
 

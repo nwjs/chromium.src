@@ -21,6 +21,7 @@
 #import "components/metrics/demographics/demographic_metrics_provider.h"
 #import "components/password_manager/core/common/password_manager_features.h"
 #import "components/prefs/pref_service.h"
+#import "components/search_engines/template_url_service.h"
 #import "components/sync/base/pref_names.h"
 #import "components/unified_consent/unified_consent_service.h"
 #import "components/variations/variations_associated_data.h"
@@ -31,15 +32,19 @@
 #import "ios/chrome/browser/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/content_settings/host_content_settings_map_factory.h"
 #import "ios/chrome/browser/ntp/features.h"
+#import "ios/chrome/browser/search_engines/search_engines_util.h"
+#import "ios/chrome/browser/search_engines/template_url_service_factory.h"
 #import "ios/chrome/browser/signin/fake_system_identity.h"
+#import "ios/chrome/browser/sync/sync_service_factory.h"
 #import "ios/chrome/browser/ui/commands/application_commands.h"
 #import "ios/chrome/browser/ui/default_promo/default_browser_utils.h"
+#import "ios/chrome/browser/ui/default_promo/default_browser_utils_test_support.h"
+#import "ios/chrome/browser/ui/icons/symbols.h"
 #import "ios/chrome/browser/ui/main/scene_state.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_feature.h"
 #import "ios/chrome/browser/ui/popup_menu/overflow_menu/feature_flags.h"
 #import "ios/chrome/browser/ui/thumb_strip/thumb_strip_feature.h"
 #import "ios/chrome/browser/ui/ui_feature_flags.h"
-#import "ios/chrome/browser/ui/util/named_guide.h"
 #import "ios/chrome/browser/ui/util/rtl_geometry.h"
 #import "ios/chrome/browser/unified_consent/unified_consent_service_factory.h"
 #import "ios/chrome/browser/web/web_navigation_browser_agent.h"
@@ -74,6 +79,7 @@
 #import "ios/web/public/web_state.h"
 #import "net/base/mac/url_conversions.h"
 #import "services/metrics/public/cpp/ukm_recorder.h"
+#import "ui/base/device_form_factor.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
 #error "This file requires ARC support."
@@ -205,10 +211,6 @@ NSString* SerializedValue(const base::Value* value) {
 + (void)startReloading {
   WebNavigationBrowserAgent::FromBrowser(chrome_test_util::GetMainBrowser())
       ->Reload();
-}
-
-+ (NamedGuide*)guideWithName:(GuideName*)name view:(UIView*)view {
-  return [NamedGuide guideWithName:name view:view];
 }
 
 + (void)openURLFromExternalApp:(NSString*)URL {
@@ -872,15 +874,34 @@ NSString* SerializedValue(const base::Value* value) {
   chrome_test_util::StopSync();
 }
 
-+ (NSError*)waitForSyncInitialized:(BOOL)isInitialized
-                       syncTimeout:(base::TimeDelta)timeout {
++ (NSError*)waitForSyncEngineInitialized:(BOOL)isInitialized
+                             syncTimeout:(base::TimeDelta)timeout {
   bool success = WaitUntilConditionOrTimeout(timeout, ^{
-    return chrome_test_util::IsSyncInitialized() == isInitialized;
+    return chrome_test_util::IsSyncEngineInitialized() == isInitialized;
   });
   if (!success) {
     NSString* errorDescription =
         [NSString stringWithFormat:@"Sync must be initialized: %@",
                                    isInitialized ? @"YES" : @"NO"];
+    return testing::NSErrorWithLocalizedDescription(errorDescription);
+  }
+  return nil;
+}
+
++ (NSError*)waitForSyncFeatureEnabled:(BOOL)isEnabled
+                          syncTimeout:(base::TimeDelta)timeout {
+  bool success = WaitUntilConditionOrTimeout(timeout, ^{
+    ChromeBrowserState* browser_state =
+        chrome_test_util::GetOriginalBrowserState();
+    DCHECK(browser_state);
+    syncer::SyncService* syncService =
+        SyncServiceFactory::GetForBrowserState(browser_state);
+    return syncService->IsSyncFeatureEnabled() == isEnabled;
+  });
+  if (!success) {
+    NSString* errorDescription =
+        [NSString stringWithFormat:@"Sync feature must be enabled: %@",
+                                   isEnabled ? @"YES" : @"NO"];
     return testing::NSErrorWithLocalizedDescription(errorDescription);
   }
   return nil;
@@ -1086,8 +1107,13 @@ NSString* SerializedValue(const base::Value* value) {
 }
 
 + (BOOL)isUseLensToSearchForImageEnabled {
+  TemplateURLService* service =
+      ios::TemplateURLServiceFactory::GetForBrowserState(
+          chrome_test_util::GetOriginalBrowserState());
   return base::FeatureList::IsEnabled(kUseLensToSearchForImage) &&
-         ios::provider::IsLensSupported();
+         ios::provider::IsLensSupported() &&
+         ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET &&
+         search_engines::SupportsSearchImageWithLens(service);
 }
 
 + (BOOL)isThumbstripEnabledForWindowWithNumber:(int)windowNumber {
@@ -1097,6 +1123,10 @@ NSString* SerializedValue(const base::Value* value) {
 
 + (BOOL)isWebChannelsEnabled {
   return base::FeatureList::IsEnabled(kEnableWebChannels);
+}
+
++ (BOOL)isSFSymbolEnabled {
+  return UseSymbols();
 }
 
 #pragma mark - ContentSettings
@@ -1322,17 +1352,7 @@ int watchRunNumber = 0;
 #pragma mark - Default Browser Promo Utilities
 
 + (void)clearDefaultBrowserPromoData {
-  NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
-  NSArray<NSString*>* keys = @[
-    @"lastTimeUserInteractedWithFullscreenPromo",
-    @"userHasInteractedWithFullscreenPromo",
-    @"userHasInteractedWithTailoredFullscreenPromo",
-    @"userInteractedWithNonModalPromoCount",
-    @"remindMeLaterPromoActionInteraction",
-  ];
-  for (NSString* key in keys) {
-    [defaults removeObjectForKey:key];
-  }
+  ClearDefaultBrowserPromoData();
 }
 
 + (void)copyURLToPasteBoard {

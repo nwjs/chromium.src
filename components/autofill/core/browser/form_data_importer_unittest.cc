@@ -12,6 +12,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -22,10 +23,10 @@
 #include "base/ranges/algorithm.h"
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
-#include "base/threading/thread_task_runner_handle.h"
 #include "build/build_config.h"
 #include "components/autofill/core/browser/autofill_experiments.h"
 #include "components/autofill/core/browser/autofill_test_utils.h"
@@ -35,6 +36,7 @@
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
+#include "components/autofill/core/browser/payments/iban_save_strike_database.h"
 #include "components/autofill/core/browser/payments/test_virtual_card_enrollment_manager.h"
 #include "components/autofill/core/browser/personal_data_manager.h"
 #include "components/autofill/core/browser/personal_data_manager_observer.h"
@@ -533,20 +535,22 @@ class FormDataImporterTestBase {
   void SetUpHelper() {
     prefs_ = test::PrefServiceForTesting();
     base::FilePath path(WebDatabase::kInMemoryPath);
-    web_database_ =
-        new WebDatabaseService(path, base::ThreadTaskRunnerHandle::Get(),
-                               base::ThreadTaskRunnerHandle::Get());
+    web_database_ = new WebDatabaseService(
+        path, base::SingleThreadTaskRunner::GetCurrentDefault(),
+        base::SingleThreadTaskRunner::GetCurrentDefault());
 
     // Hacky: hold onto a pointer but pass ownership.
     autofill_table_ = new AutofillTable;
     web_database_->AddTable(std::unique_ptr<WebDatabaseTable>(autofill_table_));
     web_database_->LoadDatabase();
     autofill_database_service_ = new AutofillWebDataService(
-        web_database_, base::ThreadTaskRunnerHandle::Get(),
-        base::ThreadTaskRunnerHandle::Get());
+        web_database_, base::SingleThreadTaskRunner::GetCurrentDefault(),
+        base::SingleThreadTaskRunner::GetCurrentDefault());
     autofill_database_service_->Init(base::NullCallback());
 
     autofill_client_ = std::make_unique<TestAutofillClient>();
+    autofill_client_->set_test_strike_database(
+        std::make_unique<TestStrikeDatabase>());
 
     test::DisableSystemServices(prefs_.get());
     // This will also initialize the `form_data_importer()`.
@@ -611,12 +615,6 @@ class FormDataImporterTestBase {
                              const FormStructure& form,
                              bool skip_waiting_on_pdm = false,
                              bool allow_save_prompts = true) {
-    // This parameter has no effect unless save prompts for addresses are
-    // enabled.
-    allow_save_prompts =
-        allow_save_prompts || !base::FeatureList::IsEnabled(
-                                  features::kAutofillAddressProfileSavePrompt);
-
     std::vector<FormDataImporter::AddressProfileImportCandidate>
         address_profile_import_candidates;
 
@@ -663,7 +661,7 @@ class FormDataImporterTestBase {
       const FormStructure& form,
       bool profile_autofill_enabled,
       bool payment_methods_autofill_enabled) {
-    auto imported_data = form_data_importer().ImportFormData(
+    ImportFormDataResult imported_data = form_data_importer().ImportFormData(
         form, profile_autofill_enabled, payment_methods_autofill_enabled);
     form_data_importer().ProcessAddressProfileImportCandidates(
         imported_data.address_profile_import_candidates);
@@ -675,6 +673,20 @@ class FormDataImporterTestBase {
     std::ignore = ImportFormDataAndProcessAddressCandidates(
         form, /*profile_autofill_enabled=*/true,
         /*payment_methods_autofill_enabled=*/true);
+  }
+
+  // Convenience wrapper that calls `FormDataImporter::ImportFormData()` and
+  // subsequently processes the candidates for IBAN import candidate.
+  // Returns the result of `FormDataImporter::ProcessIBANImportCandidate()`.
+  bool ImportFormDataAndProcessIBANCandidates(
+      const FormStructure& form,
+      bool profile_autofill_enabled,
+      bool payment_methods_autofill_enabled) {
+    ImportFormDataResult imported_data = form_data_importer().ImportFormData(
+        form, profile_autofill_enabled, payment_methods_autofill_enabled);
+    return imported_data.iban_import_candidate &&
+           form_data_importer().ProcessIBANImportCandidate(
+               imported_data.iban_import_candidate.value());
   }
 
   void ImportAddressProfilesAndVerifyExpectation(
@@ -743,13 +755,20 @@ class FormDataImporterTestBase {
   // as the destructor of the clients FormDataImporter relies on it.
   std::unique_ptr<PersonalDataManager> personal_data_manager_;
   std::unique_ptr<TestAutofillClient> autofill_client_;
-  MockVirtualCardEnrollmentManager* virtual_card_enrollment_manager_;
+  raw_ptr<MockVirtualCardEnrollmentManager> virtual_card_enrollment_manager_;
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-class FormDataImporterTest : public FormDataImporterTestBase,
-                             public testing::Test,
-                             public testing::WithParamInterface<bool> {
+// Parameters of the FormDataImporterTest fixture.
+using AutofillEnableSupportForApartmentNumbers = bool;
+using AutofillFillIbanFields = bool;
+
+class FormDataImporterTest
+    : public FormDataImporterTestBase,
+      public testing::Test,
+      public testing::WithParamInterface<
+          std::tuple<AutofillEnableSupportForApartmentNumbers,
+                     AutofillFillIbanFields>> {
  public:
   using ImportFormDataResult = FormDataImporter::ImportFormDataResult;
 
@@ -762,19 +781,18 @@ class FormDataImporterTest : public FormDataImporterTestBase,
   void TearDown() override { TearDownHelper(); }
 
   void InitializeFeatures() {
-    support_for_apartment_numbers_ = GetParam();
-
-    // Enable all those features by default.
     std::vector<base::test::FeatureRef> enabled_features;
     std::vector<base::test::FeatureRef> disabled_features;
+    // Always enable parsing IBAN fields from the form.
+    enabled_features.push_back(features::kAutofillParseIBANFields);
 
-    (support_for_apartment_numbers_ ? enabled_features : disabled_features)
+    (std::get<0>(GetParam()) ? enabled_features : disabled_features)
         .push_back(features::kAutofillEnableSupportForApartmentNumbers);
+    (std::get<1>(GetParam()) ? enabled_features : disabled_features)
+        .push_back(features::kAutofillFillIbanFields);
 
     scoped_feature_list_.InitWithFeatures(enabled_features, disabled_features);
   }
-
-  bool support_for_apartment_numbers_;
 };
 
 TEST_P(FormDataImporterTest, ComplementCountry) {
@@ -1175,26 +1193,12 @@ TEST_P(FormDataImporterTest, ImportAddressProfiles_DependentLocality) {
 // Test that the storage is prevented if the structured address prompt feature
 // is enabled, but address prompts are not allowed.
 TEST_P(FormDataImporterTest, ImportAddressProfiles_DontAllowPrompt) {
-  base::test::ScopedFeatureList save_prompt_feature;
-  save_prompt_feature.InitAndEnableFeature(
-      features::kAutofillAddressProfileSavePrompt);
-
   std::unique_ptr<FormStructure> form_structure =
       ConstructDefaultProfileFormStructure();
   ImportAddressProfiles(/*extraction_successful=*/true, *form_structure,
                         /*skip_waiting_on_pdm=*/true,
                         /*allow_save_prompts=*/false);
   VerifyExpectationForImportedAddressProfiles({});
-
-  save_prompt_feature.Reset();
-  save_prompt_feature.InitAndDisableFeature(
-      features::kAutofillAddressProfileSavePrompt);
-
-  // Verify that the behavior changes when prompts are disabled.
-  ImportAddressProfiles(/*extraction_successful=*/true, *form_structure,
-                        /*skip_waiting_on_pdm=*/false,
-                        /*allow_save_prompts=*/false);
-  VerifyExpectationForImportedAddressProfiles({ConstructDefaultProfile()});
 }
 
 TEST_P(FormDataImporterTest, ImportAddressProfileFromUnifiedSection) {
@@ -2820,11 +2824,11 @@ TEST_P(FormDataImporterTest,
       form_structure, /*profile_autofill_enabled=*/true,
       /*payment_methods_autofill_enabled=*/true);
   ASSERT_TRUE(imported_data.credit_card_import_candidate);
-  // |imported_credit_card_record_type_| should be LOCAL_CARD because upload was
+  // |imported_credit_card_record_type_| should be kLocalCard because upload was
   // offered and the card is a local card already on the device.
   ASSERT_TRUE(
       form_data_importer().imported_credit_card_record_type_for_testing() ==
-      FormDataImporter::ImportedCreditCardRecordType::LOCAL_CARD);
+      FormDataImporter::ImportedCreditCardRecordType::kLocalCard);
 
   // Second form is filled with a new card so
   // `FormDataImporterTest::imported_credit_card_record_type_` should be reset.
@@ -2841,11 +2845,11 @@ TEST_P(FormDataImporterTest,
       form_structure2, /*profile_autofill_enabled=*/true,
       /*payment_methods_autofill_enabled=*/true);
   ASSERT_TRUE(imported_data2.credit_card_import_candidate);
-  // |imported_credit_card_record_type_| should be NEW_CARD because the imported
+  // |imported_credit_card_record_type_| should be kNewCard because the imported
   // card is not already on the device.
   ASSERT_TRUE(
       form_data_importer().imported_credit_card_record_type_for_testing() ==
-      FormDataImporter::ImportedCreditCardRecordType::NEW_CARD);
+      FormDataImporter::ImportedCreditCardRecordType::kNewCard);
 
   // Third form is an address form and set `payment_methods_autofill_enabled` to
   // be false so that the ImportCreditCard won't be called.
@@ -2884,7 +2888,7 @@ TEST_P(FormDataImporterTest,
   EXPECT_NE(0u, imported_data3.address_profile_import_candidates.size());
   ASSERT_TRUE(
       form_data_importer().imported_credit_card_record_type_for_testing() ==
-      FormDataImporter::ImportedCreditCardRecordType::NO_CARD);
+      FormDataImporter::ImportedCreditCardRecordType::kNoCard);
 }
 
 // Ensures that `FormDataImporterTest::imported_credit_card_record_type_` is set
@@ -2904,11 +2908,11 @@ TEST_P(FormDataImporterTest,
       form_structure, /*profile_autofill_enabled=*/true,
       /*payment_methods_autofill_enabled=*/true);
   ASSERT_TRUE(imported_data.credit_card_import_candidate);
-  // |imported_credit_card_record_type_| should be NEW_CARD because the imported
+  // |imported_credit_card_record_type_| should be kNewCard because the imported
   // card is not already on the device.
   ASSERT_TRUE(
       form_data_importer().imported_credit_card_record_type_for_testing() ==
-      FormDataImporter::ImportedCreditCardRecordType::NEW_CARD);
+      FormDataImporter::ImportedCreditCardRecordType::kNewCard);
 }
 
 // Ensures that `imported_credit_card_record_type_` is set correctly.
@@ -2940,11 +2944,11 @@ TEST_P(FormDataImporterTest,
       form_structure, /*profile_autofill_enabled=*/true,
       /*payment_methods_autofill_enabled=*/true);
   ASSERT_TRUE(imported_data.credit_card_import_candidate);
-  // |imported_credit_card_record_type_| should be LOCAL_CARD because upload was
+  // |imported_credit_card_record_type_| should be kLocalCard because upload was
   // offered and the card is a local card already on the device.
   ASSERT_TRUE(
       form_data_importer().imported_credit_card_record_type_for_testing() ==
-      FormDataImporter::ImportedCreditCardRecordType::LOCAL_CARD);
+      FormDataImporter::ImportedCreditCardRecordType::kLocalCard);
 }
 
 // Ensures that `FormDataImporterTest::imported_credit_card_record_type_` is set
@@ -2980,7 +2984,7 @@ TEST_P(FormDataImporterTest,
   // |imported_credit_card_record_type_| should be SERVER_CARD.
   ASSERT_TRUE(
       form_data_importer().imported_credit_card_record_type_for_testing() ==
-      FormDataImporter::ImportedCreditCardRecordType::SERVER_CARD);
+      FormDataImporter::ImportedCreditCardRecordType::kServerCard);
 }
 
 // Ensures that `FormDataImporterTest::imported_credit_card_record_type_` is set
@@ -3016,7 +3020,7 @@ TEST_P(FormDataImporterTest,
   // |imported_credit_card_record_type_| should be SERVER_CARD.
   ASSERT_TRUE(
       form_data_importer().imported_credit_card_record_type_for_testing() ==
-      FormDataImporter::ImportedCreditCardRecordType::SERVER_CARD);
+      FormDataImporter::ImportedCreditCardRecordType::kServerCard);
 }
 
 // Ensures that `FormDataImporterTest::imported_credit_card_record_type_` is set
@@ -3036,11 +3040,11 @@ TEST_P(FormDataImporterTest,
       form_structure, /*profile_autofill_enabled=*/true,
       /*payment_methods_autofill_enabled=*/true);
   ASSERT_FALSE(imported_data.credit_card_import_candidate);
-  // |imported_credit_card_record_type_| should be NO_CARD because no valid card
+  // |imported_credit_card_record_type_| should be kNoCard because no valid card
   // was successfully imported from the form.
   ASSERT_TRUE(
       form_data_importer().imported_credit_card_record_type_for_testing() ==
-      FormDataImporter::ImportedCreditCardRecordType::NO_CARD);
+      FormDataImporter::ImportedCreditCardRecordType::kNoCard);
 }
 
 // Ensures that `FormDataImporterTest::imported_credit_card_record_type_` is set
@@ -3060,11 +3064,11 @@ TEST_P(FormDataImporterTest,
       form_structure, /*profile_autofill_enabled=*/true,
       /*payment_methods_autofill_enabled=*/true);
   ASSERT_FALSE(imported_data.credit_card_import_candidate);
-  // |imported_credit_card_record_type_| should be NO_CARD because the card
+  // |imported_credit_card_record_type_| should be kNoCard because the card
   // imported from the form was a virtual card.
   ASSERT_TRUE(
       form_data_importer().imported_credit_card_record_type_for_testing() ==
-      FormDataImporter::ImportedCreditCardRecordType::NO_CARD);
+      FormDataImporter::ImportedCreditCardRecordType::kNoCard);
 }
 
 // Ensures that `FormDataImporterTest::imported_credit_card_record_type_` is set
@@ -3085,11 +3089,11 @@ TEST_P(
       form_structure, /*profile_autofill_enabled=*/true,
       /*payment_methods_autofill_enabled=*/true);
   ASSERT_TRUE(imported_data.credit_card_import_candidate);
-  // |imported_credit_card_record_type_| should be NEW_CARD because card was
+  // |imported_credit_card_record_type_| should be kNewCard because card was
   // successfully imported from the form via the expiration date fix flow.
   ASSERT_TRUE(
       form_data_importer().imported_credit_card_record_type_for_testing() ==
-      FormDataImporter::ImportedCreditCardRecordType::NEW_CARD);
+      FormDataImporter::ImportedCreditCardRecordType::kNewCard);
 }
 
 // Ensures that `FormDataImporterTest::imported_credit_card_record_type_` is set
@@ -3126,11 +3130,11 @@ TEST_P(FormDataImporterTest,
       form_structure, /*profile_autofill_enabled=*/true,
       /*payment_methods_autofill_enabled=*/true);
   ASSERT_FALSE(imported_data.credit_card_import_candidate);
-  // |imported_credit_card_record_type_| should be NO_CARD because the form
+  // |imported_credit_card_record_type_| should be kNoCard because the form
   // doesn't have credit card section.
   ASSERT_TRUE(
       form_data_importer().imported_credit_card_record_type_for_testing() ==
-      FormDataImporter::ImportedCreditCardRecordType::NO_CARD);
+      FormDataImporter::ImportedCreditCardRecordType::kNoCard);
 }
 
 // ImportFormData tests (both addresses and credit cards).
@@ -3280,9 +3284,6 @@ TEST_P(FormDataImporterTest, ImportFormData_TwoAddressesOneCreditCard) {
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 TEST_P(FormDataImporterTest, ImportFormData_ImportIbanRecordType_NoIban) {
-  base::test::ScopedFeatureList multistep_import_feature;
-  multistep_import_feature.InitAndEnableFeature(
-      features::kAutofillParseIBANFields);
   // Simulate a form submission with no IBAN.
   FormData form;
   form.url = GURL("https://www.foo.com");
@@ -3297,11 +3298,6 @@ TEST_P(FormDataImporterTest, ImportFormData_ImportIbanRecordType_NoIban) {
 
 TEST_P(FormDataImporterTest,
        ImportFormData_ImportIbanRecordType_IbanAutofill_NewIban) {
-  base::test::ScopedFeatureList multistep_import_feature;
-  multistep_import_feature.InitWithFeatures(
-      /*enabled_features=*/{features::kAutofillParseIBANFields,
-                            features::kAutofillFillIbanFields},
-      /*disabled_features=*/{});
   // Simulate a form submission with a new IBAN.
   FormData form;
   form.url = GURL("https://www.foo.com");
@@ -3313,47 +3309,23 @@ TEST_P(FormDataImporterTest,
   auto imported_data = ImportFormDataAndProcessAddressCandidates(
       form_structure, /*profile_autofill_enabled=*/true,
       /*payment_methods_autofill_enabled=*/true);
-  ASSERT_TRUE(imported_data.iban_import_candidate);
-  ASSERT_TRUE(imported_data.iban_import_candidate->record_type() ==
-              IBAN::NEW_IBAN);
-}
-
-TEST_P(
-    FormDataImporterTest,
-    ImportFormData_ImportIbanRecordType_IbanAutofill_NewIban_DoesNotImportIfFlagOff) {
-  base::test::ScopedFeatureList multistep_import_feature;
-  multistep_import_feature.InitWithFeatures(
-      /*enabled_features=*/{features::kAutofillParseIBANFields},
-      /*disabled_features=*/{features::kAutofillFillIbanFields});
-  // Simulate a form submission with a new IBAN.
-  FormData form;
-  form.url = GURL("https://www.foo.com");
-
-  AddIBANForm(&form, kIbanValue);
-
-  FormStructure form_structure(form);
-  form_structure.DetermineHeuristicTypes(nullptr, nullptr);
-  auto imported_data =
-
-      ImportFormDataAndProcessAddressCandidates(
-          form_structure, /*profile_autofill_enabled=*/true,
-          /*payment_methods_autofill_enabled=*/true);
-  ASSERT_FALSE(imported_data.iban_import_candidate);
+  if (base::FeatureList::IsEnabled(features::kAutofillFillIbanFields)) {
+    ASSERT_TRUE(imported_data.iban_import_candidate);
+    ASSERT_TRUE(imported_data.iban_import_candidate->record_type() ==
+                IBAN::NEW_IBAN);
+  } else {
+    ASSERT_FALSE(imported_data.iban_import_candidate);
+  }
 }
 
 TEST_P(FormDataImporterTest, ImportFormData_ImportIbanRecordType_LocalIban) {
-  base::test::ScopedFeatureList multistep_import_feature;
-  multistep_import_feature.InitWithFeatures(
-      /*enabled_features=*/{features::kAutofillParseIBANFields,
-                            features::kAutofillFillIbanFields},
-      /*disabled_features=*/{});
   IBAN iban;
   iban.set_value(u"IE12 BOFI 9000 0112 3456 78");
   personal_data_manager_->AddIBAN(iban);
 
   WaitForOnPersonalDataChanged();
 
-  const std::vector<IBAN*>& results = personal_data_manager_->GetIBANs();
+  const std::vector<IBAN*>& results = personal_data_manager_->GetLocalIBANs();
   ASSERT_EQ(1U, results.size());
   EXPECT_THAT(*results[0], ComparesEqual(iban));
 
@@ -3368,40 +3340,15 @@ TEST_P(FormDataImporterTest, ImportFormData_ImportIbanRecordType_LocalIban) {
   auto imported_data = ImportFormDataAndProcessAddressCandidates(
       form_structure, /*profile_autofill_enabled=*/true,
       /*payment_methods_autofill_enabled=*/true);
-  ASSERT_TRUE(imported_data.iban_import_candidate);
-  ASSERT_TRUE(imported_data.iban_import_candidate->record_type() ==
-              IBAN::LOCAL_IBAN);
+  if (base::FeatureList::IsEnabled(features::kAutofillFillIbanFields)) {
+    ASSERT_TRUE(imported_data.iban_import_candidate);
+    ASSERT_TRUE(imported_data.iban_import_candidate->record_type() ==
+                IBAN::LOCAL_IBAN);
+  } else {
+    ASSERT_FALSE(imported_data.iban_import_candidate);
+  }
 }
 
-TEST_P(FormDataImporterTest,
-       ImportFormData_ImportIbanRecordType_LocalIban_DoesNotImportIfFlagOff) {
-  base::test::ScopedFeatureList multistep_import_feature;
-  multistep_import_feature.InitWithFeatures(
-      /*enabled_features=*/{features::kAutofillParseIBANFields},
-      /*disabled_features=*/{features::kAutofillFillIbanFields});
-  IBAN iban;
-  iban.set_value(u"IE12 BOFI 9000 0112 3456 78");
-  personal_data_manager_->AddIBAN(iban);
-
-  WaitForOnPersonalDataChanged();
-
-  const std::vector<IBAN*>& results = personal_data_manager_->GetIBANs();
-  ASSERT_EQ(1U, results.size());
-  EXPECT_THAT(*results[0], ComparesEqual(iban));
-
-  // Simulate a form submission with the same IBAN.
-  FormData form;
-  form.url = GURL("https://www.foo.com");
-
-  AddIBANForm(&form, kIbanValue);
-
-  FormStructure form_structure(form);
-  form_structure.DetermineHeuristicTypes(nullptr, nullptr);
-  auto imported_data = ImportFormDataAndProcessAddressCandidates(
-      form_structure, /*profile_autofill_enabled=*/true,
-      /*payment_methods_autofill_enabled=*/true);
-  ASSERT_FALSE(imported_data.iban_import_candidate);
-}
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 // Test that a form with both address and credit card sections imports only the
@@ -4157,10 +4104,8 @@ TEST_P(
     FormDataImporterTest,
     SilentlyUpdateExistingProfileByIncompleteProfile_DespiteDisallowedPrompts) {
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      {features::kAutofillSilentProfileUpdateForInsufficientImport,
-       features::kAutofillAddressProfileSavePrompt},
-      {});
+  scoped_feature_list.InitAndEnableFeature(
+      features::kAutofillSilentProfileUpdateForInsufficientImport);
 
   AutofillProfile profile(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile, "Marion", "Mitchell", "Morrison",
@@ -4517,9 +4462,115 @@ TEST_P(FormDataImporterTest, FormAssociator) {
   EXPECT_FALSE(associations->last_credit_card_form_submitted);
 }
 
-// Runs the suite with the feature `kAutofillEnableSupportForApartmentNumbers`
-// enabled and disabled.
-INSTANTIATE_TEST_SUITE_P(, FormDataImporterTest, testing::Bool());
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+TEST_P(FormDataImporterTest,
+       ProcessIBANImportCandidate_ShouldOfferLocalSave_NewIBAN) {
+  IBAN iban_import_candidate = test::GetIBAN();
+  iban_import_candidate.set_record_type(IBAN::NEW_IBAN);
+
+  EXPECT_EQ(
+      base::FeatureList::IsEnabled(features::kAutofillFillIbanFields),
+      form_data_importer().ProcessIBANImportCandidate(iban_import_candidate));
+}
+
+TEST_P(FormDataImporterTest, ImportFormData_ProcessIBANImportCandidate_NoIban) {
+  // Simulate a form submission with a new IBAN.
+  FormData form;
+  form.url = GURL("https://www.foo.com");
+
+  AddIBANForm(&form, "");
+
+  FormStructure form_structure(form);
+  form_structure.DetermineHeuristicTypes(nullptr, nullptr);
+
+  ASSERT_FALSE(ImportFormDataAndProcessIBANCandidates(
+      form_structure, /*profile_autofill_enabled=*/true,
+      /*payment_methods_autofill_enabled=*/true));
+}
+
+TEST_P(
+    FormDataImporterTest,
+    ImportFormData_ProcessIBANImportCandidate_PaymentMethodsSettingDisabled) {
+  // Simulate a form submission with a new IBAN.
+  FormData form;
+  form.url = GURL("https://www.foo.com");
+
+  AddIBANForm(&form, kIbanValue);
+
+  FormStructure form_structure(form);
+  form_structure.DetermineHeuristicTypes(nullptr, nullptr);
+
+  ASSERT_FALSE(ImportFormDataAndProcessIBANCandidates(
+      form_structure, /*profile_autofill_enabled=*/true,
+      /*payment_methods_autofill_enabled=*/false));
+}
+
+TEST_P(FormDataImporterTest,
+       ImportFormData_ProcessIBANImportCandidate_NewIban) {
+  // Simulate a form submission with a new IBAN.
+  FormData form;
+  form.url = GURL("https://www.foo.com");
+
+  AddIBANForm(&form, kIbanValue);
+
+  FormStructure form_structure(form);
+  form_structure.DetermineHeuristicTypes(nullptr, nullptr);
+
+  ASSERT_EQ(base::FeatureList::IsEnabled(features::kAutofillFillIbanFields),
+            ImportFormDataAndProcessIBANCandidates(
+                form_structure, /*profile_autofill_enabled=*/true,
+                /*payment_methods_autofill_enabled=*/true));
+}
+
+TEST_P(FormDataImporterTest,
+       ImportFormData_ProcessIBANImportCandidate_LocalIban) {
+  IBAN iban;
+  iban.set_value(base::UTF8ToUTF16(std::string(kIbanValue)));
+  personal_data_manager_->AddIBAN(iban);
+
+  WaitForOnPersonalDataChanged();
+  // Simulate a form submission with a new IBAN.
+  FormData form;
+  form.url = GURL("https://www.foo.com");
+
+  AddIBANForm(&form, kIbanValue);
+
+  FormStructure form_structure(form);
+  form_structure.DetermineHeuristicTypes(nullptr, nullptr);
+
+  ASSERT_FALSE(ImportFormDataAndProcessIBANCandidates(
+      form_structure, /*profile_autofill_enabled=*/true,
+      /*payment_methods_autofill_enabled=*/true));
+}
+
+TEST_P(FormDataImporterTest,
+       ImportFormData_ProcessIBANImportCandidate_MaxStrikes) {
+  IBANSaveStrikeDatabase iban_save_strike_database =
+      IBANSaveStrikeDatabase(autofill_client_->GetStrikeDatabase());
+
+  iban_save_strike_database.AddStrikes(
+      iban_save_strike_database.GetMaxStrikesLimit(), kIbanValue);
+
+  // Simulate a form submission with a new IBAN.
+  FormData form;
+  form.url = GURL("https://www.foo.com");
+
+  AddIBANForm(&form, kIbanValue);
+
+  FormStructure form_structure(form);
+  form_structure.DetermineHeuristicTypes(nullptr, nullptr);
+
+  ASSERT_FALSE(ImportFormDataAndProcessIBANCandidates(
+      form_structure, /*profile_autofill_enabled=*/true,
+      /*payment_methods_autofill_enabled=*/true));
+}
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+
+// Runs the suite with the features `kAutofillEnableSupportForApartmentNumbers`
+// and `kAutofillFillIbanFields` enabled and disabled.
+INSTANTIATE_TEST_SUITE_P(,
+                         FormDataImporterTest,
+                         testing::Combine(testing::Bool(), testing::Bool()));
 
 class FormDataImporterNonParameterizedTest : public FormDataImporterTestBase,
                                              public testing::Test {
@@ -4536,11 +4587,11 @@ TEST_F(FormDataImporterNonParameterizedTest,
       ConstructDefaultCreditCardFormStructure();
 
   // `form_data_importer()`'s `imported_credit_card_record_type_` is set to
-  // LOCAL_CARD because we need to make sure we do not return early in the
-  // NEW_CARD case, and LOCAL_CARD with upstream enabled but empty
+  // kLocalCard because we need to make sure we do not return early in the
+  // kNewCard case, and kLocalCard with upstream enabled but empty
   // |imported_credit_card| is the most likely scenario for a crash.
   form_data_importer().set_imported_credit_card_record_type_for_testing(
-      FormDataImporter::ImportedCreditCardRecordType::LOCAL_CARD);
+      FormDataImporter::ImportedCreditCardRecordType::kLocalCard);
 
   // We need a sync service so that
   // LocalCardMigrationManager::ShouldOfferLocalCardMigration() does not crash.
@@ -4569,7 +4620,7 @@ TEST_F(FormDataImporterNonParameterizedTest,
       ConstructDefaultCreditCardFormStructure();
 
   form_data_importer().set_imported_credit_card_record_type_for_testing(
-      FormDataImporter::ImportedCreditCardRecordType::SERVER_CARD);
+      FormDataImporter::ImportedCreditCardRecordType::kServerCard);
   form_data_importer().SetFetchedCardInstrumentId(2222);
 
   // We need a sync service so that
@@ -4613,7 +4664,7 @@ TEST_F(FormDataImporterNonParameterizedTest,
 
   // Should not offer save for local cards if upstream is not enabled.
   form_data_importer().set_imported_credit_card_record_type_for_testing(
-      FormDataImporter::ImportedCreditCardRecordType::LOCAL_CARD);
+      FormDataImporter::ImportedCreditCardRecordType::kLocalCard);
   EXPECT_FALSE(form_data_importer().ShouldOfferUploadCardOrLocalCardSave(
       credit_card_import_candidate,
       /*is_credit_card_upload_enabled=*/false));
@@ -4625,7 +4676,7 @@ TEST_F(FormDataImporterNonParameterizedTest,
 
   // Should not offer save for server cards.
   form_data_importer().set_imported_credit_card_record_type_for_testing(
-      FormDataImporter::ImportedCreditCardRecordType::SERVER_CARD);
+      FormDataImporter::ImportedCreditCardRecordType::kServerCard);
   EXPECT_FALSE(form_data_importer().ShouldOfferUploadCardOrLocalCardSave(
       credit_card_import_candidate,
       /*is_credit_card_upload_enabled=*/true));
@@ -4633,7 +4684,7 @@ TEST_F(FormDataImporterNonParameterizedTest,
   // Should always offer save for new cards; upload save if it is enabled, local
   // save otherwise.
   form_data_importer().set_imported_credit_card_record_type_for_testing(
-      FormDataImporter::ImportedCreditCardRecordType::NEW_CARD);
+      FormDataImporter::ImportedCreditCardRecordType::kNewCard);
   EXPECT_TRUE(form_data_importer().ShouldOfferUploadCardOrLocalCardSave(
       credit_card_import_candidate,
       /*is_credit_card_upload_enabled=*/true));

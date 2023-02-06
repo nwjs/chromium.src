@@ -548,7 +548,8 @@ base::Value FilterOperationToDict(const cc::FilterOperation& filter) {
 
   dict.SetIntKey("type", type);
   if (type != cc::FilterOperation::COLOR_MATRIX &&
-      type != cc::FilterOperation::REFERENCE) {
+      type != cc::FilterOperation::REFERENCE &&
+      type != cc::FilterOperation::OFFSET) {
     dict.SetDoubleKey("amount", filter.amount());
   }
   switch (type) {
@@ -557,8 +558,7 @@ base::Value FilterOperationToDict(const cc::FilterOperation& filter) {
       dict.SetKey("shape", ShapeRectsToList(filter.shape()));
       break;
     case cc::FilterOperation::DROP_SHADOW:
-      dict.SetKey("drop_shadow_offset",
-                  PointToDict(filter.drop_shadow_offset()));
+      dict.SetKey("offset", PointToDict(filter.offset()));
       dict.SetKey("drop_shadow_color",
                   SkColor4fToDict(filter.drop_shadow_color()));
       break;
@@ -575,6 +575,9 @@ base::Value FilterOperationToDict(const cc::FilterOperation& filter) {
     case cc::FilterOperation::BLUR:
       dict.SetIntKey("blur_tile_mode",
                      static_cast<int>(filter.blur_tile_mode()));
+      break;
+    case cc::FilterOperation::OFFSET:
+      dict.SetKey("offset", PointToDict(filter.offset()));
       break;
     default:
       break;
@@ -593,8 +596,7 @@ bool FilterOperationFromDict(const base::Value& dict_value,
   absl::optional<int> type = dict.FindInt("type");
   absl::optional<double> amount = dict.FindDouble("amount");
   absl::optional<double> outer_threshold = dict.FindDouble("outer_threshold");
-  const base::Value::Dict* drop_shadow_offset =
-      dict.FindDict("drop_shadow_offset");
+  const base::Value::Dict* offset = dict.FindDict("offset");
   const std::string* image_filter = dict.FindString("image_filter");
   const base::Value::List* matrix = dict.FindList("matrix");
   absl::optional<int> zoom_inset = dict.FindInt("zoom_inset");
@@ -609,7 +611,8 @@ bool FilterOperationFromDict(const base::Value& dict_value,
       static_cast<cc::FilterOperation::FilterType>(type.value());
   filter.set_type(filter_type);
   if (filter_type != cc::FilterOperation::COLOR_MATRIX &&
-      filter_type != cc::FilterOperation::REFERENCE) {
+      filter_type != cc::FilterOperation::REFERENCE &&
+      filter_type != cc::FilterOperation::OFFSET) {
     if (!amount)
       return false;
     filter.set_amount(static_cast<float>(amount.value()));
@@ -625,11 +628,11 @@ bool FilterOperationFromDict(const base::Value& dict_value,
       filter.set_shape(shape_rects);
     } break;
     case cc::FilterOperation::DROP_SHADOW: {
-      gfx::Point offset;
-      if (!drop_shadow_offset || !PointFromDict(*drop_shadow_offset, &offset)) {
+      gfx::Point drop_shadow_offset;
+      if (!offset || !PointFromDict(*offset, &drop_shadow_offset)) {
         return false;
       }
-      filter.set_drop_shadow_offset(offset);
+      filter.set_offset(drop_shadow_offset);
 
       SkColor4f t_drop_shadow_color;
       if (!ColorFromDict(dict, "drop_shadow_color", &t_drop_shadow_color)) {
@@ -659,6 +662,13 @@ bool FilterOperationFromDict(const base::Value& dict_value,
       filter.set_blur_tile_mode(
           static_cast<SkTileMode>(blur_tile_mode.value()));
       break;
+    case cc::FilterOperation::OFFSET: {
+      gfx::Point filter_offset;
+      if (!offset || !PointFromDict(*offset, &filter_offset)) {
+        return false;
+      }
+      filter.set_offset(filter_offset);
+    } break;
     default:
       break;
   }
@@ -1736,7 +1746,6 @@ base::Value SharedQuadStateToDict(const SharedQuadState& sqs) {
   dict.SetStringKey("blend_mode", BlendModeToString(sqs.blend_mode));
   dict.SetIntKey("sorting_context_id", sqs.sorting_context_id);
   dict.SetBoolKey("is_fast_rounded_corner", sqs.is_fast_rounded_corner);
-  dict.SetDoubleKey("de_jelly_delta_y", sqs.de_jelly_delta_y);
   return dict;
 }
 
@@ -1795,12 +1804,10 @@ bool SharedQuadStateFromDict(const base::Value::Dict& dict,
   absl::optional<int> sorting_context_id = dict.FindInt("sorting_context_id");
   absl::optional<bool> is_fast_rounded_corner =
       dict.FindBool("is_fast_rounded_corner");
-  absl::optional<double> de_jelly_delta_y = dict.FindDouble("de_jelly_delta_y");
 
   if (!quad_to_target_transform || !quad_layer_rect ||
       !visible_quad_layer_rect || !are_contents_opaque || !opacity ||
-      !blend_mode || !sorting_context_id || !is_fast_rounded_corner ||
-      !de_jelly_delta_y) {
+      !blend_mode || !sorting_context_id || !is_fast_rounded_corner) {
     return false;
   }
   gfx::Transform t_quad_to_target_transform;
@@ -1840,7 +1847,6 @@ bool SharedQuadStateFromDict(const base::Value::Dict& dict,
               are_contents_opaque.value(), static_cast<float>(opacity.value()),
               t_blend_mode, sorting_context_id.value());
   sqs->is_fast_rounded_corner = is_fast_rounded_corner.value();
-  sqs->de_jelly_delta_y = static_cast<float>(de_jelly_delta_y.value());
   return true;
 }
 

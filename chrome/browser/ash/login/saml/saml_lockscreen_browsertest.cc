@@ -206,6 +206,23 @@ IN_PROC_BROWSER_TEST_F(LockscreenWebUiTest, Login) {
   UnlockWithSAML();
 }
 
+// Tests that we can switch from SAML page to GAIA page on the lock screen.
+IN_PROC_BROWSER_TEST_F(LockscreenWebUiTest, SamlSwitchToGaia) {
+  fake_saml_idp()->SetLoginHTMLTemplate("saml_login.html");
+
+  Login();
+
+  // Lock the screen and trigger the lock screen SAML reauth dialog.
+  ScreenLockerTester().Lock();
+
+  absl::optional<LockScreenReauthDialogTestHelper> reauth_dialog_helper =
+      LockScreenReauthDialogTestHelper::StartSamlAndWaitForIdpPageLoad();
+
+  reauth_dialog_helper->ClickChangeIdPButtonOnSamlScreen();
+
+  reauth_dialog_helper->ExpectGaiaScreenVisible();
+}
+
 // Tests the cancel button in Verify Screen.
 IN_PROC_BROWSER_TEST_F(LockscreenWebUiTest, VerifyScreenCancel) {
   fake_saml_idp()->SetLoginHTMLTemplate("saml_login.html");
@@ -228,6 +245,9 @@ IN_PROC_BROWSER_TEST_F(LockscreenWebUiTest, VerifyScreenCancel) {
   // Ensures that the re-auth dialog is closed.
   reauth_dialog_helper->WaitForReauthDialogToClose();
   ASSERT_TRUE(session_manager::SessionManager::Get()->IsScreenLocked());
+
+  // Verify that the dialog can be opened again.
+  LockScreenReauthDialogTestHelper::ShowDialogAndWait();
 }
 
 // Tests the close button in SAML Screen.
@@ -247,6 +267,9 @@ IN_PROC_BROWSER_TEST_F(LockscreenWebUiTest, SamlScreenCancel) {
   // Ensures that the re-auth dialog is closed.
   reauth_dialog_helper->WaitForReauthDialogToClose();
   ASSERT_TRUE(session_manager::SessionManager::Get()->IsScreenLocked());
+
+  // Verify that the dialog can be opened again.
+  LockScreenReauthDialogTestHelper::ShowDialogAndWait();
 }
 
 // Tests the single password scraped flow.
@@ -473,7 +496,7 @@ IN_PROC_BROWSER_TEST_F(LockscreenWebUiTest, TriggerDialogOnNetworkOff) {
   network_state_test_helper_->service_test()->AddService(
       /*service_path=*/kWifiServicePath, /*guid=*/kWifiServicePath,
       /*name=*/kWifiServicePath, /*type=*/shill::kTypeWifi,
-      /*state=*/shill::kStateOffline, /*visible=*/true);
+      /*state=*/shill::kStateIdle, /*visible=*/true);
 
   reauth_dialog_helper->WaitForNetworkDialogAndSetHandlers();
 
@@ -502,7 +525,7 @@ IN_PROC_BROWSER_TEST_F(LockscreenWebUiTest, TriggerAndHideNetworkDialog) {
   network_state_test_helper_->service_test()->AddService(
       /*service_path=*/kWifiServicePath, /*guid=*/kWifiServicePath,
       /*name=*/kWifiServicePath, /*type=*/shill::kTypeWifi,
-      /*state=*/shill::kStateOffline, /*visible=*/true);
+      /*state=*/shill::kStateIdle, /*visible=*/true);
 
   reauth_dialog_helper->WaitForNetworkDialogAndSetHandlers();
 
@@ -538,7 +561,7 @@ IN_PROC_BROWSER_TEST_F(LockscreenWebUiTest, CaptivePortal) {
   network_state_test_helper_->service_test()->AddService(
       /*service_path=*/kWifiServicePath, /*guid=*/kWifiServicePath,
       /*name=*/kWifiServicePath, /*type=*/shill::kTypeWifi,
-      /*state=*/shill::kStateOffline, /*visible=*/true);
+      /*state=*/shill::kStateIdle, /*visible=*/true);
 
   reauth_dialog_helper->WaitForNetworkDialogAndSetHandlers();
 
@@ -589,7 +612,7 @@ IN_PROC_BROWSER_TEST_F(LockscreenWebUiTest, TriggerAndHideCaptivePortalDialog) {
   network_test_helper.service_test()->AddService(
       /*service_path=*/kWifiServicePath, /*guid=*/kWifiServicePath,
       /*name=*/kWifiServicePath, /*type=*/shill::kTypeWifi,
-      /*state=*/shill::kStateOffline, /*visible=*/true);
+      /*state=*/shill::kStateIdle, /*visible=*/true);
 
   reauth_dialog_helper->WaitForNetworkDialogAndSetHandlers();
 
@@ -624,7 +647,7 @@ IN_PROC_BROWSER_TEST_F(LockscreenWebUiTest, LoadAbort) {
   Login();
 
   // Make gaia landing page unreachable
-  fake_gaia_mixin()->fake_gaia()->SetErrorResponse(
+  fake_gaia_mixin()->fake_gaia()->SetFixedResponse(
       GaiaUrls::GetInstance()->embedded_setup_chromeos_url(2),
       net::HTTP_NOT_FOUND);
 

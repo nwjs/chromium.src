@@ -20,7 +20,6 @@ import {ModuleRegistry} from './module_registry.js';
 import {ModuleWrapperElement} from './module_wrapper.js';
 import {getTemplate} from './modules.html.js';
 
-
 export type DismissModuleEvent =
     CustomEvent<{message: string, restoreCallback: () => void}>;
 export type DisableModuleEvent = DismissModuleEvent;
@@ -195,7 +194,7 @@ export class ModulesElement extends PolymerElement {
   }
 
   private appendModuleContainers_(moduleContainers: HTMLElement[]) {
-    this.$.modules.innerHTML = '';
+    this.$.modules.innerHTML = window.trustedTypes!.emptyHTML;
     let shortModuleSiblingsContainer: HTMLElement|null = null;
     this.modulesShownToUser = false;
     moduleContainers.forEach((moduleContainer: HTMLElement, index: number) => {

@@ -14,10 +14,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import org.chromium.base.Callback;
 import org.chromium.base.CallbackController;
 import org.chromium.base.CommandLine;
-import org.chromium.base.Function;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.jank_tracker.JankTracker;
-import org.chromium.base.supplier.BooleanSupplier;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.OneshotSupplier;
@@ -67,6 +65,8 @@ import org.chromium.chrome.browser.locale.LocaleManager;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceIphController;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.night_mode.WebContentsDarkModeMessageController;
+import org.chromium.chrome.browser.notifications.permissions.NotificationPermissionController;
+import org.chromium.chrome.browser.notifications.permissions.NotificationPermissionRationaleDialogController;
 import org.chromium.chrome.browser.ntp.NewTabPageLaunchOrigin;
 import org.chromium.chrome.browser.ntp.NewTabPageUtils;
 import org.chromium.chrome.browser.offlinepages.indicator.OfflineIndicatorControllerV2;
@@ -130,6 +130,9 @@ import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.IntentRequestTracker;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 
+import java.util.function.BooleanSupplier;
+import java.util.function.Function;
+
 /**
  * A {@link RootUiCoordinator} variant that controls tabbed-mode specific UI.
  */
@@ -153,6 +156,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
     private AddToHomescreenMostVisitedTileClickObserver mAddToHomescreenMostVisitedTileObserver;
     private AppBannerInProductHelpController mAppBannerInProductHelpController;
     private PwaBottomSheetController mPwaBottomSheetController;
+    private NotificationPermissionController mNotificationPermissionController;
     private HistoryNavigationCoordinator mHistoryNavigationCoordinator;
     private NavigationSheet mNavigationSheet;
     private ComposedBrowserControlsVisibilityDelegate mAppBrowserControlsVisibilityDelegate;
@@ -391,6 +395,11 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
             mCommerceSubscriptionsService = null;
         }
 
+        if (mNotificationPermissionController != null) {
+            NotificationPermissionController.detach(mNotificationPermissionController);
+            mNotificationPermissionController = null;
+        }
+
         if (mTabSwitcherCustomViewManagerCallbackController != null) {
             mTabSwitcherCustomViewManagerCallbackController.destroy();
         }
@@ -627,6 +636,11 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         ScrimCoordinator.SystemUiScrimDelegate delegate =
                 new ScrimCoordinator.SystemUiScrimDelegate() {
                     @Override
+                    public void setScrimColor(int scrimColor) {
+                        mStatusBarColorController.setScrimColor(scrimColor);
+                    }
+
+                    @Override
                     public void setStatusBarScrimFraction(float scrimFraction) {
                         mStatusBarColorController.setStatusBarScrimFraction(scrimFraction);
                     }
@@ -664,6 +678,16 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                     mActivity, new SettingsLauncherImpl(),
                     mTabModelSelectorSupplier.get().isIncognitoSelected(),
                     getBottomSheetController());
+        }
+
+        if (!didTriggerPromo) {
+            mNotificationPermissionController = new NotificationPermissionController(mWindowAndroid,
+                    new NotificationPermissionRationaleDialogController(
+                            mActivity, mModalDialogManagerSupplier.get()));
+            NotificationPermissionController.attach(
+                    mWindowAndroid, mNotificationPermissionController);
+            didTriggerPromo = mNotificationPermissionController.requestPermissionIfNeeded(
+                    false /* contextual */);
         }
 
         if (!didTriggerPromo) {
@@ -897,10 +921,6 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
             // single PromoDialogCoordinator.
             boolean isShowingPromo =
                     LocaleManager.getInstance().hasShownSearchEnginePromoThisSession();
-            // Promo dialogs in multiwindow mode are broken on some devices:
-            // http://crbug.com/354696
-            boolean isLegacyMultiWindow =
-                    MultiWindowUtils.getInstance().isLegacyMultiWindow(mActivity);
             if (!isShowingPromo && !intentWithEffect && FirstRunStatus.getFirstRunFlowComplete()
                     && preferenceManager.readBoolean(
                             ChromePreferenceKeys.PROMOS_SKIPPED_ON_FIRST_START, false)
@@ -909,8 +929,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                     // even though Chrome is about to enter VR, so we need to also check whether
                     // we're launching into VR.
                     && !VrModuleProvider.getIntentDelegate().isLaunchingIntoVr(
-                            mActivity, mActivity.getIntent())
-                    && !isLegacyMultiWindow) {
+                            mActivity, mActivity.getIntent())) {
                 isShowingPromo = maybeShowPromo();
             } else {
                 preferenceManager.writeBoolean(

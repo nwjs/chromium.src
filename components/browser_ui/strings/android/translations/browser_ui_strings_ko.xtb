@@ -157,7 +157,7 @@
 <translation id="4200726100658658164">위치 설정 열기</translation>
 <translation id="4226663524361240545">알림이 있으면 진동이 울릴 수도 있습니다.</translation>
 <translation id="4259722352634471385">탐색이 차단됨: <ph name="URL" /></translation>
-<translation id="4278390842282768270">허용</translation>
+<translation id="4278390842282768270">허용됨</translation>
 <translation id="429312253194641664">사이트에서 미디어 재생 중</translation>
 <translation id="42981349822642051">펼치기</translation>
 <translation id="4336434711095810371">모든 데이터 삭제</translation>
@@ -193,7 +193,6 @@
 <translation id="5048398596102334565">사이트의 움직임 감지 센서 액세스 허용(권장)</translation>
 <translation id="5050380848339752099">이 사이트에서 시크릿 모드 외부의 앱을 사용하여 정보를 공유하려고 합니다.</translation>
 <translation id="5063480226653192405">사용</translation>
-<translation id="5082281938627763039"><ph name="FPS_MEMBER" /> 및 <ph name="FPS_OWNER" />의 사이트 그룹에 있는 사이트의 쿠키와 기타 사이트 데이터가 삭제됩니다.</translation>
 <translation id="5091013926750941408">모바일 사이트</translation>
 <translation id="509133520954049755">데스크톱 뷰 요청</translation>
 <translation id="5100237604440890931">접힘 - 펼치려면 클릭</translation>
@@ -207,7 +206,6 @@
 <translation id="528192093759286357">전체화면을 종료하려면 상단에서 드래그하여 뒤로 버튼을 터치하세요.</translation>
 <translation id="5300589172476337783">표시</translation>
 <translation id="5301954838959518834">확인</translation>
-<translation id="5313967007315987356">사이트 추가</translation>
 <translation id="5317780077021120954">저장</translation>
 <translation id="5335288049665977812">사이트에서 자바스크립트를 실행하도록 허용(권장)</translation>
 <translation id="534295439873310000">NFC 기기</translation>
@@ -241,9 +239,11 @@
 <translation id="5922853908706496913">화면 공유</translation>
 <translation id="5922967540311291836">서드 파티 쿠키 차단:</translation>
 <translation id="5939518447894949180">초기화</translation>
+<translation id="5968921426641056619">웹 주소 입력</translation>
 <translation id="5975083100439434680">축소</translation>
 <translation id="5976059395673079613"><ph name="PERMISSION" /> - <ph name="WARNING_MESSAGE" /></translation>
 <translation id="6015775454662021376">기기에 대한 이 사이트의 액세스를 제어합니다.</translation>
+<translation id="6018815681665454784">삭제 및 재설정하시겠습니까?</translation>
 <translation id="6040143037577758943">닫기</translation>
 <translation id="6042308850641462728">자세히</translation>
 <translation id="6064125863973209585">다운로드 완료</translation>
@@ -307,6 +307,7 @@
 <translation id="7250468141469952378"><ph name="ITEM_COUNT" />개 선택됨</translation>
 <translation id="7260727271532453612"><ph name="PERMISSION_1" /> 및 <ph name="PERMISSION_2" /> 허용됨</translation>
 <translation id="7302486331832100261">기본적으로 알림을 차단하는 중입니다. 허용하려면 '세부정보'를 탭하세요.</translation>
+<translation id="7366415735885268578">사이트 추가</translation>
 <translation id="7383715096023715447"><ph name="DOMAIN" /> 설정</translation>
 <translation id="7423098979219808738">우선 확인</translation>
 <translation id="7423538860840206698">클립보드 액세스가 차단됨</translation>
@@ -322,6 +323,7 @@
 <translation id="7658239707568436148">취소</translation>
 <translation id="7667547420449112975">오즈의 마법사</translation>
 <translation id="7690549345586282764">확대/축소 표시</translation>
+<translation id="7695658402549134106"><ph name="SITE_NAME" /> 사이트 환경설정</translation>
 <translation id="7719367874908701697">페이지 확대/축소</translation>
 <translation id="7781829728241885113">어제</translation>
 <translation id="7791543448312431591">추가</translation>
@@ -348,10 +350,11 @@
 <translation id="813082847718468539">사이트 정보 보기</translation>
 <translation id="8131740175452115882">확인</translation>
 <translation id="8154912474061769055">다수의 사이트에서 기능이 작동하지 않을 수 있음</translation>
+<translation id="8168435359814927499">콘텐츠</translation>
 <translation id="8197286292360124385"><ph name="PERMISSION_1" /> 허용됨</translation>
 <translation id="8200772114523450471">다시 시작</translation>
 <translation id="8206354486702514201">이 설정은 관리자가 강제로 설정해 놓았습니다.</translation>
-<translation id="8211406090763984747">이 사이트는 보안 연결(HTTPS)이 사용되었습니다.</translation>
+<translation id="8211406090763984747">이 연결은 안전합니다.</translation>
 <translation id="8249310407154411074">맨 위로 이동</translation>
 <translation id="8261506727792406068">삭제</translation>
 <translation id="8284326494547611709">자막</translation>
@@ -364,6 +367,7 @@
 <translation id="8380167699614421159">이 사이트에서는 방해가 되거나 사용자를 현혹하는 광고를 표시합니다.</translation>
 <translation id="8394832520002899662">탭하여 사이트로 돌아가기</translation>
 <translation id="8409345997656833551">기사를 간단히 보기로 표시할 수 있을 때 알림 받기</translation>
+<translation id="8423565414844018592">텍스트 크기 조정이 <ph name="TEXT_SCALING" />로 설정됩니다</translation>
 <translation id="8428213095426709021">설정</translation>
 <translation id="8441146129660941386">뒤로 탐색</translation>
 <translation id="8444433999583714703"><ph name="APP_NAME" />에서 위치 정보에 액세스하도록 허용하려면 <ph name="BEGIN_LINK" />Android 설정<ph name="END_LINK" />에서도 위치를 사용 설정하세요.</translation>
@@ -394,7 +398,6 @@
 <translation id="8921772741368021346"><ph name="POSITION" />/<ph name="DURATION" /></translation>
 <translation id="8926666909099850184">기기에서 NFC가 사용 중지되어 있습니다. <ph name="BEGIN_LINK" />Android 설정<ph name="END_LINK" />에서 NFC를 사용 설정하세요.</translation>
 <translation id="8928445016601307354">사이트에서 NFC 기기의 정보를 보고 변경할 수 없도록 차단</translation>
-<translation id="8941729603749328384">www.example.com</translation>
 <translation id="8958424370300090006">특정 사이트의 쿠키를 차단합니다.</translation>
 <translation id="8959122750345127698">탐색할 수 없음: <ph name="URL" /></translation>
 <translation id="8986362086234534611">저장 안함</translation>

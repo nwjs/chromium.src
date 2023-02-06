@@ -47,8 +47,8 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
 #include "chromeos/ash/components/install_attributes/install_attributes.h"
+#include "chromeos/ash/components/system/statistics_provider.h"
 #include "chromeos/constants/chromeos_features.h"
-#include "chromeos/system/statistics_provider.h"
 #include "components/language/core/browser/pref_names.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
@@ -66,6 +66,7 @@
 #include "ui/base/l10n/l10n_util.h"
 
 namespace ash {
+
 namespace {
 
 // The splash screen should be removed either when this timeout passes or the
@@ -338,16 +339,17 @@ bool DemoSession::ShouldShowExtensionInAppLauncher(const std::string& app_id) {
 
 // Static function to default region from VPD.
 static std::string GetDefaultRegion() {
-  std::string region_code;
-  bool found_region_code =
+  const absl::optional<base::StringPiece> region_code =
       chromeos::system::StatisticsProvider::GetInstance()->GetMachineStatistic(
-          chromeos::system::kRegionKey, &region_code);
-  if (found_region_code) {
-    std::string region_code_upper_case = base::ToUpperASCII(region_code);
+          chromeos::system::kRegionKey);
+  if (region_code) {
+    std::string region_code_upper_case =
+        base::ToUpperASCII(region_code.value());
     std::string region_upper_case =
         region_code_upper_case.substr(0, region_code_upper_case.find("."));
     return region_upper_case.length() == 2 ? region_upper_case : "";
   }
+
   return "";
 }
 
@@ -584,15 +586,11 @@ void DemoSession::OnSessionStateChanged() {
       }
       RestoreDefaultLocaleForNextSession();
 
-      if (ash::Shell::HasInstance() &&
+      if (Shell::HasInstance() &&
           user_manager::UserManager::Get()->GetActiveUser()) {
-        ash::Shell::Get()
-            ->keyboard_backlight_color_controller()
-            ->SetBacklightColor(
-                personalization_app::mojom::BacklightColor::kRainbow,
-                user_manager::UserManager::Get()
-                    ->GetActiveUser()
-                    ->GetAccountId());
+        Shell::Get()->keyboard_backlight_color_controller()->SetBacklightColor(
+            personalization_app::mojom::BacklightColor::kRainbow,
+            user_manager::UserManager::Get()->GetActiveUser()->GetAccountId());
       }
 
       if (chromeos::PowerManagerClient::Get()) {
@@ -641,7 +639,7 @@ void LaunchDemoSystemWebApp() {
   // SystemWebAppManager won't run this callback if the profile is destroyed,
   // so we don't need to worry about there being no active user profile
   Profile* profile = ProfileManager::GetActiveUserProfile();
-  ash::LaunchSystemWebAppAsync(profile, ash::SystemWebAppType::DEMO_MODE);
+  LaunchSystemWebAppAsync(profile, SystemWebAppType::DEMO_MODE);
 }
 
 void DemoSession::OnDemoAppComponentLoaded() {
@@ -653,8 +651,10 @@ void DemoSession::OnDemoAppComponentLoaded() {
     return;
   }
   Profile* profile = ProfileManager::GetActiveUserProfile();
-  ash::SystemWebAppManager::Get(profile)->on_apps_synchronized().Post(
-      FROM_HERE, base::BindOnce(&LaunchDemoSystemWebApp));
+  if (auto* swa_manager = SystemWebAppManager::Get(profile)) {
+    swa_manager->on_apps_synchronized().Post(
+        FROM_HERE, base::BindOnce(&LaunchDemoSystemWebApp));
+  }
 }
 
 base::FilePath GetSplashScreenImagePath(base::FilePath localized_image_path,

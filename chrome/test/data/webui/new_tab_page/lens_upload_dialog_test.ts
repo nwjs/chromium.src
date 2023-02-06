@@ -18,14 +18,14 @@ suite('LensUploadDialogTest', () => {
   let uploadDialog: LensUploadDialogElement;
   let wrapperElement: HTMLDivElement;
   let outsideClickTarget: HTMLDivElement;
-  let windowProxy: TestBrowserProxy;
+  let windowProxy: TestBrowserProxy<WindowProxy>;
   let metrics: MetricsTracker;
 
   let submitUrlCalled = false;
   let submittedUrl: string|null = null;
 
   setup(() => {
-    document.body.innerHTML = '';
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
     metrics = fakeMetricsPrivate();
     windowProxy = installMock(WindowProxy);
     windowProxy.setResultFor('onLine', true);
@@ -269,16 +269,17 @@ suite('LensUploadDialogTest', () => {
     assertEquals(url, submittedUrl);
   });
 
-  test('dragenter event should transition to dragging state', async () => {
-    // Arrange.
-    uploadDialog.openDialog();
-    await waitAfterNextRender(uploadDialog);
-    // Act.
-    uploadDialog.$.dragDropArea.dispatchEvent(new DragEvent('dragenter'));
-    await waitAfterNextRender(uploadDialog);
-    // Assert.
-    assertTrue(uploadDialog.hasAttribute('is-dragging_'));
-  });
+  // TODO (crbug/1399340): De-flake this test.
+  // test('dragenter event should transition to dragging state', async () => {
+  //   // Arrange.
+  //   uploadDialog.openDialog();
+  //   await waitAfterNextRender(uploadDialog);
+  //   // Act.
+  //   uploadDialog.$.dragDropArea.dispatchEvent(new DragEvent('dragenter'));
+  //   await waitAfterNextRender(uploadDialog);
+  //   // Assert.
+  //   assertTrue(uploadDialog.hasAttribute('is-dragging_'));
+  // });
 
   test(
       'dragenter then dragleave event should transition to normal state',

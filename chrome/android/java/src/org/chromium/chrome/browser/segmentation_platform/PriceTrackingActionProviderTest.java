@@ -35,6 +35,7 @@ import org.chromium.components.commerce.core.ShoppingService.ProductInfoCallback
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Unit tests for {@link PriceTrackingActionProvider}
@@ -80,7 +81,8 @@ public class PriceTrackingActionProviderTest {
     }
 
     private void setPriceTrackingBackendResult(boolean hasProductInfo) {
-        ProductInfo testProductInfo = new ProductInfo(null, null, 0, 0, null, 0, null);
+        ProductInfo testProductInfo =
+                new ProductInfo(null, null, 0, 0, null, 0, null, Optional.empty());
         Mockito.doAnswer(invocation -> {
                    ProductInfoCallback callback = invocation.getArgument(1);
                    callback.onResult(

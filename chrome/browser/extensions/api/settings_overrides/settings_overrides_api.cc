@@ -244,17 +244,16 @@ void SettingsOverridesAPI::RegisterSearchProvider(
       profile_->GetPrefs(), *settings->search_engine, install_parameter);
   auto turl = std::make_unique<TemplateURL>(
       *data, TemplateURL::NORMAL_CONTROLLED_BY_EXTENSION, extension->id(),
-      prefs->GetInstallTime(extension->id()),
+      prefs->GetLastUpdateTime(extension->id()),
       settings->search_engine->is_default);
 
   url_service_->Add(std::move(turl));
 
   if (settings->search_engine->is_default) {
-    // Override current DSE pref to have extension overriden value.
-    SetPref(
-        extension->id(),
-        DefaultSearchManager::kDefaultSearchProviderDataPrefName,
-        base::Value::FromUniquePtrValue(TemplateURLDataToDictionary(*data)));
+    // Override current DSE pref to have extension overridden value.
+    SetPref(extension->id(),
+            DefaultSearchManager::kDefaultSearchProviderDataPrefName,
+            base::Value(TemplateURLDataToDictionary(*data)));
   }
 }
 

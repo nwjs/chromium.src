@@ -18,6 +18,7 @@
 #include "components/autofill/core/browser/form_data_importer_utils.h"
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/browser/payments/credit_card_save_manager.h"
+#include "components/autofill/core/browser/payments/iban_save_manager.h"
 #include "components/autofill/core/browser/payments/local_card_migration_manager.h"
 #include "components/autofill/core/browser/payments/payments_client.h"
 #include "components/autofill/core/browser/payments/upi_vpa_save_manager.h"
@@ -36,19 +37,17 @@ class AddressProfileSaveManager;
 // Owned by `ChromeAutofillClient`.
 class FormDataImporter : public PersonalDataManagerObserver {
  public:
-  // TODO(crbug.com/1356057): Rename below RecordType into kNoCard, kLocalCard.
-  //                          See new naming convention from go/c-style.
   // Record type of the credit card imported from the form, if one exists.
   enum ImportedCreditCardRecordType {
     // No card was successfully imported from the form.
-    NO_CARD,
+    kNoCard,
     // The imported card is already stored locally on the device.
-    LOCAL_CARD,
+    kLocalCard,
     // The imported card is already known to be a server card (either masked or
     // unmasked).
-    SERVER_CARD,
+    kServerCard,
     // The imported card is not currently stored with the browser.
-    NEW_CARD,
+    kNewCard,
   };
 
   // The parameters should outlive the FormDataImporter.
@@ -83,6 +82,9 @@ class FormDataImporter : public PersonalDataManagerObserver {
   // Extracts credit card from the form structure.
   ExtractCreditCardFromFormResult ExtractCreditCardFromForm(
       const FormStructure& form);
+
+  // Tries to initiate the saving of `iban_import_candidate` if applicable.
+  bool ProcessIBANImportCandidate(const IBAN& iban_import_candidate);
 
   // Cache the last four of the fetched virtual card so we don't offer saving
   // them.
@@ -135,7 +137,10 @@ class FormDataImporter : public PersonalDataManagerObserver {
   }
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-  // Exposed for testing.
+  void set_iban_save_manager_for_testing(
+      std::unique_ptr<IBANSaveManager> iban_save_manager) {
+    iban_save_manager_ = std::move(iban_save_manager);
+  }
   void set_local_card_migration_manager_for_testing(
       std::unique_ptr<LocalCardMigrationManager> local_card_migration_manager) {
     local_card_migration_manager_ = std::move(local_card_migration_manager);
@@ -320,6 +325,9 @@ class FormDataImporter : public PersonalDataManagerObserver {
   // Responsible for managing address profiles save flows.
   std::unique_ptr<AddressProfileSaveManager> address_profile_save_manager_;
 
+  // Responsible for managing IBAN save flows.
+  std::unique_ptr<IBANSaveManager> iban_save_manager_;
+
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   // Responsible for migrating locally saved credit cards to Google Pay.
   std::unique_ptr<LocalCardMigrationManager> local_card_migration_manager_;
@@ -338,7 +346,7 @@ class FormDataImporter : public PersonalDataManagerObserver {
   // It will be used to determine whether to offer upload save or card
   // migration. Will be passed to `credit_card_save_manager_` for metrics.
   ImportedCreditCardRecordType imported_credit_card_record_type_ =
-      ImportedCreditCardRecordType::NO_CARD;
+      ImportedCreditCardRecordType::kNoCard;
 
   std::string app_locale_;
 

@@ -19,16 +19,17 @@ import 'chrome://resources/cr_components/localized_link/localized_link.js';
 
 import {I18nMixin, I18nMixinInterface} from 'chrome://resources/cr_elements/i18n_mixin.js';
 import {WebUiListenerMixin, WebUiListenerMixinInterface} from 'chrome://resources/cr_elements/web_ui_listener_mixin.js';
-import {loadTimeData} from 'chrome://resources/js/load_time_data.m.js';
+import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {mixinBehaviors, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import {SettingsToggleButtonElement} from '../../controls/settings_toggle_button.js';
 import {Setting} from '../../mojom-webui/setting.mojom-webui.js';
-import {Route, Router} from '../../router.js';
+import {PrefsMixin, PrefsMixinInterface} from '../../prefs/prefs_mixin.js';
 import {cast} from '../assert_extras.js';
 import {DeepLinkingBehavior, DeepLinkingBehaviorInterface} from '../deep_linking_behavior.js';
 import {routes} from '../os_route.js';
-import {RouteOriginBehavior, RouteOriginBehaviorImpl, RouteOriginBehaviorInterface} from '../route_origin_behavior.js';
+import {RouteOriginMixin, RouteOriginMixinInterface} from '../route_origin_mixin.js';
+import {Route, Router} from '../router.js';
 
 import {getTemplate} from './keyboard_and_text_input_page.html.js';
 import {KeyboardAndTextInputPageBrowserProxy, KeyboardAndTextInputPageBrowserProxyImpl} from './keyboard_and_text_input_page_browser_proxy.js';
@@ -45,12 +46,12 @@ const SettingsKeyboardAndTextInputPageElementBase =
     mixinBehaviors(
         [
           DeepLinkingBehavior,
-          RouteOriginBehavior,
         ],
-        WebUiListenerMixin(I18nMixin(PolymerElement))) as {
+        RouteOriginMixin(
+            PrefsMixin(WebUiListenerMixin(I18nMixin(PolymerElement))))) as {
       new (): PolymerElement & I18nMixinInterface &
-          WebUiListenerMixinInterface & DeepLinkingBehaviorInterface &
-          RouteOriginBehaviorInterface,
+          WebUiListenerMixinInterface & PrefsMixinInterface &
+          RouteOriginMixinInterface & DeepLinkingBehaviorInterface,
     };
 
 class SettingsKeyboardAndTextInputPageElement extends
@@ -65,14 +66,6 @@ class SettingsKeyboardAndTextInputPageElement extends
 
   static get properties() {
     return {
-      /**
-       * Preferences state.
-       */
-      prefs: {
-        type: Object,
-        notify: true,
-      },
-
       /**
        * Whether the user is in kiosk mode.
        */
@@ -132,7 +125,6 @@ class SettingsKeyboardAndTextInputPageElement extends
     };
   }
 
-  prefs: {[key: string]: any};
   private dictationLearnMoreUrl_: string;
   private dictationLocaleMenuSubtitle_: string;
   private dictationLocaleOptions_: LocaleInfo[];
@@ -148,7 +140,7 @@ class SettingsKeyboardAndTextInputPageElement extends
   constructor() {
     super();
 
-    /** RouteOriginBehavior override */
+    /** RouteOriginMixin override */
     this.route_ = routes.A11Y_KEYBOARD_AND_TEXT_INPUT;
 
     this.keyboardAndTextInputBrowserProxy_ =
@@ -161,10 +153,10 @@ class SettingsKeyboardAndTextInputPageElement extends
 
   override ready() {
     super.ready();
-    this.addWebUIListener(
+    this.addWebUiListener(
         'dictation-locale-menu-subtitle-changed',
         (result: string) => this.onDictationLocaleMenuSubtitleChanged_(result));
-    this.addWebUIListener(
+    this.addWebUiListener(
         'dictation-locales-set',
         (locales: LocaleInfo[]) => this.onDictationLocalesSet_(locales));
     this.keyboardAndTextInputBrowserProxy_.keyboardAndTextInputPageReady();
@@ -176,10 +168,10 @@ class SettingsKeyboardAndTextInputPageElement extends
   }
 
   /**
-   * Note: Overrides RouteOriginBehavior implementation
+   * Note: Overrides RouteOriginMixin implementation
    */
   override currentRouteChanged(newRoute: Route, prevRoute?: Route) {
-    RouteOriginBehaviorImpl.currentRouteChanged.call(this, newRoute, prevRoute);
+    super.currentRouteChanged(newRoute, prevRoute);
 
     // Does not apply to this page.
     if (newRoute !== routes.A11Y_KEYBOARD_AND_TEXT_INPUT) {

@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.omnibox;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ObjectAnimator;
+import android.annotation.SuppressLint;
 import android.content.ComponentCallbacks;
 import android.content.Context;
 import android.content.res.Configuration;
@@ -28,7 +29,6 @@ import org.chromium.base.ObserverList;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.metrics.TimingMetric;
-import org.chromium.base.supplier.BooleanSupplier;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.OneshotSupplier;
@@ -83,6 +83,7 @@ import org.chromium.ui.interpolators.BakedBezierInterpolator;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.BooleanSupplier;
 
 /**
  * Mediator for the LocationBar component. Intended location for LocationBar business logic;
@@ -322,8 +323,8 @@ class LocationBarMediator
             templateUrlService.addObserver(this);
         }
         mAssistantVoiceSearchServiceSupplier.set(new AssistantVoiceSearchService(mContext,
-                ExternalAuthUtils.getInstance(), templateUrlService, GSAState.getInstance(mContext),
-                this, SharedPreferencesManager.getInstance(),
+                ExternalAuthUtils.getInstance(), templateUrlService, GSAState.getInstance(), this,
+                SharedPreferencesManager.getInstance(),
                 IdentityServicesProvider.get().getIdentityManager(
                         Profile.getLastUsedRegularProfile()),
                 AccountManagerFacadeProvider.getInstance()));
@@ -1136,6 +1137,7 @@ class LocationBarMediator
         mOmniboxPrerender.clear(profile);
     }
 
+    @SuppressLint("GestureBackNavigation")
     private boolean handleKeyEvent(View view, int keyCode, KeyEvent event) {
         boolean isRtl = view.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL;
         if (mAutocompleteCoordinator.handleKeyEvent(keyCode, event)) {

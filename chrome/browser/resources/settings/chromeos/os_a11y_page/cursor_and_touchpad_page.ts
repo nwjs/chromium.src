@@ -20,16 +20,17 @@ import 'chrome://resources/cr_components/localized_link/localized_link.js';
 import {CrLinkRowElement} from 'chrome://resources/cr_elements/cr_link_row/cr_link_row.js';
 import {I18nMixin, I18nMixinInterface} from 'chrome://resources/cr_elements/i18n_mixin.js';
 import {WebUiListenerMixin, WebUiListenerMixinInterface} from 'chrome://resources/cr_elements/web_ui_listener_mixin.js';
-import {loadTimeData} from 'chrome://resources/js/load_time_data.m.js';
+import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {mixinBehaviors, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import {SettingsToggleButtonElement} from '../../controls/settings_toggle_button.js';
 import {Setting} from '../../mojom-webui/setting.mojom-webui.js';
-import {Route, Router} from '../../router.js';
+import {PrefsMixin, PrefsMixinInterface} from '../../prefs/prefs_mixin.js';
 import {DeepLinkingBehavior, DeepLinkingBehaviorInterface} from '../deep_linking_behavior.js';
 import {DevicePageBrowserProxy, DevicePageBrowserProxyImpl} from '../device_page/device_page_browser_proxy.js';
 import {routes} from '../os_route.js';
-import {RouteOriginBehavior, RouteOriginBehaviorImpl, RouteOriginBehaviorInterface} from '../route_origin_behavior.js';
+import {RouteOriginMixin, RouteOriginMixinInterface} from '../route_origin_mixin.js';
+import {Route, Router} from '../router.js';
 
 import {getTemplate} from './cursor_and_touchpad_page.html.js';
 import {CursorAndTouchpadPageBrowserProxy, CursorAndTouchpadPageBrowserProxyImpl} from './cursor_and_touchpad_page_browser_proxy.js';
@@ -51,12 +52,12 @@ const SettingsCursorAndTouchpadPageElementBase =
     mixinBehaviors(
         [
           DeepLinkingBehavior,
-          RouteOriginBehavior,
         ],
-        WebUiListenerMixin(I18nMixin(PolymerElement))) as {
+        RouteOriginMixin(
+            PrefsMixin(WebUiListenerMixin(I18nMixin(PolymerElement))))) as {
       new (): PolymerElement & I18nMixinInterface &
-          WebUiListenerMixinInterface & DeepLinkingBehaviorInterface &
-          RouteOriginBehaviorInterface,
+          WebUiListenerMixinInterface & PrefsMixinInterface &
+          RouteOriginMixinInterface & DeepLinkingBehaviorInterface,
     };
 
 class SettingsCursorAndTouchpadPageElement extends
@@ -71,14 +72,6 @@ class SettingsCursorAndTouchpadPageElement extends
 
   static get properties() {
     return {
-      /**
-       * Preferences state.
-       */
-      prefs: {
-        type: Object,
-        notify: true,
-      },
-
       /**
        * Drop down menu options for auto click delay.
        */
@@ -262,7 +255,6 @@ class SettingsCursorAndTouchpadPageElement extends
   private cursorColorOptions_: Option[];
   private deviceBrowserProxy_: DevicePageBrowserProxy;
   private isKioskModeActive_: boolean;
-  private prefs: {[key: string]: any};
   private route_: Route;
   private shelfNavigationButtonsImplicitlyEnabled_: boolean;
   private shelfNavigationButtonsPref_:
@@ -272,7 +264,7 @@ class SettingsCursorAndTouchpadPageElement extends
   constructor() {
     super();
 
-    /** RouteOriginBehavior override */
+    /** RouteOriginMixin override */
     this.route_ = routes.A11Y_CURSOR_AND_TOUCHPAD;
 
     this.cursorAndTouchpadBrowserProxy_ =
@@ -284,13 +276,13 @@ class SettingsCursorAndTouchpadPageElement extends
   override connectedCallback() {
     super.connectedCallback();
 
-    this.addWebUIListener(
+    this.addWebUiListener(
         'has-mouse-changed',
         (exists: boolean) => this.set('hasMouse_', exists));
-    this.addWebUIListener(
+    this.addWebUiListener(
         'has-pointing-stick-changed',
         (exists: boolean) => this.set('hasPointingStick_', exists));
-    this.addWebUIListener(
+    this.addWebUiListener(
         'has-touchpad-changed',
         (exists: boolean) => this.set('hasTouchpad_', exists));
     this.deviceBrowserProxy_.initializePointers();
@@ -303,10 +295,10 @@ class SettingsCursorAndTouchpadPageElement extends
   }
 
   /**
-   * Note: Overrides RouteOriginBehavior implementation
+   * Note: Overrides RouteOriginMixin implementation
    */
   override currentRouteChanged(newRoute: Route, prevRoute?: Route) {
-    RouteOriginBehaviorImpl.currentRouteChanged.call(this, newRoute, prevRoute);
+    super.currentRouteChanged(newRoute, prevRoute);
 
     // Does not apply to this page.
     if (newRoute !== routes.A11Y_CURSOR_AND_TOUCHPAD) {

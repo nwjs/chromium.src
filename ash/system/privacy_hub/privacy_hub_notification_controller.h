@@ -51,6 +51,10 @@ class ASH_EXPORT PrivacyHubNotificationController {
   static constexpr const char kCombinedNotificationId[] =
       "ash.system.privacy_hub.enable_microphone_and_camera";
 
+  // Open the Privacy Hub settings page and log that this interaction came from
+  // a notification.
+  static void OpenPrivacyHubSettingsPage();
+
  private:
   // Display the camera disabled by software switch notification.
   void ShowCameraDisabledNotification() const;
@@ -61,6 +65,11 @@ class ASH_EXPORT PrivacyHubNotificationController {
 
   // Display the microphone is disabled notification.
   void ShowMicrophoneDisabledNotification() const;
+
+  // Constructs the notification message for the combined notification,
+  // containing the app names that use mic and camera sensors. The notification
+  // has different format, depending on the number of the apps.
+  std::u16string GenerateMicrophoneAndCameraDisabledNotificationMessage();
 
   // Display a combined notification when camera software switch and
   // microphone are disabled.

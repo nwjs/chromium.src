@@ -217,7 +217,7 @@ void ShowNotification(
                         ? message_center::NOTIFICATION_TYPE_SIMPLE
                         : message_center::NOTIFICATION_TYPE_CUSTOM;
   std::unique_ptr<message_center::Notification> notification =
-      CreateSystemNotification(
+      CreateSystemNotificationPtr(
           type, notification_id, l10n_util::GetStringUTF16(title_id),
           l10n_util::GetStringUTF16(message_id),
           l10n_util::GetStringUTF16(IDS_ASH_SCREEN_CAPTURE_DISPLAY_SOURCE),
@@ -490,6 +490,15 @@ void CaptureModeController::SetType(CaptureModeType type) {
   type_ = type;
   if (capture_mode_session_)
     capture_mode_session_->OnCaptureTypeChanged(type_);
+}
+
+void CaptureModeController::SetRecordingType(RecordingType recording_type) {
+  if (recording_type == recording_type_)
+    return;
+
+  recording_type_ = recording_type;
+  if (capture_mode_session_)
+    capture_mode_session_->OnRecordingTypeChanged();
 }
 
 void CaptureModeController::Start(CaptureModeEntryType entry_type) {
@@ -984,6 +993,7 @@ void CaptureModeController::LaunchRecordingServiceAndStartRecording(
   if (GetAudioRecordingEnabled()) {
     delegate_->BindAudioStreamFactory(
         audio_stream_factory.InitWithNewPipeAndPassReceiver());
+    capture_mode_util::MaybeUpdateMicrophonePrivacyIndicator(/*mic_on=*/true);
   }
 
   // Only act as a `DriveFsQuotaDelegate` for the recording service if the video
@@ -1070,6 +1080,7 @@ void CaptureModeController::FinalizeRecording(bool success,
   const bool was_in_projector_mode =
       video_recording_watcher_->is_in_projector_mode();
   video_recording_watcher_.reset();
+  capture_mode_util::MaybeUpdateMicrophonePrivacyIndicator(/*mic_on=*/false);
 
   delegate_->StopObservingRestrictedContent(
       base::BindOnce(&CaptureModeController::OnDlpRestrictionCheckedAtVideoEnd,

@@ -36,6 +36,7 @@
 #include "net/test/test_data_directory.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
+#include "url/origin.h"
 
 #if BUILDFLAG(IS_WIN)
 #include "device/fido/win/authenticator.h"
@@ -206,12 +207,14 @@ TEST_F(ChromeAuthenticatorRequestDelegateTest, CableConfiguration) {
     const char* origin;
     std::vector<device::CableDiscoveryData> extensions;
     device::CableRequestType request_type;
+    absl::optional<device::ResidentKeyRequirement> resident_key_requirement;
     Result expected_result;
   } kTests[] = {
       {
           "https://example.com",
           {},
           device::CableRequestType::kGetAssertion,
+          absl::nullopt,
           Result::k3rdParty,
       },
       {
@@ -219,6 +222,7 @@ TEST_F(ChromeAuthenticatorRequestDelegateTest, CableConfiguration) {
           "https://example.com",
           {v1_extension},
           device::CableRequestType::kGetAssertion,
+          absl::nullopt,
           Result::k3rdParty,
       },
       {
@@ -226,6 +230,7 @@ TEST_F(ChromeAuthenticatorRequestDelegateTest, CableConfiguration) {
           "https://example.com",
           {v2_extension},
           device::CableRequestType::kGetAssertion,
+          absl::nullopt,
           Result::k3rdParty,
       },
       {
@@ -234,25 +239,45 @@ TEST_F(ChromeAuthenticatorRequestDelegateTest, CableConfiguration) {
           "https://accounts.google.com",
           {},
           device::CableRequestType::kGetAssertion,
+          absl::nullopt,
           Result::k3rdParty,
       },
       {
-          // ... but not for registration.
+          // ... but not for non-discoverable registration.
           "https://accounts.google.com",
           {},
           device::CableRequestType::kMakeCredential,
+          device::ResidentKeyRequirement::kDiscouraged,
           Result::kNone,
+      },
+      {
+          // ... but yes for rk=preferred
+          "https://accounts.google.com",
+          {},
+          device::CableRequestType::kMakeCredential,
+          device::ResidentKeyRequirement::kPreferred,
+          Result::k3rdParty,
+      },
+      {
+          // ... or rk=required.
+          "https://accounts.google.com",
+          {},
+          device::CableRequestType::kDiscoverableMakeCredential,
+          device::ResidentKeyRequirement::kRequired,
+          Result::k3rdParty,
       },
       {
           "https://accounts.google.com",
           {v1_extension},
           device::CableRequestType::kGetAssertion,
+          absl::nullopt,
           NONE_ON_LINUX(Result::kV1),
       },
       {
           "https://accounts.google.com",
           {v2_extension},
           device::CableRequestType::kGetAssertion,
+          absl::nullopt,
           Result::kServerLink,
       },
   };
@@ -267,8 +292,8 @@ TEST_F(ChromeAuthenticatorRequestDelegateTest, CableConfiguration) {
     delegate.SetRelyingPartyId(/*rp_id=*/"example.com");
     delegate.SetPassEmptyUsbDeviceManagerForTesting(true);
     delegate.ConfigureCable(url::Origin::Create(GURL(test.origin)),
-                            test.request_type, test.extensions,
-                            &discovery_factory);
+                            test.request_type, test.resident_key_requirement,
+                            test.extensions, &discovery_factory);
 
     switch (test.expected_result) {
       case Result::kNone:
@@ -633,7 +658,23 @@ TEST_F(DisableWebAuthnWithBrokenCertsTest, SecurityLevelNotAcceptable) {
       net::ImportCertFromFile(net::GetTestCertsDirectory(), "ok_cert.pem");
   simulator->SetSSLInfo(std::move(ssl_info));
   simulator->Commit();
-  EXPECT_FALSE(delegate.IsSecurityLevelAcceptableForWebAuthn(main_rfh()));
+  EXPECT_FALSE(delegate.IsSecurityLevelAcceptableForWebAuthn(
+      main_rfh(), url::Origin::Create(url)));
+}
+
+TEST_F(DisableWebAuthnWithBrokenCertsTest, ExtensionSupported) {
+  GURL url("chrome-extension://extensionid");
+  ChromeWebAuthenticationDelegate delegate;
+  auto simulator =
+      content::NavigationSimulator::CreateBrowserInitiated(url, web_contents());
+  net::SSLInfo ssl_info;
+  ssl_info.cert_status = net::CERT_STATUS_DATE_INVALID;
+  ssl_info.cert =
+      net::ImportCertFromFile(net::GetTestCertsDirectory(), "ok_cert.pem");
+  simulator->SetSSLInfo(std::move(ssl_info));
+  simulator->Commit();
+  EXPECT_TRUE(delegate.IsSecurityLevelAcceptableForWebAuthn(
+      main_rfh(), url::Origin::Create(url)));
 }
 
 TEST_F(DisableWebAuthnWithBrokenCertsTest, EnterpriseOverride) {
@@ -650,7 +691,17 @@ TEST_F(DisableWebAuthnWithBrokenCertsTest, EnterpriseOverride) {
       net::ImportCertFromFile(net::GetTestCertsDirectory(), "ok_cert.pem");
   simulator->SetSSLInfo(std::move(ssl_info));
   simulator->Commit();
-  EXPECT_TRUE(delegate.IsSecurityLevelAcceptableForWebAuthn(main_rfh()));
+  EXPECT_TRUE(delegate.IsSecurityLevelAcceptableForWebAuthn(
+      main_rfh(), url::Origin::Create(url)));
+}
+
+TEST_F(DisableWebAuthnWithBrokenCertsTest, Localhost) {
+  GURL url("http://localhost");
+  ChromeWebAuthenticationDelegate delegate;
+  auto simulator =
+      content::NavigationSimulator::CreateBrowserInitiated(url, web_contents());
+  EXPECT_TRUE(delegate.IsSecurityLevelAcceptableForWebAuthn(
+      main_rfh(), url::Origin::Create(url)));
 }
 
 TEST_F(DisableWebAuthnWithBrokenCertsTest, SecurityLevelAcceptable) {
@@ -664,7 +715,8 @@ TEST_F(DisableWebAuthnWithBrokenCertsTest, SecurityLevelAcceptable) {
       net::ImportCertFromFile(net::GetTestCertsDirectory(), "ok_cert.pem");
   simulator->SetSSLInfo(std::move(ssl_info));
   simulator->Commit();
-  EXPECT_TRUE(delegate.IsSecurityLevelAcceptableForWebAuthn(main_rfh()));
+  EXPECT_TRUE(delegate.IsSecurityLevelAcceptableForWebAuthn(
+      main_rfh(), url::Origin::Create(url)));
 }
 
 }  // namespace

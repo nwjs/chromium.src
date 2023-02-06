@@ -575,7 +575,10 @@ void CupsPrintersHandler::HandleGetPrinterInfo(const base::Value::List& args) {
       !IsValidPrinterUri(uri)) {
     // Run the failure callback.
     OnAutoconfQueried(callback_id, PrinterQueryResult::kUnknownFailure,
-                      ::printing::PrinterStatus(), "", {}, false, {});
+                      ::printing::PrinterStatus(), /*make_and_model=*/"",
+                      /*document_formats=*/{}, /*ipp_everywhere=*/false,
+                      chromeos::PrinterAuthenticationInfo{},
+                      /*client_info_supported=*/false);
     return;
   }
 
@@ -592,7 +595,8 @@ void CupsPrintersHandler::OnAutoconfQueriedDiscovered(
     const std::string& make_and_model,
     const std::vector<std::string>& /*document_formats*/,
     bool ipp_everywhere,
-    const chromeos::PrinterAuthenticationInfo& /*auth_info*/) {
+    const chromeos::PrinterAuthenticationInfo& /*auth_info*/,
+    bool /*client_info_supported*/) {
   RecordIppQueryResult(result);
 
   const bool success = result == PrinterQueryResult::kSuccess;
@@ -633,7 +637,8 @@ void CupsPrintersHandler::OnAutoconfQueried(
     const std::string& make_and_model,
     const std::vector<std::string>& document_formats,
     bool ipp_everywhere,
-    const chromeos::PrinterAuthenticationInfo& /*auth_info*/) {
+    const chromeos::PrinterAuthenticationInfo& /*auth_info*/,
+    bool /*client_info_supported*/) {
   RecordIppQueryResult(result);
   const bool success = result == PrinterQueryResult::kSuccess;
 
@@ -648,8 +653,8 @@ void CupsPrintersHandler::OnAutoconfQueried(
 
   if (!success) {
     PRINTER_LOG(DEBUG) << "Could not query printer";
-    base::DictionaryValue reject;
-    reject.SetStringKey("message", "Querying printer failed");
+    base::Value::Dict reject;
+    reject.Set("message", "Querying printer failed");
     RejectJavascriptCallback(base::Value(callback_id),
                              base::Value(PrinterSetupResult::kFatalError));
     return;
@@ -1221,10 +1226,11 @@ void CupsPrintersHandler::OnGetPrinterPpdManufacturerAndModel(
     RejectJavascriptCallback(base::Value(callback_id), base::Value());
     return;
   }
-  base::DictionaryValue info;
-  info.SetStringKey("ppdManufacturer", manufacturer);
-  info.SetStringKey("ppdModel", model);
-  ResolveJavascriptCallback(base::Value(callback_id), info);
+  base::Value::Dict info;
+  info.Set("ppdManufacturer", manufacturer);
+  info.Set("ppdModel", model);
+  ResolveJavascriptCallback(base::Value(callback_id),
+                            base::Value(std::move(info)));
 }
 
 void CupsPrintersHandler::HandleGetEulaUrl(const base::Value::List& args) {

@@ -8,8 +8,10 @@
 #include <utility>
 
 #include "base/test/mock_callback.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "components/media_message_center/mock_media_notification_view.h"
+#include "media/base/media_switches.h"
 #include "services/media_session/public/cpp/test/test_media_controller.h"
 #include "services/media_session/public/mojom/media_session.mojom.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -36,6 +38,7 @@ class MockMediaSessionNotificationItemDelegate
   MOCK_METHOD(void, ActivateItem, (const std::string&));
   MOCK_METHOD(void, HideItem, (const std::string&));
   MOCK_METHOD(void, RemoveItem, (const std::string&));
+  MOCK_METHOD(void, RefreshItem, (const std::string&));
   MOCK_METHOD(void,
               LogMediaSessionActionButtonPressed,
               (const std::string&, MediaSessionAction));
@@ -422,6 +425,55 @@ TEST_F(MediaSessionNotificationItemTest,
   item().MediaControllerImageChanged(
       media_session::mojom::MediaSessionImageType::kArtwork, new_image);
   testing::Mock::VerifyAndClearExpectations(&view());
+}
+
+TEST_F(MediaSessionNotificationItemTest, RequestMediaRemoting) {
+  EXPECT_EQ(0, controller().request_media_remoting_count());
+
+  item().RequestMediaRemoting();
+  item().FlushForTesting();
+
+  EXPECT_EQ(1, controller().request_media_remoting_count());
+}
+
+TEST_F(MediaSessionNotificationItemTest, GetMediaSessionActions) {
+  item().MediaSessionActionsChanged(
+      {MediaSessionAction::kPlay, MediaSessionAction::kPause,
+       MediaSessionAction::kEnterPictureInPicture});
+  EXPECT_TRUE(item().GetMediaSessionActions().contains(
+      MediaSessionAction::kEnterPictureInPicture));
+
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(media::kMediaRemotingWithoutFullscreen);
+
+  auto session_info = media_session::mojom::MediaSessionInfo::New();
+  auto remote_playback_metadata =
+      media_session::mojom::RemotePlaybackMetadata::New(
+          "video_codec", "audio_codec", false, true, "device_friendly_name");
+  session_info->remote_playback_metadata = std::move(remote_playback_metadata);
+  item().MediaSessionInfoChanged(std::move(session_info));
+  EXPECT_FALSE(item().GetMediaSessionActions().contains(
+      MediaSessionAction::kEnterPictureInPicture));
+}
+
+TEST_F(MediaSessionNotificationItemTest, GetSessionMetadata) {
+  media_session::MediaMetadata metadata;
+  metadata.source_title = u"source_title";
+  item().MediaSessionMetadataChanged(metadata);
+  EXPECT_EQ(u"source_title", item().GetSessionMetadata().source_title);
+
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(media::kMediaRemotingWithoutFullscreen);
+
+  auto session_info = media_session::mojom::MediaSessionInfo::New();
+  auto remote_playback_metadata =
+      media_session::mojom::RemotePlaybackMetadata::New(
+          "video_codec", "audio_codec", false, true, "device_friendly_name");
+  session_info->remote_playback_metadata = std::move(remote_playback_metadata);
+  item().MediaSessionInfoChanged(std::move(session_info));
+
+  EXPECT_EQ(u"source_title \xB7 device_friendly_name",
+            item().GetSessionMetadata().source_title);
 }
 
 }  // namespace global_media_controls

@@ -5,6 +5,7 @@
 #import "ios/chrome/browser/ui/menu/action_factory.h"
 
 #import "base/metrics/histogram_functions.h"
+#import "base/metrics/user_metrics.h"
 #import "ios/chrome/browser/ui/commands/application_commands.h"
 #import "ios/chrome/browser/ui/commands/command_dispatcher.h"
 #import "ios/chrome/browser/ui/icons/symbols.h"
@@ -27,7 +28,7 @@
 
 @implementation ActionFactory
 
-- (instancetype)initWithScenario:(MenuScenario)scenario {
+- (instancetype)initWithScenario:(MenuScenarioHistogram)scenario {
   if (self = [super init]) {
     _histogram = GetActionsHistogramName(scenario);
   }
@@ -75,6 +76,17 @@
                       block:block];
 }
 
+- (UIAction*)actionToPinTabWithBlock:(ProceduralBlock)block {
+  UIImage* image = UseSymbols() ? DefaultSymbolWithPointSize(
+                                      kPinSymbol, kSymbolActionPointSize)
+                                : [UIImage imageNamed:@"pin"];
+  return [self
+      actionWithTitle:l10n_util::GetNSString(IDS_IOS_CONTENT_CONTEXT_PINTAB)
+                image:image
+                 type:MenuActionType::PinTab
+                block:block];
+}
+
 - (UIAction*)actionToDeleteWithBlock:(ProceduralBlock)block {
   UIImage* image = UseSymbols()
                        ? DefaultSymbolWithPointSize(kDeleteActionSymbol,
@@ -94,11 +106,14 @@
                        ? DefaultSymbolWithPointSize(kNewTabActionSymbol,
                                                     kSymbolActionPointSize)
                        : [UIImage imageNamed:@"open_in_new_tab"];
+  ProceduralBlock completionBlock =
+      [self recordMobileWebContextMenuOpenTabActionWithBlock:block];
+
   return [self actionWithTitle:l10n_util::GetNSString(
                                    IDS_IOS_CONTENT_CONTEXT_OPENLINKNEWTAB)
                          image:image
                           type:MenuActionType::OpenInNewTab
-                         block:block];
+                         block:completionBlock];
 }
 
 - (UIAction*)actionToOpenAllTabsWithBlock:(ProceduralBlock)block {
@@ -168,9 +183,10 @@
 }
 
 - (UIAction*)actionToMarkAsUnreadWithBlock:(ProceduralBlock)block {
-  UIImage* image = UseSymbols() ? DefaultSymbolWithPointSize(
-                                      kHideActionSymbol, kSymbolActionPointSize)
-                                : [UIImage imageNamed:@"remove"];
+  UIImage* image = UseSymbols()
+                       ? DefaultSymbolWithPointSize(kMarkAsUnreadActionSymbol,
+                                                    kSymbolActionPointSize)
+                       : [UIImage imageNamed:@"remove"];
   return [self actionWithTitle:l10n_util::GetNSString(
                                    IDS_IOS_READING_LIST_MARK_AS_UNREAD_ACTION)
                          image:image
@@ -181,14 +197,17 @@
 - (UIAction*)actionToOpenOfflineVersionInNewTabWithBlock:
     (ProceduralBlock)block {
   UIImage* image = UseSymbols()
-                       ? DefaultSymbolWithPointSize(kCheckMarkCircleSymbol,
+                       ? DefaultSymbolWithPointSize(kCheckmarkCircleSymbol,
                                                     kSymbolActionPointSize)
                        : [UIImage imageNamed:@"offline"];
+  ProceduralBlock completionBlock =
+      [self recordMobileWebContextMenuOpenTabActionWithBlock:block];
+
   return [self actionWithTitle:l10n_util::GetNSString(
                                    IDS_IOS_READING_LIST_OPEN_OFFLINE_BUTTON)
                          image:image
                           type:MenuActionType::ViewOffline
-                         block:block];
+                         block:completionBlock];
 }
 
 - (UIAction*)actionToAddToReadingListWithBlock:(ProceduralBlock)block {
@@ -293,7 +312,7 @@
 
 - (UIAction*)actionToSelectTabsWithBlock:(ProceduralBlock)block {
   UIImage* image = UseSymbols()
-                       ? DefaultSymbolWithPointSize(kCheckMarkCircleSymbol,
+                       ? DefaultSymbolWithPointSize(kCheckmarkCircleSymbol,
                                                     kSymbolActionPointSize)
                        : [UIImage imageNamed:@"select"];
   UIAction* action = [self
@@ -315,6 +334,16 @@
                        type:MenuActionType::SearchImageWithLens
                       block:block];
   return action;
+}
+
+- (ProceduralBlock)recordMobileWebContextMenuOpenTabActionWithBlock:
+    (ProceduralBlock)block {
+  return ^{
+    base::RecordAction(base::UserMetricsAction("MobileWebContextMenuOpenTab"));
+    if (block) {
+      block();
+    }
+  };
 }
 
 @end

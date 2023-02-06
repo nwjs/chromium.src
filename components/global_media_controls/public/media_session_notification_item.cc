@@ -5,12 +5,16 @@
 #include "components/global_media_controls/public/media_session_notification_item.h"
 
 #include "base/bind.h"
+#include "base/feature_list.h"
+#include "base/i18n/rtl.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/time/time.h"
 #include "components/global_media_controls/public/constants.h"
 #include "components/media_message_center/media_notification_view.h"
 #include "components/url_formatter/elide_url.h"
 #include "components/url_formatter/url_formatter.h"
+#include "components/vector_icons/vector_icons.h"
+#include "media/base/media_switches.h"
 #include "services/media_session/public/cpp/util.h"
 #include "services/media_session/public/mojom/media_controller.mojom.h"
 #include "services/media_session/public/mojom/media_session.mojom.h"
@@ -34,6 +38,15 @@ MediaSessionNotificationItem::Source GetSource(const std::string& name) {
     return MediaSessionNotificationItem::Source::kAssistant;
 
   return MediaSessionNotificationItem::Source::kUnknown;
+}
+
+bool GetRemotePlaybackStarted(
+    const media_session::mojom::MediaSessionInfoPtr& session_info) {
+  if (!base::FeatureList::IsEnabled(media::kMediaRemotingWithoutFullscreen)) {
+    return false;
+  }
+  return session_info && session_info->remote_playback_metadata &&
+         session_info->remote_playback_metadata->remote_playback_started;
 }
 
 // How long to wait (in milliseconds) for a new media session to begin.
@@ -61,14 +74,19 @@ MediaSessionNotificationItem::~MediaSessionNotificationItem() {
 
 void MediaSessionNotificationItem::MediaSessionInfoChanged(
     media_session::mojom::MediaSessionInfoPtr session_info) {
+  bool remote_playback_state_changed = GetRemotePlaybackStarted(session_info) !=
+                                       GetRemotePlaybackStarted(session_info_);
+
   session_info_ = std::move(session_info);
 
   MaybeUnfreeze();
   MaybeHideOrShowNotification();
 
   if (view_ && !frozen_) {
-    view_->UpdateWithMediaSessionInfo(session_info_);
-    view_->UpdateWithMuteStatus(session_info_->muted);
+    UpdateViewCommon();
+    if (remote_playback_state_changed) {
+      delegate_->RefreshItem(request_id_);
+    }
   }
 }
 
@@ -95,13 +113,13 @@ void MediaSessionNotificationItem::MediaSessionMetadataChanged(
 }
 
 void MediaSessionNotificationItem::MediaSessionActionsChanged(
-    const std::vector<media_session::mojom::MediaSessionAction>& actions) {
-  session_actions_ = base::flat_set<media_session::mojom::MediaSessionAction>(
-      actions.begin(), actions.end());
+    const std::vector<MediaSessionAction>& actions) {
+  session_actions_ =
+      base::flat_set<MediaSessionAction>(actions.begin(), actions.end());
 
   if (view_ && !frozen_) {
     DCHECK(view_);
-    view_->UpdateWithMediaActions(session_actions_);
+    view_->UpdateWithMediaActions(GetMediaSessionActions());
   } else if (waiting_for_actions_) {
     MaybeUnfreeze();
   }
@@ -153,11 +171,7 @@ void MediaSessionNotificationItem::SetView(
   view_ = view;
 
   if (view_) {
-    view_needs_metadata_update_ = false;
-    view_->UpdateWithMediaSessionInfo(session_info_);
-    view_->UpdateWithMediaMetadata(GetSessionMetadata());
-    view_->UpdateWithMediaActions(session_actions_);
-    view_->UpdateWithMuteStatus(session_info_->muted);
+    UpdateViewCommon();
 
     if (session_position_.has_value())
       view_->UpdateWithMediaPosition(*session_position_);
@@ -211,9 +225,11 @@ void MediaSessionNotificationItem::SetMute(bool mute) {
     media_controller_remote_->SetMute(mute);
 }
 
-void MediaSessionNotificationItem::RequestMediaRemoting() {
-  // TODO(muyaoxu@google.com): Implement this method to send commands to
-  // `media_controller_remote_`.
+bool MediaSessionNotificationItem::RequestMediaRemoting() {
+  if (!media_controller_remote_.is_bound())
+    return false;
+  media_controller_remote_->RequestMediaRemoting();
+  return true;
 }
 
 void MediaSessionNotificationItem::SetController(
@@ -286,7 +302,34 @@ media_session::MediaMetadata MediaSessionNotificationItem::GetSessionMetadata()
         optional_presentation_request_origin_.value(),
         url_formatter::SchemeDisplay::OMIT_HTTP_AND_HTTPS);
   }
+
+  if (GetRemotePlaybackStarted(session_info_)) {
+    absl::optional<std::string> receiver_name =
+        session_info_->remote_playback_metadata->remoting_device_friendly_name;
+    std::string source_title = base::UTF16ToUTF8(data.source_title);
+    const char kSeparator[] = " \xC2\xB7 ";  // "Middle dot" character.
+    if (!receiver_name) {
+      data.source_title = base::UTF8ToUTF16(source_title);
+    } else if (base::i18n::IsRTL()) {
+      data.source_title =
+          base::UTF8ToUTF16(receiver_name.value() + kSeparator + source_title);
+    } else {
+      data.source_title =
+          base::UTF8ToUTF16(source_title + kSeparator + receiver_name.value());
+    }
+  }
   return data;
+}
+
+base::flat_set<MediaSessionAction>
+MediaSessionNotificationItem::GetMediaSessionActions() const {
+  if (!GetRemotePlaybackStarted(session_info_))
+    return session_actions_;
+
+  base::flat_set<MediaSessionAction> actions_without_pip(session_actions_);
+  actions_without_pip.erase(MediaSessionAction::kEnterPictureInPicture);
+  actions_without_pip.erase(MediaSessionAction::kExitPictureInPicture);
+  return actions_without_pip;
 }
 
 bool MediaSessionNotificationItem::ShouldShowNotification() const {
@@ -343,12 +386,7 @@ void MediaSessionNotificationItem::UnfreezeNonArtwork() {
   // When we unfreeze, we want to fully update |view_| with any changes that
   // we've avoided sending during the freeze.
   if (view_) {
-    view_needs_metadata_update_ = false;
-    view_->UpdateWithMediaSessionInfo(session_info_);
-    view_->UpdateWithMediaMetadata(GetSessionMetadata());
-    view_->UpdateWithMediaActions(session_actions_);
-    view_->UpdateWithMuteStatus(session_info_->muted);
-
+    UpdateViewCommon();
     if (session_position_.has_value())
       view_->UpdateWithMediaPosition(*session_position_);
   }
@@ -418,6 +456,17 @@ void MediaSessionNotificationItem::MaybeHideOrShowNotification() {
   delegate_->ActivateItem(request_id_);
 
   UMA_HISTOGRAM_ENUMERATION(kSourceHistogramName, source_);
+}
+
+void MediaSessionNotificationItem::UpdateViewCommon() {
+  view_needs_metadata_update_ = false;
+  view_->UpdateWithMediaSessionInfo(session_info_);
+  view_->UpdateWithMediaMetadata(GetSessionMetadata());
+  view_->UpdateWithMediaActions(GetMediaSessionActions());
+  view_->UpdateWithMuteStatus(session_info_->muted);
+  view_->UpdateWithVectorIcon(GetRemotePlaybackStarted(session_info_)
+                                  ? &vector_icons::kMediaRouterIdleIcon
+                                  : nullptr);
 }
 
 }  // namespace global_media_controls

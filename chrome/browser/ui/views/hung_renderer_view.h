@@ -100,8 +100,8 @@ class HungPagesTableModel : public ui::TableModel,
     }
 
     // WebContentsObserver overrides:
-    void RenderViewHostChanged(content::RenderViewHost* old_host,
-                               content::RenderViewHost* new_host) override;
+    void RenderFrameHostChanged(content::RenderFrameHost* old_host,
+                                content::RenderFrameHost* new_host) override;
     void WebContentsDestroyed() override;
 
    private:
@@ -118,7 +118,7 @@ class HungPagesTableModel : public ui::TableModel,
 
   std::vector<std::unique_ptr<WebContentsObserverImpl>> tab_observers_;
 
-  raw_ptr<ui::TableModelObserver> observer_ = nullptr;
+  raw_ptr<ui::TableModelObserver, DanglingUntriaged> observer_ = nullptr;
   raw_ptr<Delegate> delegate_ = nullptr;
 
   raw_ptr<content::RenderWidgetHost> render_widget_host_ = nullptr;

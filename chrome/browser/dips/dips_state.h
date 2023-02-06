@@ -21,6 +21,11 @@ class DirtyBit {
 
   explicit operator bool() const { return value_; }
 
+  DirtyBit& operator|=(bool value) {
+    value_ |= value;
+    return *this;
+  }
+
   DirtyBit& operator=(bool value) {
     value_ = value;
     return *this;
@@ -56,13 +61,12 @@ class DIPSState {
   TimestampRange stateful_bounce_times() const {
     return state_.stateful_bounce_times;
   }
-  TimestampRange stateless_bounce_times() const {
-    return state_.stateless_bounce_times;
-  }
+  TimestampRange bounce_times() const { return state_.bounce_times; }
+
   void update_site_storage_time(base::Time time);
   void update_user_interaction_time(base::Time time);
   void update_stateful_bounce_time(base::Time time);
-  void update_stateless_bounce_time(base::Time time);
+  void update_bounce_time(base::Time time);
   StateValue ToStateValue() const { return state_; }
 
  private:

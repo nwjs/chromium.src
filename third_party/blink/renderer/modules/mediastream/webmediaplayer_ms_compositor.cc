@@ -15,7 +15,6 @@
 #include "base/synchronization/waitable_event.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/single_thread_task_runner.h"
-#include "base/threading/thread_task_runner_handle.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "cc/paint/skia_paint_canvas.h"
@@ -182,14 +181,14 @@ constexpr base::TimeDelta kMaximumVsyncDelayForLowLatencyRenderer =
 WebMediaPlayerMSCompositor::WebMediaPlayerMSCompositor(
     scoped_refptr<base::SingleThreadTaskRunner>
         video_frame_compositor_task_runner,
-    scoped_refptr<base::SequencedTaskRunner> io_task_runner,
+    scoped_refptr<base::SequencedTaskRunner> video_task_runner,
     MediaStreamDescriptor* media_stream_descriptor,
     std::unique_ptr<WebVideoFrameSubmitter> submitter,
     bool use_surface_layer,
     const base::WeakPtr<WebMediaPlayerMS>& player)
     : video_frame_compositor_task_runner_(video_frame_compositor_task_runner),
-      io_task_runner_(io_task_runner),
-      main_task_runner_(base::ThreadTaskRunnerHandle::Get()),
+      video_task_runner_(video_task_runner),
+      main_task_runner_(base::SingleThreadTaskRunner::GetCurrentDefault()),
       player_(player),
       video_frame_provider_client_(nullptr),
       current_frame_rendered_(false),
@@ -360,7 +359,7 @@ void WebMediaPlayerMSCompositor::RecordFrameDecodedStats(
     absl::optional<base::TimeTicks> frame_received_time,
     absl::optional<base::TimeDelta> frame_processing_time,
     absl::optional<uint32_t> frame_rtp_timestamp) {
-  DCHECK(io_task_runner_->RunsTasksInCurrentSequence());
+  DCHECK(video_task_runner_->RunsTasksInCurrentSequence());
   if (frame_received_time && last_enqueued_frame_receive_time_) {
     base::TimeDelta frame_receive_time_delta =
         *frame_received_time - *last_enqueued_frame_receive_time_;
@@ -403,7 +402,7 @@ void WebMediaPlayerMSCompositor::SetMetadata() {
 void WebMediaPlayerMSCompositor::EnqueueFrame(
     scoped_refptr<media::VideoFrame> frame,
     bool is_copy) {
-  DCHECK(io_task_runner_->RunsTasksInCurrentSequence());
+  DCHECK(video_task_runner_->RunsTasksInCurrentSequence());
   base::AutoLock auto_lock(current_frame_lock_);
   TRACE_EVENT_INSTANT1("media", "WebMediaPlayerMSCompositor::EnqueueFrame",
                        TRACE_EVENT_SCOPE_THREAD, "Timestamp",
@@ -623,9 +622,9 @@ void WebMediaPlayerMSCompositor::StopRendering() {
 
 void WebMediaPlayerMSCompositor::ReplaceCurrentFrameWithACopy() {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  // Bounce this call off of IO thread to since there might still be frames
-  // passed on IO thread.
-  io_task_runner_->PostTask(
+  // Bounce this call off of video task runner to since there might still be
+  // frames passed on video task runner.
+  video_task_runner_->PostTask(
       FROM_HERE,
       media::BindToCurrentLoop(WTF::BindOnce(
           &WebMediaPlayerMSCompositor::ReplaceCurrentFrameWithACopyInternal,
@@ -647,7 +646,7 @@ bool WebMediaPlayerMSCompositor::MapTimestampsToRenderTimeTicks(
 #if DCHECK_IS_ON()
   DCHECK(video_frame_compositor_task_runner_->BelongsToCurrentThread() ||
          thread_checker_.CalledOnValidThread() ||
-         io_task_runner_->RunsTasksInCurrentSequence());
+         video_task_runner_->RunsTasksInCurrentSequence());
 #endif
   for (const base::TimeDelta& timestamp : timestamps) {
     auto* it = base::ranges::find(pending_frames_info_, timestamp,
@@ -700,7 +699,7 @@ void WebMediaPlayerMSCompositor::RenderUsingAlgorithm(
 void WebMediaPlayerMSCompositor::RenderWithoutAlgorithm(
     scoped_refptr<media::VideoFrame> frame,
     bool is_copy) {
-  DCHECK(io_task_runner_->RunsTasksInCurrentSequence());
+  DCHECK(video_task_runner_->RunsTasksInCurrentSequence());
   PostCrossThreadTask(
       *video_frame_compositor_task_runner_, FROM_HERE,
       CrossThreadBindOnce(

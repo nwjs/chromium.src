@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import {CrSettingsPrefs, Router, routes, setContactManagerForTesting, setNearbyShareSettingsForTesting, setUserActionRecorderForTesting} from 'chrome://os-settings/chromeos/os_settings.js';
-import {assert} from 'chrome://resources/js/assert.js';
+import {assert} from 'chrome://resources/ash/common/assert.js';
 import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import {waitBeforeNextRender} from 'chrome://webui-test/polymer_test_util.js';
 
@@ -202,7 +202,8 @@ suite('os-settings-ui', () => {
         settingsMain.shadowRoot.querySelector('os-settings-about-page');
     await waitBeforeNextRender(aboutPage);
     const aboutSection =
-        aboutPage.shadowRoot.querySelector('settings-section[section="about"]');
+        aboutPage.shadowRoot.querySelector(
+            'os-settings-section[section="about"]');
     assertEquals(aboutSection, aboutPage.shadowRoot.activeElement);
   });
 

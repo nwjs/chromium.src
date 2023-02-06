@@ -564,7 +564,7 @@ void AwSettings::PopulateWebPreferencesLocked(JNIEnv* env,
         Java_AwSettings_isAlgorithmicDarkeningAllowedLocked(env, obj));
   }
 
-  // WebView does not support WebAuthn yet.
+  // WebView does not support WebAuthn yet. See crbug.com/1284805.
   web_prefs->disable_webauthn = true;
 }
 
@@ -572,6 +572,14 @@ bool AwSettings::IsForceDarkApplied(JNIEnv* env,
                                     const JavaParamRef<jobject>& obj) {
   if (AwDarkMode* aw_dark_mode = AwDarkMode::FromWebContents(web_contents())) {
     return aw_dark_mode->is_force_dark_applied();
+  }
+  return false;
+}
+
+bool AwSettings::PrefersDarkFromTheme(JNIEnv* env,
+                                      const JavaParamRef<jobject>& obj) {
+  if (AwDarkMode* aw_dark_mode = AwDarkMode::FromWebContents(web_contents())) {
+    return aw_dark_mode->prefers_dark_from_theme();
   }
   return false;
 }

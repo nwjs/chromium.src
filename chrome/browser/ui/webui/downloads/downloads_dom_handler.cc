@@ -26,6 +26,7 @@
 #include "chrome/browser/download/download_danger_prompt.h"
 #include "chrome/browser/download/download_history.h"
 #include "chrome/browser/download/download_item_model.h"
+#include "chrome/browser/download/download_item_warning_data.h"
 #include "chrome/browser/download/download_prefs.h"
 #include "chrome/browser/download/download_query.h"
 #include "chrome/browser/download/drag_download_item.h"
@@ -162,7 +163,7 @@ void DownloadsDOMHandler::Drag(const std::string& id) {
       screen->GetDisplayNearestView(view).device_scale_factor());
   {
     // Enable nested tasks during DnD, while |DragDownload()| blocks.
-    base::CurrentThread::ScopedNestableTaskAllower allow;
+    base::CurrentThread::ScopedAllowApplicationTasksInNativeNestedLoop allow;
     DragDownloadItem(file, icon, view);
   }
 }
@@ -176,8 +177,12 @@ void DownloadsDOMHandler::SaveDangerousRequiringGesture(const std::string& id) {
 
   CountDownloadsDOMEvents(DOWNLOADS_DOM_EVENT_SAVE_DANGEROUS);
   download::DownloadItem* file = GetDownloadByStringId(id);
-  if (file)
+  if (file) {
+    DownloadItemWarningData::AddWarningActionEvent(
+        file, DownloadItemWarningData::WarningSurface::DOWNLOADS_PAGE,
+        DownloadItemWarningData::WarningAction::KEEP);
     ShowDangerPrompt(file);
+  }
 }
 
 void DownloadsDOMHandler::DiscardDangerous(const std::string& id) {
@@ -185,6 +190,11 @@ void DownloadsDOMHandler::DiscardDangerous(const std::string& id) {
 #if 0
   download::DownloadItem* download = GetDownloadByStringId(id);
   if (download) {
+    // The warning action event needs to be added before Safe Browsing report is
+    // sent, because this event should be included in the report.
+    DownloadItemWarningData::AddWarningActionEvent(
+        download, DownloadItemWarningData::WarningSurface::DOWNLOADS_PAGE,
+        DownloadItemWarningData::WarningAction::DISCARD);
     // If this download is no longer dangerous, is already canceled or
     // completed, don't send any report.
     // Only sends dangerous download discard report if :
@@ -352,7 +362,7 @@ void DownloadsDOMHandler::RemoveDownloads(const DownloadVector& to_remove) {
   IdSet ids;
 
   for (auto* download : to_remove) {
-    if (download->IsDangerous() || download->IsMixedContent()) {
+    if (download->IsDangerous() || download->IsInsecure()) {
       // Don't allow users to revive dangerous downloads; just nuke 'em.
       download->Remove();
       continue;
@@ -476,14 +486,14 @@ void DownloadsDOMHandler::DangerPromptDone(
     return;
   CountDownloadsDOMEvents(DOWNLOADS_DOM_EVENT_SAVE_DANGEROUS);
 
-  // If a download is mixed content, validate that first. Is most cases, mixed
-  // content warnings will occur first, but in the worst case scenario, we show
-  // a dangerous warning twice. That's better than showing a mixed content
-  // warning, then dismissing the dangerous download warning. Since mixed
-  // content downloads triggering the UI are temporary and rare to begin with,
-  // this should very rarely occur.
-  if (item->IsMixedContent()) {
-    item->ValidateMixedContentDownload();
+  // If a download is insecure, validate that first. Is most cases, insecure
+  // download warnings will occur first, but in the worst case scenario, we show
+  // a dangerous warning twice. That's better than showing an insecure download
+  // warning, then dismissing the dangerous download warning. Since insecure
+  // downloads triggering the UI are temporary and rare to begin with, this
+  // should very rarely occur.
+  if (item->IsInsecure()) {
+    item->ValidateInsecureDownload();
     return;
   }
 

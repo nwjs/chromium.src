@@ -38,6 +38,8 @@ KidsProfileManager::KidsProfileManager(PrefService& pref_service,
       pref_service_(pref_service),
       profile_(profile) {}
 
+KidsProfileManager::~KidsProfileManager() {}
+
 bool KidsProfileManager::IsChildAccount() const {
   return profile_
       ->IsChild();  // TODO(b/252793687): Use AccountInfo.is_child_account ==
@@ -82,6 +84,8 @@ KidsProfileManager::Custodian::Custodian(KidsProfileManager* manager,
       profileURL_(manager, profileURL_property_path),
       imageURL_(manager, imageURL_property_path) {}
 
+KidsProfileManager::Custodian::~Custodian() {}
+
 void KidsProfileManager::Custodian::Clear() {
   name_.Clear();
   email_.Clear();
@@ -93,9 +97,9 @@ void KidsProfileManager::Custodian::Clear() {
 void KidsProfileManager::Custodian::Update(const FamilyMember& family_member) {
   name_.Set(family_member.profile().display_name());
   email_.Set(family_member.profile().email());
-  gaiaID_.Set(family_member.profile().obfuscated_user_id());
-  profileURL_.Set(family_member.profile().profile_image_url());
-  imageURL_.Set(family_member.profile().default_profile_image_url());
+  gaiaID_.Set(family_member.user_id());
+  profileURL_.Set(family_member.profile().profile_url());
+  imageURL_.Set(family_member.profile().profile_image_url());
 }
 
 KidsProfileManager::Property::Property(KidsProfileManager* manager,

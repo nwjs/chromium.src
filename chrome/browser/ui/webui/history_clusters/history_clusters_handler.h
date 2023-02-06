@@ -16,7 +16,6 @@
 #include "components/history/core/browser/browsing_history_service.h"
 #include "components/history/core/browser/history_types.h"
 #include "components/history_clusters/core/history_clusters_service.h"
-#include "components/history_clusters/core/query_clusters_state.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -99,15 +98,11 @@ class HistoryClustersHandler : public mojom::PageHandler,
   Profile* GetProfile() override;
 
  private:
-  // Called with the result of querying clusters. Subsequently, the result is
-  // is sent to the JS to update the UI.
-  void OnGotClustersBatch(const std::string& query,
+  // Called with the result of querying clusters.
+  void SendClustersToPage(const std::string& query,
                           const std::vector<history::Cluster> clusters_batch,
                           bool can_load_more,
                           bool is_continuation);
-
-  // Callback for images fetched for clusters.
-  void OnImageFetchedForCluster(size_t cluster_index, const GURL& image_url);
 
   // Launches the Journeys survey, if user is eligible.
   void LaunchJourneysSurvey();

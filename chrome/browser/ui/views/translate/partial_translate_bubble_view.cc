@@ -192,6 +192,7 @@ void PartialTranslateBubbleView::Init() {
   // NOTE: The waiting view should be added last to avoid it having default
   // focus when shown.
   translate_view_waiting_ = AddChildView(CreateViewWaiting());
+  ComputeLargestViewStateWidth();
 
   AddAccelerator(ui::Accelerator(ui::VKEY_RETURN, ui::EF_NONE));
 
@@ -431,10 +432,6 @@ void PartialTranslateBubbleView::ConfirmAdvancedOptions() {
     UpdateLanguageTabNames();
     model_->Translate(web_contents_);
     target_language_changed_ = true;
-    // Update max width of text selection label to match width of bubble, which
-    // changes with the lengths of the languages displayed in the tabbed pane.
-    partial_text_label_->SizeToFit(
-        tab_view_top_row_->GetPreferredSize().width());
     SwitchView(PartialTranslateBubbleModel::VIEW_STATE_WAITING);
     if (from_source_language_view) {
       translate::ReportPartialTranslateBubbleUiAction(
@@ -596,26 +593,20 @@ std::unique_ptr<views::View> PartialTranslateBubbleView::CreateView() {
   return view;
 }
 
-// TODO(crbug/307350): Revise this later to show a specific message for each
+// TODO(crbug/301568): Revise this later to show a specific message for each
 // error.
 std::unique_ptr<views::View> PartialTranslateBubbleView::CreateViewError() {
-  auto translate_options_button =
-      std::make_unique<views::MdTextButtonWithDownArrow>(
-          views::Button::PressedCallback(),
-          l10n_util::GetStringUTF16(IDS_TRANSLATE_BUBBLE_OPTIONS_MENU_BUTTON));
-  translate_options_button->SetCallback(base::BindRepeating(
-      &PartialTranslateBubbleView::ShowOptionsMenu, base::Unretained(this),
-      base::Unretained(translate_options_button.get())));
-  std::u16string translate_options_button_label(
-      l10n_util::GetStringUTF16(IDS_TRANSLATE_BUBBLE_OPTIONS_MENU_BUTTON));
-  translate_options_button->SetAccessibleName(translate_options_button_label);
-  translate_options_button->SetTooltipText(translate_options_button_label);
-  translate_options_button->SetRequestFocusOnPress(true);
-  return CreateViewErrorNoTitle(std::move(translate_options_button));
+  auto full_page_button = std::make_unique<views::MdTextButton>(
+      base::BindRepeating(&PartialTranslateBubbleView::TranslateFullPage,
+                          base::Unretained(this)),
+      l10n_util::GetStringUTF16(
+          IDS_PARTIAL_TRANSLATE_BUBBLE_TRANSLATE_FULL_PAGE));
+  full_page_button->SetID(BUTTON_ID_FULL_PAGE_TRANSLATE);
+  return CreateViewErrorNoTitle(std::move(full_page_button));
 }
 
 std::unique_ptr<views::View> PartialTranslateBubbleView::CreateViewErrorNoTitle(
-    std::unique_ptr<views::Button> advanced_button) {
+    std::unique_ptr<views::Button> button) {
   const ChromeLayoutProvider* provider = ChromeLayoutProvider::Get();
   auto view = std::make_unique<views::View>();
   views::BoxLayout* layout =
@@ -664,7 +655,7 @@ std::unique_ptr<views::View> PartialTranslateBubbleView::CreateViewErrorNoTitle(
       l10n_util::GetStringUTF16(IDS_TRANSLATE_BUBBLE_TRY_AGAIN));
   try_again_button->SetID(BUTTON_ID_TRY_AGAIN);
   button_row->AddChildView(std::move(try_again_button));
-  button_row->AddChildView(std::move(advanced_button));
+  button_row->AddChildView(std::move(button));
   view->AddChildView(std::move(button_row));
 
   return view;
@@ -960,6 +951,16 @@ void PartialTranslateBubbleView::SetWindowTitle(
   }
 }
 
+void PartialTranslateBubbleView::ComputeLargestViewStateWidth() {
+  for (views::View* view : children()) {
+    if (view == translate_view_)
+      continue;
+    int width = view->GetPreferredSize().width();
+    if (width > largest_view_state_width_)
+      largest_view_state_width_ = width;
+  }
+}
+
 void PartialTranslateBubbleView::UpdateViewState(
     PartialTranslateBubbleModel::ViewState view_state) {
   model_->SetViewState(view_state);
@@ -970,20 +971,11 @@ void PartialTranslateBubbleView::SwitchView(
     PartialTranslateBubbleModel::ViewState view_state) {
   UpdateInsets(view_state);
 
-  if (view_state == PartialTranslateBubbleModel::VIEW_STATE_SOURCE_LANGUAGE ||
-      view_state == PartialTranslateBubbleModel::VIEW_STATE_TARGET_LANGUAGE) {
-    GetBubbleFrameView()->SetFootnoteView(nullptr);
-  } else {
-    GetBubbleFrameView()->SetFootnoteView(CreateWordmarkView());
-  }
-
   SwitchTabForViewState(view_state);
   // The initial partial translation uses "Detected Language" as the source by
   // default, so |partial_text_label_| needs to be resized after receiving the
-  // actual source language string in the response.
+  // actual source language string. This is done in UpdateTextForViewState.
   UpdateLanguageTabNames();
-  UpdateTextForViewState(view_state);
-  partial_text_label_->SizeToFit(tab_view_top_row_->GetPreferredSize().width());
   UpdateTextForViewState(view_state);
 
   // In cases where we are switching from the waiting view, the spinner should
@@ -998,8 +990,12 @@ void PartialTranslateBubbleView::SwitchView(
 
   UpdateViewState(view_state);
   if (view_state == PartialTranslateBubbleModel::VIEW_STATE_SOURCE_LANGUAGE ||
-      view_state == PartialTranslateBubbleModel::VIEW_STATE_TARGET_LANGUAGE)
+      view_state == PartialTranslateBubbleModel::VIEW_STATE_TARGET_LANGUAGE) {
     UpdateAdvancedView();
+    GetBubbleFrameView()->SetFootnoteView(nullptr);
+  } else {
+    GetBubbleFrameView()->SetFootnoteView(CreateWordmarkView());
+  }
 
   UpdateChildVisibilities();
   SizeToContents();
@@ -1017,7 +1013,33 @@ void PartialTranslateBubbleView::UpdateTextForViewState(
     SetTextAlignmentForLocaleTextDirection(model_->GetSourceLanguageCode());
   }
 
+  // Use the maximum set width for the bubble for the largest text volumes to
+  // prevent sizing of the bubble that exceeds screen height.
+  if (partial_text_label_->GetText().length() > char_threshold_for_max_width_) {
+    partial_text_label_->SizeToFit(bubble_max_width_);
+  } else {
+    // Otherwise, with no risk of overflow, resize the text label to match the
+    // width of the bubble. This will depend on either the preferred width of
+    // the tabbed pane, or |largest_view_state_width_|, which serves as a lower
+    // bound.
+    if (tab_view_top_row_->GetPreferredSize().width() <
+        largest_view_state_width_) {
+      partial_text_label_->SizeToFit(largest_view_state_width_);
+    } else {
+      partial_text_label_->SizeToFit(
+          tab_view_top_row_->GetPreferredSize().width());
+    }
+  }
+
   AnnounceForAccessibility(view_state);
+}
+
+void PartialTranslateBubbleView::MaybeUpdateSourceLanguageCombobox() {
+  size_t curr_index = model_->GetSourceLanguageIndex();
+  if (source_language_combobox_->GetSelectedIndex() != curr_index) {
+    source_language_combobox_->SetSelectedIndex(curr_index);
+    previous_source_language_index_ = curr_index;
+  }
 }
 
 void PartialTranslateBubbleView::AnnounceForAccessibility(

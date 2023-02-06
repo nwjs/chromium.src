@@ -61,13 +61,6 @@ const char kEncryptionIvQueryName[] = "encryption-iv-size";
 const char kSwSecureRobustness[] = "SW_SECURE_DECODE";
 const char kHwSecureRobustness[] = "HW_SECURE_ALL";
 
-// We need this char array to query the Windows Media Foundation API
-// to know which codecs have the clear lead fix enabled on the computer.
-// We do not check cbcs-clearlead because clearlead fix itself should be
-// orthogonal to encryption scheme support.
-// https://docs.microsoft.com/en-us/windows/win32/api/mfmediaengine/nf-mfmediaengine-imfextendeddrmtypesupport-istypesupportedex
-const char kClearLeadEncryptionScheme[] = "cenc-clearlead";
-
 // The followings define the supported codecs and encryption schemes that we try
 // to query.
 constexpr VideoCodec kAllVideoCodecs[] = {
@@ -240,18 +233,6 @@ bool IsTypeSupported(VideoCodec video_codec,
   return IsTypeSupportedInternal(cdm_factory, key_system, is_hw_secure, type);
 }
 
-bool IsClearLeadSupported(ComPtr<IMFContentDecryptionModuleFactory> cdm_factory,
-                          const std::string& key_system,
-                          bool is_hw_secure,
-                          VideoCodec video_codec) {
-  const FeatureMap extra_features = {
-      {kEncryptionSchemeQueryName, kClearLeadEncryptionScheme},
-      {kEncryptionIvQueryName,
-       base::NumberToString(GetIvSize(EncryptionScheme::kCenc))}};
-  return IsTypeSupported(video_codec, /*audio_codec=*/absl::nullopt,
-                         extra_features, cdm_factory, key_system, is_hw_secure);
-}
-
 base::flat_set<EncryptionScheme> GetSupportedEncryptionSchemes(
     ComPtr<IMFContentDecryptionModuleFactory> cdm_factory,
     const std::string& key_system,
@@ -339,9 +320,17 @@ absl::optional<CdmCapability> GetCdmCapability(
   // Query video codecs.
   for (const auto video_codec : kAllVideoCodecs) {
 #if BUILDFLAG(ENABLE_PLATFORM_HEVC)
-    // Only query HEVC when the feature is enabled.
+    // Only query encrypted HEVC when the feature is enabled.
     if (video_codec == VideoCodec::kHEVC &&
         !base::FeatureList::IsEnabled(kPlatformHEVCDecoderSupport)) {
+      continue;
+    }
+#endif
+
+#if BUILDFLAG(ENABLE_PLATFORM_ENCRYPTED_DOLBY_VISION)
+    // Only query encrypted Dolby Vision when the feature is enabled.
+    if (video_codec == VideoCodec::kDolbyVision &&
+        !base::FeatureList::IsEnabled(kPlatformEncryptedDolbyVision)) {
       continue;
     }
 #endif
@@ -359,7 +348,7 @@ absl::optional<CdmCapability> GetCdmCapability(
       // lead support is fixed and the query works as expected.
       video_codec_info.supports_clear_lead = false;
 
-#if BUILDFLAG(ENABLE_PLATFORM_DOLBY_VISION) && BUILDFLAG(ENABLE_PLATFORM_HEVC)
+#if BUILDFLAG(ENABLE_PLATFORM_DOLBY_VISION)
       // Dolby Vision on Windows only support profile 4/5/8 now.
       if (video_codec == VideoCodec::kDolbyVision) {
         video_codec_info.supported_profiles = {
@@ -369,20 +358,11 @@ absl::optional<CdmCapability> GetCdmCapability(
       }
 #endif
 
-      // We check for `is_hw_secure` because clear lead should always be
-      // supported for software security.
-      if (is_hw_secure) {
-        // TODO(b/257115498): We only check for clearlead support in HEVC codec
-        // because the WIN OS only supports clear lead support check for HEVC
-        // and AV1, and AV1 does not have the clear lead fix out for the codec.
-        if (video_codec == VideoCodec::kHEVC) {
-          // When IsClearLeadSupported returns false, this can either happen
-          // because: 1. The OS doesn't support the check of cenc-clearlead yet
-          // or 2. Clear Lead fix for `video_codec` is not available.
-          video_codec_info.supports_clear_lead = IsClearLeadSupported(
-              cdm_factory, key_system, is_hw_secure, video_codec);
-        }
-      } else {
+      // We check for `!is_hw_secure` because clear lead should always be
+      // supported for software security. When clear lead is supported
+      // for hardware security (b/219818166), we will add a query to
+      // set supports_clear_lead.
+      if (!is_hw_secure) {
         video_codec_info.supports_clear_lead = true;
       }
 

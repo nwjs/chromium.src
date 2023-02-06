@@ -14,6 +14,7 @@ import {BrowserCommandProxy} from 'chrome://resources/js/browser_command/browser
 import {hexColorToSkColor, skColorToRgba} from 'chrome://resources/js/color_utils.js';
 import {EventTracker} from 'chrome://resources/js/event_tracker.js';
 import {FocusOutlineManager} from 'chrome://resources/js/focus_outline_manager.js';
+import {getTrustedScriptURL} from 'chrome://resources/js/static_types.js';
 import {SkColor} from 'chrome://resources/mojo/skia/public/mojom/skcolor.mojom-webui.js';
 import {DomIf, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
@@ -22,7 +23,6 @@ import {BackgroundManager} from './background_manager.js';
 import {CustomizeDialogPage} from './customize_dialog_types.js';
 import {loadTimeData} from './i18n_setup.js';
 import {IframeElement} from './iframe.js';
-import {LensUploadDialogElement} from './lens_upload_dialog.js';
 import {LogoElement} from './logo.js';
 import {recordLoadDuration} from './metrics_utils.js';
 import {PageCallbackRouter, PageHandlerRemote, Theme} from './new_tab_page.mojom-webui.js';
@@ -71,7 +71,7 @@ function recordClick(element: NtpElement) {
 function ensureLazyLoaded() {
   const script = document.createElement('script');
   script.type = 'module';
-  script.src = './lazy_load.js';
+  script.src = getTrustedScriptURL`./lazy_load.js`;
   document.body.appendChild(script);
 }
 
@@ -308,6 +308,7 @@ export class AppElement extends PolymerElement {
   private promoAndModulesLoaded_: boolean;
   private removeScrim_: boolean;
   private lazyRender_: boolean;
+  private openLensDialog: Function|null;
 
   private callbackRouter_: PageCallbackRouter;
   private pageHandler_: PageHandlerRemote;
@@ -468,13 +469,23 @@ export class AppElement extends PolymerElement {
     recordVoiceAction(VoiceAction.ACTIVATE_SEARCH_BOX);
   }
 
+  /**
+   * Sets the openLensDialog function when the child LensUploadDialogComponent
+   * is lazily loaded.
+   *
+   * We use the connected callback with a custom event dispatch to get around
+   * bundling the upload dialog component with the primary bundle to call open
+   * dialog.
+   */
+  private bindOpenLensDialog_(e: CustomEvent<{fn: () => void}>) {
+    this.openLensDialog = e.detail.fn;
+  }
+
   private onOpenLensSearch_() {
-    // TODO(crbug.com/1371943): Use shadow root to select upload dialog until
-    // feature is no-longer wrapped by dom-if.
-    (this.shadowRoot!.querySelector(LensUploadDialogElement.is)! as
-     LensUploadDialogElement)
-        .openDialog();
-    this.showLensUploadDialog_ = true;
+    if (this.openLensDialog) {
+      this.openLensDialog();
+      this.showLensUploadDialog_ = true;
+    }
   }
 
   private onCloseLensSearch_() {

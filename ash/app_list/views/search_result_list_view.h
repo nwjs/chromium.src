@@ -27,7 +27,6 @@ namespace test {
 class SearchResultListViewTest;
 }
 
-class AppListMainView;
 class AppListViewDelegate;
 class SearchResultPageDialogController;
 
@@ -72,7 +71,6 @@ class ASH_EXPORT SearchResultListView : public SearchResultContainerView {
   };
 
   SearchResultListView(
-      AppListMainView* main_view,
       AppListViewDelegate* view_delegate,
       SearchResultPageDialogController* dialog_controller,
       SearchResultView::SearchResultViewType search_result_view_type,
@@ -113,8 +111,6 @@ class ASH_EXPORT SearchResultListView : public SearchResultContainerView {
                              int position,
                              bool use_short_animations);
 
-  AppListMainView* app_list_main_view() const { return main_view_; }
-
   // Gets all the SearchResultListTypes that should be used when categorical
   // search is enabled.
   static std::vector<SearchResultListType>
@@ -136,7 +132,6 @@ class ASH_EXPORT SearchResultListView : public SearchResultContainerView {
   // Overridden from views::View:
   void Layout() override;
   int GetHeightForWidth(int w) const override;
-  void OnThemeChanged() override;
 
   // Fetches the category of results this view should show.
   SearchResult::Category GetSearchCategory();
@@ -156,7 +151,6 @@ class ASH_EXPORT SearchResultListView : public SearchResultContainerView {
   bool FilterSearchResultsByCategory(const SearchResult::Category& category,
                                      const SearchResult& result) const;
 
-  AppListMainView* main_view_;          // Owned by views hierarchy.
   AppListViewDelegate* view_delegate_;  // Not owned.
 
   // Whether the result updates will be animated. If set,

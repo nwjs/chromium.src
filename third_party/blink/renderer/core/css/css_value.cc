@@ -26,6 +26,7 @@
 
 #include "third_party/blink/renderer/core/css/css_value.h"
 
+#include "third_party/blink/renderer/core/css/css_alternate_value.h"
 #include "third_party/blink/renderer/core/css/css_axis_value.h"
 #include "third_party/blink/renderer/core/css/css_basic_shape_values.h"
 #include "third_party/blink/renderer/core/css/css_border_image_slice_value.h"
@@ -82,6 +83,7 @@
 #include "third_party/blink/renderer/core/css/css_value_list.h"
 #include "third_party/blink/renderer/core/css/css_value_pair.h"
 #include "third_party/blink/renderer/core/css/css_variable_reference_value.h"
+#include "third_party/blink/renderer/core/css/css_view_value.h"
 #include "third_party/blink/renderer/platform/geometry/length.h"
 #include "third_party/blink/renderer/platform/wtf/size_assertions.h"
 
@@ -204,6 +206,8 @@ bool CSSValue::operator==(const CSSValue& other) const {
         return CompareCSSValues<cssvalue::CSSFontStyleRangeValue>(*this, other);
       case kFontVariationClass:
         return CompareCSSValues<cssvalue::CSSFontVariationValue>(*this, other);
+      case kAlternateClass:
+        return CompareCSSValues<cssvalue::CSSAlternateValue>(*this, other);
       case kFunctionClass:
         return CompareCSSValues<CSSFunctionValue>(*this, other);
       case kLayoutFunctionClass:
@@ -301,6 +305,8 @@ bool CSSValue::operator==(const CSSValue& other) const {
         return CompareCSSValues<CSSLightDarkValuePair>(*this, other);
       case kScrollClass:
         return CompareCSSValues<cssvalue::CSSScrollValue>(*this, other);
+      case kViewClass:
+        return CompareCSSValues<cssvalue::CSSViewValue>(*this, other);
       case kRatioClass:
         return CompareCSSValues<cssvalue::CSSRatioValue>(*this, other);
     }
@@ -346,6 +352,8 @@ String CSSValue::CssText() const {
       return To<cssvalue::CSSFontStyleRangeValue>(this)->CustomCSSText();
     case kFontVariationClass:
       return To<cssvalue::CSSFontVariationValue>(this)->CustomCSSText();
+    case kAlternateClass:
+      return To<cssvalue::CSSAlternateValue>(this)->CustomCSSText();
     case kFunctionClass:
       return To<CSSFunctionValue>(this)->CustomCSSText();
     case kLayoutFunctionClass:
@@ -437,6 +445,8 @@ String CSSValue::CssText() const {
       return To<CSSLightDarkValuePair>(this)->CustomCSSText();
     case kScrollClass:
       return To<cssvalue::CSSScrollValue>(this)->CustomCSSText();
+    case kViewClass:
+      return To<cssvalue::CSSViewValue>(this)->CustomCSSText();
     case kRatioClass:
       return To<cssvalue::CSSRatioValue>(this)->CustomCSSText();
   }
@@ -498,6 +508,9 @@ void CSSValue::Trace(Visitor* visitor) const {
       return;
     case kFontVariationClass:
       To<cssvalue::CSSFontVariationValue>(this)->TraceAfterDispatch(visitor);
+      return;
+    case kAlternateClass:
+      To<cssvalue::CSSAlternateValue>(this)->TraceAfterDispatch(visitor);
       return;
     case kFunctionClass:
       To<CSSFunctionValue>(this)->TraceAfterDispatch(visitor);
@@ -640,6 +653,9 @@ void CSSValue::Trace(Visitor* visitor) const {
       return;
     case kScrollClass:
       To<cssvalue::CSSScrollValue>(this)->TraceAfterDispatch(visitor);
+      return;
+    case kViewClass:
+      To<cssvalue::CSSViewValue>(this)->TraceAfterDispatch(visitor);
       return;
     case kRatioClass:
       To<cssvalue::CSSRatioValue>(this)->TraceAfterDispatch(visitor);

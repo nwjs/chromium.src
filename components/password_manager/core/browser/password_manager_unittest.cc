@@ -28,7 +28,8 @@
 #include "components/autofill/core/common/password_generation_util.h"
 #include "components/autofill/core/common/signatures.h"
 #include "components/autofill/core/common/unique_ids.h"
-#include "components/password_manager/core/browser/android_affiliation/mock_affiliated_match_helper.h"
+#include "components/password_manager/core/browser/affiliation/mock_affiliated_match_helper.h"
+#include "components/password_manager/core/browser/affiliation/mock_affiliation_service.h"
 #include "components/password_manager/core/browser/field_info_manager.h"
 #include "components/password_manager/core/browser/form_fetcher_impl.h"
 #include "components/password_manager/core/browser/leak_detection/leak_detection_check.h"
@@ -43,7 +44,6 @@
 #include "components/password_manager/core/browser/password_manager_client.h"
 #include "components/password_manager/core/browser/password_manager_driver.h"
 #include "components/password_manager/core/browser/password_store_interface.h"
-#include "components/password_manager/core/browser/site_affiliation/mock_affiliation_service.h"
 #include "components/password_manager/core/browser/statistics_table.h"
 #include "components/password_manager/core/browser/stub_credentials_filter.h"
 #include "components/password_manager/core/browser/stub_password_manager_client.h"
@@ -156,7 +156,6 @@ class MockPasswordManagerClient : public StubPasswordManagerClient {
         .WillByDefault(Return(false));
     ON_CALL(filter_, IsSyncAccountEmail(_)).WillByDefault(Return(false));
     ON_CALL(*this, IsNewTabPage()).WillByDefault(Return(false));
-    ON_CALL(*this, IsAutofillAssistantUIVisible()).WillByDefault(Return(false));
 
     ON_CALL(*this, GetWebAuthnCredentialsDelegateForDriver)
         .WillByDefault(Return(&webauthn_credentials_delegate_));
@@ -210,6 +209,7 @@ class MockPasswordManagerClient : public StubPasswordManagerClient {
   MOCK_METHOD(PrefService*, GetPrefs, (), (const, override));
   MOCK_METHOD(PrefService*, GetLocalStatePrefs, (), (const, override));
   MOCK_METHOD(const GURL&, GetLastCommittedURL, (), (const, override));
+  MOCK_METHOD(url::Origin, GetLastCommittedOrigin, (), (const, override));
   MOCK_METHOD(bool, IsCommittedMainFrameSecure, (), (const, override));
   MOCK_METHOD(const MockStoreResultFilter*,
               GetStoreResultFilter,
@@ -220,7 +220,6 @@ class MockPasswordManagerClient : public StubPasswordManagerClient {
               (),
               (override));
   MOCK_METHOD(bool, IsNewTabPage, (), (const, override));
-  MOCK_METHOD(bool, IsAutofillAssistantUIVisible, (), (const, override));
   MOCK_METHOD(SyncState, GetPasswordSyncState, (), (const, override));
   MOCK_METHOD(FieldInfoManager*, GetFieldInfoManager, (), (const, override));
   MOCK_METHOD(profile_metrics::BrowserProfileType,
@@ -419,6 +418,8 @@ class PasswordManagerTest : public testing::TestWithParam<bool> {
         .WillByDefault(Return(&reuse_manager_));
 
     manager_ = std::make_unique<PasswordManager>(&client_);
+    manager_->set_leak_factory(
+        std::make_unique<testing::NiceMock<MockLeakDetectionCheckFactory>>());
     password_autofill_manager_ =
         std::make_unique<PasswordAutofillManager>(&driver_, nullptr, &client_);
 
@@ -428,7 +429,10 @@ class PasswordManagerTest : public testing::TestWithParam<bool> {
         .WillRepeatedly(Return(password_autofill_manager_.get()));
     ON_CALL(client_, GetMainFrameCertStatus()).WillByDefault(Return(0));
 
-    ON_CALL(client_, GetLastCommittedURL()).WillByDefault(ReturnRef(test_url_));
+    ON_CALL(client_, GetLastCommittedURL)
+        .WillByDefault(ReturnRef(test_form_url_));
+    ON_CALL(client_, GetLastCommittedOrigin)
+        .WillByDefault(Return(url::Origin::Create(test_form_url_)));
     ON_CALL(client_, IsCommittedMainFrameSecure()).WillByDefault(Return(true));
     ON_CALL(client_, GetMetricsRecorder()).WillByDefault(Return(nullptr));
     ON_CALL(client_, PromptUserToSaveOrUpdatePasswordPtr(_))
@@ -471,14 +475,14 @@ class PasswordManagerTest : public testing::TestWithParam<bool> {
 
   PasswordForm MakeSavedForm() {
     PasswordForm form;
-    form.url = GURL("http://www.google.com/a/LoginAuth");
-    form.action = GURL("http://www.google.com/a/Login");
+    form.url = test_form_url_;
+    form.action = test_form_action_;
     form.username_element = u"Email";
     form.password_element = u"Passwd";
     form.username_value = u"googleuser";
     form.password_value = u"p4ssword";
     form.submit_element = u"signIn";
-    form.signon_realm = "http://www.google.com/";
+    form.signon_realm = test_signon_realm_;
     form.in_store = PasswordForm::Store::kProfileStore;
     return form;
   }
@@ -491,8 +495,8 @@ class PasswordManagerTest : public testing::TestWithParam<bool> {
 
   FormData MakeSimpleFormData() {
     FormData form_data;
-    form_data.url = GURL("http://www.google.com/a/LoginAuth");
-    form_data.action = GURL("http://www.google.com/a/Login");
+    form_data.url = test_form_url_;
+    form_data.action = test_form_action_;
     form_data.name = u"the-form-name";
     form_data.unique_renderer_id = FormRendererId(10);
 
@@ -575,12 +579,12 @@ class PasswordManagerTest : public testing::TestWithParam<bool> {
 
   PasswordForm MakeSimpleFormWithOnlyUsernameField() {
     PasswordForm form;
-    form.url = GURL("http://www.google.com/a/LoginAuth");
+    form.url = test_form_url_;
     form.username_element = u"Email";
     form.submit_element = u"signIn";
-    form.signon_realm = "http://www.google.com/";
+    form.signon_realm = test_signon_realm_;
     form.form_data.name = u"username_only_form";
-    form.form_data.url = GURL("http://www.google.com/a/LoginAuth");
+    form.form_data.url = form.url;
     form.form_data.unique_renderer_id = FormRendererId(30);
 
     FormFieldData field;
@@ -605,7 +609,7 @@ class PasswordManagerTest : public testing::TestWithParam<bool> {
 
   PasswordForm MakeSimpleCreditCardForm() {
     PasswordForm form;
-    form.url = GURL("http://www.google.com/a/LoginAuth");
+    form.url = test_form_url_;
     form.signon_realm = form.url.GetWithEmptyPath().spec();
     form.username_element = u"cc-number";
     form.password_element = u"cvc";
@@ -641,7 +645,9 @@ class PasswordManagerTest : public testing::TestWithParam<bool> {
 
   base::test::ScopedFeatureList feature_list_;
 
-  const GURL test_url_{"https://www.example.com"};
+  const GURL test_form_url_{"https://www.google.com/a/LoginAuth"};
+  const GURL test_form_action_{"https://www.google.com/a/Login"};
+  const std::string test_signon_realm_ = "https://www.google.com/";
   base::test::SingleThreadTaskEnvironment task_environment_;
   testing::NiceMock<MockAffiliationService> mock_affiliation_service_;
   scoped_refptr<TestPasswordStore> store_;
@@ -2597,6 +2603,9 @@ TEST_P(PasswordManagerTest, ManualFallbackForSaving_SlowBackend) {
   manager()->OnInformAboutUserInput(&driver_, form_data);
 }
 
+// Test is not applicable to iOS, because there is no manual fallback for
+// generated passwords.
+#if !BUILDFLAG(IS_IOS)
 TEST_P(PasswordManagerTest, ManualFallbackForSaving_GeneratedPassword) {
   std::vector<FormData> observed;
   PasswordForm form(MakeSimpleForm());
@@ -2638,6 +2647,7 @@ TEST_P(PasswordManagerTest, ManualFallbackForSaving_GeneratedPassword) {
   EXPECT_THAT(store_->stored_passwords(),
               ElementsAre(Pair(form.signon_realm, testing::IsEmpty())));
 }
+#endif  // !BUILDFLAG(IS_IOS)
 
 // Sync password hash should be updated upon submission of change password page.
 TEST_P(PasswordManagerTest, SaveSyncPasswordHashOnChangePasswordPage) {
@@ -3808,85 +3818,6 @@ TEST_P(PasswordManagerTest, FormSubmittedOnIFramePrimaryMainFrameLoaded) {
   manager()->OnPasswordFormsRendered(&driver_, {} /* observed */);
 }
 
-TEST_P(PasswordManagerTest, NoPromptAutofillAssistantManuallyCuratedScript) {
-  EXPECT_CALL(client_, IsAutofillAssistantUIVisible)
-      .WillRepeatedly(Return(true));
-  EXPECT_CALL(client_, IsSavingAndFillingEnabled(_))
-      .WillRepeatedly(Return(true));
-
-  // Check that a save prompt is not shown.
-  EXPECT_CALL(client_, PromptUserToSaveOrUpdatePasswordPtr).Times(0);
-
-  // Simulate multiple submissions.
-  for (size_t i = 0; i < 2; i++) {
-    PasswordForm form(MakeSimpleForm());
-    manager()->OnPasswordFormsParsed(&driver_, {form.form_data});
-    manager()->OnInformAboutUserInput(&driver_, form.form_data);
-
-    manager()->DidNavigateMainFrame(true /* form_may_be_submitted */);
-    manager()->OnPasswordFormsRendered(&driver_, {} /* observed */);
-  }
-}
-
-// Password Manager may store a pending credential that will cause a prompt when
-// Autofill Assistant has already handled the submission. This test ensures that
-// Password Manager forgots the pending credential and doesn't prompt to update
-// the password later (e.g., after navigation).
-TEST_P(PasswordManagerTest,
-       NoPromptAfterAutofillAssistantManuallyCuratedScript) {
-  for (bool set_owned_form_manager : {false, true}) {
-    SCOPED_TRACE(testing::Message("set_owned_form_manager = ")
-                 << set_owned_form_manager);
-
-    EXPECT_CALL(client_, IsSavingAndFillingEnabled)
-        .WillRepeatedly(Return(true));
-    EXPECT_CALL(client_, PromptUserToSaveOrUpdatePasswordPtr).Times(0);
-
-    // Make several forms ready for saving.
-    PasswordForm form1(MakeFormWithOnlyNewPasswordField());
-    PasswordForm form2(MakeSimpleForm());
-    manager()->OnPasswordFormsParsed(&driver_,
-                                     {form1.form_data, form2.form_data});
-    task_environment_.RunUntilIdle();
-    manager()->OnInformAboutUserInput(&driver_, form1.form_data);
-    manager()->OnInformAboutUserInput(&driver_, form2.form_data);
-
-    // Simulate submission in different ways depending on whether
-    // |owned_submitted_form_manager_| should be set and |form_managers_|should
-    // be cleared OR the submitted form manager should be in |form_managers_|.
-    if (set_owned_form_manager)
-      manager()->DidNavigateMainFrame(true /* form_may_be_submitted */);
-    else
-      OnPasswordFormSubmitted(form2.form_data);
-
-    // Test that Autofill Assistant has finished a script before Password
-    // Manager detected a successful submission. As a script has finished,
-    // pending credentials have reset.
-    manager()->ResetPendingCredentials();
-    manager()->OnPasswordFormsRendered(&driver_, {} /* observed */);
-    task_environment_.RunUntilIdle();
-
-    // No form manager is ready for saving.
-    EXPECT_FALSE(manager()->GetSubmittedManagerForTest());
-
-    Mock::VerifyAndClearExpectations(&client_);
-    EXPECT_CALL(client_, IsAutofillAssistantUIVisible).WillOnce(Return(false));
-
-    // A form reappears again and a user submits it manually. Now expect a
-    // prompt.
-    EXPECT_CALL(client_, PromptUserToSaveOrUpdatePasswordPtr);
-    EXPECT_CALL(client_, IsSavingAndFillingEnabled)
-        .WillRepeatedly(Return(true));
-
-    manager()->OnPasswordFormsParsed(&driver_, {form2.form_data});
-    task_environment_.RunUntilIdle();
-
-    OnPasswordFormSubmitted(form2.form_data);
-    manager()->OnPasswordFormsRendered(&driver_, {} /* observed */);
-    Mock::VerifyAndClearExpectations(&client_);
-  }
-}
-
 TEST_P(PasswordManagerTest, GenerationOnChangedForm) {
   EXPECT_CALL(client_, IsSavingAndFillingEnabled(_))
       .WillRepeatedly(Return(true));
@@ -3947,7 +3878,7 @@ TEST_P(PasswordManagerTest, SubmissionDetectedOnClearedForm) {
   // Create FormData for a form with 1 password field and process it.
   FormData form_data;
   form_data.unique_renderer_id = FormRendererId(0);
-  form_data.url = GURL("http://www.google.com/a/LoginAuth");
+  form_data.url = test_form_url_;
 
   FormFieldData old_password_field;
   old_password_field.form_control_type = "password";
@@ -4001,7 +3932,7 @@ TEST_P(PasswordManagerTest, SubmissionDetectedOnClearedNamelessForm) {
 
   FormData form_data;
   form_data.unique_renderer_id = FormRendererId(0);
-  form_data.url = GURL("http://www.google.com/a/LoginAuth");
+  form_data.url = test_form_url_;
 
   FormFieldData old_password_field;
   old_password_field.form_control_type = "password";
@@ -4047,7 +3978,7 @@ TEST_P(PasswordManagerTest, SubmissionDetectedOnClearedFormlessFields) {
     FormData form_data;
     form_data.is_form_tag = false;
     form_data.unique_renderer_id = FormRendererId(0);
-    form_data.url = GURL("http://www.google.com/a/LoginAuth");
+    form_data.url = test_form_url_;
 
     FormFieldData old_password_field;
     old_password_field.form_control_type = "password";
@@ -4112,7 +4043,7 @@ TEST_P(PasswordManagerTest, SubmissionDetectedOnClearedNameAndFormlessFields) {
     FormData form_data;
     form_data.is_form_tag = false;
     form_data.unique_renderer_id = FormRendererId(0);
-    form_data.url = GURL("http://www.google.com/a/LoginAuth");
+    form_data.url = test_form_url_;
 
     FormFieldData old_password_field;
     old_password_field.form_control_type = "password";

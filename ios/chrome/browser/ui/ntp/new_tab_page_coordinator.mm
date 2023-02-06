@@ -18,6 +18,7 @@
 #import "components/search_engines/default_search_manager.h"
 #import "components/search_engines/template_url.h"
 #import "components/search_engines/template_url_service.h"
+#import "components/signin/public/base/signin_metrics.h"
 #import "components/signin/public/identity_manager/objc/identity_manager_observer_bridge.h"
 #import "ios/chrome/app/application_delegate/app_state.h"
 #import "ios/chrome/app/tests_hook.h"
@@ -46,6 +47,7 @@
 #import "ios/chrome/browser/ui/commands/lens_commands.h"
 #import "ios/chrome/browser/ui/commands/omnibox_commands.h"
 #import "ios/chrome/browser/ui/commands/open_new_tab_command.h"
+#import "ios/chrome/browser/ui/commands/show_signin_command.h"
 #import "ios/chrome/browser/ui/commands/snackbar_commands.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_coordinator.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_feature.h"
@@ -67,6 +69,8 @@
 #import "ios/chrome/browser/ui/ntp/feed_management/feed_management_coordinator.h"
 #import "ios/chrome/browser/ui/ntp/feed_management/feed_management_navigation_delegate.h"
 #import "ios/chrome/browser/ui/ntp/feed_menu_commands.h"
+#import "ios/chrome/browser/ui/ntp/feed_promos/feed_sign_in_promo_coordinator.h"
+#import "ios/chrome/browser/ui/ntp/feed_sign_in_promo_delegate.h"
 #import "ios/chrome/browser/ui/ntp/feed_top_section/feed_top_section_coordinator.h"
 #import "ios/chrome/browser/ui/ntp/feed_wrapper_view_controller.h"
 #import "ios/chrome/browser/ui/ntp/incognito_view_controller.h"
@@ -81,8 +85,8 @@
 #import "ios/chrome/browser/ui/settings/utils/pref_backed_boolean.h"
 #import "ios/chrome/browser/ui/ui_feature_flags.h"
 #import "ios/chrome/browser/ui/util/named_guide.h"
+#import "ios/chrome/browser/ui/util/util_swift.h"
 #import "ios/chrome/browser/url_loading/url_loading_browser_agent.h"
-#import "ios/chrome/browser/voice/voice_search_availability.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/public/provider/chrome/browser/ui_utils/ui_utils_api.h"
@@ -96,13 +100,6 @@
 #error "This file requires ARC support."
 #endif
 
-namespace {
-// Flag to enable the checking of new content for the Follow Feed.
-BASE_FEATURE(kEnableCheckForNewFollowContent,
-             "EnableCheckForNewFollowContent",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-}  // namespace
-
 @interface NewTabPageCoordinator () <AppStateObserver,
                                      BooleanObserver,
                                      ContentSuggestionsHeaderCommands,
@@ -112,6 +109,7 @@ BASE_FEATURE(kEnableCheckForNewFollowContent,
                                      FeedDelegate,
                                      FeedManagementNavigationDelegate,
                                      FeedMenuCommands,
+                                     FeedSignInPromoDelegate,
                                      FeedWrapperViewControllerDelegate,
                                      IdentityManagerObserverBridgeDelegate,
                                      NewTabPageContentDelegate,
@@ -120,9 +118,6 @@ BASE_FEATURE(kEnableCheckForNewFollowContent,
                                      OverscrollActionsControllerDelegate,
                                      PrefObserverDelegate,
                                      SceneStateObserver> {
-  // Helper object managing the availability of the voice search feature.
-  VoiceSearchAvailability _voiceSearchAvailability;
-
   // Pref observer to track changes to prefs.
   std::unique_ptr<PrefObserverBridge> _prefObserverBridge;
   // Registrar for pref changes notifications.
@@ -194,6 +189,10 @@ BASE_FEATURE(kEnableCheckForNewFollowContent,
 // The Coordinator to display previews for Discover feed websites. It also
 // handles the actions related to them.
 @property(nonatomic, strong) LinkPreviewCoordinator* linkPreviewCoordinator;
+
+// The Coordinator to display Sign In promo UI.
+@property(nonatomic, strong)
+    FeedSignInPromoCoordinator* feedSignInPromoCoordinator;
 
 // The view controller representing the NTP feed header.
 @property(nonatomic, strong) FeedHeaderViewController* feedHeaderViewController;
@@ -321,7 +320,16 @@ BASE_FEATURE(kEnableCheckForNewFollowContent,
   self.feedHeaderViewController.ntpDelegate = nil;
   self.feedHeaderViewController = nil;
   self.feedTopSectionCoordinator.ntpDelegate = nil;
+  [self.feedTopSectionCoordinator stop];
   self.feedTopSectionCoordinator = nil;
+
+  if (self.feedSignInPromoCoordinator) {
+    [self.feedSignInPromoCoordinator stop];
+    self.feedSignInPromoCoordinator = nil;
+  }
+
+  [self.linkPreviewCoordinator stop];
+  self.linkPreviewCoordinator = nil;
 
   self.alertCoordinator = nil;
   self.authService = nil;
@@ -404,16 +412,14 @@ BASE_FEATURE(kEnableCheckForNewFollowContent,
   if (self.browser->GetBrowserState()->IsOffTheRecord()) {
     return;
   }
-  NamedGuide* menuButtonGuide =
-      [NamedGuide guideWithName:kDiscoverFeedHeaderMenuGuide
-                           view:self.feedHeaderViewController.menuButton];
-
-  menuButtonGuide.constrainedView = self.feedHeaderViewController.menuButton;
+  [LayoutGuideCenterForBrowser(self.browser)
+      referenceView:self.feedHeaderViewController.menuButton
+          underName:kDiscoverFeedHeaderMenuGuide];
 }
 
 - (void)updateFollowingFeedHasUnseenContent:(BOOL)hasUnseenContent {
   if (![self isFollowingFeedAvailable] ||
-      !base::FeatureList::IsEnabled(kEnableCheckForNewFollowContent)) {
+      !IsDotEnabledForNewFollowedContent()) {
     return;
   }
   if ([self doesFollowingFeedHaveContent]) {
@@ -546,18 +552,17 @@ BASE_FEATURE(kEnableCheckForNewFollowContent,
 - (void)initializeNTPComponents {
   self.ntpViewController = [[NewTabPageViewController alloc] init];
   self.ntpMediator = [[NTPHomeMediator alloc]
-             initWithWebState:self.webState
-           templateURLService:self.templateURLService
-                    URLLoader:UrlLoadingBrowserAgent::FromBrowser(self.browser)
-                  authService:self.authService
-              identityManager:IdentityManagerFactory::GetForBrowserState(
-                                  self.browser->GetBrowserState())
-        accountManagerService:ChromeAccountManagerServiceFactory::
-                                  GetForBrowserState(
-                                      self.browser->GetBrowserState())
-                   logoVendor:ios::provider::CreateLogoVendor(self.browser,
-                                                              self.webState)
-      voiceSearchAvailability:&_voiceSearchAvailability];
+           initWithWebState:self.webState
+         templateURLService:self.templateURLService
+                  URLLoader:UrlLoadingBrowserAgent::FromBrowser(self.browser)
+                authService:self.authService
+            identityManager:IdentityManagerFactory::GetForBrowserState(
+                                self.browser->GetBrowserState())
+      accountManagerService:ChromeAccountManagerServiceFactory::
+                                GetForBrowserState(
+                                    self.browser->GetBrowserState())
+                 logoVendor:ios::provider::CreateLogoVendor(self.browser,
+                                                            self.webState)];
   self.headerController = [[ContentSuggestionsHeaderViewController alloc] init];
   self.headerSynchronizer = [[ContentSuggestionsHeaderSynchronizer alloc]
       initWithCollectionController:self.ntpViewController
@@ -578,10 +583,6 @@ BASE_FEATURE(kEnableCheckForNewFollowContent,
   self.ntpViewController.feedHeaderViewController =
       self.feedHeaderViewController;
 
-  if ([self isFeedTopSectionVisible]) {
-    self.feedTopSectionCoordinator = [self createFeedTopSectionCoordinator];
-  }
-
   // Requests feeds here if the correct flags and prefs are enabled.
   if ([self shouldFeedBeVisible]) {
     if ([self isFollowingFeedAvailable]) {
@@ -596,6 +597,12 @@ BASE_FEATURE(kEnableCheckForNewFollowContent,
     } else {
       self.feedViewController = [self discoverFeed];
     }
+  }
+
+  // Feed top section visibility is based on feed visibility, so this should
+  // always be below the block that sets `feedViewController`.
+  if ([self isFeedTopSectionVisible]) {
+    self.feedTopSectionCoordinator = [self createFeedTopSectionCoordinator];
   }
 }
 
@@ -744,13 +751,18 @@ BASE_FEATURE(kEnableCheckForNewFollowContent,
   [self.alertCoordinator stop];
   self.alertCoordinator = nil;
 
+  // This button is in a container view that itself is in FeedHeaderVC's main
+  // view. In order to anchor the alert view correctly, we need to provide the
+  // button's frame as well as its superview which is the coordinate system
+  // for the frame.
+  UIButton* menuButton = self.feedHeaderViewController.menuButton;
   self.alertCoordinator = [[ActionSheetCoordinator alloc]
       initWithBaseViewController:self.ntpViewController
                          browser:self.browser
                            title:nil
                          message:nil
-                            rect:self.feedHeaderViewController.menuButton.frame
-                            view:self.feedHeaderViewController.view];
+                            rect:menuButton.frame
+                            view:menuButton.superview];
   __weak NewTabPageCoordinator* weakSelf = self;
 
   // Item for toggling the feed on/off.
@@ -817,7 +829,7 @@ BASE_FEATURE(kEnableCheckForNewFollowContent,
 
 - (UIViewController*)discoverFeedPreviewWithURL:(const GURL)URL {
   std::string referrerURL = base::GetFieldTrialParamValueByFeature(
-      kEnableDiscoverFeedPreview, kDiscoverReferrerParameter);
+      kOverrideFeedSettings, kFeedSettingDiscoverReferrerParameter);
   if (referrerURL.empty()) {
     referrerURL = kDefaultDiscoverReferrer;
   }
@@ -871,7 +883,7 @@ BASE_FEATURE(kEnableCheckForNewFollowContent,
   // Saves scroll position before changing feed.
   CGFloat scrollPosition = [self.ntpViewController scrollPosition];
 
-  if (feedType == FeedTypeFollowing) {
+  if (feedType == FeedTypeFollowing && IsDotEnabledForNewFollowedContent()) {
     // Clears dot and notifies service that the Following feed content has
     // been seen.
     [self.feedHeaderViewController
@@ -953,6 +965,29 @@ BASE_FEATURE(kEnableCheckForNewFollowContent,
   [self.ntpMediator handleVisitSiteFromFollowManagementList:url];
 }
 
+#pragma mark - FeedSignInPromoDelegate
+
+- (void)showSignInPromoUI {
+  // Show a sign-in promo half sheet.
+  self.feedSignInPromoCoordinator = [[FeedSignInPromoCoordinator alloc]
+      initWithBaseViewController:self.ntpViewController
+                         browser:self.browser];
+  [self.feedSignInPromoCoordinator start];
+}
+
+- (void)showSignInUI {
+  // Show sign-in and sync page.
+  const signin_metrics::AccessPoint access_point =
+      signin_metrics::AccessPoint::ACCESS_POINT_NTP_FEED_BOTTOM_PROMO;
+  id<ApplicationCommands> handler = HandlerForProtocol(
+      self.browser->GetCommandDispatcher(), ApplicationCommands);
+  ShowSigninCommand* command = [[ShowSigninCommand alloc]
+      initWithOperation:AuthenticationOperationSigninAndSync
+            accessPoint:access_point];
+  signin_metrics::RecordSigninUserActionForAccessPoint(access_point);
+  [handler showSignin:command baseViewController:self.ntpViewController];
+}
+
 #pragma mark - FeedWrapperViewControllerDelegate
 
 - (void)updateTheme {
@@ -969,7 +1004,8 @@ BASE_FEATURE(kEnableCheckForNewFollowContent,
 }
 
 - (BOOL)isContentHeaderSticky {
-  return [self isFollowingFeedAvailable] && [self isFeedHeaderVisible];
+  return [self isFollowingFeedAvailable] && [self isFeedHeaderVisible] &&
+         !IsStickyHeaderDisabledForFollowingFeed();
 }
 
 - (void)signinPromoHasChangedVisibility:(BOOL)visible {
@@ -1330,7 +1366,7 @@ BASE_FEATURE(kEnableCheckForNewFollowContent,
 // TODO(crbug.com/1331010): The feed top section may include content that is not
 // the signin promo, which may need to be visible when the user is signed in.
 - (BOOL)isFeedTopSectionVisible {
-  return IsDiscoverFeedTopSyncPromoEnabled() && [self shouldFeedBeVisible] &&
+  return IsDiscoverFeedTopSyncPromoEnabled() && [self isFeedVisible] &&
          self.authService &&
          !self.authService->HasPrimaryIdentity(signin::ConsentLevel::kSignin);
 }
@@ -1374,6 +1410,7 @@ BASE_FEATURE(kEnableCheckForNewFollowContent,
   viewControllerConfig.browser = self.browser;
   viewControllerConfig.scrollDelegate = self.ntpViewController;
   viewControllerConfig.previewDelegate = self;
+  viewControllerConfig.signInPromoDelegate = self;
 
   return viewControllerConfig;
 }
@@ -1457,8 +1494,7 @@ BASE_FEATURE(kEnableCheckForNewFollowContent,
   DCHECK(!self.browser->GetBrowserState()->IsOffTheRecord());
   if (!_feedHeaderViewController) {
     BOOL followingSegmentDotVisible = NO;
-    if (base::FeatureList::IsEnabled(kEnableCheckForNewFollowContent) &&
-        IsWebChannelsEnabled()) {
+    if (IsDotEnabledForNewFollowedContent() && IsWebChannelsEnabled()) {
       // Only show the dot if the user follows available publishers.
       followingSegmentDotVisible =
           [self doesFollowingFeedHaveContent] &&

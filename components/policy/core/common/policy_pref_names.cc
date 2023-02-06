@@ -80,11 +80,6 @@ const char kIntensiveWakeUpThrottlingEnabled[] =
     "policy.intensive_wake_up_throttling_enabled";
 
 // Boolean policy preference for force enabling or disabling the
-// SetTimeoutWithoutClamp web feature.
-const char kSetTimeoutWithout1MsClampEnabled[] =
-    "policy.set_timeout_without_1ms_clamp";
-
-// Boolean policy preference for force enabling or disabling the
 // MaxUnthrottledTimeoutNestingLevel web feature.
 const char kUnthrottledNestedTimeoutEnabled[] =
     "policy.unthrottled_nested_timeout";
@@ -130,6 +125,16 @@ const char kOffsetParentNewSpecBehaviorEnabled[] =
 // disabled form controls is in effect.
 const char kSendMouseEventsDisabledFormControlsEnabled[] =
     "policy.send_mouse_events_disabled_form_controls_enabled";
+
+// If true the feature UseMojoVideoDecoderForPepper will be allowed, otherwise
+// feature will be forced off.
+const char kUseMojoVideoDecoderForPepperAllowed[] =
+    "policy.use_mojo_video_decoder_for_pepper_allowed";
+
+// If true the feature PPAPISharedImagesSwapChain will be allowed, otherwise
+// feature will be forced off.
+const char kPPAPISharedImagesSwapChainAllowed[] =
+    "policy.ppapi_shared_images_swap_chain_allowed";
 
 }  // namespace policy_prefs
 }  // namespace policy

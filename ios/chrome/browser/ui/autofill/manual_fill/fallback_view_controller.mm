@@ -29,12 +29,13 @@ namespace {
 // This is the width used for `self.preferredContentSize`.
 constexpr CGFloat PopoverPreferredWidth = 320;
 
-// This is the maximum height used for `self.preferredContentSize`.
-constexpr CGFloat PopoverMaxHeight = 360;
-
 // This is the height used for `self.preferredContentSize` when showing the
 // loading indicator on iPad.
 constexpr CGFloat PopoverLoadingHeight = 185.5;
+
+// Minimum and maximum heights permitted for `self.preferredContentSize`.
+constexpr CGFloat PopoverMinHeight = 160;
+constexpr CGFloat PopoverMaxHeight = 360;
 
 // If the loading indicator was shown, it will be on screen for at least this
 // amount of seconds.
@@ -95,12 +96,24 @@ constexpr CGFloat kSectionFooterHeight = 8;
   self.tableView.allowsSelection = NO;
   self.definesPresentationContext = YES;
   if (!self.tableViewModel) {
-    if (self.popoverPresentationController) {
+    if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
       self.preferredContentSize = CGSizeMake(
           PopoverPreferredWidth, AlignValueToPixel(PopoverLoadingHeight));
     }
     [self startLoadingIndicatorWithLoadingMessage:@""];
     self.loadingIndicatorStartingDate = [NSDate date];
+  }
+}
+
+- (void)viewDidLayoutSubviews {
+  [super viewDidLayoutSubviews];
+  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
+    CGSize systemLayoutSize = self.tableView.contentSize;
+    CGFloat preferredHeight =
+        std::min(systemLayoutSize.height, PopoverMaxHeight);
+    preferredHeight = std::max(preferredHeight, PopoverMinHeight);
+    self.preferredContentSize =
+        CGSizeMake(PopoverPreferredWidth, preferredHeight);
   }
 }
 
@@ -262,15 +275,6 @@ constexpr CGFloat kSectionFooterHeight = 8;
     }
   }
   [self.tableView reloadData];
-  if (self.popoverPresentationController) {
-    // Update the preffered content size on iPad so the popover shows the right
-    // size.
-    [self.tableView layoutIfNeeded];
-    CGSize systemLayoutSize = self.tableView.contentSize;
-    CGFloat preferredHeight = MIN(systemLayoutSize.height, PopoverMaxHeight);
-    self.preferredContentSize =
-        CGSizeMake(PopoverPreferredWidth, preferredHeight);
-  }
 }
 
 @end

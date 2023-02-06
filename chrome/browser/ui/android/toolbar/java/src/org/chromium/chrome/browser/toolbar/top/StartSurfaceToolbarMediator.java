@@ -34,7 +34,6 @@ import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
 import org.chromium.base.CallbackController;
-import org.chromium.base.supplier.BooleanSupplier;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.logo.LogoCoordinator;
@@ -57,6 +56,8 @@ import org.chromium.components.browser_ui.widget.animation.Interpolators;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelAnimatorFactory;
+
+import java.util.function.BooleanSupplier;
 
 /** The mediator implements interacts between the views and the caller. */
 class StartSurfaceToolbarMediator implements ButtonDataProvider.ButtonDataObserver {
@@ -219,7 +220,7 @@ class StartSurfaceToolbarMediator implements ButtonDataProvider.ButtonDataObserv
 
     /** Returns whether it's on a normal tab. */
     private boolean isOnATab() {
-        return mIsRefactorEnabled ? mLayoutType == LayoutType.BROWSING
+        return mIsRefactorEnabled ? (!isOnHomepage() && !isOnGridTabSwitcher())
                                   : mStartSurfaceState == StartSurfaceState.NOT_SHOWN;
     }
 
@@ -330,7 +331,7 @@ class StartSurfaceToolbarMediator implements ButtonDataProvider.ButtonDataObserv
 
         mLogoCoordinator = new LogoCoordinator(mContext, mLogoClickedCallback, logoView,
                 mShouldFetchDoodle, /*onLogoAvailableCallback=*/null,
-                /*onCachedLogoRevalidatedRunnable=*/null, isOnHomepage());
+                /*onCachedLogoRevalidatedRunnable=*/null, isOnHomepage(), null);
 
         // The logo view may be ready after native is initialized, so we need to call
         // mLogoCoordinator.initWithNative() here in case that initLogoNative() skip it.
@@ -385,7 +386,7 @@ class StartSurfaceToolbarMediator implements ButtonDataProvider.ButtonDataObserv
     private void updateLogoVisibility() {
         if (mLogoCoordinator == null) return;
 
-        mLogoCoordinator.maybeLoadSearchProviderLogo(isOnHomepage(),
+        mLogoCoordinator.updateVisibilityAndMaybeCleanUp(isOnHomepage(),
                 isOnATab() || isOnGridTabSwitcher()
                         || mStartSurfaceState == StartSurfaceState.DISABLED,
                 /*animationEnabled*/ false);

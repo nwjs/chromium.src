@@ -494,8 +494,7 @@
   },
   "fileSystemProvider": [{
     "dependencies": ["permission:fileSystemProvider"],
-    "contexts": ["blessed_extension"],
-    "disallow_for_service_workers": true
+    "contexts": ["blessed_extension"]
   }, {
     "channel": "stable",
     "contexts": ["webui_untrusted"],
@@ -507,8 +506,7 @@
   "fileSystemProviderInternal": [{
     "internal": true,
     "dependencies": ["permission:fileSystemProvider"],
-    "contexts": ["blessed_extension"],
-    "disallow_for_service_workers": true
+    "contexts": ["blessed_extension"]
   }, {
     "internal": true,
     "channel": "stable",

@@ -73,12 +73,6 @@ struct Config {
 
   // The `kJourneysLabels` feature and child params.
 
-  // Whether to assign labels to clusters. If the label exists, it will be shown
-  // in the UI. If the label doesn't exist, the UI will emphasize the top visit.
-  // Note: The default value here is meaningless, because the actual default
-  // value is derived from the base::Feature.
-  bool should_label_clusters = true;
-
   // Whether to assign labels to clusters from the hostnames of the cluster.
   // Does nothing if `should_label_clusters` is false. Note that since every
   // cluster has a hostname, this flag in conjunction with
@@ -88,6 +82,8 @@ struct Config {
   // Whether to assign labels to clusters from the Entities of the cluster.
   // Does nothing if `should_label_clusters` is false.
   bool labels_from_entities = false;
+
+  // The `kJourneysImages` feature and child params.
 
   // Whether to attempt to provide images for eligible Journeys (so far just
   // a proof of concept implementation for Entities only).
@@ -110,6 +106,16 @@ struct Config {
   // often to update clusters in minutes. E.g., by default, will update clusters
   // every hour.
   int persist_clusters_in_history_db_period_minutes = 60;
+
+  // No effect if `persist_clusters_in_history_db` is disabled. If disabled,
+  // persistence occurs on a timer (see the above 2 params). If enabled, will
+  // instead occur on query like refreshing the keyword cache does. This may
+  // help bound the number of persistence requests. If enabled, will continue to
+  // also be capped to at most 1 request per
+  // `persist_clusters_in_history_db_period_minutes`, but
+  // `persist_clusters_in_history_db_after_startup_delay_minutes` will be
+  // unused.
+  bool persist_on_query = false;
 
   // Hard cap on max clusters to fetch after exhausting unclustered visits and
   // fetching persisted clusters for the get most recent flow. Doesn't affect
@@ -159,8 +165,9 @@ struct Config {
   // `omnibox_action` is disabled.
   bool omnibox_action_on_navigation_intents = false;
 
-  // If enabled, allowed the acting chip to appear on search entity suggestions.
-  bool omnibox_action_on_entities = false;
+  // If enabled, allowed the action chip to appear on search entity suggestions.
+  // TODO(crbug.com/1394812): Clean this flag up beyond M110.
+  bool omnibox_action_on_entities = true;
 
   // The `kOmniboxHistoryClusterProvider` feature and child params.
 
@@ -183,6 +190,20 @@ struct Config {
   // aren't too many strong navigation matches.
   int omnibox_history_cluster_provider_score = 900;
 
+  // If enabled, will inherit the score from the matched search suggestion. This
+  // tries to emulate the ranking of chips, though remains slightly more
+  // conservative in that chips will be shown if the match query is at least the
+  // 8th top scored suggestion, while rows will be shown if the matched query is
+  // at least the 7th top scored suggestion. If enabled,
+  // `omnibox_history_cluster_provider_score` becomes a no-op.
+  bool omnibox_history_cluster_provider_inherit_search_match_score = false;
+
+  // If enabled, ranks the suggestion row below the default suggestion, but
+  // above the searches. Though whether it appears or not will depend on scores.
+  // Otherwise, ranks the suggestion among the search group; the exact position
+  // will depend on scores.
+  bool omnibox_history_cluster_provider_rank_above_searches = false;
+
   // Whether Journey suggestions from the `HistoryClusterProvider` can be
   // surfaced from the shortcuts' provider. They will be scored according to the
   // shortcuts' provider's scoring, which is more aggressive than the default
@@ -196,6 +217,10 @@ struct Config {
   // `omnibox_history_cluster_provider` is disabled.
   bool omnibox_history_cluster_provider_shortcuts = false;
 
+  // Whether journey suggestions from the `ShortcutsProvider` can be default.
+  // Journey suggestions from the `HistoryClusterProvider` can never be default.
+  bool omnibox_history_cluster_provider_allow_default = false;
+
   // If `omnibox_history_cluster_provider_on_navigation_intents` is false, this
   // threshold helps determine when the user is intending to perform a
   // navigation. Meaningless if either `omnibox_history_cluster_provider` is
@@ -207,10 +232,6 @@ struct Config {
   // is intending to perform a navigation. Meaningless if
   // `omnibox_history_cluster_provider` is disabled.
   bool omnibox_history_cluster_provider_on_navigation_intents = false;
-
-  // If enabled, allows the suggestion row to be ranked in any position;
-  // otherwise, always ranked last.
-  bool omnibox_history_cluster_provider_free_ranking = false;
 
   // The `kOnDeviceClusteringKeywordFiltering` feature and child params.
 
@@ -226,9 +247,6 @@ struct Config {
   // cluster.
   bool keyword_filter_on_noisy_visits = false;
 
-  // If enabled, adds the search terms of the visits that have them.
-  bool keyword_filter_on_search_terms = true;
-
   // Maximum number of keywords to keep per cluster.
   size_t max_num_keywords_per_cluster = 20;
 
@@ -242,17 +260,6 @@ struct Config {
   // visit.
   int entity_relevance_threshold = 60;
 
-  // Whether to hide single-visit clusters on prominent UI surfaces.
-  bool should_hide_single_visit_clusters_on_prominent_ui_surfaces = true;
-
-  // Whether to hide clusters that only contain URLs from the same domain on
-  // prominent UI surfaces.
-  bool should_hide_single_domain_clusters_on_prominent_ui_surfaces = false;
-
-  // Whether to filter clusters that are noisy from the UI. This will
-  // heuristically remove clusters that are unlikely to be "interesting".
-  bool should_filter_noisy_clusters = true;
-
   // Returns the threshold used to determine if a cluster, and its visits, has
   // too high site engagement to be likely useful.
   float noisy_cluster_visits_engagement_threshold = 15.0;
@@ -261,6 +268,8 @@ struct Config {
   // to prevent the cluster from being filtered out (i.e., marked as not visible
   // on the zero state UI).
   size_t number_interesting_visits_filter_threshold = 1;
+
+  // The `kJourneysCategoryFiltering` feature and child params.
 
   // Whether to determine whether to show/hide clusters on prominent UI surfaces
   // based on categories annotated for a visit.
@@ -341,6 +350,15 @@ struct Config {
   // Returns the weight to use for visits that are search results pages ranking
   // visits within a cluster. Will always be greater than or equal to 0.
   float search_results_page_ranking_weight = 2.0;
+
+  // The `kHistoryClustersNavigationContextClustering` feature and child params.
+
+  // The duration between context clustering clean up passes.
+  base::TimeDelta context_clustering_clean_up_duration = base::Minutes(10);
+
+  // Whether to persist the context clusters as the visits are coming in at
+  // navigation time.
+  bool persist_context_clusters_at_navigation = false;
 
   // Lonely features without child params.
 

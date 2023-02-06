@@ -7,7 +7,7 @@
 #include <array>
 
 #include "base/feature_list.h"
-#include "base/threading/sequenced_task_runner_handle.h"
+#include "base/task/sequenced_task_runner.h"
 #include "components/segmentation_platform/internal/metadata/metadata_writer.h"
 #include "components/segmentation_platform/public/config.h"
 #include "components/segmentation_platform/public/constants.h"
@@ -181,6 +181,7 @@ std::unique_ptr<Config> PowerUserSegment::GetConfig() {
                        std::make_unique<PowerUserSegment>());
   config->segment_selection_ttl = base::Days(7);
   config->unknown_selection_ttl = base::Days(7);
+  config->is_boolean_segment = true;
 
   return config;
 }
@@ -213,7 +214,7 @@ void PowerUserSegment::InitAndFetchModel(
                         kPowerUserUMAFeatures.size());
 
   constexpr int kModelVersion = 1;
-  base::SequencedTaskRunnerHandle::Get()->PostTask(
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE,
       base::BindRepeating(model_updated_callback, kPowerUserSegmentId,
                           std::move(chrome_start_metadata), kModelVersion));
@@ -229,7 +230,7 @@ void PowerUserSegment::ExecuteModelWithInput(
     ExecutionCallback callback) {
   // Invalid inputs.
   if (inputs.size() != kPowerUserUMAFeatures.size()) {
-    base::SequencedTaskRunnerHandle::Get()->PostTask(
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, base::BindOnce(std::move(callback), absl::nullopt));
     return;
   }
@@ -274,7 +275,7 @@ void PowerUserSegment::ExecuteModelWithInput(
   }
 
   float result = RANK(segment);
-  base::SequencedTaskRunnerHandle::Get()->PostTask(
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE,
       base::BindOnce(std::move(callback), ModelProvider::Response(1, result)));
 }

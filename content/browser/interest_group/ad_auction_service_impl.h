@@ -12,10 +12,10 @@
 
 #include "base/containers/unique_ptr_adapters.h"
 #include "base/memory/raw_ptr.h"
-#include "base/memory/weak_ptr.h"
 #include "content/browser/fenced_frame/fenced_frame_url_mapping.h"
 #include "content/browser/interest_group/auction_runner.h"
 #include "content/browser/interest_group/auction_worklet_manager.h"
+#include "content/browser/interest_group/interest_group_auction_reporter.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/document_service.h"
@@ -93,6 +93,8 @@ class CONTENT_EXPORT AdAuctionServiceImpl final
   using DocumentService::render_frame_host;
 
  private:
+  using ReporterList = std::list<std::unique_ptr<InterestGroupAuctionReporter>>;
+
   // `render_frame_host` must not be null, and DocumentService guarantees
   // `this` will not outlive the `render_frame_host`.
   AdAuctionServiceImpl(
@@ -120,18 +122,41 @@ class CONTENT_EXPORT AdAuctionServiceImpl final
       GURL urn_uuid,
       AuctionRunner* auction,
       bool manually_aborted,
-      absl::optional<blink::InterestGroupKey> winning_group_id,
+      absl::optional<blink::InterestGroupKey> winning_group_key,
       absl::optional<GURL> render_url,
       std::vector<GURL> ad_component_urls,
-      std::vector<GURL> report_urls,
+      std::string winning_group_ad_metadata,
       std::vector<GURL> debug_loss_report_urls,
       std::vector<GURL> debug_win_report_urls,
-      ReportingMetadata ad_beacon_map,
       std::map<
           url::Origin,
           std::vector<auction_worklet::mojom::PrivateAggregationRequestPtr>>
           private_aggregation_requests,
-      std::vector<std::string> errors);
+      blink::InterestGroupSet interest_groups_that_bid,
+      base::flat_set<std::string> k_anon_keys_to_join,
+      std::vector<std::string> errors,
+      std::unique_ptr<InterestGroupAuctionReporter> reporter);
+
+  void OnReporterComplete(ReporterList::iterator reporter_it,
+                          RunAdAuctionCallback callback,
+                          GURL urn_uuid,
+                          blink::InterestGroupKey winning_group_key,
+                          GURL render_url,
+                          std::vector<GURL> ad_component_urls,
+                          std::string winning_group_ad_metadata,
+                          std::vector<GURL> debug_loss_report_urls,
+                          std::vector<GURL> debug_win_report_urls,
+                          blink::InterestGroupSet interest_groups_that_bid,
+                          base::flat_set<std::string> k_anon_keys_to_join);
+
+  // Calls LogWebFeatureForCurrentPage() for the frame to inform it of FLEDGE
+  // private aggregation API usage, if `private_aggregation_requests` is
+  // non-empty.
+  void MaybeLogPrivateAggregationFeature(
+      const std::map<
+          url::Origin,
+          std::vector<auction_worklet::mojom::PrivateAggregationRequestPtr>>&
+          private_aggregation_requests);
 
   InterestGroupManagerImpl& GetInterestGroupManager() const;
 
@@ -156,7 +181,10 @@ class CONTENT_EXPORT AdAuctionServiceImpl final
   // worklets it manages.
   AuctionWorkletManager auction_worklet_manager_;
 
-  std::set<std::unique_ptr<AuctionRunner>, base::UniquePtrComparator> auctions_;
+  // Use a map instead of a list so can remove entries without destroying them.
+  // TODO(mmenke): Switch to std::set() and use extract() once that's allowed.
+  std::map<AuctionRunner*, std::unique_ptr<AuctionRunner>> auctions_;
+  ReporterList reporters_;
 
   // Safe to keep as it will outlive the associated `RenderFrameHost` and
   // therefore `this`, being tied to the lifetime of the `StoragePartition`.

@@ -895,6 +895,9 @@ struct ClusterVisit {
   // as well as deleted when the whole cluster is deleted. This is computed in
   // the UI code, and should not be persisted.
   bool hidden = false;
+
+  // The URL of the representative image, which may be empty.
+  GURL image_url;
 };
 
 // Additional data for a cluster keyword.
@@ -1001,9 +1004,6 @@ struct Cluster {
   // The value of label with any leading or trailing quotation indicators
   // removed.
   absl::optional<std::u16string> raw_label;
-
-  // Where the label came from. Determines in which ways we can use `raw_label`.
-  LabelSource label_source = LabelSource::kUnknown;
 
   // The positions within the label that match the search query, if it exists.
   // This depends on the user's search query, and should not be persisted.

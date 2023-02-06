@@ -15,8 +15,6 @@
 #include "ash/app_list/app_list_model_provider.h"
 #include "ash/app_list/app_list_view_delegate.h"
 #include "ash/app_list/model/search/search_result.h"
-#include "ash/app_list/views/app_list_main_view.h"
-#include "ash/app_list/views/search_box_view.h"
 #include "ash/constants/ash_features.h"
 #include "ash/public/cpp/app_list/app_list_color_provider.h"
 #include "ash/public/cpp/app_list/app_list_config.h"
@@ -27,6 +25,7 @@
 #include "ash/public/cpp/ash_typography.h"
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "ash/strings/grit/ash_strings.h"
+#include "ash/style/ash_color_id.h"
 #include "base/bind.h"
 #include "base/dcheck_is_on.h"
 #include "base/time/time.h"
@@ -104,14 +103,12 @@ SearchResultListView::SearchResultListType CategoryToListType(
 }  // namespace
 
 SearchResultListView::SearchResultListView(
-    AppListMainView* main_view,
     AppListViewDelegate* view_delegate,
     SearchResultPageDialogController* dialog_controller,
     SearchResultView::SearchResultViewType search_result_view_type,
     bool animates_result_updates,
     absl::optional<size_t> productivity_launcher_index)
     : SearchResultContainerView(view_delegate),
-      main_view_(main_view),
       view_delegate_(view_delegate),
       animates_result_updates_(animates_result_updates),
       results_container_(new views::View),
@@ -123,6 +120,8 @@ SearchResultListView::SearchResultListView(
   title_label_ = AddChildView(std::make_unique<views::Label>(
       u"", CONTEXT_SEARCH_RESULT_CATEGORY_LABEL, STYLE_PRODUCTIVITY_LAUNCHER));
   title_label_->SetBackgroundColor(SK_ColorTRANSPARENT);
+  title_label_->SetAutoColorReadabilityEnabled(false);
+  title_label_->SetEnabledColorId(kColorAshTextColorSecondary);
   title_label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   title_label_->SetBorder(views::CreateEmptyBorder(gfx::Insets::TLBR(
       kPreferredTitleTopMargins, kPreferredTitleHorizontalMargins,
@@ -475,12 +474,6 @@ int SearchResultListView::GetHeightForWidth(int w) const {
   return results_container_->GetHeightForWidth(w);
 }
 
-void SearchResultListView::OnThemeChanged() {
-  SearchResultContainerView::OnThemeChanged();
-  title_label_->SetEnabledColor(
-      AppListColorProvider::Get()->GetSearchBoxSecondaryTextColor(GetWidget()));
-}
-
 void SearchResultListView::SearchResultActivated(SearchResultView* view,
                                                  int event_flags,
                                                  bool by_button_press) {
@@ -514,11 +507,6 @@ void SearchResultListView::SearchResultActionActivated(
         Update();
         break;
       }
-      case SearchResultActionType::kAppend:
-        main_view_->search_box_view()->UpdateQuery(view->result()->title());
-        break;
-      case SearchResultActionType::kSearchResultActionTypeMax:
-        NOTREACHED();
     }
   }
 }

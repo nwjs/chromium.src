@@ -493,7 +493,6 @@ class AppWindow : public content::WebContentsDelegate,
   bool OnMessageReceived(const IPC::Message& message,
                          content::RenderFrameHost* render_frame_host) override;
   void RenderFrameCreated(content::RenderFrameHost* frame_host) override;
-  void OnVisibilityChanged(content::Visibility visibility) override;
 
   // ExtensionFunctionDispatcher::Delegate implementation.
   WindowController* GetExtensionWindowController() const override;

@@ -105,6 +105,10 @@
     "META": {"sizes": {"includes": [20],}},
     "includes": [1260],
   },
+  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/feed_internals/resources.grd": {
+    "META": {"sizes": {"includes": [10],}},
+    "includes": [1270],
+  },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/app_service_internals/resources.grd": {
     "META": {"sizes": {"includes": [5],}},
     "includes": [1280],
@@ -126,7 +130,7 @@
     "includes": [1340],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/chromeos/cloud_upload/resources.grd": {
-    "META": {"sizes": {"includes": [5]}},
+    "META": {"sizes": {"includes": [30]}},
     "includes": [1345],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/chromeos/desk_api/resources.grd": {
@@ -338,12 +342,16 @@
     "META": {"sizes": {"includes": [50]}},
     "includes": [2150],
   },
+  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/omnibox_popup/resources.grd": {
+    "META": {"sizes": {"includes": [10]}},
+    "includes": [2160],
+  },
   # END chrome/browser section.
 
   # START chrome/ WebUI resources section
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/browsing_topics/resources.grd": {
     "META": {"sizes": {"includes": [10]}},
-    "includes": [2160],
+    "includes": [2170],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/bluetooth_internals/resources.grd": {
     "META": {"sizes": {"includes": [50],}},

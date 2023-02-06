@@ -564,15 +564,30 @@ ScriptPromise AudioContext::setSinkId(
     const V8UnionAudioSinkOptionsOrString* v8_sink_id,
     ExceptionState& exception_state) {
   DCHECK(IsMainThread());
+  TRACE_EVENT0("webaudio", "AudioContext::setSinkId");
+
+  // setSinkId invoked from a detached document should throw kInvalidStateError
+  // DOMException.
+  if (!GetExecutionContext()) {
+    return ScriptPromise::RejectWithDOMException(
+        script_state, MakeGarbageCollected<DOMException>(
+                          DOMExceptionCode::kInvalidStateError,
+                          "Cannot proceed setSinkId on a detached document."));
+  }
+
+  // setSinkId invoked from a closed AudioContext should throw
+  // kInvalidStateError DOMException.
+  if (ContextState() == kClosed) {
+    return ScriptPromise::RejectWithDOMException(
+        script_state,
+        MakeGarbageCollected<DOMException>(
+            DOMExceptionCode::kInvalidStateError,
+            "Cannot proceed setSinkId on a closed AudioContext."));
+  }
 
   SetSinkIdResolver* resolver =
       SetSinkIdResolver::Create(script_state, *this, *v8_sink_id);
   ScriptPromise promise = resolver->Promise();
-
-  if (ContextState() == kClosed) {
-    resolver->Reject();
-    return promise;
-  }
 
   set_sink_id_resolvers_.push_back(resolver);
 
@@ -1005,6 +1020,10 @@ void AudioContext::DevicesEnumerated(
   Vector<WebMediaDeviceInfo> output_devices =
       enumeration[static_cast<wtf_size_t>(
           mojom::blink::MediaDeviceType::MEDIA_AUDIO_OUTPUT)];
+
+  TRACE_EVENT1(
+      "webaudio", "AudioContext::DevicesEnumerated", "DeviceEnumeration",
+      audio_utilities::GetDeviceEnumerationForTracing(output_devices));
 
   OnDevicesChanged(mojom::blink::MediaDeviceType::MEDIA_AUDIO_OUTPUT,
                    output_devices);

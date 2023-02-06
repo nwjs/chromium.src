@@ -5,9 +5,12 @@
 #ifndef CHROME_BROWSER_APPS_APP_SERVICE_APP_ICON_APP_ICON_UTIL_H_
 #define CHROME_BROWSER_APPS_APP_SERVICE_APP_ICON_APP_ICON_UTIL_H_
 
-#include "base/files/file_path.h"
+#include <map>
+#include <vector>
 
-class Profile;
+#include "base/files/file_path.h"
+#include "components/services/app_service/public/cpp/icon_types.h"
+#include "ui/base/resource/resource_scale_factor.h"
 
 namespace apps {
 
@@ -61,10 +64,30 @@ inline IconEffects operator&=(IconEffects& a, uint32_t b) {
   return a;
 }
 
-// Constructs path to app icon for specific scale factor.
-base::FilePath GetIconPath(Profile* profile,
+// Constructs path to an app icon file for the given `app_id` and
+// `icon_size_in_px`.
+base::FilePath GetIconPath(const base::FilePath& base_path,
                            const std::string& app_id,
-                           int32_t icon_size_in_px);
+                           int32_t icon_size_in_px,
+                           bool is_maskable_icon);
+
+// Reads one single icon file for the given `app_id` and `icon_size_in_px`, and
+// returns the compressed icon. If there is a maskable icon file, reads the
+// maskable icon file. Otherwise, reads other icon file. If there is no
+// appropriate icon file, or failed reading the icon file, return nullptr.
+IconValuePtr ReadOnBackgroundThread(const base::FilePath& base_path,
+                                    const std::string& app_id,
+                                    int32_t icon_size_in_px);
+
+// Calls ReadOnBackgroundThread to read icon files for all scale factors for
+// the given `app_id` and `size_in_dip`, and returns the compressed icons for
+// all scale factors. The same as ReadOnBackgroundThread, reads the maskable
+// icon files as the higher priority, and if there is no appropriate icon file,
+// or failed reading the icon file, return nullptr for the scale factor.
+std::map<ui::ResourceScaleFactor, IconValuePtr> ReadIconFilesOnBackgroundThread(
+    const base::FilePath& base_path,
+    const std::string& app_id,
+    int32_t size_in_dip);
 
 }  // namespace apps
 

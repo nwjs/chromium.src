@@ -69,6 +69,7 @@ extern NSString* const kNewTabCircleActionSymbol;
 extern NSString* const kClipboardActionSymbol;
 extern NSString* const kDeleteActionSymbol;
 extern NSString* const kEditActionSymbol;
+extern NSString* const kMarkAsUnreadActionSymbol;
 extern NSString* const kMarkAsReadActionSymbol;
 extern NSString* const kReadLaterActionSymbol;
 extern NSString* const kAddBookmarkActionSymbol;
@@ -88,6 +89,7 @@ extern NSString* const kMicrophoneSymbol;
 extern NSString* const kEllipsisCircleFillSymbol;
 extern NSString* const kPinSymbol;
 extern NSString* const kPinFillSymbol;
+extern NSString* const kPinSlashSymbol;
 extern NSString* const kSettingsSymbol;
 extern NSString* const kSettingsFilledSymbol;
 extern NSString* const kShareSymbol;
@@ -100,7 +102,7 @@ extern NSString* const kSecureSymbol;
 extern NSString* const kWarningSymbol;
 extern NSString* const kWarningFillSymbol;
 extern NSString* const kHelpSymbol;
-extern NSString* const kCheckMarkCircleSymbol;
+extern NSString* const kCheckmarkCircleSymbol;
 extern NSString* const kCheckmarkCircleFillSymbol;
 extern NSString* const kErrorCircleFillSymbol;
 extern NSString* const kTrashSymbol;
@@ -124,6 +126,9 @@ extern NSString* const kOpenInDownloadsSymbol;
 extern NSString* const kOpenInDownloadsiOS14Symbol;
 extern NSString* const kExternalLinkSymbol;
 extern NSString* const kChevronForwardSymbol;
+extern NSString* const kGlobeAmericasSymbol;
+extern NSString* const kGlobeSymbol;
+extern NSString* const kPersonCropCircleSymbol;
 
 // Names of the default symbol being non-monochrome by default. When using them,
 // you probably want to set their color to monochrome.

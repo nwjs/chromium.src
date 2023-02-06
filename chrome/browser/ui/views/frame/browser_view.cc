@@ -41,6 +41,7 @@
 #include "base/containers/contains.h"
 #include "base/containers/flat_set.h"
 #include "base/feature_list.h"
+#include "base/functional/bind.h"
 #include "base/i18n/rtl.h"
 #include "base/location.h"
 #include "base/memory/raw_ptr.h"
@@ -52,7 +53,6 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
-#include "base/threading/thread_task_runner_handle.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
@@ -85,6 +85,7 @@
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_dialogs.h"
+#include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_navigator.h"
@@ -275,6 +276,7 @@
 #include "ui/views/views_features.h"
 #include "ui/views/widget/native_widget.h"
 #include "ui/views/widget/root_view.h"
+#include "ui/views/widget/sublevel_manager.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/window/dialog_delegate.h"
 
@@ -711,7 +713,7 @@ class BrowserView::AccessibilityModeObserver : public ui::AXModeObserver {
     // notifications are in progress, and |MaybeInitializeWebUITabStrip| can
     // destroy things synchronously.
     if (mode.has_mode(ui::AXMode::kScreenReader)) {
-      base::ThreadTaskRunnerHandle::Get()->PostTask(
+      base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
           FROM_HERE, base::BindOnce(&BrowserView::MaybeInitializeWebUITabStrip,
                                     browser_view_->GetAsWeakPtr()));
     }
@@ -904,6 +906,8 @@ BrowserView::BrowserView(std::unique_ptr<Browser> browser)
     SetCanMinimize(true);
   }
 
+  SetProperty(views::kElementIdentifierKey, kBrowserViewElementId);
+
   // Create user education resources.
   UserEducationService* const user_education_service =
       UserEducationServiceFactory::GetForProfile(GetProfile());
@@ -1050,7 +1054,7 @@ BrowserView::BrowserView(std::unique_ptr<Browser> browser)
   // startup.
   if (JumpList::Enabled()) {
     content::BrowserThread::PostBestEffortTask(
-        FROM_HERE, base::ThreadTaskRunnerHandle::Get(),
+        FROM_HERE, base::SingleThreadTaskRunner::GetCurrentDefault(),
         base::BindOnce(&BrowserView::CreateJumpList,
                        weak_ptr_factory_.GetWeakPtr()));
   }
@@ -1405,6 +1409,15 @@ float BrowserView::GetTopControlsSlideBehaviorShownRatio() const {
   return 1.f;
 }
 
+views::Widget* BrowserView::GetWidgetForAnchoring() {
+#if BUILDFLAG(IS_MAC)
+  if (UsesImmersiveFullscreenMode()) {
+    return IsFullscreen() ? overlay_widget_.get() : GetWidget();
+  }
+#endif
+  return GetWidget();
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // BrowserView, BrowserWindow implementation:
 
@@ -1453,8 +1466,7 @@ void BrowserView::Show() {
 }
 
 void BrowserView::ShowInactive() {
-  if (!frame_->IsVisible())
-    frame_->ShowInactive();
+  frame_->ShowInactive();
 }
 
 void BrowserView::Hide() {
@@ -2096,7 +2108,7 @@ void BrowserView::FullscreenStateChanging() {
 void BrowserView::FullscreenStateChanged() {
 #if BUILDFLAG(IS_MAC)
   if (!IsFullscreen() && restore_pre_fullscreen_bounds_callback_) {
-    base::ThreadTaskRunnerHandle::Get()->PostTask(
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, std::move(restore_pre_fullscreen_bounds_callback_));
   }
 
@@ -2435,9 +2447,11 @@ void BrowserView::UpdateIsIsolatedWebApp() {
           web_contents->GetPrimaryMainFrame()->GetBrowserContext(), url);
 }
 
-void BrowserView::ToggleWindowControlsOverlayEnabled() {
-  browser()->app_controller()->ToggleWindowControlsOverlayEnabled();
-  UpdateWindowControlsOverlayEnabled();
+void BrowserView::ToggleWindowControlsOverlayEnabled(base::OnceClosure done) {
+  browser()->app_controller()->ToggleWindowControlsOverlayEnabled(
+      base::BindOnce(&BrowserView::UpdateWindowControlsOverlayEnabled,
+                     weak_ptr_factory_.GetWeakPtr())
+          .Then(std::move(done)));
 }
 
 bool BrowserView::IsBorderlessModeEnabled() const {
@@ -3237,7 +3251,7 @@ bool BrowserView::CanActivate() const {
   // has to be done in a post task, otherwise if the user clicked on a window
   // that doesn't have the modal dialog the windows keep trying to get the focus
   // from each other on Windows. http://crbug.com/141650.
-  base::ThreadTaskRunnerHandle::Get()->PostTask(
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE, base::BindOnce(&BrowserView::ActivateAppModalDialog,
                                 weak_ptr_factory_.GetWeakPtr()));
   return false;
@@ -3736,6 +3750,15 @@ views::View* BrowserView::CreateMacOverlayView() {
   overlay_widget_->Init(std::move(params));
   overlay_widget_->SetNativeWindowProperty(kBrowserViewKey, this);
 
+  // Disable sublevel widget layering because in fullscreen the NSWindow of
+  // `overlay_widget_` is reparented to a AppKit-owned NSWindow that does not
+  // have an associated Widget. This will cause issues in sublevel manager
+  // which operates at the Widget level.
+  if (overlay_widget_->GetSublevelManager()) {
+    overlay_widget_->parent()->GetSublevelManager()->UntrackChildWidget(
+        overlay_widget_);
+  }
+
   // Create a new TopContainerOverlayView. The tab strip, omnibox, bookmarks
   // etc. will be contained within this view. Right clicking on the blank space
   // that is not taken up by the child views should show the context menu. Set
@@ -3946,7 +3969,7 @@ void BrowserView::RevealTabStripIfNeeded() {
       [](std::unique_ptr<ImmersiveRevealedLock>) {}, std::move(revealer));
   constexpr auto kDefaultDelay = base::Seconds(1);
   constexpr auto kZeroDelay = base::Seconds(0);
-  base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
       FROM_HERE, std::move(delete_revealer),
       g_disable_revealer_delay_for_testing ? kZeroDelay : kDefaultDelay);
 }
@@ -4061,6 +4084,13 @@ int BrowserView::NonClientHitTest(const gfx::Point& point) {
   // Widget (OverlayWidget). This means that BrowserView does not need to
   // consult BrowserViewLayout::NonClientHitTest() to calculate the hit test.
   if (IsImmersiveModeEnabled()) {
+    // Handle hits on the overlay widget when it is hovering overtop of the
+    // content view.
+    gfx::Point screen_point(point);
+    View::ConvertPointToScreen(this, &screen_point);
+    if (overlay_widget()->GetWindowBoundsInScreen().Contains(screen_point)) {
+      return HTNOWHERE;
+    }
     return views::ClientView::NonClientHitTest(point);
   }
 #endif  // BUILDFLAG(IS_MAC)
@@ -4229,10 +4259,9 @@ void BrowserView::AddedToWidget() {
   // TODO(https://crbug.com/1036519): Remove BrowserViewLayout dependence on
   // Widget and move to the constructor.
   SetLayoutManager(std::make_unique<BrowserViewLayout>(
-      std::make_unique<BrowserViewLayoutDelegateImpl>(this),
-      GetWidget()->GetNativeView(), this, top_container_,
-      tab_strip_region_view_, tabstrip_, toolbar_, infobar_container_,
-      contents_container_, side_search_side_panel_,
+      std::make_unique<BrowserViewLayoutDelegateImpl>(this), this,
+      top_container_, tab_strip_region_view_, tabstrip_, toolbar_,
+      infobar_container_, contents_container_, side_search_side_panel_,
       left_aligned_side_panel_separator_, unified_side_panel_,
       right_aligned_side_panel_separator_, lens_side_panel_,
       immersive_mode_controller_.get(), contents_separator_));

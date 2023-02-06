@@ -2,12 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "components/named_mojo_ipc_server/named_mojo_server_endpoint_connector_win.h"
-
 #include <string.h>
 #include <windows.h>
 
 #include <memory>
+#include <utility>
 
 #include "base/bind.h"
 #include "base/check.h"
@@ -16,20 +15,73 @@
 #include "base/process/process_handle.h"
 #include "base/sequence_checker.h"
 #include "base/synchronization/waitable_event.h"
+#include "base/synchronization/waitable_event_watcher.h"
 #include "base/task/current_thread.h"
+#include "base/task/sequenced_task_runner.h"
+#include "base/thread_annotations.h"
 #include "base/threading/sequence_bound.h"
-#include "base/threading/sequenced_task_runner_handle.h"
+#include "base/time/time.h"
+#include "base/timer/timer.h"
 #include "base/win/scoped_handle.h"
 #include "base/win/windows_types.h"
+#include "components/named_mojo_ipc_server/connection_info.h"
+#include "components/named_mojo_ipc_server/endpoint_options.h"
+#include "components/named_mojo_ipc_server/named_mojo_server_endpoint_connector.h"
+#include "mojo/public/cpp/platform/named_platform_channel.h"
 #include "mojo/public/cpp/platform/platform_channel_endpoint.h"
 #include "mojo/public/cpp/platform/platform_handle.h"
-#include "mojo/public/cpp/system/isolated_connection.h"
 
 namespace named_mojo_ipc_server {
+namespace {
+
+constexpr base::TimeDelta kRetryConnectionTimeout = base::Seconds(3);
+
+class NamedMojoServerEndpointConnectorWin final
+    : public NamedMojoServerEndpointConnector {
+ public:
+  explicit NamedMojoServerEndpointConnectorWin(
+      const EndpointOptions& options,
+      base::SequenceBound<Delegate> delegate);
+  NamedMojoServerEndpointConnectorWin(
+      const NamedMojoServerEndpointConnectorWin&) = delete;
+  NamedMojoServerEndpointConnectorWin& operator=(
+      const NamedMojoServerEndpointConnectorWin&) = delete;
+  ~NamedMojoServerEndpointConnectorWin() override;
+
+ private:
+  void OnConnectedEventSignaled(base::WaitableEvent* event);
+
+  void Connect();
+  void OnReady();
+  void OnError();
+
+  void ResetConnectionObjects();
+
+  // Overrides for NamedMojoServerEndpointConnector.
+  bool TryStart() override;
+
+  base::WaitableEventWatcher client_connection_watcher_
+      GUARDED_BY_CONTEXT(sequence_checker_);
+
+  // Non-null when there is a pending connection.
+  base::win::ScopedHandle pending_named_pipe_handle_
+      GUARDED_BY_CONTEXT(sequence_checker_);
+
+  // Signaled by ConnectNamedPipe() once |pending_named_pipe_handle_| is
+  // connected to a client.
+  base::WaitableEvent client_connected_event_
+      GUARDED_BY_CONTEXT(sequence_checker_);
+
+  // Object to allow ConnectNamedPipe() to run asynchronously.
+  OVERLAPPED connect_overlapped_ GUARDED_BY_CONTEXT(sequence_checker_);
+
+  base::OneShotTimer retry_connect_timer_;
+};
 
 NamedMojoServerEndpointConnectorWin::NamedMojoServerEndpointConnectorWin(
+    const EndpointOptions& options,
     base::SequenceBound<Delegate> delegate)
-    : delegate_(std::move(delegate)),
+    : NamedMojoServerEndpointConnector(options, std::move(delegate)),
       client_connected_event_(base::WaitableEvent::ResetPolicy::MANUAL,
                               base::WaitableEvent::InitialState::NOT_SIGNALED) {
   DCHECK(delegate_);
@@ -39,11 +91,23 @@ NamedMojoServerEndpointConnectorWin::~NamedMojoServerEndpointConnectorWin() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 }
 
-void NamedMojoServerEndpointConnectorWin::Connect(
-    mojo::PlatformChannelServerEndpoint server_endpoint) {
+void NamedMojoServerEndpointConnectorWin::Connect() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK(server_endpoint.is_valid());
   DCHECK(!pending_named_pipe_handle_.IsValid());
+
+  mojo::NamedPlatformChannel::Options options;
+  options.server_name = options_.server_name;
+  options.security_descriptor = options_.security_descriptor;
+  // Must be set to false to allow multiple clients to connect.
+  options.enforce_uniqueness = false;
+  mojo::PlatformChannelServerEndpoint server_endpoint =
+      mojo::NamedPlatformChannel(options).TakeServerEndpoint();
+  if (!server_endpoint.is_valid()) {
+    OnError();
+    return;
+  }
+
+  delegate_.AsyncCall(&Delegate::OnServerEndpointCreated);
 
   pending_named_pipe_handle_ =
       server_endpoint.TakePlatformHandle().TakeHandle();
@@ -72,7 +136,7 @@ void NamedMojoServerEndpointConnectorWin::Connect(
           base::BindOnce(
               &NamedMojoServerEndpointConnectorWin::OnConnectedEventSignaled,
               base::Unretained(this)),
-          base::SequencedTaskRunnerHandle::Get());
+          base::SequencedTaskRunner::GetCurrentDefault());
       return;
     default:
       PLOG(ERROR) << "Unexpected error: " << err;
@@ -92,12 +156,20 @@ void NamedMojoServerEndpointConnectorWin::OnConnectedEventSignaled(
 void NamedMojoServerEndpointConnectorWin::OnReady() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
-  base::ProcessId peer_pid;
+  auto info = std::make_unique<ConnectionInfo>();
   if (!GetNamedPipeClientProcessId(pending_named_pipe_handle_.Get(),
-                                   &peer_pid)) {
+                                   &info->pid)) {
     PLOG(ERROR) << "Failed to get peer PID";
     OnError();
     return;
+  }
+  absl::optional<base::win::ScopedHandle> impersonation_token;
+  if (ImpersonateNamedPipeClient(pending_named_pipe_handle_.Get())) {
+    HANDLE token = nullptr;
+    if (OpenThreadToken(GetCurrentThread(), TOKEN_ALL_ACCESS, TRUE, &token)) {
+      info->impersonation_token = base::win::ScopedHandle(token);
+    }
+    RevertToSelf();
   }
   mojo::PlatformChannelEndpoint endpoint(
       mojo::PlatformHandle(std::move(pending_named_pipe_handle_)));
@@ -107,26 +179,17 @@ void NamedMojoServerEndpointConnectorWin::OnReady() {
     return;
   }
   ResetConnectionObjects();
-  auto connection = std::make_unique<mojo::IsolatedConnection>();
-  auto message_pipe = connection->Connect(std::move(endpoint));
-  delegate_.AsyncCall(&Delegate::OnServerEndpointConnected)
-      .WithArgs(std::move(connection), std::move(message_pipe), peer_pid);
+  delegate_.AsyncCall(&Delegate::OnClientConnected)
+      .WithArgs(std::move(endpoint), std::move(info));
+  Connect();
 }
 
 void NamedMojoServerEndpointConnectorWin::OnError() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   ResetConnectionObjects();
-  delegate_.AsyncCall(&Delegate::OnServerEndpointConnectionFailed);
-}
-
-// static
-base::SequenceBound<NamedMojoServerEndpointConnector>
-NamedMojoServerEndpointConnector::Create(
-    base::SequenceBound<Delegate> delegate,
-    scoped_refptr<base::SequencedTaskRunner> io_sequence) {
-  return base::SequenceBound<NamedMojoServerEndpointConnectorWin>(
-      io_sequence, std::move(delegate));
+  retry_connect_timer_.Start(FROM_HERE, kRetryConnectionTimeout, this,
+                             &NamedMojoServerEndpointConnectorWin::Connect);
 }
 
 void NamedMojoServerEndpointConnectorWin::ResetConnectionObjects() {
@@ -135,6 +198,23 @@ void NamedMojoServerEndpointConnectorWin::ResetConnectionObjects() {
   client_connection_watcher_.StopWatching();
   client_connected_event_.Reset();
   pending_named_pipe_handle_.Close();
+}
+
+bool NamedMojoServerEndpointConnectorWin::TryStart() {
+  Connect();
+  return true;
+}
+
+}  // namespace
+
+// static
+base::SequenceBound<NamedMojoServerEndpointConnector>
+NamedMojoServerEndpointConnector::Create(
+    scoped_refptr<base::SequencedTaskRunner> io_sequence,
+    const EndpointOptions& options,
+    base::SequenceBound<Delegate> delegate) {
+  return base::SequenceBound<NamedMojoServerEndpointConnectorWin>(
+      io_sequence, options, std::move(delegate));
 }
 
 }  // namespace named_mojo_ipc_server

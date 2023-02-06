@@ -18,6 +18,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "base/threading/sequence_bound.h"
+#include "components/attribution_reporting/os_support.mojom.h"
 #include "components/attribution_reporting/source_registration_error.mojom-forward.h"
 #include "content/browser/aggregation_service/aggregation_service.h"
 #include "content/browser/aggregation_service/report_scheduler_timer.h"
@@ -29,20 +30,20 @@
 #include "content/public/browser/storage_partition.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
-#include "third_party/blink/public/mojom/conversions/attribution_reporting.mojom.h"
+
+namespace attribution_reporting {
+class SuitableOrigin;
+}  // namespace attribution_reporting
 
 namespace base {
 class FilePath;
 class TimeDelta;
+class UpdateableSequencedTaskRunner;
 }  // namespace base
 
 namespace storage {
 class SpecialStoragePolicy;
 }  // namespace storage
-
-namespace url {
-class Origin;
-}  // namespace url
 
 namespace content {
 
@@ -50,10 +51,10 @@ class AggregatableReport;
 class AggregatableReportRequest;
 class AttributionCookieChecker;
 class AttributionDataHostManager;
+class AttributionDebugReport;
 class AttributionStorage;
 class AttributionStorageDelegate;
 class CreateReportResult;
-class OsLevelAttributionManager;
 class StoragePartitionImpl;
 class StoredSource;
 
@@ -90,7 +91,7 @@ class CONTENT_EXPORT AttributionManagerImpl : public AttributionManager {
 
   class CONTENT_EXPORT ScopedOsSupportForTesting {
    public:
-    explicit ScopedOsSupportForTesting(blink::mojom::AttributionOsSupport);
+    explicit ScopedOsSupportForTesting(attribution_reporting::mojom::OsSupport);
     ~ScopedOsSupportForTesting();
 
     ScopedOsSupportForTesting(const ScopedOsSupportForTesting&) = delete;
@@ -101,7 +102,7 @@ class CONTENT_EXPORT AttributionManagerImpl : public AttributionManager {
     ScopedOsSupportForTesting& operator=(ScopedOsSupportForTesting&&) = delete;
 
    private:
-    const blink::mojom::AttributionOsSupport previous_;
+    const attribution_reporting::mojom::OsSupport previous_;
   };
 
   static std::unique_ptr<AttributionManagerImpl> CreateForTesting(
@@ -111,7 +112,8 @@ class CONTENT_EXPORT AttributionManagerImpl : public AttributionManager {
       std::unique_ptr<AttributionStorageDelegate> storage_delegate,
       std::unique_ptr<AttributionCookieChecker> cookie_checker,
       std::unique_ptr<AttributionReportSender> report_sender,
-      StoragePartitionImpl* storage_partition);
+      StoragePartitionImpl* storage_partition,
+      scoped_refptr<base::UpdateableSequencedTaskRunner> storage_task_runner);
 
   static std::unique_ptr<AttributionManagerImpl> CreateWithNewDbForTesting(
       StoragePartitionImpl* storage_partition,
@@ -120,7 +122,7 @@ class CONTENT_EXPORT AttributionManagerImpl : public AttributionManager {
 
   // Returns whether OS-level attribution is enabled. `kDisabled` is returned
   // before the result is returned from the underlying platform (e.g. Android).
-  static blink::mojom::AttributionOsSupport GetOsSupport() {
+  static attribution_reporting::mojom::OsSupport GetOsSupport() {
     return g_os_support_;
   }
 
@@ -138,7 +140,6 @@ class CONTENT_EXPORT AttributionManagerImpl : public AttributionManager {
   void AddObserver(AttributionObserver* observer) override;
   void RemoveObserver(AttributionObserver* observer) override;
   AttributionDataHostManager* GetDataHostManager() override;
-  OsLevelAttributionManager* GetOsLevelManager() override;
   void HandleSource(StorableSource source) override;
   void HandleTrigger(AttributionTrigger trigger) override;
   void GetActiveSourcesForWebUI(
@@ -158,18 +159,18 @@ class CONTENT_EXPORT AttributionManagerImpl : public AttributionManager {
                  base::OnceClosure done) override;
   void NotifyFailedSourceRegistration(
       const std::string& header_value,
-      const url::Origin& reporting_origin,
+      const attribution_reporting::SuitableOrigin& reporting_origin,
       attribution_reporting::mojom::SourceRegistrationError) override;
 
  private:
   friend class AttributionManagerImplTest;
 
   static void SetOsSupportForTesting(
-      blink::mojom::AttributionOsSupport os_support);
+      attribution_reporting::mojom::OsSupport os_support);
 
   // TODO(crbug.com/1373536): The OS-level support should be derived from the
   // underlying platform (e.g. Android).
-  static blink::mojom::AttributionOsSupport g_os_support_;
+  static attribution_reporting::mojom::OsSupport g_os_support_;
 
   using ReportSentCallback = AttributionReportSender::ReportSentCallback;
   using SourceOrTrigger = absl::variant<StorableSource, AttributionTrigger>;
@@ -183,7 +184,7 @@ class CONTENT_EXPORT AttributionManagerImpl : public AttributionManager {
       std::unique_ptr<AttributionCookieChecker> cookie_checker,
       std::unique_ptr<AttributionReportSender> report_sender,
       std::unique_ptr<AttributionDataHostManager> data_host_manager,
-      std::unique_ptr<OsLevelAttributionManager> os_level_manager);
+      scoped_refptr<base::UpdateableSequencedTaskRunner> storage_task_runner);
 
   void MaybeEnqueueEvent(SourceOrTrigger event);
   void ProcessEvents();
@@ -200,8 +201,7 @@ class CONTENT_EXPORT AttributionManagerImpl : public AttributionManager {
   void OnGetReportsToSendFromWebUI(base::OnceClosure done,
                                    std::vector<AttributionReport> reports);
 
-  void SendReports(bool log_metrics,
-                   base::RepeatingClosure done,
+  void SendReports(base::RepeatingClosure web_ui_callback,
                    std::vector<AttributionReport> reports);
   void PrepareToSendReport(AttributionReport report,
                            bool is_debug_report,
@@ -235,6 +235,7 @@ class CONTENT_EXPORT AttributionManagerImpl : public AttributionManager {
   void NotifySourcesChanged();
   void NotifyReportsChanged(AttributionReport::Type report_type);
   void NotifyReportSent(bool is_debug_report, AttributionReport, SendResult);
+  void NotifyDebugReportSent(AttributionDebugReport, int status);
 
   bool IsReportAllowed(const AttributionReport&) const;
 
@@ -246,6 +247,8 @@ class CONTENT_EXPORT AttributionManagerImpl : public AttributionManager {
   void MaybeSendVerboseDebugReport(const AttributionTrigger& trigger,
                                    bool is_debug_cookie_set,
                                    const CreateReportResult& result);
+
+  void OnClearDataComplete();
 
   // Never null.
   const raw_ptr<StoragePartitionImpl> storage_partition_;
@@ -263,13 +266,21 @@ class CONTENT_EXPORT AttributionManagerImpl : public AttributionManager {
   // growth with adversarial input.
   size_t max_pending_events_;
 
+  // The task runner for all attribution reporting storage operations.
+  // Updateable to allow for priority to be temporarily increased to
+  // `USER_VISIBLE` when a clear data task is queued or running. Otherwise
+  // `BEST_EFFORT` is used.
+  scoped_refptr<base::UpdateableSequencedTaskRunner> storage_task_runner_;
+
+  // How many clear data storage tasks are queued or running currently, i.e.
+  // have been posted but the reply has not been run.
+  int num_pending_clear_data_tasks_ = 0;
+
   base::SequenceBound<AttributionStorage> attribution_storage_;
 
   ReportSchedulerTimer scheduler_timer_;
 
   std::unique_ptr<AttributionDataHostManager> data_host_manager_;
-
-  std::unique_ptr<OsLevelAttributionManager> os_level_manager_;
 
   // Storage policy for the browser context |this| is in. May be nullptr.
   scoped_refptr<storage::SpecialStoragePolicy> special_storage_policy_;

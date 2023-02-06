@@ -343,7 +343,7 @@ testcase.drivePinMultiple = async () => {
   await remoteCall.waitForElementLost(
       appId, '#file-list .dim-offline[file-name="world.ogv"]');
   await remoteCall.waitForElement(
-      appId, '#file-list .pinned[file-name="world.ogv"] .detail-pinned');
+      appId, '#file-list .pinned[file-name="world.ogv"] .inline-status');
 
   // Select world.ogv by itself.
   await remoteCall.waitAndClickElement(
@@ -411,7 +411,7 @@ testcase.drivePinHosted = async () => {
   await remoteCall.waitForElementLost(
       appId, '#file-list .dim-offline[file-name="hello.txt"]');
   await remoteCall.waitForElement(
-      appId, '#file-list .pinned[file-name="hello.txt"] .detail-pinned');
+      appId, '#file-list .pinned[file-name="hello.txt"] .inline-status');
 
   // Test Document.gdoc should not be pinned however.
   await remoteCall.waitForElement(
@@ -468,7 +468,7 @@ testcase.drivePinFileMobileNetwork = async () => {
   // Check: File is pinned.
   await remoteCall.waitForElement(appId, '[command="#toggle-pinned"][checked]');
   await remoteCall.waitForElement(
-      appId, '#file-list .pinned[file-name="hello.txt"] .detail-pinned');
+      appId, '#file-list .pinned[file-name="hello.txt"] .inline-status');
   await waitForNotification('disabled-mobile-sync');
   await sendTestMessage({
     name: 'clickNotificationButton',
@@ -1169,4 +1169,41 @@ testcase.driveEnableDocsOfflineDialogDisappearsOnUnmount = async () => {
 
   // Check: the Enable Docs Offline dialog should disappear.
   await remoteCall.waitForElementLost(appId, '.cr-dialog-container.shown');
+};
+
+/**
+ * Tests that when deleting a file on Google Drive the dialog has no mention of
+ * permanent deletion (as the files aren't pemanently deleted but go to Google
+ * Drive trash instead).
+ */
+testcase.driveDeleteDialogDoesntMentionPermanentDelete = async () => {
+  // Open Files app on Drive.
+  const appId = await setupAndWaitUntilReady(RootPath.DRIVE, []);
+
+  // Wait for the "hello.txt" file to appear.
+  const helloTxtSelector = '#file-list [file-name="photos"]';
+  await remoteCall.waitAndClickElement(appId, helloTxtSelector);
+
+  // Ensure the move-to-trash command is hidden and disabled on Google Drive and
+  // then click the enabled delete button
+  await remoteCall.waitForElement(appId, '#move-to-trash[hidden][disabled]');
+  await remoteCall.waitAndClickElement(
+      appId, '#delete-button:not([hidden]):not([disabled])');
+
+  // Check: the dialog 'Cancel' button should be focused by default.
+  const dialogDefaultButton =
+      await remoteCall.waitForElement(appId, '.cr-dialog-cancel:focus');
+  chrome.test.assertEq('Cancel', dialogDefaultButton.text);
+
+  // Check: the dialog has no mention in the text of "permanent".
+  const dialogText = await remoteCall.waitForElement(appId, '.cr-dialog-text');
+  chrome.test.assertFalse(dialogText.text.toLowerCase().includes('permanent'));
+
+  // The dialog 'Delete' button should be only contain the text "Delete".
+  const dialogDeleteButton =
+      await remoteCall.waitAndClickElement(appId, '.cr-dialog-ok');
+  chrome.test.assertEq('Delete', dialogDeleteButton.text);
+
+  // Wait for completion of file deletion.
+  await remoteCall.waitForElementLost(appId, helloTxtSelector);
 };

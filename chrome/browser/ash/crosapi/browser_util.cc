@@ -25,6 +25,7 @@
 #include "chrome/common/chrome_paths.h"
 #include "chromeos/crosapi/cpp/crosapi_constants.h"
 #include "chromeos/crosapi/mojom/crosapi.mojom.h"
+#include "components/component_updater/component_updater_service.h"
 #include "components/exo/shell_surface_util.h"
 #include "components/policy/core/common/policy_map.h"
 #include "components/policy/policy_constants.h"
@@ -54,12 +55,18 @@ absl::optional<bool> g_lacros_primary_browser_for_test;
 // result is stored in this variable which is used after that as a cache.
 absl::optional<LacrosAvailability> g_lacros_availability_cache;
 
+// At session start the value for LacrosDataBackwardMigrationMode logic is
+// applied and the result is stored in this variable which is used after that as
+// a cache.
+absl::optional<LacrosDataBackwardMigrationMode>
+    g_lacros_data_backward_migration_mode;
+
 // The rootfs lacros-chrome metadata keys.
 constexpr char kLacrosMetadataContentKey[] = "content";
 constexpr char kLacrosMetadataVersionKey[] = "version";
 
 // The conversion map for LacrosAvailability policy data. The values must match
-// the ones from policy_templates.json.
+// the ones from LacrosAvailability.yaml.
 constexpr auto kLacrosAvailabilityMap =
     base::MakeFixedFlatMap<base::StringPiece, LacrosAvailability>({
         {"user_choice", LacrosAvailability::kUserChoice},
@@ -67,6 +74,29 @@ constexpr auto kLacrosAvailabilityMap =
         {"side_by_side", LacrosAvailability::kSideBySide},
         {"lacros_primary", LacrosAvailability::kLacrosPrimary},
         {"lacros_only", LacrosAvailability::kLacrosOnly},
+    });
+
+// The conversion map for LacrosDataBackwardMigrationMode policy data. The
+// values must match the ones from LacrosDataBackwardMigrationMode.yaml.
+constexpr auto kLacrosDataBackwardMigrationModeMap =
+    base::MakeFixedFlatMap<base::StringPiece, LacrosDataBackwardMigrationMode>({
+        {kLacrosDataBackwardMigrationModePolicyNone,
+         LacrosDataBackwardMigrationMode::kNone},
+        {kLacrosDataBackwardMigrationModePolicyKeepNone,
+         LacrosDataBackwardMigrationMode::kKeepNone},
+        {kLacrosDataBackwardMigrationModePolicyKeepSafeData,
+         LacrosDataBackwardMigrationMode::kKeepSafeData},
+        {kLacrosDataBackwardMigrationModePolicyKeepAll,
+         LacrosDataBackwardMigrationMode::kKeepAll},
+    });
+
+// The conversion map for LacrosSelection policy data. The values must match
+// the ones from LacrosSelection.yaml.
+constexpr auto kLacrosSelectionPolicyMap =
+    base::MakeFixedFlatMap<base::StringPiece, LacrosSelectionPolicy>({
+        {"user_choice", LacrosSelectionPolicy::kUserChoice},
+        {"rootfs", LacrosSelectionPolicy::kRootfs},
+        {"stateful", LacrosSelectionPolicy::kStateful},
     });
 
 // Some account types require features that aren't yet supported by lacros.
@@ -398,7 +428,7 @@ bool IsLacrosEnabled() {
       return true;
   }
 
-  return base::FeatureList::IsEnabled(chromeos::features::kLacrosSupport);
+  return base::FeatureList::IsEnabled(ash::features::kLacrosSupport);
 }
 
 bool IsProfileMigrationEnabled(const AccountId& account_id) {
@@ -453,7 +483,7 @@ bool IsLacrosEnabledForMigration(const User* user,
       return true;
   }
 
-  return base::FeatureList::IsEnabled(chromeos::features::kLacrosSupport);
+  return base::FeatureList::IsEnabled(ash::features::kLacrosSupport);
 }
 
 bool IsProfileMigrationAvailable() {
@@ -498,7 +528,7 @@ bool IsAshWebBrowserEnabled() {
       // Google rollout, in the short term Finch will override policy if Finch
       // is enabling this feature.
       if (IsGoogleInternal() &&
-          base::FeatureList::IsEnabled(chromeos::features::kLacrosOnly)) {
+          base::FeatureList::IsEnabled(ash::features::kLacrosOnly)) {
         return false;
       }
       return true;
@@ -506,7 +536,7 @@ bool IsAshWebBrowserEnabled() {
       return false;
   }
 
-  return !base::FeatureList::IsEnabled(chromeos::features::kLacrosOnly);
+  return !base::FeatureList::IsEnabled(ash::features::kLacrosOnly);
 }
 
 bool IsAshWebBrowserEnabledForMigration(const user_manager::User* user,
@@ -542,7 +572,7 @@ bool IsAshWebBrowserEnabledForMigration(const user_manager::User* user,
       // override policy if Finch is enabling this feature.
       if (gaia::IsGoogleInternalAccountEmail(
               user->GetAccountId().GetUserEmail()) &&
-          base::FeatureList::IsEnabled(chromeos::features::kLacrosOnly)) {
+          base::FeatureList::IsEnabled(ash::features::kLacrosOnly)) {
         return false;
       }
       return true;
@@ -550,7 +580,7 @@ bool IsAshWebBrowserEnabledForMigration(const user_manager::User* user,
       return false;
   }
 
-  return !base::FeatureList::IsEnabled(chromeos::features::kLacrosOnly);
+  return !base::FeatureList::IsEnabled(ash::features::kLacrosOnly);
 }
 
 bool IsLacrosPrimaryBrowser() {
@@ -584,7 +614,7 @@ bool IsLacrosPrimaryBrowser() {
       return true;
   }
 
-  return base::FeatureList::IsEnabled(chromeos::features::kLacrosPrimary);
+  return base::FeatureList::IsEnabled(ash::features::kLacrosPrimary);
 }
 
 bool IsLacrosPrimaryBrowserForMigration(const user_manager::User* user,
@@ -631,7 +661,7 @@ bool IsLacrosPrimaryBrowserForMigration(const user_manager::User* user,
       return true;
   }
 
-  return base::FeatureList::IsEnabled(chromeos::features::kLacrosPrimary);
+  return base::FeatureList::IsEnabled(ash::features::kLacrosPrimary);
 }
 
 LacrosMode GetLacrosMode() {
@@ -869,6 +899,20 @@ void CacheLacrosAvailability(const policy::PolicyMap& map) {
       value ? value->GetString() : base::StringPiece());
 }
 
+void CacheLacrosDataBackwardMigrationMode(const policy::PolicyMap& map) {
+  if (g_lacros_data_backward_migration_mode.has_value()) {
+    // Some browser tests might call this multiple times.
+    LOG(ERROR) << "Trying to cache LacrosDataBackwardMigrationMode and the "
+                  "value was set";
+    return;
+  }
+
+  const base::Value* value = map.GetValue(
+      policy::key::kLacrosDataBackwardMigrationMode, base::Value::Type::STRING);
+  g_lacros_data_backward_migration_mode = ParseLacrosDataBackwardMigrationMode(
+      value ? value->GetString() : base::StringPiece());
+}
+
 ComponentInfo GetLacrosComponentInfoForChannel(version_info::Channel channel) {
   // We default to the Dev component for UNKNOWN channels.
   static const auto kChannelToComponentInfoMap =
@@ -899,8 +943,36 @@ Channel GetLacrosSelectionUpdateChannel(LacrosSelection selection) {
   }
 }
 
+base::Version GetInstalledLacrosComponentVersion(
+    const component_updater::ComponentUpdateService* component_update_service) {
+  DCHECK(component_update_service);
+
+  const std::vector<component_updater::ComponentInfo>& components =
+      component_update_service->GetComponents();
+  const std::string& lacros_component_id = GetLacrosComponentInfo().crx_id;
+
+  LOG(WARNING) << "Looking for lacros-chrome component with id: "
+               << lacros_component_id;
+  auto it =
+      std::find_if(components.begin(), components.end(),
+                   [&](const component_updater::ComponentInfo& component_info) {
+                     return component_info.id == lacros_component_id;
+                   });
+
+  return it == components.end() ? base::Version() : it->version;
+}
+
 LacrosAvailability GetCachedLacrosAvailabilityForTesting() {
   return GetCachedLacrosAvailability();
+}
+
+// Returns the cached value of the LacrosDataBackwardMigrationMode policy.
+LacrosDataBackwardMigrationMode GetCachedLacrosDataBackwardMigrationMode() {
+  if (g_lacros_data_backward_migration_mode.has_value())
+    return g_lacros_data_backward_migration_mode.value();
+
+  // By default migration should be disabled.
+  return LacrosDataBackwardMigrationMode::kNone;
 }
 
 void SetLacrosLaunchSwitchSourceForTest(LacrosAvailability test_value) {
@@ -909,6 +981,10 @@ void SetLacrosLaunchSwitchSourceForTest(LacrosAvailability test_value) {
 
 void ClearLacrosAvailabilityCacheForTest() {
   g_lacros_availability_cache.reset();
+}
+
+void ClearLacrosDataBackwardMigrationModeCacheForTest() {
+  g_lacros_data_backward_migration_mode.reset();
 }
 
 MigrationMode GetMigrationMode(const user_manager::User* user,
@@ -1043,8 +1119,40 @@ absl::optional<LacrosAvailability> ParseLacrosAvailability(
   return absl::nullopt;
 }
 
+absl::optional<LacrosSelectionPolicy> ParseLacrosSelectionPolicy(
+    base::StringPiece value) {
+  auto* it = kLacrosSelectionPolicyMap.find(value);
+  if (it != kLacrosSelectionPolicyMap.end())
+    return it->second;
+
+  LOG(ERROR) << "Unknown LacrosSelection policy value is passed: " << value;
+  return absl::nullopt;
+}
+
 base::StringPiece GetLacrosAvailabilityPolicyName(LacrosAvailability value) {
   for (const auto& entry : kLacrosAvailabilityMap) {
+    if (entry.second == value)
+      return entry.first;
+  }
+
+  NOTREACHED();
+  return base::StringPiece();
+}
+
+absl::optional<LacrosDataBackwardMigrationMode>
+ParseLacrosDataBackwardMigrationMode(base::StringPiece value) {
+  auto* it = kLacrosDataBackwardMigrationModeMap.find(value);
+  if (it != kLacrosDataBackwardMigrationModeMap.end())
+    return it->second;
+
+  LOG(ERROR) << "Unknown LacrosDataBackwardMigrationMode policy value: "
+             << value;
+  return absl::nullopt;
+}
+
+base::StringPiece GetLacrosDataBackwardMigrationModeName(
+    LacrosDataBackwardMigrationMode value) {
+  for (const auto& entry : kLacrosDataBackwardMigrationModeMap) {
     if (entry.second == value)
       return entry.first;
   }
@@ -1089,7 +1197,7 @@ bool WasGotoFilesClicked(PrefService* local_state,
 bool ShouldEnforceAshExtensionKeepList() {
   return IsLacrosPrimaryBrowser() &&
          base::FeatureList::IsEnabled(
-             chromeos::features::kEnforceAshExtensionKeeplist);
+             ash::features::kEnforceAshExtensionKeeplist);
 }
 
 base::AutoReset<bool> SetLacrosEnabledForTest(bool force_enabled) {

@@ -4,11 +4,6 @@
   "mac10.13-updater-tester-dbg": {
     "gtest_tests": [
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -27,11 +22,6 @@
         "test_id_prefix": "ninja://chrome/updater:updater_tests/"
       },
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -55,11 +45,6 @@
   "mac10.13-updater-tester-rel": {
     "gtest_tests": [
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -78,11 +63,6 @@
         "test_id_prefix": "ninja://chrome/updater:updater_tests/"
       },
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -106,11 +86,6 @@
   "mac10.14-updater-tester-dbg": {
     "gtest_tests": [
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -129,11 +104,6 @@
         "test_id_prefix": "ninja://chrome/updater:updater_tests/"
       },
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -157,11 +127,6 @@
   "mac10.14-updater-tester-rel": {
     "gtest_tests": [
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -180,11 +145,6 @@
         "test_id_prefix": "ninja://chrome/updater:updater_tests/"
       },
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -208,11 +168,6 @@
   "mac10.15-updater-tester-dbg": {
     "gtest_tests": [
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -231,11 +186,6 @@
         "test_id_prefix": "ninja://chrome/updater:updater_tests/"
       },
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -259,11 +209,6 @@
   "mac10.15-updater-tester-rel": {
     "gtest_tests": [
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -282,11 +227,6 @@
         "test_id_prefix": "ninja://chrome/updater:updater_tests/"
       },
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -310,11 +250,6 @@
   "mac11.0-arm64-updater-tester-dbg": {
     "gtest_tests": [
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -333,11 +268,6 @@
         "test_id_prefix": "ninja://chrome/updater:updater_tests/"
       },
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -361,11 +291,6 @@
   "mac11.0-arm64-updater-tester-rel": {
     "gtest_tests": [
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -384,11 +309,6 @@
         "test_id_prefix": "ninja://chrome/updater:updater_tests/"
       },
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -409,14 +329,9 @@
       }
     ]
   },
-  "mac11.0-updater-tester-dbg": {
+  "mac11.0-updater-tester-asan-dbg": {
     "gtest_tests": [
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -435,11 +350,47 @@
         "test_id_prefix": "ninja://chrome/updater:updater_tests/"
       },
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "cpu": "x86-64",
+              "os": "Mac-11",
+              "pool": "chromium.updater.mac"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "updater_tests_system",
+        "test_id_prefix": "ninja://chrome/updater:updater_tests_system/"
+      }
+    ]
+  },
+  "mac11.0-updater-tester-dbg": {
+    "gtest_tests": [
+      {
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "cpu": "x86-64",
+              "os": "Mac-11"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "updater_tests",
+        "test_id_prefix": "ninja://chrome/updater:updater_tests/"
+      },
+      {
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -463,11 +414,6 @@
   "mac11.0-updater-tester-rel": {
     "gtest_tests": [
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -486,11 +432,6 @@
         "test_id_prefix": "ninja://chrome/updater:updater_tests/"
       },
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -514,11 +455,6 @@
   "win10-32-on-64-updater-tester-dbg": {
     "gtest_tests": [
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -529,7 +465,7 @@
             {
               "cpu": "x86-64",
               "integrity": "high",
-              "os": "Windows-10-19042",
+              "os": "Windows-10-19042|Windows-10-19045",
               "pool": "chromium.tests"
             }
           ],
@@ -539,11 +475,6 @@
         "test_id_prefix": "ninja://chrome/updater:updater_tests/"
       },
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -554,7 +485,7 @@
             {
               "cpu": "x86-64",
               "integrity": "high",
-              "os": "Windows-10-19042",
+              "os": "Windows-10-19042|Windows-10-19045",
               "pool": "chromium.tests"
             }
           ],
@@ -568,11 +499,6 @@
   "win10-updater-tester-dbg": {
     "gtest_tests": [
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -583,7 +509,7 @@
             {
               "cpu": "x86-64",
               "integrity": "high",
-              "os": "Windows-10-19042",
+              "os": "Windows-10-19042|Windows-10-19045",
               "pool": "chromium.tests"
             }
           ],
@@ -593,11 +519,6 @@
         "test_id_prefix": "ninja://chrome/updater:updater_tests/"
       },
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -608,7 +529,7 @@
             {
               "cpu": "x86-64",
               "integrity": "high",
-              "os": "Windows-10-19042",
+              "os": "Windows-10-19042|Windows-10-19045",
               "pool": "chromium.tests"
             }
           ],
@@ -622,12 +543,6 @@
   "win10-updater-tester-dbg-uac": {
     "gtest_tests": [
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000",
-          "--exclude-paths-from-win-defender"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -648,11 +563,6 @@
         "test_id_prefix": "ninja://chrome/updater:updater_tests_system/"
       },
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -676,11 +586,6 @@
   "win10-updater-tester-rel": {
     "gtest_tests": [
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -691,7 +596,7 @@
             {
               "cpu": "x86-64",
               "integrity": "high",
-              "os": "Windows-10-19042",
+              "os": "Windows-10-19042|Windows-10-19045",
               "pool": "chromium.tests"
             }
           ],
@@ -701,11 +606,6 @@
         "test_id_prefix": "ninja://chrome/updater:updater_tests/"
       },
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -716,7 +616,7 @@
             {
               "cpu": "x86-64",
               "integrity": "high",
-              "os": "Windows-10-19042",
+              "os": "Windows-10-19042|Windows-10-19045",
               "pool": "chromium.tests"
             }
           ],
@@ -730,12 +630,6 @@
   "win11-updater-tester-dbg-uac": {
     "gtest_tests": [
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000",
-          "--exclude-paths-from-win-defender"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -756,11 +650,6 @@
         "test_id_prefix": "ninja://chrome/updater:updater_tests_system/"
       },
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -781,14 +670,53 @@
       }
     ]
   },
+  "win11-updater-tester-rel": {
+    "gtest_tests": [
+      {
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "cpu": "x86-64",
+              "integrity": "high",
+              "os": "Windows-11-22000",
+              "pool": "chromium.tests"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "updater_tests",
+        "test_id_prefix": "ninja://chrome/updater:updater_tests/"
+      },
+      {
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "cpu": "x86-64",
+              "integrity": "high",
+              "os": "Windows-11-22000",
+              "pool": "chromium.tests"
+            }
+          ],
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "updater_tests_system",
+        "test_id_prefix": "ninja://chrome/updater:updater_tests_system/"
+      }
+    ]
+  },
   "win7(32)-updater-tester-rel": {
     "gtest_tests": [
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -808,11 +736,6 @@
         "test_id_prefix": "ninja://chrome/updater:updater_tests/"
       },
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -836,11 +759,6 @@
   "win7-updater-tester-rel": {
     "gtest_tests": [
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -860,11 +778,6 @@
         "test_id_prefix": "ninja://chrome/updater:updater_tests/"
       },
       {
-        "args": [
-          "--test-launcher-timeout=90000",
-          "--ui-test-action-max-timeout=45000",
-          "--ui-test-action-timeout=40000"
-        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"

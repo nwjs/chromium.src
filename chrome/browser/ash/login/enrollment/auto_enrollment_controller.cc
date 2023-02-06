@@ -34,7 +34,7 @@
 #include "chromeos/ash/components/dbus/system_clock/system_clock_sync_observation.h"
 #include "chromeos/ash/components/dbus/userdataauth/install_attributes_client.h"
 #include "chromeos/ash/components/install_attributes/install_attributes.h"
-#include "chromeos/system/statistics_provider.h"
+#include "chromeos/ash/components/system/statistics_provider.h"
 #include "components/device_event_log/device_event_log.h"
 #include "components/policy/core/common/cloud/device_management_service.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
@@ -53,10 +53,6 @@
 
 namespace ash {
 namespace {
-
-// Maximum number of bits of the identifier hash to send during initial
-// enrollment check.
-constexpr int kInitialEnrollmentModulusPowerLimit = 6;
 
 const int kMaxRequestStateKeysTries = 10;
 
@@ -402,32 +398,30 @@ void AutoEnrollmentController::StartClientForInitialEnrollment() {
   policy::DeviceManagementService* service =
       InitializeAndGetDeviceManagementService();
 
-  // Initial Enrollment does not transfer any data in the initial exchange, and
-  // supports uploading up to `kInitialEnrollmentModulusPowerLimit` bits of the
-  // identifier hash.
-  const int power_initial = 0;
-  const int power_limit = kInitialEnrollmentModulusPowerLimit;
-
   system::StatisticsProvider* provider =
       system::StatisticsProvider::GetInstance();
-  std::string serial_number = provider->GetEnterpriseMachineID();
-  std::string rlz_brand_code;
-  const bool rlz_brand_code_found =
-      provider->GetMachineStatistic(system::kRlzBrandCodeKey, &rlz_brand_code);
+  const absl::optional<base::StringPiece> serial_number =
+      provider->GetMachineID();
+  const absl::optional<base::StringPiece> rlz_brand_code =
+      provider->GetMachineStatistic(system::kRlzBrandCodeKey);
   // The Initial State Determination should not be started if the serial number
   // or brand code are missing. This is ensured in
   // `GetInitialStateDeterminationRequirement`.
-  CHECK(!serial_number.empty() && rlz_brand_code_found &&
-        !rlz_brand_code.empty());
+  CHECK(serial_number);
+  CHECK(!serial_number->empty());
+  CHECK(rlz_brand_code);
+  CHECK(!rlz_brand_code->empty());
 
   const auto plaintext_id = policy::psm::ConstructRlweId();
+  // TODO(b/259661300): Remove copy of `serial_number` and `rlz_brand_code`
+  // once `CreateForInitialEnrollment` uses StringPiece arguments.
   client_ = GetAutoEnrollmentClientFactory()->CreateForInitialEnrollment(
       base::BindRepeating(&AutoEnrollmentController::UpdateState,
                           weak_ptr_factory_.GetWeakPtr()),
       service, g_browser_process->local_state(),
       g_browser_process->system_network_context_manager()
           ->GetSharedURLLoaderFactory(),
-      serial_number, rlz_brand_code, power_initial, power_limit,
+      std::string(serial_number.value()), std::string(rlz_brand_code.value()),
       std::make_unique<policy::psm::RlweDmserverClientImpl>(
           service,
           g_browser_process->system_network_context_manager()

@@ -37,6 +37,10 @@ void AwaitStartWebAppProviderAndSubsystems(Profile* profile);
 // Wait until the provided WebAppProvider is ready.
 void WaitUntilReady(WebAppProvider* provider);
 
+// Wait until the provided WebAppProvider is ready and its subsystems startup
+// is complete.
+void WaitUntilWebAppProviderAndSubsystemsReady(WebAppProvider* provider);
+
 AppId InstallDummyWebApp(
     Profile* profile,
     const std::string& app_name,
@@ -55,6 +59,10 @@ AppId InstallWebApp(Profile* profile,
 // Synchronously uninstall a web app. May be used in unit tests and browser
 // tests.
 void UninstallWebApp(Profile* profile, const AppId& app_id);
+
+// Synchronously uninstall all web apps for the given profile. May be used in
+// unit tests and browser tests. Returns `false` if there was a failure.
+bool UninstallAllWebApps(Profile* profile);
 
 }  // namespace test
 }  // namespace web_app

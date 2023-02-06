@@ -10,6 +10,7 @@
 #include "base/bind.h"
 #include "base/run_loop.h"
 #include "base/test/bind.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/webui/ash/parent_access/parent_access_browsertest_base.h"
 #include "chrome/browser/ui/webui/ash/parent_access/parent_access_ui.mojom.h"
@@ -43,7 +44,7 @@ IN_PROC_BROWSER_TEST_F(ParentAccessDialogBrowserTest, ShowDialog) {
   ParentAccessDialog::Callback callback = base::BindLambdaForTesting(
       [&](std::unique_ptr<ParentAccessDialog::Result> result) -> void {
         EXPECT_EQ(result->status,
-                  ParentAccessDialog::Result::Status::kCancelled);
+                  ParentAccessDialog::Result::Status::kCanceled);
         run_loop.Quit();
       });
 
@@ -157,7 +158,7 @@ IN_PROC_BROWSER_TEST_F(ParentAccessDialogBrowserTest, SetCanceled) {
   base::RunLoop run_loop;
 
   ParentAccessDialog::Result expected_result;
-  expected_result.status = ParentAccessDialog::Result::Status::kCancelled;
+  expected_result.status = ParentAccessDialog::Result::Status::kCanceled;
 
   // Create the callback.
   ParentAccessDialog::Callback callback = base::BindLambdaForTesting(
@@ -210,10 +211,12 @@ IN_PROC_BROWSER_TEST_F(ParentAccessDialogBrowserTest, SetError) {
   // Set the result.
   ParentAccessDialog::GetInstance()->SetError();
 
-  run_loop.Run();
+  // The dialog instance should not be closed in the error state.
+  EXPECT_NE(ParentAccessDialog::GetInstance(), nullptr);
+  // Ensure that the callback is run when the dialog is manually closed.
+  ParentAccessDialog::GetInstance()->Close();
 
-  // The dialog instance should be gone after SetResult() is called.
-  EXPECT_EQ(ParentAccessDialog::GetInstance(), nullptr);
+  run_loop.Run();
 }
 
 // Verify that if dialog is destroyed without a Result,  it reports being
@@ -222,7 +225,7 @@ IN_PROC_BROWSER_TEST_F(ParentAccessDialogBrowserTest, DestroyedWithoutResult) {
   base::RunLoop run_loop;
 
   ParentAccessDialog::Result expected_result;
-  expected_result.status = ParentAccessDialog::Result::Status::kCancelled;
+  expected_result.status = ParentAccessDialog::Result::Status::kCanceled;
 
   // Create the callback.
   ParentAccessDialog::Callback callback = base::BindLambdaForTesting(
@@ -251,6 +254,7 @@ IN_PROC_BROWSER_TEST_F(ParentAccessDialogBrowserTest, DestroyedWithoutResult) {
 
 IN_PROC_BROWSER_TEST_F(ParentAccessDialogBrowserTest,
                        ErrorOnDialogAlreadyVisible) {
+  base::HistogramTester histogram_tester;
   // Show the dialog.
   ParentAccessDialogProvider provider;
   ParentAccessDialogProvider::ShowError error = provider.Show(
@@ -280,6 +284,19 @@ IN_PROC_BROWSER_TEST_F(ParentAccessDialogBrowserTest,
   EXPECT_EQ(error,
             ParentAccessDialogProvider::ShowError::kDialogAlreadyVisible);
   EXPECT_NE(ParentAccessDialog::GetInstance(), nullptr);
+
+  // Verify that metrics were recorded.
+  histogram_tester.ExpectUniqueSample(
+      ParentAccessDialogProvider::
+          GetParentAccessWidgetShowDialogErrorHistogramForFlowType(
+              absl::nullopt),
+      ParentAccessDialogProvider::ShowErrorType::kAlreadyVisible, 1);
+  histogram_tester.ExpectUniqueSample(
+      ParentAccessDialogProvider::
+          GetParentAccessWidgetShowDialogErrorHistogramForFlowType(
+              parent_access_ui::mojom::ParentAccessParams::FlowType::
+                  kWebsiteAccess),
+      ParentAccessDialogProvider::ShowErrorType::kAlreadyVisible, 1);
 }
 
 using ParentAccessDialogRegularUserBrowserTest =
@@ -288,6 +305,7 @@ using ParentAccessDialogRegularUserBrowserTest =
 // Verify that the dialog is not shown for non child users.
 IN_PROC_BROWSER_TEST_F(ParentAccessDialogRegularUserBrowserTest,
                        ErrorForNonChildUser) {
+  base::HistogramTester histogram_tester;
   // Show the dialog.
   ParentAccessDialogProvider provider;
   ParentAccessDialogProvider::ShowError error = provider.Show(
@@ -300,6 +318,19 @@ IN_PROC_BROWSER_TEST_F(ParentAccessDialogRegularUserBrowserTest,
   // Verify it is not showing.
   EXPECT_EQ(error, ParentAccessDialogProvider::ShowError::kNotAChildUser);
   EXPECT_EQ(ParentAccessDialog::GetInstance(), nullptr);
+
+  // Verify that metrics were recorded.
+  histogram_tester.ExpectUniqueSample(
+      ParentAccessDialogProvider::
+          GetParentAccessWidgetShowDialogErrorHistogramForFlowType(
+              absl::nullopt),
+      ParentAccessDialogProvider::ShowErrorType::kNotAChildUser, 1);
+  histogram_tester.ExpectUniqueSample(
+      ParentAccessDialogProvider::
+          GetParentAccessWidgetShowDialogErrorHistogramForFlowType(
+              parent_access_ui::mojom::ParentAccessParams::FlowType::
+                  kWebsiteAccess),
+      ParentAccessDialogProvider::ShowErrorType::kNotAChildUser, 1);
 }
 
 }  // namespace ash

@@ -6,6 +6,7 @@
 #define CONTENT_PUBLIC_COMMON_CONTENT_CLIENT_H_
 
 #include "base/files/file_path.h"
+#include "base/values.h"
 
 #include <set>
 #include <string>
@@ -87,7 +88,7 @@ class CONTENT_EXPORT ContentClient {
   ContentClient();
   virtual ~ContentClient();
 
-  virtual void LoadNWAppAsExtension(base::DictionaryValue* manifest,
+  virtual void LoadNWAppAsExtension(base::Value::Dict* manifest,
                                     const base::FilePath& path,
                                     std::string* error) {}
   ContentBrowserClient* browser() { return browser_; }
@@ -225,7 +226,7 @@ class CONTENT_EXPORT ContentClient {
   friend class InternalTestInitializer;
 
   // The embedder API for participating in browser logic.
-  raw_ptr<ContentBrowserClient> browser_;
+  raw_ptr<ContentBrowserClient, DanglingUntriaged> browser_;
   // The embedder API for participating in gpu logic.
   raw_ptr<ContentGpuClient> gpu_;
   // The embedder API for participating in renderer logic.

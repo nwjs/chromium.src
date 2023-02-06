@@ -52,7 +52,6 @@
 #include "third_party/blink/renderer/core/paint/find_paint_offset_needing_update.h"
 #include "third_party/blink/renderer/core/paint/find_properties_needing_update.h"
 #include "third_party/blink/renderer/core/paint/object_paint_properties.h"
-#include "third_party/blink/renderer/core/paint/old_cull_rect_updater.h"
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/paint/paint_property_tree_printer.h"
@@ -136,11 +135,6 @@ void VisualViewportPaintPropertyTreeBuilder::Update(
 
   auto property_changed =
       visual_viewport.UpdatePaintPropertyNodesIfNeeded(context);
-
-  if (const EffectPaintPropertyNode* overscroll_elasticity_effect_node =
-          visual_viewport.GetOverscrollElasticityEffectNode()) {
-    context.current_effect = overscroll_elasticity_effect_node;
-  }
 
   context.current.transform = visual_viewport.GetScrollTranslationNode();
   context.absolute_position.transform =
@@ -259,7 +253,6 @@ class FragmentPaintPropertyTreeBuilder {
       void (*compute_matrix)(const ComputedStyle& style,
                              const PhysicalSize& size,
                              gfx::Transform& matrix),
-      CompositingReasons active_animation_reason,
       CompositingReasons compositing_reasons_for_property,
       CompositorElementIdNamespace compositor_namespace,
       bool (ComputedStyle::*running_on_compositor_test)() const,
@@ -637,7 +630,7 @@ void FragmentPaintPropertyTreeBuilder::UpdatePaintOffsetTranslation(
 
   if (paint_offset_translation) {
     TransformPaintPropertyNode::State state{
-        gfx::Vector2dF(*paint_offset_translation)};
+        {gfx::Transform::MakeTranslation(*paint_offset_translation)}};
     state.flags.flattens_inherited_transform =
         context_.should_flatten_inherited_transform;
     state.rendering_context_id = context_.rendering_context_id;
@@ -688,8 +681,8 @@ void FragmentPaintPropertyTreeBuilder::UpdateStickyTranslation() {
   if (NeedsPaintPropertyUpdate()) {
     if (NeedsStickyTranslation(object_)) {
       const auto& box_model = To<LayoutBoxModelObject>(object_);
-      TransformPaintPropertyNode::State state{
-          gfx::Vector2dF(box_model.StickyPositionOffset())};
+      TransformPaintPropertyNode::State state{{gfx::Transform::MakeTranslation(
+          gfx::Vector2dF(box_model.StickyPositionOffset()))}};
       state.direct_compositing_reasons =
           full_context_.direct_compositing_reasons &
           CompositingReason::kStickyPosition;
@@ -779,7 +772,8 @@ void FragmentPaintPropertyTreeBuilder::UpdateAnchorScrollTranslation() {
           *To<Element>(box.GetNode())->GetAnchorScrollData();
       gfx::Vector2dF translation_offset =
           -anchor_scroll_data.AccumulatedScrollOffset();
-      TransformPaintPropertyNode::State state{translation_offset};
+      TransformPaintPropertyNode::State state{
+          {gfx::Transform::MakeTranslation(translation_offset)}};
 
       // TODO(crbug.com/1309178): We should disable composited scrolling if the
       // snapshot's scrollers do not match the current scrollers.
@@ -924,16 +918,9 @@ FragmentPaintPropertyTreeBuilder::TransformAndOriginForSVGChild() const {
                   object_, ComputedStyle::kExcludeTransformOrigin)
                   .ToTransform(),
               gfx::Point3F(TransformHelper::ComputeTransformOrigin(object_))};
-    } else {
-      // We composite the object but can't start composited animation. Still
-      // keep the compositing reason because it still improves performance of
-      // main thread animation, but avoid the 2d translation optimization to
-      // meet the requirement of TransformPaintPropertyNode.
-      return {object_.LocalToSVGParentTransform().ToTransform()};
     }
   }
-  return TransformPaintPropertyNode::TransformAndOrigin(
-      object_.LocalToSVGParentTransform());
+  return {object_.LocalToSVGParentTransform().ToTransform()};
 }
 
 // SVG does not use the general transform update of |UpdateTransform|, instead
@@ -1102,23 +1089,19 @@ static bool UpdateBoxSizeAndCheckActiveAnimationAxisAlignment(
 static TransformPaintPropertyNode::TransformAndOrigin TransformAndOriginState(
     const LayoutBox& box,
     const PhysicalSize& size,
-    bool has_transform_animation_compositing_reasons,
     void (*compute_matrix)(const ComputedStyle& style,
                            const PhysicalSize& size,
                            gfx::Transform& matrix)) {
   gfx::Transform matrix;
   compute_matrix(box.StyleRef(), size, matrix);
-  // If we are running transform animation on compositor, we should
-  // disable 2d translation optimization to ensure that the compositor
-  // gets the correct origin (which might be omitted by the optimization)
-  // to the compositor, in case later animated values will use the origin.
-  // See http://crbug.com/937929 for why we are not using
-  // style.IsRunningTransformAnimationOnCompositor() etc. here.
-  if (!has_transform_animation_compositing_reasons &&
-      matrix.IsIdentityOr2DTranslation()) {
-    return {matrix.To2dTranslation()};
-  }
   return {matrix, GetTransformOrigin(box, size)};
+}
+
+static bool IsLayoutShiftRootTransform(
+    const TransformPaintPropertyNode& transform) {
+  // This is to keep the layout shift behavior before crrev.com/c/4024030.
+  return transform.HasActiveTransformAnimation() ||
+         !transform.IsIdentityOr2dTranslation();
 }
 
 void FragmentPaintPropertyTreeBuilder::UpdateIndividualTransform(
@@ -1126,7 +1109,6 @@ void FragmentPaintPropertyTreeBuilder::UpdateIndividualTransform(
     void (*compute_matrix)(const ComputedStyle& style,
                            const PhysicalSize& size,
                            gfx::Transform& matrix),
-    CompositingReasons active_animation_reason,
     CompositingReasons compositing_reasons_for_property,
     CompositorElementIdNamespace compositor_namespace,
     bool (ComputedStyle::*running_on_compositor_test)() const,
@@ -1168,10 +1150,8 @@ void FragmentPaintPropertyTreeBuilder::UpdateIndividualTransform(
         // to the compositor, in case later animated values will use the origin.
         // See http://crbug.com/937929 for why we are not using
         // style.IsRunningTransformAnimationOnCompositor() etc. here.
-        state.transform_and_origin = TransformAndOriginState(
-            box, size,
-            full_context_.direct_compositing_reasons & active_animation_reason,
-            compute_matrix);
+        state.transform_and_origin =
+            TransformAndOriginState(box, size, compute_matrix);
 
         // TODO(trchen): transform-style should only be respected if a
         // PaintLayer is created. If a node with transform-style: preserve-3d
@@ -1234,16 +1214,15 @@ void FragmentPaintPropertyTreeBuilder::UpdateIndividualTransform(
 
   if (const auto* transform = (properties_->*getter)()) {
     context_.current.transform = transform;
-    if (!transform->IsIdentityOr2DTranslation() &&
-        !transform->Matrix().Is2dTransform()) {
+    if (!transform->Matrix().Is2dTransform()) {
       // We need to not flatten from this node through to this element's
       // transform node.  (If this is the transform node, we'll undo
       // this in the caller.)
       context_.should_flatten_inherited_transform = false;
     }
-    if (transform->IsIdentityOr2DTranslation()) {
+    if (!IsLayoutShiftRootTransform(*transform)) {
       context_.translation_2d_to_layout_shift_root_delta +=
-          transform->Translation2D();
+          transform->Get2dTranslation();
     }
   }
 }
@@ -1256,7 +1235,6 @@ void FragmentPaintPropertyTreeBuilder::UpdateTranslate() {
         if (style.Translate())
           style.Translate()->Apply(matrix, gfx::SizeF(size));
       },
-      CompositingReason::kActiveTranslateAnimation,
       CompositingReason::kDirectReasonsForTranslateProperty,
       CompositorElementIdNamespace::kTranslateTransform,
       &ComputedStyle::IsRunningTranslateAnimationOnCompositor,
@@ -1273,7 +1251,6 @@ void FragmentPaintPropertyTreeBuilder::UpdateRotate() {
         if (style.Rotate())
           style.Rotate()->Apply(matrix, gfx::SizeF(size));
       },
-      CompositingReason::kActiveRotateAnimation,
       CompositingReason::kDirectReasonsForRotateProperty,
       CompositorElementIdNamespace::kRotateTransform,
       &ComputedStyle::IsRunningRotateAnimationOnCompositor,
@@ -1289,7 +1266,6 @@ void FragmentPaintPropertyTreeBuilder::UpdateScale() {
         if (style.Scale())
           style.Scale()->Apply(matrix, gfx::SizeF(size));
       },
-      CompositingReason::kActiveScaleAnimation,
       CompositingReason::kDirectReasonsForScaleProperty,
       CompositorElementIdNamespace::kScaleTransform,
       &ComputedStyle::IsRunningScaleAnimationOnCompositor,
@@ -1309,7 +1285,7 @@ void FragmentPaintPropertyTreeBuilder::UpdateOffset() {
             ComputedStyle::kIncludeMotionPath,
             ComputedStyle::kExcludeIndependentTransformProperties);
       },
-      CompositingReason::kNone, CompositingReason::kNone,
+      CompositingReason::kNone,
       // TODO(dbaron): When we support animating offset on the
       // compositor, we need to use an element ID specific to offset.
       // This is currently unused.
@@ -1330,7 +1306,6 @@ void FragmentPaintPropertyTreeBuilder::UpdateTransform() {
             ComputedStyle::kExcludeMotionPath,
             ComputedStyle::kExcludeIndependentTransformProperties);
       },
-      CompositingReason::kActiveTransformAnimation,
       CompositingReasonsForTransformProperty(),
       CompositorElementIdNamespace::kPrimaryTransform,
       &ComputedStyle::IsRunningTransformAnimationOnCompositor,
@@ -1587,7 +1562,14 @@ void FragmentPaintPropertyTreeBuilder::UpdateEffect() {
       // without any additional effects, such as overscroll elasticity effects.
       if (object_.GetNode() &&
           object_.GetNode()->GetPseudoId() == kPseudoIdViewTransition) {
-        parent_effect = context_.current_effect->Parent();
+        auto* transition =
+            ViewTransitionUtils::GetActiveTransition(object_.GetDocument());
+        DCHECK(transition);
+
+        parent_effect =
+            transition->GetEffect(*object_.GetDocument().GetLayoutView())
+                ->Parent();
+        DCHECK(parent_effect);
       }
       DCHECK(parent_effect);
 
@@ -2081,7 +2063,7 @@ static PhysicalOffset VisualOffsetFromPaintOffsetRoot(
     if (const auto* scroll_translation = properties->ScrollTranslation()) {
       // VisualOffsetFromAncestor() uses integer-snapped scroll offsets. Do the
       // same here, to cancel out the scroll offset correctly.
-      gfx::Vector2dF scroll_offset = -scroll_translation->Translation2D();
+      gfx::Vector2dF scroll_offset = -scroll_translation->Get2dTranslation();
       result += PhysicalOffset::FromVector2dFFloor(
           gfx::ToFlooredVector2d(scroll_offset));
     }
@@ -2279,10 +2261,9 @@ void FragmentPaintPropertyTreeBuilder::UpdatePerspective() {
       gfx::Transform matrix;
       matrix.ApplyPerspectiveDepth(style.UsedPerspective());
       TransformPaintPropertyNode::State state{
-          TransformPaintPropertyNode::TransformAndOrigin(
-              matrix,
-              gfx::Point3F(PerspectiveOrigin(To<LayoutBox>(object_)) +
-                           gfx::Vector2dF(context_.current.paint_offset)))};
+          {matrix,
+           gfx::Point3F(PerspectiveOrigin(To<LayoutBox>(object_)) +
+                        gfx::Vector2dF(context_.current.paint_offset))}};
       state.flags.flattens_inherited_transform =
           context_.should_flatten_inherited_transform;
       state.rendering_context_id = context_.rendering_context_id;
@@ -2316,9 +2297,7 @@ void FragmentPaintPropertyTreeBuilder::UpdateReplacedContentTransform() {
     }
     if (!content_to_parent_space.IsIdentity()) {
       TransformPaintPropertyNode::State state;
-      state.transform_and_origin =
-          TransformPaintPropertyNode::TransformAndOrigin(
-              content_to_parent_space);
+      state.transform_and_origin = {content_to_parent_space.ToTransform()};
       state.flags.flattens_inherited_transform =
           context_.should_flatten_inherited_transform;
       state.rendering_context_id = context_.rendering_context_id;
@@ -2486,8 +2465,8 @@ void FragmentPaintPropertyTreeBuilder::UpdateScrollAndScrollTranslation() {
       DCHECK(box.GetScrollableArea());
 
       gfx::PointF scroll_position = box.GetScrollableArea()->ScrollPosition();
-      TransformPaintPropertyNode::State state{
-          -scroll_position.OffsetFromOrigin()};
+      TransformPaintPropertyNode::State state{{gfx::Transform::MakeTranslation(
+          -scroll_position.OffsetFromOrigin())}};
       if (!box.GetScrollableArea()->PendingScrollAnchorAdjustment().IsZero()) {
         context_.current.pending_scroll_anchor_adjustment +=
             box.GetScrollableArea()->PendingScrollAnchorAdjustment();
@@ -2520,8 +2499,7 @@ void FragmentPaintPropertyTreeBuilder::UpdateScrollAndScrollTranslation() {
           // treated as scroll translations with overlap testing treatment.
           // A scroll translation for overflow:hidden doesn't have a scroll node
           // and needs full PaintArtifactCompositor update on scroll.
-          (!RuntimeEnabledFeatures::ScrollUpdateOptimizationsEnabled() ||
-           properties_->Scroll())) {
+          properties_->Scroll()) {
         if (auto* paint_artifact_compositor =
                 object_.GetFrameView()->GetPaintArtifactCompositor()) {
           bool updated =
@@ -2554,7 +2532,8 @@ void FragmentPaintPropertyTreeBuilder::UpdateScrollAndScrollTranslation() {
     // A scroller creates a layout shift root, so we just calculate one scroll
     // offset delta without accumulation.
     context_.current.scroll_offset_to_layout_shift_root_delta =
-        scroll_translation->Translation2D() - full_context_.old_scroll_offset;
+        scroll_translation->Get2dTranslation() -
+        full_context_.old_scroll_offset;
   }
 }
 
@@ -2900,7 +2879,7 @@ void FragmentPaintPropertyTreeBuilder::UpdatePaintOffset() {
       // descendants need special treatment inside block fragmentation.
       context_.current.is_in_block_fragmentation =
           pre_paint_info_->fragmentainer_is_oof_containing_block &&
-          box->GetNGPaginationBreakability() != LayoutBox::kForbidBreaks;
+          !pre_paint_info_->box_fragment.IsMonolithic();
     } else {
       // TODO(pdr): Several calls in this function walk back up the tree to
       // calculate containers (e.g., physicalLocation,
@@ -3053,7 +3032,7 @@ static bool IsLayoutShiftRoot(const LayoutObject& object,
     return true;
   for (const TransformPaintPropertyNode* transform :
        properties->AllCSSTransformPropertiesOutsideToInside()) {
-    if (transform && !transform->IsIdentityOr2DTranslation())
+    if (transform && IsLayoutShiftRootTransform(*transform))
       return true;
   }
   if (properties->ReplacedContentTransform())
@@ -3238,18 +3217,17 @@ void PaintPropertyTreeBuilder::InitFragmentPaintProperties(
       // of additional_offset_to_layout_shift_root_delta is the difference
       // between the old and new paint offset translation.
       context.pending_additional_offset_to_layout_shift_root_delta =
-          -PhysicalOffset::FromVector2dFRound(translation->Translation2D());
+          -PhysicalOffset::FromVector2dFRound(translation->Get2dTranslation());
     }
     gfx::Vector2dF translation2d;
     for (const TransformPaintPropertyNode* transform :
          properties->AllCSSTransformPropertiesOutsideToInside()) {
       if (transform) {
-        if (transform->IsIdentityOr2DTranslation()) {
-          translation2d += transform->Translation2D();
-        } else {
+        if (IsLayoutShiftRootTransform(*transform)) {
           translation2d = gfx::Vector2dF();
           break;
         }
+        translation2d += transform->Get2dTranslation();
       }
     }
     context.translation_2d_to_layout_shift_root_delta -= translation2d;
@@ -4102,7 +4080,7 @@ void PaintPropertyTreeBuilder::UpdateForSelf() {
   if (const auto* properties = object_.FirstFragment().PaintProperties()) {
     if (const auto* old_scroll_translation = properties->ScrollTranslation()) {
       DCHECK(context_.was_layout_shift_root);
-      context_.old_scroll_offset = old_scroll_translation->Translation2D();
+      context_.old_scroll_offset = old_scroll_translation->Get2dTranslation();
     }
   }
 
@@ -4272,7 +4250,7 @@ void PaintPropertyTreeBuilder::DirectlyUpdateTransformMatrix(
   auto* properties = fragment_data->PaintProperties();
   auto* transform = properties->Transform();
   auto transform_and_origin = TransformAndOriginState(
-      box, size, transform->HasActiveTransformAnimation(),
+      box, size,
       [](const ComputedStyle& style, const PhysicalSize& size,
          gfx::Transform& matrix) {
         style.ApplyTransform(
@@ -4300,18 +4278,7 @@ void PaintPropertyTreeBuilder::DirectlyUpdateTransformMatrix(
   PaintPropertiesChangeInfo properties_changed;
   properties_changed.transform_changed = effective_change_type;
 
-  if (RuntimeEnabledFeatures::ScrollUpdateOptimizationsEnabled()) {
-    CullRectUpdater::PaintPropertiesChanged(object, properties_changed);
-  } else {
-    DCHECK(box.Layer());
-    DCHECK(box.HasSelfPaintingLayer());
-    gfx::Vector2dF old_scroll_offset;
-    if (const auto* scroll_translation = properties->ScrollTranslation()) {
-      old_scroll_offset = scroll_translation->Translation2D();
-    }
-    OldCullRectUpdater::PaintPropertiesChanged(
-        object, *box.Layer(), properties_changed, old_scroll_offset);
-  }
+  CullRectUpdater::PaintPropertiesChanged(object, properties_changed);
 }
 
 void PaintPropertyTreeBuilder::DirectlyUpdateOpacityValue(
@@ -4377,45 +4344,7 @@ void PaintPropertyTreeBuilder::IssueInvalidationsAfterUpdate() {
     }
   }
 
-  if (!RuntimeEnabledFeatures::ScrollUpdateOptimizationsEnabled()) {
-    if (const auto* properties = object_.FirstFragment().PaintProperties()) {
-      if (const auto* scroll_translation = properties->ScrollTranslation()) {
-        if (scroll_translation->Translation2D() != context_.old_scroll_offset) {
-          // Scrolling can change overlap relationship for elements fixed to an
-          // overflow: hidden view that programmatically scrolls via script.
-          // In this case the fixed transform doesn't have enough information to
-          // perform the expansion - there is no scroll node to describe the
-          // bounds of the scrollable content.
-          auto* frame_view = object_.GetFrameView();
-          if (frame_view->HasFixedPositionObjects() &&
-              !object_.View()->FirstFragment().PaintProperties()->Scroll()) {
-            frame_view->SetPaintArtifactCompositorNeedsUpdate(
-                PaintArtifactCompositorUpdateReason::
-                    kPaintPropertyTreeBuilderHasFixedPositionObjects);
-          } else if (!object_.IsStackingContext() &&
-                     To<LayoutBoxModelObject>(object_)
-                         .Layer()
-                         ->HasSelfPaintingLayerDescendant()) {
-            // If the scroller is not a stacking context but contains stacked
-            // descendants, we need to update compositing because the stacked
-            // descendants may change overlap relationship with other stacked
-            // elements that are not contained by this scroller.
-            frame_view->SetPaintArtifactCompositorNeedsUpdate(
-                PaintArtifactCompositorUpdateReason::
-                    kPaintPropertyTreeBulderNonStackingContextScroll);
-          }
-        }
-      }
-    }
-  }
-
-  if (RuntimeEnabledFeatures::ScrollUpdateOptimizationsEnabled()) {
-    CullRectUpdater::PaintPropertiesChanged(object_, properties_changed_);
-  } else {
-    OldCullRectUpdater::PaintPropertiesChanged(
-        object_, *context_.painting_layer, properties_changed_,
-        context_.old_scroll_offset);
-  }
+  CullRectUpdater::PaintPropertiesChanged(object_, properties_changed_);
 }
 
 bool PaintPropertyTreeBuilder::CanDoDeferredTransformNodeUpdate(

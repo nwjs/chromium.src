@@ -234,7 +234,7 @@ void RecordSegmentSelectionComputed(
     base::UmaHistogramEnumeration(
         switched_hist,
         GetAdaptiveToolbarSegmentSwitch(new_selection, prev_segment));
-  } else if (config.IsBooleanSegment()) {
+  } else if (config.is_boolean_segment) {
     base::UmaHistogramEnumeration(
         switched_hist, GetBooleanSegmentSwitch(new_selection, prev_segment));
   }
@@ -373,6 +373,13 @@ void RecordModelExecutionResult(
     base::UmaHistogramPercentage("SegmentationPlatform.ModelExecution.Result." +
                                      SegmentIdToHistogramVariant(segment_id),
                                  base::ClampRound(result));
+    return;
+  } else if (return_type ==
+             proto::SegmentationModelMetadata::RETURN_TYPE_INTEGER) {
+    // This type of model return an unbound float score.
+    base::UmaHistogramPercentage("SegmentationPlatform.ModelExecution.Result." +
+                                     SegmentIdToHistogramVariant(segment_id),
+                                 static_cast<int>(result));
     return;
   }
   // All other models type return score between 0 and 1.

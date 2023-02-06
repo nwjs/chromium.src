@@ -78,7 +78,6 @@ import org.chromium.base.metrics.ScopedSysTraceEvent;
 import org.chromium.base.task.AsyncTask;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
-import org.chromium.blink_public.common.BlinkFeatures;
 import org.chromium.components.autofill.AutofillActionModeCallback;
 import org.chromium.components.autofill.AutofillProvider;
 import org.chromium.components.content_capture.OnscreenContentProvider;
@@ -2328,8 +2327,8 @@ public class AwContents implements SmartClipProvider {
         } else if (!mContentsClient.isCachedRendererBackgroundColorValid()) {
             // In force dark mode or the dark style preferred , if background color not set,
             // this cause a white flash, just show black background.
-            // TODO(crbug.com/1253990): Check if dark style is preferred.
-            if (mSettings.isForceDarkApplied() && !mDidInitBackground) {
+            if ((mSettings.isForceDarkApplied() || mSettings.prefersDarkFromTheme())
+                    && !mDidInitBackground) {
                 return Color.BLACK;
             }
             return mBaseBackgroundColor;
@@ -2681,16 +2680,14 @@ public class AwContents implements SmartClipProvider {
         if (isDestroyed(WARN)) return null;
         NavigationHistory history = getNavigationHistory();
         int currentIndex = history.getCurrentEntryIndex();
-        if (AwFeatureList.isEnabled(BlinkFeatures.INITIAL_NAVIGATION_ENTRY)) {
-            // When InitialNavigationEntry is enabled, the current entry will
-            // always exist, but only return it if it is not the initial
-            // NavigationEntry, to preserve legacy behavior.
-            if (!history.getEntryAtIndex(currentIndex).isInitialEntry()) {
-                return history.getEntryAtIndex(currentIndex).getOriginalUrl().getSpec();
-            }
-        } else if (currentIndex >= 0 && currentIndex < history.getEntryCount()) {
-            // When InitialNavigationEntry is enabled, the current entry might
-            // not exist.
+        // The current entry will always exist, but only return it if it is not
+        // the initial NavigationEntry, to preserve legacy behavior. This is
+        // because initial NavigationEntries used to not exist (see
+        // https://crbug.com/524208), and the API used to return null when
+        // no navigation had committed. Keeping the legacy behavior prevents
+        // unexpected breakages on things that depend on it. See also
+        // https://crbug.com/1277414.
+        if (!history.getEntryAtIndex(currentIndex).isInitialEntry()) {
             return history.getEntryAtIndex(currentIndex).getOriginalUrl().getSpec();
         }
 
@@ -3133,12 +3130,6 @@ public class AwContents implements SmartClipProvider {
     }
 
     void startProcessTextIntent(Intent intent) {
-        // on Android M, WebView is not able to replace the text with the processed text.
-        // So set the readonly flag for M.
-        if (Build.VERSION.SDK_INT == Build.VERSION_CODES.M) {
-            intent.putExtra(Intent.EXTRA_PROCESS_TEXT_READONLY, true);
-        }
-
         if (ContextUtils.activityFromContext(mContext) == null) {
             mContext.startActivity(intent);
             return;

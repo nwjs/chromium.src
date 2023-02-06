@@ -388,6 +388,10 @@ const char kGattConnectionResult[] =
     "Bluetooth.ChromeOS.FastPair.GattConnection.Result";
 const char kGattConnectionErrorMetric[] =
     "Bluetooth.ChromeOS.FastPair.GattConnection.ErrorReason";
+const char kGattConnectionEffectiveSuccessRate[] =
+    "Bluetooth.ChromeOS.FastPair.GattConnection.EffectiveSuccessRate";
+const char kGattConnectionAttemptCount[] =
+    "Bluetooth.ChromeOS.FastPair.GattConnection.AttemptCount";
 const char kFastPairPairFailureInitialMetric[] =
     "Bluetooth.ChromeOS.FastPair.PairFailure.InitialPairingProtocol";
 const char kFastPairPairFailureSubsequentMetric[] =
@@ -532,6 +536,33 @@ const char kSavedDevicesTotalUxLoadTime[] =
     "Bluetooth.ChromeOS.FastPair.SavedDevices.TotalUxLoadTime";
 const char kSavedDevicesCount[] =
     "Bluetooth.ChromeOS.FastPair.SavedDevices.DeviceCount";
+constexpr char kFastPairGattConnectionStep[] = "FastPair.GattConnection";
+constexpr char kProtocolPairingStepInitial[] =
+    "FastPair.InitialPairing.Pairing";
+constexpr char kProtocolPairingStepSubsequent[] =
+    "FastPair.SubsequentPairing.Pairing";
+constexpr char kInitialSuccessFunnelMetric[] = "FastPair.InitialPairing";
+constexpr char kSubsequentSuccessFunnelMetric[] = "FastPair.SubsequentPairing";
+constexpr char kRetroactiveSuccessFunnelMetric[] =
+    "FastPair.RetroactivePairing";
+constexpr char kInitializePairingProcessInitial[] =
+    "FastPair.InitialPairing.Initialization";
+constexpr char kInitializePairingProcessSubsequent[] =
+    "FastPair.SubsequentPairing.Initialization";
+constexpr char kInitializePairingProcessRetroactive[] =
+    "FastPair.RetroactivePairing.Initialization";
+constexpr char kInitializePairingProcessFailureReasonInitial[] =
+    "FastPair.InitialPairing.Initialization.FailureReason";
+constexpr char kInitializePairingProcessFailureReasonSubsequent[] =
+    "FastPair.SubsequentPairing.Initialization.FailureReason";
+constexpr char kInitializePairingProcessFailureReasonRetroactive[] =
+    "FastPair.RetroactivePairing.Initialization.FailureReason";
+constexpr char kInitializePairingProcessRetriesBeforeSuccessInitial[] =
+    "FastPair.InitialPairing.Initialization.RetriesBeforeSuccess";
+constexpr char kInitializePairingProcessRetriesBeforeSuccessSubsequent[] =
+    "FastPair.SubsequentPairing.Initialization.RetriesBeforeSuccess";
+constexpr char kInitializePairingProcessRetriesBeforeSuccessRetroactive[] =
+    "FastPair.RetroactivePairing.Initialization.RetriesBeforeSuccess";
 
 const std::string GetEngagementFlowInitialModelIdMetric(
     const ash::quick_pair::Device& device) {
@@ -583,6 +614,79 @@ void AttemptRecordingFastPairEngagementFlow(const Device& device,
       // Also record engagement flow metrics split per tracked model ID.
       base::UmaHistogramSparse(GetEngagementFlowSubsequentModelIdMetric(device),
                                static_cast<int>(event));
+      break;
+  }
+}
+
+void RecordInitialSuccessFunnelFlow(FastPairInitialSuccessFunnelEvent event) {
+  base::UmaHistogramEnumeration(kInitialSuccessFunnelMetric, event);
+}
+
+void RecordSubsequentSuccessFunnelFlow(
+    FastPairSubsequentSuccessFunnelEvent event) {
+  base::UmaHistogramEnumeration(kSubsequentSuccessFunnelMetric, event);
+}
+
+void RecordRetroactiveSuccessFunnelFlow(
+    FastPairRetroactiveSuccessFunnelEvent event) {
+  base::UmaHistogramEnumeration(kRetroactiveSuccessFunnelMetric, event);
+}
+
+void RecordFastPairInitializePairingProcessEvent(
+    const Device& device,
+    FastPairInitializePairingProcessEvent event) {
+  switch (device.protocol) {
+    case Protocol::kFastPairInitial:
+      base::UmaHistogramEnumeration(kInitializePairingProcessInitial, event);
+      break;
+    case Protocol::kFastPairRetroactive:
+      base::UmaHistogramEnumeration(kInitializePairingProcessRetroactive,
+                                    event);
+      break;
+    case Protocol::kFastPairSubsequent:
+      base::UmaHistogramEnumeration(kInitializePairingProcessSubsequent, event);
+      break;
+  }
+}
+
+void RecordInitializationFailureReason(const Device& device,
+                                       PairFailure failure_reason) {
+  switch (device.protocol) {
+    case Protocol::kFastPairInitial:
+      base::UmaHistogramEnumeration(
+          kInitializePairingProcessFailureReasonInitial, failure_reason);
+      break;
+    case Protocol::kFastPairRetroactive:
+      base::UmaHistogramEnumeration(
+          kInitializePairingProcessFailureReasonRetroactive, failure_reason);
+      break;
+    case Protocol::kFastPairSubsequent:
+      base::UmaHistogramEnumeration(
+          kInitializePairingProcessFailureReasonSubsequent, failure_reason);
+      break;
+  }
+}
+
+void RecordInitializationRetriesBeforeSuccess(const Device& device,
+                                              int num_retries_before_success) {
+  switch (device.protocol) {
+    case Protocol::kFastPairInitial:
+      base::UmaHistogramExactLinear(
+          kInitializePairingProcessRetriesBeforeSuccessInitial,
+          num_retries_before_success,
+          /*exclusive_max=*/10);
+      break;
+    case Protocol::kFastPairRetroactive:
+      base::UmaHistogramExactLinear(
+          kInitializePairingProcessRetriesBeforeSuccessRetroactive,
+          num_retries_before_success,
+          /*exclusive_max=*/10);
+      break;
+    case Protocol::kFastPairSubsequent:
+      base::UmaHistogramExactLinear(
+          kInitializePairingProcessRetriesBeforeSuccessSubsequent,
+          num_retries_before_success,
+          /*exclusive_max=*/10);
       break;
   }
 }
@@ -645,6 +749,15 @@ void RecordGattConnectionErrorCode(
   base::UmaHistogramEnumeration(
       kGattConnectionErrorMetric, error_code,
       device::BluetoothDevice::ConnectErrorCode::NUM_CONNECT_ERROR_CODES);
+}
+
+void RecordEffectiveGattConnectionSuccess(bool success) {
+  base::UmaHistogramBoolean(kGattConnectionEffectiveSuccessRate, success);
+}
+
+void RecordGattConnectionAttemptCount(int num_attempts) {
+  base::UmaHistogramExactLinear(kGattConnectionAttemptCount, num_attempts,
+                                /*exclusive_max=*/10);
 }
 
 void RecordPairingResult(const Device& device, bool success) {
@@ -874,12 +987,33 @@ void RecordFastPairRepositoryCacheResult(bool success) {
   base::UmaHistogramBoolean(kFastPairRepositoryCacheResult, success);
 }
 
+void RecordGattInitializationStep(
+    FastPairGattConnectionSteps initialization_step) {
+  base::UmaHistogramEnumeration(kFastPairGattConnectionStep,
+                                initialization_step);
+}
+
 void RecordHandshakeResult(bool success) {
   base::UmaHistogramBoolean(kHandshakeResult, success);
 }
 
 void RecordHandshakeFailureReason(HandshakeFailureReason failure_reason) {
   base::UmaHistogramEnumeration(kHandshakeFailureReason, failure_reason);
+}
+
+void RecordProtocolPairingStep(FastPairProtocolPairingSteps pairing_step,
+                               const Device& device) {
+  switch (device.protocol) {
+    case Protocol::kFastPairInitial:
+      base::UmaHistogramEnumeration(kProtocolPairingStepInitial, pairing_step);
+      break;
+    case Protocol::kFastPairSubsequent:
+      base::UmaHistogramEnumeration(kProtocolPairingStepSubsequent,
+                                    pairing_step);
+      break;
+    case Protocol::kFastPairRetroactive:
+      break;
+  }
 }
 
 void RecordHandshakeStep(FastPairHandshakeSteps handshake_step,

@@ -106,7 +106,7 @@ CGWindowLevel CGWindowLevelForZOrderLevel(ui::ZOrderLevel level,
 class NativeWidgetMac::ZoomFocusMonitor : public FocusChangeListener {
  public:
   ZoomFocusMonitor() = default;
-  ~ZoomFocusMonitor() override {}
+  ~ZoomFocusMonitor() override = default;
   void OnWillChangeFocus(View* focused_before, View* focused_now) override {}
   void OnDidChangeFocus(View* focused_before, View* focused_now) override {
     if (!focused_now || !UAZoomEnabled())
@@ -124,8 +124,7 @@ class NativeWidgetMac::ZoomFocusMonitor : public FocusChangeListener {
 
 NativeWidgetMac::NativeWidgetMac(internal::NativeWidgetDelegate* delegate)
     : delegate_(delegate),
-      ns_window_host_(new NativeWidgetMacNSWindowHost(this)),
-      ownership_(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET) {}
+      ns_window_host_(new NativeWidgetMacNSWindowHost(this)) {}
 
 NativeWidgetMac::~NativeWidgetMac() {
   if (ownership_ == Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET)
@@ -238,15 +237,7 @@ void NativeWidgetMac::InitNativeWidget(Widget::InitParams params) {
   // platform-specific corner cases.
   if (params.parent &&
       (!params.z_order || params.z_order == ui::ZOrderLevel::kNormal)) {
-    // In immersive fullscreen, bubbles will be shown under the toolbar by
-    // default. Fix it by using a higher z-order level.
-    // TODO(mek): Figure out how to make this work with remote remote_cocoa
-    // windows.
-    if (remote_cocoa::IsNSToolbarFullScreenWindow(
-            params.parent.GetNativeNSView().window)) {
-      params.z_order = ui::ZOrderLevel::kFloatingWindow;
-    } else if (auto* parent_widget =
-                   Widget::GetWidgetForNativeView(params.parent)) {
+    if (auto* parent_widget = Widget::GetWidgetForNativeView(params.parent)) {
       // If our parent is z-ordered above us, then float a bit higher.
       params.z_order =
           std::max(params.z_order.value_or(ui::ZOrderLevel::kNormal),

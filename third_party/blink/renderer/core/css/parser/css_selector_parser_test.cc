@@ -39,7 +39,20 @@ struct SelectorTestCase {
 
 class SelectorParseTest : public ::testing::TestWithParam<SelectorTestCase> {};
 
+class SelectorParseTestForHasForgivingParsing
+    : public ::testing::TestWithParam<SelectorTestCase> {};
+
 TEST_P(SelectorParseTest, Parse) {
+  auto param = GetParam();
+  SCOPED_TRACE(param.input);
+  CSSSelectorList* list = css_test_helpers::ParseSelectorList(param.input);
+  const char* expected = param.expected ? param.expected : param.input;
+  EXPECT_EQ(String(expected), list->SelectorsText());
+}
+
+TEST_P(SelectorParseTestForHasForgivingParsing, Parse) {
+  ScopedCSSPseudoHasNonForgivingParsingForTest scoped_feature(false);
+
   auto param = GetParam();
   SCOPED_TRACE(param.input);
   CSSSelectorList* list = css_test_helpers::ParseSelectorList(param.input);
@@ -970,10 +983,97 @@ TEST(CSSSelectorParserTest, WebKitScrollbarPseudoParsing) {
   }
 }
 
+static const SelectorTestCase invalid_pseudo_has_arguments_data[] = {
+    // clang-format off
+    // restrict use of nested :has()
+    {":has(:has(.a))", ""},
+    {":has(.a, :has(.b), .c)", ""},
+    {":has(.a, :has(.b))", ""},
+    {":has(:has(.a), .b)", ""},
+    {":has(:is(:has(.a)))", ":has(:is())"},
+
+    // restrict use of pseudo element inside :has()
+    {":has(::-webkit-progress-bar)", ""},
+    {":has(::-webkit-progress-value)", ""},
+    {":has(::-webkit-slider-runnable-track)", ""},
+    {":has(::-webkit-slider-thumb)", ""},
+    {":has(::after)", ""},
+    {":has(::backdrop)", ""},
+    {":has(::before)", ""},
+    {":has(::cue)", ""},
+    {":has(::first-letter)", ""},
+    {":has(::first-line)", ""},
+    {":has(::grammar-error)", ""},
+    {":has(::marker)", ""},
+    {":has(::placeholder)", ""},
+    {":has(::selection)", ""},
+    {":has(::slotted(*))", ""},
+    {":has(::part(foo))", ""},
+    {":has(::spelling-error)", ""},
+    {":has(:after)", ""},
+    {":has(:before)", ""},
+    {":has(:cue)", ""},
+    {":has(:first-letter)", ""},
+    {":has(:first-line)", ""},
+
+    // drops empty :has()
+    {":has()", ""},
+    {":has(,,  ,, )", ""},
+
+    // drops :has() when it contains invalid argument
+    {":has(.a,,,,)", ""},
+    {":has(,,.a,,)", ""},
+    {":has(,,,,.a)", ""},
+    {":has(@x {,.b,}, .a)", ""},
+    {":has({,.b,} @x, .a)", ""},
+    {":has((@x), .a)", ""},
+    {":has((.b), .a)", ""},
+
+    // clang-format on
+};
+
+INSTANTIATE_TEST_SUITE_P(InvalidPseudoHasArguments,
+                         SelectorParseTest,
+                         testing::ValuesIn(invalid_pseudo_has_arguments_data));
+
+static const SelectorTestCase has_nesting_data[] = {
+    // clang-format off
+    // :has() is not allowed in the pseudos accepting only compound selectors:
+    {"::slotted(:has(.a))", ""},
+    {":host(:has(.a))", ""},
+    {":host-context(:has(.a))", ""},
+    {"::cue(:has(.a))", ""},
+    // :has() is not allowed after pseudo elements:
+    {"::part(foo):has(:hover)", ""},
+    {"::part(foo):has(:hover:focus)", ""},
+    {"::part(foo):has(:focus, :hover)", ""},
+    {"::part(foo):has(:focus)", ""},
+    {"::part(foo):has(:focus, :--bar)", ""},
+    {"::part(foo):has(.a)", ""},
+    {"::part(foo):has(.a:hover)", ""},
+    {"::part(foo):has(:hover.a)", ""},
+    {"::part(foo):has(:hover + .a)", ""},
+    {"::part(foo):has(.a + :hover)", ""},
+    {"::part(foo):has(:hover:enabled)", ""},
+    {"::part(foo):has(:enabled:hover)", ""},
+    {"::part(foo):has(:hover, :where(.a))", ""},
+    {"::part(foo):has(:hover, .a)", ""},
+    {"::part(foo):has(:--bar, .a)", ""},
+    {"::part(foo):has(:enabled)", ""},
+    {"::-webkit-scrollbar:has(:enabled)", ""},
+    {"::selection:has(:window-inactive)", ""},
+    {"::-webkit-input-placeholder:has(:hover)", ""},
+    // clang-format on
+};
+
+INSTANTIATE_TEST_SUITE_P(NestedHasSelectorValidity,
+                         SelectorParseTest,
+                         testing::ValuesIn(has_nesting_data));
+
 // TODO(blee@igalia.com) Workaround to make :has() unforgiving to avoid
 // JQuery :has() issue: https://github.com/w3c/csswg-drafts/issues/7676
 // :has() should be valid after all arguments are dropped.
-static const SelectorTestCase invalid_pseudo_has_arguments_data[] = {
+static const SelectorTestCase invalid_forgiving_pseudo_has_arguments_data[] = {
     // clang-format off
     // restrict use of nested :has()
     {":has(:has(.a))", "" /* should be ":has()" */},
@@ -1004,9 +1104,10 @@ static const SelectorTestCase invalid_pseudo_has_arguments_data[] = {
     // clang-format on
 };
 
-INSTANTIATE_TEST_SUITE_P(InvalidPseudoHasArguments,
-                         SelectorParseTest,
-                         testing::ValuesIn(invalid_pseudo_has_arguments_data));
+INSTANTIATE_TEST_SUITE_P(
+    InvalidPseudoHasArguments,
+    SelectorParseTestForHasForgivingParsing,
+    testing::ValuesIn(invalid_forgiving_pseudo_has_arguments_data));
 
 static const SelectorTestCase has_forgiving_data[] = {
     // clang-format off
@@ -1033,13 +1134,13 @@ static const SelectorTestCase has_forgiving_data[] = {
 };
 
 INSTANTIATE_TEST_SUITE_P(HasForgiving,
-                         SelectorParseTest,
+                         SelectorParseTestForHasForgivingParsing,
                          testing::ValuesIn(has_forgiving_data));
 
 // TODO(blee@igalia.com) Workaround to make :has() unforgiving to avoid
 // JQuery :has() issue: https://github.com/w3c/csswg-drafts/issues/7676
 // :has() should be valid after all arguments are dropped.
-static const SelectorTestCase has_nesting_data[] = {
+static const SelectorTestCase forgiving_has_nesting_data[] = {
     // clang-format off
     // :has() is not allowed in the pseudos accepting only compound selectors:
     {"::slotted(:has(.a))", "" /* should be "::slotted(:has())" */},
@@ -1074,7 +1175,7 @@ static const SelectorTestCase has_nesting_data[] = {
 };
 
 INSTANTIATE_TEST_SUITE_P(NestedHasSelectorValidity,
-                         SelectorParseTest,
-                         testing::ValuesIn(has_nesting_data));
+                         SelectorParseTestForHasForgivingParsing,
+                         testing::ValuesIn(forgiving_has_nesting_data));
 
 }  // namespace blink

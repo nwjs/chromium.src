@@ -8,6 +8,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "base/base64.h"
 #include "base/bind.h"
@@ -29,6 +30,7 @@
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
+#include "chrome/browser/new_tab_page/modules/new_tab_page_modules.h"
 #include "chrome/browser/new_tab_page/promos/promo_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search/background/ntp_background_service.h"
@@ -44,7 +46,6 @@
 #include "chrome/browser/ui/side_panel/customize_chrome/customize_chrome_tab_helper.h"
 #include "chrome/browser/ui/side_panel/customize_chrome/customize_chrome_utils.h"
 #include "chrome/browser/ui/webui/new_tab_page/ntp_pref_names.h"
-#include "chrome/browser/ui/webui/realbox/realbox.mojom.h"
 #include "chrome/browser/ui/webui/webui_util.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
@@ -52,6 +53,7 @@
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/theme_resources.h"
 #include "components/keyed_service/core/service_access_type.h"
+#include "components/omnibox/browser/omnibox.mojom.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
 #include "components/search/ntp_features.h"
@@ -428,7 +430,8 @@ NewTabPageHandler::NewTabPageHandler(
     ThemeService* theme_service,
     search_provider_logos::LogoService* logo_service,
     content::WebContents* web_contents,
-    const base::Time& ntp_navigation_start_time)
+    const base::Time& ntp_navigation_start_time,
+    const std::vector<std::pair<const std::string, int>> module_id_names)
     : ntp_background_service_(
           NtpBackgroundServiceFactory::GetForProfile(profile)),
       ntp_custom_background_service_(ntp_custom_background_service),
@@ -438,6 +441,7 @@ NewTabPageHandler::NewTabPageHandler(
       profile_(profile),
       web_contents_(web_contents),
       ntp_navigation_start_time_(ntp_navigation_start_time),
+      module_id_names_(module_id_names),
       logger_(profile,
               GURL(chrome::kChromeUINewTabPageURL),
               ntp_navigation_start_time),
@@ -515,11 +519,12 @@ void NewTabPageHandler::GetMostVisitedSettings(
 void NewTabPageHandler::SetBackgroundImage(const std::string& attribution_1,
                                            const std::string& attribution_2,
                                            const GURL& attribution_url,
-                                           const GURL& image_url) {
+                                           const GURL& image_url,
+                                           const GURL& thumbnail_url) {
   // Populating the |collection_id| turns on refresh daily which overrides the
   // the selected image.
   ntp_custom_background_service_->SetCustomBackgroundInfo(
-      image_url, attribution_1, attribution_2, attribution_url,
+      image_url, thumbnail_url, attribution_1, attribution_2, attribution_url,
       /* collection_id= */ "");
   LogEvent(NTP_BACKGROUND_IMAGE_SET);
 }
@@ -529,16 +534,16 @@ void NewTabPageHandler::SetDailyRefreshCollectionId(
   // Populating the |collection_id| turns on refresh daily which overrides the
   // the selected image.
   ntp_custom_background_service_->SetCustomBackgroundInfo(
-      /* image_url */ GURL(), /* attribution_line_1= */ "",
-      /* attribution_line_2= */ "",
+      /* image_url */ GURL(), /* thumbnail_url */ GURL(),
+      /* attribution_line_1= */ "", /* attribution_line_2= */ "",
       /* action_url= */ GURL(), collection_id);
   LogEvent(NTP_BACKGROUND_DAILY_REFRESH_ENABLED);
 }
 
 void NewTabPageHandler::SetNoBackgroundImage() {
   ntp_custom_background_service_->SetCustomBackgroundInfo(
-      /* image_url */ GURL(), /* attribution_line_1= */ "",
-      /* attribution_line_2= */ "",
+      /* image_url */ GURL(), /* thumbnail_url */ GURL(),
+      /* attribution_line_1= */ "", /* attribution_line_2= */ "",
       /* action_url= */ GURL(), /* collection_id= */ "");
   LogEvent(NTP_BACKGROUND_IMAGE_RESET);
 }
@@ -696,6 +701,18 @@ void NewTabPageHandler::OnModulesLoadedWithData(
   CHECK(hats_service);
   hats_service->LaunchDelayedSurveyForWebContents(kHatsSurveyTriggerNtpModules,
                                                   web_contents_, 0);
+}
+
+void NewTabPageHandler::GetModulesIdNames(GetModulesIdNamesCallback callback) {
+  std::vector<new_tab_page::mojom::ModuleIdNamePtr> modules_details;
+  for (const auto& id_name_pair : module_id_names_) {
+    auto module_id_name = new_tab_page::mojom::ModuleIdName::New();
+    module_id_name->id = id_name_pair.first;
+    module_id_name->name = l10n_util::GetStringUTF8(id_name_pair.second);
+    modules_details.push_back(std::move(module_id_name));
+  }
+
+  std::move(callback).Run(std::move(modules_details));
 }
 
 void NewTabPageHandler::SetModulesOrder(

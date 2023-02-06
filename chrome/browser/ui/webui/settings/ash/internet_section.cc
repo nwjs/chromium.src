@@ -44,6 +44,7 @@ using ::chromeos::settings::mojom::kApnSubpagePath;
 using ::chromeos::settings::mojom::kCellularDetailsSubpagePath;
 using ::chromeos::settings::mojom::kCellularNetworksSubpagePath;
 using ::chromeos::settings::mojom::kEthernetDetailsSubpagePath;
+using ::chromeos::settings::mojom::kHotspotSubpagePath;
 using ::chromeos::settings::mojom::kKnownNetworksSubpagePath;
 using ::chromeos::settings::mojom::kMobileDataNetworksSubpagePath;
 using ::chromeos::settings::mojom::kNetworkSectionPath;
@@ -435,7 +436,9 @@ const std::vector<SearchConcept>& GetInstantTetheringSearchConcepts() {
        mojom::SearchResultIcon::kInstantTethering,
        mojom::SearchResultDefaultRank::kMedium,
        mojom::SearchResultType::kSubpage,
-       {.subpage = mojom::Subpage::kMobileDataNetworks}},
+       {.subpage = mojom::Subpage::kMobileDataNetworks},
+       {IDS_OS_SETTINGS_TAG_INSTANT_MOBILE_NETWORKS_ALT1,
+        SearchConcept::kAltTagEnd}},
   });
   return *tags;
 }
@@ -853,6 +856,16 @@ void InternetSection::AddLoadTimeData(content::WebUIDataSource* html_source) {
        IDS_SETTINGS_INTERNET_NETWORK_CELLULAR_REFRESHING_PROFILE_LIST},
       {"cellularNetworkResettingESim",
        IDS_SETTINGS_INTERNET_NETWORK_CELLULAR_RESETTING_ESIM},
+      {"hotspotPageTitle", IDS_SETTINGS_INTERNET_HOTSPOT},
+      {"hotspotToggleA11yLabel",
+       IDS_SETTINGS_INTERNET_HOTSPOT_TOGGLE_A11Y_LABEL},
+      {"hotspotSummaryStateOn", IDS_SETTINGS_INTERNET_HOTSPOT_SUMMARY_STATE_ON},
+      {"hotspotSummaryStateOff",
+       IDS_SETTINGS_INTERNET_HOTSPOT_SUMMARY_STATE_OFF},
+      {"hotspotEnabledA11yLabel",
+       IDS_SETTINGS_INTERNET_HOTSPOT_ENABLED_A11Y_LABEL},
+      {"hotspotDisabledA11yLabel",
+       IDS_SETTINGS_INTERNET_HOTSPOT_DISABLED_A11Y_LABEL},
   };
   html_source->AddLocalizedStrings(kLocalizedStrings);
 
@@ -880,6 +893,8 @@ void InternetSection::AddLoadTimeData(content::WebUIDataSource* html_source) {
   html_source->AddBoolean(
       "showHiddenToggle",
       base::FeatureList::IsEnabled(::features::kShowHiddenNetworkToggle));
+  html_source->AddBoolean("isHotspotEnabled",
+                          ash::features::IsHotspotEnabled());
 
   html_source->AddString("networkGoogleNameserversLearnMoreUrl",
                          chrome::kGoogleNameserversLearnMoreURL);
@@ -911,6 +926,13 @@ void InternetSection::AddLoadTimeData(content::WebUIDataSource* html_source) {
       "tetherNetworkNotSetup",
       l10n_util::GetStringFUTF16(
           IDS_SETTINGS_INTERNET_TETHER_NOT_SETUP_WITH_LEARN_MORE_LINK,
+          GetHelpUrlWithBoard(chrome::kInstantTetheringLearnMoreURL)));
+  // TODO(b/259623645): Replace learn more link with hotspot url once it is
+  // ready.
+  html_source->AddString(
+      "hotspotSubpageSubtitle",
+      l10n_util::GetStringFUTF16(
+          IDS_SETTINGS_INTERNET_HOTSPOT_SUBTITLE_WITH_LEARN_MORE_LINK,
           GetHelpUrlWithBoard(chrome::kInstantTetheringLearnMoreURL)));
 }
 
@@ -1019,6 +1041,12 @@ void InternetSection::RegisterHierarchy(HierarchyGenerator* generator) const {
       mojom::kCellularDetailsSubpagePath);
   RegisterNestedSettingBulk(mojom::Subpage::kCellularDetails,
                             GetCellularDetailsSettings(), generator);
+
+  // Hotspot details.
+  generator->RegisterTopLevelSubpage(
+      IDS_SETTINGS_INTERNET_HOTSPOT_DETAILS, mojom::Subpage::kHotspotDetails,
+      mojom::SearchResultIcon::kCellular,
+      mojom::SearchResultDefaultRank::kMedium, mojom::kHotspotSubpagePath);
 
   // APN.
   generator->RegisterNestedSubpage(

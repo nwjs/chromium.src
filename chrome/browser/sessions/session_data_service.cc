@@ -146,7 +146,7 @@ void SessionDataService::OnBrowserRemoved(Browser* browser) {
   std::string id = nw::GetMainExtensionId();
   base::FilePath path;
   extensions::ExtensionRegistry* extension_registry =
-    extensions::ExtensionRegistry::Get(ProfileManager::GetPrimaryUserProfile());
+    extensions::ExtensionRegistry::Get(ProfileManager::GetLastUsedProfileIfLoaded());
   if (!id.empty() && extension_registry) {
     const extensions::Extension* extension =
       extension_registry->GetExtensionById(id, extensions::ExtensionRegistry::EVERYTHING);

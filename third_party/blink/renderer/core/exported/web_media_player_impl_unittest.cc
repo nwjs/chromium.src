@@ -21,7 +21,6 @@
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
-#include "base/task/task_runner_util.h"
 #include "base/test/bind.h"
 #include "base/test/gmock_callback_support.h"
 #include "base/test/mock_callback.h"
@@ -132,6 +131,7 @@ class MockMediaObserver : public media::MediaObserver,
   MOCK_METHOD1(OnBecameDominantVisibleContent, void(bool));
   MOCK_METHOD1(OnMetadataChanged, void(const media::PipelineMetadata&));
   MOCK_METHOD1(OnRemotePlaybackDisabled, void(bool));
+  MOCK_METHOD0(OnMediaRemotingRequested, void());
   MOCK_METHOD0(OnHlsManifestDetected, void());
   MOCK_METHOD0(OnPlaying, void());
   MOCK_METHOD0(OnPaused, void());
@@ -690,11 +690,25 @@ class WebMediaPlayerImplTest
   }
 
   bool ShouldCancelUponDefer() const {
-    return wmpi_->mb_data_source_->cancel_on_defer_for_testing();
+    CHECK_NE(wmpi_->data_source_, nullptr);
+    CHECK_NE(wmpi_->data_source_->GetAsCrossOriginDataSource(), nullptr);
+    // Right now, the only implementation of DataSource that WMPI can get
+    // which returns non-null from GetAsCrossOriginDataSource is
+    // MultiBufferDataSource, so the CHECKs above allow us to be safe casting
+    // this here.
+    // TODO(crbug/1377053): Can we add |cancel_on_defer_for_testing| to
+    // CrossOriginDataSource? We can't do a |GetAsMultiBufferDataSource| since
+    // MBDS is in blink, and we can't import that into media.
+    return static_cast<MultiBufferDataSource*>(wmpi_->data_source_.get())
+        ->cancel_on_defer_for_testing();
   }
 
   bool IsDataSourceMarkedAsPlaying() const {
-    return wmpi_->mb_data_source_->media_has_played();
+    CHECK_NE(wmpi_->data_source_, nullptr);
+    CHECK_NE(wmpi_->data_source_->GetAsCrossOriginDataSource(), nullptr);
+    // See comment in |ShouldCancelUponDefer|.
+    return static_cast<MultiBufferDataSource*>(wmpi_->data_source_.get())
+        ->media_has_played();
   }
 
   scoped_refptr<media::VideoFrame> CreateFrame() {
@@ -2139,6 +2153,48 @@ TEST_F(WebMediaPlayerImplTest, PictureInPictureStateChange) {
   EXPECT_CALL(client_, OnPictureInPictureStateChange()).Times(1);
 
   wmpi_->OnSurfaceIdUpdated(surface_id_);
+
+  EXPECT_CALL(*surface_layer_bridge_ptr_, ClearObserver());
+}
+
+TEST_F(WebMediaPlayerImplTest, DisplayTypeChange) {
+  InitializeWebMediaPlayerImpl();
+
+  scoped_refptr<cc::Layer> layer = cc::Layer::Create();
+
+  EXPECT_CALL(*surface_layer_bridge_ptr_, CreateSurfaceLayer());
+  EXPECT_CALL(*surface_layer_bridge_ptr_, GetSurfaceId())
+      .WillRepeatedly(ReturnRef(surface_id_));
+  EXPECT_CALL(*compositor_, EnableSubmission(_, _, _));
+  EXPECT_CALL(*surface_layer_bridge_ptr_, SetContentsOpaque(false));
+  EXPECT_CALL(*surface_layer_bridge_ptr_, GetCcLayer())
+      .WillRepeatedly(Return(layer.get()));
+
+  media::PipelineMetadata metadata;
+  metadata.has_video = true;
+  OnMetadata(metadata);
+
+  // When entering PIP mode the CC layer is set to null so we are not
+  // compositing the video in the original window.
+  EXPECT_CALL(client_, IsInAutoPIP()).WillOnce(Return(false));
+  EXPECT_CALL(client_, SetCcLayer(nullptr));
+  wmpi_->OnDisplayTypeChanged(DisplayType::kPictureInPicture);
+
+  // When switching back to the inline mode the CC layer is set back to the
+  // bridge CC layer.
+  EXPECT_CALL(client_, SetCcLayer(testing::NotNull()));
+  wmpi_->OnDisplayTypeChanged(DisplayType::kInline);
+
+  // When in persistent state (e.g. auto-pip), video is not playing in the
+  // regular Picture-in-Picture mode. Don't set the CC layer to null.
+  EXPECT_CALL(client_, IsInAutoPIP()).WillOnce(Return(true));
+  EXPECT_CALL(client_, SetCcLayer(_)).Times(0);
+  wmpi_->OnDisplayTypeChanged(DisplayType::kPictureInPicture);
+
+  // When switching back to fullscreen mode the CC layer is set back to the
+  // bridge CC layer.
+  EXPECT_CALL(client_, SetCcLayer(testing::NotNull()));
+  wmpi_->OnDisplayTypeChanged(DisplayType::kFullscreen);
 
   EXPECT_CALL(*surface_layer_bridge_ptr_, ClearObserver());
 }

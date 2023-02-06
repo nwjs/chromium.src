@@ -29,11 +29,11 @@
 #include "sandbox/policy/linux/sandbox_linux.h"
 #include "sandbox/policy/switches.h"
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 #include "content/common/zygote/zygote_communication_linux.h"
 #include "content/common/zygote/zygote_handle_impl_linux.h"
 #include "content/public/common/zygote/zygote_handle.h"
-#endif
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 #include "content/nw/src/common/shell_switches.h"
 
@@ -297,7 +297,7 @@ void ZygoteHostImpl::AdjustRendererOOMScore(base::ProcessHandle pid,
 }
 #endif
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 void ZygoteHostImpl::ReinitializeLogging(uint32_t logging_dest,
                                          base::PlatformFile log_file_fd) {
   content::ZygoteHandle generic_zygote = content::GetGenericZygote();
@@ -307,6 +307,6 @@ void ZygoteHostImpl::ReinitializeLogging(uint32_t logging_dest,
   if (unsandboxed_zygote)
     unsandboxed_zygote->ReinitializeLogging(logging_dest, log_file_fd);
 }
-#endif
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 }  // namespace content

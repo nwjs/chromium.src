@@ -19,7 +19,6 @@
 #include "base/one_shot_event.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/single_thread_task_runner.h"
-#include "base/threading/thread_task_runner_handle.h"
 #include "base/values.h"
 #include "base/version.h"
 #include "components/prefs/pref_registry_simple.h"
@@ -224,7 +223,7 @@ void RuntimeAPI::OnExtensionLoaded(content::BrowserContext* browser_context,
     return;
 
   // Dispatch the onInstalled event with reason "chrome_update".
-  base::ThreadTaskRunnerHandle::Get()->PostTask(
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE,
       base::BindOnce(&RuntimeEventRouter::DispatchOnInstalledEvent,
                      browser_context_, extension->id(), base::Version(), true, nw_skip));
@@ -501,7 +500,7 @@ void RuntimeEventRouter::DispatchOnInstalledEvent(
 void RuntimeEventRouter::DispatchOnUpdateAvailableEvent(
     content::BrowserContext* context,
     const std::string& extension_id,
-    const base::DictionaryValue* manifest) {
+    const base::Value::Dict* manifest) {
   ExtensionSystem* system = ExtensionSystem::Get(context);
   if (!system)
     return;
@@ -583,7 +582,7 @@ void RuntimeAPI::OnExtensionInstalledAndLoaded(
     const Extension* extension,
     const base::Version& previous_version) {
   bool nw_skip = (extension->id() == nw::GetMainExtensionId() && !first_run::IsChromeFirstRun());
-  base::ThreadTaskRunnerHandle::Get()->PostTask(
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE, base::BindOnce(&RuntimeEventRouter::DispatchOnInstalledEvent,
                                 browser_context_, extension->id(),
                                 previous_version, false, nw_skip));

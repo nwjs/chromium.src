@@ -23,6 +23,7 @@
 #include "base/containers/flat_set.h"
 #include "base/containers/flat_tree.h"
 #include "base/feature_list.h"
+#include "base/functional/callback_helpers.h"
 #include "base/logging.h"
 #include "base/metrics/histogram.h"
 #include "base/metrics/histogram_base.h"
@@ -831,6 +832,8 @@ webapps::WebappInstallSource ConvertExternalInstallSourceToInstallSource(
       return webapps::WebappInstallSource::KIOSK;
     case ExternalInstallSource::kExternalLockScreen:
       return webapps::WebappInstallSource::EXTERNAL_LOCK_SCREEN;
+    case ExternalInstallSource::kInternalMicrosoft365Setup:
+      return webapps::WebappInstallSource::MICROSOFT_365_SETUP;
   }
 }
 
@@ -852,6 +855,9 @@ webapps::WebappUninstallSource ConvertExternalInstallSourceToUninstallSource(
       return webapps::WebappUninstallSource::kUnknown;
     case ExternalInstallSource::kExternalLockScreen:
       return webapps::WebappUninstallSource::kExternalLockScreen;
+    case ExternalInstallSource::kInternalMicrosoft365Setup:
+      NOTREACHED() << "Microsoft 365 apps should not be unistalled externally";
+      return webapps::WebappUninstallSource::kUnknown;
   }
 }
 
@@ -901,6 +907,9 @@ WebAppManagement::Type ConvertInstallSurfaceToWebAppSource(
     case webapps::WebappInstallSource::SUB_APP:
       return WebAppManagement::kSubApp;
 
+    case webapps::WebappInstallSource::MICROSOFT_365_SETUP:
+      return WebAppManagement::kOneDriveIntegration;
+
     case webapps::WebappInstallSource::COUNT:
       NOTREACHED();
       return WebAppManagement::kSync;
@@ -933,8 +942,14 @@ void MaybeRegisterOsUninstall(const WebApp* web_app,
   if (!user_installable_before_uninstall && user_installable_after_uninstall) {
     InstallOsHooksOptions options;
     options.os_hooks[OsHookType::kUninstallationViaOsSettings] = true;
-    os_integration_manager.InstallOsHooks(
-        web_app->app_id(), std::move(callback), nullptr, options);
+    auto os_hooks_barrier =
+        OsIntegrationManager::GetBarrierForSynchronize(std::move(callback));
+    // TODO(crbug.com/1401125): Remove InstallOsHooks() once OS integration
+    // sub managers have been implemented.
+    os_integration_manager.InstallOsHooks(web_app->app_id(), os_hooks_barrier,
+                                          nullptr, options);
+    os_integration_manager.Synchronize(
+        web_app->app_id(), base::BindOnce(os_hooks_barrier, OsHooksErrors()));
     return;
   }
 #endif
@@ -956,8 +971,11 @@ void MaybeUnregisterOsUninstall(const WebApp* web_app,
   if (user_installable_before_install && !user_installable_after_install) {
     OsHooksOptions options;
     options[OsHookType::kUninstallationViaOsSettings] = true;
+    // TODO(crbug.com/1401125): Remove UninstallOsHooks() once OS integration
+    // sub managers have been implemented.
     os_integration_manager.UninstallOsHooks(web_app->app_id(), options,
                                             base::DoNothing());
+    os_integration_manager.Synchronize(web_app->app_id(), base::DoNothing());
   }
 #endif
 }
@@ -1081,7 +1099,7 @@ void ApplyParamsToWebAppInstallInfo(const WebAppInstallParams& install_params,
   if (install_params.user_display_mode.has_value())
     web_app_info.user_display_mode = install_params.user_display_mode;
 
-  if (!install_params.override_manifest_id.has_value())
+  if (install_params.override_manifest_id.has_value())
     web_app_info.manifest_id = install_params.override_manifest_id;
 
   // If `additional_search_terms` was a manifest property, it would be

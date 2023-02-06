@@ -426,6 +426,10 @@ class AX_EXPORT AXNode final {
 
   ax::mojom::NameFrom GetNameFrom() const { return data().GetNameFrom(); }
 
+  ax::mojom::DescriptionFrom GetDescriptionFrom() const {
+    return data().GetDescriptionFrom();
+  }
+
   ax::mojom::InvalidState GetInvalidState() const {
     return data().GetInvalidState();
   }
@@ -436,8 +440,8 @@ class AX_EXPORT AXNode final {
   // PosInSet and SetSize public methods.
   bool IsOrderedSetItem() const;
   bool IsOrderedSet() const;
-  absl::optional<int> GetPosInSet();
-  absl::optional<int> GetSetSize();
+  absl::optional<int> GetPosInSet() const;
+  absl::optional<int> GetSetSize() const;
 
   // Helpers for GetPosInSet and GetSetSize.
   // Returns true if the role of ordered set matches the role of item.
@@ -681,6 +685,16 @@ class AX_EXPORT AXNode final {
   // A leaf node should never have children that are focusable or
   // that might send notifications.
   bool IsLeaf() const;
+
+  // Helper to determine if the node is focusable. This does more than just
+  // use HasState(ax::mojom::State::kFocusable) -- it also checks whether the
+  // object is a likely activedescendant.
+  bool IsFocusable() const;
+
+  // Helper to determine whether the node can be an active descendant, and is a
+  // likely candidate to be one. An id and an ARIA role are required, and the
+  // role must be item-like.
+  bool IsLikelyARIAActiveDescendant() const;
 
   // Returns true if this node is a list marker or if it's a descendant
   // of a list marker node. Returns false otherwise.

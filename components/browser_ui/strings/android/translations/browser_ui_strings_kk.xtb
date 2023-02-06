@@ -193,7 +193,6 @@
 <translation id="5048398596102334565">Сайттардың қозғалыс датчиктеріне кіруіне рұқсат ету (ұсынылады)</translation>
 <translation id="5050380848339752099">Бұл сайт инкогнито режимінен тыс қолданбамен ақпаратты бөліскелі тұр.</translation>
 <translation id="5063480226653192405">Пайдалану</translation>
-<translation id="5082281938627763039"><ph name="FPS_MEMBER" /> және <ph name="FPS_OWNER" /> сайттар тобындағы сайттарға арналған cookie файлдары мен басқа да сайт деректері өшіріледі.</translation>
 <translation id="5091013926750941408">Мобильдік сайт</translation>
 <translation id="509133520954049755">Компьютерлік нұсқаны сұрау</translation>
 <translation id="5100237604440890931">Жиылған – жаю үшін басыңыз.</translation>
@@ -207,7 +206,6 @@
 <translation id="528192093759286357">Толық экраннан шығу үшін үстіңгі жақтан сүйреп, "Артқа" түймесін түртіңіз.</translation>
 <translation id="5300589172476337783">Көрсету</translation>
 <translation id="5301954838959518834">Жарайды, түсінікті</translation>
-<translation id="5313967007315987356">Сайт қосу</translation>
 <translation id="5317780077021120954">Сақтау</translation>
 <translation id="5335288049665977812">Сайттарға JavaScript тілін іске қосуға рұқсат беру (ұсынылады)</translation>
 <translation id="534295439873310000">NFC функциясы бар құрылғылар</translation>
@@ -241,9 +239,11 @@
 <translation id="5922853908706496913">Экранды бөлісіп жатырсыз.</translation>
 <translation id="5922967540311291836">Үшінші тарап cookie файлдарын бөгеу:</translation>
 <translation id="5939518447894949180">Қалпына келтіру</translation>
+<translation id="5968921426641056619">Веб-мекенжайды енгізіңіз</translation>
 <translation id="5975083100439434680">Кішірейту</translation>
 <translation id="5976059395673079613"><ph name="PERMISSION" /> – <ph name="WARNING_MESSAGE" /></translation>
 <translation id="6015775454662021376">Осы сайттың құрылғыңызға кіруін басқарыңыз.</translation>
+<translation id="6018815681665454784">Тазалау және қайта орнату керек пе?</translation>
 <translation id="6040143037577758943">Жабу</translation>
 <translation id="6042308850641462728">Жаю</translation>
 <translation id="6064125863973209585">Жүктеп алынғандар</translation>
@@ -307,6 +307,7 @@
 <translation id="7250468141469952378"><ph name="ITEM_COUNT" /> таңдалды</translation>
 <translation id="7260727271532453612"><ph name="PERMISSION_1" /> және <ph name="PERMISSION_2" /> үшін рұқсат етілген.</translation>
 <translation id="7302486331832100261">Әдетте хабарландыруларға тыйым саласыз. Рұқсат беру үшін "Мәліметтер" түймесін түртіңіз.</translation>
+<translation id="7366415735885268578">Сайтты енгізу</translation>
 <translation id="7383715096023715447"><ph name="DOMAIN" /> параметрлері</translation>
 <translation id="7423098979219808738">Алдымен сұрау</translation>
 <translation id="7423538860840206698">Буфердегі контентті оқуға тыйым салынған</translation>
@@ -322,6 +323,7 @@
 <translation id="7658239707568436148">Бас тарту</translation>
 <translation id="7667547420449112975">Оз елінің ғажап сиқыршысы</translation>
 <translation id="7690549345586282764">Масштабты көрсету</translation>
+<translation id="7695658402549134106"><ph name="SITE_NAME" /> сайт параметрі</translation>
 <translation id="7719367874908701697">Бетті масштабтау</translation>
 <translation id="7781829728241885113">Кеше</translation>
 <translation id="7791543448312431591">Қосу</translation>
@@ -348,6 +350,7 @@
 <translation id="813082847718468539">Сайт ақпаратын көру</translation>
 <translation id="8131740175452115882">Растау</translation>
 <translation id="8154912474061769055">Көптеген сайттың функциялары жұмыс істемеуі мүмкін.</translation>
+<translation id="8168435359814927499">Контент</translation>
 <translation id="8197286292360124385"><ph name="PERMISSION_1" /> үшін рұқсат етілген.</translation>
 <translation id="8200772114523450471">Жалғастыру</translation>
 <translation id="8206354486702514201">Бұл параметрді әкімші күштеп орнатқан.</translation>
@@ -364,6 +367,7 @@
 <translation id="8380167699614421159">Бұл сайтта мазалайтын немесе жалған ақпаратты жарнамалар көрсетіледі</translation>
 <translation id="8394832520002899662">Сайтқа оралу үшін түртіңіз.</translation>
 <translation id="8409345997656833551">Мақала үшін қарапайым көрініс қолжетімді болған кезде хабарлау</translation>
+<translation id="8423565414844018592">Мәтін масштабы <ph name="TEXT_SCALING" /> күйіне орнатылған</translation>
 <translation id="8428213095426709021">Параметрлер</translation>
 <translation id="8441146129660941386">Артқа</translation>
 <translation id="8444433999583714703"><ph name="APP_NAME" /> браузері геодерегіңізді пайдалануы үшін, <ph name="BEGIN_LINK" />Android параметрлерінде<ph name="END_LINK" /> оны да қосыңыз.</translation>
@@ -394,7 +398,6 @@
 <translation id="8921772741368021346"><ph name="POSITION" />/<ph name="DURATION" /></translation>
 <translation id="8926666909099850184">Бұл құрылғыда NFC функциясы өшірілген. Оны <ph name="BEGIN_LINK" />Android параметрлерінен<ph name="END_LINK" /> қосыңыз.</translation>
 <translation id="8928445016601307354">Сайттардың NFC құрылғылары туралы ақпаратты көруіне және өзгертуіне тыйым салу</translation>
-<translation id="8941729603749328384">www.example.com</translation>
 <translation id="8958424370300090006">Белгілі бір сайт үшін cookie файлдарына тыйым салыңыз.</translation>
 <translation id="8959122750345127698"><ph name="URL" /> мекенжайына өту мүмкін емес</translation>
 <translation id="8986362086234534611">Ұмыту</translation>

@@ -28,12 +28,8 @@ namespace ash {
 int g_continue_file_removals_in_session = 0;
 
 // The UMA histogram that logs smoothness of pagination animation.
-constexpr char kPaginationTransitionAnimationSmoothness[] =
-    "Apps.PaginationTransition.AnimationSmoothness";
 constexpr char kPaginationTransitionAnimationSmoothnessInTablet[] =
     "Apps.PaginationTransition.AnimationSmoothness.TabletMode";
-constexpr char kPaginationTransitionAnimationSmoothnessInClamshell[] =
-    "Apps.PaginationTransition.AnimationSmoothness.ClamshellMode";
 
 // The UMA histogram that logs which state search results are opened from.
 constexpr char kAppListSearchResultOpenSourceHistogram[] =
@@ -46,11 +42,6 @@ constexpr char kCardifiedStateAnimationSmoothnessEnter[] =
 constexpr char kCardifiedStateAnimationSmoothnessExit[] =
     "Apps.AppList.CardifiedStateAnimation.AnimationSmoothness."
     "ExitCardifiedState";
-
-// The UMA hisotogram that logs the action user performs on zero state
-// search result.
-constexpr char kAppListZeroStateSearchResultUserActionHistogram[] =
-    "Apps.AppList.ZeroStateSearchResultUserActionType";
 
 // The UMA histogram that logs user's decision (remove or cancel) for search
 // result removal confirmation. Result removal is enabled outside zero state
@@ -199,12 +190,6 @@ void RecordSearchResultOpenSource(const SearchResult* result,
       ApplistSearchResultOpenedSource::kMaxApplistSearchResultOpenedSource);
 }
 
-void RecordZeroStateSearchResultUserActionHistogram(
-    ZeroStateSearchResultUserActionType action) {
-  UMA_HISTOGRAM_ENUMERATION(kAppListZeroStateSearchResultUserActionHistogram,
-                            action);
-}
-
 void RecordSearchResultRemovalDialogDecision(
     SearchResultRemovalConfirmation removal_decision) {
   base::UmaHistogramEnumeration(kSearchResultRemovalDialogDecisionHistogram,
@@ -219,7 +204,7 @@ std::string GetAppListOpenMethod(AppListShowSource source) {
     case AppListShowSource::kSearchKeyFullscreen_DEPRECATED:
       return "SearchKey";
     case AppListShowSource::kShelfButton:
-    case AppListShowSource::kShelfButtonFullscreen_DEPRACTED:
+    case AppListShowSource::kShelfButtonFullscreen_DEPRECATED:
       return "HomeButton";
     case AppListShowSource::kSwipeFromShelf:
       return "Swipe";
@@ -227,6 +212,7 @@ std::string GetAppListOpenMethod(AppListShowSource source) {
       return "Scroll";
     case AppListShowSource::kTabletMode:
     case AppListShowSource::kAssistantEntryPoint:
+    case AppListShowSource::kBrowser:
       return "Others";
   }
   NOTREACHED();
@@ -249,8 +235,6 @@ void RecordPeriodicAppListMetrics() {
   AppListItemList* const item_list = model->top_level_item_list();
   for (size_t i = 0; i < item_list->item_count(); ++i) {
     AppListItem* item = item_list->item_at(i);
-    if (item->is_page_break())
-      continue;
     number_of_root_level_items++;
 
     // Item is a folder.
@@ -450,17 +434,9 @@ bool IsCommandIdAnAppLaunch(int command_id_number) {
   return false;
 }
 
-void ReportPaginationSmoothness(bool is_tablet_mode, int smoothness) {
-  UMA_HISTOGRAM_PERCENTAGE(kPaginationTransitionAnimationSmoothness,
+void ReportPaginationSmoothness(int smoothness) {
+  UMA_HISTOGRAM_PERCENTAGE(kPaginationTransitionAnimationSmoothnessInTablet,
                            smoothness);
-
-  if (is_tablet_mode) {
-    UMA_HISTOGRAM_PERCENTAGE(kPaginationTransitionAnimationSmoothnessInTablet,
-                             smoothness);
-  } else {
-    UMA_HISTOGRAM_PERCENTAGE(
-        kPaginationTransitionAnimationSmoothnessInClamshell, smoothness);
-  }
 }
 
 void ReportCardifiedSmoothness(bool is_entering_cardified, int smoothness) {

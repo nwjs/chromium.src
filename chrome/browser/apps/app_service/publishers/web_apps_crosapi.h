@@ -124,20 +124,10 @@ class WebAppsCrosapi : public KeyedService,
   // apps::PublisherBase overrides.
   void Connect(mojo::PendingRemote<apps::mojom::Subscriber> subscriber_remote,
                apps::mojom::ConnectOptionsPtr opts) override;
-  void Launch(const std::string& app_id,
-              int32_t event_flags,
-              apps::mojom::LaunchSource launch_source,
-              apps::mojom::WindowInfoPtr window_info) override;
-  void GetMenuModel(const std::string& app_id,
-                    apps::mojom::MenuType menu_type,
-                    int64_t display_id,
-                    GetMenuModelCallback callback) override;
   void PauseApp(const std::string& app_id) override;
   void UnpauseApp(const std::string& app_id) override;
   void StopApp(const std::string& app_id) override;
   void OpenNativeSettings(const std::string& app_id) override;
-  void SetWindowMode(const std::string& app_id,
-                     apps::mojom::WindowMode window_mode) override;
   void ExecuteContextMenuCommand(const std::string& app_id,
                                  int command_id,
                                  const std::string& shortcut_id,

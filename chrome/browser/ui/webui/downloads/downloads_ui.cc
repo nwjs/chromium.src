@@ -62,7 +62,6 @@ content::WebUIDataSource* CreateDownloadsUIHTMLSource(Profile* profile) {
   webui::SetupWebUIDataSource(
       source, base::make_span(kDownloadsResources, kDownloadsResourcesSize),
       IDR_DOWNLOADS_DOWNLOADS_HTML);
-  webui::EnableTrustedTypesCSP(source);
 
   bool requests_ap_verdicts =
       safe_browsing::AdvancedProtectionStatusManagerFactory::GetForProfile(
@@ -133,8 +132,8 @@ content::WebUIDataSource* CreateDownloadsUIHTMLSource(Profile* profile) {
           : IDS_BLOCK_REASON_UNCOMMON_DOWNLOAD);
   source->AddLocalizedString("dangerSettingsDesc",
                              IDS_BLOCK_REASON_UNWANTED_DOWNLOAD);
-  source->AddLocalizedString("mixedContentDownloadDesc",
-                             IDS_BLOCK_REASON_MIXED_CONTENT);
+  source->AddLocalizedString("insecureDownloadDesc",
+                             IDS_BLOCK_REASON_INSECURE_DOWNLOAD);
   source->AddLocalizedString("asyncScanningDownloadDesc",
                              IDS_BLOCK_REASON_DEEP_SCANNING);
   source->AddLocalizedString("accountCompromiseDownloadDesc",

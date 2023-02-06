@@ -373,8 +373,14 @@ void NGBoxFragmentBuilder::MoveChildrenInBlockDirection(LayoutUnit delta) {
 
   for (auto& candidate : oof_positioned_candidates_)
     candidate.static_position.offset.block_offset += delta;
-  for (auto& descendant : oof_positioned_fragmentainer_descendants_)
-    descendant.static_position.offset.block_offset += delta;
+  for (auto& descendant : oof_positioned_fragmentainer_descendants_) {
+    // If we have already returned past (above) the containing block of the OOF
+    // (but not all the way the outermost fragmentainer), the containing block
+    // is affected by this shift that we just decided to make. This shift wasn't
+    // known at the time of normal propagation. So shift accordingly now.
+    descendant.containing_block.IncreaseBlockOffset(delta);
+    descendant.fixedpos_containing_block.IncreaseBlockOffset(delta);
+  }
 
   if (NGFragmentItemsBuilder* items_builder = ItemsBuilder())
     items_builder->MoveChildrenInBlockDirection(delta);
@@ -542,7 +548,7 @@ const NGLayoutResult* NGBoxFragmentBuilder::ToBoxFragment(
     if (!break_token_) {
       if (last_inline_break_token_)
         child_break_tokens_.push_back(std::move(last_inline_break_token_));
-      if (DidBreakSelf() || HasChildBreakInside())
+      if (DidBreakSelf() || ShouldBreakInside())
         break_token_ = NGBlockBreakToken::Create(this);
     }
 
@@ -700,7 +706,7 @@ void NGBoxFragmentBuilder::AdjustFixedposContainingBlockForInnerMulticols() {
 #if DCHECK_IS_ON()
 
 void NGBoxFragmentBuilder::CheckNoBlockFragmentation() const {
-  DCHECK(!HasChildBreakInside());
+  DCHECK(!ShouldBreakInside());
   DCHECK(!HasInflowChildBreakInside());
   DCHECK(!DidBreakSelf());
   DCHECK(!has_forced_break_);

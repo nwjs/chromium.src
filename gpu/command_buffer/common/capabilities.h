@@ -159,7 +159,8 @@ struct GPU_EXPORT Capabilities {
 
   bool texture_npot = false;
 
-  bool texture_storage_image = false;
+  // TODO(vasilyt): We need SharedImageInterface capabilities and move it there.
+  bool supports_scanout_shared_images = false;
 
   bool supports_oop_raster = false;
 
@@ -177,6 +178,9 @@ struct GPU_EXPORT Capabilities {
 
   // Used by OOP raster.
   bool context_supports_distance_field_text = true;
+
+  // Used only by NaCL graphics 3D.
+  bool use_shared_images_swapchain_for_ppapi = false;
 
   GpuMemoryBufferFormatSet gpu_memory_buffer_formats = {
       gfx::BufferFormat::BGR_565,   gfx::BufferFormat::RGBA_4444,

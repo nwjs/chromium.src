@@ -32,7 +32,6 @@
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/common/content_client.h"
-#include "content/public/common/content_features.h"
 #include "content/public/common/url_constants.h"
 #include "net/base/io_buffer.h"
 #include "net/base/net_errors.h"
@@ -56,10 +55,6 @@ namespace {
 
 const char kChromeURLContentSecurityPolicyHeaderName[] =
     "Content-Security-Policy";
-const char kChromeURLContentSecurityPolicyReportOnlyHeaderName[] =
-    "Content-Security-Policy-Report-Only";
-const char kChromeURLContentSecurityPolicyReportOnlyHeaderValue[] =
-    "require-trusted-types-for 'script'";
 
 const char kChromeURLCrossOriginOpenerPolicyName[] =
     "Cross-Origin-Opener-Policy";
@@ -208,11 +203,6 @@ scoped_refptr<net::HttpResponseHeaders> URLDataManagerBackend::GetHeaders(
   if (source->ShouldDenyXFrameOptions()) {
     headers->SetHeader(kChromeURLXFrameOptionsHeaderName,
                        kChromeURLXFrameOptionsHeaderValue);
-  }
-
-  if (base::FeatureList::IsEnabled(features::kWebUIReportOnlyTrustedTypes)) {
-    headers->SetHeader(kChromeURLContentSecurityPolicyReportOnlyHeaderName,
-                       kChromeURLContentSecurityPolicyReportOnlyHeaderValue);
   }
 
   if (!source->AllowCaching())

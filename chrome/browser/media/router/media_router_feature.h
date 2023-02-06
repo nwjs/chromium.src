@@ -50,9 +50,6 @@ BASE_DECLARE_FEATURE(kGlobalMediaControlsCastStartStop);
 // Presentation API. If disabled, only the allowlisted sites can do so.
 BASE_DECLARE_FEATURE(kAllowAllSitesToInitiateMirroring);
 
-// If enabled, users can request Media Remoting without fullscreen-in-tab.
-BASE_DECLARE_FEATURE(kMediaRemotingWithoutFullscreen);
-
 // Registers |kMediaRouterCastAllowAllIPs| with local state pref |registry|.
 void RegisterLocalStatePrefs(PrefRegistrySimple* registry);
 
@@ -75,6 +72,11 @@ bool DialMediaRouteProviderEnabled();
 // Returns true if global media controls are used to start and stop casting and
 // Media Router is enabled for |context|.
 bool GlobalMediaControlsCastStartStopEnabled(content::BrowserContext* context);
+
+// Returns the command-line flag value to override the default mirroring refresh
+// interval, if set.
+// TODO(crbug.com/1394392): Remove this after CastFastRefreshFrames is launched.
+absl::optional<base::TimeDelta> GetMirroringRefreshInterval();
 
 #endif  // !BUILDFLAG(IS_ANDROID)
 

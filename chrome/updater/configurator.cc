@@ -26,7 +26,7 @@
 #include "chrome/updater/policy/service.h"
 #include "chrome/updater/prefs.h"
 #include "chrome/updater/updater_scope.h"
-#include "chrome/updater/util.h"
+#include "chrome/updater/util/util.h"
 #include "components/crx_file/crx_verifier.h"
 #include "components/prefs/pref_service.h"
 #include "components/update_client/buildflags.h"
@@ -56,30 +56,37 @@ Configurator::Configurator(scoped_refptr<UpdaterPrefs> prefs,
       unzip_factory_(
           base::MakeRefCounted<update_client::InProcessUnzipperFactory>()),
       patch_factory_(
-          base::MakeRefCounted<update_client::InProcessPatcherFactory>()) {}
+          base::MakeRefCounted<update_client::InProcessPatcherFactory>()) {
+#if BUILDFLAG(IS_LINUX)
+  // On Linux creating the NetworkFetcherFactory requires performing blocking IO
+  // to load an external library. This should be done when the configurator is
+  // created.
+  GetNetworkFetcherFactory();
+#endif
+}
 Configurator::~Configurator() = default;
 
-double Configurator::InitialDelay() const {
+base::TimeDelta Configurator::InitialDelay() const {
   return base::RandDouble() * external_constants_->InitialDelay();
 }
 
-int Configurator::ServerKeepAliveSeconds() const {
-  return base::clamp(external_constants_->ServerKeepAliveSeconds(), 1,
-                     kServerKeepAliveSeconds);
+base::TimeDelta Configurator::ServerKeepAliveTime() const {
+  return base::clamp(external_constants_->ServerKeepAliveTime(),
+                     base::Seconds(1), kServerKeepAliveTime);
 }
 
-int Configurator::NextCheckDelay() const {
-  int minutes = 0;
-  CHECK(policy_service_->GetLastCheckPeriodMinutes(nullptr, &minutes));
-  return base::Minutes(minutes).InSeconds();
+base::TimeDelta Configurator::NextCheckDelay() const {
+  PolicyStatus<base::TimeDelta> delay = policy_service_->GetLastCheckPeriod();
+  CHECK(delay);
+  return delay.policy();
 }
 
-int Configurator::OnDemandDelay() const {
-  return 0;
+base::TimeDelta Configurator::OnDemandDelay() const {
+  return base::Seconds(0);
 }
 
-int Configurator::UpdateDelay() const {
-  return 0;
+base::TimeDelta Configurator::UpdateDelay() const {
+  return base::Seconds(0);
 }
 
 std::vector<GURL> Configurator::UpdateUrl() const {
@@ -116,10 +123,9 @@ base::flat_map<std::string, std::string> Configurator::ExtraRequestParams()
 }
 
 std::string Configurator::GetDownloadPreference() const {
-  std::string preference;
-  return policy_service_->GetDownloadPreferenceGroupPolicy(nullptr, &preference)
-             ? preference
-             : std::string();
+  PolicyStatus<std::string> preference =
+      policy_service_->GetDownloadPreferenceGroupPolicy();
+  return preference ? preference.policy() : std::string();
 }
 
 scoped_refptr<update_client::NetworkFetcherFactory>
@@ -171,12 +177,7 @@ update_client::ActivityDataService* Configurator::GetActivityDataService()
 }
 
 bool Configurator::IsPerUserInstall() const {
-  switch (GetUpdaterScope()) {
-    case UpdaterScope::kSystem:
-      return false;
-    case UpdaterScope::kUser:
-      return true;
-  }
+  return !IsSystemInstall();
 }
 
 std::unique_ptr<update_client::ProtocolHandlerFactory>

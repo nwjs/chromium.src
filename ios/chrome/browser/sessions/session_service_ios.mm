@@ -71,9 +71,10 @@ NSString* const kRootObjectKey = @"root";  // Key for the root object.
 
 - (instancetype)init {
   scoped_refptr<base::SequencedTaskRunner> taskRunner =
-      base::ThreadPool::CreateSequencedTaskRunner(
+      base::ThreadPool::CreateSingleThreadTaskRunner(
           {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
-           base::TaskShutdownBehavior::BLOCK_SHUTDOWN});
+           base::TaskShutdownBehavior::BLOCK_SHUTDOWN},
+          base::SingleThreadTaskRunnerThreadMode::DEDICATED);
   return [self initWithTaskRunner:taskRunner];
 }
 
@@ -98,12 +99,8 @@ NSString* const kRootObjectKey = @"root";  // Key for the root object.
   return self;
 }
 
-- (void)shutdown {
-  dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
-  _taskRunner->PostTask(FROM_HERE, base::BindOnce(^{
-                          dispatch_semaphore_signal(semaphore);
-                        }));
-  dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
+- (void)shutdownWithCompletion:(ProceduralBlock)completion {
+  _taskRunner->PostTask(FROM_HERE, base::BindOnce(completion));
 }
 
 - (void)saveSession:(__weak SessionIOSFactory*)factory

@@ -2,10 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "components/named_mojo_ipc_server/named_mojo_server_endpoint_connector.h"
-
+#include "base/functional/callback_forward.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/threading/sequence_bound.h"
+#include "components/named_mojo_ipc_server/endpoint_options.h"
+#include "components/named_mojo_ipc_server/named_mojo_server_endpoint_connector.h"
 
 namespace base {
 class SequencedTaskRunner;
@@ -14,13 +15,11 @@ class SequencedTaskRunner;
 namespace named_mojo_ipc_server {
 
 // static
-// Dummy implementation that returns nullptr for unsupported platforms, i.e.
-// Mac.
-// TODO(yuweih): Implement NamedMojoServerEndpointConnector for Mac.
 base::SequenceBound<NamedMojoServerEndpointConnector>
 NamedMojoServerEndpointConnector::Create(
-    base::SequenceBound<Delegate>,
-    scoped_refptr<base::SequencedTaskRunner>) {
+    scoped_refptr<base::SequencedTaskRunner> io_sequence,
+    const EndpointOptions& options,
+    base::SequenceBound<Delegate> delegate) {
   return base::SequenceBound<NamedMojoServerEndpointConnector>();
 }
 

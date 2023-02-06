@@ -160,7 +160,6 @@ StyleImage* StyleImageLoader::CrossfadeArgument(
 
 const PreCachedContainerSizes::ContainerSizes& PreCachedContainerSizes::Get()
     const {
-  DCHECK(RuntimeEnabledFeatures::CSSContainerRelativeUnitsEnabled());
   if (!cache_) {
     if (conversion_data_) {
       cache_ = conversion_data_->PreCachedContainerSizesCopy();
@@ -252,9 +251,8 @@ SVGResource* ElementStyleResources::GetSVGResourceFromValue(
   if (value.IsLocal(element_.GetDocument())) {
     SVGTreeScopeResources& tree_scope_resources =
         element_.OriginatingTreeScope().EnsureSVGTreeScopedResources();
-    AtomicString decoded_fragment(DecodeURLEscapeSequences(
-        value.FragmentIdentifier(), DecodeURLMode::kUTF8OrIsomorphic));
-    return tree_scope_resources.ResourceForId(decoded_fragment);
+    return tree_scope_resources.ResourceForId(
+        value.NormalizedFragmentIdentifier());
   }
   if (AllowExternalResources(property)) {
     pending_svg_resource_properties_.insert(property);
@@ -301,7 +299,6 @@ static CSSValue* PendingCssValue(StyleImage* style_image) {
 }
 
 void ElementStyleResources::LoadPendingImages(ComputedStyleBuilder& builder) {
-  const ComputedStyle& style = *builder.InternalStyle();
   // We must loop over the properties and then look at the style to see if
   // a pending image exists, and only load that image. For example:
   //
@@ -343,7 +340,7 @@ void ElementStyleResources::LoadPendingImages(ComputedStyleBuilder& builder) {
       }
       case CSSPropertyID::kContent: {
         for (ContentData* content_data =
-                 const_cast<ContentData*>(style.GetContentData());
+                 const_cast<ContentData*>(builder.GetContentData());
              content_data; content_data = content_data->Next()) {
           if (auto* image_content =
                   DynamicTo<ImageContentData>(*content_data)) {
@@ -356,7 +353,7 @@ void ElementStyleResources::LoadPendingImages(ComputedStyleBuilder& builder) {
         break;
       }
       case CSSPropertyID::kCursor: {
-        if (CursorList* cursor_list = style.Cursors()) {
+        if (CursorList* cursor_list = builder.Cursors()) {
           for (CursorData& cursor : *cursor_list) {
             if (auto* pending_value = PendingCssValue(cursor.GetImage()))
               cursor.SetImage(loader.Load(*pending_value));
@@ -365,17 +362,18 @@ void ElementStyleResources::LoadPendingImages(ComputedStyleBuilder& builder) {
         break;
       }
       case CSSPropertyID::kListStyleImage: {
-        if (auto* pending_value = PendingCssValue(style.ListStyleImage()))
+        if (auto* pending_value = PendingCssValue(builder.ListStyleImage()))
           builder.SetListStyleImage(loader.Load(*pending_value));
         break;
       }
       case CSSPropertyID::kBorderImageSource: {
-        if (auto* pending_value = PendingCssValue(style.BorderImageSource()))
+        if (auto* pending_value =
+                PendingCssValue(builder.BorderImage().GetImage()))
           builder.SetBorderImageSource(loader.Load(*pending_value));
         break;
       }
       case CSSPropertyID::kWebkitBoxReflect: {
-        if (StyleReflection* reflection = style.BoxReflect()) {
+        if (StyleReflection* reflection = builder.BoxReflect()) {
           const NinePieceImage& mask_image = reflection->Mask();
           if (auto* pending_value = PendingCssValue(mask_image.GetImage())) {
             StyleImage* loaded_image = loader.Load(*pending_value);
@@ -388,7 +386,7 @@ void ElementStyleResources::LoadPendingImages(ComputedStyleBuilder& builder) {
         break;
       }
       case CSSPropertyID::kWebkitMaskBoxImageSource: {
-        if (auto* pending_value = PendingCssValue(style.MaskBoxImageSource()))
+        if (auto* pending_value = PendingCssValue(builder.MaskBoxImageSource()))
           builder.SetMaskBoxImageSource(loader.Load(*pending_value));
         break;
       }
@@ -404,7 +402,7 @@ void ElementStyleResources::LoadPendingImages(ComputedStyleBuilder& builder) {
         break;
       }
       case CSSPropertyID::kShapeOutside:
-        if (ShapeValue* shape_value = style.ShapeOutside()) {
+        if (ShapeValue* shape_value = builder.ShapeOutside()) {
           if (auto* pending_value = PendingCssValue(shape_value->GetImage())) {
             shape_value->SetImage(loader.Load(
                 *pending_value, FetchParameters::ImageRequestBehavior::kNone,

@@ -24,16 +24,29 @@
 #include "ash/wm/wm_event.h"
 #include "ash/wm/work_area_insets.h"
 #include "ash/wm/workspace/workspace_event_handler.h"
+#include "base/check.h"
 #include "base/check_op.h"
+#include "base/metrics/histogram_functions.h"
+#include "base/metrics/histogram_macros.h"
 #include "chromeos/ui/base/window_properties.h"
 #include "chromeos/ui/wm/constants.h"
 #include "chromeos/ui/wm/window_util.h"
+#include "components/app_restore/window_properties.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_delegate.h"
 #include "ui/aura/window_observer.h"
 #include "ui/display/screen.h"
+#include "ui/wm/core/coordinate_conversion.h"
 
 namespace ash {
+
+constexpr char kFloatWindowCountsPerSessionHistogramName[] =
+    "Ash.Float.FloatWindowCountsPerSession";
+constexpr char kFloatWindowDurationHistogramName[] =
+    "Ash.Float.FloatWindowDuration";
+constexpr char kFloatWindowMoveToAnotherDeskCountsHistogramName[] =
+    "Ash.Float.FloatWindowMoveToAnotherDeskCounts";
+
 namespace {
 
 // Disables the window's position auto management and returns its original
@@ -92,15 +105,18 @@ class FloatController::FloatedWindowInfo : public aura::WindowObserver {
         desk_(desk) {
     DCHECK(floated_window_);
     floated_window_observation_.Observe(floated_window);
+
+    if (desk->is_active())
+      float_start_time_ = base::TimeTicks::Now();
   }
 
   FloatedWindowInfo(const FloatedWindowInfo&) = delete;
   FloatedWindowInfo& operator=(const FloatedWindowInfo&) = delete;
   ~FloatedWindowInfo() override {
     // Reset the window position auto-managed status if it was auto managed.
-    if (was_position_auto_managed_) {
+    if (was_position_auto_managed_)
       WindowState::Get(floated_window_)->SetWindowPositionManaged(true);
-    }
+    MaybeRecordFloatWindowDuration();
   }
 
   const Desk* desk() const { return desk_; }
@@ -111,6 +127,16 @@ class FloatController::FloatedWindowInfo : public aura::WindowObserver {
   MagnetismCorner magnetism_corner() const { return magnetism_corner_; }
   void set_magnetism_corner(MagnetismCorner magnetism_corner) {
     magnetism_corner_ = magnetism_corner;
+  }
+
+  void MaybeRecordFloatWindowDuration() {
+    if (!float_start_time_.is_null()) {
+      base::UmaHistogramCustomCounts(
+          kFloatWindowDurationHistogramName,
+          (base::TimeTicks::Now() - float_start_time_).InMinutes(), 1,
+          base::Days(7).InMinutes(), 100);
+      float_start_time_ = base::TimeTicks();
+    }
   }
 
   void MaybeTuckWindow(bool left) {
@@ -149,6 +175,26 @@ class FloatController::FloatedWindowInfo : public aura::WindowObserver {
     Shell::Get()->float_controller()->OnFloatedWindowDestroying(window);
   }
 
+  void OnWindowVisibilityChanged(aura::Window* window, bool visible) override {
+    if (window != floated_window_)
+      return;
+
+    // When a floated window switches desks, it is hidden or shown. We track the
+    // amount of time a floated window is visible on the active desk to avoid
+    // recording the cases if a floated window is floated indefinitely on an
+    // inactive desk. Check if the desk is active as well, as some UI such as
+    // the saved desks library view may temporarily hide the floated window on
+    // the active desk.
+    if (visible && desk_->is_active()) {
+      if (float_start_time_.is_null())
+        float_start_time_ = base::TimeTicks::Now();
+      return;
+    }
+
+    if (!visible && !desk_->is_active())
+      MaybeRecordFloatWindowDuration();
+  }
+
  private:
   // The `floated_window` this object is hosting information for.
   aura::Window* floated_window_;
@@ -172,6 +218,12 @@ class FloatController::FloatedWindowInfo : public aura::WindowObserver {
   // to.
   const Desk* desk_;
 
+  // The start time when the floated window is on the active desk. Used for
+  // logging the amount of time a window is floated. Logged when the desk
+  // changes to inactive (when combining desks we can change desks, but remain
+  // on the active desk), or when the window is unfloated.
+  base::TimeTicks float_start_time_;
+
   // The corner the `floated_window_` should be magnetized to.
   // By default it magnetizes to the bottom right when first floated.
   MagnetismCorner magnetism_corner_ = MagnetismCorner::kBottomRight;
@@ -191,14 +243,29 @@ FloatController::FloatController() {
     OnRootWindowAdded(root);
 }
 
-FloatController::~FloatController() = default;
+FloatController::~FloatController() {
+  // Record how many windows are floated per session.
+  base::UmaHistogramCounts100(kFloatWindowCountsPerSessionHistogramName,
+                              floated_window_counter_);
+  // Record how many windows are moved to another desk per session.
+  base::UmaHistogramCounts100(kFloatWindowMoveToAnotherDeskCountsHistogramName,
+                              floated_window_move_to_another_desk_counter_);
+}
 
 // static
 gfx::Rect FloatController::GetPreferredFloatWindowClamshellBounds(
     aura::Window* window) {
   DCHECK(chromeos::wm::CanFloatWindow(window));
-  auto* work_area_insets = WorkAreaInsets::ForWindow(window->GetRootWindow());
-  const gfx::Rect work_area = work_area_insets->user_work_area_bounds();
+
+  // In the case of window restore, as we re-float previously floated window, we
+  // will use `window->bounds()`to restore floated window's previous
+  // location.
+  if (window->GetProperty(app_restore::kLaunchedFromAppRestoreKey))
+    return window->bounds();
+
+  gfx::Rect work_area = WorkAreaInsets::ForWindow(window->GetRootWindow())
+                            ->user_work_area_bounds();
+  wm::ConvertRectFromScreen(window->GetRootWindow(), &work_area);
 
   gfx::Rect preferred_bounds =
       WindowState::Get(window)->HasRestoreBounds()
@@ -223,9 +290,11 @@ gfx::Rect FloatController::GetPreferredFloatWindowClamshellBounds(
 
 gfx::Rect FloatController::GetPreferredFloatWindowTabletBounds(
     aura::Window* floated_window) const {
-  const gfx::Rect work_area =
+  gfx::Rect work_area =
       WorkAreaInsets::ForWindow(floated_window->GetRootWindow())
           ->user_work_area_bounds();
+  wm::ConvertRectFromScreen(floated_window->GetRootWindow(), &work_area);
+
   const bool landscape =
       chromeos::wm::IsLandscapeOrientationForWindow(floated_window);
   const gfx::Size preferred_size =
@@ -345,37 +414,58 @@ void FloatController::OnDragCompletedForTablet(
 }
 
 void FloatController::OnFlingOrSwipeForTablet(aura::Window* floated_window,
-                                              bool left,
+                                              absl::optional<bool> left,
                                               bool up) {
   auto* floated_window_info = MaybeGetFloatedWindowInfo(floated_window);
   DCHECK(floated_window_info);
-  MagnetismCorner magnetism_corner;
-  if (left && up) {
-    magnetism_corner = MagnetismCorner::kTopLeft;
-  } else if (left && !up) {
-    magnetism_corner = MagnetismCorner::kBottomLeft;
-  } else if (!left && up) {
-    magnetism_corner = MagnetismCorner::kTopRight;
-  } else {
-    DCHECK(!left && !up);
-    magnetism_corner = MagnetismCorner::kBottomRight;
+  MagnetismCorner original_corner = floated_window_info->magnetism_corner();
+
+  // If this was a vertical fling, simply update magnetism.
+  if (!left) {
+    switch (original_corner) {
+      case MagnetismCorner::kTopLeft:
+      case MagnetismCorner::kBottomLeft:
+        floated_window_info->set_magnetism_corner(
+            up ? MagnetismCorner::kTopLeft : MagnetismCorner::kBottomLeft);
+        break;
+      case MagnetismCorner::kTopRight:
+      case MagnetismCorner::kBottomRight:
+        floated_window_info->set_magnetism_corner(
+            up ? MagnetismCorner::kTopRight : MagnetismCorner::kBottomRight);
+        break;
+    }
+    UpdateWindowBoundsForTablet(
+        floated_window, WindowState::BoundsChangeAnimationType::kAnimate);
+    return;
   }
 
-  MagnetismCorner original_corner = floated_window_info->magnetism_corner();
+  bool left_value = *left;
+  MagnetismCorner magnetism_corner;
+  if (left_value && up) {
+    magnetism_corner = MagnetismCorner::kTopLeft;
+  } else if (left_value && !up) {
+    magnetism_corner = MagnetismCorner::kBottomLeft;
+  } else if (!left_value && up) {
+    magnetism_corner = MagnetismCorner::kTopRight;
+  } else {
+    DCHECK(!left_value && !up);
+    magnetism_corner = MagnetismCorner::kBottomRight;
+  }
   floated_window_info->set_magnetism_corner(magnetism_corner);
+
   // If the window was flung to the closest edge from `original_corner` then
   // tuck the window, otherwise magnetize it.
   switch (original_corner) {
     case MagnetismCorner::kTopLeft:
     case MagnetismCorner::kBottomLeft:
-      if (left) {
+      if (left_value) {
         floated_window_info->MaybeTuckWindow(true);
         return;
       }
       break;
     case MagnetismCorner::kTopRight:
     case MagnetismCorner::kBottomRight:
-      if (!left) {
+      if (!left_value) {
         floated_window_info->MaybeTuckWindow(false);
         return;
       }
@@ -406,6 +496,8 @@ void FloatController::OnMovingAllWindowsOutToDesk(Desk* original_desk,
   auto* original_desk_floated_window = FindFloatedWindowOfDesk(original_desk);
   if (!original_desk_floated_window)
     return;
+  // Records floated window being moved to another desk.
+  ++floated_window_move_to_another_desk_counter_;
   auto* target_desk_floated_window = FindFloatedWindowOfDesk(target_desk);
 
   // Float window might have been hidden on purpose and won't show
@@ -446,6 +538,8 @@ void FloatController::OnMovingFloatedWindowToDesk(aura::Window* floated_window,
   DCHECK(float_info);
   DCHECK_EQ(float_info->desk(), active_desk);
   float_info->set_desk(target_desk);
+  // Records floated window being moved to another desk.
+  ++floated_window_move_to_another_desk_counter_;
   if (root != target_root) {
     // If `floated_window_` is dragged to a desk on a different display, we
     // also need to move it to the target display.
@@ -461,13 +555,20 @@ void FloatController::OnMovingFloatedWindowToDesk(aura::Window* floated_window,
   target_desk->NotifyContentChanged();
 }
 
-void FloatController::OnTabletModeStarting() {
+void FloatController::OnTabletModeStarted() {
   DCHECK(!floated_window_info_map_.empty());
-  // Temporary vector here to avoid mutating the map while iterating it.
+  // If a window can still remain floated, update its bounds, otherwise unfloat
+  // it. Note that the bounds update has to happen after tablet mode has started
+  // as opposed to while it is still starting, since some windows change their
+  // minimum size, which tablet float bounds depend on.
   std::vector<aura::Window*> windows_need_reset;
   for (auto& [window, info] : floated_window_info_map_) {
-    if (!chromeos::wm::CanFloatWindow(window))
+    if (chromeos::wm::CanFloatWindow(window)) {
+      UpdateWindowBoundsForTablet(
+          window, WindowState::BoundsChangeAnimationType::kCrossFade);
+    } else {
       windows_need_reset.push_back(window);
+    }
   }
   for (auto* window : windows_need_reset)
     ResetFloatedWindow(window);
@@ -592,11 +693,11 @@ void FloatController::FloatImpl(aura::Window* window) {
   // If a floated window already exists at current desk, unfloat it before
   // floating `window`.
   auto* desk_controller = DesksController::Get();
-  // Get the active desk where the window belongs to before moving it to float
+  // Get the desk where the window belongs to before moving it to float
   // container.
-  DCHECK(desks_util::IsActiveDeskContainer(
-      desks_util::GetDeskContainerForContext(window)));
-  const Desk* desk = desk_controller->GetTargetActiveDesk();
+  const Desk* desk = desks_util::GetDeskForContext(window);
+  DCHECK(desk);
+
   auto* previously_floated_window = FindFloatedWindowOfDesk(desk);
   // Add floated window to `floated_window_info_map_`.
   // Note: this has to be called before `ResetFloatedWindow`. Because in the
@@ -612,6 +713,14 @@ void FloatController::FloatImpl(aura::Window* window) {
       window->GetRootWindow()->GetChildById(kShellWindowId_FloatContainer);
   DCHECK_NE(window->parent(), floated_container);
   floated_container->AddChild(window);
+
+  if (!desk->is_active())
+    HideFloatedWindow(window);
+
+  // Update floated window counts.
+  // Note that if the same window gets floated 2 times in the same session, it's
+  // counted as 2 floated windows.
+  ++floated_window_counter_;
 
   if (!tablet_mode_observation_.IsObserving())
     tablet_mode_observation_.Observe(Shell::Get()->tablet_mode_controller());

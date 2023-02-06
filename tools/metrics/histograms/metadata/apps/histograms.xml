@@ -115,6 +115,15 @@ chromium-metrics-reviews@google.com.
   <variant name="User" summary="Installed by user"/>
 </variants>
 
+<variants name="LauncherSearchEntryPoint">
+  <variant name="HomeButton"
+      summary="Open launcher by activationg home button"/>
+  <variant name="Others" summary="Open launcher using a source we don't track"/>
+  <variant name="Scroll" summary="Open launcher by scrolling on the shelf"/>
+  <variant name="SearchKey" summary="Open launcher by pressing search key"/>
+  <variant name="Swipe" summary="Open launcher by swiping on the shelf"/>
+</variants>
+
 <variants name="LauncherUISurface">
   <variant name=".AppsSearch" summary="App tiles search"/>
   <variant name=".AppsZeroState" summary="App tiles zero-state"/>
@@ -200,7 +209,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.AppInfoDialog.CreateWebAppShortcutSuccess" enum="Boolean"
-    expires_after="2023-03-19">
+    expires_after="2023-06-04">
   <owner>dmurph@chromium.org</owner>
   <owner>desktop-pwas-team@google.com</owner>
   <summary>
@@ -210,7 +219,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Apps.AppLaunch" enum="AppLaunch" expires_after="2023-03-19">
+<histogram name="Apps.AppLaunch" enum="AppLaunch" expires_after="2023-06-04">
   <owner>tapted@chromium.org</owner>
   <owner>benwells@chromium.org</owner>
   <summary>
@@ -725,7 +734,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.AppList.OsSettingsProvider.QueryTime" units="ms"
-    expires_after="2023-02-10">
+    expires_after="2023-06-04">
   <owner>wrong@chromium.org</owner>
   <owner>thanhdng@chromium.org</owner>
   <owner>tby@chromium.org</owner>
@@ -737,7 +746,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.AppList.PersistentProto.ReadStatus"
-    enum="PersistentProtoReadStatus" expires_after="2023-01-31">
+    enum="PersistentProtoReadStatus" expires_after="2023-05-14">
   <owner>wrong@chromium.org</owner>
   <owner>tby@chromium.org</owner>
   <owner>thanhdng@chromium.org</owner>
@@ -750,7 +759,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.AppList.PersistentProto.WriteStatus"
-    enum="PersistentProtoWriteStatus" expires_after="2023-01-31">
+    enum="PersistentProtoWriteStatus" expires_after="2023-05-14">
   <owner>wrong@chromium.org</owner>
   <owner>tby@chromium.org</owner>
   <owner>thanhdng@chromium.org</owner>
@@ -841,7 +850,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.AppList.Search.Error" enum="AppListUserEventError"
-    expires_after="2023-04-09">
+    expires_after="2023-06-11">
   <owner>wrong@chromium.org</owner>
   <owner>thanhdng@chromium.org</owner>
   <owner>tby@chromium.org</owner>
@@ -849,6 +858,46 @@ chromium-metrics-reviews@google.com.
     Records errors in processing other Apps.AppList.Search.* metrics. These are
     expected to be rare and bucket proportion is not meaningful.
   </summary>
+</histogram>
+
+<histogram name="Apps.AppList.Search.Session.Error"
+    enum="AppListUserEventError" expires_after="2023-01-31">
+  <owner>yulunwu@chromium.org</owner>
+  <owner>tby@chromium.org</owner>
+  <owner>wrong@chromium.org</owner>
+  <owner>tbarzic@chromium.org</owner>
+  <summary>
+    Records errors in processing other Apps.AppList.Search.Session.* metrics.
+    These are expected to be rare and bucket proportion is not meaningful.
+  </summary>
+</histogram>
+
+<histogram name="Apps.AppList.Search.Session.{LauncherSearchEntryPoint}"
+    enum="LauncherSearchSessionResult" expires_after="2023-01-31">
+  <owner>yulunwu@chromium.org</owner>
+  <owner>tby@chromium.org</owner>
+  <owner>wrong@chromium.org</owner>
+  <owner>tbarzic@chromium.org</owner>
+  <summary>
+    Tracks search result launches, answer card impressions, and search session
+    abandons for launcher search sessions.
+
+    A search session is started when a query is entered into the bubble launcher
+    search box or when the tablet mode device enters the kFullscreenSearch
+    AppListViewState. Each search session must conclude one of following ways:
+
+    Quit: Recorded when ending a search session without launching a result and
+    no answer card was shown long enough to have make an impression.
+
+    Launch: Recorded when a search session is ended by launching a result. An
+    answer card may or may not have been shown long enough to make an
+    impression.
+
+    AnswerCardImpression: An answer card was shown long enough to the user to
+    have made an impression at some point during the search session. The answer
+    card may or may not be shown at the moment the search session ended.
+  </summary>
+  <token key="LauncherSearchEntryPoint" variants="LauncherSearchEntryPoint"/>
 </histogram>
 
 <histogram name="Apps.AppList.Search.{SearchView}" enum="AppListSearchAction"
@@ -951,7 +1000,8 @@ chromium-metrics-reviews@google.com.
   <owner>thanhdng@chromium.org</owner>
   <owner>tby@chromium.org</owner>
   <summary>
-    The number of app launches from the search box with non-empty queries.
+    The number of app launches from the search box with non-empty queries. This
+    was updated in 12/2022 to include more result types that were apps.
   </summary>
 </histogram>
 
@@ -1009,7 +1059,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.AppList.SuggestedContent.Enabled" enum="BooleanEnabled"
-    expires_after="2023-03-19">
+    expires_after="2023-06-04">
   <owner>wrong@chromium.org</owner>
   <owner>tby@chromium.org</owner>
   <owner>thanhdng@chromium.org</owner>
@@ -1190,7 +1240,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.AppList.ZeroStateFileProvider.Latency" units="ms"
-    expires_after="2023-01-31">
+    expires_after="2023-06-04">
   <owner>wrong@chromium.org</owner>
   <owner>tby@chromium.org</owner>
   <summary>
@@ -1219,17 +1269,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Apps.AppList.ZeroStateSearchResultUserActionType"
-    enum="AppListZeroStateSearchResultUserActionType"
-    expires_after="2022-05-01">
-  <owner>jennyz@chromium.org</owner>
-  <owner>newcomer@chromium.org</owner>
-  <summary>
-    The type of the action user performed on zero state search result. This is
-    gathered per click of a remove or append button of a search result.
-  </summary>
-</histogram>
-
 <histogram name="Apps.AppList.ZeroStateSuggestionOpenType"
     enum="AppListSearchResult" expires_after="2021-03-15">
   <owner>jennyz@chromium.org</owner>
@@ -1240,7 +1279,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.AppListAppLaunchedV2{AppListState}"
-    enum="AppListLaunchedFrom" expires_after="2022-12-19">
+    enum="AppListLaunchedFrom" expires_after="2023-12-19">
   <owner>tbarzic@chromium.org</owner>
   <owner>mmourgos@chromium.org</owner>
   <owner>newcomer@chromium.org</owner>
@@ -1316,7 +1355,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.AppListBubbleShowSource" enum="AppListShowSource"
-    expires_after="2023-04-10">
+    expires_after="2023-06-11">
   <owner>tbarzic@chromium.org</owner>
   <owner>newcomer@chromium.org</owner>
   <owner>chromeos-launcher@google.com</owner>
@@ -1330,7 +1369,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.AppListContinueTaskOpenType" enum="AppListSearchResult"
-    expires_after="2023-03-19">
+    expires_after="2023-06-04">
 <!-- Name completed by histogram_suffixes name="TabletOrClamshellMode" -->
 
   <owner>anasalazar@chromium.org</owner>
@@ -1400,7 +1439,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.AppListFolderOpened" enum="AppListFolderOpened"
-    expires_after="2023-03-19">
+    expires_after="2023-05-27">
   <owner>mmourgos@chromium.org</owner>
   <owner>tbarzic@chromium.org</owner>
   <owner>newcomer@chromium.org</owner>
@@ -1443,7 +1482,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.AppListLauncherIssuedSearchQueryLength"
-    units="characters" expires_after="2023-03-19">
+    units="characters" expires_after="2023-06-04">
   <owner>jennyz@chromium.org</owner>
   <owner>tbarzic@chromium.org</owner>
   <owner>newcomer@chromium.org</owner>
@@ -1474,7 +1513,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.AppListPageSwitcherSource"
-    enum="AppListPageSwitcherSource" expires_after="2023-03-26">
+    enum="AppListPageSwitcherSource" expires_after="2023-05-27">
   <owner>tbarzic@chromium.org</owner>
   <owner>newcomer@chromium.org</owner>
   <owner>mmourgos@chromium.org</owner>
@@ -1498,7 +1537,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.AppListPlayStoreQueryState"
-    enum="AppListPlayStoreQueryState" expires_after="2023-03-19">
+    enum="AppListPlayStoreQueryState" expires_after="2023-05-27">
   <owner>hejq@chromium.org</owner>
   <summary>The state of a Play Store app search request.</summary>
 </histogram>
@@ -1641,7 +1680,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.AppListSearchResultOpenTypeV2" enum="AppListSearchResult"
-    expires_after="2023-04-02">
+    expires_after="2023-06-04">
 <!-- Name completed by histogram_suffixes name="TabletOrClamshellMode" -->
 
   <owner>tbarzic@chromium.org</owner>
@@ -1667,7 +1706,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.AppListShowSource" enum="AppListShowSource"
-    expires_after="2023-04-10">
+    expires_after="2023-06-11">
   <owner>tbarzic@chromium.org</owner>
   <owner>newcomer@chromium.org</owner>
   <summary>
@@ -1761,18 +1800,6 @@ chromium-metrics-reviews@google.com.
   </summary>
   <token key="AppType" variants="AppType"/>
   <token key="InstallReason" variants="InstallReason"/>
-</histogram>
-
-<histogram name="Apps.AppShimErrorVersion" units="units" expires_after="M78">
-  <owner>jackhou@chromium.org</owner>
-  <summary>
-    Counts which major milestone versions of app_mode_loader are sending
-    --app-shim-error. --app-shim-error is sent as a command line argument to
-    Chrome when app_mode_loader was unable to dyload the Chrome Framework and
-    call ChromeAppModeMain. For example, when Chrome updates from 32-bit to
-    64-bit, an older shim will find the new framework version but fail to dyload
-    it.
-  </summary>
 </histogram>
 
 <histogram name="Apps.AppsInFolders{AppListFolderExperiment}" units="Apps"
@@ -1891,7 +1918,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.CreateShortcutIcon.Linux.Result"
-    enum="WebAppCreateShortcutIconLinuxResult" expires_after="2023-03-19">
+    enum="WebAppCreateShortcutIconLinuxResult" expires_after="2023-05-27">
   <owner>estade@chromium.org</owner>
   <owner>desktop-pwas-team@google.com</owner>
   <summary>
@@ -1909,7 +1936,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.CreateShortcuts.Mac.Result"
-    enum="WebAppCreateShortcutMacResult" expires_after="2023-03-19">
+    enum="WebAppCreateShortcutMacResult" expires_after="2023-05-27">
   <owner>phillis@chromium.org</owner>
   <owner>cmumford@chromium.org</owner>
   <summary>
@@ -2418,7 +2445,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.NoteTakingApp.DefaultLaunchResult"
-    enum="NoteTakingAppLaunchResult" expires_after="2022-12-01">
+    enum="NoteTakingAppLaunchResult" expires_after="2023-06-01">
   <owner>glenrob@chromium.org</owner>
   <owner>tbuckley@chromium.org</owner>
   <summary>
@@ -2428,7 +2455,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.NoteTakingApp.PreferredLaunchResult"
-    enum="NoteTakingAppLaunchResult" expires_after="2023-02-19">
+    enum="NoteTakingAppLaunchResult" expires_after="2023-06-01">
   <owner>glenrob@chromium.org</owner>
   <owner>tbuckley@chromium.org</owner>
   <summary>
@@ -2501,18 +2528,12 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
-<histogram name="Apps.PaginationTransition.AnimationSmoothness" units="%"
-    expires_after="2023-04-16">
-<!-- Name completed by histogram_suffixes name="TabletOrClamshellMode" -->
-
+<histogram name="Apps.PaginationTransition.AnimationSmoothness.TabletMode"
+    units="%" expires_after="2023-04-16">
   <owner>tbarzic@chromium.org</owner>
   <owner>newcomer@chromium.org</owner>
   <owner>wutao@chromium.org</owner>
   <summary>
-    Base name is deprecated as of 3/2019 in favor of
-    Apps.PaginationTransition.AnimationSmoothness.ClamshellMode and
-    Apps.PaginationTransition.AnimationSmoothness.TabletMode
-
     Relative smoothness of animations of launcher pagination transitions. 100%
     represents ideally smooth 60 frames per second. 50% represents only 30
     frames per second is achieved during the animations. 0% should not happen.
@@ -2756,30 +2777,18 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Apps.StateTransition.AnimationSmoothness{AppListTargetState}"
-    units="%" expires_after="2022-12-30">
+<histogram name="Apps.StateTransition.AnimationSmoothness" units="%"
+    expires_after="2022-12-30">
   <owner>tbarzic@chromium.org</owner>
   <owner>newcomer@chromium.org</owner>
   <owner>src/ash/app_list/OWNERS</owner>
   <summary>
-    Relative smoothness of animations of peeking launcher state transitions.
+    Relative smoothness of animations of tablet mode launcher state transitions.
     100% represents ideally smooth 60 frames per second. 50% represents only 30
     frames per second is achieved during the animations. 0% should not happen.
     This metric is recorded exactly once when the user switches states of the
-    launcher. {AppListTargetState}
+    launcher.
   </summary>
-  <token key="AppListTargetState">
-    <variant name=""/>
-    <variant name=".Close.ClamshellMode" summary="Closing the app list"/>
-    <variant name=".FullscreenAllApps.ClamshellMode"
-        summary="Fullscreen and showing all apps"/>
-    <variant name=".FullscreenSearch.ClamshellMode"
-        summary="Fullscreen with search results"/>
-    <variant name=".Half.ClamshellMode"
-        summary="Half-visible state of the app list"/>
-    <variant name=".Peeking.ClamshellMode"
-        summary="Peek state of the app list"/>
-  </token>
 </histogram>
 
 <histogram name="Apps.TimeBetweenAppInstallAndLaunch{TabletOrClamshell}"

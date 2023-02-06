@@ -181,9 +181,6 @@ class CC_EXPORT LayerTreeSettings {
   // Defaults to true.
   bool enable_occlusion = true;
 
-  // Whether experimental de-jelly effect is allowed.
-  bool allow_de_jelly_effect = false;
-
   // Whether the compositor should attempt to sync with the scroll handlers
   // before submitting a frame.
   bool enable_synchronized_scrolling = true;
@@ -215,9 +212,6 @@ class CC_EXPORT LayerTreeSettings {
   // Whether Fluent scrollbar is enabled. Please check https://crbug.com/1292117
   // to find the link to the Fluent Scrollbar spec and related CLs.
   bool enable_fluent_scrollbar = false;
-
-  // This corresponds to the ScrollUpdateOptimizations feature.
-  bool enable_scroll_update_optimizations = false;
 
   // Whether to disable the frame rate limit in the scheduler.
   bool disable_frame_rate_limit = false;

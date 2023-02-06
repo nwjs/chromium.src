@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {assert} from 'chrome://resources/js/assert.js';
-import {loadTimeData} from 'chrome://resources/js/load_time_data.m.js';
+import {assert} from 'chrome://resources/ash/common/assert.js';
+import {loadTimeData} from 'chrome://resources/ash/common/load_time_data.m.js';
 
 import {VolumeManagerCommon} from '../../common/js/volume_manager_types.js';
 import {Crostini} from '../../externs/background/crostini.js';
@@ -17,8 +17,9 @@ import {VolumeManager} from '../../externs/volume_manager.js';
 export class CrostiniImpl {
   constructor() {
     /**
-     * Map of VM name to if it's enabled. False or undefined means not enabled.
-     * @private {Object<boolean>}
+     * Map of VM name to container name to if it's enabled. False or undefined
+     * means not enabled.
+     * @private {!Object<!Object<boolean>>}
      */
     this.enabled_ = {};
 
@@ -38,10 +39,10 @@ export class CrostiniImpl {
    * Must be done after loadTimeData is available.
    */
   initEnabled() {
-    const vms = /** @type {!Array<string>} */ (
+    const guests = /** @type {!Array<!Object<string>>} */ (
         loadTimeData.getValue('VMS_FOR_SHARING'));
-    for (const vm of vms) {
-      this.setEnabled(vm, true);
+    for (const guest of guests) {
+      this.setEnabled(guest.vmName, guest.containerName, true);
     }
     chrome.fileManagerPrivate.onCrostiniChanged.addListener(
         this.onCrostiniChanged_.bind(this));
@@ -56,12 +57,16 @@ export class CrostiniImpl {
   }
 
   /**
-   * Set whether the specified VM is enabled.
+   * Set whether the specified Guest is enabled.
    * @param {string} vmName
+   * @param {string} containerName
    * @param {boolean} enabled
    */
-  setEnabled(vmName, enabled) {
-    this.enabled_[vmName] = enabled;
+  setEnabled(vmName, containerName, enabled) {
+    if (!this.enabled_[vmName]) {
+      this.enabled_[vmName] = {};
+    }
+    this.enabled_[vmName][containerName] = enabled;
   }
 
   /**
@@ -70,7 +75,8 @@ export class CrostiniImpl {
    * @return {boolean}
    */
   isEnabled(vmName) {
-    return !!this.enabled_[vmName];
+    return (!!this.enabled_[vmName]) &&
+        Object.values(this.enabled_[vmName]).includes(true);
   }
 
   /**
@@ -143,10 +149,10 @@ export class CrostiniImpl {
   onCrostiniChanged_(event) {
     switch (event.eventType) {
       case chrome.fileManagerPrivate.CrostiniEventType.ENABLE:
-        this.setEnabled(event.vmName, true);
+        this.setEnabled(event.vmName, event.containerName, true);
         break;
       case chrome.fileManagerPrivate.CrostiniEventType.DISABLE:
-        this.setEnabled(event.vmName, false);
+        this.setEnabled(event.vmName, event.containerName, false);
         break;
       case chrome.fileManagerPrivate.CrostiniEventType.SHARE:
         for (const entry of event.entries) {

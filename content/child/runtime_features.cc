@@ -103,11 +103,6 @@ void SetRuntimeFeatureDefaultsForPlatform(
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
-  WebRuntimeFeatures::EnablePictureInPictureAPI(
-      base::FeatureList::IsEnabled(media::kPictureInPictureAPI));
-#endif
-
-#if BUILDFLAG(IS_ANDROID)
   if (base::android::BuildInfo::GetInstance()->sdk_int() >=
       base::android::SDK_VERSION_P) {
     // Display Cutout is limited to Android P+.
@@ -208,18 +203,21 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
     {wf::EnableBrowserVerifiedUserActivationMouse,
      features::kBrowserVerifiedUserActivationMouse},
     {wf::EnableCompositeBGColorAnimation, features::kCompositeBGColorAnimation},
+    {wf::EnableCompositeClipPathAnimation,
+     features::kCompositeClipPathAnimation},
     {wf::EnableConsolidatedMovementXY, features::kConsolidatedMovementXY},
     {wf::EnableCooperativeScheduling, features::kCooperativeScheduling},
     {wf::EnableDevicePosture, features::kDevicePosture},
     {wf::EnableDigitalGoods, features::kDigitalGoodsApi, kSetOnlyIfOverridden},
     {wf::EnableDirectSockets, features::kIsolatedWebApps},
-    {wf::EnableDocumentPictureInPictureAPI,
-     features::kDocumentPictureInPictureAPI},
     {wf::EnableDocumentPolicy, features::kDocumentPolicy},
     {wf::EnableDocumentPolicyNegotiation, features::kDocumentPolicyNegotiation},
     {wf::EnableFedCm, features::kFedCm, kSetOnlyIfOverridden},
+    {wf::EnableFedCmIframeSupport, features::kFedCmIframeSupport,
+     kSetOnlyIfOverridden},
     {wf::EnableFedCmMultipleIdentityProviders,
      features::kFedCmMultipleIdentityProviders, kDefault},
+    {wf::EnableFedCmUserInfo, features::kFedCmUserInfo, kDefault},
     {wf::EnableFencedFrames, features::kPrivacySandboxAdsAPIsOverride,
      kSetOnlyIfOverridden},
     {wf::EnableSharedStorageAPI, features::kPrivacySandboxAdsAPIsOverride,
@@ -243,7 +241,6 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
     {wf::EnableMediaCastOverlayButton, media::kMediaCastOverlayButton},
     {wf::EnableMediaEngagementBypassAutoplayPolicies,
      media::kMediaEngagementBypassAutoplayPolicies},
-    {wf::EnableMediaSessionWebRTC, media::kMediaSessionWebRTC},
     {wf::EnableMouseSubframeNoImplicitCapture,
      features::kMouseSubframeNoImplicitCapture},
     {wf::EnableNeverSlowMode, features::kNeverSlowMode},
@@ -254,7 +251,6 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
     {wf::EnablePaymentRequest, features::kWebPayments},
     {wf::EnablePercentBasedScrolling, features::kWindowsScrollingPersonality},
     {wf::EnablePeriodicBackgroundSync, features::kPeriodicBackgroundSync},
-    {wf::EnablePictureInPicture, media::kPictureInPicture},
     {wf::EnablePointerLockOptions, features::kPointerLockOptions},
     {wf::EnablePushMessagingSubscriptionChange,
      features::kPushSubscriptionChangeEvent},
@@ -292,12 +288,15 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
     {wf::EnableWebXRHandInput, device::features::kWebXrHandInput},
     {wf::EnableWebXRHitTest, device::features::kWebXrHitTest},
     {wf::EnableWebXRImageTracking, device::features::kWebXrIncubations},
+    {wf::EnableWebXRLayers, device::features::kWebXrLayers},
     {wf::EnableWebXRPlaneDetection, device::features::kWebXrIncubations},
     {wf::EnableRemoveMobileViewportDoubleTap,
      features::kRemoveMobileViewportDoubleTap},
     {wf::EnableGetDisplayMediaSet, features::kGetDisplayMediaSet},
     {wf::EnableGetDisplayMediaSetAutoSelectAllScreens,
      features::kGetDisplayMediaSetAutoSelectAllScreens},
+    {wf::EnableServiceWorkerBypassFetchHandler,
+     features::kServiceWorkerBypassFetchHandler},
   };
   for (const auto& mapping : blinkFeatureToBaseFeatureMapping) {
     SetRuntimeFeatureFromChromiumFeature(
@@ -314,6 +313,7 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
            kSetOnlyIfOverridden},
           {"AndroidDownloadableFontsMatching",
            features::kAndroidDownloadableFontsMatching},
+          {"FirstPartySets", features::kFirstPartySets},
           {"Fledge", blink::features::kFledge, kSetOnlyIfOverridden},
           {"Fledge", features::kPrivacySandboxAdsAPIsOverride,
            kSetOnlyIfOverridden},
@@ -321,7 +321,7 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
           {"LegacyWindowsDWriteFontFallback",
            features::kLegacyWindowsDWriteFontFallback},
           {"OriginIsolationHeader", features::kOriginIsolationHeader},
-          {"FirstPartySets", features::kFirstPartySets},
+          {"PartitionedCookies", net::features::kPartitionedCookies},
           {"ReduceAcceptLanguage", network::features::kReduceAcceptLanguage},
           {"StorageAccessAPI", net::features::kStorageAccessAPI},
           {"TopicsAPI", features::kPrivacySandboxAdsAPIsOverride,
@@ -503,30 +503,30 @@ void SetCustomizedRuntimeFeaturesFromCombinedArgs(
   WebRuntimeFeatures::EnableBackForwardCache(
       content::IsBackForwardCacheEnabled());
 
-  if (base::FeatureList::IsEnabled(network::features::kTrustTokens)) {
+  if (base::FeatureList::IsEnabled(network::features::kPrivateStateTokens)) {
     // See https://bit.ly/configuring-trust-tokens.
     using network::features::TrustTokenOriginTrialSpec;
     switch (
         network::features::kTrustTokenOperationsRequiringOriginTrial.Get()) {
       case TrustTokenOriginTrialSpec::kOriginTrialNotRequired:
-        // Setting TrustTokens=true enables the Trust Tokens interface;
-        // TrustTokensAlwaysAllowIssuance disables a runtime check during
-        // issuance that the origin trial is active (see
+        // Setting PrivateStateTokens=true enables the Trust Tokens interface;
+        // PrivateStateTokensAlwaysAllowIssuance disables a runtime check
+        // during issuance that the origin trial is active (see
         // blink/.../trust_token_issuance_authorization.h).
-        WebRuntimeFeatures::EnableTrustTokens(true);
-        WebRuntimeFeatures::EnableTrustTokensAlwaysAllowIssuance(true);
+        WebRuntimeFeatures::EnablePrivateStateTokens(true);
+        WebRuntimeFeatures::EnablePrivateStateTokensAlwaysAllowIssuance(true);
         break;
       case TrustTokenOriginTrialSpec::kAllOperationsRequireOriginTrial:
         // The origin trial itself will be responsible for enabling the
-        // TrustTokens RuntimeEnabledFeature.
-        WebRuntimeFeatures::EnableTrustTokens(false);
-        WebRuntimeFeatures::EnableTrustTokensAlwaysAllowIssuance(false);
+        // PrivateStateTokens RuntimeEnabledFeature.
+        WebRuntimeFeatures::EnablePrivateStateTokens(false);
+        WebRuntimeFeatures::EnablePrivateStateTokensAlwaysAllowIssuance(false);
         break;
       case TrustTokenOriginTrialSpec::kOnlyIssuanceRequiresOriginTrial:
         // At issuance, a runtime check will be responsible for checking that
         // the origin trial is present.
-        WebRuntimeFeatures::EnableTrustTokens(true);
-        WebRuntimeFeatures::EnableTrustTokensAlwaysAllowIssuance(false);
+        WebRuntimeFeatures::EnablePrivateStateTokens(true);
+        WebRuntimeFeatures::EnablePrivateStateTokensAlwaysAllowIssuance(false);
         break;
     }
   }
@@ -537,11 +537,6 @@ void SetCustomizedRuntimeFeaturesFromCombinedArgs(
             features::kFedCm, features::kFedCmIdpSignoutFieldTrialParamName,
             false)) {
       WebRuntimeFeatures::EnableFedCmIdpSignout(true);
-    }
-    if (base::GetFieldTrialParamByFeatureAsBool(
-            features::kFedCm, features::kFedCmIframeSupportFieldTrialParamName,
-            false)) {
-      WebRuntimeFeatures::EnableFedCmIframeSupport(true);
     }
     if (base::GetFieldTrialParamByFeatureAsBool(
             features::kFedCm,

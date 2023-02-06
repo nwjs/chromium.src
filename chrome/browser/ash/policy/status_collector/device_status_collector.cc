@@ -72,18 +72,18 @@
 #include "chromeos/ash/components/dbus/spaced/spaced_client.h"
 #include "chromeos/ash/components/dbus/update_engine/update_engine_client.h"
 #include "chromeos/ash/components/disks/disk_mount_manager.h"
+#include "chromeos/ash/components/login/login_state/login_state.h"
 #include "chromeos/ash/components/network/device_state.h"
 #include "chromeos/ash/components/network/network_handler.h"
 #include "chromeos/ash/components/network/network_state.h"
 #include "chromeos/ash/components/network/network_state_handler.h"
 #include "chromeos/ash/components/settings/cros_settings_names.h"
 #include "chromeos/ash/components/settings/timezone_settings.h"
+#include "chromeos/ash/components/system/statistics_provider.h"
 #include "chromeos/ash/services/cros_healthd/public/mojom/cros_healthd_probe.mojom.h"
 #include "chromeos/dbus/power_manager/idle.pb.h"
 #include "chromeos/dbus/tpm_manager/tpm_manager.pb.h"
 #include "chromeos/dbus/tpm_manager/tpm_manager_client.h"
-#include "chromeos/login/login_state/login_state.h"
-#include "chromeos/system/statistics_provider.h"
 #include "chromeos/version/version_loader.h"
 #include "components/policy/core/browser/browser_policy_connector.h"
 #include "components/policy/core/common/cloud/cloud_policy_constants.h"
@@ -480,8 +480,8 @@ int ConvertWifiSignalStrength(int signal_strength) {
 }
 
 bool IsKioskSession() {
-  return chromeos::LoginState::Get()->GetLoggedInUserType() ==
-         chromeos::LoginState::LOGGED_IN_USER_KIOSK;
+  return ash::LoginState::Get()->GetLoggedInUserType() ==
+         ash::LoginState::LOGGED_IN_USER_KIOSK;
 }
 
 // Utility method to turn cpu_temp_fetcher_ to OnceCallback
@@ -2159,11 +2159,13 @@ void DeviceStatusCollector::FetchCrosHealthdData(
   auto sample = std::make_unique<SampledData>();
   sample->timestamp = base::Time::Now();
 
-  ash::cros_healthd::ServiceConnection::GetInstance()->ProbeTelemetryInfo(
-      probe_categories,
-      base::BindOnce(&DeviceStatusCollector::SampleProbeData,
-                     weak_factory_.GetWeakPtr(), std::move(sample),
-                     std::move(completion_callback)));
+  ash::cros_healthd::ServiceConnection::GetInstance()
+      ->GetProbeService()
+      ->ProbeTelemetryInfo(
+          probe_categories,
+          base::BindOnce(&DeviceStatusCollector::SampleProbeData,
+                         weak_factory_.GetWeakPtr(), std::move(sample),
+                         std::move(completion_callback)));
 }
 
 void DeviceStatusCollector::OnProbeDataFetched(
@@ -2282,10 +2284,10 @@ bool DeviceStatusCollector::GetVersionInfo(
 
 bool DeviceStatusCollector::GetWriteProtectSwitch(
     em::DeviceStatusReportRequest* status) {
-  std::string firmware_write_protect;
-  if (!statistics_provider_->GetMachineStatistic(
-          chromeos::system::kFirmwareWriteProtectCurrentKey,
-          &firmware_write_protect)) {
+  const absl::optional<base::StringPiece> firmware_write_protect =
+      statistics_provider_->GetMachineStatistic(
+          chromeos::system::kFirmwareWriteProtectCurrentKey);
+  if (!firmware_write_protect) {
     return false;
   }
 
@@ -2382,18 +2384,15 @@ bool DeviceStatusCollector::GetNetworkStatus(
     em::NetworkState::ConnectionState state_constant;
   } kConnectionStateMap[] = {
       {shill::kStateIdle, em::NetworkState::IDLE},
-      {shill::kStateCarrier, em::NetworkState::CARRIER},
       {shill::kStateAssociation, em::NetworkState::ASSOCIATION},
       {shill::kStateConfiguration, em::NetworkState::CONFIGURATION},
       {shill::kStateReady, em::NetworkState::READY},
       {shill::kStateNoConnectivity, em::NetworkState::PORTAL},
       {shill::kStateRedirectFound, em::NetworkState::PORTAL},
       {shill::kStatePortalSuspected, em::NetworkState::PORTAL},
-      {shill::kStateOffline, em::NetworkState::OFFLINE},
       {shill::kStateOnline, em::NetworkState::ONLINE},
       {shill::kStateDisconnect, em::NetworkState::DISCONNECT},
       {shill::kStateFailure, em::NetworkState::FAILURE},
-      {shill::kStateActivationFailure, em::NetworkState::ACTIVATION_FAILURE},
   };
 
   bool anything_reported = false;
@@ -2514,7 +2513,7 @@ bool DeviceStatusCollector::GetCPUInfo(em::DeviceStatusReportRequest* status) {
 
 bool DeviceStatusCollector::GetAudioStatus(
     em::DeviceStatusReportRequest* status) {
-  chromeos::CrasAudioHandler* audio_handler = chromeos::CrasAudioHandler::Get();
+  ash::CrasAudioHandler* audio_handler = ash::CrasAudioHandler::Get();
   status->set_sound_volume(audio_handler->GetOutputVolumePercent());
   return true;
 }

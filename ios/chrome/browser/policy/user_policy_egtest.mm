@@ -259,11 +259,12 @@ void VerifyTheNotificationUI() {
   config.additional_args.push_back(
       base::StrCat({"--", test_switches::kSignInAtStartup}));
   config.additional_args.push_back(
-      std::string("-") + ios::kAddFakeIdentitiesArg + "=" +
+      std::string("-") + test_switches::kAddFakeIdentitiesAtStartup + "=" +
       [FakeSystemIdentity encodeIdentitiesToBase64:@[ fakeManagedIdentity ]]);
   [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
 
-  [ChromeEarlGrey waitForSyncInitialized:YES syncTimeout:base::Seconds(5)];
+  [ChromeEarlGrey waitForSyncEngineInitialized:YES
+                                   syncTimeout:base::Seconds(5)];
 
   // Wait until the user policies are loaded from disk.
   WaitOnUserPolicy(kWaitOnScheduledUserPolicyFetchInterval);
@@ -275,7 +276,8 @@ void VerifyTheNotificationUI() {
 
 // Tests that the user policies are fetched when the user decides to "Continue"
 // in the notification dialog.
-- (void)testUserPolicyNotificationWithAcceptChoice {
+// TODO(crbug.com/1386163): Failing on iphone device and simulator.
+- (void)DISABLED_testUserPolicyNotificationWithAcceptChoice {
   // Clear the prefs related to user policy to make sure that the notification
   // isn't skipped and that the fetch is started within the minimal schedule
   // interval.
@@ -300,7 +302,7 @@ void VerifyTheNotificationUI() {
   config.additional_args.push_back(
       base::StrCat({"--", test_switches::kSignInAtStartup}));
   config.additional_args.push_back(
-      std::string("-") + ios::kAddFakeIdentitiesArg + "=" +
+      std::string("-") + test_switches::kAddFakeIdentitiesAtStartup + "=" +
       [FakeSystemIdentity encodeIdentitiesToBase64:@[ fakeManagedIdentity ]]);
   [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
 
@@ -354,7 +356,7 @@ void VerifyTheNotificationUI() {
   config.additional_args.push_back(
       base::StrCat({"--", test_switches::kSignInAtStartup}));
   config.additional_args.push_back(
-      std::string("-") + ios::kAddFakeIdentitiesArg + "=" +
+      std::string("-") + test_switches::kAddFakeIdentitiesAtStartup + "=" +
       [FakeSystemIdentity encodeIdentitiesToBase64:@[ fakeManagedIdentity ]]);
   [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
 

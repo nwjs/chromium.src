@@ -1114,6 +1114,38 @@ TEST_F(ManifestParserTest, IconsParseRules) {
     EXPECT_FALSE(IsManifestEmpty(manifest));
     EXPECT_EQ(0u, GetErrorCount());
   }
+
+  // Smoke test.
+  {
+    auto& manifest = ParseManifest(R"(
+          {
+            "icons": [
+              {
+                "src": "foo.webp",
+                "type": "image/webp",
+                "sizes": "192x192"
+              },
+              {
+                "src": "foo.svg",
+                "type": "image/svg+xml",
+                "sizes": "144x144"
+              }
+            ]
+          }
+        )");
+    ASSERT_EQ(manifest->icons.size(), 2u);
+    EXPECT_EQ(manifest->icons[0]->src, KURL(DefaultDocumentUrl(), "foo.webp"));
+    EXPECT_EQ(manifest->icons[0]->type, "image/webp");
+    EXPECT_EQ(manifest->icons[0]->sizes.size(), 1u);
+    EXPECT_EQ(manifest->icons[0]->sizes[0].width(), 192);
+    EXPECT_EQ(manifest->icons[0]->sizes[0].height(), 192);
+    EXPECT_EQ(manifest->icons[1]->src, KURL(DefaultDocumentUrl(), "foo.svg"));
+    EXPECT_EQ(manifest->icons[1]->type, "image/svg+xml");
+    EXPECT_EQ(manifest->icons[1]->sizes.size(), 1u);
+    EXPECT_EQ(manifest->icons[1]->sizes[0].width(), 144);
+    EXPECT_EQ(manifest->icons[1]->sizes[0].height(), 144);
+    EXPECT_EQ(0u, GetErrorCount());
+  }
 }
 
 TEST_F(ManifestParserTest, ScreenshotsParseRules) {
@@ -5658,6 +5690,19 @@ TEST_F(ManifestParserTest, DarkColorOverrideParseRules) {
                 errors()[0]);
       EXPECT_EQ("property 'background_colors' ignored, type array expected.",
                 errors()[1]);
+    }
+
+    // Override arrays don't contain objects.
+    {
+      auto& manifest = ParseManifest(R"({
+            "theme_colors": [true],
+            "background_colors":
+            [5, {"color": "#0000FF", "media": "(prefers-color-scheme: dark) "}]
+            })");
+      EXPECT_FALSE(manifest->has_dark_theme_color);
+      EXPECT_TRUE(manifest->has_dark_background_color);
+      EXPECT_EQ(manifest->dark_background_color, 0xFF0000FFu);
+      EXPECT_EQ(0u, GetErrorCount());
     }
 
     // Valid overrides should be parsed

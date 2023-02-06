@@ -172,6 +172,7 @@ class CORE_EXPORT CSSValue : public GarbageCollected<CSSValue> {
   bool IsCyclicVariableValue() const {
     return class_type_ == kCyclicVariableValueClass;
   }
+  bool IsAlternateValue() const { return class_type_ == kAlternateClass; }
   bool IsAxisValue() const { return class_type_ == kAxisClass; }
   bool IsShorthandWrapperValue() const {
     return class_type_ == kKeyframeShorthandClass;
@@ -184,6 +185,7 @@ class CORE_EXPORT CSSValue : public GarbageCollected<CSSValue> {
   }
 
   bool IsScrollValue() const { return class_type_ == kScrollClass; }
+  bool IsViewValue() const { return class_type_ == kViewClass; }
   bool IsRatioValue() const { return class_type_ == kRatioClass; }
 
   bool HasFailedOrCanceledSubresources() const;
@@ -211,6 +213,7 @@ class CORE_EXPORT CSSValue : public GarbageCollected<CSSValue> {
     kValuePairClass,
     kLightDarkValuePairClass,
     kScrollClass,
+    kViewClass,
     kRatioClass,
 
     // Basic shape classes.
@@ -244,6 +247,7 @@ class CORE_EXPORT CSSValue : public GarbageCollected<CSSValue> {
     kFontFamilyClass,
     kFontStyleRangeClass,
     kFontVariationClass,
+    kAlternateClass,
 
     kInheritedClass,
     kInitialClass,

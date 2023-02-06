@@ -119,7 +119,6 @@ class LocalFrameUkmAggregator;
 class WebPluginContainerImpl;
 struct AnnotatedRegionValue;
 struct IntrinsicSizingInfo;
-struct MobileFriendliness;
 struct PhysicalOffset;
 struct PhysicalRect;
 
@@ -200,6 +199,13 @@ class CORE_EXPORT LocalFrameView final
   bool WillDoPaintHoldingForFCP() const;
 
   unsigned LayoutCountForTesting() const { return layout_count_for_testing_; }
+  // Returns the number of block layout calls.
+  //  * It's incremented when NGBlockNode::Layout() is called with NeedsLayout()
+  //  * It can overflow. Do not use it in production.
+  uint32_t BlockLayoutCountForTesting() const {
+    return block_layout_count_for_testing_;
+  }
+  void IncBlockLayoutCount() { ++block_layout_count_for_testing_; }
 
   void CountObjectsNeedingLayout(unsigned& needs_layout_objects,
                                  unsigned& total_objects,
@@ -474,6 +480,8 @@ class CORE_EXPORT LocalFrameView final
   void ScheduleAnimation(base::TimeDelta = base::TimeDelta(),
                          base::Location location = base::Location::Current());
 
+  void OnCommitRequested();
+
   // FIXME: This should probably be renamed as the 'inSubtreeLayout' parameter
   // passed around the LocalFrameView layout methods can be true while this
   // returns false.
@@ -707,12 +715,11 @@ class CORE_EXPORT LocalFrameView final
   MobileFriendlinessChecker* GetMobileFriendlinessChecker() const {
     return mobile_friendliness_checker_;
   }
-  void DidChangeMobileFriendliness(const MobileFriendliness& mf);
   void RegisterTapEvent(Element* target);
 
   // Returns the UKM aggregator for this frame's local root, creating it if
-  // necessary.
-  LocalFrameUkmAggregator& EnsureUkmAggregator();
+  // necessary. Returns null if no aggregator is needed, such as for SVG images.
+  LocalFrameUkmAggregator* GetUkmAggregator();
   void ResetUkmAggregatorForTesting();
 
   // Report the First Contentful Paint signal to the LocalFrameView.
@@ -773,6 +780,8 @@ class CORE_EXPORT LocalFrameView final
   void AddPendingOpacityUpdate(LayoutObject& object);
   bool RemovePendingOpacityUpdate(const LayoutObject& object);
   bool UpdateAllPendingOpacityUpdates();
+
+  void ForAllChildLocalFrameViews(base::FunctionRef<void(LocalFrameView&)>);
 
  protected:
   void FrameRectsChanged(const gfx::Rect&) override;
@@ -948,7 +957,6 @@ class CORE_EXPORT LocalFrameView final
 
   void ForAllChildViewsAndPlugins(
       base::FunctionRef<void(EmbeddedContentView&)>);
-  void ForAllChildLocalFrameViews(base::FunctionRef<void(LocalFrameView&)>);
 
   enum TraversalOrder { kPreOrder, kPostOrder };
   void ForAllNonThrottledLocalFrameViews(
@@ -1017,6 +1025,8 @@ class CORE_EXPORT LocalFrameView final
 
   DarkModeFilter& EnsureDarkModeFilter();
 
+  bool HasViewTransitionThrottlingRendering() const;
+
   LayoutSize size_;
 
   typedef HeapHashSet<Member<LayoutEmbeddedObject>> EmbeddedObjectSet;
@@ -1033,6 +1043,7 @@ class CORE_EXPORT LocalFrameView final
 
   bool layout_scheduling_enabled_;
   unsigned layout_count_for_testing_;
+  uint32_t block_layout_count_for_testing_ = 0;
   unsigned lifecycle_update_count_for_testing_;
   HeapTaskRunnerTimer<LocalFrameView> update_plugins_timer_;
 

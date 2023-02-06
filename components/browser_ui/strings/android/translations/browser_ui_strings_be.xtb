@@ -151,7 +151,7 @@
 <translation id="4008040567710660924">Дазвол выкарыстання файлаў cookie ад канкрэтнага сайта.</translation>
 <translation id="4046123991198612571">Наступны трэк</translation>
 <translation id="4149994727733219643">Спрошчаны выгляд для вэб-старонак</translation>
-<translation id="4165986682804962316">Налады сайта</translation>
+<translation id="4165986682804962316">Налады сайтаў</translation>
 <translation id="4169549551965910670">Выканана падключэнне да прылады USB</translation>
 <translation id="4194328954146351878">Пытацца, перш чым дазваляць сайтам праглядаць і змяняць інфармацыю на прыладах NFC (рэкамендуецца)</translation>
 <translation id="4200726100658658164">Адкрыць налады месцазнаходжання</translation>
@@ -193,7 +193,6 @@
 <translation id="5048398596102334565">Дазваляць сайтам доступ да датчыкаў руху (рэкамендуецца)</translation>
 <translation id="5050380848339752099">Гэты сайт будзе абагульваць звесткі з праграмай па-за рэжымам інкогніта.</translation>
 <translation id="5063480226653192405">Выкарыстанне</translation>
-<translation id="5082281938627763039">Будуць выдалены файлы cookie і іншыя даныя сайта <ph name="FPS_MEMBER" /> і групы сайтаў у дамене <ph name="FPS_OWNER" /></translation>
 <translation id="5091013926750941408">Мабільны сайт</translation>
 <translation id="509133520954049755">Запытваць версію для камп'ютараў</translation>
 <translation id="5100237604440890931">Згорнута – каб разгарнуць, націсніце тут.</translation>
@@ -207,7 +206,6 @@
 <translation id="528192093759286357">Каб выйсці з поўнаэкраннага рэжыму, правядзіце зверху ўніз і націсніце кнопку "Назад".</translation>
 <translation id="5300589172476337783">Паказаць</translation>
 <translation id="5301954838959518834">OK</translation>
-<translation id="5313967007315987356">Дадаванне сайта</translation>
 <translation id="5317780077021120954">Захаваць</translation>
 <translation id="5335288049665977812">Дазволіць сайтам запускаць JavaScript (рэкамендавана)</translation>
 <translation id="534295439873310000">Прылады NFC</translation>
@@ -241,9 +239,11 @@
 <translation id="5922853908706496913">Ваш экран абагульваецца</translation>
 <translation id="5922967540311291836">Блакіраваць староннія файлы cookie:</translation>
 <translation id="5939518447894949180">Скінуць</translation>
+<translation id="5968921426641056619">Увядзіце вэб-адрас</translation>
 <translation id="5975083100439434680">Паменшыць</translation>
 <translation id="5976059395673079613"><ph name="PERMISSION" /> – <ph name="WARNING_MESSAGE" /></translation>
 <translation id="6015775454662021376">Кіруйце доступам гэтага сайта да вашай прылады</translation>
+<translation id="6018815681665454784">Выдаліць даныя і скінуць дазволы?</translation>
 <translation id="6040143037577758943">Закрыць</translation>
 <translation id="6042308850641462728">Яшчэ</translation>
 <translation id="6064125863973209585">Завершаныя спампоўкі</translation>
@@ -307,6 +307,7 @@
 <translation id="7250468141469952378">Выбрана: <ph name="ITEM_COUNT" /></translation>
 <translation id="7260727271532453612">Дазволены <ph name="PERMISSION_1" /> і <ph name="PERMISSION_2" /></translation>
 <translation id="7302486331832100261">Звычайна вы блакіруеце апавяшчэнні. Каб дазволіць іх, націсніце "Падрабязнасці".</translation>
+<translation id="7366415735885268578">Дадаванне сайта</translation>
 <translation id="7383715096023715447">Налады для дамена <ph name="DOMAIN" /></translation>
 <translation id="7423098979219808738">Спачатку запытваць</translation>
 <translation id="7423538860840206698">Чытанне буфера абмену заблакіравана</translation>
@@ -322,6 +323,7 @@
 <translation id="7658239707568436148">Скасаваць</translation>
 <translation id="7667547420449112975">Чараўнік краіны Оз</translation>
 <translation id="7690549345586282764">Паказваць маштаб</translation>
+<translation id="7695658402549134106">Якую версію выкарыстоўваць для сайта <ph name="SITE_NAME" /></translation>
 <translation id="7719367874908701697">Маштаб старонкі</translation>
 <translation id="7781829728241885113">Учора</translation>
 <translation id="7791543448312431591">Дадаць</translation>
@@ -348,6 +350,7 @@
 <translation id="813082847718468539">Прагляд звестак пра сайт</translation>
 <translation id="8131740175452115882">Пацвердзіць</translation>
 <translation id="8154912474061769055">На многіх сайтах можа не працаваць частка функцый</translation>
+<translation id="8168435359814927499">Змесціва</translation>
 <translation id="8197286292360124385">Дазволена: <ph name="PERMISSION_1" /></translation>
 <translation id="8200772114523450471">Узнавіць</translation>
 <translation id="8206354486702514201">Гэтай наладай кіруе адміністратар.</translation>
@@ -364,6 +367,7 @@
 <translation id="8380167699614421159">Гэты сайт паказвае назойлівую рэкламу або рэкламу, якая ўводзіць у зман</translation>
 <translation id="8394832520002899662">Каб вярнуцца на сайт, націсніце тут</translation>
 <translation id="8409345997656833551">Апавяшчаць, калі артыкул можна адкрыць у спрошчаным выглядзе</translation>
+<translation id="8423565414844018592">Зададзены маштаб тэксту: <ph name="TEXT_SCALING" /></translation>
 <translation id="8428213095426709021">Налады</translation>
 <translation id="8441146129660941386">Перайсці назад</translation>
 <translation id="8444433999583714703">Каб даць праграме "<ph name="APP_NAME" />" доступ да даных пра ваша месцазнаходжанне, уключыце апошнія ў <ph name="BEGIN_LINK" />Наладах Android<ph name="END_LINK" />.</translation>
@@ -394,7 +398,6 @@
 <translation id="8921772741368021346"><ph name="POSITION" /> / <ph name="DURATION" /></translation>
 <translation id="8926666909099850184">Функцыя NFC выключана на гэтай прыладзе. Уключыце яе ў <ph name="BEGIN_LINK" />Наладах Android<ph name="END_LINK" />.</translation>
 <translation id="8928445016601307354">Забараніць сайтам праглядаць і змяняць інфармацыю на прыладах NFC</translation>
-<translation id="8941729603749328384">www.example.com</translation>
 <translation id="8958424370300090006">Блакіраваць файлы cookie для пэўнага сайта.</translation>
 <translation id="8959122750345127698">Пераход па наступным адрасе недаступны: <ph name="URL" /></translation>
 <translation id="8986362086234534611">Забыць</translation>

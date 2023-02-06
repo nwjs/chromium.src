@@ -79,9 +79,6 @@ BASE_FEATURE(kAudioServiceSandbox,
 // second is unsafe for Android WebView (and thus entirely disabled via
 // ContentBrowserClient::SupportsAvoidUnnecessaryBeforeUnloadCheckSync()),
 // because the embedder may trigger reentrancy, which cannot be avoided.
-BASE_FEATURE(kAvoidUnnecessaryBeforeUnloadCheckPostTask,
-             "AvoidUnnecessaryBeforeUnloadCheck",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kAvoidUnnecessaryBeforeUnloadCheckSync,
              "AvoidUnnecessaryBeforeUnloadCheckSync",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -231,6 +228,10 @@ BASE_FEATURE(kCompositeBGColorAnimation,
              "CompositeBGColorAnimation",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kCompositeClipPathAnimation,
+             "CompositeClipPathAnimation",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, code cache does not use a browsing_data filter for deletions.
 BASE_FEATURE(kCodeCacheDeletionWithoutFilter,
              "CodeCacheDeletionWithoutFilter",
@@ -340,6 +341,11 @@ BASE_FEATURE(kEnableServiceWorkersForChromeUntrusted,
              "EnableServiceWorkersForChromeUntrusted",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enables service workers on chrome:// urls.
+BASE_FEATURE(kEnableServiceWorkersForChromeScheme,
+             "EnableServiceWorkersForChromeScheme",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // If this feature is enabled and device permission is not granted by the user,
 // media-device enumeration will provide at most one device per type and the
 // device IDs will not be available.
@@ -381,9 +387,10 @@ const char kFedCmAutoSigninFieldTrialParamName[] = "AutoSignin";
 // is enabled.
 const char kFedCmIdpSignoutFieldTrialParamName[] = "IdpSignout";
 
-// Field trial boolean parameter which indicates that FedCM API is enabled in
-// cross-origin iframes.
-const char kFedCmIframeSupportFieldTrialParamName[] = "IframeSupport";
+// Enables usage of the FedCM API with iframe support.
+BASE_FEATURE(kFedCmIframeSupport,
+             "FedCmIframeSupport",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables usage of the FedCM API with metrics endpoint at the same time.
 BASE_FEATURE(kFedCmMetricsEndpoint,
@@ -394,6 +401,11 @@ BASE_FEATURE(kFedCmMetricsEndpoint,
 // time.
 BASE_FEATURE(kFedCmMultipleIdentityProviders,
              "FedCmMultipleIdentityProviders",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables usage of the FedCM API with the User Info API at the same time.
+BASE_FEATURE(kFedCmUserInfo,
+             "FedCmUserInfo",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Field trial boolean parameter which indicates whether IdpSigninStatus API is
@@ -435,12 +447,6 @@ const base::FeatureParam<base::TimeDelta>
     kFirstPartySetsNavigationThrottleTimeout{
         &kFirstPartySets, "FirstPartySetsNavigationThrottleTimeout",
         base::Seconds(2)};
-
-// Whether to initialize the font manager when the renderer starts on a
-// background thread.
-BASE_FEATURE(kFontManagerEarlyInit,
-             "FontManagerEarlyInit",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables fixes for matching src: local() for web fonts correctly against full
 // font name or postscript name. Rolling out behind a flag, as enabling this
@@ -496,6 +502,16 @@ BASE_FEATURE(kGetDisplayMediaSetAutoSelectAllScreens,
 // (activated by kUserAgentClientHint)
 BASE_FEATURE(kGreaseUACH, "GreaseUACH", base::FEATURE_ENABLED_BY_DEFAULT);
 
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+// Supports proxying thread type changes of renderer processes to browser
+// process and having browser process handle adjusting thread properties (nice
+// value, c-group, latency sensitivity...) for renderers which have sandbox
+// restrictions.
+BASE_FEATURE(kHandleRendererThreadTypeChangesInBrowser,
+             "HandleRendererThreadTypeChangesInBrowser",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
+
 // This is intended as a kill switch for the Idle Detection feature. To enable
 // this feature, the experimental web platform features flag should be set,
 // or the site should obtain an Origin Trial token.
@@ -506,20 +522,13 @@ BASE_FEATURE(kInMemoryCodeCache,
              "InMemoryCodeCache",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Historically most navigations required IPC from browser to renderer and
-// from renderer back to browser. This was done to check for before-unload
-// handlers on the current page and occurred regardless of whether a
-// before-unload handler was present. The navigation start time (as used in
-// various metrics) is the time the renderer initiates the IPC back to the
-// browser. If this feature is enabled, the navigation start time takes into
-// account the cost of the IPC from the browser to renderer. More specifically:
-// navigation_start = time_renderer_sends_ipc_to_browser -
-//    (time_renderer_receives_ipc - time_browser_sends_ipc)
-// Note that navigation_start does not take into account the amount of time the
-// renderer spends processing the IPC (that is, executing script).
-BASE_FEATURE(kIncludeIpcOverheadInNavigationStart,
-             "IncludeIpcOverheadInNavigationStart",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+// During compositor frame eviction, collect not only the surfaces that are
+// reachable from the main frame tree, but also recurse into inner
+// frames. Otherwise only toplevel frames and OOPIF are handled, and other
+// cases, e.g. PDF tiles are ignored. See https://crbug.com/1360351 for details.
+BASE_FEATURE(kInnerFrameCompositorSurfaceEviction,
+             "InnerFrameCompositorSurfaceEviction",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Kill switch for the GetInstalledRelatedApps API.
 BASE_FEATURE(kInstalledApp, "InstalledApp", base::FEATURE_ENABLED_BY_DEFAULT);
@@ -706,12 +715,6 @@ BASE_FEATURE(kNavigationRequestPreconnect,
              "NavigationRequestPreconnect",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables optimizations for renderer->browser mojo calls to avoid waiting on
-// the UI thread during navigation.
-BASE_FEATURE(kNavigationThreadingOptimizations,
-             "NavigationThreadingOptimizations",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // If the network service is enabled, runs it in process.
 BASE_FEATURE(kNetworkServiceInProcess,
              "NetworkServiceInProcess2",
@@ -735,6 +738,11 @@ BASE_FEATURE(kNotificationContentImage,
 BASE_FEATURE(kNotificationTriggers,
              "NotificationTriggers",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Feature which holdbacks NoStatePrefetch on all surfaces.
+BASE_FEATURE(kNoStatePrefetchHoldback,
+             "NoStatePrefetchHoldback",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls the Origin-Agent-Cluster header. Tracking bug
 // https://crbug.com/1042415; flag removal bug (for when this is fully launched)
@@ -775,16 +783,6 @@ BASE_FEATURE(kPepperCrossOriginRedirectRestriction,
 // navigation's network request.
 BASE_FEATURE(kPersistentOriginTrials,
              "PersistentOriginTrials",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// A browser-side equivalent of the Blink feature "DocumentPictureInPictureAPI".
-// This is used for sanity checks to ensure that the feature can't be enabled by
-// a compromised renderer despite the Blink flag not being enabled.
-//
-// Tracking bug: https://crbug.com/1269059
-// Removal bug (when no longer experimental): https://crbug.com/1285144
-BASE_FEATURE(kDocumentPictureInPictureAPI,
-             "DocumentPictureInPictureAPI",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables process sharing for sites that do not require a dedicated process
@@ -845,7 +843,16 @@ BASE_FEATURE(kPrivacySandboxAdsAPIsOverride,
 //
 BASE_FEATURE(kPrivateNetworkAccessForWorkers,
              "PrivateNetworkAccessForWorkers",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables Private Network Access checks in warning mode for all types of web
+// workers.
+//
+// Similar to `kPrivateNetworkAccessForWorkers`, except that it does not require
+// CORS preflight requests to succeed, and shows a warning in devtools instead.
+BASE_FEATURE(kPrivateNetworkAccessForWorkersWarningOnly,
+             "PrivateNetworkAccessForWorkersWarningOnly",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Requires that CORS preflight requests succeed before sending private network
 // requests. This flag implies `kPrivateNetworkAccessSendPreflights`.
@@ -927,6 +934,16 @@ BASE_FEATURE(kServiceWorkerBypassFetchHandler,
              "ServiceWorkerBypassFetchHandler",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+const base::FeatureParam<ServiceWorkerBypassFetchHandlerStrategy>::Option
+    service_worker_bypass_fetch_handler_strategy_options[] = {
+        {ServiceWorkerBypassFetchHandlerStrategy::kFeatureOptIn, "optin"},
+        {ServiceWorkerBypassFetchHandlerStrategy::kAllowList, "allowlist"}};
+const base::FeatureParam<ServiceWorkerBypassFetchHandlerStrategy>
+    kServiceWorkerBypassFetchHandlerStrategy{
+        &kServiceWorkerBypassFetchHandler, "strategy",
+        ServiceWorkerBypassFetchHandlerStrategy::kFeatureOptIn,
+        &service_worker_bypass_fetch_handler_strategy_options};
+
 const base::FeatureParam<ServiceWorkerBypassFetchHandlerTarget>::Option
     service_worker_bypass_fetch_handler_target_options[] = {{
         ServiceWorkerBypassFetchHandlerTarget::kMainResource,
@@ -937,6 +954,12 @@ const base::FeatureParam<ServiceWorkerBypassFetchHandlerTarget>
         &kServiceWorkerBypassFetchHandler, "bypass_for",
         ServiceWorkerBypassFetchHandlerTarget::kMainResource,
         &service_worker_bypass_fetch_handler_target_options};
+
+// Define origins to bypass ServiceWorker. Origins are expected to be passed as
+// a comma separated string. e.g. https://example1.test,https://example2.test
+const base::FeatureParam<std::string>
+    kServiceWorkerBypassFetchHandlerBypassedOrigins{
+        &kServiceWorkerBypassFetchHandler, "origins_to_bypass", ""};
 
 // Enables skipping the service worker fetch handler if the fetch handler is
 // identified as ignorable.
@@ -1044,16 +1067,6 @@ BASE_FEATURE(kSubframeShutdownDelay,
              base::FEATURE_DISABLED_BY_DEFAULT
 #endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 );
-const base::FeatureParam<SubframeShutdownDelayType>::Option delay_types[] = {
-    {SubframeShutdownDelayType::kConstant, "constant"},
-    {SubframeShutdownDelayType::kConstantLong, "constant-long"},
-    {SubframeShutdownDelayType::kHistoryBased, "history-based"},
-    {SubframeShutdownDelayType::kHistoryBasedLong, "history-based-long"},
-    {SubframeShutdownDelayType::kMemoryBased, "memory-based"}};
-const base::FeatureParam<SubframeShutdownDelayType>
-    kSubframeShutdownDelayTypeParam{&kSubframeShutdownDelay, "type",
-                                    SubframeShutdownDelayType::kConstant,
-                                    &delay_types};
 
 // If enabled, GetUserMedia API will only work when the concerned tab is in
 // focus
@@ -1156,12 +1169,6 @@ BASE_FEATURE(kSurfaceSyncFullscreenKillswitch,
 // real OS events.
 BASE_FEATURE(kSyntheticPointerActions,
              "SyntheticPointerActions",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Whether optimizations controlled by kNavigationThreadingOptimizations are
-// moved to the IO thread or a separate background thread.
-BASE_FEATURE(kThreadingOptimizationsOnIO,
-             "ThreadingOptimizationsOnIO",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // This feature allows touch dragging and a context menu to occur
@@ -1276,9 +1283,20 @@ BASE_FEATURE(kWebAssemblyDynamicTiering,
              "WebAssemblyDynamicTiering",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Enable support for the WebAssembly Garbage Collection proposal:
+// https://github.com/WebAssembly/gc.
+BASE_FEATURE(kWebAssemblyGarbageCollection,
+             "WebAssemblyGarbageCollection",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enable WebAssembly lazy compilation (JIT on first call).
 BASE_FEATURE(kWebAssemblyLazyCompilation,
              "WebAssemblyLazyCompilation",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enable the use of WebAssembly Relaxed SIMD operations
+BASE_FEATURE(kWebAssemblyRelaxedSimd,
+             "WebAssemblyRelaxedSimd",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enable WebAssembly tiering (Liftoff -> TurboFan).
@@ -1302,6 +1320,12 @@ BASE_FEATURE(kWebAssemblyTrapHandler,
 // Controls whether WebAuthn conditional UI requests are supported.
 BASE_FEATURE(kWebAuthConditionalUI,
              "WebAuthenticationConditionalUI",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Controls whether WebAuthn get requests for discoverable credentials use the
+// Touch To Fill bottom sheet on Android.
+BASE_FEATURE(kWebAuthnTouchToFillCredentialSelection,
+             "WebAuthnTouchToFillCredentialSelection",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls whether the Web Bluetooth API is enabled:
@@ -1356,11 +1380,6 @@ BASE_FEATURE(kWebRtcUseGpuMemoryBufferVideoFrames,
 // Enables code caching for scripts used on WebUI pages.
 BASE_FEATURE(kWebUICodeCache,
              "WebUICodeCache",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables report-only Trusted Types experiment on WebUIs
-BASE_FEATURE(kWebUIReportOnlyTrustedTypes,
-             "WebUIReportOnlyTrustedTypes",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls whether the WebUSB API is enabled:
@@ -1460,14 +1479,6 @@ BASE_FEATURE(kWebViewThrottleBackgroundBeginFrame,
              "WebViewThrottleBackgroundBeginFrame",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Temporarily pauses the compositor early in navigation.
-BASE_FEATURE(kOptimizeEarlyNavigation,
-             "OptimizeEarlyNavigation",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-const base::FeatureParam<base::TimeDelta> kCompositorLockTimeout{
-    &kOptimizeEarlyNavigation, "compositor_lock_timeout",
-    base::Milliseconds(150)};
-
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_MAC)
@@ -1505,7 +1516,7 @@ BASE_FEATURE(kRetryGetVideoCaptureDeviceInfos,
 // Wayland display server.
 BASE_FEATURE(kWebRtcPipeWireCapturer,
              "WebRTCPipeWireCapturer",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // defined(WEBRTC_USE_PIPEWIRE)
 
 enum class VideoCaptureServiceConfiguration {

@@ -44,6 +44,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_image_bitmap_options.h"
 #include "third_party/blink/renderer/core/aom/accessible_node.h"
 #include "third_party/blink/renderer/core/css/css_resolution_units.h"
+#include "third_party/blink/renderer/core/css/properties/longhands.h"
 #include "third_party/blink/renderer/core/display_lock/display_lock_utilities.h"
 #include "third_party/blink/renderer/core/dom/flat_tree_traversal.h"
 #include "third_party/blink/renderer/core/dom/layout_tree_builder_traversal.h"
@@ -410,8 +411,6 @@ void AXNodeObject::AlterSliderOrSpinButtonValue(bool increase) {
                           action, orientation, text_direction);
   GetNode()->DispatchEvent(*keydown);
 
-  // TODO(crbug.com/1099069): add a brief pause between keydown and keyup?
-
   // The keydown handler may have caused the node to be removed.
   if (!GetNode())
     return;
@@ -419,7 +418,17 @@ void AXNodeObject::AlterSliderOrSpinButtonValue(bool increase) {
   KeyboardEvent* keyup =
       CreateKeyboardEvent(local_dom_window, WebInputEvent::Type::kKeyUp, action,
                           orientation, text_direction);
-  GetNode()->DispatchEvent(*keyup);
+
+  // Add a 100ms delay between keydown and keyup to make events look less
+  // evidently synthesized.
+  GetDocument()
+      ->GetTaskRunner(TaskType::kUserInteraction)
+      ->PostDelayedTask(
+          FROM_HERE,
+          WTF::BindOnce(
+              [](Node* node, KeyboardEvent* evt) { node->DispatchEvent(*evt); },
+              WrapWeakPersistent(GetNode()), WrapPersistent(keyup)),
+          base::Milliseconds(100));
 }
 
 AXObject* AXNodeObject::ActiveDescendant() {
@@ -1272,13 +1281,6 @@ ax::mojom::blink::Role AXNodeObject::NativeRoleIgnoringAria() const {
   if (IsFrame(GetNode()))
     return ax::mojom::blink::Role::kIframe;
 
-  if (IsA<HTMLFencedFrameElement>(GetNode())) {
-    // Shadow DOM <fencedframe>s are marked as a group, as they are not the
-    // child tree owner. The child tree owner is their <iframe> child.
-    DCHECK(blink::features::IsFencedFramesShadowDOMBased());
-    return ax::mojom::blink::Role::kGroup;
-  }
-
   // There should only be one banner/contentInfo per page. If header/footer are
   // being used within an article or section then it should not be exposed as
   // whole page's banner/contentInfo but as a generic container role.
@@ -1538,10 +1540,8 @@ bool AXNodeObject::IsLoaded() const {
 
   // Check for a navigation API single-page app navigation in progress.
   if (auto* window = GetDocument()->domWindow()) {
-    if (auto* navigation_api = NavigationApi::navigation(*window)) {
-      if (navigation_api->HasNonDroppedOngoingNavigation())
-        return false;
-    }
+    if (window->navigation()->HasNonDroppedOngoingNavigation())
+      return false;
   }
 
   return true;
@@ -1652,6 +1652,14 @@ bool AXNodeObject::IsClickable() const {
 
   if (HasContentEditableAttributeSet())
     return true;
+
+  // Certain user-agent shadow DOM elements are expected to be clickable but
+  // they do not have event listeners attached or a clickable native role. We
+  // whitelist them here.
+  if (element->ShadowPseudoId() ==
+      shadow_element_names::kPseudoCalendarPickerIndicator) {
+    return true;
+  }
 
   // Only use native roles. For ARIA elements, require a click listener.
   return ui::IsClickable(native_role_);
@@ -3369,24 +3377,18 @@ String AXNodeObject::TextAlternative(
 
   // Step 2I from: http://www.w3.org/TR/accname-aam-1.1
   name_from = ax::mojom::blink::NameFrom::kTitle;
-  if (name_sources) {
-    name_sources->push_back(NameSource(found_text_alternative, kTitleAttr));
-    name_sources->back().type = name_from;
-  }
   const AtomicString& title = GetAttribute(kTitleAttr);
+  String titleText = text_alternative = TextAlternativeFromTitleAttribute(
+      title, name_from, name_sources, &found_text_alternative);
   if (!title.empty()) {
-    text_alternative = title;
-    name_from = ax::mojom::blink::NameFrom::kTitle;
     if (name_sources) {
-      found_text_alternative = true;
-      name_sources->back().text = text_alternative;
+      text_alternative = titleText;
     } else {
-      return text_alternative;
+      return titleText;
     }
   }
 
   name_from = ax::mojom::blink::NameFrom::kNone;
-
   if (name_sources && found_text_alternative) {
     for (NameSource& name_source : *name_sources) {
       if (!name_source.text.IsNull() && !name_source.superseded) {
@@ -4389,29 +4391,15 @@ void AXNodeObject::InsertChild(AXObject* child,
 
 bool AXNodeObject::CanHaveChildren() const {
   DCHECK(!IsDetached());
-  DCHECK(!IsA<HTMLMapElement>(GetNode()));
-
-  // Placeholder gets exposed as an attribute on the input accessibility node,
-  // so there's no need to add its text children. Placeholder text is a separate
-  // node that gets removed when it disappears, so this will only be present if
-  // the placeholder is visible.
-  if (GetElement() && GetElement()->ShadowPseudoId() ==
-                          shadow_element_names::kPseudoInputPlaceholder) {
-    return false;
-  }
-
-  if (IsA<HTMLBRElement>(GetNode()) &&
-      (!GetLayoutObject() || !GetLayoutObject()->IsBR())) {
-    // A <br> element that is not treated as a line break could occur when the
-    // <br> element has DOM children. A <br> does not usually have DOM children,
-    // but there is nothing preventing a script from creating this situation.
-    // This anomalous child content is not rendered, and therefore AXObjects
-    // should not be created for the children. Enforcing that <br>s to only have
-    // children when they are line breaks also helps create consistency: any AX
-    // child of a <br> will always be an AXInlineTextBox.
-    return false;
-  }
-
+  // Notes:
+  // * Native text fields expose any children they might have, complying
+  // with browser-side expectations that editable controls have children
+  // containing the actual text content.
+  // * ARIA roles with childrenPresentational:true in the ARIA spec expose
+  // their contents to the browser side, allowing platforms to decide whether
+  // to make them a leaf, ensuring that focusable content cannot be hidden,
+  // and improving stability in Blink.
+  bool result = !GetElement() || CanHaveChildren(*GetElement());
   switch (native_role_) {
     case ax::mojom::blink::Role::kCheckBox:
     case ax::mojom::blink::Role::kListBoxOption:
@@ -4426,28 +4414,60 @@ bool AXNodeObject::CanHaveChildren() const {
     case ax::mojom::blink::Role::kSplitter:
     case ax::mojom::blink::Role::kSwitch:
     case ax::mojom::blink::Role::kTab:
-      return false;
+      DCHECK(!result) << "Expected to disallow children for " << GetElement();
+      break;
     case ax::mojom::blink::Role::kComboBoxSelect:
     case ax::mojom::blink::Role::kPopUpButton:
-    case ax::mojom::blink::Role::kLineBreak:
     case ax::mojom::blink::Role::kStaticText:
       // Note: these can have AXInlineTextBox children, but when adding them, we
       // also check AXObjectCache().InlineTextBoxAccessibilityEnabled().
-      return true;
+      DCHECK(result) << "Expected to allow children for " << GetElement()
+                     << " on role " << native_role_;
+      break;
     default:
       break;
   }
+  return result;
+}
 
-  // Allow native text fields to expose any children they might have, complying
-  // with browser-side expectations that editable controls have children
-  // containing the actual text content.
-  if (blink::EnclosingTextControl(GetNode()))
-    return true;
+// static
+bool AXNodeObject::CanHaveChildren(Element& element) {
+  DCHECK(!IsA<HTMLMapElement>(element));
+  // Placeholder gets exposed as an attribute on the input accessibility node,
+  // so there's no need to add its text children. Placeholder text is a separate
+  // node that gets removed when it disappears, so this will only be present if
+  // the placeholder is visible.
+  if (element.ShadowPseudoId() ==
+      shadow_element_names::kPseudoInputPlaceholder) {
+    return false;
+  }
 
-  // ARIA roles with childrenPresentational:true in the ARIA spec expose
-  // their contents to the browser side, allowing platforms to decide whether
-  // to make them a leaf, ensuring that focusable content cannot be hidden,
-  // and improving stability in Blink.
+  if (IsA<HTMLBRElement>(element) &&
+      (!element.GetLayoutObject() || !element.GetLayoutObject()->IsBR())) {
+    // A <br> element that is not treated as a line break could occur when the
+    // <br> element has DOM children. A <br> does not usually have DOM children,
+    // but there is nothing preventing a script from creating this situation.
+    // This anomalous child content is not rendered, and therefore AXObjects
+    // should not be created for the children. Enforcing that <br>s to only have
+    // children when they are line breaks also helps create consistency: any AX
+    // child of a <br> will always be an AXInlineTextBox.
+    return false;
+  }
+
+  if (IsA<HTMLHRElement>(element))
+    return false;
+
+  if (auto* input = DynamicTo<HTMLInputElement>(&element)) {
+    // False for checkbox, radio and range.
+    return !input->IsCheckable() && input->type() != input_type_names::kRange;
+  }
+
+  if (IsA<HTMLOptionElement>(element))
+    return false;
+
+  if (IsA<HTMLProgressElement>(element))
+    return false;
+
   return true;
 }
 
@@ -4474,8 +4494,16 @@ double AXNodeObject::EstimatedLoadingProgress() const {
 Element* AXNodeObject::ActionElement() const {
   const AXObject* current = this;
 
-  if (!current->GetElement())
-    return nullptr;  // Do not expose action element for text or document.
+  if (blink::IsA<blink::Document>(current->GetNode()))
+    return nullptr;  // Do not expose action element for document.
+
+  // In general, we look an action element up only for AXObjects that have a
+  // backing Element. We make an exception for text nodes and pseudo elements
+  // because we also want these to expose a default action when any of their
+  // ancestors is clickable. We have found Windows ATs relying on this behavior
+  // (see https://crbug.com/1382034).
+  DCHECK(current->GetElement() || current->IsTextObject() ||
+         current->ShouldUseLayoutObjectTraversalForChildren());
 
   while (current) {
     // Handles clicks or is a textfield and is not a disabled form control.
@@ -4657,12 +4685,19 @@ bool AXNodeObject::OnNativeFocusAction() {
     //
     // This code is in the process of being removed. See the comment above
     // |kSimulateClickOnAXFocus| in `blink/common/features.cc`.
-    if (!IsClickable() && CanBeActiveDescendant()) {
+    if (!IsClickable()) {
       return OnNativeClickAction();
     }
   }
 
   element->Focus();
+
+  // Calling NotifyUserActivation here allows the browser to activate features
+  // that need user activation, such as showing an autofill suggestion.
+  LocalFrame::NotifyUserActivation(
+      document->GetFrame(),
+      mojom::blink::UserActivationNotificationType::kInteraction);
+
   return true;
 }
 
@@ -4693,11 +4728,9 @@ bool AXNodeObject::OnNativeSetSequentialFocusNavigationStartingPointAction() {
 }
 
 void AXNodeObject::ChildrenChangedWithCleanLayout() {
-  if (!GetNode() && !GetLayoutObject())
-    return;
-
   DCHECK(!IsDetached()) << "Don't call on detached node: "
                         << ToString(true, true);
+  DCHECK(GetNode() || GetLayoutObject());
 
   // When children changed on a <map> that means we need to forward the
   // children changed to the <img> that parents the <area> elements.
@@ -4746,8 +4779,7 @@ void AXNodeObject::ChildrenChangedWithCleanLayout() {
   DCHECK(!IsDetached()) << "None of the above should be able to detach |this|: "
                         << ToString(true, true);
 
-  AXObjectCache().PostNotification(this,
-                                   ax::mojom::blink::Event::kChildrenChanged);
+  AXObjectCache().MarkAXObjectDirtyWithCleanLayout(this);
 }
 
 void AXNodeObject::SelectedOptions(AXObjectVector& options) const {
@@ -4869,6 +4901,30 @@ AXObject* AXNodeObject::ErrorMessage() const {
     return nullptr;
 
   return AXObjectCache().ValidationMessageObjectIfInvalid(true);
+}
+
+String AXNodeObject::TextAlternativeFromTitleAttribute(
+    const AtomicString& title,
+    ax::mojom::blink::NameFrom& name_from,
+    NameSources* name_sources,
+    bool* found_text_alternative) const {
+  String text_alternative;
+  if (name_sources) {
+    name_sources->push_back(NameSource(*found_text_alternative, kTitleAttr));
+    name_sources->back().type = name_from;
+  }
+  name_from = ax::mojom::blink::NameFrom::kTitle;
+  if (!title.IsNull()) {
+    text_alternative = title;
+    if (name_sources) {
+      NameSource& source = name_sources->back();
+      source.attribute_value = title;
+      source.attribute_value = title;
+      source.text = text_alternative;
+      *found_text_alternative = true;
+    }
+  }
+  return text_alternative;
 }
 
 // Based on
@@ -5027,21 +5083,14 @@ String AXNodeObject::NativeTextAlternative(
     }
 
     // title attr
-    if (name_sources) {
-      name_sources->push_back(NameSource(*found_text_alternative, kTitleAttr));
-      name_sources->back().type = name_from;
-    }
-    name_from = ax::mojom::blink::NameFrom::kTitle;
     const AtomicString& title = input_element->getAttribute(kTitleAttr);
-    if (!title.IsNull()) {
-      text_alternative = title;
+    String titleText = text_alternative = TextAlternativeFromTitleAttribute(
+        title, name_from, name_sources, found_text_alternative);
+    if (!titleText.IsNull()) {
       if (name_sources) {
-        NameSource& source = name_sources->back();
-        source.attribute_value = title;
-        source.text = text_alternative;
-        *found_text_alternative = true;
+        text_alternative = titleText;
       } else {
-        return text_alternative;
+        return titleText;
       }
     }
 
@@ -5064,6 +5113,19 @@ String AXNodeObject::NativeTextAlternative(
 
   // 5.1 Text inputs - step 3 (placeholder attribute)
   if (html_element && html_element->IsTextControl()) {
+    // title attr
+    name_from = ax::mojom::blink::NameFrom::kAttribute;
+    const AtomicString& title = html_element->getAttribute(kTitleAttr);
+    String titleText = text_alternative = TextAlternativeFromTitleAttribute(
+        title, name_from, name_sources, found_text_alternative);
+    if (!titleText.IsNull()) {
+      if (name_sources) {
+        text_alternative = titleText;
+      } else {
+        return titleText;
+      }
+    }
+
     name_from = ax::mojom::blink::NameFrom::kPlaceholder;
     if (name_sources) {
       name_sources->push_back(

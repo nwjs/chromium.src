@@ -12,7 +12,7 @@ import 'chrome://resources/cr_elements/cr_link_row/cr_link_row.js';
 import 'chrome://resources/cr_elements/policy/cr_policy_indicator.js';
 import 'chrome://resources/cr_elements/policy/cr_policy_pref_indicator.js';
 import '../../controls/settings_toggle_button.js';
-import '../../settings_page/settings_subpage.js';
+import '../os_settings_page/os_settings_subpage.js';
 import '../../settings_shared.css.js';
 import './date_time_types.js';
 import './timezone_selector.js';
@@ -24,11 +24,11 @@ import {mixinBehaviors, PolymerElement} from 'chrome://resources/polymer/v3_0/po
 
 import {loadTimeData} from '../../i18n_setup.js';
 import {Setting} from '../../mojom-webui/setting.mojom-webui.js';
-import {Route, Router} from '../../router.js';
+import {PrefsMixin, PrefsMixinInterface} from '../../prefs/prefs_mixin.js';
 import {DeepLinkingBehavior, DeepLinkingBehaviorInterface} from '../deep_linking_behavior.js';
 import {routes} from '../os_route.js';
-import {PrefsBehavior, PrefsBehaviorInterface} from '../prefs_behavior.js';
-import {RouteObserverBehavior, RouteObserverBehaviorInterface} from '../route_observer_behavior.js';
+import {RouteObserverMixin, RouteObserverMixinInterface} from '../route_observer_mixin.js';
+import {Route, Router} from '../router.js';
 
 import {getTemplate} from './date_time_page.html.js';
 import {TimeZoneBrowserProxy, TimeZoneBrowserProxyImpl} from './timezone_browser_proxy.js';
@@ -37,13 +37,12 @@ const SettingsDateTimePageElementBase =
     mixinBehaviors(
         [
           DeepLinkingBehavior,
-          PrefsBehavior,
-          RouteObserverBehavior,
         ],
-        I18nMixin(WebUiListenerMixin(PolymerElement))) as {
-      new (): PolymerElement & DeepLinkingBehaviorInterface &
-          PrefsBehaviorInterface & RouteObserverBehaviorInterface &
-          I18nMixinInterface & WebUiListenerMixinInterface,
+        RouteObserverMixin(
+            PrefsMixin(I18nMixin(WebUiListenerMixin(PolymerElement))))) as {
+      new (): PolymerElement & WebUiListenerMixinInterface &
+          I18nMixinInterface & PrefsMixinInterface &
+          RouteObserverMixinInterface & DeepLinkingBehaviorInterface,
     };
 
 class SettingsDateTimePageElement extends SettingsDateTimePageElementBase {
@@ -136,7 +135,7 @@ class SettingsDateTimePageElement extends SettingsDateTimePageElementBase {
   override connectedCallback() {
     super.connectedCallback();
 
-    this.addWebUIListener(
+    this.addWebUiListener(
         'can-set-date-time-changed', this.onCanSetDateTimeChanged_.bind(this));
     this.browserProxy_.dateTimePageReady();
   }
@@ -155,7 +154,7 @@ class SettingsDateTimePageElement extends SettingsDateTimePageElementBase {
   }
 
   private onSetDateTimeTap_() {
-    this.browserProxy_.showSetDateTimeUI();
+    this.browserProxy_.showSetDateTimeUi();
   }
 
   private computeTimeZoneSettingSubLabel_(): string {
@@ -164,8 +163,9 @@ class SettingsDateTimePageElement extends SettingsDateTimePageElementBase {
       return this.activeTimeZoneDisplayName;
     }
     const method =
-        this.getPref('generated.resolve_timezone_by_geolocation_method_short')
-            .value as number;
+        this.getPref<number>(
+                'generated.resolve_timezone_by_geolocation_method_short')
+            .value;
     const id = [
       'setTimeZoneAutomaticallyDisabled',
       'setTimeZoneAutomaticallyIpOnlyDefault',

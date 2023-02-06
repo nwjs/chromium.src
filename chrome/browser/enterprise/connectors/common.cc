@@ -101,6 +101,7 @@ RequestHandlerResult CalculateRequestHandlerResult(
 
   RequestHandlerResult result;
   result.complies = file_complies;
+  result.request_token = response.request_token();
   result.tag = tag;
   if (!file_complies) {
     if (upload_result ==
@@ -193,13 +194,6 @@ const char* ConnectorPref(ReportingConnector connector) {
   switch (connector) {
     case ReportingConnector::SECURITY_EVENT:
       return kOnSecurityEventPref;
-  }
-}
-
-const char* ConnectorPref(FileSystemConnector connector) {
-  switch (connector) {
-    case FileSystemConnector::SEND_DOWNLOAD_TO_CLOUD:
-      return kSendDownloadToCloudPref;
   }
 }
 

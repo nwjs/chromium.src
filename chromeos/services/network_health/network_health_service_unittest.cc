@@ -37,19 +37,20 @@ constexpr char kOtherWifiGuid[] = "wifi_guid_other";
 constexpr char kWifiDevicePath[] = "/device/wifi1";
 constexpr char kWifiName[] = "wifi_device1";
 
-class FakeNetworkEventsObserver
-    : public network_health::mojom::NetworkEventsObserver {
+class FakeNetworkEventsObserver : public mojom::NetworkEventsObserver {
  public:
   // network_health::mojom::NetworkEventsObserver:
-  void OnConnectionStateChanged(
-      const std::string& guid,
-      network_health::mojom::NetworkState state) override {
+  void OnConnectionStateChanged(const std::string& guid,
+                                mojom::NetworkState state) override {
     connection_state_changed_event_received_ = true;
   }
-  void OnSignalStrengthChanged(
-      const std::string& guid,
-      network_health::mojom::UInt32ValuePtr signal_strength) override {
+  void OnSignalStrengthChanged(const std::string& guid,
+                               mojom::UInt32ValuePtr signal_strength) override {
     signal_strength_changed_event_received_ = true;
+  }
+  void OnNetworkListChanged(
+      const std::vector<mojom::NetworkPtr> networks) override {
+    network_list_changed_event_received_ = true;
   }
 
   mojo::PendingRemote<network_health::mojom::NetworkEventsObserver>
@@ -65,6 +66,10 @@ class FakeNetworkEventsObserver
     return signal_strength_changed_event_received_;
   }
 
+  bool network_list_changed_event_received() {
+    return network_list_changed_event_received_;
+  }
+
   void reset_connection_state_changed_event_received() {
     connection_state_changed_event_received_ = false;
   }
@@ -77,6 +82,7 @@ class FakeNetworkEventsObserver
   mojo::Receiver<network_health::mojom::NetworkEventsObserver> receiver_{this};
   bool connection_state_changed_event_received_ = false;
   bool signal_strength_changed_event_received_ = false;
+  bool network_list_changed_event_received_ = false;
 };
 
 }  // namespace
@@ -320,7 +326,7 @@ TEST_F(NetworkHealthServiceTest, MultiWifiNetworkConnected) {
         .service_test()
         ->AddService(kWifiServicePath + idx, kWifiGuid + idx,
                      kWifiServiceName + idx, shill::kTypeWifi,
-                     shill::kStateOffline, true);
+                     shill::kStateIdle, true);
   }
 
   ValidateNetworkState(network_config::mojom::NetworkType::kWiFi,
@@ -374,8 +380,7 @@ TEST_F(NetworkHealthServiceTest, ConnectionStateChangeEvent) {
 
   // Change the connection state of the service.
   cros_network_config_test_helper_.network_state_helper().SetServiceProperty(
-      kWifiServicePath, shill::kStateProperty,
-      base::Value(shill::kStateOffline));
+      kWifiServicePath, shill::kStateProperty, base::Value(shill::kStateIdle));
   // Wait until the connection state change event has been fired.
   task_environment_.RunUntilIdle();
 
@@ -543,7 +548,7 @@ TEST_F(NetworkHealthServiceTest, AnalyzeSignalStrengthActive) {
   cros_network_config_test_helper_.network_state_helper()
       .service_test()
       ->AddService(kOtherWifiServicePath, kOtherWifiGuid, kOtherWifiServiceName,
-                   shill::kTypeWifi, shill::kStateOffline, true);
+                   shill::kTypeWifi, shill::kStateIdle, true);
 
   // Set five signal strength samples for the original network.
   for (int i = 0; i < 5; i++) {
@@ -552,8 +557,7 @@ TEST_F(NetworkHealthServiceTest, AnalyzeSignalStrengthActive) {
 
   // Swap the active WiFi networks.
   cros_network_config_test_helper_.network_state_helper().SetServiceProperty(
-      kWifiServicePath, shill::kStateProperty,
-      base::Value(shill::kStateOffline));
+      kWifiServicePath, shill::kStateProperty, base::Value(shill::kStateIdle));
   cros_network_config_test_helper_.network_state_helper().SetServiceProperty(
       kOtherWifiServicePath, shill::kStateProperty,
       base::Value(shill::kStateOnline));
@@ -590,8 +594,7 @@ TEST_F(NetworkHealthServiceTest, TrackActiveNetworks) {
   ASSERT_EQ(2u, network_health_.GetTrackedGuidsForTest().size());
 
   cros_network_config_test_helper_.network_state_helper().SetServiceProperty(
-      kWifiServicePath, shill::kStateProperty,
-      base::Value(shill::kStateOffline));
+      kWifiServicePath, shill::kStateProperty, base::Value(shill::kStateIdle));
 
   task_environment_.FastForwardBy(base::Hours(1));
 
@@ -612,6 +615,26 @@ TEST_F(NetworkHealthServiceTest, TrackActiveNetworks) {
 
   // The WiFi network should be tracked again.
   ASSERT_EQ(2u, network_health_.GetTrackedGuidsForTest().size());
+}
+
+TEST_F(NetworkHealthServiceTest, NetworkListChangeEvent) {
+  FakeNetworkEventsObserver fake_network_events_observer;
+  network_health_.AddObserver(fake_network_events_observer.pending_remote());
+
+  EXPECT_FALSE(
+      fake_network_events_observer.network_list_changed_event_received());
+
+  // Create a WiFi device and service.
+  CreateDefaultWifiDevice();
+  cros_network_config_test_helper_.network_state_helper()
+      .service_test()
+      ->AddService(kWifiServicePath, kWifiGuid, kWifiServiceName,
+                   shill::kTypeWifi, shill::kStateOnline, true);
+  task_environment_.RunUntilIdle();
+
+  // A network list changed event should have fired.
+  EXPECT_TRUE(
+      fake_network_events_observer.network_list_changed_event_received());
 }
 
 }  // namespace chromeos::network_health

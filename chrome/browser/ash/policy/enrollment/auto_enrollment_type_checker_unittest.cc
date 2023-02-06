@@ -11,8 +11,8 @@
 #include "base/test/scoped_command_line.h"
 #include "base/time/time.h"
 #include "build/branding_buildflags.h"
-#include "chromeos/system/factory_ping_embargo_check.h"
-#include "chromeos/system/fake_statistics_provider.h"
+#include "chromeos/ash/components/system/factory_ping_embargo_check.h"
+#include "chromeos/ash/components/system/fake_statistics_provider.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace ash::system {
@@ -310,6 +310,16 @@ TEST_F(AutoEnrollmentTypeCheckerTest,
                   &fake_statistics_provider_),
               AutoEnrollmentTypeChecker::FRERequirement::kNotRequired);
   }
+
+  {
+    fake_statistics_provider_.SetVpdStatus(
+        ash::system::StatisticsProvider::VpdStatus::kInvalid);
+    // Not setting |kActivateDateKey| statistic to indicate a lack of ownership.
+
+    EXPECT_EQ(AutoEnrollmentTypeChecker::GetFRERequirementAccordingToVPD(
+                  &fake_statistics_provider_),
+              AutoEnrollmentTypeChecker::FRERequirement::kRequired);
+  }
 }
 
 TEST_F(AutoEnrollmentTypeCheckerTest,
@@ -317,15 +327,6 @@ TEST_F(AutoEnrollmentTypeCheckerTest,
   {
     fake_statistics_provider_.SetVpdStatus(
         ash::system::StatisticsProvider::VpdStatus::kRwInvalid);
-
-    EXPECT_EQ(AutoEnrollmentTypeChecker::GetFRERequirementAccordingToVPD(
-                  &fake_statistics_provider_),
-              AutoEnrollmentTypeChecker::FRERequirement::kExplicitlyRequired);
-  }
-
-  {
-    fake_statistics_provider_.SetVpdStatus(
-        ash::system::StatisticsProvider::VpdStatus::kInvalid);
 
     EXPECT_EQ(AutoEnrollmentTypeChecker::GetFRERequirementAccordingToVPD(
                   &fake_statistics_provider_),
@@ -360,6 +361,15 @@ TEST_F(AutoEnrollmentTypeCheckerTest,
   {
     fake_statistics_provider_.SetVpdStatus(
         ash::system::StatisticsProvider::VpdStatus::kRoInvalid);
+
+    EXPECT_EQ(AutoEnrollmentTypeChecker::GetFRERequirementAccordingToVPD(
+                  &fake_statistics_provider_),
+              AutoEnrollmentTypeChecker::FRERequirement::kRequired);
+  }
+
+  {
+    fake_statistics_provider_.SetVpdStatus(
+        ash::system::StatisticsProvider::VpdStatus::kInvalid);
 
     EXPECT_EQ(AutoEnrollmentTypeChecker::GetFRERequirementAccordingToVPD(
                   &fake_statistics_provider_),

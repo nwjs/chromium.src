@@ -877,6 +877,9 @@ public class TabSwitcherMediatorUnitTest {
 
     @Test
     @Features.EnableFeatures(ChromeFeatureList.START_SURFACE_ANDROID)
+    // When Start surface refactoring is enabled, the top control properties are no longer handled
+    // separately, and it is covered by test updatesPropertiesWithTopControlsChanges().
+    @Features.DisableFeatures(ChromeFeatureList.START_SURFACE_REFACTOR)
     public void updatesPropertiesWithTopControlsChanges_StartSurface() {
         assertEquals(0, mModel.get(TabListContainerProperties.TOP_MARGIN));
         assertEquals(0, mModel.get(TabListContainerProperties.SHADOW_TOP_OFFSET));
@@ -989,6 +992,40 @@ public class TabSwitcherMediatorUnitTest {
         doReturn(null).when(mTabModelSelector).getCurrentTab();
 
         mTabModelSelectorObserverCaptor.getValue().onTabModelSelected(mTabModel, null);
+        Assert.assertFalse(mMediator.shouldInterceptBackPress());
+        Assert.assertEquals(Boolean.FALSE, mMediator.getHandleBackPressChangedSupplier().get());
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.BACK_GESTURE_REFACTOR})
+    public void testBackPressAfterTabClosedBySite() {
+        initAndAssertAllProperties();
+        Assert.assertFalse(mMediator.shouldInterceptBackPress());
+
+        mModel.set(TabListContainerProperties.IS_VISIBLE, true);
+        doReturn(false).when(mTabModelFilter).isIncognito();
+        doReturn(false).when(mTabModelSelector).isIncognitoSelected();
+        doReturn(true).when(mTabModelSelector).isTabStateInitialized();
+        doReturn(false).when(mIncognitoReauthController).isIncognitoReauthPending();
+        doReturn(true).when(mTabModel).isIncognito();
+        doReturn(mTab1).when(mTabModelSelector).getCurrentTab();
+
+        mTabModelSelectorObserverCaptor.getValue().onTabModelSelected(mTabModel, null);
+        mMediator.showTabSwitcherView(true);
+        Assert.assertTrue(mMediator.shouldInterceptBackPress());
+        Assert.assertEquals(Boolean.TRUE, mMediator.getHandleBackPressChangedSupplier().get());
+
+        // If tab is closed by the site rather than user's input, only
+        // onFinishingTabClosure will be triggered.
+        mModel.set(TabListContainerProperties.IS_VISIBLE, true);
+        doReturn(false).when(mTabModelFilter).isIncognito();
+        doReturn(false).when(mTabModelSelector).isIncognitoSelected();
+        doReturn(true).when(mTabModelSelector).isTabStateInitialized();
+        doReturn(false).when(mIncognitoReauthController).isIncognitoReauthPending();
+        doReturn(false).when(mTabModel).isIncognito();
+        doReturn(null).when(mTabModelSelector).getCurrentTab();
+
+        mTabModelObserverCaptor.getValue().onFinishingTabClosure(mTab1);
         Assert.assertFalse(mMediator.shouldInterceptBackPress());
         Assert.assertEquals(Boolean.FALSE, mMediator.getHandleBackPressChangedSupplier().get());
     }

@@ -21,7 +21,9 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
+#include "components/aggregation_service/aggregation_service.mojom.h"
 #include "components/attribution_reporting/filters.h"
+#include "components/attribution_reporting/suitable_origin.h"
 #include "content/browser/attribution_reporting/aggregatable_histogram_contribution.h"
 #include "content/browser/attribution_reporting/attribution_report.h"
 #include "content/browser/attribution_reporting/attribution_reporting.pb.h"
@@ -41,6 +43,8 @@ namespace content {
 
 namespace {
 
+using ::attribution_reporting::SuitableOrigin;
+
 using ::testing::AllOf;
 using ::testing::ElementsAre;
 using ::testing::IsEmpty;
@@ -56,6 +60,8 @@ struct AggregatableReportMetadataRecord {
   base::Time report_time;
   int failed_send_attempts = 0;
   base::Time initial_report_time;
+  int aggregation_coordinator = static_cast<int>(
+      ::aggregation_service::mojom::AggregationCoordinator::kDefault);
 };
 
 struct AggregatableContributionRecord {
@@ -161,7 +167,7 @@ class AttributionStorageSqlTest : public testing::Test {
 
     static constexpr char kStoreMetadataSql[] =
         "INSERT INTO aggregatable_report_metadata "
-        "VALUES(?,?,?,?,?,?,?,?)";
+        "VALUES(?,?,?,?,?,?,?,?,?)";
     sql::Statement statement(raw_db.GetUniqueStatement(kStoreMetadataSql));
     statement.BindInt64(0, record.aggregation_id);
     statement.BindInt64(1, record.source_id);
@@ -175,6 +181,7 @@ class AttributionStorageSqlTest : public testing::Test {
     statement.BindTime(5, record.report_time);
     statement.BindInt(6, record.failed_send_attempts);
     statement.BindTime(7, record.initial_report_time);
+    statement.BindInt(8, record.aggregation_coordinator);
     ASSERT_TRUE(statement.Run());
   }
 
@@ -610,12 +617,12 @@ TEST_F(AttributionStorageSqlTest,
       .max_attribution_reporting_origins = std::numeric_limits<int64_t>::max(),
       .max_attributions = std::numeric_limits<int64_t>::max(),
   });
-  const url::Origin source_origin =
-      url::Origin::Create(GURL("https://sub.impression.example/"));
-  const url::Origin reporting_origin =
-      url::Origin::Create(GURL("https://a.example/"));
-  const url::Origin destination_origin =
-      url::Origin::Create(GURL("https://b.example/"));
+  const auto source_origin =
+      *SuitableOrigin::Deserialize("https://sub.impression.example/");
+  const auto reporting_origin =
+      *SuitableOrigin::Deserialize("https://a.example/");
+  const auto destination_origin =
+      *SuitableOrigin::Deserialize("https://b.example/");
   storage()->StoreSource(SourceBuilder()
                              .SetExpiry(base::Days(30))
                              .SetSourceOrigin(source_origin)
@@ -661,12 +668,11 @@ TEST_F(AttributionStorageSqlTest,
       .max_attribution_reporting_origins = std::numeric_limits<int64_t>::max(),
       .max_attributions = std::numeric_limits<int64_t>::max(),
   });
-  const url::Origin source_origin =
-      url::Origin::Create(GURL("https://b.example/"));
-  const url::Origin reporting_origin =
-      url::Origin::Create(GURL("https://a.example/"));
-  const url::Origin destination_origin =
-      url::Origin::Create(GURL("https://sub.impression.example/"));
+  const auto source_origin = *SuitableOrigin::Deserialize("https://b.example/");
+  const auto reporting_origin =
+      *SuitableOrigin::Deserialize("https://a.example/");
+  const auto destination_origin =
+      *SuitableOrigin::Deserialize("https://sub.impression.example/");
   storage()->StoreSource(SourceBuilder()
                              .SetExpiry(base::Days(30))
                              .SetSourceOrigin(source_origin)
@@ -1123,6 +1129,48 @@ TEST_F(AttributionStorageSqlTest,
   ASSERT_EQ(sources.size(), 1u);
   ASSERT_THAT(sources.front().common_info().filter_data().filter_values(),
               ElementsAre(Pair("x", ElementsAre("y"))));
+}
+
+TEST_F(AttributionStorageSqlTest,
+       InvalidAggregationCoordinator_FailsDeserialization) {
+  const struct {
+    int aggregation_coordinator;
+    bool valid;
+  } kTestCases[] = {
+      {0, true},
+      {1, false},
+  };
+
+  for (auto test_case : kTestCases) {
+    OpenDatabase();
+    storage()->StoreSource(SourceBuilder().Build());
+    auto sources = storage()->GetActiveSources();
+    ASSERT_THAT(sources, SizeIs(1));
+    CloseDatabase();
+
+    StoreAggregatableReportMetadata(AggregatableReportMetadataRecord{
+        .aggregation_id = 1,
+        .source_id = *sources.front().source_id(),
+        .external_report_id = DefaultExternalReportID().AsLowercaseString(),
+        .aggregation_coordinator = test_case.aggregation_coordinator,
+    });
+
+    StoreAggregatableContribution(
+        AggregatableContributionRecord{.contribution_id = 1,
+                                       .aggregation_id = 1,
+                                       .key_high_bits = 0,
+                                       .key_low_bits = 0,
+                                       .value = 1});
+
+    OpenDatabase();
+    EXPECT_THAT(
+        storage()->GetAttributionReports(/*max_report_time=*/base::Time::Max()),
+        SizeIs(test_case.valid))
+        << test_case.aggregation_coordinator;
+    storage()->ClearData(base::Time::Min(), base::Time::Max(),
+                         base::NullCallback());
+    CloseDatabase();
+  }
 }
 
 }  // namespace

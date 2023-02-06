@@ -17,7 +17,6 @@ struct ExtensionHostMsg_APIActionOrEvent_Params;
 
 namespace base {
 class ListValue;
-class DictionaryValue;
 }
 
 namespace extensions {
@@ -68,15 +67,14 @@ class IPCMessageSender {
       const std::string& event_name) = 0;
 
   // Sends a message to add/remove a filtered listener.
-  virtual void SendAddFilteredEventListenerIPC(
-      ScriptContext* context,
-      const std::string& event_name,
-      const base::DictionaryValue& filter,
-      bool is_lazy) = 0;
+  virtual void SendAddFilteredEventListenerIPC(ScriptContext* context,
+                                               const std::string& event_name,
+                                               const base::Value::Dict& filter,
+                                               bool is_lazy) = 0;
   virtual void SendRemoveFilteredEventListenerIPC(
       ScriptContext* context,
       const std::string& event_name,
-      const base::DictionaryValue& filter,
+      const base::Value::Dict& filter,
       bool remove_lazy_listener) = 0;
 
   // Opens a message channel to the specified target.

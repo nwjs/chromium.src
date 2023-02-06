@@ -22,7 +22,6 @@
 #include "base/strings/string_util.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/threading/thread_restrictions.h"
-#include "base/threading/thread_task_runner_handle.h"
 #include "components/webrtc/net_address_utils.h"
 #include "components/webrtc/thread_wrapper.h"
 #include "remoting/base/constants.h"
@@ -563,8 +562,7 @@ bool WebrtcTransport::ProcessTransportInfo(XmlElement* transport_info) {
     // so (re)apply them here. This might happen if ICE state were already
     // connected and OnIceSelectedCandidatePairChanged() had already set the
     // caps.
-    auto [min_bitrate_bps, max_bitrate_bps] = BitratesForConnection();
-    SetPeerConnectionBitrates(min_bitrate_bps, max_bitrate_bps);
+    UpdateBitrates();
   }
 
   XmlElement* candidate_element;
@@ -619,18 +617,7 @@ void WebrtcTransport::SetPreferredBitrates(
   preferred_min_bitrate_bps_ = min_bitrate_bps;
   preferred_max_bitrate_bps_ = max_bitrate_bps;
   if (connected_) {
-    auto [actual_min_bitrate_bps, actual_max_bitrate_bps] =
-        BitratesForConnection();
-    SetPeerConnectionBitrates(actual_min_bitrate_bps, actual_max_bitrate_bps);
-    auto senders = peer_connection()->GetSenders();
-    for (auto& sender : senders) {
-      // Only set the cap on the VideoSenders, because the AudioSender (via the
-      // Opus codec) is already configured with a lower bitrate.
-      if (sender->media_type() == cricket::MEDIA_TYPE_VIDEO) {
-        SetSenderBitrates(sender, actual_min_bitrate_bps,
-                          actual_max_bitrate_bps);
-      }
-    }
+    UpdateBitrates();
   }
 }
 
@@ -685,7 +672,7 @@ void WebrtcTransport::ClosePeerConnection(
   if (!control_data_channel || !event_data_channel) {
     LOG(WARNING) << "One or more data channels were not initialized, "
                  << "destroying PeerConnection.";
-    base::ThreadTaskRunnerHandle::Get()->DeleteSoon(
+    base::SingleThreadTaskRunner::GetCurrentDefault()->DeleteSoon(
         FROM_HERE, peer_connection_wrapper.release());
     return;
   }
@@ -693,7 +680,7 @@ void WebrtcTransport::ClosePeerConnection(
   if ((base::Time::Now() - start_time) > kWaitForDataChannelsClosedTimeout) {
     LOG(ERROR) << "Timed out waiting for data channels to close, "
                << "destroying PeerConnection.";
-    base::ThreadTaskRunnerHandle::Get()->DeleteSoon(
+    base::SingleThreadTaskRunner::GetCurrentDefault()->DeleteSoon(
         FROM_HERE, peer_connection_wrapper.release());
     return;
   }
@@ -708,12 +695,12 @@ void WebrtcTransport::ClosePeerConnection(
   if (event_data_channel->state() == DataChannelState::kClosed &&
       control_data_channel->state() == DataChannelState::kClosed) {
     VLOG(0) << "Data channels closed, destroying PeerConnection.";
-    base::ThreadTaskRunnerHandle::Get()->DeleteSoon(
+    base::SingleThreadTaskRunner::GetCurrentDefault()->DeleteSoon(
         FROM_HERE, peer_connection_wrapper.release());
     return;
   }
 
-  base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
       FROM_HERE,
       base::BindOnce(&ClosePeerConnection, std::move(control_data_channel),
                      std::move(event_data_channel),
@@ -998,14 +985,7 @@ void WebrtcTransport::OnIceSelectedCandidatePairChanged(
     // default value (~600kbps).
     // Set the global bitrate caps in addition to the VideoSender bitrates. The
     // global caps affect the probing configuration used by b/w estimator.
-    auto [min_bitrate_bps, max_bitrate_bps] = BitratesForConnection();
-    SetPeerConnectionBitrates(min_bitrate_bps, max_bitrate_bps);
-    auto senders = peer_connection()->GetSenders();
-    for (auto& sender : senders) {
-      if (sender->media_type() == cricket::MEDIA_TYPE_VIDEO) {
-        SetSenderBitrates(sender, min_bitrate_bps, max_bitrate_bps);
-      }
-    }
+    UpdateBitrates();
   }
 
   const cricket::Candidate& local_candidate =
@@ -1090,6 +1070,17 @@ std::tuple<int, int> WebrtcTransport::BitratesForConnection() {
   return {min_bitrate_bps, max_bitrate_bps};
 }
 
+void WebrtcTransport::UpdateBitrates() {
+  auto [min_bitrate_bps, max_bitrate_bps] = BitratesForConnection();
+  SetPeerConnectionBitrates(min_bitrate_bps, max_bitrate_bps);
+  auto senders = peer_connection()->GetSenders();
+  for (auto& sender : senders) {
+    if (sender->media_type() == cricket::MEDIA_TYPE_VIDEO) {
+      SetSenderBitrates(sender, min_bitrate_bps, max_bitrate_bps);
+    }
+  }
+}
+
 void WebrtcTransport::SetPeerConnectionBitrates(int min_bitrate_bps,
                                                 int max_bitrate_bps) {
   DCHECK_LE(min_bitrate_bps, max_bitrate_bps);
@@ -1135,7 +1126,7 @@ void WebrtcTransport::RequestNegotiation() {
 
   if (!negotiation_pending_) {
     negotiation_pending_ = true;
-    base::ThreadTaskRunnerHandle::Get()->PostTask(
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, base::BindOnce(&WebrtcTransport::SendOffer,
                                   weak_factory_.GetWeakPtr()));
   }

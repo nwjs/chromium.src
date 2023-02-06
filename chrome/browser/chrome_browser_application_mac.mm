@@ -388,7 +388,7 @@ std::string DescriptionForNSEvent(NSEvent* event) {
   content::BrowserAccessibilityState* accessibility_state =
       content::BrowserAccessibilityState::GetInstance();
   if (!accessibility_state->GetAccessibilityMode().has_mode(
-          ui::kAXModeBasic.mode())) {
+          ui::kAXModeBasic.flags())) {
     accessibility_state->AddAccessibilityModeFlags(ui::kAXModeBasic);
   }
   return [super accessibilityRole];

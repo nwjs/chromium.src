@@ -15,6 +15,7 @@
 #include "ash/public/cpp/ambient/ambient_client.h"
 #include "ash/public/cpp/ambient/ambient_metrics.h"
 #include "ash/public/cpp/ambient/ambient_prefs.h"
+#include "ash/public/cpp/ambient/ambient_ui_model.h"
 #include "ash/public/cpp/ambient/common/ambient_settings.h"
 #include "ash/public/cpp/image_downloader.h"
 #include "ash/shell.h"
@@ -81,6 +82,8 @@ PersonalizationAppAmbientProviderImpl::PersonalizationAppAmbientProviderImpl(
       base::BindRepeating(
           &PersonalizationAppAmbientProviderImpl::OnAnimationThemeChanged,
           base::Unretained(this)));
+  ambient_ui_model_observer_.Observe(
+      Shell::Get()->ambient_controller()->ambient_ui_model());
 }
 
 PersonalizationAppAmbientProviderImpl::
@@ -176,7 +179,7 @@ void PersonalizationAppAmbientProviderImpl::SetAlbumSelected(
     case (ash::AmbientModeTopicSource::kGooglePhotos): {
       ash::PersonalAlbum* target_personal_album = FindPersonalAlbumById(id);
       if (!target_personal_album) {
-        mojo::ReportBadMessage("Invalid album id.");
+        ambient_receiver_.ReportBadMessage("Invalid album id.");
         return;
       }
       target_personal_album->selected = selected;
@@ -214,7 +217,7 @@ void PersonalizationAppAmbientProviderImpl::SetAlbumSelected(
       // based on the selections.
       auto* art_setting = FindArtAlbumById(id);
       if (!art_setting || !art_setting->visible) {
-        mojo::ReportBadMessage("Invalid album id.");
+        ambient_receiver_.ReportBadMessage("Invalid album id.");
         return;
       }
       art_setting->enabled = selected;
@@ -520,11 +523,15 @@ void PersonalizationAppAmbientProviderImpl::MaybeUpdateTopicSource(
 
 void PersonalizationAppAmbientProviderImpl::FetchGooglePhotosAlbumsPreviews(
     const std::vector<std::string>& album_ids) {
+  const int num_previews = features::IsAmbientSubpageUIChangeEnabled() ? 3 : 4;
+  const int preview_width =
+      features::IsAmbientSubpageUIChangeEnabled() ? 360 : kBannerWidthPx;
+  const int preview_height =
+      features::IsAmbientSubpageUIChangeEnabled() ? 130 : kBannerHeightPx;
   DCHECK(!album_ids.empty());
   google_photos_albums_previews_weak_factory_.InvalidateWeakPtrs();
   ash::AmbientBackendController::Get()->GetGooglePhotosAlbumsPreview(
-      album_ids, kBannerWidthPx, kBannerHeightPx,
-      /*num_previews=*/4,
+      album_ids, preview_width, preview_height, num_previews,
       base::BindOnce(&PersonalizationAppAmbientProviderImpl::
                          OnGooglePhotosAlbumsPreviewsFetched,
                      google_photos_albums_previews_weak_factory_.GetWeakPtr()));
@@ -573,7 +580,14 @@ void PersonalizationAppAmbientProviderImpl::ResetLocalSettings() {
 }
 
 void PersonalizationAppAmbientProviderImpl::StartScreenSaverPreview() {
-  Shell::Get()->ambient_controller()->ShowUi();
+  Shell::Get()->ambient_controller()->StartScreenSaverPreview();
+}
+
+void PersonalizationAppAmbientProviderImpl::OnAmbientUiVisibilityChanged(
+    ash::AmbientUiVisibility visibility) {
+  if (ambient_observer_remote_.is_bound()) {
+    ambient_observer_remote_->OnAmbientUiVisibilityChanged(visibility);
+  }
 }
 
 }  // namespace ash::personalization_app

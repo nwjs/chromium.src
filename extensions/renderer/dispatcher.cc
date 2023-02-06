@@ -252,8 +252,7 @@ scoped_refptr<Extension> ConvertToExtension(
   // normal case, and because in tests, extensions may not have paths or keys,
   // but it's important to retain the same id.
   scoped_refptr<Extension> extension =
-      Extension::Create(params->path, params->location,
-                        base::Value::AsDictionaryValue(params->manifest),
+      Extension::Create(params->path, params->location, params->manifest,
                         params->creation_flags, params->id, error);
 
   if (!extension.get())
@@ -293,7 +292,7 @@ int nw_uv_run(void* loop, int mode) {
 
 Dispatcher::PendingServiceWorker::PendingServiceWorker(
     blink::WebServiceWorkerContextProxy* context_proxy)
-    : task_runner(base::ThreadTaskRunnerHandle::Get()),
+    : task_runner(base::SingleThreadTaskRunner::GetCurrentDefault()),
       context_proxy(context_proxy) {
   DCHECK(context_proxy);
 }

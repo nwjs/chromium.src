@@ -39,6 +39,7 @@
 #include "chrome/browser/ash/app_mode/web_app/web_kiosk_app_manager.h"
 #include "chrome/browser/ash/arc/arc_util.h"
 #include "chrome/browser/ash/customization/customization_document.h"
+#include "chrome/browser/ash/login/choobe_flow_controller.h"
 #include "chrome/browser/ash/login/configuration_keys.h"
 #include "chrome/browser/ash/login/demo_mode/demo_session.h"
 #include "chrome/browser/ash/login/demo_mode/demo_setup_controller.h"
@@ -56,8 +57,10 @@
 #include "chrome/browser/ash/login/screens/arc_terms_of_service_screen.h"
 #include "chrome/browser/ash/login/screens/assistant_optin_flow_screen.h"
 #include "chrome/browser/ash/login/screens/base_screen.h"
+#include "chrome/browser/ash/login/screens/choobe_screen.h"
 #include "chrome/browser/ash/login/screens/consolidated_consent_screen.h"
 #include "chrome/browser/ash/login/screens/cryptohome_recovery_screen.h"
+#include "chrome/browser/ash/login/screens/cryptohome_recovery_setup_screen.h"
 #include "chrome/browser/ash/login/screens/demo_preferences_screen.h"
 #include "chrome/browser/ash/login/screens/demo_setup_screen.h"
 #include "chrome/browser/ash/login/screens/device_disabled_screen.h"
@@ -132,8 +135,10 @@
 #include "chrome/browser/ui/webui/ash/login/arc_terms_of_service_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/assistant_optin_flow_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/auto_enrollment_check_screen_handler.h"
+#include "chrome/browser/ui/webui/ash/login/choobe_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/consolidated_consent_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/cryptohome_recovery_screen_handler.h"
+#include "chrome/browser/ui/webui/ash/login/cryptohome_recovery_setup_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/demo_preferences_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/demo_setup_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/device_disabled_screen_handler.h"
@@ -226,6 +231,7 @@
 #define ENABLED_VLOG_LEVEL 1
 
 namespace ash {
+
 namespace {
 
 using ::content::BrowserThread;
@@ -243,12 +249,9 @@ constexpr char kLegacyUpdateScreenName[] = "update";
 
 // Stores the list of all screens that should be shown when resuming OOBE.
 const StaticOobeScreenId kResumableOobeScreens[] = {
-    WelcomeView::kScreenId,
-    NetworkScreenView::kScreenId,
-    UpdateView::kScreenId,
-    EulaView::kScreenId,
-    chromeos::EnrollmentScreenView::kScreenId,
-    chromeos::AutoEnrollmentCheckScreenView::kScreenId,
+    WelcomeView::kScreenId,          NetworkScreenView::kScreenId,
+    UpdateView::kScreenId,           EulaView::kScreenId,
+    EnrollmentScreenView::kScreenId, AutoEnrollmentCheckScreenView::kScreenId,
 };
 
 const StaticOobeScreenId kResumablePostLoginScreens[] = {
@@ -302,7 +305,7 @@ struct Entry {
 // unified). We need to always use the same name for UMA stats, though.
 constexpr const Entry kLegacyUmaOobeScreenNames[] = {
     {ArcTermsOfServiceScreenView::kScreenId, "arc_tos"},
-    {chromeos::EnrollmentScreenView::kScreenId, "enroll"},
+    {EnrollmentScreenView::kScreenId, "enroll"},
     {WelcomeView::kScreenId, "network"},
     {TermsOfServiceScreenView::kScreenId, "tos"}};
 
@@ -350,7 +353,7 @@ LoginDisplayHost* GetLoginDisplayHost() {
   return LoginDisplayHost::default_host();
 }
 
-chromeos::OobeUI* GetOobeUI() {
+OobeUI* GetOobeUI() {
   auto* host = LoginDisplayHost::default_host();
   return host ? host->GetOobeUI() : nullptr;
 }
@@ -639,6 +642,13 @@ WizardController::CreateScreens() {
   append(std::make_unique<RecoveryEligibilityScreen>(
       base::BindRepeating(&WizardController::OnRecoveryEligibilityScreenExit,
                           weak_factory_.GetWeakPtr())));
+  if (features::IsCryptohomeRecoverySetupEnabled()) {
+    append(std::make_unique<CryptohomeRecoverySetupScreen>(
+        oobe_ui->GetView<CryptohomeRecoverySetupScreenHandler>()->AsWeakPtr(),
+        base::BindRepeating(
+            &WizardController::OnCryptohomeRecoverySetupScreenExit,
+            weak_factory_.GetWeakPtr())));
+  }
   append(std::make_unique<TermsOfServiceScreen>(
       oobe_ui->GetView<TermsOfServiceScreenHandler>()->AsWeakPtr(),
       base::BindRepeating(&WizardController::OnTermsOfServiceScreenExit,
@@ -786,7 +796,7 @@ WizardController::CreateScreens() {
       base::BindRepeating(&WizardController::OnParentalHandoffScreenExit,
                           weak_factory_.GetWeakPtr())));
 
-  if (chromeos::features::IsOobeConsolidatedConsentEnabled()) {
+  if (features::IsOobeConsolidatedConsentEnabled()) {
     append(std::make_unique<ConsolidatedConsentScreen>(
         oobe_ui->GetView<ConsolidatedConsentScreenHandler>()->AsWeakPtr(),
         base::BindRepeating(&WizardController::OnConsolidatedConsentScreenExit,
@@ -826,12 +836,20 @@ WizardController::CreateScreens() {
       base::BindRepeating(&WizardController::OnThemeSelectionScreenExit,
                           weak_factory_.GetWeakPtr())));
 
-  if (chromeos::features::IsCryptohomeRecoveryFlowUIEnabled()) {
+  if (features::IsCryptohomeRecoveryFlowUIEnabled()) {
     append(std::make_unique<CryptohomeRecoveryScreen>(
         oobe_ui->GetView<CryptohomeRecoveryScreenHandler>()->AsWeakPtr(),
         base::BindRepeating(&WizardController::OnCryptohomeRecoveryScreenExit,
                             weak_factory_.GetWeakPtr())));
   }
+
+  if (features::IsOobeChoobeEnabled()) {
+    append(std::make_unique<ChoobeScreen>(
+        oobe_ui->GetView<ChoobeScreenHandler>()->AsWeakPtr(),
+        base::BindRepeating(&WizardController::OnChoobeScreenExit,
+                            weak_factory_.GetWeakPtr())));
+  }
+
   return result;
 }
 
@@ -1060,6 +1078,24 @@ void WizardController::ShowConsolidatedConsentScreen() {
   SetCurrentScreen(GetScreen(ConsolidatedConsentScreenView::kScreenId));
 }
 
+void WizardController::ShowChoobeScreen() {
+  DCHECK(features::IsOobeChoobeEnabled());
+  GetChoobeFlowController()->Start();
+  SetCurrentScreen(GetScreen(ChoobeScreenView::kScreenId));
+}
+
+void WizardController::ShowCryptohomeRecoverySetupScreen() {
+  CHECK(features::IsCryptohomeRecoverySetupEnabled());
+  SetCurrentScreen(GetScreen(CryptohomeRecoverySetupScreenView::kScreenId));
+}
+
+void WizardController::ShowAuthenticationSetupScreen() {
+  if (features::IsCryptohomeRecoverySetupEnabled())
+    ShowCryptohomeRecoverySetupScreen();
+  else
+    ShowFingerprintSetupScreen();
+}
+
 void WizardController::ShowActiveDirectoryPasswordChangeScreen(
     const std::string& username) {
   GetScreen<ActiveDirectoryPasswordChangeScreen>()->SetUsername(username);
@@ -1075,13 +1111,13 @@ void WizardController::ShowLacrosDataBackwardMigrationScreen() {
 }
 
 void WizardController::ShowGuestTosScreen() {
-  DCHECK(chromeos::features::IsOobeConsolidatedConsentEnabled());
+  DCHECK(features::IsOobeConsolidatedConsentEnabled());
   SetCurrentScreen(GetScreen(GuestTosScreenView::kScreenId));
 }
 
 void WizardController::ShowCryptohomeRecoveryScreen(
     const AccountId& account_id) {
-  DCHECK(chromeos::features::IsCryptohomeRecoveryFlowUIEnabled());
+  DCHECK(features::IsCryptohomeRecoveryFlowUIEnabled());
   CryptohomeRecoveryScreen* screen = GetScreen<CryptohomeRecoveryScreen>();
   screen->Configure(account_id);
   SetCurrentScreen(GetScreen(CryptohomeRecoveryScreenView::kScreenId));
@@ -1179,8 +1215,8 @@ void WizardController::OnSamlConfirmPasswordScreenExit(
 
 void WizardController::OnPasswordChangeScreenExit(
     GaiaPasswordChangedScreen::Result result) {
-  if (!LoginDisplayHost::default_host())
-    return;
+  OnScreenExit(GaiaPasswordChangedView::kScreenId,
+               GaiaPasswordChangedScreen::GetResultString(result));
   switch (result) {
     case GaiaPasswordChangedScreen::Result::CANCEL:
       LoginDisplayHost::default_host()->CancelPasswordChangedFlow();
@@ -1204,7 +1240,7 @@ void WizardController::OnEduCoexistenceLoginScreenExit(
                EduCoexistenceLoginScreen::GetResultString(result));
   // TODO(crbug.com/1248063): Handle the case when the feature flag is disabled
   // after being enabled during OOBE.
-  if (chromeos::features::IsOobeConsolidatedConsentEnabled()) {
+  if (features::IsOobeConsolidatedConsentEnabled()) {
     ShowConsolidatedConsentScreen();
   } else {
     ShowSyncConsentScreen();
@@ -1240,6 +1276,13 @@ void WizardController::OnConsolidatedConsentScreenExit(
       ShowDemoModePreferencesScreen();
       break;
   }
+}
+
+void WizardController::OnCryptohomeRecoverySetupScreenExit(
+    CryptohomeRecoverySetupScreen::Result result) {
+  OnScreenExit(CryptohomeRecoverySetupScreenView::kScreenId,
+               CryptohomeRecoverySetupScreen::GetResultString(result));
+  ShowFingerprintSetupScreen();
 }
 
 void WizardController::OnOfflineLoginScreenExit(
@@ -1300,7 +1343,8 @@ void WizardController::OnHWDataCollectionScreenExit(
     OnOobeFlowFinished();
     return;
   }
-  ShowFingerprintSetupScreen();
+
+  ShowAuthenticationSetupScreen();
 }
 
 void WizardController::OnSmartPrivacyProtectionScreenExit(
@@ -1318,7 +1362,7 @@ void WizardController::OnGuestTosScreenExit(GuestTosScreen::Result result) {
       ash::LoginDisplayHost::default_host()->GetExistingUserController()->Login(
           UserContext(user_manager::USER_TYPE_GUEST,
                       user_manager::GuestAccountId()),
-          chromeos::SigninSpecifics());
+          SigninSpecifics());
       break;
     case GuestTosScreen::Result::BACK:
       if (MaybeSetToPreviousScreen())
@@ -1336,11 +1380,33 @@ void WizardController::OnThemeSelectionScreenExit(
     ThemeSelectionScreen::Result result) {
   OnScreenExit(ThemeSelectionScreenView::kScreenId,
                ThemeSelectionScreen::GetResultString(result));
+
+  // Stop CHOOBE after exiting the last optional screen.
+  if (features::IsOobeChoobeEnabled()) {
+    GetChoobeFlowController()->Stop(
+        *ProfileManager::GetActiveUserProfile()->GetPrefs());
+  }
+
   ShowMarketingOptInScreen();
 }
 
 void WizardController::OnCryptohomeRecoveryScreenExit() {
   NOTREACHED();
+}
+
+void WizardController::OnChoobeScreenExit(ChoobeScreen::Result result) {
+  OnScreenExit(ChoobeScreenView::kScreenId,
+               ChoobeScreen::GetResultString(result));
+
+  switch (result) {
+    case ChoobeScreen::Result::SELECTED:
+    case ChoobeScreen::Result::NOT_APPLICABLE:
+      ShowThemeSelectionScreen();
+      break;
+    case ChoobeScreen::Result::SKIPPED:
+      ShowMarketingOptInScreen();
+      break;
+  }
 }
 
 void WizardController::SkipToLoginForTesting() {
@@ -1349,8 +1415,9 @@ void WizardController::SkipToLoginForTesting() {
     return;
   wizard_context_->skip_to_login_for_tests = true;
 
-  if (!chromeos::features::IsOobeConsolidatedConsentEnabled())
+  if (!features::IsOobeConsolidatedConsentEnabled()) {
     StartupUtils::MarkEulaAccepted();
+  }
 
   PerformPostNetworkScreenActions();
   OnDeviceDisabledChecked(false /* device_disabled */);
@@ -1453,7 +1520,7 @@ void WizardController::OnNetworkScreenExit(NetworkScreen::Result result) {
 
   // OS Install flow.
   bool is_consolidated_consent_enabled =
-      chromeos::features::IsOobeConsolidatedConsentEnabled();
+      features::IsOobeConsolidatedConsentEnabled();
   if (switches::IsOsInstallAllowed()) {
     switch (result) {
       case NetworkScreen::Result::CONNECTED:
@@ -1567,8 +1634,7 @@ void WizardController::OnUpdateScreenExit(UpdateScreen::Result result) {
 }
 
 void WizardController::OnUpdateCompleted() {
-  if (chromeos::features::IsOobeConsolidatedConsentEnabled() &&
-      demo_setup_controller_) {
+  if (features::IsOobeConsolidatedConsentEnabled() && demo_setup_controller_) {
     ShowConsolidatedConsentScreen();
     return;
   }
@@ -1787,7 +1853,8 @@ void WizardController::OnSyncConsentScreenExit(
     AdvanceToScreen(HWDataCollectionView::kScreenId);
     return;
   }
-  ShowFingerprintSetupScreen();
+
+  ShowAuthenticationSetupScreen();
 }
 
 void WizardController::OnFingerprintSetupScreenExit(
@@ -1875,7 +1942,10 @@ void WizardController::OnGestureNavigationScreenExit(
     GestureNavigationScreen::Result result) {
   OnScreenExit(GestureNavigationScreenView::kScreenId,
                GestureNavigationScreen::GetResultString(result));
-  ShowThemeSelectionScreen();
+  if (features::IsOobeChoobeEnabled())
+    ShowChoobeScreen();
+  else
+    ShowThemeSelectionScreen();
 }
 
 void WizardController::OnMarketingOptInScreenExit(
@@ -1969,6 +2039,13 @@ void WizardController::OnOobeFlowFinished() {
   known_user.SetOnboardingCompletedVersion(account_id,
                                            version_info::GetVersion());
   known_user.RemovePendingOnboardingScreen(account_id);
+
+  if (features::IsOobeChoobeEnabled()) {
+    // Additional cleanup of the pref kChoobeSelectedScreens in case it was not
+    // already cleared.
+    ProfileManager::GetActiveUserProfile()->GetPrefs()->ClearPref(
+        prefs::kChoobeSelectedScreens);
+  }
 
   // Launch browser and delete login host controller.
   content::GetUIThreadTaskRunner({})->PostTask(
@@ -2293,6 +2370,8 @@ void WizardController::AdvanceToScreen(OobeScreenId screen_id) {
     ShowGuestTosScreen();
   } else if (screen_id == ConsolidatedConsentScreenView::kScreenId) {
     ShowConsolidatedConsentScreen();
+  } else if (screen_id == CryptohomeRecoverySetupScreenView::kScreenId) {
+    ShowCryptohomeRecoverySetupScreen();
   } else if (screen_id == TpmErrorView::kScreenId ||
              screen_id == GaiaPasswordChangedView::kScreenId ||
              screen_id == ActiveDirectoryPasswordChangeView::kScreenId ||
@@ -2630,12 +2709,19 @@ AutoEnrollmentController* WizardController::GetAutoEnrollmentController() {
   return auto_enrollment_controller_.get();
 }
 
+ChoobeFlowController* WizardController::GetChoobeFlowController() {
+  if (!choobe_flow_controller_)
+    choobe_flow_controller_ = std::make_unique<ChoobeFlowController>();
+  return choobe_flow_controller_.get();
+}
+
 void WizardController::MaybeTakeTPMOwnership() {
   if (wizard_context_->is_branded_build || switches::IsTpmDynamic())
     return;
 
-  DCHECK(chromeos::features::IsOobeConsolidatedConsentEnabled());
+  DCHECK(features::IsOobeConsolidatedConsentEnabled());
   chromeos::TpmManagerClient::Get()->TakeOwnership(
       ::tpm_manager::TakeOwnershipRequest(), base::DoNothing());
 }
+
 }  // namespace ash

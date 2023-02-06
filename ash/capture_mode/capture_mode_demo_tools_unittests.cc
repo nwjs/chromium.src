@@ -4,6 +4,7 @@
 
 #include <vector>
 
+#include "ash/accelerators/keyboard_code_util.h"
 #include "ash/capture_mode/capture_mode_bar_view.h"
 #include "ash/capture_mode/capture_mode_constants.h"
 #include "ash/capture_mode/capture_mode_controller.h"
@@ -16,17 +17,42 @@
 #include "ash/capture_mode/capture_mode_test_util.h"
 #include "ash/capture_mode/capture_mode_types.h"
 #include "ash/capture_mode/key_combo_view.h"
+#include "ash/capture_mode/pointer_highlight_layer.h"
+#include "ash/capture_mode/video_recording_watcher.h"
 #include "ash/constants/ash_features.h"
 #include "ash/style/icon_button.h"
 #include "ash/test/ash_test_base.h"
+#include "base/run_loop.h"
 #include "base/test/scoped_feature_list.h"
-#include "base/timer/timer.h"
+#include "ui/compositor/scoped_animation_duration_scale_mode.h"
 #include "ui/events/event_constants.h"
 #include "ui/events/keycodes/keyboard_codes_posix.h"
+#include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/views/controls/button/toggle_button.h"
+#include "ui/views/controls/image_view.h"
+#include "ui/wm/core/coordinate_conversion.h"
 
 namespace ash {
+
+namespace {
+
+constexpr ui::KeyboardCode kIconKeyCodes[] = {ui::VKEY_BROWSER_BACK,
+                                              ui::VKEY_BROWSER_FORWARD,
+                                              ui::VKEY_BROWSER_REFRESH,
+                                              ui::VKEY_ZOOM,
+                                              ui::VKEY_MEDIA_LAUNCH_APP1,
+                                              ui::VKEY_BRIGHTNESS_DOWN,
+                                              ui::VKEY_BRIGHTNESS_UP,
+                                              ui::VKEY_VOLUME_MUTE,
+                                              ui::VKEY_VOLUME_DOWN,
+                                              ui::VKEY_VOLUME_UP,
+                                              ui::VKEY_UP,
+                                              ui::VKEY_DOWN,
+                                              ui::VKEY_LEFT,
+                                              ui::VKEY_RIGHT};
+
+}  // namespace
 
 class CaptureModeDemoToolsTest : public AshTestBase {
  public:
@@ -64,6 +90,18 @@ class CaptureModeDemoToolsTest : public AshTestBase {
         CaptureModeController::Get()->video_recording_watcher_for_testing();
     DCHECK(recording_watcher);
     return recording_watcher->demo_tools_controller_for_testing();
+  }
+
+  void WaitForMouseHighlightAnimationCompleted() {
+    base::RunLoop run_loop;
+    CaptureModeDemoToolsController* demo_tools_controller =
+        GetCaptureModeDemoToolsController();
+    DCHECK(demo_tools_controller);
+    CaptureModeDemoToolsTestApi capture_mode_demo_tools_test_api(
+        demo_tools_controller);
+    capture_mode_demo_tools_test_api.SetOnMouseHighlightAnimationEndedCallback(
+        run_loop.QuitClosure());
+    run_loop.Run();
   }
 
  private:
@@ -333,6 +371,32 @@ TEST_F(CaptureModeDemoToolsTest, DemoToolsHideTimerTest) {
   fire_hide_timer_and_verify_widget();
 }
 
+// Tests that all the non-modifier keys with the icon are displayed
+// independently and correctly.
+TEST_F(CaptureModeDemoToolsTest, AllIconKeysTest) {
+  CaptureModeController* controller = StartCaptureSession(
+      CaptureModeSource::kFullscreen, CaptureModeType::kVideo);
+  controller->EnableDemoTools(true);
+  StartVideoRecordingImmediately();
+  EXPECT_TRUE(controller->is_recording_in_progress());
+  CaptureModeDemoToolsController* demo_tools_controller =
+      GetCaptureModeDemoToolsController();
+  CaptureModeDemoToolsTestApi demo_tools_test_api(demo_tools_controller);
+  auto* event_generator = GetEventGenerator();
+
+  for (const auto key_code : kIconKeyCodes) {
+    event_generator->PressKey(key_code, ui::EF_NONE);
+    EXPECT_EQ(demo_tools_test_api.GetShownNonModifierKeyCode(), key_code);
+    views::ImageView* icon = demo_tools_test_api.GetNonModifierKeyItemIcon();
+    ASSERT_TRUE(icon);
+    const auto image_model = icon->GetImageModel();
+    const gfx::VectorIcon* vector_icon = GetVectorIconForKeyboardCode(key_code);
+    EXPECT_EQ(std::string(vector_icon->name),
+              std::string(image_model.GetVectorIcon().vector_icon()->name));
+    event_generator->ReleaseKey(key_code, ui::EF_NONE);
+  }
+}
+
 class CaptureModeDemoToolsTestWithAllSources
     : public CaptureModeDemoToolsTest,
       public testing::WithParamInterface<CaptureModeSource> {
@@ -359,6 +423,16 @@ class CaptureModeDemoToolsTestWithAllSources
     EXPECT_TRUE(controller->is_recording_in_progress());
     return controller;
   }
+
+  gfx::Rect GetDemoToolsConfinedBoundsInScreenCoordinates() {
+    auto* recording_watcher =
+        CaptureModeController::Get()->video_recording_watcher_for_testing();
+    gfx::Rect confined_bounds_in_screen =
+        recording_watcher->GetCaptureSurfaceConfineBounds();
+    wm::ConvertRectToScreen(recording_watcher->window_being_recorded(),
+                            &confined_bounds_in_screen);
+    return confined_bounds_in_screen;
+  }
 };
 
 // Tests that the key combo viewer widget should be centered within its confined
@@ -369,17 +443,8 @@ TEST_P(CaptureModeDemoToolsTestWithAllSources,
   auto* demo_tools_controller = GetCaptureModeDemoToolsController();
   EXPECT_TRUE(demo_tools_controller);
 
-  auto* recording_watcher =
-      CaptureModeController::Get()->video_recording_watcher_for_testing();
   gfx::Rect confined_bounds_in_screen =
-      recording_watcher->GetCaptureSurfaceConfineBounds();
-
-  // Converts the bounds if it is in the window's coordinate to screen
-  // coordinate.
-  if (GetParam() == CaptureModeSource::kWindow) {
-    auto window_bounds = window()->GetBoundsInScreen();
-    confined_bounds_in_screen.Offset(window_bounds.x(), window_bounds.y());
-  }
+      GetDemoToolsConfinedBoundsInScreenCoordinates();
 
   // Verifies that the `demo_tools_widget` is positioned in the middle
   // horizontally within the confined bounds.
@@ -408,6 +473,70 @@ TEST_P(CaptureModeDemoToolsTestWithAllSources,
   controller->EndVideoRecording(EndRecordingReason::kStopRecordingButton);
   WaitForCaptureFileToBeSaved();
   EXPECT_FALSE(controller->IsActive());
+}
+
+// Tests that the mouse highlight layer will be created on mouse down and
+// will disappear after the animation.
+TEST_P(CaptureModeDemoToolsTestWithAllSources, MouseHighlightTest) {
+  ui::ScopedAnimationDurationScaleMode normal_animation(
+      ui::ScopedAnimationDurationScaleMode::NORMAL_DURATION);
+  StartDemoToolsEnabledVideoRecordingWithParam();
+  auto* demo_tools_controller = GetCaptureModeDemoToolsController();
+  EXPECT_TRUE(demo_tools_controller);
+
+  gfx::Rect confined_bounds_in_screen =
+      GetDemoToolsConfinedBoundsInScreenCoordinates();
+  auto* event_generator = GetEventGenerator();
+  event_generator->MoveMouseTo(confined_bounds_in_screen.CenterPoint());
+  event_generator->PressLeftButton();
+  event_generator->ReleaseLeftButton();
+  EXPECT_FALSE(
+      demo_tools_controller->mouse_highlight_layers_for_testing().empty());
+  EXPECT_EQ(demo_tools_controller->mouse_highlight_layers_for_testing().size(),
+            1u);
+  WaitForMouseHighlightAnimationCompleted();
+  EXPECT_TRUE(
+      demo_tools_controller->mouse_highlight_layers_for_testing().empty());
+}
+
+// Tests that multiple mouse highlight layers will be visible on consecutive
+// mouse press events when the whole duration are within the expiration of the
+// first animation expiration. It also tests that each mouse highlight layer
+// will be centered on its mouse event location.
+TEST_P(CaptureModeDemoToolsTestWithAllSources,
+       MouseHighlightShouldBeCenteredWithMouseClick) {
+  ui::ScopedAnimationDurationScaleMode normal_animation(
+      ui::ScopedAnimationDurationScaleMode::NORMAL_DURATION);
+  StartDemoToolsEnabledVideoRecordingWithParam();
+  auto* recording_watcher =
+      CaptureModeController::Get()->video_recording_watcher_for_testing();
+  auto* window_being_recorded = recording_watcher->window_being_recorded();
+  auto* demo_tools_controller = GetCaptureModeDemoToolsController();
+  EXPECT_TRUE(demo_tools_controller);
+
+  gfx::Rect inner_rect = GetDemoToolsConfinedBoundsInScreenCoordinates();
+  inner_rect.Inset(5);
+
+  auto& layers_vector =
+      demo_tools_controller->mouse_highlight_layers_for_testing();
+  auto* event_generator = GetEventGenerator();
+
+  for (auto point : {inner_rect.CenterPoint(), inner_rect.origin(),
+                     inner_rect.bottom_right()}) {
+    event_generator->MoveMouseTo(point);
+    event_generator->PressLeftButton();
+    event_generator->ReleaseLeftButton();
+    auto* highlight_layer = layers_vector.back().get();
+    auto highlight_center_point =
+        highlight_layer->layer()->bounds().CenterPoint();
+
+    // Convert the highlight layer center pointer to screen coordinates.
+    wm::ConvertPointToScreen(window_being_recorded, &highlight_center_point);
+
+    EXPECT_EQ(highlight_center_point, point);
+  }
+
+  EXPECT_EQ(layers_vector.size(), 3u);
 }
 
 INSTANTIATE_TEST_SUITE_P(All,

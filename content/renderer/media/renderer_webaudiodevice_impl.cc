@@ -18,6 +18,7 @@
 #include "base/task/thread_pool.h"
 #include "base/time/time.h"
 #include "media/audio/null_audio_sink.h"
+#include "media/base/audio_glitch_info.h"
 #include "media/base/audio_timestamp_helper.h"
 #include "media/base/limits.h"
 #include "media/base/silent_sink_suspender.h"
@@ -97,6 +98,11 @@ media::AudioParameters GetOutputDeviceParameters(
       .output_params();
 }
 
+scoped_refptr<media::AudioRendererSink> GetNullAudioSink(
+    const scoped_refptr<base::SequencedTaskRunner>& task_runner) {
+  return base::MakeRefCounted<media::NullAudioSink>(task_runner);
+}
+
 }  // namespace
 
 std::unique_ptr<RendererWebAudioDeviceImpl> RendererWebAudioDeviceImpl::Create(
@@ -109,7 +115,8 @@ std::unique_ptr<RendererWebAudioDeviceImpl> RendererWebAudioDeviceImpl::Create(
   return std::unique_ptr<RendererWebAudioDeviceImpl>(
       new RendererWebAudioDeviceImpl(
           sink_descriptor, layout, number_of_output_channels, latency_hint,
-          callback, session_id, base::BindOnce(&GetOutputDeviceParameters)));
+          callback, session_id, base::BindOnce(&GetOutputDeviceParameters),
+          base::BindRepeating(&GetNullAudioSink)));
 }
 
 RendererWebAudioDeviceImpl::RendererWebAudioDeviceImpl(
@@ -119,12 +126,14 @@ RendererWebAudioDeviceImpl::RendererWebAudioDeviceImpl(
     const blink::WebAudioLatencyHint& latency_hint,
     WebAudioDevice::RenderCallback* callback,
     const base::UnguessableToken& session_id,
-    OutputDeviceParamsCallback device_params_cb)
+    OutputDeviceParamsCallback device_params_cb,
+    CreateSilentSinkCallback create_silent_sink_cb)
     : sink_descriptor_(sink_descriptor),
       latency_hint_(latency_hint),
       client_callback_(callback),
       session_id_(session_id),
-      frame_token_(sink_descriptor.Token()) {
+      frame_token_(sink_descriptor.Token()),
+      create_silent_sink_cb_(std::move(create_silent_sink_cb)) {
   DCHECK(client_callback_);
   SendLogMessage(base::StringPrintf("%s", __func__));
 
@@ -201,8 +210,7 @@ void RendererWebAudioDeviceImpl::Start() {
       sink_->Initialize(sink_params_, silent_sink_suspender_.get());
       break;
     case blink::WebAudioSinkDescriptor::kSilent:
-      sink_ =
-          base::MakeRefCounted<media::NullAudioSink>(GetSilentSinkTaskRunner());
+      sink_ = create_silent_sink_cb_.Run(GetSilentSinkTaskRunner());
       sink_->Initialize(sink_params_, this);
       break;
   }
@@ -256,18 +264,19 @@ void RendererWebAudioDeviceImpl::SetDetectSilence(
     silent_sink_suspender_->SetDetectSilence(enable_silence_detection);
 }
 
-int RendererWebAudioDeviceImpl::Render(base::TimeDelta delay,
-                                       base::TimeTicks delay_timestamp,
-                                       int prior_frames_skipped,
-                                       media::AudioBus* dest) {
+int RendererWebAudioDeviceImpl::Render(
+    base::TimeDelta delay,
+    base::TimeTicks delay_timestamp,
+    const media::AudioGlitchInfo& glitch_info,
+    media::AudioBus* dest) {
   // Wrap the output pointers using WebVector.
   CHECK_EQ(dest->channels(), sink_params_.channels());
   for (int i = 0; i < dest->channels(); ++i)
     web_audio_dest_data_[i] = dest->channel(i);
 
-  client_callback_->Render(
-      web_audio_dest_data_, dest->frames(), delay.InSecondsF(),
-      (delay_timestamp - base::TimeTicks()).InSecondsF(), prior_frames_skipped);
+  client_callback_->Render(web_audio_dest_data_, dest->frames(),
+                           delay.InSecondsF(),
+                           (delay_timestamp - base::TimeTicks()).InSecondsF());
 
   if (!is_rendering_) {
     SendLogMessage(base::StringPrintf("%s => (rendering is alive [frames=%d])",

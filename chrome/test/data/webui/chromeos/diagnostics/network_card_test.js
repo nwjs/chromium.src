@@ -11,11 +11,11 @@ import {FakeNetworkHealthProvider} from 'chrome://diagnostics/fake_network_healt
 import {IpConfigInfoDrawerElement} from 'chrome://diagnostics/ip_config_info_drawer.js';
 import {setNetworkHealthProviderForTesting} from 'chrome://diagnostics/mojo_interface_provider.js';
 import {NetworkCardElement} from 'chrome://diagnostics/network_card.js';
-import {loadTimeData} from 'chrome://resources/js/load_time_data.m.js';
+import {loadTimeData} from 'chrome://resources/ash/common/load_time_data.m.js';
 import {flushTasks} from 'chrome://webui-test/polymer_test_util.js';
 
-import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from '../../chai_assert.js';
-import {isVisible} from '../../test_util.js';
+import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chromeos/chai_assert.js';
+import {isVisible} from '../test_util.js';
 
 import * as dx_utils from './diagnostics_test_utils.js';
 

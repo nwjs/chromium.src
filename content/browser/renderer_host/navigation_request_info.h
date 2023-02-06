@@ -47,6 +47,7 @@ struct CONTENT_EXPORT NavigationRequestInfo {
           devtools_accepted_stream_types,
       bool is_pdf,
       WeakDocumentPtr initiator_document,
+      bool allow_cookies_from_browser,
       bool nw_trust = false);
   NavigationRequestInfo(const NavigationRequestInfo& other) = delete;
   ~NavigationRequestInfo();
@@ -130,6 +131,10 @@ struct CONTENT_EXPORT NavigationRequestInfo {
 
   // The initiator document, if still available.
   const WeakDocumentPtr initiator_document;
+
+  // Whether a Cookie header added to this request should not be overwritten by
+  // the network service.
+  const bool allow_cookies_from_browser;
 
   bool nw_trusted;
 };

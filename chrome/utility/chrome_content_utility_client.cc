@@ -10,7 +10,6 @@
 
 #include "base/command_line.h"
 #include "base/files/file_path.h"
-#include "base/lazy_instance.h"
 #include "base/path_service.h"
 #include "build/build_config.h"
 #include "chrome/common/chrome_paths.h"
@@ -28,13 +27,6 @@
 #if defined(OS_WIN)
 #pragma warning(disable:4065)
 #endif
-
-namespace {
-
-base::LazyInstance<ChromeContentUtilityClient::NetworkBinderCreationCallback>::
-    Leaky g_network_binder_creation_callback = LAZY_INSTANCE_INITIALIZER;
-
-}  // namespace
 
 ChromeContentUtilityClient::ChromeContentUtilityClient() = default;
 
@@ -57,12 +49,6 @@ void ChromeContentUtilityClient::ExposeInterfacesToBrowser(
   // to ensure security review coverage.
   if (!utility_process_running_elevated_)
     ExposeElevatedChromeUtilityInterfacesToBrowser(binders);
-}
-
-void ChromeContentUtilityClient::RegisterNetworkBinders(
-    service_manager::BinderRegistry* registry) {
-  if (g_network_binder_creation_callback.Get())
-    std::move(g_network_binder_creation_callback.Get()).Run(registry);
 }
 
 void ChromeContentUtilityClient::UtilityThreadStarted() {
@@ -109,10 +95,4 @@ void ChromeContentUtilityClient::PostIOThreadCreated(
 void ChromeContentUtilityClient::RegisterIOThreadServices(
     mojo::ServiceFactory& services) {
   return ::RegisterIOThreadServices(services);
-}
-
-// static
-void ChromeContentUtilityClient::SetNetworkBinderCreationCallback(
-    NetworkBinderCreationCallback callback) {
-  g_network_binder_creation_callback.Get() = std::move(callback);
 }

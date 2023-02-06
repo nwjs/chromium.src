@@ -17,6 +17,7 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/thread_annotations.h"
+#include "base/threading/thread.h"
 #include "base/threading/thread_checker.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
@@ -227,7 +228,9 @@ class CONTENT_EXPORT RendererBlinkPlatformImpl : public BlinkPlatformImpl {
       const blink::WebURL& url,
       blink::WebVector<blink::WebContentSecurityPolicyHeader>* csp) override;
   base::PlatformThreadId GetIOThreadId() const override;
-  blink::mojom::AttributionOsSupport GetOsSupportForAttributionReporting()
+  attribution_reporting::mojom::OsSupport GetOsSupportForAttributionReporting()
+      override;
+  scoped_refptr<base::SingleThreadTaskRunner> VideoFrameCompositorTaskRunner()
       override;
 
   // Tells this platform that the renderer is locked to a site (i.e., a scheme
@@ -263,6 +266,9 @@ class CONTENT_EXPORT RendererBlinkPlatformImpl : public BlinkPlatformImpl {
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
   sk_sp<font_service::FontLoader> font_loader_;
 #endif
+
+  // Thread to run the VideoFrameCompositor on.
+  std::unique_ptr<base::Thread> video_frame_compositor_thread_;
 
   THREAD_CHECKER(main_thread_checker_);
 };

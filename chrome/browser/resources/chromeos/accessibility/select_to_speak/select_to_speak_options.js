@@ -17,65 +17,41 @@ class SelectToSpeakOptionsPage {
    */
   init_() {
     this.addTranslatedMessagesToDom_();
-    // Depending on whether the enhanced TTS voices are enabled, show either the
-    // enhanced voices settings or the legacy settings.
-    chrome.accessibilityPrivate.isFeatureEnabled(
-        AccessibilityFeature.ENHANCED_NETWORK_VOICES, result => {
-          const newElem = document.getElementById('naturalVoicesOptions');
-          const legacyElem = document.getElementById('noNaturalVoicesOptions');
-          if (!result) {
-            // Show UI without natural voices
-            this.hideElement(newElem);
-            this.showElement(legacyElem);
-            this.populateVoiceList_('voice');
-            window.speechSynthesis.onvoiceschanged = (() => {
-              this.populateVoiceList_('voice');
-            });
-            this.syncSelectControlToPref_(
-                'voice', PrefsManager.VOICE_NAME_KEY, 'voiceName');
+    this.populateVoicesAndLanguages_();
+
+    window.speechSynthesis.onvoiceschanged = (() => {
+      this.populateVoicesAndLanguages_();
+    });
+
+    const select = document.getElementById('language');
+    select.onchange = _ => {
+      this.populateVoicesAndLanguages_();
+    };
+
+    this.syncSelectControlToPref_(
+        'localVoices', PrefsManager.VOICE_NAME_KEY, 'voiceName');
+    this.syncSelectControlToPref_(
+        'naturalVoice', PrefsManager.ENHANCED_VOICE_NAME_KEY, 'voiceName');
+    chrome.settingsPrivate.getPref(
+        PrefsManager.ENHANCED_VOICES_POLICY_KEY, network_voices_allowed => {
+          if (network_voices_allowed !== undefined &&
+              !network_voices_allowed.value) {
+            // If the feature is disallowed, sets the checkbox to false.
+            const checkbox = document.getElementById('naturalVoices');
+            checkbox.checked = false;
+            checkbox.disabled = true;
+            this.setVoiceSelectionAndPreviewVisibility_(
+                /* isVisible = */ false);
           } else {
-            // Show UI with natural voices
-            this.hideElement(legacyElem);
-            this.showElement(newElem);
-            this.populateVoicesAndLanguages_();
-
-            window.speechSynthesis.onvoiceschanged = (() => {
-              this.populateVoicesAndLanguages_();
-            });
-
-            const select = document.getElementById('language');
-            select.onchange = _ => {
-              this.populateVoicesAndLanguages_();
-            };
-
-            this.syncSelectControlToPref_(
-                'localVoices', PrefsManager.VOICE_NAME_KEY, 'voiceName');
-            this.syncSelectControlToPref_(
-                'naturalVoice', PrefsManager.ENHANCED_VOICE_NAME_KEY,
-                'voiceName');
-            chrome.settingsPrivate.getPref(
-                PrefsManager.ENHANCED_VOICES_POLICY_KEY,
-                network_voices_allowed => {
-                  if (network_voices_allowed !== undefined &&
-                      !network_voices_allowed.value) {
-                    // If the feature is disallowed, sets the checkbox to false.
-                    const checkbox = document.getElementById('naturalVoices');
-                    checkbox.checked = false;
-                    checkbox.disabled = true;
-                    this.setVoiceSelectionAndPreviewVisibility_(
-                        /* isVisible = */ false);
-                  } else {
-                    // If the feature is allowed, syncs the checkbox with pref.
-                    this.syncCheckboxControlToPref_(
-                        'naturalVoices',
-                        PrefsManager.ENHANCED_NETWORK_VOICES_KEY, checked => {
-                          this.setVoiceSelectionAndPreviewVisibility_(
-                              /* isVisible = */ checked);
-                        });
-                  }
-                });  // End of the chrome.settingsPrivate.getPref
+            // If the feature is allowed, syncs the checkbox with pref.
+            this.syncCheckboxControlToPref_(
+                'naturalVoices', PrefsManager.ENHANCED_NETWORK_VOICES_KEY,
+                checked => {
+                  this.setVoiceSelectionAndPreviewVisibility_(
+                      /* isVisible = */ checked);
+                });
           }
-        });
+        });  // End of the chrome.settingsPrivate.getPref
 
     chrome.accessibilityPrivate.isFeatureEnabled(
         AccessibilityFeature.SELECT_TO_SPEAK_VOICE_SWITCHING, (enabled) => {
@@ -102,10 +78,10 @@ class SelectToSpeakOptionsPage {
     this.syncCheckboxControlToPref_(
         'navigationControls', PrefsManager.NAVIGATION_CONTROLS_KEY);
     this.syncCheckboxControlToPref_(
-        'voiceSwitching', PrefsManager.VOICE_SWITCHING_KEY);
+        'voiceSwitching', PrefsManager.VOICE_SWITCHING_KEY,
+        checked => this.voiceSwitchingToggleChanged(/* isEnabled = */ checked));
 
     this.setUpHighlightListener_();
-    this.setUpTtsButtonClickListener_();
     this.setUpNaturalVoicePreviewListener_();
     chrome.metricsPrivate.recordUserAction(
         'Accessibility.CrosSelectToSpeak.LoadSettings');
@@ -142,7 +118,18 @@ class SelectToSpeakOptionsPage {
   }
 
   /**
+   * When voice switching toggle is on, disable natural voice toggle.
+   * @param {boolean} isEnabled If voice switching toggle is enabled.
+   * @private
+   */
+  voiceSwitchingToggleChanged(isEnabled) {
+    const naturalVoiceToggle = document.getElementById('naturalVoices');
+    naturalVoiceToggle.disabled = isEnabled;
+  }
+
+  /**
    * Sets the visibility for natural voices selection and preview.
+   * Also disable voice switching toggle if natural voices enabled.
    * @param {boolean} isVisible The intended visibility of the elements.
    * @private
    */
@@ -150,9 +137,11 @@ class SelectToSpeakOptionsPage {
     const voice = document.getElementById('naturalVoiceSelection');
     const preview = document.getElementById('naturalVoicePreview');
     const select = document.getElementById('naturalVoice');
+    const voiceSwitchingToggle = document.getElementById('voiceSwitching');
     this.setElementVisible(voice, isVisible);
     this.setElementVisible(preview, isVisible);
     select.disabled = !isVisible;
+    voiceSwitchingToggle.disabled = isVisible;
   }
 
   /**
@@ -596,18 +585,6 @@ class SelectToSpeakOptionsPage {
             checkbox.click();
           }
         });
-  }
-
-  /**
-   * Sets up a listener on the TTS settings button.
-   * @private
-   */
-  setUpTtsButtonClickListener_() {
-    const button = document.getElementById('ttsSettingsBtn');
-    button.addEventListener('click', () => {
-      chrome.accessibilityPrivate.openSettingsSubpage(
-          'manageAccessibility/tts');
-    });
   }
 
   /**

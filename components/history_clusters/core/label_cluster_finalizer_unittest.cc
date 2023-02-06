@@ -72,7 +72,6 @@ TEST_F(LabelClusterFinalizerTest, ClusterWithNoSearchTerms) {
   {
     // With only search term labelling active, there should be no label.
     Config config;
-    config.should_label_clusters = true;
     config.labels_from_hostnames = false;
     config.labels_from_entities = false;
     SetConfigForTesting(config);
@@ -82,7 +81,6 @@ TEST_F(LabelClusterFinalizerTest, ClusterWithNoSearchTerms) {
     FinalizeCluster(cluster);
     EXPECT_EQ(cluster.raw_label, absl::nullopt);
     EXPECT_EQ(cluster.label, absl::nullopt);
-    EXPECT_EQ(cluster.label_source, LabelSource::kUnknown);
   }
 
   {
@@ -90,7 +88,6 @@ TEST_F(LabelClusterFinalizerTest, ClusterWithNoSearchTerms) {
     // prefer the entity because if we prefer hostnames, every cluster will have
     // a hostname label, and no entity labels will ever get surfaced.
     Config config;
-    config.should_label_clusters = true;
     config.labels_from_hostnames = true;
     config.labels_from_entities = true;
     SetConfigForTesting(config);
@@ -100,13 +97,11 @@ TEST_F(LabelClusterFinalizerTest, ClusterWithNoSearchTerms) {
     FinalizeCluster(cluster);
     EXPECT_EQ(cluster.raw_label, u"chosenlabel");
     EXPECT_EQ(cluster.label, u"chosenlabel");
-    EXPECT_EQ(cluster.label_source, LabelSource::kContentDerivedEntity);
   }
 
   {
     // With hostname labelling active only, we should use the hostname.
     Config config;
-    config.should_label_clusters = true;
     config.labels_from_hostnames = true;
     config.labels_from_entities = false;
     SetConfigForTesting(config);
@@ -116,13 +111,11 @@ TEST_F(LabelClusterFinalizerTest, ClusterWithNoSearchTerms) {
     FinalizeCluster(cluster);
     EXPECT_EQ(cluster.raw_label, u"baz.com");
     EXPECT_EQ(cluster.label, u"baz.com and more");
-    EXPECT_EQ(cluster.label_source, LabelSource::kHostname);
   }
 
   {
     // With entity labelling active only, we should use the entity name.
     Config config;
-    config.should_label_clusters = true;
     config.labels_from_hostnames = false;
     config.labels_from_entities = true;
     SetConfigForTesting(config);
@@ -132,7 +125,6 @@ TEST_F(LabelClusterFinalizerTest, ClusterWithNoSearchTerms) {
     FinalizeCluster(cluster);
     EXPECT_EQ(cluster.raw_label, u"chosenlabel");
     EXPECT_EQ(cluster.label, u"chosenlabel");
-    EXPECT_EQ(cluster.label_source, LabelSource::kContentDerivedEntity);
   }
 }
 
@@ -140,7 +132,6 @@ TEST_F(LabelClusterFinalizerTest, TakesHighestScoringSearchTermIfAvailable) {
   // Verify that search terms take precedence even if labels from entities are
   // enabled.
   Config config;
-  config.should_label_clusters = true;
   config.labels_from_hostnames = true;
   config.labels_from_entities = true;
   SetConfigForTesting(config);

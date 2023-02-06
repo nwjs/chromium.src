@@ -37,7 +37,6 @@ import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Build.VERSION_CODES;
 import android.os.Bundle;
 import android.os.SystemClock;
@@ -60,6 +59,7 @@ import androidx.browser.customtabs.CustomTabsIntent;
 import androidx.browser.customtabs.CustomTabsService;
 import androidx.browser.customtabs.CustomTabsSession;
 import androidx.browser.customtabs.CustomTabsSessionToken;
+import androidx.test.filters.LargeTest;
 import androidx.test.filters.MediumTest;
 import androidx.test.filters.SmallTest;
 
@@ -107,9 +107,9 @@ import org.chromium.chrome.browser.browserservices.SessionDataHolder;
 import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider;
 import org.chromium.chrome.browser.browserservices.verification.ChromeOriginVerifier;
 import org.chromium.chrome.browser.contextmenu.ContextMenuCoordinator;
-import org.chromium.chrome.browser.customtabs.CustomTabActivityLifecycleUmaTracker.ClientIdentifierType;
 import org.chromium.chrome.browser.customtabs.CustomTabsIntentTestUtils.OnFinishedForTest;
 import org.chromium.chrome.browser.customtabs.content.CustomTabActivityNavigationController.FinishReason;
+import org.chromium.chrome.browser.customtabs.features.sessionrestore.SessionRestoreUtils.ClientIdentifierType;
 import org.chromium.chrome.browser.customtabs.features.toolbar.CustomTabToolbar;
 import org.chromium.chrome.browser.document.ChromeLauncherActivity;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
@@ -446,13 +446,8 @@ public class CustomTabActivityTest {
                                    .shouldEmphasizeHttpsScheme());
         // TODO(https://crbug.com/871805): Use helper class to determine whether dark status icons
         // are supported.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            assertEquals(expectedColor,
-                    mCustomTabActivityTestRule.getActivity().getWindow().getStatusBarColor());
-        } else {
-            assertEquals(ColorUtils.getDarkenedColorForStatusBar(expectedColor),
-                    mCustomTabActivityTestRule.getActivity().getWindow().getStatusBarColor());
-        }
+        assertEquals(expectedColor,
+                mCustomTabActivityTestRule.getActivity().getWindow().getStatusBarColor());
 
         MenuButton menuButtonView = toolbarView.findViewById(R.id.menu_button_wrapper);
         assertEquals(ColorUtils.shouldUseLightForegroundOnBackground(expectedColor)
@@ -686,7 +681,6 @@ public class CustomTabActivityTest {
 
     @Test
     @SmallTest
-    @Features.EnableFeatures(ChromeFeatureList.CCT_RETAINING_STATE)
     public void testRecordRetainableSession_WithCctSession() throws Exception {
         Activity emptyActivity = startBlankUiTestActivity();
 
@@ -717,7 +711,6 @@ public class CustomTabActivityTest {
 
     @Test
     @SmallTest
-    @Features.EnableFeatures(ChromeFeatureList.CCT_RETAINING_STATE)
     public void testRecordRetainableSession_WithoutWarmupAndSession() {
         Context context = InstrumentationRegistry.getContext();
         Activity emptyActivity = startBlankUiTestActivity();
@@ -1453,7 +1446,6 @@ public class CustomTabActivityTest {
     @Test
     @SmallTest
     @Restriction(RESTRICTION_TYPE_NON_LOW_END_DEVICE)
-    @Features.EnableFeatures(ChromeFeatureList.CCT_RETAINING_STATE)
     public void testInteractionRecordedOnClose() throws Exception {
         Context context = InstrumentationRegistry.getInstrumentation()
                                   .getTargetContext()
@@ -1840,6 +1832,62 @@ public class CustomTabActivityTest {
             });
         });
         eventHelper.waitForCallback(0);
+    }
+
+    private void doOpaqueOriginTest(boolean enabled, boolean prefetch) throws Exception {
+        TestWebServer webServer = createTestWebServer();
+        String url = webServer.setResponse("/ok.html", "<html>ok</html>", null);
+        CustomTabsConnection connection = CustomTabsTestUtils.warmUpAndWait();
+        Context context = InstrumentationRegistry.getInstrumentation()
+                                  .getTargetContext()
+                                  .getApplicationContext();
+        Intent intent = CustomTabsIntentTestUtils.createMinimalCustomTabIntent(context, url);
+        CustomTabsSessionToken token = CustomTabsSessionToken.getSessionTokenFromIntent(intent);
+        connection.newSession(token);
+
+        if (prefetch) {
+            setCanUseHiddenTabForSession(connection, token, true);
+            Assert.assertTrue(connection.mayLaunchUrl(token, Uri.parse(url), null, null));
+            CriteriaHelper.pollUiThread(() -> {
+                Criteria.checkThat(connection.getHiddenTab(), Matchers.notNullValue());
+            });
+            Tab hiddenTab = TestThreadUtils.runOnUiThreadBlocking(
+                    () -> { return connection.getHiddenTab(); });
+            ChromeTabUtils.waitForTabPageLoaded(hiddenTab, url);
+        } else {
+            mCustomTabActivityTestRule.startCustomTabActivityWithIntent(intent);
+        }
+        String actualHeader = webServer.getLastRequest("/ok.html").headerValue("Sec-Fetch-Site");
+        assertEquals(enabled ? "cross-site" : "none", actualHeader);
+        webServer.shutdown();
+    }
+
+    @Test
+    @LargeTest
+    @Features.EnableFeatures(ChromeFeatureList.OPAQUE_ORIGIN_FOR_INCOMING_INTENTS)
+    public void testOpaqueOriginFromPrefetch_Enabled() throws Exception {
+        doOpaqueOriginTest(true, true);
+    }
+
+    @Test
+    @LargeTest
+    @Features.DisableFeatures(ChromeFeatureList.OPAQUE_ORIGIN_FOR_INCOMING_INTENTS)
+    public void testOpaqueOriginFromPrefetch_Disabled() throws Exception {
+        doOpaqueOriginTest(false, true);
+    }
+
+    @Test
+    @LargeTest
+    @Features.EnableFeatures(ChromeFeatureList.OPAQUE_ORIGIN_FOR_INCOMING_INTENTS)
+    public void testOpaqueOriginFromIntent_Enabled() throws Exception {
+        doOpaqueOriginTest(true, false);
+    }
+
+    @Test
+    @LargeTest
+    @Features.DisableFeatures(ChromeFeatureList.OPAQUE_ORIGIN_FOR_INCOMING_INTENTS)
+    public void testOpaqueOriginFromIntent_Disabled() throws Exception {
+        doOpaqueOriginTest(false, false);
     }
 
     /** Asserts that the Overlay Panel is set to allow or not allow ever hiding the Toolbar. */

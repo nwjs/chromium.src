@@ -45,7 +45,6 @@
 #include "base/threading/simple_thread.h"
 #include "base/threading/thread_local.h"
 #include "base/threading/thread_restrictions.h"
-#include "base/threading/thread_task_runner_handle.h"
 #include "base/trace_event/memory_dump_manager.h"
 #include "base/trace_event/memory_pressure_level_proto.h"
 #include "base/trace_event/trace_event.h"
@@ -181,6 +180,10 @@
 #include "content/renderer/media/win/dcomp_texture_factory.h"
 #include "content/renderer/media/win/overlay_state_service_provider.h"
 #include "media/base/win/mf_feature_checks.h"
+#endif
+
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#include "content/renderer/renderer_thread_type_handler.h"
 #endif
 
 #ifdef ENABLE_VTUNE_JIT_INTERFACE
@@ -566,7 +569,7 @@ void RenderThreadImpl::Init() {
 #endif
 
   lazy_tls.Pointer()->Set(this);
-  g_main_task_runner.Get() = base::ThreadTaskRunnerHandle::Get();
+  g_main_task_runner.Get() = base::SingleThreadTaskRunner::GetCurrentDefault();
 
   // Register this object as the main thread.
   ChildProcess::current()->set_main_thread(this);
@@ -620,6 +623,10 @@ void RenderThreadImpl::Init() {
     GetChannel()->set_outgoing_message_filter(filter);
     mojo::MessageDumper::SetMessageDumpDirectory(dump_directory);
   }
+#endif
+
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+  RendererThreadTypeHandler::NotifyRenderThreadCreated();
 #endif
 
   cc::SetClientNameForMetrics("Renderer");
@@ -683,10 +690,8 @@ void RenderThreadImpl::Init() {
   variations_observer_ = std::make_unique<VariationsRenderThreadObserver>();
   AddObserver(variations_observer_.get());
 
-  if (base::FeatureList::IsEnabled(features::kFontManagerEarlyInit)) {
-    base::ThreadPool::PostTask(FROM_HERE,
-                               base::BindOnce([] { SkFontMgr::RefDefault(); }));
-  }
+  base::ThreadPool::PostTask(FROM_HERE,
+                             base::BindOnce([] { SkFontMgr::RefDefault(); }));
 
   bool should_actively_sample_fonts =
       command_line.HasSwitch(kFirstRendererProcess) &&
@@ -846,22 +851,6 @@ void RenderThreadImpl::InitializeCompositorThread() {
       compositor_task_runner_.get());
 }
 
-scoped_refptr<base::SingleThreadTaskRunner>
-RenderThreadImpl::CreateVideoFrameCompositorTaskRunner() {
-  if (!video_frame_compositor_thread_) {
-    // All of Chromium's GPU code must know which thread it's running on, and
-    // be the same thread on which the rendering context was initialized. This
-    // is why this must be a SingleThreadTaskRunner instead of a
-    // SequencedTaskRunner.
-    video_frame_compositor_thread_ =
-        std::make_unique<base::Thread>("VideoFrameCompositor");
-    video_frame_compositor_thread_->StartWithOptions(
-        base::Thread::Options(base::ThreadType::kCompositing));
-  }
-
-  return video_frame_compositor_thread_->task_runner();
-}
-
 void RenderThreadImpl::InitializeWebKit(mojo::BinderMap* binders) {
   DCHECK(!blink_platform_impl_);
 
@@ -921,7 +910,7 @@ void RenderThreadImpl::InitializeRenderer(
     const std::string& reduced_user_agent,
     const blink::UserAgentMetadata& user_agent_metadata,
     const std::vector<std::string>& cors_exempt_header_list,
-    blink::mojom::AttributionOsSupport attribution_os_support) {
+    attribution_reporting::mojom::OsSupport attribution_os_support) {
   DCHECK(user_agent_.IsNull());
   DCHECK(reduced_user_agent_.IsNull());
   DCHECK(full_user_agent_.IsNull());
@@ -942,6 +931,12 @@ void RenderThreadImpl::RegisterSchemes() {
   WebSecurityPolicy::RegisterURLSchemeAsNotAllowingJavascriptURLs(
       chrome_scheme);
   WebSecurityPolicy::RegisterURLSchemeAsWebUI(chrome_scheme);
+
+  // Service workers for chrome://
+  if (base::FeatureList::IsEnabled(
+          features::kEnableServiceWorkersForChromeScheme)) {
+    WebSecurityPolicy::RegisterURLSchemeAsAllowingServiceWorkers(chrome_scheme);
+  }
 
   WebString chrome_untrusted_scheme(
       WebString::FromASCII(kChromeUIUntrustedScheme));
@@ -1093,11 +1088,22 @@ media::GpuVideoAcceleratorFactories* RenderThreadImpl::GetGpuFactories() {
 
   mojo::PendingRemote<media::mojom::VideoEncodeAcceleratorProvider>
       vea_provider;
+
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+  if (base::FeatureList::IsEnabled(media::kUseOutOfProcessVideoEncoding)) {
+    BindHostReceiver(vea_provider.InitWithNewPipeAndPassReceiver());
+  } else {
+    gpu_->CreateVideoEncodeAcceleratorProvider(
+        vea_provider.InitWithNewPipeAndPassReceiver());
+  }
+#else
   gpu_->CreateVideoEncodeAcceleratorProvider(
       vea_provider.InitWithNewPipeAndPassReceiver());
+#endif
 
   gpu_factories_.push_back(GpuVideoAcceleratorFactoriesImpl::Create(
-      std::move(gpu_channel_host), base::ThreadTaskRunnerHandle::Get(),
+      std::move(gpu_channel_host),
+      base::SingleThreadTaskRunner::GetCurrentDefault(),
       GetMediaSequencedTaskRunner(), std::move(media_context_provider),
       enable_video_gpu_memory_buffers, enable_media_stream_gpu_memory_buffers,
       enable_video_decode_accelerator, enable_video_encode_accelerator,
@@ -1109,7 +1115,9 @@ media::GpuVideoAcceleratorFactories* RenderThreadImpl::GetGpuFactories() {
 scoped_refptr<viz::RasterContextProvider>
 RenderThreadImpl::GetVideoFrameCompositorContextProvider(
     scoped_refptr<viz::RasterContextProvider> unwanted_context_provider) {
-  DCHECK(video_frame_compositor_thread_);
+  auto video_frame_compositor_task_runner =
+      blink_platform_impl_->VideoFrameCompositorTaskRunner();
+  DCHECK(video_frame_compositor_task_runner);
   if (video_frame_compositor_context_provider_ &&
       video_frame_compositor_context_provider_ != unwanted_context_provider) {
     return video_frame_compositor_context_provider_;
@@ -1117,7 +1125,7 @@ RenderThreadImpl::GetVideoFrameCompositorContextProvider(
 
   // Need to make sure these references are removed on the correct task runner;
   if (video_frame_compositor_context_provider_) {
-    video_frame_compositor_thread_->task_runner()->ReleaseSoon(
+    video_frame_compositor_task_runner->ReleaseSoon(
         FROM_HERE, std::move(video_frame_compositor_context_provider_));
   }
 
@@ -1650,7 +1658,8 @@ RenderThreadImpl::GetMediaSequencedTaskRunner() {
   if (base::FeatureList::IsEnabled(kUseThreadPoolForMediaTaskRunner)) {
     if (!media_task_runner_) {
       media_task_runner_ = base::ThreadPool::CreateSequencedTaskRunner(
-          base::TaskTraits{base::TaskPriority::USER_VISIBLE, base::MayBlock()});
+          base::TaskTraits{base::TaskPriority::USER_VISIBLE,
+                           base::WithBaseSyncPrimitives(), base::MayBlock()});
     }
     return media_task_runner_;
   }
@@ -1659,6 +1668,9 @@ RenderThreadImpl::GetMediaSequencedTaskRunner() {
 #if BUILDFLAG(IS_FUCHSIA)
     // Start IO thread on Fuchsia to make that thread usable for FIDL.
     base::Thread::Options options(base::MessagePumpType::IO, 0);
+    // TODO(crbug.com/1400772): Use kCompositing to address media latency on
+    // Fuchsia until alignment on new media thread types is achieved.
+    options.thread_type = base::ThreadType::kCompositing;
 #else
     base::Thread::Options options;
 #endif
@@ -1824,13 +1836,13 @@ gfx::ColorSpace RenderThreadImpl::GetRenderingColorSpace() {
   return rendering_color_space_;
 }
 
-blink::mojom::AttributionOsSupport
+attribution_reporting::mojom::OsSupport
 RenderThreadImpl::GetOsSupportForAttributionReporting() {
   return attribution_os_support_;
 }
 
 void RenderThreadImpl::SetOsSupportForAttributionReporting(
-    blink::mojom::AttributionOsSupport attribution_os_support) {
+    attribution_reporting::mojom::OsSupport attribution_os_support) {
   attribution_os_support_ = attribution_os_support;
 }
 

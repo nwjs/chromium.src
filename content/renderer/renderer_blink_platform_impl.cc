@@ -35,7 +35,9 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "cc/trees/raster_context_provider_wrapper.h"
+#include "components/attribution_reporting/os_support.mojom.h"
 #include "components/url_formatter/url_formatter.h"
+#include "components/viz/common/features.h"
 #include "content/child/child_process.h"
 #include "content/common/android/sync_compositor_statics.h"
 #include "content/common/content_constants_internal.h"
@@ -87,7 +89,6 @@
 #include "third_party/blink/public/common/origin_trials/trial_token_validator.h"
 #include "third_party/blink/public/common/security/protocol_handler_security_level.h"
 #include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
-#include "third_party/blink/public/mojom/conversions/attribution_reporting.mojom.h"
 #include "third_party/blink/public/mojom/indexeddb/indexeddb.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_provider.mojom.h"
 #include "third_party/blink/public/platform/file_path_conversion.h"
@@ -1095,13 +1096,33 @@ base::PlatformThreadId RendererBlinkPlatformImpl::GetIOThreadId() const {
   return io_thread_id_;
 }
 
-blink::mojom::AttributionOsSupport
+attribution_reporting::mojom::OsSupport
 RendererBlinkPlatformImpl::GetOsSupportForAttributionReporting() {
   auto* render_thread = RenderThreadImpl::current();
   // RenderThreadImpl is null in some tests.
   if (!render_thread)
-    return blink::mojom::AttributionOsSupport::kDisabled;
+    return attribution_reporting::mojom::OsSupport::kDisabled;
   return render_thread->GetOsSupportForAttributionReporting();
+}
+
+scoped_refptr<base::SingleThreadTaskRunner>
+RendererBlinkPlatformImpl::VideoFrameCompositorTaskRunner() {
+  auto compositor_task_runner = CompositorThreadTaskRunner();
+  if (features::UseSurfaceLayerForVideo() || !compositor_task_runner) {
+    if (!video_frame_compositor_thread_) {
+      // All of Chromium's GPU code must know which thread it's running on, and
+      // be the same thread on which the rendering context was initialized. This
+      // is why this must be a SingleThreadTaskRunner instead of a
+      // SequencedTaskRunner.
+      video_frame_compositor_thread_ =
+          std::make_unique<base::Thread>("VideoFrameCompositor");
+      video_frame_compositor_thread_->StartWithOptions(
+          base::Thread::Options(base::ThreadType::kCompositing));
+    }
+
+    return video_frame_compositor_thread_->task_runner();
+  }
+  return compositor_task_runner;
 }
 
 }  // namespace content

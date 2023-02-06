@@ -12,6 +12,7 @@
 #include "content/public/browser/client_hints_controller_delegate.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
+#include "services/network/public/cpp/client_hints.h"
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
 #include "services/network/public/cpp/network_quality_tracker.h"
 #include "third_party/blink/public/common/client_hints/enabled_client_hints.h"
@@ -74,19 +75,20 @@ void AwClientHintsControllerDelegate::GetAllowedClientHintsFromSource(
 bool AwClientHintsControllerDelegate::IsJavaScriptAllowed(
     const GURL& url,
     content::RenderFrameHost* parent_rfh) {
+  // Javascript can only be disabled per-frame, so if we're pre-loading
+  // and/or there is no frame Javascript is considered enabled.
   if (!parent_rfh) {
-    return false;
+    return true;
   }
   content::WebContents* web_contents =
       content::WebContents::FromRenderFrameHost(
           parent_rfh->GetOutermostMainFrame());
   if (!web_contents) {
-    // TODO(crbug.com/921655): Detect and support service workers here.
-    return false;
+    return true;
   }
   AwContents* aw_contents = AwContents::FromWebContents(web_contents);
   if (!aw_contents) {
-    return false;
+    return true;
   }
   return aw_contents->IsJavaScriptAllowed();
 }
@@ -94,23 +96,10 @@ bool AwClientHintsControllerDelegate::IsJavaScriptAllowed(
 bool AwClientHintsControllerDelegate::AreThirdPartyCookiesBlocked(
     const GURL& url,
     content::RenderFrameHost* rfh) {
-  if (!rfh) {
-    return true;
-  }
-  content::WebContents* web_contents =
-      content::WebContents::FromRenderFrameHost(rfh);
-  if (!web_contents) {
-    // TODO(crbug.com/921655): Detect and support service workers here.
-    return true;
-  }
-  AwContents* aw_contents = AwContents::FromWebContents(web_contents);
-  if (!aw_contents) {
-    return true;
-  }
-  // Despite the name of the function we want to mirror the function of
-  // ClientHints::AreThirdPartyCookiesBlocked and check the global block too.
-  return !AwCookieAccessPolicy::GetInstance()->GetShouldAcceptCookies() ||
-         !aw_contents->AllowThirdPartyCookies();
+  // This function is related to an OT for the Sec-CH-UA-Reduced client hint
+  // and as this doesn't affect WebView at the moment, we have no reason to
+  // implement it.
+  return false;
 }
 
 blink::UserAgentMetadata
@@ -128,8 +117,9 @@ void AwClientHintsControllerDelegate::PersistClientHints(
       !network::IsUrlPotentiallyTrustworthy(primary_url)) {
     return;
   }
-  if (!IsJavaScriptAllowed(primary_url, parent_rfh))
+  if (!IsJavaScriptAllowed(primary_url, parent_rfh)) {
     return;
+  }
   if (client_hints.size() >
       (static_cast<size_t>(network::mojom::WebClientHintsType::kMaxValue) +
        1)) {
@@ -137,6 +127,7 @@ void AwClientHintsControllerDelegate::PersistClientHints(
   }
 
   // Assemble and store the list if no issues.
+  const auto& persistence_started = base::TimeTicks::Now();
   base::Value::List client_hints_list;
   client_hints_list.reserve(client_hints.size());
   for (const auto& entry : client_hints) {
@@ -150,6 +141,8 @@ void AwClientHintsControllerDelegate::PersistClientHints(
   ch_per_origin.Set(primary_origin.Serialize(), std::move(client_hints_list));
   pref_service_->SetDict(prefs::kClientHintsCachedPerOriginMap,
                          std::move(ch_per_origin));
+  network::LogClientHintsPersistenceMetrics(persistence_started,
+                                            client_hints.size());
 }
 
 void AwClientHintsControllerDelegate::SetAdditionalClientHints(

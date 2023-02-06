@@ -599,8 +599,7 @@ WebViewImpl::WebViewImpl(
   // page.
   SetInsidePortal(is_inside_portal);
 
-  if (fenced_frame_mode && features::IsFencedFramesEnabled() &&
-      features::IsFencedFramesMPArchBased()) {
+  if (fenced_frame_mode && features::IsFencedFramesEnabled()) {
     page_->SetIsMainFrameFencedFrameRoot();
     page_->SetFencedFrameMode(*fenced_frame_mode);
   } else {
@@ -1703,8 +1702,12 @@ void WebView::ApplyWebPreferences(const web_pref::WebPreferences& prefs,
       prefs.scroll_top_left_interop_enabled);
   RuntimeEnabledFeatures::SetAcceleratedSmallCanvasesEnabled(
       !prefs.disable_accelerated_small_canvases);
-  RuntimeEnabledFeatures::SetWebAuthEnabled(!prefs.disable_webauthn);
 #endif  // BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FUCHSIA)
+  RuntimeEnabledFeatures::SetWebAuthEnabled(!prefs.disable_webauthn);
+#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FUCHSIA)
+
   settings->SetForceDarkModeEnabled(prefs.force_dark_mode_enabled);
 
   settings->SetAccessibilityAlwaysShowFocus(prefs.always_show_focus);
@@ -2047,10 +2050,14 @@ void WebViewImpl::DidAttachRemoteMainFrame(
         mojom::blink::RemoteMainFrameHostInterfaceBase> main_frame_host,
     CrossVariantMojoAssociatedReceiver<
         mojom::blink::RemoteMainFrameInterfaceBase> main_frame) {
-  DCHECK(main_frame_host);
-  DCHECK(main_frame);
   DCHECK(!MainFrameImpl());
   DCHECK(!local_main_frame_host_remote_);
+  // Note that we didn't DCHECK the `main_frame_host` and `main_frame`, because
+  // it's possible for those to be null, in case the remote main frame is a
+  // placeholder RemoteFrame that does not have any browser-side counterpart.
+  // This is possible when the WebView is created in preparation for a main
+  // frame LocalFrame <-> LocalFrame swap. See the comments in
+  // `AgentSchedulingGroup::CreateWebView()` for more details.
 
   RemoteFrame* remote_frame = DynamicTo<RemoteFrame>(GetPage()->MainFrame());
   remote_frame->WasAttachedAsRemoteMainFrame(std::move(main_frame));
@@ -2471,6 +2478,8 @@ void WebViewImpl::SetPageLifecycleStateInternal(
     SetVisibilityState(new_state->visibility, /*is_initial_state=*/false);
   }
   if (storing_in_bfcache) {
+    // TODO(https://crbug.com/1378279): Consider moving this to happen earlier
+    // and together with other page state updates so that the ordering is clear.
     Scheduler()->SetPageBackForwardCached(new_state->is_in_back_forward_cache);
   }
 
@@ -2482,6 +2491,8 @@ void WebViewImpl::SetPageLifecycleStateInternal(
       }
     }
 
+    // TODO(https://crbug.com/1378279): Consider moving this to happen earlier
+    // and together with other page state updates so that the ordering is clear.
     SetPageFrozen(true);
   }
 
@@ -2495,8 +2506,11 @@ void WebViewImpl::SetPageLifecycleStateInternal(
   }
   if (eviction_changed)
     HookBackForwardCacheEviction(new_state->eviction_enabled);
-  if (resuming_page)
+  if (resuming_page) {
+    // TODO(https://crbug.com/1378279): Consider moving this to happen earlier
+    // and together with other page state updates so that the ordering is clear.
     SetPageFrozen(false);
+  }
   if (showing_page) {
     SetVisibilityState(new_state->visibility, /*is_initial_state=*/false);
   }
@@ -2519,6 +2533,8 @@ void WebViewImpl::SetPageLifecycleStateInternal(
 
     DispatchPersistedPageshow(page_restore_params->navigation_start);
 
+    // TODO(https://crbug.com/1378279): Consider moving this to happen earlier
+    // and together with other page state updates so that the ordering is clear.
     Scheduler()->SetPageBackForwardCached(new_state->is_in_back_forward_cache);
     if (MainFrame()->IsWebLocalFrame()) {
       LocalFrame* local_frame = To<LocalFrame>(page->MainFrame());
@@ -2532,6 +2548,8 @@ void WebViewImpl::SetPageLifecycleStateInternal(
   // move SchedulerTrackedFeatures to core/ and remove the back and forth.
   ReportActiveSchedulerTrackedFeatures();
 
+  // TODO(https://crbug.com/1378279): Consider moving this to happen earlier
+  // and together with other page state updates so that the ordering is clear.
   GetPage()->SetPageLifecycleState(std::move(new_state));
 
   // Notify all local frames that we've updated the page lifecycle state.
@@ -3302,8 +3320,6 @@ void WebViewImpl::ActivatePrerenderedPage(
     mojom::blink::PrerenderPageActivationParamsPtr
         prerender_page_activation_params,
     ActivatePrerenderedPageCallback callback) {
-  DCHECK(features::IsPrerender2Enabled());
-
   // From here all new documents will have prerendering false.
   GetPage()->SetIsPrerendering(false);
 
@@ -3904,6 +3920,7 @@ void WebViewImpl::CreateRemoteMainFrame(
     const RemoteFrameToken& frame_token,
     const absl::optional<FrameToken>& opener_frame_token,
     mojom::blink::FrameReplicationStatePtr replicated_state,
+    bool is_loading,
     const base::UnguessableToken& devtools_frame_token,
     mojom::blink::RemoteFrameInterfacesFromBrowserPtr remote_frame_interfaces,
     mojom::blink::RemoteMainFrameInterfacesPtr remote_main_frame_interfaces) {
@@ -3912,7 +3929,7 @@ void WebViewImpl::CreateRemoteMainFrame(
     opener = WebFrame::FromFrameToken(*opener_frame_token);
   // Create a top level WebRemoteFrame.
   WebRemoteFrameImpl::CreateMainFrame(
-      this, frame_token, devtools_frame_token, opener,
+      this, frame_token, is_loading, devtools_frame_token, opener,
       std::move(remote_frame_interfaces->frame_host),
       std::move(remote_frame_interfaces->frame_receiver),
       std::move(replicated_state));

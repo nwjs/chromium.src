@@ -5,7 +5,10 @@
 #include "components/metrics/metrics_service_observer.h"
 
 #include "base/base64.h"
+#include "base/callback_list.h"
+#include "base/files/file_util.h"
 #include "base/json/json_string_value_serializer.h"
+#include "base/logging.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/time/time.h"
 #include "base/values.h"
@@ -75,6 +78,9 @@ void MetricsServiceObserver::OnLogCreated(base::StringPiece log_hash,
 
   indexed_logs_.emplace(log->hash, log.get());
   logs_.push_back(std::move(log));
+
+  // Call all registered callbacks.
+  notified_callbacks_.Notify();
 }
 
 void MetricsServiceObserver::OnLogEvent(MetricsLogsEventManager::LogEvent event,
@@ -90,10 +96,13 @@ void MetricsServiceObserver::OnLogEvent(MetricsLogsEventManager::LogEvent event,
 
   Log::Event log_event;
   log_event.event = event;
-  log_event.timestamp = base::NumberToString(base::Time::Now().ToTimeT());
+  log_event.timestampMs = base::Time::Now().ToJsTimeIgnoringNull();
   if (!message.empty())
     log_event.message = std::string(message);
   log->events.push_back(std::move(log_event));
+
+  // Call all registered callbacks.
+  notified_callbacks_.Notify();
 }
 
 void MetricsServiceObserver::OnLogType(
@@ -127,7 +136,7 @@ bool MetricsServiceObserver::ExportLogsAsJson(bool include_log_proto_data,
     for (const Log::Event& event : log->events) {
       base::Value::Dict log_event_dict;
       log_event_dict.Set("event", EventToString(event.event));
-      log_event_dict.Set("timestamp", event.timestamp);
+      log_event_dict.Set("timestampMs", event.timestampMs);
       if (event.message.has_value())
         log_event_dict.Set("message", event.message.value());
       log_events_list.Append(std::move(log_event_dict));
@@ -140,12 +149,25 @@ bool MetricsServiceObserver::ExportLogsAsJson(bool include_log_proto_data,
   // Create a last |dict| that contains all the logs and |service_type_|,
   // convert it to a JSON string, and write it to |json_output|.
   base::Value::Dict dict;
-  dict.Set("log_type",
-           service_type_ == MetricsServiceType::UMA ? "UMA" : "UKM");
+  dict.Set("logType", service_type_ == MetricsServiceType::UMA ? "UMA" : "UKM");
   dict.Set("logs", std::move(logs_list));
 
   JSONStringValueSerializer serializer(json_output);
   return serializer.Serialize(dict);
+}
+
+void MetricsServiceObserver::ExportLogsToFile(const base::FilePath& path) {
+  std::string logs_data;
+  bool success = ExportLogsAsJson(/*include_log_proto_data=*/true, &logs_data);
+  DCHECK(success);
+  if (!base::WriteFile(path, logs_data)) {
+    LOG(ERROR) << "Failed to export logs to " << path << ": " << logs_data;
+  }
+}
+
+base::CallbackListSubscription MetricsServiceObserver::AddNotifiedCallback(
+    base::RepeatingClosure callback) {
+  return notified_callbacks_.Add(callback);
 }
 
 MetricsServiceObserver::Log* MetricsServiceObserver::GetLogFromHash(

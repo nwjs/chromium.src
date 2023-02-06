@@ -34,7 +34,6 @@
 #include "chrome/browser/web_applications/web_app_utils.h"
 #include "chrome/common/webui_url_constants.h"
 #include "components/services/app_service/public/cpp/app_launch_util.h"
-#include "components/services/app_service/public/cpp/features.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/display/scoped_display_for_new_windows.h"
@@ -105,7 +104,7 @@ absl::optional<apps::AppLaunchParams> CreateSystemWebAppLaunchParams(
   DCHECK(provider);
 
   web_app::DisplayMode display_mode =
-      provider->registrar().GetAppEffectiveDisplayMode(app_id.value());
+      provider->registrar_unsafe().GetAppEffectiveDisplayMode(app_id.value());
 
   // TODO(crbug/1113502): Plumb through better launch sources from callsites.
   apps::AppLaunchParams params = apps::CreateAppIdLaunchParamsWithEventFlags(
@@ -175,15 +174,8 @@ void LaunchSystemWebAppAsync(Profile* profile,
     return;
   }
 
-  if (base::FeatureList::IsEnabled(apps::kAppServiceLaunchWithoutMojom)) {
-    app_service->Launch(*app_id, event_flags, params.launch_source,
-                        std::move(window_info));
-  } else {
-    app_service->Launch(
-        *app_id, event_flags,
-        apps::ConvertLaunchSourceToMojomLaunchSource(params.launch_source),
-        apps::ConvertWindowInfoToMojomWindowInfo(window_info));
-  }
+  app_service->Launch(*app_id, event_flags, params.launch_source,
+                      std::move(window_info));
 }
 
 Browser* LaunchSystemWebAppImpl(Profile* profile,
@@ -208,7 +200,7 @@ Browser* LaunchSystemWebAppImpl(Profile* profile,
   auto* system_app = swa_manager->GetSystemApp(app_type);
 
 #if BUILDFLAG(IS_CHROMEOS)
-  DCHECK(url.DeprecatedGetOriginAsURL() == provider->registrar()
+  DCHECK(url.DeprecatedGetOriginAsURL() == provider->registrar_unsafe()
                                                .GetAppLaunchUrl(params.app_id)
                                                .DeprecatedGetOriginAsURL() ||
          system_app && system_app->IsUrlInSystemAppScope(url));
@@ -267,7 +259,7 @@ Browser* FindSystemWebAppBrowser(Profile* profile,
   auto* provider = SystemWebAppManager::GetWebAppProvider(profile);
   DCHECK(provider);
 
-  if (!provider->registrar().IsInstalled(app_id.value()))
+  if (!provider->registrar_unsafe().IsInstalled(app_id.value()))
     return nullptr;
 
   // Look through all the windows, find a browser for this app. Prefer the most

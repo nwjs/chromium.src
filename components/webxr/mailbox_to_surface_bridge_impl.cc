@@ -220,10 +220,9 @@ void MailboxToSurfaceBridgeImpl::CreateSurface(
   gpu::GpuSurfaceTracker* tracker = gpu::GpuSurfaceTracker::Get();
   ANativeWindow_acquire(window);
   // Skip ANativeWindow_setBuffersGeometry, the default size appears to work.
-  surface_ = std::make_unique<gl::ScopedJavaSurface>(surface_texture);
   surface_handle_ =
       tracker->AddSurfaceForNativeWidget(gpu::GpuSurfaceTracker::SurfaceRecord(
-          window, surface_->j_surface(),
+          gl::ScopedJavaSurface(surface_texture),
           false /* can_be_used_with_surface_control */));
   // Unregistering happens in the destructor.
   ANativeWindow_release(window);
@@ -231,7 +230,7 @@ void MailboxToSurfaceBridgeImpl::CreateSurface(
 
 void MailboxToSurfaceBridgeImpl::CreateAndBindContextProvider(
     base::OnceClosure on_bound_callback) {
-  gl_thread_task_runner_ = base::ThreadTaskRunnerHandle::Get();
+  gl_thread_task_runner_ = base::SingleThreadTaskRunner::GetCurrentDefault();
   on_context_bound_ = std::move(on_bound_callback);
 
   // The callback to run in this thread. It is necessary to keep |surface| alive

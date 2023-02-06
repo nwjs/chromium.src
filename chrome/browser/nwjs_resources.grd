@@ -110,10 +110,6 @@
       <if expr="not is_android">
         <!-- Page not available for guest. -->
         <include name="IDR_PAGE_NOT_AVAILABLE_FOR_GUEST_APP_HTML" file="resources\page_not_available_for_guest\app.html" type="BINDATA" />
-        <!-- In-session login flow -->
-        <include name="IDR_INLINE_LOGIN_HTML" file="resources\inline_login\inline_login.html" type="BINDATA" />
-        <include name="IDR_INLINE_LOGIN_APP_JS" file="${root_gen_dir}\chrome\browser\resources\inline_login\preprocessed\inline_login_app.js" use_base_dir="false" type ="BINDATA" />
-        <include name="IDR_INLINE_LOGIN_BROWSER_PROXY_JS" file="${root_gen_dir}\chrome\browser\resources\inline_login\preprocessed\inline_login_browser_proxy.js" use_base_dir="false" type ="BINDATA"/>
       </if>
       <include name="IDR_CRASHES_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_CRASHES_JS" file="resources\empty.js" type="BINDATA" />
@@ -130,7 +126,6 @@
       <if expr="not is_android">
         <include name="IDR_DOWNLOADS_IMAGES_INCOGNITO_MARKER_SVG" file="resources\downloads\images\incognito_marker.svg" type="BINDATA" />
         <include name="IDR_DOWNLOADS_IMAGES_NO_DOWNLOADS_SVG" file="resources\downloads\images\no_downloads.svg" type="BINDATA" />
-        <include name="IDR_DOWNLOADS_MOJO_LITE_JS" file="${root_gen_dir}\chrome\browser\ui\webui\downloads\downloads.mojom-lite.js" use_base_dir="false" type="BINDATA" />
         <if expr="optimize_webui">
           <then>
           </then>

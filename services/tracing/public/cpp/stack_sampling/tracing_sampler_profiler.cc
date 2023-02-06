@@ -37,6 +37,13 @@
 #include "third_party/perfetto/protos/perfetto/trace/track_event/process_descriptor.pbzero.h"
 #include "third_party/perfetto/protos/perfetto/trace/track_event/thread_descriptor.pbzero.h"
 
+#if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_NACL) && !BUILDFLAG(IS_APPLE)
+#include "base/profiler/thread_delegate_posix.h"
+#define INITIALIZE_THREAD_DELEGATE_POSIX 1
+#else  // BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_NACL) && !BUILDFLAG(IS_APPLE)
+#define INITIALIZE_THREAD_DELEGATE_POSIX 0
+#endif  // BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_NACL) && !BUILDFLAG(IS_APPLE)
+
 #if ANDROID_ARM64_UNWINDING_SUPPORTED || ANDROID_CFI_UNWINDING_SUPPORTED
 #include <dlfcn.h>
 #include "base/debug/elf_reader.h"
@@ -288,8 +295,7 @@ struct FrameDetails {
   // True if the module of the stack frame will be considered valid by the trace
   // processor.
   bool has_valid_module() const {
-    return !module_name.empty() && !module_id.empty() &&
-           module_base_address > 0;
+    return !module_name.empty() && module_base_address > 0;
   }
 
   bool has_valid_frame() const {
@@ -317,9 +323,7 @@ struct FrameDetails {
     if (module_base_address == 0) {
       module_base_address = 1;
     }
-    if (module_id.empty()) {
-      module_id = "missing";
-    }
+    // TODO(crbug/1393372): Investigate and maybe cleanup this logic.
     if (module_name.empty()) {
       module_name = "missing";
     }
@@ -362,12 +366,6 @@ struct FrameDetails {
     }
     module_base_address = reinterpret_cast<uintptr_t>(info.dli_fbase);
     rel_pc = frame_ip - module_base_address;
-    // We have already symbolized these frames, so module ID is not necessary.
-    // Reading the real ID can cause crashes and we can't symbolize these
-    // server-side anyways.
-    // TODO(ssid): Remove this once perfetto can keep the frames without module
-    // ID.
-    module_id = "system";
 
     DCHECK(has_valid_frame());
     DCHECK(has_valid_module());
@@ -622,7 +620,11 @@ TracingSamplerProfiler::StackProfileWriter::GetCallstackIDAndMaybeEmit(
         // TODO(ssid): This frame is currently skipped from inserting. Find a
         // way to specify that this frame is scanned in the trace.
         frame_details.frame_name = "Scanned";
-      } else if (!frame_details.has_valid_module()) {
+      } else if (frame_details.module_id.empty() ||
+                 !frame_details.has_valid_module()) {
+        // For AOT modules the build id is empty. Set full pathname for these
+        // modules, so that deobfuscation logic can work, since it depends on
+        // getting full path name to extract package name.
         frame_details.SetSystemModuleInfo(frame.instruction_pointer);
       }
     }
@@ -636,8 +638,10 @@ TracingSamplerProfiler::StackProfileWriter::GetCallstackIDAndMaybeEmit(
       frame_details.FillWithDummyFields(frame.instruction_pointer);
     }
 
-    frame_details.module_id =
-        base::TransformModuleIDToBreakpadFormat(frame_details.module_id);
+    if (!frame_details.module_id.empty()) {
+      frame_details.module_id =
+          base::TransformModuleIDToBreakpadFormat(frame_details.module_id);
+    }
 
     // Allow uploading function names passed from unwinder, which would be
     // coming from static compile time strings.
@@ -840,6 +844,13 @@ TracingSamplerProfiler::TracingSamplerProfiler(
           std::move(core_unwinders_factory_function)),
       unwinder_type_(unwinder_type) {
   DCHECK_NE(sampled_thread_token_.id, base::kInvalidThreadId);
+#if INITIALIZE_THREAD_DELEGATE_POSIX
+  // Since StackSamplingProfiler is scoped to a tracing session and lives on the
+  // thread where `StartTracing` is called, we use `ThreadDelegatePosix` to
+  // initialize global data, like the thread stack base address, that has to be
+  // created on the profiled thread. See crbug.com/1392158#c26 for details.
+  base::ThreadDelegatePosix::Create(sampled_thread_token_);
+#endif  // INITIALIZE_THREAD_DELEGATE_POSIX
   TracingSamplerProfilerDataSource::Get()->RegisterProfiler(this);
 }
 

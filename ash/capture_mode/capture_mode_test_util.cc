@@ -13,6 +13,7 @@
 #include "ash/public/cpp/projector/projector_controller.h"
 #include "ash/public/cpp/projector/projector_new_screencast_precondition.h"
 #include "ash/public/cpp/projector/projector_session.h"
+#include "ash/public/cpp/projector/speech_recognition_availability.h"
 #include "ash/shell.h"
 #include "ash/style/icon_button.h"
 #include "ash/wm/cursor_manager_chromeos.h"
@@ -110,7 +111,7 @@ void SendKey(ui::KeyboardCode key_code,
 
 void WaitForSeconds(int seconds) {
   base::RunLoop loop;
-  base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
       FROM_HERE, loop.QuitClosure(), base::Seconds(seconds));
   loop.Run();
 }
@@ -193,8 +194,11 @@ void ProjectorCaptureModeIntegrationHelper::SetUp() {
           []() { ProjectorController::Get()->OnSpeechRecognitionStopped(); }));
 
   // Simulate the availability of speech recognition.
-  projector_controller->OnSpeechRecognitionAvailabilityChanged(
-      SpeechRecognitionAvailability::kAvailable);
+  SpeechRecognitionAvailability availability;
+  availability.on_device_availability =
+      OnDeviceRecognitionAvailability::kAvailable;
+  ON_CALL(projector_client_, GetSpeechRecognitionAvailability)
+      .WillByDefault(testing::Return(availability));
   EXPECT_CALL(projector_client_, IsDriveFsMounted())
       .WillRepeatedly(testing::Return(true));
 }

@@ -19,19 +19,19 @@ import './crostini_port_forwarding.js';
 import './crostini_extra_containers.js';
 
 import {WebUiListenerMixin, WebUiListenerMixinInterface} from 'chrome://resources/cr_elements/web_ui_listener_mixin.js';
-import {loadTimeData} from 'chrome://resources/js/load_time_data.m.js';
+import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {mixinBehaviors, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import {SettingsToggleButtonElement} from '../../controls/settings_toggle_button.js';
 import {Setting} from '../../mojom-webui/setting.mojom-webui.js';
-import {Route, Router} from '../../router.js';
+import {PrefsMixin, PrefsMixinInterface} from '../../prefs/prefs_mixin.js';
 import {castExists} from '../assert_extras.js';
 import {DeepLinkingBehavior, DeepLinkingBehaviorInterface} from '../deep_linking_behavior.js';
 import {TERMINA_VM_TYPE} from '../guest_os/guest_os_browser_proxy.js';
 import {recordSettingChange} from '../metrics_recorder.js';
 import {routes} from '../os_route.js';
-import {PrefsBehavior, PrefsBehaviorInterface} from '../prefs_behavior.js';
-import {RouteOriginBehavior, RouteOriginBehaviorInterface} from '../route_origin_behavior.js';
+import {RouteOriginMixin, RouteOriginMixinInterface} from '../route_origin_mixin.js';
+import {Route, Router} from '../router.js';
 
 import {CrostiniBrowserProxy, CrostiniBrowserProxyImpl, CrostiniDiskInfo} from './crostini_browser_proxy.js';
 import {getTemplate} from './crostini_subpage.html.js';
@@ -48,13 +48,11 @@ const SettingsCrostiniSubpageElementBase =
     mixinBehaviors(
         [
           DeepLinkingBehavior,
-          PrefsBehavior,
-          RouteOriginBehavior,
         ],
-        WebUiListenerMixin(PolymerElement)) as {
-      new (): PolymerElement & DeepLinkingBehaviorInterface &
-          PrefsBehaviorInterface & RouteOriginBehaviorInterface &
-          WebUiListenerMixinInterface,
+        RouteOriginMixin(PrefsMixin(WebUiListenerMixin(PolymerElement)))) as {
+      new (): PolymerElement & WebUiListenerMixinInterface &
+          PrefsMixinInterface & RouteOriginMixinInterface &
+          DeepLinkingBehaviorInterface,
     };
 
 class SettingsCrostiniSubpageElement extends
@@ -69,12 +67,6 @@ class SettingsCrostiniSubpageElement extends
 
   static get properties() {
     return {
-      /** Preferences state. */
-      prefs: {
-        type: Object,
-        notify: true,
-      },
-
       /**
        * Whether export / import UI should be displayed.
        */
@@ -131,16 +123,6 @@ class SettingsCrostiniSubpageElement extends
         type: Boolean,
         value() {
           return loadTimeData.getBoolean('showCrostiniContainerUpgrade');
-        },
-      },
-
-      /**
-       * Whether the button to show the disk resizing view should be shown.
-       */
-      showCrostiniDiskResize_: {
-        type: Boolean,
-        value() {
-          return loadTimeData.getBoolean('showCrostiniDiskResize');
         },
       },
 
@@ -240,7 +222,7 @@ class SettingsCrostiniSubpageElement extends
   constructor() {
     super();
 
-    /** RouteOriginBehavior override */
+    /** RouteOriginMixin override */
     this.route_ = routes.CROSTINI_DETAILS;
 
     this.isDiskUserChosenSize_ = false;
@@ -253,15 +235,15 @@ class SettingsCrostiniSubpageElement extends
   override connectedCallback() {
     super.connectedCallback();
 
-    this.addWebUIListener(
+    this.addWebUiListener(
         'crostini-installer-status-changed', (status: boolean) => {
           this.installerShowing_ = status;
         });
-    this.addWebUIListener(
+    this.addWebUiListener(
         'crostini-upgrader-status-changed', (status: boolean) => {
           this.upgraderDialogShowing_ = status;
         });
-    this.addWebUIListener(
+    this.addWebUiListener(
         'crostini-container-upgrade-available-changed',
         (canUpgrade: boolean) => {
           this.showCrostiniContainerUpgrade_ = canUpgrade;
@@ -277,6 +259,7 @@ class SettingsCrostiniSubpageElement extends
 
     const r = routes;
     this.addFocusConfig(r.CROSTINI_SHARED_PATHS, '#crostini-shared-paths');
+    this.addFocusConfig(r.BRUSCHETTA_SHARED_PATHS, '#bruschetta-shared-paths');
     this.addFocusConfig(
         r.CROSTINI_SHARED_USB_DEVICES, '#crostini-shared-usb-devices');
     this.addFocusConfig(

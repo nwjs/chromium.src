@@ -83,7 +83,6 @@ using LargestContentState =
 using LargestContentTextOrImage =
     page_load_metrics::ContentfulPaintTimingInfo::LargestContentTextOrImage;
 using PageLoad = ukm::builders::PageLoad;
-using MobileFriendliness = ukm::builders::MobileFriendliness;
 using PageLoad_Internal = ukm::builders::PageLoad_Internal;
 using UserPerceivedPageVisit = ukm::builders::UserPerceivedPageVisit;
 
@@ -314,8 +313,7 @@ TEST_F(UkmPageLoadMetricsObserverTest, NoMetrics) {
 TEST_F(UkmPageLoadMetricsObserverTest, Basic) {
   // PageLoadTiming with all recorded metrics other than FMP. This allows us to
   // verify both that all metrics are logged, and that we don't log metrics that
-  // aren't present in the PageLoadTiming struct. Logging of FMP is verified in
-  // the FirstMeaningfulPaint test below.
+  // aren't present in the PageLoadTiming struct.
   page_load_metrics::mojom::PageLoadTiming timing;
   page_load_metrics::InitPageLoadTimingForTest(&timing);
   timing.navigation_start = base::Time::FromDoubleT(1);
@@ -372,10 +370,6 @@ TEST_F(UkmPageLoadMetricsObserverTest, Basic) {
         PageLoad::kDocumentTiming_NavigationToLoadEventFiredName, 500);
     tester()->test_ukm_recorder().ExpectEntryMetric(
         kv.second.get(), PageLoad::kNet_HttpResponseCodeName, 200);
-    EXPECT_FALSE(tester()->test_ukm_recorder().EntryHasMetric(
-        kv.second.get(),
-        PageLoad::
-            kExperimental_PaintTiming_NavigationToFirstMeaningfulPaintName));
     EXPECT_TRUE(tester()->test_ukm_recorder().EntryHasMetric(
         kv.second.get(), PageLoad::kPageTiming_ForegroundDurationName));
     EXPECT_FALSE(tester()->test_ukm_recorder().EntryHasMetric(
@@ -441,38 +435,6 @@ TEST_F(UkmPageLoadMetricsObserverTest, FailedProvisionalLoad) {
     tester()->test_ukm_recorder().ExpectEntryMetric(
         kv.second.get(), PageLoad::kExperimental_Navigation_UserInitiatedName,
         false);
-  }
-}
-
-TEST_F(UkmPageLoadMetricsObserverTest, FirstMeaningfulPaint) {
-  page_load_metrics::mojom::PageLoadTiming timing;
-  page_load_metrics::InitPageLoadTimingForTest(&timing);
-  timing.navigation_start = base::Time::FromDoubleT(1);
-  timing.parse_timing->parse_start = base::Milliseconds(10);
-  timing.paint_timing->first_meaningful_paint = base::Milliseconds(600);
-  PopulateRequiredTimingFields(&timing);
-
-  NavigateAndCommit(GURL(kTestUrl1));
-  tester()->SimulateTimingUpdate(timing);
-
-  // Simulate closing the tab.
-  DeleteContents();
-
-  std::map<ukm::SourceId, ukm::mojom::UkmEntryPtr> merged_entries =
-      tester()->test_ukm_recorder().GetMergedEntriesByName(
-          PageLoad::kEntryName);
-  EXPECT_EQ(1ul, merged_entries.size());
-
-  for (const auto& kv : merged_entries) {
-    tester()->test_ukm_recorder().ExpectEntrySourceHasUrl(kv.second.get(),
-                                                          GURL(kTestUrl1));
-    tester()->test_ukm_recorder().ExpectEntryMetric(
-        kv.second.get(),
-        PageLoad::
-            kExperimental_PaintTiming_NavigationToFirstMeaningfulPaintName,
-        600);
-    EXPECT_TRUE(tester()->test_ukm_recorder().EntryHasMetric(
-        kv.second.get(), PageLoad::kPageTiming_ForegroundDurationName));
   }
 }
 
@@ -1499,44 +1461,6 @@ TEST_F(UkmPageLoadMetricsObserverTest, InputTiming) {
   }
 }
 
-TEST_F(UkmPageLoadMetricsObserverTest, MobileFriendliness) {
-  NavigateAndCommit(GURL(kTestUrl1));
-  blink::MobileFriendliness mobile_friendliness;
-  mobile_friendliness.viewport_device_width = false;
-  mobile_friendliness.viewport_hardcoded_width = 533;
-  mobile_friendliness.viewport_initial_scale_x10 = 10;
-  mobile_friendliness.allow_user_zoom = true;
-  mobile_friendliness.small_text_ratio = 2;
-  const int expected_viewport_hardcoded_width = 520;
-  const int expected_viewport_initial_scale = 10;
-
-  tester()->SimulateMobileFriendlinessUpdate(mobile_friendliness);
-
-  // Simulate closing the tab.
-  DeleteContents();
-
-  std::map<ukm::SourceId, ukm::mojom::UkmEntryPtr> merged_entries =
-      tester()->test_ukm_recorder().GetMergedEntriesByName(
-          MobileFriendliness::kEntryName);
-  EXPECT_EQ(1ul, merged_entries.size());
-  for (const auto& kv : merged_entries) {
-    tester()->test_ukm_recorder().ExpectEntrySourceHasUrl(kv.second.get(),
-                                                          GURL(kTestUrl1));
-    tester()->test_ukm_recorder().ExpectEntryMetric(
-        kv.second.get(), MobileFriendliness::kViewportDeviceWidthName, false);
-    tester()->test_ukm_recorder().ExpectEntryMetric(
-        kv.second.get(), MobileFriendliness::kViewportHardcodedWidthName,
-        expected_viewport_hardcoded_width);
-    tester()->test_ukm_recorder().ExpectEntryMetric(
-        kv.second.get(), MobileFriendliness::kViewportInitialScaleX10Name,
-        expected_viewport_initial_scale);
-    tester()->test_ukm_recorder().ExpectEntryMetric(
-        kv.second.get(), MobileFriendliness::kAllowUserZoomName, true);
-    tester()->test_ukm_recorder().ExpectEntryMetric(
-        kv.second.get(), MobileFriendliness::kSmallTextRatioName, 2);
-  }
-}
-
 TEST_F(UkmPageLoadMetricsObserverTest, FirstScrollDelayAndTimestamp) {
   page_load_metrics::mojom::PageLoadTiming timing;
   page_load_metrics::InitPageLoadTimingForTest(&timing);
@@ -1615,10 +1539,6 @@ TEST_F(UkmPageLoadMetricsObserverTest, MultiplePageLoads) {
       page_load_metrics::END_NEW_NAVIGATION);
   tester()->test_ukm_recorder().ExpectEntryMetric(
       entry1, PageLoad::kPaintTiming_NavigationToFirstContentfulPaintName, 200);
-  EXPECT_FALSE(tester()->test_ukm_recorder().EntryHasMetric(
-      entry1,
-      PageLoad::
-          kExperimental_PaintTiming_NavigationToFirstMeaningfulPaintName));
   EXPECT_TRUE(tester()->test_ukm_recorder().EntryHasMetric(
       entry1, PageLoad::kPageTiming_ForegroundDurationName));
 
@@ -1631,10 +1551,6 @@ TEST_F(UkmPageLoadMetricsObserverTest, MultiplePageLoads) {
       entry2, PageLoad::kParseTiming_NavigationToParseStartName));
   EXPECT_FALSE(tester()->test_ukm_recorder().EntryHasMetric(
       entry2, PageLoad::kPaintTiming_NavigationToFirstContentfulPaintName));
-  EXPECT_FALSE(tester()->test_ukm_recorder().EntryHasMetric(
-      entry2,
-      PageLoad::
-          kExperimental_PaintTiming_NavigationToFirstMeaningfulPaintName));
   EXPECT_TRUE(tester()->test_ukm_recorder().EntryHasMetric(
       entry2, PageLoad::kPageTiming_ForegroundDurationName));
 }
@@ -1924,8 +1840,7 @@ TEST_F(UkmPageLoadMetricsObserverTest, CpuTimeMetrics) {
 TEST_F(UkmPageLoadMetricsObserverTest, LayoutInstability) {
   NavigateAndCommit(GURL(kTestUrl1));
   base::TimeTicks current_time = base::TimeTicks::Now();
-  page_load_metrics::mojom::FrameRenderDataUpdate render_data(1.0, 1.0, 0, 0, 0,
-                                                              0, {});
+  page_load_metrics::mojom::FrameRenderDataUpdate render_data(1.0, 1.0, {});
   render_data.new_layout_shifts.emplace_back(
       page_load_metrics::mojom::LayoutShift::New(
           current_time - base::Milliseconds(4000), 0.5));
@@ -1938,8 +1853,7 @@ TEST_F(UkmPageLoadMetricsObserverTest, LayoutInstability) {
   // Simulate hiding the tab (the report should include shifts after hide).
   web_contents()->WasHidden();
 
-  page_load_metrics::mojom::FrameRenderDataUpdate render_data_2(1.5, 0.0, 0, 0,
-                                                                0, 0, {});
+  page_load_metrics::mojom::FrameRenderDataUpdate render_data_2(1.5, 0.0, {});
   render_data_2.new_layout_shifts.emplace_back(
       page_load_metrics::mojom::LayoutShift::New(
           current_time - base::Milliseconds(2500), 1.5));
@@ -2009,8 +1923,7 @@ TEST_F(UkmPageLoadMetricsObserverTest,
        ExperimentalLayoutInstabilityRecordOnHidden) {
   NavigateAndCommit(GURL(kTestUrl1));
   base::TimeTicks current_time = base::TimeTicks::Now();
-  page_load_metrics::mojom::FrameRenderDataUpdate render_data(1.0, 1.0, 0, 0, 0,
-                                                              0, {});
+  page_load_metrics::mojom::FrameRenderDataUpdate render_data(1.0, 1.0, {});
   render_data.new_layout_shifts.emplace_back(
       page_load_metrics::mojom::LayoutShift::New(
           current_time - base::Milliseconds(4000), 0.5));
@@ -2044,8 +1957,7 @@ TEST_F(UkmPageLoadMetricsObserverTest,
         100);
   }
 
-  page_load_metrics::mojom::FrameRenderDataUpdate render_data_2(1.5, 0.0, 0, 0,
-                                                                0, 0, {});
+  page_load_metrics::mojom::FrameRenderDataUpdate render_data_2(1.5, 0.0, {});
   render_data_2.new_layout_shifts.emplace_back(
       page_load_metrics::mojom::LayoutShift::New(
           current_time - base::Milliseconds(2500), 1.5));
@@ -2115,8 +2027,7 @@ TEST_F(UkmPageLoadMetricsObserverTest,
 
   // Bring the tab to the foreground and simulate a layout shift.
   web_contents()->WasShown();
-  page_load_metrics::mojom::FrameRenderDataUpdate render_data(1.0, 1.0, 0, 0, 0,
-                                                              0, {});
+  page_load_metrics::mojom::FrameRenderDataUpdate render_data(1.0, 1.0, {});
   render_data.new_layout_shifts.emplace_back(
       page_load_metrics::mojom::LayoutShift::New(
           current_time - base::Milliseconds(4000), 0.5));
@@ -2275,8 +2186,7 @@ TEST_F(UkmPageLoadMetricsObserverTest, LayoutInstabilitySubframeAggregation) {
   NavigateAndCommit(GURL(kTestUrl1));
 
   // Simulate layout instability in the main frame.
-  page_load_metrics::mojom::FrameRenderDataUpdate render_data(1.0, 1.0, 0, 0, 0,
-                                                              0, {});
+  page_load_metrics::mojom::FrameRenderDataUpdate render_data(1.0, 1.0, {});
   tester()->SimulateRenderDataUpdate(render_data);
 
   RenderFrameHost* subframe =
@@ -2872,8 +2782,7 @@ TEST_F(UkmPageLoadMetricsObserverTest, CLSNeverForegroundedNoReport) {
   web_contents()->WasHidden();
   NavigateAndCommit(GURL(kTestUrl1));
 
-  page_load_metrics::mojom::FrameRenderDataUpdate render_data(1.0, 1.0, 0, 0, 0,
-                                                              0, {});
+  page_load_metrics::mojom::FrameRenderDataUpdate render_data(1.0, 1.0, {});
   tester()->SimulateRenderDataUpdate(render_data);
 
   // Simulate closing the tab.
@@ -2907,8 +2816,7 @@ class CLSUkmPageLoadMetricsObserverTest
 void CLSUkmPageLoadMetricsObserverTest::SimulateShiftDelta(
     float delta,
     content::RenderFrameHost* frame) {
-  page_load_metrics::mojom::FrameRenderDataUpdate render_data(delta, delta, 0,
-                                                              0, 0, 0, {});
+  page_load_metrics::mojom::FrameRenderDataUpdate render_data(delta, delta, {});
   tester()->SimulateRenderDataUpdate(render_data, frame);
 }
 
@@ -2982,73 +2890,6 @@ TEST_F(CLSUkmPageLoadMetricsObserverTest, BeforeInputOrScroll_Main) {
 
 TEST_F(CLSUkmPageLoadMetricsObserverTest, BeforeInputOrScroll_Sub) {
   RunBeforeInputOrScrollCase(true);
-}
-
-void TestViewportInitialScale(int expected, int input) {
-  blink::MobileFriendliness mf;
-  mf.viewport_initial_scale_x10 = input;
-  EXPECT_EQ(expected, page_load_metrics::GetBucketedViewportInitialScale(mf));
-}
-
-TEST_F(UkmPageLoadMetricsObserverTest, BucketingViewportInitialScale) {
-  // Default value to be ignored.
-  TestViewportInitialScale(-1, -1);
-
-  // Typical case initail-scale=1.0.
-  TestViewportInitialScale(10, 10);
-
-  // Bigger number cases.
-  TestViewportInitialScale(12, 12);
-  TestViewportInitialScale(14, 15);
-  TestViewportInitialScale(14, 15);
-  TestViewportInitialScale(14, 17);
-  TestViewportInitialScale(18, 18);
-  TestViewportInitialScale(18, 25);
-  TestViewportInitialScale(26, 26);
-
-  // Smaller number cases.
-  TestViewportInitialScale(10, 9);
-  TestViewportInitialScale(8, 8);
-  TestViewportInitialScale(8, 7);
-  TestViewportInitialScale(6, 6);
-  TestViewportInitialScale(6, 3);
-  TestViewportInitialScale(2, 1);
-  TestViewportInitialScale(2, 0);
-}
-
-void TestViewportHardcodedWidth(int expected, int input) {
-  blink::MobileFriendliness mf;
-  mf.viewport_hardcoded_width = input;
-  EXPECT_EQ(expected, page_load_metrics::GetBucketedViewportHardcodedWidth(mf));
-}
-
-TEST_F(UkmPageLoadMetricsObserverTest, BucketingViewportHardcodedWidth) {
-  // Default value to be ignored.
-  TestViewportHardcodedWidth(-1, -1);
-
-  // Middle case.
-  TestViewportHardcodedWidth(500, 500);
-
-  // Bigger number cases.
-  TestViewportHardcodedWidth(500, 509);
-
-  TestViewportHardcodedWidth(510, 510);
-  TestViewportHardcodedWidth(510, 519);
-  TestViewportHardcodedWidth(520, 520);
-  TestViewportHardcodedWidth(520, 539);
-  TestViewportHardcodedWidth(540, 540);
-  TestViewportHardcodedWidth(540, 579);
-  TestViewportHardcodedWidth(580, 580);
-  TestViewportHardcodedWidth(580, 640);
-  TestViewportHardcodedWidth(820, 1000);
-  TestViewportHardcodedWidth(1780, 2000);
-
-  // Smaller number cases.
-  TestViewportHardcodedWidth(500, 491);
-  TestViewportHardcodedWidth(490, 490);
-  TestViewportHardcodedWidth(480, 480);
-  TestViewportHardcodedWidth(460, 421);
-  TestViewportHardcodedWidth(180, 180);
 }
 
 TEST_F(UkmPageLoadMetricsObserverTest,

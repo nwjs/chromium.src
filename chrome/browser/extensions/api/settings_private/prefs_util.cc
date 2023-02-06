@@ -26,7 +26,6 @@
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
 #include "components/autofill/core/common/autofill_prefs.h"
-#include "components/autofill_assistant/browser/public/prefs.h"
 #include "components/bookmarks/common/bookmark_pref_names.h"
 #include "components/browsing_data/core/pref_names.h"
 #include "components/commerce/core/pref_names.h"
@@ -162,10 +161,6 @@ PrefsUtil::PrefsUtil(Profile* profile) : profile_(profile) {}
 
 PrefsUtil::~PrefsUtil() {}
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-using CrosSettings = chromeos::CrosSettings;
-#endif
-
 const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
   static PrefsUtil::TypedPrefMap* s_allowlist = nullptr;
   if (s_allowlist)
@@ -289,6 +284,12 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::PREF_TYPE_STRING;
   (*s_allowlist)[::prefs::kDnsOverHttpsTemplates] =
       settings_api::PrefType::PREF_TYPE_STRING;
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  (*s_allowlist)[::prefs::kDnsOverHttpsSalt] =
+      settings_api::PrefType::PREF_TYPE_STRING;
+  (*s_allowlist)[::prefs::kDnsOverHttpsTemplatesWithIdentifiers] =
+      settings_api::PrefType::PREF_TYPE_STRING;
+#endif
 
   // Privacy Guide
   (*s_allowlist)[::prefs::kPrivacyGuideViewed] =
@@ -300,6 +301,12 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
   (*s_allowlist)[::prefs::kPrivacySandboxManuallyControlledV2] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
   (*s_allowlist)[::prefs::kPrivacySandboxPageViewed] =
+      settings_api::PrefType::PREF_TYPE_BOOLEAN;
+  (*s_allowlist)[::prefs::kPrivacySandboxM1TopicsEnabled] =
+      settings_api::PrefType::PREF_TYPE_BOOLEAN;
+  (*s_allowlist)[::prefs::kPrivacySandboxM1FledgeEnabled] =
+      settings_api::PrefType::PREF_TYPE_BOOLEAN;
+  (*s_allowlist)[::prefs::kPrivacySandboxM1AdMeasurementEnabled] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
 
   // Security page
@@ -317,12 +324,14 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
 
   // Cookies page
+  (*s_allowlist)[::prefs::kCookieControlsMode] =
+      settings_api::PrefType::PREF_TYPE_NUMBER;
+  (*s_allowlist)[::content_settings::kCookieDefaultContentSetting] =
+      settings_api::PrefType::PREF_TYPE_NUMBER;
   (*s_allowlist)[::content_settings::kCookiePrimarySetting] =
       settings_api::PrefType::PREF_TYPE_NUMBER;
   (*s_allowlist)[::content_settings::kCookieSessionOnly] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
-  (*s_allowlist)[::prefs::kCookieControlsMode] =
-      settings_api::PrefType::PREF_TYPE_NUMBER;
   (*s_allowlist)[::prefs::kPrivacySandboxFirstPartySetsEnabled] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
 
@@ -333,8 +342,6 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       [::unified_consent::prefs::kUrlKeyedAnonymizedDataCollectionEnabled] =
           settings_api::PrefType::PREF_TYPE_BOOLEAN;
   (*s_allowlist)[::omnibox::kDocumentSuggestEnabled] =
-      settings_api::PrefType::PREF_TYPE_BOOLEAN;
-  (*s_allowlist)[autofill_assistant::prefs::kAutofillAssistantEnabled] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
   (*s_allowlist)[::commerce::kPriceEmailNotificationsEnabled] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
@@ -369,11 +376,11 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   (*s_allowlist)[::prefs::kLanguageImeMenuActivated] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
-  (*s_allowlist)[chromeos::prefs::kAssistPersonalInfoEnabled] =
+  (*s_allowlist)[ash::prefs::kAssistPersonalInfoEnabled] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
-  (*s_allowlist)[chromeos::prefs::kAssistPredictiveWritingEnabled] =
+  (*s_allowlist)[ash::prefs::kAssistPredictiveWritingEnabled] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
-  (*s_allowlist)[chromeos::prefs::kEmojiSuggestionEnabled] =
+  (*s_allowlist)[ash::prefs::kEmojiSuggestionEnabled] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
   (*s_allowlist)[ash::prefs::kLacrosProxyControllingExtension] =
       settings_api::PrefType::PREF_TYPE_DICTIONARY;
@@ -670,7 +677,7 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
   (*s_allowlist)[::metrics::prefs::kMetricsUserConsent] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
-  (*s_allowlist)[::chromeos::prefs::kSuggestedContentEnabled] =
+  (*s_allowlist)[ash::prefs::kSuggestedContentEnabled] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
   (*s_allowlist)[ash::kAttestationForContentProtectionEnabled] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
@@ -953,6 +960,9 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
   (*s_allowlist)
       [performance_manager::user_tuning::prefs::kTabDiscardingExceptions] =
           settings_api::PrefType::PREF_TYPE_LIST;
+  (*s_allowlist)[performance_manager::user_tuning::prefs::
+                     kManagedTabDiscardingExceptions] =
+      settings_api::PrefType::PREF_TYPE_LIST;
 
   return *s_allowlist;
 }
@@ -991,7 +1001,7 @@ std::unique_ptr<settings_api::PrefObject> PrefsUtil::GetCrosSettingsPref(
       new settings_api::PrefObject());
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-  const base::Value* value = CrosSettings::Get()->GetPref(name);
+  const base::Value* value = ash::CrosSettings::Get()->GetPref(name);
   if (!value) {
     LOG(WARNING) << "Cros settings pref not found: " << name;
     return nullptr;
@@ -1380,7 +1390,7 @@ PrefService* PrefsUtil::FindServiceForPref(const std::string& pref_name) {
 
 bool PrefsUtil::IsCrosSetting(const std::string& pref_name) {
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-  return CrosSettings::Get()->IsCrosSettings(pref_name);
+  return ash::CrosSettings::Get()->IsCrosSettings(pref_name);
 #else
   return false;
 #endif

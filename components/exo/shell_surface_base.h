@@ -13,6 +13,7 @@
 #include "base/gtest_prod_util.h"
 #include "chromeos/ui/base/display_util.h"
 #include "chromeos/ui/base/window_pin_type.h"
+#include "chromeos/ui/frame/caption_buttons/snap_controller.h"
 #include "components/exo/surface_observer.h"
 #include "components/exo/surface_tree_host.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
@@ -28,6 +29,7 @@
 #include "ui/views/widget/widget_delegate.h"
 #include "ui/views/widget/widget_observer.h"
 #include "ui/wm/public/activation_change_observer.h"
+#include "ui/wm/public/tooltip_observer.h"
 
 namespace ash {
 class WindowState;
@@ -52,7 +54,8 @@ class ShellSurfaceBase : public SurfaceTreeHost,
                          public views::WidgetDelegate,
                          public views::WidgetObserver,
                          public views::View,
-                         public wm::ActivationChangeObserver {
+                         public wm::ActivationChangeObserver,
+                         public wm::TooltipObserver {
  public:
   // The |origin| is the initial position in screen coordinates. The position
   // specified as part of the geometry is relative to the shell surface.
@@ -229,8 +232,8 @@ class ShellSurfaceBase : public SurfaceTreeHost,
   void ShowSnapPreviewToPrimary() override;
   void ShowSnapPreviewToSecondary() override;
   void HideSnapPreview() override;
-  void SetSnappedToPrimary() override;
-  void SetSnappedToSecondary() override;
+  void SetSnapPrimary(float snap_ratio) override;
+  void SetSnapSecondary(float snap_ratio) override;
   void UnsetSnap() override;
   void OnActivationRequested() override;
   void OnSetServerStartResize() override;
@@ -251,6 +254,10 @@ class ShellSurfaceBase : public SurfaceTreeHost,
   void OnContentSizeChanged(Surface*) override {}
   void OnFrameLockingChanged(Surface*, bool) override {}
   void OnDeskChanged(Surface*, int) override {}
+  void OnTooltipShown(Surface* surface,
+                      const std::u16string& text,
+                      const gfx::Rect& bounds) override {}
+  void OnTooltipHidden(Surface* surface) override {}
 
   // CaptureClientObserver:
   void OnCaptureChanged(aura::Window* lost_capture,
@@ -294,6 +301,12 @@ class ShellSurfaceBase : public SurfaceTreeHost,
   void OnWindowActivated(ActivationReason reason,
                          aura::Window* gained_active,
                          aura::Window* lost_active) override;
+
+  // wm::TooltipObserver:
+  void OnTooltipShown(aura::Window* target,
+                      const std::u16string& text,
+                      const gfx::Rect& bounds) override;
+  void OnTooltipHidden(aura::Window* target) override;
 
   // ui::AcceleratorTarget:
   bool AcceleratorPressed(const ui::Accelerator& accelerator) override;
@@ -398,6 +411,8 @@ class ShellSurfaceBase : public SurfaceTreeHost,
   // Returns true if this surface will exit fullscreen from a restore or
   // maximize request. Currently only true for Lacros.
   bool ShouldExitFullscreenFromRestoreOrMaximized();
+
+  static bool IsPopupWithGrab(aura::Window* window);
 
   views::Widget* widget_ = nullptr;
   bool movement_disabled_ = false;

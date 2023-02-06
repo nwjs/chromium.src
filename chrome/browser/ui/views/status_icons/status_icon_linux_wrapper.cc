@@ -9,6 +9,7 @@
 #include "base/feature_list.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/notreached.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/status_icons/status_icon_button_linux.h"
 #include "ui/gfx/image/image_skia_rep.h"
@@ -21,6 +22,7 @@
 namespace {
 
 gfx::ImageSkia GetBestImageRep(const gfx::ImageSkia& image) {
+  image.EnsureRepsForSupportedScales();
   float best_scale = 0.0f;
   SkBitmap best_rep;
   for (const auto& rep : image.image_reps()) {
@@ -40,11 +42,10 @@ StatusIconLinuxWrapper::StatusIconLinuxWrapper(ui::StatusIconLinux* status_icon,
                                                StatusIconType status_icon_type,
                                                const gfx::ImageSkia& image,
                                                const std::u16string& tool_tip)
-    : status_icon_(status_icon),
-      status_icon_type_(status_icon_type),
+    : status_icon_type_(status_icon_type),
       image_(GetBestImageRep(image)),
       tool_tip_(tool_tip) {
-  status_icon_->SetDelegate(this);
+  status_icon->SetDelegate(this);
 }
 
 #if defined(USE_DBUS)
@@ -74,14 +75,14 @@ StatusIconLinuxWrapper::~StatusIconLinuxWrapper() {
 
 void StatusIconLinuxWrapper::SetImage(const gfx::ImageSkia& image) {
   image_ = GetBestImageRep(image);
-  if (status_icon_)
-    status_icon_->SetIcon(image_);
+  if (auto* status_icon = GetStatusIcon())
+    status_icon->SetIcon(image_);
 }
 
 void StatusIconLinuxWrapper::SetToolTip(const std::u16string& tool_tip) {
   tool_tip_ = tool_tip;
-  if (status_icon_)
-    status_icon_->SetToolTip(tool_tip);
+  if (auto* status_icon = GetStatusIcon())
+    status_icon->SetToolTip(tool_tip);
 }
 
 void StatusIconLinuxWrapper::DisplayBalloon(
@@ -115,18 +116,16 @@ ui::MenuModel* StatusIconLinuxWrapper::GetMenuModel() const {
 
 void StatusIconLinuxWrapper::OnImplInitializationFailed() {
   switch (status_icon_type_) {
-    case kTypeDbus:
 #if defined(USE_DBUS)
+    case kTypeDbus:
       status_icon_dbus_.reset();
-#endif
       status_icon_linux_ = std::make_unique<StatusIconButtonLinux>();
-      status_icon_ = status_icon_linux_.get();
       status_icon_type_ = kTypeWindowed;
-      status_icon_->SetDelegate(this);
+      status_icon_linux_->SetDelegate(this);
       return;
+#endif
     case kTypeWindowed:
       status_icon_linux_.reset();
-      status_icon_ = nullptr;
       status_icon_type_ = kTypeNone;
       if (menu_model_)
         menu_model_->RemoveObserver(this);
@@ -138,8 +137,8 @@ void StatusIconLinuxWrapper::OnImplInitializationFailed() {
 }
 
 void StatusIconLinuxWrapper::OnMenuStateChanged() {
-  if (status_icon_)
-    status_icon_->RefreshPlatformContextMenu();
+  if (auto* status_icon = GetStatusIcon())
+    status_icon->RefreshPlatformContextMenu();
 }
 
 std::unique_ptr<StatusIconLinuxWrapper>
@@ -158,8 +157,21 @@ StatusIconLinuxWrapper::CreateWrappedStatusIcon(
 
 void StatusIconLinuxWrapper::UpdatePlatformContextMenu(
     ui::MenuModel* model) {
-  if (!status_icon_)
+  if (!GetStatusIcon())
     return;
 
-  status_icon_->UpdatePlatformContextMenu(model);
+  GetStatusIcon()->UpdatePlatformContextMenu(model);
+}
+
+ui::StatusIconLinux* StatusIconLinuxWrapper::GetStatusIcon() {
+  switch (status_icon_type_) {
+#if defined(USE_DBUS)
+    case kTypeDbus:
+      return status_icon_dbus_.get();
+#endif
+    case kTypeWindowed:
+      return status_icon_linux_.get();
+    case kTypeNone:
+      return nullptr;
+  }
 }

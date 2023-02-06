@@ -42,20 +42,18 @@ void WaylandOutput::Instantiate(WaylandConnection* connection,
     return;
   }
 
-  auto output = wl::Bind<wl_output>(
-      registry, name,
-      wl::CalculateBindVersion(version, kMaxVersion,
-                               wl_output_interface.version));
+  auto output =
+      wl::Bind<wl_output>(registry, name, std::min(version, kMaxVersion));
   if (!output) {
     LOG(ERROR) << "Failed to bind to wl_output global";
     return;
   }
 
-  if (!connection->wayland_output_manager_) {
-    connection->wayland_output_manager_ =
+  if (!connection->output_manager_) {
+    connection->output_manager_ =
         std::make_unique<WaylandOutputManager>(connection);
   }
-  connection->wayland_output_manager_->AddWaylandOutput(name, output.release());
+  connection->output_manager_->AddWaylandOutput(name, output.release());
 }
 
 WaylandOutput::Metrics::Metrics() = default;
@@ -118,14 +116,8 @@ void WaylandOutput::Initialize(Delegate* delegate) {
   DCHECK(!delegate_);
   delegate_ = delegate;
   static constexpr wl_output_listener output_listener = {
-      &OutputHandleGeometry,    &OutputHandleMode,
-      &OutputHandleDone,        &OutputHandleScale,
-#ifdef WL_OUTPUT_NAME_SINCE_VERSION
-      &OutputHandleName,
-#endif
-#ifdef WL_OUTPUT_DESCRIPTION_SINCE_VERSION
-      &OutputHandleDescription,
-#endif
+      &OutputHandleGeometry, &OutputHandleMode, &OutputHandleDone,
+      &OutputHandleScale,    &OutputHandleName, &OutputHandleDescription,
 
   };
   wl_output_add_listener(output_.get(), &output_listener, this);
@@ -181,8 +173,12 @@ const std::string& WaylandOutput::name() const {
 }
 
 bool WaylandOutput::IsReady() const {
+  // The aura output requires both the logical size and the display ID
+  // to become ready. If a client that uses xdg_output but not aura_output
+  // needs different condition for readiness, this needs to be updated.
   return !physical_size_.IsEmpty() &&
-         (!aura_output_ || aura_output_->IsReady());
+         (!aura_output_ ||
+          (xdg_output_ && xdg_output_->IsReady() && aura_output_->IsReady()));
 }
 
 zaura_output* WaylandOutput::get_zaura_output() {
@@ -207,8 +203,10 @@ void WaylandOutput::TriggerDelegateNotifications() {
       scale_factor_ = max_physical_side / max_logical_side;
     }
   }
-  // Wait until the aura output receives the display id.
-  if (aura_output_ && !aura_output_->IsReady())
+
+  // Wait until the all outputs receives enough information to generate display
+  // information.
+  if (!IsReady())
     return;
 
   delegate_->OnOutputHandleMetrics(GetMetrics());
@@ -216,7 +214,7 @@ void WaylandOutput::TriggerDelegateNotifications() {
 
 // static
 void WaylandOutput::OutputHandleGeometry(void* data,
-                                         wl_output* output,
+                                         wl_output* obj,
                                          int32_t x,
                                          int32_t y,
                                          int32_t physical_width,
@@ -225,8 +223,7 @@ void WaylandOutput::OutputHandleGeometry(void* data,
                                          const char* make,
                                          const char* model,
                                          int32_t output_transform) {
-  WaylandOutput* wayland_output = static_cast<WaylandOutput*>(data);
-  if (wayland_output) {
+  if (auto* output = static_cast<WaylandOutput*>(data)) {
     // It looks like there is a bug in libffi - only the 8th arg is affected.
     // Possibly it is not following the calling convention of the ABI? Eg. the
     // lib has some off-by-1-error where it's supposed to pass 8 args in regs
@@ -234,8 +231,8 @@ void WaylandOutput::OutputHandleGeometry(void* data,
     // out of our control. Given the output_transform is always correct,
     // unpoison the value to make MSAN happy.
     MSAN_UNPOISON(&output_transform, sizeof(int32_t));
-    wayland_output->origin_ = gfx::Point(x, y);
-    wayland_output->panel_transform_ = output_transform;
+    output->origin_ = gfx::Point(x, y);
+    output->panel_transform_ = output_transform;
   }
 }
 
@@ -246,9 +243,9 @@ void WaylandOutput::OutputHandleMode(void* data,
                                      int32_t width,
                                      int32_t height,
                                      int32_t refresh) {
-  WaylandOutput* wayland_output = static_cast<WaylandOutput*>(data);
-  if (wayland_output && (flags & WL_OUTPUT_MODE_CURRENT))
-    wayland_output->physical_size_ = gfx::Size(width, height);
+  auto* output = static_cast<WaylandOutput*>(data);
+  if (output && (flags & WL_OUTPUT_MODE_CURRENT))
+    output->physical_size_ = gfx::Size(width, height);
 }
 
 // static
@@ -261,31 +258,26 @@ void WaylandOutput::OutputHandleDone(void* data, struct wl_output* wl_output) {
 void WaylandOutput::OutputHandleScale(void* data,
                                       struct wl_output* wl_output,
                                       int32_t factor) {
-  WaylandOutput* wayland_output = static_cast<WaylandOutput*>(data);
-  if (wayland_output)
-    wayland_output->scale_factor_ = factor;
+  if (auto* output = static_cast<WaylandOutput*>(data))
+    output->scale_factor_ = factor;
 }
 
-#ifdef WL_OUTPUT_NAME_SINCE_VERSION
 // static
 void WaylandOutput::OutputHandleName(void* data,
                                      struct wl_output* wl_output,
                                      const char* name) {
-  if (WaylandOutput* wayland_output = static_cast<WaylandOutput*>(data))
-    wayland_output->name_ = name ? std::string(name) : std::string{};
+  if (auto* output = static_cast<WaylandOutput*>(data))
+    output->name_ = name ? std::string(name) : std::string{};
 }
-#endif
 
-#ifdef WL_OUTPUT_DESCRIPTION_SINCE_VERSION
 // static
 void WaylandOutput::OutputHandleDescription(void* data,
                                             struct wl_output* wl_output,
                                             const char* description) {
-  if (WaylandOutput* wayland_output = static_cast<WaylandOutput*>(data)) {
-    wayland_output->description_ =
+  if (auto* output = static_cast<WaylandOutput*>(data)) {
+    output->description_ =
         description ? std::string(description) : std::string{};
   }
 }
-#endif
 
 }  // namespace ui

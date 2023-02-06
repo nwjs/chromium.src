@@ -13,9 +13,6 @@
 #include "chrome/browser/download/download_core_service_impl.h"
 #include "chrome/browser/download/download_prefs.h"
 #include "chrome/browser/enterprise/connectors/connectors_prefs.h"
-#include "chrome/browser/enterprise/connectors/file_system/account_info_utils.h"
-#include "chrome/browser/enterprise/connectors/file_system/service_settings.h"
-#include "chrome/browser/enterprise/connectors/file_system/test_helper.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/os_crypt/os_crypt_mocker.h"
@@ -61,8 +58,7 @@ class DownloadsHandlerTest : public testing::Test {
 
   void SetUp() override {
     EXPECT_TRUE(test_web_ui_.call_data().empty());
-    base::ListValue args;
-    handler()->HandleInitialize(args.GetList());
+    handler()->HandleInitialize(base::Value::List());
     EXPECT_TRUE(handler()->IsJavascriptAllowed());
     VerifyAutoOpenDownloadsChangedCallback();
     test_web_ui_.ClearTrackedCalls();

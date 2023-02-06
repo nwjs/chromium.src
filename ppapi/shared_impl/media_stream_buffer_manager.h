@@ -9,6 +9,7 @@
 
 #include <memory>
 #include <vector>
+#include <ostream>
 
 #include "base/compiler_specific.h"
 #include "base/containers/circular_deque.h"

@@ -78,9 +78,6 @@ Config::Config() {
 
   // The `kJourneysLabels` feature and child params.
   {
-    should_label_clusters =
-        base::FeatureList::IsEnabled(internal::kJourneysLabels);
-
     labels_from_hostnames = GetFieldTrialParamByFeatureAsBool(
         internal::kJourneysLabels, "labels_from_hostnames",
         labels_from_hostnames);
@@ -109,6 +106,9 @@ Config::Config() {
             internal::kPersistedClusters,
             "JourneysPersistClustersInHistoryDbPeriodMinutes",
             persist_clusters_in_history_db_period_minutes);
+
+    persist_on_query = base::GetFieldTrialParamByFeatureAsBool(
+        internal::kPersistedClusters, "persist_on_query", persist_on_query);
 
     max_persisted_clusters_to_fetch = base::GetFieldTrialParamByFeatureAsInt(
         internal::kPersistedClusters, "max_persisted_clusters_to_fetch",
@@ -176,11 +176,29 @@ Config::Config() {
             "omnibox_history_cluster_provider_score",
             omnibox_history_cluster_provider_score);
 
+    omnibox_history_cluster_provider_inherit_search_match_score =
+        base::GetFieldTrialParamByFeatureAsBool(
+            internal::kOmniboxHistoryClusterProvider,
+            "omnibox_history_cluster_provider_inherit_search_match_score",
+            omnibox_history_cluster_provider_inherit_search_match_score);
+
+    omnibox_history_cluster_provider_rank_above_searches =
+        base::GetFieldTrialParamByFeatureAsBool(
+            internal::kOmniboxHistoryClusterProvider,
+            "omnibox_history_cluster_provider_rank_above_searches",
+            omnibox_history_cluster_provider_rank_above_searches);
+
     omnibox_history_cluster_provider_shortcuts =
         base::GetFieldTrialParamByFeatureAsBool(
             internal::kOmniboxHistoryClusterProvider,
             "omnibox_history_cluster_provider_shortcuts",
             omnibox_history_cluster_provider_shortcuts);
+
+    omnibox_history_cluster_provider_allow_default =
+        base::GetFieldTrialParamByFeatureAsBool(
+            internal::kOmniboxHistoryClusterProvider,
+            "omnibox_history_cluster_provider_allow_default",
+            omnibox_history_cluster_provider_allow_default);
 
     omnibox_history_cluster_provider_navigation_intent_score_threshold =
         base::GetFieldTrialParamByFeatureAsInt(
@@ -194,12 +212,6 @@ Config::Config() {
             internal::kOmniboxHistoryClusterProvider,
             "omnibox_history_cluster_provider_on_navigation_intents",
             omnibox_history_cluster_provider_on_navigation_intents);
-
-    omnibox_history_cluster_provider_free_ranking =
-        base::GetFieldTrialParamByFeatureAsBool(
-            internal::kOmniboxHistoryClusterProvider,
-            "omnibox_history_cluster_provider_free_ranking",
-            omnibox_history_cluster_provider_free_ranking);
   }
 
   // The `kOnDeviceClusteringKeywordFiltering` feature and child params.
@@ -218,10 +230,6 @@ Config::Config() {
     keyword_filter_on_noisy_visits = GetFieldTrialParamByFeatureAsBool(
         history_clusters::features::kOnDeviceClusteringKeywordFiltering,
         "keyword_filter_on_noisy_visits", keyword_filter_on_noisy_visits);
-
-    keyword_filter_on_search_terms = GetFieldTrialParamByFeatureAsBool(
-        history_clusters::features::kOnDeviceClusteringKeywordFiltering,
-        "keyword_filter_on_search_terms", keyword_filter_on_search_terms);
 
     max_num_keywords_per_cluster = GetFieldTrialParamByFeatureAsInt(
         features::kOnDeviceClusteringKeywordFiltering,
@@ -247,22 +255,6 @@ Config::Config() {
     // Ensure that the value is [0.0 and 1.0].
     DCHECK_GE(content_visibility_threshold, 0.0f);
     DCHECK_LE(content_visibility_threshold, 1.0f);
-
-    should_hide_single_visit_clusters_on_prominent_ui_surfaces =
-        GetFieldTrialParamByFeatureAsBool(
-            features::kOnDeviceClustering,
-            "hide_single_visit_clusters_on_prominent_ui_surfaces",
-            should_hide_single_visit_clusters_on_prominent_ui_surfaces);
-
-    should_hide_single_domain_clusters_on_prominent_ui_surfaces =
-        GetFieldTrialParamByFeatureAsBool(
-            features::kOnDeviceClustering,
-            "hide_single_domain_clusters_on_prominent_ui_surfaces",
-            should_hide_single_domain_clusters_on_prominent_ui_surfaces);
-
-    should_filter_noisy_clusters = GetFieldTrialParamByFeatureAsBool(
-        features::kOnDeviceClustering, "filter_noisy_clusters",
-        should_filter_noisy_clusters);
 
     noisy_cluster_visits_engagement_threshold =
         GetFieldTrialParamByFeatureAsDouble(
@@ -375,6 +367,20 @@ Config::Config() {
         "search_results_page_ranking_weight",
         search_results_page_ranking_weight);
     DCHECK_GE(search_results_page_ranking_weight, 0.0f);
+  }
+
+  // The `kHistoryClustersNavigationContextClustering` feature and child params.
+  {
+    context_clustering_clean_up_duration =
+        base::Minutes(GetFieldTrialParamByFeatureAsInt(
+            internal::kHistoryClustersNavigationContextClustering,
+            "clean_up_duration_minutes",
+            context_clustering_clean_up_duration.InMinutes()));
+
+    persist_context_clusters_at_navigation = GetFieldTrialParamByFeatureAsBool(
+        internal::kHistoryClustersNavigationContextClustering,
+        "persist_context_clusters_at_navigation",
+        persist_context_clusters_at_navigation);
   }
 
   // Lonely features without child params.

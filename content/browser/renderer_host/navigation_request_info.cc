@@ -31,6 +31,7 @@ NavigationRequestInfo::NavigationRequestInfo(
         devtools_accepted_stream_types,
     bool is_pdf,
     WeakDocumentPtr initiator_document,
+    bool allow_cookies_from_browser,
     bool nw_trusted)
     : common_params(std::move(common_params)),
       begin_params(std::move(begin_params)),
@@ -51,6 +52,7 @@ NavigationRequestInfo::NavigationRequestInfo(
       devtools_accepted_stream_types(devtools_accepted_stream_types),
       is_pdf(is_pdf),
       initiator_document(std::move(initiator_document)),
+      allow_cookies_from_browser(allow_cookies_from_browser),
       nw_trusted(nw_trusted) {}
 
 NavigationRequestInfo::~NavigationRequestInfo() {}

@@ -100,10 +100,10 @@ bool CheckForDuplicates(
   _validationTaskTracker.reset();
 }
 
-#pragma mark - PasswordDetailsTableViewControllerDelegate
+#pragma mark - AddPasswordTableViewControllerDelegate
 
-- (void)passwordDetailsViewController:(AddPasswordViewController*)viewController
-               didEditPasswordDetails:(PasswordDetails*)password {
+- (void)addPasswordViewController:(AddPasswordViewController*)viewController
+           didEditPasswordDetails:(PasswordDetails*)password {
   NOTREACHED();
 }
 
@@ -131,7 +131,7 @@ bool CheckForDuplicates(
 
   _manager->GetSavedPasswordsPresenter()->AddCredential(credential);
   [self.delegate setUpdatedPassword:credential];
-  [self.delegate dismissPasswordDetailsTableViewController];
+  [self.delegate dismissAddPasswordTableViewController];
 }
 
 - (void)checkForDuplicates:(NSString*)username {
@@ -171,7 +171,7 @@ bool CheckForDuplicates(
 }
 
 - (void)didCancelAddPasswordDetails {
-  [self.delegate dismissPasswordDetailsTableViewController];
+  [self.delegate dismissAddPasswordTableViewController];
 }
 
 - (void)setWebsiteURL:(NSString*)website {
@@ -186,10 +186,6 @@ bool CheckForDuplicates(
 - (BOOL)isTLDMissing {
   std::string hostname = self.URL.host();
   return hostname.find('.') == std::string::npos;
-}
-
-- (BOOL)isUsernameReused:(NSString*)newUsername {
-  return NO;
 }
 
 @end

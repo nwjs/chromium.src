@@ -8,7 +8,6 @@
 #include "base/location.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
-#include "base/threading/thread_task_runner_handle.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/ui/autofill/payments/create_card_unmask_prompt_view.h"
 #include "chrome/browser/ui/views/autofill/payments/payments_view_util.h"
@@ -98,7 +97,7 @@ void CardUnmaskPromptViews::GotVerificationResult(
     overlay_label_->SetText(l10n_util::GetStringUTF16(
         IDS_AUTOFILL_CARD_UNMASK_VERIFICATION_SUCCESS));
     progress_throbber_->SetChecked(true);
-    base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
         FROM_HERE,
         base::BindOnce(&CardUnmaskPromptViews::ClosePrompt,
                        weak_ptr_factory_.GetWeakPtr()),
@@ -135,15 +134,12 @@ void CardUnmaskPromptViews::GotVerificationResult(
           std::make_unique<views::ImageView>(ui::ImageModel::FromVectorIcon(
               kBrowserToolsErrorIcon, ui::kColorAlertHighSeverity)));
 
-      // Create and add the label of the overlay, and show the error in red.
-      auto error_label = std::make_unique<views::Label>(error_message);
-      views::SetCascadingColorProviderColor(error_label.get(),
-                                            views::kCascadingLabelEnabledColor,
-                                            ui::kColorAlertHighSeverity);
+      // Create and add the label of the overlay, and show the error in gray.
+      auto* error_label = overlay_->AddChildView(std::make_unique<views::Label>(
+          error_message, views::style::CONTEXT_LABEL,
+          views::style::STYLE_SECONDARY));
       error_label->SetHorizontalAlignment(gfx::HorizontalAlignment::ALIGN_LEFT);
       error_label->SetMultiLine(true);
-
-      overlay_->AddChildView(std::move(error_label));
 
       // Re-layout to correctly format the views on the overlay.
       overlay_->Layout();

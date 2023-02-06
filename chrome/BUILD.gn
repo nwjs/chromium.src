@@ -161,7 +161,10 @@ if (!is_android && !is_mac) {
 
     if (is_chromeos_ash) {
       data_deps += [ "//sandbox/linux:chrome_sandbox" ]
-      deps += [ "//components/exo/wayland:weston_test_stub" ]
+      deps += [
+        "//components/exo/wayland:ui_controls_protocol_stub",
+        "//components/exo/wayland:weston_test_stub",
+      ]
     }
 
     if (also_build_lacros_chrome_for_architecture != "") {
@@ -1339,6 +1342,7 @@ if (is_win || (is_linux && !is_component_build)) {
                rebase_path(get_label_info(dump_syms, "root_out_dir") + "/" +
                                get_label_info(dump_syms, "name"),
                            root_build_dir),
+               "-m",
                "-a", "x86_64",
                "-g",
                rebase_path(
@@ -1468,7 +1472,6 @@ group("dependencies") {
     "//components/about_ui",
     "//components/gwp_asan/buildflags",
     "//components/heap_profiling/in_process",
-    "//components/power_scheduler",
     "//components/services/heap_profiling",
     "//components/startup_metric_utils/browser",
     "//components/sync",

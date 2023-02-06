@@ -151,7 +151,7 @@ PerformanceResourceTiming::PerformanceResourceTiming(
 
 PerformanceResourceTiming::~PerformanceResourceTiming() = default;
 
-AtomicString PerformanceResourceTiming::entryType() const {
+const AtomicString& PerformanceResourceTiming::entryType() const {
   return performance_entry_names::kResource;
 }
 
@@ -202,9 +202,7 @@ AtomicString PerformanceResourceTiming::initiatorType() const {
   return initiator_type_;
 }
 
-// TODO(crbug/1358591): Support "navigational-prefetch".
 AtomicString PerformanceResourceTiming::deliveryType() const {
-  DCHECK(RuntimeEnabledFeatures::DeliveryTypeEnabled());
   if (!AllowTimingDetails())
     return g_empty_atom;
   return delivery_type_;
@@ -436,7 +434,7 @@ DOMHighResTimeStamp PerformanceResourceTiming::requestStart() const {
   if (!AllowTimingDetails())
     return 0.0;
   ResourceLoadTiming* timing = GetResourceLoadTiming();
-  if (!timing)
+  if (!timing || timing->SendStart().is_null())
     return connectEnd();
 
   return Performance::MonotonicTimeToDOMHighResTimeStamp(
@@ -499,8 +497,10 @@ PerformanceResourceTiming::serverTiming() const {
 
 void PerformanceResourceTiming::BuildJSONValue(V8ObjectBuilder& builder) const {
   PerformanceEntry::BuildJSONValue(builder);
+  ExecutionContext* execution_context =
+      ExecutionContext::From(builder.GetScriptState());
   builder.AddString("initiatorType", initiatorType());
-  if (RuntimeEnabledFeatures::DeliveryTypeEnabled()) {
+  if (RuntimeEnabledFeatures::DeliveryTypeEnabled(execution_context)) {
     builder.AddString("deliveryType", deliveryType());
   }
   builder.AddString("nextHopProtocol", nextHopProtocol());
@@ -517,8 +517,8 @@ void PerformanceResourceTiming::BuildJSONValue(V8ObjectBuilder& builder) const {
   builder.AddNumber("domainLookupStart", domainLookupStart());
   builder.AddNumber("domainLookupEnd", domainLookupEnd());
   builder.AddNumber("connectStart", connectStart());
-  builder.AddNumber("connectEnd", connectEnd());
   builder.AddNumber("secureConnectionStart", secureConnectionStart());
+  builder.AddNumber("connectEnd", connectEnd());
   builder.AddNumber("requestStart", requestStart());
   builder.AddNumber("responseStart", responseStart());
   builder.AddNumber("responseEnd", responseEnd());

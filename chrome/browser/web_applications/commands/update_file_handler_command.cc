@@ -7,7 +7,8 @@
 #include <memory>
 #include <utility>
 
-#include "base/callback.h"
+#include "base/barrier_callback.h"
+#include "base/functional/callback.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/web_applications/locks/app_lock.h"
@@ -18,6 +19,27 @@
 #include "chrome/browser/web_applications/web_app_sync_bridge.h"
 
 namespace web_app {
+
+namespace {
+
+base::RepeatingCallback<void(Result)> CreateBarrierForSynchronizeWithResult(
+    base::OnceCallback<void(Result)> final_callback) {
+  return base::BarrierCallback<Result>(
+      /*num_callbacks=*/2, base::BindOnce(
+                               [](base::OnceCallback<void(Result)> callback,
+                                  std::vector<Result> combined_results) {
+                                 DCHECK_EQ(2u, combined_results.size());
+                                 Result final_result = Result::kOk;
+                                 if (combined_results[0] == Result::kError ||
+                                     combined_results[1] == Result::kError) {
+                                   final_result = Result::kError;
+                                 }
+                                 std::move(callback).Run(final_result);
+                               },
+                               std::move(final_callback)));
+}
+
+}  // namespace
 
 // static
 std::unique_ptr<UpdateFileHandlerCommand>
@@ -41,13 +63,13 @@ UpdateFileHandlerCommand::UpdateFileHandlerCommand(
     const AppId& app_id,
     absl::optional<bool> user_choice_to_remember,
     base::OnceClosure callback)
-    : lock_description_(
+    : WebAppCommandTemplate<AppLock>("UpdateFileHandlerCommand"),
+      lock_description_(
           std::make_unique<AppLockDescription, base::flat_set<AppId>>(
               {app_id})),
       app_id_(app_id),
       user_choice_to_remember_(std::move(user_choice_to_remember)),
       callback_(std::move(callback)) {
-  debug_info_.Set("name", "UpdateFileHandlerCommand");
   debug_info_.Set("app_id", app_id_);
   if (user_choice_to_remember_)
     debug_info_.Set("user_choice_to_remember",
@@ -93,6 +115,10 @@ void UpdateFileHandlerCommand::StartWithLock(std::unique_ptr<AppLock> lock) {
 
   debug_info_.Set("was_update_required", true);
 
+  auto callback_for_synchronize = CreateBarrierForSynchronizeWithResult(
+      base::BindOnce(&UpdateFileHandlerCommand::OnFileHandlerUpdated,
+                     weak_factory_.GetWeakPtr(), file_handling_enabled));
+
 #if BUILDFLAG(IS_MAC)
   // On Mac, the file handlers are encoded in the app shortcut. First
   // unregister the file handlers (verifying that it finishes
@@ -105,27 +131,29 @@ void UpdateFileHandlerCommand::StartWithLock(std::unique_ptr<AppLock> lock) {
                      &unregister_file_handlers_result));
   DCHECK_EQ(Result::kOk, unregister_file_handlers_result);
 
+  lock_->os_integration_manager().Synchronize(
+      app_id_, base::BindOnce(callback_for_synchronize, Result::kOk));
+
   // If we're enabling file handling, yet this app does not have any file
   // handlers there is no need to update the shortcut, as doing so would be a
   // no-op anyway.
   const apps::FileHandlers* handlers =
       lock_->registrar().GetAppFileHandlers(app_id_);
+
   if (file_handling_enabled && (!handlers || handlers->empty())) {
-    OnFileHandlerUpdated(file_handling_enabled, Result::kOk);
+    callback_for_synchronize.Run(Result::kOk);
   } else {
-    // TODO(https://crbug.com/1374916): get result from UpdateShortcuts.
-    lock_->os_integration_manager().UpdateShortcuts(
-        app_id_, /*old_name=*/{},
-        base::BindOnce(&UpdateFileHandlerCommand::OnFileHandlerUpdated,
-                       weak_factory_.GetWeakPtr(), file_handling_enabled,
-                       Result::kOk));
+    // TODO(crbug.com/1401125): Remove UpdateFileHandlers() and
+    // UpdateShortcuts() once OS integration sub managers have been implemented.
+    lock_->os_integration_manager().UpdateShortcuts(app_id_, /*old_name=*/{},
+                                                    callback_for_synchronize);
   }
 #else
+  lock_->os_integration_manager().UpdateFileHandlers(app_id_, action,
+                                                     callback_for_synchronize);
+  lock_->os_integration_manager().Synchronize(
+      app_id_, base::BindOnce(callback_for_synchronize, Result::kOk));
 
-  lock_->os_integration_manager().UpdateFileHandlers(
-      app_id_, action,
-      base::BindOnce(&UpdateFileHandlerCommand::OnFileHandlerUpdated,
-                     weak_factory_.GetWeakPtr(), file_handling_enabled));
 #endif
 }
 

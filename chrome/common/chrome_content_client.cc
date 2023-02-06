@@ -148,7 +148,7 @@ void ChromeContentClient::AddPlugins(
   pdf_info.is_out_of_process = true;
   pdf_info.name = ChromeContentClient::kPDFInternalPluginName;
   pdf_info.description = kPDFPluginDescription;
-  pdf_info.path = base::FilePath(ChromeContentClient::kPDFPluginPath);
+  pdf_info.path = base::FilePath(ChromeContentClient::kPDFInternalPluginPath);
   content::WebPluginMimeType pdf_mime_type(
       pdf::kInternalPluginMimeType, kPDFPluginExtension, kPDFPluginDescription);
   pdf_info.mime_types.push_back(pdf_mime_type);
@@ -181,7 +181,7 @@ void ChromeContentClient::AddPlugins(
 #endif  // BUILDFLAG(ENABLE_NACL)
 }
 
-void ChromeContentClient::LoadNWAppAsExtension(base::DictionaryValue* manifest,
+void ChromeContentClient::LoadNWAppAsExtension(base::Value::Dict* manifest,
                                                const base::FilePath& path,
                                                std::string* error) {
   nw::LoadNWAppAsExtensionHook(manifest, path, error);

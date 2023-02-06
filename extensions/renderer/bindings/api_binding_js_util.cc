@@ -121,7 +121,6 @@ void APIBindingJSUtil::SendRequestHelper(
     options_dict.Get("customCallback", &custom_callback);
   }
 
-  std::unique_ptr<base::ListValue> converted_arguments;
   v8::Local<v8::Function> callback;
 
   // Some APIs (like fileSystem and contextMenus) don't provide arguments that
@@ -143,7 +142,7 @@ void APIBindingJSUtil::SendRequestHelper(
   DCHECK_NE(binding::AsyncResponseType::kPromise, parse_result.async_type);
 
   request_handler_->StartRequest(
-      context, name, std::move(parse_result.arguments_list),
+      context, name, std::move(*parse_result.arguments_list),
       parse_result.async_type, parse_result.callback, custom_callback,
       binding::ResultModifierFunction(),
       sync, success, response, error);

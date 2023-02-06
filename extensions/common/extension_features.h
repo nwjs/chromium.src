@@ -42,11 +42,15 @@ BASE_DECLARE_FEATURE(kNewWebstoreDomain);
 
 BASE_DECLARE_FEATURE(kExtensionSidePanelIntegration);
 
-BASE_DECLARE_FEATURE(kExtensionsFSPInServiceWorkers);
-
 BASE_DECLARE_FEATURE(kFileHandlersMV3);
 
 BASE_DECLARE_FEATURE(kExtensionSourceUrlEnforcement);
+
+BASE_DECLARE_FEATURE(kWebviewTagMPArchBehavior);
+
+BASE_DECLARE_FEATURE(kExtensionsManifestV3Only);
+
+BASE_DECLARE_FEATURE(kMinimumMV3CSPWithInlineSpeculationRules);
 
 }  // namespace extensions_features
 

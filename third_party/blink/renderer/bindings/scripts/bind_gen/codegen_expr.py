@@ -251,6 +251,7 @@ def expr_from_exposure(exposure,
         "LayoutWorklet": "IsLayoutWorkletGlobalScope",
         "PaintWorklet": "IsPaintWorkletGlobalScope",
         "ServiceWorker": "IsServiceWorkerGlobalScope",
+        "ShadowRealm": "IsShadowRealmGlobalScope",
         "SharedWorker": "IsSharedWorkerGlobalScope",
         "Window": "IsWindow",
         "Worker": "IsWorkerGlobalScope",
@@ -278,7 +279,8 @@ def expr_from_exposure(exposure,
                 # of [TargetOfExposed] exposure. If this is actually a global,
                 # add it to GLOBAL_NAME_TO_EXECUTION_CONTEXT_CHECK.
                 return _Expr(
-                    "(::logging::CheckError::NotReached(__FILE__, __LINE__) << "
+                    "(::logging::NotReachedError::NotReached"
+                    "(__FILE__, __LINE__) << "
                     "\"{} exposure test is not supported at runtime\", false)".
                     format(entry.global_name))
 

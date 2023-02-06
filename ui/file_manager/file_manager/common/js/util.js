@@ -8,8 +8,8 @@
  * which allows finer-grained control over introducing dependencies.
  */
 
-import {assert, assertInstanceof} from 'chrome://resources/js/assert.js';
-import {loadTimeData} from 'chrome://resources/js/load_time_data.m.js';
+import {assert, assertInstanceof} from 'chrome://resources/ash/common/assert.js';
+import {loadTimeData} from 'chrome://resources/ash/common/load_time_data.m.js';
 
 import {EntryLocation} from '../../externs/entry_location.js';
 import {FakeEntry, FilesAppEntry} from '../../externs/files_app_entry_interfaces.js';
@@ -1088,14 +1088,6 @@ util.isDlpEnabled = () => {
 };
 
 /**
- * Returns true if FilesExtractArchive flag is enabled.
- * @return {boolean}
- */
-util.isExtractArchiveEnabled = () => {
-  return loadTimeData.getBoolean('EXTRACT_ARCHIVE');
-};
-
-/**
  * Whether the Files app Experimental flag is enabled.
  * @returns {boolean}
  */
@@ -1115,19 +1107,19 @@ util.isFuseBoxDebugEnabled = () => {
 };
 
 /**
- * Returns true if FuseBox flag is enabled.
- * @return {boolean}
- */
-util.isFuseBoxEnabled = () => {
-  return loadTimeData.getBoolean('FUSEBOX');
-};
-
-/**
  * Returns true if GuestOsFiles flag is enabled.
  * @return {boolean}
  */
 util.isGuestOsEnabled = () => {
   return loadTimeData.getBoolean('GUEST_OS');
+};
+
+/**
+ * Returns true if Jelly flag is enabled.
+ * @return {boolean}
+ */
+util.isJellyEnabled = () => {
+  return loadTimeData.getBoolean('JELLY');
 };
 
 /**

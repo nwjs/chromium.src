@@ -114,6 +114,7 @@
 #include "ui/compositor/scoped_animation_duration_scale_mode.h"
 #include "ui/compositor_extra/shadow.h"
 #include "ui/display/display.h"
+#include "ui/display/display_switches.h"
 #include "ui/display/screen.h"
 #include "ui/display/test/display_manager_test_api.h"
 #include "ui/events/devices/device_data_manager.h"
@@ -171,15 +172,6 @@ std::unique_ptr<aura::Window> CreateTransientModalChildWindow(
 bool DoesActiveDeskContainWindow(aura::Window* window) {
   return base::Contains(DesksController::Get()->active_desk()->windows(),
                         window);
-}
-
-OverviewGrid* GetOverviewGridForRoot(aura::Window* root) {
-  DCHECK(root->IsRootWindow());
-
-  auto* overview_controller = Shell::Get()->overview_controller();
-  DCHECK(overview_controller->InOverviewSession());
-
-  return overview_controller->overview_session()->GetGridWithRootWindow(root);
 }
 
 void CloseDeskFromMiniView(const DeskMiniView* desk_mini_view,
@@ -393,6 +385,10 @@ class DesksTest : public AshTestBase,
   ~DesksTest() override = default;
 
   void SetUp() override {
+    // This allows us to snap to the bottom in portrait mode.
+    base::CommandLine::ForCurrentProcess()->AppendSwitch(
+        ::switches::kUseFirstDisplayAsInternal);
+
     scoped_feature_list_.InitWithFeatureState(features::kEnable16Desks,
                                               GetParam().use_16_desks);
 
@@ -1520,7 +1516,7 @@ TEST_P(DesksTest, AppListStaysOpenInClamshell) {
 
   // Open the app list.
   auto* app_list_controller = Shell::Get()->app_list_controller();
-  app_list_controller->ShowAppList();
+  app_list_controller->ShowAppList(AppListShowSource::kSearchKey);
   ASSERT_TRUE(app_list_controller->IsVisible());
 
   // Switch back to desk 1. Test that the app list is still open.
@@ -3681,6 +3677,33 @@ TEST_P(DesksTest, PerDeskZOrder) {
 
     aura::Window* root = window_to_id.begin()->first->GetRootWindow();
 
+    // Verifies that the desk preview is consistent with the expected per-desk
+    // Z-order. Since the layers are mirrored instead of the same instances, we
+    // verify by layer bounds here.
+    auto verify_desk_preview_mirrored_layer_tree =
+        [&](Desk* desk, const std::vector<int>& expected_windows) {
+          ToggleOverview();
+
+          // Retrieves the mirrored layers `mirrored_layers` of application
+          // windows for `desk`. The root of `layer_tree_owner` is a layer that
+          // has only one child, and the only child acts as the parent of all
+          // the mirrored layers of application windows.
+          const ui::LayerTreeOwner* layer_tree_owner =
+              DesksTestApi::GetMirroredContentsLayerTreeForRootAndDesk(root,
+                                                                       desk);
+          const std::vector<ui::Layer*> mirrored_layers =
+              layer_tree_owner->root()->children().front()->children();
+
+          // Tests that `mirrored_layers` and `expected_windows` are sync'ed.
+          ASSERT_EQ(expected_windows.size(), mirrored_layers.size());
+          for (size_t i = 0; i < expected_windows.size(); i++) {
+            ASSERT_EQ(id_to_window[expected_windows[i]]->layer()->bounds(),
+                      mirrored_layers[i]->bounds());
+          }
+
+          ToggleOverview();
+        };
+
     // Verifies that windows on the given desk are found in the expected
     // order. Any windows that have not been created by the test will be
     // ignored.
@@ -3703,6 +3726,8 @@ TEST_P(DesksTest, PerDeskZOrder) {
     // Now we are ready to actually execute the test.
     ActivateDesk(desk_2);
     verify_windows(desk_2, test.expected_desk_2_windows);
+    verify_desk_preview_mirrored_layer_tree(desk_2,
+                                            test.expected_desk_2_windows);
 
     // Move specified windows to desk 1.
     for (int id : test.move_windows) {
@@ -3723,6 +3748,8 @@ TEST_P(DesksTest, PerDeskZOrder) {
 
     ActivateDesk(desk_1);
     verify_windows(desk_1, test.expected_desk_1_windows);
+    verify_desk_preview_mirrored_layer_tree(desk_1,
+                                            test.expected_desk_1_windows);
   }
 }
 
@@ -4211,6 +4238,7 @@ class DesksAcceleratorsTest : public DesksTest,
 
   // ui::EventRewriterChromeOS::Delegate:
   bool RewriteModifierKeys() override { return true; }
+  void SuppressModifierKeyRewrites(bool should_supress) override {}
   bool GetKeyboardRemappedPrefValue(const std::string& pref_name,
                                     int* result) const override {
     return false;
@@ -5023,7 +5051,7 @@ TEST_P(DesksTest, ScrollableDesks) {
 
   // Set the scroll delta large enough to make sure the desks bar can be
   // scrolled to the end each time.
-  const int x_scroll_delta = 400;
+  const int x_scroll_delta = 500;
   gfx::Rect display_bounds =
       screen_util::GetDisplayWorkAreaBoundsInScreenForActiveDeskContainer(
           root_window);
@@ -5080,17 +5108,18 @@ TEST_P(DesksTest, ScrollButtonsVisibility) {
   EXPECT_FALSE(DesksTestApi::GetDesksBarLeftScrollButton()->GetVisible());
   EXPECT_TRUE(DesksTestApi::GetDesksBarRightScrollButton()->GetVisible());
 
-  // Click the right scroll button should scroll to the next page. And left and
-  // right scroll buttons should both be visible while at the middle position.
-  ClickOnView(DesksTestApi::GetDesksBarRightScrollButton(), event_generator);
+  // Click the right scroll button until it reaches to the right most of the
+  // scroll view. Then verify the left scroll button is visible.
+  if (DesksTestApi::GetDesksBarRightScrollButton()->GetVisible())
+    ClickOnView(DesksTestApi::GetDesksBarRightScrollButton(), event_generator);
   EXPECT_TRUE(DesksTestApi::GetDesksBarLeftScrollButton()->GetVisible());
-  EXPECT_TRUE(DesksTestApi::GetDesksBarRightScrollButton()->GetVisible());
 
-  // Click the left scroll button should scroll to the previous page. In this
-  // case, it will scroll back to the start position and left scroll button
-  // should be hidden and right scroll button should be visible.
-  ClickOnView(DesksTestApi::GetDesksBarLeftScrollButton(), event_generator);
-  EXPECT_FALSE(DesksTestApi::GetDesksBarLeftScrollButton()->GetVisible());
+  // Click the left scroll button until it reaches to the right most of the
+  // scroll view. In this case, it will scroll back to the start position and
+  // left scroll button should be hidden and right scroll button should be
+  // visible.
+  if (DesksTestApi::GetDesksBarLeftScrollButton()->GetVisible())
+    ClickOnView(DesksTestApi::GetDesksBarLeftScrollButton(), event_generator);
   EXPECT_TRUE(DesksTestApi::GetDesksBarRightScrollButton()->GetVisible());
 
   // Left scroll button should be visible and right scroll button should be
@@ -5218,6 +5247,8 @@ TEST_P(DesksTest, ContinueScrollBar) {
   EXPECT_FALSE(left_button->GetVisible());
   EXPECT_TRUE(right_button->GetVisible());
 
+  const int focus_ring_width_and_padding = 4;
+
   // Press on the right scroll button by mouse should scroll to the next page.
   // And the final scroll position should be adjusted to make sure the desk
   // preview will not be cropped.
@@ -5225,7 +5256,7 @@ TEST_P(DesksTest, ContinueScrollBar) {
   event_generator->MoveMouseTo(right_button->GetBoundsInScreen().CenterPoint());
   event_generator->PressLeftButton();
   current_index += desks_in_one_page;
-  EXPECT_EQ(scroll_view->GetVisibleRect().x(),
+  EXPECT_EQ(scroll_view->GetVisibleRect().x() + focus_ring_width_and_padding,
             mini_views[current_index]->bounds().x());
 
   // Both scroll buttons should be visible.
@@ -5235,7 +5266,7 @@ TEST_P(DesksTest, ContinueScrollBar) {
   // Wait for 1s, there will be another scroll.
   WaitForMilliseconds(1000);
   current_index += desks_in_one_page;
-  EXPECT_EQ(scroll_view->GetVisibleRect().x(),
+  EXPECT_EQ(scroll_view->GetVisibleRect().x() + focus_ring_width_and_padding,
             mini_views[current_index]->bounds().x());
 
   // Release and click a few times to make sure we end up at the maximum offset.
@@ -5253,7 +5284,7 @@ TEST_P(DesksTest, ContinueScrollBar) {
 
   // Since we're scrolled all the way to the right and the new desk button is
   // visible, this is the index of the leftmost visible mini view.
-  current_index = max_desks_size - desks_in_one_page + 1;
+  current_index = max_desks_size - 1;
 
   // Press on left scroll button by gesture should scroll to the previous page.
   // And the final scroll position should also be adjusted while scrolling to
@@ -5261,13 +5292,13 @@ TEST_P(DesksTest, ContinueScrollBar) {
   event_generator->MoveTouch(left_button->GetBoundsInScreen().CenterPoint());
   event_generator->PressTouch();
   current_index -= desks_in_one_page;
-  EXPECT_EQ(scroll_view->GetVisibleRect().x(),
+  EXPECT_EQ(scroll_view->GetVisibleRect().x() + focus_ring_width_and_padding,
             mini_views[current_index]->bounds().x());
 
   // Wait for 1s, there is another scroll.
   WaitForMilliseconds(1000);
   current_index -= desks_in_one_page;
-  EXPECT_EQ(scroll_view->GetVisibleRect().x(),
+  EXPECT_EQ(scroll_view->GetVisibleRect().x() + focus_ring_width_and_padding,
             mini_views[current_index]->bounds().x());
 
   event_generator->ReleaseTouch();
@@ -6120,8 +6151,8 @@ TEST_P(DesksTest, ReorderDesksInRTLMode) {
       ->highlight_controller()
       ->MoveHighlightToView(mini_view_0->desk_preview());
 
-  // Swap the positions of the |desk_0| and the |desk_2| by pressing Ctrl + <-.
-  event_generator->PressKey(ui::VKEY_LEFT, ui::EF_CONTROL_DOWN);
+  // Swap the positions of the |desk_0| and the |desk_2| by pressing Ctrl + ->.
+  event_generator->PressKey(ui::VKEY_RIGHT, ui::EF_CONTROL_DOWN);
 
   // Now, the desks order should be [1, 2, 0]:
   EXPECT_EQ(0, desks_controller->GetDeskIndex(desk_1));
@@ -6175,11 +6206,13 @@ TEST_P(DesksTest, ScrollBarByDraggedDesk) {
   DeskMiniView* mini_view_0 = mini_views[0];
   Desk* desk_0 = mini_view_0->desk();
 
+  const int focus_ring_width_and_padding = 4;
+
   StartDragDeskPreview(mini_view_0, event_generator);
   EXPECT_TRUE(desks_bar->IsDraggingDesk());
   event_generator->MoveMouseTo(right_button->GetBoundsInScreen().CenterPoint());
   current_index += desks_in_one_page;
-  EXPECT_EQ(scroll_view->GetVisibleRect().x(),
+  EXPECT_EQ(scroll_view->GetVisibleRect().x() + focus_ring_width_and_padding,
             mini_views[current_index]->bounds().x());
 
   // Both scroll buttons should be visible.
@@ -6189,7 +6222,7 @@ TEST_P(DesksTest, ScrollBarByDraggedDesk) {
   // Wait for 1s, there will be another scroll.
   WaitForMilliseconds(1000);
   current_index += desks_in_one_page;
-  EXPECT_EQ(scroll_view->GetVisibleRect().x(),
+  EXPECT_EQ(scroll_view->GetVisibleRect().x() + focus_ring_width_and_padding,
             mini_views[current_index]->bounds().x());
 
   // While scrolling, the desk cannot be reordered.
@@ -6215,7 +6248,7 @@ TEST_P(DesksTest, ScrollBarByDraggedDesk) {
   EXPECT_EQ(max_index, desks_controller->GetDeskIndex(desk_0));
   event_generator->ReleaseLeftButton();
 
-  current_index = max_desks_size - desks_in_one_page + 1;
+  current_index = max_desks_size - 1;
 
   // Dragging the desk to left scroll button should scroll to the previous page.
   // And the final scroll position should also be adjusted while scrolling to
@@ -6224,13 +6257,13 @@ TEST_P(DesksTest, ScrollBarByDraggedDesk) {
   StartDragDeskPreview(mini_views[max_desks_size - 1], event_generator);
   event_generator->MoveMouseTo(left_button->GetBoundsInScreen().CenterPoint());
   current_index -= desks_in_one_page;
-  EXPECT_EQ(scroll_view->GetVisibleRect().x(),
+  EXPECT_EQ(scroll_view->GetVisibleRect().x() + focus_ring_width_and_padding,
             mini_views[current_index]->bounds().x());
 
   // Wait for 1s, there is another scroll.
   WaitForMilliseconds(1000);
   current_index -= desks_in_one_page;
-  EXPECT_EQ(scroll_view->GetVisibleRect().x(),
+  EXPECT_EQ(scroll_view->GetVisibleRect().x() + focus_ring_width_and_padding,
             mini_views[current_index]->bounds().x());
 
   // The desk is still not reordered while scrolling backward.
@@ -7073,7 +7106,7 @@ TEST_P(PersistentDesksBarTest, BarStaysOpenWhenLauncherOpens) {
   EXPECT_TRUE(IsWidgetVisible());
 
   // The bar should still exist when the app list is opened.
-  app_list_controller->ShowAppList();
+  app_list_controller->ShowAppList(AppListShowSource::kSearchKey);
   EXPECT_TRUE(GetBarWidget());
   EXPECT_TRUE(IsWidgetVisible());
 

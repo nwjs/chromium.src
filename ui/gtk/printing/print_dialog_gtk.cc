@@ -20,8 +20,8 @@
 #include "base/no_destructor.h"
 #include "base/sequence_checker.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/task/sequenced_task_runner.h"
 #include "base/task/thread_pool.h"
-#include "base/threading/sequenced_task_runner_handle.h"
 #include "base/values.h"
 #include "printing/buildflags/buildflags.h"
 #include "printing/metafile.h"
@@ -36,7 +36,7 @@
 #include "ui/gtk/gtk_util.h"
 #include "ui/gtk/printing/printing_gtk_util.h"
 
-#if defined(USE_CUPS)
+#if BUILDFLAG(USE_CUPS)
 #include "printing/mojom/print.mojom.h"  // nogncheck
 #endif
 
@@ -45,7 +45,7 @@ using printing::PrintSettings;
 
 namespace {
 
-#if defined(USE_CUPS)
+#if BUILDFLAG(USE_CUPS)
 // CUPS Duplex attribute and values.
 const char kCUPSDuplex[] = "cups-Duplex";
 const char kDuplexNone[] = "None";
@@ -185,7 +185,7 @@ printing::PrintDialogLinuxInterface* PrintDialogGtk::CreatePrintDialog(
 
 PrintDialogGtk::PrintDialogGtk(PrintingContextLinux* context)
     : base::RefCountedDeleteOnSequence<PrintDialogGtk>(
-          base::SequencedTaskRunnerHandle::Get()),
+          base::SequencedTaskRunner::GetCurrentDefault()),
       context_(context) {
   // Paired with the ReleaseDialog() call.
   AddRef();
@@ -250,7 +250,7 @@ void PrintDialogGtk::UpdateSettings(
   if (settings->dpi_horizontal() > 0 && settings->dpi_vertical() > 0) {
     gtk_print_settings_set_resolution_xy(
         gtk_settings_, settings->dpi_horizontal(), settings->dpi_vertical());
-#if defined(USE_CUPS)
+#if BUILDFLAG(USE_CUPS)
     std::string dpi = base::NumberToString(settings->dpi_horizontal());
     if (settings->dpi_horizontal() != settings->dpi_vertical())
       dpi += "x" + base::NumberToString(settings->dpi_vertical());
@@ -284,7 +284,7 @@ void PrintDialogGtk::UpdateSettings(
 #endif
   }
 
-#if defined(USE_CUPS)
+#if BUILDFLAG(USE_CUPS)
   // Set advanced settings first so they can be overridden by user applied
   // settings.
   for (const auto& pair : settings->advanced_settings()) {

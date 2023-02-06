@@ -10,6 +10,7 @@
 
 #include "base/component_export.h"
 #include "build/build_config.h"
+#include "printing/buildflags/buildflags.h"
 #include "printing/mojom/print.mojom.h"
 #include "printing/page_range.h"
 #include "printing/page_setup.h"
@@ -37,7 +38,7 @@ mojom::ColorModel ColorModeToColorModel(int color_mode);
 COMPONENT_EXPORT(PRINTING)
 absl::optional<bool> IsColorModelSelected(mojom::ColorModel color_model);
 
-#if defined(USE_CUPS)
+#if BUILDFLAG(USE_CUPS)
 // Get the color model setting name and value for the `color_model`.
 COMPONENT_EXPORT(PRINTING)
 void GetColorModelForModel(mojom::ColorModel color_model,
@@ -49,7 +50,7 @@ void GetColorModelForModel(mojom::ColorModel color_model,
 COMPONENT_EXPORT(PRINTING)
 std::string GetIppColorModelForModel(mojom::ColorModel color_model);
 #endif
-#endif  // defined(USE_CUPS)
+#endif  // BUILDFLAG(USE_CUPS)
 
 class COMPONENT_EXPORT(PRINTING) PrintSettings {
  public:
@@ -146,9 +147,19 @@ class COMPONENT_EXPORT(PRINTING) PrintSettings {
 
   int device_units_per_inch() const {
 #if BUILDFLAG(IS_MAC)
-    return 72;
+    return kMacDeviceUnitsPerInch;
 #else   // BUILDFLAG(IS_MAC)
     return dpi();
+#endif  // BUILDFLAG(IS_MAC)
+  }
+
+  const gfx::Size& device_units_per_inch_size() const {
+#if BUILDFLAG(IS_MAC)
+    static constexpr gfx::Size kSize{kMacDeviceUnitsPerInch,
+                                     kMacDeviceUnitsPerInch};
+    return kSize;
+#else   // BUILDFLAG(IS_MAC)
+    return dpi_size();
 #endif  // BUILDFLAG(IS_MAC)
   }
 
@@ -252,6 +263,10 @@ class COMPONENT_EXPORT(PRINTING) PrintSettings {
   static int NewCookie();
 
  private:
+#if BUILDFLAG(IS_MAC)
+  static constexpr int kMacDeviceUnitsPerInch = 72;
+#endif
+
   // Multi-page printing. Each `PageRange` describes a from-to page combination.
   // This permits printing selected pages only.
   PageRanges ranges_;

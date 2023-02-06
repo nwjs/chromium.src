@@ -40,8 +40,8 @@
 #include "base/memory/ptr_util.h"
 #include "base/run_loop.h"
 #include "base/strings/strcat.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool/thread_pool_instance.h"
-#include "base/threading/thread_task_runner_handle.h"
 #include "chromeos/dbus/power/fake_power_manager_client.h"
 #include "components/account_id/account_id.h"
 #include "components/user_manager/user_names.h"
@@ -127,13 +127,14 @@ void AshTestBase::SetUp() {
 void AshTestBase::SetUp(std::unique_ptr<TestShellDelegate> delegate) {
   // At this point, the task APIs should already be provided by
   // |task_environment_|.
-  CHECK(base::ThreadTaskRunnerHandle::IsSet());
+  CHECK(base::SingleThreadTaskRunner::HasCurrentDefault());
   CHECK(base::ThreadPoolInstance::Get());
 
   setup_called_ = true;
 
   AshTestHelper::InitParams params;
   params.start_session = start_session_;
+  params.create_global_cras_audio_handler = create_global_cras_audio_handler_;
   params.delegate = std::move(delegate);
   params.local_state = local_state();
 

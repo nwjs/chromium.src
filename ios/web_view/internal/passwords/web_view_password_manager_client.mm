@@ -213,11 +213,6 @@ WebViewPasswordManagerClient::GetPasswordReuseManager() const {
   return reuse_manager_;
 }
 
-password_manager::PasswordScriptsFetcher*
-WebViewPasswordManagerClient::GetPasswordScriptsFetcher() {
-  return nullptr;
-}
-
 password_manager::PasswordChangeSuccessTracker*
 WebViewPasswordManagerClient::GetPasswordChangeSuccessTracker() {
   return password_change_tracker_;
@@ -320,10 +315,6 @@ bool WebViewPasswordManagerClient::IsNewTabPage() const {
 password_manager::FieldInfoManager*
 WebViewPasswordManagerClient::GetFieldInfoManager() const {
   return nullptr;
-}
-
-bool WebViewPasswordManagerClient::IsAutofillAssistantUIVisible() const {
-  return false;
 }
 
 safe_browsing::PasswordProtectionService*

@@ -13,6 +13,7 @@
 #include "base/compiler_specific.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
+#include "base/memory/raw_ptr.h"
 #include "base/numerics/checked_math.h"
 #include "base/sequence_checker.h"
 #include "base/synchronization/waitable_event.h"
@@ -159,8 +160,8 @@ class ScopedSharedImageAccess {
   }
 
  private:
-  gpu::gles2::GLES2Interface* gl;
-  gpu::raster::RasterInterface* ri;
+  raw_ptr<gpu::gles2::GLES2Interface> gl;
+  raw_ptr<gpu::raster::RasterInterface> ri;
   GLuint texture;
   bool is_shared_image;
 };
@@ -355,6 +356,14 @@ libyuv::FilterMode ToLibyuvFilterMode(
     case PaintCanvasVideoRenderer::kFilterBilinear:
       return libyuv::kFilterBilinear;
   }
+}
+
+size_t NumConvertVideoFrameToRGBPixelsTasks(const VideoFrame* video_frame) {
+  constexpr size_t kTaskBytes = 1024 * 1024;  // 1 MiB
+  const size_t frame_size = VideoFrame::AllocationSize(
+      video_frame->format(), video_frame->visible_rect().size());
+  const size_t n_tasks = std::max<size_t>(1, frame_size / kTaskBytes);
+  return std::min<size_t>(n_tasks, base::SysInfo::NumberOfProcessors());
 }
 
 void ConvertVideoFrameToRGBPixelsTask(const VideoFrame* video_frame,
@@ -1334,7 +1343,8 @@ void PaintCanvasVideoRenderer::ConvertVideoFrameToRGBPixels(
     void* rgb_pixels,
     size_t row_bytes,
     bool premultiply_alpha,
-    FilterMode filter) {
+    FilterMode filter,
+    bool disable_threading) {
   if (!video_frame->IsMappable()) {
     NOTREACHED() << "Cannot extract pixels from non-CPU frame formats.";
     return;
@@ -1373,13 +1383,8 @@ void PaintCanvasVideoRenderer::ConvertVideoFrameToRGBPixels(
       break;
   }
 
-  constexpr size_t kTaskBytes = 1024 * 1024;  // 1 MiB
-  const size_t n_tasks = std::min<size_t>(
-      std::max<size_t>(
-          1, VideoFrame::AllocationSize(video_frame->format(),
-                                        video_frame->visible_rect().size()) /
-                 kTaskBytes),
-      base::SysInfo::NumberOfProcessors());
+  const size_t n_tasks =
+      disable_threading ? 1 : NumConvertVideoFrameToRGBPixelsTasks(video_frame);
   base::WaitableEvent event;
   base::RepeatingClosure barrier = base::BarrierClosure(
       n_tasks,

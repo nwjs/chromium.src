@@ -125,7 +125,7 @@ IPC_STRUCT_TRAITS_BEGIN(gpu::Capabilities)
   IPC_STRUCT_TRAITS_MEMBER(avoid_stencil_buffers)
   IPC_STRUCT_TRAITS_MEMBER(disable_2d_canvas_copy_on_write)
   IPC_STRUCT_TRAITS_MEMBER(texture_npot)
-  IPC_STRUCT_TRAITS_MEMBER(texture_storage_image)
+  IPC_STRUCT_TRAITS_MEMBER(supports_scanout_shared_images)
   IPC_STRUCT_TRAITS_MEMBER(supports_oop_raster)
   IPC_STRUCT_TRAITS_MEMBER(chromium_gpu_fence)
   IPC_STRUCT_TRAITS_MEMBER(context_supports_distance_field_text)
@@ -135,6 +135,8 @@ IPC_STRUCT_TRAITS_BEGIN(gpu::Capabilities)
 
   IPC_STRUCT_TRAITS_MEMBER(major_version)
   IPC_STRUCT_TRAITS_MEMBER(minor_version)
+
+  IPC_STRUCT_TRAITS_MEMBER(use_shared_images_swapchain_for_ppapi)
 
   IPC_STRUCT_TRAITS_MEMBER(gpu_memory_buffer_formats)
   IPC_STRUCT_TRAITS_MEMBER(texture_target_exception_list)

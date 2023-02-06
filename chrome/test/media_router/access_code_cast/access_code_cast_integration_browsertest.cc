@@ -10,6 +10,7 @@
 #include "base/strings/string_util.h"
 #include "base/task/thread_pool/thread_pool_instance.h"
 #include "base/test/gmock_callback_support.h"
+#include "base/test/gtest_tags.h"
 #include "base/test/mock_callback.h"
 #include "base/threading/thread_restrictions.h"
 #include "build/build_config.h"
@@ -139,22 +140,6 @@ void AccessCodeCastIntegrationBrowserTest::OnWillCreateBrowserContextServices(
         auto it = base::ranges::find(media_sinks_observers_, observer);
         if (it != media_sinks_observers_.end()) {
           media_sinks_observers_.erase(it);
-        }
-      });
-
-  ON_CALL(*media_router_, RegisterMediaRoutesObserver(_))
-      .WillByDefault([this](MediaRoutesObserver* observer) {
-        media_routes_observers_.push_back(observer);
-        return true;
-      });
-
-  // Remove route observers as appropriate (destructing handlers will cause
-  // this to occur).
-  ON_CALL(*media_router_, UnregisterMediaRoutesObserver(_))
-      .WillByDefault([this](MediaRoutesObserver* observer) {
-        auto it = base::ranges::find(media_routes_observers_, observer);
-        if (it != media_routes_observers_.end()) {
-          media_routes_observers_.erase(it);
         }
       });
 
@@ -446,7 +431,6 @@ void AccessCodeCastIntegrationBrowserTest::MockOnChannelOpenedCall(
     CastDeviceCountMetrics::SinkSource sink_source,
     ChannelOpenedCallback callback,
     cast_channel::CastSocketOpenParams open_params) {
-  std::move(callback).Run(open_channel_response_);
   if (!open_channel_response_)
     return;
 
@@ -465,6 +449,11 @@ void AccessCodeCastIntegrationBrowserTest::MockOnChannelOpenedCall(
                      base::Unretained(mock_cast_media_sink_service_impl()),
                      cast_sink));
 
+  // The open channel callback needs to run after the AddSinkForTest is posted
+  // to ensure that no race conditions occur and we mimic an actual access code
+  // casting situation.
+  std::move(callback).Run(open_channel_response_);
+
   // A delay is added to the QRM notification since this
   // simulates the non-instant time it takes for a sink to be added
   // to the QRM.
@@ -478,7 +467,7 @@ void AccessCodeCastIntegrationBrowserTest::MockOnChannelOpenedCall(
 
 void AccessCodeCastIntegrationBrowserTest::SpinRunLoop(base::TimeDelta delay) {
   base::RunLoop run_loop;
-  base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
       FROM_HERE, run_loop.QuitClosure(), delay);
   run_loop.Run();
 }
@@ -542,8 +531,9 @@ void AccessCodeCastIntegrationBrowserTest::UpdateSinks(
 
 void AccessCodeCastIntegrationBrowserTest::UpdateRoutes(
     const std::vector<MediaRoute>& routes) {
-  for (MediaRoutesObserver* routes_observer : media_routes_observers_) {
-    routes_observer->OnRoutesUpdated(routes);
+  for (MediaRoutesObserver& routes_observer :
+       media_router_->routes_observers()) {
+    routes_observer.OnRoutesUpdated(routes);
   }
 }
 
@@ -567,6 +557,11 @@ raw_ptr<AccessCodeCastPrefUpdater>
 AccessCodeCastIntegrationBrowserTest::GetPrefUpdater() {
   return AccessCodeCastSinkServiceFactory::GetForProfile(browser()->profile())
       ->pref_updater_.get();
+}
+
+void AccessCodeCastIntegrationBrowserTest::AddScreenplayTag(
+    const std::string& screenplay_tag) {
+  base::AddTagToTestResult("feature_id", screenplay_tag);
 }
 
 }  // namespace media_router

@@ -146,15 +146,29 @@ BASE_FEATURE(kV8SlowHistogramsScriptAblation,
 
 BASE_FEATURE(kV8DelayMemoryReducer,
              "V8DelayMemoryReducer",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 const base::FeatureParam<base::TimeDelta> kV8MemoryReducerStartDelay{
-    &kV8DelayMemoryReducer, "delay", base::Seconds(8)};
+    &kV8DelayMemoryReducer, "delay", base::Seconds(30)};
+
+BASE_FEATURE(kV8UseLibmTrigFunctions,
+             "V8UseLibmTrigFunctions",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // JavaScript language features.
 
 // Enables the Symbols-as-WeakMap-keys proposal.
 BASE_FEATURE(kJavaScriptSymbolAsWeakMapKey,
              "JavaScriptSymbolAsWeakMapKey",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables the change-Array-by-copy proposal.
+BASE_FEATURE(kJavaScriptChangeArrayByCopy,
+             "JavaScriptChangeArrayByCopy",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables the Resizable ArrayBuffer proposal.
+BASE_FEATURE(kJavaScriptRabGsab,
+             "JavaScriptRabGsab",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace features

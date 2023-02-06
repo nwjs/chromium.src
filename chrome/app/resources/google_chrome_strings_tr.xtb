@@ -80,7 +80,6 @@
 <translation id="2401189691232800402">ChromeOS sistemi</translation>
 <translation id="2467438592969358367">Google Chrome şifrelerinizi dışa aktarmak istiyor. Buna izin vermek için Windows şifrenizi yazın.</translation>
 <translation id="2485422356828889247">Kaldır</translation>
-<translation id="2494974097748878569">Chrome'da Google Asistan</translation>
 <translation id="2534507159460261402">Google Pay (Chrome'a kopyalandı)</translation>
 <translation id="2559253115192232574">Daha sonrasında ziyaret ettiğiniz bir site, gördüğünüz reklamları kişiselleştirmek için Chrome'dan ilgi alanlarınızı göstermesini isteyebilir. Chrome en çok 3 ilgi alanı paylaşabilir.</translation>
 <translation id="2563121210305478421">Chrome yeniden başlatılsın mı?</translation>
@@ -125,6 +124,7 @@
 <translation id="3140883423282498090">Yaptığınız değişiklikler Google Chrome'u yeniden başlattığınızda geçerli olacak.</translation>
 <translation id="3149510190863420837">Chrome Uygulamaları</translation>
 <translation id="3169523567916669830">Denemeler sırasında, sitelerin size reklam göstermek için kullandığı ilgi alanlarını görebilir ve kaldırabilirsiniz. Chrome, ilgi alanlarınızı tahmin ederken son tarama geçmişinizi kullanır.</translation>
+<translation id="3211604354460514046">{NUM_DEVICES,plural, =1{Google Chrome bir HID cihazına bağlı}other{Google Chrome, HID cihazlarına bağlı}}</translation>
 <translation id="3245429137663807393">Chrome kullanım raporlarını da paylaşıyorsanız, ziyaret ettiğiniz URL'ler de bu raporlar kapsamında paylaşılır</translation>
 <translation id="3282568296779691940">Chrome'da oturum aç</translation>
 <translation id="3286538390144397061">Şimdi yeniden başlat</translation>
@@ -283,7 +283,6 @@ Bazı özellikler kullanılamayabilir. Lütfen farklı bir profil dizini belirti
 <translation id="6739177684496155661">Yeni bir Chrome profilinde devam edilsin mi?</translation>
 <translation id="6750954913813541382">Yazım hatalarını düzeltmek için Chrome, tarayıcıda yazdığınız metni Google'a gönderir</translation>
 <translation id="677276454032249905">Yine de Chrome'dan çıkılsın mı?</translation>
-<translation id="6785872064505734160">Chrome'daki Google Asistan sizin için web sitelerindeki işlemleri tamamlayabilir</translation>
 <translation id="683440813066116847">Google Chrome Canary'nin mDNS trafiğine izin vermeyi sağlayan gelen trafik kuralı.</translation>
 <translation id="6881299373831449287">Chrome güncelleniyor</translation>
 <translation id="6885412569789873916">Chrome Beta Uygulamaları</translation>

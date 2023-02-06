@@ -1270,11 +1270,4 @@ content::JavaScriptDialogManager* AppWindow::GetJavaScriptDialogManager(
   return host->GetJavaScriptDialogManager(source);
 }
 
-void AppWindow::OnVisibilityChanged(content::Visibility visibility) {
-  if (visibility == content::Visibility::VISIBLE) {
-  web_cache::WebCacheManager::GetInstance()->ObserveActivity(
-                                                             web_contents()->GetPrimaryMainFrame()->GetProcess()->GetID());
-  }
-}
-
 }  // namespace extensions

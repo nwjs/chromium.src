@@ -25,14 +25,12 @@
 #include "chrome/grit/generated_resources.h"
 #include "components/app_constants/constants.h"
 #include "components/services/app_service/public/cpp/app_registry_cache.h"
-#include "components/services/app_service/public/cpp/features.h"
 #include "components/services/app_service/public/cpp/intent_filter.h"
 #include "components/services/app_service/public/cpp/intent_filter_util.h"
 #include "components/services/app_service/public/cpp/intent_util.h"
 #include "components/services/app_service/public/cpp/permission.h"
 #include "components/services/app_service/public/cpp/preferred_apps_list_handle.h"
 #include "components/services/app_service/public/cpp/types_util.h"
-#include "components/services/app_service/public/mojom/types.mojom.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
@@ -51,7 +49,7 @@
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "ash/components/arc/session/connection_holder.h"
-#include "chrome/browser/ui/app_list/arc/arc_app_utils.h"
+#include "chrome/browser/ash/app_list/arc/arc_app_utils.h"
 #endif
 
 #if BUILDFLAG(IS_WIN)
@@ -179,7 +177,7 @@ AppManagementPageHandler::AppManagementPageHandler(
   // There's no need to update twice.
 #if !BUILDFLAG(IS_CHROMEOS)
   auto* provider = web_app::WebAppProvider::GetForWebApps(profile_);
-  registrar_observation_.Observe(&provider->registrar());
+  registrar_observation_.Observe(&provider->registrar_unsafe());
 #endif
 }
 
@@ -278,14 +276,8 @@ void AppManagementPageHandler::SetPermission(const std::string& app_id,
 void AppManagementPageHandler::SetResizeLocked(const std::string& app_id,
                                                bool locked) {
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-  if (base::FeatureList::IsEnabled(apps::kAppServiceWithoutMojom)) {
-    apps::AppServiceProxyFactory::GetForProfile(profile_)->SetResizeLocked(
-        app_id, locked);
-  } else {
-    apps::AppServiceProxyFactory::GetForProfile(profile_)->SetResizeLocked(
-        app_id, locked ? apps::mojom::OptionalBool::kTrue
-                       : apps::mojom::OptionalBool::kFalse);
-  }
+  apps::AppServiceProxyFactory::GetForProfile(profile_)->SetResizeLocked(
+      app_id, locked);
 #else
   NOTREACHED();
 #endif
@@ -339,17 +331,11 @@ void AppManagementPageHandler::SetWindowMode(const std::string& app_id,
   auto* provider = web_app::WebAppProvider::GetForLocalAppsUnchecked(profile_);
 
   // Changing window mode is not allowed for isolated web apps.
-  if (provider->registrar().IsIsolated(app_id)) {
+  if (provider->registrar_unsafe().IsIsolated(app_id)) {
     NOTREACHED();
   } else {
-    if (base::FeatureList::IsEnabled(apps::kAppServiceWithoutMojom)) {
-      apps::AppServiceProxyFactory::GetForProfile(profile_)->SetWindowMode(
-          app_id, window_mode);
-
-    } else {
-      apps::AppServiceProxyFactory::GetForProfile(profile_)->SetWindowMode(
-          app_id, apps::ConvertWindowModeToMojomWindowMode(window_mode));
-    }
+    apps::AppServiceProxyFactory::GetForProfile(profile_)->SetWindowMode(
+        app_id, window_mode);
   }
 #endif
 }
@@ -400,6 +386,10 @@ void AppManagementPageHandler::OnWebAppFileHandlerApprovalStateChanged(
     return;
 
   page_->OnAppChanged(std::move(app));
+}
+
+void AppManagementPageHandler::OnAppRegistrarDestroyed() {
+  registrar_observation_.Reset();
 }
 
 app_management::mojom::AppPtr AppManagementPageHandler::CreateUIAppPtr(
@@ -537,7 +527,7 @@ app_management::mojom::AppPtr AppManagementPageHandler::CreateUIAppPtr(
 
 #if !BUILDFLAG(IS_CHROMEOS)
   auto* provider = web_app::WebAppProvider::GetForLocalAppsUnchecked(profile_);
-  app->hide_window_mode = provider->registrar().IsIsolated(app->id);
+  app->hide_window_mode = provider->registrar_unsafe().IsIsolated(app->id);
 #endif
 
   app->publisher_id = update.PublisherId();

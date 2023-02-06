@@ -27,6 +27,7 @@
 #include "ash/app_list/views/folder_header_view.h"
 #include "ash/app_list/views/page_switcher.h"
 #include "ash/app_list/views/paged_apps_grid_view.h"
+#include "ash/app_list/views/productivity_launcher_search_view.h"
 #include "ash/app_list/views/recent_apps_view.h"
 #include "ash/app_list/views/result_selection_controller.h"
 #include "ash/app_list/views/search_box_view.h"
@@ -587,20 +588,19 @@ class AppListViewFocusTest : public views::ViewsTestBase,
   }
 
   void SetAppListState(ash::AppListViewState state) {
-    if (state == ash::AppListViewState::kClosed) {
-      view_->Dismiss();
-      return;
-    }
+    ASSERT_NE(state, ash::AppListViewState::kClosed);
     view_->SetState(state);
   }
 
-  void Show() { view_->Show(AppListViewState::kFullscreenAllApps); }
-
-  SearchResultListView* GetSearchResultListView() {
+  SearchResultContainerView* GetSearchResultListView() {
+    constexpr int kBestMatchContainerIndex = 1;
     return contents_view()
         ->search_result_page_view()
-        ->GetSearchResultListViewForTest();
+        ->productivity_launcher_search_view_for_test()
+        ->result_container_views_for_test()[kBestMatchContainerIndex];
   }
+
+  void Show() { view_->Show(AppListViewState::kFullscreenAllApps); }
 
   AppsGridViewTestApi* test_api() { return test_api_.get(); }
 
@@ -671,6 +671,7 @@ class AppListViewFocusTest : public views::ViewsTestBase,
     result->set_display_score(score);
     result->SetTitle(ASCIIToUTF16(title));
     result->set_best_match(true);
+    result->SetCategory(ash::AppListSearchResultCategory::kWeb);
     GetSearchModel()->results()->Add(std::move(result));
     base::RunLoop().RunUntilIdle();
   }
@@ -1002,8 +1003,8 @@ TEST_F(AppListViewFocusTest, VerticalFocusTraversalInFirstPageOfFolder) {
   TestFocusTraversal(backward_view_list, ui::VKEY_UP, false);
 }
 
-// Tests that focus changes update the search box text.
-TEST_F(AppListViewFocusTest, SearchBoxTextUpdatesOnResultFocus) {
+// Tests that focus changes does not update the search box text.
+TEST_F(AppListViewFocusTest, SearchBoxTextDoesNotUpdateOnResultFocus) {
   Show();
   views::Textfield* search_box = search_box_view()->search_box();
   search_box->InsertText(
@@ -1019,18 +1020,24 @@ TEST_F(AppListViewFocusTest, SearchBoxTextUpdatesOnResultFocus) {
   // Change focus to the next result
   SimulateKeyPress(ui::VKEY_TAB, false);
 
-  EXPECT_EQ(search_box->GetText(), u"TestResult2");
+  EXPECT_EQ(search_box->GetText(), u"TestText");
+  EXPECT_EQ(search_box_view()->GetSearchBoxGhostTextForTest(),
+            "TestResult2 - Websites");
 
   SimulateKeyPress(ui::VKEY_TAB, true);
 
-  EXPECT_EQ(search_box->GetText(), u"TestResult1");
+  EXPECT_EQ(search_box->GetText(), u"TestText");
+  EXPECT_EQ(search_box_view()->GetSearchBoxGhostTextForTest(),
+            "TestResult1 - Websites");
 
   SimulateKeyPress(ui::VKEY_TAB, false);
 
   // Change focus to the final result
   SimulateKeyPress(ui::VKEY_TAB, false);
 
-  EXPECT_EQ(search_box->GetText(), u"TestResult3");
+  EXPECT_EQ(search_box->GetText(), u"TestText");
+  EXPECT_EQ(search_box_view()->GetSearchBoxGhostTextForTest(),
+            "TestResult3 - Websites");
 }
 
 // Tests that ctrl-A selects all text in the searchbox when the SearchBoxView is
@@ -1070,16 +1077,7 @@ TEST_F(AppListViewFocusTest, CtrlASelectsAllTextInSearchbox) {
 
 // Tests that the first search result's view is selected after search results
 // are updated when the focus is on search box.
-// crbug.com/1242053: flaky on chromeos
-#if BUILDFLAG(IS_CHROMEOS)
-#define MAYBE_FirstResultSelectedAfterSearchResultsUpdated \
-  DISABLED_FirstResultSelectedAfterSearchResultsUpdated
-#else
-#define MAYBE_FirstResultSelectedAfterSearchResultsUpdated \
-  FirstResultSelectedAfterSearchResultsUpdated
-#endif
-TEST_F(AppListViewFocusTest,
-       MAYBE_FirstResultSelectedAfterSearchResultsUpdated) {
+TEST_F(AppListViewFocusTest, FirstResultSelectedAfterSearchResultsUpdated) {
   Show();
 
   // Type something in search box to transition to search state and populate
@@ -1089,15 +1087,16 @@ TEST_F(AppListViewFocusTest,
       ui::TextInputClient::InsertTextCursorBehavior::kMoveCursorAfterText);
   const int kListResults = 2;
   SetUpSearchResults(kListResults);
-  SearchResultListView* list_view = GetSearchResultListView();
 
   EXPECT_EQ(search_box_view()->search_box(), focused_view());
-  EXPECT_EQ(list_view->GetResultViewAt(0),
-            contents_view()->search_result_page_view()->first_result_view());
+  SearchResultContainerView* list_view = GetSearchResultListView();
   EXPECT_TRUE(list_view->GetResultViewAt(0)->selected());
 
   ResultSelectionController* selection_controller =
-      contents_view()->search_result_page_view()->result_selection_controller();
+      contents_view()
+          ->search_result_page_view()
+          ->productivity_launcher_search_view_for_test()
+          ->result_selection_controller_for_test();
 
   // Ensures the |ResultSelectionController| selects the correct result.
   EXPECT_EQ(selection_controller->selected_result(),
@@ -1106,8 +1105,6 @@ TEST_F(AppListViewFocusTest,
   // Clear up all search results.
   SetUpSearchResults(0);
   EXPECT_EQ(search_box_view()->search_box(), focused_view());
-  EXPECT_EQ(nullptr,
-            contents_view()->search_result_page_view()->first_result_view());
 }
 
 // Tests hitting Enter key when focus is on search box.
@@ -1224,14 +1221,14 @@ TEST_F(AppListViewFocusTest, SelectionHighlightFollowsChangingPage) {
   apps_grid_view()->pagination_model()->SelectPage(1, false);
 
   // Test that focus followed to the next page.
-  EXPECT_EQ(view_model->view_at(test_api()->TilesPerPage(0)),
+  EXPECT_EQ(view_model->view_at(test_api()->TilesPerPageInPagedGrid(0)),
             apps_grid_view()->selected_view());
 
   // Select the first page.
   apps_grid_view()->pagination_model()->SelectPage(0, false);
 
   // Test that focus followed.
-  EXPECT_EQ(view_model->view_at(test_api()->TilesPerPage(0) - 1),
+  EXPECT_EQ(view_model->view_at(test_api()->TilesPerPageInPagedGrid(0) - 1),
             apps_grid_view()->selected_view());
 }
 
@@ -1644,49 +1641,6 @@ TEST_F(AppListViewTest, CloseFolderByClickingBackground) {
   EXPECT_FALSE(apps_container_view->IsInFolderView());
 }
 
-// Tests that, in clamshell mode, the current app list page resets to the
-// initial page when app list is closed and re-opened.
-TEST_F(AppListViewTest, InitialPageResetClamshellModeTest) {
-  Initialize(false /*is_tablet_mode*/);
-
-  AppListTestModel* model = delegate_->GetTestModel();
-  const int kAppListItemNum =
-      SharedAppListConfig::instance().GetMaxNumOfItemsPerPage() + 1;
-  model->PopulateApps(kAppListItemNum);
-
-  Show();
-
-  apps_grid_view()->pagination_model()->SelectPage(1, false /* animate */);
-
-  // Close and re-open the app list to ensure the current page doesn't persist.
-  view_->SetState(ash::AppListViewState::kClosed);
-  Show();
-
-  EXPECT_EQ(0, apps_grid_view()->pagination_model()->selected_page());
-}
-
-TEST_F(AppListViewTest, PagePersistanceTabletModeTest) {
-  Initialize(/*is_tablet_mode=*/true);
-
-  AppListTestModel* model = delegate_->GetTestModel();
-  const int kAppListItemNum =
-      SharedAppListConfig::instance().GetMaxNumOfItemsPerPage() + 1;
-  model->PopulateApps(kAppListItemNum);
-
-  Show();
-  EXPECT_EQ(ash::AppListViewState::kFullscreenAllApps, view_->app_list_state());
-
-  apps_grid_view()->pagination_model()->SelectPage(1, false /* animate */);
-
-  // Close and re-open the app list to ensure the current page persists.
-  view_->SetState(ash::AppListViewState::kClosed);
-  Show();
-  EXPECT_EQ(ash::AppListViewState::kFullscreenAllApps, view_->app_list_state());
-
-  // The current page should not be reset for the tablet mode app list.
-  EXPECT_EQ(1, apps_grid_view()->pagination_model()->selected_page());
-}
-
 // Tests selecting search result to show embedded Assistant UI.
 TEST_P(AppListViewFocusTest, ShowEmbeddedAssistantUI) {
   Show();
@@ -1721,24 +1675,6 @@ TEST_P(AppListViewFocusTest, ShowEmbeddedAssistantUI) {
   EXPECT_EQ(1, GetOpenFirstSearchResultCount());
   EXPECT_EQ(2, GetTotalOpenSearchResultCount());
   EXPECT_EQ(1, GetTotalOpenAssistantUICount());
-}
-
-// Tests that the correct contents is visible in the contents_view upon
-// reshowing. See b/142069648 for the details.
-TEST_F(AppListViewTest, AppsGridVisibilityOnResetForShow) {
-  Initialize(/*is_tablet_mode=*/true);
-  Show();
-
-  contents_view()->ShowEmbeddedAssistantUI(true);
-  EXPECT_FALSE(contents_view()->apps_container_view()->GetVisible());
-  EXPECT_FALSE(contents_view()->search_result_page_view()->GetVisible());
-  EXPECT_TRUE(assistant_page_view()->GetVisible());
-
-  view_->OnTabletModeChanged(false);
-  Show();
-  EXPECT_TRUE(contents_view()->apps_container_view()->GetVisible());
-  EXPECT_FALSE(contents_view()->search_result_page_view()->GetVisible());
-  EXPECT_FALSE(assistant_page_view()->GetVisible());
 }
 
 // Tests that pressing escape in embedded Assistant UI returns to fullscreen

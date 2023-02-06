@@ -20,7 +20,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/scoped_multi_source_observation.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/threading/thread_task_runner_handle.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/values.h"
 #include "base/version.h"
 #include "build/chromeos_buildflags.h"
@@ -239,8 +239,8 @@ void ShowBlockedByParentDialog(const Extension* extension,
 
   if (ScopedTestDialogAutoConfirm::GetAutoConfirmValue() !=
       ScopedTestDialogAutoConfirm::NONE) {
-    base::ThreadTaskRunnerHandle::Get()->PostTask(FROM_HERE,
-                                                  std::move(done_callback));
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, std::move(done_callback));
     return;
   }
 
@@ -474,12 +474,14 @@ WebstorePrivateBeginInstallWithManifest3Function::Run() {
   InstallTracker* tracker = InstallTracker::Get(browser_context());
   DCHECK(tracker);
   bool is_installed =
-      extensions::ExtensionRegistry::Get(browser_context())->GetExtensionById(
-          details().id, extensions::ExtensionRegistry::EVERYTHING) != nullptr;
+      extensions::ExtensionRegistry::Get(browser_context())
+          ->GetExtensionById(details().id,
+                             extensions::ExtensionRegistry::EVERYTHING) !=
+      nullptr;
   if (is_installed || tracker->GetActiveInstall(details().id)) {
-    return RespondNow(BuildResponse(
-        api::webstore_private::RESULT_ALREADY_INSTALLED,
-        kAlreadyInstalledError));
+    return RespondNow(
+        BuildResponse(api::webstore_private::RESULT_ALREADY_INSTALLED,
+                      kAlreadyInstalledError));
   }
   ActiveInstallData install_data(details().id);
   scoped_active_install_ =
@@ -511,9 +513,8 @@ WebstorePrivateBeginInstallWithManifest3Function::Run() {
 void WebstorePrivateBeginInstallWithManifest3Function::OnWebstoreParseSuccess(
     const std::string& id,
     const SkBitmap& icon,
-    std::unique_ptr<base::DictionaryValue> parsed_manifest) {
+    base::Value::Dict parsed_manifest) {
   CHECK_EQ(details().id, id);
-  CHECK(parsed_manifest);
   parsed_manifest_ = std::move(parsed_manifest);
   icon_ = icon;
 
@@ -522,12 +523,8 @@ void WebstorePrivateBeginInstallWithManifest3Function::OnWebstoreParseSuccess(
 
   std::string error;
   dummy_extension_ = ExtensionInstallPrompt::GetLocalizedExtensionForDisplay(
-      parsed_manifest_.get(),
-      Extension::FROM_WEBSTORE,
-      id,
-      localized_name,
-      std::string(),
-      &error);
+      *parsed_manifest_, Extension::FROM_WEBSTORE, id, localized_name,
+      std::string(), &error);
 
   if (!dummy_extension_.get()) {
     OnWebstoreParseFailure(details().id,
@@ -566,7 +563,8 @@ void WebstorePrivateBeginInstallWithManifest3Function::OnWebstoreParseSuccess(
   // Check the management policy before the installation process begins.
   ExtensionInstallStatus install_status = GetWebstoreExtensionInstallStatus(
       id, profile_, dummy_extension_->manifest()->type(),
-      PermissionsParser::GetRequiredPermissions(dummy_extension_.get()));
+      PermissionsParser::GetRequiredPermissions(dummy_extension_.get()),
+      dummy_extension_->manifest_version());
   if (install_status == kBlockedByPolicy) {
     ShowBlockedByPolicyDialog(
         dummy_extension_.get(), icon_, web_contents,
@@ -808,9 +806,10 @@ void WebstorePrivateBeginInstallWithManifest3Function::HandleInstallProceed(
   // This gets cleared in CrxInstaller::ConfirmInstall(). TODO(asargent) - in
   // the future we may also want to add time-based expiration, where an
   // allowlist entry is only valid for some number of minutes.
+  DCHECK(parsed_manifest_);
   std::unique_ptr<WebstoreInstaller::Approval> approval(
       WebstoreInstaller::Approval::CreateWithNoInstallPrompt(
-          profile_, details().id, std::move(parsed_manifest_), false));
+          profile_, details().id, std::move(*parsed_manifest_), false));
   approval->use_app_installed_bubble = !!details().app_install_bubble;
   // If we are enabling the launcher, we should not show the app list in order
   // to train the user to open it themselves at least once.
@@ -936,8 +935,8 @@ void WebstorePrivateBeginInstallWithManifest3Function::
 
   if (extensions::ScopedTestDialogAutoConfirm::GetAutoConfirmValue() !=
       extensions::ScopedTestDialogAutoConfirm::NONE) {
-    base::ThreadTaskRunnerHandle::Get()->PostTask(FROM_HERE,
-                                                  std::move(done_callback));
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, std::move(done_callback));
     return;
   }
 
@@ -968,8 +967,8 @@ WebstorePrivateCompleteInstallFunction::Run() {
   approval_ =
       g_pending_approvals.Get().PopApproval(profile, params->expected_id);
   if (!approval_) {
-    return RespondNow(Error(kNoPreviousBeginInstallWithManifestError,
-                            params->expected_id));
+    return RespondNow(
+        Error(kNoPreviousBeginInstallWithManifestError, params->expected_id));
   }
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
@@ -1028,8 +1027,8 @@ void WebstorePrivateCompleteInstallFunction::OnExtensionInstallFailure(
     const std::string& error,
     WebstoreInstaller::FailureReason reason) {
   if (test_webstore_installer_delegate) {
-    test_webstore_installer_delegate->OnExtensionInstallFailure(
-        id, error, reason);
+    test_webstore_installer_delegate->OnExtensionInstallFailure(id, error,
+                                                                reason);
   }
 
   VLOG(1) << "Install failed, sending response";
@@ -1080,8 +1079,7 @@ WebstorePrivateGetBrowserLoginFunction::Run() {
 WebstorePrivateGetStoreLoginFunction::WebstorePrivateGetStoreLoginFunction() =
     default;
 
-WebstorePrivateGetStoreLoginFunction::
-    ~WebstorePrivateGetStoreLoginFunction() {}
+WebstorePrivateGetStoreLoginFunction::~WebstorePrivateGetStoreLoginFunction() {}
 
 ExtensionFunction::ResponseAction WebstorePrivateGetStoreLoginFunction::Run() {
   return RespondNow(ArgumentList(GetStoreLogin::Results::Create(
@@ -1091,8 +1089,7 @@ ExtensionFunction::ResponseAction WebstorePrivateGetStoreLoginFunction::Run() {
 WebstorePrivateSetStoreLoginFunction::WebstorePrivateSetStoreLoginFunction() =
     default;
 
-WebstorePrivateSetStoreLoginFunction::
-    ~WebstorePrivateSetStoreLoginFunction() {}
+WebstorePrivateSetStoreLoginFunction::~WebstorePrivateSetStoreLoginFunction() {}
 
 ExtensionFunction::ResponseAction WebstorePrivateSetStoreLoginFunction::Run() {
   std::unique_ptr<SetStoreLogin::Params> params(
@@ -1169,8 +1166,8 @@ WebstorePrivateGetEphemeralAppsEnabledFunction::
 
 ExtensionFunction::ResponseAction
 WebstorePrivateGetEphemeralAppsEnabledFunction::Run() {
-  return RespondNow(ArgumentList(GetEphemeralAppsEnabled::Results::Create(
-      false)));
+  return RespondNow(
+      ArgumentList(GetEphemeralAppsEnabled::Results::Create(false)));
 }
 
 WebstorePrivateIsPendingCustodianApprovalFunction::
@@ -1329,10 +1326,9 @@ void WebstorePrivateGetExtensionStatusFunction::OnManifestParsed(
   }
 
   std::string error;
-  auto dummy_extension =
-      Extension::Create(base::FilePath(), mojom::ManifestLocation::kInternal,
-                        base::Value::AsDictionaryValue(*result),
-                        Extension::FROM_WEBSTORE, extension_id, &error);
+  auto dummy_extension = Extension::Create(
+      base::FilePath(), mojom::ManifestLocation::kInternal, result->GetDict(),
+      Extension::FROM_WEBSTORE, extension_id, &error);
 
   if (!dummy_extension) {
     Respond(Error(kWebstoreInvalidManifestError));
@@ -1341,7 +1337,8 @@ void WebstorePrivateGetExtensionStatusFunction::OnManifestParsed(
 
   ExtensionInstallStatus status = GetWebstoreExtensionInstallStatus(
       extension_id, profile, dummy_extension->GetType(),
-      PermissionsParser::GetRequiredPermissions(dummy_extension.get()));
+      PermissionsParser::GetRequiredPermissions(dummy_extension.get()),
+      dummy_extension->manifest_version());
   api::webstore_private::ExtensionInstallStatus api_status =
       ConvertExtensionInstallStatusForAPI(status);
   Respond(ArgumentList(GetExtensionStatus::Results::Create(api_status)));

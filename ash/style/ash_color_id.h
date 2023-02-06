@@ -119,7 +119,11 @@ namespace ash {
   E_CPONLY(kColorAshButtonIconDisabledColor) \
   E_CPONLY(kColorAshIconSecondaryDisabledColor) \
   E_CPONLY(kColorAshIconPrimaryDisabledColor) \
-  E_CPONLY(KColorAshTextDisabledColor)
+  E_CPONLY(KColorAshTextDisabledColor) \
+  /* Color for icon of the blocked bluetooth device */ \
+  E_CPONLY(kColorAshIconColorBlocked)\
+  /* Color for icon in title of app streaming bubble */ \
+  E_CPONLY(kColorAshEcheIconColorStreaming)
 
 #include "ui/color/color_id_macros.inc"
 

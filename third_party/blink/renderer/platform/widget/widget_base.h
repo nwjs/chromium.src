@@ -127,8 +127,6 @@ class PLATFORM_EXPORT WidgetBase : public mojom::blink::Widget,
 #endif
 
   // mojom::blink::Widget overrides:
-  // TODO(bokan): It'd be clearer what this does if it was called
-  // RequestPresentationTimeForForcedRedraw.
   void ForceRedraw(mojom::blink::Widget::ForceRedrawCallback callback) override;
   void GetWidgetInputHandler(
       mojo::PendingReceiver<mojom::blink::WidgetInputHandler> request,
@@ -160,6 +158,7 @@ class PLATFORM_EXPORT WidgetBase : public mojom::blink::Widget,
       cc::PaintHoldingReason reason,
       absl::optional<cc::PaintHoldingCommitTrigger> trigger) override;
   void OnPauseRenderingChanged(bool) override;
+  void OnCommitRequested() override;
   void DidBeginMainFrame() override;
   void RequestNewLayerTreeFrameSink(
       LayerTreeFrameSinkCallback callback) override;
