@@ -1172,6 +1172,7 @@ if (is_win || (is_linux && !is_component_build)) {
       "//headless:headless_shell_lib",
       #"//third_party/cld_3/src/src:cld_3",
       "//ui/events:dom_keycode_converter",
+      "//tools/v8_context_snapshot:buildflags",
     ]
 
     if (is_component_build) {
@@ -1185,7 +1186,7 @@ if (is_win || (is_linux && !is_component_build)) {
     ]
 
     configs += [ "//build/config/compiler:wexit_time_destructors" ]
-    configs += [ "//tools/v8_context_snapshot:use_v8_context_snapshot" ]
+    configs += [ "//v8:external_startup_data" ]
   }
 
   mac_framework_bundle("chrome_framework") {

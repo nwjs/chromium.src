@@ -7,6 +7,7 @@
 
 #include "chrome/chrome_elf/chrome_elf_main.h"
 #include "base/files/file_util.h"
+#include "tools/v8_context_snapshot/buildflags.h"
 
 #include <stddef.h>
 
@@ -1133,8 +1134,7 @@ absl::optional<int> ChromeMainDelegate::BasicStartupComplete() {
       base::NativeLibraryLoadError error;
 #if defined(OS_MAC)
       base::FilePath node_dll_path = base::mac::FrameworkBundlePath().Append(base::FilePath::FromUTF8Unsafe(base::GetNativeLibraryName("node")));
-      base::ScopedCFTypeRef<CFStringRef> natives_file_name(base::SysUTF8ToCFStringRef(V8_CONTEXT_SNAPSHOT_FILENAME));
-      std::string blob_path = base::mac::PathForFrameworkBundleResource(natives_file_name).AsUTF8Unsafe();
+      std::string blob_path = base::mac::PathForFrameworkBundleResource(BUILDFLAG(V8_CONTEXT_SNAPSHOT_FILENAME)).AsUTF8Unsafe();
 #else
       base::FilePath node_dll_path = base::FilePath::FromUTF8Unsafe(base::GetNativeLibraryName("node"));
 #endif
