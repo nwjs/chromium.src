@@ -136,11 +136,16 @@ void MetricsRenderFrameObserver::DidObserveLoadingBehavior(
 
 void MetricsRenderFrameObserver::DidObserveSubresourceLoad(
     uint32_t number_of_subresources_loaded,
-    uint32_t number_of_subresource_loads_handled_by_service_worker) {
+    uint32_t number_of_subresource_loads_handled_by_service_worker,
+    bool pervasive_payload_requested,
+    int64_t pervasive_bytes_fetched,
+    int64_t total_bytes_fetched) {
   if (page_timing_metrics_sender_)
     page_timing_metrics_sender_->DidObserveSubresourceLoad(
         number_of_subresources_loaded,
-        number_of_subresource_loads_handled_by_service_worker);
+        number_of_subresource_loads_handled_by_service_worker,
+        pervasive_payload_requested, pervasive_bytes_fetched,
+        total_bytes_fetched);
 }
 
 void MetricsRenderFrameObserver::DidObserveNewFeatureUsage(
@@ -385,6 +390,15 @@ void MetricsRenderFrameObserver::OnMainFrameViewportRectangleChanged(
   if (page_timing_metrics_sender_) {
     page_timing_metrics_sender_->OnMainFrameViewportRectangleChanged(
         main_frame_viewport_rect);
+  }
+}
+
+void MetricsRenderFrameObserver::OnMainFrameImageAdRectangleChanged(
+    int element_id,
+    const gfx::Rect& image_ad_rect) {
+  if (page_timing_metrics_sender_) {
+    page_timing_metrics_sender_->OnMainFrameImageAdRectangleChanged(
+        element_id, image_ad_rect);
   }
 }
 

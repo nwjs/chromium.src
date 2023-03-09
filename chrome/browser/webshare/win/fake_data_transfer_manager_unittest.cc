@@ -7,8 +7,8 @@
 #include <windows.storage.h>
 #include <wrl/event.h>
 
-#include "base/bind.h"
-#include "base/callback.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback.h"
 #include "base/memory/weak_ptr.h"
 #include "base/run_loop.h"
 #include "base/test/bind.h"
@@ -93,9 +93,6 @@ class DataRequestedTestCallback {
 class FakeDataTransferManagerTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    if (!FakeDataTransferManager::IsSupportedEnvironment())
-      GTEST_SKIP();
-
     winrt_initializer_.emplace();
     ASSERT_TRUE(winrt_initializer_->Succeeded());
     fake_data_transfer_manager_ =

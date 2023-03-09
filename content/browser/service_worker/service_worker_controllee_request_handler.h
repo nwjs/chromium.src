@@ -51,16 +51,17 @@ class CONTENT_EXPORT ServiceWorkerControlleeRequestHandler final {
   // 1. kSkippedForEmptyFetchHandler
   // 2. kMainResourceSkippedDueToOriginTrial
   // 3. kMainResourceSkippedDueToFeatureFlag
-  // 4. kMainResourceSkippedBecauseMatchedWithAllowedOriginList
+  // 4. kMainResourceSkippedBecauseMatchedWithAllowedScriptList
   enum class FetchHandlerSkipReason {
     kNoFetchHandler = 0,
     kNotSkipped = 1,
     kSkippedForEmptyFetchHandler = 2,
     kMainResourceSkippedDueToOriginTrial = 3,
     kMainResourceSkippedDueToFeatureFlag = 4,
-    kMainResourceSkippedBecauseMatchedWithAllowedOriginList = 5,
+    // kMainResourceSkippedBecauseMatchedWithAllowedOriginList = 5,
+    kMainResourceSkippedBecauseMatchedWithAllowedScriptList = 6,
 
-    kMaxValue = kMainResourceSkippedBecauseMatchedWithAllowedOriginList,
+    kMaxValue = kMainResourceSkippedBecauseMatchedWithAllowedScriptList,
   };
 
   // If |skip_service_worker| is true, service workers are bypassed for
@@ -104,6 +105,8 @@ class CONTENT_EXPORT ServiceWorkerControlleeRequestHandler final {
       const blink::StorageKey& storage_key);
 
   void ContinueWithRegistration(
+      // True when FindRegistrationForClientUrl() is called for navigation.
+      bool is_for_navigation,
       base::TimeTicks start_time,
       blink::ServiceWorkerStatusCode status,
       scoped_refptr<ServiceWorkerRegistration> registration);
@@ -127,11 +130,14 @@ class CONTENT_EXPORT ServiceWorkerControlleeRequestHandler final {
   // initial subresources load, if this handler was for a navigation.
   void MaybeScheduleUpdate();
 
-  // Runs after ServiceWorker has started. Normally ServiceWorker starts before
-  // dispatching the main resource request, but if the
-  // ServiceWorkerBypassFetchHandler feature is enabled, we bypass the main
-  // resource request and then start ServiceWorker for subresources.
-  void DidStartWorkerForSubresources(blink::ServiceWorkerStatusCode status);
+  // Runs after ServiceWorker has started.
+  // Normally ServiceWorker starts before dispatching the main resource request,
+  // but if the ServiceWorkerBypassFetchHandler feature is enabled, we bypass
+  // the main resource request and then start ServiceWorker for subresources.
+  // Also, if we decided to start the service worker for
+  // the ServiceWorkerSkipEmptyFetchHandler feature and the browser handles
+  // an empty fetch handler, this runs after the service worker starts.
+  void DidStartWorker(blink::ServiceWorkerStatusCode status);
 
   const base::WeakPtr<ServiceWorkerContextCore> context_;
   const base::WeakPtr<ServiceWorkerContainerHost> container_host_;

@@ -43,6 +43,52 @@ PasswordGroupingInfo& PasswordGroupingInfo::operator=(
 PasswordGroupingInfo& PasswordGroupingInfo::operator=(
     PasswordGroupingInfo&& other) = default;
 
+std::vector<PasswordForm> PasswordGroupingInfo::GetPasswordFormsVector(
+    const CredentialUIEntry& credential) const {
+  std::vector<PasswordForm> forms;
+
+  // Verify if the credential is in blocked sites first.
+  if (credential.blocked_by_user) {
+    for (const auto& blocked_site : blocked_sites) {
+      if (credential.GetFirstSignonRealm() == blocked_site.signon_realm) {
+        forms.push_back(blocked_site);
+      }
+    }
+    return forms;
+  }
+
+  auto group_id_iterator = map_signon_realm_to_group_id.find(
+      SignonRealm(credential.GetFirstSignonRealm()));
+  if (group_id_iterator == map_signon_realm_to_group_id.end()) {
+    return forms;
+  }
+  GroupId group_id = group_id_iterator->second;
+  auto group_iterator = map_group_id_to_forms.find(group_id);
+  if (group_iterator == map_group_id_to_forms.end()) {
+    return forms;
+  }
+  std::map<UsernamePasswordKey, std::vector<PasswordForm>> map =
+      group_iterator->second;
+  auto forms_iterator =
+      map.find(UsernamePasswordKey(CreateUsernamePasswordSortKey(credential)));
+  if (forms_iterator != map.end()) {
+    forms = forms_iterator->second;
+  }
+  return forms;
+}
+
+std::vector<CredentialUIEntry> PasswordGroupingInfo::GetBlockedSites() const {
+  std::vector<CredentialUIEntry> results(blocked_sites.size());
+  std::transform(blocked_sites.begin(), blocked_sites.end(), results.begin(),
+                 [](const PasswordForm& password_form) {
+                   return CredentialUIEntry(password_form);
+                 });
+  // Sort blocked sites.
+  std::sort(results.begin(), results.end());
+
+  return results;
+}
+
 FacetBrandingInfo CreateBrandingInfoFromFacetURI(
     const CredentialUIEntry& credential) {
   FacetBrandingInfo branding_info;

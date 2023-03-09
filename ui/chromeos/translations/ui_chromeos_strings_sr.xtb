@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Инсталирајте помоћу Linux-а</translation>
 <translation id="2225536596944493418">Желите ли стварно да избришете ставке (<ph name="NUMBER_OF_ITEMS" />)?</translation>
 <translation id="2230062665678605299">Није могуће направити фолдер „<ph name="FOLDER_NAME" />“. <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">Кеш Google диска је обрисан.</translation>
 <translation id="2239068707900391003">Особа са кафом</translation>
 <translation id="2251368349685848079">Врати из отпада</translation>
 <translation id="2282155092769082568">URL за аутоматску конфигурацију:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">Ниједна ставка се не подудара са упитом &lt;b&gt;„<ph name="SEARCH_STRING" />“&lt;/b&gt;</translation>
 <translation id="2894654529758326923">Информације</translation>
 <translation id="2902734494705624966">проширена америчка</translation>
+<translation id="2904378509913846215">Фолдер <ph name="FILENAME" /> већ постоји. Желите ли да га замените оним који премештате?</translation>
 <translation id="290843123675549676">марати</translation>
 <translation id="2923240520113693977">естонски</translation>
 <translation id="2938685643439809023">монголски</translation>
@@ -640,6 +642,7 @@
 <translation id="6241349547798190358">холандски (Белгија)</translation>
 <translation id="6267547857941397424"><ph name="NETWORK_INDEX" />. мрежа од <ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, јачина сигнала <ph name="SIGNAL_STRENGTH" />%, батерија телефона <ph name="BATTERY_STATUS" />%, повежи</translation>
 <translation id="6269630227984243955">малајски</translation>
+<translation id="6271903698064569429">Не можете да отпремите фајлове зато што <ph name="SHARED_DRIVE_NAME" /> нема довољно меморијског простора.</translation>
 <translation id="6287852322318138013">Изаберите апликацију за отварање ове датотеке</translation>
 <translation id="6295542640242147836">Закључај SIM</translation>
 <translation id="6296410173147755564">Неважећи PUK</translation>
@@ -685,6 +688,7 @@
 <translation id="6657585470893396449">Лозинка</translation>
 <translation id="6658865850469097484">Фајлови који су у отпаду дуже од 30 дана се аутоматски бришу.</translation>
 <translation id="6673674183150363784">француски (Француска) са Bépo тастатуром</translation>
+<translation id="670380500182402678">Замени све</translation>
 <translation id="6710022688720561421">Робот</translation>
 <translation id="6710213216561001401">Претходно</translation>
 <translation id="6732801395666424405">Сертификати нису отпремљени</translation>
@@ -903,6 +907,7 @@
 <translation id="8386903983509584791">Скенирање је завршено</translation>
 <translation id="8387733224523483503">Фајл <ph name="FILE_NAME" /> је изведен.</translation>
 <translation id="8395901698320285466">Димензије</translation>
+<translation id="8404498045299006085">Задржи све</translation>
 <translation id="8408068190360279472">Мрежа <ph name="NETWORK_TYPE" />, повезује се</translation>
 <translation id="8425213833346101688">Промени</translation>
 <translation id="8431909052837336408">Промените PIN SIM картице</translation>

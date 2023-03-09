@@ -7,12 +7,12 @@
 #include <utility>
 
 #include "ash/constants/ash_switches.h"
-#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
+#include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/path_service.h"
@@ -226,7 +226,7 @@ void BrowserLoader::Load(LoadCompletionCallback callback) {
 
   base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE, {base::MayBlock()},
-      base::BindOnce(&CheckRegisteredMayBlock, component_manager_),
+      base::BindOnce(&IsInstalledMayBlock, GetLacrosComponentName()),
       base::BindOnce(&BrowserLoader::OnLoadSelection,
                      weak_factory_.GetWeakPtr(), std::move(callback)));
 }

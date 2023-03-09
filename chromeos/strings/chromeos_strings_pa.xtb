@@ -116,6 +116,7 @@
 <translation id="1908234395526491708">UDP ਬੇਨਤੀ ਦੀਆਂ ਅਸਫਲਤਾਵਾਂ</translation>
 <translation id="1947737735496445907">ਪ੍ਰਿੰਟ ਕੀਤੀ ਗਈ</translation>
 <translation id="1951012854035635156">Assistant</translation>
+<translation id="1962550982027027473">ਪੂਰਵ-ਨਿਰਧਾਰਿਤ APN ਲੋੜੀਂਦਾ ਹੈ</translation>
 <translation id="1977994649430373166">Google ਪ੍ਰੋਫਾਈਲ ਫ਼ੋਟੋ</translation>
 <translation id="1979103255016296513">ਪਾਸਵਰਡ ਬਦਲਣਾ ਬਾਕੀ ਹੈ</translation>
 <translation id="1999615961760456652">ਕੈਪਟਿਵ ਪੋਰਟਲ</translation>
@@ -195,6 +196,7 @@
 <translation id="2713444072780614174">ਸਫ਼ੈਦ</translation>
 <translation id="2717139507051041123">ਗੂੜ੍ਹੇ ਰੰਗ ਵਾਲੇ ਮੋਡ ਨੂੰ ਚਾਲੂ ਕਰੋ</translation>
 <translation id="2740531572673183784">ਠੀਕ</translation>
+<translation id="2744221223678373668">ਸ਼ੇਅਰ ਕੀਤਾ</translation>
 <translation id="2751739896257479635">EAP ਫੇਜ਼ 2 ਪ੍ਰਮਾਣੀਕਰਨ</translation>
 <translation id="2783010256799387990">ਪਾਸ ਕੀਤਾ</translation>
 <translation id="2789486458103222910">ਠੀਕ ਹੈ</translation>
@@ -269,6 +271,7 @@
 <translation id="3583278742022654445">ਸਿਗਨਲ ਦੀ ਕਮਜ਼ੋਰ ਤੀਬਰਤਾ। ਵਾਈ-ਫਾਈ ਸਿਗਨਲ ਸਰੋਤ ਦੇ ਨਜ਼ਦੀਕ ਜਾ ਕੇ ਦੇਖੋ।</translation>
 <translation id="3595596368722241419">ਬੈਟਰੀ ਪੂਰੀ</translation>
 <translation id="3600339377155080675">ਸਕ੍ਰੀਨ ਪ੍ਰਤਿਬਿੰਬ ਕਰਨ ਵਾਲੀ ਕੁੰਜੀ</translation>
+<translation id="3602290021589620013">ਪ੍ਰੀਵਿਊ</translation>
 <translation id="3603829704940252505">ਅਵਤਾਰ</translation>
 <translation id="3604713164406837697">ਵਾਲਪੇਪਰ ਬਦਲੋ</translation>
 <translation id="360565022852130722">ਵਾਈ-ਫਾਈ ਨੈੱਟਵਰਕ ਕਮਜ਼ੋਰ ਪ੍ਰੋਟੋਕੋਲ WEP 802.1x ਨਾਲ ਸੁਰੱਖਿਅਤ ਹੈ</translation>
@@ -292,6 +295,7 @@
 <translation id="385051799172605136">ਪਿੱਛੇ</translation>
 <translation id="3858860766373142691">ਨਾਮ</translation>
 <translation id="3862598938296403232">ਵਰਣਨ ਲੋੜੀਂਦਾ ਹੈ</translation>
+<translation id="3865289341173661845">ਮਦਦ ਸਮੱਗਰੀ ਉਪਲਬਧ ਨਹੀਂ ਹੈ।</translation>
 <translation id="3865414814144988605">ਰੈਜ਼ੋਲਿਊਸ਼ਨ</translation>
 <translation id="3866249974567520381">ਵਰਣਨ</translation>
 <translation id="387301095347517405">ਤੁਹਾਡੀ ਬੈਟਰੀ ਵੱਲੋਂ ਚਾਰਜ ਹੋਣ ਦੇ ਚੱਕਰ ਨੂੰ ਪੂਰਾ ਕੀਤੇ ਜਾਣ ਦੀ ਗਿਣਤੀ</translation>
@@ -314,9 +318,11 @@
 <translation id="4044093238444069296">ਗੇਟਵੇ ਨਾਲ ਸੰਪਰਕ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਦਾ</translation>
 <translation id="4046123991198612571">ਅਗਲਾ ਟਰੈਕ</translation>
 <translation id="404928562651467259">ਚਿਤਾਵਨੀ</translation>
+<translation id="4054683689023980771">ਚਿੱਤਰ ਡਾਊਨਲੋਡ ਹੋ ਰਿਹਾ ਹੈ</translation>
 <translation id="4060260348856573701">ਨਵਾਂ APN</translation>
 <translation id="4093865285251893588">ਪ੍ਰੋਫਾਈਲ ਚਿੱਤਰ</translation>
 <translation id="409427325554347132">ਟੈਸਟ ਦੇ ਵੇਰਵੇ ਰੱਖਿਅਤ ਕਰੋ</translation>
+<translation id="4095829376260267438">WPA2WPA3</translation>
 <translation id="4110686435123617899">ਐਲਬਮ ਚੁਣੋ <ph name="TITLE" /> <ph name="DESC" /></translation>
 <translation id="4111761024568264522">USB ਟੱਚਪੈਡ</translation>
 <translation id="4117637339509843559">ਗੂੜ੍ਹਾ ਮੋਡ</translation>
@@ -447,7 +453,6 @@
 <translation id="5168185087976003268">ਬੈਟਰੀ ਦੀ ਸਥਿਤੀ</translation>
 <translation id="5170568018924773124">ਫੋਲਡਰ ਵਿੱਚ ਦਿਖਾਓ</translation>
 <translation id="5190187232518914472">ਆਪਣੀਆਂ ਮਨਪਸੰਦ ਯਾਦਾਂ ਨੂੰ ਤਾਜ਼ਾ ਕਰੋ। ਐਲਬਮਾਂ ਸ਼ਾਮਲ ਜਾਂ ਉਹਨਾਂ ਦਾ ਸੰਪਾਦਨ ਕਰਨ ਲਈ, <ph name="LINK_BEGIN" />Google Photos<ph name="LINK_END" /> 'ਤੇ ਜਾਓ।</translation>
-<translation id="5212543919916444558">ਮੈਨੂੰ ਤੁਹਾਡੀ ਸਕ੍ਰੀਨ 'ਤੇ ਅਜਿਹਾ ਕੁਝ ਵੀ ਨਹੀਂ ਮਿਲਿਆ ਜਿਸ ਵਿੱਚ ਮੈਂ ਤੁਹਾਡੀ ਮਦਦ ਕਰ ਸਕਾਂ। ਮੇਰੇ ਤੋਂ ਕੁਝ ਵੀ ਪੁੱਛਣ ਲਈ ਮਾਈਕ 'ਤੇ ਟੈਪ ਕਰਕੇ ਦੇਖੋ।</translation>
 <translation id="5212593641110061691">ਪੱਤਰਕਾ</translation>
 <translation id="5222676887888702881">ਸਾਈਨ-ਆਊਟ ਕਰੋ</translation>
 <translation id="522307662484862935">ਈਮੇਲ ਪਤਾ ਸ਼ਾਮਲ ਨਾ ਕਰੋ</translation>
@@ -634,6 +639,7 @@
 <translation id="6791471867139427246">ਕੀ-ਬੋਰਡ ਦੀ ਰੌਸ਼ਨੀ ਦਾ ਰੰਗ</translation>
 <translation id="680983167891198932">ਕੁੰਜੀ</translation>
 <translation id="6816797338148849397">ਤੁਹਾਡੀ ਚੋਣ ਨਾਲ ਸੰਬੰਧਿਤ ਜਾਣਕਾਰੀ ਉਪਲਬਧ ਹੈ। ਪਹੁੰਚ ਕਰਨ ਲਈ 'ਉੱਪਰ ਤੀਰ' ਕੁੰਜੀ ਵਰਤੋ।</translation>
+<translation id="6838167112108853532">ਇਸ APN ਨੂੰ ਬੰਦ ਜਾਂ ਹਟਾਇਆ ਨਹੀਂ ਜਾ ਸਕਦਾ। ਪੱਕਾ ਕਰੋ ਕਿ ਚਾਲੂ ਕੀਤੇ ਨੱਥੀ APN ਬੰਦ ਹਨ ਜਾਂ ਹਟਾਏ ਗਏ ਹਨ।</translation>
 <translation id="6853312040151791195">ਡਿਸਚਾਰਜ ਹੋਣ ਦੀ ਦਰ</translation>
 <translation id="6889786074662672253">ਮੁੜ-ਸ਼ੁਰੂ ਕਰਨ ਦੌਰਾਨ ਇਸ ਬਾਹਰੀ ਡੀਵਾਈਸ ਨੂੰ ਅਣਪਲੱਗ ਨਾ ਕਰੋ ਜਾਂ ਆਪਣੇ ਕੰਪਿਊਟਰ ਨੂੰ ਬੰਦ ਨਾ ਕਰੋ। ਤੁਸੀਂ ਇਸ ਵਿੰਡੋ ਨੂੰ ਛੋਟਾ ਕਰ ਸਕਦੇ ਹੋ। ਇਸ ਵਿੱਚ ਕੁਝ ਮਿੰਟ ਲੱਗ ਸਕਦੇ ਹਨ ਅਤੇ ਹੋ ਸਕਦਾ ਹੈ ਕਿ ਇਸ ਸਮੇਂ ਦੌਰਾਨ ਤੁਹਾਡਾ ਬਾਹਰੀ ਡੀਵਾਈਸ ਕੰਮ ਨਾ ਕਰੇ।</translation>
 <translation id="6905724422583748843"><ph name="PAGE_NAME" /> 'ਤੇ ਵਾਪਸ ਜਾਓ</translation>
@@ -699,6 +705,7 @@
 <translation id="7497215489070763236">ਸਰਵਰ CA ਪ੍ਰਮਾਣ-ਪੱਤਰ</translation>
 <translation id="7502658306369382406">IPv6 ਪਤਾ</translation>
 <translation id="7515998400212163428">Android</translation>
+<translation id="7528507600602050979">ਮਦਦ ਸਮੱਗਰੀ ਉਪਲਬਧ ਨਹੀਂ ਹੈ</translation>
 <translation id="7535791657097741517">ਹਲਕਾ ਥੀਮ ਚਾਲੂ ਕਰੋ</translation>
 <translation id="7550715992156305117">ਤਸ਼ਖੀਸ ਸੰਬੰਧੀ ਨਿਯਮਬੱਧ ਕੰਮ</translation>
 <translation id="7551123448725492271">ਡੀਵਾਈਸ ਇੱਕ ਆਡੀਓ ਡੀਵਾਈਸ ਹੈ।</translation>
@@ -716,6 +723,7 @@
 <translation id="7690294790491645610">ਨਵੇਂ ਪਾਸਵਰਡ ਦੀ ਪੁਸ਼ਟੀ ਕਰੋ</translation>
 <translation id="7701040980221191251">ਕੋਈ ਨਹੀਂ</translation>
 <translation id="7705524343798198388">VPN</translation>
+<translation id="7716280709122323042">WPA3</translation>
 <translation id="773153675489693198">ਸਾਈਕਲ ਗਿਣਤੀ</translation>
 <translation id="7747039790905080783">ਪਹਿਲਾਂ ਤੋਂ ਸਾਂਝੀ ਕੀਤੀ ਗਈ ਕੁੰਜੀ</translation>
 <translation id="7762130827864645708">ਤੁਹਾਡੇ ਵੱਲੋਂ ਪਾਸਵਰਡ ਨੂੰ ਬਦਲਣਾ ਸਫਲ ਰਿਹਾ। ਕਿਰਪਾ ਕਰਕੇ ਹੁਣ ਤੋਂ ਨਵੇਂ ਪਾਸਵਰਡ ਦੀ ਵਰਤੋਂ ਕਰੋ।</translation>
@@ -723,6 +731,7 @@
 <translation id="7769672763586021400">ਮਾਡਲ ਆਈ.ਡੀ.</translation>
 <translation id="7778717409420828014">ਤੁਹਾਡਾ ਵਿਚਾਰ Chromebook ਅਨੁਭਵ ਨੂੰ ਬਿਹਤਰ ਬਣਾਉਣ ਵਿੱਚ ਸਾਡੀ ਮਦਦ ਕਰਦਾ ਹੈ ਅਤੇ ਸਾਡੀ ਟੀਮ ਇਸਦੀ ਸਮੀਖਿਆ ਕਰੇਗੀ। ਰਿਪੋਰਟਾਂ ਦੀ ਗਿਣਤੀ ਜ਼ਿਆਦਾ ਹੋਣ ਕਰਕੇ, ਅਸੀਂ ਜਵਾਬ ਨਹੀਂ ਭੇਜ ਸਕਾਂਗੇ।</translation>
 <translation id="7784116172884276937">ਕਿਸੇ DNS ਸਰਵਰ ਦਾ ਸੈੱਟਅੱਪ ਨਹੀਂ ਕੀਤਾ ਗਿਆ</translation>
+<translation id="7791543448312431591">ਜੋੜੋ</translation>
 <translation id="779591286616261875">ਨਵੀਂ ਰਿਪੋਰਟ ਭੇਜੋ</translation>
 <translation id="7799817062559422778">ਹਲਕਾ ਮੋਡ</translation>
 <translation id="780301667611848630">ਨਹੀਂ ਧੰਨਵਾਦ</translation>
@@ -798,6 +807,7 @@
 <translation id="8503836310948963452">ਬਸ ਕੁਝ ਮਿੰਟ ਹੋਰ…</translation>
 <translation id="8508640263392900755">APN ਸੰਬੰਧੀ ਵੇਰਵੇ</translation>
 <translation id="8528615187455571738">Crosvm</translation>
+<translation id="8557447961879934694">WPA2</translation>
 <translation id="8575298406870537639">ਤੁਹਾਡੇ ਕੈਰੀਅਰ ਨੂੰ ਆਪਣੇ ਨੈੱਟਵਰਕ ਨਾਲ ਕਨੈਕਟ ਕਰਨ ਲਈ ਇਸ ਵਿਕਲਪ ਦੀ ਲੋੜ ਹੋ ਸਕਦੀ ਹੈ। ਵੇਰਵਿਆਂ ਲਈ ਆਪਣੇ ਕੈਰੀਅਰ ਨਾਲ ਸੰਪਰਕ ਕਰੋ।</translation>
 <translation id="8576249514688522074">ਸ਼ੁਰੂ ਨਹੀਂ ਕੀਤਾ ਗਿਆ</translation>
 <translation id="8620617069779373398">ਰੋਮਿੰਗ ਅਵਸਥਾ</translation>

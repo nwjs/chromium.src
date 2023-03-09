@@ -161,6 +161,34 @@ public class MessageAnimationCoordinatorUnitTest {
         Assert.assertEquals(m2, currentMessage);
     }
 
+    /**
+     * The child animator is finished but the parent animator has not triggered the callback yet.
+     */
+    @Test
+    @SmallTest
+    public void testSuspendBeforeHideCallbackIsTriggered_withoutStacking() {
+        MessageState m1 = buildMessageState();
+        setMessageIdentifier(m1, 1);
+        mAnimationCoordinator.updateWithoutStacking(m1, false, () -> {});
+
+        verify(m1.handler).show(Position.INVISIBLE, Position.FRONT);
+        verify(m1.handler, never()).hide(anyInt(), anyInt(), anyBoolean());
+        var currentMessage = mAnimationCoordinator.getCurrentDisplayedMessage();
+        Assert.assertEquals(m1, currentMessage);
+
+        var animator = ValueAnimator.ofInt(0, 1);
+        animator.setDuration(100000);
+        doReturn(animator).when(m1.handler).hide(anyInt(), anyInt(), anyBoolean());
+        mAnimationCoordinator.updateWithoutStacking(null, false, () -> {});
+
+        var hidingAnimatorSet = mAnimationCoordinator.getAnimatorSetForTesting();
+        Assert.assertTrue(hidingAnimatorSet.isStarted());
+        mAnimationCoordinator.updateWithoutStacking(null, true, () -> {});
+        // The animation should be ended and the callback should be triggered.
+        Assert.assertFalse(hidingAnimatorSet.isRunning());
+        Assert.assertNull(mAnimationCoordinator.getCurrentDisplayedMessage());
+    }
+
     // Test incoming candidates are same with current displayed ones.
     // [m1, m2] -> [m1, m2]
     @Test
@@ -520,7 +548,6 @@ public class MessageAnimationCoordinatorUnitTest {
         var currentMessages = mAnimationCoordinator.getCurrentDisplayedMessages();
         Assert.assertArrayEquals(new MessageState[] {null, null}, currentMessages.toArray());
         HistogramDelta d1 = new HistogramDelta(MessagesMetrics.STACKING_HISTOGRAM_NAME,
-
                 MessagesMetrics.StackingAnimationType.SHOW_ALL);
         HistogramDelta d2 = new HistogramDelta(MessagesMetrics.STACKING_ACTION_HISTOGRAM_PREFIX
                         + MessagesMetrics.stackingAnimationActionToHistogramSuffix(

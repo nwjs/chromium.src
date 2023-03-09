@@ -10,10 +10,10 @@
 #include <utility>
 #include <vector>
 
-#include "base/bind.h"
-#include "base/callback_helpers.h"
 #include "base/command_line.h"
 #include "base/debug/leak_annotations.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/json/json_writer.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/ref_counted_memory.h"
@@ -39,7 +39,6 @@
 #include "services/tracing/public/cpp/perfetto/perfetto_traced_process.h"
 #include "services/tracing/public/cpp/perfetto/system_producer.h"
 #include "services/tracing/public/cpp/perfetto/trace_string_lookup.h"
-#include "services/tracing/public/cpp/perfetto/traced_value_proto_writer.h"
 #include "services/tracing/public/cpp/perfetto/track_event_thread_local_event_sink.h"
 #include "services/tracing/public/cpp/perfetto/track_name_recorder.h"
 #include "services/tracing/public/cpp/trace_event_args_allowlist.h"
@@ -600,7 +599,6 @@ TraceEventDataSource::~TraceEventDataSource() = default;
 
 void TraceEventDataSource::RegisterStartupHooks() {
 #if !BUILDFLAG(USE_PERFETTO_CLIENT_LIBRARY)
-  RegisterTracedValueProtoWriter();
   base::trace_event::EnableTypedTraceEvents(
       &TraceEventDataSource::OnAddTypedTraceEvent,
       &TraceEventDataSource::OnAddTracePacket,
@@ -1179,9 +1177,10 @@ void TraceEventDataSource::ReturnTraceWriter(
 
   // Return the TraceWriter on the sequence that the PerfettoProducers run on.
   // Needed as the TrackEventThreadLocalEventSink gets deleted on thread
-  // shutdown and we can't safely call TaskRunnerHandle::Get() at that point
-  // (which can happen as the TraceWriter destructor might issue a Mojo call
-  // synchronously, which can trigger a call to TaskRunnerHandle::Get()).
+  // shutdown and we can't safely call task runner GetCurrentDefault() at that
+  // point (which can happen as the TraceWriter destructor might issue a Mojo
+  // call synchronously, which can trigger a call to
+  // task runner GetCurrentDefault()).
   auto* trace_writer_raw = trace_writer.release();
   ANNOTATE_LEAKING_OBJECT_PTR(trace_writer_raw);
   // Use PostTask() on PerfettoTaskRunner to ensure we comply with

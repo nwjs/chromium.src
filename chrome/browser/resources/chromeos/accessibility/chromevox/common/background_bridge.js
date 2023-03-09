@@ -18,7 +18,7 @@ import {QueueMode, TtsSpeechProperties} from './tts_types.js';
 
 export const BackgroundBridge = {};
 
-BackgroundBridge.BrailleBackground = {
+BackgroundBridge.Braille = {
   /**
    * Translate braille cells into text.
    * @param {!ArrayBuffer} cells Cells to be translated.
@@ -26,10 +26,12 @@ BackgroundBridge.BrailleBackground = {
    */
   async backTranslate(cells) {
     return BridgeHelper.sendMessage(
-        BridgeConstants.BrailleBackground.TARGET,
-        BridgeConstants.BrailleBackground.Action.BACK_TRANSLATE, cells);
+        BridgeConstants.Braille.TARGET,
+        BridgeConstants.Braille.Action.BACK_TRANSLATE, cells);
   },
+};
 
+BackgroundBridge.BrailleBackground = {
   /**
    * @param {string} brailleTable The table for this translator to use.
    * @return {!Promise<boolean>}
@@ -39,6 +41,16 @@ BackgroundBridge.BrailleBackground = {
         BridgeConstants.BrailleBackground.TARGET,
         BridgeConstants.BrailleBackground.Action.REFRESH_BRAILLE_TABLE,
         brailleTable);
+  },
+
+  /**
+   * @param {!string} text The text to write in Braille.
+   * @returns {!Promise<boolean>}
+   */
+  async write(text) {
+    return BridgeHelper.sendMessage(
+        BridgeConstants.BrailleBackground.TARGET,
+        BridgeConstants.BrailleBackground.Action.WRITE, text);
   },
 };
 
@@ -98,12 +110,12 @@ BackgroundBridge.ChromeVoxPrefs = {
   },
 };
 
-BackgroundBridge.ChromeVoxState = {
+BackgroundBridge.ChromeVoxRange = {
   /** @return {!Promise} */
   async clearCurrentRange() {
     return BridgeHelper.sendMessage(
-        BridgeConstants.ChromeVoxState.TARGET,
-        BridgeConstants.ChromeVoxState.Action.CLEAR_CURRENT_RANGE);
+        BridgeConstants.ChromeVoxRange.TARGET,
+        BridgeConstants.ChromeVoxRange.Action.CLEAR_CURRENT_RANGE);
   },
 };
 
@@ -120,7 +132,7 @@ BackgroundBridge.CommandHandler = {
   },
 };
 
-BackgroundBridge.EventSourceState = {
+BackgroundBridge.EventSource = {
   /**
    * Gets the current event source.
    * TODO(accessibility): this type is ES6; replace once possible.
@@ -128,8 +140,8 @@ BackgroundBridge.EventSourceState = {
    */
   async get() {
     return BridgeHelper.sendMessage(
-        BridgeConstants.EventSourceState.TARGET,
-        BridgeConstants.EventSourceState.Action.GET);
+        BridgeConstants.EventSource.TARGET,
+        BridgeConstants.EventSource.Action.GET);
   },
 };
 

@@ -9,8 +9,8 @@
 #include <set>
 #include <utility>
 
-#include "base/bind.h"
-#include "base/callback.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
 #include "base/strings/strcat.h"
@@ -122,6 +122,7 @@ const quic::QuicConnectionId kNewCID = quic::test::TestConnectionId(12345678);
 struct TestParams {
   quic::ParsedQuicVersion version;
   bool client_headers_include_h2_stream_dependency;
+  bool enable_quic_priority_incremental_support;
 };
 
 // Used by ::testing::PrintToStringParamName().
@@ -129,7 +130,9 @@ std::string PrintToString(const TestParams& p) {
   return base::StrCat(
       {ParsedQuicVersionToString(p.version), "_",
        (p.client_headers_include_h2_stream_dependency ? "" : "No"),
-       "Dependency"});
+       "Dependency", "_",
+       (p.enable_quic_priority_incremental_support ? "" : "No"),
+       "Incremental"});
 }
 
 std::vector<TestParams> GetTestParams() {
@@ -137,8 +140,10 @@ std::vector<TestParams> GetTestParams() {
   quic::ParsedQuicVersionVector all_supported_versions =
       quic::AllSupportedVersions();
   for (const auto& version : all_supported_versions) {
-      params.push_back(TestParams{version, false});
-      params.push_back(TestParams{version, true});
+    params.push_back(TestParams{version, false, false});
+    params.push_back(TestParams{version, false, true});
+    params.push_back(TestParams{version, true, false});
+    params.push_back(TestParams{version, true, true});
   }
   return params;
 }
@@ -202,7 +207,8 @@ class TestPortMigrationSocketFactory : public MockClientSocketFactory {
 class QuicStreamFactoryTestBase : public WithTaskEnvironment {
  protected:
   QuicStreamFactoryTestBase(quic::ParsedQuicVersion version,
-                            bool client_headers_include_h2_stream_dependency)
+                            bool client_headers_include_h2_stream_dependency,
+                            bool enable_quic_priority_incremental_support)
       : host_resolver_(std::make_unique<MockHostResolver>(
             /*default_result=*/MockHostResolverBase::RuleResolver::
                 GetLocalhostResult())),
@@ -216,7 +222,8 @@ class QuicStreamFactoryTestBase : public WithTaskEnvironment {
                       context_.clock(),
                       kDefaultServerHostName,
                       quic::Perspective::IS_CLIENT,
-                      client_headers_include_h2_stream_dependency),
+                      client_headers_include_h2_stream_dependency,
+                      true),
         server_maker_(version_,
                       quic::QuicUtils::CreateRandomConnectionId(
                           context_.random_generator()),
@@ -237,6 +244,9 @@ class QuicStreamFactoryTestBase : public WithTaskEnvironment {
             &QuicStreamFactoryTestBase::OnFailedOnDefaultNetwork,
             base::Unretained(this))),
         quic_params_(context_.params()) {
+    scoped_feature_list_.InitWithFeatureState(
+        features::kPriorityIncremental,
+        enable_quic_priority_incremental_support);
     FLAGS_quic_enable_http3_grease_randomness = false;
     quic_params_->headers_include_h2_stream_dependency =
         client_headers_include_h2_stream_dependency;
@@ -968,6 +978,7 @@ class QuicStreamFactoryTestBase : public WithTaskEnvironment {
   NetErrorDetails net_error_details_;
 
   raw_ptr<QuicParams> quic_params_;
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 class QuicStreamFactoryTest : public QuicStreamFactoryTestBase,
@@ -976,7 +987,8 @@ class QuicStreamFactoryTest : public QuicStreamFactoryTestBase,
   QuicStreamFactoryTest()
       : QuicStreamFactoryTestBase(
             GetParam().version,
-            GetParam().client_headers_include_h2_stream_dependency) {}
+            GetParam().client_headers_include_h2_stream_dependency,
+            GetParam().enable_quic_priority_incremental_support) {}
 };
 
 INSTANTIATE_TEST_SUITE_P(VersionIncludeStreamDependencySequence,
@@ -1339,7 +1351,7 @@ TEST_P(QuicStreamFactoryTest, CachedInitialRttWithNetworkAnonymizationKey) {
         version_,
         quic::QuicUtils::CreateRandomConnectionId(context_.random_generator()),
         context_.clock(), kDefaultServerHostName, quic::Perspective::IS_CLIENT,
-        quic_params_->headers_include_h2_stream_dependency);
+        quic_params_->headers_include_h2_stream_dependency, true);
 
     MockQuicData socket_data(version_);
     socket_data.AddRead(SYNCHRONOUS, ERR_IO_PENDING);
@@ -1572,7 +1584,7 @@ TEST_P(QuicStreamFactoryTest, ServerNetworkStatsWithNetworkAnonymizationKey) {
         version_,
         quic::QuicUtils::CreateRandomConnectionId(context_.random_generator()),
         context_.clock(), kDefaultServerHostName, quic::Perspective::IS_CLIENT,
-        quic_params_->headers_include_h2_stream_dependency);
+        quic_params_->headers_include_h2_stream_dependency, true);
 
     MockQuicData socket_data(version_);
     socket_data.AddRead(SYNCHRONOUS, ERR_IO_PENDING);
@@ -1727,8 +1739,9 @@ TEST_P(QuicStreamFactoryTest, PoolingWithServerMigration) {
   if (version_.UsesHttp3()) {
     SetIetfConnectionMigrationFlagsAndConnectionOptions();
     config.SetIPv4AlternateServerAddressToSend(
-        ToQuicSocketAddress(alt_address), kNewCID,
-        quic::QuicUtils::GenerateStatelessResetToken(kNewCID));
+        ToQuicSocketAddress(alt_address));
+    config.SetPreferredAddressConnectionIdAndTokenToSend(
+        kNewCID, quic::QuicUtils::GenerateStatelessResetToken(kNewCID));
   } else {
     config.SetIPv4AlternateServerAddressToSend(
         ToQuicSocketAddress(alt_address));
@@ -4786,6 +4799,193 @@ TEST_P(QuicStreamFactoryTest, MultiPortSession) {
                   ->IsSet());
 
   stream.reset();
+  EXPECT_TRUE(quic_data1.AllReadDataConsumed());
+  EXPECT_TRUE(quic_data1.AllWriteDataConsumed());
+  EXPECT_TRUE(quic_data2.AllReadDataConsumed());
+  EXPECT_TRUE(quic_data2.AllWriteDataConsumed());
+}
+
+TEST_P(QuicStreamFactoryTest, SuccessfullyMigratedToServerPreferredAddress) {
+  if (!version_.HasIetfQuicFrames()) {
+    return;
+  }
+  IPEndPoint server_preferred_address = IPEndPoint(IPAddress(1, 2, 3, 4), 123);
+  SetIetfConnectionMigrationFlagsAndConnectionOptions();
+  FLAGS_quic_enable_chaos_protection = false;
+  quic_params_->connection_options.push_back(quic::kSPAD);
+  socket_factory_ = std::make_unique<TestPortMigrationSocketFactory>();
+  Initialize();
+
+  ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
+  crypto_client_stream_factory_.AddProofVerifyDetails(&verify_details);
+  quic::QuicConfig config;
+  config.SetIPv4AlternateServerAddressToSend(
+      ToQuicSocketAddress(server_preferred_address));
+  quic::test::QuicConfigPeer::SetPreferredAddressConnectionIdAndToken(
+      &config, kNewCID, quic::QuicUtils::GenerateStatelessResetToken(kNewCID));
+  crypto_client_stream_factory_.SetConfig(config);
+  // Use cold start mode to send crypto message for handshake.
+  crypto_client_stream_factory_.set_handshake_mode(
+      MockCryptoClientStream::COLD_START_WITH_CHLO_SENT);
+
+  int packet_number = 1;
+  MockQuicData quic_data1(version_);
+  quic_data1.AddRead(SYNCHRONOUS, ERR_IO_PENDING);
+  quic_data1.AddWrite(ASYNC,
+                      client_maker_.MakeDummyCHLOPacket(packet_number++));
+  // Change the encryption level after handshake is confirmed.
+  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_FORWARD_SECURE);
+  quic_data1.AddWrite(SYNCHRONOUS,
+                      ConstructInitialSettingsPacket(packet_number++));
+  quic_data1.AddSocketDataToFactory(socket_factory_.get());
+
+  // Set up the second socket data provider that is used to validate server
+  // preferred address.
+  MockQuicData quic_data2(version_);
+  client_maker_.set_connection_id(kNewCID);
+  quic_data2.AddWrite(SYNCHRONOUS, client_maker_.MakeConnectivityProbingPacket(
+                                       packet_number++, true));
+  quic_data2.AddRead(ASYNC, ERR_IO_PENDING);  // Pause
+  quic_data2.AddRead(ASYNC,
+                     server_maker_.MakeConnectivityProbingPacket(1, false));
+  quic_data2.AddRead(SYNCHRONOUS, ERR_IO_PENDING);
+  quic_data2.AddSocketDataToFactory(socket_factory_.get());
+
+  // Create request.
+  QuicStreamRequest request(factory_.get());
+  EXPECT_EQ(ERR_IO_PENDING,
+            request.Request(
+                scheme_host_port_, version_, privacy_mode_, DEFAULT_PRIORITY,
+                SocketTag(), NetworkAnonymizationKey(), SecureDnsPolicy::kAllow,
+                /*use_dns_aliases=*/true, /*require_dns_https_alpn=*/false,
+                /*cert_verify_flags=*/0, url_, net_log_, &net_error_details_,
+                failed_on_default_network_callback_, callback_.callback()));
+  EXPECT_FALSE(HasActiveSession(scheme_host_port_));
+  EXPECT_TRUE(HasActiveJob(scheme_host_port_, privacy_mode_));
+  base::RunLoop().RunUntilIdle();
+
+  crypto_client_stream_factory_.last_stream()
+      ->NotifySessionOneRttKeyAvailable();
+  base::RunLoop().RunUntilIdle();
+  EXPECT_THAT(callback_.WaitForResult(), IsOk());
+  ASSERT_TRUE(HasActiveSession(scheme_host_port_));
+  EXPECT_FALSE(HasActiveJob(scheme_host_port_, privacy_mode_));
+  QuicChromiumClientSession* session = GetActiveSession(scheme_host_port_);
+  EXPECT_FALSE(
+      session->connection()->GetStats().server_preferred_address_validated);
+  EXPECT_FALSE(session->connection()
+                   ->GetStats()
+                   .failed_to_validate_server_preferred_address);
+  const quic::QuicSocketAddress peer_address = session->peer_address();
+
+  quic_data2.Resume();
+  EXPECT_FALSE(session->connection()->HasPendingPathValidation());
+  EXPECT_TRUE(
+      session->connection()->GetStats().server_preferred_address_validated);
+  EXPECT_FALSE(session->connection()
+                   ->GetStats()
+                   .failed_to_validate_server_preferred_address);
+  EXPECT_NE(session->peer_address(), peer_address);
+  EXPECT_EQ(session->peer_address(),
+            ToQuicSocketAddress(server_preferred_address));
+
+  EXPECT_TRUE(quic_data1.AllReadDataConsumed());
+  EXPECT_TRUE(quic_data1.AllWriteDataConsumed());
+  EXPECT_TRUE(quic_data2.AllReadDataConsumed());
+  EXPECT_TRUE(quic_data2.AllWriteDataConsumed());
+}
+
+TEST_P(QuicStreamFactoryTest, FailedToValidateServerPreferredAddress) {
+  if (!version_.HasIetfQuicFrames()) {
+    return;
+  }
+  IPEndPoint server_preferred_address = IPEndPoint(IPAddress(1, 2, 3, 4), 123);
+  SetIetfConnectionMigrationFlagsAndConnectionOptions();
+  FLAGS_quic_enable_chaos_protection = false;
+  quic_params_->connection_options.push_back(quic::kSPAD);
+  socket_factory_ = std::make_unique<TestPortMigrationSocketFactory>();
+  Initialize();
+
+  ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
+  crypto_client_stream_factory_.AddProofVerifyDetails(&verify_details);
+  quic::QuicConfig config;
+  config.SetIPv4AlternateServerAddressToSend(
+      ToQuicSocketAddress(server_preferred_address));
+  quic::test::QuicConfigPeer::SetPreferredAddressConnectionIdAndToken(
+      &config, kNewCID, quic::QuicUtils::GenerateStatelessResetToken(kNewCID));
+  crypto_client_stream_factory_.SetConfig(config);
+  // Use cold start mode to send crypto message for handshake.
+  crypto_client_stream_factory_.set_handshake_mode(
+      MockCryptoClientStream::COLD_START_WITH_CHLO_SENT);
+
+  int packet_number = 1;
+  MockQuicData quic_data1(version_);
+  quic_data1.AddRead(SYNCHRONOUS, ERR_IO_PENDING);
+  quic_data1.AddWrite(ASYNC,
+                      client_maker_.MakeDummyCHLOPacket(packet_number++));
+  // Change the encryption level after handshake is confirmed.
+  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_FORWARD_SECURE);
+  quic_data1.AddWrite(SYNCHRONOUS,
+                      ConstructInitialSettingsPacket(packet_number++));
+  quic_data1.AddSocketDataToFactory(socket_factory_.get());
+
+  // Set up the second socket data provider that is used to validate server
+  // preferred address.
+  MockQuicData quic_data2(version_);
+  client_maker_.set_connection_id(kNewCID);
+  quic_data2.AddRead(SYNCHRONOUS, ERR_IO_PENDING);
+  // One PATH_CHALLENGE + 2 retires.
+  for (size_t i = 0; i < quic::QuicPathValidator::kMaxRetryTimes + 1; ++i) {
+    quic_data2.AddWrite(
+        SYNCHRONOUS,
+        client_maker_.MakeConnectivityProbingPacket(packet_number++, true));
+  }
+  quic_data2.AddSocketDataToFactory(socket_factory_.get());
+
+  // Create request.
+  QuicStreamRequest request(factory_.get());
+  EXPECT_EQ(ERR_IO_PENDING,
+            request.Request(
+                scheme_host_port_, version_, privacy_mode_, DEFAULT_PRIORITY,
+                SocketTag(), NetworkAnonymizationKey(), SecureDnsPolicy::kAllow,
+                /*use_dns_aliases=*/true, /*require_dns_https_alpn=*/false,
+                /*cert_verify_flags=*/0, url_, net_log_, &net_error_details_,
+                failed_on_default_network_callback_, callback_.callback()));
+  EXPECT_FALSE(HasActiveSession(scheme_host_port_));
+  EXPECT_TRUE(HasActiveJob(scheme_host_port_, privacy_mode_));
+  base::RunLoop().RunUntilIdle();
+
+  crypto_client_stream_factory_.last_stream()
+      ->NotifySessionOneRttKeyAvailable();
+  base::RunLoop().RunUntilIdle();
+  EXPECT_THAT(callback_.WaitForResult(), IsOk());
+  ASSERT_TRUE(HasActiveSession(scheme_host_port_));
+  EXPECT_FALSE(HasActiveJob(scheme_host_port_, privacy_mode_));
+  QuicChromiumClientSession* session = GetActiveSession(scheme_host_port_);
+  EXPECT_FALSE(
+      session->connection()->GetStats().server_preferred_address_validated);
+  EXPECT_FALSE(session->connection()
+                   ->GetStats()
+                   .failed_to_validate_server_preferred_address);
+  const quic::QuicSocketAddress peer_address = session->peer_address();
+
+  auto* path_validator =
+      quic::test::QuicConnectionPeer::path_validator(session->connection());
+  for (size_t i = 0; i < quic::QuicPathValidator::kMaxRetryTimes + 1; ++i) {
+    quic::test::QuicPathValidatorPeer::retry_timer(path_validator)->Cancel();
+    path_validator->OnRetryTimeout();
+  }
+
+  EXPECT_FALSE(session->connection()->HasPendingPathValidation());
+  EXPECT_FALSE(
+      session->connection()->GetStats().server_preferred_address_validated);
+  EXPECT_TRUE(session->connection()
+                  ->GetStats()
+                  .failed_to_validate_server_preferred_address);
+  EXPECT_EQ(session->peer_address(), peer_address);
+  EXPECT_NE(session->peer_address(),
+            ToQuicSocketAddress(server_preferred_address));
+
   EXPECT_TRUE(quic_data1.AllReadDataConsumed());
   EXPECT_TRUE(quic_data1.AllWriteDataConsumed());
   EXPECT_TRUE(quic_data2.AllReadDataConsumed());
@@ -8027,13 +8227,20 @@ void QuicStreamFactoryTestBase::TestMigrationOnWriteErrorMixedStreams2(
                             GetNthClientInitiatedBidirectionalStreamId(1),
                             /*should_include_version=*/false,
                             /*fin=*/true);
+  std::vector<uint64_t> original_packet_numbers = {1};
+  uint64_t retransmit_frame_count = 0;
+  if (base::FeatureList::IsEnabled(features::kPriorityIncremental)) {
+    original_packet_numbers.push_back(2);
+    retransmit_frame_count = 2;
+  }
   socket_data1.AddWrite(
       SYNCHRONOUS, client_maker_.MakeRetransmissionRstAndDataPacket(
-                       /*original_packet_numbers=*/{1}, packet_number++,
+                       original_packet_numbers, packet_number++,
                        /*include_version=*/false,
                        GetNthClientInitiatedBidirectionalStreamId(1),
                        quic::QUIC_STREAM_CANCELLED, GetQpackDecoderStreamId(),
-                       StreamCancellationQpackDecoderInstruction(1)));
+                       StreamCancellationQpackDecoderInstruction(1),
+                       retransmit_frame_count));
   socket_data1.AddWrite(
       SYNCHRONOUS, client_maker_.MakePingPacket(packet_number++,
                                                 /*include_version=*/false));
@@ -8190,13 +8397,20 @@ void QuicStreamFactoryTestBase::TestMigrationOnWriteErrorNonMigratableStream(
                               GetNthClientInitiatedBidirectionalStreamId(0),
                               /*should_include_version=*/false,
                               /*fin=*/true);
+    std::vector<uint64_t> original_packet_numbers = {1};
+    uint64_t retransmit_frame_count = 0;
+    if (base::FeatureList::IsEnabled(features::kPriorityIncremental)) {
+      original_packet_numbers.push_back(2);
+      retransmit_frame_count = 2;
+    }
     socket_data.AddWrite(
         SYNCHRONOUS, client_maker_.MakeRetransmissionRstAndDataPacket(
-                         /*original_packet_numbers=*/{1}, packet_num++,
+                         original_packet_numbers, packet_num++,
                          /*include_version=*/false,
                          GetNthClientInitiatedBidirectionalStreamId(0),
                          quic::QUIC_STREAM_CANCELLED, GetQpackDecoderStreamId(),
-                         StreamCancellationQpackDecoderInstruction(0)));
+                         StreamCancellationQpackDecoderInstruction(0),
+                         retransmit_frame_count));
     socket_data.AddWrite(
         SYNCHRONOUS, client_maker_.MakePingPacket(packet_num++,
                                                   /*include_version=*/false));
@@ -11330,8 +11544,9 @@ TEST_P(QuicStreamFactoryTest, ServerMigrationIPv4ToIPv4) {
   if (version_.UsesHttp3()) {
     SetIetfConnectionMigrationFlagsAndConnectionOptions();
     config.SetIPv4AlternateServerAddressToSend(
-        ToQuicSocketAddress(alt_address), kNewCID,
-        quic::QuicUtils::GenerateStatelessResetToken(kNewCID));
+        ToQuicSocketAddress(alt_address));
+    config.SetPreferredAddressConnectionIdAndTokenToSend(
+        kNewCID, quic::QuicUtils::GenerateStatelessResetToken(kNewCID));
   } else {
     config.SetIPv4AlternateServerAddressToSend(
         ToQuicSocketAddress(alt_address));
@@ -11350,8 +11565,9 @@ TEST_P(QuicStreamFactoryTest, ServerMigrationIPv6ToIPv6) {
   if (version_.UsesHttp3()) {
     SetIetfConnectionMigrationFlagsAndConnectionOptions();
     config.SetIPv6AlternateServerAddressToSend(
-        ToQuicSocketAddress(alt_address), kNewCID,
-        quic::QuicUtils::GenerateStatelessResetToken(kNewCID));
+        ToQuicSocketAddress(alt_address));
+    config.SetPreferredAddressConnectionIdAndTokenToSend(
+        kNewCID, quic::QuicUtils::GenerateStatelessResetToken(kNewCID));
   } else {
     config.SetIPv6AlternateServerAddressToSend(
         ToQuicSocketAddress(alt_address));
@@ -12579,6 +12795,7 @@ struct PoolingTestParams {
   quic::ParsedQuicVersion version;
   DestinationType destination_type;
   bool client_headers_include_h2_stream_dependency;
+  bool enable_quic_priority_incremental_support;
 };
 
 // Used by ::testing::PrintToStringParamName().
@@ -12598,7 +12815,9 @@ std::string PrintToString(const PoolingTestParams& p) {
   return base::StrCat(
       {ParsedQuicVersionToString(p.version), "_", destination_string, "_",
        (p.client_headers_include_h2_stream_dependency ? "" : "No"),
-       "Dependency"});
+       "Dependency", "_",
+       (p.enable_quic_priority_incremental_support ? "" : "No"),
+       "Incremental"});
 }
 
 std::vector<PoolingTestParams> GetPoolingTestParams() {
@@ -12606,12 +12825,18 @@ std::vector<PoolingTestParams> GetPoolingTestParams() {
   quic::ParsedQuicVersionVector all_supported_versions =
       quic::AllSupportedVersions();
   for (const quic::ParsedQuicVersion& version : all_supported_versions) {
-    params.push_back(PoolingTestParams{version, SAME_AS_FIRST, false});
-    params.push_back(PoolingTestParams{version, SAME_AS_FIRST, true});
-    params.push_back(PoolingTestParams{version, SAME_AS_SECOND, false});
-    params.push_back(PoolingTestParams{version, SAME_AS_SECOND, true});
-    params.push_back(PoolingTestParams{version, DIFFERENT, false});
-    params.push_back(PoolingTestParams{version, DIFFERENT, true});
+    params.push_back(PoolingTestParams{version, SAME_AS_FIRST, false, false});
+    params.push_back(PoolingTestParams{version, SAME_AS_FIRST, false, true});
+    params.push_back(PoolingTestParams{version, SAME_AS_FIRST, true, false});
+    params.push_back(PoolingTestParams{version, SAME_AS_FIRST, true, true});
+    params.push_back(PoolingTestParams{version, SAME_AS_SECOND, false, false});
+    params.push_back(PoolingTestParams{version, SAME_AS_SECOND, false, true});
+    params.push_back(PoolingTestParams{version, SAME_AS_SECOND, true, false});
+    params.push_back(PoolingTestParams{version, SAME_AS_SECOND, true, true});
+    params.push_back(PoolingTestParams{version, DIFFERENT, false, false});
+    params.push_back(PoolingTestParams{version, DIFFERENT, false, true});
+    params.push_back(PoolingTestParams{version, DIFFERENT, true, false});
+    params.push_back(PoolingTestParams{version, DIFFERENT, true, true});
   }
   return params;
 }
@@ -12625,7 +12850,8 @@ class QuicStreamFactoryWithDestinationTest
   QuicStreamFactoryWithDestinationTest()
       : QuicStreamFactoryTestBase(
             GetParam().version,
-            GetParam().client_headers_include_h2_stream_dependency),
+            GetParam().client_headers_include_h2_stream_dependency,
+            GetParam().enable_quic_priority_incremental_support),
         destination_type_(GetParam().destination_type),
         hanging_read_(SYNCHRONOUS, ERR_IO_PENDING, 0) {}
 
@@ -15189,7 +15415,8 @@ class QuicStreamFactoryDnsAliasPoolingTest
   QuicStreamFactoryDnsAliasPoolingTest()
       : QuicStreamFactoryTestBase(
             GetParam().version,
-            GetParam().client_headers_include_h2_stream_dependency),
+            GetParam().client_headers_include_h2_stream_dependency,
+            true),
         use_dns_aliases_(GetParam().use_dns_aliases),
         dns_aliases1_(GetParam().dns_aliases1),
         dns_aliases2_(GetParam().dns_aliases2),

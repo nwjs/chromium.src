@@ -174,17 +174,18 @@ bool Mediator::IsDeviceCurrentlyShowingNotification(
   // is found via the initial scenario and via the subsequent scenario, Fast
   // Pair does not consider them the same device.
   return device_currently_showing_notification_ &&
-         device_currently_showing_notification_->metadata_id ==
-             device->metadata_id &&
-         device_currently_showing_notification_->ble_address ==
-             device->ble_address &&
-         device_currently_showing_notification_->protocol == device->protocol;
+         device_currently_showing_notification_->metadata_id() ==
+             device->metadata_id() &&
+         device_currently_showing_notification_->ble_address() ==
+             device->ble_address() &&
+         device_currently_showing_notification_->protocol() ==
+             device->protocol();
 }
 
 bool Mediator::IsDeviceBlockedForDiscoveryNotifications(
     scoped_refptr<Device> device) {
   auto it = discovery_notification_block_list_.find(
-      std::make_pair(device->metadata_id, device->protocol));
+      std::make_pair(device->metadata_id(), device->protocol()));
   if (it == discovery_notification_block_list_.end())
     return false;
 
@@ -228,7 +229,7 @@ void Mediator::OnDeviceFound(scoped_refptr<Device> device) {
 
   // Get the device name and add it to the device object, the device will only
   // have a name in the cache if this is a subsequent pairing scenario.
-  if (device->protocol == Protocol::kFastPairSubsequent &&
+  if (device->protocol() == Protocol::kFastPairSubsequent &&
       device->account_key().has_value()) {
     device->set_display_name(
         fast_pair_repository_->GetDeviceDisplayNameFromCache(
@@ -249,15 +250,6 @@ void Mediator::OnDeviceLost(scoped_refptr<Device> device) {
 
 void Mediator::OnRetroactivePairFound(scoped_refptr<Device> device) {
   QP_LOG(INFO) << __func__ << ": " << device;
-
-  if (device_currently_showing_notification_ &&
-      !IsDeviceCurrentlyShowingNotification(device)) {
-    QP_LOG(INFO) << __func__
-                 << ": first come first serve: already showing notification "
-                    "for different device="
-                 << device_currently_showing_notification_;
-    return;
-  }
 
   // SFUL metrics will cause a crash if Fast Pair is disabled when we
   // retroactive pair, so prevent a notification from popping up.
@@ -317,13 +309,13 @@ void Mediator::OnAccountKeyWrite(scoped_refptr<Device> device,
 
 void Mediator::UpdateDiscoveryBlockList(scoped_refptr<Device> device) {
   auto it = discovery_notification_block_list_.find(
-      std::make_pair(device->metadata_id, device->protocol));
+      std::make_pair(device->metadata_id(), device->protocol()));
 
   // If this is the first time we are seeing this device, create a new value in
   // the block-list.
   if (it == discovery_notification_block_list_.end()) {
-    discovery_notification_block_list_[std::make_pair(device->metadata_id,
-                                                      device->protocol)] =
+    discovery_notification_block_list_[std::make_pair(device->metadata_id(),
+                                                      device->protocol())] =
         std::make_pair(
             DiscoveryNotificationDismissalState::kDismissed,
             absl::make_optional(base::Time::Now() +
@@ -458,8 +450,13 @@ void Mediator::OnAdapterStateChanged() {
     CancelPairing();
   }
 }
-// TODO(b/243586447): Remove this function and associated changes that were used
-// to disable FastPair while classic pair dialog was open.
+
+// TODO(b/243586447): Investigate why the classic BT pairing dialog being open
+// interferes with Fast Pair GATT connections.
+//
+// The logic here is necessary to prevent Fast Pair connecting notification
+// hanging when Fast Pair pairing has starting and the classic BT pairing
+// dialog is open.
 void Mediator::OnHasAtLeastOneDiscoverySessionChanged(
     bool has_at_least_one_discovery_session) {
   has_at_least_one_discovery_session_ = has_at_least_one_discovery_session;
@@ -467,6 +464,19 @@ void Mediator::OnHasAtLeastOneDiscoverySessionChanged(
                   << ": Discovery session status changed, we"
                      " have at least one discovery session: "
                   << has_at_least_one_discovery_session_;
+
+  // If we have a discovery session via the Settings pairing dialog, stop
+  // Fast Pair scanning. Else, start/stop scanning according to the feature
+  // status tracker.
+  SetFastPairState(!has_at_least_one_discovery_session_ &&
+                   feature_status_tracker_->IsFastPairEnabled());
+
+  // If we haven't begun pairing, dismiss all in-progress handshakes which
+  // will interfere with the discovery session. Note that V1 device Fast Pair
+  // via the Settings pairing dialog, so we also check for that case here.
+  if (has_at_least_one_discovery_session_ && !pairer_broker_->IsPairing()) {
+    CancelPairing();
+  }
 }
 
 }  // namespace quick_pair

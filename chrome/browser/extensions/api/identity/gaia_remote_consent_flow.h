@@ -7,6 +7,7 @@
 
 #include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "chrome/browser/extensions/api/identity/extension_token_key.h"
 #include "chrome/browser/extensions/api/identity/web_auth_flow.h"
@@ -53,7 +54,8 @@ class GaiaRemoteConsentFlow
   GaiaRemoteConsentFlow(Delegate* delegate,
                         Profile* profile,
                         const ExtensionTokenKey& token_key,
-                        const RemoteConsentResolutionData& resolution_data);
+                        const RemoteConsentResolutionData& resolution_data,
+                        const std::string& extension_name);
   ~GaiaRemoteConsentFlow() override;
 
   GaiaRemoteConsentFlow(const GaiaRemoteConsentFlow& other) = delete;
@@ -65,12 +67,19 @@ class GaiaRemoteConsentFlow
   // Set accounts in cookie completion callback.
   void OnSetAccountsComplete(signin::SetAccountsInCookieResult result);
 
-  // setConsentResult() JavaScript callback.
+  // setConsentResult() JavaScript callback when using an App Window to display
+  // the Auth page.
   void OnConsentResultSet(const std::string& consent_result,
                           const std::string& window_id);
 
+  // Handles `consent_result` value when using either a Browser Tab or an App
+  // Window to display the Auth page.
+  void ReactToConsentResult(const std::string& consent_result);
+
   // WebAuthFlow::Delegate:
   void OnAuthFlowFailure(WebAuthFlow::Failure failure) override;
+  void OnNavigationFinished(
+      content::NavigationHandle* navigation_handle) override;
 
   // signin::AccountsCookieMutator::PartitionDelegate:
   std::unique_ptr<GaiaAuthFetcher> CreateGaiaAuthFetcherForPartition(
@@ -86,6 +95,8 @@ class GaiaRemoteConsentFlow
   WebAuthFlow* GetWebAuthFlowForTesting() const;
 
  private:
+  void StartWebFlow();
+
   void SetAccountsInCookie();
 
   void GaiaRemoteConsentFlowFailed(Failure failure);
@@ -98,6 +109,7 @@ class GaiaRemoteConsentFlow
   raw_ptr<Profile> profile_;
   CoreAccountId account_id_;
   RemoteConsentResolutionData resolution_data_;
+  const std::string extension_name_;
 
   std::unique_ptr<WebAuthFlow> web_flow_;
   bool web_flow_started_;
@@ -108,6 +120,8 @@ class GaiaRemoteConsentFlow
   base::ScopedObservation<signin::IdentityManager,
                           signin::IdentityManager::Observer>
       scoped_observation_{this};
+
+  base::WeakPtrFactory<GaiaRemoteConsentFlow> weak_factory{this};
 };
 
 }  // namespace extensions

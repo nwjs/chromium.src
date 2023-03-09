@@ -32,11 +32,12 @@
 #include <algorithm>
 #include <utility>
 
-#include "base/bind.h"
 #include "base/feature_list.h"
+#include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/numerics/safe_conversions.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/unguessable_token.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "services/metrics/public/cpp/metrics_utils.h"
@@ -631,7 +632,8 @@ void ResourceLoader::DidFinishLoadingBody() {
         deferred_finish_loading_info_->response_end_time,
         response.EncodedDataLength(), response.EncodedBodyLength(),
         response.DecodedBodyLength(),
-        deferred_finish_loading_info_->should_report_corb_blocking);
+        deferred_finish_loading_info_->should_report_corb_blocking,
+        deferred_finish_loading_info_->pervasive_payload_requested);
   }
 }
 
@@ -1236,13 +1238,13 @@ void ResourceLoader::DidFinishLoadingFirstPartInMultipart() {
 
   fetcher_->HandleLoaderFinish(resource_.Get(), base::TimeTicks(),
                                ResourceFetcher::kDidFinishFirstPartInMultipart,
-                               0, false);
+                               0, false, false, 0);
 }
 
 void ResourceLoader::DidFinishLoading(
     base::TimeTicks response_end_time,
     int64_t encoded_data_length,
-    int64_t encoded_body_length,
+    uint64_t encoded_body_length,
     int64_t decoded_body_length,
     bool should_report_corb_blocking,
     absl::optional<bool> pervasive_payload_requested) {
@@ -1255,16 +1257,6 @@ void ResourceLoader::DidFinishLoading(
   resource_->SetEncodedBodyLength(encoded_body_length);
   resource_->SetDecodedBodyLength(decoded_body_length);
 
-  if (pervasive_payload_requested.has_value()) {
-    ukm::SourceId ukm_source_id =
-        resource_->GetResourceRequest().GetUkmSourceId();
-    ukm::builders::Network_CacheTransparency builder(ukm_source_id);
-    builder.SetFoundPervasivePayload(pervasive_payload_requested.value());
-    builder.SetTotalBytesFetched(
-        ukm::GetExponentialBucketMinForBytes(encoded_data_length));
-    builder.Record(fetcher_->UkmRecorder());
-  }
-
   response_end_time_for_error_cases_ = response_end_time;
 
   if ((response_body_loader_ && !has_seen_end_of_body_ &&
@@ -1273,7 +1265,8 @@ void ResourceLoader::DidFinishLoading(
     // If the body is still being loaded, we defer the completion until all the
     // body is received.
     deferred_finish_loading_info_ = DeferredFinishLoadingInfo{
-        response_end_time, should_report_corb_blocking};
+        response_end_time, should_report_corb_blocking,
+        pervasive_payload_requested};
 
     if (data_pipe_completion_notifier_)
       data_pipe_completion_notifier_->SignalComplete();
@@ -1297,13 +1290,14 @@ void ResourceLoader::DidFinishLoading(
 
   fetcher_->HandleLoaderFinish(
       resource_.Get(), response_end_time, ResourceFetcher::kDidFinishLoading,
-      inflight_keepalive_bytes_, should_report_corb_blocking);
+      inflight_keepalive_bytes_, should_report_corb_blocking,
+      pervasive_payload_requested.value_or(false), encoded_data_length);
 }
 
 void ResourceLoader::DidFail(const WebURLError& error,
                              base::TimeTicks response_end_time,
                              int64_t encoded_data_length,
-                             int64_t encoded_body_length,
+                             uint64_t encoded_body_length,
                              int64_t decoded_body_length) {
   const ResourceRequestHead& request = resource_->GetResourceRequest();
   response_end_time_for_error_cases_ = response_end_time;
@@ -1392,7 +1386,7 @@ void ResourceLoader::RequestSynchronously(const ResourceRequestHead& request) {
   absl::optional<WebURLError> error_out;
   WebData data_out;
   int64_t encoded_data_length = WebURLLoaderClient::kUnknownEncodedDataLength;
-  int64_t encoded_body_length = 0;
+  uint64_t encoded_body_length = 0;
   WebBlobInfo downloaded_blob;
 
   if (CanHandleDataURLRequestLocally(request)) {

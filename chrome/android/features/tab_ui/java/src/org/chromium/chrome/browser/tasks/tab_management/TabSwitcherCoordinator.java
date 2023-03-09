@@ -24,6 +24,7 @@ import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.Supplier;
+import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -52,6 +53,7 @@ import org.chromium.chrome.browser.tasks.tab_management.TabSelectionEditorAction
 import org.chromium.chrome.browser.tasks.tab_management.TabSelectionEditorAction.ShowMode;
 import org.chromium.chrome.browser.tasks.tab_management.TabSelectionEditorCoordinator.TabSelectionEditorController;
 import org.chromium.chrome.browser.tasks.tab_management.TabSelectionEditorCoordinator.TabSelectionEditorNavigationProvider;
+import org.chromium.chrome.browser.tasks.tab_management.TabUiMetricsHelper.TabSelectionEditorOpenMetricGroups;
 import org.chromium.chrome.browser.tasks.tab_management.suggestions.TabSuggestionsOrchestrator;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.features.start_surface.StartSurfaceConfiguration;
@@ -75,7 +77,8 @@ import java.util.List;
 public class TabSwitcherCoordinator
         implements DestroyObserver, TabSwitcher, TabSwitcher.TabListDelegate,
                    TabSwitcherMediator.ResetHandler, TabSwitcherMediator.MessageItemsController,
-                   TabSwitcherMediator.PriceWelcomeMessageController {
+                   TabSwitcherMediator.PriceWelcomeMessageController,
+                   TabGridItemTouchHelperCallback.OnLongPressTabItemEventListener {
     /**
      * Interface to control the IPH dialog.
      */
@@ -170,8 +173,8 @@ public class TabSwitcherCoordinator
             @NonNull Supplier<DynamicResourceLoader> dynamicResourceLoaderSupplier,
             @NonNull SnackbarManager snackbarManager,
             @NonNull ModalDialogManager modalDialogManager,
-            @Nullable OneshotSupplier<IncognitoReauthController>
-                    incognitoReauthControllerSupplier) {
+            @Nullable OneshotSupplier<IncognitoReauthController> incognitoReauthControllerSupplier,
+            @Nullable BackPressManager backPressManager) {
         try (TraceEvent e = TraceEvent.scoped("TabSwitcherCoordinator.constructor")) {
             mActivity = activity;
             mMode = mode;
@@ -197,7 +200,8 @@ public class TabSwitcherCoordinator
 
             mMediator = new TabSwitcherMediator(activity, this, containerViewModel,
                     tabModelSelector, browserControls, container, tabContentManager, this, this,
-                    multiWindowModeStateDispatcher, mode, incognitoReauthControllerSupplier);
+                    multiWindowModeStateDispatcher, mode, incognitoReauthControllerSupplier,
+                    backPressManager);
 
             mTabSwitcherCustomViewManager = new TabSwitcherCustomViewManager(mMediator);
 
@@ -217,7 +221,7 @@ public class TabSwitcherCoordinator
             mTabListCoordinator = new TabListCoordinator(mode, activity, tabModelSelector,
                     mMultiThumbnailCardProvider, titleProvider, true, mMediator, null,
                     TabProperties.UiType.CLOSABLE, null, this, container, true, COMPONENT_NAME,
-                    mRootView, null);
+                    mRootView, null, this);
             mContainerViewChangeProcessor = PropertyModelChangeProcessor.create(containerViewModel,
                     mTabListCoordinator.getContainerView(), TabListContainerViewBinder::bind);
 
@@ -532,7 +536,8 @@ public class TabSwitcherCoordinator
         }
         mTabSelectionEditorCoordinator.getController().show(
                 tabs, /*preSelectedTabCount=*/0, mTabListCoordinator.getRecyclerViewPosition());
-        RecordUserAction.record("TabMultiSelectV2.OpenFromGrid");
+        TabUiMetricsHelper.recordSelectionEditorOpenMetrics(
+                TabSelectionEditorOpenMetricGroups.OPEN_FROM_GRID, mActivity);
     }
 
     private void setUpPriceTracking(Context context, ModalDialogManager modalDialogManager) {
@@ -575,6 +580,11 @@ public class TabSwitcherCoordinator
     @Override
     public TabSwitcherCustomViewManager getTabSwitcherCustomViewManager() {
         return mTabSwitcherCustomViewManager;
+    }
+
+    @Override
+    public boolean onBackPressed() {
+        return mMediator.onBackPressed();
     }
 
     @Override
@@ -676,7 +686,6 @@ public class TabSwitcherCoordinator
     @Override
     public boolean resetWithTabs(
             @Nullable List<PseudoTab> tabs, boolean quickMode, boolean mruMode) {
-        mMediator.registerFirstMeaningfulPaintRecorder();
         // Invalidate price welcome message for every reset so that the stale message won't be
         // restored by mistake (e.g. from tabClosureUndone in TabSwitcherMediator).
         if (mPriceMessageService != null) {
@@ -759,6 +768,13 @@ public class TabSwitcherCoordinator
                                           .getCurrentTabModelFilter()
                                           .index());
         }
+    }
+
+    // OnLongPressTabItemEventListener implementation
+    @Override
+    public void onLongPressEvent(int tabId) {
+        showTabSelectionEditorV2();
+        RecordUserAction.record("TabMultiSelectV2.OpenLongPressInGrid");
     }
 
     private void appendMessagesTo(int index) {

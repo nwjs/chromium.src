@@ -13,14 +13,15 @@
 #include <string>
 #include <utility>
 
-#include "base/bind.h"
-#include "base/callback_forward.h"
 #include "base/containers/flat_set.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback_forward.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/safe_ref.h"
 #include "base/observer_list.h"
 #include "base/scoped_observation_traits.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/threading/sequence_bound.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
@@ -72,7 +73,6 @@
 #include "third_party/blink/public/mojom/frame_sinks/embedded_frame_sink.mojom-forward.h"
 #include "third_party/blink/public/mojom/indexeddb/indexeddb.mojom-shared.h"
 #include "third_party/blink/public/mojom/loader/code_cache.mojom-forward.h"
-#include "third_party/blink/public/mojom/native_io/native_io.mojom-forward.h"
 #include "third_party/blink/public/mojom/plugins/plugin_registry.mojom-forward.h"
 #include "third_party/blink/public/mojom/push_messaging/push_messaging.mojom-forward.h"
 #include "third_party/blink/public/mojom/webdatabase/web_database.mojom-forward.h"
@@ -310,6 +310,7 @@ class CONTENT_EXPORT RenderProcessHostImpl
       mojo::PendingReceiver<blink::mojom::CacheStorage> receiver) override;
   void BindIndexedDB(
       const blink::StorageKey& storage_key,
+      const GlobalRenderFrameHostId& rfh_id,
       mojo::PendingReceiver<blink::mojom::IDBFactory> receiver) override;
   void BindBucketManagerHost(
       base::WeakPtr<BucketContext> bucket_context,
@@ -596,12 +597,6 @@ class CONTENT_EXPORT RenderProcessHostImpl
       blink::mojom::FileSystemAccessManager::GetSandboxedFileSystemCallback
           callback) override;
 
-  // Binds |receiver| to a NativeIOHost instance indirectly owned by the
-  // StoragePartition. Used by frames and workers via BrowserInterfaceBroker.
-  void BindNativeIOHost(
-      const blink::StorageKey& storage_key,
-      mojo::PendingReceiver<blink::mojom::NativeIOHost> receiver);
-
   FileSystemManagerImpl* GetFileSystemManagerForTesting() {
     return file_system_manager_impl_.get();
   }
@@ -752,6 +747,10 @@ class CONTENT_EXPORT RenderProcessHostImpl
   // Notifies the renderer process of memory pressure level.
   void NotifyMemoryPressureToRenderer(
       base::MemoryPressureListener::MemoryPressureLevel level);
+
+  uint64_t GetPrivateMemoryFootprint() const {
+    return private_memory_footprint_bytes_;
+  }
 #endif
 
  protected:
@@ -834,6 +833,10 @@ class CONTENT_EXPORT RenderProcessHostImpl
                            BrowserHistogramCallback callback) override;
   void SuddenTerminationChanged(bool enabled) override;
   void RecordUserMetricsAction(const std::string& action) override;
+#if BUILDFLAG(IS_ANDROID)
+  void SetPrivateMemoryFootprint(
+      uint64_t private_memory_footprint_bytes) override;
+#endif
   void ResolveProxy(
       const GURL& url,
       mojom::RendererHost::ResolveProxyCallback callback) override;
@@ -1106,7 +1109,10 @@ class CONTENT_EXPORT RenderProcessHostImpl
   BrowserContext* browser_context_ = nullptr;
 
   // Owned by |browser_context_|.
-  raw_ptr<StoragePartitionImpl> storage_partition_impl_;
+  //
+  // TODO(https://crbug.com/1382971): Change back to `raw_ptr` after the ad-hoc
+  // debugging is no longer needed to investigate the bug.
+  base::WeakPtr<StoragePartitionImpl> storage_partition_impl_;
 
   // Owns the singular DomStorageProvider binding established by this renderer.
   mojo::Receiver<blink::mojom::DomStorageProvider>
@@ -1245,6 +1251,11 @@ class CONTENT_EXPORT RenderProcessHostImpl
 
 #if BUILDFLAG(ENABLE_PPAPI)
   scoped_refptr<PepperRendererConnection> pepper_renderer_connection_;
+#endif
+
+#if BUILDFLAG(IS_ANDROID)
+  // The private memory footprint of the render process.
+  uint64_t private_memory_footprint_bytes_ = 0u;
 #endif
 
   // IOThreadHostImpl owns some IO-thread state associated with this

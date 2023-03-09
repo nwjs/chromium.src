@@ -9,7 +9,7 @@
 #include <ostream>
 #include <string>
 
-#include "base/callback.h"
+#include "base/functional/callback.h"
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
@@ -17,11 +17,13 @@
 #include "base/types/expected.h"
 #include "base/values.h"
 #include "chrome/browser/web_applications/commands/web_app_command.h"
+#include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_response_reader_factory.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
 #include "chrome/browser/web_applications/os_integration/os_integration_manager.h"
 #include "chrome/browser/web_applications/web_app_id.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "components/webapps/browser/install_result_code.h"
+#include "components/webapps/browser/installable/installable_logging.h"
 #include "third_party/blink/public/mojom/manifest/manifest.mojom-forward.h"
 
 class GURL;
@@ -82,6 +84,20 @@ class InstallIsolatedWebAppCommand : public WebAppCommandTemplate<AppLock> {
           void(base::expected<InstallIsolatedWebAppCommandSuccess,
                               InstallIsolatedWebAppCommandError>)> callback);
 
+  // Same constructor as above, but additionally exposes the
+  // `response_reader_factory` for providing a mock factory in testing.
+  explicit InstallIsolatedWebAppCommand(
+      const IsolatedWebAppUrlInfo& isolation_info,
+      const IsolationData& isolation_data,
+      std::unique_ptr<content::WebContents> web_contents,
+      std::unique_ptr<WebAppUrlLoader> url_loader,
+      content::BrowserContext& browser_context,
+      base::OnceCallback<
+          void(base::expected<InstallIsolatedWebAppCommandSuccess,
+                              InstallIsolatedWebAppCommandError>)> callback,
+      std::unique_ptr<IsolatedWebAppResponseReaderFactory>
+          response_reader_factory);
+
   InstallIsolatedWebAppCommand(const InstallIsolatedWebAppCommand&) = delete;
   InstallIsolatedWebAppCommand& operator=(const InstallIsolatedWebAppCommand&) =
       delete;
@@ -92,10 +108,9 @@ class InstallIsolatedWebAppCommand : public WebAppCommandTemplate<AppLock> {
 
   ~InstallIsolatedWebAppCommand() override;
 
-  LockDescription& lock_description() const override;
-
+  // WebAppCommandTemplate<AppLock>:
+  const LockDescription& lock_description() const override;
   base::Value ToDebugValue() const override;
-
   void StartWithLock(std::unique_ptr<AppLock> lock) override;
   void OnSyncSourceRemoved() override;
   void OnShutdown() override;
@@ -113,6 +128,11 @@ class InstallIsolatedWebAppCommand : public WebAppCommandTemplate<AppLock> {
                   std::map<GURL, std::vector<SkBitmap>> icons_map,
                   std::map<GURL, int /*http_status_code*/> icons_http_results);
 
+  void CheckTrustAndSignatures();
+  void CheckTrustAndSignaturesOfBundle(const base::FilePath& path);
+  void OnTrustAndSignaturesChecked(
+      absl::optional<IsolatedWebAppResponseReaderFactory::Error> error);
+
   void CreateStoragePartition();
 
   void LoadUrl();
@@ -123,7 +143,7 @@ class InstallIsolatedWebAppCommand : public WebAppCommandTemplate<AppLock> {
       blink::mojom::ManifestPtr opt_manifest,
       const GURL& manifest_url,
       bool valid_manifest_for_web_app,
-      bool is_installable);
+      webapps::InstallableStatusCode error_code);
   base::expected<WebAppInstallInfo, std::string> CreateInstallInfoFromManifest(
       const blink::mojom::Manifest& manifest,
       const GURL& manifest_url);
@@ -139,6 +159,8 @@ class InstallIsolatedWebAppCommand : public WebAppCommandTemplate<AppLock> {
 
   IsolatedWebAppUrlInfo isolation_info_;
   IsolationData isolation_data_;
+
+  std::unique_ptr<IsolatedWebAppResponseReaderFactory> response_reader_factory_;
 
   std::unique_ptr<content::WebContents> web_contents_;
 

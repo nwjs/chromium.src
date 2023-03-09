@@ -6,7 +6,8 @@
 
 #include <stddef.h>
 
-#include "base/allocator/buildflags.h"
+#include <string>
+
 #include "base/allocator/partition_allocator/partition_alloc_buildflags.h"
 #include "base/debug/activity_tracker.h"
 #include "base/debug/alias.h"
@@ -23,6 +24,7 @@
 #include "base/threading/scoped_thread_priority.h"
 #include "base/threading/thread_id_name_manager.h"
 #include "base/threading/thread_restrictions.h"
+#include "base/threading/threading_features.h"
 #include "base/time/time_override.h"
 #include "base/win/scoped_handle.h"
 #include "base/win/windows_version.h"
@@ -30,7 +32,7 @@
 
 #include <windows.h>
 
-#if BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC) && BUILDFLAG(STARSCAN)
+#if BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC) && BUILDFLAG(USE_STARSCAN)
 #include "base/allocator/partition_allocator/starscan/pcscan.h"
 #include "base/allocator/partition_allocator/starscan/stack/stack.h"
 #endif
@@ -40,20 +42,18 @@ namespace base {
 BASE_FEATURE(kUseThreadPriorityLowest,
              "UseThreadPriorityLowest",
              base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kAboveNormalCompositingBrowserWin,
+             "AboveNormalCompositingBrowserWin",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 namespace {
 
 // Flag used to set thread priority to |THREAD_PRIORITY_LOWEST| for
 // |kUseThreadPriorityLowest| Feature.
 std::atomic<bool> g_use_thread_priority_lowest{false};
-
-// The most common value returned by ::GetThreadPriority() after background
-// thread mode is enabled on Windows 7.
-constexpr int kWin7BackgroundThreadModePriority = 4;
-
-// Value sometimes returned by ::GetThreadPriority() after thread priority is
-// set to normal on Windows 7.
-constexpr int kWin7NormalPriority = 3;
+// Flag used to map Compositing ThreadType |THREAD_PRIORITY_ABOVE_NORMAL| on the
+// UI thread for |kAboveNormalCompositingBrowserWin| Feature.
+std::atomic<bool> g_above_normal_compositing_browser{false};
 
 // These values are sometimes returned by ::GetThreadPriority().
 constexpr int kWinNormalPriority1 = 5;
@@ -117,7 +117,7 @@ DWORD __stdcall ThreadFunc(void* params) {
                                 FALSE,
                                 DUPLICATE_SAME_ACCESS);
 
-#if BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC) && BUILDFLAG(STARSCAN)
+#if BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC) && BUILDFLAG(USE_STARSCAN)
   partition_alloc::internal::PCScan::NotifyThreadCreated(
       partition_alloc::internal::GetStackPointer());
 #endif
@@ -138,7 +138,7 @@ DWORD __stdcall ThreadFunc(void* params) {
                                                    PlatformThread::CurrentId());
   }
 
-#if BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC) && BUILDFLAG(STARSCAN)
+#if BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC) && BUILDFLAG(USE_STARSCAN)
   partition_alloc::internal::PCScan::NotifyThreadDestroyed();
 #endif
 
@@ -237,10 +237,7 @@ void AssertMemoryPriority(HANDLE thread, int memory_priority) {
       reinterpret_cast<decltype(&::GetThreadInformation)>(::GetProcAddress(
           ::GetModuleHandle(L"Kernel32.dll"), "GetThreadInformation"));
 
-  if (!get_thread_information_fn) {
-    DCHECK_EQ(win::GetVersion(), win::Version::WIN7);
-    return;
-  }
+  DCHECK(get_thread_information_fn);
 
   MEMORY_PRIORITY_INFORMATION memory_priority_information = {};
   DCHECK(get_thread_information_fn(thread, ::ThreadMemoryPriority,
@@ -380,7 +377,8 @@ namespace {
 void SetCurrentThreadPriority(ThreadType thread_type,
                               MessagePumpType pump_type_hint) {
   if (thread_type == ThreadType::kCompositing &&
-      pump_type_hint == MessagePumpType::UI) {
+      pump_type_hint == MessagePumpType::UI &&
+      !g_above_normal_compositing_browser) {
     // Ignore kCompositing thread type for UI thread as Windows has a
     // priority boost mechanism. See
     // https://docs.microsoft.com/en-us/windows/win32/procthread/priority-boosts
@@ -542,14 +540,8 @@ ThreadPriorityForTest PlatformThread::GetCurrentThreadPriorityForTest() {
     return ThreadPriorityForTest::kBackground;
 
   switch (priority) {
-    case kWin7BackgroundThreadModePriority:
-      DCHECK_EQ(win::GetVersion(), win::Version::WIN7);
-      return ThreadPriorityForTest::kBackground;
     case THREAD_PRIORITY_BELOW_NORMAL:
       return ThreadPriorityForTest::kUtility;
-    case kWin7NormalPriority:
-      DCHECK_EQ(win::GetVersion(), win::Version::WIN7);
-      [[fallthrough]];
     case THREAD_PRIORITY_NORMAL:
       return ThreadPriorityForTest::kNormal;
     case kWinNormalPriority1:
@@ -572,6 +564,9 @@ ThreadPriorityForTest PlatformThread::GetCurrentThreadPriorityForTest() {
 void InitializePlatformThreadFeatures() {
   g_use_thread_priority_lowest.store(
       FeatureList::IsEnabled(kUseThreadPriorityLowest),
+      std::memory_order_relaxed);
+  g_above_normal_compositing_browser.store(
+      FeatureList::IsEnabled(kAboveNormalCompositingBrowserWin),
       std::memory_order_relaxed);
 }
 

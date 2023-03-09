@@ -10,11 +10,11 @@
 #include <tuple>
 #include <utility>
 
-#include "base/bind.h"
-#include "base/callback_helpers.h"
 #include "base/command_line.h"
 #include "base/containers/contains.h"
 #include "base/files/file_path.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
@@ -24,6 +24,7 @@
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/test/bind.h"
 #include "base/test/gtest_util.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -73,6 +74,7 @@
 #include "content/test/data/mojo_web_test_helper_test.mojom.h"
 #include "content/test/did_commit_navigation_interceptor.h"
 #include "content/test/frame_host_test_interface.mojom.h"
+#include "content/test/navigation_simulator_impl.h"
 #include "content/test/test_content_browser_client.h"
 #include "content/test/test_render_frame_host_factory.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
@@ -297,7 +299,7 @@ std::string ExecuteJavaScriptMethodAndGetResult(
 bool NavigateToURLAndDoNotWaitForLoadStop(Shell* window, const GURL& url) {
   TestNavigationManager observer(window->web_contents(), url);
   window->LoadURL(url);
-  observer.WaitForNavigationFinished();
+  EXPECT_TRUE(observer.WaitForNavigationFinished());
   return url ==
          window->web_contents()->GetPrimaryMainFrame()->GetLastCommittedURL();
 }
@@ -793,6 +795,169 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   web_contents()->SetJavaScriptDialogManagerForTesting(nullptr);
 }
 
+// A separate class needed to test with Origin Trial tokens.
+class RenderFrameHostImplWithTokensBrowserTest : public ContentBrowserTest {
+ public:
+  RenderFrameHostImplWithTokensBrowserTest() = default;
+
+  // The URL that will be used for Origin Trials.
+  static constexpr char kOriginTrialUrl[] = "https://127.0.0.1:44444";
+
+ protected:
+  void SetUpOnMainThread() override {
+    // Set up the framework that allows us to intercept and inspect any Origin
+    // Trial header requests.
+    url_loader_interceptor_ =
+        std::make_unique<URLLoaderInterceptor>(base::BindRepeating(
+            &RenderFrameHostImplWithTokensBrowserTest::InterceptURLRequest,
+            base::Unretained(this)));
+    host_resolver()->AddRule("*", "127.0.0.1");
+    SetupCrossSiteRedirector(embedded_test_server());
+    ASSERT_TRUE(embedded_test_server()->Start());
+  }
+
+  void TearDownOnMainThread() override {
+    url_loader_interceptor_.reset();
+    ContentBrowserTest::TearDownOnMainThread();
+  }
+
+  void SetOriginTrialToken(const std::string& token) {
+    origin_trial_token_ = token;
+  }
+
+  GURL simple_origin_trial_url() const {
+    return GURL(base::StrCat({kOriginTrialUrl, "/title1.html"}));
+  }
+
+  WebContentsImpl* web_contents() const {
+    return static_cast<WebContentsImpl*>(shell()->web_contents());
+  }
+
+ private:
+  // Create the framework to intercept origin trial header requests.
+  bool InterceptURLRequest(URLLoaderInterceptor::RequestParams* params) {
+    // We are only interested in requests from simple_origin_trial_url().
+    // Additionally, we should not send a response if the `origin_trial_token_`
+    // is empty.
+    if ((params->url_request.url != simple_origin_trial_url()) ||
+        origin_trial_token_.empty()) {
+      return false;
+    }
+    // Construct the origin trial header response.
+    std::string headers = "HTTP/1.1 200 OK\nContent-Type: text/html\n";
+    base::StrAppend(&headers, {"Origin-Trial: ", origin_trial_token_, "\n"});
+    std::string body = "<html>This page has no title.</html>";
+    URLLoaderInterceptor::WriteResponse(headers, body, params->client.get());
+    return true;
+  }
+
+  std::string origin_trial_token_;
+  std::unique_ptr<URLLoaderInterceptor> url_loader_interceptor_;
+};
+
+// Check that the RuntimeFeatureStateDocumentData is altered when we receive a
+// RuntimeFeatureStateController IPC.
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplWithTokensBrowserTest,
+                       DocumentDataAltered) {
+  // Generated with:
+  // tools/origin_trials/generate_token.py https://127.0.0.1:44444
+  // DisableThirdPartyStoragePartitioning
+  // --expire-timestamp=2000000000
+  const char kValidFirstPartyToken[] =
+      "A9v/4viv5sMLtBrzIk/"
+      "ziQsS4dQo2hiBOHoVQ7JXtnDOMh32OUZVDB+"
+      "cDHP8StL1JrVCgLg7OkWhms8LRYflTwgAAABueyJvcmlnaW4iOiAiaHR0cHM6Ly8xMjcuMC4"
+      "wLjE6NDQ0NDQiLCAiZmVhdHVyZSI6ICJEaXNhYmxlVGhpcmRQYXJ0eVN0b3JhZ2VQYXJ0aXR"
+      "pb25pbmciLCAiZXhwaXJ5IjogMjAwMDAwMDAwMH0=";
+
+  SetOriginTrialToken(kValidFirstPartyToken);
+  EXPECT_TRUE(NavigateToURL(shell(), simple_origin_trial_url()));
+
+  // Create a test remote to initiate the IPC.
+  mojo::Remote<blink::mojom::RuntimeFeatureStateController>
+      runtime_feature_state_controller_remote;
+  web_contents()->GetPrimaryMainFrame()->CreateRuntimeFeatureStateController(
+      runtime_feature_state_controller_remote.BindNewPipeAndPassReceiver());
+  ASSERT_TRUE(runtime_feature_state_controller_remote.is_connected());
+
+  // Before ApplyFeatureDiffForOriginTrial() is called, we expect that the
+  // feature overrides will be empty.
+  auto expected_overrides =
+      base::flat_map<blink::mojom::RuntimeFeatureState, bool>();
+  RuntimeFeatureStateDocumentData* actual_document_data =
+      RuntimeFeatureStateDocumentData::GetForCurrentDocument(
+          web_contents()->GetPrimaryMainFrame());
+  EXPECT_EQ(expected_overrides,
+            actual_document_data->runtime_feature_read_context()
+                .GetFeatureOverrides());
+
+  // Simulate receiving a feature diff from the renderer process.
+  auto overrides_with_tokens = base::flat_map<blink::mojom::RuntimeFeatureState,
+                                              blink::mojom::FeatureValuePtr>();
+  std::string raw_token(kValidFirstPartyToken);
+  std::vector<std::string> raw_tokens_vector{raw_token};
+  overrides_with_tokens[blink::mojom::RuntimeFeatureState::
+                            kDisableThirdPartyStoragePartitioning] =
+      blink::mojom::FeatureValue::New(true, raw_tokens_vector);
+  runtime_feature_state_controller_remote.get()->ApplyFeatureDiffForOriginTrial(
+      std::move(overrides_with_tokens));
+
+  // Create the set of expected overrides without the corresponding tokens.
+  expected_overrides[blink::mojom::RuntimeFeatureState::
+                         kDisableThirdPartyStoragePartitioning] = true;
+
+  // Verify that the document data was altered with the correct overrides.
+  runtime_feature_state_controller_remote.FlushForTesting();
+  EXPECT_EQ(expected_overrides,
+            actual_document_data->runtime_feature_read_context()
+                .GetFeatureOverrides());
+}
+
+// Check that the RuntimeFeatureStateDocumentData is not altered when we receive
+// a RuntimeFeatureStateController IPC that contains an invalid token.
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplWithTokensBrowserTest,
+                       DocumentDataInvalidToken) {
+  const char kInvalidToken[] = "invalid";
+
+  SetOriginTrialToken(kInvalidToken);
+  EXPECT_TRUE(NavigateToURL(shell(), simple_origin_trial_url()));
+
+  // Create a test remote to initiate the IPC.
+  mojo::Remote<blink::mojom::RuntimeFeatureStateController>
+      runtime_feature_state_controller_remote;
+  web_contents()->GetPrimaryMainFrame()->CreateRuntimeFeatureStateController(
+      runtime_feature_state_controller_remote.BindNewPipeAndPassReceiver());
+  ASSERT_TRUE(runtime_feature_state_controller_remote.is_connected());
+
+  // Before ApplyFeatureDiffForOriginTrial() is called, we expect that the
+  // feature overrides will be empty.
+  auto expected_overrides =
+      base::flat_map<blink::mojom::RuntimeFeatureState, bool>();
+  RuntimeFeatureStateDocumentData* actual_document_data =
+      RuntimeFeatureStateDocumentData::GetForCurrentDocument(
+          web_contents()->GetPrimaryMainFrame());
+  EXPECT_EQ(expected_overrides,
+            actual_document_data->runtime_feature_read_context()
+                .GetFeatureOverrides());
+
+  // Simulate receiving a feature diff from the renderer process.
+  auto overrides_with_tokens = base::flat_map<blink::mojom::RuntimeFeatureState,
+                                              blink::mojom::FeatureValuePtr>();
+  std::string raw_token(kInvalidToken);
+  std::vector<std::string> raw_tokens_vector{raw_token};
+  overrides_with_tokens[blink::mojom::RuntimeFeatureState::
+                            kDisableThirdPartyStoragePartitioning] =
+      blink::mojom::FeatureValue::New(true, raw_tokens_vector);
+  runtime_feature_state_controller_remote.get()->ApplyFeatureDiffForOriginTrial(
+      std::move(overrides_with_tokens));
+
+  // Verify that no feature overrides were added.
+  runtime_feature_state_controller_remote.FlushForTesting();
+  EXPECT_EQ(expected_overrides,
+            actual_document_data->runtime_feature_read_context()
+                .GetFeatureOverrides());
+}
+
 // Helper class for beforunload tests.  Sets up a custom dialog manager for the
 // main WebContents and provides helpers to register and test beforeunload
 // handlers.
@@ -1105,7 +1270,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBeforeUnloadBrowserTest,
   CloseDialogAndProceed();
 
   // Wait for navigation to end.
-  navigation_manager.WaitForNavigationFinished();
+  ASSERT_TRUE(navigation_manager.WaitForNavigationFinished());
   EXPECT_EQ(new_url, web_contents()->GetLastCommittedURL());
 
   // We should have received two pings from two a.com frames.  If we receive
@@ -1141,7 +1306,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBeforeUnloadBrowserTest,
   // execution completion notification and confuse our expectations.
   ExecuteScriptAsync(root->child_at(0),
                      "location.href = '" + new_url.spec() + "';");
-  navigation_manager.WaitForNavigationFinished();
+  ASSERT_TRUE(navigation_manager.WaitForNavigationFinished());
   EXPECT_EQ(new_url,
             root->child_at(0)->current_frame_host()->GetLastCommittedURL());
 
@@ -1690,7 +1855,7 @@ IN_PROC_BROWSER_TEST_F(
                                  GURL("customprotocol:aborted"));
   EXPECT_TRUE(ExecJs(shell(), "window.location = 'customprotocol:aborted'"));
   EXPECT_FALSE(observer.WaitForResponse());
-  observer.WaitForNavigationFinished();
+  ASSERT_TRUE(observer.WaitForNavigationFinished());
 
   // 3) Send the response for the XHR requests.
   xhr_response.Send(
@@ -1819,7 +1984,7 @@ IN_PROC_BROWSER_TEST_F(
   TestNavigationManager observer_same_document(shell()->web_contents(),
                                                anchor_url);
   shell()->LoadURL(anchor_url);
-  observer_same_document.WaitForNavigationFinished();
+  ASSERT_TRUE(observer_same_document.WaitForNavigationFinished());
 
   // 3) The last part of the response is received.
   response.Send(
@@ -2010,7 +2175,7 @@ IN_PROC_BROWSER_TEST_F(
       }));
 
   // Finish the navigation.
-  navigation_manager.WaitForNavigationFinished();
+  ASSERT_TRUE(navigation_manager.WaitForNavigationFinished());
   EXPECT_EQ(second_url, injector.url_of_last_commit());
   EXPECT_TRUE(injector.original_receiver_of_last_commit().is_valid());
 
@@ -3569,11 +3734,14 @@ class RenderFrameHostImplNoStrictSiteIsolationOnAndroidBrowserTest
 IN_PROC_BROWSER_TEST_F(
     RenderFrameHostImplNoStrictSiteIsolationOnAndroidBrowserTest,
     ComputeIsolationInfoForNavigationPartyContextExceedMaxSize) {
+  // This sequence skips a4.com because it's HSTS preloaded. Using a4.com would
+  // cause a timeout since the embedded test server isn't HTTPS capable.
+  // TODO(crbug.com/1403108): Use a sustainable solution for preloaded domains.
   GURL url = embedded_test_server()->GetURL(
       "a.com",
-      "/cross_site_iframe_factory.html?a(a1(a2(a3(a4(a5(a6(a7(a8(a9(a10(a11("
+      "/cross_site_iframe_factory.html?a(a1(a2(a3(a5(a6(a7(a8(a9(a10(a11("
       "a12(a13(a14(a15(a16(a17(a18(a19("
-      "a20(a21(a2))))))))))))))))))))))");
+      "a20(a21(a22(a2))))))))))))))))))))))");
   static_assert(net::IsolationInfo::kPartyContextMaxSize == 20,
                 "kPartyContextMaxSize should have value 20.");
 
@@ -4493,7 +4661,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   EXPECT_FALSE(pending_rfh->IsInPrimaryMainFrame());
 
   // 5) Let the navigation finish and make sure it is succeeded.
-  manager.WaitForNavigationFinished();
+  ASSERT_TRUE(manager.WaitForNavigationFinished());
   EXPECT_EQ(url_b,
             web_contents()->GetPrimaryMainFrame()->GetLastCommittedURL());
   RenderFrameHostImpl* rfh_b = root_frame_host();
@@ -4612,7 +4780,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   CheckLifecycleStateImpl check_pending_commit(web_contents());
 
   // 5) Let the navigation finish and make sure it is succeeded.
-  manager.WaitForNavigationFinished();
+  ASSERT_TRUE(manager.WaitForNavigationFinished());
   EXPECT_EQ(url_b,
             web_contents()->GetPrimaryMainFrame()->GetLastCommittedURL());
   RenderFrameHostImpl* rfh_b = root_frame_host();
@@ -4682,7 +4850,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   EXPECT_EQ(LifecycleStateImpl::kActive, current_rfh->lifecycle_state());
 
   // 5) Let the navigation finish and make sure it is succeeded.
-  manager.WaitForNavigationFinished();
+  ASSERT_TRUE(manager.WaitForNavigationFinished());
   EXPECT_EQ(url_b,
             web_contents()->GetPrimaryMainFrame()->GetLastCommittedURL());
   // The RenderFrameHost has been replaced after the crash, so get it again.
@@ -4897,7 +5065,7 @@ IN_PROC_BROWSER_TEST_F(ContentBrowserTest,
       "HTTP/1.1 204 No Content\r\n"
       "Content-Type: text/html; charset=utf-8\r\n"
       "\r\n");
-  navigation_manager.WaitForNavigationFinished();
+  ASSERT_TRUE(navigation_manager.WaitForNavigationFinished());
 
   EXPECT_TRUE(rfhi->IsDOMContentLoaded());
   EXPECT_TRUE(web_contents->IsDocumentOnLoadCompletedInPrimaryMainFrame());
@@ -5771,7 +5939,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
 
   ReadyToCommitObserver ready_to_commit_observer(web_contents(),
                                                  test_expectations);
-  nav_manager.WaitForNavigationFinished();
+  ASSERT_TRUE(nav_manager.WaitForNavigationFinished());
 }
 
 // Like ForEachRenderFrameHostSpeculative, but for a speculative RFH for a
@@ -6414,7 +6582,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplCredentiallessIframeBrowserTest,
   EXPECT_FALSE(main_rfh->storage_key().nonce().has_value());
 
   EXPECT_EQ(1U, main_rfh->child_count());
-  EXPECT_TRUE(main_rfh->child_at(0)->credentialless());
+  EXPECT_TRUE(main_rfh->child_at(0)->Credentialless());
   EXPECT_FALSE(main_rfh->child_at(0)->current_frame_host()->IsCredentialless());
   EXPECT_EQ(true, EvalJs(main_rfh->child_at(0)->current_frame_host(),
                          "window.credentialless"));
@@ -6578,7 +6746,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest, ErrorDocuments) {
             main_url, net::ERR_BLOCKED_BY_CLIENT);
     TestNavigationManager manager(web_contents(), main_url);
     shell()->LoadURL(main_url);
-    manager.WaitForNavigationFinished();
+    ASSERT_TRUE(manager.WaitForNavigationFinished());
   }
 
   EXPECT_TRUE(web_contents()->GetPrimaryMainFrame()->IsErrorDocument());
@@ -7112,8 +7280,9 @@ class RenderFrameHostImplBrowserTestWithBFCache
  public:
   RenderFrameHostImplBrowserTestWithBFCache() {
     scoped_feature_list_.InitWithFeaturesAndParameters(
-        {{features::kBackForwardCache,
-          {{"TimeToLiveInBackForwardCacheInSeconds", "3600"}}}},
+        {{features::kBackForwardCache, {{}}},
+         {features::kBackForwardCacheTimeToLiveControl,
+          {{"time_to_live_seconds", "3600"}}}},
         // Allow BackForwardCache for all devices regardless of their memory.
         {features::kBackForwardCacheMemoryControls});
   }

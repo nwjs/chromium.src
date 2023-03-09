@@ -1507,6 +1507,16 @@ ONC configuration of of **Cellular** networks is not yet supported.
     * For GSM modems, the International Mobile Subscriber Identity of the SIM
       card installed in the device.
 
+* **LastConnectedAttachApnProperty**
+    * (optional, read-only) - [APN](#APN-type)
+    * The attach APN information used in the last successful connection
+    * attempt. This value is not cleared if the connection fails.
+
+* **LastConnectedDefaultApnProperty**
+    * (optional, read-only) - [APN](#APN-type)
+    * The default APN information used in the last successful connection
+    * attempt. This value is not cleared if the connection fails.
+
 * **LastGoodAPN**
     * (optional, read-only) - [APN](#APN-type)
     * The APN information used in the last successful connection attempt.
@@ -2295,7 +2305,7 @@ In this simplified format, a descriptive enum is used to describe the effective
 policy source and whether it is enforced or recommended.
 
 The conversion code can be found in cros_network_config.cc:GetManagedDictionary
-https://source.chromium.org/chromium/chromium/src/+/main:chromeos/services/network_config/cros_network_config.cc
+https://source.chromium.org/chromium/chromium/src/+/main:chromeos/ash/services/network_config/cros_network_config.cc
 
 ```
 enum PolicySource {

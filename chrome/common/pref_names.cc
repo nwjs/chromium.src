@@ -143,78 +143,6 @@ const char kSupervisedUserApprovedExtensions[] =
 const char kSupervisedUserMetricsDayId[] = "supervised_user.metrics.day_id";
 #endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS)
 
-// Stores the email address associated with the google account of the custodian
-// of the supervised user, set when the supervised user is created.
-const char kSupervisedUserCustodianEmail[] = "profile.managed.custodian_email";
-
-// Stores the display name associated with the google account of the custodian
-// of the supervised user, updated (if possible) each time the supervised user
-// starts a session.
-const char kSupervisedUserCustodianName[] = "profile.managed.custodian_name";
-
-// Stores the obfuscated gaia id associated with the google account of the
-// custodian of the supervised user, updated (if possible) each time the
-// supervised user starts a session.
-const char kSupervisedUserCustodianObfuscatedGaiaId[] =
-    "profile.managed.custodian_obfuscated_gaia_id";
-
-// Stores the URL of the profile image associated with the google account of the
-// custodian of the supervised user.
-const char kSupervisedUserCustodianProfileImageURL[] =
-    "profile.managed.custodian_profile_image_url";
-
-// Stores the URL of the profile associated with the google account of the
-// custodian of the supervised user.
-const char kSupervisedUserCustodianProfileURL[] =
-    "profile.managed.custodian_profile_url";
-
-// Whether the supervised user may approve extension permission requests. If
-// false, extensions should not be able to request new permissions, and new
-// extensions should not be installable.
-const char kSupervisedUserExtensionsMayRequestPermissions[] =
-    "profile.managed.extensions_may_request_permissions";
-
-// Maps host names to whether the host is manually allowed or blocked.
-const char kSupervisedUserManualHosts[] = "profile.managed.manual_hosts";
-
-// Maps URLs to whether the URL is manually allowed or blocked.
-const char kSupervisedUserManualURLs[] = "profile.managed.manual_urls";
-
-// Stores whether the SafeSites filter is enabled.
-const char kSupervisedUserSafeSites[] = "profile.managed.safe_sites";
-
-// Stores the email address associated with the google account of the secondary
-// custodian of the supervised user, set when the supervised user is created.
-const char kSupervisedUserSecondCustodianEmail[] =
-    "profile.managed.second_custodian_email";
-
-// Stores the display name associated with the google account of the secondary
-// custodian of the supervised user, updated (if possible) each time the
-// supervised user starts a session.
-const char kSupervisedUserSecondCustodianName[] =
-    "profile.managed.second_custodian_name";
-
-// Stores the obfuscated gaia id associated with the google account of the
-// secondary custodian of the supervised user, updated (if possible) each time
-// the supervised user starts a session.
-const char kSupervisedUserSecondCustodianObfuscatedGaiaId[] =
-    "profile.managed.second_custodian_obfuscated_gaia_id";
-
-// Stores the URL of the profile image associated with the google account of the
-// secondary custodian of the supervised user.
-const char kSupervisedUserSecondCustodianProfileImageURL[] =
-    "profile.managed.second_custodian_profile_image_url";
-
-// Stores the URL of the profile associated with the google account of the
-// secondary custodian of the supervised user.
-const char kSupervisedUserSecondCustodianProfileURL[] =
-    "profile.managed.second_custodian_profile_url";
-
-// Stores settings that can be modified both by a supervised user and their
-// manager. See SupervisedUserSharedSettingsService for a description of
-// the format.
-const char kSupervisedUserSharedSettings[] = "profile.managed.shared_settings";
-
 #if BUILDFLAG(ENABLE_RLZ)
 // Integer. RLZ ping delay in seconds.
 const char kRlzPingDelaySeconds[] = "rlz_ping_delay";
@@ -765,6 +693,16 @@ const char kKeyPermissionsOneTimeMigrationDone[] =
 const char kUnifiedDesktopEnabledByDefault[] =
     "settings.display.unified_desktop_enabled_by_default";
 
+// An int64 pref. This is the timestamp, microseconds after epoch, that
+// indicates the end of the Bluetooth revamp experience survey.
+const char kHatsBluetoothRevampCycleEndTs[] =
+    "hats_bluetooth_revamp_cycle_end_timestamp";
+
+// A boolean pref. Indicates if the device is selected for the HaTS Bluetooth
+// revamp experience survey.
+const char kHatsBluetoothRevampIsSelected[] =
+    "hats_bluetooth_revamp_is_selected";
+
 // An int64 pref. This is a timestamp, microseconds after epoch, of the most
 // recent time the profile took or dismissed HaTS (happiness-tracking) survey.
 const char kHatsLastInteractionTimestamp[] = "hats_last_interaction_timestamp";
@@ -916,6 +854,16 @@ const char kHatsGeneralCameraSurveyCycleEndTs[] =
 // A boolean pref. Indicated if the device is selected for the general camera
 // survey.
 const char kHatsGeneralCameraIsSelected[] = "hats_general_camera_is_selected";
+
+// A boolean pref. Indicated if the device is selected for the Privacy Hub
+// baseline survey.
+const char kHatsPrivacyHubBaselineIsSelected[] =
+    "hats_privacy_hub_baseline_is_selected";
+
+// An int64 pref. This is the timestamp, microseconds after epoch, that
+// indicated the end of the most recent Privacy Hub baseline cycle.
+const char kHatsPrivacyHubBaselineCycleEndTs[] =
+    "hats_privacy_hub_baseline_end_timestamp";
 
 // A boolean pref. Indicates if we've already shown a notification to inform the
 // current user about the quick unlock feature.
@@ -1147,10 +1095,16 @@ const char kKerberosActivePrincipalName[] = "kerberos.active_principal_name";
 // username field of "Add a ticket" UI window.
 // Tied to KerberosDomainAutocomplete policy.
 const char kKerberosDomainAutocomplete[] = "kerberos.domain_autocomplete";
+// Used by KerberosAccountsHandler to decide if the custom default configuration
+// should be prefilled.
+// Tied to KerberosUseCustomPrefilledConfig policy.
+const char kKerberosUseCustomPrefilledConfig[] =
+    "kerberos.use_custom_prefilled_config";
 // Used by KerberosAccountsHandler to prefill kerberos krb5 config for
 // manually creating new tickets.
-// Tied to KerberosDefaultConfiguration policy.
-const char kKerberosDefaultConfiguration[] = "kerberos.default_configuration";
+// Tied to KerberosCustomPrefilledConfig policy.
+const char kKerberosCustomPrefilledConfig[] =
+    "kerberos.custom_prefilled_config";
 
 // A boolean pref for enabling/disabling App reinstall recommendations in Zero
 // State Launcher by policy.
@@ -1353,6 +1307,11 @@ const char kAccessibilityImageLabelsOnlyOnWifi[] =
 const char kAccessibilityFocusHighlightEnabled[] =
     "settings.a11y.focus_highlight";
 #endif
+
+// Whether the PDF OCR feature is set to be always active. The PDF OCR feature
+// is exposed to only screen reader users.
+const char kAccessibilityPdfOcrAlwaysActive[] =
+    "settings.a11y.pdf_ocr_always_active";
 
 // Pref indicating the page colors option the user wants. Page colors is an
 // accessibility feature that simulates forced colors mode at the browser level.
@@ -1619,10 +1578,6 @@ const char kPrintJobHistoryExpirationPeriod[] =
 // deleted.
 const char kDeletePrintJobHistoryAllowed[] =
     "printing.delete_print_job_history_allowed";
-
-// String representing a template for the 'client-name' IPP attribute
-// configured by the administrator
-const char kPrintingClientNameTemplate[] = "printing.client_name_template";
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 // An integer pref specifying the fallback behavior for sites outside of content
@@ -2049,6 +2004,10 @@ const char kNtpCollapsedSyncPromo[] = "ntp.collapsed_sync_promo";
 const char kNtpCustomBackgroundDict[] = "ntp.custom_background_dict";
 const char kNtpCustomBackgroundLocalToDevice[] =
     "ntp.custom_background_local_to_device";
+// Number of times the user has opened the side panel with the customize chrome
+// button.
+const char kNtpCustomizeChromeButtonOpenCount[] =
+    "NewTabPage.CustomizeChromeButtonOpenCount";
 // List keeping track of disabled NTP modules.
 const char kNtpDisabledModules[] = "NewTabPage.DisabledModules";
 // List keeping track of NTP modules order.
@@ -2478,10 +2437,14 @@ const char kDemoModeConfig[] = "demo_mode.config";
 // A string pref holding the value of the current country for demo sessions.
 const char kDemoModeCountry[] = "demo_mode.country";
 
-// A string pref holding the value of the retailer id input for demo sessions.
+// A string pref holding the value of the retailer name input for demo sessions.
+// This is now mostly called "retailer_name" in code other than in this pref and
+// in Omaha request attributes
 const char kDemoModeRetailerId[] = "demo_mode.retailer_id";
 
-// A string pref holding the value of the store id input for demo sessions.
+// A string pref holding the value of the store number input for demo sessions.
+// This is now mostly called "store_number" in code other than in this pref and
+// in Omaha request attributes
 const char kDemoModeStoreId[] = "demo_mode.store_id";
 
 // A string pref holding the value of the default locale for demo sessions.
@@ -2802,6 +2765,11 @@ const char kHardwareSecureDecryptionDisabledTimes[] =
 // For example, kiosk session start times, number of network drops.
 // This setting resides in local state.
 const char kKioskMetrics[] = "kiosk-metrics";
+
+// A boolean pref which determines whether kiosk troubleshooting tools are
+// enabled.
+const char kKioskTroubleshootingToolsEnabled[] =
+    "kiosk_troubleshooting_tools_enabled";
 
 // A boolean pref which determines whether a Web Kiosk can open more than one
 // browser window.
@@ -3138,9 +3106,6 @@ const char kLacrosAccessibilityVirtualKeyboardEnabled[] =
 const char kAllowDinosaurEasterEgg[] = "allow_dinosaur_easter_egg";
 
 #if BUILDFLAG(IS_ANDROID)
-// Whether the update menu item was clicked. Used to facilitate logging whether
-// Chrome was updated after the menu item is clicked.
-const char kClickedUpdateMenuItem[] = "omaha.clicked_update_menu_item";
 // The latest version of Chrome available when the user clicked on the update
 // menu item.
 const char kLatestVersionWhenClickedUpdateMenuItem[] =
@@ -3301,8 +3266,10 @@ const char kTabStatsDailySample[] = "tab_stats.last_daily_sample";
 // Discards/Reloads since last daily report.
 const char kTabStatsDiscardsExternal[] = "tab_stats.discards_external";
 const char kTabStatsDiscardsUrgent[] = "tab_stats.discards_urgent";
+const char kTabStatsDiscardsProactive[] = "tab_stats.discards_proactive";
 const char kTabStatsReloadsExternal[] = "tab_stats.reloads_external";
 const char kTabStatsReloadsUrgent[] = "tab_stats.reloads_urgent";
+const char kTabStatsReloadsProactive[] = "tab_stats.reloads_proactive";
 
 // A list of origins (URLs) to treat as "secure origins" for debugging purposes.
 const char kUnsafelyTreatInsecureOriginAsSecure[] =
@@ -3639,9 +3606,15 @@ const char kSCTAuditingHashdanceReportCount[] =
 const char kConsumerAutoUpdateToggle[] = "settings.consumer_auto_update_toggle";
 
 // A boolean pref that controls whether or not Hindi Inscript keyboard layout
-// is available. Set with the corresponding enterprise policy.
+// is available.
+// This is set by a user policy, but the user policy does not work to
+// control the availability of the Hindi Inscript layout.
+// TODO(jungshik): Deprecate it.
 const char kHindiInscriptLayoutEnabled[] =
     "settings.input.hindi_inscript_layout_enabled";
+// This is set by a device policy and does actually work.
+const char kDeviceHindiInscriptLayoutEnabled[] =
+    "settings.input.device_hindi_inscript_layout_enabled";
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -3700,5 +3673,19 @@ const char kThrottleNonVisibleCrossOriginIframesAllowed[] =
 // attempts to enable the feature will be disallowed.
 const char kNewBaseUrlInheritanceBehaviorAllowed[] =
     "new_base_url_inheritance_behavior_allowed";
+
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX)
+// If this exists and is true, Chrome may run system DNS resolution out of the
+// network process. If false, Chrome will run system DNS resolution in the
+// network process. If non-existent, Chrome will decide where to run system DNS
+// resolution (in the network process, out of the network process, or partially
+// inside the network process and partially out) based on system configuration
+// and feature flags.
+//
+// Only necessary on Android and Linux, where it is difficult to sandbox the
+// network process with system DNS resolution running inside it.
+const char kOutOfProcessSystemDnsResolutionEnabled[] =
+    "net.out_of_process_system_dns_resolution_enabled";
+#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX)
 
 }  // namespace prefs

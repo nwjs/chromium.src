@@ -11,22 +11,22 @@
 #include <unistd.h>
 #include <utility>
 #include "base/android/child_process_binding_types.h"
-#include "base/bind.h"
 #include "base/feature_list.h"
 #include "base/files/file.h"
 #include "base/files/file_path.h"
 #include "base/files/scoped_file.h"
+#include "base/functional/bind.h"
 #include "base/memory/memory_pressure_listener.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/process/process.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/system/sys_info.h"
-#include "base/threading/sequenced_task_runner_handle.h"
+#include "base/task/sequenced_task_runner.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/time/time.h"
+#include "content/browser/child_process_host_impl.h"
 #include "content/browser/renderer_host/render_process_host_impl.h"
-#include "content/common/child_process_host_impl.h"
 #include "content/public/browser/browser_child_process_host_iterator.h"
 #include "content/public/browser/child_process_data.h"
 
@@ -173,8 +173,9 @@ void UserLevelMemoryPressureSignalGenerator::OnTimerFired() {
 void UserLevelMemoryPressureSignalGenerator::StartPeriodicTimer(
     base::TimeDelta interval) {
   // Don't try to start the timer in tests that don't support it.
-  if (!base::SequencedTaskRunnerHandle::IsSet())
+  if (!base::SequencedTaskRunner::HasCurrentDefault()) {
     return;
+  }
   periodic_measuring_timer_.Start(
       FROM_HERE, interval,
       base::BindOnce(&UserLevelMemoryPressureSignalGenerator::OnTimerFired,
@@ -197,6 +198,13 @@ uint64_t UserLevelMemoryPressureSignalGenerator::
   add_process_private_footprint(base::Process::Current());
 
   // Measure private memory footprints of GPU process and Utility processes.
+  // Since GPU process uses the same user id as the browser process (android),
+  // the browser process can measure the GPU's private memory footprint.
+  // However, regarding the utility processes, their user ids are different.
+  // So because of the hidepid=2 mount option, the browser process cannot
+  // measure the private memory footprints of the utility processes.
+  // TODO(crbug.com/1393283): measure the private memory footprints of
+  // the utility processes correctly.
   for (content::BrowserChildProcessHostIterator iter; !iter.Done(); ++iter) {
     add_process_private_footprint(iter.GetData().GetProcess());
   }
@@ -222,7 +230,14 @@ uint64_t UserLevelMemoryPressureSignalGenerator::
       continue;
     }
 
-    total_private_footprint_bytes += GetPrivateFootprint(process).value_or(0);
+    // Because of the "hidepid=2" mount option for /proc on Android,
+    // the browser process cannot open /proc/{render process pid}/maps and
+    // status, i.e. no such file or directory. So each renderer process
+    // provides its private memory footprint for the browser process and
+    // the browser process gets the (cached) value via RenderProcessHostImpl.
+    total_private_footprint_bytes +=
+        static_cast<content::RenderProcessHostImpl*>(host)
+            ->GetPrivateMemoryFootprint();
   }
   return total_private_footprint_bytes;
 }
@@ -265,7 +280,7 @@ void UserLevelMemoryPressureSignalGenerator::NotifyMemoryPressure() {
 
 namespace {
 
-// TODO(crbug.com/1393282): if this feature is approved, refactor the duplicate
+// TODO(crbug.com/1393283): if this feature is approved, refactor the duplicate
 // code under //third_party/blink/renderer/controller. If not approved,
 // remove the code as soon as possible.
 absl::optional<uint64_t> CalculateProcessMemoryFootprint(

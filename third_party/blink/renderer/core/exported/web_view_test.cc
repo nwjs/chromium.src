@@ -32,7 +32,7 @@
 #include <memory>
 #include <string>
 
-#include "base/callback_helpers.h"
+#include "base/functional/callback_helpers.h"
 #include "base/test/test_mock_time_task_runner.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
@@ -537,7 +537,7 @@ TEST_F(WebViewTest, SetBaseBackgroundColorAndBlendWithExistingContent) {
   PaintLayerPainter(*root_layer).Paint(builder->Context());
   view->GetLayoutView()->GetDocument().Lifecycle().AdvanceTo(
       DocumentLifecycle::kPaintClean);
-  builder->EndRecording()->Playback(&canvas);
+  builder->EndRecording().Playback(&canvas);
 
   // The result should be a blend of red and green.
   SkColor color = bitmap.getColor(kWidth / 2, kHeight / 2);
@@ -2630,10 +2630,9 @@ TEST_F(WebViewTest, PrintWithXHRInFlight) {
 
 static void DragAndDropURL(WebViewImpl* web_view, const std::string& url) {
   WebDragData drag_data;
-  WebDragData::Item item;
-  item.storage_type = WebDragData::Item::kStorageTypeString;
-  item.string_type = "text/uri-list";
-  item.string_data = WebString::FromUTF8(url);
+  WebDragData::StringItem item;
+  item.type = "text/uri-list";
+  item.data = WebString::FromUTF8(url);
   drag_data.AddItem(item);
 
   const gfx::PointF client_point;
@@ -4743,11 +4742,7 @@ TEST_F(WebViewTest, PreferredSizeWithGrid) {
                                      base_url);
 
   gfx::Size size = web_view->ContentsPreferredMinimumSize();
-  if (RuntimeEnabledFeatures::LayoutNGEnabled())
-    EXPECT_EQ(0, size.width());
-  else
-    EXPECT_EQ(100, size.width());
-
+  EXPECT_EQ(0, size.width());
   EXPECT_EQ(100, size.height());
 }
 
@@ -5404,8 +5399,6 @@ TEST_F(WebViewTest, ViewportUnitsPrintingWithPageZoom) {
 }
 
 TEST_F(WebViewTest, ResizeWithFixedPosCrash) {
-  if (!RuntimeEnabledFeatures::LayoutNGEnabled())
-    return;
   ScopedLayoutNGPrintingForTest ng_printing_enabled(true);
   WebViewImpl* web_view = web_view_helper_.Initialize();
   WebURL base_url = url_test_helpers::ToKURL("http://example.com/");

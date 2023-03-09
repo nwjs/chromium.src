@@ -19,10 +19,6 @@ BASE_FEATURE(kEnableDiscoverFeedPreview,
              "EnableDiscoverFeedPreview",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kEnableDiscoverFeedGhostCards,
-             "EnableDiscoverFeedGhostCards",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kEnableDiscoverFeedStaticResourceServing,
              "EnableDiscoverFeedStaticResourceServing",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -43,10 +39,6 @@ BASE_FEATURE(kEnableNTPViewHierarchyRepair,
              "NTPViewHierarchyRepair",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kEnableFeedAblation,
-             "EnableFeedAblation",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kEnableCheckVisibilityOnAttentionLogStart,
              "EnableCheckVisibilityOnAttentionLogStart",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -61,6 +53,14 @@ BASE_FEATURE(kFeedHeaderSettings,
 
 BASE_FEATURE(kOverrideFeedSettings,
              "OverrideFeedSettings",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kEnableFeedImageCaching,
+             "EnableFeedImageCaching",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kEnableFeedSyntheticCapabilities,
+             "EnableFeedSyntheticCapabilities",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #pragma mark - Feature parameters
@@ -105,10 +105,6 @@ bool IsDiscoverFeedPreviewEnabled() {
   return base::FeatureList::IsEnabled(kEnableDiscoverFeedPreview);
 }
 
-bool IsDiscoverFeedGhostCardsEnabled() {
-  return base::FeatureList::IsEnabled(kEnableDiscoverFeedGhostCards);
-}
-
 bool IsNTPViewHierarchyRepairEnabled() {
   return base::FeatureList::IsEnabled(kEnableNTPViewHierarchyRepair);
 }
@@ -139,10 +135,6 @@ bool IsDefaultFollowingFeedSortTypeGroupedByPublisher() {
       kFollowingFeedDefaultSortTypeGroupedByPublisher, true);
 }
 
-bool IsFeedAblationEnabled() {
-  return base::FeatureList::IsEnabled(kEnableFeedAblation);
-}
-
 bool IsContentSuggestionsForSupervisedUserEnabled(PrefService* pref_service) {
   return pref_service->GetBoolean(
       prefs::kNTPContentSuggestionsForSupervisedUserEnabled);
@@ -165,6 +157,14 @@ bool IsStickyHeaderDisabledForFollowingFeed() {
 bool IsDotEnabledForNewFollowedContent() {
   return base::GetFieldTrialParamByFeatureAsBool(
       kFeedHeaderSettings, kEnableDotForNewFollowedContent, false);
+}
+
+bool IsFeedImageCachingEnabled() {
+  return base::FeatureList::IsEnabled(kEnableFeedImageCaching);
+}
+
+bool IsFeedSyntheticCapabilitiesEnabled() {
+  return base::FeatureList::IsEnabled(kEnableFeedSyntheticCapabilities);
 }
 
 int FollowingFeedHeaderHeight() {

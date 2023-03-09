@@ -449,7 +449,7 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
 
   // Returns the layer that will paint this object. During paint invalidation,
   // we should use the faster PaintInvalidatorContext::painting_layer instead.
-  PaintLayer* PaintingLayer() const;
+  PaintLayer* PaintingLayer(int max_depth = -1) const;
 
   bool IsFixedPositionObjectInPagedMedia() const;
 
@@ -604,6 +604,14 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
     return fragment_->UniqueId();
   }
 
+  // Returns true if the overflow property should be respected. Otherwise
+  // HasNonVisibleOverflow() will be false and we won't create scrollable area
+  // for this object even if overflow is non-visible.
+  virtual bool RespectsCSSOverflow() const {
+    NOT_DESTROYED();
+    return false;
+  }
+
   inline bool ShouldApplyOverflowClipMargin() const {
     NOT_DESTROYED();
     // If the object is clipped by something other than overflow:clip (i.e. it's
@@ -613,8 +621,9 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
 
     const auto& style = StyleRef();
     // Nothing to apply if there is no margin.
-    if (!style.OverflowClipMargin())
+    if (!style.OverflowClipMarginHasAnEffect()) {
       return false;
+    }
 
     // Replaced elements have a used value of 'clip' for all overflow values
     // except visible. See discussion at
@@ -631,7 +640,10 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
 
     // In all other cases, we apply overflow-clip-margin when we clip to
     // overflow clip edge, meaning we have overflow: clip or paint containment.
-    return is_overflow_clip || ShouldApplyPaintContainment();
+    // Also only apply this if the element respects overflow css, meaning it
+    // allows non-visible overflow.
+    return (is_overflow_clip || ShouldApplyPaintContainment()) &&
+           RespectsCSSOverflow();
   }
 
   inline bool IsEligibleForPaintOrLayoutContainment() const {
@@ -3163,8 +3175,11 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   }
   bool ShouldDoFullPaintInvalidation() const {
     NOT_DESTROYED();
-    if (!ShouldDelayFullPaintInvalidation() &&
-        FullPaintInvalidationReason() != PaintInvalidationReason::kNone) {
+    if (ShouldDelayFullPaintInvalidation()) {
+      DCHECK(!bitfields_.SubtreeShouldDoFullPaintInvalidation());
+      return false;
+    }
+    if (FullPaintInvalidationReason() != PaintInvalidationReason::kNone) {
       DCHECK(IsFullPaintInvalidationReason(FullPaintInvalidationReason()));
       DCHECK(ShouldCheckForPaintInvalidation());
       return true;
@@ -3958,6 +3973,17 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
     bitfields_.SetMightTraversePhysicalFragments(b);
   }
 
+  // See LayoutObjectBitfields::has_valid_cached_geometry_.
+  void SetHasValidCachedGeometry(bool b) {
+    NOT_DESTROYED();
+    bitfields_.SetHasValidCachedGeometry(b);
+  }
+  // See LayoutObjectBitfields::has_valid_cached_geometry_.
+  bool HasValidCachedGeometry() const {
+    NOT_DESTROYED();
+    return bitfields_.HasValidCachedGeometry();
+  }
+
  private:
   gfx::QuadF LocalToAncestorQuadInternal(const gfx::QuadF&,
                                          const LayoutBoxModelObject* ancestor,
@@ -4179,7 +4205,8 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
           whitespace_children_may_change_(false),
           needs_devtools_info_(false),
           may_have_anchor_query_(false),
-          has_broken_spine_(false) {}
+          has_broken_spine_(false),
+          has_valid_cached_geometry_(false) {}
 
     // Self needs layout for style means that this layout object is marked for a
     // full layout. This is the default layout but it is expensive as it
@@ -4541,6 +4568,11 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
     // the vertebra for this object at that point - i.e. update the associated
     // layout results, by reading out the post-layout results from the children.
     ADD_BOOLEAN_BITFIELD(has_broken_spine_, HasBrokenSpine);
+
+    // True if LayoutBox::frame_size_ has the latest value computed from its
+    // physical fragments.
+    // This is set to false when LayoutBox::layout_results_ is updated.
+    ADD_BOOLEAN_BITFIELD(has_valid_cached_geometry_, HasValidCachedGeometry);
   };
 
 #undef ADD_BOOLEAN_BITFIELD

@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Linux සමග ස්ථාපනය කරන්න</translation>
 <translation id="2225536596944493418">ඔබට අයිතම <ph name="NUMBER_OF_ITEMS" /> මැකීමට අවශ්‍ය බව ඔබට තහවුරුද?</translation>
 <translation id="2230062665678605299">මෙම ෆෝල්ඩරය සෑදීමට නොහැක "<ph name="FOLDER_NAME" />". <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">ඔබේ Google Drive කෑෂය හිස් කරන ලදි.</translation>
 <translation id="2239068707900391003">කෝපි සමග පුද්ගලයා</translation>
 <translation id="2251368349685848079">කුණු කූඩය වෙතින් ප්‍රතිස්ථාපනය කරන්න</translation>
 <translation id="2282155092769082568">ස්වයංවින්‍යාසකරණ URL:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">&lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt; වෙත කිසිඳු අයිතමයක් නොගැලපේ</translation>
 <translation id="2894654529758326923">තොරතුරු</translation>
 <translation id="2902734494705624966">US දිගුකළ</translation>
+<translation id="2904378509913846215">"<ph name="FILENAME" />" නමැති ෆෝල්ඩරයක් දැනටමත් පවතියි. ඔබට එය ඔබ ගෙන යන එක සමග ප්‍රතිස්ථාපනය කිරීමට අවශ්‍ය ද?</translation>
 <translation id="290843123675549676">මරාති</translation>
 <translation id="2923240520113693977">ඇස්ටෝනියානු</translation>
 <translation id="2938685643439809023">මොන්ගෝලියානු</translation>
@@ -639,6 +641,7 @@
 <translation id="6241349547798190358">ලන්දේසි (බෙල්ජියම)</translation>
 <translation id="6267547857941397424"><ph name="NETWORK_COUNT" />න් <ph name="NETWORK_INDEX" /> වැනි ජාලය, <ph name="PHONE_NAME" />, සංඥා ප්‍රබලතාව <ph name="SIGNAL_STRENGTH" />%, දුරකථන බැටරිය <ph name="BATTERY_STATUS" />%, සබඳින්න</translation>
 <translation id="6269630227984243955">මැලේ</translation>
+<translation id="6271903698064569429">"<ph name="SHARED_DRIVE_NAME" />" සතුව ප්‍රමාණවත් ආචයනය නොමැති නිසා ගොනු උඩුගත කළ නොහැක.</translation>
 <translation id="6287852322318138013">මෙම ගොනුව විවෘත කිරීමට යෙදුමක් තෝරන්න</translation>
 <translation id="6295542640242147836">SIM අගුළු දැමීම</translation>
 <translation id="6296410173147755564">වලංගු නොවන PUK</translation>
@@ -684,6 +687,7 @@
 <translation id="6657585470893396449">මුරපදය</translation>
 <translation id="6658865850469097484">දින 30කට වඩා වැඩි කාලයක් කුණු කූඩයේ ඇති ගොනු ස්වයංක්‍රීයව මැකී යයි.</translation>
 <translation id="6673674183150363784">Bépo යතුරු පුවරුව සමග ප්‍රංශ (ප්‍රංශය)</translation>
+<translation id="670380500182402678">සියල්ල ප්‍රතිස්ථාපනය කරන්න</translation>
 <translation id="6710022688720561421">රොබෝව</translation>
 <translation id="6710213216561001401">පෙර</translation>
 <translation id="6732801395666424405">සහතිකය පටවා නොමැත</translation>
@@ -902,6 +906,7 @@
 <translation id="8386903983509584791">ස්කෑන් කිරීම සම්පූර්ණයි</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" /> උපුටා ගන්නා ලදි.</translation>
 <translation id="8395901698320285466">මාන</translation>
+<translation id="8404498045299006085">සියල්ල තබා ගන්න</translation>
 <translation id="8408068190360279472"><ph name="NETWORK_TYPE" /> ජාලය, සම්බන්ධ කෙරේ</translation>
 <translation id="8425213833346101688">වෙනස් කරන්න</translation>
 <translation id="8431909052837336408">SIM PIN වෙනස් කරන්න</translation>

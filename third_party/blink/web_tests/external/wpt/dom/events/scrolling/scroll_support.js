@@ -10,6 +10,20 @@ async function waitForScrollendEvent(test, target, timeoutMs = 500) {
   });
 }
 
+async function verifyScrollStopped(test, target_div) {
+  const unscaled_pause_time_in_ms = 100;
+  const x = target_div.scrollLeft;
+  const y = target_div.scrollTop;
+  return new Promise(resolve => {
+    test.step_timeout(() => {
+      assert_equals(x, target_div.scrollLeft);
+      assert_equals(y, target_div.scrollTop);
+      resolve();
+    }, unscaled_pause_time_in_ms);
+  });
+}
+
+
 const MAX_FRAME = 700;
 const MAX_UNCHANGED_FRAMES = 20;
 
@@ -41,6 +55,29 @@ function waitForCompositorCommit() {
     // rAF twice.
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(resolve);
+    });
+  });
+}
+
+// Please don't remove this. This is necessary for chromium-based browsers.
+// This shouldn't be necessary if the test harness deferred running the tests
+// until after paint holding. This can be a no-op on user-agents that do not
+// have a separate compositor thread.
+async function waitForCompositorReady() {
+  const animation =
+      document.body.animate({ opacity: [ 1, 1 ] }, {duration: 1 });
+  return animation.finished;
+}
+
+function waitForNextFrame() {
+  const startTime = performance.now();
+  return new Promise(resolve => {
+    window.requestAnimationFrame((frameTime) => {
+      if (frameTime < startTime) {
+        window.requestAnimationFrame(resolve);
+      } else {
+        resolve();
+      }
     });
   });
 }

@@ -7,9 +7,9 @@
 #include <utility>
 #include <vector>
 
-#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/debug/dump_without_crashing.h"
+#include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/task/single_thread_task_runner.h"
@@ -59,8 +59,6 @@ namespace {
 // The client id for the browser process. It must not conflict with any
 // child process client id.
 constexpr uint32_t kBrowserClientId = 0u;
-
-static const char* kBrowser = "Browser";
 
 scoped_refptr<viz::ContextProviderCommandBuffer> CreateContextProvider(
     scoped_refptr<gpu::GpuChannelHost> gpu_channel_host,
@@ -416,7 +414,9 @@ void VizProcessTransportFactory::OnEstablishedGpuChannel(
 #endif
   root_params->gpu_compositing = gpu_compositing;
   root_params->renderer_settings = viz::CreateRendererSettings();
-
+#if BUILDFLAG(IS_MAC)
+  root_params->renderer_settings.display_id = compositor->display_id();
+#endif
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
   if (command_line->HasSwitch(switches::kDisableFrameRateLimit))
     root_params->disable_frame_rate_limit = true;
@@ -439,7 +439,6 @@ void VizProcessTransportFactory::OnEstablishedGpuChannel(
       compositor->context_factory()->GetGpuMemoryBufferManager();
   params.pipes.compositor_frame_sink_associated_remote = std::move(sink_remote);
   params.pipes.client_receiver = std::move(client_receiver);
-  params.client_name = kBrowser;
   auto frame_sink =
       std::make_unique<cc::mojo_embedder::AsyncLayerTreeFrameSink>(
           std::move(context_provider),

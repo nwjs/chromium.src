@@ -18,9 +18,9 @@
 #include "base/time/time.h"
 #include "base/types/expected.h"
 #include "chrome/browser/supervised_user/kids_chrome_management/kids_access_token_fetcher.h"
-#include "chrome/browser/supervised_user/supervised_user_constants.h"
 #include "components/signin/public/identity_manager/access_token_info.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
+#include "components/supervised_user/core/common/supervised_user_constants.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "net/http/http_status_code.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
@@ -104,6 +104,10 @@ std::string CreateMetricKey(StringPiece metric_id, StringPiece metric_suffix) {
                     ".");
 }
 
+// The returned value must match one of the labels in
+// chromium/src/tools/metrics/histograms/enums.xml/histogram-configuration/enums/enum[@name='KidsExternalFetcherStatus'],
+// and should be reflected in tokens in
+// chromium/src/tools/metrics/histograms/metadata/signin/histograms.xml/histogram-configuration/histograms/histogram[@name='Signin.ListFamilyMembersRequest.{Status}.*']
 std::string ConvertStateToMetricLabel(KidsExternalFetcherStatus::State state) {
   switch (state) {
     case KidsExternalFetcherStatus::NO_ERROR:
@@ -113,7 +117,9 @@ std::string ConvertStateToMetricLabel(KidsExternalFetcherStatus::State state) {
     case KidsExternalFetcherStatus::HTTP_ERROR:
       return "HttpError";
     case KidsExternalFetcherStatus::INVALID_RESPONSE:
-      return "InvalidResponse";
+      return "ParseError";
+    case KidsExternalFetcherStatus::DATA_ERROR:
+      return "DataError";
   }
 }
 
@@ -319,6 +325,9 @@ KidsExternalFetcherStatus KidsExternalFetcherStatus::HttpError() {
 KidsExternalFetcherStatus KidsExternalFetcherStatus::InvalidResponse() {
   return KidsExternalFetcherStatus(State::INVALID_RESPONSE);
 }
+KidsExternalFetcherStatus KidsExternalFetcherStatus::DataError() {
+  return KidsExternalFetcherStatus(State::DATA_ERROR);
+}
 
 bool KidsExternalFetcherStatus::IsOk() const {
   return state_ == State::NO_ERROR;
@@ -334,6 +343,9 @@ bool KidsExternalFetcherStatus::IsTransientError() const {
 }
 bool KidsExternalFetcherStatus::IsPersistentError() const {
   if (state_ == State::INVALID_RESPONSE) {
+    return true;
+  }
+  if (state_ == State::DATA_ERROR) {
     return true;
   }
   if (state_ == State::GOOGLE_SERVICE_AUTH_ERROR) {

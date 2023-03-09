@@ -5,11 +5,11 @@
 #include <string>
 #include <utility>
 
-#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/files/file_util.h"
+#include "base/functional/bind.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_samples.h"
@@ -168,8 +168,9 @@ class PasswordManagerBackForwardCacheBrowserTest
     LOG(INFO) << "SetUpCommandLine started.";
     scoped_feature_list_.InitWithFeaturesAndParameters(
         {{::features::kBackForwardCache,
-          {{"TimeToLiveInBackForwardCacheInSeconds", "3600"},
-           {"ignore_outstanding_network_request_for_testing", "true"}}}},
+          {{"ignore_outstanding_network_request_for_testing", "true"}}},
+         {::features::kBackForwardCacheTimeToLiveControl,
+          {{"time_to_live_seconds", "3600"}}}},
         // Allow BackForwardCache for all devices regardless of their memory.
         {::features::kBackForwardCacheMemoryControls});
     PasswordManagerBrowserTest::SetUpCommandLine(command_line);

@@ -13,12 +13,12 @@
 #include <vector>
 
 #include "base/base64.h"
-#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_file.h"
 #include "base/format_macros.h"
+#include "base/functional/bind.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
 #include "base/logging.h"
@@ -196,6 +196,13 @@ Status PrepareDesktopCommandLine(const Capabilities& capabilities,
     LOG(WARNING) << "excluding remote-debugging-port switch is not supported";
   }
   if (switches.HasSwitch("user-data-dir")) {
+    if (switches.HasSwitch("headless")) {
+      // The old headless mode fails to start without a starting page provided
+      // See: https://crbug.com/1414672
+      // TODO(https://crbub.com/chromedriver/4358): Remove this workaround
+      // after the migration to the New Headless
+      command.AppendArg("data:,");
+    }
     base::FilePath::StringType user_data_dir_value =
         switches.GetSwitchValueNative("user-data-dir");
     if (user_data_dir_value.empty())

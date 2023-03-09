@@ -5,7 +5,7 @@
 #include "extensions/components/native_app_window/native_app_window_views.h"
 #include "content/nw/src/browser/nw_chrome_browser_hooks.h"
 
-#include "base/bind.h"
+#include "base/functional/bind.h"
 #include "base/observer_list.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_widget_host.h"

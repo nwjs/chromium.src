@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Instalēt operētājsistēmā Linux</translation>
 <translation id="2225536596944493418">Vai tiešām vēlaties dzēst <ph name="NUMBER_OF_ITEMS" /> vienumus?</translation>
 <translation id="2230062665678605299">Mapi “<ph name="FOLDER_NAME" />” nevar izveidot. <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">Jūsu Google diska kešatmiņa tika notīrīta.</translation>
 <translation id="2239068707900391003">Persona ar kafiju</translation>
 <translation id="2251368349685848079">Atjaunot no atkritnes</translation>
 <translation id="2282155092769082568">Automātiskās konfigurācijas vietrādis URL</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">Neviens vienums neatbilst vaicājumam &lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;.</translation>
 <translation id="2894654529758326923">Informācija</translation>
 <translation id="2902734494705624966">ASV paplašinātā</translation>
+<translation id="2904378509913846215">Mape ar nosaukumu “<ph name="FILENAME" />” jau pastāv. Vai vēlaties to aizstāt ar mapi, ko pārvietojat?</translation>
 <translation id="290843123675549676">Marathu</translation>
 <translation id="2923240520113693977">Igauņu valoda</translation>
 <translation id="2938685643439809023">Mongoļu valoda</translation>
@@ -640,6 +642,7 @@
 <translation id="6241349547798190358">Holandiešu (Beļģija)</translation>
 <translation id="6267547857941397424"><ph name="NETWORK_INDEX" />. tīkls no <ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, signāla stiprums: <ph name="SIGNAL_STRENGTH" />%, tālruņa akumulatora statuss: <ph name="BATTERY_STATUS" />%, savienojums</translation>
 <translation id="6269630227984243955">Malajiešu</translation>
+<translation id="6271903698064569429">Failus nevar augšupielādēt, jo kopīgā diska “<ph name="SHARED_DRIVE_NAME" />” krātuvē nav pietiekami daudz vietas.</translation>
 <translation id="6287852322318138013">Lietotnes atlasīšana šī faila atvēršanai</translation>
 <translation id="6295542640242147836">Bloķēt SIM karti</translation>
 <translation id="6296410173147755564">PUK kods nav derīgs</translation>
@@ -685,6 +688,7 @@
 <translation id="6657585470893396449">Parole</translation>
 <translation id="6658865850469097484">Faili, kas ir atradušies atkritnē ilgāk nekā 30 dienas, tiek automātiski izdzēsti.</translation>
 <translation id="6673674183150363784">Franču (Francija), ar Bépo tastatūru</translation>
+<translation id="670380500182402678">Aizstāt visus</translation>
 <translation id="6710022688720561421">Robots</translation>
 <translation id="6710213216561001401">Iepriekšējais</translation>
 <translation id="6732801395666424405">Sertifikāti netika ielādēti.</translation>
@@ -903,6 +907,7 @@
 <translation id="8386903983509584791">Meklēšana ir pabeigta</translation>
 <translation id="8387733224523483503">Vienums <ph name="FILE_NAME" /> ir izvilkts.</translation>
 <translation id="8395901698320285466">Izmēri</translation>
+<translation id="8404498045299006085">Saglabāt visus</translation>
 <translation id="8408068190360279472">Tīkls: <ph name="NETWORK_TYPE" />, notiek savienojuma izveide</translation>
 <translation id="8425213833346101688">Mainīt</translation>
 <translation id="8431909052837336408">SIM kartes PIN mainīšana</translation>

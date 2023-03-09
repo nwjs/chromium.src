@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Linux सह इंस्टॉल करा</translation>
 <translation id="2225536596944493418">तुम्हाला नक्की <ph name="NUMBER_OF_ITEMS" /> आयटम हटवायचे आहेत का?</translation>
 <translation id="2230062665678605299">फोल्डर "<ph name="FOLDER_NAME" />" तयार करण्‍यात अक्षम. <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">तुमची Google Drive कॅशे साफ केली आहे.</translation>
 <translation id="2239068707900391003">कॉफी पीत असलेली व्यक्ती</translation>
 <translation id="2251368349685848079">ट्रॅशमधून रिस्टोअर करा</translation>
 <translation id="2282155092769082568">स्वयंकॉन्फिगरेशन URL:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">कोणतेही आयटम &lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt; शी जुळत नाहीत</translation>
 <translation id="2894654529758326923">माहिती</translation>
 <translation id="2902734494705624966">यूएस विस्तारित</translation>
+<translation id="2904378509913846215">"<ph name="FILENAME" />" नावाचे फोल्डर आधीपासून अस्तित्वात आहे. तुम्हाला हे फोल्डर तुम्ही हलवत आहात त्या फोल्डरसह बदलायचे आहे का?</translation>
 <translation id="290843123675549676">मराठी</translation>
 <translation id="2923240520113693977">एस्टोनियन</translation>
 <translation id="2938685643439809023">मंगोलियन</translation>
@@ -640,6 +642,7 @@ Google ड्राइव्ह मधील फाइल अपडेट के
 <translation id="6241349547798190358">डच (बेल्जियम)</translation>
 <translation id="6267547857941397424"><ph name="NETWORK_COUNT" /> पैकी <ph name="NETWORK_INDEX" /> नेटवर्क, <ph name="PHONE_NAME" />, सिग्नल क्षमता <ph name="SIGNAL_STRENGTH" />%, फोन बॅटरी <ph name="BATTERY_STATUS" />%, कनेक्ट करा</translation>
 <translation id="6269630227984243955">मलय</translation>
+<translation id="6271903698064569429">"<ph name="SHARED_DRIVE_NAME" />" मध्ये पुरेशी जागा नसल्यामुळे फाइल अपलोड केल्या जाऊ शकत नाहीत.</translation>
 <translation id="6287852322318138013">ही फाईल उघडण्यासाठी ॲप निवडा</translation>
 <translation id="6295542640242147836">सिम लॉक करा</translation>
 <translation id="6296410173147755564">चुकीचा PUK</translation>
@@ -685,6 +688,7 @@ Google ड्राइव्ह मधील फाइल अपडेट के
 <translation id="6657585470893396449">पासवर्ड</translation>
 <translation id="6658865850469097484">३० दिवसांपेक्षा जास्त काळ असलेल्या ट्रॅशमधील फाइल आपोआप हटवल्या जातील.</translation>
 <translation id="6673674183150363784">Bépo कीबोर्डसह फ्रेंच (फ्रान्स)</translation>
+<translation id="670380500182402678">सर्व बदला</translation>
 <translation id="6710022688720561421">रोबोट</translation>
 <translation id="6710213216561001401">मागील</translation>
 <translation id="6732801395666424405">लोड न झालेली प्रमाणपत्रे</translation>
@@ -903,6 +907,7 @@ Google ड्राइव्ह मधील फाइल अपडेट के
 <translation id="8386903983509584791">स्कॅन पूर्ण झाले</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" /> काढली आहे.</translation>
 <translation id="8395901698320285466">परिमाण</translation>
+<translation id="8404498045299006085">सर्व ठेवा</translation>
 <translation id="8408068190360279472"><ph name="NETWORK_TYPE" /> नेटवर्क, कनेक्ट करत आहे</translation>
 <translation id="8425213833346101688">बदल करा</translation>
 <translation id="8431909052837336408">सिम पिन बदला</translation>

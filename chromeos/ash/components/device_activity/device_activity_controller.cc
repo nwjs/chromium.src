@@ -7,15 +7,15 @@
 #include "base/check_op.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/rand_util.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "chromeos/ash/components/dbus/session_manager/session_manager_client.h"
+#include "chromeos/ash/components/device_activity/churn_cohort_use_case_impl.h"
 #include "chromeos/ash/components/device_activity/daily_use_case_impl.h"
 #include "chromeos/ash/components/device_activity/device_active_use_case.h"
 #include "chromeos/ash/components/device_activity/device_activity_client.h"
-#include "chromeos/ash/components/device_activity/first_active_use_case_impl.h"
 #include "chromeos/ash/components/device_activity/fresnel_pref_names.h"
-#include "chromeos/ash/components/device_activity/monthly_use_case_impl.h"
 #include "chromeos/ash/components/device_activity/twenty_eight_day_active_use_case_impl.h"
 #include "chromeos/ash/components/network/network_state.h"
 #include "chromeos/ash/components/network/network_state_handler.h"
@@ -97,12 +97,10 @@ void DeviceActivityController::RegisterPrefs(PrefRegistrySimple* registry) {
   const base::Time unix_epoch = base::Time::UnixEpoch();
   registry->RegisterTimePref(prefs::kDeviceActiveLastKnownDailyPingTimestamp,
                              unix_epoch);
-  registry->RegisterTimePref(prefs::kDeviceActiveLastKnownMonthlyPingTimestamp,
-                             unix_epoch);
-  registry->RegisterTimePref(
-      prefs::kDeviceActiveLastKnownFirstActivePingTimestamp, unix_epoch);
   registry->RegisterTimePref(
       prefs::kDeviceActiveLastKnown28DayActivePingTimestamp, unix_epoch);
+  registry->RegisterTimePref(
+      prefs::kDeviceActiveChurnCohortMonthlyPingTimestamp, unix_epoch);
 }
 
 // static
@@ -118,9 +116,9 @@ base::TimeDelta DeviceActivityController::DetermineStartUpDelay(
   // on device start up, gets the wrong check membership response.
   base::TimeDelta delay_on_first_chrome_run;
   base::Time current_ts = base::Time::Now();
-  if (current_ts < (chrome_first_run_ts + base::Minutes(10))) {
+  if (current_ts < (chrome_first_run_ts + base::Minutes(1))) {
     delay_on_first_chrome_run =
-        chrome_first_run_ts + base::Minutes(10) - current_ts;
+        chrome_first_run_ts + base::Minutes(1) - current_ts;
   }
 
   return delay_on_first_chrome_run;
@@ -162,8 +160,7 @@ DeviceActivityController::DeviceActivityController(
     base::Time chrome_first_run_time)
     : chrome_first_run_time_(chrome_first_run_time),
       chrome_passed_device_params_(chrome_passed_device_params),
-      statistics_provider_(
-          chromeos::system::StatisticsProvider::GetInstance()) {
+      statistics_provider_(system::StatisticsProvider::GetInstance()) {
   DeviceActivityClient::RecordDeviceActivityMethodCalled(
       DeviceActivityClient::DeviceActivityMethod::
           kDeviceActivityControllerConstructor);
@@ -239,19 +236,14 @@ void DeviceActivityController::OnMachineStatisticsLoaded(
       DeviceActivityClient::DeviceActivityMethod::
           kDeviceActivityControllerOnMachineStatisticsLoaded);
 
-  // Initialize all device active use cases, sorted by
-  // smallest to largest window. i.e. Daily > Monthly > First Active.
   std::vector<std::unique_ptr<DeviceActiveUseCase>> use_cases;
   use_cases.push_back(std::make_unique<DailyUseCaseImpl>(
-      psm_device_active_secret, chrome_passed_device_params_, local_state,
-      std::make_unique<PsmDelegateImpl>()));
-  use_cases.push_back(std::make_unique<MonthlyUseCaseImpl>(
       psm_device_active_secret, chrome_passed_device_params_, local_state,
       std::make_unique<PsmDelegateImpl>()));
   use_cases.push_back(std::make_unique<TwentyEightDayActiveUseCaseImpl>(
       psm_device_active_secret, chrome_passed_device_params_, local_state,
       std::make_unique<PsmDelegateImpl>()));
-  use_cases.push_back(std::make_unique<FirstActiveUseCaseImpl>(
+  use_cases.push_back(std::make_unique<ChurnCohortUseCaseImpl>(
       psm_device_active_secret, chrome_passed_device_params_, local_state,
       std::make_unique<PsmDelegateImpl>()));
 

@@ -31,10 +31,6 @@
 #include "ui/views/window/dialog_client_view.h"
 #include "ui/views/window/dialog_observer.h"
 
-#if BUILDFLAG(IS_WIN)
-#include "ui/base/win/shell.h"
-#endif
-
 namespace views {
 
 // Debug information for https://crbug.com/1215247.
@@ -53,8 +49,6 @@ DialogDelegate::DialogDelegate() {
 
   WidgetDelegate::RegisterWindowWillCloseCallback(
       base::BindOnce(&DialogDelegate::WindowWillClose, base::Unretained(this)));
-  UMA_HISTOGRAM_BOOLEAN("Dialog.DialogDelegate.Create", true);
-  creation_time_ = base::TimeTicks::Now();
 }
 
 // static
@@ -84,11 +78,6 @@ bool DialogDelegate::CanSupportCustomFrame(gfx::NativeView parent) {
   // The new style doesn't support unparented dialogs on Linux desktop.
   return parent != nullptr;
 #else
-#if BUILDFLAG(IS_WIN)
-  // The new style doesn't support unparented dialogs on Windows Classic themes.
-  if (!ui::win::IsAeroGlassEnabled())
-    return parent != nullptr;
-#endif
   return true;
 #endif
 }
@@ -334,6 +323,10 @@ void DialogDelegate::DialogModelChanged() {
     observer.OnDialogChanged();
 }
 
+void DialogDelegate::TriggerInputProtection() {
+  GetDialogClientView()->TriggerInputProtection();
+}
+
 void DialogDelegate::SetDefaultButton(int button) {
   if (params_.default_button == button)
     return;
@@ -433,8 +426,6 @@ void DialogDelegate::CancelDialog() {
 }
 
 DialogDelegate::~DialogDelegate() {
-  UMA_HISTOGRAM_LONG_TIMES("Dialog.DialogDelegate.Duration",
-                           base::TimeTicks::Now() - creation_time_);
   --g_instance_count;
 }
 
@@ -464,7 +455,6 @@ std::unique_ptr<View> DialogDelegate::DisownFootnoteView() {
 
 DialogDelegateView::DialogDelegateView() {
   SetOwnedByWidget(true);
-  UMA_HISTOGRAM_BOOLEAN("Dialog.DialogDelegateView.Create", true);
 }
 
 DialogDelegateView::~DialogDelegateView() = default;

@@ -35,11 +35,12 @@ import zlib
 # https://chromium.googlesource.com/chromium/src/+/main/docs/updating_clang.md
 # Reverting problematic clang rolls is safe, though.
 # This is the output of `git describe` and is usable as a commit-ish.
-CLANG_REVISION = 'llvmorg-16-init-12251-g87d0ff91'
+CLANG_REVISION = 'llvmorg-16-init-17653-g39da55e8'
 CLANG_SUB_REVISION = 2
 
 PACKAGE_VERSION = '%s-%s' % (CLANG_REVISION, CLANG_SUB_REVISION)
 RELEASE_VERSION = '16'
+# TODO(crbug.com/1410101): Bump to 17 in next Clang roll.
 
 CDS_URL = os.environ.get('CDS_CLANG_BUCKET_OVERRIDE',
     'https://commondatastorage.googleapis.com/chromium-browser-clang')
@@ -153,7 +154,7 @@ def EnsureDirExists(path):
     os.makedirs(path)
 
 
-def DownloadAndUnpack(url, output_dir, path_prefixes=None):
+def DownloadAndUnpack(url, output_dir, path_prefixes=None, is_known_zip=False):
   """Download an archive from url and extract into output_dir. If path_prefixes
      is not None, only extract files whose paths within the archive start with
      any prefix in path_prefixes."""
@@ -161,7 +162,7 @@ def DownloadAndUnpack(url, output_dir, path_prefixes=None):
     DownloadUrl(url, f)
     f.seek(0)
     EnsureDirExists(output_dir)
-    if url.endswith('.zip'):
+    if url.endswith('.zip') or is_known_zip:
       assert path_prefixes is None
       zipfile.ZipFile(f).extractall(path=output_dir)
     else:
@@ -329,6 +330,11 @@ def main():
   parser.add_argument('--verify-version',
                       help='Verify that clang has the passed-in version.')
   args = parser.parse_args()
+
+  # TODO(crbug.com/1410101): Remove in next Clang roll.
+  if args.llvm_force_head_revision:
+    global RELEASE_VERSION
+    RELEASE_VERSION = '17'
 
   if args.verify_version and args.verify_version != RELEASE_VERSION:
     print('RELEASE_VERSION is %s but --verify-version argument was %s.' % (

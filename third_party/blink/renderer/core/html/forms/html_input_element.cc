@@ -603,6 +603,8 @@ void HTMLInputElement::UpdateType() {
       formOwner() && isConnected())
     formOwner()->InvalidateDefaultButtonStyle();
   NotifyFormStateChanged();
+
+  CheckAndPossiblyClosePopoverStack();
 }
 
 void HTMLInputElement::SubtreeHasChanged() {
@@ -939,7 +941,7 @@ void HTMLInputElement::FinishParsingChildren() {
   }
 }
 
-bool HTMLInputElement::LayoutObjectIsNeeded(const ComputedStyle& style) const {
+bool HTMLInputElement::LayoutObjectIsNeeded(const DisplayStyle& style) const {
   return input_type_->LayoutObjectIsNeeded() &&
          TextControlElement::LayoutObjectIsNeeded(style);
 }
@@ -2216,12 +2218,8 @@ bool HTMLInputElement::IsInteractiveContent() const {
   return input_type_->IsInteractiveContent();
 }
 
-scoped_refptr<ComputedStyle> HTMLInputElement::CustomStyleForLayoutObject(
-    const StyleRecalcContext& style_recalc_context) {
-  scoped_refptr<ComputedStyle> original_style =
-      OriginalStyleForLayoutObject(style_recalc_context);
-  return input_type_view_->CustomStyleForLayoutObject(
-      std::move(original_style));
+void HTMLInputElement::AdjustStyle(ComputedStyleBuilder& builder) {
+  return input_type_view_->AdjustStyle(builder);
 }
 
 void HTMLInputElement::DidNotifySubtreeInsertionsToDocument() {

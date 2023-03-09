@@ -43,7 +43,7 @@ class SurfaceTreeHost : public SurfaceDelegate,
 
   // Sets a root surface of a surface tree. This surface tree will be hosted in
   // the |host_window_|.
-  void SetRootSurface(Surface* root_surface);
+  virtual void SetRootSurface(Surface* root_surface);
 
   // Returns false if the hit test region is empty.
   bool HasHitTestRegion() const;
@@ -139,7 +139,7 @@ class SurfaceTreeHost : public SurfaceDelegate,
 
   // Call this after a buffer has been committed but before a compositor frame
   // has been submitted.
-  void DidCommit();
+  void WillCommit();
 
   // Call this to submit a compositor frame.
   void SubmitCompositorFrame();

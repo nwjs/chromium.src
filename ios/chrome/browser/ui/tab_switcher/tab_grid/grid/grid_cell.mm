@@ -321,10 +321,6 @@ void PositionView(UIView* view, CGPoint point) {
   _snapshot = snapshot;
 }
 
-- (BOOL)hasIdentifier:(NSString*)identifier {
-  return [self.itemIdentifier isEqualToString:identifier];
-}
-
 - (void)setPriceDrop:(NSString*)price previousPrice:(NSString*)previousPrice {
   [self.priceCardView setPriceDrop:price previousPrice:previousPrice];
   // Only append PriceCardView accessibility text if it doesn't already exist in
@@ -668,6 +664,8 @@ void PositionView(UIView* view, CGPoint point) {
   proxy.titleHidden = cell.titleHidden;
   proxy.priceCardView = cell.priceCardView;
   proxy.opacity = cell.opacity;
+  // Remove dark corners from the transition animtation cell.
+  proxy.backgroundColor = [UIColor clearColor];
   return proxy;
 }
 #pragma mark - GridToTabTransitionView properties.

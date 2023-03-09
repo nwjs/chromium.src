@@ -205,6 +205,7 @@ ci.builder(
             config = "chromium",
             apply_configs = [
                 "fuchsia_x64",
+                "checkout_pgo_profiles",
             ],
         ),
         chromium_config = builder_config.chromium_config(

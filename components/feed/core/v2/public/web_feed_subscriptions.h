@@ -8,7 +8,7 @@
 #include <ostream>
 #include <string>
 
-#include "base/callback.h"
+#include "base/functional/callback.h"
 #include "components/feed/core/proto/v2/wire/web_feeds.pb.h"
 #include "components/feed/core/v2/public/types.h"
 
@@ -26,6 +26,12 @@ class WebFeedSubscriptions {
     int subscription_count = 0;
     // The change reason from the request.
     feedwire::webfeed::WebFeedChangeReason change_reason;
+  };
+  struct QueryWebFeedResult {
+    WebFeedQueryRequestStatus request_status =
+        WebFeedQueryRequestStatus::kUnknown;
+    // The id of the queried web feed.
+    std::string web_feed_id;
   };
   // Follow a web feed given information about a web page. Calls `callback` when
   // complete. The callback parameter reports whether the url is now considered
@@ -106,6 +112,11 @@ class WebFeedSubscriptions {
   // fails, returns the last-known state.
   virtual void SubscribedWebFeedCount(
       base::OnceCallback<void(int)> callback) = 0;
+
+  // return the WebFeed Id based on the Uri provided.
+  virtual void QueryWebFeed(
+      const GURL& url,
+      base::OnceCallback<void(QueryWebFeedResult)> callback) = 0;
 
   // Output debugging information for snippets-internals.
   virtual void DumpStateForDebugging(std::ostream& ss) {}

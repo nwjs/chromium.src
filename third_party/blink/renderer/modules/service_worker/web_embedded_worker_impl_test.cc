@@ -8,10 +8,13 @@
 
 #include "base/feature_list.h"
 #include "base/synchronization/waitable_event.h"
+#include "base/task/sequenced_task_runner.h"
+#include "base/task/single_thread_task_runner.h"
 #include "mojo/public/cpp/bindings/pending_associated_remote.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
+#include "services/network/public/cpp/resource_request.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
@@ -65,7 +68,7 @@ class FakeWebURLLoader final : public WebURLLoader {
       absl::optional<WebURLError>&,
       WebData&,
       int64_t& encoded_data_length,
-      int64_t& encoded_body_length,
+      uint64_t& encoded_body_length,
       WebBlobInfo& downloaded_blob,
       std::unique_ptr<blink::ResourceLoadInfoNotifierWrapper>
           resource_load_info_notifier_wrapper) override {

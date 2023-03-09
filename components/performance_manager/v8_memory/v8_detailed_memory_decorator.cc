@@ -7,12 +7,12 @@
 #include <utility>
 #include <vector>
 
-#include "base/bind.h"
-#include "base/callback.h"
 #include "base/check.h"
 #include "base/containers/contains.h"
 #include "base/containers/cxx20_erase.h"
 #include "base/containers/flat_map.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
@@ -761,9 +761,9 @@ base::Value V8DetailedMemoryDecorator::DescribeFrameNodeData(
   if (!frame_data)
     return base::Value();
 
-  base::Value dict(base::Value::Type::DICTIONARY);
-  dict.SetIntKey("v8_bytes_used", frame_data->v8_bytes_used());
-  return dict;
+  base::Value::Dict dict;
+  dict.Set("v8_bytes_used", static_cast<int>(frame_data->v8_bytes_used()));
+  return base::Value(std::move(dict));
 }
 
 base::Value V8DetailedMemoryDecorator::DescribeProcessNodeData(
@@ -776,11 +776,12 @@ base::Value V8DetailedMemoryDecorator::DescribeProcessNodeData(
 
   DCHECK_EQ(content::PROCESS_TYPE_RENDERER, process_node->GetProcessType());
 
-  base::Value dict(base::Value::Type::DICTIONARY);
-  dict.SetIntKey("detached_v8_bytes_used",
-                 process_data->detached_v8_bytes_used());
-  dict.SetIntKey("shared_v8_bytes_used", process_data->shared_v8_bytes_used());
-  return dict;
+  base::Value::Dict dict;
+  dict.Set("detached_v8_bytes_used",
+           static_cast<int>(process_data->detached_v8_bytes_used()));
+  dict.Set("shared_v8_bytes_used",
+           static_cast<int>(process_data->shared_v8_bytes_used()));
+  return base::Value(std::move(dict));
 }
 
 const V8DetailedMemoryRequest* V8DetailedMemoryDecorator::GetNextRequest()

@@ -9,9 +9,9 @@
 #include <utility>
 #include <vector>
 
-#include "base/bind.h"
 #include "base/check_op.h"
 #include "base/containers/flat_map.h"
+#include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/notreached.h"
@@ -36,7 +36,8 @@ namespace device {
 namespace {
 
 struct PlatformCredentialListDeleter {
-  PlatformCredentialListDeleter(WinWebAuthnApi* win_api) : win_api_(win_api) {}
+  explicit PlatformCredentialListDeleter(WinWebAuthnApi* win_api)
+      : win_api_(win_api) {}
   inline void operator()(PWEBAUTHN_CREDENTIAL_DETAILS_LIST ptr) const {
     win_api_->FreePlatformCredentialList(ptr);
   }
@@ -234,15 +235,16 @@ void WinWebAuthnApiAuthenticator::GetAssertionDone(
     return;
   }
   if (result.first != CtapDeviceResponseCode::kSuccess) {
-    std::move(callback).Run(result.first, absl::nullopt);
+    std::move(callback).Run(result.first, {});
     return;
   }
   if (!result.second) {
-    std::move(callback).Run(CtapDeviceResponseCode::kCtap2ErrInvalidCBOR,
-                            absl::nullopt);
+    std::move(callback).Run(CtapDeviceResponseCode::kCtap2ErrInvalidCBOR, {});
     return;
   }
-  std::move(callback).Run(result.first, std::move(result.second));
+  std::vector<AuthenticatorGetAssertionResponse> responses;
+  responses.emplace_back(std::move(*result.second));
+  std::move(callback).Run(result.first, std::move(responses));
 }
 
 void WinWebAuthnApiAuthenticator::GetCredentialInformationForRequest(
@@ -318,18 +320,6 @@ std::string WinWebAuthnApiAuthenticator::GetId() const {
   return "WinWebAuthnApiAuthenticator";
 }
 
-bool WinWebAuthnApiAuthenticator::IsInPairingMode() const {
-  return false;
-}
-
-bool WinWebAuthnApiAuthenticator::IsPaired() const {
-  return false;
-}
-
-bool WinWebAuthnApiAuthenticator::RequiresBlePairingPin() const {
-  return false;
-}
-
 absl::optional<FidoTransportProtocol>
 WinWebAuthnApiAuthenticator::AuthenticatorTransport() const {
   // The Windows API could potentially use any external or
@@ -352,6 +342,10 @@ bool WinWebAuthnApiAuthenticator::SupportsEnterpriseAttestation() const {
 bool WinWebAuthnApiAuthenticator::SupportsCredBlobOfSize(
     size_t num_bytes) const {
   return win_api_->Version() >= WEBAUTHN_API_VERSION_3;
+}
+
+bool WinWebAuthnApiAuthenticator::SupportsLargeBlobs() const {
+  return win_api_->SupportsLargeBlobs();
 }
 
 const absl::optional<AuthenticatorSupportedOptions>&

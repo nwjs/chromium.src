@@ -118,7 +118,6 @@ Bəzi funksiyalar əlçatmaz ola bilər ki, nəticədə tərcihlərə edilən d�
 <translation id="3038232873781883849">Quraşdırılması gözlənilir...</translation>
 <translation id="3059710691562604940">Təhlükəsiz Baxış deaktivdir. Chrome onu aktiv etməyi tövsiyə edir.</translation>
 <translation id="3065168410429928842">Chrome tabı</translation>
-<translation id="3069821012350118710">Ziyarət etdiyiniz saytlar Chrome'u bağlayana qədər məlumatlarınızı xatırlayır</translation>
 <translation id="3080151273017101988">Google Chrome bağlı olduqda arxa fon tətbiqləri davam etdirilsin</translation>
 <translation id="3089968997497233615">Google Chrome'un yeni, güvənli versiyası əlçatandır.</translation>
 <translation id="3100998948628680988">Chrome profilinizə ad verin</translation>
@@ -144,6 +143,7 @@ Bəzi funksiyalar əlçatmaz ola bilər ki, nəticədə tərcihlərə edilən d�
 <translation id="3533694711092285624">Yadda saxlanmış parol yoxdur. Parollarınızı yadda saxladıqda Chrome onları yoxlaya bilər.</translation>
 <translation id="3541482654983822893">Chrome parollarınızı yoxlaya bilmir. 24 saatdan sonra yenidən cəhd edin.</translation>
 <translation id="3576528680708590453">Sistem administratoru Google Chrome'u <ph name="TARGET_URL_HOSTNAME" /> ünvanına daxil olmaq məqsədilə alternativ brauzer açmaq üçün konfiqurasiya edib.</translation>
+<translation id="3579965087968408543">Chrome'u bağladığınız zaman sayt məlumatlarını həmişə cihazınızdan təmizləyin</translation>
 <translation id="3582972582564653026">Chrome'u cihazlarda sinxronizasiya edin və fərdiləşdirin</translation>
 <translation id="3596080736082218006">{COUNT,plural, =0{Administrator güncəlləməni tətbiq etmək üçün Chrome'u yenidən başlatmanızı tələb edir}=1{Administrator güncəlləməni tətbiq etmək üçün Chrome'u yenidən başlatmanızı tələb edir. Anonim pəncərəniz yenidən açılmayacaq.}other{Administrator güncəlləməni tətbiq etmək üçün Chrome'u yenidən başlatmanızı tələb edir. # Anonim pəncərəniz yenidən açılmayacaq.}}</translation>
 <translation id="3622797965165704966">İndi Chrome'u Google Hesabınızla və paylaşılan kompüterlərlə işlətmək daha asandır.</translation>
@@ -248,7 +248,6 @@ Bəzi funksiyalar əlçatmaz ola bilər. Xüsusi profil direktoriyası göstəri
 <translation id="5804318322022881572">Chrome başlamadı. Yenidən sınayın.</translation>
 <translation id="5867197326698922595">Google Chrome parolları redaktə etməyə çalışır.</translation>
 <translation id="5895138241574237353">Yenidən başladın</translation>
-<translation id="5901850848447342934">Chrome'u bağladıqda <ph name="BEGIN_BOLD" />əksər saytlardan<ph name="END_BOLD" /> çıxacaqsınız. Sinxronizasiya deaktivdirsə <ph name="BEGIN_BOLD" />Google xidmətlərindən və Chrome'dan da çıxacaqsınız<ph name="END_BOLD" />.</translation>
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" /> - Şəbəkəyə Giriş</translation>
 <translation id="5924017743176219022">İnternetə qoşulur...</translation>
 <translation id="5940385492829620908">Veb, əlfəcinlər və Chrome'a aid hər şeyiniz buradadır.</translation>
@@ -348,6 +347,7 @@ Hazırda veb saytlar və tətbiqlərə verdiyiniz icazələr bu hesaba tətbiq o
 <translation id="7917876797003313048">Daxil olunmuş Google Hesablarını idarə edə bilərsiniz. Google Hesablarınız Chrome brauzeri, Play Market, Gmail və digər xidmətlər üçün istifadə olunur. Ailə üzvü kimi başqası üçün bir hesab əlavə etmək istəyirsinizsə, əvəzində <ph name="DEVICE_TYPE" /> cihazınıza yeni bir şəxs əlavə edin. <ph name="LINK_BEGIN" />Ətraflı məlumat<ph name="LINK_END" /></translation>
 <translation id="7930071585467473040">Google Chrome parolları kopyalamağa çalışır.</translation>
 <translation id="7951272445806340501">ChromeOS Flex yenidən başlamalıdır ki, güncəlləşmə tətbiq olunsun.</translation>
+<translation id="7962368738413920945">Saytlar yəqin ki, gözlədiyiniz kimi işləyəcək, lakin bütün Chrome pəncərələrini bağladıqdan sonra sizi xatırlamayacaq</translation>
 <translation id="7962410387636238736">Windows XP və Windows Vista artıq dəstəklənmədiyi üçün bu kompüter Google Chrome güncəlləmələrini qəbul etməyəcək</translation>
 <translation id="8005666035647241369">Bu cihazda Google Parol Menecerinə</translation>
 <translation id="8008534537613507642">Chrome'u yenidən quraşdırın</translation>
@@ -385,7 +385,6 @@ Hazırda veb saytlar və tətbiqlərə verdiyiniz icazələr bu hesaba tətbiq o
 <translation id="8614913330719544658">Google Chrome cavab vermir. Yenidən başladılsın?</translation>
 <translation id="861702415419836452">Chrome ətrafınızın 3D xəritəsini yaratmaq üçün kameranıza giriş icazəsi tələb edir</translation>
 <translation id="8625237574518804553">{0,plural, =1{Chrome 1 dəqiqəyə yenidən başlayacaq}other{Chrome # dəqiqəyə yenidən başlayacaq}}</translation>
-<translation id="8629311577791198377">Bütün Chrome pəncərələrini bağladığınız zaman kukilər və sayt datası avtomatik olaraq silinir</translation>
 <translation id="8641606876632989680">Oğurlanmış parol ilə daxil olduqda Chrome sizə bildiriş göndərəcək</translation>
 <translation id="8649026945479135076">Ziyarət etdiyiniz saytların təcrübənizi fərdiləşdirmək üçün maraqlarınızı xatırlaması normaldır. Saytlar həmçinin maraqlarınız haqqında Chrome ilə məlumat saxlaya bilər.</translation>
 <translation id="8669527147644353129">Google Chrome Yardımçı</translation>
@@ -417,6 +416,7 @@ Hazırda veb saytlar və tətbiqlərə verdiyiniz icazələr bu hesaba tətbiq o
 <translation id="922152298093051471">Chrome'u fərdiləşdirin</translation>
 <translation id="93760716455950538">ChromeOS Flex'i yenidən başladın</translation>
 <translation id="940313311831216333">Bütün cihazlarınızda Chrome elementlərinə giriş etmək üçün daxil olun və sinxronizasiyanı aktiv edin.</translation>
+<translation id="943390475793766444">Chrome bu faylı skan etməyi tövsiyə edir, çünki o, təhlükəli ola bilər.</translation>
 <translation id="989369509083708165">Google Chrome defolt brauzerinizdir</translation>
 <translation id="989816563149873169"><ph name="SHORTCUT" /> Chrome profilləri arasında keçid edə bilər</translation>
 </translationbundle>

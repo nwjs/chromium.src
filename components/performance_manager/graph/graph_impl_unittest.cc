@@ -33,8 +33,7 @@ TEST_F(GraphImplTest, GetSystemNodeImpl) {
 }
 
 TEST_F(GraphImplTest, GetProcessNodeByPid) {
-  TestNodeWrapper<ProcessNodeImpl> process =
-      TestNodeWrapper<ProcessNodeImpl>::Create(graph());
+  TestNodeWrapper<ProcessNodeImpl> process = CreateNode<ProcessNodeImpl>();
   EXPECT_EQ(base::kNullProcessId, process->process_id());
   EXPECT_FALSE(process->process().IsValid());
 
@@ -64,10 +63,8 @@ TEST_F(GraphImplTest, PIDReuse) {
   // PID has been reused for a new process.
   static base::Process self = base::Process::Current();
 
-  TestNodeWrapper<ProcessNodeImpl> process1 =
-      TestNodeWrapper<ProcessNodeImpl>::Create(graph());
-  TestNodeWrapper<ProcessNodeImpl> process2 =
-      TestNodeWrapper<ProcessNodeImpl>::Create(graph());
+  TestNodeWrapper<ProcessNodeImpl> process1 = CreateNode<ProcessNodeImpl>();
+  TestNodeWrapper<ProcessNodeImpl> process2 = CreateNode<ProcessNodeImpl>();
 
   process1->SetProcess(self.Duplicate(),
                        /* launch_time=*/base::TimeTicks::Now());
@@ -209,38 +206,38 @@ class TestNodeDataDescriber : public NodeDataDescriber {
   explicit TestNodeDataDescriber(base::StringPiece name) : name_(name) {}
 
   base::Value DescribeFrameNodeData(const FrameNode* node) const override {
-    base::Value list(base::Value::Type::LIST);
+    base::Value::List list;
     list.Append(name_);
     list.Append("FrameNode");
-    return list;
+    return base::Value(std::move(list));
   }
 
   base::Value DescribePageNodeData(const PageNode* node) const override {
-    base::Value list(base::Value::Type::LIST);
+    base::Value::List list;
     list.Append(name_);
     list.Append("PageNode");
-    return list;
+    return base::Value(std::move(list));
   }
 
   base::Value DescribeProcessNodeData(const ProcessNode* node) const override {
-    base::Value list(base::Value::Type::LIST);
+    base::Value::List list;
     list.Append(name_);
     list.Append("ProcessNode");
-    return list;
+    return base::Value(std::move(list));
   }
 
   base::Value DescribeSystemNodeData(const SystemNode* node) const override {
-    base::Value list(base::Value::Type::LIST);
+    base::Value::List list;
     list.Append(name_);
     list.Append("SystemNode");
-    return list;
+    return base::Value(std::move(list));
   }
 
   base::Value DescribeWorkerNodeData(const WorkerNode* node) const override {
-    base::Value list(base::Value::Type::LIST);
+    base::Value::List list;
     list.Append(name_);
     list.Append("WorkerNode");
-    return list;
+    return base::Value(std::move(list));
   }
 
  private:

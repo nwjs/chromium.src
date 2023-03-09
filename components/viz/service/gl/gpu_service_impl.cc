@@ -9,9 +9,9 @@
 #include <utility>
 #include <vector>
 
-#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
+#include "base/functional/bind.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/no_destructor.h"
@@ -282,26 +282,6 @@ bool IsAcceleratedJpegDecodeSupported() {
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 }
 
-void GetVideoCapabilities(const gpu::GpuPreferences& gpu_preferences,
-                          const gpu::GpuDriverBugWorkarounds& gpu_workarounds,
-                          gpu::GPUInfo* gpu_info) {
-  // Note: Since Android doesn't have to support PPAPI/Flash, we have not
-  // returned the decoder profiles here since https://crrev.com/665999.
-#if !BUILDFLAG(IS_ANDROID)
-  // GpuMojoMediaClient controls which decoder is actually being used, so
-  // it should be the source of truth for supported profiles.
-  auto maybe_decoder_configs =
-      media::GpuMojoMediaClient::GetSupportedVideoDecoderConfigsStatic(
-          gpu_preferences, gpu_workarounds, *gpu_info);
-
-  if (maybe_decoder_configs.has_value()) {
-    gpu_info->video_decode_accelerator_supported_profiles =
-        media::GpuVideoAcceleratorUtil::ConvertMediaConfigsToGpuDecodeProfiles(
-            *maybe_decoder_configs);
-  }
-#endif  // !BUILDFLAG(IS_ANDROID)
-}
-
 // Returns a callback which does a PostTask to run |callback| on the |runner|
 // task runner.
 template <typename... Params>
@@ -505,10 +485,6 @@ GpuServiceImpl::~GpuServiceImpl() {
 void GpuServiceImpl::UpdateGPUInfo() {
   DCHECK(main_runner_->BelongsToCurrentThread());
   DCHECK(!gpu_host_);
-  gpu::GpuDriverBugWorkarounds gpu_workarounds(
-      gpu_feature_info_.enabled_gpu_driver_bug_workarounds);
-
-  GetVideoCapabilities(gpu_preferences_, gpu_workarounds, &gpu_info_);
 
   gpu_info_.jpeg_decode_accelerator_supported =
       IsAcceleratedJpegDecodeSupported();
@@ -665,12 +641,6 @@ scoped_refptr<gpu::SharedContextState> GpuServiceImpl::GetContextState() {
   DCHECK(main_runner_->BelongsToCurrentThread());
   gpu::ContextResult result;
   return gpu_channel_manager_->GetSharedContextState(&result);
-}
-
-gpu::ImageFactory* GpuServiceImpl::gpu_image_factory() {
-  return gpu_memory_buffer_factory_
-             ? gpu_memory_buffer_factory_->AsImageFactory()
-             : nullptr;
 }
 
 // static
@@ -879,15 +849,14 @@ void GpuServiceImpl::CreateGpuMemoryBuffer(
 }
 
 void GpuServiceImpl::DestroyGpuMemoryBuffer(gfx::GpuMemoryBufferId id,
-                                            int client_id,
-                                            const gpu::SyncToken& sync_token) {
+                                            int client_id) {
   if (!main_runner_->BelongsToCurrentThread()) {
     main_runner_->PostTask(
         FROM_HERE, base::BindOnce(&GpuServiceImpl::DestroyGpuMemoryBuffer,
-                                  weak_ptr_, id, client_id, sync_token));
+                                  weak_ptr_, id, client_id));
     return;
   }
-  gpu_channel_manager_->DestroyGpuMemoryBuffer(id, client_id, sync_token);
+  gpu_channel_manager_->DestroyGpuMemoryBuffer(id, client_id);
 }
 
 void GpuServiceImpl::CopyGpuMemoryBuffer(

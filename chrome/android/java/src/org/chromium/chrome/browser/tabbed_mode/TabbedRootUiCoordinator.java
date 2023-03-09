@@ -26,6 +26,7 @@ import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.ActivityTabProvider.ActivityTabTabObserver;
 import org.chromium.chrome.browser.ApplicationLifetime;
 import org.chromium.chrome.browser.SwipeRefreshHandler;
+import org.chromium.chrome.browser.accessibility.PageZoomIPHController;
 import org.chromium.chrome.browser.app.tab_activity_glue.TabReparentingController;
 import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.banners.AppBannerInProductHelpController;
@@ -38,6 +39,7 @@ import org.chromium.chrome.browser.compositor.bottombar.ephemeraltab.EphemeralTa
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerImpl;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchManager;
+import org.chromium.chrome.browser.desktop_site.DesktopSiteSettingsIPHController;
 import org.chromium.chrome.browser.feature_guide.notifications.FeatureNotificationUtils;
 import org.chromium.chrome.browser.feature_guide.notifications.FeatureType;
 import org.chromium.chrome.browser.feed.webfeed.WebFeedFollowIntroController;
@@ -66,6 +68,8 @@ import org.chromium.chrome.browser.multiwindow.MultiInstanceIphController;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.night_mode.WebContentsDarkModeMessageController;
 import org.chromium.chrome.browser.notifications.permissions.NotificationPermissionController;
+import org.chromium.chrome.browser.notifications.permissions.NotificationPermissionController.RationaleDelegate;
+import org.chromium.chrome.browser.notifications.permissions.NotificationPermissionRationaleBottomSheet;
 import org.chromium.chrome.browser.notifications.permissions.NotificationPermissionRationaleDialogController;
 import org.chromium.chrome.browser.ntp.NewTabPageLaunchOrigin;
 import org.chromium.chrome.browser.ntp.NewTabPageUtils;
@@ -108,12 +112,11 @@ import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.signin.FullScreenSyncPromoUtil;
 import org.chromium.chrome.browser.ui.system.StatusBarColorController.StatusBarColorProvider;
 import org.chromium.chrome.browser.ui.tablet.emptybackground.EmptyBackgroundViewWrapper;
-import org.chromium.chrome.browser.vr.VrModuleProvider;
 import org.chromium.chrome.browser.webapps.AddToHomescreenIPHController;
 import org.chromium.chrome.browser.webapps.AddToHomescreenMostVisitedTileClickObserver;
 import org.chromium.chrome.features.start_surface.StartSurface;
-import org.chromium.chrome.features.start_surface.StartSurfaceState;
 import org.chromium.chrome.features.start_surface.StartSurfaceUserData;
+import org.chromium.components.browser_ui.accessibility.PageZoomCoordinator;
 import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
 import org.chromium.components.browser_ui.util.ComposedBrowserControlsVisibilityDelegate;
 import org.chromium.components.browser_ui.widget.InsetObserverView;
@@ -147,6 +150,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
     private OfflineIndicatorControllerV2 mOfflineIndicatorController;
     private OfflineIndicatorInProductHelpController mOfflineIndicatorInProductHelpController;
     private ReadLaterIPHController mReadLaterIPHController;
+    private DesktopSiteSettingsIPHController mDesktopSiteSettingsIPHController;
     private WebFeedFollowIntroController mWebFeedFollowIntroController;
     private UrlFocusChangeListener mUrlFocusChangeListener;
     private @Nullable ToolbarButtonInProductHelpController mToolbarButtonInProductHelpController;
@@ -404,6 +408,11 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
             mTabSwitcherCustomViewManagerCallbackController.destroy();
         }
 
+        if (mDesktopSiteSettingsIPHController != null) {
+            mDesktopSiteSettingsIPHController.destroy();
+            mDesktopSiteSettingsIPHController = null;
+        }
+
         super.onDestroy();
     }
 
@@ -518,8 +527,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         }
 
         if (!DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivity)
-                && (TabUiFeatureUtilities.isTabGroupsAndroidEnabled(mActivity)
-                        || TabUiFeatureUtilities.isConditionalTabStripEnabled())) {
+                && TabUiFeatureUtilities.isTabGroupsAndroidEnabled(mActivity)) {
             getToolbarManager().enableBottomControls();
         }
 
@@ -605,9 +613,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
     }
 
     private boolean isShowingStartSurfaceHomepage() {
-        return mStartSurfaceSupplier.get() != null
-                && mStartSurfaceSupplier.get().getStartSurfaceState()
-                == StartSurfaceState.SHOWN_HOMEPAGE;
+        return mStartSurfaceSupplier.get() != null && mStartSurfaceSupplier.get().isHomepageShown();
     }
 
     // Protected class methods
@@ -681,11 +687,22 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         }
 
         if (!didTriggerPromo) {
-            mNotificationPermissionController = new NotificationPermissionController(mWindowAndroid,
-                    new NotificationPermissionRationaleDialogController(
-                            mActivity, mModalDialogManagerSupplier.get()));
+            RationaleDelegate rationaleUIDelegate;
+
+            if (NotificationPermissionController.shouldUseBottomSheetRationaleUi()) {
+                rationaleUIDelegate = new NotificationPermissionRationaleBottomSheet(
+                        mActivity, getBottomSheetController());
+            } else {
+                rationaleUIDelegate = new NotificationPermissionRationaleDialogController(
+                        mActivity, mModalDialogManagerSupplier.get());
+            }
+
+            mNotificationPermissionController =
+                    new NotificationPermissionController(mWindowAndroid, rationaleUIDelegate);
+
             NotificationPermissionController.attach(
                     mWindowAndroid, mNotificationPermissionController);
+
             didTriggerPromo = mNotificationPermissionController.requestPermissionIfNeeded(
                     false /* contextual */);
         }
@@ -723,6 +740,9 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                         getToolbarManager().getMenuButtonView(),
                         mAppMenuCoordinator.getAppMenuHandler(), R.id.manage_all_windows_menu_id);
             }
+            DesktopSiteSettingsIPHController.create(mActivity, mWindowAndroid, mActivityTabProvider,
+                    Profile.getLastUsedRegularProfile(), getToolbarManager().getMenuButtonView(),
+                    mAppMenuCoordinator.getAppMenuHandler(), getPrimaryDisplaySizeInInches());
         }
         mPromoShownOneshotSupplier.set(didTriggerPromo);
 
@@ -784,6 +804,17 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                                         TabLaunchType.FROM_CHROME_UI);
                     }, mModalDialogManagerSupplier.get(), mSnackbarManagerSupplier.get());
         }
+
+        if (!didTriggerPromo && PageZoomCoordinator.shouldShowMenuItem()) {
+            // Page Zoom IPH should only show if the menu item is visible, and not on NTP or CCT.
+            Tab tab = mActivityTabProvider.get();
+            if (tab != null && tab.getWebContents() != null && !tab.isNativePage()) {
+                PageZoomIPHController mPageZoomIPHController = new PageZoomIPHController(mActivity,
+                        mAppMenuCoordinator.getAppMenuHandler(),
+                        mToolbarManager.getMenuButtonView());
+                mPageZoomIPHController.showColdStartIPH();
+            }
+        }
     }
 
     private void updateTopControlsHeight(boolean animate) {
@@ -804,7 +835,6 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
 
         CommerceSubscriptionsServiceFactory factory = new CommerceSubscriptionsServiceFactory();
         mCommerceSubscriptionsService = factory.getForLastUsedProfile();
-        mCommerceSubscriptionsService.getSubscriptionsManager().queryAndUpdateWaaEnabled();
         mCommerceSubscriptionsService.initDeferredStartupForActivity(
                 mTabModelSelectorSupplier.get(), mActivityLifecycleDispatcher);
     }
@@ -923,13 +953,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                     LocaleManager.getInstance().hasShownSearchEnginePromoThisSession();
             if (!isShowingPromo && !intentWithEffect && FirstRunStatus.getFirstRunFlowComplete()
                     && preferenceManager.readBoolean(
-                            ChromePreferenceKeys.PROMOS_SKIPPED_ON_FIRST_START, false)
-                    && !VrModuleProvider.getDelegate().isInVr()
-                    // VrModuleProvider.getDelegate().isInVr may not return true at this point
-                    // even though Chrome is about to enter VR, so we need to also check whether
-                    // we're launching into VR.
-                    && !VrModuleProvider.getIntentDelegate().isLaunchingIntoVr(
-                            mActivity, mActivity.getIntent())) {
+                            ChromePreferenceKeys.PROMOS_SKIPPED_ON_FIRST_START, false)) {
                 isShowingPromo = maybeShowPromo();
             } else {
                 preferenceManager.writeBoolean(

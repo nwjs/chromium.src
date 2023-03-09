@@ -12,10 +12,10 @@
 #include <vector>
 
 #include "base/auto_reset.h"
-#include "base/bind.h"
 #include "base/containers/contains.h"
 #include "base/dcheck_is_on.h"
 #include "base/files/file_util.h"
+#include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/sequence_checker.h"
 #include "base/time/clock.h"
@@ -534,7 +534,7 @@ QuotaError QuotaDatabase::RegisterInitialStorageKeyInfo(
   return QuotaError::kNone;
 }
 
-QuotaErrorOr<mojom::BucketTableEntryPtr> QuotaDatabase::GetBucketInfo(
+QuotaErrorOr<mojom::BucketTableEntryPtr> QuotaDatabase::GetBucketInfoForTest(
     BucketId bucket_id) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(!bucket_id.is_null());
@@ -566,7 +566,8 @@ QuotaErrorOr<mojom::BucketTableEntryPtr> QuotaDatabase::GetBucketInfo(
   return entry;
 }
 
-QuotaError QuotaDatabase::DeleteBucketData(const BucketLocator& bucket) {
+QuotaErrorOr<mojom::BucketTableEntryPtr> QuotaDatabase::DeleteBucketData(
+    const BucketLocator& bucket) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   QuotaError open_error = EnsureOpened();
   if (open_error != QuotaError::kNone)
@@ -578,12 +579,15 @@ QuotaError QuotaDatabase::DeleteBucketData(const BucketLocator& bucket) {
   if (storage_directory_ && !storage_directory_->DoomBucket(bucket))
     return QuotaError::kFileOperationError;
 
-  static constexpr char kSql[] = "DELETE FROM buckets WHERE id = ?";
+  static constexpr char kSql[] =
+      "DELETE FROM buckets WHERE id = ? "
+      "RETURNING " BUCKET_TABLE_ENTRY_FIELDS_SELECTOR;
   sql::Statement statement(db_->GetCachedStatement(SQL_FROM_HERE, kSql));
   statement.BindInt64(0, bucket.id.value());
 
-  if (!statement.Run())
+  if (!statement.Step()) {
     return QuotaError::kDatabaseError;
+  }
 
   // Scheduling this commit introduces the chance of inconsistencies
   // between the buckets table and data stored on disk in the file system.
@@ -601,7 +605,7 @@ QuotaError QuotaDatabase::DeleteBucketData(const BucketLocator& bucket) {
   if (storage_directory_)
     storage_directory_->ClearDoomedBuckets();
 
-  return QuotaError::kNone;
+  return BucketTableEntryFromSqlStatement(statement);
 }
 
 QuotaErrorOr<BucketLocator> QuotaDatabase::GetLruEvictableBucket(

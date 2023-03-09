@@ -9,11 +9,11 @@
 #include <string>
 #include <utility>
 
-#include "base/bind.h"
-#include "base/callback.h"
-#include "base/callback_helpers.h"
 #include "base/command_line.h"
 #include "base/files/file_util.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback.h"
+#include "base/functional/callback_helpers.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/field_trial_params.h"
@@ -877,14 +877,6 @@ void ChromeDownloadManagerDelegate::OpenDownload(DownloadItem* download) {
   DownloadUtils::OpenDownload(download, DownloadOpenSource::kUnknown);
 #else
 
-  download::DownloadItemRenameHandler* handler = download->GetRenameHandler();
-  if (handler) {
-    handler->OpenDownload();
-    //RecordDownloadOpen(DOWNLOAD_OPEN_METHOD_RENAME_HANDLER,
-    //                   download->GetMimeType());
-    return;
-  }
-
   if (!DownloadItemModel(download).ShouldPreferOpeningInBrowser()) {
     //RecordDownloadOpen(DOWNLOAD_OPEN_METHOD_DEFAULT_PLATFORM,
     //                   download->GetMimeType());
@@ -952,12 +944,6 @@ void ChromeDownloadManagerDelegate::ShowDownloadInShell(
 
   MaybeSendDangerousDownloadOpenedReport(download,
                                          true /* show_download_in_folder */);
-
-  download::DownloadItemRenameHandler* handler = download->GetRenameHandler();
-  if (handler) {
-    handler->ShowDownloadInContext();
-    return;
-  }
 
   base::FilePath platform_path(
       GetPlatformDownloadPath(download, PLATFORM_CURRENT_PATH));
@@ -1617,10 +1603,8 @@ bool ChromeDownloadManagerDelegate::ShouldBlockFile(
     return true;
 
   bool file_type_dangerous =
-      (item &&
-       DownloadItemModel(item).GetDangerLevel() !=
-           DownloadFileType::NOT_DANGEROUS &&
-       danger_type == download::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS);
+      (item && DownloadItemModel(item).GetDangerLevel() !=
+                   DownloadFileType::NOT_DANGEROUS);
 
   switch (download_restriction) {
     case (DownloadPrefs::DownloadRestriction::NONE):

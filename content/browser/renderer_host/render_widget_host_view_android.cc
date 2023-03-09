@@ -13,10 +13,10 @@
 #include "base/android/callback_android.h"
 #include "base/android/jni_string.h"
 #include "base/auto_reset.h"
-#include "base/bind.h"
-#include "base/callback_helpers.h"
 #include "base/command_line.h"
 #include "base/files/file_util.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/memory/ref_counted.h"
@@ -26,7 +26,6 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "base/threading/scoped_blocking_call.h"
-#include "base/threading/thread_task_runner_handle.h"
 #include "cc/base/math_util.h"
 #include "cc/layers/layer.h"
 #include "cc/layers/surface_layer.h"
@@ -85,6 +84,7 @@
 #include "ui/android/view_android_observer.h"
 #include "ui/android/window_android.h"
 #include "ui/android/window_android_compositor.h"
+#include "ui/base/cursor/cursor.h"
 #include "ui/base/layout.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/display/display_util.h"
@@ -212,18 +212,12 @@ std::string CompressAndSaveBitmap(const std::string& dir,
 
 blink::mojom::RecordContentToVisibleTimeRequestPtr
 TakeContentToVisibleTimeRequest(RenderWidgetHostImpl* host) {
-  // The trigger can be null in unit tests.
-  auto* visible_time_request_trigger = host->GetVisibleTimeRequestTrigger();
-  auto content_to_visible_start_state =
-      visible_time_request_trigger ? visible_time_request_trigger->TakeRequest()
-                                   : nullptr;
-  return content_to_visible_start_state;
+  return host->GetVisibleTimeRequestTrigger().TakeRequest();
 }
 
 bool IsFullscreenSurfaceSyncSupported() {
   return base::FeatureList::IsEnabled(
-             features::kSurfaceSyncFullscreenKillswitch) &&
-         features::IsSurfaceSyncThrottling();
+      features::kSurfaceSyncFullscreenKillswitch);
 }
 
 }  // namespace
@@ -381,8 +375,11 @@ void RenderWidgetHostViewAndroid::ScreenStateChangeHandler::
 }
 
 bool RenderWidgetHostViewAndroid::ScreenStateChangeHandler::
-    HandleScreenStateChanges(const cc::DeadlinePolicy& deadline_policy) {
-  bool sync_needed = false;
+    HandleScreenStateChanges(const cc::DeadlinePolicy& deadline_policy,
+                             bool force_fullscreen_sync) {
+  bool sync_needed =
+      force_fullscreen_sync && pending_screen_state_.is_fullscreen !=
+                                   current_screen_state_.is_fullscreen;
   bool start_rotation = false;
   bool end_rotation = false;
   bool exiting_pip = false;
@@ -566,7 +563,8 @@ bool RenderWidgetHostViewAndroid::ScreenStateChangeHandler::
 
 void RenderWidgetHostViewAndroid::ScreenStateChangeHandler::Unthrottle() {
   pending_screen_state_.any_non_rotation_size_changed = true;
-  HandleScreenStateChanges(cc::DeadlinePolicy::UseDefaultDeadline());
+  HandleScreenStateChanges(cc::DeadlinePolicy::UseDefaultDeadline(),
+                           true /* force_fullscreen_sync */);
 }
 
 RenderWidgetHostViewAndroid::RenderWidgetHostViewAndroid(
@@ -576,7 +574,6 @@ RenderWidgetHostViewAndroid::RenderWidgetHostViewAndroid(
       is_showing_(!widget_host->is_hidden()),
       is_window_visible_(true),
       is_window_activity_started_(true),
-      is_in_vr_(false),
       ime_adapter_android_(nullptr),
       selection_popup_controller_(nullptr),
       text_suggestion_host_(nullptr),
@@ -602,7 +599,6 @@ RenderWidgetHostViewAndroid::RenderWidgetHostViewAndroid(
       min_page_scale_(1.f),
       max_page_scale_(1.f),
       mouse_wheel_phase_handler_(this),
-      is_surface_sync_throttling_(features::IsSurfaceSyncThrottling()),
       screen_state_change_handler_(this) {
   // Set the layer which will hold the content layer for this view. The content
   // layer is managed by the DelegatedFrameHost.
@@ -1207,8 +1203,8 @@ int RenderWidgetHostViewAndroid::GetMouseWheelMinimumGranularity() const {
   return window->mouse_wheel_scroll_factor() / view_.GetDipScale();
 }
 
-void RenderWidgetHostViewAndroid::UpdateCursor(const WebCursor& webcursor) {
-  view_.OnCursorChanged(webcursor.cursor());
+void RenderWidgetHostViewAndroid::UpdateCursor(const ui::Cursor& cursor) {
+  view_.OnCursorChanged(cursor);
 }
 
 void RenderWidgetHostViewAndroid::SetIsLoading(bool is_loading) {
@@ -1620,8 +1616,9 @@ bool RenderWidgetHostViewAndroid::CanSynchronizeVisualProperties() {
   //
   // We should instead wait for the full set of new visual properties to be
   // available, and deliver them to the Renderer in one single update.
-  if (in_rotation_ && is_surface_sync_throttling_)
+  if (in_rotation_) {
     return false;
+  }
 
   if (!IsFullscreenSurfaceSyncSupported())
     return true;
@@ -2356,8 +2353,9 @@ void RenderWidgetHostViewAndroid::SendGestureEvent(
 bool RenderWidgetHostViewAndroid::ShowSelectionMenu(
     RenderFrameHost* render_frame_host,
     const ContextMenuParams& params) {
-  if (!selection_popup_controller_ || is_in_vr_)
+  if (!selection_popup_controller_) {
     return false;
+  }
 
   return selection_popup_controller_->ShowSelectionMenu(
       render_frame_host, params, GetTouchHandleHeight());
@@ -2385,23 +2383,6 @@ void RenderWidgetHostViewAndroid::SetTextHandlesTemporarilyHidden(
 absl::optional<SkColor>
 RenderWidgetHostViewAndroid::GetCachedBackgroundColor() {
   return RenderWidgetHostViewBase::GetBackgroundColor();
-}
-
-void RenderWidgetHostViewAndroid::SetIsInVR(bool is_in_vr) {
-  if (is_in_vr_ == is_in_vr)
-    return;
-  is_in_vr_ = is_in_vr;
-  // TODO(crbug.com/851054): support touch selection handles in VR.
-  SetTextHandlesHiddenInternal();
-
-  gesture_provider_.UpdateConfig(ui::GetGestureProviderConfig(
-      is_in_vr_ ? ui::GestureProviderConfigType::CURRENT_PLATFORM_VR
-                : ui::GestureProviderConfigType::CURRENT_PLATFORM,
-      content::GetUIThreadTaskRunner({BrowserTaskType::kUserInput})));
-}
-
-bool RenderWidgetHostViewAndroid::IsInVR() const {
-  return is_in_vr_;
 }
 
 void RenderWidgetHostViewAndroid::DidOverscroll(
@@ -2713,10 +2694,8 @@ void RenderWidgetHostViewAndroid::SetTextHandlesHiddenForStylus(
 void RenderWidgetHostViewAndroid::SetTextHandlesHiddenInternal() {
   if (!touch_selection_controller_)
     return;
-  // TODO(crbug.com/851054): support touch selection handles in VR.
   touch_selection_controller_->SetTemporarilyHidden(
-      is_in_vr_ || handles_hidden_by_stylus_ ||
-      handles_hidden_by_selection_ui_);
+      handles_hidden_by_stylus_ || handles_hidden_by_selection_ui_);
 }
 
 void RenderWidgetHostViewAndroid::OnStylusSelectBegin(float x0,
@@ -3034,7 +3013,7 @@ void RenderWidgetHostViewAndroid::NotifyHostAndDelegateOnWasShown(
       navigation_while_hidden_ = false;
       delegated_frame_host_->DidNavigate();
     }
-  } else if (rotation_override && is_surface_sync_throttling_) {
+  } else if (rotation_override) {
     // If a rotation occurred while this was not visible, we need to allocate a
     // new viz::LocalSurfaceId and send the current visual properties to the
     // Renderer. Otherwise there will be no content at all to display.

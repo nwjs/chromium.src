@@ -10,8 +10,8 @@
 #include <memory>
 #include <utility>
 
-#include "base/bind.h"
 #include "base/containers/contains.h"
+#include "base/functional/bind.h"
 #include "base/lazy_instance.h"
 #include "base/values.h"
 #include "build/build_config.h"
@@ -29,6 +29,7 @@
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/prefs/pref_service.h"
+#include "components/privacy_sandbox/privacy_sandbox_prefs.h"
 #include "components/proxy_config/proxy_config_pref_names.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "extensions/browser/api/content_settings/content_settings_service.h"
@@ -153,6 +154,34 @@ class ProtectedContentEnabledTransformer : public PrefTransformerInterface {
     auto protected_identifier_mode =
         static_cast<ContentSetting>(browser_pref.GetInt());
     return base::Value(protected_identifier_mode == CONTENT_SETTING_ALLOW);
+  }
+};
+
+// Return error when extensions try to enable a Privacy Sandbox API.
+class PrivacySandboxTransformer : public PrefTransformerInterface {
+ public:
+  absl::optional<base::Value> ExtensionToBrowserPref(
+      const base::Value& extension_pref,
+      std::string& error,
+      bool& bad_message) override {
+    if (!extension_pref.is_bool()) {
+      bad_message = true;
+      return absl::nullopt;
+    }
+
+    if (extension_pref.GetBool()) {
+      error = "Extensions aren’t allowed to enable Privacy Sandbox APIs.";
+      return absl::nullopt;
+    }
+
+    return extension_pref.Clone();
+  }
+
+  // Default behaviour
+  absl::optional<base::Value> BrowserToExtensionPref(
+      const base::Value& browser_pref,
+      bool is_incognito_profile) override {
+    return browser_pref.Clone();
   }
 };
 
@@ -423,6 +452,19 @@ PreferenceAPI::PreferenceAPI(content::BrowserContext* context)
         std::make_unique<ProtectedContentEnabledTransformer>());
   }
 
+  if (!pref_mapping->HasPrefTransformer(
+          prefs::kPrivacySandboxM1TopicsEnabled)) {
+    pref_mapping->RegisterPrefTransformer(
+        prefs::kPrivacySandboxM1TopicsEnabled,
+        std::make_unique<PrivacySandboxTransformer>());
+    pref_mapping->RegisterPrefTransformer(
+        prefs::kPrivacySandboxM1FledgeEnabled,
+        std::make_unique<PrivacySandboxTransformer>());
+    pref_mapping->RegisterPrefTransformer(
+        prefs::kPrivacySandboxM1AdMeasurementEnabled,
+        std::make_unique<PrivacySandboxTransformer>());
+  }
+
   for (const auto& pref : PrefMapping::GetMappings()) {
     std::string event_name;
     APIPermissionID permission = APIPermissionID::kInvalid;
@@ -517,6 +559,26 @@ BrowserContextKeyedAPIFactory<PreferenceAPI>::DeclareFactoryDependencies() {
 
 PreferenceFunction::~PreferenceFunction() = default;
 
+// Auxiliary function to build an InspectorInfoPtr to create a Deprecation
+// Issue when the deprecated privacySandboxEnabled API is used
+// TODO(b/263568309): Remove this once the deprecated API is retired.
+blink::mojom::InspectorIssueInfoPtr
+BuildPrivacySandboxDeprecationInspectorIssueInfo(const GURL& source_url) {
+  auto issue_info = blink::mojom::InspectorIssueInfo::New();
+  issue_info->code = blink::mojom::InspectorIssueCode::kDeprecationIssue;
+  issue_info->details = blink::mojom::InspectorIssueDetails::New();
+  auto deprecation_details = blink::mojom::DeprecationIssueDetails::New();
+  deprecation_details->type =
+      blink::mojom::DeprecationIssueType::kPrivacySandboxExtensionsAPI;
+  auto affected_location = blink::mojom::AffectedLocation::New();
+  affected_location->url = source_url.spec();
+  deprecation_details->affected_location = std::move(affected_location);
+  issue_info->details->deprecation_issue_details =
+      std::move(deprecation_details);
+
+  return issue_info;
+}
+
 GetPreferenceFunction::~GetPreferenceFunction() = default;
 
 ExtensionFunction::ResponseAction GetPreferenceFunction::Run() {
@@ -579,6 +641,14 @@ ExtensionFunction::ResponseAction GetPreferenceFunction::Run() {
     return RespondLater();
   }
 #endif
+
+  // Deprecation issue to developers in the issues tab in Chrome DevTools that
+  // the API chrome.privacy.websites.privacySandboxEnabled is being deprecated.
+  // TODO(b/263568309): Remove this once the deprecated API is retired.
+  if (prefs::kPrivacySandboxApisEnabled == browser_pref) {
+    ReportInspectorIssue(
+        BuildPrivacySandboxDeprecationInspectorIssueInfo(source_url()));
+  }
 
   PrefService* prefs =
       extensions::preference_helpers::GetProfilePrefService(profile, incognito);
@@ -792,6 +862,41 @@ ExtensionFunction::ResponseAction SetPreferenceFunction::Run() {
                                              scope, base::Value(false));
   }
 
+  // Deprecation issue to developers in the issues tab in Chrome DevTools that
+  // the API chrome.privacy.websites.privacySandboxEnabled is being deprecated.
+  // TODO(b/263568309): Remove this once the deprecated API is retired.
+  if (prefs::kPrivacySandboxApisEnabled == browser_pref) {
+    ReportInspectorIssue(
+        BuildPrivacySandboxDeprecationInspectorIssueInfo(source_url()));
+  }
+
+  // Clear the new Privacy Sandbox APIs if an extension sets to true the
+  // deprecated pref |kPrivacySandboxApisEnabled| and set to false the new
+  // Privacy Sandbox APIs if an extension sets to false the deprecated pref
+  // |kPrivacySandboxApisEnabled| in order to maintain backward compatibility
+  // during the migration period.
+  // TODO(b/263568309): Remove this once the deprecated API is retired.
+  if (prefs::kPrivacySandboxApisEnabled == browser_pref) {
+    if (browser_pref_value->GetBool()) {
+      prefs_helper->RemoveExtensionControlledPref(
+          extension_id(), prefs::kPrivacySandboxM1TopicsEnabled, scope);
+      prefs_helper->RemoveExtensionControlledPref(
+          extension_id(), prefs::kPrivacySandboxM1FledgeEnabled, scope);
+      prefs_helper->RemoveExtensionControlledPref(
+          extension_id(), prefs::kPrivacySandboxM1AdMeasurementEnabled, scope);
+    } else {
+      prefs_helper->SetExtensionControlledPref(
+          extension_id(), prefs::kPrivacySandboxM1TopicsEnabled, scope,
+          base::Value(false));
+      prefs_helper->SetExtensionControlledPref(
+          extension_id(), prefs::kPrivacySandboxM1FledgeEnabled, scope,
+          base::Value(false));
+      prefs_helper->SetExtensionControlledPref(
+          extension_id(), prefs::kPrivacySandboxM1AdMeasurementEnabled, scope,
+          base::Value(false));
+    }
+  }
+
   prefs_helper->SetExtensionControlledPref(extension_id(), browser_pref, scope,
                                            browser_pref_value->Clone());
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
@@ -878,6 +983,27 @@ ExtensionFunction::ResponseAction ClearPreferenceFunction::Run() {
 
   prefs_helper->RemoveExtensionControlledPref(extension_id(), browser_pref,
                                               scope);
+
+  // Deprecation issue to developers in the issues tab in Chrome DevTools that
+  // the API chrome.privacy.websites.privacySandboxEnabled is being deprecated.
+  // TODO(b/263568309): Remove this once the deprecated API is retired.
+  if (prefs::kPrivacySandboxApisEnabled == browser_pref) {
+    ReportInspectorIssue(
+        BuildPrivacySandboxDeprecationInspectorIssueInfo(source_url()));
+  }
+
+  // Clear the new Privacy Sandbox APIs if an extension clears the deprecated
+  // pref |kPrivacySandboxApisEnabled| in order to maintain backward
+  // compatibility during the migration period.
+  // TODO(b/263568309): Remove this once the deprecated API is retired.
+  if (prefs::kPrivacySandboxApisEnabled == browser_pref) {
+    prefs_helper->RemoveExtensionControlledPref(
+        extension_id(), prefs::kPrivacySandboxM1TopicsEnabled, scope);
+    prefs_helper->RemoveExtensionControlledPref(
+        extension_id(), prefs::kPrivacySandboxM1FledgeEnabled, scope);
+    prefs_helper->RemoveExtensionControlledPref(
+        extension_id(), prefs::kPrivacySandboxM1AdMeasurementEnabled, scope);
+  }
 
   // Whenever an extension clears the |kSafeBrowsingEnabled| preference,
   // it must also clear |kSafeBrowsingEnhanced|. See crbug.com/1064722 for

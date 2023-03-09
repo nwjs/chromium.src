@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Installi Linuxiga</translation>
 <translation id="2225536596944493418">Kas soovite <ph name="NUMBER_OF_ITEMS" /> üksust kindlasti kustutada?</translation>
 <translation id="2230062665678605299">Kausta „<ph name="FOLDER_NAME" />” ei saa luua. <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">Teie Google Drive'i vahemälu tühjendati.</translation>
 <translation id="2239068707900391003">Inimene kohviga</translation>
 <translation id="2251368349685848079">Taasta prügikastist</translation>
 <translation id="2282155092769082568">Automaatse konfigureerimise URL:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">Päringule &lt;b&gt;„<ph name="SEARCH_STRING" />”&lt;/b&gt; ei leitud ühtki vastet</translation>
 <translation id="2894654529758326923">Teave</translation>
 <translation id="2902734494705624966">USA laiendatud</translation>
+<translation id="2904378509913846215">Kaust nimega „<ph name="FILENAME" />“ on juba olemas. Kas soovite selle teisaldatava kaustaga asendada?</translation>
 <translation id="290843123675549676">marathi</translation>
 <translation id="2923240520113693977">eesti keel</translation>
 <translation id="2938685643439809023">mongoolia keel</translation>
@@ -640,6 +642,7 @@
 <translation id="6241349547798190358">hollandi (Belgia)</translation>
 <translation id="6267547857941397424"><ph name="NETWORK_INDEX" />. võrk <ph name="NETWORK_COUNT" />-st, <ph name="PHONE_NAME" />, <ph name="SIGNAL_STRENGTH" />, signaalitugevus: <ph name="BATTERY_STATUS" />%, telefoni aku: %, ühenda</translation>
 <translation id="6269630227984243955">malai</translation>
+<translation id="6271903698064569429">Faile ei saa üles laadida, kuna kettal „<ph name="SHARED_DRIVE_NAME" />“ ei ole piisavalt salvestusruumi.</translation>
 <translation id="6287852322318138013">Valige faili avamiseks rakendus</translation>
 <translation id="6295542640242147836">SIM-i lukustamine</translation>
 <translation id="6296410173147755564">Vale PUK</translation>
@@ -685,6 +688,7 @@
 <translation id="6657585470893396449">Parool</translation>
 <translation id="6658865850469097484">Failid, mis on prügikastis olnud kauem kui 30 päeva, kustutatakse automaatselt.</translation>
 <translation id="6673674183150363784">prantsuse (Prantsusmaa), BÉPO-klaviatuuriga</translation>
+<translation id="670380500182402678">Asenda kõik</translation>
 <translation id="6710022688720561421">Robot</translation>
 <translation id="6710213216561001401">Eelmine</translation>
 <translation id="6732801395666424405">Sertifikaate ei laaditud</translation>
@@ -903,6 +907,7 @@
 <translation id="8386903983509584791">Skannimine jõudis lõpule</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" /> ekstraktiti.</translation>
 <translation id="8395901698320285466">Dimensioonid</translation>
+<translation id="8404498045299006085">Jäta kõik alles</translation>
 <translation id="8408068190360279472"><ph name="NETWORK_TYPE" />-võrk, ühendamine</translation>
 <translation id="8425213833346101688">Muuda</translation>
 <translation id="8431909052837336408">Muuda SIM-kaardi PIN-koodi</translation>

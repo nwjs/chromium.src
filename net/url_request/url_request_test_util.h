@@ -30,10 +30,10 @@
 #include "net/cert/cert_verifier.h"
 #include "net/cert/ct_policy_enforcer.h"
 #include "net/cookies/cookie_monster.h"
+#include "net/cookies/cookie_setting_override.h"
 #include "net/disk_cache/disk_cache.h"
 #include "net/first_party_sets/first_party_set_metadata.h"
 #include "net/first_party_sets/first_party_sets_cache_filter.h"
-#include "net/first_party_sets/same_party_context.h"
 #include "net/http/http_auth_handler_factory.h"
 #include "net/http/http_cache.h"
 #include "net/http/http_network_layer.h"
@@ -293,6 +293,10 @@ class TestNetworkDelegate : public NetworkDelegateImpl {
     fps_cache_filter_ = std::move(cache_filter);
   }
 
+  CookieSettingOverrides cookie_setting_overrides() const {
+    return cookie_setting_overrides_;
+  }
+
  protected:
   // NetworkDelegate:
   int OnBeforeURLRequest(URLRequest* request,
@@ -319,10 +323,7 @@ class TestNetworkDelegate : public NetworkDelegateImpl {
       net::CookieAccessResultList& maybe_included_cookies,
       net::CookieAccessResultList& excluded_cookies) override;
   NetworkDelegate::PrivacySetting OnForcePrivacyMode(
-      const GURL& url,
-      const SiteForCookies& site_for_cookies,
-      const absl::optional<url::Origin>& top_frame_origin,
-      SamePartyContext::Type same_party_context_type) const override;
+      const URLRequest& request) const override;
   bool OnCanSetCookie(const URLRequest& request,
                       const net::CanonicalCookie& cookie,
                       CookieOptions* options) override;
@@ -380,6 +381,8 @@ class TestNetworkDelegate : public NetworkDelegateImpl {
   int next_request_id_ = 0;
 
   FirstPartySetsCacheFilter fps_cache_filter_;
+
+  CookieSettingOverrides cookie_setting_overrides_;
 };
 
 // ----------------------------------------------------------------------------
@@ -412,10 +415,7 @@ class FilteringTestNetworkDelegate : public TestNetworkDelegate {
       net::CookieAccessResultList& excluded_cookies) override;
 
   NetworkDelegate::PrivacySetting OnForcePrivacyMode(
-      const GURL& url,
-      const SiteForCookies& site_for_cookies,
-      const absl::optional<url::Origin>& top_frame_origin,
-      SamePartyContext::Type same_party_context_type) const override;
+      const URLRequest& request) const override;
 
   void set_block_annotate_cookies() { block_annotate_cookies_ = true; }
 

@@ -116,6 +116,7 @@
 <translation id="1908234395526491708">Mislukte UDP-verzoeken</translation>
 <translation id="1947737735496445907">Afgedrukt</translation>
 <translation id="1951012854035635156">Assistent</translation>
+<translation id="1962550982027027473">Een standaard APN is vereist</translation>
 <translation id="1977994649430373166">Google-profielfoto</translation>
 <translation id="1979103255016296513">Wachtwoord moet dringend worden gewijzigd</translation>
 <translation id="1999615961760456652">Captive portal</translation>
@@ -195,6 +196,7 @@
 <translation id="2713444072780614174">Wit</translation>
 <translation id="2717139507051041123">Modus voor donkere kleuren aanzetten</translation>
 <translation id="2740531572673183784">OK</translation>
+<translation id="2744221223678373668">Gedeeld</translation>
 <translation id="2751739896257479635">EAP Phase 2-verificatie</translation>
 <translation id="2783010256799387990">GESLAAGD</translation>
 <translation id="2789486458103222910">OK</translation>
@@ -269,6 +271,7 @@
 <translation id="3583278742022654445">Zwak signaal. Ga dichter bij de wifi-signaalbron staan.</translation>
 <translation id="3595596368722241419">Batterij is vol</translation>
 <translation id="3600339377155080675">Scherm spiegelen</translation>
+<translation id="3602290021589620013">Voorbeeld</translation>
 <translation id="3603829704940252505">Avatar</translation>
 <translation id="3604713164406837697">Achtergrond wijzigen</translation>
 <translation id="360565022852130722">Wifi-netwerk is beveiligd met het zwakke protocol WEP 802.1x</translation>
@@ -292,6 +295,7 @@
 <translation id="385051799172605136">Terug</translation>
 <translation id="3858860766373142691">Naam</translation>
 <translation id="3862598938296403232">Beschrijving is vereist</translation>
+<translation id="3865289341173661845">Help-content is niet beschikbaar.</translation>
 <translation id="3865414814144988605">Resolutie</translation>
 <translation id="3866249974567520381">Beschrijving</translation>
 <translation id="387301095347517405">Het aantal keren dat de batterij een volledige oplaadcyclus heeft doorlopen</translation>
@@ -314,9 +318,11 @@
 <translation id="4044093238444069296">Kan geen verbinding maken met de gateway</translation>
 <translation id="4046123991198612571">Volgend nummer</translation>
 <translation id="404928562651467259">WAARSCHUWING</translation>
+<translation id="4054683689023980771">Afbeelding downloaden</translation>
 <translation id="4060260348856573701">Nieuwe APN</translation>
 <translation id="4093865285251893588">Profielafbeelding</translation>
 <translation id="409427325554347132">Testgegevens opslaan</translation>
+<translation id="4095829376260267438">WPA2WPA3</translation>
 <translation id="4110686435123617899">Album selecteren: <ph name="TITLE" /> (<ph name="DESC" />)</translation>
 <translation id="4111761024568264522">USB-touchpad</translation>
 <translation id="4117637339509843559">Donkere modus</translation>
@@ -447,8 +453,6 @@
 <translation id="5168185087976003268">Batterijprestaties</translation>
 <translation id="5170568018924773124">Tonen in map</translation>
 <translation id="5190187232518914472">Beleef je favoriete herinneringen opnieuw. Ga naar <ph name="LINK_BEGIN" />Google Foto's<ph name="LINK_END" /> om albums toe te voegen of te bewerken.</translation>
-<translation id="5212543919916444558">Ik heb niets gevonden op je scherm waarmee ik kan helpen.
-Tik op de microfoon om me iets te vragen.</translation>
 <translation id="5212593641110061691">Tabloid</translation>
 <translation id="5222676887888702881">Uitloggen</translation>
 <translation id="522307662484862935">E-mailadres niet opnemen</translation>
@@ -635,6 +639,7 @@ Tik op de microfoon om me iets te vragen.</translation>
 <translation id="6791471867139427246">kleur van toetsenbordverlichting</translation>
 <translation id="680983167891198932">Sleutel</translation>
 <translation id="6816797338148849397">Er is informatie met betrekking tot je selectie beschikbaar. Gebruik de pijl-omhoog om deze te openen.</translation>
+<translation id="6838167112108853532">Kan deze APN niet uitzetten of verwijderen. Zorg dat aangezette gekoppelde APN's uitstaan of worden verwijderd.</translation>
 <translation id="6853312040151791195">Ontlaadsnelheid</translation>
 <translation id="6889786074662672253">Koppel dit externe apparaat niet los en zet je computer niet uit tijdens het opnieuw opstarten. Je kunt dit venster minimaliseren. Dit kan een paar minuten duren en je externe apparaat werkt misschien niet tijdens dit proces.</translation>
 <translation id="6905724422583748843">Terug naar <ph name="PAGE_NAME" /></translation>
@@ -700,6 +705,7 @@ Tik op de microfoon om me iets te vragen.</translation>
 <translation id="7497215489070763236">CA-certificaat van server</translation>
 <translation id="7502658306369382406">IPv6-adres</translation>
 <translation id="7515998400212163428">Android</translation>
+<translation id="7528507600602050979">Help-content is niet beschikbaar</translation>
 <translation id="7535791657097741517">Licht thema aanzetten</translation>
 <translation id="7550715992156305117">Diagnostische routines</translation>
 <translation id="7551123448725492271">Apparaat is een audioapparaat.</translation>
@@ -717,6 +723,7 @@ Tik op de microfoon om me iets te vragen.</translation>
 <translation id="7690294790491645610">Nieuw wachtwoord bevestigen</translation>
 <translation id="7701040980221191251">Geen</translation>
 <translation id="7705524343798198388">VPN</translation>
+<translation id="7716280709122323042">WPA3</translation>
 <translation id="773153675489693198">Aantal oplaadbeurten</translation>
 <translation id="7747039790905080783">Eerder gedeelde sleutel</translation>
 <translation id="7762130827864645708">Je wachtwoord is gewijzigd. Gebruik vanaf nu je nieuwe wachtwoord.</translation>
@@ -724,6 +731,7 @@ Tik op de microfoon om me iets te vragen.</translation>
 <translation id="7769672763586021400">Model-ID</translation>
 <translation id="7778717409420828014">Met jouw feedback kunnen we de functionaliteit van de Chromebook verbeteren. Je feedback wordt beoordeeld door ons team. Vanwege het grote aantal rapporten kunnen we je geen antwoord sturen.</translation>
 <translation id="7784116172884276937">Er zijn geen DNS-servers ingesteld</translation>
+<translation id="7791543448312431591">Toevoegen</translation>
 <translation id="779591286616261875">Nieuw rapport sturen</translation>
 <translation id="7799817062559422778">Lichte modus</translation>
 <translation id="780301667611848630">Nee, bedankt</translation>
@@ -799,6 +807,7 @@ Tik op de microfoon om me iets te vragen.</translation>
 <translation id="8503836310948963452">Nog een paar minuten...</translation>
 <translation id="8508640263392900755">APN-gegevens</translation>
 <translation id="8528615187455571738">Crosvm</translation>
+<translation id="8557447961879934694">WPA2</translation>
 <translation id="8575298406870537639">Je provider kan deze optie vereisen om verbinding te maken met hun netwerk. Neem contact op met je provider voor meer informatie.</translation>
 <translation id="8576249514688522074">Niet geïnitialiseerd</translation>
 <translation id="8620617069779373398">Roamingstatus</translation>

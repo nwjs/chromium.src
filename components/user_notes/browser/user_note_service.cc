@@ -4,7 +4,7 @@
 
 #include "components/user_notes/browser/user_note_service.h"
 
-#include "base/bind.h"
+#include "base/functional/bind.h"
 #include "base/notreached.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/trace_event/typed_macros.h"
@@ -419,7 +419,9 @@ void UserNoteService::OnNoteMetadataFetchedForNavigation(
 
   if (delegate_->IsFrameInActiveTab(rfh)) {
     UserNotesUI* ui = delegate_->GetUICoordinatorForFrame(rfh);
-    DCHECK(ui);
+    if (!ui) {
+      return;
+    }
 
     // TODO(crbug.com/1313967): For now, always invalidate the UI if the tab is
     // in the foreground. This is to fix edge cases around back/forward

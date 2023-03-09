@@ -6,11 +6,12 @@
 
 #include <algorithm>
 
-#include "base/bind.h"
 #include "base/feature_list.h"
+#include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/strings/string_piece.h"
+#import "base/task/sequenced_task_runner.h"
 #include "base/task/sequenced_task_runner.h"
 #include "components/device_event_log/device_event_log.h"
 #include "device/base/features.h"
@@ -26,9 +27,7 @@
 #include "device/fido/public_key_credential_user_entity.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 
-namespace device {
-namespace fido {
-namespace mac {
+namespace device::fido::mac {
 
 // static
 void TouchIdAuthenticator::IsAvailable(
@@ -104,12 +103,6 @@ void TouchIdAuthenticator::GetAssertion(CtapGetAssertionRequest request,
   operation_->Run();
 }
 
-void TouchIdAuthenticator::GetNextAssertion(GetAssertionCallback callback) {
-  DCHECK(operation_);
-  reinterpret_cast<GetAssertionOperation*>(operation_.get())
-      ->GetNextAssertion(std::move(callback));
-}
-
 void TouchIdAuthenticator::Cancel() {
   // If there is an operation pending, delete it, which will clean up any
   // pending callbacks, e.g. if the operation is waiting for a response from
@@ -152,18 +145,6 @@ TouchIdAuthenticator::Options() const {
   return options;
 }
 
-bool TouchIdAuthenticator::IsInPairingMode() const {
-  return false;
-}
-
-bool TouchIdAuthenticator::IsPaired() const {
-  return false;
-}
-
-bool TouchIdAuthenticator::RequiresBlePairingPin() const {
-  return false;
-}
-
 void TouchIdAuthenticator::GetTouch(base::OnceClosure callback) {
   NOTREACHED();
   std::move(callback).Run();
@@ -179,6 +160,4 @@ TouchIdAuthenticator::TouchIdAuthenticator(std::string keychain_access_group,
           {std::move(keychain_access_group), std::move(metadata_secret)}),
       weak_factory_(this) {}
 
-}  // namespace mac
-}  // namespace fido
-}  // namespace device
+}  // namespace device::fido::mac

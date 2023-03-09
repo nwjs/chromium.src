@@ -39,6 +39,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
 #include "base/ranges/algorithm.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "cc/animation/animation_host.h"
 #include "cc/animation/animation_timeline.h"
@@ -198,6 +199,7 @@
 #include "third_party/blink/renderer/core/html/canvas/canvas_font_cache.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_rendering_context.h"
 #include "third_party/blink/renderer/core/html/canvas/html_canvas_element.h"
+#include "third_party/blink/renderer/core/html/collection_type.h"
 #include "third_party/blink/renderer/core/html/custom/custom_element.h"
 #include "third_party/blink/renderer/core/html/custom/custom_element_definition.h"
 #include "third_party/blink/renderer/core/html/custom/custom_element_descriptor.h"
@@ -312,6 +314,7 @@
 #include "third_party/blink/renderer/core/timing/render_blocking_metrics_reporter.h"
 #include "third_party/blink/renderer/core/timing/soft_navigation_heuristics.h"
 #include "third_party/blink/renderer/core/trustedtypes/trusted_html.h"
+#include "third_party/blink/renderer/core/view_transition/view_transition_supplement.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_utils.h"
 #include "third_party/blink/renderer/core/xml/parser/xml_document_parser.h"
 #include "third_party/blink/renderer/core/xml_names.h"
@@ -390,7 +393,7 @@ void FireRequestStorageAccessHistogram(RequestStorageResult result) {
 
 void FireRequestStorageAccessForOriginHistogram(RequestStorageResult result) {
   base::UmaHistogramEnumeration(
-      "API.StorageAccess.RequestStorageAccessForOrigin", result);
+      "API.TopLevelStorageAccess.RequestStorageAccessForOrigin", result);
 }
 
 class IntrinsicSizeResizeObserverDelegate : public ResizeObserver::Delegate {
@@ -2089,18 +2092,21 @@ void Document::UpdateStyleAndLayoutTree(LayoutUpgrade& upgrade) {
 
   PostStyleUpdateScope post_style_update_scope(*this);
 
-  // This call has to happen even if UpdateStyleAndLayout below will be called.
-  // This is because the subsequent call to ShouldUpgrade may depend on the
-  // results produced by UpdateStyleAndLayoutTreeForThisDocument.
-  UpdateStyleAndLayoutTreeForThisDocument();
+  do {
+    // This call has to happen even if UpdateStyleAndLayout below will be
+    // called. This is because the subsequent call to ShouldUpgrade may depend
+    // on the results produced by UpdateStyleAndLayoutTreeForThisDocument.
+    UpdateStyleAndLayoutTreeForThisDocument();
 
-  if (upgrade.ShouldUpgrade()) {
-    GetDisplayLockDocumentState().EnsureMinimumForcedPhase(
-        DisplayLockContext::ForcedPhase::kLayout);
+    if (upgrade.ShouldUpgrade()) {
+      GetDisplayLockDocumentState().EnsureMinimumForcedPhase(
+          DisplayLockContext::ForcedPhase::kLayout);
 
-    // TODO(crbug.com/1145970): Provide a better reason.
-    UpdateStyleAndLayout(DocumentUpdateReason::kUnknown);
-  }
+      // TODO(crbug.com/1145970): Provide a better reason.
+      UpdateStyleAndLayout(DocumentUpdateReason::kUnknown);
+    }
+
+  } while (post_style_update_scope.Apply());
 
   // If the above call to UpdateStyleAndLayoutTreeForThisDocument caused us to
   // skip style recalc for some node, we should have upgraded [1] and performed
@@ -3045,7 +3051,18 @@ static ui::AXMode ComputeAXModeFromAXContexts(Vector<AXContext*> ax_contexts) {
   return ax_mode;
 }
 
+namespace {
+
+// Simple count of AXObjectCache objects that are reachable from Documents. The
+// count assumes that multiple Documents in a single process can have such
+// caches and that the caches will only ever be created from the main rendering
+// thread.
+size_t g_ax_object_cache_count = 0;
+
+}  // namespace
+
 void Document::AddAXContext(AXContext* context) {
+  DCHECK(IsMainThread());
   // The only case when |&cache_owner| is not |this| is when this is a
   // popup. We want popups to share the AXObjectCache of their parent
   // document. However, there's no valid reason to explicitly create an
@@ -3067,6 +3084,7 @@ void Document::AddAXContext(AXContext* context) {
   if (!ax_object_cache_) {
     ax_object_cache_ =
         AXObjectCache::Create(*this, ComputeAXModeFromAXContexts(ax_contexts_));
+    g_ax_object_cache_count++;
   }
 }
 
@@ -3089,13 +3107,17 @@ void Document::RemoveAXContext(AXContext* context) {
 }
 
 void Document::ClearAXObjectCache() {
+  DCHECK(IsMainThread());
   DCHECK_EQ(&AXObjectCacheOwner(), this);
 
   // Clear the cache member variable before calling delete because attempts
   // are made to access it during destruction.
-  if (ax_object_cache_)
+  if (ax_object_cache_) {
     ax_object_cache_->Dispose();
-  ax_object_cache_.Clear();
+    ax_object_cache_.Clear();
+    DCHECK_NE(g_ax_object_cache_count, 0u);
+    g_ax_object_cache_count--;
+  }
 
   // If there's at least one AXContext in scope and there's still a LayoutView
   // around, recreate an empty AXObjectCache.
@@ -3107,10 +3129,16 @@ void Document::ClearAXObjectCache() {
   if (ax_contexts_.size() > 0 && GetLayoutView()) {
     ax_object_cache_ =
         AXObjectCache::Create(*this, ComputeAXModeFromAXContexts(ax_contexts_));
+    g_ax_object_cache_count++;
   }
 }
 
 AXObjectCache* Document::ExistingAXObjectCache() const {
+  DCHECK(IsMainThread());
+  if (g_ax_object_cache_count == 0) {
+    return nullptr;
+  }
+
   auto& cache_owner = AXObjectCacheOwner();
 
   // If the LayoutView is gone then we are in the process of destruction.
@@ -3118,16 +3146,6 @@ AXObjectCache* Document::ExistingAXObjectCache() const {
     return nullptr;
 
   return cache_owner.ax_object_cache_.Get();
-}
-
-bool Document::HasAXObjectCache() const {
-  auto& cache_owner = AXObjectCacheOwner();
-
-  // If the LayoutView is gone then we are in the process of destruction.
-  if (!cache_owner.layout_view_)
-    return false;
-
-  return cache_owner.ax_object_cache_;
 }
 
 CanvasFontCache* Document::GetCanvasFontCache() {
@@ -3538,6 +3556,10 @@ void Document::setBody(HTMLElement* prp_new_body,
 void Document::WillInsertBody() {
   if (Loader())
     fetcher_->LoosenLoadThrottlingPolicy();
+
+  if (auto* supplement = ViewTransitionSupplement::FromIfExists(*this)) {
+    supplement->WillInsertBody();
+  }
 
   // If we get to the <body> try to resume commits since we should have content
   // to paint now.
@@ -3982,16 +4004,8 @@ void Document::DispatchUnloadEvents(UnloadEventTimingInfo* unload_timing_info) {
   // |dispatched_pagehide_persisted| above, if we enable same-site
   // ProactivelySwapBrowsingInstance but not BackForwardCache.
   if (window && !GetPage()->DispatchedPagehideAndStillHidden()) {
-    const base::TimeTicks pagehide_event_start = base::TimeTicks::Now();
     window->DispatchEvent(
         *PageTransitionEvent::Create(event_type_names::kPagehide, false), this);
-    const base::TimeTicks pagehide_event_end = base::TimeTicks::Now();
-    DEFINE_STATIC_LOCAL(
-        CustomCountHistogram, pagehide_histogram,
-        ("DocumentEventTiming.PageHideDuration", kTimeBasedHistogramMinSample,
-         kTimeBasedHistogramMaxSample, kTimeBasedHistogramBucketCount));
-    pagehide_histogram.CountMicroseconds(pagehide_event_end -
-                                         pagehide_event_start);
   }
   if (!dom_window_)
     return;
@@ -4003,18 +4017,7 @@ void Document::DispatchUnloadEvents(UnloadEventTimingInfo* unload_timing_info) {
   if (page_visible) {
     // Dispatch visibilitychange event, but don't bother doing
     // other notifications as we're about to be unloaded.
-    const base::TimeTicks pagevisibility_hidden_event_start =
-        base::TimeTicks::Now();
     DispatchEvent(*Event::CreateBubble(event_type_names::kVisibilitychange));
-    const base::TimeTicks pagevisibility_hidden_event_end =
-        base::TimeTicks::Now();
-    DEFINE_STATIC_LOCAL(
-        CustomCountHistogram, pagevisibility_histogram,
-        ("DocumentEventTiming.PageVibilityHiddenDuration",
-         kTimeBasedHistogramMinSample, kTimeBasedHistogramMaxSample,
-         kTimeBasedHistogramBucketCount));
-    pagevisibility_histogram.CountMicroseconds(
-        pagevisibility_hidden_event_end - pagevisibility_hidden_event_start);
     DispatchEvent(
         *Event::CreateBubble(event_type_names::kWebkitvisibilitychange));
   }
@@ -4031,12 +4034,6 @@ void Document::DispatchUnloadEvents(UnloadEventTimingInfo* unload_timing_info) {
 
   if (unload_timing_info) {
     // Record unload event timing when navigating cross-document.
-    DEFINE_STATIC_LOCAL(
-        CustomCountHistogram, unload_histogram,
-        ("DocumentEventTiming.UnloadDuration", kTimeBasedHistogramMinSample,
-         kTimeBasedHistogramMaxSample, kTimeBasedHistogramBucketCount));
-    unload_histogram.CountMicroseconds(unload_event_end - unload_event_start);
-
     auto& timing = unload_timing_info->unload_timing.emplace();
     timing.can_request =
         unload_timing_info->new_document_origin->CanRequest(Url());
@@ -4047,16 +4044,9 @@ void Document::DispatchUnloadEvents(UnloadEventTimingInfo* unload_timing_info) {
 }
 
 void Document::DispatchFreezeEvent() {
-  const base::TimeTicks freeze_event_start = base::TimeTicks::Now();
   SetFreezingInProgress(true);
   DispatchEvent(*Event::Create(event_type_names::kFreeze));
   SetFreezingInProgress(false);
-  const base::TimeTicks freeze_event_end = base::TimeTicks::Now();
-  DEFINE_STATIC_LOCAL(
-      CustomCountHistogram, freeze_histogram,
-      ("DocumentEventTiming.FreezeDuration", kTimeBasedHistogramMinSample,
-       kTimeBasedHistogramMaxSample, kTimeBasedHistogramBucketCount));
-  freeze_histogram.CountMicroseconds(freeze_event_end - freeze_event_start);
   UseCounter::Count(*this, WebFeature::kPageLifeCycleFreeze);
 }
 
@@ -4308,23 +4298,6 @@ void Document::UpdateBaseURL() {
   if (!base_url_.IsValid())
     base_url_ = KURL();
 
-  // The RenderFrameHost won't know anything about the state of
-  // `base_element_url_` or `base_url_override_`, so if either of these affect
-  // `base_url_` we should share it with the frame host.
-  bool has_overridden_base_url =
-      !base_element_url_.IsEmpty() || !base_url_override_.IsEmpty();
-  // Avoid sending a spurious IPC if this is the first UpdateBaseURL() call
-  // and there is no overridden base URL. There may not be a frame since
-  // UpdateBaseURL() is called for documents that do not have a frame;
-  // there is nothing to notify in that case however.
-  // If we sent `base_url_` to the frame host, and then later its dependence
-  // on `base_element_url_`/`base_url_override_` ends, we should notify the
-  // frame host so it can reset its copy.
-  if ((!old_base_url.IsNull() || has_overridden_base_url) && GetFrame()) {
-    GetFrame()->GetLocalFrameHostRemote().DidChangeBaseURL(
-        has_overridden_base_url ? base_url_ : KURL());
-  }
-
   if (elem_sheet_) {
     // Element sheet is silly. It never contains anything.
     DCHECK(!elem_sheet_->Contents()->RuleCount());
@@ -4361,24 +4334,26 @@ KURL Document::FallbackBaseURL() const {
   //           document base URL of document's browsing context's container
   //           document.
   if (IsSrcdocDocument()) {
-    // Return the base_url value that was sent from the parent along with the
+    // Return the base_url value that was sent from the initiator along with the
     // srcdoc attribute's value.
     if (fallback_base_url_for_srcdoc_.IsValid())
       return fallback_base_url_for_srcdoc_;
-    // Until https://crbug.com/1356658 is resolved,
-    // `fallback_base_url_for_srcdoc_` will only be sent from the frame host if
-    // we are process isolating sandboxed srcdoc iframes (although when the
-    // IsolateSandboxedIframes feature is enabled we will send it for all srcdoc
-    // iframes, not just sandboxed ones). The fallback base url will also be
-    // sent from the frame host if kNewBaseUrlInheritanceBehavior is enabled.
-    // If `fallback_base_url_for_srcdoc_` isn't sent, then we must still check
-    // that `ParentDocument()` is non-null, in case this function is called
-    // while the document is detached.
-    // TODO(https://crbug.com/751329, https://crbug.com/1336904): Referring to
-    // ParentDocument() is not correct.
-    DCHECK(!blink::features::IsNewBaseUrlInheritanceBehaviorEnabled());
-    if (ParentDocument())
+    // We only use the parent document's base URL in legacy behavior. There are
+    // cases where fallback_base_url_for_srcdoc_ may not be set in the new base
+    // URL inheritance mode (e.g., browser-initiated navigations as in
+    // NavigationBrowserTest.BlockedSrcDocBrowserInitiated), but we should avoid
+    // trying to look at the parent document's current value in those cases. In
+    // legacy behavior, we still use the parent document's base URL (unless
+    // ParentDocument() is null, such as for detached documents).
+    // TODO(https://crbug.com/1408782): handle cases where
+    // NewBaseUrlInheritanceBehavior is enabled, but legacy session-history is
+    // missing initiator_base_url information.
+    if (!blink::features::IsNewBaseUrlInheritanceBehaviorEnabled() &&
+        ParentDocument()) {
+      // TODO(https://crbug.com/751329, https://crbug.com/1336904): Referring to
+      // ParentDocument() is not correct.
       return ParentDocument()->BaseURL();
+    }
   }
 
   // [spec] 2. If document's URL is about:blank, and document's browsing
@@ -6207,13 +6182,13 @@ ScriptPromise Document::requestStorageAccessForOrigin(
   }
 
   auto descriptor = mojom::blink::PermissionDescriptor::New();
-  descriptor->name = mojom::blink::PermissionName::STORAGE_ACCESS;
-  auto storage_access_extension =
-      mojom::blink::StorageAccessPermissionDescriptor::New();
-  storage_access_extension->siteOverride = supplied_origin;
+  descriptor->name = mojom::blink::PermissionName::TOP_LEVEL_STORAGE_ACCESS;
+  auto top_level_storage_access_extension =
+      mojom::blink::TopLevelStorageAccessPermissionDescriptor::New();
+  top_level_storage_access_extension->requestedOrigin = supplied_origin;
   descriptor->extension =
-      mojom::blink::PermissionDescriptorExtension::NewStorageAccess(
-          std::move(storage_access_extension));
+      mojom::blink::PermissionDescriptorExtension::NewTopLevelStorageAccess(
+          std::move(top_level_storage_access_extension));
 
   GetPermissionService(ExecutionContext::From(script_state))
       ->RequestPermission(
@@ -6404,13 +6379,6 @@ FragmentDirective& Document::fragmentDirective() const {
   return *fragment_directive_;
 }
 
-ScriptPromise Document::hasTrustToken(ScriptState* script_state,
-                                      const String& issuer,
-                                      ExceptionState& exception_state) {
-  return hasPrivateToken(script_state, issuer, "private-state-token",
-                         exception_state);
-}
-
 ScriptPromise Document::hasPrivateToken(ScriptState* script_state,
                                         const String& issuer,
                                         const String& type,
@@ -6493,17 +6461,38 @@ ScriptPromise Document::hasPrivateToken(ScriptState* script_state,
               return;
             }
 
-            if (result->status ==
-                network::mojom::blink::TrustTokenOperationStatus::kOk) {
-              resolver->Resolve(result->has_trust_tokens);
-            } else {
-              ScriptState* state = resolver->GetScriptState();
-              ScriptState::Scope scope(state);
-              resolver->Reject(V8ThrowDOMException::CreateOrEmpty(
-                  state->GetIsolate(), DOMExceptionCode::kOperationError,
-                  "Failed to retrieve hasPrivateToken response. (Would "
-                  "associating the given issuer with this top-level origin "
-                  "have exceeded its number-of-issuers limit?)"));
+            switch (result->status) {
+              case network::mojom::blink::TrustTokenOperationStatus::kOk: {
+                resolver->Resolve(result->has_trust_tokens);
+                break;
+              }
+              case network::mojom::blink::TrustTokenOperationStatus::
+                  kInvalidArgument: {
+                ScriptState* state = resolver->GetScriptState();
+                ScriptState::Scope scope(state);
+                resolver->Reject(V8ThrowDOMException::CreateOrEmpty(
+                    state->GetIsolate(), DOMExceptionCode::kOperationError,
+                    "Failed to retrieve hasPrivateToken response. Issuer "
+                    "configuration is missing or unsuitable."));
+                break;
+              }
+              case network::mojom::blink::TrustTokenOperationStatus::
+                  kResourceExhausted: {
+                ScriptState* state = resolver->GetScriptState();
+                ScriptState::Scope scope(state);
+                resolver->Reject(V8ThrowDOMException::CreateOrEmpty(
+                    state->GetIsolate(), DOMExceptionCode::kOperationError,
+                    "Failed to retrieve hasPrivateToken response. Exceeded the "
+                    "number-of-issuers limit."));
+                break;
+              }
+              default: {
+                ScriptState* state = resolver->GetScriptState();
+                ScriptState::Scope scope(state);
+                resolver->Reject(V8ThrowDOMException::CreateOrEmpty(
+                    state->GetIsolate(), DOMExceptionCode::kOperationError,
+                    "Failed to retrieve hasPrivateToken response."));
+              }
             }
 
             document->data_->pending_trust_token_query_resolvers_.erase(
@@ -6596,17 +6585,28 @@ ScriptPromise Document::hasRedemptionRecord(ScriptState* script_state,
               return;
             }
 
-            if (result->status ==
-                network::mojom::blink::TrustTokenOperationStatus::kOk) {
-              resolver->Resolve(result->has_redemption_record);
-            } else {
-              ScriptState* state = resolver->GetScriptState();
-              ScriptState::Scope scope(state);
-              resolver->Reject(V8ThrowDOMException::CreateOrEmpty(
-                  state->GetIsolate(), DOMExceptionCode::kOperationError,
-                  "Failed to retrieve hasRedemptionRecord response. (Would "
-                  "associating the given issuer with this top-level origin "
-                  "have exceeded its number-of-issuers limit?)"));
+            switch (result->status) {
+              case network::mojom::blink::TrustTokenOperationStatus::kOk: {
+                resolver->Resolve(result->has_redemption_record);
+                break;
+              }
+              case network::mojom::blink::TrustTokenOperationStatus::
+                  kInvalidArgument: {
+                ScriptState* state = resolver->GetScriptState();
+                ScriptState::Scope scope(state);
+                resolver->Reject(V8ThrowDOMException::CreateOrEmpty(
+                    state->GetIsolate(), DOMExceptionCode::kOperationError,
+                    "Failed to retrieve hasRedemptionRecord response. Issuer "
+                    "configuration is missing or unsuitable."));
+                break;
+              }
+              default: {
+                ScriptState* state = resolver->GetScriptState();
+                ScriptState::Scope scope(state);
+                resolver->Reject(V8ThrowDOMException::CreateOrEmpty(
+                    state->GetIsolate(), DOMExceptionCode::kOperationError,
+                    "Failed to retrieve hasRedemptionRecord response."));
+              }
             }
 
             document->data_->pending_trust_token_query_resolvers_.erase(
@@ -7102,6 +7102,10 @@ DocumentNameCollection* Document::DocumentNamedItems(const AtomicString& name) {
 HTMLCollection* Document::DocumentAllNamedItems(const AtomicString& name) {
   return EnsureCachedCollection<DocumentAllNameCollection>(
       kDocumentAllNamedItems, name);
+}
+
+HTMLCollection* Document::PopoverInvokers() {
+  return EnsureCachedCollection<HTMLCollection>(kPopoverInvokers);
 }
 
 void Document::IncrementLazyAdsFrameCount() {
@@ -8570,8 +8574,6 @@ void Document::Trace(Visitor* visitor) const {
   visitor->Trace(anchor_element_interaction_tracker_);
   visitor->Trace(focused_element_change_observers_);
   visitor->Trace(pending_link_header_preloads_);
-  visitor->Trace(event_node_path_cache_);
-  visitor->Trace(event_node_path_cache_key_list_);
   Supplementable<Document>::Trace(visitor);
   TreeScope::Trace(visitor);
   ContainerNode::Trace(visitor);
@@ -8948,62 +8950,6 @@ Document::PendingJavascriptUrl::PendingJavascriptUrl(
     : url(input_url), world(std::move(world)) {}
 
 Document::PendingJavascriptUrl::~PendingJavascriptUrl() = default;
-
-static wtf_size_t MaxEventNodePathCachedEntriesValue() {
-  // The cache stores N entries/nodes that are receiving events simultaneously
-  // in a document. The size of this cache will be O(kN) where k is the average
-  // tree depth of the stored nodes.
-  static const wtf_size_t kMaxEventNodePathCachedEntriesValue =
-      features::kDocumentMaxEventNodePathCachedEntries.Get();
-  return kMaxEventNodePathCachedEntriesValue;
-}
-
-static bool EventNodePathCachingEnabled() {
-  // Cache the feature value since checking for each event path regresses
-  // performance.
-  static const bool kEnabled =
-      base::FeatureList::IsEnabled(features::kDocumentEventNodePathCaching);
-  return kEnabled;
-}
-
-const EventPath::NodePath& Document::GetOrCalculateEventNodePath(Node& node) {
-  DCHECK(EventNodePathCachingEnabled());
-  if (event_node_path_dom_tree_version_ != dom_tree_version_) {
-    if (!event_node_path_cache_.empty()) {
-      event_node_path_cache_.clear();
-      event_node_path_cache_key_list_.clear();
-    } else {
-      DCHECK(event_node_path_cache_key_list_.empty());
-    }
-    event_node_path_dom_tree_version_ = dom_tree_version_;
-  }
-
-  EventPath::NodePath* event_node_path = nullptr;
-  {
-    // Keep `result` within own scope to avoid dangling references into cache,
-    // because it might get modified during pruning.
-    auto result = event_node_path_cache_.insert(&node, nullptr);
-    if (result.is_new_entry) {
-      EventPath::NodePath node_path = EventPath::CalculateNodePath(node);
-      result.stored_value->value =
-          MakeGarbageCollected<EventPath::NodePath>(std::move(node_path));
-    }
-    event_node_path = result.stored_value->value;
-  }
-  event_node_path_cache_key_list_.PrependOrMoveToFirst(&node);
-
-  // Prune oldest cached node if size is bigger than max.
-  wtf_size_t max_entries = MaxEventNodePathCachedEntriesValue();
-  if (event_node_path_cache_key_list_.size() > max_entries) {
-    DCHECK_EQ(event_node_path_cache_key_list_.size(), max_entries + 1);
-    event_node_path_cache_.erase(event_node_path_cache_key_list_.back());
-    event_node_path_cache_key_list_.pop_back();
-  }
-
-  DCHECK_EQ(event_node_path_cache_.size(),
-            event_node_path_cache_key_list_.size());
-  return *event_node_path;
-}
 
 void Document::ResetAgent(Agent& agent) {
   agent_ = agent;

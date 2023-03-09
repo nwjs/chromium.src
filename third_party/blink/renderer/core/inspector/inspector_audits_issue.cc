@@ -86,6 +86,20 @@ protocol::Audits::GenericIssueErrorType GenericIssueErrorTypeToProtocol(
           CrossOriginPortalPostMessageError;
     case mojom::blink::GenericIssueErrorType::kFormLabelForNameError:
       return protocol::Audits::GenericIssueErrorTypeEnum::FormLabelForNameError;
+    case mojom::blink::GenericIssueErrorType::kFormDuplicateIdForInputError:
+      return protocol::Audits::GenericIssueErrorTypeEnum::
+          FormDuplicateIdForInputError;
+    case mojom::blink::GenericIssueErrorType::kFormInputWithNoLabelError:
+      return protocol::Audits::GenericIssueErrorTypeEnum::
+          FormInputWithNoLabelError;
+    case mojom::blink::GenericIssueErrorType::
+        kFormAutocompleteAttributeEmptyError:
+      return protocol::Audits::GenericIssueErrorTypeEnum::
+          FormAutocompleteAttributeEmptyError;
+    case mojom::blink::GenericIssueErrorType::
+        kFormEmptyIdAndNameAttributesForInputError:
+      return protocol::Audits::GenericIssueErrorTypeEnum::
+          FormEmptyIdAndNameAttributesForInputError;
   }
 }
 
@@ -540,6 +554,10 @@ void AuditsIssue::ReportDeprecationIssue(ExecutionContext* execution_context,
     case DeprecationIssueType::kNotificationPermissionRequestedIframe:
       type = protocol::Audits::DeprecationIssueTypeEnum::
           NotificationPermissionRequestedIframe;
+      break;
+    case DeprecationIssueType::kObsoleteCreateImageBitmapImageOrientationNone:
+      type = protocol::Audits::DeprecationIssueTypeEnum::
+          ObsoleteCreateImageBitmapImageOrientationNone;
       break;
     case DeprecationIssueType::kObsoleteWebRtcCipherSuite:
       type =

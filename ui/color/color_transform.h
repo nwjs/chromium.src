@@ -5,8 +5,8 @@
 #ifndef UI_COLOR_COLOR_TRANSFORM_H_
 #define UI_COLOR_COLOR_TRANSFORM_H_
 
-#include "base/callback.h"
 #include "base/component_export.h"
+#include "base/functional/callback.h"
 #include "build/build_config.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/skia/include/core/SkColor.h"
@@ -125,6 +125,15 @@ COMPONENT_EXPORT(COLOR)
 ColorTransform PickGoogleColor(ColorTransform color,
                                ColorTransform background_color,
                                float min_contrast = 0.0f);
+
+// Like the version above, but attempts to contrast sufficiently against both
+// supplied backgrounds.
+COMPONENT_EXPORT(COLOR)
+ColorTransform PickGoogleColorTwoBackgrounds(
+    ColorTransform foreground_transform,
+    ColorTransform background_a_transform,
+    ColorTransform background_b_transform,
+    float min_contrast);
 
 // A transform that returns the HSL shifted color given the input color.
 COMPONENT_EXPORT(COLOR)

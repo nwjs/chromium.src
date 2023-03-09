@@ -5,7 +5,7 @@
 
 load("//lib/branches.star", "branches")
 load("//lib/builder_config.star", "builder_config")
-load("//lib/builders.star", "cpu", "goma", "os", "xcode")
+load("//lib/builders.star", "cpu", "goma", "os", "reclient", "xcode")
 load("//lib/try.star", "try_")
 load("//lib/consoles.star", "consoles")
 
@@ -17,9 +17,11 @@ try_.defaults.set(
     os = os.MAC_ANY,
     ssd = True,
     compilator_goma_jobs = goma.jobs.J150,
+    compilator_reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CQ,
     execution_timeout = try_.DEFAULT_EXECUTION_TIMEOUT,
     goma_backend = goma.backend.RBE_PROD,
     orchestrator_cores = 2,
+    reclient_instance = reclient.instance.DEFAULT_UNTRUSTED,
     service_account = try_.DEFAULT_SERVICE_ACCOUNT,
 )
 
@@ -46,6 +48,8 @@ try_.builder(
     builderless = False,
     os = os.MAC_DEFAULT,
     cpu = cpu.ARM64,
+    goma_backend = None,
+    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -56,6 +60,8 @@ try_.builder(
     ],
     builderless = False,
     os = os.MAC_13,
+    goma_backend = None,
+    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 # This trybot mirrors the trybot mac-rel
@@ -85,6 +91,8 @@ try_.builder(
     mirrors = ["ci/Mac Builder Next"],
     builderless = False,
     os = os.MAC_13,
+    goma_backend = None,
+    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -150,8 +158,14 @@ try_.compilator_builder(
     branch_selector = branches.selector.MAC_BRANCHES,
     os = os.MAC_DEFAULT,
     check_for_flakiness = True,
-    goma_jobs = goma.jobs.J300,
     main_list_view = "try",
+)
+
+try_.builder(
+    name = "mac10.15-wpt-content-shell-fyi-rel",
+    mirrors = [
+        "ci/mac10.15-wpt-content-shell-fyi-rel",
+    ],
 )
 
 try_.builder(
@@ -162,6 +176,14 @@ try_.builder(
     ],
     builderless = True,
     check_for_flakiness = True,
+    goma_backend = None,
+)
+
+try_.builder(
+    name = "mac11-wpt-content-shell-fyi-rel",
+    mirrors = [
+        "ci/mac11-wpt-content-shell-fyi-rel",
+    ],
 )
 
 try_.orchestrator_builder(
@@ -187,6 +209,20 @@ try_.compilator_builder(
     main_list_view = "try",
 )
 
+try_.builder(
+    name = "mac12-arm64-wpt-content-shell-fyi-rel",
+    mirrors = [
+        "ci/mac12-arm64-wpt-content-shell-fyi-rel",
+    ],
+)
+
+try_.builder(
+    name = "mac12-wpt-content-shell-fyi-rel",
+    mirrors = [
+        "ci/mac12-wpt-content-shell-fyi-rel",
+    ],
+)
+
 # NOTE: the following trybots aren't sensitive to Mac version on which
 # they are built, hence no additional dimension is specified.
 # The 10.xx version translates to which bots will run isolated tests.
@@ -196,6 +232,7 @@ try_.builder(
         "ci/Mac Builder",
         "ci/Mac10.13 Tests",
     ],
+    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -204,6 +241,8 @@ try_.builder(
         "ci/Mac Builder",
         "ci/Mac10.14 Tests",
     ],
+    goma_backend = None,
+    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -212,6 +251,8 @@ try_.builder(
         "ci/Mac Builder",
         "ci/Mac10.15 Tests",
     ],
+    goma_backend = None,
+    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -221,6 +262,7 @@ try_.builder(
         "ci/Mac11 Tests",
     ],
     builderless = False,
+    goma_backend = None,
 )
 
 try_.builder(
@@ -236,6 +278,8 @@ try_.builder(
     mirrors = [
         "ci/mac-archive-rel",
     ],
+    goma_backend = None,
+    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -244,7 +288,8 @@ try_.builder(
         "ci/Mac ASan 64 Builder",
         "ci/Mac ASan 64 Tests (1)",
     ],
-    goma_jobs = goma.jobs.J150,
+    goma_backend = None,
+    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -258,7 +303,6 @@ try_.builder(
         is_compile_only = True,
     ),
     os = os.MAC_DEFAULT,
-    goma_jobs = goma.jobs.J150,
     main_list_view = "try",
     tryjob = try_.job(),
 )
@@ -272,6 +316,8 @@ try_.builder(
         include_all_triggered_testers = True,
         is_compile_only = True,
     ),
+    goma_backend = None,
+    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -280,6 +326,8 @@ try_.builder(
         "ci/Mac Builder (dbg)",
         "ci/Mac12 Tests (dbg)",
     ],
+    goma_backend = None,
+    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -298,11 +346,18 @@ try_.builder(
     goma_backend = None,  # Does not use Goma.
 )
 
+try_.builder(
+    name = "mac-code-coverage",
+    mirrors = ["ci/mac-code-coverage"],
+    execution_timeout = 20 * time.hour,
+)
+
 ios_builder(
     name = "ios-asan",
     mirrors = [
         "ci/ios-asan",
     ],
+    goma_backend = None,
 )
 
 ios_builder(
@@ -310,6 +365,8 @@ ios_builder(
     mirrors = [
         "ci/ios-catalyst",
     ],
+    goma_backend = None,
+    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 ios_builder(
@@ -317,6 +374,8 @@ ios_builder(
     mirrors = [
         "ci/ios-device",
     ],
+    goma_backend = None,
+    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 ios_builder(
@@ -337,6 +396,8 @@ ios_builder(
     mirrors = ["ci/ios-m1-simulator-cronet"],
     os = os.MAC_DEFAULT,
     cpu = cpu.ARM64,
+    goma_backend = None,
+    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.orchestrator_builder(
@@ -367,6 +428,7 @@ try_.compilator_builder(
     os = os.MAC_DEFAULT,
     ssd = None,
     check_for_flakiness = True,
+    goma_backend = None,
     main_list_view = "try",
     xcode = xcode.x14main,
 )
@@ -378,7 +440,9 @@ ios_builder(
         "ci/ios-simulator-cronet",
     ],
     check_for_flakiness = True,
+    goma_backend = None,
     main_list_view = "try",
+    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CQ,
     tryjob = try_.job(
         location_filters = [
             "components/cronet/.+",
@@ -422,6 +486,8 @@ ios_builder(
     mirrors = [
         "ci/ios-simulator-noncq",
     ],
+    goma_backend = None,
+    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
     tryjob = try_.job(
         location_filters = [
             "third_party/crashpad/crashpad/.+",
@@ -432,12 +498,14 @@ ios_builder(
 ios_builder(
     name = "ios15-beta-simulator",
     mirrors = ["ci/ios15-beta-simulator"],
+    goma_backend = None,
 )
 
 ios_builder(
     name = "ios15-sdk-simulator",
     mirrors = ["ci/ios15-sdk-simulator"],
     os = os.MAC_12,
+    goma_backend = None,
 )
 
 ios_builder(
@@ -446,6 +514,8 @@ ios_builder(
         "ci/ios16-beta-simulator",
     ],
     os = os.MAC_DEFAULT,
+    goma_backend = None,
+    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 ios_builder(
@@ -454,7 +524,14 @@ ios_builder(
         "ci/ios16-sdk-simulator",
     ],
     os = os.MAC_DEFAULT,
+    goma_backend = None,
     xcode = xcode.x14betabots,
+)
+
+ios_builder(
+    name = "ios-simulator-code-coverage",
+    mirrors = ["ci/ios-simulator-code-coverage"],
+    execution_timeout = 20 * time.hour,
 )
 
 try_.gpu.optional_tests_builder(
@@ -478,6 +555,7 @@ try_.gpu.optional_tests_builder(
         build_gs_bucket = "chromium-gpu-fyi-archive",
     ),
     ssd = None,
+    goma_backend = None,
     main_list_view = "try",
     tryjob = try_.job(
         location_filters = [

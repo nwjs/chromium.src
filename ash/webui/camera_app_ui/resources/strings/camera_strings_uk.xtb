@@ -100,6 +100,7 @@
 <translation id="4649291346448517080">Не вдається зберегти файл</translation>
 <translation id="4695379108709712600">Переміщення вгору</translation>
 <translation id="4705093842003735294">Максимальна роздільна здатність</translation>
+<translation id="4864143361253542638">Список сканованих сторінок</translation>
 <translation id="4890010094662541459">3 x 3</translation>
 <translation id="491895758387112773">Багатопотоковий відеозапис</translation>
 <translation id="4984613436295737187">Quad HD (1440p)</translation>
@@ -176,7 +177,7 @@
 <translation id="8629662593426079630">360p</translation>
 <translation id="8687491812650032292">HD <ph name="HEIGHT" />p (<ph name="WIDTH" />:<ph name="HEIGHT" />)</translation>
 <translation id="8711011893539266636">Увімкнути або вимкнути мікрофон. Мікрофон вимкнено</translation>
-<translation id="8712637175834984815">Виконано</translation>
+<translation id="8712637175834984815">OK</translation>
 <translation id="8730621377337864115">Готово</translation>
 <translation id="8732462232047530626">Переглянути метадані</translation>
 <translation id="8815966864175525708">Перейти в режим портретного фото</translation>

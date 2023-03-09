@@ -17,7 +17,6 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.metrics.RecordHistogram;
@@ -46,7 +45,6 @@ import java.util.function.BooleanSupplier;
 
 /** Unit tests for ToolbarControlContainer. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(shadows = {HomeButtonCoordinatorTest.ShadowChromeFeatureList.class})
 @EnableFeatures(ChromeFeatureList.SUPPRESS_TOOLBAR_CAPTURES)
 public class ToolbarControlContainerTest {
     @Rule
@@ -152,7 +150,7 @@ public class ToolbarControlContainerTest {
     @Test
     public void testIsDirty() {
         ToolbarViewResourceAdapter adapter = makeAdapter();
-        adapter.setOnResourceReadyCallback((resource) -> {});
+        adapter.addOnResourceReadyCallback((resource) -> {});
 
         Assert.assertEquals(0,
                 RecordHistogram.getHistogramTotalCountForTesting(

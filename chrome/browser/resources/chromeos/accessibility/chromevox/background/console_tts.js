@@ -91,10 +91,4 @@ export class ConsoleTts {
    * @override
    */
   toggleSpeechOnOrOff() {}
-
-  /** @override */
-  resetTextToSpeechSettings() {}
 }
-
-/** @private {ConsoleTts} */
-ConsoleTts.instance_;

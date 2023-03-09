@@ -14,11 +14,12 @@
 #include <utility>
 #include <vector>
 
-#include "base/bind.h"
-#include "base/callback_helpers.h"
 #include "base/check.h"
 #include "base/command_line.h"
 #include "base/containers/contains.h"
+#include "base/dcheck_is_on.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/i18n/number_formatting.h"
 #include "base/json/json_reader.h"
 #include "base/lazy_instance.h"
@@ -85,13 +86,17 @@
 #include "chromeos/lacros/lacros_service.h"
 #endif
 
+#if DCHECK_IS_ON()
+#include "base/debug/stack_trace.h"
+#endif
+
 using content::RenderFrameHost;
 using content::WebContents;
 
 namespace {
 static base::NoDestructor<std::string> g_nw_printer_name;
 static base::NoDestructor<base::FilePath> g_nw_print_to_pdf_path;
-static base::NoDestructor<base::Value> g_nw_print_options;
+static base::NoDestructor<base::Value::Dict> g_nw_print_options;
 
 bool g_nw_custom_printing = false;
 
@@ -412,9 +417,9 @@ bool NWPrintGetCustomPrinting() {
   return g_nw_custom_printing;
 }
 
-void NWPrintSetOptions(const base::DictionaryValue* dict, WebContents* web_contents) {
+void NWPrintSetOptions(const base::Value::Dict* dict, WebContents* web_contents) {
   *g_nw_print_options = dict->Clone();
-  absl::optional<bool> silent_printing = (*g_nw_print_options).FindBoolKey("silent");
+  absl::optional<bool> silent_printing = (*g_nw_print_options).FindBool("silent");
   if (silent_printing && web_contents)
     web_contents->set_silent_printing(*silent_printing);
 }
@@ -724,7 +729,7 @@ void PrintPreviewHandler::HandleGetPreview(const base::Value::List& args) {
       settings.FindBool(kSettingHeaderFooterEnabled);
   DCHECK(display_header_footer_opt);
   std::string footer_string, header_string;
-  base::Value::Dict* dict = (*g_nw_print_options).GetIfDict();
+  base::Value::Dict* dict = &(*g_nw_print_options);
   if (dict) {
     base::Value::Dict* media_size_value = dict->FindDict(printing::kSettingMediaSize);
     base::Value::Dict* custom_margins = dict->FindDict(printing::kSettingMarginsCustom);
@@ -732,13 +737,13 @@ void PrintPreviewHandler::HandleGetPreview(const base::Value::List& args) {
 
     if (media_size_value && media_size_value->empty())
       settings.Set(printing::kSettingMediaSize, media_size_value->Clone());
-    display_header_footer = (*g_nw_print_options).FindBoolKey(printing::kSettingHeaderFooterEnabled);
+    display_header_footer = (*g_nw_print_options).FindBool(printing::kSettingHeaderFooterEnabled);
     if (display_header_footer)
       settings.Set(printing::kSettingHeaderFooterEnabled, *display_header_footer);
-    absl::optional<bool> landscape = (*g_nw_print_options).FindBoolKey(printing::kSettingLandscape);
+    absl::optional<bool> landscape = (*g_nw_print_options).FindBool(printing::kSettingLandscape);
     if (landscape)
       settings.Set(printing::kSettingLandscape, *landscape);
-    absl::optional<bool> backgrounds = (*g_nw_print_options).FindBoolKey(printing::kSettingShouldPrintBackgrounds);
+    absl::optional<bool> backgrounds = (*g_nw_print_options).FindBool(printing::kSettingShouldPrintBackgrounds);
     if (backgrounds)
       settings.Set(printing::kSettingShouldPrintBackgrounds, *backgrounds);
     absl::optional<int> margins_type = dict->FindInt(printing::kSettingMarginsType);
@@ -796,7 +801,7 @@ void PrintPreviewHandler::HandlePrint(const base::Value::List& args) {
 
   base::Value::Dict settings = GetSettingsDictionary(json_str);
   const UserActionBuckets user_action = DetermineUserAction(settings);
-  base::Value::Dict* dict = (*g_nw_print_options).GetIfDict();
+  base::Value::Dict* dict = &(*g_nw_print_options);
   if (dict) {
     base::Value::List* page_range_array = dict->FindList(printing::kSettingPageRange);
     bool changed = false;
@@ -1030,7 +1035,10 @@ void PrintPreviewHandler::SendInitialSettings(
   initial_settings.Set(kIsDriveMounted,
                        drive_service && drive_service->IsMounted());
 #elif BUILDFLAG(IS_CHROMEOS_LACROS)
-  if (drive_integration_service_) {
+  // The "Save to Google Drive" option is only allowed for the primary profile
+  // in the Lacros browser.
+  if (Profile::FromWebUI(web_ui())->IsMainProfile() &&
+      drive_integration_service_) {
     drive_integration_service_->GetMountPointPath(base::BindOnce(
         &PrintPreviewHandler::OnDrivePathReady, weak_factory_.GetWeakPtr(),
         std::move(initial_settings), callback_id));
@@ -1265,6 +1273,10 @@ void PrintPreviewHandler::BadMessageReceived() {
   bad_message::ReceivedBadMessage(
       GetInitiator()->GetPrimaryMainFrame()->GetProcess(),
       bad_message::BadMessageReason::PPH_EXTRA_PREVIEW_MESSAGE);
+#if DCHECK_IS_ON()
+  // TODO(crbug.com/1371776): Remove this once the bug is fixed.
+  base::debug::StackTrace().Print();
+#endif
 }
 
 void PrintPreviewHandler::FileSelectedForTesting(const base::FilePath& path,

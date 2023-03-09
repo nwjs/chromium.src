@@ -49,8 +49,8 @@
 #include "ash/system/power/power_status.h"
 #include "ash/system/power/scoped_backlights_forced_off.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
-#include "base/bind.h"
-#include "base/callback_helpers.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
@@ -169,6 +169,7 @@ constexpr const char* const kCopiedOnSigninAccessibilityPrefs[]{
     prefs::kAccessibilityAutoclickDelayMs,
     prefs::kAccessibilityAutoclickEnabled,
     prefs::kAccessibilityCaretHighlightEnabled,
+    prefs::kAccessibilityChromeVoxAutoRead,
     prefs::kAccessibilityCursorHighlightEnabled,
     prefs::kAccessibilityCursorColorEnabled,
     prefs::kAccessibilityCursorColor,
@@ -954,6 +955,10 @@ void AccessibilityControllerImpl::RegisterProfilePrefs(
       prefs::kDisplayRotationAcceleratorDialogHasBeenAccepted2, false);
   registry->RegisterBooleanPref(prefs::kShouldAlwaysShowAccessibilityMenu,
                                 false);
+
+  // ChromeVox prefs are non-syncable so that each device can have its own
+  // settings.
+  registry->RegisterBooleanPref(prefs::kAccessibilityChromeVoxAutoRead, false);
 
   //
   // Syncable prefs.

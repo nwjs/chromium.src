@@ -12,6 +12,8 @@ try_.defaults.set(
     builder_group = "tryserver.chromium.cft",
     pool = try_.DEFAULT_POOL,
     builderless = True,
+    cores = 8,
+    check_for_flakiness = True,
     execution_timeout = try_.DEFAULT_EXECUTION_TIMEOUT,
     goma_backend = goma.backend.RBE_PROD,
     goma_jobs = goma.jobs.J150,
@@ -45,4 +47,5 @@ try_.builder(
         "ci/win-rel-cft",
     ],
     os = os.WINDOWS_DEFAULT,
+    execution_timeout = 6 * time.hour,
 )

@@ -10,6 +10,7 @@ interface AbortController
     method constructor
 interface AbortSignal : EventTarget
     static method abort
+    static method any
     static method timeout
     attribute @@toStringTag
     getter aborted
@@ -54,7 +55,7 @@ interface AccessibleNode : EventTarget
     getter errorMessage
     getter expanded
     getter flowTo
-    getter hasPopUp
+    getter hasPopup
     getter hidden
     getter invalid
     getter keyShortcuts
@@ -110,7 +111,7 @@ interface AccessibleNode : EventTarget
     setter errorMessage
     setter expanded
     setter flowTo
-    setter hasPopUp
+    setter hasPopup
     setter hidden
     setter invalid
     setter keyShortcuts
@@ -546,11 +547,6 @@ interface BeforeInstallPromptEvent : Event
     getter userChoice
     method constructor
     method prompt
-interface BeforeToggleEvent : Event
-    attribute @@toStringTag
-    getter currentState
-    getter newState
-    method constructor
 interface BeforeUnloadEvent : Event
     attribute @@toStringTag
     getter returnValue
@@ -660,6 +656,8 @@ interface CSSConditionRule : CSSGroupingRule
     method constructor
 interface CSSContainerRule : CSSConditionRule
     attribute @@toStringTag
+    getter containerName
+    getter containerQuery
     method constructor
 interface CSSCounterStyleRule : CSSRule
     attribute @@toStringTag
@@ -1814,6 +1812,7 @@ interface Document : Node
     getter linkColor
     getter links
     getter onabort
+    getter onaftertoggle
     getter onanimationend
     getter onanimationiteration
     getter onanimationstart
@@ -2012,6 +2011,7 @@ interface Document : Node
     method replaceChildren
     method requestStorageAccess
     method requestStorageAccessForOrigin
+    method startViewTransition
     method webkitCancelFullScreen
     method webkitExitFullscreen
     method write
@@ -2030,6 +2030,7 @@ interface Document : Node
     setter fullscreenEnabled
     setter linkColor
     setter onabort
+    setter onaftertoggle
     setter onanimationend
     setter onanimationiteration
     setter onanimationstart
@@ -3142,9 +3143,9 @@ interface HTMLButtonElement : HTMLElement
     getter formTarget
     getter labels
     getter name
-    getter popoverHideTarget
-    getter popoverShowTarget
-    getter popoverToggleTarget
+    getter popoverHideTargetElement
+    getter popoverShowTargetElement
+    getter popoverToggleTargetElement
     getter type
     getter validationMessage
     getter validity
@@ -3161,9 +3162,9 @@ interface HTMLButtonElement : HTMLElement
     setter formNoValidate
     setter formTarget
     setter name
-    setter popoverHideTarget
-    setter popoverShowTarget
-    setter popoverToggleTarget
+    setter popoverHideTargetElement
+    setter popoverShowTargetElement
+    setter popoverToggleTargetElement
     setter type
     setter value
 interface HTMLCanvasElement : HTMLElement
@@ -3254,6 +3255,7 @@ interface HTMLElement : Element
     getter offsetTop
     getter offsetWidth
     getter onabort
+    getter onaftertoggle
     getter onanimationend
     getter onanimationiteration
     getter onanimationstart
@@ -3390,6 +3392,7 @@ interface HTMLElement : Element
     setter lang
     setter nonce
     setter onabort
+    setter onaftertoggle
     setter onanimationend
     setter onanimationiteration
     setter onanimationstart
@@ -3811,9 +3814,9 @@ interface HTMLInputElement : HTMLElement
     getter name
     getter pattern
     getter placeholder
-    getter popoverHideTarget
-    getter popoverShowTarget
-    getter popoverToggleTarget
+    getter popoverHideTargetElement
+    getter popoverShowTargetElement
+    getter popoverToggleTargetElement
     getter readOnly
     getter required
     getter selectionDirection
@@ -3869,9 +3872,9 @@ interface HTMLInputElement : HTMLElement
     setter name
     setter pattern
     setter placeholder
-    setter popoverHideTarget
-    setter popoverShowTarget
-    setter popoverToggleTarget
+    setter popoverHideTargetElement
+    setter popoverShowTargetElement
+    setter popoverToggleTargetElement
     setter readOnly
     setter required
     setter selectionDirection
@@ -4845,6 +4848,7 @@ interface IdentityCredential : Credential
     getter token
     method constructor
 interface IdentityProvider
+    static method getUserInfo
     static method login
     static method logout
     attribute @@toStringTag
@@ -5229,6 +5233,7 @@ interface MathMLElement : Element
     getter focusgroup
     getter nonce
     getter onabort
+    getter onaftertoggle
     getter onanimationend
     getter onanimationiteration
     getter onanimationstart
@@ -5342,6 +5347,7 @@ interface MathMLElement : Element
     setter focusgroup
     setter nonce
     setter onabort
+    setter onaftertoggle
     setter onanimationend
     setter onanimationiteration
     setter onanimationstart
@@ -5900,25 +5906,6 @@ interface NamedNodeMap
     method removeNamedItemNS
     method setNamedItem
     method setNamedItemNS
-interface NativeIOFile
-    attribute @@toStringTag
-    method close
-    method constructor
-    method flush
-    method getLength
-    method read
-    method setLength
-    method write
-interface NativeIOFileManager
-    attribute @@toStringTag
-    method constructor
-    method delete
-    method getAll
-    method getRemainingCapacity
-    method open
-    method releaseCapacity
-    method rename
-    method requestCapacity
 interface NavigateEvent : Event
     attribute @@toStringTag
     getter canIntercept
@@ -6442,18 +6429,8 @@ interface PaymentAddress
     getter sortingCode
     method constructor
     method toJSON
-interface PaymentInstruments
-    attribute @@toStringTag
-    method clear
-    method constructor
-    method delete
-    method get
-    method has
-    method keys
-    method set
 interface PaymentManager
     attribute @@toStringTag
-    getter instruments
     getter userHint
     method constructor
     method enableDelegations
@@ -6523,6 +6500,7 @@ interface PendingPostBeacon : PendingBeacon
 interface Performance : EventTarget
     attribute @@toStringTag
     getter eventCounts
+    getter interactionCount
     getter memory
     getter navigation
     getter onresourcetimingbufferfull
@@ -6560,6 +6538,7 @@ interface PerformanceEntry
     getter entryType
     getter name
     getter navigationId
+    getter source
     getter startTime
     method constructor
     method toJSON
@@ -6638,6 +6617,7 @@ interface PerformanceResourceTiming : PerformanceEntry
     getter domainLookupStart
     getter encodedBodySize
     getter fetchStart
+    getter firstInterimResponseStart
     getter initiatorType
     getter nextHopProtocol
     getter redirectEnd
@@ -6758,6 +6738,11 @@ interface PopStateEvent : Event
     attribute @@toStringTag
     getter state
     method constructor
+interface PopoverToggleEvent : Event
+    attribute @@toStringTag
+    getter currentState
+    getter newState
+    method constructor
 interface Presentation
     attribute @@toStringTag
     getter defaultRequest
@@ -6831,6 +6816,7 @@ interface PressureRecord
     getter state
     getter time
     method constructor
+    method toJSON
 interface ProcessingInstruction : CharacterData
     attribute @@toStringTag
     getter sheet
@@ -6961,6 +6947,7 @@ interface RTCEncodedVideoFrame
     method clone
     method constructor
     method getMetadata
+    method setMetadata
     method toString
     setter data
 interface RTCError : DOMException
@@ -7493,6 +7480,7 @@ interface SVGElement : Element
     getter focusgroup
     getter nonce
     getter onabort
+    getter onaftertoggle
     getter onanimationend
     getter onanimationiteration
     getter onanimationstart
@@ -7608,6 +7596,7 @@ interface SVGElement : Element
     setter focusgroup
     setter nonce
     setter onabort
+    setter onaftertoggle
     setter onanimationend
     setter onanimationiteration
     setter onanimationstart
@@ -9561,6 +9550,13 @@ interface ViewTimeline : ScrollTimeline
     getter startOffset
     getter subject
     method constructor
+interface ViewTransition
+    attribute @@toStringTag
+    getter finished
+    getter ready
+    getter updateCallbackDone
+    method constructor
+    method skipTransition
 interface VirtualKeyboard : EventTarget
     attribute @@toStringTag
     getter boundingRect
@@ -11427,6 +11423,7 @@ interface XRSession : EventTarget
     getter depthDataFormat
     getter depthUsage
     getter domOverlayState
+    getter enabledFeatures
     getter environmentBlendMode
     getter inputSources
     getter interactionMode
@@ -11790,11 +11787,38 @@ namespace CSS
     method vmax
     method vmin
     method vw
+namespace console
+    attribute @@toStringTag
+    getter memory
+    method assert
+    method clear
+    method context
+    method count
+    method countReset
+    method createTask
+    method debug
+    method dir
+    method dirxml
+    method error
+    method group
+    method groupCollapsed
+    method groupEnd
+    method info
+    method log
+    method profile
+    method profileEnd
+    method table
+    method time
+    method timeEnd
+    method timeLog
+    method timeStamp
+    method trace
+    method warn
+    setter memory
 [GLOBAL OBJECT]
     attribute GCController
     attribute accessibilityController
     attribute chrome
-    attribute console
     attribute eventSender
     attribute gamepadController
     attribute globalThis
@@ -11835,6 +11859,7 @@ namespace CSS
     getter offscreenBuffering
     getter onabort
     getter onafterprint
+    getter onaftertoggle
     getter onanimationend
     getter onanimationiteration
     getter onanimationstart
@@ -11982,7 +12007,6 @@ namespace CSS
     getter speechSynthesis
     getter status
     getter statusbar
-    getter storageFoundation
     getter styleMedia
     getter toolbar
     getter top
@@ -12059,6 +12083,7 @@ namespace CSS
     setter offscreenBuffering
     setter onabort
     setter onafterprint
+    setter onaftertoggle
     setter onanimationend
     setter onanimationiteration
     setter onanimationstart

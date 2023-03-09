@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">通过 Linux 安装</translation>
 <translation id="2225536596944493418">确定要删除这 <ph name="NUMBER_OF_ITEMS" /> 项吗？</translation>
 <translation id="2230062665678605299">无法创建文件夹“<ph name="FOLDER_NAME" />”。<ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">您的 Google 云端硬盘缓存被清除了。</translation>
 <translation id="2239068707900391003">一个人在喝咖啡</translation>
 <translation id="2251368349685848079">从回收站还原</translation>
 <translation id="2282155092769082568">自动配置网址：</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">找不到与&lt;b&gt;“<ph name="SEARCH_STRING" />”&lt;/b&gt;匹配的项</translation>
 <translation id="2894654529758326923">信息</translation>
 <translation id="2902734494705624966">美国英语（扩展）</translation>
+<translation id="2904378509913846215">已有名为“<ph name="FILENAME" />”的文件夹。要将其替换为您正在移动的文件夹吗？</translation>
 <translation id="290843123675549676">马拉地语</translation>
 <translation id="2923240520113693977">爱沙尼亚语</translation>
 <translation id="2938685643439809023">蒙古语</translation>
@@ -635,6 +637,7 @@
 <translation id="6241349547798190358">荷兰语（比利时）</translation>
 <translation id="6267547857941397424">第 <ph name="NETWORK_INDEX" /> 个网络（共 <ph name="NETWORK_COUNT" /> 个），<ph name="PHONE_NAME" />，信号强度为 <ph name="SIGNAL_STRENGTH" />%，剩余电量为 <ph name="BATTERY_STATUS" />%，连接</translation>
 <translation id="6269630227984243955">马来语</translation>
+<translation id="6271903698064569429">无法上传文件，因为“<ph name="SHARED_DRIVE_NAME" />”的存储空间不足。</translation>
 <translation id="6287852322318138013">选择用于打开此文件的应用</translation>
 <translation id="6295542640242147836">锁定 SIM 卡</translation>
 <translation id="6296410173147755564">PUK 无效</translation>
@@ -680,6 +683,7 @@
 <translation id="6657585470893396449">密码</translation>
 <translation id="6658865850469097484">系统会自动删除回收站中存放超过 30 天的文件。</translation>
 <translation id="6673674183150363784">法语（法国）Bépo 键盘</translation>
+<translation id="670380500182402678">全部替换</translation>
 <translation id="6710022688720561421">机器人</translation>
 <translation id="6710213216561001401">上一项</translation>
 <translation id="6732801395666424405">未加载证书</translation>
@@ -898,6 +902,7 @@
 <translation id="8386903983509584791">已完成扫描</translation>
 <translation id="8387733224523483503">已提取 <ph name="FILE_NAME" />。</translation>
 <translation id="8395901698320285466">尺寸</translation>
+<translation id="8404498045299006085">全部保留</translation>
 <translation id="8408068190360279472">“<ph name="NETWORK_TYPE" />”类型的网络，正在连接</translation>
 <translation id="8425213833346101688">更改</translation>
 <translation id="8431909052837336408">更改 SIM 卡 PIN 码</translation>

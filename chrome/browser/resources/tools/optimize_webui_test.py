@@ -103,8 +103,8 @@ import 'some-fake-scheme://foo/external_dir/external_element.js';
 
   def _write_v3_files_with_resources_to_src_dir(self, resources_scheme):
     resources_path = os.path.join(
-        _HERE_DIR.replace('\\', '/'), 'gen', 'ui', 'webui', 'resources',
-        'preprocessed', 'js')
+        _HERE_DIR.replace('\\', '/'), 'gen', 'ui', 'webui', 'resources', 'tsc',
+        'js')
     fake_resource_path = os.path.join(resources_path, 'fake_resource.js')
     scheme_relative_resource_path = os.path.join(resources_path,
                                                  'scheme_relative_resource.js')
@@ -172,8 +172,6 @@ import './element_in_dir/element_in_dir.js';
         'fake-host',
         '--js_module_in_files',
         'ui.js',
-        '--js_out_files',
-        'ui.rollup.js',
     ]
     self._run_optimize(args)
 
@@ -182,15 +180,12 @@ import './element_in_dir/element_in_dir.js';
 
   def testV3OptimizeWithResources(self):
     self._write_v3_files_with_resources_to_src_dir('chrome:')
-    resources_path = os.path.join('gen', 'ui', 'webui', 'resources',
-                                  'preprocessed')
+    resources_path = os.path.join('gen', 'ui', 'webui', 'resources', 'tsc')
     args = [
         '--host',
         'fake-host',
         '--js_module_in_files',
         'ui.js',
-        '--js_out_files',
-        'ui.rollup.js',
         '--external_paths',
         'chrome://resources|%s' % resources_path,
     ]
@@ -207,11 +202,10 @@ import './element_in_dir/element_in_dir.js';
         os.path.normpath('element_in_dir/element_in_dir.js'), depfile_d)
     self.assertIn(
         os.path.normpath(
-            '../gen/ui/webui/resources/preprocessed/js/scheme_relative_resource.js'
-        ), depfile_d)
+            '../gen/ui/webui/resources/tsc/js/scheme_relative_resource.js'),
+        depfile_d)
     self.assertIn(
-        os.path.normpath(
-            '../gen/ui/webui/resources/preprocessed/js/fake_resource.js'),
+        os.path.normpath('../gen/ui/webui/resources/tsc/js/fake_resource.js'),
         depfile_d)
 
   def testV3MultiBundleOptimize(self):
@@ -230,10 +224,6 @@ import './element_in_dir/element_in_dir.js';
         '--js_module_in_files',
         'ui.js',
         'lazy.js',
-        '--js_out_files',
-        'ui.rollup.js',
-        'lazy.rollup.js',
-        'shared.rollup.js',
         '--out-manifest',
         os.path.join(self._out_folder, 'out_manifest.json'),
     ]
@@ -274,15 +264,12 @@ import './element_in_dir/element_in_dir.js';
   def testV3OptimizeWithCustomPaths(self):
     custom_dir = os.path.join(self._create_tmp_dir(), 'foo_root')
     self._write_v3_files_with_custom_path_to_src_dir(custom_dir)
-    resources_path = os.path.join('gen', 'ui', 'webui', 'resources',
-                                  'preprocessed')
+    resources_path = os.path.join('gen', 'ui', 'webui', 'resources', 'tsc')
     args = [
         '--host',
         'fake-host',
         '--js_module_in_files',
         'ui.js',
-        '--js_out_files',
-        'ui.rollup.js',
         '--external_paths',
         'chrome://resources|%s' % resources_path,
         'some-fake-scheme://foo|%s' % os.path.abspath(custom_dir),
@@ -314,8 +301,6 @@ import './element_in_dir/element_in_dir.js';
         'chrome-extension://myextensionid/',
         '--js_module_in_files',
         'ui.js',
-        '--js_out_files',
-        'ui.rollup.js',
         '--exclude',
         'element_in_dir/element_in_dir.js',
     ]
@@ -333,15 +318,12 @@ import './element_in_dir/element_in_dir.js';
   # relative paths.
   def testV3SimpleOptimizeExcludesResources(self):
     self._write_v3_files_with_resources_to_src_dir('chrome-untrusted:')
-    resources_path = os.path.join('gen', 'ui', 'webui', 'resources',
-                                  'preprocessed')
+    resources_path = os.path.join('gen', 'ui', 'webui', 'resources', 'tsc')
     args = [
         '--host',
         'chrome-untrusted://fake-host',
         '--js_module_in_files',
         'ui.js',
-        '--js_out_files',
-        'ui.rollup.js',
         '--external_paths',
         '//resources|%s' % resources_path,
         'chrome-untrusted://resources|%s' % resources_path,
@@ -365,15 +347,12 @@ import './element_in_dir/element_in_dir.js';
   # resources from both chrome-untrusted://resources and //resources.
   def testV3SimpleOptimizeUntrustedResources(self):
     self._write_v3_files_with_resources_to_src_dir('chrome-untrusted:')
-    resources_path = os.path.join('gen', 'ui', 'webui', 'resources',
-                                  'preprocessed')
+    resources_path = os.path.join('gen', 'ui', 'webui', 'resources', 'tsc')
     args = [
         '--host',
         'chrome-untrusted://fake-host',
         '--js_module_in_files',
         'ui.js',
-        '--js_out_files',
-        'ui.rollup.js',
         '--external_paths',
         '//resources|%s' % resources_path,
         'chrome-untrusted://resources|%s' % resources_path,
@@ -408,15 +387,12 @@ alert('hello from external_element_dep');''')
         os.path.join(custom_dir_bar, 'another_element.js'),
         "alert('hello from another external dep');")
 
-    resources_path = os.path.join('gen', 'ui', 'webui', 'resources',
-                                  'preprocessed')
+    resources_path = os.path.join('gen', 'ui', 'webui', 'resources', 'tsc')
     args = [
         '--host',
         'fake-host',
         '--js_module_in_files',
         'ui.js',
-        '--js_out_files',
-        'ui.rollup.js',
         '--external_paths',
         '//resources|%s' % resources_path,
         'some-fake-scheme://foo|%s' % os.path.abspath(custom_dir_foo),

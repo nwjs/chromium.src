@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/task/single_thread_task_runner.h"
 #include "components/viz/common/resources/resource_format_utils.h"
 #include "gpu/command_buffer/common/constants.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
@@ -211,6 +212,9 @@ DefaultTexture2DWrapper::GpuResources::GpuResources(
     return;
   }
 
+  helper_->AddWillDestroyStubCB(
+      base::BindOnce(&GpuResources::Destroy, weak_factory_.GetWeakPtr()));
+
   // Usage flags to allow the display compositor to draw from it, video to
   // decode, and allow webgl/canvas access.
   constexpr uint32_t usage =
@@ -268,9 +272,17 @@ DefaultTexture2DWrapper::GpuResources::GpuResources(
 }
 
 DefaultTexture2DWrapper::GpuResources::~GpuResources() {
-  // Destroy shared images with a current context.
-  if (!helper_ || !helper_->MakeContextCurrent())
-    return;
+  // Destroy shared images with a current context, otherwise mark context lost.
+  const bool have_context = helper_ && helper_->MakeContextCurrent();
+  Destroy(have_context);
+}
+
+void DefaultTexture2DWrapper::GpuResources::Destroy(bool have_context) {
+  if (!have_context) {
+    for (auto& shared_image_rep : shared_images_) {
+      shared_image_rep->OnContextLost();
+    }
+  }
   shared_images_.clear();
 }
 

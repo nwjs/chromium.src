@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">ติดตั้งด้วย Linux</translation>
 <translation id="2225536596944493418">แน่ใจไหมว่าต้องการลบ <ph name="NUMBER_OF_ITEMS" /> รายการ</translation>
 <translation id="2230062665678605299">ไม่สามารถสร้างโฟลเดอร์ "<ph name="FOLDER_NAME" />" <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">ล้างแคช Google ไดรฟ์แล้ว</translation>
 <translation id="2239068707900391003">คนกับกาแฟ</translation>
 <translation id="2251368349685848079">กู้คืนจากถังขยะ</translation>
 <translation id="2282155092769082568">URL การกำหนดค่าอัตโนมัติ:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">ไม่มีรายการที่ตรงกับ &lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt;</translation>
 <translation id="2894654529758326923">ข้อมูล</translation>
 <translation id="2902734494705624966">แป้นพิมพ์ขยายแบบสหรัฐอเมริกา</translation>
+<translation id="2904378509913846215">มีโฟลเดอร์ที่ชื่อ "<ph name="FILENAME" />" อยู่แล้ว ต้องการแทนที่โฟลเดอร์ดังกล่าวด้วยโฟลเดอร์ที่คุณจะย้ายไหม</translation>
 <translation id="290843123675549676">มราฐี</translation>
 <translation id="2923240520113693977">เอสโตเนีย</translation>
 <translation id="2938685643439809023">มองโกเลีย</translation>
@@ -640,6 +642,7 @@
 <translation id="6241349547798190358">ดัตช์ (เบลเยียม)</translation>
 <translation id="6267547857941397424">เครือข่ายที่ <ph name="NETWORK_INDEX" /> จาก <ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, ความแรงสัญญาณ <ph name="SIGNAL_STRENGTH" />%, แบตเตอรี่โทรศัพท์ <ph name="BATTERY_STATUS" />%, เชื่อมต่อ</translation>
 <translation id="6269630227984243955">มาเลย์</translation>
+<translation id="6271903698064569429">อัปโหลดไฟล์ไม่ได้เนื่องจาก "<ph name="SHARED_DRIVE_NAME" />" มีพื้นที่เก็บข้อมูลไม่เพียงพอ</translation>
 <translation id="6287852322318138013">เลือกแอปที่จะเปิดไฟล์นี้</translation>
 <translation id="6295542640242147836">ล็อกซิม</translation>
 <translation id="6296410173147755564">PUK ไม่ถูกต้อง</translation>
@@ -685,6 +688,7 @@
 <translation id="6657585470893396449">รหัสผ่าน</translation>
 <translation id="6658865850469097484">ระบบจะลบไฟล์ที่อยู่ในถังขยะนานเกิน 30 วันออกโดยอัตโนมัติ</translation>
 <translation id="6673674183150363784">ฝรั่งเศส (ฝรั่งเศส) ด้วยแป้นพิมพ์แบบ Bépo</translation>
+<translation id="670380500182402678">แทนที่ทั้งหมด</translation>
 <translation id="6710022688720561421">หุ่นยนต์</translation>
 <translation id="6710213216561001401">ก่อนหน้า</translation>
 <translation id="6732801395666424405">ยังไม่ได้โหลดใบรับรอง</translation>
@@ -903,6 +907,7 @@
 <translation id="8386903983509584791">สแกนเสร็จแล้ว</translation>
 <translation id="8387733224523483503">แตกไฟล์ <ph name="FILE_NAME" /> แล้ว</translation>
 <translation id="8395901698320285466">มิติข้อมูล</translation>
+<translation id="8404498045299006085">เก็บไว้ทั้งหมด</translation>
 <translation id="8408068190360279472">เครือข่าย <ph name="NETWORK_TYPE" /> กำลังเชื่อมต่อ</translation>
 <translation id="8425213833346101688">เปลี่ยน</translation>
 <translation id="8431909052837336408">เปลี่ยน PIN ของซิม</translation>

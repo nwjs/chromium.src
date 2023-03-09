@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Linuxৰ জৰিয়তে ইনষ্টল কৰক</translation>
 <translation id="2225536596944493418">আপুনি <ph name="NUMBER_OF_ITEMS" />টা বস্তু মচি পেলাবলৈ নিশ্চিতনে?</translation>
 <translation id="2230062665678605299">"<ph name="FOLDER_NAME" />" ফল্ডাৰ সৃষ্টি কৰিব পৰা নগ’ল। <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">আপোনাৰ Google Driveৰ কেশ্ব মচা হৈছে।</translation>
 <translation id="2239068707900391003">কফিৰ সৈতে ব্যক্তিৰ ছবি</translation>
 <translation id="2251368349685848079">ট্ৰেশ্বৰ পৰা পুনঃস্থাপন কৰক</translation>
 <translation id="2282155092769082568">স্বয়ংক্ৰিয় কনফিগাৰেশ্বন URL:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">&lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt;ৰ সৈতে কোনো বস্তু মিলা নাই</translation>
 <translation id="2894654529758326923">তথ্য</translation>
 <translation id="2902734494705624966">ইউ.এছ.ৰ বিস্তাৰিত</translation>
+<translation id="2904378509913846215">"<ph name="FILENAME" />" নামৰ এটা ফ’ল্ডাৰ ইতিমধ্যে আছেই। আপুনি স্থানান্তৰ কৰি থকাটোৰে এইটো সলনি কৰিব বিচাৰেনে?</translation>
 <translation id="290843123675549676">মাৰাঠী</translation>
 <translation id="2923240520113693977">ইষ্ট’নিয়া</translation>
 <translation id="2938685643439809023">Mongolian</translation>
@@ -639,6 +641,7 @@
 <translation id="6241349547798190358">ডাট্‌চ (বেলজিয়াম)</translation>
 <translation id="6267547857941397424"><ph name="NETWORK_COUNT" />টা নেটৱৰ্কৰ <ph name="NETWORK_INDEX" />, <ph name="PHONE_NAME" />, ছিগনেলৰ ক্ষমতা <ph name="SIGNAL_STRENGTH" />%, ফ’নৰ বেটাৰী <ph name="BATTERY_STATUS" />%, সংযোগ কৰক</translation>
 <translation id="6269630227984243955">মালয়</translation>
+<translation id="6271903698064569429">ফাইল আপল’ড কৰিব নোৱাৰি কাৰণ "<ph name="SHARED_DRIVE_NAME" />"ত পৰ্যাপ্ত ষ্ট’ৰেজ নাই।</translation>
 <translation id="6287852322318138013">এই লিংকটো খুলিবলৈ এটা এপ্‌ বাছনি কৰক</translation>
 <translation id="6295542640242147836">ছিম লক কৰক</translation>
 <translation id="6296410173147755564">অমান্য PUK</translation>
@@ -684,6 +687,7 @@
 <translation id="6657585470893396449">পাছৱৰ্ড</translation>
 <translation id="6658865850469097484">৩০ দিনতকৈ অধিক সময় ট্ৰেশ্বত থকা যিকোনো ফাইল স্বয়ংক্ৰিয়ভাৱে মচা হ’ব।</translation>
 <translation id="6673674183150363784">Bépo কীব’ৰ্ডৰ সৈতে ফৰাচী (ফ্ৰান্স)</translation>
+<translation id="670380500182402678">আটাইবোৰ সলনি কৰক</translation>
 <translation id="6710022688720561421">ৰবট</translation>
 <translation id="6710213216561001401">পূৰ্বৱৰ্তী</translation>
 <translation id="6732801395666424405">প্ৰমাণপত্ৰসমূহ ল’ড হোৱা নাই</translation>
@@ -902,6 +906,7 @@
 <translation id="8386903983509584791">স্কেন সম্পূর্ণ হ’ল</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" /> আহৰণ কৰা হ’ল।</translation>
 <translation id="8395901698320285466">দীঘ-প্ৰস্থ</translation>
+<translation id="8404498045299006085">আটাইবোৰ ৰাখক</translation>
 <translation id="8408068190360279472"><ph name="NETWORK_TYPE" /> নেটৱৰ্ক, সংযোগ কৰি থকা হৈছে</translation>
 <translation id="8425213833346101688">সলনি কৰক</translation>
 <translation id="8431909052837336408">ছিমৰ পিন সলনি কৰক</translation>

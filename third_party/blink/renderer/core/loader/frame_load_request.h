@@ -198,6 +198,8 @@ struct CORE_EXPORT FrameLoadRequest {
   void SetManifest(const WebString& manifest) { manifest_ = manifest; }
   const WebString& GetManifest() const { return manifest_; }
 
+  const KURL& GetRequestorBaseURL() const { return requestor_base_url_; }
+
  private:
   WebString manifest_;
   LocalDOMWindow* origin_window_;
@@ -224,6 +226,7 @@ struct CORE_EXPORT FrameLoadRequest {
   mojo::PendingRemote<mojom::blink::PolicyContainerHostKeepAliveHandle>
       initiator_policy_container_keep_alive_handle_;
   std::unique_ptr<SourceLocation> source_location_;
+  KURL requestor_base_url_;
 
   // This is only used for navigations originating in MPArch fenced frames
   // targeting the outermost frame, which is not visible to the renderer

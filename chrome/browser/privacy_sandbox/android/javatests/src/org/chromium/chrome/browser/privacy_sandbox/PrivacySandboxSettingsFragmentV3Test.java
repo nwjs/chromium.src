@@ -76,6 +76,7 @@ import java.util.concurrent.ExecutionException;
 @Batch(Batch.PER_CLASS)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @Features.EnableFeatures(ChromeFeatureList.PRIVACY_SANDBOX_SETTINGS_3)
+@Features.DisableFeatures(ChromeFeatureList.PRIVACY_SANDBOX_SETTINGS_4)
 public final class PrivacySandboxSettingsFragmentV3Test {
     private static final String REFERRER_HISTOGRAM =
             "Settings.PrivacySandbox.PrivacySandboxReferrer";
@@ -130,7 +131,7 @@ public final class PrivacySandboxSettingsFragmentV3Test {
 
     private void openPrivacySandboxSettings() {
         Bundle fragmentArgs = new Bundle();
-        fragmentArgs.putInt(PrivacySandboxSettingsFragment.PRIVACY_SANDBOX_REFERRER,
+        fragmentArgs.putInt(PrivacySandboxSettingsFragmentV3.PRIVACY_SANDBOX_REFERRER,
                 PrivacySandboxReferrer.PRIVACY_SETTINGS);
         mSettingsActivityTestRule.startSettingsActivity(fragmentArgs);
         ViewUtils.onViewWaiting(withText(R.string.privacy_sandbox_trials_title));
@@ -435,7 +436,7 @@ public final class PrivacySandboxSettingsFragmentV3Test {
     @SmallTest
     public void testCreateActivityFromCookiesSnackbar() {
         Bundle fragmentArgs = new Bundle();
-        fragmentArgs.putInt(PrivacySandboxSettingsFragment.PRIVACY_SANDBOX_REFERRER,
+        fragmentArgs.putInt(PrivacySandboxSettingsFragmentV3.PRIVACY_SANDBOX_REFERRER,
                 PrivacySandboxReferrer.COOKIES_SNACKBAR);
         mSettingsActivityTestRule.startSettingsActivity(fragmentArgs);
 

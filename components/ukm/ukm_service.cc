@@ -9,17 +9,17 @@
 #include <unordered_set>
 #include <utility>
 
-#include "base/bind.h"
 #include "base/feature_list.h"
+#include "base/functional/bind.h"
 #include "base/metrics/field_trial.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/rand_util.h"
-#include "base/threading/sequenced_task_runner_handle.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "components/metrics/log_decoder.h"
+#include "components/metrics/metrics_features.h"
 #include "components/metrics/metrics_log.h"
 #include "components/metrics/metrics_service_client.h"
 #include "components/metrics/ukm_demographic_metrics_provider.h"
@@ -209,6 +209,13 @@ UkmService::UkmService(PrefService* pref_service,
   DVLOG(1) << "UkmService::Constructor";
   reporting_service_.Initialize();
 
+  if (base::FeatureList::IsEnabled(
+          metrics::features::kMetricsClearLogsOnClonedInstall)) {
+    cloned_install_subscription_ = client->AddOnClonedInstallDetectedCallback(
+        base::BindOnce(&UkmService::OnClonedInstallDetected,
+                       self_ptr_factory_.GetWeakPtr()));
+  }
+
   base::RepeatingClosure rotate_callback = base::BindRepeating(
       &UkmService::RotateLog, self_ptr_factory_.GetWeakPtr());
   // MetricsServiceClient outlives UkmService, and
@@ -282,6 +289,8 @@ void UkmService::OnAppEnterForeground() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DVLOG(1) << "UkmService::OnAppEnterForeground";
 
+  reporting_service_.SetIsInForegound(true);
+
   // If initialize_started_ is false, UKM has not yet been started, so bail. The
   // scheduler will instead be started via EnableReporting().
   if (!initialize_started_)
@@ -293,6 +302,8 @@ void UkmService::OnAppEnterForeground() {
 void UkmService::OnAppEnterBackground() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DVLOG(1) << "UkmService::OnAppEnterBackground";
+
+  reporting_service_.SetIsInForegound(false);
 
   if (!initialize_started_)
     return;
@@ -399,6 +410,14 @@ void UkmService::ResetClientState(ResetReason reason) {
   report_count_ = 0;
 
   metrics_providers_.OnClientStateCleared();
+}
+
+void UkmService::OnClonedInstallDetected() {
+  // Purge all logs, as they may come from a previous install. Unfortunately,
+  // since the cloned install detector works asynchronously, it is possible that
+  // this is called after logs were already sent. However, practically speaking,
+  // this should not happen, since logs are only sent late into the session.
+  reporting_service_.ukm_log_store()->Purge();
 }
 
 void UkmService::RegisterMetricsProvider(

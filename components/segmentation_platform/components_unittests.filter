@@ -1,9 +1,12 @@
+CachedResultProviderTest.*
+ClientResultPrefsTest.*
 ConfigParserTest.*
 ContextualPageActionsModelTest.*
 CrossDeviceUserModelTest.*
 CustomInputProcessorTest.*
 DatabaseMaintenanceImplTest.*
 DefaultModelManagerTest.*
+DeviceSwitcherModelTest.*
 DummyModelProviderFactoryImplTest.*
 DummySegmentationPlatformServiceTest.*
 FailedUkmDatabaseTest.*
@@ -23,7 +26,6 @@ ModelProviderFactoryImplTest.*
 OptimizationGuideSegmentationModelProviderTest.*
 PostProcessorTest.*
 PowerUserModelTest.*
-PriceTrackingInputDelegateTest.*
 QueryTilesModelTest.*
 RequestDispatcherTest.*
 RequestHandlerTest.*

@@ -14,15 +14,16 @@
 #include <utility>
 #include <vector>
 
+#include "ash/components/arc/arc_features.h"
 #include "ash/components/arc/arc_prefs.h"
 #include "ash/components/arc/arc_util.h"
 #include "ash/components/arc/session/arc_bridge_service.h"
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_switches.h"
-#include "base/bind.h"
-#include "base/callback_helpers.h"
 #include "base/command_line.h"
 #include "base/containers/contains.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/json/json_string_value_serializer.h"
 #include "base/location.h"
 #include "base/logging.h"
@@ -31,7 +32,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
-#include "base/threading/thread_task_runner_handle.h"
 #include "chrome/browser/ash/accessibility/accessibility_manager.h"
 #include "chrome/browser/ash/app_mode/arc/arc_kiosk_app_manager.h"
 #include "chrome/browser/ash/app_mode/kiosk_app_manager.h"
@@ -55,6 +55,7 @@
 #include "chrome/browser/ash/login/screens/active_directory_password_change_screen.h"
 #include "chrome/browser/ash/login/screens/app_downloading_screen.h"
 #include "chrome/browser/ash/login/screens/arc_terms_of_service_screen.h"
+#include "chrome/browser/ash/login/screens/arc_vm_data_migration_screen.h"
 #include "chrome/browser/ash/login/screens/assistant_optin_flow_screen.h"
 #include "chrome/browser/ash/login/screens/base_screen.h"
 #include "chrome/browser/ash/login/screens/choobe_screen.h"
@@ -99,6 +100,7 @@
 #include "chrome/browser/ash/login/screens/smart_privacy_protection_screen.h"
 #include "chrome/browser/ash/login/screens/sync_consent_screen.h"
 #include "chrome/browser/ash/login/screens/theme_selection_screen.h"
+#include "chrome/browser/ash/login/screens/touchpad_scroll_screen.h"
 #include "chrome/browser/ash/login/screens/tpm_error_screen.h"
 #include "chrome/browser/ash/login/screens/update_required_screen.h"
 #include "chrome/browser/ash/login/screens/update_screen.h"
@@ -133,6 +135,7 @@
 #include "chrome/browser/ui/webui/ash/login/app_downloading_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/app_launch_splash_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/arc_terms_of_service_screen_handler.h"
+#include "chrome/browser/ui/webui/ash/login/arc_vm_data_migration_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/assistant_optin_flow_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/auto_enrollment_check_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/choobe_screen_handler.h"
@@ -183,6 +186,7 @@
 #include "chrome/browser/ui/webui/ash/login/sync_consent_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/terms_of_service_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/theme_selection_screen_handler.h"
+#include "chrome/browser/ui/webui/ash/login/touchpad_scroll_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/tpm_error_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/update_required_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/update_screen_handler.h"
@@ -404,6 +408,8 @@ WizardController::WizardController(WizardContext* wizard_context)
       wizard_context_(wizard_context) {
   wizard_context_->skip_post_login_screens_for_tests =
       switches::ShouldSkipOobePostLogin();
+  wizard_context_->is_add_person_flow =
+      StartupUtils::IsOobeCompleted() && StartupUtils::IsDeviceOwned();
   AccessibilityManager* accessibility_manager = AccessibilityManager::Get();
   if (accessibility_manager) {
     // accessibility_manager could be null in Tests.
@@ -681,6 +687,11 @@ WizardController::CreateScreens() {
   append(std::make_unique<LocalStateErrorScreen>(
       oobe_ui->GetView<LocalStateErrorScreenHandler>()->AsWeakPtr()));
 
+  if (base::FeatureList::IsEnabled(arc::kEnableArcVmDataMigration)) {
+    append(std::make_unique<ArcVmDataMigrationScreen>(
+        oobe_ui->GetView<ArcVmDataMigrationScreenHandler>()->AsWeakPtr()));
+  }
+
   if (HIDDetectionScreen::CanShowScreen()) {
     append(std::make_unique<HIDDetectionScreen>(
         oobe_ui->GetView<HIDDetectionScreenHandler>()->AsWeakPtr(),
@@ -836,7 +847,7 @@ WizardController::CreateScreens() {
       base::BindRepeating(&WizardController::OnThemeSelectionScreenExit,
                           weak_factory_.GetWeakPtr())));
 
-  if (features::IsCryptohomeRecoveryFlowUIEnabled()) {
+  if (features::IsCryptohomeRecoveryFlowEnabled()) {
     append(std::make_unique<CryptohomeRecoveryScreen>(
         oobe_ui->GetView<CryptohomeRecoveryScreenHandler>()->AsWeakPtr(),
         base::BindRepeating(&WizardController::OnCryptohomeRecoveryScreenExit,
@@ -847,6 +858,14 @@ WizardController::CreateScreens() {
     append(std::make_unique<ChoobeScreen>(
         oobe_ui->GetView<ChoobeScreenHandler>()->AsWeakPtr(),
         base::BindRepeating(&WizardController::OnChoobeScreenExit,
+                            weak_factory_.GetWeakPtr())));
+  }
+
+  if (features::IsOobeChoobeEnabled() &&
+      features::IsOobeTouchpadScrollEnabled()) {
+    append(std::make_unique<TouchpadScrollScreen>(
+        oobe_ui->GetView<TouchpadScrollScreenHandler>()->AsWeakPtr(),
+        base::BindRepeating(&WizardController::OnTouchpadScreenExit,
                             weak_factory_.GetWeakPtr())));
   }
 
@@ -1084,6 +1103,10 @@ void WizardController::ShowChoobeScreen() {
   SetCurrentScreen(GetScreen(ChoobeScreenView::kScreenId));
 }
 
+void WizardController::ShowTouchpadScrollScreen() {
+  SetCurrentScreen(GetScreen(TouchpadScrollScreenView::kScreenId));
+}
+
 void WizardController::ShowCryptohomeRecoverySetupScreen() {
   CHECK(features::IsCryptohomeRecoverySetupEnabled());
   SetCurrentScreen(GetScreen(CryptohomeRecoverySetupScreenView::kScreenId));
@@ -1115,11 +1138,14 @@ void WizardController::ShowGuestTosScreen() {
   SetCurrentScreen(GetScreen(GuestTosScreenView::kScreenId));
 }
 
+void WizardController::ShowArcVmDataMigrationScreen() {
+  SetCurrentScreen(GetScreen(ArcVmDataMigrationScreenView::kScreenId));
+}
+
 void WizardController::ShowCryptohomeRecoveryScreen(
-    const AccountId& account_id) {
-  DCHECK(features::IsCryptohomeRecoveryFlowUIEnabled());
-  CryptohomeRecoveryScreen* screen = GetScreen<CryptohomeRecoveryScreen>();
-  screen->Configure(account_id);
+    std::unique_ptr<UserContext> user_context) {
+  DCHECK(features::IsCryptohomeRecoveryFlowEnabled());
+  wizard_context_->user_context = std::move(user_context);
   SetCurrentScreen(GetScreen(CryptohomeRecoveryScreenView::kScreenId));
 }
 
@@ -1390,8 +1416,30 @@ void WizardController::OnThemeSelectionScreenExit(
   ShowMarketingOptInScreen();
 }
 
-void WizardController::OnCryptohomeRecoveryScreenExit() {
-  NOTREACHED();
+void WizardController::OnCryptohomeRecoveryScreenExit(
+    CryptohomeRecoveryScreen::Result result) {
+  OnScreenExit(CryptohomeRecoveryScreenView::kScreenId,
+               CryptohomeRecoveryScreen::GetResultString(result));
+  switch (result) {
+    case CryptohomeRecoveryScreen::Result::kSucceeded:
+      ash::LoginDisplayHost::default_host()
+          ->GetExistingUserController()
+          ->LoginAuthenticated(std::move(wizard_context_->user_context));
+      break;
+    case CryptohomeRecoveryScreen::Result::kGaiaLogin:
+    case CryptohomeRecoveryScreen::Result::kRetry:
+      // TODO(b/257073746): We probably want to differentiate between retry with
+      // or without login.
+      GetScreen<GaiaScreen>()->LoadOnline(
+          wizard_context_->user_context->GetAccountId());
+      AdvanceToScreen(GaiaView::kScreenId);
+      break;
+    case CryptohomeRecoveryScreen::Result::kManualRecovery:
+    case CryptohomeRecoveryScreen::Result::kNoRecoveryFactor:
+      ShowGaiaPasswordChangedScreen(
+          wizard_context_->user_context->GetAccountId(), false /*has_error*/);
+      break;
+  }
 }
 
 void WizardController::OnChoobeScreenExit(ChoobeScreen::Result result) {
@@ -1404,6 +1452,18 @@ void WizardController::OnChoobeScreenExit(ChoobeScreen::Result result) {
       ShowThemeSelectionScreen();
       break;
     case ChoobeScreen::Result::SKIPPED:
+      ShowMarketingOptInScreen();
+      break;
+  }
+}
+
+void WizardController::OnTouchpadScreenExit(
+    TouchpadScrollScreen::Result result) {
+  OnScreenExit(TouchpadScrollScreenView::kScreenId,
+               TouchpadScrollScreen::GetResultString(result));
+  switch (result) {
+    case TouchpadScrollScreen::Result::kNotApplicable:
+    case TouchpadScrollScreen::Result::kNext:
       ShowMarketingOptInScreen();
       break;
   }
@@ -1694,8 +1754,7 @@ void WizardController::OnEnrollmentDone() {
   // Restart to make the login page pick up the policy changes resulting from
   // enrollment recovery.  (Not pretty, but this codepath is rarely exercised.)
   if (prescribed_enrollment_config_.mode ==
-          policy::EnrollmentConfig::MODE_RECOVERY ||
-      IsRollbackFlow(*wizard_context_)) {
+      policy::EnrollmentConfig::MODE_RECOVERY) {
     LOG(WARNING) << "Restart Chrome to pick up the policy changes";
     EnrollmentScreen* screen = EnrollmentScreen::Get(screen_manager());
     screen->OnBrowserRestart();
@@ -2372,6 +2431,8 @@ void WizardController::AdvanceToScreen(OobeScreenId screen_id) {
     ShowConsolidatedConsentScreen();
   } else if (screen_id == CryptohomeRecoverySetupScreenView::kScreenId) {
     ShowCryptohomeRecoverySetupScreen();
+  } else if (screen_id == ArcVmDataMigrationScreenView::kScreenId) {
+    ShowArcVmDataMigrationScreen();
   } else if (screen_id == TpmErrorView::kScreenId ||
              screen_id == GaiaPasswordChangedView::kScreenId ||
              screen_id == ActiveDirectoryPasswordChangeView::kScreenId ||

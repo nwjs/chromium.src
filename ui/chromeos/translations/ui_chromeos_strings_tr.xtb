@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Linux ile yükle</translation>
 <translation id="2225536596944493418"><ph name="NUMBER_OF_ITEMS" /> öğeyi silmek istediğiniz emin misiniz?</translation>
 <translation id="2230062665678605299">"<ph name="FOLDER_NAME" />" klasörü oluşturulamıyor. <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">Google Drive önbelleğiniz temizlendi.</translation>
 <translation id="2239068707900391003">Elinde kahve tutan bir kişi</translation>
 <translation id="2251368349685848079">Çöp kutusundan geri yükle</translation>
 <translation id="2282155092769082568">Otomatik yapılandırma URL'si:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">&lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt; ile eşleşen öğe yok</translation>
 <translation id="2894654529758326923">Bilgiler</translation>
 <translation id="2902734494705624966">ABD genişletilmiş</translation>
+<translation id="2904378509913846215">"<ph name="FILENAME" />" adlı bir klasör zaten var. Bu dosyayı taşıdığınız dosyayla değiştirmek istiyor musunuz?</translation>
 <translation id="290843123675549676">Marathi</translation>
 <translation id="2923240520113693977">Estonya Dili</translation>
 <translation id="2938685643439809023">Moğolca</translation>
@@ -640,6 +642,7 @@
 <translation id="6241349547798190358">Felemenkçe (Belçika)</translation>
 <translation id="6267547857941397424">Ağ <ph name="NETWORK_INDEX" />/<ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, %<ph name="SIGNAL_STRENGTH" /> Sinyal Gücü, %<ph name="BATTERY_STATUS" /> Telefon Pili, Bağlan</translation>
 <translation id="6269630227984243955">Malayca</translation>
+<translation id="6271903698064569429">"<ph name="SHARED_DRIVE_NAME" />" yeterli depolama alanına sahip olmadığından dosyalar yüklenemiyor.</translation>
 <translation id="6287852322318138013">Bu dosyayı açmak için bir uygulama seçin</translation>
 <translation id="6295542640242147836">SIM kilidi</translation>
 <translation id="6296410173147755564">Geçersiz PUK</translation>
@@ -685,6 +688,7 @@
 <translation id="6657585470893396449">Şifre</translation>
 <translation id="6658865850469097484">Çöp kutusundaki dosyalar 30 günün sonunda otomatik olarak silinir.</translation>
 <translation id="6673674183150363784">Fransızca (Fransa) Bépo klavye</translation>
+<translation id="670380500182402678">Tümünü değiştir</translation>
 <translation id="6710022688720561421">Robot</translation>
 <translation id="6710213216561001401">Önceki</translation>
 <translation id="6732801395666424405">Sertifikalar yüklenmedi</translation>
@@ -903,6 +907,7 @@
 <translation id="8386903983509584791">Tarama tamamlandı</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" /> çıkarıldı.</translation>
 <translation id="8395901698320285466">Boyutlar</translation>
+<translation id="8404498045299006085">Tümünü sakla</translation>
 <translation id="8408068190360279472"><ph name="NETWORK_TYPE" /> ağı, bağlanıyor</translation>
 <translation id="8425213833346101688">Değiştir</translation>
 <translation id="8431909052837336408">SIM PIN Kodunu Değiştir</translation>

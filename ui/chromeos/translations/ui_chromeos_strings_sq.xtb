@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Instalo me Linux</translation>
 <translation id="2225536596944493418">Je i sigurt që dëshiron të fshish <ph name="NUMBER_OF_ITEMS" /> artikuj?</translation>
 <translation id="2230062665678605299">Nuk mundi ta krijonte dosjen "<ph name="FOLDER_NAME" />". <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">Your Google Drive cache was cleared.</translation>
 <translation id="2239068707900391003">Person me kafe</translation>
 <translation id="2251368349685848079">Restauroje nga koshi</translation>
 <translation id="2282155092769082568">URL-ja e konfigurimit automatik:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">Asnjë artikull nuk përputhet me &lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt;</translation>
 <translation id="2894654529758326923">Informacion</translation>
 <translation id="2902734494705624966">Amerikane e zgjeruar</translation>
+<translation id="2904378509913846215">Një dosje me emrin "<ph name="FILENAME" />" ekziston tashmë. Dëshiron ta zëvendësosh me atë që po zhvendos?</translation>
 <translation id="290843123675549676">Maratisht</translation>
 <translation id="2923240520113693977">Estonisht</translation>
 <translation id="2938685643439809023">Mongolisht</translation>
@@ -639,6 +641,7 @@
 <translation id="6241349547798190358">Holandisht (Belgjikë)</translation>
 <translation id="6267547857941397424">Rrjeti <ph name="NETWORK_INDEX" /> nga <ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, fuqia e sinjalit <ph name="SIGNAL_STRENGTH" />%, bateria e telefonit <ph name="BATTERY_STATUS" />%, lidhu</translation>
 <translation id="6269630227984243955">Malajzisht</translation>
+<translation id="6271903698064569429">Skedarët nuk mund të ngarkohen sepse nuk ka hapësirë ruajtëse të mjaftueshme te "<ph name="SHARED_DRIVE_NAME" />".</translation>
 <translation id="6287852322318138013">Zgjidh një aplikacion për ta hapur këtë skedar</translation>
 <translation id="6295542640242147836">Kyç kartën SIM</translation>
 <translation id="6296410173147755564">Kodi PUK i pavlefshëm</translation>
@@ -684,6 +687,7 @@
 <translation id="6657585470893396449">Fjalëkalimi</translation>
 <translation id="6658865850469097484">Skedarët që ndodhen te koshi për më shumë se 30 ditë do të fshihen automatikisht.</translation>
 <translation id="6673674183150363784">Frëngjisht (Francë) me tastierë Bépo</translation>
+<translation id="670380500182402678">Zëvendësoji të gjitha</translation>
 <translation id="6710022688720561421">Robot</translation>
 <translation id="6710213216561001401">Prapa</translation>
 <translation id="6732801395666424405">Certifikatat nuk janë ngarkuar</translation>
@@ -902,6 +906,7 @@
 <translation id="8386903983509584791">Skanimi përfundoi</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" /> u nxor.</translation>
 <translation id="8395901698320285466">Përmasat</translation>
+<translation id="8404498045299006085">Mbaji të gjitha</translation>
 <translation id="8408068190360279472">Rrjeti <ph name="NETWORK_TYPE" />, po lidhet</translation>
 <translation id="8425213833346101688">Ndrysho</translation>
 <translation id="8431909052837336408">Ndrysho PIN-in e kartës SIM</translation>

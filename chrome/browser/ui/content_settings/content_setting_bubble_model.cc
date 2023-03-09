@@ -9,9 +9,9 @@
 #include <memory>
 #include <utility>
 
-#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
+#include "base/functional/bind.h"
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
 #include "base/scoped_observation.h"
@@ -118,7 +118,7 @@ bool GetSettingManagedByUser(const GURL& url,
   ContentSetting setting;
   if (type == ContentSettingsType::COOKIES) {
     setting = CookieSettingsFactory::GetForProfile(profile)->GetCookieSetting(
-        url, url, &source,
+        url, url, net::CookieSettingOverrides(), &source,
         content_settings::CookieSettings::QueryReason::kSetting);
   } else {
     SettingInfo info;
@@ -1108,7 +1108,7 @@ void ContentSettingMediaStreamBubbleModel::
   set_title(l10n_util::GetStringUTF16(title_id));
   set_manage_text_style(ContentSettingBubbleModel::ManageTextStyle::kNone);
   SetCustomLink();
-  set_done_button_text(l10n_util::GetStringUTF16(IDS_OPEN_PREFERENCES_LINK));
+  set_done_button_text(l10n_util::GetStringUTF16(IDS_OPEN_SETTINGS_LINK));
 }
 #endif  // BUILDFLAG(IS_MAC)
 
@@ -1308,7 +1308,7 @@ void ContentSettingGeolocationBubbleModel::
       l10n_util::GetStringUTF16(IDS_GEOLOCATION),
       l10n_util::GetStringUTF16(IDS_TURNED_OFF), false, true, 0));
   set_manage_text_style(ContentSettingBubbleModel::ManageTextStyle::kNone);
-  set_done_button_text(l10n_util::GetStringUTF16(IDS_OPEN_PREFERENCES_LINK));
+  set_done_button_text(l10n_util::GetStringUTF16(IDS_OPEN_SETTINGS_LINK));
   set_radio_group(RadioGroup());
   show_system_geolocation_bubble_ = true;
 #endif  // BUILDFLAG(IS_MAC)

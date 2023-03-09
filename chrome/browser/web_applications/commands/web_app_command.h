@@ -71,9 +71,7 @@ class WebAppCommand {
   virtual base::Value ToDebugValue() const = 0;
 
  protected:
-  // The command lock that contains isolation information. Mutable so the
-  // command manager can use it with `WebAppLockManager::AcquireLock`.
-  virtual LockDescription& lock_description() const = 0;
+  virtual const LockDescription& lock_description() const = 0;
 
   // Returns the pre-existing web contents the installation was
   // initiated with. Only implements this when the command is used for
@@ -147,11 +145,13 @@ class WebAppCommandTemplate : public WebAppCommand {
   virtual void StartWithLock(std::unique_ptr<LockType> lock) = 0;
 
  protected:
+  // WebAppCommand:
   WebAppCommandManager* command_manager() const override {
     return command_manager_;
   }
 
  private:
+  // WebAppCommand:
   void RequestLock(WebAppCommandManager* command_manager,
                    WebAppLockManager* lock_manager,
                    LockAcquiredCallback on_lock_acquired) override;

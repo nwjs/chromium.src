@@ -9,8 +9,8 @@
 #include <cstdlib>
 #include <memory>
 
-#include "base/bind.h"
-#include "base/callback_helpers.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/strings/string_number_conversions.h"
@@ -229,6 +229,14 @@ void DecryptingAudioDecoder::DecodePendingBuffer() {
   int buffer_size = 0;
   if (!pending_buffer_to_decode_->end_of_stream()) {
     buffer_size = pending_buffer_to_decode_->data_size();
+  }
+
+  if (!DecoderBuffer::DoSubsamplesMatch(*pending_buffer_to_decode_)) {
+    MEDIA_LOG(ERROR, media_log_)
+        << "DecryptingAudioDecoder: Subsamples for Buffer do not match";
+    state_ = kError;
+    std::move(decode_cb_).Run(DecoderStatus::Codes::kFailed);
+    return;
   }
 
   decryptor_->DecryptAndDecodeAudio(

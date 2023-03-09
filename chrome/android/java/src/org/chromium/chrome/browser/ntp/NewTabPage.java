@@ -82,7 +82,7 @@ import org.chromium.chrome.browser.toolbar.top.Toolbar;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
 import org.chromium.chrome.browser.ui.native_page.NativePageHost;
-import org.chromium.chrome.browser.vr.VrModuleProvider;
+import org.chromium.chrome.browser.util.BrowserUiUtils;
 import org.chromium.chrome.browser.xsurface.FeedLaunchReliabilityLogger.SurfaceType;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.settings.SettingsLauncher;
@@ -226,7 +226,6 @@ public class NewTabPage implements NativePage, InvalidationAwareThumbnailProvide
         @Override
         public void focusSearchBox(boolean beginVoiceSearch, String pastedText) {
             if (mIsDestroyed) return;
-            if (VrModuleProvider.getDelegate().isInVr()) return;
             FeedReliabilityLogger feedReliabilityLogger =
                     mFeedSurfaceProvider.getReliabilityLogger();
             if (mVoiceRecognitionHandler != null && beginVoiceSearch) {
@@ -285,7 +284,8 @@ public class NewTabPage implements NativePage, InvalidationAwareThumbnailProvide
     private class NewTabPageTileGroupDelegate extends TileGroupDelegateImpl {
         private NewTabPageTileGroupDelegate(Context context, Profile profile,
                 SuggestionsNavigationDelegate navigationDelegate, SnackbarManager snackbarManager) {
-            super(context, profile, navigationDelegate, snackbarManager);
+            super(context, profile, navigationDelegate, snackbarManager,
+                    BrowserUiUtils.HostSurface.NEW_TAB_PAGE);
         }
 
         @Override
@@ -496,7 +496,7 @@ public class NewTabPage implements NativePage, InvalidationAwareThumbnailProvide
 
         FeedActionDelegate actionDelegate = new FeedActionDelegateImpl(activity, snackbarManager,
                 mNewTabPageManager.getNavigationDelegate(), BookmarkModel.getForProfile(profile),
-                crowButtonDelegate) {
+                crowButtonDelegate, BrowserUiUtils.HostSurface.NEW_TAB_PAGE) {
             @Override
             public void openHelpPage() {
                 NewTabPageUma.recordAction(NewTabPageUma.ACTION_CLICKED_LEARN_MORE);
@@ -992,6 +992,17 @@ public class NewTabPage implements NativePage, InvalidationAwareThumbnailProvide
     @VisibleForTesting
     public NewTabPageManager getNewTabPageManagerForTesting() {
         return mNewTabPageManager;
+    }
+
+    @VisibleForTesting
+    public TileGroup.Delegate getTileGroupDelegateForTesting() {
+        return mTileGroupDelegate;
+    }
+
+    @VisibleForTesting
+    public FeedActionDelegate getFeedActionDelegateForTesting() {
+        return ((FeedSurfaceCoordinator) mFeedSurfaceProvider)
+                .getActionDelegateForTesting(); // IN-TEST
     }
 
     /**

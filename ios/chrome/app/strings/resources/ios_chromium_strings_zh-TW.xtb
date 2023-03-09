@@ -6,7 +6,6 @@
 <translation id="1185134272377778587">關於 Chromium</translation>
 <translation id="1257458525759135959">如要儲存圖片，請輕觸 [設定] 並允許 Chromium 新增相片</translation>
 <translation id="1289216811211435351">改為使用 Chromium</translation>
-<translation id="1311799238113893680">使用儲存在 Chromium 中的密碼加快登入速度</translation>
 <translation id="1361748954329991663">Chromium 版本過舊。如果 <ph name="BEGIN_LINK" />App Store<ph name="END_LINK" /> 中沒有任何可用的更新，則表示你的裝置可能已停止支援新版 Chromium。</translation>
 <translation id="1431818719585918472">讓 Chromium 鎖定你的無痕分頁。</translation>
 <translation id="1472013873724362412">無法使用您的帳戶登入 Chromium，請洽詢您的網域管理員或使用一般 Google 帳戶登入。</translation>
@@ -28,7 +27,6 @@
 <translation id="2178608107313874732">Chromium 目前無法使用你的相機</translation>
 <translation id="2195025571279539885">下次造訪這個網站時，需要 Chromium 為您翻譯其中的<ph name="LANGUAGE_NAME" />網頁嗎？</translation>
 <translation id="2218146227246548550">根據貴機構的政策規定，你必須先登入才能使用 Chromium。<ph name="BEGIN_LINK" />瞭解詳情<ph name="END_LINK" /></translation>
-<translation id="2228617012253907725">Chromium 讓你事半功倍</translation>
 <translation id="2236584955986023187">這代表 Chromium 每次都會對電腦版網站發出要求。</translation>
 <translation id="2313870531055795960">可使用儲存在 Chromium 中的不安全網站清單檢查網址。如果有網站試圖竊取你的密碼，或當你下載有害檔案時，Chromium 可能也會將網址 (包括部分網頁內容) 傳送給安全瀏覽功能。</translation>
 <translation id="2426113998523353159">貴機構要求你先登入才能使用 Chromium。</translation>
@@ -72,7 +70,6 @@
 <translation id="5573014823074921752">Chromium 提示。如需更多分頁選項，請輕觸並按住工具列 (位於畫面底部或頂端) 中的 [顯示分頁] 按鈕。</translation>
 <translation id="5700709190537129682">Chromium 無法檢查你的密碼</translation>
 <translation id="5777187867430702742">Chromium 頁面</translation>
-<translation id="5862307444128926510">歡迎使用 Chromium</translation>
 <translation id="5945387852661427312">你即將使用由 <ph name="DOMAIN" /> 所管理的帳戶登入，並授權該網域的管理員控管你的 Chromium 資料。你的資料會與這個帳戶建立永久連結。登出 Chromium 後，系統會將你的資料從這個裝置上刪除，但繼續保留在你的 Google 帳戶中。</translation>
 <translation id="5983312940147103417">讓 Chromium 更臻完美</translation>
 <translation id="6062449165341879460">貴機構 <ph name="DOMAIN" /> 將可存取你儲存在這個帳戶中的 Chromium 資料、書籤、歷史記錄、密碼和其他設定。登出帳戶後，系統會清除這部裝置中的資料。不過，你的資料仍會儲存在受管理 Google 帳戶中，並可供貴機構使用。貴機構也可以設定該帳戶專屬的使用者政策，這些政策可以變更 Chromium 的行為。</translation>
@@ -103,7 +100,6 @@
 <translation id="7357211569052832586">系統已將你所選取的資料從 Chromium 和其他同步的裝置中移除。你的 Google 帳戶仍可能保留了其他類型的瀏覽記錄，例如其他 Google 服務中的搜尋和活動記錄 (可前往 history.google.com 查詢)。</translation>
 <translation id="7395825497086981028">系統會將你的密碼儲存至 <ph name="EMAIL" /> 的密碼管理員中。</translation>
 <translation id="7400689562045506105">Chromium 隨時隨地都能派上用場</translation>
-<translation id="766897673682622022">你的密碼因為資料侵害事件遭到外洩。Chromium 建議你立即變更密碼。</translation>
 <translation id="7674213385180944843">請前往 [設定] &gt; [隱私權] &gt; [相機] &gt; [Chromium]，並開啟相機。</translation>
 <translation id="7746854981345936341">Chromium 提示。部分按鈕 (例如 [返回]、[往前] 和 [搜尋]) 現在位於畫面底部。</translation>
 <translation id="7763454117143368771">使用 Chromium 做為預設瀏覽器可保護你免於危險網站的威脅，同時確保你的密碼安全無虞</translation>
@@ -116,7 +112,6 @@
 <translation id="8013573822802650211">在你所有的裝置上登入帳戶後，不論從何處使用 Chromium 都能查看你的分頁</translation>
 <translation id="8073677936375100957">要清除這個裝置上的 Chromium 資料嗎？</translation>
 <translation id="8240981428553046115">Chromium 無法檢查更新，請稍後再試。</translation>
-<translation id="8308172444429103994">Chromium 實用提示。在鍵盤頂端選取已儲存的密碼，即可加快登入速度。</translation>
 <translation id="8409374867500149834">Chromium 提供了最強大的安全防護機制，可避免你誤入有害網站</translation>
 <translation id="858114650497379505">你可以在 iPhone 上的其他應用程式，使用儲存至密碼管理員的密碼。</translation>
 <translation id="8586442755830160949">Copyright <ph name="YEAR" /> The Chromium Authors. 保留所有權利。</translation>

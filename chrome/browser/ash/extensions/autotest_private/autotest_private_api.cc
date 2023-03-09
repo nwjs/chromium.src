@@ -43,15 +43,17 @@
 #include "ash/public/cpp/style/dark_light_mode_controller.h"
 #include "ash/public/cpp/tablet_mode.h"
 #include "ash/public/cpp/window_properties.h"
+#include "ash/root_window_controller.h"
 #include "ash/rotator/screen_rotation_animator.h"
 #include "ash/shell.h"
+#include "ash/wallpaper/wallpaper_widget_controller.h"
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/wm_event.h"
 #include "base/base64.h"
-#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/feature_list.h"
+#include "base/functional/bind.h"
 #include "base/i18n/base_i18n_switches.h"
 #include "base/json/json_reader.h"
 #include "base/json/values_util.h"
@@ -176,7 +178,6 @@
 #include "components/prefs/pref_service.h"
 #include "components/services/app_service/public/cpp/app_types.h"
 #include "components/services/app_service/public/cpp/types_util.h"
-#include "components/services/app_service/public/mojom/types.mojom.h"
 #include "components/session_manager/core/session_manager.h"
 #include "components/session_manager/session_manager_types.h"
 #include "components/signin/public/identity_manager/access_token_info.h"
@@ -396,12 +397,12 @@ api::autotest_private::AppType GetAppType(apps::AppType type) {
       return api::autotest_private::AppType::APP_TYPE_REMOTE;
     case apps::AppType::kBorealis:
       return api::autotest_private::AppType::APP_TYPE_BOREALIS;
+    case apps::AppType::kBruschetta:
+      return api::autotest_private::AppType::APP_TYPE_BRUSCHETTA;
     case apps::AppType::kStandaloneBrowserExtension:
       return api::autotest_private::AppType::APP_TYPE_NONE;
     case apps::AppType::kStandaloneBrowserChromeApp:
-      // TODO(https://crbug.com/1225848): Figure out appropriate behavior for
-      // Lacros-hosted chrome-apps.
-      return api::autotest_private::AppType::APP_TYPE_NONE;
+      return api::autotest_private::AppType::APP_TYPE_EXTENSION;
   }
   NOTREACHED();
   return api::autotest_private::AppType::APP_TYPE_NONE;
@@ -527,32 +528,30 @@ std::string SetAllowedPref(Profile* profile,
     return std::string();
   }
 
-  if (pref_name == chromeos::assistant::prefs::kAssistantEnabled) {
+  if (pref_name == ash::assistant::prefs::kAssistantEnabled) {
     if (!value.is_bool())
       return "Invalid value type.";
     // Validate the Assistant service allowed state.
-    chromeos::assistant::AssistantAllowedState allowed_state =
+    ash::assistant::AssistantAllowedState allowed_state =
         assistant::IsAssistantAllowedForProfile(profile);
-    if (allowed_state != chromeos::assistant::AssistantAllowedState::ALLOWED) {
+    if (allowed_state != ash::assistant::AssistantAllowedState::ALLOWED) {
       return base::StringPrintf("Assistant not allowed - state: %d",
                                 allowed_state);
     }
-  } else if (pref_name == chromeos::assistant::prefs::kAssistantConsentStatus) {
+  } else if (pref_name == ash::assistant::prefs::kAssistantConsentStatus) {
     if (!value.is_int())
       return "Invalid value type.";
     if (!profile->GetPrefs()->GetBoolean(
-            chromeos::assistant::prefs::kAssistantEnabled)) {
+            ash::assistant::prefs::kAssistantEnabled)) {
       return "Unable to set the pref because Assistant has not been enabled.";
     }
-  } else if (pref_name ==
-                 chromeos::assistant::prefs::kAssistantContextEnabled ||
-             pref_name ==
-                 chromeos::assistant::prefs::kAssistantHotwordEnabled) {
+  } else if (pref_name == ash::assistant::prefs::kAssistantContextEnabled ||
+             pref_name == ash::assistant::prefs::kAssistantHotwordEnabled) {
     if (!value.is_bool())
       return "Invalid value type.";
     // Assistant service must be enabled first for those prefs to take effect.
     if (!profile->GetPrefs()->GetBoolean(
-            chromeos::assistant::prefs::kAssistantEnabled)) {
+            ash::assistant::prefs::kAssistantEnabled)) {
       return std::string(
           "Unable to set the pref because Assistant has not been enabled.");
     }
@@ -588,6 +587,8 @@ std::string SetAllowedPref(Profile* profile,
              quick_answers::prefs::kQuickAnswersUnitConversionEnabled) {
     DCHECK(value.is_bool());
   } else if (pref_name == quick_answers::prefs::kQuickAnswersConsentStatus) {
+    DCHECK(value.is_int());
+  } else if (pref_name == arc::prefs::kArcShowResizeLockSplashScreenLimits) {
     DCHECK(value.is_int());
   } else {
     return "The pref " + pref_name + " is not allowed.";
@@ -995,8 +996,8 @@ void ForwardFrameRateDataAndReset(
 }
 
 std::string ResolutionToString(
-    chromeos::assistant::AssistantInteractionResolution resolution) {
-  using chromeos::assistant::AssistantInteractionResolution;
+    ash::assistant::AssistantInteractionResolution resolution) {
+  using ash::assistant::AssistantInteractionResolution;
   switch (resolution) {
     case AssistantInteractionResolution::kNormal:
       return "kNormal";
@@ -1027,6 +1028,9 @@ std::string CompositorFrameSinkTypeToString(
       return "layer-tree";
   }
 }
+
+// Update when `startThroughputTrackerDataCollection` is called.
+base::TimeTicks g_last_start_throughput_data_collection_tick;
 
 }  // namespace
 
@@ -1380,6 +1384,11 @@ ExtensionFunction::ResponseAction AutotestPrivateLoginStatusFunction::Run() {
     result.Set("isLoggedIn", user_manager->IsUserLoggedIn());
     result.Set("isOwner", user_manager->IsCurrentUserOwner());
     result.Set("isScreenLocked", is_screen_locked);
+    result.Set("isLockscreenWallpaperAnimating",
+               is_screen_locked && ash::Shell::Get()
+                                       ->GetPrimaryRootWindowController()
+                                       ->wallpaper_widget_controller()
+                                       ->IsAnimating());
     result.Set("isReadyForPassword",
                ash::LoginScreen::Get()->IsReadyForPassword());
     if (user_manager->IsUserLoggedIn()) {
@@ -1429,7 +1438,7 @@ AutotestPrivateLockScreenFunction::~AutotestPrivateLockScreenFunction() =
 ExtensionFunction::ResponseAction AutotestPrivateLockScreenFunction::Run() {
   DVLOG(1) << "AutotestPrivateLockScreenFunction";
 
-  chromeos::SessionManagerClient::Get()->RequestLockScreen();
+  ash::SessionManagerClient::Get()->RequestLockScreen();
   return RespondNow(NoArguments());
 }
 
@@ -3232,14 +3241,14 @@ AutotestPrivateSetAssistantEnabledFunction::Run() {
 
   Profile* profile = Profile::FromBrowserContext(browser_context());
   const std::string& err_msg =
-      SetAllowedPref(profile, chromeos::assistant::prefs::kAssistantEnabled,
+      SetAllowedPref(profile, ash::assistant::prefs::kAssistantEnabled,
                      base::Value(params->enabled));
   if (!err_msg.empty())
     return RespondNow(Error(err_msg));
 
   // Any state that's not |NOT_READY| would be considered a ready state.
   const bool not_ready = (ash::AssistantState::Get()->assistant_status() ==
-                          chromeos::assistant::AssistantStatus::NOT_READY);
+                          ash::assistant::AssistantStatus::NOT_READY);
   const bool success = (params->enabled != not_ready);
   if (success)
     return RespondNow(NoArguments());
@@ -3256,7 +3265,7 @@ AutotestPrivateSetAssistantEnabledFunction::Run() {
 }
 
 void AutotestPrivateSetAssistantEnabledFunction::OnAssistantStatusChanged(
-    chromeos::assistant::AssistantStatus status) {
+    ash::assistant::AssistantStatus status) {
   // Must check if the Optional contains value first to avoid possible
   // segmentation fault caused by Respond() below being called before
   // RespondLater() in Run(). This will happen due to AddObserver() call
@@ -3264,8 +3273,7 @@ void AutotestPrivateSetAssistantEnabledFunction::OnAssistantStatusChanged(
   if (!enabled_.has_value())
     return;
 
-  const bool not_ready =
-      (status == chromeos::assistant::AssistantStatus::NOT_READY);
+  const bool not_ready = (status == ash::assistant::AssistantStatus::NOT_READY);
   const bool success = (enabled_.value() != not_ready);
   if (!success)
     return;
@@ -3295,23 +3303,22 @@ AutotestPrivateEnableAssistantAndWaitForReadyFunction::Run() {
   DVLOG(1) << "AutotestPrivateEnableAssistantAndWaitForReadyFunction";
 
   if (ash::AssistantState::Get()->assistant_status() ==
-      chromeos::assistant::AssistantStatus::READY) {
+      ash::assistant::AssistantStatus::READY) {
     return RespondNow(Error("Assistant is already enabled."));
   }
 
   // We can set this callback only when assistant status is NOT_READY. We should
   // call this before we try to enable Assistant to avoid causing some timing
   // issue.
-  chromeos::assistant::AssistantManagerServiceImpl::
+  ash::assistant::AssistantManagerServiceImpl::
       SetInitializedInternalCallbackForTesting(base::BindOnce(
           &AutotestPrivateEnableAssistantAndWaitForReadyFunction::
               OnInitializedInternal,
           this));
 
   Profile* profile = Profile::FromBrowserContext(browser_context());
-  const std::string& err_msg =
-      SetAllowedPref(profile, chromeos::assistant::prefs::kAssistantEnabled,
-                     base::Value(true));
+  const std::string& err_msg = SetAllowedPref(
+      profile, ash::assistant::prefs::kAssistantEnabled, base::Value(true));
   if (!err_msg.empty())
     return RespondNow(Error(err_msg));
 
@@ -3328,7 +3335,7 @@ void AutotestPrivateEnableAssistantAndWaitForReadyFunction::
 // |AutotestPrivateSendAssistantTextQueryFunction| and
 // |AutotestPrivateWaitForAssistantQueryStatusFunction|.
 class AssistantInteractionHelper
-    : public chromeos::assistant::AssistantInteractionSubscriber {
+    : public ash::assistant::AssistantInteractionSubscriber {
  public:
   using OnInteractionFinishedCallback =
       base::OnceCallback<void(const absl::optional<std::string>& error)>;
@@ -3363,18 +3370,18 @@ class AssistantInteractionHelper
 
   base::Value::Dict GetQueryStatus() { return std::move(query_status_); }
 
-  chromeos::assistant::Assistant* GetAssistant() {
-    auto* assistant_service = chromeos::assistant::AssistantService::Get();
+  ash::assistant::Assistant* GetAssistant() {
+    auto* assistant_service = ash::assistant::AssistantService::Get();
     return assistant_service ? assistant_service->GetAssistant() : nullptr;
   }
 
  private:
-  // chromeos::assistant::AssistantInteractionSubscriber:
+  // ash::assistant::AssistantInteractionSubscriber:
   using AssistantSuggestion = ash::assistant::AssistantSuggestion;
   using AssistantInteractionMetadata =
       ash::assistant::AssistantInteractionMetadata;
   using AssistantInteractionResolution =
-      chromeos::assistant::AssistantInteractionResolution;
+      ash::assistant::AssistantInteractionResolution;
 
   void OnInteractionStarted(
       const AssistantInteractionMetadata& metadata) override {
@@ -3498,9 +3505,9 @@ AutotestPrivateSendAssistantTextQueryFunction::Run() {
   EXTENSION_FUNCTION_VALIDATE(params);
 
   Profile* profile = Profile::FromBrowserContext(browser_context());
-  chromeos::assistant::AssistantAllowedState allowed_state =
+  ash::assistant::AssistantAllowedState allowed_state =
       assistant::IsAssistantAllowedForProfile(profile);
-  if (allowed_state != chromeos::assistant::AssistantAllowedState::ALLOWED) {
+  if (allowed_state != ash::assistant::AssistantAllowedState::ALLOWED) {
     return RespondNow(Error(base::StringPrintf(
         "Assistant not allowed - state: %d", allowed_state)));
   }
@@ -3599,9 +3606,9 @@ AutotestPrivateWaitForAssistantQueryStatusFunction::Run() {
   EXTENSION_FUNCTION_VALIDATE(params);
 
   Profile* profile = Profile::FromBrowserContext(browser_context());
-  chromeos::assistant::AssistantAllowedState allowed_state =
+  ash::assistant::AssistantAllowedState allowed_state =
       assistant::IsAssistantAllowedForProfile(profile);
-  if (allowed_state != chromeos::assistant::AssistantAllowedState::ALLOWED) {
+  if (allowed_state != ash::assistant::AssistantAllowedState::ALLOWED) {
     return RespondNow(Error(base::StringPrintf(
         "Assistant not allowed - state: %d", allowed_state)));
   }
@@ -4217,13 +4224,13 @@ AutotestPrivateShowVirtualKeyboardIfEnabledFunction::
 
 ExtensionFunction::ResponseAction
 AutotestPrivateShowVirtualKeyboardIfEnabledFunction::Run() {
-  if (!ui::IMEBridge::Get() ||
-      !ui::IMEBridge::Get()->GetInputContextHandler() ||
-      !ui::IMEBridge::Get()->GetInputContextHandler()->GetInputMethod()) {
+  if (!ash::IMEBridge::Get() ||
+      !ash::IMEBridge::Get()->GetInputContextHandler() ||
+      !ash::IMEBridge::Get()->GetInputContextHandler()->GetInputMethod()) {
     return RespondNow(NoArguments());
   }
 
-  ui::IMEBridge::Get()
+  ash::IMEBridge::Get()
       ->GetInputContextHandler()
       ->GetInputMethod()
       ->SetVirtualKeyboardVisibilityIfEnabled(true);
@@ -4649,8 +4656,7 @@ AutotestPrivateSetAppWindowStateFunction::Run() {
           api::autotest_private::WMEventType::WM_EVENT_TYPE_WMEVENTSNAPLEFT ||
       params->change.event_type ==
           api::autotest_private::WMEventType::WM_EVENT_TYPE_WMEVENTSNAPRIGHT) {
-    const ash::WindowSnapWMEvent event(
-        ToWMEventType(params->change.event_type));
+    const ash::WMEvent event(ToWMEventType(params->change.event_type));
     ash::WindowState::Get(window)->OnWMEvent(&event);
   } else {
     const ash::WMEvent event(ToWMEventType(params->change.event_type));
@@ -4967,8 +4973,7 @@ AutotestPrivateWaitForLauncherStateFunction::Run() {
   // Exceptionally, allow waiting for kClosed state in clamshell mode, so tests
   // can wait for fullscreen launcher state change to finish when exiting tablet
   // mode.
-  if (ash::features::IsProductivityLauncherEnabled() &&
-      !ash::TabletMode::Get()->InTabletMode() &&
+  if (!ash::TabletMode::Get()->InTabletMode() &&
       target_state != ash::AppListViewState::kClosed) {
     return RespondNow(Error("Not supported for bubble launcher"));
   }
@@ -5917,6 +5922,7 @@ AutotestPrivateStartThroughputTrackerDataCollectionFunction::
 
 ExtensionFunction::ResponseAction
 AutotestPrivateStartThroughputTrackerDataCollectionFunction::Run() {
+  g_last_start_throughput_data_collection_tick = base::TimeTicks::Now();
   ash::metrics_util::StartDataCollection();
   return RespondNow(NoArguments());
 }
@@ -5939,9 +5945,15 @@ AutotestPrivateStopThroughputTrackerDataCollectionFunction::Run() {
   result_data.reserve(collected_data.size());
   for (const auto& data : collected_data) {
     api::autotest_private::ThroughputTrackerAnimationData animation_data;
-    animation_data.frames_expected = data.frames_expected;
-    animation_data.frames_produced = data.frames_produced;
-    animation_data.jank_count = data.jank_count;
+    animation_data.start_offset_ms =
+        (data.start_tick - g_last_start_throughput_data_collection_tick)
+            .InMilliseconds();
+    animation_data.stop_offset_ms =
+        (data.stop_tick - g_last_start_throughput_data_collection_tick)
+            .InMilliseconds();
+    animation_data.frames_expected = data.smoothness_data.frames_expected;
+    animation_data.frames_produced = data.smoothness_data.frames_produced;
+    animation_data.jank_count = data.smoothness_data.jank_count;
     result_data.emplace_back(std::move(animation_data));
   }
   return RespondNow(
@@ -5966,9 +5978,15 @@ AutotestPrivateGetThroughputTrackerDataFunction::Run() {
   result_data.reserve(collected_data.size());
   for (const auto& data : collected_data) {
     api::autotest_private::ThroughputTrackerAnimationData animation_data;
-    animation_data.frames_expected = data.frames_expected;
-    animation_data.frames_produced = data.frames_produced;
-    animation_data.jank_count = data.jank_count;
+    animation_data.start_offset_ms =
+        (data.start_tick - g_last_start_throughput_data_collection_tick)
+            .InMilliseconds();
+    animation_data.stop_offset_ms =
+        (data.stop_tick - g_last_start_throughput_data_collection_tick)
+            .InMilliseconds();
+    animation_data.frames_expected = data.smoothness_data.frames_expected;
+    animation_data.frames_produced = data.smoothness_data.frames_produced;
+    animation_data.jank_count = data.smoothness_data.jank_count;
     result_data.emplace_back(std::move(animation_data));
   }
   return RespondNow(ArgumentList(
@@ -6234,7 +6252,8 @@ AutotestPrivateIsInputMethodReadyForTestingFunction::
 
 ExtensionFunction::ResponseAction
 AutotestPrivateIsInputMethodReadyForTestingFunction::Run() {
-  ui::TextInputMethod* engine = ui::IMEBridge::Get()->GetCurrentEngineHandler();
+  ash::TextInputMethod* engine =
+      ash::IMEBridge::Get()->GetCurrentEngineHandler();
   return RespondNow(
       WithArguments(engine && engine->IsReadyForTesting()));  // IN-TEST
 }
@@ -6347,6 +6366,7 @@ AutotestPrivateStartFrameCountingFunction::Run() {
       ->context_factory()
       ->GetHostFrameSinkManager()
       ->StartFrameCountingForTest(  // IN-TEST
+          base::TimeTicks::Now(),
           base::Seconds(params->bucket_size_in_seconds));
   return RespondNow(NoArguments());
 }
@@ -6374,16 +6394,52 @@ AutotestPrivateStopFrameCountingFunction::Run() {
 
 void AutotestPrivateStopFrameCountingFunction::OnDataReceived(
     viz::mojom::FrameCountingDataPtr data_ptr) {
+  if (!data_ptr || data_ptr->per_sink_data.empty()) {
+    Respond(Error("No frame counting data"));
+    return;
+  }
+
+  // The data to fill in buckets where there is no data points in collected
+  // frame data, i.e. before the frame sink's creation and after the frame
+  // sink's destruction.
+  constexpr int kNotAvailable = -1;
+
+  // Get the max size of frame sink data. The frame sink data that does not
+  // have enough data points (e.g. frame sinks destroyed before the end) will
+  // have kNotAvailable appended at the end.
+  size_t size = 0;
+  for (const auto& per_sink_data : data_ptr->per_sink_data) {
+    const size_t per_sink_data_size =
+        per_sink_data->start_bucket + per_sink_data->presented_frames.size();
+    if (per_sink_data_size > size) {
+      size = per_sink_data_size;
+    }
+  }
+
   std::vector<api::autotest_private::FrameCountingPerSinkData> result;
   for (const auto& per_sink_data : data_ptr->per_sink_data) {
+    // Skip frame sinks with no data points.
+    if (per_sink_data->presented_frames.empty()) {
+      continue;
+    }
+
     api::autotest_private::FrameCountingPerSinkData result_per_sink_data;
     result_per_sink_data.sink_type =
         CompositorFrameSinkTypeToString(per_sink_data->type);
     result_per_sink_data.is_root = per_sink_data->is_root;
 
+    if (per_sink_data->start_bucket != 0) {
+      result_per_sink_data.presented_frames.resize(per_sink_data->start_bucket,
+                                                   kNotAvailable);
+    }
+
     std::copy(per_sink_data->presented_frames.begin(),
               per_sink_data->presented_frames.end(),
               std::back_inserter(result_per_sink_data.presented_frames));
+
+    if (result_per_sink_data.presented_frames.size() < size) {
+      result_per_sink_data.presented_frames.resize(size, kNotAvailable);
+    }
 
     result.emplace_back(std::move(result_per_sink_data));
   }

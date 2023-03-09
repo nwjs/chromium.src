@@ -7,7 +7,7 @@
 #include <memory>
 #include <utility>
 
-#include "base/bind.h"
+#include "base/functional/bind.h"
 #include "base/json/json_reader.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
@@ -321,13 +321,12 @@ const Extension* ExtensionContextMenuModelTest::AddExtensionWithHostPermission(
   DictionaryBuilder manifest;
   manifest.Set("name", name).Set("version", "1").Set("manifest_version", 2);
   if (action_key)
-    manifest.Set(action_key, DictionaryBuilder().BuildDict());
+    manifest.Set(action_key, DictionaryBuilder().Build());
   if (!host_permission.empty())
-    manifest.Set("permissions",
-                 ListBuilder().Append(host_permission).BuildList());
+    manifest.Set("permissions", ListBuilder().Append(host_permission).Build());
   scoped_refptr<const Extension> extension =
       ExtensionBuilder()
-          .SetManifest(manifest.BuildDict())
+          .SetManifest(manifest.Build())
           .SetID(crx_file::id_util::GenerateId(name))
           .SetLocation(location)
           .Build();
@@ -457,13 +456,6 @@ void ExtensionContextMenuModelTest::TearDown() {
       browser_->tab_strip_model()->DetachAndDeleteWebContentsAt(0);
   }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-  // The ash::KioskAppManager, if initialized, needs to be cleaned up.
-  // TODO(devlin): This should probably go somewhere more central, like
-  // ash::ScopedCrosSettingsTestHelper.
-  ash::KioskAppManager::Shutdown();
-#endif
-
   ExtensionServiceTestBase::TearDown();
 }
 
@@ -518,8 +510,8 @@ TEST_F(ExtensionContextMenuModelTest, ComponentExtensionContextMenu) {
           .Set("name", name)
           .Set("version", "1")
           .Set("manifest_version", 2)
-          .Set("browser_action", DictionaryBuilder().BuildDict())
-          .BuildDict();
+          .Set("browser_action", DictionaryBuilder().Build())
+          .Build();
 
   {
     scoped_refptr<const Extension> extension =
@@ -543,6 +535,11 @@ TEST_F(ExtensionContextMenuModelTest, ComponentExtensionContextMenu) {
               CommandState::kAbsent);
     EXPECT_EQ(
         GetCommandState(menu, ExtensionContextMenuModel::MANAGE_EXTENSIONS),
+        CommandState::kAbsent);
+
+    // A component extension's context menu should not link to site settings.
+    EXPECT_EQ(
+        GetCommandState(menu, ExtensionContextMenuModel::VIEW_WEB_PERMISSIONS),
         CommandState::kAbsent);
 
     // The "name" option should be present, but not enabled for component
@@ -571,10 +568,10 @@ TEST_F(ExtensionContextMenuModelTest, ComponentExtensionContextMenu) {
   }
 }
 
-// Tests that the standard menu items (home page, uninstall, and manage
-// extensions) are always visible for any context menu source. NOTE:
-// other menu items visibility is dependent on context, and behavior is checked
-// in other tests.
+// Tests that the standard menu items (home page, uninstall, manage
+// extensions, view web permissions) are always visible for any context menu
+// source. NOTE: other menu items visibility is dependent on context, and
+// behavior is checked in other tests.
 TEST_F(ExtensionContextMenuModelTest,
        ExtensionContextMenuStandardItemsAlwaysVisible) {
   InitializeEmptyExtensionService();
@@ -594,6 +591,9 @@ TEST_F(ExtensionContextMenuModelTest,
               CommandState::kAbsent);
     EXPECT_NE(
         GetCommandState(menu, ExtensionContextMenuModel::MANAGE_EXTENSIONS),
+        CommandState::kAbsent);
+    EXPECT_NE(
+        GetCommandState(menu, ExtensionContextMenuModel::VIEW_WEB_PERMISSIONS),
         CommandState::kAbsent);
   }
 }

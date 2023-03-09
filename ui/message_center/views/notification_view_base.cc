@@ -10,8 +10,8 @@
 #include <utility>
 
 #include "ash/constants/ash_features.h"
-#include "base/bind.h"
 #include "base/check.h"
+#include "base/functional/bind.h"
 #include "base/i18n/case_conversion.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_macros.h"
@@ -38,6 +38,7 @@
 #include "ui/gfx/text_constants.h"
 #include "ui/gfx/text_elider.h"
 #include "ui/message_center/message_center.h"
+#include "ui/message_center/notification_list.h"
 #include "ui/message_center/public/cpp/message_center_constants.h"
 #include "ui/message_center/public/cpp/notification.h"
 #include "ui/message_center/public/cpp/notification_types.h"
@@ -184,7 +185,9 @@ void CompactTitleMessageView::set_message(const std::u16string& message) {
 // LargeImageView //////////////////////////////////////////////////////////////
 
 LargeImageView::LargeImageView(const gfx::Size& max_size)
-    : max_size_(max_size), min_size_(max_size_.width(), /*height=*/0) {}
+    : max_size_(max_size), min_size_(max_size_.width(), /*height=*/0) {
+  SetID(NotificationViewBase::kLargeImageView);
+}
 
 LargeImageView::~LargeImageView() = default;
 
@@ -927,11 +930,12 @@ void NotificationViewBase::SetExpanded(bool expanded) {
 }
 
 bool NotificationViewBase::IsManuallyExpandedOrCollapsed() const {
-  return manually_expanded_or_collapsed_;
+  return MessageCenter::Get()->GetNotificationExpandState(notification_id()) !=
+         ExpandState::DEFAULT;
 }
 
-void NotificationViewBase::SetManuallyExpandedOrCollapsed(bool value) {
-  manually_expanded_or_collapsed_ = value;
+void NotificationViewBase::SetManuallyExpandedOrCollapsed(ExpandState state) {
+  MessageCenter::Get()->SetNotificationExpandState(notification_id(), state);
 }
 
 void NotificationViewBase::OnSettingsButtonPressed(const ui::Event& event) {

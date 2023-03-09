@@ -6,8 +6,8 @@
 
 #import <utility>
 
-#import "base/bind.h"
 #import "base/feature_list.h"
+#import "base/functional/bind.h"
 #import "base/logging.h"
 #import "components/autofill/core/browser/webdata/autocomplete_sync_bridge.h"
 #import "components/autofill/core/browser/webdata/autofill_profile_sync_bridge.h"
@@ -42,6 +42,7 @@
 #import "ios/chrome/browser/invalidation/ios_chrome_profile_invalidation_provider_factory.h"
 #import "ios/chrome/browser/passwords/ios_chrome_account_password_store_factory.h"
 #import "ios/chrome/browser/passwords/ios_chrome_password_store_factory.h"
+#import "ios/chrome/browser/power_bookmarks/power_bookmark_service_factory.h"
 #import "ios/chrome/browser/prefs/pref_names.h"
 #import "ios/chrome/browser/reading_list/reading_list_model_factory.h"
 #import "ios/chrome/browser/signin/chrome_account_manager_service_factory.h"
@@ -88,7 +89,8 @@ IOSChromeSyncClient::IOSChromeSyncClient(ChromeBrowserState* browser_state)
           this, ::GetChannel(), web::GetUIThreadTaskRunner({}), db_thread_,
           profile_web_data_service_, account_web_data_service_,
           profile_password_store_, account_password_store_,
-          ios::BookmarkSyncServiceFactory::GetForBrowserState(browser_state_));
+          ios::BookmarkSyncServiceFactory::GetForBrowserState(browser_state_),
+          PowerBookmarkServiceFactory::GetForBrowserState(browser_state_));
 
   trusted_vault_client_ = std::make_unique<IOSTrustedVaultClient>(
       ChromeAccountManagerServiceFactory::GetForBrowserState(browser_state_),
@@ -121,12 +123,6 @@ syncer::DeviceInfoSyncService* IOSChromeSyncClient::GetDeviceInfoSyncService() {
   return DeviceInfoSyncServiceFactory::GetForBrowserState(browser_state_);
 }
 
-send_tab_to_self::SendTabToSelfSyncService*
-IOSChromeSyncClient::GetSendTabToSelfSyncService() {
-  DCHECK_CURRENTLY_ON(web::WebThread::UI);
-  return SendTabToSelfSyncServiceFactory::GetForBrowserState(browser_state_);
-}
-
 favicon::FaviconService* IOSChromeSyncClient::GetFaviconService() {
   DCHECK_CURRENTLY_ON(web::WebThread::UI);
   return ios::FaviconServiceFactory::GetForBrowserState(
@@ -137,6 +133,17 @@ history::HistoryService* IOSChromeSyncClient::GetHistoryService() {
   DCHECK_CURRENTLY_ON(web::WebThread::UI);
   return ios::HistoryServiceFactory::GetForBrowserState(
       browser_state_, ServiceAccessType::EXPLICIT_ACCESS);
+}
+
+ReadingListModel* IOSChromeSyncClient::GetReadingListModel() {
+  DCHECK_CURRENTLY_ON(web::WebThread::UI);
+  return ReadingListModelFactory::GetForBrowserState(browser_state_);
+}
+
+send_tab_to_self::SendTabToSelfSyncService*
+IOSChromeSyncClient::GetSendTabToSelfSyncService() {
+  DCHECK_CURRENTLY_ON(web::WebThread::UI);
+  return SendTabToSelfSyncServiceFactory::GetForBrowserState(browser_state_);
 }
 
 sync_preferences::PrefServiceSyncable*
@@ -186,13 +193,6 @@ IOSChromeSyncClient::GetExtensionsActivity() {
 base::WeakPtr<syncer::ModelTypeControllerDelegate>
 IOSChromeSyncClient::GetControllerDelegateForModelType(syncer::ModelType type) {
   switch (type) {
-    case syncer::READING_LIST: {
-      ReadingListModel* reading_list_model =
-          ReadingListModelFactory::GetForBrowserState(browser_state_);
-      return reading_list_model->GetModelTypeSyncBridge()
-          ->change_processor()
-          ->GetControllerDelegate();
-    }
     case syncer::USER_CONSENTS:
       return ConsentAuditorFactory::GetForBrowserState(browser_state_)
           ->GetControllerDelegate();
@@ -208,6 +208,7 @@ IOSChromeSyncClient::GetControllerDelegateForModelType(syncer::ModelType type) {
     case syncer::AUTOFILL_WALLET_METADATA:
     case syncer::BOOKMARKS:
     case syncer::DEVICE_INFO:
+    case syncer::READING_LIST:
     case syncer::SESSIONS:
     case syncer::TYPED_URLS:
       NOTREACHED();

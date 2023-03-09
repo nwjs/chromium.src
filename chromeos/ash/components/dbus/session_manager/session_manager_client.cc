@@ -11,13 +11,13 @@
 #include <memory>
 #include <utility>
 
-#include "base/bind.h"
-#include "base/callback.h"
-#include "base/callback_helpers.h"
 #include "base/containers/span.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_file.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback.h"
+#include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/memory/platform_shared_memory_region.h"
@@ -26,7 +26,6 @@
 #include "base/path_service.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
-#include "base/threading/thread_task_runner_handle.h"
 #include "base/unguessable_token.h"
 #include "chromeos/ash/components/dbus/arc/arc.pb.h"
 #include "chromeos/ash/components/dbus/cryptohome/rpc.pb.h"
@@ -369,12 +368,15 @@ class SessionManagerClientImpl : public SessionManagerClient {
   }
 
   void StartRemoteDeviceWipe(
-      const enterprise_management::SignedData& signed_command) override {
+      const enterprise_management::SignedData& signed_command,
+      enterprise_management::PolicyFetchRequest::SignatureType signature_type)
+      override {
     dbus::MethodCall method_call(
         login_manager::kSessionManagerInterface,
         login_manager::kSessionManagerStartRemoteDeviceWipe);
     dbus::MessageWriter writer(&method_call);
     writer.AppendProtoAsArrayOfBytes(signed_command);
+    writer.AppendByte(signature_type);
     session_manager_proxy_->CallMethod(&method_call,
                                        dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
                                        base::DoNothing());

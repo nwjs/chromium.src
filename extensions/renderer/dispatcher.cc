@@ -12,17 +12,18 @@
 
 #include "base/command_line.h"
 
-#include "base/bind.h"
-#include "base/callback.h"
-#include "base/callback_helpers.h"
 #include "base/debug/alias.h"
 #include "base/feature_list.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback.h"
+#include "base/functional/callback_helpers.h"
 #include "base/lazy_instance.h"
 #include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/string_piece.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "base/values.h"
 #include "build/build_config.h"
@@ -1226,7 +1227,7 @@ void Dispatcher::LoadExtensions(
           nw::SetUserAgentOverride(*user_agent, *name, *version);
       }
 
-      const base::Value* quota_value = extension->manifest()->available_values().FindKey("dom_storage_quota");
+      const base::Value* quota_value = extension->manifest()->available_values().Find("dom_storage_quota");
       if (quota_value && quota_value->is_int()) {
         //content::DOMStorageMap::SetQuotaOverride(dom_storage_quota_mb * 1024 * 1024);
         g_nw_dom_storage_quota = quota_value->GetInt() * 1024 * 1024;

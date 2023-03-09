@@ -8,9 +8,9 @@
 #error "This file requires ARC support."
 #endif
 
-#import "base/bind.h"
 #import "base/check.h"
 #import "base/compiler_specific.h"
+#import "base/functional/bind.h"
 #import "base/metrics/histogram_macros.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/time/time.h"
@@ -253,24 +253,6 @@ void WebStateImpl::RealizedWebState::OnRenderProcessGone() {
     observer.RenderProcessGone(owner_);
 }
 
-void WebStateImpl::RealizedWebState::OnScriptCommandReceived(
-    const std::string& command,
-    const base::Value& value,
-    const GURL& page_url,
-    bool user_is_interacting,
-    WebFrame* sender_frame) {
-  size_t dot_position = command.find_first_of('.');
-  if (dot_position == 0 || dot_position == std::string::npos)
-    return;
-
-  std::string prefix = command.substr(0, dot_position);
-  auto it = script_command_callbacks().find(prefix);
-  if (it == script_command_callbacks().end())
-    return;
-
-  it->second.Notify(value, page_url, user_is_interacting, sender_frame);
-}
-
 void WebStateImpl::RealizedWebState::SetIsLoading(bool is_loading) {
   if (is_loading == is_loading_)
     return;
@@ -324,6 +306,16 @@ void WebStateImpl::RealizedWebState::ClearWebUI() {
 
 bool WebStateImpl::RealizedWebState::HasWebUI() const {
   return !!web_ui_;
+}
+
+void WebStateImpl::RealizedWebState::HandleWebUIMessage(
+    const GURL& source_url,
+    base::StringPiece message,
+    const base::Value::List& args) {
+  if (!HasWebUI()) {
+    return;
+  }
+  web_ui_->ProcessWebUIIOSMessage(source_url, message, args);
 }
 
 void WebStateImpl::RealizedWebState::SetContentsMimeType(
@@ -427,26 +419,7 @@ void WebStateImpl::RealizedWebState::RunJavaScriptAlertDialog(
   running_javascript_dialog_ = true;
   presenter->RunJavaScriptAlertDialog(
       owner_, origin_url, message_text,
-      // Use a lambda to mark the dialog as closed if the `WebState` still
-      // exists, then always run `callback`, even if the `WebState` has been
-      // destroyed (otherwise, WebKit raises an inconsistent state exception).
-      //
-      // Since bound callback that take a member function and a `WeakPtr<T>`
-      // are not called, this cannot be implemented by passing the `callback`
-      // to `JavaScriptDialogClosed` as otherwise the call would not happen
-      // if `WebState` is destroyed.
-      // TODO(crbug.com/1400873): Combine logic across all dialog callbacks.
-      base::BindOnce(
-          [](base::WeakPtr<WebStateImpl> weak_web_state,
-             base::OnceClosure callback) {
-            if (weak_web_state) {
-              DCHECK(weak_web_state->pimpl_);
-              weak_web_state->pimpl_->JavaScriptDialogClosed();
-            }
-
-            std::move(callback).Run();
-          },
-          owner_->weak_factory_.GetWeakPtr(), std::move(callback)));
+      WrapCallbackForJavaScriptDialog(std::move(callback)));
 }
 
 void WebStateImpl::RealizedWebState::RunJavaScriptConfirmDialog(
@@ -463,26 +436,7 @@ void WebStateImpl::RealizedWebState::RunJavaScriptConfirmDialog(
   running_javascript_dialog_ = true;
   presenter->RunJavaScriptConfirmDialog(
       owner_, origin_url, message_text,
-      // Use a lambda to mark the dialog as closed if the `WebState` still
-      // exists, then always run `callback`, even if the `WebState` has been
-      // destroyed (otherwise, WebKit raises an inconsistent state exception).
-      //
-      // Since bound callback that take a member function and a `WeakPtr<T>`
-      // are not called, this cannot be implemented by passing the `callback`
-      // to `JavaScriptDialogClosed` as otherwise the call would not happen
-      // if `WebState` is destroyed.
-      // TODO(crbug.com/1400873): Combine logic across all dialog callbacks.
-      base::BindOnce(
-          [](base::WeakPtr<WebStateImpl> weak_web_state,
-             base::OnceCallback<void(bool success)> callback, bool success) {
-            if (weak_web_state) {
-              DCHECK(weak_web_state->pimpl_);
-              weak_web_state->pimpl_->JavaScriptDialogClosed();
-            }
-
-            std::move(callback).Run(success);
-          },
-          owner_->weak_factory_.GetWeakPtr(), std::move(callback)));
+      WrapCallbackForJavaScriptDialog(std::move(callback)));
 }
 
 void WebStateImpl::RealizedWebState::RunJavaScriptPromptDialog(
@@ -500,27 +454,7 @@ void WebStateImpl::RealizedWebState::RunJavaScriptPromptDialog(
   running_javascript_dialog_ = true;
   presenter->RunJavaScriptPromptDialog(
       owner_, origin_url, message_text, default_prompt_text,
-      // Use a lambda to mark the dialog as closed if the `WebState` still
-      // exists, then always run `callback`, even if the `WebState` has been
-      // destroyed (otherwise, WebKit raises an inconsistent state exception).
-      //
-      // Since bound callback that take a member function and a `WeakPtr<T>`
-      // are not called, this cannot be implemented by passing the `callback`
-      // to `JavaScriptDialogClosed` as otherwise the call would not happen
-      // if `WebState` is destroyed.
-      // TODO(crbug.com/1400873): Combine logic across all dialog callbacks.
-      base::BindOnce(
-          [](base::WeakPtr<WebStateImpl> weak_web_state,
-             base::OnceCallback<void(NSString * user_input)> callback,
-             NSString* user_input) {
-            if (weak_web_state) {
-              DCHECK(weak_web_state->pimpl_);
-              weak_web_state->pimpl_->JavaScriptDialogClosed();
-            }
-
-            std::move(callback).Run(user_input);
-          },
-          owner_->weak_factory_.GetWeakPtr(), std::move(callback)));
+      WrapCallbackForJavaScriptDialog(std::move(callback)));
 }
 
 bool WebStateImpl::RealizedWebState::IsJavaScriptDialogRunning() const {
@@ -752,6 +686,10 @@ bool WebStateImpl::RealizedWebState::IsEvicted() const {
   return ![web_controller_ isViewAlive];
 }
 
+bool WebStateImpl::RealizedWebState::IsWebPageInFullscreenMode() const {
+  return [web_controller_ isWebPageInFullscreenMode];
+}
+
 const FaviconStatus& WebStateImpl::RealizedWebState::GetFaviconStatus() const {
   static const FaviconStatus missing_favicon_status;
   NavigationItem* item = navigation_manager_->GetLastCommittedItem();
@@ -934,8 +872,8 @@ void WebStateImpl::RealizedWebState::RequestPermissionsWithDecisionHandler(
     PermissionDecisionHandler web_view_decision_handler) {
   bool delegate_can_handle_decision = false;
   if (delegate_) {
-    WebStateDelegate::WebStatePermissionDecisionHandler
-        web_state_decision_handler = ^(BOOL allowed) {
+    WebStatePermissionDecisionHandler web_state_decision_handler =
+        ^(BOOL allowed) {
           allowed ? web_view_decision_handler(WKPermissionDecisionGrant)
                   : web_view_decision_handler(WKPermissionDecisionDeny);
         };
@@ -1026,10 +964,6 @@ NavigationItemImpl* WebStateImpl::RealizedWebState::GetPendingItem() {
 
 #pragma mark - WebStateImpl::RealizedWebState private methods
 
-void WebStateImpl::RealizedWebState::JavaScriptDialogClosed() {
-  running_javascript_dialog_ = false;
-}
-
 void WebStateImpl::RealizedWebState::NotifyObserversAndRemoveWebFrame(
     WebFrame* frame) {
   for (auto& observer : observers())
@@ -1057,4 +991,31 @@ bool WebStateImpl::RealizedWebState::Configured() const {
   return web_controller_ != nil;
 }
 
+template <typename... Args>
+base::OnceCallback<void(Args...)>
+WebStateImpl::RealizedWebState::WrapCallbackForJavaScriptDialog(
+    base::OnceCallback<void(Args...)> callback) {
+  // The wrapped callback passes a weak pointer to `owner_`. It is not
+  // possible for a realized WebState to become unrealized, so if the
+  // weak pointer is not null, then `pimpl_` must point to the current
+  // instance (by construction).
+  //
+  // It is okay to pass a WeakPtr<...> as the first parameter of the
+  // callback, because base::OnceCallback<...> only mark itself as
+  // invalid when bound to a method, not for lambda.
+  //
+  // This uses a lambda instead of a free function because the lambda
+  // does not have to be marked as friend.
+  return base::BindOnce(
+      [](base::WeakPtr<WebStateImpl> weak_web_state_impl,
+         base::OnceCallback<void(Args...)> inner_callback, Args... args) {
+        if (WebStateImpl* web_state_impl = weak_web_state_impl.get()) {
+          DCHECK(web_state_impl->pimpl_);
+          web_state_impl->pimpl_->running_javascript_dialog_ = false;
+        }
+
+        std::move(inner_callback).Run(std::forward<Args>(args)...);
+      },
+      owner_->weak_factory_.GetWeakPtr(), std::move(callback));
+}
 }

@@ -35,6 +35,10 @@ namespace sync_bookmarks {
 class BookmarkSyncService;
 }
 
+namespace power_bookmarks {
+class PowerBookmarkService;
+}
+
 namespace browser_sync {
 
 class BrowserSyncClient;
@@ -54,7 +58,8 @@ class SyncApiComponentFactoryImpl : public syncer::SyncApiComponentFactory {
           profile_password_store,
       const scoped_refptr<password_manager::PasswordStoreInterface>&
           account_password_store,
-      sync_bookmarks::BookmarkSyncService* bookmark_sync_service);
+      sync_bookmarks::BookmarkSyncService* bookmark_sync_service,
+      power_bookmarks::PowerBookmarkService* power_bookmark_service);
   SyncApiComponentFactoryImpl(const SyncApiComponentFactoryImpl&) = delete;
   SyncApiComponentFactoryImpl& operator=(const SyncApiComponentFactoryImpl&) =
       delete;
@@ -80,11 +85,6 @@ class SyncApiComponentFactoryImpl : public syncer::SyncApiComponentFactory {
   void ClearAllTransportData() override;
 
  private:
-  // Factory function for ModelTypeController instances for models living on
-  // |ui_thread_|.
-  std::unique_ptr<syncer::ModelTypeController>
-  CreateModelTypeControllerForModelRunningOnUIThread(syncer::ModelType type);
-
   // Factory function for ModelTypeControllerDelegate instances for models
   // living in |ui_thread_| that have their delegate accessible via SyncClient.
   std::unique_ptr<syncer::ModelTypeControllerDelegate>
@@ -125,6 +125,7 @@ class SyncApiComponentFactoryImpl : public syncer::SyncApiComponentFactory {
   const scoped_refptr<password_manager::PasswordStoreInterface>
       account_password_store_;
   const raw_ptr<sync_bookmarks::BookmarkSyncService> bookmark_sync_service_;
+  const raw_ptr<power_bookmarks::PowerBookmarkService> power_bookmark_service_;
 };
 
 }  // namespace browser_sync

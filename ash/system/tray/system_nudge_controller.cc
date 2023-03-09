@@ -9,7 +9,7 @@
 #include "ash/session/session_controller_impl.h"
 #include "ash/shell.h"
 #include "ash/system/tray/system_nudge.h"
-#include "base/bind.h"
+#include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/strcat.h"
 #include "base/time/time.h"
@@ -92,7 +92,7 @@ void SystemNudgeController::RecordNudgeAction(NudgeCatalogName catalog_name) {
         return catalog_name == registry_entry.first;
       });
 
-  // Don't record "TimeToAction" metric if the nudge hasn't been shown.
+  // Don't record "TimeToAction" metric if the nudge hasn't been shown before.
   if (it == std::end(nudge_registry))
     return;
 

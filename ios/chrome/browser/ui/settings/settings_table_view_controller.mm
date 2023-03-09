@@ -13,9 +13,11 @@
 #import "base/strings/sys_string_conversions.h"
 #import "build/branding_buildflags.h"
 #import "components/autofill/core/common/autofill_prefs.h"
+#import "components/feature_engagement/public/event_constants.h"
+#import "components/feature_engagement/public/feature_constants.h"
+#import "components/feature_engagement/public/tracker.h"
 #import "components/keyed_service/core/service_access_type.h"
 #import "components/password_manager/core/browser/manage_passwords_referrer.h"
-#import "components/password_manager/core/common/password_manager_features.h"
 #import "components/password_manager/core/common/password_manager_pref_names.h"
 #import "components/prefs/ios/pref_observer_bridge.h"
 #import "components/prefs/pref_member.h"
@@ -29,9 +31,11 @@
 #import "components/signin/public/identity_manager/objc/identity_manager_observer_bridge.h"
 #import "components/strings/grit/components_strings.h"
 #import "components/sync/driver/sync_service.h"
+#import "ios/chrome/app/application_delegate/app_state.h"
 #import "ios/chrome/browser/application_context/application_context.h"
 #import "ios/chrome/browser/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/commerce/push_notification/push_notification_feature.h"
+#import "ios/chrome/browser/feature_engagement/tracker_factory.h"
 #import "ios/chrome/browser/flags/system_flags.h"
 #import "ios/chrome/browser/main/browser.h"
 #import "ios/chrome/browser/net/crurl.h"
@@ -63,8 +67,11 @@
 #import "ios/chrome/browser/ui/commands/command_dispatcher.h"
 #import "ios/chrome/browser/ui/commands/snackbar_commands.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_feature.h"
+#import "ios/chrome/browser/ui/default_promo/default_browser_utils.h"
 #import "ios/chrome/browser/ui/icons/buildflags.h"
 #import "ios/chrome/browser/ui/icons/symbols.h"
+#import "ios/chrome/browser/ui/main/scene_state.h"
+#import "ios/chrome/browser/ui/main/scene_state_browser_agent.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_feature.h"
 #import "ios/chrome/browser/ui/settings/about_chrome_table_view_controller.h"
 #import "ios/chrome/browser/ui/settings/autofill/autofill_credit_card_table_view_controller.h"
@@ -102,7 +109,6 @@
 #import "ios/chrome/browser/ui/table_view/cells/table_view_text_item.h"
 #import "ios/chrome/browser/ui/table_view/table_view_model.h"
 #import "ios/chrome/browser/ui/table_view/table_view_utils.h"
-#import "ios/chrome/browser/ui/ui_feature_flags.h"
 #import "ios/chrome/browser/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/upgrade/upgrade_utils.h"
 #import "ios/chrome/browser/voice/speech_input_locale_config.h"
@@ -126,7 +132,6 @@ NSString* const kSyncOffImageName = @"sync_and_google_services_sync_off";
 NSString* const kSyncOnImageName = @"sync_and_google_services_sync_on";
 NSString* const kSettingsGoogleServicesImageName = @"settings_google_services";
 NSString* const kSettingsSearchEngineImageName = @"settings_search_engine";
-NSString* const kLegacySettingsPasswordsImageName = @"legacy_settings_passwords";
 NSString* const kSettingsPasswordsImageName =
     @"settings_passwords";
 NSString* const kSettingsAutofillCreditCardImageName =
@@ -149,6 +154,11 @@ NSString* const kDefaultBrowserWorldImageName = @"default_browser_world";
 
 // The size of trailing symbol icons for unsafe state.
 NSInteger kTrailingSymbolImagePointSize = 18;
+
+// Key used for storing NSUserDefault entry to keep track of the last timestamp
+// we've shown the default browser blue dot promo.
+NSString* const kMostRecentTimestampBlueDotPromoShownInSettingsMenu =
+    @"MostRecentTimestampBlueDotPromoShownInSettingsMenu";
 
 #if BUILDFLAG(CHROMIUM_BRANDING) && !defined(NDEBUG)
 NSString* kDevViewSourceKey = @"DevViewSource";
@@ -309,6 +319,10 @@ UIImage* GetBrandedGoogleServicesSymbol() {
 @property(nonatomic, readonly, weak)
     id<ApplicationCommands, BrowserCommands, BrowsingDataCommands>
         dispatcher;
+
+// YES if the default browser settings row is currently showing the notification
+// dot.
+@property(nonatomic, assign) BOOL showingDefaultBrowserNotificationDot;
 
 // YES if the sign-in is in progress.
 @property(nonatomic, assign) BOOL isSigninInProgress;
@@ -490,7 +504,12 @@ UIImage* GetBrandedGoogleServicesSymbol() {
   [model addItem:[self privacyDetailItem]
       toSectionWithIdentifier:SettingsSectionIdentifierAdvanced];
 
-  if (!IsFeedAblationEnabled() &&
+  // Feed is disabled in safe mode.
+  SceneState* sceneState =
+      SceneStateBrowserAgent::FromBrowser(_browser)->GetSceneState();
+  BOOL isSafeMode = [sceneState.appState resumingFromSafeMode];
+
+  if (!IsFeedAblationEnabled() && !isSafeMode &&
       IsContentSuggestionsForSupervisedUserEnabled(_browserState->GetPrefs())) {
     if ([_contentSuggestionPolicyEnabled value]) {
       [model addItem:self.feedSettingsItem
@@ -801,6 +820,8 @@ UIImage* GetBrandedGoogleServicesSymbol() {
         [UIImage imageNamed:kDefaultBrowserWorldImageName];
   }
 
+  [self maybeActivateDefaultBrowserBlueDotPromo:defaultBrowser];
+
   return defaultBrowser;
 }
 
@@ -869,17 +890,13 @@ UIImage* GetBrandedGoogleServicesSymbol() {
 - (TableViewItem*)passwordsDetailItem {
   BOOL passwordsEnabled = _browserState->GetPrefs()->GetBoolean(
       password_manager::prefs::kCredentialsEnableService);
-  BOOL passwordsRebrandingEnabled = base::FeatureList::IsEnabled(
-      password_manager::features::kIOSEnablePasswordManagerBrandingUpdate);
 
   NSString* passwordsDetail = passwordsEnabled
                                   ? l10n_util::GetNSString(IDS_IOS_SETTING_ON)
                                   : l10n_util::GetNSString(IDS_IOS_SETTING_OFF);
 
   NSString* passwordsSectionTitle =
-      passwordsRebrandingEnabled
-          ? l10n_util::GetNSString(IDS_IOS_PASSWORD_MANAGER)
-          : l10n_util::GetNSString(IDS_IOS_PASSWORDS);
+      l10n_util::GetNSString(IDS_IOS_PASSWORD_MANAGER);
 
   if (UseSymbols()) {
     _passwordsDetailItem =
@@ -890,14 +907,10 @@ UIImage* GetBrandedGoogleServicesSymbol() {
               symbolBackgroundColor:[UIColor colorNamed:kYellow500Color]
             accessibilityIdentifier:kSettingsPasswordsCellId];
   } else {
-    NSString* passwordsIconImageName = passwordsRebrandingEnabled
-                                           ? kSettingsPasswordsImageName
-                                           : kLegacySettingsPasswordsImageName;
-
     _passwordsDetailItem = [self detailItemWithType:SettingsItemTypePasswords
                                                text:passwordsSectionTitle
                                          detailText:passwordsDetail
-                                      iconImageName:passwordsIconImageName
+                                      iconImageName:kSettingsPasswordsImageName
                             accessibilityIdentifier:kSettingsPasswordsCellId];
   }
 
@@ -1542,11 +1555,24 @@ UIImage* GetBrandedGoogleServicesSymbol() {
       }
       break;
     }
-    case SettingsItemTypeDefaultBrowser:
+    case SettingsItemTypeDefaultBrowser: {
       base::RecordAction(
           base::UserMetricsAction("Settings.ShowDefaultBrowser"));
+
+      if (self.showingDefaultBrowserNotificationDot) {
+        feature_engagement::Tracker* tracker =
+            feature_engagement::TrackerFactory::GetForBrowserState(
+                _browserState);
+        if (tracker) {
+          tracker->NotifyEvent(
+              feature_engagement::events::kBlueDotPromoSettingsDismissed);
+        }
+        [self reloadData];
+      }
+
       controller = [[DefaultBrowserSettingsTableViewController alloc] init];
       break;
+    }
     case SettingsItemTypeSearchEngine:
       base::RecordAction(base::UserMetricsAction("EditSearchEngines"));
       controller = [[SearchEngineTableViewController alloc]
@@ -1792,7 +1818,7 @@ UIImage* GetBrandedGoogleServicesSymbol() {
 // Checks if there are any remaining password issues that are not muted from the
 // last time password check was run.
 - (BOOL)hasPasswordIssuesRemaining {
-  return !_passwordCheckManager->GetUnmutedCompromisedCredentials().empty();
+  return !_passwordCheckManager->GetInsecureCredentials().empty();
 }
 
 // Displays a red issue state on `_safetyCheckItem` if there is a reamining
@@ -2004,6 +2030,42 @@ UIImage* GetBrandedGoogleServicesSymbol() {
              : l10n_util::GetNSString(IDS_IOS_DISCOVER_FEED_TITLE);
 }
 
+// Decides whether the default browser blue dot promo should be active, and adds
+// the blue dot badge to the right settings row if it is.
+- (void)maybeActivateDefaultBrowserBlueDotPromo:
+    (TableViewDetailIconItem*)defaultBrowserCellItem {
+  self.showingDefaultBrowserNotificationDot = NO;
+
+  if (!_browserState) {
+    return;
+  }
+
+  feature_engagement::Tracker* tracker =
+      feature_engagement::TrackerFactory::GetForBrowserState(_browserState);
+  if (!tracker) {
+    return;
+  }
+
+  if (ShouldTriggerDefaultBrowserBlueDotBadgeFeature(
+          feature_engagement::kIPHiOSDefaultBrowserSettingsBadgeFeature,
+          tracker)) {
+    // Add the blue dot promo badge to the default browser row.
+    defaultBrowserCellItem.showNotificationDot = YES;
+    self.showingDefaultBrowserNotificationDot = YES;
+
+    // If we've only started showing the blue dot recently (<6 hours), don't
+    // notify the FET again that the promo is being shown, since we're not in a
+    // new user session. We record the badge being shown per user session,
+    // instead of per time it is shown since the badge needs to be shown accross
+    // 3 user sessions.
+    if (!HasRecentTimestampForKey(
+            kMostRecentTimestampBlueDotPromoShownInSettingsMenu)) {
+      tracker->NotifyEvent(
+          feature_engagement::events::kBlueDotPromoSettingsShownNewSession);
+    }
+  }
+}
+
 #pragma mark - SigninPresenter
 
 - (void)showSignin:(ShowSigninCommand*)command {
@@ -2149,7 +2211,7 @@ UIImage* GetBrandedGoogleServicesSymbol() {
 
 #pragma mark - ChromeAccountManagerServiceObserver
 
-- (void)identityChanged:(id<SystemIdentity>)identity {
+- (void)identityUpdated:(id<SystemIdentity>)identity {
   if ([_identity isEqual:identity]) {
     [self reloadAccountCell];
   }

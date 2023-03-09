@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Instalovat aplikaci pro Linux</translation>
 <translation id="2225536596944493418">Opravdu chcete tyto položky (<ph name="NUMBER_OF_ITEMS" />) smazat?</translation>
 <translation id="2230062665678605299">Složku „<ph name="FOLDER_NAME" />“ se nepodařilo vytvořit. <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">Mezipaměť Disku Google byla vymazána.</translation>
 <translation id="2239068707900391003">Člověk s kávou</translation>
 <translation id="2251368349685848079">Obnovit z koše</translation>
 <translation id="2282155092769082568">Adresa URL automatické konfigurace:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">Vyhledávacímu dotazu &lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt; neodpovídají žádné soubory.</translation>
 <translation id="2894654529758326923">Informace</translation>
 <translation id="2902734494705624966">Americká klávesnice (rozšířená)</translation>
+<translation id="2904378509913846215">Složka s názvem <ph name="FILENAME" /> už existuje. Chcete ji nahradit tou, který právě přesouváte?</translation>
 <translation id="290843123675549676">maráthština</translation>
 <translation id="2923240520113693977">estonština</translation>
 <translation id="2938685643439809023">mongolština</translation>
@@ -639,6 +641,7 @@
 <translation id="6241349547798190358">nizozemština (Belgie)</translation>
 <translation id="6267547857941397424">Síť <ph name="NETWORK_INDEX" /> z <ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, síla signálu: <ph name="SIGNAL_STRENGTH" /> %, baterie telefonu: <ph name="BATTERY_STATUS" /> %, připojit</translation>
 <translation id="6269630227984243955">malajština</translation>
+<translation id="6271903698064569429">Soubory není možné nahrát, protože na disku „<ph name="SHARED_DRIVE_NAME" />“ není dost místa.</translation>
 <translation id="6287852322318138013">Vyberte aplikaci, pomocí které soubor otevřete</translation>
 <translation id="6295542640242147836">Zamknout SIM kartu</translation>
 <translation id="6296410173147755564">Neplatný kód PUK</translation>
@@ -684,6 +687,7 @@
 <translation id="6657585470893396449">Heslo</translation>
 <translation id="6658865850469097484">Soubory, které jsou v koši déle než 30 dní, budou automaticky smazány.</translation>
 <translation id="6673674183150363784">francouzština (Francie) s klávesnicí Bépo</translation>
+<translation id="670380500182402678">Nahradit vše</translation>
 <translation id="6710022688720561421">Robot</translation>
 <translation id="6710213216561001401">Předchozí</translation>
 <translation id="6732801395666424405">Certifikáty nebyly načteny</translation>
@@ -902,6 +906,7 @@
 <translation id="8386903983509584791">Vyhledávání je dokončeno</translation>
 <translation id="8387733224523483503">Soubor <ph name="FILE_NAME" /> byl rozbalen.</translation>
 <translation id="8395901698320285466">Rozměry</translation>
+<translation id="8404498045299006085">Ponechat vše</translation>
 <translation id="8408068190360279472">Síť: <ph name="NETWORK_TYPE" />, připojování</translation>
 <translation id="8425213833346101688">Změnit</translation>
 <translation id="8431909052837336408">Změnit PIN SIM karty</translation>

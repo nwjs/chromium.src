@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">ដំឡើង​តាមរយៈ Linux</translation>
 <translation id="2225536596944493418">តើអ្នកប្រាកដថា​ចង់លុបធាតុ <ph name="NUMBER_OF_ITEMS" /> ដែរទេ?</translation>
 <translation id="2230062665678605299">មិនអាចបង្កើតថតឯកសារ "<ph name="FOLDER_NAME" />". <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">ឃ្លាំងបម្រុង Google ថាសរបស់​អ្នក​ត្រូវ​បាន​សម្អាត។</translation>
 <translation id="2239068707900391003">មនុស្ស​កាន់កែវកាហ្វេ</translation>
 <translation id="2251368349685848079">ស្ដារពី​ធុងសំរាម</translation>
 <translation id="2282155092769082568">ការកំណត់រចនាសម្ព័ន្ធ URL ដោយស្វ័យប្រវត្តិ៖</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">គ្មានធាតុត្រូវគ្នាទេ &lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt;</translation>
 <translation id="2894654529758326923">ព័ត៌មាន</translation>
 <translation id="2902734494705624966">US extended</translation>
+<translation id="2904378509913846215">ថត​ដែលបានដាក់​ឈ្មោះថា "<ph name="FILENAME" />" មានរួចហើយ។ តើអ្នកចង់ជំនួសថត​នេះដោយថត​ដែលអ្នកកំពុងផ្លាស់ទីដែរឬទេ?</translation>
 <translation id="290843123675549676">ភាសា​ម៉ារ៉ាទី</translation>
 <translation id="2923240520113693977">ភាសាអេស្តូនី</translation>
 <translation id="2938685643439809023">ភាសាមុងហ្គោលី</translation>
@@ -639,6 +641,7 @@
 <translation id="6241349547798190358">ភាសា​ហូឡង់ (បែលហ្ស៊ិក)</translation>
 <translation id="6267547857941397424">បណ្ដាញ <ph name="NETWORK_INDEX" /> នៃ <ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, កម្លាំង​រលកសញ្ញា <ph name="SIGNAL_STRENGTH" />%, ថ្មទូរសព្ទ <ph name="BATTERY_STATUS" />%, ភ្ជាប់</translation>
 <translation id="6269630227984243955">ភាសា​ម៉ាឡេ</translation>
+<translation id="6271903698064569429">មិន​អាច​បង្ហោះ​ឯកសារ​បាន​ទេ ដោយសារ "<ph name="SHARED_DRIVE_NAME" />" មិនមាន​ទំហំ​ផ្ទុកគ្រប់គ្រាន់។</translation>
 <translation id="6287852322318138013">ជ្រើសរើសកម្មវិធីដើម្បីបើកឯកសារនេះ</translation>
 <translation id="6295542640242147836">ចាក់សោស៊ីម</translation>
 <translation id="6296410173147755564">PUK មិនត្រឹមត្រូវទេ</translation>
@@ -684,6 +687,7 @@
 <translation id="6657585470893396449">ពាក្យសម្ងាត់</translation>
 <translation id="6658865850469097484">ឯកសារ​នៅក្នុង​ធុងសំរាម​លើសពី 30 ថ្ងៃ​នឹង​ត្រូវបាន​លុបចេញ​ដោយស្វ័យប្រវត្តិ។</translation>
 <translation id="6673674183150363784">ភាសា​បារាំង (បារាំង) ដែលប្រើ​ក្ដារចុច Bépo</translation>
+<translation id="670380500182402678">ជំនួស​ទាំងអស់</translation>
 <translation id="6710022688720561421">មនុស្សយន្ត</translation>
 <translation id="6710213216561001401">មុន</translation>
 <translation id="6732801395666424405">វិញ្ញាបនប័ត្រមិនត្រូវបានដំណើរការទេ</translation>
@@ -902,6 +906,7 @@
 <translation id="8386903983509584791">ការស្កេនបានបញ្ចប់</translation>
 <translation id="8387733224523483503">បានស្រង់ <ph name="FILE_NAME" />។</translation>
 <translation id="8395901698320285466">ទំហំ</translation>
+<translation id="8404498045299006085">រក្សាទុកទាំងអស់</translation>
 <translation id="8408068190360279472">បណ្ដាញ <ph name="NETWORK_TYPE" />, កំពុង​ភ្ជាប់</translation>
 <translation id="8425213833346101688">ប្តូរ</translation>
 <translation id="8431909052837336408">ប្ដូរកូដ PIN ស៊ីមកាត</translation>

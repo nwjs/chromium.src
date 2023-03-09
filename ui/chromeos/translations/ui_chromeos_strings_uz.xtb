@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Linux bilan oʻrnatish</translation>
 <translation id="2225536596944493418"><ph name="NUMBER_OF_ITEMS" /> ta element oʻchirib tashlansinmi?</translation>
 <translation id="2230062665678605299">“<ph name="FOLDER_NAME" />” jildini yaratib bo‘lmadi. <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">Google Drive keshi tozalandi.</translation>
 <translation id="2239068707900391003">Qahvasi bor odam</translation>
 <translation id="2251368349685848079">Chiqitdondan tiklash</translation>
 <translation id="2282155092769082568">Avtomatik sozlash uchun URL manzil:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">&lt;b&gt;“<ph name="SEARCH_STRING" />”&lt;/b&gt; so‘rovi bo‘yicha hech qanday fayl topilmadi</translation>
 <translation id="2894654529758326923">Ma’lumot</translation>
 <translation id="2902734494705624966">Kengaytirilgan AQSH klaviaturasi</translation>
+<translation id="2904378509913846215">“<ph name="FILENAME" />” nomli jild allaqachon mavjud. Uni oʻzingiz koʻchirayotgan jild bilan almashtirmoqchimisiz?</translation>
 <translation id="290843123675549676">Marathi</translation>
 <translation id="2923240520113693977">Estoncha</translation>
 <translation id="2938685643439809023">Mo`g`ul tili</translation>
@@ -639,6 +641,7 @@ Amal bajarilishini kuting va qurilmani “Fayllar” ilovasida chiqarib oling. A
 <translation id="6241349547798190358">Golland (Belgiya)</translation>
 <translation id="6267547857941397424">Tarmoq: <ph name="NETWORK_INDEX" />/<ph name="NETWORK_COUNT" />, Telefon nomi: <ph name="PHONE_NAME" />, Signal darajasi: <ph name="SIGNAL_STRENGTH" />%, Telefon quvvati: <ph name="BATTERY_STATUS" />%, Ulanish</translation>
 <translation id="6269630227984243955">Malay</translation>
+<translation id="6271903698064569429"><ph name="SHARED_DRIVE_NAME" /> omborida yetarli joy qolmagani uchun fayllar yuklanmadi.</translation>
 <translation id="6287852322318138013">Ushbu faylni ochish uchun kerakli dasturni tanlang</translation>
 <translation id="6295542640242147836">SIM kartani qulflash</translation>
 <translation id="6296410173147755564">PUK kod xato</translation>
@@ -684,6 +687,7 @@ Amal bajarilishini kuting va qurilmani “Fayllar” ilovasida chiqarib oling. A
 <translation id="6657585470893396449">Parol</translation>
 <translation id="6658865850469097484">Chiqindidagi 30 kundan ortiq boʻlgan fayllar avtomatik ravishda oʻchiriladi.</translation>
 <translation id="6673674183150363784">Fransuz (Fransiya) va Bépo klaviaturasi</translation>
+<translation id="670380500182402678">Hammasini almashtirish</translation>
 <translation id="6710022688720561421">Robot</translation>
 <translation id="6710213216561001401">Avvalgi</translation>
 <translation id="6732801395666424405">Sertifikatlar yuklanmadi</translation>
@@ -902,6 +906,7 @@ Amal bajarilishini kuting va qurilmani “Fayllar” ilovasida chiqarib oling. A
 <translation id="8386903983509584791">Tarmoq tekshirildi</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" /> arxivdan chiqarildi.</translation>
 <translation id="8395901698320285466">O‘lchamlar</translation>
+<translation id="8404498045299006085">Hammasini saqlash</translation>
 <translation id="8408068190360279472">Tarmoq: <ph name="NETWORK_TYPE" />, ulanmoqda</translation>
 <translation id="8425213833346101688">O‘zgartirish</translation>
 <translation id="8431909052837336408">SIM karta PIN kodini almashtirish</translation>

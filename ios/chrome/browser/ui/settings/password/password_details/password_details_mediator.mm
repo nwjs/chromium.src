@@ -96,26 +96,23 @@ using base::SysNSStringToUTF16;
     return;
   _consumer = consumer;
 
-  [self fetchPasswordWith:_manager->GetUnmutedCompromisedCredentials()];
+  [self fetchPasswordWith:_manager->GetInsecureCredentials()];
+
+  if (_credentials[0].blocked_by_user) {
+    DCHECK_EQ(_credentials.size(), 1u);
+    [_consumer setIsBlockedSite:YES];
+  }
 }
 
 - (void)disconnect {
   _manager->RemoveObserver(_passwordCheckObserver.get());
 }
 
-// Update the usernames by domain dictionary by removing the old username and
-// adding the new one if it has changed.
-- (void)updateOldUsernameInDict:(NSString*)oldUsername
-                  toNewUsername:(NSString*)newUsername
-                withSignonRealm:(NSString*)signonRealm {
-  if ([oldUsername isEqualToString:newUsername]) {
-    return;
-  }
-
-  NSMutableSet* set = [_usernamesWithSameDomainDict objectForKey:signonRealm];
-  if (set) {
-    [set removeObject:oldUsername];
-    [set addObject:newUsername];
+- (void)removeCredential:
+    (const password_manager::CredentialUIEntry&)credential {
+  auto it = base::ranges::find(_credentials, credential);
+  if (it != _credentials.end()) {
+    _credentials.erase(it);
   }
 }
 
@@ -172,7 +169,7 @@ using base::SysNSStringToUTF16;
 }
 
 - (void)didFinishEditingPasswordDetails {
-  [self fetchPasswordWith:_manager->GetUnmutedCompromisedCredentials()];
+  [self fetchPasswordWith:_manager->GetInsecureCredentials()];
 }
 
 - (void)passwordDetailsViewController:
@@ -221,7 +218,7 @@ using base::SysNSStringToUTF16;
 }
 
 - (void)compromisedCredentialsDidChange {
-  [self fetchPasswordWith:_manager->GetUnmutedCompromisedCredentials()];
+  [self fetchPasswordWith:_manager->GetInsecureCredentials()];
 }
 
 #pragma mark - Private
@@ -237,6 +234,22 @@ using base::SysNSStringToUTF16;
     [passwords addObject:password];
   }
   [self.consumer setPasswords:passwords andTitle:_displayName];
+}
+
+// Update the usernames by domain dictionary by removing the old username and
+// adding the new one if it has changed.
+- (void)updateOldUsernameInDict:(NSString*)oldUsername
+                  toNewUsername:(NSString*)newUsername
+                withSignonRealm:(NSString*)signonRealm {
+  if ([oldUsername isEqualToString:newUsername]) {
+    return;
+  }
+
+  NSMutableSet* set = [_usernamesWithSameDomainDict objectForKey:signonRealm];
+  if (set) {
+    [set removeObject:oldUsername];
+    [set addObject:newUsername];
+  }
 }
 
 @end

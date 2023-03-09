@@ -43,7 +43,6 @@ import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.MaxAndroidSdkLevel;
-import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.base.test.util.UserActionTester;
 import org.chromium.chrome.R;
@@ -548,8 +547,7 @@ public class ContextualSearchManagerTest extends ContextualSearchInstrumentation
                 ()
                         -> mPanel.onSearchTermResolved("search", null, "tel:555-555-5555",
                                 QuickActionCategory.PHONE, CardTag.CT_CONTACT,
-                                null /* relatedSearchesInBar */,
-                                false /* showDefaultSearchInBar */));
+                                null /* relatedSearchesInBar */));
 
         ContextualSearchBarControl barControl = mPanel.getSearchBarControl();
         ContextualSearchQuickActionControl quickActionControl = barControl.getQuickActionControl();
@@ -614,8 +612,7 @@ public class ContextualSearchManagerTest extends ContextualSearchInstrumentation
                 ()
                         -> mPanel.onSearchTermResolved("search", null, "tel:555-555-5555",
                                 QuickActionCategory.PHONE, CardTag.CT_CONTACT,
-                                null /* relatedSearchesInBar */,
-                                false /* showDefaultSearchInBar */));
+                                null /* relatedSearchesInBar */));
 
         sActivityTestRule.getActivity().onUserInteraction();
         retryPanelBarInteractions(() -> {
@@ -648,8 +645,7 @@ public class ContextualSearchManagerTest extends ContextualSearchInstrumentation
                 ()
                         -> mPanel.onSearchTermResolved("search", null, testUrl,
                                 QuickActionCategory.WEBSITE, CardTag.CT_URL,
-                                null /* relatedSearchesInBar */,
-                                false /* showDefaultSearchInBar */));
+                                null /* relatedSearchesInBar */));
         retryPanelBarInteractions(() -> {
             // Tap on the portion of the bar that should trigger the quick action.
             clickPanelBar();
@@ -666,8 +662,8 @@ public class ContextualSearchManagerTest extends ContextualSearchInstrumentation
         TestThreadUtils.runOnUiThreadBlocking(
                 ()
                         -> mPanel.onSearchTermResolved("obscure · əbˈskyo͝or", null, null,
-                                QuickActionCategory.NONE, cardTag, null /* relatedSearchesInBar */,
-                                false /* showDefaultSearchInBar */));
+                                QuickActionCategory.NONE, cardTag,
+                                null /* relatedSearchesInBar */));
 
         expandPanelAndAssert();
     }
@@ -895,7 +891,6 @@ public class ContextualSearchManagerTest extends ContextualSearchInstrumentation
     @LargeTest
     @Feature({"ContextualSearch"})
     @CommandLineFlags.Add(ChromeSwitches.DISABLE_TAB_MERGING_FOR_TESTING)
-    @MinAndroidSdkLevel(Build.VERSION_CODES.N)
     @MaxAndroidSdkLevel(value = Build.VERSION_CODES.R, reason = "crbug.com/1301017")
     @ParameterAnnotations.UseMethodParameter(FeatureParamProvider.class)
     public void testTabReparenting(@EnabledFeature int enabledFeature) throws Exception {

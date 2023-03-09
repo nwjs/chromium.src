@@ -12,7 +12,7 @@
 #include <ostream>
 #include <string>
 
-#include "base/callback_forward.h"
+#include "base/functional/callback_forward.h"
 #include "base/strings/string_piece_forward.h"
 #include "base/values.h"
 #include "content/browser/attribution_reporting/attribution_parser_test_utils.h"
@@ -91,6 +91,8 @@ class AttributionInteropParser {
   base::Value::List ParseEventLevelReports(base::Value::Dict& output);
 
   base::Value::List ParseAggregatableReports(base::Value::Dict& output);
+
+  base::Value::List ParseVerboseDebugReports(base::Value::Dict& output);
 
   // Returns true if `key` is present in `dict` and the integer is parsed
   // successfully.

@@ -120,13 +120,23 @@ void ReadAnythingModel::SetSelectedLetterSpacingByIndex(size_t new_index) {
   NotifyThemeChanged();
 }
 
-void ReadAnythingModel::SetDistilledAXTree(
-    ui::AXTreeUpdate snapshot,
-    std::vector<ui::AXNodeID> content_node_ids) {
-  // Update state and notify listeners
-  snapshot_ = std::move(snapshot);
-  content_node_ids_ = std::move(content_node_ids);
-  NotifyAXTreeDistilled();
+void ReadAnythingModel::AccessibilityEventReceived(
+    const content::AXEventNotificationDetails& details) {
+  for (Observer& obs : observers_) {
+    obs.AccessibilityEventReceived(details);
+  }
+}
+
+void ReadAnythingModel::OnActiveAXTreeIDChanged(const ui::AXTreeID& tree_id) {
+  for (Observer& obs : observers_) {
+    obs.OnActiveAXTreeIDChanged(tree_id);
+  }
+}
+
+void ReadAnythingModel::OnAXTreeDestroyed(const ui::AXTreeID& tree_id) {
+  for (Observer& obs : observers_) {
+    obs.OnAXTreeDestroyed(tree_id);
+  }
 }
 
 double ReadAnythingModel::GetValidFontScale(double font_scale) {
@@ -154,14 +164,6 @@ void ReadAnythingModel::IncreaseTextSize() {
   NotifyThemeChanged();
 }
 
-void ReadAnythingModel::NotifyAXTreeDistilled() {
-  // The snapshot must have a valid root id.
-  DCHECK(snapshot_.root_id != ui::kInvalidAXNodeID);
-  for (Observer& obs : observers_) {
-    obs.OnAXTreeDistilled(snapshot_, content_node_ids_);
-  }
-}
-
 void ReadAnythingModel::NotifyThemeChanged() {
   for (Observer& obs : observers_) {
     obs.OnReadAnythingThemeChanged(font_name_, font_scale_,
@@ -175,14 +177,13 @@ void ReadAnythingModel::NotifyThemeChanged() {
 ///////////////////////////////////////////////////////////////////////////////
 
 ReadAnythingFontModel::ReadAnythingFontModel() {
-  // TODO(1266555): i18n.
+  // TODO(1266555): i18n and replace temp fonts with finalized fonts.
   font_choices_.emplace_back(u"Standard font");
   font_choices_.emplace_back(u"Sans-serif");
   font_choices_.emplace_back(u"Serif");
-  font_choices_.emplace_back(u"Avenir");
-  font_choices_.emplace_back(u"Comic Neue");
+  font_choices_.emplace_back(u"Arial");
   font_choices_.emplace_back(u"Comic Sans MS");
-  font_choices_.emplace_back(u"Poppins");
+  font_choices_.emplace_back(u"Times New Roman");
   font_choices_.shrink_to_fit();
 }
 

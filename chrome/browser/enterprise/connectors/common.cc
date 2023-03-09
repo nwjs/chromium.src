@@ -16,6 +16,7 @@
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "chrome/browser/ash/profiles/profile_helper.h"
+#include "components/user_manager/user.h"
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
@@ -160,15 +161,6 @@ ReportingSettings::ReportingSettings(ReportingSettings&&) = default;
 ReportingSettings::ReportingSettings(const ReportingSettings&) = default;
 ReportingSettings& ReportingSettings::operator=(ReportingSettings&&) = default;
 ReportingSettings::~ReportingSettings() = default;
-
-FileSystemSettings::FileSystemSettings() = default;
-FileSystemSettings::FileSystemSettings(const FileSystemSettings&) = default;
-FileSystemSettings::FileSystemSettings(FileSystemSettings&&) = default;
-FileSystemSettings& FileSystemSettings::operator=(const FileSystemSettings&) =
-    default;
-FileSystemSettings& FileSystemSettings::operator=(FileSystemSettings&&) =
-    default;
-FileSystemSettings::~FileSystemSettings() = default;
 
 const char* ConnectorPref(AnalysisConnector connector) {
   switch (connector) {

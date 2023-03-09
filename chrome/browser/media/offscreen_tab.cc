@@ -7,11 +7,11 @@
 #include <algorithm>
 #include <utility>
 
+#include "base/functional/bind.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "extensions/browser/app_window/app_window_registry.h"
 #include "extensions/browser/app_window/app_window.h"
 
-#include "base/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/task/single_thread_task_runner.h"
 #include "chrome/browser/profiles/profile.h"

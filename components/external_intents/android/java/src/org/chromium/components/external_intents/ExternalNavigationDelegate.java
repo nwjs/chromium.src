@@ -10,7 +10,6 @@ import android.content.pm.ResolveInfo;
 
 import org.chromium.base.Callback;
 import org.chromium.base.supplier.Supplier;
-import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.url.GURL;
@@ -42,13 +41,6 @@ public interface ExternalNavigationDelegate {
      * Returns whether to disable forwarding URL requests to external intents for the passed-in URL.
      */
     boolean shouldDisableExternalIntentRequestsForUrl(GURL url);
-
-    /**
-     * Loads a URL as specified by |loadUrlParams| if possible. May fail in exceptional conditions
-     * (e.g., if there is no valid tab).
-     * @param loadUrlParams parameters of the URL to be loaded
-     */
-    void loadUrlIfPossible(LoadUrlParams loadUrlParams);
 
     /** Adds a window id to the intent, if necessary. */
     void maybeSetWindowId(Intent intent);
@@ -143,7 +135,7 @@ public interface ExternalNavigationDelegate {
      * Whether the Activity launch should be aborted if the disambiguation prompt is going to be
      * shown and Chrome is able to handle the navigation.
      */
-    boolean shouldAvoidDisambiguationDialog(Intent intent);
+    boolean shouldAvoidDisambiguationDialog(GURL intentDataUrl);
 
     /**
      * Whether navigations started by the embedder (i.e. not by the renderer) should stay in the

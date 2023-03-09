@@ -472,7 +472,7 @@ by a child template that "extends" this file.
             {% endblock %}
             {% block chrome_activity_common %}
             android:windowSoftInputMode="adjustResize"
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize|uiMode|density|navigation"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize|uiMode|navigation"
             android:hardwareAccelerated="false"
             {% endblock %}
         >
@@ -575,6 +575,16 @@ by a child template that "extends" this file.
             android:enableVrMode="@string/gvr_vr_mode_component"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize|uiMode">
             {{ self.supports_vr() }}
+        </activity>
+        {% endif %}
+        {% set enable_cardboard = enable_cardboard|default(0) %}
+        {% if enable_cardboard == "true" %}
+        <!-- Based on //third_party/cardboard/src/sdk/qrcode/android/AndroidManifest.xml -->
+        <activity
+            android:name="com.google.cardboard.sdk.QrCodeCaptureActivity"
+            android:exported="false"
+            android:label="@string/title_activity_qr_code_capture"
+            android:theme="@style/Theme.AppCompat.NoActionBar">
         </activity>
         {% endif %}
         <activity android:name="org.chromium.chrome.browser.signin.SyncConsentActivity"
@@ -866,6 +876,10 @@ by a child template that "extends" this file.
             android:name="org.chromium.chrome.browser.browserservices.ui.trustedwebactivity.DisclosureAcceptanceBroadcastReceiver"
             android:exported="false" />
 
+        <receiver
+            android:name="org.chromium.chrome.browser.webapps.WebApkInstallBroadcastReceiver"
+            android:exported="false" />
+
         <!-- Service for decoding images in a sandboxed process. -->
         <service
             android:description="@string/decoder_description"
@@ -1008,15 +1022,6 @@ by a child template that "extends" this file.
         <service android:name="org.chromium.components.background_task_scheduler.internal.BackgroundTaskJobService"
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE"/>
-
-        <!-- Background Task Scheduler GCM task service -->
-        <service android:name="org.chromium.components.background_task_scheduler.internal.BackgroundTaskGcmTaskService"
-            android:permission="com.google.android.gms.permission.BIND_NETWORK_TASK_SERVICE"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="com.google.android.gms.gcm.ACTION_TASK_READY" />
-            </intent-filter>
-        </service>
 
         <!-- Background Task Scheduler alarm receiver -->
         <receiver android:name="org.chromium.components.background_task_scheduler.internal.BackgroundTaskBroadcastReceiver"
@@ -1254,6 +1259,12 @@ by a child template that "extends" this file.
       <!-- ARCore APK integration -->
       <!-- This tag indicates that this application optionally uses ARCore. -->
       <meta-data android:name="com.google.ar.core" android:value="optional" />
+
+      {% block base_application_extra_arcore_definitions %}
+      <meta-data android:name="com.google.ar.core.session_settings"
+          android:value="allow_front_facing_motion_tracking_6dof," />
+      {% endblock base_application_extra_arcore_definitions %}
+
       {% endif %}
 
       <!-- Cast support -->

@@ -116,6 +116,7 @@
 <translation id="1908234395526491708">សំណើ UDP មិនបានសម្រេច</translation>
 <translation id="1947737735496445907">បានបោះពុម្ព</translation>
 <translation id="1951012854035635156">ជំនួយ​ការ</translation>
+<translation id="1962550982027027473">តម្រូវ​ឱ្យ​មាន​ APN លំនាំដើម</translation>
 <translation id="1977994649430373166">រូបថត​កម្រង​ព័ត៌មាន Google</translation>
 <translation id="1979103255016296513">ការផ្លាស់ប្ដូរពាក្យសម្ងាត់​បានផុតកំណត់ហើយ</translation>
 <translation id="1999615961760456652">ច្រកចូលប្រើបណ្ដាញ</translation>
@@ -195,6 +196,7 @@
 <translation id="2713444072780614174">ស</translation>
 <translation id="2717139507051041123">បើកមុខងារពណ៌ងងឹត</translation>
 <translation id="2740531572673183784">យល់ព្រម</translation>
+<translation id="2744221223678373668">បានចែករំលែក</translation>
 <translation id="2751739896257479635">ការផ្ទៀងផ្ទាត់ EAP ដំណាក់កាលទី 2</translation>
 <translation id="2783010256799387990">ជាប់</translation>
 <translation id="2789486458103222910">យល់ព្រម</translation>
@@ -269,6 +271,7 @@
 <translation id="3583278742022654445">កម្លាំងរលកសញ្ញាខ្សោយ។ សូមសាកល្បងខិតឱ្យកាន់តែជិតប្រភពរលកសញ្ញា Wi-Fi។</translation>
 <translation id="3595596368722241419">ថ្មពេញ</translation>
 <translation id="3600339377155080675">បញ្ចាំងអេក្រង់</translation>
+<translation id="3602290021589620013">ពិនិត្យមើល</translation>
 <translation id="3603829704940252505">រូបតំណាង</translation>
 <translation id="3604713164406837697">ប្ដូរផ្ទាំងរូបភាព</translation>
 <translation id="360565022852130722">បណ្ដាញ WiFi មានសុវត្ថិភាពជាមួយ WEP 802.1x ប្រូតូកូលខ្សោយ</translation>
@@ -292,6 +295,7 @@
 <translation id="385051799172605136">ថយក្រោយ</translation>
 <translation id="3858860766373142691">ឈ្មោះ</translation>
 <translation id="3862598938296403232">តម្រូវឱ្យ​មាន​ការពណ៌នា</translation>
+<translation id="3865289341173661845">មិនអាចចូលមើល​ខ្លឹមសារ​ជំនួយ​បានទេ។</translation>
 <translation id="3865414814144988605">គុណភាពបង្ហាញ</translation>
 <translation id="3866249974567520381">ការពិពណ៌នា</translation>
 <translation id="387301095347517405">ចំនួនដង​ដែលថ្មរបស់អ្នក​បានសាកពេញ</translation>
@@ -314,9 +318,11 @@
 <translation id="4044093238444069296">មិនអាចទាក់ទងច្រកបានទេ</translation>
 <translation id="4046123991198612571">បទ​បន្ទាប់</translation>
 <translation id="404928562651467259">WARNING</translation>
+<translation id="4054683689023980771">កំពុង​ទាញយក​រូបភាព</translation>
 <translation id="4060260348856573701">APN ថ្មី</translation>
 <translation id="4093865285251893588">រូបភាព​កម្រង​ព័ត៌មាន</translation>
 <translation id="409427325554347132">រក្សាទុក​ព័ត៌មានលម្អិត​អំពី​ការធ្វើតេស្ត</translation>
+<translation id="4095829376260267438">WPA2WPA3</translation>
 <translation id="4110686435123617899">ជ្រើសរើស​អាល់ប៊ុម <ph name="TITLE" /> <ph name="DESC" /></translation>
 <translation id="4111761024568264522">ផ្ទាំងប៉ះ USB</translation>
 <translation id="4117637339509843559">មុខងារ​ងងឹត</translation>
@@ -447,7 +453,6 @@
 <translation id="5168185087976003268">គុណភាព​ថ្ម</translation>
 <translation id="5170568018924773124">បង្ហាញនៅក្នុងថតឯកសារ</translation>
 <translation id="5190187232518914472">រំឭកអនុស្សាវរីយ៍​ដែលអ្នក​ចូលចិត្ត។ ដើម្បីបញ្ចូល ឬ​កែអាល់ប៊ុម សូមចូល​ទៅកាន់ <ph name="LINK_BEGIN" />Google រូបថត<ph name="LINK_END" />។</translation>
-<translation id="5212543919916444558">ខ្ញុំរកមិនឃើញអ្វីដែលខ្ញុំអាចជួយបាននៅលើអេក្រង់របស់អ្នកទេ។ សាកល្បងចុចមីក្រូហ្វូន ដើម្បីសួរខ្ញុំអំពីអ្វីម្យ៉ាង។</translation>
 <translation id="5212593641110061691">កាសែតខ្នាតតូច</translation>
 <translation id="5222676887888702881">ចាកចេញ</translation>
 <translation id="522307662484862935">កុំ​រួម​បញ្ចូល​អាសយដ្ឋាន​អ៊ីមែល</translation>
@@ -634,6 +639,7 @@
 <translation id="6791471867139427246">ពណ៌ពន្លឺក្តារចុច</translation>
 <translation id="680983167891198932">សោ</translation>
 <translation id="6816797338148849397">ព័ត៌មានពាក់ព័ន្ធនឹងការផ្ដល់ជូនការជ្រើសរើសរបស់អ្នក។ ប្រើគ្រាប់ចុចព្រួញឡើងលើ ដើម្បីចូលប្រើ។</translation>
+<translation id="6838167112108853532">មិន​អាច​បិទ ឬ​ដក APN នេះ​ចេញ​បាន​ទេ។ សូម​​ប្រាកដថា APN ដែល​បាន​ភ្ជាប់ដែល​បានបើក ត្រូ​វបានបិទ ឬ​ដកចេញ។</translation>
 <translation id="6853312040151791195">អត្រា​ឈប់សាកថ្ម</translation>
 <translation id="6889786074662672253">ខណៈពេលកំពុងចាប់ផ្ដើមឡើងវិញ សូមកុំដកឧបករណ៍ខាងក្រៅនេះ ឬបិទកុំព្យូទ័ររបស់អ្នក។ អ្នកអាចបង្រួមវិនដូនេះបាន។ ការចាប់ផ្ដើមឡើងវិញនេះអាចចំណាយពេលពីរបីនាទី ហើយឧបករណ៍ខាងក្រៅរបស់អ្នកអាចមិនដំណើរការនៅអំឡុងពេលនេះទេ។</translation>
 <translation id="6905724422583748843">ត្រឡប់​ទៅ <ph name="PAGE_NAME" /></translation>
@@ -699,6 +705,7 @@
 <translation id="7497215489070763236">វិញ្ញាបនបត្រ CA ម៉ាស៊ីនមេ</translation>
 <translation id="7502658306369382406">អាសយដ្ឋាន IPv6</translation>
 <translation id="7515998400212163428">Android</translation>
+<translation id="7528507600602050979">មិនអាចចូលមើល​ខ្លឹមសារ​ជំនួយ​បានទេ</translation>
 <translation id="7535791657097741517">បើក​រចនាប័ទ្ម​ភ្លឺ</translation>
 <translation id="7550715992156305117">ការធ្វើតេស្ត​តាមការកំណត់</translation>
 <translation id="7551123448725492271">ឧបករណ៍គឺជាឧបករណ៍សំឡេង។</translation>
@@ -716,6 +723,7 @@
 <translation id="7690294790491645610">បញ្ជាក់​ពាក្យ​សម្ងាត់​ថ្មី</translation>
 <translation id="7701040980221191251">គ្មាន</translation>
 <translation id="7705524343798198388">VPN</translation>
+<translation id="7716280709122323042">WPA3</translation>
 <translation id="773153675489693198">ចំនួនវដ្ដ</translation>
 <translation id="7747039790905080783">សោដែល​ធ្លាប់ប្រើរួមគ្នា</translation>
 <translation id="7762130827864645708">ការប្ដូរពាក្យសម្ងាត់របស់អ្នកបានជោគជ័យហើយ។ សូមប្រើពាក្យសម្ងាត់ថ្មីនេះចាប់ពីពេលនេះតទៅ។</translation>
@@ -723,6 +731,7 @@
 <translation id="7769672763586021400">លេខសម្គាល់ម៉ូដែល</translation>
 <translation id="7778717409420828014">មតិកែលម្អ​របស់អ្នក​ជួយ​យើង​កែលម្អ​បទពិសោធន៍​ប្រើប្រាស់ Chromebook ហើយនឹង​ត្រូវបាន​ពិនិត្យមើល​ដោយ​ក្រុមការងារ​របស់យើង។ ដោយសារតែ​មាន​ចំនួននៃការរាយការណ៍​ច្រើន យើង​នឹង​មិន​អាច​ផ្ញើ​ការឆ្លើយតប​បានទេ។</translation>
 <translation id="7784116172884276937">មិនបានរៀបចំម៉ាស៊ីនមេ DNS ទេ</translation>
+<translation id="7791543448312431591">បន្ថែម</translation>
 <translation id="779591286616261875">ផ្ញើ​របាយការណ៍​ថ្មី</translation>
 <translation id="7799817062559422778">មុខងារភ្លឺ</translation>
 <translation id="780301667611848630">ទេ អរគុណ</translation>
@@ -798,6 +807,7 @@
 <translation id="8503836310948963452">នៅសល់តែពីរបីនាទីទៀតប៉ុណ្ណោះ...</translation>
 <translation id="8508640263392900755">ព័ត៌មានលម្អិតអំពី​ APN</translation>
 <translation id="8528615187455571738">Crosvm</translation>
+<translation id="8557447961879934694">WPA2</translation>
 <translation id="8575298406870537639">ក្រុមហ៊ុនសេវាទូរសព្ទ​របស់អ្នកអាច​តម្រូវឱ្យមានជម្រើសនេះ ដើម្បីភ្ជាប់ជាមួយ​បណ្ដាញរបស់ក្រុមហ៊ុននោះ។ សូមទាក់ទងក្រុមហ៊ុន​សេវាទូរសព្ទរបស់អ្នក ដើម្បីទទួលបាន​ព័ត៌មានលម្អិត។</translation>
 <translation id="8576249514688522074">មិនបាន​ចាប់​ផ្ដើម</translation>
 <translation id="8620617069779373398">ស្ថានភាពរ៉ូមីង</translation>

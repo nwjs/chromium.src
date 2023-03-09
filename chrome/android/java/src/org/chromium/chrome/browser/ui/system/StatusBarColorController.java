@@ -32,7 +32,7 @@ import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
-import org.chromium.chrome.browser.tasks.tab_management.TabUiThemeProvider;
+import org.chromium.chrome.browser.tasks.tab_management.TabUiThemeUtil;
 import org.chromium.chrome.browser.theme.TopUiThemeColorProvider;
 import org.chromium.chrome.browser.toolbar.ToolbarColors;
 import org.chromium.chrome.browser.toolbar.top.TopToolbarCoordinator;
@@ -92,7 +92,6 @@ public class StatusBarColorController
     private boolean mIsInOverviewMode;
     private boolean mIsIncognito;
     private boolean mIsOmniboxFocused;
-    private boolean mToolbarAnimationInProgress;
 
     private @ColorInt int mScrimColor = ScrimProperties.INVALID_COLOR;
     private float mStatusBarScrimFraction;
@@ -211,7 +210,9 @@ public class StatusBarColorController
                             return;
                         }
                         mIsInOverviewMode = true;
-                        updateStatusBarColor();
+                        if (!OmniboxFeatures.shouldMatchToolbarAndStatusBarColor()) {
+                            updateStatusBarColor();
+                        }
                     }
 
                     @Override
@@ -260,9 +261,8 @@ public class StatusBarColorController
 
     // TopToolbarCoordinator.UrlExpansionObserver implementation.
     @Override
-    public void onUrlExpansionProgressChanged(float fraction, boolean changeInProgress) {
+    public void onUrlExpansionProgressChanged(float fraction) {
         mToolbarUrlExpansionPercentage = fraction;
-        mToolbarAnimationInProgress = changeInProgress;
         if (mShouldUpdateStatusBarColorForNTP) updateStatusBarColor();
     }
 
@@ -286,7 +286,6 @@ public class StatusBarColorController
     }
 
     // StatusIndicatorCoordinator.StatusIndicatorObserver implementation.
-
     @Override
     public void onStatusIndicatorColorChanged(@ColorInt int newColor) {
         mStatusIndicatorColor = newColor;
@@ -366,16 +365,14 @@ public class StatusBarColorController
         }
 
         if (mIsTablet) {
-            return TabUiThemeProvider.getTabStripBackgroundColor(
-                    mWindow.getContext(), mIsIncognito);
+            return TabUiThemeUtil.getTabStripBackgroundColor(mWindow.getContext(), mIsIncognito);
         }
 
         // When Omnibox gains focus, we want to clear the status bar theme color.
         // The theme should be restored when Omnibox focus clears.
         if (mIsOmniboxFocused) {
             // If the flag is enabled, we will use the toolbar color.
-            if (OmniboxFeatures.shouldMatchToolbarAndStatusBarColor() && mToolbarAnimationInProgress
-                    && mToolbarColorChanged) {
+            if (OmniboxFeatures.shouldMatchToolbarAndStatusBarColor() && mToolbarColorChanged) {
                 return mToolbarColor;
             }
             return calculateDefaultStatusBarColor();
@@ -383,6 +380,11 @@ public class StatusBarColorController
 
         // Return status bar color in overview mode.
         if (mIsInOverviewMode) {
+            // Toolbar will notify status bar color controller about the toolbar color during
+            // overview animation.
+            if (OmniboxFeatures.shouldMatchToolbarAndStatusBarColor()) {
+                return mToolbarColor;
+            }
             return (mIsIncognito
                            && ToolbarColors.canUseIncognitoToolbarThemeColorInOverview(
                                    mWindow.getContext()))
@@ -399,8 +401,7 @@ public class StatusBarColorController
 
         // Return status bar color to match the toolbar.
         // If the flag is enabled, we will use the toolbar color.
-        if (OmniboxFeatures.shouldMatchToolbarAndStatusBarColor() && mToolbarAnimationInProgress
-                && mToolbarColorChanged) {
+        if (OmniboxFeatures.shouldMatchToolbarAndStatusBarColor() && mToolbarColorChanged) {
             return mToolbarColor;
         }
         return mTopUiThemeColor.getThemeColorOrFallback(

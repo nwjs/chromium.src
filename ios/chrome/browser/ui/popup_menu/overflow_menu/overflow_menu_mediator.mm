@@ -23,9 +23,11 @@
 #import "components/profile_metrics/browser_profile_type.h"
 #import "components/translate/core/browser/translate_manager.h"
 #import "components/translate/core/browser/translate_prefs.h"
+#import "ios/chrome/browser/bookmarks/bookmark_model_bridge_observer.h"
 #import "ios/chrome/browser/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/commerce/push_notification/push_notification_feature.h"
-#import "ios/chrome/browser/find_in_page/find_tab_helper.h"
+#import "ios/chrome/browser/find_in_page/abstract_find_tab_helper.h"
+#import "ios/chrome/browser/flags/system_flags.h"
 #import "ios/chrome/browser/follow/follow_browser_agent.h"
 #import "ios/chrome/browser/follow/follow_menu_updater.h"
 #import "ios/chrome/browser/follow/follow_tab_helper.h"
@@ -37,10 +39,8 @@
 #import "ios/chrome/browser/policy/browser_policy_connector_ios.h"
 #import "ios/chrome/browser/policy/policy_util.h"
 #import "ios/chrome/browser/reading_list/offline_url_utils.h"
+#import "ios/chrome/browser/tabs/features.h"
 #import "ios/chrome/browser/translate/chrome_ios_translate_client.h"
-#import "ios/chrome/browser/ui/activity_services/activity_params.h"
-#import "ios/chrome/browser/ui/activity_services/canonical_url_retriever.h"
-#import "ios/chrome/browser/ui/bookmarks/bookmark_model_bridge_observer.h"
 #import "ios/chrome/browser/ui/commands/activity_service_commands.h"
 #import "ios/chrome/browser/ui/commands/application_commands.h"
 #import "ios/chrome/browser/ui/commands/bookmarks_commands.h"
@@ -61,7 +61,8 @@
 #import "ios/chrome/browser/ui/popup_menu/overflow_menu/overflow_menu_swift.h"
 #import "ios/chrome/browser/ui/popup_menu/popup_menu_constants.h"
 #import "ios/chrome/browser/ui/reading_list/reading_list_utils.h"
-#import "ios/chrome/browser/ui/tab_switcher/pinned_tabs/features.h"
+#import "ios/chrome/browser/ui/sharing/activity_services/activity_params.h"
+#import "ios/chrome/browser/ui/sharing/activity_services/canonical_url_retriever.h"
 #import "ios/chrome/browser/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/ui/whats_new/whats_new_util.h"
 #import "ios/chrome/browser/url/chrome_url_constants.h"
@@ -90,8 +91,14 @@
 using base::RecordAction;
 using base::UmaHistogramEnumeration;
 using base::UserMetricsAction;
+using experimental_flags::IsSpotlightDebuggingEnabled;
 
 namespace {
+
+// Key used for storing NSUserDefault entry to keep track of the last timestamp
+// we've shown the default browser blue dot promo.
+NSString* const kMostRecentTimestampBlueDotPromoShownInOverflowMenu =
+    @"MostRecentTimestampBlueDotPromoShownInOverflowMenu";
 
 typedef void (^Handler)(void);
 
@@ -178,7 +185,7 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
   std::unique_ptr<OverlayPresenterObserver> _overlayPresenterObserver;
 
   // Bridge to register for bookmark changes.
-  std::unique_ptr<bookmarks::BookmarkModelBridge> _bookmarkModelBridge;
+  std::unique_ptr<BookmarkModelBridge> _bookmarkModelBridge;
 
   // Bridge to get notified of the language detection event.
   std::unique_ptr<language::IOSLanguageDetectionTabHelperObserverBridge>
@@ -203,10 +210,6 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
 // Whether the web content is currently being blocked.
 @property(nonatomic, assign) BOOL contentBlocked;
 
-// The number of destinations immediately visible to the user when opening the
-// new overflow menu (i.e. the number of "above-the-fold" destinations).
-@property(nonatomic, assign) int numAboveFoldDestinations;
-
 @property(nonatomic, strong) OverflowMenuDestination* bookmarksDestination;
 @property(nonatomic, strong) OverflowMenuDestination* downloadsDestination;
 @property(nonatomic, strong) OverflowMenuDestination* historyDestination;
@@ -216,6 +219,8 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
 @property(nonatomic, strong) OverflowMenuDestination* settingsDestination;
 @property(nonatomic, strong) OverflowMenuDestination* siteInfoDestination;
 @property(nonatomic, strong) OverflowMenuDestination* whatsNewDestination;
+@property(nonatomic, strong)
+    OverflowMenuDestination* spotlightDebuggerDestination;
 
 @property(nonatomic, strong) OverflowMenuActionGroup* appActionsGroup;
 @property(nonatomic, strong) OverflowMenuActionGroup* pageActionsGroup;
@@ -365,7 +370,7 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
 
   if (bookmarkModel) {
     _bookmarkModelBridge =
-        std::make_unique<bookmarks::BookmarkModelBridge>(self, bookmarkModel);
+        std::make_unique<BookmarkModelBridge>(self, bookmarkModel);
   }
 
   [self updateModel];
@@ -506,11 +511,8 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
 
   if (UseSymbols()) {
     // Passwords destination.
-    int passwordTitleID = IsPasswordManagerBrandingUpdateEnabled()
-                              ? IDS_IOS_TOOLS_MENU_PASSWORD_MANAGER
-                              : IDS_IOS_TOOLS_MENU_PASSWORDS;
     self.passwordsDestination = [self
-        createOverflowMenuDestination:passwordTitleID
+        createOverflowMenuDestination:IDS_IOS_TOOLS_MENU_PASSWORD_MANAGER
                           destination:overflow_menu::Destination::Passwords
                            symbolName:kPasswordSymbol
                          systemSymbol:NO
@@ -520,11 +522,8 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
                               }];
   } else {
     // Passwords destination.
-    int passwordTitleID = IsPasswordManagerBrandingUpdateEnabled()
-                              ? IDS_IOS_TOOLS_MENU_PASSWORD_MANAGER
-                              : IDS_IOS_TOOLS_MENU_PASSWORDS;
     self.passwordsDestination = [self
-        createOverflowMenuDestination:passwordTitleID
+        createOverflowMenuDestination:IDS_IOS_TOOLS_MENU_PASSWORD_MANAGER
                           destination:overflow_menu::Destination::Passwords
                             imageName:@"overflow_menu_destination_passwords"
                       accessibilityID:kToolsMenuPasswordsId
@@ -601,6 +600,10 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
                                 [weakSelf openSettings];
                               }];
   }
+
+  self.spotlightDebuggerDestination = [self destinationForSpotlightDebugger:^{
+    [weakSelf openSpotlightDebugger];
+  }];
 
   if (UseSymbols()) {
     // WhatsNew destination.
@@ -1021,6 +1024,20 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
   return result;
 }
 
+// Creates an OverflowMenuDestination for the Spotlight debugger.
+- (OverflowMenuDestination*)destinationForSpotlightDebugger:(Handler)handler {
+  OverflowMenuDestination* result = [[OverflowMenuDestination alloc]
+                 initWithName:@"Spotlight Debugger"
+                        image:[UIImage
+                                  imageNamed:
+                                      @"overflow_menu_destination_settings"]
+      accessibilityIdentifier:@"Spotlight Debugger"
+           enterpriseDisabled:NO
+                      handler:handler];
+  result.destinationName = @"Spotlight Debugger";
+  return result;
+}
+
 // Adds What's New to the OverflowMenuDestination to be displayed in the
 // destinations carousel.
 - (NSArray<OverflowMenuDestination*>*)insertWhatsNewToDestinations:
@@ -1040,6 +1057,65 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
 
   // Place What's New at the top of the overflow menucarousel.
   [newDestinations addObject:self.whatsNewDestination];
+  [newDestinations addObjectsFromArray:destinations];
+
+  return newDestinations;
+}
+
+// Decides whether the default browser blue dot promo should be active, and if
+// it is, move the settings destination to the front and add the blue dot badge.
+- (NSArray<OverflowMenuDestination*>*)maybeActivateDefaultBrowserBlueDotPromo:
+    (NSArray<OverflowMenuDestination*>*)destinations {
+  if (!self.engagementTracker) {
+    return destinations;
+  }
+
+  if (ShouldTriggerDefaultBrowserBlueDotBadgeFeature(
+          feature_engagement::kIPHiOSDefaultBrowserOverflowMenuBadgeFeature,
+          self.engagementTracker)) {
+    // Add the blue dot promo badge to the settings destination.
+    self.settingsDestination.badge = BadgeTypeBlueDot;
+
+    // Move the settings destination to the front of the destinations, otherwise
+    // respecting the original order.
+    NSMutableArray<OverflowMenuDestination*>* newDestinations =
+        [[NSMutableArray alloc] init];
+
+    [newDestinations addObject:self.settingsDestination];
+    for (OverflowMenuDestination* destination in destinations) {
+      if (destination != self.settingsDestination) {
+        [newDestinations addObject:destination];
+      }
+    }
+
+    // If we've only started showing the blue dot recently (<6 hours), don't
+    // notify the FET again that the promo is being shown, since we're not in a
+    // new user session. We record the badge being shown per user session,
+    // instead of per time it is shown since the badge needs to be shown accross
+    // 3 user sessions.
+    if (!HasRecentTimestampForKey(
+            kMostRecentTimestampBlueDotPromoShownInOverflowMenu)) {
+      self.engagementTracker->NotifyEvent(
+          feature_engagement::events::kBlueDotPromoOverflowMenuShownNewSession);
+    }
+
+    return newDestinations;
+  }
+
+  return destinations;
+}
+
+// Adds SpotlightDebugger to the OverflowMenuDestination to be displayed in the
+// destinations carousel.
+- (NSArray<OverflowMenuDestination*>*)insertSpotlightDebuggerToDestinations:
+    (NSArray<OverflowMenuDestination*>*)destinations {
+  DCHECK(IsSpotlightDebuggingEnabled());
+
+  NSMutableArray<OverflowMenuDestination*>* newDestinations =
+      [[NSMutableArray alloc] init];
+
+  // Place the debugger at the top of the overflow menu carousel.
+  [newDestinations addObject:self.spotlightDebuggerDestination];
   [newDestinations addObjectsFromArray:destinations];
 
   return newDestinations;
@@ -1068,12 +1144,20 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
         generateDestinationsList:baseDestinations];
   }
 
-  // What's New defy the smart sorting rules of the overflow menu to appear
+  // What's New defies the smart sorting rules of the overflow menu to appear
   // either at the front of the carousel or the back. Thus, What's New is
   // inserted after smart sorting returns the sorted destinations.
   if (IsWhatsNewEnabled()) {
     baseDestinations = [self insertWhatsNewToDestinations:baseDestinations];
   }
+
+  if (IsSpotlightDebuggingEnabled()) {
+    baseDestinations =
+        [self insertSpotlightDebuggerToDestinations:baseDestinations];
+  }
+
+  baseDestinations =
+      [self maybeActivateDefaultBrowserBlueDotPromo:baseDestinations];
 
   self.overflowMenuModel.destinations = [baseDestinations
       filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(
@@ -1109,7 +1193,7 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
     [appActions addObject:self.openNewWindowAction];
   }
 
-  if (IsPinnedTabsEnabled()) {
+  if (IsPinnedTabsOverflowEnabled()) {
     [appActions addObject:([self isTabPinned] ? self.unpinTabAction
                                               : self.pinTabAction)];
   }
@@ -1129,6 +1213,7 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
   // the followAction should be valid.
   if (!self.followAction) {
     self.followAction = [self createFollowActionIfNeeded];
+    DCHECK(!self.followAction || self.webState != nullptr);
   }
 
   if (self.followAction) {
@@ -1146,7 +1231,9 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
     self.readLaterAction
   ]];
 
-  if (IsPriceNotificationsEnabled()) {
+  if (self.webState &&
+      IsPriceTrackingEnabled(ChromeBrowserState::FromBrowserState(
+          self.webState->GetBrowserState()))) {
     [pageActions addObject:self.openPriceNotificationsAction];
   }
 
@@ -1193,12 +1280,6 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
         });
   } else {
     self.helpActionsGroup.footer = nil;
-  }
-
-  if (IsPinnedTabsEnabled()) {
-    // Enable/disable items based on page state.
-    self.pinTabAction.enabled = [self isCurrentURLWebURL];
-    self.unpinTabAction.enabled = [self isCurrentURLWebURL];
   }
 
   // The "Add to Reading List" functionality requires JavaScript execution,
@@ -1268,7 +1349,7 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
     return NO;
   }
 
-  auto* helper = FindTabHelper::FromWebState(self.webState);
+  auto* helper = GetConcreteFindTabHelperFromWebState(self.webState);
   return (helper && helper->CurrentPageSupportsFindInPage() &&
           !helper->IsFindUIActive());
 }
@@ -1764,6 +1845,8 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
 // Dismisses the menu and opens price notifications list.
 - (void)openPriceNotifications {
   RecordAction(UserMetricsAction("MobileMenuPriceNotifications"));
+  _engagementTracker->NotifyEvent(
+      feature_engagement::events::kPriceNotificationsUsed);
   [self.popupMenuCommandsHandler dismissPopupMenuAnimated:YES];
   [self.dispatcher showPriceNotifications];
 }
@@ -1811,6 +1894,11 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
 
 // Dismisses the menu and opens settings.
 - (void)openSettings {
+  if (self.settingsDestination.badge == BadgeTypeBlueDot &&
+      self.engagementTracker) {
+    self.engagementTracker->NotifyEvent(
+        feature_engagement::events::kBlueDotPromoOverflowMenuDismissed);
+  }
   [self.popupMenuCommandsHandler dismissPopupMenuAnimated:YES];
   profile_metrics::BrowserProfileType type =
       self.isIncognito ? profile_metrics::BrowserProfileType::kIncognito
@@ -1826,17 +1914,10 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
                                              GURL(kChromeUIManagementURL)]];
 }
 
-#pragma mark - PopupMenuCarouselMetricsDelegate
-
-- (void)visibleDestinationCountDidChange:(NSInteger)numVisibleDestinations {
-  // Exit early if numAboveFoldDestinations is already set to a non-zero value;
-  // this class only cares about the first time this method is called with a
-  // non-zero value; for that reason, exit early on subsequent calls to this
-  // method if numAboveFoldDestinations is already set.
-  if (self.numAboveFoldDestinations)
-    return;
-
-  self.numAboveFoldDestinations = numVisibleDestinations;
+- (void)openSpotlightDebugger {
+  DCHECK(IsSpotlightDebuggingEnabled());
+  [self.popupMenuCommandsHandler dismissPopupMenuAnimated:YES];
+  [self.dispatcher showSpotlightDebugger];
 }
 
 @end

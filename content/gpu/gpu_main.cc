@@ -9,10 +9,11 @@
 #include <tuple>
 #include <utility>
 
-#include "base/bind.h"
+#include "base/allocator/partition_alloc_support.h"
 #include "base/check.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
+#include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/message_loop/message_pump_type.h"
 #include "base/metrics/histogram_macros.h"
@@ -35,7 +36,6 @@
 #include "content/child/child_process.h"
 #include "content/common/content_constants_internal.h"
 #include "content/common/content_switches_internal.h"
-#include "content/common/partition_alloc_support.h"
 #include "content/common/skia_utils.h"
 #include "content/gpu/gpu_child_thread.h"
 #include "content/public/common/content_client.h"
@@ -389,7 +389,7 @@ int GpuMain(MainFunctionParams parameters) {
       nullptr);
 #endif
 
-  internal::PartitionAllocSupport::Get()->ReconfigureAfterTaskRunnerInit(
+  base::allocator::PartitionAllocSupport::Get()->ReconfigureAfterTaskRunnerInit(
       switches::kGpuProcess);
 
   base::HighResolutionTimerManager hi_res_timer_manager;
@@ -426,6 +426,8 @@ bool StartSandboxLinux(gpu::GpuWatchdogThread* watchdog_thread,
         angle::IsAMD(gpu_info->active_gpu().vendor_id);
     sandbox_options.use_intel_specific_policies =
         angle::IsIntel(gpu_info->active_gpu().vendor_id);
+    sandbox_options.use_virtio_specific_policies =
+        angle::IsVirtIO(gpu_info->active_gpu().vendor_id);
     sandbox_options.use_nvidia_specific_policies =
         angle::IsNVIDIA(gpu_info->active_gpu().vendor_id);
     for (const auto& gpu : gpu_info->secondary_gpus) {
@@ -442,18 +444,18 @@ bool StartSandboxLinux(gpu::GpuWatchdogThread* watchdog_thread,
   sandbox_options.accelerated_video_encode_enabled =
       !gpu_prefs.disable_accelerated_video_encode;
 
-#if BUILDFLAG(IS_CHROMEOS) && BUILDFLAG(USE_VAAPI)
-  // Increase the FD limit by 512 on VA-API Chrome OS devices in order to
-  // avoid running out of FDs in cases where many decoders are running
-  // concurrently. See b/215553848.
+#if BUILDFLAG(IS_CHROMEOS)
+  // Increase the FD limit by 512 on Chrome OS devices in order to avoid running
+  // running out of FDs in cases where many decoders are running concurrently.
+  // See b/215553848 and b/265885078.
   // TODO(b/195769334): revisit the need for this once out-of-process video
   // decoding has been fully implemented.
   const auto current_max_fds =
       base::saturated_cast<unsigned int>(base::GetMaxFds());
   constexpr unsigned int kMaxFDsDelta = 1u << 9;
   const auto new_max_fds =
-      static_cast<int>(base::ClampAdd(current_max_fds, kMaxFDsDelta));
-  base::IncreaseFdLimitTo(base::checked_cast<unsigned int>(new_max_fds));
+      static_cast<unsigned int>(base::ClampAdd(current_max_fds, kMaxFDsDelta));
+  base::IncreaseFdLimitTo(new_max_fds);
 #endif
 
   bool res = sandbox::policy::SandboxLinux::GetInstance()->InitializeSandbox(

@@ -20,6 +20,9 @@ try_.defaults.set(
     compilator_goma_jobs = goma.jobs.J300,
     execution_timeout = try_.DEFAULT_EXECUTION_TIMEOUT,
     goma_backend = goma.backend.RBE_PROD,
+
+    # TODO(crbug.com/1362440): remove this.
+    omit_python2 = False,
     orchestrator_cores = 4,
     reclient_instance = reclient.instance.DEFAULT_UNTRUSTED,
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CQ,
@@ -94,6 +97,15 @@ try_.builder(
     ],
 )
 
+try_.builder(
+    name = "android-13-x64-rel",
+    mirrors = [
+        "ci/android-13-x64-rel",
+    ],
+    goma_backend = None,
+    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+)
+
 try_.orchestrator_builder(
     name = "android-arm64-rel",
     branch_selector = branches.selector.ANDROID_BRANCHES,
@@ -117,6 +129,7 @@ try_.orchestrator_builder(
     # TODO(crbug.com/1372179): Use orchestrator pool once overloaded test pools
     # are addressed
     # use_orchestrator_pool = True,
+    use_clang_coverage = True,
 )
 
 try_.orchestrator_builder(
@@ -136,6 +149,7 @@ try_.orchestrator_builder(
         "chromium_rts.inverted_rts": 100,
         "chromium_rts.inverted_rts_bail_early": 100,
     },
+    use_clang_coverage = True,
     use_orchestrator_pool = True,
 )
 
@@ -440,37 +454,12 @@ try_.builder(
     ),
 )
 
-# TODO(crbug/1182468) Remove when experiment is done.
-try_.builder(
-    name = "android-pie-arm64-coverage-experimental-rel",
-    mirrors = ["ci/android-pie-arm64-coverage-experimental-rel"],
-    builderless = True,
-    cores = 16,
-    ssd = True,
-    goma_backend = None,
-    main_list_view = "try",
-    tryjob = try_.job(
-        experiment_percentage = 3,
-    ),
-    use_clang_coverage = True,
-)
-
 try_.builder(
     name = "android-pie-x86-rel",
     mirrors = [
         "ci/android-pie-x86-rel",
     ],
     goma_backend = None,
-)
-
-# TODO(crbug/1182468) Remove when coverage is enabled on CQ.
-try_.builder(
-    name = "android-pie-arm64-coverage-rel",
-    mirrors = ["ci/android-code-coverage-native"],
-    cores = 16,
-    ssd = True,
-    goma_backend = None,
-    use_clang_coverage = True,
 )
 
 try_.builder(
@@ -606,14 +595,15 @@ try_.builder(
     name = "android_compile_dbg",
     branch_selector = branches.selector.ANDROID_BRANCHES,
     mirrors = [
-        "ci/Android arm64 Builder (dbg)",
+        "ci/Android arm64 Builder All Targets (dbg)",
     ],
     try_settings = builder_config.try_settings(
         include_all_triggered_testers = True,
         is_compile_only = True,
     ),
     builderless = not settings.is_main,
-    cores = 32 if settings.is_main else 8,
+    cores = 32 if settings.is_main else 16,
+    ssd = True,
     goma_backend = None,
     main_list_view = "try",
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CQ,
@@ -766,4 +756,16 @@ try_.gpu.optional_tests_builder(
             cq.location_filter(path_regexp = "ui/gl/.+"),
         ],
     ),
+)
+
+try_.builder(
+    name = "android-code-coverage",
+    mirrors = ["ci/android-code-coverage"],
+    execution_timeout = 20 * time.hour,
+)
+
+try_.builder(
+    name = "android-code-coverage-native",
+    mirrors = ["ci/android-code-coverage-native"],
+    execution_timeout = 20 * time.hour,
 )

@@ -33,8 +33,9 @@
 #include <memory>
 #include <utility>
 
-#include "base/bind.h"
-#include "base/callback_helpers.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
+#include "base/task/single_thread_task_runner.h"
 #include "build/build_config.h"
 #include "cc/test/test_ukm_recorder_factory.h"
 #include "cc/trees/layer_tree_host.h"
@@ -48,6 +49,7 @@
 #include "third_party/blink/public/common/frame/fenced_frame_sandbox_flags.h"
 #include "third_party/blink/public/common/frame/frame_policy.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
+#include "third_party/blink/public/mojom/frame/frame_owner_properties.mojom.h"
 #include "third_party/blink/public/mojom/frame/frame_replication_state.mojom-blink.h"
 #include "third_party/blink/public/mojom/frame/frame_replication_state.mojom.h"
 #include "third_party/blink/public/mojom/frame/intrinsic_sizing_info.mojom-blink.h"
@@ -343,12 +345,13 @@ WebRemoteFrameImpl* CreateRemoteChild(
   auto* frame = To<WebRemoteFrameImpl>(parent).CreateRemoteChild(
       mojom::blink::TreeScopeType::kDocument, RemoteFrameToken(),
       /*is_loading=*/false,
-      /*devtools_frame_token=*/base::UnguessableToken(), /*opener=*/nullptr,
+      /*devtools_frame_token=*/base::UnguessableToken(),
+      /*opener=*/nullptr,
       CreateStubRemoteIfNeeded<mojom::blink::RemoteFrameHost>(
           mojo::NullAssociatedRemote()),
       mojo::AssociatedRemote<mojom::blink::RemoteFrame>()
           .BindNewEndpointAndPassDedicatedReceiver(),
-      std::move(replicated_state));
+      std::move(replicated_state), mojom::blink::FrameOwnerProperties::New());
   return frame;
 }
 
@@ -819,10 +822,7 @@ void TestWebFrameClient::CommitNavigation(
 
   KURL url = info->url_request.Url();
   if (url.IsAboutSrcdocURL()) {
-    // If we are loading an about:srcdoc frame in a Blink unit test, then we are
-    // guaranteed to have a local parent.
-    blink::WebLocalFrame* parent = frame_->Parent()->ToWebLocalFrame();
-    params->fallback_srcdoc_base_url = parent->GetDocument().BaseURL();
+    params->fallback_srcdoc_base_url = info->requestor_base_url;
     TestWebFrameHelper::FillStaticResponseForSrcdocNavigation(frame_,
                                                               params.get());
   }

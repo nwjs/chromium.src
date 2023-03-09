@@ -10,11 +10,13 @@
 #include "content/public/test/browser_test.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
+namespace headless {
+
 class HeadlessModeBrowserTest : public InProcessBrowserTest {
  public:
   static constexpr char kHeadlessSwitchValue[] = "new";
 
-  HeadlessModeBrowserTest() = default;
+  HeadlessModeBrowserTest();
 
   HeadlessModeBrowserTest(const HeadlessModeBrowserTest&) = delete;
   HeadlessModeBrowserTest& operator=(const HeadlessModeBrowserTest&) = delete;
@@ -23,6 +25,9 @@ class HeadlessModeBrowserTest : public InProcessBrowserTest {
 
   void SetUpCommandLine(base::CommandLine* command_line) override;
   void SetUpOnMainThread() override;
+
+ protected:
+  bool headful_mode_ = false;
 };
 
 enum StartWindowMode {
@@ -51,5 +56,7 @@ class HeadlessModeBrowserTestWithStartWindowMode
 
 // Toggles browser fullscreen mode synchronously.
 void ToggleFullscreenModeSync(Browser* browser);
+
+}  // namespace headless
 
 #endif  // CHROME_BROWSER_HEADLESS_HEADLESS_MODE_BROWSERTEST_H_

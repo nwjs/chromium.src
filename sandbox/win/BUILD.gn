@@ -101,8 +101,6 @@ static_library("sandbox") {
     "src/sandbox_policy_diagnostic.h",
     "src/sandbox_rand.cc",
     "src/sandbox_rand.h",
-    "src/sandbox_utils.cc",
-    "src/sandbox_utils.h",
     "src/security_capabilities.cc",
     "src/security_capabilities.h",
     "src/service_resolver.cc",
@@ -171,7 +169,10 @@ static_library("sandbox") {
     "//base:base_static",
   ]
 
-  libs = [ "userenv.lib" ]
+  libs = [
+    "ntdll.lib",
+    "userenv.lib",
+  ]
 }
 
 test("sbox_integration_tests") {
@@ -288,6 +289,7 @@ test("sbox_unittests") {
     "src/restricted_token_unittest.cc",
     "src/sandbox_nt_util_unittest.cc",
     "src/service_resolver_unittest.cc",
+    "src/target_process_unittest.cc",
     "src/threadpool_unittest.cc",
     "src/win_utils_unittest.cc",
     "tests/common/test_utils.cc",

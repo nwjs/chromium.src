@@ -78,11 +78,12 @@
 #include "ash/wm/work_area_insets.h"
 #include "ash/wm/workspace/workspace_layout_manager.h"
 #include "ash/wm/workspace_controller.h"
-#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/cxx17_backports.h"
+#include "base/functional/bind.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/ranges/algorithm.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/client/drag_drop_client.h"
@@ -797,8 +798,7 @@ void RootWindowController::ShowContextMenu(const gfx::Point& location_in_screen,
   // that the launcher UI is fullscreen in tablet mode, so the whole root window
   // can be perceived by users to be part of the launcher.
   auto* const app_list_controller = Shell::Get()->app_list_controller();
-  if (features::IsLauncherAppSortEnabled() && tablet_mode &&
-      app_list_controller->IsVisible(display_id) &&
+  if (tablet_mode && app_list_controller->IsVisible(display_id) &&
       app_list_controller->GetCurrentAppListPage() ==
           AppListState::kStateApps) {
     ui::SimpleMenuModel* menu_model = root_window_menu_model_adapter_->model();

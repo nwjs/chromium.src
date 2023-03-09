@@ -16,9 +16,10 @@ import 'chrome://resources/polymer/v3_0/iron-icon/iron-icon.js';
 import '../../settings_shared.css.js';
 
 import {I18nBehavior, I18nBehaviorInterface} from 'chrome://resources/ash/common/i18n_behavior.js';
-import {AuthFactor, FactorObserverInterface, FactorObserverReceiver, ManagementType, RecoveryFactorEditor_ConfigureResult} from 'chrome://resources/mojo/chromeos/ash/services/auth_factor_config/public/mojom/auth_factor_config.mojom-webui.js';
-import {html, mixinBehaviors, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+import {AuthFactor, ConfigureResult, FactorObserverInterface, FactorObserverReceiver, ManagementType} from 'chrome://resources/mojo/chromeos/ash/services/auth_factor_config/public/mojom/auth_factor_config.mojom-webui.js';
+import {mixinBehaviors, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
+import {getTemplate} from './local_data_recovery_dialog.html.js';
 import {LockScreenUnlockType, LockStateBehavior, LockStateBehaviorInterface} from './lock_state_behavior.js';
 
 /**
@@ -42,7 +43,7 @@ class LocalDataRecoveryDialogElement extends
   }
 
   static get template() {
-    return html`{__html_template__}`;
+    return getTemplate();
   }
 
   static get properties() {
@@ -93,7 +94,7 @@ class LocalDataRecoveryDialogElement extends
 
       const {result} = await this.recoveryFactorEditor.configure(
           this.authToken.token, false);
-      if (result !== RecoveryFactorEditor_ConfigureResult.kSuccess) {
+      if (result !== ConfigureResult.kSuccess) {
         console.error('RecoveryFactorEditor::Configure failed:', result);
       }
     } finally {

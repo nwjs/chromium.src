@@ -11,9 +11,9 @@
 #include <string>
 #include <vector>
 
-#include "base/callback_forward.h"
 #include "base/containers/flat_set.h"
 #include "base/files/file_util.h"
+#include "base/functional/callback_forward.h"
 #include "base/pickle.h"
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
@@ -850,8 +850,7 @@ TEST_F(DataOfferTest, SetClipboardDataImage) {
   ASSERT_TRUE(gfx::PNGCodec::Decode(
       reinterpret_cast<const unsigned char*>(result.data()), result.size(),
       &decoded));
-  EXPECT_TRUE(cc::MatchesBitmap(
-      image, decoded, cc::ExactPixelComparator(/*discard_alpha=*/false)));
+  EXPECT_TRUE(cc::MatchesBitmap(image, decoded, cc::ExactPixelComparator()));
   std::string good = result;
   ASSERT_TRUE(ReadString(std::move(read_pipe2), &result));
   EXPECT_EQ(good, result);

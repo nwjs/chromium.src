@@ -20,7 +20,7 @@
 #include "ash/session/test_pref_service_provider.h"
 #include "ash/shell.h"
 #include "ash/test/ash_test_base.h"
-#include "base/bind.h"
+#include "base/functional/bind.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/scoped_feature_list.h"
 #include "chromeos/dbus/power/fake_power_manager_client.h"
@@ -113,6 +113,7 @@ TEST_F(AccessibilityControllerTest, PrefsAreRegistered) {
   EXPECT_TRUE(prefs->FindPreference(prefs::kAccessibilityScreenMagnifierScale));
   EXPECT_TRUE(
       prefs->FindPreference(prefs::kAccessibilitySpokenFeedbackEnabled));
+  EXPECT_TRUE(prefs->FindPreference(prefs::kAccessibilityChromeVoxAutoRead));
   EXPECT_TRUE(prefs->FindPreference(prefs::kAccessibilityStickyKeysEnabled));
   EXPECT_TRUE(prefs->FindPreference(prefs::kAccessibilityShortcutsEnabled));
   EXPECT_TRUE(

@@ -205,11 +205,12 @@ void PrerenderPageLoadMetricsObserver::OnFirstPaintInPage(
           internal::PageLoadPrerenderForegroundCheckEvent::kFirstPaint)) {
     return;
   }
+  base::TimeDelta activation_to_fp =
+      page_load_metrics::CorrectEventAsNavigationOrActivationOrigined(
+          GetDelegate(), timing.paint_timing->first_paint.value());
   base::UmaHistogramCustomTimes(
       AppendSuffix(internal::kHistogramPrerenderActivationToFirstPaint),
-      timing.paint_timing->first_paint.value() -
-          timing.activation_start.value(),
-      base::Milliseconds(10), base::Minutes(10), 100);
+      activation_to_fp, base::Milliseconds(10), base::Minutes(10), 100);
 }
 
 void PrerenderPageLoadMetricsObserver::OnFirstContentfulPaintInPage(
@@ -225,8 +226,8 @@ void PrerenderPageLoadMetricsObserver::OnFirstContentfulPaintInPage(
     return;
   }
   base::TimeDelta activation_to_fcp =
-      timing.paint_timing->first_contentful_paint.value() -
-      timing.activation_start.value();
+      page_load_metrics::CorrectEventAsNavigationOrActivationOrigined(
+          GetDelegate(), timing.paint_timing->first_contentful_paint.value());
   base::UmaHistogramCustomTimes(
       AppendSuffix(
           internal::kHistogramPrerenderActivationToFirstContentfulPaint),

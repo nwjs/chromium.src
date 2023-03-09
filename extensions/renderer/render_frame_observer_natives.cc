@@ -6,7 +6,7 @@
 
 #include <utility>
 
-#include "base/bind.h"
+#include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/task/single_thread_task_runner.h"
 #include "content/public/renderer/render_frame.h"
@@ -35,7 +35,7 @@ class LoadWatcher : public content::RenderFrameObserver {
 
   void DidCreateDocumentElement() override {
     if (wait_for_next_) {
-      base::ThreadTaskRunnerHandle::Get()->PostTask(FROM_HERE,
+      base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(FROM_HERE,
                                              base::BindOnce(&LoadWatcher::DidCreateDocumentElement, base::Unretained(this)));
       wait_for_next_ = false;
       return;
@@ -75,7 +75,7 @@ class CloseWatcher : public content::RenderFrameObserver {
   }
 
   void OnDestruct() override {
-    base::ThreadTaskRunnerHandle::Get()->PostTask(
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
           FROM_HERE,
           base::BindOnce(&CloseWatcher::CallbackAndDie, base::Unretained(this),
                      routing_id()));

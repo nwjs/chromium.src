@@ -32,26 +32,6 @@ BASE_FEATURE(kAdaptiveScreenBrightnessLogging,
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-// Shows settings to adjust and disable touchpad haptic feedback.
-BASE_FEATURE(kAllowDisableTouchpadHapticFeedback,
-             "AllowDisableTouchpadHapticFeedback",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
-
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-// Shows settings to adjust the touchpad haptic click settings.
-BASE_FEATURE(kAllowTouchpadHapticClickSettings,
-             "AllowTouchpadHapticClickSettings",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // defined(IS_CHROMEOS_ASH)
-
-#if BUILDFLAG(IS_ANDROID)
-BASE_FEATURE(kAnonymousUpdateChecks,
-             "AnonymousUpdateChecks",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
-
-#if BUILDFLAG(IS_CHROMEOS_ASH)
 BASE_FEATURE(kAppManagementAppDetails,
              "AppManagementAppDetails",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -60,6 +40,12 @@ BASE_FEATURE(kAppManagementAppDetails,
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 BASE_FEATURE(kAppDeduplicationService,
              "AppDeduplicationService",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+BASE_FEATURE(kAppDeduplicationServiceFondue,
+             "AppDeduplicationServiceFondue",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
@@ -179,11 +165,6 @@ BASE_FEATURE(kCrostiniAnsibleSoftwareManagement,
 // Enables support for sideloading android apps into Arc via crostini.
 BASE_FEATURE(kCrostiniArcSideload,
              "CrostiniArcSideload",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enables custom UI for forcibly closing unresponsive windows.
-BASE_FEATURE(kCrostiniForceClose,
-             "CrostiniForceClose",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables distributed model for TPM1.2, i.e., using tpm_managerd and
@@ -384,13 +365,6 @@ const base::FeatureParam<bool> kDnsOverHttpsShowUiParam {
 const base::FeatureParam<std::string> kDnsOverHttpsTemplatesParam{
     &kDnsOverHttps, "Templates", ""};
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-// Enables the DNS-Over-HTTPS in the DNS proxy.
-BASE_FEATURE(kDnsProxyEnableDOH,
-             "DnsProxyEnableDOH",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
-
 #if BUILDFLAG(IS_ANDROID)
 // Enable loading native libraries earlier in startup on Android.
 BASE_FEATURE(kEarlyLibraryLoad,
@@ -422,12 +396,6 @@ BASE_FEATURE(kExtensionDeferredIndividualSettings,
              "ExtensionDeferredIndividualSettings",
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
-
-// Controls whether the user justification text field is visible on the
-// extension request dialog.
-BASE_FEATURE(kExtensionWorkflowJustification,
-             "ExtensionWorkflowJustification",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, this feature's |kExternalInstallDefaultButtonKey| field trial
 // parameter value controls which |ExternalInstallBubbleAlert| button is the
@@ -563,6 +531,11 @@ const base::FeatureParam<base::TimeDelta>
 BASE_FEATURE(kHappinessTrackingSystem,
              "HappinessTrackingSystem",
              base::FEATURE_DISABLED_BY_DEFAULT);
+// Enables or disables the Happiness Tracking System for Bluetooth revamp
+// survey.
+BASE_FEATURE(kHappinessTrackingSystemBluetoothRevamp,
+             "HappinessTrackingSystemBluetoothRevamp",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 // Enables or disables the Happiness Tracking System for the Ent survey.
 BASE_FEATURE(kHappinessTrackingSystemEnt,
              "HappinessTrackingSystemEnt",
@@ -623,6 +596,10 @@ BASE_FEATURE(kHappinessTrackingPhotosExperience,
 BASE_FEATURE(kHappinessTrackingGeneralCamera,
              "HappinessTrackingGeneralCamera",
              base::FEATURE_DISABLED_BY_DEFAULT);
+// Enables the Happiness Tracking System for Privacy Hub baseline survey.
+BASE_FEATURE(kHappinessTrackingPrivacyHubBaseline,
+             "HappinessTrackingPrivacyHubBaseline",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
 // Hides the origin text from showing up briefly in WebApp windows.
@@ -632,6 +609,11 @@ BASE_FEATURE(kHideWebAppOriginText,
 
 // Sets whether the HTTPS-Only Mode setting is displayed in the settings UI.
 BASE_FEATURE(kHttpsOnlyMode, "HttpsOnlyMode", base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables the new implementation of HTTPS-First Mode.
+BASE_FEATURE(kHttpsFirstModeV2,
+             "HttpsFirstModeV2",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables automatically upgrading main frame navigations to HTTPS.
 BASE_FEATURE(kHttpsUpgrades,
@@ -741,6 +723,12 @@ constexpr base::FeatureParam<base::TimeDelta> kKAnonymityServiceQueryInterval{
 // Query k-anonymity servers.
 BASE_FEATURE(kKAnonymityServiceOHTTPRequests,
              "KAnonymityServiceOHTTPRequests",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, the k-Anonymity Service can use a persistent storage to cache
+// public keys.
+BASE_FEATURE(kKAnonymityServiceStorage,
+             "KAnonymityServiceStorage",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, removes any entry points to the history UI from Incognito mode.
@@ -922,8 +910,6 @@ BASE_FEATURE(kPrerenderFallbackToPreconnect,
              "PrerenderFallbackToPreconnect",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kPrivacyGuide2, "PrivacyGuide2", base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kPrivacyGuideAndroid,
              "PrivacyGuideAndroid",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -967,17 +953,11 @@ BASE_FEATURE(kRemoveSupervisedUsersOnStartup,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
-#if BUILDFLAG(IS_ANDROID)
-BASE_FEATURE(kRequestDesktopSiteForTablets,
-             "RequestDesktopSiteForTablets",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
-
 #if !BUILDFLAG(IS_ANDROID)
 // Enables notification permission module in Safety Check.
 BASE_FEATURE(kSafetyCheckNotificationPermissions,
              "SafetyCheckNotificationPermissions",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 const base::FeatureParam<int>
     kSafetyCheckNotificationPermissionsMinEnagementLimit{
@@ -1102,6 +1082,11 @@ BASE_FEATURE(kTreatUnsafeDownloadsAsActive,
              "TreatUnsafeDownloadsAsActive",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Block downloads delivered over insecure transports (i.e. not over HTTPS).
+BASE_FEATURE(kBlockInsecureDownloads,
+             "BlockInsecureDownloads",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // TrustSafetySentimentSurvey
 #if !BUILDFLAG(IS_ANDROID)
 // Enables surveying of users of Trust & Safety features with HaTS.
@@ -1158,6 +1143,22 @@ const base::FeatureParam<double>
     kTrustSafetySentimentSurveyPrivacySandbox3NoticeLearnMoreProbability{
         &kTrustSafetySentimentSurvey,
         "privacy-sandbox-3-notice-learn-more-probability", 0.2};
+const base::FeatureParam<double>
+    kTrustSafetySentimentSurveyPrivacySandbox4ConsentAcceptProbability{
+        &kTrustSafetySentimentSurvey,
+        "privacy-sandbox-4-consent-accept-probability", 0.0};
+const base::FeatureParam<double>
+    kTrustSafetySentimentSurveyPrivacySandbox4ConsentDeclineProbability{
+        &kTrustSafetySentimentSurvey,
+        "privacy-sandbox-4-consent-decline-probability", 0.0};
+const base::FeatureParam<double>
+    kTrustSafetySentimentSurveyPrivacySandbox4NoticeOkProbability{
+        &kTrustSafetySentimentSurvey, "privacy-sandbox-4-notice-ok-probability",
+        0.0};
+const base::FeatureParam<double>
+    kTrustSafetySentimentSurveyPrivacySandbox4NoticeSettingsProbability{
+        &kTrustSafetySentimentSurvey,
+        "privacy-sandbox-4-notice-settings-probability", 0.0};
 // The HaTS trigger IDs, which determine which survey is delivered from the HaTS
 // backend.
 const base::FeatureParam<std::string>
@@ -1193,6 +1194,22 @@ extern const base::FeatureParam<std::string>
     kTrustSafetySentimentSurveyPrivacySandbox3NoticeLearnMoreTriggerId{
         &kTrustSafetySentimentSurvey,
         "privacy-sandbox-3-notice-learn-more-trigger-id", ""};
+extern const base::FeatureParam<std::string>
+    kTrustSafetySentimentSurveyPrivacySandbox4ConsentAcceptTriggerId{
+        &kTrustSafetySentimentSurvey,
+        "privacy-sandbox-4-consent-accept-trigger-id", ""};
+extern const base::FeatureParam<std::string>
+    kTrustSafetySentimentSurveyPrivacySandbox4ConsentDeclineTriggerId{
+        &kTrustSafetySentimentSurvey,
+        "privacy-sandbox-4-consent-decline-trigger-id", ""};
+extern const base::FeatureParam<std::string>
+    kTrustSafetySentimentSurveyPrivacySandbox4NoticeOkTriggerId{
+        &kTrustSafetySentimentSurvey, "privacy-sandbox-4-notice-ok-trigger-id",
+        ""};
+extern const base::FeatureParam<std::string>
+    kTrustSafetySentimentSurveyPrivacySandbox4NoticeSettingsTriggerId{
+        &kTrustSafetySentimentSurvey,
+        "privacy-sandbox-4-notice-settings-trigger-id", ""};
 // The time the user must remain on settings after interacting with a privacy
 // setting to be considered.
 const base::FeatureParam<base::TimeDelta>
@@ -1263,6 +1280,22 @@ const base::FeatureParam<double>
 const base::FeatureParam<double>
     kTrustSafetySentimentSurveyV2PrivacyGuideProbability{
         &kTrustSafetySentimentSurveyV2, "privacy-guide-probability", 0.0};
+const base::FeatureParam<double>
+    kTrustSafetySentimentSurveyV2PrivacySandbox4ConsentAcceptProbability{
+        &kTrustSafetySentimentSurveyV2,
+        "privacy-sandbox-4-consent-accept-probability", 0.0};
+const base::FeatureParam<double>
+    kTrustSafetySentimentSurveyV2PrivacySandbox4ConsentDeclineProbability{
+        &kTrustSafetySentimentSurveyV2,
+        "privacy-sandbox-4-consent-decline-probability", 0.0};
+const base::FeatureParam<double>
+    kTrustSafetySentimentSurveyV2PrivacySandbox4NoticeOkProbability{
+        &kTrustSafetySentimentSurveyV2,
+        "privacy-sandbox-4-notice-ok-probability", 0.0};
+const base::FeatureParam<double>
+    kTrustSafetySentimentSurveyV2PrivacySandbox4NoticeSettingsProbability{
+        &kTrustSafetySentimentSurveyV2,
+        "privacy-sandbox-4-notice-settings-probability", 0.0};
 // The HaTS trigger IDs, which determine which survey is delivered from the HaTS
 // backend.
 const base::FeatureParam<std::string>
@@ -1283,6 +1316,22 @@ const base::FeatureParam<std::string>
 const base::FeatureParam<std::string>
     kTrustSafetySentimentSurveyV2PrivacyGuideTriggerId{
         &kTrustSafetySentimentSurveyV2, "privacy-guide-trigger-id", ""};
+extern const base::FeatureParam<std::string>
+    kTrustSafetySentimentSurveyV2PrivacySandbox4ConsentAcceptTriggerId{
+        &kTrustSafetySentimentSurveyV2,
+        "privacy-sandbox-4-consent-accept-trigger-id", ""};
+extern const base::FeatureParam<std::string>
+    kTrustSafetySentimentSurveyV2PrivacySandbox4ConsentDeclineTriggerId{
+        &kTrustSafetySentimentSurveyV2,
+        "privacy-sandbox-4-consent-decline-trigger-id", ""};
+extern const base::FeatureParam<std::string>
+    kTrustSafetySentimentSurveyV2PrivacySandbox4NoticeOkTriggerId{
+        &kTrustSafetySentimentSurveyV2,
+        "privacy-sandbox-4-notice-ok-trigger-id", ""};
+extern const base::FeatureParam<std::string>
+    kTrustSafetySentimentSurveyV2PrivacySandbox4NoticeSettingsTriggerId{
+        &kTrustSafetySentimentSurveyV2,
+        "privacy-sandbox-4-notice-settings-trigger-id", ""};
 // The time the user must have the Trusted Surface bubble open to be considered.
 // Alternatively the user can interact with the bubble, in which case this time
 // is irrelevant.
@@ -1317,7 +1366,17 @@ BASE_FEATURE(kUserActivityEventLogging,
 BASE_FEATURE(kWebAppManifestIconUpdating,
              "WebAppManifestIconUpdating",
              base::FEATURE_DISABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_ANDROID)
+
+BASE_FEATURE(
+    kWebAppManifestImmediateUpdating,
+    "WebAppManifestImmediateUpdating",
+    // TODO(https://crbug.com/1344367): Enable on Mac. Currently disabled due to
+    // WebAppIntegration test failures likely due to app shim problems.
+    // TODO(https://crbug.com/1410528): Enable on platforms after WCO
+    // integration is fixed.
+    base::FEATURE_DISABLED_BY_DEFAULT
+);
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 BASE_FEATURE(kWebAppManifestPolicyAppIdentityUpdate,
              "WebAppManifestPolicyAppIdentityUpdate",
@@ -1446,9 +1505,14 @@ const base::FeatureParam<SearchSuggestionPrerenderImplementationType>
         SearchSuggestionPrerenderImplementationType::kIgnorePrefetch,
         &search_suggestion_implementation_types};
 
+BASE_FEATURE(kAutocompleteActionPredictorConfidenceCutoff,
+             "AutocompleteActionPredictorConfidenceCutoff",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables omnibox trigger no state prefetch. Only one of
 // kOmniboxTriggerForPrerender2 or kOmniboxTriggerForNoStatePrefetch can be
-// enabled in the experiment.
+// enabled in the experiment. If both are enabled, only
+// kOmniboxTriggerForPrerender2 takes effect.
 // TODO(crbug.com/1267731): Remove this flag once the experiments are completed.
 BASE_FEATURE(kOmniboxTriggerForNoStatePrefetch,
              "OmniboxTriggerForNoStatePrefetch",
@@ -1466,5 +1530,9 @@ BASE_FEATURE(kSupportsRtcWakeOver24Hours,
 BASE_FEATURE(kUseWebAppDBInsteadOfExternalPrefs,
              "UseWebAppDBInsteadOfExternalPrefs",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kWebAuthFlowInBrowserTab,
+             "WebAuthFlowInBrowserTab",
+             base::FeatureState::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace features

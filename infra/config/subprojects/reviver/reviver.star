@@ -121,6 +121,7 @@ polymorphic.launcher(
                 builderless = True,
                 os = os.MAC_DEFAULT,
                 cpu = cpu.X86_64,
+                ssd = True,
                 free_space = free_space.standard,
             ),
             testers = [

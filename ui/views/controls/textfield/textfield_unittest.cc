@@ -2707,6 +2707,100 @@ TEST_F(TextfieldTest, CutCopyPasteWithEditCommand) {
   EXPECT_EQ(u"oo", textfield_->GetText());
 }
 
+TEST_F(TextfieldTest, SelectWordFromEmptySelection) {
+  InitTextfield();
+  textfield_->SetText(u"ab cde.123 4");
+
+  // Place the cursor at the beginning of the text.
+  textfield_->SetEditableSelectionRange(gfx::Range(0));
+  EXPECT_TRUE(textfield_->IsCommandIdEnabled(Textfield::kSelectWord));
+  textfield_->ExecuteCommand(Textfield::kSelectWord, 0);
+  EXPECT_EQ(u"ab", textfield_->GetSelectedText());
+  EXPECT_EQ(gfx::Range(0, 2), textfield_->GetSelectedRange());
+
+  // Place the cursor after "c".
+  textfield_->SetEditableSelectionRange(gfx::Range(4));
+  EXPECT_TRUE(textfield_->IsCommandIdEnabled(Textfield::kSelectWord));
+  textfield_->ExecuteCommand(Textfield::kSelectWord, 0);
+  EXPECT_EQ(u"cde", textfield_->GetSelectedText());
+  EXPECT_EQ(gfx::Range(3, 6), textfield_->GetSelectedRange());
+
+  // Place the cursor after "2".
+  textfield_->SetEditableSelectionRange(gfx::Range(9));
+  EXPECT_TRUE(textfield_->IsCommandIdEnabled(Textfield::kSelectWord));
+  textfield_->ExecuteCommand(Textfield::kSelectWord, 0);
+  EXPECT_EQ(u"123", textfield_->GetSelectedText());
+  EXPECT_EQ(gfx::Range(7, 10), textfield_->GetSelectedRange());
+
+  // Place the cursor at the end of the text.
+  textfield_->SetEditableSelectionRange(gfx::Range(12));
+  EXPECT_TRUE(textfield_->IsCommandIdEnabled(Textfield::kSelectWord));
+  textfield_->ExecuteCommand(Textfield::kSelectWord, 0);
+  EXPECT_EQ(u"4", textfield_->GetSelectedText());
+  EXPECT_EQ(gfx::Range(11, 12), textfield_->GetSelectedRange());
+}
+
+TEST_F(TextfieldTest, SelectWordFromNonEmptySelection) {
+  InitTextfield();
+  textfield_->SetText(u"ab cde.123 4");
+
+  // Select "b".
+  textfield_->SetEditableSelectionRange(gfx::Range(1, 2));
+  EXPECT_TRUE(textfield_->IsCommandIdEnabled(Textfield::kSelectWord));
+  textfield_->ExecuteCommand(Textfield::kSelectWord, 0);
+  EXPECT_EQ(u"ab", textfield_->GetSelectedText());
+  EXPECT_EQ(gfx::Range(0, 2), textfield_->GetSelectedRange());
+
+  // Select "b c"
+  textfield_->SetEditableSelectionRange(gfx::Range(1, 4));
+  EXPECT_TRUE(textfield_->IsCommandIdEnabled(Textfield::kSelectWord));
+  textfield_->ExecuteCommand(Textfield::kSelectWord, 0);
+  EXPECT_EQ(u"ab cde", textfield_->GetSelectedText());
+  EXPECT_EQ(gfx::Range(0, 6), textfield_->GetSelectedRange());
+
+  // Select "e."
+  textfield_->SetEditableSelectionRange(gfx::Range(5, 7));
+  EXPECT_TRUE(textfield_->IsCommandIdEnabled(Textfield::kSelectWord));
+  textfield_->ExecuteCommand(Textfield::kSelectWord, 0);
+  EXPECT_EQ(u"cde.", textfield_->GetSelectedText());
+  EXPECT_EQ(gfx::Range(3, 7), textfield_->GetSelectedRange());
+
+  // Select "e.1"
+  textfield_->SetEditableSelectionRange(gfx::Range(5, 8));
+  EXPECT_TRUE(textfield_->IsCommandIdEnabled(Textfield::kSelectWord));
+  textfield_->ExecuteCommand(Textfield::kSelectWord, 0);
+  EXPECT_EQ(u"cde.123", textfield_->GetSelectedText());
+  EXPECT_EQ(gfx::Range(3, 10), textfield_->GetSelectedRange());
+}
+
+TEST_F(TextfieldTest, SelectWordFromNonAlphaNumericFragment) {
+  InitTextfield();
+  textfield_->SetText(u"  HELLO  !!  WO     RLD");
+
+  // Place the cursor within "  !!  ".
+  textfield_->SetEditableSelectionRange(gfx::Range(8));
+  EXPECT_TRUE(textfield_->IsCommandIdEnabled(Textfield::kSelectWord));
+  textfield_->ExecuteCommand(Textfield::kSelectWord, 0);
+  EXPECT_EQ(u"  !!  ", textfield_->GetSelectedText());
+  EXPECT_EQ(gfx::Range(7, 13), textfield_->GetSelectedRange());
+
+  textfield_->SetEditableSelectionRange(gfx::Range(10));
+  EXPECT_TRUE(textfield_->IsCommandIdEnabled(Textfield::kSelectWord));
+  textfield_->ExecuteCommand(Textfield::kSelectWord, 0);
+  EXPECT_EQ(u"  !!  ", textfield_->GetSelectedText());
+  EXPECT_EQ(gfx::Range(7, 13), textfield_->GetSelectedRange());
+}
+
+TEST_F(TextfieldTest, SelectWordFromWhitespaceFragment) {
+  InitTextfield();
+  textfield_->SetText(u"  HELLO  !!  WO     RLD");
+  textfield_->SetEditableSelectionRange(gfx::Range(17));
+  EXPECT_TRUE(textfield_->IsCommandIdEnabled(Textfield::kSelectWord));
+  textfield_->ExecuteCommand(Textfield::kSelectWord, 0);
+  EXPECT_EQ(u"     ", textfield_->GetSelectedText());
+  EXPECT_EQ(gfx::Range(15, 20), textfield_->GetSelectedRange());
+}
+
 TEST_F(TextfieldTest, OvertypeMode) {
   InitTextfield();
   // Overtype mode should be disabled (no-op [Insert]).
@@ -3706,6 +3800,64 @@ TEST_F(TextfieldTouchSelectionTest, MAYBE_TapOnSelection) {
   textfield_->GetEditableSelectionRange(&range);
   EXPECT_TRUE(test_api_->touch_selection_controller());
   EXPECT_EQ(tap_range, range);
+}
+
+TEST_F(TextfieldTest, MoveCaret) {
+  InitTextfield();
+  textfield_->SetText(u"hello world");
+  const int cursor_y = GetCursorYForTesting();
+  gfx::Range range;
+
+  textfield_->MoveCaret(gfx::Point(GetCursorPositionX(3), cursor_y));
+  textfield_->GetEditableSelectionRange(&range);
+  EXPECT_EQ(range, gfx::Range(3));
+
+  textfield_->MoveCaret(gfx::Point(GetCursorPositionX(0), cursor_y));
+  textfield_->GetEditableSelectionRange(&range);
+  EXPECT_EQ(range, gfx::Range(0));
+
+  textfield_->MoveCaret(gfx::Point(GetCursorPositionX(11), cursor_y));
+  textfield_->GetEditableSelectionRange(&range);
+  EXPECT_EQ(range, gfx::Range(11));
+}
+
+TEST_F(TextfieldTest, MoveRangeSelectionExtent) {
+  InitTextfield();
+  textfield_->SetText(u"hello world");
+  const int cursor_y = GetCursorYForTesting();
+  gfx::Range range;
+
+  textfield_->SelectBetweenCoordinates(
+      gfx::Point(GetCursorPositionX(2), cursor_y),
+      gfx::Point(GetCursorPositionX(3), cursor_y));
+  textfield_->MoveRangeSelectionExtent(
+      gfx::Point(GetCursorPositionX(5), cursor_y));
+  textfield_->GetEditableSelectionRange(&range);
+  EXPECT_EQ(range, gfx::Range(2, 5));
+
+  textfield_->MoveRangeSelectionExtent(
+      gfx::Point(GetCursorPositionX(0), cursor_y));
+  textfield_->GetEditableSelectionRange(&range);
+  EXPECT_EQ(range, gfx::Range(2, 0));
+}
+
+TEST_F(TextfieldTest, SelectBetweenCoordinates) {
+  InitTextfield();
+  textfield_->SetText(u"hello world");
+  const int cursor_y = GetCursorYForTesting();
+  gfx::Range range;
+
+  textfield_->SelectBetweenCoordinates(
+      gfx::Point(GetCursorPositionX(1), cursor_y),
+      gfx::Point(GetCursorPositionX(2), cursor_y));
+  textfield_->GetEditableSelectionRange(&range);
+  EXPECT_EQ(range, gfx::Range(1, 2));
+
+  textfield_->SelectBetweenCoordinates(
+      gfx::Point(GetCursorPositionX(0), cursor_y),
+      gfx::Point(GetCursorPositionX(11), cursor_y));
+  textfield_->GetEditableSelectionRange(&range);
+  EXPECT_EQ(range, gfx::Range(0, 11));
 }
 
 TEST_F(TextfieldTest, AccessiblePasswordTest) {

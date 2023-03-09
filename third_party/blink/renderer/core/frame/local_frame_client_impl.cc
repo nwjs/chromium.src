@@ -513,6 +513,7 @@ void LocalFrameClientImpl::DispatchDidFinishLoadForPrinting() {
 
 void LocalFrameClientImpl::BeginNavigation(
     const ResourceRequest& request,
+    const KURL& requestor_base_url,
     mojom::RequestContextFrameType frame_type,
     LocalDOMWindow* origin_window,
     DocumentLoader* document_loader,
@@ -543,6 +544,7 @@ void LocalFrameClientImpl::BeginNavigation(
 
   auto navigation_info = std::make_unique<WebNavigationInfo>();
   navigation_info->url_request.CopyFrom(WrappedResourceRequest(request));
+  navigation_info->requestor_base_url = requestor_base_url;
   navigation_info->frame_type = frame_type;
   navigation_info->navigation_type = type;
   navigation_info->navigation_policy = static_cast<WebNavigationPolicy>(policy);
@@ -752,11 +754,16 @@ void LocalFrameClientImpl::DidObserveLoadingBehavior(
 
 void LocalFrameClientImpl::DidObserveSubresourceLoad(
     uint32_t number_of_subresources_loaded,
-    uint32_t number_of_subresource_loads_handled_by_service_worker) {
+    uint32_t number_of_subresource_loads_handled_by_service_worker,
+    bool pervasive_payload_requested,
+    int64_t pervasive_bytes_fetched,
+    int64_t total_bytes_fetched) {
   if (web_frame_->Client()) {
     web_frame_->Client()->DidObserveSubresourceLoad(
         number_of_subresources_loaded,
-        number_of_subresource_loads_handled_by_service_worker);
+        number_of_subresource_loads_handled_by_service_worker,
+        pervasive_payload_requested, pervasive_bytes_fetched,
+        total_bytes_fetched);
   }
 }
 
@@ -780,8 +787,7 @@ void LocalFrameClientImpl::DidObserveLayoutShift(double score,
 }
 
 void LocalFrameClientImpl::PreloadSubresourceOptimizationsForOrigins(
-    const WTF::HashSet<scoped_refptr<const SecurityOrigin>, SecurityOriginHash>&
-        origins) {
+    const WTF::HashSet<scoped_refptr<const SecurityOrigin>>& origins) {
   if (WebLocalFrameClient* client = web_frame_->Client()) {
     std::vector<WebSecurityOrigin> origins_list;
     for (const auto& origin : origins) {
@@ -1074,6 +1080,14 @@ void LocalFrameClientImpl::OnMainFrameViewportRectangleChanged(
   DCHECK(web_frame_->Client());
   web_frame_->Client()->OnMainFrameViewportRectangleChanged(
       main_frame_viewport_rect);
+}
+
+void LocalFrameClientImpl::OnMainFrameImageAdRectangleChanged(
+    DOMNodeId element_id,
+    const gfx::Rect& image_ad_rect) {
+  DCHECK(web_frame_->Client());
+  web_frame_->Client()->OnMainFrameImageAdRectangleChanged(element_id,
+                                                           image_ad_rect);
 }
 
 void LocalFrameClientImpl::OnOverlayPopupAdDetected() {

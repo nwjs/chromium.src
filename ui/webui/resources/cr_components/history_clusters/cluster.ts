@@ -7,15 +7,14 @@ import './search_query.js';
 import './history_clusters_shared_style.css.js';
 import './shared_vars.css.js';
 import './url_visit.js';
-import '../../cr_elements/cr_icons.css.js';
+import 'chrome://resources/cr_elements/cr_icons.css.js';
 import 'chrome://resources/polymer/v3_0/iron-collapse/iron-collapse.js';
 import 'chrome://resources/cr_elements/cr_auto_img/cr_auto_img.js';
 
 import {I18nMixin} from 'chrome://resources/cr_elements/i18n_mixin.js';
+import {assert} from 'chrome://resources/js/assert_ts.js';
+import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
-
-import {assert} from '../../js/assert_ts.js';
-import {loadTimeData} from '../../js/load_time_data.js';
 
 import {BrowserProxyImpl} from './browser_proxy.js';
 import {getTemplate} from './cluster.html.js';
@@ -145,6 +144,7 @@ class HistoryClusterElement extends HistoryClusterElementBase {
   private expanded_: boolean;
   private hiddenVisits_: URLVisit[];
   private inSidePanel_: boolean;
+  private onVisitsHiddenListenerId_: number|null = null;
   private onVisitsRemovedListenerId_: number|null = null;
   private unusedLabel_: string;
   private visibleVisits_: URLVisit[];
@@ -159,19 +159,28 @@ class HistoryClusterElement extends HistoryClusterElementBase {
 
     // This element receives a tabindex, because it's an iron-list item.
     // However, what we really want to do is to pass that focus onto an
-    // eligible child, so we set `delegatesFocus` to true.
-    this.attachShadow({mode: 'open', delegatesFocus: true});
+    // eligible child, so we want to set `delegatesFocus` to true. But
+    // delegatesFocus removes the text selection. So temporarily removing
+    // the delegatesFocus until that issue is fixed.
   }
 
   override connectedCallback() {
     super.connectedCallback();
+    this.onVisitsHiddenListenerId_ =
+        this.callbackRouter_.onVisitsHidden.addListener(
+            this.onVisitsRemovedOrHidden_.bind(this));
     this.onVisitsRemovedListenerId_ =
         this.callbackRouter_.onVisitsRemoved.addListener(
-            this.onVisitsRemoved_.bind(this));
+            this.onVisitsRemovedOrHidden_.bind(this));
   }
 
   override disconnectedCallback() {
     super.disconnectedCallback();
+
+    assert(this.onVisitsHiddenListenerId_);
+    this.callbackRouter_.removeListener(this.onVisitsHiddenListenerId_);
+    this.onVisitsHiddenListenerId_ = null;
+
     assert(this.onVisitsRemovedListenerId_);
     this.callbackRouter_.removeListener(this.onVisitsRemovedListenerId_);
     this.onVisitsRemovedListenerId_ = null;
@@ -184,6 +193,16 @@ class HistoryClusterElement extends HistoryClusterElementBase {
   private onRelatedSearchClicked_() {
     MetricsProxyImpl.getInstance().recordClusterAction(
         ClusterAction.kRelatedSearchClicked, this.index);
+  }
+
+  /* Clears selection on non alt mouse clicks. Need to wait for browser to
+   *  update the DOM fully. */
+  private clearSelection_(event: MouseEvent) {
+    this.onBrowserIdle_().then(() => {
+      if (window.getSelection() && !event.altKey) {
+        window.getSelection()?.empty();
+      }
+    });
   }
 
   private onVisitClicked_(event: CustomEvent<URLVisit>) {
@@ -220,9 +239,18 @@ class HistoryClusterElement extends HistoryClusterElementBase {
     }));
   }
 
+  private onHideVisit_(event: CustomEvent<URLVisit>) {
+    // The actual hiding is handled in clusters.ts. This is just a good place to
+    // record the metric.
+    const visit = event.detail;
+    MetricsProxyImpl.getInstance().recordVisitAction(
+        VisitAction.kHidden, this.getVisitIndex_(visit),
+        MetricsProxyImpl.getVisitType(visit));
+  }
+
   private onRemoveVisit_(event: CustomEvent<URLVisit>) {
-    // The actual removal is handled at in clusters.ts. This is just a good
-    // place to record the metric.
+    // The actual removal is handled in clusters.ts. This is just a good place
+    // to record the metric.
     const visit = event.detail;
     MetricsProxyImpl.getInstance().recordVisitAction(
         VisitAction.kDeleted, this.getVisitIndex_(visit),
@@ -266,12 +294,23 @@ class HistoryClusterElement extends HistoryClusterElementBase {
   //============================================================================
 
   /**
-   * Called with the original remove params when the last accepted request to
-   * browser to remove visits succeeds. Since the same visit may appear in
-   * multiple Clusters, all Clusters receive this callback in order to get a
-   * chance to remove their matching visits.
+   * Returns a promise that resolves when the browser is idle.
    */
-  private onVisitsRemoved_(removedVisits: URLVisit[]) {
+  private onBrowserIdle_(): Promise<void> {
+    return new Promise(resolve => {
+      window.requestIdleCallback(() => {
+        resolve();
+      });
+    });
+  }
+
+  /**
+   * Called with the original remove or hide params when the last accepted
+   * request to browser to remove or hide visits succeeds. Since the same visit
+   * may appear in multiple Clusters, all Clusters receive this callback in
+   * order to get a chance to remove their matching visits.
+   */
+  private onVisitsRemovedOrHidden_(removedVisits: URLVisit[]) {
     const visitHasBeenRemoved = (visit: URLVisit) => {
       return removedVisits.findIndex((removedVisit) => {
         if (visit.normalizedUrl.url !== removedVisit.normalizedUrl.url) {

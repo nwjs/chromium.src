@@ -290,13 +290,20 @@ absl::optional<ExtensionId> ValidateSourceContextAndExtractExtensionId(
     // arrive out-of-order), and therefore we can rely on
     // `frame->GetLastCommittedOrigin()` to return the origin of the IPC sender.
     const url::Origin& origin = frame->GetLastCommittedOrigin();
-    if (origin.scheme() != kExtensionScheme) {
+    // Sandboxed extension URLs have access to extension APIs (this is a bit
+    // unusual - typically an opaque origin has no capabilities associated with
+    // the original, precursor origin).  To avoid breaking such scenarios we
+    // need to look at the precursor origin.  See https://crbug.com/1407087 for
+    // an example of breakage avoided by GetTupleOrPrecursorTupleIfOpaque call.
+    const url::SchemeHostPort& scheme_host_port =
+        origin.GetTupleOrPrecursorTupleIfOpaque();
+    if (scheme_host_port.scheme() != kExtensionScheme) {
       bad_message::ReceivedBadMessage(
           &process, bad_message::EMF_NON_EXTENSION_SENDER_FRAME);
       return absl::nullopt;
     }
 
-    return origin.host();
+    return scheme_host_port.host();
   }
 
   DCHECK(source_context.is_for_native_host());
@@ -464,8 +471,16 @@ void MessagingAPIMessageFilter::OnOpenChannelToTab(
 void MessagingAPIMessageFilter::OnOpenMessagePort(const PortContext& source,
                                                   const PortId& port_id) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  if (!browser_context_)
+  auto* process = GetRenderProcessHost();
+  if (!process) {
     return;
+  }
+  TRACE_EVENT("extensions", "MessageFilter::OnOpenMessagePort",
+              ChromeTrackEvent::kRenderProcessHost, *process);
+
+  if (!IsValidSourceContext(*process, source)) {
+    return;
+  }
 
   MessageService::Get(browser_context_)
       ->OpenPort(port_id, render_process_id_, source);
@@ -476,14 +491,21 @@ void MessagingAPIMessageFilter::OnCloseMessagePort(
     const PortId& port_id,
     bool force_close) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  if (!browser_context_)
+  auto* process = GetRenderProcessHost();
+  if (!process) {
     return;
+  }
+  TRACE_EVENT("extensions", "MessageFilter::OnCloseMessagePort",
+              ChromeTrackEvent::kRenderProcessHost, *process);
 
-  // Note, we need to add more stringent IPC validation here.
   if (!port_context.is_for_render_frame() &&
       !port_context.is_for_service_worker()) {
     bad_message::ReceivedBadMessage(render_process_id_,
                                     bad_message::EMF_INVALID_PORT_CONTEXT);
+    return;
+  }
+
+  if (!IsValidSourceContext(*process, port_context)) {
     return;
   }
 
@@ -504,8 +526,16 @@ void MessagingAPIMessageFilter::OnResponsePending(
     const PortContext& port_context,
     const PortId& port_id) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  if (!browser_context_)
+  auto* process = GetRenderProcessHost();
+  if (!process) {
     return;
+  }
+  TRACE_EVENT("extensions", "MessageFilter::OnResponsePending",
+              ChromeTrackEvent::kRenderProcessHost, *process);
+
+  if (!IsValidSourceContext(*process, port_context)) {
+    return;
+  }
 
   MessageService::Get(browser_context_)
       ->NotifyResponsePending(port_id, render_process_id_, port_context);

@@ -13,7 +13,7 @@
 #include <type_traits>
 #include <utility>
 
-#include "base/bind.h"
+#include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/ranges/algorithm.h"
@@ -318,7 +318,7 @@ HardwareDisplayController::GetFormatModifiersForTestModeset(
   return GetFormatModifiers(fourcc_format);
 }
 
-void HardwareDisplayController::UpdatePreferredModiferForFormat(
+void HardwareDisplayController::UpdatePreferredModifierForFormat(
     gfx::BufferFormat buffer_format,
     uint64_t modifier) {
   uint32_t fourcc_format = GetFourCCFormatFromBufferFormat(buffer_format);
@@ -451,7 +451,7 @@ void HardwareDisplayController::OnPageFlipComplete(
     DrmOverlayPlaneList pending_planes,
     const gfx::PresentationFeedback& presentation_feedback) {
   if (!page_flip_request_)
-    return;  // Modeset occured during this page flip.
+    return;  // Modeset occurred during this page flip.
 
   time_of_last_flip_ = presentation_feedback.timestamp;
   current_planes_ = std::move(pending_planes);

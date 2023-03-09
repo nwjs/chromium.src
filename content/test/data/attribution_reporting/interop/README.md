@@ -177,7 +177,15 @@ The JSON schema is as follows.
                 "aggregation_keys": {
                   // Value is uint128 formatted as a base-16 string.
                   "a": "0x1"
-                }
+                },
+
+                // Optional int64 in seconds formatted as a base-10 string.
+                // Default to expiry.
+                "event_report_window": "86400000",
+
+                // Optional int64 in seconds formatted as a base-10 string.
+                // Default to expiry.
+                "aggregatable_report_window": "86400000"
               }
             }
           }
@@ -280,7 +288,11 @@ The JSON schema is as follows.
                 "filters": {
                   "a": ["b", "c"],
                   "d": []
-                }
+                },
+
+                // Optional uint64 formatted as a base-10 string. Defaults to
+                // null.
+                "aggregatable_deduplication_key": "456"
               }
             }
           }
@@ -359,6 +371,20 @@ The JSON schema is as follows.
           // Debug key set on the trigger. Omitted if not set.
           "trigger_debug_key": "789"
         }
+      }
+    ],
+
+    "verbose_debug_reports": [
+      {
+        // Upper bound time at which the report would have been sent in
+        // milliseconds since the UNIX epoch.
+        "report_time": "123",
+
+        // URL to which the report would have been sent.
+        "report_url": "https://reporting.example/.well-known/attribution-reporting/debug/verbose"
+
+        // The body of the report.
+        "payload": [...]
       }
     ]
   }

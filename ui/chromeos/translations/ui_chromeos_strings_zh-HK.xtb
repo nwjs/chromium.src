@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">透過 Linux 安裝</translation>
 <translation id="2225536596944493418">您確定要刪除<ph name="NUMBER_OF_ITEMS" /> 個項目嗎？</translation>
 <translation id="2230062665678605299">無法建立資料夾「<ph name="FOLDER_NAME" />」。<ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">Your Google Drive cache was cleared.</translation>
 <translation id="2239068707900391003">喝咖啡的人</translation>
 <translation id="2251368349685848079">從垃圾桶還原</translation>
 <translation id="2282155092769082568">自動設定網址：</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">找不到符合&lt;b&gt;「<ph name="SEARCH_STRING" />」&lt;/b&gt;的項目</translation>
 <translation id="2894654529758326923">資料</translation>
 <translation id="2902734494705624966">美式改良鍵盤</translation>
+<translation id="2904378509913846215">名稱為「<ph name="FILENAME" />」的資料夾已存在。要取代成您要移動的資料夾嗎？</translation>
 <translation id="290843123675549676">馬拉地文</translation>
 <translation id="2923240520113693977">愛沙尼亞文</translation>
 <translation id="2938685643439809023">蒙古文</translation>
@@ -640,6 +642,7 @@
 <translation id="6241349547798190358">荷蘭文 (比利時)</translation>
 <translation id="6267547857941397424">第 <ph name="NETWORK_INDEX" /> 個網絡，一共有 <ph name="NETWORK_COUNT" /> 個網絡，<ph name="PHONE_NAME" />，訊號強度係 <ph name="SIGNAL_STRENGTH" />%，手機電量係 <ph name="BATTERY_STATUS" />%，連接</translation>
 <translation id="6269630227984243955">馬來文</translation>
+<translation id="6271903698064569429">由於「<ph name="SHARED_DRIVE_NAME" />」的儲存空間不足，因此無法上載檔案。</translation>
 <translation id="6287852322318138013">選取要用來開啟這個檔案的應用程式</translation>
 <translation id="6295542640242147836">鎖定 SIM 卡</translation>
 <translation id="6296410173147755564">PUK 無效</translation>
@@ -685,6 +688,7 @@
 <translation id="6657585470893396449">密碼</translation>
 <translation id="6658865850469097484">垃圾桶中的檔案將於 30 天後自動刪除。</translation>
 <translation id="6673674183150363784">法文 (法國)，BÉPO 鍵盤</translation>
+<translation id="670380500182402678">全部取代</translation>
 <translation id="6710022688720561421">機械人</translation>
 <translation id="6710213216561001401">上一個</translation>
 <translation id="6732801395666424405">未載入憑證</translation>
@@ -903,6 +907,7 @@
 <translation id="8386903983509584791">掃瞄完成</translation>
 <translation id="8387733224523483503">已解壓縮 <ph name="FILE_NAME" />。</translation>
 <translation id="8395901698320285466">尺寸</translation>
+<translation id="8404498045299006085">全部保留</translation>
 <translation id="8408068190360279472"><ph name="NETWORK_TYPE" />網絡，正在連線</translation>
 <translation id="8425213833346101688">變更</translation>
 <translation id="8431909052837336408">變更 SIM 卡的 PIN</translation>

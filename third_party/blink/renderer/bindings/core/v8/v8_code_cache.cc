@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/bindings/core/v8/v8_code_cache.h"
 
+#include "base/metrics/histogram_functions.h"
 #include "build/build_config.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/public/mojom/v8_cache_options.mojom-blink.h"
@@ -43,7 +44,7 @@ uint32_t CacheTag(CacheTagKind kind, const String& encoding) {
   // later load the script from the cache and interpret it with a different
   // encoding, the cached data is not valid for that encoding.
   return (v8_cache_data_version | kind) +
-         (encoding.IsNull() ? 0 : StringHash::GetHash(encoding));
+         (encoding.IsNull() ? 0 : WTF::GetHash(encoding));
 }
 
 // Check previously stored timestamp.
@@ -234,6 +235,7 @@ static void ProduceCacheInternal(
       TRACE_EVENT_BEGIN1(kTraceEventCategoryGroup, trace_name, "fileName",
                          source_url.GetString().Utf8());
 
+      base::ElapsedTimer timer;
       std::unique_ptr<v8::ScriptCompiler::CachedData> cached_data(
           v8::ScriptCompiler::CreateCodeCache(unbound_script));
       if (cached_data) {
@@ -253,6 +255,7 @@ static void ProduceCacheInternal(
         cache_handler->SetCachedMetadata(
             code_cache_host, V8CodeCache::TagForCodeCache(cache_handler), data,
             length);
+        base::UmaHistogramTimes("V8.ProduceCodeCache", timer.Elapsed());
       }
 
       TRACE_EVENT_END1(kTraceEventCategoryGroup, trace_name, "data",

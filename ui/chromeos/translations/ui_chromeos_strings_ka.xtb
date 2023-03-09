@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">დააინსტალირეთ Linux-ის მეშვეობით</translation>
 <translation id="2225536596944493418">ნამდვილად გსურთ, წაშალოთ <ph name="NUMBER_OF_ITEMS" /> ერთეული?</translation>
 <translation id="2230062665678605299">ვერ შეიქმნა საქაღალდე „<ph name="FOLDER_NAME" />“. <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">თქვენი Google Drive-ის ქეში გასუფთავდა.</translation>
 <translation id="2239068707900391003">პიროვნება ყავით</translation>
 <translation id="2251368349685848079">წაშლილებიდან აღდგენა</translation>
 <translation id="2282155092769082568">ავტოკონფიგურაციის URL:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">&lt;b&gt;„<ph name="SEARCH_STRING" />“&lt;/b&gt;-ის შესაბამისი ელემენტები ვერ მოიძებნა</translation>
 <translation id="2894654529758326923">ინფორმაცია</translation>
 <translation id="2902734494705624966">აშშ გაფართოებით</translation>
+<translation id="2904378509913846215">საქაღალდე, სახელად „<ph name="FILENAME" />“, უკვე არსებობს. გსურთ, ჩაანაცვლოთ ის იმ საქაღალდით, რომელიც გადაგაქვთ?</translation>
 <translation id="290843123675549676">მარათული</translation>
 <translation id="2923240520113693977">ესტონური</translation>
 <translation id="2938685643439809023">მონღოლური</translation>
@@ -639,6 +641,7 @@
 <translation id="6241349547798190358">ნიდერლანდური (ბელგია)</translation>
 <translation id="6267547857941397424">ქსელი <ph name="NETWORK_INDEX" />/<ph name="NETWORK_COUNT" />-დან, <ph name="PHONE_NAME" />, სიგნალის სიძლიერე: <ph name="SIGNAL_STRENGTH" />%, ტელეფონის ბატარეა: <ph name="BATTERY_STATUS" />%, დაკავშირება</translation>
 <translation id="6269630227984243955">მალაიური</translation>
+<translation id="6271903698064569429">ფაილების ატვირთვა შეუძლებელია, რადგან <ph name="SHARED_DRIVE_NAME" />-ს არ აქვს საკმარისი მეხსიერება.</translation>
 <translation id="6287852322318138013">აირჩიეთ პროგრამა ამ ფაილის გასახსნელად</translation>
 <translation id="6295542640242147836">SIM ბარათის ჩაკეტვა</translation>
 <translation id="6296410173147755564">PUK-კოდი არასწორია</translation>
@@ -684,6 +687,7 @@
 <translation id="6657585470893396449">პაროლი</translation>
 <translation id="6658865850469097484">30 დღის წინ წაშლილი ფაილები ავტომატურად წაიშლება.</translation>
 <translation id="6673674183150363784">ფრანგული (საფრანგეთი) Bépo კლავიატურით</translation>
+<translation id="670380500182402678">ყველას ჩანაცვლება</translation>
 <translation id="6710022688720561421">რობოტი</translation>
 <translation id="6710213216561001401">წინა</translation>
 <translation id="6732801395666424405">სერტიფიკატები ვერ ჩაიტვირთა</translation>
@@ -902,6 +906,7 @@
 <translation id="8386903983509584791">სკანირება დასრულდა</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" /> ამოღებულია.</translation>
 <translation id="8395901698320285466">ზომები</translation>
+<translation id="8404498045299006085">ყველას შენარჩუნება</translation>
 <translation id="8408068190360279472"><ph name="NETWORK_TYPE" /> ქსელი, მიმდინარეობს დაკავშირება</translation>
 <translation id="8425213833346101688">შეცვლა</translation>
 <translation id="8431909052837336408">SIM ბარათის PIN-კოდის შეცვლა</translation>

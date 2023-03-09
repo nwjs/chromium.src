@@ -258,6 +258,7 @@ linux_memory_builder(
         build_gs_bucket = "chromium-memory-archive",
     ),
     cores = 16,
+    os = os.LINUX_FOCAL,
     ssd = True,
     console_view_entry = consoles.console_view_entry(
         category = "cros|msan",
@@ -287,6 +288,7 @@ linux_memory_builder(
         ),
         build_gs_bucket = "chromium-memory-archive",
     ),
+    os = os.LINUX_FOCAL,
     console_view_entry = consoles.console_view_entry(
         category = "cros|msan",
         short_name = "tst",

@@ -53,6 +53,7 @@ ci.builder(
                     "chrome-unexpected-pass-data",
                     "--no-include-internal-builders",
                     "--remove-stale-expectations",
+                    "--narrow-semi-stale-expectation-scope",
                     "--large-query-mode",
                     "--num-samples",
                     "200",

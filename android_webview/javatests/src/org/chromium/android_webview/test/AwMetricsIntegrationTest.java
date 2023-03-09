@@ -98,8 +98,9 @@ public class AwMetricsIntegrationTest {
             // MetricsUploadService to avoid unexpected failures due to service connections, IPCs
             // ... etc in tests as testing the service behaviour is outside the scope of these
             // integeration tests.
-            AndroidMetricsLogUploader.setUploader(
-                    (byte[] data) -> { PlatformServiceBridge.getInstance().logMetrics(data); });
+            AndroidMetricsLogUploader.setUploader((byte[] data) -> {
+                PlatformServiceBridge.getInstance().logMetrics(data, true);
+            });
 
             // Need to configure the metrics delay first, because
             // handleMinidumpsAndSetMetricsConsent() triggers MetricsService initialization. The
@@ -341,6 +342,7 @@ public class AwMetricsIntegrationTest {
     @Test
     @MediumTest
     @Feature({"AndroidWebView"})
+    @CommandLineFlags.Add({"disable-features=" + MetricsFeatures.EMIT_HISTOGRAMS_EARLIER})
     public void testMetadata_androidHistograms() throws Throwable {
         // Wait for a metrics log, since AndroidMetricsProvider only logs this histogram during log
         // collection. Do not assert anything about this histogram before this point (ex. do not

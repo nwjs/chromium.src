@@ -24,7 +24,7 @@
 #include "ui/views/animation/flood_fill_ink_drop_ripple.h"
 #include "ui/views/animation/ink_drop.h"
 #include "ui/views/animation/ink_drop_highlight.h"
-#include "ui/views/animation/ink_drop_host_view.h"
+#include "ui/views/animation/ink_drop_host.h"
 #include "ui/views/animation/ink_drop_impl.h"
 #include "ui/views/background.h"
 #include "ui/views/controls/button/md_text_button.h"
@@ -674,11 +674,15 @@ void NotificationView::HeaderRowPressed() {
   if (!IsExpandable() || !content_row()->GetVisible())
     return;
 
+  const bool target_expanded_state = !IsExpanded();
+
   // Tapping anywhere on |header_row_| can expand the notification, though only
   // |expand_button| can be focused by TAB.
-  SetManuallyExpandedOrCollapsed(true);
+  SetManuallyExpandedOrCollapsed(
+      target_expanded_state ? message_center::ExpandState::USER_EXPANDED
+                            : message_center::ExpandState::USER_COLLAPSED);
   auto weak_ptr = weak_ptr_factory_.GetWeakPtr();
-  SetExpanded(!IsExpanded());
+  SetExpanded(target_expanded_state);
   // Check |this| is valid before continuing, because ToggleExpanded() might
   // cause |this| to be deleted.
   if (!weak_ptr)

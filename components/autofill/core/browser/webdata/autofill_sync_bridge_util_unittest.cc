@@ -117,6 +117,8 @@ TEST_F(AutofillSyncBridgeUtilTest, PopulateWalletTypesFromSyncData) {
           sync_pb::WalletMaskedCreditCard::ENROLLED);
   wallet_specifics_card2.mutable_masked_card()->set_card_art_url(
       "https://www.example.com/card.png");
+  wallet_specifics_card2.mutable_masked_card()->set_product_description(
+      "fake product description");
   entity_data.push_back(EntityChange::CreateAdd(
       credit_card_id_1,
       SpecificsToEntity(wallet_specifics_card1, /*client_tag=*/"card-card1")));
@@ -176,6 +178,11 @@ TEST_F(AutofillSyncBridgeUtilTest, PopulateWalletTypesFromSyncData) {
   EXPECT_TRUE(wallet_cards.front().card_art_url().is_empty());
   EXPECT_EQ(wallet_cards.back().card_art_url().spec(),
             "https://www.example.com/card.png");
+
+  // Verify that the product_description is set correctly.
+  EXPECT_TRUE(wallet_cards.front().product_description().empty());
+  EXPECT_EQ(wallet_cards.back().product_description(),
+            u"fake product description");
 }
 
 // Verify that the billing address id from the card saved on disk is kept if it
@@ -441,8 +448,9 @@ TEST_F(AutofillSyncBridgeUtilTest, WalletUsageSpecificsFromWalletUsageData) {
 
   EXPECT_EQ(usage_specifics.virtual_card_usage_data().instrument_id(),
             usage_data.virtual_card_usage_data().instrument_id.value());
-  EXPECT_EQ(usage_specifics.virtual_card_usage_data().virtual_card_last_four(),
-            usage_data.virtual_card_usage_data().virtual_card_last_four);
+  EXPECT_EQ(
+      usage_specifics.virtual_card_usage_data().virtual_card_last_four(),
+      usage_data.virtual_card_usage_data().virtual_card_last_four.value());
   EXPECT_EQ(usage_specifics.virtual_card_usage_data().merchant_url(),
             usage_data.virtual_card_usage_data().merchant_origin.Serialize());
   EXPECT_EQ(usage_specifics.virtual_card_usage_data().merchant_app_package(),

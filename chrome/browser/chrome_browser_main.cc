@@ -22,7 +22,6 @@
 
 #include "base/at_exit.h"
 #include "base/base_switches.h"
-#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/debug/crash_logging.h"
 #include "base/debug/debugger.h"
@@ -30,6 +29,7 @@
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
+#include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
@@ -502,13 +502,11 @@ bool ShouldInstallSodaDuringPostProfileInit(
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   return base::FeatureList::IsEnabled(
       ash::features::kOnDeviceSpeechRecognition);
-#else
-#if BUILDFLAG(ENABLE_COMPONENT_UPDATER)
+#elif !BUILDFLAG(IS_CHROMEOS_LACROS) && BUILDFLAG(ENABLE_COMPONENT_UPDATER)
   return !command_line.HasSwitch(switches::kDisableComponentUpdate);
 #else
   return false;
-#endif  // BUILDFLAG(ENABLE_COMPONENT_UPDATER)
-#endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
 

@@ -102,6 +102,8 @@ extern const char kAccessibilityStickyKeysEnabled[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kAccessibilitySpokenFeedbackEnabled[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
+extern const char kAccessibilityChromeVoxAutoRead[];
+COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kAccessibilityHighContrastEnabled[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kAccessibilityScreenMagnifierCenterFocus[];
@@ -299,6 +301,9 @@ COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kNightLightCachedLongitude[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kAutoNightLightNotificationDismissed[];
 
+COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kDynamicColorColorScheme[];
+COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kDynamicColorSeedColor[];
+
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kOsSettingsEnabled[];
 
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kAllowScreenLock[];
@@ -369,6 +374,7 @@ COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kRecentDailyGooglePhotosWallpapers[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kWallpaperColors[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kWallpaperMeanColors[];
+COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kWallpaperCelebiColors[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kSyncableWallpaperInfo[];
 
 COMPONENT_EXPORT(ASH_CONSTANTS)
@@ -473,6 +479,9 @@ extern const char kLacrosProxyControllingExtension[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kFastPairEnabled[];
 
+COMPONENT_EXPORT(ASH_CONSTANTS)
+extern const char kUserPairedWithFastPair[];
+
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kDeskTemplatesEnabled[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kPreconfiguredDeskTemplates[];
 
@@ -524,6 +533,9 @@ extern const char kUsbDetectorNotificationEnabled[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kPersonalizationKeyboardBacklightColor[];
 
+COMPONENT_EXPORT(ASH_CONSTANTS)
+extern const char kPersonalizationKeyboardBacklightZoneColors[];
+
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kAutozoomState[];
 
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kAutozoomNudges[];
@@ -537,6 +549,8 @@ COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kBackgroundBlur[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kBackgroundReplace[];
 
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kPortraitRelighting[];
+
+COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kRecordArcAppSyncMetrics[];
 
 }  // namespace prefs
 }  // namespace ash

@@ -42,9 +42,6 @@
 - (BOOL)isTabMatch {
   return NO;
 }
-- (BOOL)isClipboardMatch {
-  return NO;
-}
 - (NSNumber*)suggestionGroupId {
   return nil;
 }
@@ -94,7 +91,11 @@
 }
 
 - (BOOL)isMatchTypeSearch {
-  return true;
+  return YES;
+}
+
+- (BOOL)isWrapping {
+  return YES;
 }
 
 - (CrURL*)destinationUrl {

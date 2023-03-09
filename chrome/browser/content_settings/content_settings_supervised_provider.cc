@@ -8,10 +8,10 @@
 #include <utility>
 #include <vector>
 
-#include "base/bind.h"
+#include "base/functional/bind.h"
 #include "base/values.h"
-#include "chrome/browser/supervised_user/supervised_user_constants.h"
 #include "chrome/browser/supervised_user/supervised_user_settings_service.h"
+#include "components/supervised_user/core/common/supervised_user_constants.h"
 
 namespace {
 

@@ -251,6 +251,7 @@ Sivustoille ja sovelluksille myöntämäsi luvat saattavat koskea tätä tiliä.
 <translation id="6598877126913850652">Siirry Chromiumin ilmoitusasetuksiin</translation>
 <translation id="6613594504749178791">Muutokset tulevat voimaan, kun käynnistät Chromiumin seuraavan kerran.</translation>
 <translation id="665732753414869868">Chromium tarvitsee kameran luvan, jotta se voi luoda 3D-kartan ympäristöstäsi</translation>
+<translation id="6663852025006259149">Sivustot toimivat todennäköisesti odotetulla tavalla, mutta ne eivät muista sinua suljettuasi kaikki Chromium-ikkunat</translation>
 <translation id="6676384891291319759">Käytä internetiä</translation>
 <translation id="668175097507315160">Chromium-käyttöjärjestelmä ei voi synkronoida dataa kirjautumisvirheen vuoksi.</translation>
 <translation id="6709350901466051922">Chromium tarvitsee mikrofonin luvan tällä sivustolla</translation>
@@ -260,6 +261,7 @@ Kaikki ominaisuudet eivät ehkä ole käytettävissä. Määritä jokin muu prof
 <translation id="6730677189742196061">Muistinsäästö nopeuttaa Chromiumia</translation>
 <translation id="6734291798041940871">Chromium on jo asennettuna kaikille tietokoneen käyttäjille.</translation>
 <translation id="673636774878526923">Jos haluat pääsyn Chromium-sisältöösi kaikilla laitteilla, kirjaudu sisään ja laita sitten synkronointi päälle.</translation>
+<translation id="67706546131546258">Chromium suosittelee tiedoston skannaamista, koska se voi olla vaarallinen.</translation>
 <translation id="6774082503108938489">Vanhempasi ovat laittaneet Chromiumin sivustojen, sovellusten ja laajennusten käyttöluvat pois päältä. Käyttöönottoa (<ph name="EXTENSION_TYPE_PARAMETER" />) ei sallita.</translation>
 <translation id="6779406956731413166">Toinen <ph name="BEGIN_LINK_CROS_OSS" />avoimen lähdekoodin ohjelmisto<ph name="END_LINK_CROS_OSS" /> tukee Chromium-käyttöjärjestelmää.</translation>
 <translation id="6847869444787758381">Chromium ilmoittaa sinulle, jos salasanasi ovat vaarantuneet</translation>
@@ -283,7 +285,6 @@ Kaikki ominaisuudet eivät ehkä ole käytettävissä. Määritä jokin muu prof
 <translation id="718435575166326686">Chromium tarvitsee kameran luvan tällä sivustolla</translation>
 <translation id="7196312274710523067">Chromiumin käynnistäminen epäonnistui. Yritä uudelleen.</translation>
 <translation id="7197677400338048821">Chromium ei voi tarkistaa salasanojasi. Yritä uudelleen 24 tunnin päästä.</translation>
-<translation id="7218568399872925918">Avaamasi sivustot muistavat tietosi, kunnes suljet Chromiumin</translation>
 <translation id="7223968959479464213">Tehtävänhallinta - Chromium</translation>
 <translation id="7246575524853130370">Chromiumin arvio kiinnostuksen kohteistasi</translation>
 <translation id="7309928523159922338">Mainosten mittaamisen avulla käyttämäsi sivustot voivat pyytää Chromiumilta tietoja, jotka auttavat mittaamaan sivustoilla näkyvien mainosten suoriutumista. Mainosten mittaaminen rajoittaa sivustojen välistä seurantaa siirtämällä mahdollisimman vähän tietoja sivustojen välillä.</translation>
@@ -355,8 +356,6 @@ Chromium ei voi palauttaa asetuksiasi.</translation>
 <translation id="8621669128220841554">Asennus epäonnistui määrittelemättömän virheen vuoksi. Lataa Chromium uudelleen.</translation>
 <translation id="8697124171261953979">Määrittää myös Chromiumin ja omnibox-hakujen aloitussivun.</translation>
 <translation id="8704119203788522458">Tämä on oma Chromiumisi</translation>
-<translation id="8713679423359107094">Kun suljet kaikki Chromium-ikkunat, evästeet ja sivustodata tyhjennetään automaattisesti</translation>
-<translation id="8796443464227412154">Kun suljet Chromiumin, sinut <ph name="BEGIN_BOLD" />kirjataan ulos useimmilta sivustoilta<ph name="END_BOLD" />. Jos synkronointi on pois päältä, sinut <ph name="BEGIN_BOLD" />kirjataan ulos myös Googlen palveluista ja Chromiumista<ph name="END_BOLD" />.</translation>
 <translation id="8796602469536043152">Chromium tarvitsee oikeuden käyttää kameraasi ja mikrofoniasi tällä sivustolla.</translation>
 <translation id="8833697763442816810">Chromium-käyttöjärjestelmä</translation>
 <translation id="8846118132221683440"><ph name="BEGIN_BOLD" />Mitä dataa käytetään:<ph name="END_BOLD" /> Selaushistoriaasi eli tietoa sivustoista, jotka olet avannut Chromiumissa tällä laitteella</translation>
@@ -384,5 +383,6 @@ Chromium ei voi palauttaa asetuksiasi.</translation>
 <translation id="945990405696787151">Jotta saat tulevia Chromiumin päivityksiä, sinulla on oltava macOS 10.13 tai uudempi. Tällä tietokoneella on OS X 10.11.</translation>
 <translation id="965162752251293939">Kuka käyttää Chromiumia?</translation>
 <translation id="967427899662692980">Ota Chromiumin tehokkain suojaus käyttöön</translation>
+<translation id="9792300276217204">Tyhjennä sivustodata aina laitteelta, kun suljet Chromiumin</translation>
 <translation id="985602178874221306">The Chromium Authors</translation>
 </translationbundle>

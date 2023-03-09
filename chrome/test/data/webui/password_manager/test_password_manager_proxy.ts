@@ -43,12 +43,15 @@ export class TestPasswordManagerProxy extends TestBrowserProxy implements
       'getInsecureCredentials',
       'getPasswordCheckStatus',
       'getSavedPasswordList',
+      'muteInsecureCredential',
       'recordPasswordCheckInteraction',
       'removeBlockedSite',
       'requestCredentialsDetails',
       'requestExportProgressStatus',
       'requestPlaintextPassword',
+      'showAddShortcutDialog',
       'startBulkPasswordCheck',
+      'unmuteInsecureCredential',
     ]);
 
     // Set these to have non-empty data.
@@ -142,6 +145,16 @@ export class TestPasswordManagerProxy extends TestBrowserProxy implements
 
   recordPasswordCheckInteraction(interaction: PasswordCheckInteraction) {
     this.methodCalled('recordPasswordCheckInteraction', interaction);
+  }
+
+  muteInsecureCredential(insecureCredential:
+                             chrome.passwordsPrivate.PasswordUiEntry) {
+    this.methodCalled('muteInsecureCredential', insecureCredential);
+  }
+
+  unmuteInsecureCredential(insecureCredential:
+                               chrome.passwordsPrivate.PasswordUiEntry) {
+    this.methodCalled('unmuteInsecureCredential', insecureCredential);
   }
 
   showAddShortcutDialog() {

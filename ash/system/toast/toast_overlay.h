@@ -10,7 +10,7 @@
 
 #include "ash/ash_export.h"
 #include "ash/public/cpp/keyboard/keyboard_controller_observer.h"
-#include "base/callback.h"
+#include "base/functional/callback.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "ui/compositor/layer_animation_observer.h"
@@ -48,7 +48,7 @@ class ASH_EXPORT ToastOverlay : public ui::ImplicitAnimationObserver,
   };
 
   // Offset of the overlay from the edge of the work area.
-  static constexpr int kOffset = 8;
+  static constexpr int kOffset = 16;
 
   // Creates the Toast overlay UI. `text` is the message to be shown, and
   // `dismiss_text` is the message for the button to dismiss the toast message.
@@ -88,6 +88,7 @@ class ASH_EXPORT ToastOverlay : public ui::ImplicitAnimationObserver,
 
  private:
   friend class ToastManagerImplTest;
+  friend class ClipboardHistoryControllerRefreshTest;
   friend class DesksTestApi;
 
   class ToastDisplayObserver;

@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Instalar com o Linux</translation>
 <translation id="2225536596944493418">Tem a certeza de que pretende eliminar <ph name="NUMBER_OF_ITEMS" /> itens?</translation>
 <translation id="2230062665678605299">Não é possível criar a pasta "<ph name="FOLDER_NAME" />". <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">A cache do Google Drive foi limpa.</translation>
 <translation id="2239068707900391003">Pessoa com um café</translation>
 <translation id="2251368349685848079">Restaurar do lixo</translation>
 <translation id="2282155092769082568">URL de configuração automática:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">Nenhum item corresponde a &lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt;</translation>
 <translation id="2894654529758326923">Informações</translation>
 <translation id="2902734494705624966">EUA alargado</translation>
+<translation id="2904378509913846215">Já existe uma pasta com o nome "<ph name="FILENAME" />". Quer substituí-la pela que está a mover?</translation>
 <translation id="290843123675549676">Marati</translation>
 <translation id="2923240520113693977">Estónio</translation>
 <translation id="2938685643439809023">Mongol</translation>
@@ -499,7 +501,7 @@
 <translation id="5144820558584035333">Hangul 3 Set (390)</translation>
 <translation id="5145331109270917438">Data de modificação</translation>
 <translation id="515594325917491223">Xadrez</translation>
-<translation id="5158983316805876233">Utilizar o mesmo proxy para todos os protocolos</translation>
+<translation id="5158983316805876233">Usar o mesmo proxy para todos os protocolos</translation>
 <translation id="5159383109919732130"><ph name="BEGIN_BOLD" />Não remova já o dispositivo!<ph name="END_BOLD" />
    <ph name="LINE_BREAKS" />
    Remover o dispositivo enquanto está a ser utilizado pode provocar perda de dados. Aguarde pela conclusão da operação e, em seguida, ejete o dispositivo através da aplicação Ficheiros.</translation>
@@ -640,6 +642,7 @@
 <translation id="6241349547798190358">Neerlandês (Bélgica)</translation>
 <translation id="6267547857941397424">Rede <ph name="NETWORK_INDEX" /> de <ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, intensidade do sinal: <ph name="SIGNAL_STRENGTH" />%, bateria do telemóvel: <ph name="BATTERY_STATUS" />%, ligar</translation>
 <translation id="6269630227984243955">Malaio</translation>
+<translation id="6271903698064569429">Não é possível carregar os ficheiros porque "<ph name="SHARED_DRIVE_NAME" />" não tem armazenamento suficiente.</translation>
 <translation id="6287852322318138013">Selecionar uma aplicação para abrir este ficheiro</translation>
 <translation id="6295542640242147836">Bloquear SIM</translation>
 <translation id="6296410173147755564">PUK inválido</translation>
@@ -685,6 +688,7 @@
 <translation id="6657585470893396449">Palavra-passe</translation>
 <translation id="6658865850469097484">Os ficheiros no lixo durante mais de 30 dias são eliminados automaticamente.</translation>
 <translation id="6673674183150363784">Francês (França) com teclado Bépo</translation>
+<translation id="670380500182402678">Substituir tudo</translation>
 <translation id="6710022688720561421">Robô</translation>
 <translation id="6710213216561001401">Anterior</translation>
 <translation id="6732801395666424405">Certificados não carregados</translation>
@@ -903,6 +907,7 @@
 <translation id="8386903983509584791">Análise concluída</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" /> extraído.</translation>
 <translation id="8395901698320285466">Dimensões</translation>
+<translation id="8404498045299006085">Manter tudo</translation>
 <translation id="8408068190360279472">Rede <ph name="NETWORK_TYPE" />, a ligar…</translation>
 <translation id="8425213833346101688">Alterar</translation>
 <translation id="8431909052837336408">Alterar o PIN do cartão SIM</translation>

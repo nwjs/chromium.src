@@ -28,6 +28,7 @@
 #include "components/page_info/core/proto/about_this_site_metadata.pb.h"
 #include "components/page_info/page_info.h"
 #include "components/permissions/permission_util.h"
+#include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/vector_icons/vector_icons.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -131,7 +132,7 @@ std::unique_ptr<views::View> PageInfoViewFactory::CreateSecurityPageView() {
   return std::make_unique<PageInfoSubpageView>(
       CreateSubpageHeader(
           l10n_util::GetStringUTF16(IDS_PAGE_INFO_SECURITY_SUBPAGE_HEADER),
-          presenter_->GetSimpleSiteName()),
+          presenter_->GetSiteNameOrAppNameToDisplay()),
       std::make_unique<PageInfoSecurityContentView>(
           presenter_, /*is_standalone_page=*/true));
 }
@@ -140,7 +141,7 @@ std::unique_ptr<views::View> PageInfoViewFactory::CreatePermissionPageView(
     ContentSettingsType type) {
   return std::make_unique<PageInfoSubpageView>(
       CreateSubpageHeader(PageInfoUI::PermissionTypeToUIString(type),
-                          presenter_->GetSimpleSiteName()),
+                          presenter_->GetSiteNameOrAppNameToDisplay()),
       std::make_unique<PageInfoPermissionContentView>(presenter_, ui_delegate_,
                                                       type));
 }
@@ -150,17 +151,20 @@ std::unique_ptr<views::View> PageInfoViewFactory::CreateAboutThisSitePageView(
   return std::make_unique<PageInfoSubpageView>(
       CreateSubpageHeader(
           l10n_util::GetStringUTF16(IDS_PAGE_INFO_ABOUT_THIS_SITE_HEADER),
-          presenter_->GetSimpleSiteName()),
+          presenter_->GetSiteNameOrAppNameToDisplay()),
       std::make_unique<PageInfoAboutThisSiteContentView>(presenter_,
                                                          ui_delegate_, info));
 }
 
 std::unique_ptr<views::View>
 PageInfoViewFactory::CreateAdPersonalizationPageView() {
+  const auto header_id =
+      base::FeatureList::IsEnabled(privacy_sandbox::kPrivacySandboxSettings4)
+          ? IDS_PAGE_INFO_AD_PRIVACY_HEADER
+          : IDS_PAGE_INFO_AD_PERSONALIZATION_HEADER;
   return std::make_unique<PageInfoSubpageView>(
-      CreateSubpageHeader(
-          l10n_util::GetStringUTF16(IDS_PAGE_INFO_AD_PERSONALIZATION_HEADER),
-          presenter_->GetSimpleSiteName()),
+      CreateSubpageHeader(l10n_util::GetStringUTF16(header_id),
+                          presenter_->GetSiteNameOrAppNameToDisplay()),
       std::make_unique<PageInfoAdPersonalizationContentView>(presenter_,
                                                              ui_delegate_));
 }
@@ -170,7 +174,7 @@ std::unique_ptr<views::View> PageInfoViewFactory::CreateCookiesPageView() {
   return std::make_unique<PageInfoSubpageView>(
       CreateSubpageHeader(
           l10n_util::GetStringUTF16(IDS_PAGE_INFO_COOKIES_HEADER),
-          presenter_->GetSimpleSiteName()),
+          presenter_->GetSiteNameOrAppNameToDisplay()),
       std::make_unique<PageInfoCookiesContentView>(presenter_));
 }
 
@@ -471,7 +475,7 @@ const ui::ImageModel PageInfoViewFactory::GetManagedPermissionIcon(
 
 // static
 const ui::ImageModel PageInfoViewFactory::GetBlockingThirdPartyCookiesIcon() {
-  return ui::ImageModel::FromVectorIcon(kEyeCrossedIcon, ui::kColorIcon,
+  return ui::ImageModel::FromVectorIcon(views::kEyeCrossedIcon, ui::kColorIcon,
                                         GetIconSize());
 }
 

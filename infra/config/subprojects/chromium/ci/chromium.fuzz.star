@@ -631,6 +631,7 @@ ci.builder(
     triggering_policy = scheduler.greedy_batching(
         max_concurrent_invocations = 5,
     ),
+    os = os.LINUX_FOCAL,
     console_view_entry = consoles.console_view_entry(
         category = "libfuzz",
         short_name = "linux-msan",

@@ -6,10 +6,10 @@
 
 #include <utility>
 
-#include "base/bind.h"
-#include "base/callback_helpers.h"
 #include "base/containers/contains.h"
 #include "base/containers/cxx20_erase.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/observer_list.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
@@ -432,8 +432,10 @@ void HostFrameSinkManager::UpdateDebugRendererSettings(
 }
 
 void HostFrameSinkManager::StartFrameCountingForTest(
+    base::TimeTicks start_time,
     base::TimeDelta bucket_size) {
-  frame_sink_manager_->StartFrameCountingForTest(bucket_size);  // IN-TEST
+  frame_sink_manager_->StartFrameCountingForTest(start_time,  // IN-TEST
+                                                 bucket_size);
 }
 
 void HostFrameSinkManager::StopFrameCountingForTest(

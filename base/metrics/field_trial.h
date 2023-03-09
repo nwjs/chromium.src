@@ -152,7 +152,9 @@ class BASE_EXPORT FieldTrial : public RefCounted<FieldTrial> {
     subtle::Atomic32 activated;
 
     // On e.g. x86, alignof(uint64_t) is 4.  Ensure consistent size and
-    // alignment of `pickle_size` across platforms.
+    // alignment of `pickle_size` across platforms. This can be considered
+    // to be padding for the final 32 bit value (activated). If this struct
+    // gains or loses fields, consider if this padding is still needed.
     uint32_t padding;
 
     // Size of the pickled structure, NOT the total size of this entry.
@@ -291,9 +293,6 @@ class BASE_EXPORT FieldTrial : public RefCounted<FieldTrial> {
 
   virtual ~FieldTrial();
 
-  // Return the default group name of the FieldTrial.
-  const std::string& default_group_name() const { return default_group_name_; }
-
   // Marks this trial as having been registered with the FieldTrialList. Must be
   // called no more than once and before any |group()| calls have occurred.
   void SetTrialRegistered();
@@ -371,9 +370,9 @@ class BASE_EXPORT FieldTrial : public RefCounted<FieldTrial> {
 
 //------------------------------------------------------------------------------
 // Class with a list of all active field trials.  A trial is active if it has
-// been registered, which includes evaluating its state based on its probaility.
-// Only one instance of this class exists and outside of testing, will live for
-// the entire life time of the process.
+// been registered, which includes evaluating its state based on its
+// probability. Only one instance of this class exists and outside of testing,
+// will live for the entire life time of the process.
 class BASE_EXPORT FieldTrialList {
  public:
   using FieldTrialAllocator = PersistentMemoryAllocator;
@@ -432,10 +431,6 @@ class BASE_EXPORT FieldTrialList {
   // registered, or to retrieve a pointer to it from the global map.
   static FieldTrial* Find(StringPiece trial_name);
 
-  // Returns the group number chosen for the named trial, or
-  // FieldTrial::kNotFinalized if the trial does not exist.
-  static int FindValue(StringPiece trial_name);
-
   // Returns the group name chosen for the named trial, or the empty string if
   // the trial does not exist. The first call of this function on a given field
   // trial will mark it as active, so that its state will be reported with usage
@@ -449,16 +444,6 @@ class BASE_EXPORT FieldTrialList {
 
   // Returns true if the named trial exists and has been activated.
   static bool IsTrialActive(StringPiece trial_name);
-
-  // Creates a persistent representation of active FieldTrial instances for
-  // resurrection in another process. This allows randomization to be done in
-  // one process, and secondary processes can be synchronized on the result.
-  // The resulting string contains the name and group name pairs of all
-  // registered FieldTrials for which the group has been chosen and externally
-  // observed (via |group()|) and which have not been disabled, with "/" used
-  // to separate all names and to terminate the string. This string is parsed
-  // by |CreateTrialsFromString()|.
-  static void StatesToString(std::string* output);
 
   // Creates a persistent representation of all FieldTrial instances for
   // resurrection in another process. This allows randomization to be done in
@@ -499,7 +484,7 @@ class BASE_EXPORT FieldTrialList {
       const CommandLine& command_line,
       FieldTrial::ActiveGroups* active_groups);
 
-  // Use a state string (re: StatesToString()) to augment the current list of
+  // Use a state string (re: AllStatesToString()) to augment the current list of
   // field trials to include the supplied trials, and using a 100% probability
   // for each trial, force them to have the same group string. This is commonly
   // used in a non-browser process, to carry randomly selected state in a
@@ -728,12 +713,6 @@ class BASE_EXPORT FieldTrialList {
       const std::vector<FieldTrial::State>& entries);
 
   static FieldTrialList* global_;  // The singleton of this class.
-
-  // This will tell us if there is an attempt to register a field
-  // trial or check if one-time randomization is enabled without
-  // creating the FieldTrialList. This is not an error, unless a
-  // FieldTrialList is created after that.
-  static bool used_without_global_;
 
   // Lock for access to |registered_|, |observers_|,
   // |count_of_manually_created_field_trials_|.

@@ -30,7 +30,6 @@ class COMPONENT_EXPORT(USERDATAAUTH_CLIENT) FakeUserDataAuthClient
   enum class Operation {
     kStartAuthSession,
     kAuthenticateAuthFactor,
-    kAuthenticateAuthSession,
     kPrepareGuestVault,
     kPrepareEphemeralVault,
     kCreatePersistentUser,
@@ -193,14 +192,8 @@ class COMPONENT_EXPORT(USERDATAAUTH_CLIENT) FakeUserDataAuthClient
                UnmountCallback callback) override;
   void Remove(const ::user_data_auth::RemoveRequest& request,
               RemoveCallback callback) override;
-  void GetKeyData(const ::user_data_auth::GetKeyDataRequest& request,
-                  GetKeyDataCallback callback) override;
   void CheckKey(const ::user_data_auth::CheckKeyRequest& request,
                 CheckKeyCallback callback) override;
-  void AddKey(const ::user_data_auth::AddKeyRequest& request,
-              AddKeyCallback callback) override;
-  void RemoveKey(const ::user_data_auth::RemoveKeyRequest& request,
-                 RemoveKeyCallback callback) override;
   void StartFingerprintAuthSession(
       const ::user_data_auth::StartFingerprintAuthSessionRequest& request,
       StartFingerprintAuthSessionCallback callback) override;
@@ -222,14 +215,6 @@ class COMPONENT_EXPORT(USERDATAAUTH_CLIENT) FakeUserDataAuthClient
   void StartAuthSession(
       const ::user_data_auth::StartAuthSessionRequest& request,
       StartAuthSessionCallback callback) override;
-  void AuthenticateAuthSession(
-      const ::user_data_auth::AuthenticateAuthSessionRequest& request,
-      AuthenticateAuthSessionCallback callback) override;
-  void AddCredentials(const ::user_data_auth::AddCredentialsRequest& request,
-                      AddCredentialsCallback callback) override;
-  void UpdateCredential(
-      const ::user_data_auth::UpdateCredentialRequest& request,
-      UpdateCredentialCallback callback) override;
   void PrepareGuestVault(
       const ::user_data_auth::PrepareGuestVaultRequest& request,
       PrepareGuestVaultCallback callback) override;
@@ -304,15 +289,6 @@ class COMPONENT_EXPORT(USERDATAAUTH_CLIENT) FakeUserDataAuthClient
 
   int get_prepare_guest_request_count() const {
     return prepare_guest_request_count_;
-  }
-  const ::cryptohome::AuthorizationRequest&
-  get_last_authenticate_auth_session_authorization() const {
-    return last_authenticate_auth_session_request_.authorization();
-  }
-
-  const ::cryptohome::AuthorizationRequest& get_last_add_credentials_request()
-      const {
-    return last_add_credentials_request_.authorization();
   }
 
   const ::user_data_auth::AddAuthFactorRequest&
@@ -408,14 +384,6 @@ class COMPONENT_EXPORT(USERDATAAUTH_CLIENT) FakeUserDataAuthClient
   ::user_data_auth::StartMigrateToDircryptoRequest
       last_migrate_to_dircrypto_request_;
 
-  // The AuthenticateAuthSessionRequest passed in for the last
-  // AuthenticateAuthSession() call.
-  ::user_data_auth::AuthenticateAuthSessionRequest
-      last_authenticate_auth_session_request_;
-
-  // The AddCredentialsRequest passed in for the last AddCredentials() call.
-  ::user_data_auth::AddCredentialsRequest last_add_credentials_request_;
-
   // The AuthenticateAuthFactorRequest passed in for the last
   // AuthenticateAuthFactor() call.
   ::user_data_auth::AuthenticateAuthFactorRequest
@@ -467,10 +435,5 @@ class COMPONENT_EXPORT(USERDATAAUTH_CLIENT) FakeUserDataAuthClient
 };
 
 }  // namespace ash
-
-// TODO(https://crbug.com/1164001): remove when the migration is finished.
-namespace chromeos {
-using ::ash::FakeUserDataAuthClient;
-}
 
 #endif  // CHROMEOS_ASH_COMPONENTS_DBUS_USERDATAAUTH_FAKE_USERDATAAUTH_CLIENT_H_

@@ -67,15 +67,18 @@ class PersonalizationAppThemeProviderImpl
 
   void GetStaticColor(GetStaticColorCallback callback) override;
 
+  void GenerateSampleColorSchemes(
+      GenerateSampleColorSchemesCallback callback) override;
+
  private:
   bool IsColorModeAutoScheduleEnabled();
 
   // Notify webUI the current state of color mode auto scheduler.
   void NotifyColorModeAutoScheduleChanged();
 
-  void OnColorSchemeChanged(ColorScheme color_scheme);
+  void OnColorSchemeChanged();
 
-  void OnStaticColorChanged(absl::optional<SkColor> color);
+  void OnStaticColorChanged();
 
   // Pointer to profile of user that opened personalization SWA. Not owned.
   raw_ptr<Profile> const profile_ = nullptr;

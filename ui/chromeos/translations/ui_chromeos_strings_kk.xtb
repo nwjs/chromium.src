@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Linux арқылы ойнату</translation>
 <translation id="2225536596944493418"><ph name="NUMBER_OF_ITEMS" /> элементті жойғыңыз келе ме?</translation>
 <translation id="2230062665678605299">"<ph name="FOLDER_NAME" />" қалтасын жасау мүмкін емес. <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">Google Drive кэшіңіз өшірілді.</translation>
 <translation id="2239068707900391003">Кофе ұстаған адам</translation>
 <translation id="2251368349685848079">Себеттен қалпына келтіру</translation>
 <translation id="2282155092769082568">Автоматты конфигурациялау URL мекенжайы:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">&lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt; іздеуіне сәйкес келетін элемент жоқ</translation>
 <translation id="2894654529758326923">Ақпарат</translation>
 <translation id="2902734494705624966">АҚШ кеңейтілген</translation>
+<translation id="2904378509913846215">"<ph name="FILENAME" />" қалтасы бұрыннан бар. Оны көшіріп жатқан қалтамен алмастырасыз ба?</translation>
 <translation id="290843123675549676">Маратхи</translation>
 <translation id="2923240520113693977">эстон</translation>
 <translation id="2938685643439809023">монғол</translation>
@@ -639,6 +641,7 @@
 <translation id="6241349547798190358">Нидерланд (Бельгия)</translation>
 <translation id="6267547857941397424"><ph name="NETWORK_INDEX" />/<ph name="NETWORK_COUNT" /> желі, <ph name="PHONE_NAME" />, сигнал күші: <ph name="SIGNAL_STRENGTH" />%, телефон батареясы: <ph name="BATTERY_STATUS" />%, қосылу</translation>
 <translation id="6269630227984243955">Малай</translation>
+<translation id="6271903698064569429">"<ph name="SHARED_DRIVE_NAME" />" дискісінде орын жеткіліксіз болғандықтан, файлдарды жүктеп салу мүмкін емес.</translation>
 <translation id="6287852322318138013">Бұл файлды ашатын қолданбаны таңдаңыз</translation>
 <translation id="6295542640242147836">SIM картасын құлыптау</translation>
 <translation id="6296410173147755564">PUK коды жарамсыз.</translation>
@@ -684,6 +687,7 @@
 <translation id="6657585470893396449">Құпия сөз</translation>
 <translation id="6658865850469097484">Себетте 30 күннен артық жатқан файлдар автоматты түрде жойылады.</translation>
 <translation id="6673674183150363784">Француз (Франция, Bépo пернетақтасымен)</translation>
+<translation id="670380500182402678">Барлығын ауыстыру</translation>
 <translation id="6710022688720561421">Робот</translation>
 <translation id="6710213216561001401">Алдыңғы</translation>
 <translation id="6732801395666424405">Сертификаттар жүктелмеді</translation>
@@ -902,6 +906,7 @@
 <translation id="8386903983509584791">Іздеу аяқталды</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" /> файлы шығарылды.</translation>
 <translation id="8395901698320285466">Өлшемдер</translation>
+<translation id="8404498045299006085">Барлығын сақтау</translation>
 <translation id="8408068190360279472"><ph name="NETWORK_TYPE" /> желісі, жалғануда</translation>
 <translation id="8425213833346101688">Өзгерту</translation>
 <translation id="8431909052837336408">SIM PIN кодын өзгерту</translation>

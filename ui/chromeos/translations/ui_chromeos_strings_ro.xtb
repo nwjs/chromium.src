@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Instalează cu Linux</translation>
 <translation id="2225536596944493418">Sigur dorești să ștergi <ph name="NUMBER_OF_ITEMS" /> elemente?</translation>
 <translation id="2230062665678605299">Nu s-a putut crea dosarul „<ph name="FOLDER_NAME" />”. <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">Memoria cache Google Drive a fost ștearsă.</translation>
 <translation id="2239068707900391003">Persoană cu o ceașcă de cafea</translation>
 <translation id="2251368349685848079">Restabilește din coșul de gunoi</translation>
 <translation id="2282155092769082568">Adresa URL de autoconfigurare:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">Nu există elemente care să corespundă cu &lt;b&gt;„<ph name="SEARCH_STRING" />”&lt;/b&gt;</translation>
 <translation id="2894654529758326923">Informații</translation>
 <translation id="2902734494705624966">S.U.A. extinsă</translation>
+<translation id="2904378509913846215">Dosarul cu numele <ph name="FILENAME" /> există deja. Vrei să-l înlocuiești cu cel pe care îl muți?</translation>
 <translation id="290843123675549676">Marathi</translation>
 <translation id="2923240520113693977">Estonă</translation>
 <translation id="2938685643439809023">Mongolă</translation>
@@ -640,6 +642,7 @@
 <translation id="6241349547798190358">Neerlandeză (Belgia)</translation>
 <translation id="6267547857941397424">Rețeaua <ph name="NETWORK_INDEX" /> din <ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, puterea semnalului: <ph name="SIGNAL_STRENGTH" /> %, bateria telefonului: <ph name="BATTERY_STATUS" /> %, conectează-te</translation>
 <translation id="6269630227984243955">Malaieză</translation>
+<translation id="6271903698064569429">Fișierele nu pot fi încărcate deoarece <ph name="SHARED_DRIVE_NAME" /> nu are suficient spațiu de stocare.</translation>
 <translation id="6287852322318138013">Selectați o aplicație pentru deschiderea acestui fișier</translation>
 <translation id="6295542640242147836">Blochează cardul SIM</translation>
 <translation id="6296410173147755564">PUK nevalid</translation>
@@ -685,6 +688,7 @@
 <translation id="6657585470893396449">Parolă</translation>
 <translation id="6658865850469097484">Fișierele aflate în coșul de gunoi mai mult de 30 de zile se vor șterge automat.</translation>
 <translation id="6673674183150363784">Franceză (Franța) cu tastatură Bépo</translation>
+<translation id="670380500182402678">Înlocuiește tot</translation>
 <translation id="6710022688720561421">Robot</translation>
 <translation id="6710213216561001401">Înapoi</translation>
 <translation id="6732801395666424405">Certificatele nu s-au încărcat</translation>
@@ -903,6 +907,7 @@
 <translation id="8386903983509584791">Scanarea s-a finalizat</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" /> a fost extras.</translation>
 <translation id="8395901698320285466">Dimensiuni</translation>
+<translation id="8404498045299006085">Păstrează tot</translation>
 <translation id="8408068190360279472">Rețea <ph name="NETWORK_TYPE" />, se stabilește conexiunea</translation>
 <translation id="8425213833346101688">Modificați</translation>
 <translation id="8431909052837336408">Schimbă codul PIN pentru SIM</translation>

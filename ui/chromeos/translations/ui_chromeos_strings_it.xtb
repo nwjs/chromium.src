@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Installa con Linux</translation>
 <translation id="2225536596944493418">Vuoi eliminare <ph name="NUMBER_OF_ITEMS" /> elementi?</translation>
 <translation id="2230062665678605299">Impossibile creare la cartella "<ph name="FOLDER_NAME" />". <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">La cache di Google Drive è stata svuotata.</translation>
 <translation id="2239068707900391003">Persona con caffè</translation>
 <translation id="2251368349685848079">Ripristina dal cestino</translation>
 <translation id="2282155092769082568">URL di configurazione automatica:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">Nessun elemento corrispondente a &lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt;</translation>
 <translation id="2894654529758326923">Informazioni</translation>
 <translation id="2902734494705624966">Tastiera estesa USA</translation>
+<translation id="2904378509913846215">Esiste già una cartella chiamata "<ph name="FILENAME" />". Vuoi sostituirla con quella da spostare?</translation>
 <translation id="290843123675549676">Marathi</translation>
 <translation id="2923240520113693977">Estone</translation>
 <translation id="2938685643439809023">Mongolo</translation>
@@ -639,6 +641,7 @@
 <translation id="6241349547798190358">Olandese (Belgio)</translation>
 <translation id="6267547857941397424">Rete <ph name="NETWORK_INDEX" /> di <ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, intensità del segnale <ph name="SIGNAL_STRENGTH" />%, batteria del telefono <ph name="BATTERY_STATUS" />%, connetti</translation>
 <translation id="6269630227984243955">Malese</translation>
+<translation id="6271903698064569429">Impossibile caricare i file perché lo spazio di archiviazione a disposizione su <ph name="SHARED_DRIVE_NAME" /> non è sufficiente.</translation>
 <translation id="6287852322318138013">Seleziona un'app per aprire questo file</translation>
 <translation id="6295542640242147836">Blocca SIM</translation>
 <translation id="6296410173147755564">PUK non valido</translation>
@@ -684,6 +687,7 @@
 <translation id="6657585470893396449">Password</translation>
 <translation id="6658865850469097484">I file nel cestino da più di 30 giorni vengono eliminati automaticamente.</translation>
 <translation id="6673674183150363784">Francese (Francia) con tastiera Bépo</translation>
+<translation id="670380500182402678">Sostituisci tutto</translation>
 <translation id="6710022688720561421">Robot</translation>
 <translation id="6710213216561001401">Precedente</translation>
 <translation id="6732801395666424405">Certificati non caricati</translation>
@@ -902,6 +906,7 @@
 <translation id="8386903983509584791">Scansione completata</translation>
 <translation id="8387733224523483503">Elemento "<ph name="FILE_NAME" />" estratto.</translation>
 <translation id="8395901698320285466">Dimensioni</translation>
+<translation id="8404498045299006085">Conserva tutto</translation>
 <translation id="8408068190360279472">Rete <ph name="NETWORK_TYPE" />, collegamento in corso</translation>
 <translation id="8425213833346101688">Cambia</translation>
 <translation id="8431909052837336408">Cambia il PIN della SIM</translation>

@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import("//build/buildflag_header.gni")
+import("//build/config/ios/ios_sdk.gni")
 
 declare_args() {
   # This defines targets to include branded icons.
@@ -85,6 +86,11 @@ source_set("symbols") {
     "//ios/chrome/common/ui/colors",
     ios_branded_icons,
   ]
+
+  # This icon uses template format version 4 but catalyst only currently supports version 3. See details in crbug.com/1392708#c28.
+  if (target_environment != "catalyst") {
+    deps += [ "//ios/chrome/browser/ui/icons/resources:multicolor_password" ]
+  }
 }
 
 source_set("unit_tests") {

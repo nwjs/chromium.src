@@ -9,6 +9,7 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/numerics/checked_math.h"
 #include "base/numerics/clamped_math.h"
+#include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
 #include "gpu/command_buffer/client/shared_image_interface.h"
 #include "gpu/config/gpu_feature_info.h"
@@ -52,6 +53,7 @@
 namespace blink {
 
 constexpr const char* kImageOrientationFlipY = "flipY";
+constexpr const char* kImageOrientationFromImage = "from-image";
 constexpr const char* kImageBitmapOptionNone = "none";
 constexpr const char* kImageBitmapOptionDefault = "default";
 constexpr const char* kImageBitmapOptionPremultiply = "premultiply";
@@ -67,11 +69,19 @@ ImageBitmap::ParsedOptions ParseOptions(const ImageBitmapOptions* options,
   ImageBitmap::ParsedOptions parsed_options;
   if (options->imageOrientation() == kImageOrientationFlipY) {
     parsed_options.flip_y = true;
+    parsed_options.orientation_from_image = true;
   } else {
+    DCHECK(options->imageOrientation() == kImageOrientationFromImage ||
+           options->imageOrientation() == kImageBitmapOptionNone);
     parsed_options.flip_y = false;
-    DCHECK(options->imageOrientation() == kImageBitmapOptionNone);
-  }
+    parsed_options.orientation_from_image = true;
 
+    if (base::FeatureList::IsEnabled(
+            features::kCreateImageBitmapOrientationNone) &&
+        options->imageOrientation() == kImageBitmapOptionNone) {
+      parsed_options.orientation_from_image = false;
+    }
+  }
   if (options->premultiplyAlpha() == kImageBitmapOptionNone) {
     parsed_options.premultiply_alpha = false;
   } else {
@@ -337,35 +347,6 @@ scoped_refptr<StaticBitmapImage> MakeBlankImage(
   if (!surface)
     return nullptr;
   return UnacceleratedStaticBitmapImage::Create(surface->makeImageSnapshot());
-}
-
-void SwapYOrientation(scoped_refptr<StaticBitmapImage> image) {
-  switch (image->CurrentFrameOrientation().Orientation()) {
-    case ImageOrientationEnum::kOriginTopLeft:
-      image->SetOrientation(ImageOrientationEnum::kOriginBottomLeft);
-      break;
-    case ImageOrientationEnum::kOriginBottomLeft:
-      image->SetOrientation(ImageOrientationEnum::kOriginTopLeft);
-      break;
-    case ImageOrientationEnum::kOriginTopRight:
-      image->SetOrientation(ImageOrientationEnum::kOriginBottomRight);
-      break;
-    case ImageOrientationEnum::kOriginBottomRight:
-      image->SetOrientation(ImageOrientationEnum::kOriginTopRight);
-      break;
-    case ImageOrientationEnum::kOriginLeftTop:
-      image->SetOrientation(ImageOrientationEnum::kOriginLeftBottom);
-      break;
-    case ImageOrientationEnum::kOriginRightTop:
-      image->SetOrientation(ImageOrientationEnum::kOriginRightBottom);
-      break;
-    case ImageOrientationEnum::kOriginRightBottom:
-      image->SetOrientation(ImageOrientationEnum::kOriginRightTop);
-      break;
-    case ImageOrientationEnum::kOriginLeftBottom:
-      image->SetOrientation(ImageOrientationEnum::kOriginLeftTop);
-      break;
-  }
 }
 
 static scoped_refptr<StaticBitmapImage> CropImageAndApplyColorSpaceConversion(
@@ -685,18 +666,10 @@ ImageBitmap::ImageBitmap(ImageData* data,
 
   // flip if needed
   if (parsed_options.flip_y) {
-    // Since |accelerated_static_bitmap_image| always has preMultiplied alpha
-    // and some images should avoid premul alpha, simply flip the image
-    // vertically can't solve these cases. So swap orientation Y of |image_| for
-    // these simple cases and flip the image in place with corrected alpha
-    // values for other cases.
-    if (IsPremultiplied() && !ShouldAvoidPremul(parsed_options)) {
-      SwapYOrientation(image_);
-    } else {
-      image_ = FlipImageVertically(std::move(image_), parsed_options);
-    }
     if (!image_)
       return;
+
+    image_ = FlipImageVertically(std::move(image_), parsed_options);
   }
 
   // resize if up-scaling
@@ -863,7 +836,7 @@ void ImageBitmap::ResolvePromiseOnOriginalThread(
 }
 
 void ImageBitmap::RasterizeImageOnBackgroundThread(
-    sk_sp<PaintRecord> paint_record,
+    PaintRecord paint_record,
     const gfx::Rect& dst_rect,
     scoped_refptr<base::SequencedTaskRunner> task_runner,
     WTF::CrossThreadOnceFunction<void(sk_sp<SkImage>,
@@ -875,7 +848,7 @@ void ImageBitmap::RasterizeImageOnBackgroundThread(
   sk_sp<SkSurface> surface = SkSurface::MakeRaster(info, &props);
   sk_sp<SkImage> skia_image;
   if (surface) {
-    paint_record->Playback(surface->getCanvas());
+    paint_record.Playback(surface->getCanvas());
     skia_image = surface->makeImageSnapshot();
   }
   PostCrossThreadTask(
@@ -938,7 +911,7 @@ ScriptPromise ImageBitmap::CreateAsync(
                                preferred_color_scheme)
       ->Draw(canvas, cc::PaintFlags(), gfx::RectF(draw_dst_rect),
              gfx::RectF(draw_src_rect), ImageDrawOptions());
-  sk_sp<PaintRecord> paint_record = recorder.finishRecordingAsPicture();
+  PaintRecord paint_record = recorder.finishRecordingAsPicture();
 
   std::unique_ptr<ParsedOptions> passed_parsed_options =
       std::make_unique<ParsedOptions>(parsed_options);
@@ -1014,7 +987,7 @@ ScriptPromise ImageBitmap::CreateImageBitmap(
     ExceptionState& exception_state) {
   return ImageBitmapSource::FulfillImageBitmap(
       script_state, MakeGarbageCollected<ImageBitmap>(this, crop_rect, options),
-      exception_state);
+      options, exception_state);
 }
 
 scoped_refptr<Image> ImageBitmap::GetSourceImageForCanvas(

@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Installeren met Linux</translation>
 <translation id="2225536596944493418">Weet je zeker dat je <ph name="NUMBER_OF_ITEMS" /> items wilt verwijderen?</translation>
 <translation id="2230062665678605299">Kan map '<ph name="FOLDER_NAME" />' niet maken. <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">Je Google Drive-cachegeheugen is gewist.</translation>
 <translation id="2239068707900391003">Persoon met koffie</translation>
 <translation id="2251368349685848079">Herstellen uit prullenbak</translation>
 <translation id="2282155092769082568">URL voor autoconfiguratie</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">Er komen geen items overeen met &lt;b&gt;'<ph name="SEARCH_STRING" />'&lt;/b&gt;</translation>
 <translation id="2894654529758326923">Informatie</translation>
 <translation id="2902734494705624966">Uitgebreid Amerikaans</translation>
+<translation id="2904378509913846215">Er is al een map met de naam <ph name="FILENAME" />. Wil je deze vervangen door de map die je verplaatst?</translation>
 <translation id="290843123675549676">Marathi</translation>
 <translation id="2923240520113693977">Estlands</translation>
 <translation id="2938685643439809023">Mongools</translation>
@@ -641,6 +643,7 @@
 <translation id="6241349547798190358">Nederlands (België)</translation>
 <translation id="6267547857941397424">Netwerk <ph name="NETWORK_INDEX" /> van <ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, signaalsterkte <ph name="SIGNAL_STRENGTH" />%, telefoonbatterij <ph name="BATTERY_STATUS" />%, verbinden</translation>
 <translation id="6269630227984243955">Maleis</translation>
+<translation id="6271903698064569429">Je kunt geen bestanden uploaden, omdat <ph name="SHARED_DRIVE_NAME" /> onvoldoende opslagruimte heeft.</translation>
 <translation id="6287852322318138013">Een app selecteren om dit bestand te openen</translation>
 <translation id="6295542640242147836">Simkaart vergrendelen</translation>
 <translation id="6296410173147755564">Ongeldige pukcode</translation>
@@ -686,6 +689,7 @@
 <translation id="6657585470893396449">Wachtwoord</translation>
 <translation id="6658865850469097484">Bestanden in de prullenbak worden na 30 dagen automatisch verwijderd.</translation>
 <translation id="6673674183150363784">Frans (Frankrijk) met Bépo-toetsenbord</translation>
+<translation id="670380500182402678">Alles vervangen</translation>
 <translation id="6710022688720561421">Robot</translation>
 <translation id="6710213216561001401">Vorige</translation>
 <translation id="6732801395666424405">Certificaten niet geladen</translation>
@@ -904,6 +908,7 @@
 <translation id="8386903983509584791">Scan voltooid</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" /> geëxtraheerd.</translation>
 <translation id="8395901698320285466">Afmetingen</translation>
+<translation id="8404498045299006085">Alles behouden</translation>
 <translation id="8408068190360279472">Netwerk: <ph name="NETWORK_TYPE" />, verbinden</translation>
 <translation id="8425213833346101688">Wijzigen</translation>
 <translation id="8431909052837336408">Pincode van simkaart wijzigen</translation>

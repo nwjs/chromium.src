@@ -7,12 +7,13 @@
 #include <vector>
 
 #include "base/auto_reset.h"
-#include "base/bind.h"
-#include "base/callback_helpers.h"
 #include "base/check_op.h"
 #include "base/containers/contains.h"
 #include "base/files/file_path.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/raw_ptr_exclusion.h"
 #include "base/path_service.h"
 #include "base/ranges/algorithm.h"
 #include "base/run_loop.h"
@@ -47,6 +48,7 @@
 #include "components/printing/browser/print_manager_utils.h"
 #include "components/printing/common/print.mojom-test-utils.h"
 #include "components/printing/common/print.mojom.h"
+#include "components/web_modal/web_contents_modal_dialog_manager.h"
 #include "content/public/browser/browser_message_filter.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
@@ -87,6 +89,7 @@
 #include "chrome/browser/printing/print_backend_service_manager.h"
 #include "chrome/browser/printing/print_backend_service_test_impl.h"
 #include "chrome/browser/printing/print_job_worker_oop.h"
+#include "chrome/browser/printing/printer_query_oop.h"
 #include "chrome/services/printing/public/mojom/print_backend_service.mojom.h"
 #endif
 
@@ -112,13 +115,12 @@ using ErrorCheckCallback =
     base::RepeatingCallback<void(mojom::ResultCode result)>;
 using OnDidUseDefaultSettingsCallback =
     base::RepeatingCallback<void(mojom::ResultCode result)>;
-#if BUILDFLAG(IS_WIN)
+#if BUILDFLAG(ENABLE_OOP_BASIC_PRINT_DIALOG)
 using OnDidAskUserForSettingsCallback =
     base::RepeatingCallback<void(mojom::ResultCode result)>;
 #endif
 using OnDidStartPrintingCallback =
-    base::RepeatingCallback<void(mojom::ResultCode result,
-                                 PrintJob* print_job)>;
+    base::RepeatingCallback<void(mojom::ResultCode result)>;
 #if BUILDFLAG(IS_WIN)
 using OnDidRenderPrintedPageCallback =
     base::RepeatingCallback<void(uint32_t page_number,
@@ -200,8 +202,6 @@ void OnDidUpdatePrintSettings(
 
   if (printer_query->cookie() && printer_query->settings().dpi()) {
     queue->QueuePrinterQuery(std::move(printer_query));
-  } else {
-    printer_query->StopWorker();
   }
 }
 
@@ -233,7 +233,7 @@ class BrowserPrintingContextFactoryForTest
 
     if (fail_on_use_default_settings_)
       context->SetUseDefaultSettingsFails();
-#if BUILDFLAG(IS_WIN)
+#if BUILDFLAG(ENABLE_OOP_BASIC_PRINT_DIALOG)
     if (cancel_on_ask_user_for_settings_)
       context->SetAskUserForSettingsCanceled();
 #endif
@@ -323,22 +323,33 @@ class PrintPreviewObserver : PrintPreviewUI::TestDelegate {
     PrintPreviewUI::SetDelegateForTesting(nullptr);
   }
 
-  void WaitUntilPreviewIsReady() {
-    if (rendered_page_count_ >= expected_rendered_page_count_)
-      return;
+  // Tests that use PrintPreviewObserver must call
+  // WaitUntilPreviewIsReady*() exactly once.
+  [[nodiscard]] content::WebContents*
+  WaitUntilPreviewIsReadyAndReturnPreviewDialog() {
+    if (rendered_page_count_ < expected_rendered_page_count_) {
+      base::RunLoop run_loop;
+      base::AutoReset<base::RunLoop*> auto_reset(&run_loop_, &run_loop);
+      run_loop.Run();
 
-    base::RunLoop run_loop;
-    base::AutoReset<base::RunLoop*> auto_reset(&run_loop_, &run_loop);
-    run_loop.Run();
-
-    if (queue_.has_value()) {
-      std::string message;
-      EXPECT_TRUE(queue_->WaitForMessage(&message));
-      EXPECT_EQ("\"success\"", message);
+      if (queue_.has_value()) {
+        std::string message;
+        EXPECT_TRUE(queue_->WaitForMessage(&message));
+        EXPECT_EQ("\"success\"", message);
+      }
     }
+
+    // Grab and reset `preview_dialog_` to avoid potential dangling pointers.
+    content::WebContents* dialog = preview_dialog_;
+    preview_dialog_ = nullptr;
+    return dialog;
   }
 
-  content::WebContents* GetPrintPreviewDialog() { return preview_dialog_; }
+  // Wrapper for WaitUntilPreviewIsReadyAndReturnPreviewDialog() provided for
+  // convenience for callers that do not need the returned result.
+  void WaitUntilPreviewIsReady() {
+    std::ignore = WaitUntilPreviewIsReadyAndReturnPreviewDialog();
+  }
 
   uint32_t rendered_page_count() const { return rendered_page_count_; }
 
@@ -387,8 +398,10 @@ class PrintPreviewObserver : PrintPreviewUI::TestDelegate {
   uint32_t rendered_page_count_ = 0;
 
   const bool wait_for_loaded_;
-  raw_ptr<content::WebContents, DanglingUntriaged> preview_dialog_ = nullptr;
-  base::RunLoop* run_loop_ = nullptr;
+  raw_ptr<content::WebContents> preview_dialog_ = nullptr;
+  // This field is not a raw_ptr<> because it was filtered by the rewriter for:
+  // #addr-of
+  RAW_PTR_EXCLUSION base::RunLoop* run_loop_ = nullptr;
 };
 
 class TestPrintRenderFrame
@@ -459,8 +472,8 @@ class TestPrintRenderFrame
   }
 
  private:
-  raw_ptr<content::RenderFrameHost, DanglingUntriaged> frame_host_;
-  raw_ptr<content::WebContents, DanglingUntriaged> web_contents_;
+  raw_ptr<content::RenderFrameHost> frame_host_;
+  raw_ptr<content::WebContents> web_contents_;
   const int document_cookie_;
   scoped_refptr<base::SequencedTaskRunner> task_runner_;
   base::RepeatingClosure msg_callback_;
@@ -515,6 +528,62 @@ class KillPrintRenderFrame
  private:
   const raw_ptr<content::RenderProcessHost> rph_;
   mojo::AssociatedReceiver<mojom::PrintRenderFrame> receiver_{this};
+};
+
+class PrintPreviewDoneObserver
+    : public mojom::PrintRenderFrameInterceptorForTesting {
+ public:
+  PrintPreviewDoneObserver(content::RenderFrameHost* render_frame_host,
+                           mojom::PrintRenderFrame* print_render_frame)
+      : render_frame_host_(render_frame_host),
+        print_render_frame_(print_render_frame) {
+    OverrideBinderForTesting();
+  }
+  ~PrintPreviewDoneObserver() override {
+    render_frame_host_->GetRemoteAssociatedInterfaces()
+        ->OverrideBinderForTesting(mojom::PrintRenderFrame::Name_,
+                                   base::NullCallback());
+  }
+
+  void WaitForPrintPreviewDialogClosed() { run_loop_.Run(); }
+
+  // mojom::PrintRenderFrameInterceptorForTesting:
+  mojom::PrintRenderFrame* GetForwardingInterface() override {
+    return print_render_frame_;
+  }
+  void OnPrintPreviewDialogClosed() override {
+    GetForwardingInterface()->OnPrintPreviewDialogClosed();
+    run_loop_.Quit();
+  }
+
+ private:
+  void OverrideBinderForTesting() {
+    // Safe to use base::Unretained() below because:
+    // 1) Normally, Bind() will unregister the override after it gets called.
+    // 2) If Bind() does not get called, the dtor will unregister the override.
+    render_frame_host_->GetRemoteAssociatedInterfaces()
+        ->OverrideBinderForTesting(
+            mojom::PrintRenderFrame::Name_,
+            base::BindRepeating(&PrintPreviewDoneObserver::Bind,
+                                base::Unretained(this)));
+  }
+
+  void Bind(mojo::ScopedInterfaceEndpointHandle handle) {
+    receiver_.Bind(mojo::PendingAssociatedReceiver<mojom::PrintRenderFrame>(
+        std::move(handle)));
+
+    // After the initial binding, reset the binder override. Otherwise,
+    // PrintPreviewDoneObserver will also try to bind the remote passed by
+    // SetPrintPreviewUI(), which will fail since `receiver_` is already bound.
+    render_frame_host_->GetRemoteAssociatedInterfaces()
+        ->OverrideBinderForTesting(mojom::PrintRenderFrame::Name_,
+                                   base::NullCallback());
+  }
+
+  raw_ptr<content::RenderFrameHost> const render_frame_host_;
+  raw_ptr<mojom::PrintRenderFrame> const print_render_frame_;
+  mojo::AssociatedReceiver<mojom::PrintRenderFrame> receiver_{this};
+  base::RunLoop run_loop_;
 };
 
 }  // namespace
@@ -579,7 +648,9 @@ class TestPrintViewManager : public PrintViewManager {
   }
 
  protected:
-  base::RunLoop* run_loop_ = nullptr;
+  // This field is not a raw_ptr<> because it was filtered by the rewriter for:
+  // #addr-of
+  RAW_PTR_EXCLUSION base::RunLoop* run_loop_ = nullptr;
 
  private:
   void PrintPreviewAllowedForTesting() override {
@@ -880,6 +951,9 @@ class PrintBrowserTest : public InProcessBrowserTest {
   }
 
   void TearDownOnMainThread() override {
+    // Remove map of objects pointing to //content objects before they go away.
+    frame_content_.clear();
+
     SetShowPrintErrorDialogForTest(base::NullCallback());
     InProcessBrowserTest::TearDownOnMainThread();
   }
@@ -1081,11 +1155,12 @@ class BackForwardCachePrintBrowserTest : public PrintBrowserTest {
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
     scoped_feature_list_.InitWithFeaturesAndParameters(
-        {{::features::kBackForwardCache,
+        {{::features::kBackForwardCache, {{}}},
+         {::features::kBackForwardCacheTimeToLiveControl,
           // Set a very long TTL before expiration (longer than the test
           // timeout) so tests that are expecting deletion don't pass when
           // they shouldn't.
-          {{"TimeToLiveInBackForwardCacheInSeconds", "3600"}}}},
+          {{"time_to_live_seconds", "3600"}}}},
         // Allow BackForwardCache for all devices regardless of their memory.
         {::features::kBackForwardCacheMemoryControls});
 
@@ -1994,10 +2069,8 @@ IN_PROC_BROWSER_TEST_F(PrintBrowserTest,
   StartPrint(browser()->tab_strip_model()->GetActiveWebContents(),
              /*print_renderer=*/mojo::NullAssociatedRemote(),
              /*print_preview_disabled=*/false, /*has_selection=*/false);
-  print_preview_observer.WaitUntilPreviewIsReady();
-
   content::WebContents* preview_dialog =
-      print_preview_observer.GetPrintPreviewDialog();
+      print_preview_observer.WaitUntilPreviewIsReadyAndReturnPreviewDialog();
   ASSERT_TRUE(preview_dialog);
 
   // The script will ensure we return the id of <zoom-out-button> when
@@ -2045,6 +2118,39 @@ IN_PROC_BROWSER_TEST_F(PrintBrowserTest, WindowDotPrint) {
   content::ExecuteScriptAsync(web_contents->GetPrimaryMainFrame(),
                               "window.print();");
   print_preview_observer.WaitUntilPreviewIsReady();
+}
+
+IN_PROC_BROWSER_TEST_F(PrintBrowserTest,
+                       WindowDotPrintTriggersBeforeAfterEvents) {
+  // Load test page and check the initial state.
+  const GURL kUrl(
+      embedded_test_server()->GetURL("/printing/on_before_after_events.html"));
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), kUrl));
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  content::RenderFrameHost* rfh = web_contents->GetPrimaryMainFrame();
+  EXPECT_EQ(false, content::EvalJs(rfh, "firedBeforePrint"));
+  EXPECT_EQ(false, content::EvalJs(rfh, "firedAfterPrint"));
+
+  // Set up the PrintPreviewDoneObserver early, as it needs to intercept Mojo
+  // IPCs before they start.
+  PrintPreviewDoneObserver done_observer(rfh, GetPrintRenderFrame(rfh).get());
+
+  // Load Print Preview and make sure the beforeprint event fired.
+  PrintPreviewObserver print_preview_observer(/*wait_for_loaded=*/false);
+  content::ExecuteScriptAsync(rfh, "window.print();");
+  print_preview_observer.WaitUntilPreviewIsReady();
+  EXPECT_EQ(true, content::EvalJs(rfh, "firedBeforePrint"));
+  EXPECT_EQ(false, content::EvalJs(rfh, "firedAfterPrint"));
+
+  // Close the Print Preview dialog and make sure the afterprint event fired.
+  auto* web_contents_modal_dialog_manager =
+      web_modal::WebContentsModalDialogManager::FromWebContents(web_contents);
+  ASSERT_TRUE(web_contents_modal_dialog_manager);
+  web_contents_modal_dialog_manager->CloseAllDialogs();
+  done_observer.WaitForPrintPreviewDialogClosed();
+  EXPECT_EQ(true, content::EvalJs(rfh, "firedBeforePrint"));
+  EXPECT_EQ(true, content::EvalJs(rfh, "firedAfterPrint"));
 }
 
 class PrintPrerenderBrowserTest : public PrintBrowserTest {
@@ -2172,7 +2278,7 @@ class PrintFencedFrameBrowserTest : public PrintBrowserTest {
     })";
     EXPECT_TRUE(ExecJs(fenced_frame_parent,
                        content::JsReplace(kAddFencedFrameScript, url)));
-    navigation.WaitForNavigationFinished();
+    EXPECT_TRUE(navigation.WaitForNavigationFinished());
 
     content::RenderFrameHost* new_frame = ChildFrameAt(fenced_frame_parent, 0);
 
@@ -2240,7 +2346,7 @@ IN_PROC_BROWSER_TEST_F(PrintFencedFrameBrowserTest, DocumentExecCommand) {
 #if !BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(ENABLE_OOP_PRINTING)
-class TestPrintJobWorker : public PrintJobWorker {
+class TestPrinterQuery : public PrinterQuery {
  public:
   // Callbacks to run for overrides.
   struct PrintCallbacks {
@@ -2248,17 +2354,13 @@ class TestPrintJobWorker : public PrintJobWorker {
     OnGetSettingsWithUICallback did_get_settings_with_ui_callback;
   };
 
-  TestPrintJobWorker(content::GlobalRenderFrameHostId rfh_id,
-                     PrintCallbacks* callbacks)
-      : PrintJobWorker(rfh_id), callbacks_(callbacks) {}
-  TestPrintJobWorker(const TestPrintJobWorker&) = delete;
-  TestPrintJobWorker& operator=(const TestPrintJobWorker&) = delete;
-  ~TestPrintJobWorker() override = default;
+  TestPrinterQuery(content::GlobalRenderFrameHostId rfh_id,
+                   PrintCallbacks* callbacks)
+      : PrinterQuery(rfh_id), callbacks_(callbacks) {}
 
- private:
   void UseDefaultSettings(SettingsCallback callback) override {
     DVLOG(1) << "Observed: invoke use default settings";
-    PrintJobWorker::UseDefaultSettings(std::move(callback));
+    PrinterQuery::UseDefaultSettings(std::move(callback));
     callbacks_->did_use_default_settings_callback.Run();
   }
 
@@ -2267,8 +2369,8 @@ class TestPrintJobWorker : public PrintJobWorker {
                          bool is_scripted,
                          SettingsCallback callback) override {
     DVLOG(1) << "Observed: invoke get settings with UI";
-    PrintJobWorker::GetSettingsWithUI(document_page_count, has_selection,
-                                      is_scripted, std::move(callback));
+    PrinterQuery::GetSettingsWithUI(document_page_count, has_selection,
+                                    is_scripted, std::move(callback));
     callbacks_->did_get_settings_with_ui_callback.Run();
   }
 
@@ -2290,7 +2392,7 @@ class TestPrintJobWorkerOop : public PrintJobWorkerOop {
   struct PrintCallbacks {
     ErrorCheckCallback error_check_callback;
     OnDidUseDefaultSettingsCallback did_use_default_settings_callback;
-#if BUILDFLAG(IS_WIN)
+#if BUILDFLAG(ENABLE_OOP_BASIC_PRINT_DIALOG)
     OnDidAskUserForSettingsCallback did_ask_user_for_settings_callback;
 #endif
     OnDidStartPrintingCallback did_start_printing_callback;
@@ -2302,49 +2404,27 @@ class TestPrintJobWorkerOop : public PrintJobWorkerOop {
     OnDidCancelCallback did_cancel_callback;
   };
 
-  TestPrintJobWorkerOop(content::GlobalRenderFrameHostId rfh_id,
-                        bool simulate_spooling_memory_errors,
-                        PrintCallbacks* callbacks)
-      : PrintJobWorkerOop(rfh_id, simulate_spooling_memory_errors),
+  TestPrintJobWorkerOop(
+      std::unique_ptr<PrintingContext::Delegate> printing_context_delegate,
+      std::unique_ptr<PrintingContext> printing_context,
+      PrintJob* print_job,
+      bool simulate_spooling_memory_errors,
+      TestPrintJobWorkerOop::PrintCallbacks* callbacks)
+      : PrintJobWorkerOop(std::move(printing_context_delegate),
+                          std::move(printing_context),
+                          print_job,
+                          simulate_spooling_memory_errors),
         callbacks_(callbacks) {}
   TestPrintJobWorkerOop(const TestPrintJobWorkerOop&) = delete;
   TestPrintJobWorkerOop& operator=(const TestPrintJobWorkerOop&) = delete;
   ~TestPrintJobWorkerOop() override = default;
 
  private:
-  void OnDidUseDefaultSettings(
-      SettingsCallback callback,
-      mojom::PrintSettingsResultPtr print_settings) override {
-    DVLOG(1) << "Observed: use default settings";
-    mojom::ResultCode result = print_settings->is_result_code()
-                                   ? print_settings->get_result_code()
-                                   : mojom::ResultCode::kSuccess;
-    callbacks_->error_check_callback.Run(result);
-    PrintJobWorkerOop::OnDidUseDefaultSettings(std::move(callback),
-                                               std::move(print_settings));
-    callbacks_->did_use_default_settings_callback.Run(result);
-  }
-
-#if BUILDFLAG(IS_WIN)
-  void OnDidAskUserForSettings(
-      SettingsCallback callback,
-      mojom::PrintSettingsResultPtr print_settings) override {
-    DVLOG(1) << "Observed: ask user for settings";
-    mojom::ResultCode result = print_settings->is_result_code()
-                                   ? print_settings->get_result_code()
-                                   : mojom::ResultCode::kSuccess;
-    callbacks_->error_check_callback.Run(result);
-    PrintJobWorkerOop::OnDidAskUserForSettings(std::move(callback),
-                                               std::move(print_settings));
-    callbacks_->did_ask_user_for_settings_callback.Run(result);
-  }
-#endif  // BUILDFLAG(IS_WIN)
-
   void OnDidStartPrinting(mojom::ResultCode result) override {
     DVLOG(1) << "Observed: start printing of document";
     callbacks_->error_check_callback.Run(result);
     PrintJobWorkerOop::OnDidStartPrinting(result);
-    callbacks_->did_start_printing_callback.Run(result, print_job());
+    callbacks_->did_start_printing_callback.Run(result);
   }
 
 #if BUILDFLAG(IS_WIN)
@@ -2382,6 +2462,54 @@ class TestPrintJobWorkerOop : public PrintJobWorkerOop {
 
   raw_ptr<PrintCallbacks> callbacks_;
 };
+
+class TestPrinterQueryOop : public PrinterQueryOop {
+ public:
+  TestPrinterQueryOop(content::GlobalRenderFrameHostId rfh_id,
+                      bool simulate_spooling_memory_errors,
+                      TestPrintJobWorkerOop::PrintCallbacks* callbacks)
+      : PrinterQueryOop(rfh_id),
+        simulate_spooling_memory_errors_(simulate_spooling_memory_errors),
+        callbacks_(callbacks) {}
+
+  void OnDidUseDefaultSettings(
+      SettingsCallback callback,
+      mojom::PrintSettingsResultPtr print_settings) override {
+    DVLOG(1) << "Observed: use default settings";
+    mojom::ResultCode result = print_settings->is_result_code()
+                                   ? print_settings->get_result_code()
+                                   : mojom::ResultCode::kSuccess;
+    callbacks_->error_check_callback.Run(result);
+    PrinterQueryOop::OnDidUseDefaultSettings(std::move(callback),
+                                             std::move(print_settings));
+    callbacks_->did_use_default_settings_callback.Run(result);
+  }
+
+#if BUILDFLAG(ENABLE_OOP_BASIC_PRINT_DIALOG)
+  void OnDidAskUserForSettings(
+      SettingsCallback callback,
+      mojom::PrintSettingsResultPtr print_settings) override {
+    DVLOG(1) << "Observed: ask user for settings";
+    mojom::ResultCode result = print_settings->is_result_code()
+                                   ? print_settings->get_result_code()
+                                   : mojom::ResultCode::kSuccess;
+    callbacks_->error_check_callback.Run(result);
+    PrinterQueryOop::OnDidAskUserForSettings(std::move(callback),
+                                             std::move(print_settings));
+    callbacks_->did_ask_user_for_settings_callback.Run(result);
+  }
+#endif  // BUILDFLAG(ENABLE_OOP_BASIC_PRINT_DIALOG)
+
+  std::unique_ptr<PrintJobWorker> TransferContextToNewWorker(
+      PrintJob* print_job) override {
+    return std::make_unique<TestPrintJobWorkerOop>(
+        std::move(printing_context_delegate_), std::move(printing_context_),
+        print_job, simulate_spooling_memory_errors_, callbacks_);
+  }
+
+  bool simulate_spooling_memory_errors_;
+  raw_ptr<TestPrintJobWorkerOop::PrintCallbacks> callbacks_;
+};
 #endif  // BUILDFLAG(ENABLE_OOP_PRINTING)
 
 class SystemAccessProcessPrintBrowserTestBase
@@ -2417,7 +2545,7 @@ class SystemAccessProcessPrintBrowserTestBase
           base::BindRepeating(
               &SystemAccessProcessPrintBrowserTestBase::OnDidUseDefaultSettings,
               base::Unretained(this));
-#if BUILDFLAG(IS_WIN)
+#if BUILDFLAG(ENABLE_OOP_BASIC_PRINT_DIALOG)
       test_print_job_worker_oop_callbacks_.did_ask_user_for_settings_callback =
           base::BindRepeating(
               &SystemAccessProcessPrintBrowserTestBase::OnDidAskUserForSettings,
@@ -2455,11 +2583,11 @@ class SystemAccessProcessPrintBrowserTestBase
               &SystemAccessProcessPrintBrowserTestBase::OnGetSettingsWithUI,
               base::Unretained(this));
     }
-    test_create_print_job_worker_callback_ = base::BindRepeating(
-        &SystemAccessProcessPrintBrowserTestBase::CreatePrintJobWorker,
+    test_create_printer_query_callback_ = base::BindRepeating(
+        &SystemAccessProcessPrintBrowserTestBase::CreatePrinterQuery,
         base::Unretained(this), UseService());
-    PrinterQuery::SetCreatePrintJobWorkerCallbackForTest(
-        &test_create_print_job_worker_callback_);
+    PrinterQuery::SetCreatePrinterQueryCallbackForTest(
+        &test_create_printer_query_callback_);
 #endif  // BUILDFLAG(ENABLE_OOP_PRINTING)
 
     PrintBrowserTest::SetUp();
@@ -2478,7 +2606,7 @@ class SystemAccessProcessPrintBrowserTestBase
   void TearDown() override {
     PrintBrowserTest::TearDown();
 #if BUILDFLAG(ENABLE_OOP_PRINTING)
-    PrinterQuery::SetCreatePrintJobWorkerCallbackForTest(/*callback=*/nullptr);
+    PrinterQuery::SetCreatePrinterQueryCallbackForTest(/*callback=*/nullptr);
     if (UseService()) {
       // Check that there is never a straggler client registration.
       EXPECT_EQ(
@@ -2525,13 +2653,11 @@ class SystemAccessProcessPrintBrowserTestBase
                /*print_renderer=*/mojo::NullAssociatedRemote(),
                /*print_preview_disabled=*/false,
                /*has_selection=*/false);
-    print_preview_observer.WaitUntilPreviewIsReady();
+    content::WebContents* preview_dialog =
+        print_preview_observer.WaitUntilPreviewIsReadyAndReturnPreviewDialog();
+    ASSERT_TRUE(preview_dialog);
 
     set_rendered_page_count(print_preview_observer.rendered_page_count());
-
-    content::WebContents* preview_dialog =
-        print_preview_observer.GetPrintPreviewDialog();
-    ASSERT_TRUE(preview_dialog);
 
     // Print Preview is completely ready, can now initiate printing.
     // This script locates and clicks the Print button.
@@ -2544,6 +2670,42 @@ class SystemAccessProcessPrintBrowserTestBase
     ASSERT_TRUE(content::ExecuteScript(preview_dialog, kScript));
     WaitUntilCallbackReceived();
   }
+
+#if BUILDFLAG(ENABLE_BASIC_PRINT_DIALOG)
+  void SystemPrintFromPreviewOnceReadyAndLoaded() {
+    // First invoke the Print Preview dialog with `StartPrint()`.
+    PrintPreviewObserver print_preview_observer(/*wait_for_loaded=*/true);
+    StartPrint(browser()->tab_strip_model()->GetActiveWebContents(),
+               /*print_renderer=*/mojo::NullAssociatedRemote(),
+               /*print_preview_disabled=*/false,
+               /*has_selection=*/false);
+    content::WebContents* preview_dialog =
+        print_preview_observer.WaitUntilPreviewIsReadyAndReturnPreviewDialog();
+    ASSERT_TRUE(preview_dialog);
+
+    set_rendered_page_count(print_preview_observer.rendered_page_count());
+
+    // Print Preview is completely ready, can now initiate printing.
+    // This script locates and clicks the "Print using system dialog",
+    // which is still enabled even if it is hidden.
+    const char kPrintWithSystemDialogScript[] = R"(
+      const printSystemDialog
+          = document.getElementsByTagName('print-preview-app')[0]
+              .$['sidebar']
+              .shadowRoot.querySelector('print-preview-link-container')
+              .$['systemDialogLink'];
+        printSystemDialog.click();)";
+    // It is possible for sufficient processing for the system print to
+    // complete such that the renderer naturally terminates before ExecJs()
+    // returns here.  This causes ExecJs() to return false, with a JavaScript
+    // error of "Renderer terminated".  Since the termination can actually be
+    // a result of successful print processing, do not assert on this return
+    // result, just ignore the error instead.  Rely upon tests catching any
+    // failure through the use of other expectation checks.
+    std::ignore = content::ExecJs(preview_dialog, kPrintWithSystemDialogScript);
+    WaitUntilCallbackReceived();
+  }
+#endif  // BUILDFLAG(ENABLE_BASIC_PRINT_DIALOG)
 
   void PrimeAsRepeatingErrorGenerator() { reset_errors_after_check_ = false; }
 
@@ -2647,15 +2809,15 @@ class SystemAccessProcessPrintBrowserTestBase
 
  private:
 #if BUILDFLAG(ENABLE_OOP_PRINTING)
-  std::unique_ptr<PrintJobWorker> CreatePrintJobWorker(
+  std::unique_ptr<PrinterQuery> CreatePrinterQuery(
       bool use_service,
       content::GlobalRenderFrameHostId rfh_id) {
     if (use_service) {
-      return std::make_unique<TestPrintJobWorkerOop>(
+      return std::make_unique<TestPrinterQueryOop>(
           rfh_id, simulate_spooling_memory_errors_,
           &test_print_job_worker_oop_callbacks_);
     }
-    return std::make_unique<TestPrintJobWorker>(
+    return std::make_unique<TestPrinterQuery>(
         rfh_id, &test_print_job_worker_callbacks_);
   }
 
@@ -2701,9 +2863,8 @@ class SystemAccessProcessPrintBrowserTestBase
   }
 #endif
 
-  void OnDidStartPrinting(mojom::ResultCode result, PrintJob* print_job) {
+  void OnDidStartPrinting(mojom::ResultCode result) {
     start_printing_result_ = result;
-    print_job_ = print_job;
     CheckForQuit();
   }
 
@@ -2755,9 +2916,9 @@ class SystemAccessProcessPrintBrowserTestBase
 
   base::test::ScopedFeatureList feature_list_;
 #if BUILDFLAG(ENABLE_OOP_PRINTING)
-  TestPrintJobWorker::PrintCallbacks test_print_job_worker_callbacks_;
+  TestPrinterQuery::PrintCallbacks test_print_job_worker_callbacks_;
   TestPrintJobWorkerOop::PrintCallbacks test_print_job_worker_oop_callbacks_;
-  CreatePrintJobWorkerCallback test_create_print_job_worker_callback_;
+  CreatePrinterQueryCallback test_create_printer_query_callback_;
   bool did_use_default_settings_ = false;
   bool did_get_settings_with_ui_ = false;
   bool print_backend_service_use_detected_ = false;
@@ -2765,7 +2926,6 @@ class SystemAccessProcessPrintBrowserTestBase
   mojo::Remote<mojom::PrintBackendService> test_remote_;
   std::unique_ptr<PrintBackendServiceTestImpl> print_backend_service_;
 #endif  // BUILDFLAG(ENABLE_OOP_PRINTING)
-  raw_ptr<PrintJob, DanglingUntriaged> print_job_ = nullptr;
   bool reset_errors_after_check_ = true;
   int did_print_document_count_ = 0;
   mojom::ResultCode use_default_settings_result_ = mojom::ResultCode::kFailed;
@@ -3314,6 +3474,67 @@ IN_PROC_BROWSER_TEST_F(SystemAccessProcessSandboxedServicePrintBrowserTest,
 }
 
 #if BUILDFLAG(ENABLE_BASIC_PRINT_DIALOG)
+
+IN_PROC_BROWSER_TEST_P(SystemAccessProcessPrintBrowserTest,
+                       SystemPrintFromPrintPreview) {
+  // TODO(crbug.com/1393505)  Enable OOP test coverage once underlying
+  // printing stack updates to support this scenario with out-of-process are
+  // in place.
+  if (GetParam() != PrintBackendFeatureVariation::kInBrowserProcess) {
+    GTEST_SKIP() << "Skipping test for out-of-process, which is known to crash "
+                    "when transitioning to system print from print preview";
+  }
+
+  AddPrinter("printer1");
+  SetPrinterNameForSubsequentContexts("printer1");
+
+  ASSERT_TRUE(embedded_test_server()->Started());
+  GURL url(embedded_test_server()->GetURL("/printing/test3.html"));
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  ASSERT_TRUE(web_contents);
+  SetUpPrintViewManager(web_contents);
+
+  if (GetParam() == PrintBackendFeatureVariation::kInBrowserProcess) {
+#if BUILDFLAG(IS_WIN)
+    // There are no callbacks that trigger for print stages with in-browser
+    // printing for the Windows case.  The only expected event for this is to
+    // wait for the one print job to be destroyed, to ensure printing finished
+    // cleanly before completing the test.
+    SetNumExpectedMessages(/*num=*/1);
+#else
+    // Once the transition to system print is initiated, the expected events
+    // are:
+    // 1.  Use default settings.
+    // 2.  Ask the user for settings.
+    // 3.  Wait until all processing for DidPrintDocument is known to have
+    //     completed, to ensure printing finished cleanly before completing the
+    //     test.
+    // 4.  Wait for the one print job to be destroyed, to ensure printing
+    //     finished cleanly before completing the test.
+    SetNumExpectedMessages(/*num=*/4);
+#endif  // BUILDFLAG(IS_WIN)
+  } else {
+    // TODO(crbug.com/1393505)  Fill in expected events once the printing stack
+    // updates to support this scenario with out-of-process are in place.
+  }
+  SystemPrintFromPreviewOnceReadyAndLoaded();
+
+#if !BUILDFLAG(IS_WIN)
+  if (GetParam() == PrintBackendFeatureVariation::kInBrowserProcess) {
+    EXPECT_TRUE(did_get_settings_with_ui());
+    EXPECT_EQ(did_print_document_count(), 1);
+  } else {
+    // TODO(crbug.com/1393505)  Fill in expectations once the printing stack
+    // updates to support this scenario with out-of-process are in place.
+  }
+#endif
+  EXPECT_EQ(error_dialog_shown_count(), 0u);
+  EXPECT_EQ(print_job_destruction_count(), 1);
+}
+
 IN_PROC_BROWSER_TEST_P(SystemAccessProcessServicePrintBrowserTest,
                        StartBasicPrint) {
   AddPrinter("printer1");
@@ -3328,7 +3549,7 @@ IN_PROC_BROWSER_TEST_P(SystemAccessProcessServicePrintBrowserTest,
   ASSERT_TRUE(web_contents);
   SetUpPrintViewManager(web_contents);
 
-#if BUILDFLAG(IS_WIN)
+#if BUILDFLAG(ENABLE_OOP_BASIC_PRINT_DIALOG)
   // The expected events for this are:
   // 1.  Get the default settings.
   // 2.  Ask the user for settings.
@@ -3336,37 +3557,31 @@ IN_PROC_BROWSER_TEST_P(SystemAccessProcessServicePrintBrowserTest,
   // 4.  The print compositor will complete generating the document.
   // 5.  The document is rendered.
   // 6.  Receive document done notification.
-  // 8.  Wait for the one print job to be destroyed, to ensure printing
+  // 7.  Wait for the one print job to be destroyed, to ensure printing
   //     finished cleanly before completing the test.
   SetNumExpectedMessages(/*num=*/7);
 #else
   // The expected events for this are:
-  // 1.  Get the default settings.  Ask the user for settings; due to issues
-  //     with displaying a system dialog from the utility process, there is no
-  //     callback to capture the request for user supplied settings.
-  // 2.  A print job is started.
-  // 3.  The print compositor will complete generating the document.
-  // 4.  The document is rendered.
-  // 5.  Receive document done notification.
-  // 6.  Wait for the one print job to be destroyed, to ensure printing
+  // 1.  Get default settings, followed by asking user for settings.  This is
+  //     invoked from the browser process, so there is no override to observe
+  //     this.  Then a print job is started.
+  // 2.  The print compositor will complete generating the document.
+  // 3.  The document is rendered.
+  // 4.  Receive document done notification.
+  // 5.  Wait for the one print job to be destroyed, to ensure printing
   //     finished cleanly before completing the test.
-  // TODO(crbug.com/1374188)  Update this expectation once
-  // `AskUserForSettings()` is able to be pushed OOP for Linux.
-  SetNumExpectedMessages(/*num=*/6);
+  SetNumExpectedMessages(/*num=*/5);
 #endif
 
   StartBasicPrint(web_contents);
 
   WaitUntilCallbackReceived();
 
-  EXPECT_EQ(use_default_settings_result(), mojom::ResultCode::kSuccess);
   // macOS and Linux currently have to invoke a system dialog from within the
   // browser process.  There is not a callback to capture the result in these
   // cases.
-  // TODO(crbug.com/1374188)  Re-enable this check against
-  // `ask_user_for_settings_result()` once `AskForUserSettings()` is able to be
-  // pushed OOP for Linux.
-#if BUILDFLAG(IS_WIN)
+#if BUILDFLAG(ENABLE_OOP_BASIC_PRINT_DIALOG)
+  EXPECT_EQ(use_default_settings_result(), mojom::ResultCode::kSuccess);
   EXPECT_EQ(ask_user_for_settings_result(), mojom::ResultCode::kSuccess);
 #endif
   EXPECT_EQ(start_printing_result(), mojom::ResultCode::kSuccess);
@@ -3405,12 +3620,16 @@ IN_PROC_BROWSER_TEST_F(SystemAccessProcessInBrowserPrintBrowserTest,
   ASSERT_TRUE(web_contents);
   SetUpPrintViewManager(web_contents);
 
+#if BUILDFLAG(ENABLE_OOP_BASIC_PRINT_DIALOG)
   // The expected events for this are:
   // 1.  Get the default settings.
   // 2.  Ask the user for settings, which indicates to cancel the print
   //     request.  No further printing calls are made.
   // No print job is created because of such an early cancel.
   SetNumExpectedMessages(/*num=*/2);
+#else
+  // TODO(crbug.com/1375007)  Need a good signal to use for test expectations.
+#endif
 
   StartBasicPrint(web_contents);
 
@@ -3456,7 +3675,7 @@ IN_PROC_BROWSER_TEST_P(SystemAccessProcessPrintBrowserTest,
     //     finished cleanly before completing the test.
     SetNumExpectedMessages(/*num=*/5);
   } else {
-#if BUILDFLAG(IS_WIN)
+#if BUILDFLAG(ENABLE_OOP_BASIC_PRINT_DIALOG)
     // The expected events for this are:
     // 1.  Gets default settings.
     // 2.  Asks user for settings.
@@ -3473,20 +3692,19 @@ IN_PROC_BROWSER_TEST_P(SystemAccessProcessPrintBrowserTest,
     SetNumExpectedMessages(/*num=*/7);
 #else
     // The expected events for this are:
-    // 1.  Gets default settings.
-    // 2.  Asks user for settings.  This is invoked from the browser process,
-    //     so there is no override to observe this.  Then a print job is
-    //     started, which fails.
-    // 3.  An error dialog is shown.
-    // 4.  The print job is canceled.  The callback from the service could occur
+    // 1.  Get default settings, followed by asking user for settings.  This is
+    //     invoked from the browser process, so there is no override to observe
+    //     this.  Then a print job is started, which fails.
+    // 2.  An error dialog is shown.
+    // 3.  The print job is canceled.  The callback from the service could occur
     //     after the print job has been destroyed.
-    // 5.  Wait for the one print job to be destroyed, to ensure printing
+    // 4.  Wait for the one print job to be destroyed, to ensure printing
     //     finished cleanly before completing the test.
-    // 6.  The print compositor will have started to generate the document.
+    // 5.  The print compositor will have started to generate the document.
     //     Wait until that is known to have completed, to ensure printing
     //     finished cleanly before completing the test.
-    SetNumExpectedMessages(/*num=*/6);
-#endif  // BUILDFLAG(IS_WIN)
+    SetNumExpectedMessages(/*num=*/5);
+#endif  // BUILDFLAG(ENABLE_OOP_BASIC_PRINT_DIALOG)
   }
 
   StartBasicPrint(web_contents);
@@ -3559,7 +3777,7 @@ IN_PROC_BROWSER_TEST_P(SystemAccessProcessServicePrintBrowserTest,
       TestPrintViewManager::CreateForWebContents(web_contents);
 
   // Pretend that a window has started a system print.
-  absl::optional<uint32_t> client_id =
+  absl::optional<PrintBackendServiceManager::ClientId> client_id =
       PrintBackendServiceManager::GetInstance().RegisterQueryWithUiClient();
   ASSERT_TRUE(client_id.has_value());
 
@@ -3594,17 +3812,27 @@ IN_PROC_BROWSER_TEST_P(SystemAccessProcessServicePrintBrowserTest,
   ASSERT_TRUE(web_contents);
   SetUpPrintViewManager(web_contents);
 
+#if BUILDFLAG(ENABLE_OOP_BASIC_PRINT_DIALOG)
   // The expected events for this are:
   // 1.  Get the default settings, which fails.
   // 2.  The print error dialog is shown.
   // No print job is created from such an early failure.
   SetNumExpectedMessages(/*num=*/2);
+#else
+  // When get default settings is invoked from the browser process, there is no
+  // override to observe this failure.  This means the expected events are:
+  // 1.  The print error dialog is shown.
+  // No print job is created from such an early failure.
+  SetNumExpectedMessages(/*num=*/1);
+#endif
 
   StartBasicPrint(web_contents);
 
   WaitUntilCallbackReceived();
 
+#if BUILDFLAG(ENABLE_OOP_BASIC_PRINT_DIALOG)
   EXPECT_EQ(use_default_settings_result(), mojom::ResultCode::kFailed);
+#endif
   EXPECT_EQ(error_dialog_shown_count(), 1u);
   EXPECT_EQ(did_print_document_count(), 0);
   EXPECT_EQ(print_job_construction_count(), 0);

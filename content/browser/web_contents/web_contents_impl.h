@@ -15,9 +15,9 @@
 #include <utility>
 #include <vector>
 
-#include "base/callback_helpers.h"
 #include "base/callback_list.h"
 #include "base/containers/flat_map.h"
+#include "base/functional/callback_helpers.h"
 #include "base/functional/function_ref.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
@@ -486,10 +486,6 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   void GenerateMHTMLWithResult(
       const MHTMLGenerationParams& params,
       MHTMLGenerationResult::GenerateMHTMLCallback callback) override;
-  void GenerateWebBundle(
-      const base::FilePath& file_path,
-      base::OnceCallback<void(uint64_t, data_decoder::mojom::WebBundlerError)>
-          callback) override;
   const std::string& GetContentsMimeType() override;
   blink::RendererPreferences* GetMutableRendererPrefs() override;
   void Close() override;
@@ -554,6 +550,8 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   void UpdateWindowControlsOverlay(const gfx::Rect& bounding_rect) override;
 #if BUILDFLAG(IS_ANDROID)
   base::android::ScopedJavaLocalRef<jobject> GetJavaWebContents() override;
+  base::android::ScopedJavaLocalRef<jthrowable> GetJavaCreatorLocation()
+      override;
   WebContentsAndroid* GetWebContentsAndroid();
   void ClearWebContentsAndroid();
   void ActivateNearestFindResult(float x, float y) override;
@@ -565,8 +563,8 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   bool HasActiveEffectivelyFullscreenVideo() override;
   void WriteIntoTrace(perfetto::TracedValue context) override;
   const base::Location& GetCreatorLocation() override;
-  float GetPictureInPictureInitialAspectRatio() override;
-  bool GetPictureInPictureLockAspectRatio() override;
+  const absl::optional<blink::mojom::PictureInPictureWindowOptions>&
+  GetPictureInPictureOptions() const override;
   void UpdateBrowserControlsState(cc::BrowserControlsState constraints,
                                   cc::BrowserControlsState current,
                                   bool animate) override;
@@ -580,12 +578,6 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   void NotifyPreferencesChanged() override;
   void SetWebPreferences(const blink::web_pref::WebPreferences& prefs) override;
   void OnWebPreferencesChanged() override;
-
-  void DisablePrerender2() override;
-  void ResetPrerender2Disabled() override;
-  // Resets the bit to explicitly disable Prerender2 for this WebContents. Note
-  // that this may not equate to the feature being enabled.
-  bool IsPrerender2Disabled();
 
   void AboutToBeDiscarded(WebContents* new_contents) override;
 
@@ -822,7 +814,6 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
                             base::TerminationStatus status,
                             int error_code) override;
   void RenderViewDeleted(RenderViewHost* render_view_host) override;
-  void Close(RenderViewHost* render_view_host) override;
   bool DidAddMessageToConsole(
       RenderFrameHostImpl* source_frame,
       blink::mojom::ConsoleMessageLevel log_level,
@@ -973,7 +964,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   bool IsShowingContextMenuOnPage() const override;
   void DidChangeScreenOrientation() override;
   gfx::Rect GetWindowsControlsOverlayRect() const override;
-  VisibleTimeRequestTrigger* GetVisibleTimeRequestTrigger() final;
+  VisibleTimeRequestTrigger& GetVisibleTimeRequestTrigger() final;
 
   // RenderFrameHostManager::Delegate ------------------------------------------
 
@@ -2337,17 +2328,23 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   // TODO(1231679): Remove/reevaluate after the PCScan experiment is finished.
   std::unique_ptr<StarScanLoadObserver> star_scan_load_observer_;
 
-  // Stores WebContents::CreateParams::creator_location_.
+  // Stores WebContents::CreateParams::creator_location.
   base::Location creator_location_;
 
-  // The initial aspect ratio (only used for WebContents associated with a
-  // PictureInPicture window). This value is either the parameter given in
-  // WebContents::CreateParams::initial_picture_in_picture_aspect_ratio, or a
-  // default value if the given value is unset or invalid.
-  float pip_initial_aspect_ratio_ = 1.0f;
+#if BUILDFLAG(IS_ANDROID)
+  // Stores WebContents::CreateParams::java_creator_location.
+  base::android::ScopedJavaGlobalRef<jthrowable> java_creator_location_;
+#endif  // BUILDFLAG(IS_ANDROID)
 
-  // Stores WebContents::CreateParams::lock_picture_in_picture_aspect_ratio.
-  bool pip_lock_aspect_ratio_ = false;
+  // The options used for WebContents associated with a PictureInPicture window.
+  // This value is the parameter given in
+  // WebContents::CreateParams::picture_in_picture_options.
+  absl::optional<blink::mojom::PictureInPictureWindowOptions>
+      picture_in_picture_options_;
+
+  // Pip might require the content window to continue rendering. This handle
+  // ensures that rendering continues despite occlusion or hidden window state.
+  base::ScopedClosureRunner pip_capture_handle_;
 
   VisibleTimeRequestTrigger visible_time_request_trigger_;
 
@@ -2356,8 +2353,6 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   // either DevTools is opened and consults this value or when a non-prerendered
   // navigation commits in the primary main frame.
   bool last_navigation_was_prerender_activation_for_devtools_ = false;
-
-  bool prerender2_disabled_ = false;
 
   base::WeakPtrFactory<WebContentsImpl> loading_weak_factory_{this};
   base::WeakPtrFactory<WebContentsImpl> weak_factory_{this};

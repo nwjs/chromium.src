@@ -70,7 +70,8 @@ ci.builder(
     ),
     # Higher build timeout since dbg ASAN builds can take a while on a clobber
     # build.
-    execution_timeout = 5 * time.hour,
+    # TODO(crbug.com/1395760): Check why the compile takes longer time.
+    execution_timeout = 8 * time.hour,
 )
 
 ci.thin_tester(
@@ -337,6 +338,7 @@ ci.builder(
     name = "Android x64 Builder All Targets (dbg)",
     branch_selector = branches.selector.ANDROID_BRANCHES,
     builder_spec = builder_config.copy_from("ci/Android x64 Builder (dbg)"),
+    free_space = builders.free_space.high,
     console_view_entry = consoles.console_view_entry(
         category = "builder|x86",
         short_name = "64-all",
@@ -476,6 +478,9 @@ ci.builder(
     ),
     execution_timeout = 7 * time.hour,
     notifies = ["Deterministic Android"],
+
+    # TODO(crbug.com/1362440): remove this.
+    omit_python2 = False,
 )
 
 ci.builder(
@@ -490,6 +495,9 @@ ci.builder(
     ),
     execution_timeout = 6 * time.hour,
     notifies = ["Deterministic Android"],
+
+    # TODO(crbug.com/1362440): remove this.
+    omit_python2 = False,
     reclient_jobs = reclient.jobs.DEFAULT,
 )
 
@@ -692,6 +700,9 @@ ci.builder(
         category = "builder|other",
         short_name = "size",
     ),
+
+    # TODO(crbug.com/1362440): remove this.
+    omit_python2 = False,
     reclient_jobs = reclient.jobs.DEFAULT,
 )
 
@@ -859,6 +870,9 @@ ci.builder(
         short_name = "m",
     ),
     notifies = ["cronet"],
+
+    # TODO(crbug.com/1362440): remove this.
+    omit_python2 = False,
     reclient_jobs = reclient.jobs.DEFAULT,
 )
 
@@ -1218,35 +1232,6 @@ ci.thin_tester(
     cq_mirrors_console_view = "mirrors",
 )
 
-# TODO(crbug/1182468) Remove android coverage bots after coverage is
-# running on CQ.
-ci.builder(
-    name = "android-pie-arm64-coverage-experimental-rel",
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = [
-                "android",
-                "use_clang_coverage",
-            ],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "android",
-            apply_configs = ["mb"],
-            build_config = builder_config.build_config.RELEASE,
-            target_bits = 64,
-            target_platform = builder_config.target_platform.ANDROID,
-        ),
-        android_config = builder_config.android_config(config = "main_builder"),
-        build_gs_bucket = "chromium-android-archive",
-    ),
-    sheriff_rotations = args.ignore_default(None),
-    console_view_entry = consoles.console_view_entry(
-        category = "builder_tester|arm64",
-        short_name = "p-cov",
-    ),
-)
-
 ci.builder(
     name = "android-pie-arm64-rel",
     branch_selector = branches.selector.ANDROID_BRANCHES,
@@ -1374,6 +1359,42 @@ ci.builder(
     console_view_entry = consoles.console_view_entry(
         category = "on_cq|x64",
         short_name = "12",
+    ),
+    execution_timeout = 4 * time.hour,
+)
+
+ci.builder(
+    name = "android-13-x64-rel",
+    # TODO(crbug.com/1405331): Enable on branches once stable
+    #branch_selector = branches.selector.ANDROID_BRANCHES,
+    builder_spec = builder_config.builder_spec(
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+            apply_configs = [
+                "android",
+            ],
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "android",
+            apply_configs = [
+                "mb",
+            ],
+            build_config = builder_config.build_config.RELEASE,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.ANDROID,
+        ),
+        android_config = builder_config.android_config(
+            config = "x64_builder",
+        ),
+        build_gs_bucket = "chromium-android-archive",
+    ),
+    # TODO(crbug.com/1405331): Enable sheriff once tests are stable
+    sheriff_rotations = args.ignore_default(None),
+    # TODO(crbug.com/1405331): Enable tree_closing once compile are stable
+    #tree_closing = True,
+    console_view_entry = consoles.console_view_entry(
+        category = "builder_tester|x64",
+        short_name = "13",
     ),
     execution_timeout = 4 * time.hour,
 )

@@ -75,20 +75,22 @@ enum class PhoneImportStatus {
 struct ProfileImportMetadata {
   // Whether the profile's country was complemented automatically.
   bool did_complement_country = false;
-  // Whether the form original contained an invalid country, that was ignored
+  // Whether the form original contained an invalid country that was ignored
   // due to AutofillOverwriteInvalidCountryOnImport.
   // TODO(crbug.com/1362472): Cleanup when launched.
   bool did_ignore_invalid_country = false;
-  // Whether the form originally contained an invalid phone number, that was:
-  // - Removed due to AutofillRemoveInvalidPhoneNumberOnImport.
-  // - The only requirement preventing an import.
-  // TODO(crbug.com/1298424): Cleanup when launched.
+  // Whether the form originally contained a phone number and if that phone
+  // number is considered valid by libphonenumber.
   PhoneImportStatus phone_import_status = PhoneImportStatus::kNone;
   // Whether the profile import from any field that contained an unrecognized
   // autocomplete attribute.
   bool did_import_from_unrecognized_autocomplete_field = false;
   // The origin that the form was submitted on.
   url::Origin origin;
+  // The number of fields with unrecognized autocomplete attribute that used to
+  // construct the observed profile.
+  // TODO(crbug.com/1301721): Remove.
+  int num_autocomplete_unrecognized_fields = 0;
 };
 
 // This class holds the state associated with the import of an AutofillProfile

@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Linux-р суулгах</translation>
 <translation id="2225536596944493418">Та <ph name="NUMBER_OF_ITEMS" /> зүйлийг устгахдаа итгэлтэй байна уу?</translation>
 <translation id="2230062665678605299">"<ph name="FOLDER_NAME" /> ". <ph name="ERROR_MESSAGE" /> хавтас үүсгэх боломжгүй байна</translation>
+<translation id="2236732657580416950">Таны Google Драйвын завсрын санах ойг арилгасан.</translation>
 <translation id="2239068707900391003">Кофетой хүн</translation>
 <translation id="2251368349685848079">Хогийн савнаас сэргээх</translation>
 <translation id="2282155092769082568">Автоматаар тохируулах URL:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">&lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt;-тай таарах хайлт олдсонгүй</translation>
 <translation id="2894654529758326923">Мэдээлэл</translation>
 <translation id="2902734494705624966">АНУ өргөтгөсөн</translation>
+<translation id="2904378509913846215">"<ph name="FILENAME" />" нэртэй фолдер аль хэдийн байна. Та үүнийг зөөж байгаа файлаар солихыг хүсэж байна уу?</translation>
 <translation id="290843123675549676">Марати</translation>
 <translation id="2923240520113693977">Эстон</translation>
 <translation id="2938685643439809023">Монгол</translation>
@@ -637,6 +639,7 @@
 <translation id="6241349547798190358">Голланд (Бельги)</translation>
 <translation id="6267547857941397424">Сүлжээ: <ph name="NETWORK_COUNT" />-н <ph name="NETWORK_INDEX" />, <ph name="PHONE_NAME" />, дохионы хүч <ph name="SIGNAL_STRENGTH" />%, утасны батарей <ph name="BATTERY_STATUS" />%, холбогдох</translation>
 <translation id="6269630227984243955">Малай</translation>
+<translation id="6271903698064569429">"<ph name="SHARED_DRIVE_NAME" />"-д хангалттай хадгалах сан байхгүй тул файлуудыг байршуулах боломжгүй.</translation>
 <translation id="6287852322318138013">Аппликейшнээ сонгоод файлаа нээ</translation>
 <translation id="6295542640242147836">SIM-г түгжих</translation>
 <translation id="6296410173147755564">PUK буруу байна</translation>
@@ -682,6 +685,7 @@
 <translation id="6657585470893396449">Нууц үг</translation>
 <translation id="6658865850469097484">Хогийн саванд 30 хоногоос удаан байсан файлуудыг автоматаар устгана.</translation>
 <translation id="6673674183150363784">Bépo гартай франц (Франц)</translation>
+<translation id="670380500182402678">Бүгдийг солих</translation>
 <translation id="6710022688720561421">Робот</translation>
 <translation id="6710213216561001401">Өмнөх</translation>
 <translation id="6732801395666424405">Гэрчилгээнүүдийг ачаалласангүй</translation>
@@ -900,6 +904,7 @@
 <translation id="8386903983509584791">Шалгаж дууслаа</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" />-г задалсан.</translation>
 <translation id="8395901698320285466">Хэмжээ</translation>
+<translation id="8404498045299006085">Бүгдийг хадгалах</translation>
 <translation id="8408068190360279472"><ph name="NETWORK_TYPE" /> сүлжээ, холбогдож байна</translation>
 <translation id="8425213833346101688">Өөрчлөлт</translation>
 <translation id="8431909052837336408">SIM-н ПИН-г өөрчлөх</translation>

@@ -6,9 +6,9 @@
 
 #include <memory>
 
-#include "base/bind.h"
-#include "base/callback.h"
-#include "base/callback_helpers.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback.h"
+#include "base/functional/callback_helpers.h"
 #include "base/task/single_thread_task_runner.h"
 #include "build/buildflag.h"
 #include "media/media_buildflags.h"
@@ -135,6 +135,10 @@ void FakeRemoter::Start() {
         FROM_HERE,
         base::BindOnce(&FakeRemoter::Started, weak_factory_.GetWeakPtr()));
   }
+}
+
+void FakeRemoter::StartWithPermissionAlreadyGranted() {
+  Start();
 }
 
 void FakeRemoter::StartDataStreams(

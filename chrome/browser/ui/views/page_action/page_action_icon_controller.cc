@@ -4,8 +4,8 @@
 
 #include "chrome/browser/ui/views/page_action/page_action_icon_controller.h"
 
-#include "base/bind.h"
 #include "base/feature_list.h"
+#include "base/functional/bind.h"
 #include "base/immediate_crash.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/ranges/algorithm.h"
@@ -195,6 +195,9 @@ void PageActionIconController::Init(const PageActionIconParams& params,
             type, std::make_unique<autofill::SavePaymentIconView>(
                       params.command_updater, params.icon_label_bubble_delegate,
                       params.page_action_icon_delegate));
+        break;
+      case PageActionIconType::kSaveIban:
+        // TODO(crbug.com/1349109): Create SaveIBANIconView.
         break;
       case PageActionIconType::kSendTabToSelf:
         add_page_action_icon(

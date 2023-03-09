@@ -75,7 +75,6 @@ AngleVulkanImageBackingFactory::CreateSharedImage(
 std::unique_ptr<SharedImageBacking>
 AngleVulkanImageBackingFactory::CreateSharedImage(
     const Mailbox& mailbox,
-    int client_id,
     gfx::GpuMemoryBufferHandle handle,
     gfx::BufferFormat buffer_format,
     gfx::BufferPlane plane,
@@ -168,8 +167,7 @@ bool AngleVulkanImageBackingFactory::IsSupported(
     return false;
   }
 
-  return CanCreateSharedImage(size, pixel_data, GetFormatInfo(format),
-                              GL_TEXTURE_2D);
+  return CanCreateSharedImage(format, size, pixel_data, GL_TEXTURE_2D);
 }
 
 }  // namespace gpu
