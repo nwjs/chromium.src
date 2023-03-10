@@ -1,5 +1,7 @@
 /client-py/
 /content/nw
+/third_party/node-nw
+/tools/gyp
 *.bak
 *.code-workspace
 *.gstmp
