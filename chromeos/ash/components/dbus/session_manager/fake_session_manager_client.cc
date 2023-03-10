@@ -7,11 +7,11 @@
 #include <utility>
 
 #include "base/base64.h"
-#include "base/bind.h"
 #include "base/check.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_file.h"
+#include "base/functional/bind.h"
 #include "base/json/json_writer.h"
 #include "base/location.h"
 #include "base/logging.h"
@@ -378,7 +378,8 @@ void FakeSessionManagerClient::StartDeviceWipe() {
 }
 
 void FakeSessionManagerClient::StartRemoteDeviceWipe(
-    const enterprise_management::SignedData& signed_command) {
+    const enterprise_management::SignedData& signed_command,
+    enterprise_management::PolicyFetchRequest::SignatureType signature_type) {
   start_device_wipe_call_count_++;
   if (!on_start_device_wipe_callback_.is_null()) {
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(

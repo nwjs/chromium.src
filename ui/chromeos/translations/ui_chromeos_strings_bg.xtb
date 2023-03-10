@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Инсталиране с Linux</translation>
 <translation id="2225536596944493418">Наистина ли искате да изтриете <ph name="NUMBER_OF_ITEMS" /> елемента?</translation>
 <translation id="2230062665678605299">Не можем да създадем папката „<ph name="FOLDER_NAME" />“. <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">Кешът ви в Google Диск бе изчистен.</translation>
 <translation id="2239068707900391003">Човек с кафе</translation>
 <translation id="2251368349685848079">Възстановяване от кошчето</translation>
 <translation id="2282155092769082568">URL адрес за автоматично конфигуриране:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">Няма елементи, съответстващи на &lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;</translation>
 <translation id="2894654529758326923">Информация</translation>
 <translation id="2902734494705624966">Американска разширена клавиатура</translation>
+<translation id="2904378509913846215">Вече съществува папка с име „<ph name="FILENAME" />“. Искате ли да я замените с тази, която премествате?</translation>
 <translation id="290843123675549676">Маратхи</translation>
 <translation id="2923240520113693977">естонски</translation>
 <translation id="2938685643439809023">монголски</translation>
@@ -640,6 +642,7 @@
 <translation id="6241349547798190358">Нидерландски (Белгия)</translation>
 <translation id="6267547857941397424">Мрежа <ph name="NETWORK_INDEX" /> от <ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, сила на сигнала <ph name="SIGNAL_STRENGTH" />%, батерия на телефона <ph name="BATTERY_STATUS" />%, свързване</translation>
 <translation id="6269630227984243955">Малайски</translation>
+<translation id="6271903698064569429">Файловете не могат да бъдат качени, защото мястото в хранилището „<ph name="SHARED_DRIVE_NAME" />“ не е достатъчно.</translation>
 <translation id="6287852322318138013">Изберете приложение за отваряне на този файл</translation>
 <translation id="6295542640242147836">Заключване на SIM картата</translation>
 <translation id="6296410173147755564">Невалиден PUK код</translation>
@@ -685,6 +688,7 @@
 <translation id="6657585470893396449">Парола</translation>
 <translation id="6658865850469097484">Файловете, които престоят в кошчето повече от 30 дни, ще бъдат изтрити автоматично.</translation>
 <translation id="6673674183150363784">Френски (Франция) с клавиатура BÉPO</translation>
+<translation id="670380500182402678">Замяна на всички</translation>
 <translation id="6710022688720561421">Робот</translation>
 <translation id="6710213216561001401">Предишно</translation>
 <translation id="6732801395666424405">Сертификатите не са заредени</translation>
@@ -903,6 +907,7 @@
 <translation id="8386903983509584791">Сканирането завърши</translation>
 <translation id="8387733224523483503">Елементът <ph name="FILE_NAME" /> е извлечен.</translation>
 <translation id="8395901698320285466">Размери</translation>
+<translation id="8404498045299006085">Запазване на всички</translation>
 <translation id="8408068190360279472"><ph name="NETWORK_TYPE" /> мрежа – установява се връзка</translation>
 <translation id="8425213833346101688">Промяна</translation>
 <translation id="8431909052837336408">Промяна на ПИН за SIM картата</translation>

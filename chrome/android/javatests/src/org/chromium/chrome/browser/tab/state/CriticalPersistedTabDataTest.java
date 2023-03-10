@@ -686,10 +686,11 @@ public class CriticalPersistedTabDataTest {
         Assert.assertEquals(16, LaunchTypeAtCreation.FROM_LONGPRESS_INCOGNITO);
         Assert.assertEquals(17, LaunchTypeAtCreation.FROM_RECENT_TABS);
         Assert.assertEquals(18, LaunchTypeAtCreation.FROM_READING_LIST);
+        Assert.assertEquals(19, LaunchTypeAtCreation.FROM_TAB_SWITCHER_UI);
         Assert.assertEquals(
                 "Need to increment 1 to expected value each time a LaunchTypeAtCreation "
                         + "is added. Also need to add any new LaunchTypeAtCreation to this test.",
-                21, LaunchTypeAtCreation.names.length);
+                22, LaunchTypeAtCreation.names.length);
     }
 
     @SmallTest
@@ -760,7 +761,7 @@ public class CriticalPersistedTabDataTest {
         Assert.assertFalse(uninitializedTab.isInitialized());
         CriticalPersistedTabData criticalPersistedTabData =
                 new CriticalPersistedTabData(uninitializedTab);
-        TabStateAttributes.from(uninitializedTab).setIsTabStateDirty(false);
+        TabStateAttributes.from(uninitializedTab).clearTabStateDirtiness();
         Assert.assertFalse(TabStateAttributes.from(uninitializedTab).isTabStateDirty());
         criticalPersistedTabData.setRootId(ROOT_ID_A);
         Assert.assertFalse(TabStateAttributes.from(uninitializedTab).isTabStateDirty());
@@ -775,7 +776,7 @@ public class CriticalPersistedTabDataTest {
         Assert.assertTrue(initializedTab.isInitialized());
         CriticalPersistedTabData criticalPersistedTabData =
                 new CriticalPersistedTabData(initializedTab);
-        TabStateAttributes.from(initializedTab).setIsTabStateDirty(false);
+        TabStateAttributes.from(initializedTab).clearTabStateDirtiness();
         Assert.assertFalse(TabStateAttributes.from(initializedTab).isTabStateDirty());
         criticalPersistedTabData.setRootId(ROOT_ID_A);
         Assert.assertTrue(TabStateAttributes.from(initializedTab).isTabStateDirty());

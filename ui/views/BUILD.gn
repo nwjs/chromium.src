@@ -27,6 +27,8 @@ aggregate_vector_icons("views_vector_icons") {
     "checkbox_normal.icon",
     "close.icon",
     "drag_general_selection.icon",
+    "eye.icon",
+    "eye_crossed.icon",
     "ic_close.icon",
     "info.icon",
     "launch.icon",
@@ -44,6 +46,7 @@ aggregate_vector_icons("views_vector_icons") {
     "pin.icon",
     "radio_button_active.icon",
     "radio_button_normal.icon",
+    "toggle_button_check.icon",
     "uninstall.icon",
     "unpin.icon",
   ]
@@ -81,7 +84,7 @@ component("views") {
     "animation/ink_drop_event_handler.h",
     "animation/ink_drop_highlight.h",
     "animation/ink_drop_highlight_observer.h",
-    "animation/ink_drop_host_view.h",
+    "animation/ink_drop_host.h",
     "animation/ink_drop_impl.h",
     "animation/ink_drop_mask.h",
     "animation/ink_drop_observer.h",
@@ -128,6 +131,7 @@ component("views") {
     "controls/combobox/combobox_util.h",
     "controls/dot_indicator.h",
     "controls/editable_combobox/editable_combobox.h",
+    "controls/editable_combobox/editable_password_combobox.h",
     "controls/focus_ring.h",
     "controls/focusable_border.h",
     "controls/highlight_path_generator.h",
@@ -314,7 +318,7 @@ component("views") {
     "animation/ink_drop_animation_ended_reason.cc",
     "animation/ink_drop_event_handler.cc",
     "animation/ink_drop_highlight.cc",
-    "animation/ink_drop_host_view.cc",
+    "animation/ink_drop_host.cc",
     "animation/ink_drop_impl.cc",
     "animation/ink_drop_mask.cc",
     "animation/ink_drop_painted_layer_delegates.cc",
@@ -359,6 +363,7 @@ component("views") {
     "controls/combobox/empty_combobox_model.h",
     "controls/dot_indicator.cc",
     "controls/editable_combobox/editable_combobox.cc",
+    "controls/editable_combobox/editable_password_combobox.cc",
     "controls/focus_ring.cc",
     "controls/focusable_border.cc",
     "controls/highlight_path_generator.cc",
@@ -608,6 +613,7 @@ component("views") {
       "cocoa/native_widget_mac_ns_window_host.h",
       "controls/menu/menu_closure_animation_mac.h",
       "controls/menu/menu_cocoa_watcher_mac.h",
+      "controls/menu/menu_controller_cocoa_delegate_impl.h",
       "controls/menu/menu_runner_impl_cocoa.h",
       "controls/scrollbar/cocoa_scroll_bar.h",
       "event_monitor_mac.h",
@@ -631,6 +637,7 @@ component("views") {
       "controls/menu/menu_closure_animation_mac.mm",
       "controls/menu/menu_cocoa_watcher_mac.mm",
       "controls/menu/menu_config_mac.mm",
+      "controls/menu/menu_controller_cocoa_delegate_impl.mm",
       "controls/menu/menu_pre_target_handler_mac.h",
       "controls/menu/menu_pre_target_handler_mac.mm",
       "controls/menu/menu_runner_impl_cocoa.mm",
@@ -716,12 +723,10 @@ component("views") {
       "accessibility/ax_widget_obj_wrapper.h",
       "accessibility/ax_window_obj_wrapper.h",
       "controls/native/native_view_host_aura.h",
-      "corewm/cursor_height_provider_win.h",
       "corewm/tooltip.h",
       "corewm/tooltip_aura.h",
       "corewm/tooltip_controller.h",
       "corewm/tooltip_state_manager.h",
-      "corewm/tooltip_win.h",
       "event_monitor_aura.h",
       "native_window_tracker_aura.h",
       "touchui/touch_selection_controller_impl.h",
@@ -765,12 +770,6 @@ component("views") {
       "widget/tooltip_manager_aura.cc",
       "widget/window_reorderer.cc",
     ]
-    if (is_win) {
-      sources += [
-        "corewm/cursor_height_provider_win.cc",
-        "corewm/tooltip_win.cc",
-      ]
-    }
     if (!is_chromeos_ash) {
       sources += [
         "accessibility/views_ax_tree_manager.cc",
@@ -950,8 +949,8 @@ source_set("test_support") {
     "animation/test/flood_fill_ink_drop_ripple_test_api.h",
     "animation/test/ink_drop_highlight_test_api.cc",
     "animation/test/ink_drop_highlight_test_api.h",
-    "animation/test/ink_drop_host_view_test_api.cc",
-    "animation/test/ink_drop_host_view_test_api.h",
+    "animation/test/ink_drop_host_test_api.cc",
+    "animation/test/ink_drop_host_test_api.h",
     "animation/test/ink_drop_impl_test_api.cc",
     "animation/test/ink_drop_impl_test_api.h",
     "animation/test/ink_drop_ripple_test_api.cc",
@@ -1000,6 +999,8 @@ source_set("test_support") {
     "test/menu_runner_test_api.h",
     "test/menu_test_utils.cc",
     "test/menu_test_utils.h",
+    "test/mock_input_event_activation_protector.cc",
+    "test/mock_input_event_activation_protector.h",
     "test/native_widget_factory.cc",
     "test/native_widget_factory.h",
     "test/scoped_views_test_helper.cc",
@@ -1066,7 +1067,10 @@ source_set("test_support") {
     "//ui/gfx/geometry",
     "//ui/gl:test_support",
   ]
-  public_deps = [ "//testing/gtest" ]
+  public_deps = [
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
 
   if (is_win) {
     sources += [
@@ -1143,7 +1147,7 @@ test("views_unittests") {
     "animation/compositor_animation_runner_unittest.cc",
     "animation/flood_fill_ink_drop_ripple_unittest.cc",
     "animation/ink_drop_highlight_unittest.cc",
-    "animation/ink_drop_host_view_unittest.cc",
+    "animation/ink_drop_host_unittest.cc",
     "animation/ink_drop_impl_unittest.cc",
     "animation/ink_drop_mask_unittest.cc",
     "animation/ink_drop_ripple_unittest.cc",
@@ -1171,6 +1175,7 @@ test("views_unittests") {
     "controls/button/toggle_button_unittest.cc",
     "controls/combobox/combobox_unittest.cc",
     "controls/editable_combobox/editable_combobox_unittest.cc",
+    "controls/editable_combobox/editable_password_combobox_unittest.cc",
     "controls/image_view_unittest.cc",
     "controls/label_unittest.cc",
     "controls/link_fragment_unittest.cc",

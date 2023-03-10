@@ -44,11 +44,26 @@ declare namespace chrome {
     // Returns the url of the AXNode for the provided AXNodeID.
     function getUrl(nodeId: number): string;
 
+    // Returns true if the text node / element should be bolded.
+    function shouldBold(nodeId: number): boolean;
+
+    // Returns true if the element has overline text styling.
+    function isOverline(nodeId: number): boolean;
+
     // Connects to the browser process. Called by ts when the read anything
     // element is added to the document.
     function onConnected(): void;
 
+    // Called when a user clicks a link. NodeID is an AXNodeID which identifies
+    // the link's corresponding AXNode in the main pane.
     function onLinkClicked(nodeId: number): void;
+
+    // Called when a user makes a selection change. AnchorNodeID and
+    // focusAXNodeID are AXNodeIDs which identify the anchor and focus AXNodes
+    // in the main pane.
+    function onSelectionChange(
+        anchorNodeId: number, anchorOffset: number, focusNodeId: number,
+        focusOffset: number): void;
 
     // Set the content. Used by tests only.
     // SnapshotLite is a data structure which resembles an AXTreeUpdate. E.g.:

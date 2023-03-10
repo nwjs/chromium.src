@@ -10,8 +10,8 @@
 #include <limits>
 #include <string>
 
-#include "base/bind.h"
 #include "base/containers/contains.h"
+#include "base/functional/bind.h"
 #include "base/json/json_writer.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
@@ -20,9 +20,11 @@
 #include "base/numerics/safe_conversions.h"
 #include "base/ranges/algorithm.h"
 #include "base/synchronization/waitable_event.h"
+#include "base/task/sequenced_task_runner.h"
 #include "base/threading/thread_checker.h"
 #include "base/trace_event/traced_value.h"
 #include "cc/base/devtools_instrumentation.h"
+#include "cc/base/features.h"
 #include "cc/base/histograms.h"
 #include "cc/layers/picture_layer_impl.h"
 #include "cc/paint/display_item_list.h"
@@ -748,9 +750,14 @@ TileManager::PrioritizedWorkToSchedule TileManager::AssignGpuMemoryToTiles() {
       // or drop the tile for scheduling and raster.
       tile->set_solid_color_analysis_performed(true);
       SkColor4f color = SkColors::kTransparent;
+
+      int max_ops_to_analyze = base::FeatureList::IsEnabled(
+                                   features::kMoreAggressiveSolidColorDetection)
+                                   ? 5
+                                   : RasterSource::kDefault;
       bool is_solid_color =
           prioritized_tile.raster_source()->PerformSolidColorAnalysis(
-              tile->enclosing_layer_rect(), &color);
+              tile->enclosing_layer_rect(), &color, max_ops_to_analyze);
       if (is_solid_color) {
         tile->draw_info().set_solid_color(color);
         client_->NotifyTileStateChanged(tile);

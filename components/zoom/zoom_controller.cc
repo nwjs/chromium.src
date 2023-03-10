@@ -4,7 +4,7 @@
 
 #include "components/zoom/zoom_controller.h"
 
-#include "base/bind.h"
+#include "base/functional/bind.h"
 #include "base/observer_list.h"
 #include "components/zoom/zoom_event_manager.h"
 #include "components/zoom/zoom_observer.h"
@@ -53,6 +53,9 @@ ZoomController::ZoomController(content::WebContents* web_contents)
 
 ZoomController::~ZoomController() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  for (auto& observer : observers_) {
+    observer.OnZoomControllerDestroyed();
+  }
 }
 
 bool ZoomController::IsAtDefaultZoom() const {
@@ -319,6 +322,9 @@ void ZoomController::WebContentsDestroyed() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   // At this point we should no longer be sending any zoom events with this
   // WebContents.
+  for (auto& observer : observers_) {
+    observer.OnZoomControllerDestroyed();
+  }
   observers_.Clear();
 }
 

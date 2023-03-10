@@ -151,6 +151,10 @@ chrome_internal_verifier(
 )
 
 chrome_internal_verifier(
+    builder = "linux-autofill-captured-sites-rel",
+)
+
+chrome_internal_verifier(
     branch_selector = branches.selector.LINUX_BRANCHES,
     builder = "linux-chrome",
 )
@@ -161,9 +165,7 @@ chrome_internal_verifier(
 
 chrome_internal_verifier(
     builder = "linux-chromeos-compile-chrome",
-    tryjob = try_.job(
-        experiment_percentage = 100,
-    ),
+    tryjob = try_.job(),
 )
 
 chrome_internal_verifier(

@@ -138,7 +138,6 @@ import org.chromium.chrome.browser.night_mode.WebContentsDarkModeController;
 import org.chromium.chrome.browser.night_mode.WebContentsDarkModeMessageController;
 import org.chromium.chrome.browser.ntp.NewTabPageUma;
 import org.chromium.chrome.browser.offlinepages.OfflinePageUtils;
-import org.chromium.chrome.browser.offlinepages.indicator.OfflineIndicatorController;
 import org.chromium.chrome.browser.omaha.UpdateMenuItemHelper;
 import org.chromium.chrome.browser.page_info.ChromePageInfo;
 import org.chromium.chrome.browser.page_info.ChromePageInfoHighlight;
@@ -480,8 +479,6 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
 
         super.performPreInflationStartup();
 
-        VrModuleProvider.getDelegate().doPreInflationStartup(this, getSavedInstanceState());
-
         // Force a partner customizations refresh if it has yet to be initialized.  This can happen
         // if Chrome is killed and you refocus a previous activity from Android recents, which does
         // not go through ChromeLauncherActivity that would have normally triggered this.
@@ -614,9 +611,6 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
             super.performPostInflationStartup();
 
             Intent intent = getIntent();
-            if (getSavedInstanceState() == null) {
-                VrModuleProvider.getDelegate().maybeHandleVrIntentPreNative(this, intent);
-            }
             if (0 != (intent.getFlags() & Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY)) {
                 getLaunchCauseMetrics().onLaunchFromRecents();
             } else {
@@ -977,10 +971,8 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
     public void onStartWithNative() {
         assert mNativeInitialized : "onStartWithNative was called before native was initialized.";
         super.onStartWithNative();
-        UpdateMenuItemHelper.getInstance().onStart();
         ChromeActivitySessionTracker.getInstance().onStartWithNative();
         ChromeCachedFlags.getInstance().cacheNativeFlags();
-        OfflineIndicatorController.initialize();
 
         // postDeferredStartupIfNeeded() is called in TabModelSelectorTabObsever#onLoadStopped(),
         // #onPageLoadFinished() and #onCrash(). If we are not actively loading a tab (e.g.
@@ -1080,7 +1072,7 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
 
         final SyncService syncService = SyncService.get();
 
-        if (syncService != null && syncService.isSyncingUrlsWithKeystorePassphrase()) {
+        if (syncService != null && syncService.isSyncingUnencryptedUrls()) {
             ContextReporter.SelectionReporter controller =
                     getContextualSearchManagerSupplier().hasValue() ? new ContextReporter.SelectionReporter() {
                         @Override
@@ -1171,7 +1163,6 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         if (mFullscreenVideoPictureInPictureController != null) {
             mFullscreenVideoPictureInPictureController.onFrameworkExitedPictureInPicture();
         }
-        VrModuleProvider.getDelegate().maybeRegisterVrEntryHook(this);
 
         getManualFillingComponent().onResume();
     }
@@ -1235,7 +1226,6 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         if (tab != null) getTabContentManager().cacheTabThumbnail(tab);
         getManualFillingComponent().onPause();
 
-        VrModuleProvider.getDelegate().maybeUnregisterVrEntryHook();
         markSessionEnd();
 
         super.onPauseWithNative();
@@ -1259,14 +1249,6 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
     }
 
     @Override
-    public void onNewIntent(Intent intent) {
-        // This should be called before the call to super so that the needed VR flags are set as
-        // soon as the VR intent is received.
-        VrModuleProvider.getDelegate().maybeHandleVrIntentPreNative(this, intent);
-        super.onNewIntent(intent);
-    }
-
-    @Override
     public void onNewIntentWithNative(Intent intent) {
         if (mFullscreenVideoPictureInPictureController != null) {
             mFullscreenVideoPictureInPictureController.onFrameworkExitedPictureInPicture();
@@ -1278,9 +1260,6 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
             return;
         }
 
-        // We send this intent so that we can enter WebVr presentation mode if needed. This
-        // call doesn't consume the intent because it also has the url that we need to load.
-        VrModuleProvider.getDelegate().onNewIntentWithNative(this, intent);
         mIntentHandler.onNewIntent(intent);
     }
 
@@ -1353,8 +1332,8 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
 
         // GSA connection is not needed on low-end devices because Icing is disabled.
         if (!SysUtils.isLowEndDevice()) {
-            if (isActivityFinishingOrDestroyed()) return;
             DeferredStartupHandler.getInstance().addDeferredTask(() -> {
+                if (isActivityFinishingOrDestroyed()) return;
                 if (!GSAState.getInstance().isGsaAvailable()) {
                     ContextReporter.reportStatus(ContextReporter.STATUS_GSA_NOT_AVAILABLE);
                     return;
@@ -1504,7 +1483,6 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
-        VrModuleProvider.getDelegate().onSaveInstanceState(outState);
     }
 
     /**
@@ -1704,10 +1682,6 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         VrModuleProvider.getDelegate().onNativeLibraryAvailable();
 
         PowerMonitor.create();
-
-        if (getSavedInstanceState() == null && getIntent() != null) {
-            VrModuleProvider.getDelegate().onNewIntentWithNative(this, getIntent());
-        }
 
         // The first launch of the screenshot feature benefits from this DFM being installed
         // proactively. However without the isolated split feature there are performance regressions
@@ -2140,14 +2114,6 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
                 return;
             }
 
-            if (newConfig.densityDpi != mConfig.densityDpi) {
-                if (!VrModuleProvider.getDelegate().onDensityChanged(
-                            mConfig.densityDpi, newConfig.densityDpi)) {
-                    recreate();
-                    return;
-                }
-            }
-
             if (newConfig.orientation != mConfig.orientation) {
                 RequestDesktopUtils.recordScreenOrientationChangedUkm(
                         newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE,
@@ -2555,36 +2521,17 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
 
         if (id == R.id.add_to_homescreen_id) {
             RecordUserAction.record("MobileMenuAddToHomescreen");
-            PwaBottomSheetController controller =
-                    PwaBottomSheetControllerProvider.from(getWindowAndroid());
-            if (controller != null
-                    && controller.requestOrExpandBottomSheetInstaller(
-                            currentTab.getWebContents(), InstallTrigger.MENU)) {
-                return true;
-            }
-            AddToHomescreenCoordinator.showForAppMenu(this, getWindowAndroid(),
-                    getModalDialogManager(), currentTab.getWebContents(), mMenuItemData);
-            if (ChromeFeatureList.isEnabled(ChromeFeatureList.ADD_TO_HOMESCREEN_IPH)) {
-                Tracker tracker = TrackerFactory.getTrackerForProfile(
-                        Profile.fromWebContents(currentTab.getWebContents()));
-                tracker.notifyEvent(EventConstants.ADD_TO_HOMESCREEN_DIALOG_SHOWN);
-            }
-            return true;
+            return doAddToHomescreenOrInstallWebApp(currentTab);
+        }
+
+        if (id == R.id.install_webapp_id) {
+            RecordUserAction.record("InstallWebAppFromMenu");
+            return doAddToHomescreenOrInstallWebApp(currentTab);
         }
 
         if (id == R.id.open_webapk_id) {
-            Context context = ContextUtils.getApplicationContext();
-            String packageName =
-                    WebApkValidator.queryFirstWebApkPackage(context, currentTab.getUrl().getSpec());
-            Intent launchIntent = WebApkNavigationClient.createLaunchWebApkIntent(
-                    packageName, currentTab.getUrl().getSpec(), false);
-            try {
-                context.startActivity(launchIntent);
-                RecordUserAction.record("MobileMenuOpenWebApk");
-            } catch (ActivityNotFoundException e) {
-                Toast.makeText(context, R.string.open_webapk_failed, Toast.LENGTH_SHORT).show();
-            }
-            return true;
+            RecordUserAction.record("MobileMenuOpenWebApk");
+            return doOpenWebApk(currentTab);
         }
 
         if (id == R.id.request_desktop_site_id || id == R.id.request_desktop_site_check_id) {
@@ -2598,6 +2545,8 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
                 currentTab.reload();
                 RequestDesktopUtils.maybeShowUserEducationPromptForAppMenuSelection(
                         profile, this, getModalDialogManager());
+                TrackerFactory.getTrackerForProfile(profile).notifyEvent(
+                        EventConstants.APP_MENU_DESKTOP_SITE_EXCEPTION_ADDED);
             } else {
                 TabUtils.switchUserAgent(currentTab, usingDesktopUserAgent, /* forcedByUser */ true,
                         UseDesktopUserAgentCaller.ON_MENU_OR_KEYBOARD_ACTION);
@@ -2804,64 +2753,6 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         }
     }
 
-    @Override
-    public void startActivity(Intent intent) {
-        startActivity(intent, null);
-    }
-
-    @Override
-    public void startActivity(Intent intent, Bundle options) {
-        if (VrModuleProvider.getDelegate().canLaunch2DIntents()
-                || VrModuleProvider.getIntentDelegate().isVrIntent(intent)) {
-            if (VrModuleProvider.getDelegate().isInVr()) {
-                VrModuleProvider.getIntentDelegate().setupVrIntent(intent);
-            }
-            super.startActivity(intent, options);
-            return;
-        }
-        VrModuleProvider.getDelegate().requestToExitVrAndRunOnSuccess(() -> {
-            if (!VrModuleProvider.getDelegate().canLaunch2DIntents()) {
-                throw new IllegalStateException("Still in VR after having exited VR.");
-            }
-            super.startActivity(intent, options);
-        });
-    }
-
-    @Override
-    public void startActivityForResult(Intent intent, int requestCode) {
-        startActivityForResult(intent, requestCode, null);
-    }
-
-    @Override
-    public void startActivityForResult(Intent intent, int requestCode, Bundle options) {
-        if (VrModuleProvider.getDelegate().canLaunch2DIntents()
-                || VrModuleProvider.getIntentDelegate().isVrIntent(intent)) {
-            super.startActivityForResult(intent, requestCode, options);
-            return;
-        }
-        VrModuleProvider.getDelegate().requestToExitVrAndRunOnSuccess(() -> {
-            if (!VrModuleProvider.getDelegate().canLaunch2DIntents()) {
-                throw new IllegalStateException("Still in VR after having exited VR.");
-            }
-            super.startActivityForResult(intent, requestCode, options);
-        });
-    }
-
-    @Override
-    public boolean startActivityIfNeeded(Intent intent, int requestCode) {
-        return startActivityIfNeeded(intent, requestCode, null);
-    }
-
-    @Override
-    public boolean startActivityIfNeeded(Intent intent, int requestCode, Bundle options) {
-        // Avoid starting Activities when possible while in VR.
-        if (VrModuleProvider.getDelegate().isInVr()
-                && !VrModuleProvider.getIntentDelegate().isVrIntent(intent)) {
-            return false;
-        }
-        return super.startActivityIfNeeded(intent, requestCode, options);
-    }
-
     /**
      * TODO(https://crbug.com/931496): Revisit this as part of the broader discussion around
      * activity-specific UI customizations.
@@ -2978,5 +2869,41 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
 
     private static PrefService getPrefService() {
         return UserPrefs.get(Profile.getLastUsedRegularProfile());
+    }
+
+    /**
+     * Returns whether the Add to Home screen or Install Web App action was successfully started.
+     */
+    private boolean doAddToHomescreenOrInstallWebApp(Tab currentTab) {
+        PwaBottomSheetController controller =
+                PwaBottomSheetControllerProvider.from(getWindowAndroid());
+        if (controller != null
+                && controller.requestOrExpandBottomSheetInstaller(
+                        currentTab.getWebContents(), InstallTrigger.MENU)) {
+            return true;
+        }
+        AddToHomescreenCoordinator.showForAppMenu(this, getWindowAndroid(), getModalDialogManager(),
+                currentTab.getWebContents(), mMenuItemData);
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.ADD_TO_HOMESCREEN_IPH)) {
+            Tracker tracker = TrackerFactory.getTrackerForProfile(
+                    Profile.fromWebContents(currentTab.getWebContents()));
+            tracker.notifyEvent(EventConstants.ADD_TO_HOMESCREEN_DIALOG_SHOWN);
+        }
+        return true;
+    }
+
+    /** Returns whether the Open WebAPK action was successfully started. */
+    private boolean doOpenWebApk(Tab currentTab) {
+        Context context = ContextUtils.getApplicationContext();
+        String packageName =
+                WebApkValidator.queryFirstWebApkPackage(context, currentTab.getUrl().getSpec());
+        Intent launchIntent = WebApkNavigationClient.createLaunchWebApkIntent(
+                packageName, currentTab.getUrl().getSpec(), false);
+        try {
+            context.startActivity(launchIntent);
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(context, R.string.open_webapk_failed, Toast.LENGTH_SHORT).show();
+        }
+        return true;
     }
 }

@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Installeer met Linux</translation>
 <translation id="2225536596944493418">Is jy seker jy wil <ph name="NUMBER_OF_ITEMS" /> items uitvee?</translation>
 <translation id="2230062665678605299">Kon nie vouer "<ph name="FOLDER_NAME" />" skep nie. <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">Jou Google Drive-kasgeheue is uitgevee.</translation>
 <translation id="2239068707900391003">Persoon met koffie</translation>
 <translation id="2251368349685848079">Laai uit asblik terug</translation>
 <translation id="2282155092769082568">Outo-opstelling-URL:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">Geen items stem met &lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt; ooreen nie</translation>
 <translation id="2894654529758326923">Inligting</translation>
 <translation id="2902734494705624966">VSA uitgebreid</translation>
+<translation id="2904378509913846215">’n Vouer met die naam “<ph name="FILENAME" />” bestaan reeds. Wil jy dit vervang met die lêer wat jy tans skuif?</translation>
 <translation id="290843123675549676">Mahratti</translation>
 <translation id="2923240520113693977">Esties</translation>
 <translation id="2938685643439809023">Mongolees</translation>
@@ -639,6 +641,7 @@
 <translation id="6241349547798190358">Nederlands (België)</translation>
 <translation id="6267547857941397424">Netwerk <ph name="NETWORK_INDEX" /> van <ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, seinsterkte <ph name="SIGNAL_STRENGTH" />%, foonbattery <ph name="BATTERY_STATUS" />%, koppel</translation>
 <translation id="6269630227984243955">Maleis</translation>
+<translation id="6271903698064569429">Lêers kan nie opgelaai word nie omdat “<ph name="SHARED_DRIVE_NAME" />” nie genoeg bergingspasie het nie.</translation>
 <translation id="6287852322318138013">Kies 'n program om hierdie lêer oop te maak</translation>
 <translation id="6295542640242147836">Sluit SIM</translation>
 <translation id="6296410173147755564">Ongeldige PUK</translation>
@@ -684,6 +687,7 @@
 <translation id="6657585470893396449">Wagwoord</translation>
 <translation id="6658865850469097484">Lêers wat meer as 30 dae lank in die asblik is, sal outomaties uitgevee word.</translation>
 <translation id="6673674183150363784">Frans (Frankryk) met Bépo-sleutelbord</translation>
+<translation id="670380500182402678">Vervang alles</translation>
 <translation id="6710022688720561421">Robot</translation>
 <translation id="6710213216561001401">Vorige</translation>
 <translation id="6732801395666424405">Sertifikate is nie gelaai nie</translation>
@@ -902,6 +906,7 @@
 <translation id="8386903983509584791">Skandering voltooi</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" /> is onttrek.</translation>
 <translation id="8395901698320285466">Afmetings</translation>
+<translation id="8404498045299006085">Hou alles</translation>
 <translation id="8408068190360279472"><ph name="NETWORK_TYPE" />-netwerk; koppel tans</translation>
 <translation id="8425213833346101688">Verander</translation>
 <translation id="8431909052837336408">Verander SIM-PIN</translation>

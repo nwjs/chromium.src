@@ -7,8 +7,10 @@
 #include "ash/constants/ash_features.h"
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "ash/shelf/shelf.h"
+#include "ash/shell.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/style/icon_button.h"
+#include "ash/system/camera/camera_effects_controller.h"
 #include "ash/system/status_area_widget.h"
 #include "ash/system/status_area_widget_test_helper.h"
 #include "ash/system/unified/unified_system_tray.h"
@@ -30,7 +32,7 @@ class BubbleViewTest : public AshTestBase {
 
   // AshTestBase:
   void SetUp() override {
-    scoped_feature_list_.InitAndEnableFeature(features::kVcControlsUi);
+    scoped_feature_list_.InitAndEnableFeature(features::kVideoConference);
 
     // Here we have to create the global instance of `CrasAudioHandler` before
     // `FakeVideoConferenceTrayController`, so we do it here and not do it in
@@ -47,15 +49,29 @@ class BubbleViewTest : public AshTestBase {
     office_bunny_ =
         std::make_unique<fake_video_conference::OfficeBunnyEffect>();
     shaggy_fur_ = std::make_unique<fake_video_conference::ShaggyFurEffect>();
+    super_cuteness_ =
+        std::make_unique<fake_video_conference::SuperCutnessEffect>();
 
     set_create_global_cras_audio_handler(false);
     AshTestBase::SetUp();
+
+    // Make the video conference tray visible for testing.
+    video_conference_tray()->SetVisiblePreferred(true);
+
+    // For historical reason, all BubbleViewTest tests are written with the
+    // assumption that CameraEffectsController is not registered to the
+    // EffectsManager by default. It is not the case anymore since we removed
+    // the old Flags. The fix for that is easy: we just need to manually
+    // unregister CameraEffectsController in these tests.
+    controller()->effects_manager().UnregisterDelegate(
+        Shell::Get()->camera_effects_controller());
   }
 
   void TearDown() override {
     AshTestBase::TearDown();
     office_bunny_.reset();
     shaggy_fur_.reset();
+    super_cuteness_.reset();
     controller_.reset();
     CrasAudioHandler::Shutdown();
     CrasAudioClient::Shutdown();
@@ -95,6 +111,11 @@ class BubbleViewTest : public AshTestBase {
         video_conference::BubbleViewID::kSetValueEffectsView);
   }
 
+  views::View* single_set_value_effect_view() {
+    return bubble_view()->GetViewByID(
+        video_conference::BubbleViewID::kSingleSetValueEffectView);
+  }
+
   views::View* return_to_app() {
     return bubble_view()->GetViewByID(
         video_conference::BubbleViewID::kReturnToApp);
@@ -113,11 +134,17 @@ class BubbleViewTest : public AshTestBase {
     return shaggy_fur_.get();
   }
 
+  ash::fake_video_conference::SuperCutnessEffect* super_cuteness() {
+    return super_cuteness_.get();
+  }
+
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
   std::unique_ptr<FakeVideoConferenceTrayController> controller_;
   std::unique_ptr<ash::fake_video_conference::OfficeBunnyEffect> office_bunny_;
   std::unique_ptr<ash::fake_video_conference::ShaggyFurEffect> shaggy_fur_;
+  std::unique_ptr<ash::fake_video_conference::SuperCutnessEffect>
+      super_cuteness_;
 };
 
 TEST_F(BubbleViewTest, NoEffects) {
@@ -271,4 +298,42 @@ TEST_F(BubbleViewTest, SetValueButtonClicked) {
   EXPECT_EQ(shaggy_fur()->GetNumActivationsForTesting(1), 1);
   EXPECT_EQ(shaggy_fur()->GetNumActivationsForTesting(0), 1);
 }
+
+TEST_F(BubbleViewTest, ValidEffectState) {
+  // Verify that the delegate hosts a single effect which has at least two
+  // values.
+  EXPECT_EQ(super_cuteness()->GetNumEffects(), 1);
+  EXPECT_GE(super_cuteness()->GetEffect(0)->GetNumStates(), 2);
+
+  // Add one set-value effect.
+  controller()->effects_manager().RegisterDelegate(super_cuteness());
+
+  // Effect will NOT return an invalid state.
+  super_cuteness()->set_has_invalid_effect_state_for_testing(false);
+
+  // Click to open the bubble, a single set-value effect view is
+  // present/visible.
+  LeftClickOn(toggle_bubble_button());
+  views::View* effect_view = single_set_value_effect_view();
+  EXPECT_TRUE(effect_view);
+  EXPECT_TRUE(effect_view->GetVisible());
+}
+
+TEST_F(BubbleViewTest, InvalidEffectState) {
+  // Verify that the delegate hosts a single effect which has at least two
+  // values.
+  EXPECT_EQ(super_cuteness()->GetNumEffects(), 1);
+  EXPECT_GE(super_cuteness()->GetEffect(0)->GetNumStates(), 2);
+
+  // Add one set-value effect.
+  controller()->effects_manager().RegisterDelegate(super_cuteness());
+
+  // Effect WILL return an invalid state.
+  super_cuteness()->set_has_invalid_effect_state_for_testing(true);
+
+  // Click to open the bubble, a single set-value effect view is NOT present.
+  LeftClickOn(toggle_bubble_button());
+  EXPECT_FALSE(single_set_value_effect_view());
+}
+
 }  // namespace ash::video_conference

@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Mit Linux installieren</translation>
 <translation id="2225536596944493418">Möchtest du wirklich <ph name="NUMBER_OF_ITEMS" /> Elemente löschen?</translation>
 <translation id="2230062665678605299">Ordner "<ph name="FOLDER_NAME" />" kann nicht erstellt werden. <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">Dein Google Drive-Cache wurde geleert.</translation>
 <translation id="2239068707900391003">Person mit Kaffee</translation>
 <translation id="2251368349685848079">Aus Papierkorb wiederherstellen</translation>
 <translation id="2282155092769082568">URL für Autokonfiguration:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">Keine Elemente für &lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt; gefunden</translation>
 <translation id="2894654529758326923">Informationen</translation>
 <translation id="2902734494705624966">USA – erweitert</translation>
+<translation id="2904378509913846215">Ein Ordner mit dem Namen „<ph name="FILENAME" />“ ist bereits vorhanden. Möchtest du ihn durch den zu verschiebenden Ordner ersetzen?</translation>
 <translation id="290843123675549676">Marathi</translation>
 <translation id="2923240520113693977">Estnisch</translation>
 <translation id="2938685643439809023">Mongolisch</translation>
@@ -640,6 +642,7 @@
 <translation id="6241349547798190358">Niederländisch (Belgien)</translation>
 <translation id="6267547857941397424">Netzwerk <ph name="NETWORK_INDEX" /> von <ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, Signalstärke bei <ph name="SIGNAL_STRENGTH" /> %, Smartphone-Akku bei <ph name="BATTERY_STATUS" /> %, Verbinden</translation>
 <translation id="6269630227984243955">Malaiisch</translation>
+<translation id="6271903698064569429">Die Dateien können nicht hochgeladen werden, weil in „<ph name="SHARED_DRIVE_NAME" />“ nicht genügend Speicherplatz vorhanden ist.</translation>
 <translation id="6287852322318138013">App zum Öffnen der Datei auswählen</translation>
 <translation id="6295542640242147836">SIM-Karte sperren</translation>
 <translation id="6296410173147755564">Ungültiger PUK</translation>
@@ -685,6 +688,7 @@
 <translation id="6657585470893396449">Passwort</translation>
 <translation id="6658865850469097484">Dateien im Papierkorb werden nach 30 Tagen automatisch gelöscht.</translation>
 <translation id="6673674183150363784">Französisch (Frankreich) mit Bépo-Tastatur</translation>
+<translation id="670380500182402678">Alle ersetzen</translation>
 <translation id="6710022688720561421">Roboter</translation>
 <translation id="6710213216561001401">Zurück</translation>
 <translation id="6732801395666424405">Zertifikate nicht geladen</translation>
@@ -903,6 +907,7 @@
 <translation id="8386903983509584791">Suche abgeschlossen</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" /> extrahiert.</translation>
 <translation id="8395901698320285466">Abmessungen</translation>
+<translation id="8404498045299006085">Alle beibehalten</translation>
 <translation id="8408068190360279472">Netzwerk: <ph name="NETWORK_TYPE" />, Verbindung wird hergestellt</translation>
 <translation id="8425213833346101688">Ändern</translation>
 <translation id="8431909052837336408">PIN für SIM-Karte ändern</translation>

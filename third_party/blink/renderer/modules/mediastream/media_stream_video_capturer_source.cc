@@ -6,7 +6,8 @@
 
 #include <utility>
 
-#include "base/callback.h"
+#include "base/functional/callback.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/token.h"
 #include "build/build_config.h"
 #include "media/capture/mojom/video_capture_types.mojom-blink.h"
@@ -65,7 +66,7 @@ void MediaStreamVideoCapturerSource::SetDeviceCapturerFactoryCallbackForTesting(
   device_capturer_factory_callback_ = std::move(testing_factory_callback);
 }
 
-void MediaStreamVideoCapturerSource::SetCanDiscardAlpha(
+void MediaStreamVideoCapturerSource::OnSourceCanDiscardAlpha(
     bool can_discard_alpha) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   source_->SetCanDiscardAlpha(can_discard_alpha);

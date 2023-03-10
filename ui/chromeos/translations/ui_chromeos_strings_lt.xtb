@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Diegimas naudojant „Linux“</translation>
 <translation id="2225536596944493418">Ar tikrai norite ištrinti <ph name="NUMBER_OF_ITEMS" /> element.?</translation>
 <translation id="2230062665678605299">Nepavyko sukurti aplanko „<ph name="FOLDER_NAME" />“. <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">Your Google Drive cache was cleared.</translation>
 <translation id="2239068707900391003">Žmogus su kava</translation>
 <translation id="2251368349685848079">Atkurti iš šiukšliadėžės</translation>
 <translation id="2282155092769082568">Automatinės konfigūracijos URL:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">Joks failas neatitinka &lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;</translation>
 <translation id="2894654529758326923">Informacija</translation>
 <translation id="2902734494705624966">JAV išplėstinė</translation>
+<translation id="2904378509913846215">Aplankas pavadinimu „<ph name="FILENAME" />“ jau yra. Ar norite jį pakeisti tuo, kurį perkeliate?</translation>
 <translation id="290843123675549676">Maratų k.</translation>
 <translation id="2923240520113693977">Estų</translation>
 <translation id="2938685643439809023">Mongolų</translation>
@@ -640,6 +642,7 @@
 <translation id="6241349547798190358">Nyderlandų k. (Belgija)</translation>
 <translation id="6267547857941397424"><ph name="NETWORK_INDEX" /> tinklas iš <ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, signalo stiprumas <ph name="SIGNAL_STRENGTH" /> %, telefono akumuliatorius <ph name="BATTERY_STATUS" /> %, prisijungti</translation>
 <translation id="6269630227984243955">Malajų k.</translation>
+<translation id="6271903698064569429">Nepavyko įkelti failų, nes „<ph name="SHARED_DRIVE_NAME" />“ nepakanka saugyklos vietos.</translation>
 <translation id="6287852322318138013">Pasirinkite programą, kad atidarytumėte šį failą</translation>
 <translation id="6295542640242147836">Užrakinti SIM kortelę</translation>
 <translation id="6296410173147755564">Netinkamas PUK kodas</translation>
@@ -685,6 +688,7 @@
 <translation id="6657585470893396449">Slaptažodis</translation>
 <translation id="6658865850469097484">Šiukšliadėžėje ilgiau nei 30 dienų prabuvę failai bus ištrinti automatiškai.</translation>
 <translation id="6673674183150363784">Prancūzų k. (Prancūzija) su „Bépo“ klaviatūra</translation>
+<translation id="670380500182402678">Pakeisti viską</translation>
 <translation id="6710022688720561421">Robotas</translation>
 <translation id="6710213216561001401">Ankstesnė</translation>
 <translation id="6732801395666424405">Sertifikatai neįkelti</translation>
@@ -903,6 +907,7 @@
 <translation id="8386903983509584791">Nuskaitymas baigtas</translation>
 <translation id="8387733224523483503">Failas „<ph name="FILE_NAME" />“ išskirtas.</translation>
 <translation id="8395901698320285466">Aspektai</translation>
+<translation id="8404498045299006085">Saugoti viską</translation>
 <translation id="8408068190360279472">Tinklas: <ph name="NETWORK_TYPE" />, jungiamasi</translation>
 <translation id="8425213833346101688">Keisti</translation>
 <translation id="8431909052837336408">SIM kortelės PIN kodo pakeitimas</translation>

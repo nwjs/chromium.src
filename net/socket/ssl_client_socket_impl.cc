@@ -13,10 +13,10 @@
 #include <memory>
 #include <utility>
 
-#include "base/bind.h"
-#include "base/callback_helpers.h"
 #include "base/containers/span.h"
 #include "base/feature_list.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/lazy_instance.h"
 #include "base/location.h"
 #include "base/memory/singleton.h"
@@ -758,7 +758,14 @@ int SSLClientSocketImpl::Init() {
     return ERR_UNEXPECTED;
   }
 
-  if (context_->config().cecpq2_enabled &&
+  if (base::FeatureList::IsEnabled(features::kPostQuantumKyber)) {
+    static const int kCurves[] = {NID_X25519Kyber768, NID_X25519,
+                                  NID_P256Kyber768, NID_X9_62_prime256v1,
+                                  NID_secp384r1};
+    if (!SSL_set1_curves(ssl_.get(), kCurves, std::size(kCurves))) {
+      return ERR_UNEXPECTED;
+    }
+  } else if (context_->config().cecpq2_enabled &&
       (base::FeatureList::IsEnabled(features::kPostQuantumCECPQ2) ||
        (!host_is_ip_address &&
         base::FeatureList::IsEnabled(features::kPostQuantumCECPQ2SomeDomains) &&
@@ -1340,8 +1347,7 @@ int SSLClientSocketImpl::CheckCTCompliance() {
           server_cert_verify_result_.public_key_hashes,
           server_cert_verify_result_.verified_cert.get(), server_cert_.get(),
           server_cert_verify_result_.scts,
-          server_cert_verify_result_.policy_compliance,
-          ssl_config_.network_anonymization_key);
+          server_cert_verify_result_.policy_compliance);
 
   if (context_->sct_auditing_delegate()) {
     context_->sct_auditing_delegate()->MaybeEnqueueReport(

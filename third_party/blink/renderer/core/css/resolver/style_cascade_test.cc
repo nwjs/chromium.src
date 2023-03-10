@@ -190,8 +190,9 @@ class TestCascade {
 
     // Add to cascade:
     const auto& update = state_.AnimationUpdate();
-    if (update.IsEmpty())
+    if (update.IsEmpty()) {
       return;
+    }
 
     cascade_.AddInterpolations(&update.ActiveInterpolationsForAnimations(),
                                CascadeOrigin::kAnimation);
@@ -262,8 +263,9 @@ class TestCascade {
   }
 
   void EnsureAtLeast(CascadeOrigin origin) {
-    while (current_origin_ < origin)
+    while (current_origin_ < origin) {
       FinishOrigin();
+    }
   }
 
   void CalculateInterpolationUpdate() {
@@ -2946,6 +2948,26 @@ TEST_F(StyleCascadeTest, WebkitTransformOriginMixedCascadeOrder) {
   EXPECT_EQ(nullptr, cascade.ComputedValue("-webkit-transform-origin-z"));
 }
 
+TEST_F(StyleCascadeTest, VerticalAlignBaselineSource) {
+  TestCascade cascade(GetDocument());
+  cascade.Add("vertical-align", "top");
+  cascade.Add("baseline-source", "first");
+  cascade.Apply();
+
+  EXPECT_EQ("top", cascade.ComputedValue("vertical-align"));
+  EXPECT_EQ("first", cascade.ComputedValue("baseline-source"));
+}
+
+TEST_F(StyleCascadeTest, VerticalAlignBaselineSourceReversed) {
+  TestCascade cascade(GetDocument());
+  cascade.Add("baseline-source", "first");
+  cascade.Add("vertical-align", "top");
+  cascade.Apply();
+
+  EXPECT_EQ("top", cascade.ComputedValue("vertical-align"));
+  EXPECT_EQ("auto", cascade.ComputedValue("baseline-source"));
+}
+
 TEST_F(StyleCascadeTest, InitialDirection) {
   TestCascade cascade(GetDocument());
   cascade.Add("margin-inline-start:10px");
@@ -3486,8 +3508,9 @@ TEST_F(StyleCascadeTest, InitialColor) {
 
 TEST_F(StyleCascadeTest, MaxSubstitutionTokens) {
   StringBuilder builder;
-  for (size_t i = 0; i < StyleCascade::kMaxSubstitutionTokens; ++i)
+  for (size_t i = 0; i < StyleCascade::kMaxSubstitutionTokens; ++i) {
     builder.Append(':');  // <colon-token>
+  }
 
   String at_limit = builder.ToString();
   String above_limit = builder.ToString() + ":";

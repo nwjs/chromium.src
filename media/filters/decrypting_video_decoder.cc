@@ -4,8 +4,8 @@
 
 #include "media/filters/decrypting_video_decoder.h"
 
-#include "base/bind.h"
-#include "base/callback_helpers.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/strings/string_number_conversions.h"
@@ -222,6 +222,14 @@ void DecryptingVideoDecoder::DecodePendingBuffer() {
       pending_buffer_to_decode_->end_of_stream()
           ? 0
           : pending_buffer_to_decode_->timestamp().InMicroseconds());
+
+  if (!DecoderBuffer::DoSubsamplesMatch(*pending_buffer_to_decode_)) {
+    MEDIA_LOG(ERROR, media_log_)
+        << "DecryptingVideoDecoder: Subsamples for Buffer do not match";
+    state_ = kError;
+    std::move(decode_cb_).Run(DecoderStatus::Codes::kPlatformDecodeFailure);
+    return;
+  }
 
   decryptor_->DecryptAndDecodeVideo(
       pending_buffer_to_decode_,

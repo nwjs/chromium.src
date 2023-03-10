@@ -9,8 +9,8 @@
 #include <utility>
 #include <vector>
 
-#include "base/callback_forward.h"
 #include "base/containers/flat_set.h"
+#include "base/functional/callback_forward.h"
 #include "base/functional/function_ref.h"
 #include "base/values.h"
 #include "build/build_config.h"
@@ -108,7 +108,6 @@ namespace content {
 class BrowserContext;
 class DocumentRef;
 struct GlobalRenderFrameHostId;
-class RenderFrameHostObserver;
 class RenderProcessHost;
 class RenderViewHost;
 class RenderWidgetHost;
@@ -205,14 +204,6 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
                                      bool exclude_offscreen,
                                      size_t max_nodes,
                                      const base::TimeDelta& timeout) = 0;
-
-  using AXTreeDistillerCallback = base::OnceCallback<void(
-      const ui::AXTreeUpdate&,
-      const std::vector<ui::AXNodeID>& content_node_ids)>;
-  // Requests a one-time snapshot of the accessibility tree with distilled
-  // node IDs identified.
-  virtual void RequestDistilledAXTree(AXTreeDistillerCallback callback) = 0;
-
 
   virtual bool nodejs() = 0;
   virtual bool context_created() = 0;
@@ -1064,11 +1055,6 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   // Whether the current document is loaded inside iframe credentialless.
   // Updated on every cross-document navigation.
   virtual bool IsCredentialless() const = 0;
-
-  // Add and remove observers for state changed events. Observers are
-  // responsible to remove themselves from observer list before they go away.
-  virtual void AddObserver(RenderFrameHostObserver* observer) = 0;
-  virtual void RemoveObserver(RenderFrameHostObserver* observer) = 0;
 
  private:
   // This interface should only be implemented inside content.

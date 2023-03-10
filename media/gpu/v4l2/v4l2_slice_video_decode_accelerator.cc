@@ -16,11 +16,11 @@
 
 #include <memory>
 
-#include "base/bind.h"
-#include "base/callback.h"
-#include "base/callback_helpers.h"
 #include "base/command_line.h"
 #include "base/containers/contains.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback.h"
+#include "base/functional/callback_helpers.h"
 #include "base/memory/ptr_util.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/posix/eintr_wrapper.h"
@@ -594,8 +594,9 @@ bool V4L2SliceVideoDecodeAccelerator::CreateImageProcessor() {
     return false;
   }
 
-  DCHECK_EQ(gl_image_size_, image_processor_->output_config().size);
+  VLOGF(2) << "ImageProcessor is created: " << image_processor_->backend_type();
 
+  DCHECK_EQ(gl_image_size_, image_processor_->output_config().size);
   return true;
 }
 bool V4L2SliceVideoDecodeAccelerator::CreateInputBuffers() {

@@ -4,9 +4,9 @@
 
 #include "components/content_settings/core/browser/cookie_settings.h"
 
-#include "base/bind.h"
 #include "base/check.h"
 #include "base/feature_list.h"
+#include "base/functional/bind.h"
 #include "base/observer_list.h"
 #include "build/build_config.h"
 #include "components/content_settings/core/browser/content_settings_utils.h"
@@ -97,8 +97,9 @@ bool CookieSettings::IsThirdPartyAccessAllowed(
     QueryReason query_reason) {
   // Use GURL() as an opaque primary url to check if any site
   // could access cookies in a 3p context on |first_party_url|.
-  return IsAllowed(
-      GetCookieSetting(GURL(), first_party_url, source, query_reason));
+  return IsAllowed(GetCookieSetting(GURL(), first_party_url,
+                                    net::CookieSettingOverrides(), source,
+                                    query_reason));
 }
 
 void CookieSettings::SetThirdPartyCookieSetting(const GURL& first_party_url,
@@ -218,6 +219,21 @@ ContentSetting CookieSettings::GetCookieSettingInternal(
       block = false;
       FireStorageAccessHistogram(net::cookie_util::StorageAccessResult::
                                      ACCESS_ALLOWED_STORAGE_ACCESS_GRANT);
+    }
+  }
+
+  if (block &&
+      overrides.Has(
+          net::CookieSettingOverride::kTopLevelStorageAccessGrantEligible) &&
+      ShouldConsiderTopLevelStorageAccessGrants(query_reason)) {
+    ContentSetting host_setting = host_content_settings_map_->GetContentSetting(
+        url, first_party_url, ContentSettingsType::TOP_LEVEL_STORAGE_ACCESS);
+
+    if (host_setting == CONTENT_SETTING_ALLOW) {
+      block = false;
+      FireStorageAccessHistogram(
+          net::cookie_util::StorageAccessResult::
+              ACCESS_ALLOWED_TOP_LEVEL_STORAGE_ACCESS_GRANT);
     }
   }
 #endif

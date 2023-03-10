@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Telepítés Linux segítségével</translation>
 <translation id="2225536596944493418">Biztosan törli ezt a(z) <ph name="NUMBER_OF_ITEMS" /> elemet?</translation>
 <translation id="2230062665678605299">Nem sikerült létrehozni a(z) "<ph name="FOLDER_NAME" />" könyvtárat. <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">Google Drive-gyorsítótár kiürítve.</translation>
 <translation id="2239068707900391003">Ember kávéval</translation>
 <translation id="2251368349685848079">Visszaállítás a kukából</translation>
 <translation id="2282155092769082568">URL automatikus konfigurációja:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">Nincs &lt;b&gt;„<ph name="SEARCH_STRING" />”&lt;/b&gt; keresésnek megfelelő elem</translation>
 <translation id="2894654529758326923">Információ</translation>
 <translation id="2902734494705624966">USA bővített</translation>
+<translation id="2904378509913846215">Már van „<ph name="FILENAME" />” nevű mappa. Szeretné lecserélni az áthelyezni kívánt mappára?</translation>
 <translation id="290843123675549676">marathi</translation>
 <translation id="2923240520113693977">észt</translation>
 <translation id="2938685643439809023">mongol</translation>
@@ -640,6 +642,7 @@
 <translation id="6241349547798190358">holland (Belgium)</translation>
 <translation id="6267547857941397424"><ph name="NETWORK_INDEX" />. hálózat (összesen <ph name="NETWORK_COUNT" />), <ph name="PHONE_NAME" />, jelerősség: <ph name="SIGNAL_STRENGTH" />%, telefon akkumulátora: <ph name="BATTERY_STATUS" />%, csatlakozás</translation>
 <translation id="6269630227984243955">maláj</translation>
+<translation id="6271903698064569429">Nem tölthet fel fájlokat, mert a(z) „<ph name="SHARED_DRIVE_NAME" />” nem rendelkezik elegendő tárhellyel.</translation>
 <translation id="6287852322318138013">Válasszon egy alkalmazást a fájl megnyitásához</translation>
 <translation id="6295542640242147836">SIM zárolása</translation>
 <translation id="6296410173147755564">Érvénytelen PUK-kód</translation>
@@ -685,6 +688,7 @@
 <translation id="6657585470893396449">Jelszó</translation>
 <translation id="6658865850469097484">A több mint 30 napja a kukában lévő fájlok automatikusan törlődnek.</translation>
 <translation id="6673674183150363784">francia (Franciaország), Bépo-billentyűzettel</translation>
+<translation id="670380500182402678">Összes cseréje</translation>
 <translation id="6710022688720561421">Robot</translation>
 <translation id="6710213216561001401">Előző</translation>
 <translation id="6732801395666424405">A tanúsítványok betöltése nem történt meg</translation>
@@ -903,6 +907,7 @@
 <translation id="8386903983509584791">Keresés befejezve</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" /> kinyerve.</translation>
 <translation id="8395901698320285466">Méret</translation>
+<translation id="8404498045299006085">Az összes megtartása</translation>
 <translation id="8408068190360279472">Hálózat: <ph name="NETWORK_TYPE" />. Csatlakozás…</translation>
 <translation id="8425213833346101688">Módosítás</translation>
 <translation id="8431909052837336408">SIM-kártya PIN-kódjának módosítása</translation>

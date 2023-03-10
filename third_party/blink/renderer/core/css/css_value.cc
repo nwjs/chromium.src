@@ -119,25 +119,30 @@ CSSValue* CSSValue::Create(const Length& value, float zoom) {
 }
 
 bool CSSValue::HasFailedOrCanceledSubresources() const {
-  if (IsValueList())
+  if (IsValueList()) {
     return To<CSSValueList>(this)->HasFailedOrCanceledSubresources();
-  if (GetClassType() == kFontFaceSrcClass)
+  }
+  if (GetClassType() == kFontFaceSrcClass) {
     return To<CSSFontFaceSrcValue>(this)->HasFailedOrCanceledSubresources();
-  if (GetClassType() == kImageClass)
+  }
+  if (GetClassType() == kImageClass) {
     return To<CSSImageValue>(this)->HasFailedOrCanceledSubresources();
+  }
   if (GetClassType() == kCrossfadeClass) {
     return To<cssvalue::CSSCrossfadeValue>(this)
         ->HasFailedOrCanceledSubresources();
   }
-  if (GetClassType() == kImageSetClass)
+  if (GetClassType() == kImageSetClass) {
     return To<CSSImageSetValue>(this)->HasFailedOrCanceledSubresources();
+  }
 
   return false;
 }
 
 bool CSSValue::MayContainUrl() const {
-  if (IsValueList())
+  if (IsValueList()) {
     return To<CSSValueList>(*this).MayContainUrl();
+  }
   return IsImageValue() || IsURIValue();
 }
 
@@ -452,6 +457,24 @@ String CSSValue::CssText() const {
   }
   NOTREACHED();
   return String();
+}
+
+const CSSValue& CSSValue::PopulateWithTreeScope(
+    const TreeScope* tree_scope) const {
+  switch (GetClassType()) {
+    case kCounterClass:
+      return To<cssvalue::CSSCounterValue>(this)->PopulateWithTreeScope(
+          tree_scope);
+    case kCustomIdentClass:
+      return To<CSSCustomIdentValue>(this)->PopulateWithTreeScope(tree_scope);
+    case kMathFunctionClass:
+      return To<CSSMathFunctionValue>(this)->PopulateWithTreeScope(tree_scope);
+    case kValueListClass:
+      return To<CSSValueList>(this)->PopulateWithTreeScope(tree_scope);
+    default:
+      NOTREACHED();
+      return *this;
+  }
 }
 
 void CSSValue::Trace(Visitor* visitor) const {

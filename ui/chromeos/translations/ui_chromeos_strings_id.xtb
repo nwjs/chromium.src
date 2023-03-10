@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Instal dengan Linux</translation>
 <translation id="2225536596944493418">Yakin ingin menghapus <ph name="NUMBER_OF_ITEMS" /> item?</translation>
 <translation id="2230062665678605299">Tidak dapat membuat folder "<ph name="FOLDER_NAME" />". <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">Cache Google Drive Anda telah dihapus.</translation>
 <translation id="2239068707900391003">Orang dengan kopi</translation>
 <translation id="2251368349685848079">Pulihkan dari sampah</translation>
 <translation id="2282155092769082568">URL konfigurasi otomatis:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">Tidak ada item yang cocok &lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt;</translation>
 <translation id="2894654529758326923">Informasi</translation>
 <translation id="2902734494705624966">Extended AS</translation>
+<translation id="2904378509913846215">Folder bernama "<ph name="FILENAME" />" sudah ada. Ingin menggantinya dengan folder yang sedang Anda pindahkan?</translation>
 <translation id="290843123675549676">Marathi</translation>
 <translation id="2923240520113693977">Estonia</translation>
 <translation id="2938685643439809023">Mongolia</translation>
@@ -640,6 +642,7 @@
 <translation id="6241349547798190358">Belanda (Belgia)</translation>
 <translation id="6267547857941397424">Jaringan <ph name="NETWORK_INDEX" /> dari <ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, Kekuatan Sinyal <ph name="SIGNAL_STRENGTH" />%, Baterai Ponsel <ph name="BATTERY_STATUS" />%, Sambungkan</translation>
 <translation id="6269630227984243955">Malaysia</translation>
+<translation id="6271903698064569429">File tidak dapat diupload karena "<ph name="SHARED_DRIVE_NAME" />" tidak memiliki penyimpanan yang cukup.</translation>
 <translation id="6287852322318138013">Pilih aplikasi untuk membuka file ini</translation>
 <translation id="6295542640242147836">Kunci SIM</translation>
 <translation id="6296410173147755564">PUK tidak valid</translation>
@@ -685,6 +688,7 @@
 <translation id="6657585470893396449">Sandi</translation>
 <translation id="6658865850469097484">File yang ada di sampah selama lebih dari 30 hari akan otomatis dihapus.</translation>
 <translation id="6673674183150363784">Prancis (Prancis) dengan keyboard Bépo</translation>
+<translation id="670380500182402678">Ganti semua</translation>
 <translation id="6710022688720561421">Robot</translation>
 <translation id="6710213216561001401">Sebelumnya</translation>
 <translation id="6732801395666424405">Sertifikat tidak dimuat</translation>
@@ -903,6 +907,7 @@
 <translation id="8386903983509584791">Pemindaian selesai</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" /> diekstrak.</translation>
 <translation id="8395901698320285466">Dimensi</translation>
+<translation id="8404498045299006085">Simpan semua</translation>
 <translation id="8408068190360279472">Jaringan <ph name="NETWORK_TYPE" />, menyambungkan</translation>
 <translation id="8425213833346101688">Ubah</translation>
 <translation id="8431909052837336408">Ubah PIN SIM</translation>

@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Установити для Linux</translation>
 <translation id="2225536596944493418">Видалити елементи (<ph name="NUMBER_OF_ITEMS" />)?</translation>
 <translation id="2230062665678605299">Не вдається створити папку "<ph name="FOLDER_NAME" />". <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">Кеш Google Диска очищено.</translation>
 <translation id="2239068707900391003">Людина з кавою</translation>
 <translation id="2251368349685848079">Відновити з кошика</translation>
 <translation id="2282155092769082568">URL-адреса автоконфігурації:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">Немає елементів, які відповідають запиту &lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt;</translation>
 <translation id="2894654529758326923">Інформація</translation>
 <translation id="2902734494705624966">Американська розширена</translation>
+<translation id="2904378509913846215">Папка з назвою "<ph name="FILENAME" />" уже існує. Замінити її на папку, яку ви переносите?</translation>
 <translation id="290843123675549676">Маратхі</translation>
 <translation id="2923240520113693977">Естонська</translation>
 <translation id="2938685643439809023">Монгольська</translation>
@@ -640,6 +642,7 @@
 <translation id="6241349547798190358">Нідерландська (Бельгія)</translation>
 <translation id="6267547857941397424">Мережа <ph name="NETWORK_INDEX" /> з <ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, рівень сигналу – <ph name="SIGNAL_STRENGTH" />%, рівень заряду акумулятора телефона – <ph name="BATTERY_STATUS" />%. Підключитися</translation>
 <translation id="6269630227984243955">Малайська</translation>
+<translation id="6271903698064569429">Не вдається завантажити файли, оскільки на спільному диску "<ph name="SHARED_DRIVE_NAME" />" недостатньо пам’яті.</translation>
 <translation id="6287852322318138013">Вибрати програму, щоб відкрити цей файл</translation>
 <translation id="6295542640242147836">Заблокувати SIM-карту</translation>
 <translation id="6296410173147755564">Недійсний PUK-код</translation>
@@ -685,6 +688,7 @@
 <translation id="6657585470893396449">Пароль</translation>
 <translation id="6658865850469097484">Файли, які зберігаються в кошику більше ніж 30 днів, видаляються автоматично.</translation>
 <translation id="6673674183150363784">Французька (Франція), розкладка Bépo</translation>
+<translation id="670380500182402678">Замінити всі</translation>
 <translation id="6710022688720561421">Робот</translation>
 <translation id="6710213216561001401">Назад</translation>
 <translation id="6732801395666424405">Сертифікати не завантажено</translation>
@@ -903,6 +907,7 @@
 <translation id="8386903983509584791">Сканування завершено</translation>
 <translation id="8387733224523483503">Видобуто файл "<ph name="FILE_NAME" />".</translation>
 <translation id="8395901698320285466">Розміри</translation>
+<translation id="8404498045299006085">Залишити всі</translation>
 <translation id="8408068190360279472">Мережа <ph name="NETWORK_TYPE" />: підключення</translation>
 <translation id="8425213833346101688">Змінити</translation>
 <translation id="8431909052837336408">Змінити PIN-код SIM-карти</translation>
@@ -943,7 +948,7 @@
 <translation id="8688591111840995413">Неправильний пароль</translation>
 <translation id="8698464937041809063">Малюнок Google</translation>
 <translation id="8698877009525468705">Цей файл конфіденційний і регулюється правилами адміністратора.</translation>
-<translation id="8712637175834984815">Виконано</translation>
+<translation id="8712637175834984815">OK</translation>
 <translation id="8713112442029511308">Мальтійська</translation>
 <translation id="8714406895390098252">Велосипед</translation>
 <translation id="8719721339511222681">Вибрано: <ph name="ENTRY_NAME" />.</translation>

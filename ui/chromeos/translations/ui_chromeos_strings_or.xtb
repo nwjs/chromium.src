@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Linux ସହିତ ଇନଷ୍ଟଲ୍ କରନ୍ତୁ</translation>
 <translation id="2225536596944493418">ଆପଣ କ'ଣ ନିଶ୍ଚିତ ରୂପେ <ph name="NUMBER_OF_ITEMS" />ଟି ଆଇଟମ୍ ଡିଲିଟ୍ କରିବାକୁ ଚାହୁଁଛନ୍ତି?</translation>
 <translation id="2230062665678605299">ଫୋଲ୍ଡର୍‌ ତିଆରି କରିବାରେ ଅକ୍ଷମ "<ph name="FOLDER_NAME" />". <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">ଆପଣଙ୍କ Google Drive କେଶକୁ ଖାଲି କରାଯାଇଛି।</translation>
 <translation id="2239068707900391003">କଫି ପିଉଥିବା ଜଣେ ବ୍ୟକ୍ତି</translation>
 <translation id="2251368349685848079">ଟ୍ରାସରୁ ରିଷ୍ଟୋର୍ କରନ୍ତୁ</translation>
 <translation id="2282155092769082568">ସ୍ଵତଃକନଫିଗ୍‌ରେସନ୍ URL:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">&lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt; ସହ କୌଣସି ଆଇଟମ୍ ମେଳ ଖାଉନାହିଁ</translation>
 <translation id="2894654529758326923">ସୂଚନା</translation>
 <translation id="2902734494705624966">US ସମ୍ପ୍ରସାରିତ କୀବୋର୍ଡ</translation>
+<translation id="2904378509913846215">"<ph name="FILENAME" />" ନାମକ ଏକ ଫୋଲ୍ଡର ପୂର୍ବରୁ ଅଛି। ଆପଣ ମୁଭ କରୁଥିବା ଫୋଲ୍ଡର ସହ ଏହାକୁ ପରିବର୍ତ୍ତନ କରିବା ପାଇଁ ଚାହୁଁଛନ୍ତି?</translation>
 <translation id="290843123675549676">ମରାଠୀ</translation>
 <translation id="2923240520113693977">ଏଷ୍ଟୋନିଆନ୍</translation>
 <translation id="2938685643439809023">ମଙ୍ଗୋଲିଆ</translation>
@@ -634,6 +636,7 @@
 <translation id="6241349547798190358">ଡଚ୍ (ବେଲଜିୟମ୍)</translation>
 <translation id="6267547857941397424"><ph name="NETWORK_COUNT" />ଟିର <ph name="NETWORK_INDEX" /> ନେଟ୍‌ୱାର୍କ, <ph name="PHONE_NAME" />, ସିଗ୍‍ନାଲ୍‍ର କ୍ଷମତା <ph name="SIGNAL_STRENGTH" />%, ଫୋନ୍‌ ବ୍ୟାଟେରୀ <ph name="BATTERY_STATUS" />%, ସଂଯୋଗ କରନ୍ତୁ</translation>
 <translation id="6269630227984243955">ମଲୟ</translation>
+<translation id="6271903698064569429">"<ph name="SHARED_DRIVE_NAME" />"ରେ ଯଥେଷ୍ଟ ଷ୍ଟୋରେଜ ନଥିବା ଯୋଗୁଁ ଫାଇଲଗୁଡ଼ିକୁ ଅପଲୋଡ କରାଯାଇପାରିବ ନାହିଁ।</translation>
 <translation id="6287852322318138013">ଏହି ଫାଇଲ୍ ଖୋଲିବା ପାଇଁ ଗୋଟିଏ ଆପ୍ ଚୟନ କରନ୍ତୁ</translation>
 <translation id="6295542640242147836">SIMକୁ ଲକ କରନ୍ତୁ</translation>
 <translation id="6296410173147755564">ଅବୈଧ PUK</translation>
@@ -679,6 +682,7 @@
 <translation id="6657585470893396449">ପାସ୍‌ୱର୍ଡ</translation>
 <translation id="6658865850469097484">30ରୁ ଅଧିକ ଦିନ ପାଇଁ ଟ୍ରାସରେ ଥିବା ଫାଇଲଗୁଡ଼ିକ ସ୍ୱଚାଳିତ ଭାବେ ଡିଲିଟ ହୋଇଯିବ।</translation>
 <translation id="6673674183150363784">Bépo କୀବୋର୍ଡ ସହ ଫରାସୀ (ଫ୍ରାନ୍ସ)</translation>
+<translation id="670380500182402678">ସବୁ ପରିବର୍ତ୍ତନ କରନ୍ତୁ</translation>
 <translation id="6710022688720561421">ରୋବଟ୍</translation>
 <translation id="6710213216561001401">ପୂର୍ବବର୍ତ୍ତୀ</translation>
 <translation id="6732801395666424405">ସାର୍ଟିଫିକେଟ୍‌ଗୁଡ଼ିକ ଲୋଡ୍ ହୋଇନାହିଁ</translation>
@@ -897,6 +901,7 @@
 <translation id="8386903983509584791">ସ୍କାନ୍ ସମ୍ପୂର୍ଣ୍ଣ ହେଲା</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" />କୁ ଏକ୍ସଟ୍ରାକ୍ଟ କରାଯାଇଛି।</translation>
 <translation id="8395901698320285466">ପରିମେୟ ପରିସର</translation>
+<translation id="8404498045299006085">ସବୁ ରଖନ୍ତୁ</translation>
 <translation id="8408068190360279472"><ph name="NETWORK_TYPE" /> ନେଟ୍‍ୱାର୍କ, ସଂଯୁକ୍ତ ହେଉଛି</translation>
 <translation id="8425213833346101688">ପରିବର୍ତ୍ତନ କରନ୍ତୁ</translation>
 <translation id="8431909052837336408">ସିମ୍‌ ପିନ୍‌ ପରିବର୍ତ୍ତନ କରନ୍ତୁ</translation>

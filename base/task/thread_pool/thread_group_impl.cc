@@ -12,11 +12,11 @@
 
 #include "base/atomicops.h"
 #include "base/auto_reset.h"
-#include "base/bind.h"
-#include "base/callback_helpers.h"
 #include "base/compiler_specific.h"
 #include "base/containers/stack_container.h"
 #include "base/feature_list.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
@@ -791,8 +791,10 @@ void ThreadGroupImpl::WorkerThreadDelegateImpl::RecordUnnecessaryWakeup() {
 void ThreadGroupImpl::WorkerThreadDelegateImpl::BlockingStarted(
     BlockingType blocking_type) {
   DCHECK_CALLED_ON_VALID_THREAD(worker_thread_checker_);
-  DCHECK(read_worker().current_task_priority);
   DCHECK(worker_only().worker_thread_);
+  if (!read_worker().current_task_priority) {
+    return;
+  }
 
   worker_only().worker_thread_->MaybeUpdateThreadType();
 

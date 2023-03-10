@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Installer med Linux</translation>
 <translation id="2225536596944493418">Er du sikker på, at du vil slette <ph name="NUMBER_OF_ITEMS" /> elementer?</translation>
 <translation id="2230062665678605299">Mappen "<ph name="FOLDER_NAME" />" kunne ikke oprettes. <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">Din Google Drev-cache blev ryddet.</translation>
 <translation id="2239068707900391003">Person med kaffe</translation>
 <translation id="2251368349685848079">Gendan fra papirkurven</translation>
 <translation id="2282155092769082568">Webadresse til automatisk konfiguration:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">Ingen filer matcher &lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt;</translation>
 <translation id="2894654529758326923">Oplysninger</translation>
 <translation id="2902734494705624966">Amerikansk (udvidet)</translation>
+<translation id="2904378509913846215">Der findes allerede en mappe ved navn "<ph name="FILENAME" />". Vil du erstatte den med den, du er ved at flytte?</translation>
 <translation id="290843123675549676">Marathi</translation>
 <translation id="2923240520113693977">Estisk</translation>
 <translation id="2938685643439809023">Mongolsk</translation>
@@ -640,6 +642,7 @@
 <translation id="6241349547798190358">Hollandsk (Belgien)</translation>
 <translation id="6267547857941397424">Netværk <ph name="NETWORK_INDEX" /> af <ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, signalstyrke <ph name="SIGNAL_STRENGTH" /> %, telefonbatteri <ph name="BATTERY_STATUS" /> %, opret forbindelse</translation>
 <translation id="6269630227984243955">Malajisk</translation>
+<translation id="6271903698064569429">Der kan ikke uploades filer, fordi "<ph name="SHARED_DRIVE_NAME" />" ikke har nok lagerplads.</translation>
 <translation id="6287852322318138013">Vælg en app, der skal åbne denne fil</translation>
 <translation id="6295542640242147836">Lås SIM-kort</translation>
 <translation id="6296410173147755564">PUK-koden er ugyldig</translation>
@@ -685,6 +688,7 @@
 <translation id="6657585470893396449">Adgangskode</translation>
 <translation id="6658865850469097484">Filer i papirkurven slettes automatisk efter 30 dage.</translation>
 <translation id="6673674183150363784">Fransk (Frankrig) Bépo-tastatur</translation>
+<translation id="670380500182402678">Erstat alle</translation>
 <translation id="6710022688720561421">Robot</translation>
 <translation id="6710213216561001401">Forrige</translation>
 <translation id="6732801395666424405">Certifikaterne blev ikke indlæst</translation>
@@ -903,6 +907,7 @@
 <translation id="8386903983509584791">Scanningen er udført</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" /> er pakket ud.</translation>
 <translation id="8395901698320285466">Mål</translation>
+<translation id="8404498045299006085">Behold alle</translation>
 <translation id="8408068190360279472"><ph name="NETWORK_TYPE" />-netværk, opretter forbindelse</translation>
 <translation id="8425213833346101688">Skift</translation>
 <translation id="8431909052837336408">Skift pinkode til SIM-kort</translation>

@@ -230,6 +230,10 @@ const char kAccessibilityStickyKeysEnabled[] =
     "settings.a11y.sticky_keys_enabled";
 // A boolean pref which determines whether spoken feedback is enabled.
 const char kAccessibilitySpokenFeedbackEnabled[] = "settings.accessibility";
+// A boolean pref which determines whether automatic reading for ChromeVox is
+// enabled.
+const char kAccessibilityChromeVoxAutoRead[] =
+    "settings.a11y.chromevox.auto_read";
 // A boolean pref which determines whether high contrast is enabled.
 const char kAccessibilityHighContrastEnabled[] =
     "settings.a11y.high_contrast_enabled";
@@ -594,6 +598,14 @@ const char kAmbientColorEnabled[] = "ash.ambient_color.enabled";
 // A boolean pref that indicates whether dark mode is enabled.
 const char kDarkModeEnabled[] = "ash.dark_mode.enabled";
 
+// An integer pref that indicates the color scheme used to calculate the dynamic
+// color palette.
+const char kDynamicColorColorScheme[] = "ash.dynamic_color.color_scheme";
+
+// A uint64 pref that indicates the seed color used to calculate the dynamic
+// color palette. It is an ARGB 32-bit unsigned integer stored as a uint64.
+const char kDynamicColorSeedColor[] = "ash.dynamic_color.seed_color";
+
 // An integer pref storing the number of times that dark/light mode educational
 // can still be shown. It will be initialized to the maximum number of times
 // that the nudge can be shown. And will be set to 0 if the user toggled the
@@ -826,6 +838,9 @@ const char kWallpaperColors[] = "ash.wallpaper.prominent_colors";
 // A dictionary pref that maps wallpaper file paths to their k mean colors.
 const char kWallpaperMeanColors[] = "ash.wallpaper.k_mean_colors";
 
+// A dictionary pref that maps wallpaper file paths to their celebi colors.
+const char kWallpaperCelebiColors[] = "ash.wallpaper.celebi_colors";
+
 // Boolean pref indicating whether a user has enabled the bluetooth adapter.
 const char kUserBluetoothAdapterEnabled[] =
     "ash.user.bluetooth.adapter_enabled";
@@ -882,7 +897,7 @@ const char kQuickUnlockPinSecret[] = "quick_unlock.pin.secret";
 
 // Enum that specifies how often a user has to enter their password to continue
 // using quick unlock. These values are the same as the ones in
-// chromeos::quick_unlock::PasswordConfirmationFrequency.
+// `quick_unlock::PasswordConfirmationFrequency`.
 // 0 - six hours. Users will have to enter their password every six hours.
 // 1 - twelve hours. Users will have to enter their password every twelve hours.
 // 2 - two days. Users will have to enter their password every two days.
@@ -1045,6 +1060,10 @@ const char kLacrosProxyControllingExtension[] =
 // A boolean pref which is true if Fast Pair is enabled.
 const char kFastPairEnabled[] = "ash.fast_pair.enabled";
 
+// Boolean pref indicating a user entered Bluetooth pairing flow from a fast
+// pair entry point.
+const char kUserPairedWithFastPair[] = "ash.user.paired_with_fast_pair";
+
 // A boolean pref that controls whether the user is allowed to use the Desk
 // Templates feature - including creating Desks templates and using predefined
 // Desks templates.
@@ -1143,6 +1162,12 @@ const char kUsbDetectorNotificationEnabled[] =
 const char kPersonalizationKeyboardBacklightColor[] =
     "ash.personalization.keyboard_backlight_color";
 
+// A dictionary pref storing the color of each zone of the RGB keyboard. The key
+// specifies the zone .e.g. `zone-1`, `zone-2`, whereas the value is a
+// `personalization_app::mojom::BacklightColor`.
+const char kPersonalizationKeyboardBacklightZoneColors[] =
+    "ash.personalization.keyboard_backlight_zone_colors";
+
 // Integer pref corresponding to the autozoom state, the value should be one of
 // cros::mojom::CameraAutoFramingState.
 const char kAutozoomState[] = "ash.camera.autozoom_state";
@@ -1170,6 +1195,11 @@ const char kBackgroundReplace[] = "ash.camera.background_replace";
 
 // An boolean pref that indicates whether portrait relighting is applied.
 const char kPortraitRelighting[] = "ash.camera.portrait_relighting";
+
+// Specifies if ARC app sync metrics should be recorded, i.e. this is the
+// initial session after sync consent screen.
+const char kRecordArcAppSyncMetrics[] =
+    "ash.should_record_arc_app_sync_metrics";
 
 // NOTE: New prefs should start with the "ash." prefix. Existing prefs moved
 // into this file should not be renamed, since they may be synced.

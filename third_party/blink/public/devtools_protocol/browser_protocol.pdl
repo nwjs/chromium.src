@@ -744,6 +744,10 @@ experimental domain Audits
     enum
       CrossOriginPortalPostMessageError
       FormLabelForNameError
+      FormDuplicateIdForInputError
+      FormInputWithNoLabelError
+      FormAutocompleteAttributeEmptyError
+      FormEmptyIdAndNameAttributesForInputError
 
   # Depending on the concrete errorType, different properties are set.
   type GenericIssueDetails extends object
@@ -781,6 +785,7 @@ experimental domain Audits
       NoSysexWebMIDIWithoutPermission
       NotificationInsecureOrigin
       NotificationPermissionRequestedIframe
+      ObsoleteCreateImageBitmapImageOrientationNone
       ObsoleteWebRtcCipherSuite
       OpenWebDatabaseInsecureContext
       OverflowVisibleOnReplacedElement
@@ -797,6 +802,7 @@ experimental domain Audits
       PrefixedVideoExitFullscreen
       PrefixedVideoExitFullScreen
       PrefixedVideoSupportsFullscreen
+      PrivacySandboxExtensionsAPI
       RangeExpand
       RequestedSubresourceWithEmbeddedCredentials
       RTCConstraintEnableDtlsSrtpFalse
@@ -843,6 +849,7 @@ experimental domain Audits
       WellKnownHttpNotFound
       WellKnownNoResponse
       WellKnownInvalidResponse
+      WellKnownListEmpty
       ConfigNotInWellKnown
       WellKnownTooBig
       ConfigHttpNotFound
@@ -857,6 +864,7 @@ experimental domain Audits
       AccountsHttpNotFound
       AccountsNoResponse
       AccountsInvalidResponse
+      AccountsListEmpty
       IdTokenHttpNotFound
       IdTokenNoResponse
       IdTokenInvalidResponse
@@ -1092,6 +1100,7 @@ domain Browser
       protectedMediaIdentifier
       sensors
       storageAccess
+      topLevelStorageAccess
       videoCapture
       videoCapturePanTiltZoom
       wakeLockScreen
@@ -1267,7 +1276,7 @@ domain Browser
       # substring in their name are extracted. An empty or absent query returns
       # all histograms.
       optional string query
-      # If true, retrieve delta since last call.
+      # If true, retrieve delta since last delta call.
       optional boolean delta
 
     returns
@@ -1279,7 +1288,7 @@ domain Browser
     parameters
       # Requested histogram name.
       string name
-      # If true, retrieve delta since last call.
+      # If true, retrieve delta since last delta call.
       optional boolean delta
     returns
       # Histogram.
@@ -3676,7 +3685,9 @@ domain Emulation
   # Missing optional values will be filled in by the target with what it would normally use.
   experimental type UserAgentMetadata extends object
     properties
+      # Brands appearing in Sec-CH-UA.
       optional array of UserAgentBrandVersion brands
+      # Brands appearing in Sec-CH-UA-Full-Version-List.
       optional array of UserAgentBrandVersion fullVersionList
       deprecated optional string fullVersion
       string platform
@@ -5263,9 +5274,9 @@ domain Network
   # are specified in third_party/blink/renderer/core/fetch/trust_token.idl.
   experimental type TrustTokenParams extends object
     properties
-      TrustTokenOperationType type
+      TrustTokenOperationType operation
 
-      # Only set for "token-redemption" type and determine whether
+      # Only set for "token-redemption" operation and determine whether
       # to request a fresh SRR or use a still valid cached SRR.
       enum refreshPolicy
         UseCached
@@ -5867,7 +5878,8 @@ domain Network
 
   # Returns all browser cookies. Depending on the backend support, will return detailed cookie
   # information in the `cookies` field.
-  command getAllCookies
+  # Deprecated. Use Storage.getCookies instead.
+  deprecated command getAllCookies
     returns
       # Array of cookie objects.
       array of Cookie cookies
@@ -6390,6 +6402,11 @@ domain Network
       # Raw response header text as it was received over the wire. The raw text may not always be
       # available, such as in the case of HTTP/2 or QUIC.
       optional string headersText
+      # The cookie partition key that will be used to store partitioned cookies set in this response.
+      # Only sent when partitioned cookies are enabled.
+      optional string cookiePartitionKey
+      # True if partitioned cookies are enabled, but the partition key is not serializeable to string.
+      optional boolean cookiePartitionKeyOpaque
 
   # Fired exactly once for each Trust Token operation. Depending on
   # the type of the operation and whether the operation succeeded or
@@ -7216,12 +7233,14 @@ domain Page
       otp-credentials
       payment
       picture-in-picture
+      private-aggregation
       publickey-credentials-get
       run-ad-auction
       screen-wake-lock
       serial
       shared-autofill
       shared-storage
+      shared-storage-select-url
       smart-card
       storage-access
       sync-xhr
@@ -7230,6 +7249,8 @@ domain Page
       usb
       vertical-scroll
       web-share
+      # Alias for 'window-placement' (crbug.com/1328581).
+      window-management
       window-placement
       xr-spatial-tracking
 
@@ -8427,6 +8448,7 @@ domain Page
       InjectedJavascript
       InjectedStyleSheet
       KeepaliveRequest
+      IndexedDBEvent
       Dummy
       AuthorizationHeader
       # Disabled for RenderFrameHost reasons
@@ -8553,6 +8575,12 @@ domain Page
       ActivationNavigationParameterMismatch
       ActivatedInBackground
       EmbedderHostDisallowed
+      ActivationNavigationDestroyedBeforeSuccess
+      TabClosedByUserGesture
+      TabClosedWithoutUserGesture
+      PrimaryMainFrameRendererProcessCrashed
+      PrimaryMainFrameRendererProcessKilled
+      ActivationFramePolicyNotCompatible
 
   # Fired when a prerender attempt is completed.
   experimental event prerenderAttemptCompleted
@@ -9381,6 +9409,11 @@ experimental domain Storage
     parameters
       string ownerOrigin
 
+  # Resets the budget for `ownerOrigin` by clearing all budget withdrawals.
+  experimental command resetSharedStorageBudget
+    parameters
+      string ownerOrigin
+
   # Enables/disables issuing of sharedStorageAccessed events.
   experimental command setSharedStorageTracking
     parameters
@@ -9723,6 +9756,8 @@ domain Target
       # Whether to create the target in background or foreground (chrome-only,
       # false by default).
       optional boolean background
+      # Whether to create the target of type "tab".
+      experimental optional boolean forTab
     returns
       # The id of the page opened.
       TargetID targetId
@@ -10530,6 +10565,10 @@ experimental domain WebAuthn
       # https://fidoalliance.org/specs/fido-v2.1-ps-20210615/fido-client-to-authenticator-protocol-v2.1-ps-20210615.html#sctn-minpinlength-extension
       # Defaults to false.
       optional boolean hasMinPinLength
+      # If set to true, the authenticator will support the prf extension.
+      # https://w3c.github.io/webauthn/#prf-extension
+      # Defaults to false.
+      optional boolean hasPrf
       # If set to true, tests of user presence will succeed immediately.
       # Otherwise, they will not be resolved. Defaults to true.
       optional boolean automaticPresenceSimulation

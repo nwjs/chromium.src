@@ -163,6 +163,7 @@ CalendarEventListItemViewJelly::CalendarEventListItemViewJelly(
   const gfx::RoundedCornersF item_corner_radius = gfx::RoundedCornersF(
       top_radius, top_radius, bottom_radius, bottom_radius);
   SetPaintToLayer();
+  layer()->SetFillsBoundsOpaquely(false);
   layer()->SetRoundedCornerRadius(item_corner_radius);
 
   auto horizontal_layout_manager = std::make_unique<views::BoxLayout>(
@@ -210,7 +211,7 @@ void CalendarEventListItemViewJelly::OnThemeChanged() {
 bool CalendarEventListItemViewJelly::PerformAction(const ui::Event& event) {
   DCHECK(event_url_.is_empty() || event_url_.is_valid());
 
-  calendar_metrics::RecordEventListItemActivated(event);
+  calendar_view_controller_->RecordEventListItemActivated(event);
   calendar_view_controller_->OnCalendarEventWillLaunch();
 
   GURL finalized_url;

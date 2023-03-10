@@ -29,7 +29,9 @@ class TabHandleLayer;
 // added as a subtree.
 class TabStripSceneLayer : public SceneLayer {
  public:
-  TabStripSceneLayer(JNIEnv* env, const base::android::JavaRef<jobject>& jobj);
+  TabStripSceneLayer(JNIEnv* env,
+                     const base::android::JavaRef<jobject>& jobj,
+                     jboolean is_tab_strip_redesign_enabled);
 
   TabStripSceneLayer(const TabStripSceneLayer&) = delete;
   TabStripSceneLayer& operator=(const TabStripSceneLayer&) = delete;
@@ -92,6 +94,22 @@ class TabStripSceneLayer : public SceneLayer {
       jfloat button_alpha,
       const base::android::JavaParamRef<jobject>& jresource_manager);
 
+  void UpdateModelSelectorButtonBackground(
+      JNIEnv* env,
+      const base::android::JavaParamRef<jobject>& jobj,
+      jint resource_id,
+      jint bg_resource_id,
+      jfloat x,
+      jfloat y,
+      jfloat width,
+      jfloat height,
+      jboolean incognito,
+      jboolean visible,
+      jint tint,
+      jint background_tint,
+      jfloat button_alpha,
+      const base::android::JavaParamRef<jobject>& jresource_manager);
+
   void UpdateTabStripLeftFade(
       JNIEnv* env,
       const base::android::JavaParamRef<jobject>& jobj,
@@ -128,10 +146,13 @@ class TabStripSceneLayer : public SceneLayer {
       jfloat width,
       jfloat height,
       jfloat content_offset_x,
+      jfloat content_offset_y,
       jfloat divider_offset_x,
       jfloat bottom_offset_y,
+      jfloat close_button_padding,
       jfloat close_button_alpha,
-      jfloat divider_alpha,
+      jboolean is_start_divider_visible,
+      jboolean is_end_divider_visible,
       jboolean is_loading,
       jfloat spinner_rotation,
       jfloat brightness,
@@ -156,6 +177,7 @@ class TabStripSceneLayer : public SceneLayer {
   scoped_refptr<cc::UIResourceLayer> left_fade_;
   scoped_refptr<cc::UIResourceLayer> right_fade_;
   scoped_refptr<cc::UIResourceLayer> model_selector_button_;
+  scoped_refptr<cc::UIResourceLayer> model_selector_button_background_;
 
   unsigned write_index_;
   TabHandleLayerList tab_handle_layers_;

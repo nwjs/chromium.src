@@ -9,8 +9,8 @@
 #include <string>
 #include <utility>
 
-#include "base/bind.h"
 #include "base/command_line.h"
+#include "base/functional/bind.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/stringprintf.h"
 #include "base/values.h"
@@ -169,7 +169,8 @@ ContentSettingsContentSettingGetFunction::Run() {
   ContentSetting setting =
       content_type == ContentSettingsType::COOKIES
           ? cookie_settings->GetCookieSetting(
-                primary_url, secondary_url, nullptr,
+                primary_url, secondary_url, net::CookieSettingOverrides(),
+                nullptr,
                 content_settings::CookieSettings::QueryReason::kSetting)
           : map->GetContentSetting(primary_url, secondary_url, content_type);
 

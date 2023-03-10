@@ -204,8 +204,8 @@ public class SearchActivity extends AsyncInitializationActivity
         }
 
         OverrideUrlLoadingDelegate overrideUrlLoadingDelegate =
-                (String url, @PageTransition int transition, String postDataType, byte[] postData,
-                        boolean incognito) -> {
+                (String url, @PageTransition int transition, long inputStart, String postDataType,
+                        byte[] postData, boolean incognito) -> {
             loadUrl(url, transition, postDataType, postData);
             return true;
         };
@@ -225,7 +225,8 @@ public class SearchActivity extends AsyncInitializationActivity
                 SearchEngineLogoUtils.getInstance(), /*launchAssistanceSettingsAction=*/() -> {},
                 /*pageInfoAction=*/(tab, pageInfoHighlight) -> {},
                 IntentHandler::bringTabToFront,
-                /*saveOfflineButtonState=*/(tab) -> false, /*omniboxUma*/(url, transition) -> {},
+                /*saveOfflineButtonState=*/(tab) -> false,
+                /*omniboxUma*/(url, transition, isNtp) -> {},
                 TabWindowManagerSingleton::getInstance, /*bookmarkState=*/(url) -> false,
                 VoiceToolbarButtonController::isToolbarMicEnabled, new DummyJankTracker(),
                 /*merchantTrustSignalsCoordinatorSupplier=*/null,

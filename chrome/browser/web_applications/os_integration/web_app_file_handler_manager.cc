@@ -8,14 +8,15 @@
 #include <tuple>
 #include <utility>
 
-#include "base/bind.h"
-#include "base/callback_helpers.h"
 #include "base/check.h"
 #include "base/compiler_specific.h"
 #include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/no_destructor.h"
+#include "base/strings/string_util.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
@@ -60,14 +61,6 @@ void WebAppFileHandlerManager::SetSubsystems(WebAppSyncBridge* sync_bridge) {
 
 void WebAppFileHandlerManager::Start() {
   DCHECK(sync_bridge_);
-
-  // Don't compete for resources during browser startup.
-  content::GetUIThreadTaskRunner({base::TaskPriority::BEST_EFFORT})
-      ->PostTask(
-          FROM_HERE,
-          base::BindOnce(base::IgnoreResult(
-                             &WebAppFileHandlerManager::SyncOsIntegrationState),
-                         weak_ptr_factory_.GetWeakPtr()));
 }
 
 // static
@@ -84,11 +77,6 @@ void WebAppFileHandlerManager::SetIconsSupportedByOsForTesting(bool value) {
 void WebAppFileHandlerManager::EnableAndRegisterOsFileHandlers(
     const AppId& app_id,
     ResultCallback callback) {
-  if (!IsFileHandlingAPIAvailable(app_id)) {
-    std::move(callback).Run(Result::kOk);
-    return;
-  }
-
   SetOsIntegrationState(app_id, OsIntegrationState::kEnabled);
 
   if (GetOsIntegrationCallback()) {
@@ -144,7 +132,6 @@ void WebAppFileHandlerManager::DisableAndUnregisterOsFileHandlers(
 const apps::FileHandlers* WebAppFileHandlerManager::GetEnabledFileHandlers(
     const AppId& app_id) const {
   if (ShouldOsIntegrationBeEnabled(app_id) &&
-      IsFileHandlingAPIAvailable(app_id) &&
       !GetRegistrar()->IsAppFileHandlerPermissionBlocked(app_id)) {
     return GetAllFileHandlers(app_id);
   }
@@ -152,29 +139,11 @@ const apps::FileHandlers* WebAppFileHandlerManager::GetEnabledFileHandlers(
   return nullptr;
 }
 
-bool WebAppFileHandlerManager::IsFileHandlingAPIAvailable(
-    const AppId& app_id) const {
-  if (base::FeatureList::IsEnabled(blink::features::kFileHandlingAPI))
-    return true;
-
-  // May be null in unit tests.
-  if (GetRegistrar()) {
-    const WebApp* web_app = GetRegistrar()->GetAppById(app_id);
-    return web_app && web_app->IsSystemApp();
-  }
-
-  return false;
-}
-
 // static
 bool WebAppFileHandlerManager::IconsEnabled() {
   return g_icons_supported_by_os_override.value_or(
              FileHandlingIconsSupportedByOs()) &&
          base::FeatureList::IsEnabled(blink::features::kFileHandlingIcons);
-}
-
-void WebAppFileHandlerManager::SyncOsIntegrationStateForTesting() {
-  SyncOsIntegrationState();
 }
 
 const apps::FileHandlers* WebAppFileHandlerManager::GetAllFileHandlers(
@@ -190,7 +159,7 @@ WebAppFileHandlerManager::GetMatchingFileHandlerUrls(
     const AppId& app_id,
     const std::vector<base::FilePath>& launch_files) {
   LaunchInfos launch_infos;
-  if (!IsFileHandlingAPIAvailable(app_id) || launch_files.empty() ||
+  if (launch_files.empty() ||
       GetRegistrar()->IsAppFileHandlerPermissionBlocked(app_id)) {
     return launch_infos;
   }
@@ -211,7 +180,8 @@ WebAppFileHandlerManager::GetMatchingFileHandlerUrls(
     for (const auto& file_handler : *file_handlers) {
       std::set<std::string> supported_file_extensions =
           apps::GetFileExtensionsFromFileHandlers({file_handler});
-      if (base::Contains(supported_file_extensions, file_extension)) {
+      if (base::Contains(supported_file_extensions,
+                         base::ToLowerASCII(file_extension))) {
         launch_handlers[&file_handler].push_back(file_path);
         break;
       }
@@ -250,16 +220,6 @@ bool WebAppFileHandlerManager::ShouldOsIntegrationBeEnabled(
 
 const WebAppRegistrar* WebAppFileHandlerManager::GetRegistrar() const {
   return sync_bridge_ ? &sync_bridge_->registrar() : nullptr;
-}
-
-void WebAppFileHandlerManager::SyncOsIntegrationState() {
-  if (GetRegistrar()) {
-    for (AppId& id : GetRegistrar()->GetAppIds()) {
-      WebAppProvider::GetForLocalAppsUnchecked(profile_)
-          ->scheduler()
-          .UpdateFileHandlerOsIntegration(id, base::DoNothing());
-    }
-  }
 }
 
 }  // namespace web_app

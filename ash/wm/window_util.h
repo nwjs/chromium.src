@@ -125,8 +125,15 @@ bool IsAnyWindowDragged();
 aura::Window* GetTopWindow();
 aura::Window* GetTopNonFloatedWindow();
 
+// Returns the floated window for the active desk if it exists.
+ASH_EXPORT aura::Window* GetFloatedWindowForActiveDesk();
+
 // Returns whether the top window should be minimized on back action.
 ASH_EXPORT bool ShouldMinimizeTopWindowOnBack();
+
+// Returns true if `window` is in minimized state, or is in floated state and
+// tucked to the side in tablet mode.
+bool IsMinimizedOrTucked(aura::Window* window);
 
 // Sends |ui::VKEY_BROWSER_BACK| key press and key release event to the
 // WindowTreeHost associated with |root_window|.

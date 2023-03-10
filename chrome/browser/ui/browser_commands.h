@@ -73,9 +73,13 @@ void OpenWindowWithRestoredTabs(Profile* profile);
 void OpenURLOffTheRecord(Profile* profile, const GURL& url);
 
 bool CanGoBack(const Browser* browser);
+bool CanGoBack(content::WebContents* web_contents);
 void GoBack(Browser* browser, WindowOpenDisposition disposition);
+void GoBack(content::WebContents* web_contents);
 bool CanGoForward(const Browser* browser);
+bool CanGoForward(content::WebContents* web_contents);
 void GoForward(Browser* browser, WindowOpenDisposition disposition);
+void GoForward(content::WebContents* web_contents);
 void NavigateToIndexWithDisposition(Browser* browser,
                                     int index,
                                     WindowOpenDisposition disposition);
@@ -240,6 +244,9 @@ bool CanViewSource(const Browser* browser);
 bool CanToggleCaretBrowsing(Browser* browser);
 void ToggleCaretBrowsing(Browser* browser);
 void PromptToNameWindow(Browser* browser);
+#if BUILDFLAG(IS_CHROMEOS)
+void ToggleMultitaskMenu(Browser* browser);
+#endif
 void ToggleCommander(Browser* browser);
 void ExecuteUIDebugCommand(int id, const Browser* browser);
 

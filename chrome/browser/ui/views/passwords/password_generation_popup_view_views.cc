@@ -29,6 +29,7 @@
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/native_theme/native_theme.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
 #include "ui/views/border.h"
 #include "ui/views/controls/image_view.h"
@@ -108,6 +109,25 @@ class PasswordGenerationPopupViewViews::GeneratedPasswordBox
   GeneratedPasswordBox() = default;
   ~GeneratedPasswordBox() override = default;
 
+  void GetAccessibleNodeData(ui::AXNodeData* node_data) override {
+    if (!controller_) {
+      return;
+    }
+
+    node_data->role = ax::mojom::Role::kListBoxOption;
+    node_data->AddBoolAttribute(ax::mojom::BoolAttribute::kSelected,
+                                controller_->password_selected());
+    node_data->SetNameChecked(base::JoinString(
+        {controller_->SuggestedText(), controller_->password()}, u" "));
+    const std::u16string help_text = l10n_util::GetStringFUTF16(
+        IDS_PASSWORD_GENERATION_PROMPT_GOOGLE_PASSWORD_MANAGER,
+        l10n_util::GetStringUTF16(
+            IDS_PASSWORD_BUBBLES_PASSWORD_MANAGER_LINK_TEXT_SYNCED_TO_ACCOUNT),
+        controller_->GetPrimaryAccountEmail());
+
+    node_data->SetDescription(help_text);
+  }
+
   // Fills the view with strings provided by |controller|.
   void Init(base::WeakPtr<PasswordGenerationPopupController> controller);
 
@@ -140,6 +160,12 @@ class PasswordGenerationPopupViewViews::GeneratedPasswordBox
 
 void PasswordGenerationPopupViewViews::GeneratedPasswordBox::Init(
     base::WeakPtr<PasswordGenerationPopupController> controller) {
+  // Make sure we only receive enter/exit events when the mouse enters the whole
+  // view, even if it is entering/exiting a child view. This is needed to
+  // prevent the background highlight of the password box disappearing when
+  // entering the key icon view (see crbug.com/1393991).
+  SetNotifyEnterExitOnChild(true);
+
   controller_ = controller;
   auto* layout = SetLayoutManager(std::make_unique<views::BoxLayout>(
       views::BoxLayout::Orientation::kHorizontal));
@@ -264,7 +290,7 @@ void PasswordGenerationPopupViewViews::PasswordSelectionUpdated() {
   DCHECK(FullPopupVisible());
 
   if (controller_->password_selected())
-    NotifyAXSelection(this);
+    NotifyAXSelection(this->password_view_);
 
   if (!GetWidget())
     return;
@@ -372,13 +398,18 @@ void PasswordGenerationPopupViewViews::OnPaint(gfx::Canvas* canvas) {
 
 void PasswordGenerationPopupViewViews::GetAccessibleNodeData(
     ui::AXNodeData* node_data) {
+  // TODO(crbug.com/1404297): kListBox is used for the same reason as in
+  // AutofillPopupViewNativeViews. See crrev.com/c/2545285 for details.
+  // Consider using a more appropriate role (e.g. kMenuListPopup or similar).
+  node_data->role = ax::mojom::Role::kListBox;
+
   if (!controller_) {
+    node_data->AddState(ax::mojom::State::kCollapsed);
+    node_data->AddState(ax::mojom::State::kInvisible);
     return;
   }
-  node_data->role = ax::mojom::Role::kMenuItem;
-  node_data->SetNameChecked(base::JoinString(
-      {controller_->SuggestedText(), controller_->password()}, u" "));
-  node_data->SetDescription(controller_->HelpText());
+
+  node_data->AddState(ax::mojom::State::kExpanded);
 }
 
 gfx::Size PasswordGenerationPopupViewViews::CalculatePreferredSize() const {
@@ -404,3 +435,7 @@ PasswordGenerationPopupView* PasswordGenerationPopupView::Create(
 
   return new PasswordGenerationPopupViewViews(controller, observing_widget);
 }
+
+BEGIN_METADATA(PasswordGenerationPopupViewViews,
+               autofill::AutofillPopupBaseView)
+END_METADATA

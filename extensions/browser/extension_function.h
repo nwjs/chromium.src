@@ -11,8 +11,8 @@
 #include <string>
 #include <vector>
 
-#include "base/callback.h"
 #include "base/callback_list.h"
+#include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
@@ -29,6 +29,7 @@
 #include "ipc/ipc_message.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/public/mojom/devtools/console_message.mojom.h"
+#include "third_party/blink/public/mojom/devtools/inspector_issue.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_database.mojom-forward.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_object.mojom-forward.h"
 
@@ -231,9 +232,8 @@ class ExtensionFunction : public base::RefCountedThreadSafe<
   // returns an error.
   virtual void OnQuotaExceeded(std::string violation_error);
 
-  // Specifies the raw arguments to the function, as a JSON value. Expects a
-  // base::Value of type LIST.
-  void SetArgs(base::Value args);
+  // Specifies the raw arguments to the function, as a JSON value.
+  void SetArgs(base::Value::List args);
 
   // Retrieves the results of the function as a base::Value::List for testing
   // purposes.
@@ -492,6 +492,9 @@ class ExtensionFunction : public base::RefCountedThreadSafe<
   void WriteToConsole(blink::mojom::ConsoleMessageLevel level,
                       const std::string& message);
 
+  // Reports an inspector issue to the issues tab in Chrome DevTools
+  void ReportInspectorIssue(blink::mojom::InspectorIssueInfoPtr info);
+
   // Sets the Blobs whose ownership is being transferred to the renderer.
   void SetTransferredBlobs(std::vector<blink::mojom::SerializedBlobPtr> blobs);
 
@@ -650,9 +653,9 @@ class NWSyncExtensionFunction : public ExtensionFunction {
   static bool ValidationFailure(NWSyncExtensionFunction* function);
 
   void SetResult(std::unique_ptr<base::Value> result);
-  void SetResultList(std::unique_ptr<base::ListValue> results);
+  void SetResultList(const base::Value::List& results);
 
-  std::unique_ptr<base::ListValue> results_;
+  base::Value::List results_;
   std::string error_;
  private:
   ResponseAction Run() final;

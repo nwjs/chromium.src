@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Linux ਨਾਲ ਸਥਾਪਤ ਕਰੋ</translation>
 <translation id="2225536596944493418">ਕੀ ਤੁਸੀਂ ਪੱਕਾ <ph name="NUMBER_OF_ITEMS" /> ਆਈਟਮਾਂ ਨੂੰ ਮਿਟਾਉਣਾ ਚਾਹੁੰਦੇ ਹੋ?</translation>
 <translation id="2230062665678605299">"<ph name="FOLDER_NAME" />" ਫੋਲਡਰ ਬਣਾਉਣ ਵਿੱਚ ਅਸਮਰੱਥ। <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">ਤੁਹਾਡੇ Google Drive ਕੈਸ਼ੇ ਨੂੰ ਕਲੀਅਰ ਕੀਤਾ ਗਿਆ।</translation>
 <translation id="2239068707900391003">ਕੌਫ਼ੀ ਪੀਂਦਾ ਹੋਇਆ ਵਿਅਕਤੀ</translation>
 <translation id="2251368349685848079">ਰੱਦੀ ਵਿੱਚੋਂ ਮੁੜ-ਬਹਾਲ ਕਰੋ</translation>
 <translation id="2282155092769082568">ਸਵੈ-ਸੰਰੂਪਣ URL:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">ਕੋਈ ਆਈਟਮਾਂ ਮੇਲ ਨਹੀਂ ਖਾਂਦੀਆਂ &lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt;</translation>
 <translation id="2894654529758326923">ਜਾਣਕਾਰੀ</translation>
 <translation id="2902734494705624966">US ਵਿਸਤ੍ਰਿਤ</translation>
+<translation id="2904378509913846215">"<ph name="FILENAME" />" ਨਾਮ ਦਾ ਫੋਲਡਰ ਪਹਿਲਾਂ ਹੀ ਮੌਜੂਦ ਹੈ। ਕੀ ਤੁਸੀਂ ਇਸ ਫ਼ਾਈਲ ਨੂੰ ਮੌਜੂਦਾ ਫ਼ਾਈਲ ਨਾਲ ਬਦਲਣਾ ਚਾਹੁੰਦੇ ਹੋ?</translation>
 <translation id="290843123675549676">ਮਰਾਠੀ</translation>
 <translation id="2923240520113693977">Estonian</translation>
 <translation id="2938685643439809023">Mongolian</translation>
@@ -639,6 +641,7 @@
 <translation id="6241349547798190358">ਡੱਚ (ਬੈਲਜੀਅਮ)</translation>
 <translation id="6267547857941397424">ਨੈੱਟਵਰਕ <ph name="NETWORK_COUNT" /> ਵਿੱਚੋਂ <ph name="NETWORK_INDEX" />, <ph name="PHONE_NAME" />, ਸਿਗਨਲ ਦੀ ਤੀਬਰਤਾ <ph name="SIGNAL_STRENGTH" />%, ਫ਼ੋਨ ਦੀ ਬੈਟਰੀ <ph name="BATTERY_STATUS" />%, ਕਨੈਕਟ ਕਰੋ</translation>
 <translation id="6269630227984243955">ਮਲਾਏ</translation>
+<translation id="6271903698064569429">ਫ਼ਾਈਲਾਂ ਨੂੰ ਅੱਪਲੋਡ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਦਾ ਕਿਉਂਕਿ "<ph name="SHARED_DRIVE_NAME" />" ਵਿੱਚ ਲੋੜੀਂਦੀ ਸਟੋਰੇਜ ਨਹੀਂ ਹੈ।</translation>
 <translation id="6287852322318138013">ਇਸ ਫ਼ਾਈਲ ਨੂੰ ਖੋਲ੍ਹਣ ਲਈ ਇੱਕ ਐਪ ਚੁਣੋ</translation>
 <translation id="6295542640242147836">ਸਿਮ ਲਾਕ</translation>
 <translation id="6296410173147755564">ਅਵੈਧ PUK</translation>
@@ -684,6 +687,7 @@
 <translation id="6657585470893396449">ਪਾਸਵਰਡ</translation>
 <translation id="6658865850469097484">ਰੱਦੀ ਫੋਲਡਰ ਵਿੱਚ 30 ਦਿਨਾਂ ਤੋਂ ਜ਼ਿਆਦਾ ਪੁਰਾਣੀਆਂ ਫ਼ਾਈਲਾਂ ਨੂੰ ਸਵੈਚਲਿਤ ਤੌਰ 'ਤੇ ਮਿਟਾ ਦਿੱਤਾ ਜਾਵੇਗਾ।</translation>
 <translation id="6673674183150363784">Bépo ਕੀ-ਬੋਰਡ ਨਾਲ ਫ਼ਰਾਂਸੀਸੀ (ਫ਼ਰਾਂਸ)</translation>
+<translation id="670380500182402678">ਸਭ ਬਦਲੋ</translation>
 <translation id="6710022688720561421">ਰੋਬੋਟ</translation>
 <translation id="6710213216561001401">ਪਿਛਲਾ</translation>
 <translation id="6732801395666424405">ਪ੍ਰਮਾਣ-ਪੱਤਰ ਲੋਡ ਨਹੀਂ ਕੀਤੇ ਗਏ</translation>
@@ -902,6 +906,7 @@
 <translation id="8386903983509584791">ਸਕੈਨ ਪੂਰਾ ਹੋਈ</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" /> ਨੂੰ ਐਕਸਟ੍ਰੈਕਟ ਕੀਤਾ ਗਿਆ।</translation>
 <translation id="8395901698320285466">ਮਾਪ</translation>
+<translation id="8404498045299006085">ਸਭ ਰੱਖੋ</translation>
 <translation id="8408068190360279472"><ph name="NETWORK_TYPE" /> ਨੈੱਟਵਰਕ, ਕਨੈਕਟ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ</translation>
 <translation id="8425213833346101688">ਬਦਲੋ</translation>
 <translation id="8431909052837336408">ਸਿਮ PIN ਬਦਲੋ</translation>

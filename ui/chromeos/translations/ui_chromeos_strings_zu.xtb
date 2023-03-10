@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Faka nge-Linux</translation>
 <translation id="2225536596944493418">Ingabe ufuna ukususa izinto ze-<ph name="NUMBER_OF_ITEMS" />?</translation>
 <translation id="2230062665678605299">Ayikwazi ukudala ifolda le-"<ph name="FOLDER_NAME" />". <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">Inqolobane yakho ye-Google Drive isuliwe.</translation>
 <translation id="2239068707900391003">Umuntu onekhofi</translation>
 <translation id="2251368349685848079">Buyisela kusukela kudoti</translation>
 <translation id="2282155092769082568">I-URL yokulungiselelwa ngokuzenzakalela:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">Azikho izinto ezifana ne-&lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt;</translation>
 <translation id="2894654529758326923">Ulwazi</translation>
 <translation id="2902734494705624966">Inwetshwelwe i-US</translation>
+<translation id="2904378509913846215">Ifolda enegama "<ph name="FILENAME" />" isivele ikhona. Ingabe ufuna ukuyifaka esikhundleni saleyo oyihambisayo?</translation>
 <translation id="290843123675549676">Marathi</translation>
 <translation id="2923240520113693977">Isi-Estonian</translation>
 <translation id="2938685643439809023">Mongolian</translation>
@@ -639,6 +641,7 @@
 <translation id="6241349547798190358">Dutch (Belgium)</translation>
 <translation id="6267547857941397424">Inethiwekhi <ph name="NETWORK_INDEX" /> ye-<ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, amandla esignali <ph name="SIGNAL_STRENGTH" />%, Ibhethri lefoni <ph name="BATTERY_STATUS" />%, xhuma</translation>
 <translation id="6269630227984243955">Malay</translation>
+<translation id="6271903698064569429">Amafayela awakwazi ukulayishwa ngenxa yokuthi i-"<ph name="SHARED_DRIVE_NAME" />" ayinaso isitoreji esanele.</translation>
 <translation id="6287852322318138013">Khetha uhlelo lokusebenza ukuze livule leli fayela</translation>
 <translation id="6295542640242147836">Khiya i-SIM</translation>
 <translation id="6296410173147755564">I-PUK engavumelekile</translation>
@@ -684,6 +687,7 @@
 <translation id="6657585470893396449">Igama lokungena</translation>
 <translation id="6658865850469097484">Amafayela akudoti ngaphezu kwezinsuku ezingama-30 azosulwa ngokuzenzakalela.</translation>
 <translation id="6673674183150363784">Ikhibhodi yesi-French (France) ene-Bépo</translation>
+<translation id="670380500182402678">Buyisela konke</translation>
 <translation id="6710022688720561421">I-Robot</translation>
 <translation id="6710213216561001401">Okwedlule</translation>
 <translation id="6732801395666424405">Izitifiketi azilayishiwe</translation>
@@ -902,6 +906,7 @@
 <translation id="8386903983509584791">Ukuskena kuphelile</translation>
 <translation id="8387733224523483503">I-<ph name="FILE_NAME" /> ithukululiwe.</translation>
 <translation id="8395901698320285466">Ubukhulu</translation>
+<translation id="8404498045299006085">Gcina konke</translation>
 <translation id="8408068190360279472"><ph name="NETWORK_TYPE" /> inethiwekhi, ukuxhuma</translation>
 <translation id="8425213833346101688">Guqula</translation>
 <translation id="8431909052837336408">Shintsha i-SIM yephinikhodi</translation>

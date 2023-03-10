@@ -4,7 +4,7 @@
 """Definitions of builders in the tryserver.chromium builder group."""
 
 load("//lib/branches.star", "branches")
-load("//lib/builders.star", "goma", "os", "reclient")
+load("//lib/builders.star", "os", "reclient")
 load("//lib/try.star", "try_")
 load("//lib/consoles.star", "consoles")
 
@@ -16,7 +16,6 @@ try_.defaults.set(
     cores = 32,
     os = os.LINUX_DEFAULT,
     execution_timeout = try_.DEFAULT_EXECUTION_TIMEOUT,
-    goma_backend = None,
     reclient_instance = reclient.instance.DEFAULT_UNTRUSTED,
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CQ,
     service_account = try_.DEFAULT_SERVICE_ACCOUNT,
@@ -66,8 +65,6 @@ try_.builder(
     # TODO(crbug.com/1279290) builds with PGO change take long time.
     # Keep in sync with mac-official in ci/chromium.star.
     execution_timeout = 9 * time.hour,
-    goma_backend = goma.backend.RBE_PROD,
-    reclient_instance = None,
 )
 
 try_.builder(

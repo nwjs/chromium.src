@@ -14,6 +14,51 @@
 #error "This file requires ARC support."
 #endif
 
+namespace {
+
+// Helper function that computes the websites displayed to the user
+// corresponding to a group of facets.
+NSArray<NSString*>* GetWebsitesFromFacets(
+    std::vector<password_manager::CredentialFacet> facets) {
+  NSInteger websiteCount = facets.size();
+  NSMutableArray<NSString*>* websites =
+      [NSMutableArray arrayWithCapacity:websiteCount];
+
+  for (const auto& facet : facets) {
+    NSString* website;
+    auto facetURI = password_manager::FacetURI::FromPotentiallyInvalidSpec(
+        facet.signon_realm);
+    // Android facets: use Application Name or package name as fallback.
+    if (facetURI.IsValidAndroidFacetURI()) {
+      if (!facet.display_name.empty()) {
+        website = base::SysUTF8ToNSString(facet.display_name);
+      } else {
+        website = base::SysUTF8ToNSString(facetURI.android_package_name());
+      }
+    } else {
+      // Web facets: use the URL.
+      website =
+          base::SysUTF8ToNSString(password_manager::GetShownUrl(facet).spec());
+    }
+    [websites addObject:website];
+  }
+
+  return websites;
+}
+
+// Helper function that computes the origins corresponding to a group of facets.
+NSSet<NSString*>* GetOriginsFromCredential(
+    const password_manager::CredentialUIEntry& credential) {
+  NSMutableSet<NSString*>* origins = [NSMutableSet set];
+  for (const auto& facet : credential.facets) {
+    [origins addObject:base::SysUTF8ToNSString(
+                           password_manager::GetShownOrigin(facet))];
+  }
+  return origins;
+}
+
+}  // namespace
+
 @implementation PasswordDetails
 
 - (instancetype)initWithCredential:
@@ -24,25 +69,16 @@
         stringWithUTF8String:credential.GetFirstSignonRealm().c_str()];
     auto facetUri = password_manager::FacetURI::FromPotentiallyInvalidSpec(
         credential.GetFirstSignonRealm());
-    if (facetUri.IsValidAndroidFacetURI()) {
-      std::string display_name = credential.GetDisplayName();
-      if (!display_name.empty()) {
-        _changePasswordURL = password_manager::CreateChangePasswordUrl(
-            GURL(credential.GetAffiliatedWebRealm()));
-        _origin = base::SysUTF8ToNSString(display_name);
-        _website = base::SysUTF8ToNSString(display_name);
-      } else {
-        _origin = base::SysUTF8ToNSString(facetUri.android_package_name());
-        _website = base::SysUTF8ToNSString(facetUri.android_package_name());
-      }
+    if (facetUri.IsValidAndroidFacetURI() &&
+        !credential.GetDisplayName().empty()) {
+      _changePasswordURL = password_manager::CreateChangePasswordUrl(
+          GURL(credential.GetAffiliatedWebRealm()));
     } else {
-      _origin =
-          base::SysUTF8ToNSString(password_manager::GetShownOrigin(credential));
-      _website = base::SysUTF8ToNSString(
-          password_manager::GetShownUrl(credential).spec());
       _changePasswordURL =
           password_manager::CreateChangePasswordUrl(credential.GetURL());
     }
+    _origins = [GetOriginsFromCredential(credential) allObjects];
+    _websites = GetWebsitesFromFacets(credential.facets);
 
     if (!credential.blocked_by_user) {
       _username = base::SysUTF16ToNSString(credential.username);

@@ -7,8 +7,8 @@
 #include <string>
 #include <vector>
 
-#include "base/bind.h"
 #include "base/containers/flat_map.h"
+#include "base/functional/bind.h"
 #include "base/i18n/number_formatting.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
@@ -662,7 +662,7 @@ TEST_F(NavigationRequestTest, StorageKeyToCommit) {
   child_document =
       static_cast<TestRenderFrameHost*>(navigation->GetFinalRenderFrameHost());
   EXPECT_TRUE(child_document->IsCredentialless());
-  EXPECT_EQ(blink::StorageKey::CreateWithNonce(
+  EXPECT_EQ(blink::StorageKey::CreateWithNonceForTesting(
                 url::Origin::Create(kUrl),
                 child_document->GetMainFrame()->credentialless_iframes_nonce()),
             child_document->storage_key());
@@ -969,12 +969,14 @@ class OriginTrialsControllerDelegateMock
 
   void PersistTrialsFromTokens(
       const url::Origin& origin,
+      const url::Origin& partition_origin,
       const base::span<const std::string> header_tokens,
       const base::Time current_time) override {
     persisted_tokens_[origin] =
         std::vector<std::string>(header_tokens.begin(), header_tokens.end());
   }
   bool IsTrialPersistedForOrigin(const url::Origin& origin,
+                                 const url::Origin& partition_origin,
                                  const base::StringPiece trial_name,
                                  const base::Time current_time) override {
     DCHECK(false) << "Method not implemented for test.";
@@ -983,6 +985,7 @@ class OriginTrialsControllerDelegateMock
 
   base::flat_set<std::string> GetPersistedTrialsForOrigin(
       const url::Origin& origin,
+      const url::Origin& partition_origin,
       base::Time current_time) override {
     DCHECK(false) << "Method not implemented for test.";
     return base::flat_set<std::string>();

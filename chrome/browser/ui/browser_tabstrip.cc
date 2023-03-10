@@ -79,25 +79,26 @@ void AddWebContents(Browser* browser,
   DCHECK(disposition != WindowOpenDisposition::CURRENT_TAB);
 
   gfx::Rect rect = window_features.bounds;
-  int height = 0; int width = 0;
-  int x = 0; int y = 0;
   bool has_frame = true;
   bool fullscreen = false;
   if (!manifest.empty()) {
-    std::unique_ptr<base::Value> val = base::JSONReader::ReadDeprecated(manifest);
-    if (val && val->is_dict()) {
-      std::unique_ptr<base::DictionaryValue> mnfst;
-      mnfst.reset(static_cast<base::DictionaryValue*>(val.release()));
-      if (mnfst->GetInteger("width", &width))
-        rect.set_width(width);
-      if (mnfst->GetInteger("height", &height))
-        rect.set_height(height);
-      if (mnfst->GetInteger("x", &x))
-        rect.set_x(x);
-      if (mnfst->GetInteger("y", &y))
-        rect.set_y(y);
-      has_frame = mnfst->FindBoolKey("frame").value_or(true);
-      fullscreen = mnfst->FindBoolKey("fullscreen").value_or(false);
+    absl::optional<base::Value> root = base::JSONReader::Read(manifest);
+    if (root && root->is_dict()) {
+      base::Value::Dict* mnfst = root->GetIfDict();
+      absl::optional<int> width = mnfst->FindInt("width");
+      if (width)
+        rect.set_width(*width);
+      absl::optional<int> height = mnfst->FindInt("height");
+      if (height)
+        rect.set_height(*height);
+      absl::optional<int> x = mnfst->FindInt("x");
+      if (x)
+        rect.set_x(*x);
+      absl::optional<int> y = mnfst->FindInt("y");
+      if (y)
+        rect.set_y(*y);
+      has_frame = mnfst->FindBool("frame").value_or(true);
+      fullscreen = mnfst->FindBool("fullscreen").value_or(false);
     }
   }
   extensions::AppWindow::CreateParams params0;

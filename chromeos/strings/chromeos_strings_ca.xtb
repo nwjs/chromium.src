@@ -116,6 +116,7 @@
 <translation id="1908234395526491708">Errors en la sol·licitud d'UDP</translation>
 <translation id="1947737735496445907">Imprès</translation>
 <translation id="1951012854035635156">Assistent</translation>
+<translation id="1962550982027027473">Es necessita un APN predeterminat</translation>
 <translation id="1977994649430373166">Foto de perfil de Google</translation>
 <translation id="1979103255016296513">Canvi de contrasenya vençut</translation>
 <translation id="1999615961760456652">Portal captiu</translation>
@@ -195,6 +196,7 @@
 <translation id="2713444072780614174">Blanc</translation>
 <translation id="2717139507051041123">Activa el mode de color fosc</translation>
 <translation id="2740531572673183784">D'acord</translation>
+<translation id="2744221223678373668">Compartides</translation>
 <translation id="2751739896257479635">Autenticació de fase 2 d'EAP</translation>
 <translation id="2783010256799387990">SUPERADA</translation>
 <translation id="2789486458103222910">D'acord</translation>
@@ -269,6 +271,7 @@
 <translation id="3583278742022654445">Intensitat del senyal fluixa. Prova d'apropar-te a la font de senyal de la Wi-Fi.</translation>
 <translation id="3595596368722241419">Bateria carregada.</translation>
 <translation id="3600339377155080675">Projecta la pantalla</translation>
+<translation id="3602290021589620013">Previsualitza</translation>
 <translation id="3603829704940252505">Avatar</translation>
 <translation id="3604713164406837697">Canvia el fons de pantalla</translation>
 <translation id="360565022852130722">La xarxa Wi-Fi està protegida amb el protocol dèbil WEP 802.1x</translation>
@@ -292,6 +295,7 @@
 <translation id="385051799172605136">Enrere</translation>
 <translation id="3858860766373142691">Nom</translation>
 <translation id="3862598938296403232">La descripció és obligatòria</translation>
+<translation id="3865289341173661845">El contingut d'ajuda no està disponible.</translation>
 <translation id="3865414814144988605">Resolució</translation>
 <translation id="3866249974567520381">Descripció</translation>
 <translation id="387301095347517405">El nombre de vegades que la bateria s'ha carregat completament</translation>
@@ -314,9 +318,11 @@
 <translation id="4044093238444069296">No es pot contactar amb la passarel·la</translation>
 <translation id="4046123991198612571">Pista següent</translation>
 <translation id="404928562651467259">ADVERTIMENT</translation>
+<translation id="4054683689023980771">S'està baixant la imatge</translation>
 <translation id="4060260348856573701">APN nou</translation>
 <translation id="4093865285251893588">Imatge de perfil</translation>
 <translation id="409427325554347132">Desa els detalls de la prova</translation>
+<translation id="4095829376260267438">WPA2WPA3</translation>
 <translation id="4110686435123617899">Selecciona l'àlbum <ph name="TITLE" /> <ph name="DESC" /></translation>
 <translation id="4111761024568264522">Ratolí tàctil USB</translation>
 <translation id="4117637339509843559">Mode fosc</translation>
@@ -447,8 +453,6 @@
 <translation id="5168185087976003268">Estat de la bateria</translation>
 <translation id="5170568018924773124">Mostra a la carpeta</translation>
 <translation id="5190187232518914472">Reviu els teus records preferits. Per afegir o editar àlbums, ves a <ph name="LINK_BEGIN" />Google Fotos<ph name="LINK_END" />.</translation>
-<translation id="5212543919916444558">No he trobat res a la pantalla amb què et pugui ajudar.
-Toca el micròfon per demanar-me qualsevol cosa.</translation>
 <translation id="5212593641110061691">Tabloide</translation>
 <translation id="5222676887888702881">Tanca la sessió</translation>
 <translation id="522307662484862935">No incloguis l'adreça electrònica</translation>
@@ -635,6 +639,7 @@ Toca el micròfon per demanar-me qualsevol cosa.</translation>
 <translation id="6791471867139427246">color de la llum del teclat</translation>
 <translation id="680983167891198932">Clau</translation>
 <translation id="6816797338148849397">Hi ha disponible informació relacionada amb la teva selecció. Utilitza la tecla de fletxa amunt per accedir-hi.</translation>
+<translation id="6838167112108853532">No es pot desactivar ni suprimir aquest APN. Assegura't que els APN adjunts i activats estiguin desactivats o suprimits.</translation>
 <translation id="6853312040151791195">Percentatge de descàrrega</translation>
 <translation id="6889786074662672253">Mentre es reinicia, no desconnectis el dispositiu extern ni apaguis l'ordinador. Pots minimitzar aquesta finestra. Aquest procés pot tardar uns quants minuts i és possible que, durant aquest temps, el dispositiu extern no funcioni.</translation>
 <translation id="6905724422583748843">Torna a <ph name="PAGE_NAME" /></translation>
@@ -700,6 +705,7 @@ Toca el micròfon per demanar-me qualsevol cosa.</translation>
 <translation id="7497215489070763236">Certificat de CA del servidor</translation>
 <translation id="7502658306369382406">Adreça IPv6</translation>
 <translation id="7515998400212163428">Android</translation>
+<translation id="7528507600602050979">El contingut d'ajuda no està disponible</translation>
 <translation id="7535791657097741517">Activa el tema clar</translation>
 <translation id="7550715992156305117">Rutines de diagnòstic</translation>
 <translation id="7551123448725492271">El dispositiu és un dispositiu d'àudio.</translation>
@@ -717,6 +723,7 @@ Toca el micròfon per demanar-me qualsevol cosa.</translation>
 <translation id="7690294790491645610">Confirma la contrasenya nova</translation>
 <translation id="7701040980221191251">Cap</translation>
 <translation id="7705524343798198388">VPN</translation>
+<translation id="7716280709122323042">WPA3</translation>
 <translation id="773153675489693198">Nombre de cicles</translation>
 <translation id="7747039790905080783">Clau precompartida</translation>
 <translation id="7762130827864645708">La contrasenya s'ha canviat correctament. Utilitza la contrasenya nova a partir d'ara.</translation>
@@ -724,6 +731,7 @@ Toca el micròfon per demanar-me qualsevol cosa.</translation>
 <translation id="7769672763586021400">Identificador del model</translation>
 <translation id="7778717409420828014">Els suggeriments ens ajuden a millorar l'experiència de Chromebook i el nostre equip els revisarà. Com que hi ha un gran nombre d'informes, no podrem respondre.</translation>
 <translation id="7784116172884276937">No hi ha cap servidor DNS configurat</translation>
+<translation id="7791543448312431591">Afegeix</translation>
 <translation id="779591286616261875">Envia un informe nou</translation>
 <translation id="7799817062559422778">Mode clar</translation>
 <translation id="780301667611848630">No, gràcies</translation>
@@ -799,6 +807,7 @@ Toca el micròfon per demanar-me qualsevol cosa.</translation>
 <translation id="8503836310948963452">Només queden uns quants minuts...</translation>
 <translation id="8508640263392900755">Detalls de l'APN</translation>
 <translation id="8528615187455571738">Crosvm</translation>
+<translation id="8557447961879934694">WPA2</translation>
 <translation id="8575298406870537639">El teu operador pot requerir aquesta opció per connectar-te a la seva xarxa. Contacta-hi per obtenir-ne més informació.</translation>
 <translation id="8576249514688522074">No s'ha inicialitzat</translation>
 <translation id="8620617069779373398">Estat d'itinerància</translation>

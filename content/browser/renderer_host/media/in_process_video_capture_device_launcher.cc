@@ -7,11 +7,12 @@
 #include <utility>
 #include <vector>
 
-#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
+#include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
@@ -91,10 +92,6 @@ const int kMaxNumberOfBuffers = media::kVideoCaptureDefaultMaxBufferPoolSize;
 #if BUILDFLAG(ENABLE_SCREEN_CAPTURE)
 
 #if BUILDFLAG(IS_MAC)
-BASE_FEATURE(kDesktopCaptureMacV2,
-             "DesktopCaptureMacV2",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kScreenCaptureKitMac,
              "ScreenCaptureKitMac",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -207,9 +204,8 @@ DesktopCaptureImplementation CreatePlatformDependentVideoCaptureDevice(
     if ((device_out = CreateScreenCaptureKitDeviceMac(desktop_id)))
       return kScreenCaptureKitDeviceMac;
   }
-  if ((base::FeatureList::IsEnabled(kDesktopCaptureMacV2))) {
-    if ((device_out = CreateDesktopCaptureDeviceMac(desktop_id)))
-      return kDesktopCaptureDeviceMac;
+  if ((device_out = CreateDesktopCaptureDeviceMac(desktop_id))) {
+    return kDesktopCaptureDeviceMac;
   }
 #endif
   if ((device_out = DesktopCaptureDevice::Create(desktop_id))) {

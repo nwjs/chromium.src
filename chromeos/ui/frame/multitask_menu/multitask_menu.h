@@ -28,12 +28,29 @@ class COMPONENT_EXPORT(CHROMEOS_UI_FRAME) MultitaskMenu
  public:
   METADATA_HEADER(MultitaskMenu);
 
-  MultitaskMenu(views::View* anchor, views::Widget* parent_widget);
+  // Creates the multitask menu. Runs `close_callback` to keep menu references
+  // in sync with `views::Widget::CloseNow()`.
+  MultitaskMenu(views::View* anchor,
+                views::Widget* parent_widget,
+                base::OnceClosure close_callback);
 
   MultitaskMenu(const MultitaskMenu&) = delete;
   MultitaskMenu& operator=(const MultitaskMenu&) = delete;
 
   ~MultitaskMenu() override;
+
+  // Returns true if the bubble widget is created and shown.
+  bool IsBubbleShown() const;
+
+  // Toggles the menu based on its state, i.e. shows the menu if it wasn't
+  // already shown, hides the menu if it was shown.
+  void ToggleBubble();
+
+  // Displays the MultitaskMenu.
+  void ShowBubble();
+
+  // Hides the currently-showing MultitaskMenu.
+  void HideBubble();
 
   // views::WidgetObserver:
   void OnWidgetDestroying(views::Widget* widget) override;
@@ -43,18 +60,13 @@ class COMPONENT_EXPORT(CHROMEOS_UI_FRAME) MultitaskMenu
                                uint32_t changed_metrics) override;
   void OnDisplayTabletStateChanged(display::TabletState state) override;
 
-  // Displays the MultitaskMenu.
-  void ShowBubble();
-
-  // Hides the currently-showing MultitaskMenu.
-  void HideBubble();
-
   MultitaskMenuView* multitask_menu_view_for_testing() {
     return multitask_menu_view_.get();
   }
 
  private:
   raw_ptr<views::Widget> bubble_widget_ = nullptr;
+
   base::ScopedObservation<views::Widget, views::WidgetObserver>
       bubble_widget_observer_{this};
 

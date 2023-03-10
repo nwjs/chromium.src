@@ -4,8 +4,9 @@
 
 #include "services/video_capture/device_media_to_mojo_adapter.h"
 
-#include "base/bind.h"
 #include "base/check.h"
+#include "base/functional/bind.h"
+#include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
@@ -217,7 +218,7 @@ void DeviceMediaToMojoAdapter::GetPhotoState(GetPhotoStateCallback callback) {
 void DeviceMediaToMojoAdapter::SetPhotoOptions(
     media::mojom::PhotoSettingsPtr settings,
     SetPhotoOptionsCallback callback) {
-  media::mojom::ImageCapture::SetOptionsCallback scoped_callback =
+  media::mojom::ImageCapture::SetPhotoOptionsCallback scoped_callback =
       mojo::WrapCallbackWithDefaultInvokeIfNotRun(
           media::BindToCurrentLoop(std::move(callback)), false);
   device_->SetPhotoOptions(std::move(settings), std::move(scoped_callback));

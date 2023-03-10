@@ -218,35 +218,6 @@ TEST_F(IntentUtilTest, GlobMatchType) {
       apps_util::ConditionValueMatches("/acb", condition_value_escape_star));
 }
 
-// TODO(crbug.com/1253250): Remove after migrating to non-mojo AppService.
-TEST_F(IntentUtilTest, FilterMatchLevelMojom) {
-  auto filter_scheme_only = apps_util::CreateSchemeOnlyFilter("http");
-  auto filter_scheme_and_host_only =
-      apps_util::CreateSchemeAndHostOnlyFilter("https", "www.abc.com");
-  auto filter_url = apps_util::CreateIntentFilterForUrlScope(
-      GURL("https:://www.google.com/"));
-  auto filter_empty = apps::mojom::IntentFilter::New();
-
-  EXPECT_EQ(apps_util::GetFilterMatchLevel(filter_url),
-            static_cast<int>(apps::IntentFilterMatchLevel::kScheme) +
-                static_cast<int>(apps::IntentFilterMatchLevel::kHost) +
-                static_cast<int>(apps::IntentFilterMatchLevel::kPath));
-  EXPECT_EQ(apps_util::GetFilterMatchLevel(filter_scheme_and_host_only),
-            static_cast<int>(apps::IntentFilterMatchLevel::kScheme) +
-                static_cast<int>(apps::IntentFilterMatchLevel::kHost));
-  EXPECT_EQ(apps_util::GetFilterMatchLevel(filter_scheme_only),
-            static_cast<int>(apps::IntentFilterMatchLevel::kScheme));
-  EXPECT_EQ(apps_util::GetFilterMatchLevel(filter_empty),
-            static_cast<int>(apps::IntentFilterMatchLevel::kNone));
-
-  EXPECT_TRUE(apps_util::GetFilterMatchLevel(filter_url) >
-              apps_util::GetFilterMatchLevel(filter_scheme_and_host_only));
-  EXPECT_TRUE(apps_util::GetFilterMatchLevel(filter_scheme_and_host_only) >
-              apps_util::GetFilterMatchLevel(filter_scheme_only));
-  EXPECT_TRUE(apps_util::GetFilterMatchLevel(filter_scheme_only) >
-              apps_util::GetFilterMatchLevel(filter_empty));
-}
-
 TEST_F(IntentUtilTest, FilterMatchLevel) {
   auto filter_scheme_only = apps_util::MakeSchemeOnlyFilter("http");
   auto filter_scheme_and_host_only =
@@ -593,6 +564,31 @@ TEST_F(IntentUtilTest, FileExtensionMatch) {
       apps_util::kIntentActionView,
       CreateIntentFiles(test_url("abc.mp3"), mime_type_mpeg, false));
   EXPECT_TRUE(intent->MatchFilter(file_filter_dot));
+}
+
+TEST_F(IntentUtilTest, FileExtensionMatchCaseInsensitive) {
+  auto lowercase_filter =
+      apps_util::MakeFileFilterForView("text/csv", "csv", "label");
+  auto uppercase_filter =
+      apps_util::MakeFileFilterForView("text/csv", "CSV", "label");
+
+  auto lowercase_intent = std::make_unique<apps::Intent>(
+      apps_util::kIntentActionView,
+      CreateIntentFiles(test_url("abc.csv"), absl::nullopt, false));
+  EXPECT_TRUE(lowercase_intent->MatchFilter(lowercase_filter));
+  EXPECT_TRUE(lowercase_intent->MatchFilter(uppercase_filter));
+
+  auto uppercase_intent = std::make_unique<apps::Intent>(
+      apps_util::kIntentActionView,
+      CreateIntentFiles(test_url("abc.CSV"), absl::nullopt, false));
+  EXPECT_TRUE(uppercase_intent->MatchFilter(lowercase_filter));
+  EXPECT_TRUE(uppercase_intent->MatchFilter(uppercase_filter));
+
+  auto mixcase_intent = std::make_unique<apps::Intent>(
+      apps_util::kIntentActionView,
+      CreateIntentFiles(test_url("abc.CsV"), absl::nullopt, false));
+  EXPECT_TRUE(mixcase_intent->MatchFilter(lowercase_filter));
+  EXPECT_TRUE(mixcase_intent->MatchFilter(uppercase_filter));
 }
 
 TEST_F(IntentUtilTest, FileURLMatch) {

@@ -4,7 +4,7 @@
 
 #include "components/cast_streaming/renderer/decoder_buffer_reader.h"
 
-#include "base/bind.h"
+#include "base/functional/bind.h"
 
 namespace cast_streaming {
 
@@ -32,6 +32,10 @@ void DecoderBufferReader::ProvideBuffer(media::mojom::DecoderBufferPtr buffer) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   pending_buffer_metadata_.push_back(std::move(buffer));
   TryGetNextBuffer();
+}
+
+void DecoderBufferReader::ClearReadPending() {
+  is_read_pending_ = false;
 }
 
 void DecoderBufferReader::ReadBufferAsync() {

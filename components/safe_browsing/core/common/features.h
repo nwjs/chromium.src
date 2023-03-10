@@ -39,6 +39,10 @@ const char kClientSideDetectionTagParamName[] = "reporter_omaha_tag";
 // Enables client side detection referrer chain.
 BASE_DECLARE_FEATURE(kClientSideDetectionReferrerChain);
 
+// Enables force request CSD-P ping when RT Lookup Response has FORCE_REQUEST in
+// the client_side_detection_type field
+BASE_DECLARE_FEATURE(kClientSideDetectionTypeForceRequest);
+
 // Enables serving the Android Protego allowlist through the component updater.
 BASE_DECLARE_FEATURE(kComponentUpdaterAndroidProtegoAllowlist);
 
@@ -80,6 +84,10 @@ BASE_DECLARE_FEATURE(kEsbIphBubbleAndCollapseSettings);
 // Enables collection of signals related to extension activity and uploads
 // of telemetry reports to SB servers.
 BASE_DECLARE_FEATURE(kExtensionTelemetry);
+
+// Allows the Extension Telemetry Service to accept and use configurations
+// sent by the server.
+BASE_DECLARE_FEATURE(kExtensionTelemetryConfiguration);
 
 // Enables data collected by the kExtensionTelemetry to be written and read to
 // disk. This data will be uploaded for analysis.
@@ -157,6 +165,14 @@ BASE_DECLARE_FEATURE(kSafeBrowsingDisableConsumerCsdForEnterprise);
 // Controls whether we are performing enterprise download checks for users
 // with the appropriate policies enabled.
 BASE_DECLARE_FEATURE(kSafeBrowsingEnterpriseCsd);
+
+// Controls whether the lookup mechanism experiment is enabled, which runs all
+// three lookup mechanisms instead of just real-time URL lookups for ESB users.
+// The other two lookup mechanisms are run in the background, and the results
+// of the three are logged for comparison purposes. This experiment is also
+// known as the hash-prefix real-time lookup experiment, since that mechanism is
+// the main comparison anchor.
+BASE_DECLARE_FEATURE(kSafeBrowsingLookupMechanismExperiment);
 
 // Controls whether cookies are removed when the access token is present.
 BASE_DECLARE_FEATURE(kSafeBrowsingRemoveCookiesInAuthRequests);

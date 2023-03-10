@@ -24,9 +24,17 @@ namespace content {
 
 namespace {
 
-std::string RemoveQuotes(std::string input) {
+// Normalize schema strings to compare them reliabily. Notably, applies the
+// following transformations:
+// - Remove quotes as sometimes migrations cause table names to be string
+//   literals.
+// - Replaces ", " with "," as CREATE TABLE in schema will be represented with
+//   or without a space depending if it got there by calling CREATE TABLE
+//   directly or with an ALTER TABLE.
+std::string NormalizeSchema(std::string input) {
   std::string output;
   base::RemoveChars(input, "\"", &output);
+  base::ReplaceSubstringsAfterOffset(&output, 0, ", ", ",");
   return output;
 }
 
@@ -90,8 +98,9 @@ class AttributionStorageSqlMigrationsTest : public testing::Test {
     // Get version.
     sql::Statement s(
         db->GetUniqueStatement("SELECT value FROM meta WHERE key='version'"));
-    if (!s.Step())
+    if (!s.Step()) {
       return 0;
+    }
     return s.ColumnInt(0);
   }
 
@@ -170,9 +179,8 @@ TEST_F(AttributionStorageSqlMigrationsTest, MigrateLatestDeprecatedToCurrent) {
     EXPECT_EQ(AttributionStorageSql::kCurrentVersionNumber,
               VersionFromDatabase(&db));
 
-    // Compare without quotes as sometimes migrations cause table names to be
-    // string literals.
-    EXPECT_EQ(RemoveQuotes(GetCurrentSchema()), RemoveQuotes(db.GetSchema()));
+    EXPECT_EQ(NormalizeSchema(GetCurrentSchema()),
+              NormalizeSchema(db.GetSchema()));
 
     // Verify that data is not preserved across the migration.
     sql::Statement s(
@@ -217,9 +225,8 @@ TEST_F(AttributionStorageSqlMigrationsTest, MigrateVersion33ToCurrent) {
     EXPECT_EQ(AttributionStorageSql::kCurrentVersionNumber,
               VersionFromDatabase(&db));
 
-    // Compare without quotes as sometimes migrations cause table names to be
-    // string literals.
-    EXPECT_EQ(RemoveQuotes(GetCurrentSchema()), RemoveQuotes(db.GetSchema()));
+    EXPECT_EQ(NormalizeSchema(GetCurrentSchema()),
+              NormalizeSchema(db.GetSchema()));
 
     // Verify that data is preserved across the migration.
     sql::Statement s(
@@ -246,14 +253,14 @@ TEST_F(AttributionStorageSqlMigrationsTest, MigrateVersion34ToCurrent) {
     ASSERT_TRUE(db.Open(DbPath()));
     ASSERT_FALSE(db.DoesColumnExist("rate_limits", "expiry_time"));
 
-    sql::Statement s(db.GetUniqueStatement("SELECT * FROM rate_limits"));
+    sql::Statement s(db.GetUniqueStatement("SELECT time FROM rate_limits"));
 
     ASSERT_TRUE(s.Step());
-    ASSERT_EQ(9, s.ColumnInt64(8));  // time
+    ASSERT_EQ(9, s.ColumnInt64(0));
     ASSERT_TRUE(s.Step());
-    ASSERT_EQ(9, s.ColumnInt64(8));  // time
+    ASSERT_EQ(9, s.ColumnInt64(0));
     ASSERT_TRUE(s.Step());
-    ASSERT_EQ(9, s.ColumnInt64(8));  // time
+    ASSERT_EQ(9, s.ColumnInt64(0));
     ASSERT_FALSE(s.Step());
   }
 
@@ -268,20 +275,21 @@ TEST_F(AttributionStorageSqlMigrationsTest, MigrateVersion34ToCurrent) {
     EXPECT_EQ(AttributionStorageSql::kCurrentVersionNumber,
               VersionFromDatabase(&db));
 
-    // Compare without quotes as sometimes migrations cause table names to be
-    // string literals.
-    EXPECT_EQ(RemoveQuotes(GetCurrentSchema()), RemoveQuotes(db.GetSchema()));
+    // Compare normalized schemas
+    EXPECT_EQ(NormalizeSchema(GetCurrentSchema()),
+              NormalizeSchema(db.GetSchema()));
 
     // Verify that data is preserved across the migration.
-    sql::Statement s(db.GetUniqueStatement("SELECT * FROM rate_limits"));
+    sql::Statement s(db.GetUniqueStatement(
+        "SELECT source_expiry_or_attribution_time FROM rate_limits"));
 
     ASSERT_TRUE(s.Step());
-    ASSERT_EQ(7, s.ColumnInt64(9));  // expiry_time with matching source
+    ASSERT_EQ(7, s.ColumnInt64(0));  // with matching source
     ASSERT_TRUE(s.Step());
     EXPECT_EQ(9 + base::Days(30).InMicroseconds(),
-              s.ColumnInt64(9));  // expiry_time without matching source
+              s.ColumnInt64(0));  // without matching source
     ASSERT_TRUE(s.Step());
-    EXPECT_EQ(0, s.ColumnInt64(9));  // expiry_time for attribution
+    EXPECT_EQ(9, s.ColumnInt64(0));  // for attribution
     ASSERT_FALSE(s.Step());
   }
 
@@ -313,9 +321,9 @@ TEST_F(AttributionStorageSqlMigrationsTest, MigrateVersion35ToCurrent) {
     EXPECT_EQ(AttributionStorageSql::kCurrentVersionNumber,
               VersionFromDatabase(&db));
 
-    // Compare without quotes as sometimes migrations cause table names to be
-    // string literals.
-    EXPECT_EQ(RemoveQuotes(GetCurrentSchema()), RemoveQuotes(db.GetSchema()));
+    // Compare normalized schemas
+    EXPECT_EQ(NormalizeSchema(GetCurrentSchema()),
+              NormalizeSchema(db.GetSchema()));
 
     ASSERT_FALSE(db.DoesIndexExist("sources_by_origin"));
     ASSERT_TRUE(db.DoesIndexExist("active_sources_by_source_origin"));
@@ -355,9 +363,9 @@ TEST_F(AttributionStorageSqlMigrationsTest, MigrateVersion36ToCurrent) {
     EXPECT_EQ(AttributionStorageSql::kCurrentVersionNumber,
               VersionFromDatabase(&db));
 
-    // Compare without quotes as sometimes migrations cause table names to be
-    // string literals.
-    EXPECT_EQ(RemoveQuotes(GetCurrentSchema()), RemoveQuotes(db.GetSchema()));
+    // Compare normalized schemas
+    EXPECT_EQ(NormalizeSchema(GetCurrentSchema()),
+              NormalizeSchema(db.GetSchema()));
 
     // Verify that data is preserved across the migration.
     sql::Statement s(db.GetUniqueStatement("SELECT * FROM dedup_keys"));
@@ -404,9 +412,9 @@ TEST_F(AttributionStorageSqlMigrationsTest, MigrateVersion37ToCurrent) {
     EXPECT_EQ(AttributionStorageSql::kCurrentVersionNumber,
               VersionFromDatabase(&db));
 
-    // Compare without quotes as sometimes migrations cause table names to be
-    // string literals.
-    EXPECT_EQ(RemoveQuotes(GetCurrentSchema()), RemoveQuotes(db.GetSchema()));
+    // Compare normalized schemas
+    EXPECT_EQ(NormalizeSchema(GetCurrentSchema()),
+              NormalizeSchema(db.GetSchema()));
 
     // Verify that data is preserved across the migration.
     sql::Statement s(db.GetUniqueStatement("SELECT * FROM sources"));
@@ -454,9 +462,9 @@ TEST_F(AttributionStorageSqlMigrationsTest, MigrateVersion38ToCurrent) {
     EXPECT_EQ(AttributionStorageSql::kCurrentVersionNumber,
               VersionFromDatabase(&db));
 
-    // Compare without quotes as sometimes migrations cause table names to be
-    // string literals.
-    EXPECT_EQ(RemoveQuotes(GetCurrentSchema()), RemoveQuotes(db.GetSchema()));
+    // Compare normalized schemas
+    EXPECT_EQ(NormalizeSchema(GetCurrentSchema()),
+              NormalizeSchema(db.GetSchema()));
 
     // Verify that data is preserved across the migration.
     sql::Statement s(
@@ -465,6 +473,233 @@ TEST_F(AttributionStorageSqlMigrationsTest, MigrateVersion38ToCurrent) {
     ASSERT_TRUE(s.Step());
     ASSERT_EQ(1, s.ColumnInt(0));  // aggregation_id
     ASSERT_EQ(0, s.ColumnInt(8));  // aggregation_coordinator
+    ASSERT_FALSE(s.Step());
+  }
+
+  // DB creation histograms should be recorded.
+  histograms.ExpectTotalCount("Conversions.Storage.CreationTime", 0);
+  histograms.ExpectTotalCount("Conversions.Storage.MigrationTime", 1);
+}
+
+TEST_F(AttributionStorageSqlMigrationsTest, MigrateVersion39ToCurrent) {
+  base::HistogramTester histograms;
+  LoadDatabase(GetVersionFilePath(39), DbPath());
+
+  // Verify pre-conditions.
+  {
+    sql::Database db;
+    ASSERT_TRUE(db.Open(DbPath()));
+    ASSERT_TRUE(db.DoesIndexExist("contribution_aggregation_id_idx"));
+
+    sql::Statement s(
+        db.GetUniqueStatement("SELECT * FROM aggregatable_contributions"));
+
+    ASSERT_TRUE(s.Step());
+    ASSERT_EQ(11, s.ColumnInt(0));  // contribution_id
+    ASSERT_EQ(21, s.ColumnInt(1));  // aggregation_id
+    ASSERT_EQ(31, s.ColumnInt(2));  // key_high_bits
+    ASSERT_EQ(41, s.ColumnInt(3));  // key_low_bits
+    ASSERT_EQ(51, s.ColumnInt(4));  // value
+    ASSERT_TRUE(s.Step());
+    ASSERT_EQ(12, s.ColumnInt(0));  // contribution_id
+    ASSERT_EQ(22, s.ColumnInt(1));  // aggregation_id
+    ASSERT_EQ(32, s.ColumnInt(2));  // key_high_bits
+    ASSERT_EQ(42, s.ColumnInt(3));  // key_low_bits
+    ASSERT_EQ(52, s.ColumnInt(4));  // value
+    ASSERT_FALSE(s.Step());
+  }
+
+  MigrateDatabase();
+
+  // Verify schema is current.
+  {
+    sql::Database db;
+    ASSERT_TRUE(db.Open(DbPath()));
+    ASSERT_FALSE(db.DoesIndexExist("contribution_aggregation_id_idx"));
+
+    // Check version.
+    EXPECT_EQ(AttributionStorageSql::kCurrentVersionNumber,
+              VersionFromDatabase(&db));
+
+    // Compare without quotes as sometimes migrations cause table names to be
+    // string literals.
+    EXPECT_EQ(NormalizeSchema(GetCurrentSchema()),
+              NormalizeSchema(db.GetSchema()));
+
+    // Verify that data is preserved across the migration.
+    sql::Statement s(
+        db.GetUniqueStatement("SELECT * FROM aggregatable_contributions"));
+
+    ASSERT_TRUE(s.Step());
+    ASSERT_EQ(21, s.ColumnInt(0));  // aggregation_id
+    ASSERT_EQ(11, s.ColumnInt(1));  // contribution_id
+    ASSERT_EQ(31, s.ColumnInt(2));  // key_high_bits
+    ASSERT_EQ(41, s.ColumnInt(3));  // key_low_bits
+    ASSERT_EQ(51, s.ColumnInt(4));  // value
+    ASSERT_TRUE(s.Step());
+    ASSERT_EQ(22, s.ColumnInt(0));  // aggregation_id
+    ASSERT_EQ(12, s.ColumnInt(1));  // contribution_id
+    ASSERT_EQ(32, s.ColumnInt(2));  // key_high_bits
+    ASSERT_EQ(42, s.ColumnInt(3));  // key_low_bits
+    ASSERT_EQ(52, s.ColumnInt(4));  // value
+    ASSERT_FALSE(s.Step());
+  }
+
+  // DB creation histograms should be recorded.
+  histograms.ExpectTotalCount("Conversions.Storage.CreationTime", 0);
+  histograms.ExpectTotalCount("Conversions.Storage.MigrationTime", 1);
+}
+
+TEST_F(AttributionStorageSqlMigrationsTest, MigrateVersion40ToCurrent) {
+  base::HistogramTester histograms;
+  LoadDatabase(GetVersionFilePath(40), DbPath());
+
+  // Verify pre-conditions.
+  {
+    sql::Database db;
+    ASSERT_TRUE(db.Open(DbPath()));
+    ASSERT_FALSE(db.DoesColumnExist("aggregatable_report_metadata",
+                                    "attestation_token"));
+
+    sql::Statement s(
+        db.GetUniqueStatement("SELECT * FROM aggregatable_report_metadata"));
+
+    ASSERT_TRUE(s.Step());
+    ASSERT_EQ(1, s.ColumnInt(0));  // aggregation_id
+    ASSERT_FALSE(s.Step());
+  }
+
+  MigrateDatabase();
+
+  // Verify schema is current.
+  {
+    sql::Database db;
+    ASSERT_TRUE(db.Open(DbPath()));
+
+    // Check version.
+    EXPECT_EQ(AttributionStorageSql::kCurrentVersionNumber,
+              VersionFromDatabase(&db));
+
+    // Compare normalized schemas
+    EXPECT_EQ(NormalizeSchema(GetCurrentSchema()),
+              NormalizeSchema(db.GetSchema()));
+
+    // Verify that data is preserved across the migration.
+    sql::Statement s(
+        db.GetUniqueStatement("SELECT * FROM aggregatable_report_metadata"));
+
+    ASSERT_TRUE(s.Step());
+    ASSERT_EQ(1, s.ColumnInt(0));                           // aggregation_id
+    ASSERT_EQ(sql::ColumnType::kNull, s.GetColumnType(9));  // attestation_token
+    ASSERT_FALSE(s.Step());
+  }
+
+  // DB creation histograms should be recorded.
+  histograms.ExpectTotalCount("Conversions.Storage.CreationTime", 0);
+  histograms.ExpectTotalCount("Conversions.Storage.MigrationTime", 1);
+}
+
+TEST_F(AttributionStorageSqlMigrationsTest, MigrateVersion41ToCurrent) {
+  base::HistogramTester histograms;
+  LoadDatabase(GetVersionFilePath(41), DbPath());
+
+  // Verify pre-conditions.
+  {
+    sql::Database db;
+    ASSERT_TRUE(db.Open(DbPath()));
+    ASSERT_TRUE(db.DoesColumnExist("rate_limits", "source_origin"));
+    ASSERT_TRUE(db.DoesColumnExist("rate_limits", "destination_origin"));
+    ASSERT_FALSE(db.DoesColumnExist("rate_limits", "context_origin"));
+
+    static constexpr char kSql[] =
+        "SELECT source_origin,destination_origin FROM rate_limits";
+    sql::Statement s(db.GetUniqueStatement(kSql));
+
+    ASSERT_TRUE(s.Step());
+    ASSERT_EQ("b", s.ColumnString(0));
+    ASSERT_EQ("d", s.ColumnString(1));
+    ASSERT_TRUE(s.Step());
+    ASSERT_EQ("g", s.ColumnString(0));
+    ASSERT_EQ("i", s.ColumnString(1));
+    ASSERT_FALSE(s.Step());
+  }
+
+  MigrateDatabase();
+
+  // Verify schema is current.
+  {
+    sql::Database db;
+    ASSERT_TRUE(db.Open(DbPath()));
+
+    // Check version.
+    EXPECT_EQ(AttributionStorageSql::kCurrentVersionNumber,
+              VersionFromDatabase(&db));
+
+    // Compare normalized schemas
+    EXPECT_EQ(NormalizeSchema(GetCurrentSchema()),
+              NormalizeSchema(db.GetSchema()));
+
+    // Verify that data is preserved across the migration.
+    sql::Statement s(
+        db.GetUniqueStatement("SELECT context_origin FROM rate_limits"));
+
+    ASSERT_TRUE(s.Step());
+    ASSERT_EQ("b", s.ColumnString(0));  // from source_origin
+    ASSERT_TRUE(s.Step());
+    ASSERT_EQ("i", s.ColumnString(0));  // from destination_origin
+    ASSERT_FALSE(s.Step());
+  }
+
+  // DB creation histograms should be recorded.
+  histograms.ExpectTotalCount("Conversions.Storage.CreationTime", 0);
+  histograms.ExpectTotalCount("Conversions.Storage.MigrationTime", 1);
+}
+
+TEST_F(AttributionStorageSqlMigrationsTest, MigrateVersion42ToCurrent) {
+  base::HistogramTester histograms;
+  LoadDatabase(GetVersionFilePath(42), DbPath());
+
+  // Verify pre-conditions.
+  {
+    sql::Database db;
+    ASSERT_TRUE(db.Open(DbPath()));
+    ASSERT_TRUE(db.DoesColumnExist("rate_limits", "expiry_time"));
+    ASSERT_FALSE(
+        db.DoesColumnExist("rate_limits", "source_expiry_or_attribution_time"));
+
+    static constexpr char kSql[] = "SELECT expiry_time FROM rate_limits";
+    sql::Statement s(db.GetUniqueStatement(kSql));
+
+    ASSERT_TRUE(s.Step());
+    ASSERT_EQ(7, s.ColumnInt64(0));
+    ASSERT_TRUE(s.Step());
+    ASSERT_EQ(10, s.ColumnInt64(0));
+    ASSERT_FALSE(s.Step());
+  }
+
+  MigrateDatabase();
+
+  // Verify schema is current.
+  {
+    sql::Database db;
+    ASSERT_TRUE(db.Open(DbPath()));
+
+    // Check version.
+    EXPECT_EQ(AttributionStorageSql::kCurrentVersionNumber,
+              VersionFromDatabase(&db));
+
+    // Compare normalized schemas
+    EXPECT_EQ(NormalizeSchema(GetCurrentSchema()),
+              NormalizeSchema(db.GetSchema()));
+
+    // Verify that data is preserved across the migration.
+    sql::Statement s(db.GetUniqueStatement(
+        "SELECT source_expiry_or_attribution_time FROM rate_limits"));
+
+    ASSERT_TRUE(s.Step());
+    ASSERT_EQ(7, s.ColumnInt64(0));  // unchanged
+    ASSERT_TRUE(s.Step());
+    ASSERT_EQ(9, s.ColumnInt64(0));  // from time
     ASSERT_FALSE(s.Step());
   }
 

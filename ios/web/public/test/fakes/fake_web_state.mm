@@ -7,10 +7,9 @@
 #import <Foundation/Foundation.h>
 #import <stdint.h>
 
-#import "base/bind.h"
-#import "base/callback.h"
+#import "base/functional/bind.h"
+#import "base/functional/callback.h"
 #import "base/strings/sys_string_conversions.h"
-#import "base/threading/sequenced_task_runner_handle.h"
 #import "ios/web/common/crw_content_view.h"
 #import "ios/web/js_messaging/web_frames_manager_impl.h"
 #import "ios/web/public/js_messaging/web_frame.h"
@@ -250,14 +249,6 @@ GURL FakeWebState::GetCurrentURL(URLVerificationTrustLevel* trust_level) const {
   return url_;
 }
 
-base::CallbackListSubscription FakeWebState::AddScriptCommandCallback(
-    const ScriptCommandCallback& callback,
-    const std::string& command_prefix) {
-  last_added_callback_ = callback;
-  last_command_prefix_ = command_prefix;
-  return callback_list_.Add(callback);
-}
-
 void FakeWebState::SetLastActiveTime(base::Time time) {
   last_active_time_ = time;
 }
@@ -307,6 +298,10 @@ bool FakeWebState::IsEvicted() const {
 }
 
 bool FakeWebState::IsBeingDestroyed() const {
+  return false;
+}
+
+bool FakeWebState::IsWebPageInFullscreenMode() const {
   return false;
 }
 
@@ -432,15 +427,6 @@ void FakeWebState::ShouldAllowResponse(
       num_decisions_requested);
 }
 
-absl::optional<WebState::ScriptCommandCallback>
-FakeWebState::GetLastAddedCallback() const {
-  return last_added_callback_;
-}
-
-std::string FakeWebState::GetLastCommandPrefix() const {
-  return last_command_prefix_;
-}
-
 NSData* FakeWebState::GetLastLoadedData() const {
   return last_loaded_data_;
 }
@@ -564,6 +550,30 @@ void FakeWebState::DownloadCurrentPage(
     NSString* destination_file,
     id<CRWWebViewDownloadDelegate> delegate,
     void (^handler)(id<CRWWebViewDownload>)) {}
+
+bool FakeWebState::IsFindInteractionSupported() {
+  return false;
+}
+
+bool FakeWebState::IsFindInteractionEnabled() {
+  // Should only be called if `IsFindInteractionSupported()` returns `true`,
+  // which it never does in this implementation.
+  NOTREACHED();
+  return false;
+}
+
+void FakeWebState::SetFindInteractionEnabled(bool enabled) {
+  // Should only be called if `IsFindInteractionSupported()` returns `true`,
+  // which it never does in this implementation.
+  NOTREACHED();
+}
+
+UIFindInteraction* FakeWebState::GetFindInteraction() API_AVAILABLE(ios(16)) {
+  // Should only be called if `IsFindInteractionSupported()` returns `true`,
+  // which it never does in this implementation.
+  NOTREACHED();
+  return nil;
+}
 
 FakeWebStateWithPolicyCache::FakeWebStateWithPolicyCache(
     BrowserState* browser_state)

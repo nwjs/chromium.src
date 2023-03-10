@@ -95,7 +95,7 @@ BASE_FEATURE(kExtensionsMenuAccessControl,
 // creating the script context too early which can be bad for performance.
 BASE_FEATURE(kAvoidEarlyExtensionScriptContextCreation,
              "AvoidEarlyExtensionScriptContextCreation",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // The feature enabling offscreen documents in Manifest V3 extensions.
 BASE_FEATURE(kExtensionsOffscreenDocuments,
@@ -146,5 +146,12 @@ BASE_FEATURE(kExtensionsManifestV3Only,
 BASE_FEATURE(kMinimumMV3CSPWithInlineSpeculationRules,
              "MinimumMV3CSPWithInlineSpeculationRules",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// If enabled, APIs of the Telemetry Extension platform that have pending
+// approval will be enabled. Read more about the platform here:
+// https://chromium.googlesource.com/chromium/src/+/master/docs/telemetry_extension/README.md.
+BASE_FEATURE(kTelemetryExtensionPendingApprovalApi,
+             "TelemetryExtensionPendingApprovalApi",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace extensions_features

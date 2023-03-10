@@ -129,7 +129,7 @@ class StyleBuilderConverter {
   static T ConvertFlags(StyleResolverState&, const CSSValue&);
   static FontDescription::FamilyDescription ConvertFontFamily(
       StyleResolverState&,
-      const ScopedCSSValue&);
+      const CSSValue&);
   static scoped_refptr<FontFeatureSettings> ConvertFontFeatureSettings(
       StyleResolverState&,
       const CSSValue&);
@@ -166,6 +166,10 @@ class StyleBuilderConverter {
   static FontDescription::FontVariantPosition ConvertFontVariantPosition(
       StyleResolverState&,
       const CSSValue&);
+  static FontDescription::Kerning ConvertFontKerning(StyleResolverState&,
+                                                     const CSSValue&);
+  static OpticalSizing ConvertFontOpticalSizing(StyleResolverState&,
+                                                const CSSValue&);
   static StyleSelfAlignmentData ConvertSelfOrDefaultAlignmentData(
       StyleResolverState&,
       const CSSValue&);
@@ -189,29 +193,25 @@ class StyleBuilderConverter {
   static absl::optional<Length> ConvertGapLength(const StyleResolverState&,
                                                  const CSSValue&);
   static Length ConvertLength(const StyleResolverState&, const CSSValue&);
-  static Length ConvertLength(const StyleResolverState&, const ScopedCSSValue&);
-  static UnzoomedLength ConvertUnzoomedLength(const StyleResolverState&,
+  static UnzoomedLength ConvertUnzoomedLength(StyleResolverState&,
                                               const CSSValue&);
   static float ConvertZoom(const StyleResolverState&, const CSSValue&);
+  static TimelineInset ConvertSingleTimelineInset(StyleResolverState&,
+                                                  const CSSValue&);
   static Length ConvertLengthOrAuto(const StyleResolverState&, const CSSValue&);
-  static Length ConvertLengthOrAuto(const StyleResolverState&,
-                                    const ScopedCSSValue&);
   static Length ConvertLengthSizing(StyleResolverState&, const CSSValue&);
-  static Length ConvertLengthSizing(StyleResolverState&, const ScopedCSSValue&);
   static Length ConvertLengthMaxSizing(StyleResolverState&, const CSSValue&);
-  static Length ConvertLengthMaxSizing(StyleResolverState&,
-                                       const ScopedCSSValue&);
   static TabSize ConvertLengthOrTabSpaces(StyleResolverState&, const CSSValue&);
   static Length ConvertLineHeight(StyleResolverState&, const CSSValue&);
   static float ConvertNumberOrPercentage(StyleResolverState&, const CSSValue&);
   static float ConvertAlpha(StyleResolverState&,
                             const CSSValue&);  // clamps to [0,1]
-  static AtomicString ConvertNoneOrCustomIdent(StyleResolverState&,
-                                               const CSSValue&);
+  static ScopedCSSName* ConvertNoneOrCustomIdent(StyleResolverState&,
+                                                 const CSSValue&);
   static ScopedCSSName* ConvertNoneOrCustomIdent(StyleResolverState&,
                                                  const ScopedCSSValue&);
   static AnchorScrollValue* ConvertAnchorScroll(StyleResolverState&,
-                                                const ScopedCSSValue&);
+                                                const CSSValue&);
   static StyleInitialLetter ConvertInitialLetter(StyleResolverState&,
                                                  const CSSValue&);
   static StyleOffsetRotation ConvertOffsetRotate(StyleResolverState&,
@@ -384,10 +384,12 @@ T StyleBuilderConverter::ConvertFlags(StyleResolverState& state,
                                       const CSSValue& value) {
   T flags = static_cast<T>(0);
   auto* identifier_value = DynamicTo<CSSIdentifierValue>(value);
-  if (identifier_value && identifier_value->GetValueID() == ZeroValue)
+  if (identifier_value && identifier_value->GetValueID() == ZeroValue) {
     return flags;
-  for (auto& flag_value : To<CSSValueList>(value))
+  }
+  for (auto& flag_value : To<CSSValueList>(value)) {
     flags |= To<CSSIdentifierValue>(*flag_value).ConvertTo<T>();
+  }
   return flags;
 }
 
@@ -423,8 +425,9 @@ T StyleBuilderConverter::ConvertLineWidth(StyleResolverState& state,
   // device pixels.  Consider clamping it to device pixels or zoom adjusted CSS
   // pixels instead of raw CSS pixels.
   double zoomed_result = state.StyleBuilder().EffectiveZoom() * result;
-  if (zoomed_result > 0.0 && zoomed_result < 1.0)
+  if (zoomed_result > 0.0 && zoomed_result < 1.0) {
     return 1.0;
+  }
   return ClampTo<T>(RoundForImpreciseConversion<T>(result),
                     DefaultMinimumForClamp<T>(), DefaultMaximumForClamp<T>());
 }
@@ -434,8 +437,9 @@ Length StyleBuilderConverter::ConvertPositionLength(StyleResolverState& state,
                                                     const CSSValue& value) {
   if (const auto* pair = DynamicTo<CSSValuePair>(value)) {
     Length length = StyleBuilderConverter::ConvertLength(state, pair->Second());
-    if (To<CSSIdentifierValue>(pair->First()).GetValueID() == cssValueFor0)
+    if (To<CSSIdentifierValue>(pair->First()).GetValueID() == cssValueFor0) {
       return length;
+    }
     DCHECK_EQ(To<CSSIdentifierValue>(pair->First()).GetValueID(),
               cssValueFor100);
     return length.SubtractFromOneHundredPercent();
@@ -461,8 +465,9 @@ Length StyleBuilderConverter::ConvertPositionLength(StyleResolverState& state,
 template <CSSValueID IdForNone>
 AtomicString StyleBuilderConverter::ConvertString(StyleResolverState&,
                                                   const CSSValue& value) {
-  if (auto* string_value = DynamicTo<CSSStringValue>(value))
+  if (auto* string_value = DynamicTo<CSSStringValue>(value)) {
     return AtomicString(string_value->Value());
+  }
   DCHECK_EQ(To<CSSIdentifierValue>(value).GetValueID(), IdForNone);
   return g_null_atom;
 }

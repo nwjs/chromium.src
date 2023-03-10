@@ -13,11 +13,11 @@
 #include <utility>
 #include <vector>
 
-#include "base/bind.h"
 #include "base/containers/flat_map.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/format_macros.h"
+#include "base/functional/bind.h"
 #include "base/json/json_string_value_serializer.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
@@ -27,7 +27,6 @@
 #include "base/strings/escape.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_piece.h"
-#include "base/threading/sequenced_task_runner_handle.h"
 #include "base/time/time.h"
 #include "content/browser/interest_group/interest_group_k_anonymity_manager.h"
 #include "content/browser/interest_group/interest_group_update.h"
@@ -92,10 +91,10 @@ const int kCompatibleVersionNumber = 12;
 // |kCurrentVersionNumber| without razing the database.
 const int kDeprecatedVersionNumber = 5;
 
-std::string Serialize(const base::Value& value) {
+std::string Serialize(base::ValueView value_view) {
   std::string json_output;
   JSONStringValueSerializer serializer(&json_output);
-  serializer.Serialize(value);
+  serializer.Serialize(value_view);
   return json_output;
 }
 std::unique_ptr<base::Value> DeserializeValue(
@@ -178,7 +177,7 @@ std::string Serialize(
     const absl::optional<std::vector<blink::InterestGroup::Ad>>& ads) {
   if (!ads)
     return std::string();
-  base::Value list(base::Value::Type::LIST);
+  base::Value::List list;
   for (const auto& ad : ads.value()) {
     list.Append(ToValue(ad));
   }
@@ -201,7 +200,7 @@ DeserializeInterestGroupAdVector(const std::string& serialized_ads) {
 std::string Serialize(const absl::optional<std::vector<std::string>>& strings) {
   if (!strings)
     return std::string();
-  base::Value list(base::Value::Type::LIST);
+  base::Value::List list;
   for (const auto& s : strings.value())
     list.Append(s);
   return Serialize(list);

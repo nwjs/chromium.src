@@ -154,14 +154,20 @@ struct EnumTraits<media::mojom::SVCScalabilityMode, media::SVCScalabilityMode> {
   static media::mojom::SVCScalabilityMode ToMojom(
       media::SVCScalabilityMode input) {
     switch (input) {
+      case media::SVCScalabilityMode::kL1T1:
+        return media::mojom::SVCScalabilityMode::kL1T1;
       case media::SVCScalabilityMode::kL1T2:
         return media::mojom::SVCScalabilityMode::kL1T2;
       case media::SVCScalabilityMode::kL1T3:
         return media::mojom::SVCScalabilityMode::kL1T3;
+      case media::SVCScalabilityMode::kL2T1Key:
+        return media::mojom::SVCScalabilityMode::kL2T1Key;
       case media::SVCScalabilityMode::kL2T2Key:
         return media::mojom::SVCScalabilityMode::kL2T2Key;
       case media::SVCScalabilityMode::kL2T3Key:
         return media::mojom::SVCScalabilityMode::kL2T3Key;
+      case media::SVCScalabilityMode::kL3T1Key:
+        return media::mojom::SVCScalabilityMode::kL3T1Key;
       case media::SVCScalabilityMode::kL3T2Key:
         return media::mojom::SVCScalabilityMode::kL3T2Key;
       case media::SVCScalabilityMode::kL3T3Key:
@@ -202,17 +208,26 @@ struct EnumTraits<media::mojom::SVCScalabilityMode, media::SVCScalabilityMode> {
       case media::mojom::SVCScalabilityMode::kUnsupportedMode:
         NOTREACHED();
         return false;
+      case media::mojom::SVCScalabilityMode::kL1T1:
+        *output = media::SVCScalabilityMode::kL1T1;
+        return true;
       case media::mojom::SVCScalabilityMode::kL1T2:
         *output = media::SVCScalabilityMode::kL1T2;
         return true;
       case media::mojom::SVCScalabilityMode::kL1T3:
         *output = media::SVCScalabilityMode::kL1T3;
         return true;
+      case media::mojom::SVCScalabilityMode::kL2T1Key:
+        *output = media::SVCScalabilityMode::kL2T1Key;
+        return true;
       case media::mojom::SVCScalabilityMode::kL2T2Key:
         *output = media::SVCScalabilityMode::kL2T2Key;
         return true;
       case media::mojom::SVCScalabilityMode::kL2T3Key:
         *output = media::SVCScalabilityMode::kL2T3Key;
+        return true;
+      case media::mojom::SVCScalabilityMode::kL3T1Key:
+        *output = media::SVCScalabilityMode::kL3T1Key;
         return true;
       case media::mojom::SVCScalabilityMode::kL3T2Key:
         *output = media::SVCScalabilityMode::kL3T2Key;

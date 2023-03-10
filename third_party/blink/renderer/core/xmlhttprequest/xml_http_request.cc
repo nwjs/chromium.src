@@ -602,6 +602,10 @@ void XMLHttpRequest::setWithCredentials(bool value,
   with_credentials_ = value;
 }
 
+void XMLHttpRequest::setDeprecatedBrowsingTopics(bool value) {
+  deprecated_browsing_topics_ = value;
+}
+
 void XMLHttpRequest::open(const AtomicString& method,
                           const String& url_string,
                           ExceptionState& exception_state) {
@@ -1058,6 +1062,7 @@ void XMLHttpRequest::CreateRequest(scoped_refptr<EncodedFormData> http_body,
   request.SetCredentialsMode(
       with_credentials_ ? network::mojom::CredentialsMode::kInclude
                         : network::mojom::CredentialsMode::kSameOrigin);
+  request.SetBrowsingTopics(deprecated_browsing_topics_);
   request.SetSkipServiceWorker(world_ && world_->IsIsolatedWorld());
   if (trust_token_params_)
     request.SetTrustTokenParams(*trust_token_params_);
@@ -1432,9 +1437,10 @@ void XMLHttpRequest::setTrustToken(const TrustToken* trust_token,
   }
 
   bool operation_requires_permissions_policy =
-      params->type ==
+      params->operation ==
           network::mojom::blink::TrustTokenOperationType::kRedemption ||
-      params->type == network::mojom::blink::TrustTokenOperationType::kSigning;
+      params->operation ==
+          network::mojom::blink::TrustTokenOperationType::kSigning;
   if (operation_requires_permissions_policy &&
       !GetExecutionContext()->IsFeatureEnabled(
           mojom::blink::PermissionsPolicyFeature::kTrustTokenRedemption)) {
@@ -1445,7 +1451,7 @@ void XMLHttpRequest::setTrustToken(const TrustToken* trust_token,
     return;
   }
 
-  if (params->type ==
+  if (params->operation ==
           network::mojom::blink::TrustTokenOperationType::kIssuance &&
       !IsTrustTokenIssuanceAvailableInExecutionContext(
           *GetExecutionContext())) {

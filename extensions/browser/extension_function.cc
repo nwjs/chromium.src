@@ -9,8 +9,8 @@
 #include <tuple>
 #include <utility>
 
-#include "base/bind.h"
 #include "base/dcheck_is_on.h"
+#include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/singleton.h"
@@ -19,6 +19,7 @@
 #include "base/metrics/user_metrics.h"
 #include "base/no_destructor.h"
 #include "base/synchronization/lock.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/threading/thread_checker.h"
 #include "base/trace_event/memory_allocator_dump.h"
 #include "base/trace_event/memory_dump_manager.h"
@@ -143,13 +144,6 @@ void EnsureMemoryDumpProviderExists() {
   std::ignore = ExtensionFunctionMemoryDumpProvider::GetInstance();
 }
 
-// Adds Kiosk. prefix to uma histograms if running in a kiosk extension.
-std::string WrapUma(const std::string& uma, bool is_kiosk_enabled) {
-  if (is_kiosk_enabled)
-    return uma + ".Kiosk";
-  return uma;
-}
-
 // Logs UMA about the performance for a given extension function run.
 void LogUma(bool success,
             base::TimeDelta elapsed_time,
@@ -196,10 +190,6 @@ void LogUma(bool success,
                                  histogram_value);
       }
     }
-    base::UmaHistogramTimes(
-        WrapUma("Extensions.Functions.FailedTotalExecutionTime",
-                is_kiosk_enabled),
-        elapsed_time);
   }
 }
 
@@ -208,9 +198,10 @@ void LogBadMessage(bool is_kiosk_enabled,
   base::RecordAction(base::UserMetricsAction("BadMessageTerminate_EFD"));
   // Track the specific function's |histogram_value|, as this may indicate a
   // bug in that API's implementation.
-  base::UmaHistogramSparse(
-      WrapUma("Extensions.BadMessageFunctionName", is_kiosk_enabled),
-      histogram_value);
+  const char* histogram_name = is_kiosk_enabled
+                                   ? "Extensions.BadMessageFunctionName.Kiosk"
+                                   : "Extensions.BadMessageFunctionName";
+  base::UmaHistogramSparse(histogram_name, histogram_value);
 }
 
 bool IsKiosk(const extensions::Extension* extension) {
@@ -561,10 +552,9 @@ void ExtensionFunction::OnQuotaExceeded(std::string violation_error) {
   RespondWithError(std::move(violation_error));
 }
 
-void ExtensionFunction::SetArgs(base::Value args) {
-  DCHECK(args.is_list());
+void ExtensionFunction::SetArgs(base::Value::List args) {
   DCHECK(!args_.has_value());
-  args_ = std::move(args).TakeList();
+  args_ = std::move(args);
 }
 
 const base::Value::List* ExtensionFunction::GetResultListForTest() const {
@@ -778,6 +768,16 @@ void ExtensionFunction::WriteToConsole(blink::mojom::ConsoleMessageLevel level,
   render_frame_host_->AddMessageToConsole(level, message);
 }
 
+void ExtensionFunction::ReportInspectorIssue(
+    blink::mojom::InspectorIssueInfoPtr info) {
+  // TODO(crbug.com/1096166): Service Worker-based extensions don't have a
+  // RenderFrameHost.
+  if (!render_frame_host_) {
+    return;
+  }
+  render_frame_host_->ReportInspectorIssue(std::move(info));
+}
+
 void ExtensionFunction::SetTransferredBlobs(
     std::vector<blink::mojom::SerializedBlobPtr> blobs) {
   DCHECK(transferred_blobs_.empty());  // Should only be called once.
@@ -851,12 +851,12 @@ void NWSyncExtensionFunction::SetError(const std::string& error) {
 }
 
 void NWSyncExtensionFunction::SetResult(std::unique_ptr<base::Value> result) {
-  results_.reset(new base::ListValue());
-  results_->Append(base::Value::FromUniquePtrValue(std::move(result)));
+  results_.clear();
+  results_.Append(base::Value::FromUniquePtrValue(std::move(result)));
 }
 
 void NWSyncExtensionFunction::SetResultList(
-    std::unique_ptr<base::ListValue> results) {
-  results_ = std::move(results);
+       const base::Value::List& results) {
+  results_ = results.Clone();
 }
 

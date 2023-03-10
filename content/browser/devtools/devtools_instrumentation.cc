@@ -194,6 +194,9 @@ std::string FederatedAuthRequestResultToProtocol(
     case FederatedAuthRequestResult::kErrorFetchingWellKnownInvalidResponse: {
       return FederatedAuthRequestIssueReasonEnum::WellKnownInvalidResponse;
     }
+    case FederatedAuthRequestResult::kErrorFetchingWellKnownListEmpty: {
+      return FederatedAuthRequestIssueReasonEnum::WellKnownListEmpty;
+    }
     case FederatedAuthRequestResult::kErrorConfigNotInWellKnown: {
       return FederatedAuthRequestIssueReasonEnum::ConfigNotInWellKnown;
     }
@@ -227,6 +230,9 @@ std::string FederatedAuthRequestResultToProtocol(
     }
     case FederatedAuthRequestResult::kErrorFetchingAccountsInvalidResponse: {
       return FederatedAuthRequestIssueReasonEnum::AccountsInvalidResponse;
+    }
+    case FederatedAuthRequestResult::kErrorFetchingAccountsListEmpty: {
+      return FederatedAuthRequestIssueReasonEnum::AccountsListEmpty;
     }
     case FederatedAuthRequestResult::kErrorFetchingIdTokenHttpNotFound: {
       return FederatedAuthRequestIssueReasonEnum::IdTokenHttpNotFound;
@@ -275,6 +281,49 @@ BuildFederatedAuthRequestIssue(
                    .SetDetails(std::move(protocol_issue_details))
                    .Build();
   return issue;
+}
+
+protocol::Audits::DeprecationIssueType DeprecationIssueTypeToProtocol(
+    blink::mojom::DeprecationIssueType error_type) {
+  switch (error_type) {
+    case blink::mojom::DeprecationIssueType::kPrivacySandboxExtensionsAPI:
+      return protocol::Audits::DeprecationIssueTypeEnum::
+          PrivacySandboxExtensionsAPI;
+  }
+}
+
+std::unique_ptr<protocol::Audits::InspectorIssue> BuildDeprecationIssue(
+    const blink::mojom::DeprecationIssueDetailsPtr& issue_details) {
+  std::unique_ptr<protocol::Audits::SourceCodeLocation> source_code_location =
+      protocol::Audits::SourceCodeLocation::Create()
+          .SetUrl(issue_details->affected_location->url.value())
+          .SetLineNumber(issue_details->affected_location->line)
+          .SetColumnNumber(issue_details->affected_location->column)
+          .Build();
+
+  if (issue_details->affected_location->script_id.has_value()) {
+    source_code_location->SetScriptId(
+        issue_details->affected_location->script_id.value());
+  }
+
+  auto deprecation_issue_details =
+      protocol::Audits::DeprecationIssueDetails::Create()
+          .SetSourceCodeLocation(std::move(source_code_location))
+          .SetType(DeprecationIssueTypeToProtocol(issue_details->type))
+          .Build();
+
+  auto protocol_issue_details =
+      protocol::Audits::InspectorIssueDetails::Create()
+          .SetDeprecationIssueDetails(std::move(deprecation_issue_details))
+          .Build();
+
+  auto deprecation_issue =
+      protocol::Audits::InspectorIssue::Create()
+          .SetCode(protocol::Audits::InspectorIssueCodeEnum::DeprecationIssue)
+          .SetDetails(std::move(protocol_issue_details))
+          .Build();
+
+  return deprecation_issue;
 }
 
 void UpdateChildFrameTrees(FrameTreeNode* ftn, bool update_target_info) {
@@ -355,7 +404,7 @@ void OnFrameTreeNodeDestroyed(FrameTreeNode& frame_tree_node) {
 }
 
 void WillInitiatePrerender(FrameTree& frame_tree) {
-  DCHECK_EQ(FrameTree::Type::kPrerender, frame_tree.type());
+  DCHECK(frame_tree.is_prerendering());
   auto* wc = WebContentsImpl::FromFrameTreeNode(frame_tree.root());
   if (auto* host = WebContentsDevToolsAgentHost::GetFor(wc))
     host->WillInitiatePrerender(frame_tree.root());
@@ -1383,7 +1432,7 @@ void ReportBrowserInitiatedIssue(RenderFrameHostImpl* frame,
   if (!ftn)
     return;
 
-  AddIssueToIssueStorage(frame, issue->clone());
+  AddIssueToIssueStorage(frame, issue->Clone());
   DispatchToAgents(ftn, &protocol::AuditsHandler::OnIssueAdded, issue);
 }
 
@@ -1400,6 +1449,9 @@ void BuildAndReportBrowserInitiatedIssue(
              blink::mojom::InspectorIssueCode::kFederatedAuthRequestIssue) {
     issue = BuildFederatedAuthRequestIssue(
         info->details->federated_auth_request_details);
+  } else if (info->code ==
+             blink::mojom::InspectorIssueCode::kDeprecationIssue) {
+    issue = BuildDeprecationIssue(info->details->deprecation_issue_details);
   } else {
     NOTREACHED() << "Unsupported type of browser-initiated issue";
   }
@@ -1667,6 +1719,20 @@ protocol::Audits::GenericIssueErrorType GenericIssueErrorTypeToProtocol(
           CrossOriginPortalPostMessageError;
     case blink::mojom::GenericIssueErrorType::kFormLabelForNameError:
       return protocol::Audits::GenericIssueErrorTypeEnum::FormLabelForNameError;
+    case blink::mojom::GenericIssueErrorType::kFormDuplicateIdForInputError:
+      return protocol::Audits::GenericIssueErrorTypeEnum::
+          FormDuplicateIdForInputError;
+    case blink::mojom::GenericIssueErrorType::kFormInputWithNoLabelError:
+      return protocol::Audits::GenericIssueErrorTypeEnum::
+          FormInputWithNoLabelError;
+    case blink::mojom::GenericIssueErrorType::
+        kFormAutocompleteAttributeEmptyError:
+      return protocol::Audits::GenericIssueErrorTypeEnum::
+          FormAutocompleteAttributeEmptyError;
+    case blink::mojom::GenericIssueErrorType::
+        kFormEmptyIdAndNameAttributesForInputError:
+      return protocol::Audits::GenericIssueErrorTypeEnum::
+          FormEmptyIdAndNameAttributesForInputError;
   }
 }
 

@@ -11,7 +11,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "base/callback.h"
+#include "base/functional/callback.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
@@ -27,11 +27,11 @@
 #include "components/history_clusters/core/clustering_backend.h"
 #include "components/history_clusters/core/context_clusterer_history_service_observer.h"
 #include "components/history_clusters/core/history_clusters_service_task_get_most_recent_clusters.h"
-#include "components/history_clusters/core/history_clusters_service_task_update_clusters.h"
 #include "components/history_clusters/core/history_clusters_types.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 
+class PrefService;
 class TemplateURLService;
 
 namespace optimization_guide {
@@ -45,7 +45,7 @@ class SiteEngagementScoreProvider;
 
 namespace history_clusters {
 
-class HistoryClustersService;
+class HistoryClustersServiceTask;
 
 // Clears `HistoryClustersService`'s keyword cache when 1 or more history
 // entries are deleted.
@@ -98,7 +98,8 @@ class HistoryClustersService : public base::SupportsUserData,
       site_engagement::SiteEngagementScoreProvider* engagement_score_provider,
       TemplateURLService* template_url_service,
       optimization_guide::NewOptimizationGuideDecider*
-          optimization_guide_decider);
+          optimization_guide_decider,
+      PrefService* pref_service);
   HistoryClustersService(const HistoryClustersService&) = delete;
   HistoryClustersService& operator=(const HistoryClustersService&) = delete;
   ~HistoryClustersService() override;
@@ -167,13 +168,13 @@ class HistoryClustersService : public base::SupportsUserData,
   //
   // TODO(tommycli): Investigate entirely hiding access to this low-level method
   //  behind QueryClustersState.
-  std::unique_ptr<HistoryClustersServiceTaskGetMostRecentClusters>
-  QueryClusters(ClusteringRequestSource clustering_request_source,
-                base::Time begin_time,
-                QueryClustersContinuationParams continuation_params,
-                bool recluster,
-                QueryClustersCallback callback,
-                HistoryClustersServiceTaskGetMostRecentClusters::Source source);
+  std::unique_ptr<HistoryClustersServiceTask> QueryClusters(
+      ClusteringRequestSource clustering_request_source,
+      base::Time begin_time,
+      QueryClustersContinuationParams continuation_params,
+      bool recluster,
+      QueryClustersCallback callback,
+      HistoryClustersServiceTaskGetMostRecentClusters::Source source);
 
   // Invokes `UpdateClusters()` after a short delay, then again periodically.
   // E.g., might invoke `UpdateClusters()` initially 5 minutes after startup,
@@ -270,13 +271,11 @@ class HistoryClustersService : public base::SupportsUserData,
   // Tracks the current keyword task. Will be `nullptr` or
   // `cache_keyword_query_task_.Done()` will be true if there is no ongoing
   // task.
-  std::unique_ptr<HistoryClustersServiceTaskGetMostRecentClusters>
-      cache_keyword_query_task_;
+  std::unique_ptr<HistoryClustersServiceTask> cache_keyword_query_task_;
 
   // Tracks the current update task. Will be `nullptr` or
   // `update_clusters_task_.Done()` will be true if there is no ongoing task.
-  std::unique_ptr<HistoryClustersServiceTaskUpdateClusters>
-      update_clusters_task_;
+  std::unique_ptr<HistoryClustersServiceTask> update_clusters_task_;
 
   // Used to invoke `UpdateClusters()` on startup after a short delay. See
   // `RepeatedlyUpdateClusters()`'s comment.

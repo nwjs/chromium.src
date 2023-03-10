@@ -4,11 +4,14 @@
 
 #include "chrome/browser/component_updater/registration.h"
 
-#include "base/callback.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/path_service.h"
+#include "base/task/thread_pool.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
@@ -78,10 +81,6 @@
 #if BUILDFLAG(ENABLE_NACL)
 #include "chrome/browser/component_updater/pnacl_component_installer.h"
 #endif  // BUILDFLAG(ENABLE_NACL)
-
-#if BUILDFLAG(ENABLE_VR)
-#include "chrome/browser/component_updater/vr_assets_component_installer.h"
-#endif
 
 #if BUILDFLAG(ENABLE_MEDIA_FOUNDATION_WIDEVINE_CDM)
 #include "chrome/browser/component_updater/media_foundation_widevine_cdm_component_installer.h"
@@ -156,6 +155,15 @@ void RegisterComponentsForUpdate() {
     // Clean up any desktop sharing hubs that were installed on Android.
     component_updater::DeleteDesktopSharingHub(path);
 #endif  // BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(IS_WIN)
+    // TODO(crbug/1407233): Remove this call once it has rolled out for a few
+    // milestones
+    base::ThreadPool::PostTask(
+        FROM_HERE, {base::TaskPriority::BEST_EFFORT, base::MayBlock()},
+        base::GetDeleteFileCallback(
+            path.Append(FILE_PATH_LITERAL("SwReporter"))));
+#endif  // BUILDFLAG(IS_WIN)
   }
   RegisterSSLErrorAssistantComponent(cus);
 
@@ -176,22 +184,9 @@ void RegisterComponentsForUpdate() {
   RegisterOriginTrialsComponent(cus);
   RegisterMediaEngagementPreloadComponent(cus, base::OnceClosure());
 
-#if BUILDFLAG(IS_WIN)
-  // SwReporter is only needed for official builds.  However, to enable testing
-  // on chromium build bots, it is always registered here and
-  // RegisterSwReporterComponent() has support for running only in official
-  // builds or tests.
-  RegisterSwReporterComponent(cus, g_browser_process->local_state());
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+#if BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
   RegisterThirdPartyModuleListComponent(cus);
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
-#endif  // BUILDFLAG(IS_WIN)
-
-#if BUILDFLAG(ENABLE_VR)
-  if (component_updater::ShouldRegisterVrAssetsComponentOnStartup()) {
-    component_updater::RegisterVrAssetsComponent(cus);
-  }
-#endif
+#endif  // BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
   MaybeRegisterPKIMetadataComponent(cus);
 

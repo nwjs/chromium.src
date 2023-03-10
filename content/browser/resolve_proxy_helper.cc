@@ -4,7 +4,6 @@
 
 #include "content/browser/resolve_proxy_helper.h"
 
-#include "base/bind.h"
 #include "base/compiler_specific.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/render_process_host.h"

@@ -6,7 +6,7 @@
 
 #include <utility>
 
-#include "base/bind.h"
+#include "base/functional/bind.h"
 #include "base/syslog_logging.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
@@ -29,7 +29,8 @@ constexpr base::TimeDelta kRemotePowerwashCommandExpirationTime =
 constexpr base::TimeDelta kFailsafeTimerTimeout = base::Seconds(10);
 
 void StartPowerwash(enterprise_management::SignedData signed_command) {
-  ash::SessionManagerClient::Get()->StartRemoteDeviceWipe(signed_command);
+  ash::SessionManagerClient::Get()->StartRemoteDeviceWipe(
+      signed_command, enterprise_management::PolicyFetchRequest::SHA1_RSA);
 }
 
 }  // namespace

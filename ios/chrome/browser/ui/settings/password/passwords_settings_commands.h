@@ -15,7 +15,7 @@ struct CredentialUIEntry;
 @protocol PasswordsSettingsCommands <NSObject>
 
 // Shows the screen with password issues.
-- (void)showCompromisedPasswords;
+- (void)showPasswordIssues;
 
 // Shows passwords details for blocked passwords.
 - (void)showDetailedViewForCredential:
@@ -30,6 +30,10 @@ struct CredentialUIEntry;
 
 // Shows promotional view for Passwords In Other Apps.
 - (void)showPasswordsInOtherAppsPromo;
+
+// Shows delete confirmation for batch passwords delete.
+- (void)showPasswordDeleteDialogWithOrigins:(NSArray<NSString*>*)origins
+                                 completion:(void (^)(void))completion;
 
 @end
 

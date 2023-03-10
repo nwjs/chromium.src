@@ -265,7 +265,7 @@ void SVGElement::ClearAnimatedAttribute(const QualifiedName& attribute) {
   ForSelfAndInstances(this, [&params](SVGElement* element) {
     if (SVGAnimatedPropertyBase* animated_property =
             element->PropertyFromAttribute(params.name)) {
-      animated_property->AnimationEnded();
+      animated_property->SetAnimatedValue(nullptr);
       element->SvgAttributeChanged(params);
     }
   });
@@ -677,14 +677,11 @@ void SVGElement::ParseAttribute(const AttributeModificationParams& params) {
 
 // If the attribute is not present in the map, the map will return the "empty
 // value" - which is kAnimatedUnknown.
-struct AnimatedPropertyTypeHashTraits : HashTraits<AnimatedPropertyType> {
-  static const bool kEmptyValueIsZero = true;
-  static AnimatedPropertyType EmptyValue() { return kAnimatedUnknown; }
-};
+using AnimatedPropertyTypeHashTraits =
+    EnumHashTraits<AnimatedPropertyType, kAnimatedUnknown>;
 
 using AttributeToPropertyTypeMap = HashMap<QualifiedName,
                                            AnimatedPropertyType,
-                                           DefaultHash<QualifiedName>,
                                            HashTraits<QualifiedName>,
                                            AnimatedPropertyTypeHashTraits>;
 AnimatedPropertyType SVGElement::AnimatedPropertyTypeForCSSAttribute(
@@ -1088,7 +1085,7 @@ scoped_refptr<ComputedStyle> SVGElement::CustomStyleForLayoutObject(
       corresponding_element, style_recalc_context, style_request);
 }
 
-bool SVGElement::LayoutObjectIsNeeded(const ComputedStyle& style) const {
+bool SVGElement::LayoutObjectIsNeeded(const DisplayStyle& style) const {
   return IsValid() && HasSVGParent() && Element::LayoutObjectIsNeeded(style);
 }
 

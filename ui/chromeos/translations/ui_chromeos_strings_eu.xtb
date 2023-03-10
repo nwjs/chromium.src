@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Instalatu Linux-ekin</translation>
 <translation id="2225536596944493418">Ziur <ph name="NUMBER_OF_ITEMS" /> elementu ezabatu nahi dituzula?</translation>
 <translation id="2230062665678605299">Ezin  izan da sortu "<ph name="FOLDER_NAME" />" fitxategia. <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">Garbitu egin da Google Drive-ko cachea.</translation>
 <translation id="2239068707900391003">Kafe-kikara bati eusten ari dion pertsona</translation>
 <translation id="2251368349685848079">Leheneratu zaborrontzitik</translation>
 <translation id="2282155092769082568">Konfigurazio automatikoaren URLa:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">Ez dago &lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt; bilaketarekin bat datorren elementurik</translation>
 <translation id="2894654529758326923">Informazioa</translation>
 <translation id="2902734494705624966">AEBko teklatu hedatua</translation>
+<translation id="2904378509913846215">Badago <ph name="FILENAME" /> izeneko karpeta bat. Mugitzen ari zarenarekin ordeztu nahi duzu?</translation>
 <translation id="290843123675549676">Maratharra</translation>
 <translation id="2923240520113693977">Estoniarra</translation>
 <translation id="2938685643439809023">Mongoliarra</translation>
@@ -639,6 +641,7 @@
 <translation id="6241349547798190358">Nederlandarra (Belgika)</translation>
 <translation id="6267547857941397424"><ph name="NETWORK_INDEX" />/<ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />. Seinalearen indarra: % <ph name="SIGNAL_STRENGTH" />. Telefonoaren bateria: % <ph name="BATTERY_STATUS" />. Konektatu.</translation>
 <translation id="6269630227984243955">Malaysiarra</translation>
+<translation id="6271903698064569429">Ezin dira kargatu fitxategiak, <ph name="SHARED_DRIVE_NAME" /> unitate partekatuko biltegian ez dagoelako behar adina toki.</translation>
 <translation id="6287852322318138013">Hautatu fitxategia irekitzeko aplikazioa</translation>
 <translation id="6295542640242147836">Blokeatu SIMa</translation>
 <translation id="6296410173147755564">PUKak ez du balio</translation>
@@ -684,6 +687,7 @@
 <translation id="6657585470893396449">Pasahitza</translation>
 <translation id="6658865850469097484">Zaborrontzian 30 egun baino gehiago egon diren fitxategiak automatikoki ezabatuko dira.</translation>
 <translation id="6673674183150363784">Frantsesa (Frantzia), Bépo teklatuarekin</translation>
+<translation id="670380500182402678">Ordeztu guztiak</translation>
 <translation id="6710022688720561421">Robota</translation>
 <translation id="6710213216561001401">Aurrekoa</translation>
 <translation id="6732801395666424405">Ez dira ziurtagiriak kargatu</translation>
@@ -902,6 +906,7 @@
 <translation id="8386903983509584791">Amaitu da bilaketa</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" /> atera da.</translation>
 <translation id="8395901698320285466">Dimentsioak</translation>
+<translation id="8404498045299006085">Mantendu guztiak</translation>
 <translation id="8408068190360279472"><ph name="NETWORK_TYPE" /> sarea. Konektatzen.</translation>
 <translation id="8425213833346101688">Aldatu</translation>
 <translation id="8431909052837336408">Aldatu SIMaren PINa</translation>

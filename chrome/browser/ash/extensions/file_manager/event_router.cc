@@ -16,12 +16,12 @@
 #include "ash/constants/ash_pref_names.h"
 #include "ash/public/cpp/tablet_mode.h"
 #include "ash/webui/file_manager/file_manager_ui.h"
-#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/containers/adapters.h"
 #include "base/containers/contains.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
+#include "base/functional/bind.h"
 #include "base/metrics/histogram.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/task/single_thread_task_runner.h"
@@ -48,8 +48,6 @@
 #include "chrome/browser/ash/guest_os/public/guest_os_service.h"
 #include "chrome/browser/ash/login/lock/screen_locker.h"
 #include "chrome/browser/ash/login/ui/login_display_host.h"
-#include "chrome/browser/ash/plugin_vm/plugin_vm_features.h"
-#include "chrome/browser/ash/plugin_vm/plugin_vm_pref_names.h"
 #include "chrome/browser/ash/plugin_vm/plugin_vm_util.h"
 #include "chrome/browser/extensions/api/file_system/chrome_file_system_delegate_ash.h"
 #include "chrome/browser/extensions/extension_service.h"
@@ -152,6 +150,8 @@ file_manager_private::IOTaskState GetIOTaskState(
       return file_manager_private::IO_TASK_STATE_SCANNING;
     case file_manager::io_task::State::kInProgress:
       return file_manager_private::IO_TASK_STATE_IN_PROGRESS;
+    case file_manager::io_task::State::kPaused:
+      return file_manager_private::IO_TASK_STATE_PAUSED;
     case file_manager::io_task::State::kSuccess:
       return file_manager_private::IO_TASK_STATE_SUCCESS;
     case file_manager::io_task::State::kError:

@@ -17,8 +17,8 @@
 #include "ash/public/cpp/login_screen_model.h"
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/shell.h"
-#include "base/bind.h"
 #include "base/command_line.h"
+#include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
@@ -63,6 +63,7 @@
 #include "chrome/browser/ui/ash/system_tray_client_impl.h"
 #include "chrome/browser/ui/ash/wallpaper_controller_client_impl.h"
 #include "chrome/browser/ui/webui/ash/login/app_launch_splash_screen_handler.h"
+#include "chrome/browser/ui/webui/ash/login/arc_vm_data_migration_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/core_oobe_handler.h"
 #include "chrome/browser/ui/webui/ash/login/device_disabled_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/gaia_screen_handler.h"
@@ -236,6 +237,10 @@ void ShowLoginWizardFinish(
     DCHECK(session_manager::SessionManager::Get());
     session_manager::SessionManager::Get()->NotifyLoginOrLockScreenVisible();
   } else if (first_screen == LacrosDataBackwardMigrationScreenView::kScreenId) {
+    display_host = new LoginDisplayHostMojo(DisplayedScreen::SIGN_IN_SCREEN);
+    DCHECK(session_manager::SessionManager::Get());
+    session_manager::SessionManager::Get()->NotifyLoginOrLockScreenVisible();
+  } else if (first_screen == ArcVmDataMigrationScreenView::kScreenId) {
     display_host = new LoginDisplayHostMojo(DisplayedScreen::SIGN_IN_SCREEN);
     DCHECK(session_manager::SessionManager::Get());
     session_manager::SessionManager::Get()->NotifyLoginOrLockScreenVisible();
@@ -991,7 +996,7 @@ void LoginDisplayHostWebUI::ShowPasswordChangedDialog(
 }
 
 void LoginDisplayHostWebUI::StartCryptohomeRecovery(
-    const AccountId& account_id) {
+    std::unique_ptr<UserContext> user_context) {
   NOTREACHED();
 }
 

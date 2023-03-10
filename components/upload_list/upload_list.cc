@@ -8,8 +8,8 @@
 #include <iterator>
 #include <utility>
 
-#include "base/bind.h"
 #include "base/check.h"
+#include "base/functional/bind.h"
 #include "base/notreached.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
@@ -48,14 +48,7 @@ UploadList::UploadInfo::UploadInfo(const std::string& upload_id,
                                    const base::Time& upload_time)
     : upload_id(upload_id), upload_time(upload_time), state(State::Uploaded) {}
 
-UploadList::UploadInfo::UploadInfo(const UploadInfo& upload_info)
-    : upload_id(upload_info.upload_id),
-      upload_time(upload_info.upload_time),
-      local_id(upload_info.local_id),
-      capture_time(upload_info.capture_time),
-      state(upload_info.state),
-      source(upload_info.source),
-      file_size(upload_info.file_size) {}
+UploadList::UploadInfo::UploadInfo(const UploadInfo& upload_info) = default;
 
 UploadList::UploadInfo::~UploadInfo() = default;
 

@@ -14,9 +14,9 @@
 #include <memory>
 #include <string>
 
-#include "base/bind.h"
-#include "base/callback_forward.h"
 #include "base/callback_list.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback_forward.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
@@ -529,6 +529,12 @@ class MetricsService {
   // Updates the "last live" browser timestamp and schedules the next update.
   void UpdateLastLiveTimestampTask();
 
+  // Returns whether it is too early to close a log.
+  bool IsTooEarlyToCloseLog();
+
+  // Called if this install is detected as cloned.
+  void OnClonedInstallDetected();
+
   // Snapshots histogram deltas using the passed |log_histogram_writer| and then
   // finalizes |log| by calling FinalizeLog(). |log|, |current_app_version| and
   // |signing_key| are used to finalize the log (see FinalizeLog()).
@@ -634,6 +640,10 @@ class MetricsService {
 
   // A set of observers that keeps track of the metrics reporting state.
   base::RepeatingCallbackList<void(bool)> enablement_observers_;
+
+  // Subscription for a callback that runs if this install is detected as
+  // cloned.
+  base::CallbackListSubscription cloned_install_subscription_;
 
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
   // Indicates whether OnAppEnterForeground() (true) or OnAppEnterBackground

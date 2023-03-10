@@ -5,7 +5,7 @@
 #ifndef CHROME_BROWSER_ASH_LOGIN_SCREENS_CRYPTOHOME_RECOVERY_SETUP_SCREEN_H_
 #define CHROME_BROWSER_ASH_LOGIN_SCREENS_CRYPTOHOME_RECOVERY_SETUP_SCREEN_H_
 
-#include "base/callback.h"
+#include "base/functional/callback.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/ash/login/quick_unlock/auth_token.h"
 #include "chrome/browser/ash/login/screens/base_screen.h"
@@ -47,7 +47,7 @@ class CryptohomeRecoverySetupScreen : public BaseScreen {
 
  private:
   void ExitScreen(WizardContext& wizard_context, Result result);
-  void OnRecoveryConfigured(auth::RecoveryFactorEditor::ConfigureResult result);
+  void OnRecoveryConfigured(auth::mojom::ConfigureResult result);
   base::WeakPtr<CryptohomeRecoverySetupScreenView> view_ = nullptr;
   ScreenExitCallback exit_callback_;
   base::WeakPtrFactory<CryptohomeRecoverySetupScreen> weak_ptr_factory_{this};

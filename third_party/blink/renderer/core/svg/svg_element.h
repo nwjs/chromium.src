@@ -167,7 +167,7 @@ class CORE_EXPORT SVGElement : public Element {
 
   scoped_refptr<ComputedStyle> CustomStyleForLayoutObject(
       const StyleRecalcContext&) final;
-  bool LayoutObjectIsNeeded(const ComputedStyle&) const override;
+  bool LayoutObjectIsNeeded(const DisplayStyle&) const override;
 
 #if DCHECK_IS_ON()
   virtual bool IsAnimatableAttribute(const QualifiedName&) const;
@@ -343,7 +343,7 @@ struct SVGAttributeHashTranslator {
                                             key.NamespaceURI().Impl()};
       return HashComponents(components);
     }
-    return DefaultHash<QualifiedName>::GetHash(key);
+    return WTF::GetHash(key);
   }
   static bool Equal(const QualifiedName& a, const QualifiedName& b) {
     return a.Matches(b);

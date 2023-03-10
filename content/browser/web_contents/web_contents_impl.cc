@@ -13,8 +13,8 @@
 #include <vector>
 
 #include "base/allocator/partition_alloc_features.h"
+#include "base/allocator/partition_allocator/partition_alloc_buildflags.h"
 #include "base/allocator/partition_allocator/starscan/pcscan.h"
-#include "base/bind.h"
 #include "base/check_op.h"
 #include "content/nw/src/nw_base.h"
 
@@ -24,6 +24,7 @@
 #include "base/containers/flat_set.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
+#include "base/functional/bind.h"
 #include "base/lazy_instance.h"
 #include "base/location.h"
 #include "base/logging.h"
@@ -98,7 +99,7 @@
 #include "content/browser/renderer_host/render_widget_host_view_child_frame.h"
 #include "content/browser/renderer_host/text_input_manager.h"
 #include "content/browser/renderer_host/visible_time_request_trigger.h"
-#include "content/browser/screen_enumeration/screen_change_monitor.h"
+#include "content/browser/screen_details/screen_change_monitor.h"
 #include "content/browser/screen_orientation/screen_orientation_provider.h"
 #include "content/browser/shared_storage/shared_storage_budget_charger.h"
 #include "content/browser/site_instance_impl.h"
@@ -107,12 +108,10 @@
 #include "content/browser/web_contents/java_script_dialog_commit_deferring_condition.h"
 #include "content/browser/web_contents/web_contents_view.h"
 #include "content/browser/web_contents/web_contents_view_child_frame.h"
-#include "content/browser/web_package/save_as_web_bundle_job.h"
 #include "content/browser/webui/web_ui_controller_factory_registry.h"
 #include "content/browser/webui/web_ui_impl.h"
 #include "content/browser/xr/service/xr_runtime_manager_impl.h"
 #include "content/common/content_switches_internal.h"
-#include "content/common/partition_alloc_support.h"
 #include "content/public/browser/ax_inspect_factory.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_plugin_guest_manager.h"
@@ -911,6 +910,10 @@ class WebContentsOfBrowserContext : public base::SupportsUserData::Data {
     if (web_contents_set_.empty())
       return;  // Everything is okay - nothing to warn about.
 
+#if BUILDFLAG(IS_ANDROID)
+    JNIEnv* env = base::android::AttachCurrentThread();
+#endif  // BUILDFLAG(IS_ANDROID)
+
     // Any remaining WebContents contain dangling pointers to the
     // BrowserContext being destroyed.  Such WebContents (and their
     // RenderFrameHosts, SiteInstances, etc.) risk causing
@@ -923,9 +926,17 @@ class WebContentsOfBrowserContext : public base::SupportsUserData::Data {
                                 .ToString();
       SCOPED_CRASH_KEY_STRING256("shutdown", "web_contents/creator", creator);
 
+#if BUILDFLAG(IS_ANDROID)
+      // On Android, also report the Java stack trace from WebContents's
+      // creation.
+      WebContentsAndroid::ReportDanglingPtrToBrowserContext(
+          env, web_contents_with_dangling_ptr_to_browser_context);
+#endif  // BUILDFLAG(IS_ANDROID)
+
       NOTREACHED()
           << "BrowserContext is getting destroyed without first closing all "
-             "WebContents (for more info see https://crbug.com/1376879#c44)";
+          << "WebContents (for more info see https://crbug.com/1376879#c44); "
+          << "creator = " << creator;
       base::debug::DumpWithoutCrashing();
     }
   }
@@ -1042,7 +1053,7 @@ WebContentsImpl::WebContentsImpl(BrowserContext* browser_context)
     SharedStorageBudgetCharger::CreateForWebContents(this);
   }
 
-#if BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC) && defined(PA_ALLOW_PCSCAN)
+#if BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC) && PA_CONFIG(ALLOW_PCSCAN)
   // TODO(1231679): Remove or move to another place after finishing the PCScan
   // experiment.
   if (partition_alloc::internal::PCScan::IsInitialized()) {
@@ -1431,7 +1442,7 @@ bool WebContentsImpl::IsPrerenderedFrame(int frame_tree_node_id) {
                ->lifecycle_state() ==
            RenderFrameHostImpl::LifecycleStateImpl::kPrerendering;
   }
-  return frame_tree_node->frame_tree().type() == FrameTree::Type::kPrerender;
+  return frame_tree_node->GetFrameType() == FrameType::kPrerenderMainFrame;
 }
 
 RenderFrameHostImpl* WebContentsImpl::UnsafeFindFrameByFrameTreeNodeId(
@@ -1624,7 +1635,8 @@ void WebContentsImpl::CancelActiveAndPendingDialogs() {
 
 void WebContentsImpl::ClosePage() {
   OPTIONAL_TRACE_EVENT0("content", "WebContentsImpl::ClosePage");
-  GetRenderViewHost()->ClosePage();
+  GetPrimaryMainFrame()->ClosePage(
+      RenderFrameHostImpl::ClosePageSource::kBrowser);
 }
 
 RenderWidgetHostView* WebContentsImpl::GetRenderWidgetHostView() {
@@ -2067,10 +2079,8 @@ bool WebContentsImpl::WasDiscarded() {
 }
 
 void WebContentsImpl::SetWasDiscarded(bool was_discarded) {
-  // TODO(https://crbug.com/1264031): With MPArch a WebContents might have
-  // multiple FrameTrees. Should we propagate the was_discarded to all other
-  // FrameTrees? It seems that was_discarded could be a WebContentsImpl
-  // property.
+  // It's set based on a tab and the setting value is started from a primary
+  // tree and propagated to all children nodes including a fenced frame node.
   GetPrimaryFrameTree().root()->set_was_discarded();
 }
 
@@ -2198,6 +2208,11 @@ void WebContentsImpl::SetHasPictureInPictureCommon(
   NotifyNavigationStateChanged(INVALIDATE_TYPE_TAB);
   observers_.NotifyObservers(&WebContentsObserver::MediaPictureInPictureChanged,
                              has_picture_in_picture);
+  if (has_picture_in_picture) {
+    pip_capture_handle_ = IncrementCapturerCount({}, true, false);
+  } else {
+    pip_capture_handle_.RunAndReset();
+  }
 
   // Picture-in-picture state can affect how we notify visibility for non-
   // visible pages.
@@ -2428,12 +2443,9 @@ const base::Location& WebContentsImpl::GetCreatorLocation() {
   return creator_location_;
 }
 
-float WebContentsImpl::GetPictureInPictureInitialAspectRatio() {
-  return pip_initial_aspect_ratio_;
-}
-
-bool WebContentsImpl::GetPictureInPictureLockAspectRatio() {
-  return pip_lock_aspect_ratio_;
+const absl::optional<blink::mojom::PictureInPictureWindowOptions>&
+WebContentsImpl::GetPictureInPictureOptions() const {
+  return picture_in_picture_options_;
 }
 
 #if BUILDFLAG(IS_ANDROID)
@@ -2458,11 +2470,12 @@ bool WebContentsImpl::NeedToFireBeforeUnloadOrUnloadEvents() {
   if (!notify_disconnection_)
     return false;
 
-  // Don't fire if the main frame's RenderViewHost indicates that beforeunload
-  // and unload have already executed (e.g., after receiving a ClosePage ACK)
-  // or should be ignored.
-  if (GetRenderViewHost()->SuddenTerminationAllowed())
+  // Don't fire if the main frame indicates that beforeunload and unload have
+  // already executed (e.g., after receiving a ClosePage ACK) or should be
+  // ignored.
+  if (GetPrimaryMainFrame()->IsPageReadyToBeClosed()) {
     return false;
+  }
 
   // Check whether any frame in the frame tree needs to run beforeunload or
   // unload-time event handlers.
@@ -2647,10 +2660,6 @@ std::unique_ptr<WebContents> WebContentsImpl::DetachFromOuterWebContents() {
   // current one, since the view can be swapped due to a cross-origin
   // navigation.
   std::set<RenderViewHostImpl*> render_view_hosts;
-  // TODO(https://crbug.com/1264031): With MPArch a WebContents might have
-  // multiple FrameTrees. This code probably needs to be rewritten: e.g. we will
-  // need to iterate over all RenderViewHosts when detaching fenced frames
-  // nested within a GuestView.
   for (auto& render_view_host : GetPrimaryFrameTree().render_view_hosts()) {
     if (render_view_host.second->GetWidget() &&
         render_view_host.second->GetWidget()->GetView()) {
@@ -3126,16 +3135,13 @@ void WebContentsImpl::Init(const WebContents::CreateParams& params,
   TRACE_EVENT0("content", "WebContentsImpl::Init");
 
   creator_location_ = params.creator_location;
+#if BUILDFLAG(IS_ANDROID)
+  java_creator_location_ = params.java_creator_location;
+#endif  // BUILDFLAG(IS_ANDROID)
 
-  // An initial aspect ratio of 0.0 implies that the website did not set one and
-  // therefore we should use a default value. We will also use a default value
-  // if the website has given an invalid aspect ratio (i.e. a negative one).
-  pip_initial_aspect_ratio_ =
-      params.initial_picture_in_picture_aspect_ratio <= 0.0f
-          ? 1.0f
-          : params.initial_picture_in_picture_aspect_ratio;
-
-  pip_lock_aspect_ratio_ = params.lock_picture_in_picture_aspect_ratio;
+  if (params.picture_in_picture_options.has_value()) {
+    picture_in_picture_options_ = params.picture_in_picture_options;
+  }
 
   // This is set before initializing the render manager since
   // RenderFrameHostManager::Init calls back into us via its delegate to ask if
@@ -3148,12 +3154,12 @@ void WebContentsImpl::Init(const WebContents::CreateParams& params,
   if (!params.last_active_time.is_null())
     last_active_time_ = params.last_active_time;
 
-  scoped_refptr<SiteInstance> site_instance = params.site_instance;
+  scoped_refptr<SiteInstanceImpl> site_instance =
+      static_cast<SiteInstanceImpl*>(params.site_instance.get());
   if (!site_instance)
-    site_instance = SiteInstance::Create(params.browser_context);
+    site_instance = SiteInstanceImpl::Create(params.browser_context);
   if (params.desired_renderer_state == CreateParams::kNoRendererProcess) {
-    static_cast<SiteInstanceImpl*>(site_instance.get())
-        ->PreventAssociationWithSpareProcess();
+    site_instance->PreventAssociationWithSpareProcess();
   }
 
   // Iniitalize the primary FrameTree.
@@ -3209,9 +3215,8 @@ void WebContentsImpl::Init(const WebContents::CreateParams& params,
   if (params.desired_renderer_state ==
       CreateParams::kInitializeAndWarmupRendererProcess) {
     if (!GetRenderManager()->current_frame_host()->IsRenderFrameLive()) {
-      GetRenderManager()->InitRenderView(
-          static_cast<SiteInstanceImpl*>(site_instance.get())->group(),
-          GetRenderViewHost(), nullptr);
+      GetRenderManager()->InitRenderView(site_instance->group(),
+                                         GetRenderViewHost(), nullptr);
     }
   }
 
@@ -3696,8 +3701,7 @@ PageVisibilityState WebContentsImpl::CalculatePageVisibilityState(
   if (visibility == Visibility::VISIBLE || visible_capturer_count_ > 0 ||
       web_contents_visible_in_vr) {
     return PageVisibilityState::kVisible;
-  } else if (hidden_capturer_count_ > 0 || has_picture_in_picture_video_ ||
-             has_picture_in_picture_document_) {
+  } else if (hidden_capturer_count_ > 0) {
     return PageVisibilityState::kHiddenButPainting;
   }
   return PageVisibilityState::kHidden;
@@ -4015,10 +4019,7 @@ FrameTree* WebContentsImpl::CreateNewWindow(
     return nullptr;
 
   int render_process_id = opener->GetProcess()->GetID();
-
-  auto* source_site_instance =
-      static_cast<SiteInstanceImpl*>(opener->GetSiteInstance());
-
+  SiteInstanceImpl* source_site_instance = opener->GetSiteInstance();
   const auto& partition_config =
       source_site_instance->GetStoragePartitionConfig();
 
@@ -4093,10 +4094,7 @@ FrameTree* WebContentsImpl::CreateNewWindow(
   create_params.renderer_initiated_creation = !is_new_browsing_instance;
 
   if (params.pip_options) {
-    create_params.initial_picture_in_picture_aspect_ratio =
-        params.pip_options->initial_aspect_ratio;
-    create_params.lock_picture_in_picture_aspect_ratio =
-        params.pip_options->lock_aspect_ratio;
+    create_params.picture_in_picture_options = *(params.pip_options);
   }
 
   // Check whether there is an available prerendered page for this navigation if
@@ -4625,6 +4623,16 @@ std::string WebContentsImpl::DumpAccessibilityTree(
   // This only runs during integration tests, or if a developer is
   // using an inspection tool, e.g. chrome://accessibility.
   BrowserAccessibilityManager::AlwaysFailFast();
+
+  // Since for Web Content we get the AXTree updates through the renderer at a
+  // point after the manager is created, there are cases where at this point in
+  // the lifecycle the AXTree associated with `ax_mgr` does not have a valid
+  // tree ID. As such, if this is the case we return an empty string early. If
+  // we don't have this check, there will be a scenario where we then try to get
+  // the manager using the ID (which at this point is invalid) which leads to a
+  // crash. See https://crbug.com/1405036.
+  if (!ax_mgr->HasValidTreeID())
+    return "-";
 
   std::unique_ptr<ui::AXTreeFormatter> formatter =
       internal ? AXInspectFactory::CreateBlinkFormatter()
@@ -5303,26 +5311,12 @@ void WebContentsImpl::GenerateMHTMLWithResult(
                                                    std::move(callback));
 }
 
-void WebContentsImpl::GenerateWebBundle(
-    const base::FilePath& file_path,
-    base::OnceCallback<void(uint64_t /* file_size */,
-                            data_decoder::mojom::WebBundlerError)> callback) {
-  OPTIONAL_TRACE_EVENT1("content", "WebContentsImpl::GenerateWebBundle",
-                        "file_path", file_path);
-  SaveAsWebBundleJob::Start(this, file_path, std::move(callback));
-}
-
 const std::string& WebContentsImpl::GetContentsMimeType() {
   return GetPrimaryPage().contents_mime_type();
 }
 
 blink::RendererPreferences* WebContentsImpl::GetMutableRendererPrefs() {
   return &renderer_preferences_;
-}
-
-void WebContentsImpl::Close() {
-  OPTIONAL_TRACE_EVENT0("content", "WebContentsImpl::Close");
-  Close(GetRenderViewHost());
 }
 
 void WebContentsImpl::DragSourceEndedAt(float client_x,
@@ -5996,10 +5990,10 @@ void WebContentsImpl::DidNavigateMainFramePreCommit(
   TRACE_EVENT1("content,navigation",
                "WebContentsImpl::DidNavigateMainFramePreCommit",
                "navigation_is_within_page", navigation_is_within_page);
-  const bool is_primary =
-      frame_tree_node->frame_tree().type() == FrameTree::Type::kPrimary;
+  const bool is_primary_mainframe =
+      frame_tree_node->GetFrameType() == FrameType::kPrimaryMainFrame;
   // If running for a non-primary main frame, early out.
-  if (!is_primary)
+  if (!is_primary_mainframe)
     return;
 
   // Ensure fullscreen mode is exited before committing the navigation to a
@@ -6044,9 +6038,6 @@ void WebContentsImpl::DidNavigateMainFramePostCommit(
     if (rwhvb)
       rwhvb->OnDidNavigateMainFrameToNewPage();
   }
-
-  if (is_primary_main_frame && delegate_)
-    delegate_->DidNavigatePrimaryMainFramePostCommit(this);
 
   PageImpl& page = render_frame_host->GetPage();
   if (page.IsPrimary()) {
@@ -6267,12 +6258,14 @@ void WebContentsImpl::ViewSource(RenderFrameHostImpl* frame) {
   // hit the network, but should be served from the cache instead.
   Referrer referrer_for_view_source;
   absl::optional<url::Origin> initiator_for_view_source = absl::nullopt;
+  absl::optional<GURL> initiator_base_url_for_view_source = absl::nullopt;
   // Do not restore title, derive it from the url.
   std::u16string title_for_view_source;
   auto navigation_entry = std::make_unique<NavigationEntryImpl>(
       site_instance_for_view_source, frame_entry->url(),
       referrer_for_view_source, initiator_for_view_source,
-      title_for_view_source, ui::PAGE_TRANSITION_LINK,
+      initiator_base_url_for_view_source, title_for_view_source,
+      ui::PAGE_TRANSITION_LINK,
       /* is_renderer_initiated = */ false,
       /* blob_url_loader_factory = */ nullptr, /* is_initial_entry = */ false);
   const GURL url(content::kViewSourceScheme + std::string(":") +
@@ -7530,9 +7523,9 @@ void WebContentsImpl::ClearTargetURL() {
     delegate_->UpdateTargetURL(this, GURL());
 }
 
-void WebContentsImpl::Close(RenderViewHost* rvh) {
-  OPTIONAL_TRACE_EVENT1("content", "WebContentsImpl::Close", "render_view_host",
-                        rvh);
+void WebContentsImpl::Close() {
+  OPTIONAL_TRACE_EVENT1("content", "WebContentsImpl::Close",
+                        "render_frame_host", GetPrimaryMainFrame());
 #if BUILDFLAG(IS_MAC)
   // The UI may be in an event-tracking loop, such as between the
   // mouse-down and mouse-up in text selection or a button click.
@@ -7545,9 +7538,9 @@ void WebContentsImpl::Close(RenderViewHost* rvh) {
     return;
 #endif
 
-  // Ignore this if it comes from a RenderViewHost that we aren't showing.
-  if (delegate_ && rvh == GetRenderViewHost())
+  if (delegate_) {
     delegate_->CloseContents(this);
+  }
 }
 
 void WebContentsImpl::SetWindowRect(const gfx::Rect& new_bounds) {
@@ -7821,11 +7814,6 @@ void WebContentsImpl::DocumentOnLoadCompleted(
 
   observers_.NotifyObservers(
       &WebContentsObserver::DocumentOnLoadCompletedInPrimaryMainFrame);
-
-  // TODO(avi): Remove. http://crbug.com/170921
-  NotificationService::current()->Notify(NOTIFICATION_LOAD_COMPLETED_MAIN_FRAME,
-                                         Source<WebContents>(this),
-                                         NotificationService::NoDetails());
 }
 
 void WebContentsImpl::UpdateTitle(RenderFrameHostImpl* render_frame_host,
@@ -8391,6 +8379,11 @@ WebContentsImpl::GetJavaWebContents() {
   return GetWebContentsAndroid()->GetJavaObject();
 }
 
+base::android::ScopedJavaLocalRef<jthrowable>
+WebContentsImpl::GetJavaCreatorLocation() {
+  return base::android::ScopedJavaLocalRef<jthrowable>(java_creator_location_);
+}
+
 WebContentsAndroid* WebContentsImpl::GetWebContentsAndroid() {
   if (!web_contents_android_) {
     web_contents_android_ = std::make_unique<WebContentsAndroid>(this);
@@ -8573,6 +8566,8 @@ void WebContentsImpl::UpdateWindowControlsOverlay(
   if (RenderWidgetHost* render_widget_host =
           GetPrimaryMainFrame()->GetRenderWidgetHost())
     render_widget_host->SynchronizeVisualProperties();
+
+  view_->UpdateWindowControlsOverlay(bounding_rect);
 }
 
 BrowserPluginEmbedder* WebContentsImpl::GetBrowserPluginEmbedder() const {
@@ -9590,43 +9585,14 @@ void WebContentsImpl::UpdateBrowserControlsState(
 
 void WebContentsImpl::SetTabSwitchStartTime(base::TimeTicks start_time,
                                             bool destination_is_loaded) {
-  // TODO(crbug.com/1164477): Remove this UMA once the TabSwitchMetrics2
-  // experiment ends.
-  //
-  // The experiment is showing a mix shift, with more records received in
-  // the experiment group. The control group should preserve the old
-  // behaviour where Browser.Tabs.* metrics were never recorded if there
-  // was no RenderWidgetHostView at the time of the tab switch. To verify
-  // that this accounts for the mix shift, expect that:
-  //
-  // 1. The difference in Browser.Tabs.* record count between the control
-  //    and enabled groups will match the count of
-  //    Browser.Tabs.TabSwitchHasRWHV == false in the enabled group.
-  //
-  // 2. The count of Browser.Tabs.TabSwitchHasRWHV in the control and
-  //    enabled groups are equal.
-  base::UmaHistogramBoolean("Browser.Tabs.TabSwitchHasRWHV",
-                            GetRenderWidgetHostView());
-
-  auto* trigger = GetVisibleTimeRequestTrigger();
-  if (!trigger)
-    return;
-  trigger->UpdateRequest(start_time, destination_is_loaded,
-                         /*show_reason_tab_switching=*/true,
-                         /*show_reason_bfcache_restore=*/false);
+  GetVisibleTimeRequestTrigger().UpdateRequest(
+      start_time, destination_is_loaded,
+      /*show_reason_tab_switching=*/true,
+      /*show_reason_bfcache_restore=*/false);
 }
 
-VisibleTimeRequestTrigger* WebContentsImpl::GetVisibleTimeRequestTrigger() {
-  if (visible_time_request_trigger_.is_tab_switch_metrics2_feature_enabled())
-    return &visible_time_request_trigger_;
-  // TODO(crbug.com/1164477): Remove this obsolete implementation and return a
-  // reference instead of a pointer once kTabSwitchMetrics2 is validated and
-  // becomes the default.
-  if (auto* view =
-          static_cast<RenderWidgetHostViewBase*>(GetRenderWidgetHostView())) {
-    return view->GetVisibleTimeRequestTrigger();
-  }
-  return nullptr;
+VisibleTimeRequestTrigger& WebContentsImpl::GetVisibleTimeRequestTrigger() {
+  return visible_time_request_trigger_;
 }
 
 std::unique_ptr<PrerenderHandle> WebContentsImpl::StartPrerendering(
@@ -9640,7 +9606,7 @@ std::unique_ptr<PrerenderHandle> WebContentsImpl::StartPrerendering(
   PrerenderAttributes attributes(
       prerendering_url, trigger_type, embedder_histogram_suffix,
       content::Referrer(), /*initiator_origin=*/absl::nullopt, prerendering_url,
-      content::ChildProcessHost::kInvalidUniqueID,
+      content::ChildProcessHost::kInvalidUniqueID, GetWeakPtr(),
       /*initiator_frame_token=*/absl::nullopt,
       /*initiator_frame_tree_node_id=*/RenderFrameHost::kNoFrameTreeNodeId,
       ukm::kInvalidSourceId, page_transition, url_match_predicate);
@@ -9653,18 +9619,6 @@ std::unique_ptr<PrerenderHandle> WebContentsImpl::StartPrerendering(
         prerendering_url);
   }
   return nullptr;
-}
-
-void WebContentsImpl::DisablePrerender2() {
-  prerender2_disabled_ = true;
-}
-
-void WebContentsImpl::ResetPrerender2Disabled() {
-  prerender2_disabled_ = false;
-}
-
-bool WebContentsImpl::IsPrerender2Disabled() {
-  return prerender2_disabled_ || !GetDelegate()->IsPrerender2Supported(*this);
 }
 
 void WebContentsImpl::AboutToBeDiscarded(WebContents* new_contents) {

@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">በLinux ይጫኑ</translation>
 <translation id="2225536596944493418">እርግጠኛ ነዎት <ph name="NUMBER_OF_ITEMS" /> ንጥሎችን መሰረዝ ይፈልጋሉ?</translation>
 <translation id="2230062665678605299">የ«<ph name="FOLDER_NAME" />» አቃፊን መፍጠር አልተቻለም። <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">የእርስዎ የGoogle Drive መሸጎጫ ጸድቷል።</translation>
 <translation id="2239068707900391003">ቡና የያዘ ሰው</translation>
 <translation id="2251368349685848079">ከመጣያ ወደነበረበት መልስ</translation>
 <translation id="2282155092769082568">የራስ-ውቅር ዩአርኤል፦</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">ምንም ፋይሎች ከ&lt;b&gt;«<ph name="SEARCH_STRING" />»&lt;/b&gt; ጋር አይዛመዱም</translation>
 <translation id="2894654529758326923">መረጃ</translation>
 <translation id="2902734494705624966">የአሜሪካ ተቀጥሎ</translation>
+<translation id="2904378509913846215">«<ph name="FILENAME" />» የተባለ ፋይል አስቀድሞ አለ። እያንቀሳቀሱት ባለው እሱን መተካት ይፈልጋሉ?</translation>
 <translation id="290843123675549676">ማራቲኛ</translation>
 <translation id="2923240520113693977">ኤስቶኒአን</translation>
 <translation id="2938685643439809023">ሞንጎልኛ</translation>
@@ -640,6 +642,7 @@
 <translation id="6241349547798190358">ደች (ቤልጂየም)</translation>
 <translation id="6267547857941397424">አውታረ መረብ <ph name="NETWORK_INDEX" /> ከ<ph name="NETWORK_COUNT" />፣ <ph name="PHONE_NAME" />፣ የሲግናል ጥንካሬ <ph name="SIGNAL_STRENGTH" />%፣ የስልክ ባትሪ <ph name="BATTERY_STATUS" />%፣ አገናኝ</translation>
 <translation id="6269630227984243955">ማላይኛ</translation>
+<translation id="6271903698064569429">«<ph name="SHARED_DRIVE_NAME" />» በቂ ማከማቻ ስለሌለው ፋይሎች መሰቀል አይችሉም።</translation>
 <translation id="6287852322318138013">ይህን ፋይል የሚከፍቱበት መተግበሪያ ይምረጡ</translation>
 <translation id="6295542640242147836">ሲም ቆልፍ</translation>
 <translation id="6296410173147755564">ልክ ያልኾነ PUK</translation>
@@ -685,6 +688,7 @@
 <translation id="6657585470893396449">የይለፍ ቃል</translation>
 <translation id="6658865850469097484">ከ30 ቀናት በላይ በመጣያ ያሉ ፋይሎች በራስ ሰር ይሰረዛሉ።</translation>
 <translation id="6673674183150363784">ፈረንሳይኛ (ፈረንሳይ) በBépo ቁልፍ ሰሌዳ</translation>
+<translation id="670380500182402678">ሁሉንም ተካ</translation>
 <translation id="6710022688720561421">ሮቦት</translation>
 <translation id="6710213216561001401">ቀዳሚ</translation>
 <translation id="6732801395666424405">የእውቅና ማረጋገጫዎች አልተጫኑም</translation>
@@ -903,6 +907,7 @@
 <translation id="8386903983509584791">መቃኘት ተጠናቅቋል</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" /> ከማህደር ወጥቷል።</translation>
 <translation id="8395901698320285466">ልኬቶች</translation>
+<translation id="8404498045299006085">ሁሉንም አቆይ</translation>
 <translation id="8408068190360279472"><ph name="NETWORK_TYPE" /> አውታረ መረብ፣ በመገናኘት ላይ</translation>
 <translation id="8425213833346101688">ለውጥ</translation>
 <translation id="8431909052837336408">የሲም ፒን ይለውጡ</translation>

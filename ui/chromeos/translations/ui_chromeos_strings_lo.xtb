@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">ຕິດຕັ້ງດ້ວຍ Linux</translation>
 <translation id="2225536596944493418">ທ່ານ​ແນ່​ໃຈບໍ່ວ່​າ ​ທ່ານ​ຕ້ອງ​ການ​ລຶບ <ph name="NUMBER_OF_ITEMS" /> ລາຍ​ການ​?</translation>
 <translation id="2230062665678605299">ບໍ່​ສາ​ມາດ​​ສ້າງ​ໂຟລເດີ "<ph name="FOLDER_NAME" />". <ph name="ERROR_MESSAGE" /> ໄດ້</translation>
+<translation id="2236732657580416950">ແຄສ Google Drive ຂອງທ່ານໄດ້ຖືກອະນາໄມແລ້ວ.</translation>
 <translation id="2239068707900391003">ຄົນກັບກາເຟ</translation>
 <translation id="2251368349685848079">ກູ້ຄືນຈາກຖັງຂີ້ເຫຍື້ອ</translation>
 <translation id="2282155092769082568">URL ການກຳນົດຄ່າອັດໂນມັດ:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">ບໍ່ມີລາຍການຖືກຄູ່ກັນ &lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt;</translation>
 <translation id="2894654529758326923">ຂໍ້ມູນ</translation>
 <translation id="2902734494705624966">US ຂະ​ຫຍາຍ</translation>
+<translation id="2904378509913846215">ມີໂຟນເດີຊື່ "<ph name="FILENAME" />" ຢູ່ແລ້ວ. ທ່ານຕ້ອງການປ່ຽນແທນໂຟນເດີດັ່ງກ່າວດ້ວຍໂຟນເດີທີ່ທ່ານກຳລັງຍ້າຍຢູ່ບໍ?</translation>
 <translation id="290843123675549676">ພາສາມາຣາທີ</translation>
 <translation id="2923240520113693977">ພາສາເອສໂຕ​ເນຍ</translation>
 <translation id="2938685643439809023">ພາສາມົງໂກລີ</translation>
@@ -639,6 +641,7 @@
 <translation id="6241349547798190358">ພາສາດັຈ (ເບວຢຽມ)</translation>
 <translation id="6267547857941397424">ເຄືອຂ່າຍທີ <ph name="NETWORK_INDEX" /> ຈາກທັງໝົດ <ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, ສັນຍານຄວາມແຮງ <ph name="SIGNAL_STRENGTH" />%, ແບັດເຕີຣີໂທລະສັບ <ph name="BATTERY_STATUS" />%, ເຊື່ອມຕໍ່</translation>
 <translation id="6269630227984243955">ມາເລ</translation>
+<translation id="6271903698064569429">ບໍ່ສາມາດອັບໂຫຼດໄຟລ໌ໄດ້ເນື່ອງຈາກ "<ph name="SHARED_DRIVE_NAME" />" ບໍ່ມີບ່ອນຈັດເກັບຂໍ້ມູນພຽງພໍ.</translation>
 <translation id="6287852322318138013">ເລືອກແອັບທີ່ຈະເປີດຢູ່ໃນໄຟລ໌ນີ້</translation>
 <translation id="6295542640242147836">ລັອກຊິມ</translation>
 <translation id="6296410173147755564">PUK ບໍ່ຖືກຕ້ອງ</translation>
@@ -684,6 +687,7 @@
 <translation id="6657585470893396449">ລະຫັດຜ່ານ</translation>
 <translation id="6658865850469097484">ໄຟລ໌ໃນຖັງຂີ້ເຫຍື້ອທີ່ເກີນ 30 ມື້ຈະຖືກລຶບອອກອັດຕະໂນມັດ.</translation>
 <translation id="6673674183150363784">ພາສາຝຣັ່ງ (ຝຣັ່ງ) ທີ່ໃຊ້ແປ້ນພິມ Bépo</translation>
+<translation id="670380500182402678">ແທນທີ່ທັງໝົດ</translation>
 <translation id="6710022688720561421">ຫຸ່ນຍົນ</translation>
 <translation id="6710213216561001401">ຜ່ານມາ</translation>
 <translation id="6732801395666424405">ໃບ​ຢັ້ງ​ຢືນບໍ່ຖືກໂຫຼດ​</translation>
@@ -902,6 +906,7 @@
 <translation id="8386903983509584791">ສຳເລັດການສະແກນແລ້ວ</translation>
 <translation id="8387733224523483503">ແຕກໄຟລ໌ <ph name="FILE_NAME" /> ແລ້ວ.</translation>
 <translation id="8395901698320285466">ຂະໜາດພາບ</translation>
+<translation id="8404498045299006085">ເກັບຮັກສາທັງໝົດ</translation>
 <translation id="8408068190360279472">ເຄືອຂ່າຍ <ph name="NETWORK_TYPE" />, ກຳລັງເຊື່ອມຕໍ່</translation>
 <translation id="8425213833346101688">ປ່ຽນ​ແປງ</translation>
 <translation id="8431909052837336408">ປ່ຽນ SIM PIN</translation>

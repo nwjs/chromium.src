@@ -320,6 +320,13 @@ try_.builder(
 )
 
 try_.builder(
+    name = "linux-wpt-content-shell-leak-detection",
+    mirrors = [
+        "ci/linux-wpt-content-shell-leak-detection",
+    ],
+)
+
+try_.builder(
     name = "linux-wpt-fyi-rel",
     mirrors = ["ci/linux-wpt-fyi-rel"],
     goma_backend = None,
@@ -456,23 +463,13 @@ try_.builder(
 )
 
 try_.builder(
-    name = "linux_chromium_chromeos_msan_focal",
-    mirrors = [
-        "ci/Linux ChromiumOS MSan Focal",
-    ],
-    os = os.LINUX_FOCAL,
-    execution_timeout = 16 * time.hour,
-    goma_backend = None,
-    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CQ,
-)
-
-try_.builder(
     name = "linux_chromium_chromeos_msan_rel_ng",
     mirrors = [
         "ci/Linux ChromiumOS MSan Builder",
         "ci/Linux ChromiumOS MSan Tests",
     ],
     cores = 16,
+    os = os.LINUX_FOCAL,
     ssd = True,
     goma_backend = None,
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CQ,
@@ -632,36 +629,6 @@ try_.builder(
 )
 
 try_.builder(
-    name = "linux_layout_tests_layout_ng_disabled",
-    branch_selector = branches.selector.LINUX_BRANCHES,
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "chromium",
-            apply_configs = [
-                "mb",
-            ],
-            build_config = builder_config.build_config.RELEASE,
-            target_bits = 64,
-        ),
-    ),
-    main_list_view = "try",
-    tryjob = try_.job(
-        location_filters = [
-            "third_party/blink/renderer/core/editing/.+",
-            "third_party/blink/renderer/core/layout/.+",
-            "third_party/blink/renderer/core/paint/.+",
-            "third_party/blink/renderer/core/svg/.+",
-            "third_party/blink/renderer/platform/fonts/shaping/.+",
-            "third_party/blink/renderer/platform/graphics/.+",
-            "third_party/blink/web_tests/.+",
-        ],
-    ),
-)
-
-try_.builder(
     name = "linux_upload_clang",
     executable = "recipe:chromium_upload_clang",
     builderless = True,
@@ -766,6 +733,30 @@ try_.gpu.optional_tests_builder(
             cq.location_filter(path_regexp = "ui/gl/.+"),
         ],
     ),
+)
+
+try_.builder(
+    name = "linux-code-coverage",
+    mirrors = ["ci/linux-code-coverage"],
+    execution_timeout = 20 * time.hour,
+)
+
+try_.builder(
+    name = "linux-chromeos-code-coverage",
+    mirrors = ["ci/linux-chromeos-code-coverage"],
+    execution_timeout = 20 * time.hour,
+)
+
+try_.builder(
+    name = "linux-lacros-code-coverage",
+    mirrors = ["ci/linux-lacros-code-coverage"],
+    execution_timeout = 20 * time.hour,
+)
+
+try_.builder(
+    name = "linux-js-code-coverage",
+    mirrors = ["ci/linux-js-code-coverage"],
+    execution_timeout = 20 * time.hour,
 )
 
 # RTS builders

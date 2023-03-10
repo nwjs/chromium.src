@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Linux प्रयोग गरी इन्स्टल गर्नुहोस्</translation>
 <translation id="2225536596944493418">तपाईंले <ph name="NUMBER_OF_ITEMS" /> वस्तुहरू मेटाउन खोज्नुभएकै हो?</translation>
 <translation id="2230062665678605299">"<ph name="FOLDER_NAME" />". <ph name="ERROR_MESSAGE" /> फोल्डर सिर्जना गर्न सकिएन</translation>
+<translation id="2236732657580416950">Your Google Drive cache was cleared.</translation>
 <translation id="2239068707900391003">कफी भएको कप समातिरहेका व्यक्ति</translation>
 <translation id="2251368349685848079">ट्र्यासबाट रिस्टोर गर्नुहोस्</translation>
 <translation id="2282155092769082568">स्वतः कन्फिगुरेसनको URL:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">कुनैपनि वस्तुहरू मेल खाएनन् &lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/ b&gt;</translation>
 <translation id="2894654529758326923">जानकारी</translation>
 <translation id="2902734494705624966">युएस विस्तारित</translation>
+<translation id="2904378509913846215">"<ph name="FILENAME" />" नामक फोल्डर पहिलेदेखि नै विद्यमान छ। तपाईं यो फोल्डरलाई आफूले सारिरहेको फोल्डरले प्रतिस्थापन गर्न चाहनुहुन्छ?</translation>
 <translation id="290843123675549676">मराठी</translation>
 <translation id="2923240520113693977">इस्टोनिया</translation>
 <translation id="2938685643439809023">मङ्गोलियन</translation>
@@ -639,6 +641,7 @@
 <translation id="6241349547798190358">डच (बेल्जियम)</translation>
 <translation id="6267547857941397424"><ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" /> मध्ये नेटवर्क <ph name="NETWORK_INDEX" />, सिग्नलको क्षमता <ph name="SIGNAL_STRENGTH" />%, फोनको ब्याट्री <ph name="BATTERY_STATUS" />%, जोड्नुहोस्</translation>
 <translation id="6269630227984243955">मले</translation>
+<translation id="6271903698064569429">"<ph name="SHARED_DRIVE_NAME" />" मा पर्याप्त खाली ठाउँ नभएकाले फाइलहरू अपलोड गर्न मिल्दैन।</translation>
 <translation id="6287852322318138013">यो फाइल खोल्न एक एप चयन गर्नुहोस्</translation>
 <translation id="6295542640242147836">SIM लक गर्नुहोस्</translation>
 <translation id="6296410173147755564">तपाईंले हाल्नुभएको PUK अवैध छ</translation>
@@ -684,6 +687,7 @@
 <translation id="6657585470893396449">पासवर्ड</translation>
 <translation id="6658865850469097484">३० दिनभन्दा बढी समयदेखि ट्र्यासमा रहेका फाइलहरू स्वतः मेटाइने छन्।</translation>
 <translation id="6673674183150363784">फ्रान्सेली (फ्रान्स) Bépo किबोर्ड</translation>
+<translation id="670380500182402678">सबै बदल्नुहोस्</translation>
 <translation id="6710022688720561421">रोबोट</translation>
 <translation id="6710213216561001401">अघिल्लो</translation>
 <translation id="6732801395666424405">प्रमाणपत्रहरू लोड भएन</translation>
@@ -902,6 +906,7 @@
 <translation id="8386903983509584791">स्क्यान कार्य पूरा भयो</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" /> एक्स्ट्रयाक्ट गरियो।</translation>
 <translation id="8395901698320285466">उचाइ तथा चौडाइ</translation>
+<translation id="8404498045299006085">सबै इन्ट्रीहरू राखिराख्नुहोस्</translation>
 <translation id="8408068190360279472"><ph name="NETWORK_TYPE" /> नेटवर्क, जोड्दै</translation>
 <translation id="8425213833346101688">परिवर्तन गर्नुहोस्</translation>
 <translation id="8431909052837336408">SIM को PIN परिवर्तन गर्नुहोस्</translation>

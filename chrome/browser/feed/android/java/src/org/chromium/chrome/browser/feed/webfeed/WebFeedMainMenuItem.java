@@ -184,6 +184,8 @@ public class WebFeedMainMenuItem extends FrameLayout {
         mItemText.setText(mTitle);
         mItemTextClicked = false;
         if (ChromeFeatureList.isEnabled(ChromeFeatureList.CORMORANT)) {
+            mItemText.setContentDescription(
+                    mContext.getString(R.string.cormorant_creator_preview, mTitle));
             mItemText.setOnClickListener((view) -> {
                 mItemTextClicked = true;
                 launchCreatorActivity();
@@ -374,9 +376,9 @@ public class WebFeedMainMenuItem extends FrameLayout {
                     UrlFormatter.formatUrlForDisplayOmitSchemePathAndTrivialSubdomains(mUrl);
             // Launch a new activity for the creator page.
             Intent intent = new Intent(mContext, mCreatorActivityClass);
-            intent.putExtra("CREATOR_WEB_FEED_ID", mWebFeedId);
-            intent.putExtra("CREATOR_TITLE", mTitle);
-            intent.putExtra("CREATOR_URL", creatorUrl);
+            intent.putExtra(CreatorIntentConstants.CREATOR_WEB_FEED_ID, mWebFeedId);
+            intent.putExtra(CreatorIntentConstants.CREATOR_TITLE, mTitle);
+            intent.putExtra(CreatorIntentConstants.CREATOR_URL, creatorUrl);
             mContext.startActivity(intent);
         } catch (Exception e) {
             Log.d(TAG, "Failed to launch CreatorActivity " + e);

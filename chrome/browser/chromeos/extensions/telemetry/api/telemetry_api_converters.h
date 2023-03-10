@@ -12,7 +12,7 @@
 #include "chrome/common/chromeos/extensions/api/telemetry.h"
 #include "chromeos/crosapi/mojom/probe_service.mojom.h"
 #include "chromeos/services/network_config/public/mojom/network_types.mojom-forward.h"
-#include "chromeos/services/network_health/public/mojom/network_health.mojom-forward.h"
+#include "chromeos/services/network_health/public/mojom/network_health_types.mojom-forward.h"
 
 namespace chromeos {
 
@@ -26,6 +26,15 @@ namespace unchecked {
 // Functions in unchecked namespace do not verify whether input pointer is
 // nullptr, they should be called only via ConvertPtr wrapper that checks
 // whether input pointer is nullptr.
+
+chromeos::api::os_telemetry::AudioInputNodeInfo UncheckedConvertPtr(
+    crosapi::mojom::ProbeAudioInputNodeInfoPtr input);
+
+chromeos::api::os_telemetry::AudioOutputNodeInfo UncheckedConvertPtr(
+    crosapi::mojom::ProbeAudioOutputNodeInfoPtr input);
+
+chromeos::api::os_telemetry::AudioInfo UncheckedConvertPtr(
+    crosapi::mojom::ProbeAudioInfoPtr input);
 
 chromeos::api::os_telemetry::CpuCStateInfo UncheckedConvertPtr(
     crosapi::mojom::ProbeCpuCStateInfoPtr input);

@@ -18,11 +18,11 @@ export class AppItemElement extends PolymerElement {
 
   static get properties() {
     return {
-      data: Object,
+      appInfo: Object,
     };
   }
 
-  data: AppInfo;
+  appInfo: AppInfo;
 
   override ready() {
     super.ready();
@@ -31,7 +31,7 @@ export class AppItemElement extends PolymerElement {
 
   private handleContextMenu_(e: MouseEvent) {
     this.fire_('open-menu', {
-      data: this.data,
+      appInfo: this.appInfo,
       event: e,
     });
 
@@ -42,6 +42,17 @@ export class AppItemElement extends PolymerElement {
   private fire_(eventName: string, detail?: any) {
     this.dispatchEvent(
         new CustomEvent(eventName, {bubbles: true, composed: true, detail}));
+  }
+
+  private getIconUrl_() {
+    const url = new URL(this.appInfo.iconUrl.url);
+    // For web app, the backend serves grayscale image when the app is not
+    // locally installed automatically and doesn't recognize this query param,
+    // but we add a query param here to force browser to refetch the image.
+    if (!this.appInfo.isLocallyInstalled) {
+      url.searchParams.append('grayscale', 'true');
+    }
+    return url;
   }
 }
 

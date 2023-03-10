@@ -12,13 +12,10 @@
 #import "ios/chrome/browser/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/first_run/first_run_metrics.h"
 #import "ios/chrome/browser/main/browser.h"
-#import "ios/chrome/browser/ui/authentication/signin_sync/signin_sync_coordinator.h"
 #import "ios/chrome/browser/ui/first_run/default_browser/default_browser_screen_coordinator.h"
 #import "ios/chrome/browser/ui/first_run/first_run_screen_delegate.h"
 #import "ios/chrome/browser/ui/first_run/first_run_util.h"
-#import "ios/chrome/browser/ui/first_run/legacy_signin/legacy_signin_screen_coordinator.h"
 #import "ios/chrome/browser/ui/first_run/signin/signin_screen_coordinator.h"
-#import "ios/chrome/browser/ui/first_run/sync/sync_screen_coordinator.h"
 #import "ios/chrome/browser/ui/first_run/tangible_sync/tangible_sync_screen_coordinator.h"
 #import "ios/chrome/browser/ui/first_run/welcome/welcome_screen_coordinator.h"
 #import "ios/chrome/browser/ui/screen/screen_provider.h"
@@ -130,7 +127,7 @@
 // Creates a screen coordinator according to `type`.
 - (ChromeCoordinator*)createChildCoordinatorWithScreenType:(ScreenType)type {
   switch (type) {
-    case kWelcomeAndConsent:
+    case kWelcomeAndConsent_DEPRECATED:
       return [[WelcomeScreenCoordinator alloc]
           initWithBaseNavigationController:self.navigationController
                                    browser:self.browser
@@ -141,23 +138,8 @@
                                    browser:self.browser
                             showFREConsent:YES
                                   delegate:self];
-    case kSync:
-      return [[SyncScreenCoordinator alloc]
-          initWithBaseNavigationController:self.navigationController
-                                   browser:self.browser
-                                  delegate:self];
     case kTangibleSync:
       return [[TangibleSyncScreenCoordinator alloc]
-          initWithBaseNavigationController:self.navigationController
-                                   browser:self.browser
-                                  delegate:self];
-    case kSignInAndSync:
-      return [[SigninSyncCoordinator alloc]
-          initWithBaseNavigationController:self.navigationController
-                                   browser:self.browser
-                                  delegate:self];
-    case kLegacySignIn:
-      return [[LegacySigninScreenCoordinator alloc]
           initWithBaseNavigationController:self.navigationController
                                    browser:self.browser
                                   delegate:self];

@@ -13,9 +13,10 @@
 #include "ash/constants/ash_switches.h"
 #include "ash/public/cpp/login_screen_test_api.h"
 #include "ash/public/cpp/test/shell_test_api.h"
-#include "base/bind.h"
 #include "base/command_line.h"
+#include "base/functional/bind.h"
 #include "base/strings/stringprintf.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/values.h"
 #include "build/branding_buildflags.h"
@@ -33,7 +34,6 @@
 #include "chrome/browser/ash/login/test/enrollment_ui_mixin.h"
 #include "chrome/browser/ash/login/test/fake_arc_tos_mixin.h"
 #include "chrome/browser/ash/login/test/fake_eula_mixin.h"
-#include "chrome/browser/ash/login/test/fake_gaia_mixin.h"
 #include "chrome/browser/ash/login/test/js_checker.h"
 #include "chrome/browser/ash/login/test/login_manager_mixin.h"
 #include "chrome/browser/ash/login/test/login_or_lock_screen_visible_waiter.h"
@@ -45,7 +45,7 @@
 #include "chrome/browser/ash/login/ui/login_display_host.h"
 #include "chrome/browser/ash/login/wizard_controller.h"
 #include "chrome/browser/ash/policy/enrollment/auto_enrollment_type_checker.h"
-#include "chrome/browser/ash/policy/enrollment/psm/fake_rlwe_client.h"
+#include "chrome/browser/ash/policy/enrollment/psm/rlwe_test_support.h"
 #include "chrome/browser/chrome_browser_main.h"
 #include "chrome/browser/chrome_browser_main_extra_parts.h"
 #include "chrome/browser/extensions/api/quick_unlock_private/quick_unlock_private_api.h"
@@ -63,6 +63,7 @@
 #include "chrome/browser/ui/webui/ash/login/theme_selection_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/user_creation_screen_handler.h"
 #include "chrome/common/chrome_features.h"
+#include "chrome/test/base/fake_gaia_mixin.h"
 #include "chromeos/ash/components/assistant/buildflags.h"
 #include "chromeos/ash/components/dbus/constants/attestation_constants.h"
 #include "chromeos/ash/components/dbus/update_engine/update_engine_client.h"
@@ -799,8 +800,7 @@ void OobeInteractiveUITest::PerformSessionSignInSteps(bool is_managed) {
     HandleGestureNavigationScreen();
   }
 
-  if (features::IsDarkLightModeEnabled() &&
-      features::IsOobeThemeSelectionEnabled()) {
+  if (features::IsDarkLightModeEnabled()) {
     HandleThemeSelectionScreen();
   }
 
@@ -888,7 +888,7 @@ void OobeZeroTouchInteractiveUITest::ZeroTouchEndToEnd() {
   WizardController::default_controller()
       ->GetAutoEnrollmentControllerForTesting()
       ->SetRlweClientFactoryForTesting(
-          base::BindRepeating(&policy::psm::FakeRlweClient::Create));
+          policy::psm::testing::CreateClientFactory());
 
   PerformStepsBeforeEnrollmentCheck();
 
@@ -1151,8 +1151,7 @@ IN_PROC_BROWSER_TEST_P(EphemeralUserOobeTest, DISABLED_RegularEphemeralUser) {
       test_setup()->hide_shelf_controls_in_tablet_mode()) {
     HandleGestureNavigationScreen();
 
-    if (features::IsDarkLightModeEnabled() &&
-        features::IsOobeThemeSelectionEnabled()) {
+    if (features::IsDarkLightModeEnabled()) {
       HandleThemeSelectionScreen();
     }
 

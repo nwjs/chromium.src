@@ -41,7 +41,7 @@ perfetto::ThreadTrack ConvertThreadId(const ::base::PlatformThreadId& thread) {
 TraceTimestamp
 TraceTimestampTraits<::base::TimeTicks>::ConvertTimestampToTraceTimeNs(
     const ::base::TimeTicks& ticks) {
-  return {TrackEvent::GetTraceClockId(),
+  return {static_cast<uint32_t>(TrackEvent::GetTraceClockId()),
           static_cast<uint64_t>(ticks.since_origin().InNanoseconds())};
 }
 
@@ -65,7 +65,7 @@ void WriteDebugAnnotation(protos::pbzero::DebugAnnotation* annotation,
 namespace base {
 namespace trace_event {
 
-bool ConvertableToTraceFormat::AppendToProto(ProtoAppender* appender) {
+bool ConvertableToTraceFormat::AppendToProto(ProtoAppender* appender) const {
   return false;
 }
 

@@ -7,14 +7,16 @@
 
 #include <vector>
 
-#include "base/callback_forward.h"
+#include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
 #include "base/sequence_checker.h"
 #include "base/thread_annotations.h"
 #include "base/time/time.h"
 #include "content/browser/attribution_reporting/stored_source.h"
 #include "content/common/content_export.h"
+#include "content/public/browser/attribution_data_model.h"
 #include "content/public/browser/storage_partition.h"
+#include "third_party/abseil-cpp/absl/types/optional.h"
 
 namespace sql {
 class Database;
@@ -96,11 +98,14 @@ class CONTENT_EXPORT RateLimitTable {
       sql::Database* db,
       const std::vector<StoredSource::Id>& source_ids);
 
+  void AppendRateLimitDataKeys(
+      sql::Database* db,
+      std::vector<AttributionDataModel::DataKey>& keys);
+
  private:
   [[nodiscard]] bool AddRateLimit(sql::Database* db,
-                                  Scope scope,
                                   const StoredSource& source,
-                                  base::Time time)
+                                  absl::optional<base::Time> trigger_time)
       VALID_CONTEXT_REQUIRED(sequence_checker_);
 
   [[nodiscard]] RateLimitResult AllowedForReportingOriginLimit(

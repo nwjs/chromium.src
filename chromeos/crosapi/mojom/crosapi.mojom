@@ -1296,6 +1296,12 @@ struct BrowserInitParams {
   // VideoConferenceManager in ash.
   [MinVersion=56]
   bool vc_controls_ui_enabled@56;
+
+  // App service block list for extension apps and extensions to be blocked
+  // for app service in lacros.
+  [MinVersion=57]
+  StandaloneBrowserAppServiceBlockList?
+      standalone_browser_app_service_blocklist@57;
 };
 
 // BrowserPostLoginParams is the subset of parameters in BrowserInitParams
@@ -1413,9 +1419,7 @@ struct OpenUrlParams {
   // Decides the disposition of the opening page.
   [Stable, Extensible]
   enum WindowOpenDisposition {
-    // DEPRECATED. OpenUrl used to check the URL to decide the disposition
-    // of the page. This is kept just for the compatibility. New callers
-    // should not use this value.
+    // DEPRECATED. Equivalent to kNewForegroundTab since M111.
     [Default] kLegacyAutoDetection = 0,
 
     // Opens the given URL in a new tab.

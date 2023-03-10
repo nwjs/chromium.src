@@ -205,48 +205,6 @@ class _SplitContext:
     shutil.move(tmp_jar_output, self.final_output_path)
 
 
-def _DeDupeInputJars(split_contexts_by_name):
-  """Moves jars used by multiple splits into common ancestors.
-
-  Updates |input_jars| for each _SplitContext.
-  """
-
-  def count_ancestors(split_context):
-    ret = 0
-    if split_context.parent_name:
-      ret += 1
-      ret += count_ancestors(split_contexts_by_name[split_context.parent_name])
-    return ret
-
-  base_context = split_contexts_by_name['base']
-  # Sort by tree depth so that ensure children are visited before their parents.
-  sorted_contexts = list(split_contexts_by_name.values())
-  sorted_contexts.remove(base_context)
-  sorted_contexts.sort(key=count_ancestors, reverse=True)
-
-  # If a jar is present in multiple siblings, promote it to their parent.
-  seen_jars_by_parent = defaultdict(set)
-  for split_context in sorted_contexts:
-    seen_jars = seen_jars_by_parent[split_context.parent_name]
-    new_dupes = seen_jars.intersection(split_context.input_jars)
-    parent_context = split_contexts_by_name[split_context.parent_name]
-    parent_context.input_jars.update(new_dupes)
-    seen_jars.update(split_context.input_jars)
-
-  def ancestor_jars(parent_name, dest=None):
-    dest = dest or set()
-    if not parent_name:
-      return dest
-    parent_context = split_contexts_by_name[parent_name]
-    dest.update(parent_context.input_jars)
-    return ancestor_jars(parent_context.parent_name, dest)
-
-  # Now that jars have been moved up the tree, remove those that appear in
-  # ancestors.
-  for split_context in sorted_contexts:
-    split_context.input_jars -= ancestor_jars(split_context.parent_name)
-
-
 def _OptimizeWithR8(options,
                     config_paths,
                     libraries,
@@ -289,16 +247,13 @@ def _OptimizeWithR8(options,
     base_context = split_contexts_by_name['base']
 
     # R8 OOMs with the default xmx=1G.
-    cmd = build_utils.JavaCmd(options.warnings_as_errors, xmx='2G') + [
+    cmd = build_utils.JavaCmd(xmx='2G') + [
         # Allows -whyareyounotinlining, which we don't have by default, but
         # which is useful for one-off queries.
         '-Dcom.android.tools.r8.experimental.enablewhyareyounotinlining=1',
         # Restricts horizontal class merging to apply only to classes that
         # share a .java file (nested classes). https://crbug.com/1363709
         '-Dcom.android.tools.r8.enableSameFilePolicy=1',
-        # Enables API modelling for all classes that need it. Breaks reflection
-        # on SDK versions that we no longer support. http://b/259076765
-        '-Dcom.android.tools.r8.stubNonThrowableClasses=1',
     ]
     if options.dump_inputs:
       cmd += ['-Dcom.android.tools.r8.dumpinputtofile=r8inputs.zip']
@@ -341,8 +296,6 @@ def _OptimizeWithR8(options,
       for main_dex_rule in options.main_dex_rules_path:
         cmd += ['--main-dex-rules', main_dex_rule]
 
-    _DeDupeInputJars(split_contexts_by_name)
-
     # Add any extra inputs to the base context (e.g. desugar runtime).
     extra_jars = set(options.input_paths)
     for split_context in split_contexts_by_name.values():
@@ -384,7 +337,7 @@ def _OptimizeWithR8(options,
 
 def _OutputKeepRules(r8_path, input_paths, classpath, targets_re_string,
                      keep_rules_output):
-  cmd = build_utils.JavaCmd(False) + [
+  cmd = build_utils.JavaCmd() + [
       '-cp', r8_path, 'com.android.tools.r8.tracereferences.TraceReferences',
       '--map-diagnostics:MissingDefinitionsDiagnostic', 'error', 'warning',
       '--keep-rules', '--output', keep_rules_output
@@ -403,7 +356,7 @@ def _OutputKeepRules(r8_path, input_paths, classpath, targets_re_string,
 
 def _CheckForMissingSymbols(r8_path, dex_files, classpath, warnings_as_errors,
                             error_title):
-  cmd = build_utils.JavaCmd(warnings_as_errors) + [
+  cmd = build_utils.JavaCmd() + [
       '-cp', r8_path, 'com.android.tools.r8.tracereferences.TraceReferences',
       '--map-diagnostics:MissingDefinitionsDiagnostic', 'error', 'warning',
       '--check'

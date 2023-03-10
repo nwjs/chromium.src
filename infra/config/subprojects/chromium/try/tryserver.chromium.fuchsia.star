@@ -72,6 +72,7 @@ try_.orchestrator_builder(
         "weetbix.enable_weetbix_exonerations": 100,
     },
     main_list_view = "try",
+    tryjob = try_.job(),
 )
 
 try_.compilator_builder(
@@ -187,6 +188,7 @@ try_.builder(
 )
 
 try_.builder(
-    name = "fuchsia-x64-workstation",
-    mirrors = ["ci/fuchsia-x64-workstation"],
+    name = "fuchsia-code-coverage",
+    mirrors = ["ci/fuchsia-code-coverage"],
+    execution_timeout = 20 * time.hour,
 )

@@ -48,7 +48,6 @@
     min-height: 48px;
     min-width: 0;
     padding-inline-start: var(--cluster-padding-horizontal);
-    user-select: none;
   }
 
   :host([in-side-panel_]) .label-row {
@@ -137,6 +136,7 @@
 <div id="container" on-visit-clicked="onVisitClicked_"
     on-open-all-visits="onOpenAllVisits_"
     on-remove-all-visits="onRemoveAllVisits_"
+    on-hide-visit="onHideVisit_"
     on-remove-visit="onRemoveVisit_">
   <div class="label-row">
     <span id="label" class="truncate"></span>
@@ -148,18 +148,20 @@
     </div>
   </div>
   <template is="dom-repeat" items="[[visibleVisits_]]">
-    <url-visit visit="[[item]]" query="[[query]]"></url-visit>
+    <url-visit visit="[[item]]" query="[[query]]" from-persistence="[[cluster.fromPersistence]]">
+    </url-visit>
   </template>
   <!-- Disable animation on iron-collapse, as the parent iron-list can't
        easily handle it. -->
   <iron-collapse opened="[[expanded_]]" no-animation>
     <template is="dom-repeat" items="[[hiddenVisits_]]">
-      <url-visit visit="[[item]]" query="[[query]]"></url-visit>
+      <url-visit visit="[[item]]" query="[[query]]" from-persistence="[[cluster.fromPersistence]]">
+      </url-visit>
     </template>
   </iron-collapse>
   <div id="related-searches" hidden="[[!cluster.relatedSearches.length]]"
       role="list" aria-label$="[[i18n('relatedSearchesHeader')]]"
-      on-related-search-clicked="onRelatedSearchClicked_">
+      on-related-search-clicked="onRelatedSearchClicked_" on-mousedown="clearSelection_">
     <template is="dom-repeat" items="[[relatedSearches_]]">
       <search-query search-query="[[item]]" index="[[index]]" role="listitem">
       </search-query>

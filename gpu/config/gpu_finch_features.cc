@@ -178,7 +178,7 @@ BASE_FEATURE(kGpuProcessHighPriorityWin,
 // move.
 BASE_FEATURE(kDisableVideoOverlayIfMoving,
              "DisableVideoOverlayIfMoving",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kNoUndamagedOverlayPromotion,
              "NoUndamagedOverlayPromotion",
@@ -362,6 +362,12 @@ BASE_FEATURE(kForceRestartGpuKillSwitch,
 BASE_FEATURE(kUseGpuSchedulerDfs,
              "UseGpuSchedulerDfs",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enable YUV<->RGB conversion for video clients through passthrough command
+// decoder.
+BASE_FEATURE(kPassthroughYuvRgbConversion,
+             "PassthroughYuvRgbConversion",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool UseGles2ForOopR() {
 #if BUILDFLAG(IS_ANDROID)

@@ -83,17 +83,15 @@ class WebStateImpl::RealizedWebState final : public NavigationManagerDelegate {
   void OnBackForwardStateChanged();
   void OnTitleChanged();
   void OnRenderProcessGone();
-  void OnScriptCommandReceived(const std::string& command,
-                               const base::Value& value,
-                               const GURL& page_url,
-                               bool user_is_interacting,
-                               WebFrame* sender_frame);
   void SetIsLoading(bool is_loading);
   void OnPageLoaded(const GURL& url, bool load_success);
   void OnFaviconUrlUpdated(const std::vector<FaviconURL>& candidates);
   void CreateWebUI(const GURL& url);
   void ClearWebUI();
   bool HasWebUI() const;
+  void HandleWebUIMessage(const GURL& source_url,
+                          base::StringPiece message,
+                          const base::Value::List& args);
   void SetContentsMimeType(const std::string& mime_type);
   void ShouldAllowRequest(
       NSURLRequest* request,
@@ -161,6 +159,7 @@ class WebStateImpl::RealizedWebState final : public NavigationManagerDelegate {
   bool IsVisible() const;
   bool IsCrashed() const;
   bool IsEvicted() const;
+  bool IsWebPageInFullscreenMode() const;
   const FaviconStatus& GetFaviconStatus() const;
   void SetFaviconStatus(const FaviconStatus& favicon_status);
   int GetNavigationItemCount() const;
@@ -210,9 +209,6 @@ class WebStateImpl::RealizedWebState final : public NavigationManagerDelegate {
   NavigationItemImpl* GetPendingItem() final;
 
  private:
-  // Called when a dialog presented by JavaScriptDialogPresenter is dismissed.
-  void JavaScriptDialogClosed();
-
   // Notifies observers that `frame` will be removed and then removes it.
   void NotifyObserversAndRemoveWebFrame(WebFrame* frame);
 
@@ -231,10 +227,12 @@ class WebStateImpl::RealizedWebState final : public NavigationManagerDelegate {
     return owner_->policy_deciders_;
   }
 
-  // Returns a reference to the owning WebState ScriptCommandCallbackMap.
-  ScriptCommandCallbackMap& script_command_callbacks() {
-    return owner_->script_command_callbacks_;
-  }
+  // Returns a new callback with the same signature as `callback` which
+  // will clear `running_javascript_dialog_` of the current instance (if
+  // it still exists) and then invoke the original callback.
+  template <typename... Args>
+  base::OnceCallback<void(Args...)> WrapCallbackForJavaScriptDialog(
+      base::OnceCallback<void(Args...)> callback);
 
   // Owner. Never null. Owns this object.
   WebStateImpl* owner_ = nullptr;

@@ -39,27 +39,14 @@ async function resetTargetScrollState(test) {
   }
 }
 
-async function verifyScrollStopped(test) {
-  const unscaled_pause_time_in_ms = 100;
-  const x = target_div.scrollLeft;
-  const y = target_div.scrollTop;
-  return new Promise(resolve => {
-    test.step_timeout(() => {
-      assert_equals(x, target_div.scrollLeft);
-      assert_equals(y, target_div.scrollTop);
-      resolve();
-    }, unscaled_pause_time_in_ms);
-  });
-}
-
 async function verifyNoScrollendOnDocument(test) {
   const callback =
       test.unreached_func("window got unexpected scrollend event.");
   window.addEventListener('scrollend', callback);
 }
 
-async function createScrollendPromise(test) {
-  return waitForScrollendEvent(test, target_div).then(evt => {
+async function createScrollendPromise(test, timeoutMs = 500) {
+  return waitForScrollendEvent(test, target_div, timeoutMs).then(evt => {
       assert_false(evt.cancelable, 'Event is not cancelable');
       assert_false(evt.bubbles, 'Event targeting element does not bubble');
   });
@@ -73,10 +60,20 @@ function runTest() {
       return;
 
     await resetTargetScrollState(t);
-    await waitForCompositorCommit();
+    await waitForCompositorReady();
 
-    const targetScrollendPromise = createScrollendPromise(t);
+    const timeout = 1000; // Because we have two pauses we need longer timeout
+    const targetScrollendPromise = createScrollendPromise(t, timeout);
     verifyNoScrollendOnDocument(t);
+
+    let scrollend_count = 0;
+    const scrollend_listener = () => {
+      scrollend_count += 1;
+    };
+    target_div.addEventListener("scrollend", scrollend_listener);
+    t.add_cleanup(() => {
+      target_div.removeEventListener('scrollend', scrollend_listener);
+    });
 
     // Perform a touch drag on target div and wait for target_div to get
     // a scrollend event.
@@ -88,13 +85,17 @@ function runTest() {
         .pointerMove(0, -40, {origin: target_div}) //  Drag up to move down.
         .addTick()
         .pause(200) //  Prevent inertial scroll.
+        .pointerMove(0, -60, {origin: target_div})
+        .addTick()
+        .pause(200) //  Prevent inertial scroll.
         .pointerUp()
         .send();
 
     await targetScrollendPromise;
 
     assert_true(target_div.scrollTop > 0);
-    await verifyScrollStopped(t);
+    await verifyScrollStopped(t, target_div);
+    assert_equals(scrollend_count, 1);
   }, 'Tests that the target_div gets scrollend event when touch dragging.');
 
   promise_test(async (t) => {
@@ -105,7 +106,7 @@ function runTest() {
       return;
 
     await resetTargetScrollState(t);
-    await waitForCompositorCommit();
+    await waitForCompositorReady();
 
     const targetScrollendPromise = createScrollendPromise(t);
     verifyNoScrollendOnDocument(t);
@@ -123,7 +124,7 @@ function runTest() {
 
     await targetScrollendPromise;
     assert_true(target_div.scrollTop > 0);
-    await verifyScrollStopped(t);
+    await verifyScrollStopped(t, target_div);
   }, 'Tests that the target_div gets scrollend event when clicking ' +
      'scrollbar.');
 
@@ -135,7 +136,9 @@ function runTest() {
     if (scrollbar_width == 0)
       return;
 
-    resetTargetScrollState(t);
+    await resetTargetScrollState(t);
+    await waitForCompositorReady();
+
     const targetScrollendPromise = createScrollendPromise(t);
     verifyNoScrollendOnDocument(t);
 
@@ -154,12 +157,14 @@ function runTest() {
 
     await targetScrollendPromise;
     assert_true(target_div.scrollTop > 0);
-    await verifyScrollStopped(t);
+    await verifyScrollStopped(t, target_div);
   }, 'Tests that the target_div gets scrollend event when dragging the ' +
       'scrollbar thumb.');
 
   promise_test(async (t) => {
-    resetTargetScrollState(t);
+    await resetTargetScrollState(t);
+    await waitForCompositorReady();
+
     const targetScrollendPromise = createScrollendPromise(t);
     verifyNoScrollendOnDocument(t);
 
@@ -174,13 +179,13 @@ function runTest() {
 
     await targetScrollendPromise;
     assert_true(target_div.scrollTop > 0);
-    await verifyScrollStopped(t);
+    await verifyScrollStopped(t, target_div);
   }, 'Tests that the target_div gets scrollend event when mouse wheel ' +
      'scrolling.');
 
   promise_test(async (t) => {
     await resetTargetScrollState(t);
-    await waitForCompositorCommit();
+    await waitForCompositorReady();
 
     verifyNoScrollendOnDocument(t);
     const targetScrollendPromise = createScrollendPromise(t);
@@ -190,7 +195,7 @@ function runTest() {
 
     await targetScrollendPromise;
     assert_true(target_div.scrollTop > 0);
-    await verifyScrollStopped(t);
+    await verifyScrollStopped(t, target_div);
   }, 'Tests that the target_div gets scrollend event when sending DOWN key ' +
      'to the target.');
 }

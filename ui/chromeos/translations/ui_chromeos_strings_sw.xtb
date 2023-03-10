@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Sakinisha ukitumia Linux</translation>
 <translation id="2225536596944493418">Je, una uhakika ungependa kufuta vipengee <ph name="NUMBER_OF_ITEMS" />?</translation>
 <translation id="2230062665678605299">Haiwezi kuunda folda "<ph name="FOLDER_NAME" />". <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">Your Google Drive cache was cleared.</translation>
 <translation id="2239068707900391003">Mtu aliye na kahawa</translation>
 <translation id="2251368349685848079">Rejesha kutoka kwenye tupio</translation>
 <translation id="2282155092769082568">URL ya kuweka mipangilio kiotomatiki:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">Hakuna vipengee vinavyolingana &lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt;</translation>
 <translation id="2894654529758326923">Maelezo</translation>
 <translation id="2902734494705624966">Kimarekani kilichopanuliwa</translation>
+<translation id="2904378509913846215">Folda yenye jina la "<ph name="FILENAME" />" tayari ipo. Je, ungependa kuibadilisha na unayohamisha?</translation>
 <translation id="290843123675549676">Kimarathi</translation>
 <translation id="2923240520113693977">Kiestonia</translation>
 <translation id="2938685643439809023">Kimongolia</translation>
@@ -640,6 +642,7 @@
 <translation id="6241349547798190358">Kiholanzi (Ubelgiji)</translation>
 <translation id="6267547857941397424">Mtandao wa <ph name="NETWORK_INDEX" /> kati ya <ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, Uthabiti wa Mtandao <ph name="SIGNAL_STRENGTH" />%, Betri ya Simu <ph name="BATTERY_STATUS" />%, Unganisha</translation>
 <translation id="6269630227984243955">Kimalei</translation>
+<translation id="6271903698064569429">Huwezi kupakia faili kwa sababu "<ph name="SHARED_DRIVE_NAME" />" haina nafasi ya hifadhi ya kutosha.</translation>
 <translation id="6287852322318138013">Chagua programu ili ufungue faili hii</translation>
 <translation id="6295542640242147836">Kufunga SIM</translation>
 <translation id="6296410173147755564">PUK si sahihi</translation>
@@ -685,6 +688,7 @@
 <translation id="6657585470893396449">Nenosiri</translation>
 <translation id="6658865850469097484">Faili zilizopo kwenye tupio kwa zaidi ya siku 30 zitafutika kiotomatiki.</translation>
 <translation id="6673674183150363784">Kifaransa (Ufaransa) kwenye kibodi ya Bépo</translation>
+<translation id="670380500182402678">Badilisha yote</translation>
 <translation id="6710022688720561421">Roboti</translation>
 <translation id="6710213216561001401">Iliyopita</translation>
 <translation id="6732801395666424405">Vyeti havijapakiwa</translation>
@@ -903,6 +907,7 @@
 <translation id="8386903983509584791">Imemaliza kutafuta</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" /> imetolewa.</translation>
 <translation id="8395901698320285466">Vipimo</translation>
+<translation id="8404498045299006085">Usifute yote</translation>
 <translation id="8408068190360279472">Mtandao wa <ph name="NETWORK_TYPE" />, inaunganisha</translation>
 <translation id="8425213833346101688">Badilisha</translation>
 <translation id="8431909052837336408">Badilisha PIN ya SIM</translation>

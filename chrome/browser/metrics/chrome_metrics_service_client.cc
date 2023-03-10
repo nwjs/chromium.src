@@ -13,12 +13,11 @@
 #include <vector>
 
 #include "base/base64.h"
-#include "base/bind.h"
-#include "base/callback.h"
 #include "base/check_op.h"
-#include "base/command_line.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback.h"
 #include "base/lazy_instance.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
@@ -498,7 +497,6 @@ ChromeMetricsServiceClient::ChromeMetricsServiceClient(
     metrics::MetricsStateManager* state_manager)
     : metrics_state_manager_(state_manager) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  RecordCommandLineMetrics();
   incognito_observer_ = IncognitoObserver::Create(
       base::BindRepeating(&ChromeMetricsServiceClient::UpdateRunningServices,
                           weak_ptr_factory_.GetWeakPtr()));
@@ -968,6 +966,11 @@ void ChromeMetricsServiceClient::RegisterUKMProviders() {
   ukm_service_->RegisterMetricsProvider(
       std::make_unique<PrivacyBudgetMetricsProvider>(
           identifiability_study_state_.get()));
+
+  ukm_service_->RegisterMetricsProvider(
+      std::make_unique<metrics::ComponentMetricsProvider>(
+          std::make_unique<ChromeComponentMetricsProviderDelegate>(
+              g_browser_process->component_updater())));
 }
 
 void ChromeMetricsServiceClient::CollectFinalHistograms() {
@@ -1037,18 +1040,6 @@ void ChromeMetricsServiceClient::OnHistogramSynchronizationDone() {
 
   waiting_for_collect_final_metrics_step_ = false;
   std::move(collect_final_metrics_done_callback_).Run();
-}
-
-void ChromeMetricsServiceClient::RecordCommandLineMetrics() {
-  // Get stats on use of command line.
-  const base::CommandLine* command_line(base::CommandLine::ForCurrentProcess());
-  if (command_line->HasSwitch(switches::kUserDataDir)) {
-    UMA_HISTOGRAM_COUNTS_100("Chrome.CommandLineDatDirCount", 1);
-  }
-
-  if (command_line->HasSwitch(switches::kApp)) {
-    UMA_HISTOGRAM_COUNTS_100("Chrome.CommandLineAppModeCount", 1);
-  }
 }
 
 bool ChromeMetricsServiceClient::RegisterObservers() {
@@ -1331,6 +1322,13 @@ std::string ChromeMetricsServiceClient::GetUploadSigningKey() {
 
 bool ChromeMetricsServiceClient::ShouldResetClientIdsOnClonedInstall() {
   return metrics_service_->ShouldResetClientIdsOnClonedInstall();
+}
+
+base::CallbackListSubscription
+ChromeMetricsServiceClient::AddOnClonedInstallDetectedCallback(
+    base::OnceClosure callback) {
+  return metrics_state_manager_->AddOnClonedInstallDetectedCallback(
+      std::move(callback));
 }
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)

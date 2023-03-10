@@ -257,12 +257,11 @@ suite('NetworkSummaryItem', function() {
     const testName = 'test_name';
     const testGuid = '0001';
 
-    function initWithPortalState(flagEnabled, portalState) {
+    function initWithPortalState(portalState) {
       browserProxy = new TestInternetPageBrowserProxy();
       netSummaryItem.browserProxy_ = browserProxy;
 
       netSummaryItem.setProperties({
-        isCaptivePortalUI2022Enabled_: flagEnabled,
         deviceState: {
           deviceState: DeviceStateType.kEnabled,
           inhibitReason: InhibitReason.kNotInhibited,
@@ -292,8 +291,8 @@ suite('NetworkSummaryItem', function() {
 
     test(
         'kPortal shows signin text and opens portal signin on click',
-        function() {
-          initWithPortalState(true /* flagEnabled */, PortalState.kPortal);
+        async function() {
+          initWithPortalState(PortalState.kPortal);
           assertTrue(netSummaryItem.shadowRoot.querySelector('#networkState')
                          .classList.contains('warning-message'));
           assertFalse(netSummaryItem.shadowRoot.querySelector('#networkState')
@@ -308,11 +307,9 @@ suite('NetworkSummaryItem', function() {
               netSummaryItem.shadowRoot.querySelector('#networkSummaryItemRow');
           assertTrue(!!networkSummaryItemRow);
           networkSummaryItemRow.click();
-          return browserProxy.whenCalled('showPortalSignin')
-              .then(function(guid) {
-                assertEquals(browserProxy.getCallCount('showPortalSignin'), 1);
-                assertEquals(testGuid, guid);
-              });
+          const guid = await browserProxy.whenCalled('showPortalSignin');
+          assertEquals(browserProxy.getCallCount('showPortalSignin'), 1);
+          assertEquals(testGuid, guid);
         });
 
     test(
@@ -321,7 +318,7 @@ suite('NetworkSummaryItem', function() {
           const showNetworksFiredPromise =
               eventToPromise('show-networks', netSummaryItem);
 
-          initWithPortalState(true /* flagEnabled */, PortalState.kPortal);
+          initWithPortalState(PortalState.kPortal);
           assertTrue(netSummaryItem.shadowRoot.querySelector('#networkState')
                          .classList.contains('warning-message'));
           assertFalse(netSummaryItem.shadowRoot.querySelector('#networkState')
@@ -343,9 +340,8 @@ suite('NetworkSummaryItem', function() {
 
     test(
         'kProxyAuthRequired shows signin text and opens portal signin on click',
-        function() {
-          initWithPortalState(
-              true /* flagEnabled */, PortalState.kProxyAuthRequired);
+        async function() {
+          initWithPortalState(PortalState.kProxyAuthRequired);
           assertTrue(netSummaryItem.shadowRoot.querySelector('#networkState')
                          .classList.contains('warning-message'));
           assertFalse(netSummaryItem.shadowRoot.querySelector('#networkState')
@@ -360,51 +356,9 @@ suite('NetworkSummaryItem', function() {
               netSummaryItem.shadowRoot.querySelector('#networkSummaryItemRow');
           assertTrue(!!networkSummaryItemRow);
           networkSummaryItemRow.click();
-          return browserProxy.whenCalled('showPortalSignin')
-              .then(function(guid) {
-                assertEquals(browserProxy.getCallCount('showPortalSignin'), 1);
-                assertEquals(testGuid, guid);
-              });
-        });
-
-    test('kPortal does not show sign in when flag is disabled', function() {
-      initWithPortalState(false /* flagEnabled */, PortalState.kPortal);
-      assertFalse(netSummaryItem.shadowRoot.querySelector('#networkState')
-                      .classList.contains('warning-message'));
-      assertTrue(netSummaryItem.shadowRoot.querySelector('#networkState')
-                     .classList.contains('network-state'));
-      assertNotEquals(
-          netSummaryItem.getNetworkStateText_(),
-          netSummaryItem.i18n('networkListItemSignIn'));
-      assertNotEquals(netSummaryItem.getTitleText_(), testName);
-
-      // Verify clicking network summary item does not open portal signin
-      const networkSummaryItemRow =
-          netSummaryItem.shadowRoot.querySelector('#networkSummaryItemRow');
-      assertTrue(!!networkSummaryItemRow);
-      networkSummaryItemRow.click();
-      assertEquals(browserProxy.getCallCount('showPortalSignin'), 0);
-    });
-
-    test(
-        'kProxyAuthRequired does not show sign in when flag is disabled',
-        function() {
-          initWithPortalState(
-              false /* flagEnabled */, PortalState.kProxyAuthRequired);
-          assertFalse(netSummaryItem.shadowRoot.querySelector('#networkState')
-                          .classList.contains('warning-message'));
-          assertTrue(netSummaryItem.shadowRoot.querySelector('#networkState')
-                         .classList.contains('network-state'));
-          assertNotEquals(
-              netSummaryItem.getNetworkStateText_(),
-              netSummaryItem.i18n('networkListItemSignIn'));
-          assertNotEquals(netSummaryItem.getTitleText_(), testName);
-          // Verify clicking network summary item does not open portal signin
-          const networkSummaryItemRow =
-              netSummaryItem.shadowRoot.querySelector('#networkSummaryItemRow');
-          assertTrue(!!networkSummaryItemRow);
-          networkSummaryItemRow.click();
-          assertEquals(browserProxy.getCallCount('showPortalSignin'), 0);
+          const guid = await browserProxy.whenCalled('showPortalSignin');
+          assertEquals(browserProxy.getCallCount('showPortalSignin'), 1);
+          assertEquals(testGuid, guid);
         });
   });
 });

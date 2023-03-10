@@ -566,7 +566,7 @@ ci.gpu.windows_builder(
 # Note that the Win testers are all thin Linux VMs, triggering jobs on the
 # physical Win hardware in the Swarming pool, which is why they run on linux
 ci.thin_tester(
-    name = "Dawn Win10 x64 DEPS Release (Intel HD 630)",
+    name = "Dawn Win10 x64 DEPS Release (Intel)",
     branch_selector = branches.selector.WINDOWS_BRANCHES,
     triggered_by = ["ci/Dawn Win10 x64 DEPS Builder"],
     builder_spec = builder_config.builder_spec(
@@ -641,14 +641,16 @@ ci.thin_tester(
         build_gs_bucket = "chromium-dawn-archive",
         run_tests_serially = True,
     ),
-    console_view_entry = consoles.console_view_entry(
-        category = "ToT|Windows|Intel",
-        short_name = "ex64",
-    ),
+    # Uncomment this entry when this experimental tester is actually in use.
+    # console_view_entry = consoles.console_view_entry(
+    #     category = "ToT|Windows|Intel",
+    #     short_name = "ex64",
+    # ),
+    list_view = "chromium.gpu.experimental",
 )
 
 ci.thin_tester(
-    name = "Dawn Win10 x64 Release (Intel HD 630)",
+    name = "Dawn Win10 x64 Release (Intel)",
     triggered_by = ["Dawn Win10 x64 Builder"],
     builder_spec = builder_config.builder_spec(
         execution_mode = builder_config.execution_mode.TEST,
@@ -757,7 +759,7 @@ ci.gpu.windows_builder(
 # Note that the Win testers are all thin Linux VMs, triggering jobs on the
 # physical Win hardware in the Swarming pool, which is why they run on linux
 ci.thin_tester(
-    name = "Dawn Win10 x86 DEPS Release (Intel HD 630)",
+    name = "Dawn Win10 x86 DEPS Release (Intel)",
     branch_selector = branches.selector.WINDOWS_BRANCHES,
     triggered_by = ["ci/Dawn Win10 x86 DEPS Builder"],
     builder_spec = builder_config.builder_spec(
@@ -832,14 +834,16 @@ ci.thin_tester(
         build_gs_bucket = "chromium-dawn-archive",
         run_tests_serially = True,
     ),
-    console_view_entry = consoles.console_view_entry(
-        category = "ToT|Windows|Intel",
-        short_name = "ex86",
-    ),
+    # Uncomment this entry when this experimental tester is actually in use.
+    # console_view_entry = consoles.console_view_entry(
+    #     category = "ToT|Windows|Intel",
+    #     short_name = "ex86",
+    # ),
+    list_view = "chromium.gpu.experimental",
 )
 
 ci.thin_tester(
-    name = "Dawn Win10 x86 Release (Intel HD 630)",
+    name = "Dawn Win10 x86 Release (Intel)",
     triggered_by = ["Dawn Win10 x86 Builder"],
     builder_spec = builder_config.builder_spec(
         execution_mode = builder_config.execution_mode.TEST,

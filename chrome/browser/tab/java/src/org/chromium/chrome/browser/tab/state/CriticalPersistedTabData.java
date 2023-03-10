@@ -346,6 +346,8 @@ public class CriticalPersistedTabData extends PersistedTabData {
                 return TabLaunchType.FROM_START_SURFACE;
             case LaunchTypeAtCreation.FROM_TAB_GROUP_UI:
                 return TabLaunchType.FROM_TAB_GROUP_UI;
+            case LaunchTypeAtCreation.FROM_TAB_SWITCHER_UI:
+                return TabLaunchType.FROM_TAB_SWITCHER_UI;
             case LaunchTypeAtCreation.FROM_LONGPRESS_BACKGROUND_IN_GROUP:
                 return TabLaunchType.FROM_LONGPRESS_BACKGROUND_IN_GROUP;
             case LaunchTypeAtCreation.FROM_APP_WIDGET:
@@ -402,6 +404,8 @@ public class CriticalPersistedTabData extends PersistedTabData {
                 return LaunchTypeAtCreation.FROM_START_SURFACE;
             case TabLaunchType.FROM_TAB_GROUP_UI:
                 return LaunchTypeAtCreation.FROM_TAB_GROUP_UI;
+            case TabLaunchType.FROM_TAB_SWITCHER_UI:
+                return LaunchTypeAtCreation.FROM_TAB_SWITCHER_UI;
             case TabLaunchType.FROM_LONGPRESS_BACKGROUND_IN_GROUP:
                 return LaunchTypeAtCreation.FROM_LONGPRESS_BACKGROUND_IN_GROUP;
             case TabLaunchType.FROM_APP_WIDGET:
@@ -681,11 +685,10 @@ public class CriticalPersistedTabData extends PersistedTabData {
         for (CriticalPersistedTabDataObserver observer : mObservers) {
             observer.onRootIdChanged(mTab, rootId);
         }
-        // TODO(crbug.com/1376990) investigate if this can be moved inside
-        // setIsTabStateDirty. Perhaps the gate can be changed to
-        // !mTab.isFrozen().
+        // TODO(crbug.com/1376990) investigate if this can be moved inside markTabStateDirty.
+        //  Perhaps the gate can be changed to !mTab.isFrozen().
         if (mTab.isInitialized()) {
-            TabStateAttributes.from(mTab).setIsTabStateDirty(true);
+            TabStateAttributes.from(mTab).markTabStateDirty();
         }
         save();
     }

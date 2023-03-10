@@ -6,7 +6,7 @@
  * @fileoverview Logic common to components that support a help bubble.
  *
  * A component implementing this mixin should call
- * registerHelpBubbleIdentifier() to associate specific element identifiers
+ * registerHelpBubble() to associate specific element identifiers
  * referenced  in an IPH or Tutorials journey with the ids of the HTML elements
  * that journey cares about (typically, points for help bubbles to anchor to).
  *
@@ -20,9 +20,10 @@
 
 import {assert} from 'chrome://resources/js/assert_ts.js';
 import {EventTracker} from 'chrome://resources/js/event_tracker.js';
+import {InsetsF, RectF} from 'chrome://resources/mojo/ui/gfx/geometry/mojom/geometry.mojom-webui.js';
 import {dedupingMixin, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
-import {HELP_BUBBLE_DISMISSED_EVENT, HELP_BUBBLE_TIMED_OUT_EVENT, HelpBubbleDismissedEvent, HelpBubbleElement} from './help_bubble.js';
+import {debounceEnd, HELP_BUBBLE_DISMISSED_EVENT, HELP_BUBBLE_TIMED_OUT_EVENT, HelpBubbleDismissedEvent, HelpBubbleElement} from './help_bubble.js';
 import {HelpBubbleClientCallbackRouter, HelpBubbleClosedReason, HelpBubbleHandlerInterface, HelpBubbleParams} from './help_bubble.mojom-webui.js';
 import {HelpBubbleController, Trackable} from './help_bubble_controller.js';
 import {HelpBubbleProxyImpl} from './help_bubble_proxy.js';
@@ -49,6 +50,8 @@ export const HelpBubbleMixin = dedupingMixin(
         private helpBubbleAnchorObserver_: IntersectionObserver|null = null;
         private helBubbleDismissedEventTracker_: EventTracker =
             new EventTracker();
+        private helpBubbleScrollCallbackDebounced_:
+            EventListenerOrEventListenerObject|null = null;
 
         constructor(...args: any[]) {
           super(...args);
@@ -69,13 +72,22 @@ export const HelpBubbleMixin = dedupingMixin(
               router.toggleFocusForAccessibility.addListener(
                   this.onToggleHelpBubbleFocusForAccessibility_.bind(this)),
               router.hideHelpBubble.addListener(
-                  this.onHideHelpBubble_.bind(this)));
+                  this.onHideHelpBubble_.bind(this)),
+              router.externalHelpBubbleUpdated.addListener(
+                  this.onExternalHelpBubbleUpdated_.bind(this)));
 
           this.helpBubbleAnchorObserver_ = new IntersectionObserver(
               entries => entries.forEach(
                   ({target, isIntersecting}) => this.onAnchorVisibilityChanged_(
                       target as HTMLElement, isIntersecting)),
               {root: document.body});
+
+          this.helpBubbleScrollCallbackDebounced_ =
+              debounceEnd(this.helpBubbleScrollCallback_.bind(this), 50) as
+              EventListenerOrEventListenerObject;
+          document.addEventListener(
+              'scroll', this.helpBubbleScrollCallbackDebounced_,
+              {passive: true});
 
           // When the component is connected, if the target elements were
           // already registered, they should be observed now. Any targets
@@ -98,23 +110,34 @@ export const HelpBubbleMixin = dedupingMixin(
           this.helpBubbleAnchorObserver_.disconnect();
           this.helpBubbleAnchorObserver_ = null;
           this.helpBubbleControllerById_.clear();
+          if (this.helpBubbleScrollCallbackDebounced_) {
+            document.removeEventListener(
+                'scroll', this.helpBubbleScrollCallbackDebounced_);
+            this.helpBubbleScrollCallbackDebounced_ = null;
+          }
         }
 
         /**
          * Maps `nativeId`, which should be the name of a ui::ElementIdentifier
-         * referenced by the WebUIController, with either an `htmlId` of
-         * an element in this component or an arbitrary HTMLElement.
+         * referenced by the WebUIController, with either:
+         * - a selector
+         * - an array of selectors (will traverse shadow DOM elements)
+         * - an arbitrary HTMLElement
          *
          * Example:
-         *   registerHelpBubbleIdentifier(
+         *   registerHelpBubble(
          *       'kMyComponentTitleLabelElementIdentifier',
          *       '#title');
          *
          * Example:
-         *   registerHelpBubbleIdentifier(
+         *   registerHelpBubble(
+         *       'kMyComponentTitleLabelElementIdentifier',
+         *       ['#child-component', '#child-component-button']);
+         *
+         * Example:
+         *   registerHelpBubble(
          *       'kMyComponentTitleLabelElementIdentifier',
          *       this.$.list.childNodes[0]);
-         *
          *
          * See README.md for full instructions.
          *
@@ -122,19 +145,29 @@ export const HelpBubbleMixin = dedupingMixin(
          * nativeId to a new element/selector. If the help bubble is already
          * showing, the registration will fail and return null. If successful,
          * this method returns the new controller.
+         *
+         * Optionally, an object may be supplied to add to the default margin
+         * around the anchor element in all 4 directions, e.g. {"top":5}
+         * adds 5 pixels to the margin at the top off the anchor element.
+         * The margin is used when calculating how far the help bubble should
+         * be spaced from the anchor element. Larger values equate to a larger
+         * visual gap. These values must be positive integers in the range
+         * [0, 20]. This option should be used sparingly where the help
+         * bubble would otherwise conceal important UI.
          */
-        registerHelpBubble(nativeId: string, trackable: Trackable):
-            HelpBubbleController|null {
+        registerHelpBubble(
+            nativeId: string, trackable: Trackable,
+            padding: Padding = {}): HelpBubbleController|null {
           if (this.helpBubbleControllerById_.has(nativeId)) {
             const ctrl = this.helpBubbleControllerById_.get(nativeId);
-            if (ctrl && ctrl.isShowing()) {
+            if (ctrl && ctrl.isBubbleShowing()) {
               return null;
             }
             this.unregisterHelpBubble(nativeId);
           }
           const controller =
               new HelpBubbleController(nativeId, this.shadowRoot!);
-          controller.track(trackable);
+          controller.track(trackable, paddingToInsets(padding));
           this.helpBubbleControllerById_.set(nativeId, controller);
           // This can be called before or after `connectedCallback()`, so if the
           // component isn't connected and the observer set up yet, delay
@@ -179,7 +212,7 @@ export const HelpBubbleMixin = dedupingMixin(
          * component.
          */
         isHelpBubbleShowing(): boolean {
-          return this.controllers.some(ctrl => ctrl.isShowing());
+          return this.controllers.some(ctrl => ctrl.isBubbleShowing());
         }
 
         /**
@@ -199,12 +232,12 @@ export const HelpBubbleMixin = dedupingMixin(
         getHelpBubbleForTesting(id: string): HelpBubbleElement|null {
           const ctrls =
               this.controllers.filter(this.filterMatchingIdForTesting_(id));
-          return ctrls[0] ? ctrls[0].getElement() : null;
+          return ctrls[0] ? ctrls[0].getBubble() : null;
         }
 
         private filterMatchingIdForTesting_(anchorId: string):
             (ctrl: HelpBubbleController) => boolean {
-          return ctrl => ctrl.isShowing() && ctrl.getAnchor() !== null &&
+          return ctrl => ctrl.isBubbleShowing() && ctrl.getAnchor() !== null &&
               ctrl.getAnchor()!.id === anchorId;
         }
 
@@ -212,21 +245,22 @@ export const HelpBubbleMixin = dedupingMixin(
          * Returns whether a help bubble can be shown
          * This requires:
          * - the mixin is tracking this controller
-         * - the controller is in a state to be shown, e.g. `.canShow()`
+         * - the controller is in a state to be shown, e.g.
+         *   `.canShowBubble()`
          * - no other showing bubbles are anchored to the same element
          */
         canShowHelpBubble(controller: HelpBubbleController): boolean {
           if (!this.helpBubbleControllerById_.has(controller.getNativeId())) {
             return false;
           }
-          if (!controller.canShow()) {
+          if (!controller.canShowBubble()) {
             return false;
           }
           const anchor = controller.getAnchor();
           // Make sure no other help bubble is showing for this anchor.
           const anchorIsUsed = this.controllers.some(
-              otherCtrl =>
-                  otherCtrl.isShowing() && otherCtrl.getAnchor() === anchor);
+              otherCtrl => otherCtrl.isBubbleShowing() &&
+                  otherCtrl.getAnchor() === anchor);
           return !anchorIsUsed;
         }
 
@@ -255,18 +289,18 @@ export const HelpBubbleMixin = dedupingMixin(
          * is one. Returns true if a bubble was hidden.
          */
         hideHelpBubble(nativeId: string): boolean {
-          const bubble = this.helpBubbleControllerById_.get(nativeId);
-          if (!bubble || !bubble.hasElement()) {
-            // `!bubble` means this identifier is not handled by this mixin
+          const ctrl = this.helpBubbleControllerById_.get(nativeId);
+          if (!ctrl || !ctrl.hasBubble()) {
+            // `!ctrl` means this identifier is not handled by this mixin
             return false;
           }
 
           this.helBubbleDismissedEventTracker_.remove(
-              bubble.getElement()!, HELP_BUBBLE_DISMISSED_EVENT);
+              ctrl.getBubble()!, HELP_BUBBLE_DISMISSED_EVENT);
           this.helBubbleDismissedEventTracker_.remove(
-              bubble.getElement()!, HELP_BUBBLE_TIMED_OUT_EVENT);
+              ctrl.getBubble()!, HELP_BUBBLE_TIMED_OUT_EVENT);
 
-          bubble.hide();
+          ctrl.hide();
           return true;
         }
 
@@ -281,8 +315,8 @@ export const HelpBubbleMixin = dedupingMixin(
          * activated event when an anchor element is clicked.
          */
         notifyHelpBubbleAnchorActivated(nativeId: string): boolean {
-          const bubble = this.helpBubbleControllerById_.get(nativeId);
-          if (!bubble || !bubble.isShowing()) {
+          const ctrl = this.helpBubbleControllerById_.get(nativeId);
+          if (!ctrl || !ctrl.isBubbleShowing()) {
             return false;
           }
           this.helpBubbleHandler_.helpBubbleAnchorActivated(nativeId);
@@ -300,8 +334,8 @@ export const HelpBubbleMixin = dedupingMixin(
          */
         notifyHelpBubbleAnchorCustomEvent(
             nativeId: string, customEvent: string): boolean {
-          const bubble = this.helpBubbleControllerById_.get(nativeId);
-          if (!bubble || !bubble.isShowing()) {
+          const ctrl = this.helpBubbleControllerById_.get(nativeId);
+          if (!ctrl || !ctrl.isBubbleShowing()) {
             return false;
           }
           this.helpBubbleHandler_.helpBubbleAnchorCustomEvent(
@@ -316,13 +350,58 @@ export const HelpBubbleMixin = dedupingMixin(
             target: HTMLElement, isVisible: boolean) {
           const nativeId = target.dataset['nativeId'];
           assert(nativeId);
+          const ctrl = this.helpBubbleControllerById_.get(nativeId);
+          if (ctrl) {
+            ctrl.cacheAnchorVisibility(isVisible);
+          }
           const hidden = this.hideHelpBubble(nativeId);
           if (hidden) {
             this.helpBubbleHandler_.helpBubbleClosed(
                 nativeId, HelpBubbleClosedReason.kPageChanged);
           }
+          const bounds =
+              isVisible ? this.getElementBounds_(target) : new RectF();
           this.helpBubbleHandler_.helpBubbleAnchorVisibilityChanged(
-              nativeId, isVisible);
+              nativeId, isVisible, bounds);
+        }
+
+        /**
+         * When the document scrolls, we need to update cached positions
+         * of bubble anchors
+         */
+        private helpBubbleScrollCallback_() {
+          for (const ctrl of this.controllers) {
+            if (ctrl.hasAnchor() && ctrl.getAnchorVisibility()) {
+              this.helpBubbleHandler_.helpBubbleAnchorVisibilityChanged(
+                  ctrl.getNativeId(), ctrl.getAnchorVisibility(),
+                  this.getElementBounds_(ctrl.getAnchor()!));
+            }
+          }
+        }
+
+        /**
+         * Returns bounds of the anchor element
+         */
+        private getElementBounds_(element: HTMLElement) {
+          const rect = new RectF();
+          const bounds = element.getBoundingClientRect();
+          rect.x = bounds.x;
+          rect.y = bounds.y;
+          rect.width = bounds.width;
+          rect.height = bounds.height;
+          const nativeId = element.dataset['nativeId'];
+          if (!nativeId) {
+            return rect;
+          }
+          const ctrl = this.helpBubbleControllerById_.get(nativeId);
+          if (ctrl) {
+            const padding = ctrl.getPadding();
+            rect.x -= padding.left;
+            rect.y -= padding.top;
+            rect.width += padding.left + padding.right;
+            rect.height += padding.top + padding.bottom;
+          }
+          return rect;
         }
 
         /**
@@ -333,9 +412,9 @@ export const HelpBubbleMixin = dedupingMixin(
             // Identifier not handled by this mixin.
             return;
           }
-          const bubble =
+          const ctrl =
               this.helpBubbleControllerById_.get(params.nativeIdentifier)!;
-          this.showHelpBubble(bubble, params);
+          this.showHelpBubble(ctrl, params);
         }
 
         /**
@@ -347,9 +426,9 @@ export const HelpBubbleMixin = dedupingMixin(
             return;
           }
 
-          const bubble = this.helpBubbleControllerById_.get(nativeId)!;
-          if (bubble) {
-            const anchor = bubble.getAnchor();
+          const ctrl = this.helpBubbleControllerById_.get(nativeId)!;
+          if (ctrl) {
+            const anchor = ctrl.getAnchor();
             if (anchor) {
               anchor.focus();
             }
@@ -363,6 +442,20 @@ export const HelpBubbleMixin = dedupingMixin(
           // This may be called with nativeId not handled by this mixin
           // Ignore return value to silently fail
           this.hideHelpBubble(nativeId);
+        }
+
+        /**
+         * This event is emitted by the mojo router.
+         */
+        private onExternalHelpBubbleUpdated_(nativeId: string, shown: boolean) {
+          if (!this.helpBubbleControllerById_.has(nativeId)) {
+            // Identifier not handled by this mixin.
+            return;
+          }
+
+          // Get the associated bubble and update status
+          const ctrl = this.helpBubbleControllerById_.get(nativeId)!;
+          ctrl.updateExternalShowingStatus(shown);
         }
 
         /**
@@ -389,8 +482,8 @@ export const HelpBubbleMixin = dedupingMixin(
          */
         private onHelpBubbleTimedOut_(e: HelpBubbleDismissedEvent) {
           const nativeId = e.detail.nativeId;
-          const bubble = this.helpBubbleControllerById_.get(nativeId);
-          assert(bubble);
+          const ctrl = this.helpBubbleControllerById_.get(nativeId);
+          assert(ctrl);
           const hidden = this.hideHelpBubble(nativeId);
           assert(hidden);
           if (nativeId) {
@@ -404,7 +497,7 @@ export const HelpBubbleMixin = dedupingMixin(
     });
 
 export interface HelpBubbleMixinInterface {
-  registerHelpBubble(nativeId: string, trackable: Trackable):
+  registerHelpBubble(nativeId: string, trackable: Trackable, padding?: Padding):
       HelpBubbleController|null;
   unregisterHelpBubble(nativeId: string): void;
   isHelpBubbleShowing(): boolean;
@@ -417,4 +510,24 @@ export interface HelpBubbleMixinInterface {
   notifyHelpBubbleAnchorActivated(anchorId: string): boolean;
   notifyHelpBubbleAnchorCustomEvent(anchorId: string, customEvent: string):
       boolean;
+}
+
+export interface Padding {
+  top?: number;
+  left?: number;
+  bottom?: number;
+  right?: number;
+}
+
+export function paddingToInsets(padding: Padding) {
+  const insets = new InsetsF();
+  insets.top = clampPadding(padding.top);
+  insets.left = clampPadding(padding.left);
+  insets.bottom = clampPadding(padding.bottom);
+  insets.right = clampPadding(padding.right);
+  return insets;
+}
+
+function clampPadding(n: number = 0) {
+  return Math.max(0, Math.min(20, n));
 }

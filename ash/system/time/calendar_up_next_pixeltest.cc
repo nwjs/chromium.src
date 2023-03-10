@@ -66,8 +66,9 @@ class CalendarUpNextViewPixelTest : public AshTestBase {
         google_apis::ApiErrorCode::HTTP_SUCCESS,
         calendar_test_utils::CreateMockEventList(std::move(events)).get());
 
-    up_next_view_ = widget_->SetContentsView(
-        std::make_unique<CalendarUpNextView>(controller_.get()));
+    up_next_view_ =
+        widget_->SetContentsView(std::make_unique<CalendarUpNextView>(
+            controller_.get(), views::Button::PressedCallback()));
     widget_->SetSize(
         gfx::Size(kTrayMenuWidth, up_next_view_->GetPreferredSize().height()));
   }
@@ -123,7 +124,8 @@ TEST_F(CalendarUpNextViewPixelTest,
   CreateCalendarUpNextView(std::move(events));
 
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
-      "calendar_up_next_single_upcoming_event.rev_1", Widget()));
+      "calendar_up_next_single_upcoming_event",
+      /*revision_number=*/1, Widget()));
 }
 
 TEST_F(CalendarUpNextViewPixelTest,
@@ -146,7 +148,8 @@ TEST_F(CalendarUpNextViewPixelTest,
   CreateCalendarUpNextView(std::move(events));
 
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
-      "calendar_up_next_multiple_upcoming_events.rev_1", Widget()));
+      "calendar_up_next_multiple_upcoming_events",
+      /*revision_number=*/1, Widget()));
 }
 
 TEST_F(
@@ -173,9 +176,8 @@ TEST_F(
   PressScrollRightButton();
 
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
-      "calendar_up_next_multiple_upcoming_events_press_scroll_right_button.rev_"
-      "0",
-      Widget()));
+      "calendar_up_next_multiple_upcoming_events_press_scroll_right_button",
+      /*revision_number=*/0, Widget()));
 }
 
 }  // namespace ash

@@ -7,9 +7,9 @@
 
 #include <memory>
 
-#include "base/callback_forward.h"
 #include "base/containers/circular_deque.h"
 #include "base/containers/flat_map.h"
+#include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/values.h"
@@ -51,11 +51,11 @@ class WebAppUninstallCommand : public WebAppCommandTemplate<FullSystemLock> {
       Profile* profile);
   ~WebAppUninstallCommand() override;
 
+  // WebAppCommandTemplate<FullSystemLock>:
   void StartWithLock(std::unique_ptr<FullSystemLock> lock) override;
   void OnSyncSourceRemoved() override;
   void OnShutdown() override;
-
-  LockDescription& lock_description() const override;
+  const LockDescription& lock_description() const override;
   base::Value ToDebugValue() const override;
 
   void SetRemoveManagementTypeCallbackForTesting(

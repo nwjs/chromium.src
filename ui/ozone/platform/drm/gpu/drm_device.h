@@ -10,9 +10,9 @@
 #include <memory>
 #include <vector>
 
-#include "base/callback.h"
 #include "base/files/file.h"
 #include "base/files/file_path.h"
+#include "base/functional/callback.h"
 #include "base/memory/ref_counted.h"
 #include "base/time/time.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
@@ -195,7 +195,7 @@ class DrmDevice : public base::RefCountedThreadSafe<DrmDevice> {
                                  uint32_t property_value);
 
   // Can be used to query device/driver |capability|. Sets the value of
-  // |capability| to |value|. Returns true in case of a succesful query.
+  // |capability| to |value|. Returns true in case of a successful query.
   virtual bool GetCapability(uint64_t capability, uint64_t* value);
 
   // Set the cursor to be displayed in CRTC |crtc_id|. (width, height) is the

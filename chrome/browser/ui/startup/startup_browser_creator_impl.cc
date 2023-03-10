@@ -12,9 +12,9 @@
 #include <utility>
 
 #include "base/auto_reset.h"
-#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/debug/dump_without_crashing.h"
+#include "base/functional/bind.h"
 #include "base/notreached.h"
 #include "base/values.h"
 #include "build/branding_buildflags.h"
@@ -26,6 +26,7 @@
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/custom_handlers/protocol_handler_registry_factory.h"
 #include "chrome/browser/defaults.h"
+#include "chrome/browser/headless/headless_command_processor.h"
 #include "chrome/browser/infobars/simple_alert_infobar_creator.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_service.h"
@@ -342,6 +343,23 @@ Browser* StartupBrowserCreatorImpl::OpenTabsInBrowser(
       browser->tab_strip_model()->ActivateTabAt(0);
   }
 
+  if (headless::ShouldProcessHeadlessCommands()) {
+    // Headless mode is restricted to only one url in the command line, so
+    // just grab the actave tab assuming it's the target.
+    content::WebContents* web_contents =
+        browser->tab_strip_model()->GetActiveWebContents();
+    if (web_contents) {
+      headless::ProcessHeadlessCommands(profile_, web_contents->GetVisibleURL(),
+                                        base::BindOnce(
+                                            [](base::WeakPtr<Browser> browser) {
+                                              if (browser->window()) {
+                                                browser->window()->Close();
+                                              }
+                                            },
+                                            browser->AsWeakPtr()));
+    }
+  }
+
   browser->window()->Show();
 
   return browser;
@@ -406,12 +424,23 @@ StartupBrowserCreatorImpl::DetermineURLsAndLaunch(
   const bool whats_new_enabled =
       whats_new::ShouldShowForState(local_state, promotional_tabs_enabled);
 
-  auto* privacy_sandbox_serivce =
+  auto* privacy_sandbox_service =
       PrivacySandboxServiceFactory::GetForProfile(profile_);
-  const bool privacy_sandbox_dialog_required =
-      privacy_sandbox_serivce &&
-      privacy_sandbox_serivce->GetRequiredPromptType() ==
-          PrivacySandboxService::PromptType::kConsent;
+
+  bool privacy_sandbox_dialog_required = false;
+  if (privacy_sandbox_service) {
+    switch (privacy_sandbox_service->GetRequiredPromptType()) {
+      case PrivacySandboxService::PromptType::kConsent:
+      case PrivacySandboxService::PromptType::kM1Consent:
+      case PrivacySandboxService::PromptType::kM1NoticeEEA:
+      case PrivacySandboxService::PromptType::kM1NoticeROW:
+        privacy_sandbox_dialog_required = true;
+        break;
+      case PrivacySandboxService::PromptType::kNotice:
+      case PrivacySandboxService::PromptType::kNone:
+        break;
+    }
+  }
 
   auto result = DetermineStartupTabs(
       StartupTabProviderImpl(), process_startup, is_incognito_or_guest,

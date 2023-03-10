@@ -57,8 +57,10 @@ void CullNonProminentOrDuplicateClusters(
     std::vector<history::Cluster>& clusters,
     std::set<GURL>* seen_single_visit_cluster_urls);
 
-// Marks low scoring visits as hidden, and drops them if necessary.
-void HideAndCullLowScoringVisits(std::vector<history::Cluster>& clusters);
+// Removes low scoring visits and clusters with less than`min_visits` visits
+// remaining.
+void HideAndCullLowScoringVisits(std::vector<history::Cluster>& clusters,
+                                 size_t min_visits);
 
 // Coalesces the related searches off of individual visits and places them at
 // the cluster level with numerical limits defined by flags.
@@ -67,6 +69,12 @@ void CoalesceRelatedSearches(std::vector<history::Cluster>& clusters);
 // Enforces the reverse-chronological invariant of clusters, as well the
 // by-score sorting of visits within clusters. Exposed for testing.
 void SortClusters(std::vector<history::Cluster>* clusters);
+
+// Whether to use navigation context clusters from persistence.
+bool ShouldUseNavigationContextClustersFromPersistence();
+
+// Whether the transition is user-visible.
+bool IsTransitionUserVisible(int32_t transition);
 
 }  // namespace history_clusters
 

@@ -97,12 +97,15 @@ class MetadataWriter {
     const uint64_t tensor_length{0};
     const proto::CustomInput::FillPolicy fill_policy{
         proto::CustomInput_FillPolicy_UNKNOWN_FILL_POLICY};
-    const float default_value{0};
+    const size_t default_values_size{0};
+    const float* const default_values = nullptr;
     const char* name{nullptr};
   };
 
   // Appends the list of UMA features in order.
-  void AddUmaFeatures(const UMAFeature features[], size_t features_size);
+  void AddUmaFeatures(const UMAFeature features[],
+                      size_t features_size,
+                      bool is_output = false);
 
   // Appends the list of SQL features in order.
   void AddSqlFeatures(const SqlFeature features[], size_t features_size);
@@ -147,10 +150,10 @@ class MetadataWriter {
                                           const std::string& negative_label);
 
   // Adds a MultiClassClassifier.
-  void AddOutputConfigForMultiClassClassifier(
-      const std::vector<std::string>& class_labels,
-      int top_k_outputs,
-      absl::optional<float> threshold);
+  void AddOutputConfigForMultiClassClassifier(const char* const* class_labels,
+                                              size_t class_labels_length,
+                                              int top_k_outputs,
+                                              absl::optional<float> threshold);
 
   // Adds a BinnedClassifier.
   void AddOutputConfigForBinnedClassifier(

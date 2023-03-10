@@ -252,7 +252,9 @@ FrameFetchContext::FrameFetchContext(
     DocumentLoader& document_loader,
     Document& document,
     const DetachableResourceFetcherProperties& properties)
-    : BaseFetchContext(properties),
+    : BaseFetchContext(properties,
+                       MakeGarbageCollected<DetachableConsoleLogger>(
+                           document.GetExecutionContext())),
       document_loader_(document_loader),
       document_(document) {}
 
@@ -703,13 +705,6 @@ ContentSecurityPolicy* FrameFetchContext::GetContentSecurityPolicy() const {
   return document_->domWindow()->GetContentSecurityPolicy();
 }
 
-void FrameFetchContext::AddConsoleMessage(ConsoleMessage* message) const {
-  if (GetResourceFetcherProperties().IsDetached())
-    return;
-
-  document_->AddConsoleMessage(message);
-}
-
 WebContentSettingsClient* FrameFetchContext::GetContentSettingsClient() const {
   if (GetResourceFetcherProperties().IsDetached())
     return nullptr;
@@ -874,10 +869,12 @@ absl::optional<ResourceRequestBlockedReason> FrameFetchContext::CanRequest(
     const absl::optional<ResourceRequest::RedirectInfo>& redirect_info) const {
   if (!GetResourceFetcherProperties().IsDetached() &&
       document_->IsFreezingInProgress() && !resource_request.GetKeepalive()) {
-    AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-        mojom::ConsoleMessageSource::kJavaScript,
-        mojom::ConsoleMessageLevel::kError,
-        "Only fetch keepalive is allowed during onfreeze: " + url.GetString()));
+    GetDetachableConsoleLogger().AddConsoleMessage(
+        MakeGarbageCollected<ConsoleMessage>(
+            mojom::ConsoleMessageSource::kJavaScript,
+            mojom::ConsoleMessageLevel::kError,
+            "Only fetch keepalive is allowed during onfreeze: " +
+                url.GetString()));
     return ResourceRequestBlockedReason::kOther;
   }
   return BaseFetchContext::CanRequest(type, resource_request, url, options,
@@ -890,10 +887,15 @@ CoreProbeSink* FrameFetchContext::Probe() const {
 
 void FrameFetchContext::UpdateSubresourceLoadMetrics(
     uint32_t number_of_subresources_loaded,
-    uint32_t number_of_subresource_loads_handled_by_service_worker) {
+    uint32_t number_of_subresource_loads_handled_by_service_worker,
+    bool pervasive_payload_requested,
+    int64_t pervasive_bytes_fetched,
+    int64_t total_bytes_fetched) {
   document_loader_->UpdateSubresourceLoadMetrics(
       number_of_subresources_loaded,
-      number_of_subresource_loads_handled_by_service_worker);
+      number_of_subresource_loads_handled_by_service_worker,
+      pervasive_payload_requested, pervasive_bytes_fetched,
+      total_bytes_fetched);
 }
 
 }  // namespace blink

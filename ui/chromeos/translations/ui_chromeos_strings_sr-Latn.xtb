@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Instalirajte pomoću Linux-a</translation>
 <translation id="2225536596944493418">Želite li stvarno da izbrišete stavke (<ph name="NUMBER_OF_ITEMS" />)?</translation>
 <translation id="2230062665678605299">Nije moguće napraviti folder „<ph name="FOLDER_NAME" />“. <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">Keš Google diska je obrisan.</translation>
 <translation id="2239068707900391003">Osoba sa kafom</translation>
 <translation id="2251368349685848079">Vrati iz otpada</translation>
 <translation id="2282155092769082568">URL za automatsku konfiguraciju:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">Nijedna stavka se ne podudara sa upitom &lt;b&gt;„<ph name="SEARCH_STRING" />“&lt;/b&gt;</translation>
 <translation id="2894654529758326923">Informacije</translation>
 <translation id="2902734494705624966">proširena američka</translation>
+<translation id="2904378509913846215">Folder <ph name="FILENAME" /> već postoji. Želite li da ga zamenite onim koji premeštate?</translation>
 <translation id="290843123675549676">marati</translation>
 <translation id="2923240520113693977">estonski</translation>
 <translation id="2938685643439809023">mongolski</translation>
@@ -640,6 +642,7 @@
 <translation id="6241349547798190358">holandski (Belgija)</translation>
 <translation id="6267547857941397424"><ph name="NETWORK_INDEX" />. mreža od <ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, jačina signala <ph name="SIGNAL_STRENGTH" />%, baterija telefona <ph name="BATTERY_STATUS" />%, poveži</translation>
 <translation id="6269630227984243955">malajski</translation>
+<translation id="6271903698064569429">Ne možete da otpremite fajlove zato što <ph name="SHARED_DRIVE_NAME" /> nema dovoljno memorijskog prostora.</translation>
 <translation id="6287852322318138013">Izaberite aplikaciju za otvaranje ove datoteke</translation>
 <translation id="6295542640242147836">Zaključaj SIM</translation>
 <translation id="6296410173147755564">Nevažeći PUK</translation>
@@ -685,6 +688,7 @@
 <translation id="6657585470893396449">Lozinka</translation>
 <translation id="6658865850469097484">Fajlovi koji su u otpadu duže od 30 dana se automatski brišu.</translation>
 <translation id="6673674183150363784">francuski (Francuska) sa Bépo tastaturom</translation>
+<translation id="670380500182402678">Zameni sve</translation>
 <translation id="6710022688720561421">Robot</translation>
 <translation id="6710213216561001401">Prethodno</translation>
 <translation id="6732801395666424405">Sertifikati nisu otpremljeni</translation>
@@ -903,6 +907,7 @@
 <translation id="8386903983509584791">Skeniranje je završeno</translation>
 <translation id="8387733224523483503">Fajl <ph name="FILE_NAME" /> je izveden.</translation>
 <translation id="8395901698320285466">Dimenzije</translation>
+<translation id="8404498045299006085">Zadrži sve</translation>
 <translation id="8408068190360279472">Mreža <ph name="NETWORK_TYPE" />, povezuje se</translation>
 <translation id="8425213833346101688">Promeni</translation>
 <translation id="8431909052837336408">Promenite PIN SIM kartice</translation>

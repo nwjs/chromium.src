@@ -80,6 +80,7 @@ try_.builder(
     ),
     cores = None,
     os = os.MAC_ANY,
+    goma_backend = None,
 )
 
 try_.builder(

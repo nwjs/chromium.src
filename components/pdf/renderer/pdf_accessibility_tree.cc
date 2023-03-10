@@ -8,9 +8,9 @@
 #include <iterator>
 #include <utility>
 
-#include "base/bind.h"
-#include "base/callback.h"
 #include "base/containers/cxx20_erase.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback.h"
 #include "base/i18n/break_iterator.h"
 #include "base/location.h"
 #include "base/memory/ptr_util.h"
@@ -703,6 +703,7 @@ class PdfAccessibilityTreeBuilder {
     link_node->AddStringAttribute(ax::mojom::StringAttribute::kName,
                                   std::string());
     link_node->relative_bounds.bounds = link.bounds;
+    link_node->SetDefaultActionVerb(ax::mojom::DefaultActionVerb::kJump);
     node_id_to_annotation_info_->emplace(
         link_node->id,
         PdfAccessibilityTree::AnnotationInfo(page_index_, link.index_in_page));
@@ -1661,13 +1662,11 @@ PdfAccessibilityTree::GetRenderAccessibilityIfEnabled() {
   // we shouldn't use it. This can happen if Blink accessibility is disabled
   // after we started generating the accessible PDF.
   base::WeakPtr<PdfAccessibilityTree> weak_this = GetWeakPtr();
-  if (render_accessibility->GenerateAXID() <= 0)
+  if (!render_accessibility->HasActiveDocument()) {
     return nullptr;
+  }
 
-  // GenerateAXID() above can cause self deletion. Returning nullptr will cause
-  // callers to stop doing work.
-  if (!weak_this)
-    return nullptr;
+  DCHECK(weak_this);
 
   return render_accessibility;
 }
@@ -1780,7 +1779,13 @@ void PdfAccessibilityTree::OnOcrDataReceived(
   // more convenient and less complex if an `ui::AXTree` was never constructed
   // and if the `ui::AXTreeSource` was able to use the collection of `nodes_`
   // directly.
+  if (child_tree_id == ui::AXTreeIDUnknown()) {
+    VLOG(1) << "Empty OCR data received.";
+    return;
+  }
+
   VLOG(1) << "OCR data received: " << child_tree_id.ToString();
+
   DCHECK_NE(image_node_id, ui::kInvalidAXNodeID);
   DCHECK_NE(parent_node_id, ui::kInvalidAXNodeID);
   DCHECK(!image_bounds.IsEmpty());

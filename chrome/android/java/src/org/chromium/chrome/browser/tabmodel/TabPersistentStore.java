@@ -166,7 +166,7 @@ public class TabPersistentStore {
         new TabModelSelectorTabObserver(mTabModelSelector) {
             @Override
             public void onNavigationEntriesDeleted(Tab tab) {
-                if (!tab.isDestroyed()) TabStateAttributes.from(tab).setIsTabStateDirty(true);
+                if (!tab.isDestroyed()) TabStateAttributes.from(tab).markTabStateDirty();
                 addTabToSaveQueue(tab);
             }
 
@@ -182,12 +182,12 @@ public class TabPersistentStore {
 
             @Override
             public void onPageLoadFinished(Tab tab, GURL url) {
-                if (!tab.isDestroyed()) TabStateAttributes.from(tab).setIsTabStateDirty(true);
+                if (!tab.isDestroyed()) TabStateAttributes.from(tab).markTabStateDirty();
             }
 
             @Override
             public void onTitleUpdated(Tab tab) {
-                if (!tab.isDestroyed()) TabStateAttributes.from(tab).setIsTabStateDirty(true);
+                if (!tab.isDestroyed()) TabStateAttributes.from(tab).markTabStateDirty();
             }
         };
 
@@ -768,17 +768,16 @@ public class TabPersistentStore {
             // Put any tabs being merged into this list at the end.
             // TODO(ltian): need to figure out a way to add merged tabs before Browser Actions tabs
             // when tab restore and Browser Actions tab merging happen at the same time.
-            restoredIndex = mTabModelSelector.getModel(isIncognito).getCount();
+            restoredIndex = model.getCount();
         } else if (restoredTabs.size() > 0
                 && tabToRestore.originalIndex > restoredTabs.keyAt(restoredTabs.size() - 1)) {
             // If the tab's index is too large, restore it at the end of the list.
-            restoredIndex = restoredTabs.size();
+            restoredIndex = Math.min(model.getCount(), restoredTabs.size());
         } else {
              // Otherwise try to find the tab we should restore before, if any.
             for (int i = 0; i < restoredTabs.size(); i++) {
                 if (restoredTabs.keyAt(i) > tabToRestore.originalIndex) {
-                    Tab nextTabByIndex = TabModelUtils.getTabById(model, restoredTabs.valueAt(i));
-                    restoredIndex = nextTabByIndex != null ? model.indexOf(nextTabByIndex) : -1;
+                    restoredIndex = TabModelUtils.getTabIndexById(model, restoredTabs.valueAt(i));
                     break;
                 }
             }
@@ -1379,7 +1378,7 @@ public class TabPersistentStore {
         protected void onPostExecute(Void v) {
             if (mDestroyed || isCancelled()) return;
             if (mStateSaved) {
-                if (!mTab.isDestroyed()) TabStateAttributes.from(mTab).setIsTabStateDirty(false);
+                if (!mTab.isDestroyed()) TabStateAttributes.from(mTab).clearTabStateDirtiness();
                 mTab.setIsTabSaveEnabled(isCriticalPersistedTabDataSaveOnlyEnabled()
                         || isCriticalPersistedTabDataSaveAndRestoreEnabled());
                 migrateSomeRemainingTabsToCriticalPersistedTabData();

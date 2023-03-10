@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">‏Linux کے ساتھ انسٹال کریں</translation>
 <translation id="2225536596944493418">‏کیا آپ واقعی ‎<ph name="NUMBER_OF_ITEMS" /> آئٹمز حذف کرنا چاہتے ہیں؟</translation>
 <translation id="2230062665678605299">فولڈر "<ph name="FOLDER_NAME" />" بنانے سے قاصر۔ <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">Your Google Drive cache was cleared.</translation>
 <translation id="2239068707900391003">کافی لیے ہوئے شخص</translation>
 <translation id="2251368349685848079">کوڑے دان سے بحال کریں</translation>
 <translation id="2282155092769082568">‏خودکار کنفیگریشن URL:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">‏کوئی آئٹم &lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt; سے مماثل نہیں ہے</translation>
 <translation id="2894654529758326923">معلومات</translation>
 <translation id="2902734494705624966">‏US توسیع شدہ</translation>
+<translation id="2904378509913846215">"<ph name="FILENAME" />" نام کا فولڈر پہلے سے موجود ہے۔ کیا آپ اسے اس سے بدلنا چاہتے ہیں جسے آپ منتقل کر رہے ہیں؟</translation>
 <translation id="290843123675549676">مراٹهی</translation>
 <translation id="2923240520113693977">اسٹونين</translation>
 <translation id="2938685643439809023">منگؤلی</translation>
@@ -639,6 +641,7 @@
 <translation id="6241349547798190358">ڈچ (بیلجیم)</translation>
 <translation id="6267547857941397424"><ph name="NETWORK_COUNT" /> میں سے نیٹ ورک <ph name="NETWORK_INDEX" />، <ph name="PHONE_NAME" />، سگنل کی مضبوطی <ph name="SIGNAL_STRENGTH" />%، فون کی بیٹری <ph name="BATTERY_STATUS" />%، منسلک کریں</translation>
 <translation id="6269630227984243955">مالے</translation>
+<translation id="6271903698064569429">فائلز اپ لوڈ نہیں کی جا سکتیں کیونکہ "<ph name="SHARED_DRIVE_NAME" />" میں کافی اسٹوریج نہیں ہے۔</translation>
 <translation id="6287852322318138013">یہ فائل کھولنے کیلئے ایک ایپ منتخب کریں</translation>
 <translation id="6295542640242147836">‏SIM مقفل کریں</translation>
 <translation id="6296410173147755564">‏غلط PUK</translation>
@@ -684,6 +687,7 @@
 <translation id="6657585470893396449">پاس ورڈ</translation>
 <translation id="6658865850469097484">کوڑے دان میں موجود 30 دنوں سے زیادہ کی فائلیں خودکار طور پر حذف ہو جائیں گی۔</translation>
 <translation id="6673674183150363784">‏Bépo کی بورڈ کے ساتھ فراسنیسی (فرانس)</translation>
+<translation id="670380500182402678">سبھی کو تبدیل کریں</translation>
 <translation id="6710022688720561421">روبوٹ</translation>
 <translation id="6710213216561001401">گزشتہ</translation>
 <translation id="6732801395666424405">سرٹیفکیٹس لوڈ نہیں ہوئے</translation>
@@ -902,6 +906,7 @@
 <translation id="8386903983509584791">اسکین مکمل ہو گیا</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" /> کو ایکسٹریکٹ کیا گیا۔</translation>
 <translation id="8395901698320285466">ڈائمینشنز</translation>
+<translation id="8404498045299006085">سبھی کو برقرار رکھیں</translation>
 <translation id="8408068190360279472"><ph name="NETWORK_TYPE" /> نیٹ ورک، منسلک ہو رہا ہے</translation>
 <translation id="8425213833346101688">تبدیل کریں</translation>
 <translation id="8431909052837336408">‏SIM کا PIN تبدیل کریں</translation>

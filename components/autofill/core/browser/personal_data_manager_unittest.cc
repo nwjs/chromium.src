@@ -13,8 +13,8 @@
 #include <utility>
 #include <vector>
 
-#include "base/callback_helpers.h"
 #include "base/containers/contains.h"
+#include "base/functional/callback_helpers.h"
 #include "base/guid.h"
 #include "base/memory/raw_ptr.h"
 #include "base/ranges/algorithm.h"
@@ -24,7 +24,6 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
-#include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
@@ -67,6 +66,7 @@ using testing::ElementsAre;
 using testing::Pointee;
 using testing::UnorderedElementsAre;
 
+const char kGuid[] = "a21f010a-eac1-41fc-aee9-c06bbedfb292";
 const char kPrimaryAccountEmail[] = "syncuser@example.com";
 const char16_t kPrimaryAccountEmail16[] = u"syncuser@example.com";
 const std::string kAddressEntryIcon = "accountIcon";
@@ -1696,8 +1696,7 @@ TEST_F(PersonalDataManagerTest, SaveImportedProfileWithVerifiedData) {
   // The full name was missing in |profile| and was formatted from its
   // components.
   expected.SetRawInfoWithVerificationStatus(
-      NAME_FULL, u"Marion Mitchell Morrison",
-      structured_address::VerificationStatus::kFormatted);
+      NAME_FULL, u"Marion Mitchell Morrison", VerificationStatus::kFormatted);
   expected.SetRawInfo(PHONE_HOME_WHOLE_NUMBER, u"+1 234-567-8910");
   EXPECT_EQ(0, expected.Compare(*results[0]))
       << "result = {" << *results[0] << "} | expected = {" << expected << "}";
@@ -2731,7 +2730,8 @@ TEST_F(PersonalDataManagerTest,
        GetProfileSuggestions_AddressContactFormWithProfiles) {
   base::test::ScopedFeatureList scoped_features;
   scoped_features.InitWithFeatures(
-      /*enabled_features=*/{features::kAutofillEnableRankingFormula,
+      /*enabled_features=*/{features::
+                                kAutofillEnableRankingFormulaAddressProfiles,
                             features::kAutofillUseImprovedLabelDisambiguation},
       /*disabled_features=*/{});
 
@@ -3114,7 +3114,7 @@ TEST_F(PersonalDataManagerTest, GetCreditCardsToSuggest_LocalCardsRanking) {
   // Sublabel is card number when filling name (exact format depends on
   // the platform, but the last 4 digits should appear).
   std::vector<CreditCard*> card_to_suggest =
-      personal_data_->GetCreditCardsToSuggest(/*include_server_cards=*/true);
+      personal_data_->GetCreditCardsToSuggest();
   ASSERT_EQ(3U, card_to_suggest.size());
 
   // Ordered as expected.
@@ -3154,7 +3154,7 @@ TEST_F(PersonalDataManagerTest,
   EXPECT_EQ(5U, personal_data_->GetCreditCards().size());
 
   std::vector<CreditCard*> card_to_suggest =
-      personal_data_->GetCreditCardsToSuggest(/*include_server_cards=*/true);
+      personal_data_->GetCreditCardsToSuggest();
   ASSERT_EQ(5U, card_to_suggest.size());
 
   // All cards should be ordered as expected.
@@ -3202,12 +3202,10 @@ TEST_F(PersonalDataManagerTest,
   // Check that profiles were saved.
   EXPECT_EQ(5U, personal_data_->GetCreditCards().size());
   // Expect no autofilled values or suggestions.
-  EXPECT_EQ(
-      0U, personal_data_->GetCreditCardsToSuggest(/*include_server_cards=*/true)
-              .size());
+  EXPECT_EQ(0U, personal_data_->GetCreditCardsToSuggest().size());
 
   std::vector<CreditCard*> card_to_suggest =
-      personal_data_->GetCreditCardsToSuggest(/*include_server_cards=*/true);
+      personal_data_->GetCreditCardsToSuggest();
   ASSERT_EQ(0U, card_to_suggest.size());
 }
 
@@ -3246,12 +3244,10 @@ TEST_F(PersonalDataManagerTest,
   ResetPersonalDataManager(USER_MODE_NORMAL);
 
   // Expect no credit card values or suggestions were loaded.
-  EXPECT_EQ(
-      0U, personal_data_->GetCreditCardsToSuggest(/*include_server_cards=*/true)
-              .size());
+  EXPECT_EQ(0U, personal_data_->GetCreditCardsToSuggest().size());
 
   std::vector<CreditCard*> card_to_suggest =
-      personal_data_->GetCreditCardsToSuggest(/*include_server_cards=*/true);
+      personal_data_->GetCreditCardsToSuggest();
   ASSERT_EQ(0U, card_to_suggest.size());
 }
 
@@ -3309,8 +3305,7 @@ TEST_F(PersonalDataManagerTest, GetCreditCardsToSuggest_ServerDuplicates) {
   EXPECT_EQ(5U, personal_data_->GetCreditCards().size());
 
   std::vector<CreditCard*> card_to_suggest =
-      personal_data_->GetCreditCardsToSuggest(
-          /*include_server_cards=*/true);
+      personal_data_->GetCreditCardsToSuggest();
   ASSERT_EQ(3U, card_to_suggest.size());
   EXPECT_EQ(u"John Dillinger",
             card_to_suggest[0]->GetRawInfo(CREDIT_CARD_NAME_FULL));
@@ -3345,8 +3340,7 @@ TEST_F(PersonalDataManagerTest,
   EXPECT_EQ(4U, personal_data_->GetCreditCards().size());
 
   std::vector<CreditCard*> card_to_suggest =
-      personal_data_->GetCreditCardsToSuggest(
-          /*include_server_cards=*/true);
+      personal_data_->GetCreditCardsToSuggest();
   ASSERT_EQ(3U, card_to_suggest.size());
 
   // Add a second dupe local card to make sure a full server card can be a dupe
@@ -3358,8 +3352,7 @@ TEST_F(PersonalDataManagerTest,
 
   WaitForOnPersonalDataChanged();
 
-  card_to_suggest =
-      personal_data_->GetCreditCardsToSuggest(/*include_server_cards=*/true);
+  card_to_suggest = personal_data_->GetCreditCardsToSuggest();
   ASSERT_EQ(3U, card_to_suggest.size());
 }
 
@@ -3648,8 +3641,7 @@ TEST_P(SaveImportedProfileTest, SaveImportedProfile) {
   // Apply changes to the original profile (if applicable).
   for (ProfileField change : test_case.changes_to_original) {
     original_profile.SetRawInfoWithVerificationStatus(
-        change.field_type, change.field_value,
-        structured_address::VerificationStatus::kObserved);
+        change.field_type, change.field_value, VerificationStatus::kObserved);
   }
 
   // Initialize PersonalDataManager with the original profile.
@@ -3664,8 +3656,7 @@ TEST_P(SaveImportedProfileTest, SaveImportedProfile) {
   // Apply changes to the second profile (if applicable).
   for (ProfileField change : test_case.changes_to_new) {
     profile2.SetRawInfoWithVerificationStatus(
-        change.field_type, change.field_value,
-        structured_address::VerificationStatus::kObserved);
+        change.field_type, change.field_value, VerificationStatus::kObserved);
   }
 
   profile2.FinalizeAfterImport();
@@ -5024,22 +5015,6 @@ TEST_F(PersonalDataManagerTest, OnSyncServiceInitialized_NotActiveSyncService) {
 }
 #endif  // !(BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS))
 
-#if !BUILDFLAG(IS_ANDROID)
-TEST_F(PersonalDataManagerTest, ExcludeServerSideCards) {
-  SetUpThreeCardTypes();
-
-  // include_server_cards is set to false, therefore no server cards should be
-  // available for suggestion, but that the other calls to get the credit cards
-  // are unaffected.
-  EXPECT_EQ(3U, personal_data_->GetCreditCards().size());
-  EXPECT_EQ(1U, personal_data_
-                    ->GetCreditCardsToSuggest(/*include_server_cards=*/false)
-                    .size());
-  EXPECT_EQ(1U, personal_data_->GetLocalCreditCards().size());
-  EXPECT_EQ(2U, personal_data_->GetServerCreditCards().size());
-}
-#endif  // !BUILDFLAG(IS_ANDROID)
-
 // Sync Transport mode is only for Win, Mac, and Linux.
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS)
@@ -5057,9 +5032,7 @@ TEST_F(PersonalDataManagerSyncTransportModeTest,
 
   // Check that the server cards are available for suggestion.
   EXPECT_EQ(3U, personal_data_->GetCreditCards().size());
-  EXPECT_EQ(
-      3U, personal_data_->GetCreditCardsToSuggest(/*include_server_cards=*/true)
-              .size());
+  EXPECT_EQ(3U, personal_data_->GetCreditCardsToSuggest().size());
   EXPECT_EQ(1U, personal_data_->GetLocalCreditCards().size());
   EXPECT_EQ(2U, personal_data_->GetServerCreditCards().size());
 
@@ -5070,9 +5043,7 @@ TEST_F(PersonalDataManagerSyncTransportModeTest,
 
   // Check that server cards are unavailable.
   EXPECT_EQ(3U, personal_data_->GetCreditCards().size());
-  EXPECT_EQ(
-      1U, personal_data_->GetCreditCardsToSuggest(/*include_server_cards=*/true)
-              .size());
+  EXPECT_EQ(1U, personal_data_->GetCreditCardsToSuggest().size());
   EXPECT_EQ(1U, personal_data_->GetLocalCreditCards().size());
   EXPECT_EQ(2U, personal_data_->GetServerCreditCards().size());
 }
@@ -5090,9 +5061,7 @@ TEST_F(PersonalDataManagerSyncTransportModeTest,
   // The server cards should not be available at first. The user needs to
   // accept the opt-in offer.
   EXPECT_EQ(3U, personal_data_->GetCreditCards().size());
-  EXPECT_EQ(
-      1U, personal_data_->GetCreditCardsToSuggest(/*include_server_cards=*/true)
-              .size());
+  EXPECT_EQ(1U, personal_data_->GetCreditCardsToSuggest().size());
   EXPECT_EQ(1U, personal_data_->GetLocalCreditCards().size());
   EXPECT_EQ(2U, personal_data_->GetServerCreditCards().size());
 
@@ -5102,9 +5071,7 @@ TEST_F(PersonalDataManagerSyncTransportModeTest,
 
   // Check that the server cards are available for suggestion.
   EXPECT_EQ(3U, personal_data_->GetCreditCards().size());
-  EXPECT_EQ(
-      3U, personal_data_->GetCreditCardsToSuggest(/*include_server_cards=*/true)
-              .size());
+  EXPECT_EQ(3U, personal_data_->GetCreditCardsToSuggest().size());
   EXPECT_EQ(1U, personal_data_->GetLocalCreditCards().size());
   EXPECT_EQ(2U, personal_data_->GetServerCreditCards().size());
 }
@@ -5187,13 +5154,8 @@ TEST_F(PersonalDataManagerTest, UsePersistentServerStorage) {
   ASSERT_TRUE(sync_service_.HasSyncConsent());
   SetUpThreeCardTypes();
 
-  // include_server_cards is set to false, therefore no server cards should be
-  // available for suggestion, but that the other calls to get the credit cards
-  // are unaffected.
   EXPECT_EQ(3U, personal_data_->GetCreditCards().size());
-  EXPECT_EQ(1U, personal_data_
-                    ->GetCreditCardsToSuggest(/*include_server_cards=*/false)
-                    .size());
+  EXPECT_EQ(3U, personal_data_->GetCreditCardsToSuggest().size());
   EXPECT_EQ(1U, personal_data_->GetLocalCreditCards().size());
   EXPECT_EQ(2U, personal_data_->GetServerCreditCards().size());
 }
@@ -5414,24 +5376,40 @@ TEST_F(PersonalDataManagerTest, OnAccountsCookieDeletedByUserAction) {
   EXPECT_TRUE(prefs_->GetDict(prefs::kAutofillSyncTransportOptIn).empty());
 }
 
-TEST_F(PersonalDataManagerTest, SaveProfileUpdateStrikes) {
-  std::string guid = "a21f010a-eac1-41fc-aee9-c06bbedfb292";
+TEST_F(PersonalDataManagerTest, SaveProfileMigrationStrikes) {
+  EXPECT_FALSE(personal_data_->IsProfileMigrationBlocked(kGuid));
 
-  EXPECT_FALSE(personal_data_->IsProfileUpdateBlocked(guid));
+  personal_data_->AddStrikeToBlockProfileMigration(kGuid);
+  EXPECT_FALSE(personal_data_->IsProfileMigrationBlocked(kGuid));
 
-  personal_data_->AddStrikeToBlockProfileUpdate(guid);
-  EXPECT_FALSE(personal_data_->IsProfileUpdateBlocked(guid));
-
-  personal_data_->AddStrikeToBlockProfileUpdate(guid);
-  EXPECT_FALSE(personal_data_->IsProfileUpdateBlocked(guid));
+  personal_data_->AddStrikeToBlockProfileMigration(kGuid);
+  EXPECT_FALSE(personal_data_->IsProfileMigrationBlocked(kGuid));
 
   // After the third strike, the guid should be blocked.
-  personal_data_->AddStrikeToBlockProfileUpdate(guid);
-  EXPECT_TRUE(personal_data_->IsProfileUpdateBlocked(guid));
+  personal_data_->AddStrikeToBlockProfileMigration(kGuid);
+  EXPECT_TRUE(personal_data_->IsProfileMigrationBlocked(kGuid));
 
   // Until the strikes are removed again.
-  personal_data_->RemoveStrikesToBlockProfileUpdate(guid);
-  EXPECT_FALSE(personal_data_->IsProfileUpdateBlocked(guid));
+  personal_data_->RemoveStrikesToBlockProfileMigration(kGuid);
+  EXPECT_FALSE(personal_data_->IsProfileMigrationBlocked(kGuid));
+}
+
+TEST_F(PersonalDataManagerTest, SaveProfileUpdateStrikes) {
+  EXPECT_FALSE(personal_data_->IsProfileUpdateBlocked(kGuid));
+
+  personal_data_->AddStrikeToBlockProfileUpdate(kGuid);
+  EXPECT_FALSE(personal_data_->IsProfileUpdateBlocked(kGuid));
+
+  personal_data_->AddStrikeToBlockProfileUpdate(kGuid);
+  EXPECT_FALSE(personal_data_->IsProfileUpdateBlocked(kGuid));
+
+  // After the third strike, the guid should be blocked.
+  personal_data_->AddStrikeToBlockProfileUpdate(kGuid);
+  EXPECT_TRUE(personal_data_->IsProfileUpdateBlocked(kGuid));
+
+  // Until the strikes are removed again.
+  personal_data_->RemoveStrikesToBlockProfileUpdate(kGuid);
+  EXPECT_FALSE(personal_data_->IsProfileUpdateBlocked(kGuid));
 }
 
 TEST_F(PersonalDataManagerTest, SaveProfileSaveStrikes) {

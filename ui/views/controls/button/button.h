@@ -8,14 +8,14 @@
 #include <memory>
 #include <utility>
 
-#include "base/bind.h"
+#include "base/functional/bind.h"
 #include "base/gtest_prod_util.h"
 #include "build/build_config.h"
 #include "ui/events/event_constants.h"
 #include "ui/gfx/animation/throb_animation.h"
 #include "ui/native_theme/native_theme.h"
 #include "ui/views/animation/animation_delegate_views.h"
-#include "ui/views/animation/ink_drop_host_view.h"
+#include "ui/views/animation/ink_drop_host.h"
 #include "ui/views/animation/ink_drop_state.h"
 #include "ui/views/controls/button/button_controller_delegate.h"
 #include "ui/views/controls/focus_ring.h"
@@ -132,8 +132,7 @@ class VIEWS_EXPORT Button : public View, public AnimationDelegateViews {
 
   virtual void SetCallback(PressedCallback callback);
 
-  void SetAccessibleName(const std::u16string& name);
-  const std::u16string& GetAccessibleName() const;
+  const std::u16string& GetAccessibleName() const override;
 
   // Get/sets the current display state of the button.
   ButtonState GetState() const;
@@ -304,9 +303,6 @@ class VIEWS_EXPORT Button : public View, public AnimationDelegateViews {
 
   // The text shown in a tooltip.
   std::u16string tooltip_text_;
-
-  // Accessibility data.
-  std::u16string accessible_name_;
 
   // The button's listener. Notified when clicked.
   PressedCallback callback_;

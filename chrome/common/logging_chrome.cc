@@ -34,7 +34,6 @@
 #include <string>   // NOLINT
 
 #include "base/base_switches.h"
-#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/debug/debugger.h"
@@ -42,6 +41,7 @@
 #include "base/environment.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
+#include "base/functional/bind.h"
 #include "base/metrics/statistics_recorder.h"
 #include "base/path_service.h"
 #include "base/strings/string_number_conversions.h"
@@ -64,6 +64,7 @@
 #if BUILDFLAG(IS_WIN)
 #include <initguid.h>
 #include "base/logging_win.h"
+#include "base/process/process_info.h"
 #include "base/syslog_logging.h"
 #include "chrome/common/win/eventlog_messages.h"
 #include "chrome/install_static/install_details.h"
@@ -174,6 +175,14 @@ LoggingDestination DetermineLoggingDestination(
     } else if (logging_destination != "") {
       PLOG(ERROR) << "Invalid logging destination: " << logging_destination;
     }
+#if BUILDFLAG(IS_WIN)
+    else if (base::IsCurrentProcessInAppContainer() &&
+             !command_line.HasSwitch(switches::kLogFile)) {
+      // Sandboxed appcontainer processes are unable to resolve the default log
+      // file path without asserting.
+      return kDefaultLoggingMode & ~LOG_TO_FILE;
+    }
+#endif
   }
   return kDefaultLoggingMode;
 }

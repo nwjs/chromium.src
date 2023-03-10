@@ -10,6 +10,7 @@
 #import "base/test/ios/wait_util.h"
 #import "base/time/time.h"
 #import "components/bookmarks/common/bookmark_pref_names.h"
+#import "ios/chrome/browser/ui/bookmarks/bookmark_earl_grey.h"
 #import "ios/chrome/browser/ui/history/history_ui_constants.h"
 #import "ios/chrome/browser/ui/popup_menu/popup_menu_constants.h"
 #import "ios/chrome/browser/ui/recent_tabs/recent_tabs_app_interface.h"
@@ -451,7 +452,7 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
 }
 
 // Tests that Clear Browsing Data can be successfully done from tab grid.
-- (void)testClearBrowsingData {
+- (void)FLAKY_testClearBrowsingData {
   // Load history
   [self loadTestURLs];
 
@@ -551,6 +552,7 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
   [ChromeEarlGrey loadURL:_URL1];
   [ChromeEarlGrey waitForWebStateContainingText:kResponse1];
 
+  [BookmarkEarlGrey waitForBookmarkModelLoaded:YES];
   [ChromeEarlGreyUI openTabGrid];
 
   [self longPressTabWithTitle:[NSString stringWithUTF8String:kTitle1]];
@@ -569,6 +571,10 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
                  chrome_test_util::NavigationBarTitleWithAccessibilityLabelId(
                      IDS_IOS_BOOKMARK_EDIT_SCREEN_TITLE)]
       assertWithMatcher:grey_notNil()];
+
+  [BookmarkEarlGrey
+      verifyExistenceOfBookmarkWithURL:base::SysUTF8ToNSString(_URL1.spec())
+                                  name:base::SysUTF8ToNSString(kTitle1)];
 }
 
 // Tests that Add to Bookmarks action is greyed out when editBookmarksEnabled
@@ -702,7 +708,8 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
 
 // Tests that dragging a tab grid incognito item to the edge opens a new window
 // and that the tab is properly transferred, incuding navigation stack.
-- (void)testIncognitoDragAndDropAtEdgeToCreateNewWindow {
+// TODO(crbug.com/1409065): This test is flaky.
+- (void)FLAKY_testIncognitoDragAndDropAtEdgeToCreateNewWindow {
   if (![ChromeEarlGrey areMultipleWindowsSupported])
     EARL_GREY_TEST_SKIPPED(@"Multiple windows can't be opened.");
 
@@ -1259,9 +1266,10 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
   [ChromeEarlGrey waitForWebStateContainingText:kResponse2];
 
   [ChromeEarlGrey openNewTab];
-  [ChromeEarlGrey loadURL:_URL3];
-  [ChromeEarlGrey waitForWebStateContainingText:kResponse3];
+  [ChromeEarlGrey loadURL:_URL4];
+  [ChromeEarlGrey waitForWebStateContainingText:kResponse4];
 
+  [BookmarkEarlGrey waitForBookmarkModelLoaded:YES];
   [ChromeEarlGreyUI openTabGrid];
 
   [[EarlGrey selectElementWithMatcher:VisibleTabGridEditButton()]
@@ -1301,6 +1309,15 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
                                                    grey_descendant(grey_text(
                                                        @"Mobile Bookmarks")),
                                                    nil)];
+
+  [BookmarkEarlGrey
+      verifyExistenceOfBookmarkWithURL:base::SysUTF8ToNSString(_URL1.spec())
+                                  name:base::SysUTF8ToNSString(kTitle1)];
+  [BookmarkEarlGrey
+      verifyExistenceOfBookmarkWithURL:base::SysUTF8ToNSString(_URL4.spec())
+                                  name:base::SysUTF8ToNSString(kTitle4)];
+  [BookmarkEarlGrey
+      verifyAbsenceOfBookmarkWithURL:base::SysUTF8ToNSString(_URL2.spec())];
 }
 
 // Tests adding items to the readinglist from the tab grid edit mode.

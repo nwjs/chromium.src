@@ -20,6 +20,7 @@
 #include "ash/shelf/shelf.h"
 #include "ash/shell.h"
 #include "ash/shell_delegate.h"
+#include "ash/wm/float/float_controller.h"
 #include "ash/wm/mru_window_tracker.h"
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/overview/overview_session.h"
@@ -28,11 +29,12 @@
 #include "ash/wm/window_positioning_utils.h"
 #include "ash/wm/window_state.h"
 #include "ash/wm/wm_event.h"
-#include "base/bind.h"
 #include "base/containers/contains.h"
+#include "base/functional/bind.h"
 #include "base/ranges/algorithm.h"
 #include "chromeos/ui/base/chromeos_ui_constants.h"
 #include "chromeos/ui/frame/interior_resize_handler_targeter.h"
+#include "chromeos/ui/wm/features.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/client/capture_client.h"
 #include "ui/aura/client/focus_client.h"
@@ -363,6 +365,17 @@ aura::Window* GetTopNonFloatedWindow() {
   return nullptr;
 }
 
+aura::Window* GetFloatedWindowForActiveDesk() {
+  if (!chromeos::wm::features::IsFloatWindowEnabled()) {
+    return nullptr;
+  }
+
+  auto* float_controller = Shell::Get()->float_controller();
+  DCHECK(float_controller);
+  return float_controller->FindFloatedWindowOfDesk(
+      DesksController::Get()->GetTargetActiveDesk());
+}
+
 bool ShouldMinimizeTopWindowOnBack() {
   Shell* shell = Shell::Get();
   // We never want to minimize the main app window in the Kiosk session.
@@ -400,6 +413,21 @@ bool ShouldMinimizeTopWindowOnBack() {
 
   // Minimize the window if it is at the bottom page.
   return !shell->shell_delegate()->CanGoBack(window);
+}
+
+bool IsMinimizedOrTucked(aura::Window* window) {
+  DCHECK(window->parent());
+
+  WindowState* window_state = WindowState::Get(window);
+  if (!window_state) {
+    return false;
+  }
+  if (window_state->IsFloated()) {
+    return !window->is_destroying() &&
+           Shell::Get()->float_controller()->IsFloatedWindowTuckedForTablet(
+               window);
+  }
+  return window_state->IsMinimized();
 }
 
 void SendBackKeyEvent(aura::Window* root_window) {

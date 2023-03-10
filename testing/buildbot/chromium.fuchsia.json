@@ -2902,7 +2902,8 @@
         "args": [
           "--test-arg=--disable-gpu",
           "--test-arg=--headless",
-          "--test-arg=--ozone-platform=headless"
+          "--test-arg=--ozone-platform=headless",
+          "--test-arg=--test-launcher-jobs=1"
         ],
         "ci_only": true,
         "merge": {
@@ -4439,7 +4440,8 @@
         "args": [
           "--test-arg=--disable-gpu",
           "--test-arg=--headless",
-          "--test-arg=--ozone-platform=headless"
+          "--test-arg=--ozone-platform=headless",
+          "--test-arg=--test-launcher-jobs=1"
         ],
         "merge": {
           "args": [],

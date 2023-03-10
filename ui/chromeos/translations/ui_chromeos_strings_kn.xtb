@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Linux ಸಹಾಯದಿಂದ ಇನ್‌ಸ್ಟಾಲ್ ಮಾಡಿ</translation>
 <translation id="2225536596944493418">ನೀವು ಖಂಡಿತವಾಗಿಯೂ <ph name="NUMBER_OF_ITEMS" /> ಐಟಂಗಳನ್ನು ಅಳಿಸಲು ಬಯಸುವಿರಾ?</translation>
 <translation id="2230062665678605299">"<ph name="FOLDER_NAME" />" ಫೋಲ್ಡರ್ ಅನ್ನು ರಚಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">ನಿಮ್ಮ Google Drive ಕ್ಯಾಷ್ ಅನ್ನು ತೆರವುಗೊಳಿಸಲಾಗಿದೆ.</translation>
 <translation id="2239068707900391003">ಕಾಫಿ ಕುಡಿಯುತ್ತಿರುವ ವ್ಯಕ್ತಿ</translation>
 <translation id="2251368349685848079">ಅನುಪಯುಕ್ತದಿಂದ ಮರುಸ್ಥಾಪಿಸಿ</translation>
 <translation id="2282155092769082568">ಸ್ವಯಂ ಕಾನ್ಫಿಗರೇಶನ್ URL:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">&lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt; ಗೆ ಯಾವ ಐಟಂಗಳೂ ಹೊಂದಿಕೆಯಾಗುವುದಿಲ್ಲ</translation>
 <translation id="2894654529758326923">ಮಾಹಿತಿ</translation>
 <translation id="2902734494705624966">US ವಿಸ್ತೃತ</translation>
+<translation id="2904378509913846215">"<ph name="FILENAME" />" ಹೆಸರಿನ ಫೋಲ್ಡರ್ ಈಗಾಗಲೇ ಇದೆ. ನೀವು ಸರಿಸುತ್ತಿರುವ ಒಂದರಿಂದ ಅದನ್ನು ಬದಲಾಯಿಸಲು ನೀವು ಬಯಸುವಿರಾ?</translation>
 <translation id="290843123675549676">ಮರಾಠಿ</translation>
 <translation id="2923240520113693977">ಎಸ್ಟೋನಿಯನ್</translation>
 <translation id="2938685643439809023">ಮಂಗೋಲಿಯನ್</translation>
@@ -640,6 +642,7 @@
 <translation id="6241349547798190358">ಡಚ್ (ಬೆಲ್ಜಿಯಂ)</translation>
 <translation id="6267547857941397424"><ph name="NETWORK_COUNT" /> ರಲ್ಲಿ <ph name="NETWORK_INDEX" /> ನೆಟ್‌ವರ್ಕ್, <ph name="PHONE_NAME" />, ಸಿಗ್ನಲ್ ಸಾಮರ್ಥ್ಯ <ph name="SIGNAL_STRENGTH" />%, ಫೋನ್ ಬ್ಯಾಟರಿ <ph name="BATTERY_STATUS" />%, ಕನೆಕ್ಟ್</translation>
 <translation id="6269630227984243955">ಮಲೈ</translation>
+<translation id="6271903698064569429">"<ph name="SHARED_DRIVE_NAME" />" ಸಾಕಷ್ಟು ಸಂಗ್ರಹಣೆಯನ್ನು ಹೊಂದಿರದ ಕಾರಣ ಫೈಲ್‌ಗಳನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಿಲ್ಲ.</translation>
 <translation id="6287852322318138013">ಈ ಫೈಲ್ ತೆರೆಯಲು ಒಂದು ಅಪ್ಲಿಕೇಶನ್ ಆಯ್ಕೆಮಾಡಿ</translation>
 <translation id="6295542640242147836">SIM ಅನ್ನು ಲಾಕ್ ಮಾಡಿ</translation>
 <translation id="6296410173147755564">ಅಮಾನ್ಯ PUK</translation>
@@ -685,6 +688,7 @@
 <translation id="6657585470893396449">ಪಾಸ್‌ವರ್ಡ್</translation>
 <translation id="6658865850469097484">30 ದಿನಗಳಿಗಿಂತ ಹೆಚ್ಚು ಕಾಲ ಅನುಪಯುಕ್ತದಲ್ಲಿರುವ ಫೈಲ್‌ಗಳನ್ನು ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಅಳಿಸಲಾಗುತ್ತದೆ.</translation>
 <translation id="6673674183150363784">ಬೆಪೊ ಕೀಬೋರ್ಡ್‌ನಲ್ಲಿ ಫ್ರೆಂಚ್ (ಫ್ರಾನ್ಸ್)</translation>
+<translation id="670380500182402678">ಎಲ್ಲವನ್ನೂ ಬದಲಿಸಿ</translation>
 <translation id="6710022688720561421">ರೋಬೋಟ್</translation>
 <translation id="6710213216561001401">ಹಿಂದಿನದು</translation>
 <translation id="6732801395666424405">ಪ್ರಮಾಣಪತ್ರಗಳನ್ನು ಲೋಡ್‌ ಮಾಡಲಾಗಲಿಲ್ಲ</translation>
@@ -903,6 +907,7 @@
 <translation id="8386903983509584791">ಸ್ಕ್ಯಾನ್ ಪೂರ್ಣಗೊಂಡಿದೆ</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" /> ಅನ್ನು ಬೇರ್ಪಡಿಸಲಾಗಿದೆ.</translation>
 <translation id="8395901698320285466">ಅಳತೆಗಳು</translation>
+<translation id="8404498045299006085">ಎಲ್ಲವನ್ನು ಇರಿಸಿ</translation>
 <translation id="8408068190360279472"><ph name="NETWORK_TYPE" /> ನೆಟ್‌ವರ್ಕ್, ಸಂಪರ್ಕಿಸಲಾಗುತ್ತಿದೆ</translation>
 <translation id="8425213833346101688">ಬದಲಿಸಿ</translation>
 <translation id="8431909052837336408">ಸಿಮ್‌ ಪಿನ್‌ ಬದಲಾಯಿಸು</translation>

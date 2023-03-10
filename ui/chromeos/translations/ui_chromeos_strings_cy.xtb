@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Gosod gyda Linux</translation>
 <translation id="2225536596944493418">Ydych chi'n siŵr eich bod chi am ddileu <ph name="NUMBER_OF_ITEMS" /> eitem?</translation>
 <translation id="2230062665678605299">Methu â chreu'r ffolder "<ph name="FOLDER_NAME" />". <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">Cliriwyd eich storfa dros dro Google Drive.</translation>
 <translation id="2239068707900391003">Person gyda choffi</translation>
 <translation id="2251368349685848079">Adfer o'r Bin Sbwriel</translation>
 <translation id="2282155092769082568">URL awtoffurffweddu:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">Nid eos unrhyw eitemau sy'n cyfateb i &lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt;</translation>
 <translation id="2894654529758326923">Gwybodaeth</translation>
 <translation id="2902734494705624966">Estynedig UDA</translation>
+<translation id="2904378509913846215">Mae ffolder o'r enw "<ph name="FILENAME" />" eisoes yn bodoli. Ydych chi am ei disodli gyda'r un rydych chi'n ei symud?</translation>
 <translation id="290843123675549676">Marati</translation>
 <translation id="2923240520113693977">Estoneg</translation>
 <translation id="2938685643439809023">Mongoleg</translation>
@@ -639,6 +641,7 @@
 <translation id="6241349547798190358">Iseldireg (Gwlad Belg)</translation>
 <translation id="6267547857941397424">Rhwydwaith <ph name="NETWORK_INDEX" /> o <ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, Cryfder y Signal <ph name="SIGNAL_STRENGTH" />%, Batri'r Ffôn <ph name="BATTERY_STATUS" />%, Cysylltu</translation>
 <translation id="6269630227984243955">Maleieg</translation>
+<translation id="6271903698064569429">Nid oes modd uwchlwytho ffeiliau oherwydd nad oes gan "<ph name="SHARED_DRIVE_NAME" />" ddigon o le storio.</translation>
 <translation id="6287852322318138013">Dewiswch ap i agor y ffeil hon</translation>
 <translation id="6295542640242147836">Cloi SIM</translation>
 <translation id="6296410173147755564">PUK annilys</translation>
@@ -684,6 +687,7 @@
 <translation id="6657585470893396449">Cyfrinair</translation>
 <translation id="6658865850469097484">Bydd ffeiliau yn y bin sbwriel am fwy na 30 diwrnod yn cael eu dileu yn awtomatig.</translation>
 <translation id="6673674183150363784">Ffrangeg (Ffrainc) gyda bysellfwrdd Bépo</translation>
+<translation id="670380500182402678">Disodli'r cyfan</translation>
 <translation id="6710022688720561421">Robot</translation>
 <translation id="6710213216561001401">Blaenorol</translation>
 <translation id="6732801395666424405">Tystysgrifau heb eu llwytho</translation>
@@ -902,6 +906,7 @@
 <translation id="8386903983509584791">Wedi gorffen sganio</translation>
 <translation id="8387733224523483503">Echdynnwyd <ph name="FILE_NAME" />.</translation>
 <translation id="8395901698320285466">Dimensiynau</translation>
+<translation id="8404498045299006085">Cadw pob un</translation>
 <translation id="8408068190360279472">Rhwydwaith <ph name="NETWORK_TYPE" />, werthi'n cysylltu</translation>
 <translation id="8425213833346101688">Newid</translation>
 <translation id="8431909052837336408">Newid PIN SIM</translation>

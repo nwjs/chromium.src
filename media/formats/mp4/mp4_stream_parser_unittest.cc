@@ -12,8 +12,8 @@
 #include <string>
 #include <tuple>
 
-#include "base/bind.h"
-#include "base/callback_helpers.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/logging.h"
 #include "base/memory/ref_counted.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -697,6 +697,17 @@ TEST_F(MP4StreamParserTest, Flac192kHz) {
       ReadTestDataFile("bear-flac-192kHz_frag.mp4");
   EXPECT_TRUE(
       AppendAllDataThenParseInPieces(buffer->data(), buffer->data_size(), 512));
+}
+
+TEST_F(MP4StreamParserTest, VideoColorSpaceInvalidValues) {
+  ColorParameterInformation invalid;
+  invalid.colour_primaries = 1234;
+  invalid.transfer_characteristics = 42;
+  invalid.matrix_coefficients = 999;
+  invalid.full_range = true;
+  invalid.fully_parsed = true;
+  MediaSerialize(
+      VideoSampleEntry::ConvertColorParameterInformationToColorSpace(invalid));
 }
 
 TEST_F(MP4StreamParserTest, Vp9) {

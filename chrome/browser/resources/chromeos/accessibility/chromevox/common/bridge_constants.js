@@ -35,11 +35,19 @@ let BridgeEntry;
 export const BridgeConstants = {};
 
 /** @public {!BridgeEntry} */
+BridgeConstants.Braille = {
+  TARGET: 'Braille',
+  Action: {
+    BACK_TRANSLATE: 'backTranslate',
+  },
+};
+
+/** @public {!BridgeEntry} */
 BridgeConstants.BrailleBackground = {
   TARGET: 'BrailleBackground',
   Action: {
-    BACK_TRANSLATE: 'backTranslate',
     REFRESH_BRAILLE_TABLE: 'refreshBrailleTable',
+    WRITE: 'write',
   },
 };
 
@@ -63,8 +71,8 @@ BridgeConstants.ChromeVoxPrefs = {
 };
 
 /** @public {!BridgeEntry} */
-BridgeConstants.ChromeVoxState = {
-  TARGET: 'ChromeVoxState',
+BridgeConstants.ChromeVoxRange = {
+  TARGET: 'ChromeVoxRange',
   Action: {
     CLEAR_CURRENT_RANGE: 'clearCurrentRange',
   },
@@ -79,8 +87,8 @@ BridgeConstants.CommandHandler = {
 };
 
 /** @public {!BridgeEntry} */
-BridgeConstants.EventSourceState = {
-  TARGET: 'EventSourceState',
+BridgeConstants.EventSource = {
+  TARGET: 'EventSource',
   Action: {
     GET: 'get',
   },

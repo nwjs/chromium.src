@@ -9,8 +9,8 @@
 #include <memory>
 #include <utility>
 
-#include "base/bind.h"
 #include "base/command_line.h"
+#include "base/functional/bind.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
 #include "base/metrics/histogram_functions.h"
@@ -542,10 +542,9 @@ void MirroringActivity::OnSessionSet(const CastSession& session) {
           sink_.sink().name(), session.destination_id(),
           message_handler_->source_id(), cast_source->target_playout_delay(),
           route().media_source().IsRemotePlaybackSource(),
-          GetMirroringRefreshInterval(),
           ShouldForceLetterboxing(cast_data_.model_name)),
       std::move(observer_remote), std::move(channel_remote),
-      std::move(channel_to_service_receiver_));
+      std::move(channel_to_service_receiver_), route_.media_sink_name());
 }
 
 void MirroringActivity::StopMirroring() {

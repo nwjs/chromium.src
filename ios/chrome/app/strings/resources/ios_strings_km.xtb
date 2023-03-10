@@ -4,6 +4,7 @@
 <translation id="1005230401424685968">YYYY</translation>
 <translation id="1013952917065545813">អ្នកអាច​ត្រឡប់មកត្រង់នេះវិញ ដើម្បីបើកផ្ទាំង​ដែលអ្នកទើបតែបិទ​ម្ដងទៀត</translation>
 <translation id="1016495303386450659">ធាតុត្រូវបានធ្វើបច្ចុប្បន្នភាព</translation>
+<translation id="1035980983510608210">ការ​បិទផ្ទាំង​ទាំងអស់​នឹង​បិទ​ផ្ទាំង​ដែល​បានខ្ទាស់ផង​​ដែរ។</translation>
 <translation id="1044891598689252897">គេហទំព័រនឹងដំណើរការធម្មតា</translation>
 <translation id="1049743911850919806">អនាមិក</translation>
 <translation id="105093091697134113">គណនីខាងក្រោម​ប្រើពាក្យសម្ងាត់ ដែលបានបញ្ចេញ​នៅក្នុង​ការបែកធ្លាយ​ទិន្នន័យរបស់ភាគីទីបី ឬបានបញ្ចូលនៅក្នុង​គេហទំព័របញ្ឆោត។ សូមប្ដូរ​ពាក្យសម្ងាត់​ទាំងនេះ​ភ្លាមៗ ដើម្បី​រក្សា​សុវត្ថិភាព​គណនី​របស់អ្នក។</translation>
@@ -17,6 +18,7 @@
 <translation id="1066060668811609597">គ្រប់គ្រង​ការធ្វើ​សមកាលកម្ម</translation>
 <translation id="1076421457278169141">បានស្កេនរកលេខកូដ</translation>
 <translation id="1076785341346483463">ធ្វើ​សម​កាល​កម្មដោយប្រើ​គណនីដែលស្ថិតក្រោមការគ្រប់គ្រង</translation>
+<translation id="1080365971383768617">ពាក្យសម្ងាត់លើឧបករណ៍ទាំងអស់របស់អ្នក</translation>
 <translation id="1084365883616172403">ការបង្ហោះតាម Facebook បានបញ្ចប់។</translation>
 <translation id="1085696779717592361">ប្រើ Chrome តាម​លំនាំដើម</translation>
 <translation id="1103523840287552314">បកប្រែ <ph name="LANGUAGE" /> ជានិច្ច</translation>
@@ -48,6 +50,7 @@
 <translation id="1265739287306757398">ស្វែងយល់​អំពី​របៀប</translation>
 <translation id="1272079795634619415">ឈប់</translation>
 <translation id="1275718070701477396">បានជ្រើសរើស</translation>
+<translation id="1279024913354609713">កុំ​អនុញ្ញាត</translation>
 <translation id="1281818060020671000">គ្រប់គ្រង​ទិន្នន័យ</translation>
 <translation id="1282311502488501110">កុំ​ចូលគណនី</translation>
 <translation id="1283524564873030414">24 ម៉ោងមុន</translation>
@@ -72,12 +75,12 @@
 <translation id="1404330357948037222">អ្នកបានចេញពីគណនី</translation>
 <translation id="1407135791313364759">បើកទាំងអស់</translation>
 <translation id="1430915738399379752">បោះពុម្ព</translation>
-<translation id="1434356225517321998">កម្មវិធីរុករកតាមអ៊ីនធឺណិត​របស់អ្នកស្ថិតក្រោមការគ្រប់គ្រង។ <ph name="BEGIN_LINK" />ព័ត៌មាន​លម្អិត<ph name="END_LINK" /></translation>
 <translation id="1449835205994625556">លាក់​ពាក្យសម្ងាត់</translation>
 <translation id="1450170672351507823">ការការពារស្តង់ដារ​ត្រូវបានបើក។ ដើម្បី​ឱ្យ​កាន់​តែ​មាន​សុវត្ថិភាព​ថែម​ទៀត សូមប្រើ​ការការពារ​ដែលប្រសើរ​ជាងមុន។</translation>
 <translation id="149095475893949513">គេហទំព័រនេះ​កំពុងព្យាយាម​ទាញយក​កម្រងព័ត៌មាន​នៃការកំណត់រចនាសម្ព័ន្ធ។</translation>
 <translation id="1491277525950327607">ចុចពីរដង​ដើម្បី​បិទបើក​ការកំណត់</translation>
 <translation id="1492417797159476138">អ្នកបានរក្សាទុក​ឈ្មោះអ្នកប្រើប្រាស់​នេះសម្រាប់គេហទំព័រនេះ​រួចហើយ</translation>
+<translation id="1498283581832036924">គណនី <ph name="WEBSITE" /> របស់​អ្នក​នឹង​មិន​ត្រូវ​បានលុប​ទេ</translation>
 <translation id="1506063256525392513">វា​អនុញ្ញាតឱ្យ​អ្នកថតរូប និង​បង្ហោះរូបថត ក៏ដូចជាស្កេន​កូដ QR ផងដែរ</translation>
 <translation id="1509486075633541495">ចូលទៅ​គេហទំព័រ</translation>
 <translation id="1509960214886564027">មុខងារ​នៅលើ​គេហទំព័រ​ជាច្រើន​អាចដំណើរការមិន​ត្រឹមត្រូវ</translation>
@@ -143,6 +146,7 @@
 <translation id="2015722694326466240">ដើម្បី​មើល​ពាក្យសម្ងាត់ អ្នកត្រូវ​កំណត់​លេខ​កូដ​សម្ងាត់​នៅលើ​ឧបករណ៍​របស់អ្នក​ជាមុន​សិន។</translation>
 <translation id="2021670401941426298">មើល​ការណែនាំ​របស់​ម៉ាស៊ីន​ស្វែងរកអ្នក ដើម្បីដឹង​អំពីរបៀប​លុបប្រវត្តិ​ស្វែងរក​របស់អ្នក ប្រសិនបើអាច។</translation>
 <translation id="202292859882676807">បានអនុញ្ញាត​សិទ្ធិចូលប្រើ​មីក្រូហ្វូន</translation>
+<translation id="20485545164632846">ធាតុ​ថ្មី</translation>
 <translation id="2050196510205866090">{count,plural, =1{មាន​វិធីបង់ប្រាក់​ដែល​បាន​រក្សាទុក {count} នៅ​លើ​ក្ដារចុច​របស់​អ្នក។}other{មាន​វិធីបង់ប្រាក់​ដែល​បាន​រក្សាទុក {count} នៅ​លើ​ក្ដារចុច​របស់​អ្នក។}}</translation>
 <translation id="2073572773299281212">ដំណើរការ <ph name="DAYS" /> ថ្ងៃ​មុន</translation>
 <translation id="2074131957428911366">អ្នកអាចជ្រើសរើស​អ្វីដែលត្រូវធ្វើសមកាលកម្ម​នៅក្នុង<ph name="BEGIN_LINK" />ការកំណត់<ph name="END_LINK" />បានជានិច្ច។</translation>
@@ -153,7 +157,6 @@
 <translation id="21133533946938348">ដៅផ្ទាំង</translation>
 <translation id="2116625576999540962">ធាតុ <ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> ត្រូវបានផ្លាស់ទី។</translation>
 <translation id="2122754583996902531">កម្មវិធីរុករកតាមអ៊ីនធឺណិត​របស់អ្នកស្ថិតក្រោមការគ្រប់គ្រង។ <ph name="BEGIN_LINK" />ស្វែងយល់បន្ថែម<ph name="END_LINK" /></translation>
-<translation id="212623074644302906">សួរដើម្បី​បញ្ចូល​ទៅក្នុង​បញ្ជីអាន</translation>
 <translation id="2139867232736819575">ស្វែងរក​អត្ថបទ​ដែលអ្នក​បានចម្លង</translation>
 <translation id="214201757571129614">ចូលគណនី…</translation>
 <translation id="2149973817440762519">កែប្រែចំណាំ</translation>
@@ -169,7 +172,6 @@
 <translation id="225943865679747347">កំហុសឆ្គងលេខកូដ៖ <ph name="ERROR_CODE" /></translation>
 <translation id="2267753748892043616">បន្ថែមគណនី</translation>
 <translation id="2268044343513325586">សម្រាំង</translation>
-<translation id="2271351792809375263">ប្រើ​ពាក្យសម្ងាត់​ដែលអ្នកបាន​រក្សាទុកនៅ Chrome នៅក្នុង​កម្មវិធីផ្សេងទៀត​នៅលើឧបករណ៍​របស់អ្នក</translation>
 <translation id="2273327106802955778">ម៉ឺនុយច្រើនទៀត</translation>
 <translation id="2286505070150039482">អត្ថបទ​ដែល​បាន​រំលេច</translation>
 <translation id="2299218006564889602">ពាក្យសម្ងាត់​របស់អ្នក​ត្រូវបាន​អ៊ីនគ្រីប​នៅលើឧបករណ៍​របស់អ្នក មុនពេលរក្សាទុក​ពាក្យសម្ងាត់​ទាំងនោះទៅ​កម្មវិធីគ្រប់គ្រង​ពាក្យសម្ងាត់ Google។</translation>
@@ -208,6 +210,7 @@
 <translation id="2578571896248130439">ផ្ញើទំព័រ​បណ្ដាញ</translation>
 <translation id="2584132361465095047">បន្ថែមគណនី…</translation>
 <translation id="2600682495497606169">សម្អាត​ខូគីរបស់គេហទំព័រ</translation>
+<translation id="2609008503159898744">បិទផ្ទាំងទាំងអស់ឬ?</translation>
 <translation id="2625189173221582860">បានចម្លង​ពាក្យសម្ងាត់</translation>
 <translation id="2626236249646841566">សូម​ពិនិត្យមើល​ការតភ្ជាប់​របស់អ្នក រួចសាកល្បង​ចូលគណនី​ម្ដងទៀត។</translation>
 <translation id="2637313651144986786">ស្វែងរកផ្ទាំង...</translation>
@@ -217,6 +220,7 @@
 <translation id="2664621323652615289">បញ្ឈប់</translation>
 <translation id="2671426118752779020">អ្នកអាចប្រើពាក្យសម្ងាត់ ដែលអ្នកបានរក្សាទុកទៅក្នុងកម្មវិធីគ្រប់គ្រង​ពាក្យសម្ងាត់ Google នៅក្នុងកម្មវិធីផ្សេងទៀតនៅលើ iPhone របស់អ្នក។</translation>
 <translation id="2690858294534178585">កាមេរ៉ាកំពុងត្រូវបានប្រើ</translation>
+<translation id="26915454213703967">ស្វែងរកខាងក្នុងរូបភាពដោយប្រើ Google</translation>
 <translation id="2691653761409724435">មិន​អាច​ប្រើ​បាន​ពេល​គ្មាន​អ៊ីនធឺណិត</translation>
 <translation id="2695507686909505111">​បានបកប្រែទំព័រហើយ</translation>
 <translation id="2697526135132990015">ចេញ រួចសម្អាតទិន្នន័យ</translation>
@@ -284,7 +288,6 @@
 មើល​ការណែនាំ​របស់​ម៉ាស៊ីន​ស្វែងរកអ្នក ដើម្បីដឹង​អំពីរបៀប​លុបប្រវត្តិ​ស្វែងរក​របស់អ្នក ប្រសិនបើអាច។</translation>
 <translation id="3080525922482950719">អ្នកអាចរក្សាទុកទំព័រ ដើម្បីអាននៅពេលក្រោយ ឬពេលគ្មានអ៊ីនធឺណិត</translation>
 <translation id="3081338492074632642">ត្រូវ​ប្រាកដថា ពាក្យសម្ងាត់​ដែលអ្នក​កំពុងរក្សាទុក​ត្រូវគ្នា​ជាមួយពាក្យសម្ងាត់​របស់អ្នក​សម្រាប់ <ph name="WEBSITE" /></translation>
-<translation id="3103603146121354983">បំពេញ​ពាក្យ​សម្ងាត់​ដោយ​ស្វ័យប្រវត្តិ</translation>
 <translation id="3112556859945124369">សម្គាល់…</translation>
 <translation id="3122484138405575719"><ph name="BEGIN_LINK" />មើលអ្វី​ដែលអ្នកអាច​ធ្វើសមកាលកម្ម<ph name="END_LINK" /></translation>
 <translation id="3130863904455712965">ប្រវត្តិ និង​អ្វីៗ​ជាច្រើនទៀត</translation>
@@ -299,6 +302,7 @@
 <translation id="3174662312949010067">អ្នកក៏អាចប្រើពាក្យសម្ងាត់ដែលបានរក្សាទុកនៅលើឧបករណ៍ផ្សេងទៀតរបស់អ្នកបានផងដែរ។</translation>
 <translation id="3175081911749765310">សេវាកម្មបណ្តាញ</translation>
 <translation id="3178650076442119961">ដំណើរការ​ថ្ងៃនេះ</translation>
+<translation id="3181261441371833039">បិទ​តែ​ផ្ទាំង​ធម្មតា​​ប៉ុណ្ណោះ</translation>
 <translation id="3181825792072797598">បើក​សមកាលកម្ម</translation>
 <translation id="3181954750937456830">មុខងាររុករក​ដោយ​សុវត្ថិភាព (ការពារអ្នក​ និងឧបករណ៍​របស់អ្នក​ពីគេហទំព័រ​គ្រោះថ្នាក់)</translation>
 <translation id="3184767182050912705">ដោះ​សោដោយប្រើ <ph name="BIOMETRIC_AUTHENITCATION_TYPE" /></translation>
@@ -362,7 +366,6 @@
 <translation id="3661160521073045932">មាន​កម្រងព័ត៌មាន​នៃការកំណត់រចនាសម្ព័ន្ធ</translation>
 <translation id="3670030362669914947">លេខ</translation>
 <translation id="3691593122358196899">បានបន្ថែមចំណាំទៅ <ph name="FOLDER_TITLE" /></translation>
-<translation id="369349502275246497">ស្នើ​ឱ្យ​រក្សាទុក​ពាក្យ​សម្ងាត់</translation>
 <translation id="3709582977625132201">សម្គាល់​ថា​មិន​ទាន់​​​អាន</translation>
 <translation id="371230970611282515">ព្យាករ និងព្រមានអ្នកអំពី​ព្រឹត្តិការណ៍គ្រោះថ្នាក់ មុនពេលព្រឹត្តិការណ៍ទាំងនោះកើតឡើង។</translation>
 <translation id="37207012422556617">ការស្វែងរកដែលកំពុងពេញនិយម</translation>
@@ -382,6 +385,7 @@
 <translation id="3819183753496523827">អ្នក​គ្មាន​អ៊ីនធឺណិត​ទេ។ សូមពិនិត្យមើល​ការតភ្ជាប់អ៊ីនធឺណិត​របស់អ្នក រួចព្យាយាម​ម្ដងទៀត។</translation>
 <translation id="3835964409414434850">ទៅកាន់​ផ្ទាំង​បន្ទាប់</translation>
 <translation id="385051799172605136">ថយក្រោយ</translation>
+<translation id="3851938967634752633">ពាក្យសម្ងាត់​សម្រាប់ <ph name="WEBSITE" />, <ph name="SECOND_WEBSITE" /> និង <ph name="NUMBER_OF_ACCOUNTS" /> ផ្សេងទៀត​នឹង​ត្រូវ​បានលុប។ គណនី​របស់​អ្នក​នឹង​មិន​ត្រូវ​បានលុប​ទេ។</translation>
 <translation id="3858860766373142691">ឈ្មោះ</translation>
 <translation id="3861486700625780712">ឈប់​តាមដាន</translation>
 <translation id="3863769054730344136">ផ្ញើ​ទៅ​ឧបករណ៍​របស់អ្នក</translation>
@@ -397,7 +401,6 @@
 <translation id="3929457972718048006">អាសយដ្ឋាន</translation>
 <translation id="3943492037546055397">ពាក្យ​សម្ងាត់</translation>
 <translation id="3959736869653157332">ម៉ឺនុយ → ផ្ទាំងឯកជនថ្មី</translation>
-<translation id="3964173450954943920">អ្នកអាចជ្រើសរើស​អ្វីដែលត្រូវធ្វើសមកាលកម្ម​នៅក្នុង<ph name="BEGIN_LINK" />ការកំណត់<ph name="END_LINK" />បានជានិច្ច។ Google អាចនឹងប្រើ​ប្រវត្តិរបស់អ្នក ដើម្បី​កំណត់ឱ្យកម្មវិធីស្វែងរក និងសេវាកម្ម​ Google ផ្សេងទៀតស្របនឹងអ្នក។</translation>
 <translation id="3967822245660637423">ការទាញយកបានបញ្ចប់</translation>
 <translation id="3968505803272650567">គ្រប់គ្រង​ចំណាប់អារម្មណ៍</translation>
 <translation id="3989635538409502728">ចេញ</translation>
@@ -452,6 +455,7 @@
 <translation id="4420409367264901497">កែ​ចំណាំ</translation>
 <translation id="4442550905108052454">បើក<ph name="BEGIN_BOLD" />ការកំណត់<ph name="END_BOLD" /></translation>
 <translation id="4454246407045105932">បញ្ចូល​ភាសា</translation>
+<translation id="4461286950227634995">ឱ្យរក្សាទុកពាក្យសម្ងាត់</translation>
 <translation id="4462491365653392320">តាមដាន​តម្លៃនៅក្នុងផ្ទាំង</translation>
 <translation id="4469418912670346607">បន្តរៀបចំ</translation>
 <translation id="4474494258097106883">បង្កើតឡើង​សម្រាប់ iPhone របស់អ្នក</translation>
@@ -463,11 +467,11 @@
 <translation id="4508750114462689118">បិទការផ្សព្វផ្សាយនៃការចូលគណនី</translation>
 <translation id="4514889972748124117">ណែនាំ​ពាក្យសម្ងាត់ខ្លាំង...</translation>
 <translation id="4520798012560649652">ស្វែងយល់បន្ថែមអំពីមុខងារ​ឯកជន</translation>
-<translation id="4526249700380860531">មើល និងគ្រប់គ្រងពាក្យសម្ងាត់ដែលបានរក្សាទុកនៅលើ <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" /></translation>
 <translation id="452750746583162491">ពិនិត្យមើល​ទិន្នន័យ​ដែលបានធ្វើសមកាលកម្មរបស់អ្នក</translation>
 <translation id="4536418791685807335">សាកល្បងព្យាយាមចូលម្តងទៀត</translation>
 <translation id="4540780316273593836">មានអ្វីមួយ​ខុសប្រក្រតី</translation>
 <translation id="457386861538956877">ច្រើនទៀត...</translation>
+<translation id="4587589328781138893">ទំព័រ</translation>
 <translation id="4588014171431912783">ការ​កំណត់​​សមកាលកម្ម​របស់​អ្នក​នឹង​ត្រូវបាន​ស្ដារ ដោយ​ផ្អែកលើ​ការបម្រុងទុក​ចុងក្រោយ​របស់​អ្នក។ <ph name="BEGIN_LINK" />មើលអ្វី​ដែលអ្នកអាច​ធ្វើសមកាលកម្ម<ph name="END_LINK" /></translation>
 <translation id="4592368184551360546">ក្ដារចុច</translation>
 <translation id="4606247758155004938">កម្មវិធីរុករក​តាមអ៊ីនធឺណិត​របស់អ្នក​ស្ថិតក្រោមការគ្រប់គ្រង​របស់​ស្ថាប័នអ្នក។</translation>
@@ -510,12 +514,14 @@
 <translation id="481968316161811770">ខុកឃី ទិន្នន័យគេហទំព័រ</translation>
 <translation id="4824497107140370669">{count,plural, =0{{domain}}=1{{domain} និង 1 ទៀត}other{{domain} និង {count} ទៀត}}</translation>
 <translation id="4826218269716039351">ទប់ស្កាត់ខូគីភាគីទីបី</translation>
+<translation id="4826588772550366629">កាមេរ៉ា និង​មីក្រូហ្វូន</translation>
 <translation id="4826726074642088322">ចែករំលែករំលេច</translation>
 <translation id="48274138579728272">សម្គាល់​ថា​បានអាន​</translation>
 <translation id="4833686396768033263">មិនអាចប្រើផ្ទាំងថ្មីៗបានទេ</translation>
 <translation id="4833786495304741580">ផ្ញើស្ថិតិ​ប្រើប្រាស់ និង​របាយការណ៍អំពី​ការគាំង​ទៅ Google ដោយ​ស្វ័យប្រវត្តិ។</translation>
 <translation id="4840495572919996524">ចំណាំ​ ប្រវត្តិ ​ពាក្យសម្ងាត់ និងអ្វីៗ​ជាច្រើន​ទៀត​របស់អ្នកនឹងមិន​ធ្វើ​សម​កាល​កម្មទៅក្នុងគណនី​ Google របស់អ្នកទៀតទេ។</translation>
 <translation id="4844899002472726590">មើល និងកែប្រធានបទ​ដែលអ្នកចាប់អារម្មណ៍</translation>
+<translation id="4848999860252535517">លុប​ពាក្យ​សម្ងាត់​សម្រាប់ <ph name="WEBSITE" /> ឬ?</translation>
 <translation id="4854345657858711387">កំណត់​លេខ​កូដ​សម្ងាត់</translation>
 <translation id="4858786880085262208">នៅពេលដែលអាច សូមប្ដូរ​ទៅ HTTPS។ គេហទំព័រដែលមានសុវត្ថិភាពប្រហែលជាបង្កប់ខ្លឹមសារដែលគ្មានសុវត្ថិភាព។</translation>
 <translation id="4860895144060829044">ហៅ</translation>
@@ -528,6 +534,7 @@
 <translation id="4916679969857390442">លែន</translation>
 <translation id="4922154083994158612">សុវត្ថិភាពច្រើនទៀត?</translation>
 <translation id="4930714375720679147">បើក</translation>
+<translation id="4938338714234463591">ការ​ធ្វើ​បែបនេះនឹង​អនុញ្ញាត​ឱ្យ​អ្នក​ប្រើ​សំឡេង​របស់​អ្នក​ជា​មួយ​មុខងារ​ជាក់លាក់​នៅលើ​គេហទំព័រ។</translation>
 <translation id="4941089862236492464">សូមទោស មានបញ្ហាក្នុងការចែករំលែកធាតុរបស់អ្នក។</translation>
 <translation id="4944543191714094452">ស្វែងរក​ក្នុង​ទំព័រ…</translation>
 <translation id="4945756290001680296">ចូលប្រើការកំណត់​ពាក្យសម្ងាត់</translation>
@@ -543,15 +550,14 @@
 <translation id="5056446788882570708">បានរកឃើញបញ្ហាកាលពី <ph name="TIME" />។</translation>
 <translation id="5059136629401106827">យល់ព្រម</translation>
 <translation id="5062321486222145940">ដំឡើង Google Drive</translation>
+<translation id="50641035439563602">ឥឡូវនេះ ពាក្យសម្ងាត់ត្រូវបានរក្សាទុកទៅក្នុងគណនី Google (<ph name="ACCOUNT" />) របស់អ្នក។ អ្នកអាចប្រើពាក្យសម្ងាត់ទាំងនោះ នៅគ្រប់កន្លែងដែលអ្នកចូលគណនី។ ដើម្បីបិទមុខងារនេះ សូមចូលទៅកាន់<ph name="BEGIN_LINK" />ការកំណត់<ph name="END_LINK" />។</translation>
 <translation id="5083464117946352670">មិនអាចដឹងពីទំហំឯកសារទេ។</translation>
 <translation id="5090832849094901128">ការលុបពាក្យសម្ងាត់នេះ​នឹងមិន​លុបគណនីរបស់អ្នក​នៅលើ <ph name="WEBSITE" />​ ទេ។</translation>
-<translation id="5092117651143801290">អ្នកអាច​រក្សាទុក​ទំព័រ ដើម្បីអាន​នៅពេលក្រោយ ឬពេលគ្មាន​អ៊ីនធឺណិត​។ Chrome នឹងសួរ​ថាតើអ្នក​ចង់រក្សាទុក​ទំព័រវែងៗ​ឬអត់​។</translation>
 <translation id="5094827893301452931">ការបង្ហោះតាម Twitter រួចរាល់។</translation>
 <translation id="5118713593561876160">ចំណាប់អារម្មណ៍</translation>
 <translation id="5118764316110575523">បិទ</translation>
 <translation id="5119391094379141756">ជ្រើសរើស Chrome</translation>
 <translation id="5132942445612118989">ធ្វើសម​កាល​កម្មពាក្យសម្ងាត់ ប្រវត្តិ និងអ្វីៗ​ជាច្រើនទៀត​នៅលើ​ឧបករណ៍​ទាំងអស់​របស់អ្នក</translation>
-<translation id="5140288047769711648">Chrome នឹងចងចាំ​ពាក្យសម្ងាត់នេះ​សម្រាប់អ្នក។ អ្នកមិនចាំបាច់​ចងចាំពាក្យសម្ងាត់​នេះទេ។</translation>
 <translation id="5149188072385105201">បញ្ចូល​ពាក្យសម្ងាត់...</translation>
 <translation id="5150492518600715772">ផ្ញើ​ទៅ​ឧបករណ៍​របស់អ្នក</translation>
 <translation id="5168414296986405587">បានបង្កើតឡើងសម្រាប់ iPadOS</translation>
@@ -563,6 +569,7 @@
 <translation id="5190835502935405962">របាចំណាំ</translation>
 <translation id="519530786644929958">ការទាញយក​មិនបានសម្រេចទេ ហើយមិនអាច​ព្យាយាមម្ដងទៀត​បានឡើយ។</translation>
 <translation id="5197255632782567636">អ៊ីនធឺណិត</translation>
+<translation id="5211488077761630279">អនុញ្ញាត​ឱ្យ "<ph name="SITE_NAME" />" ប្រើប្រាស់<ph name="PERMISSION" />របស់​អ្នកឬ?</translation>
 <translation id="5219295696240154694">ជួយ​កែលម្អ​សុវត្ថិភាព​នៅលើ​បណ្ដាញ​សម្រាប់​អ្នកគ្រប់គ្នា</translation>
 <translation id="5228579091201413441">បើកដំណើរការធ្វើសមកាលកម្ម</translation>
 <translation id="5232485538978018676">ចូលដោយប្រើ​គណនីដែលស្ថិតក្រោមការគ្រប់គ្រង</translation>
@@ -601,7 +608,6 @@ Handoff ត្រូវបើកដំណើរការនៅក្នុងផ
 <translation id="5551897871312988470">ផ្តល់ជូន​ការ​បកប្រែ</translation>
 <translation id="5556459405103347317">ដំណើរការឡើងវិញ</translation>
 <translation id="556042886152191864">ប៊ូតុង</translation>
-<translation id="5580834567471114021">បញ្ចូល​ទៅក្នុង​បញ្ជីអាន​សម្រាប់​អាននៅពេលក្រោយ​ដែរទេ?</translation>
 <translation id="5597915316964418992">បើកក្រឡាផ្ទាំង</translation>
 <translation id="560322036295180549">បានបិទ​ដោយស្ថាប័ន​របស់អ្នក</translation>
 <translation id="5614553682702429503">រក្សាទុក​ពាក្យសម្ងាត់?</translation>
@@ -641,7 +647,6 @@ Handoff ត្រូវបើកដំណើរការនៅក្នុងផ
 <translation id="5846482154967366008">ម៉ាស៊ីនស្វែងរក</translation>
 <translation id="5854790677617711513">ចាស់ជាង 30 ថ្ងៃ</translation>
 <translation id="5857090052475505287">ថតឯកសារថ្មី</translation>
-<translation id="5857675236236529683">នៅពេលអ្នក​រួចរាល់ហើយ សូមរកមើល​បញ្ជីអាន​របស់អ្នក​នៅទីនេះ</translation>
 <translation id="5857770089550859117">តម្រូវឲ្យមានឃ្លាសម្ងាត់ដើម្បីចាប់ផ្តើមសមកាលកម្ម។</translation>
 <translation id="5859715514067755465">ទៅមុខ</translation>
 <translation id="5860033963881614850">បិទ</translation>
@@ -652,7 +657,6 @@ Handoff ត្រូវបើកដំណើរការនៅក្នុងផ
 <translation id="5899314093904173337">ដើម្បីចែករំលែក​ជាមួយមនុស្ស​នៅជិត សូមអនុញ្ញាត​ឱ្យពួកគេ​ស្កេនកូដ QR នេះដោយប្រើ​កាមេរ៉ា ឬកម្មវិធី​ស្កេន QR របស់ពួកគេ</translation>
 <translation id="5911030830365207728">កម្មវិធីបកប្រែ Google</translation>
 <translation id="5913600720976431809">ជម្រើស​សម្រាប់​បកប្រែទំព័រ</translation>
-<translation id="5933515656458364246">ធ្វើសមកាលកម្ម​ទិន្នន័យ​របស់អ្នក​នៅលើ​ឧបករណ៍ទាំងអស់។</translation>
 <translation id="5938160824633642847">ឧបករណ៍​របស់អ្នក​ជិត​ពេញ​ហើយ។ សូម​បង្កើន​ទំហំ​ផ្ទុក​ រួច​ព្យាយាម​ម្តងទៀត។</translation>
 <translation id="5948291296578561264">វា​អនុញ្ញាត​ឱ្យអ្នក​រក្សាទុក​រូបថត​ទៅក្នុងបណ្ណាល័យរូបថត​របស់អ្នក។</translation>
 <translation id="5951816930277761335">ចែករំលែក​តំណ</translation>
@@ -740,6 +744,7 @@ Handoff ត្រូវបើកដំណើរការនៅក្នុងផ
 <translation id="6434591244308415567">មានបញ្ហា​កើត​ឡើង។ ព្យាយាម​ម្តង​ទៀត​នៅ​ពេល​ក្រោយ។</translation>
 <translation id="6435236283694032571">បញ្ចូលទៅក្នុងបញ្ជីអាន</translation>
 <translation id="6439338047467462846">អនុញ្ញាត​ទាំងអស់</translation>
+<translation id="6442697326824312960">ដកការដៅផ្ទាំង</translation>
 <translation id="6445051938772793705">ប្រទេស</translation>
 <translation id="6445981559479772097">បានផ្ញើសារ។</translation>
 <translation id="6447842834002726250">ខុកឃី</translation>
@@ -752,6 +757,7 @@ Handoff ត្រូវបើកដំណើរការនៅក្នុងផ
 <translation id="6476800141292307438">កំពុងបកប្រែទំព័រ​ទៅភាសា<ph name="LANGUAGE" />។ ជម្រើសមាននៅជិត​ផ្នែកខាងក្រោមបំផុតរបស់​អេក្រង់។</translation>
 <translation id="648164694371393720">មាន​បញ្ហា​ក្នុង​ការ​ផ្ទៀងផ្ទាត់</translation>
 <translation id="6482629121755362506">ធាតុ <ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> ត្រូវបានលុប</translation>
+<translation id="6495429111159337775">ប្រើប្រាស់​ និង​រក្សាទុក​ពាក្យសម្ងាត់​ពី​គណនី Google របស់​អ្នក</translation>
 <translation id="6497772452874122664">ប្រសិនបើ​អ្នក​ជឿទុកចិត្ត <ph name="TIME" /> អ្នក​អាច​ប្រើ​ពាក្យសម្ងាត់​ដែលបានរក្សាទុក​ពី​គេហទំព័រ​ផ្សេងទៀត​បាន។
 
 សូមព្យាយាម​ប្រើ​ពាក្យសម្ងាត់​ខុសប្លែកពីគេ​សម្រាប់​រាល់​គេហទំព័រ​។</translation>
@@ -769,6 +775,7 @@ Handoff ត្រូវបើកដំណើរការនៅក្នុងផ
 <translation id="6598875554591387303">តម្រៀបតាមអ្នកបោះផ្សាយ</translation>
 <translation id="6603393121510733479">ស្ថាប័នរបស់អ្នកបានបិទការរុករកលក្ខណៈឯកជន។
 <ph name="BEGIN_LINK" />ស្វែងយល់បន្ថែម<ph name="END_LINK" /></translation>
+<translation id="6609890790934458793">ពាក្យសម្ងាត់​សម្រាប់ <ph name="WEBSITE" />, <ph name="SECOND_WEBSITE" /> និង <ph name="THIRD_WEBSITE" /> នឹង​ត្រូ​វបានលុប។ គណនី​របស់​អ្នក​នឹង​មិន​ត្រូវ​បានលុប​ទេ។</translation>
 <translation id="6610002944194042868">ជម្រើស​បកប្រែ</translation>
 <translation id="661266467055912436">ពង្រឹងសុវត្ថិភាព​សម្រាប់អ្នក និងអ្នកគ្រប់គ្នានៅលើអ៊ីនធឺណិត។</translation>
 <translation id="6620279676667515405">បោះបង់</translation>
@@ -792,6 +799,7 @@ Handoff ត្រូវបើកដំណើរការនៅក្នុងផ
 <translation id="6710079714193676716">គ្រប់គ្រងដោយ​ស្ថាប័ន​របស់អ្នក​។ មុខងារមួយចំនួន​ប្រហែលជាមិន​អាចប្រើ​បានទេ។ <ph name="BEGIN_LINK" />ស្វែងយល់បន្ថែម<ph name="END_LINK" /></translation>
 <translation id="6713747756340119864">កម្មវិធី Google</translation>
 <translation id="6730682669179532099">មិន​អាច​នាំ​ពាក្យសម្ងាត់​ចេញ​បាន​ទេ</translation>
+<translation id="6732087373923685049">កាមេរ៉ា</translation>
 <translation id="6748108480210050150">ពី</translation>
 <translation id="6760509555861141183">ត្រឡប់ទៅផ្ទាំងថ្មីៗវិញ</translation>
 <translation id="6762812039470893796">ដក​ការជ្រើសរើស​ទាំងអស់</translation>
@@ -837,13 +845,13 @@ Handoff ត្រូវបើកដំណើរការនៅក្នុងផ
 <translation id="7053983685419859001">ទប់ស្កាត់</translation>
 <translation id="7062545763355031412">ទទួលយក និងប្តូរគណនី</translation>
 <translation id="7080806333218412752">បញ្ជូន URL ទៅការរុករកដោយសុវត្ថិភាព ដើម្បី​ពិនិត្យមើល។ ក៏បញ្ជូន​គំរូមួយចំនួនតូចនៃទំព័រ ការទាញយក សកម្មភាពកម្មវិធីបន្ថែម និងព័ត៌មាន​ប្រព័ន្ធ ដើម្បីជួយរកមើល​ការគំរាមកំហែងថ្មីផងដែរ។ ភ្ជាប់​ទិន្នន័យនេះ​ជាមួយ​គណនី Google របស់អ្នក​ជាបណ្ដោះអាសន្ន នៅពេលអ្នក​ចូលគណនី ដើម្បី​ការពារអ្នក​នៅលើ​កម្មវិធីរបស់ Google។</translation>
+<translation id="7095110968493193530">ទៅក្នុងកម្មវិធី​គ្រប់គ្រងពាក្យសម្ងាត់​សម្រាប់ <ph name="EMAIL" /></translation>
 <translation id="7099761977003084116">ផ្ទាំង​ថ្មីៗ</translation>
 <translation id="7102005569666697658">កំពុង​ទាញយក… <ph name="FILE_SIZE" /></translation>
 <translation id="7108338896283013870">លាក់</translation>
 <translation id="7108762695052995889">ចូលមើល​គេហទំព័រ</translation>
 <translation id="7133798577887235672">ឈ្មោះពេញ</translation>
 <translation id="7136892417564438900">កាមេរ៉ាមិនអាចប្រើបានទេ</translation>
-<translation id="7153999225810839758">អាន <ph name="TIME" /> នាទី</translation>
 <translation id="7162168282402939716">ដោះ​សោផ្ទាំងឯកជនដោយប្រើ <ph name="BIOMETRIC_AUTHENITCATION_TYPE" /></translation>
 <translation id="7172852049901402487">រក្សា​សុវត្ថិភាព​ពាក្យសម្ងាត់​របស់អ្នក​កុំឱ្យមាន​បញ្ហា​សុវត្ថិភាព</translation>
 <translation id="7173114856073700355">បើកការកំណត់</translation>
@@ -878,7 +886,6 @@ Handoff ត្រូវបើកដំណើរការនៅក្នុងផ
 <translation id="7438481509621345350">ឥឡូវនេះ អ្នកនឹងមើលឃើញអត្ថបទពី <ph name="CHANNEL_NAME" /> នៅពេលអ្នកបើកផ្ទាំងថ្មី។</translation>
 <translation id="7454057999980797137">រដ្ឋ / ប្រទេស</translation>
 <translation id="7459628154744868585">ការការពារបន្ថែម​ត្រូវបានបើក</translation>
-<translation id="7464701184726199289">វាជម្រះទិន្នន័យដែលបានធ្វើសមកាលកម្មចេញពីឧបករណ៍ទាំងអស់។ ការកំណត់គេហទំព័រដែលបានរក្សាទុកនឹងមិនត្រូវបានលុបនោះទេ ហើយវាអាចនឹងឆ្លុះបញ្ចាំងពីទម្លាប់រុករករបស់អ្នក។ <ph name="BEGIN_LINK" />ស្វែងយល់បន្ថែំម<ph name="END_LINK" /></translation>
 <translation id="746684838091935575">3. ជ្រើសរើស Chrome</translation>
 <translation id="7472734401283673885">ឈ្មោះក្រុមហ៊ុន</translation>
 <translation id="7473891865547856676">ទេ អរគុណ</translation>
@@ -902,6 +909,7 @@ Handoff ត្រូវបើកដំណើរការនៅក្នុងផ
 <translation id="7649070708921625228">ជំនួយ</translation>
 <translation id="7658239707568436148">បដិសេធ</translation>
 <translation id="7671141431838911305">ដំឡើង</translation>
+<translation id="7679915578945954324">បាន​ចម្លង​អាសយដ្ឋាន​គេហទំព័រ</translation>
 <translation id="7687508192620387263">មានឯកសារ​ប្រតិទិន</translation>
 <translation id="7701040980221191251">គ្មាន</translation>
 <translation id="7720410380936703141">ព្យាយាមម្ដងទៀត</translation>
@@ -950,6 +958,7 @@ Handoff ត្រូវបើកដំណើរការនៅក្នុងផ
 <translation id="7987685713885608670">សម្រាប់​សុវត្ថិភាពបន្ថែម សូមអ៊ីនគ្រីបពាក្យសម្ងាត់នៅលើ​ឧបករណ៍​របស់អ្នក មុនពេលរក្សាទុក​ពាក្យសម្ងាត់​ទាំងនោះទៅ​កម្មវិធីគ្រប់គ្រង​ពាក្យសម្ងាត់ Google។</translation>
 <translation id="7993619969781047893">មុខងារ​នៅលើ​គេហទំព័រ​មួយចំនួន​អាចដំណើរការ​មិន​ត្រឹមត្រូវ</translation>
 <translation id="800361585186029508">បើក URL ដែលបាន​បញ្ចូល​នៅក្នុង Google Chrome។</translation>
+<translation id="8005666035647241369">ទៅក្នុង​កម្មវិធីគ្រប់គ្រង​ពាក្យសម្ងាត់ Google នៅលើ​ឧបករណ៍នេះ</translation>
 <translation id="8016714545083187120">ប្រើ​ការតភ្ជាប់​ដែលមាន​សុវត្ថិភាព​ជានិច្ច</translation>
 <translation id="802154636333426148">បានបរាជ័យក្នុងការទាញយក</translation>
 <translation id="8023878949384262191">ពង្រីកផ្នែកនេះ</translation>
@@ -962,7 +971,6 @@ Handoff ត្រូវបើកដំណើរការនៅក្នុងផ
 <translation id="806745655614357130">រក្សាទិន្នន័យរបស់ខ្ញុំដាច់ដោយឡែកពីគ្នា</translation>
 <translation id="8073670137947914548">បានបញ្ចប់​ការទាញយក</translation>
 <translation id="8073872304774253879">ធ្វើឱ្យ​ការស្វែងរក និង​ការរុករក​ប្រសើរ​ជាងមុន</translation>
-<translation id="8076014560081431679">ការកំណត់គេហទំព័រដែលបានរក្សាទុកនឹងមិនត្រូវបានលុបនោះទេ ហើយវាអាចនឹងឆ្លុះបញ្ចាំងពីទម្លាប់រុករករបស់អ្នក។ <ph name="BEGIN_LINK" />ស្វែងយល់បន្ថែំម<ph name="END_LINK" /></translation>
 <translation id="8079602123447022758">ការកំណត់នេះ​ត្រូវបានគ្រប់គ្រង សូមចុចពីរដង​ ដើម្បីទទួលបាន​ព័ត៌មានបន្ថែម</translation>
 <translation id="8080028325999236607">បិទផ្ទាំងទាំងអស់</translation>
 <translation id="8084285576995584326">គ្រប់គ្រងទិន្នន័យគណនី Google របស់អ្នក</translation>
@@ -1022,7 +1030,6 @@ Handoff ត្រូវបើកដំណើរការនៅក្នុងផ
 <translation id="8548878600947630424">ស្វែងរកក្នុងទំព័រ...</translation>
 <translation id="8558480467877843976">ឥឡូវនេះ អ្នកអាចប្រើ Chrome រាល់ពេលដែល​អ្នករុករក ឬចុចលើតំណ​នៅក្នុងសារ ឯកសារ និងកម្មវិធី​ផ្សេងទៀត។</translation>
 <translation id="8588404856427128947">បិទ</translation>
-<translation id="8590913940444621808">កុំសួរ​ឱ្យសោះ</translation>
 <translation id="8591976964826315682">ទប់ស្កាត់​ខូគី​ភាគីទីបី​ក្នុងមុខងារ​ឯកជន</translation>
 <translation id="8605219856220328675">បិទផ្ទាំង</translation>
 <translation id="8620640915598389714">កែសម្រួល</translation>
@@ -1033,6 +1040,7 @@ Handoff ត្រូវបើកដំណើរការនៅក្នុងផ
 <translation id="8680787084697685621">ព័ត៌មានលំអិតក្នុងគណនីចូលហួសសម័យ។</translation>
 <translation id="8693663554456874301">{count,plural, =1{បិទផ្ទាំង}other{បិទផ្ទាំង}}</translation>
 <translation id="8706588385081740091">ពាក្យ​សម្ងាត់</translation>
+<translation id="8712637175834984815">យល់ហើយ</translation>
 <translation id="8717864919010420084">ចម្លងតំណ</translation>
 <translation id="8721297211384281569">ម៉ឺនុយឧបករណ៍</translation>
 <translation id="8725066075913043281">ព្យាយាមម្តងទៀត</translation>
@@ -1045,8 +1053,10 @@ Handoff ត្រូវបើកដំណើរការនៅក្នុងផ
 <translation id="8756969031206844760">ធ្វើ​បច្ចុប្បន្នភាព​ពាក្យសម្ងាត់?</translation>
 <translation id="8763613688786959833">ចូលទៅ​ផ្ទាំង​ចុងក្រោយ</translation>
 <translation id="8764015330924122850">ឈប់​តាមដាន <ph name="DOMAIN_NAME" /></translation>
+<translation id="8766790350274092814">ពាក្យសម្ងាត់​សម្រាប់ <ph name="WEBSITE" /> និង <ph name="SECOND_WEBSITE" /> នឹង​ត្រូវ​បានលុប។ គណនី​របស់​អ្នក​នឹង​មិន​ត្រូវ​បានលុប​ទេ។</translation>
 <translation id="8775144690796719618">URL មិនត្រឹមត្រូវ</translation>
 <translation id="8787968206789828143">ស្វែងរកលើអ៊ីនធឺណិត</translation>
+<translation id="8792626944327216835">មីក្រូហ្វូន</translation>
 <translation id="8803639129939845298">សុវត្ថិភាព</translation>
 <translation id="8806823403540278281">ស្ថាប័នរបស់អ្នក​តម្រូវឱ្យអ្នក​ធ្វើការរុករកជាលក្ខណៈឯកជន។ ផ្ទាំងមិនត្រូវបានរក្សាទុកនៅក្នុងមុខងារ​ឯកជនទេ។
 <ph name="BEGIN_LINK" />ស្វែងយល់បន្ថែម<ph name="END_LINK" /></translation>
@@ -1090,10 +1100,10 @@ Handoff ត្រូវបើកដំណើរការនៅក្នុងផ
 <translation id="9079935439869366234">សម្គាល់ថាមិនទាន់អានទាំងអស់</translation>
 <translation id="9081058212938299310">ធ្វើបច្ចុប្បន្នភាព​ពាក្យសម្ងាត់​សម្រាប់ <ph name="USERNAME" />?</translation>
 <translation id="9083838294503912307">ដើម្បី​ធ្វើ​សមកាលកម្ម និង​កំណត់ផ្ទាល់ខ្លួន​នៅលើ​ឧបករណ៍នានា សូម​បើក​សមកាលកម្ម។</translation>
-<translation id="9087108903408689779">ពាក្យសម្ងាត់​ដែល Chrome បានណែនាំ៖</translation>
 <translation id="9093271241977565440">នៅ​ផ្នែក​ខាង​លើ​នៃអេក្រង់ សូម​ចុច​រូបតំណាង "ស្វែងរក"</translation>
 <translation id="9094033019050270033">ធ្វើបច្ចុប្បន្នភាពពាក្យសម្ងាត់</translation>
 <translation id="9097506547406246598">មិនអាចឈប់​តាមដានបានទេ។ មានអ្វីមួយខុសប្រក្រតី។</translation>
+<translation id="9098541895599151034">លុប​ពាក្យសម្ងាត់ <ph name="NUMBER_OF_ACCOUNTS" /> ឬ?</translation>
 <translation id="9100610230175265781">តម្រូវឲ្យមានឃ្លាសម្ងាត់</translation>
 <translation id="9107664647686727385">ពិនិត្យរកពាក្យសម្ងាត់ដែល​រងការលុកលុយ</translation>
 <translation id="9124387962554796433">Google អាចនឹងប្រើ​ប្រវត្តិរបស់អ្នក ដើម្បី​កំណត់ឱ្យកម្មវិធីស្វែងរក និងសេវាកម្ម​ Google ផ្សេងទៀតស្របនឹងអ្នក។</translation>
@@ -1102,6 +1112,7 @@ Handoff ត្រូវបើកដំណើរការនៅក្នុងផ
 <translation id="9157836665414082580">បង្ហាប់ប្រអប់បញ្ចូល</translation>
 <translation id="9177438225260810839">ស្វែងរកផ្ទាំងបើក</translation>
 <translation id="9188680907066685419">ចេញពីគណនីដែលត្រូវបានគ្រប់គ្រង</translation>
+<translation id="9193147658040604536">អូស​មកទីនេះដើម្បី​ខ្ទាស់ផ្ទាំង</translation>
 <translation id="9200875785104711666"><ph name="TIME" /> ថ្ងៃមុន</translation>
 <translation id="9203116392574189331">Handoff</translation>
 <translation id="9219154867334666734">ផ្ទាំងស្វែងរក…</translation>

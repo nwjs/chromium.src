@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Installera med Linux</translation>
 <translation id="2225536596944493418">Vill du ta bort <ph name="NUMBER_OF_ITEMS" /> objekt?</translation>
 <translation id="2230062665678605299">Det går inte att skapa mappen <ph name="FOLDER_NAME" />. <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">Ditt cacheminne har rensats på Google Drive.</translation>
 <translation id="2239068707900391003">Person med en kopp kaffe</translation>
 <translation id="2251368349685848079">Återställ från papperskorgen</translation>
 <translation id="2282155092769082568">Webbadress för automatisk konfiguration:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">Inga objekt matchar &lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;</translation>
 <translation id="2894654529758326923">Information</translation>
 <translation id="2902734494705624966">USA (utökat)</translation>
+<translation id="2904378509913846215">Det finns redan en mapp med namnet <ph name="FILENAME" />. Vill du ersätta den med mappen du flyttar?</translation>
 <translation id="290843123675549676">marathi</translation>
 <translation id="2923240520113693977">estniska</translation>
 <translation id="2938685643439809023">mongoliska</translation>
@@ -640,6 +642,7 @@
 <translation id="6241349547798190358">nederländska (Belgien)</translation>
 <translation id="6267547857941397424">Nätverk <ph name="NETWORK_INDEX" /> av <ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, signalstyrka <ph name="SIGNAL_STRENGTH" /> %, telefonens batterinivå <ph name="BATTERY_STATUS" /> %, anslut</translation>
 <translation id="6269630227984243955">malajiska</translation>
+<translation id="6271903698064569429">Det gick inte att ladda upp filerna eftersom <ph name="SHARED_DRIVE_NAME" /> inte har tillräckligt med lagringsutrymme.</translation>
 <translation id="6287852322318138013">Välj en app om du vill öppna filen</translation>
 <translation id="6295542640242147836">Lås SIM</translation>
 <translation id="6296410173147755564">Ogiltig PUK-kod</translation>
@@ -685,6 +688,7 @@
 <translation id="6657585470893396449">Lösenord</translation>
 <translation id="6658865850469097484">Filer i papperskorgen som lagrats där i mer än 30 dagar raderas automatiskt.</translation>
 <translation id="6673674183150363784">franska (Frankrike) med Bépo-tangentbord</translation>
+<translation id="670380500182402678">Ersätt alla</translation>
 <translation id="6710022688720561421">Robot</translation>
 <translation id="6710213216561001401">Föregående</translation>
 <translation id="6732801395666424405">Certifikaten har inte lästs in</translation>
@@ -903,6 +907,7 @@
 <translation id="8386903983509584791">Sökningen har slutförts</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" /> har extraherats.</translation>
 <translation id="8395901698320285466">Dimensioner</translation>
+<translation id="8404498045299006085">Behåll allt</translation>
 <translation id="8408068190360279472">Nätverkstyp: <ph name="NETWORK_TYPE" />, ansluter</translation>
 <translation id="8425213833346101688">Ändra</translation>
 <translation id="8431909052837336408">Ändra SIM-kortets pinkod</translation>

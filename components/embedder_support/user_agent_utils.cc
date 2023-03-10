@@ -4,6 +4,7 @@
 
 #include "components/embedder_support/user_agent_utils.h"
 
+#include <vector>
 #include "content/nw/src/common/nw_content_common_hooks.h"
 
 #include "base/command_line.h"
@@ -83,35 +84,6 @@ int GetPreRS5UniversalApiContractVersion() {
   return 0;
 }
 
-// Return the legacy windows platform version to match the spec description
-// https://wicg.github.io/ua-client-hints/#get-the-legacy-windows-version-number,
-// which is available for Windows versions between range WIN7 and WIN8_1.
-// Otherwise, returns 0.
-const std::string& GetLegacyWindowsPlatformVersion() {
-  static const base::NoDestructor<std::string> legacy_windows_platform_version(
-      [] {
-        int major_version = 0;
-        int minor_version = 0;
-        switch (base::win::GetVersion()) {
-          case base::win::Version::WIN7:
-            minor_version = 1;
-            break;
-          case base::win::Version::WIN8:
-            minor_version = 2;
-            break;
-          case base::win::Version::WIN8_1:
-            minor_version = 3;
-            break;
-          default:
-            minor_version = 0;
-            break;
-        }
-        return base::StrCat({base::NumberToString(major_version), ".",
-                             base::NumberToString(minor_version), ".0"});
-      }());
-  return *legacy_windows_platform_version;
-}
-
 // Returns the UniversalApiContract version number, which is available for
 // Windows versions greater than RS5. Otherwise, returns 0.
 const std::string& GetUniversalApiContractVersion() {
@@ -124,26 +96,24 @@ const std::string& GetUniversalApiContractVersion() {
       [] {
         int major_version = 0;
         int minor_version = 0;
-        if (base::win::GetVersion() >= base::win::Version::WIN10) {
-          if (base::win::GetVersion() <= base::win::Version::WIN10_RS4) {
-            major_version = GetPreRS5UniversalApiContractVersion();
-          } else {
-            base::win::RegKey version_key(
-                HKEY_LOCAL_MACHINE, kWindowsRuntimeWellKnownContractsRegKeyName,
-                KEY_QUERY_VALUE | KEY_WOW64_64KEY);
-            if (version_key.Valid()) {
-              DWORD universal_api_contract_version = 0;
-              LONG result = version_key.ReadValueDW(
-                  kUniversalApiContractName, &universal_api_contract_version);
-              if (result == ERROR_SUCCESS) {
-                major_version = HIWORD(universal_api_contract_version);
-                minor_version = LOWORD(universal_api_contract_version);
-              } else {
-                major_version = kHighestKnownUniversalApiContractVersion;
-              }
+        if (base::win::GetVersion() <= base::win::Version::WIN10_RS4) {
+          major_version = GetPreRS5UniversalApiContractVersion();
+        } else {
+          base::win::RegKey version_key(
+              HKEY_LOCAL_MACHINE, kWindowsRuntimeWellKnownContractsRegKeyName,
+              KEY_QUERY_VALUE | KEY_WOW64_64KEY);
+          if (version_key.Valid()) {
+            DWORD universal_api_contract_version = 0;
+            LONG result = version_key.ReadValueDW(
+                kUniversalApiContractName, &universal_api_contract_version);
+            if (result == ERROR_SUCCESS) {
+              major_version = HIWORD(universal_api_contract_version);
+              minor_version = LOWORD(universal_api_contract_version);
             } else {
               major_version = kHighestKnownUniversalApiContractVersion;
             }
+          } else {
+            major_version = kHighestKnownUniversalApiContractVersion;
           }
         }
         // The major version of the contract is stored in the HIWORD, while the
@@ -155,9 +125,6 @@ const std::string& GetUniversalApiContractVersion() {
 }
 
 const std::string& GetWindowsPlatformVersion() {
-  if (base::win::GetVersion() < base::win::Version::WIN10) {
-    return GetLegacyWindowsPlatformVersion();
-  }
   return GetUniversalApiContractVersion();
 }
 #endif  // BUILDFLAG(IS_WIN)
@@ -207,17 +174,6 @@ bool ShouldSendUserAgentUnifiedPlatform(
          base::FeatureList::IsEnabled(
              blink::features::kReduceUserAgentAndroidVersionDeviceModel);
 #else
-// For legacy windows, only reduce the user agent platform and oscpu when
-// kLegacyWindowsPlatform parameter set to true.
-#if BUILDFLAG(IS_WIN)
-  if (base::win::GetVersion() < base::win::Version::WIN10) {
-    return ShouldReduceUserAgentMinorVersion(user_agent_reduction) &&
-           base::FeatureList::IsEnabled(
-               blink::features::kReduceUserAgentPlatformOsCpu) &&
-           blink::features::kLegacyWindowsPlatform.Get();
-  }
-#endif
-
   return ShouldReduceUserAgentMinorVersion(user_agent_reduction) &&
          base::FeatureList::IsEnabled(
              blink::features::kReduceUserAgentPlatformOsCpu) &&

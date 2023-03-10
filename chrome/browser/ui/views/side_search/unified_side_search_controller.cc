@@ -4,7 +4,7 @@
 
 #include "chrome/browser/ui/views/side_search/unified_side_search_controller.h"
 
-#include "base/bind.h"
+#include "base/functional/bind.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/feature_engagement/tracker_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -224,8 +224,7 @@ void UnifiedSideSearchController::OpenSidePanel() {
   }
 }
 
-void UnifiedSideSearchController::CloseSidePanel(
-    absl::optional<SideSearchCloseActionType> action) {
+void UnifiedSideSearchController::CloseSidePanel() {
   auto* browser_view = GetBrowserView();
   if (browser_view) {
     browser_view->side_panel_coordinator()->Close();

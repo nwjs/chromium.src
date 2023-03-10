@@ -116,6 +116,7 @@
 <translation id="1908234395526491708">Erori de solicitare UDP</translation>
 <translation id="1947737735496445907">Printată</translation>
 <translation id="1951012854035635156">Asistent</translation>
+<translation id="1962550982027027473">Este necesar un APN prestabilit</translation>
 <translation id="1977994649430373166">Fotografie de profil Google</translation>
 <translation id="1979103255016296513">Ai depășit timpul limită pentru schimbarea parolei</translation>
 <translation id="1999615961760456652">Portal captiv</translation>
@@ -195,6 +196,7 @@
 <translation id="2713444072780614174">Alb</translation>
 <translation id="2717139507051041123">Activează modul de culoare închisă</translation>
 <translation id="2740531572673183784">OK</translation>
+<translation id="2744221223678373668">Comune</translation>
 <translation id="2751739896257479635">Autentificare EAP din a doua fază</translation>
 <translation id="2783010256799387990">REUȘIT</translation>
 <translation id="2789486458103222910">OK</translation>
@@ -269,6 +271,7 @@
 <translation id="3583278742022654445">Semnal slab. Apropie-te de sursa semnalului Wi-Fi.</translation>
 <translation id="3595596368722241419">Baterie încărcată</translation>
 <translation id="3600339377155080675">Oglindirea ecranului</translation>
+<translation id="3602290021589620013">Previzualizare</translation>
 <translation id="3603829704940252505">Avatar</translation>
 <translation id="3604713164406837697">Schimbă imaginea de fundal</translation>
 <translation id="360565022852130722">Rețeaua Wi-Fi este securizată cu protocolul slab WEP 802.1x</translation>
@@ -292,6 +295,7 @@
 <translation id="385051799172605136">Înapoi</translation>
 <translation id="3858860766373142691">Nume</translation>
 <translation id="3862598938296403232">Descrierea este obligatorie</translation>
+<translation id="3865289341173661845">Conținutul de ajutor nu este disponibil.</translation>
 <translation id="3865414814144988605">Rezoluție</translation>
 <translation id="3866249974567520381">Descriere</translation>
 <translation id="387301095347517405">Numărul de cicluri complete de încărcare a bateriei</translation>
@@ -314,9 +318,11 @@
 <translation id="4044093238444069296">Nu se poate contacta gateway-ul</translation>
 <translation id="4046123991198612571">Melodia următoare</translation>
 <translation id="404928562651467259">AVERTISMENT</translation>
+<translation id="4054683689023980771">Se descarcă imaginea</translation>
 <translation id="4060260348856573701">APN nou</translation>
 <translation id="4093865285251893588">Imagine de profil</translation>
 <translation id="409427325554347132">Salvează detaliile testului</translation>
+<translation id="4095829376260267438">WPA2 / WPA3</translation>
 <translation id="4110686435123617899">Selectează albumul <ph name="TITLE" /> <ph name="DESC" /></translation>
 <translation id="4111761024568264522">Touchpad USB</translation>
 <translation id="4117637339509843559">Modul întunecat</translation>
@@ -447,8 +453,6 @@
 <translation id="5168185087976003268">Buna funcționare a bateriei:</translation>
 <translation id="5170568018924773124">Afișează în dosar</translation>
 <translation id="5190187232518914472">Retrăiește amintirile preferate. Pentru a adăuga sau a edita albume, accesează <ph name="LINK_BEGIN" />Google Foto<ph name="LINK_END" />.</translation>
-<translation id="5212543919916444558">Nu găsesc conținut pe ecran în privința căruia te-aș putea ajuta.
-Atinge microfonul și întreabă orice dorești.</translation>
 <translation id="5212593641110061691">Tabloid</translation>
 <translation id="5222676887888702881">Deconectează-te</translation>
 <translation id="522307662484862935">Nu include adresa de e-mail</translation>
@@ -635,6 +639,7 @@ Atinge microfonul și întreabă orice dorești.</translation>
 <translation id="6791471867139427246">culoarea iluminării tastaturii</translation>
 <translation id="680983167891198932">Cheie</translation>
 <translation id="6816797338148849397">Sunt disponibile informații despre selecția ta. Folosește tasta săgeată în sus pentru a le accesa.</translation>
+<translation id="6838167112108853532">Nu se poate dezactiva sau elimina acest APN. Asigură-te că APN-urile atașate sunt dezactivate sau eliminate.</translation>
 <translation id="6853312040151791195">Rata de descărcare</translation>
 <translation id="6889786074662672253">Nu deconecta dispozitivul extern și nu închide computerul în timpul repornirii. Poți să minimizezi fereastra. Actualizarea poate să dureze câteva minute și este posibil ca dispozitivul extern să nu funcționeze în această perioadă.</translation>
 <translation id="6905724422583748843">Înapoi la <ph name="PAGE_NAME" /></translation>
@@ -700,6 +705,7 @@ Atinge microfonul și întreabă orice dorești.</translation>
 <translation id="7497215489070763236">Certificat CA de server</translation>
 <translation id="7502658306369382406">Adresă IPv6</translation>
 <translation id="7515998400212163428">Android</translation>
+<translation id="7528507600602050979">Conținutul de ajutor nu este disponibil</translation>
 <translation id="7535791657097741517">Activează tema luminoasă</translation>
 <translation id="7550715992156305117">Rutine de diagnosticare</translation>
 <translation id="7551123448725492271">Dispozitivul este un dispozitiv audio.</translation>
@@ -717,6 +723,7 @@ Atinge microfonul și întreabă orice dorești.</translation>
 <translation id="7690294790491645610">Confirmă noua parolă</translation>
 <translation id="7701040980221191251">Niciuna</translation>
 <translation id="7705524343798198388">VPN</translation>
+<translation id="7716280709122323042">WPA3</translation>
 <translation id="773153675489693198">Numărul de cicluri</translation>
 <translation id="7747039790905080783">Cheie predistribuită</translation>
 <translation id="7762130827864645708">Parola a fost schimbată. Folosește noua parolă de acum înainte.</translation>
@@ -724,6 +731,7 @@ Atinge microfonul și întreabă orice dorești.</translation>
 <translation id="7769672763586021400">ID-ul modelului</translation>
 <translation id="7778717409420828014">Feedbackul tău ne ajută să îmbunătățim experiența Chromebookurilor și va fi examinat de echipa noastră. Din cauza numărului mare de rapoarte, nu vom putea să trimitem un răspuns.</translation>
 <translation id="7784116172884276937">Nu există servere DNS configurate</translation>
+<translation id="7791543448312431591">Adaugă</translation>
 <translation id="779591286616261875">Trimite un raport nou</translation>
 <translation id="7799817062559422778">Modul Luminos</translation>
 <translation id="780301667611848630">Nu, mulțumesc</translation>
@@ -799,6 +807,7 @@ Atinge microfonul și întreabă orice dorești.</translation>
 <translation id="8503836310948963452">Mai sunt câteva minute…</translation>
 <translation id="8508640263392900755">Detalii APN</translation>
 <translation id="8528615187455571738">Crosvm</translation>
+<translation id="8557447961879934694">WPA2</translation>
 <translation id="8575298406870537639">Operatorul poate solicita această opțiune ca să te conectezi la rețeaua respectivă. Contactează operatorul pentru detalii.</translation>
 <translation id="8576249514688522074">Neinițializată</translation>
 <translation id="8620617069779373398">Stare roaming</translation>

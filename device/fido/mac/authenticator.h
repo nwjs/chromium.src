@@ -8,8 +8,8 @@
 #include <memory>
 #include <string>
 
-#include "base/callback.h"
 #include "base/component_export.h"
+#include "base/functional/callback.h"
 #include "base/memory/weak_ptr.h"
 #include "base/strings/string_piece_forward.h"
 #include "device/fido/ctap_make_credential_request.h"
@@ -56,7 +56,6 @@ class COMPONENT_EXPORT(DEVICE_FIDO) TouchIdAuthenticator
   void GetAssertion(CtapGetAssertionRequest request,
                     CtapGetAssertionOptions options,
                     GetAssertionCallback callback) override;
-  void GetNextAssertion(GetAssertionCallback callback) override;
   void GetCredentialInformationForRequest(
       const CtapGetAssertionRequest& request,
       GetCredentialInformationForRequestCallback callback) override;
@@ -65,9 +64,6 @@ class COMPONENT_EXPORT(DEVICE_FIDO) TouchIdAuthenticator
   std::string GetId() const override;
   const absl::optional<AuthenticatorSupportedOptions>& Options() const override;
   absl::optional<FidoTransportProtocol> AuthenticatorTransport() const override;
-  bool IsInPairingMode() const override;
-  bool IsPaired() const override;
-  bool RequiresBlePairingPin() const override;
   void GetTouch(base::OnceClosure callback) override;
   base::WeakPtr<FidoAuthenticator> GetWeakPtr() override;
 

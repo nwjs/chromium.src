@@ -4,7 +4,7 @@
 
 #include "chromeos/ash/components/sync_wifi/synced_network_metrics_logger.h"
 
-#include "base/bind.h"
+#include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "chromeos/ash/components/network/network_configuration_handler.h"
 #include "chromeos/ash/components/network/network_connection_handler.h"
@@ -261,6 +261,11 @@ void SyncedNetworkMetricsLogger::RecordApplyNetworkSuccess() {
 }
 void SyncedNetworkMetricsLogger::RecordApplyNetworkFailed() {
   base::UmaHistogramBoolean(kApplyResultHistogram, false);
+}
+
+void SyncedNetworkMetricsLogger::RecordApplyGenerateLocalNetworkConfig(
+    bool success) {
+  base::UmaHistogramBoolean(kApplyGenerateLocalNetworkConfigHistogram, success);
 }
 
 void SyncedNetworkMetricsLogger::RecordApplyNetworkFailureReason(

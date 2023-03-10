@@ -13,9 +13,9 @@
 #include <utility>
 
 #include "base/auto_reset.h"
-#include "base/bind.h"
-#include "base/callback_helpers.h"
 #include "base/debug/gdi_debug_util_win.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
@@ -29,7 +29,6 @@
 #include "base/win/dark_mode_support.h"
 #include "base/win/scoped_gdi_object.h"
 #include "base/win/win_util.h"
-#include "base/win/windows_version.h"
 #include "services/tracing/public/cpp/perfetto/macros.h"
 #include "third_party/perfetto/protos/perfetto/trace/track_event/chrome_window_handle_event_info.pbzero.h"
 #include "third_party/skia/include/core/SkPath.h"
@@ -46,7 +45,6 @@
 #include "ui/base/win/lock_state.h"
 #include "ui/base/win/mouse_wheel_util.h"
 #include "ui/base/win/session_change_observer.h"
-#include "ui/base/win/shell.h"
 #include "ui/base/win/touch_input.h"
 #include "ui/base/win/win_cursor.h"
 #include "ui/display/types/display_constants.h"
@@ -233,13 +231,6 @@ void EnableMenuItemByCommand(HMENU menu, UINT command, bool enabled) {
   EnableMenuItem(menu, command, flags);
 }
 
-// Callback used to notify child windows that the top level window received a
-// DWMCompositionChanged message.
-BOOL CALLBACK SendDwmCompositionChanged(HWND window, LPARAM param) {
-  SendMessage(window, WM_DWMCOMPOSITIONCHANGED, 0, 0);
-  return TRUE;
-}
-
 // The thickness of an auto-hide taskbar in pixels.
 constexpr int kAutoHideTaskbarThicknessPx = 2;
 
@@ -370,8 +361,7 @@ class HWNDMessageHandler::ScopedRedrawLock {
         cancel_unlock_(false),
         should_lock_(owner_->IsVisible() && !owner->HasChildRenderingWindow() &&
                      ::IsWindow(hwnd_) && !owner_->IsHeadless() &&
-                     (!(GetWindowLong(hwnd_, GWL_STYLE) & WS_CAPTION) ||
-                      !ui::win::IsAeroGlassEnabled())) {
+                     (!(GetWindowLong(hwnd_, GWL_STYLE) & WS_CAPTION))) {
     if (should_lock_)
       owner_->LockUpdates();
   }
@@ -434,7 +424,6 @@ HWNDMessageHandler::HWNDMessageHandler(HWNDMessageHandlerDelegate* delegate,
       touch_down_contexts_(0),
       last_mouse_hwheel_time_(0),
       dwm_transition_desired_(false),
-      dwm_composition_enabled_(ui::win::IsDwmCompositionEnabled()),
       sent_window_size_changing_(false),
       did_return_uia_object_(false),
       left_button_down_on_caption_(false),
@@ -646,8 +635,7 @@ void HWNDMessageHandler::SetBounds(const gfx::Rect& bounds_in_pixels,
 }
 
 void HWNDMessageHandler::SetDwmFrameExtension(DwmFrameState state) {
-  if (!delegate_->HasFrame() && ui::win::IsAeroGlassEnabled() &&
-      !is_translucent_) {
+  if (!delegate_->HasFrame() && !is_translucent_) {
     MARGINS m = {0, 0, 0, 0};
     if (state == DwmFrameState::kOn && !IsMaximized())
       m = {0, 0, 1, 0};
@@ -1833,29 +1821,6 @@ void HWNDMessageHandler::OnDisplayChange(UINT bits_per_pixel,
   SendFrameChanged();
 }
 
-LRESULT HWNDMessageHandler::OnDwmCompositionChanged(UINT msg,
-                                                    WPARAM /* w_param */,
-                                                    LPARAM /* l_param */) {
-  TRACE_EVENT0("ui", "HWNDMessageHandler::OnDwmCompositionChanged");
-
-  if (!delegate_->HasNonClientView()) {
-    SetMsgHandled(FALSE);
-    return 0;
-  }
-
-  bool dwm_composition_enabled = ui::win::IsDwmCompositionEnabled();
-  if (dwm_composition_enabled_ != dwm_composition_enabled) {
-    // Do not cause the Window to be hidden and shown unless there was
-    // an actual change in the theme. This filter is necessary because
-    // Windows sends redundant WM_DWMCOMPOSITIONCHANGED messages when
-    // a laptop is reopened, and our theme change code causes wonky
-    // focus issues. See http://crbug.com/895855 for more information.
-    dwm_composition_enabled_ = dwm_composition_enabled;
-    FrameTypeChanged();
-  }
-  return 0;
-}
-
 LRESULT HWNDMessageHandler::OnDpiChanged(UINT msg,
                                          WPARAM w_param,
                                          LPARAM l_param) {
@@ -1914,8 +1879,7 @@ void HWNDMessageHandler::OnEnterSizeMove() {
 
 LRESULT HWNDMessageHandler::OnEraseBkgnd(HDC dc) {
   gfx::Insets insets;
-  if (ui::win::IsAeroGlassEnabled() &&
-      delegate_->GetDwmFrameInsetsInPixels(&insets) && !insets.IsEmpty() &&
+  if (delegate_->GetDwmFrameInsetsInPixels(&insets) && !insets.IsEmpty() &&
       needs_dwm_frame_clear_) {
     // This is necessary to avoid white flashing in the titlebar area around the
     // minimize/maximize/close buttons.
@@ -2156,12 +2120,6 @@ LRESULT HWNDMessageHandler::OnPointerActivate(UINT message,
 LRESULT HWNDMessageHandler::OnPointerEvent(UINT message,
                                            WPARAM w_param,
                                            LPARAM l_param) {
-  // WM_POINTER is not supported on Windows 7.
-  if (base::win::GetVersion() == base::win::Version::WIN7) {
-    SetMsgHandled(FALSE);
-    return -1;
-  }
-
   UINT32 pointer_id = GET_POINTERID_WPARAM(w_param);
   using GetPointerTypeFn = BOOL(WINAPI*)(UINT32, POINTER_INPUT_TYPE*);
   POINTER_INPUT_TYPE pointer_type;
@@ -2496,30 +2454,28 @@ void HWNDMessageHandler::OnNCPaint(HRGN rgn) {
   // It's required to avoid some native painting artifacts from appearing when
   // the window is resized.
   if (!delegate_->HasNonClientView() || IsFrameSystemDrawn()) {
-    if (ui::win::IsAeroGlassEnabled()) {
-      // The default WM_NCPAINT handler under Aero Glass doesn't clear the
-      // nonclient area, so it'll remain the default white color. That area is
-      // invisible initially (covered by the window border) but can become
-      // temporarily visible on maximizing or fullscreening, so clear it here.
-      HDC dc = GetWindowDC(hwnd());
-      RECT client_rect;
-      ::GetClientRect(hwnd(), &client_rect);
-      ::MapWindowPoints(hwnd(), nullptr, reinterpret_cast<POINT*>(&client_rect),
-                        2);
-      ::OffsetRect(&client_rect, -window_rect.left, -window_rect.top);
-      // client_rect now is in window space.
+    // The default WM_NCPAINT handler under Aero Glass doesn't clear the
+    // nonclient area, so it'll remain the default white color. That area is
+    // invisible initially (covered by the window border) but can become
+    // temporarily visible on maximizing or fullscreening, so clear it here.
+    HDC dc = GetWindowDC(hwnd());
+    RECT client_rect;
+    ::GetClientRect(hwnd(), &client_rect);
+    ::MapWindowPoints(hwnd(), nullptr, reinterpret_cast<POINT*>(&client_rect),
+                      2);
+    ::OffsetRect(&client_rect, -window_rect.left, -window_rect.top);
+    // client_rect now is in window space.
 
-      base::win::ScopedRegion base(::CreateRectRgnIndirect(&dirty_region));
-      base::win::ScopedRegion client(::CreateRectRgnIndirect(&client_rect));
-      base::win::ScopedRegion nonclient(::CreateRectRgn(0, 0, 0, 0));
-      ::CombineRgn(nonclient.get(), base.get(), client.get(), RGN_DIFF);
+    base::win::ScopedRegion base(::CreateRectRgnIndirect(&dirty_region));
+    base::win::ScopedRegion client(::CreateRectRgnIndirect(&client_rect));
+    base::win::ScopedRegion nonclient(::CreateRectRgn(0, 0, 0, 0));
+    ::CombineRgn(nonclient.get(), base.get(), client.get(), RGN_DIFF);
 
-      ::SelectClipRgn(dc, nonclient.get());
-      HBRUSH brush = CreateSolidBrush(0);
-      ::FillRect(dc, &dirty_region, brush);
-      ::DeleteObject(brush);
-      ::ReleaseDC(hwnd(), dc);
-    }
+    ::SelectClipRgn(dc, nonclient.get());
+    HBRUSH brush = CreateSolidBrush(0);
+    ::FillRect(dc, &dirty_region, brush);
+    ::DeleteObject(brush);
+    ::ReleaseDC(hwnd(), dc);
     SetMsgHandled(FALSE);
     return;
   }
@@ -2558,12 +2514,6 @@ LRESULT HWNDMessageHandler::OnNCUAHDrawFrame(UINT message,
   // an explanation about why we need to handle this message.
   SetMsgHandled(delegate_->GetFrameMode() == FrameMode::CUSTOM_DRAWN);
   return 0;
-}
-
-LRESULT HWNDMessageHandler::OnNotify(int w_param, NMHDR* l_param) {
-  LRESULT l_result = 0;
-  SetMsgHandled(delegate_->HandleTooltipNotify(w_param, l_param, &l_result));
-  return l_result;
 }
 
 void HWNDMessageHandler::OnPaint(HDC dc) {
@@ -2876,18 +2826,6 @@ LRESULT HWNDMessageHandler::OnTouchEvent(UINT message,
       POINT point;
       point.x = TOUCH_COORD_TO_PIXEL(input[i].x);
       point.y = TOUCH_COORD_TO_PIXEL(input[i].y);
-
-      if (base::win::GetVersion() == base::win::Version::WIN7) {
-        // Windows 7 sends touch events for touches in the non-client area,
-        // whereas Windows 8 does not. In order to unify the behaviour, always
-        // ignore touch events in the non-client area.
-        LPARAM l_param_ht = MAKELPARAM(point.x, point.y);
-        LRESULT hittest = SendMessage(hwnd(), WM_NCHITTEST, 0, l_param_ht);
-
-        if (hittest != HTCLIENT)
-          return 0;
-      }
-
       ScreenToClient(hwnd(), &point);
 
       last_touch_or_pen_message_time_ = ::GetMessageTime();
@@ -3585,18 +3523,13 @@ void HWNDMessageHandler::PerformDwmTransition() {
     SetWindowPos(hwnd(), nullptr, 0, 0, 0, 0, flags | SWP_HIDEWINDOW);
     SetWindowPos(hwnd(), nullptr, 0, 0, 0, 0, flags | SWP_SHOWWINDOW);
   }
-  // WM_DWMCOMPOSITIONCHANGED is only sent to top level windows, however we want
-  // to notify our children too, since we can have MDI child windows who need to
-  // update their appearance.
-  EnumChildWindows(hwnd(), &SendDwmCompositionChanged, NULL);
 }
 
 void HWNDMessageHandler::UpdateDwmFrame() {
   TRACE_EVENT0("ui", "HWNDMessageHandler::UpdateDwmFrame");
 
   gfx::Insets insets;
-  if (ui::win::IsAeroGlassEnabled() &&
-      delegate_->GetDwmFrameInsetsInPixels(&insets)) {
+  if (delegate_->GetDwmFrameInsetsInPixels(&insets)) {
     MARGINS margins = {insets.left(), insets.right(), insets.top(),
                        insets.bottom()};
     DwmExtendFrameIntoClientArea(hwnd(), &margins);

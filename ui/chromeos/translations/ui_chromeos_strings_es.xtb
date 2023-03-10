@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Instalar con Linux</translation>
 <translation id="2225536596944493418">¿Seguro que quieres eliminar estos <ph name="NUMBER_OF_ITEMS" /> elementos?</translation>
 <translation id="2230062665678605299">No se puede crear la carpeta "<ph name="FOLDER_NAME" />". <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">Se ha borrado la caché de tu Google Drive.</translation>
 <translation id="2239068707900391003">Persona con un café</translation>
 <translation id="2251368349685848079">Restaurar de la papelera</translation>
 <translation id="2282155092769082568">URL de configuración automática:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">No se ha encontrado ningún elemento que coincida con &lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt;.</translation>
 <translation id="2894654529758326923">Información</translation>
 <translation id="2902734494705624966">Estados Unidos (ampliado)</translation>
+<translation id="2904378509913846215">Ya hay una carpeta llamada "<ph name="FILENAME" />". ¿Quieres reemplazarla por la que estás moviendo?</translation>
 <translation id="290843123675549676">Maratí</translation>
 <translation id="2923240520113693977">Estonio</translation>
 <translation id="2938685643439809023">Mongol</translation>
@@ -640,6 +642,7 @@
 <translation id="6241349547798190358">Neerlandés (Bélgica)</translation>
 <translation id="6267547857941397424">Red <ph name="NETWORK_INDEX" /> de <ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, intensidad de la señal: <ph name="SIGNAL_STRENGTH" /> %, batería del teléfono: <ph name="BATTERY_STATUS" /> %, conectar</translation>
 <translation id="6269630227984243955">Malayo</translation>
+<translation id="6271903698064569429">No se pueden subir los archivos porque <ph name="SHARED_DRIVE_NAME" /> no tiene suficiente espacio de almacenamiento.</translation>
 <translation id="6287852322318138013">Seleccionar una aplicación para abrir este archivo</translation>
 <translation id="6295542640242147836">Bloquear SIM</translation>
 <translation id="6296410173147755564">PUK no válido</translation>
@@ -685,6 +688,7 @@
 <translation id="6657585470893396449">Contraseña</translation>
 <translation id="6658865850469097484">Los archivos que lleven más de 30 días en la papelera se eliminarán automáticamente.</translation>
 <translation id="6673674183150363784">Francés (Francia) con teclado Bépo</translation>
+<translation id="670380500182402678">Reemplazar todo</translation>
 <translation id="6710022688720561421">Robot</translation>
 <translation id="6710213216561001401">Anterior</translation>
 <translation id="6732801395666424405">No se han cargado los certificados</translation>
@@ -903,6 +907,7 @@
 <translation id="8386903983509584791">Búsqueda completada</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" /> extraído.</translation>
 <translation id="8395901698320285466">Dimensiones</translation>
+<translation id="8404498045299006085">Conservar todo</translation>
 <translation id="8408068190360279472">Red <ph name="NETWORK_TYPE" />, conectando</translation>
 <translation id="8425213833346101688">Cambiar</translation>
 <translation id="8431909052837336408">Cambiar PIN de la tarjeta SIM</translation>

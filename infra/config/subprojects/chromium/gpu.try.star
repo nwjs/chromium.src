@@ -371,6 +371,7 @@ gpu_mac_builder(
         "ci/Mac FYI Debug (Intel)",
     ],
     pool = "luci.chromium.gpu.mac.mini.intel.try",
+    goma_backend = None,
 )
 
 gpu_mac_builder(
@@ -456,7 +457,7 @@ gpu_win_builder(
     name = "gpu-fyi-try-win10-intel-exp-64",
     mirrors = [
         "ci/GPU FYI Win x64 Builder",
-        "ci/Win10 FYI x64 Exp Release (Intel HD 630)",
+        "ci/Win10 FYI x64 Experimental Release (Intel)",
     ],
     pool = "luci.chromium.gpu.win10.intel.try",
     goma_backend = None,
@@ -466,7 +467,7 @@ gpu_win_builder(
     name = "gpu-fyi-try-win10-intel-rel-64",
     mirrors = [
         "ci/GPU FYI Win x64 Builder",
-        "ci/Win10 FYI x64 Release (Intel HD 630)",
+        "ci/Win10 FYI x64 Release (Intel)",
     ],
     pool = "luci.chromium.gpu.win10.intel.try",
     goma_backend = None,

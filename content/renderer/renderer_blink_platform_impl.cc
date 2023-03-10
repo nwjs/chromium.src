@@ -11,10 +11,10 @@
 #include <utility>
 #include <vector>
 
-#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
+#include "base/functional/bind.h"
 #include "base/guid.h"
 #include "base/lazy_instance.h"
 #include "base/location.h"
@@ -31,7 +31,6 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "base/threading/thread_restrictions.h"
-#include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "cc/trees/raster_context_provider_wrapper.h"
@@ -123,10 +122,6 @@
 #include "base/file_descriptor_posix.h"
 #endif
 
-#if BUILDFLAG(IS_WIN)
-#include "base/win/windows_version.h"
-#endif
-
 using blink::Platform;
 using blink::WebAudioDevice;
 using blink::WebAudioLatencyHint;
@@ -165,7 +160,7 @@ media::AudioParameters GetAudioHardwareParams() {
 
   return blink::AudioDeviceFactory::GetInstance()
       ->GetOutputDeviceInfo(render_frame->GetWebFrame()->GetLocalFrameToken(),
-                            media::AudioSinkParameters())
+                            std::string())
       .output_params();
 }
 
@@ -495,7 +490,7 @@ std::unique_ptr<WebAudioDevice> RendererBlinkPlatformImpl::CreateAudioDevice(
     const WebAudioSinkDescriptor& sink_descriptor,
     unsigned number_of_output_channels,
     const blink::WebAudioLatencyHint& latency_hint,
-    WebAudioDevice::RenderCallback* callback) {
+    media::AudioRendererSink::RenderCallback* callback) {
   // The `number_of_output_channels` does not manifest the actual channel
   // layout of the audio output device. We use the best guess to the channel
   // layout based on the number of channels.
@@ -507,11 +502,9 @@ std::unique_ptr<WebAudioDevice> RendererBlinkPlatformImpl::CreateAudioDevice(
     layout = media::CHANNEL_LAYOUT_DISCRETE;
   }
 
-  // Using `UnguessableToken()` prevents from guessing the session ID to gain
-  // access to a capture stream.
-  return RendererWebAudioDeviceImpl::Create(
-      sink_descriptor, layout, number_of_output_channels, latency_hint,
-      callback, /*session_id=*/base::UnguessableToken());
+  return RendererWebAudioDeviceImpl::Create(sink_descriptor, layout,
+                                            number_of_output_channels,
+                                            latency_hint, callback);
 }
 
 bool RendererBlinkPlatformImpl::DecodeAudioFileData(
@@ -646,22 +639,6 @@ void RendererBlinkPlatformImpl::GetWebRTCRendererPreferences(
     }
   }
   *allow_mdns_obfuscation = true;
-}
-
-bool RendererBlinkPlatformImpl::IsWebRtcHWH264DecodingEnabled(
-    webrtc::VideoCodecType video_codec_type) {
-#if BUILDFLAG(IS_WIN)
-  // Do not use hardware decoding for H.264 on Win7, due to high latency.
-  // See https://crbug.com/webrtc/5717.
-  if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kEnableWin7WebRtcHWH264Decoding) &&
-      video_codec_type == webrtc::kVideoCodecH264 &&
-      base::win::GetVersion() == base::win::Version::WIN7) {
-    DVLOG(1) << "H.264 HW decoding is not supported on Win7";
-    return false;
-  }
-#endif  // BUILDFLAG(IS_WIN)
-  return true;
 }
 
 bool RendererBlinkPlatformImpl::IsWebRtcHWEncodingEnabled() {
@@ -1124,5 +1101,14 @@ RendererBlinkPlatformImpl::VideoFrameCompositorTaskRunner() {
   }
   return compositor_task_runner;
 }
+
+#if BUILDFLAG(IS_ANDROID)
+void RendererBlinkPlatformImpl::SetPrivateMemoryFootprint(
+    uint64_t private_memory_footprint_bytes) {
+  auto* render_thread = RenderThreadImpl::current();
+  CHECK(render_thread);
+  render_thread->SetPrivateMemoryFootprint(private_memory_footprint_bytes);
+}
+#endif
 
 }  // namespace content

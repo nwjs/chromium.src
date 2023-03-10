@@ -59,12 +59,6 @@ consoles.console_view(
     },
 )
 
-def fyi_coverage_builder(*, name, **kwargs):
-    kwargs.setdefault("cores", 32)
-    kwargs.setdefault("execution_timeout", 20 * time.hour)
-    kwargs.setdefault("ssd", True)
-    return ci.builder(name = name, **kwargs)
-
 def fyi_ios_builder(*, name, **kwargs):
     kwargs.setdefault("cores", None)
     if kwargs.get("builderless", False):
@@ -326,13 +320,42 @@ ci.builder(
         ),
         build_gs_bucket = "chromium-fyi-archive",
         skylab_upload_location = builder_config.skylab_upload_location(
-            gs_bucket = "lacros-amd64-generic-rel-skylab-try",
+            gs_bucket = "chromium-ci-skylab",
         ),
     ),
     os = os.LINUX_DEFAULT,
     console_view_entry = consoles.console_view_entry(
         category = "lacros",
         short_name = "lsf",
+    ),
+)
+
+ci.builder(
+    name = "lacros-arm-generic-rel-skylab-fyi",
+    builder_spec = builder_config.builder_spec(
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+            apply_configs = [
+                "chromeos",
+                "checkout_lacros_sdk",
+            ],
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = ["mb"],
+            target_bits = 32,
+            target_platform = "chromeos",
+            target_cros_boards = "kevin:jacuzzi:arm-generic",
+        ),
+        build_gs_bucket = "chromium-fyi-archive",
+        skylab_upload_location = builder_config.skylab_upload_location(
+            gs_bucket = "chromium-ci-skylab",
+        ),
+    ),
+    os = os.LINUX_DEFAULT,
+    console_view_entry = consoles.console_view_entry(
+        category = "lacros",
+        short_name = "arm",
     ),
 )
 
@@ -355,12 +378,12 @@ ci.builder(
             apply_configs = ["mb", "mb_no_luci_auth"],
             target_bits = 64,
             target_platform = "chromeos",
-            target_cros_boards = "kevin",
+            target_cros_boards = "kevin:jacuzzi",
             cros_boards_with_qemu_images = "arm64-generic",
         ),
         build_gs_bucket = "chromium-fyi-archive",
         skylab_upload_location = builder_config.skylab_upload_location(
-            gs_bucket = "lacros-arm64-generic-rel-skylab-try",
+            gs_bucket = "chromium-ci-skylab",
         ),
     ),
     os = os.LINUX_DEFAULT,
@@ -789,9 +812,50 @@ ci.builder(
 )
 
 ci.builder(
+    name = "linux-wpt-content-shell-leak-detection",
+    builder_spec = builder_config.builder_spec(
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = ["mb"],
+            build_config = builder_config.build_config.RELEASE,
+            target_bits = 64,
+        ),
+    ),
+    os = os.LINUX_DEFAULT,
+    console_view_entry = consoles.console_view_entry(
+        category = "linux",
+    ),
+    experimental = True,
+)
+
+ci.builder(
     name = "linux-wpt-fyi-rel",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(config = "chromium"),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = ["mb"],
+            build_config = builder_config.build_config.RELEASE,
+            target_bits = 64,
+        ),
+        build_gs_bucket = "chromium-fyi-archive",
+    ),
+    os = os.LINUX_DEFAULT,
+    console_view_entry = consoles.console_view_entry(
+        category = "linux",
+    ),
+    experimental = True,
+)
+
+ci.builder(
+    name = "linux-wpt-content-shell-asan-fyi-rel",
+    builder_spec = builder_config.builder_spec(
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+        ),
         chromium_config = builder_config.chromium_config(
             config = "chromium",
             apply_configs = ["mb"],
@@ -1767,36 +1831,6 @@ ci.builder(
     reclient_rewrapper_env = {"RBE_compare": "true"},
 )
 
-ci.builder(
-    name = "Win x64 Builder (reclient)(cross)",
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = [
-                "use_clang_coverage",
-                "reclient_test",
-            ],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "chromium",
-            apply_configs = ["mb"],
-            build_config = builder_config.build_config.RELEASE,
-            target_bits = 64,
-        ),
-        build_gs_bucket = "chromium-fyi-archive",
-    ),
-    builderless = True,
-    cores = 32,
-    os = os.WINDOWS_DEFAULT,
-    console_view_entry = consoles.console_view_entry(
-        category = "win",
-        short_name = "re x",
-    ),
-    reclient_jobs = None,
-    reclient_profiler_service = "reclient-win",
-    reclient_publish_trace = True,
-)
-
 fyi_mac_builder(
     name = "Mac Builder (reclient)",
     description_html = "experiment reclient on mac. should be removed after the migration. crbug.com/1244441",
@@ -1857,38 +1891,8 @@ fyi_mac_builder(
 )
 
 fyi_mac_builder(
-    name = "mac-arm64-on-arm64-rel-reclient",
-    description_html = "experiment reclient on mac-arm. should be removed after the migration. crbug.com/1252626",
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = ["reclient_test"],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "chromium",
-            apply_configs = ["mb"],
-            build_config = builder_config.build_config.RELEASE,
-            target_arch = builder_config.target_arch.ARM,
-            target_bits = 64,
-        ),
-        build_gs_bucket = "chromium-fyi-archive",
-    ),
-
-    # same with mac-arm64-on-arm64-rel
-    cores = None,  # crbug.com/1245114
-    os = os.MAC_12,
-    cpu = cpu.ARM64,
-    console_view_entry = consoles.console_view_entry(
-        category = "mac",
-        short_name = "re",
-    ),
-    reclient_jobs = None,
-)
-
-fyi_mac_builder(
-    name = "mac-12-wpt-fyi-rel",
-    # TODO(crbug.com/1385202): Enable scheduler when machine has been allocated.
-    schedule = "triggered",
+    name = "mac10.15-wpt-content-shell-fyi-rel",
+    schedule = "with 5h interval",
     triggered_by = [],
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
@@ -1903,7 +1907,81 @@ fyi_mac_builder(
         ),
     ),
     builderless = False,
-    os = os.MAC_12,
+    cores = None,
+    os = os.MAC_ANY,
+    console_view_entry = consoles.console_view_entry(
+        category = "mac",
+    ),
+)
+
+fyi_mac_builder(
+    name = "mac11-wpt-content-shell-fyi-rel",
+    schedule = "with 5h interval",
+    triggered_by = [],
+    builder_spec = builder_config.builder_spec(
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = ["mb"],
+            build_config = builder_config.build_config.RELEASE,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.MAC,
+        ),
+    ),
+    builderless = False,
+    cores = None,
+    os = os.MAC_ANY,
+    console_view_entry = consoles.console_view_entry(
+        category = "mac",
+    ),
+)
+
+fyi_mac_builder(
+    name = "mac12-arm64-wpt-content-shell-fyi-rel",
+    schedule = "with 5h interval",
+    triggered_by = [],
+    builder_spec = builder_config.builder_spec(
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = ["mb"],
+            build_config = builder_config.build_config.RELEASE,
+            target_arch = builder_config.target_arch.ARM,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.MAC,
+        ),
+    ),
+    builderless = False,
+    cores = None,
+    os = os.MAC_ANY,
+    console_view_entry = consoles.console_view_entry(
+        category = "mac",
+    ),
+)
+
+fyi_mac_builder(
+    name = "mac12-wpt-content-shell-fyi-rel",
+    schedule = "with 5h interval",
+    triggered_by = [],
+    builder_spec = builder_config.builder_spec(
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = ["mb"],
+            build_config = builder_config.build_config.RELEASE,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.MAC,
+        ),
+    ),
+    builderless = False,
+    cores = None,
+    os = os.MAC_ANY,
     console_view_entry = consoles.console_view_entry(
         category = "mac",
     ),
@@ -2038,312 +2116,6 @@ ci.builder(
         "tests": "*",
     },
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
-)
-
-fyi_coverage_builder(
-    name = "android-code-coverage",
-    schedule = "triggered",
-    triggered_by = [],
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = ["android"],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "android",
-            apply_configs = [
-                "download_vr_test_apks",
-                "mb",
-            ],
-            build_config = builder_config.build_config.RELEASE,
-            target_bits = 64,
-            target_platform = builder_config.target_platform.ANDROID,
-        ),
-        android_config = builder_config.android_config(config = "main_builder"),
-        build_gs_bucket = "chromium-fyi-archive",
-    ),
-    os = os.LINUX_DEFAULT,
-    console_view_entry = consoles.console_view_entry(
-        category = "code_coverage",
-        short_name = "and",
-    ),
-    coverage_test_types = ["overall", "unit"],
-    export_coverage_to_zoss = True,
-    generate_blame_list = True,
-    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
-    use_java_coverage = True,
-)
-
-fyi_coverage_builder(
-    name = "android-code-coverage-native",
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = [
-                "android",
-                "use_clang_coverage",
-            ],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "android",
-            apply_configs = [
-                "download_vr_test_apks",
-                "mb",
-            ],
-            build_config = builder_config.build_config.RELEASE,
-            target_bits = 64,
-            target_platform = builder_config.target_platform.ANDROID,
-        ),
-        android_config = builder_config.android_config(config = "main_builder"),
-        build_gs_bucket = "chromium-fyi-archive",
-    ),
-    os = os.LINUX_DEFAULT,
-    console_view_entry = consoles.console_view_entry(
-        category = "code_coverage",
-        short_name = "ann",
-    ),
-    coverage_test_types = ["overall", "unit"],
-    export_coverage_to_zoss = True,
-    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
-    use_clang_coverage = True,
-)
-
-fyi_coverage_builder(
-    name = "fuchsia-code-coverage",
-    schedule = "triggered",
-    triggered_by = [],
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = [
-                "fuchsia_x64",
-                "use_clang_coverage",
-            ],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "chromium",
-            apply_configs = ["mb"],
-            build_config = builder_config.build_config.RELEASE,
-            target_bits = 64,
-            target_platform = builder_config.target_platform.FUCHSIA,
-        ),
-        build_gs_bucket = "chromium-fyi-archive",
-    ),
-    os = os.LINUX_DEFAULT,
-    console_view_entry = [
-        consoles.console_view_entry(
-            category = "code_coverage",
-            short_name = "fx",
-        ),
-        consoles.console_view_entry(
-            branch_selector = branches.selector.MAIN,
-            console_view = "sheriff.fuchsia",
-            category = "fyi|x64",
-            short_name = "cov",
-        ),
-    ],
-    coverage_test_types = ["overall", "unit"],
-    use_clang_coverage = True,
-)
-
-fyi_coverage_builder(
-    name = "ios-simulator-code-coverage",
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "ios",
-            apply_configs = ["use_clang_coverage"],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "chromium",
-            apply_configs = [
-                "mb",
-                "mac_toolchain",
-            ],
-            build_config = builder_config.build_config.DEBUG,
-            target_bits = 64,
-            target_platform = builder_config.target_platform.IOS,
-        ),
-        build_gs_bucket = "chromium-fyi-archive",
-    ),
-    cores = None,
-    os = os.MAC_DEFAULT,
-    console_view_entry = consoles.console_view_entry(
-        category = "code_coverage",
-        short_name = "ios",
-    ),
-    coverage_exclude_sources = "ios_test_files_and_test_utils",
-    coverage_test_types = ["overall", "unit"],
-    export_coverage_to_zoss = True,
-    use_clang_coverage = True,
-    xcode = xcode.x14main,
-)
-
-fyi_coverage_builder(
-    name = "linux-chromeos-code-coverage",
-    schedule = "triggered",
-    triggered_by = [],
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = [
-                "chromeos",
-                "use_clang_coverage",
-            ],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "chromium",
-            apply_configs = ["mb"],
-            build_config = builder_config.build_config.RELEASE,
-            target_arch = builder_config.target_arch.INTEL,
-            target_bits = 64,
-        ),
-        build_gs_bucket = "chromium-fyi-archive",
-    ),
-    os = os.LINUX_DEFAULT,
-    console_view_entry = consoles.console_view_entry(
-        category = "code_coverage",
-        short_name = "lcr",
-    ),
-    coverage_test_types = ["overall", "unit"],
-    export_coverage_to_zoss = True,
-    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
-    use_clang_coverage = True,
-)
-
-fyi_coverage_builder(
-    name = "linux-js-code-coverage",
-    schedule = "triggered",
-    triggered_by = [],
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "chromium",
-            apply_configs = [
-                "mb",
-            ],
-            build_config = builder_config.build_config.RELEASE,
-            target_arch = builder_config.target_arch.INTEL,
-            target_bits = 64,
-        ),
-        build_gs_bucket = "chromium-fyi-archive",
-    ),
-    os = os.LINUX_DEFAULT,
-    console_view_entry = consoles.console_view_entry(
-        category = "code_coverage",
-        short_name = "jcr",
-    ),
-    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
-    use_javascript_coverage = True,
-)
-
-fyi_coverage_builder(
-    name = "linux-code-coverage",
-    triggered_by = [],
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = ["use_clang_coverage"],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "chromium",
-            apply_configs = ["mb"],
-            build_config = builder_config.build_config.RELEASE,
-            target_bits = 64,
-        ),
-        build_gs_bucket = "chromium-fyi-archive",
-    ),
-    os = os.LINUX_DEFAULT,
-    console_view_entry = consoles.console_view_entry(
-        category = "code_coverage",
-        short_name = "lnx",
-    ),
-    coverage_test_types = ["overall", "unit"],
-    export_coverage_to_zoss = True,
-    use_clang_coverage = True,
-)
-
-fyi_coverage_builder(
-    name = "linux-lacros-code-coverage",
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = [
-                "chromeos",
-                "use_clang_coverage",
-            ],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "chromium",
-            apply_configs = ["mb"],
-            build_config = builder_config.build_config.RELEASE,
-            target_bits = 64,
-        ),
-        build_gs_bucket = "chromium-fyi-archive",
-    ),
-    os = os.LINUX_DEFAULT,
-    console_view_entry = consoles.console_view_entry(
-        category = "code_coverage",
-        short_name = "lac",
-    ),
-    coverage_test_types = ["overall", "unit"],
-    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
-    use_clang_coverage = True,
-)
-
-fyi_coverage_builder(
-    name = "mac-code-coverage",
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = ["use_clang_coverage"],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "chromium",
-            apply_configs = ["mb"],
-            build_config = builder_config.build_config.RELEASE,
-            target_bits = 64,
-        ),
-        build_gs_bucket = "chromium-fyi-archive",
-    ),
-    builderless = True,
-    cores = 24,
-    os = os.MAC_ANY,
-    console_view_entry = consoles.console_view_entry(
-        category = "code_coverage",
-        short_name = "mac",
-    ),
-    coverage_test_types = ["overall", "unit"],
-    export_coverage_to_zoss = True,
-    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
-    use_clang_coverage = True,
-)
-
-fyi_coverage_builder(
-    name = "win10-code-coverage",
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = ["use_clang_coverage"],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "chromium",
-            apply_configs = ["mb"],
-            build_config = builder_config.build_config.RELEASE,
-            target_bits = 64,
-        ),
-        build_gs_bucket = "chromium-fyi-archive",
-    ),
-    builderless = True,
-    os = os.WINDOWS_DEFAULT,
-    console_view_entry = consoles.console_view_entry(
-        category = "code_coverage",
-        short_name = "win",
-    ),
-    coverage_test_types = ["overall", "unit"],
-    export_coverage_to_zoss = True,
-    use_clang_coverage = True,
 )
 
 fyi_ios_builder(
@@ -2600,33 +2372,6 @@ fyi_ios_builder(
         short_name = "sdk16",
     ),
     xcode = xcode.x14betabots,
-)
-
-ci.builder(
-    # An FYI version of the following builders that runs on Focal:
-    # https://ci.chromium.org/p/chromium/builders/ci/Linux%20ChromiumOS%20MSan%20Builder
-    # https://ci.chromium.org/p/chromium/builders/ci/Linux%20ChromiumOS%20MSan%20Tests
-    # TODO(crbug.com/1260217): Remove this builder when the main MSAN builder
-    # has migrated to focal.
-    name = "Linux ChromiumOS MSan Focal",
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = ["chromeos"],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "chromium_msan",
-            apply_configs = ["mb"],
-            build_config = builder_config.build_config.RELEASE,
-        ),
-    ),
-    os = os.LINUX_FOCAL,
-    console_view_entry = consoles.console_view_entry(
-        category = "msan",
-        short_name = "crs",
-    ),
-    execution_timeout = 16 * time.hour,
-    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
 )
 
 fyi_mac_builder(

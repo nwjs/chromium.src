@@ -92,25 +92,28 @@ class UserPerformanceTuningManager
     // Raised when the count of janky intervals reaches X.
     // Can be used by the UI to show a promo
     virtual void OnJankThresholdReached() {}
+
+    // Raised when memory metrics for a discarded page becomes available to read
+    virtual void OnMemoryMetricsRefreshed() {}
   };
 
   class PreDiscardResourceUsage
       : public content::WebContentsUserData<PreDiscardResourceUsage> {
    public:
     PreDiscardResourceUsage(content::WebContents* contents,
-                            uint64_t resident_set_size_estimate);
+                            uint64_t memory_footprint_estimate);
     ~PreDiscardResourceUsage() override;
 
     // Returns the resource usage estimate in kilobytes.
-    uint64_t resident_set_size_estimate_kb() const {
-      return resident_set_size_estimate_;
+    uint64_t memory_footprint_estimate_kb() const {
+      return memory_footprint_estimate_;
     }
 
    private:
     friend WebContentsUserData;
     WEB_CONTENTS_USER_DATA_KEY_DECL();
 
-    uint64_t resident_set_size_estimate_ = 0;
+    uint64_t memory_footprint_estimate_ = 0;
   };
 
   static UserPerformanceTuningManager* GetInstance();
@@ -145,9 +148,16 @@ class UserPerformanceTuningManager
   // Returns true if the device is unplugged and using battery power.
   bool IsUsingBatteryPower() const;
 
+  // Returns the time of the last use of battery for the device.
+  base::Time GetLastBatteryUsageTimestamp() const;
+
   // Returns the last sampled device battery percentage. A percentage of -1
   // indicates that the battery state has not been sampled yet.
   int SampledBatteryPercentage() const;
+
+  // Discards the given WebContents with the same mechanism as one that is
+  // discarded through a natural timeout
+  void DiscardPageForTesting(content::WebContents* web_contents);
 
  private:
   friend class ::ChromeBrowserMainExtraPartsPerformanceManager;
@@ -165,6 +175,7 @@ class UserPerformanceTuningManager
 
     void NotifyTabCountThresholdReached() override;
     void NotifyMemoryThresholdReached() override;
+    void NotifyMemoryMetricsRefreshed() override;
   };
 
   explicit UserPerformanceTuningManager(
@@ -184,6 +195,7 @@ class UserPerformanceTuningManager
 
   void NotifyTabCountThresholdReached();
   void NotifyMemoryThresholdReached();
+  void NotifyMemoryMetricsRefreshed();
 
   // base::PowerStateObserver:
   void OnPowerStateChange(bool on_battery_power) override;

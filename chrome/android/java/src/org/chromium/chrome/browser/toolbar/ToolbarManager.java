@@ -145,7 +145,6 @@ import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.chrome.browser.user_education.IPHCommandBuilder;
 import org.chromium.chrome.browser.user_education.UserEducationHelper;
 import org.chromium.chrome.browser.util.ChromeAccessibilityUtil;
-import org.chromium.chrome.browser.vr.VrModuleProvider;
 import org.chromium.chrome.features.start_surface.StartSurface;
 import org.chromium.chrome.features.start_surface.StartSurfaceState;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
@@ -173,7 +172,6 @@ import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.base.WindowDelegate;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.util.TokenHolder;
-import org.chromium.ui.vr.VrModeObserver;
 import org.chromium.url.GURL;
 
 import java.util.List;
@@ -293,17 +291,12 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
     private StartSurface.StateObserver mStartSurfaceStateObserver;
     private AppBarLayout.OnOffsetChangedListener mStartSurfaceHeaderOffsetChangeListener;
 
-    private OneshotSupplier<ToolbarIntentMetadata> mIntentMetadataOneshotSupplier;
     private OneshotSupplier<Boolean> mPromoShownOneshotSupplier;
     private OverlayPanelManagerObserver mOverlayPanelManagerObserver;
     private ObservableSupplierImpl<Boolean> mOverlayPanelVisibilitySupplier =
             new ObservableSupplierImpl<>();
 
     private TabGroupUi mTabGroupUi;
-
-    private final VrModeObserver mVrModeObserver;
-    private ObservableSupplierImpl<Boolean> mIsProgressBarVisibleSupplier =
-            new ObservableSupplierImpl<>();
 
     private final ObservableSupplierImpl<Boolean> mBackPressStateSupplier =
             new ObservableSupplierImpl<>();
@@ -408,7 +401,6 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
      * @param tabModelSelectorSupplier Supplier of the {@link TabModelSelector}.
      * @param startSurfaceSupplier Supplier of the StartSurface.
      * @param omniboxFocusStateSupplier Supplier to access the focus state of the omnibox.
-     * @param intentMetadataOneshotSupplier Supplier with info about the launching intent.
      * @param promoShownOneshotSupplier Supplier for whether a promo was shown on startup.
      * @param windowAndroid The {@link WindowAndroid} associated with the ToolbarManager.
      * @param isInOverviewModeSupplier Supplies whether the app is currently in overview mode.
@@ -447,7 +439,6 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
             ObservableSupplier<TabModelSelector> tabModelSelectorSupplier,
             OneshotSupplier<StartSurface> startSurfaceSupplier,
             ObservableSupplier<Boolean> omniboxFocusStateSupplier,
-            OneshotSupplier<ToolbarIntentMetadata> intentMetadataOneshotSupplier,
             OneshotSupplier<Boolean> promoShownOneshotSupplier, WindowAndroid windowAndroid,
             Supplier<Boolean> isInOverviewModeSupplier,
             Supplier<ModalDialogManager> modalDialogManagerSupplier,
@@ -477,7 +468,6 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
         mScrimCoordinator = scrimCoordinator;
         mTabModelSelectorSupplier = tabModelSelectorSupplier;
         mOmniboxFocusStateSupplier = omniboxFocusStateSupplier;
-        mIntentMetadataOneshotSupplier = intentMetadataOneshotSupplier;
         mPromoShownOneshotSupplier = promoShownOneshotSupplier;
         mAppMenuDelegate = appMenuDelegate;
         mStatusBarColorController = statusBarColorController;
@@ -492,20 +482,6 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
         mSnackbarManager = snackbarManager;
         mTabReparentingControllerSupplier = tabReparentingControllerSupplier;
         mEphemeralTabCoordinatorSupplier = ephemeralTabCoordinatorSupplier;
-
-        mIsProgressBarVisibleSupplier.set(!VrModuleProvider.getDelegate().isInVr());
-        mVrModeObserver = new VrModeObserver() {
-            @Override
-            public void onEnterVr() {
-                mIsProgressBarVisibleSupplier.set(false);
-            }
-
-            @Override
-            public void onExitVr() {
-                mIsProgressBarVisibleSupplier.set(true);
-            }
-        };
-        VrModuleProvider.registerVrModeObserver(mVrModeObserver);
 
         ToolbarLayout toolbarLayout = mActivity.findViewById(R.id.toolbar);
         NewTabPageDelegate ntpDelegate = createNewTabPageDelegate(toolbarLayout);
@@ -661,10 +637,13 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
                     mEphemeralTabCoordinatorSupplier, mControlsVisibilityDelegate);
         } else {
             OverrideUrlLoadingDelegate overrideUrlLoadingDelegate =
-                    (url, transition, postDataType, postData, incognito)
-                    -> ReturnToChromeUtil.handleLoadUrlWithPostDataFromStartSurface(
-                            new LoadUrlParams(url, transition | PageTransition.FROM_ADDRESS_BAR),
-                            postDataType, postData, incognito, startSurfaceParentTabSupplier.get());
+                    (url, transition, inputStart, postDataType, postData, incognito) -> {
+                LoadUrlParams params =
+                        new LoadUrlParams(url, transition | PageTransition.FROM_ADDRESS_BAR);
+                params.setInputStartTimestamp(inputStart);
+                return ReturnToChromeUtil.handleLoadUrlWithPostDataFromStartSurface(params,
+                        postDataType, postData, incognito, startSurfaceParentTabSupplier.get());
+            };
             ChromePageInfo toolbarPageInfo = new ChromePageInfo(modalDialogManagerSupplier, null,
                     OpenedFromSource.TOOLBAR, merchantTrustSignalsCoordinatorSupplier::get,
                     mEphemeralTabCoordinatorSupplier);
@@ -1125,7 +1104,7 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
                 mLayoutStateProvider == null ? LayoutType.NONE
                                              : mLayoutStateProvider.getActiveLayoutType()),
                 mCompositorViewHolder::getResourceManager,
-                mIsProgressBarVisibleSupplier, IncognitoUtils::isIncognitoModeEnabled,
+                IncognitoUtils::isIncognitoModeEnabled,
                 isGridTabSwitcherEnabled, isTabletGtsPolishEnabled, isTabToGtsAnimationEnabled,
                 isStartSurfaceEnabled, isTabGroupsAndroidContinuationEnabled,
                 HistoryManagerUtils::showHistoryManager,
@@ -1420,16 +1399,15 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
         View homeButton = mControlContainer.findViewById(R.id.home_button);
         mHomeButtonCoordinator = new HomeButtonCoordinator(mActivity, homeButton,
                 userEducationHelper, mIncognitoStateProvider::isIncognitoSelected,
-                mIntentMetadataOneshotSupplier, mPromoShownOneshotSupplier,
-                HomepageManager::isHomepageNonNtp, FeedFeatures::isFeedEnabled,
-                mActivityTabProvider);
+                mPromoShownOneshotSupplier, HomepageManager::isHomepageNonNtp,
+                FeedFeatures::isFeedEnabled, mActivityTabProvider);
         ToggleTabStackButton toggleTabStackButton =
                 mControlContainer.findViewById(R.id.tab_switcher_button);
-        mToggleTabStackButtonCoordinator = new ToggleTabStackButtonCoordinator(mActivity,
-                toggleTabStackButton, userEducationHelper,
-                mIncognitoStateProvider::isIncognitoSelected, mIntentMetadataOneshotSupplier,
-                mPromoShownOneshotSupplier, mLayoutStateProviderSupplier,
-                mToolbar::setNewTabButtonHighlight, mActivityTabProvider);
+        mToggleTabStackButtonCoordinator =
+                new ToggleTabStackButtonCoordinator(mActivity, toggleTabStackButton,
+                        userEducationHelper, mIncognitoStateProvider::isIncognitoSelected,
+                        mPromoShownOneshotSupplier, mLayoutStateProviderSupplier,
+                        mToolbar::setNewTabButtonHighlight, mActivityTabProvider);
         TraceEvent.end("ToolbarManager.initializeWithNative");
     }
 
@@ -1491,8 +1469,6 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
             omnibox.removeUrlFocusChangeListener(mStatusBarColorController);
             omnibox.removeUrlFocusChangeListener(mLocationBarFocusHandler);
         }
-
-        VrModuleProvider.unregisterVrModeObserver(mVrModeObserver);
 
         if (mInitializedWithNative) {
             mFindToolbarManager.removeObserver(mFindToolbarObserver);

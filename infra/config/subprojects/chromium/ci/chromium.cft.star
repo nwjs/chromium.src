@@ -75,4 +75,5 @@ ci.builder(
     console_view_entry = consoles.console_view_entry(
         short_name = "win-rel-cft",
     ),
+    execution_timeout = 6 * time.hour,
 )

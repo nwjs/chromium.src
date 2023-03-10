@@ -9,9 +9,9 @@
 #include <string>
 #include <utility>
 
-#include "base/bind.h"
 #include "base/containers/flat_map.h"
 #include "base/feature_list.h"
+#include "base/functional/bind.h"
 #include "base/ranges/algorithm.h"
 #include "base/run_loop.h"
 #include "base/strings/stringprintf.h"
@@ -24,6 +24,7 @@
 #include "content/common/private_aggregation_features.h"
 #include "content/services/auction_worklet/auction_v8_helper.h"
 #include "content/services/auction_worklet/public/mojom/auction_worklet_service.mojom.h"
+#include "content/services/auction_worklet/public/mojom/seller_worklet.mojom.h"
 #include "content/services/auction_worklet/worklet_devtools_debug_test_util.h"
 #include "content/services/auction_worklet/worklet_test_util.h"
 #include "content/services/auction_worklet/worklet_v8_debug_test_util.h"
@@ -218,6 +219,9 @@ class SellerWorkletTest : public testing::Test {
         blink::AuctionConfig::NonSharedParams();
 
     top_window_origin_ = url::Origin::Create(GURL("https://window.test/"));
+    permissions_policy_state_ =
+        mojom::AuctionWorkletPermissionsPolicyState::New(
+            /*private_aggregation_allowed=*/true);
     experiment_group_id_ = absl::nullopt;
     browser_signals_other_seller_.reset();
     browser_signal_interest_group_owner_ =
@@ -620,7 +624,7 @@ class SellerWorkletTest : public testing::Test {
     auto seller_worklet_impl = std::make_unique<SellerWorklet>(
         v8_helper_, pause_for_debugger_on_start, std::move(url_loader_factory),
         decision_logic_url_, trusted_scoring_signals_url_, top_window_origin_,
-        experiment_group_id_);
+        permissions_policy_state_.Clone(), experiment_group_id_);
     auto* seller_worklet_ptr = seller_worklet_impl.get();
     mojo::ReceiverId receiver_id =
         seller_worklets_.Add(std::move(seller_worklet_impl),
@@ -686,6 +690,7 @@ class SellerWorkletTest : public testing::Test {
   absl::optional<GURL> direct_from_seller_seller_signals_;
   absl::optional<GURL> direct_from_seller_auction_signals_;
   url::Origin top_window_origin_;
+  mojom::AuctionWorkletPermissionsPolicyStatePtr permissions_policy_state_;
   absl::optional<uint16_t> experiment_group_id_;
   mojom::ComponentAuctionOtherSellerPtr browser_signals_other_seller_;
   url::Origin browser_signal_interest_group_owner_;
@@ -2496,15 +2501,18 @@ TEST_F(SellerWorkletTest, ReportResultAuctionConfigParam) {
   per_buyer_signals[url::Origin::Create(GURL("https://b.com"))] =
       R"({"signals_b": "B"})";
   auction_ad_config_non_shared_params_.per_buyer_signals =
-      std::move(per_buyer_signals);
+      blink::AuctionConfig::MaybePromisePerBuyerSignals::FromValue(
+          std::move(per_buyer_signals));
 
-  base::flat_map<url::Origin, base::TimeDelta> per_buyer_timeouts;
-  per_buyer_timeouts[url::Origin::Create(GURL("https://a.com"))] =
+  blink::AuctionConfig::BuyerTimeouts buyer_timeouts;
+  buyer_timeouts.per_buyer_timeouts.emplace();
+  buyer_timeouts.per_buyer_timeouts
+      .value()[url::Origin::Create(GURL("https://a.com"))] =
       base::Milliseconds(100);
-  auction_ad_config_non_shared_params_.per_buyer_timeouts =
-      std::move(per_buyer_timeouts);
-  auction_ad_config_non_shared_params_.all_buyers_timeout =
-      base::Milliseconds(150);
+  buyer_timeouts.all_buyers_timeout = base::Milliseconds(150);
+  auction_ad_config_non_shared_params_.buyer_timeouts =
+      blink::AuctionConfig::MaybePromiseBuyerTimeouts::FromValue(
+          std::move(buyer_timeouts));
 
   auction_ad_config_non_shared_params_.per_buyer_priority_signals = {
       {url::Origin::Create(GURL("https://a.com")), {{"signals_c", 0.5}}}};
@@ -2572,25 +2580,36 @@ TEST_F(SellerWorkletTest, ReportResultAuctionConfigParamPerBuyerTimeouts) {
       R"("decisionLogicUrl":"https://example.com/auction.js"})",
       /*expected_report_url=*/absl::nullopt);
 
-  base::flat_map<url::Origin, base::TimeDelta> per_buyer_timeouts;
-  auction_ad_config_non_shared_params_.per_buyer_timeouts =
-      std::move(per_buyer_timeouts);
+  {
+    blink::AuctionConfig::BuyerTimeouts buyer_timeouts;
+    buyer_timeouts.per_buyer_timeouts.emplace();
+    auction_ad_config_non_shared_params_.buyer_timeouts =
+        blink::AuctionConfig::MaybePromiseBuyerTimeouts::FromValue(
+            std::move(buyer_timeouts));
 
-  RunReportResultCreatedScriptExpectingResult(
-      "auctionConfig", /*extra_code=*/std::string(),
-      R"({"seller":"https://example.com",)"
-      R"("decisionLogicUrl":"https://example.com/auction.js",)"
-      R"("perBuyerTimeouts":{}})",
-      /*expected_report_url=*/absl::nullopt);
+    RunReportResultCreatedScriptExpectingResult(
+        "auctionConfig", /*extra_code=*/std::string(),
+        R"({"seller":"https://example.com",)"
+        R"("decisionLogicUrl":"https://example.com/auction.js",)"
+        R"("perBuyerTimeouts":{}})",
+        /*expected_report_url=*/absl::nullopt);
+  }
 
-  auction_ad_config_non_shared_params_.all_buyers_timeout =
-      base::Milliseconds(150);
-  RunReportResultCreatedScriptExpectingResult(
-      "auctionConfig", /*extra_code=*/std::string(),
-      R"({"seller":"https://example.com",)"
-      R"("decisionLogicUrl":"https://example.com/auction.js",)"
-      R"("perBuyerTimeouts":{"*":150}})",
-      /*expected_report_url=*/absl::nullopt);
+  {
+    blink::AuctionConfig::BuyerTimeouts buyer_timeouts;
+    buyer_timeouts.per_buyer_timeouts.emplace();
+    buyer_timeouts.all_buyers_timeout = base::Milliseconds(150);
+    auction_ad_config_non_shared_params_.buyer_timeouts =
+        blink::AuctionConfig::MaybePromiseBuyerTimeouts::FromValue(
+            std::move(buyer_timeouts));
+
+    RunReportResultCreatedScriptExpectingResult(
+        "auctionConfig", /*extra_code=*/std::string(),
+        R"({"seller":"https://example.com",)"
+        R"("decisionLogicUrl":"https://example.com/auction.js",)"
+        R"("perBuyerTimeouts":{"*":150}})",
+        /*expected_report_url=*/absl::nullopt);
+  }
 }
 
 TEST_F(SellerWorkletTest, ReportResultExperimentGroupIdParam) {
@@ -3811,7 +3830,9 @@ TEST_F(SellerWorkletBiddingAndScoringDebugReportingAPIEnabledTest,
 class SellerWorkletPrivateAggregationEnabledTest : public SellerWorkletTest {
  public:
   SellerWorkletPrivateAggregationEnabledTest() {
-    scoped_feature_list_.InitAndEnableFeature(content::kPrivateAggregationApi);
+    scoped_feature_list_.InitAndEnableFeatureWithParameters(
+        content::kPrivateAggregationApi,
+        {{"fledge_extensions_enabled", "true"}});
   }
 
  private:
@@ -3819,29 +3840,51 @@ class SellerWorkletPrivateAggregationEnabledTest : public SellerWorkletTest {
 };
 
 TEST_F(SellerWorkletPrivateAggregationEnabledTest, ScoreAd) {
-  mojom::PrivateAggregationRequestPtr kExpectedRequest1 =
-      mojom::PrivateAggregationRequest::New(
+  mojom::PrivateAggregationRequest kExpectedRequest1(
+      mojom::AggregatableReportContribution::NewHistogramContribution(
           content::mojom::AggregatableReportHistogramContribution::New(
               /*bucket=*/123,
-              /*value=*/45),
-          content::mojom::AggregationServiceMode::kDefault,
-          content::mojom::DebugModeDetails::New());
-  mojom::PrivateAggregationRequestPtr kExpectedRequest2 =
-      mojom::PrivateAggregationRequest::New(
+              /*value=*/45)),
+      content::mojom::AggregationServiceMode::kDefault,
+      content::mojom::DebugModeDetails::New());
+  mojom::PrivateAggregationRequest kExpectedRequest2(
+      mojom::AggregatableReportContribution::NewHistogramContribution(
           content::mojom::AggregatableReportHistogramContribution::New(
               /*bucket=*/absl::MakeInt128(/*high=*/1, /*low=*/0),
-              /*value=*/1),
-          content::mojom::AggregationServiceMode::kDefault,
-          content::mojom::DebugModeDetails::New());
+              /*value=*/1)),
+      content::mojom::AggregationServiceMode::kDefault,
+      content::mojom::DebugModeDetails::New());
+
+  mojom::PrivateAggregationRequest kExpectedForEventRequest1(
+      mojom::AggregatableReportContribution::NewForEventContribution(
+          mojom::AggregatableReportForEventContribution::New(
+              /*bucket=*/mojom::ForEventSignalBucket::NewIdBucket(234),
+              /*value=*/mojom::ForEventSignalValue::NewIntValue(56),
+              /*event_type=*/"reserved.win")),
+      content::mojom::AggregationServiceMode::kDefault,
+      content::mojom::DebugModeDetails::New());
+  mojom::PrivateAggregationRequest kExpectedForEventRequest2(
+      mojom::AggregatableReportContribution::NewForEventContribution(
+          mojom::AggregatableReportForEventContribution::New(
+              /*bucket=*/mojom::ForEventSignalBucket::NewIdBucket(
+                  absl::MakeInt128(/*high=*/1,
+                                   /*low=*/0)),
+              /*value=*/mojom::ForEventSignalValue::NewIntValue(2),
+              /*event_type=*/"reserved.win")),
+      content::mojom::AggregationServiceMode::kDefault,
+      content::mojom::DebugModeDetails::New());
 
   {
     PrivateAggregationRequests expected_pa_requests;
     expected_pa_requests.push_back(kExpectedRequest1.Clone());
+    expected_pa_requests.push_back(kExpectedForEventRequest1.Clone());
 
     RunScoreAdWithJavascriptExpectingResult(
-        CreateScoreAdScript("5",
-                            "privateAggregation.sendHistogramReport({bucket: "
-                            "123n, value: 45})"),
+        CreateScoreAdScript("5", R"(
+          privateAggregation.sendHistogramReport({bucket: 123n, value: 45});
+          privateAggregation.reportContributionForEvent(
+              "reserved.win", {bucket: 234n, value: 56});
+        )"),
         5, /*expected_errors=*/{},
         mojom::ComponentAuctionModifiedBidParamsPtr(),
         /*expected_data_version=*/absl::nullopt,
@@ -3851,15 +3894,44 @@ TEST_F(SellerWorkletPrivateAggregationEnabledTest, ScoreAd) {
         std::move(expected_pa_requests));
   }
 
+  // Set the private-aggregation permissions policy to disallowed.
+  {
+    permissions_policy_state_ =
+        mojom::AuctionWorkletPermissionsPolicyState::New(
+            /*private_aggregation_allowed=*/false);
+
+    RunScoreAdWithJavascriptExpectingResult(
+        CreateScoreAdScript("5",
+                            "privateAggregation.sendHistogramReport({bucket: "
+                            "123n, value: 45})"),
+        /*expected_score=*/0, /*expected_errors=*/
+        {"https://url.test/:4 Uncaught TypeError: The \"private-aggregation\" "
+         "Permissions Policy denied the method on privateAggregation."},
+        mojom::ComponentAuctionModifiedBidParamsPtr(),
+        /*expected_data_version=*/absl::nullopt,
+        /*expected_debug_loss_report_url=*/absl::nullopt,
+        /*expected_debug_win_report_url=*/absl::nullopt,
+        /*expected_reject_reason=*/mojom::RejectReason::kNotAvailable,
+        /*expected_pa_requests=*/{});
+
+    permissions_policy_state_ =
+        mojom::AuctionWorkletPermissionsPolicyState::New(
+            /*private_aggregation_allowed=*/true);
+  }
+
   // Large bucket
   {
     PrivateAggregationRequests expected_pa_requests;
     expected_pa_requests.push_back(kExpectedRequest2.Clone());
+    expected_pa_requests.push_back(kExpectedForEventRequest2.Clone());
 
     RunScoreAdWithJavascriptExpectingResult(
-        CreateScoreAdScript("5",
-                            "privateAggregation.sendHistogramReport("
-                            "{bucket: 18446744073709551616n, value: 1})"),
+        CreateScoreAdScript("5", R"(
+          privateAggregation.sendHistogramReport({bucket: 18446744073709551616n,
+                                                  value: 1});
+          privateAggregation.reportContributionForEvent(
+              "reserved.win", {bucket: 18446744073709551616n, value: 2});
+        )"),
         5, /*expected_errors=*/{},
         mojom::ComponentAuctionModifiedBidParamsPtr(),
         /*expected_data_version=*/absl::nullopt,
@@ -3874,12 +3946,18 @@ TEST_F(SellerWorkletPrivateAggregationEnabledTest, ScoreAd) {
     PrivateAggregationRequests expected_pa_requests;
     expected_pa_requests.push_back(kExpectedRequest1.Clone());
     expected_pa_requests.push_back(kExpectedRequest2.Clone());
+    expected_pa_requests.push_back(kExpectedForEventRequest1.Clone());
+    expected_pa_requests.push_back(kExpectedForEventRequest2.Clone());
 
     RunScoreAdWithJavascriptExpectingResult(
         CreateScoreAdScript("5", R"(
           privateAggregation.sendHistogramReport({bucket: 123n, value: 45});
           privateAggregation.sendHistogramReport({bucket: 18446744073709551616n,
                                                   value: 1});
+          privateAggregation.reportContributionForEvent(
+              "reserved.win", {bucket: 234n, value: 56});
+          privateAggregation.reportContributionForEvent(
+              "reserved.win", {bucket: 18446744073709551616n, value: 2});
         )"),
         5, /*expected_errors=*/{},
         mojom::ComponentAuctionModifiedBidParamsPtr(),
@@ -3890,18 +3968,22 @@ TEST_F(SellerWorkletPrivateAggregationEnabledTest, ScoreAd) {
         std::move(expected_pa_requests));
   }
 
-  // An unrelated exception after sendHistogramReport shouldn't block the report
+  // An unrelated exception after sendHistogramReport and
+  // reportContributionForEvent shouldn't block the reports.
   {
     PrivateAggregationRequests expected_pa_requests;
     expected_pa_requests.push_back(kExpectedRequest1.Clone());
+    expected_pa_requests.push_back(kExpectedForEventRequest1.Clone());
 
     RunScoreAdWithJavascriptExpectingResult(
         CreateScoreAdScript("5", R"(
           privateAggregation.sendHistogramReport({bucket: 123n, value: 45});
+          privateAggregation.reportContributionForEvent(
+              "reserved.win", {bucket: 234n, value: 56});
           error;
         )"),
         0, /*expected_errors=*/
-        {"https://url.test/:6 Uncaught ReferenceError: error is not defined."},
+        {"https://url.test/:8 Uncaught ReferenceError: error is not defined."},
         mojom::ComponentAuctionModifiedBidParamsPtr(),
         /*expected_data_version=*/absl::nullopt,
         /*expected_debug_loss_report_url=*/absl::nullopt,
@@ -3914,7 +3996,12 @@ TEST_F(SellerWorkletPrivateAggregationEnabledTest, ScoreAd) {
   {
     PrivateAggregationRequests expected_pa_requests;
     expected_pa_requests.push_back(mojom::PrivateAggregationRequest::New(
-        kExpectedRequest1->contribution->Clone(),
+        kExpectedRequest1.contribution->Clone(),
+        content::mojom::AggregationServiceMode::kDefault,
+        content::mojom::DebugModeDetails::New(
+            /*is_enabled=*/true, content::mojom::DebugKey::New(1234u))));
+    expected_pa_requests.push_back(mojom::PrivateAggregationRequest::New(
+        kExpectedForEventRequest1.contribution->Clone(),
         content::mojom::AggregationServiceMode::kDefault,
         content::mojom::DebugModeDetails::New(
             /*is_enabled=*/true, content::mojom::DebugKey::New(1234u))));
@@ -3924,6 +4011,8 @@ TEST_F(SellerWorkletPrivateAggregationEnabledTest, ScoreAd) {
                             R"(
             privateAggregation.enableDebugMode({debug_key: 1234n});
             privateAggregation.sendHistogramReport({bucket: 123n, value: 45});
+            privateAggregation.reportContributionForEvent(
+              "reserved.win", {bucket: 234n, value: 56});
           )"),
         5, /*expected_errors=*/{},
         mojom::ComponentAuctionModifiedBidParamsPtr(),
@@ -3938,12 +4027,12 @@ TEST_F(SellerWorkletPrivateAggregationEnabledTest, ScoreAd) {
   {
     PrivateAggregationRequests expected_pa_requests;
     expected_pa_requests.push_back(mojom::PrivateAggregationRequest::New(
-        kExpectedRequest1->contribution->Clone(),
+        kExpectedRequest1.contribution->Clone(),
         content::mojom::AggregationServiceMode::kDefault,
         content::mojom::DebugModeDetails::New(
             /*is_enabled=*/true, /*debug_key=*/nullptr)));
     expected_pa_requests.push_back(mojom::PrivateAggregationRequest::New(
-        kExpectedRequest2->contribution->Clone(),
+        kExpectedRequest2.contribution->Clone(),
         content::mojom::AggregationServiceMode::kDefault,
         content::mojom::DebugModeDetails::New(
             /*is_enabled=*/true, /*debug_key=*/nullptr)));
@@ -3967,21 +4056,30 @@ TEST_F(SellerWorkletPrivateAggregationEnabledTest, ScoreAd) {
 }
 
 TEST_F(SellerWorkletPrivateAggregationEnabledTest, ReportResult) {
-  mojom::PrivateAggregationRequestPtr kExpectedRequest1 =
-      mojom::PrivateAggregationRequest::New(
+  mojom::PrivateAggregationRequest kExpectedRequest1(
+      mojom::AggregatableReportContribution::NewHistogramContribution(
           content::mojom::AggregatableReportHistogramContribution::New(
               /*bucket=*/123,
-              /*value=*/45),
-          content::mojom::AggregationServiceMode::kDefault,
-          content::mojom::DebugModeDetails::New());
-  mojom::PrivateAggregationRequestPtr kExpectedRequest2 =
-      mojom::PrivateAggregationRequest::New(
+              /*value=*/45)),
+      content::mojom::AggregationServiceMode::kDefault,
+      content::mojom::DebugModeDetails::New());
+  mojom::PrivateAggregationRequest kExpectedRequest2(
+      mojom::AggregatableReportContribution::NewHistogramContribution(
           content::mojom::AggregatableReportHistogramContribution::New(
               /*bucket=*/absl::MakeInt128(/*high=*/1, /*low=*/0),
-              /*value=*/1),
-          content::mojom::AggregationServiceMode::kDefault,
-          content::mojom::DebugModeDetails::New());
+              /*value=*/1)),
+      content::mojom::AggregationServiceMode::kDefault,
+      content::mojom::DebugModeDetails::New());
+  mojom::PrivateAggregationRequest kExpectedForEventRequest(
+      mojom::AggregatableReportContribution::NewForEventContribution(
+          mojom::AggregatableReportForEventContribution::New(
+              /*bucket=*/mojom::ForEventSignalBucket::NewIdBucket(234),
+              /*value=*/mojom::ForEventSignalValue::NewIntValue(56),
+              /*event_type=*/"reserved.win")),
+      content::mojom::AggregationServiceMode::kDefault,
+      content::mojom::DebugModeDetails::New());
 
+  // Only sendHistogramReport() is called.
   {
     PrivateAggregationRequests expected_pa_requests;
     expected_pa_requests.push_back(kExpectedRequest1.Clone());
@@ -3993,6 +4091,63 @@ TEST_F(SellerWorkletPrivateAggregationEnabledTest, ReportResult) {
         /*expected_report_url=*/absl::nullopt, /*expected_ad_beacon_map=*/{},
         std::move(expected_pa_requests),
         /*expected_errors=*/{});
+  }
+
+  // Only reportContributionForEvent() is called.
+  {
+    PrivateAggregationRequests expected_pa_requests;
+    expected_pa_requests.push_back(kExpectedForEventRequest.Clone());
+
+    RunReportResultCreatedScriptExpectingResult(
+        "5",
+        R"(
+          privateAggregation.reportContributionForEvent(
+              "reserved.win", {bucket: 234n, value: 56});
+        )",
+        /*expected_signals_for_winner=*/"5",
+        /*expected_report_url=*/absl::nullopt, /*expected_ad_beacon_map=*/{},
+        std::move(expected_pa_requests),
+        /*expected_errors=*/{});
+  }
+
+  // Both sendHistogramReport() and reportContributionForEvent() are called.
+  {
+    PrivateAggregationRequests expected_pa_requests;
+    expected_pa_requests.push_back(kExpectedRequest1.Clone());
+    expected_pa_requests.push_back(kExpectedForEventRequest.Clone());
+
+    RunReportResultCreatedScriptExpectingResult(
+        "5",
+        R"(
+          privateAggregation.sendHistogramReport({bucket: 123n, value: 45});
+          privateAggregation.reportContributionForEvent(
+              "reserved.win", {bucket: 234n, value: 56});
+        )",
+        /*expected_signals_for_winner=*/"5",
+        /*expected_report_url=*/absl::nullopt, /*expected_ad_beacon_map=*/{},
+        std::move(expected_pa_requests),
+        /*expected_errors=*/{});
+  }
+
+  // Set the private-aggregation permissions policy to disallowed.
+  {
+    permissions_policy_state_ =
+        mojom::AuctionWorkletPermissionsPolicyState::New(
+            /*private_aggregation_allowed=*/false);
+
+    RunReportResultCreatedScriptExpectingResult(
+        R"(5)",
+        R"(privateAggregation.sendHistogramReport({bucket: 123n, value: 45});)",
+        /*expected_signals_for_winner=*/absl::nullopt,
+        /*expected_report_url=*/absl::nullopt, /*expected_ad_beacon_map=*/{},
+        /*expected_pa_requests=*/{},
+        /*expected_errors=*/
+        {"https://url.test/:10 Uncaught TypeError: The \"private-aggregation\" "
+         "Permissions Policy denied the method on privateAggregation."});
+
+    permissions_policy_state_ =
+        mojom::AuctionWorkletPermissionsPolicyState::New(
+            /*private_aggregation_allowed=*/true);
   }
 
   // BigInt bucket
@@ -4066,7 +4221,7 @@ TEST_F(SellerWorkletPrivateAggregationEnabledTest, ReportResult) {
   {
     PrivateAggregationRequests expected_pa_requests;
     expected_pa_requests.push_back(mojom::PrivateAggregationRequest::New(
-        kExpectedRequest1->contribution->Clone(),
+        kExpectedRequest1.contribution->Clone(),
         content::mojom::AggregationServiceMode::kDefault,
         content::mojom::DebugModeDetails::New(
             /*is_enabled=*/true, content::mojom::DebugKey::New(1234u))));
@@ -4087,12 +4242,12 @@ TEST_F(SellerWorkletPrivateAggregationEnabledTest, ReportResult) {
   {
     PrivateAggregationRequests expected_pa_requests;
     expected_pa_requests.push_back(mojom::PrivateAggregationRequest::New(
-        kExpectedRequest1->contribution->Clone(),
+        kExpectedRequest1.contribution->Clone(),
         content::mojom::AggregationServiceMode::kDefault,
         content::mojom::DebugModeDetails::New(
             /*is_enabled=*/true, /*debug_key=*/nullptr)));
     expected_pa_requests.push_back(mojom::PrivateAggregationRequest::New(
-        kExpectedRequest2->contribution->Clone(),
+        kExpectedRequest2.contribution->Clone(),
         content::mojom::AggregationServiceMode::kDefault,
         content::mojom::DebugModeDetails::New(
             /*is_enabled=*/true, /*debug_key=*/nullptr)));

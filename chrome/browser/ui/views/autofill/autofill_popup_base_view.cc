@@ -12,11 +12,10 @@
 #include "extensions/browser/app_window/app_window.h"
 #include "extensions/browser/app_window/native_app_window.h"
 
-#include "base/bind.h"
 #include "base/dcheck_is_on.h"
+#include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/task/single_thread_task_runner.h"
-#include "base/threading/thread_task_runner_handle.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/ui/browser_finder.h"
@@ -249,7 +248,8 @@ void AutofillPopupBaseView::NotifyAXSelection(View* selected_view) {
   constexpr auto kDerivedClasses = base::MakeFixedFlatSet<base::StringPiece>(
       {"AutofillPopupSuggestionView", "PasswordPopupSuggestionView",
        "AutofillPopupFooterView", "AutofillPopupSeparatorView",
-       "AutofillPopupWarningView", "AutofillPopupBaseView"});
+       "AutofillPopupWarningView", "AutofillPopupBaseView",
+       "PasswordGenerationPopupViewViews::GeneratedPasswordBox"});
   DCHECK(kDerivedClasses.contains(selected_view->GetClassName()))
       << "If you add a new derived class from AutofillPopupRowView, add it "
          "here and to onSelection(evt) in "

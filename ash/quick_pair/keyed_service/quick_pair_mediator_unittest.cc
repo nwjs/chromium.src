@@ -141,6 +141,8 @@ class MediatorTest : public AshTestBase {
         kTestMetadataId2, kTestAddress, Protocol::kFastPairInitial);
     subsequent_device_ = base::MakeRefCounted<Device>(
         kTestMetadataId, kTestAddress, Protocol::kFastPairSubsequent);
+    retroactive_device_ = base::MakeRefCounted<Device>(
+        kTestMetadataId, kTestAddress, Protocol::kFastPairRetroactive);
     base::RunLoop().RunUntilIdle();
   }
 
@@ -171,6 +173,7 @@ class MediatorTest : public AshTestBase {
   scoped_refptr<Device> initial_device_;
   scoped_refptr<Device> initial_device2_;
   scoped_refptr<Device> subsequent_device_;
+  scoped_refptr<Device> retroactive_device_;
   scoped_refptr<testing::NiceMock<device::MockBluetoothAdapter>> adapter_;
   FakeFeatureStatusTracker* feature_status_tracker_;
   MockScannerBroker* mock_scanner_broker_;
@@ -193,6 +196,86 @@ TEST_F(MediatorTest, TogglesScanningWhenFastPairEnabledChanges) {
   feature_status_tracker_->SetIsFastPairEnabled(true);
   EXPECT_CALL(*mock_scanner_broker_, StopScanning);
   feature_status_tracker_->SetIsFastPairEnabled(false);
+
+  // When one or more discovery sessions are active, don't toggle
+  // scanning when fast pair enabled changes.
+  EXPECT_CALL(*mock_scanner_broker_, StopScanning);
+  SetHasAtLeastOneDiscoverySessionChanged(true);
+  EXPECT_CALL(*mock_scanner_broker_, StopScanning);
+  feature_status_tracker_->SetIsFastPairEnabled(true);
+  EXPECT_CALL(*mock_scanner_broker_, StopScanning);
+  feature_status_tracker_->SetIsFastPairEnabled(false);
+  EXPECT_CALL(*mock_scanner_broker_, StopScanning);
+  feature_status_tracker_->SetIsFastPairEnabled(true);
+  EXPECT_CALL(*mock_scanner_broker_, StopScanning);
+  feature_status_tracker_->SetIsFastPairEnabled(false);
+}
+
+TEST_F(MediatorTest, TogglesScanningWhenHasAtLeastOneDiscoverySessionChanges) {
+  EXPECT_CALL(*mock_scanner_broker_, StartScanning);
+  feature_status_tracker_->SetIsFastPairEnabled(true);
+  EXPECT_CALL(*mock_scanner_broker_, StopScanning);
+  SetHasAtLeastOneDiscoverySessionChanged(true);
+  EXPECT_CALL(*mock_scanner_broker_, StartScanning);
+  SetHasAtLeastOneDiscoverySessionChanged(false);
+  EXPECT_CALL(*mock_scanner_broker_, StopScanning);
+  SetHasAtLeastOneDiscoverySessionChanged(true);
+
+  // When fast pair is disabled, don't toggle scanning when "we have at
+  // least one discovery session" changes.
+  EXPECT_CALL(*mock_scanner_broker_, StopScanning);
+  feature_status_tracker_->SetIsFastPairEnabled(false);
+  EXPECT_CALL(*mock_scanner_broker_, StopScanning);
+  SetHasAtLeastOneDiscoverySessionChanged(false);
+  EXPECT_CALL(*mock_scanner_broker_, StopScanning);
+  SetHasAtLeastOneDiscoverySessionChanged(true);
+  EXPECT_CALL(*mock_scanner_broker_, StopScanning);
+  SetHasAtLeastOneDiscoverySessionChanged(false);
+}
+
+TEST_F(MediatorTest,
+       CancelsPairingsWhenHasAtLeastOneDiscoverySessionChangesNotPairing) {
+  // Start with fast pair enabled and one handshake in progress.
+  feature_status_tracker_->SetIsFastPairEnabled(true);
+  FastPairHandshakeLookup::GetInstance()->Create(adapter_, initial_device_,
+                                                 base::DoNothing());
+  EXPECT_TRUE(FastPairHandshakeLookup::GetInstance()->Get(initial_device_));
+
+  // When one or more discovery sessions are active, stop scanning and dismiss
+  // notifications. If we aren't actively pairing, dismiss all handshakes.
+  EXPECT_CALL(*mock_pairer_broker_, IsPairing).WillOnce(Return(false));
+  EXPECT_CALL(*mock_scanner_broker_, StopScanning);
+  EXPECT_CALL(*mock_pairer_broker_, StopPairing);
+  EXPECT_CALL(*mock_ui_broker_, RemoveNotifications);
+  SetHasAtLeastOneDiscoverySessionChanged(true);
+  EXPECT_FALSE(FastPairHandshakeLookup::GetInstance()->Get(initial_device_));
+
+  // When no discovery sessions are active, resume scanning.
+  EXPECT_CALL(*mock_scanner_broker_, StartScanning);
+  SetHasAtLeastOneDiscoverySessionChanged(false);
+}
+
+TEST_F(MediatorTest,
+       CancelsPairingsWhenHasAtLeastOneDiscoverySessionChangesIsPairing) {
+  // Start with fast pair enabled and one handshake in progress.
+  feature_status_tracker_->SetIsFastPairEnabled(true);
+  FastPairHandshakeLookup::GetInstance()->Create(adapter_, initial_device_,
+                                                 base::DoNothing());
+  EXPECT_TRUE(FastPairHandshakeLookup::GetInstance()->Get(initial_device_));
+
+  // When one or more discovery sessions are active, stop scanning and dismiss
+  // notifications. Simulate the case where the user has already begun pairing
+  // before opening Settings, or has initiated V1 device pair.
+  EXPECT_CALL(*mock_pairer_broker_, IsPairing).WillOnce(Return(true));
+  EXPECT_CALL(*mock_scanner_broker_, StopScanning);
+  EXPECT_CALL(*mock_pairer_broker_, StopPairing).Times(0);
+  EXPECT_CALL(*mock_ui_broker_, RemoveNotifications);
+  SetHasAtLeastOneDiscoverySessionChanged(true);
+  EXPECT_TRUE(FastPairHandshakeLookup::GetInstance()->Get(initial_device_));
+
+  // When no discovery sessions are active, resume scanning.
+  EXPECT_CALL(*mock_scanner_broker_, StartScanning);
+  SetHasAtLeastOneDiscoverySessionChanged(false);
 }
 
 TEST_F(MediatorTest, CancelsPairingsWhenFastPairDisabled) {
@@ -440,38 +523,29 @@ TEST_F(MediatorTest, InvokesShowAssociateAccount) {
   feature_status_tracker_->SetIsFastPairEnabled(true);
   EXPECT_CALL(*mock_ui_broker_, ShowAssociateAccount);
   fake_retroactive_pairing_detector_->NotifyRetroactivePairFound(
-      initial_device_);
-}
-
-TEST_F(
-    MediatorTest,
-    InvokesShowAssociateAccount_OnlyOneNotification_DifferentDeviceProtocols) {
-  feature_status_tracker_->SetIsFastPairEnabled(true);
-  EXPECT_CALL(*mock_ui_broker_, ShowAssociateAccount).Times(1);
-  fake_retroactive_pairing_detector_->NotifyRetroactivePairFound(
-      initial_device_);
-  fake_retroactive_pairing_detector_->NotifyRetroactivePairFound(
-      subsequent_device_);
+      retroactive_device_);
 }
 
 TEST_F(MediatorTest,
-       InvokesShowAssociateAccount_OnlyOneNotification_DifferentDevice) {
+       InvokesShowDiscovery_OnlyOneNotification_DifferentDeviceProtocols) {
   feature_status_tracker_->SetIsFastPairEnabled(true);
-  EXPECT_CALL(*mock_ui_broker_, ShowAssociateAccount).Times(1);
-  fake_retroactive_pairing_detector_->NotifyRetroactivePairFound(
-      initial_device_);
-  fake_retroactive_pairing_detector_->NotifyRetroactivePairFound(
-      initial_device2_);
+  EXPECT_CALL(*mock_ui_broker_, ShowDiscovery).Times(1);
+  mock_scanner_broker_->NotifyDeviceFound(initial_device_);
+  mock_scanner_broker_->NotifyDeviceFound(subsequent_device_);
 }
 
-TEST_F(MediatorTest,
-       InvokesShowAssociateAccount_OnlyOneNotification_SameDevice) {
+TEST_F(MediatorTest, InvokesShowDiscovery_OnlyOneNotification_DifferentDevice) {
   feature_status_tracker_->SetIsFastPairEnabled(true);
-  EXPECT_CALL(*mock_ui_broker_, ShowAssociateAccount).Times(2);
-  fake_retroactive_pairing_detector_->NotifyRetroactivePairFound(
-      initial_device_);
-  fake_retroactive_pairing_detector_->NotifyRetroactivePairFound(
-      initial_device_);
+  EXPECT_CALL(*mock_ui_broker_, ShowDiscovery).Times(1);
+  mock_scanner_broker_->NotifyDeviceFound(initial_device_);
+  mock_scanner_broker_->NotifyDeviceFound(initial_device2_);
+}
+
+TEST_F(MediatorTest, InvokesShowDiscovery_OnlyOneNotification_SameDevice) {
+  feature_status_tracker_->SetIsFastPairEnabled(true);
+  EXPECT_CALL(*mock_ui_broker_, ShowDiscovery).Times(1);
+  mock_scanner_broker_->NotifyDeviceFound(initial_device_);
+  mock_scanner_broker_->NotifyDeviceFound(initial_device_);
 }
 
 TEST_F(MediatorTest, DoesntInvokeShowAssociateAccount_FastPairDisabled) {
@@ -770,6 +844,26 @@ TEST_F(MediatorTest, DiscoveryBan_MultipleDevices) {
   // notifications no longer apply and it is no longer blocked.
   EXPECT_CALL(*mock_ui_broker_, ShowDiscovery).Times(1);
   mock_scanner_broker_->NotifyDeviceFound(initial_device_);
+}
+
+TEST_F(MediatorTest, DiscoveryBan_RetroactiveAvoidsBan) {
+  feature_status_tracker_->SetIsFastPairEnabled(true);
+
+  // Simulate the device first found.
+  EXPECT_CALL(*mock_ui_broker_, ShowDiscovery).Times(1);
+  mock_scanner_broker_->NotifyDeviceFound(initial_device_);
+
+  // Simulate another device being found. We expect no notification to be
+  // shown for this device due to our existing first come first serve
+  // notification logic.
+  EXPECT_CALL(*mock_ui_broker_, ShowDiscovery).Times(0);
+  mock_scanner_broker_->NotifyDeviceFound(initial_device2_);
+
+  // However, there is an exception in the first come first serve notification
+  // logic to show retroactive devices.
+  EXPECT_CALL(*mock_ui_broker_, ShowAssociateAccount).Times(1);
+  fake_retroactive_pairing_detector_->NotifyRetroactivePairFound(
+      retroactive_device_);
 }
 
 }  // namespace quick_pair

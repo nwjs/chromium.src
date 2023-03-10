@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Инсталирај со Linux</translation>
 <translation id="2225536596944493418">Дали сигурно сакате да избришете <ph name="NUMBER_OF_ITEMS" /> ставки?</translation>
 <translation id="2230062665678605299">Не може да се создаде папка „<ph name="FOLDER_NAME" />“. <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">Вашиот кеш на Google Drive е исчистен.</translation>
 <translation id="2239068707900391003">Човек со шолја кафе</translation>
 <translation id="2251368349685848079">Врати од корпа</translation>
 <translation id="2282155092769082568">Линк за автоматско конфигурирање:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">Нема ставки што се совпаѓаат со &lt;b&gt;„<ph name="SEARCH_STRING" />“&lt;/b&gt;</translation>
 <translation id="2894654529758326923">Информации</translation>
 <translation id="2902734494705624966">САД продолжена</translation>
+<translation id="2904378509913846215">Веќе постои папка со име „<ph name="FILENAME" />“. Дали сакате да ја замените со таа што ја преместувате?</translation>
 <translation id="290843123675549676">марати</translation>
 <translation id="2923240520113693977">естонски</translation>
 <translation id="2938685643439809023">монголски</translation>
@@ -639,6 +641,7 @@
 <translation id="6241349547798190358">холандски (Белгија)</translation>
 <translation id="6267547857941397424">Мрежа <ph name="NETWORK_INDEX" /> од <ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, јачина на сигналот: <ph name="SIGNAL_STRENGTH" /> %, батерија на телефонот: <ph name="BATTERY_STATUS" /> %, поврзи</translation>
 <translation id="6269630227984243955">малајски</translation>
+<translation id="6271903698064569429">Датотеките не може да се прикачат бидејќи нема доволно капацитет на „<ph name="SHARED_DRIVE_NAME" />“.</translation>
 <translation id="6287852322318138013">Изберете апликација за да ја отворите оваа датотека</translation>
 <translation id="6295542640242147836">Заклучи SIM</translation>
 <translation id="6296410173147755564">Погрешен PUK</translation>
@@ -684,6 +687,7 @@
 <translation id="6657585470893396449">Лозинка</translation>
 <translation id="6658865850469097484">Датотеките што се во корпата подолго од 30 дена ќе се избришат автоматски.</translation>
 <translation id="6673674183150363784">француски (Франција) со тастатура Bépo</translation>
+<translation id="670380500182402678">Замени ги сите</translation>
 <translation id="6710022688720561421">Робот</translation>
 <translation id="6710213216561001401">Претходно</translation>
 <translation id="6732801395666424405">Нема вчитано сертификати</translation>
@@ -902,6 +906,7 @@
 <translation id="8386903983509584791">Скенирањето заврши</translation>
 <translation id="8387733224523483503">Отпакувана е <ph name="FILE_NAME" />.</translation>
 <translation id="8395901698320285466">Димензии</translation>
+<translation id="8404498045299006085">Задржи ги сите</translation>
 <translation id="8408068190360279472">Мрежа со <ph name="NETWORK_TYPE" />, се поврзува</translation>
 <translation id="8425213833346101688">Промени</translation>
 <translation id="8431909052837336408">Променете PIN на SIM-картичката</translation>

@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Installer avec Linux</translation>
 <translation id="2225536596944493418">Voulez-vous vraiment supprimer <ph name="NUMBER_OF_ITEMS" /> éléments ?</translation>
 <translation id="2230062665678605299">Impossible de créer le dossier "<ph name="FOLDER_NAME" />". <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">Votre cache Google Drive a été vidé.</translation>
 <translation id="2239068707900391003">Personne avec un café</translation>
 <translation id="2251368349685848079">Restaurer à partir de la corbeille</translation>
 <translation id="2282155092769082568">URL de configuration automatique :</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">Aucun élément ne correspond à votre recherche ("<ph name="SEARCH_STRING" />").</translation>
 <translation id="2894654529758326923">Informations</translation>
 <translation id="2902734494705624966">Étendu américain</translation>
+<translation id="2904378509913846215">Un dossier intitulé "<ph name="FILENAME" />" existe déjà. Voulez-vous le remplacer par celui que vous déplacez ?</translation>
 <translation id="290843123675549676">Marathi</translation>
 <translation id="2923240520113693977">Estonien</translation>
 <translation id="2938685643439809023">Mongol</translation>
@@ -640,6 +642,7 @@
 <translation id="6241349547798190358">Néerlandais (Belgique)</translation>
 <translation id="6267547857941397424">Réseau <ph name="NETWORK_INDEX" /> sur <ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, force du signal : <ph name="SIGNAL_STRENGTH" /> %, batterie du téléphone à <ph name="BATTERY_STATUS" /> %, connexion</translation>
 <translation id="6269630227984243955">Malais</translation>
+<translation id="6271903698064569429">Impossible d'importer des fichiers, car l'espace de stockage de "<ph name="SHARED_DRIVE_NAME" />" est insuffisant.</translation>
 <translation id="6287852322318138013">Sélectionner une application pour ouvrir ce fichier</translation>
 <translation id="6295542640242147836">Verrouiller la carte SIM</translation>
 <translation id="6296410173147755564">PUK incorrect</translation>
@@ -685,6 +688,7 @@
 <translation id="6657585470893396449">Mot de passe</translation>
 <translation id="6658865850469097484">Les fichiers placés dans la corbeille pendant plus de 30 jours sont automatiquement supprimés.</translation>
 <translation id="6673674183150363784">Français (France) avec clavier Bépo</translation>
+<translation id="670380500182402678">Tout remplacer</translation>
 <translation id="6710022688720561421">Robot</translation>
 <translation id="6710213216561001401">Précédent</translation>
 <translation id="6732801395666424405">Certificats non importés.</translation>
@@ -903,6 +907,7 @@
 <translation id="8386903983509584791">Recherche terminée</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" /> extrait.</translation>
 <translation id="8395901698320285466">Dimensions</translation>
+<translation id="8404498045299006085">Tout conserver</translation>
 <translation id="8408068190360279472">Réseau <ph name="NETWORK_TYPE" /> : connexion…</translation>
 <translation id="8425213833346101688">Modifier</translation>
 <translation id="8431909052837336408">Modifier le code de la SIM</translation>

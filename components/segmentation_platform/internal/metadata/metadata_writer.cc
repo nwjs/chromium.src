@@ -16,11 +16,20 @@ MetadataWriter::MetadataWriter(proto::SegmentationModelMetadata* metadata)
 MetadataWriter::~MetadataWriter() = default;
 
 void MetadataWriter::AddUmaFeatures(const UMAFeature features[],
-                                    size_t features_size) {
+                                    size_t features_size,
+                                    bool is_output) {
   for (size_t i = 0; i < features_size; i++) {
     const auto& feature = features[i];
-    auto* input_feature = metadata_->add_input_features();
-    proto::UMAFeature* uma_feature = input_feature->mutable_uma_feature();
+    proto::UMAFeature* uma_feature;
+    if (is_output) {
+      auto* training_output =
+          metadata_->mutable_training_outputs()->add_outputs();
+      uma_feature =
+          training_output->mutable_uma_output()->mutable_uma_feature();
+    } else {
+      auto* input_feature = metadata_->add_input_features();
+      uma_feature = input_feature->mutable_uma_feature();
+    }
     uma_feature->set_type(feature.signal_type);
     uma_feature->set_name(feature.name);
     uma_feature->set_name_hash(base::HashMetricName(feature.name));
@@ -62,7 +71,9 @@ proto::CustomInput* MetadataWriter::AddCustomInput(const CustomInput& feature) {
       metadata_->add_input_features()->mutable_custom_input();
   custom_input_feature->set_tensor_length(feature.tensor_length);
   custom_input_feature->set_fill_policy(feature.fill_policy);
-  custom_input_feature->add_default_value(feature.default_value);
+  for (size_t i = 0; i < feature.default_values_size; i++) {
+    custom_input_feature->add_default_value(feature.default_values[i]);
+  }
   custom_input_feature->set_name(feature.name);
   return custom_input_feature;
 }
@@ -143,7 +154,8 @@ void MetadataWriter::AddOutputConfigForBinaryClassifier(
 }
 
 void MetadataWriter::AddOutputConfigForMultiClassClassifier(
-    const std::vector<std::string>& class_labels,
+    const char* const* class_labels,
+    size_t class_labels_length,
     int top_k_outputs,
     absl::optional<float> threshold) {
   proto::Predictor_MultiClassClassifier* multi_class_classifier =
@@ -152,8 +164,9 @@ void MetadataWriter::AddOutputConfigForMultiClassClassifier(
           ->mutable_multi_class_classifier();
 
   multi_class_classifier->set_top_k_outputs(top_k_outputs);
-  multi_class_classifier->mutable_class_labels()->Assign(class_labels.begin(),
-                                                         class_labels.end());
+  for (size_t i = 0; i < class_labels_length; ++i) {
+    multi_class_classifier->mutable_class_labels()->Add(class_labels[i]);
+  }
   if (threshold.has_value()) {
     multi_class_classifier->set_threshold(threshold.value());
   }

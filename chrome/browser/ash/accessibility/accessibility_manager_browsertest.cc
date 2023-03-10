@@ -7,9 +7,9 @@
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/public/cpp/test/accessibility_controller_test_api.h"
-#include "base/bind.h"
-#include "base/callback_helpers.h"
 #include "base/command_line.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/run_loop.h"
 #include "base/strings/string_util.h"
 #include "chrome/browser/ash/accessibility/accessibility_test_utils.h"
@@ -19,7 +19,6 @@
 #include "chrome/browser/ash/login/test/logged_in_user_mixin.h"
 #include "chrome/browser/ash/login/test/oobe_base_test.h"
 #include "chrome/browser/ash/preferences.h"
-#include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/api/braille_display_private/mock_braille_controller.h"
 #include "chrome/browser/extensions/component_loader.h"
@@ -28,17 +27,18 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_test_util.h"
-#include "chrome/browser/supervised_user/supervised_user_constants.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/test/base/mixin_based_in_process_browser_test.h"
+#include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "components/account_id/account_id.h"
 #include "components/live_caption/pref_names.h"
 #include "components/policy/core/common/mock_configuration_policy_provider.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
 #include "components/session_manager/core/session_manager.h"
+#include "components/supervised_user/core/common/supervised_user_constants.h"
 #include "components/user_manager/user_names.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/test/browser_test.h"
@@ -889,6 +889,12 @@ IN_PROC_BROWSER_TEST_F(AccessibilityManagerTest, ChromeVoxPanel) {
 
 IN_PROC_BROWSER_TEST_F(AccessibilityManagerTest, TtsDlcTypeToPath) {
   EXPECT_EQ(
+      base::FilePath("/run/imageloader/tts-de-de/package/root/voice.zvoice"),
+      TtsDlcTypeToPath(DlcType::DLC_TYPE_TTSDEDE));
+  EXPECT_EQ(
+      base::FilePath("/run/imageloader/tts-en-us/package/root/voice.zvoice"),
+      TtsDlcTypeToPath(DlcType::DLC_TYPE_TTSENUS));
+  EXPECT_EQ(
       base::FilePath("/run/imageloader/tts-es-es/package/root/voice.zvoice"),
       TtsDlcTypeToPath(DlcType::DLC_TYPE_TTSESES));
   EXPECT_EQ(
@@ -900,6 +906,12 @@ IN_PROC_BROWSER_TEST_F(AccessibilityManagerTest, TtsDlcTypeToPath) {
   EXPECT_EQ(
       base::FilePath("/run/imageloader/tts-hi-in/package/root/voice.zvoice"),
       TtsDlcTypeToPath(DlcType::DLC_TYPE_TTSHIIN));
+  EXPECT_EQ(
+      base::FilePath("/run/imageloader/tts-it-it/package/root/voice.zvoice"),
+      TtsDlcTypeToPath(DlcType::DLC_TYPE_TTSITIT));
+  EXPECT_EQ(
+      base::FilePath("/run/imageloader/tts-ja-jp/package/root/voice.zvoice"),
+      TtsDlcTypeToPath(DlcType::DLC_TYPE_TTSJAJP));
   EXPECT_EQ(
       base::FilePath("/run/imageloader/tts-nl-nl/package/root/voice.zvoice"),
       TtsDlcTypeToPath(DlcType::DLC_TYPE_TTSNLNL));
@@ -954,6 +966,16 @@ class AccessibilityManagerDlcTest : public AccessibilityManagerTest {
     // can be called.
     manager->install_pumpkin_callback_ = base::DoNothing();
     AccessibilityManager::Get()->OnPumpkinError("Error");
+  }
+
+  void OnPumpkinInstalled(bool success) {
+    AccessibilityManager::Get()->OnPumpkinInstalled(success);
+  }
+
+  void OnPumpkinDataCreated(
+      std::unique_ptr<extensions::api::accessibility_private::PumpkinData>
+          data) {
+    AccessibilityManager::Get()->OnPumpkinDataCreated(std::move(data));
   }
 
   speech::SodaInstaller* soda_installer() {
@@ -1311,6 +1333,26 @@ IN_PROC_BROWSER_TEST_F(AccessibilityManagerDlcTest, SodaFailPumpkinFail) {
   AssertDictationNoDlcsNotifcation(en_us_display_name());
 }
 
+// Ensures that AccessibilityManager can handle when OnPumpkinInstalled is
+// called multiple times, which can happen in production.
+IN_PROC_BROWSER_TEST_F(AccessibilityManagerDlcTest,
+                       OnPumpkinInstalledMultiple) {
+  SetDictationLocale("en-US");
+  SetDictationEnabled(true);
+  InstallPumpkinAndWait();
+  OnPumpkinInstalled(true);
+}
+
+// Ensures that AccessibilityManager can handle when OnPumpkinDataCreated is
+// called multiple times, which can happen in production.
+IN_PROC_BROWSER_TEST_F(AccessibilityManagerDlcTest,
+                       OnPumpkinDataCreatedMultiple) {
+  SetDictationLocale("en-US");
+  SetDictationEnabled(true);
+  InstallPumpkinAndWait();
+  OnPumpkinDataCreated(nullptr);
+}
+
 enum DictationDialogTestVariant {
   kOfflineEnabledAndAvailable,
   kOfflineEnabledAndUnavailable,
@@ -1498,7 +1540,7 @@ class AccessibilityManagerLoginTest : public OobeBaseTest {
   void StartUserSession(const AccountId& account_id) {
     profiles::testing::CreateProfileSync(
         g_browser_process->profile_manager(),
-        ProfileHelper::GetProfilePathByUserIdHash(
+        BrowserContextHelper::Get()->GetBrowserContextPathByUserIdHash(
             user_manager::UserManager::Get()
                 ->FindUser(account_id)
                 ->username_hash()));

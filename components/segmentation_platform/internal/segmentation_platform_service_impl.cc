@@ -6,20 +6,19 @@
 
 #include <string>
 
-#include "base/bind.h"
-#include "base/callback_helpers.h"
 #include "base/command_line.h"
 #include "base/files/file_path.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/system/sys_info.h"
-#include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
-#include "base/threading/sequenced_task_runner_handle.h"
 #include "base/time/clock.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/segmentation_platform/internal/constants.h"
 #include "components/segmentation_platform/internal/database/storage_service.h"
+#include "components/segmentation_platform/internal/execution/processing/sync_device_info_observer.h"
 #include "components/segmentation_platform/internal/platform_options.h"
 #include "components/segmentation_platform/internal/proto/model_prediction.pb.h"
 #include "components/segmentation_platform/internal/scheduler/model_execution_scheduler_impl.h"
@@ -28,7 +27,6 @@
 #include "components/segmentation_platform/internal/selection/segment_selector_impl.h"
 #include "components/segmentation_platform/internal/selection/segmentation_result_prefs.h"
 #include "components/segmentation_platform/internal/stats.h"
-#include "components/segmentation_platform/internal/sync_device_info_observer.h"
 #include "components/segmentation_platform/public/config.h"
 #include "components/segmentation_platform/public/field_trial_register.h"
 #include "components/segmentation_platform/public/input_context.h"
@@ -96,19 +94,13 @@ SegmentationPlatformServiceImpl::SegmentationPlatformServiceImpl(
           &SegmentationPlatformServiceImpl::OnModelRefreshNeeded,
           weak_ptr_factory_.GetWeakPtr()));
 
-  std::map<std::string, std::unique_ptr<SegmentResultProvider>>
-      result_providers;
-  for (const auto& config : configs_) {
-    result_providers[config->segmentation_key] = SegmentResultProvider::Create(
-        storage_service_->segment_info_database(),
-        storage_service_->signal_storage_config(),
-        storage_service_->default_model_manager(), &execution_service_, clock_,
-        platform_options_.force_refresh_results);
-  }
+  // TODO(ritikagup@): Move code for recording FieldTrialRegister into separate
+  // class when adding support for recording multi class output fields.
+  cached_result_provider_ = std::make_unique<CachedResultProvider>(
+      init_params->profile_prefs, configs_);
 
-  // Central class to delegate the client requests.
   request_dispatcher_ = std::make_unique<RequestDispatcher>(
-      configs_, std::move(result_providers));
+      configs_, cached_result_provider_.get());
 
   for (const auto& config : configs_) {
     segment_selectors_[config->segmentation_key] =
@@ -135,8 +127,10 @@ SegmentationPlatformServiceImpl::SegmentationPlatformServiceImpl(
                      weak_ptr_factory_.GetWeakPtr()));
 
   // Create sync device info observer.
-  sync_device_info_observer_ = std::make_unique<SyncDeviceInfoObserver>(
-      init_params->device_info_tracker);
+  input_delegate_holder_->SetDelegate(
+      proto::CustomInput::FILL_SYNC_DEVICE_INFO,
+      std::make_unique<processing::SyncDeviceInfoObserver>(
+          init_params->device_info_tracker));
 }
 
 SegmentationPlatformServiceImpl::~SegmentationPlatformServiceImpl() {
@@ -254,7 +248,18 @@ void SegmentationPlatformServiceImpl::OnDatabaseInitialized(bool success) {
     selector.second->OnPlatformInitialized(&execution_service_);
   }
 
-  request_dispatcher_->OnPlatformInitialized(success);
+  std::map<std::string, std::unique_ptr<SegmentResultProvider>>
+      result_providers;
+  for (const auto& config : configs_) {
+    result_providers[config->segmentation_key] = SegmentResultProvider::Create(
+        storage_service_->segment_info_database(),
+        storage_service_->signal_storage_config(),
+        storage_service_->default_model_manager(), &execution_service_, clock_,
+        platform_options_.force_refresh_results);
+  }
+
+  request_dispatcher_->OnPlatformInitialized(success, &execution_service_,
+                                             std::move(result_providers));
 
   // Run any method calls that were received during initialization.
   while (!pending_actions_.empty()) {
@@ -313,6 +318,7 @@ void SegmentationPlatformServiceImpl::RunDailyTasks(bool is_startup) {
 void SegmentationPlatformService::RegisterProfilePrefs(
     PrefRegistrySimple* registry) {
   registry->RegisterDictionaryPref(kSegmentationResultPref);
+  registry->RegisterStringPref(kSegmentationClientResultPrefs, std::string());
   registry->RegisterTimePref(kSegmentationLastDBCompactionTimePref,
                              base::Time());
 }

@@ -1212,8 +1212,9 @@ IN_PROC_BROWSER_TEST_F(FindRequestManagerPortalTest, Portal) {
 class FindTestWebContentsPrerenderingDelegate
     : public FindTestWebContentsDelegate {
  public:
-  bool IsPrerender2Supported(WebContents& web_contents) override {
-    return true;
+  PreloadingEligibility IsPrerender2Supported(
+      WebContents& web_contents) override {
+    return PreloadingEligibility::kEligible;
   }
 };
 
@@ -1283,8 +1284,9 @@ class FindRequestManagerTestWithBFCache : public FindRequestManagerTest {
  public:
   FindRequestManagerTestWithBFCache() {
     scoped_feature_list_.InitWithFeaturesAndParameters(
-        {{features::kBackForwardCache,
-          {{"TimeToLiveInBackForwardCacheInSeconds", "3600"}}}},
+        {{features::kBackForwardCache, {{}}},
+         {features::kBackForwardCacheTimeToLiveControl,
+          {{"time_to_live_seconds", "3600"}}}},
         // Allow BackForwardCache for all devices regardless of their memory.
         {features::kBackForwardCacheMemoryControls});
   }

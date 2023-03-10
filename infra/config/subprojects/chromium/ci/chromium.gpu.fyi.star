@@ -1306,7 +1306,7 @@ ci.thin_tester(
 )
 
 ci.thin_tester(
-    name = "Win10 FYI x64 Exp Release (Intel HD 630)",
+    name = "Win10 FYI x64 Experimental Release (Intel)",
     triggered_by = ["GPU FYI Win x64 Builder"],
     builder_spec = builder_config.builder_spec(
         execution_mode = builder_config.execution_mode.TEST,
@@ -1324,10 +1324,10 @@ ci.thin_tester(
         run_tests_serially = True,
     ),
     # Uncomment this entry when this experimental tester is actually in use.
-    console_view_entry = consoles.console_view_entry(
-        category = "Windows|10|x64|Intel",
-        short_name = "exp",
-    ),
+    # console_view_entry = consoles.console_view_entry(
+    #     category = "Windows|10|x64|Intel",
+    #     short_name = "exp",
+    # ),
     list_view = "chromium.gpu.experimental",
 )
 
@@ -1382,7 +1382,7 @@ ci.thin_tester(
 )
 
 ci.thin_tester(
-    name = "Win10 FYI x64 Release (Intel HD 630)",
+    name = "Win10 FYI x64 Release (Intel)",
     triggered_by = ["GPU FYI Win x64 Builder"],
     builder_spec = builder_config.builder_spec(
         execution_mode = builder_config.execution_mode.TEST,

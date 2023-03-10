@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Asenna Linux-versio</translation>
 <translation id="2225536596944493418">Haluatko varmasti poistaa <ph name="NUMBER_OF_ITEMS" /> kohdetta?</translation>
 <translation id="2230062665678605299">Kansiota <ph name="FOLDER_NAME" /> ei voi luoda. <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">Google Driven välimuisti on tyhjennetty.</translation>
 <translation id="2239068707900391003">Henkilö ja kahvikuppi</translation>
 <translation id="2251368349685848079">Palauta roskakorista</translation>
 <translation id="2282155092769082568">Automaattisen määrityksen URL-osoite:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">Haulla &lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt; ei löytynyt kohteita</translation>
 <translation id="2894654529758326923">Tiedot</translation>
 <translation id="2902734494705624966">USA, laajennettu</translation>
+<translation id="2904378509913846215">Kansio nimeltä "<ph name="FILENAME" />" on jo olemassa. Haluatko korvata sen siirrettävällä tiedostolla?</translation>
 <translation id="290843123675549676">marathi</translation>
 <translation id="2923240520113693977">viro</translation>
 <translation id="2938685643439809023">mongolia</translation>
@@ -640,6 +642,7 @@
 <translation id="6241349547798190358">hollanti (Belgia)</translation>
 <translation id="6267547857941397424">Verkko <ph name="NETWORK_INDEX" />/<ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, signaalin vahvuus <ph name="SIGNAL_STRENGTH" /> %, puhelimen akun varaus <ph name="BATTERY_STATUS" /> %, yhdistä</translation>
 <translation id="6269630227984243955">malaiji</translation>
+<translation id="6271903698064569429">Tiedostoja ei voi ladata, koska "<ph name="SHARED_DRIVE_NAME" />" on liian täynnä eikä tallennustilaa ole tarpeeksi.</translation>
 <translation id="6287852322318138013">Valitse sovellus, jolla haluat avata tämän tiedoston</translation>
 <translation id="6295542640242147836">Lukitse SIM-kortti</translation>
 <translation id="6296410173147755564">Väärä PUK-koodi</translation>
@@ -685,6 +688,7 @@
 <translation id="6657585470893396449">Salasana</translation>
 <translation id="6658865850469097484">Roskakorissa yli 30 päivää olleet kohteet poistetaan automaattisesti.</translation>
 <translation id="6673674183150363784">ranska (Ranska), Bépo-näppäimistö</translation>
+<translation id="670380500182402678">Korvaa kaikki</translation>
 <translation id="6710022688720561421">Robotti</translation>
 <translation id="6710213216561001401">Edellinen</translation>
 <translation id="6732801395666424405">Varmenteita ei ole ladattu</translation>
@@ -903,6 +907,7 @@
 <translation id="8386903983509584791">Etsintä valmis</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" /> noudettu</translation>
 <translation id="8395901698320285466">Mittasuhteet</translation>
+<translation id="8404498045299006085">Säilytä kaikki</translation>
 <translation id="8408068190360279472"><ph name="NETWORK_TYPE" /> verkko, yhdistetään</translation>
 <translation id="8425213833346101688">Vaihda</translation>
 <translation id="8431909052837336408">Vaihda SIM-kortin PIN-koodi</translation>

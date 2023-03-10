@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Linux ഉപയോഗിച്ച് ഇൻസ്‌റ്റാൾ ചെയ്യുക</translation>
 <translation id="2225536596944493418"><ph name="NUMBER_OF_ITEMS" /> ഇനങ്ങൾ ഇല്ലാതാക്കണമെന്ന് ഉറപ്പാണോ?</translation>
 <translation id="2230062665678605299">"<ph name="FOLDER_NAME" />" ഫോൾഡർ സൃഷ്‌ടിക്കാനാവില്ല. <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">നിങ്ങളുടെ Google Drive കാഷെ മായ്‌ച്ചു.</translation>
 <translation id="2239068707900391003">കോഫി പിടിച്ചിരിക്കുന്ന വ്യക്തി</translation>
 <translation id="2251368349685848079">ട്രാഷിൽ നിന്നും പുനഃസ്ഥാപിക്കുക</translation>
 <translation id="2282155092769082568">സ്വയമേവ കോൺഫിഗറേഷൻ URL:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">ഇനങ്ങളൊന്നും &lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt; എന്നതുമായി പൊരുത്തപ്പെടുന്നില്ല്ല</translation>
 <translation id="2894654529758326923">വിവരം</translation>
 <translation id="2902734494705624966">യുഎസ് വിപുലീകൃതം</translation>
+<translation id="2904378509913846215">"<ph name="FILENAME" />" എന്ന് പേരുള്ള ഫോൾഡർ നിലവിലുണ്ട്. അത് മാറ്റി നിങ്ങൾ നീക്കുന്ന ഫയൽ സ്ഥാപിക്കണോ?</translation>
 <translation id="290843123675549676">മറാഠി</translation>
 <translation id="2923240520113693977">എസ്റ്റോണിയന്‍</translation>
 <translation id="2938685643439809023">മംഗോളിയന്‍</translation>
@@ -640,6 +642,7 @@
 <translation id="6241349547798190358">ഡച്ച് (ബെൽജിയം)</translation>
 <translation id="6267547857941397424"><ph name="NETWORK_COUNT" />-ൽ <ph name="NETWORK_INDEX" /> നെറ്റ്‌വർക്ക്, <ph name="PHONE_NAME" />, സിഗ്‌നൽ ശക്തി <ph name="SIGNAL_STRENGTH" />%, ഫോൺ ബാറ്ററി <ph name="BATTERY_STATUS" />%, കണക്‌റ്റ് ചെയ്യുക</translation>
 <translation id="6269630227984243955">മലെയ്</translation>
+<translation id="6271903698064569429">"<ph name="SHARED_DRIVE_NAME" />" എന്നതിൽ മതിയായ സ്‌റ്റോറേജ് ഇല്ലാത്തതിനാൽ ഫയലുകൾ അപ്‌ലോഡ് ചെയ്യാനാകില്ല.</translation>
 <translation id="6287852322318138013">ഈ ഫയൽ തുറക്കാനായി ഒരു ആപ്പ് തിരഞ്ഞെടുക്കുക</translation>
 <translation id="6295542640242147836">സിം ലോക്ക് ചെയ്യുക</translation>
 <translation id="6296410173147755564">PUK അസാധുവാണ്</translation>
@@ -685,6 +688,7 @@
 <translation id="6657585470893396449">പാസ്‌വേഡ്</translation>
 <translation id="6658865850469097484">30 ദിവസത്തിൽ കൂടുതലായി ട്രാഷിലുള്ള ഫയലുകൾ സ്വയമേവ ഇല്ലാതാക്കും.</translation>
 <translation id="6673674183150363784">BÉPO കീബോർഡ് ഉള്ള ഫ്രഞ്ച് (ഫ്രാൻസ്)</translation>
+<translation id="670380500182402678">എല്ലാം മാറ്റി പകരം വെയ്ക്കുക</translation>
 <translation id="6710022688720561421">റോബോട്ട്</translation>
 <translation id="6710213216561001401">മുമ്പത്തേത്</translation>
 <translation id="6732801395666424405">സർട്ടിഫിക്കറ്റുകൾ ലോഡുചെയ്‌തില്ല</translation>
@@ -903,6 +907,7 @@
 <translation id="8386903983509584791">സ്‌കാൻ ചെയ്യുന്നത് പൂർത്തിയായി</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" /> എക്സ്‌ട്രാക്റ്റ് ചെയ്തു.</translation>
 <translation id="8395901698320285466">തലങ്ങൾ</translation>
+<translation id="8404498045299006085">എല്ലാം നിലനിർത്തുക</translation>
 <translation id="8408068190360279472"><ph name="NETWORK_TYPE" /> നെറ്റ്‍വർക്ക്, കണക്റ്റ് ചെയ്യുന്നു</translation>
 <translation id="8425213833346101688">മാറ്റുക</translation>
 <translation id="8431909052837336408">സിം പിൻ മാറ്റുക</translation>

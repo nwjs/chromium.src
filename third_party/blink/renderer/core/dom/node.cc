@@ -125,6 +125,7 @@
 #include "third_party/blink/renderer/core/svg/graphics/svg_image.h"
 #include "third_party/blink/renderer/core/svg/svg_element.h"
 #include "third_party/blink/renderer/core/trustedtypes/trusted_script.h"
+#include "third_party/blink/renderer/core/view_transition/view_transition_supplement.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_utils.h"
 #include "third_party/blink/renderer/platform/bindings/dom_data_store.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
@@ -319,7 +320,7 @@ Node::Node(TreeScope* tree_scope, ConstructionType type)
       tree_scope_(tree_scope),
       previous_(nullptr),
       next_(nullptr),
-      data_(&NodeRenderingData::SharedEmptyData()) {
+      data_(&NodeData::SharedEmptyData()) {
   DCHECK(tree_scope_ || type == kCreateDocument || type == kCreateShadowRoot);
 #if DUMP_NODE_STATISTICS
   LiveNodeSet().insert(this);
@@ -337,13 +338,12 @@ Node::~Node() {
 NodeRareData& Node::CreateRareData() {
   if (IsElementNode()) {
     if (RuntimeEnabledFeatures::ElementSuperRareDataEnabled()) {
-      data_ = MakeGarbageCollected<ElementRareDataVector>(
-          DataAsNodeRenderingData());
+      data_ = MakeGarbageCollected<ElementRareDataVector>(data_);
     } else {
-      data_ = MakeGarbageCollected<ElementRareData>(DataAsNodeRenderingData());
+      data_ = MakeGarbageCollected<ElementRareData>(data_);
     }
   } else {
-    data_ = MakeGarbageCollected<NodeRareData>(DataAsNodeRenderingData());
+    data_ = MakeGarbageCollected<NodeRareData>(std::move(*data_));
   }
 
   DCHECK(data_);
@@ -1018,32 +1018,22 @@ LayoutBox* Node::GetLayoutBox() const {
 }
 
 void Node::SetLayoutObject(LayoutObject* layout_object) {
-  NodeRenderingData* node_layout_data =
-      HasRareData() ? DataAsNodeRareData()->GetNodeRenderingData()
-                    : DataAsNodeRenderingData();
-
   DCHECK(!layout_object || layout_object->GetNode() == this);
 
-  // Already pointing to a non empty NodeRenderingData so just set the pointer
+  // Already pointing to a non empty NodeData so just set the pointer
   // to the new LayoutObject.
-  if (!node_layout_data->IsSharedEmptyData()) {
-    node_layout_data->SetLayoutObject(layout_object);
+  if (!data_->IsSharedEmptyData()) {
+    data_->SetLayoutObject(layout_object);
     return;
   }
 
   if (!layout_object)
     return;
 
-  // Swap the NodeRenderingData to point to a new NodeRenderingData instead of
+  // Swap the NodeData to point to a new NodeData instead of
   // the static SharedEmptyData instance.
-  DCHECK(!node_layout_data->GetComputedStyle());
-  node_layout_data =
-      MakeGarbageCollected<NodeRenderingData>(layout_object, nullptr);
-  if (HasRareData()) {
-    DataAsNodeRareData()->SetNodeRenderingData(node_layout_data);
-  } else {
-    data_ = node_layout_data;
-  }
+  DCHECK(!data_->GetComputedStyle());
+  data_ = MakeGarbageCollected<NodeData>(layout_object, nullptr);
 }
 
 void Node::SetComputedStyle(scoped_refptr<const ComputedStyle> computed_style) {
@@ -1055,14 +1045,10 @@ void Node::SetComputedStyle(scoped_refptr<const ComputedStyle> computed_style) {
         ->UpdateViewTransitionNames(*element, computed_style.get());
   }
 
-  NodeRenderingData* node_layout_data =
-      HasRareData() ? DataAsNodeRareData()->GetNodeRenderingData()
-                    : DataAsNodeRenderingData();
-
-  // Already pointing to a non empty NodeRenderingData so just set the pointer
+  // Already pointing to a non empty NodeData so just set the pointer
   // to the new LayoutObject.
-  if (!node_layout_data->IsSharedEmptyData()) {
-    node_layout_data->SetComputedStyle(computed_style);
+  if (!data_->IsSharedEmptyData()) {
+    data_->SetComputedStyle(computed_style);
     return;
   }
 
@@ -1074,16 +1060,10 @@ void Node::SetComputedStyle(scoped_refptr<const ComputedStyle> computed_style) {
   DCHECK(computed_style->IsEnsuredInDisplayNone() ||
          LayoutTreeBuilderTraversal::Parent(*this));
 
-  // Swap the NodeRenderingData to point to a new NodeRenderingData instead of
+  // Swap the NodeData to point to a new NodeData instead of
   // the static SharedEmptyData instance.
-  DCHECK(!node_layout_data->GetLayoutObject());
-  node_layout_data =
-      MakeGarbageCollected<NodeRenderingData>(nullptr, computed_style);
-  if (HasRareData()) {
-    DataAsNodeRareData()->SetNodeRenderingData(node_layout_data);
-  } else {
-    data_ = node_layout_data;
-  }
+  DCHECK(!data_->GetLayoutObject());
+  data_ = MakeGarbageCollected<NodeData>(nullptr, computed_style);
 }
 
 LayoutBoxModelObject* Node::GetLayoutBoxModelObject() const {
@@ -2219,6 +2199,13 @@ uint16_t Node::compareDocumentPosition(const Node* other_node,
                                kDocumentPositionContains | connection;
 }
 
+NodeData& Node::EnsureMutableData() {
+  if (data_->IsSharedEmptyData()) {
+    data_ = MakeGarbageCollected<NodeData>(nullptr, nullptr);
+  }
+  return *data_;
+}
+
 void Node::InvalidateIfHasEffectiveAppearance() const {
   auto* layout_object = GetLayoutObject();
   if (!layout_object)
@@ -2242,8 +2229,8 @@ Node::InsertionNotificationRequest Node::InsertedInto(
   }
   if (ParentOrShadowHostNode()->IsInShadowTree())
     SetFlag(kIsInShadowTreeFlag);
-  if (GetDocument().HasAXObjectCache()) {
-    GetDocument().ExistingAXObjectCache()->ChildrenChanged(&insertion_point);
+  if (auto* cache = GetDocument().ExistingAXObjectCache()) {
+    cache->ChildrenChanged(&insertion_point);
   }
   return kInsertionDone;
 }
@@ -2261,8 +2248,8 @@ void Node::RemovedFrom(ContainerNode& insertion_point) {
   }
   if (IsInShadowTree() && !ContainingTreeScope().RootNode().IsShadowRoot())
     ClearFlag(kIsInShadowTreeFlag);
-  if (GetDocument().HasAXObjectCache()) {
-    GetDocument().ExistingAXObjectCache()->Remove(this);
+  if (auto* cache = GetDocument().ExistingAXObjectCache()) {
+    cache->Remove(this);
   }
 }
 
@@ -2597,6 +2584,7 @@ void Node::WillMoveToNewDocument(Document& old_document,
     DCHECK_NE(&GetDocument(), &new_document);
   }
 #endif  // DCHECK_IS_ON()
+
   // In rare situations, this node may be the focused element of the old
   // document. In this case, we need to clear the focused element of the old
   // document, and since we are currently in an event forbidden scope, we can't
@@ -3396,8 +3384,9 @@ void Node::RemovedFromFlatTree() {
   GetDocument().GetStyleEngine().RemovedFromFlatTree(*this);
 
   // Ensure removal from accessibility cache even if it doesn't have layout.
-  if (GetDocument().HasAXObjectCache())
-    GetDocument().ExistingAXObjectCache()->Remove(this);
+  if (auto* cache = GetDocument().ExistingAXObjectCache()) {
+    cache->Remove(this);
+  }
 }
 
 void Node::RegisterScrollTimeline(ScrollTimeline* timeline) {

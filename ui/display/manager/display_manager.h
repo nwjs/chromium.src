@@ -16,9 +16,9 @@
 #include <utility>
 #include <vector>
 
-#include "base/callback.h"
 #include "base/cancelable_callback.h"
 #include "base/check_op.h"
+#include "base/functional/callback.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
@@ -117,10 +117,6 @@ class DISPLAY_MANAGER_EXPORT DisplayManager
     force_bounds_changed_ = force_bounds_changed;
   }
 
-  void set_configure_displays(bool configure_displays) {
-    configure_displays_ = configure_displays;
-  }
-
   void set_internal_display_has_accelerometer(bool has_accelerometer) {
     internal_display_has_accelerometer_ = has_accelerometer;
   }
@@ -137,6 +133,8 @@ class DISPLAY_MANAGER_EXPORT DisplayManager
   const UnifiedDesktopLayoutMatrix& current_unified_desktop_matrix() const {
     return current_unified_desktop_matrix_;
   }
+
+  void SetConfigureDisplays(bool configure_displays);
 
   // Initializes displays using command line flag. Returns false if no command
   // line flag was provided.

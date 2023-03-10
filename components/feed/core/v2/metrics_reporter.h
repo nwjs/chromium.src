@@ -133,7 +133,6 @@ class MetricsReporter {
   virtual void OnLoadMore(const StreamType& stream_type,
                           LoadStreamStatus final_status,
                           const ContentStats& content_stats);
-  virtual void OnClearAll(base::TimeDelta time_since_last_clear);
   // Called each time the surface receives new content.
   void SurfaceReceivedContent(SurfaceId surface_id);
   // Called when Chrome is entering the background.
@@ -159,6 +158,7 @@ class MetricsReporter {
   void RefreshSubscribedWebFeedsAttempted(bool subscriptions_were_stale,
                                           WebFeedRefreshStatus status,
                                           int subscribed_web_feed_count);
+  void OnQueryAttempt(const WebFeedSubscriptions::QueryWebFeedResult& result);
 
   // Info card events.
   void OnInfoCardTrackViewStarted(const StreamType& stream_type,
@@ -273,7 +273,7 @@ class MetricsReporter {
     // GoodVisitState.
     PersistentMetricsData& data_;
   };
-  absl::optional<GoodVisitState> good_visit_state_;
+  GoodVisitState good_visit_state_;
 
   base::WeakPtrFactory<MetricsReporter> weak_ptr_factory_{this};
 };

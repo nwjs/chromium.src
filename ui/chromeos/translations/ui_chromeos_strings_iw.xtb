@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">‏התקנה עם Linux</translation>
 <translation id="2225536596944493418"><ph name="NUMBER_OF_ITEMS" /> פריטים יימחקו. להמשיך?</translation>
 <translation id="2230062665678605299">לא ניתן ליצור את התיקייה "<ph name="FOLDER_NAME" />". <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">‏המטמון שלך ב-Google Drive נוקה.</translation>
 <translation id="2239068707900391003">אדם עם קפה</translation>
 <translation id="2251368349685848079">שחזור מהאשפה</translation>
 <translation id="2282155092769082568">כתובת אתר של תצורה אוטומטית:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">‏אין פריטים התואמים ל-&lt;b&gt;"<ph name="SEARCH_STRING" />"&lt;/b&gt;</translation>
 <translation id="2894654529758326923">מידע</translation>
 <translation id="2902734494705624966">ארה"ב - מורחבת</translation>
+<translation id="2904378509913846215">כבר קיימת תיקייה בשם '<ph name="FILENAME" />'. רוצה להחליף אותה בתיקייה שבחרת להעביר?</translation>
 <translation id="290843123675549676">מראטית</translation>
 <translation id="2923240520113693977">אסטונית</translation>
 <translation id="2938685643439809023">מונגולית</translation>
@@ -641,6 +643,7 @@
 <translation id="6241349547798190358">הולנדית (בלגיה)</translation>
 <translation id="6267547857941397424">‏רשת <ph name="NETWORK_INDEX" /> מתוך <ph name="NETWORK_COUNT" />,‏ <ph name="PHONE_NAME" />, עוצמת האות: ‎<ph name="SIGNAL_STRENGTH" />%‎, סוללת הטלפון: ‎<ph name="BATTERY_STATUS" />%‎, התחברות</translation>
 <translation id="6269630227984243955">מלאית</translation>
+<translation id="6271903698064569429">לא ניתן להעלות קבצים כי אין מספיק מקום באחסון השיתופי '<ph name="SHARED_DRIVE_NAME" />'.</translation>
 <translation id="6287852322318138013">בחירת אפליקציה לפתיחת הקובץ</translation>
 <translation id="6295542640242147836">‏נעילת כרטיס ה-SIM</translation>
 <translation id="6296410173147755564">‏ה-PUK לא תקין</translation>
@@ -686,6 +689,7 @@
 <translation id="6657585470893396449">סיסמה</translation>
 <translation id="6658865850469097484">קבצים שיימצאו באשפה במשך יותר מ-30 ימים יימחקו באופן אוטומטי.</translation>
 <translation id="6673674183150363784">‏צרפתית (צרפת) עם מקלדת Bépo</translation>
+<translation id="670380500182402678">החלפת הכול</translation>
 <translation id="6710022688720561421">רובוט</translation>
 <translation id="6710213216561001401">הקודם</translation>
 <translation id="6732801395666424405">האישורים לא נטענו</translation>
@@ -904,6 +908,7 @@
 <translation id="8386903983509584791">הסריקה הושלמה</translation>
 <translation id="8387733224523483503">הקובץ <ph name="FILE_NAME" /> חולץ.</translation>
 <translation id="8395901698320285466">מידות</translation>
+<translation id="8404498045299006085">שמירת הכול</translation>
 <translation id="8408068190360279472">רשת <ph name="NETWORK_TYPE" />, מתבצעת התחברות</translation>
 <translation id="8425213833346101688">שינוי</translation>
 <translation id="8431909052837336408">‏שינוי קוד האימות של ה-SIM</translation>

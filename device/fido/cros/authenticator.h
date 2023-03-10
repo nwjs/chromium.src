@@ -76,7 +76,6 @@ class COMPONENT_EXPORT(DEVICE_FIDO) ChromeOSAuthenticator
   void GetAssertion(CtapGetAssertionRequest request,
                     CtapGetAssertionOptions options,
                     GetAssertionCallback callback) override;
-  void GetNextAssertion(GetAssertionCallback callback) override {}
   void GetCredentialInformationForRequest(
       const CtapGetAssertionRequest& request,
       GetCredentialInformationForRequestCallback callback) override;
@@ -87,9 +86,6 @@ class COMPONENT_EXPORT(DEVICE_FIDO) ChromeOSAuthenticator
 
   absl::optional<FidoTransportProtocol> AuthenticatorTransport() const override;
 
-  bool IsInPairingMode() const override;
-  bool IsPaired() const override;
-  bool RequiresBlePairingPin() const override;
   bool SupportsEnterpriseAttestation() const override;
 
   void GetTouch(base::OnceClosure callback) override {}

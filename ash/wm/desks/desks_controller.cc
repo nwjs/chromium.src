@@ -12,7 +12,6 @@
 #include "ash/constants/ash_features.h"
 #include "ash/constants/notifier_catalogs.h"
 #include "ash/public/cpp/desk_template.h"
-#include "ash/public/cpp/desks_templates_delegate.h"
 #include "ash/public/cpp/shelf_model.h"
 #include "ash/public/cpp/shelf_types.h"
 #include "ash/public/cpp/shell_window_ids.h"
@@ -50,12 +49,13 @@
 #include "ash/wm/workspace/workspace_layout_manager.h"
 #include "ash/wm/workspace_controller.h"
 #include "base/auto_reset.h"
-#include "base/bind.h"
 #include "base/check.h"
 #include "base/check_op.h"
 #include "base/containers/contains.h"
 #include "base/containers/unique_ptr_adapters.h"
 #include "base/cxx17_backports.h"
+#include "base/debug/crash_logging.h"
+#include "base/functional/bind.h"
 #include "base/guid.h"
 #include "base/i18n/number_formatting.h"
 #include "base/metrics/histogram_functions.h"
@@ -63,6 +63,7 @@
 #include "base/notreached.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "chromeos/ui/wm/features.h"
@@ -76,6 +77,7 @@
 #include "ui/aura/window_tracker.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/events/devices/haptic_touchpad_effects.h"
+#include "ui/views/widget/native_widget_private.h"
 #include "ui/wm/core/window_animations.h"
 #include "ui/wm/core/window_util.h"
 #include "ui/wm/public/activation_client.h"
@@ -96,15 +98,13 @@ constexpr char kMoveWindowFromActiveDeskHistogramName[] =
 constexpr char kCloseAllUndoHistogramName[] = "Ash.Desks.CloseAllUndo";
 constexpr char kCloseAllTotalHistogramName[] = "Ash.Desks.CloseAllTotal";
 constexpr char kRemoveDeskTypeHistogramName[] = "Ash.Desks.RemoveDeskType";
-constexpr char kNumberOfWindowsClosed[] = "Ash.Desks.NumberOfWindowsClosed";
+constexpr char kNumberOfWindowsClosed[] = "Ash.Desks.NumberOfWindowsClosed2";
 constexpr char kNumberOfWindowsClosedByButton[] =
-    "Ash.Desks.NumberOfWindowsClosed.Button";
+    "Ash.Desks.NumberOfWindowsClosed2.Button";
 constexpr char kNumberOfWindowsClosedByKeyboard[] =
-    "Ash.Desks.NumberOfWindowsClosed.Keyboard";
-constexpr char kNumberOfWindowsClosedBySaveAndRecall[] =
-    "Ash.Desks.NumberOfWindowsClosed.SaveRecall";
+    "Ash.Desks.NumberOfWindowsClosed2.Keyboard";
 constexpr char kNumberOfWindowsClosedByApi[] =
-    "Ash.Desks.NumberOfWindowsClosed.Api";
+    "Ash.Desks.NumberOfWindowsClosed2.Api";
 // Used for histograms from "Ash.Desks.NumberOfWindowsOnDesk_1" up to 16.
 constexpr char kNumberOfWindowsOnDeskHistogramPrefix[] =
     "Ash.Desks.NumberOfWindowsOnDesk_";
@@ -117,6 +117,13 @@ constexpr int kDeskTraversalsMaxValue = 20;
 // |kNumberOfDeskTraversalsHistogramName| will be recorded after this time
 // interval.
 constexpr base::TimeDelta kDeskTraversalsTimeout = base::Seconds(5);
+
+constexpr char kCloseAllZombieWindowsFoundHistogramName[] =
+    "Ash.Desks.CloseAllZombieWindowsFound";
+
+// The amount of time we wait after `CleanUpClosedAppWindowsTask` runs before
+// we check how many of those windows are still in memory.
+constexpr base::TimeDelta kCloseAllWindowsZombieCheckTimeout = base::Minutes(1);
 
 constexpr int kDeskDefaultNameIds[] = {
     IDS_ASH_DESKS_DESK_1_MINI_VIEW_TITLE,
@@ -261,6 +268,13 @@ void ShowDeskRemovalUndoToast(const std::string& toast_id,
   ToastManager::Get()->Show(std::move(undo_toast_data));
 }
 
+// Reports the number of windows that still exist in `window_tracker`.
+void ReportNumberOfZombieWindows(
+    std::unique_ptr<aura::WindowTracker> window_tracker) {
+  base::UmaHistogramCounts100(kCloseAllZombieWindowsFoundHistogramName,
+                              window_tracker->windows().size());
+}
+
 }  // namespace
 
 // Class that can hold the data for a removed desk while it waits for a user
@@ -269,7 +283,8 @@ class DesksController::RemovedDeskData {
  public:
   RemovedDeskData(std::unique_ptr<Desk> desk,
                   int index,
-                  DesksCreationRemovalSource source)
+                  DesksCreationRemovalSource source,
+                  DeskCloseType type)
       : toast_id_(base::StringPrintf("UndoCloseAllToast_%d",
                                      ++g_close_desk_toast_counter)),
         was_active_(desk->is_active()),
@@ -279,7 +294,8 @@ class DesksController::RemovedDeskData {
                                  ->accessibility_controller()
                                  ->spoken_feedback()
                                  .enabled()),
-        source_(source) {
+        source_(source),
+        desk_close_type_(type) {
     desk_->set_is_desk_being_removed(true);
   }
 
@@ -302,6 +318,7 @@ class DesksController::RemovedDeskData {
   int index() const { return index_; }
   bool is_toast_persistent() const { return is_toast_persistent_; }
   DesksCreationRemovalSource desk_removal_source() const { return source_; }
+  DeskCloseType desk_close_type() const { return desk_close_type_; }
 
   std::unique_ptr<Desk> AcquireDesk() { return std::move(desk_); }
 
@@ -317,6 +334,8 @@ class DesksController::RemovedDeskData {
   const bool is_toast_persistent_;
 
   const DesksCreationRemovalSource source_;
+
+  const DeskCloseType desk_close_type_;
 };
 
 // Helper class which wraps around a OneShotTimer and used for recording how
@@ -442,9 +461,21 @@ const std::u16string& DesksController::GetCombineDesksTargetName(
 }
 
 const Desk* DesksController::GetTargetActiveDesk() const {
-  if (animation_)
-    return desks_[animation_->ending_desk_index()].get();
-  return active_desk();
+  const Desk* target_desk = nullptr;
+  if (animation_) {
+    // If there is ongoing animation, return the target of the animation.
+    target_desk = desks_[animation_->ending_desk_index()].get();
+  } else if (desk_to_activate_) {
+    // Even if there is no ongoing animation, it's still possible to be in the
+    // middle of a desk switch.
+    // Please refer to b/266147233.
+    target_desk = desk_to_activate_;
+  } else {
+    target_desk = active_desk();
+  }
+
+  DCHECK(HasDesk(target_desk));
+  return target_desk;
 }
 
 base::flat_set<aura::Window*>
@@ -677,12 +708,11 @@ void DesksController::ActivateDesk(const Desk* desk, DesksSwitchSource source) {
   // If we are switching users, we don't want to notify desks of content changes
   // until the user switch animation has shown the new user's windows.
   const bool is_user_switch = source == DesksSwitchSource::kUserSwitch;
-  std::vector<base::AutoReset<bool>> desks_scoped_notify_disablers;
+  absl::optional<Desk::ScopedContentUpdateNotificationDisabler>
+      desks_scoped_notify_disabler;
   if (is_user_switch) {
-    for (const auto& desk_to_notify : desks_) {
-      desks_scoped_notify_disablers.push_back(
-          desk_to_notify->GetScopedNotifyContentChangedDisabler());
-    }
+    desks_scoped_notify_disabler.emplace(/*desks=*/desks_,
+                                         /*notify_when_destroyed=*/false);
   }
 
   OverviewController* overview_controller = Shell::Get()->overview_controller();
@@ -694,10 +724,9 @@ void DesksController::ActivateDesk(const Desk* desk, DesksSwitchSource source) {
       // switching to a new user, otherwise the multi user switch animation will
       // animate the same windows that overview watches to determine if the
       // overview shutdown animation is complete. See https://crbug.com/1001586.
-      const bool immediate_exit = source == DesksSwitchSource::kUserSwitch;
       overview_controller->EndOverview(
           OverviewEndAction::kDeskActivation,
-          immediate_exit ? OverviewEnterExitType::kImmediateExit
+          is_user_switch ? OverviewEnterExitType::kImmediateExit
                          : OverviewEnterExitType::kNormal);
     }
     return;
@@ -858,7 +887,7 @@ bool DesksController::MoveWindowFromActiveDeskTo(
     } else if (visible_on_all_desks) {
       // Create an item for a visible on all desks window if it doesn't have one
       // already. This can happen when launching a template. When we are in the
-      // templates grid, there are no items.
+      // saved desk grid, there are no items.
       overview_session->AppendItem(window,
                                    /*reposition=*/true, /*animate=*/true);
     }
@@ -1150,9 +1179,9 @@ const Desk* DesksController::CreateNewDeskForSavedDesk(
 
   if (template_type == DeskTemplateType::kTemplate ||
       template_type == DeskTemplateType::kFloatingWorkspace) {
-    // We're staying in overview mode, so move desks bar window and the save
-    // template button to the new desk. They would otherwise disappear when the
-    // new desk is activated.
+    // We're staying in overview mode, so move desks bar window and the
+    // save desk buttons to the new desk. They would otherwise disappear
+    // when the new desk is activated.
     DCHECK(active_desk_);
 
     // Since we're going to move certain windows from the currently active desk,
@@ -1538,6 +1567,8 @@ void DesksController::ActivateDeskInternal(const Desk* desk,
     return;
 
   base::AutoReset<bool> in_progress(&are_desks_being_modified_, true);
+  base::AutoReset<Desk*> activate_desk(&desk_to_activate_,
+                                       const_cast<Desk*>(desk));
 
   // Mark the new desk as active first, so that deactivating windows on the
   // `old_active` desk do not activate other windows on the same desk. See
@@ -1642,7 +1673,7 @@ void DesksController::RemoveDeskInternal(const Desk* desk,
 
   // Keep the removed desk's data alive until at least the end of this function.
   auto temporary_removed_desk = std::make_unique<RemovedDeskData>(
-      std::move(*iter), removed_desk_index, source);
+      std::move(*iter), removed_desk_index, source, close_type);
   auto* temporary_removed_desk_ptr = temporary_removed_desk.get();
   Desk* removed_desk = temporary_removed_desk_ptr->desk();
 
@@ -1664,7 +1695,9 @@ void DesksController::RemoveDeskInternal(const Desk* desk,
 
   // No need to spend time refreshing the mini_views of the removed desk.
   auto removed_desk_mini_views_pauser =
-      removed_desk->GetScopedNotifyContentChangedDisabler();
+      Desk::ScopedContentUpdateNotificationDisabler(
+          /*desks=*/{removed_desk},
+          /*notify_when_destroyed=*/false);
 
   // - If the active desk is the one being removed, activate the desk to its
   //   left, if no desk to the left, activate one on the right.
@@ -1689,7 +1722,9 @@ void DesksController::RemoveDeskInternal(const Desk* desk,
     // The target desk, which is about to become active, will have its
     // mini_views refreshed at the end.
     auto target_desk_mini_view_pauser =
-        target_desk->GetScopedNotifyContentChangedDisabler();
+        Desk::ScopedContentUpdateNotificationDisabler(
+            /*desks=*/{target_desk},
+            /*notify_when_destroyed=*/false);
 
     // Exit split view if active, before activating the new desk. We will
     // restore the split view state of the newly activated desk at the end.
@@ -1738,7 +1773,9 @@ void DesksController::RemoveDeskInternal(const Desk* desk,
   } else if (close_type == DeskCloseType::kCombineDesks) {
     // We will refresh the mini_views of the active desk only once at the end.
     auto active_desk_mini_view_pauser =
-        active_desk_->GetScopedNotifyContentChangedDisabler();
+        Desk::ScopedContentUpdateNotificationDisabler(
+            /*desks=*/{active_desk_},
+            /*notify_when_destroyed=*/false);
 
     removed_desk->MoveWindowsToDesk(active_desk_);
 
@@ -1756,7 +1793,7 @@ void DesksController::RemoveDeskInternal(const Desk* desk,
 
   // It's OK now to refresh the mini_views of *only* the active desk, and only
   // if windows from the removed desk moved to it.
-  DCHECK(active_desk_->should_notify_content_changed());
+  DCHECK(!active_desk_->ContentUpdateNotificationSuspended());
   if (!removed_desk_windows.empty())
     active_desk_->NotifyContentChanged();
 
@@ -1858,11 +1895,18 @@ void DesksController::FinalizeDeskRemoval(RemovedDeskData* removed_desk_data) {
   non_const_desk->RecordAndResetConsecutiveDailyVisits(
       /*being_removed=*/true);
 
-  // Record number of windows being closed by desk removal.
-  UMA_HISTOGRAM_COUNTS_100(kNumberOfWindowsClosed,
-                           removed_desk->windows().size());
-  ReportClosedWindowsCountPerSourceHistogram(
-      removed_desk_data->desk_removal_source(), removed_desk->windows().size());
+  // Record number of windows being closed by close-all desk removal.
+  // Only record metric for close-all, not for combine desk action.
+  if (removed_desk_data->desk_close_type() == DeskCloseType::kCloseAllWindows ||
+      removed_desk_data->desk_close_type() ==
+          DeskCloseType::kCloseAllWindowsAndWait) {
+    base::UmaHistogramCounts100(kNumberOfWindowsClosed,
+                                removed_desk->windows().size());
+    ReportClosedWindowsCountPerSourceHistogram(
+        removed_desk_data->desk_removal_source(),
+        removed_desk->windows().size());
+  }
+
   ReportDesksCountHistogram();
   ReportNumberOfWindowsPerDeskHistogram();
 
@@ -1876,7 +1920,8 @@ void DesksController::FinalizeDeskRemoval(RemovedDeskData* removed_desk_data) {
   // Content changed notifications for this desk should be disabled when
   // we are destroying the windows.
   auto throttle_desk_notifications =
-      removed_desk->GetScopedNotifyContentChangedDisabler();
+      Desk::ScopedContentUpdateNotificationDisabler(
+          /*desks=*/{removed_desk}, /*notify_when_destroyed=*/false);
 
   std::vector<aura::Window*> app_windows = removed_desk->GetAllAppWindows();
 
@@ -1961,6 +2006,8 @@ void DesksController::MaybeCommitPendingDeskRemoval(
 
 void DesksController::CleanUpClosedAppWindowsTask(
     std::unique_ptr<aura::WindowTracker> closing_window_tracker) {
+  auto widgetless_windows = std::make_unique<aura::WindowTracker>();
+
   // We have waited long enough for these app windows to close cleanly.
   // If there is any app windows still around, we will close them forcefully.
   // These window's desk has already been removed. We should not let these
@@ -1968,14 +2015,27 @@ void DesksController::CleanUpClosedAppWindowsTask(
   while (!closing_window_tracker->windows().empty()) {
     aura::Window* window = closing_window_tracker->Pop();
     views::Widget* widget = views::Widget::GetWidgetForNativeView(window);
-    DCHECK(widget);
 
     // Forcefully close this app window. `CloseNow` which directly deleted the
     // associated native widget. This will skip many Window shutdown hook
     // logic. However, the desk controller has waited for the app window to
     // close cleanly before this.
-    widget->CloseNow();
+    if (widget) {
+      widget->CloseNow();
+    } else {
+      // If the window does not have a widget, we add it to the
+      // `widgetless_windows` tracker to check back on later.
+      widgetless_windows->Add(window);
+    }
   }
+
+  // We post a delayed task to check that all of the windows in
+  // `widgetless_windows` eventually end up closing.
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(&ReportNumberOfZombieWindows,
+                     std::move(widgetless_windows)),
+      kCloseAllWindowsZombieCheckTimeout);
 }
 
 void DesksController::MoveVisibleOnAllDesksWindowsFromActiveDeskTo(
@@ -2115,12 +2175,12 @@ void DesksController::ReportClosedWindowsCountPerSourceHistogram(
     case DesksCreationRemovalSource::kKeyboard:
       desk_removal_source_histogram = kNumberOfWindowsClosedByKeyboard;
       break;
-    case DesksCreationRemovalSource::kSaveAndRecall:
-      desk_removal_source_histogram = kNumberOfWindowsClosedBySaveAndRecall;
-      break;
     case DesksCreationRemovalSource::kApi:
       desk_removal_source_histogram = kNumberOfWindowsClosedByApi;
       break;
+    // Skip recording for save&recall as windows are already closed before
+    // reaching here.
+    case DesksCreationRemovalSource::kSaveAndRecall:
     // Skip recording for source that can't close a desk.
     case DesksCreationRemovalSource::kDragToNewDeskButton:
     case DesksCreationRemovalSource::kLaunchTemplate:

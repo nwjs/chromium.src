@@ -27,12 +27,11 @@
 #include "chrome/browser/extensions/extension_tab_util.h"
 
 #include "base/base_paths.h"
-#include "base/bind.h"
-#include "base/callback_helpers.h"
 #include "base/command_line.h"
 #include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
@@ -159,7 +158,6 @@
 #include "chrome/browser/ui/webui/signin/login_ui_service.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
 #include "chrome/browser/ui/window_sizer/window_sizer.h"
-#include "chrome/browser/vr/vr_tab_helper.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
@@ -213,6 +211,7 @@
 #include "content/public/browser/keyboard_event_processing_result.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
+#include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/render_frame_host.h"
@@ -632,6 +631,8 @@ Browser::~Browser() {
   extension_browser_window_helper_.reset();
 
   // The tab strip should not have any tabs at this point.
+  //
+  // TODO(crbug.com/1407055): This DCHECK doesn't always pass.
   DCHECK(tab_strip_model_->empty());
 
   // Destroy the BrowserCommandController before removing the browser, so that
@@ -1014,6 +1015,23 @@ void Browser::SetWindowUserTitle(const std::string& user_title) {
       SessionServiceFactory::GetForProfile(profile_);
   if (session_service)
     session_service->SetWindowUserTitle(session_id(), user_title);
+}
+
+Browser* Browser::GetBrowserForOpeningWebUi() {
+  if (!is_type_picture_in_picture()) {
+    return this;
+  }
+
+  if (!opener_browser_) {
+    auto* opener_web_contents =
+        PictureInPictureWindowManager::GetInstance()->GetWebContents();
+    // We should always have an opener web contents if the current browser is a
+    // picture-in-picture type.
+    DCHECK(opener_web_contents);
+    opener_browser_ = chrome::FindBrowserWithWebContents(opener_web_contents);
+  }
+
+  return opener_browser_;
 }
 
 StatusBubble* Browser::GetStatusBubbleForTesting() {
@@ -1556,12 +1574,11 @@ bool Browser::IsBackForwardCacheSupported() {
   return true;
 }
 
-bool Browser::IsPrerender2Supported(content::WebContents& web_contents) {
+content::PreloadingEligibility Browser::IsPrerender2Supported(
+    content::WebContents& web_contents) {
   Profile* profile =
       Profile::FromBrowserContext(web_contents.GetBrowserContext());
-  return prefetch::IsSomePreloadingEnabled(*profile->GetPrefs(),
-                                           &web_contents) ==
-         content::PreloadingEligibility::kEligible;
+  return prefetch::IsSomePreloadingEnabled(*profile->GetPrefs(), &web_contents);
 }
 
 std::unique_ptr<content::WebContents> Browser::ActivatePortalWebContents(
@@ -2048,12 +2065,6 @@ void Browser::RendererResponsive(
   }
 }
 
-void Browser::DidNavigatePrimaryMainFramePostCommit(WebContents* web_contents) {
-  if (web_contents == tab_strip_model_->GetActiveWebContents())
-    UpdateBookmarkBarState(BOOKMARK_BAR_STATE_CHANGE_TAB_STATE);
-  OnDidFinishFirstNavigation();
-}
-
 content::JavaScriptDialogManager* Browser::GetJavaScriptDialogManager(
     WebContents* source) {
   //return javascript_dialogs::TabModalDialogManager::FromWebContents(source);
@@ -2079,6 +2090,19 @@ std::unique_ptr<content::EyeDropper> Browser::OpenEyeDropper(
     content::RenderFrameHost* frame,
     content::EyeDropperListener* listener) {
   return window()->OpenEyeDropper(frame, listener);
+}
+
+void Browser::DidFinishNavigation(
+    content::WebContents* web_contents,
+    content::NavigationHandle* navigation_handle) {
+  if (web_contents != tab_strip_model_->GetActiveWebContents())
+    return;
+
+  if (navigation_handle->IsInPrimaryMainFrame() &&
+      navigation_handle->HasCommitted()) {
+    UpdateBookmarkBarState(BOOKMARK_BAR_STATE_CHANGE_TAB_STATE);
+    OnDidFinishFirstNavigation();
+  }
 }
 
 void Browser::RunFileChooser(
@@ -2200,11 +2224,6 @@ void Browser::RegisterProtocolHandler(
 
   auto* web_contents =
       content::WebContents::FromRenderFrameHost(requesting_frame);
-
-  // Permission request UI cannot currently be rendered binocularly in VR mode,
-  // so we suppress the UI. crbug.com/736568
-  if (vr::VrTabHelper::IsInVr(web_contents))
-    return;
 
   ProtocolHandler handler = ProtocolHandler::CreateProtocolHandler(
       protocol, url, GetProtocolHandlerSecurityLevel(requesting_frame));
@@ -2986,10 +3005,12 @@ void Browser::SetAsDelegate(WebContents* web_contents, bool set_delegate) {
     zoom::ZoomController::FromWebContents(web_contents)->AddObserver(this);
     //content_translate_driver->AddTranslationObserver(this);
     BookmarkTabHelper::FromWebContents(web_contents)->AddObserver(this);
+    web_contents_collection_.StartObserving(web_contents);
   } else {
     zoom::ZoomController::FromWebContents(web_contents)->RemoveObserver(this);
     //content_translate_driver->RemoveTranslationObserver(this);
     BookmarkTabHelper::FromWebContents(web_contents)->RemoveObserver(this);
+    web_contents_collection_.StopObserving(web_contents);
   }
 }
 

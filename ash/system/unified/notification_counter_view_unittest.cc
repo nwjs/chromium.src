@@ -51,8 +51,7 @@ class NotificationCounterViewTest : public AshTestBase,
   void SetUp() override {
     scoped_feature_list_ = std::make_unique<base::test::ScopedFeatureList>();
     if (IsQsRevampEnabled()) {
-      scoped_feature_list_->InitWithFeatures(
-          {features::kQsRevamp, features::kQsRevampWip}, {});
+      scoped_feature_list_->InitAndEnableFeature(features::kQsRevamp);
     }
 
     AshTestBase::SetUp();
@@ -188,6 +187,23 @@ TEST_P(NotificationCounterViewTest, DoNotDisturbIconVisibility) {
   // Log in.
   UnblockUserSession();
   EXPECT_TRUE(GetDoNotDisturbIconView()->GetVisible());
+}
+
+TEST_P(NotificationCounterViewTest, LockScreenCounter) {
+  // This behavior is only applicable when QsRevamp is enabled.
+  if (!IsQsRevampEnabled()) {
+    return;
+  }
+
+  for (size_t i = 0; i < kTrayNotificationMaxCount; i++) {
+    AddNotification(base::NumberToString(i));
+  }
+
+  // Make sure we show the full count of notifications on the lock screen.
+  BlockUserSession(BLOCKED_BY_LOCK_SCREEN);
+  EXPECT_TRUE(GetNotificationCounterView()->GetVisible());
+  EXPECT_EQ(static_cast<int>(kTrayNotificationMaxCount),
+            GetNotificationCounterView()->count_for_display_for_testing());
 }
 
 }  // namespace ash

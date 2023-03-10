@@ -27,6 +27,8 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.IntDef;
@@ -45,9 +47,11 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.build.annotations.UsedByReflection;
+import org.chromium.components.browser_ui.modaldialog.AppModalPresenter;
 import org.chromium.components.browser_ui.settings.ChromeBaseCheckBoxPreference;
 import org.chromium.components.browser_ui.settings.ChromeBasePreference;
 import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
+import org.chromium.components.browser_ui.settings.CustomDividerFragment;
 import org.chromium.components.browser_ui.settings.ExpandablePreferenceGroup;
 import org.chromium.components.browser_ui.settings.FragmentSettingsLauncher;
 import org.chromium.components.browser_ui.settings.ManagedPreferenceDelegate;
@@ -70,6 +74,13 @@ import org.chromium.components.prefs.PrefService;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.content_public.browser.BrowserContextHandle;
 import org.chromium.content_public.browser.ContentFeatureList;
+import org.chromium.ui.modaldialog.DialogDismissalCause;
+import org.chromium.ui.modaldialog.ModalDialogManager;
+import org.chromium.ui.modaldialog.ModalDialogManager.ModalDialogType;
+import org.chromium.ui.modaldialog.ModalDialogProperties;
+import org.chromium.ui.modaldialog.ModalDialogProperties.ButtonType;
+import org.chromium.ui.modaldialog.ModalDialogProperties.Controller;
+import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.widget.Toast;
 
 import java.lang.annotation.Retention;
@@ -95,7 +106,8 @@ public class SingleCategorySettings extends SiteSettingsPreferenceFragment
         implements OnPreferenceChangeListener, OnPreferenceClickListener, SiteAddedCallback,
                    OnPreferenceTreeClickListener, FragmentSettingsLauncher,
                    OnCookiesDetailsRequested,
-                   TriStateCookieSettingsPreference.OnCookiesDetailsRequested {
+                   TriStateCookieSettingsPreference.OnCookiesDetailsRequested,
+                   CustomDividerFragment {
     @IntDef({GlobalToggleLayout.BINARY_TOGGLE, GlobalToggleLayout.TRI_STATE_TOGGLE,
             GlobalToggleLayout.TRI_STATE_COOKIE_TOGGLE,
             GlobalToggleLayout.FOUR_STATE_COOKIE_TOGGLE})
@@ -409,10 +421,13 @@ public class SingleCategorySettings extends SiteSettingsPreferenceFragment
         // Disable animations of preference changes.
         mListView.setItemAnimator(null);
 
-        // Remove dividers between preferences.
-        setDivider(null);
-
         return view;
+    }
+
+    @Override
+    public boolean hasDivider() {
+        // Remove dividers between preferences.
+        return false;
     }
 
     /**
@@ -601,25 +616,48 @@ public class SingleCategorySettings extends SiteSettingsPreferenceFragment
 
     private void showDisableSiteDataConfirmationDialog() {
         assert mCategory.getType() == SiteSettingsCategory.Type.SITE_DATA;
-        BrowserContextHandle browserContextHandle =
-                getSiteSettingsDelegate().getBrowserContextHandle();
-        AlertDialog.Builder builder =
-                new AlertDialog.Builder(getContext(), R.style.ThemeOverlay_BrowserUI_AlertDialog);
-        builder.setTitle(R.string.website_settings_site_data_page_block_confirm_dialog_title)
-                .setMessage(
-                        R.string.website_settings_site_data_page_block_confirm_dialog_description)
-                .setNegativeButton(
-                        R.string.website_settings_site_data_page_block_confirm_dialog_cancel_button,
-                        null)
-                .setPositiveButton(
-                        R.string.website_settings_site_data_page_block_confirm_dialog_confirm_button,
-                        (dialog, which) -> {
-                            WebsitePreferenceBridge.setCategoryEnabled(browserContextHandle,
-                                    mCategory.getContentSettingsType(), false);
-                            getInfoForOrigins();
-                            dialog.dismiss();
-                        });
-        builder.show();
+
+        var manager =
+                new ModalDialogManager(new AppModalPresenter(getContext()), ModalDialogType.APP);
+        var controller = new Controller() {
+            @Override
+            public void onClick(PropertyModel model, @ButtonType int buttonType) {
+                switch (buttonType) {
+                    case ButtonType.POSITIVE:
+                        WebsitePreferenceBridge.setCategoryEnabled(
+                                getSiteSettingsDelegate().getBrowserContextHandle(),
+                                mCategory.getContentSettingsType(), false);
+                        getInfoForOrigins();
+                        manager.dismissDialog(model, DialogDismissalCause.POSITIVE_BUTTON_CLICKED);
+                        break;
+                    case ButtonType.NEGATIVE:
+                        manager.dismissDialog(model, DialogDismissalCause.NEGATIVE_BUTTON_CLICKED);
+                        break;
+                    default:
+                        assert false;
+                        break;
+                }
+            }
+            @Override
+            public void onDismiss(PropertyModel model, int dismissalCause) {}
+        };
+        var resources = getContext().getResources();
+        var builder =
+                new PropertyModel.Builder(ModalDialogProperties.ALL_KEYS)
+                        .with(ModalDialogProperties.CONTROLLER, controller)
+                        .with(ModalDialogProperties.TITLE, resources,
+                                R.string.website_settings_site_data_page_block_confirm_dialog_title)
+                        .with(ModalDialogProperties.MESSAGE_PARAGRAPH_1,
+                                resources.getString(
+                                        R.string.website_settings_site_data_page_block_confirm_dialog_description))
+                        .with(ModalDialogProperties.POSITIVE_BUTTON_TEXT, resources,
+                                R.string.website_settings_site_data_page_block_confirm_dialog_confirm_button)
+                        .with(ModalDialogProperties.BUTTON_STYLES,
+                                ModalDialogProperties.ButtonStyles.PRIMARY_FILLED_NEGATIVE_OUTLINE)
+                        .with(ModalDialogProperties.NEGATIVE_BUTTON_TEXT, resources,
+                                R.string.website_settings_site_data_page_block_confirm_dialog_cancel_button);
+        var model = builder.build();
+        manager.showDialog(model, ModalDialogType.APP);
     }
 
     private void setCookieSettingsPreference(CookieSettingsState state) {
@@ -718,7 +756,7 @@ public class SingleCategorySettings extends SiteSettingsPreferenceFragment
                         : R.string.website_settings_site_data_page_add_allow_exception_description;
                 break;
             case SiteSettingsCategory.Type.THIRD_PARTY_COOKIES:
-                resource = getCookieControlsMode() == CookieControlsMode.BLOCK_THIRD_PARTY
+                resource = getCookieControlsMode() == CookieControlsMode.OFF
                         ? R.string.website_settings_third_party_cookies_page_add_block_exception_description
                         : R.string.website_settings_third_party_cookies_page_add_allow_exception_description;
                 break;
@@ -783,9 +821,9 @@ public class SingleCategorySettings extends SiteSettingsPreferenceFragment
                         : ContentSettingValues.ALLOW;
                 break;
             case GlobalToggleLayout.TRI_STATE_COOKIE_TOGGLE:
-                setting = getCookieControlsMode() == CookieControlsMode.BLOCK_THIRD_PARTY
-                        ? ContentSettingValues.ALLOW
-                        : ContentSettingValues.BLOCK;
+                setting = getCookieControlsMode() == CookieControlsMode.OFF
+                        ? ContentSettingValues.BLOCK
+                        : ContentSettingValues.ALLOW;
                 break;
             case GlobalToggleLayout.TRI_STATE_TOGGLE:
             case GlobalToggleLayout.BINARY_TOGGLE:
@@ -1372,10 +1410,8 @@ public class SingleCategorySettings extends SiteSettingsPreferenceFragment
 
         AlertDialog alertDialog =
                 new AlertDialog.Builder(getContext(), R.style.ThemeOverlay_BrowserUI_AlertDialog)
-                        .setTitle(String.format(
-                                getContext().getString(
-                                        R.string.website_settings_edit_site_dialog_title),
-                                site.getTitleForPreferenceRow()))
+                        .setTitle(getContext().getString(
+                                R.string.website_settings_edit_site_dialog_title))
                         .setPositiveButton(R.string.cancel, null)
                         .setNegativeButton(R.string.remove,
                                 (dialog, which) -> {
@@ -1395,12 +1431,19 @@ public class SingleCategorySettings extends SiteSettingsPreferenceFragment
                                 })
                         .create();
 
-        // Set custom radio button group layout that uses RadioButtonWithDescriptionLayout.
+        // Set a custom view with description text and a radio button group that uses
+        // RadioButtonWithDescriptionLayout.
         var inflater =
                 (LayoutInflater) getContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-        var radioGroup = (RadioButtonWithDescriptionLayout) inflater.inflate(
-                R.layout.edit_site_dialog_radio_group, null);
+        var contentView = (LinearLayout) inflater.inflate(R.layout.edit_site_dialog_content, null);
 
+        TextView messageView = contentView.findViewById(R.id.message);
+        messageView.setText(
+                getContext().getString(R.string.website_settings_edit_site_dialog_description,
+                        site.getTitleForPreferenceRow()));
+
+        RadioButtonWithDescriptionLayout radioGroup =
+                contentView.findViewById(R.id.radio_button_group);
         RadioButtonWithDescription allowButton = radioGroup.findViewById(R.id.allow);
         allowButton.setPrimaryText(getString(ContentSettingsResources.getSiteSummary(
                 ContentSettingValues.ALLOW, contentSettingsType)));
@@ -1427,7 +1470,7 @@ public class SingleCategorySettings extends SiteSettingsPreferenceFragment
             getInfoForOrigins();
             alertDialog.dismiss();
         });
-        alertDialog.setView(radioGroup);
+        alertDialog.setView(contentView);
         return alertDialog;
     }
 

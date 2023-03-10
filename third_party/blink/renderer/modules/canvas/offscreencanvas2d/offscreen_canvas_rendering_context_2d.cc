@@ -282,10 +282,8 @@ OffscreenCanvasRenderingContext2D::AsV8OffscreenRenderingContext() {
   return MakeGarbageCollected<V8OffscreenRenderingContext>(this);
 }
 
-bool OffscreenCanvasRenderingContext2D::ParseColorOrCurrentColor(
-    Color& color,
-    const String& color_string) const {
-  return ::blink::ParseColorOrCurrentColor(color, color_string, nullptr);
+Color OffscreenCanvasRenderingContext2D::GetCurrentColor() const {
+  return Color::kBlack;
 }
 
 cc::PaintCanvas* OffscreenCanvasRenderingContext2D::GetOrCreatePaintCanvas() {
@@ -294,7 +292,7 @@ cc::PaintCanvas* OffscreenCanvasRenderingContext2D::GetOrCreatePaintCanvas() {
   return GetPaintCanvas();
 }
 
-cc::PaintCanvas* OffscreenCanvasRenderingContext2D::GetPaintCanvas() const {
+cc::PaintCanvas* OffscreenCanvasRenderingContext2D::GetPaintCanvas() {
   if (!is_valid_size_ || !GetCanvasResourceProvider())
     return nullptr;
   return GetCanvasResourceProvider()->Canvas();
@@ -733,7 +731,7 @@ void OffscreenCanvasRenderingContext2D::DrawTextInternal(
         TextRunPaintInfo text_run_paint_info(text_run);
         this->AccessFont().DrawBidiText(
             paint_canvas, text_run_paint_info, location,
-            Font::kUseFallbackIfFontNotReady, kCDeviceScaleFactor, *flags);
+            Font::kUseFallbackIfFontNotReady, *flags);
       },
       [](const SkIRect& rect)  // overdraw test lambda
       { return false; },

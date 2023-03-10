@@ -31,10 +31,12 @@ bool IBANManager::OnGetSingleFieldSuggestions(
     if (!ibans.empty()) {
       // Rank the IBANs by ranking score (see AutoFillDataModel for details).
       base::Time comparison_time = AutofillClock::Now();
-      base::ranges::sort(
-          ibans, [comparison_time](const IBAN* iban0, const IBAN* iban1) {
-            return iban0->HasGreaterRankingThan(iban1, comparison_time);
-          });
+      if (ibans.size() > 1) {
+        base::ranges::sort(
+            ibans, [comparison_time](const IBAN* iban0, const IBAN* iban1) {
+              return iban0->HasGreaterRankingThan(iban1, comparison_time);
+            });
+      }
       SendIBANSuggestions(
           ibans, QueryHandler(field.global_id(), autoselect_first_suggestion,
                               field.value, handler));
@@ -70,10 +72,19 @@ void IBANManager::SendIBANSuggestions(const std::vector<IBAN*>& ibans,
     return;
   }
 
+  // Only return IBAN-based suggestions whose prefix match `prefix_`.
+  std::vector<const IBAN*> suggested_ibans;
+  suggested_ibans.reserve(ibans.size());
+  for (const auto* iban : ibans) {
+    if (base::StartsWith(iban->value(), query_handler.prefix_)) {
+      suggested_ibans.push_back(iban);
+    }
+  }
+
   // Return suggestions to query handler.
   query_handler.handler_->OnSuggestionsReturned(
       query_handler.field_id_, query_handler.autoselect_first_suggestion_,
-      AutofillSuggestionGenerator::GetSuggestionsForIBANs(ibans));
+      AutofillSuggestionGenerator::GetSuggestionsForIBANs(suggested_ibans));
 }
 
 }  // namespace autofill

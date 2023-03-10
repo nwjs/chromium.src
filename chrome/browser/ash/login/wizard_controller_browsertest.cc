@@ -7,9 +7,9 @@
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_switches.h"
 #include "ash/public/cpp/login_screen_test_api.h"
-#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
+#include "base/functional/bind.h"
 #include "base/run_loop.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
@@ -594,8 +594,8 @@ class WizardControllerFlowTest : public WizardControllerTest {
 
     mock_auto_enrollment_check_screen_view_ =
         std::make_unique<MockAutoEnrollmentCheckScreenView>();
-    mock_auto_enrollment_check_screen_ = MockScreenExpectLifecycle(
-        std::make_unique<MockAutoEnrollmentCheckScreen>(
+    mock_auto_enrollment_check_screen_ = MockScreen(
+        std::make_unique<testing::NiceMock<MockAutoEnrollmentCheckScreen>>(
             mock_auto_enrollment_check_screen_view_.get()->AsWeakPtr(),
             GetErrorScreen(),
             base::BindRepeating(
@@ -671,6 +671,19 @@ class WizardControllerFlowTest : public WizardControllerTest {
     device_disabled_screen_view_.reset();
     test_url_loader_factory_.ClearResponses();
     WizardControllerTest::TearDownOnMainThread();
+  }
+
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    WizardControllerTest::SetUpCommandLine(command_line);
+
+    // Default to now showing auto enrollment check screen. If you want to show
+    // this screen, you can override the flags.
+    command_line->AppendSwitchASCII(
+        switches::kEnterpriseEnableForcedReEnrollment,
+        policy::AutoEnrollmentTypeChecker::kForcedReEnrollmentNever);
+    command_line->AppendSwitchASCII(
+        switches::kEnterpriseEnableInitialEnrollment,
+        policy::AutoEnrollmentTypeChecker::kInitialEnrollmentNever);
   }
 
   void InitNetworkPortalDetector() {
@@ -798,7 +811,12 @@ class WizardControllerFlowTest : public WizardControllerTest {
   MockEnrollmentScreen* mock_enrollment_screen_ = nullptr;
   std::unique_ptr<MockEnrollmentScreenView> mock_enrollment_screen_view_;
 
-  MockAutoEnrollmentCheckScreen* mock_auto_enrollment_check_screen_ = nullptr;
+  // Auto enrollment check screen is a nice mock because it may or may not be
+  // shown depending on when asynchronous auto enrollment check finishes. Only
+  // add expectations for this if you are sure they are not affected by race
+  // conditions.
+  testing::NiceMock<MockAutoEnrollmentCheckScreen>*
+      mock_auto_enrollment_check_screen_ = nullptr;
   std::unique_ptr<MockAutoEnrollmentCheckScreenView>
       mock_auto_enrollment_check_screen_view_;
 
@@ -1380,8 +1398,8 @@ class WizardControllerDeviceStateExplicitRequirementTest
  protected:
   WizardControllerDeviceStateExplicitRequirementTest() {
     if (IsFREExplicitlyRequired()) {
-      fake_statistics_provider_.SetMachineStatistic(
-          chromeos::system::kCheckEnrollmentKey, "1");
+      fake_statistics_provider_.SetMachineStatistic(system::kCheckEnrollmentKey,
+                                                    "1");
     }
   }
 
@@ -3156,22 +3174,6 @@ class WizardControllerRollbackFlowTest : public WizardControllerFlowTest {
   FakeRollbackNetworkConfig* network_config_;
 };
 
-IN_PROC_BROWSER_TEST_F(WizardControllerRollbackFlowTest,
-                       RestartChromeAfterRollbackEnrollment) {
-  base::RunLoop run_loop;
-  auto subscription =
-      browser_shutdown::AddAppTerminatingCallback(run_loop.QuitClosure());
-
-  CheckCurrentScreen(WelcomeView::kScreenId);
-  EXPECT_CALL(*mock_enrollment_screen_, ShowImpl()).Times(1);
-  EXPECT_CALL(*mock_welcome_screen_, HideImpl()).Times(1);
-  WizardController::default_controller()->AdvanceToScreen(
-      EnrollmentScreenView::kScreenId);
-  CheckCurrentScreen(EnrollmentScreenView::kScreenId);
-  mock_enrollment_screen_->ExitScreen(EnrollmentScreen::Result::COMPLETED);
-  run_loop.Run();
-}
-
 // TODO(crbug.com/1324410): Disabled due to flakiness.
 IN_PROC_BROWSER_TEST_F(WizardControllerRollbackFlowTest,
                        DISABLED_SkipEnrollmentAfterRollback) {
@@ -3216,8 +3218,7 @@ class WizardControllerThemeSelectionDefaultSettingsTest
   WizardControllerThemeSelectionDefaultSettingsTest() {
     feature_list_.InitWithFeatures(
         /*enabled_features=*/{},
-        /*disabled_features=*/{features::kEnableOobeThemeSelection,
-                               chromeos::features::kDarkLightMode});
+        /*disabled_features=*/{chromeos::features::kDarkLightMode});
   }
 
  protected:
@@ -3246,8 +3247,7 @@ class WizardControllerThemeSelectionEnabledTest
  public:
   WizardControllerThemeSelectionEnabledTest() {
     feature_list_.InitWithFeatures(
-        /*enabled_features=*/{features::kEnableOobeThemeSelection,
-                              chromeos::features::kDarkLightMode},
+        /*enabled_features=*/{chromeos::features::kDarkLightMode},
         /*disabled_features=*/{});
   }
 

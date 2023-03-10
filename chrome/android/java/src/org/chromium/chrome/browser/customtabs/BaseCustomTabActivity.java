@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.customtabs;
 
+import static androidx.browser.customtabs.CustomTabsIntent.CLOSE_BUTTON_POSITION_END;
 import static androidx.browser.customtabs.CustomTabsIntent.COLOR_SCHEME_DARK;
 import static androidx.browser.customtabs.CustomTabsIntent.COLOR_SCHEME_LIGHT;
 
@@ -383,8 +384,8 @@ public abstract class BaseCustomTabActivity extends ChromeActivity<BaseCustomTab
     public AppMenuPropertiesDelegate createAppMenuPropertiesDelegate() {
         // Menu icon is at the other side of the toolbar relative to the close button, so it will be
         // at the start when the close button is at the end.
-        boolean isMenuIconAtStart = mIntentDataProvider.getCloseButtonPosition()
-                == BrowserServicesIntentDataProvider.CLOSE_BUTTON_POSITION_END;
+        boolean isMenuIconAtStart =
+                mIntentDataProvider.getCloseButtonPosition() == CLOSE_BUTTON_POSITION_END;
         return new CustomTabAppMenuPropertiesDelegate(this, getActivityTabProvider(),
                 getMultiWindowModeStateDispatcher(), getTabModelSelector(), getToolbarManager(),
                 getWindow().getDecorView(), mBookmarkModelSupplier, mVerifier,
@@ -512,8 +513,10 @@ public abstract class BaseCustomTabActivity extends ChromeActivity<BaseCustomTab
         if (mWebappActivityCoordinator != null) {
             mWebappActivityCoordinator.initDeferredStartupForActivity();
         }
-        DeferredStartupHandler.getInstance().addDeferredTask(
-                () -> { mBaseCustomTabRootUiCoordinator.onDeferredStartup(); });
+        DeferredStartupHandler.getInstance().addDeferredTask(() -> {
+            if (isActivityFinishingOrDestroyed()) return;
+            mBaseCustomTabRootUiCoordinator.onDeferredStartup();
+        });
         super.initDeferredStartupForActivity();
     }
 

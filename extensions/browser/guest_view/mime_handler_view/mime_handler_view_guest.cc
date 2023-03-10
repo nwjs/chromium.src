@@ -6,9 +6,10 @@
 
 #include <utility>
 
-#include "base/bind.h"
 #include "base/check_op.h"
+#include "base/functional/bind.h"
 #include "components/guest_view/common/guest_view_constants.h"
+#include "content/public/browser/child_process_host.h"
 #include "content/public/browser/host_zoom_map.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_process_host.h"
@@ -16,7 +17,6 @@
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/site_instance.h"
-#include "content/public/common/child_process_host.h"
 #include "content/public/common/url_constants.h"
 #include "extensions/browser/api/extensions_api_client.h"
 #include "extensions/browser/event_router.h"
@@ -29,6 +29,7 @@
 #include "extensions/browser/view_type_utils.h"
 #include "extensions/common/api/mime_handler_private.h"
 #include "extensions/common/constants.h"
+#include "extensions/common/extension_features.h"
 #include "extensions/common/mojom/guest_view.mojom.h"
 #include "extensions/strings/grit/extensions_strings.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
@@ -246,6 +247,15 @@ void MimeHandlerViewGuest::DidAttachToEmbedder() {
 void MimeHandlerViewGuest::DidInitialize(
     const base::Value::Dict& create_params) {
   ExtensionsAPIClient::Get()->AttachWebContentsHelpers(web_contents());
+}
+
+void MimeHandlerViewGuest::MaybeRecreateGuestContents(
+    content::WebContents* embedder_web_contents) {
+  if (base::FeatureList::IsEnabled(
+          extensions_features::kWebviewTagMPArchBehavior)) {
+    // This situation is not possible for MimeHandlerView.
+    NOTREACHED();
+  }
 }
 
 void MimeHandlerViewGuest::EmbedderFullscreenToggled(bool entered_fullscreen) {

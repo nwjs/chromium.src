@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-#include "base/callback.h"
+#include "base/functional/callback.h"
 #include "ui/gfx/image/image.h"
 
 #include "base/gtest_prod_util.h"
@@ -24,6 +24,7 @@
 #include "base/timer/elapsed_timer.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
+#include "chrome/browser/tab_contents/web_contents_collection.h"
 #include "chrome/browser/themes/theme_service_observer.h"
 #include "chrome/browser/ui/bookmarks/bookmark_bar.h"
 #include "chrome/browser/ui/bookmarks/bookmark_tab_helper_observer.h"
@@ -85,6 +86,7 @@ class BrowserCommandController;
 }
 
 namespace content {
+class NavigationHandle;
 class SessionStorageNamespace;
 }
 
@@ -114,6 +116,7 @@ class WebContentsModalDialogHost;
 }
 
 class Browser : public TabStripModelObserver,
+                public WebContentsCollection::Observer,
                 public content::WebContentsDelegate,
                 public ChromeWebModalDialogManagerDelegate,
                 public base::SupportsUserData,
@@ -221,6 +224,7 @@ class Browser : public TabStripModelObserver,
     kSessionRestore,
     kStartupCreator,
     kLastAndUrlsStartupPref,
+    kDeskTemplate,
   };
 
   // The default value for a browser's `restore_id` param.
@@ -338,7 +342,7 @@ class Browser : public TabStripModelObserver,
     bool can_maximize = true;
 
     // Aspect ratio parameters specific to TYPE_PICTURE_IN_PICTURE.
-    float initial_aspect_ratio = 1.0f;
+    double initial_aspect_ratio = 1.0;
     bool lock_aspect_ratio = false;
 
    private:
@@ -746,7 +750,8 @@ class Browser : public TabStripModelObserver,
       content::WebContents* web_contents) override;
   void ExitPictureInPicture() override;
   bool IsBackForwardCacheSupported() override;
-  bool IsPrerender2Supported(content::WebContents& web_contents) override;
+  content::PreloadingEligibility IsPrerender2Supported(
+      content::WebContents& web_contents) override;
   std::unique_ptr<content::WebContents> ActivatePortalWebContents(
       content::WebContents* predecessor_contents,
       std::unique_ptr<content::WebContents> portal_contents) override;
@@ -799,6 +804,11 @@ class Browser : public TabStripModelObserver,
 
   // Sets the browser's user title. Setting it to an empty string clears it.
   void SetWindowUserTitle(const std::string& user_title);
+
+  // Gets the browser for opening chrome:// pages. This will return the opener
+  // browser if the current browser is in picture-in-picture mode, otherwise
+  // returns the current browser.
+  Browser* GetBrowserForOpeningWebUi();
 
   StatusBubble* GetStatusBubbleForTesting();
 
@@ -928,8 +938,6 @@ class Browser : public TabStripModelObserver,
   void RendererResponsive(
       content::WebContents* source,
       content::RenderWidgetHost* render_widget_host) override;
-  void DidNavigatePrimaryMainFramePostCommit(
-      content::WebContents* web_contents) override;
   content::JavaScriptDialogManager* GetJavaScriptDialogManager(
       content::WebContents* source) override;
   bool GuestSaveFrame(content::WebContents* guest_web_contents) override;
@@ -1010,6 +1018,11 @@ class Browser : public TabStripModelObserver,
       const base::UnguessableToken& guid,
       content::RenderFrameHost* render_frame_host) override;
 #endif
+
+  // WebContentsCollection::Observer:
+  void DidFinishNavigation(
+      content::WebContents* web_contents,
+      content::NavigationHandle* navigation_handle) override;
 
   // Overridden from WebContentsModalDialogManagerDelegate:
   void SetWebContentsBlocked(content::WebContents* web_contents,
@@ -1369,6 +1382,12 @@ class Browser : public TabStripModelObserver,
 #endif
 
   const base::ElapsedTimer creation_timer_;
+
+  // The opener browser of the document picture-in-picture browser. Null if the
+  // current browser is a regular browser.
+  raw_ptr<Browser> opener_browser_ = nullptr;
+
+  WebContentsCollection web_contents_collection_{this};
 
   // The following factory is used for chrome update coalescing.
   base::WeakPtrFactory<Browser> chrome_updater_factory_{this};

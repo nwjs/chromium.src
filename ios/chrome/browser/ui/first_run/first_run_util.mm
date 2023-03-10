@@ -4,8 +4,8 @@
 
 #import "ios/chrome/browser/ui/first_run/first_run_util.h"
 
-#import "base/bind.h"
-#import "base/callback.h"
+#import "base/functional/bind.h"
+#import "base/functional/callback.h"
 #import "base/metrics/histogram_functions.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/task/thread_pool.h"
@@ -116,16 +116,6 @@ void RecordFirstRunScrollButtonVisibilityMetrics(
       base::UmaHistogramBoolean("IOS.FirstRun.ScrollButtonVisible."
                                 "SignInScreenWithoutFooterOrIdentityPicker",
                                 scroll_button_visible);
-      break;
-    case first_run::FirstRunScreenType::kSyncScreenWithoutIdentityPicker:
-      base::UmaHistogramBoolean(
-          "IOS.FirstRun.ScrollButtonVisible.SyncScreenWithoutIdentityPicker",
-          scroll_button_visible);
-      break;
-    case first_run::FirstRunScreenType::kSyncScreenWithIdentityPicker:
-      base::UmaHistogramBoolean(
-          "IOS.FirstRun.ScrollButtonVisible.SyncScreenWithIdentityPicker",
-          scroll_button_visible);
       break;
     case first_run::FirstRunScreenType::kWelcomeScreenWithoutUMACheckbox:
       base::UmaHistogramBoolean(

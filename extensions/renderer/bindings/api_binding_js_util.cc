@@ -74,7 +74,7 @@ void APIBindingJSUtil::SendRequestSync(
     isolate->ThrowException(v8::Exception::Error(gin::StringToV8(isolate, error)));
     return;
   }
-  base::ListValue list_val;
+  base::Value::List list_val;
   for (auto &&val : response) {
     list_val.Append(std::move(val));
   }

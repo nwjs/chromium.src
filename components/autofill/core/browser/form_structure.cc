@@ -581,6 +581,9 @@ void FormStructure::ProcessQueryResponse(
 
   // Copy the field types into the actual form.
   for (FormStructure* form : forms) {
+    // Fields can share the same field signature. This map records for each
+    // signature how many fields with the same signature have been observed.
+    std::map<FieldSignature, size_t> field_rank_map;
     for (auto& field : form->fields_) {
       // Get the field prediction for |form|'s signature and the |field|'s
       // host_form_signature. The former takes precedence over the latter.
@@ -619,6 +622,27 @@ void FormStructure::ProcessQueryResponse(
 
       if (current_field->has_password_requirements())
         field->SetPasswordRequirements(current_field->password_requirements());
+
+      ++field_rank_map[field->GetFieldSignature()];
+      // Log the field type predicted from Autofill crowdsourced server.
+      field->AppendLogEventIfNotRepeated(ServerPredictionFieldLogEvent{
+          .server_type1 = field->server_type(),
+          .prediction_source1 = field->server_predictions().empty()
+                                    ? FieldPrediction::SOURCE_UNSPECIFIED
+                                    : field->server_predictions()[0].source(),
+          .server_type2 =
+              field->server_predictions().size() >= 2
+                  ? ToSafeServerFieldType(field->server_predictions()[1].type(),
+                                          NO_SERVER_DATA)
+                  : NO_SERVER_DATA,
+          .prediction_source2 = field->server_predictions().size() >= 2
+                                    ? field->server_predictions()[1].source()
+                                    : FieldPrediction::SOURCE_UNSPECIFIED,
+          .server_type_prediction_is_override =
+              field->server_type_prediction_is_override(),
+          .rank_in_field_signature_group =
+              field_rank_map[field->GetFieldSignature()],
+      });
     }
 
     AutofillMetrics::LogServerResponseHasDataForForm(base::ranges::any_of(
@@ -945,6 +969,7 @@ void FormStructure::RetrieveFromCache(const FormStructure& cached_form,
         field->SetTypeTo(cached_field->Type());
       }
     }
+    field->set_field_log_events(cached_field->field_log_events());
   }
 
   UpdateAutofillCount();
@@ -968,7 +993,8 @@ void FormStructure::LogQualityMetrics(
     AutofillMetrics::FormInteractionsUkmLogger* form_interactions_ukm_logger,
     bool did_show_suggestions,
     bool observed_submission,
-    const FormInteractionCounts& form_interaction_counts) const {
+    const FormInteractionCounts& form_interaction_counts,
+    AutofillSuggestionMethod autofill_suggestion_method) const {
   // Use the same timestamp on UKM Metrics generated within this method's scope.
   AutofillMetrics::UkmTimestampPin timestamp_pin(form_interactions_ukm_logger);
 
@@ -1132,12 +1158,12 @@ void FormStructure::LogQualityMetrics(
     // launched.
     if (field->is_autofilled) {
       ++num_of_accepted_autofilled_fields;
-      if (field->ShouldSuppressPromptDueToUnrecognizedAutocompleteAttribute()) {
+      if (field->HasPredictionDespiteUnrecognizedAutocompleteAttribute()) {
         ++num_of_accepted_autofilled_fields_with_autocomplete_unrecognized;
       }
     } else if (field->previously_autofilled()) {
       ++num_of_corrected_autofilled_fields;
-      if (field->ShouldSuppressPromptDueToUnrecognizedAutocompleteAttribute()) {
+      if (field->HasPredictionDespiteUnrecognizedAutocompleteAttribute()) {
         ++num_of_corrected_autofilled_fields_with_autocomplete_unrecognized;
       }
     }
@@ -1166,22 +1192,6 @@ void FormStructure::LogQualityMetrics(
         // confitioned on having a possible field type. Remove after M112.
         AutofillMetrics::LogEditedAutofilledFieldAtSubmissionDeprecated(
             form_interactions_ukm_logger, *this, *field);
-
-        // If the field was a |ADDRESS_HOME_STATE| field which was autofilled,
-        // record the source of the autofilled value between
-        // |AlternativeStateNameMap| or the profile value.
-        if (field->is_autofilled &&
-            type.GetStorableType() == ADDRESS_HOME_STATE) {
-          AutofillMetrics::
-              LogAutofillingSourceForStateSelectionFieldAtSubmission(
-                  field->state_is_a_matching_type()
-                      ? AutofillMetrics::
-                            AutofilledSourceMetricForStateSelectionField::
-                                AUTOFILL_BY_ALTERNATIVE_STATE_NAME_MAP
-                      : AutofillMetrics::
-                            AutofilledSourceMetricForStateSelectionField::
-                                AUTOFILL_BY_VALUE);
-        }
       }
     }
   }
@@ -1284,6 +1294,11 @@ void FormStructure::LogQualityMetrics(
         AutofillMetrics::LogAutofillPerfectFilling(/*is_address=*/false,
                                                    perfect_filling);
       }
+      if (autofill_suggestion_method ==
+          AutofillSuggestionMethod::KTouchToFillCreditCard) {
+        AutofillMetrics::LogTouchToFillCreditCardPerfectFilling(
+            perfect_filling);
+      }
     }
 
     // Log the field filling statistics if autofill was used.
@@ -1339,6 +1354,7 @@ void FormStructure::LogDetermineHeuristicTypesMetrics() {
 void FormStructure::SetFieldTypesFromAutocompleteAttribute() {
   has_author_specified_types_ = false;
   has_author_specified_upi_vpa_hint_ = false;
+  std::map<FieldSignature, size_t> field_rank_map;
   for (const std::unique_ptr<AutofillField>& field : fields_) {
     if (!field->parsed_autocomplete)
       continue;
@@ -1359,6 +1375,15 @@ void FormStructure::SetFieldTypesFromAutocompleteAttribute() {
 
     field->SetHtmlType(field->parsed_autocomplete->field_type,
                        field->parsed_autocomplete->mode);
+
+    // Log the field type predicted from autocomplete attribute.
+    ++field_rank_map[field->GetFieldSignature()];
+    field->AppendLogEventIfNotRepeated(AutocompleteAttributeFieldLogEvent{
+        .html_type = field->parsed_autocomplete->field_type,
+        .html_mode = field->parsed_autocomplete->mode,
+        .rank_in_field_signature_group =
+            field_rank_map[field->GetFieldSignature()],
+    });
   }
 }
 
@@ -1393,12 +1418,25 @@ void FormStructure::ParseFieldTypesWithPatterns(PatternSource pattern_source,
   if (field_type_map.empty())
     return;
 
+  // Fields can share the same field signature. This map records for each
+  // signature how many fields with the same signature have been observed.
+  std::map<FieldSignature, size_t> field_rank_map;
   for (const auto& field : fields_) {
     auto iter = field_type_map.find(field->global_id());
     if (iter == field_type_map.end())
       continue;
     const FieldCandidates& candidates = iter->second;
     field->set_heuristic_type(pattern_source, candidates.BestHeuristicType());
+
+    ++field_rank_map[field->GetFieldSignature()];
+    // Log the field type predicted from local heuristics.
+    field->AppendLogEventIfNotRepeated(HeuristicPredictionFieldLogEvent{
+        .field_type = field->heuristic_type(pattern_source),
+        .pattern_source = pattern_source,
+        .is_active_pattern_source = GetActivePatternSource() == pattern_source,
+        .rank_in_field_signature_group =
+            field_rank_map[field->GetFieldSignature()],
+    });
   }
 }
 

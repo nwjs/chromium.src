@@ -62,5 +62,5 @@
   "sheriff_rotations": [
     "chrome_browser_release"
   ],
-  "xcode_build_version": "14b47b"
+  "xcode_build_version": "14c18"
 }

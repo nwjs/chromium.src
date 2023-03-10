@@ -145,6 +145,7 @@
 <translation id="2208919847696382164">Linux 앱 설치</translation>
 <translation id="2225536596944493418">선택한 <ph name="NUMBER_OF_ITEMS" />개의 항목을 삭제하시겠습니까?</translation>
 <translation id="2230062665678605299">'<ph name="FOLDER_NAME" />' 폴더를 생성할 수 없습니다. <ph name="ERROR_MESSAGE" /></translation>
+<translation id="2236732657580416950">Google Drive 캐시가 삭제되었습니다.</translation>
 <translation id="2239068707900391003">커피를 마시는 사람</translation>
 <translation id="2251368349685848079">휴지통에서 복원</translation>
 <translation id="2282155092769082568">자동설정 URL:</translation>
@@ -219,6 +220,7 @@
 <translation id="2888807692577297075">&lt;b&gt;'<ph name="SEARCH_STRING" />'&lt;/b&gt;와(과) 일치하는 항목 없음</translation>
 <translation id="2894654529758326923">정보</translation>
 <translation id="2902734494705624966">영어(미국) 확장</translation>
+<translation id="2904378509913846215">이름이 "<ph name="FILENAME" />"인 폴더가 이미 존재합니다. 이동하려는 폴더로 기존의 폴더를 대체하시겠습니까?</translation>
 <translation id="290843123675549676">마라타어</translation>
 <translation id="2923240520113693977">에스토니아어</translation>
 <translation id="2938685643439809023">몽고어</translation>
@@ -640,6 +642,7 @@
 <translation id="6241349547798190358">네덜란드어(벨기에)</translation>
 <translation id="6267547857941397424">네트워크 <ph name="NETWORK_INDEX" />/<ph name="NETWORK_COUNT" />, <ph name="PHONE_NAME" />, 신호 강도 <ph name="SIGNAL_STRENGTH" />%, 휴대전화 배터리 <ph name="BATTERY_STATUS" />%, 연결</translation>
 <translation id="6269630227984243955">말레이어</translation>
+<translation id="6271903698064569429">"<ph name="SHARED_DRIVE_NAME" />"의 저장용량이 부족하여 파일을 업로드할 수 없습니다.</translation>
 <translation id="6287852322318138013">이 파일을 열 때 사용할 앱 선택</translation>
 <translation id="6295542640242147836">SIM 잠금</translation>
 <translation id="6296410173147755564">무효한 PUK</translation>
@@ -685,6 +688,7 @@
 <translation id="6657585470893396449">비밀번호</translation>
 <translation id="6658865850469097484">휴지통에 있는 파일은 30일이 지나면 자동으로 삭제됩니다.</translation>
 <translation id="6673674183150363784">프랑스어(프랑스, 베포 키보드)</translation>
+<translation id="670380500182402678">모두 바꾸기</translation>
 <translation id="6710022688720561421">로봇</translation>
 <translation id="6710213216561001401">이전</translation>
 <translation id="6732801395666424405">인증서를 로드하지 못했습니다.</translation>
@@ -903,6 +907,7 @@
 <translation id="8386903983509584791">검색 완료</translation>
 <translation id="8387733224523483503"><ph name="FILE_NAME" /> 파일이 추출되었습니다.</translation>
 <translation id="8395901698320285466">크기</translation>
+<translation id="8404498045299006085">모두 보관</translation>
 <translation id="8408068190360279472"><ph name="NETWORK_TYPE" /> 네트워크, 연결 중</translation>
 <translation id="8425213833346101688">변경</translation>
 <translation id="8431909052837336408">SIM PIN 변경</translation>

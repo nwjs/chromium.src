@@ -140,7 +140,10 @@ class CORE_EXPORT FrameFetchContext final : public BaseFetchContext,
 
   void UpdateSubresourceLoadMetrics(
       uint32_t number_of_subresources_loaded,
-      uint32_t number_of_subresource_loads_handled_by_service_worker) override;
+      uint32_t number_of_subresource_loads_handled_by_service_worker,
+      bool pervasive_payload_requested,
+      int64_t pervasive_bytes_fetched,
+      int64_t total_bytes_fetched) override;
 
  private:
   friend class FrameFetchContextTest;
@@ -184,7 +187,6 @@ class CORE_EXPORT FrameFetchContext final : public BaseFetchContext,
 
   const KURL& Url() const override;
   ContentSecurityPolicy* GetContentSecurityPolicy() const override;
-  void AddConsoleMessage(ConsoleMessage*) const override;
 
   WebContentSettingsClient* GetContentSettingsClient() const;
   Settings* GetSettings() const;

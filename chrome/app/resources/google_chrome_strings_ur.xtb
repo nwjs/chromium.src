@@ -120,7 +120,6 @@
 <translation id="3038232873781883849">انسٹال ہونے کا انتظار ہے...</translation>
 <translation id="3059710691562604940">‏محفوظ براؤزنگ آف ہے۔ Chrome اسے آن کرنے کی تجویز کرتا ہے۔</translation>
 <translation id="3065168410429928842">‏Chrome ٹیب</translation>
-<translation id="3069821012350118710">‏آپ کی ملاحظہ کردہ سائٹس آپ کے Chrome کو بند کرنے تک آپ کی معلومات کو یاد رکھتی ہیں</translation>
 <translation id="3080151273017101988">‏Google Chrome بند ہونے پر پس منظر کی ایپس چلانا جاری رکھیں</translation>
 <translation id="3089968997497233615">‏Google Chrome کا ایک نیا، محفوظ تر ورژن دستیاب ہے۔</translation>
 <translation id="3100998948628680988">‏اپنی Chrome پروفائل کو نام دیں</translation>
@@ -146,6 +145,7 @@
 <translation id="3533694711092285624">‏کوئی محفوظ کردہ پاس ورڈز نہیں۔ جب آپ پاس ورڈز کو محفوظ کرتے ہیں تو Chrome انہیں چیک کر سکتا ہے۔</translation>
 <translation id="3541482654983822893">‏Chrome آپ کے پاس ورڈز چیک نہیں کر سکتا ہے۔ 24 گھنٹے بعد دوبارہ کوشش کریں۔</translation>
 <translation id="3576528680708590453">‏آپ کے سسٹم کے منتظم نے <ph name="TARGET_URL_HOSTNAME" /> تک رسائی حاصل کرنے کے لیے Google Chrome کو ایک متبادل براؤزر کھولنے کے لیے کنفیگر کیا ہے۔</translation>
+<translation id="3579965087968408543">‏جب آپ Chrome کو بند کرتے ہیں تو ہمیشہ اپنے آلے سے سائٹ کا ڈیٹا صاف کریں</translation>
 <translation id="3582972582564653026">‏اپنے آلات پر Chrome کو مطابقت پذیر اور ذاتی نوعیت کا بنائیں</translation>
 <translation id="3596080736082218006">{COUNT,plural, =0{‏آپ کے منتظم کا مطالبہ ہے کہ آپ اپ ڈیٹ کو لاگو کرنے کیلئے Chrome کو بند کر کے دوبارہ چلائیں}=1{‏آپ کے منتظم کا مطالبہ ہے کہ آپ اپ ڈیٹ کو لاگو کرنے کیلئے Chrome کو بند کر کے دوبارہ چلائیں۔ آپ کی پوشیدگی ونڈو دوبارہ نہیں کھلے گی۔}other{‏آپ کے منتظم کا مطالبہ ہے کہ آپ اپ ڈیٹ کو لاگو کرنے کیلئے Chrome کو بند کر کے دوبارہ چلائیں۔ آپ کی # پوشیدگی ونڈوز دوبارہ نہیں کھلیں گی۔}}</translation>
 <translation id="3622797965165704966">‏اب آپ کے Google اکاؤنٹ کے ساتھ اور اشتراک کردہ کمپیوٹرز پر Chrome کو استعمال کرنا آسان تر ہے۔</translation>
@@ -252,7 +252,6 @@ Google Chrome آپ کی ترتیبات کو بازیافت کرنے سے قاص�
 <translation id="5804318322022881572">‏Chrome شروع نہیں ہو سکا۔ دوبارہ کوشش کریں۔</translation>
 <translation id="5867197326698922595">‏Google Chrome پاس ورڈز میں ترمیم کرنے کی کوشش کر رہا ہے۔</translation>
 <translation id="5895138241574237353">دوبارہ شروع کریں</translation>
-<translation id="5901850848447342934">‏آپ کے Chrome کو بند کرنے پر، آپ کو <ph name="BEGIN_BOLD" />بیشتر سائٹس سے سائن آؤٹ<ph name="END_BOLD" /> کر دیا جائے گا۔ 'سِنک کرنا' آف ہونے پر، آپ کو <ph name="BEGIN_BOLD" />Google سروسز اور Chrome سے بھی سائن آؤٹ<ph name="END_BOLD" /> کر دیا جائے گا۔</translation>
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" /> - نیٹ ورک سائن ان</translation>
 <translation id="5924017743176219022">انٹرنیٹ سے منسلک کیا جا رہا ہے…</translation>
 <translation id="5940385492829620908">‏آپ کا ویب، بُک مارکس اور دیگر Chrome مواد یہاں رہتے ہیں۔</translation>
@@ -352,6 +351,7 @@ Google Chrome آپ کی ترتیبات کو بازیافت کرنے سے قاص�
 <translation id="7917876797003313048">‏آپ اپنے سائن ان کردہ Google اکاؤنٹس کا نظم کر سکتے ہیں۔ آپ کے Google اکاؤنٹس Chrome براؤزر، Play اسٹور، Gmail اور مزید کے لیے استعمال ہوتے ہیں۔ اگر آپ کسی اور کے لیے کوئی اکاؤنٹ شامل کرنا چاہتے ہیں جیسے آپ کی فیملی کا کوئی ممبر تو اس کی بجائے اپنے <ph name="DEVICE_TYPE" /> میں ایک نیا شخص شامل کریں۔ <ph name="LINK_BEGIN" />مزید جانیں<ph name="LINK_END" /></translation>
 <translation id="7930071585467473040">‏Google Chrome پاس ورڈز کاپی کرنے کی کوشش کر رہا ہے۔</translation>
 <translation id="7951272445806340501">‏اپ ڈیٹ کو لاگو کرنے کے لیے ChromeOS Flex کو ری سٹارٹ کرنے کی ضرورت ہے۔</translation>
+<translation id="7962368738413920945">‏سائٹس شاید آپ کی توقع کے مطابق کام کریں گی لیکن آپ کے تمام Chrome ونڈوز کو بند کرنے کے بعد آپ کو یاد نہیں رکھیں گی</translation>
 <translation id="7962410387636238736">‏یہ کمپیوٹر اب Google Chrome اپ ڈيٹس موصول نہیں کرے گا کیونکہ Windows XP اور Windows Vista اب تعاون یافتہ نہیں ہے</translation>
 <translation id="8005666035647241369">‏اس آلے پر Google پاس ورڈ مینیجر میں</translation>
 <translation id="8008534537613507642">‏Chrome کو دوبارہ انسٹال کریں</translation>
@@ -389,7 +389,6 @@ Google Chrome آپ کی ترتیبات کو بازیافت کرنے سے قاص�
 <translation id="8614913330719544658">‏Google Chrome جواب نہیں دے رہا ہے۔ ابھی دوبارہ شروع کریں؟</translation>
 <translation id="861702415419836452">‏اپنے اطراف کا 3D نقشہ تخلیق کرنے کی خاطر Chrome کو آپ کے کیمرے تک رسائی کی اجازت درکار ہے</translation>
 <translation id="8625237574518804553">{0,plural, =1{‏1 منٹ میں Chrome دوبارہ لانچ ہوگا}other{‏# منٹ میں Chrome دوبارہ لانچ ہوگا}}</translation>
-<translation id="8629311577791198377">‏جب آپ سبھی Chrome ونڈوز بند کرتے ہیں تو کوکیز اور سائٹ کے ڈیٹا خودکار طور پر صاف ہو جاتے ہیں</translation>
 <translation id="8641606876632989680">‏جب آپ کسی متاثرہ پاس ورڈ سے سائن ان کریں گے تو Chrome آپ کو مطلع کرے گا</translation>
 <translation id="8649026945479135076">‏جن سائٹس کو آپ ملاحظہ کرتے ہیں ان میں آپ کی دلچسپیوں کو یاد رکھنا سائٹس کے لئے عام بات ہے تاکہ وہ آپ کے تجربے کو ذاتی نوعیت کا بنا سکیں۔ سائٹس Chrome کے ساتھ آپ کی دلچسپیوں کے بارے میں معلومات بھی اسٹور کر سکتی ہیں۔</translation>
 <translation id="8669527147644353129">‏Google Chrome مدد کنندہ</translation>
@@ -421,6 +420,7 @@ Google Chrome آپ کی ترتیبات کو بازیافت کرنے سے قاص�
 <translation id="922152298093051471">‏Chrome کو حسب ضرورت بنائیں</translation>
 <translation id="93760716455950538">‏ChromeOS Flex ری سٹارٹ کریں</translation>
 <translation id="940313311831216333">‏اپنے تمام آلات پر اپنی Chrome کی چیزوں تک رسائی حاصل کرنے کیلئے، سائن ان کریں اور پھر مطابقت پذیری کو آن کریں۔</translation>
+<translation id="943390475793766444">‏Chrome اس فائل کو اسکین کرنے کی تجویز کرتا ہے کیونکہ یہ خطرناک ہو سکتی ہے۔</translation>
 <translation id="989369509083708165">‏Google Chrome آپ کا ڈیفالٹ براؤزر ہے</translation>
 <translation id="989816563149873169">‏<ph name="SHORTCUT" /> سے Chrome پروفائلز کے درمیان میں سوئچ کیا جا سکتا ہے</translation>
 </translationbundle>

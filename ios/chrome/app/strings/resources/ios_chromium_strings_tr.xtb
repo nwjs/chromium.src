@@ -6,7 +6,6 @@
 <translation id="1185134272377778587">Chromium hakkında</translation>
 <translation id="1257458525759135959">Resimleri kaydetmek için Ayarlar'a dokunup Chromium'un resimlerinize eklemesine izin verin</translation>
 <translation id="1289216811211435351">Chromium'a geçin</translation>
-<translation id="1311799238113893680">Chromium'da kaydettiğiniz şifreyi kullanarak daha hızlı oturum açın</translation>
 <translation id="1361748954329991663">Chromium sürümü eski. <ph name="BEGIN_LINK" />App Store<ph name="END_LINK" />'da güncelleme yoksa cihazınız artık Chromium'un yeni sürümlerini desteklemiyor olabilir.</translation>
 <translation id="1431818719585918472">Chromium'un Gizli sekmelerinizi kapatmasına izin verin.</translation>
 <translation id="1472013873724362412">Hesabınız Chromium'da kullanılamıyor. Lütfen alan adı yöneticinizle iletişim kurun veya oturum açmak için normal bir Google Hesabı kullanın.</translation>
@@ -28,7 +27,6 @@
 <translation id="2178608107313874732">Chromium şu anda kameranızı kullanamıyor</translation>
 <translation id="2195025571279539885">Chromium'un bir dahaki sefere bu siteden <ph name="LANGUAGE_NAME" /> dilindeki sayfaları çevirmeyi önermesini ister misiniz?</translation>
 <translation id="2218146227246548550">Kuruluşunuz, Chromium'u kullanmak için oturum açmanızı zorunlu tutuyor. <ph name="BEGIN_LINK" />Daha Fazla Bilgi<ph name="END_LINK" /></translation>
-<translation id="2228617012253907725">Chromium ile Daha Fazla Şey Yapın</translation>
 <translation id="2236584955986023187">Bu durumda Chromium her seferinde masaüstü siteyi ister.</translation>
 <translation id="2313870531055795960">URL'leri, Chromium'da kayıtlı güvenli olmayan siteler listesine göre kontrol eder. Chromium, bir sitenin şifrenizi çalmaya çalışması veya zararlı bir dosya indirmeniz halinde de Güvenli Tarama'ya sayfa içeriğinden parçalarla birlikte URL'ler gönderebilir.</translation>
 <translation id="2426113998523353159">Kuruluşunuz, Chromium'u kullanmak için oturum açmanızı zorunlu tutuyor.</translation>
@@ -72,7 +70,6 @@
 <translation id="5573014823074921752">Chromium için ipucu. Sekmelerle ilgili daha fazla seçenek görmek için ekranınızın altında veya üstünde görünen araç çubuğunda Sekmeleri Göster düğmesine dokunup basılı tutun.</translation>
 <translation id="5700709190537129682">Chromium, şifrelerinizi kontrol edemiyor</translation>
 <translation id="5777187867430702742">Chromium Sayfası</translation>
-<translation id="5862307444128926510">Chromium'a Hoş Geldiniz</translation>
 <translation id="5945387852661427312"><ph name="DOMAIN" /> tarafından yönetilen bir hesapla oturum açıyor ve yöneticiye tüm Chromium verileriniz üzerinde denetim olanağı veriyorsunuz. Verileriniz kalıcı olarak bu hesaba bağlanacaktır. Chromium'da oturumu kapattığınızda verileriniz bu cihazdan silinir ancak Google Hesabınızda kalmaya devam eder.</translation>
 <translation id="5983312940147103417">Chromium'u Daha İyi Hale Getirin</translation>
 <translation id="6062449165341879460">Chromium verilerinize, yer işaretlerinize, geçmişinize, şifrelerinize ve bu hesapta sakladığınız diğer ayarlara kuruluşunuz <ph name="DOMAIN" /> erişebilir. Oturumunuzu kapattığınızda verileriniz bu cihazdan silinir.  Ancak verileriniz, yönetilen Google Hesabınızda saklanır ve kuruluşunuzun kullanımına açıktır. Kuruluşunuz ayrıca, söz konusu hesaba özel olup Chromium'un davranışını değiştirebilecek kullanıcı politikaları belirleyebilir.</translation>
@@ -103,7 +100,6 @@
 <translation id="7357211569052832586">Seçilen veriler Chromium'dan ve senkronize edilen cihazlardan kaldırıldı. Google Hesabınızda diğer tarama geçmişi biçimleri (örneğin, history.google.com adresindeki diğer Google hizmetlerine bağlı aramalar ve etkinlikler) bulunabilir.</translation>
 <translation id="7395825497086981028">Şifreniz, <ph name="EMAIL" /> için Şifre Yöneticisi'ne kaydedilir.</translation>
 <translation id="7400689562045506105">Chromium'u Her Yerde Kullanın</translation>
-<translation id="766897673682622022">Şifreniz bir veri ihlali nedeniyle açığa çıktı. Chromium, şifrenizi hemen değiştirmenizi önerir.</translation>
 <translation id="7674213385180944843">Ayarlar &gt; Gizlilik &gt; Kamera &gt; Chromium'a gidin ve kamerayı açın.</translation>
 <translation id="7746854981345936341">Chromium için ipucu: Geri, İleri ve Ara gibi bazı düğmeler artık ekranınızın alt bölümünde bulunuyor.</translation>
 <translation id="7763454117143368771">Tehlikeli sitelere karşı koruma altında kalmak ve şifrelerinizi güvende tutmak için varsayılan tarayıcınız olarak Chromium'u kullanın</translation>
@@ -116,7 +112,6 @@
 <translation id="8013573822802650211">Chromium kullandığınız her yerde sekmelerinizi görmek için tüm cihazlarınızda oturum açın.</translation>
 <translation id="8073677936375100957">Chromium verileriniz bu cihazdan temizlensin mi?</translation>
 <translation id="8240981428553046115">Chromium, güncellemeleri denetleyemedi. Daha sonra tekrar deneyin.</translation>
-<translation id="8308172444429103994">Chromium'la ilgili ipucu. Klavyenin üst kısmında kayıtlı şifrenizi seçerek daha hızlı oturum açın.</translation>
 <translation id="8409374867500149834">Zararlı web sitelerine karşı Chromium'un en güçlü güvenlik avantajına sahipsiniz</translation>
 <translation id="858114650497379505">Şifre Yöneticisi'ne kaydettiğiniz şifreleri iPhone'unuzdaki diğer uygulamalarda kullanabilirsiniz.</translation>
 <translation id="8586442755830160949">Telif Hakkı <ph name="YEAR" /> The Chromium Authors. Tüm hakları saklıdır.</translation>

@@ -15,6 +15,8 @@ try_.defaults.set(
     pool = try_.DEFAULT_POOL,
     cores = 8,
     execution_timeout = try_.DEFAULT_EXECUTION_TIMEOUT,
+    reclient_instance = reclient.instance.DEFAULT_UNTRUSTED,
+    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
     service_account = try_.DEFAULT_SERVICE_ACCOUNT,
 )
 
@@ -27,7 +29,6 @@ def blink_mac_builder(*, name, **kwargs):
     kwargs.setdefault("branch_selector", branches.selector.MAC_BRANCHES)
     kwargs.setdefault("builderless", True)
     kwargs.setdefault("cores", None)
-    kwargs.setdefault("goma_backend", goma.backend.RBE_PROD)
     kwargs.setdefault("os", os.MAC_ANY)
     kwargs.setdefault("ssd", True)
     return try_.builder(
@@ -57,7 +58,6 @@ try_.builder(
     os = os.LINUX_DEFAULT,
     goma_backend = goma.backend.RBE_PROD,
     main_list_view = "try",
-    reclient_instance = reclient.instance.DEFAULT_UNTRUSTED,
     tryjob = try_.job(
         location_filters = [
             "cc/.+",
@@ -90,9 +90,6 @@ try_.builder(
     ),
     builderless = True,
     os = os.WINDOWS_ANY,
-    goma_backend = None,
-    reclient_instance = reclient.instance.DEFAULT_UNTRUSTED,
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -116,8 +113,6 @@ try_.builder(
     ),
     builderless = True,
     os = os.WINDOWS_ANY,
-    reclient_instance = reclient.instance.DEFAULT_UNTRUSTED,
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 blink_mac_builder(

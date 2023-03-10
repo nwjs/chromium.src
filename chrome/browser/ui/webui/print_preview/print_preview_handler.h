@@ -48,7 +48,7 @@ namespace chrome {
   void NWPrintSetDefaultPrinter(const std::string& printer_name);
   void NWPrintSetPDFPath(const base::FilePath& path);
   const base::FilePath& NWPrintGetPDFPath();
-void NWPrintSetOptions(const base::DictionaryValue* dict, content::WebContents*);
+void NWPrintSetOptions(const base::Value::Dict* dict, content::WebContents*);
 }
 
 namespace printing {

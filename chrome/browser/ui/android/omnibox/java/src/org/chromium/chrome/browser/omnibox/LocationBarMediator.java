@@ -116,8 +116,9 @@ class LocationBarMediator
          * Record the NTP navigation events on omnibox.
          * @param url The URL to which the user navigated.
          * @param transition The transition type of the navigation.
+         * @param isNtp Whether the current page is a NewTabPage.
          */
-        void recordNavigationOnNtp(String url, int transition);
+        void recordNavigationOnNtp(String url, int transition, boolean isNtp);
     }
 
     private final FloatProperty<LocationBarMediator> mUrlFocusChangeFractionProperty =
@@ -486,18 +487,21 @@ class LocationBarMediator
         assert mNativeInitialized : "Loading URL before native side initialized";
 
         // TODO(crbug.com/1085812): Should be taking a full loaded LoadUrlParams.
-        if (mOverrideUrlLoadingDelegate.willHandleLoadUrlWithPostData(url, transition, postDataType,
-                    postData, mLocationBarDataProvider.isIncognito())) {
+        if (mOverrideUrlLoadingDelegate.willHandleLoadUrlWithPostData(url, transition, inputStart,
+                    postDataType, postData, mLocationBarDataProvider.isIncognito())) {
             return;
         }
 
-        if (currentTab != null
-                && (currentTab.isNativePage() || UrlUtilities.isNTPUrl(currentTab.getUrl()))) {
-            mOmniboxUma.recordNavigationOnNtp(url, transition);
-            // Passing in an empty string should not do anything unless the user is at the NTP.
-            // Since the NTP has no url, pressing enter while clicking on the URL bar should refresh
-            // the page as it does when you click and press enter on any other site.
-            if (url.isEmpty()) url = currentTab.getUrl().getSpec();
+        if (currentTab != null) {
+            boolean isCurrentTabNtpUrl = UrlUtilities.isNTPUrl(currentTab.getUrl());
+            if (currentTab.isNativePage() || isCurrentTabNtpUrl) {
+                mOmniboxUma.recordNavigationOnNtp(
+                        url, transition, !currentTab.isIncognito() && isCurrentTabNtpUrl);
+                // Passing in an empty string should not do anything unless the user is at the NTP.
+                // Since the NTP has no url, pressing enter while clicking on the URL bar should
+                // refresh the page as it does when you click and press enter on any other site.
+                if (url.isEmpty()) url = currentTab.getUrl().getSpec();
+            }
         }
 
         // Loads the |url| in a new tab or the current ContentView and gives focus to the
@@ -592,6 +596,10 @@ class LocationBarMediator
 
     /* package */ void micButtonClicked(View view) {
         if (!mNativeInitialized) return;
+        // Hide keyboard before launch voice search to avoid keyboard action announcement in
+        // TalkBack to be picked up by voice search.
+        mUrlCoordinator.setKeyboardVisibility(false, false);
+
         RecordUserAction.record("MobileOmniboxVoiceSearch");
         mVoiceRecognitionHandler.startVoiceRecognition(
                 VoiceRecognitionHandler.VoiceInteractionSource.OMNIBOX);
