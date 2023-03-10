@@ -3492,7 +3492,7 @@ bool HWNDMessageHandler::IsSynthesizedMouseMessage(unsigned int message,
 void HWNDMessageHandler::PerformDwmTransition() {
   dwm_transition_desired_ = false;
   if (content::g_support_transparency && !content::g_force_cpu_draw && is_translucent_) {
-    const int im = ui::win::IsAeroGlassEnabled() ? -1 : 0;
+    const int im = -1;
     MARGINS m = { im, im, im, im };
     DwmExtendFrameIntoClientArea(hwnd(), &m);
   }
