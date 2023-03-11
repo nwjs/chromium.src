@@ -115,7 +115,6 @@ void ChromeBrowserMainPartsMac::PreCreateMainMessageLoop() {
       exit(0);
     }
   }
-#endif
 #endif  // !BUILDFLAG(CHROME_FOR_TESTING)
 
   // Create the app delegate. This object is intentionally leaked as a global

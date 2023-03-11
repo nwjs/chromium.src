@@ -453,7 +453,7 @@ void NetworkService::SetAdditionalTrustAnchors(const net::CertificateList& ancho
 #if defined(OS_MAC)
   net::TestRootCerts* certs = net::TestRootCerts::GetInstance();
   for (size_t i = 0; i < anchors.size(); i++)
-    certs->Add(anchors[i].get());
+    certs->Add(anchors[i].get(), net::CertificateTrust::ForTrustAnchor());
 #endif
 }
 
