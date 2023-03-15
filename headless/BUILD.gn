@@ -908,7 +908,6 @@ static_library("headless_shell_lib") {
   if (!is_fuchsia) {
     deps += [ "//components/crash/content/browser" ]
   }
-  
   if ((is_linux || is_mac) && is_component_build) {
     sources += [
       "app/headless_shell_switches.cc",
