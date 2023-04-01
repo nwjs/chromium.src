@@ -198,6 +198,7 @@
 /node/mac
 /node/node_modules
 /node/win
+/node-nw
 /nss
 /objenesis/lib/
 /omaha/src/omaha
