@@ -8,6 +8,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "net/base/net_errors.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_socket_dns_query_type.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_tcp_socket_open_info.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_tcp_socket_options.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
@@ -41,15 +42,15 @@ bool CheckSendReceiveBufferSize(const TCPSocketOptions* options,
   return true;
 }
 
-mojom::blink::DirectSocketOptionsPtr CreateTCPSocketOptions(
+mojom::blink::DirectTCPSocketOptionsPtr CreateTCPSocketOptions(
     const String& remote_address,
     const uint16_t remote_port,
     const TCPSocketOptions* options,
     ExceptionState& exception_state) {
-  auto socket_options = mojom::blink::DirectSocketOptions::New();
+  auto socket_options = mojom::blink::DirectTCPSocketOptions::New();
 
-  socket_options->remote_hostname = remote_address;
-  socket_options->remote_port = remote_port;
+  socket_options->remote_addr =
+      net::HostPortPair(remote_address.Utf8(), remote_port);
 
   if (!CheckSendReceiveBufferSize(options, exception_state)) {
     return {};
@@ -80,6 +81,17 @@ mojom::blink::DirectSocketOptionsPtr CreateTCPSocketOptions(
     socket_options->receive_buffer_size = options->receiveBufferSize();
   }
 
+  if (options->hasDnsQueryType()) {
+    switch (options->dnsQueryType().AsEnum()) {
+      case V8SocketDnsQueryType::Enum::kIpv4:
+        socket_options->dns_query_type = net::DnsQueryType::A;
+        break;
+      case V8SocketDnsQueryType::Enum::kIpv6:
+        socket_options->dns_query_type = net::DnsQueryType::AAAA;
+        break;
+    }
+  }
+
   return socket_options;
 }
 
@@ -99,6 +111,24 @@ TCPSocket* TCPSocket::Create(ScriptState* script_state,
   if (!socket->Open(remoteAddress, remotePort, options, exception_state)) {
     return nullptr;
   }
+  return socket;
+}
+
+// static
+TCPSocket* TCPSocket::CreateFromAcceptedConnection(
+    ScriptState* script_state,
+    mojo::PendingRemote<network::mojom::blink::TCPConnectedSocket> tcp_socket,
+    mojo::PendingReceiver<network::mojom::blink::SocketObserver>
+        socket_observer,
+    const net::IPEndPoint& peer_addr,
+    mojo::ScopedDataPipeConsumerHandle receive_stream,
+    mojo::ScopedDataPipeProducerHandle send_stream) {
+  auto* socket = MakeGarbageCollected<TCPSocket>(script_state);
+  // TODO(crbug.com/1417998): support local_addr for accepted sockets.
+  socket->FinishOpenOrAccept(std::move(tcp_socket), std::move(socket_observer),
+                             peer_addr, /*local_addr=*/absl::nullopt,
+                             std::move(receive_stream), std::move(send_stream));
+  DCHECK_EQ(socket->GetState(), State::kOpen);
   return socket;
 }
 
@@ -155,44 +185,34 @@ bool TCPSocket::Open(const String& remote_address,
     return false;
   }
 
-  GetServiceRemote()->OpenTcpSocket(
-      std::move(open_tcp_socket_options), GetTCPSocketReceiver(),
-      GetTCPSocketObserver(),
-      WTF::BindOnce(&TCPSocket::Init, WrapPersistent(this)));
+  mojo::PendingReceiver<network::mojom::blink::TCPConnectedSocket>
+      socket_receiver;
+  mojo::PendingRemote<network::mojom::blink::SocketObserver> observer_remote;
 
+  auto callback =
+      WTF::BindOnce(&TCPSocket::OnTCPSocketOpened, WrapPersistent(this),
+                    socket_receiver.InitWithNewPipeAndPassRemote(),
+                    observer_remote.InitWithNewPipeAndPassReceiver());
+  GetServiceRemote()->OpenTCPSocket(
+      std::move(open_tcp_socket_options), std::move(socket_receiver),
+      std::move(observer_remote), std::move(callback));
   return true;
 }
 
-void TCPSocket::Init(int32_t result,
-                     const absl::optional<net::IPEndPoint>& local_addr,
-                     const absl::optional<net::IPEndPoint>& peer_addr,
-                     mojo::ScopedDataPipeConsumerHandle receive_stream,
-                     mojo::ScopedDataPipeProducerHandle send_stream) {
+void TCPSocket::OnTCPSocketOpened(
+    mojo::PendingRemote<network::mojom::blink::TCPConnectedSocket> tcp_socket,
+    mojo::PendingReceiver<network::mojom::blink::SocketObserver>
+        socket_observer,
+    int32_t result,
+    const absl::optional<net::IPEndPoint>& local_addr,
+    const absl::optional<net::IPEndPoint>& peer_addr,
+    mojo::ScopedDataPipeConsumerHandle receive_stream,
+    mojo::ScopedDataPipeProducerHandle send_stream) {
   if (result == net::OK) {
     DCHECK(peer_addr);
-    auto close_callback = base::BarrierCallback<ScriptValue>(
-        /*num_callbacks=*/2, WTF::BindOnce(&TCPSocket::OnBothStreamsClosed,
-                                           WrapWeakPersistent(this)));
-
-    readable_stream_wrapper_ = MakeGarbageCollected<TCPReadableStreamWrapper>(
-        GetScriptState(), close_callback, std::move(receive_stream));
-    writable_stream_wrapper_ = MakeGarbageCollected<TCPWritableStreamWrapper>(
-        GetScriptState(), close_callback, std::move(send_stream));
-
-    auto* open_info = TCPSocketOpenInfo::Create();
-
-    open_info->setReadable(readable_stream_wrapper_->Readable());
-    open_info->setWritable(writable_stream_wrapper_->Writable());
-
-    open_info->setRemoteAddress(String{peer_addr->ToStringWithoutPort()});
-    open_info->setRemotePort(peer_addr->port());
-
-    open_info->setLocalAddress(String{local_addr->ToStringWithoutPort()});
-    open_info->setLocalPort(local_addr->port());
-
-    GetOpenedPromiseResolver()->Resolve(open_info);
-
-    SetState(State::kOpen);
+    FinishOpenOrAccept(std::move(tcp_socket), std::move(socket_observer),
+                       *peer_addr, local_addr, std::move(receive_stream),
+                       std::move(send_stream));
   } else {
     // Error codes are negative.
     base::UmaHistogramSparse(kTCPNetworkFailuresHistogramName, -result);
@@ -208,21 +228,46 @@ void TCPSocket::Init(int32_t result,
   DCHECK_NE(GetState(), State::kOpening);
 }
 
-mojo::PendingReceiver<network::mojom::blink::TCPConnectedSocket>
-TCPSocket::GetTCPSocketReceiver() {
-  return tcp_socket_.BindNewPipeAndPassReceiver(
+void TCPSocket::FinishOpenOrAccept(
+    mojo::PendingRemote<network::mojom::blink::TCPConnectedSocket> tcp_socket,
+    mojo::PendingReceiver<network::mojom::blink::SocketObserver>
+        socket_observer,
+    const net::IPEndPoint& peer_addr,
+    const absl::optional<net::IPEndPoint>& local_addr,
+    mojo::ScopedDataPipeConsumerHandle receive_stream,
+    mojo::ScopedDataPipeProducerHandle send_stream) {
+  tcp_socket_.Bind(std::move(tcp_socket),
+                   GetExecutionContext()->GetTaskRunner(TaskType::kNetworking));
+  socket_observer_.Bind(
+      std::move(socket_observer),
       GetExecutionContext()->GetTaskRunner(TaskType::kNetworking));
-}
-
-mojo::PendingRemote<network::mojom::blink::SocketObserver>
-TCPSocket::GetTCPSocketObserver() {
-  auto pending_remote = socket_observer_.BindNewPipeAndPassRemote(
-      GetExecutionContext()->GetTaskRunner(TaskType::kNetworking));
-
   socket_observer_.set_disconnect_handler(
       WTF::BindOnce(&TCPSocket::OnSocketConnectionError, WrapPersistent(this)));
 
-  return pending_remote;
+  auto close_callback = base::BarrierCallback<ScriptValue>(
+      /*num_callbacks=*/2,
+      WTF::BindOnce(&TCPSocket::OnBothStreamsClosed, WrapWeakPersistent(this)));
+
+  readable_stream_wrapper_ = MakeGarbageCollected<TCPReadableStreamWrapper>(
+      GetScriptState(), close_callback, std::move(receive_stream));
+  writable_stream_wrapper_ = MakeGarbageCollected<TCPWritableStreamWrapper>(
+      GetScriptState(), close_callback, std::move(send_stream));
+
+  auto* open_info = TCPSocketOpenInfo::Create();
+
+  open_info->setReadable(readable_stream_wrapper_->Readable());
+  open_info->setWritable(writable_stream_wrapper_->Writable());
+
+  open_info->setRemoteAddress(String{peer_addr.ToStringWithoutPort()});
+  open_info->setRemotePort(peer_addr.port());
+
+  if (local_addr) {
+    open_info->setLocalAddress(String{local_addr->ToStringWithoutPort()});
+    open_info->setLocalPort(local_addr->port());
+  }
+
+  GetOpenedPromiseResolver()->Resolve(open_info);
+  SetState(State::kOpen);
 }
 
 void TCPSocket::OnSocketConnectionError() {
@@ -233,9 +278,10 @@ void TCPSocket::OnSocketConnectionError() {
 
 void TCPSocket::OnServiceConnectionError() {
   if (GetState() == State::kOpening) {
-    Init(net::ERR_CONTEXT_SHUT_DOWN, absl::nullopt, absl::nullopt,
-         mojo::ScopedDataPipeConsumerHandle(),
-         mojo::ScopedDataPipeProducerHandle());
+    OnTCPSocketOpened(mojo::NullRemote(), mojo::NullReceiver(),
+                      net::ERR_CONTEXT_SHUT_DOWN, absl::nullopt, absl::nullopt,
+                      mojo::ScopedDataPipeConsumerHandle(),
+                      mojo::ScopedDataPipeProducerHandle());
   }
 }
 

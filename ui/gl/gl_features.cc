@@ -25,7 +25,7 @@
 namespace features {
 namespace {
 
-#if BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_APPLE)
 BASE_FEATURE(kGpuVsync, "GpuVsync", base::FEATURE_DISABLED_BY_DEFAULT);
 #else
 BASE_FEATURE(kGpuVsync, "GpuVsync", base::FEATURE_ENABLED_BY_DEFAULT);
@@ -102,6 +102,7 @@ bool IsAndroidFrameDeadlineEnabled() {
       base::android::BuildInfo::GetInstance()->is_at_least_t() &&
       gfx::AChoreographerCompat33::Get().supported &&
       gfx::SurfaceControl::SupportsSetFrameTimeline() &&
+      gfx::SurfaceControl::SupportsSetEnableBackPressure() &&
       base::FeatureList::IsEnabled(kAndroidFrameDeadline);
   return enabled;
 #else

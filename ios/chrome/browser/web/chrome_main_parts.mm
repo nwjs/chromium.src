@@ -184,9 +184,10 @@ void IOSChromeMainParts::PreCreateThreads() {
   // remaining BACKGROUND+BLOCK_SHUTDOWN tasks is bumped by the ThreadPool on
   // shutdown.
   scoped_refptr<base::SequencedTaskRunner> local_state_task_runner =
-      base::ThreadPool::CreateSequencedTaskRunner(
+      base::ThreadPool::CreateSingleThreadTaskRunner(
           {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
-           base::TaskShutdownBehavior::BLOCK_SHUTDOWN});
+           base::TaskShutdownBehavior::BLOCK_SHUTDOWN},
+          base::SingleThreadTaskRunnerThreadMode::DEDICATED);
 
   base::FilePath local_state_path;
   CHECK(base::PathService::Get(ios::FILE_LOCAL_STATE, &local_state_path));
@@ -253,10 +254,6 @@ void IOSChromeMainParts::PreCreateThreads() {
   // Set metrics upload for stack/heap profiles.
   IOSThreadProfiler::SetBrowserProcessReceiverCallback(base::BindRepeating(
       &metrics::CallStackProfileMetricsProvider::ReceiveProfile));
-
-  // Sync the crashpad field tral state to NSUserDefaults.  Called immediately
-  // after setting up field trials.
-  crash_helper::SyncCrashpadEnabledOnNextRun();
 
   // Sync the CleanExitBeacon.
   metrics::CleanExitBeacon::SyncUseUserDefaultsBeacon();
@@ -327,14 +324,6 @@ void IOSChromeMainParts::PreMainMessageLoopRun() {
 
   // Now that the file thread has been started, start recording.
   StartMetricsRecording();
-
-  // Because the crashpad flag takes 2 restarts to take effect, register a
-  // synthetic field trial when crashpad is actually running.  Called
-  // immediately after starting metrics recording.
-  IOSChromeMetricsServiceAccessor::RegisterSyntheticFieldTrial(
-      "CrashpadIOS",
-      crash_reporter::IsCrashpadRunning() ? "Enabled" : "Disabled",
-      variations::SyntheticTrialAnnotationMode::kCurrentLog);
 
   // Because the CleanExitBeacon flag takes 2 restarts to take effect, register
   // a synthetic field trial when the user defaults beacon is set. Called
@@ -457,6 +446,8 @@ void IOSChromeMainParts::SetupMetrics() {
 }
 
 void IOSChromeMainParts::StartMetricsRecording() {
+  // TODO(crbug.com/1417909) Add an EG2 test for cloned install detection.
+  application_context_->GetMetricsService()->CheckForClonedInstall();
   application_context_->GetMetricsServicesManager()->UpdateUploadPermissions(
       true);
 }

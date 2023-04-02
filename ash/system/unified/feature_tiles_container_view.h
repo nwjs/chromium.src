@@ -64,6 +64,9 @@ class ASH_EXPORT FeatureTilesContainerView : public views::View,
   void OnWillChangeFocus(views::View* before, views::View* now) override;
   void OnDidChangeFocus(views::View* before, views::View* now) override;
 
+  // Returns the number of children that are visible.
+  int GetVisibleFeatureTileCount() const;
+
   int displayable_rows() const { return displayable_rows_; }
 
   int row_count() { return rows_.size(); }
@@ -75,6 +78,7 @@ class ASH_EXPORT FeatureTilesContainerView : public views::View,
   class RowContainer;
 
   friend class FeatureTilesContainerViewTest;
+  friend class QuickSettingsViewTest;
 
   // Calculates the number of rows based on the available `height`.
   int CalculateRowsFromHeight(int height);

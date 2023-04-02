@@ -15,6 +15,7 @@
 #include "content/browser/devtools/protocol/audits.h"
 #include "content/browser/devtools/protocol/audits_handler.h"
 #include "content/browser/devtools/protocol/browser_handler.h"
+#include "content/browser/devtools/protocol/device_access_handler.h"
 #include "content/browser/devtools/protocol/emulation_handler.h"
 #include "content/browser/devtools/protocol/fetch_handler.h"
 #include "content/browser/devtools/protocol/input_handler.h"
@@ -59,6 +60,8 @@ namespace content {
 namespace devtools_instrumentation {
 
 namespace {
+
+const char kPrivacySandboxExtensionsAPI[] = "PrivacySandboxExtensionsAPI";
 
 template <typename Handler, typename... MethodArgs, typename... Args>
 void DispatchToAgents(DevToolsAgentHostImpl* host,
@@ -283,12 +286,11 @@ BuildFederatedAuthRequestIssue(
   return issue;
 }
 
-protocol::Audits::DeprecationIssueType DeprecationIssueTypeToProtocol(
+const char* DeprecationIssueTypeToProtocol(
     blink::mojom::DeprecationIssueType error_type) {
   switch (error_type) {
     case blink::mojom::DeprecationIssueType::kPrivacySandboxExtensionsAPI:
-      return protocol::Audits::DeprecationIssueTypeEnum::
-          PrivacySandboxExtensionsAPI;
+      return kPrivacySandboxExtensionsAPI;
   }
 }
 
@@ -426,11 +428,39 @@ void DidCancelPrerender(const GURL& prerendering_url,
                         FrameTreeNode* ftn,
                         PrerenderFinalStatus status,
                         const std::string& disallowed_api_method) {
+  if (!ftn) {
+    return;
+  }
   std::string initiating_frame_id =
       ftn->current_frame_host()->devtools_frame_token().ToString();
   DispatchToAgents(ftn, &protocol::PageHandler::DidCancelPrerender,
                    prerendering_url, initiating_frame_id, status,
                    disallowed_api_method);
+}
+
+void DidUpdatePrefetchStatus(FrameTreeNode* ftn,
+                             const GURL& prefetch_url,
+                             PreloadingTriggeringOutcome status) {
+  if (!ftn) {
+    return;
+  }
+  std::string initiating_frame_id =
+      ftn->current_frame_host()->devtools_frame_token().ToString();
+  DispatchToAgents(ftn, &protocol::PageHandler::DidUpdatePrefetchStatus,
+                   initiating_frame_id, prefetch_url, status);
+}
+
+void DidUpdatePrerenderStatus(int initiator_frame_tree_node_id,
+                              const GURL& prerender_url,
+                              PreloadingTriggeringOutcome status) {
+  auto* ftn = FrameTreeNode::GloballyFindByID(initiator_frame_tree_node_id);
+  // ftn will be null if this is browser-initiated, which has no initiator.
+  if (ftn) {
+    std::string initiating_frame_id =
+        ftn->current_frame_host()->devtools_frame_token().ToString();
+    DispatchToAgents(ftn, &protocol::PageHandler::DidUpdatePrerenderStatus,
+                     initiating_frame_id, prerender_url, status);
+  }
 }
 
 namespace {
@@ -1733,6 +1763,26 @@ protocol::Audits::GenericIssueErrorType GenericIssueErrorTypeToProtocol(
         kFormEmptyIdAndNameAttributesForInputError:
       return protocol::Audits::GenericIssueErrorTypeEnum::
           FormEmptyIdAndNameAttributesForInputError;
+    case blink::mojom::GenericIssueErrorType::
+        kFormAriaLabelledByToNonExistingId:
+      return protocol::Audits::GenericIssueErrorTypeEnum::
+          FormAriaLabelledByToNonExistingId;
+    case blink::mojom::GenericIssueErrorType::
+        kFormInputAssignedAutocompleteValueToIdOrNameAttributeError:
+      return protocol::Audits::GenericIssueErrorTypeEnum::
+          FormInputAssignedAutocompleteValueToIdOrNameAttributeError;
+    case blink::mojom::GenericIssueErrorType::
+        kFormLabelHasNeitherForNorNestedInput:
+      return protocol::Audits::GenericIssueErrorTypeEnum::
+          FormLabelHasNeitherForNorNestedInput;
+    case blink::mojom::GenericIssueErrorType::
+        kFormLabelForMatchesNonExistingIdError:
+      return protocol::Audits::GenericIssueErrorTypeEnum::
+          FormLabelForMatchesNonExistingIdError;
+    case blink::mojom::GenericIssueErrorType::
+        kFormHasPasswordFieldWithoutUsernameFieldError:
+      return protocol::Audits::GenericIssueErrorTypeEnum::
+          FormHasPasswordFieldWithoutUsernameFieldError;
   }
 }
 
@@ -1779,6 +1829,26 @@ void DidRejectCrossOriginPortalMessage(
       render_frame_host_impl->GetDevToolsFrameToken().ToString();
 
   BuildAndReportGenericIssue(render_frame_host_impl, issue_info);
+}
+
+void UpdateDeviceRequestPrompt(RenderFrameHost* render_frame_host,
+                               DevtoolsDeviceRequestPromptInfo* prompt_info) {
+  FrameTreeNode* ftn = FrameTreeNode::From(render_frame_host);
+  if (!ftn)
+    return;
+  DispatchToAgents(ftn,
+                   &protocol::DeviceAccessHandler::UpdateDeviceRequestPrompt,
+                   prompt_info);
+}
+
+void CleanUpDeviceRequestPrompt(RenderFrameHost* render_frame_host,
+                                DevtoolsDeviceRequestPromptInfo* prompt_info) {
+  FrameTreeNode* ftn = FrameTreeNode::From(render_frame_host);
+  if (!ftn)
+    return;
+  DispatchToAgents(ftn,
+                   &protocol::DeviceAccessHandler::CleanUpDeviceRequestPrompt,
+                   prompt_info);
 }
 
 }  // namespace devtools_instrumentation

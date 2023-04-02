@@ -15,6 +15,7 @@
 #include "chromeos/crosapi/mojom/synced_session_client.mojom.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver_set.h"
+#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "url/gurl.h"
 
 namespace ash {
@@ -75,7 +76,11 @@ class SyncedSessionClientAsh final
     // we receive an update of foreign synced phone sessions from Lacros via the
     // crosapi.
     virtual void OnForeignSyncedPhoneSessionsUpdated(
-        const std::vector<ForeignSyncedSessionAsh>& sessions) {}
+        const std::vector<ForeignSyncedSessionAsh>& phone_sessions) {}
+
+    // Called each time we are notified by Lacros via Crosapi that session sync
+    // has been enabled or disabled by the user.
+    virtual void OnSessionSyncEnabledChanged(bool enabled) {}
   };
 
   SyncedSessionClientAsh();
@@ -89,19 +94,23 @@ class SyncedSessionClientAsh final
   void BindReceiver(
       mojo::PendingReceiver<crosapi::mojom::SyncedSessionClient> receiver);
 
-  // crosapi::mojom::SyncedSessionClient
+  // crosapi::mojom::SyncedSessionClient:
   void OnForeignSyncedPhoneSessionsUpdated(
       std::vector<crosapi::mojom::SyncedSessionPtr> sessions) override;
+  void OnSessionSyncEnabledChanged(bool enabled) override;
 
   const std::vector<ForeignSyncedSessionAsh>&
   last_foreign_synced_phone_sessions() const {
     return last_foreign_synced_phone_sessions_;
   }
 
+  bool is_session_sync_enabled() const { return is_session_sync_enabled_; }
+
  private:
   mojo::ReceiverSet<crosapi::mojom::SyncedSessionClient> receivers_;
   base::ObserverList<Observer> observers_;
   std::vector<ForeignSyncedSessionAsh> last_foreign_synced_phone_sessions_;
+  bool is_session_sync_enabled_ = false;
 };
 
 }  // namespace ash

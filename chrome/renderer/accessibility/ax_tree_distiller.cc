@@ -87,27 +87,20 @@ AXTreeDistiller::AXTreeDistiller(
     content::RenderFrame* render_frame,
     OnAXTreeDistilledCallback on_ax_tree_distilled_callback)
     : render_frame_(render_frame),
-      on_ax_tree_distilled_callback_(on_ax_tree_distilled_callback) {
-#if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
-  if (features::IsReadAnythingWithScreen2xEnabled()) {
-    render_frame_->GetBrowserInterfaceBroker()->GetInterface(
-        main_content_extractor_.BindNewPipeAndPassReceiver());
-    main_content_extractor_.set_disconnect_handler(
-        base::BindOnce(&AXTreeDistiller::OnMainContentExtractorDisconnected,
-                       weak_ptr_factory_.GetWeakPtr()));
-  }
-#endif
-}
+      on_ax_tree_distilled_callback_(on_ax_tree_distilled_callback) {}
 
 AXTreeDistiller::~AXTreeDistiller() = default;
 
 void AXTreeDistiller::Distill(const ui::AXTree& tree,
-                              const ui::AXTreeUpdate& snapshot) {
-  // If Read Anything with Screen 2x is enabled, kick off Screen 2x run, which
-  // distills the AXTree in the utility process using ML.
+                              const ui::AXTreeUpdate& snapshot,
+                              const ukm::SourceId& ukm_source_id) {
+  // If Read Anything with Screen 2x is enabled and the main content extractor
+  // is bound, kick off Screen 2x run, which distills the AXTree in the utility
+  // process using ML.
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
-  if (features::IsReadAnythingWithScreen2xEnabled()) {
-    DistillViaScreen2x(tree, snapshot);
+  if (features::IsReadAnythingWithScreen2xEnabled() &&
+      main_content_extractor_.is_bound()) {
+    DistillViaScreen2x(tree, snapshot, ukm_source_id);
     return;
   }
 #endif
@@ -128,10 +121,11 @@ void AXTreeDistiller::DistillViaAlgorithm(const ui::AXTree& tree) {
 
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 void AXTreeDistiller::DistillViaScreen2x(const ui::AXTree& tree,
-                                         const ui::AXTreeUpdate& snapshot) {
+                                         const ui::AXTreeUpdate& snapshot,
+                                         const ukm::SourceId& ukm_source_id) {
   DCHECK(main_content_extractor_.is_bound());
   main_content_extractor_->ExtractMainContent(
-      snapshot,
+      snapshot, ukm_source_id,
       base::BindOnce(&AXTreeDistiller::ProcessScreen2xResult,
                      weak_ptr_factory_.GetWeakPtr(), std::cref(tree)));
 }
@@ -151,6 +145,17 @@ void AXTreeDistiller::ProcessScreen2xResult(
   // TODO(crbug.com/1266555): If still no content nodes were identified, and
   // there is a selection, try sending Screen2x a partial tree just containing
   // the selected nodes.
+}
+
+void AXTreeDistiller::ScreenAIServiceReady() {
+  if (main_content_extractor_.is_bound()) {
+    return;
+  }
+  render_frame_->GetBrowserInterfaceBroker()->GetInterface(
+      main_content_extractor_.BindNewPipeAndPassReceiver());
+  main_content_extractor_.set_disconnect_handler(
+      base::BindOnce(&AXTreeDistiller::OnMainContentExtractorDisconnected,
+                     weak_ptr_factory_.GetWeakPtr()));
 }
 
 void AXTreeDistiller::OnMainContentExtractorDisconnected() {

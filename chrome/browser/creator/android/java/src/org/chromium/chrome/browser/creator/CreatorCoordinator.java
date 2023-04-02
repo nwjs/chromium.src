@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.creator;
 import android.app.Activity;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -28,9 +29,13 @@ import org.chromium.chrome.browser.feed.FeedSurfaceScopeDependencyProvider;
 import org.chromium.chrome.browser.feed.FeedSurfaceTracker;
 import org.chromium.chrome.browser.feed.NativeViewListRenderer;
 import org.chromium.chrome.browser.feed.NtpListContentManager;
+import org.chromium.chrome.browser.feed.NtpListContentManager.FeedContent;
+import org.chromium.chrome.browser.feed.SingleWebFeedEntryPoint;
+import org.chromium.chrome.browser.feed.SingleWebFeedParameters;
 import org.chromium.chrome.browser.feed.Stream;
 import org.chromium.chrome.browser.feed.StreamKind;
 import org.chromium.chrome.browser.feed.webfeed.WebFeedBridge;
+import org.chromium.chrome.browser.feed.webfeed.WebFeedBridge.QueryResult;
 import org.chromium.chrome.browser.feed.webfeed.WebFeedBridge.WebFeedMetadata;
 import org.chromium.chrome.browser.feed.webfeed.WebFeedSubscriptionStatus;
 import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncher;
@@ -52,6 +57,7 @@ import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.browser_ui.widget.RoundedIconGenerator;
 import org.chromium.components.browser_ui.widget.scrim.ScrimCoordinator;
 import org.chromium.components.embedder_support.view.ContentView;
+import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.components.version_info.VersionInfo;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.WebContents;
@@ -87,9 +93,7 @@ public class CreatorCoordinator implements FeedAutoplaySettingsDelegate,
     private HybridListRenderer mHybridListRenderer;
     private SurfaceScope mSurfaceScope;
     private FeedSurfaceScopeDependencyProvider mDependencyProvider;
-    private byte[] mWebFeedId;
     private PropertyModel mCreatorModel;
-    private boolean mIsFollowed;
     private PropertyModelChangeProcessor<PropertyModel, CreatorProfileView, PropertyKey>
             mCreatorProfileModelChangeProcessor;
     private PropertyModelChangeProcessor<PropertyModel, CreatorToolbarView, PropertyKey>
@@ -104,8 +108,6 @@ public class CreatorCoordinator implements FeedAutoplaySettingsDelegate,
     private ViewGroup mLayout;
     private Profile mProfile;
     private Stream mStream;
-    private String mTitle;
-    private String mUrl;
     private int mHeaderCount;
 
     private EmptyBottomSheetObserver mSheetObserver;
@@ -119,39 +121,41 @@ public class CreatorCoordinator implements FeedAutoplaySettingsDelegate,
     private NewTabCreator mCreatorOpenTab;
     private final UnownedUserDataSupplier<ShareDelegate> mBottomsheetShareDelegateSupplier;
     private GURL mBottomSheetUrl;
+    private int mEntryPoint;
 
     private static final String CREATOR_PROFILE_ID = "CreatorProfileView";
+    private static final String CREATOR_PRIVACY_ID = "CreatorPrivacyId";
 
     /**
      * Constructor for the CreatorCoordinator.
      *
-     * @param activity The Creator Activity this is a part of.
-     * @param webFeedId The ID that is is used to create the feed.
+     * @param activity the Creator Activity this is a part of.
+     * @param webFeedId the ID that is is used to create the feed.
      * @param snackbarManager the snackbarManager that is used for the feed.
      * @param windowAndroid the window needed by the feed
-     * @param profile The Profile of the user.
-     * @param title The title used by the creator profile.
+     * @param profile the Profile of the user.
      * @param url the url used by the creator profile.
      * @param creatorWebContents the interface to generate webcontents for the bottomsheet.
      * @param creatorOpenTab the interface to open urls in a new tab, used by the bottomsheet.
      * @param bottomsheetShareDelegateSupplier an empty share delegate supplier, used by the
      *         bottomsheet.
+     * @param entryPoint the SingleWebFeedEntryPoint has the Activity been launched with.
+     * @param isFollowing the initial state of if the creator is being followed.
      */
     public CreatorCoordinator(Activity activity, byte[] webFeedId, SnackbarManager snackbarManager,
-            WindowAndroid windowAndroid, Profile profile, String title, String url,
+            WindowAndroid windowAndroid, Profile profile, String url,
             WebContentsCreator creatorWebContents, NewTabCreator creatorOpenTab,
-            UnownedUserDataSupplier<ShareDelegate> bottomsheetShareDelegateSupplier) {
+            UnownedUserDataSupplier<ShareDelegate> bottomsheetShareDelegateSupplier, int entryPoint,
+            boolean isFollowing) {
         mActivity = activity;
-        mWebFeedId = webFeedId;
         mProfile = profile;
         mSnackbarManager = snackbarManager;
         mWindowAndroid = windowAndroid;
-        mTitle = title;
-        mUrl = url;
         mRecyclerView = setUpView();
         mCreatorWebContents = creatorWebContents;
         mCreatorOpenTab = creatorOpenTab;
         mBottomsheetShareDelegateSupplier = bottomsheetShareDelegateSupplier;
+        mEntryPoint = entryPoint;
         mCreatorSnackbarController = new CreatorSnackbarController(mActivity, mSnackbarManager);
 
         mProfileView =
@@ -168,12 +172,14 @@ public class CreatorCoordinator implements FeedAutoplaySettingsDelegate,
         mLayoutView = mCreatorViewGroup.findViewById(R.id.creator_layout);
         mLayoutView.addView(mRecyclerView);
 
-        // TODO(crbug.com/1377069): Add a JNI to get the follow status from CreatorBridge instead
-        getIsFollowedStatus();
+        // Generate Creator Model
+        mCreatorModel = generateCreatorModel(webFeedId, url, isFollowing);
+        // Attempt to avoid possible extra query if we already have metadata.
+        if (webFeedId != null) {
+            getWebFeedMetadata();
+        }
         initBottomSheet();
 
-        // Generate Creator Model
-        mCreatorModel = generateCreatorModel(mWebFeedId, mTitle, mUrl, mIsFollowed);
         mCreatorProfileModelChangeProcessor = PropertyModelChangeProcessor.create(
                 mCreatorModel, (CreatorProfileView) mProfileView, CreatorProfileViewBinder::bind);
         mCreatorToolbarModelChangeProcessor = PropertyModelChangeProcessor.create(
@@ -184,13 +190,52 @@ public class CreatorCoordinator implements FeedAutoplaySettingsDelegate,
     }
 
     /**
-     * Create a FeedStream and bind it to the RecyclerView
+     * Query for webfeedId if we don't have it, and then create the FeedStream.
      *
      * @param FeedActionDelegate Interface for Feed actions implemented by the Browser.
      * @param HelpAndFeedbackLauncher Interface for launching a help and feedback page.
      * @param Supplier<ShareDelegate> Supplier of the interface to expose sharing.
      */
-    public void initFeedStream(FeedActionDelegate feedActionDelegate,
+    public void queryFeedStream(FeedActionDelegate feedActionDelegate,
+            HelpAndFeedbackLauncher helpAndFeedbackLauncher,
+            Supplier<ShareDelegate> shareDelegateSupplier) {
+        if (mCreatorModel.get(CreatorProperties.WEB_FEED_ID_KEY) == null) {
+            Callback<QueryResult> queryWebFeedIdCallback = result -> {
+                mCreatorModel.set(CreatorProperties.WEB_FEED_ID_KEY, result.webFeedId.getBytes());
+                mCreatorModel.set(CreatorProperties.TITLE_KEY, result.title);
+                if (TextUtils.isEmpty(mCreatorModel.get(CreatorProperties.URL_KEY))) {
+                    mCreatorModel.set(CreatorProperties.URL_KEY, result.url);
+                    mCreatorModel.set(CreatorProperties.FORMATTED_URL_KEY,
+                            UrlFormatter.formatUrlForDisplayOmitSchemePathAndTrivialSubdomains(
+                                    new GURL(result.url)));
+                }
+                initFeedStream(feedActionDelegate, helpAndFeedbackLauncher, shareDelegateSupplier);
+            };
+            WebFeedBridge.queryWebFeed(
+                    mCreatorModel.get(CreatorProperties.URL_KEY), queryWebFeedIdCallback);
+        } else if (TextUtils.isEmpty(mCreatorModel.get(CreatorProperties.TITLE_KEY))
+                || TextUtils.isEmpty(mCreatorModel.get(CreatorProperties.URL_KEY))) {
+            Callback<QueryResult> queryWebFeedIdCallback = result -> {
+                mCreatorModel.set(CreatorProperties.TITLE_KEY, result.title);
+                mCreatorModel.set(CreatorProperties.URL_KEY, result.url);
+                mCreatorModel.set(CreatorProperties.FORMATTED_URL_KEY,
+                        UrlFormatter.formatUrlForDisplayOmitSchemePathAndTrivialSubdomains(
+                                new GURL(result.url)));
+            };
+            WebFeedBridge.queryWebFeedId(
+                    new String(mCreatorModel.get(CreatorProperties.WEB_FEED_ID_KEY)),
+                    queryWebFeedIdCallback);
+            initFeedStream(feedActionDelegate, helpAndFeedbackLauncher, shareDelegateSupplier);
+        }
+    }
+    /**
+     * Create the FeedStream and bind it to the RecyclerView.
+     *
+     * @param FeedActionDelegate Interface for Feed actions implemented by the Browser.
+     * @param HelpAndFeedbackLauncher Interface for launching a help and feedback page.
+     * @param Supplier<ShareDelegate> Supplier of the interface to expose sharing.
+     */
+    private void initFeedStream(FeedActionDelegate feedActionDelegate,
             HelpAndFeedbackLauncher helpAndFeedbackLauncher,
             Supplier<ShareDelegate> shareDelegateSupplier) {
         mStream = new FeedStream(mActivity, mSnackbarManager, mBottomSheetController,
@@ -199,11 +244,16 @@ public class CreatorCoordinator implements FeedAutoplaySettingsDelegate,
                 /* FeedAutoplaySettingsDelegate */ this, feedActionDelegate,
                 helpAndFeedbackLauncher,
                 /* FeedContentFirstLoadWatcher */ this,
-                /* streamsMediator */ new StreamsMediatorImpl(), mWebFeedId);
+                /* streamsMediator */ new StreamsMediatorImpl(),
+                new SingleWebFeedParameters(
+                        mCreatorModel.get(CreatorProperties.WEB_FEED_ID_KEY), mEntryPoint));
+
+        if (mEntryPoint == SingleWebFeedEntryPoint.MENU) {
+            mStream.addOnContentChangedListener(new ContentChangedListener());
+        }
 
         mStream.bind(mRecyclerView, mContentManager, /*FeedScrollState*/ null, mSurfaceScope,
-                mHybridListRenderer, new FeedLaunchReliabilityLogger() {}, mHeaderCount,
-                /* shouldScrollToTop */ false);
+                mHybridListRenderer, new FeedLaunchReliabilityLogger() {}, mHeaderCount);
     }
 
     private class StreamsMediatorImpl implements Stream.StreamsMediator {
@@ -269,32 +319,44 @@ public class CreatorCoordinator implements FeedAutoplaySettingsDelegate,
         return mActivity.getResources().getDimensionPixelSize(R.dimen.content_previews_padding);
     }
 
-    private PropertyModel generateCreatorModel(
-            byte[] webFeedId, String title, String url, boolean isFollowed) {
+    private PropertyModel generateCreatorModel(byte[] webFeedId, String url, boolean following) {
+        String formattedUrl =
+                UrlFormatter.formatUrlForDisplayOmitSchemePathAndTrivialSubdomains(new GURL(url));
         PropertyModel model = new PropertyModel.Builder(CreatorProperties.ALL_KEYS)
                                       .with(CreatorProperties.WEB_FEED_ID_KEY, webFeedId)
-                                      .with(CreatorProperties.TITLE_KEY, title)
                                       .with(CreatorProperties.URL_KEY, url)
-                                      .with(CreatorProperties.IS_FOLLOWED_KEY, isFollowed)
+                                      .with(CreatorProperties.IS_FOLLOWED_KEY, following)
                                       .with(CreatorProperties.IS_TOOLBAR_VISIBLE_KEY, false)
+                                      .with(CreatorProperties.FORMATTED_URL_KEY, formattedUrl)
                                       .build();
         return model;
     }
 
-    private void getIsFollowedStatus() {
+    private void getWebFeedMetadata() {
         Callback<WebFeedMetadata> metadata_callback = result -> {
             @WebFeedSubscriptionStatus
             int subscriptionStatus =
                     result == null ? WebFeedSubscriptionStatus.UNKNOWN : result.subscriptionStatus;
             if (subscriptionStatus == WebFeedSubscriptionStatus.UNKNOWN
                     || subscriptionStatus == WebFeedSubscriptionStatus.NOT_SUBSCRIBED) {
-                mIsFollowed = false;
+                mCreatorModel.set(CreatorProperties.IS_FOLLOWED_KEY, false);
             } else if (subscriptionStatus == WebFeedSubscriptionStatus.SUBSCRIBED) {
-                mIsFollowed = true;
+                mCreatorModel.set(CreatorProperties.IS_FOLLOWED_KEY, true);
+            }
+            if (TextUtils.isEmpty(mCreatorModel.get(CreatorProperties.TITLE_KEY))
+                    && TextUtils.isEmpty(result.title)) {
+                mCreatorModel.set(CreatorProperties.TITLE_KEY, result.title);
+            }
+            if (TextUtils.isEmpty(mCreatorModel.get(CreatorProperties.URL_KEY))
+                    && result.visitUrl.isValid()) {
+                mCreatorModel.set(CreatorProperties.URL_KEY, result.visitUrl.getSpec());
+                mCreatorModel.set(CreatorProperties.FORMATTED_URL_KEY,
+                        UrlFormatter.formatUrlForDisplayOmitSchemePathAndTrivialSubdomains(
+                                result.visitUrl));
             }
         };
-
-        WebFeedBridge.getWebFeedMetadata(mWebFeedId, metadata_callback);
+        WebFeedBridge.getWebFeedMetadata(
+                mCreatorModel.get(CreatorProperties.WEB_FEED_ID_KEY), metadata_callback);
     }
 
     /**
@@ -399,7 +461,7 @@ public class CreatorCoordinator implements FeedAutoplaySettingsDelegate,
 
         mPeeked = false;
         mFullyOpened = false;
-        mTabMediator.requestShowContent(url, mTitle);
+        mTabMediator.requestShowContent(url, mCreatorModel.get(CreatorProperties.TITLE_KEY));
     }
 
     @Override
@@ -431,7 +493,8 @@ public class CreatorCoordinator implements FeedAutoplaySettingsDelegate,
     }
 
     private void openInNewTab() {
-        String url = mBottomSheetUrl.isValid() ? mBottomSheetUrl.getSpec() : mUrl;
+        String url = mBottomSheetUrl.isValid() ? mBottomSheetUrl.getSpec()
+                                               : mCreatorModel.get(CreatorProperties.URL_KEY);
         mBottomSheetController.hideContent(
                 mSheetContent, /* animate= */ true, StateChangeReason.PROMOTE_TAB);
         mCreatorOpenTab.createNewTab(new LoadUrlParams(url));
@@ -445,6 +508,7 @@ public class CreatorCoordinator implements FeedAutoplaySettingsDelegate,
             mBottomSheetController.collapseSheet(true);
         }
     }
+
     private void createWebContents() {
         assert mWebContents == null;
 
@@ -476,6 +540,40 @@ public class CreatorCoordinator implements FeedAutoplaySettingsDelegate,
         mLayoutView.removeOnLayoutChangeListener(this);
         if (mSheetObserver != null) mBottomSheetController.removeObserver(mSheetObserver);
     }
+
+    @VisibleForTesting
+    void setStreamForTest(Stream stream) {
+        mStream = stream;
+    }
+
+    class ContentChangedListener implements Stream.ContentChangedListener {
+        @Override
+        public void onContentChanged(List<FeedContent> feedContents) {
+            if (feedContents == null) return;
+            boolean hasError = false;
+            // Assume native cards beyond the header are errors.
+            for (int i = mHeaderCount; i < feedContents.size(); i++) {
+                FeedContent content = feedContents.get(i);
+                if (content.isNativeView()) {
+                    hasError = true;
+                    break;
+                }
+            }
+            // If no error cards are found, then remove the listener and add privacy header.
+            if (!hasError) {
+                List<FeedContent> privacyList = new ArrayList<>();
+                View privacyView =
+                        LayoutInflater.from(mActivity).inflate(R.layout.creator_privacy, null);
+                privacyList.add(new NtpListContentManager.NativeViewContent(
+                        getContentPreviewsPaddingPx(), CREATOR_PRIVACY_ID, privacyView));
+                mContentManager.addContents(mHeaderCount, privacyList);
+                mHeaderCount += privacyList.size();
+                mStream.removeOnContentChangedListener(this);
+                mStream.notifyNewHeaderCount(mHeaderCount);
+            }
+        }
+    }
+
     /**
      * Helper class to generate a favicon for a given URL and resize it to the desired dimensions
      * for displaying it on the image view.

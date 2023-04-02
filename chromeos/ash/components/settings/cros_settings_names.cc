@@ -92,6 +92,9 @@ const char kReleaseLtsTag[] = "cros.system.releaseLtsTag";
 const char kDeviceChannelDowngradeBehavior[] =
     "cros.system.channelDowngradeBehavior";
 
+// This setting is used to enforce usage of system audio echo cancellation.
+const char kDeviceSystemAecEnabled[] = "cros.audio.device_system_aec_enabled";
+
 // A boolean pref that indicates whether OS & firmware version info should be
 // reported along with device policy requests.
 const char kReportDeviceVersionInfo[] =
@@ -234,6 +237,14 @@ const char kReportDeviceLoginLogout[] = "cros.reporting.report_login_logout";
 
 // Determines whether CRD session events are reported.
 const char kReportCRDSessions[] = "cros.reporting.report_crd_sessions";
+
+// Determines the device activity heartbeat collection rate (in milliseconds).
+const char kDeviceActivityHeartbeatCollectionRateMs[] =
+    "cros.reporting.device_activity_heartbeat_collection_rate_ms";
+
+// Determines whether device activity state heartbeat should be reported.
+const char kDeviceActivityHeartbeatEnabled[] =
+    "cros.reporting.device_activity_heartbeat_enabled";
 
 // Determines whether heartbeats should be sent to the policy service via
 // the GCM channel.

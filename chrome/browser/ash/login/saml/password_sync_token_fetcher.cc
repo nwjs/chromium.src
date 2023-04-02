@@ -24,6 +24,7 @@
 #include "components/user_manager/known_user.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/common/url_constants.h"
+#include "google_apis/credentials_mode.h"
 #include "google_apis/gaia/gaia_auth_fetcher.h"
 #include "google_apis/gaia/gaia_constants.h"
 #include "google_apis/gaia/google_service_auth_error.h"
@@ -189,7 +190,7 @@ void PasswordSyncTokenFetcher::OnAccessTokenFetchComplete(
 }
 
 void PasswordSyncTokenFetcher::FetchSyncToken(const std::string& access_token) {
-  base::Value request_data(base::Value::Type::DICTIONARY);
+  base::Value request_data(base::Value::Type::DICT);
   request_data.SetStringKey(kTokenTypeKey, kTokenTypeValue);
   std::string request_string;
   if (!base::JSONWriter::Write(request_data, &request_string)) {
@@ -214,8 +215,13 @@ void PasswordSyncTokenFetcher::FetchSyncToken(const std::string& access_token) {
       }
       policy {
         cookies_allowed: NO
-        policy_exception_justification:
-          "No policies implemented yet."
+        setting : "Only Admins can enable/disable this feature from the admin"
+                  "dashboard."
+        chrome_policy {
+          SamlInSessionPasswordChangeEnabled {
+            SamlInSessionPasswordChangeEnabled : false
+          }
+        }
       })");
   auto resource_request = std::make_unique<network::ResourceRequest>();
   switch (request_type_) {
@@ -236,7 +242,8 @@ void PasswordSyncTokenFetcher::FetchSyncToken(const std::string& access_token) {
   }
   resource_request->load_flags =
       net::LOAD_DISABLE_CACHE | net::LOAD_BYPASS_CACHE;
-  resource_request->credentials_mode = network::mojom::CredentialsMode::kOmit;
+  resource_request->credentials_mode =
+      google_apis::GetOmitCredentialsModeForGaiaRequests();
   if (request_type_ == RequestType::kCreateToken) {
     resource_request->method = net::HttpRequestHeaders::kPostMethod;
   } else {
@@ -288,10 +295,10 @@ void PasswordSyncTokenFetcher::OnSimpleLoaderComplete(
       deserializer.Deserialize(/*error_code=*/nullptr, &error_msg);
 
   if (!response_body || (response_code != net::HTTP_OK)) {
-    const auto* error_json = json_value && json_value->is_dict()
-                                 ? json_value->FindKeyOfType(
-                                       kErrorKey, base::Value::Type::DICTIONARY)
-                                 : nullptr;
+    const auto* error_json =
+        json_value && json_value->is_dict()
+            ? json_value->FindKeyOfType(kErrorKey, base::Value::Type::DICT)
+            : nullptr;
     const auto* error_value =
         error_json ? error_json->FindKeyOfType(kErrorDescription,
                                                base::Value::Type::STRING)

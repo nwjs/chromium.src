@@ -62,6 +62,16 @@
 			<key>DefaultValue</key>
 			<false/>
 		</dict>
+                <dict>
+                        <key>Type</key>
+                        <string>PSToggleSwitchSpecifier</string>
+                        <key>Title</key>
+                        <string>Ignore Tile Ablation Conditions</string>
+                        <key>Key</key>
+                        <string>IgnoreTileAblationConditions</string>
+                        <key>DefaultValue</key>
+                        <false/>
+                </dict>
 		<dict>
 			<key>Type</key>
 			<string>PSToggleSwitchSpecifier</string>
@@ -355,6 +365,16 @@
 			<string>Disallow Chrome Data In Backups</string>
 			<key>Key</key>
 			<string>DisallowChromeDataInBackups</string>
+			<key>DefaultValue</key>
+			<false/>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+			<key>Title</key>
+			<string>Disable password manager</string>
+			<key>Key</key>
+			<string>DisablePasswordManagerPolicy</string>
 			<key>DefaultValue</key>
 			<false/>
 		</dict>

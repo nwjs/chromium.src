@@ -119,7 +119,9 @@ ContextClustererHistoryServiceObserver::ContextClustererHistoryServiceObserver(
       optimization_guide_decider_(optimization_guide_decider),
       engagement_score_provider_(engagement_score_provider),
       clock_(base::DefaultClock::GetInstance()) {
-  history_service_observation_.Observe(history_service);
+  if (history_service_) {
+    history_service_observation_.Observe(history_service_);
+  }
 
   if (optimization_guide_decider_) {
     optimization_guide_decider_->RegisterOptimizationTypes(
@@ -237,7 +239,12 @@ void ContextClustererHistoryServiceObserver::OnURLVisited(
   in_progress_cluster.last_visit_time = new_visit.visit_time;
   in_progress_cluster.visit_urls.insert(normalized_url);
   in_progress_cluster.visit_ids.emplace_back(new_visit.visit_id);
-  in_progress_cluster.search_terms = search_terms;
+  if (!search_terms.empty()) {
+    // Only update the cluster search terms if it's non-empty. It should only be
+    // set as non-empty for at most one unique term as enforced by
+    // `ShouldAddVisitToCluster()`.
+    in_progress_cluster.search_terms = search_terms;
+  }
   visit_id_to_cluster_map_[new_visit.visit_id] = *cluster_id;
   visit_url_to_cluster_map_[normalized_url] = *cluster_id;
 

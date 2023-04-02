@@ -95,8 +95,7 @@ const base::flat_set<std::string> FetchHandlerBypassedHashStrings() {
   return *result;
 }
 
-bool ShouldBypassFetchHandlerForMainResource(
-    const std::string& sha256_script_checksum) {
+bool ShouldBypassFetchHandlerForMainResource(ServiceWorkerVersion& version) {
   if (!base::FeatureList::IsEnabled(
           features::kServiceWorkerBypassFetchHandler)) {
     return false;
@@ -122,7 +121,11 @@ bool ShouldBypassFetchHandlerForMainResource(
     // resource fetch handlers are bypassed only when the sha256 checksum of the
     // script is in the allowlist.
     case features::ServiceWorkerBypassFetchHandlerStrategy::kAllowList:
-      if (FetchHandlerBypassedHashStrings().contains(sha256_script_checksum)) {
+      if (FetchHandlerBypassedHashStrings().contains(
+              version.sha256_script_checksum())) {
+        version.CountFeature(
+            blink::mojom::WebFeature::
+                kServiceWorkerBypassFetchHandlerForMainResource);
         RecordSkipReason(
             ServiceWorkerControlleeRequestHandler::FetchHandlerSkipReason::
                 kMainResourceSkippedBecauseMatchedWithAllowedScriptList);
@@ -136,18 +139,20 @@ bool ShouldBypassFetchHandlerForMainResource(
 }
 
 bool ShouldBypassFetchHandlerForMainResourceByOriginTrial(
-    ServiceWorkerVersion* version) {
-  if (version->origin_trial_tokens() &&
-      version->origin_trial_tokens()->contains(
+    ServiceWorkerVersion& version) {
+  if (version.origin_trial_tokens() &&
+      version.origin_trial_tokens()->contains(
           "ServiceWorkerBypassFetchHandlerForMainResource")) {
     RecordSkipReason(
         ServiceWorkerControlleeRequestHandler::FetchHandlerSkipReason::
             kMainResourceSkippedDueToOriginTrial);
-    // The UseCounter for kServiceWorkerBypassFetchHandlerForMainResource should
-    // only capture the usage of this feature invoked by the Origin Trial for
-    // the OT measurement purpose.
-    version->CountFeature(blink::mojom::WebFeature::
-                              kServiceWorkerBypassFetchHandlerForMainResource);
+    // The UseCounter for
+    // kServiceWorkerBypassFetchHandlerForMainResourceByOriginTrial should only
+    // capture the usage of this feature invoked by the Origin Trial for the OT
+    // measurement purpose.
+    version.CountFeature(
+        blink::mojom::WebFeature::
+            kServiceWorkerBypassFetchHandlerForMainResourceByOriginTrial);
     return true;
   }
 
@@ -267,7 +272,7 @@ void ServiceWorkerControlleeRequestHandler::MaybeCreateLoader(
 
   // Look up a registration.
   context_->registry()->FindRegistrationForClientUrl(
-      stripped_url_, storage_key_,
+      ServiceWorkerRegistry::Purpose::kNavigation, stripped_url_, storage_key_,
       base::BindOnce(
           &ServiceWorkerControlleeRequestHandler::ContinueWithRegistration,
           weak_factory_.GetWeakPtr(), /*is_for_navigation=*/true,
@@ -303,12 +308,23 @@ void ServiceWorkerControlleeRequestHandler::ContinueWithRegistration(
     scoped_refptr<ServiceWorkerRegistration> registration) {
   if (is_for_navigation) {
     DCHECK(!start_time.is_null());
-    ServiceWorkerMetrics::RecordFindRegistrationForClientUrlTime(
-        base::TimeTicks::Now() - start_time);
+    auto now = base::TimeTicks::Now();
+
+    ServiceWorkerMetrics::RecordFindRegistrationForClientUrlTime(now -
+                                                                 start_time);
 
     base::UmaHistogramBoolean(
         "ServiceWorker.FoundServiceWorkerRegistrationOnNavigation",
         status == blink::ServiceWorkerStatusCode::kOk);
+
+    TRACE_EVENT_NESTABLE_ASYNC_BEGIN_WITH_TIMESTAMP0(
+        "ServiceWorker",
+        "ServiceWorker.MaybeCreateLoaderToContinueWithRegistration",
+        TRACE_ID_LOCAL(this), start_time);
+    TRACE_EVENT_NESTABLE_ASYNC_END_WITH_TIMESTAMP0(
+        "ServiceWorker",
+        "ServiceWorker.MaybeCreateLoaderToContinueWithRegistration",
+        TRACE_ID_LOCAL(this), now);
   }
 
   if (status != blink::ServiceWorkerStatusCode::kOk) {
@@ -532,24 +548,21 @@ void ServiceWorkerControlleeRequestHandler::ContinueWithActivatedVersion(
           "FetchHandlerType",
           FetchHandlerTypeToString(
               active_version->EffectiveFetchHandlerType()));
-      registration->active_version()->CountFeature(
+      active_version->CountFeature(
           blink::mojom::WebFeature::kServiceWorkerSkippedForEmptyFetchHandler);
       CompleteWithoutLoader();
       if (!features::kStartServiceWorkerForEmptyFetchHandler.Get()) {
         return;
       }
-      // Start service worker if it is not running so that we run the code
-      // written in the top level.
-      if (registration->active_version()->running_status() ==
-              EmbeddedWorkerStatus::STARTING ||
-          registration->active_version()->running_status() ==
-              EmbeddedWorkerStatus::RUNNING) {
+      if (features::kAsyncStartServiceWorkerForEmptyFetchHandler.Get()) {
+        base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+            FROM_HERE,
+            base::BindOnce(
+                &ServiceWorkerControlleeRequestHandler::MaybeStartServiceWorker,
+                weak_factory_.GetWeakPtr(), std::move(active_version)));
         return;
       }
-      registration->active_version()->StartWorker(
-          ServiceWorkerMetrics::EventType::SKIP_EMPTY_FETCH_HANDLER,
-          base::BindOnce(&ServiceWorkerControlleeRequestHandler::DidStartWorker,
-                         weak_factory_.GetWeakPtr()));
+      MaybeStartServiceWorker(std::move(active_version));
       return;
     }
     case ServiceWorkerVersion::FetchHandlerType::kNotSkippable: {
@@ -558,9 +571,9 @@ void ServiceWorkerControlleeRequestHandler::ContinueWithActivatedVersion(
       // is no valid origin trial token, then check the eligibility based on the
       // feature flag and the url.
       if (ShouldBypassFetchHandlerForMainResourceByOriginTrial(
-              registration->active_version()) ||
+              *registration->active_version()) ||
           ShouldBypassFetchHandlerForMainResource(
-              registration->active_version()->sha256_script_checksum())) {
+              *registration->active_version())) {
         // If true, the main resource request bypasses ServiceWorker and starts
         // the worker in parallel for subsequent subresources.
         CompleteWithoutLoader();
@@ -632,11 +645,12 @@ void ServiceWorkerControlleeRequestHandler::DidUpdateRegistration(
     // Update failed. Look up the registration again since the original
     // registration was possibly unregistered in the meantime.
     context_->registry()->FindRegistrationForClientUrl(
-        stripped_url_, storage_key_,
+        ServiceWorkerRegistry::Purpose::kNotForNavigation, stripped_url_,
+        storage_key_,
         base::BindOnce(
             &ServiceWorkerControlleeRequestHandler::ContinueWithRegistration,
-            weak_factory_.GetWeakPtr(), /*is_for_navigation=*/false,
-            base::TimeTicks()));
+            weak_factory_.GetWeakPtr(),
+            /*is_for_navigation=*/false, base::TimeTicks()));
     TRACE_EVENT_WITH_FLOW1(
         "ServiceWorker",
         "ServiceWorkerControlleeRequestHandler::DidUpdateRegistration",
@@ -689,11 +703,12 @@ void ServiceWorkerControlleeRequestHandler::OnUpdatedVersionStatusChanged(
     // continue with the incumbent version.
     // In case unregister job may have run, look up the registration again.
     context_->registry()->FindRegistrationForClientUrl(
-        stripped_url_, storage_key_,
+        ServiceWorkerRegistry::Purpose::kNotForNavigation, stripped_url_,
+        storage_key_,
         base::BindOnce(
             &ServiceWorkerControlleeRequestHandler::ContinueWithRegistration,
-            weak_factory_.GetWeakPtr(), /*is_for_navigation=*/false,
-            base::TimeTicks()));
+            weak_factory_.GetWeakPtr(),
+            /*is_for_navigation=*/false, base::TimeTicks()));
     return;
   }
   version->RegisterStatusChangeCallback(base::BindOnce(
@@ -703,6 +718,20 @@ void ServiceWorkerControlleeRequestHandler::OnUpdatedVersionStatusChanged(
 
 void ServiceWorkerControlleeRequestHandler::CompleteWithoutLoader() {
   std::move(loader_callback_).Run({});
+}
+
+void ServiceWorkerControlleeRequestHandler::MaybeStartServiceWorker(
+    scoped_refptr<ServiceWorkerVersion> active_version) {
+  // Start service worker if it is not running so that we run the code
+  // written in the top level.
+  if (active_version->running_status() == EmbeddedWorkerStatus::STARTING ||
+      active_version->running_status() == EmbeddedWorkerStatus::RUNNING) {
+    return;
+  }
+  active_version->StartWorker(
+      ServiceWorkerMetrics::EventType::SKIP_EMPTY_FETCH_HANDLER,
+      base::BindOnce(&ServiceWorkerControlleeRequestHandler::DidStartWorker,
+                     weak_factory_.GetWeakPtr()));
 }
 
 }  // namespace content

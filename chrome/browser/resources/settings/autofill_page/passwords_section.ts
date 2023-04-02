@@ -40,7 +40,8 @@ import {I18nMixin} from 'chrome://resources/cr_elements/i18n_mixin.js';
 import {WebUiListenerMixin} from 'chrome://resources/cr_elements/web_ui_listener_mixin.js';
 import {assert, assertNotReached} from 'chrome://resources/js/assert_ts.js';
 import {focusWithoutInk} from 'chrome://resources/js/focus_without_ink.js';
-import {getDeepActiveElement} from 'chrome://resources/js/util_ts.js';
+import {OpenWindowProxyImpl} from 'chrome://resources/js/open_window_proxy.js';
+import {getDeepActiveElement, isUndoKeyboardEvent} from 'chrome://resources/js/util_ts.js';
 import {DomRepeat, DomRepeatEvent, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import {SettingsToggleButtonElement} from '../controls/settings_toggle_button.js';
@@ -48,7 +49,6 @@ import {FocusConfig} from '../focus_config.js';
 import {GlobalScrollTargetMixin} from '../global_scroll_target_mixin.js';
 import {HatsBrowserProxyImpl, TrustSafetyInteraction} from '../hats_browser_proxy.js';
 import {loadTimeData} from '../i18n_setup.js';
-import {OpenWindowProxyImpl} from '../open_window_proxy.js';
 import {SyncBrowserProxyImpl, TrustedVaultBannerState} from '../people_page/sync_browser_proxy.js';
 import {PrefsMixin} from '../prefs/prefs_mixin.js';
 import {routes} from '../route.js';
@@ -240,10 +240,8 @@ export class PasswordsSectionElement extends PasswordsSectionElementBase {
 
       showImportPasswords_: {
         type: Boolean,
-        value() {
-          return loadTimeData.valueExists('showImportPasswords') &&
-              loadTimeData.getBoolean('showImportPasswords');
-        },
+        computed:
+            'computeShowImportPasswords_(passwordManagerDisabledByPolicy_)',
       },
 
       /** An array of blocked sites to display. */
@@ -257,9 +255,9 @@ export class PasswordsSectionElement extends PasswordsSectionElementBase {
 
       showAddPasswordDialog_: Boolean,
 
-      showAddPasswordButton_: {
+      passwordManagerDisabledByPolicy_: {
         type: Boolean,
-        computed: 'computeShowAddPasswordButton_(' +
+        computed: 'computePasswordManagerDisabledByPolicy_(' +
             'prefs.credentials_enable_service.enforcement, ' +
             'prefs.credentials_enable_service.value)',
       },
@@ -288,7 +286,7 @@ export class PasswordsSectionElement extends PasswordsSectionElementBase {
   private showPasswordsExportDialog_: boolean;
   private showPasswordsImportDialog_: boolean;
   private showAddPasswordDialog_: boolean;
-  private showAddPasswordButton_: boolean;
+  private passwordManagerDisabledByPolicy_: boolean;
 
   private passwordManager_: PasswordManagerProxy =
       PasswordManagerImpl.getInstance();
@@ -302,17 +300,10 @@ export class PasswordsSectionElement extends PasswordsSectionElementBase {
   override ready() {
     super.ready();
 
-    document.addEventListener('keydown', e => {
-      // <if expr="is_macosx">
-      if (e.metaKey && e.key === 'z') {
+    document.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (isUndoKeyboardEvent(e)) {
         this.onUndoKeyBinding_(e);
       }
-      // </if>
-      // <if expr="not is_macosx">
-      if (e.ctrlKey && e.key === 'z') {
-        this.onUndoKeyBinding_(e);
-      }
-      // </if>
     });
 
     // <if expr="is_win or is_macosx">
@@ -394,12 +385,17 @@ export class PasswordsSectionElement extends PasswordsSectionElementBase {
     this.$.authTimeoutDialog.close();
   }
 
-  private computeShowAddPasswordButton_(): boolean {
+  private computeShowImportPasswords_(): boolean {
+    return !this.passwordManagerDisabledByPolicy_ &&
+        loadTimeData.valueExists('showImportPasswords') &&
+        loadTimeData.getBoolean('showImportPasswords');
+  }
+
+  private computePasswordManagerDisabledByPolicy_(): boolean {
     // Don't show add button if password manager is disabled by policy.
-    return !(
-        this.prefs.credentials_enable_service.enforcement ===
-            chrome.settingsPrivate.Enforcement.ENFORCED &&
-        !this.prefs.credentials_enable_service.value);
+    return this.prefs.credentials_enable_service.enforcement ===
+        chrome.settingsPrivate.Enforcement.ENFORCED &&
+        !this.prefs.credentials_enable_service.value;
   }
 
   private computeHasSavedPasswords_(): boolean {

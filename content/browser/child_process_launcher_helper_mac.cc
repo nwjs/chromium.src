@@ -55,7 +55,8 @@ class SandboxProfileCache {
     return *cache;
   }
 
-  sandbox::mac::SandboxPolicy* Query(sandbox::mojom::Sandbox sandbox_type) {
+  const sandbox::mac::SandboxPolicy* Query(
+      sandbox::mojom::Sandbox sandbox_type) {
     base::AutoLock lock(lock_);
     auto it = cache_.find(sandbox_type);
     if (it == cache_.end())
@@ -79,8 +80,8 @@ class SandboxProfileCache {
 }  // namespace
 
 absl::optional<mojo::NamedPlatformChannel>
-ChildProcessLauncherHelper::CreateNamedPlatformChannelOnClientThread() {
-  DCHECK(client_task_runner_->RunsTasksInCurrentSequence());
+ChildProcessLauncherHelper::CreateNamedPlatformChannelOnLauncherThread() {
+  DCHECK(CurrentlyOnProcessLauncherTaskRunner());
   return absl::nullopt;
 }
 
@@ -138,7 +139,7 @@ bool ChildProcessLauncherHelper::BeforeLaunchOnLauncherThread(
     // problem.
     options->environment.insert(std::make_pair("OS_ACTIVITY_MODE", "disable"));
 
-    auto* cached_policy = SandboxProfileCache::Get().Query(sandbox_type);
+    const auto* cached_policy = SandboxProfileCache::Get().Query(sandbox_type);
     if (cached_policy) {
       policy_ = *cached_policy;
     } else {

@@ -2,16 +2,22 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {Note, UserNotesPageCallbackRouter, UserNotesPageHandlerFactory, UserNotesPageHandlerRemote} from './user_notes.mojom-webui.js';
+import {ClickModifiers} from 'chrome://resources/mojo/ui/base/mojom/window_open_disposition.mojom-webui.js';
+import {Url} from 'chrome://resources/mojo/url/mojom/url.mojom-webui.js';
+
+import {Note, NoteOverview, UserNotesPageCallbackRouter, UserNotesPageHandlerFactory, UserNotesPageHandlerRemote} from './user_notes.mojom-webui.js';
 
 let instance: UserNotesApiProxy|null = null;
 
 export interface UserNotesApiProxy {
   showUi(): void;
+  getNoteOverviews(userInput: string): Promise<{overviews: NoteOverview[]}>;
   getNotesForCurrentTab(): Promise<{notes: Note[]}>;
   newNoteFinished(text: string): Promise<{success: boolean}>;
   updateNote(guid: string, text: string): Promise<{success: boolean}>;
   deleteNote(guid: string): Promise<{success: boolean}>;
+  noteOverviewSelected(url: Url, clickModifiers: ClickModifiers): void;
+  setSortOrder(sortByNewest: boolean): void;
   getCallbackRouter(): UserNotesPageCallbackRouter;
 }
 
@@ -32,6 +38,10 @@ export class UserNotesApiProxyImpl implements UserNotesApiProxy {
     this.handler.showUI();
   }
 
+  getNoteOverviews(userInput: string) {
+    return this.handler.getNoteOverviews(userInput);
+  }
+
   getNotesForCurrentTab() {
     return this.handler.getNotesForCurrentTab();
   }
@@ -46,6 +56,14 @@ export class UserNotesApiProxyImpl implements UserNotesApiProxy {
 
   deleteNote(guid: string) {
     return this.handler.deleteNote(guid);
+  }
+
+  noteOverviewSelected(url: Url, clickModifiers: ClickModifiers) {
+    this.handler.noteOverviewSelected(url, clickModifiers);
+  }
+
+  setSortOrder(sortByNewest: boolean) {
+    this.handler.setSortOrder(sortByNewest);
   }
 
   getCallbackRouter() {

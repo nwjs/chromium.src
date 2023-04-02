@@ -60,10 +60,6 @@
         <include name="IDR_ABOUT_SYS_CSS" file="resources\about_sys\about_sys.css" flattenhtml="true" type="BINDATA" />
         <include name="IDR_ABOUT_SYS_JS" file="resources\about_sys\about_sys.js" preprocess="true" type="BINDATA" />
       </if>
-      <if expr="enable_plugins">
-        <include name="IDR_ABOUT_FLASH_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
-        <include name="IDR_ABOUT_FLASH_JS" file="resources\empty.js" type="BINDATA" />
-      </if>
       <if expr="enable_webui_certificate_viewer">
         <include name="IDR_CERTIFICATE_VIEWER_HTML" file="resources\certificate_viewer\certificate_viewer.html" type="BINDATA" />
         <include name="IDR_CERTIFICATE_VIEWER_JS" file="${root_gen_dir}\chrome\browser\resources\certificate_viewer\tsc\certificate_viewer.js" use_base_dir="false" type="BINDATA" />
@@ -199,11 +195,6 @@
       <include name="IDR_OMNIBOX_CSS" file="resources\empty.css" type="BINDATA" />
       <include name="IDR_OMNIBOX_JS" file="resources\empty.js" type="BINDATA" />
       <include name="IDR_OMNIBOX_MOJO_JS" file="resources\empty.js" type="BINDATA"/>
-      <if expr="enable_plugins">
-        <include name="IDR_PLUGINS_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
-        <include name="IDR_PLUGINS_JS" file="resources\empty.js" type="BINDATA" />
-        <include name="IDR_PLUGINS_MOJO_JS" file="resources\empty.js" type="BINDATA"/>
-      </if>
       <include name="IDR_OMNIBOX_INPUT_CSS" file="resources\omnibox\omnibox_input.css" type="BINDATA" compress="gzip" />
       <include name="IDR_OUTPUT_RESULTS_GROUP_CSS" file="resources\omnibox\output_results_group.css" type="BINDATA" compress="gzip" />
       <include name="IDR_OMNIBOX_OUTPUT_COLUMN_WIDTHS_CSS" file="resources\omnibox\omnibox_output_column_widths.css" type="BINDATA" compress="gzip" />
@@ -211,7 +202,7 @@
       <include name="IDR_COMPONENTS_JS" file="resources\empty.js" type="BINDATA" />
       <include name="IDR_MEMORY_INTERNALS_HTML" file="resources\empty.html" flattenhtml="true" type="BINDATA" />
       <include name="IDR_MEMORY_INTERNALS_JS" file="resources\empty.js" type="BINDATA" />
-      <if expr="enable_plugins">
+      <if expr="enable_pdf">
         <include name="IDR_PDF_MANIFEST" file="resources\pdf\manifest.json" type="BINDATA" />
       </if>
       <if expr="is_android">
@@ -363,10 +354,6 @@
         <include name="IDR_IME_WINDOW_CLOSE_C" file="resources\input_ime\ime_window_close_click.png" type="BINDATA" />
         <include name="IDR_IME_WINDOW_CLOSE_H" file="resources\input_ime\ime_window_close_hover.png" type="BINDATA" />
       </if>
-      <if expr="not is_android">
-        <include name="IDR_TAB_RANKER_EXAMPLE_PREPROCESSOR_CONFIG_PB" file="resource_coordinator\tab_ranker\example_preprocessor_config.pb" type="BINDATA" />
-        <include name="IDR_TAB_RANKER_PAIRWISE_EXAMPLE_PREPROCESSOR_CONFIG_PB" file="resource_coordinator\tab_ranker\pairwise_preprocessor_config.pb" type="BINDATA" />
-      </if>
       <include name="IDR_MEDIA_ENGAGEMENT_HTML" file="resources\empty.html" flattenhtml="true" type="BINDATA" compress="gzip" allowexternalscript="true" />
       <include name="IDR_MEDIA_ENGAGEMENT_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" compress="gzip" />
       <include name="IDR_MEDIA_ENGAGEMENT_SCORE_DETAILS_MOJOM_LITE_JS" file="${root_gen_dir}\chrome\browser\media\media_engagement_score_details.mojom-lite.js" use_base_dir="false" type="BINDATA" compress="gzip" />
@@ -376,8 +363,6 @@
       </if>
       <if expr="not is_android">
         <include name="IDR_DESKTOP_SHARING_HUB_PB" file="${root_gen_dir}\chrome\browser\share\core\resources\desktop_sharing_hub.pb" use_base_dir="false" type="BINDATA" compress="gzip" />
-        <include name="IDR_IMAGE_EDITOR_HTML" file="resources\image_editor\image_editor.html" type="BINDATA" />
-        <include name="IDR_IMAGE_EDITOR_UNTRUSTED_HTML" file="resources\image_editor\untrusted\untrusted.html" type="BINDATA" />
       </if>
     </includes>
   </release>

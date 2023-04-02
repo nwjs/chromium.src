@@ -95,6 +95,7 @@
 #import "ios/chrome/browser/web/sad_tab_tab_helper.h"
 #import "ios/chrome/browser/web/session_state/web_session_state_tab_helper.h"
 #import "ios/chrome/browser/web/web_performance_metrics/web_performance_metrics_tab_helper.h"
+#import "ios/chrome/browser/web_selection/web_selection_tab_helper.h"
 #import "ios/chrome/browser/webui/net_export_tab_helper.h"
 #import "ios/components/security_interstitials/https_only_mode/feature.h"
 #import "ios/components/security_interstitials/https_only_mode/https_only_mode_container.h"
@@ -108,6 +109,7 @@
 #import "ios/components/security_interstitials/safe_browsing/safe_browsing_unsafe_resource_container.h"
 #import "ios/public/provider/chrome/browser/find_in_page/find_in_page_api.h"
 #import "ios/public/provider/chrome/browser/text_zoom/text_zoom_api.h"
+#import "ios/web/common/annotations_utils.h"
 #import "ios/web/common/features.h"
 #import "ios/web/public/web_state.h"
 
@@ -161,8 +163,7 @@ void AttachTabHelpers(web::WebState* web_state, bool for_prerender) {
     BreadcrumbManagerTabHelper::CreateForWebState(web_state);
   }
 
-  if (base::FeatureList::IsEnabled(web::features::kEnableWebPageAnnotations) &&
-      !is_off_the_record) {
+  if (web::WebPageAnnotationsEnabled()) {
     AnnotationsTabHelper::CreateForWebState(web_state);
   }
 
@@ -246,6 +247,10 @@ void AttachTabHelpers(web::WebState* web_state, bool for_prerender) {
 
   if (base::FeatureList::IsEnabled(kSharedHighlightingIOS)) {
     LinkToTextTabHelper::CreateForWebState(web_state);
+  }
+
+  if (base::FeatureList::IsEnabled(kIOSEditMenuPartialTranslate)) {
+    WebSelectionTabHelper::CreateForWebState(web_state);
   }
 
   WebSessionStateTabHelper::CreateForWebState(web_state);

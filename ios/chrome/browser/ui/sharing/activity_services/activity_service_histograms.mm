@@ -65,7 +65,8 @@ enum class ShareActionType {
   ThirdPartyContentApp = 16,
   SaveFile = 17,
   Markup = 18,
-  kMaxValue = Markup
+  NativeAddToHome = 19,
+  kMaxValue = NativeAddToHome
 };
 
 ShareActionType MapActionType(ActivityType type) {
@@ -143,47 +144,50 @@ ShareActionType MapActionType(ActivityType type) {
     case activity_type_util::THIRD_PARTY_READABILITY:
     case activity_type_util::THIRD_PARTY_INSTAPAPER:
       return ShareActionType::ThirdPartyContentApp;
+
+    case activity_type_util::NATIVE_ADD_TO_HOME:
+      return ShareActionType::NativeAddToHome;
   }
 }
 
 void RecordActionForScenario(ShareActionType actionType,
-                             ActivityScenario scenario) {
+                             SharingScenario scenario) {
   const char* histogramName;
   switch (scenario) {
-    case ActivityScenario::TabShareButton:
+    case SharingScenario::TabShareButton:
       histogramName = kShareOmniboxActionsHistogram;
       break;
-    case ActivityScenario::QRCodeImage:
+    case SharingScenario::QRCodeImage:
       histogramName = kShareQRCodeImageActionsHistogram;
       break;
-    case ActivityScenario::HistoryEntry:
+    case SharingScenario::HistoryEntry:
       histogramName = kShareHistoryEntryActionsHistogram;
       break;
-    case ActivityScenario::ReadingListEntry:
+    case SharingScenario::ReadingListEntry:
       histogramName = kShareReadingListEntryActionsHistogram;
       break;
-    case ActivityScenario::BookmarkEntry:
+    case SharingScenario::BookmarkEntry:
       histogramName = kShareBookmarkEntryActionsHistogram;
       break;
-    case ActivityScenario::MostVisitedEntry:
+    case SharingScenario::MostVisitedEntry:
       histogramName = kShareMostVisitedEntryActionsHistogram;
       break;
-    case ActivityScenario::RecentTabsEntry:
+    case SharingScenario::RecentTabsEntry:
       histogramName = kShareRecentTabsEntryActionsHistogram;
       break;
-    case ActivityScenario::SharedHighlight:
+    case SharingScenario::SharedHighlight:
       histogramName = kShareSharedHighlightActionsHistogram;
       break;
-    case ActivityScenario::TabGridItem:
+    case SharingScenario::TabGridItem:
       histogramName = kShareTabGridItemActionsHistogram;
       break;
-    case ActivityScenario::TabGridSelectionMode:
+    case SharingScenario::TabGridSelectionMode:
       histogramName = kShareTabGridSelectionModeActionsHistogram;
       break;
-    case ActivityScenario::ShareChrome:
+    case SharingScenario::ShareChrome:
       histogramName = kShareShareChromeActionsHistogram;
       break;
-    case ActivityScenario::OmniboxMostVisitedEntry:
+    case SharingScenario::OmniboxMostVisitedEntry:
       histogramName = kShareOmniboxMostVisitedEntryActionsHistogram;
   }
   base::UmaHistogramEnumeration(histogramName, actionType);
@@ -193,15 +197,15 @@ void RecordActionForScenario(ShareActionType actionType,
 
 #pragma mark - Public Methods
 
-void RecordScenarioInitiated(ActivityScenario scenario) {
+void RecordScenarioInitiated(SharingScenario scenario) {
   base::UmaHistogramEnumeration(kShareScenariosHistogram, scenario);
 }
 
-void RecordActivityForScenario(ActivityType type, ActivityScenario scenario) {
+void RecordActivityForScenario(ActivityType type, SharingScenario scenario) {
   ShareActionType actionType = MapActionType(type);
   RecordActionForScenario(actionType, scenario);
 }
 
-void RecordCancelledScenario(ActivityScenario scenario) {
+void RecordCancelledScenario(SharingScenario scenario) {
   RecordActionForScenario(ShareActionType::Cancel, scenario);
 }

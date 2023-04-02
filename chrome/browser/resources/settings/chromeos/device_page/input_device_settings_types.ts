@@ -48,6 +48,7 @@ export interface Touchpad {
   isExternal: boolean;
   // Some settings are only available on haptic touchpads.
   isHaptic: boolean;
+  settings: TouchpadSettings;
 }
 
 export interface Mouse {
@@ -55,6 +56,7 @@ export interface Mouse {
   name: string;
   // This property represents whether or not the mouse is an external device.
   isExternal: boolean;
+  settings: MouseSettings;
 }
 
 export interface PointingStick {
@@ -63,39 +65,65 @@ export interface PointingStick {
   // This property represents whether or not the pointing stick is an
   // external device.
   isExternal: boolean;
+  settings: PointingStickSettings;
 }
 
 export interface KeyboardSettings {
-  // TODO: Populate KeyboardSettings interface.
+  modifierRemappings: Map<ModifierKey, ModifierKey>;
+  topRowAreFKeys: boolean;
+  suppressMetaFKeyRewrites: boolean;
+  autoRepeatEnabled: boolean;
+  autoRepeatDelay: number;
+  autoRepeatInterval: number;
+}
+
+export interface TouchpadSettings {
+  sensitivity: number;
+  reverseScrolling: boolean;
+  accelerationEnabled: boolean;
+  tapToClickEnabled: boolean;
+  threeFingerClickEnabled: boolean;
+  tapDraggingEnabled: boolean;
+  scrollSensitivity: number;
+  scrollAcceleration: boolean;
+  hapticSensitivity: number;
+  hapticEnabled: boolean;
+}
+
+export interface MouseSettings {
+  swapRight: boolean;
+  sensitivity: number;
+  reverseScrolling: boolean;
+  accelerationEnabled: boolean;
+  scrollSensitivity: number;
+  scrollAcceleration: boolean;
+}
+
+export interface PointingStickSettings {
+  swapRight: boolean;
+  sensitivity: number;
+  accelerationEnabled: boolean;
 }
 
 export interface KeyboardObserverInterface {
-  // Fired when a keyboard is connected.
-  onKeyboardConnected(keyboard: Keyboard): void;
-  // Fired when a keyboard is removed from the list.
-  onKeyboardDisconnected(id: number): void;
+  // Fired when the keyboard list is updated.
+  onKeyboardListUpdated(keyboards: Keyboard[]): void;
 }
 
 export interface TouchpadObserverInterface {
-  // Fired when a touchpad is connected.
-  onTouchpadConnected(touchpad: Touchpad): void;
-  // Fired when a touchpad is removed from the list.
-  onTouchpadDisconnected(id: number): void;
+  // Fired when the touchpad list is updated.
+  onTouchpadListUpdated(touchpads: Touchpad[]): void;
 }
 
 export interface MouseObserverInterface {
-  // Fired when a mouse is connected.
-  onMouseConnected(mouse: Mouse): void;
-  // Fired when a mouse is removed from the list.
-  onMouseDisconnected(id: number): void;
+  // Fired when the mouse list updated.
+  onMouseListUpdated(mice: Mouse[]): void;
 }
 
 
 export interface PointingStickObserverInterface {
-  // Fired when a pointing stick is connected.
-  onPointingStickConnected(pointingStick: PointingStick): void;
-  // Fired when a pointing stick is removed from the list.
-  onPointingStickDisconnected(id: number): void;
+  // Fired when the pointing stick list is updated.
+  onPointingStickListUpdated(pointingSticks: PointingStick[]): void;
 }
 
 export interface InputDeviceSettingsProviderInterface {
@@ -107,4 +135,8 @@ export interface InputDeviceSettingsProviderInterface {
   getConnectedMouseSettings(): Promise<Mouse[]>;
   observePointingStickSettings(observer: PointingStickObserverInterface): void;
   getConnectedPointingStickSettings(): Promise<PointingStick[]>;
+  setKeyboardSettings(id: number, settings: KeyboardSettings): void;
+  setMouseSettings(id: number, settings: MouseSettings): void;
+  setTouchpadSettings(id: number, settings: TouchpadSettings): void;
+  setPointingStickSettings(id: number, settings: PointingStickSettings): void;
 }

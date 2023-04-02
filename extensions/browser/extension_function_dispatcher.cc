@@ -547,7 +547,7 @@ void ExtensionFunctionDispatcher::DispatchWithCallbackInternal(
     // Skip the quota, event page, activity logging stuff if there
     // isn't an extension, e.g. if the function call was from WebUI.
     if (!sync)
-      function->RunWithValidation()->Execute();
+      function->RunWithValidation().Execute();
     else {
       *success = function->RunNWSync(response, error);
       function->did_respond_ = true;
@@ -594,7 +594,7 @@ void ExtensionFunctionDispatcher::DispatchWithCallbackInternal(
 
     base::ElapsedTimer timer;
     if (!sync)
-      function->RunWithValidation()->Execute();
+      function->RunWithValidation().Execute();
     else {
       *success = function->RunNWSync(response, error);
       function->did_respond_ = true;

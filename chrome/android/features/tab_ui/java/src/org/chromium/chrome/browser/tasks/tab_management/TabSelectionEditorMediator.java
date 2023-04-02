@@ -291,8 +291,10 @@ class TabSelectionEditorMediator
     }
 
     @Override
-    public void handleBackPress() {
+    public @BackPressResult int handleBackPress() {
+        int result = isEditorVisible() ? BackPressResult.SUCCESS : BackPressResult.FAILURE;
         mNavigationProvider.goBack();
+        return result;
     }
 
     @Override
@@ -332,9 +334,7 @@ class TabSelectionEditorMediator
         mResetHandler.resetWithListOfTabs(
                 null, /*preSelectedCount=*/0, /*recyclerViewPosition=*/null, /*quickMode=*/false);
         mModel.set(TabSelectionEditorProperties.IS_VISIBLE, false);
-        if (ChromeFeatureList.sDiscardOccludedBitmaps.isEnabled()) {
-            mResetHandler.postHiding();
-        }
+        mResetHandler.postHiding();
     }
 
     @Override

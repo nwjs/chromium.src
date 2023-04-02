@@ -14,7 +14,7 @@ ci.defaults.set(
     pool = ci.DEFAULT_POOL,
     cores = 8,
     os = os.LINUX_DEFAULT,
-    sheriff_rotations = sheriff_rotations.CHROMIUM_FUZZ,
+    sheriff_rotations = sheriff_rotations.CHROMIUM,
     execution_timeout = ci.DEFAULT_EXECUTION_TIMEOUT,
     notifies = ["chromesec-lkgr-failures"],
     reclient_instance = reclient.instance.DEFAULT_TRUSTED,
@@ -296,6 +296,7 @@ ci.builder(
             gs_bucket = "chromium-browser-msan",
         ),
     ),
+    os = os.LINUX_FOCAL,
     console_view_entry = consoles.console_view_entry(
         category = "linux msan",
         short_name = "org",

@@ -18,7 +18,6 @@
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "base/scoped_observation.h"
-#include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_manager_observer.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
 #include "chrome/browser/web_applications/proto/web_app_os_integration_state.pb.h"
@@ -33,9 +32,15 @@
 #include "third_party/blink/public/common/permissions_policy/permissions_policy.h"
 #include "third_party/skia/include/core/SkColor.h"
 
+class ProfileManager;
+
 namespace apps {
 struct ShareTarget;
 }  // namespace apps
+
+namespace content {
+class StoragePartitionConfig;
+}  // namespace content
 
 namespace webapps {
 enum class WebappInstallSource;
@@ -337,6 +342,13 @@ class WebAppRegistrar : public ProfileManagerObserver {
   absl::optional<proto::WebAppOsIntegrationState>
   GetAppCurrentOsIntegrationState(const AppId& app_id) const;
 
+  // Returns the StoragePartitionConfig of all StoragePartitions used by
+  // |isolated_web_app_id|. Both the primary and any <controlledframe>
+  // StoragePartitions will be returned.
+  std::vector<content::StoragePartitionConfig>
+  GetIsolatedWebAppStoragePartitionConfigs(
+      const AppId& isolated_web_app_id) const;
+
 #if BUILDFLAG(IS_MAC)
   bool AlwaysShowToolbarInFullscreen(const AppId& app_id) const;
   void NotifyAlwaysShowToolbarInFullscreenChanged(const AppId& app_id,
@@ -350,8 +362,6 @@ class WebAppRegistrar : public ProfileManagerObserver {
   void NotifyWebAppFileHandlerApprovalStateChanged(const AppId& app_id);
   void NotifyWebAppsWillBeUpdatedFromSync(
       const std::vector<const WebApp*>& new_apps_state);
-  void NotifyWebAppLocallyInstalledStateChanged(const AppId& app_id,
-                                                bool is_locally_installed);
   void NotifyWebAppDisabledStateChanged(const AppId& app_id, bool is_disabled);
   void NotifyWebAppsDisabledModeChanged();
   void NotifyWebAppLastBadgingTimeChanged(const AppId& app_id,

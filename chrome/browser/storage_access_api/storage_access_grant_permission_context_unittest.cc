@@ -27,6 +27,8 @@
 #include "net/first_party_sets/first_party_set_entry.h"
 #include "net/first_party_sets/global_first_party_sets.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/common/features_generated.h"
 
 namespace {
 
@@ -61,15 +63,16 @@ class StorageAccessGrantPermissionContextTest
     std::vector<base::test::FeatureRefAndParams> enabled;
     std::vector<base::test::FeatureRef> disabled;
     if (saa_enabled) {
-      enabled.push_back({net::features::kStorageAccessAPI,
-                         {
-                             {
-                                 "storage_access_api_auto_deny_outside_fps",
-                                 "false",
-                             },
-                         }});
+      enabled.push_back(
+          {blink::features::kStorageAccessAPI,
+           {
+               {
+                   blink::features::kStorageAccessAPIAutoDenyOutsideFPS.name,
+                   "false",
+               },
+           }});
     } else {
-      disabled.push_back(net::features::kStorageAccessAPI);
+      disabled.push_back(blink::features::kStorageAccessAPI);
     }
     features_.InitWithFeaturesAndParameters(enabled, disabled);
   }
@@ -106,7 +109,7 @@ class StorageAccessGrantPermissionContextTest
         permissions::PermissionRequestManager::FromWebContents(web_contents());
     DCHECK(manager);
     const int implicit_grant_limit =
-        net::features::kStorageAccessAPIDefaultImplicitGrantLimit;
+        blink::features::kStorageAccessAPIImplicitGrantLimit.Get();
     base::RunLoop run_loop;
     auto barrier = base::BarrierCallback<ContentSetting>(
         implicit_grant_limit,
@@ -349,7 +352,7 @@ TEST_F(StorageAccessGrantPermissionContextAPIEnabledTest,
                                        future.GetCallback());
 
   int implicit_grant_limit =
-      net::features::kStorageAccessAPIDefaultImplicitGrantLimit;
+      blink::features::kStorageAccessAPIImplicitGrantLimit.Get();
 
   // We should have no prompts still and our latest result should be an allow.
   EXPECT_EQ(CONTENT_SETTING_ALLOW, future.Get());
@@ -457,14 +460,10 @@ class StorageAccessGrantPermissionContextAPIWithFirstPartySetsTest
     features_.InitWithFeaturesAndParameters(
         /*enabled_features=*/
         {{features::kFirstPartySets, {}},
-         {net::features::kStorageAccessAPI,
+         {blink::features::kStorageAccessAPI,
           {
               {
-                  "storage_access_api_auto_grant_in_fps",
-                  "true",
-              },
-              {
-                  "storage_access_api_auto_deny_outside_fps",
+                  blink::features::kStorageAccessAPIAutoDenyOutsideFPS.name,
                   "false",
               },
           }}},

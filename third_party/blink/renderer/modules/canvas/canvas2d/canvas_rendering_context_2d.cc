@@ -453,13 +453,9 @@ cc::PaintCanvas* CanvasRenderingContext2D::GetPaintCanvas() {
   return canvas()->GetCanvas2DLayerBridge()->GetPaintCanvas();
 }
 
-cc::PaintCanvas* CanvasRenderingContext2D::GetPaintCanvasForDraw(
+void CanvasRenderingContext2D::WillDraw(
     const SkIRect& dirty_rect,
     CanvasPerformanceMonitor::DrawType draw_type) {
-  if (UNLIKELY(isContextLost() || !canvas() ||
-               !canvas()->GetCanvas2DLayerBridge() ||
-               !canvas()->GetCanvas2DLayerBridge()->ResourceProvider()))
-    return nullptr;
   CanvasRenderingContext::DidDraw(dirty_rect, draw_type);
   // Always draw everything during printing.
   if (!layer_count_) {
@@ -469,7 +465,6 @@ cc::PaintCanvas* CanvasRenderingContext2D::GetPaintCanvasForDraw(
         ->ResourceProvider()
         ->FlushIfRecordingLimitExceeded();
   }
-  return canvas()->GetCanvas2DLayerBridge()->GetPaintCanvas();
 }
 
 void CanvasRenderingContext2D::FlushCanvas() {
@@ -556,14 +551,14 @@ void CanvasRenderingContext2D::setFont(const String& new_font) {
           element_font_description.SpecifiedSize());
 
       font_style_builder.SetFontDescription(element_font_description);
-      scoped_refptr<ComputedStyle> font_style = font_style_builder.TakeStyle();
-      canvas()->GetDocument().GetStyleEngine().ComputeFont(
-          *canvas(), font_style.get(), *parsed_style);
+      scoped_refptr<const ComputedStyle> font_style =
+          font_style_builder.TakeStyle();
+      Font font = canvas()->GetDocument().GetStyleEngine().ComputeFont(
+          *canvas(), *font_style, *parsed_style);
 
       // We need to reset Computed and Adjusted size so we skip zoom and
       // minimum font size.
-      FontDescription final_description(
-          font_style->GetFont().GetFontDescription());
+      FontDescription final_description(font.GetFontDescription());
       final_description.SetComputedSize(final_description.SpecifiedSize());
       final_description.SetAdjustedSize(final_description.SpecifiedSize());
 
@@ -984,7 +979,7 @@ void CanvasRenderingContext2D::drawFormattedText(
         [&recording](cc::PaintCanvas* c,
                      const cc::PaintFlags* flags)  // draw lambda
         { c->drawPicture(std::move(recording)); },
-        [](const SkIRect& rect) { return false; }, gfx::RectFToSkRect(bounds),
+        [](const SkIRect& rect) { return false; }, bounds,
         CanvasRenderingContext2DState::PaintType::kFillPaintType,
         CanvasRenderingContext2DState::kNoImage,
         CanvasPerformanceMonitor::DrawType::kText);
@@ -1099,8 +1094,7 @@ void CanvasRenderingContext2D::DrawTextInternal(
       },
       [](const SkIRect& rect)  // overdraw test lambda
       { return false; },
-      gfx::RectFToSkRect(bounds), paint_type,
-      CanvasRenderingContext2DState::kNoImage,
+      bounds, paint_type, CanvasRenderingContext2DState::kNoImage,
       CanvasPerformanceMonitor::DrawType::kText);
 }
 

@@ -792,6 +792,7 @@ void ThreadGroupImpl::WorkerThreadDelegateImpl::BlockingStarted(
     BlockingType blocking_type) {
   DCHECK_CALLED_ON_VALID_THREAD(worker_thread_checker_);
   DCHECK(worker_only().worker_thread_);
+  // Skip if this blocking scope happened outside of a RunTask.
   if (!read_worker().current_task_priority) {
     return;
   }
@@ -830,7 +831,10 @@ void ThreadGroupImpl::WorkerThreadDelegateImpl::BlockingStarted(
 
 void ThreadGroupImpl::WorkerThreadDelegateImpl::BlockingTypeUpgraded() {
   DCHECK_CALLED_ON_VALID_THREAD(worker_thread_checker_);
-  DCHECK(read_worker().current_task_priority);
+  // Skip if this blocking scope happened outside of a RunTask.
+  if (!read_worker().current_task_priority) {
+    return;
+  }
 
   // The blocking type always being WILL_BLOCK in this experiment and with time
   // overrides, it should never be considered "upgraded".
@@ -856,9 +860,12 @@ void ThreadGroupImpl::WorkerThreadDelegateImpl::BlockingTypeUpgraded() {
 
 void ThreadGroupImpl::WorkerThreadDelegateImpl::BlockingEnded() {
   DCHECK_CALLED_ON_VALID_THREAD(worker_thread_checker_);
+  // Skip if this blocking scope happened outside of a RunTask.
+  if (!read_worker().current_task_priority) {
+    return;
+  }
 
   CheckedAutoLock auto_lock(outer_->lock_);
-  DCHECK(read_worker().current_task_priority);
   DCHECK(!read_worker().blocking_start_time.is_null());
   write_worker().blocking_start_time = TimeTicks();
   if (!incremented_max_tasks_for_shutdown_) {

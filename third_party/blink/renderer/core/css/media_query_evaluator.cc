@@ -90,6 +90,30 @@ void MaybeRecordMediaFeatureValue(
   }
 }
 
+KleeneValue KleeneOr(KleeneValue a, KleeneValue b) {
+  switch (a) {
+    case KleeneValue::kTrue:
+      return KleeneValue::kTrue;
+    case KleeneValue::kFalse:
+      return b;
+    case KleeneValue::kUnknown:
+      return (b == KleeneValue::kTrue) ? KleeneValue::kTrue
+                                       : KleeneValue::kUnknown;
+  }
+}
+
+KleeneValue KleeneAnd(KleeneValue a, KleeneValue b) {
+  switch (a) {
+    case KleeneValue::kTrue:
+      return b;
+    case KleeneValue::kFalse:
+      return KleeneValue::kFalse;
+    case KleeneValue::kUnknown:
+      return (b == KleeneValue::kFalse) ? KleeneValue::kFalse
+                                        : KleeneValue::kUnknown;
+  }
+}
+
 }  // namespace
 
 using device::mojom::blink::DevicePostureType;
@@ -230,10 +254,10 @@ KleeneValue MediaQueryEvaluator::EvalAnd(
   KleeneValue left = Eval(left_node, result_flags);
   // Short-circuiting before calling Eval on |right_node| prevents
   // unnecessary entries in |results|.
-  if (left != KleeneValue::kTrue) {
+  if (left == KleeneValue::kFalse) {
     return left;
   }
-  return Eval(right_node, result_flags);
+  return KleeneAnd(left, Eval(right_node, result_flags));
 }
 
 KleeneValue MediaQueryEvaluator::EvalOr(
@@ -246,7 +270,7 @@ KleeneValue MediaQueryEvaluator::EvalOr(
   if (left == KleeneValue::kTrue) {
     return left;
   }
-  return Eval(right_node, result_flags);
+  return KleeneOr(left, Eval(right_node, result_flags));
 }
 
 bool MediaQueryEvaluator::DidResultsChange(
@@ -1306,6 +1330,52 @@ static bool VerticalViewportSegmentsMediaFeatureEval(
   float number;
   return NumberValue(value, number) &&
          CompareValue(vertical_viewport_segments, static_cast<int>(number), op);
+}
+
+static bool OverflowInlineMediaFeatureEval(const MediaQueryExpValue& value,
+                                           MediaQueryOperator,
+                                           const MediaValues& media_values) {
+  bool can_scroll = !EqualIgnoringASCIICase(media_values.MediaType(),
+                                            media_type_names::kPrint);
+  // No value = boolean context:
+  // https://w3c.github.io/csswg-drafts/mediaqueries/#mq-boolean-context
+  if (!value.IsValid()) {
+    return can_scroll;
+  }
+  DCHECK(value.IsId());
+  switch (value.Id()) {
+    case CSSValueID::kNone:
+      return !can_scroll;
+    case CSSValueID::kScroll:
+      return can_scroll;
+    default:
+      NOTREACHED();
+      return false;
+  }
+}
+
+static bool OverflowBlockMediaFeatureEval(const MediaQueryExpValue& value,
+                                          MediaQueryOperator,
+                                          const MediaValues& media_values) {
+  bool can_scroll = !EqualIgnoringASCIICase(media_values.MediaType(),
+                                            media_type_names::kPrint);
+  // No value = boolean context:
+  // https://w3c.github.io/csswg-drafts/mediaqueries/#mq-boolean-context
+  if (!value.IsValid()) {
+    return true;
+  }
+  DCHECK(value.IsId());
+  switch (value.Id()) {
+    case CSSValueID::kNone:
+      return false;
+    case CSSValueID::kScroll:
+      return can_scroll;
+    case CSSValueID::kPaged:
+      return !can_scroll;
+    default:
+      NOTREACHED();
+      return false;
+  }
 }
 
 static bool DevicePostureMediaFeatureEval(const MediaQueryExpValue& value,

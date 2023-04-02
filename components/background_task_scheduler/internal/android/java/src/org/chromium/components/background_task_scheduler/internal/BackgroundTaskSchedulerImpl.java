@@ -7,14 +7,10 @@ package org.chromium.components.background_task_scheduler.internal;
 import android.content.Context;
 
 import org.chromium.base.CommandLine;
-import org.chromium.base.Log;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.TraceEvent;
-import org.chromium.components.background_task_scheduler.BackgroundTask;
 import org.chromium.components.background_task_scheduler.BackgroundTaskScheduler;
 import org.chromium.components.background_task_scheduler.TaskInfo;
-
-import java.util.Map;
 
 /**
  * This {@link BackgroundTaskScheduler} is the only one used in production code, and it is used to
@@ -27,13 +23,10 @@ class BackgroundTaskSchedulerImpl implements BackgroundTaskScheduler {
     private static final String SWITCH_IGNORE_BACKGROUND_TASKS = "ignore-background-tasks";
 
     private final BackgroundTaskSchedulerDelegate mSchedulerDelegate;
-    private final BackgroundTaskSchedulerDelegate mAlarmManagerDelegate;
 
     /** Constructor only for {@link BackgroundTaskSchedulerFactory} and internal component tests. */
-    BackgroundTaskSchedulerImpl(BackgroundTaskSchedulerDelegate schedulerDelegate,
-            BackgroundTaskSchedulerDelegate alarmManagerDelegate) {
+    BackgroundTaskSchedulerImpl(BackgroundTaskSchedulerDelegate schedulerDelegate) {
         mSchedulerDelegate = schedulerDelegate;
-        mAlarmManagerDelegate = alarmManagerDelegate;
     }
 
     @Override
@@ -58,9 +51,6 @@ class BackgroundTaskSchedulerImpl implements BackgroundTaskScheduler {
             MetricsVisitor metricsVisitor = new MetricsVisitor(taskInfo.getTaskId());
             taskInfo.getTimingInfo().accept(metricsVisitor);
 
-            if (success) {
-                BackgroundTaskSchedulerPrefs.addScheduledTask(taskInfo);
-            }
             return success;
         }
     }
@@ -89,11 +79,6 @@ class BackgroundTaskSchedulerImpl implements BackgroundTaskScheduler {
         public void visit(TaskInfo.PeriodicInfo periodicInfo) {
             mSuccess = mSchedulerDelegate.schedule(mContext, mTaskInfo);
         }
-
-        @Override
-        public void visit(TaskInfo.ExactInfo exactInfo) {
-            mSuccess = mAlarmManagerDelegate.schedule(mContext, mTaskInfo);
-        }
     }
 
     // TODO(crbug.com/996178): Update the documentation for the expiration feature.
@@ -115,11 +100,6 @@ class BackgroundTaskSchedulerImpl implements BackgroundTaskScheduler {
             BackgroundTaskSchedulerUma.getInstance().reportTaskCreatedAndExpirationState(
                     mTaskId, periodicInfo.expiresAfterWindowEndTime());
         }
-
-        @Override
-        public void visit(TaskInfo.ExactInfo exactInfo) {
-            BackgroundTaskSchedulerUma.getInstance().reportExactTaskCreated(mTaskId);
-        }
     }
 
     @Override
@@ -129,28 +109,7 @@ class BackgroundTaskSchedulerImpl implements BackgroundTaskScheduler {
             ThreadUtils.assertOnUiThread();
             BackgroundTaskSchedulerUma.getInstance().reportTaskCanceled(taskId);
 
-            ScheduledTaskProto.ScheduledTask scheduledTask =
-                    BackgroundTaskSchedulerPrefs.getScheduledTask(taskId);
-            BackgroundTaskSchedulerPrefs.removeScheduledTask(taskId);
-
-            if (scheduledTask == null) {
-                Log.e(TAG,
-                        "Task cannot be canceled because no data was found in"
-                                + "storage or data was invalid");
-                return;
-            }
-
-            selectDelegateAndCancel(context, scheduledTask.getType(), taskId);
-        }
-    }
-
-    @Override
-    public boolean isScheduled(Context context, int taskId) {
-        try (TraceEvent te = TraceEvent.scoped(
-                     "BackgroundTaskScheduler.isScheduled", Integer.toString(taskId))) {
-            ThreadUtils.assertOnUiThread();
-
-            return (BackgroundTaskSchedulerPrefs.getScheduledTask(taskId) != null);
+            mSchedulerDelegate.cancel(context, taskId);
         }
     }
 
@@ -159,52 +118,7 @@ class BackgroundTaskSchedulerImpl implements BackgroundTaskScheduler {
         try (TraceEvent te = TraceEvent.scoped("BackgroundTaskScheduler.checkForOSUpgrade")) {
             ThreadUtils.assertOnUiThread();
 
-            // Update tasks stored in the old format to the proto format at Chrome Startup, if
-            // tasks are found to be stored in the old format. This allows to keep only one
-            // implementation of the storage methods.
-            // This proto store was added in M78, and should be deleted when upgrades from that
-            // of Chrome is no longer considered a core user journey.
-            // TODO(crbug.com/1406114) Remove this migration and the underlying preferences.
-            BackgroundTaskSchedulerPrefs.migrateStoredTasksToProto();
-
             BackgroundTaskSchedulerUma.getInstance().flushStats();
-        }
-    }
-
-    @Override
-    public void reschedule(Context context) {
-        try (TraceEvent te = TraceEvent.scoped("BackgroundTaskScheduler.reschedule")) {
-            ThreadUtils.assertOnUiThread();
-            Map<Integer, ScheduledTaskProto.ScheduledTask> scheduledTasks =
-                    BackgroundTaskSchedulerPrefs.getScheduledTasks();
-            BackgroundTaskSchedulerPrefs.removeAllTasks();
-            for (Map.Entry<Integer, ScheduledTaskProto.ScheduledTask> entry :
-                    scheduledTasks.entrySet()) {
-                final BackgroundTask backgroundTask =
-                        BackgroundTaskSchedulerFactoryInternal.getBackgroundTaskFromTaskId(
-                                entry.getKey());
-                if (backgroundTask == null) {
-                    Log.w(TAG,
-                            "Cannot reschedule task for task id " + entry.getKey() + ". Could not "
-                                    + "instantiate BackgroundTask class.");
-                    // Cancel task if the BackgroundTask class is not found anymore. We assume this
-                    // means that the task has been deprecated.
-                    selectDelegateAndCancel(context, entry.getValue().getType(), entry.getKey());
-                    continue;
-                }
-
-                BackgroundTaskSchedulerUma.getInstance().reportTaskRescheduled();
-                backgroundTask.reschedule(context);
-            }
-        }
-    }
-
-    private void selectDelegateAndCancel(
-            Context context, ScheduledTaskProto.ScheduledTask.Type taskType, int taskId) {
-        if (taskType == ScheduledTaskProto.ScheduledTask.Type.EXACT) {
-            mAlarmManagerDelegate.cancel(context, taskId);
-        } else {
-            mSchedulerDelegate.cancel(context, taskId);
         }
     }
 }

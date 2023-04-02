@@ -6,6 +6,7 @@
 
 #include <fcntl.h>
 #include <stddef.h>
+#include <cstdint>
 
 #include "ash/constants/ash_features.h"
 #include "base/feature_list.h"
@@ -23,14 +24,19 @@
 #include "ui/base/ime/ash/ime_keyboard.h"
 #include "ui/base/ime/ash/input_method_manager.h"
 #include "ui/base/ui_base_features.h"
-#include "ui/chromeos/events/modifier_key.h"
+#include "ui/chromeos/events/mojom/modifier_key.mojom-shared.h"
 #include "ui/chromeos/events/pref_names.h"
 #include "ui/events/devices/device_data_manager.h"
+#include "ui/events/event.h"
+#include "ui/events/event_constants.h"
+#include "ui/events/event_rewriter.h"
 #include "ui/events/event_utils.h"
 #include "ui/events/keycodes/dom/dom_code.h"
 #include "ui/events/keycodes/dom/keycode_converter.h"
 #include "ui/events/keycodes/keyboard_code_conversion.h"
+#include "ui/events/keycodes/keyboard_codes_posix.h"
 #include "ui/events/ozone/evdev/event_device_info.h"
+#include "ui/events/types/event_type.h"
 
 namespace ui {
 
@@ -43,6 +49,99 @@ const int kHotrodRemoteProductId = 0x21cc;
 // Flag masks for remapping alt+click or search+click to right click.
 constexpr int kAltLeftButton = (EF_ALT_DOWN | EF_LEFT_MOUSE_BUTTON);
 constexpr int kSearchLeftButton = (EF_COMMAND_DOWN | EF_LEFT_MOUSE_BUTTON);
+
+// Index of the remapped flags in the auto repeat usage metric.
+enum class AutoRepeatUsageModifierFlag : uint32_t {
+  kMeta = 0,
+  kControl = 1,
+  kAlt = 2,
+  kShift = 3,
+  kCapsLock = 4,
+  kNumModifierFlags
+};
+
+// Mapping between event flag to `AutoRepeatUsageModifierFlag` index for the
+// auto repeat usage metric.
+constexpr struct AutoRepeatUsageModifierMapping {
+  int event_flag;
+  AutoRepeatUsageModifierFlag auto_repeat_flag;
+} kEventFlagToAutoRepeatMetricFlag[] = {
+    {EF_COMMAND_DOWN, AutoRepeatUsageModifierFlag::kMeta},
+    {EF_CONTROL_DOWN, AutoRepeatUsageModifierFlag::kControl},
+    {EF_ALT_DOWN, AutoRepeatUsageModifierFlag::kAlt},
+    {EF_SHIFT_DOWN, AutoRepeatUsageModifierFlag::kShift},
+    {EF_CAPS_LOCK_ON, AutoRepeatUsageModifierFlag::kCapsLock},
+};
+
+// Amount to shift the bitset of modifiers to so they are left aligned at the
+// top of the 32 bit int.
+constexpr int kAutoRepeatUsageAmountToShiftModifierFlags =
+    ((sizeof(uint32_t) * 8) -
+     static_cast<int>(AutoRepeatUsageModifierFlag::kNumModifierFlags));
+
+// Number of bits reserved for potential new keyboard codes in the future
+// without breaking the auto repeat usage metric.
+constexpr int kAutoRepeatUsageNumBitsReservedForKeyboardCode = 16;
+static_assert(kAutoRepeatUsageAmountToShiftModifierFlags >=
+              kAutoRepeatUsageNumBitsReservedForKeyboardCode);
+
+// Records the usage of auto repeat in a sparse histogram. Keeps track of the
+// keyboard code + the modifier flags.
+// To decode:
+// Top `AutoRepeatUsageModifierFlag::kNumModifierFlags` bits are used to denote
+// modifier flags. See `AutoRepeatUsageModifierFlag` to decode the top bits.
+// The rest of the bits are used to store the `KeyboardCode` for the repeated
+// keypress. Currently, `kAutoRepeatUsageNumBitsReservedForKeyboardCode` are
+// reserved to allow the number of `KeyboardCode` values to expand in the future
+// without breaking this metric.
+void RecordAutoRepeatUsageMetric(
+    const KeyEvent& key_event,
+    const std::unique_ptr<Event>& rewritten_event) {
+  // Use original event if the event has not been rewritten.
+  const KeyEvent* auto_repeat_event = &key_event;
+  if (rewritten_event) {
+    auto_repeat_event = rewritten_event.get()->AsKeyEvent();
+  }
+
+  // Only want to record metrics if its a repeated keypressed event.
+  if (!(auto_repeat_event->flags() & EF_IS_REPEAT) ||
+      !(auto_repeat_event->type() & ET_KEY_PRESSED)) {
+    return;
+  }
+
+  // Apply remapped auto repeat event flags.
+  uint32_t auto_repeat_usage_modifier_flags = 0;
+  for (const auto& [event_flag, auto_repeat_flag] :
+       kEventFlagToAutoRepeatMetricFlag) {
+    if (auto_repeat_event->flags() & event_flag) {
+      auto_repeat_usage_modifier_flags |=
+          (1u << static_cast<uint32_t>(auto_repeat_flag));
+    }
+  }
+
+  UMA_HISTOGRAM_SPARSE("ChromeOS.Inputs.AutoRepeatUsage",
+                       ((auto_repeat_usage_modifier_flags
+                         << kAutoRepeatUsageAmountToShiftModifierFlags) +
+                        auto_repeat_event->key_code()));
+}
+
+using ModifierKeyUsageMetric = EventRewriterChromeOS::ModifierKeyUsageMetric;
+constexpr struct ModifierKeyUsageMapping {
+  DomCode code;
+  ModifierKeyUsageMetric modifier_key_enum;
+} modifier_key_usage_mappings[] = {
+    {DomCode::CONTROL_LEFT, ModifierKeyUsageMetric::kControlLeft},
+    {DomCode::CONTROL_RIGHT, ModifierKeyUsageMetric::kControlRight},
+    {DomCode::META_LEFT, ModifierKeyUsageMetric::kMetaLeft},
+    {DomCode::META_RIGHT, ModifierKeyUsageMetric::kMetaRight},
+    {DomCode::ALT_LEFT, ModifierKeyUsageMetric::kAltLeft},
+    {DomCode::ALT_RIGHT, ModifierKeyUsageMetric::kAltRight},
+    {DomCode::SHIFT_LEFT, ModifierKeyUsageMetric::kShiftLeft},
+    {DomCode::SHIFT_RIGHT, ModifierKeyUsageMetric::kShiftRight},
+    {DomCode::BACKSPACE, ModifierKeyUsageMetric::kBackspace},
+    {DomCode::ESCAPE, ModifierKeyUsageMetric::kEscape},
+    {DomCode::CAPS_LOCK, ModifierKeyUsageMetric::kCapsLock},
+    {DomCode::LAUNCH_ASSISTANT, ModifierKeyUsageMetric::kAssistant}};
 
 // Table of properties of remappable keys and/or remapping targets (not
 // strictly limited to "modifiers").
@@ -61,51 +160,64 @@ constexpr int kSearchLeftButton = (EF_COMMAND_DOWN | EF_LEFT_MOUSE_BUTTON);
 // is set in the incoming event. Using the |pref_name| in the table entry,
 // it likewise uses |GetRemappedKey()| to find the properties of the
 // user preference target key, and replaces the flag accordingly.
-const struct ModifierRemapping {
+constexpr struct ModifierRemapping {
   int flag;
-  chromeos::ModifierKey remap_to;
+  ui::mojom::ModifierKey remap_to;
   const char* pref_name;
   EventRewriterChromeOS::MutableKeyState result;
 } kModifierRemappings[] = {
     {EF_CONTROL_DOWN,
-     chromeos::ModifierKey::kControlKey,
+     ui::mojom::ModifierKey::kControl,
      prefs::kLanguageRemapControlKeyTo,
      {EF_CONTROL_DOWN, DomCode::CONTROL_LEFT, DomKey::CONTROL, VKEY_CONTROL}},
-    {// kModifierRemappingNeoMod3 references this entry by index.
-     EF_MOD3_DOWN | EF_ALTGR_DOWN,
-     chromeos::ModifierKey::kNumModifierKeys,
+    {EF_MOD3_DOWN | EF_ALTGR_DOWN,
+     mojom::ModifierKey::kIsoLevel5ShiftMod3,
      nullptr,
      {EF_MOD3_DOWN | EF_ALTGR_DOWN, DomCode::CAPS_LOCK, DomKey::ALT_GRAPH,
       VKEY_ALTGR}},
     {EF_COMMAND_DOWN,
-     chromeos::ModifierKey::kSearchKey,
+     ui::mojom::ModifierKey::kMeta,
      prefs::kLanguageRemapSearchKeyTo,
      {EF_COMMAND_DOWN, DomCode::META_LEFT, DomKey::META, VKEY_LWIN}},
     {EF_ALT_DOWN,
-     chromeos::ModifierKey::kAltKey,
+     ui::mojom::ModifierKey::kAlt,
      prefs::kLanguageRemapAltKeyTo,
      {EF_ALT_DOWN, DomCode::ALT_LEFT, DomKey::ALT, VKEY_MENU}},
     {EF_NONE,
-     chromeos::ModifierKey::kVoidKey,
+     ui::mojom::ModifierKey::kVoid,
      nullptr,
      {EF_NONE, DomCode::NONE, DomKey::NONE, VKEY_UNKNOWN}},
     {EF_MOD3_DOWN,
-     chromeos::ModifierKey::kCapsLockKey,
+     ui::mojom::ModifierKey::kCapsLock,
      prefs::kLanguageRemapCapsLockKeyTo,
      {EF_MOD3_DOWN, DomCode::CAPS_LOCK, DomKey::CAPS_LOCK, VKEY_CAPITAL}},
     {EF_NONE,
-     chromeos::ModifierKey::kEscapeKey,
+     ui::mojom::ModifierKey::kEscape,
      prefs::kLanguageRemapEscapeKeyTo,
      {EF_NONE, DomCode::ESCAPE, DomKey::ESCAPE, VKEY_ESCAPE}},
     {EF_NONE,
-     chromeos::ModifierKey::kBackspaceKey,
+     ui::mojom::ModifierKey::kBackspace,
      prefs::kLanguageRemapBackspaceKeyTo,
      {EF_NONE, DomCode::BACKSPACE, DomKey::BACKSPACE, VKEY_BACK}},
     {EF_NONE,
-     chromeos::ModifierKey::kAssistantKey,
+     ui::mojom::ModifierKey::kAssistant,
      prefs::kLanguageRemapAssistantKeyTo,
      {EF_NONE, DomCode::LAUNCH_ASSISTANT, DomKey::LAUNCH_ASSISTANT,
       VKEY_ASSISTANT}}};
+
+// Finds the remapping for Neo Mod3 in the list. Used only to set the value of
+// |kModifierRemappingIsoLevel5ShiftMod3|.
+constexpr const ModifierRemapping* GetModifierRemappingNeoMod3() {
+  for (auto& remapping : kModifierRemappings) {
+    if (remapping.remap_to == mojom::ModifierKey::kIsoLevel5ShiftMod3) {
+      return &remapping;
+    }
+  }
+  return nullptr;
+}
+constexpr const ModifierRemapping* kModifierRemappingIsoLevel5ShiftMod3 =
+    GetModifierRemappingNeoMod3();
+static_assert(kModifierRemappingIsoLevel5ShiftMod3 != nullptr);
 
 const EventRewriterChromeOS::MutableKeyState kCustomTopRowLayoutFKeys[] = {
     {EF_NONE, DomCode::F1, DomKey::F1, VKEY_F1},
@@ -130,8 +242,6 @@ constexpr KeyboardCode kMaxCustomTopRowLayoutFKeyCode = VKEY_F15;
 bool IsCustomLayoutFunctionKey(KeyboardCode key_code) {
   return key_code >= VKEY_F1 && key_code <= kMaxCustomTopRowLayoutFKeyCode;
 }
-
-const ModifierRemapping* kModifierRemappingNeoMod3 = &kModifierRemappings[1];
 
 // Gets a remapped key for |pref_name| key. For example, to find out which
 // key Ctrl is currently remapped to, call the function with
@@ -701,25 +811,12 @@ void RecordSixPackEventRewrites(ui::EventType event_type,
 
 ///////////////////////////////////////////////////////////////////////////////
 
-EventRewriterChromeOS::MutableKeyState::MutableKeyState()
-    : MutableKeyState(0, DomCode::NONE, 0, KeyboardCode::VKEY_NONAME) {}
-
 EventRewriterChromeOS::MutableKeyState::MutableKeyState(
     const KeyEvent* key_event)
     : MutableKeyState(key_event->flags(),
                       key_event->code(),
                       key_event->GetDomKey(),
                       key_event->key_code()) {}
-
-EventRewriterChromeOS::MutableKeyState::MutableKeyState(
-    int input_flags,
-    DomCode input_code,
-    DomKey::Base input_key,
-    KeyboardCode input_key_code)
-    : flags(input_flags),
-      code(input_code),
-      key(input_key),
-      key_code(input_key_code) {}
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -772,16 +869,17 @@ EventDispatchDetails EventRewriterChromeOS::RewriteEvent(
   if ((event.type() == ET_KEY_PRESSED) || (event.type() == ET_KEY_RELEASED)) {
     std::unique_ptr<Event> rewritten_event;
     const base::Time key_rewrite_start_time = base::Time::Now();
+    DCHECK((&event)->AsKeyEvent());
     const EventRewriteStatus status =
         RewriteKeyEvent(*((&event)->AsKeyEvent()), &rewritten_event);
-    const EventDispatchDetails details = RewriteKeyEventInContext(
-        *((&event)->AsKeyEvent()), std::move(rewritten_event), status,
-        continuation);
+    RecordAutoRepeatUsageMetric(*((&event)->AsKeyEvent()), rewritten_event);
     UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES(
         "ChromeOS.Inputs.EventRewriter.KeyRewriteLatency",
         base::Time::Now() - key_rewrite_start_time, base::Microseconds(1),
         base::Milliseconds(100), 100);
-    return details;
+    return RewriteKeyEventInContext(*((&event)->AsKeyEvent()),
+                                    std::move(rewritten_event), status,
+                                    continuation);
   }
   if ((event.type() == ET_MOUSE_PRESSED) ||
       (event.type() == ET_MOUSE_RELEASED)) {
@@ -934,7 +1032,7 @@ bool EventRewriterChromeOS::RewriteModifierKeys(const KeyEvent& key_event,
         }
       }
       if (remapped_key && remapped_key->result.key_code == VKEY_CAPITAL) {
-        remapped_key = kModifierRemappingNeoMod3;
+        remapped_key = kModifierRemappingIsoLevel5ShiftMod3;
       }
       break;
     case DomKey::ALT_GRAPH_LATCH:
@@ -1032,7 +1130,7 @@ bool EventRewriterChromeOS::RewriteModifierKeys(const KeyEvent& key_event,
       // turn on the Capslock modifier when the key has been remapped.
       incoming.flags &= ~EF_CAPS_LOCK_ON;
     }
-    if (remapped_key->remap_to == chromeos::ModifierKey::kCapsLockKey) {
+    if (remapped_key->remap_to == ui::mojom::ModifierKey::kCapsLock) {
       characteristic_flag |= EF_CAPS_LOCK_ON;
     }
     state->code = RelocateModifier(
@@ -1161,7 +1259,7 @@ int EventRewriterChromeOS::GetRemappedModifierMasks(const Event& event,
       case EF_MOD3_DOWN | EF_ALTGR_DOWN:
         if ((original_flags & EF_ALTGR_DOWN) &&
             IsISOLevel5ShiftUsedByCurrentInputMethod()) {
-          remapped_key = kModifierRemappingNeoMod3;
+          remapped_key = kModifierRemappingIsoLevel5ShiftMod3;
         }
         break;
       default:
@@ -1221,6 +1319,94 @@ bool EventRewriterChromeOS::ShouldRemapToRightClick(
          IsFromTouchpadDevice(mouse_event);
 }
 
+void EventRewriterChromeOS::RecordModifierKeyPressedAfterRemapping(
+    DomCode dom_code) {
+  const ModifierKeyUsageMapping* modifier_key_usage_mapping = nullptr;
+  for (const auto& mapping : modifier_key_usage_mappings) {
+    if (dom_code == mapping.code) {
+      modifier_key_usage_mapping = &mapping;
+      break;
+    }
+  }
+
+  if (modifier_key_usage_mapping == nullptr) {
+    return;
+  }
+
+  const auto device_type = GetLastKeyboardType();
+  switch (device_type) {
+    case KeyboardCapability::DeviceType::kDeviceInternalKeyboard:
+      UMA_HISTOGRAM_ENUMERATION(
+          "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.Internal",
+          modifier_key_usage_mapping->modifier_key_enum);
+      break;
+    case KeyboardCapability::DeviceType::kDeviceExternalAppleKeyboard:
+      UMA_HISTOGRAM_ENUMERATION(
+          "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.AppleExternal",
+          modifier_key_usage_mapping->modifier_key_enum);
+      break;
+    case KeyboardCapability::DeviceType::kDeviceExternalChromeOsKeyboard:
+      UMA_HISTOGRAM_ENUMERATION(
+          "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.CrOSExternal",
+          modifier_key_usage_mapping->modifier_key_enum);
+      break;
+    case KeyboardCapability::DeviceType::kDeviceExternalGenericKeyboard:
+    case KeyboardCapability::DeviceType::kDeviceExternalUnknown:
+      UMA_HISTOGRAM_ENUMERATION(
+          "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.External",
+          modifier_key_usage_mapping->modifier_key_enum);
+      break;
+    case KeyboardCapability::DeviceType::kDeviceHotrodRemote:
+    case KeyboardCapability::DeviceType::kDeviceVirtualCoreKeyboard:
+    case KeyboardCapability::DeviceType::kDeviceUnknown:
+      break;
+  }
+}
+
+void EventRewriterChromeOS::RecordModifierKeyPressedBeforeRemapping(
+    DomCode dom_code) {
+  const ModifierKeyUsageMapping* modifier_key_usage_mapping = nullptr;
+  for (const auto& mapping : modifier_key_usage_mappings) {
+    if (dom_code == mapping.code) {
+      modifier_key_usage_mapping = &mapping;
+      break;
+    }
+  }
+
+  if (modifier_key_usage_mapping == nullptr) {
+    return;
+  }
+
+  const auto device_type = GetLastKeyboardType();
+  switch (device_type) {
+    case KeyboardCapability::DeviceType::kDeviceInternalKeyboard:
+      UMA_HISTOGRAM_ENUMERATION(
+          "ChromeOS.Inputs.Keyboard.ModifierPressed.Internal",
+          modifier_key_usage_mapping->modifier_key_enum);
+      break;
+    case KeyboardCapability::DeviceType::kDeviceExternalAppleKeyboard:
+      UMA_HISTOGRAM_ENUMERATION(
+          "ChromeOS.Inputs.Keyboard.ModifierPressed.AppleExternal",
+          modifier_key_usage_mapping->modifier_key_enum);
+      break;
+    case KeyboardCapability::DeviceType::kDeviceExternalChromeOsKeyboard:
+      UMA_HISTOGRAM_ENUMERATION(
+          "ChromeOS.Inputs.Keyboard.ModifierPressed.CrOSExternal",
+          modifier_key_usage_mapping->modifier_key_enum);
+      break;
+    case KeyboardCapability::DeviceType::kDeviceExternalGenericKeyboard:
+    case KeyboardCapability::DeviceType::kDeviceExternalUnknown:
+      UMA_HISTOGRAM_ENUMERATION(
+          "ChromeOS.Inputs.Keyboard.ModifierPressed.External",
+          modifier_key_usage_mapping->modifier_key_enum);
+      break;
+    case KeyboardCapability::DeviceType::kDeviceHotrodRemote:
+    case KeyboardCapability::DeviceType::kDeviceVirtualCoreKeyboard:
+    case KeyboardCapability::DeviceType::kDeviceUnknown:
+      break;
+  }
+}
+
 EventRewriteStatus EventRewriterChromeOS::RewriteKeyEvent(
     const KeyEvent& key_event,
     std::unique_ptr<Event>* rewritten_event) {
@@ -1235,6 +1421,13 @@ EventRewriteStatus EventRewriterChromeOS::RewriteKeyEvent(
     return EVENT_REWRITE_DISCARD;
   }
 
+  // Records metric if the `key_event` is for a modifier key press event.
+  const bool should_record_modifier_key_press_metrics =
+      !(key_event.flags() & EF_IS_REPEAT) && key_event.type() == ET_KEY_PRESSED;
+  if (should_record_modifier_key_press_metrics) {
+    RecordModifierKeyPressedBeforeRemapping(key_event.code());
+  }
+
   MutableKeyState state = {key_event.flags(), key_event.code(),
                            key_event.GetDomKey(), key_event.key_code()};
 
@@ -1245,11 +1438,18 @@ EventRewriteStatus EventRewriterChromeOS::RewriteKeyEvent(
     // done to the key event. It will only return true if the key event is
     // rewritten to ALTGR. A false return is not an error.
     if (RewriteModifierKeys(key_event, &state)) {
+      if (should_record_modifier_key_press_metrics) {
+        RecordModifierKeyPressedAfterRemapping(state.code);
+      }
       // Early exit with completed event.
       BuildRewrittenKeyEvent(key_event, state, rewritten_event);
       return EVENT_REWRITE_REWRITTEN;
     }
     RewriteNumPadKeys(key_event, &state);
+  }
+
+  if (should_record_modifier_key_press_metrics) {
+    RecordModifierKeyPressedAfterRemapping(state.code);
   }
 
   if (delegate_ &&

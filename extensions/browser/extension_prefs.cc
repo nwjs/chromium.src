@@ -1490,6 +1490,16 @@ std::unique_ptr<ExtensionInfo> ExtensionPrefs::GetInstalledInfoHelper(
   const std::string* path = extension.FindString(kPrefPath);
   if (!path)
     return nullptr;
+
+  // The old creation flag value for indicating an extension was a bookmark app.
+  // This matches the commented-out entry in extension.h.
+  constexpr int kOldBookmarkAppFlag = 1 << 4;
+  absl::optional<int> creation_flags = extension.FindInt(kPrefCreationFlags);
+  if (creation_flags && (*creation_flags & kOldBookmarkAppFlag)) {
+    // This is an old bookmark app entry. Ignore it.
+    return nullptr;
+  }
+
   base::FilePath file_path = base::FilePath::FromUTF8Unsafe(*path);
 
   // Make path absolute. Most (but not all) extension types have relative paths.
@@ -1520,21 +1530,22 @@ std::unique_ptr<ExtensionInfo> ExtensionPrefs::GetInstalledExtensionInfo(
                                 include_component_extensions);
 }
 
-std::unique_ptr<ExtensionPrefs::ExtensionsInfo>
-ExtensionPrefs::GetInstalledExtensionsInfo(
+ExtensionPrefs::ExtensionsInfo ExtensionPrefs::GetInstalledExtensionsInfo(
     bool include_component_extensions) const {
-  std::unique_ptr<ExtensionsInfo> extensions_info(new ExtensionsInfo);
+  ExtensionsInfo extensions_info;
 
   const base::Value::Dict& extensions =
       prefs_->GetDict(pref_names::kExtensions);
-  for (const auto extension_id : extensions) {
-    if (!crx_file::id_util::IdIsValid(extension_id.first))
+  for (const auto [extension_id, _] : extensions) {
+    if (!crx_file::id_util::IdIsValid(extension_id)) {
       continue;
+    }
 
-    std::unique_ptr<ExtensionInfo> info = GetInstalledExtensionInfo(
-        extension_id.first, include_component_extensions);
-    if (info)
-      extensions_info->push_back(std::move(info));
+    std::unique_ptr<ExtensionInfo> info =
+        GetInstalledExtensionInfo(extension_id, include_component_extensions);
+    if (info) {
+      extensions_info.push_back(std::move(info));
+    }
   }
 
   return extensions_info;
@@ -1651,9 +1662,9 @@ ExtensionPrefs::DelayReason ExtensionPrefs::GetDelayedInstallReason(
   return static_cast<DelayReason>(*delay_reason);
 }
 
-std::unique_ptr<ExtensionPrefs::ExtensionsInfo>
-ExtensionPrefs::GetAllDelayedInstallInfo() const {
-  std::unique_ptr<ExtensionsInfo> extensions_info(new ExtensionsInfo);
+ExtensionPrefs::ExtensionsInfo ExtensionPrefs::GetAllDelayedInstallInfo()
+    const {
+  ExtensionsInfo extensions_info;
 
   const base::Value::Dict& extensions =
       prefs_->GetDict(pref_names::kExtensions);
@@ -1662,8 +1673,9 @@ ExtensionPrefs::GetAllDelayedInstallInfo() const {
       continue;
 
     std::unique_ptr<ExtensionInfo> info = GetDelayedInstallInfo(extension_id);
-    if (info)
-      extensions_info->push_back(std::move(info));
+    if (info) {
+      extensions_info.push_back(std::move(info));
+    }
   }
 
   return extensions_info;
@@ -1766,7 +1778,7 @@ void ExtensionPrefs::ClearLastLaunchTimes() {
   // Collect all the keys to remove the last launched preference from.
   prefs::ScopedDictionaryPrefUpdate update(prefs_, pref_names::kExtensions);
   auto update_dict = update.Get();
-  for (const auto [key, value] : *update_dict->AsConstDict()) {
+  for (const auto [key, _] : *update_dict->AsConstDict()) {
     std::unique_ptr<prefs::DictionaryValueUpdate> extension_dict;
     if (!update_dict->GetDictionary(key, &extension_dict))
       continue;
@@ -1870,11 +1882,15 @@ void ExtensionPrefs::DecrementPref(const PrefMap& pref) {
   SetIntegerPref(pref, count - 1);
 }
 
-void ExtensionPrefs::GetExtensions(ExtensionIdList* out) const {
-  CHECK(out);
-  base::ranges::transform(*GetInstalledExtensionsInfo(),
-                          std::back_inserter(*out),
+ExtensionIdList ExtensionPrefs::GetExtensions() const {
+  ExtensionIdList result;
+
+  const ExtensionsInfo infos = GetInstalledExtensionsInfo();
+  result.reserve(infos.size());
+  base::ranges::transform(infos, std::back_inserter(result),
                           [](const auto& info) { return info->extension_id; });
+
+  return result;
 }
 
 void ExtensionPrefs::AddObserver(ExtensionPrefsObserver* observer) {
@@ -1890,8 +1906,8 @@ void ExtensionPrefs::InitPrefStore() {
 
   // When this is called, the PrefService is initialized and provides access
   // to the user preferences stored in a JSON file.
-  std::unique_ptr<ExtensionsInfo> extensions_info =
-      GetInstalledExtensionsInfo(/*include_component_extensions = */ true);
+  ExtensionsInfo extensions_info =
+      GetInstalledExtensionsInfo(/*include_component_extensions=*/true);
 
   if (extensions_disabled_) {
     // Normally, if extensions are disabled, we don't want to load the
@@ -1921,10 +1937,10 @@ void ExtensionPrefs::InitPrefStore() {
       return !Manifest::ShouldAlwaysLoadExtension(info->extension_location,
                                                   is_theme);
     };
-    base::EraseIf(*extensions_info, predicate);
+    base::EraseIf(extensions_info, predicate);
   }
 
-  InitExtensionControlledPrefs(*extensions_info);
+  InitExtensionControlledPrefs(extensions_info);
 
   extension_pref_value_map_->NotifyInitializationCompleted();
 }
@@ -2214,10 +2230,14 @@ void ExtensionPrefs::RegisterProfilePrefs(
   registry->RegisterStringPref(pref_names::kLastChromeVersion, std::string());
   registry->RegisterDictionaryPref(kInstallSignature);
   registry->RegisterListPref(kExternalUninstalls);
+  registry->RegisterListPref(
+      pref_names::kExtendedBackgroundLifetimeForPortConnectionsToUrls);
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_FUCHSIA)
   registry->RegisterBooleanPref(pref_names::kChromeAppsEnabled, false);
 #endif
+  registry->RegisterBooleanPref(
+      pref_names::kChromeAppsWebViewPermissiveBehaviorAllowed, false);
 
   registry->RegisterListPref(pref_names::kNativeMessagingBlocklist);
   registry->RegisterListPref(pref_names::kNativeMessagingAllowlist);
@@ -2232,6 +2252,8 @@ void ExtensionPrefs::RegisterProfilePrefs(
 #endif
 
   registry->RegisterBooleanPref(pref_names::kBlockExternalExtensions, false);
+  registry->RegisterIntegerPref(pref_names::kExtensionUnpublishedAvailability,
+                                0);
 }
 
 template <class ExtensionIdContainer>
@@ -2480,10 +2502,10 @@ void ExtensionPrefs::FinishExtensionInfoPrefs(
 void ExtensionPrefs::BackfillAndMigrateInstallTimePrefs() {
   // Get information for for all extensions including component extensions
   // since the install time pref is saved for them too.
-  std::unique_ptr<ExtensionsInfo> extensions_info(
-      GetInstalledExtensionsInfo(/*include_component_extensions=*/true));
+  const ExtensionsInfo extensions_info =
+      GetInstalledExtensionsInfo(/*include_component_extensions=*/true);
 
-  for (const auto& info : *extensions_info) {
+  for (const auto& info : extensions_info) {
     ScopedExtensionPrefUpdate update(prefs_, info->extension_id);
     auto ext_dict = update.Get();
     if (ext_dict->HasKey(kPrefDeprecatedInstallTime)) {
@@ -2500,9 +2522,9 @@ void ExtensionPrefs::BackfillAndMigrateInstallTimePrefs() {
 }
 
 void ExtensionPrefs::MigrateDeprecatedDisableReasons() {
-  std::unique_ptr<ExtensionsInfo> extensions_info(GetInstalledExtensionsInfo());
+  const ExtensionsInfo extensions_info = GetInstalledExtensionsInfo();
 
-  for (const auto& info : *extensions_info) {
+  for (const auto& info : extensions_info) {
     const ExtensionId& extension_id = info->extension_id;
     int disable_reasons = GetDisableReasons(extension_id);
     if ((disable_reasons &
@@ -2545,9 +2567,9 @@ void ExtensionPrefs::MigrateObsoleteExtensionPrefs() {
 }
 
 void ExtensionPrefs::MigrateToNewWithholdingPref() {
-  std::unique_ptr<ExtensionsInfo> extensions_info(GetInstalledExtensionsInfo());
+  const ExtensionsInfo extensions_info = GetInstalledExtensionsInfo();
 
-  for (const auto& info : *extensions_info) {
+  for (const auto& info : extensions_info) {
     const ExtensionId& extension_id = info->extension_id;
     // The manifest may be null in some cases, such as unpacked extensions
     // retrieved from the Preference file.
@@ -2597,7 +2619,7 @@ void ExtensionPrefs::MigrateToNewExternalUninstallPref() {
       continue;
     }
 
-    absl::optional<int> state_value = item.second.FindIntKey(kPrefState);
+    absl::optional<int> state_value = item.second.GetDict().FindInt(kPrefState);
     if (!state_value ||
         *state_value != Extension::DEPRECATED_EXTERNAL_EXTENSION_UNINSTALLED) {
       continue;

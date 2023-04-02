@@ -127,6 +127,7 @@
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/network_service_buildflags.h"
 #include "services/network/public/cpp/resolve_host_client_base.h"
+#include "services/network/public/mojom/clear_data_filter.mojom.h"
 #include "services/network/public/mojom/host_resolver.mojom.h"
 #include "services/network/public/mojom/net_log.mojom.h"
 #include "services/network/public/mojom/network_context.mojom.h"
@@ -3253,21 +3254,32 @@ TEST_F(NetworkContextTest, CreateRestrictedUDPSocket) {
       CreateContextWithParams(CreateNetworkContextParamsForTesting());
 
   // Create a server socket to listen for incoming datagrams.
-  test::UDPSocketListenerImpl listener;
-  mojo::Receiver<mojom::UDPSocketListener> listener_receiver(&listener);
+  test::UDPSocketListenerImpl socket_listener;
+  mojo::Receiver<mojom::UDPSocketListener> socket_listener_receiver(
+      &socket_listener);
 
+  mojo::Remote<mojom::RestrictedUDPSocket> server_socket;
   net::IPEndPoint server_addr(GetLocalHostWithAnyPort());
-  mojo::Remote<mojom::UDPSocket> server_socket;
-  network_context->CreateUDPSocket(
-      server_socket.BindNewPipeAndPassReceiver(),
-      listener_receiver.BindNewPipeAndPassRemote());
-  test::UDPSocketTestHelper helper(&server_socket);
-  ASSERT_EQ(net::OK, helper.BindSync(server_addr, nullptr, &server_addr));
+  {
+    base::test::TestFuture<int32_t, const absl::optional<net::IPEndPoint>&>
+        create_future;
+    network_context->CreateRestrictedUDPSocket(
+        server_addr, mojom::RestrictedUDPSocketMode::BOUND,
+        net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS),
+        /*options=*/nullptr, server_socket.BindNewPipeAndPassReceiver(),
+        socket_listener_receiver.BindNewPipeAndPassRemote(),
+        create_future.GetCallback());
+    ASSERT_EQ(create_future.Get<0>(), net::OK);
+    server_addr = *create_future.Get<1>();
+  }
 
   // Create a client socket to send datagrams.
+  test::UDPSocketListenerImpl client_listener;
+  mojo::Receiver<mojom::UDPSocketListener> client_listener_receiver(
+      &client_listener);
+
   mojo::Remote<mojom::RestrictedUDPSocket> client_socket;
   net::IPEndPoint client_addr(GetLocalHostWithAnyPort());
-
   {
     base::test::TestFuture<int32_t, const absl::optional<net::IPEndPoint>&>
         create_future;
@@ -3275,7 +3287,8 @@ TEST_F(NetworkContextTest, CreateRestrictedUDPSocket) {
         server_addr, mojom::RestrictedUDPSocketMode::CONNECTED,
         net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS),
         /*options=*/nullptr, client_socket.BindNewPipeAndPassReceiver(),
-        mojo::NullRemote(), create_future.GetCallback());
+        client_listener_receiver.BindNewPipeAndPassRemote(),
+        create_future.GetCallback());
     ASSERT_EQ(create_future.Get<0>(), net::OK);
     client_addr = *create_future.Get<1>();
   }
@@ -3296,16 +3309,43 @@ TEST_F(NetworkContextTest, CreateRestrictedUDPSocket) {
     }
   }
 
-  listener.WaitForReceivedResults(kDatagramCount);
-  EXPECT_EQ(kDatagramCount, listener.results().size());
+  socket_listener.WaitForReceivedResults(kDatagramCount);
+  EXPECT_EQ(kDatagramCount, socket_listener.results().size());
 
   int i = 0;
-  for (const auto& result : listener.results()) {
+  for (const auto& result : socket_listener.results()) {
     EXPECT_EQ(net::OK, result.net_error);
     EXPECT_EQ(result.src_addr, client_addr);
     EXPECT_EQ(CreateTestMessage(static_cast<uint8_t>(i), kDatagramSize),
               result.data.value());
     i++;
+  }
+
+  // And now the other way round.
+  client_socket->ReceiveMore(kDatagramCount);
+
+  for (size_t j = 0; j < kDatagramCount; ++j) {
+    std::vector<uint8_t> test_msg(
+        CreateTestMessage(static_cast<uint8_t>(j), kDatagramSize));
+    {
+      base::test::TestFuture<int32_t> send_future;
+      server_socket->SendTo(test_msg,
+                            net::HostPortPair::FromIPEndPoint(client_addr),
+                            send_future.GetCallback());
+      ASSERT_EQ(send_future.Get(), net::OK);
+    }
+  }
+
+  client_listener.WaitForReceivedResults(kDatagramCount);
+  EXPECT_EQ(kDatagramCount, client_listener.results().size());
+
+  int j = 0;
+  for (const auto& result : client_listener.results()) {
+    EXPECT_EQ(net::OK, result.net_error);
+    EXPECT_FALSE(result.src_addr);
+    EXPECT_EQ(CreateTestMessage(static_cast<uint8_t>(j), kDatagramSize),
+              result.data.value());
+    j++;
   }
 }
 
@@ -4449,8 +4489,9 @@ TEST_F(NetworkContextTest, CanSetCookieTrueIfBlockThirdPartyCookiesOverridden) {
 
   // Now the cookie should be allowed if the request includes the override that
   // the user is forcing 3PCs.
-  request->set_cookie_setting_overrides(
-      {net::CookieSettingOverride::kForceThirdPartyByUser});
+  request->cookie_setting_overrides().Clear();
+  request->cookie_setting_overrides().Put(
+      net::CookieSettingOverride::kForceThirdPartyByUser);
   EXPECT_TRUE(
       network_context->url_request_context()->network_delegate()->CanSetCookie(
           *request, *cookie, nullptr));
@@ -4495,8 +4536,9 @@ TEST_F(NetworkContextTest,
                        included, excluded));
 
   // Even with override, third party cookies blocked by content setting.
-  request->set_cookie_setting_overrides(
-      {net::CookieSettingOverride::kForceThirdPartyByUser});
+  request->cookie_setting_overrides().Clear();
+  request->cookie_setting_overrides().Put(
+      net::CookieSettingOverride::kForceThirdPartyByUser);
   EXPECT_FALSE(network_context->url_request_context()
                    ->network_delegate()
                    ->AnnotateAndMoveUserBlockedCookies(
@@ -7245,6 +7287,8 @@ TEST_F(NetworkContextExpectBadMessageTest,
   ResourceRequest my_request;
   my_request.trust_token_params =
       OptionalTrustTokenParams(mojom::TrustTokenParams::New());
+  my_request.trust_token_params->version =
+      mojom::TrustTokenMajorVersion::kPrivateStateTokenV1;
   my_request.trust_token_params->operation =
       mojom::TrustTokenOperationType::kRedemption;
 
@@ -7315,7 +7359,7 @@ TEST_F(NetworkContextTest,
 }
 
 TEST_F(NetworkContextTest,
-       RejectsTrustTokenBearingRequestWhenThirdPartyCookiesAreDisabled) {
+       RejectsTrustTokenBearingRequestWhenTrustTokensAreBlocked) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeature(features::kPrivateStateTokens);
 
@@ -7329,7 +7373,38 @@ TEST_F(NetworkContextTest,
           [&run_loop](TrustTokenStore* unused) { run_loop.Quit(); }));
   run_loop.Run();
 
-  network_context->cookie_manager()->BlockThirdPartyCookies(true);
+  network_context->SetBlockTrustTokens(true);
+
+  ResourceRequest my_request;
+  my_request.trust_token_params =
+      OptionalTrustTokenParams(mojom::TrustTokenParams::New());
+
+  std::unique_ptr<TestURLLoaderClient> client = FetchRequest(
+      my_request, network_context.get(), mojom::kURLLoadOptionNone,
+      mojom::kBrowserProcessId, mojom::URLLoaderFactoryParams::New());
+  EXPECT_EQ(client->completion_status().error_code,
+            net::ERR_TRUST_TOKEN_OPERATION_FAILED);
+  EXPECT_EQ(client->completion_status().trust_token_operation_status,
+            mojom::TrustTokenOperationStatus::kUnauthorized);
+}
+
+TEST_F(NetworkContextTest,
+       RejectsTrustTokenBearingRequestWhenStorageIsBlocked) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(features::kPrivateStateTokens);
+
+  std::unique_ptr<NetworkContext> network_context =
+      CreateContextWithParams(CreateNetworkContextParamsForTesting());
+
+  // Allow the store time to initialize asynchronously.
+  base::RunLoop run_loop;
+  network_context->trust_token_store()->ExecuteOrEnqueue(
+      base::BindLambdaForTesting(
+          [&run_loop](TrustTokenStore* unused) { run_loop.Quit(); }));
+  run_loop.Run();
+
+  network_context->SetBlockTrustTokens(false);
+  SetDefaultContentSetting(CONTENT_SETTING_BLOCK, network_context.get());
 
   ResourceRequest my_request;
   my_request.trust_token_params =

@@ -11,8 +11,10 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
+#include "services/network/public/mojom/clear_data_filter.mojom.h"
 #include "services/network/public/mojom/network_context.mojom.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
+#include "url/origin.h"
 
 using net::registry_controlled_domains::GetDomainAndRegistry;
 using net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES;
@@ -76,8 +78,9 @@ bool MatchesURL(const std::set<url::Origin>& origins,
                 bool is_cross_site_clear_site_data,
                 const GURL& url) {
   DCHECK(!is_cross_site_clear_site_data);
-  return MatchesStorageKey(origins, registerable_domains, mode, origin_mode,
-                           blink::StorageKey(url::Origin::Create(url)));
+  return MatchesStorageKey(
+      origins, registerable_domains, mode, origin_mode,
+      blink::StorageKey::CreateFirstParty(url::Origin::Create(url)));
 }
 
 // True if none of the supplied domains matches this plugin's |site| and we're a
@@ -297,6 +300,15 @@ BrowsingDataFilterBuilderImpl::BuildPluginFilter() {
 
 BrowsingDataFilterBuilderImpl::Mode BrowsingDataFilterBuilderImpl::GetMode() {
   return mode_;
+}
+
+const std::set<url::Origin>& BrowsingDataFilterBuilderImpl::GetOrigins() const {
+  return origins_;
+}
+
+const std::set<std::string>&
+BrowsingDataFilterBuilderImpl::GetRegisterableDomains() const {
+  return domains_;
 }
 
 std::unique_ptr<BrowsingDataFilterBuilder>

@@ -84,6 +84,7 @@ android_library("java") {
     "java/src/org/chromium/chrome/browser/toolbar/top/IncognitoSwitchViewBinder.java",
     "java/src/org/chromium/chrome/browser/toolbar/top/NavigationPopup.java",
     "java/src/org/chromium/chrome/browser/toolbar/top/OptionalBrowsingModeButtonController.java",
+    "java/src/org/chromium/chrome/browser/toolbar/top/PhoneCaptureStateToken.java",
     "java/src/org/chromium/chrome/browser/toolbar/top/ResourceFactory.java",
     "java/src/org/chromium/chrome/browser/toolbar/top/StartSurfaceTabSwitcherActionMenuCoordinator.java",
     "java/src/org/chromium/chrome/browser/toolbar/top/StartSurfaceToolbarCoordinator.java",
@@ -94,6 +95,7 @@ android_library("java") {
     "java/src/org/chromium/chrome/browser/toolbar/top/TabSwitcherActionMenuCoordinator.java",
     "java/src/org/chromium/chrome/browser/toolbar/top/TabSwitcherModeTTCoordinator.java",
     "java/src/org/chromium/chrome/browser/toolbar/top/TabSwitcherModeTopToolbar.java",
+    "java/src/org/chromium/chrome/browser/toolbar/top/TabletCaptureStateToken.java",
     "java/src/org/chromium/chrome/browser/toolbar/top/ToggleTabStackButton.java",
     "java/src/org/chromium/chrome/browser/toolbar/top/ToggleTabStackButtonCoordinator.java",
     "java/src/org/chromium/chrome/browser/toolbar/top/Toolbar.java",
@@ -102,7 +104,7 @@ android_library("java") {
     "java/src/org/chromium/chrome/browser/toolbar/top/ToolbarControlContainer.java",
     "java/src/org/chromium/chrome/browser/toolbar/top/ToolbarLayout.java",
     "java/src/org/chromium/chrome/browser/toolbar/top/ToolbarPhone.java",
-    "java/src/org/chromium/chrome/browser/toolbar/top/ToolbarSnapshotState.java",
+    "java/src/org/chromium/chrome/browser/toolbar/top/ToolbarSnapshotDifference.java",
     "java/src/org/chromium/chrome/browser/toolbar/top/ToolbarTablet.java",
     "java/src/org/chromium/chrome/browser/toolbar/top/TopToolbarCoordinator.java",
     "java/src/org/chromium/chrome/browser/toolbar/top/TopToolbarInteractabilityManager.java",
@@ -111,6 +113,7 @@ android_library("java") {
     "java/src/org/chromium/chrome/browser/toolbar/top/TopToolbarOverlayProperties.java",
     "java/src/org/chromium/chrome/browser/toolbar/top/TopToolbarSceneLayer.java",
     "java/src/org/chromium/chrome/browser/toolbar/top/ViewShiftingActionBarDelegate.java",
+    "java/src/org/chromium/chrome/browser/toolbar/top/VisibleUrlText.java",
   ]
 
   deps = [
@@ -151,6 +154,7 @@ android_library("java") {
     "//components/browser_ui/settings/android:java",
     "//components/browser_ui/styles/android:java",
     "//components/browser_ui/styles/android:java_resources",
+    "//components/browser_ui/util/android:java",
     "//components/browser_ui/widget/android:java",
     "//components/browser_ui/widget/android:java_resources",
     "//components/dom_distiller/core/android:dom_distiller_core_java",
@@ -308,12 +312,14 @@ robolectric_library("junit") {
     "java/src/org/chromium/chrome/browser/toolbar/optional_button/OptionalButtonViewTest.java",
     "java/src/org/chromium/chrome/browser/toolbar/top/HomeButtonCoordinatorTest.java",
     "java/src/org/chromium/chrome/browser/toolbar/top/OptionalBrowsingModeButtonControllerTest.java",
+    "java/src/org/chromium/chrome/browser/toolbar/top/PhoneCaptureStateTokenTest.java",
+    "java/src/org/chromium/chrome/browser/toolbar/top/TabletCaptureStateTokenTest.java",
     "java/src/org/chromium/chrome/browser/toolbar/top/ToggleTabStackButtonCoordinatorTest.java",
     "java/src/org/chromium/chrome/browser/toolbar/top/ToolbarControlContainerTest.java",
-    "java/src/org/chromium/chrome/browser/toolbar/top/ToolbarSnapshotStateTest.java",
     "java/src/org/chromium/chrome/browser/toolbar/top/ToolbarTabletUnitTest.java",
     "java/src/org/chromium/chrome/browser/toolbar/top/TopToolbarInteractabilityManagerTest.java",
     "java/src/org/chromium/chrome/browser/toolbar/top/TopToolbarOverlayMediatorTest.java",
+    "java/src/org/chromium/chrome/browser/toolbar/top/VisibleUrlTextTest.java",
   ]
 
   deps = [

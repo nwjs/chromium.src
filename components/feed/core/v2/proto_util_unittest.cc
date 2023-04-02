@@ -7,6 +7,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "components/feed/core/proto/v2/wire/capability.pb.h"
 #include "components/feed/core/proto/v2/wire/client_info.pb.h"
+#include "components/feed/core/proto/v2/wire/feed_entry_point_source.pb.h"
 #include "components/feed/core/proto/v2/wire/feed_request.pb.h"
 #include "components/feed/core/proto/v2/wire/info_card.pb.h"
 #include "components/feed/core/proto/v2/wire/request.pb.h"
@@ -67,10 +68,10 @@ TEST(ProtoUtilTest, ClientInfoStartSurface) {
 
 TEST(ProtoUtilTest, DefaultCapabilities) {
   feedwire::FeedRequest request =
-      CreateFeedQueryRefreshRequest(StreamType(StreamKind::kForYou),
-                                    feedwire::FeedQuery::MANUAL_REFRESH,
-                                    /*request_metadata=*/{},
-                                    /*consistency_token=*/std::string())
+      CreateFeedQueryRefreshRequest(
+          StreamType(StreamKind::kForYou), feedwire::FeedQuery::MANUAL_REFRESH,
+          /*request_metadata=*/{},
+          /*consistency_token=*/std::string(), SingleWebFeedEntryPoint::kOther)
           .feed_request();
 
   // Additional features may be present based on the current testing config.
@@ -96,10 +97,10 @@ TEST(ProtoUtilTest, HeartsEnabled) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures({kInterestFeedV2Hearts}, {});
   feedwire::FeedRequest request =
-      CreateFeedQueryRefreshRequest(StreamType(StreamKind::kForYou),
-                                    feedwire::FeedQuery::MANUAL_REFRESH,
-                                    /*request_metadata=*/{},
-                                    /*consistency_token=*/std::string())
+      CreateFeedQueryRefreshRequest(
+          StreamType(StreamKind::kForYou), feedwire::FeedQuery::MANUAL_REFRESH,
+          /*request_metadata=*/{},
+          /*consistency_token=*/std::string(), SingleWebFeedEntryPoint::kOther)
           .feed_request();
 
   ASSERT_THAT(request.client_capability(),
@@ -114,10 +115,10 @@ TEST(ProtoUtilTest, DisableCapabilitiesWithFinch) {
   OverrideConfigWithFinchForTesting();
 
   feedwire::FeedRequest request =
-      CreateFeedQueryRefreshRequest(StreamType(StreamKind::kForYou),
-                                    feedwire::FeedQuery::MANUAL_REFRESH,
-                                    /*request_metadata=*/{},
-                                    /*consistency_token=*/std::string())
+      CreateFeedQueryRefreshRequest(
+          StreamType(StreamKind::kForYou), feedwire::FeedQuery::MANUAL_REFRESH,
+          /*request_metadata=*/{},
+          /*consistency_token=*/std::string(), SingleWebFeedEntryPoint::kOther)
           .feed_request();
 
   // Additional features may be present based on the current testing config.
@@ -134,7 +135,7 @@ TEST(ProtoUtilTest, PrivacyNoticeCardAcknowledged) {
   feedwire::Request request = CreateFeedQueryRefreshRequest(
       StreamType(StreamKind::kForYou), feedwire::FeedQuery::MANUAL_REFRESH,
       request_metadata,
-      /*consistency_token=*/std::string());
+      /*consistency_token=*/std::string(), SingleWebFeedEntryPoint::kOther);
 
   EXPECT_TRUE(request.feed_request()
                   .feed_query()
@@ -148,7 +149,7 @@ TEST(ProtoUtilTest, PrivacyNoticeCardNotAcknowledged) {
   feedwire::Request request = CreateFeedQueryRefreshRequest(
       StreamType(StreamKind::kForYou), feedwire::FeedQuery::MANUAL_REFRESH,
       request_metadata,
-      /*consistency_token=*/std::string());
+      /*consistency_token=*/std::string(), SingleWebFeedEntryPoint::kOther);
 
   EXPECT_FALSE(request.feed_request()
                    .feed_query()
@@ -170,7 +171,7 @@ TEST(ProtoUtilTest, InfoCardTrackingStates) {
   feedwire::Request request = CreateFeedQueryRefreshRequest(
       StreamType(StreamKind::kForYou), feedwire::FeedQuery::MANUAL_REFRESH,
       request_metadata,
-      /*consistency_token=*/std::string());
+      /*consistency_token=*/std::string(), SingleWebFeedEntryPoint::kOther);
 
   ASSERT_EQ(2, request.feed_request()
                    .feed_query()
@@ -191,10 +192,10 @@ TEST(ProtoUtilTest, AutoplayEnabled) {
   request_metadata.autoplay_enabled = true;
 
   feedwire::FeedRequest request =
-      CreateFeedQueryRefreshRequest(StreamType(StreamKind::kForYou),
-                                    feedwire::FeedQuery::MANUAL_REFRESH,
-                                    request_metadata,
-                                    /*consistency_token=*/std::string())
+      CreateFeedQueryRefreshRequest(
+          StreamType(StreamKind::kForYou), feedwire::FeedQuery::MANUAL_REFRESH,
+          request_metadata,
+          /*consistency_token=*/std::string(), SingleWebFeedEntryPoint::kOther)
           .feed_request();
 
   ASSERT_THAT(request.client_capability(),
@@ -207,10 +208,10 @@ TEST(ProtoUtilTest, StampEnabled) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures({kFeedStamp}, {});
   feedwire::FeedRequest request =
-      CreateFeedQueryRefreshRequest(StreamType(StreamKind::kForYou),
-                                    feedwire::FeedQuery::MANUAL_REFRESH,
-                                    /*request_metadata=*/{},
-                                    /*consistency_token=*/std::string())
+      CreateFeedQueryRefreshRequest(
+          StreamType(StreamKind::kForYou), feedwire::FeedQuery::MANUAL_REFRESH,
+          /*request_metadata=*/{},
+          /*consistency_token=*/std::string(), SingleWebFeedEntryPoint::kOther)
           .feed_request();
 
   ASSERT_THAT(request.client_capability(),
@@ -221,15 +222,16 @@ TEST(ProtoUtilTest, StampEnabled) {
               Contains(feedwire::Capability::AMP_GROUP_DATASTORE));
 }
 
+// ReadLater is enabled by default everywhere with the exception of iOS which
+// has a build-flag to enable it.
+#if !BUILDFLAG(IS_IOS)
+
 TEST(ProtoUtilTest, ReadLaterEnabled) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures({reading_list::switches::kReadLater},
-                                       {});
   feedwire::FeedRequest request =
-      CreateFeedQueryRefreshRequest(StreamType(StreamKind::kForYou),
-                                    feedwire::FeedQuery::MANUAL_REFRESH,
-                                    /*request_metadata=*/{},
-                                    /*consistency_token=*/std::string())
+      CreateFeedQueryRefreshRequest(
+          StreamType(StreamKind::kForYou), feedwire::FeedQuery::MANUAL_REFRESH,
+          /*request_metadata=*/{},
+          /*consistency_token=*/std::string(), SingleWebFeedEntryPoint::kOther)
           .feed_request();
 
   ASSERT_THAT(request.client_capability(),
@@ -238,32 +240,17 @@ TEST(ProtoUtilTest, ReadLaterEnabled) {
               Not(Contains((feedwire::Capability::DOWNLOAD_LINK))));
 }
 
-TEST(ProtoUtilTest, ReadLaterDisabled) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures({},
-                                       {reading_list::switches::kReadLater});
-  feedwire::FeedRequest request =
-      CreateFeedQueryRefreshRequest(StreamType(StreamKind::kForYou),
-                                    feedwire::FeedQuery::MANUAL_REFRESH,
-                                    /*request_metadata=*/{},
-                                    /*consistency_token=*/std::string())
-          .feed_request();
-
-  ASSERT_THAT(request.client_capability(),
-              Contains(feedwire::Capability::DOWNLOAD_LINK));
-  ASSERT_THAT(request.client_capability(),
-              Not(Contains((feedwire::Capability::READ_LATER))));
-}
+#endif
 
 #if BUILDFLAG(IS_ANDROID)
 TEST(ProtoUtilTest, CrowButtonEnabled) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures({kShareCrowButton}, {});
   feedwire::FeedRequest request =
-      CreateFeedQueryRefreshRequest(StreamType(StreamKind::kForYou),
-                                    feedwire::FeedQuery::MANUAL_REFRESH,
-                                    /*request_metadata=*/{},
-                                    /*consistency_token=*/std::string())
+      CreateFeedQueryRefreshRequest(
+          StreamType(StreamKind::kForYou), feedwire::FeedQuery::MANUAL_REFRESH,
+          /*request_metadata=*/{},
+          /*consistency_token=*/std::string(), SingleWebFeedEntryPoint::kOther)
           .feed_request();
 
   ASSERT_THAT(request.client_capability(),
@@ -276,14 +263,19 @@ TEST(ProtoUtilTest, CormorantEnabled) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures({kCormorant}, {});
   feedwire::FeedRequest request =
-      CreateFeedQueryRefreshRequest(StreamType(StreamKind::kForYou),
-                                    feedwire::FeedQuery::MANUAL_REFRESH,
-                                    /*request_metadata=*/{},
-                                    /*consistency_token=*/std::string())
+      CreateFeedQueryRefreshRequest(
+          StreamType(StreamKind::kSingleWebFeed, "test_web_id"),
+          feedwire::FeedQuery::MANUAL_REFRESH,
+          /*request_metadata=*/{},
+          /*consistency_token=*/std::string(), SingleWebFeedEntryPoint::kMenu)
           .feed_request();
 
   ASSERT_THAT(request.client_capability(),
               Contains(feedwire::Capability::OPEN_WEB_FEED_COMMAND));
+  ASSERT_EQ(request.feed_query()
+                .feed_entry_point_data()
+                .feed_entry_point_source_value(),
+            feedwire::FeedEntryPointSource::CHROME_SINGLE_WEB_FEED_MENU);
 }
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -291,10 +283,10 @@ TEST(ProtoUtilTest, InfoCardAcknowledgementTrackingDisabled) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures({}, {kInfoCardAcknowledgementTracking});
   feedwire::FeedRequest request =
-      CreateFeedQueryRefreshRequest(StreamType(StreamKind::kForYou),
-                                    feedwire::FeedQuery::MANUAL_REFRESH,
-                                    /*request_metadata=*/{},
-                                    /*consistency_token=*/std::string())
+      CreateFeedQueryRefreshRequest(
+          StreamType(StreamKind::kForYou), feedwire::FeedQuery::MANUAL_REFRESH,
+          /*request_metadata=*/{},
+          /*consistency_token=*/std::string(), SingleWebFeedEntryPoint::kOther)
           .feed_request();
 
   ASSERT_THAT(
@@ -307,10 +299,10 @@ TEST(ProtoUtilTest, TabGroupsEnabledForReplaced) {
   request_metadata.tab_group_enabled_state = TabGroupEnabledState::kReplaced;
 
   feedwire::FeedRequest request =
-      CreateFeedQueryRefreshRequest(StreamType(StreamKind::kForYou),
-                                    feedwire::FeedQuery::MANUAL_REFRESH,
-                                    request_metadata,
-                                    /*consistency_token=*/std::string())
+      CreateFeedQueryRefreshRequest(
+          StreamType(StreamKind::kForYou), feedwire::FeedQuery::MANUAL_REFRESH,
+          request_metadata,
+          /*consistency_token=*/std::string(), SingleWebFeedEntryPoint::kOther)
           .feed_request();
 
   ASSERT_THAT(request.client_capability(),
@@ -324,10 +316,10 @@ TEST(ProtoUtilTest, TabGroupsEnabledForBoth) {
   request_metadata.tab_group_enabled_state = TabGroupEnabledState::kBoth;
 
   feedwire::FeedRequest request =
-      CreateFeedQueryRefreshRequest(StreamType(StreamKind::kForYou),
-                                    feedwire::FeedQuery::MANUAL_REFRESH,
-                                    request_metadata,
-                                    /*consistency_token=*/std::string())
+      CreateFeedQueryRefreshRequest(
+          StreamType(StreamKind::kForYou), feedwire::FeedQuery::MANUAL_REFRESH,
+          request_metadata,
+          /*consistency_token=*/std::string(), SingleWebFeedEntryPoint::kOther)
           .feed_request();
 
   ASSERT_THAT(request.client_capability(),
@@ -340,10 +332,10 @@ TEST(ProtoUtilTest, InlinePlayback) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures({kFeedVideoInlinePlayback}, {});
   feedwire::FeedRequest request =
-      CreateFeedQueryRefreshRequest(StreamType(StreamKind::kForYou),
-                                    feedwire::FeedQuery::MANUAL_REFRESH,
-                                    /*request_metadata=*/{},
-                                    /*consistency_token=*/std::string())
+      CreateFeedQueryRefreshRequest(
+          StreamType(StreamKind::kForYou), feedwire::FeedQuery::MANUAL_REFRESH,
+          /*request_metadata=*/{},
+          /*consistency_token=*/std::string(), SingleWebFeedEntryPoint::kOther)
           .feed_request();
 
   ASSERT_THAT(request.client_capability(),
@@ -357,7 +349,7 @@ TEST(ProtoUtilTest, SignInStatusSetOnRequest) {
   feedwire::Request request = CreateFeedQueryRefreshRequest(
       StreamType(StreamKind::kForYou), feedwire::FeedQuery::MANUAL_REFRESH,
       request_metadata,
-      /*consistency_token=*/std::string());
+      /*consistency_token=*/std::string(), SingleWebFeedEntryPoint::kOther);
 
   feedwire::ChromeSignInStatus::SignInStatus status =
       request.feed_request()

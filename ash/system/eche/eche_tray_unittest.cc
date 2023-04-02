@@ -533,6 +533,44 @@ TEST_F(EcheTrayTest, EcheTrayKeyboardShowHideUpdateBubbleBounds) {
       eche_tray()->get_web_view_for_test()->height() + kBubbleMenuPadding * 2);
 }
 
+TEST_F(EcheTrayTest, EcheTrayOnStreamOrientationChanged) {
+  gfx::Size expected_eche_size = eche_tray()->CalculateSizeForEche();
+  eche_tray()->LoadBubble(GURL("http://google.com"), CreateTestImage(),
+                          u"app 1", u"your phone");
+  eche_tray()->ShowBubble();
+
+  EXPECT_EQ(eche_tray()->get_is_landscape_for_test(), false);
+  EXPECT_EQ(expected_eche_size.width(),
+            eche_tray()->get_bubble_wrapper_for_test()->bubble_view()->width());
+  EXPECT_EQ(
+      expected_eche_size.height(),
+      eche_tray()->get_web_view_for_test()->height() + kBubbleMenuPadding * 2);
+
+  // Orientation should stay the same
+  eche_tray()->OnStreamOrientationChanged(false);
+  EXPECT_EQ(eche_tray()->get_is_landscape_for_test(), false);
+
+  expected_eche_size = eche_tray()->CalculateSizeForEche();
+
+  EXPECT_EQ(expected_eche_size.width(),
+            eche_tray()->get_bubble_wrapper_for_test()->bubble_view()->width());
+  EXPECT_EQ(
+      expected_eche_size.height(),
+      eche_tray()->get_web_view_for_test()->height() + kBubbleMenuPadding * 2);
+
+  // Change orientation
+  eche_tray()->OnStreamOrientationChanged(true);
+  EXPECT_EQ(eche_tray()->get_is_landscape_for_test(), true);
+
+  expected_eche_size = eche_tray()->CalculateSizeForEche();
+  EXPECT_EQ(
+      expected_eche_size.width(),
+      eche_tray()->get_web_view_for_test()->width() + kBubbleMenuPadding * 2);
+  EXPECT_EQ(
+      expected_eche_size.height(),
+      eche_tray()->get_web_view_for_test()->height() + kBubbleMenuPadding * 2);
+}
+
 TEST_F(EcheTrayTest, DISABLED_OnThemeChanged) {
   ResetUnloadWebContent();
   eche_tray()->LoadBubble(GURL("http://google.com"), CreateTestImage(),

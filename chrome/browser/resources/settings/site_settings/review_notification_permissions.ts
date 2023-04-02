@@ -16,10 +16,13 @@ import {WebUiListenerMixin} from 'chrome://resources/cr_elements/web_ui_listener
 import {assert, assertNotReached} from 'chrome://resources/js/assert_ts.js';
 import {EventTracker} from 'chrome://resources/js/event_tracker.js';
 import {PluralStringProxyImpl} from 'chrome://resources/js/plural_string_proxy.js';
+import {isUndoKeyboardEvent} from 'chrome://resources/js/util_ts.js';
 import {DomRepeatEvent, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import {BaseMixin} from '../base_mixin.js';
 import {MetricsBrowserProxy, MetricsBrowserProxyImpl, SafetyCheckNotificationsModuleInteractions} from '../metrics_browser_proxy.js';
+import {routes} from '../route.js';
+import {Route, RouteObserverMixin} from '../router.js';
 import {MODEL_UPDATE_DELAY_MS} from '../site_settings/constants.js';
 import {TooltipMixin} from '../tooltip_mixin.js';
 
@@ -45,8 +48,8 @@ enum Actions {
 }
 
 const SettingsReviewNotificationPermissionsElementBase =
-    TooltipMixin(WebUiListenerMixin(
-        BaseMixin(SiteSettingsMixin(I18nMixin(PolymerElement)))));
+    TooltipMixin(WebUiListenerMixin(RouteObserverMixin(
+        BaseMixin(SiteSettingsMixin(I18nMixin(PolymerElement))))));
 
 export class SettingsReviewNotificationPermissionsElement extends
     SettingsReviewNotificationPermissionsElementBase {
@@ -127,7 +130,6 @@ export class SettingsReviewNotificationPermissionsElement extends
       MetricsBrowserProxyImpl.getInstance();
 
   override async connectedCallback() {
-    super.connectedCallback();
     // Register for review notification permission list updates.
     this.addWebUiListener(
         'notification-permission-review-list-maybe-changed',
@@ -135,22 +137,33 @@ export class SettingsReviewNotificationPermissionsElement extends
             this.onReviewNotificationPermissionListChanged_(sites));
 
     this.sites_ = await this.browserProxy_.getNotificationPermissionReview();
-    this.metricsBrowserProxy_.recordSafetyCheckNotificationsListCountHistogram(
-        this.sites_.length);
     this.sitesLoaded_ = true;
 
     this.eventTracker_.add(
         document, 'keydown', (e: Event) => this.onKeyDown_(e as KeyboardEvent));
 
-    this.metricsBrowserProxy_
-        .recordSafetyCheckNotificationsModuleInteractionsHistogram(
-            SafetyCheckNotificationsModuleInteractions.OPEN_REVIEW_UI);
+    // This should be called after the sites have been retrieved such that
+    // currentRouteChanged is called afterwards.
+    super.connectedCallback();
   }
 
   override disconnectedCallback() {
     super.disconnectedCallback();
 
     this.eventTracker_.removeAll();
+  }
+
+  override currentRouteChanged(currentRoute: Route) {
+    if (currentRoute !== routes.SITE_SETTINGS_NOTIFICATIONS) {
+      return;
+    }
+    // Only record the metrics when the user navigates to the notification
+    // settings page that shows the review notifications module.
+    this.metricsBrowserProxy_.recordSafetyCheckNotificationsListCountHistogram(
+        this.sites_.length);
+    this.metricsBrowserProxy_
+        .recordSafetyCheckNotificationsModuleInteractionsHistogram(
+            SafetyCheckNotificationsModuleInteractions.OPEN_REVIEW_UI);
   }
 
   /* Show action menu when clicked to three dot menu. */
@@ -293,10 +306,10 @@ export class SettingsReviewNotificationPermissionsElement extends
 
   private onUndoButtonClick_(e: Event) {
     e.stopPropagation();
-    this.undoLastAction();
+    this.undoLastAction_();
   }
 
-  private undoLastAction() {
+  private undoLastAction_() {
     switch (this.lastUserAction_) {
       // As BLOCK and RESET actions just change the notification permission,
       // undoing them only requires allowing notification permissions again.
@@ -338,28 +351,8 @@ export class SettingsReviewNotificationPermissionsElement extends
       return;
     }
 
-    /**
-     * TODO(crbug.com/1392664): Unify the implementation of ctrl+z that are in
-     * the current codebase.
-     *
-     * Undo should be done when ctrl+z (or meta+z on macOS) is pressed. No other
-     * modifier should be pressed simultaneously (alt, shift, meta on non-mac
-     * and ctrl on mac).
-     */
-    if (e.key !== 'z') {
-      return;
-    }
-    const excludedModifiers = [e.altKey, e.shiftKey];
-    // <if expr="is_macosx">
-    let targetModifier = e.metaKey;
-    excludedModifiers.push(e.ctrlKey);
-    // </if>
-    // <if expr="not is_macosx">
-    let targetModifier = e.ctrlKey;
-    excludedModifiers.push(e.metaKey);
-    // </if>
-    if (!excludedModifiers.some(Boolean) && targetModifier) {
-      this.undoLastAction();
+    if (isUndoKeyboardEvent(e)) {
+      this.undoLastAction_();
     }
   }
 

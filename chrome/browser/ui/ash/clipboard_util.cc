@@ -17,6 +17,7 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/user_metrics.h"
 #include "base/strings/strcat.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/threading/scoped_blocking_call.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
@@ -42,7 +43,8 @@ void CopyDecodedImageToClipboard(
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
   ui::ScopedClipboardWriter clipboard_writer(ui::ClipboardBuffer::kCopyPaste);
-  clipboard_writer.WriteHTML(base::UTF8ToUTF16(html), std::string());
+  clipboard_writer.WriteHTML(base::UTF8ToUTF16(html), std::string(),
+                             ui::ClipboardContentType::kSanitized);
   clipboard_writer.WriteImage(decoded_image);
 }
 

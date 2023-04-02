@@ -176,11 +176,10 @@ class BASE_EXPORT MessagePumpCFRunLoopBase : public MessagePump {
   virtual bool RunWork();
 
   // Perform idle-priority work.  This is normally called by PreWaitObserver,
-  // but is also associated with |idle_work_source_|.  When this function
-  // actually does perform idle work, it will resignal that source.  The
-  // static method calls the instance method.
-  static void RunIdleWorkSource(void* info);
-  virtual void RunIdleWork();
+  // but can also be invoked from RunNestingDeferredWork when returning from a
+  // nested loop.  When this function actually does perform idle work, it will
+  // re-signal the |work_source_|.
+  void RunIdleWork();
   virtual void PreWaitObserverHook();
 
   // Perform work that may have been deferred because it was not runnable
@@ -243,7 +242,6 @@ class BASE_EXPORT MessagePumpCFRunLoopBase : public MessagePump {
   // callbacks.
   CFRunLoopTimerRef delayed_work_timer_;
   CFRunLoopSourceRef work_source_;
-  CFRunLoopSourceRef idle_work_source_;
   CFRunLoopSourceRef nesting_deferred_work_source_;
   CFRunLoopObserverRef pre_wait_observer_;
   CFRunLoopObserverRef after_wait_observer_;
@@ -281,7 +279,6 @@ class BASE_EXPORT MessagePumpCFRunLoopBase : public MessagePump {
   // any call to Run on the stack.  The Run method will check for delegateless
   // work on entry and redispatch it as needed once a delegate is available.
   bool delegateless_work_;
-  bool delegateless_idle_work_;
 
   // Used to keep track of the native event work items processed by the message
   // pump. Made of optionals because tracking can be suspended when it's

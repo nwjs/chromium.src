@@ -375,6 +375,9 @@ void FakeSessionManagerClient::StartDeviceWipe() {
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, std::move(on_start_device_wipe_callback_));
   }
+  for (auto& observer : observers_) {
+    observer.PowerwashRequested(/*admin_requested*/ false);
+  }
 }
 
 void FakeSessionManagerClient::StartRemoteDeviceWipe(
@@ -384,6 +387,9 @@ void FakeSessionManagerClient::StartRemoteDeviceWipe(
   if (!on_start_device_wipe_callback_.is_null()) {
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, std::move(on_start_device_wipe_callback_));
+  }
+  for (auto& observer : observers_) {
+    observer.PowerwashRequested(/*admin_requested*/ true);
   }
 }
 
@@ -806,11 +812,11 @@ bool FakeSessionManagerClient::GetFlagsForUser(
   }
 
   // Encode origin list values.
-  base::Value origin_list_dict(base::Value::Type::DICTIONARY);
+  base::Value::Dict origin_list_dict;
   for (const auto& entry : iter->second.origin_list_flags) {
-    origin_list_dict.SetStringKey(entry.first, entry.second);
+    origin_list_dict.Set(entry.first, entry.second);
   }
-  if (!origin_list_dict.DictEmpty()) {
+  if (!origin_list_dict.empty()) {
     std::string encoded;
     base::JSONWriter::Write(origin_list_dict, &encoded);
     out_flags_for_user->push_back(base::StringPrintf(

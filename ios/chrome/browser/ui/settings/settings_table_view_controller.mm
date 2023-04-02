@@ -55,7 +55,6 @@
 #import "ios/chrome/browser/signin/system_identity.h"
 #import "ios/chrome/browser/sync/sync_observer_bridge.h"
 #import "ios/chrome/browser/sync/sync_service_factory.h"
-#import "ios/chrome/browser/sync/sync_setup_service_factory.h"
 #import "ios/chrome/browser/ui/authentication/cells/signin_promo_view_consumer.h"
 #import "ios/chrome/browser/ui/authentication/cells/table_view_account_item.h"
 #import "ios/chrome/browser/ui/authentication/cells/table_view_signin_promo_item.h"
@@ -109,6 +108,7 @@
 #import "ios/chrome/browser/ui/table_view/cells/table_view_text_item.h"
 #import "ios/chrome/browser/ui/table_view/table_view_model.h"
 #import "ios/chrome/browser/ui/table_view/table_view_utils.h"
+#import "ios/chrome/browser/ui/ui_feature_flags.h"
 #import "ios/chrome/browser/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/upgrade/upgrade_utils.h"
 #import "ios/chrome/browser/voice/speech_input_locale_config.h"
@@ -153,7 +153,7 @@ NSString* const kSettingsArticleSuggestionsImageName =
 NSString* const kDefaultBrowserWorldImageName = @"default_browser_world";
 
 // The size of trailing symbol icons for unsafe state.
-NSInteger kTrailingSymbolImagePointSize = 18;
+NSInteger kTrailingSymbolImagePointSize = 22;
 
 // Key used for storing NSUserDefault entry to keep track of the last timestamp
 // we've shown the default browser blue dot promo.
@@ -176,18 +176,16 @@ enum SyncState {
 SyncState GetSyncStateFromBrowserState(ChromeBrowserState* browserState) {
   syncer::SyncService* syncService =
       SyncServiceFactory::GetForBrowserState(browserState);
-  SyncSetupService* syncSetupService =
-      SyncSetupServiceFactory::GetForBrowserState(browserState);
-  SyncSetupService::SyncServiceState errorState =
-      syncSetupService->GetSyncServiceState();
+  syncer::SyncService::UserActionableError errorState =
+      syncService->GetUserActionableError();
   if (syncService->GetDisableReasons().Has(
           syncer::SyncService::DISABLE_REASON_ENTERPRISE_POLICY)) {
     // Sync is disabled by administrator policy.
     return kSyncDisabledByAdministrator;
-  } else if (!syncSetupService->IsFirstSetupComplete()) {
+  } else if (!syncService->GetUserSettings()->IsFirstSetupComplete()) {
     // User has not completed Sync setup in sign-in flow.
     return kSyncConsentOff;
-  } else if (!syncSetupService->CanSyncFeatureStart()) {
+  } else if (!syncService->CanSyncFeatureStart()) {
     // Sync engine is off.
     return kSyncOff;
   } else if (syncService->GetUserSettings()->GetSelectedTypes().Empty()) {
@@ -195,7 +193,7 @@ SyncState GetSyncStateFromBrowserState(ChromeBrowserState* browserState) {
     // With pre-MICE, the sync status should be kSyncEnabled to show the same
     // value than the sync toggle.
     return kSyncEnabledWithNoSelectedTypes;
-  } else if (!IsTransientSyncError(errorState)) {
+  } else if (errorState != syncer::SyncService::UserActionableError::kNone) {
     // Sync error.
     return kSyncEnabledWithError;
   }
@@ -493,7 +491,8 @@ UIImage* GetBrandedGoogleServicesSymbol() {
 
   // Advanced Section
   [model addSectionWithIdentifier:SettingsSectionIdentifierAdvanced];
-  if (IsPriceNotificationsEnabled()) {
+  if (base::FeatureList::IsEnabled(kNotificationSettingsMenuItem) &&
+      IsPriceNotificationsEnabled()) {
     [model addItem:[self priceNotificationsItem]
         toSectionWithIdentifier:SettingsSectionIdentifierAdvanced];
   }
@@ -683,8 +682,8 @@ UIImage* GetBrandedGoogleServicesSymbol() {
   if ([self isSyncDisabledByPolicy])
     return false;
 
-  SyncSetupService* syncSetupService =
-      SyncSetupServiceFactory::GetForBrowserState(_browserState);
+  syncer::SyncService* syncService =
+      SyncServiceFactory::GetForBrowserState(_browserState);
   AuthenticationService* authenticationService =
       AuthenticationServiceFactory::GetForBrowserState(_browserState);
   return [SigninPromoViewMediator
@@ -693,7 +692,7 @@ UIImage* GetBrandedGoogleServicesSymbol() {
                                    authenticationService:authenticationService
                                              prefService:_browserState
                                                              ->GetPrefs()] &&
-         !syncSetupService->IsFirstSetupComplete();
+         !syncService->GetUserSettings()->IsFirstSetupComplete();
 }
 
 #pragma mark - Model Items
@@ -959,7 +958,7 @@ UIImage* GetBrandedGoogleServicesSymbol() {
                                text:l10n_util::GetNSString(
                                         IDS_AUTOFILL_ADDRESSES_SETTINGS_TITLE)
                          detailText:detailText
-                             symbol:DefaultSettingsRootSymbol(kPinSymbol)
+                             symbol:CustomSettingsRootSymbol(kLocationSymbol)
               symbolBackgroundColor:[UIColor colorNamed:kYellow500Color]
             accessibilityIdentifier:kSettingsAddressesAndMoreCellId];
   } else {
@@ -1593,8 +1592,8 @@ UIImage* GetBrandedGoogleServicesSymbol() {
       break;
     case SettingsItemTypeAutofillProfile:
       base::RecordAction(base::UserMetricsAction("AutofillAddressesViewed"));
-      controller = [[AutofillProfileTableViewController alloc]
-          initWithBrowserState:_browserState];
+      controller =
+          [[AutofillProfileTableViewController alloc] initWithBrowser:_browser];
       break;
     case SettingsItemTypePriceNotifications:
       DCHECK(IsPriceNotificationsEnabled());
@@ -1951,10 +1950,10 @@ UIImage* GetBrandedGoogleServicesSymbol() {
       break;
     }
     case kSyncEnabledWithError: {
-      SyncSetupService* syncSetupService =
-          SyncSetupServiceFactory::GetForBrowserState(_browserState);
+      syncer::SyncService* syncService =
+          SyncServiceFactory::GetForBrowserState(_browserState);
       googleSyncItem.detailText =
-          GetSyncErrorDescriptionForSyncSetupService(syncSetupService);
+          GetSyncErrorDescriptionForSyncService(syncService);
       if (UseSymbols()) {
         googleSyncItem.iconImage = DefaultSettingsRootSymbol(kSyncErrorSymbol);
         googleSyncItem.iconBackgroundColor = [UIColor colorNamed:kRed500Color];
@@ -2293,7 +2292,7 @@ UIImage* GetBrandedGoogleServicesSymbol() {
   [self setSafetyCheckIssueStateUnsafe:[self hasPasswordIssuesRemaining]];
 }
 
-- (void)compromisedCredentialsDidChange {
+- (void)insecureCredentialsDidChange {
   [self setSafetyCheckIssueStateUnsafe:[self hasPasswordIssuesRemaining]];
 }
 

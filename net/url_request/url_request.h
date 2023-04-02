@@ -334,12 +334,11 @@ class NET_EXPORT URLRequest : public base::SupportsUserData {
   }
 
   // Overrides pertaining to cookie settings for this particular request.
-  CookieSettingOverrides cookie_setting_overrides() const {
+  CookieSettingOverrides& cookie_setting_overrides() {
     return cookie_setting_overrides_;
   }
-
-  void set_cookie_setting_overrides(CookieSettingOverrides value) {
-    cookie_setting_overrides_ = value;
+  const CookieSettingOverrides& cookie_setting_overrides() const {
+    return cookie_setting_overrides_;
   }
 
   // The first-party URL policy to apply when updating the first party URL
@@ -847,6 +846,13 @@ class NET_EXPORT URLRequest : public base::SupportsUserData {
     expected_response_checksum_ = std::string(checksum);
   }
 
+  void set_has_storage_access(bool has_storage_access) {
+    DCHECK(!is_pending_);
+    DCHECK(!has_notified_completion_);
+    has_storage_access_ = has_storage_access;
+  }
+  bool has_storage_access() const { return has_storage_access_; }
+
   static bool DefaultCanUseCookies();
 
   base::WeakPtr<URLRequest> GetWeakPtr();
@@ -992,6 +998,10 @@ class NET_EXPORT URLRequest : public base::SupportsUserData {
   // Whether the request is allowed to send credentials in general. Set by
   // caller.
   bool allow_credentials_ = true;
+  // Whether the request is eligible for using storage access permission grant
+  // if one exists. Only set by caller when constructed and will not change
+  // during redirects.
+  bool has_storage_access_ = false;
   SecureDnsPolicy secure_dns_policy_ = SecureDnsPolicy::kAllow;
 
   CookieAccessResultList maybe_sent_cookies_;

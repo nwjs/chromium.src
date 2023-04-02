@@ -18,7 +18,9 @@
 #include "base/observer_list_types.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
+#include "chrome/browser/ash/app_list/search/app_discovery_metrics_manager.h"
 #include "chrome/browser/ash/app_list/search/burn_in_controller.h"
+#include "chrome/browser/ash/app_list/search/common/keyword_util.h"
 #include "chrome/browser/ash/app_list/search/federated_metrics_manager.h"
 #include "chrome/browser/ash/app_list/search/ranking/launch_data.h"
 #include "chrome/browser/ash/app_list/search/ranking/ranker_manager.h"
@@ -31,6 +33,11 @@ class Profile;
 
 namespace ash {
 class AppListNotifier;
+
+namespace federated {
+class FederatedServiceController;
+}  // namespace federated
+
 }  // namespace ash
 
 namespace app_list {
@@ -53,7 +60,9 @@ class SearchController {
   SearchController(AppListModelUpdater* model_updater,
                    AppListControllerDelegate* list_controller,
                    ash::AppListNotifier* notifier,
-                   Profile* profile);
+                   Profile* profile,
+                   ash::federated::FederatedServiceController*
+                       federated_service_controller_);
   virtual ~SearchController();
 
   SearchController(const SearchController&) = delete;
@@ -69,6 +78,7 @@ class SearchController {
     // to another sequence because they may be invalidated.
     virtual void OnResultsAdded(
         const std::u16string& query,
+        const std::vector<KeywordInfo>& extracted_keyword_info,
         const std::vector<const ChromeSearchResult*>& results) {}
   };
 
@@ -86,8 +96,10 @@ class SearchController {
 
   virtual void StartZeroState(base::OnceClosure on_done,
                               base::TimeDelta timeout);
-  // Stops zero state.
-  void AppListClosing();
+
+  // Callback made when app list view is open or closed. |is_visible| should be
+  // true when the view is open.
+  void AppListViewChanging(bool is_visible);
 
   void OpenResult(ChromeSearchResult* result, int event_flags);
   void InvokeResultAction(ChromeSearchResult* result,
@@ -200,7 +212,9 @@ class SearchController {
 
   std::unique_ptr<SearchMetricsManager> metrics_manager_;
   std::unique_ptr<SearchSessionMetricsManager> session_metrics_manager_;
-  std::unique_ptr<FederatedMetricsManager> federated_metrics_manager_;
+  std::unique_ptr<federated::FederatedMetricsManager>
+      federated_metrics_manager_;
+  std::unique_ptr<AppDiscoveryMetricsManager> app_discovery_metrics_manager_;
 
   std::unique_ptr<AppSearchDataSource> app_search_data_source_;
 
@@ -209,6 +223,8 @@ class SearchController {
   const raw_ptr<AppListModelUpdater> model_updater_;
   const raw_ptr<AppListControllerDelegate> list_controller_;
   const raw_ptr<ash::AppListNotifier> notifier_;
+  const raw_ptr<ash::federated::FederatedServiceController>
+      federated_service_controller_;
 
   base::ObserverList<Observer> observer_list_;
 };

@@ -69,7 +69,13 @@ const std::vector<SearchConcept>& GetPrivacySearchConcepts() {
     if (!IsGuestModeActive()) {
       all_tags.insert(
           all_tags.end(),
-          {{IDS_OS_SETTINGS_TAG_GUEST_BROWSING,
+          {{IDS_OS_SETTINGS_TAG_MANAGE_OTHER_PEOPLE_PAGE,
+            mojom::kManageOtherPeopleSubpagePathV2,
+            mojom::SearchResultIcon::kAvatar,
+            mojom::SearchResultDefaultRank::kMedium,
+            mojom::SearchResultType::kSubpage,
+            {.subpage = mojom::Subpage::kManageOtherPeopleV2}},
+           {IDS_OS_SETTINGS_TAG_GUEST_BROWSING,
             mojom::kManageOtherPeopleSubpagePathV2,
             mojom::SearchResultIcon::kAvatar,
             mojom::SearchResultDefaultRank::kMedium,
@@ -332,8 +338,7 @@ void PrivacySection::AddHandlers(content::WebUI* web_ui) {
       profile(), g_browser_process->metrics_service(),
       user_manager::UserManager::Get()));
 
-  if (ash::features::IsCrosPrivacyHubEnabled())
-    web_ui->AddMessageHandler(std::make_unique<PrivacyHubHandler>());
+  web_ui->AddMessageHandler(std::make_unique<PrivacyHubHandler>());
 
   if (IsSecureDnsAvailable())
     web_ui->AddMessageHandler(std::make_unique<::settings::SecureDnsHandler>());
@@ -405,6 +410,10 @@ void PrivacySection::AddLoadTimeData(content::WebUIDataSource* html_source) {
   html_source->AddBoolean("isQuickDimEnabled",
                           ash::features::IsQuickDimEnabled());
 
+  html_source->AddBoolean(
+      "isPrivacyHubHatsEnabled",
+      base::FeatureList::IsEnabled(
+          ::features::kHappinessTrackingPrivacyHubBaseline));
   html_source->AddBoolean("showPrivacyHubPage",
                           ash::features::IsCrosPrivacyHubEnabled());
   html_source->AddBoolean("showPrivacyHubMVPPage",

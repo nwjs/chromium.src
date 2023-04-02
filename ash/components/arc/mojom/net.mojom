@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// Next MinVersion: 27
+// Next MinVersion: 30
 
 // This file defines the mojo interface between the ARC networking stack and
 // Chrome OS. There are three different groups of interactions:
@@ -469,6 +469,15 @@ struct NetworkConfiguration {
   // IPv4 and IPv6 addresses of DNS proxy. When this field is not empty ARC
   // overrides the network DNS addresses with these addresses.
   [MinVersion=19] array<string>? dns_proxy_addresses;
+
+  // Available maximal uplink and downlink speeds for the network in kbps.
+  [MinVersion=28] LinkSpeed? link_speed;
+};
+
+// Uplink and downlink speeds in Kbps for the network.
+struct LinkSpeed {
+  uint32 uplink_speed_kbps@0;
+  uint32 downlink_speed_kbps@1;
 };
 
 // Describes a Wifi network configuration that ARC has requested the host to
@@ -694,6 +703,13 @@ enum LohsStatus {
   kErrorGeneric = 2,
   kErrorIncompatibleMode = 3,
   kErrorTetheringDisallowed = 4,
+
+  // The ARC config contains values that the host cannot support.
+  [MinVersion=27] kErrorInvalidArgument = 5,
+
+  // The ARC config is theoretically valid, but there was some error at the
+  // platform-level.
+  [MinVersion=27] kErrorConfiguringPlatform = 6,
 };
 
 // The struct to represent a local only hotspot configuration.
@@ -713,7 +729,7 @@ struct LohsConfig {
   string? passphrase@3;
 };
 
-// Next Method ID: 20
+// Next Method ID: 21
 // IDs 3 and 9 are missing as they belonged to deprecated methods.
 // Mojo interface exposed by the Chrome browser process for
 // networking/WiFi/VPN, ARC is the client.
@@ -736,6 +752,10 @@ interface NetHost {
 
   // Deletes an existing network.
   [MinVersion=4] ForgetNetwork@6(string guid) => (NetworkResult status);
+
+  // Updates an existing Wifi network.
+  [MinVersion=29] UpdateWifiNetwork@20(string guid, WifiConfiguration cfg) =>
+      (NetworkResult status);
 
   // Initiates a network connection.  If called when connected to a different
   // network, it will drop the current connection first.

@@ -28,6 +28,7 @@ class TestUserNotesPageHandler : public UserNotesPageHandler {
             std::move(page),
             profile,
             browser,
+            false,
             nullptr) {}
 };
 
@@ -43,7 +44,9 @@ class MockUserNotesPage : public side_panel::mojom::UserNotesPage {
   mojo::Receiver<side_panel::mojom::UserNotesPage> receiver_{this};
 
   MOCK_METHOD0(NotesChanged, void());
-  MOCK_METHOD0(CurrentTabUrlChanged, void());
+  MOCK_METHOD1(CurrentTabUrlChanged, void(bool));
+  MOCK_METHOD1(SortByNewestPrefChanged, void(bool));
+  MOCK_METHOD0(StartNoteCreation, void());
 };
 
 struct Note {
@@ -100,6 +103,24 @@ TEST_F(UserNotesPageHandlerTest, GetNoteOverviews) {
   ASSERT_TRUE(waiter.NewNoteFinished("note3"));
   auto note_overviews = waiter.GetNoteOverviews("");
   ASSERT_EQ(3u, note_overviews.size());
+}
+
+TEST_F(UserNotesPageHandlerTest, GetNoteOverviewIsCurrentTab) {
+  side_panel::mojom::UserNotesPageHandlerAsyncWaiter waiter(handler());
+  handler()->SetCurrentTabUrlForTesting(GURL(u"https://url1"));
+  ASSERT_TRUE(waiter.NewNoteFinished("note1"));
+
+  // Note overview is for current tab.
+  auto note_overviews = waiter.GetNoteOverviews("");
+  ASSERT_EQ(1u, note_overviews.size());
+  ASSERT_TRUE(note_overviews[0]->is_current_tab);
+
+  handler()->SetCurrentTabUrlForTesting(GURL(u"https://url2"));
+
+  // Note overview is not for current tab.
+  note_overviews = waiter.GetNoteOverviews("");
+  ASSERT_EQ(1u, note_overviews.size());
+  ASSERT_FALSE(note_overviews[0]->is_current_tab);
 }
 
 TEST_F(UserNotesPageHandlerTest, CreateAndDeleteNote) {

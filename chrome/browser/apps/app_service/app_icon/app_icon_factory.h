@@ -49,7 +49,7 @@ gfx::ImageSkia CreateResizedResourceImage(int icon_resource,
 apps::ScaleToSize GetScaleToSize(const gfx::ImageSkia& image_skia);
 
 // Decodes `data` to a SkBitmap. The decode happens in-process, so must only be
-// done with trusted data.
+// done with trusted data. Returns an empty bitmap if decoding fails.
 SkBitmap DecompressToSkBitmap(const unsigned char* data, size_t size);
 
 // Creates an ImageSkia for the given `bitmap` and `icon_scale`;
@@ -72,11 +72,11 @@ void CompressedDataToSkBitmap(std::vector<uint8_t> compressed_data,
 std::vector<uint8_t> EncodeImageToPngBytes(const gfx::ImageSkia image,
                                            float rep_icon_scale);
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
 gfx::ImageSkia LoadMaskImage(const ScaleToSize& scale_to_size);
 
 gfx::ImageSkia ApplyBackgroundAndMask(const gfx::ImageSkia& image);
 
+#if BUILDFLAG(IS_CHROMEOS_ASH)
 gfx::ImageSkia CompositeImagesAndApplyMask(
     const gfx::ImageSkia& foreground_image,
     const gfx::ImageSkia& background_image);

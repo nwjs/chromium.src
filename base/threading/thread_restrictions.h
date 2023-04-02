@@ -302,7 +302,7 @@ namespace ios_web_view {
 class WebViewBrowserState;
 }
 namespace leveldb::port {
-class ScopedAllowWait;
+class CondVar;
 }  // namespace leveldb::port
 namespace nearby::chrome {
 class ScheduledExecutor;
@@ -365,10 +365,7 @@ class DrmThreadProxy;
 class DrmDisplayHostManager;
 class SelectFileDialogLinux;
 class ScopedAllowBlockingForGbmSurface;
-}
-namespace value_store {
-class LeveldbValueStore;
-}
+}  // namespace ui
 namespace weblayer {
 class BrowserContextImpl;
 class ContentBrowserClientImpl;
@@ -532,7 +529,7 @@ INLINE_OR_NOT_TAIL_CALLED void AssertBlockingDisallowedForTesting()
 INLINE_OR_NOT_TAIL_CALLED void DisallowBlocking() EMPTY_BODY_IF_DCHECK_IS_OFF;
 
 // Disallows blocking calls within its scope.
-class BASE_EXPORT ScopedDisallowBlocking {
+class BASE_EXPORT [[nodiscard]] ScopedDisallowBlocking {
  public:
   ScopedDisallowBlocking() EMPTY_BODY_IF_DCHECK_IS_OFF;
 
@@ -547,7 +544,7 @@ class BASE_EXPORT ScopedDisallowBlocking {
 #endif
 };
 
-class BASE_EXPORT ScopedAllowBlocking {
+class BASE_EXPORT [[nodiscard]] ScopedAllowBlocking {
  public:
   ScopedAllowBlocking(const ScopedAllowBlocking&) = delete;
   ScopedAllowBlocking& operator=(const ScopedAllowBlocking&) = delete;
@@ -667,9 +664,9 @@ class BASE_EXPORT ScopedAllowBlocking {
 #endif
 };
 
-class ScopedAllowBlockingForTesting {
+class [[nodiscard]] ScopedAllowBlockingForTesting {
  public:
-  ScopedAllowBlockingForTesting() {}
+  ScopedAllowBlockingForTesting() = default;
 
   ScopedAllowBlockingForTesting(const ScopedAllowBlockingForTesting&) = delete;
   ScopedAllowBlockingForTesting& operator=(
@@ -687,7 +684,7 @@ INLINE_OR_NOT_TAIL_CALLED void DisallowBaseSyncPrimitives()
     EMPTY_BODY_IF_DCHECK_IS_OFF;
 
 // Disallows singletons within its scope.
-class BASE_EXPORT ScopedDisallowBaseSyncPrimitives {
+class BASE_EXPORT [[nodiscard]] ScopedDisallowBaseSyncPrimitives {
  public:
   ScopedDisallowBaseSyncPrimitives() EMPTY_BODY_IF_DCHECK_IS_OFF;
 
@@ -704,7 +701,7 @@ class BASE_EXPORT ScopedDisallowBaseSyncPrimitives {
 #endif
 };
 
-class BASE_EXPORT ScopedAllowBaseSyncPrimitives {
+class BASE_EXPORT [[nodiscard]] ScopedAllowBaseSyncPrimitives {
  public:
   ScopedAllowBaseSyncPrimitives(const ScopedAllowBaseSyncPrimitives&) = delete;
   ScopedAllowBaseSyncPrimitives& operator=(
@@ -745,7 +742,7 @@ class BASE_EXPORT ScopedAllowBaseSyncPrimitives {
   friend class functions::ExecScriptScopedAllowBaseSyncPrimitives;
   friend class history_report::HistoryReportJniBridge;
   friend class internal::TaskTracker;
-  friend class leveldb::port::ScopedAllowWait;
+  friend class leveldb::port::CondVar;
   friend class nearby::chrome::ScheduledExecutor;
   friend class nearby::chrome::SubmittableExecutor;
   friend class media::AudioOutputDevice;
@@ -769,7 +766,6 @@ class BASE_EXPORT ScopedAllowBaseSyncPrimitives {
   friend class ::ash::system::
       StatisticsProviderImpl;                      // http://crbug.com/125385
   friend class blink::VideoFrameResourceProvider;  // http://crbug.com/878070
-  friend class value_store::LeveldbValueStore;     // http://crbug.com/1330845
 
   ScopedAllowBaseSyncPrimitives() EMPTY_BODY_IF_DCHECK_IS_OFF;
   ~ScopedAllowBaseSyncPrimitives() EMPTY_BODY_IF_DCHECK_IS_OFF;
@@ -779,7 +775,8 @@ class BASE_EXPORT ScopedAllowBaseSyncPrimitives {
 #endif
 };
 
-class BASE_EXPORT ScopedAllowBaseSyncPrimitivesOutsideBlockingScope {
+class BASE_EXPORT
+    [[nodiscard]] ScopedAllowBaseSyncPrimitivesOutsideBlockingScope {
  public:
   ScopedAllowBaseSyncPrimitivesOutsideBlockingScope(
       const ScopedAllowBaseSyncPrimitivesOutsideBlockingScope&) = delete;
@@ -883,7 +880,7 @@ class BASE_EXPORT ScopedAllowBaseSyncPrimitivesOutsideBlockingScope {
 // Note: For WaitableEvents in the test logic, base::TestWaitableEvent is
 // exposed as a convenience to avoid the need for
 // ScopedAllowBaseSyncPrimitivesForTesting.
-class BASE_EXPORT ScopedAllowBaseSyncPrimitivesForTesting {
+class BASE_EXPORT [[nodiscard]] ScopedAllowBaseSyncPrimitivesForTesting {
  public:
   ScopedAllowBaseSyncPrimitivesForTesting() EMPTY_BODY_IF_DCHECK_IS_OFF;
 
@@ -902,7 +899,7 @@ class BASE_EXPORT ScopedAllowBaseSyncPrimitivesForTesting {
 
 // Counterpart to base::DisallowUnresponsiveTasks() for tests to allow them to
 // block their thread after it was banned.
-class BASE_EXPORT ScopedAllowUnresponsiveTasksForTesting {
+class BASE_EXPORT [[nodiscard]] ScopedAllowUnresponsiveTasksForTesting {
  public:
   ScopedAllowUnresponsiveTasksForTesting() EMPTY_BODY_IF_DCHECK_IS_OFF;
 
@@ -943,7 +940,7 @@ INLINE_OR_NOT_TAIL_CALLED void AssertSingletonAllowed()
 INLINE_OR_NOT_TAIL_CALLED void DisallowSingleton() EMPTY_BODY_IF_DCHECK_IS_OFF;
 
 // Disallows singletons within its scope.
-class BASE_EXPORT ScopedDisallowSingleton {
+class BASE_EXPORT [[nodiscard]] ScopedDisallowSingleton {
  public:
   ScopedDisallowSingleton() EMPTY_BODY_IF_DCHECK_IS_OFF;
 

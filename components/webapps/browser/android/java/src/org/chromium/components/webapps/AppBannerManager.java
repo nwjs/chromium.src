@@ -11,6 +11,7 @@ import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ContextUtils;
+import org.chromium.base.PackageUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.JNINamespace;
@@ -121,6 +122,11 @@ public class AppBannerManager {
                 createAppDetailsObserver(), url, packageName, referrer, iconSizeInPx);
     }
 
+    @CalledByNative
+    private static boolean isRelatedNonWebAppInstalled(String packageName) {
+        return PackageUtils.isPackageInstalled(packageName);
+    }
+
     private AppDetailsDelegate.Observer createAppDetailsObserver() {
         return new AppDetailsDelegate.Observer() {
             /**
@@ -181,6 +187,12 @@ public class AppBannerManager {
         return AppBannerManagerJni.get().getPipelineStatusForTesting(mNativePointer);
     }
 
+    /** Returns the state of the ambient badge. */
+    @VisibleForTesting
+    public int getBadgeStatusForTesting() {
+        return AppBannerManagerJni.get().getBadgeStatusForTesting(mNativePointer);
+    }
+
     /** Sets constants (in days) the banner should be blocked for after dismissing and ignoring. */
     @VisibleForTesting
     public static void setDaysAfterDismissAndIgnoreForTesting(int dismissDays, int ignoreDays) {
@@ -229,6 +241,7 @@ public class AppBannerManager {
         void ignoreChromeChannelForTesting();
         boolean isRunningForTesting(long nativeAppBannerManagerAndroid, AppBannerManager caller);
         int getPipelineStatusForTesting(long nativeAppBannerManagerAndroid);
+        int getBadgeStatusForTesting(long nativeAppBannerManagerAndroid);
         void setDaysAfterDismissAndIgnoreToTrigger(int dismissDays, int ignoreDays);
         void setTimeDeltaForTesting(int days);
         void setTotalEngagementToTrigger(double engagement);

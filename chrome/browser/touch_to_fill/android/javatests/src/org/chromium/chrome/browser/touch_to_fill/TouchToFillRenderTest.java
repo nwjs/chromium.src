@@ -8,11 +8,11 @@ import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.Cr
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.CredentialProperties.FORMATTED_ORIGIN;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.CredentialProperties.ON_CLICK_LISTENER;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.CredentialProperties.SHOW_SUBMIT_BUTTON;
+import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.FooterProperties.MANAGE_BUTTON_TEXT;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.HeaderProperties.FORMATTED_URL;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.HeaderProperties.IMAGE_DRAWABLE_ID;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.HeaderProperties.ORIGIN_SECURE;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.HeaderProperties.TITLE;
-import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.MANAGE_BUTTON_TEXT;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.SHEET_ITEMS;
 import static org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.VISIBLE;
 import static org.chromium.ui.base.LocalizationUtils.setRtlForTesting;
@@ -20,6 +20,7 @@ import static org.chromium.ui.base.LocalizationUtils.setRtlForTesting;
 import static java.util.Arrays.asList;
 
 import android.view.View;
+import android.view.ViewGroup;
 
 import androidx.test.filters.MediumTest;
 
@@ -45,6 +46,7 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.night_mode.ChromeNightModeTestUtils;
 import org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.CredentialProperties;
+import org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.FooterProperties;
 import org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.HeaderProperties;
 import org.chromium.chrome.browser.touch_to_fill.data.Credential;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
@@ -102,7 +104,7 @@ public class TouchToFillRenderTest {
     @Rule
     public final ChromeRenderTestRule mRenderTestRule =
             ChromeRenderTestRule.Builder.withPublicCorpus()
-                    .setRevision(3)
+                    .setRevision(7)
                     .setBugComponent(Component.UI_BROWSER_AUTOFILL)
                     .build();
 
@@ -158,10 +160,8 @@ public class TouchToFillRenderTest {
                     org.chromium.chrome.browser.touch_to_fill.R.string
                             .touch_to_fill_sheet_uniform_title));
             mModel.get(SHEET_ITEMS).addAll(asList(buildCredentialItem(ARON)));
-            mModel.set(MANAGE_BUTTON_TEXT,
-                    mActivityTestRule.getActivity().getString(
-                            org.chromium.chrome.browser.touch_to_fill.R.string.manage_passwords));
             addButton(ARON);
+            addFooter();
             mModel.set(VISIBLE, true);
         });
 
@@ -176,9 +176,6 @@ public class TouchToFillRenderTest {
     @Feature({"RenderTest"})
     @DisableFeatures({ChromeFeatureList.UNIFIED_PASSWORD_MANAGER_ANDROID,
             ChromeFeatureList.UNIFIED_PASSWORD_MANAGER_ANDROID_BRANDING})
-    @DisabledTest(
-            message =
-                    "https://crbug.com/1407272 - This test is temporarily disabled to suppress the flake impact.")
     public void
     testShowsOneCredentialOldHalfState() throws Exception {
         TestThreadUtils.runOnUiThreadBlocking(() -> {
@@ -186,17 +183,17 @@ public class TouchToFillRenderTest {
                     org.chromium.chrome.browser.touch_to_fill.R.string
                             .touch_to_fill_sheet_uniform_title));
             mModel.get(SHEET_ITEMS).addAll(asList(buildCredentialItem(ARON)));
-            mModel.set(MANAGE_BUTTON_TEXT,
-                    mActivityTestRule.getActivity().getString(
-                            org.chromium.chrome.browser.touch_to_fill.R.string.manage_passwords));
             addButton(ARON);
+            addFooter();
             mModel.set(VISIBLE, true);
         });
 
         BottomSheetTestSupport.waitForOpen(mBottomSheetController);
 
-        View rootView = mActivityTestRule.getActivity().getWindow().getDecorView().getRootView();
-        mRenderTestRule.render(rootView, "ttf_shows_one_credential_old_ui_half_state");
+        ViewGroup bottomSheetParentView = (ViewGroup) mActivityTestRule.getActivity()
+                                                  .findViewById(R.id.bottom_sheet)
+                                                  .getParent();
+        mRenderTestRule.render(bottomSheetParentView, "ttf_shows_one_credential_old_ui_half_state");
     }
 
     @Test
@@ -213,9 +210,7 @@ public class TouchToFillRenderTest {
             mModel.get(SHEET_ITEMS);
             mModel.get(SHEET_ITEMS)
                     .addAll(asList(buildCredentialItem(ARON), buildCredentialItem(BOB)));
-            mModel.set(MANAGE_BUTTON_TEXT,
-                    mActivityTestRule.getActivity().getString(
-                            org.chromium.chrome.browser.touch_to_fill.R.string.manage_passwords));
+            addFooter();
             mModel.set(VISIBLE, true);
         });
 
@@ -230,9 +225,6 @@ public class TouchToFillRenderTest {
     @Feature({"RenderTest"})
     @DisableFeatures({ChromeFeatureList.UNIFIED_PASSWORD_MANAGER_ANDROID,
             ChromeFeatureList.UNIFIED_PASSWORD_MANAGER_ANDROID_BRANDING})
-    @DisabledTest(
-            message =
-                    "https://crbug.com/1407272 - This test is temporarily disabled to suppress the flake impact.")
     public void
     stShowsTwoCredentialsOldHalfState() throws Exception {
         TestThreadUtils.runOnUiThreadBlocking(() -> {
@@ -242,16 +234,17 @@ public class TouchToFillRenderTest {
             mModel.get(SHEET_ITEMS);
             mModel.get(SHEET_ITEMS)
                     .addAll(asList(buildCredentialItem(ARON), buildCredentialItem(BOB)));
-            mModel.set(MANAGE_BUTTON_TEXT,
-                    mActivityTestRule.getActivity().getString(
-                            org.chromium.chrome.browser.touch_to_fill.R.string.manage_passwords));
+            addFooter();
             mModel.set(VISIBLE, true);
         });
 
         BottomSheetTestSupport.waitForOpen(mBottomSheetController);
 
-        View rootView = mActivityTestRule.getActivity().getWindow().getDecorView().getRootView();
-        mRenderTestRule.render(rootView, "ttf_shows_two_credentials_old_ui_half_state");
+        ViewGroup bottomSheetParentView = (ViewGroup) mActivityTestRule.getActivity()
+                                                  .findViewById(R.id.bottom_sheet)
+                                                  .getParent();
+        mRenderTestRule.render(
+                bottomSheetParentView, "ttf_shows_two_credentials_old_ui_half_state");
     }
 
     @Test
@@ -264,10 +257,8 @@ public class TouchToFillRenderTest {
                     org.chromium.chrome.browser.touch_to_fill.R.string
                             .touch_to_fill_sheet_uniform_title));
             mModel.get(SHEET_ITEMS).addAll(asList(buildCredentialItem(ARON)));
-            mModel.set(MANAGE_BUTTON_TEXT,
-                    mActivityTestRule.getActivity().getString(
-                            org.chromium.chrome.browser.touch_to_fill.R.string.manage_passwords));
             addButton(ARON);
+            addFooter();
             mModel.set(VISIBLE, true);
         });
 
@@ -281,27 +272,25 @@ public class TouchToFillRenderTest {
     @MediumTest
     @Feature({"RenderTest"})
     @EnableFeatures({ChromeFeatureList.UNIFIED_PASSWORD_MANAGER_ANDROID})
-    @DisabledTest(
-            message =
-                    "https://crbug.com/1407272 - This test is temporarily disabled to suppress the flake impact.")
-    public void
-    testShowsOneCredentialModernHalfState() throws Exception {
+    @DisabledTest(message = "https://crbug.com/1416856")
+    public void testShowsOneCredentialModernHalfState() throws Exception {
         TestThreadUtils.runOnUiThreadBlocking(() -> {
             addHeader(mActivityTestRule.getActivity().getString(
                     org.chromium.chrome.browser.touch_to_fill.R.string
                             .touch_to_fill_sheet_uniform_title));
             mModel.get(SHEET_ITEMS).addAll(asList(buildCredentialItem(ARON)));
-            mModel.set(MANAGE_BUTTON_TEXT,
-                    mActivityTestRule.getActivity().getString(
-                            org.chromium.chrome.browser.touch_to_fill.R.string.manage_passwords));
             addButton(ARON);
+            addFooter();
             mModel.set(VISIBLE, true);
         });
 
         BottomSheetTestSupport.waitForOpen(mBottomSheetController);
 
-        View rootView = mActivityTestRule.getActivity().getWindow().getDecorView().getRootView();
-        mRenderTestRule.render(rootView, "ttf_shows_one_credential_modern_ui_half_state");
+        ViewGroup bottomSheetParentView = (ViewGroup) mActivityTestRule.getActivity()
+                                                  .findViewById(R.id.bottom_sheet)
+                                                  .getParent();
+        mRenderTestRule.render(
+                bottomSheetParentView, "ttf_shows_one_credential_modern_ui_half_state");
     }
 
     @Test
@@ -316,9 +305,7 @@ public class TouchToFillRenderTest {
             mModel.get(SHEET_ITEMS);
             mModel.get(SHEET_ITEMS)
                     .addAll(asList(buildCredentialItem(ARON), buildCredentialItem(BOB)));
-            mModel.set(MANAGE_BUTTON_TEXT,
-                    mActivityTestRule.getActivity().getString(
-                            org.chromium.chrome.browser.touch_to_fill.R.string.manage_passwords));
+            addFooter();
             mModel.set(VISIBLE, true);
         });
 
@@ -332,11 +319,7 @@ public class TouchToFillRenderTest {
     @MediumTest
     @Feature({"RenderTest"})
     @EnableFeatures({ChromeFeatureList.UNIFIED_PASSWORD_MANAGER_ANDROID})
-    @DisabledTest(
-            message =
-                    "https://crbug.com/1407272 - This test is temporarily disabled to suppress the flake impact.")
-    public void
-    testShowsTwoCredentialsModernHalfState() throws Exception {
+    public void testShowsTwoCredentialsModernHalfState() throws Exception {
         TestThreadUtils.runOnUiThreadBlocking(() -> {
             addHeader(mActivityTestRule.getActivity().getString(
                     org.chromium.chrome.browser.touch_to_fill.R.string
@@ -344,16 +327,17 @@ public class TouchToFillRenderTest {
             mModel.get(SHEET_ITEMS);
             mModel.get(SHEET_ITEMS)
                     .addAll(asList(buildCredentialItem(ARON), buildCredentialItem(BOB)));
-            mModel.set(MANAGE_BUTTON_TEXT,
-                    mActivityTestRule.getActivity().getString(
-                            org.chromium.chrome.browser.touch_to_fill.R.string.manage_passwords));
+            addFooter();
             mModel.set(VISIBLE, true);
         });
 
         BottomSheetTestSupport.waitForOpen(mBottomSheetController);
 
-        View rootView = mActivityTestRule.getActivity().getWindow().getDecorView().getRootView();
-        mRenderTestRule.render(rootView, "ttf_shows_two_credentials_modern_ui_half_state");
+        ViewGroup bottomSheetParentView = (ViewGroup) mActivityTestRule.getActivity()
+                                                  .findViewById(R.id.bottom_sheet)
+                                                  .getParent();
+        mRenderTestRule.render(
+                bottomSheetParentView, "ttf_shows_two_credentials_modern_ui_half_state");
     }
 
     @Test
@@ -368,9 +352,7 @@ public class TouchToFillRenderTest {
             mModel.get(SHEET_ITEMS)
                     .addAll(asList(buildCredentialItem(ARON), buildCredentialItem(BOB),
                             buildCredentialItem(MARIAM)));
-            mModel.set(MANAGE_BUTTON_TEXT,
-                    mActivityTestRule.getActivity().getString(
-                            org.chromium.chrome.browser.touch_to_fill.R.string.manage_passwords));
+            addFooter();
             mModel.set(VISIBLE, true);
         });
 
@@ -384,11 +366,7 @@ public class TouchToFillRenderTest {
     @MediumTest
     @Feature({"RenderTest"})
     @EnableFeatures({ChromeFeatureList.UNIFIED_PASSWORD_MANAGER_ANDROID})
-    @DisabledTest(
-            message =
-                    "https://crbug.com/1407272 - This test is temporarily disabled to suppress the flake impact.")
-    public void
-    testShowsThreeCredentialsModernHalfState() throws Exception {
+    public void testShowsThreeCredentialsModernHalfState() throws Exception {
         TestThreadUtils.runOnUiThreadBlocking(() -> {
             addHeader(mActivityTestRule.getActivity().getString(
                     org.chromium.chrome.browser.touch_to_fill.R.string
@@ -396,16 +374,17 @@ public class TouchToFillRenderTest {
             mModel.get(SHEET_ITEMS)
                     .addAll(asList(buildCredentialItem(ARON), buildCredentialItem(BOB),
                             buildCredentialItem(MARIAM)));
-            mModel.set(MANAGE_BUTTON_TEXT,
-                    mActivityTestRule.getActivity().getString(
-                            org.chromium.chrome.browser.touch_to_fill.R.string.manage_passwords));
+            addFooter();
             mModel.set(VISIBLE, true);
         });
 
         BottomSheetTestSupport.waitForOpen(mBottomSheetController);
 
-        View rootView = mActivityTestRule.getActivity().getWindow().getDecorView().getRootView();
-        mRenderTestRule.render(rootView, "ttf_shows_three_credentials_modern_ui_half_state");
+        ViewGroup bottomSheetParentView = (ViewGroup) mActivityTestRule.getActivity()
+                                                  .findViewById(R.id.bottom_sheet)
+                                                  .getParent();
+        mRenderTestRule.render(
+                bottomSheetParentView, "ttf_shows_three_credentials_modern_ui_half_state");
     }
 
     private MVCListAdapter.ListItem buildCredentialItem(Credential credential) {
@@ -447,6 +426,17 @@ public class TouchToFillRenderTest {
                                         UrlFormatter.formatUrlForDisplayOmitScheme(
                                                 credential.getOriginUrl()))
                                 .with(SHOW_SUBMIT_BUTTON, true)
+                                .build()));
+    }
+
+    private void addFooter() {
+        mModel.get(SHEET_ITEMS)
+                .add(new MVCListAdapter.ListItem(TouchToFillProperties.ItemType.FOOTER,
+                        new PropertyModel.Builder(FooterProperties.ALL_KEYS)
+                                .with(MANAGE_BUTTON_TEXT,
+                                        mActivityTestRule.getActivity().getString(
+                                                org.chromium.chrome.browser.touch_to_fill.R.string
+                                                        .manage_passwords))
                                 .build()));
     }
 }

@@ -584,8 +584,8 @@ void AutofillAgent::FillOrPreviewForm(const FormData& form,
 
 void AutofillAgent::FieldTypePredictionsAvailable(
     const std::vector<FormDataPredictions>& forms) {
-  bool attach_predictions_to_dom =
-      base::FeatureList::IsEnabled(features::kAutofillShowTypePredictions);
+  bool attach_predictions_to_dom = base::FeatureList::IsEnabled(
+      features::test::kAutofillShowTypePredictions);
   for (const auto& form : forms) {
     form_cache_.ShowPredictions(form, attach_predictions_to_dom);
   }
@@ -935,9 +935,29 @@ void AutofillAgent::DoPreviewFieldWithValue(const std::u16string& value,
 void AutofillAgent::TriggerReparse() {
   if (!reparse_timer_.IsRunning()) {
     reparse_timer_.Start(FROM_HERE, base::Milliseconds(100),
-                         base::BindRepeating(&AutofillAgent::ProcessForms,
-                                             weak_ptr_factory_.GetWeakPtr()));
+                         base::BindOnce(&AutofillAgent::ProcessForms,
+                                        weak_ptr_factory_.GetWeakPtr()));
   }
+}
+
+void AutofillAgent::TriggerReparseWithResponse(
+    base::OnceCallback<void(bool)> callback) {
+  if (reparse_with_response_timer_.IsRunning()) {
+    std::move(callback).Run(/*success=*/false);
+    return;
+  }
+  reparse_with_response_timer_.Start(
+      FROM_HERE, base::Milliseconds(100),
+      base::BindOnce(
+          [](base::WeakPtr<AutofillAgent> self,
+             base::OnceCallback<void(bool)> callback) {
+            if (!self) {
+              return;
+            }
+            self->ProcessForms();
+            std::move(callback).Run(/*success=*/true);
+          },
+          weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
 }
 
 void AutofillAgent::ProcessForms() {

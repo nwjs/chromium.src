@@ -26,7 +26,7 @@ content::GlobalRenderFrameHostId GetFrameRoutingId(
 
 }  // namespace
 
-ExtensionNavigationUIData::ExtensionNavigationUIData() {}
+ExtensionNavigationUIData::ExtensionNavigationUIData() = default;
 
 ExtensionNavigationUIData::ExtensionNavigationUIData(
     content::NavigationHandle* navigation_handle,

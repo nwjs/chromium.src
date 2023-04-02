@@ -189,6 +189,16 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Security.NavigationRequestSecurityLevel"
+    enum="NavigationRequestSecurityLevel" expires_after="2024-03-01">
+  <owner>jdeblasio@chromium.org</owner>
+  <owner>trusty-transport@chromium.org</owner>
+  <summary>
+    Records the security level (e.g. secure, not secure, etc.) of each HTTP
+    request, recording one histogram per fetch (i.e. including redirects).
+  </summary>
+</histogram>
+
 <histogram base="true" name="Security.PageEndReason" enum="PageEndReason"
     expires_after="2023-07-09">
   <owner>cthomp@chromium.org</owner>
@@ -210,7 +220,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.PageInfo.AboutThisSiteLanguageSupported"
-    enum="Boolean" expires_after="2023-06-18">
+    enum="Boolean" expires_after="2023-08-20">
   <owner>dullweber@chromium.org</owner>
   <owner>olesiamarukhno@chromium.org</owner>
   <summary>
@@ -292,7 +302,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.PrivateNetworkAccess.CheckResult"
-    enum="PrivateNetworkAccessCheckResult" expires_after="2023-06-18">
+    enum="PrivateNetworkAccessCheckResult" expires_after="2023-08-20">
   <owner>titouan@chromium.org</owner>
   <owner>clamy@chromium.org</owner>
   <owner>mkwst@chromium.org</owner>
@@ -317,6 +327,31 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Security.PrivateNetworkAccess.PrivateIpInferrable"
+    enum="Boolean" expires_after="2023-12-31">
+  <owner>titouan@chromium.org</owner>
+  <owner>lyf@chromium.org</owner>
+  <owner>clamy@chromium.org</owner>
+  <summary>
+    Records whether a failed PNA check could have been avoided by inferring the
+    request's target IP address space by recognizing that the request URL's host
+    is a literal private IP address. Recorded at most once per URL request.
+  </summary>
+</histogram>
+
+<histogram name="Security.PrivateNetworkAccess.PrivateIpResolveMatch"
+    enum="Boolean" expires_after="2023-12-31">
+  <owner>titouan@chromium.org</owner>
+  <owner>lyf@chromium.org</owner>
+  <owner>clamy@chromium.org</owner>
+  <summary>
+    Records whether a request to a literal private IP address resolved to that
+    private IP address. Recorded at most once per call to
+    `network::URLLoader::OnConnected()`, which may be more than once per URL
+    request.
+  </summary>
+</histogram>
+
 <histogram name="Security.SafetyTips.GetDomainInfoTime" units="ms"
     expires_after="2023-06-04">
   <owner>jdeblasio@chromium.org</owner>
@@ -330,7 +365,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.SafetyTips.GetReputationStatusWithEngagedSitesTime"
-    units="ms" expires_after="2023-06-04">
+    units="ms" expires_after="2023-08-08">
   <owner>jdeblasio@chromium.org</owner>
   <owner>estark@chromium.org</owner>
   <owner>blundell@chromium.org</owner>
@@ -397,7 +432,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.SCTAuditing.OptIn.ReportCompletionStatus"
-    enum="SCTAuditingReportCompletionStatus" expires_after="2023-06-04">
+    enum="SCTAuditingReportCompletionStatus" expires_after="2023-08-08">
   <owner>cthomp@chromium.org</owner>
   <owner>trusty-transport@chromium.org</owner>
   <summary>
@@ -763,9 +798,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SiteIsolation.ORB.BlockingReason"
-    enum="OrbBlockingDecisionReason" expires_after="2023-03-26">
+    enum="OrbBlockingDecisionReason" expires_after="2023-08-08">
   <owner>creis@chromium.org</owner>
   <owner>lukasza@chromium.org</owner>
+  <owner>vogelheim@chromium.org</owner>
   <summary>
     Logs why ORB has reached a blocking decision.
 
@@ -774,9 +810,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SiteIsolation.ORB.CorbVsOrb" enum="CorbVsOrb"
-    expires_after="2023-06-04">
+    expires_after="2023-08-08">
   <owner>creis@chromium.org</owner>
   <owner>lukasza@chromium.org</owner>
+  <owner>vogelheim@chromium.org</owner>
   <summary>
     Logs whether ORB and CORB would take the same allow-vs-block decision. This
     should help assess the backcompatibility risk of shipping ORB.
@@ -788,9 +825,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SiteIsolation.ORB.CorbVsOrb.OrbBlockedAndCorbDidnt.Reason"
-    enum="OrbBlockingDecisionReason" expires_after="2023-06-04">
+    enum="OrbBlockingDecisionReason" expires_after="2023-08-08">
   <owner>creis@chromium.org</owner>
   <owner>lukasza@chromium.org</owner>
+  <owner>vogelheim@chromium.org</owner>
   <summary>
     Logs why ORB has reached a blocking decision.
 
@@ -925,7 +963,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SiteIsolation.SavedOAuthSites.Size" units="origins"
-    expires_after="2023-06-18">
+    expires_after="2023-08-20">
   <owner>alexmos@chromium.org</owner>
   <owner>creis@chromium.org</owner>
   <owner>lukasza@chromium.org</owner>
@@ -937,7 +975,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SiteIsolation.SavedUserTriggeredIsolatedOrigins.Size"
-    units="origins" expires_after="2023-06-18">
+    units="origins" expires_after="2023-08-20">
   <owner>alexmos@chromium.org</owner>
   <owner>creis@chromium.org</owner>
   <owner>lukasza@chromium.org</owner>
@@ -950,7 +988,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SiteIsolation.SavedWebTriggeredIsolatedOrigins.Size"
-    units="origins" expires_after="2023-06-18">
+    units="origins" expires_after="2023-08-20">
   <owner>alexmos@chromium.org</owner>
   <owner>creis@chromium.org</owner>
   <owner>lukasza@chromium.org</owner>

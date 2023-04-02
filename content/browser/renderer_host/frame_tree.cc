@@ -223,6 +223,17 @@ FrameTree::~FrameTree() {
 #endif
 }
 
+void FrameTree::ForEachRenderViewHost(
+    base::FunctionRef<void(RenderViewHostImpl*)> on_host) {
+  if (speculative_render_view_host_) {
+    on_host(speculative_render_view_host_.get());
+  }
+
+  for (auto& rvh : render_view_host_map_) {
+    on_host(rvh.second);
+  }
+}
+
 void FrameTree::MakeSpeculativeRVHCurrent() {
   CHECK(speculative_render_view_host_);
 
@@ -828,10 +839,12 @@ void FrameTree::Init(SiteInstanceImpl* main_frame_site_instance,
                                    main_frame_name, devtools_frame_token);
   root_.SetFencedFramePropertiesIfNeeded();
 
-  // The initial empty document should inherit the origin of its opener (the
-  // origin may change after the first commit), except when they are in
+  // The initial empty document should inherit the origin (the origin may
+  // change after the first commit) and other state (such as the
+  // RuntimeFeatureStateReadContext) from its opener, except when they are in
   // different browsing context groups (`renderer_initiated_creation` will be
-  // false), where it should use a new opaque origin.
+  // false), where it should use a new opaque origin and default values for the
+  // other state, respectively.
   // See also https://crbug.com/932067.
   //
   // Note that the origin of the new frame might depend on sandbox flags.
@@ -839,8 +852,7 @@ void FrameTree::Init(SiteInstanceImpl* main_frame_site_instance,
   // because the flags should be already inherited when creating the root node.
   DCHECK(!renderer_initiated_creation || opener_for_origin);
   root_.current_frame_host()->SetOriginDependentStateOfNewFrame(
-      renderer_initiated_creation ? opener_for_origin->GetLastCommittedOrigin()
-                                  : url::Origin());
+      renderer_initiated_creation ? opener_for_origin : nullptr);
 
   controller().CreateInitialEntry();
 }
@@ -992,7 +1004,7 @@ const blink::StorageKey FrameTree::GetSessionStorageKey(
       unpartitioned_session_storage_origins_.end()) {
     // If the storage key matches a participating origin we need to return the
     // first-party version for use in binding session storage.
-    return blink::StorageKey(storage_key.origin());
+    return blink::StorageKey::CreateFirstParty(storage_key.origin());
   }
   return storage_key;
 }

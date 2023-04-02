@@ -222,7 +222,9 @@ class CORE_EXPORT Node : public EventTarget {
   ContainerNode* ParentElementOrShadowRoot() const;
   ContainerNode* ParentElementOrDocumentFragment() const;
   Node* previousSibling() const { return previous_; }
+  bool HasPreviousSibling() const { return previous_; }
   Node* nextSibling() const { return next_; }
+  bool HasNextSibling() const { return next_; }
   NodeList* childNodes();
   Node* firstChild() const;
   Node* lastChild() const;
@@ -1194,13 +1196,17 @@ class CORE_EXPORT Node : public EventTarget {
 
   void AddCandidateDirectionalityForSlot();
 
-  uint32_t node_flags_;
-  Member<Node> parent_or_shadow_host_node_;
-  Member<TreeScope> tree_scope_;
+  // Both parent and tree_scope are hot accessed members. Keep them uncompressed
+  // for performance reasons.
+  subtle::UncompressedMember<Node> parent_or_shadow_host_node_;
+  subtle::UncompressedMember<TreeScope> tree_scope_;
+  // Compressed members and flags are after uncompressed members to minimize
+  // padding.
   Member<Node> previous_;
   Member<Node> next_;
   // When a node has rare data we move the layoutObject into the rare data.
   Member<NodeData> data_;
+  uint32_t node_flags_;
 };
 
 inline void Node::SetParentOrShadowHostNode(ContainerNode* parent) {

@@ -15,9 +15,10 @@ import {LocalStorage} from '../../../common/local_storage.js';
 import {NavBraille} from '../../common/braille/nav_braille.js';
 import {ChromeVoxEvent} from '../../common/custom_automation_event.js';
 import {Msgs} from '../../common/msgs.js';
+import {SettingsManager} from '../../common/settings_manager.js';
 import {MultiSpannable, Spannable} from '../../common/spannable.js';
 import {Personality, QueueMode} from '../../common/tts_types.js';
-import {BrailleBackground} from '../braille/braille_background.js';
+import {BrailleTranslatorManager} from '../braille/braille_translator_manager.js';
 import {LibLouis} from '../braille/liblouis.js';
 import {BrailleTextStyleSpan, ValueSelectionSpan, ValueSpan} from '../braille/spans.js';
 import {ChromeVox} from '../chromevox.js';
@@ -986,7 +987,7 @@ const AutomationRichEditableText = class extends AutomationEditableText {
 
     this.speakTextMarker_(container, cur.localStartOffset, cur.localEndOffset);
 
-    if (LocalStorage.get('announceRichTextAttributes')) {
+    if (SettingsManager.get('announceRichTextAttributes')) {
       this.speakTextStyle_(container);
     }
   }
@@ -1011,12 +1012,12 @@ class EditingRangeObserver {
   onCurrentRangeChanged(range, opt_fromEditing) {
     const inputType = range && range.start.node.inputType;
     if (inputType === 'email' || inputType === 'url') {
-      BrailleBackground.instance.getTranslatorManager().refresh(
-          LocalStorage.getString('brailleTable8'));
+      BrailleTranslatorManager.instance.refresh(
+          SettingsManager.getString('brailleTable8'));
       return;
     }
-    BrailleBackground.instance.getTranslatorManager().refresh(
-        LocalStorage.getString('brailleTable', ''));
+    BrailleTranslatorManager.instance.refresh(
+        SettingsManager.getString('brailleTable'));
   }
 }
 

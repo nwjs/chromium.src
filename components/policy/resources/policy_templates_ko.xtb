@@ -126,11 +126,6 @@
 <translation id="1117535567637097036">Android 인텐트를 처리할 때 이 정책을 통해 설정된 프로토콜 핸들러는 사용되지 않습니다.</translation>
 <translation id="1118093128235245168">사이트에서 사용자에게 연결된 USB 기기의 액세스 권한을 부여할지 묻도록 허용합니다.</translation>
 <translation id="111910763555783249">알림 설정</translation>
-<translation id="1120291391245112391">기기의 지리적 위치를 보고합니다.
-
-      정책을 사용으로 설정하면 등록된 기기에서 주기적으로 위치를 보고합니다.
-
-      정책을 사용 안함으로 설정하거나 설정하지 않으면 등록된 기기에서 위치를 보고하지 않습니다.</translation>
 <translation id="1122089575901325963">정책을 설정하면 기기에서 사용 가능한 경우 <ph name="WILCO_NAME" /> DTC(진단 및 텔레메트리 컨트롤러)가 설정됩니다. 설정 크기는 1MB(1,000,000바이트)를 초과할 수 없으며 JSON 형식이어야 합니다. 처리는 <ph name="WILCO_NAME" /> DTC에서 담당합니다. 암호화 해시는 다운로드 파일의 무결성을 확인합니다. 이 설정은 다운로드 및 캐시됩니다. URL이나 해시가 변경될 때마다 설정이 다시 다운로드됩니다.
 
       설정된 정책은 사용자가 변경할 수 없습니다.</translation>
@@ -745,6 +740,7 @@
       정책을 설정하면 기기의 디스크 여유 공간이 정책에서 요구하는 수준보다 적을 경우 <ph name="PLUGIN_VM_NAME" /> 설치에 실패합니다.</translation>
 <translation id="1686952487081322272">빠른 답변 사용 안함</translation>
 <translation id="1690383938831887552">서명된 HTTP 교환(SXG) 로드 차단</translation>
+<translation id="1692990221685273468">내장된 인증서 확인 기능이 플랫폼 신뢰 저장소에서 로드된 신뢰 앵커에 인코딩된 제약조건을 적용하게 할지 결정합니다.</translation>
 <translation id="169467210981344373">전역적으로 범위가 지정된 HTTP 인증 캐시 사용 중지</translation>
 <translation id="1698810555265314018"><ph name="PRODUCT_NAME" />에서 래스터화한 PDF를 인쇄할 때 인쇄 이미지 해상도를 관리합니다.
 
@@ -803,6 +799,7 @@
       정책을 설정하지 않으면 사용자 화면 제어 또는 자동 밝기 기능에 어떠한 영향도 미치지 않습니다.
 
       참고: 이 정책의 값은 0부터 100까지의 비율로 지정해야 합니다.</translation>
+<translation id="1733092875104864334">Google 서비스에서 WebRTC 텍스트 로그 수집 허용 안함</translation>
 <translation id="1733768596873041559">기본적으로 SAML IdP로 리디렉션(<ph name="PRODUCT_NAME" /> 99 이전 버전에서는 사용자 확인 필요)</translation>
 <translation id="1733939382419067578">정책을 설정하면 알림 표시가 가능한 사이트를 지정하는 URL 패턴 목록을 설정할 수 있습니다.
 
@@ -935,6 +932,7 @@
 <translation id="1883274744253492031">혼합 콘텐츠 자동 업그레이드 사용 설정</translation>
 <translation id="1885782360784839335">전체 탭 프로모션 콘텐츠 표시 기능을 사용합니다.</translation>
 <translation id="1888871729456797026">데스크톱의 클라우드 정책 등록 토큰</translation>
+<translation id="1890850749633603276">허용 Chrome 앱 <ph name="WEBVIEW_TAG_NAME" /> 동작 복원</translation>
 <translation id="1893271062894546361">정책을 사용 설정하면 로컬 네트워크에 있는 다른 기기에서 시작한 <ph name="PRODUCT_NAME" /> 세션에 미디어 재생 컨트롤 UI를 사용할 수 있습니다.
 
       기업 사용자에게 이 정책이 설정되어 있지 않거나 사용 중지되면 로컬 네트워크에 있는 다른 기기에서 시작한 <ph name="PRODUCT_NAME" /> 세션에서 미디어 재생 컨트롤 UI를 사용할 수 없습니다.
@@ -948,6 +946,11 @@
       정책을 False로 설정하거나 설정하지 않으면 <ph name="PRODUCT_NAME" />에서 <ph name="PRODUCT_NAME" /> 19 이후에는 온라인 해지 확인 검사를 진행하지 않습니다.
 
       참고: <ph name="OCSP_CRL_LABEL" /> 검사는 보안상 실질적인 이점이 없습니다.</translation>
+<translation id="1904685047904049720">정책을 사용 설정하면 Chrome 웹 스토어에서 게시 취소된 확장 프로그램이 <ph name="PRODUCT_NAME" />에서 사용 중지됩니다.
+이 정책은 Chrome 웹 스토어에서 설치 및 업데이트된 확장 프로그램에만 적용됩니다. 개발자 모드를 사용하여 설치되는 압축해제된 확장 프로그램 및 명령줄 전환을 사용하여 설치된 확장 프로그램 등 스토어 외부에서 설치된 확장 프로그램은 무시됩니다. 강제 설치되었으며 Chrome 웹 스토어에서 업데이트되지 않는 확장 프로그램 및 모든 버전 고정 확장 프로그램도 무시됩니다.
+
+정책을 <ph name="ALLOW_UNPUBLISHED" />(0)(으)로 설정하거나 설정하지 않으면 Chrome 웹 스토어에서 게시 취소된 확장 프로그램을 사용할 수 있습니다.
+정책을 <ph name="DISABLE_UNPUBLISHED" />(1)(으)로 설정하면 Chrome 웹 스토어에서 게시 취소된 확장 프로그램이 사용 중지됩니다.</translation>
 <translation id="1905061765326052857">제휴되지 않은 사용자가 Linux 앱을 지원하는 데 필요한 가상 머신을 사용하도록 허용 안 함</translation>
 <translation id="1910704279188129272">앱별 사용 제한을 설정하도록 허용합니다.
         사용 제한은 특정 사용자를 위해 <ph name="PRODUCT_OS_NAME" />에 설치된 앱에 적용될 수 있습니다.
@@ -1081,6 +1084,7 @@
 <translation id="1997943707974344423">Smart Lock 허용</translation>
 <translation id="1998504583649140526">비공개 네트워크 요청 설정</translation>
 <translation id="1999000620918508488">로그인 화면에 시스템 정보를 표시하거나 숨깁니다.</translation>
+<translation id="1999401210569035434">게시 취소된 확장 프로그램 허용</translation>
 <translation id="1999942889260716089">정책을 True로 설정하면 <ph name="PRODUCT_NAME" />의 주소 표시줄에서 추천 검색어가 사용됩니다. 정책을 False로 설정하면 추천 검색어가 사용 중지됩니다.
 
       북마크나 방문 기록을 기반으로 한 추천 항목은 이 정책의 영향을 받지 않습니다.
@@ -1172,14 +1176,6 @@
 <translation id="20838788335877967">사용자 식별 정보 보고 사용 안함</translation>
 <translation id="208566302163036794">사용 중지된 기능 차단</translation>
 <translation id="208623333578980446">전원 관리를 위해 화면 wake lock 허용</translation>
-<translation id="2087277084358676117">이 정책은 일시적으로 PPB_VideoDecoder(Dev) API 지원을 강제로 사용 설정할 수 있습니다.
-
-정책을 설정하지 않거나 사용 안함으로 설정하면 브라우저에서 API 지원 여부를 결정합니다.
-정책을 사용으로 설정하면 API가 지원됩니다.
-
-이 정책은 Google에서 진행 중인 이 API에 대한 지원 중단으로 인해 문제가 발생할 경우 사용할 수 있습니다. 정책을 사용해야 하는 경우 crbug.com에서 사용 사례를 설명하는 버그를 {blundell, vasilyt}@chromium.org를 참조에 포함하여 제출하세요. 이 정책은 <ph name="PRODUCT_NAME" /> 버전 114까지 제공되도록 예정되어 있으며 이후 버전에서는 API 지원이 무조건 삭제됩니다.
-
-참고: 변경된 정책 값은 새 탭에서 적용됩니다. 새 값을 적용하려면 기존 탭을 닫았다가 다시 열어야 합니다.</translation>
 <translation id="2089541797660774692">관리 브라우저 클라우드 보고 사용</translation>
 <translation id="2090939118981888335">정책을 사용 설정하면 데이터 압축 프록시가 허용됩니다. 정책을 사용 중지하면 프록시가 허용되지 않습니다.
 
@@ -1278,6 +1274,15 @@
 <translation id="2168397434410358693">AC 전원으로 실행할 때 유휴 지연</translation>
 <translation id="217013996107840632">다른 브라우저에서 Chrome으로 전환하기 위한 명령줄 매개변수입니다.</translation>
 <translation id="2170233653554726857">WPAD 최적화 사용</translation>
+<translation id="2172528612637587749">잠금 화면의 화면 보호기에 표시할 이미지 목록을 구성합니다.
+
+각 항목은 이미지 파일을 참조하는 URL이어야 합니다. 이미지 형식은 JPEG여야 하며 파일 크기는 8MB를 초과해서는 안 됩니다. 잘못된 URL 및 지원되지 않는 이미지는 무시됩니다. <ph name="PRODUCT_OS_NAME" /> 기기는 이러한 이미지를 다운로드하여 로컬 캐시에 보관합니다.
+
+화면 보호기에 표시하는 이미지 수는 25개로 제한되므로 URL 목록의 첫 25개 항목만 사용됩니다.
+
+<ph name="SCREENSAVER_ENABLED_POLICY_NAME" /> 정책을 false로 설정하면 이 정책은 아무런 영향을 미치지 않습니다.
+
+정책을 설정하지 않거나 목록에 유효한 이미지 참조 URL이 없는 경우 <ph name="SCREENSAVER_ENABLED_POLICY_NAME" /> 정책에 설정된 값과 관계없이 잠금 화면의 화면 보호기가 표시되지 않습니다.</translation>
 <translation id="2175353308236295184">앱별 JSON 설정 객체로, 키-값 쌍 세트를 포함합니다(예: '"managedConfiguration": { "key1": value1, "key2": value2 }'). 키는 앱 매니페스트에 정의됩니다.</translation>
 <translation id="2176115444876446233">사용자가 시스템 전체의 성능 흔적을 수집하지 못하도록 차단</translation>
 <translation id="2177696016354404697">항상 개인 정보 보호 화면 사용 중지</translation>
@@ -1335,10 +1340,6 @@
 <translation id="2223393221350938149">모든 사이트에서 자바스크립트 JIT를 실행하도록 허용 안함</translation>
 <translation id="2223598546285729819">기본 알림 설정</translation>
 <translation id="222673035924187991">TLS Encrypted ClientHello 사용</translation>
-<translation id="2231726854197443389">이 정책은 사용자가 설정에서 HTTPS 전용 모드를 사용 설정할 수 있는지 결정합니다. HTTPS 전용 모드는 모든 탐색을 HTTPS로 업그레이드합니다.
-      이 설정을 설정하지 않거나 허용됨으로 설정할 경우 사용자는 HTTPS 전용 모드를 사용 설정할 수 있습니다.
-      이 설정을 허용되지 않음으로 설정할 경우 사용자는 HTTPS 전용 모드를 사용 설정할 수 없습니다.
-      HTTPS 전용 모드의 강제 사용 설정은 현재 지원되지 않습니다.</translation>
 <translation id="2231817271680715693">처음 실행 시 기본 브라우저에서 인터넷 사용기록 가져오기</translation>
 <translation id="2231962946025538735">지원 중단된 정책입니다. <ph name="DEFAULT_PLUGINS_SETTING_POLICY_NAME" />을 사용하여 Flash 플러그인의 사용 가능 여부를 제어하고 <ph name="ALWAYS_OPEN_PDF_EXTERNALLY_POLICY_NAME" />를 사용하여 PDF 파일을 열 때 통합 PDF 뷰어를 사용할지 선택하세요.
 
@@ -1354,6 +1355,7 @@
 
       정책을 설정하지 않으면 'DisabledPlugins'의 패턴과 일치하는 모든 플러그인이 잠겨 사용 중지되며 사용자가 다시 사용 설정할 수 없습니다.</translation>
 <translation id="2236488539271255289">모든 사이트에서 로컬 데이터 설정 허용 안함</translation>
+<translation id="2236593201136596376">Google 서비스에서 WebRTC 텍스트 로그 수집 허용</translation>
 <translation id="2241498944622759244">이 기능은 출시되지 않았기 때문에 정책이 지원 중단되었습니다. true로 설정하거나 설정하지 않으면 <ph name="PRODUCT_NAME" />에서 현재 페이지와 관련된 페이지를 추천합니다.
       추천 페이지는 Google 서버에서 원격으로 가져옵니다.
 
@@ -1451,6 +1453,16 @@
       정책을 사용 중지하면 이 기능을 사용할 수 없습니다.</translation>
 <translation id="2342066287156668839">영구 할당량을 사용 설정합니다.</translation>
 <translation id="2345547870894930157">안전하지 않은 대체 없이 DNS-over-HTTPS 사용</translation>
+<translation id="234856189825555040">이 정책은 <ph name="PEPPER_NAME" /> 플러그인이 하드웨어 디코더와 통신하기 위해 기존 동영상 디코더 대신 새 디코더를 사용하는지를 제어합니다.
+
+이전은 내부 구현 세부정보에만 영향을 미치며 동작을 변경하지는 않습니다. 하지만 이 정책은 PPAPI 애플리케이션이 예상대로 작동하지 않는 경우에 사용할 수 있습니다.
+
+정책을 설정하지 않거나 사용으로 설정하면 브라우저에서 사용할 구현을 결정합니다.
+정책을 사용 안함으로 설정하면 정책이 만료될 때까지 브라우저에서 이전 구현을 사용합니다.
+
+정책을 사용해야 하는 경우 crbug.com에서 사용 사례를 설명하는 버그를 {andrescj, blundell, pmolinalopez, vasilyt}@chromium.org를 참조에 포함하여 제출하세요. 이 정책은 <ph name="PRODUCT_NAME" /> 버전 114까지 제공될 예정이며 이후 버전에서는 이전 구현이 삭제됩니다.
+
+참고: 새로 시작된 렌더기 프로세스만 브라우저가 실행되는 동안 이 정책의 변경사항을 반영합니다.</translation>
 <translation id="2349117476121456297">이 정책을 True로 설정하면 맨 윗줄에 있는 키의 동작을 기능 키 명령어로 변경합니다 검색 키를 누르면 다시 미디어 키 동작으로 돌아옵니다.
 
       정책을 False로 설정하거나 설정하지 않으면 키보드는 기본적으로 미디어 키 명령어를 만듭니다. 검색 키를 누르면 기능 키로 변경됩니다.</translation>
@@ -1488,6 +1500,9 @@
       설정하지 않으면 타사 쿠키가 사용 설정되지만 사용자가 이 설정을 변경할 수 있습니다.</translation>
 <translation id="2386362615870139244">화면 잠금 허용</translation>
 <translation id="2387469539700985783">이 정책은 Android에서 시행하는 보고에 아무런 영향을 미치지 않습니다.</translation>
+<translation id="2388701318721126001">정책을 사용 중지하면 Google 포토 앨범에서 사용자의 <ph name="PRODUCT_OS_NAME" /> 배경화면 이미지를 선택할 수 없습니다.
+
+이 정책을 사용 설정하거나 설정하지 않으면 사용자가 Google 포토 이미지를 배경화면으로 선택할 수 있습니다.</translation>
 <translation id="2393862222659066027">URL 목록 열기 및 마지막 세션 복원</translation>
 <translation id="2394429297128584919">페이지를 닫는 중에 페이지에서 동기 XHR 요청을 전송하도록 허용 안함</translation>
 <translation id="2394674739523870144">이 정책을 문자열 목록으로 설정하면 문자열이 공백과 합쳐지고 <ph name="IE_PRODUCT_NAME" />부터 <ph name="PRODUCT_NAME" />까지 명령줄 매개변수로 전달됩니다. 매개변수에 <ph name="URL_PLACEHOLDER" />이(가) 있으면 <ph name="URL_PLACEHOLDER" />이(가) 열릴 페이지의 URL로 대체됩니다. 매개변수에 <ph name="URL_PLACEHOLDER" />이(가) 없으면 이 URL이 명령줄 끝에 추가됩니다.
@@ -2135,6 +2150,7 @@ Chrome 앱은 ID(예: <ph name="DEFAULT_HANDLERS_FOR_FILE_EXTENSIONS_POLICY_CHRO
 
         이 정책은 이미 출시된 정책에는 영향을 미치지 않습니다.</translation>
 <translation id="3002067315837777719">'휴대전화 허브 알림' 사용 설정을 불허</translation>
+<translation id="3010907817113180883">기기 활동 하트비트 수집 속도(밀리초)</translation>
 <translation id="3017578958356048910">PDF 뷰어에서 PDF에 주석 작성 가능</translation>
 <translation id="3020623128585817424">시작 시 기본 브라우저 확인 사용 중지</translation>
 <translation id="3020953534071988875">이 정책을 설정하면 <ph name="PRODUCT_NAME" />의 시크릿 모드와 게스트 프로필에서 앰비언트 인증을 허용/금지할 수 있습니다.
@@ -2153,6 +2169,7 @@ Chrome 앱은 ID(예: <ph name="DEFAULT_HANDLERS_FOR_FILE_EXTENSIONS_POLICY_CHRO
 
       <ph name="PRODUCT_NAME" /> 버전 81 이상에서는 정책을 설정하지 않으면 일반 세션에서만 앰비언트 인증이 허용됩니다.</translation>
 <translation id="3021562480854470924">허용된 주요 롤백의 수</translation>
+<translation id="3023172689742785487">HTTPS 전용 모드 강제 사용 설정</translation>
 <translation id="3023572080620427845">대체 브라우저에서 로드할 URL이 포함된 XML 파일의 URL입니다.</translation>
 <translation id="302528139996622624">이미지 설정</translation>
 <translation id="3026740867910702435">로그인 화면에서 큰 커서 접근성 기능을 사용 설정합니다.
@@ -2439,6 +2456,7 @@ Chrome 앱은 ID(예: <ph name="DEFAULT_HANDLERS_FOR_FILE_EXTENSIONS_POLICY_CHRO
 
       설정하지 않으면 기본값은 False로 설정되며 사용자가 이 설정에서 어떤 상태든지(True/False) 선택할 수 있습니다.</translation>
 <translation id="3236046242843493070">확장 프로그램, 앱, 사용자 스크립트 설치 등을 허용하는 URL 패턴</translation>
+<translation id="323609919471603985">Credential Provider Extension Promo 표시 허용</translation>
 <translation id="3239125988620218257">네트워크 상태 보고</translation>
 <translation id="3240609035816615922">프린터 설정 액세스 정책</translation>
 <translation id="324062325008698789">프린터 목록 구성</translation>
@@ -2825,13 +2843,6 @@ Chrome 앱은 ID(예: <ph name="DEFAULT_HANDLERS_FOR_FILE_EXTENSIONS_POLICY_CHRO
 <translation id="3589193811812796052">WebAssembly 모듈이 출처 간에 전송되는 것을 방지</translation>
 <translation id="3591527072193107424">이전 브라우저 지원 기능을 사용 설정합니다.</translation>
 <translation id="3591584750136265240">로그인 인증 동작 설정</translation>
-<translation id="359203136434560942">잠금 화면의 화면 보호기에 표시할 이미지 목록을 구성합니다.
-
-각 목록 항목은 화면 보호기에 표시할 이미지를 참고합니다. 항목에는 이미지 URL과 확인을 위한 이미지 파일의 SHA-256 해시 값이 구성요소로 있어야 합니다. 이미지 형식은 JPEG여야 합니다. <ph name="PRODUCT_OS_NAME" /> 기기는 이러한 이미지를 다운로드하고 참조의 로컬 캐시를 유지합니다.
-
-<ph name="SCREENSAVER_ENABLED_POLICY_NAME" /> 정책이 False로 설정되면 이 정책은 아무런 영향을 미치지 않습니다.
-
-정책을 설정하지 않거나 목록에 유효한 이미지 참조가 포함되지 않은 경우 <ph name="SCREENSAVER_ENABLED_POLICY_NAME" /> 정책에 설정된 값과 관계없이 잠금 화면의 화면 보호기가 표시되지 않습니다.</translation>
 <translation id="3593905652755912452">disabled 양식 컨트롤에서 기존 이벤트 전달 동작이 사용됩니다.</translation>
 <translation id="3596112486106491038">가상 머신 명령줄 액세스 권한 사용 설정</translation>
 <translation id="3603469950773500315">새로운 <ph name="CORS" /> 구현에서 <ph name="CORS" /> 확인 완화를 사용 설정하여 확장 프로그램이 호환되는 동작을 유지하도록 허용하고 <ph name="PRODUCT_NAME" />에서 <ph name="CORS" /> 확인 없이 지정된 헤더를 전송하도록 허용합니다.
@@ -2849,6 +2860,7 @@ Chrome 앱은 ID(예: <ph name="DEFAULT_HANDLERS_FOR_FILE_EXTENSIONS_POLICY_CHRO
 <translation id="3608206578291537084">암호화된 보고 파이프라인을 사용 설정합니다.</translation>
 <translation id="3608281460204780443"><ph name="PRODUCT_OS_NAME" /> 런처와 새 탭 페이지에 Chrome 웹 스토어 아이콘 표시</translation>
 <translation id="3622463490728773174">새 구현 허용</translation>
+<translation id="3623332696371971798">맞춤설정 앱에서 Google 포토 액세스 차단</translation>
 <translation id="3627678165642179114">맞춤법 검사 웹 서비스 사용 또는 사용 중지</translation>
 <translation id="3628480121685794414">단면 인쇄 사용 설정</translation>
 <translation id="3634125384445314047">휴대전화에서 최근 촬영한 사진 및 동영상을 휴대전화 허브에서 액세스하도록 허용합니다.</translation>
@@ -2886,6 +2898,7 @@ Chrome 앱은 ID(예: <ph name="DEFAULT_HANDLERS_FOR_FILE_EXTENSIONS_POLICY_CHRO
 
           이는 임시 정책으로 <ph name="PRODUCT_NAME" /> 107에서 삭제되나 기업에 필요한 경우 기한은 연장 가능합니다.
           </translation>
+<translation id="3678069907945250643">맞춤설정 앱에서 Google 포토 액세스 허용</translation>
 <translation id="3685979383016152590">정책을 설정하면 일괄 프린터 설정에 적용할 액세스 정책이 지정되므로 사용자에게 제공할 <ph name="PRINTERS_BULK_CONFIGURATION_POLICY_NAME" />의 프린터를 제어할 수 있습니다.
 
       * <ph name="PRINTERS_BLOCKLIST" />(값 0)은 <ph name="PRINTERS_BULK_BLOCKLIST" />를 사용하여 특정 프린터의 액세스를 제한합니다.
@@ -2943,6 +2956,7 @@ Chrome 앱은 ID(예: <ph name="DEFAULT_HANDLERS_FOR_FILE_EXTENSIONS_POLICY_CHRO
 <translation id="3749259744154402564">지원되지 않음</translation>
 <translation id="3749511622128647337">오디오 출력 사용 중지</translation>
 <translation id="3750220015372671395">이 사이트에서 키 생성 차단</translation>
+<translation id="3753267109888284695">HTTP 허용 목록</translation>
 <translation id="3753959315989102457">기기 위치 보고 사용 중지</translation>
 <translation id="3755237588083934849">정책을 설정하면 기기 상태 업로드를 전송할 빈도를 밀리초 단위로 결정할 수 있습니다. 허용된 최솟값은 60초입니다.
 
@@ -3154,6 +3168,7 @@ Chrome 앱은 ID(예: <ph name="DEFAULT_HANDLERS_FOR_FILE_EXTENSIONS_POLICY_CHRO
 <translation id="3898795800259311780">화면 캡처 허용 또는 거부</translation>
 <translation id="3903313632842363082">기기 사용자 보고 사용 중지</translation>
 <translation id="3904304709151553598">기기 팬 정보 보고 사용 중지</translation>
+<translation id="3905883021371603181">시스템 오디오 에코 제거 사용 설정</translation>
 <translation id="3907683835264956726">잠금 화면에서 온라인 사용자 로그인을 사용 설정합니다. 이 정책이 true로 설정되어 있으면 <ph name="POLICY" /> 등에 의해 잠금 화면에서 온라인 재인증이 실행됩니다.
       잠금 화면에 있거나 다음에 조건이 충족된 후 사용자가 화면을 잠갔을 때 재인증이 즉시 실행됩니다.
       정책이 false로 설정되거나 아무 설정도 되어 있지 않으면 사용자는 항상 로컬 사용자 인증 정보로 화면을 잠금 해제할 수 있습니다.</translation>
@@ -3233,9 +3248,15 @@ Chrome 앱은 ID(예: <ph name="DEFAULT_HANDLERS_FOR_FILE_EXTENSIONS_POLICY_CHRO
       정책을 False로 설정하면 자동 완성에서 신용카드 정보를 추천하거나 입력하지 않으며, 사용자가 웹 탐색 중 제출할 수 있는 추가 신용카드 정보를 저장하지도 않습니다.</translation>
 <translation id="3989829840000169163">브라우저 기존 확장 프로그램 포인트 차단</translation>
 <translation id="3990391739475801018">절전 모드가 사용 중지됩니다.</translation>
+<translation id="3990834929384096140">시스템 오디오 에코 제거 적용 안 함</translation>
 <translation id="3994043824457743421">새 탭 페이지에서 가운데 슬롯 알림 표시</translation>
 <translation id="399433537808390819">사용자가 통합 바탕화면 모드를 사용할 수 없도록 설정</translation>
 <translation id="3995880046827722248">매니페스트 v2가 사용 중지됨</translation>
+<translation id="3996118331995847766"><ph name="DEVICE_ADVANCED_BATTERY_CHARGE_MODE_ENABLED_POLICY_NAME" />을(를) 사용 설정하고 <ph name="DEVICE_ADVANCED_BATTERY_CHARGE_MODE_DAY_CONFIG_POLICY_NAME" />을(를) 설정하면 고급 배터리 충전 모드를 설정할 수 있습니다. <ph name="CHARGE_START_TIME_FIELD_NAME" />부터 <ph name="CHARGE_END_TIME_FIELD_NAME" />까지 기기 배터리가 완전히 충전되는 것은 한 번만 가능합니다. 남은 시간 동안은 배터리가 저충전 상태로 유지됩니다. <ph name="CHARGE_START_TIME_FIELD_NAME" />의 값은 <ph name="CHARGE_END_TIME_FIELD_NAME" />보다 적어야 합니다.
+
+      정책을 설정하지 않으면 고급 배터리 충전 모드가 사용 중지됩니다.
+
+      <ph name="CHARGE_START_TIME_FIELD_NAME" /> 및 <ph name="CHARGE_END_TIME_FIELD_NAME" />의 <ph name="MINUTE_FIELD_NAME" /> 필드에 허용된 값은 0, 15, 30, 45입니다.</translation>
 <translation id="3996325823532867220">이 정책은 더 이상 지원되지 않지만 특정 플랫폼에서는 관련 정책 <ph name="CHROME_ROOT_STORE_ENABLED_POLICY_NAME" />가 지원될 수 있습니다.
 
       이 설정을 사용하면 <ph name="PRODUCT_NAME" />에서 내장된 인증서 확인 기능을 사용하여 서버 인증서를 확인합니다.
@@ -3368,37 +3389,6 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 기본 알림을 사용�
 
       정책을 설정하면 사용자가 변경할 수 없습니다. 설정하지 않으면 처음에는 터치 키보드가 사용 중지되지만 사용자가 언제든지 사용 설정할 수 있습니다.</translation>
 <translation id="412697421478384751">사용자가 잠금 화면 PIN으로 보안 강도가 약한 PIN을 사용할 수 있게 허용</translation>
-<translation id="4130565559631908067">이 정책을 통해 브라우저에서 퍼스트 파티 세트 기능에 사용하는 세트 목록을 재정의할 수 있습니다.
-
-      브라우저의 퍼스트 파티 세트 목록에 포함된 각 세트는 퍼스트 파티 세트 요구사항을 충족해야 합니다.
-      퍼스트 파티 세트에는 하나의 소유자 사이트 및 하나 이상의 구성원 사이트가 포함되어야 합니다.
-      세트에는 해당 세트가 소유 중인 서비스 사이트 목록과 사이트의 모든 ccTLD 변형에 대한 매핑 정보도 포함될 수 있습니다.
-      <ph name="PRODUCT_NAME" />에서 사용하는 퍼스트 파티 세트에 관한 자세한 내용은 https://github.com/WICG/first-party-sets를 참고하세요.
-
-      퍼스트 파티 세트의 모든 사이트는 HTTPS를 통해 제공되는 등록 가능한 도메인이어야 합니다. 또한 퍼스트 파티 세트의 각 사이트는 고유해야 합니다. 즉, 한 사이트는 퍼스트 파티 세트에 한 번만 표시될 수 있습니다.
-
-      정책에 제공된 사전이 비어 있는 경우 브라우저에서는 공개된 퍼스트 파티 세트 목록을 사용합니다.
-
-      <ph name="REPLACEMENTS" /> 목록의 퍼스트 파티 세트에 포함된 모든 사이트 중 브라우저 목록의
-      퍼스트 파티 세트에도 포함된 사이트가 있다면 브라우저의 퍼스트 파티 세트에서 삭제됩니다.
-      그런 다음 정책의 퍼스트 파티 세트가 브라우저의 퍼스트 파티 세트 목록에 추가됩니다.
-
-      <ph name="ADDITIONS" /> 목록의 퍼스트 파티 세트에 포함된 모든 사이트 중 브라우저 목록의 퍼스트 파티 세트에도
-      포함된 사이트가 있는 경우, 새로운 퍼스트 파티 세트가 브라우저 목록에 추가될 수 있도록 브라우저의 퍼스트 파티 세트가
-      업데이트됩니다. 브라우저 목록이 업데이트되고 나면
-      정책의 퍼스트 파티 세트가 브라우저의 퍼스트 파티 세트 목록에 추가됩니다.
-
-      브라우저의 퍼스트 파티 세트 목록에 포함된 모든 사이트 중 어떠한 사이트도 2개 이상의 세트에
-      포함되어서는 안 됩니다. 이는 <ph name="REPLACEMENTS" /> 목록 및 <ph name="ADDITIONS" /> 목록에도
-      적용되는 요구사항입니다. 마찬가지로 하나의 사이트가 <ph name="REPLACEMENTS" /> 목록과
-      <ph name="ADDITIONS" /> 목록 모두에 포함되어서는 안 됩니다.
-
-      와일드 카드(*)는 정책 값으로 사용할 수 없으며 이러한 목록의 퍼스트 파티 세트 내에서도 지원되지 않습니다.
-
-      정책에서 제공하는 모든 세트는 유효한 퍼스트 파티 세트여야 하며, 그렇지 않은 경우
-      관련 오류 메시지가 표시됩니다.
-
-      이 정책은 <ph name="MS_AD_NAME" /> 도메인에 연결된 Windows 인스턴스, 기기 관리용으로 등록된 Windows 10 Pro 또는 Enterprise 인스턴스, MDM을 통해 관리되거나 MCX(Mac OS X용 관리 클라이언트)를 통해 도메인에 연결된 macOS 인스턴스에서만 사용할 수 있습니다.</translation>
 <translation id="4136603825567209889">사용자 식별 정보 보고 사용</translation>
 <translation id="4138655880188755661">시간 제한</translation>
 <translation id="4140646780789794190">PluginVm에 진단 데이터 공유 사용 안함</translation>
@@ -3439,6 +3429,7 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 기본 알림을 사용�
           정책이 설정되면 사용자가 변경하거나 재정의할 수 없습니다.
 
           설정되지 않으면 처음에는 로그인 화면에서 음성 피드백이 사용되지 않지만 사용자가 언제든지 사용 설정할 수 있습니다.</translation>
+<translation id="4173974507809462880">로그인 시 터치패드 스크롤 방향 화면 표시</translation>
 <translation id="417956245902013347">로그인 화면에서 캐럿 강조표시 접근성 기능을 사용합니다.
 
           이 정책이 True로 설정되면 로그인 화면에서 캐럿 강조표시가 항상 사용됩니다.
@@ -3448,6 +3439,19 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 기본 알림을 사용�
           이 정책이 설정되면 사용자가 변경하거나 재정의할 수 없습니다.
 
           이 정책이 설정되지 않으면 처음에는 로그인 화면에서 캐럿 강조표시가 사용되지 않지만 나중에 사용자가 언제든지 사용 설정할 수 있습니다.</translation>
+<translation id="4182348537826882258"><ph name="URL_BLOCKLIST_POLICY_NAME" /> 정책을 설정하면 금지된 URL이 있는 웹페이지의 로드가 중지됩니다. 관리자는 차단할 URL 패턴 목록을 지정할 수 있습니다. 설정하지 않으면 브라우저에서 URL이 차단되지 않습니다. <ph name="URL_ALLOWLIST_POLICY_NAME" />에서 최대 1,000개의 예외를 정의할 수 있습니다. URL 패턴의 형식을 지정하는 방법을 확인하세요(https://support.google.com/chrome/a?p=url_blocklist_filter_format).
+
+참고: 이 정책은 데이터가 동적으로 로드되는 인페이지 자바스크립트 URL에는 적용되지 않습니다. example.com/abc를 차단해도 example.com에서 XMLHTTPRequest를 사용하여 로드할 수 있습니다. 또한 이 정책은 웹페이지에서 검색주소창에 표시되는 URL을 자바스크립트 기록 API를 사용하여 차단된 URL로 업데이트하는 것을 방지하지 않습니다.
+
+<ph name="PRODUCT_NAME" /> 버전 73부터 javascript://* URL을 차단할 수 있습니다. 하지만 이는 주소 표시줄 또는 북마크릿 등에 입력된 자바스크립트에만 영향을 줍니다.
+
+<ph name="PRODUCT_NAME" /> 버전 92부터 이 정책이 헤드리스 모드에서도 지원됩니다.
+
+참고: 내부 chrome://* 및 chrome-untrusted://* URL을 차단하면 예기치 않은 오류가 발생하거나 경우에 따라 우회될 수 있습니다. 특정 내부 URL을 차단하는 대신 사용 가능한 구체적인 정책이 있는지 확인하세요. 예를 들면 다음과 같습니다.
+
+- chrome://settings/certificates를 차단하는 대신 <ph name="CA_CERTIFICATE_MANAGEMENT_ALLOWED_POLICY_NAME" /> 정책을 사용합니다.
+
+- chrome-untrusted://crosh를 차단하는 대신 <ph name="SYSTEM_FEATURES_DISABLE_LIST_POLICY_NAME" /> 정책을 사용합니다.</translation>
 <translation id="4183229833636799228">기본 <ph name="FLASH_PLUGIN_NAME" /> 설정</translation>
 <translation id="4185868802416355029">관리되는 확장 프로그램에서 Enterprise Hardware Platform API를 사용하도록 허용</translation>
 <translation id="4186244263855283575">기기를 재부팅할 맞춤 일정을 설정하도록 허용합니다. True로 설정되면 기기가 일정에 따라 재부팅됩니다. 예정된 재부팅을 취소하려면 정책을 삭제해야 합니다.
@@ -3486,6 +3490,15 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 기본 알림을 사용�
           정책이 설정되지 않은 경우 처음에는 자동 클릭이 사용 중지되어 있으나 사용자가 언제든지 사용하도록 설정할 수 있습니다.</translation>
 <translation id="4212181786686887763">배경화면 이미지를 다운로드할 수 있는 URL입니다.</translation>
 <translation id="4224610387358583899">화면 잠금 지연</translation>
+<translation id="4225083820650584375">로그인 화면의 화면 보호기에 표시할 이미지 목록을 구성합니다.
+
+각 항목은 이미지 파일을 참조하는 URL이어야 합니다. 이미지 형식은 JPEG여야 하며 파일 크기는 8MB를 초과해서는 안 됩니다. 잘못된 URL 및 지원되지 않는 이미지는 무시됩니다. <ph name="PRODUCT_OS_NAME" /> 기기는 이러한 이미지를 다운로드하여 로컬 캐시에 보관합니다.
+
+화면 보호기에 표시하는 이미지 수는 25개로 제한되므로 URL 목록의 첫 25개 항목만 사용됩니다.
+
+<ph name="DEVICE_SCREENSAVER_ENABLED_POLICY_NAME" /> 정책을 false로 설정하면 이 정책은 아무런 영향을 미치지 않습니다.
+
+정책을 설정하지 않거나 목록에 유효한 이미지 참조 URL이 없는 경우 <ph name="DEVICE_SCREENSAVER_ENABLED_POLICY_NAME" /> 정책에 설정된 값과 관계없이 로그인 화면의 화면 보호기가 표시되지 않습니다.</translation>
 <translation id="42267415200641481">정책을 true로 설정하면 시스템 구성 및 기능 플래그에 따라 시스템 DNS 변환(getaddrinfo())이 네트워크 프로세스 외부에서 실행될 수 있습니다.
 
       정책을 false로 설정하면 시스템 DNS 변환(getaddrinfo())이 브라우저 프로세스가 아닌 네트워크 프로세스에서 실행됩니다. 이렇게 하면 네트워크 서비스 샌드박스가 강제로 사용 중지되고 <ph name="PRODUCT_NAME" />의 보안이 저하될 수 있습니다.
@@ -3528,13 +3541,6 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 기본 알림을 사용�
 <translation id="4275048399551500192">다른 기기에서 시작한 <ph name="PRODUCT_NAME" /> 세션에 미디어 컨트롤을 표시하지 않음</translation>
 <translation id="4282243913059705499">툴바에 <ph name="PRODUCT_NAME" /> 아이콘 항상 표시</translation>
 <translation id="4285674129118156176">제휴되지 않은 사용자가 ARC를 사용할 수 있게 허용</translation>
-<translation id="4287344576768105337">정책을 설정하면 금지된 URL을 포함한 웹페이지를 로드할 수 없습니다. 정책에는 금지된 URL을 지정하는 URL 패턴 목록이 있습니다. 정책을 설정하지 않으면 브라우저에서 어떤 URL도 금지되지 않습니다. URL 패턴 형식을 이 형식(https://support.google.com/chrome/a?p=url_blocklist_filter_format)에 따라 지정합니다. <ph name="URL_ALLOWLIST_POLICY_NAME" />에서는 예외를 최대 1,000개까지 정의할 수 있습니다.
-
-      <ph name="PRODUCT_NAME" /> 버전 73부터 javascript://* URL을 차단할 수 있지만 이는 주소 표시줄 또는 북마크릿 등에 입력된 자바스크립트에만 영향을 줍니다. 데이터가 동적으로 로드되는 인페이지 자바스크립트 URL에는 이 정책이 적용되지 않습니다. 예를 들어, example.com/abc를 차단해도 example.com에서 XMLHTTPRequest를 사용하여 여전히 example.com/abc를 로드할 수 있습니다.
-
-      <ph name="PRODUCT_NAME" /> 버전 92부터 이 정책이 헤드리스 모드에서도 지원됩니다.
-
-      참고: 내부 chrome://* 및 chrome-untrusted://* URL을 차단하면 예기치 않은 오류가 발생하거나 특수한 경우에 우회될 수 있습니다. 특정 내부 URL을 차단하는 대신 사용 가능한 구체적인 정책이 있는지 확인하세요. 일반적인 경우: chrome://settings/certificates를 차단하는 대신 <ph name="CA_CERTIFICATE_MANAGEMENT_ALLOWED_POLICY_NAME" /> 정책을 사용하세요. chrome-untrusted://crosh를 차단하는 대신 <ph name="SYSTEM_FEATURES_DISABLE_LIST_POLICY_NAME" /> 정책을 사용합니다.</translation>
 <translation id="428948795004445932">네트워크 데이터가 샘플링 및 수집되는 속도입니다. 허용되는 최솟값은 1분입니다.
 
       정책을 설정하지 않으면 기본 속도인 10분이 적용됩니다.</translation>
@@ -3549,6 +3555,13 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 기본 알림을 사용�
 
       관리 기기에 여러 개의 사용자 계정이 있으면 이 정책이 사용 설정되어 있는 경우에만 알림이 표시됩니다.</translation>
 <translation id="4303167373847512281">개발자 모드 허용</translation>
+<translation id="4307116964468610577">이 정책은 하루에 한 번만 완전 충전하여 시스템 배터리 수명을 연장합니다. 남은 시간 동안은 시스템이 전원에 연결되어 있더라도 배터리가 보관에 유리한 저충전 상태로 유지됩니다.
+
+      <ph name="DEVICE_ADVANCED_BATTERY_CHARGE_MODE_DAY_CONFIG_POLICY_NAME" />을(를) 설정한 경우 <ph name="DEVICE_ADVANCED_BATTERY_CHARGE_MODE_ENABLED_POLICY_NAME" />을(를) 사용 설정하면 고급 배터리 충전 모드 전원 관리 정책이 사용 설정됩니다(기기에서 지원되는 경우). 이 모드는 근무 시간 이외에 표준 충전 알고리즘 및 기타 기법을 사용하여 사용자가 배터리의 상태를 최적화하도록 도와줍니다. 근무 시간 동안은 시스템에서 급속 충전을 사용해 배터리를 빠르게 충전하도록 도와줍니다. 시작 시간 및 사용 시간을 지정하여 매일 시스템 사용량이 가장 큰 시간대를 지정하세요.
+
+      정책을 사용 중지하거나 설정하지 않으면 고급 배터리 충전 모드가 사용 중지됩니다.
+
+      사용자가 이 설정을 변경할 수는 없습니다.</translation>
 <translation id="4309091698378414920">캐럿 강조표시 사용 설정</translation>
 <translation id="4311195029067684288">Full</translation>
 <translation id="4311662690937656540">로그인 및 잠금 화면에 온라인 로그인 시행</translation>
@@ -3615,6 +3628,10 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 기본 알림을 사용�
 <translation id="439661169333921592">로그인 화면에서 키보드 포커스 강조표시 사용 안함</translation>
 <translation id="4397045637922200204">계정 복구 비활성화</translation>
 <translation id="4397464099112037398">기본 창 배치 권한 설정</translation>
+<translation id="4401196752827224189">비보안 컨텍스트의 WebSQL이 M110부터 삭제됩니다. 이 정책은 해당 API를 다시 사용 설정합니다.
+          정책을 True로 설정하면 비보안 컨텍스트에서 WebSQL을 사용할 수 있습니다.
+          정책을 False로 설정하거나 설정하지 않으면 비보안 컨텍스트의 WebSQL은 M109까지 사용 가능하며 M110부터 사용할 수 없게 됩니다.
+이는 M112에서 삭제되었습니다.</translation>
 <translation id="4401496838830169080"><ph name="PRODUCT_NAME" />의 세이프 브라우징 기능을 사용할지와 작동 모드를 제어할 수 있습니다.
 
       정책을 'NoProtection'(값 0)으로 설정하면 세이프 브라우징이 활성화되지 않습니다.
@@ -3668,11 +3685,6 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 기본 알림을 사용�
 <translation id="4447668084338250480">인트라넷 리디렉션 동작</translation>
 <translation id="4449469846627734399">전력 피크 시프트 요일 구성 설정</translation>
 <translation id="4449545651113180484">화면을 시계 방향으로 270도 회전</translation>
-<translation id="4450005376189179872"><ph name="DEVICE_ADVANCED_BATTERY_CHARGE_MODE_ENABLED_POLICY_NAME" />를 사용 설정하고 <ph name="DEVICE_ADVANCED_BATTERY_CHARGE_MODE_DAY_CONFIG_POLICY_NAME" />를 설정하면 고급 배터리 충전 모드를 설정할 수 있습니다. <ph name="CHARGE_START_TIME_FIELD_NAME" />의 값은 <ph name="CHARGE_END_TIME_FIELD_NAME" />보다 적어야 합니다.
-
-      정책을 설정하지 않으면 고급 배터리 충전 모드가 사용 중지됩니다.
-
-      <ph name="CHARGE_START_TIME_FIELD_NAME" /> 및 <ph name="CHARGE_END_TIME_FIELD_NAME" />의 <ph name="MINUTE_FIELD_NAME" /> 필드에 허용된 값은 0, 15, 30, 45입니다.</translation>
 <translation id="4452653762766030431">Chrome OS의 네트워크 파일 공유 가능 여부 제어</translation>
 <translation id="445270821089253489">보고되는 사용자 및 기기 정보 유형을 제어합니다.</translation>
 <translation id="4453913621209182880">배경 그래픽을 포함한 경우에만 인쇄 허용</translation>
@@ -3680,6 +3692,11 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 기본 알림을 사용�
 <translation id="445505634382262792">이 정책을 3으로 설정하면 웹사이트에서 호스트 운영체제의 파일 시스템 내 파일 및 디렉터리에 대한 쓰기 액세스 권한을 요청할 수 있습니다. 정책을 2로 설정하면 액세스가 거부됩니다.
 
       정책을 설정하지 않으면 웹사이트에서 액세스 권한을 요청할 수 있지만, 사용자가 이 설정을 변경할 수 있습니다.</translation>
+<translation id="4457113781439375078">지원 중단된 정책입니다.
+
+      정책을 사용으로 설정하면 등록된 기기에서 주기적으로 위치를 보고합니다.
+
+      정책을 사용 안함으로 설정하거나 설정하지 않으면 등록된 기기에서 위치를 보고하지 않습니다.</translation>
 <translation id="4463675333222095358">빠른 답변 단위 변환 사용 설정</translation>
 <translation id="4464365009416584564"><ph name="CHROME_SYNC_NAME" /> 사용 안함</translation>
 <translation id="4467952432486360968">제3자 쿠키 차단</translation>
@@ -3697,6 +3714,7 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 기본 알림을 사용�
 <translation id="4480694116501920047">세이프서치 강제 사용</translation>
 <translation id="4481202456143946404">새로운 약관 버전이 적용된 Google3 CL에서 파생된 유효한 서비스 약관 버전입니다.</translation>
 <translation id="4481952213163895432">Google 어시스턴트 핫워드 사용 중지</translation>
+<translation id="4482784169143060077">자동 HTTPS 업그레이드 사용 설정</translation>
 <translation id="4483120730995943109">시간 초과가 0ms인 자바스크립트 setTimeout()이 1ms로 클램프되지 않습니다.</translation>
 <translation id="4483649828988077221">자동 업데이트 사용 안함</translation>
 <translation id="4484515651939984695">액세스 코드 또는 QR 코드로 선택된 Cast 기기가 <ph name="PRODUCT_NAME" /> 메뉴의 Cast 기기 목록에 표시되는 기간 지정(단위: 초)</translation>
@@ -3718,6 +3736,7 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 기본 알림을 사용�
 <translation id="449784980858429908">사이트에 모든 직렬 포트에 연결할 권한을 자동으로 부여합니다.</translation>
 <translation id="4499376951770369935">ChromeOS 업데이트가 키오스크 앱 매니페스트에 정의된 버전으로 설정됨</translation>
 <translation id="450080746522343150">모든 다운로드를 차단합니다.</translation>
+<translation id="4501388411278568771">기능 출시 상태에 따라 HTTPS 업그레이드가 적용될 수 있습니다.</translation>
 <translation id="45036050223225148">TLS Encrypted ClientHello 실험 사용 중지</translation>
 <translation id="4503935079903510542">x86_64 기기에 VM을 설치하는 데 사용되는 UEFI 부팅 가능한 디스크 이미지입니다.</translation>
 <translation id="4508728400492074981">First-Party Sets 기능 정책을 제어합니다.</translation>
@@ -3905,6 +3924,7 @@ Chrome 앱은 ID(예: pjkljhegncpnkpknbcohdijeoejaedia)로, Android 앱은 패�
       참고: <ph name="REMOTE_ACCESS_HOST_CLIENT_DOMAIN_POLICY_NAME" />이 있더라도 이 설정이 우선 적용됩니다.</translation>
 <translation id="4658380868451934335">로그인 화면에서 음성기록 사용</translation>
 <translation id="4660356908994631271">새 탭 페이지의 검색창에 Google 렌즈 버튼을 표시합니다.</translation>
+<translation id="4661885151480410620">동작 변경사항은 기능 출시 프로세스에 따라 적용될 수 있습니다.</translation>
 <translation id="4661889655253181651">콘텐츠 설정을 사용하면 특정 유형(예: 쿠키, 이미지 또는 자바스크립트)의 콘텐츠가 처리되는 방법을 지정할 수 있습니다.</translation>
 <translation id="4663509616441994711">사용자 수준 클라우드 정책 병합 사용 중지</translation>
 <translation id="4663588423815449593"><ph name="PEPPER_NAME" />에서 기존 동영상 디코더를 사용하도록 강제합니다.</translation>
@@ -3953,6 +3973,7 @@ Chrome 앱은 ID(예: pjkljhegncpnkpknbcohdijeoejaedia)로, Android 앱은 패�
 <translation id="4703402283970867140">스마트 밝기 낮추기 모델을 사용하여 화면이 어두워질 때까지의 시간 연장</translation>
 <translation id="4704958130749494760">사이트에 USB 직렬 기기에 연결할 수 있는 권한을 자동으로 부여합니다.</translation>
 <translation id="471360812659157054">window.mydomainStorageInfo를 사용할 수 없게 됩니다.</translation>
+<translation id="4715773950737036924">Chrome 웹 스토어에서 게시 취소된 확장 프로그램의 사용 가능 여부를 제어합니다.</translation>
 <translation id="4722122254122249791">지정된 출처의 사이트 격리 사용 설정</translation>
 <translation id="4723829699367336876">원격 액세스 클라이언트의 방화벽 통과 허용</translation>
 <translation id="4725528134735324213">Android Backup Service 사용</translation>
@@ -3991,9 +4012,10 @@ Chrome 앱은 ID(예: pjkljhegncpnkpknbcohdijeoejaedia)로, Android 앱은 패�
           정책이 설정되면 사용자가 변경하거나 재정의할 수 없습니다.
 
           정책이 설정되지 않은 경우 처음에는 모노 오디오가 사용 중지되어 있으나 사용자가 언제든지 사용 설정할 수 있습니다.</translation>
+<translation id="4767059955897420757">정책을 설정하지 않거나 사용으로 설정하면 Credential Provider Extension Promo가 사용자에게 표시될 수 있습니다.
+정책을 사용 안함으로 설정하면 Credential Provider Extension Promo가 사용자에게 표시되지 않습니다.</translation>
 <translation id="4768446404233019970">TLS에서 3DES 암호화 스위트 사용 설정</translation>
 <translation id="4770334626033858263">부모 액세스 코드를 생성하고 확인하는 데 사용되는 설정입니다.</translation>
-<translation id="4772431363738215349">화면 보호기 이미지를 다운로드할 수 있는 URL입니다.</translation>
 <translation id="4773997835955617342">수동으로 생성된 새 티켓의 <ph name="KRB5_CONFIG" /> 추천 구성을 변경합니다.
 
       정책을 사용 설정하면 'KerberosCustomPrefillConfig' 정책 값에 추천 구성이 적용되고 정책 값이 Kerberos 인증 대화상자의 '고급' 섹션에 표시됩니다.
@@ -4013,6 +4035,12 @@ Chrome 앱은 ID(예: pjkljhegncpnkpknbcohdijeoejaedia)로, Android 앱은 패�
       사용자가 선택한 프린터에서 페이지 크기를 사용할 수 없는 경우 이 정책은 무시됩니다.</translation>
 <translation id="4789450349513792856">이 사이트에서 팝업 차단</translation>
 <translation id="4790588245699320140">Google 어시스턴트가 화면 컨텍스트에 액세스하도록 허용</translation>
+<translation id="4800438168909332958">시스템 오디오 에코 제거(AEC) 기능을 사용 설정합니다. 시스템 AEC는 어쿠스틱 에코 제거기로, 마이크 신호에서 시스템 오디오 재생(에코)를 제거하는 오디오 처리 모듈입니다.
+이 정책은 일시적으로 사용되며 시스템 오디오 에코 제거가 시작되는 즉시 삭제됩니다.
+
+  정책을 True로 설정하면 시스템 오디오 에코 제거가 항상 사용 설정됩니다.
+
+  정책을 False로 설정하거나 설정하지 않으면 시스템 오디오 에코 제거가 출시 계획에 따라 사용 설정될 수 있지만 이 정책에 의해 적용되지는 않습니다.</translation>
 <translation id="4801512016965057443">모바일 데이터 로밍 허용</translation>
 <translation id="4802744647065138872">응급 상황 롤백 시 사용하기 위해 보관하는 사용자 데이터 스냅샷 수를 제한합니다.</translation>
 <translation id="4802905909524200151"><ph name="TPM_FIRMWARE_UPDATE_TPM" /> 펌웨어 업데이트 동작 설정</translation>
@@ -4156,9 +4184,6 @@ Chrome 앱은 ID(예: pjkljhegncpnkpknbcohdijeoejaedia)로, Android 앱은 패�
       지정하면 지정된 초만큼 브라우저 종료가 차단되어 연결 유지(https://fetch.spec.whatwg.org/#request-keepalive-flag) 요청을 처리할 수 있습니다.
 
       기본값(0)으로 두면 기능이 비활성화됩니다.</translation>
-<translation id="4934869540807953882">M110부터 비표준 API window.webkitStorageInfo가 삭제되나 이 정책은 해당 API를 다시 사용 설정합니다.
-정책을 사용으로 설정하면 window.webkitStorageInfo API를 사용할 수 있습니다.
-정책을 사용 안함으로 설정하거나 설정하지 않으면 window.webkitStorageInfo API를 사용할 수 없습니다.</translation>
 <translation id="4937423591320233496">추천 콘텐츠 사용 중지</translation>
 <translation id="4940810901775798837">안전하지 않은 웹사이트에서 네트워크 엔드포인트에 요청할 수 있도록 허용</translation>
 <translation id="4942096314850617489">사용자 원격 증명 사용 중지</translation>
@@ -4236,6 +4261,11 @@ Chrome 앱은 ID(예: pjkljhegncpnkpknbcohdijeoejaedia)로, Android 앱은 패�
 <translation id="4996161752665479028">터미널 시스템 앱에서 SSH를 사용 설정합니다.</translation>
 <translation id="4997074784107449343">이미지로 인쇄 옵션이 사용 가능한 경우 PDF 문서의 인쇄 미리보기로 기본적으로 설정되지 않습니다.</translation>
 <translation id="500149597848135831">모든 변형 허용</translation>
+<translation id="5014511262203433035">이 정책은 사용자가 설정에서 HTTPS 전용 모드를 사용 설정할 수 있는지 결정합니다. HTTPS 전용 모드는 모든 탐색을 HTTPS로 업그레이드합니다.
+      이 설정을 설정하지 않거나 허용됨으로 설정할 경우 사용자는 HTTPS 전용 모드를 사용 설정할 수 있습니다.
+      이 설정을 허용되지 않음으로 설정할 경우 사용자는 HTTPS 전용 모드를 사용 설정할 수 없습니다.
+      이 설정이 force_enabled로 설정된 경우 HTTPS 전용 모드가 사용 설정되고 사용자가 사용 중지할 수 없습니다.
+      HTTPS 전용 모드 강제 사용 설정은 M112부터 지원됩니다.</translation>
 <translation id="5017369989680827157">정책을 True로 설정하거나 설정하지 않으면 사용자가 UI의 주소 자동 완성을 제어할 수 있습니다.
 
       정책을 False로 설정하면 자동 완성에서 주소 정보를 제안하거나 채워 넣지 않고, 사용자가 웹을 탐색하는 동안 제출한 추가 주소 정보도 저장하지 않습니다.</translation>
@@ -4299,6 +4329,9 @@ Chrome 앱은 ID(예: pjkljhegncpnkpknbcohdijeoejaedia)로, Android 앱은 패�
 <translation id="5105313908130842249">배터리 전원으로 실행할 때 화면 잠금 지연</translation>
 <translation id="5108031557082757679">사용 중지된 엔터프라이즈 기기 프린터</translation>
 <translation id="5109383437323376357">변형 사용 가능 여부 결정</translation>
+<translation id="5109866581154565900">이 정책으로 처음 로그인할 때 사용자에게 터치패드 스크롤 방향 화면을 표시할 것인지 설정할 수 있습니다.
+      False로 설정하면 터치패드 스크롤 방향 화면이 표시되지 않습니다.
+      True로 설정하면 터치패드 스크롤 방향 화면이 표시됩니다.</translation>
 <translation id="5118635822783657217">중요하지 않은 구성요소의 업데이트 사용 안함</translation>
 <translation id="5120168808610189805">처음 실행 시 홈페이지 가져오기 사용 설정</translation>
 <translation id="5124368997194894978">AC(교류 전원)로 부팅 사용</translation>
@@ -4451,6 +4484,10 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 시스템 알림을 사�
 
       계정을 대상으로 정책을 <ph name="POLICY_VALUE_PRIMARY_ACCOUNT_SIGNIN" />으로 설정하면 관리 계정이 기본 계정으로 로그인하는 데만 사용될 수 있습니다. 보조 계정으로 로그인하는 데 사용될 수 없습니다.</translation>
 <translation id="523505283826916779">접근성 설정</translation>
+<translation id="5235607513961923779">연결된 사용자의 등록된 기기에서 기기 활동 상태를 보고합니다.
+
+      정책을 사용 중지로 설정하거나 설정하지 않은 상태로 두면 기기 활동 상태가 보고되지 않습니다.
+      사용으로 설정하면 사용자가 연결되어 있는 경우 기기 활동 상태가 서버에 보고되므로 서버에서 기기의 오프라인 여부를 감지할 수 있습니다.</translation>
 <translation id="5238275681097851753">특정 <ph name="FLASH_PLUGIN_NAME" /> 콘텐츠 차단 허용</translation>
 <translation id="5238976843489093540">빠른 페어링(빠른 블루투스 페어링)이 사용 설정되도록 강제 적용</translation>
 <translation id="52393120393725840">정책을 사용 설정하면 사용자가 다음에 사이트에 로그인할 때 비밀번호를 제공하도록 <ph name="PRODUCT_NAME" />에서 비밀번호를 기억합니다.
@@ -4523,6 +4560,13 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 시스템 알림을 사�
 <translation id="5293285950307241933">모든 로컬 사용자 데이터 삭제</translation>
 <translation id="5293619885162445352"><ph name="PEPPER_NAME" />에서 새 동영상 디코더를 사용하도록 허용합니다.</translation>
 <translation id="529457411593078576">첫 실행 중 CCT에 서비스 약관 사용 설정</translation>
+<translation id="5297873769621042075">정책을 설정하면 HTTPS로 업그레이드되지 않고 HTTPS 우선 모드가 설정된 경우 오류 전면 광고가 표시되지 않는 호스트 이름 또는 호스트 이름 패턴(예: '[*.]example.com') 목록이 지정됩니다. 조직에서 이 정책을 사용하면 HTTPS 업그레이드 또는 HTTPS 우선 모드를 사용 중지하지 않고도 HTTPS를 지원하지 않는 서버에 대한 액세스를 유지할 수 있습니다.
+
+제공된 호스트 이름은 표준화되어야 합니다. 모든 IDN은 A 라벨 형식으로 변환되어야 하며 모든 ASCII 문자는 소문자여야 합니다.
+
+포괄적 호스트 와일드 카드(즉, '*' 또는 '[*]')는 허용되지 않습니다. 대신 HTTPS 우선 모드와 HTTPS 업그레이드는 특정 정책을 통해 명시적으로 사용 중지해야 합니다.
+
+참고: HSTS 업그레이드에는 이 정책이 적용되지 않습니다.</translation>
 <translation id="5297948043665200363">계정이 미승인 상태가 된 후에도 사용자가 로그인 상태를 유지하도록 허용</translation>
 <translation id="5298949392804966105">관리 계정에 제한사항이 없습니다.</translation>
 <translation id="530134925949808452">사용 할당량이 갱신되는 현지 시간입니다.</translation>
@@ -4579,7 +4623,6 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 시스템 알림을 사�
 
       False로 설정되면 Crostini 컨테이너로 포트 전달이 사용 중지됩니다.</translation>
 <translation id="538108065117008131"><ph name="PRODUCT_FRAME_NAME" />이(가) 다음 콘텐츠 유형을 다루도록 허용</translation>
-<translation id="5382211603538487131">이미지의 SHA-256 해시입니다.</translation>
 <translation id="538768040137709073">동기화가 사용 설정되고 사용자가 로그인되어 있으면 사용자가 Chrome 데스크톱과 Android 기기 간에 텍스트를 전송할 수 있도록 허용하는 공유 클립보드 기능을 사용 설정합니다.
 
           이 정책이 True로 설정되면 Chrome 사용자의 기기 간 텍스트 전송 기능이 사용됩니다.
@@ -4752,6 +4795,10 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 시스템 알림을 사�
       이 정책 값이 설정되고 값이 0이 아니면 현재 로그인한 데모 사용자가 지정된 비활성화 시간 뒤에 자동으로 로그아웃됩니다.
 
       이 정책 값은 밀리초 단위로 지정되어야 합니다.</translation>
+<translation id="5501031245538651575">M110부터 비표준 API window.webkitStorageInfo가 삭제됩니다. 이 정책은 해당 API를 다시 사용 설정합니다.
+정책을 사용으로 설정하면 window.webkitStorageInfo API를 사용할 수 있습니다.
+정책을 사용 안함으로 설정하거나 설정하지 않으면 window.webkitStorageInfo API를 사용할 수 없습니다.
+이는 M112에서 삭제되었습니다.</translation>
 <translation id="5502683401545256109">이 정책은 <ph name="DEVICE_LOGIN_SCREEN_AUTO_SELECT_CERTIFICATE_FOR_URLS_POLICY_NAME" />와 일치하는 인증서가 여러 개일 때 SAML 흐름을 호스팅하는 프레임의 로그인 화면에서 사용자에게 클라이언트 인증서를 선택하라는 메시지를 표시할지 제어합니다.
       정책을 사용으로 설정하면 자동 선택 정책과 일치하는 인증서가 여러 개 있을 때마다 사용자에게 클라이언트 인증서를 선택하라고 요청합니다.
       정책을 사용 안함으로 설정하거나 설정하지 않으면 로그인 화면에서 사용자에게 클라이언트 인증서를 선택하라는 메시지가 표시되지 않습니다.
@@ -4784,13 +4831,6 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 시스템 알림을 사�
 <translation id="5535256585099022933">다시 실행될 시간 간격 설정</translation>
 <translation id="553806128266843748">제한을 사용 설정할지 나타내는 부울 플래그입니다.</translation>
 <translation id="5540885720415375851">로컬 기기 검색 허용</translation>
-<translation id="5545132877693005604">로그인 화면의 화면 보호기에 표시할 이미지 목록을 구성합니다.
-
-각 목록 항목은 화면 보호기에 표시할 이미지를 참조합니다. 항목에는 이미지 URL과 확인을 위한 이미지 파일의 SHA-256 해시 값이 구성요소로 있어야 합니다. 이미지 형식은 JPEG여야 합니다. <ph name="PRODUCT_OS_NAME" /> 기기는 이러한 이미지를 다운로드하고 참조의 로컬 캐시를 유지합니다.
-
-<ph name="DEVICE_SCREENSAVER_ENABLED_POLICY_NAME" /> 정책이 false로 설정되면 이 정책은 아무런 영향을 미치지 않습니다.
-
-정책을 설정하지 않거나 목록에 유효한 이미지 참조가 포함되지 않은 경우 <ph name="DEVICE_SCREENSAVER_ENABLED_POLICY_NAME" /> 정책에 설정된 값과 관계없이 로그인 화면의 화면 보호기가 표시되지 않습니다.</translation>
 <translation id="554903022911579950">Kerberos</translation>
 <translation id="555022085242359084">로그인 화면에서 고대비 사용 설정</translation>
 <translation id="555077880566103058">모든 사이트에서 <ph name="FLASH_PLUGIN_NAME" /> 플러그인을 자동으로 실행하도록 허용</translation>
@@ -4857,6 +4897,7 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 시스템 알림을 사�
 <translation id="5601503069213153581">PIN</translation>
 <translation id="5607021831414604820">기기 저장용량 상태 보고 사용 설정</translation>
 <translation id="5608114828230655271">기본 기기 동작</translation>
+<translation id="5611869109049836323">로컬로 추가된 신뢰 앵커에 제약조건 적용</translation>
 <translation id="5614865701790130558">정책 기반 확장 프로그램 설치 이벤트 로그</translation>
 <translation id="5618398258385745432">비밀번호 조회를 위한 재인증 시작 전에 관련 설정을 사용했습니다. 그 이후에는 설정한 사항과 이 정책이 Chrome의 작동에 영향을 주지 않았습니다. 현재 Chrome은 비밀번호 관리자 설정 페이지에서 일반 텍스트로 비밀번호를 표시하는 것을 사용 중지하도록 정책을 설정했을 때와 동일하게 작동합니다. 따라서 설정 페이지에는 자리표시자만 포함되어 있으며, 사용자가 '표시'를 클릭하는 경우(해당하는 경우 다시 인증해야 함)에만 Chrome에서 비밀번호를 표시합니다. 정책의 원본 설명은 아래와 같습니다.
 
@@ -4874,6 +4915,7 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 시스템 알림을 사�
       유효한 <ph name="URL_LABEL" /> 패턴에 관해 자세히 알아보려면 https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns를 참고하세요. <ph name="WILDCARD_VALUE" />는 이 정책에 허용되는 값이 아닙니다.</translation>
 <translation id="5620392548325769024">OS를 업그레이드한 후 브라우저가 처음 실행될 때 시작 페이지가 표시되도록 합니다.</translation>
 <translation id="5621503441067774084">로그인 화면에서 커서 강조표시 사용</translation>
+<translation id="5622590774455244290">Android 앱에서 이 목록을 자발적으로 선택할 수도 있으나 이를 강제할 수는 없습니다.</translation>
 <translation id="5622924058222112599">기본 CECPQ2 롤아웃 프로세스 사용 설정</translation>
 <translation id="5623304306796942802">여러 인증서가 일치하는 경우 메시지 표시</translation>
 <translation id="5625771176514429288">Chrome 앱이 이러한 플랫폼에서 실행됩니다.</translation>
@@ -4917,6 +4959,37 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 시스템 알림을 사�
       정책을 True로 설정하면 지원 중단 경고가 숨겨집니다.
       정책을 False로 설정하거나 설정하지 않으면 지원 중단 경고가 표시됩니다.</translation>
 <translation id="5666457529647159548">사용자가 설치된 클라이언트 인증서를 관리하도록 허용</translation>
+<translation id="5670286392821164294">이 정책을 통해 브라우저에서 퍼스트 파티 세트 기능에 사용하는 세트 목록을 재정의할 수 있습니다.
+
+      브라우저의 퍼스트 파티 세트 목록에 포함된 각 세트는 퍼스트 파티 세트 요구사항을 충족해야 합니다.
+      퍼스트 파티 세트에는 하나의 기본 사이트 및 하나 이상의 구성원 사이트가 포함되어야 합니다.
+      세트에는 해당 세트가 소유 중인 서비스 사이트 목록과 사이트의 모든 ccTLD 변형에 대한 매핑 정보도 포함될 수 있습니다.
+      <ph name="PRODUCT_NAME" />에서 사용하는 퍼스트 파티 세트에 관한 자세한 내용은 https://github.com/WICG/first-party-sets를 참고하세요.
+
+      퍼스트 파티 세트의 모든 사이트는 HTTPS를 통해 제공되는 등록 가능한 도메인이어야 합니다. 또한 퍼스트 파티 세트의 각 사이트는 고유해야 합니다. 즉, 한 사이트는 퍼스트 파티 세트에 한 번만 표시될 수 있습니다.
+
+      정책에 제공된 사전이 비어 있는 경우 브라우저에서는 공개된 퍼스트 파티 세트 목록을 사용합니다.
+
+      <ph name="REPLACEMENTS" /> 목록의 퍼스트 파티 세트에 포함된 모든 사이트 중 브라우저 목록의
+      퍼스트 파티 세트에도 포함된 사이트가 있다면 브라우저의 퍼스트 파티 세트에서 삭제됩니다.
+      그런 다음 정책의 퍼스트 파티 세트가 브라우저의 퍼스트 파티 세트 목록에 추가됩니다.
+
+      <ph name="ADDITIONS" /> 목록의 퍼스트 파티 세트에 포함된 모든 사이트 중 브라우저 목록의 퍼스트 파티 세트에도
+      포함된 사이트가 있는 경우, 새로운 퍼스트 파티 세트가 브라우저 목록에 추가될 수 있도록 브라우저의 퍼스트 파티 세트가
+      업데이트됩니다. 브라우저 목록이 업데이트되고 나면
+      정책의 퍼스트 파티 세트가 브라우저의 퍼스트 파티 세트 목록에 추가됩니다.
+
+      브라우저의 퍼스트 파티 세트 목록에 포함된 모든 사이트 중 어떠한 사이트도 2개 이상의 세트에
+      포함되어서는 안 됩니다. 이는 <ph name="REPLACEMENTS" /> 목록 및 <ph name="ADDITIONS" /> 목록에도
+      적용되는 요구사항입니다. 마찬가지로 하나의 사이트가 <ph name="REPLACEMENTS" /> 목록과
+      <ph name="ADDITIONS" /> 목록 모두에 포함되어서는 안 됩니다.
+
+      와일드 카드(*)는 정책 값으로 사용할 수 없으며 이러한 목록의 퍼스트 파티 세트 내에서도 지원되지 않습니다.
+
+      정책에서 제공하는 모든 세트는 유효한 퍼스트 파티 세트여야 하며, 그렇지 않은 경우
+      관련 오류 메시지가 표시됩니다.
+
+      이 정책은 <ph name="MS_AD_NAME" /> 도메인에 연결된 Windows 인스턴스, 기기 관리용으로 등록된 Windows 10 Pro 또는 Enterprise 인스턴스, MDM을 통해 관리되거나 MCX(Mac OS X용 관리 클라이언트)를 통해 도메인에 연결된 macOS 인스턴스에서만 사용할 수 있습니다.</translation>
 <translation id="567377007899266033">정책을 True로 설정하면 정책에 의해 실행된 확장 프로그램 설치 중에 발생한 중요 이벤트의 보고서를 Google로 전송합니다. False로 설정하면 이벤트가 캡처되지 않습니다. 정책이 설정되지 않으면 기본값이 True로 설정됩니다.</translation>
 <translation id="5676740747107495269">로그인 화면 작업 표시줄 메뉴에 접근성 옵션 표시</translation>
 <translation id="567832102568869993">컴퓨터가 유휴 상태일 때 작업을 실행합니다.
@@ -5076,11 +5149,6 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 시스템 알림을 사�
 <translation id="5835674781974810379">쿠키 및 기타 사이트 데이터 삭제</translation>
 <translation id="5836064773277134605">원격 액세스 호스트에서 사용되는 UDP 포트 범위 제한</translation>
 <translation id="583627479140113555">처음 실행 시 저장된 비밀번호 가져오기 사용 설정</translation>
-<translation id="5837898601525273156"><ph name="DEVICE_ADVANCED_BATTERY_CHARGE_MODE_DAY_CONFIG_POLICY_NAME" />를 설정하고 <ph name="DEVICE_ADVANCED_BATTERY_CHARGE_MODE_ENABLED_POLICY_NAME" />를 사용 설정하면 고급 배터리 충전 모드 전원 관리 정책이 사용 설정됩니다(기기에서 지원되는 경우). 이 모드는 근무 시간 이외에 표준 충전 알고리즘 및 기타 기법을 사용하여 사용자가 배터리의 상태를 최적화하도록 도와줍니다. 근무 시간 동안에는 시스템에서 급속 충전을 사용해 배터리를 빠르게 충전하도록 도와줍니다. 시작 시간 및 사용 시간을 지정하여 매일 시스템 사용량이 가장 큰 시간대를 지정하세요.
-
-      정책을 사용 중지하거나 설정하지 않으면 고급 배터리 충전 모드가 사용 중지됩니다.
-
-      사용자가 이 설정을 변경할 수 없습니다.</translation>
 <translation id="5838452040629810808">커서 강조표시 사용 설정</translation>
 <translation id="5842283830553218200">disabled 양식 컨트롤에서 기본적으로 새 이벤트 전달 동작이 사용됩니다.</translation>
 <translation id="5848438019586925019">키 쌍 생성을 위한 알고리즘입니다.</translation>
@@ -5296,9 +5364,6 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 시스템 알림을 사�
       설정되지 않으면 <ph name="PRODUCT_NAME" />에서 기본 캐시 디렉터리를 사용하지만 사용자는 --disk-cache-dir 명령줄 플래그를 사용하여 해당 설정을 변경할 수 있습니다.
 
       <ph name="PRODUCT_NAME" />은 볼륨의 루트 디렉터리의 콘텐츠를 관리합니다. 따라서 데이터 손실 및 기타 오류를 방지하려면 이 정책을 루트 디렉터리나 기타 목적으로 사용되는 디렉터리로 설정해서는 안 됩니다. https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables에서 사용 가능한 변수를 확인할 수 있습니다.</translation>
-<translation id="6083356110032622782">비보안 컨텍스트의 WebSQL이 M110부터 삭제됩니다. 이 정책은 해당 API를 다시 사용 설정합니다.
-          정책을 True로 설정하면 비보안 컨텍스트에서 WebSQL을 사용할 수 있습니다.
-          정책을 False로 설정하거나 설정하지 않으면 비보안 컨텍스트의 WebSQL은 M109까지 사용 가능하며 M110부터 사용할 수 없게 됩니다.</translation>
 <translation id="6083631234867522991">Windows(Windows 클라이언트):</translation>
 <translation id="608788685013546076">전력 피크 시프트 배터리 임계값을 퍼센트로 설정</translation>
 <translation id="6089679180657323464">Wilco 진단 및 텔레메트리 컨트롤러 설정을 제어합니다.</translation>
@@ -5333,6 +5398,7 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 시스템 알림을 사�
       4: 세이프 브라우징 서버에서 표시한 악성 파일은 차단하지만 위험한 파일 형식은 차단하지 않습니다. 권장사항입니다.
 
       참고: 이러한 제한은 웹페이지 콘텐츠 또는 '링크 다운로드...' 메뉴 옵션을 통해 실행된 다운로드에 적용됩니다. 이러한 제한은 현재 표시된 페이지의 다운로드 또는 인쇄 옵션 중 'PDF로 저장'에는 적용되지 않습니다. 세이프 브라우징에 관해 자세히 알아보세요(https://developers.google.com/safe-browsing).</translation>
+<translation id="6118226055960302400">허용 동작을 복원합니다.</translation>
 <translation id="6119207979839638596">이 정책은 최대 TLS 버전 정책이 <ph name="PRODUCT_NAME" />에서 삭제된 후 M75에서 삭제되었습니다.
 
       이 정책이 구성되지 않으면 <ph name="PRODUCT_NAME" />에서 기본 최대 버전을 사용합니다.
@@ -5401,6 +5467,7 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 시스템 알림을 사�
 <translation id="6181304954168534748">데스크 템플릿의 SHA-256 해시입니다.</translation>
 <translation id="6181618732396778048">모든 사이트에서 파일 및 디렉터리 쓰기 액세스 권한을 요청하지 못하도록 차단</translation>
 <translation id="6181783961196084973">앱 활동 모음 전환 버튼의 값입니다. True로 설정하면 자녀와 부모의 <ph name="PRODUCT_NAME" /> 앱에 표시될 수 있도록 사용자 앱 활동이 서버로 전송됩니다. False로 설정하면 앱별 시간제한 기능은 계속 작동되나 데이터가 서버로 전송되거나 <ph name="PRODUCT_NAME" />에 표시되지 않습니다.</translation>
+<translation id="6182206125906000651">HTTPS 업그레이드를 사용 중지합니다.</translation>
 <translation id="6182563940865917569">Chrome의 미디어 자동재생 허용</translation>
 <translation id="6184385589352532028">서드 파티 ChromeOS 제어를 위해 Desk API 사용 설정 안함</translation>
 <translation id="6190367314942602985">사용자 식별 정보 보고</translation>
@@ -5515,12 +5582,6 @@ Origin-Agent-Cluster: 헤더가 설정되지 않았을 때 M111의 기본값은 
       이 정책은 <ph name="PRODUCT_NAME" /> 버전 82에서 삭제된다고 발표되었으나, 버전 84에서 삭제되었습니다.</translation>
 <translation id="6276087670023098167">머신 식별 정보 보고 사용 안함</translation>
 <translation id="627672037430076089">이 시스템에 대한 원격 지원 연결을 차단합니다.</translation>
-<translation id="6277043520666738324">이 정책은 <ph name="PEPPER_NAME" /> 플러그인이 하드웨어 디코더와 통신하기 위해 기존 동영상 디코더 대신 새 디코더를 사용하는지를 제어합니다.
-
-이전은 내부 구현 세부정보에만 영향을 미치며 동작을 변경하지는 않습니다. 하지만 이 정책은 PPAPI 애플리케이션이 예상대로 작동하지 않는 경우 사용할 수 있습니다.
-
-정책을 설정하지 않거나 사용으로 설정하면 브라우저에서 사용할 구현을 결정합니다.
-정책을 사용 안함으로 설정하면 정책이 만료될 때까지 브라우저에서 이전 구현을 사용합니다.</translation>
 <translation id="6277314550042130537">HTTP 승인 중 KDC 정책 승인 사용</translation>
 <translation id="6278428485366576908">테마</translation>
 <translation id="6279722058145292462">정책을 설정하면 클라이언트에서 기기 계정 비밀번호 변경 빈도가 일 단위로 지정됩니다. 비밀번호는 클라이언트에 의해 임의로 생성되며 사용자에게는 표시되지 않습니다. 정책을 사용 중지하거나 일 수를 너무 높게 설정하면 보안에 부정적인 영향을 미칠 수 있습니다. 잠재적인 공격자에게 기기 계정 비밀번호를 찾고 사용할 시간이 추가로 주어지기 때문입니다.
@@ -5666,6 +5727,7 @@ Origin-Agent-Cluster: 헤더가 설정되지 않았을 때 M111의 기본값은 
 
       정책을 설정하면 사용자가 변경할 수 없습니다. 설정하지 않으면 사용자가 앱 바로가기를 북마크바 컨텍스트 메뉴에서 표시하거나 숨길지를 결정합니다.</translation>
 <translation id="638003144128412430">기기 시간대 정보 보고 사용 중지</translation>
+<translation id="6382209369210116232">게시가 취소된 확장 프로그램 사용 중지</translation>
 <translation id="6382351416269252693">자동으로 로컬 글꼴 권한을 거부하는 사이트를 지정하도록 사이트 URL 패턴 목록을 설정합니다. 이렇게 하면 로컬 글꼴에 관한 정보를 볼 수 있는 사이트 기능이 제한됩니다.
 
       유효한 사이트 URL 패턴에 관한 자세한 내용은 다음을 참고하세요. https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns 와일드 카드(<ph name="WILDCARD_VALUE" />)를 사용할 수 있습니다. 이 정책은 출처만 기준으로 일치 여부를 판단하므로 URL 패턴의 경로는 무시됩니다.
@@ -5703,6 +5765,11 @@ Origin-Agent-Cluster: 헤더가 설정되지 않았을 때 M111의 기본값은 
 <translation id="6424486395812679373">다운로드한 모든 파일에 대해 세이프 브라우징 확인 실행</translation>
 <translation id="6433697627431665375"><ph name="PRODUCT_NAME" /> 데이터가 백업에 포함되지 않도록 차단</translation>
 <translation id="6436052172226685535">LBS 기본 동작</translation>
+<translation id="6438472072089952201"><ph name="PRODUCT_NAME" />에서는 가능한 경우 일부 탐색을 HTTP에서 HTTPS로 업그레이드하려고 시도합니다. 이 정책을 사용하여 이 동작을 사용 중지할 수 있습니다. 'true'로 설정하거나 설정하지 않으면 이 기능이 기본적으로 사용 설정됩니다.
+
+별도의 <ph name="HTTP_ALLOWLIST_POLICY_NAME" /> 정책을 사용하여 이 기능을 통해 특정 호스트 이름 또는 호스트 이름 패턴이 HTTPS로 업그레이드되지 않도록 제외할 수 있습니다.
+
+<ph name="HTTPS_ONLY_MODE_POLICY_NAME" /> 정책도 참고하세요.</translation>
 <translation id="6438972408080276697">정책을 True로 설정하면 키 보고서와 정책에 의해 실행된 Android 앱 설치 이벤트가 Google로 전송됩니다. False로 설정하면 이벤트가 캡처되지 않습니다.</translation>
 <translation id="6440051664870270040">사이트에서 동시에 팝업을 탐색하고 열도록 허용</translation>
 <translation id="6446366416439249472">모바일 데이터 연결을 통한 Google Drive 동기화 사용 중지</translation>
@@ -6145,6 +6212,16 @@ Origin-Agent-Cluster: 헤더가 설정되지 않았을 때 M111의 기본값은 
 
       정책을 사용 중지하거나 설정하지 않으면 사용 정보가 보고되지 않습니다.</translation>
 <translation id="6823711520976094072">1MB 미만으로 설정하거나 설정하지 않으면 <ph name="PRODUCT_OS_NAME" />에서 하나의 기기에서 여러 사용자가 앱 및 확장 프로그램을 설치할 때 캐시에 기본 크기(256MiB)를 사용하여 모든 사용자가 매번 다시 다운로드하지 않아도 됩니다.</translation>
+<translation id="6829632070341067746">이 정책은 PPAPI 플러그인에서 Graphics3D API의 최근 리팩터링을 제어합니다.
+
+이전은 내부 구현 세부정보에만 영향을 미치며 동작을 변경하지는 않습니다. 하지만 이 정책은 PPAPI 애플리케이션이 예상대로 작동하지 않는 경우에 사용할 수 있습니다.
+
+정책을 설정하지 않거나 사용으로 설정하면 사용할 구현을 브라우저에서 결정합니다.
+정책을 사용 안함으로 설정하면 정책이 만료될 때까지 브라우저에서 이전 구현이 사용됩니다.
+
+정책을 사용해야 하는 경우 crbug.com에서 사용 사례를 설명하는 버그를 {blundell, vasilyt}@chromium.org를 참조에 포함하여 제출하세요. 이 정책은 <ph name="PRODUCT_NAME" /> 버전 114까지 제공될 예정이며 이후 버전에서는 이전 구현이 삭제됩니다.
+
+참고: 새로 시작된 렌더기 프로세스만 브라우저가 실행되는 동안 이 정책의 변경사항을 반영합니다.</translation>
 <translation id="6833023569065717572">정책을 True로 설정하면 기기의 로그인 화면으로 24시간 시계 형식을 사용합니다.
 
       정책을 False로 설정하면 기기의 로그인 화면으로 12시간 시계 형식을 사용합니다.
@@ -6417,16 +6494,6 @@ False로 설정하거나 설정하지 않으면 레이아웃을 사용할 수 �
       정책이 필수로 설정되면 사용자가 변경하거나 재정의할 수 없습니다.
 
       정책이 설정되지 않으면 실행기가 기본적으로 화면 하단에 배치되며 사용자가 실행기의 위치를 변경할 수 있습니다.</translation>
-<translation id="7037853989942016900">이 정책은 PPAPI 플러그인에서 Graphics3D API의 최근 리팩터링을 제어합니다.
-
-이전은 내부 구현 세부정보에만 영향을 미치며 동작을 변경하지는 않습니다. 하지만 이 정책은 PPAPI 애플리케이션이 예상대로 작동하지 않는 경우에 사용할 수 있습니다.
-
-정책을 설정하지 않거나 사용으로 설정하면 사용할 구현을 브라우저에서 결정합니다.
-정책을 사용 안함으로 설정하면 정책이 만료될 때까지 브라우저에서 이전 구현이 사용됩니다.
-
-정책을 사용해야 하는 경우 crbug.com에서 사용 사례를 설명하는 버그를 신고하세요. 이 정책은 <ph name="PRODUCT_NAME" /> 버전 114까지 제공될 예정이며 이후 버전에서는 이전 구현이 삭제됩니다.
-
-참고: 새로 시작된 렌더기 프로세스만 브라우저가 실행되는 동안 이 정책의 변경사항을 반영합니다.</translation>
 <translation id="7039815268521168329">최초 설정 시 Google 어시스턴트 Voice Match 흐름 표시</translation>
 <translation id="7040229947030068419">예시:</translation>
 <translation id="7044883996351280650">Android 백업 및 복원 서비스 제어</translation>
@@ -6448,6 +6515,14 @@ False로 설정하거나 설정하지 않으면 레이아웃을 사용할 수 �
 <translation id="7081784525008938771">정책을 사용 설정하거나 설정하지 않으면 동영상 재생 중에는 사용자를 유휴 상태로 간주하지 않습니다. 따라서 유휴 지연 시간, 화면 어둡게 하기 지연 시간, 화면 꺼짐 지연 시간 및 화면 잠금 지연 시간에 도달하지 않고 설정된 작업이 실행되지 않습니다.
 
       정책을 사용 중지하면 시스템에서 동영상 활동과 관계없이 사용자를 유휴 상태로 간주할 수 있습니다.</translation>
+<translation id="7084631508902923941">이러한 출처 중 하나와 연결되는 확장 프로그램은 포트가 연결되어 있는 한 계속 실행됩니다.
+
+정책을 설정하지 않으면 정책의 기본값이 사용됩니다. 이전 상태에 대한 닫힌 연결을 다시 시작할 수 없는 것으로 알려진 SDK를 제공하는 앱 출처는 다음과 같습니다.
+- 스마트 카드 커넥터
+- Citrix Receiver(공개, 베타, 백업)
+- VMware Horizon(공개, 베타)
+
+정책이 설정되면 기본값 목록이 확장되어 새로 구성된 값이 포함됩니다. 포트가 연결되어 있는 한 기본값 및 정책 제공 항목 모두 연결 확장 프로그램에 예외를 부여합니다.</translation>
 <translation id="7086720321892395256">개인 정보 보호 화면 기능과 관련해 사용자 및 기기 정책을 제어합니다.</translation>
 <translation id="7090500018761495290">M115까지 Event.path API를 다시 사용 설정합니다.</translation>
 <translation id="7090668780328470271">정책을 설정하면 사용자에게 USB 기기 액세스를 요청할 수 없는 사이트를 지정하는 URL 패턴 목록을 만들 수 있습니다.
@@ -6676,6 +6751,16 @@ False로 설정하거나 설정하지 않으면 레이아웃을 사용할 수 �
 
       <ph name="MAC_OS_NAME" />에서 <ph name="CHROME_ROOT_STORE_ENABLED_POLICY_NAME" /> 정책이 False로 설정되어 있으면 이 정책은 아무런 영향을 미치지 않습니다.</translation>
 <translation id="7278854311116092134">차단 목록에 적용되지 않는 기본 메시지 호스트의 이름</translation>
+<translation id="7287869314269886809">Chrome 앱 <ph name="WEBVIEW_TAG_NAME" />은 <ph name="PRODUCT_NAME" />에서 삭제 중인 동작을 허용합니다.
+
+이전 동작은 <ph name="WEBVIEW_TAG_NAME" />가 잘못된 SSL 인증서가 있는 페이지로 이동한 경우 전면 광고 페이지를 표시했습니다. 이 전면 광고는 사용자에게 안전하지 않은 진행 옵션을 제공합니다. 새로운 동작은 안전하지 않은 진행 옵션 없이 오류 페이지를 표시합니다.
+
+이전 동작을 사용하면 <ph name="WEBVIEW_TAG_NAME" /> <ph name="NEWWINDOW_EVENT_NAME" /> 이벤트(https://developer.chrome.com/docs/extensions/reference/webviewTag/#event-newwindow)를 통해 <ph name="WEBVIEW_TAG_NAME" />에서 시작한 별도의 앱 창에서 <ph name="WEBVIEW_TAG_NAME" /> 요소에 새 창을 연결할 수 있습니다. 새 동작을 사용해도 이 연결은 계속 허용되지만 원래 <ph name="WEBVIEW_TAG_NAME" />의 <ph name="WINDOW_OPEN_NAME" />에 대한 호출에서 반환된 창 참조는 무효화됩니다.
+
+사용 설정할 경우 이전 동작이 사용됩니다.
+사용 중지하거나 설정하지 않으면 <ph name="PRODUCT_NAME" /> 출시 프로세스를 통해 출시될 때 동작 변경사항이 적용됩니다.
+
+이 정책은 이러한 변경사항으로 인해 기업에 문제가 발생할 경우 사용할 수 있는 일시적인 해결 방법입니다. 이 정책은 향후 버전에서 삭제될 예정입니다.</translation>
 <translation id="7291084543582732020">이 설정을 사용하면 기능에 대한 요구사항이 충족되는 경우 사용자가 Smart Lock을 사용할 수 있습니다.
 
       이 설정을 사용 중지하면 사용자가 Smart Lock을 사용할 수 없습니다.
@@ -6699,6 +6784,7 @@ False로 설정하거나 설정하지 않으면 레이아웃을 사용할 수 �
 <translation id="7323896582714668701"><ph name="PRODUCT_NAME" />의 추가 명령줄 매개변수</translation>
 <translation id="7325801934761922681">Chrome이 샌드박스 처리된 iframe 내부에서 외부 프로토콜로 이동을 차단하지 못하도록 방지</translation>
 <translation id="7326394567531622570">완전 삭제(값 2)와 유사하지만, 사용자가 다시 로그인할 필요가 없도록 로그인 토큰을 저장합니다.</translation>
+<translation id="7331387825106440104">로컬로 추가된 신뢰 앵커에 제약조건 적용 안함</translation>
 <translation id="7331962793961469250">True로 설정하면 Chrome 웹 스토어의 앱 홍보가 새 탭 페이지에 표시되지 않습니다.
 
       이 옵션을 False로 설정하거나 설정하지 않으면 Chrome 웹 스토어의 앱 홍보가 새 탭 페이지에 표시됩니다.</translation>
@@ -6975,6 +7061,7 @@ False로 설정하거나 설정하지 않으면 레이아웃을 사용할 수 �
           정책을 False로 설정하거나 설정하지 않으면 사용자의 잠금 및 로그인 화면에 PIN 자동 제출 기능이 표시되지 않습니다.
 
           정책을 설정하면 사용자가 이 기능을 사용 설정할 수 없습니다.</translation>
+<translation id="7612059745454194563">Credential Provider Extension Promo를 표시하도록 허용 안함</translation>
 <translation id="7612157962821894603"><ph name="PRODUCT_NAME" /> 시작 시 시스템 전체 플래그 적용</translation>
 <translation id="7613115815080726221">사용자 입력이 없어서 유휴 작업이 실행되기까지 걸리는 시간(밀리초)입니다.</translation>
 <translation id="7614663184588396421">사용할 수 없는 프로토콜 스키마 목록</translation>
@@ -7007,52 +7094,6 @@ False로 설정하거나 설정하지 않으면 레이아웃을 사용할 수 �
 
       정책을 사용 중지하면 사용자가 파일 선택 대화상자를 불러오는 작업을 할 때(예: 북마크 가져오기, 파일 업로드, 링크 저장 등)마다 메시지가 표시됩니다. 사용자가 파일 선택 대화상자에서 '취소'를 클릭한 것으로 간주됩니다.</translation>
 <translation id="7638300388094655454">Google Cast</translation>
-<translation id="7638726624761352254">정책을 설정하면 사용자 상호작용 없이 자동으로 설치하며 사용자가 제거하거나 사용 중지할 수 없는 웹 앱 목록이 지정됩니다.
-
-      정책 목록에 있는 각 항목은 필수 요소인
-      <ph name="URL_LABEL" />(설치할 웹 앱 URL)
-
-      및 다음 6개의 선택 요소로 구성된 객체입니다.
-      - <ph name="DEFAULT_LAUNCH_CONTAINER_LABEL" />
-      (웹 앱이 열리는 방식에 관한 설정, 새 탭이 기본값임)
-
-      - <ph name="CREATE_DESKTOP_SHORTCUT_LABEL" />
-      (<ph name="LINUX_OS_NAME" /> 및
-      <ph name="MS_WIN_NAME" /> 바탕화면 바로가기를 만들 경우 True)
-
-      - <ph name="FALLBACK_APP_NAME_LABEL" />
-      (<ph name="PRODUCT_NAME" /> 버전 90부터
-      프로그레시브 웹 앱(PWA)이 아니면 앱 이름을 재정의하거나
-      PWA이지만 설치 완료 전 인증이 필요하면
-      임시로 설치된 앱 이름을
-      재정의할 수 있습니다. <ph name="CUSTOM_NAME_LABEL" /> 및
-      <ph name="FALLBACK_APP_NAME_LABEL" /> 모두
-      제공되는 경우
-      후자는 무시됩니다.)
-
-      - <ph name="OVERRIDE_APP_NAME_LABEL" />
-      (<ph name="PRODUCT_OS_NAME" />
-      버전 99 및 기타 모든 운영체제의 버전 111부터 모든 웹 앱 및 PWA의
-      앱 이름을 영구적으로 재정의할 수 있습니다.)
-
-      - <ph name="CUSTOM_ICON_LABEL" />
-      (<ph name="PRODUCT_OS_NAME" />
-      버전 99 및 기타 모든 운영체제의 버전 111부터 설치된 앱의 앱 아이콘을
-      재정의할 수 있습니다. 아이콘은
-      정사각형이어야 하며 최대 크기는 1MB입니다. 또한 jpeg, png, gif, webp, ico 중 하나의 형식을 사용해야 합니다.
-      해시 값은 아이콘 파일의 SHA256 해시여야 합니다.)
-
-      - <ph name="INSTALL_AS_SHORTCUT_LABEL" />
-      (<ph name="PRODUCT_NAME" />
-      버전 107부터) 사용 설정하면 <ph name="URL_LABEL" /> 페이지가
-      데스크톱 브라우저 GUI에서 '단축키 만들기...' 옵션을 사용한 것처럼
-      단축키로 설치됩니다.
-      단축키로 설치된 경우 <ph name="URL_LABEL" />의 매니페스트가 변경되어도
-      해당 페이지는 업데이트되지 않습니다.
-      사용 중지하거나 설정하지 않으면 <ph name="URL_LABEL" />의 웹 앱이
-      일반적인 방식으로 설치됩니다.
-
-      <ph name="PRODUCT_OS_NAME" /> 실행기에 앱을 고정하는 방법은 <ph name="PINNED_LAUNCHER_APPS_POLICY_NAME" /> 정책을 참고하세요.</translation>
 <translation id="7638764766629234761">시스템 알림 사용 허용</translation>
 <translation id="7643151458117317518">사용자가 <ph name="PRIVACY_SANDBOX_NAME" /> 광고 측정 설정을 사용 중지할 수 있는지 제어하는 정책입니다.
 
@@ -7103,6 +7144,14 @@ False로 설정하거나 설정하지 않으면 레이아웃을 사용할 수 �
 
           정책 값은 밀리초로 지정되어야 합니다. 화면 꺼짐 지연 시간(설정된 경우) 및 유휴 지연 시간보다 작거나 같도록 값이 잘립니다.</translation>
 <translation id="7680437377926096177">마지막 창 종료 시 로그아웃 대화상자 표시 안함</translation>
+<translation id="7682459947751785310">이 정책은 일시적으로 PPB_VideoDecoder(Dev) API 지원을 강제로 사용 설정할 수 있습니다.
+
+정책을 설정하지 않거나 사용 안함으로 설정하면 브라우저에서 API 지원 여부를 결정합니다.
+정책을 사용으로 설정하면 API가 지원됩니다.
+
+이 정책은 Google에서 진행 중인 이 API에 대한 지원 중단으로 인해 문제가 발생할 경우 사용할 수 있습니다. 정책을 사용해야 하는 경우 crbug.com에서 사용 사례를 설명하는 버그를 {blundell, vasilyt}@chromium.org를 참조에 포함하여 제출하세요. 이 정책은 <ph name="PRODUCT_NAME" /> 버전 114까지 제공되도록 예정되어 있으며 이후 버전에서는 API 지원이 무조건 삭제됩니다.
+
+참고: 새로 시작된 렌더기 프로세스만 브라우저가 실행되는 동안 이 정책의 변경사항을 반영합니다.</translation>
 <translation id="7683777542468165012">동적 정책 새로고침</translation>
 <translation id="7687943045976362719">이 정책이 설정되면 특정 콘텐츠 유형은 <ph name="PRODUCT_FRAME_NAME" />에서 처리됩니다.
 
@@ -7195,6 +7244,8 @@ False로 설정하거나 설정하지 않으면 레이아웃을 사용할 수 �
       정책을 사용 안함으로 설정하거나 설정하지 않으면 지원 중단 시행 상태에 따라 Chrome 앱이 실행되지 않을 수도 있습니다.
       어떤 경우든 정책에 의해 강제 설치된 Chrome 앱은 계속 허용됩니다.</translation>
 <translation id="7774768074957326919">시스템 프록시 설정 사용</translation>
+<translation id="7775077662962729812">Google 포토에서 배경화면 선택</translation>
+<translation id="7776848995687565978">연결 확장 프로그램에 백그라운드 시간 연장을 제공하는 출처 목록을 구성합니다.</translation>
 <translation id="777734450201217641">로그인 화면에서 접근성 기능 단축키를 사용 설정합니다.
 
           정책이 true로 설정되면 접근성 기능 단축키가 로그인 화면에서 항상 사용 설정됩니다.
@@ -7293,6 +7344,7 @@ False로 설정하거나 설정하지 않으면 레이아웃을 사용할 수 �
 
       일시중지 시 화면 잠금을 사용 설정하여 유휴 상태에서 화면을 잠그고 유휴 지연 시간 후에는 <ph name="PRODUCT_OS_NAME" />에서 기기를 일시중지하도록 하는 것이 좋습니다. 일시중지보다 훨씬 일찍 화면을 잠가야 하거나 유휴 상태에서 일시중지하기를 원하지 않을 때만 이 정책을 사용합니다.</translation>
 <translation id="7895553628261067384">원격 액세스</translation>
+<translation id="7898807590879163195">기기 활동 하트비트 사용 중지</translation>
 <translation id="789975630884141379">추천 콘텐츠 사용 설정</translation>
 <translation id="7899952578398457262">액세스 권한을 얻기 위해 관리되지 않는 기기에서 기기 신호를 공유하도록 관리 사용자의 동의 요청</translation>
 <translation id="7900469325540540107">기본적으로 기업 프로필 생성 시 인터넷 사용 기록 유지</translation>
@@ -7365,7 +7417,6 @@ False로 설정하거나 설정하지 않으면 레이아웃을 사용할 수 �
 <translation id="7962093600142350905">이 정책은 이용 가능한 Privet 프린터가 인쇄 미리보기 대화상자에서 사용자에게 표시될지를 제어합니다.
       정책을 '사용'으로 설정하면 이용 가능한 Privet 프린터가 표시됩니다.
       정책을 '사용 안함'으로 설정하거나 설정하지 않으면 Privet 인쇄 방식이 지원 중단되어 Privet 프린터가 인쇄 미리보기에 표시되지 않습니다.</translation>
-<translation id="7970844378072291834">HTTPS 전용 모드 강제 사용 설정(아직 지원되지 않음)</translation>
 <translation id="7972642710812569707">타사 컨텍스트에서 WebSQL을 강제로 다시 사용 설정</translation>
 <translation id="7973609468423251675">이 정책은 지원이 중단되었으며 <ph name="PRODUCT_OS_NAME" /> 버전 85에서 삭제될 예정입니다. 대신 <ph name="POWER_MANAGEMENT_IDLE_SETTINGS_POLICY_NAME" /> 정책을 사용하세요.
 
@@ -7849,6 +7900,7 @@ Windows에서는 GPO를 통해 정책을 설정하는 것이 좋습니다. 하�
 
       정책을 사용 설정하거나 설정하지 않으면 사용자가 작업 관리자에서 프로세스를 종료할 수 있습니다.</translation>
 <translation id="8367209241899435947">Windows에서 Chrome 정리도구 사용 설정</translation>
+<translation id="8367446818896241968">로그인 중 터치패드 스크롤 방향 화면 표시 사용 설정</translation>
 <translation id="8367473200119029349">클라우드 보고</translation>
 <translation id="8367488518695804749">모든 사이트에서 팝업 표시 허용 안함</translation>
 <translation id="8369359426872560378">AC로 부팅 사용 중지</translation>
@@ -7889,6 +7941,9 @@ Windows에서는 GPO를 통해 정책을 설정하는 것이 좋습니다. 하�
       사용 안함으로 설정하거나 설정하지 않으면 일반 로컬 프로필만 사용됩니다.</translation>
 <translation id="8417305981081876834">잠금 화면 PIN 최대 길이 설정</translation>
 <translation id="841977920223099909">비밀번호 보호 경고 실행</translation>
+<translation id="8419965165591256432">연결된 사용자의 등록된 기기에서 기기 활동 상태가 수집되는 속도입니다. 허용되는 최솟값은 1분입니다.
+
+      정책을 설정하지 않으면 기본 속도인 15분이 적용됩니다.</translation>
 <translation id="8420426128163801949">사용자가 블루투스를 사용 설정 또는 중지하도록 허용</translation>
 <translation id="8422658829373743789">disabled 양식 컨트롤에서 이벤트 전달을 위한 새 동작을 제어합니다.</translation>
 <translation id="8422866312638683210">정책을 설정하면 <ph name="PRODUCT_NAME" />에서 <ph name="CHROME_BROWSER_CLOUD_MANAGEMENT_NAME" />에 자신을 등록하려 시도합니다. 정책의 값은 <ph name="GOOGLE_ADMIN_CONSOLE_PRODUCT_NAME" />에서 가져올 수 있는 등록 토큰입니다.
@@ -8033,6 +8088,7 @@ Windows에서는 GPO를 통해 정책을 설정하는 것이 좋습니다. 하�
 
           어떤 사이트에 이 정책이 설정되지 않으면 <ph name="DEFAULT_JAVA_SCRIPT_JIT_SETTING_POLICY_NAME" />의 정책이 사이트에 적용되며(정책이 설정되어 있는 경우), 그렇지 않으면 사이트에 자바스크립트 JIT가 사용 설정됩니다.</translation>
 <translation id="8543108307976719751">이 시스템으로 원격 액세스 연결을 차단</translation>
+<translation id="8543639085146778837">Google 서비스에서 WebRTC 텍스트 로그 수집 허용</translation>
 <translation id="8543975123557636331">오디오 출력 사용 설정</translation>
 <translation id="8544375438507658205"><ph name="PRODUCT_FRAME_NAME" />의 기본 HTML 렌더러</translation>
 <translation id="8544465954173828789">SMS 메시지가 휴대전화에서 Chromebook으로 동기화되도록 허용</translation>
@@ -8294,6 +8350,7 @@ Windows에서는 GPO를 통해 정책을 설정하는 것이 좋습니다. 하�
 <translation id="8801680448782904838">사용자에게 브라우저 재실행 또는 기기 재시작이 필요하거나 권장된다고 알림</translation>
 <translation id="8804685015028424497">시크릿 모드 사용 중지</translation>
 <translation id="8806478127647484805">사용자가 Chrome 작업 관리자에서 프로세스를 종료하지 못하도록 차단</translation>
+<translation id="8807274441692477185">로그인 시 터치패드 스크롤 방향 화면 표시 안함</translation>
 <translation id="8807313206348471682">로그아웃 확인 대화상자 표시</translation>
 <translation id="8812091410765157924">팝업이 열리는 페이지가 팝업 상호작용을 명시적으로 수락하는 경우 <ph name="BLANK_PAGE_NAME" /> 대상으로 열리는 팝업만 팝업을 표시하는 페이지와 상호작용하도록 허용</translation>
 <translation id="8816370949847593408">지원 중단 출시 상태에 따라 Chrome 앱이 실행되지 않을 수도 있습니다.</translation>
@@ -8308,6 +8365,7 @@ Windows에서는 GPO를 통해 정책을 설정하는 것이 좋습니다. 하�
 <translation id="8827275450034266143">사용자 에이전트 문자열이 메이저 버전을 99로 고정하며 마이너 위치에 브라우저의 메이저 버전을 포함합니다.</translation>
 <translation id="8827366480126575426">프로토콜 핸들러의 프로토콜입니다.</translation>
 <translation id="8827417642396462482">추가적인 DNS 쿼리 유형 허용</translation>
+<translation id="8830717323204407209">사용자에게 Credential Provider Extension Promo를 표시하도록 허용</translation>
 <translation id="8831911834413504983">정책을 설정하면 자바스크립트 실행이 가능한 사이트를 지정하는 URL 패턴 목록을 설정할 수 있습니다.
 
       정책을 설정하지 않았을 때 <ph name="DEFAULT_JAVA_SCRIPT_SETTING_POLICY_NAME" />이 설정되어 있으면 모든 사이트에 적용되며 설정되어 있지 않다면 사용자의 개인 설정이 적용됩니다.
@@ -8337,6 +8395,17 @@ Windows에서는 GPO를 통해 정책을 설정하는 것이 좋습니다. 하�
 <translation id="8854571659927427063">정책을 '사용'으로 설정하면 최초 실행 시 이전 기본 브라우저의 북마크를 가져옵니다. 정책을 '사용 안함'으로 설정하거나 설정하지 않으면 최초 실행 시 북마크를 가져오지 않습니다.
 
       사용자는 가져오기 대화상자를 트리거할 수 있으며 '북마크' 체크박스가 이 정책의 값에 맞게 선택되거나 선택 해제됩니다.</translation>
+<translation id="8854703425882848037">X.509 인증서는 인증서의 확장 프로그램에 이름 제약조건과 같은 제약조건을 인코딩할 수 있습니다. RFC 5280은 신뢰 앵커 인증서에 이러한 제약조건을 적용하는 것이 선택사항임을 명시합니다. 이제 <ph name="PRODUCT_NAME" /> 112부터 플랫폼 인증서 저장소에서 로드된 인증서에 이러한 제약조건이 적용됩니다.
+
+이 정책은 기업에서 비공개 루트에 인코딩된 제약조건 문제가 발생하는 경우 일시적인 선택 해제로 존재합니다. 이 경우 인증서 정책을 수정하는 동안 제약조건 시행을 일시적으로 중지하는 데 이 정책을 사용할 수 있습니다.
+
+이 정책을 설정하지 않거나 사용 설정하면 <ph name="PRODUCT_NAME" />은 플랫폼 신뢰 저장소에서 로드된 신뢰 앵커에 인코딩된 제약조건을 적용합니다.
+
+정책을 사용 중지하면 <ph name="PRODUCT_NAME" />은 플랫폼 신뢰 저장소에서 로드된 신뢰 앵커에 인코딩된 제약조건을 적용하지 않습니다.
+
+<ph name="CHROME_ROOT_STORE_ENABLED_POLICY_NAME" /> 정책이 사용 중지되어 있으면 이 정책은 아무런 영향을 미치지 않습니다.
+
+이 정책은 <ph name="PRODUCT_NAME" /> 버전 115부터 삭제될 예정입니다.</translation>
 <translation id="8855929790177853633">사용자 화면 보호기 이미지 소스입니다.</translation>
 <translation id="8858642179038618439">YouTube 안전 모드를 강제로 사용합니다.</translation>
 <translation id="8860342862142842017">subjectPublicKeyInfo 해시 목록에 인증서 투명성 시행 사용 중지</translation>
@@ -8536,6 +8605,9 @@ Windows에서는 GPO를 통해 정책을 설정하는 것이 좋습니다. 하�
 
       이 정책 값은 밀리초로 지정되어야 하며 값은 30초에서 24시간 범위로 잘립니다.</translation>
 <translation id="9040042535845939426">로그인 화면에서 개인 정보 보호 화면의 상태 설정</translation>
+<translation id="9046248916118130378">정책을 사용 설정하면 <ph name="PRODUCT_NAME" />에서 Google Meet과 같은 Google 서비스의 WebRTC 텍스트 로그를 수집하고 Google에 업로드할 수 있습니다. 이러한 로그에는 수신 및 발신 WebRTC 스트림을 설명하는 텍스트 메타데이터, WebRTC 관련 로그 항목, 추가 시스템 정보와 같이 <ph name="PRODUCT_NAME" />에서 음성/화상 회의와 관련된 문제를 디버깅하는 데 유용한 진단 정보가 포함됩니다. 이러한 로그에는 회의의 오디오/동영상 콘텐츠가 포함되지 않습니다.
+정책을 사용 안함으로 설정하면 이러한 로그가 Google에 업로드되지 않습니다. 로그는 사용자의 기기에 로컬로 계속 누적됩니다.
+정책을 설정하지 않으면 <ph name="PRODUCT_NAME" />에서 기본적으로 이러한 로그를 수집하고 업로드할 수 있습니다.</translation>
 <translation id="9050853837490399534">이 정책은 기기가 빠른 픽스 빌드로 업데이트되어야 하는지 여부를 제어합니다.
 
       정책 값이 빠른 픽스 빌드로 매핑되는 토큰으로 설정된 경우 업데이트가 다른 정책에 의해 차단되지 않으면 기기가 빠른 픽스 빌드로 업데이트됩니다.
@@ -8593,6 +8665,7 @@ Windows에서는 GPO를 통해 정책을 설정하는 것이 좋습니다. 하�
 <translation id="9076477053438828079">사용자 이름 및 사진 항상 표시</translation>
 <translation id="9077227880520270584">기기 로컬 계정 자동 로그인 타이머</translation>
 <translation id="9079531125758468956">처음 실행 시 북마크 가져오기 사용 중지</translation>
+<translation id="9084038227968802480">기기 활동 하트비트 보고 사용</translation>
 <translation id="9084985621503260744">동영상 활동이 전원 관리에 영향을 미치는지 여부 지정</translation>
 <translation id="9087434639296483430">로그인 실패를 포함해 등록된 기기에서의 사용자 로그인/로그아웃 이벤트를 보고합니다.
 
@@ -8637,6 +8710,52 @@ Windows에서는 GPO를 통해 정책을 설정하는 것이 좋습니다. 하�
       실제 롤백 가능성 역시 보드와 주요 취약성 패치에 따라 달라질 수 있습니다.</translation>
 <translation id="9123464369663964441">사용자가 혼합 콘텐츠를 허용하는 예외를 추가하도록 허용</translation>
 <translation id="9124770007620653639">Google에 도메인 안정성 데이터를 전송하지 않음</translation>
+<translation id="9126491667911789829">정책을 설정하면 사용자 상호작용 없이 자동으로 설치하며 사용자가 제거하거나 사용 중지할 수 없는 웹 앱 목록이 지정됩니다.
+
+      정책 목록에 있는 각 항목은 필수 요소인
+      <ph name="URL_LABEL" />(설치할 웹 앱 URL)
+
+      및 다음 6개의 선택 요소로 구성된 객체입니다.
+      - <ph name="DEFAULT_LAUNCH_CONTAINER_LABEL" />
+      (웹 앱이 열리는 방식에 관한 설정, 새 탭이 기본값임)
+
+      - <ph name="CREATE_DESKTOP_SHORTCUT_LABEL" />
+      (<ph name="LINUX_OS_NAME" /> 및
+      <ph name="MS_WIN_NAME" /> 바탕화면 바로가기를 만들 경우 True)
+
+      - <ph name="FALLBACK_APP_NAME_LABEL" />
+      (<ph name="PRODUCT_NAME" /> 버전 90부터
+      프로그레시브 웹 앱(PWA)이 아니면 앱 이름을 재정의하거나
+      PWA이지만 설치 완료 전 인증이 필요하면
+      임시로 설치된 앱 이름을
+      재정의할 수 있습니다. <ph name="CUSTOM_NAME_LABEL" /> 및
+      <ph name="FALLBACK_APP_NAME_LABEL" /> 모두
+      제공되는 경우
+      후자는 무시됩니다.)
+
+      - <ph name="OVERRIDE_APP_NAME_LABEL" />
+      (<ph name="PRODUCT_OS_NAME" />
+      버전 99 및 기타 모든 데스크톱 운영체제의 버전 112부터 모든 웹 앱 및 PWA의
+      앱 이름을 영구적으로 재정의할 수 있습니다.)
+
+      - <ph name="CUSTOM_ICON_LABEL" />
+      (<ph name="PRODUCT_OS_NAME" />
+      버전 99 및 기타 모든 데스크톱 운영체제의 버전 112부터 설치된 앱의 앱 아이콘을
+      재정의할 수 있습니다. 아이콘은
+      정사각형이어야 하며 최대 크기는 1MB입니다. 또한 jpeg, png, gif, webp, ico 중 하나의 형식을 사용해야 합니다.
+      해시 값은 아이콘 파일의 SHA256 해시여야 합니다.)
+
+      - <ph name="INSTALL_AS_SHORTCUT_LABEL" />
+      (<ph name="PRODUCT_NAME" />
+      버전 107부터) 사용 설정하면 <ph name="URL_LABEL" /> 페이지가
+      데스크톱 브라우저 GUI에서 '단축키 만들기...' 옵션을 사용한 것처럼
+      단축키로 설치됩니다.
+      단축키로 설치된 경우 <ph name="URL_LABEL" />의 매니페스트가 변경되어도
+      해당 페이지는 업데이트되지 않습니다.
+      사용 중지하거나 설정하지 않으면 <ph name="URL_LABEL" />의 웹 앱이
+      일반적인 방식으로 설치됩니다.
+
+      <ph name="PRODUCT_OS_NAME" /> 실행기에 앱을 고정하는 방법은 <ph name="PINNED_LAUNCHER_APPS_POLICY_NAME" /> 정책을 참고하세요.</translation>
 <translation id="9129169595075460149">이 정책을 사용으로 설정하면 Google 검색에서 세이프서치가 항상 활성화되며 사용자가 이 설정을 변경할 수 없습니다.
 
       정책을 사용 안함으로 설정하거나 설정하지 않으면 Google 검색에서 세이프서치가 적용되지 않습니다.</translation>
@@ -8760,6 +8879,7 @@ Windows에서는 GPO를 통해 정책을 설정하는 것이 좋습니다. 하�
       정책을 사용 중지하면 백그라운드 모드가 사용 중지됩니다.
 
       정책을 설정하면 사용자가 브라우저 설정에서 변경할 수 없습니다. 정책을 설정하지 않으면 처음에는 백그라운드 모드가 사용 중지되지만 사용자가 변경할 수 있습니다.</translation>
+<translation id="981245424658084931">기기 활동 하트비트 사용</translation>
 <translation id="981346395360763138">Google 위치 서비스가 사용 중지됨</translation>
 <translation id="982497069985795632">맞춤법 검사 사용 설정</translation>
 <translation id="983256325512298435">사용자에게 메시지를 표시하지 않고 목록에 등록된 출처의 외부 애플리케이션을 실행할 수 있는 프로토콜의 목록 정의</translation>

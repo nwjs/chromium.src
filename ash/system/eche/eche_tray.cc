@@ -460,6 +460,7 @@ bool EcheTray::LoadBubble(const GURL& url,
 void EcheTray::PurgeAndClose() {
   StopLoadingAnimation();
   SetIconVisibility(false);
+  is_landscape_ = false;
 
   if (!bubble_)
     return;
@@ -598,7 +599,14 @@ gfx::Size EcheTray::CalculateSizeForEche() const {
       (static_cast<float>(work_area_bounds.height()) * kMaxHeightPercentage) /
       kDefaultBubbleSize.height();
   height_scale = std::min(height_scale, 1.0f);
-  return gfx::ScaleToFlooredSize(kDefaultBubbleSize, height_scale);
+  gfx::Size size = gfx::ScaleToFlooredSize(kDefaultBubbleSize, height_scale);
+
+  // TODO(b/258306301): Verify the correct sizing for Landscape
+  if (is_landscape_) {
+    size = gfx::Size(size.height(), size.width());
+  }
+
+  return size;
 }
 
 void EcheTray::OnArrowBackActivated() {
@@ -634,7 +642,7 @@ std::unique_ptr<views::View> EcheTray::CreateBubbleHeaderView(
       l10n_util::GetStringFUTF16(ID_ASH_ECHE_APP_STREAMING_BUBBLE_TITLE,
                                  phone_name),
       views::style::CONTEXT_DIALOG_TITLE, views::style::STYLE_PRIMARY,
-      gfx::DirectionalityMode::DIRECTIONALITY_AS_URL));
+      gfx::DirectionalityMode::DIRECTIONALITY_FROM_TEXT));
   ConfigureLabelText(title);
 
   // Add minimize button
@@ -774,8 +782,18 @@ void EcheTray::OnTabletModeStarted() {
 void EcheTray::OnTabletModeEnded() {
   UpdateEcheSizeAndBubbleBounds();
 }
+
 void EcheTray::OnShelfAlignmentChanged(aura::Window* root_window,
                                        ShelfAlignment old_alignment) {
+  UpdateEcheSizeAndBubbleBounds();
+}
+
+void EcheTray::OnStreamOrientationChanged(bool is_landscape) {
+  if (is_landscape_ == is_landscape) {
+    return;
+  }
+
+  is_landscape_ = is_landscape;
   UpdateEcheSizeAndBubbleBounds();
 }
 

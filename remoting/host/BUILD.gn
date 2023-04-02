@@ -475,6 +475,10 @@ static_library("common") {
       "utempter",
       "util",
     ]
+
+    if (ozone_platform_wayland) {
+      deps += [ "//ui/events/platform/wayland:wayland_event_watcher" ]
+    }
   }
 
   if (is_linux) {
@@ -1050,6 +1054,9 @@ if (enable_me2me_host) {
       ]
       if (is_linux) {
         deps += [ "//ui/gtk:gtk_config" ]
+      }
+      if (ozone_platform_wayland) {
+        deps += [ "//ui/events/platform/wayland:wayland_event_watcher" ]
       }
     }
 

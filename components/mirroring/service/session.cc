@@ -24,6 +24,7 @@
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/system/sys_info.h"
+#include "base/task/bind_post_task.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "base/time/default_tick_clock.h"
@@ -39,7 +40,6 @@
 #include "crypto/random.h"
 #include "media/audio/audio_input_device.h"
 #include "media/base/audio_capturer_source.h"
-#include "media/base/bind_to_current_loop.h"
 #include "media/cast/encoding/encoding_support.h"
 #include "media/cast/net/cast_transport.h"
 #include "media/cast/sender/audio_sender.h"
@@ -466,6 +466,7 @@ void Session::StopStreaming() {
     audio_input_device_ = nullptr;
   }
   audio_capturing_callback_.reset();
+  session_logger_.reset();
   audio_stream_.reset();
   video_stream_.reset();
   cast_transport_.reset();
@@ -723,6 +724,10 @@ void Session::OnAnswer(const std::vector<FrameSenderConfig>& audio_configs,
       std::make_unique<TransportClient>(this), std::move(udp_client),
       base::SingleThreadTaskRunner::GetCurrentDefault());
 
+  if (session_params_.enable_rtcp_reporting) {
+    session_logger_ = std::make_unique<SessionLogger>(cast_environment_);
+  }
+
   if (state_ == REMOTING) {
     DCHECK(media_remoter_);
     DCHECK(!audio_config ||
@@ -750,7 +755,7 @@ void Session::OnAnswer(const std::vector<FrameSenderConfig>& audio_configs,
       // thread-hopped from the audio thread, and later thread-hopped again to
       // the encoding thread.
       audio_capturing_callback_ = std::make_unique<AudioCapturingCallback>(
-          media::BindToCurrentLoop(base::BindRepeating(
+          base::BindPostTaskToCurrentDefault(base::BindRepeating(
               &AudioRtpStream::InsertAudio, audio_stream_->AsWeakPtr())),
           base::BindOnce(&Session::ReportError, weak_factory_.GetWeakPtr(),
                          SessionError::AUDIO_CAPTURE_ERROR));
@@ -1118,7 +1123,9 @@ void Session::OnCapabilitiesResponse(const ReceiverResponse& response) {
 }
 
 void Session::OnRemotingStartTimeout() {
-  DCHECK(state_ != REMOTING);
+  if (state_ == REMOTING) {
+    return;
+  }
   StopSession();
   RecordRemotePlaybackSessionStartsBeforeTimeout(false);
 }

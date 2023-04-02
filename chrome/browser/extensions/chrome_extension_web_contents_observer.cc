@@ -71,6 +71,9 @@ void ChromeExtensionWebContentsObserver::OnZoomChanged(
   }
 }
 
+void ChromeExtensionWebContentsObserver::OnZoomControllerDestroyed(zoom::ZoomController* zoom_controller) {
+}
+
 ChromeExtensionWebContentsObserver::~ChromeExtensionWebContentsObserver() {}
 
 // static

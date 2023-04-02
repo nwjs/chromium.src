@@ -21,12 +21,15 @@
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/skia/include/core/SkPromiseImageTexture.h"
 #include "ui/gfx/buffer_format_util.h"
-#include "ui/gfx/mac/display_icc_profiles.h"
 #include "ui/gfx/mac/io_surface.h"
 #include "ui/gl/buffer_format_utils.h"
 #include "ui/gl/buildflags.h"
 #include "ui/gl/gl_context.h"
 #include "ui/gl/gl_implementation.h"
+
+#if BUILDFLAG(IS_MAC)
+#include "ui/gfx/mac/display_icc_profiles.h"
+#endif
 
 #import <Metal/Metal.h>
 
@@ -41,6 +44,7 @@ bool IsFormatSupported(viz::ResourceFormat resource_format) {
     case viz::ResourceFormat::BGRX_8888:
     case viz::ResourceFormat::RGBA_F16:
     case viz::ResourceFormat::RED_8:
+    case viz::ResourceFormat::RG_88:
     case viz::ResourceFormat::BGRA_1010102:
     case viz::ResourceFormat::RGBA_1010102:
       return true;
@@ -55,6 +59,7 @@ void SetIOSurfaceColorSpace(IOSurfaceRef io_surface,
     return;
   }
 
+#if BUILDFLAG(IS_MAC)
   base::ScopedCFTypeRef<CFDataRef> cf_data =
       gfx::DisplayICCProfiles::GetInstance()->GetDataForColorSpace(color_space);
   if (cf_data) {
@@ -62,6 +67,9 @@ void SetIOSurfaceColorSpace(IOSurfaceRef io_surface,
   } else {
     IOSurfaceSetColorSpace(io_surface, color_space);
   }
+#else
+  IOSurfaceSetColorSpace(io_surface, color_space);
+#endif
 }
 
 bool IsValidSize(const gfx::Size& size, int32_t max_texture_size) {
@@ -94,6 +102,17 @@ bool IsPixelDataValid(viz::SharedImageFormat format,
   return true;
 }
 
+constexpr uint32_t kSupportedUsage =
+    SHARED_IMAGE_USAGE_GLES2 | SHARED_IMAGE_USAGE_GLES2_FRAMEBUFFER_HINT |
+    SHARED_IMAGE_USAGE_DISPLAY_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ |
+    SHARED_IMAGE_USAGE_RASTER | SHARED_IMAGE_USAGE_OOP_RASTERIZATION |
+    SHARED_IMAGE_USAGE_SCANOUT | SHARED_IMAGE_USAGE_WEBGPU |
+    SHARED_IMAGE_USAGE_CONCURRENT_READ_WRITE | SHARED_IMAGE_USAGE_VIDEO_DECODE |
+    SHARED_IMAGE_USAGE_WEBGPU_SWAP_CHAIN_TEXTURE |
+    SHARED_IMAGE_USAGE_MACOS_VIDEO_TOOLBOX |
+    SHARED_IMAGE_USAGE_RASTER_DELEGATED_COMPOSITING |
+    SHARED_IMAGE_USAGE_HIGH_PERFORMANCE_GPU | SHARED_IMAGE_USAGE_CPU_WRITE;
+
 }  // anonymous namespace
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -104,7 +123,8 @@ IOSurfaceImageBackingFactory::IOSurfaceImageBackingFactory(
     const GpuDriverBugWorkarounds& workarounds,
     const gles2::FeatureInfo* feature_info,
     gl::ProgressReporter* progress_reporter)
-    : progress_reporter_(progress_reporter),
+    : SharedImageBackingFactory(kSupportedUsage),
+      progress_reporter_(progress_reporter),
       gpu_memory_buffer_formats_(
           feature_info->feature_flags().gpu_memory_buffer_formats),
       angle_texture_usage_(feature_info->feature_flags().angle_texture_usage) {
@@ -206,9 +226,6 @@ bool IOSurfaceImageBackingFactory::IsSupported(
     gfx::GpuMemoryBufferType gmb_type,
     GrContextType gr_context_type,
     base::span<const uint8_t> pixel_data) {
-  if (format.is_multi_plane() && !pixel_data.empty()) {
-    return false;
-  }
   if (!pixel_data.empty() && gr_context_type != GrContextType::kGL) {
     return false;
   }

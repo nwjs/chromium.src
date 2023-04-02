@@ -84,7 +84,7 @@ suite('SidePanelPowerBookmarksEditDialogTest', () => {
   test('ShowsCorrectRowCount', async () => {
     const topLevelBookmarks = service.getTopLevelBookmarks();
     powerBookmarksEditDialog.showDialog(
-        undefined,
+        [],
         topLevelBookmarks,
         [topLevelBookmarks[0]!],
     );
@@ -99,16 +99,50 @@ suite('SidePanelPowerBookmarksEditDialogTest', () => {
   test('ShowsActiveFolderName', () => {
     const topLevelBookmarks = service.getTopLevelBookmarks();
     powerBookmarksEditDialog.showDialog(
-        undefined,
+        [],
         topLevelBookmarks,
         [topLevelBookmarks[0]!],
     );
 
     const titleElement =
-        powerBookmarksEditDialog.shadowRoot!.querySelector('.folder-header');
+        powerBookmarksEditDialog.shadowRoot!.querySelector('h2');
     assertEquals(
         titleElement!.textContent!.includes(
             loadTimeData.getString('allBookmarks')),
         true);
+  });
+
+  test('SavesChanges', async () => {
+    let saveCount = 0;
+    let savedParent;
+    let savedNewFolderCount = 0;
+    powerBookmarksEditDialog.addEventListener('save', ((e: CustomEvent) => {
+                                                        saveCount++;
+                                                        savedParent =
+                                                            e.detail.folderId;
+                                                        savedNewFolderCount =
+                                                            e.detail.newFolders
+                                                                .length;
+                                                      }) as EventListener);
+
+    const topLevelBookmarks = service.getTopLevelBookmarks();
+    powerBookmarksEditDialog.showDialog(
+        [],
+        topLevelBookmarks,
+        [topLevelBookmarks[0]!],
+    );
+
+    const newFolderButton: HTMLElement =
+        powerBookmarksEditDialog.shadowRoot!.querySelector('#newFolderButton')!;
+    newFolderButton.click();
+
+    const saveButton: HTMLElement =
+        powerBookmarksEditDialog.shadowRoot!.querySelector('.action-button')!;
+    saveButton.click();
+
+    assertEquals(saveCount, 1);
+    // Adding a new folder should automatically select that folder.
+    assertEquals(savedParent, 'tmp_new_folder_0');
+    assertEquals(savedNewFolderCount, 1);
   });
 });

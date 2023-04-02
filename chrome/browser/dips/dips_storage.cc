@@ -11,9 +11,11 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/strcat.h"
 #include "base/task/sequenced_task_runner.h"
+#include "base/task/thread_pool.h"
 #include "base/threading/thread_restrictions.h"
 #include "chrome/browser/dips/dips_features.h"
 #include "chrome/browser/dips/dips_utils.h"
+#include "services/network/public/mojom/clear_data_filter.mojom.h"
 #include "services/network/public/mojom/network_context.mojom.h"
 #include "url/gurl.h"
 
@@ -47,8 +49,12 @@ size_t g_prepopulate_chunk_size = 100;
 
 DIPSStorage::PrepopulateArgs::PrepopulateArgs(base::Time time,
                                               size_t offset,
-                                              std::vector<std::string> sites)
-    : time(time), offset(offset), sites(std::move(sites)) {}
+                                              std::vector<std::string> sites,
+                                              base::OnceClosure on_complete)
+    : time(time),
+      offset(offset),
+      sites(std::move(sites)),
+      on_complete(std::move(on_complete)) {}
 
 DIPSStorage::PrepopulateArgs::PrepopulateArgs(PrepopulateArgs&&) = default;
 
@@ -233,6 +239,16 @@ std::vector<std::string> DIPSStorage::GetSitesToClear() const {
 }
 
 /* static */
+void DIPSStorage::DeleteDatabaseFiles(base::FilePath path,
+                                      base::OnceClosure on_complete) {
+  // TODO (jdh): Decide how to handle the case of failing to delete db files.
+  base::ThreadPool::PostTaskAndReply(
+      FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
+      base::BindOnce(IgnoreResult(&sql::Database::Delete), std::move(path)),
+      std::move(on_complete));
+}
+
+/* static */
 size_t DIPSStorage::SetPrepopulateChunkSizeForTesting(size_t size) {
   return std::exchange(g_prepopulate_chunk_size, size);
 }
@@ -265,5 +281,8 @@ void DIPSStorage::PrepopulateChunk(PrepopulateArgs args) {
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, base::BindOnce(&DIPSStorage::PrepopulateChunk,
                                   weak_factory_.GetWeakPtr(), std::move(args)));
+  } else {
+    db_->MarkAsPrepopulated();
+    std::move(args.on_complete).Run();
   }
 }

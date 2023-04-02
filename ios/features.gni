@@ -8,6 +8,7 @@ declare_args() {
   is_webkit_only_build = false
 
   # Control whether iOS builds with PartitionAlloc.
+  # Temporarily disable for rollout -- see crbug.com/1412190 for details.
   ios_partition_alloc_enabled = false
 
   # Control whether //ios/chrome and //ios/web targets are build. This

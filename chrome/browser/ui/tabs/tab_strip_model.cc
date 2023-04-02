@@ -699,7 +699,7 @@ void TabStripModel::CloseAllTabsInGroup(const tab_groups::TabGroupId& group) {
 bool TabStripModel::CloseWebContentsAt(int index, uint32_t close_types) {
   CHECK(ContainsIndex(index));
   WebContents* contents = GetWebContentsAt(index);
-  return CloseTabs(base::span<WebContents* const>(&contents, 1), close_types);
+  return CloseTabs(base::span<WebContents* const>(&contents, 1u), close_types);
 }
 
 bool TabStripModel::TabsAreLoading() const {
@@ -1299,7 +1299,12 @@ bool TabStripModel::IsContextMenuCommandEnabled(
 
     case CommandAddNote: {
       DCHECK(UserNotesController::IsUserNotesSupported(profile()));
-      return GetIndicesForCommand(context_index).size() == 1;
+      std::vector<int> indices = GetIndicesForCommand(context_index);
+      if (indices.size() != 1) {
+        return false;
+      }
+      content::WebContents* web_contents = GetWebContentsAt(indices[0]);
+      return UserNotesController::IsUserNotesSupported(web_contents);
     }
 
     case CommandAddToReadLater:
@@ -1471,7 +1476,9 @@ void TabStripModel::ExecuteContextMenuCommand(int context_index,
     case CommandAddNote: {
       std::vector<int> indices = GetIndicesForCommand(context_index);
       DCHECK(indices.size() == 1);
-      UserNotesController::SwitchTabsAndAddNote(this, indices.front());
+      Browser* browser =
+          chrome::FindBrowserWithWebContents(GetWebContentsAt(indices.front()));
+      UserNotesController::InitiateNoteCreationForTab(browser, indices.front());
       break;
     }
 

@@ -6,7 +6,6 @@ package org.chromium.chrome.browser.bookmarks;
 
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
-import static androidx.test.espresso.assertion.ViewAssertions.doesNotExist;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
@@ -118,7 +117,7 @@ public class BookmarkSaveFlowTest {
         })
                 .when(mMockPriceTrackingUtilsJni)
                 .setPriceTrackingStateForBookmark(
-                        any(Profile.class), anyLong(), anyBoolean(), any());
+                        any(Profile.class), anyLong(), anyBoolean(), any(), anyBoolean());
         doAnswer((invocation) -> {
             ((Callback<Boolean>) invocation.getArgument(1)).onResult(true);
             return null;
@@ -167,8 +166,9 @@ public class BookmarkSaveFlowTest {
     public void testBookmarkSaveFlow_BookmarkMoved() throws IOException {
         TestThreadUtils.runOnUiThreadBlockingNoException(() -> {
             BookmarkId id = addBookmark("Test bookmark", new GURL("http://a.com"));
-            mBookmarkSaveFlowCoordinator.show(
-                    id, /*fromExplicitTrackUi=*/false, /*wasBookmarkMoved=*/true);
+            mBookmarkSaveFlowCoordinator.show(id, /*fromExplicitTrackUi=*/false,
+                    /*wasBookmarkMoved=*/true,
+                    /*isNewBookmark=*/false);
             return null;
         });
         mRenderTestRule.render(mBookmarkSaveFlowCoordinator.getViewForTesting(),
@@ -185,7 +185,7 @@ public class BookmarkSaveFlowTest {
                     ShoppingSpecifics.newBuilder().setProductClusterId(1234L).build());
             mBookmarkModel.setPowerBookmarkMeta(id, meta.build());
             mBookmarkSaveFlowCoordinator.show(id, /*fromHeuristicEntryPoint=*/false,
-                    /*wasBookmarkMoved=*/false, meta.build());
+                    /*wasBookmarkMoved=*/false, /*isNewBookmark=*/true, meta.build());
             return null;
         });
         mRenderTestRule.render(mBookmarkSaveFlowCoordinator.getViewForTesting(),
@@ -202,8 +202,8 @@ public class BookmarkSaveFlowTest {
             PowerBookmarkMeta.Builder meta = PowerBookmarkMeta.newBuilder().setShoppingSpecifics(
                     ShoppingSpecifics.newBuilder().setProductClusterId(1234L).build());
             mBookmarkModel.setPowerBookmarkMeta(id, meta.build());
-            mBookmarkSaveFlowCoordinator.show(
-                    id, /*fromHeuristicEntryPoint=*/true, /*wasBookmarkMoved=*/false, meta.build());
+            mBookmarkSaveFlowCoordinator.show(id, /*fromHeuristicEntryPoint=*/true,
+                    /*wasBookmarkMoved=*/false, /*isNewBookmark=*/false, meta.build());
             return null;
         });
         mRenderTestRule.render(mBookmarkSaveFlowCoordinator.getViewForTesting(),
@@ -221,7 +221,7 @@ public class BookmarkSaveFlowTest {
                     ShoppingSpecifics.newBuilder().setProductClusterId(1234L));
             mBookmarkModel.setPowerBookmarkMeta(id, meta.build());
             mBookmarkSaveFlowCoordinator.show(id, /*fromHeuristicEntryPoint=*/false,
-                    /*wasBookmarkMoved=*/false, meta.build());
+                    /*wasBookmarkMoved=*/false, /*isNewBookmark=*/false, meta.build());
             return null;
         });
         doAnswer((invocation) -> {
@@ -230,7 +230,7 @@ public class BookmarkSaveFlowTest {
         })
                 .when(mMockPriceTrackingUtilsJni)
                 .setPriceTrackingStateForBookmark(
-                        any(Profile.class), anyLong(), anyBoolean(), any());
+                        any(Profile.class), anyLong(), anyBoolean(), any(), anyBoolean());
         doAnswer((invocation) -> {
             ((Callback<Boolean>) invocation.getArgument(1)).onResult(false);
             return null;
@@ -247,8 +247,9 @@ public class BookmarkSaveFlowTest {
     public void testBookmarkSaveFlowEdit() throws IOException {
         TestThreadUtils.runOnUiThreadBlockingNoException(() -> {
             BookmarkId id = addBookmark("Test bookmark", new GURL("http://a.com"));
-            mBookmarkSaveFlowCoordinator.show(
-                    id, /*fromHeuristicEntryPoint=*/false, /*wasBookmarkMoved=*/false);
+            mBookmarkSaveFlowCoordinator.show(id, /*fromHeuristicEntryPoint=*/false,
+                    /*wasBookmarkMoved=*/false,
+                    /*isNewBookmark=*/true);
             return null;
         });
         ChromeTabbedActivity cta = mActivityTestRule.getActivity();
@@ -266,8 +267,9 @@ public class BookmarkSaveFlowTest {
     public void testBookmarkSaveFlowChooseFolder() throws IOException {
         TestThreadUtils.runOnUiThreadBlockingNoException(() -> {
             BookmarkId id = addBookmark("Test bookmark", new GURL("http://a.com"));
-            mBookmarkSaveFlowCoordinator.show(
-                    id, /*fromHeuristicEntryPoint=*/false, /*wasBookmarkMoved=*/false);
+            mBookmarkSaveFlowCoordinator.show(id, /*fromHeuristicEntryPoint=*/false,
+                    /*wasBookmarkMoved=*/false,
+                    /*isNewBookmark=*/true);
             return null;
         });
         ChromeTabbedActivity cta = mActivityTestRule.getActivity();
@@ -278,19 +280,6 @@ public class BookmarkSaveFlowTest {
 
         // Dismiss the activity.
         Espresso.pressBack();
-    }
-
-    @Test
-    @MediumTest
-    @CommandLineFlags.
-    Add({"enable-features=" + ChromeFeatureList.BOOKMARKS_IMPROVED_SAVE_FLOW + "<Study",
-            "force-fieldtrials=Study/Group",
-            "force-fieldtrial-params=Study.Group:" + BookmarkFeatures.AUTODISMISS_ENABLED_PARAM_NAME
-                    + "/true/" + BookmarkFeatures.AUTODISMISS_LENGTH_PARAM_NAME + "/0"})
-    public void
-    testBookmarkSaveFlowAutodismiss() {
-        // The test parameters above will make the save flow autodismiss immediately.
-        onView(withId(R.id.title_text)).check(doesNotExist());
     }
 
     private void loadBookmarkModel() {

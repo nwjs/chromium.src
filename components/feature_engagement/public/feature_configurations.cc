@@ -9,6 +9,10 @@
 #include "components/feature_engagement/public/configuration.h"
 #include "components/feature_engagement/public/feature_constants.h"
 
+#if BUILDFLAG(IS_IOS)
+#include "components/feature_engagement/public/ios_promo_feature_configuration.h"
+#endif  // BUILDFLAG(IS_IOS)
+
 namespace feature_engagement {
 
 FeatureConfig CreateAlwaysTriggerConfig(const base::Feature* feature) {
@@ -1143,12 +1147,14 @@ absl::optional<FeatureConfig> GetClientSideFeatureConfig(
     // window of one week between impressions.
     absl::optional<FeatureConfig> config = FeatureConfig();
     config->valid = true;
-    config->availability = Comparator(GREATER_THAN_OR_EQUAL, 7);
+    config->availability = Comparator(ANY, 0);
     config->session_rate = Comparator(LESS_THAN, 1);
     config->trigger = EventConfig("price_notifications_trigger",
-                                  Comparator(LESS_THAN, 3), 365, 365);
+                                  Comparator(LESS_THAN, 3), 730, 730);
     config->used =
-        EventConfig("price_notifications_used", Comparator(EQUAL, 0), 365, 365);
+        EventConfig("price_notifications_used", Comparator(EQUAL, 0), 730, 730);
+    config->event_configs.insert(EventConfig("price_notifications_trigger",
+                                             Comparator(EQUAL, 0), 7, 730));
     return config;
   }
 
@@ -1164,13 +1170,14 @@ absl::optional<FeatureConfig> GetClientSideFeatureConfig(
     absl::optional<FeatureConfig> config = FeatureConfig();
     config->valid = true;
     config->availability = Comparator(ANY, 0);
-    config->session_rate = Comparator(EQUAL, 0);
+    config->session_rate = Comparator(ANY, 0);
+    config->session_rate_impact.type = SessionRateImpact::Type::NONE;
     config->trigger = EventConfig("blue_dot_promo_eligibility_met",
                                   Comparator(EQUAL, 0), 360, 360);
     config->used = EventConfig("blue_dot_promo_criterion_met",
                                Comparator(GREATER_THAN_OR_EQUAL, 1), 30, 360);
     config->event_configs.insert(EventConfig("default_browser_promo_shown",
-                                             Comparator(EQUAL, 0), 30, 360));
+                                             Comparator(EQUAL, 0), 14, 360));
     config->blocked_by.type = BlockedBy::Type::NONE;
     config->blocking.type = Blocking::Type::NONE;
     return config;
@@ -1188,6 +1195,7 @@ absl::optional<FeatureConfig> GetClientSideFeatureConfig(
     config->valid = true;
     config->availability = Comparator(ANY, 0);
     config->session_rate = Comparator(ANY, 0);
+    config->session_rate_impact.type = SessionRateImpact::Type::NONE;
     config->used = EventConfig("blue_dot_promo_overflow_menu_dismissed",
                                Comparator(EQUAL, 0), 30, 360);
     config->trigger = EventConfig("blue_dot_promo_overflow_menu_shown",
@@ -1199,7 +1207,7 @@ absl::optional<FeatureConfig> GetClientSideFeatureConfig(
         EventConfig("blue_dot_promo_eligibility_met",
                     Comparator(GREATER_THAN_OR_EQUAL, 1), 30, 360));
     config->event_configs.insert(EventConfig("default_browser_promo_shown",
-                                             Comparator(EQUAL, 0), 30, 360));
+                                             Comparator(EQUAL, 0), 14, 360));
     config->blocked_by.type = BlockedBy::Type::NONE;
     config->blocking.type = Blocking::Type::NONE;
     return config;
@@ -1218,6 +1226,7 @@ absl::optional<FeatureConfig> GetClientSideFeatureConfig(
     config->valid = true;
     config->availability = Comparator(ANY, 0);
     config->session_rate = Comparator(ANY, 0);
+    config->session_rate_impact.type = SessionRateImpact::Type::NONE;
     config->used = EventConfig("blue_dot_promo_settings_dismissed",
                                Comparator(EQUAL, 0), 30, 360);
     config->trigger = EventConfig("blue_dot_promo_settings_shown",
@@ -1229,10 +1238,16 @@ absl::optional<FeatureConfig> GetClientSideFeatureConfig(
         EventConfig("blue_dot_promo_eligibility_met",
                     Comparator(GREATER_THAN_OR_EQUAL, 1), 30, 360));
     config->event_configs.insert(EventConfig("default_browser_promo_shown",
-                                             Comparator(EQUAL, 0), 30, 360));
+                                             Comparator(EQUAL, 0), 14, 360));
     config->blocked_by.type = BlockedBy::Type::NONE;
     config->blocking.type = Blocking::Type::NONE;
     return config;
+  }
+
+  // iOS Promo Configs are split out into a separate file, so check that too.
+  if (absl::optional<FeatureConfig> ios_promo_feature_config =
+          GetClientSideiOSPromoFeatureConfig(feature)) {
+    return ios_promo_feature_config;
   }
 #endif  // BUILDFLAG(IS_IOS)
 

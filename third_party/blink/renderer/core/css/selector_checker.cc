@@ -36,6 +36,7 @@
 #include "third_party/blink/renderer/core/css/check_pseudo_has_cache_scope.h"
 #include "third_party/blink/renderer/core/css/css_selector_list.h"
 #include "third_party/blink/renderer/core/css/part_names.h"
+#include "third_party/blink/renderer/core/css/post_style_update_scope.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/dom/css_toggle.h"
 #include "third_party/blink/renderer/core/dom/document.h"
@@ -256,7 +257,20 @@ SelectorChecker::MatchStatus SelectorChecker::MatchSelector(
     const SelectorCheckingContext& context,
     MatchResult& result) const {
   SubResult sub_result(result);
-  if (!CheckOne(context, sub_result)) {
+  bool is_covered_by_bucketing =
+      context.selector->IsCoveredByBucketing() &&
+      !context.is_sub_selector;  // Don't trust bucketing in sub-selectors; we
+                                 // may be in a child selector (a nested rule).
+#if DCHECK_IS_ON()
+  SubResult dummy_result(result);
+  if (is_covered_by_bucketing) {
+    DCHECK(CheckOne(context, dummy_result))
+        << context.selector->SimpleSelectorTextForDebug()
+        << " unexpectedly didn't match element " << context.element;
+    DCHECK_EQ(0, dummy_result.flags);
+  }
+#endif
+  if (!is_covered_by_bucketing && !CheckOne(context, sub_result)) {
     return kSelectorFailsLocally;
   }
 
@@ -309,17 +323,42 @@ SelectorChecker::MatchStatus SelectorChecker::MatchForSubSelector(
       (scrollbar_ || dynamic_pseudo == kPseudoIdScrollbarCorner ||
        dynamic_pseudo == kPseudoIdResizer);
 
-  // Only match pseudo classes following scrollbar pseudo elements while
-  // actually computing style for scrollbar pseudo elements. This is to
-  // avoid incorrectly setting affected-by flags on actual elements for
-  // cases like: div::-webkit-scrollbar-thumb:hover { }
-  // Also allow pseudo-classes after ::view-transition* pseudo-elements if the
-  // class is the rightmost compound in the selector.
+  // If we saw a pseudo element while not computing pseudo element styles, do
+  // not try to match any simple selectors after the pseudo element as those
+  // selectors need to match the actual pseudo element.
+  //
+  // Examples:
+  //
+  // span::selection:window-inactive {}
+  // #id::before:initial {}
+  // .class::before:hover {}
+  //
+  // In all of those cases we need to skip matching the pseudo classes after the
+  // pseudo element on the originating element.
   if (context.in_rightmost_compound && dynamic_pseudo != kPseudoIdNone &&
-      dynamic_pseudo != kPseudoIdSelection &&
-      !IsTransitionPseudoElement(dynamic_pseudo) &&
-      !next_context.has_scrollbar_pseudo) {
-    return kSelectorFailsCompletely;
+      context.pseudo_id == kPseudoIdNone) {
+    // We are in the rightmost compound and have matched a pseudo element
+    // (dynamic_pseudo is not kPseudoIdNone), which means we are looking at
+    // pseudo classes after the pseudo element. We are also matching the
+    // originating element (context.pseudo_id is kPseudoIdnone), which means we
+    // are matching for tracking the existence of such pseudo elements which
+    // results in SetHasPseudoElementStyle() on the originating element's
+    // ComputedStyle.
+    if (!next_context.has_scrollbar_pseudo &&
+        dynamic_pseudo == kPseudoIdScrollbar) {
+      // Fail ::-webkit-scrollbar:hover because HasPseudoElementStyle for
+      // scrollbars will remove the native scrollbar. Having only
+      // ::-webkit-scrollbar rules that have pseudo class modifiers will end up
+      // with not adding a custom scrollbar which means we end up with no
+      // scrollbar.
+      return kSelectorFailsCompletely;
+    }
+    // This means we will end up with false positives for pseudo elements like
+    // ::before with only pseudo class modifiers where we end up trying to
+    // create the pseudo element but end up not doing it because we have no
+    // matching rules without modifiers. That is also already the case if you
+    // have ::before elements without content properties.
+    return kSelectorMatches;
   }
 
   next_context.has_selection_pseudo = dynamic_pseudo == kPseudoIdSelection;
@@ -1442,8 +1481,16 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
     case CSSSelector::kPseudoIs:
     case CSSSelector::kPseudoWhere:
     case CSSSelector::kPseudoAny:
-    case CSSSelector::kPseudoParent:
       return MatchesAnyInList(context, selector.SelectorListOrParent(), result);
+    case CSSSelector::kPseudoParent: {
+      const CSSSelector* parent = selector.SelectorListOrParent();
+      if (parent == nullptr) {
+        // & at top level matches like :scope.
+        return CheckPseudoScope(context, result);
+      } else {
+        return MatchesAnyInList(context, parent, result);
+      }
+    }
     case CSSSelector::kPseudoAutofill:
     case CSSSelector::kPseudoWebKitAutofill: {
       auto* html_form_element = DynamicTo<HTMLFormControlElement>(&element);
@@ -1655,7 +1702,7 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
     case CSSSelector::kPseudoFullscreen:
     // fall through
     case CSSSelector::kPseudoFullScreen:
-      return Fullscreen::IsFullscreenElement(element);
+      return Fullscreen::IsFullscreenFlagSetFor(element);
     case CSSSelector::kPseudoFullScreenAncestor:
       return element.ContainsFullScreenElement();
     case CSSSelector::kPseudoPaused: {
@@ -1814,6 +1861,18 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
         // active value.
         return !toggle->ValueMatches(State(0));
       }
+    }
+    case CSSSelector::kPseudoParentUnparsed:
+      // Only kept around for parsing; can never match anything
+      // (because we don't know what it's supposed to mean).
+      return false;
+    case CSSSelector::kPseudoInitial: {
+      if (!context.is_initial || !context.in_rightmost_compound ||
+          context.in_nested_complex_selector) {
+        return false;
+      }
+      result.SetFlag(MatchFlag::kAffectedByInitial);
+      return true;
     }
     case CSSSelector::kPseudoUnknown:
     default:
@@ -1991,7 +2050,7 @@ bool SelectorChecker::CheckPseudoScope(const SelectorCheckingContext& context,
   Element& element = *context.element;
   if (RuntimeEnabledFeatures::CSSScopeEnabled() && context.style_scope) {
     DCHECK(context.style_scope_frame);
-    const Activations& activations =
+    const StyleScopeActivations& activations =
         EnsureActivations(context, *context.style_scope);
     // The same @scope may produce multiple activations, but only (at most)
     // one activation per element in the ancestor chain. Therefore we do not
@@ -2180,12 +2239,44 @@ bool SelectorChecker::MatchesSpatialNavigationInterestPseudoClass(
   return interested_element && *interested_element == element;
 }
 
-void SelectorChecker::StyleScopeActivation::Trace(
-    blink::Visitor* visitor) const {
-  visitor->Trace(root);
+namespace {
+
+// CalculateActivations will not produce any activations unless there is
+// an outer activation (i.e. an activation of the outer StyleScope). If there
+// is no outer StyleScope, we use this DefaultActivation as the outer
+// activation. The scope provided to DefaultActivation is typically
+// a ShadowTree.
+StyleScopeActivation DefaultActivation(const ContainerNode* scope) {
+  return StyleScopeActivation{scope, std::numeric_limits<unsigned>::max()};
 }
 
-const SelectorChecker::Activations& SelectorChecker::EnsureActivations(
+// The activation ceiling is the highest ancestor element that can
+// match inside some StyleScopeActivation.
+//
+// You would think that only elements inside the scoping root (activation.root)
+// could match, but it is possible for a selector to be matched with respect to
+// some scoping root [1] without actually being scoped to that root [2].
+//
+// This is relevant when matching elements inside a shadow tree, where the root
+// of the default activation will be the ShadowRoot, but the host element (which
+// sits *above* the ShadowRoot) should still be reached with :host.
+//
+// [1] https://drafts.csswg.org/selectors-4/#the-scope-pseudo
+// [2] https://drafts.csswg.org/selectors-4/#scoped-selector
+const Element* ActivationCeiling(const StyleScopeActivation& activation) {
+  if (!activation.root) {
+    return nullptr;
+  }
+  if (auto* element = DynamicTo<Element>(activation.root.Get())) {
+    return element;
+  }
+  ShadowRoot* shadow_root = activation.root->GetShadowRoot();
+  return shadow_root ? &shadow_root->host() : nullptr;
+}
+
+}  // namespace
+
+const StyleScopeActivations& SelectorChecker::EnsureActivations(
     const SelectorCheckingContext& context,
     const StyleScope& style_scope) const {
   DCHECK(context.style_scope_frame);
@@ -2197,92 +2288,102 @@ const SelectorChecker::Activations& SelectorChecker::EnsureActivations(
   // Must not be confused with the *parent activations* (seen in
   // CalculateActivations), which are the activations (for the same StyleScope)
   // of the *parent element*.
-  //
-  // TODO(crbug.com/1280240): Pass context.scope instead of nullptr for the
-  // default activation.
-  const Activations* outer_activations =
-      style_scope.Parent()
-          ? &EnsureActivations(context, *style_scope.Parent())
-          : MakeGarbageCollected<Activations>(
-                1, StyleScopeActivation{nullptr /* scope */,
-                                        std::numeric_limits<unsigned>::max(),
-                                        false});
-
-  auto entry = context.style_scope_frame->data_.insert(&style_scope, nullptr);
-  Member<const Activations>& activations = entry.stored_value->value;
-  if (entry.is_new_entry) {
-    activations = CalculateActivations(context.style_scope_frame->element_,
-                                       style_scope, *outer_activations);
-  }
-  DCHECK(activations.Get());
+  const StyleScopeActivations* outer_activations =
+      style_scope.Parent() ? &EnsureActivations(context, *style_scope.Parent())
+                           : MakeGarbageCollected<StyleScopeActivations>(
+                                 1, DefaultActivation(context.scope));
+  const StyleScopeActivations* activations =
+      CalculateActivations(context.style_scope_frame->element_, style_scope,
+                           *outer_activations, context.style_scope_frame);
+  DCHECK(activations);
   return *activations;
 }
 
-const SelectorChecker::Activations* SelectorChecker::CalculateActivations(
+// Calculates all activations (i.e. active scopes) for `element`.
+//
+// This function will traverse the whole ancestor chain in the worst case,
+// however, if a StyleScopeFrame is provided, it will reuse cached results
+// found on that StyleScopeFrame.
+const StyleScopeActivations* SelectorChecker::CalculateActivations(
     Element& element,
     const StyleScope& style_scope,
-    const Activations& outer_activations) const {
-  auto* activations = MakeGarbageCollected<Activations>();
-
-  if (outer_activations.empty()) {
-    return activations;
-  }
-
-  const Activations* parent_activations = nullptr;
-
-  // Remain within the outer scope. I.e. don't look at elements above the
-  // highest outer activation.
-  if (outer_activations.front().root != &element) {
-    // TODO(crbug.com/1280240): Consider :host (etc).
-    if (Element* parent = element.parentElement()) {
-      parent_activations =
-          CalculateActivations(*parent, style_scope, outer_activations);
+    const StyleScopeActivations& outer_activations,
+    StyleScopeFrame* style_scope_frame) const {
+  Member<const StyleScopeActivations>* cached_activations_entry = nullptr;
+  if (style_scope_frame) {
+    auto entry = style_scope_frame->data_.insert(&style_scope, nullptr);
+    // We must not modify `style_scope_frame->data_` for the remainder
+    // of this function, since `cached_activations_entry` now points into
+    // the hash table.
+    cached_activations_entry = &entry.stored_value->value;
+    if (!entry.is_new_entry) {
+      DCHECK(cached_activations_entry->Get());
+      return cached_activations_entry->Get();
     }
   }
 
-  // The activations of the parent element are still active for this element,
-  // unless the activation was limited.
-  if (parent_activations) {
-    for (const StyleScopeActivation& activation : *parent_activations) {
-      if (!activation.limit) {
-        activations->push_back(StyleScopeActivation{
-            activation.root, activation.proximity + 1, false});
+  auto* activations = MakeGarbageCollected<StyleScopeActivations>();
+
+  if (!outer_activations.empty()) {
+    const StyleScopeActivations* parent_activations = nullptr;
+
+    // Remain within the outer scope. I.e. don't look at elements above the
+    // highest outer activation.
+    if (&element != ActivationCeiling(outer_activations.front())) {
+      if (Element* parent = element.ParentOrShadowHostElement()) {
+        // When calculating the activations on the parent element, we pass
+        // the parent StyleScopeFrame (if we have it) to be able to use the
+        // cached results, and avoid traversing the ancestor chain.
+        StyleScopeFrame* parent_frame =
+            style_scope_frame ? style_scope_frame->GetParentFrameOrNull(*parent)
+                              : nullptr;
+        parent_activations = CalculateActivations(
+            *parent, style_scope, outer_activations, parent_frame);
       }
     }
-  }
 
-  // Check if we need to add a new activation for this element.
-  for (const StyleScopeActivation& activation : outer_activations) {
-    if (style_scope.From()
-            ? MatchesWithScope(element, *style_scope.From(), activation.root)
-            : style_scope.HasImplicitRoot(&element)) {
-      activations->push_back(StyleScopeActivation{&element, 0, false});
-      break;
-    }
-    // TODO(crbug.com/1280240): Break if we don't depend on :scope.
-  }
-
-  if (style_scope.To()) {
-    DCHECK(style_scope.From());
-    for (StyleScopeActivation& activation : *activations) {
-      DCHECK(!activation.limit);
-      if (MatchesWithScope(element, *style_scope.To(), activation.root.Get())) {
-        // TODO(crbug.com/1280240): If we don't depend on :scope, just set all
-        // to limit=true.
-        activation.limit = true;
+    // The activations of the parent element are still active for this element,
+    // unless this element is a scoping limit.
+    if (parent_activations) {
+      for (const StyleScopeActivation& activation : *parent_activations) {
+        if (!ElementIsScopingLimit(style_scope, activation, element)) {
+          activations->push_back(
+              StyleScopeActivation{activation.root, activation.proximity + 1});
+        }
       }
     }
+
+    // Check if we need to add a new activation for this element.
+    for (const StyleScopeActivation& outer_activation : outer_activations) {
+      if (style_scope.From() ? MatchesWithScope(element, *style_scope.From(),
+                                                outer_activation.root)
+                             : style_scope.HasImplicitRoot(&element)) {
+        StyleScopeActivation activation{&element, 0};
+        // It's possible for a newly created activation to be immediately
+        // limited (e.g. @scope (.x) to (.x)).
+        if (!ElementIsScopingLimit(style_scope, activation, element)) {
+          activations->push_back(activation);
+        }
+        break;
+      }
+      // TODO(crbug.com/1280240): Break if we don't depend on :scope.
+    }
+  }
+
+  // Cache the result if possible.
+  if (cached_activations_entry) {
+    *cached_activations_entry = activations;
   }
 
   return activations;
 }
 
 bool SelectorChecker::MatchesWithScope(Element& element,
-                                       const CSSSelectorList& selector_list,
-                                       Element* scope) const {
+                                       const CSSSelector& selector_list,
+                                       const ContainerNode* scope) const {
   SelectorCheckingContext context(&element);
   context.scope = scope;
-  for (context.selector = selector_list.First(); context.selector;
+  for (context.selector = &selector_list; context.selector;
        context.selector = CSSSelectorList::Next(*context.selector)) {
     SelectorChecker::MatchResult ignore_result;
     if (MatchSelector(context, ignore_result) ==
@@ -2291,6 +2392,16 @@ bool SelectorChecker::MatchesWithScope(Element& element,
     }
   }
   return false;
+}
+
+bool SelectorChecker::ElementIsScopingLimit(
+    const StyleScope& style_scope,
+    const StyleScopeActivation& activation,
+    Element& element) const {
+  if (!style_scope.To()) {
+    return false;
+  }
+  return MatchesWithScope(element, *style_scope.To(), activation.root.Get());
 }
 
 bool SelectorChecker::CheckInStyleScope(const SelectorCheckingContext& context,

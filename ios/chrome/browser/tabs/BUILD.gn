@@ -115,6 +115,7 @@ source_set("tabs_internal") {
     "//ios/chrome/browser/web/print",
     "//ios/chrome/browser/web/session_state",
     "//ios/chrome/browser/web/web_performance_metrics",
+    "//ios/chrome/browser/web_selection",
     "//ios/chrome/browser/web_state_list",
     "//ios/chrome/browser/web_state_list/web_usage_enabler",
     "//ios/chrome/browser/webui",
@@ -125,6 +126,8 @@ source_set("tabs_internal") {
     "//ios/components/security_interstitials/safe_browsing",
     "//ios/public/provider/chrome/browser/find_in_page:find_in_page_api",
     "//ios/public/provider/chrome/browser/text_zoom:text_zoom_api",
+    "//ios/web/annotations",
+    "//ios/web/common",
     "//ios/web/common:features",
     "//ios/web/public/security",
     "//ios/web/public/session",
@@ -179,4 +182,5 @@ source_set("features") {
     "features.mm",
   ]
   public_deps = [ "//base" ]
+  deps = [ "//ui/base" ]
 }

@@ -27,6 +27,7 @@
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/time/time.h"
 #include "chrome/browser/apps/app_service/app_launch_params.h"
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
@@ -332,7 +333,7 @@ void PostProcessFoundTasks(Profile* profile,
   disabled_actions.emplace("view-pdf");
 #endif  // !BUILDFLAG(ENABLE_PDF)
 
-  if (!ash::features::IsUploadOfficeToCloudEnabled()) {
+  if (!ash::cloud_upload::IsEligibleAndEnabledUploadOfficeToCloud()) {
     disabled_actions.emplace(kActionIdWebDriveOfficeWord);
     disabled_actions.emplace(kActionIdWebDriveOfficeExcel);
     disabled_actions.emplace(kActionIdWebDriveOfficePowerPoint);
@@ -458,6 +459,9 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
       prefs::kOfficeSetupComplete, false,
       user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PREF);
   registry->RegisterBooleanPref(prefs::kOfficeFilesAlwaysMove, false);
+  registry->RegisterTimePref(prefs::kOfficeFileMovedToOneDrive, base::Time());
+  registry->RegisterTimePref(prefs::kOfficeFileMovedToGoogleDrive,
+                             base::Time());
 }
 
 // Converts a string to a TaskType. Returns TASK_TYPE_UNKNOWN on error.
@@ -1173,6 +1177,14 @@ void SetAlwaysMoveOfficeFiles(Profile* profile, bool always_move) {
 
 bool AlwaysMoveOfficeFiles(Profile* profile) {
   return profile->GetPrefs()->GetBoolean(prefs::kOfficeFilesAlwaysMove);
+}
+
+void SetOfficeFileMovedToOneDrive(Profile* profile, base::Time moved) {
+  profile->GetPrefs()->SetTime(prefs::kOfficeFileMovedToOneDrive, moved);
+}
+
+void SetOfficeFileMovedToGoogleDrive(Profile* profile, base::Time moved) {
+  profile->GetPrefs()->SetTime(prefs::kOfficeFileMovedToGoogleDrive, moved);
 }
 
 }  // namespace file_manager::file_tasks

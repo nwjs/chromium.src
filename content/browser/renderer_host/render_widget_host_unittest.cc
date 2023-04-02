@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <tuple>
+#include <utility>
 
 #include "base/command_line.h"
 #include "base/functional/bind.h"
@@ -83,6 +84,10 @@
 #if BUILDFLAG(IS_MAC)
 #include "content/browser/renderer_host/test_render_widget_host_view_mac_factory.h"
 #include "ui/display/test/test_screen.h"
+#endif
+
+#if BUILDFLAG(IS_IOS)
+#include "content/browser/renderer_host/test_render_widget_host_view_ios_factory.h"
 #endif
 
 #if defined(USE_AURA) || BUILDFLAG(IS_MAC)
@@ -307,7 +312,8 @@ class FakeRenderFrameMetadataObserver
   ~FakeRenderFrameMetadataObserver() override {}
 
 #if BUILDFLAG(IS_ANDROID)
-  void ReportAllRootScrolls(bool enabled) override {}
+  void UpdateRootScrollOffsetUpdateFrequency(
+      cc::mojom::RootScrollOffsetUpdateFrequency frequency) override {}
 #endif
   void ReportAllFrameSubmissionsForTesting(bool enabled) override {}
 
@@ -1367,8 +1373,8 @@ TEST_F(RenderWidgetHostTest, Background) {
   view = new RenderWidgetHostViewAndroid(host_.get(), nullptr);
 #elif BUILDFLAG(IS_MAC)
   view = CreateRenderWidgetHostViewMacForTesting(host_.get());
-#else
-#error "This test isn't implemented for this platform."
+#elif BUILDFLAG(IS_IOS)
+  view = CreateRenderWidgetHostViewIOSForTesting(host_.get());
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -2418,13 +2424,12 @@ TEST_F(RenderWidgetHostTest, OnVerticalScrollDirectionChanged) {
 }
 
 TEST_F(RenderWidgetHostTest, SetCursorWithBitmap) {
-  ui::Cursor cursor(ui::mojom::CursorType::kCustom);
-
   SkBitmap bitmap;
   bitmap.allocN32Pixels(1, 1);
   bitmap.eraseColor(SK_ColorGREEN);
-  cursor.set_custom_bitmap(bitmap);
 
+  const ui::Cursor cursor =
+      ui::Cursor::NewCustom(std::move(bitmap), gfx::Point());
   host_->SetCursor(cursor);
   EXPECT_EQ(cursor, view_->last_cursor());
 }

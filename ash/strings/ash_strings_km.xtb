@@ -133,11 +133,13 @@
 <translation id="163517899691012366">ការ​ជូនដំណឹង​ត្រូ​វបានបិទ​នៅ​ពេល​មុខងារ​កុំរំខាន​ត្រូ​វបានបើក</translation>
 <translation id="1637505162081889933">ឧបករណ៍ <ph name="NUM_DEVICES" /> គ្រឿង</translation>
 <translation id="1639239467298939599">កំពុងដំណើរការ</translation>
+<translation id="1647986356840967552">ទំព័រ​មុន</translation>
 <translation id="1654477262762802994">ចាប់ផ្ដើម​សំណួរ​ជាសំឡេង</translation>
 <translation id="1668469839109562275">VPN ដែលភ្ជាប់​មកជាមួយស្រាប់</translation>
 <translation id="1677472565718498478">នៅសល់ <ph name="TIME" /></translation>
 <translation id="1677507110654891115">មិនបានភ្ជាប់ <ph name="FEATURE_NAME" /> ទេ។</translation>
 <translation id="1677582821739292812">នរណាម្នាក់កំពុងមើលអេក្រង់របស់អ្នក</translation>
+<translation id="1683399938733266832">ការ​ប្រើប្រាស់​ CPU បច្ចុប្បន្ន៖ <ph name="CPU_USEAGE" />%</translation>
 <translation id="169515659049020177">Shift</translation>
 <translation id="1698080062160024910">កម្មវិធីកំណត់ម៉ោង <ph name="TOTAL_TIME" /> · <ph name="LABEL" /></translation>
 <translation id="1698760176351776263">អាសយដ្ឋាន IPv6 ៖ <ph name="ADDRESS" /></translation>
@@ -162,7 +164,6 @@
 <translation id="1771761307086386028">រំកិល​ទៅស្តាំ</translation>
 <translation id="1774796056689732716">ប្រតិទិន, <ph name="CURRENT_MONTH_YEAR" />, បច្ចុប្បន្នបានជ្រើសរើសថ្ងៃទី <ph name="DATE" />។</translation>
 <translation id="1787955149152357925">បិទ</translation>
-<translation id="1797271123677381264">ភ្លេចពាក្យសម្ងាត់</translation>
 <translation id="1807246157184219062">ភ្លឺ</translation>
 <translation id="181103072419391116">កម្លាំង​រលកសញ្ញា <ph name="SIGNAL_STRENGTH" />, គ្រប់គ្រងដោយ​អ្នកគ្រប់គ្រង​របស់អ្នក</translation>
 <translation id="1816896987747843206">ការ​ធ្វើ​បែបនេះ​ផ្ដល់​សិទ្ធិ​ចូលប្រើប្រាស់​កាមេរ៉ា​ដល់​​គ្រប់​កម្មវិធី និង​គេហទំព័រ​ដែលមាន​ការ​អនុញ្ញាត​ឱ្យ​ប្រើកាមេរ៉ា</translation>
@@ -287,6 +288,7 @@
 <translation id="2475982808118771221">កំហុសឆ្គងមួយបានកើតឡើង</translation>
 <translation id="2482878487686419369">ការជូនដំណឹង</translation>
 <translation id="2484513351006226581">ចុច <ph name="KEYBOARD_SHORTCUT" /> ដើម្បី​ប្តូរប្លង់​ក្តារ​ចុច។</translation>
+<translation id="2487915095798731898">ចូលរួម</translation>
 <translation id="2501920221385095727">គ្រាប់ចុចស្អិត</translation>
 <translation id="2509468283778169019">CAPS LOCK ត្រូវបានបើក</translation>
 <translation id="2515586267016047495">Alt</translation>
@@ -381,6 +383,7 @@
 <translation id="3051189971848907985">កំពុងប្ដូរឈ្មោះ​កម្រងព័ត៌មាន។ សូមរង់ចាំមួយភ្លែត។</translation>
 <translation id="3055162170959710888">អ្នកបានប្រើឧបករណ៍នេះរយៈពេល <ph name="USED_TIME" /> នៅថ្ងៃនេះ</translation>
 <translation id="3062298103034426069">មិន​អាច​ប្រើបាន</translation>
+<translation id="3068622547379332530">កំណែ <ph name="VERSION_NAME" /> (<ph name="OFFICIAL_STATUS" />) <ph name="CHANNEL_NAME" /> <ph name="PROCESSOR_VARIATION" /></translation>
 <translation id="3068711042108640621">ធ្នើ​នៅខាង​ឆ្វេង</translation>
 <translation id="3077734595579995578">SHIFT</translation>
 <translation id="3081696990447829002">ពង្រីក​ម៉ឺនុយ​</translation>
@@ -421,9 +424,11 @@
 <translation id="3289674678944039601">កំពុងសាកថ្ម​តាមរយៈឆ្នាំងសាក</translation>
 <translation id="3290356915286466215">គ្មាន​សុវត្ថិភាព</translation>
 <translation id="3294437725009624529">ភ្ញៀវ</translation>
+<translation id="3298690094479023523">នៅតែមិនអាច​ផ្ទៀងផ្ទាត់​កូដ PIN ឬពាក្យសម្ងាត់របស់អ្នក​បានដដែល។ សូមព្យាយាមម្ដងទៀត។</translation>
 <translation id="3307642347673023554">បានប្ដូរទៅ​មុខងារកុំព្យូទ័រយួរដៃ</translation>
 <translation id="3308453408813785101"><ph name="USER_EMAIL_ADDRESS" /> នៅតែអាចចូល​នៅពេល​ក្រោយបាន​ដដែល។</translation>
 <translation id="3321628682574733415">លេខកូដមាតាបិតា​មិនត្រឹមត្រូវទេ</translation>
+<translation id="332827762492701193">ការជូនដំណឹងត្រូវបាន​លាក់</translation>
 <translation id="3339826665088060472">ការថតអេក្រង់​គឺជាឧបករណ៍​សម្រាប់ថតរូប និងវីដេអូ​អេក្រង់</translation>
 <translation id="3340978935015468852">ការកំណត់</translation>
 <translation id="3341303451326249809">បាន​ថតរូបអេក្រង់</translation>
@@ -544,6 +549,7 @@
 <translation id="3925540965556789199">ថ្ងៃ​ទី <ph name="DATE" /> កំពុង​ផ្ទុក​ព្រឹត្តិការណ៍។</translation>
 <translation id="3932043219784172185">មិនបាន​ភ្ជាប់​ឧបករណ៍​ណាមួយទេ</translation>
 <translation id="3934456833412894880">ការសាកថ្ម​ដែលមាន​ភាពបត់បែន​ត្រូវបានបើក។ ថ្មរបស់អ្នក​នឹងស្ថិតនៅកម្រិត 80% ដើម្បីបង្កើន​កម្រិតថាមពលថ្ម និង​សាកថ្មពេញ នៅពេលដែលអ្នក​ត្រូវការវា។</translation>
+<translation id="3936620957945677513">ចុច enter ដើម្បី​ចូលរួម​ព្រឹត្តិការណ៍ <ph name="EVENT_SUMMARY" /></translation>
 <translation id="3943857333388298514">បិទភ្ជាប់</translation>
 <translation id="394485226368336402">ការ​កំណត់​សំឡេង</translation>
 <translation id="3945319193631853098">ចុចដើម្បី​បញ្ចប់ការរៀបចំ</translation>
@@ -554,12 +560,14 @@
 <translation id="397105322502079400">កំពុងគណនា...</translation>
 <translation id="397726367135689299">ការសាកថ្ម​ប្រហែល​មិន​អាចទុកចិត្ត​បានទេ។</translation>
 <translation id="3977512764614765090">ថ្ម​កំពុងសាកមានកម្រិត​​ <ph name="PERCENTAGE" />%។</translation>
+<translation id="3984536049089846927">ទំព័របន្ទាប់</translation>
 <translation id="3986082989454912832">ទទួល</translation>
 <translation id="3995138139523574647">ឧបករណ៍ USB-C (រន្ធក្រោយផ្នែកខាងស្តាំ)</translation>
 <translation id="40062176907008878">ការសរសេរដោយដៃ</translation>
 <translation id="4017989525502048489">ព្រួញឡាស៊ែរ</translation>
 <translation id="401993194061514265">មិន​អាច​ប្រើ​ហ្វឺត​បាន​ទេ។ បើក Screencast ឡើងវិញ។</translation>
 <translation id="4021716437419160885">រំកិលចុះក្រោម</translation>
+<translation id="4024840464866786680">ប្រសិនបើអ្នកបានភ្លេចកូដ PIN និងពាក្យសម្ងាត់របស់អ្នក ឬបានផ្លាស់ប្ដូរពាក្យសម្ងាត់គណនី Google របស់អ្នកថ្មីៗនេះ សូមសាកល្បងស្ដារអ្នកប្រើប្រាស់នេះឡើងវិញ។</translation>
 <translation id="4028481283645788203">តម្រូវឱ្យបញ្ចូលពាក្យសម្ងាត់​សម្រាប់សុវត្ថិភាពបន្ថែម</translation>
 <translation id="4032485810211612751"><ph name="HOURS" />:<ph name="MINUTES" />:<ph name="SECONDS" /></translation>
 <translation id="4042660782729322247">អ្នក​កំពុង​ចែករំលែក​អេក្រង់​របស់អ្នក</translation>
@@ -575,9 +583,10 @@
 <translation id="4123259114412175274">ដើម្បីដោះសោ Chromebook​ របស់អ្នក សូមប្រាកដថាបើកប៊្លូធូសទូរសព្ទរបស់អ្នក</translation>
 <translation id="4125970834901680537">មិនអាច​ស្ទ្រីម​កម្មវិធី​នៅក្នុង​មុខងារ​ថេប្លេត​បានទេ។ ព្យាយាម​ម្ដងទៀត​នៅក្នុង​មុខងារ​កុំព្យូទ័រយួរដៃ។</translation>
 <translation id="4129129681837227511">ដើម្បីមើលការជូនដំណឹង​នៅលើអេក្រង់ចាក់​សោរបស់អ្នក សូមដោះសោ ដើម្បីប្ដូរការកំណត់</translation>
-<translation id="4130035430755296270">បន្តដាក់ព្រួញលើ​សម្រាប់​ជម្រើស​ប្លង់​ច្រើនទៀត</translation>
+<translation id="4131973331381812765">សីតុណ្ហភាព៖ <ph name="TEMPERATURE" />°C - ល្បឿន​បច្ចុប្បន្ន៖ <ph name="CPU_AVERAGE_CURRENT_FREQUENCY_GHZ" />GHz</translation>
 <translation id="4136724716305260864">បើក​រហូតដល់​ពេលថ្ងៃរះ</translation>
 <translation id="4146833061457621061">ចាក់​តន្ត្រី</translation>
+<translation id="4150201353443180367">ការបង្ហាញ</translation>
 <translation id="4165275524535002941">ខ្សែប្រហែលជាមិនអាចប្រើជាមួយផ្ទាំងអេក្រង់បានទេ</translation>
 <translation id="4177913004758410636">{0,plural, =1{ដំឡើងកំណែ​ឧបករណ៍​ក្នុងរយៈពេល​មួយថ្ងៃ​}other{ដំឡើងកំណែ​ឧបករណ៍​ក្នុងរយៈពេល # ថ្ងៃ​}}</translation>
 <translation id="4181841719683918333">ភាសា</translation>
@@ -699,10 +708,12 @@
 <translation id="4735944890391795473">តុទី 12</translation>
 <translation id="473775607612524610">ធ្វើបច្ចុប្បន្នភាព</translation>
 <translation id="4740516757091333363">លុប​តុដែលបាន​រក្សាទុក​ឬ?</translation>
+<translation id="4747410141429390146">សូមដោះ​សោ ដើម្បីមើលការជូនដំណឹង</translation>
 <translation id="4752784485658729358">អាចឱ្យរក្សាទុកតែ 6 តុប៉ុណ្ណោះ។ សូមដកតុមួយចេញសិន ទើបអាចរក្សាទុកតុថ្មីបាន។</translation>
 <translation id="4759238208242260848">ទាញយក</translation>
 <translation id="4762573482154983647">លាក់​កម្មវិធី</translation>
 <translation id="4774338217796918551">ត្រឡប់​មកវិញ​នៅថ្ងៃស្អែកនៅម៉ោង <ph name="COME_BACK_TIME" />។</translation>
+<translation id="4776584068981882959">នៅតែមិនអាចផ្ទៀងផ្ទាត់ពាក្យសម្ងាត់របស់អ្នកបានដដែល។ សូមព្យាយាមម្ដងទៀត។</translation>
 <translation id="4776917500594043016">ពាក្យសម្ងាត់សម្រាប់ <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="4777825441726637019">Play Store</translation>
 <translation id="4778095205580009397">Google ជំនួយការ​មិន​អាចប្រើ​នៅក្នុងរយៈពេល​ចូលប្រើសាកល្បងបានទេ។</translation>
@@ -727,6 +738,7 @@
 <translation id="4895488851634969361">ថ្មពេញ។</translation>
 <translation id="490375751687810070">បញ្ឈរ​</translation>
 <translation id="490788395437447240">ថ្ម <ph name="BATTERY_PERCENTAGE" />%</translation>
+<translation id="491504982845934899">បើកដំណើរការបន្ទាប់ពីរៀបចំឧបករណ៍ <ph name="NETWORK_NAME" /></translation>
 <translation id="4917385247580444890">ខ្លាំង</translation>
 <translation id="4918086044614829423">ទទួល</translation>
 <translation id="4919841137949306064">បច្ចុប្បន្ន <ph name="APP_NAME" /> កំពុងប្រើ​កាមេរ៉ា​របស់អ្នក</translation>
@@ -842,6 +854,7 @@
 <translation id="5536723544185013515">កម្មវិធីថ្មីៗ, រុករកដោយប្រើគ្រាប់ចុចព្រួញទៅ​ឆ្វេង ឬ​ទៅ​ស្ដាំ ដើម្បីចូលប្រើប្រាស់​កម្មវិធីថ្មីៗទាំងអស់</translation>
 <translation id="553675580533261935">ការ​ចាកចេញ​ពី​សម័យ</translation>
 <translation id="5537725057119320332">ខាស</translation>
+<translation id="5546397813406633847">ស្ដារអ្នកប្រើប្រាស់ឡើងវិញ</translation>
 <translation id="554893713779400387">បិទ/បើក​ការសរសេរតាមអាន</translation>
 <translation id="5558091555391176027">បិទ/បើក​លទ្ធភាពមើលឃើញខ្ពស់​នៃការចែករំលែកនៅជិត</translation>
 <translation id="5560420195677022218">មើលកម្មវិធីលើទូរសព្ទរបស់អ្នកនៅលើ <ph name="DEVICE_TYPE" /> របស់អ្នក</translation>
@@ -858,6 +871,7 @@
 <translation id="5618148318840095371">យើង​បានប្ដូរអ្នក​ទៅកាន់​បណ្ដាញដែលប្រសើរជាងមុន</translation>
 <translation id="5619862035903135339">គោលការណ៍របស់អ្នកគ្រប់គ្រងបិទការថត​អេក្រង់</translation>
 <translation id="5625955975703555628">LTE+</translation>
+<translation id="5627392655516693966">មិនអាចផ្ទៀងផ្ទាត់ពាក្យសម្ងាត់របស់អ្នកបានទេ។ សូមព្យាយាមម្ដងទៀត។</translation>
 <translation id="5648021990716966815">ឌុយ​មីក្រូហ្វូន</translation>
 <translation id="5652575806481723716"><ph name="FOCUSED_APP_NAME" /> ស្នើឱ្យអ្នកយកចិត្តទុកដាក់។</translation>
 <translation id="5662075790140998213">តុទី 10</translation>
@@ -876,6 +890,7 @@
 <translation id="5707775774148071965">ឧបករណ៍របស់អ្នកអាចប្រើកម្រិតទិន្នន័យខ្ពស់ជាងខ្សែរបស់អ្នក។ ប្រតិបត្តិការឧបករណ៍អាចត្រូវ​បានដាក់កំហិត។</translation>
 <translation id="5710450975648804523">មុខងារ​កុំ​រំខាន​បាន​បើក</translation>
 <translation id="571295407079589142">ទិន្នន័យទូរសព្ទចល័ត​ត្រូវបានបិទ</translation>
+<translation id="5727460725221669831">ប្រសិនបើអ្នកបានភ្លេចពាក្យសម្ងាត់របស់អ្នក ឬបានផ្លាស់ប្ដូរពាក្យសម្ងាត់គណនី Google របស់អ្នកថ្មីៗនេះ សូមសាកល្បងស្ដារអ្នកប្រើប្រាស់នេះឡើងវិញ។</translation>
 <translation id="573413375004481890">ឧបករណ៍នេះមិន​អាចប្រើផ្ទាំងអេក្រង់​របស់អ្នកទាំងអស់​បានទេ ដូច្នេះសូមផ្ដាច់ផ្ទាំង​អេក្រង់មួយចេញ</translation>
 <translation id="5740328398383587084">ការ​ចែករំលែក​នៅជិត</translation>
 <translation id="574392208103952083">មធ្យម</translation>
@@ -905,6 +920,7 @@
 <translation id="5867606971598166637">អ្នក​គ្រប់គ្រង​ប្រព័ន្ធ​របស់​អ្នក​កំពុង​ឃ្លាំមើល​​អេក្រង់​របស់​អ្នក</translation>
 <translation id="5876666360658629066">បញ្ចូល​លេខកូដ​របស់​មាតា​បិតា</translation>
 <translation id="5881540930187678962">រៀបចំ​មណ្ឌលទូរសព្ទ​នៅពេលក្រោយ</translation>
+<translation id="5881663018261910378">បិទ</translation>
 <translation id="5887954372087850114">បានកំណត់​វិនដូ <ph name="WINDOW_TITLE" /> សម្រាប់ <ph name="DESK_TITLE" /> និង​បានឈប់កំណត់​ពីតុទាំងអស់​ផ្សេងទៀត</translation>
 <translation id="5895138241574237353">ចាប់ផ្តើមឡើងវិញ</translation>
 <translation id="589817443623831496">ការស្កេនលក្ខណៈចំណុច</translation>
@@ -1319,6 +1335,7 @@
 <translation id="8131740175452115882">អះអាង</translation>
 <translation id="8131994907636310308">បិទថូសតម្រៀប</translation>
 <translation id="8132793192354020517">បានភ្ជាប់ទៅ <ph name="NAME" /></translation>
+<translation id="8138705869659070104">បើកដំណើរការបន្ទាប់ពីរៀបចំឧបករណ៍</translation>
 <translation id="813913629614996137">កំពុង​ចាប់ផ្ដើម…</translation>
 <translation id="8142441511840089262">ចុចពីរដង</translation>
 <translation id="8142699993796781067">បណ្តាញឯកជន</translation>

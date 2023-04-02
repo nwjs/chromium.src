@@ -16,19 +16,7 @@
 
 namespace {
 
-// At present, HEVC is the only codec which has optional platform support.
-// Some clients need this knowledge synchronously, so we try to populate
-// it asynchronously ahead of time, but can fallback to a blocking call
-// when it's needed synchronously.
-#if BUILDFLAG(ENABLE_PLATFORM_HEVC) &&                                     \
-    (BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX) || \
-     BUILDFLAG(IS_MAC))
-#define NEEDS_PROFILE_UPDATER 1
-#else
-#define NEEDS_PROFILE_UPDATER 1
-#endif
-
-#if NEEDS_PROFILE_UPDATER
+#if 1 //BUILDFLAG(PLATFORM_HAS_OPTIONAL_HEVC_SUPPORT)
 void UpdateVideoProfilesInternal(
     const media::SupportedVideoDecoderConfigs& supported_configs) {
   base::flat_set<media::VideoCodecProfile> media_profiles;
@@ -54,7 +42,7 @@ void RenderMediaClient::Initialize() {
 RenderMediaClient::RenderMediaClient()
     : main_task_runner_(base::SingleThreadTaskRunner::GetCurrentDefault()) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(main_thread_sequence_checker_);
-#if NEEDS_PROFILE_UPDATER
+#if BUILDFLAG(PLATFORM_HAS_OPTIONAL_HEVC_SUPPORT)
   // We'll first try to query the supported video decoder configurations
   // asynchronously. If IsSupportedVideoType() is called before we get a
   // response, that method will block if its not on the main thread or fall
@@ -98,7 +86,7 @@ bool RenderMediaClient::IsSupportedAudioType(const media::AudioType& type) {
 }
 
 bool RenderMediaClient::IsSupportedVideoType(const media::VideoType& type) {
-#if NEEDS_PROFILE_UPDATER
+#if BUILDFLAG(PLATFORM_HAS_OPTIONAL_HEVC_SUPPORT)
   if (!did_update_.IsSignaled()) {
     // The asynchronous request didn't complete in time, so we must now block
     // or retrieve the information synchronously.
@@ -136,7 +124,7 @@ RenderMediaClient::GetAudioRendererAlgorithmParameters(
 void RenderMediaClient::OnGetSupportedVideoDecoderConfigs(
     const media::SupportedVideoDecoderConfigs& configs,
     media::VideoDecoderType type) {
-#if NEEDS_PROFILE_UPDATER
+#if BUILDFLAG(PLATFORM_HAS_OPTIONAL_HEVC_SUPPORT)
   if (did_update_.IsSignaled()) {
     return;
   }
@@ -155,7 +143,7 @@ void RenderMediaClient::OnGetSupportedVideoDecoderConfigs(
 }
 
 void RenderMediaClient::ResetConnectionForSupportedProfilesQueryOnMainThread() {
-#if NEEDS_PROFILE_UPDATER
+#if BUILDFLAG(PLATFORM_HAS_OPTIONAL_HEVC_SUPPORT)
   video_decoder_for_supported_profiles_.reset();
   interface_factory_for_supported_profiles_.reset();
 #endif

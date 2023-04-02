@@ -26,6 +26,7 @@
 #include "base/observer_list.h"
 #include "base/scoped_observation.h"
 #include "base/strings/strcat.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "base/threading/scoped_blocking_call.h"
@@ -777,7 +778,7 @@ void PreinstalledWebAppManager::PostProcessConfigs(
           ++disabled_count;
           if (debug_info_) {
             debug_info_->disabled_configs.emplace_back(
-                std::move(options), std::move(*disable_reason));
+                options, std::move(*disable_reason));
           }
           return true;
         }

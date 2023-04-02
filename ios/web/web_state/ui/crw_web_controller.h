@@ -28,6 +28,7 @@ enum class WKNavigationState;
 @protocol CRWScrollableContent;
 @protocol CRWSwipeRecognizerProvider;
 @class CRWWebViewContentView;
+@protocol CRWFindInteraction;
 @protocol CRWWebViewDownload;
 @protocol CRWWebViewDownloadDelegate;
 @protocol CRWWebViewProxy;
@@ -256,7 +257,11 @@ class WebStateImpl;
 - (void)setFindInteractionEnabled:(BOOL)enabled;
 
 // Returns the Find interaction of the contained web view, if any.
-- (UIFindInteraction*)findInteraction API_AVAILABLE(ios(16));
+- (id<CRWFindInteraction>)findInteraction API_AVAILABLE(ios(16));
+
+// Returns an opaque activity item that can be passed to a
+// UIActivityViewController to add additional share action for the current URL.
+- (id)activityItem;
 
 #pragma mark Navigation Message Handlers
 

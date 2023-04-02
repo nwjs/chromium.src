@@ -115,7 +115,7 @@ AutomationInternalCustomBindings::AutomationInternalCustomBindings(
   }
 }
 
-AutomationInternalCustomBindings::~AutomationInternalCustomBindings() {}
+AutomationInternalCustomBindings::~AutomationInternalCustomBindings() = default;
 
 void AutomationInternalCustomBindings::OnMessageReceived(
     const IPC::Message& message) {
@@ -177,8 +177,10 @@ void AutomationInternalCustomBindings::StartCachingAccessibilityTrees() {
 }
 
 void AutomationInternalCustomBindings::StopCachingAccessibilityTrees() {
-  message_filter_->Detach();
-  message_filter_.reset();
+  if (message_filter_) {
+    message_filter_->Detach();
+    message_filter_.reset();
+  }
 }
 
 //

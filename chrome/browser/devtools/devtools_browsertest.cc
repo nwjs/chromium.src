@@ -358,8 +358,7 @@ class DevToolsWindowBeforeUnloadObserver
   void Wait();
  private:
   // Invoked when the beforeunload handler fires.
-  void BeforeUnloadFired(bool proceed,
-                         const base::TimeTicks& proceed_time) override;
+  void BeforeUnloadFired(bool proceed) override;
 
   bool m_fired;
   scoped_refptr<content::MessageLoopRunner> message_loop_runner_;
@@ -379,9 +378,7 @@ void DevToolsWindowBeforeUnloadObserver::Wait() {
   message_loop_runner_->Run();
 }
 
-void DevToolsWindowBeforeUnloadObserver::BeforeUnloadFired(
-    bool proceed,
-    const base::TimeTicks& proceed_time) {
+void DevToolsWindowBeforeUnloadObserver::BeforeUnloadFired(bool proceed) {
   m_fired = true;
   if (message_loop_runner_.get())
     message_loop_runner_->Quit();
@@ -673,6 +670,21 @@ class DevToolsExtensionTest : public DevToolsTest {
   std::vector<std::unique_ptr<extensions::TestExtensionDir>>
       test_extension_dirs_;
   const base::FilePath test_extensions_dir_;
+};
+
+class DevToolsExtensionChromeUrlTest : public DevToolsExtensionTest {
+ public:
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    DevToolsExtensionTest::SetUpCommandLine(command_line);
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+    // These tests use chrome:// URLs and are written on the assumption devtools
+    // are always available, so guarantee that assumption holds. Tests that
+    // check if devtools can be disabled should use a test fixture without the
+    // kForceDevToolsAvailable switch set.
+    command_line->AppendSwitch(ash::switches::kForceDevToolsAvailable);
+#endif
+  }
 };
 
 class DevToolsExperimentalExtensionTest : public DevToolsExtensionTest {
@@ -999,7 +1011,7 @@ IN_PROC_BROWSER_TEST_F(DevToolsExtensionTest,
 }
 
 // Tests that chrome.devtools extension is correctly exposed.
-IN_PROC_BROWSER_TEST_F(DevToolsExtensionTest, TestExtensionOnNewTab) {
+IN_PROC_BROWSER_TEST_F(DevToolsExtensionChromeUrlTest, TestExtensionOnNewTab) {
   // Install the dynamically-generated devtools extension.
   const Extension* devtools_extension = LoadExtensionForTest(
       "Devtools Extension", "panel_devtools_page.html", "");
@@ -2255,6 +2267,7 @@ class RemoteDebuggingTest : public extensions::ExtensionApiTest {
   void SetUpCommandLine(base::CommandLine* command_line) override {
     extensions::ExtensionApiTest::SetUpCommandLine(command_line);
     command_line->AppendSwitchASCII(switches::kRemoteDebuggingPort, "9222");
+    command_line->AppendSwitchASCII(switches::kRemoteAllowOrigins, "*");
 
     // Override the extension root path.
     base::PathService::Get(chrome::DIR_TEST_DATA, &test_data_dir_);
@@ -2584,11 +2597,11 @@ IN_PROC_BROWSER_TEST_F(DevToolsTest,
                                   "  window.abc = 239;\n"
                                   "  console.log(abc);\n"
                                   "</script>");
-  test_factory.AddFactoryOverride(GURL("chrome://dummyurl").host(),
+  test_factory.AddFactoryOverride(GURL("https://a.com/dummyurl").host(),
                                   &mock_provider);
 
   ASSERT_TRUE(
-      ui_test_utils::NavigateToURL(browser(), GURL("chrome://dummyurl")));
+      ui_test_utils::NavigateToURL(browser(), GURL("https://a.com/dummyurl")));
   DevToolsWindow* window =
       DevToolsWindowTesting::OpenDevToolsWindowSync(GetInspectedTab(), true);
   chrome::DuplicateTab(browser());
@@ -3209,9 +3222,10 @@ IN_PROC_BROWSER_TEST_F(DevToolsSyncTest, GetSyncInformation) {
       })();
     )"));
   ASSERT_TRUE(result.value.is_dict());
-  EXPECT_TRUE(*result.value.FindBoolKey("isSyncActive"));
-  EXPECT_TRUE(*result.value.FindBoolKey("arePreferencesSynced"));
-  EXPECT_EQ(*result.value.FindStringKey("accountEmail"), "user@gmail.com");
+  EXPECT_TRUE(*result.value.GetDict().FindBool("isSyncActive"));
+  EXPECT_TRUE(*result.value.GetDict().FindBool("arePreferencesSynced"));
+  EXPECT_EQ(*result.value.GetDict().FindString("accountEmail"),
+            "user@gmail.com");
 }
 
 // Regression test for https://crbug.com/1270184.

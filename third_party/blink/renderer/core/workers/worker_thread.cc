@@ -588,6 +588,7 @@ void WorkerThread::InitializeSchedulerOnWorkerThread(
       TaskType::kPermission,
       TaskType::kPostedMessage,
       TaskType::kRemoteEvent,
+      TaskType::kStorage,
       TaskType::kUserInteraction,
       TaskType::kWakeLock,
       TaskType::kWebGL,
@@ -652,6 +653,7 @@ void WorkerThread::InitializeOnWorkerThread(
       debugger->WorkerThreadCreated(this);
 
     GlobalScope()->ScriptController()->Initialize(url_for_debugger);
+    GlobalScope()->WillBeginLoading();
     v8::HandleScope handle_scope(GetIsolate());
     Platform::Current()->WorkerContextCreated(
           GlobalScope()->ScriptController()->GetContext(), isNodeJS, main_script);
@@ -682,6 +684,9 @@ void WorkerThread::InitializeOnWorkerThread(
   // from another thread and try to resume "pause on start" before
   // we even paused.
   worker_inspector_controller_->WaitForDebuggerIfNeeded();
+  // Note the above call runs nested message loop which may result in
+  // worker thread being torn down by request from the parent thread,
+  // while waiting for debugger.
 }
 
 void WorkerThread::EvaluateClassicScriptOnWorkerThread(

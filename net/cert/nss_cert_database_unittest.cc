@@ -64,7 +64,7 @@ std::string GetSubjectCN(CERTCertificate* cert) {
 
 bool GetCertIsPerm(const CERTCertificate* cert) {
   PRBool is_perm;
-  CHECK_EQ(x509_util::GetCertIsPerm(cert, &is_perm), SECSuccess);
+  CHECK_EQ(CERT_GetCertIsPerm(cert, &is_perm), SECSuccess);
   return is_perm != PR_FALSE;
 }
 
@@ -116,7 +116,8 @@ class CertDatabaseNSSTest : public TestWithTaskEnvironment {
 
   ScopedCERTCertificateList ListCerts() {
     ScopedCERTCertificateList result;
-    CERTCertList* cert_list = PK11_ListCertsInSlot(test_nssdb_.slot());
+    crypto::ScopedCERTCertList cert_list(
+        PK11_ListCertsInSlot(test_nssdb_.slot()));
     if (!cert_list)
       return result;
     for (CERTCertListNode* node = CERT_LIST_HEAD(cert_list);
@@ -124,7 +125,6 @@ class CertDatabaseNSSTest : public TestWithTaskEnvironment {
          node = CERT_LIST_NEXT(node)) {
       result.push_back(x509_util::DupCERTCertificate(node->cert));
     }
-    CERT_DestroyCertList(cert_list);
 
     // Sort the result so that test comparisons can be deterministic.
     std::sort(

@@ -20,7 +20,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/third_party/icu/icu_utf.h"
 #include "base/time/default_clock.h"
-#include "chromeos/ash/components/system/devicemode.h"
 #include "ui/base/ime/ash/ime_bridge.h"
 #include "ui/base/ime/ash/ime_keyboard.h"
 #include "ui/base/ime/ash/input_method_manager.h"
@@ -332,9 +331,14 @@ void InputMethodAsh::OnCaretBoundsChanged(const TextInputClient* client) {
   // we have to convert |selection_range| from node coordinates to
   // |surrounding_text| coordinates.
   if (GetEngine()) {
-    GetEngine()->SetSurroundingText(
-        surrounding_text, selection_range.start() - text_range.start(),
-        selection_range.end() - text_range.start(), text_range.start());
+    // TODO(b/245020074): Handle the case where selection is before the offset.
+    const uint32_t offset = text_range.start();
+    DCHECK_GE(selection_range.start(), offset);
+    DCHECK_GE(selection_range.end(), offset);
+    const gfx::Range relative_selection_range(selection_range.start() - offset,
+                                              selection_range.end() - offset);
+    GetEngine()->SetSurroundingText(surrounding_text, relative_selection_range,
+                                    offset);
   }
 }
 

@@ -97,8 +97,7 @@ FeatureTilesContainerView::FeatureTilesContainerView(
   DCHECK(controller_);
   pagination_model_->AddObserver(this);
   SetLayoutManager(std::make_unique<views::FlexLayout>())
-      ->SetOrientation(views::LayoutOrientation::kHorizontal)
-      .SetDefault(views::kMarginsKey, kRowContainerMargins);
+      ->SetOrientation(views::LayoutOrientation::kHorizontal);
 }
 
 FeatureTilesContainerView::~FeatureTilesContainerView() {
@@ -170,6 +169,7 @@ void FeatureTilesContainerView::RelayoutTiles() {
   // Re-add tiles to container.
   AddTiles(std::move(tiles));
 
+  // Update bubble height in case number of rows changed.
   controller_->UpdateBubble();
 }
 
@@ -242,7 +242,7 @@ void FeatureTilesContainerView::OnWillChangeFocus(views::View* before,
 
 void FeatureTilesContainerView::OnDidChangeFocus(views::View* before,
                                                  views::View* now) {
-  if (!now || !views::IsViewClass<FeatureTile>(now)) {
+  if (!now || !views::IsViewClass<FeatureTile>(now) || !Contains(now)) {
     return;
   }
 
@@ -275,6 +275,21 @@ void FeatureTilesContainerView::UpdateTotalPages() {
                     (total_rows % displayable_rows_ ? 1 : 0);
   pagination_model_->SetTotalPages(total_pages);
   pagination_model_->SelectPage(0, false /*animate*/);
+}
+
+int FeatureTilesContainerView::GetVisibleFeatureTileCount() const {
+  int count = 0;
+  for (PageContainer* page : pages_) {
+    for (auto* row : page->children()) {
+      for (views::View* child : row->children()) {
+        DCHECK(views::IsViewClass<FeatureTile>(child));
+        if (child->GetVisible()) {
+          ++count;
+        }
+      }
+    }
+  }
+  return count;
 }
 
 BEGIN_METADATA(FeatureTilesContainerView, views::View)

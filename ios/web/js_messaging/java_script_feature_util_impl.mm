@@ -11,6 +11,7 @@
 #import "base/no_destructor.h"
 #import "base/strings/sys_string_conversions.h"
 #import "ios/web/annotations/annotations_java_script_feature.h"
+#import "ios/web/common/annotations_utils.h"
 #import "ios/web/common/features.h"
 #import "ios/web/favicon/favicon_java_script_feature.h"
 #import "ios/web/find_in_page/find_in_page_java_script_feature.h"
@@ -21,6 +22,7 @@
 #import "ios/web/js_messaging/web_frames_manager_java_script_feature.h"
 #import "ios/web/navigation/navigation_java_script_feature.h"
 #import "ios/web/navigation/session_restore_java_script_feature.h"
+#import "ios/web/public/js_messaging/content_world.h"
 #import "ios/web/public/js_messaging/java_script_feature.h"
 #import "ios/web/public/web_client.h"
 #import "ios/web/text_fragments/text_fragments_java_script_feature.h"
@@ -93,7 +95,7 @@ WindowErrorJavaScriptFeature* GetWindowErrorJavaScriptFeature() {
 JavaScriptFeature* GetPluginPlaceholderJavaScriptFeature() {
   // Static storage is ok for `plugin_placeholder_feature` as it holds no state.
   static base::NoDestructor<JavaScriptFeature> plugin_placeholder_feature(
-      JavaScriptFeature::ContentWorld::kAnyContentWorld,
+      ContentWorld::kIsolatedWorld,
       std::vector<const JavaScriptFeature::FeatureScript>(
           {JavaScriptFeature::FeatureScript::CreateWithFilename(
               kPluginPlaceholderScriptName,
@@ -108,7 +110,7 @@ JavaScriptFeature* GetPluginPlaceholderJavaScriptFeature() {
 JavaScriptFeature* GetShareWorkaroundJavaScriptFeature() {
   // Static storage is ok for `share_workaround_feature` as it holds no state.
   static base::NoDestructor<JavaScriptFeature> share_workaround_feature(
-      JavaScriptFeature::ContentWorld::kPageContentWorld,
+      ContentWorld::kPageContentWorld,
       std::vector<const JavaScriptFeature::FeatureScript>(
           {JavaScriptFeature::FeatureScript::CreateWithFilename(
               kShareWorkaroundScriptName,
@@ -126,6 +128,9 @@ namespace java_script_features {
 std::vector<JavaScriptFeature*> GetBuiltInJavaScriptFeatures(
     BrowserState* browser_state) {
   std::vector<JavaScriptFeature*> features = {
+      GetBaseJavaScriptFeature(),
+      GetCommonJavaScriptFeature(),
+      GetMessageJavaScriptFeature(),
       ContextMenuJavaScriptFeature::FromBrowserState(browser_state),
       ErrorPageJavaScriptFeature::GetInstance(),
       FindInPageJavaScriptFeature::GetInstance(),
@@ -146,7 +151,7 @@ std::vector<JavaScriptFeature*> GetBuiltInJavaScriptFeatures(
     features.push_back(GetPluginPlaceholderJavaScriptFeature());
   }
 
-  if (base::FeatureList::IsEnabled(web::features::kEnableWebPageAnnotations)) {
+  if (web::WebPageAnnotationsEnabled()) {
     features.push_back(AnnotationsJavaScriptFeature::GetInstance());
   }
 
@@ -163,7 +168,7 @@ ScrollHelperJavaScriptFeature* GetScrollHelperJavaScriptFeature() {
 JavaScriptFeature* GetBaseJavaScriptFeature() {
   // Static storage is ok for `base_feature` as it holds no state.
   static base::NoDestructor<JavaScriptFeature> base_feature(
-      JavaScriptFeature::ContentWorld::kAnyContentWorld,
+      ContentWorld::kAllContentWorlds,
       std::vector<const JavaScriptFeature::FeatureScript>(
           {JavaScriptFeature::FeatureScript::CreateWithFilename(
               kBaseScriptName,
@@ -175,7 +180,7 @@ JavaScriptFeature* GetBaseJavaScriptFeature() {
 JavaScriptFeature* GetCommonJavaScriptFeature() {
   // Static storage is ok for `common_feature` as it holds no state.
   static base::NoDestructor<JavaScriptFeature> common_feature(
-      JavaScriptFeature::ContentWorld::kAnyContentWorld,
+      ContentWorld::kAllContentWorlds,
       std::vector<const JavaScriptFeature::FeatureScript>(
           {JavaScriptFeature::FeatureScript::CreateWithFilename(
               kCommonScriptName,
@@ -188,7 +193,7 @@ JavaScriptFeature* GetCommonJavaScriptFeature() {
 JavaScriptFeature* GetMessageJavaScriptFeature() {
   // Static storage is ok for `message_feature` as it holds no state.
   static base::NoDestructor<JavaScriptFeature> message_feature(
-      JavaScriptFeature::ContentWorld::kAnyContentWorld,
+      ContentWorld::kAllContentWorlds,
       std::vector<const JavaScriptFeature::FeatureScript>(
           {JavaScriptFeature::FeatureScript::CreateWithFilename(
               kMessageScriptName,

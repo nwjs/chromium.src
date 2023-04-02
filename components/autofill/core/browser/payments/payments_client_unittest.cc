@@ -997,11 +997,7 @@ TEST_F(PaymentsClientTest, UnmaskIncludesMerchantDomain) {
   EXPECT_TRUE(GetUploadData().find("merchant_domain") != std::string::npos);
 }
 
-TEST_F(PaymentsClientTest, UnmaskResponseIncludesDeclineDetails_FlagOn) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(
-      features::kAutofillEnableMerchantOptOutErrorDialog);
-
+TEST_F(PaymentsClientTest, UnmaskResponseIncludesDeclineDetails) {
   StartUnmasking(CardUnmaskOptions().with_virtual_card());
   IssueOAuthToken();
   ReturnResponse(net::HTTP_OK,
@@ -1023,51 +1019,7 @@ TEST_F(PaymentsClientTest, UnmaskResponseIncludesDeclineDetails_FlagOn) {
             "test_user_message_description");
 }
 
-TEST_F(PaymentsClientTest, UnmaskResponseIncludesDeclineDetails_FlagOff) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(
-      features::kAutofillEnableMerchantOptOutErrorDialog);
-
-  StartUnmasking(CardUnmaskOptions().with_virtual_card());
-  IssueOAuthToken();
-  ReturnResponse(net::HTTP_OK,
-                 "{\"error\": {\"code\": \"ANYTHING_ELSE\", "
-                 "\"api_error_reason\": \"virtual_card_temporary_error\"}, "
-                 "\"decline_details\": {\"user_message_title\": "
-                 "\"test_user_message_title\", \"user_message_description\": "
-                 "\"test_user_message_description\"}}");
-
-  EXPECT_EQ(AutofillClient::PaymentsRpcResult::kVcnRetrievalTryAgainFailure,
-            result_);
-  EXPECT_FALSE(
-      unmask_response_details_->autofill_error_dialog_context.has_value());
-}
-
-TEST_F(PaymentsClientTest, UnmaskResponseIncludesEmptyDeclineDetails_FlagOn) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(
-      features::kAutofillEnableMerchantOptOutErrorDialog);
-
-  StartUnmasking(CardUnmaskOptions().with_virtual_card());
-  IssueOAuthToken();
-  ReturnResponse(net::HTTP_OK,
-                 "{\"error\": {\"code\": \"ANYTHING_ELSE\", "
-                 "\"api_error_reason\": \"virtual_card_temporary_error\"}, "
-                 "\"decline_details\": {\"user_message_title\": "
-                 "\"\", \"user_message_description\": "
-                 "\"\"}}");
-
-  EXPECT_EQ(AutofillClient::PaymentsRpcResult::kVcnRetrievalTryAgainFailure,
-            result_);
-  EXPECT_FALSE(
-      unmask_response_details_->autofill_error_dialog_context.has_value());
-}
-
-TEST_F(PaymentsClientTest, UnmaskResponseIncludesEmptyDeclineDetails_FlagOff) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(
-      features::kAutofillEnableMerchantOptOutErrorDialog);
-
+TEST_F(PaymentsClientTest, UnmaskResponseIncludesEmptyDeclineDetails) {
   StartUnmasking(CardUnmaskOptions().with_virtual_card());
   IssueOAuthToken();
   ReturnResponse(net::HTTP_OK,
@@ -1529,6 +1481,39 @@ TEST_F(PaymentsClientTest,
   EXPECT_TRUE(
       GetUploadData().find("%22external_customer_id%22:%22111222333444%22") !=
       std::string::npos);
+}
+
+TEST_F(PaymentsClientTest, UploadRequestIncludesEncryptedPan) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      features::kAutofillUpstreamUseAlternateSecureDataType);
+
+  StartUploading(/*include_cvc=*/true);
+  IssueOAuthToken();
+
+  // Verify that the encrypted_pan and s7e_1_pan parameters were included
+  // in the request.
+  EXPECT_TRUE(GetUploadData().find("encrypted_pan") != std::string::npos);
+  EXPECT_TRUE(GetUploadData().find("__param:s7e_1_pan") != std::string::npos);
+  EXPECT_TRUE(GetUploadData().find("&s7e_1_pan=4111111111111111") !=
+              std::string::npos);
+}
+
+TEST_F(PaymentsClientTest,
+       UploadRequestIncludesEncryptedPanUsingAlternateType) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      features::kAutofillUpstreamUseAlternateSecureDataType);
+
+  StartUploading(/*include_cvc=*/true);
+  IssueOAuthToken();
+
+  // Verify that the encrypted_pan and s7e_38_pan parameters were included
+  // in the request.
+  EXPECT_TRUE(GetUploadData().find("encrypted_pan") != std::string::npos);
+  EXPECT_TRUE(GetUploadData().find("__param:s7e_38_pan") != std::string::npos);
+  EXPECT_TRUE(GetUploadData().find("&s7e_38_pan=4111111111111111") !=
+              std::string::npos);
 }
 
 TEST_F(PaymentsClientTest, UploadIncludesCvcInRequestIfProvided) {

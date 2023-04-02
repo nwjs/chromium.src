@@ -114,7 +114,9 @@ void AmbientPhotoController::Init(
   num_topics_prepared_ = 0;
   is_actively_preparing_topic_ = false;
   ambient_topic_queue_ = std::make_unique<AmbientTopicQueue>(
-      /*topic_fetch_limit=*/kMaxNumberOfCachedImages,
+      /*topic_fetch_limit=*/ambient_backend_model_.photo_config().IsEmpty()
+          ? 0
+          : kMaxNumberOfCachedImages,
       /*topic_fetch_size=*/kTopicsBatchSize, kTopicFetchInterval,
       ambient_backend_model_.photo_config().should_split_topics,
       std::move(topic_queue_delegate),
@@ -166,24 +168,25 @@ void AmbientPhotoController::OnMarkerHit(AmbientPhotoConfig::Marker marker) {
   }
 
   DVLOG(3) << "UI event " << marker << " triggering topic refresh";
-  if (state_ == State::kInactive) {
-    LOG(DFATAL) << "Received unexpected UI marker " << marker
-                << " while inactive";
-    return;
-  }
-
-  bool is_still_preparing_topics = state_ != State::kWaitingForNextMarker;
-  state_ = State::kPreparingNextTopicSet;
-  num_topics_prepared_ = 0;
-  if (is_still_preparing_topics) {
-    // The controller is still in the middle of preparing a topic from the
-    // previous set (i.e. waiting on a callback or timer to fire). Resetting
-    // |num_topics_prepared_| to 0 above is enough, and the topic currently
-    // being prepared will count towards the next set.
-    DVLOG(4) << "Did not finished preparing current topic set in time. "
-                "Starting new set...";
-  } else {
-    StartPreparingNextTopic();
+  switch (state_) {
+    case State::kInactive:
+      LOG(DFATAL) << "Received unexpected UI marker " << marker
+                  << " while inactive";
+      break;
+    case State::kPreparingNextTopicSet:
+      // The controller is still in the middle of preparing a topic from the
+      // previous set (i.e. waiting on a callback or timer to fire). Resetting
+      // |num_topics_prepared_| to 0 is enough, and the topic currently being
+      // prepared will count towards the next set.
+      DVLOG(4) << "Did not finished preparing current topic set in time. "
+                  "Starting new set...";
+      num_topics_prepared_ = 0;
+      break;
+    case State::kWaitingForNextMarker:
+      state_ = State::kPreparingNextTopicSet;
+      num_topics_prepared_ = 0;
+      StartPreparingNextTopic();
+      break;
   }
 }
 
@@ -530,6 +533,14 @@ void AmbientPhotoController::FetchBackupImagesForTesting() {
 
 void AmbientPhotoController::StartPreparingNextTopic() {
   DCHECK_EQ(state_, State::kPreparingNextTopicSet);
+  if (ambient_backend_model_.photo_config().IsEmpty()) {
+    DVLOG(1) << "No photos should be written to model";
+    // This may not be necessary because a config like this probably doesn't
+    // have any photo refresh markers anyways. However, it's more technically
+    // correct to be in this state instead of |kPreparingNextTopicSet|.
+    state_ = State::kWaitingForNextMarker;
+    return;
+  }
   DCHECK(!is_actively_preparing_topic_)
       << "Preparing multiple topics simultaneously is not currently supported";
   is_actively_preparing_topic_ = true;

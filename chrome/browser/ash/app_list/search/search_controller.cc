@@ -11,6 +11,8 @@
 #include "ash/public/cpp/app_list/app_list_metrics.h"
 #include "ash/public/cpp/app_list/app_list_types.h"
 #include "ash/public/cpp/tablet_mode.h"
+#include "ash/shell.h"
+#include "ash/system/federated/federated_service_controller_impl.h"
 #include "base/metrics/metrics_hashes.h"
 #include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
@@ -20,13 +22,14 @@
 #include "chrome/browser/ash/app_list/app_list_model_updater.h"
 #include "chrome/browser/ash/app_list/search/app_search_data_source.h"
 #include "chrome/browser/ash/app_list/search/chrome_search_result.h"
+#include "chrome/browser/ash/app_list/search/common/keyword_util.h"
 #include "chrome/browser/ash/app_list/search/common/string_util.h"
-#include "chrome/browser/ash/app_list/search/cros_action_history/cros_action_recorder.h"
 #include "chrome/browser/ash/app_list/search/ranking/ranker_manager.h"
 #include "chrome/browser/ash/app_list/search/ranking/sorting.h"
 #include "chrome/browser/ash/app_list/search/search_metrics_manager.h"
 #include "chrome/browser/ash/app_list/search/search_provider.h"
 #include "chrome/browser/ash/app_list/search/search_session_metrics_manager.h"
+#include "chrome/browser/metrics/structured/event_logging_features.h"
 #include "chrome/browser/profiles/profile.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -45,16 +48,23 @@ void ClearNonZeroStateResults(ResultsMap& results) {
   }
 }
 
+bool IsTabletMode() {
+  return ash::TabletMode::IsInTabletMode();
+}
+
 }  // namespace
 
-SearchController::SearchController(AppListModelUpdater* model_updater,
-                                   AppListControllerDelegate* list_controller,
-                                   ash::AppListNotifier* notifier,
-                                   Profile* profile)
+SearchController::SearchController(
+    AppListModelUpdater* model_updater,
+    AppListControllerDelegate* list_controller,
+    ash::AppListNotifier* notifier,
+    Profile* profile,
+    ash::federated::FederatedServiceController* federated_service_controller)
     : profile_(profile),
       model_updater_(model_updater),
       list_controller_(list_controller),
-      notifier_(notifier) {}
+      notifier_(notifier),
+      federated_service_controller_(federated_service_controller) {}
 
 SearchController::~SearchController() = default;
 
@@ -67,9 +77,12 @@ void SearchController::Initialize() {
   session_metrics_manager_ =
       std::make_unique<SearchSessionMetricsManager>(profile_, notifier_);
   federated_metrics_manager_ =
-      std::make_unique<FederatedMetricsManager>(notifier_);
+      std::make_unique<federated::FederatedMetricsManager>(
+          notifier_, federated_service_controller_);
   app_search_data_source_ = std::make_unique<AppSearchDataSource>(
       profile_, list_controller_, base::DefaultClock::GetInstance());
+  app_discovery_metrics_manager_ =
+      std::make_unique<AppDiscoveryMetricsManager>(profile_);
 }
 
 void SearchController::OnBurnInPeriodElapsed() {
@@ -177,9 +190,19 @@ void SearchController::OnZeroStateTimedOut() {
   }
 }
 
-void SearchController::AppListClosing() {
-  for (const auto& provider : providers_) {
-    provider->StopZeroState();
+void SearchController::AppListViewChanging(bool is_visible) {
+  // In tablet mode, the launcher is always visible so do not log launcher open
+  // if the device is in tablet mode.
+  if (is_visible && !IsTabletMode() &&
+      base::FeatureList::IsEnabled(metrics::structured::kAppDiscoveryLogging)) {
+    app_discovery_metrics_manager_->OnLauncherOpen();
+  }
+
+  // On close.
+  if (!is_visible) {
+    for (const auto& provider : providers_) {
+      provider->StopZeroState();
+    }
   }
 }
 
@@ -191,6 +214,9 @@ void SearchController::OpenResult(ChromeSearchResult* result, int event_flags) {
   }
 
   metrics_manager_->OnOpen(result->result_type(), last_query_);
+  if (base::FeatureList::IsEnabled(metrics::structured::kAppDiscoveryLogging)) {
+    app_discovery_metrics_manager_->OnOpenResult(result, last_query_);
+  }
 
   const bool dismiss_view_on_open = result->dismiss_view_on_open();
 
@@ -245,6 +271,11 @@ void SearchController::SetResults(const SearchProvider* provider,
 
 void SearchController::SetSearchResults(const SearchProvider* provider) {
   Rank(provider->ResultType());
+
+  for (auto& result : provider->results()) {
+    metrics_manager_->OnSearchResultsUpdated(result->scoring());
+  }
+
   burn_in_controller_->UpdateResults(results_, categories_,
                                      provider->ResultType());
   // If the burn-in period has not yet elapsed, don't call Publish here (this
@@ -331,8 +362,13 @@ void SearchController::Publish() {
     for (auto* result : all_results) {
       observer_results.push_back(const_cast<const ChromeSearchResult*>(result));
     }
+
+    std::vector<KeywordInfo> extracted_keyword_info =
+        ExtractKeywords(last_query_);
+
     for (Observer& observer : observer_list_) {
-      observer.OnResultsAdded(last_query_, observer_results);
+      observer.OnResultsAdded(last_query_, extracted_keyword_info,
+                              observer_results);
     }
   }
 
@@ -359,12 +395,6 @@ void SearchController::Train(LaunchData&& launch_data) {
 
   profile_->GetPrefs()->SetBoolean(ash::prefs::kLauncherResultEverLaunched,
                                    true);
-
-  // CrOS action recorder.
-  CrOSActionRecorder::GetCrosActionRecorder()->RecordAction(
-      {base::StrCat({"SearchResultLaunched-", NormalizeId(launch_data.id)})},
-      {{"ResultType", static_cast<int>(launch_data.result_type)},
-       {"Query", static_cast<int>(base::HashMetricName(query))}});
 
   // Train all search result ranking models.
   ranker_manager_->Train(launch_data);

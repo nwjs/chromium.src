@@ -564,6 +564,9 @@ TEST_F(AutofillSuggestionGeneratorTest, GetIBANSuggestions) {
 
   EXPECT_EQ(iban_suggestions[0].main_text.value,
             iban0.GetIdentifierStringForAutofillDisplay());
+  EXPECT_EQ(
+      iban_suggestions[0].GetPayload<Suggestion::ValueToFill>().value(),
+      iban0.GetIdentifierStringForAutofillDisplay(/*is_value_masked=*/false));
   ASSERT_EQ(iban_suggestions[0].labels.size(), 1u);
   ASSERT_EQ(iban_suggestions[0].labels[0].size(), 1u);
   EXPECT_EQ(iban_suggestions[0].labels[0][0].value, u"My doctor's IBAN");
@@ -571,6 +574,9 @@ TEST_F(AutofillSuggestionGeneratorTest, GetIBANSuggestions) {
 
   EXPECT_EQ(iban_suggestions[1].main_text.value,
             iban1.GetIdentifierStringForAutofillDisplay());
+  EXPECT_EQ(
+      iban_suggestions[1].GetPayload<Suggestion::ValueToFill>().value(),
+      iban1.GetIdentifierStringForAutofillDisplay(/*is_value_masked=*/false));
   ASSERT_EQ(iban_suggestions[1].labels.size(), 1u);
   ASSERT_EQ(iban_suggestions[1].labels[0].size(), 1u);
   EXPECT_EQ(iban_suggestions[1].labels[0][0].value, u"My brother's IBAN");
@@ -578,6 +584,9 @@ TEST_F(AutofillSuggestionGeneratorTest, GetIBANSuggestions) {
 
   EXPECT_EQ(iban_suggestions[2].main_text.value,
             iban2.GetIdentifierStringForAutofillDisplay());
+  EXPECT_EQ(
+      iban_suggestions[2].GetPayload<Suggestion::ValueToFill>().value(),
+      iban2.GetIdentifierStringForAutofillDisplay(/*is_value_masked=*/false));
   ASSERT_EQ(iban_suggestions[2].labels.size(), 1u);
   ASSERT_EQ(iban_suggestions[2].labels[0].size(), 1u);
   EXPECT_EQ(iban_suggestions[2].labels[0][0].value, u"My teacher's IBAN");
@@ -585,6 +594,9 @@ TEST_F(AutofillSuggestionGeneratorTest, GetIBANSuggestions) {
 
   EXPECT_EQ(iban_suggestions[3].main_text.value,
             iban3.GetIdentifierStringForAutofillDisplay());
+  EXPECT_EQ(
+      iban_suggestions[3].GetPayload<Suggestion::ValueToFill>().value(),
+      iban3.GetIdentifierStringForAutofillDisplay(/*is_value_masked=*/false));
   EXPECT_EQ(iban_suggestions[3].labels.size(), 0u);
   EXPECT_EQ(iban_suggestions[3].frontend_id, POPUP_ITEM_ID_IBAN_ENTRY);
 }
@@ -1164,8 +1176,9 @@ class AutofillSuggestionGeneratorTestForOffer
     : public AutofillSuggestionGeneratorTest,
       public testing::WithParamInterface<bool> {
  public:
-  AutofillSuggestionGeneratorTestForOffer()
-      : keyboard_accessory_offer_enabled_(GetParam()) {
+  AutofillSuggestionGeneratorTestForOffer() {
+#if BUILDFLAG(IS_ANDROID)
+    keyboard_accessory_offer_enabled_ = GetParam();
     if (keyboard_accessory_offer_enabled_) {
       scoped_feature_keyboard_accessory_offer_.InitWithFeatures(
           {features::kAutofillKeyboardAccessory,
@@ -1176,16 +1189,23 @@ class AutofillSuggestionGeneratorTestForOffer
           {}, {features::kAutofillKeyboardAccessory,
                features::kAutofillEnableOffersInClankKeyboardAccessory});
     }
+#endif
   }
   ~AutofillSuggestionGeneratorTestForOffer() override = default;
 
   bool keyboard_accessory_offer_enabled() {
+#if BUILDFLAG(IS_ANDROID)
     return keyboard_accessory_offer_enabled_;
+#else
+    return false;
+#endif
   }
 
+#if BUILDFLAG(IS_ANDROID)
  private:
-  const bool keyboard_accessory_offer_enabled_;
+  bool keyboard_accessory_offer_enabled_;
   base::test::ScopedFeatureList scoped_feature_keyboard_accessory_offer_;
+#endif
 };
 
 INSTANTIATE_TEST_SUITE_P(All,
@@ -1196,12 +1216,6 @@ INSTANTIATE_TEST_SUITE_P(All,
 // card has card linked offer available.
 TEST_P(AutofillSuggestionGeneratorTestForOffer,
        CreateCreditCardSuggestion_ServerCardWithOffer) {
-#if !BUILDFLAG(IS_ANDROID)
-  // Skip the test with experiment enabled on non-Android platform.
-  if (keyboard_accessory_offer_enabled())
-    return;
-#endif
-
   // Create a server card.
   CreditCard server_card1 =
       CreateServerCard(/*guid=*/"00000000-0000-0000-0000-000000000001");

@@ -20,11 +20,11 @@ import android.view.ViewGroup;
 import android.view.ViewStub;
 import android.view.accessibility.AccessibilityEvent;
 import android.widget.ImageButton;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.ColorRes;
+import androidx.annotation.DrawableRes;
 import androidx.annotation.VisibleForTesting;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.view.ViewCompat;
@@ -35,6 +35,7 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.omnibox.LocationBar;
 import org.chromium.chrome.browser.omnibox.LocationBarCoordinator;
 import org.chromium.chrome.browser.omnibox.NewTabPageDelegate;
+import org.chromium.chrome.browser.omnibox.UrlBarData;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -47,8 +48,10 @@ import org.chromium.chrome.browser.toolbar.KeyboardNavigationListener;
 import org.chromium.chrome.browser.toolbar.R;
 import org.chromium.chrome.browser.toolbar.TabCountProvider;
 import org.chromium.chrome.browser.toolbar.ToolbarDataProvider;
+import org.chromium.chrome.browser.toolbar.ToolbarFeatures;
 import org.chromium.chrome.browser.toolbar.ToolbarTabController;
 import org.chromium.chrome.browser.toolbar.menu_button.MenuButtonCoordinator;
+import org.chromium.chrome.browser.toolbar.top.CaptureReadinessResult.TopToolbarBlockCaptureReason;
 import org.chromium.chrome.browser.toolbar.top.NavigationPopup.HistoryDelegate;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.components.browser_ui.styles.ChromeColors;
@@ -96,7 +99,6 @@ public class ToolbarTablet
     private ImageButton[] mToolbarButtons;
     private ImageButton mOptionalButton;
     private boolean mOptionalButtonUsesTint;
-    private ImageView mToolbarShadow;
 
     private NavigationPopup mNavigationPopup;
 
@@ -109,6 +111,9 @@ public class ToolbarTablet
     private AnimatorSet mButtonVisibilityAnimators;
     private HistoryDelegate mHistoryDelegate;
     private OfflineDownloader mOfflineDownloader;
+    private TabCountProvider mTabCountProvider;
+    private TabletCaptureStateToken mLastCaptureStateToken;
+    private @DrawableRes int mBookmarkButtonImageRes;
 
     /**
      * Constructs a ToolbarTablet object.
@@ -324,13 +329,6 @@ public class ToolbarTablet
     }
 
     @Override
-    protected void onAttachedToWindow() {
-        super.onAttachedToWindow();
-
-        mToolbarShadow = (ImageView) getRootView().findViewById(R.id.toolbar_hairline);
-    }
-
-    @Override
     public void onWindowFocusChanged(boolean hasWindowFocus) {
         // Ensure the the popup is not shown after resuming activity from background.
         if (hasWindowFocus && mNavigationPopup != null) {
@@ -392,21 +390,54 @@ public class ToolbarTablet
         return Toast.showAnchoredToast(context, v, description);
     }
 
-    /**
-     * Update the visibility of the toolbar shadow.
-     */
-    private void updateShadowVisibility() {
-        int shadowVisibility = mIsInTabSwitcherMode ? View.INVISIBLE : View.VISIBLE;
-
-        if (mToolbarShadow != null && mToolbarShadow.getVisibility() != shadowVisibility) {
-            mToolbarShadow.setVisibility(shadowVisibility);
+    @Override
+    public void setTextureCaptureMode(boolean textureMode) {
+        if (textureMode) {
+            mLastCaptureStateToken = generateCaptureStateToken();
         }
     }
 
     @Override
     public CaptureReadinessResult isReadyForTextureCapture() {
-        // Don't track tablet metrics yet for capturing, just return unknown for now.
-        return CaptureReadinessResult.unknown(!urlHasFocus());
+        if (ToolbarFeatures.shouldBlockCapturesForAblation()) {
+            return CaptureReadinessResult.notReady(TopToolbarBlockCaptureReason.SCROLL_ABLATION);
+        } else if (ToolbarFeatures.shouldSuppressCaptures()) {
+            if (urlHasFocus()) {
+                return CaptureReadinessResult.notReady(
+                        TopToolbarBlockCaptureReason.URL_BAR_HAS_FOCUS);
+            } else if (mIsInTabSwitcherMode) {
+                return CaptureReadinessResult.notReady(
+                        TopToolbarBlockCaptureReason.TAB_SWITCHER_MODE);
+            } else {
+                return getReadinessStateWithSuppression();
+            }
+        } else {
+            return CaptureReadinessResult.unknown(!urlHasFocus());
+        }
+    }
+
+    private CaptureReadinessResult getReadinessStateWithSuppression() {
+        TabletCaptureStateToken currentToken = generateCaptureStateToken();
+        final @ToolbarSnapshotDifference int difference =
+                currentToken.getAnyDifference(mLastCaptureStateToken);
+        if (difference == ToolbarSnapshotDifference.NONE) {
+            return CaptureReadinessResult.notReady(TopToolbarBlockCaptureReason.SNAPSHOT_SAME);
+        } else {
+            return CaptureReadinessResult.readyWithSnapshotDifference(difference);
+        }
+    }
+
+    private TabletCaptureStateToken generateCaptureStateToken() {
+        UrlBarData urlBarData = getToolbarDataProvider().getUrlBarData();
+        int securityIconResource =
+                getToolbarDataProvider().getSecurityIconResource(/*isTablet*/ true);
+        VisibleUrlText visibleUrlText = new VisibleUrlText(
+                urlBarData.displayText, mLocationBar.getOmniboxVisibleTextPrefixHint());
+        int tabCount = mTabCountProvider == null ? 0 : mTabCountProvider.getTabCount();
+
+        return new TabletCaptureStateToken(mHomeButton, mBackButton, mForwardButton, mReloadButton,
+                securityIconResource, visibleUrlText, mBookmarkButton, mBookmarkButtonImageRes,
+                mOptionalButton, tabCount, getWidth());
     }
 
     @Override
@@ -506,6 +537,7 @@ public class ToolbarTablet
     @Override
     void updateBookmarkButton(boolean isBookmarked, boolean editingAllowed) {
         if (isBookmarked) {
+            mBookmarkButtonImageRes = R.drawable.btn_star_filled;
             mBookmarkButton.setImageResource(R.drawable.btn_star_filled);
             final @ColorRes int tint = isIncognito() ? R.color.default_icon_color_blue_light
                                                      : R.color.default_icon_color_accent1_tint_list;
@@ -513,6 +545,7 @@ public class ToolbarTablet
                     mBookmarkButton, AppCompatResources.getColorStateList(getContext(), tint));
             mBookmarkButton.setContentDescription(getContext().getString(R.string.edit_bookmark));
         } else {
+            mBookmarkButtonImageRes = R.drawable.btn_star;
             mBookmarkButton.setImageResource(R.drawable.btn_star);
             ImageViewCompat.setImageTintList(mBookmarkButton, getTint());
             mBookmarkButton.setContentDescription(
@@ -562,8 +595,8 @@ public class ToolbarTablet
     @Override
     void setTabCountProvider(TabCountProvider tabCountProvider) {
         mSwitcherButton.setTabCountProvider(tabCountProvider);
+        mTabCountProvider = tabCountProvider;
     }
-
     @Override
     void setBookmarkClickHandler(OnClickListener listener) {
         mBookmarkListener = listener;
@@ -632,8 +665,7 @@ public class ToolbarTablet
             mOptionalButton.setOnLongClickListener(buttonSpec.getOnLongClickListener());
         }
         mOptionalButton.setImageDrawable(buttonSpec.getDrawable());
-        mOptionalButton.setContentDescription(
-                getContext().getResources().getString(buttonSpec.getContentDescriptionResId()));
+        mOptionalButton.setContentDescription(buttonSpec.getContentDescription());
         mOptionalButton.setVisibility(View.VISIBLE);
         mOptionalButton.setEnabled(buttonData.isEnabled());
     }

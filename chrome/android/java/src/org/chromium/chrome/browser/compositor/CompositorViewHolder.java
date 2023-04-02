@@ -22,6 +22,7 @@ import android.view.MotionEvent;
 import android.view.PointerIcon;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewGroup.LayoutParams;
 import android.view.accessibility.AccessibilityEvent;
 import android.widget.FrameLayout;
 
@@ -104,9 +105,11 @@ public class CompositorViewHolder extends FrameLayout
                    ChromeAccessibilityUtil.Observer, TabObscuringHandler.Observer,
                    ViewGroup.OnHierarchyChangeListener {
     private static final long SYSTEM_UI_VIEWPORT_UPDATE_DELAY_MS = 500;
-    private static MutableFlagWithSafeDefault sDeferKeepScreenOnFlag =
+    private static final MutableFlagWithSafeDefault sDeferKeepScreenOnFlag =
             new MutableFlagWithSafeDefault(
                     ChromeFeatureList.DEFER_KEEP_SCREEN_ON_DURING_GESTURE, false);
+    private static final MutableFlagWithSafeDefault sDeferNotifyInMotion =
+            new MutableFlagWithSafeDefault(ChromeFeatureList.DEFER_NOTIFY_IN_MOTION, false);
     private Runnable mSetBackgroundRunnable;
 
     /**
@@ -383,11 +386,6 @@ public class CompositorViewHolder extends FrameLayout
                     assert getWebContents() != null;
                     updateVirtualKeyboardMode(getWebContents().getVirtualKeyboardMode());
                 }
-            }
-
-            @Override
-            public void onDidFinishNavigationNoop(Tab tab, NavigationHandle navigation) {
-                if (!navigation.isInPrimaryMainFrame()) return;
             }
         };
 
@@ -734,8 +732,6 @@ public class CompositorViewHolder extends FrameLayout
             if (o.shouldInterceptTouchEvent(e)) return true;
         }
 
-        updateIsInGesture(e);
-
         if (mLayoutManager == null) return false;
 
         mEventOffsetHandler.onInterceptTouchEvent(e);
@@ -746,7 +742,6 @@ public class CompositorViewHolder extends FrameLayout
     public boolean onTouchEvent(MotionEvent e) {
         super.onTouchEvent(e);
 
-        updateIsInGesture(e);
         boolean consumed = mLayoutManager != null && mLayoutManager.onTouchEvent(e);
         mEventOffsetHandler.onTouchEvent(e);
         return consumed;
@@ -762,7 +757,9 @@ public class CompositorViewHolder extends FrameLayout
             mInGesture = false;
             updateViewportSize();
         }
-        updateInMotion();
+        if (!sDeferNotifyInMotion.isEnabled()) {
+            updateInMotion();
+        }
     }
 
     private void updateInMotion() {
@@ -811,8 +808,18 @@ public class CompositorViewHolder extends FrameLayout
     @Override
     public boolean dispatchTouchEvent(MotionEvent e) {
         updateLastActiveTouchEvent(e);
+        updateIsInGesture(e);
         for (TouchEventObserver o : mTouchEventObservers) o.handleTouchEvent(e);
-        return super.dispatchTouchEvent(e);
+
+        // This is where input events go from android through native to the web content. This
+        // process is latency sensitive. Ideally observers that might be expensive, such as
+        // notifying in motion, should be done after this.
+        boolean handled = super.dispatchTouchEvent(e);
+
+        if (sDeferNotifyInMotion.isEnabled()) {
+            updateInMotion();
+        }
+        return handled;
     }
 
     private void updateLastActiveTouchEvent(MotionEvent e) {

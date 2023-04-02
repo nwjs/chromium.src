@@ -9,7 +9,8 @@ import 'chrome://resources/cr_elements/cr_button/cr_button.js';
 import 'chrome://resources/cr_elements/cr_shared_style.css.js';
 
 import {startColorChangeUpdater} from 'chrome://resources/cr_components/color_change_listener/colors_css_updater.js';
-import {ClickInfo, Command} from 'chrome://resources/js/browser_command/browser_command.mojom-webui.js';
+import {HelpBubbleMixin, HelpBubbleMixinInterface} from 'chrome://resources/cr_components/help_bubble/help_bubble_mixin.js';
+import {ClickInfo, Command} from 'chrome://resources/js/browser_command.mojom-webui.js';
 import {BrowserCommandProxy} from 'chrome://resources/js/browser_command/browser_command_proxy.js';
 import {hexColorToSkColor, skColorToRgba} from 'chrome://resources/js/color_utils.js';
 import {EventTracker} from 'chrome://resources/js/event_tracker.js';
@@ -75,6 +76,9 @@ export enum NtpCustomizeChromeEntryPoint {
 const CUSTOMIZE_URL_PARAM: string = 'customize';
 const OGB_IFRAME_ORIGIN = 'chrome-untrusted://new-tab-page';
 
+export const CUSTOMIZE_CHROME_BUTTON_ELEMENT_ID =
+    'NewTabPageUI::kCustomizeChromeButtonElementId';
+
 function recordClick(element: NtpElement) {
   chrome.metricsPrivate.recordEnumerationValue(
       'NewTabPage.Click', element, Object.keys(NtpElement).length);
@@ -94,6 +98,10 @@ function ensureLazyLoaded() {
   document.body.appendChild(script);
 }
 
+
+const AppElementBase = HelpBubbleMixin(PolymerElement) as
+    {new (): PolymerElement & HelpBubbleMixinInterface};
+
 export interface AppElement {
   $: {
     customizeDialogIf: DomIf,
@@ -102,7 +110,7 @@ export interface AppElement {
   };
 }
 
-export class AppElement extends PolymerElement {
+export class AppElement extends AppElementBase {
   static get is() {
     return 'ntp-app';
   }
@@ -329,7 +337,6 @@ export class AppElement extends PolymerElement {
   private promoAndModulesLoaded_: boolean;
   private removeScrim_: boolean;
   private lazyRender_: boolean;
-  private openLensDialog: Function|null;
 
   private callbackRouter_: PageCallbackRouter;
   private pageHandler_: PageHandlerRemote;
@@ -422,6 +429,13 @@ export class AppElement extends PolymerElement {
           });
     }
     FocusOutlineManager.forDocument(document);
+
+    if (loadTimeData.valueExists('modulesMaxWidthPx')) {
+      this.updateStyles({
+        '--ntp-module-max-width':
+            `${loadTimeData.getInteger('modulesMaxWidthPx')}px`,
+      });
+    }
   }
 
   override disconnectedCallback() {
@@ -495,6 +509,8 @@ export class AppElement extends PolymerElement {
     // Integration tests use this attribute to determine when lazy load has
     // completed.
     document.documentElement.setAttribute('lazy-loaded', String(true));
+    this.registerHelpBubble(
+        CUSTOMIZE_CHROME_BUTTON_ELEMENT_ID, '#customizeButton', {fixed: true});
   }
 
   private onOpenVoiceSearch_() {
@@ -502,23 +518,8 @@ export class AppElement extends PolymerElement {
     recordVoiceAction(VoiceAction.ACTIVATE_SEARCH_BOX);
   }
 
-  /**
-   * Sets the openLensDialog function when the child LensUploadDialogComponent
-   * is lazily loaded.
-   *
-   * We use the connected callback with a custom event dispatch to get around
-   * bundling the upload dialog component with the primary bundle to call open
-   * dialog.
-   */
-  private bindOpenLensDialog_(e: CustomEvent<{fn: () => void}>) {
-    this.openLensDialog = e.detail.fn;
-  }
-
   private onOpenLensSearch_() {
-    if (this.openLensDialog) {
-      this.openLensDialog();
-      this.showLensUploadDialog_ = true;
-    }
+    this.showLensUploadDialog_ = true;
   }
 
   private onCloseLensSearch_() {

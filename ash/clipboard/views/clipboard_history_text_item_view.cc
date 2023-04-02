@@ -4,14 +4,10 @@
 
 #include "ash/clipboard/views/clipboard_history_text_item_view.h"
 
-#include "ash/clipboard/clipboard_history_controller_impl.h"
-#include "ash/clipboard/clipboard_history_resource_manager.h"
-#include "ash/clipboard/clipboard_history_util.h"
+#include "ash/clipboard/clipboard_history_item.h"
 #include "ash/clipboard/views/clipboard_history_delete_button.h"
 #include "ash/clipboard/views/clipboard_history_label.h"
 #include "ash/clipboard/views/clipboard_history_view_constants.h"
-#include "ash/shell.h"
-#include "base/metrics/histogram_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/view_class_properties.h"
@@ -61,13 +57,11 @@ END_METADATA
 // ClipboardHistoryTextItemView
 
 ClipboardHistoryTextItemView::ClipboardHistoryTextItemView(
-    const ClipboardHistoryItem* clipboard_history_item,
+    const base::UnguessableToken& item_id,
+    const ClipboardHistory* clipboard_history,
     views::MenuItemView* container)
-    : ClipboardHistoryItemView(clipboard_history_item, container),
-      text_(Shell::Get()
-                ->clipboard_history_controller()
-                ->resource_manager()
-                ->GetLabel(*clipboard_history_item)) {
+    : ClipboardHistoryItemView(item_id, clipboard_history, container),
+      text_(GetClipboardHistoryItem()->display_text()) {
   SetAccessibleName(text_);
 }
 

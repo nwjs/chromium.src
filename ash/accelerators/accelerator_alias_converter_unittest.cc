@@ -8,215 +8,344 @@
 
 #include "ash/shell.h"
 #include "ash/test/ash_test_base.h"
+#include "device/udev_linux/fake_udev_loader.h"
+#include "third_party/abseil-cpp/absl/types/optional.h"
+#include "ui/base/accelerators/accelerator.h"
 #include "ui/chromeos/events/keyboard_capability.h"
-#include "ui/events/event_constants.h"
-#include "ui/events/keycodes/keyboard_codes_posix.h"
+#include "ui/events/devices/device_data_manager_test_api.h"
 
 namespace ash {
 
+namespace {
+
+constexpr char kKbdTopRowPropertyName[] = "CROS_KEYBOARD_TOP_ROW_LAYOUT";
+constexpr char kKbdTopRowLayout1Tag[] = "1";
+constexpr char kKbdTopRowLayout2Tag[] = "2";
+constexpr char kKbdTopRowLayoutWilcoTag[] = "3";
+constexpr char kKbdTopRowLayoutDrallionTag[] = "4";
+
+struct AcceleratorAliasConverterTestData {
+  ui::Accelerator accelerator_;
+  absl::optional<ui::Accelerator> expected_accelerator_;
+};
+
+struct TopRowAcceleratorAliasConverterTestData {
+  // All currently connected keyboards' layout types.
+  std::vector<std::string> keyboard_layout_types_;
+  ui::Accelerator accelerator_;
+  std::vector<ui::Accelerator> expected_accelerator_;
+};
+
+class FakeDeviceManager {
+ public:
+  FakeDeviceManager() = default;
+  FakeDeviceManager(const FakeDeviceManager&) = delete;
+  FakeDeviceManager& operator=(const FakeDeviceManager&) = delete;
+  ~FakeDeviceManager() = default;
+
+  // Add a fake keyboard to DeviceDataManagerTestApi and provide layout info to
+  // fake udev.
+  void AddFakeKeyboard(const ui::InputDevice& fake_keyboard,
+                       const std::string& layout) {
+    fake_keyboard_devices_.push_back(fake_keyboard);
+
+    ui::DeviceDataManagerTestApi().SetKeyboardDevices({});
+    ui::DeviceDataManagerTestApi().SetKeyboardDevices(fake_keyboard_devices_);
+    ui::DeviceDataManagerTestApi().OnDeviceListsComplete();
+
+    std::map<std::string, std::string> sysfs_properties;
+    std::map<std::string, std::string> sysfs_attributes;
+    sysfs_properties[kKbdTopRowPropertyName] = layout;
+    fake_udev_.AddFakeDevice(fake_keyboard.name, fake_keyboard.sys_path.value(),
+                             /*subsystem=*/"input", /*devnode=*/absl::nullopt,
+                             /*devtype=*/absl::nullopt,
+                             std::move(sysfs_attributes),
+                             std::move(sysfs_properties));
+  }
+
+  void RemoveAllDevices() {
+    fake_udev_.Reset();
+    fake_keyboard_devices_.clear();
+  }
+
+ private:
+  testing::FakeUdevLoader fake_udev_;
+  std::vector<ui::InputDevice> fake_keyboard_devices_;
+};
+
+}  // namespace
+
 using AcceleratorAliasConverterTest = AshTestBase;
 
-TEST_F(AcceleratorAliasConverterTest, TestCreateTopRowAlias) {
+TEST_F(AcceleratorAliasConverterTest, CheckTopRowAlias) {
   AcceleratorAliasConverter accelerator_alias_converter_;
 
   // Top row keys not fKeys prevents remapping.
-  EXPECT_FALSE(Shell::Get()->keyboard_capability()->TopRowKeysAreFKeys());
-  const ui::Accelerator accelerator1{ui::VKEY_ZOOM, ui::EF_ALT_DOWN};
-  std::vector<ui::Accelerator> accelerator_aliases1 =
-      accelerator_alias_converter_.CreateAcceleratorAlias(accelerator1);
-
-  EXPECT_EQ(1u, accelerator_aliases1.size());
-  EXPECT_EQ(accelerator1, accelerator_aliases1[0]);
-
-  // Enable top row keys as fKeys.
   Shell::Get()->keyboard_capability()->SetTopRowKeysAsFKeysEnabledForTesting(
-      true);
+      false);
+  EXPECT_FALSE(Shell::Get()->keyboard_capability()->TopRowKeysAreFKeys());
+  const ui::Accelerator accelerator{ui::VKEY_ZOOM, ui::EF_ALT_DOWN};
+  std::vector<ui::Accelerator> accelerator_aliases =
+      accelerator_alias_converter_.CreateAcceleratorAlias(accelerator);
+
+  EXPECT_EQ(1u, accelerator_aliases.size());
+  EXPECT_EQ(accelerator, accelerator_aliases[0]);
+}
+
+class TopRowAliasTest : public AcceleratorAliasConverterTest,
+                        public testing::WithParamInterface<
+                            TopRowAcceleratorAliasConverterTestData> {
+  void SetUp() override {
+    AcceleratorAliasConverterTest::SetUp();
+    // Enable top row keys as fKeys.
+    Shell::Get()->keyboard_capability()->SetTopRowKeysAsFKeysEnabledForTesting(
+        true);
+    TopRowAcceleratorAliasConverterTestData test_data = GetParam();
+    keyboard_layout_types_ = test_data.keyboard_layout_types_;
+    accelerator_ = test_data.accelerator_;
+    expected_accelerator_ = test_data.expected_accelerator_;
+    fake_keyboard_manager_ = std::make_unique<FakeDeviceManager>();
+  }
+
+ protected:
+  std::vector<std::string> keyboard_layout_types_;
+  ui::Accelerator accelerator_;
+  std::vector<ui::Accelerator> expected_accelerator_;
+  std::unique_ptr<FakeDeviceManager> fake_keyboard_manager_;
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    // Empty to simplify gtest output
+    ,
+    TopRowAliasTest,
+    testing::ValuesIn(std::vector<TopRowAcceleratorAliasConverterTestData>{
+        // [Search] as original modifier prevents remapping.
+        {{kKbdTopRowLayout1Tag},
+         ui::Accelerator{ui::VKEY_ZOOM, ui::EF_COMMAND_DOWN},
+         {}},
+
+        // key_code not as a top row key prevents remapping.
+        {{kKbdTopRowLayout1Tag, kKbdTopRowLayout2Tag},
+         ui::Accelerator{ui::VKEY_TAB, ui::EF_ALT_DOWN},
+         {}},
+
+        // Below are testing each layout type.
+
+        // For TopRowLayout1: [Alt] + [Back] -> [Alt] + [Search] + [F1].
+        // TopRowKeysAreFKeys() remains true. This statement applies to all
+        // tests in TopRowAliasTest class.
+        {{kKbdTopRowLayout1Tag},
+         ui::Accelerator{ui::VKEY_BROWSER_BACK, ui::EF_ALT_DOWN},
+         {ui::Accelerator{ui::VKEY_F1, ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN}}},
+
+        // For TopRowLayout1: [Alt] + [Forward] -> [Alt] + [Search] + [F2].
+        {{kKbdTopRowLayout1Tag},
+         ui::Accelerator{ui::VKEY_BROWSER_FORWARD, ui::EF_ALT_DOWN},
+         {ui::Accelerator{ui::VKEY_F2, ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN}}},
+
+        // For TopRowLayout1: [Alt] + [Zoom] -> [Alt] + [Search] + [F4].
+        {{kKbdTopRowLayout1Tag},
+         ui::Accelerator{ui::VKEY_ZOOM, ui::EF_ALT_DOWN},
+         {ui::Accelerator{ui::VKEY_F4, ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN}}},
+
+        // For TopRowLayout2: [Alt] + [Shift] + [Back] -> [Alt] + [Shift] +
+        // [Search] + [F1].
+        {{kKbdTopRowLayout2Tag},
+         ui::Accelerator{ui::VKEY_BROWSER_BACK,
+                         ui::EF_ALT_DOWN | ui::EF_SHIFT_DOWN},
+         {ui::Accelerator{ui::VKEY_F1, ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN |
+                                           ui::EF_SHIFT_DOWN}}},
+
+        // For TopRowLayout2: [Alt] + [Zoom] -> [Alt] + [Search] + [F3].
+        {{kKbdTopRowLayout2Tag},
+         ui::Accelerator{ui::VKEY_ZOOM, ui::EF_ALT_DOWN},
+         {ui::Accelerator{ui::VKEY_F3, ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN}}},
+
+        // For TopRowLayout2: [Alt] + [Pause] -> [Alt] + [Search] + [F7].
+        {{kKbdTopRowLayout2Tag},
+         ui::Accelerator{ui::VKEY_MEDIA_PLAY_PAUSE, ui::EF_ALT_DOWN},
+         {ui::Accelerator{ui::VKEY_F7, ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN}}},
+
+        // For TopRowLayoutWilco: [Alt] + [Zoom] -> [Alt] + [Search] + [F3].
+        {{kKbdTopRowLayoutWilcoTag},
+         ui::Accelerator{ui::VKEY_ZOOM, ui::EF_ALT_DOWN},
+         {ui::Accelerator{ui::VKEY_F3, ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN}}},
+
+        // For TopRowLayoutWilco: [Alt] + [VolumeUp] -> [Alt] + [Search] + [F9].
+        {{kKbdTopRowLayoutWilcoTag},
+         ui::Accelerator{ui::VKEY_VOLUME_UP, ui::EF_ALT_DOWN},
+         {ui::Accelerator{ui::VKEY_F9, ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN}}},
+
+        // For kKbdTopRowLayoutDrallionTag: [Alt] + [Mute] -> [Alt] + [Search] +
+        // [F7].
+        {{kKbdTopRowLayoutDrallionTag},
+         ui::Accelerator{ui::VKEY_VOLUME_MUTE, ui::EF_ALT_DOWN},
+         {ui::Accelerator{ui::VKEY_F7, ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN}}},
+
+        // Below are testing multiple connected keyboards.
+
+        // Two keyboards with the same layout type: [Alt] + [Forward] -> [Alt] +
+        // [Search] + [F2]. No duplicated alias exists.
+        {{kKbdTopRowLayout1Tag, kKbdTopRowLayout1Tag},
+         ui::Accelerator{ui::VKEY_BROWSER_FORWARD, ui::EF_ALT_DOWN},
+         {ui::Accelerator{ui::VKEY_F2, ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN}}},
+
+        // For TopRowLayout1 + TopRowLayout2: [Alt] + [Forward] -> [Alt] +
+        // [Search] + [F2]. Only layout1 has [Forward] key.
+        {{kKbdTopRowLayout1Tag, kKbdTopRowLayout2Tag},
+         ui::Accelerator{ui::VKEY_BROWSER_FORWARD, ui::EF_ALT_DOWN},
+         {ui::Accelerator{ui::VKEY_F2, ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN}}},
+
+        // For TopRowLayout1 + TopRowLayout2: [Alt] + [Refresh] -> [Alt] +
+        // [Search] + [F2] AND [Alt] + [Search] + [F3]. Layout1's [Refresh] key
+        // maps to [F3], while layout2 maps to [F2].
+        {{kKbdTopRowLayout1Tag, kKbdTopRowLayout2Tag},
+         ui::Accelerator{ui::VKEY_BROWSER_REFRESH, ui::EF_ALT_DOWN},
+         {ui::Accelerator{ui::VKEY_F2, ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN},
+          ui::Accelerator{ui::VKEY_F3, ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN}}},
+
+        // For TopRowLayout1 + TopRowLayout2: [Alt] + [VolumeUp] -> [Alt] +
+        // [Search] + [F10]. Both layout1 and layout2' [VolumeUp] key maps to
+        // [F10]. No duplicated alias exists.
+        {{kKbdTopRowLayout1Tag, kKbdTopRowLayout2Tag},
+         ui::Accelerator{ui::VKEY_VOLUME_UP, ui::EF_ALT_DOWN},
+         {ui::Accelerator{ui::VKEY_F10,
+                          ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN}}},
+
+        // For TopRowLayout1 + TopRowLayout2 + TopRowLayoutWilco: [Alt] + [Back]
+        // -> [Alt] + [Search] + [F1]. All layouts' [Back] key maps to [F1]. No
+        // duplicated alias exists.
+        {{kKbdTopRowLayout1Tag, kKbdTopRowLayout2Tag, kKbdTopRowLayoutWilcoTag},
+         ui::Accelerator{ui::VKEY_BROWSER_BACK, ui::EF_ALT_DOWN},
+         {ui::Accelerator{ui::VKEY_F1, ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN}}},
+
+        // For TopRowLayout1 + TopRowLayout2 + TopRowLayoutWilco: [Alt] + [Zoom]
+        // -> [Alt] + [Search] + [F3] AND [Alt] + [Search] + [F4].
+        {{kKbdTopRowLayout1Tag, kKbdTopRowLayout2Tag, kKbdTopRowLayoutWilcoTag},
+         ui::Accelerator{ui::VKEY_ZOOM, ui::EF_ALT_DOWN},
+         {ui::Accelerator{ui::VKEY_F3, ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN},
+          ui::Accelerator{ui::VKEY_F4, ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN}}},
+
+        // For TopRowLayout1 + TopRowLayout2 + TopRowLayoutWilco +
+        // TopRowLayoutDrallion: [Alt] + [Launch] -> [Alt] + [Search] + [F4] AND
+        // [Alt] + [Search] + [F5].
+        {{kKbdTopRowLayout1Tag, kKbdTopRowLayout2Tag, kKbdTopRowLayoutWilcoTag,
+          kKbdTopRowLayoutDrallionTag},
+         ui::Accelerator{ui::VKEY_MEDIA_LAUNCH_APP1, ui::EF_ALT_DOWN},
+         {ui::Accelerator{ui::VKEY_F4, ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN},
+          ui::Accelerator{ui::VKEY_F5, ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN}}},
+    }));
+
+TEST_P(TopRowAliasTest, CheckTopRowAlias) {
+  // Add fake keyboards based on layout type.
+  fake_keyboard_manager_->RemoveAllDevices();
+  for (int i = 0; const std::string& layout : keyboard_layout_types_) {
+    ui::InputDevice fake_keyboard(
+        /*id=*/i++, /*type=*/ui::InputDeviceType::INPUT_DEVICE_INTERNAL,
+        /*name=*/layout);
+    fake_keyboard.sys_path = base::FilePath("path" + layout);
+    fake_keyboard_manager_->AddFakeKeyboard(fake_keyboard, layout);
+  }
+
+  AcceleratorAliasConverter accelerator_alias_converter_;
+
+  std::vector<ui::Accelerator> accelerator_alias =
+      accelerator_alias_converter_.CreateAcceleratorAlias(accelerator_);
+
   EXPECT_TRUE(Shell::Get()->keyboard_capability()->TopRowKeysAreFKeys());
-
-  // [Search] as original modifier prevents remapping.
-  const ui::Accelerator accelerator2{ui::VKEY_ZOOM, ui::EF_COMMAND_DOWN};
-  std::vector<ui::Accelerator> accelerator_aliases2 =
-      accelerator_alias_converter_.CreateAcceleratorAlias(accelerator2);
-
-  EXPECT_EQ(1u, accelerator_aliases2.size());
-  EXPECT_EQ(accelerator2, accelerator_aliases2[0]);
-
-  // key_code not as a top row key prevents remapping.
-  const ui::Accelerator accelerator3{ui::VKEY_TAB, ui::EF_ALT_DOWN};
-  std::vector<ui::Accelerator> accelerator_aliases3 =
-      accelerator_alias_converter_.CreateAcceleratorAlias(accelerator3);
-
-  EXPECT_EQ(1u, accelerator_aliases3.size());
-  EXPECT_EQ(accelerator3, accelerator_aliases3[0]);
-
-  // Valid remapping. [Alt] + [Zoom] -> [Alt] + [Search] + [F3].
-  // TopRowKeysAreFKeys() remains true.
-  const ui::Accelerator accelerator4{ui::VKEY_ZOOM, ui::EF_ALT_DOWN};
-  const ui::Accelerator expected_accelerator4{
-      ui::VKEY_F3, ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN};
-  std::vector<ui::Accelerator> accelerator_aliases4 =
-      accelerator_alias_converter_.CreateAcceleratorAlias(accelerator4);
-
-  EXPECT_EQ(1u, accelerator_aliases4.size());
-  EXPECT_EQ(expected_accelerator4, accelerator_aliases4[0]);
-
-  // Valid remapping. [Alt] + [Shift] + [Back] -> [Alt] + [Shift] + [Search] +
-  // [F1]. TopRowKeysAreFKeys() remains true.
-  const ui::Accelerator accelerator5{ui::VKEY_BROWSER_BACK,
-                                     ui::EF_ALT_DOWN | ui::EF_SHIFT_DOWN};
-  const ui::Accelerator expected_accelerator5{
-      ui::VKEY_F1, ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN | ui::EF_SHIFT_DOWN};
-  std::vector<ui::Accelerator> accelerator_aliases5 =
-      accelerator_alias_converter_.CreateAcceleratorAlias(accelerator5);
-
-  EXPECT_EQ(1u, accelerator_aliases5.size());
-  EXPECT_EQ(expected_accelerator5, accelerator_aliases5[0]);
+  if (expected_accelerator_.size() > 0) {
+    EXPECT_EQ(expected_accelerator_.size(), accelerator_alias.size());
+    for (size_t i = 0; i < expected_accelerator_.size(); i++) {
+      EXPECT_EQ(expected_accelerator_[i], accelerator_alias[i]);
+    }
+  } else {
+    EXPECT_EQ(accelerator_, accelerator_alias[0]);
+  }
 }
 
-TEST_F(AcceleratorAliasConverterTest, TestCreateSixPackAlias) {
+class SixPackAliasTest
+    : public AcceleratorAliasConverterTest,
+      public testing::WithParamInterface<AcceleratorAliasConverterTestData> {
+  void SetUp() override {
+    AcceleratorAliasConverterTest::SetUp();
+    AcceleratorAliasConverterTestData test_data = GetParam();
+    accelerator_ = test_data.accelerator_;
+    expected_accelerator_ = test_data.expected_accelerator_;
+  }
+
+ protected:
+  ui::Accelerator accelerator_;
+  absl::optional<ui::Accelerator> expected_accelerator_;
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    // Empty to simplify gtest output
+    ,
+    SixPackAliasTest,
+    testing::ValuesIn(std::vector<AcceleratorAliasConverterTestData>{
+        // [Search] as original modifier prevents remapping.
+        {ui::Accelerator{ui::VKEY_ZOOM, ui::EF_COMMAND_DOWN}, absl::nullopt},
+        // key_code not as six pack key prevents remapping.
+        {ui::Accelerator{ui::VKEY_TAB, ui::EF_ALT_DOWN}, absl::nullopt},
+        // [Shift] + [Delete] should not be remapped.
+        {ui::Accelerator{ui::VKEY_DELETE, ui::EF_SHIFT_DOWN}, absl::nullopt},
+        // [Shift] + [Insert] should not be remapped.
+        {ui::Accelerator{ui::VKEY_INSERT, ui::EF_SHIFT_DOWN}, absl::nullopt},
+        // For Insert: [modifiers] -> [Search] + [Shift] + [original_modifiers].
+        {ui::Accelerator{ui::VKEY_INSERT, ui::EF_ALT_DOWN},
+         ui::Accelerator{ui::VKEY_BACK, ui::EF_COMMAND_DOWN |
+                                            ui::EF_SHIFT_DOWN |
+                                            ui::EF_ALT_DOWN}},
+        // For other six-pack-keys: [modifiers] -> [Search] +
+        // [original_modifiers].
+        {ui::Accelerator{ui::VKEY_DELETE, ui::EF_ALT_DOWN},
+         ui::Accelerator{ui::VKEY_BACK, ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN}},
+
+        // Below are tests for reversed six pack alias.
+        // [Search] not in modifiers prevents remapping.
+        {ui::Accelerator{ui::VKEY_LEFT, ui::EF_ALT_DOWN}, absl::nullopt},
+        // key_code not as reversed six pack key prevent remapping.
+        {ui::Accelerator{ui::VKEY_ZOOM, ui::EF_COMMAND_DOWN}, absl::nullopt},
+        // [Back] + [Search] -> [Delete]
+        {ui::Accelerator{ui::VKEY_BACK, ui::EF_COMMAND_DOWN},
+         ui::Accelerator{ui::VKEY_DELETE, ui::EF_NONE}},
+        // [Back] + [Shift] + [Search] -> [Insert].
+        {ui::Accelerator{ui::VKEY_BACK,
+                         ui::EF_COMMAND_DOWN | ui::EF_SHIFT_DOWN},
+         ui::Accelerator{ui::VKEY_INSERT, ui::EF_NONE}},
+        // [Back] + [Shift] + [Search] + [Alt] -> [Insert] + [Alt].
+        {ui::Accelerator{ui::VKEY_BACK, ui::EF_COMMAND_DOWN |
+                                            ui::EF_SHIFT_DOWN |
+                                            ui::EF_ALT_DOWN},
+         ui::Accelerator{ui::VKEY_INSERT, ui::EF_ALT_DOWN}},
+        // [Back] + [Search] + [Alt] -> [Delete] + [Alt].
+        {ui::Accelerator{ui::VKEY_BACK, ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN},
+         ui::Accelerator{ui::VKEY_DELETE, ui::EF_ALT_DOWN}},
+        // [Left] + [Search] + [Alt] -> [Home] + [Alt].
+        {ui::Accelerator{ui::VKEY_LEFT, ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN},
+         ui::Accelerator{ui::VKEY_HOME, ui::EF_ALT_DOWN}},
+        // [Left] + [Search] + [Shift] + [Alt] -> [Home] + [Shift] + [Alt].
+        {ui::Accelerator{ui::VKEY_LEFT, ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN |
+                                            ui::EF_SHIFT_DOWN},
+         ui::Accelerator{ui::VKEY_HOME,
+                         ui::EF_ALT_DOWN | ui::EF_SHIFT_DOWN}}}));
+
+TEST_P(SixPackAliasTest, CheckSixPackAlias) {
   AcceleratorAliasConverter accelerator_alias_converter_;
 
-  // [Search] as original modifier prevents remapping.
-  const ui::Accelerator accelerator1{ui::VKEY_ZOOM, ui::EF_COMMAND_DOWN};
-  std::vector<ui::Accelerator> accelerator_aliases1 =
-      accelerator_alias_converter_.CreateAcceleratorAlias(accelerator1);
+  std::vector<ui::Accelerator> accelerator_alias =
+      accelerator_alias_converter_.CreateAcceleratorAlias(accelerator_);
 
-  EXPECT_EQ(1u, accelerator_aliases1.size());
-  EXPECT_EQ(accelerator1, accelerator_aliases1[0]);
-
-  // key_code not as six pack key prevents remapping.
-  const ui::Accelerator accelerator2{ui::VKEY_TAB, ui::EF_ALT_DOWN};
-  std::vector<ui::Accelerator> accelerator_aliases2 =
-      accelerator_alias_converter_.CreateAcceleratorAlias(accelerator2);
-
-  EXPECT_EQ(1u, accelerator_aliases2.size());
-  EXPECT_EQ(accelerator2, accelerator_aliases2[0]);
-
-  // [Shift] + [Delete] should not be remapped.
-  const ui::Accelerator accelerator3{ui::VKEY_DELETE, ui::EF_SHIFT_DOWN};
-  std::vector<ui::Accelerator> accelerator_aliases3 =
-      accelerator_alias_converter_.CreateAcceleratorAlias(accelerator3);
-
-  EXPECT_EQ(1u, accelerator_aliases3.size());
-  EXPECT_EQ(accelerator3, accelerator_aliases3[0]);
-
-  // [Shift] + [Insert] should not be remapped.
-  const ui::Accelerator accelerator4{ui::VKEY_INSERT, ui::EF_SHIFT_DOWN};
-  std::vector<ui::Accelerator> accelerator_aliases4 =
-      accelerator_alias_converter_.CreateAcceleratorAlias(accelerator4);
-
-  EXPECT_EQ(1u, accelerator_aliases4.size());
-  EXPECT_EQ(accelerator4, accelerator_aliases4[0]);
-
-  // For Insert: [modifiers] = [Search] + [Shift] +
-  // [original_modifiers].
-  const ui::Accelerator accelerator5{ui::VKEY_INSERT, ui::EF_ALT_DOWN};
-  const ui::Accelerator expected_accelerator5{
-      ui::VKEY_BACK, ui::EF_COMMAND_DOWN | ui::EF_SHIFT_DOWN | ui::EF_ALT_DOWN};
-  std::vector<ui::Accelerator> accelerator_aliases5 =
-      accelerator_alias_converter_.CreateAcceleratorAlias(accelerator5);
-
-  EXPECT_EQ(2u, accelerator_aliases5.size());
-  EXPECT_EQ(expected_accelerator5, accelerator_aliases5[0]);
-  EXPECT_EQ(accelerator5, accelerator_aliases5[1]);
-
-  // For other six-pack-keys: [modifiers] = [Search] +
-  // [original_modifiers].
-  const ui::Accelerator accelerator6{ui::VKEY_DELETE, ui::EF_ALT_DOWN};
-  const ui::Accelerator expected_accelerator6{
-      ui::VKEY_BACK, ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN};
-  std::vector<ui::Accelerator> accelerator_aliases6 =
-      accelerator_alias_converter_.CreateAcceleratorAlias(accelerator6);
-
-  EXPECT_EQ(2u, accelerator_aliases6.size());
-  EXPECT_EQ(expected_accelerator6, accelerator_aliases6[0]);
-  EXPECT_EQ(accelerator6, accelerator_aliases6[1]);
-}
-
-TEST_F(AcceleratorAliasConverterTest, TestCreateReversedSixPackAlias) {
-  AcceleratorAliasConverter accelerator_alias_converter_;
-
-  // [Search] not in modifiers prevents remapping.
-  const ui::Accelerator accelerator1{ui::VKEY_LEFT, ui::EF_ALT_DOWN};
-  std::vector<ui::Accelerator> accelerator_alias1 =
-      accelerator_alias_converter_.CreateAcceleratorAlias(accelerator1);
-
-  EXPECT_EQ(1u, accelerator_alias1.size());
-  EXPECT_EQ(accelerator1, accelerator_alias1[0]);
-
-  // key_code not as reversed six pack key prevent remapping.
-  const ui::Accelerator accelerator2{ui::VKEY_ZOOM, ui::EF_COMMAND_DOWN};
-  std::vector<ui::Accelerator> accelerator_alias2 =
-      accelerator_alias_converter_.CreateAcceleratorAlias(accelerator2);
-
-  EXPECT_EQ(1u, accelerator_alias2.size());
-  EXPECT_EQ(accelerator2, accelerator_alias2[0]);
-
-  // [Search] as the only modifier prevents remapping.
-  const ui::Accelerator accelerator3{ui::VKEY_BACK, ui::EF_COMMAND_DOWN};
-  std::vector<ui::Accelerator> accelerator_alias3 =
-      accelerator_alias_converter_.CreateAcceleratorAlias(accelerator3);
-
-  EXPECT_EQ(1u, accelerator_alias3.size());
-  EXPECT_EQ(accelerator3, accelerator_alias3[0]);
-
-  // [Back] + [Shift] + [Search] only prevents remapping, which is just the
-  // reverse of [Insert].
-  const ui::Accelerator accelerator4{ui::VKEY_BACK,
-                                     ui::EF_COMMAND_DOWN | ui::EF_SHIFT_DOWN};
-  std::vector<ui::Accelerator> accelerator_alias4 =
-      accelerator_alias_converter_.CreateAcceleratorAlias(accelerator4);
-
-  EXPECT_EQ(1u, accelerator_alias4.size());
-  EXPECT_EQ(accelerator4, accelerator_alias4[0]);
-
-  // [Back] + [Shift] + [Search] + [Alt] maps back to [Insert] + [Alt].
-  const ui::Accelerator accelerator5{
-      ui::VKEY_BACK, ui::EF_COMMAND_DOWN | ui::EF_SHIFT_DOWN | ui::EF_ALT_DOWN};
-  const ui::Accelerator expected_accelerator_alias5{ui::VKEY_INSERT,
-                                                    ui::EF_ALT_DOWN};
-  std::vector<ui::Accelerator> accelerator_alias5 =
-      accelerator_alias_converter_.CreateAcceleratorAlias(accelerator5);
-
-  EXPECT_EQ(2u, accelerator_alias5.size());
-  EXPECT_EQ(expected_accelerator_alias5, accelerator_alias5[0]);
-  EXPECT_EQ(accelerator5, accelerator_alias5[1]);
-
-  // [Back] + [Search] + [Alt] maps back to [Delete] + [Alt].
-  const ui::Accelerator accelerator6{ui::VKEY_BACK,
-                                     ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN};
-  const ui::Accelerator expected_accelerator_alias6{ui::VKEY_DELETE,
-                                                    ui::EF_ALT_DOWN};
-  std::vector<ui::Accelerator> accelerator_alias6 =
-      accelerator_alias_converter_.CreateAcceleratorAlias(accelerator6);
-
-  EXPECT_EQ(2u, accelerator_alias6.size());
-  EXPECT_EQ(expected_accelerator_alias6, accelerator_alias6[0]);
-  EXPECT_EQ(accelerator6, accelerator_alias6[1]);
-
-  // [Left] + [Search] + [Alt] maps back to [Home] + [Alt].
-  const ui::Accelerator accelerator7{ui::VKEY_LEFT,
-                                     ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN};
-  const ui::Accelerator expected_accelerator_alias7{ui::VKEY_HOME,
-                                                    ui::EF_ALT_DOWN};
-  std::vector<ui::Accelerator> accelerator_alias7 =
-      accelerator_alias_converter_.CreateAcceleratorAlias(accelerator7);
-
-  EXPECT_EQ(2u, accelerator_alias7.size());
-  EXPECT_EQ(expected_accelerator_alias7, accelerator_alias7[0]);
-  EXPECT_EQ(accelerator7, accelerator_alias7[1]);
-
-  // [Left] + [Search] + [Shift] + [Alt] maps back to [Home] + [Shift] + [Alt].
-  const ui::Accelerator accelerator8{
-      ui::VKEY_LEFT, ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN | ui::EF_SHIFT_DOWN};
-  const ui::Accelerator expected_accelerator_alias8{
-      ui::VKEY_HOME, ui::EF_ALT_DOWN | ui::EF_SHIFT_DOWN};
-  std::vector<ui::Accelerator> accelerator_alias8 =
-      accelerator_alias_converter_.CreateAcceleratorAlias(accelerator8);
-
-  EXPECT_EQ(2u, accelerator_alias8.size());
-  EXPECT_EQ(expected_accelerator_alias8, accelerator_alias8[0]);
-  EXPECT_EQ(accelerator8, accelerator_alias8[1]);
+  if (expected_accelerator_.has_value()) {
+    // Accelerator has valid a remapping.
+    EXPECT_EQ(2u, accelerator_alias.size());
+    EXPECT_EQ(expected_accelerator_, accelerator_alias[0]);
+    EXPECT_EQ(accelerator_, accelerator_alias[1]);
+  } else {
+    // Accelerator doesn't have a valid remapping.
+    EXPECT_EQ(1u, accelerator_alias.size());
+    EXPECT_EQ(accelerator_, accelerator_alias[0]);
+  }
 }
 
 }  // namespace ash

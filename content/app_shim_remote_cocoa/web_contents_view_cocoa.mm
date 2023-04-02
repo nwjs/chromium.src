@@ -216,7 +216,8 @@ STATIC_ASSERT_ENUM(NSDragOperationMove, ui::DragDropTypes::DRAG_MOVE);
 - (void)startDragWithDropData:(const DropData&)dropData
             dragOperationMask:(NSDragOperation)operationMask
                         image:(NSImage*)image
-                       offset:(NSPoint)offset {
+                       offset:(NSPoint)offset
+                 isPrivileged:(BOOL)isPrivileged {
   if (!_host)
     return;
 
@@ -232,7 +233,8 @@ STATIC_ASSERT_ENUM(NSDragOperationMove, ui::DragDropTypes::DRAG_MOVE);
                                           pressure:1.0];
 
   _dragSource.reset([[WebDragSource alloc] initWithHost:_host
-                                               dropData:dropData]);
+                                               dropData:dropData
+                                           isPrivileged:isPrivileged]);
   NSDraggingItem* draggingItem = [[[NSDraggingItem alloc]
       initWithPasteboardWriter:_dragSource] autorelease];
 
@@ -242,6 +244,10 @@ STATIC_ASSERT_ENUM(NSDragOperationMove, ui::DragDropTypes::DRAG_MOVE);
                 .ToNSImage();
   }
 
+  // The frame given to -[NSDraggingItem setDraggingFrame:contents:] will be
+  // interpreted as being in the coordinate system of this view, so convert it
+  // from the coordinate system of the window.
+  mouseLocation = [self convertPoint:mouseLocation fromView:nil];
   NSRect imageRect = NSMakeRect(mouseLocation.x, mouseLocation.y,
                                 image.size.width, image.size.height);
   imageRect.origin.x -= offset.x;
@@ -250,8 +256,6 @@ STATIC_ASSERT_ENUM(NSDragOperationMove, ui::DragDropTypes::DRAG_MOVE);
   [draggingItem setDraggingFrame:imageRect contents:image];
 
   _dragOperation = operationMask;
-  _dragOffset = offset;
-  _dragImageHeight = image.size.height;
 
   // Run the drag operation.
   [self beginDraggingSessionWithItems:@[ draggingItem ]
@@ -273,12 +277,6 @@ STATIC_ASSERT_ENUM(NSDragOperationMove, ui::DragDropTypes::DRAG_MOVE);
   if (!_host) {
     return;
   }
-
-  // Reconstruct the screen point by removing the offset. It seems like the
-  // underlying drag machinery is measuring from the corner of the dragged
-  // image.
-  screenPoint.x += _dragOffset.x;
-  screenPoint.y += _dragImageHeight - _dragOffset.y;
 
   NSPoint localPoint = NSZeroPoint;
   if (self.window) {

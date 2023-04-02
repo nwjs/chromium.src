@@ -17,15 +17,21 @@
 #include "components/power_bookmarks/common/power.h"
 #include "components/power_bookmarks/common/power_overview.h"
 #include "components/power_bookmarks/core/power_bookmark_service.h"
+#include "components/prefs/pref_service.h"
 #include "components/sync/protocol/power_bookmark_specifics.pb.h"
+#include "components/user_notes/user_notes_prefs.h"
 #include "ui/base/l10n/time_format.h"
+#include "ui/base/mojom/window_open_disposition.mojom.h"
+#include "ui/base/window_open_disposition.h"
+#include "ui/base/window_open_disposition_utils.h"
 
 namespace {
 
 const int kCurrentVersionNumber = 1;
 
 side_panel::mojom::NoteOverviewPtr PowerOverviewToMojo(
-    const power_bookmarks::PowerOverview& power_overview) {
+    const power_bookmarks::PowerOverview& power_overview,
+    const GURL& current_tab_url) {
   auto* power = power_overview.power();
   DCHECK(power->power_type() ==
          sync_pb::PowerBookmarkSpecifics::POWER_TYPE_NOTE);
@@ -36,9 +42,8 @@ side_panel::mojom::NoteOverviewPtr PowerOverviewToMojo(
   result->title = power->url().spec();
   result->text = power->power_entity()->note_entity().plain_text();
   result->num_notes = power_overview.count();
-  result->is_current_tab = false;
-  // TODO(crbug.com/1378131): Get the last_modification_time of the overview
-  // item for sorting.
+  result->is_current_tab = (power->url() == current_tab_url);
+  result->last_modification_time = power->time_modified();
   return result;
 }
 
@@ -95,6 +100,7 @@ UserNotesPageHandler::UserNotesPageHandler(
     mojo::PendingRemote<side_panel::mojom::UserNotesPage> page,
     Profile* profile,
     Browser* browser,
+    bool start_creation_flow,
     UserNotesSidePanelUI* user_notes_ui)
     : receiver_(this, std::move(receiver)),
       page_(std::move(page)),
@@ -102,11 +108,19 @@ UserNotesPageHandler::UserNotesPageHandler(
       service_(PowerBookmarkServiceFactory::GetForBrowserContext(profile_)),
       browser_(browser),
       user_notes_ui_(user_notes_ui) {
+  pref_change_registrar_.Init(profile_->GetPrefs());
+  pref_change_registrar_.Add(
+      prefs::kUserNotesSortByNewest,
+      base::BindRepeating(&UserNotesPageHandler::OnSortByNewestPrefChanged,
+                          base::Unretained(this)));
   service_->AddObserver(this);
   DCHECK(browser_);
   browser_->tab_strip_model()->AddObserver(this);
   Observe(browser_->tab_strip_model()->GetActiveWebContents());
   UpdateCurrentTabUrl();
+  if (start_creation_flow) {
+    StartNoteCreation(false);
+  }
 }
 
 UserNotesPageHandler::~UserNotesPageHandler() {
@@ -127,16 +141,17 @@ void UserNotesPageHandler::GetNoteOverviews(const std::string& user_input,
   service_->GetPowerOverviewsForType(
       sync_pb::PowerBookmarkSpecifics::POWER_TYPE_NOTE,
       base::BindOnce(
-          [](GetNoteOverviewsCallback callback,
+          [](GetNoteOverviewsCallback callback, const GURL& current_tab_url,
              std::vector<std::unique_ptr<power_bookmarks::PowerOverview>>
                  power_overviews) {
             std::vector<side_panel::mojom::NoteOverviewPtr> results;
             for (auto& power_overview : power_overviews) {
-              results.push_back(PowerOverviewToMojo(*power_overview));
+              results.push_back(
+                  PowerOverviewToMojo(*power_overview, current_tab_url));
             }
             std::move(callback).Run(std::move(results));
           },
-          std::move(callback)));
+          std::move(callback), current_tab_url_));
 }
 
 void UserNotesPageHandler::GetNotesForCurrentTab(
@@ -205,6 +220,43 @@ void UserNotesPageHandler::DeleteNotesForUrl(
                      std::move(callback)));
 }
 
+void UserNotesPageHandler::NoteOverviewSelected(
+    const ::GURL& url,
+    ui::mojom::ClickModifiersPtr click_modifiers) {
+  WindowOpenDisposition open_location = ui::DispositionFromClick(
+      click_modifiers->middle_button, click_modifiers->alt_key,
+      click_modifiers->ctrl_key, click_modifiers->meta_key,
+      click_modifiers->shift_key);
+
+  content::OpenURLParams params(url, content::Referrer(), open_location,
+                                ui::PAGE_TRANSITION_AUTO_BOOKMARK, false);
+  browser_->OpenURL(params);
+}
+
+void UserNotesPageHandler::SetSortOrder(bool sort_by_newest) {
+  PrefService* pref_service = profile_->GetPrefs();
+  if (pref_service && pref_service->GetBoolean(prefs::kUserNotesSortByNewest) !=
+                          sort_by_newest) {
+    pref_service->SetBoolean(prefs::kUserNotesSortByNewest, sort_by_newest);
+  }
+}
+
+void UserNotesPageHandler::OnSortByNewestPrefChanged() {
+  PrefService* pref_service = profile_->GetPrefs();
+  if (pref_service) {
+    page_->SortByNewestPrefChanged(
+        pref_service->GetBoolean(prefs::kUserNotesSortByNewest));
+  }
+}
+
+void UserNotesPageHandler::StartNoteCreation(bool wait_for_tab_change) {
+  if (wait_for_tab_change) {
+    start_creation_after_tab_change_ = true;
+  } else {
+    page_->StartNoteCreation();
+  }
+}
+
 void UserNotesPageHandler::OnPowersChanged() {
   page_->NotesChanged();
 }
@@ -229,6 +281,7 @@ void UserNotesPageHandler::UpdateCurrentTabUrl() {
       browser_->tab_strip_model()->GetActiveWebContents();
   if (web_contents && current_tab_url_ != web_contents->GetLastCommittedURL()) {
     current_tab_url_ = web_contents->GetLastCommittedURL();
-    page_->CurrentTabUrlChanged();
+    page_->CurrentTabUrlChanged(start_creation_after_tab_change_);
+    start_creation_after_tab_change_ = false;
   }
 }

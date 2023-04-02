@@ -130,6 +130,7 @@ apiBridge.registerCustomHook(function(bindingsAPI) {
       types: params.types,
       maxResults: params.maxResults,
       timestamp: params.timestamp || 0,
+      category: params.category || chrome.fileManagerPrivate.FileCategory.ALL
     };
     if (params.rootDir) {
       newParams.rootUrl = getEntryURL(params.rootDir);
@@ -247,6 +248,12 @@ apiBridge.registerCustomHook(function(bindingsAPI) {
         fileManagerPrivateInternal.getDlpMetadata(
             sourceUrls, callback);
       });
+
+  apiFunctions.setHandleRequest('getDriveQuotaMetadata', function(
+        entry, callback) {
+    var url = getEntryURL(entry);
+    fileManagerPrivateInternal.getDriveQuotaMetadata(url, callback);
+  });
 
   apiFunctions.setHandleRequest(
       'zipSelection',
@@ -368,12 +375,13 @@ apiBridge.registerCustomHook(function(bindingsAPI) {
       });
 
   apiFunctions.setHandleRequest(
-      'invokeSharesheet', function(entries, launchSource, callback) {
+      'invokeSharesheet',
+      function(entries, launchSource, dlpSourceUrls, callback) {
         var urls = entries.map(function(entry) {
           return getEntryURL(entry);
         });
         fileManagerPrivateInternal.invokeSharesheet(
-            urls, launchSource, callback);
+            urls, launchSource, dlpSourceUrls, callback);
       });
 
   apiFunctions.setHandleRequest(
@@ -405,12 +413,10 @@ apiBridge.registerCustomHook(function(bindingsAPI) {
         const urls = entries.map(entry => getEntryURL(entry));
         fileManagerPrivateInternal.parseTrashInfoFiles(
             urls, function(entryDescriptions) {
-              // Convert the restoreEntry to a DirectoryEntry and the deletion
-              // date to a JS Date.
+              // Convert the restoreEntry to a DirectoryEntry.
               callback(entryDescriptions.map(description => {
                 description.restoreEntry =
                     GetExternalFileEntry(description.restoreEntry);
-                description.deletionDate = new Date(description.deletionDate);
                 return description;
               }));
             });
@@ -443,25 +449,5 @@ bindingUtil.registerEventArgumentMassager(
           outputs[i] = GetExternalFileEntry(outputs[i]);
         }
       }
-      dispatch(args);
-    });
-
-bindingUtil.registerEventArgumentMassager(
-    'fileManagerPrivate.onIndividualFileTransfersUpdated',
-    function(args, dispatch) {
-      // Convert the entry arguments into real Entry objects.
-      args[0].forEach(fileStatus => {
-        fileStatus.entry = GetExternalFileEntry(fileStatus.entry);
-      })
-      dispatch(args);
-    });
-
-bindingUtil.registerEventArgumentMassager(
-    'fileManagerPrivate.onIndividualPinTransfersUpdated',
-    function(args, dispatch) {
-      // Convert the entry arguments into real Entry objects.
-      args[0].forEach(fileStatus => {
-        fileStatus.entry = GetExternalFileEntry(fileStatus.entry);
-      })
       dispatch(args);
     });

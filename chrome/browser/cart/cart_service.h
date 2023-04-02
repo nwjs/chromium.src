@@ -46,7 +46,12 @@ class CartService : public history::HistoryServiceObserver,
  public:
   // The maximum number of times that cart welcome surface shows.
   static constexpr int kWelcomSurfaceShowLimit = 3;
+  // The number of days since creation for a cart to be considered expired.
+  static constexpr int kCartExpirationTimeInDays = 14;
 
+  // Use |CartServiceFactory::GetForProfile(...)| to get an instance of this
+  // service.
+  explicit CartService(Profile* profile);
   CartService(const CartService&) = delete;
   CartService& operator=(const CartService&) = delete;
   ~CartService() override;
@@ -155,6 +160,10 @@ class CartService : public history::HistoryServiceObserver,
   // * "utm_campaign=chrome-cart-discount-off" for partner merchant carts with
   //   discount disabled.
   const GURL AppendUTM(const GURL& base_url);
+  // Checks if there is an active abandoned cart for the domain of |url|, and
+  // returns the result in the callback.
+  virtual void HasActiveCartForURL(const GURL& url,
+                                   base::OnceCallback<void(bool)> callback);
 
  private:
   friend class CartServiceFactory;
@@ -168,9 +177,6 @@ class CartService : public history::HistoryServiceObserver,
   FRIEND_TEST_ALL_PREFIXES(CartHandlerNtpModuleFakeDataTest,
                            TestEnableFakeData);
 
-  // Use |CartServiceFactory::GetForProfile(...)| to get an instance of this
-  // service.
-  explicit CartService(Profile* profile);
   // Callback when a database operation (e.g. insert or delete) is finished.
   void OnOperationFinished(bool success);
   // Callback when a database operation (e.g. insert or delete) is finished.
@@ -233,8 +239,7 @@ class CartService : public history::HistoryServiceObserver,
   void SetCouponServiceForTesting(CouponService* coupon_service);
   // Returns whether a URL should be skipped based on server-side bloom filter.
   bool ShouldSkip(const GURL& url);
-  void CacheUsedDiscounts(const cart_db::ChromeCartContentProto& proto,
-                          bool is_code_based_rbd);
+  void CacheUsedDiscounts(const cart_db::ChromeCartContentProto& proto);
   void CleanUpDiscounts(cart_db::ChromeCartContentProto proto);
   // A callback to to keep entries of removed carts when deletion.
   void OnDeleteCart(bool success, std::vector<CartDB::KeyAndValue> proto_pairs);
@@ -244,6 +249,12 @@ class CartService : public history::HistoryServiceObserver,
   bool IsCartAndDiscountEnabled();
   // Get calls when Cart module loads.
   void RecordDiscountConsentStatusAtLoad(bool should_show_consent);
+  // Checks if a cart has expired.
+  bool IsCartExpired(const cart_db::ChromeCartContentProto& proto);
+  void HasActiveCartForURLCallback(
+      base::OnceCallback<void(bool)> callback,
+      bool success,
+      std::vector<CartDB::KeyAndValue> proto_pairs);
 
   raw_ptr<Profile> profile_;
   std::unique_ptr<CartDB> cart_db_;

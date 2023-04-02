@@ -18,6 +18,7 @@
 #include "components/autofill/core/browser/data_model/iban.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/form_structure.h"
+#include "components/autofill/core/browser/metrics/autofill_metrics_utils.h"
 #include "components/autofill/core/browser/payments/card_unmask_challenge_option.h"
 #include "components/autofill/core/browser/proto/api_v1.pb.h"
 #include "components/autofill/core/browser/proto/server.pb.h"
@@ -266,6 +267,10 @@ AutofillProfile GetServerProfile();
 // Returns a server profile full of dummy info, different to the above.
 AutofillProfile GetServerProfile2();
 
+// Sets the `profile`s source and initial creator to match `category`.
+void SetProfileCategory(AutofillProfile& profile,
+                        AutofillProfileSourceCategory category);
+
 // Returns an IBAN full of dummy info.
 IBAN GetIBAN();
 
@@ -288,6 +293,7 @@ CreditCard GetMaskedServerCardWithNonLegacyId();
 CreditCard GetMaskedServerCardWithLegacyId();
 CreditCard GetMaskedServerCardAmex();
 CreditCard GetMaskedServerCardWithNickname();
+CreditCard GetMaskedServerCardEnrolledIntoVirtualCardNumber();
 
 // Returns a full server card full of dummy info.
 CreditCard GetFullServerCard();
@@ -322,9 +328,9 @@ AutofillOfferData GetPromoCodeOfferData(
     bool is_expired = false,
     int64_t offer_id = 333);
 
-// Return an Autofill Wallet Usage Data with dummy info specifically for a
-// Virtual Card.
-AutofillWalletUsageData GetAutofillWalletUsageDataForVirtualCard();
+// Return an Usage Data with dummy info specifically for a Virtual Card.
+VirtualCardUsageData GetVirtualCardUsageData1();
+VirtualCardUsageData GetVirtualCardUsageData2();
 
 // For each type in `types`, this function creates a challenge option with dummy
 // info that has the specific type.

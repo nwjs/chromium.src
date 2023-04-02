@@ -8,6 +8,7 @@ alignItems
 alignSelf
 alignmentBaseline
 all
+anchorDefault
 anchorName
 anchorScroll
 animation
@@ -442,6 +443,7 @@ textSizeAdjust
 textTransform
 textUnderlineOffset
 textUnderlinePosition
+textWrap
 toggle
 toggleGroup
 toggleRoot

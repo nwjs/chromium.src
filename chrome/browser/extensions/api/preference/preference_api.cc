@@ -48,6 +48,7 @@
 #include "extensions/common/permissions/permissions_data.h"
 #include "media/media_buildflags.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
+#include "third_party/blink/public/mojom/devtools/inspector_issue.mojom.h"
 
 #if BUILDFLAG(IS_CHROMEOS_ASH) || BUILDFLAG(IS_CHROMEOS_LACROS)
 #include "chrome/browser/chromeos/extensions/controlled_pref_mapping.h"
@@ -536,9 +537,7 @@ void PreferenceAPI::OnContentSettingChanged(const std::string& extension_id,
 }
 
 void PreferenceAPI::ClearIncognitoSessionOnlyContentSettings() {
-  ExtensionIdList extension_ids;
-  ExtensionPrefs::Get(profile_)->GetExtensions(&extension_ids);
-  for (const auto& id : extension_ids) {
+  for (const auto& id : ExtensionPrefs::Get(profile_)->GetExtensions()) {
     content_settings_store()->ClearContentSettingsForExtension(
         id, kExtensionPrefsScopeIncognitoSessionOnly);
   }
@@ -590,7 +589,7 @@ ExtensionFunction::ResponseAction GetPreferenceFunction::Run() {
   const base::Value& details = args()[1];
 
   bool incognito = false;
-  if (absl::optional<bool> result = details.FindBoolKey(kIncognitoKey)) {
+  if (absl::optional<bool> result = details.GetDict().FindBool(kIncognitoKey)) {
     incognito = *result;
   }
 
@@ -665,15 +664,15 @@ ExtensionFunction::ResponseAction GetPreferenceFunction::Run() {
       extensions::preference_helpers::GetLevelOfControl(
           profile, extension_id(), browser_pref, incognito);
 
-  base::Value result(base::Value::Type::DICTIONARY);
+  base::Value::Dict result;
   ProduceGetResult(&result, pref->GetValue(), level_of_control, browser_pref,
                    incognito);
 
-  return RespondNow(OneArgument(std::move(result)));
+  return RespondNow(OneArgument(base::Value(std::move(result))));
 }
 
 void GetPreferenceFunction::ProduceGetResult(
-    base::Value* result,
+    base::Value::Dict* result,
     const base::Value* pref_value,
     const std::string& level_of_control,
     const std::string& browser_pref,
@@ -690,14 +689,13 @@ void GetPreferenceFunction::ProduceGetResult(
     return;
   }
 
-  result->SetKey(kValue, std::move(*transformed_value));
-  result->SetStringKey(kLevelOfControl, level_of_control);
+  result->Set(kValue, std::move(*transformed_value));
+  result->Set(kLevelOfControl, level_of_control);
 
   // Retrieve incognito status.
   if (incognito) {
     ExtensionPrefs* ep = ExtensionPrefs::Get(browser_context());
-    result->SetBoolKey(kIncognitoSpecific,
-                       ep->HasIncognitoPrefValue(browser_pref));
+    result->Set(kIncognitoSpecific, ep->HasIncognitoPrefValue(browser_pref));
   }
 }
 
@@ -716,7 +714,7 @@ void GetPreferenceFunction::OnLacrosGetSuccess(
   const base::Value& details = args()[1];
 
   bool incognito = false;
-  if (absl::optional<bool> result = details.FindBoolKey(kIncognitoKey)) {
+  if (absl::optional<bool> result = details.GetDict().FindBool(kIncognitoKey)) {
     incognito = *result;
   }
 
@@ -728,12 +726,12 @@ void GetPreferenceFunction::OnLacrosGetSuccess(
           control_state, profile, extension_id(), cached_browser_pref_,
           incognito);
 
-  base::Value result(base::Value::Type::DICTIONARY);
+  base::Value::Dict result;
 
   ProduceGetResult(&result, pref_value, level_of_control, cached_browser_pref_,
                    incognito);
 
-  Respond(OneArgument(std::move(result)));
+  Respond(OneArgument(base::Value(std::move(result))));
 }
 #endif
 

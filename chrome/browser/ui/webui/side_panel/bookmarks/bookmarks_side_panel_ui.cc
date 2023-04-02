@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
+#include "chrome/browser/bookmarks/managed_bookmark_service_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/commerce/shopping_service_factory.h"
 #include "chrome/browser/feature_engagement/tracker_factory.h"
@@ -26,7 +27,10 @@
 #include "chrome/grit/side_panel_shared_resources.h"
 #include "chrome/grit/side_panel_shared_resources_map.h"
 #include "components/bookmarks/browser/bookmark_model.h"
+#include "components/bookmarks/browser/bookmark_node.h"
 #include "components/bookmarks/common/bookmark_pref_names.h"
+#include "components/bookmarks/managed/managed_bookmark_service.h"
+#include "components/commerce/core/commerce_feature_list.h"
 #include "components/commerce/core/shopping_service.h"
 #include "components/commerce/core/webui/shopping_list_handler.h"
 #include "components/favicon_base/favicon_url_parser.h"
@@ -96,6 +100,7 @@ BookmarksSidePanelUI::BookmarksSidePanelUI(content::WebUI* web_ui)
        IDS_BOOKMARK_MANAGER_MENU_OPEN_ALL_INCOGNITO_WITH_COUNT},
       {"menuMoveToBookmarksBar", IDS_BOOKMARKS_MOVE_TO_BOOKMARKS_BAR},
       {"menuMoveToAllBookmarks", IDS_BOOKMARKS_MOVE_TO_ALL_BOOKMARKS},
+      {"menuTrackPrice", IDS_SIDE_PANEL_TRACK_BUTTON},
       {"menuRename", IDS_BOOKMARKS_RENAME},
       {"newFolderTitle", IDS_BOOKMARK_EDITOR_NEW_FOLDER_NAME},
       {"undoBookmarkDeletion", IDS_UNDO_BOOKMARK_DELETION},
@@ -104,6 +109,7 @@ BookmarksSidePanelUI::BookmarksSidePanelUI(content::WebUI* web_ui)
       {"editNewFolder", IDS_BOOKMARKS_EDIT_NEW_FOLDER},
       {"editCancel", IDS_BOOKMARKS_EDIT_CANCEL},
       {"editSave", IDS_BOOKMARKS_EDIT_SAVE},
+      {"disabledFeature", IDS_BOOKMARKS_DISABLED_FEATURE},
   };
   for (const auto& str : kLocalizedStrings)
     webui::AddLocalizedString(source, str.name, str.id);
@@ -112,8 +118,13 @@ BookmarksSidePanelUI::BookmarksSidePanelUI(content::WebUI* web_ui)
 
   PrefService* prefs = profile->GetPrefs();
   source->AddBoolean(
-      "bookmarksDragAndDropEnabled",
+      "editBookmarksEnabled",
       prefs->GetBoolean(bookmarks::prefs::kEditBookmarksEnabled));
+  source->AddBoolean(
+      "hasManagedBookmarks",
+      !prefs->GetList(bookmarks::prefs::kManagedBookmarks).empty());
+  source->AddBoolean("shoppingListEnabled",
+                     commerce::IsShoppingListAllowedForEnterprise(prefs));
 
   source->AddBoolean("guestMode", profile->IsGuestSession());
   source->AddBoolean("incognitoMode", profile->IsIncognitoProfile());
@@ -132,6 +143,12 @@ BookmarksSidePanelUI::BookmarksSidePanelUI(content::WebUI* web_ui)
       "mobileBookmarksId",
       base::NumberToString(bookmark_model ? bookmark_model->mobile_node()->id()
                                           : -1));
+  bookmarks::ManagedBookmarkService* managed =
+      ManagedBookmarkServiceFactory::GetForProfile(profile);
+  source->AddString("managedBookmarksFolderId",
+                    managed && managed->managed_node()
+                        ? base::NumberToString(managed->managed_node()->id())
+                        : "");
 
   source->AddString(
       "chromeRefresh2023Attribute",

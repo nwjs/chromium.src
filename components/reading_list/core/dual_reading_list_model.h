@@ -9,11 +9,14 @@
 #include <memory>
 
 #include "base/memory/raw_ptr.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/observer_list.h"
 #include "base/sequence_checker.h"
 #include "components/reading_list/core/reading_list_entry.h"
 #include "components/reading_list/core/reading_list_model.h"
+#include "components/reading_list/core/reading_list_model_impl.h"
 #include "components/reading_list/core/reading_list_model_observer.h"
+#include "url/gurl.h"
 
 namespace reading_list {
 
@@ -28,9 +31,16 @@ namespace reading_list {
 class DualReadingListModel : public ReadingListModel,
                              public ReadingListModelObserver {
  public:
+  enum class StorageStateForTesting {
+    kNotFound,
+    kExistsInAccountModelOnly,
+    kExistsInLocalOrSyncableModelOnly,
+    kExistsInBothModels
+  };
+
   DualReadingListModel(
-      std::unique_ptr<ReadingListModel> local_or_syncable_model,
-      std::unique_ptr<ReadingListModel> account_model);
+      std::unique_ptr<ReadingListModelImpl> local_or_syncable_model,
+      std::unique_ptr<ReadingListModelImpl> account_model);
   ~DualReadingListModel() override;
 
   // KeyedService implementation.
@@ -50,8 +60,10 @@ class DualReadingListModel : public ReadingListModel,
   size_t unseen_size() const override;
   void MarkAllSeen() override;
   bool DeleteAllEntries() override;
-  const ReadingListEntry* GetEntryByURL(const GURL& gurl) const override;
+  scoped_refptr<const ReadingListEntry> GetEntryByURL(
+      const GURL& gurl) const override;
   bool IsUrlSupported(const GURL& url) override;
+  bool NeedsExplicitUploadToSyncServer(const GURL& url) const override;
   const ReadingListEntry& AddOrReplaceEntry(
       const GURL& url,
       const std::string& title,
@@ -76,7 +88,21 @@ class DualReadingListModel : public ReadingListModel,
   void RemoveObserver(ReadingListModelObserver* observer) override;
 
   // ReadingListModelObserver overrides.
+  void ReadingListModelBeganBatchUpdates(
+      const ReadingListModel* model) override;
+  void ReadingListModelCompletedBatchUpdates(
+      const ReadingListModel* model) override;
   void ReadingListModelLoaded(const ReadingListModel* model) override;
+  void ReadingListWillRemoveEntry(const ReadingListModel* model,
+                                  const GURL& url) override;
+  void ReadingListDidRemoveEntry(const ReadingListModel* model,
+                                 const GURL& url) override;
+  void ReadingListWillAddEntry(const ReadingListModel* model,
+                               const ReadingListEntry& entry) override;
+  void ReadingListDidAddEntry(const ReadingListModel* model,
+                              const GURL& url,
+                              reading_list::EntrySource source) override;
+  void ReadingListDidApplyChanges(ReadingListModel* model) override;
 
   class ScopedReadingListBatchUpdateImpl : public ScopedReadingListBatchUpdate {
    public:
@@ -92,9 +118,21 @@ class DualReadingListModel : public ReadingListModel,
     std::unique_ptr<ScopedReadingListBatchUpdate> account_model_batch_;
   };
 
+  StorageStateForTesting GetStorageStateForURLForTesting(const GURL& url);
+
  private:
-  const std::unique_ptr<ReadingListModel> local_or_syncable_model_;
-  const std::unique_ptr<ReadingListModel> account_model_;
+  void NotifyObserversWithWillRemoveEntry(const GURL& url);
+  void NotifyObserversWithDidRemoveEntry(const GURL& url);
+  void NotifyObserversWithDidApplyChanges();
+
+  const std::unique_ptr<ReadingListModelImpl> local_or_syncable_model_;
+  const std::unique_ptr<ReadingListModelImpl> account_model_;
+
+  // Indicates whether a ReadingListModelImpl::RemoveEntryByURL is currently
+  // performing on `local_or_syncable_model_` and `account_model_`.
+  bool ongoing_remove_entry_by_url_ = false;
+
+  unsigned int current_batch_updates_count_ = 0;
 
   base::ObserverList<ReadingListModelObserver>::Unchecked observers_;
 

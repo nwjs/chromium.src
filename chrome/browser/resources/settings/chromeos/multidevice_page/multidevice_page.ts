@@ -17,39 +17,30 @@ import './multidevice_notification_access_setup_dialog.js';
 import './multidevice_permissions_setup_dialog.js';
 import './multidevice_subpage.js';
 
-import {WebUiListenerMixin, WebUiListenerMixinInterface} from 'chrome://resources/cr_elements/web_ui_listener_mixin.js';
+import {WebUiListenerMixin} from 'chrome://resources/cr_elements/web_ui_listener_mixin.js';
 import {assert, assertNotReached} from 'chrome://resources/js/assert_ts.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
-import {beforeNextRender, mixinBehaviors, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+import {beforeNextRender, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import {Setting} from '../../mojom-webui/setting.mojom-webui.js';
-import {PrefsMixin, PrefsMixinInterface} from '../../prefs/prefs_mixin.js';
-import {NearbyShareSettingsBehavior, NearbyShareSettingsBehaviorInterface} from '../../shared/nearby_share_settings_behavior.js';
-import {Constructor} from '../common/types.js';
-import {DeepLinkingMixin, DeepLinkingMixinInterface} from '../deep_linking_mixin.js';
+import {PrefsMixin} from '../../prefs/prefs_mixin.js';
+import {NearbyShareSettingsMixin} from '../../shared/nearby_share_settings_mixin.js';
+import {DeepLinkingMixin} from '../deep_linking_mixin.js';
 import {recordSettingChange} from '../metrics_recorder.js';
-import {routes} from '../os_route.js';
-import {RouteObserverMixin, RouteObserverMixinInterface} from '../route_observer_mixin.js';
+import {routes} from '../os_settings_routes.js';
+import {RouteObserverMixin} from '../route_observer_mixin.js';
 import {Route, Router} from '../router.js';
 
 import {MultiDeviceBrowserProxy, MultiDeviceBrowserProxyImpl} from './multidevice_browser_proxy.js';
 import {MultiDeviceFeature, MultiDeviceFeatureState, MultiDevicePageContentData, MultiDeviceSettingsMode, PhoneHubFeatureAccessStatus} from './multidevice_constants.js';
-import {MultiDeviceFeatureMixin, MultiDeviceFeatureMixinInterface} from './multidevice_feature_mixin.js';
+import {MultiDeviceFeatureMixin} from './multidevice_feature_mixin.js';
 import {getTemplate} from './multidevice_page.html.js';
 
 import TokenInfo = chrome.quickUnlockPrivate.TokenInfo;
 
 const SettingsMultidevicePageElementBase =
-    mixinBehaviors(
-        [
-          NearbyShareSettingsBehavior,
-        ],
-        MultiDeviceFeatureMixin(RouteObserverMixin(DeepLinkingMixin(
-            PrefsMixin(WebUiListenerMixin(PolymerElement)))))) as
-    Constructor<PolymerElement&WebUiListenerMixinInterface&PrefsMixinInterface&
-                DeepLinkingMixinInterface&RouteObserverMixinInterface&
-                MultiDeviceFeatureMixinInterface&
-                NearbyShareSettingsBehaviorInterface>;
+    NearbyShareSettingsMixin(MultiDeviceFeatureMixin(RouteObserverMixin(
+        DeepLinkingMixin(PrefsMixin(WebUiListenerMixin(PolymerElement))))));
 
 class SettingsMultidevicePageElement extends
     SettingsMultidevicePageElementBase {
@@ -133,7 +124,7 @@ class SettingsMultidevicePageElement extends
       },
 
       /**
-       * Used by DeepLinkingBehavior to focus this page's deep links.
+       * Used by DeepLinkingMixin to focus this page's deep links.
        */
       supportedSettingIds: {
         type: Object,
@@ -223,14 +214,14 @@ class SettingsMultidevicePageElement extends
   }
 
   /**
-   * Overridden from NearbyShareSettingsBehavior.
+   * Overridden from NearbyShareSettingsMixin.
    */
   override onSettingsRetrieved(): void {
     this.isSettingsRetreived = true;
   }
 
   /**
-   * Overridden from RouteObserverBehavior.
+   * RouteObserverMixin override
    */
   override currentRouteChanged(route: Route): void {
     this.leaveNestedPageIfNoHostIsSet_();
@@ -489,15 +480,15 @@ class SettingsMultidevicePageElement extends
 
     // Host status doesn't matter if we are navigating to Nearby Share
     // settings.
-    if (routes.NEARBY_SHARE === Router.getInstance().getCurrentRoute()) {
+    if (routes.NEARBY_SHARE === Router.getInstance().currentRoute) {
       return;
     }
 
     // If the user gets to the a nested page without a host (e.g. by clicking a
     // stale 'existing user' notifications after forgetting their host) we
     // direct them back to the main settings page.
-    if (routes.MULTIDEVICE !== Router.getInstance().getCurrentRoute() &&
-        routes.MULTIDEVICE.contains(Router.getInstance().getCurrentRoute()) &&
+    if (routes.MULTIDEVICE !== Router.getInstance().currentRoute &&
+        routes.MULTIDEVICE.contains(Router.getInstance().currentRoute) &&
         !this.isHostSet()) {
       // Render MULTIDEVICE page before the MULTIDEVICE_FEATURES has a chance.
       beforeNextRender(this, () => {

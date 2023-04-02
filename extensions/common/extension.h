@@ -474,6 +474,7 @@ struct ExtensionInfo {
                 const ExtensionId& id,
                 const base::FilePath& path,
                 mojom::ManifestLocation location);
+  ExtensionInfo(ExtensionInfo&&) noexcept;
   ExtensionInfo(const ExtensionInfo&) = delete;
   ExtensionInfo& operator=(const ExtensionInfo&) = delete;
   ~ExtensionInfo();

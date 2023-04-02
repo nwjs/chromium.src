@@ -23,6 +23,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/content/browser/client_side_detection_service.h"
 #include "components/safe_browsing/content/browser/client_side_phishing_model.h"
+#include "components/safe_browsing/content/browser/client_side_phishing_model_optimization_guide.h"
 #include "components/safe_browsing/content/common/safe_browsing.mojom-shared.h"
 #include "components/safe_browsing/content/common/safe_browsing.mojom.h"
 #include "components/safe_browsing/content/common/visual_utils.h"
@@ -479,9 +480,12 @@ void ClientSideDetectionHost::PhishingDetectionDone(
   base::UmaHistogramEnumeration("SBClientPhishing.PhishingDetectorResult",
                                 result);
   if (result == mojom::PhishingDetectorResult::CLASSIFIER_NOT_READY) {
+    bool isModelAvailable =
+        base::FeatureList::IsEnabled(kClientSideDetectionModelOptimizationGuide)
+            ? csd_service_->IsModelAvailable()
+            : ClientSidePhishingModel::GetInstance()->IsEnabled();
     base::UmaHistogramBoolean(
-        "SBClientPhishing.BrowserReadyOnClassifierNotReady",
-        ClientSidePhishingModel::GetInstance()->IsEnabled());
+        "SBClientPhishing.BrowserReadyOnClassifierNotReady", isModelAvailable);
   }
   if (result != mojom::PhishingDetectorResult::SUCCESS)
     return;
@@ -553,8 +557,7 @@ void ClientSideDetectionHost::PhishingDetectionDone(
         force_request_from_rt_url_lookup =
             cached_csd_type ==
                 safe_browsing::ClientSideDetectionType::FORCE_REQUEST &&
-            (IsExtendedReportingEnabled(*delegate_->GetPrefs()) ||
-             IsEnhancedProtectionEnabled(*delegate_->GetPrefs()));
+            IsEnhancedProtectionEnabled(*delegate_->GetPrefs());
       }
 
       base::UmaHistogramBoolean("SBClientPhishing.RTLookupForceRequest",

@@ -133,9 +133,10 @@ public class LayoutManagerChrome
 
         Context context = host.getContext();
         if (ReturnToChromeUtil.isStartSurfaceRefactorEnabled(context)) {
-            assert ReturnToChromeUtil.isStartSurfaceRefactorEnabled(context);
-            createOverviewLayout(startSurfaceSupplier.get(), tabSwitcherSupplier.get(), jankTracker,
-                    scrimCoordinator, tabSwitcherScrimAnchor);
+            if (startSurfaceSupplier.hasValue() || tabSwitcherSupplier.hasValue()) {
+                createOverviewLayout(startSurfaceSupplier.get(), tabSwitcherSupplier.get(),
+                        jankTracker, scrimCoordinator, tabSwitcherScrimAnchor);
+            }
         } else if (startSurfaceSupplier.hasValue()) {
             createOverviewLayout(startSurfaceSupplier.get(), /*tabSwitcher=*/null, jankTracker,
                     scrimCoordinator, tabSwitcherScrimAnchor);
@@ -594,8 +595,7 @@ public class LayoutManagerChrome
         @Override
         public boolean isSwipeEnabled(@ScrollDirection int direction) {
             FullscreenManager manager = mHost.getFullscreenManager();
-            if ((getActiveLayout() != mStaticLayout && getActiveLayout() != mStartSurfaceHomeLayout)
-                    || !DeviceClassManager.enableToolbarSwipe()
+            if (getActiveLayout() != mStaticLayout || !DeviceClassManager.enableToolbarSwipe()
                     || (manager != null && manager.getPersistentFullscreenMode())) {
                 return false;
             }

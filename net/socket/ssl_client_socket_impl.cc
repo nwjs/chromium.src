@@ -810,11 +810,11 @@ int SSLClientSocketImpl::Init() {
       ssl_config_.version_min_override.value_or(context_->config().version_min);
   uint16_t version_max =
       ssl_config_.version_max_override.value_or(context_->config().version_max);
-  DCHECK_LT(SSL3_VERSION, version_min);
-  DCHECK_LT(SSL3_VERSION, version_max);
-  if (base::FeatureList::IsEnabled(features::kSSLMinVersionAtLeastTLS12)) {
-    version_min = std::max<uint16_t>(version_min, TLS1_2_VERSION);
+  if (version_min < TLS1_2_VERSION || version_max < TLS1_2_VERSION) {
+    // TLS versions before TLS 1.2 are no longer supported.
+    return ERR_UNEXPECTED;
   }
+
   if (!SSL_set_min_proto_version(ssl_.get(), version_min) ||
       !SSL_set_max_proto_version(ssl_.get(), version_max)) {
     return ERR_UNEXPECTED;
@@ -865,7 +865,7 @@ int SSLClientSocketImpl::Init() {
     return ERR_UNEXPECTED;
   }
 
-  if (ssl_config_.disable_legacy_crypto) {
+  if (ssl_config_.disable_sha1_server_signatures) {
     static const uint16_t kVerifyPrefs[] = {
         SSL_SIGN_ECDSA_SECP256R1_SHA256, SSL_SIGN_RSA_PSS_RSAE_SHA256,
         SSL_SIGN_RSA_PKCS1_SHA256,       SSL_SIGN_ECDSA_SECP384R1_SHA384,
@@ -1749,7 +1749,7 @@ SSLClientSessionCache::Key SSLClientSocketImpl::GetSessionCacheKey(
     key.network_anonymization_key = ssl_config_.network_anonymization_key;
   }
   key.privacy_mode = ssl_config_.privacy_mode;
-  key.disable_legacy_crypto = ssl_config_.disable_legacy_crypto;
+  key.disable_legacy_crypto = ssl_config_.disable_sha1_server_signatures;
   return key;
 }
 

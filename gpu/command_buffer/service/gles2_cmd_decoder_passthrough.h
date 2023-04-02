@@ -31,6 +31,7 @@
 #include "gpu/command_buffer/service/shared_context_state.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_representation.h"
 #include "gpu/command_buffer/service/texture_manager.h"
+#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/gl/gl_bindings.h"
 #include "ui/gl/gl_context.h"
 #include "ui/gl/gl_fence.h"
@@ -62,7 +63,7 @@ struct MappedBuffer {
   GLsizeiptr size;
   GLbitfield original_access;
   GLbitfield filtered_access;
-  raw_ptr<uint8_t> map_ptr;
+  raw_ptr<uint8_t, AllowPtrArithmetic> map_ptr;
   int32_t data_shm_id;
   uint32_t data_shm_offset;
 };
@@ -86,6 +87,9 @@ struct PassthroughResources {
   // If there are any textures pending destruction.
   bool HasTexturesPendingDestruction() const;
 #endif
+
+  void SuspendSharedImageAccessIfNeeded();
+  bool ResumeSharedImageAccessIfNeeded(gl::GLApi* api);
 
   // Mappings from client side IDs to service side IDs.
   ClientServiceMap<GLuint, GLuint> texture_id_map;
@@ -124,21 +128,23 @@ struct PassthroughResources {
       return representation_.get();
     }
 
+    // Returns true between a successful BeginAccess and the following EndAccess
+    // even if access is currently suspended.
+    bool is_being_accessed() const { return access_mode_.has_value(); }
+
     void EnsureClear(gl::GLApi* api, const FeatureInfo* feature_info);
 
     bool BeginAccess(GLenum mode, gl::GLApi* api);
+    void EndAccess();
 
-    void EndAccess() {
-      DCHECK(is_being_accessed());
-      scoped_access_.reset();
-    }
-
-    bool is_being_accessed() const { return !!scoped_access_; }
+    bool ResumeAccessIfNeeded(gl::GLApi* api);
+    void SuspendAccessIfNeeded();
 
    private:
     std::unique_ptr<GLTexturePassthroughImageRepresentation> representation_;
     std::unique_ptr<GLTexturePassthroughImageRepresentation::ScopedAccess>
         scoped_access_;
+    absl::optional<GLenum> access_mode_;
   };
   // Mapping of client texture IDs to GLTexturePassthroughImageRepresentations.
   // TODO(ericrk): Remove this once TexturePassthrough holds a reference to
@@ -386,7 +392,7 @@ class GPU_GLES2_EXPORT GLES2DecoderPassthroughImpl
   const ContextState* GetContextState() override;
   scoped_refptr<ShaderTranslatorInterface> GetTranslator(GLenum type) override;
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE)
   void AttachImageToTextureWithDecoderBinding(uint32_t client_texture_id,
                                               uint32_t texture_target,
                                               gl::GLImage* image) override;
@@ -527,7 +533,7 @@ class GPU_GLES2_EXPORT GLES2DecoderPassthroughImpl
   // Textures can be marked as needing binding only on Windows/Mac, so all
   // functionality related to binding textures is relevant only on those
   // platforms.
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE)
   // Issue BindTexImage calls for |passthrough_texture|, if
   // they're pending.
   void BindOnePendingImage(GLenum target, TexturePassthrough* texture);
@@ -727,7 +733,7 @@ class GPU_GLES2_EXPORT GLES2DecoderPassthroughImpl
     GLuint unit;
     base::WeakPtr<TexturePassthrough> texture;
   };
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE)
   std::vector<TexturePendingBinding> textures_pending_binding_;
 #endif
 

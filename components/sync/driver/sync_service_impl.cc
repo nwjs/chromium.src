@@ -52,10 +52,6 @@ namespace syncer {
 
 namespace {
 
-BASE_FEATURE(kListenForInvalidationsInLocalSync,
-             "ListenForInvalidationsInLocalSync",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // The initial state of sync, for the Sync.InitialState2 histogram. Even if
 // this value is CAN_START, sync startup might fail for reasons that we may
 // want to consider logging in the future, such as a passphrase needed for
@@ -225,6 +221,16 @@ void SyncServiceImpl::Initialize() {
     sync_client_->GetSyncInvalidationsService()
         ->SetCommittedAdditionalInterestedDataTypesCallback(base::BindRepeating(
             &SyncServiceImpl::TriggerRefresh, weak_factory_.GetWeakPtr()));
+
+    // TODO(crbug.com/1417954): revisit this logic. IsSignedIn() doesn't feel
+    // the right condition to check.
+    if (IsSignedIn()) {
+      // Start receiving invalidations as soon as possible since GCMDriver drops
+      // incoming FCM messages otherwise. The messages will be collected by
+      // SyncInvalidationsService until sync engine is initialized and ready to
+      // handle invalidations.
+      sync_client_->GetSyncInvalidationsService()->StartListening();
+    }
   }
 
   // If sync is disabled permanently, clean up old data that may be around (e.g.
@@ -448,6 +454,11 @@ void SyncServiceImpl::StartUpSlowEngineComponents() {
 
   if (!IsLocalSyncEnabled()) {
     auth_manager_->ConnectionOpened();
+
+    // Ensures that invalidations are enabled, e.g. when the sync was just
+    // enabled or after the engine was stopped with clearing data. Note that
+    // invalidations are not supported for local sync.
+    sync_client_->GetSyncInvalidationsService()->StartListening();
   }
 
   engine_->Initialize(std::move(params));
@@ -500,7 +511,8 @@ void SyncServiceImpl::ResetEngine(ShutdownReason shutdown_reason,
   base::UmaHistogramEnumeration("Sync.ResetEngineReason", reset_reason);
   switch (shutdown_reason) {
     case ShutdownReason::STOP_SYNC_AND_KEEP_DATA:
-      sync_client_->GetSyncInvalidationsService()->StopListening();
+      // Do not stop listening for sync invalidations. Otherwise, GCMDriver
+      // would drop all the incoming messages.
       RemoveClientFromServer();
       break;
     case ShutdownReason::DISABLE_SYNC_AND_CLEAR_DATA: {
@@ -672,6 +684,57 @@ SyncService::TransportState SyncServiceImpl::GetTransportState() const {
   return TransportState::ACTIVE;
 }
 
+SyncService::UserActionableError SyncServiceImpl::GetUserActionableError()
+    const {
+  const GoogleServiceAuthError auth_error = GetAuthError();
+  DCHECK(!auth_error.IsTransientError());
+
+  switch (auth_error.state()) {
+    case GoogleServiceAuthError::NONE:
+      break;
+    case GoogleServiceAuthError::SERVICE_UNAVAILABLE:
+    case GoogleServiceAuthError::CONNECTION_FAILED:
+    case GoogleServiceAuthError::REQUEST_CANCELED:
+      // Transient errors aren't reachable.
+      NOTREACHED();
+      break;
+    case GoogleServiceAuthError::SERVICE_ERROR:
+    case GoogleServiceAuthError::SCOPE_LIMITED_UNRECOVERABLE_ERROR:
+    case GoogleServiceAuthError::INVALID_GAIA_CREDENTIALS:
+      return UserActionableError::kSignInNeedsUpdate;
+    case GoogleServiceAuthError::USER_NOT_SIGNED_UP:
+    case GoogleServiceAuthError::UNEXPECTED_SERVICE_RESPONSE:
+      // Not shown to the user.
+      // TODO(crbug.com/1412320): It looks like desktop code in
+      // chrome/browser/sync/sync_ui_util.cc does display this to the user.
+      break;
+    // Conventional value for counting the states, never used.
+    case GoogleServiceAuthError::NUM_STATES:
+      NOTREACHED();
+      break;
+  }
+
+  if (HasUnrecoverableError()) {
+    return UserActionableError::kGenericUnrecoverableError;
+  }
+  if (user_settings_->IsPassphraseRequiredForPreferredDataTypes()) {
+    return UserActionableError::kNeedsPassphrase;
+  }
+  if (user_settings_->IsTrustedVaultKeyRequiredForPreferredDataTypes()) {
+    return user_settings_->IsEncryptEverythingEnabled()
+               ? UserActionableError::kNeedsTrustedVaultKeyForEverything
+               : UserActionableError::kNeedsTrustedVaultKeyForPasswords;
+  }
+  if (user_settings_->IsTrustedVaultRecoverabilityDegraded()) {
+    return user_settings_->IsEncryptEverythingEnabled()
+               ? UserActionableError::
+                     kTrustedVaultRecoverabilityDegradedForEverything
+               : UserActionableError::
+                     kTrustedVaultRecoverabilityDegradedForPasswords;
+  }
+  return UserActionableError::kNone;
+}
+
 void SyncServiceImpl::NotifyObservers() {
   for (SyncServiceObserver& observer : *observers_) {
     observer.OnStateChanged(this);
@@ -807,7 +870,8 @@ void SyncServiceImpl::OnMigrationNeededForTypes(ModelTypeSet types) {
   migrator_->MigrateTypes(types);
 }
 
-void SyncServiceImpl::OnActionableError(const SyncProtocolError& error) {
+void SyncServiceImpl::OnActionableProtocolError(
+    const SyncProtocolError& error) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   last_actionable_error_ = error;
   DCHECK_NE(last_actionable_error_.action, UNKNOWN_ACTION);
@@ -844,6 +908,9 @@ void SyncServiceImpl::OnActionableError(const SyncProtocolError& error) {
 
       // Note: StopAndClear sets IsSyncRequested to false, which ensures that
       // Sync-the-feature remains off.
+      // Note: This method might get called again in the following code when
+      // clearing the primary account. But due to rarity of the event, this
+      // should be okay.
       StopAndClear();
 
 #if !BUILDFLAG(IS_CHROMEOS_ASH)
@@ -935,16 +1002,9 @@ void SyncServiceImpl::OnConfigureDone(
 
   // Update configured data types and start handling incoming invalidations. The
   // order is important to guarantee that data types are configured to prevent
-  // filtering out invalidations. If there are incoming invalidations, they will
-  // be handled immediately after StartListening() call.
+  // filtering out invalidations.
   UpdateDataTypesForInvalidations();
   engine_->StartHandlingInvalidations();
-  // Do not start listening for invalidations since they are not supported for
-  // local sync.
-  if (!IsLocalSyncEnabled() ||
-      base::FeatureList::IsEnabled(kListenForInvalidationsInLocalSync)) {
-    sync_client_->GetSyncInvalidationsService()->StartListening();
-  }
 
   if (migrator_.get() && migrator_->state() != BackendMigrator::IDLE) {
     // Migration in progress.  Let the migrator know we just finished

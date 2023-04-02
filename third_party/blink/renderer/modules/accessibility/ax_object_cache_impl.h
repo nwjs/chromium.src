@@ -139,7 +139,10 @@ class MODULES_EXPORT AXObjectCacheImpl
   // point to the relation_source.
   void UpdateReverseTextRelations(const AXObject* relation_source,
                                   const Vector<String>& target_ids);
-  void ChildrenChanged(AXObject*);
+  // Effects a ChildrenChanged() on the passed-in object, if unignored,
+  // otherwise, uses the first unignored ancestor. Returns the object that the
+  // children changed occurs on.
+  AXObject* ChildrenChanged(AXObject*);
   void ChildrenChangedWithCleanLayout(AXObject*);
   void ChildrenChanged(Node*) override;
   void ChildrenChanged(const LayoutObject*) override;
@@ -475,10 +478,6 @@ class MODULES_EXPORT AXObjectCacheImpl
     ax_tree_serializer_->InvalidateSubtree(&obj);
   }
 
-  bool SerializeChanges(AXObject& obj, ui::AXTreeUpdate* update) {
-    return ax_tree_serializer_->SerializeChanges(&obj, update);
-  }
-
   bool IsInClientTree(AXObject& obj) {
     return ax_tree_serializer_->IsInClientTree(&obj);
   }
@@ -489,10 +488,6 @@ class MODULES_EXPORT AXObjectCacheImpl
 
   bool ShouldLoadInlineTextBoxes(AXObject& obj) {
     return ax_tree_source_->ShouldLoadInlineTextBoxes(&obj);
-  }
-
-  void GetChildren(AXObject& parent, std::vector<AXObject*>* out_children) {
-    return ax_tree_source_->GetChildren(&parent, out_children);
   }
 
   void SetImageAsDataNodeId(int id, const gfx::Size& max_size) {

@@ -26,6 +26,7 @@
 #include "base/cxx17_backports.h"
 #include "base/debug/alias.h"
 #include "base/debug/dump_without_crashing.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
@@ -119,10 +120,10 @@
 #endif
 
 #if BUILDFLAG(IS_OZONE)
+#include "gpu/command_buffer/service/shared_image/gl_image_native_pixmap.h"
 #include "ui/gfx/buffer_format_util.h"
 #include "ui/gfx/buffer_usage_util.h"
 #include "ui/gfx/native_pixmap.h"
-#include "ui/gl/gl_image_native_pixmap.h"
 #include "ui/ozone/public/ozone_platform.h"
 #include "ui/ozone/public/surface_factory_ozone.h"
 #endif
@@ -132,6 +133,10 @@
 // Note that this must be included after gl_bindings.h to avoid conflicts.
 #include <OpenGL/CGLIOSurface.h>
 #endif  // BUILDFLAG(IS_MAC)
+
+#if BUILDFLAG(IS_WIN)
+#include "ui/gl/gl_image_d3d.h"
+#endif
 
 // Note: this undefs far and near so include this after other Windows headers.
 #include "third_party/angle/src/image_util/loadimage.h"
@@ -192,6 +197,11 @@ struct TexSubCoord3D {
   int height;
   int depth;
 };
+
+bool AlwaysGetSizeFromSourceTexture() {
+  return base::FeatureList::IsEnabled(
+      features::kCmdDecoderAlwaysGetSizeFromSourceTexture);
+}
 
 // Check if all |ref| bits are set in |bits|.
 bool AllBitsSet(GLbitfield bits, GLbitfield ref) {
@@ -489,7 +499,7 @@ class BackTexture {
 #if BUILDFLAG(IS_OZONE)
   // The image that backs the texture, if its backed by a native
   // GpuMemoryBuffer.
-  scoped_refptr<gl::GLImageNativePixmap> image_;
+  scoped_refptr<GLImageNativePixmap> image_;
 #endif
 };
 
@@ -1251,8 +1261,16 @@ class GLES2DecoderImpl : public GLES2Decoder,
                                            GLenum plane_config,
                                            GLenum subsampling,
                                            const volatile GLbyte* mailboxes_in);
+  void DoCopySharedImageINTERNAL(GLint xoffset,
+                                 GLint yoffset,
+                                 GLint x,
+                                 GLint y,
+                                 GLsizei width,
+                                 GLsizei height,
+                                 GLboolean unpack_flip_y,
+                                 const volatile GLbyte* mailboxes);
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE)
   void AttachImageToTextureWithDecoderBinding(uint32_t client_texture_id,
                                               uint32_t texture_target,
                                               gl::GLImage* image) override;
@@ -2185,6 +2203,7 @@ class GLES2DecoderImpl : public GLES2Decoder,
       const char* function_name, GLuint max_vertex_accessed, bool* simulated);
   void RestoreStateForAttrib(GLuint attrib, bool restore_array_binding);
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
   // If the texture has an image but that image is not bound to the texture,
   // this will attempt to bind it. texture_unit is the texture unit it should
   // be bound to, or 0 if it doesn't matter - setting it to 0 will cause the
@@ -2194,6 +2213,7 @@ class GLES2DecoderImpl : public GLES2Decoder,
   bool DoBindTexImageIfNeeded(Texture* texture,
                               GLenum textarget,
                               GLuint texture_unit);
+#endif
 
   void DoWindowRectanglesEXT(GLenum mode, GLsizei n, const volatile GLint* box);
 
@@ -2445,6 +2465,12 @@ class GLES2DecoderImpl : public GLES2Decoder,
   bool ClientExposedBackBufferHasAlpha() const {
     if (back_buffer_draw_buffer_ == GL_NONE)
       return false;
+
+    if (external_default_framebuffer_ &&
+        external_default_framebuffer_->IsSharedImageAttached()) {
+      return external_default_framebuffer_->HasAlpha();
+    }
+
     if (offscreen_target_frame_buffer_.get()) {
       return offscreen_buffer_should_have_alpha_;
     }
@@ -2496,10 +2522,12 @@ class GLES2DecoderImpl : public GLES2Decoder,
   // Note: Creation of anonymous images is possible only on Ozone.
 #if BUILDFLAG(IS_OZONE)
   bool SupportsCreateAnonymousImage();
-  scoped_refptr<gl::GLImageNativePixmap> CreateAnonymousImage(
+  scoped_refptr<GLImageNativePixmap> CreateAnonymousImage(
       const gfx::Size& size,
       gfx::BufferFormat format,
-      bool* is_cleared);
+      bool* is_cleared,
+      GLuint target,
+      GLuint texture_id);
 #endif
   unsigned int RequiredTextureTypeForAnonymousImage();
 
@@ -3214,19 +3242,17 @@ bool BackTexture::AllocateNativeGpuMemoryBuffer(const gfx::Size& size,
     // duplicate BGRX_8888.
     buffer_format = gfx::BufferFormat::BGRX_8888;
   }
-  scoped_refptr<gl::GLImageNativePixmap> image =
-      decoder_->CreateAnonymousImage(size, buffer_format, &is_cleared);
+  scoped_refptr<GLImageNativePixmap> image = decoder_->CreateAnonymousImage(
+      size, buffer_format, &is_cleared, Target(), id());
   if (!image)
-    return false;
-  if (!image->BindTexImage(Target()))
     return false;
 
   image_ = image;
   decoder_->texture_manager()->SetLevelInfo(
       texture_ref_.get(), Target(), 0, format, size.width(), size.height(), 1,
       0, format, GL_UNSIGNED_BYTE, gfx::Rect(size));
-  decoder_->texture_manager()->SetLevelImage(texture_ref_.get(), Target(), 0,
-                                             image_.get(), Texture::BOUND);
+  decoder_->texture_manager()->SetBoundLevelImage(texture_ref_.get(), Target(),
+                                                  0, image_.get());
 
   if (!is_cleared || zero) {
     GLuint fbo;
@@ -3253,8 +3279,9 @@ void BackTexture::DestroyNativeGpuMemoryBuffer(bool have_context) {
         "BackTexture::DestroyNativeGpuMemoryBuffer",
         decoder_->error_state_.get());
 
-    decoder_->texture_manager()->SetLevelImage(texture_ref_.get(), Target(), 0,
-                                               nullptr, Texture::UNBOUND);
+    decoder_->texture_manager()->UnsetLevelImage(texture_ref_.get(), Target(),
+                                                 0);
+
     image_ = nullptr;
   }
 }
@@ -3432,7 +3459,13 @@ GLES2Decoder* GLES2Decoder::Create(
                                            outputter, group);
   }
 
+// Allow linux to run fuzzers.
+#if BUILDFLAG(ENABLE_VALIDATING_COMMAND_DECODER) || BUILDFLAG(IS_LINUX)
   return new GLES2DecoderImpl(client, command_buffer_service, outputter, group);
+#else
+  LOG(FATAL) << "Validating command decoder is not supported.";
+  return nullptr;
+#endif
 }
 
 GLES2DecoderImpl::GLES2DecoderImpl(
@@ -5009,6 +5042,9 @@ gfx::Size GLES2DecoderImpl::GetBoundReadFramebufferSize() {
   Framebuffer* framebuffer = GetBoundReadFramebuffer();
   if (framebuffer) {
     return framebuffer->GetFramebufferValidSize();
+  } else if (external_default_framebuffer_ &&
+             external_default_framebuffer_->IsSharedImageAttached()) {
+    return external_default_framebuffer_->GetSize();
   } else if (offscreen_target_frame_buffer_.get()) {
     return offscreen_size_;
   } else {
@@ -5020,6 +5056,9 @@ gfx::Size GLES2DecoderImpl::GetBoundDrawFramebufferSize() {
   Framebuffer* framebuffer = GetBoundDrawFramebuffer();
   if (framebuffer) {
     return framebuffer->GetFramebufferValidSize();
+  } else if (external_default_framebuffer_ &&
+             external_default_framebuffer_->IsSharedImageAttached()) {
+    return external_default_framebuffer_->GetSize();
   } else if (offscreen_target_frame_buffer_.get()) {
     return offscreen_size_;
   } else {
@@ -5031,6 +5070,10 @@ GLuint GLES2DecoderImpl::GetBoundReadFramebufferServiceId() {
   Framebuffer* framebuffer = GetBoundReadFramebuffer();
   if (framebuffer) {
     return framebuffer->service_id();
+  }
+  if (external_default_framebuffer_ &&
+      external_default_framebuffer_->IsSharedImageAttached()) {
+    return external_default_framebuffer_->GetFramebufferId();
   }
   if (offscreen_resolved_frame_buffer_.get()) {
     return offscreen_resolved_frame_buffer_->id();
@@ -5048,6 +5091,10 @@ GLuint GLES2DecoderImpl::GetBoundDrawFramebufferServiceId() const {
   Framebuffer* framebuffer = GetBoundDrawFramebuffer();
   if (framebuffer) {
     return framebuffer->service_id();
+  }
+  if (external_default_framebuffer_ &&
+      external_default_framebuffer_->IsSharedImageAttached()) {
+    return external_default_framebuffer_->GetFramebufferId();
   }
   if (offscreen_target_frame_buffer_.get()) {
     return offscreen_target_frame_buffer_->id();
@@ -5076,6 +5123,10 @@ GLenum GLES2DecoderImpl::GetBoundReadFramebufferInternalFormat() {
   } else {  // Back buffer.
     if (back_buffer_read_buffer_ == GL_NONE)
       return 0;
+    if (external_default_framebuffer_ &&
+        external_default_framebuffer_->IsSharedImageAttached()) {
+      return external_default_framebuffer_->GetColorFormat();
+    }
     if (offscreen_target_frame_buffer_.get()) {
       return offscreen_target_color_format_;
     }
@@ -5131,6 +5182,10 @@ GLsizei GLES2DecoderImpl::GetBoundFramebufferSamples(GLenum target) {
   if (framebuffer) {
     return framebuffer->GetSamples();
   } else {  // Back buffer.
+    if (external_default_framebuffer_ &&
+        external_default_framebuffer_->IsSharedImageAttached()) {
+      return external_default_framebuffer_->GetSamplesCount();
+    }
     if (offscreen_target_frame_buffer_.get()) {
       return offscreen_target_samples_;
     }
@@ -5146,6 +5201,10 @@ GLenum GLES2DecoderImpl::GetBoundFramebufferDepthFormat(
   if (framebuffer) {
     return framebuffer->GetDepthFormat();
   } else {  // Back buffer.
+    if (external_default_framebuffer_ &&
+        external_default_framebuffer_->IsSharedImageAttached()) {
+      return external_default_framebuffer_->GetDepthFormat();
+    }
     if (offscreen_target_frame_buffer_.get()) {
       return offscreen_target_depth_format_;
     }
@@ -5163,6 +5222,10 @@ GLenum GLES2DecoderImpl::GetBoundFramebufferStencilFormat(
   if (framebuffer) {
     return framebuffer->GetStencilFormat();
   } else {  // Back buffer.
+    if (external_default_framebuffer_ &&
+        external_default_framebuffer_->IsSharedImageAttached()) {
+      return external_default_framebuffer_->GetStencilFormat();
+    }
     if (offscreen_target_frame_buffer_.get()) {
       return offscreen_target_stencil_format_;
     }
@@ -6181,6 +6244,10 @@ bool GLES2DecoderImpl::BoundFramebufferAllowsChangesToAlphaChannel() {
     return framebuffer->HasAlphaMRT();
   if (back_buffer_draw_buffer_ == GL_NONE)
     return false;
+  if (external_default_framebuffer_ &&
+      external_default_framebuffer_->IsSharedImageAttached()) {
+    return external_default_framebuffer_->HasAlpha();
+  }
   if (offscreen_target_frame_buffer_.get()) {
     GLenum format = offscreen_target_color_format_;
     return (format == GL_RGBA || format == GL_RGBA8) &&
@@ -6195,6 +6262,10 @@ bool GLES2DecoderImpl::BoundFramebufferHasDepthAttachment() {
   if (framebuffer) {
     return framebuffer->HasDepthAttachment();
   }
+  if (external_default_framebuffer_ &&
+      external_default_framebuffer_->IsSharedImageAttached()) {
+    return external_default_framebuffer_->HasDepth();
+  }
   if (offscreen_target_frame_buffer_.get()) {
     return offscreen_target_depth_format_ != 0;
   }
@@ -6205,6 +6276,10 @@ bool GLES2DecoderImpl::BoundFramebufferHasStencilAttachment() {
   Framebuffer* framebuffer = GetBoundDrawFramebuffer();
   if (framebuffer) {
     return framebuffer->HasStencilAttachment();
+  }
+  if (external_default_framebuffer_ &&
+      external_default_framebuffer_->IsSharedImageAttached()) {
+    return external_default_framebuffer_->HasStencil();
   }
   if (offscreen_target_frame_buffer_.get()) {
     return offscreen_target_stencil_format_ != 0 ||
@@ -8563,8 +8638,10 @@ void GLES2DecoderImpl::DoFramebufferTexture2DCommon(
     return;
   }
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
   if (texture_ref)
     DoBindTexImageIfNeeded(texture_ref->texture(), textarget, 0);
+#endif
 
   std::vector<GLenum> attachments;
   if (attachment == GL_DEPTH_STENCIL_ATTACHMENT) {
@@ -10488,14 +10565,13 @@ void GLES2DecoderImpl::PerformanceWarning(
                      std::string("PERFORMANCE WARNING: ") + msg);
 }
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
 bool GLES2DecoderImpl::DoBindTexImageIfNeeded(Texture* texture,
                                               GLenum textarget,
                                               GLuint texture_unit) {
   // Image is already in use if texture is attached to a framebuffer.
   if (texture && !texture->IsAttachedToFramebuffer()) {
-    Texture::ImageState old_image_state;
-    gl::GLImage* image = texture->GetLevelImage(textarget, 0, &old_image_state);
-    if (image && old_image_state == Texture::UNBOUND) {
+    if (texture->HasUnboundLevelImage(textarget, 0)) {
       UMA_HISTOGRAM_BOOLEAN(
           "GPU.GLES2DecoderImplLazyBindingCheck.WasBindNecessary", true);
 
@@ -10504,9 +10580,16 @@ bool GLES2DecoderImpl::DoBindTexImageIfNeeded(Texture* texture,
       if (texture_unit)
         api()->glActiveTextureFn(texture_unit);
       api()->glBindTextureFn(textarget, texture->service_id());
-      bool rv = image->BindTexImage(textarget);
-      DCHECK(rv) << "BindTexImage() failed";
-      texture->SetLevelImageState(textarget, 0, Texture::BOUND);
+#if BUILDFLAG(IS_WIN)
+      auto* d3d_image =
+          gl::GLImage::ToGLImageD3D(texture->GetLevelImage(textarget, 0));
+      if (d3d_image) {
+        bool rv = d3d_image->BindTexImage(textarget);
+        DCHECK(rv) << "BindTexImage() failed";
+      }
+#endif
+
+      texture->MarkLevelImageBound(textarget, 0);
       if (!texture_unit) {
         RestoreCurrentTextureBindings(&state_, textarget,
                                       state_.active_texture_unit);
@@ -10526,6 +10609,7 @@ bool GLES2DecoderImpl::DoBindTexImageIfNeeded(Texture* texture,
 
   return false;
 }
+#endif
 
 void GLES2DecoderImpl::DoCopyBufferSubData(GLenum readtarget,
                                            GLenum writetarget,
@@ -10627,6 +10711,7 @@ bool GLES2DecoderImpl::PrepareTexturesForRender(bool* textures_set,
           }
         }
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
         if (textarget != GL_TEXTURE_CUBE_MAP) {
           Texture* texture = texture_ref->texture();
           if (DoBindTexImageIfNeeded(texture, textarget,
@@ -10635,6 +10720,7 @@ bool GLES2DecoderImpl::PrepareTexturesForRender(bool* textures_set,
             continue;
           }
         }
+#endif
       }
       // else: should this be an error?
     }
@@ -17749,7 +17835,7 @@ void GLES2DecoderImpl::DoCopyTextureCHROMIUM(
   int source_height = 0;
   gl::GLImage* image =
       source_texture->GetLevelImage(source_target, source_level);
-  if (image) {
+  if (image && !AlwaysGetSizeFromSourceTexture()) {
     gfx::Size size = image->GetSize();
     source_width = size.width();
     source_height = size.height();
@@ -17834,16 +17920,9 @@ void GLES2DecoderImpl::DoCopyTextureCHROMIUM(
                                        dest_level, true);
   }
 
-  // Try using GLImage::CopyTexImage when possible.
-  bool unpack_premultiply_alpha_change =
-      (unpack_premultiply_alpha ^ unpack_unmultiply_alpha) != 0;
-  // TODO(qiankun.miao@intel.com): Support level > 0 for CopyTexImage.
-  if (image && internal_format == source_internal_format && dest_level == 0 &&
-      !unpack_flip_y && !unpack_premultiply_alpha_change) {
-    api()->glBindTextureFn(dest_binding_target, dest_texture->service_id());
-  }
-
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
   DoBindTexImageIfNeeded(source_texture, source_target, 0);
+#endif
 
   CopyTextureMethod method = GetCopyTextureCHROMIUMMethod(
       GetFeatureInfo(), source_target, source_level, source_internal_format,
@@ -17897,7 +17976,7 @@ void GLES2DecoderImpl::CopySubTextureHelper(const char* function_name,
   int source_height = 0;
   gl::GLImage* image =
       source_texture->GetLevelImage(source_target, source_level);
-  if (image) {
+  if (image && !AlwaysGetSizeFromSourceTexture()) {
     gfx::Size size = image->GetSize();
     source_width = size.width();
     source_height = size.height();
@@ -18035,7 +18114,9 @@ void GLES2DecoderImpl::CopySubTextureHelper(const char* function_name,
                                        dest_level, true);
   }
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
   DoBindTexImageIfNeeded(source_texture, source_target, 0);
+#endif
 
   CopyTextureMethod method = GetCopyTextureCHROMIUMMethod(
       GetFeatureInfo(), source_target, source_level, source_internal_format,
@@ -18505,6 +18586,18 @@ void GLES2DecoderImpl::DoConvertYUVAMailboxesToRGBINTERNAL(
   NOTIMPLEMENTED_LOG_ONCE();
 }
 
+void GLES2DecoderImpl::DoCopySharedImageINTERNAL(
+    GLint xoffset,
+    GLint yoffset,
+    GLint x,
+    GLint y,
+    GLsizei width,
+    GLsizei height,
+    GLboolean unpack_flip_y,
+    const volatile GLbyte* mailboxes) {
+  NOTIMPLEMENTED_LOG_ONCE();
+}
+
 void GLES2DecoderImpl::DoInsertEventMarkerEXT(
     GLsizei length, const GLchar* marker) {
   if (!marker) {
@@ -18521,7 +18614,7 @@ void GLES2DecoderImpl::DoPushGroupMarkerEXT(
 void GLES2DecoderImpl::DoPopGroupMarkerEXT(void) {
 }
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE)
 void GLES2DecoderImpl::AttachImageToTextureWithDecoderBinding(
     uint32_t client_texture_id,
     uint32_t texture_target,
@@ -18536,8 +18629,11 @@ void GLES2DecoderImpl::AttachImageToTextureWithDecoderBinding(
     return;
   }
 
-  texture_manager()->SetLevelImage(ref, texture_target, 0, image,
-                                   gpu::gles2::Texture::UNBOUND);
+  if (image) {
+    texture_manager()->SetUnboundLevelImage(ref, texture_target, 0, image);
+  } else {
+    texture_manager()->UnsetLevelImage(ref, texture_target, 0);
+  }
 }
 #elif !BUILDFLAG(IS_ANDROID)
 void GLES2DecoderImpl::AttachImageToTextureWithClientBinding(
@@ -18554,8 +18650,11 @@ void GLES2DecoderImpl::AttachImageToTextureWithClientBinding(
     return;
   }
 
-  texture_manager()->SetLevelImage(ref, texture_target, 0, image,
-                                   gpu::gles2::Texture::BOUND);
+  if (image) {
+    texture_manager()->SetBoundLevelImage(ref, texture_target, 0, image);
+  } else {
+    texture_manager()->UnsetLevelImage(ref, texture_target, 0);
+  }
 }
 #endif
 
@@ -19493,10 +19592,12 @@ bool GLES2DecoderImpl::SupportsCreateAnonymousImage() {
       .supports_native_pixmaps;
 }
 
-scoped_refptr<gl::GLImageNativePixmap> GLES2DecoderImpl::CreateAnonymousImage(
+scoped_refptr<GLImageNativePixmap> GLES2DecoderImpl::CreateAnonymousImage(
     const gfx::Size& size,
     gfx::BufferFormat format,
-    bool* is_cleared) {
+    bool* is_cleared,
+    GLuint target,
+    GLuint texture_id) {
   gfx::BufferUsage usage = gfx::BufferUsage::SCANOUT;
   SurfaceHandle surface_handle = gpu::kNullSurfaceHandle;
 
@@ -19511,13 +19612,15 @@ scoped_refptr<gl::GLImageNativePixmap> GLES2DecoderImpl::CreateAnonymousImage(
                << gfx::BufferUsageToString(usage);
     return nullptr;
   }
-  auto image = gl::GLImageNativePixmap::Create(size, format, std::move(pixmap));
+  auto image = GLImageNativePixmap::Create(size, format, std::move(pixmap),
+                                           target, texture_id);
   if (!image) {
     LOG(ERROR) << "Failed to create GLImage " << size.ToString() << ", "
                << gfx::BufferFormatToString(format) << ", usage "
                << gfx::BufferUsageToString(usage);
     return nullptr;
   }
+
   *is_cleared = true;
   return image;
 }

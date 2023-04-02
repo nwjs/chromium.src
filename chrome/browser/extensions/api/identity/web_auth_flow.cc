@@ -41,6 +41,8 @@
 #include "extensions/browser/guest_view/web_view/web_view_guest.h"
 #include "net/http/http_response_headers.h"
 #include "net/http/http_status_code.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "url/gurl.h"
 #include "url/url_constants.h"
 
@@ -99,14 +101,12 @@ WebAuthFlow::WebAuthFlow(Delegate* delegate,
                          Profile* profile,
                          const GURL& provider_url,
                          Mode mode,
-                         Partition partition,
-                         const std::string& extension_name)
+                         Partition partition)
     : delegate_(delegate),
       profile_(profile),
       provider_url_(provider_url),
       mode_(mode),
-      partition_(partition),
-      extension_name_(extension_name) {
+      partition_(partition) {
   TRACE_EVENT_NESTABLE_ASYNC_BEGIN0("identity", "WebAuthFlow", this);
 }
 
@@ -252,8 +252,8 @@ void WebAuthFlow::DisplayInfoBar() {
   DCHECK(web_contents());
   DCHECK(using_auth_with_browser_tab_);
 
-  info_bar_delegate_ =
-      WebAuthFlowInfoBarDelegate::Create(web_contents(), extension_name_);
+  info_bar_delegate_ = WebAuthFlowInfoBarDelegate::Create(
+      web_contents(), info_bar_parameters_.extension_display_name);
 }
 
 void WebAuthFlow::CloseInfoBar() {
@@ -282,12 +282,30 @@ void WebAuthFlow::AfterUrlLoaded() {
   // already been opened once.
   if (delegate_ && using_auth_with_browser_tab_ && web_contents_ &&
       mode_ == WebAuthFlow::INTERACTIVE) {
-    chrome::ScopedTabbedBrowserDisplayer browser_displayer(profile_);
-    NavigateParams params(browser_displayer.browser(),
-                          std::move(web_contents_));
-    Navigate(&params);
+    switch (features::kWebAuthFlowInBrowserTabMode.Get()) {
+      case features::WebAuthFlowInBrowserTabMode::kNewTab: {
+        // Displays the auth page in a new tab attached to an existing/new
+        // browser.
+        chrome::ScopedTabbedBrowserDisplayer browser_displayer(profile_);
+        NavigateParams params(browser_displayer.browser(),
+                              std::move(web_contents_));
+        Navigate(&params);
+        break;
+      }
+      case features::WebAuthFlowInBrowserTabMode::kPopupWindow: {
+        // Displays the auth page in a browser popup window.
+        NavigateParams params(profile_, GURL(),
+                              ui::PageTransition::PAGE_TRANSITION_FIRST);
+        params.contents_to_insert = std::move(web_contents_);
+        params.disposition = WindowOpenDisposition::NEW_POPUP;
+        Navigate(&params);
+        break;
+      }
+    }
 
-    DisplayInfoBar();
+    if (info_bar_parameters_.should_show) {
+      DisplayInfoBar();
+    }
   }
 }
 
@@ -408,6 +426,12 @@ void WebAuthFlow::DidFinishNavigation(
   if (failed && delegate_) {
     delegate_->OnAuthFlowFailure(LOAD_FAILED);
   }
+}
+
+void WebAuthFlow::SetShouldShowInfoBar(
+    const std::string& extension_display_name) {
+  info_bar_parameters_.should_show = true;
+  info_bar_parameters_.extension_display_name = extension_display_name;
 }
 
 base::WeakPtr<WebAuthFlowInfoBarDelegate>

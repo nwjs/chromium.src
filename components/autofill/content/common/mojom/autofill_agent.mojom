@@ -14,6 +14,11 @@ interface AutofillAgent {
   // a subframe and it is not known which form is its parent.
   TriggerReparse();
 
+  // Triggers a reparse of the new forms and notifies the caller when it's done.
+  // If `success == false`, reparse-with-response was triggered while another
+  // reparse-with-response was ongoing.
+  TriggerReparseWithResponse() => (bool success);
+
   // Instructs the renderer to fill or preview the active form with the given
   // form data.
   FillOrPreviewForm(FormData form,
@@ -101,6 +106,11 @@ interface PasswordAutofillAgent {
 
   // Fills the given |credential| into the last focused text input.
   FillIntoFocusedField(bool is_password, mojo_base.mojom.String16 credential);
+
+  // Sends the renderer a render id of a password field that has
+  // no associated username.
+  PasswordFieldHasNoAssociatedUsername(
+    FieldRendererId password_element_renderer_id);
 
   // Notification to start (|active| == true) or stop (|active| == false)
   // logging the decisions made about saving the password.

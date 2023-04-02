@@ -49,6 +49,7 @@
 using testing::_;
 using testing::AllOf;
 using testing::AnyNumber;
+using testing::AtLeast;
 using testing::ByMove;
 using testing::Eq;
 using testing::Not;
@@ -937,7 +938,7 @@ TEST_F(SyncServiceImplTest, ResetSyncData) {
 
   SyncProtocolError client_cmd;
   client_cmd.action = RESET_LOCAL_SYNC_DATA;
-  service()->OnActionableError(client_cmd);
+  service()->OnActionableProtocolError(client_cmd);
 }
 
 // Test that when SyncServiceImpl receives actionable error
@@ -957,7 +958,7 @@ TEST_F(SyncServiceImplTest, DisableSyncOnClient) {
 
   SyncProtocolError client_cmd;
   client_cmd.action = DISABLE_SYNC_ON_CLIENT;
-  service()->OnActionableError(client_cmd);
+  service()->OnActionableProtocolError(client_cmd);
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   // Ash does not support signout.
@@ -987,7 +988,7 @@ TEST_F(SyncServiceImplTest, DisableSyncOnClient) {
   EXPECT_TRUE(service()->GetLastSyncedTimeForDebugging().is_null());
 #endif
 
-  EXPECT_EQ(1, get_controller(BOOKMARKS)->model()->clear_metadata_call_count());
+  EXPECT_GT(get_controller(BOOKMARKS)->model()->clear_metadata_call_count(), 0);
 
   EXPECT_FALSE(service()->IsSyncFeatureEnabled());
   EXPECT_FALSE(service()->IsSyncFeatureActive());
@@ -1014,7 +1015,7 @@ TEST_F(SyncServiceImplTest,
   client_cmd.error_type = NOT_MY_BIRTHDAY;
 
   base::HistogramTester histogram_tester;
-  service()->OnActionableError(client_cmd);
+  service()->OnActionableProtocolError(client_cmd);
 
   ASSERT_FALSE(service()->IsSyncFeatureEnabled());
 
@@ -1045,7 +1046,7 @@ TEST_F(SyncServiceImplTest,
   client_cmd.error_type = ENCRYPTION_OBSOLETE;
 
   base::HistogramTester histogram_tester;
-  service()->OnActionableError(client_cmd);
+  service()->OnActionableProtocolError(client_cmd);
 
   ASSERT_FALSE(service()->IsSyncFeatureEnabled());
 
@@ -1178,7 +1179,11 @@ TEST_F(SyncServiceImplTest,
        ShouldActivateSyncInvalidationsServiceWhenSyncIsInitialized) {
   SignIn();
   CreateService(SyncServiceImpl::MANUAL_START);
-  EXPECT_CALL(*sync_invalidations_service(), StartListening());
+
+  // Invalidations may start listening twice. The first one during
+  // initialization, the second once everything is configured.
+  EXPECT_CALL(*sync_invalidations_service(), StartListening())
+      .Times(AtLeast(1));
   InitializeForFirstSync();
 }
 

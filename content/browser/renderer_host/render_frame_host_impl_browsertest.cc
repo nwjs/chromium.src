@@ -38,6 +38,7 @@
 #include "content/browser/renderer_host/input/timeout_monitor.h"
 #include "content/browser/renderer_host/navigation_request.h"
 #include "content/browser/renderer_host/render_process_host_impl.h"
+#include "content/browser/renderer_host/runtime_feature_state_controller_impl.h"
 #include "content/browser/sms/test/mock_sms_provider.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/common/content_navigation_policy.h"
@@ -47,6 +48,7 @@
 #include "content/public/browser/document_service.h"
 #include "content/public/browser/document_user_data.h"
 #include "content/public/browser/javascript_dialog_manager.h"
+#include "content/public/browser/origin_trials_controller_delegate.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -59,6 +61,7 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/content_browser_test.h"
+#include "content/public/test/content_browser_test_content_browser_client.h"
 #include "content/public/test/content_browser_test_utils.h"
 #include "content/public/test/content_mock_cert_verifier.h"
 #include "content/public/test/navigation_handle_observer.h"
@@ -75,7 +78,6 @@
 #include "content/test/did_commit_navigation_interceptor.h"
 #include "content/test/frame_host_test_interface.mojom.h"
 #include "content/test/navigation_simulator_impl.h"
-#include "content/test/test_content_browser_client.h"
 #include "content/test/test_render_frame_host_factory.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "net/base/features.h"
@@ -120,7 +122,8 @@ namespace {
 
 // Implementation of ContentBrowserClient that overrides
 // OverridePageVisibilityState() and allows consumers to set a value.
-class PrerenderTestContentBrowserClient : public TestContentBrowserClient {
+class PrerenderTestContentBrowserClient
+    : public ContentBrowserTestContentBrowserClient {
  public:
   PrerenderTestContentBrowserClient()
       : override_enabled_(false),
@@ -159,7 +162,8 @@ const char kTrustMeIfEmbeddingSecureUrl[] =
 // makes all requests to it via kTrustMeUrl return a particular iframe.
 // Same for trustmeifembeddingsecure, which does the same if the embedded origin
 // is secure.
-class FirstPartySchemeContentBrowserClient : public TestContentBrowserClient {
+class FirstPartySchemeContentBrowserClient
+    : public ContentBrowserTestContentBrowserClient {
  public:
   explicit FirstPartySchemeContentBrowserClient(const GURL& iframe_url)
       : iframe_url_(iframe_url) {
@@ -446,7 +450,6 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   EXPECT_TRUE(NavigateToURL(shell(), GURL("data:text/html,foo")));
 
   PrerenderTestContentBrowserClient new_client;
-  ContentBrowserClient* old_client = SetBrowserClientForTesting(&new_client);
 
   web_contents()->WasShown();
   EXPECT_EQ(PageVisibilityState::kVisible,
@@ -455,8 +458,6 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   new_client.EnableVisibilityOverride(PageVisibilityState::kHiddenButPainting);
   EXPECT_EQ(PageVisibilityState::kHiddenButPainting,
             web_contents()->GetPrimaryMainFrame()->GetVisibilityState());
-
-  SetBrowserClientForTesting(old_client);
 }
 
 // Check that the URLLoaderFactories created by RenderFrameHosts for renderers
@@ -798,10 +799,18 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
 // A separate class needed to test with Origin Trial tokens.
 class RenderFrameHostImplWithTokensBrowserTest : public ContentBrowserTest {
  public:
-  RenderFrameHostImplWithTokensBrowserTest() = default;
+  RenderFrameHostImplWithTokensBrowserTest() {
+    test_features_.InitAndEnableFeature(::features::kPersistentOriginTrials);
+  }
+
+  ~RenderFrameHostImplWithTokensBrowserTest() override = default;
 
   // The URL that will be used for Origin Trials.
   static constexpr char kOriginTrialUrl[] = "https://127.0.0.1:44444";
+  // The URL that will be used to load third-party scripts.
+  static constexpr char kThirdPartyScriptUrl[] = "https://127.0.0.1:44445";
+  // URL for empty page responses.
+  static constexpr char kEmptyPageUrl[] = "https://127.0.0.1:44440";
 
  protected:
   void SetUpOnMainThread() override {
@@ -818,6 +827,7 @@ class RenderFrameHostImplWithTokensBrowserTest : public ContentBrowserTest {
 
   void TearDownOnMainThread() override {
     url_loader_interceptor_.reset();
+    GetOriginTrialsDelegate()->ClearPersistedTokens();
     ContentBrowserTest::TearDownOnMainThread();
   }
 
@@ -825,8 +835,32 @@ class RenderFrameHostImplWithTokensBrowserTest : public ContentBrowserTest {
     origin_trial_token_ = token;
   }
 
+  OriginTrialsControllerDelegate* GetOriginTrialsDelegate() {
+    return shell()
+        ->web_contents()
+        ->GetPrimaryMainFrame()
+        ->GetBrowserContext()
+        ->GetOriginTrialsControllerDelegate();
+  }
+
+  GURL empty_page_url() const {
+    return GURL(base::StrCat({kEmptyPageUrl, "/empty.html"}));
+  }
+
   GURL simple_origin_trial_url() const {
     return GURL(base::StrCat({kOriginTrialUrl, "/title1.html"}));
+  }
+
+  GURL meta_tag_origin_trial_url() const {
+    return GURL(base::StrCat({kOriginTrialUrl, "/meta.html"}));
+  }
+
+  GURL script_meta_tag_origin_trial_url() const {
+    return GURL(base::StrCat({kOriginTrialUrl, "/meta_script.html"}));
+  }
+
+  GURL meta_tag_injecting_javascript_url() const {
+    return GURL(base::StrCat({kThirdPartyScriptUrl, "/meta.js"}));
   }
 
   WebContentsImpl* web_contents() const {
@@ -834,13 +868,16 @@ class RenderFrameHostImplWithTokensBrowserTest : public ContentBrowserTest {
   }
 
  private:
-  // Create the framework to intercept origin trial header requests.
-  bool InterceptURLRequest(URLLoaderInterceptor::RequestParams* params) {
-    // We are only interested in requests from simple_origin_trial_url().
-    // Additionally, we should not send a response if the `origin_trial_token_`
-    // is empty.
-    if ((params->url_request.url != simple_origin_trial_url()) ||
-        origin_trial_token_.empty()) {
+  bool RespondForEmptyUrl(URLLoaderInterceptor::RequestParams* params) {
+    std::string headers = "HTTP/1.1 200 OK\nContent-Type: text/html\n";
+    std::string body = "<html>This page has no title.</html>";
+    URLLoaderInterceptor::WriteResponse(headers, body, params->client.get());
+    return true;
+  }
+
+  bool RespondForSimpleOriginTrialUrl(
+      URLLoaderInterceptor::RequestParams* params) {
+    if (origin_trial_token_.empty()) {
       return false;
     }
     // Construct the origin trial header response.
@@ -851,6 +888,78 @@ class RenderFrameHostImplWithTokensBrowserTest : public ContentBrowserTest {
     return true;
   }
 
+  bool RespondForMetaTagOriginTrialUrl(
+      URLLoaderInterceptor::RequestParams* params) {
+    if (origin_trial_token_.empty()) {
+      return false;
+    }
+    // Construct the origin trial header response.
+    std::string headers = "HTTP/1.1 200 OK\nContent-Type: text/html\n";
+    std::string body = base::StrCat(
+        {"<html><head><meta http-equiv=\"origin-trial\" content=\"",
+         origin_trial_token_,
+         "\"></head><body>"
+         "This page has no title.</body></html>"});
+    URLLoaderInterceptor::WriteResponse(headers, body, params->client.get());
+    return true;
+  }
+
+  bool RespondForScriptMetaTagOriginTrialUrl(
+      URLLoaderInterceptor::RequestParams* params) {
+    if (origin_trial_token_.empty()) {
+      return false;
+    }
+    // Construct the origin trial header response.
+    std::string headers = "HTTP/1.1 200 OK\nContent-Type: text/html\n";
+    std::string body = base::StrCat(
+        {"<html><head><script src=\"",
+         meta_tag_injecting_javascript_url().spec(),
+         "\"></script></head><body>This page has no title.</body></html>"});
+    URLLoaderInterceptor::WriteResponse(headers, body, params->client.get());
+    return true;
+  }
+
+  bool RespondForMetaTagInjectingScriptUrl(
+      URLLoaderInterceptor::RequestParams* params) {
+    if (origin_trial_token_.empty()) {
+      return false;
+    }
+    // Construct the origin trial header response.
+    std::string headers =
+        "HTTP/1.1 200 OK\nContent-Type: application/javascript\n";
+    std::string body =
+        base::StrCat({"const otMeta = document.createElement('meta'); "
+                      "otMeta.httpEquiv = 'origin-trial'; "
+                      "otMeta.content = '",
+                      origin_trial_token_,
+                      "'; "
+                      "document.head.append(otMeta);"});
+    URLLoaderInterceptor::WriteResponse(headers, body, params->client.get());
+    return true;
+  }
+
+  // Create the framework to intercept origin trial header requests.
+  bool InterceptURLRequest(URLLoaderInterceptor::RequestParams* params) {
+    if (params->url_request.url == empty_page_url()) {
+      return RespondForEmptyUrl(params);
+    }
+    if (params->url_request.url == simple_origin_trial_url()) {
+      return RespondForSimpleOriginTrialUrl(params);
+    }
+    if (params->url_request.url == meta_tag_origin_trial_url()) {
+      return RespondForMetaTagOriginTrialUrl(params);
+    }
+    if (params->url_request.url == script_meta_tag_origin_trial_url()) {
+      return RespondForScriptMetaTagOriginTrialUrl(params);
+    }
+    if (params->url_request.url == meta_tag_injecting_javascript_url()) {
+      return RespondForMetaTagInjectingScriptUrl(params);
+    }
+
+    return false;
+  }
+
+  base::test::ScopedFeatureList test_features_;
   std::string origin_trial_token_;
   std::unique_ptr<URLLoaderInterceptor> url_loader_interceptor_;
 };
@@ -876,7 +985,8 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplWithTokensBrowserTest,
   // Create a test remote to initiate the IPC.
   mojo::Remote<blink::mojom::RuntimeFeatureStateController>
       runtime_feature_state_controller_remote;
-  web_contents()->GetPrimaryMainFrame()->CreateRuntimeFeatureStateController(
+  RuntimeFeatureStateControllerImpl::Create(
+      web_contents()->GetPrimaryMainFrame(),
       runtime_feature_state_controller_remote.BindNewPipeAndPassReceiver());
   ASSERT_TRUE(runtime_feature_state_controller_remote.is_connected());
 
@@ -925,7 +1035,8 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplWithTokensBrowserTest,
   // Create a test remote to initiate the IPC.
   mojo::Remote<blink::mojom::RuntimeFeatureStateController>
       runtime_feature_state_controller_remote;
-  web_contents()->GetPrimaryMainFrame()->CreateRuntimeFeatureStateController(
+  RuntimeFeatureStateControllerImpl::Create(
+      web_contents()->GetPrimaryMainFrame(),
       runtime_feature_state_controller_remote.BindNewPipeAndPassReceiver());
   ASSERT_TRUE(runtime_feature_state_controller_remote.is_connected());
 
@@ -956,6 +1067,117 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplWithTokensBrowserTest,
   EXPECT_EQ(expected_overrides,
             actual_document_data->runtime_feature_read_context()
                 .GetFeatureOverrides());
+}
+
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplWithTokensBrowserTest,
+                       BrowserValidatesTokensFromMetaTags) {
+  // Generated with
+  // tools/origin_trials/generate_token.py https://127.0.0.1:44444 \
+  // FrobulatePersistent --expire-timestamp=2000000000
+  const char kValidToken[] =
+      "A156ll3LJpuECt+dqMQpOAg3H6ayl6AfL6v3Lf/"
+      "pu2RWy4VHhJ6dnNYoaLbdXnhQUmOxjxcoIarc6lrgGvmKBwgAAABdeyJvcmlnaW4iOiAiaHR"
+      "0cHM6Ly8xMjcuMC4wLjE6NDQ0NDQiLCAiZmVhdHVyZSI6ICJGcm9idWxhdGVQZXJzaXN0ZW5"
+      "0IiwgImV4cGlyeSI6IDIwMDAwMDAwMDB9";
+  base::Time validTime = base::Time::FromDoubleT(1000000000);
+  SetOriginTrialToken(kValidToken);
+
+  EXPECT_TRUE(NavigateToURL(shell(), meta_tag_origin_trial_url()));
+  // Navigate to a different page as a means of waiting, due to flakiness
+  // caused by a race between the meta tag being pushed and us checking the
+  // origin trial.
+  EXPECT_TRUE(NavigateToURL(shell(), empty_page_url()));
+
+  OriginTrialsControllerDelegate* delegate = GetOriginTrialsDelegate();
+
+  url::Origin trial_origin = url::Origin::Create(GURL(kOriginTrialUrl));
+  EXPECT_TRUE(delegate->IsTrialPersistedForOrigin(
+      /*origin=*/trial_origin, /*partition_origin=*/trial_origin,
+      "FrobulatePersistent", validTime));
+}
+
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplWithTokensBrowserTest,
+                       BrowserRejectsInvalidTokensFromMetaTags) {
+  const char kInvalidToken[] = "invalid";
+  base::Time validTime = base::Time::FromDoubleT(1000000000);
+  SetOriginTrialToken(kInvalidToken);
+
+  EXPECT_TRUE(NavigateToURL(shell(), meta_tag_origin_trial_url()));
+  // Navigate to a different page as a means of waiting, due to flakiness
+  // caused by a race between the meta tag being pushed and us checking the
+  // origin trial.
+  EXPECT_TRUE(NavigateToURL(shell(), empty_page_url()));
+
+  OriginTrialsControllerDelegate* delegate = GetOriginTrialsDelegate();
+
+  url::Origin trial_origin = url::Origin::Create(GURL(kOriginTrialUrl));
+  EXPECT_TRUE(delegate
+                  ->GetPersistedTrialsForOrigin(
+                      /*origin=*/trial_origin,
+                      /*partition_origin=*/trial_origin, validTime)
+                  .empty());
+}
+
+IN_PROC_BROWSER_TEST_F(
+    RenderFrameHostImplWithTokensBrowserTest,
+    BrowserValidatesThirdPartyDeprecationTokensFromMetaTags) {
+  // Generated with
+  // tools/origin_trials/generate_token.py https://127.0.0.1:44445
+  // FrobulatePersistentThirdPartyDeprecation --expire-timestamp=2000000000
+  // --is-third-party
+  const char kValidToken[] =
+      "A8B9KtAVHmLw5hAydE4P2L/"
+      "AU3V2CWYHQyFtbm2EJIED3tLM4MTg85xMiXrwj8fzQZbIEvnJjJV+"
+      "azzrkWAxUw8AAACIeyJvcmlnaW4iOiAiaHR0cHM6Ly8xMjcuMC4wLjE6NDQ0NDUiLCAiZmVh"
+      "dHVyZSI6ICJGcm9idWxhdGVQZXJzaXN0ZW50VGhpcmRQYXJ0eURlcHJlY2F0aW9uIiwgImV4"
+      "cGlyeSI6IDIwMDAwMDAwMDAsICJpc1RoaXJkUGFydHkiOiB0cnVlfQ==";
+  base::Time validTime = base::Time::FromDoubleT(1000000000);
+  SetOriginTrialToken(kValidToken);
+
+  EXPECT_TRUE(NavigateToURL(shell(), script_meta_tag_origin_trial_url()));
+  // Navigate to a different page as a means of waiting, due to flakiness
+  // caused by a race between the meta tag being pushed and us checking the
+  // origin trial.
+  EXPECT_TRUE(NavigateToURL(shell(), empty_page_url()));
+
+  OriginTrialsControllerDelegate* delegate = GetOriginTrialsDelegate();
+
+  // The Trial should be enabled in the context where it was set.
+  url::Origin main_origin = url::Origin::Create(GURL(kOriginTrialUrl));
+  url::Origin trial_origin = url::Origin::Create(GURL(kThirdPartyScriptUrl));
+  EXPECT_TRUE(delegate->IsTrialPersistedForOrigin(
+      /*origin=*/trial_origin, /*partition_origin=*/main_origin,
+      "FrobulatePersistentThirdPartyDeprecation", validTime));
+}
+
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplWithTokensBrowserTest,
+                       BrowserRejectsThirdPartyMetaTagsNonDeprecation) {
+  // Generated with
+  // tools/origin_trials/generate_token.py https://127.0.0.1:44445 \
+  // FrobulatePersistent --expire-timestamp=2000000000 --is-third-party
+  const char kValidToken[] =
+      "A5It5cGJLhpgVjvJ/GFD/hJci1G7qeWdhAdZEJ4/"
+      "RQz0ZtVOfRufZVsYjATJe5DNuDjLtH4IjC5tYUQiDq6hsQgAAABzeyJvcmlnaW4iOiAiaHR0"
+      "cHM6Ly8xMjcuMC4wLjE6NDQ0NDUiLCAiZmVhdHVyZSI6ICJGcm9idWxhdGVQZXJzaXN0ZW50"
+      "IiwgImV4cGlyeSI6IDIwMDAwMDAwMDAsICJpc1RoaXJkUGFydHkiOiB0cnVlfQ==";
+  base::Time validTime = base::Time::FromDoubleT(1000000000);
+  SetOriginTrialToken(kValidToken);
+
+  EXPECT_TRUE(NavigateToURL(shell(), script_meta_tag_origin_trial_url()));
+  // Navigate to a different page as a means of waiting, due to flakiness
+  // caused by a race between the meta tag being pushed and us checking the
+  // origin trial.
+  EXPECT_TRUE(NavigateToURL(shell(), empty_page_url()));
+
+  OriginTrialsControllerDelegate* delegate = GetOriginTrialsDelegate();
+
+  url::Origin main_origin = url::Origin::Create(GURL(kOriginTrialUrl));
+  url::Origin trial_origin = url::Origin::Create(GURL(kThirdPartyScriptUrl));
+  EXPECT_TRUE(delegate
+                  ->GetPersistedTrialsForOrigin(
+                      /*origin=*/trial_origin,
+                      /*partition_origin=*/main_origin, validTime)
+                  .empty());
 }
 
 // Helper class for beforunload tests.  Sets up a custom dialog manager for the
@@ -3087,7 +3309,8 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
       static_cast<RenderFrameHostImpl*>(ChildFrameAt(root_frame_host(), 0));
   ASSERT_TRUE(subframe);
   EXPECT_EQ(main_origin, subframe->GetLastCommittedOrigin());
-  EXPECT_EQ(blink::StorageKey(main_origin), subframe->storage_key());
+  EXPECT_EQ(blink::StorageKey::CreateFirstParty(main_origin),
+            subframe->storage_key());
 }
 
 IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
@@ -3157,7 +3380,8 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   RenderFrameHostImpl* subframe =
       static_cast<RenderFrameHostImpl*>(subframe_observer.Wait());
   EXPECT_EQ(main_origin, subframe->GetLastCommittedOrigin());
-  EXPECT_EQ(blink::StorageKey(main_origin), subframe->storage_key());
+  EXPECT_EQ(blink::StorageKey::CreateFirstParty(main_origin),
+            subframe->storage_key());
 
   // Wait for the about:blank navigation to finish.
   load_observer.Wait();
@@ -3173,7 +3397,8 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   ASSERT_TRUE(subframe2);
   EXPECT_EQ(subframe, subframe2);  // No swaps are expected.
   EXPECT_EQ(main_origin, subframe2->GetLastCommittedOrigin());
-  EXPECT_EQ(blink::StorageKey(main_origin), subframe2->storage_key());
+  EXPECT_EQ(blink::StorageKey::CreateFirstParty(main_origin),
+            subframe2->storage_key());
   EXPECT_EQ(main_origin.Serialize(), EvalJs(subframe2, "window.origin"));
 }
 
@@ -3206,7 +3431,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   WebContents* popup = popup_observer.GetWebContents();
   EXPECT_EQ(main_origin,
             popup->GetPrimaryMainFrame()->GetLastCommittedOrigin());
-  EXPECT_EQ(blink::StorageKey(main_origin),
+  EXPECT_EQ(blink::StorageKey::CreateFirstParty(main_origin),
             static_cast<RenderFrameHostImpl*>(popup->GetPrimaryMainFrame())
                 ->storage_key());
 
@@ -3243,14 +3468,14 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   content::TestNavigationObserver load_observer(popup);
   EXPECT_EQ(main_origin,
             popup->GetPrimaryMainFrame()->GetLastCommittedOrigin());
-  EXPECT_EQ(blink::StorageKey(main_origin),
+  EXPECT_EQ(blink::StorageKey::CreateFirstParty(main_origin),
             static_cast<RenderFrameHostImpl*>(popup->GetPrimaryMainFrame())
                 ->storage_key());
   load_observer.WaitForNavigationFinished();
 
   EXPECT_EQ(main_origin,
             popup->GetPrimaryMainFrame()->GetLastCommittedOrigin());
-  EXPECT_EQ(blink::StorageKey(main_origin),
+  EXPECT_EQ(blink::StorageKey::CreateFirstParty(main_origin),
             static_cast<RenderFrameHostImpl*>(popup->GetPrimaryMainFrame())
                 ->storage_key());
 
@@ -3978,7 +4203,6 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
       "a.com", "/cross_site_iframe_factory.html?a(a(b(d)),c())");
 
   FirstPartySchemeContentBrowserClient new_client(url);
-  ContentBrowserClient* old_client = SetBrowserClientForTesting(&new_client);
 
   GURL b_url = embedded_test_server()->GetURL("b.com", "/");
   GURL c_url = embedded_test_server()->GetURL("c.com", "/");
@@ -4200,8 +4424,6 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
                               ->ComputeIsolationInfoForNavigation(secure_url)
                               .site_for_cookies()));
   }
-
-  SetBrowserClientForTesting(old_client);
 }
 
 // Test that when ancestor iframes differ in scheme that the SiteForCookies
@@ -5530,14 +5752,13 @@ const char kAppHost[] = "app.com";
 const char kNonAppHost[] = "non-app.com";
 }  // namespace
 
-class IsolatedWebAppContentBrowserClient : public ContentBrowserClient {
+class IsolatedWebAppContentBrowserClient
+    : public ContentBrowserTestContentBrowserClient {
  public:
   IsolatedWebAppContentBrowserClient() = default;
 
-  bool ShouldUrlUseApplicationIsolationLevel(
-      BrowserContext* browser_context,
-      const GURL& url,
-      bool origin_matches_flag) override {
+  bool ShouldUrlUseApplicationIsolationLevel(BrowserContext* browser_context,
+                                             const GURL& url) override {
     return url.host() == kAppHost;
   }
 };
@@ -5568,18 +5789,16 @@ class RenderFrameHostImplBrowserTestWithRestrictedApis
     https_server()->ServeFilesFromSourceDirectory(GetTestDataFilePath());
     net::test_server::RegisterDefaultHandlers(https_server());
     ASSERT_TRUE(https_server()->Start());
-
-    old_client_ = SetBrowserClientForTesting(&test_client_);
+    test_client_ = std::make_unique<IsolatedWebAppContentBrowserClient>();
   }
 
   void TearDownOnMainThread() override {
     RenderFrameHostImplBrowserTest::TearDownOnMainThread();
-    SetBrowserClientForTesting(old_client_);
+    test_client_.reset();
   }
 
  private:
-  IsolatedWebAppContentBrowserClient test_client_;
-  raw_ptr<ContentBrowserClient> old_client_;
+  std::unique_ptr<IsolatedWebAppContentBrowserClient> test_client_;
   ContentMockCertVerifier mock_cert_verifier_;
 };
 
@@ -6934,32 +7153,34 @@ IN_PROC_BROWSER_TEST_P(RenderFrameHostImplBrowserTestWithStoragePartitioning,
 
   // Check root document setup. The StorageKey at the root should be the same
   // regardless of if `kThirdPartyStoragePartitioning` is enabled.
-  EXPECT_EQ(blink::StorageKey(url::Origin::Create(main_url)),
+  EXPECT_EQ(blink::StorageKey::CreateFirstParty(url::Origin::Create(main_url)),
             root_rfh->storage_key());
 
   // child_rfh_1 should have a StorageKey of a.com + b.com when
   // `kThirdPartyStoragePartitioning` is enabled and there are no host
   // permissions set.
   if (ThirdPartyStoragePartitioningEnabled()) {
-    EXPECT_EQ(blink::StorageKey::CreateWithOptionalNonce(
+    EXPECT_EQ(blink::StorageKey::Create(
                   url::Origin::Create(child_rfh_url),
                   net::SchemefulSite(root_rfh->GetLastCommittedOrigin()),
-                  nullptr, blink::mojom::AncestorChainBit::kCrossSite),
+                  blink::mojom::AncestorChainBit::kCrossSite),
               child_rfh_1->storage_key());
 
-    EXPECT_EQ(blink::StorageKey::CreateWithOptionalNonce(
+    EXPECT_EQ(blink::StorageKey::Create(
                   url::Origin::Create(grandchild_rfh_url),
                   net::SchemefulSite(root_rfh->GetLastCommittedOrigin()),
-                  nullptr, blink::mojom::AncestorChainBit::kCrossSite),
+                  blink::mojom::AncestorChainBit::kCrossSite),
               grandchild_rfh_1->storage_key());
   } else {
     // When `kThirdPartyStoragePartitioning` is disabled, the child and
     // grandchild document's storage key should depend only on their own origin
     // regardless of host permissions.
-    EXPECT_EQ(blink::StorageKey(url::Origin::Create(child_rfh_url)),
-              child_rfh_1->storage_key());
+    EXPECT_EQ(
+        blink::StorageKey::CreateFirstParty(url::Origin::Create(child_rfh_url)),
+        child_rfh_1->storage_key());
 
-    EXPECT_EQ(blink::StorageKey(url::Origin::Create(grandchild_rfh_url)),
+    EXPECT_EQ(blink::StorageKey::CreateFirstParty(
+                  url::Origin::Create(grandchild_rfh_url)),
               grandchild_rfh_1->storage_key());
   }
 
@@ -6986,34 +7207,36 @@ IN_PROC_BROWSER_TEST_P(RenderFrameHostImplBrowserTestWithStoragePartitioning,
       child_rfh_2->child_at(0)->current_frame_host();
 
   // root_rfh's storage key should not have changed.
-  EXPECT_EQ(blink::StorageKey(url::Origin::Create(main_url)),
+  EXPECT_EQ(blink::StorageKey::CreateFirstParty(url::Origin::Create(main_url)),
             root_rfh->storage_key());
 
   if (ThirdPartyStoragePartitioningEnabled()) {
     // When `kThirdPartyStoragePartitioning` is enabled, the child rfh should
     // now have a top level StorageKey because it is the direct child of the
     // root document and the root has host permissions to it.
-    EXPECT_EQ(blink::StorageKey(blink::StorageKey::CreateWithOptionalNonce(
+    EXPECT_EQ(blink::StorageKey(blink::StorageKey::Create(
                   url::Origin::Create(child_rfh_url),
                   net::SchemefulSite(url::Origin::Create(child_rfh_url)),
-                  nullptr, blink::mojom::AncestorChainBit::kSameSite)),
+                  blink::mojom::AncestorChainBit::kSameSite)),
               child_rfh_2->storage_key());
 
     // The grandchild document should create a StorageKey using the child
     // document's origin as the top level site.
-    EXPECT_EQ(blink::StorageKey::CreateWithOptionalNonce(
+    EXPECT_EQ(blink::StorageKey::Create(
                   url::Origin::Create(grandchild_rfh_url),
                   net::SchemefulSite(url::Origin::Create(child_rfh_url)),
-                  nullptr, blink::mojom::AncestorChainBit::kCrossSite),
+                  blink::mojom::AncestorChainBit::kCrossSite),
               grandchild_rfh_2->storage_key());
   } else {
     // When `kThirdPartyStoragePartitioning` is disabled, the child and
     // grandchild document's storage key should depend only on their own origin
     // regardless of host permissions.
-    EXPECT_EQ(blink::StorageKey(url::Origin::Create(child_rfh_url)),
-              child_rfh_2->storage_key());
+    EXPECT_EQ(
+        blink::StorageKey::CreateFirstParty(url::Origin::Create(child_rfh_url)),
+        child_rfh_2->storage_key());
 
-    EXPECT_EQ(blink::StorageKey(url::Origin::Create(grandchild_rfh_url)),
+    EXPECT_EQ(blink::StorageKey::CreateFirstParty(
+                  url::Origin::Create(grandchild_rfh_url)),
               grandchild_rfh_2->storage_key());
   }
 }

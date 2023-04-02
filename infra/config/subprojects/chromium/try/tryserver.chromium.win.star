@@ -5,7 +5,7 @@
 
 load("//lib/branches.star", "branches")
 load("//lib/builder_config.star", "builder_config")
-load("//lib/builders.star", "goma", "os", "reclient")
+load("//lib/builders.star", "os", "reclient")
 load("//lib/try.star", "try_")
 load("//lib/consoles.star", "consoles")
 
@@ -17,10 +17,8 @@ try_.defaults.set(
     cores = 8,
     os = os.WINDOWS_DEFAULT,
     compilator_cores = 16,
-    compilator_goma_jobs = goma.jobs.J300,
     compilator_reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CQ,
     execution_timeout = try_.DEFAULT_EXECUTION_TIMEOUT,
-    goma_backend = goma.backend.RBE_PROD,
     orchestrator_cores = 2,
     reclient_instance = reclient.instance.DEFAULT_UNTRUSTED,
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
@@ -43,14 +41,12 @@ try_.builder(
         "ci/win-asan",
     ],
     execution_timeout = 6 * time.hour,
-    goma_backend = None,
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CQ,
 )
 
 try_.builder(
     name = "win-celab-try-rel",
     executable = "recipe:celab",
-    goma_backend = None,
     properties = {
         "exclude": "chrome_only",
         "pool_name": "celab-chromium-try",
@@ -65,7 +61,6 @@ try_.builder(
     executable = "recipe:chromium_libfuzzer_trybot",
     builderless = False,
     os = os.WINDOWS_ANY,
-    goma_backend = None,
     main_list_view = "try",
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CQ,
     tryjob = try_.job(),
@@ -85,8 +80,10 @@ try_.orchestrator_builder(
             condition = builder_config.rts_condition.QUICK_RUN_ONLY,
         ),
     ),
-    check_for_flakiness = True,
     compilator = "win-rel-compilator",
+    # TODO (crbug.com/1413505) - disabling due to high pending times. test
+    # history inaccuracies causing additional tests to be run.
+    # check_for_flakiness = True,
     coverage_test_types = ["unit", "overall"],
     experiments = {
         "chromium_rts.inverted_rts": 100,
@@ -113,7 +110,6 @@ try_.builder(
     mirrors = [
         "ci/win32-archive-rel",
     ],
-    goma_backend = None,
 )
 
 try_.builder(
@@ -129,7 +125,6 @@ try_.builder(
     builderless = False,
     cores = 16,
     ssd = True,
-    goma_backend = None,
     main_list_view = "try",
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CQ,
     tryjob = try_.job(
@@ -148,7 +143,6 @@ try_.builder(
         include_all_triggered_testers = True,
         is_compile_only = True,
     ),
-    goma_backend = None,
 )
 
 try_.builder(
@@ -156,7 +150,6 @@ try_.builder(
     mirrors = [
         "ci/Win x64 Builder",
     ],
-    goma_backend = None,
 )
 
 try_.builder(
@@ -166,7 +159,6 @@ try_.builder(
     cores = 32,
     os = os.WINDOWS_ANY,
     execution_timeout = 6 * time.hour,
-    goma_backend = None,
     reclient_instance = None,
 )
 
@@ -184,7 +176,6 @@ try_.builder(
         "ci/Win10 Tests x64 (dbg)",
     ],
     os = os.WINDOWS_10,
-    goma_backend = None,
 )
 
 try_.builder(
@@ -212,7 +203,6 @@ try_.builder(
     builderless = True,
     os = os.WINDOWS_10,
     coverage_test_types = ["unit", "overall"],
-    goma_backend = None,
     use_clang_coverage = True,
 )
 
@@ -225,30 +215,6 @@ try_.builder(
         "ci/Win10 x64 Release (NVIDIA)",
     ],
     os = os.WINDOWS_10,
-)
-
-try_.orchestrator_builder(
-    name = "win-rel-inverse-fyi",
-    mirrors = [
-        "ci/Win x64 Builder",
-        "ci/Win10 Tests x64",
-        "ci/GPU Win x64 Builder",
-        "ci/Win10 x64 Release (NVIDIA)",
-    ],
-    try_settings = builder_config.try_settings(
-        rts_config = builder_config.rts_config(
-            condition = builder_config.rts_condition.QUICK_RUN_ONLY,
-        ),
-    ),
-    check_for_flakiness = True,
-    compilator = "win-rel-compilator",
-    coverage_test_types = ["unit", "overall"],
-    experiments = {
-        "chromium_rts.inverted_rts": 100,
-        "chromium_rts.inverted_rts_bail_early": 100,
-    },
-    use_clang_coverage = True,
-    use_orchestrator_pool = True,
 )
 
 try_.builder(
@@ -294,7 +260,6 @@ try_.gpu.optional_tests_builder(
         retry_failed_shards = False,
     ),
     os = os.WINDOWS_DEFAULT,
-    goma_backend = None,
     main_list_view = "try",
     tryjob = try_.job(
         location_filters = [

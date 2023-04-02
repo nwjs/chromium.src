@@ -21,6 +21,23 @@ class PreloadingAttemptImpl;
 class PreloadingPrediction;
 class PrefetchDocumentManager;
 
+// Defines predictors confusion matrix enums used by UMA records. Entries should
+// not be renumbered and numeric values should never be reused. Please update
+// "PredictorConfusionMatrix" in `tools/metrics/histograms/enums.xml` when new
+// enums are added.
+enum class PredictorConfusionMatrix {
+  // True positive.
+  kTruePositive = 0,
+  // False positive.
+  kFalsePositive = 1,
+  // True negative.
+  kTrueNegative = 2,
+  // False negative.
+  kFalseNegative = 3,
+  // Required by UMA histogram macro.
+  kMaxValue = kFalseNegative
+};
+
 // The scope of current preloading logging is only limited to the same
 // WebContents navigations. If the predicted URL is opened in a new tab we lose
 // the data corresponding to the navigation in different WebContents.
@@ -74,6 +91,10 @@ class CONTENT_EXPORT PreloadingDataImpl
       ukm::SourceId navigated_page_source_id);
   void SetIsAccurateTriggeringAndPrediction(const GURL& navigated_url);
 
+  void RecordPreloadingAttemptPrecisionToUMA(
+      const PreloadingAttemptImpl& attempt);
+  void RecordPredictionPrecisionToUMA(const PreloadingPrediction& prediction);
+
   // Stores all the preloading attempts that are happening for the next
   // navigation until the navigation takes place.
   std::vector<std::unique_ptr<PreloadingAttemptImpl>> preloading_attempts_;
@@ -81,6 +102,12 @@ class CONTENT_EXPORT PreloadingDataImpl
   // Stores all the preloading predictions that are happening for the next
   // navigation until the navigation takes place.
   std::vector<std::unique_ptr<PreloadingPrediction>> preloading_predictions_;
+
+  // The random seed used to determine if a preloading attempt should be sampled
+  // in UKM logs. We use a different random seed for each session and then hash
+  // that seed with the UKM source ID so that all attempts for a given source ID
+  // are sampled in or out together.
+  uint32_t sampling_seed_;
 };
 
 }  // namespace content

@@ -4,6 +4,7 @@
 
 # Do not add any imports to non-//build directories here.
 # Some projects (e.g. V8) do not have non-build directories DEPS'ed in.
+import("//build/config/android/channel.gni")
 import("//build/config/android/config.gni")
 import("//build/config/compiler/compiler.gni")
 import("//build/config/compute_inputs_for_analyze.gni")
@@ -21,7 +22,8 @@ assert(is_android)
 
 default_android_sdk_dep = "//third_party/android_sdk:android_sdk_java"
 _jacoco_dep = "//third_party/jacoco:jacocoagent_java"
-_jacoco_host_jar = "$root_build_dir/lib.java/third_party/jacoco/jacocoagent.jar"
+_jacoco_host_jar =
+    "$root_build_dir/lib.java/third_party/jacoco/jacocoagent_java.jar"
 _robolectric_libs_dir =
     rebase_path(
         get_label_info("//:foo($robolectric_toolchain)", "root_out_dir"),
@@ -1176,6 +1178,24 @@ if (enable_java_templates) {
     }
 
     _rebased_build_config = rebase_path(invoker.build_config, root_build_dir)
+
+    # This is generally the apk name, and serves to identify the mapping
+    # file that would be required to deobfuscate a stacktrace.
+    _mapping_basename = get_path_info(_mapping_path, "name")
+    _version_code = "@FileArg($_rebased_build_config:deps_info:version_code)"
+    _package_name = "@FileArg($_rebased_build_config:deps_info:package_name)"
+    if (defined(invoker.package_name)) {
+      _package_name = invoker.package_name
+    }
+    if (defined(invoker.version_code)) {
+      _version_code = invoker.version_code
+    }
+
+    # The Mapping ID is parsed to when uploading mapping files.
+    # See: https://crbug.com/1417308
+    _source_file_template =
+        "chromium-$_mapping_basename-$android_channel-$_version_code"
+
     _args = [
       "--mapping-output",
       rebase_path(_mapping_path, root_build_dir),
@@ -1185,6 +1205,9 @@ if (enable_java_templates) {
       "@FileArg($_rebased_build_config:android:sdk_jars)",
       "--r8-path",
       rebase_path(_r8_path, root_build_dir),
+      "--package-name=$_package_name",
+      "--source-file",
+      _source_file_template,
     ]
     if (treat_warnings_as_errors) {
       _args += [ "--warnings-as-errors" ]
@@ -1192,21 +1215,7 @@ if (enable_java_templates) {
 
     if ((!defined(invoker.proguard_enable_obfuscation) ||
          invoker.proguard_enable_obfuscation) && enable_proguard_obfuscation) {
-      _proguard_sourcefile_suffix = ""
-      if (defined(invoker.proguard_sourcefile_suffix)) {
-        _proguard_sourcefile_suffix = "-${invoker.proguard_sourcefile_suffix}"
-      }
-
-      # This is generally the apk name, and serves to identify the mapping
-      # file that would be required to deobfuscate a stacktrace.
-      _mapping_id = get_path_info(_mapping_path, "name")
-      _args += [
-        "--enable-obfuscation",
-        "--sourcefile",
-        "chromium-${_mapping_id}${_proguard_sourcefile_suffix}",
-      ]
-    } else if (defined(invoker.proguard_sourcefile_suffix)) {
-      not_needed(invoker, [ "proguard_sourcefile_suffix" ])
+      _args += [ "--enable-obfuscation" ]
     }
 
     if (defined(invoker.modules)) {
@@ -1485,10 +1494,12 @@ if (enable_java_templates) {
                                      "expected_proguard_config_base",
                                      "ignore_desugar_missing_deps",
                                      "modules",
+                                     "package_name",
                                      "proguard_enable_obfuscation",
                                      "proguard_mapping_path",
                                      "proguard_sourcefile_suffix",
                                      "top_target_name",
+                                     "version_code",
                                    ])
         inputs = []
         if (defined(invoker.inputs)) {
@@ -2395,18 +2406,20 @@ if (enable_java_templates) {
           ]
           inputs += [ invoker.expected_android_manifest_base ]
         }
+        if (defined(invoker.expected_android_manifest_version_code_offset)) {
+          args += [
+            "--verification-version-code-offset",
+            invoker.expected_android_manifest_version_code_offset,
+          ]
+        }
+        if (defined(invoker.expected_android_manifest_library_version_offset)) {
+          args += [
+            "--verification-library-version-offset",
+            invoker.expected_android_manifest_library_version_offset,
+          ]
+        }
         if (fail_on_android_expectations) {
           args += [ "--fail-on-expectations" ]
-        }
-        if (defined(invoker.extra_verification_manifest)) {
-          inputs += [ invoker.extra_verification_manifest ]
-          args += [
-            "--extra-verification-manifest",
-            rebase_path(invoker.extra_verification_manifest, root_build_dir),
-          ]
-          if (defined(invoker.extra_verification_manifest_dep)) {
-            deps += [ invoker.extra_verification_manifest_dep ]
-          }
         }
       }
       _deps += [ ":$_expectations_target" ]
@@ -2822,25 +2835,21 @@ if (enable_java_templates) {
   }
 
   # Compile Java source files into a .jar file, potentially using an
-  # annotation processor, and/or the errorprone compiler.
+  # annotation processor, and/or the errorprone compiler. Also includes Kotlin
+  # source files in the resulting info file.
   #
   # Note that the only way to specify custom annotation processors is
   # by using build_config to point to a file that corresponds to a java-related
   # target that includes javac:processor_classes entries (i.e. there is no
   # variable here that can be used for this purpose).
   #
-  # Note also the peculiar use of java_files / target_sources_file. The content
-  # of the java_files list and the .java files in target_sources_file file must
-  # match exactly (extra .kt files in target_sources_file will be ignored by
-  # compile_java.py). This rule uses java_files only to list the inputs to the
-  # action that calls compile_java.py, but will pass the list of all target
-  # source files with the '@${target_sources_file}" command-line syntax. Not a
-  # problem in practice since this is only called from java_library_impl() that
-  # sets up the variables properly.
+  # Note also the peculiar use of source_files / target_sources_file. The content
+  # of the source_files list and the source files in target_sources_file file must
+  # match exactly.
   #
   # Variables:
   #  main_target_name: Used when extracting srcjars for codesearch.
-  #  java_files: Optional list of Java source file paths.
+  #  source_files: Optional list of Java and Kotlin source file paths.
   #  srcjar_deps: Optional list of .srcjar dependencies (not file paths).
   #    The corresponding source files they contain will be compiled too.
   #  target_sources_file: Optional path to file containing list of source file
@@ -2932,8 +2941,8 @@ if (enable_java_templates) {
       if (!invoker.enable_errorprone && !invoker.use_turbine) {
         outputs += [ invoker.output_jar_path + ".info" ]
       }
-      inputs = invoker.java_files + _java_srcjars + [ _build_config ]
-      if (invoker.java_files != []) {
+      inputs = invoker.source_files + _java_srcjars + [ _build_config ]
+      if (invoker.source_files != []) {
         inputs += [ invoker.target_sources_file ]
       }
 
@@ -3060,7 +3069,7 @@ if (enable_java_templates) {
             [ "--additional-jar-file=" +
               rebase_path(file_tuple[0], root_build_dir) + ":" + file_tuple[1] ]
       }
-      if (invoker.java_files != []) {
+      if (invoker.source_files != []) {
         args +=
             [ "@" + rebase_path(invoker.target_sources_file, root_build_dir) ]
       }
@@ -3407,8 +3416,6 @@ if (enable_java_templates) {
     if (_is_prebuilt || _has_sources) {
       if (defined(invoker.output_name)) {
         _output_name = invoker.output_name
-      } else if (_is_prebuilt) {
-        _output_name = get_path_info(invoker.jar_path, "name")
       } else {
         _output_name = _main_target_name
       }
@@ -3788,13 +3795,13 @@ if (enable_java_templates) {
             build_config = _build_config
 
             if (_enable_errorprone) {
-              java_files = _filtered_java_files
+              source_files = _filtered_java_files
             } else {
-              java_files = _java_files
+              source_files = _source_files
               srcjar_deps = _srcjar_deps
             }
 
-            if (java_files != []) {
+            if (source_files != []) {
               target_sources_file = _target_sources_file
             }
             chromium_code = _chromium_code

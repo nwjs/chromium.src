@@ -12,7 +12,6 @@
 
 #include "base/command_line.h"
 #include "base/feature_list.h"
-#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_navigator_params.h"
@@ -114,7 +113,8 @@ void AddWebContents(Browser* browser,
   params.source_contents = source_contents;
   params.url = target_url;
   params.disposition = disposition;
-  params.window_bounds = rect;
+  params.window_features = window_features;
+  params.window_features.bounds = rect;
   params.window_action = fullscreen ? NavigateParams::SHOW_WINDOW_FULLSCREEN : window_action;
   params.frameless = !has_frame;
   // At this point, we're already beyond the popup blocker. Even if the popup

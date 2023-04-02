@@ -5,19 +5,20 @@
 #ifndef IOS_CHROME_BROWSER_UI_CREDENTIAL_PROVIDER_PROMO_CREDENTIAL_PROVIDER_PROMO_CONSTANTS_H_
 #define IOS_CHROME_BROWSER_UI_CREDENTIAL_PROVIDER_PROMO_CREDENTIAL_PROVIDER_PROMO_CONSTANTS_H_
 
-namespace credential_provider_promo {
-
-enum PromoSource {
-  kPasswordCopied,
-  kPasswordSaved,
-  kRemindLaterSelected,
-  kAutofillUsed,
+// Persisted in local state and used as Enum for
+// IOS.CredentialProviderExtension.Promo.Impression histogram. Entries should
+// not be renumbered and numeric values should never be reused.
+enum class IOSCredentialProviderPromoSource {
+  kUnknown = 0,
+  kPasswordCopied = 1,
+  kPasswordSaved = 2,
+  kAutofillUsed = 3,
+  kMaxValue = kAutofillUsed,
 };
 
-enum PromoContext {
+enum CredentialProviderPromoContext {
   kFirstStep,
   kLearnMore,
 };
-}  // namespace credential_provider_promo
 
 #endif  // IOS_CHROME_BROWSER_UI_CREDENTIAL_PROVIDER_PROMO_CREDENTIAL_PROVIDER_PROMO_CONSTANTS_H_

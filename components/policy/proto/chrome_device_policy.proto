@@ -187,6 +187,11 @@ message DeviceReportingProto {
       [default = 600000];
 
   optional StringList report_signal_strength_event_driven_telemetry = 38;
+
+  // Device activity heartbeat policies.
+  optional bool device_activity_heartbeat_enabled = 39 [default = false];
+  optional int64 device_activity_heartbeat_collection_rate_ms = 40
+      [default = 900000];
 }
 
 message EphemeralUsersEnabledProto {
@@ -1147,24 +1152,14 @@ message DeviceScreensaverImageDisplayIntervalSecondsProto {
   optional int64 device_screensaver_image_display_interval_seconds = 1;
 };
 
-// Specifies the images to be displayed in the device-level screensaver.
-// Represented as a JSON string that must follow the following schema:
-// {
-//   "items": {
-//     "properties": {
-//       "hash": {
-//         "type": "string"
-//       },
-//       "url": {
-//         "type": "string"
-//       }
-//     },
-//     "type": "object"
-//   },
-//   "type": "array"
-// }
+// A list of URLs referencing the images to be displayed on the
+// sign-in screen screensaver.
 message DeviceScreensaverImagesProto {
-  optional string device_screensaver_images = 1;
+  repeated string device_screensaver_images = 1;
+};
+
+message DeviceSystemAecEnabledProto {
+  optional bool device_system_aec_enabled = 1;
 };
 
 message DeviceScreensaverEnabledProto {
@@ -1965,4 +1960,5 @@ message ChromeDeviceSettingsProto {
   optional DeviceScreensaverImageDisplayIntervalSecondsProto
       device_screensaver_image_display_interval_seconds = 144;
   optional DeviceScreensaverImagesProto device_screensaver_images = 145;
+  optional DeviceSystemAecEnabledProto device_system_aec_enabled = 146;
 }

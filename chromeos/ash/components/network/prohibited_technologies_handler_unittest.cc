@@ -20,6 +20,7 @@
 #include "chromeos/ash/components/network/network_state_handler.h"
 #include "chromeos/ash/components/network/network_state_test_helper.h"
 #include "chromeos/ash/components/network/onc/network_onc_utils.h"
+#include "chromeos/ash/components/network/technology_state_controller.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/cros_system_api/dbus/service_constants.h"
 
@@ -41,6 +42,9 @@ class ProhibitedTechnologiesHandlerTest : public testing::Test {
 
     helper_.manager_test()->AddTechnology(shill::kTypeCellular,
                                           true /* enabled */);
+    technology_state_controller_ =
+        base::WrapUnique(new TechnologyStateController());
+    technology_state_controller_->Init(helper_.network_state_handler());
 
     network_config_handler_ = NetworkConfigurationHandler::InitializeForTest(
         helper_.network_state_handler(), nullptr /* network_device_handler */);
@@ -61,7 +65,8 @@ class ProhibitedTechnologiesHandlerTest : public testing::Test {
         prohibited_technologies_handler_.get());
 
     prohibited_technologies_handler_->Init(managed_config_handler_.get(),
-                                           helper_.network_state_handler());
+                                           helper_.network_state_handler(),
+                                           technology_state_controller_.get());
 
     base::RunLoop().RunUntilIdle();
 
@@ -102,19 +107,21 @@ class ProhibitedTechnologiesHandlerTest : public testing::Test {
     if (user_policy) {
       managed_config_handler_->SetPolicy(::onc::ONC_SOURCE_USER_POLICY,
                                          helper_.UserHash(),
-                                         base::Value(base::Value::Type::LIST),
-                                         base::Value(global_config.Clone()));
+                                         base::Value::List(), global_config);
     } else {
       managed_config_handler_->SetPolicy(::onc::ONC_SOURCE_DEVICE_POLICY,
                                          std::string(),  // no username hash
-                                         base::Value(base::Value::Type::LIST),
-                                         base::Value(global_config.Clone()));
+                                         base::Value::List(), global_config);
     }
     base::RunLoop().RunUntilIdle();
   }
 
   NetworkStateHandler* network_state_handler() {
     return helper_.network_state_handler();
+  }
+
+  TechnologyStateController* technology_state_controller() {
+    return technology_state_controller_.get();
   }
 
   base::Value::Dict global_config_disable_wifi;
@@ -127,6 +134,7 @@ class ProhibitedTechnologiesHandlerTest : public testing::Test {
   NetworkStateTestHelper helper_{false /* use_default_devices_and_services */};
 
   std::unique_ptr<NetworkConfigurationHandler> network_config_handler_;
+  std::unique_ptr<TechnologyStateController> technology_state_controller_;
   std::unique_ptr<ManagedNetworkConfigurationHandlerImpl>
       managed_config_handler_;
   std::unique_ptr<NetworkProfileHandler> network_profile_handler_;
@@ -169,9 +177,9 @@ TEST_F(ProhibitedTechnologiesHandlerTest,
       NetworkTypePattern::Cellular()));
 
   // Can not enable it back
-  network_state_handler()->SetTechnologyEnabled(
+  technology_state_controller()->SetTechnologiesEnabled(
       NetworkTypePattern::WiFi(), true, network_handler::ErrorCallback());
-  network_state_handler()->SetTechnologyEnabled(
+  technology_state_controller()->SetTechnologiesEnabled(
       NetworkTypePattern::Cellular(), true, network_handler::ErrorCallback());
   base::RunLoop().RunUntilIdle();
   EXPECT_FALSE(
@@ -181,9 +189,9 @@ TEST_F(ProhibitedTechnologiesHandlerTest,
 
   // Can enable Cellular back after modifying policy
   SetupPolicy(global_config_disable_wifi, false);
-  network_state_handler()->SetTechnologyEnabled(
+  technology_state_controller()->SetTechnologiesEnabled(
       NetworkTypePattern::WiFi(), true, network_handler::ErrorCallback());
-  network_state_handler()->SetTechnologyEnabled(
+  technology_state_controller()->SetTechnologiesEnabled(
       NetworkTypePattern::Cellular(), true, network_handler::ErrorCallback());
   base::RunLoop().RunUntilIdle();
   EXPECT_FALSE(
@@ -208,7 +216,7 @@ TEST_F(ProhibitedTechnologiesHandlerTest,
   // Enabling it back
   prohibited_technologies_handler_->RemoveGloballyProhibitedTechnology(
       shill::kTypeWifi);
-  network_state_handler()->SetTechnologyEnabled(
+  technology_state_controller()->SetTechnologiesEnabled(
       NetworkTypePattern::WiFi(), true, network_handler::ErrorCallback());
   base::RunLoop().RunUntilIdle();
   EXPECT_TRUE(
@@ -232,7 +240,7 @@ TEST_F(ProhibitedTechnologiesHandlerTest,
   // Should be prohibited after adding to globally prohibited list
   prohibited_technologies_handler_->AddGloballyProhibitedTechnology(
       shill::kTypeCellular);
-  network_state_handler()->SetTechnologyEnabled(
+  technology_state_controller()->SetTechnologiesEnabled(
       NetworkTypePattern::Cellular(), true, network_handler::ErrorCallback());
   base::RunLoop().RunUntilIdle();
   EXPECT_FALSE(network_state_handler()->IsTechnologyEnabled(
@@ -241,7 +249,7 @@ TEST_F(ProhibitedTechnologiesHandlerTest,
   // Should be prohibited after removing from globally prohibited list
   prohibited_technologies_handler_->RemoveGloballyProhibitedTechnology(
       shill::kTypeCellular);
-  network_state_handler()->SetTechnologyEnabled(
+  technology_state_controller()->SetTechnologiesEnabled(
       NetworkTypePattern::Cellular(), true, network_handler::ErrorCallback());
   base::RunLoop().RunUntilIdle();
   EXPECT_FALSE(network_state_handler()->IsTechnologyEnabled(
@@ -249,7 +257,7 @@ TEST_F(ProhibitedTechnologiesHandlerTest,
 
   // Should not be prohibited after updating session prohibited list.
   SetupPolicy(global_config_disable_wifi, false);
-  network_state_handler()->SetTechnologyEnabled(
+  technology_state_controller()->SetTechnologiesEnabled(
       NetworkTypePattern::Cellular(), true, network_handler::ErrorCallback());
   base::RunLoop().RunUntilIdle();
   EXPECT_TRUE(network_state_handler()->IsTechnologyEnabled(

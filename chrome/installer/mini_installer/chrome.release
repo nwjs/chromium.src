@@ -100,6 +100,8 @@ WidevineCdm\_platform_specific\win_x86\widevinecdm.dll: %(ChromeDir)s\WidevineCd
 WidevineCdm\_platform_specific\win_x86\widevinecdm.dll.sig: %(ChromeDir)s\WidevineCdm\_platform_specific\win_x86\
 WidevineCdm\_platform_specific\win_x64\widevinecdm.dll: %(ChromeDir)s\WidevineCdm\_platform_specific\win_x64\
 WidevineCdm\_platform_specific\win_x64\widevinecdm.dll.sig: %(ChromeDir)s\WidevineCdm\_platform_specific\win_x64\
+WidevineCdm\_platform_specific\win_arm64\widevinecdm.dll: %(ChromeDir)s\WidevineCdm\_platform_specific\win_arm64\
+WidevineCdm\_platform_specific\win_arm64\widevinecdm.dll.sig: %(ChromeDir)s\WidevineCdm\_platform_specific\win_arm64\
 
 [SNAPSHOTBLOB]
 # The snapshot_blob.bin V8 snapshot is needed in builds that don't use

@@ -334,8 +334,9 @@ void NetworkListViewControllerImpl::OnGetNetworkStateList(
     } else {
       RemoveAndResetViewIfExists(&unknown_header_);
     }
-    network_item_index = CreateJoinWifiEntry(network_item_index);
-    if (!is_wifi_enabled_) {
+    if (is_wifi_enabled_) {
+      network_item_index = CreateJoinWifiEntry(network_item_index);
+    } else {
       RemoveAndResetViewIfExists(&join_wifi_entry_);
     }
     network_detailed_network_view()->ReorderNetworkListView(index++);
@@ -410,8 +411,9 @@ size_t NetworkListViewControllerImpl::ShowConnectionWarningIfNetworkMonitored(
       MaybeShowConnectionWarningManagedIcon(using_proxy);
     }
 
+    // The warning messages are shown in the ethernet section.
     network_detailed_network_view()
-        ->GetNetworkList(NetworkType::kAll)
+        ->GetNetworkList(NetworkType::kEthernet)
         ->ReorderChildView(connection_warning_, index++);
   } else if (connected_vpn_guid_.empty() && !using_proxy) {
     HideConnectionWarning();
@@ -678,7 +680,14 @@ void NetworkListViewControllerImpl::UpdateWifiSection() {
                                     /*is_on=*/is_wifi_enabled_,
                                     /*animate_toggle=*/true);
 
+  if (features::IsQsRevampEnabled()) {
+    network_detailed_network_view()->UpdateWifiStatus(is_wifi_enabled_);
+  }
+
   if (!is_wifi_enabled_) {
+    if (features::IsQsRevampEnabled()) {
+      return;
+    }
     CreateInfoLabelIfMissingAndUpdate(IDS_ASH_STATUS_TRAY_NETWORK_WIFI_DISABLED,
                                       &wifi_status_message_);
   } else if (!has_wifi_networks_) {
@@ -751,6 +760,9 @@ void NetworkListViewControllerImpl::UpdateMobileToggleAndSetStatusMessage() {
           &mobile_status_message_);
       return;
     }
+    if (features::IsQsRevampEnabled()) {
+      network_detailed_network_view()->UpdateMobileStatus(cellular_enabled);
+    }
 
     if (cellular_enabled) {
       if (has_mobile_networks_) {
@@ -763,8 +775,10 @@ void NetworkListViewControllerImpl::UpdateMobileToggleAndSetStatusMessage() {
       return;
     }
 
-    CreateInfoLabelIfMissingAndUpdate(
-        IDS_ASH_STATUS_TRAY_NETWORK_MOBILE_DISABLED, &mobile_status_message_);
+    if (!features::IsQsRevampEnabled()) {
+      CreateInfoLabelIfMissingAndUpdate(
+          IDS_ASH_STATUS_TRAY_NETWORK_MOBILE_DISABLED, &mobile_status_message_);
+    }
     return;
   }
 
@@ -921,8 +935,9 @@ void NetworkListViewControllerImpl::ShowConnectionWarning(
 
   connection_warning->SetID(static_cast<int>(
       NetworkListViewControllerViewChildId::kConnectionWarning));
+  // The warning messages are shown in the ethernet section.
   connection_warning_ = network_detailed_network_view()
-                            ->GetNetworkList(NetworkType::kAll)
+                            ->GetNetworkList(NetworkType::kEthernet)
                             ->AddChildView(std::move(connection_warning));
 }
 
@@ -972,7 +987,7 @@ void NetworkListViewControllerImpl::RequestScan() {
 void NetworkListViewControllerImpl::FocusLastSelectedView() {
   views::View* selected_view = nullptr;
   views::View* parent_view =
-      network_detailed_network_view()->GetNetworkList(NetworkType::kWiFi);
+      network_detailed_network_view()->GetNetworkList(NetworkType::kAll);
   for (const auto& [network_id, view] : network_id_to_view_map_) {
     // The within_bounds check is necessary when the network list goes beyond
     // the visible area (i.e. scrolling) and the mouse is below the tray pop-up.

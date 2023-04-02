@@ -31,7 +31,7 @@ namespace extensions {
 AppWindowContentsImpl::AppWindowContentsImpl(AppWindow* host, std::unique_ptr<content::WebContents> web_contents)
   :host_(host), web_contents_(std::move(web_contents)) {}
 
-AppWindowContentsImpl::~AppWindowContentsImpl() {}
+AppWindowContentsImpl::~AppWindowContentsImpl() = default;
 
 void AppWindowContentsImpl::Initialize(content::BrowserContext* context,
                                        content::RenderFrameHost* creator_frame,

@@ -154,13 +154,14 @@ class GPU_GLES2_EXPORT CompoundImageBacking : public SharedImageBacking {
       std::unique_ptr<SharedMemoryImageBacking> shm_backing,
       base::WeakPtr<SharedImageBackingFactory> gpu_backing_factory);
 
-  void OnMemoryDump(const std::string& dump_name,
-                    base::trace_event::MemoryAllocatorDumpGuid client_guid,
-                    base::trace_event::ProcessMemoryDump* pmd,
-                    uint64_t client_tracing_id) override;
+  base::trace_event::MemoryAllocatorDump* OnMemoryDump(
+      const std::string& dump_name,
+      base::trace_event::MemoryAllocatorDumpGuid client_guid,
+      base::trace_event::ProcessMemoryDump* pmd,
+      uint64_t client_tracing_id) override;
 
   // Returns a SkPixmap for shared memory backing.
-  std::vector<SkPixmap> GetSharedMemoryPixmaps();
+  const std::vector<SkPixmap>& GetSharedMemoryPixmaps();
 
   // Returns the element used for access stream.
   ElementHolder& GetElement(SharedImageAccessStream stream);

@@ -9,10 +9,12 @@
 #include <string>
 #include <utility>
 
+#include "ash/constants/ash_features.h"
 #include "base/check.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/test/gmock_callback_support.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
 #include "chromeos/ash/components/cryptohome/system_salt_getter.h"
@@ -22,6 +24,7 @@
 #include "chromeos/ash/components/dbus/userdataauth/cryptohome_misc_client.h"
 #include "chromeos/ash/components/dbus/userdataauth/mock_userdataauth_client.h"
 #include "chromeos/ash/components/dbus/userdataauth/userdataauth_client.h"
+#include "chromeos/ash/components/login/auth/auth_metrics_recorder.h"
 #include "chromeos/ash/components/login/auth/mock_auth_status_consumer.h"
 #include "chromeos/ash/components/login/auth/mock_safe_mode_delegate.h"
 #include "chromeos/ash/components/login/auth/public/auth_failure.h"
@@ -212,6 +215,9 @@ class AuthSessionAuthenticatorTest : public ::testing::Test {
   const AccountId kAccountId = AccountId::FromUserEmail(kEmail);
 
   AuthSessionAuthenticatorTest() {
+    auth_metrics_recorder_ = AuthMetricsRecorder::CreateForTesting();
+    auth_metrics_recorder_->OnAuthenticationSurfaceChange(
+        AuthMetricsRecorder::AuthenticationSurface::kLogin);
     CryptohomeMiscClient::InitializeFake();
     SystemSaltGetter::Initialize();
     UserDataAuthClient::OverrideGlobalInstanceForTesting(&userdataauth_);
@@ -226,10 +232,15 @@ class AuthSessionAuthenticatorTest : public ::testing::Test {
         .WillOnce([this](const AuthFailure& error) {
           on_auth_failure_future_.SetValue(error);
         });
-    EXPECT_CALL(auth_status_consumer_, OnPasswordChangeDetected(_))
+    EXPECT_CALL(auth_status_consumer_, OnPasswordChangeDetectedLegacy(_))
         .Times(AtMost(1))
         .WillOnce([this](const UserContext& user_context) {
           on_password_change_detected_future_.SetValue(user_context);
+        });
+    EXPECT_CALL(auth_status_consumer_, OnPasswordChangeDetected(_))
+        .Times(AtMost(1))
+        .WillOnce([this](std::unique_ptr<UserContext> user_context) {
+          on_password_change_detected_future_.SetValue(*user_context);
         });
     EXPECT_CALL(auth_status_consumer_, OnOffTheRecordAuthSuccess())
         .Times(AtMost(1))
@@ -279,6 +290,8 @@ class AuthSessionAuthenticatorTest : public ::testing::Test {
     return on_off_the_record_auth_success_future_;
   }
 
+  base::test::ScopedFeatureList feature_list_;
+
  private:
   base::test::SingleThreadTaskEnvironment task_environment_;
   base::test::TestFuture<UserContext> on_auth_success_future_;
@@ -292,6 +305,7 @@ class AuthSessionAuthenticatorTest : public ::testing::Test {
   // Unowned (points to the object owned by `authenticator_`).
   MockSafeModeDelegate* safe_mode_delegate_ = nullptr;
   TestingPrefServiceSimple local_state_;
+  std::unique_ptr<AuthMetricsRecorder> auth_metrics_recorder_;
 };
 
 // Test the `CompleteLogin()` method in the new regular user scenario.
@@ -367,6 +381,44 @@ TEST_F(AuthSessionAuthenticatorTest, CompleteLoginRegularExisting) {
 // existing regular user.
 TEST_F(AuthSessionAuthenticatorTest,
        CompleteLoginRegularExistingPasswordChange) {
+  feature_list_.InitAndDisableFeature(ash::features::kCryptohomeRecovery);
+  // Arrange.
+  CreateAuthenticator(/*is_ephemeral_mount_enforced=*/false);
+  auto user_context = std::make_unique<UserContext>(
+      user_manager::USER_TYPE_REGULAR, kAccountId);
+  user_context->SetKey(Key(kPassword));
+  EXPECT_CALL(userdataauth(),
+              StartAuthSession(WithAccountIdAndFlags(AUTH_SESSION_FLAGS_NONE,
+                                                     AUTH_INTENT_DECRYPT),
+                               _))
+      .WillOnce(ReplyWith(BuildStartReply(
+          kFirstAuthSessionId,
+          /*user_exists=*/true,
+          /*factors=*/{PasswordFactor(kCryptohomeGaiaKeyLabel)})));
+  // Set up the cryptohome authentication request to return a failure, since
+  // we're simulating the case when it only knows about the old password.
+  EXPECT_CALL(userdataauth(),
+              AuthenticateAuthFactor(
+                  AllOf(WithFirstAuthSessionId(),
+                        WithPasswordFactorAuth(kCryptohomeGaiaKeyLabel)),
+                  _))
+      .WillOnce(ReplyWith(BuildAuthenticateFactorFailureReply()));
+
+  // Act.
+  authenticator().CompleteLogin(std::move(user_context));
+  const UserContext got_user_context =
+      on_password_change_detected_future().Get();
+
+  // Assert.
+  EXPECT_EQ(got_user_context.GetAccountId(), kAccountId);
+  EXPECT_EQ(got_user_context.GetAuthSessionId(), kFirstAuthSessionId);
+}
+
+// Test the `CompleteLogin()` method in the password change scenario for the
+// existing regular user.
+TEST_F(AuthSessionAuthenticatorTest,
+       CompleteLoginRegularExistingPasswordChangeRecoveryEnabled) {
+  feature_list_.InitAndEnableFeature(ash::features::kCryptohomeRecovery);
   // Arrange.
   CreateAuthenticator(/*is_ephemeral_mount_enforced=*/false);
   auto user_context = std::make_unique<UserContext>(

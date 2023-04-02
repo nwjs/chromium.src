@@ -130,7 +130,6 @@ ADDITIONAL_PATHS_FILENAME = 'additional_readme_paths.json'
 #   - Nested third_party code inside other third_party libraries.
 ADDITIONAL_PATHS = (
     os.path.join('content', 'nw'),
-    os.path.join('chrome', 'common', 'extensions', 'docs', 'examples'),
     os.path.join('chrome', 'test', 'chromeos', 'autotest'),
     os.path.join('chrome', 'test', 'data'),
     os.path.join('native_client'),

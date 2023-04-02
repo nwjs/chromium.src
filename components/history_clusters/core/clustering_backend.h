@@ -7,10 +7,9 @@
 
 #include "base/functional/callback.h"
 #include "components/history/core/browser/history_types.h"
+#include "components/history_clusters/core/history_clusters_types.h"
 
 namespace history_clusters {
-
-enum class ClusteringRequestSource { kKeywordCacheGeneration, kJourneysPage };
 
 // An abstract interface for a swappable clustering backend.
 class ClusteringBackend {
@@ -33,15 +32,16 @@ class ClusteringBackend {
                            std::vector<history::AnnotatedVisit> visits,
                            bool requires_ui_and_triggerability) = 0;
 
-  // Gets the displayable variant of `clusters` that will be shown on various UI
-  // surfaces. This will merge similar clusters, rank visits within the cluster,
-  // as well as provide a label. Will return results asynchronously via
-  // `callback`.
-  //
-  // TODO(sophiechang): When we support more than one surface, add an enum for
-  //   which UI surface we want to calculate for.
-  virtual void GetClustersForUI(ClustersCallback callback,
-                                std::vector<history::Cluster> clusters) = 0;
+  // Gets the displayable variant of `clusters` that will be shown on the UI
+  // surface associated with `clustering_request_source`. This will merge
+  // similar clusters, rank visits within the cluster, as well as provide a
+  // label. All returned cluster(s) will match `filter_params`. Will return
+  // results asynchronously via `callback`.
+  virtual void GetClustersForUI(
+      ClusteringRequestSource clustering_request_source,
+      QueryClustersFilterParams filter_params,
+      ClustersCallback callback,
+      std::vector<history::Cluster> clusters) = 0;
 
   // Gets the metadata required for cluster triggerability (e.g. keywords,
   // whether to show on prominent UI surfaces) for each cluster in `clusters`.

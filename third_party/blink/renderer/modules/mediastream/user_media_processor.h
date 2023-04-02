@@ -28,10 +28,6 @@
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 
-namespace gfx {
-class Size;
-}
-
 namespace blink {
 class AudioCaptureSettings;
 class LocalFrame;
@@ -103,6 +99,7 @@ class MODULES_EXPORT UserMediaProcessor
   void OnDeviceRequestStateChange(
       const MediaStreamDevice& device,
       const mojom::blink::MediaStreamStateChange new_state);
+  void OnDeviceCaptureConfigurationChange(const MediaStreamDevice& device);
   void OnDeviceCaptureHandleChange(const MediaStreamDevice& device);
 
   void set_media_stream_dispatcher_host_for_testing(
@@ -175,8 +172,6 @@ class MODULES_EXPORT UserMediaProcessor
       const String& label,
       const Vector<String>& device_ids,
       const Vector<media::VideoCaptureFormat>& formats);
-
-  gfx::Size GetScreenSize();
 
   void OnStreamGenerationFailed(
       int32_t request_id,

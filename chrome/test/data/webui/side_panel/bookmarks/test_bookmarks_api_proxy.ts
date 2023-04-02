@@ -36,6 +36,7 @@ export class TestBookmarksApiProxy extends TestBrowserProxy implements
       'contextMenuDelete',
       'copyBookmark',
       'createFolder',
+      'editBookmarks',
       'deleteBookmarks',
       'pasteToBookmark',
       'renameBookmark',
@@ -109,12 +110,18 @@ export class TestBookmarksApiProxy extends TestBrowserProxy implements
     return Promise.resolve();
   }
 
-  createFolder(parentId: string, title: string) {
+  createFolder(parentId: string, title: string):
+      Promise<chrome.bookmarks.BookmarkTreeNode> {
     this.methodCalled('createFolder', parentId, title);
+    return Promise.resolve({id: '0', title: 'foo'});
   }
 
   cutBookmark(id: string) {
     this.methodCalled('cutBookmark', id);
+  }
+
+  editBookmarks(ids: string[], newParentId: string|undefined) {
+    this.methodCalled('editBookmarks', ids, newParentId);
   }
 
   deleteBookmarks(ids: string[]) {

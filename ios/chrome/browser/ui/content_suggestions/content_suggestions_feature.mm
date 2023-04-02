@@ -47,10 +47,6 @@ const char kContentSuggestionsUIModuleRefreshMinimizeSpacingParam[] =
 const char kContentSuggestionsUIModuleRefreshRemoveHeadersParam[] =
     "remove_headers";
 
-BASE_FEATURE(kHideMVTAndShortcutsForNewUsers,
-             "HideMostVisitedAndShortcutsForNewUsers",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Feature disabled by default.
 BASE_FEATURE(kTrendingQueriesModule,
              "TrendingQueriesModule",
@@ -74,10 +70,6 @@ const char kDiscoverFeedIsNativeUIEnabled[] = "DiscoverFeedIsNativeUIEnabled";
 
 bool IsDiscoverFeedEnabled() {
   return base::FeatureList::IsEnabled(kDiscoverFeedInNtp);
-}
-
-bool IsHideMVTAndShortcutsEnabled() {
-  return base::FeatureList::IsEnabled(kHideMVTAndShortcutsForNewUsers);
 }
 
 // Returns true if the client is bucketed into an enabled experiment group of

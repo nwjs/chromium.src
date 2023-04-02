@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_UI_VIEWS_DOWNLOAD_BUBBLE_DOWNLOAD_TOOLBAR_BUTTON_VIEW_H_
 
 #include "base/memory/raw_ptr.h"
+#include "base/timer/timer.h"
 #include "chrome/browser/download/bubble/download_display.h"
 #include "chrome/browser/download/bubble/download_icon_state.h"
 #include "chrome/browser/download/download_ui_model.h"
@@ -52,7 +53,7 @@ class DownloadToolbarButtonView : public ToolbarButton,
   bool IsShowing() override;
   void Enable() override;
   void Disable() override;
-  void UpdateDownloadIcon() override;
+  void UpdateDownloadIcon(bool show_animation) override;
   void ShowDetails() override;
   void HideDetails() override;
   bool IsShowingDetails() override;
@@ -68,6 +69,9 @@ class DownloadToolbarButtonView : public ToolbarButton,
   void OpenSecurityDialog(DownloadBubbleRowView* download_row_view) override;
   void CloseDialog(views::Widget::ClosedReason reason) override;
   void ResizeDialog() override;
+
+  // Deactivates the automatic closing of the partial bubble.
+  void DeactivateAutoClose();
 
   DownloadBubbleUIController* bubble_controller() {
     return bubble_controller_.get();
@@ -95,11 +99,22 @@ class DownloadToolbarButtonView : public ToolbarButton,
   void CreateBubbleDialogDelegate(std::unique_ptr<View> bubble_contents_view);
   void OnBubbleDelegateDeleted();
 
+  // Creates a timer to track the auto-close task. Does not start the timer.
+  void CreateAutoCloseTimer();
+
+  // Called to automatically close the partial view, if such closing has not
+  // been deactivated.
+  void AutoClosePartialView();
+
   // Get the primary view, which may be the full or the partial view.
   std::unique_ptr<View> GetPrimaryView();
   // Create a scrollable row list view for either the full or the partial view.
   std::unique_ptr<View> CreateRowListView(
       std::vector<DownloadUIModel::DownloadUIModelPtr> model_list);
+
+  // If |has_pending_download_started_animation_| is true, shows an animation of
+  // a download icon moving upwards towards the toolbar icon.
+  void ShowPendingDownloadStartedAnimation();
 
   SkColor GetProgressColor(bool is_disabled, bool is_active) const;
 
@@ -112,6 +127,16 @@ class DownloadToolbarButtonView : public ToolbarButton,
   raw_ptr<views::BubbleDialogDelegate> bubble_delegate_ = nullptr;
   raw_ptr<View> primary_view_ = nullptr;
   raw_ptr<DownloadBubbleSecurityView> security_view_ = nullptr;
+
+  // Marks whether there is a pending download started animation. This is needed
+  // because the animation should only be triggered after the view has been
+  // laid out properly, so this provides a way to remember to show the animation
+  // if needed, when calling Layout().
+  bool has_pending_download_started_animation_ = false;
+
+  // Tracks the task to automatically close the partial view after some amount
+  // of time open, to minimize disruption to the user.
+  std::unique_ptr<base::RetainingOneShotTimer> auto_close_bubble_timer_;
 
   // RenderTexts used for the number in the badge. Stores the text for "n" at
   // index n - 1, and stores the text for the placeholder ("9+") at index 0.

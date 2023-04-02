@@ -8,6 +8,7 @@
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/app_window/app_window_registry.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/profiles/profile_manager.h"
 
 #include "base/feature_list.h"
 #include "base/functional/bind.h"

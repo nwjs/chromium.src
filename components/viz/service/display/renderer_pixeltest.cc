@@ -38,6 +38,7 @@
 #include "components/viz/common/quads/yuv_video_draw_quad.h"
 #include "components/viz/common/resources/bitmap_allocation.h"
 #include "components/viz/common/resources/resource_format_utils.h"
+#include "components/viz/common/resources/shared_image_format.h"
 #include "components/viz/common/switches.h"
 #include "components/viz/service/display/delegated_ink_point_pixel_test_helper.h"
 #include "components/viz/service/display/software_renderer.h"
@@ -64,15 +65,23 @@
 #include "ui/gfx/geometry/transform_util.h"
 #include "ui/gfx/test/icc_profiles.h"
 #include "ui/gfx/video_types.h"
+#include "ui/gl/gl_implementation.h"
 
 namespace viz {
 namespace {
-
 const gfx::DisplayColorSpaces kRec601DisplayColorSpaces(
     gfx::ColorSpace(gfx::ColorSpace::PrimaryID::SMPTE170M,
                     gfx::ColorSpace::TransferID::SMPTE170M));
 
 #if !BUILDFLAG(IS_ANDROID)
+
+constexpr char kANGLEMetalStr[] = "_angle_metal";
+
+bool IsANGLEMetal() {
+  return gl::GetGLImplementationParts() ==
+         gl::GLImplementationParts(gl::ANGLEImplementation::kMetal);
+}
+
 template <typename T>
 base::span<const uint8_t> MakePixelSpan(const std::vector<T>& vec) {
   return base::make_span(reinterpret_cast<const uint8_t*>(vec.data()),
@@ -107,7 +116,7 @@ void DeleteSharedImage(scoped_refptr<ContextProvider> context_provider,
 ResourceId CreateGpuResource(scoped_refptr<ContextProvider> context_provider,
                              ClientResourceProvider* resource_provider,
                              const gfx::Size& size,
-                             ResourceFormat format,
+                             SharedImageFormat format,
                              gfx::ColorSpace color_space,
                              base::span<const uint8_t> pixels) {
   DCHECK(context_provider);
@@ -119,8 +128,8 @@ ResourceId CreateGpuResource(scoped_refptr<ContextProvider> context_provider,
   gpu::SyncToken sync_token = sii->GenUnverifiedSyncToken();
 
   TransferableResource gl_resource = TransferableResource::MakeGpu(
-      mailbox, GL_LINEAR, GL_TEXTURE_2D, sync_token, size, format,
-      false /* is_overlay_candidate */);
+      mailbox, GL_LINEAR, GL_TEXTURE_2D, sync_token, size,
+      format.resource_format(), false /* is_overlay_candidate */);
   gl_resource.color_space = std::move(color_space);
   auto release_callback =
       base::BindOnce(&DeleteSharedImage, std::move(context_provider), mailbox);
@@ -263,9 +272,10 @@ void CreateTestTwoColoredTextureDrawQuad(
 
   ResourceId resource;
   if (gpu_resource) {
-    resource = CreateGpuResource(
-        child_context_provider, child_resource_provider, rect.size(), BGRA_8888,
-        gfx::ColorSpace(), MakePixelSpan(pixels));
+    resource =
+        CreateGpuResource(child_context_provider, child_resource_provider,
+                          rect.size(), SinglePlaneFormat::kBGRA_8888,
+                          gfx::ColorSpace(), MakePixelSpan(pixels));
   } else {
     SharedBitmapId shared_bitmap_id = SharedBitmap::GenerateId();
     base::WritableSharedMemoryMapping mapping =
@@ -325,9 +335,10 @@ void CreateTestTextureDrawQuad(
 
   ResourceId resource;
   if (gpu_resource) {
-    resource = CreateGpuResource(
-        child_context_provider, child_resource_provider, rect.size(), RGBA_8888,
-        gfx::ColorSpace(), MakePixelSpan(pixels));
+    resource =
+        CreateGpuResource(child_context_provider, child_resource_provider,
+                          rect.size(), SinglePlaneFormat::kRGBA_8888,
+                          gfx::ColorSpace(), MakePixelSpan(pixels));
   } else {
     SharedBitmapId shared_bitmap_id = SharedBitmap::GenerateId();
     base::WritableSharedMemoryMapping mapping =
@@ -480,15 +491,15 @@ void CreateTestYUVVideoDrawQuad_FromVideoFrame(
     bits_per_channel = 10;
   }
 
-  ResourceFormat yuv_highbit_resource_format =
-      video_resource_updater->YuvResourceFormat(bits_per_channel);
+  SharedImageFormat yuv_highbit_resource_format =
+      video_resource_updater->YuvSharedImageFormat(bits_per_channel);
 
   float offset = 0.0f;
   float multiplier = 1.0f;
 
-  if (yuv_highbit_resource_format == R16_EXT) {
+  if (yuv_highbit_resource_format == SinglePlaneFormat::kR_16) {
     multiplier = 65535.0f / ((1 << bits_per_channel) - 1);
-  } else if (yuv_highbit_resource_format == LUMINANCE_F16) {
+  } else if (yuv_highbit_resource_format == SinglePlaneFormat::kLUMINANCE_F16) {
     std::unique_ptr<media::HalfFloatMaker> half_float_maker =
         media::HalfFloatMaker::NewHalfFloatMaker(bits_per_channel);
     offset = half_float_maker->Offset();
@@ -771,14 +782,14 @@ void CreateTestYUVVideoDrawQuad_NV12(
   std::vector<uint8_t> y_pixels(ya_tex_size.GetArea(), y);
   ResourceId resource_y = CreateGpuResource(
       child_context_provider, child_resource_provider, ya_tex_size,
-      video_resource_updater->YuvResourceFormat(8), color_space, y_pixels);
+      video_resource_updater->YuvSharedImageFormat(8), color_space, y_pixels);
 
   // U goes in the R component and V goes in the G component.
   uint32_t rgba_pixel = (u << 24) | (v << 16);
   std::vector<uint32_t> uv_pixels(uv_tex_size.GetArea(), rgba_pixel);
   ResourceId resource_u = CreateGpuResource(
-      child_context_provider, child_resource_provider, uv_tex_size, RGBA_8888,
-      color_space, MakePixelSpan(uv_pixels));
+      child_context_provider, child_resource_provider, uv_tex_size,
+      SinglePlaneFormat::kRGBA_8888, color_space, MakePixelSpan(uv_pixels));
   ResourceId resource_v = resource_u;
   ResourceId resource_a = kInvalidResourceId;
 
@@ -1325,7 +1336,7 @@ class IntersectingQuadPixelTest : public VizPixelTestWithParam {
     back_quad_state_->sorting_context_id = 1;
   }
   void AppendBackgroundAndRunTest(const cc::PixelComparator& comparator,
-                                  const base::FilePath::CharType* ref_file) {
+                                  const base::FilePath& ref_file) {
     SharedQuadState* background_quad_state =
         CreateTestSharedQuadState(gfx::Transform(), viewport_rect_,
                                   render_pass_.get(), gfx::MaskFilterInfo());
@@ -1334,8 +1345,7 @@ class IntersectingQuadPixelTest : public VizPixelTestWithParam {
     background_quad->SetNew(background_quad_state, viewport_rect_,
                             viewport_rect_, SkColors::kWhite, false);
     pass_list_.push_back(std::move(render_pass_));
-    EXPECT_TRUE(
-        this->RunPixelTest(&pass_list_, base::FilePath(ref_file), comparator));
+    EXPECT_TRUE(this->RunPixelTest(&pass_list_, ref_file, comparator));
   }
   template <typename T>
   T* CreateAndAppendDrawQuad() {
@@ -1414,7 +1424,7 @@ TEST_P(IntersectingQuadPixelTest, SolidColorQuads) {
                 SkColors::kGreen, false);
   this->AppendBackgroundAndRunTest(
       cc::FuzzyPixelComparator().SetErrorPixelsPercentageLimit(2.f),
-      FILE_PATH_LITERAL("intersecting_blue_green.png"));
+      base::FilePath(FILE_PATH_LITERAL("intersecting_blue_green.png")));
 }
 
 TEST_P(IntersectingQuadPixelTest, TexturedQuads) {
@@ -1436,7 +1446,7 @@ TEST_P(IntersectingQuadPixelTest, TexturedQuads) {
 
   this->AppendBackgroundAndRunTest(
       cc::FuzzyPixelComparator().SetErrorPixelsPercentageLimit(2.f),
-      FILE_PATH_LITERAL("intersecting_blue_green_squares.png"));
+      base::FilePath(FILE_PATH_LITERAL("intersecting_blue_green_squares.png")));
 }
 
 TEST_P(IntersectingQuadPixelTest, NonFlippedTexturedQuads) {
@@ -1462,8 +1472,8 @@ TEST_P(IntersectingQuadPixelTest, NonFlippedTexturedQuads) {
 
   this->AppendBackgroundAndRunTest(
       cc::FuzzyPixelComparator().SetErrorPixelsPercentageLimit(2.f),
-      FILE_PATH_LITERAL(
-          "intersecting_non_flipped_blue_green_half_size_rectangles.png"));
+      base::FilePath(FILE_PATH_LITERAL(
+          "intersecting_non_flipped_blue_green_half_size_rectangles.png")));
 }
 
 TEST_P(IntersectingQuadPixelTest, FlippedTexturedQuads) {
@@ -1489,8 +1499,8 @@ TEST_P(IntersectingQuadPixelTest, FlippedTexturedQuads) {
 
   this->AppendBackgroundAndRunTest(
       cc::FuzzyPixelComparator().SetErrorPixelsPercentageLimit(2.f),
-      FILE_PATH_LITERAL(
-          "intersecting_flipped_blue_green_half_size_rectangles.png"));
+      base::FilePath(FILE_PATH_LITERAL(
+          "intersecting_flipped_blue_green_half_size_rectangles.png")));
 }
 
 TEST_P(IntersectingQuadSoftwareTest, PictureQuads) {
@@ -1544,7 +1554,7 @@ TEST_P(IntersectingQuadSoftwareTest, PictureQuads) {
                      green_raster_source->GetDisplayItemList());
   this->AppendBackgroundAndRunTest(
       cc::FuzzyPixelComparator().SetErrorPixelsPercentageLimit(2.f),
-      FILE_PATH_LITERAL("intersecting_blue_green_squares.png"));
+      base::FilePath(FILE_PATH_LITERAL("intersecting_blue_green_squares.png")));
 }
 
 TEST_P(IntersectingQuadPixelTest, RenderPassQuads) {
@@ -1587,7 +1597,7 @@ TEST_P(IntersectingQuadPixelTest, RenderPassQuads) {
   this->pass_list_.push_back(std::move(child_pass2));
   this->AppendBackgroundAndRunTest(
       cc::FuzzyPixelComparator().SetErrorPixelsPercentageLimit(2.f),
-      FILE_PATH_LITERAL("intersecting_blue_green_squares.png"));
+      base::FilePath(FILE_PATH_LITERAL("intersecting_blue_green_squares.png")));
 }
 
 TEST_P(IntersectingVideoQuadPixelTest, YUVVideoQuads) {
@@ -1614,13 +1624,19 @@ TEST_P(IntersectingVideoQuadPixelTest, YUVVideoQuads) {
       this->resource_provider_.get(), this->child_resource_provider_.get(),
       this->child_context_provider_.get());
 
-  this->AppendBackgroundAndRunTest(
-      cc::FuzzyPixelComparator()
-          .DiscardAlpha()
-          .SetErrorPixelsPercentageLimit(0.50f)
-          .SetAvgAbsErrorLimit(1.2f)
-          .SetAbsErrorLimit(2),
+  base::FilePath baseline = base::FilePath(
       FILE_PATH_LITERAL("intersecting_blue_green_squares_video.png"));
+
+  if (renderer_type() == RendererType::kSkiaGL && IsANGLEMetal()) {
+    baseline = baseline.InsertBeforeExtensionASCII(kANGLEMetalStr);
+  }
+
+  this->AppendBackgroundAndRunTest(cc::FuzzyPixelComparator()
+                                       .DiscardAlpha()
+                                       .SetErrorPixelsPercentageLimit(0.50f)
+                                       .SetAvgAbsErrorLimit(1.2f)
+                                       .SetAbsErrorLimit(2),
+                                   baseline);
 }
 
 TEST_P(IntersectingVideoQuadPixelTest, Y16VideoQuads) {
@@ -1645,9 +1661,15 @@ TEST_P(IntersectingVideoQuadPixelTest, Y16VideoQuads) {
       this->resource_provider_.get(), this->child_resource_provider_.get(),
       this->child_context_provider_.get());
 
-  this->AppendBackgroundAndRunTest(
-      cc::FuzzyPixelOffByOneComparator(),
+  base::FilePath baseline = base::FilePath(
       FILE_PATH_LITERAL("intersecting_light_dark_squares_video.png"));
+
+  if (renderer_type() == RendererType::kSkiaGL && IsANGLEMetal()) {
+    baseline = baseline.InsertBeforeExtensionASCII(kANGLEMetalStr);
+  }
+
+  this->AppendBackgroundAndRunTest(cc::FuzzyPixelOffByOneComparator(),
+                                   baseline);
 }
 
 // TODO(skaslev): The software renderer does not support non-premultplied alpha.
@@ -2570,7 +2592,8 @@ TEST_P(RendererPixelTest, RenderPassAndMaskWithPartialQuad) {
   if (!is_software_renderer()) {
     mask_resource_id = CreateGpuResource(
         this->child_context_provider_, this->child_resource_provider_.get(),
-        mask_rect.size(), RGBA_8888, gfx::ColorSpace(), MakePixelSpan(bitmap));
+        mask_rect.size(), SinglePlaneFormat::kRGBA_8888, gfx::ColorSpace(),
+        MakePixelSpan(bitmap));
   } else {
     mask_resource_id =
         this->AllocateAndFillSoftwareResource(mask_rect.size(), bitmap);
@@ -2667,7 +2690,8 @@ TEST_P(RendererPixelTest, RenderPassAndMaskWithPartialQuad2) {
   if (!is_software_renderer()) {
     mask_resource_id = CreateGpuResource(
         this->child_context_provider_, this->child_resource_provider_.get(),
-        mask_rect.size(), RGBA_8888, gfx::ColorSpace(), MakePixelSpan(bitmap));
+        mask_rect.size(), SinglePlaneFormat::kRGBA_8888, gfx::ColorSpace(),
+        MakePixelSpan(bitmap));
   } else {
     mask_resource_id =
         this->AllocateAndFillSoftwareResource(mask_rect.size(), bitmap);
@@ -2760,7 +2784,8 @@ TEST_P(RendererPixelTest, RenderPassAndMaskForRoundedCorner) {
   if (!is_software_renderer()) {
     mask_resource_id = CreateGpuResource(
         this->child_context_provider_, this->child_resource_provider_.get(),
-        mask_rect.size(), RGBA_8888, gfx::ColorSpace(), MakePixelSpan(bitmap));
+        mask_rect.size(), SinglePlaneFormat::kRGBA_8888, gfx::ColorSpace(),
+        MakePixelSpan(bitmap));
   } else {
     mask_resource_id =
         this->AllocateAndFillSoftwareResource(mask_rect.size(), bitmap);
@@ -2865,7 +2890,8 @@ TEST_P(RendererPixelTest, RenderPassAndMaskForRoundedCornerMultiRadii) {
   if (!is_software_renderer()) {
     mask_resource_id = CreateGpuResource(
         this->child_context_provider_, this->child_resource_provider_.get(),
-        mask_rect.size(), RGBA_8888, gfx::ColorSpace(), MakePixelSpan(bitmap));
+        mask_rect.size(), SinglePlaneFormat::kRGBA_8888, gfx::ColorSpace(),
+        MakePixelSpan(bitmap));
   } else {
     mask_resource_id =
         this->AllocateAndFillSoftwareResource(mask_rect.size(), bitmap);
@@ -2973,7 +2999,7 @@ class RendererPixelTestWithBackdropFilter : public VizPixelTestWithParam {
       if (!is_software_renderer()) {
         mask_resource_id = CreateGpuResource(
             this->child_context_provider_, this->child_resource_provider_.get(),
-            mask_rect.size(), RGBA_8888, gfx::ColorSpace(),
+            mask_rect.size(), SinglePlaneFormat::kRGBA_8888, gfx::ColorSpace(),
             MakePixelSpan(bitmap));
       } else {
         mask_resource_id =
@@ -3141,11 +3167,16 @@ TEST_P(GPURendererPixelTest, AntiAliasing) {
   AggregatedRenderPassList pass_list;
   pass_list.push_back(std::move(pass));
 
-  EXPECT_TRUE(
-      this->RunPixelTest(&pass_list,
-                         base::FilePath(FILE_PATH_LITERAL("anti_aliasing_.png"))
-                             .InsertBeforeExtensionASCII(this->renderer_str()),
-                         cc::AlphaDiscardingFuzzyPixelOffByOneComparator()));
+  base::FilePath baseline =
+      base::FilePath(FILE_PATH_LITERAL("anti_aliasing_.png"))
+          .InsertBeforeExtensionASCII(this->renderer_str());
+
+  if (renderer_type() == RendererType::kSkiaGL && IsANGLEMetal()) {
+    baseline = baseline.InsertBeforeExtensionASCII(kANGLEMetalStr);
+  }
+
+  EXPECT_TRUE(this->RunPixelTest(
+      &pass_list, baseline, cc::AlphaDiscardingFuzzyPixelOffByOneComparator()));
 }
 
 // Software renderer does not support anti-aliased edges.
@@ -3179,11 +3210,16 @@ TEST_P(GPURendererPixelTest, AntiAliasingPerspective) {
   AggregatedRenderPassList pass_list;
   pass_list.push_back(std::move(pass));
 
-  EXPECT_TRUE(this->RunPixelTest(
-      &pass_list,
+  base::FilePath baseline =
       base::FilePath(FILE_PATH_LITERAL("anti_aliasing_perspective_.png"))
-          .InsertBeforeExtensionASCII(this->renderer_str()),
-      cc::AlphaDiscardingFuzzyPixelOffByOneComparator()));
+          .InsertBeforeExtensionASCII(this->renderer_str());
+
+  if (renderer_type() == RendererType::kSkiaGL && IsANGLEMetal()) {
+    baseline = baseline.InsertBeforeExtensionASCII(kANGLEMetalStr);
+  }
+
+  EXPECT_TRUE(this->RunPixelTest(
+      &pass_list, baseline, cc::AlphaDiscardingFuzzyPixelOffByOneComparator()));
 }
 
 // This test tests that anti-aliasing works for axis aligned quads.
@@ -3326,9 +3362,10 @@ TEST_P(GPURendererPixelTest, TileDrawQuadForceAntiAliasingOff) {
   gfx::Size tile_size(32, 32);
   ResourceId resource;
   if (!is_software_renderer()) {
-    resource = CreateGpuResource(
-        this->child_context_provider_, this->child_resource_provider_.get(),
-        tile_size, RGBA_8888, gfx::ColorSpace(), MakePixelSpan(bitmap));
+    resource = CreateGpuResource(this->child_context_provider_,
+                                 this->child_resource_provider_.get(),
+                                 tile_size, SinglePlaneFormat::kRGBA_8888,
+                                 gfx::ColorSpace(), MakePixelSpan(bitmap));
   } else {
     resource = this->AllocateAndFillSoftwareResource(tile_size, bitmap);
   }
@@ -3468,10 +3505,15 @@ TEST_P(GPURendererPixelTest, TrilinearFiltering) {
         base::FilePath(FILE_PATH_LITERAL("trilinear_filtering_skia_vk.png")),
         cc::AlphaDiscardingExactPixelComparator()));
   } else {
-    EXPECT_TRUE(this->RunPixelTest(
-        &pass_list,
-        base::FilePath(FILE_PATH_LITERAL("trilinear_filtering.png")),
-        cc::AlphaDiscardingExactPixelComparator()));
+    base::FilePath baseline =
+        base::FilePath(FILE_PATH_LITERAL("trilinear_filtering.png"));
+
+    if (renderer_type() == RendererType::kSkiaGL && IsANGLEMetal()) {
+      baseline = baseline.InsertBeforeExtensionASCII(kANGLEMetalStr);
+    }
+
+    EXPECT_TRUE(this->RunPixelTest(&pass_list, baseline,
+                                   cc::AlphaDiscardingExactPixelComparator()));
   }
 }
 
@@ -3807,9 +3849,10 @@ TEST_P(RendererPixelTest, TileDrawQuadNearestNeighbor) {
   gfx::Size tile_size(2, 2);
   ResourceId resource;
   if (!is_software_renderer()) {
-    resource = CreateGpuResource(
-        this->child_context_provider_, this->child_resource_provider_.get(),
-        tile_size, RGBA_8888, gfx::ColorSpace(), MakePixelSpan(bitmap));
+    resource = CreateGpuResource(this->child_context_provider_,
+                                 this->child_resource_provider_.get(),
+                                 tile_size, SinglePlaneFormat::kRGBA_8888,
+                                 gfx::ColorSpace(), MakePixelSpan(bitmap));
   } else {
     resource = this->AllocateAndFillSoftwareResource(tile_size, bitmap);
   }
@@ -4283,7 +4326,8 @@ TEST_P(GPURendererPixelTest, TextureQuadBatching) {
 
   ResourceId resource = CreateGpuResource(
       this->child_context_provider_, this->child_resource_provider_.get(),
-      mask_rect.size(), RGBA_8888, gfx::ColorSpace(), MakePixelSpan(bitmap));
+      mask_rect.size(), SinglePlaneFormat::kRGBA_8888, gfx::ColorSpace(),
+      MakePixelSpan(bitmap));
 
   // Return the mapped resource id.
   std::unordered_map<ResourceId, ResourceId, ResourceIdHasher> resource_map =
@@ -4359,9 +4403,10 @@ TEST_P(GPURendererPixelTest, TileQuadClamping) {
 
   ResourceId resource;
   if (!is_software_renderer()) {
-    resource = CreateGpuResource(
-        this->child_context_provider_, this->child_resource_provider_.get(),
-        tile_size, RGBA_8888, gfx::ColorSpace(), MakePixelSpan(bitmap));
+    resource = CreateGpuResource(this->child_context_provider_,
+                                 this->child_resource_provider_.get(),
+                                 tile_size, SinglePlaneFormat::kRGBA_8888,
+                                 gfx::ColorSpace(), MakePixelSpan(bitmap));
   } else {
     resource = this->AllocateAndFillSoftwareResource(tile_size, bitmap);
   }
@@ -4468,7 +4513,8 @@ TEST_P(GPURendererPixelTest, RoundedCornerSimpleTextureDrawQuad) {
                             0, 0, 255, 255, 0, 0, 255, 255};
   ResourceId resource = CreateGpuResource(
       this->child_context_provider_, this->child_resource_provider_.get(),
-      gfx::Size(2, 2), RGBA_8888, gfx::ColorSpace(), colors);
+      gfx::Size(2, 2), SinglePlaneFormat::kRGBA_8888, gfx::ColorSpace(),
+      colors);
 
   std::unordered_map<ResourceId, ResourceId, ResourceIdHasher> resource_map =
       cc::SendResourceAndGetChildToParentMap(
@@ -4958,7 +5004,8 @@ class ColorTransformPixelTest
 
       ResourceId resource = CreateGpuResource(
           this->child_context_provider_, this->child_resource_provider_.get(),
-          rect.size(), RGBA_8888, this->src_color_space_, input_colors);
+          rect.size(), SinglePlaneFormat::kRGBA_8888, this->src_color_space_,
+          input_colors);
 
       // Return the mapped resource id.
       std::unordered_map<ResourceId, ResourceId, ResourceIdHasher>

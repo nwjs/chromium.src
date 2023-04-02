@@ -287,6 +287,13 @@ void TabsEventRouter::TabGroupedStateChanged(
   DispatchTabUpdatedEvent(contents, std::move(changed_property_names));
 }
 
+void TabsEventRouter::OnZoomControllerDestroyed(
+    zoom::ZoomController* zoom_controller) {
+  if (zoom_scoped_observations_.IsObservingSource(zoom_controller)) {
+    zoom_scoped_observations_.RemoveObservation(zoom_controller);
+  }
+}
+
 void TabsEventRouter::OnZoomChanged(
     const ZoomController::ZoomChangedEventData& data) {
   DCHECK(data.web_contents);
@@ -612,8 +619,8 @@ void TabsEventRouter::DispatchTabUpdatedEvent(
 void TabsEventRouter::RegisterForTabNotifications(WebContents* contents) {
   favicon_scoped_observations_.AddObservation(
       favicon::ContentFaviconDriver::FromWebContents(contents));
-
-  ZoomController::FromWebContents(contents)->AddObserver(this);
+  zoom_scoped_observations_.AddObservation(
+      ZoomController::FromWebContents(contents));
 
   int tab_id = ExtensionTabUtil::GetTabId(contents);
   DCHECK(tab_entries_.find(tab_id) == tab_entries_.end());
@@ -621,10 +628,12 @@ void TabsEventRouter::RegisterForTabNotifications(WebContents* contents) {
 }
 
 void TabsEventRouter::UnregisterForTabNotifications(WebContents* contents) {
+  if (auto* zoom_controller = ZoomController::FromWebContents(contents);
+      zoom_scoped_observations_.IsObservingSource(zoom_controller)) {
+    zoom_scoped_observations_.RemoveObservation(zoom_controller);
+  }
   favicon_scoped_observations_.RemoveObservation(
       favicon::ContentFaviconDriver::FromWebContents(contents));
-
-  ZoomController::FromWebContents(contents)->RemoveObserver(this);
 
   int tab_id = ExtensionTabUtil::GetTabId(contents);
   int removed_count = tab_entries_.erase(tab_id);

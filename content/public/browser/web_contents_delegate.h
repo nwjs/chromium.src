@@ -17,6 +17,7 @@
 #include "build/build_config.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/eye_dropper.h"
+#include "content/public/browser/fullscreen_types.h"
 #include "content/public/browser/invalidate_type.h"
 #include "content/public/browser/media_stream_request.h"
 #include "content/public/browser/serial_chooser.h"
@@ -321,7 +322,7 @@ class CONTENT_EXPORT WebContentsDelegate {
   // CreateCustomWebContents() below to provide their own WebContents.
   virtual bool IsWebContentsCreationOverridden(
       SiteInstance* source_site_instance,
-      content::mojom::WindowContainerType window_container_type,
+      mojom::WindowContainerType window_container_type,
       const GURL& opener_url,
       const std::string& frame_name,
       const GURL& target_url);
@@ -462,16 +463,12 @@ class CONTENT_EXPORT WebContentsDelegate {
   // Called when the renderer puts a tab out of fullscreen mode.
   virtual void ExitFullscreenModeForTab(WebContents*) {}
 
-  // Returns true if the given `web_contents` is, or is transitioning to
-  // tab-fullscreen.
+  // Returns true if `web_contents` is, or is transitioning to, tab-fullscreen.
   virtual bool IsFullscreenForTabOrPending(const WebContents* web_contents);
 
-  // Overload of IsFullscreenForTabOrPending which also outputs the current or
-  // target display of the fullscreen tab. If the function returns true and
-  // `display_id` is not nullptr, the target display ID of the tab will be
-  // written to `display_id`.
-  virtual bool IsFullscreenForTabOrPending(const WebContents* web_contents,
-                                           int64_t* display_id);
+  // Returns fullscreen state information about the given `web_contents`.
+  virtual FullscreenState GetFullscreenState(
+      const WebContents* web_contents) const;
 
   // Returns the actual display mode of the top-level browsing context.
   // For example, it should return 'blink::mojom::DisplayModeFullscreen'
@@ -551,10 +548,9 @@ class CONTENT_EXPORT WebContentsDelegate {
   // request is denied, a call should be made to |callback| with an empty list
   // of devices. |request| has the details of the request (e.g. which of audio
   // and/or video devices are requested, and lists of available devices).
-  virtual void RequestMediaAccessPermission(
-      WebContents* web_contents,
-      const MediaStreamRequest& request,
-      content::MediaResponseCallback callback);
+  virtual void RequestMediaAccessPermission(WebContents* web_contents,
+                                            const MediaStreamRequest& request,
+                                            MediaResponseCallback callback);
 
   // Checks if we have permission to access the microphone or camera. Note that
   // this does not query the user. |type| must be MEDIA_DEVICE_AUDIO_CAPTURE
@@ -613,7 +609,7 @@ class CONTENT_EXPORT WebContentsDelegate {
   // default behavior is suppressed.
   virtual bool SaveFrame(const GURL& url,
                          const Referrer& referrer,
-                         content::RenderFrameHost* rfh);
+                         RenderFrameHost* rfh);
 
   // Called when a suspicious navigation of the main frame has been blocked.
   // Allows the delegate to provide some UI to let the user know about the
@@ -709,10 +705,10 @@ class CONTENT_EXPORT WebContentsDelegate {
   // indication that the cache will be used.
   virtual bool IsBackForwardCacheSupported();
 
-  // Returns content::PreloadingEligibility::kEligible if Prerender2 (see
+  // Returns PreloadingEligibility::kEligible if Prerender2 (see
   // content/browser/preloading/prerender/README.md for details) is supported.
   // If it is not supported, returns the reason.
-  virtual content::PreloadingEligibility IsPrerender2Supported(
+  virtual PreloadingEligibility IsPrerender2Supported(
       WebContents& web_contents);
 
   // Requests the delegate to replace |predecessor_contents| with
@@ -737,21 +733,6 @@ class CONTENT_EXPORT WebContentsDelegate {
   // eviction and displayed until a new frame is generated. If false, a white
   // solid color is displayed instead.
   virtual bool ShouldShowStaleContentOnEviction(WebContents* source);
-
-  // Returns the user-visible WebContents that is responsible for the activity
-  // in the provided WebContents. For example, this delegate may be aware that
-  // the contents is embedded in some other contents, or hosts background
-  // activity on behalf of a user-visible tab which should be used to display
-  // dialogs and similar affordances to the user.
-  //
-  // This may be distinct from the outer web contents (for example, the
-  // responsible contents may logically "own" a contents but not currently embed
-  // it for rendering).
-  //
-  // For most delegates (where the WebContents is a tab, window or other
-  // directly user-visible feature), simply returning the contents is
-  // appropriate.
-  virtual WebContents* GetResponsibleWebContents(WebContents* web_contents);
 
   // Invoked when media playback is interrupted or completed.
   virtual void MediaWatchTimeChanged(const MediaPlayerWatchTime& watch_time) {}

@@ -6,7 +6,10 @@
 
 #include <memory>
 
+#include "ash/accessibility/accessibility_controller_impl.h"
 #include "ash/capture_mode/capture_mode_constants.h"
+#include "ash/capture_mode/capture_mode_controller.h"
+#include "ash/capture_mode/capture_mode_session.h"
 #include "ash/capture_mode/capture_mode_util.h"
 #include "ash/capture_mode/key_combo_view.h"
 #include "ash/capture_mode/pointer_highlight_layer.h"
@@ -19,6 +22,7 @@
 #include "base/containers/unique_ptr_adapters.h"
 #include "base/location.h"
 #include "base/notreached.h"
+#include "ui/base/ime/constants.h"
 #include "ui/base/ime/input_method.h"
 #include "ui/base/ime/text_input_client.h"
 #include "ui/base/ime/text_input_type.h"
@@ -38,12 +42,19 @@ namespace ash {
 namespace {
 
 constexpr float kHighlightLayerFinalOpacity = 0.f;
-constexpr float kHighlightLayerInitialScale = 0.1f;
+
+// Make the initial value as small as possible so that the dot is not visible in
+// the center of the ripple.
+constexpr float kHighlightLayerInitialScale = 0.0001f;
 constexpr float kHighlightLayerFinalScale = 1.0f;
 constexpr float kTouchHighlightLayerTouchDownScale = 56.f / 72;
 constexpr base::TimeDelta kMouseScaleUpDuration = base::Milliseconds(1500);
 constexpr base::TimeDelta kTouchDownScaleUpDuration = base::Milliseconds(200);
 constexpr base::TimeDelta kTouchUpScaleUpDuration = base::Milliseconds(1000);
+constexpr int kSpaceBetweenKeyComboAndCaptureBar = 8;
+
+constexpr int kModifiersToConsider = ui::EF_COMMAND_DOWN | ui::EF_CONTROL_DOWN |
+                                     ui::EF_ALT_DOWN | ui::EF_SHIFT_DOWN;
 
 int GetModifierFlagForKeyCode(ui::KeyboardCode key_code) {
   switch (key_code) {
@@ -70,10 +81,12 @@ int GetModifierFlagForKeyCode(ui::KeyboardCode key_code) {
 // Includes non-modifier keys that can be shown independently without a modifier
 // key being pressed.
 constexpr ui::KeyboardCode kNotNeedingModifierKeys[] = {
-    ui::VKEY_COMMAND,
+    ui::VKEY_CAPITAL,
     ui::VKEY_RWIN,
     ui::VKEY_ESCAPE,
     ui::VKEY_TAB,
+    ui::VKEY_RETURN,
+    ui::VKEY_BACK,
     ui::VKEY_BROWSER_BACK,
     ui::VKEY_BROWSER_FORWARD,
     ui::VKEY_BROWSER_REFRESH,
@@ -87,7 +100,9 @@ constexpr ui::KeyboardCode kNotNeedingModifierKeys[] = {
     ui::VKEY_UP,
     ui::VKEY_DOWN,
     ui::VKEY_LEFT,
-    ui::VKEY_RIGHT};
+    ui::VKEY_RIGHT,
+    ui::VKEY_ASSISTANT,
+    ui::VKEY_SETTINGS};
 
 // Returns true if `key_code` is a non-modifier key for which a `KeyComboViewer`
 // can be shown even if there are no modifier keys are currently pressed.
@@ -103,6 +118,12 @@ views::Widget::InitParams CreateWidgetParams(
   params.child = true;
   params.name = "KeyComboWidget";
   return params;
+}
+
+bool IsKeyEventFromVirtualKeyboard(const ui::KeyEvent* event) {
+  const auto* event_properties = event->properties();
+  return event_properties &&
+         event_properties->find(ui::kPropertyFromVK) != event_properties->end();
 }
 
 }  // namespace
@@ -166,6 +187,12 @@ void CaptureModeDemoToolsController::PerformMousePressAnimation(
 void CaptureModeDemoToolsController::RefreshBounds() {
   if (key_combo_widget_) {
     key_combo_widget_->SetBounds(CalculateKeyComboWidgetBounds());
+
+    // Update the autoclick menu bounds and sticky overlay bounds if it collides
+    // with the bounds of the `key_combo_widget_`.
+    Shell::Get()
+        ->accessibility_controller()
+        ->UpdateFloatingPanelBoundsIfNeeded();
   }
 }
 
@@ -199,8 +226,17 @@ void CaptureModeDemoToolsController::OnTextInputStateChanged(
 
 void CaptureModeDemoToolsController::OnKeyUpEvent(ui::KeyEvent* event) {
   const ui::KeyboardCode key_code = event->key_code();
-  const int modifier_flag = GetModifierFlagForKeyCode(key_code);
-  modifiers_ &= ~modifier_flag;
+
+  if (IsKeyEventFromVirtualKeyboard(event)) {
+    // The virtual keyboard does not send key up events for modifier keys, such
+    // as 'Ctrl' or 'Alt'. Therefore on key up of non-modifier key we clear the
+    // `modifiers_` and rely on `Event::flags()` to refill it properly when we
+    // get a key down event from a virtual keyboard.
+    modifiers_ = 0;
+  } else {
+    const int modifier_flag = GetModifierFlagForKeyCode(key_code);
+    modifiers_ &= ~modifier_flag;
+  }
 
   if (last_non_modifier_key_ == key_code) {
     last_non_modifier_key_ = ui::VKEY_UNKNOWN;
@@ -243,16 +279,28 @@ void CaptureModeDemoToolsController::OnKeyDownEvent(ui::KeyEvent* event) {
   const ui::KeyboardCode key_code = event->key_code();
 
   // Return directly if it is a repeated key event for non-modifier key.
-  if (key_code == last_non_modifier_key_)
+  if (key_code == last_non_modifier_key_) {
     return;
+  }
 
   key_up_refresh_timer_.Stop();
 
   const int modifier_flag = GetModifierFlagForKeyCode(key_code);
-  modifiers_ |= modifier_flag;
+  const bool is_vk_event = IsKeyEventFromVirtualKeyboard(event);
 
-  if (modifier_flag == ui::EF_NONE)
+  // For key event coming from on-screen keyboard, `event->flags()` will reflect
+  // the currently pressed modifier key(s). For key event coming from physical
+  // keyboard, `GetModifierFlagForKeyCode()` will give us the currently pressed
+  // modifier key.
+  if (is_vk_event) {
+    modifiers_ |= (event->flags() & kModifiersToConsider);
+  } else {
+    modifiers_ |= modifier_flag;
+  }
+
+  if (modifier_flag == ui::EF_NONE) {
     last_non_modifier_key_ = key_code;
+  }
 
   RefreshKeyComboViewer();
 }
@@ -290,9 +338,26 @@ gfx::Rect CaptureModeDemoToolsController::CalculateKeyComboWidgetBounds()
           ? confine_bounds.right() - preferred_size.width() -
                 capture_mode::kKeyWidgetBorderPadding
           : confine_bounds.CenterPoint().x() - preferred_size.width() / 2;
-  const int key_combo_y = confine_bounds.bottom() -
-                          capture_mode::kKeyWidgetDistanceFromBottom -
-                          preferred_size.height();
+
+  int key_combo_y = confine_bounds.bottom() -
+                    capture_mode::kKeyWidgetDistanceFromBottom -
+                    preferred_size.height();
+
+  // Check the existence of capture mode bar and re-calculate `key_combo_y` to
+  // avoid collision.
+  auto* capture_mode_controller = CaptureModeController::Get();
+  if (capture_mode_controller->IsActive() &&
+      video_recording_watcher_->recording_source() !=
+          CaptureModeSource::kWindow) {
+    auto* capture_bar_widget = capture_mode_controller->capture_mode_session()
+                                   ->capture_mode_bar_widget();
+    DCHECK(capture_bar_widget);
+    key_combo_y = std::min(key_combo_y,
+                           capture_bar_widget->GetWindowBoundsInScreen().y() -
+                               kSpaceBetweenKeyComboAndCaptureBar -
+                               preferred_size.height());
+  }
+
   return gfx::Rect(gfx::Point(key_combo_x, key_combo_y), preferred_size);
 }
 
@@ -353,7 +418,14 @@ void CaptureModeDemoToolsController::OnTouchUp(
     const ui::PointerId& pointer_id,
     const gfx::PointF& event_location_in_window) {
   auto iter = touch_pointer_id_to_highlight_layer_map_.find(pointer_id);
-  DCHECK(iter != touch_pointer_id_to_highlight_layer_map_.end());
+
+  // Touch up may happen without been registered to
+  // `touch_pointer_id_to_highlight_layer_map_` for example a touch down may
+  // happen before video recording starts and touch up happens after video
+  // recording starts.
+  if (iter == touch_pointer_id_to_highlight_layer_map_.end()) {
+    return;
+  }
 
   std::unique_ptr<PointerHighlightLayer> touch_highlight_layer =
       std::move(iter->second);
@@ -383,8 +455,12 @@ void CaptureModeDemoToolsController::OnTouchUp(
 void CaptureModeDemoToolsController::OnTouchDragged(
     const ui::PointerId& pointer_id,
     const gfx::PointF& event_location_in_window) {
-  auto* highlight_layer =
-      touch_pointer_id_to_highlight_layer_map_[pointer_id].get();
+  auto iter = touch_pointer_id_to_highlight_layer_map_.find(pointer_id);
+  if (iter == touch_pointer_id_to_highlight_layer_map_.end()) {
+    return;
+  }
+
+  auto* highlight_layer = iter->second.get();
   DCHECK(highlight_layer);
   highlight_layer->CenterAroundPoint(event_location_in_window);
 }

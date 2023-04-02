@@ -10,7 +10,6 @@
 #include "ash/system/video_conference/effects/video_conference_tray_effects_manager_types.h"
 #include "ash/system/video_conference/video_conference_tray_controller.h"
 #include "ui/views/controls/label.h"
-#include "ui/views/controls/separator.h"
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/box_layout_view.h"
 #include "ui/views/layout/flex_layout.h"
@@ -20,9 +19,8 @@ namespace ash::video_conference {
 
 namespace {
 
-// A view with label (for the effect name) that allows the user to select from
-// one of several integer values. TODO(b/253273036) Implement this as a
-// tab-slider view instead of a radio switch.
+// A view with a label (for the effect name) and a tab slider that allows the
+// user to select from one of several integer values.
 class ValueButtonContainer : public views::View {
  public:
   explicit ValueButtonContainer(const VcHostedEffect* effect) {
@@ -52,14 +50,17 @@ class ValueButtonContainer : public views::View {
       label_container->SetFlexForView(spacer_view, 1);
     }
 
+    // If a container ID has been provided then assign it, otherwise assign the
+    // default ID.
+    SetID(effect->container_id().value_or(
+        BubbleViewID::kSingleSetValueEffectView));
+
     // `effect` is expected to provide the current state of the effect, and
     // a `current_state` with no value means it couldn't be obtained.
     absl::optional<int> current_state = effect->get_state_callback().Run();
     DCHECK(current_state.has_value());
 
-    auto tab_slider = std::make_unique<TabSlider>(
-        /*has_background=*/true, /*has_selector_animation=*/true,
-        /*distribute_space_evenly=*/true);
+    auto tab_slider = std::make_unique<TabSlider>();
     const int num_states = effect->GetNumStates();
     DCHECK_LE(num_states, 3) << "UX Requests no more than 3 states, otherwise "
                                 "the bubble will need to be wider.";
@@ -68,6 +69,8 @@ class ValueButtonContainer : public views::View {
       auto* slider_button =
           tab_slider->AddButton(std::make_unique<IconLabelSliderButton>(
               state->button_callback(), state->icon(), state->label_text()));
+
+      DCHECK(state->state().has_value());
       slider_button->SetSelected(state->state().value() == current_state);
 
       // See comments above `kSetValueButton*` in `BubbleViewID` for details

@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "ash/ash_export.h"
 #include "ash/capture_mode/capture_mode_metrics.h"
@@ -245,6 +246,10 @@ class ASH_EXPORT CaptureModeController
   // 'kRegion', but in window's coordinate when it is 'kWindow' type.
   gfx::Rect GetCaptureSurfaceConfineBounds() const;
 
+  // Returns the windows that to be avoided for collision with other system
+  // windows such as the PIP window and the automatic click bubble menu.
+  std::vector<aura::Window*> GetWindowsForCollisionAvoidance() const;
+
   // recording::mojom::RecordingServiceClient:
   void OnRecordingEnded(recording::mojom::RecordingStatus status,
                         const gfx::ImageSkia& thumbnail) override;
@@ -266,8 +271,9 @@ class ASH_EXPORT CaptureModeController
   void StartVideoRecordingImmediatelyForTesting();
 
   // Restores the capture mode configurations that include the `type_`,
-  // `source_` and `enable_audio_recording_` if any of them gets overridden in
-  // the projector-initiated capture mode session.
+  // `source_`, `enable_audio_recording_`, `recording_type_` and
+  // `enable_demo_tools_` if any of them gets overridden in the
+  // projector-initiated capture mode session.
   void MaybeRestoreCachedCaptureConfigurations();
 
   CaptureModeDelegate* delegate_for_testing() const { return delegate_.get(); }
@@ -285,7 +291,9 @@ class ASH_EXPORT CaptureModeController
   struct CaptureSessionConfigs {
     CaptureModeType type;
     CaptureModeSource source;
+    RecordingType recording_type;
     bool audio_on;
+    bool demo_tools_enabled;
   };
 
   // Called by |video_recording_watcher_| when the display on which recording is

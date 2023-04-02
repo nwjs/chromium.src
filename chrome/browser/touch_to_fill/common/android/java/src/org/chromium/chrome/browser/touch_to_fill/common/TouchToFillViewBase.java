@@ -16,6 +16,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.chromium.base.Callback;
+import org.chromium.chrome.browser.util.ChromeAccessibilityUtil;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
@@ -27,7 +28,7 @@ import org.chromium.ui.base.ViewUtils;
  * This is a base class for the Touch to Fill View classes.
  */
 public abstract class TouchToFillViewBase implements BottomSheetContent {
-    private static final int MAX_FULLY_VISIBLE_CREDENTIAL_COUNT = 2;
+    private static final int MAX_FULLY_VISIBLE_CREDENTIAL_COUNT = 3;
 
     private final BottomSheetController mBottomSheetController;
     private final RelativeLayout mContentView;
@@ -60,12 +61,6 @@ public abstract class TouchToFillViewBase implements BottomSheetContent {
     protected abstract View getHandlebar();
 
     /**
-     * Used to access the footer to measure it.
-     * @return the {@link View} containing footer items in the {@link BottomSheet}.
-     */
-    protected abstract View getFooter();
-
-    /**
      * Used to access the list of suggestions to measure it.
      * @return the {@link RecyclerView} containing the suggestions in the {@link BottomSheet}.
      */
@@ -88,6 +83,12 @@ public abstract class TouchToFillViewBase implements BottomSheetContent {
      * @return the item type of the suggestions in the list on the {@link BottomSheet}.
      */
     protected abstract int listedItemType();
+
+    /**
+     * Used as a helper for the suggestion list height calculation.
+     * @return the item type of the footer on the {@link BottomSheet}.
+     */
+    protected abstract int footerItemType();
 
     public TouchToFillViewBase(
             BottomSheetController bottomSheetController, RelativeLayout contentView) {
@@ -122,11 +123,11 @@ public abstract class TouchToFillViewBase implements BottomSheetContent {
      * If set to true, requests to show the bottom sheet. Otherwise, requests to hide the sheet.
      *
      * @param isVisible A boolean describing whether to show or hide the sheet.
-     * @return True if the request was successful, false otherwise.
+     * @return True if the request was successful, false otherwise
      */
     public boolean setVisible(boolean isVisible) {
         if (isVisible) {
-            remeasure(false);
+            remeasure();
             mBottomSheetController.addObserver(mBottomSheetObserver);
             if (!mBottomSheetController.requestShowContent(this, true)) {
                 mBottomSheetController.removeObserver(mBottomSheetObserver);
@@ -148,7 +149,7 @@ public abstract class TouchToFillViewBase implements BottomSheetContent {
     }
 
     /**
-     * Returns the height of the full state. Must show the footer items permanently. For up to three
+     * Returns the height of the full state. Must show the footer items permanently. For up to four
      * suggestions, the sheet usually cannot fill the screen.
      *
      * @return the full state height in pixels. Never 0. Can theoretically exceed the screen height.
@@ -163,16 +164,15 @@ public abstract class TouchToFillViewBase implements BottomSheetContent {
         if (requiredMaxHeight <= mBottomSheetController.getContainerHeight()) {
             return requiredMaxHeight;
         }
-        // If the footer would move off-screen, make it sticky and update the layout.
-        remeasure(true);
+        remeasure();
         ViewUtils.requestLayout(mContentView, "TouchToFillView.getMaximumSheetHeightPx");
         return getHeightWhenFullyExtendedPx();
     }
 
     /**
      * Returns the height of the half state. Does not show the footer items. For 1 suggestion  (plus
-     * fill button) or 2 suggestions, it shows all items fully. For 3+ suggestions, it shows the
-     * first 2.5 suggestion to encourage scrolling.
+     * fill button), 2 or 3 suggestions, it shows all items fully. For 4+ suggestions, it shows the
+     * first 3.5 suggestion to encourage scrolling.
      *
      * @return the half state height in pixels. Never 0. Can theoretically exceed the screen height.
      */
@@ -181,22 +181,15 @@ public abstract class TouchToFillViewBase implements BottomSheetContent {
             // TODO(crbug.com/1330933): Assert this condition in setVisible. Should never happen.
             return BottomSheetContent.HeightMode.DEFAULT;
         }
-        return getHeightWithMarginsPx(getHandlebar(), false)
+        int height = getHeightWithMarginsPx(getHandlebar(), false)
                 + getSheetItemListHeightWithMarginsPx(true);
+        return height;
     }
 
     private @Px int getHeightWhenFullyExtendedPx() {
         assert mContentView.getMeasuredHeight() > 0 : "ContentView hasn't been measured.";
         int height = getHeightWithMarginsPx(getHandlebar(), false)
                 + getSheetItemListHeightWithMarginsPx(false);
-        View footer = getFooter();
-        if (footer.getMeasuredHeight() == 0) {
-            // This can happen when bottom sheet container layout changes, apparently causing
-            // the footer layout to be invalidated. Measure the content view again.
-            remeasure(true);
-            ViewUtils.requestLayout(footer, "TouchToFillView.getHeightWhenFullyExtendedPx");
-        }
-        height += getHeightWithMarginsPx(footer, false);
         return height;
     }
 
@@ -207,7 +200,13 @@ public abstract class TouchToFillViewBase implements BottomSheetContent {
         int visibleItems = 0;
         for (int posInSheet = 0; posInSheet < mSheetItemListView.getChildCount(); posInSheet++) {
             View child = mSheetItemListView.getChildAt(posInSheet);
-            if (isListedItem(child)) visibleItems++;
+            if (isListedItem(child)) {
+                // Counting how many clickable suggestions are displayed.
+                visibleItems++;
+            } else if (showOnlyInitialItems && isFooterItem(child)) {
+                // If we want to show only the initial items, the footer should remain hidden.
+                return totalHeight + getConclusiveMarginHeightPx();
+            }
             if (showOnlyInitialItems && visibleItems > MAX_FULLY_VISIBLE_CREDENTIAL_COUNT) {
                 // If the current item is the last to be shown, skip remaining elements and margins.
                 totalHeight += getHeightWithMarginsPx(child, true);
@@ -215,8 +214,6 @@ public abstract class TouchToFillViewBase implements BottomSheetContent {
             }
             totalHeight += getHeightWithMarginsPx(child, false);
         }
-        // Since the last element is fully visible, add the conclusive margin.
-        totalHeight += getConclusiveMarginHeightPx();
         return totalHeight;
     }
 
@@ -237,22 +234,10 @@ public abstract class TouchToFillViewBase implements BottomSheetContent {
 
     /**
      * Measures the content of the bottom sheet.
-     * @param useStickyFooter indicates if the footer should be shown permanently.
      */
-    protected void remeasure(boolean useStickyFooter) {
-        RelativeLayout.LayoutParams footerLayoutParams =
-                (RelativeLayout.LayoutParams) getFooter().getLayoutParams();
+    protected void remeasure() {
         RelativeLayout.LayoutParams sheetItemListLayoutParams =
                 (RelativeLayout.LayoutParams) mSheetItemListView.getLayoutParams();
-        if (useStickyFooter) {
-            sheetItemListLayoutParams.addRule(RelativeLayout.ABOVE, getFooter().getId());
-            footerLayoutParams.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
-            footerLayoutParams.removeRule(RelativeLayout.BELOW);
-        } else {
-            sheetItemListLayoutParams.removeRule(RelativeLayout.ABOVE);
-            footerLayoutParams.removeRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
-            footerLayoutParams.addRule(RelativeLayout.BELOW, getItemList().getId());
-        }
         mContentView.measure(
                 View.MeasureSpec.makeMeasureSpec(getInsetDisplayWidthPx(), MeasureSpec.AT_MOST),
                 MeasureSpec.UNSPECIFIED);
@@ -269,6 +254,11 @@ public abstract class TouchToFillViewBase implements BottomSheetContent {
     private boolean isListedItem(View childInSheetView) {
         int posInAdapter = mSheetItemListView.getChildAdapterPosition(childInSheetView);
         return mSheetItemListView.getAdapter().getItemViewType(posInAdapter) == listedItemType();
+    }
+
+    private boolean isFooterItem(View childInSheetView) {
+        int posInAdapter = mSheetItemListView.getChildAdapterPosition(childInSheetView);
+        return mSheetItemListView.getAdapter().getItemViewType(posInAdapter) == footerItemType();
     }
 
     @Nullable
@@ -294,7 +284,8 @@ public abstract class TouchToFillViewBase implements BottomSheetContent {
 
     @Override
     public boolean skipHalfStateOnScrollingDown() {
-        return false;
+        // Skip the half state if TalkBack is enabled.
+        return ChromeAccessibilityUtil.get().isTouchExplorationEnabled();
     }
 
     @Override
@@ -311,6 +302,8 @@ public abstract class TouchToFillViewBase implements BottomSheetContent {
 
     @Override
     public float getHalfHeightRatio() {
+        // Disable the half state when TalkBack is on.
+        if (ChromeAccessibilityUtil.get().isTouchExplorationEnabled()) return HeightMode.DISABLED;
         return Math.min(getDesiredSheetHeightPx(), mBottomSheetController.getContainerHeight())
                 / (float) mBottomSheetController.getContainerHeight();
     }

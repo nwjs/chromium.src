@@ -9,9 +9,8 @@ import json
 import logging
 import optparse
 import re
-from typing import FrozenSet
 
-from blinkpy.common.net.git_cl import BuildStatuses, GitCL, TryJobStatus
+from blinkpy.common.net.git_cl import GitCL, TryJobStatus
 from blinkpy.common.net.rpc import Build, RPCError
 from blinkpy.common.path_finder import PathFinder
 from blinkpy.tool.commands.build_resolver import (
@@ -63,7 +62,7 @@ class RebaselineCL(AbstractParallelRebaselineCommand):
         type='int',
         help='Patchset number to fetch results from.')
 
-    def __init__(self):
+    def __init__(self, tool):
         super(RebaselineCL, self).__init__(options=[
             self.only_changed_tests_option,
             self.no_trigger_jobs_option,
@@ -80,8 +79,10 @@ class RebaselineCL(AbstractParallelRebaselineCommand):
             self.test_name_file_option,
             optparse.make_option(
                 '--builders',
-                default=None,
-                action='append',
+                default=set(),
+                type='string',
+                callback=self._check_builders,
+                action='callback',
                 help=('Comma-separated-list of builders to pull new baselines '
                       'from (can also be provided multiple times).')),
             self.patchset_option,
@@ -94,9 +95,33 @@ class RebaselineCL(AbstractParallelRebaselineCommand):
             self.dry_run_option,
             self.results_directory_option,
         ])
+        self._tool = tool
         self.git_cl = None
         self._builders = []
         self._resultdb_fetcher = False
+
+    def _check_builders(self, option, _opt_str, value, parser):
+        selected_builders = getattr(parser.values, option.dest, set())
+        # This set includes CQ builders, whereas `builder_for_rebaselining()`
+        # does not.
+        allowed_builders = {
+            builder
+            for builder in self._tool.builders.all_try_builder_names()
+            if not self._tool.builders.uses_wptrunner(builder)
+        }
+        for builder in value.split(','):
+            if builder in allowed_builders:
+                selected_builders.add(builder)
+            else:
+                lines = [
+                    "'%s' is not a try builder." % builder,
+                    '',
+                    "The try builders that 'rebaseline-cl' recognizes are:",
+                ]
+                lines.extend('  * %s' % builder
+                             for builder in sorted(allowed_builders))
+                raise optparse.OptionValueError('\n'.join(lines))
+        setattr(parser.values, option.dest, selected_builders)
 
     def execute(self, options, args, tool):
         self._tool = tool
@@ -132,8 +157,10 @@ class RebaselineCL(AbstractParallelRebaselineCommand):
             _log.error('%s', error)
             return 1
 
-        builders_with_infra_failures = self._warn_about_infra_failures(
-            build_statuses)
+        builders_with_infra_failures = {
+            build.builder_name
+            for build in GitCL.filter_infra_failed(build_statuses)
+        }
         jobs_to_results = self._fetch_results(build_statuses)
         builders_with_results = {b.builder_name for b in jobs_to_results}
         builders_without_results = (set(self.selected_try_bots) -
@@ -178,32 +205,6 @@ class RebaselineCL(AbstractParallelRebaselineCommand):
         self.rebaseline(options, test_baseline_set)
         return 0
 
-    def _warn_about_infra_failures(
-            self,
-            build_statuses: BuildStatuses,
-    ) -> FrozenSet[str]:
-        builders_with_infra_failures = {
-            build.builder_name
-            for build, status in build_statuses.items()
-            if status == TryJobStatus.from_bb_status('INFRA_FAILURE')
-        }
-        if builders_with_infra_failures:
-            _log.warning('Some builders have infrastructure failures:')
-            for builder in sorted(builders_with_infra_failures):
-                _log.warning('  %s', builder)
-            _log.warning('Examples of infrastructure failures include:')
-            _log.warning('  * Shard terminated the harness after timing out.')
-            _log.warning('  * Harness exited early due to '
-                         'excessive unexpected failures.')
-            _log.warning('  * Build failed on a non-test step.')
-            _log.warning('Please consider retrying the failed builders or '
-                         'giving the builders more shards.')
-            _log.warning(
-                'See https://chromium.googlesource.com/chromium/src/+/'
-                'HEAD/docs/testing/web_test_expectations.md'
-                '#rebaselining-using-try-jobs')
-        return builders_with_infra_failures
-
     def check_ok_to_run(self):
         unstaged_baselines = self.unstaged_baselines()
         if unstaged_baselines:
@@ -215,26 +216,9 @@ class RebaselineCL(AbstractParallelRebaselineCommand):
 
     @property
     def selected_try_bots(self):
-        try_builders = set()
         if self._builders:
-            for builder_names in self._builders:
-                try_builders.update(builder_names.split(','))
-        else:
-            try_builders.update(
-                self._tool.builders.builders_for_rebaselining())
-
-        return set([
-            builder for builder in try_builders
-            if not self._tool.builders.uses_wptrunner(builder)
-        ])
-
-    @property
-    def cq_try_bots(self):
-        return frozenset(self._tool.builders.all_cq_try_builder_names())
-
-    @property
-    def try_bots_with_cq_mirror(self):
-        return self._tool.builders.try_bots_with_cq_mirror()
+            return set(self._builders)
+        return self._tool.builders.builders_for_rebaselining()
 
     def _fetch_results(self, jobs):
         """Fetches results for all of the given builds.

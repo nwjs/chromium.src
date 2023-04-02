@@ -78,7 +78,6 @@ import org.junit.runner.RunWith;
 import org.chromium.base.Callback;
 import org.chromium.base.GarbageCollectionTestUtils;
 import org.chromium.base.metrics.RecordHistogram;
-import org.chromium.base.test.metrics.HistogramTestRule;
 import org.chromium.base.test.util.ApplicationTestUtils;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
@@ -86,6 +85,7 @@ import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
+import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.compositor.layouts.Layout;
@@ -178,9 +178,6 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
                     .setRevision(1)
                     .setBugComponent(ChromeRenderTestRule.Component.UI_BROWSER_MOBILE_START)
                     .build();
-
-    @Rule
-    public HistogramTestRule mHistogramTester = new HistogramTestRule();
 
     @SuppressWarnings("FieldCanBeLocal")
     private EmbeddedTestServer mTestServer;
@@ -767,7 +764,7 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
     // clang-format off
     @DisableIf.Build(message = "Flaky on Android P, see https://crbug.com/1063991",
         sdk_is_greater_than = VERSION_CODES.O_MR1, sdk_is_less_than = VERSION_CODES.Q)
-    public void testIncognitoToggle_tabCount() {
+    public void testIncognitoToggle_tabCount() throws InterruptedException{
         // clang-format on
         mActivityTestRule.loadUrl(mUrl);
         ChromeTabbedActivity cta = mActivityTestRule.getActivity();
@@ -1111,7 +1108,7 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
             ChromeFeatureList.TAB_GROUPS_CONTINUATION_ANDROID + "<Study"})
     @CommandLineFlags.Add({BASE_PARAMS + "/thumbnail_aspect_ratio/0.75/enable_launch_polish/true"})
     @DisabledTest(message = "https://crbug.com/1122657")
-    public void testThumbnailAspectRatio_point75() {
+    public void testThumbnailAspectRatio_point75() throws InterruptedException{
         // clang-format on
         prepareTabs(2, 0, "about:blank");
         enterTabSwitcher(mActivityTestRule.getActivity());
@@ -1164,28 +1161,17 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
     @EnableFeatures({ChromeFeatureList.TAB_TO_GTS_ANIMATION + "<Study"})
     @CommandLineFlags.Add({BASE_PARAMS})
     public void testThumbnailFetchingResult_liveLayer() throws Exception {
+        var histograms = HistogramWatcher.newSingleRecordWatcher(
+                TabContentManager.UMA_THUMBNAIL_FETCHING_RESULT,
+                TabContentManager.ThumbnailFetchingResult.GOT_NOTHING);
+
         prepareTabs(1, 0, "about:blank");
         enterTabSwitcher(mActivityTestRule.getActivity());
         // There might be an additional one from capturing thumbnail for the live layer.
         CriteriaHelper.pollUiThread(
                 () -> Criteria.checkThat(mAllBitmaps.size(), Matchers.greaterThanOrEqualTo(1)));
 
-        assertEquals(0,
-                mHistogramTester.getHistogramValueCount(
-                        TabContentManager.UMA_THUMBNAIL_FETCHING_RESULT,
-                        TabContentManager.ThumbnailFetchingResult.GOT_JPEG));
-        assertEquals(0,
-                mHistogramTester.getHistogramValueCount(
-                        TabContentManager.UMA_THUMBNAIL_FETCHING_RESULT,
-                        TabContentManager.ThumbnailFetchingResult.GOT_ETC1));
-        assertEquals(0,
-                mHistogramTester.getHistogramValueCount(
-                        TabContentManager.UMA_THUMBNAIL_FETCHING_RESULT,
-                        TabContentManager.ThumbnailFetchingResult.GOT_DIFFERENT_ASPECT_RATIO_JPEG));
-        assertEquals(1,
-                mHistogramTester.getHistogramValueCount(
-                        TabContentManager.UMA_THUMBNAIL_FETCHING_RESULT,
-                        TabContentManager.ThumbnailFetchingResult.GOT_NOTHING));
+        histograms.assertExpected();
     }
 
     @Test
@@ -1193,6 +1179,10 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
     @EnableFeatures({ChromeFeatureList.TAB_TO_GTS_ANIMATION + "<Study"})
     @CommandLineFlags.Add({BASE_PARAMS})
     public void testThumbnailFetchingResult_jpeg() throws Exception {
+        var histograms = HistogramWatcher.newSingleRecordWatcher(
+                TabContentManager.UMA_THUMBNAIL_FETCHING_RESULT,
+                TabContentManager.ThumbnailFetchingResult.GOT_JPEG);
+
         prepareTabs(1, 0, "about:blank");
         simulateJpegHasCachedWithDefaultAspectRatio();
 
@@ -1201,22 +1191,7 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
         CriteriaHelper.pollUiThread(
                 () -> Criteria.checkThat(mAllBitmaps.size(), Matchers.greaterThanOrEqualTo(1)));
 
-        assertEquals(1,
-                mHistogramTester.getHistogramValueCount(
-                        TabContentManager.UMA_THUMBNAIL_FETCHING_RESULT,
-                        TabContentManager.ThumbnailFetchingResult.GOT_JPEG));
-        assertEquals(0,
-                mHistogramTester.getHistogramValueCount(
-                        TabContentManager.UMA_THUMBNAIL_FETCHING_RESULT,
-                        TabContentManager.ThumbnailFetchingResult.GOT_ETC1));
-        assertEquals(0,
-                mHistogramTester.getHistogramValueCount(
-                        TabContentManager.UMA_THUMBNAIL_FETCHING_RESULT,
-                        TabContentManager.ThumbnailFetchingResult.GOT_DIFFERENT_ASPECT_RATIO_JPEG));
-        assertEquals(0,
-                mHistogramTester.getHistogramValueCount(
-                        TabContentManager.UMA_THUMBNAIL_FETCHING_RESULT,
-                        TabContentManager.ThumbnailFetchingResult.GOT_NOTHING));
+        histograms.assertExpected();
     }
 
     @Test
@@ -1225,6 +1200,10 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
     @CommandLineFlags.Add({BASE_PARAMS + "/thumbnail_aspect_ratio/2.0/allow_to_refetch/true"})
     @DisabledTest(message = "crbug.com/1315676#c20")
     public void testThumbnailFetchingResult_changingAspectRatio() throws Exception {
+        var histograms = HistogramWatcher.newSingleRecordWatcher(
+                TabContentManager.UMA_THUMBNAIL_FETCHING_RESULT,
+                TabContentManager.ThumbnailFetchingResult.GOT_DIFFERENT_ASPECT_RATIO_JPEG);
+
         prepareTabs(1, 0, "about:blank");
         // Simulate Jpeg has cached with default aspect ratio.
         simulateJpegHasCachedWithDefaultAspectRatio();
@@ -1233,19 +1212,7 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
         CriteriaHelper.pollUiThread(
                 () -> Criteria.checkThat(mAllBitmaps.size(), Matchers.greaterThanOrEqualTo(1)));
 
-        assertEquals(0,
-                mHistogramTester.getHistogramValueCount(
-                        TabContentManager.UMA_THUMBNAIL_FETCHING_RESULT,
-                        TabContentManager.ThumbnailFetchingResult.GOT_JPEG));
-        assertEquals(0,
-                mHistogramTester.getHistogramValueCount(
-                        TabContentManager.UMA_THUMBNAIL_FETCHING_RESULT,
-                        TabContentManager.ThumbnailFetchingResult.GOT_ETC1));
-        assertEquals(1,
-                mHistogramTester.getHistogramValueCount(
-                        TabContentManager.UMA_THUMBNAIL_FETCHING_RESULT,
-                        TabContentManager.ThumbnailFetchingResult.GOT_DIFFERENT_ASPECT_RATIO_JPEG));
-
+        histograms.assertExpected();
         onViewWaiting(tabSwitcherViewMatcher())
                 .check(ThumbnailAspectRatioAssertion.havingAspectRatio(2.0));
     }
@@ -1281,8 +1248,7 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
     // clang-format off
     @EnableFeatures({ChromeFeatureList.TAB_TO_GTS_ANIMATION + "<Study"})
     @CommandLineFlags.Add({BASE_PARAMS + "/thumbnail_aspect_ratio/0.75"})
-    @DisabledTest(message = "https://crbug.com/1367310")
-    public void testExpandTab_withAspectRatioPoint75() {
+    public void testExpandTab_withAspectRatioPoint75() throws InterruptedException {
         // clang-format on
         prepareTabs(1, 0, mUrl);
         enterTabSwitcher(mActivityTestRule.getActivity());
@@ -2084,12 +2050,12 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
     /**
      * If thumbnail checking is not needed, use {@link TabUiTestHelper#leaveTabSwitcher} instead.
      */
-    private void leaveGTSAndVerifyThumbnailsAreReleased() {
+    private void leaveGTSAndVerifyThumbnailsAreReleased() throws InterruptedException {
         assertTrue(mActivityTestRule.getActivity().getLayoutManager().isLayoutVisible(
                 LayoutType.TAB_SWITCHER));
 
         StartSurface startSurface = mTabSwitcherAndStartSurfaceLayout.getStartSurfaceForTesting();
-        TestThreadUtils.runOnUiThreadBlocking(() -> { startSurface.onBackPressed(); });
+        TabUiTestHelper.pressBackOnGts(startSurface);
         // TODO(wychen): using default timeout or even converting to
         //  OverviewModeBehaviorWatcher shouldn't increase flakiness.
         LayoutTestUtils.waitForLayout(

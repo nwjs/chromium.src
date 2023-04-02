@@ -358,6 +358,7 @@ void AwContentBrowserClient::AppendExtraCommandLineSwitches(
         ::switches::kEnableCrashReporter,
         ::switches::kEnableCrashReporterForTesting,
         embedder_support::kOriginTrialDisabledFeatures,
+        embedder_support::kOriginTrialPublicKey,
     };
 
     command_line->CopySwitchesFrom(*base::CommandLine::ForCurrentProcess(),
@@ -1070,8 +1071,7 @@ bool AwContentBrowserClient::SuppressDifferentOriginSubframeJSDialogs(
 
 bool AwContentBrowserClient::ShouldPreconnectNavigation(
     content::BrowserContext* browser_context) {
-  return !base::FeatureList::IsEnabled(
-      features::kWebViewRestrictSensitiveContent);
+  return true;
 }
 
 void AwContentBrowserClient::OnDisplayInsecureContent(
@@ -1088,6 +1088,16 @@ void AwContentBrowserClient::OnDisplayInsecureContent(
 // static
 void AwContentBrowserClient::DisableCreatingThreadPool() {
   g_should_create_thread_pool = false;
+}
+
+bool AwContentBrowserClient::IsAttributionReportingOperationAllowed(
+    content::BrowserContext* browser_context,
+    AttributionReportingOperation operation,
+    content::RenderFrameHost* rfh,
+    const url::Origin* source_origin,
+    const url::Origin* destination_origin,
+    const url::Origin* reporting_origin) {
+  return false;
 }
 
 }  // namespace android_webview

@@ -147,6 +147,14 @@ WebStateList::WebStateList(WebStateListDelegate* delegate)
 
 WebStateList::~WebStateList() {
   CloseAllWebStates(CLOSE_NO_FLAGS);
+  for (auto& observer : observers_) {
+    observer.WebStateListDestroyed(this);
+  }
+}
+
+base::WeakPtr<WebStateList> WebStateList::AsWeakPtr() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  return weak_factory_.GetWeakPtr();
 }
 
 bool WebStateList::ContainsIndex(int index) const {
@@ -623,9 +631,10 @@ int WebStateList::SetWebStatePinnedImpl(int index, bool pinned) {
   if (pinned && index != non_pinned_web_state_index) {
     MoveWebStateAtImpl(index, non_pinned_web_state_index);
     index = non_pinned_web_state_index;
-  } else if (!pinned && index + 1 != non_pinned_web_state_index) {
-    MoveWebStateAtImpl(index, non_pinned_web_state_index - 1);
-    index = non_pinned_web_state_index - 1;
+  } else if (!pinned) {
+    // Unpinned WebStates should be moved to the end of the list.
+    MoveWebStateAtImpl(index, count() - 1);
+    index = count() - 1;
   }
 
   for (auto& observer : observers_) {

@@ -17,8 +17,8 @@
 #import "base/metrics/user_metrics_action.h"
 #import "base/strings/sys_string_conversions.h"
 #import "build/branding_buildflags.h"
-#import "ios/web/annotations/annotations_text_manager.h"
 #import "ios/web/browsing_data/browsing_data_remover.h"
+#import "ios/web/common/annotations_utils.h"
 #import "ios/web/common/crw_input_view_provider.h"
 #import "ios/web/common/crw_web_view_content_view.h"
 #import "ios/web/common/features.h"
@@ -41,7 +41,9 @@
 #import "ios/web/navigation/navigation_context_impl.h"
 #import "ios/web/navigation/wk_back_forward_list_item_holder.h"
 #import "ios/web/navigation/wk_navigation_util.h"
+#import "ios/web/public/annotations/annotations_text_manager.h"
 #import "ios/web/public/browser_state.h"
+#import "ios/web/public/find_in_page/crw_find_interaction.h"
 #import "ios/web/public/js_messaging/web_frame_util.h"
 #import "ios/web/public/permissions/permissions.h"
 #import "ios/web/public/ui/crw_context_menu_item.h"
@@ -292,9 +294,7 @@ typedef void (^ViewportStateCompletion)(const web::PageViewportState*);
     web::JavaScriptFindInPageManagerImpl::CreateForWebState(_webStateImpl);
     web::TextFragmentsManagerImpl::CreateForWebState(_webStateImpl);
 
-    if (base::FeatureList::IsEnabled(
-            web::features::kEnableWebPageAnnotations) &&
-        !browserState->IsOffTheRecord()) {
+    if (web::WebPageAnnotationsEnabled() && !browserState->IsOffTheRecord()) {
       web::AnnotationsTextManager::CreateForWebState(_webStateImpl);
     }
 
@@ -1074,8 +1074,20 @@ typedef void (^ViewportStateCompletion)(const web::PageViewportState*);
   return NO;
 }
 
-- (UIFindInteraction*)findInteraction API_AVAILABLE(ios(16)) {
-  return self.webView.findInteraction;
+- (id<CRWFindInteraction>)findInteraction API_AVAILABLE(ios(16)) {
+  if (self.webView.findInteraction) {
+    return [[CRWFindInteraction alloc]
+        initWithUIFindInteraction:self.webView.findInteraction];
+  }
+  return nil;
+}
+
+- (id)activityItem {
+  if (!self.webView || ![_containerView webViewContentView]) {
+    return nil;
+  }
+  DCHECK([self.webView isKindOfClass:[WKWebView class]]);
+  return self.webView;
 }
 
 #pragma mark - JavaScript
@@ -1170,7 +1182,7 @@ typedef void (^ViewportStateCompletion)(const web::PageViewportState*);
 
 // Hides highlights triggered by custom context menu.
 - (void)hideHighlight {
-  if (base::FeatureList::IsEnabled(web::features::kEnableWebPageAnnotations)) {
+  if (web::WebPageAnnotationsEnabled()) {
     web::AnnotationsTextManager* manager =
         web::AnnotationsTextManager::FromWebState(_webStateImpl);
     if (manager) {

@@ -7,6 +7,7 @@
 #import "components/ukm/ios/ukm_url_recorder.h"
 #import "ios/chrome/browser/find_in_page/find_in_page_model.h"
 #import "ios/chrome/browser/find_in_page/find_in_page_response_delegate.h"
+#import "ios/chrome/browser/ntp/new_tab_page_tab_helper.h"
 #import "ios/public/provider/chrome/browser/find_in_page/find_in_page_api.h"
 #import "ios/web/public/find_in_page/find_in_page_manager.h"
 #import "ios/web/public/find_in_page/find_in_page_manager_delegate_bridge.h"
@@ -41,6 +42,10 @@ NSString* gSearchTerm;
   // Bridge to observe FindInPageManager from Objective-C.
   std::unique_ptr<web::FindInPageManagerDelegateBridge>
       _findInPageDelegateBridge;
+}
+
++ (void)clearSearchTerm {
+  gSearchTerm = nil;
 }
 
 - (instancetype)initWithWebState:(web::WebState*)webState {
@@ -85,7 +90,9 @@ NSString* gSearchTerm;
 }
 
 - (BOOL)canFindInPage {
-  return _findInPageManager->CanSearchContent();
+  NewTabPageTabHelper* ntpHelper = NewTabPageTabHelper::FromWebState(_webState);
+  BOOL isNTPActive = ntpHelper->IsActive();
+  return !isNTPActive && _findInPageManager->CanSearchContent();
 }
 
 - (void)saveSearchTerm {

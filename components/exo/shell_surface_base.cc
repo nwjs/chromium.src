@@ -59,6 +59,8 @@
 #include "ui/gfx/geometry/size_conversions.h"
 #include "ui/gfx/geometry/vector2d_conversions.h"
 #include "ui/views/accessibility/view_accessibility.h"
+#include "ui/views/controls/menu/menu_config.h"
+#include "ui/views/widget/tooltip_manager.h"
 #include "ui/views/widget/widget.h"
 #include "ui/wm/core/shadow_controller.h"
 #include "ui/wm/core/shadow_types.h"
@@ -887,7 +889,6 @@ void ShellSurfaceBase::OnSurfaceCommit() {
   if (shadow_bounds_changed_)
     host_window()->AllocateLocalSurfaceId();
 
-  DCHECK(presentation_callbacks().empty());
   root_surface()->CommitSurfaceHierarchy(false);
 
   if (!OnPreWidgetCommit())
@@ -1493,6 +1494,12 @@ void ShellSurfaceBase::CreateShellSurfaceWidget(
   window->AddChild(host_window());
   window->SetEventTargetingPolicy(
       aura::EventTargetingPolicy::kTargetAndDescendants);
+  if (is_menu_) {
+    // Sets menu config id to kGroupintPropertyKey if the window is menu.
+    window->SetNativeWindowProperty(
+        views::TooltipManager::kGroupingPropertyKey,
+        reinterpret_cast<void*>(views::MenuConfig::kMenuControllerGroupingId));
+  }
   InstallCustomWindowTargeter();
 
   // Start tracking changes to window bounds and window state.

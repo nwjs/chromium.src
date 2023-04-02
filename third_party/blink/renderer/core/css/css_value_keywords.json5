@@ -623,7 +623,6 @@
     "underline",
     "view",
     "wavy",
-    "-webkit-nowrap",
 
     // math-shift
     // normal
@@ -1062,6 +1061,9 @@
     "browser",
     "window-controls-overlay",
     "tabbed",
+
+    // (overflow-block:) media feature
+    "paged",
 
     // position
     "sticky",
@@ -1605,8 +1607,10 @@
     // animation-[end-]delay
     // contain
     // cover
-    "enter",
+    "entry",
     "exit",
+    "entry-crossing",
+    "exit-crossing",
 
     // scroll()
     "root",

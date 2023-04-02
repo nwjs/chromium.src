@@ -19,7 +19,7 @@
 
 namespace base::allocator {
 
-#if PA_CONFIG(ALLOW_PCSCAN)
+#if BUILDFLAG(USE_STARSCAN)
 BASE_EXPORT void RegisterPCScanStatsReporter();
 #endif
 
@@ -74,6 +74,11 @@ class BASE_EXPORT PartitionAllocSupport {
   // |has_main_frame| tells us if the renderer contains a main frame.
   void OnForegrounded(bool has_main_frame);
   void OnBackgrounded();
+
+#if BUILDFLAG(ENABLE_DANGLING_RAW_PTR_CHECKS)
+  static std::string ExtractDanglingPtrSignatureForTests(
+      std::string stacktrace);
+#endif
 
   static PartitionAllocSupport* Get() {
     static auto* singleton = new PartitionAllocSupport();

@@ -19,14 +19,15 @@
 #include "base/functional/callback_helpers.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
+#include "components/attribution_reporting/source_type.mojom.h"
 #include "components/attribution_reporting/suitable_origin.h"
 #include "content/browser/attribution_reporting/attribution_info.h"
-#include "content/browser/attribution_reporting/attribution_source_type.h"
 #include "content/browser/attribution_reporting/attribution_test_utils.h"
 #include "content/browser/attribution_reporting/rate_limit_result.h"
 #include "content/browser/attribution_reporting/stored_source.h"
 #include "content/public/browser/attribution_data_model.h"
 #include "content/public/browser/storage_partition.h"
+#include "net/base/schemeful_site.h"
 #include "sql/database.h"
 #include "sql/statement.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -101,7 +102,9 @@ struct RateLimitInput {
   AttributionInfo BuildAttributionInfo() const {
     CHECK_EQ(scope, RateLimitScope::kAttribution);
     auto source = NewSourceBuilder().BuildStored();
-    return AttributionInfoBuilder(std::move(source))
+    return AttributionInfoBuilder(
+               std::move(source),
+               *SuitableOrigin::Deserialize(destination_origin))
         .SetTime(attribution_time.value_or(time))
         .Build();
   }
@@ -350,14 +353,16 @@ TEST_F(RateLimitTableTest,
   const auto navigation_attribution =
       AttributionInfoBuilder(
           SourceBuilder()
-              .SetSourceType(AttributionSourceType::kNavigation)
+              .SetSourceType(
+                  attribution_reporting::mojom::SourceType::kNavigation)
               .BuildStored())
           .Build();
 
   const auto event_attribution =
-      AttributionInfoBuilder(SourceBuilder()
-                                 .SetSourceType(AttributionSourceType::kEvent)
-                                 .BuildStored())
+      AttributionInfoBuilder(
+          SourceBuilder()
+              .SetSourceType(attribution_reporting::mojom::SourceType::kEvent)
+              .BuildStored())
           .Build();
 
   ASSERT_EQ(RateLimitResult::kAllowed,
@@ -446,15 +451,32 @@ TEST_F(RateLimitTableTest, SourceAllowedForReportingOriginLimit) {
     }
   }
 
+  const auto input_1 =
+      SourceBuilder()
+          .SetSourceOrigin(*SuitableOrigin::Deserialize("https://b.s1.test"))
+          .SetReportingOrigin(*SuitableOrigin::Deserialize("https://d.r.test"))
+          .SetDestinationSites(
+              {net::SchemefulSite::Deserialize("https://d2.test"),
+               net::SchemefulSite::Deserialize("https://d1.test")})
+          .Build();
+
+  // This is not allowed because
+  // <https://s1.test, https://d1.test> already has the max of 2 distinct
+  // reporting origins: https://a.r.test and https://b.r.test, even though
+  // the other destination site is unique.
+  ASSERT_EQ(RateLimitResult::kNotAllowed,
+            table_.SourceAllowedForReportingOriginLimit(&db_, input_1))
+      << input_1;
+
   task_environment_.FastForwardBy(kTimeWindow);
 
   // This is allowed because the original rows for the tuple have fallen out of
   // the time window.
-  const auto input =
+  const auto input_2 =
       RateLimitInput::Source("https://a.s1.test", "https://a.d1.test",
                              "https://c.r.test", base::Time::Now());
   ASSERT_EQ(RateLimitResult::kAllowed,
-            SourceAllowedForReportingOriginLimit(input));
+            SourceAllowedForReportingOriginLimit(input_2));
 }
 
 TEST_F(RateLimitTableTest, AttributionAllowedForReportingOriginLimit) {
@@ -789,6 +811,50 @@ TEST_F(RateLimitTableTest, AddRateLimit_DeletesExpiredRows) {
           Pair(_, Field(&RateLimitRow::source_site, "https://s3.test"))));
 }
 
+TEST_F(RateLimitTableTest, AddRateLimitSource_OneRowPerDestination) {
+  auto s1 =
+      SourceBuilder()
+          .SetSourceOrigin(*SuitableOrigin::Deserialize("https://s1.test"))
+          .SetReportingOrigin(*SuitableOrigin::Deserialize("https://r1.test"))
+          .SetDestinationSites(
+              {net::SchemefulSite::Deserialize("https://a.test"),
+               net::SchemefulSite::Deserialize("https://b.test"),
+               net::SchemefulSite::Deserialize("https://c.test")})
+          .BuildStored();
+
+  ASSERT_TRUE(table_.AddRateLimitForSource(&db_, s1));
+
+  ASSERT_THAT(GetRateLimitRows(), SizeIs(3));
+  ASSERT_THAT(
+      GetRateLimitRows(),
+      ElementsAre(
+          Pair(_, Field(&RateLimitRow::destination_site, "https://a.test")),
+          Pair(_, Field(&RateLimitRow::destination_site, "https://b.test")),
+          Pair(_, Field(&RateLimitRow::destination_site, "https://c.test"))));
+}
+
+TEST_F(RateLimitTableTest, AddFakeSourceForAttribution_OneRowPerDestination) {
+  ASSERT_TRUE(table_.AddRateLimitForAttribution(
+      &db_,
+      AttributionInfoBuilder(
+          SourceBuilder()
+              .SetDestinationSites(
+                  {net::SchemefulSite::Deserialize("https://a.test"),
+                   net::SchemefulSite::Deserialize("https://b.test"),
+                   net::SchemefulSite::Deserialize("https://c.test")})
+              .SetAttributionLogic(StoredSource::AttributionLogic::kFalsely)
+              .BuildStored())
+          .Build()));
+
+  ASSERT_THAT(GetRateLimitRows(), SizeIs(3));
+  ASSERT_THAT(
+      GetRateLimitRows(),
+      ElementsAre(
+          Pair(_, Field(&RateLimitRow::destination_site, "https://a.test")),
+          Pair(_, Field(&RateLimitRow::destination_site, "https://b.test")),
+          Pair(_, Field(&RateLimitRow::destination_site, "https://c.test"))));
+}
+
 TEST_F(RateLimitTableTest, AddRateLimitSource_DeletesExpiredRows) {
   delegate_.set_rate_limits({
       .time_window = base::Minutes(2),
@@ -908,13 +974,27 @@ TEST_F(RateLimitTableTest, SourceAllowedForDestinationLimit) {
     }
   }
 
+  const auto input_1 =
+      SourceBuilder()
+          .SetSourceOrigin(*SuitableOrigin::Deserialize("https://a.s2.test"))
+          .SetReportingOrigin(*SuitableOrigin::Deserialize("https://a.r1.test"))
+          .SetDestinationSites(
+              {net::SchemefulSite::Deserialize("https://d1.test"),
+               net::SchemefulSite::Deserialize("https://d3.test")})
+          .Build();
+
+  ASSERT_EQ(RateLimitResult::kNotAllowed,
+            table_.SourceAllowedForDestinationLimit(&db_, input_1))
+      << input_1;
+
   task_environment_.FastForwardBy(expiry);
 
   // This is allowed because the original sources have expired.
-  const auto input =
+  const auto input_2 =
       RateLimitInput::Source("https://a.s1.test", "https://a.d3.test",
                              "https://a.r1.test", base::Time::Now());
-  EXPECT_EQ(RateLimitResult::kAllowed, SourceAllowedForDestinationLimit(input));
+  EXPECT_EQ(RateLimitResult::kAllowed,
+            SourceAllowedForDestinationLimit(input_2));
 }
 
 TEST_F(RateLimitTableTest, GetAttributionDataKeyList) {

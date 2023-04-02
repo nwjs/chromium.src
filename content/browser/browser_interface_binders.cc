@@ -216,7 +216,7 @@
 
 #if BUILDFLAG(IS_FUCHSIA)
 #include "content/browser/renderer_host/media/fuchsia_media_cdm_provider_impl.h"
-#include "media/fuchsia/mojom/fuchsia_media.mojom.h"
+#include "media/mojo/mojom/fuchsia_media.mojom.h"
 #endif
 
 namespace blink {
@@ -793,10 +793,6 @@ void PopulateFrameBinders(RenderFrameHostImpl* host, mojo::BinderMap* map) {
   map->Add<blink::mojom::ReportingServiceProxy>(base::BindRepeating(
       &CreateReportingServiceProxyForFrame, base::Unretained(host)));
 
-  map->Add<blink::mojom::RuntimeFeatureStateController>(base::BindRepeating(
-      &RenderFrameHostImpl::CreateRuntimeFeatureStateController,
-      base::Unretained(host)));
-
   map->Add<blink::mojom::SharedWorkerConnector>(
       base::BindRepeating(&BindSharedWorkerConnector, base::Unretained(host)));
 
@@ -1130,9 +1126,9 @@ void PopulateBinderMapWithContext(
       base::BindRepeating(&EmptyBinderForFrame<device::mojom::VRService>));
 #endif
   RegisterWebUIControllerInterfaceBinder<
-      aggregation_service_internals::mojom::Handler,
+      aggregation_service_internals::mojom::Factory,
       AggregationServiceInternalsUI>(map);
-  RegisterWebUIControllerInterfaceBinder<attribution_internals::mojom::Handler,
+  RegisterWebUIControllerInterfaceBinder<attribution_internals::mojom::Factory,
                                          AttributionInternalsUI>(map);
   RegisterWebUIControllerInterfaceBinder<storage::mojom::IdbInternalsHandler,
                                          IndexedDBInternalsUI>(map);
@@ -1173,6 +1169,9 @@ void PopulateBinderMapWithContext(
   map->Add<media::mojom::FuchsiaMediaCdmProvider>(
       base::BindRepeating(&FuchsiaMediaCdmProviderImpl::Bind));
 #endif
+
+  map->Add<blink::mojom::RuntimeFeatureStateController>(
+      base::BindRepeating(&RuntimeFeatureStateControllerImpl::Create));
 }
 
 void PopulateBinderMap(RenderFrameHostImpl* host, mojo::BinderMap* map) {

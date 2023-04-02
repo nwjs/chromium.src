@@ -244,6 +244,14 @@ const char kSettingIppClientPatches[] = "ipp-client-patches";
 const char kSettingIppClientStringVersion[] = "ipp-client-string-version";
 const char kSettingIppClientType[] = "ipp-client-type";
 const char kSettingIppClientVersion[] = "ipp-client-version";
+
+// True if the user selects to print to a different printer than the original
+// destination shown when Print Preview opens.
+const char kSettingPrinterManuallySelected[] = "printerManuallySelected";
+
+// The printer status reason shown for the selected printer at the time print
+// is requested. Only local CrOS printers set printer statuses.
+const char kSettingPrinterStatusReason[] = "printerStatusReason";
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 }  // namespace printing

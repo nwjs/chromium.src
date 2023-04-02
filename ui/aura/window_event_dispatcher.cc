@@ -515,22 +515,6 @@ void WindowEventDispatcher::OnEventProcessingFinished(
   observer_notifiers_.pop();
 }
 
-bool WindowEventDispatcher::ShouldReportEventLatency(
-    ui::EventTarget* target,
-    const ui::EventDispatchDetails& details) {
-  // If a target getting destroyed, we expect ui::Compositor has a frame to
-  // reflect it.
-  if (details.target_destroyed)
-    return true;
-  if (details.dispatcher_destroyed || !target)
-    return false;
-  const aura::Window* target_window = static_cast<aura::Window*>(target);
-  const std::string& name = target_window->GetName();
-  // We shouldn't report the latency in ui::Compositor for exo windows and aura
-  // windows backing web contents.
-  return name != "RenderWidgetHostViewAura" && !base::StartsWith(name, "Exo");
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // WindowEventDispatcher, ui::EventDispatcherDelegate implementation:
 
@@ -626,8 +610,6 @@ ui::EventDispatchDetails WindowEventDispatcher::PostDispatchEvent(
     std::unique_ptr<cc::EventsMetricsManager::ScopedMonitor> monitor =
         std::move(event_metrics_monitors_.back());
     event_metrics_monitors_.pop_back();
-    if (event.handled() && ShouldReportEventLatency(target, details))
-      monitor->SetSaveMetrics();
   }
 
   return details;
@@ -1123,7 +1105,8 @@ WindowEventDispatcher::CreateScropedMetricsMonitorForEvent(
           has_seen_gesture_scroll_update_after_begin_
               ? cc::ScrollUpdateEventMetrics::ScrollUpdateType::kContinued
               : cc::ScrollUpdateEventMetrics::ScrollUpdateType::kStarted,
-          gesture->details().scroll_y(), gesture->time_stamp());
+          gesture->details().scroll_y(), gesture->time_stamp(),
+          base::IdType64<class ui::LatencyInfo>(event.latency()->trace_id()));
       has_seen_gesture_scroll_update_after_begin_ = true;
     } else if (gesture->IsScrollGestureEvent()) {
       metrics = cc::ScrollEventMetrics::CreateForBrowser(

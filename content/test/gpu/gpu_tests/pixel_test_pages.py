@@ -20,7 +20,9 @@ from gpu_tests import skia_gold_matching_algorithms as algo
 
 import gpu_path_util
 
-CRASH_TYPE_GPU = 'gpu'
+CRASH_TYPE_BROWSER = 'browser'
+CRASH_TYPE_GPU = 'gpu-process'
+CRASH_TYPE_RENDERER = 'renderer'
 
 # These tests attempt to use test rects that are larger than the small screen
 # on some Fuchsia devices, so we need to use a less-desirable screenshot capture
@@ -157,7 +159,10 @@ class PixelTestPages():
   @staticmethod
   def DefaultPages(base_name: str) -> List[PixelTestPage]:
     sw_compositing_args = [cba.DISABLE_GPU_COMPOSITING]
-    browser_args_DXVA = [cba.DISABLE_FEATURES_D3D11_VIDEO_DECODER]
+    browser_args_DXVA = [
+        cba.DISABLE_D3D11_VIDEO_DECODER,
+        cba.ENABLE_DXVA_VIDEO_DECODER,
+    ]
     experimental_hdr_args = [cba.ENABLE_EXPERIMENTAL_WEB_PLATFORM_FEATURES]
 
     return [
@@ -982,7 +987,8 @@ class PixelTestPages():
         '--direct-composition-video-swap-chain-format=bgra'
     ]
     browser_args_DXVA = browser_args + [
-        cba.DISABLE_FEATURES_D3D11_VIDEO_DECODER
+        cba.DISABLE_D3D11_VIDEO_DECODER,
+        cba.ENABLE_DXVA_VIDEO_DECODER,
     ]
     browser_args_vp_scaling = [
         cba.ENABLE_DIRECT_COMPOSITION_VIDEO_OVERLAYS,

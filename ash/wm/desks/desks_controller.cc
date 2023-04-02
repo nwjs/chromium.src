@@ -604,6 +604,7 @@ void DesksController::NewDesk(DesksCreationRemovalSource source) {
     observer.OnDeskAdded(new_desk);
 
   if (!is_first_ever_desk) {
+    desks_restore_util::UpdatePrimaryUserDeskGuidsPrefs();
     desks_restore_util::UpdatePrimaryUserDeskNamesPrefs();
     desks_restore_util::UpdatePrimaryUserDeskMetricsPrefs();
     UMA_HISTOGRAM_ENUMERATION(kNewDeskHistogramName, source);
@@ -660,6 +661,7 @@ void DesksController::ReorderDesk(int old_index, int new_index) {
   // 1. Update desk name and metrics lists in the user prefs to maintain the
   // right order.
   desks_restore_util::UpdatePrimaryUserDeskNamesPrefs();
+  desks_restore_util::UpdatePrimaryUserDeskGuidsPrefs();
   desks_restore_util::UpdatePrimaryUserDeskMetricsPrefs();
 
   // 2. For multi-profile switching, update all affected active desk index in
@@ -998,6 +1000,12 @@ void DesksController::RestoreNameOfDeskAtIndex(std::u16string name,
   desks_[index]->SetName(std::move(name), /*set_by_user=*/true);
 }
 
+void DesksController::RestoreGuidOfDeskAtIndex(base::GUID guid, size_t index) {
+  DCHECK(guid.is_valid());
+  DCHECK_LT(index, desks_.size());
+  desks_[index]->SetGuid(std::move(guid));
+}
+
 void DesksController::RestoreCreationTimeOfDeskAtIndex(base::Time creation_time,
                                                        size_t index) {
   DCHECK_LT(index, desks_.size());
@@ -1145,11 +1153,19 @@ const Desk* DesksController::CreateNewDeskForSavedDesk(
   if (animation_)
     animation_.reset();
 
-  // Desk name was set to a default name upon creation. If
-  // `customized_desk_name` is not empty, override desk name to be
-  // `customized_desk_name` or `customized_desk_name ({counter})` to resolve
-  // naming conflicts.
-  std::u16string desk_name = CreateUniqueDeskName(customized_desk_name);
+  // Call `HideSavedDeskLibrary` before the new desk is created to update the
+  // state of the library button, otherwise the library button will be laid out
+  // with the wrong state when the new desk is created.
+  if (template_type == DeskTemplateType::kTemplate ||
+      template_type == DeskTemplateType::kFloatingWorkspace) {
+    if (auto* session =
+            Shell::Get()->overview_controller()->overview_session()) {
+      session->HideSavedDeskLibrary();
+      for (auto& grid : session->grid_list()) {
+        grid->RemoveAllItemsForSavedDeskLaunch();
+      }
+    }
+  }
 
   switch (template_type) {
     case DeskTemplateType::kTemplate:
@@ -1166,6 +1182,12 @@ const Desk* DesksController::CreateNewDeskForSavedDesk(
   }
 
   Desk* desk = desks().back().get();
+
+  // Desk name was set to a default name upon creation. If
+  // `customized_desk_name` is not empty, override desk name to be
+  // `customized_desk_name` or `customized_desk_name ({counter})` to resolve
+  // naming conflicts.
+  std::u16string desk_name = CreateUniqueDeskName(customized_desk_name);
 
   if (!desk_name.empty()) {
     desk->SetName(desk_name, /*set_by_user=*/true);
@@ -1199,13 +1221,6 @@ const Desk* DesksController::CreateNewDeskForSavedDesk(
       }
     }
 
-    if (auto* session =
-            Shell::Get()->overview_controller()->overview_session()) {
-      session->HideSavedDeskLibrary();
-      for (auto& grid : session->grid_list())
-        grid->RemoveAllItemsForSavedDeskLaunch();
-    }
-
     ActivateDesk(desk, DesksSwitchSource::kLaunchTemplate);
     DCHECK(!animation_);
   }
@@ -1221,7 +1236,7 @@ bool DesksController::OnSingleInstanceAppLaunchingFromSavedDesk(
   aura::Window* existing_app_instance_window = nullptr;
   Desk* src_desk = nullptr;
   for (auto& desk : desks()) {
-    for (aura::Window* window : desk->windows()) {
+    for (aura::Window* window : desk->GetAllAssociatedWindows()) {
       const std::string* const app_id_ptr = window->GetProperty(kAppIDKey);
       if (app_id_ptr && *app_id_ptr == app_id) {
         existing_app_instance_window = window;
@@ -1268,6 +1283,15 @@ bool DesksController::OnSingleInstanceAppLaunchingFromSavedDesk(
       src_desk->MoveWindowToDesk(existing_app_instance_window, target_desk,
                                  existing_app_instance_window->GetRootWindow(),
                                  /*unminimize=*/false);
+      // If the floated window is the single instance window, we need to let
+      // float controller handle move window to desk, as floated window
+      // doesn't belong to desk container.
+      if (WindowState::Get(existing_app_instance_window)->IsFloated()) {
+        Shell::Get()->float_controller()->OnMovingFloatedWindowToDesk(
+            existing_app_instance_window, src_desk, target_desk,
+            existing_app_instance_window->GetRootWindow());
+      }
+
       MaybeUpdateShelfItems(
           /*windows_on_inactive_desk=*/{},
           /*windows_on_active_desk=*/{existing_app_instance_window});
@@ -1827,6 +1851,7 @@ void DesksController::RemoveDeskInternal(const Desk* desk,
   }
 
   desks_restore_util::UpdatePrimaryUserDeskNamesPrefs();
+  desks_restore_util::UpdatePrimaryUserDeskGuidsPrefs();
   desks_restore_util::UpdatePrimaryUserDeskMetricsPrefs();
 
   DCHECK_LE(available_container_ids_.size(), desks_util::GetMaxNumberOfDesks());
@@ -1954,7 +1979,7 @@ void DesksController::FinalizeDeskRemoval(RemovedDeskData* removed_desk_data) {
     // reuse that container. Since floated window doesn't belong to desk
     // container, handle it separately.
     aura::Window* floated_window = nullptr;
-    if (chromeos::wm::features::IsFloatWindowEnabled()) {
+    if (chromeos::wm::features::IsWindowLayoutMenuEnabled()) {
       floated_window =
           Shell::Get()->float_controller()->FindFloatedWindowOfDesk(
               removed_desk);
@@ -2122,7 +2147,7 @@ const Desk* DesksController::FindDeskOfWindow(aura::Window* window) const {
 
   // Floating windows are stored in float container, their relationship with
   // desks can be found in `FloatedWindowInfo`.
-  if (chromeos::wm::features::IsFloatWindowEnabled() &&
+  if (chromeos::wm::features::IsWindowLayoutMenuEnabled() &&
       WindowState::Get(window)->IsFloated()) {
     return Shell::Get()->float_controller()->FindDeskOfFloatedWindow(window);
   }

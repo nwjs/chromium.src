@@ -27,8 +27,8 @@ class BrowserContext;
 class WebContents;
 }
 
-namespace gfx {
-class Rect;
+namespace blink::mojom {
+class WindowFeatures;
 }
 
 namespace extensions {
@@ -209,18 +209,16 @@ class ExtensionTabUtil {
   static bool IsKillURL(const GURL& url);
 
   // Resolves the URL and ensures the extension is allowed to navigate to it.
-  // Returns true and sets |url| if successful. Returns false and sets |error|
-  // if an error occurs.
-  static bool PrepareURLForNavigation(const std::string& url_string,
-                                      const Extension* extension,
-                                      GURL* url,
-                                      std::string* error);
+  // Returns the url if successful, otherwise returns an error string.
+  static base::expected<GURL, std::string> PrepareURLForNavigation(
+      const std::string& url_string,
+      const Extension* extension);
 
   // Opens a tab for the specified |web_contents|.
   static void CreateTab(std::unique_ptr<content::WebContents> web_contents,
                         const std::string& extension_id,
                         WindowOpenDisposition disposition,
-                        const gfx::Rect& initial_rect,
+                        const blink::mojom::WindowFeatures& window_features,
                         bool user_gesture);
 
   // Executes the specified callback for all tabs in all browser windows.

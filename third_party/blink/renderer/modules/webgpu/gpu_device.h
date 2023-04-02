@@ -20,7 +20,6 @@ namespace blink {
 class ExecutionContext;
 class HTMLCanvasElement;
 class GPUAdapter;
-class GPUAdapter;
 class GPUBuffer;
 class GPUBufferDescriptor;
 class GPUCommandEncoder;
@@ -179,11 +178,13 @@ class GPUDevice final : public EventTargetWithInlineData,
                                const char* message);
 
   void OnCreateRenderPipelineAsyncCallback(ScriptPromiseResolver* resolver,
+                                           absl::optional<String> label,
                                            WGPUCreatePipelineAsyncStatus status,
                                            WGPURenderPipeline render_pipeline,
                                            const char* message);
   void OnCreateComputePipelineAsyncCallback(
       ScriptPromiseResolver* resolver,
+      absl::optional<String> label,
       WGPUCreatePipelineAsyncStatus status,
       WGPUComputePipeline compute_pipeline,
       const char* message);

@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <utility>
 
 #include "base/cpu_reduction_experiment.h"
@@ -213,6 +214,41 @@ double DetermineHighestContribution(
   return highest_contribution_change;
 }
 
+void TraceScrollJankMetrics(const EventMetrics::List& events_metrics,
+                            int32_t fling_input_count,
+                            int32_t normal_input_count,
+                            perfetto::EventContext& ctx) {
+  auto* track_event = ctx.event<perfetto::protos::pbzero::ChromeTrackEvent>();
+  auto* scroll_data = track_event->set_scroll_deltas();
+  float delta = 0;
+  float predicted_delta = 0;
+
+  for (const auto& event : events_metrics) {
+    auto type = event->type();
+    if (UNLIKELY(type != EventMetrics::EventType::kGestureScrollUpdate &&
+                 type != EventMetrics::EventType::kFirstGestureScrollUpdate &&
+                 type !=
+                     EventMetrics::EventType::kInertialGestureScrollUpdate)) {
+      continue;
+    }
+    auto* scroll_update_event = event->AsScrollUpdate();
+    if (scroll_update_event->trace_id().has_value()) {
+      scroll_data->add_trace_ids_in_gpu_frame(
+          scroll_update_event->trace_id()->value());
+      scroll_data->add_segregated_original_deltas_in_gpu_frame_y(
+          scroll_update_event->delta());
+      scroll_data->add_segregated_predicted_deltas_in_gpu_frame_y(
+          scroll_update_event->predicted_delta());
+    }
+    delta += scroll_update_event->delta();
+    predicted_delta += scroll_update_event->predicted_delta();
+  }
+  scroll_data->set_event_count_in_gpu_frame(fling_input_count +
+                                            normal_input_count);
+  scroll_data->set_original_delta_in_gpu_frame_y(delta);
+  scroll_data->set_predicted_delta_in_gpu_frame_y(predicted_delta);
+}
+
 }  // namespace
 
 // CompositorFrameReporter::ProcessedBlinkBreakdown::Iterator ==================
@@ -292,45 +328,60 @@ CompositorFrameReporter::ProcessedVizBreakdown::Iterator::Iterator(
     bool skip_swap_start_to_swap_end)
     : owner_(owner), skip_swap_start_to_swap_end_(skip_swap_start_to_swap_end) {
   DCHECK(owner_);
+  SkipBreakdownsIfNecessary();
 }
 
 CompositorFrameReporter::ProcessedVizBreakdown::Iterator::~Iterator() = default;
 
 bool CompositorFrameReporter::ProcessedVizBreakdown::Iterator::IsValid() const {
-  return index_ < std::size(owner_->list_) && owner_->list_[index_];
+  return index_ < std::size(owner_->list_);
 }
 
 void CompositorFrameReporter::ProcessedVizBreakdown::Iterator::Advance() {
-  DCHECK(IsValid());
+  DCHECK(HasValue());
   index_++;
-  if (static_cast<VizBreakdown>(index_) == VizBreakdown::kSwapStartToSwapEnd &&
-      skip_swap_start_to_swap_end_) {
-    index_++;
-  }
+  SkipBreakdownsIfNecessary();
 }
 
 VizBreakdown
 CompositorFrameReporter::ProcessedVizBreakdown::Iterator::GetBreakdown() const {
-  DCHECK(IsValid());
+  DCHECK(HasValue());
   return static_cast<VizBreakdown>(index_);
 }
 
 base::TimeTicks
 CompositorFrameReporter::ProcessedVizBreakdown::Iterator::GetStartTime() const {
-  DCHECK(IsValid());
+  DCHECK(HasValue());
   return owner_->list_[index_]->first;
 }
 
 base::TimeTicks
 CompositorFrameReporter::ProcessedVizBreakdown::Iterator::GetEndTime() const {
-  DCHECK(IsValid());
+  DCHECK(HasValue());
   return owner_->list_[index_]->second;
 }
 
 base::TimeDelta
 CompositorFrameReporter::ProcessedVizBreakdown::Iterator::GetDuration() const {
-  DCHECK(IsValid());
+  DCHECK(HasValue());
   return owner_->list_[index_]->second - owner_->list_[index_]->first;
+}
+
+bool CompositorFrameReporter::ProcessedVizBreakdown::Iterator::HasValue()
+    const {
+  DCHECK(IsValid());
+  return owner_->list_[index_].has_value();
+}
+
+void CompositorFrameReporter::ProcessedVizBreakdown::Iterator::
+    SkipBreakdownsIfNecessary() {
+  while (IsValid() &&
+         (!HasValue() ||
+          (GetBreakdown() ==
+               CompositorFrameReporter::VizBreakdown::kSwapStartToSwapEnd &&
+           skip_swap_start_to_swap_end_))) {
+    index_++;
+  }
 }
 
 // CompositorFrameReporter::ProcessedVizBreakdown ==============================
@@ -1319,6 +1370,12 @@ void CompositorFrameReporter::ReportScrollJankMetrics() const {
     }
   }
 
+  TRACE_EVENT("input", "PresentedFrameInformation",
+              [events_metrics = std::cref(events_metrics_), fling_input_count,
+               normal_input_count](perfetto::EventContext& ctx) {
+                TraceScrollJankMetrics(events_metrics, fling_input_count,
+                                       normal_input_count, ctx);
+              });
   // Counting number of inputs per frame for flings and normal input has
   // to be separate as the rate of input generation is different for each
   // of them, normal input is screen generated, and flings are GPU vsync

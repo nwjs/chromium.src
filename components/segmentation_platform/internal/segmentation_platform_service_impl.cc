@@ -16,12 +16,14 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/clock.h"
 #include "components/prefs/pref_registry_simple.h"
+#include "components/segmentation_platform/internal/config_parser.h"
 #include "components/segmentation_platform/internal/constants.h"
 #include "components/segmentation_platform/internal/database/storage_service.h"
 #include "components/segmentation_platform/internal/execution/processing/sync_device_info_observer.h"
 #include "components/segmentation_platform/internal/platform_options.h"
 #include "components/segmentation_platform/internal/proto/model_prediction.pb.h"
 #include "components/segmentation_platform/internal/scheduler/model_execution_scheduler_impl.h"
+#include "components/segmentation_platform/internal/selection/client_result_prefs.h"
 #include "components/segmentation_platform/internal/selection/request_dispatcher.h"
 #include "components/segmentation_platform/internal/selection/segment_score_provider.h"
 #include "components/segmentation_platform/internal/selection/segment_selector_impl.h"
@@ -39,16 +41,6 @@ namespace {
 
 using proto::SegmentId;
 
-base::flat_set<SegmentId> GetAllSegmentIds(
-    const std::vector<std::unique_ptr<Config>>& configs) {
-  base::flat_set<SegmentId> all_segment_ids;
-  for (const auto& config : configs) {
-    for (const auto& segment_id : config->segments)
-      all_segment_ids.insert(segment_id.first);
-  }
-  return all_segment_ids;
-}
-
 }  // namespace
 
 SegmentationPlatformServiceImpl::InitParams::InitParams() = default;
@@ -62,7 +54,7 @@ SegmentationPlatformServiceImpl::SegmentationPlatformServiceImpl(
       platform_options_(PlatformOptions::CreateDefault()),
       input_delegate_holder_(std::move(init_params->input_delegate_holder)),
       configs_(std::move(init_params->configs)),
-      all_segment_ids_(GetAllSegmentIds(configs_)),
+      all_segment_ids_(GetAllSegmentIdsFromConfigs(configs_)),
       field_trial_register_(std::move(init_params->field_trial_register)),
       profile_prefs_(init_params->profile_prefs.get()),
       creation_time_(clock_->Now()) {
@@ -98,6 +90,10 @@ SegmentationPlatformServiceImpl::SegmentationPlatformServiceImpl(
   // class when adding support for recording multi class output fields.
   cached_result_provider_ = std::make_unique<CachedResultProvider>(
       init_params->profile_prefs, configs_);
+
+  cached_result_writer_ = std::make_unique<CachedResultWriter>(
+      std::make_unique<ClientResultPrefs>(init_params->profile_prefs),
+      init_params->clock);
 
   request_dispatcher_ = std::make_unique<RequestDispatcher>(
       configs_, cached_result_provider_.get());
@@ -248,18 +244,8 @@ void SegmentationPlatformServiceImpl::OnDatabaseInitialized(bool success) {
     selector.second->OnPlatformInitialized(&execution_service_);
   }
 
-  std::map<std::string, std::unique_ptr<SegmentResultProvider>>
-      result_providers;
-  for (const auto& config : configs_) {
-    result_providers[config->segmentation_key] = SegmentResultProvider::Create(
-        storage_service_->segment_info_database(),
-        storage_service_->signal_storage_config(),
-        storage_service_->default_model_manager(), &execution_service_, clock_,
-        platform_options_.force_refresh_results);
-  }
-
   request_dispatcher_->OnPlatformInitialized(success, &execution_service_,
-                                             std::move(result_providers));
+                                             CreateSegmentResultProviders());
 
   // Run any method calls that were received during initialization.
   while (!pending_actions_.empty()) {
@@ -312,6 +298,20 @@ void SegmentationPlatformServiceImpl::RunDailyTasks(bool is_startup) {
       base::BindOnce(&SegmentationPlatformServiceImpl::RunDailyTasks,
                      weak_ptr_factory_.GetWeakPtr(), /*is_startup=*/false),
       base::Days(1));
+}
+
+std::map<std::string, std::unique_ptr<SegmentResultProvider>>
+SegmentationPlatformServiceImpl::CreateSegmentResultProviders() {
+  std::map<std::string, std::unique_ptr<SegmentResultProvider>>
+      result_providers;
+  for (const auto& config : configs_) {
+    result_providers[config->segmentation_key] = SegmentResultProvider::Create(
+        storage_service_->segment_info_database(),
+        storage_service_->signal_storage_config(),
+        storage_service_->default_model_manager(), &execution_service_, clock_,
+        platform_options_.force_refresh_results);
+  }
+  return result_providers;
 }
 
 // static

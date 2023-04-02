@@ -50,6 +50,7 @@ align-content: normal
 align-items: normal
 align-self: auto
 alignment-baseline: auto
+anchor-default: implicit
 anchor-name: none
 anchor-scroll: none
 animation-composition: replace
@@ -346,6 +347,7 @@ text-shadow: none
 text-size-adjust: auto
 text-transform: none
 text-underline-position: auto
+text-wrap: wrap
 toggle-group: none
 toggle-root: none
 toggle-trigger: none

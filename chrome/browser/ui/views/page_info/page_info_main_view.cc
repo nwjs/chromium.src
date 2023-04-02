@@ -600,12 +600,15 @@ std::unique_ptr<views::View> PageInfoMainView::CreateAboutThisSiteSection(
                    bool has_description, const ui::Event& event) {
                   page_info::AboutThisSiteService::OnAboutThisSiteRowClicked(
                       has_description);
+                  view->presenter_->RecordPageInfoAction(
+                      PageInfo::PageInfoAction::
+                          PAGE_INFO_ABOUT_THIS_SITE_PAGE_OPENED);
                   view->ui_delegate_->OpenMoreAboutThisPageUrl(more_info_url,
                                                                event);
                   view->GetWidget()->Close();
                 },
                 this, GURL(info.more_about().url()), info.has_description()),
-            PageInfoViewFactory::GetAboutThisPageIcon(),
+            PageInfoViewFactory::GetAboutThisSiteIcon(),
             l10n_util::GetStringUTF16(IDS_PAGE_INFO_ABOUT_THIS_PAGE_TITLE),
             std::u16string(),
             l10n_util::GetStringUTF16(IDS_PAGE_INFO_ABOUT_THIS_PAGE_TOOLTIP),

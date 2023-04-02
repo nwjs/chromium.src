@@ -131,15 +131,7 @@ public class PrefetchBackgroundTaskTest {
         }
 
         @Override
-        public boolean isScheduled(Context context, int taskId) {
-            return (mTasks.get(taskId) != null);
-        }
-
-        @Override
         public void doMaintenance() {}
-
-        @Override
-        public void reschedule(Context context) {}
 
         public void waitForTaskStarted() throws Exception {
             assertTrue(mStartSemaphore.tryAcquire(SEMAPHORE_TIMEOUT_MS, TimeUnit.MILLISECONDS));

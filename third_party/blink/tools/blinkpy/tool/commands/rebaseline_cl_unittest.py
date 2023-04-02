@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import contextlib
+import io
 import json
 import logging
 import optparse
@@ -14,6 +16,7 @@ from blinkpy.common.net.results_fetcher import Build
 from blinkpy.common.net.web_test_results import WebTestResults
 from blinkpy.common.path_finder import RELATIVE_WEB_TESTS
 from blinkpy.common.system.log_testing import LoggingTestCase
+from blinkpy.tool.mock_tool import MockBlinkTool
 from blinkpy.tool.commands.rebaseline import TestBaselineSet
 from blinkpy.tool.commands.rebaseline_cl import RebaselineCL
 from blinkpy.tool.commands.rebaseline_unittest import BaseTestCase
@@ -26,7 +29,7 @@ from unittest import mock
     'blinkpy.common.net.rpc.BuildbucketClient.execute_batch', lambda self: [])
 class RebaselineCLTest(BaseTestCase, LoggingTestCase):
 
-    command_constructor = RebaselineCL
+    command_constructor = lambda self: RebaselineCL(MockBlinkTool())
 
     def setUp(self):
         BaseTestCase.setUp(self)
@@ -318,22 +321,6 @@ class RebaselineCLTest(BaseTestCase, LoggingTestCase):
         exit_code = self.command.execute(self.command_options(dry_run=True),
                                          [], self.tool)
         self.assertEqual(exit_code, 0)
-        messages = self.logMessages()
-        # Asserting an exact count is brittle.
-        # Just verify one of each internal command.
-        self.assertTrue(
-            any(
-                message.startswith('DEBUG: Would have run: "python echo '
-                                   'copy-existing-baselines-internal ')
-                for message in messages))
-        self.assertTrue(
-            any(
-                message.startswith('DEBUG: Would have run: "python echo '
-                                   'rebaseline-test-internal ')
-                for message in messages))
-        # `optimize-baselines` commands are not useful to look at, since many
-        # are no-ops anyways. We don't look at them here.
-        self.assertEqual(self.tool.executive.calls, [])
         self.assertEqual(self.command.git_cl.calls, [])
         self.assertEqual(self.tool.filesystem.files, files_before)
         self.assertEqual(self.tool.git().added_paths, set())
@@ -685,13 +672,13 @@ class RebaselineCLTest(BaseTestCase, LoggingTestCase):
                               '--step-name',
                               'blink_web_tests (with patch)',
                           ]],
-                          [
+                          [[
                               'python',
                               'echo',
                               'optimize-baselines',
                               '--no-manifest-update',
                               'one/flaky-fail.html',
-                          ]])
+                          ]]])
 
     def test_rebaseline_command_invocations_multiple_steps(self):
         """Test the rebaseline tool handles multiple steps on the same builder.
@@ -757,10 +744,10 @@ class RebaselineCLTest(BaseTestCase, LoggingTestCase):
                 'not_site_per_process_blink_web_tests (with patch)'
             ],
         ])
-        self.assertEqual(self.tool.executive.calls[2], [
+        self.assertEqual(self.tool.executive.calls[2], [[
             'python', 'echo', 'optimize-baselines', '--no-manifest-update',
             'one/text-fail.html'
-        ])
+        ]])
 
     def test_execute_missing_results_with_no_fill_missing_prompts(self):
         self.tool.results_fetcher.set_results(
@@ -788,9 +775,8 @@ class RebaselineCLTest(BaseTestCase, LoggingTestCase):
                                          ['one/flaky-fail.html'], self.tool)
         self.assertEqual(exit_code, 0)
         self.assertLog([
-            'INFO: All builds finished.\n',
-            'WARNING: Some builders have infrastructure failures:\n',
-            'WARNING:   MOCK Try Win\n',
+            'WARNING: Some builds have infrastructure failures:\n',
+            'WARNING:   "MOCK Try Win" build 5000\n',
             'WARNING: Examples of infrastructure failures include:\n',
             'WARNING:   * Shard terminated the harness after timing out.\n',
             'WARNING:   * Harness exited early due to excessive unexpected failures.\n',
@@ -798,8 +784,8 @@ class RebaselineCLTest(BaseTestCase, LoggingTestCase):
             'WARNING: Please consider retrying the failed builders or '
             'giving the builders more shards.\n',
             'WARNING: See https://chromium.googlesource.com/chromium/src/+/'
-            'HEAD/docs/testing/web_test_expectations.md'
-            '#rebaselining-using-try-jobs\n',
+            'HEAD/docs/testing/web_test_expectations.md#handle-bot-timeouts\n',
+            'INFO: All builds finished.\n',
             'INFO: Would you like to continue?\n',
             'INFO: Would you like to try to fill in missing results '
             'with available results?\n'
@@ -904,3 +890,16 @@ class RebaselineCLTest(BaseTestCase, LoggingTestCase):
         ])
         self.assertEqual(exit_code, 0)
         self.assertEqual(self.command.selected_try_bots, frozenset(builders))
+
+    def test_invalid_explicit_builder_list(self):
+        message = io.StringIO()
+        with contextlib.redirect_stderr(message):
+            with self.assertRaises(SystemExit):
+                self.command.main(['--builders=does-not-exist'])
+        self.assertRegex(message.getvalue(),
+                         "'does-not-exist' is not a try builder")
+        self.assertRegex(message.getvalue(), 'MOCK Try Linux\n')
+        self.assertRegex(message.getvalue(),
+                         'MOCK Try Linux \(CQ duplicate\)\n')
+        self.assertRegex(message.getvalue(), 'MOCK Try Mac\n')
+        self.assertRegex(message.getvalue(), 'MOCK Try Win\n')

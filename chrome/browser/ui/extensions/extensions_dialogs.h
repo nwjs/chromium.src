@@ -5,12 +5,13 @@
 #ifndef CHROME_BROWSER_UI_EXTENSIONS_EXTENSIONS_DIALOGS_H_
 #define CHROME_BROWSER_UI_EXTENSIONS_EXTENSIONS_DIALOGS_H_
 
+#include <memory>
 #include <string>
 
 #include "base/functional/callback_forward.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
-#include "chrome/common/buildflags.h"
+#include "components/supervised_user/core/common/buildflags.h"
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/extension_id.h"
 #include "ui/base/ui_base_types.h"

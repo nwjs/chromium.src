@@ -56,6 +56,7 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/content_browser_test.h"
+#include "content/public/test/content_browser_test_content_browser_client.h"
 #include "content/public/test/content_browser_test_utils.h"
 #include "content/public/test/content_mock_cert_verifier.h"
 #include "content/public/test/download_test_observer.h"
@@ -68,13 +69,11 @@
 #include "content/public/test/test_utils.h"
 #include "content/public/test/url_loader_monitor.h"
 #include "content/shell/browser/shell.h"
-#include "content/shell/browser/shell_content_browser_client.h"
 #include "content/shell/browser/shell_download_manager_delegate.h"
 #include "content/test/content_browser_test_utils_internal.h"
 #include "content/test/did_commit_navigation_interceptor.h"
 #include "content/test/fake_network_url_loader_factory.h"
 #include "content/test/task_runner_deferring_throttle.h"
-#include "content/test/test_content_browser_client.h"
 #include "content/test/test_render_frame_host_factory.h"
 #include "ipc/ipc_security_test_util.h"
 #include "mojo/public/cpp/bindings/pending_associated_remote.h"
@@ -348,26 +347,6 @@ class NetworkIsolationNavigationBrowserTest : public ContentBrowserTest {
     ASSERT_TRUE(embedded_test_server()->Start());
     ContentBrowserTest::SetUpOnMainThread();
   }
-};
-
-class NetworkDoubleKeyIsolationNavigationBrowserTest
-    : public ContentBrowserTest {
- public:
-  NetworkDoubleKeyIsolationNavigationBrowserTest() {
-    scoped_feature_list_.InitWithFeatures(
-        {net::features::kForceIsolationInfoFrameOriginToTopLevelFrame,
-         net::features::kEnableDoubleKeyNetworkAnonymizationKey},
-        {});
-  }
-
- protected:
-  void SetUpOnMainThread() override {
-    ASSERT_TRUE(embedded_test_server()->Start());
-    ContentBrowserTest::SetUpOnMainThread();
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 class NavigationBrowserTestReferrerPolicy
@@ -949,46 +928,6 @@ IN_PROC_BROWSER_TEST_F(NetworkIsolationNavigationBrowserTest,
                                  net::SiteForCookies::FromOrigin(origin),
                                  std::set<net::SchemefulSite>())
           .IsEqualForTesting(iframe_request->trusted_params->isolation_info));
-}
-
-IN_PROC_BROWSER_TEST_F(NetworkDoubleKeyIsolationNavigationBrowserTest,
-                       SubframeDoubleKeyNetworkIsolation) {
-  GURL url_top(embedded_test_server()->GetURL("/page_with_iframe.html"));
-  GURL url_iframe = embedded_test_server()->GetURL("/title1.html");
-  url::Origin origin = url::Origin::Create(url_top);
-  URLLoaderMonitor monitor({url_iframe});
-  EXPECT_TRUE(NavigateToURL(shell(), url_top));
-  monitor.WaitForUrls();
-
-  absl::optional<network::ResourceRequest> main_frame_request =
-      monitor.GetRequestInfo(url_top);
-  ASSERT_TRUE(main_frame_request.has_value());
-  ASSERT_TRUE(main_frame_request->trusted_params);
-  EXPECT_TRUE(net::IsolationInfo::Create(
-                  net::IsolationInfo::RequestType::kMainFrame, origin, origin,
-                  net::SiteForCookies::FromOrigin(origin),
-                  std::set<net::SchemefulSite>())
-                  .IsEqualForTesting(
-                      main_frame_request->trusted_params->isolation_info));
-
-  absl::optional<network::ResourceRequest> iframe_request =
-      monitor.GetRequestInfo(url_iframe);
-  ASSERT_TRUE(iframe_request->trusted_params);
-
-  // IsolationInfo and NIK of subframe should only reflect the main_frame's
-  // origin when these flags are on because double key does not include the
-  // subframe's origin.
-  EXPECT_TRUE(
-      net::IsolationInfo::Create(net::IsolationInfo::RequestType::kSubFrame,
-                                 origin, origin,
-                                 net::SiteForCookies::FromOrigin(origin),
-                                 std::set<net::SchemefulSite>())
-          .IsEqualForTesting(iframe_request->trusted_params->isolation_info));
-
-  EXPECT_EQ(
-      main_frame_request->trusted_params->isolation_info
-          .network_isolation_key(),
-      iframe_request->trusted_params->isolation_info.network_isolation_key());
 }
 
 // Tests that the initiator is not set for a browser initiated top frame
@@ -1975,7 +1914,7 @@ class CorsInjectingUrlLoader : public blink::URLLoaderThrottle {
 };
 
 // ContentBrowserClient responsible for creating CorsInjectingUrlLoader.
-class CorsContentBrowserClient : public TestContentBrowserClient {
+class CorsContentBrowserClient : public ContentBrowserTestContentBrowserClient {
  public:
   explicit CorsContentBrowserClient(std::string* last_cors_header_value)
       : last_cors_header_value_(last_cors_header_value) {}
@@ -2014,13 +1953,12 @@ class NavigationCorsExemptBrowserTest : public NavigationBaseBrowserTest {
     NavigationBaseBrowserTest::SetUpCommandLine(command_line);
   }
   void SetUpOnMainThread() override {
-    original_client_ =
-        SetBrowserClientForTesting(&cors_content_browser_client_);
+    cors_content_browser_client_ =
+        std::make_unique<CorsContentBrowserClient>(&last_cors_header_value_);
     host_resolver()->AddRule("*", "127.0.0.1");
   }
   void TearDownOnMainThread() override {
-    if (original_client_)
-      SetBrowserClientForTesting(original_client_);
+    cors_content_browser_client_.reset();
     ShellContentBrowserClient::set_allow_any_cors_exempt_header_for_browser(
         false);
   }
@@ -2028,9 +1966,7 @@ class NavigationCorsExemptBrowserTest : public NavigationBaseBrowserTest {
  private:
   // Last value of kCorsHeaderName. Set by CorsInjectingUrlLoader.
   std::string last_cors_header_value_;
-  CorsContentBrowserClient cors_content_browser_client_{
-      &last_cors_header_value_};
-  raw_ptr<ContentBrowserClient> original_client_ = nullptr;
+  std::unique_ptr<CorsContentBrowserClient> cors_content_browser_client_;
 };
 
 // Verifies a header added by way of SetRequestHeader() makes it into
@@ -3201,7 +3137,7 @@ class NavigationUrlRewriteBrowserTest : public NavigationBaseBrowserTest {
   static constexpr const char* kNoAccessScheme = "no-access";
   static constexpr const char* kNoAccessURL = "no-access://testing/";
 
-  class BrowserClient : public ContentBrowserClient {
+  class BrowserClient : public ContentBrowserTestContentBrowserClient {
    public:
     void BrowserURLHandlerCreated(BrowserURLHandler* handler) override {
       handler->AddHandlerPair(RewriteUrl,
@@ -3248,12 +3184,9 @@ class NavigationUrlRewriteBrowserTest : public NavigationBaseBrowserTest {
     ASSERT_TRUE(embedded_test_server()->Start());
 
     browser_client_ = std::make_unique<BrowserClient>();
-    old_browser_client_ = SetBrowserClientForTesting(browser_client_.get());
   }
 
   void TearDownOnMainThread() override {
-    SetBrowserClientForTesting(old_browser_client_);
-    old_browser_client_ = nullptr;
     browser_client_.reset();
 
     NavigationBaseBrowserTest::TearDownOnMainThread();
@@ -3263,7 +3196,6 @@ class NavigationUrlRewriteBrowserTest : public NavigationBaseBrowserTest {
 
  private:
   std::unique_ptr<BrowserClient> browser_client_;
-  raw_ptr<ContentBrowserClient> old_browser_client_;
   url::ScopedSchemeRegistryForTests scoped_registry_;
 };
 
@@ -3572,7 +3504,7 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
   EXPECT_FALSE(navigation_2.was_same_document());
 }
 
-class GetEffectiveUrlClient : public ContentBrowserClient {
+class GetEffectiveUrlClient : public ContentBrowserTestContentBrowserClient {
  public:
   GURL GetEffectiveURL(content::BrowserContext* browser_context,
                        const GURL& url) override {
@@ -3609,8 +3541,6 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
   GURL url1 = embedded_test_server()->GetURL("a.com", "/title1.html#ref2");
 
   GetEffectiveUrlClient new_client;
-  ContentBrowserClient* old_client =
-      content::SetBrowserClientForTesting(&new_client);
 
   NavigationHandleCommitObserver navigation_0(wc, url0);
   EXPECT_TRUE(NavigateToURL(shell(), url0));
@@ -3637,8 +3567,6 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
   // navigation in the currently loaded document.
   EXPECT_EQ(main_frame_host, wc->GetPrimaryMainFrame());
   EXPECT_EQ(main_frame_process_host, wc->GetPrimaryMainFrame()->GetProcess());
-
-  content::SetBrowserClientForTesting(old_client);
 }
 
 // This tests the same ideas as the above test except in this case the same-
@@ -3654,8 +3582,6 @@ IN_PROC_BROWSER_TEST_F(
   NavigationHandleCommitObserver navigation_1(wc, url1);
 
   GetEffectiveUrlClient new_client;
-  ContentBrowserClient* old_client =
-      content::SetBrowserClientForTesting(&new_client);
 
   EXPECT_TRUE(NavigateToURL(shell(), url0));
   EXPECT_TRUE(navigation_0.has_committed());
@@ -3687,8 +3613,6 @@ IN_PROC_BROWSER_TEST_F(
   // navigation in the currently loaded document.
   EXPECT_EQ(main_frame_host, wc->GetPrimaryMainFrame());
   EXPECT_EQ(main_frame_process_host, wc->GetPrimaryMainFrame()->GetProcess());
-
-  content::SetBrowserClientForTesting(old_client);
 }
 
 IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
@@ -4524,10 +4448,8 @@ class NetworkIsolationSplitCacheAppendIframeOrigin
     : public NavigationBaseBrowserTest {
  public:
   NetworkIsolationSplitCacheAppendIframeOrigin() {
-    feature_list_.InitWithFeatures(
-        {net::features::kSplitCacheByNetworkIsolationKey},
-        {net::features::kForceIsolationInfoFrameOriginToTopLevelFrame,
-         net::features::kEnableDoubleKeyNetworkAnonymizationKey});
+    feature_list_.InitAndEnableFeature(
+        net::features::kSplitCacheByNetworkIsolationKey);
   }
 
  private:
@@ -6100,6 +6022,57 @@ IN_PROC_BROWSER_TEST_F(
             second_tab_handle->GetRedirectChain());
 }
 
+// Regression test for https://crbug.com/1392653.  Ensure that loading a URL
+// that doesn't go through the network stack but does assign a site for its
+// SiteInstance in an unassigned SiteInstance does not fail.  An example of
+// such a URL is about:srcdoc. This ensures that the SiteInstance's site is set
+// even on the WillCommitWithoutUrlLoader() path in NavigationRequest.
+IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
+                       AboutSrcdocInjectedOnAboutBlankPage) {
+  // Start on an about:blank page, which should stay in an unassigned
+  // SiteInstance.
+  EXPECT_TRUE(NavigateToURL(shell(), GURL(url::kAboutBlankURL)));
+  SiteInstanceImpl* site_instance = current_frame_host()->GetSiteInstance();
+  EXPECT_FALSE(site_instance->HasSite());
+
+  // Inject a srcdoc iframe into the blank document.  This shouldn't really be
+  // possible on the open web, since an about:blank page with an unassigned
+  // SiteInstance shouldn't be scriptable by other pages, but it could still
+  // happen in automation scenarios or through DevTools.
+  TestNavigationObserver navigation_observer(web_contents());
+  EXPECT_TRUE(ExecJs(current_frame_host(), JsReplace(R"(
+    let frame = document.createElement('iframe');
+    frame.srcdoc = 'test';
+    document.body.appendChild(frame);
+  )")));
+  navigation_observer.Wait();
+  EXPECT_TRUE(navigation_observer.last_navigation_succeeded());
+  EXPECT_EQ("about:srcdoc", navigation_observer.last_navigation_url());
+
+  // The srcdoc child should stay in its about:blank parent SiteInstance.
+  EXPECT_EQ(1U, main_frame()->child_count());
+  FrameTreeNode* child = main_frame()->child_at(0);
+  EXPECT_EQ(child->current_frame_host()->GetSiteInstance(), site_instance);
+
+  // Committing an about:srcdoc navigation currently forces the SiteInstance's
+  // site to be set. Prior to fixing https://crbug.com/1392653, this happened
+  // after the actual commit was processed at DidNavigate() time, which is a
+  // path that is no longer supported, and hence this triggered a NOTREACHED().
+  // Now, the site should be set before we send the CommitNavigation IPC.
+  EXPECT_TRUE(site_instance->HasSite());
+
+  if (AreDefaultSiteInstancesEnabled()) {
+    EXPECT_TRUE(site_instance->IsDefaultSiteInstance());
+    EXPECT_EQ(SiteInstanceImpl::GetDefaultSiteURL(),
+              site_instance->GetSiteInfo().site_url());
+  } else {
+    // When we get into this situation with strict site isolation, the site URL
+    // currently used is "about:". This may be changed in the future (e.g., to
+    // an opaque ID).
+    EXPECT_EQ("about:", site_instance->GetSiteInfo().site_url());
+  }
+}
+
 class CacheTransparencyNavigationBrowserTest : public ContentBrowserTest {
  public:
   CacheTransparencyNavigationBrowserTest() {
@@ -6131,7 +6104,7 @@ class CacheTransparencyNavigationBrowserTest : public ContentBrowserTest {
   static constexpr char kPervasivePayload[] =
       "/cache_transparency/pervasive.js";
   static constexpr char kCacheUsedHistogram[] =
-      "Network.CacheTransparency.SingleKeyedCacheIsUsed";
+      "Network.CacheTransparency2.SingleKeyedCacheIsUsed";
 
   base::test::ScopedFeatureList feature_list_;
   GURL pervasive_payload_url_;

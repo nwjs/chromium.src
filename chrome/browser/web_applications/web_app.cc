@@ -10,6 +10,8 @@
 
 #include "base/check_op.h"
 #include "base/containers/contains.h"
+#include "base/functional/overloaded.h"
+#include "base/json/values_util.h"
 #include "base/notreached.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
@@ -83,9 +85,9 @@ base::Value OsStatesDebugValue(
     shortcut_data.Set("description", current_states.shortcut().description());
     base::Value::Dict icon_data;
     for (const auto& data : current_states.shortcut().icon_data_any()) {
-      icon_data.Set(base::NumberToString(data.icon_size()),
-                    syncer::GetTimeDebugString(
-                        syncer::ProtoTimeToTime(data.timestamp())));
+      icon_data.Set(
+          base::NumberToString(data.icon_size()),
+          base::StreamableToString(syncer::ProtoTimeToTime(data.timestamp())));
     }
     shortcut_data.Set("icon_size_to_timestamp_map",
                       base::Value(std::move(icon_data)));
@@ -123,26 +125,26 @@ base::Value OsStatesDebugValue(
       base::Value::Dict icon_data_maskable_dict;
       base::Value::Dict icon_data_monochrome_dict;
       for (const auto& icon_data_any : shortcut_menu.icon_data_any()) {
-        icon_data_any_dict.Set(
-            base::NumberToString(icon_data_any.icon_size()),
-            syncer::GetTimeDebugString(
-                syncer::ProtoTimeToTime(icon_data_any.timestamp())));
+        icon_data_any_dict.Set(base::NumberToString(icon_data_any.icon_size()),
+                               base::StreamableToString(syncer::ProtoTimeToTime(
+                                   icon_data_any.timestamp())));
       }
       for (const auto& icon_data_maskable : shortcut_menu.icon_data_any()) {
         icon_data_maskable_dict.Set(
             base::NumberToString(icon_data_maskable.icon_size()),
-            syncer::GetTimeDebugString(
+            base::StreamableToString(
                 syncer::ProtoTimeToTime(icon_data_maskable.timestamp())));
       }
       for (const auto& icon_data_monochrome : shortcut_menu.icon_data_any()) {
         icon_data_monochrome_dict.Set(
             base::NumberToString(icon_data_monochrome.icon_size()),
-            syncer::GetTimeDebugString(
+            base::StreamableToString(
                 syncer::ProtoTimeToTime(icon_data_monochrome.timestamp())));
       }
       base::Value::Dict shortcut_menu_dict;
-      shortcut_menu_dict.Set("app_title", shortcut_menu.app_title());
-      shortcut_menu_dict.Set("app_launch_url", shortcut_menu.app_launch_url());
+      shortcut_menu_dict.Set("shortcut_name", shortcut_menu.shortcut_name());
+      shortcut_menu_dict.Set("shortcut_launch_url",
+                             shortcut_menu.shortcut_launch_url());
       shortcut_menu_dict.Set("icon_data_any",
                              base::Value(std::move(icon_data_any_dict)));
       shortcut_menu_dict.Set("icon_data_maskable",
@@ -179,55 +181,30 @@ base::Value OsStatesDebugValue(
     debug_dict.Set("file_handling", std::move(file_handlers_list));
   }
 
-  if (current_states.has_url_handling()) {
-    base::Value::List url_handlers;
-    for (const auto& url_handler :
-         current_states.url_handling().url_handlers()) {
-      base::Value::Dict url_handler_dict;
-      url_handler_dict.Set("origin", url_handler.origin());
-      url_handler_dict.Set("has_origin_wildcard",
-                           url_handler.has_origin_wildcard());
-      base::Value::List paths;
-      for (auto path : url_handler.paths()) {
-        paths.Append(path);
-      }
-      url_handler_dict.Set("paths", std::move(paths));
-      base::Value::List exclude_paths;
-      for (auto path : url_handler.exclude_paths()) {
-        exclude_paths.Append(path);
-      }
-      url_handler_dict.Set("exclude_paths", std::move(exclude_paths));
-      url_handlers.Append(std::move(url_handler_dict));
-    }
-    base::Value::Dict url_handling;
-    url_handling.Set("url_handlers", std::move(url_handlers));
-    debug_dict.Set("url_handling", std::move(url_handling));
-  }
-
   return base::Value(std::move(debug_dict));
 }
 
-base::Value ImageResourceDebugValue(
+base::Value::Dict ImageResourceDebugDict(
     const blink::Manifest::ImageResource& icon) {
   const char* const kPurposeStrings[] = {"Any", "Monochrome", "Maskable"};
 
-  base::Value root(base::Value::Type::DICT);
-  root.SetStringKey("src", icon.src.spec());
-  root.SetStringKey("type", icon.type);
+  base::Value::Dict root;
+  root.Set("src", icon.src.spec());
+  root.Set("type", icon.type);
 
-  base::Value sizes_json(base::Value::Type::LIST);
+  base::Value::List sizes_json;
   for (const auto& size : icon.sizes) {
     std::string size_formatted = base::NumberToString(size.width()) + "x" +
                                  base::NumberToString(size.height());
     sizes_json.Append(base::Value(size_formatted));
   }
-  root.SetKey("sizes", std::move(sizes_json));
+  root.Set("sizes", std::move(sizes_json));
 
-  base::Value purpose_json(base::Value::Type::LIST);
+  base::Value::List purpose_json;
   for (const auto& purpose : icon.purpose) {
     purpose_json.Append(kPurposeStrings[static_cast<int>(purpose)]);
   }
-  root.SetKey("purpose", std::move(purpose_json));
+  root.Set("purpose", std::move(purpose_json));
   return root;
 }
 
@@ -470,6 +447,11 @@ void WebApp::SetUrlHandlers(apps::UrlHandlers url_handlers) {
   url_handlers_ = std::move(url_handlers);
 }
 
+void WebApp::SetScopeExtensions(
+    std::vector<ScopeExtensionInfo> scope_extensions) {
+  scope_extensions_ = std::move(scope_extensions);
+}
+
 void WebApp::SetLockScreenStartUrl(const GURL& lock_screen_start_url) {
   DCHECK(lock_screen_start_url.is_empty() || lock_screen_start_url.is_valid());
   lock_screen_start_url_ = lock_screen_start_url;
@@ -538,10 +520,6 @@ void WebApp::SetManifestId(const absl::optional<std::string>& manifest_id) {
 
 void WebApp::SetWindowControlsOverlayEnabled(bool enabled) {
   window_controls_overlay_enabled_ = enabled;
-}
-
-void WebApp::SetStorageIsolated(bool is_storage_isolated) {
-  is_storage_isolated_ = is_storage_isolated;
 }
 
 void WebApp::SetLaunchHandler(absl::optional<LaunchHandler> launch_handler) {
@@ -636,9 +614,11 @@ WebApp::ClientData::ClientData(const ClientData& client_data) = default;
 
 base::Value WebApp::ClientData::AsDebugValue() const {
   base::Value::Dict root;
+#if BUILDFLAG(IS_CHROMEOS_ASH)
   root.Set("system_web_app_data", system_web_app_data
                                       ? system_web_app_data->AsDebugValue()
                                       : base::Value());
+#endif
   return base::Value(std::move(root));
 }
 
@@ -688,6 +668,32 @@ base::Value::Dict WebApp::ExternalManagementConfig::AsDebugValue() const {
   return root;
 }
 
+WebApp::IsolationData::IsolationData(IsolatedWebAppLocation location)
+    : location(location) {}
+WebApp::IsolationData::~IsolationData() = default;
+WebApp::IsolationData::IsolationData(const WebApp::IsolationData&) = default;
+WebApp::IsolationData& WebApp::IsolationData::operator=(
+    const WebApp::IsolationData&) = default;
+WebApp::IsolationData::IsolationData(WebApp::IsolationData&&) = default;
+WebApp::IsolationData& WebApp::IsolationData::operator=(
+    WebApp::IsolationData&&) = default;
+
+bool WebApp::IsolationData::operator==(
+    const WebApp::IsolationData& other) const {
+  return location == other.location;
+}
+bool WebApp::IsolationData::operator!=(
+    const WebApp::IsolationData& other) const {
+  return !(*this == other);
+}
+
+base::Value WebApp::IsolationData::AsDebugValue() const {
+  base::Value::Dict value;
+  value.Set("isolated_web_app_location",
+            IsolatedWebAppLocationAsDebugValue(location));
+  return base::Value(std::move(value));
+}
+
 bool WebApp::operator==(const WebApp& other) const {
   auto AsTuple = [](const WebApp& app) {
     // Keep in order declared in web_app.h.
@@ -728,6 +734,7 @@ bool WebApp::operator==(const WebApp& other) const {
         app.allowed_launch_protocols_,
         app.disallowed_launch_protocols_,
         app.url_handlers_,
+        app.scope_extensions_,
         app.lock_screen_start_url_,
         app.note_taking_new_note_url_,
         app.last_badging_time_,
@@ -740,11 +747,12 @@ bool WebApp::operator==(const WebApp& other) const {
         app.capture_links_,
         app.manifest_url_,
         app.manifest_id_,
+#if BUILDFLAG(IS_CHROMEOS_ASH)
         app.client_data_.system_web_app_data,
+#endif
         app.file_handler_approval_state_,
         app.file_handler_os_integration_state_,
         app.window_controls_overlay_enabled_,
-        app.is_storage_isolated_,
         app.launch_handler_,
         app.parent_app_id_,
         app.permissions_policy_,
@@ -766,7 +774,7 @@ bool WebApp::operator!=(const WebApp& other) const {
   return !(*this == other);
 }
 
-base::Value WebApp::AsDebugValue() const {
+base::Value WebApp::AsDebugValueWithOnlyPlatformAgnosticFields() const {
   base::Value::Dict root;
 
   auto ConvertList = [](const auto& list) {
@@ -824,11 +832,6 @@ base::Value WebApp::AsDebugValue() const {
            ColorToString(dark_mode_background_color_));
 
   root.Set("capture_links", base::StreamableToString(capture_links_));
-
-  root.Set("chromeos_data",
-           chromeos_data_ ? chromeos_data_->AsDebugValue() : base::Value());
-
-  root.Set("client_data", client_data_.AsDebugValue());
 
   if (data_size_in_bytes_.has_value()) {
     root.Set("data_size_in_bytes",
@@ -901,8 +904,6 @@ base::Value WebApp::AsDebugValue() const {
            is_from_sync_and_pending_installation_);
 
   root.Set("is_locally_installed", is_locally_installed_);
-
-  root.Set("is_storage_isolated", is_storage_isolated_);
 
   root.Set("is_uninstalling", is_uninstalling_);
 
@@ -997,6 +998,8 @@ base::Value WebApp::AsDebugValue() const {
 
   root.Set("url_handlers", ConvertDebugValueList(url_handlers_));
 
+  root.Set("scope_extensions", ConvertDebugValueList(scope_extensions_));
+
   root.Set("user_display_mode",
            user_display_mode_.has_value()
                ? ConvertUserDisplayModeToString(*user_display_mode_)
@@ -1033,13 +1036,13 @@ base::Value WebApp::AsDebugValue() const {
                           tab_strip_.value().home_tab)));
     } else {
       base::Value::Dict home_tab_json;
-      base::Value icons_json(base::Value::Type::LIST);
+      base::Value::List icons_json;
       absl::optional<std::vector<blink::Manifest::ImageResource>> icons =
           absl::get<blink::Manifest::HomeTabParams>(tab_strip_.value().home_tab)
               .icons;
 
       for (auto& icon : *icons) {
-        icons_json.Append(ImageResourceDebugValue(icon));
+        icons_json.Append(ImageResourceDebugDict(icon));
       }
 
       home_tab_json.Set("icons", std::move(icons_json));
@@ -1061,6 +1064,18 @@ base::Value WebApp::AsDebugValue() const {
   }
 
   return base::Value(std::move(root));
+}
+
+base::Value WebApp::AsDebugValue() const {
+  base::Value value = AsDebugValueWithOnlyPlatformAgnosticFields();
+  auto& root = value.GetDict();
+
+  root.Set("chromeos_data",
+           chromeos_data_ ? chromeos_data_->AsDebugValue() : base::Value());
+
+  root.Set("client_data", client_data_.AsDebugValue());
+
+  return value;
 }
 
 std::ostream& operator<<(std::ostream& out, const WebApp& app) {

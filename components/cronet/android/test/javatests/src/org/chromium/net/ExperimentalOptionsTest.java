@@ -16,9 +16,8 @@ import static org.chromium.net.CronetTestRule.assertContains;
 import static org.chromium.net.CronetTestRule.getContext;
 import static org.chromium.net.CronetTestRule.getTestStorage;
 
-import android.support.test.runner.AndroidJUnit4;
-
 import androidx.annotation.OptIn;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
 import androidx.test.filters.MediumTest;
 
@@ -35,7 +34,6 @@ import org.chromium.base.Log;
 import org.chromium.base.PathUtils;
 import org.chromium.base.annotations.JNINamespace;
 import org.chromium.base.test.util.DisabledTest;
-import org.chromium.base.test.util.Feature;
 import org.chromium.net.CronetTestRule.OnlyRunNativeCronet;
 import org.chromium.net.DnsOptions.StaleDnsOptions;
 import org.chromium.net.MetricsTestUtil.TestRequestFinishedListener;
@@ -93,7 +91,6 @@ public class ExperimentalOptionsTest {
 
     @Test
     @MediumTest
-    @Feature({"Cronet"})
     @OnlyRunNativeCronet
     // Tests that NetLog writes effective experimental options to NetLog.
     public void testNetLog() throws Exception {
@@ -124,7 +121,6 @@ public class ExperimentalOptionsTest {
 
     @Test
     @MediumTest
-    @Feature({"Cronet"})
     @OnlyRunNativeCronet
     public void testEnableTelemetryTrue() throws Exception {
         JSONObject experimentalOptions = new JSONObject().put("enable_telemetry", true);
@@ -138,7 +134,6 @@ public class ExperimentalOptionsTest {
 
     @Test
     @MediumTest
-    @Feature({"Cronet"})
     @OnlyRunNativeCronet
     public void testEnableTelemetryDefault() throws Exception {
         CronetEngine cronetEngine = mBuilder.build();
@@ -150,7 +145,6 @@ public class ExperimentalOptionsTest {
     @DisabledTest(message = "crbug.com/1021941")
     @Test
     @MediumTest
-    @Feature({"Cronet"})
     @OnlyRunNativeCronet
     public void testSetSSLKeyLogFile() throws Exception {
         String url = Http2TestServer.getEchoMethodUrl();
@@ -217,7 +211,6 @@ public class ExperimentalOptionsTest {
 
     @Test
     @MediumTest
-    @Feature({"Cronet"})
     @OnlyRunNativeCronet
     // Tests that basic Cronet functionality works when host cache persistence is enabled, and that
     // persistence works.
@@ -276,7 +269,6 @@ public class ExperimentalOptionsTest {
 
     @Test
     @MediumTest
-    @Feature({"Cronet"})
     @OnlyRunNativeCronet
     @DisabledTest(message = "https://crbug.com/1404719")
     // Experimental options should be specified through a JSON compliant string. When that is not
@@ -293,7 +285,6 @@ public class ExperimentalOptionsTest {
 
     @Test
     @MediumTest
-    @Feature({"Cronet"})
     @OnlyRunNativeCronet
     public void testDetectBrokenConnection() throws Exception {
         String url = Http2TestServer.getEchoMethodUrl();
@@ -318,7 +309,6 @@ public class ExperimentalOptionsTest {
     @DisabledTest(message = "crbug.com/1320725")
     @Test
     @LargeTest
-    @Feature({"Cronet"})
     @OnlyRunNativeCronet
     public void testDetectBrokenConnectionOnNetworkFailure() throws Exception {
         // HangingRequestUrl stops the server from replying until mHangingUrlLatch is opened,
@@ -350,7 +340,6 @@ public class ExperimentalOptionsTest {
 
     @Test
     @MediumTest
-    @Feature({"Cronet"})
     @OnlyRunNativeCronet
     public void testEnableDefaultNetworkConnectionMigrationApi_noBuilderSupport() {
         MockCronetBuilderImpl mockBuilderImpl = MockCronetBuilderImpl.withoutNativeSetterSupport();
@@ -367,7 +356,6 @@ public class ExperimentalOptionsTest {
 
     @Test
     @MediumTest
-    @Feature({"Cronet"})
     @OnlyRunNativeCronet
     public void enableDefaultNetworkConnectionMigrationApi_builderSupport() {
         MockCronetBuilderImpl mockBuilderImpl = MockCronetBuilderImpl.withNativeSetterSupport();
@@ -383,7 +371,6 @@ public class ExperimentalOptionsTest {
 
     @Test
     @MediumTest
-    @Feature({"Cronet"})
     @OnlyRunNativeCronet
     public void
     testEnableDefaultNetworkConnectionMigrationApi_noBuilderSupport_setterTakesPrecedence() {
@@ -403,7 +390,6 @@ public class ExperimentalOptionsTest {
 
     @Test
     @MediumTest
-    @Feature({"Cronet"})
     @OnlyRunNativeCronet
     public void testEnablePathDegradingConnectionMigration_justNonDefaultNetwork() {
         MockCronetBuilderImpl mockBuilderImpl = MockCronetBuilderImpl.withoutNativeSetterSupport();
@@ -419,7 +405,6 @@ public class ExperimentalOptionsTest {
 
     @Test
     @MediumTest
-    @Feature({"Cronet"})
     @OnlyRunNativeCronet
     public void testEnablePathDegradingConnectionMigration_justPort() {
         MockCronetBuilderImpl mockBuilderImpl = MockCronetBuilderImpl.withoutNativeSetterSupport();
@@ -436,7 +421,6 @@ public class ExperimentalOptionsTest {
 
     @Test
     @MediumTest
-    @Feature({"Cronet"})
     @OnlyRunNativeCronet
     public void testEnablePathDegradingConnectionMigration_bothTrue() {
         MockCronetBuilderImpl mockBuilderImpl = MockCronetBuilderImpl.withoutNativeSetterSupport();
@@ -454,7 +438,6 @@ public class ExperimentalOptionsTest {
 
     @Test
     @MediumTest
-    @Feature({"Cronet"})
     @OnlyRunNativeCronet
     public void testEnablePathDegradingConnectionMigration_trueAndFalse() throws Exception {
         MockCronetBuilderImpl mockBuilderImpl = MockCronetBuilderImpl.withoutNativeSetterSupport();
@@ -473,7 +456,6 @@ public class ExperimentalOptionsTest {
 
     @Test
     @MediumTest
-    @Feature({"Cronet"})
     @OnlyRunNativeCronet
     public void testEnablePathDegradingConnectionMigration_invalid() {
         MockCronetBuilderImpl mockBuilderImpl = MockCronetBuilderImpl.withoutNativeSetterSupport();
@@ -495,7 +477,6 @@ public class ExperimentalOptionsTest {
 
     @Test
     @MediumTest
-    @Feature({"Cronet"})
     @OnlyRunNativeCronet
     public void testExperimentalOptions_allSet() throws Exception {
         MockCronetBuilderImpl mockBuilderImpl = MockCronetBuilderImpl.withoutNativeSetterSupport();
@@ -629,7 +610,6 @@ public class ExperimentalOptionsTest {
 
     @Test
     @MediumTest
-    @Feature({"Cronet"})
     @OnlyRunNativeCronet
     public void testExperimentalOptions_noneSet() {
         MockCronetBuilderImpl mockBuilderImpl = MockCronetBuilderImpl.withoutNativeSetterSupport();

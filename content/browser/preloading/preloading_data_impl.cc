@@ -3,10 +3,16 @@
 // found in the LICENSE file.
 
 #include "content/browser/preloading/preloading_data_impl.h"
+#include <limits>
 
+#include "base/metrics/histogram_functions.h"
+#include "base/rand_util.h"
+#include "base/strings/strcat.h"
 #include "content/browser/preloading/prefetch/no_vary_search_helper.h"
 #include "content/browser/preloading/prefetch/prefetch_document_manager.h"
+#include "content/browser/preloading/preloading.h"
 #include "content/browser/preloading/preloading_attempt_impl.h"
+#include "content/browser/preloading/preloading_config.h"
 #include "content/browser/preloading/preloading_prediction.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents.h"
@@ -113,7 +119,7 @@ PreloadingAttempt* PreloadingDataImpl::AddPreloadingAttempt(
 
   auto attempt = std::make_unique<PreloadingAttemptImpl>(
       predictor, preloading_type, triggered_primary_page_source_id,
-      std::move(url_match_predicate));
+      std::move(url_match_predicate), sampling_seed_);
   preloading_attempts_.push_back(std::move(attempt));
 
   return preloading_attempts_.back().get();
@@ -141,7 +147,8 @@ void PreloadingDataImpl::AddPreloadingPrediction(
 
 PreloadingDataImpl::PreloadingDataImpl(WebContents* web_contents)
     : WebContentsUserData<PreloadingDataImpl>(*web_contents),
-      WebContentsObserver(web_contents) {}
+      WebContentsObserver(web_contents),
+      sampling_seed_(static_cast<uint32_t>(base::RandUint64())) {}
 
 PreloadingDataImpl::~PreloadingDataImpl() = default;
 
@@ -208,13 +215,42 @@ void PreloadingDataImpl::WebContentsDestroyed() {
   web_contents()->RemoveUserData(UserDataKey());
 }
 
+void PreloadingDataImpl::RecordPreloadingAttemptPrecisionToUMA(
+    const PreloadingAttemptImpl& attempt) {
+  bool is_true_positive = attempt.IsAccurateTriggering();
+  const auto uma_attempt_precision = base::StrCat(
+      {"Preloading.", PreloadingTypeToString(attempt.preloading_type()),
+       ".Attempt.", attempt.predictor_type().name(), ".Precision"});
+
+  base::UmaHistogramEnumeration(uma_attempt_precision,
+                                is_true_positive
+                                    ? PredictorConfusionMatrix::kTruePositive
+                                    : PredictorConfusionMatrix::kFalsePositive);
+}
+
+void PreloadingDataImpl::RecordPredictionPrecisionToUMA(
+    const PreloadingPrediction& prediction) {
+  bool is_true_positive = prediction.IsAccuratePrediction();
+  const auto uma_predictor_precision =
+      base::StrCat({"Preloading.Predictor.", prediction.predictor_type().name(),
+                    ".Precision"});
+  base::UmaHistogramEnumeration(uma_predictor_precision,
+                                is_true_positive
+                                    ? PredictorConfusionMatrix::kTruePositive
+                                    : PredictorConfusionMatrix::kFalsePositive);
+}
+
 void PreloadingDataImpl::SetIsAccurateTriggeringAndPrediction(
     const GURL& navigated_url) {
-  for (auto& attempt : preloading_attempts_)
+  for (auto& attempt : preloading_attempts_) {
     attempt->SetIsAccurateTriggering(navigated_url);
+    RecordPreloadingAttemptPrecisionToUMA(*attempt);
+  }
 
-  for (auto& prediction : preloading_predictions_)
+  for (auto& prediction : preloading_predictions_) {
     prediction->SetIsAccuratePrediction(navigated_url);
+    RecordPredictionPrecisionToUMA(*prediction);
+  }
 }
 
 void PreloadingDataImpl::RecordMetricsForPreloadingAttempts(

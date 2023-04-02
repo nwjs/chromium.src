@@ -10,8 +10,9 @@
 #import "base/check_op.h"
 #import "base/i18n/rtl.h"
 #import "base/mac/foundation_util.h"
+#import "base/metrics/user_metrics.h"
+#import "base/metrics/user_metrics_action.h"
 #import "base/notreached.h"
-
 #import "base/strings/sys_string_conversions.h"
 #import "components/bookmarks/browser/bookmark_model.h"
 #import "components/bookmarks/browser/bookmark_node.h"
@@ -24,7 +25,6 @@
 #import "ios/chrome/browser/ui/bookmarks/bookmark_utils_ios.h"
 #import "ios/chrome/browser/ui/bookmarks/cells/bookmark_parent_folder_item.h"
 #import "ios/chrome/browser/ui/bookmarks/cells/bookmark_text_field_item.h"
-#import "ios/chrome/browser/ui/bookmarks/folder_chooser/bookmarks_folder_chooser_view_controller.h"
 #import "ios/chrome/browser/ui/commands/snackbar_commands.h"
 #import "ios/chrome/browser/ui/icons/chrome_icon.h"
 #import "ios/chrome/browser/ui/table_view/chrome_table_view_styler.h"
@@ -55,7 +55,6 @@ typedef NS_ENUM(NSInteger, ItemType) {
 }  // namespace
 
 @interface BookmarksFolderEditorViewController () <
-    BookmarksFolderChooserViewControllerDelegate,
     BookmarkModelBridgeObserver,
     BookmarkTextFieldItemDelegate> {
   std::unique_ptr<BookmarkModelBridge> _modelBridge;
@@ -68,9 +67,9 @@ typedef NS_ENUM(NSInteger, ItemType) {
 @property(nonatomic, assign) bookmarks::BookmarkModel* bookmarkModel;
 @property(nonatomic, assign) Browser* browser;
 @property(nonatomic, assign) ChromeBrowserState* browserState;
+// Whether the folder name was edited.
+@property(nonatomic, assign) BOOL edited;
 @property(nonatomic, assign) const BookmarkNode* folder;
-@property(nonatomic, strong)
-    BookmarksFolderChooserViewController* folderViewController;
 @property(nonatomic, assign) const BookmarkNode* parentFolder;
 @property(nonatomic, weak) UIBarButtonItem* doneItem;
 @property(nonatomic, strong) BookmarkTextFieldItem* titleItem;
@@ -100,7 +99,6 @@ typedef NS_ENUM(NSInteger, ItemType) {
 @synthesize delegate = _delegate;
 @synthesize editingExistingFolder = _editingExistingFolder;
 @synthesize folder = _folder;
-@synthesize folderViewController = _folderViewController;
 @synthesize parentFolder = _parentFolder;
 @synthesize browser = _browser;
 @synthesize browserState = _browserState;
@@ -160,7 +158,57 @@ typedef NS_ENUM(NSInteger, ItemType) {
 
 - (void)dealloc {
   _titleItem.delegate = nil;
-  _folderViewController.delegate = nil;
+}
+
+#pragma mark - Public
+
+- (void)presentationControllerDidAttemptToDismiss {
+  self.actionSheetCoordinator = [[ActionSheetCoordinator alloc]
+      initWithBaseViewController:self
+                         browser:_browser
+                           title:nil
+                         message:nil
+                   barButtonItem:self.navigationItem.leftBarButtonItem];
+
+  __weak __typeof(self) weakSelf = self;
+  [self.actionSheetCoordinator
+      addItemWithTitle:l10n_util::GetNSString(
+                           IDS_IOS_VIEW_CONTROLLER_DISMISS_SAVE_CHANGES)
+                action:^{
+                  [weakSelf saveFolder];
+                }
+                 style:UIAlertActionStyleDefault];
+  [self.actionSheetCoordinator
+      addItemWithTitle:l10n_util::GetNSString(
+                           IDS_IOS_VIEW_CONTROLLER_DISMISS_DISCARD_CHANGES)
+                action:^{
+                  [weakSelf dismiss];
+                }
+                 style:UIAlertActionStyleDestructive];
+  // IDS_IOS_NAVIGATION_BAR_CANCEL_BUTTON
+  [self.actionSheetCoordinator
+      addItemWithTitle:l10n_util::GetNSString(
+                           IDS_IOS_VIEW_CONTROLLER_DISMISS_CANCEL_CHANGES)
+                action:^{
+                  weakSelf.navigationItem.leftBarButtonItem.enabled = YES;
+                  weakSelf.navigationItem.rightBarButtonItem.enabled = YES;
+                }
+                 style:UIAlertActionStyleCancel];
+
+  self.navigationItem.leftBarButtonItem.enabled = NO;
+  self.navigationItem.rightBarButtonItem.enabled = NO;
+  [self.actionSheetCoordinator start];
+}
+
+// Whether the bookmarks folder editor can be dismissed.
+- (BOOL)canDismiss {
+  return !self.edited;
+}
+
+- (void)updateParentFolder:(const bookmarks::BookmarkNode*)parent {
+  DCHECK(parent);
+  self.parentFolder = parent;
+  [self updateParentFolderState];
 }
 
 #pragma mark - UIViewController
@@ -211,10 +259,11 @@ typedef NS_ENUM(NSInteger, ItemType) {
   }
 }
 
-#pragma mark - Presentation controller integration
-
-- (BOOL)shouldBeDismissedOnTouchOutside {
-  return NO;
+- (void)didMoveToParentViewController:(UIViewController*)parent {
+  [super didMoveToParentViewController:parent];
+  if (!parent) {
+    [self.delegate bookmarksFolderEditorDidDismiss:self];
+  }
 }
 
 #pragma mark - Accessibility
@@ -227,25 +276,30 @@ typedef NS_ENUM(NSInteger, ItemType) {
 #pragma mark - Actions
 
 - (void)dismiss {
+  base::RecordAction(
+      base::UserMetricsAction("MobileBookmarksFolderEditorCanceled"));
   [self.view endEditing:YES];
-  [self.delegate bookmarkFolderEditorDidCancel:self];
+  [self.delegate bookmarksFolderEditorDidCancel:self];
 }
 
 - (void)deleteFolder {
   DCHECK(self.editingExistingFolder);
   DCHECK(self.folder);
+  base::RecordAction(
+      base::UserMetricsAction("MobileBookmarksFolderEditorDeletedFolder"));
   std::set<const BookmarkNode*> editedNodes;
   editedNodes.insert(self.folder);
   [self.snackbarCommandsHandler
       showSnackbarMessage:bookmark_utils_ios::DeleteBookmarksWithUndoToast(
                               editedNodes, self.bookmarkModel,
                               self.browserState)];
-  [self.delegate bookmarkFolderEditorDidDeleteEditedFolder:self];
+  [self.delegate bookmarksFolderEditorDidDeleteEditedFolder:self];
 }
 
 - (void)saveFolder {
   DCHECK(self.parentFolder);
-
+  base::RecordAction(
+      base::UserMetricsAction("MobileBookmarksFolderEditorSaved"));
   NSString* folderString = self.titleItem.text;
   DCHECK(folderString.length > 0);
   std::u16string folderTitle = base::SysNSStringToUTF16(folderString);
@@ -254,19 +308,18 @@ typedef NS_ENUM(NSInteger, ItemType) {
     DCHECK(self.folder);
     // Tell delegate if folder title has been changed.
     if (self.folder->GetTitle() != folderTitle) {
-      [self.delegate bookmarkFolderEditorWillCommitTitleChange:self];
+      [self.delegate bookmarksFolderEditorWillCommitTitleChange:self];
     }
 
     self.bookmarkModel->SetTitle(self.folder, folderTitle,
                                  bookmarks::metrics::BookmarkEditSource::kUser);
     if (self.folder->parent() != self.parentFolder) {
       base::AutoReset<BOOL> autoReset(&_ignoresOwnMove, YES);
-      std::set<const BookmarkNode*> editedNodes;
-      editedNodes.insert(self.folder);
       [self.snackbarCommandsHandler
           showSnackbarMessage:bookmark_utils_ios::MoveBookmarksWithUndoToast(
-                                  editedNodes, self.bookmarkModel,
-                                  self.parentFolder, self.browserState)];
+                                  std::set<const BookmarkNode*>{self.folder},
+                                  self.bookmarkModel, self.parentFolder,
+                                  self.browserState)];
     }
   } else {
     DCHECK(!self.folder);
@@ -274,54 +327,18 @@ typedef NS_ENUM(NSInteger, ItemType) {
         self.parentFolder, self.parentFolder->children().size(), folderTitle);
   }
   [self.view endEditing:YES];
-  [self.delegate bookmarkFolderEditor:self didFinishEditingFolder:self.folder];
+  [self.delegate bookmarksFolderEditor:self didFinishEditingFolder:self.folder];
 }
 
 - (void)changeParentFolder {
-  std::set<const BookmarkNode*> editedNodes;
+  base::RecordAction(base::UserMetricsAction(
+      "MobileBookmarksFolderEditorOpenedFolderChooser"));
+  std::set<const BookmarkNode*> hiddenNodes;
   if (self.folder) {
-    editedNodes.insert(self.folder);
+    hiddenNodes.insert(self.folder);
   }
-  BookmarksFolderChooserViewController* folderViewController =
-      [[BookmarksFolderChooserViewController alloc]
-          initWithBookmarkModel:self.bookmarkModel
-               allowsNewFolders:NO
-                    editedNodes:editedNodes
-                   allowsCancel:NO
-                 selectedFolder:self.parentFolder
-                        browser:_browser];
-  folderViewController.delegate = self;
-  folderViewController.snackbarCommandsHandler = self.snackbarCommandsHandler;
-
-  self.folderViewController = folderViewController;
-
-  [self.navigationController pushViewController:folderViewController
-                                       animated:YES];
-}
-
-#pragma mark - BookmarksFolderChooserViewControllerDelegate
-
-- (void)folderPicker:(BookmarksFolderChooserViewController*)folderPicker
-    didFinishWithFolder:(const BookmarkNode*)folder {
-  self.parentFolder = folder;
-  [self updateParentFolderState];
-  [self.navigationController popViewControllerAnimated:YES];
-  self.folderViewController.delegate = nil;
-  self.folderViewController = nil;
-}
-
-- (void)folderPickerDidCancel:
-    (BookmarksFolderChooserViewController*)folderPicker {
-  [self.navigationController popViewControllerAnimated:YES];
-  self.folderViewController.delegate = nil;
-  self.folderViewController = nil;
-}
-
-- (void)folderPickerDidDismiss:
-    (BookmarksFolderChooserViewController*)folderPicker {
-  self.folderViewController.delegate = nil;
-  self.folderViewController = nil;
-  [self dismiss];
+  [self.delegate showBookmarksFolderChooserWithParentFolder:self.parentFolder
+                                                hiddenNodes:hiddenNodes];
 }
 
 #pragma mark - BookmarkModelBridgeObserver
@@ -380,7 +397,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
 #pragma mark - BookmarkTextFieldItemDelegate
 
 - (void)textDidChangeForItem:(BookmarkTextFieldItem*)item {
-  self.modalInPresentation = YES;
+  self.edited = YES;
   [self updateSaveButtonState];
 }
 
@@ -406,59 +423,6 @@ typedef NS_ENUM(NSInteger, ItemType) {
       ItemTypeParentFolder) {
     [self changeParentFolder];
   }
-}
-
-#pragma mark - UIAdaptivePresentationControllerDelegate
-
-- (void)presentationControllerDidAttemptToDismiss:
-    (UIPresentationController*)presentationController {
-  self.actionSheetCoordinator = [[ActionSheetCoordinator alloc]
-      initWithBaseViewController:self
-                         browser:_browser
-                           title:nil
-                         message:nil
-                   barButtonItem:self.navigationItem.leftBarButtonItem];
-
-  __weak __typeof(self) weakSelf = self;
-  [self.actionSheetCoordinator
-      addItemWithTitle:l10n_util::GetNSString(
-                           IDS_IOS_VIEW_CONTROLLER_DISMISS_SAVE_CHANGES)
-                action:^{
-                  [weakSelf saveFolder];
-                }
-                 style:UIAlertActionStyleDefault];
-  [self.actionSheetCoordinator
-      addItemWithTitle:l10n_util::GetNSString(
-                           IDS_IOS_VIEW_CONTROLLER_DISMISS_DISCARD_CHANGES)
-                action:^{
-                  [weakSelf dismiss];
-                }
-                 style:UIAlertActionStyleDestructive];
-  // IDS_IOS_NAVIGATION_BAR_CANCEL_BUTTON
-  [self.actionSheetCoordinator
-      addItemWithTitle:l10n_util::GetNSString(
-                           IDS_IOS_VIEW_CONTROLLER_DISMISS_CANCEL_CHANGES)
-                action:^{
-                  weakSelf.navigationItem.leftBarButtonItem.enabled = YES;
-                  weakSelf.navigationItem.rightBarButtonItem.enabled = YES;
-                }
-                 style:UIAlertActionStyleCancel];
-
-  self.navigationItem.leftBarButtonItem.enabled = NO;
-  self.navigationItem.rightBarButtonItem.enabled = NO;
-  [self.actionSheetCoordinator start];
-}
-
-- (void)presentationControllerWillDismiss:
-    (UIPresentationController*)presentationController {
-  // Resign first responder if trying to dismiss the VC so the keyboard doesn't
-  // linger until the VC dismissal has completed.
-  [self.view endEditing:YES];
-}
-
-- (void)presentationControllerDidDismiss:
-    (UIPresentationController*)presentationController {
-  [self dismiss];
 }
 
 #pragma mark - Private

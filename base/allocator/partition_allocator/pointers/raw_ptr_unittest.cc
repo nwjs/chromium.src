@@ -14,11 +14,14 @@
 #include "base/allocator/partition_alloc_features.h"
 #include "base/allocator/partition_alloc_support.h"
 #include "base/allocator/partition_allocator/dangling_raw_ptr_checks.h"
+#include "base/allocator/partition_allocator/partition_alloc-inl.h"
 #include "base/allocator/partition_allocator/partition_alloc.h"
 #include "base/allocator/partition_allocator/partition_alloc_base/numerics/checked_math.h"
 #include "base/allocator/partition_allocator/partition_alloc_buildflags.h"
 #include "base/allocator/partition_allocator/partition_alloc_config.h"
 #include "base/allocator/partition_allocator/partition_alloc_constants.h"
+#include "base/allocator/partition_allocator/partition_alloc_hooks.h"
+#include "base/allocator/partition_allocator/pointers/raw_ptr_test_support.h"
 #include "base/allocator/partition_allocator/pointers/raw_ref.h"
 #include "base/allocator/partition_allocator/tagging.h"
 #include "base/cpu.h"
@@ -93,30 +96,31 @@ static_assert(
 // this namespace calls the correct functions from this namespace.
 namespace {
 
-// TraitBundle<> matches what CountingRawPtr does internally.
-// UseCountingWrapperForTest is removed.
+// `kAllowPtrArithmetic` matches what `CountingRawPtr` does internally.
+// `kUseCountingWrapperForTest` is removed.
 using RawPtrCountingImpl = base::internal::RawPtrCountingImplWrapperForTest<
-    base::raw_ptr_traits::TraitBundle<>>;
+    base::RawPtrTraits::kAllowPtrArithmetic>;
 
-// TraitBundle<MayDangle> matches what CountingRawPtrMayDangle does internally.
-// UseCountingWrapperForTest is removed, and MayDangle is kept.
+// `kMayDangle | kAllowPtrArithmetic` matches what `CountingRawPtrMayDangle`
+// does internally. `kUseCountingWrapperForTest` is removed, and `kMayDangle`
+// and `kAllowPtrArithmetic` are kept.
 using RawPtrCountingMayDangleImpl =
     base::internal::RawPtrCountingImplWrapperForTest<
-        base::raw_ptr_traits::TraitBundle<base::raw_ptr_traits::MayDangle>>;
+        base::RawPtrTraits::kMayDangle |
+        base::RawPtrTraits::kAllowPtrArithmetic>;
 
 template <typename T>
-using CountingRawPtr =
-    raw_ptr<T,
-            base::raw_ptr_traits::TraitBundle<
-                base::raw_ptr_traits::UseCountingWrapperForTest>>;
+using CountingRawPtr = raw_ptr<T,
+                               base::RawPtrTraits::kUseCountingWrapperForTest |
+                                   base::RawPtrTraits::kAllowPtrArithmetic>;
 static_assert(std::is_same_v<CountingRawPtr<int>::Impl, RawPtrCountingImpl>);
 
 template <typename T>
 using CountingRawPtrMayDangle =
     raw_ptr<T,
-            base::raw_ptr_traits::TraitBundle<
-                base::raw_ptr_traits::MayDangle,
-                base::raw_ptr_traits::UseCountingWrapperForTest>>;
+            base::RawPtrTraits::kMayDangle |
+                base::RawPtrTraits::kUseCountingWrapperForTest |
+                base::RawPtrTraits::kAllowPtrArithmetic>;
 static_assert(std::is_same_v<CountingRawPtrMayDangle<int>::Impl,
                              RawPtrCountingMayDangleImpl>);
 
@@ -147,68 +151,6 @@ class RawPtrTest : public Test {
   }
 };
 
-// Struct intended to be used with designated initializers and passed
-// to the `CountingRawPtrHas()` matcher.
-struct CountingRawPtrExpectations {
-  absl::optional<int> wrap_raw_ptr_cnt;
-  absl::optional<int> release_wrapped_ptr_cnt;
-  absl::optional<int> get_for_dereference_cnt;
-  absl::optional<int> get_for_extraction_cnt;
-  absl::optional<int> get_for_comparison_cnt;
-  absl::optional<int> wrapped_ptr_swap_cnt;
-  absl::optional<int> wrapped_ptr_less_cnt;
-  absl::optional<int> pointer_to_member_operator_cnt;
-  absl::optional<int> wrap_raw_ptr_for_dup_cnt;
-  absl::optional<int> get_for_duplication_cnt;
-};
-
-#define REPORT_UNEQUAL_RAW_PTR_COUNTER(member_name, CounterClassImpl) \
-  {                                                                   \
-    if (arg.member_name.has_value() &&                                \
-        arg.member_name.value() != CounterClassImpl::member_name) {   \
-      *result_listener << "Expected `" #member_name "` to be "        \
-                       << arg.member_name.value() << " but got "      \
-                       << CounterClassImpl::member_name << "; ";      \
-      result = false;                                                 \
-    }                                                                 \
-  }
-#define REPORT_UNEQUAL_RAW_PTR_COUNTERS(result, CounterClassImpl)              \
-  {                                                                            \
-    result = true;                                                             \
-    REPORT_UNEQUAL_RAW_PTR_COUNTER(wrap_raw_ptr_cnt, CounterClassImpl)         \
-    REPORT_UNEQUAL_RAW_PTR_COUNTER(release_wrapped_ptr_cnt, CounterClassImpl)  \
-    REPORT_UNEQUAL_RAW_PTR_COUNTER(get_for_dereference_cnt, CounterClassImpl)  \
-    REPORT_UNEQUAL_RAW_PTR_COUNTER(get_for_extraction_cnt, CounterClassImpl)   \
-    REPORT_UNEQUAL_RAW_PTR_COUNTER(get_for_comparison_cnt, CounterClassImpl)   \
-    REPORT_UNEQUAL_RAW_PTR_COUNTER(wrapped_ptr_swap_cnt, CounterClassImpl)     \
-    REPORT_UNEQUAL_RAW_PTR_COUNTER(wrapped_ptr_less_cnt, CounterClassImpl)     \
-    REPORT_UNEQUAL_RAW_PTR_COUNTER(pointer_to_member_operator_cnt,             \
-                                   CounterClassImpl)                           \
-    REPORT_UNEQUAL_RAW_PTR_COUNTER(wrap_raw_ptr_for_dup_cnt, CounterClassImpl) \
-    REPORT_UNEQUAL_RAW_PTR_COUNTER(get_for_duplication_cnt, CounterClassImpl)  \
-  }
-
-// Matcher used with `CountingRawPtr`. Provides slightly shorter
-// boilerplate for verifying counts.
-
-// Implicit `arg` has type `CountingRawPtrExpectations`.
-MATCHER(CountingRawPtrHasCounts, "`CountingRawPtr` has specified counters") {
-  bool result = true;
-  REPORT_UNEQUAL_RAW_PTR_COUNTERS(result, RawPtrCountingImpl);
-  return result;
-}
-
-// Implicit `arg` has type `CountingRawPtrExpectations`.
-MATCHER(MayDangleCountingRawPtrHasCounts,
-        "`MayDangleCountingRawPtr` has specified counters") {
-  bool result = true;
-  REPORT_UNEQUAL_RAW_PTR_COUNTERS(result, RawPtrCountingMayDangleImpl);
-  return result;
-}
-
-#undef REPORT_UNEQUAL_RAW_PTR_COUNTERS
-#undef REPORT_UNEQUAL_RAW_PTR_COUNTER
-
 // Use this instead of std::ignore, to prevent the instruction from getting
 // optimized out by the compiler.
 volatile int g_volatile_int_to_ignore;
@@ -228,10 +170,11 @@ TEST_F(RawPtrTest, NullExtractNoDereference) {
   // No dereference hence shouldn't crash.
   int* raw = ptr;
   std::ignore = raw;
-  EXPECT_THAT((CountingRawPtrExpectations{.get_for_dereference_cnt = 0,
-                                          .get_for_extraction_cnt = 1,
-                                          .get_for_comparison_cnt = 0}),
-              CountingRawPtrHasCounts());
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
+                  .get_for_dereference_cnt = 0,
+                  .get_for_extraction_cnt = 1,
+                  .get_for_comparison_cnt = 0}),
+              CountersMatch());
 }
 
 TEST_F(RawPtrTest, InvalidExtractNoDereference) {
@@ -241,10 +184,11 @@ TEST_F(RawPtrTest, InvalidExtractNoDereference) {
   CountingRawPtr<int> ptr = inv_ptr;
   int* raw = ptr;
   EXPECT_EQ(raw, inv_ptr);
-  EXPECT_THAT((CountingRawPtrExpectations{.get_for_dereference_cnt = 0,
-                                          .get_for_extraction_cnt = 1,
-                                          .get_for_comparison_cnt = 0}),
-              CountingRawPtrHasCounts());
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
+                  .get_for_dereference_cnt = 0,
+                  .get_for_extraction_cnt = 1,
+                  .get_for_comparison_cnt = 0}),
+              CountersMatch());
 }
 
 TEST_F(RawPtrTest, NullCmpExplicit) {
@@ -254,12 +198,12 @@ TEST_F(RawPtrTest, NullCmpExplicit) {
   EXPECT_FALSE(ptr != nullptr);
   EXPECT_FALSE(nullptr != ptr);
   // No need to unwrap pointer, just compare against 0.
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = 0,
                   .get_for_extraction_cnt = 0,
                   .get_for_comparison_cnt = 0,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 }
 
 TEST_F(RawPtrTest, NullCmpBool) {
@@ -267,12 +211,12 @@ TEST_F(RawPtrTest, NullCmpBool) {
   EXPECT_FALSE(ptr);
   EXPECT_TRUE(!ptr);
   // No need to unwrap pointer, just compare against 0.
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = 0,
                   .get_for_extraction_cnt = 0,
                   .get_for_comparison_cnt = 0,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 }
 
 void FuncThatAcceptsBool(bool b) {}
@@ -299,12 +243,12 @@ TEST_F(RawPtrTest, BoolOpNotCast) {
   std::ignore = IsValidNoCast2(ptr);
   FuncThatAcceptsBool(!ptr);
   // No need to unwrap pointer, just compare against 0.
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = 0,
                   .get_for_extraction_cnt = 0,
                   .get_for_comparison_cnt = 0,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 }
 
 bool IsValidWithCast(CountingRawPtr<int> ptr) {
@@ -320,48 +264,48 @@ TEST_F(RawPtrTest, CastNotBoolOp) {
   [[maybe_unused]] bool is_valid = ptr;
   is_valid = IsValidWithCast(ptr);
   FuncThatAcceptsBool(ptr);
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = 0,
                   .get_for_extraction_cnt = 3,
                   .get_for_comparison_cnt = 0,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 }
 
 TEST_F(RawPtrTest, StarDereference) {
   int foo = 42;
   CountingRawPtr<int> ptr = &foo;
   EXPECT_EQ(*ptr, 42);
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = 1,
                   .get_for_extraction_cnt = 0,
                   .get_for_comparison_cnt = 0,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 }
 
 TEST_F(RawPtrTest, ArrowDereference) {
   MyStruct foo = {42};
   CountingRawPtr<MyStruct> ptr = &foo;
   EXPECT_EQ(ptr->x, 42);
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = 1,
                   .get_for_extraction_cnt = 0,
                   .get_for_comparison_cnt = 0,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 }
 
 TEST_F(RawPtrTest, Delete) {
   CountingRawPtr<int> ptr = new int(42);
   delete ptr.ExtractAsDangling();
   // The pointer was extracted using implicit cast before passing to |delete|.
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = 0,
                   .get_for_extraction_cnt = 1,
                   .get_for_comparison_cnt = 0,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 }
 
 TEST_F(RawPtrTest, ClearAndDelete) {
@@ -372,14 +316,14 @@ TEST_F(RawPtrTest, ClearAndDelete) {
   // sense of preprocessor arms mixed with designated initializers.
   //
   // clang-format off
-  EXPECT_THAT((CountingRawPtrExpectations {
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl> {
                 .wrap_raw_ptr_cnt = 1,
                 .release_wrapped_ptr_cnt = 1,
                 .get_for_dereference_cnt = 0,
                 .get_for_extraction_cnt = 1,
                 .wrapped_ptr_swap_cnt = 0,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
   // clang-format on
   EXPECT_EQ(ptr.get(), nullptr);
 }
@@ -392,14 +336,14 @@ TEST_F(RawPtrTest, ClearAndDeleteArray) {
   // sense of preprocessor arms mixed with designated initializers.
   //
   // clang-format off
-  EXPECT_THAT((CountingRawPtrExpectations {
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl> {
                 .wrap_raw_ptr_cnt = 1,
                 .release_wrapped_ptr_cnt = 1,
                 .get_for_dereference_cnt = 0,
                 .get_for_extraction_cnt = 1,
                 .wrapped_ptr_swap_cnt = 0,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
   // clang-format on
   EXPECT_EQ(ptr.get(), nullptr);
 }
@@ -407,39 +351,39 @@ TEST_F(RawPtrTest, ClearAndDeleteArray) {
 TEST_F(RawPtrTest, ExtractAsDangling) {
   CountingRawPtr<int> ptr(new int);
 
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .wrap_raw_ptr_cnt = 1,
                   .release_wrapped_ptr_cnt = 0,
                   .get_for_dereference_cnt = 0,
                   .wrapped_ptr_swap_cnt = 0,
               }),
-              CountingRawPtrHasCounts());
-  EXPECT_THAT((CountingRawPtrExpectations{
+              CountersMatch());
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingMayDangleImpl>{
                   .wrap_raw_ptr_cnt = 0,
                   .release_wrapped_ptr_cnt = 0,
                   .get_for_dereference_cnt = 0,
                   .wrapped_ptr_swap_cnt = 0,
               }),
-              MayDangleCountingRawPtrHasCounts());
+              CountersMatch());
 
   EXPECT_TRUE(ptr.get());
 
   CountingRawPtrMayDangle<int> dangling = ptr.ExtractAsDangling();
 
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .wrap_raw_ptr_cnt = 1,
                   .release_wrapped_ptr_cnt = 1,
                   .get_for_dereference_cnt = 0,
                   .wrapped_ptr_swap_cnt = 0,
               }),
-              CountingRawPtrHasCounts());
-  EXPECT_THAT((CountingRawPtrExpectations{
+              CountersMatch());
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingMayDangleImpl>{
                   .wrap_raw_ptr_cnt = 1,
                   .release_wrapped_ptr_cnt = 0,
                   .get_for_dereference_cnt = 0,
                   .wrapped_ptr_swap_cnt = 0,
               }),
-              MayDangleCountingRawPtrHasCounts());
+              CountersMatch());
 
   EXPECT_FALSE(ptr.get());
   EXPECT_TRUE(dangling.get());
@@ -450,25 +394,25 @@ TEST_F(RawPtrTest, ExtractAsDangling) {
 TEST_F(RawPtrTest, ExtractAsDanglingFromDangling) {
   CountingRawPtrMayDangle<int> ptr(new int);
 
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingMayDangleImpl>{
                   .wrap_raw_ptr_cnt = 1,
                   .release_wrapped_ptr_cnt = 0,
                   .get_for_dereference_cnt = 0,
                   .wrapped_ptr_swap_cnt = 0,
               }),
-              MayDangleCountingRawPtrHasCounts());
+              CountersMatch());
 
   CountingRawPtrMayDangle<int> dangling = ptr.ExtractAsDangling();
 
   // wrap_raw_ptr_cnt remains `1` because, as `ptr` is already a dangling
   // pointer, we are only moving `ptr` to `dangling` here to avoid extra cost.
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingMayDangleImpl>{
                   .wrap_raw_ptr_cnt = 1,
                   .release_wrapped_ptr_cnt = 1,
                   .get_for_dereference_cnt = 0,
                   .wrapped_ptr_swap_cnt = 0,
               }),
-              MayDangleCountingRawPtrHasCounts());
+              CountersMatch());
 
   dangling.ClearAndDelete();
 }
@@ -479,12 +423,12 @@ TEST_F(RawPtrTest, ConstVolatileVoidPtr) {
   EXPECT_EQ(*static_cast<const volatile int32_t*>(ptr), 1234567890);
   // Because we're using a cast, the extraction API kicks in, which doesn't
   // know if the extracted pointer will be dereferenced or not.
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = 0,
                   .get_for_extraction_cnt = 1,
                   .get_for_comparison_cnt = 0,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 }
 
 TEST_F(RawPtrTest, VoidPtr) {
@@ -493,12 +437,12 @@ TEST_F(RawPtrTest, VoidPtr) {
   EXPECT_EQ(*static_cast<int32_t*>(ptr), 1234567890);
   // Because we're using a cast, the extraction API kicks in, which doesn't
   // know if the extracted pointer will be dereferenced or not.
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = 0,
                   .get_for_extraction_cnt = 1,
                   .get_for_comparison_cnt = 0,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 }
 
 TEST_F(RawPtrTest, OperatorEQ) {
@@ -518,12 +462,12 @@ TEST_F(RawPtrTest, OperatorEQ) {
   EXPECT_TRUE(ptr1 == ptr3);
   EXPECT_TRUE(ptr3 == ptr1);
 
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = 0,
                   .get_for_extraction_cnt = 0,
                   .get_for_comparison_cnt = 12,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 }
 
 TEST_F(RawPtrTest, OperatorNE) {
@@ -543,12 +487,12 @@ TEST_F(RawPtrTest, OperatorNE) {
   EXPECT_FALSE(ptr1 != ptr3);
   EXPECT_FALSE(ptr3 != ptr1);
 
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = 0,
                   .get_for_extraction_cnt = 0,
                   .get_for_comparison_cnt = 12,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 }
 
 TEST_F(RawPtrTest, OperatorEQCast) {
@@ -571,12 +515,12 @@ TEST_F(RawPtrTest, OperatorEQCast) {
   EXPECT_TRUE(raw_void_ptr == checked_int_ptr);
   // Make sure that all cases are handled by operator== (faster) and none by the
   // cast operator (slower).
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = 0,
                   .get_for_extraction_cnt = 0,
                   .get_for_comparison_cnt = 16,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 }
 
 TEST_F(RawPtrTest, OperatorEQCastHierarchy) {
@@ -623,12 +567,12 @@ TEST_F(RawPtrTest, OperatorEQCastHierarchy) {
   // Make sure that all cases are handled by operator== (faster) and none by the
   // cast operator (slower).
   // The 4 extractions come from .get() checks, that compare raw addresses.
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = 0,
                   .get_for_extraction_cnt = 4,
                   .get_for_comparison_cnt = 20,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 }
 
 TEST_F(RawPtrTest, OperatorNECast) {
@@ -651,12 +595,12 @@ TEST_F(RawPtrTest, OperatorNECast) {
   EXPECT_FALSE(raw_void_ptr != checked_int_ptr);
   // Make sure that all cases are handled by operator== (faster) and none by the
   // cast operator (slower).
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = 0,
                   .get_for_extraction_cnt = 0,
                   .get_for_comparison_cnt = 16,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 }
 
 TEST_F(RawPtrTest, OperatorNECastHierarchy) {
@@ -695,12 +639,12 @@ TEST_F(RawPtrTest, OperatorNECastHierarchy) {
   // Make sure that all cases are handled by operator== (faster) and none by the
   // cast operator (slower).
   // The 4 extractions come from .get() checks, that compare raw addresses.
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = 0,
                   .get_for_extraction_cnt = 4,
                   .get_for_comparison_cnt = 20,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 }
 
 TEST_F(RawPtrTest, Cast) {
@@ -855,12 +799,12 @@ TEST_F(RawPtrTest, UpcastPerformance) {
     checked_base2_ptr = std::move(checked_derived_ptr);
   }
 
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = 0,
                   .get_for_extraction_cnt = 0,
                   .get_for_comparison_cnt = 0,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 }
 
 TEST_F(RawPtrTest, CustomSwap) {
@@ -891,12 +835,12 @@ TEST_F(RawPtrTest, PostIncrementOperator) {
   for (int i = 0; i < 4; ++i) {
     ASSERT_EQ(*ptr++, 42 + i);
   }
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = 4,
                   .get_for_extraction_cnt = 0,
                   .get_for_comparison_cnt = 0,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 }
 
 TEST_F(RawPtrTest, PostDecrementOperator) {
@@ -907,12 +851,12 @@ TEST_F(RawPtrTest, PostDecrementOperator) {
     ASSERT_EQ(*ptr--, 42 + i);
   }
   ASSERT_EQ(*ptr, 42);
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = 4,
                   .get_for_extraction_cnt = 0,
                   .get_for_comparison_cnt = 0,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 }
 
 TEST_F(RawPtrTest, PreIncrementOperator) {
@@ -921,12 +865,12 @@ TEST_F(RawPtrTest, PreIncrementOperator) {
   for (int i = 0; i < 4; ++i, ++ptr) {
     ASSERT_EQ(*ptr, 42 + i);
   }
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = 4,
                   .get_for_extraction_cnt = 0,
                   .get_for_comparison_cnt = 0,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 }
 
 TEST_F(RawPtrTest, PreDecrementOperator) {
@@ -937,12 +881,12 @@ TEST_F(RawPtrTest, PreDecrementOperator) {
     ASSERT_EQ(*ptr, 42 + i);
   }
   ASSERT_EQ(*ptr, 42);
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = 4,
                   .get_for_extraction_cnt = 0,
                   .get_for_comparison_cnt = 0,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 }
 
 TEST_F(RawPtrTest, PlusEqualOperator) {
@@ -951,12 +895,12 @@ TEST_F(RawPtrTest, PlusEqualOperator) {
   for (int i = 0; i < 4; i += 2, ptr += 2) {
     ASSERT_EQ(*ptr, 42 + i);
   }
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = 2,
                   .get_for_extraction_cnt = 0,
                   .get_for_comparison_cnt = 0,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 }
 
 TEST_F(RawPtrTest, PlusEqualOperatorTypes) {
@@ -979,12 +923,12 @@ TEST_F(RawPtrTest, MinusEqualOperator) {
   ASSERT_EQ(*ptr, 45);
   ptr -= 2;
   ASSERT_EQ(*ptr, 43);
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = 2,
                   .get_for_extraction_cnt = 0,
                   .get_for_comparison_cnt = 0,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 }
 
 TEST_F(RawPtrTest, MinusEqualOperatorTypes) {
@@ -1007,12 +951,12 @@ TEST_F(RawPtrTest, PlusOperator) {
   for (int i = 0; i < 4; ++i) {
     ASSERT_EQ(*(ptr + i), 42 + i);
   }
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = 4,
                   .get_for_extraction_cnt = 0,
                   .get_for_comparison_cnt = 0,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 }
 
 TEST_F(RawPtrTest, MinusOperator) {
@@ -1021,12 +965,12 @@ TEST_F(RawPtrTest, MinusOperator) {
   for (int i = 1; i <= 4; ++i) {
     ASSERT_EQ(*(ptr - i), 46 - i);
   }
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = 4,
                   .get_for_extraction_cnt = 0,
                   .get_for_comparison_cnt = 0,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 }
 
 TEST_F(RawPtrTest, MinusDeltaOperator) {
@@ -1039,12 +983,12 @@ TEST_F(RawPtrTest, MinusDeltaOperator) {
       ASSERT_EQ(&foo[i] - ptrs[j], i - j);
     }
   }
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = 0,
                   .get_for_extraction_cnt = 0,
                   .get_for_comparison_cnt = 0,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 }
 
 TEST_F(RawPtrTest, AdvanceString) {
@@ -1054,24 +998,24 @@ TEST_F(RawPtrTest, AdvanceString) {
   for (size_t i = 0; i < str.size(); ++i, ++ptr) {
     ASSERT_EQ(*ptr, kChars[i]);
   }
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = 5,
                   .get_for_extraction_cnt = 0,
                   .get_for_comparison_cnt = 0,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 }
 
 TEST_F(RawPtrTest, AssignmentFromNullptr) {
   CountingRawPtr<int> wrapped_ptr;
   wrapped_ptr = nullptr;
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .wrap_raw_ptr_cnt = 0,
                   .get_for_dereference_cnt = 0,
                   .get_for_extraction_cnt = 0,
                   .get_for_comparison_cnt = 0,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 }
 
 void FunctionWithRawPtrParameter(raw_ptr<int> actual_ptr, int* expected_ptr) {
@@ -1112,7 +1056,7 @@ TEST_F(RawPtrTest, SetLookupUsesGetForComparison) {
 
   RawPtrCountingImpl::ClearCounters();
   set.emplace(&x);
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .wrap_raw_ptr_cnt = 1,
                   // Nothing to compare to yet.
                   .get_for_dereference_cnt = 0,
@@ -1120,11 +1064,11 @@ TEST_F(RawPtrTest, SetLookupUsesGetForComparison) {
                   .get_for_comparison_cnt = 0,
                   .wrapped_ptr_less_cnt = 0,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 
   RawPtrCountingImpl::ClearCounters();
   set.emplace(ptr);
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .wrap_raw_ptr_cnt = 0,
                   .get_for_dereference_cnt = 0,
                   .get_for_extraction_cnt = 0,
@@ -1133,11 +1077,11 @@ TEST_F(RawPtrTest, SetLookupUsesGetForComparison) {
                   // 1 element to compare to => 2 calls.
                   .wrapped_ptr_less_cnt = 2,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 
   RawPtrCountingImpl::ClearCounters();
   set.count(&x);
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .wrap_raw_ptr_cnt = 0,
                   .get_for_dereference_cnt = 0,
                   .get_for_extraction_cnt = 0,
@@ -1147,11 +1091,11 @@ TEST_F(RawPtrTest, SetLookupUsesGetForComparison) {
                   // 2 items to compare to => 4 calls.
                   .wrapped_ptr_less_cnt = 2,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 
   RawPtrCountingImpl::ClearCounters();
   set.count(ptr);
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .wrap_raw_ptr_cnt = 0,
                   .get_for_dereference_cnt = 0,
                   .get_for_extraction_cnt = 0,
@@ -1160,7 +1104,7 @@ TEST_F(RawPtrTest, SetLookupUsesGetForComparison) {
                   // 2 items to compare to => 4 calls.
                   .wrapped_ptr_less_cnt = 2,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 }
 
 TEST_F(RawPtrTest, ComparisonOperatorUsesGetForComparison) {
@@ -1172,7 +1116,7 @@ TEST_F(RawPtrTest, ComparisonOperatorUsesGetForComparison) {
   EXPECT_FALSE(ptr > ptr);
   EXPECT_TRUE(ptr <= ptr);
   EXPECT_TRUE(ptr >= ptr);
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .wrap_raw_ptr_cnt = 0,
                   .get_for_dereference_cnt = 0,
                   .get_for_extraction_cnt = 0,
@@ -1180,41 +1124,41 @@ TEST_F(RawPtrTest, ComparisonOperatorUsesGetForComparison) {
                   // < is used directly, not std::less().
                   .wrapped_ptr_less_cnt = 0,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 
   RawPtrCountingImpl::ClearCounters();
   EXPECT_FALSE(ptr < &x);
   EXPECT_FALSE(ptr > &x);
   EXPECT_TRUE(ptr <= &x);
   EXPECT_TRUE(ptr >= &x);
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .wrap_raw_ptr_cnt = 0,
                   .get_for_dereference_cnt = 0,
                   .get_for_extraction_cnt = 0,
                   .get_for_comparison_cnt = 4,
                   .wrapped_ptr_less_cnt = 0,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 
   RawPtrCountingImpl::ClearCounters();
   EXPECT_FALSE(&x < ptr);
   EXPECT_FALSE(&x > ptr);
   EXPECT_TRUE(&x <= ptr);
   EXPECT_TRUE(&x >= ptr);
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .wrap_raw_ptr_cnt = 0,
                   .get_for_dereference_cnt = 0,
                   .get_for_extraction_cnt = 0,
                   .get_for_comparison_cnt = 4,
                   .wrapped_ptr_less_cnt = 0,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 }
 
-// Two `raw_ptr`s with different `TraitBundle`s should still hit
-// `GetForComparison()` (as opposed to `GetForExtraction()`) in their
-// comparison operators. We use `CountingRawPtr` and
-// `CountingRawPtrMayDangle` to contrast two different `TraitBundle`s.
+// Two `raw_ptr`s with different Traits should still hit `GetForComparison()`
+// (as opposed to `GetForExtraction()`) in their comparison operators. We use
+// `CountingRawPtr` and `CountingRawPtrMayDangle` to contrast two different
+// Traits.
 TEST_F(RawPtrTest, OperatorsUseGetForComparison) {
   int x = 123;
   CountingRawPtr<int> ptr1 = &x;
@@ -1225,31 +1169,31 @@ TEST_F(RawPtrTest, OperatorsUseGetForComparison) {
 
   EXPECT_TRUE(ptr1 == ptr2);
   EXPECT_FALSE(ptr1 != ptr2);
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_extraction_cnt = 0,
                   .get_for_comparison_cnt = 2,
               }),
-              CountingRawPtrHasCounts());
-  EXPECT_THAT((CountingRawPtrExpectations{
+              CountersMatch());
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingMayDangleImpl>{
                   .get_for_extraction_cnt = 0,
                   .get_for_comparison_cnt = 2,
               }),
-              MayDangleCountingRawPtrHasCounts());
+              CountersMatch());
 
   EXPECT_FALSE(ptr1 < ptr2);
   EXPECT_FALSE(ptr1 > ptr2);
   EXPECT_TRUE(ptr1 <= ptr2);
   EXPECT_TRUE(ptr1 >= ptr2);
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_extraction_cnt = 0,
                   .get_for_comparison_cnt = 6,
               }),
-              CountingRawPtrHasCounts());
-  EXPECT_THAT((CountingRawPtrExpectations{
+              CountersMatch());
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingMayDangleImpl>{
                   .get_for_extraction_cnt = 0,
                   .get_for_comparison_cnt = 6,
               }),
-              MayDangleCountingRawPtrHasCounts());
+              CountersMatch());
 }
 
 // This test checks how the std library handles collections like
@@ -1419,26 +1363,28 @@ TEST_F(RawPtrTest, CrossKindConversions) {
 
   CountingRawPtrMayDangle<int> ptr2(ptr1);
 
-  EXPECT_THAT((CountingRawPtrExpectations{.get_for_dereference_cnt = 0,
-                                          .get_for_extraction_cnt = 0,
-                                          .get_for_duplication_cnt = 1}),
-              CountingRawPtrHasCounts());
-  EXPECT_THAT((CountingRawPtrExpectations{.wrap_raw_ptr_cnt = 0,
-                                          .wrap_raw_ptr_for_dup_cnt = 1}),
-              MayDangleCountingRawPtrHasCounts());
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
+                  .get_for_dereference_cnt = 0,
+                  .get_for_extraction_cnt = 0,
+                  .get_for_duplication_cnt = 1}),
+              CountersMatch());
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingMayDangleImpl>{
+                  .wrap_raw_ptr_cnt = 0, .wrap_raw_ptr_for_dup_cnt = 1}),
+              CountersMatch());
 
   RawPtrCountingImpl::ClearCounters();
   RawPtrCountingMayDangleImpl::ClearCounters();
 
   CountingRawPtr<int> ptr3(ptr2);
 
-  EXPECT_THAT((CountingRawPtrExpectations{.get_for_dereference_cnt = 0,
-                                          .get_for_extraction_cnt = 0,
-                                          .get_for_duplication_cnt = 1}),
-              MayDangleCountingRawPtrHasCounts());
-  EXPECT_THAT((CountingRawPtrExpectations{.wrap_raw_ptr_cnt = 0,
-                                          .wrap_raw_ptr_for_dup_cnt = 1}),
-              CountingRawPtrHasCounts());
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingMayDangleImpl>{
+                  .get_for_dereference_cnt = 0,
+                  .get_for_extraction_cnt = 0,
+                  .get_for_duplication_cnt = 1}),
+              CountersMatch());
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
+                  .wrap_raw_ptr_cnt = 0, .wrap_raw_ptr_for_dup_cnt = 1}),
+              CountersMatch());
 }
 
 }  // namespace
@@ -1533,7 +1479,7 @@ TEST_F(BackupRefPtrTest, EndPointer) {
     // should not result in a crash or corrupt the free list.
     char* raw_ptr1 =
         reinterpret_cast<char*>(allocator_.root()->Alloc(size, ""));
-    raw_ptr<char> wrapped_ptr = raw_ptr1 + size;
+    raw_ptr<char, AllowPtrArithmetic> wrapped_ptr = raw_ptr1 + size;
     wrapped_ptr = nullptr;
     // We need to make two more allocations to turn the possible free list
     // corruption into an observable crash.
@@ -1600,8 +1546,7 @@ void RunBackupRefPtrImplAdvanceTest(
     partition_alloc::PartitionAllocator& allocator,
     size_t requested_size) {
   char* ptr = static_cast<char*>(allocator.root()->Alloc(requested_size, ""));
-  raw_ptr<char> protected_ptr = ptr;
-
+  raw_ptr<char, AllowPtrArithmetic> protected_ptr = ptr;
   protected_ptr += 123;
   protected_ptr -= 123;
   protected_ptr = protected_ptr + 123;
@@ -1686,7 +1631,7 @@ TEST_F(BackupRefPtrTest, AdvanceAcrossPools) {
 
   char* in_pool_ptr = static_cast<char*>(allocator_.root()->Alloc(123, ""));
 
-  raw_ptr<char> protected_ptr = array1;
+  raw_ptr<char, AllowPtrArithmetic> protected_ptr = array1;
   // Nothing bad happens. Both pointers are outside of the BRP pool, so no
   // checks are triggered.
   protected_ptr += (array2 - array1);
@@ -2004,12 +1949,12 @@ TEST_F(BackupRefPtrTest, SpatialAlgoCompat) {
     return gen_val;
   });
 
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = requested_elements,
                   .get_for_extraction_cnt = 0,
                   .get_for_comparison_cnt = (requested_elements + 1) * 2,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 
   RawPtrCountingImpl::ClearCounters();
 
@@ -2018,12 +1963,12 @@ TEST_F(BackupRefPtrTest, SpatialAlgoCompat) {
     *protected_ptr_i ^= *protected_ptr_i + 1;
   }
 
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = requested_elements * 2,
                   .get_for_extraction_cnt = 0,
                   .get_for_comparison_cnt = (requested_elements + 1) * 2,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 
   RawPtrCountingImpl::ClearCounters();
 
@@ -2032,12 +1977,12 @@ TEST_F(BackupRefPtrTest, SpatialAlgoCompat) {
     *protected_ptr_i ^= *protected_ptr_i + 1;
   }
 
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = requested_elements * 2,
                   .get_for_extraction_cnt = 0,
                   .get_for_comparison_cnt = requested_elements + 1,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 
   RawPtrCountingImpl::ClearCounters();
 
@@ -2045,12 +1990,12 @@ TEST_F(BackupRefPtrTest, SpatialAlgoCompat) {
     *ptr_i ^= *ptr_i + 1;
   }
 
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = 0,
                   .get_for_extraction_cnt = 0,
                   .get_for_comparison_cnt = requested_elements + 1,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 
   RawPtrCountingImpl::ClearCounters();
 
@@ -2062,12 +2007,12 @@ TEST_F(BackupRefPtrTest, SpatialAlgoCompat) {
   }
   EXPECT_EQ(iter_cnt, requested_elements);
 
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = 0,
                   .get_for_extraction_cnt = 2,
                   .get_for_comparison_cnt = 0,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 
   allocator_.root()->Free(ptr);
 }
@@ -2097,6 +2042,32 @@ TEST_F(BackupRefPtrTest, Duplicate) {
   allocator_.root()->Free(ptr);
 }
 #endif  // PA_USE_OOB_POISON
+
+namespace {
+constexpr uint8_t kCustomQuarantineByte = 0xff;
+static_assert(kCustomQuarantineByte !=
+              partition_alloc::internal::kQuarantinedByte);
+
+void CustomQuarantineHook(void* address, size_t size) {
+  partition_alloc::internal::SecureMemset(address, kCustomQuarantineByte, size);
+}
+}  // namespace
+
+TEST_F(BackupRefPtrTest, QuarantineHook) {
+  partition_alloc::PartitionAllocHooks::SetQuarantineOverrideHook(
+      CustomQuarantineHook);
+  uint8_t* native_ptr =
+      static_cast<uint8_t*>(allocator_.root()->Alloc(sizeof(uint8_t), ""));
+  *native_ptr = 0;
+  raw_ptr<uint8_t> smart_ptr = native_ptr;
+
+  allocator_.root()->Free(smart_ptr);
+  // Access the allocation through the native pointer to avoid triggering
+  // dereference checks in debug builds.
+  EXPECT_EQ(*native_ptr, kCustomQuarantineByte);
+
+  partition_alloc::PartitionAllocHooks::SetQuarantineOverrideHook(nullptr);
+}
 
 #endif  // BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT) &&
         // !defined(MEMORY_TOOL_REPLACES_ALLOCATOR)
@@ -2251,30 +2222,30 @@ TEST(MTECheckedPtrImpl, AdvancedPointerShiftedAppropriately) {
   // This is unwrapped, but still useful for ensuring that the
   // shift is sized in `uint64_t`s.
   auto original_addr = reinterpret_cast<uintptr_t>(ptr.get());
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = 0,
                   .get_for_extraction_cnt = 1,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 
   ptr += 5;
   EXPECT_EQ(reinterpret_cast<uintptr_t>(ptr.get()) - original_addr,
             5 * sizeof(uint64_t));
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = 0,
                   .get_for_extraction_cnt = 2,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
   delete[] unwrapped_ptr;
 
   EXPECT_DEATH_IF_SUPPORTED(*ptr, "");
 
   // We assert that no visible extraction actually took place.
-  EXPECT_THAT((CountingRawPtrExpectations{
+  EXPECT_THAT((CountingRawPtrExpectations<RawPtrCountingImpl>{
                   .get_for_dereference_cnt = 0,
                   .get_for_extraction_cnt = 2,
               }),
-              CountingRawPtrHasCounts());
+              CountersMatch());
 }
 
 // Verifies that MTECheckedPtr allows the extraction of the raw pointee
@@ -2325,6 +2296,23 @@ TEST(MTECheckedPtrImpl, PointerBeyondAllocationCanBeExtracted) {
   }
 }
 
+// Verifies that MTECheckedPtr allows pointer extraction, even from
+// a dangling `raw_ptr`. Historically, MTECheckedPtr simply handed off
+// extraction to the "get for dereference" method, which would crash
+// eagerly on dangling pointers. This was too noisy to be helpful; we
+// now believe that allowing (potentially dangerous) extraction without
+// crashing is the way to go.
+TEST(MTECheckedPtrImpl, DanglingExtractionIsAcceptable) {
+  int* will_dangle = new int;
+  raw_ptr<int> dangling = will_dangle;
+  delete will_dangle;
+
+  // Both `get()` and `operator T*()` express the same thing even if
+  // they are physically distinct methods in the definition. In any
+  // case, neither is permitted to crash.
+  EXPECT_EQ(will_dangle, dangling.get());
+  will_dangle = dangling;
+}
 #endif  // !defined(MEMORY_TOOL_REPLACES_ALLOCATOR) &&
         // BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
 
@@ -2444,7 +2432,7 @@ TEST_F(HookableRawPtrImplTest, UnsafelyUnwrapForComparison) {
 TEST_F(HookableRawPtrImplTest, Advance) {
   EXPECT_CALL(hooks_, Advance).Times(1);
   int* ptr = new int[10];
-  raw_ptr<int> interesting_ptr = ptr;
+  raw_ptr<int, AllowPtrArithmetic> interesting_ptr = ptr;
   interesting_ptr += 1;
   delete[] ptr;
 }

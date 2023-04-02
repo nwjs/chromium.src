@@ -5,6 +5,7 @@
 #include "components/services/app_service/public/cpp/app_update.h"
 
 #include "base/logging.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/time/time.h"
 #include "components/services/app_service/public/cpp/icon_types.h"
@@ -26,6 +27,10 @@ static const std::vector<std::string>& EmptyStringVector() {
 absl::optional<apps::RunOnOsLogin> CloneRunOnOsLogin(
     const apps::RunOnOsLogin& login_data) {
   return apps::RunOnOsLogin(login_data.login_mode, login_data.is_managed);
+}
+
+std::string FormatBytes(absl::optional<uint64_t> bytes) {
+  return bytes.has_value() ? base::NumberToString(bytes.value()) : "null";
 }
 
 }  // namespace
@@ -106,11 +111,6 @@ void AppUpdate::Merge(App* state, const App* delta) {
 
   if (delta->run_on_os_login.has_value()) {
     state->run_on_os_login = CloneRunOnOsLogin(delta->run_on_os_login.value());
-  }
-
-  if (!delta->shortcuts.empty()) {
-    state->shortcuts.clear();
-    state->shortcuts = CloneShortcuts(delta->shortcuts);
   }
 
   SET_OPTIONAL_VALUE(app_size_in_bytes);
@@ -423,20 +423,6 @@ bool AppUpdate::RunOnOsLoginChanged() const {
   RETURN_OPTIONAL_VALUE_CHANGED(run_on_os_login);
 }
 
-apps::Shortcuts AppUpdate::Shortcuts() const {
-  if (delta_ && !delta_->shortcuts.empty()) {
-    return CloneShortcuts(delta_->shortcuts);
-  } else if (state_ && !state_->shortcuts.empty()) {
-    return CloneShortcuts(state_->shortcuts);
-  }
-  return std::vector<ShortcutPtr>{};
-}
-
-bool AppUpdate::ShortcutsChanged() const {
-  return delta_ && !delta_->shortcuts.empty() &&
-         (!state_ || !IsEqual(delta_->shortcuts, state_->shortcuts));
-}
-
 const ::AccountId& AppUpdate::AccountId() const {
   return *account_id_;
 }
@@ -512,13 +498,8 @@ std::ostream& operator<<(std::ostream& out, const AppUpdate& app) {
         << EnumToString(app.RunOnOsLogin().value().login_mode) << std::endl;
   }
 
-  out << "Shortcuts: " << std::endl;
-  for (const auto& shortcut : app.Shortcuts()) {
-    out << shortcut->ToString() << std::endl;
-  }
-
-  out << "App Size: " << app.AppSizeInBytes().value_or(-1) << std::endl;
-  out << "Data Size: " << app.DataSizeInBytes().value_or(-1) << std::endl;
+  out << "App Size: " << FormatBytes(app.AppSizeInBytes()) << std::endl;
+  out << "Data Size: " << FormatBytes(app.DataSizeInBytes()) << std::endl;
 
   return out;
 }

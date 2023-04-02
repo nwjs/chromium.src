@@ -79,7 +79,7 @@ const char* ToRotationString(display::Display::Rotation rotation) {
       return "270";
   }
   NOTREACHED();
-  return "unkonwn";
+  return "unknown";
 }
 
 }  // namespace

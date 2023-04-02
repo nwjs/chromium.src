@@ -16,7 +16,6 @@
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/devtools_agent_host.h"
-#include "content/public/browser/storage_partition.h"
 #include "extensions/browser/blocklist_extension_prefs.h"
 #include "extensions/browser/extension_host.h"
 #include "extensions/browser/extension_prefs.h"
@@ -104,6 +103,7 @@ void ExtensionRegistrar::AddExtension(
       // the new one. ReloadExtension disables the extension, which is
       // sufficient.
       RemoveExtension(extension->id(), UnloadedExtensionReason::UPDATE);
+      UnregisterServiceWorkerWithRootScope(extension.get());
     }
     AddNewExtension(extension);
   }
@@ -286,9 +286,8 @@ std::vector<scoped_refptr<DevToolsAgentHost>> GetDevToolsAgentHostsFor(
     }
   } else {
     content::ServiceWorkerContext* context =
-        util::GetStoragePartitionForExtensionId(
-            extension->id(), process_manager->browser_context())
-            ->GetServiceWorkerContext();
+        util::GetServiceWorkerContextForExtensionId(
+            extension->id(), process_manager->browser_context());
     std::vector<WorkerId> service_worker_ids =
         process_manager->GetServiceWorkersForExtension(extension->id());
     for (const auto& worker_id : service_worker_ids) {
@@ -507,6 +506,40 @@ void ExtensionRegistrar::DeactivateExtension(const Extension* extension,
   DeactivateTaskQueueForExtension(browser_context_, extension);
 
   delegate_->PostDeactivateExtension(extension);
+}
+
+void ExtensionRegistrar::UnregisterServiceWorkerWithRootScope(
+    const Extension* new_extension) {
+  // Only cleanup the old service worker if the new extension is
+  // service-worker-based.
+  if (!BackgroundInfo::IsServiceWorkerBased(new_extension)) {
+    return;
+  }
+
+  // Non service-worker based extensions could register root-scope service
+  // workers using regular web APIs. These service workers are not tracked by
+  // extension ServiceWorkerTaskQueue and would prevent newer service worker
+  // version from installing (crbug/1340341).
+  content::ServiceWorkerContext* context =
+      util::GetServiceWorkerContextForExtensionId(new_extension->id(),
+                                                  browser_context_);
+  // Even though the unregistration process for a service worker is
+  // asynchronous, we begin the process before the new extension is added, so
+  // the old worker will be unregistered before the new one is registered.
+  context->UnregisterServiceWorker(
+      new_extension->url(),
+      blink::StorageKey::CreateFirstParty(new_extension->origin()),
+      base::BindOnce(&ExtensionRegistrar::NotifyServiceWorkerUnregistered,
+                     weak_factory_.GetWeakPtr(), new_extension->id()));
+}
+
+void ExtensionRegistrar::NotifyServiceWorkerUnregistered(
+    const ExtensionId& extension_id,
+    bool success) {
+  if (!success) {
+    LOG(ERROR) << "Failed to unregister service worker for extension "
+               << extension_id;
+  }
 }
 
 bool ExtensionRegistrar::ReplaceReloadedExtension(

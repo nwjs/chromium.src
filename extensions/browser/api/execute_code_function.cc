@@ -20,6 +20,7 @@
 #include "extensions/common/extension_resource.h"
 #include "extensions/common/mojom/css_origin.mojom-shared.h"
 #include "extensions/common/mojom/run_location.mojom-shared.h"
+#include "extensions/common/utils/content_script_utils.h"
 #include "extensions/common/utils/extension_types_utils.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 
@@ -209,6 +210,7 @@ bool ExecuteCodeFunction::LoadFile(const std::string& file,
   std::string relative_path = resource.relative_path().AsUTF8Unsafe();
   LoadAndLocalizeResources(
       *extension(), {std::move(resource)}, might_require_localization,
+      script_parsing::GetMaxScriptLength(),
       base::BindOnce(&ExecuteCodeFunction::DidLoadAndLocalizeFile, this,
                      relative_path));
 
@@ -251,13 +253,13 @@ void ExecuteCodeFunction::OnExecuteCodeFinished(
 
   // Place the root frame result at the beginning.
   std::iter_swap(root_frame_result, results.begin());
-  base::Value result_list(base::Value::Type::LIST);
+  base::Value::List result_list;
   for (auto& result : results) {
     if (result.error.empty())
       result_list.Append(std::move(result.value));
   }
 
-  Respond(OneArgument(std::move(result_list)));
+  Respond(OneArgument(base::Value(std::move(result_list))));
 }
 
 }  // namespace extensions

@@ -73,6 +73,8 @@ const char* const kKnownSettings[] = {
     kAllowRedeemChromeOsRegistrationOffers,
     kAttestationForContentProtectionEnabled,
     kCastReceiverName,
+    kDeviceActivityHeartbeatCollectionRateMs,
+    kDeviceActivityHeartbeatEnabled,
     kDeviceAllowedBluetoothServices,
     kDeviceAttestationEnabled,
     kDeviceAutoUpdateTimeRestrictions,
@@ -124,6 +126,7 @@ const char* const kKnownSettings[] = {
     kReleaseChannelDelegated,
     kReleaseLtsTag,
     kDeviceChannelDowngradeBehavior,
+    kDeviceSystemAecEnabled,
     kReportDeviceActivityTimes,
     kReportDeviceAudioStatus,
     kReportDeviceAudioStatusCheckingRateMs,
@@ -801,6 +804,16 @@ void DecodeReportingPolicies(const em::ChromeDeviceSettingsProto& policy,
           kReportDeviceSignalStrengthEventDrivenTelemetry,
           base::Value(std::move(signal_strength_telemetry_list)));
     }
+    if (reporting_policy.has_device_activity_heartbeat_enabled()) {
+      new_values_cache->SetBoolean(
+          kDeviceActivityHeartbeatEnabled,
+          reporting_policy.device_activity_heartbeat_enabled());
+    }
+    if (reporting_policy.has_device_activity_heartbeat_collection_rate_ms()) {
+      new_values_cache->SetInteger(
+          kDeviceActivityHeartbeatCollectionRateMs,
+          reporting_policy.device_activity_heartbeat_collection_rate_ms());
+    }
   }
 }
 
@@ -832,6 +845,13 @@ void DecodeGenericPolicies(const em::ChromeDeviceSettingsProto& policy,
     // enrolled devices, c.f. crbug/456186.
     new_values_cache->SetBoolean(
         kStatsReportingPref, InstallAttributes::Get()->IsEnterpriseManaged());
+  }
+
+  if (policy.has_device_system_aec_enabled() &&
+      policy.device_system_aec_enabled().has_device_system_aec_enabled()) {
+    new_values_cache->SetBoolean(
+        kDeviceSystemAecEnabled,
+        policy.device_system_aec_enabled().device_system_aec_enabled());
   }
 
   if (!policy.has_release_channel() ||
@@ -932,7 +952,7 @@ void DecodeGenericPolicies(const em::ChromeDeviceSettingsProto& policy,
     // Set empty value if policy is missing, to make sure that webui
     // will receive setting update.
     new_values_cache->SetValue(kDeviceDisplayResolution,
-                               base::Value(base::Value::Type::DICTIONARY));
+                               base::Value(base::Value::Type::DICT));
   }
 
   if (policy.has_allow_bluetooth() &&

@@ -149,6 +149,9 @@ class RenderViewContextMenu
   // Returns the correct IDC for the Search by Image context menu string
   int GetSearchForImageIdc() const;
 
+  // Returns the correct IDC for the Translate Image context menu string
+  int GetTranslateImageIdc() const;
+
   // Returns the correct IDC for the Region Search context menu string
   int GetRegionSearchIdc() const;
 
@@ -316,11 +319,11 @@ class RenderViewContextMenu
   void ExecExitFullscreen();
   void ExecCopyLinkText();
   void ExecCopyImageAt();
-  void ExecSearchLensForImage();
+  void ExecSearchLensForImage(bool is_image_translate);
   void ExecAddANote();
   void ExecRegionSearch(int event_flags,
                         bool is_google_default_search_provider);
-  void ExecSearchWebForImage();
+  void ExecSearchWebForImage(bool is_image_translate);
   void ExecLoadImage();
   void ExecPlayPause();
   void ExecMute();
@@ -353,11 +356,6 @@ class RenderViewContextMenu
 
   // ProtocolHandlerRegistry::Observer:
   void OnProtocolHandlerRegistryChanged() override;
-
-  // Cleans |link_to_text_menu_observer_|. It is useful to clean unused
-  // resources as |RenderViewContextMenu| gets destroyed only with next context
-  // menu is opened.
-  void OnLinkToTextMenuCompleted();
 
   // Whether or not translation on this page can be triggered. This method
   // checks multiple criteria, e.g. whether translation is disabled by a policy

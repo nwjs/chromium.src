@@ -15,6 +15,7 @@
 #include "chrome/browser/dips/dips_state.h"
 #include "chrome/browser/dips/dips_utils.h"
 #include "content/public/browser/browsing_data_filter_builder.h"
+#include "services/network/public/mojom/clear_data_filter.mojom.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
@@ -558,7 +559,7 @@ TEST_F(DIPSStoragePrepopulateTest, NoExistingTime) {
   base::Time time = base::Time::FromDoubleT(1);
 
   storage_.AsyncCall(&DIPSStorage::Prepopulate)
-      .WithArgs(time, std::vector<std::string>{"site"});
+      .WithArgs(time, std::vector<std::string>{"site"}, base::DoNothing());
   absl::optional<StateValue> state;
   storage_.AsyncCall(&DIPSStorage::Read)
       .WithArgs(GURL("http://site"))
@@ -582,7 +583,8 @@ TEST_F(DIPSStoragePrepopulateTest, ExistingStorageAndInteractionTimes) {
   storage_.AsyncCall(&DIPSStorage::RecordStorage)
       .WithArgs(GURL("http://site"), storage_time, DIPSCookieMode::kStandard);
   storage_.AsyncCall(&DIPSStorage::Prepopulate)
-      .WithArgs(prepopulate_time, std::vector<std::string>{"site"});
+      .WithArgs(prepopulate_time, std::vector<std::string>{"site"},
+                base::DoNothing());
   absl::optional<StateValue> state;
   storage_.AsyncCall(&DIPSStorage::Read)
       .WithArgs(GURL("http://site"))
@@ -605,7 +607,8 @@ TEST_F(DIPSStoragePrepopulateTest, ExistingStorageTime) {
   storage_.AsyncCall(&DIPSStorage::RecordStorage)
       .WithArgs(GURL("http://site"), storage_time, DIPSCookieMode::kStandard);
   storage_.AsyncCall(&DIPSStorage::Prepopulate)
-      .WithArgs(prepopulate_time, std::vector<std::string>{"site"});
+      .WithArgs(prepopulate_time, std::vector<std::string>{"site"},
+                base::DoNothing());
   absl::optional<StateValue> state;
   storage_.AsyncCall(&DIPSStorage::Read)
       .WithArgs(GURL("http://site"))
@@ -628,7 +631,8 @@ TEST_F(DIPSStoragePrepopulateTest, ExistingInteractionTime) {
       .WithArgs(GURL("http://site"), interaction_time,
                 DIPSCookieMode::kStandard);
   storage_.AsyncCall(&DIPSStorage::Prepopulate)
-      .WithArgs(prepopulate_time, std::vector<std::string>{"site"});
+      .WithArgs(prepopulate_time, std::vector<std::string>{"site"},
+                base::DoNothing());
   absl::optional<StateValue> state;
   storage_.AsyncCall(&DIPSStorage::Read)
       .WithArgs(GURL("http://site"))
@@ -660,7 +664,7 @@ TEST_F(DIPSStoragePrepopulateTest, WorksOnChunks) {
   };
 
   storage_.AsyncCall(&DIPSStorage::Prepopulate)
-      .WithArgs(time, std::move(sites));
+      .WithArgs(time, std::move(sites), base::DoNothing());
   queue_state_reads();
   task_environment_.RunUntilIdle();
 

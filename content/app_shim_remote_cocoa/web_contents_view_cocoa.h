@@ -48,8 +48,6 @@ CONTENT_EXPORT
   // Drag variables.
   base::scoped_nsobject<WebDragSource> _dragSource;
   NSDragOperation _dragOperation;
-  NSPoint _dragOffset;
-  CGFloat _dragImageHeight;
 
   gfx::Rect _windowControlsOverlayRect;
 }
@@ -71,7 +69,8 @@ CONTENT_EXPORT
 - (void)startDragWithDropData:(const content::DropData&)dropData
             dragOperationMask:(NSDragOperation)operationMask
                         image:(NSImage*)image
-                       offset:(NSPoint)offset;
+                       offset:(NSPoint)offset
+                 isPrivileged:(BOOL)isPrivileged;
 - (void)clearViewsHostableView;
 - (void)viewDidBecomeFirstResponder:(NSNotification*)notification;
 

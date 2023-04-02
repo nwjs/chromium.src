@@ -9,7 +9,9 @@
 #include <vector>
 
 #include "base/functional/callback.h"
+#include "base/scoped_observation.h"
 #include "components/services/screen_ai/buildflags/buildflags.h"
+#include "services/metrics/public/cpp/ukm_source_id.h"
 #include "ui/accessibility/ax_node_id_forward.h"
 #include "ui/accessibility/ax_tree_id.h"
 #include "ui/accessibility/ax_tree_update_forward.h"
@@ -57,7 +59,12 @@ class AXTreeDistiller {
   // utility process by Screen2x. Otherwise, it is done by a rules-based
   // algorithm in this process.
   virtual void Distill(const ui::AXTree& tree,
-                       const ui::AXTreeUpdate& snapshot);
+                       const ui::AXTreeUpdate& snapshot,
+                       const ukm::SourceId& ukm_source_id);
+
+#if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
+  void ScreenAIServiceReady();
+#endif
 
  private:
   // Distills the AXTree via a rules-based algorithm. Runs the callback on
@@ -77,7 +84,8 @@ class AXTreeDistiller {
   // Passes |snapshot| to the Screen2x ML model, which identifes the main
   // content nodes and calls |ProcessScreen2xResult()| on completion.
   void DistillViaScreen2x(const ui::AXTree& tree,
-                          const ui::AXTreeUpdate& snapshot);
+                          const ui::AXTreeUpdate& snapshot,
+                          const ukm::SourceId& ukm_source_id);
 
   // Called by the Screen2x service from the utility process. Runs the callback
   // if Screen2x identified content nodes. If not, distills via the rules-based

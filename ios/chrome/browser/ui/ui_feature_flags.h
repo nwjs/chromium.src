@@ -17,6 +17,7 @@ BASE_DECLARE_FEATURE(kDefaultBrowserBlueDotPromo);
 // default browser promos, which are already shipped.
 enum class BlueDotPromoUserGroup {
   kAllDBPromosDisabled,
+  kAllDBPromosEnabled,
   kOnlyBlueDotPromoEnabled,
 };
 extern const base::FeatureParam<BlueDotPromoUserGroup>
@@ -49,6 +50,18 @@ BASE_DECLARE_FEATURE(kDefaultBrowserFullscreenPromoExperiment);
 // Feature flag that allows external apps to show default browser settings.
 BASE_DECLARE_FEATURE(kDefaultBrowserIntentsShowSettings);
 
+// Feature flag to use the new Edit menu API for browser view.
+BASE_DECLARE_FEATURE(kIOSCustomBrowserEditMenu);
+
+// Feature param under kIOSEditMenuPartialTranslate to disable on incognito.
+extern const char kIOSEditMenuPartialTranslateNoIncognitoParam[];
+// Feature flag to enable partial translate in the edit menu.
+BASE_DECLARE_FEATURE(kIOSEditMenuPartialTranslate);
+
+// Helper function to check if kIOSEditMenuPartialTranslate is enabled in
+// incognito.
+bool ShouldShowPartialTranslateInIncognito();
+
 // Feature flag that shows iOS 15 context menu, instead of tooltip popover,
 // during a location bar long press gesture.
 BASE_DECLARE_FEATURE(kIOSLocationBarUseNativeContextMenu);
@@ -58,10 +71,6 @@ BASE_DECLARE_FEATURE(kIOSNewOmniboxImplementation);
 
 // Feature flag that removes the crash infobar.
 BASE_DECLARE_FEATURE(kRemoveCrashInfobar);
-
-// Feature flag to enable removing any entry points to the history UI from
-// Incognito mode.
-BASE_DECLARE_FEATURE(kUpdateHistoryEntryPointsInIncognito);
 
 // Feature flag to enable using Lens to search for images.
 BASE_DECLARE_FEATURE(kUseLensToSearchForImage);
@@ -100,12 +109,6 @@ BASE_DECLARE_FEATURE(kCalendarExperienceKit);
 // Feature flag to enable Apple Calendar event in experience kit.
 BASE_DECLARE_FEATURE(kEnableExpKitAppleCalendar);
 
-// Feature flag to enable Emails detection.
-BASE_DECLARE_FEATURE(kEnableEmails);
-
-// Feature flag to enable Phone Numbers detection.
-BASE_DECLARE_FEATURE(kEnablePhoneNumbers);
-
 // Parameter name for the parameter controlling whether or not experience kit
 // maps should be enabled in search result pages or not.
 extern const char kExperienceKitMapsVariationName[];
@@ -122,16 +125,32 @@ BASE_DECLARE_FEATURE(kEnableMiniMap);
 // When enabled sort tab by last usage in the TabGrid.
 BASE_DECLARE_FEATURE(kTabGridRecencySort);
 
+// Whether the tab grid tabs should be sorted by recency.
+bool IsTabGridSortedByRecency();
+
 // Feature to enable multiline gradient support in fade truncating label.
 BASE_DECLARE_FEATURE(kMultilineFadeTruncatingLabel);
 
-// Flag to enable accessibility identifier to omnibox leading image.
-BASE_DECLARE_FEATURE(kEnableAccessibilityIdentifierToOmniboxLeadingImage);
+// Flag to enable push notification settings menu item.
+BASE_DECLARE_FEATURE(kNotificationSettingsMenuItem);
 
-// Flag to enable tab strip context menu.
-BASE_DECLARE_FEATURE(kTabStripContextMenu);
+// Enables indexing Reading List items in Spotlight.
+BASE_DECLARE_FEATURE(kSpotlightReadingListSource);
 
-// Whether the tab grid tabs should be sorted by recency.
-bool IsTabGridSortedByRecency();
+// Feature to enable sign-in only flow without device level account.
+BASE_DECLARE_FEATURE(kConsistencyNewAccountInterface);
+
+// Whether the flag for consistency new-account interface is enabled.
+bool IsConsistencyNewAccountInterfaceEnabled();
+
+// Feature flag to enable add to home screen in share menu.
+BASE_DECLARE_FEATURE(kAddToHomeScreen);
+// Param to disable the feature in incognito.
+extern const char kAddToHomeScreenDisableIncognitoParam[];
+// Helper function to check the feature add to home screen.
+bool ShouldAddToHomeScreen(bool in_incognito);
+
+// Feature flag to enable the new layout of the NTP omnibox.
+BASE_DECLARE_FEATURE(kNewNTPOmniboxLayout);
 
 #endif  // IOS_CHROME_BROWSER_UI_UI_FEATURE_FLAGS_H_

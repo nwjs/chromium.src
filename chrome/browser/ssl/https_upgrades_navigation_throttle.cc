@@ -6,10 +6,8 @@
 
 #include "base/feature_list.h"
 #include "base/memory/weak_ptr.h"
-#include "base/metrics/histogram_functions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
-#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ssl/https_only_mode_tab_helper.h"
 #include "chrome/browser/ssl/https_upgrades_navigation_throttle.h"
 #include "chrome/common/chrome_features.h"
@@ -23,6 +21,7 @@
 #include "content/public/browser/navigation_throttle.h"
 #include "content/public/browser/web_contents.h"
 #include "net/base/net_errors.h"
+#include "ui/base/page_transition_types.h"
 
 using security_interstitials::https_only_mode::Event;
 
@@ -31,15 +30,6 @@ namespace {
 // Time that the throttle will wait before canceling the upgraded navigation and
 // showing the HTTPS-First Mode interstitial.
 base::TimeDelta g_fallback_delay = base::Seconds(3);
-
-// Helper to record an HTTPS-First Mode navigation event.
-// TODO(crbug.com/1394910): Rename these metrics now that they apply to both
-// HTTPS-First Mode and HTTPS Upgrades.
-void RecordHttpsFirstModeNavigation(
-    security_interstitials::https_only_mode::Event event) {
-  base::UmaHistogramEnumeration(
-      security_interstitials::https_only_mode::kEventHistogram, event);
-}
 
 }  // namespace
 
@@ -92,7 +82,61 @@ HttpsUpgradesNavigationThrottle::~HttpsUpgradesNavigationThrottle() = default;
 content::NavigationThrottle::ThrottleCheckResult
 HttpsUpgradesNavigationThrottle::WillStartRequest() {
   // If the navigation is fallback to HTTP, trigger the HTTP interstitial (if
-  // enabled).
+  // enabled). The interceptor creates a redirect for the fallback navigation,
+  // which will trigger MaybeCreateLoader() in the interceptor for the redirect
+  // but *doesn't* trigger WillStartRequest() because it's all part of the same
+  // request. Here, we skip directly to showing the HTTP interstitial if this
+  // is:
+  //   (1) a back/forward navigation, and
+  //   (2) the URL already failed upgrades before.
+  // This lets us avoid triggering the Interceptor during a back/forward
+  // navigation (which breaks history state) and acts like the browser
+  // "remembering" the state of the tab as being on the interstitial for that
+  // URL.
+  //
+  // Other cases for starting a navigation to a URL that previously failed
+  // to be upgraded should go through the full upgrade flow -- better to assume
+  // that something may have changed in the time since. For example: a user
+  // reloading the tab showing the interstitial should re-try the upgrade.
+  auto* handle = navigation_handle();
+  auto* contents = handle->GetWebContents();
+  auto* tab_helper = HttpsOnlyModeTabHelper::FromWebContents(contents);
+  if ((handle->GetPageTransition() & ui::PAGE_TRANSITION_FORWARD_BACK &&
+       tab_helper->has_failed_upgrade(handle->GetURL())) &&
+      !handle->GetURL().SchemeIsCryptographic() && http_interstitial_enabled_) {
+    // Mark this as a fallback HTTP navigation and trigger the interstitial.
+    tab_helper->set_is_navigation_fallback(true);
+    std::unique_ptr<security_interstitials::HttpsOnlyModeBlockingPage>
+        blocking_page = blocking_page_factory_->CreateHttpsOnlyModeBlockingPage(
+            contents, handle->GetURL());
+    std::string interstitial_html = blocking_page->GetHTMLContents();
+    security_interstitials::SecurityInterstitialTabHelper::
+        AssociateBlockingPage(handle, std::move(blocking_page));
+    return content::NavigationThrottle::ThrottleCheckResult(
+        content::NavigationThrottle::CANCEL, net::ERR_BLOCKED_BY_CLIENT,
+        interstitial_html);
+  }
+
+  // Navigation is HTTPS or an initial HTTP navigation (which will get
+  // upgraded by the interceptor). Fallback HTTP navigations are handled in
+  // WillRedirectRequest().
+  return content::NavigationThrottle::ThrottleAction::PROCEED;
+}
+
+content::NavigationThrottle::ThrottleCheckResult
+HttpsUpgradesNavigationThrottle::WillFailRequest() {
+  // Fallback to HTTP on navigation failure is handled by
+  // HttpsUpgradesInterceptor::MaybeCreateLoaderForResponse().
+  return content::NavigationThrottle::PROCEED;
+}
+
+content::NavigationThrottle::ThrottleCheckResult
+HttpsUpgradesNavigationThrottle::WillRedirectRequest() {
+  // If the navigation is doing a fallback redirect to HTTP, trigger the HTTP
+  // interstitial (if enabled). The interceptor creates a redirect for the
+  // fallback navigation, which will trigger MaybeCreateLoader() in the
+  // interceptor for the redirect but *doesn't* trigger WillStartRequest()
+  // because it's all part of the same request.
   auto* handle = navigation_handle();
   auto* contents = handle->GetWebContents();
   auto* tab_helper = HttpsOnlyModeTabHelper::FromWebContents(contents);
@@ -109,89 +153,6 @@ HttpsUpgradesNavigationThrottle::WillStartRequest() {
         interstitial_html);
   }
 
-  // Navigation is HTTPS or an initial HTTP navigation (which will get
-  // upgraded by the interceptor).
-  return content::NavigationThrottle::ThrottleAction::PROCEED;
-}
-
-// Called if there is a non-OK net::Error in the completion status.
-content::NavigationThrottle::ThrottleCheckResult
-HttpsUpgradesNavigationThrottle::WillFailRequest() {
-  auto* handle = navigation_handle();
-
-  // If there was no certificate error, SSLInfo will be empty.
-  const net::SSLInfo info = handle->GetSSLInfo().value_or(net::SSLInfo());
-  int cert_status = info.cert_status;
-  if (!net::IsCertStatusError(cert_status) &&
-      handle->GetNetErrorCode() == net::OK) {
-    // Don't fallback.
-    return content::NavigationThrottle::PROCEED;
-  }
-
-  // Only fallback to HTTP if the Interceptor attempted to upgrade the
-  // navigation.
-  auto* contents = handle->GetWebContents();
-  auto* tab_helper = HttpsOnlyModeTabHelper::FromWebContents(contents);
-  if (tab_helper->is_navigation_upgraded()) {
-    // Record failure type metrics for upgraded navigations.
-    RecordHttpsFirstModeNavigation(Event::kUpgradeFailed);
-    if (net::IsCertificateError(handle->GetNetErrorCode())) {
-      RecordHttpsFirstModeNavigation(Event::kUpgradeCertError);
-    } else if (handle->GetNetErrorCode() == net::ERR_TIMED_OUT) {
-      RecordHttpsFirstModeNavigation(Event::kUpgradeTimedOut);
-    } else {
-      RecordHttpsFirstModeNavigation(Event::kUpgradeNetError);
-    }
-
-    // If HTTPS-First Mode is not enabled (so no interstitial will be shown),
-    // add the hostname to the allowlist now before triggering fallback.
-    // HTTPS-First Mode handles this on the user proceeding through the
-    // interstitial only.
-    if (!http_interstitial_enabled_) {
-      Profile* profile =
-          Profile::FromBrowserContext(contents->GetBrowserContext());
-      StatefulSSLHostStateDelegate* state =
-          static_cast<StatefulSSLHostStateDelegate*>(
-              profile->GetSSLHostStateDelegate());
-      // StatefulSSLHostStateDelegate can be null during tests.
-      if (state) {
-        state->AllowHttpForHost(
-            handle->GetURL().host(),
-            contents->GetPrimaryMainFrame()->GetStoragePartition());
-      }
-      tab_helper->set_is_navigation_upgraded(false);
-    }
-
-    // Mark the navigation as fallback and trigger a new navigation to the
-    // fallback URL.
-    tab_helper->set_is_navigation_fallback(true);
-
-    // Copy the original navigation's params to the extent possible but update
-    // the URL to navigate to the fallback HTTP URL.
-    content::OpenURLParams params =
-        content::OpenURLParams::FromNavigationHandle(handle);
-    params.url = tab_helper->fallback_url();
-    // Post a task to navigate to the fallback URL. We don't navigate
-    // synchronously here, as starting a navigation within a navigation is an
-    // antipattern.
-    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, base::BindOnce(
-                       [](base::WeakPtr<content::WebContents> web_contents,
-                          const content::OpenURLParams& url_params) {
-                         if (!web_contents) {
-                           return;
-                         }
-                         web_contents->OpenURL(url_params);
-                       },
-                       contents->GetWeakPtr(), std::move(params)));
-    return content::NavigationThrottle::CANCEL_AND_IGNORE;
-  }
-
-  return content::NavigationThrottle::PROCEED;
-}
-
-content::NavigationThrottle::ThrottleCheckResult
-HttpsUpgradesNavigationThrottle::WillRedirectRequest() {
   // If the navigation was upgraded by the Interceptor, then the Throttle's
   // WillRedirectRequest() will get triggered by the artificial redirect to
   // HTTPS. The HTTPS upgrade will always happen after the Throttle's
@@ -214,8 +175,6 @@ HttpsUpgradesNavigationThrottle::WillRedirectRequest() {
   // Interceptor could log URLs seen and bail if it encounters a redirect loop,
   // but it is simpler to rely on existing handling unless the optimization is
   // needed.
-  auto* tab_helper = HttpsOnlyModeTabHelper::FromWebContents(
-      navigation_handle()->GetWebContents());
   if (tab_helper->is_navigation_upgraded()) {
     // Check if the timer is already started, as there may be additional
     // redirects on the navigation after the artificial upgrade redirect.

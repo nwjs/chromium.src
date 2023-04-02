@@ -72,10 +72,9 @@ const char kDiscoverFeedSRSPreloadTemplatesEnabled[] =
     "DiscoverFeedSRSPreloadTemplatesEnabled";
 
 // EnableDiscoverFeedTopSyncPromo parameters.
+const char kDiscoverFeedTopSyncPromoStyle[] = "DiscoverFeedTopSyncPromoStyle";
 const char kDiscoverFeedTopSyncPromoAutodismissImpressions[] =
     "autodismissImpressions";
-const char kDiscoverFeedTopSyncPromoStyleFullWithTitle[] = "fullWithTitle";
-const char kDiscoverFeedTopSyncPromoStyleCompact[] = "compact";
 
 // EnableFollowingFeedDefaultSortType parameters.
 const char kFollowingFeedDefaultSortTypeSortByLatest[] = "SortByLatest";
@@ -92,6 +91,8 @@ const char kOverrideFeedHeaderHeight[] = "OverrideFeedHeaderHeight";
 // Feature parameters for `kOverrideFeedSettings`.
 const char kFeedSettingRefreshThresholdInSeconds[] =
     "RefreshThresholdInSeconds";
+const char kFeedSettingUnseenRefreshThresholdInSeconds[] =
+    "UnseenRefreshThresholdInSeconds";
 const char kFeedSettingMaximumDataCacheAgeInSeconds[] =
     "MaximumDataCacheAgeInSeconds";
 const char kFeedSettingTimeoutThresholdAfterClearBrowsingData[] =
@@ -113,10 +114,11 @@ bool IsDiscoverFeedTopSyncPromoEnabled() {
   return base::FeatureList::IsEnabled(kEnableDiscoverFeedTopSyncPromo);
 }
 
-bool IsDiscoverFeedTopSyncPromoCompact() {
-  return base::GetFieldTrialParamByFeatureAsBool(
-      kEnableDiscoverFeedTopSyncPromo, kDiscoverFeedTopSyncPromoStyleCompact,
-      false);
+SigninPromoViewStyle GetTopOfFeedPromoStyle() {
+  CHECK(IsDiscoverFeedTopSyncPromoEnabled());
+  // Defaults to Compact Titled (Unpersonalized).
+  return (SigninPromoViewStyle)base::GetFieldTrialParamByFeatureAsInt(
+      kEnableDiscoverFeedTopSyncPromo, kDiscoverFeedTopSyncPromoStyle, 1);
 }
 
 int FeedSyncPromoAutodismissCount() {

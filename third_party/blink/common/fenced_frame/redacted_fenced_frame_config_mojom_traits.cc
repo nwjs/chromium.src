@@ -49,18 +49,11 @@ EnumTraits<blink::mojom::ReportingDestination,
       return blink::mojom::ReportingDestination::kComponentSeller;
     case blink::FencedFrame::ReportingDestination::kSharedStorageSelectUrl:
       return blink::mojom::ReportingDestination::kSharedStorageSelectUrl;
+    case blink::FencedFrame::ReportingDestination::kDirectSeller:
+      return blink::mojom::ReportingDestination::kDirectSeller;
   }
   NOTREACHED();
   return blink::mojom::ReportingDestination::kBuyer;
-}
-
-// static
-const base::flat_map<blink::FencedFrame::ReportingDestination,
-                     base::flat_map<std::string, GURL>>&
-StructTraits<blink::mojom::FencedFrameReportingDataView,
-             blink::FencedFrame::FencedFrameReporting>::
-    metadata(const blink::FencedFrame::FencedFrameReporting& input) {
-  return input.metadata;
 }
 
 // static
@@ -96,17 +89,6 @@ bool EnumTraits<blink::mojom::DeprecatedFencedFrameMode,
 }
 
 // static
-bool StructTraits<blink::mojom::FencedFrameReportingDataView,
-                  blink::FencedFrame::FencedFrameReporting>::
-    Read(blink::mojom::FencedFrameReportingDataView data,
-         blink::FencedFrame::FencedFrameReporting* out) {
-  if (!data.ReadMetadata(&out->metadata)) {
-    return false;
-  }
-  return true;
-}
-
-// static
 bool EnumTraits<blink::mojom::ReportingDestination,
                 blink::FencedFrame::ReportingDestination>::
     FromMojom(blink::mojom::ReportingDestination input,
@@ -123,6 +105,9 @@ bool EnumTraits<blink::mojom::ReportingDestination,
       return true;
     case blink::mojom::ReportingDestination::kSharedStorageSelectUrl:
       *out = blink::FencedFrame::ReportingDestination::kSharedStorageSelectUrl;
+      return true;
+    case blink::mojom::ReportingDestination::kDirectSeller:
+      *out = blink::FencedFrame::ReportingDestination::kDirectSeller;
       return true;
   }
   NOTREACHED();

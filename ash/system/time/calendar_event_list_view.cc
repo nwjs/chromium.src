@@ -45,7 +45,7 @@ const auto kCloseButtonContainerInsetsJelly = gfx::Insets::TLBR(8, 16, 8, 26);
 
 // The paddings in `CalendarEventListView`.
 constexpr auto kContentInsets = gfx::Insets::TLBR(0, 0, 20, 0);
-constexpr auto kContentInsetsJelly = gfx::Insets::TLBR(0, 16, 20, 16);
+constexpr auto kContentInsetsJelly = gfx::Insets::TLBR(0, 14, 20, 14);
 
 // The insets for `CalendarEmptyEventListView`.
 constexpr auto kOpenGoogleCalendarContainerInsets = gfx::Insets::VH(20, 60);
@@ -190,8 +190,8 @@ CalendarEventListView::~CalendarEventListView() = default;
 void CalendarEventListView::OnThemeChanged() {
   views::View::OnThemeChanged();
   auto color =
-      features::IsCalendarJellyEnabled()
-          ? GetColorProvider()->GetColor((cros_tokens::kCrosSysSystemOnBase))
+      features::IsCalendarJellyEnabled() && features::IsJellyEnabled()
+          ? GetColorProvider()->GetColor((cros_tokens::kCrosSysSurfaceVariant))
           : GetColorProvider()->GetColor(kColorAshShieldAndBaseOpaque);
   SetBackground(views::CreateSolidBackground(color));
 }
@@ -236,7 +236,8 @@ std::unique_ptr<views::View> CalendarEventListView::CreateChildEventListView(
             calendar_view_controller_->selected_date_midnight_utc()}, /*event=*/
         *it,
         /*round_top_corners=*/it == events.begin(),
-        /*round_bottom_corners=*/it->id() == events.rbegin()->id()));
+        /*round_bottom_corners=*/it->id() == events.rbegin()->id(),
+        /*show_event_list_dot=*/true));
   }
 
   return container;

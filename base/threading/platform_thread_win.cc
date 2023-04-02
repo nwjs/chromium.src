@@ -9,7 +9,6 @@
 #include <string>
 
 #include "base/allocator/partition_allocator/partition_alloc_buildflags.h"
-#include "base/debug/activity_tracker.h"
 #include "base/debug/alias.h"
 #include "base/debug/crash_logging.h"
 #include "base/debug/profiler.h"
@@ -56,8 +55,8 @@ std::atomic<bool> g_use_thread_priority_lowest{false};
 std::atomic<bool> g_above_normal_compositing_browser{false};
 
 // These values are sometimes returned by ::GetThreadPriority().
-constexpr int kWinNormalPriority1 = 5;
-constexpr int kWinNormalPriority2 = 6;
+constexpr int kWinDisplayPriority1 = 5;
+constexpr int kWinDisplayPriority2 = 6;
 
 // The information on how to set the thread name comes from
 // a MSDN article: http://msdn2.microsoft.com/en-us/library/xcb2z8hs.aspx
@@ -349,9 +348,6 @@ void PlatformThread::Join(PlatformThreadHandle thread_handle) {
   base::debug::Alias(&thread_id);
   base::debug::Alias(&last_error);
 
-  // Record the event that this thread is blocking upon (for hang diagnosis).
-  base::debug::ScopedThreadJoinActivity thread_activity(&thread_handle);
-
   base::internal::ScopedBlockingCallWithBaseSyncPrimitives scoped_blocking_call(
       FROM_HERE, base::BlockingType::MAY_BLOCK);
 
@@ -544,10 +540,10 @@ ThreadPriorityForTest PlatformThread::GetCurrentThreadPriorityForTest() {
       return ThreadPriorityForTest::kUtility;
     case THREAD_PRIORITY_NORMAL:
       return ThreadPriorityForTest::kNormal;
-    case kWinNormalPriority1:
+    case kWinDisplayPriority1:
       [[fallthrough]];
-    case kWinNormalPriority2:
-      return ThreadPriorityForTest::kNormal;
+    case kWinDisplayPriority2:
+      return ThreadPriorityForTest::kDisplay;
     case THREAD_PRIORITY_ABOVE_NORMAL:
     case THREAD_PRIORITY_HIGHEST:
       return ThreadPriorityForTest::kDisplay;

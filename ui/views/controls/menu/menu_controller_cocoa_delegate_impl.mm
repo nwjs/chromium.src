@@ -12,11 +12,13 @@
 #include "ui/base/interaction/element_tracker_mac.h"
 #include "ui/base/l10n/l10n_util_mac.h"
 #include "ui/base/models/menu_model.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/color/color_provider.h"
 #include "ui/gfx/mac/coordinate_conversion.h"
 #include "ui/gfx/platform_font_mac.h"
 #include "ui/strings/grit/ui_strings.h"
-#include "ui/views/controls/menu/new_badge.h"
+#include "ui/views/badge_painter.h"
+#include "ui/views/layout/layout_provider.h"
 
 namespace {
 
@@ -25,7 +27,9 @@ constexpr CGFloat kIPHDotSize = 6;
 NSImage* NewTagImage(const ui::ColorProvider* color_provider) {
   // 1. Make the attributed string.
 
-  NSString* badge_text = l10n_util::GetNSString(IDS_NEW_BADGE);
+  NSString* badge_text = l10n_util::GetNSString(features::IsChromeRefresh2023()
+                                                    ? IDS_NEW_BADGE_UPPERCASE
+                                                    : IDS_NEW_BADGE);
 
   // The preferred font is slightly smaller and slightly more bold than the
   // menu font. The size change is required to make it look correct in the
@@ -34,7 +38,7 @@ NSImage* NewTagImage(const ui::ColorProvider* color_provider) {
   // both light and dark modes.
   gfx::Font badge_font = gfx::Font(
       new gfx::PlatformFontMac(gfx::PlatformFontMac::SystemFontType::kMenu));
-  badge_font = badge_font.Derive(views::NewBadge::kNewBadgeFontSizeAdjustment,
+  badge_font = badge_font.Derive(views::BadgePainter::kBadgeFontSizeAdjustment,
                                  gfx::Font::NORMAL, gfx::Font::Weight::MEDIUM);
 
   DCHECK(color_provider);
@@ -56,9 +60,9 @@ NSImage* NewTagImage(const ui::ColorProvider* color_provider) {
   badge_size.width = trunc(badge_size.width);
   badge_size.height = trunc(badge_size.height);
 
-  badge_size.width += 2 * views::NewBadge::kNewBadgeInternalPadding +
-                      2 * views::NewBadge::kNewBadgeHorizontalMargin;
-  badge_size.height += views::NewBadge::kNewBadgeInternalPaddingTopMac;
+  badge_size.width += 2 * views::BadgePainter::kBadgeInternalPadding +
+                      2 * views::BadgePainter::kBadgeHorizontalMargin;
+  badge_size.height += views::BadgePainter::kBadgeInternalPaddingTopMac;
 
   // 3. Craft the image.
 
@@ -67,11 +71,14 @@ NSImage* NewTagImage(const ui::ColorProvider* color_provider) {
              flipped:NO
       drawingHandler:^(NSRect dest_rect) {
         NSRect badge_frame = NSInsetRect(
-            dest_rect, views::NewBadge::kNewBadgeHorizontalMargin, 0);
-        NSBezierPath* rounded_badge_rect = [NSBezierPath
-            bezierPathWithRoundedRect:badge_frame
-                              xRadius:views::NewBadge::kNewBadgeCornerRadius
-                              yRadius:views::NewBadge::kNewBadgeCornerRadius];
+            dest_rect, views::BadgePainter::kBadgeHorizontalMargin, 0);
+        const int badge_radius =
+            views::LayoutProvider::Get()->GetCornerRadiusMetric(
+                views::ShapeContextTokens::kBadgeRadius);
+        NSBezierPath* rounded_badge_rect =
+            [NSBezierPath bezierPathWithRoundedRect:badge_frame
+                                            xRadius:badge_radius
+                                            yRadius:badge_radius];
         DCHECK(color_provider);
         NSColor* badge_color = skia::SkColorToSRGBNSColor(
             color_provider->GetColor(ui::kColorButtonBackgroundProminent));
@@ -79,9 +86,9 @@ NSImage* NewTagImage(const ui::ColorProvider* color_provider) {
         [rounded_badge_rect fill];
 
         NSPoint badge_text_location = NSMakePoint(
-            NSMinX(badge_frame) + views::NewBadge::kNewBadgeInternalPadding,
+            NSMinX(badge_frame) + views::BadgePainter::kBadgeInternalPadding,
             NSMinY(badge_frame) +
-                views::NewBadge::kNewBadgeInternalPaddingTopMac);
+                views::BadgePainter::kBadgeInternalPaddingTopMac);
         [badge_attr_string drawAtPoint:badge_text_location];
 
         return YES;
@@ -146,7 +153,7 @@ NSImage* IPHDotImage(const ui::ColorProvider* color_provider) {
 }
 
 - (NSPoint)cellBaselineOffset {
-  return NSMakePoint(0, views::NewBadge::kNewBadgeBaselineOffsetMac);
+  return NSMakePoint(0, views::BadgePainter::kBadgeBaselineOffsetMac);
 }
 
 - (NSSize)cellSize {

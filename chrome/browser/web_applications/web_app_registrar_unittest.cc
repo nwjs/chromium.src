@@ -10,16 +10,18 @@
 
 #include "base/containers/contains.h"
 #include "base/containers/flat_set.h"
+#include "base/files/file_path.h"
 #include "base/functional/callback_helpers.h"
 #include "base/logging.h"
 #include "base/notreached.h"
 #include "base/run_loop.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/web_applications/commands/run_on_os_login_command.h"
-#include "chrome/browser/web_applications/isolation_data.h"
+#include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_location.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
 #include "chrome/browser/web_applications/policy/web_app_policy_manager.h"
 #include "chrome/browser/web_applications/test/fake_web_app_database_factory.h"
@@ -31,15 +33,20 @@
 #include "chrome/browser/web_applications/web_app_command_scheduler.h"
 #include "chrome/browser/web_applications/web_app_constants.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
+#include "chrome/browser/web_applications/web_app_install_finalizer.h"
+#include "chrome/browser/web_applications/web_app_install_manager.h"
 #include "chrome/browser/web_applications/web_app_registry_update.h"
 #include "chrome/browser/web_applications/web_app_sync_bridge.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
+#include "chrome/common/url_constants.h"
 #include "components/sync/test/mock_model_type_change_processor.h"
+#include "content/public/browser/storage_partition_config.h"
 #include "content/public/common/content_features.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "url/gurl.h"
+#include "url/url_constants.h"
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "ash/constants/ash_features.h"
@@ -99,9 +106,11 @@ class WebAppRegistrarTest : public WebAppTest {
     sync_bridge_ = std::make_unique<WebAppSyncBridge>(
         registrar_mutable_.get(), mock_processor_.CreateForwardingProcessor());
     database_factory_ = std::make_unique<FakeWebAppDatabaseFactory>();
+    install_manager_ = std::make_unique<WebAppInstallManager>(profile());
 
     sync_bridge_->SetSubsystems(database_factory_.get(), command_manager_.get(),
-                                command_scheduler_.get());
+                                command_scheduler_.get(),
+                                install_manager_.get());
 
     ON_CALL(mock_processor_, IsTrackingMetadata())
         .WillByDefault(testing::Return(true));
@@ -220,6 +229,7 @@ class WebAppRegistrarTest : public WebAppTest {
   std::unique_ptr<FakeWebAppDatabaseFactory> database_factory_;
   std::unique_ptr<WebAppCommandManager> command_manager_;
   std::unique_ptr<WebAppCommandScheduler> command_scheduler_;
+  std::unique_ptr<WebAppInstallManager> install_manager_;
 
   testing::NiceMock<syncer::MockModelTypeChangeProcessor> mock_processor_;
 };
@@ -907,6 +917,56 @@ TEST_F(WebAppRegistrarTest, CountUserInstalledApps) {
   EXPECT_EQ(3, registrar().CountUserInstalledApps());
 }
 
+TEST_F(WebAppRegistrarTest, GetAllIsolatedWebAppStoragePartitionConfigs) {
+  base::test::ScopedFeatureList scoped_feature_list(features::kIsolatedWebApps);
+  InitSyncBridge();
+
+  constexpr char kIwaHostname[] =
+      "berugqztij5biqquuk3mfwpsaibuegaqcitgfchwuosuofdjabzqaaic";
+  GURL start_url(base::StrCat({chrome::kIsolatedAppScheme,
+                               url::kStandardSchemeSeparator, kIwaHostname}));
+  auto isolated_web_app = test::CreateWebApp(start_url);
+  const AppId app_id = isolated_web_app->app_id();
+
+  isolated_web_app->SetScope(isolated_web_app->start_url());
+  isolated_web_app->SetIsolationData(
+      WebApp::IsolationData(InstalledBundle{.path = base::FilePath()}));
+  RegisterApp(std::move(isolated_web_app));
+
+  std::vector<content::StoragePartitionConfig> storage_partition_configs =
+      registrar().GetIsolatedWebAppStoragePartitionConfigs(app_id);
+
+  auto expected_config = content::StoragePartitionConfig::Create(
+      profile(), /*partition_domain=*/base::StrCat({"iwa-", kIwaHostname}),
+      /*partition_name=*/"", /*in_memory=*/false);
+  ASSERT_EQ(1UL, storage_partition_configs.size());
+  EXPECT_EQ(expected_config, storage_partition_configs[0]);
+}
+
+TEST_F(
+    WebAppRegistrarTest,
+    GetAllIsolatedWebAppStoragePartitionConfigsEmptyWhenNotLocallyInstalled) {
+  base::test::ScopedFeatureList scoped_feature_list(features::kIsolatedWebApps);
+  InitSyncBridge();
+
+  GURL start_url(
+      "isolated-app://"
+      "berugqztij5biqquuk3mfwpsaibuegaqcitgfchwuosuofdjabzqaaic");
+  auto isolated_web_app = test::CreateWebApp(start_url);
+  const AppId app_id = isolated_web_app->app_id();
+
+  isolated_web_app->SetScope(isolated_web_app->start_url());
+  isolated_web_app->SetIsolationData(
+      WebApp::IsolationData(InstalledBundle{.path = base::FilePath()}));
+  isolated_web_app->SetIsLocallyInstalled(false);
+  RegisterApp(std::move(isolated_web_app));
+
+  std::vector<content::StoragePartitionConfig> storage_partition_configs =
+      registrar().GetIsolatedWebAppStoragePartitionConfigs(app_id);
+
+  EXPECT_TRUE(storage_partition_configs.empty());
+}
+
 TEST_F(WebAppRegistrarTest,
        AppsFromSyncAndPendingInstallationExcludedFromGetAppIds) {
   InitRegistrarWithApps("https://example.com/path/", 100);
@@ -951,7 +1011,7 @@ TEST_F(WebAppRegistrarTest, NotLocallyInstalledAppGetsDisplayModeBrowser) {
   EXPECT_EQ(DisplayMode::kBrowser,
             registrar().GetAppEffectiveDisplayMode(app_id));
 
-  sync_bridge().SetAppIsLocallyInstalled(app_id, true);
+  sync_bridge().SetAppIsLocallyInstalledForTesting(app_id, true);
 
   EXPECT_EQ(DisplayMode::kStandalone,
             registrar().GetAppEffectiveDisplayMode(app_id));
@@ -966,10 +1026,6 @@ TEST_F(WebAppRegistrarTest,
   web_app->SetDisplayMode(DisplayMode::kStandalone);
   web_app->SetUserDisplayMode(mojom::UserDisplayMode::kStandalone);
   web_app->SetIsLocallyInstalled(false);
-
-  // Not locally installed apps get browser display mode because they do not
-  // have information aboud isolation because manifest is not available.
-  web_app->SetStorageIsolated(true);
 
   RegisterApp(std::move(web_app));
 
@@ -988,8 +1044,7 @@ TEST_F(WebAppRegistrarTest,
   web_app->SetDisplayMode(DisplayMode::kStandalone);
   web_app->SetUserDisplayMode(mojom::UserDisplayMode::kBrowser);
   web_app->SetIsLocallyInstalled(true);
-  web_app->SetStorageIsolated(true);
-  web_app->SetIsolationData(IsolationData(IsolationData::DevModeProxy{
+  web_app->SetIsolationData(WebApp::IsolationData(DevModeProxy{
       .proxy_url = url::Origin::Create(GURL("http://127.0.0.1:8080"))}));
 
   RegisterApp(std::move(web_app));
@@ -1016,7 +1071,7 @@ TEST_F(WebAppRegistrarTest, NotLocallyInstalledAppGetsDisplayModeOverride) {
   EXPECT_EQ(DisplayMode::kBrowser,
             registrar().GetAppEffectiveDisplayMode(app_id));
 
-  sync_bridge().SetAppIsLocallyInstalled(app_id, true);
+  sync_bridge().SetAppIsLocallyInstalledForTesting(app_id, true);
 
   EXPECT_EQ(DisplayMode::kMinimalUi,
             registrar().GetAppEffectiveDisplayMode(app_id));
@@ -1041,7 +1096,7 @@ TEST_F(WebAppRegistrarTest,
   EXPECT_EQ(DisplayMode::kFullscreen,
             registrar().GetEffectiveDisplayModeFromManifest(app_id));
 
-  sync_bridge().SetAppIsLocallyInstalled(app_id, true);
+  sync_bridge().SetAppIsLocallyInstalledForTesting(app_id, true);
   EXPECT_EQ(DisplayMode::kFullscreen,
             registrar().GetEffectiveDisplayModeFromManifest(app_id));
 }

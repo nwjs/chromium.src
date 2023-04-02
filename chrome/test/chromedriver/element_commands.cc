@@ -816,14 +816,14 @@ Status ExecuteGetComputedLabel(Session* session,
     return status;
 
   // Computed label stores as `name` in the AXTree.
-  absl::optional<base::Value> name_node = ax_node->ExtractKey("name");
+  base::Value::Dict* name_node = ax_node->GetDict().FindDict("name");
   if (!name_node) {
     // No computed label found. Return empty string.
     *value = std::make_unique<base::Value>("");
     return Status(kOk);
   }
 
-  absl::optional<base::Value> name_val = name_node->ExtractKey("value");
+  absl::optional<base::Value> name_val = name_node->Extract("value");
   if (!name_val)
     return Status(kUnknownError,
                   "No name value found in the node in CDP response");
@@ -843,14 +843,14 @@ Status ExecuteGetComputedRole(Session* session,
   if (status.IsError())
     return status;
 
-  absl::optional<base::Value> role_node = ax_node->ExtractKey("role");
+  base::Value::Dict* role_node = ax_node->GetDict().FindDict("role");
   if (!role_node) {
     // No computed role found. Return empty string.
     *value = std::make_unique<base::Value>("");
     return Status(kOk);
   }
 
-  absl::optional<base::Value> role_val = role_node->ExtractKey("value");
+  absl::optional<base::Value> role_val = role_node->Extract("value");
   if (!role_val) {
     return Status(kUnknownError,
                   "No role value found in the node in CDP response");
@@ -1001,8 +1001,9 @@ Status ExecuteGetElementAttribute(Session* session,
   //if (!session->w3c_compliant) {
   return GetElementAttribute(session, web_view, element_id, *attribute_name,
                                value);
-    //}
+  //}
 #if 0
+
   Status status = CheckElement(element_id);
   if (status.IsError())
     return status;

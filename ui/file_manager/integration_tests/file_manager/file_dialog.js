@@ -69,6 +69,7 @@ async function setUpFileEntrySet(volume) {
   const driveEntries = [
     ENTRIES.hello,
     ENTRIES.pinned,
+    ENTRIES.testCSEDocument,
     ENTRIES.testCSEFile,
     ENTRIES.testDocument,
     ENTRIES.docxFile,
@@ -512,6 +513,15 @@ testcase.saveFileDialogDriveHostedNeedsFile = () => {
  */
 testcase.openFileDialogDriveCSEGrey = () => {
   return openFileDialogExpectEntryDimmed('drive', ENTRIES.testCSEFile.nameText);
+};
+
+/**
+ * Tests that selecting an encrypted (via CSE) file from a dialog requiring
+ * a real file is disabled.
+ */
+testcase.openFileDialogDriveCSENeedsFile = () => {
+  return openFileDialogExpectOkButtonDisabled(
+      'drive', ENTRIES.testCSEFile.nameText, TEST_DRIVE_FILE);
 };
 
 /**

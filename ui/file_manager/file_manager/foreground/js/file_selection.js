@@ -73,6 +73,11 @@ export class FileSelection {
     this.anyFilesHosted = true;
 
     /**
+     * @public {boolean}
+     */
+    this.anyFilesEncrypted = true;
+
+    /**
      * @private {Promise<boolean>}
      */
     this.additionalPromise_ = null;
@@ -112,16 +117,18 @@ export class FileSelection {
                   this.entries,
                   constants.FILE_SELECTION_METADATA_PREFETCH_PROPERTY_NAMES)
               .then(props => {
-                const present = props.filter(p => {
+                this.anyFilesNotInCache = props.some(p => {
                   // If no availableOffline property, then assume it's
                   // available.
-                  return !('availableOffline' in p) || p.availableOffline;
+                  return ('availableOffline' in p) && !p.availableOffline;
                 });
-                const hosted = props.filter(p => {
+                this.anyFilesHosted = props.some(p => {
                   return p.hosted;
                 });
-                this.anyFilesNotInCache = present.length !== props.length;
-                this.anyFilesHosted = !!hosted.length;
+                this.anyFilesEncrypted = props.some((p, i) => {
+                  return FileType.isEncrypted(
+                      this.entries[i], p.contentMimeType);
+                });
                 this.mimeTypes = props.map(value => {
                   return value.contentMimeType || '';
                 });
@@ -183,12 +190,6 @@ export class FileSelectionHandler extends EventTarget {
      */
     this.selectionUpdateTimer_ = 0;
 
-    /**
-     * requestAnimationFrame used to debounce the calls to update the Store.
-     * @private {?number}
-     */
-    this.updateStoreRaf_ = null;
-
     /** @private {!Store} */
     this.store_ = getStore();
 
@@ -245,9 +246,7 @@ export class FileSelectionHandler extends EventTarget {
       updateDelay = 1;
     }
 
-    if (!this.updateStoreRaf_) {
-      this.updateStoreRaf_ = requestAnimationFrame(() => this.updateStore_());
-    }
+    this.updateStore_();
 
     const selection = this.selection;
     this.selectionUpdateTimer_ = setTimeout(() => {
@@ -287,7 +286,6 @@ export class FileSelectionHandler extends EventTarget {
    * @private
    */
   updateStore_() {
-    this.updateStoreRaf_ = null;
     const entries = this.selection.entries;
     this.store_.dispatch(updateSelection({
       selectedKeys: entries.map(e => e.toURL()),
@@ -306,7 +304,8 @@ export class FileSelectionHandler extends EventTarget {
 
     return !(
         this.isOfflineWithUncachedFilesSelected_() ||
-        this.isDialogWithHostedFilesSelected_());
+        this.isDialogWithHostedFilesSelected_() ||
+        this.isDialogWithEncryptedFilesSelected_());
   }
 
   /**
@@ -330,6 +329,17 @@ export class FileSelectionHandler extends EventTarget {
   isDialogWithHostedFilesSelected_() {
     return this.allowedPaths_ !== AllowedPaths.ANY_PATH_OR_URL &&
         this.selection.anyFilesHosted;
+  }
+
+  /**
+   * Returns true if we're a dialog requiring real files with encrypted files
+   * selected.
+   * @return {boolean}
+   * @private
+   */
+  isDialogWithEncryptedFilesSelected_() {
+    return this.allowedPaths_ !== AllowedPaths.ANY_PATH_OR_URL &&
+        this.selection.anyFilesEncrypted;
   }
 
   /**

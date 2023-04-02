@@ -19,6 +19,7 @@
 #include "chromeos/ash/components/cryptohome/userdataauth_util.h"
 #include "chromeos/ash/components/dbus/cryptohome/UserDataAuth.pb.h"
 #include "chromeos/ash/components/dbus/userdataauth/userdataauth_client.h"
+#include "chromeos/ash/components/login/auth/auth_metrics_recorder.h"
 #include "chromeos/ash/components/login/auth/cryptohome_parameter_utils.h"
 #include "chromeos/ash/components/login/auth/public/auth_failure.h"
 #include "chromeos/ash/components/login/auth/public/auth_session_intent.h"
@@ -31,6 +32,17 @@
 #include "components/user_manager/user_names.h"
 
 namespace ash {
+
+namespace {
+
+std::unique_ptr<UserContext> RecordConfiguredFactors(
+    std::unique_ptr<UserContext> context) {
+  AuthMetricsRecorder::Get()->RecordUserAuthFactors(
+      context->GetAuthFactorsData().GetSessionFactors());
+  return context;
+}
+
+}  // namespace
 
 AuthSessionAuthenticator::AuthSessionAuthenticator(
     AuthStatusConsumer* consumer,
@@ -412,8 +424,10 @@ void AuthSessionAuthenticator::DoLoginAsExistingUser(
 
   bool challenge_response_auth = !context->GetChallengeResponseKeys().empty();
 
-  AuthSuccessCallback success_callback = base::BindOnce(
-      &AuthSessionAuthenticator::NotifyAuthSuccess, weak_factory_.GetWeakPtr());
+  AuthSuccessCallback success_callback =
+      base::BindOnce(&RecordConfiguredFactors)
+          .Then(base::BindOnce(&AuthSessionAuthenticator::NotifyAuthSuccess,
+                               weak_factory_.GetWeakPtr()));
 
   // Existing users might require encryption migration: intercept related
   // error codes.
@@ -958,7 +972,11 @@ void AuthSessionAuthenticator::HandlePasswordChangeDetected(
     LOGIN_LOG(EVENT) << "Password change detected";
     if (!consumer_)
       return;
-    consumer_->OnPasswordChangeDetected(*context);
+    if (ash::features::IsCryptohomeRecoveryEnabled()) {
+      consumer_->OnPasswordChangeDetected(std::move(context));
+    } else {
+      consumer_->OnPasswordChangeDetectedLegacy(*context);
+    }
     return;
   }
   std::move(fallback).Run(std::move(context), std::move(error));

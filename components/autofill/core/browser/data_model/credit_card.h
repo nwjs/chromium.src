@@ -20,9 +20,6 @@ namespace autofill {
 
 struct AutofillMetadata;
 
-// A midline horizontal ellipsis (U+22EF).
-extern const char16_t kMidlineEllipsisDot[];
-
 namespace internal {
 
 // Returns an obfuscated representation of a credit card number given its last
@@ -84,6 +81,32 @@ class CreditCard : public AutofillDataModel {
     UNENROLLED_AND_ELIGIBLE = 4,
   };
 
+  // The enrollment type of the virtual card attached to this card, if one is
+  // present. This must stay in sync with the proto enum in
+  // autofill_specifics.proto.
+  enum VirtualCardEnrollmentType {
+    // Type unspecified. This is the default value of this enum. Should not be
+    // used with cards that have a virtual card enrolled.
+    TYPE_UNSPECIFIED = 0,
+    // Issuer-level enrollment.
+    ISSUER = 1,
+    // Network-level enrollment.
+    NETWORK = 2,
+  };
+
+  // Creates a copy of the passed in credit card, and sets its `record_type` to
+  // `CreditCard::VIRTUAL_CARD`. This is used to differentiate virtual cards
+  // from their real counterpart on the UI layer.
+  static CreditCard CreateVirtualCard(const CreditCard& card);
+
+  // Creates a copy of the passed in credit card, and sets its `record_type` to
+  // `CreditCard::VIRTUAL_CARD`. This is used to differentiate virtual cards
+  // from their real counterpart on the UI layer. In addition, a suffix is added
+  // to the guid which also helps differentiate the virtual card from their real
+  // counterpart.
+  static std::unique_ptr<CreditCard> CreateVirtualCardWithGuidSuffix(
+      const CreditCard& card);
+
   CreditCard(const std::string& guid, const std::string& origin);
 
   // Creates a server card. The type must be MASKED_SERVER_CARD or
@@ -92,11 +115,13 @@ class CreditCard : public AutofillDataModel {
 
   // Creates a server card with non-legacy instrument id. The type must be
   // MASKED_SERVER_CARD or FULL_SERVER_CARD.
-  CreditCard(RecordType type, const int64_t& instrument_id);
+  CreditCard(RecordType type, int64_t instrument_id);
 
-  // For use in STL containers.
   CreditCard();
   CreditCard(const CreditCard& credit_card);
+  CreditCard(CreditCard&& credit_card);
+  CreditCard& operator=(const CreditCard& credit_card);
+  CreditCard& operator=(CreditCard&& credit_card);
   ~CreditCard() override;
 
   // Returns a version of |number| that has any separator characters removed.
@@ -184,9 +209,6 @@ class CreditCard : public AutofillDataModel {
   void set_card_issuer(Issuer card_issuer) { card_issuer_ = card_issuer; }
   const std::string& issuer_id() const { return issuer_id_; }
   void set_issuer_id(const std::string& issuer_id) { issuer_id_ = issuer_id; }
-
-  // For use in STL containers.
-  void operator=(const CreditCard& credit_card);
 
   // If the card numbers for |this| and |imported_card| match, and merging the
   // two wouldn't result in unverified data overwriting verified data,
@@ -365,16 +387,20 @@ class CreditCard : public AutofillDataModel {
   // Should be used ONLY by tests.
   std::u16string NicknameAndLastFourDigitsForTesting() const;
 
-  // Static method to help create a virtual card from an existing `CreditCard`
-  // object.
-  static std::unique_ptr<CreditCard> CreateVirtualCard(const CreditCard& card);
-
   VirtualCardEnrollmentState virtual_card_enrollment_state() const {
     return virtual_card_enrollment_state_;
   }
   void set_virtual_card_enrollment_state(
       VirtualCardEnrollmentState virtual_card_enrollment_state) {
     virtual_card_enrollment_state_ = virtual_card_enrollment_state;
+  }
+
+  VirtualCardEnrollmentType virtual_card_enrollment_type() const {
+    return virtual_card_enrollment_type_;
+  }
+  void set_virtual_card_enrollment_type(
+      VirtualCardEnrollmentType virtual_card_enrollment_type) {
+    virtual_card_enrollment_type_ = virtual_card_enrollment_type;
   }
 
   const GURL& card_art_url() const { return card_art_url_; }
@@ -472,6 +498,13 @@ class CreditCard : public AutofillDataModel {
   // The virtual card enrollment state of this card. If it is ENROLLED, then
   // this card has virtual cards linked to it.
   VirtualCardEnrollmentState virtual_card_enrollment_state_ = UNSPECIFIED;
+
+  // The virtual card enrollment type of this card. This will be used when the
+  // enrollment type can make a difference in the functionality we offer for
+  // virtual cards. An example of differing functionality is if this virtual
+  // card enrollment type is a network-level enrollment, and we are on a URL
+  // that is opted out of virtual cards with the network of this card.
+  VirtualCardEnrollmentType virtual_card_enrollment_type_ = TYPE_UNSPECIFIED;
 
   // The url to fetch the rich card art image.
   GURL card_art_url_;

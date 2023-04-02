@@ -36,7 +36,6 @@
 #include "ui/gfx/native_pixmap.h"
 #include "ui/gfx/native_widget_types.h"
 #include "ui/gl/buildflags.h"
-#include "ui/gl/gl_image_native_pixmap.h"
 
 #if BUILDFLAG(ENABLE_VULKAN)
 #include "gpu/command_buffer/service/shared_image/skia_vk_ozone_image_representation.h"
@@ -355,6 +354,14 @@ bool OzoneImageBacking::UploadFromMemory(const std::vector<SkPixmap>& pixmaps) {
             backend_texture, &pixmaps[plane],
             /*numLevels=*/1, surface_origin(), nullptr, nullptr)) {
       written = false;
+    }
+  }
+
+  if (auto end_state = dest_scoped_access->TakeEndState()) {
+    for (int plane = 0; plane < format().NumberOfPlanes(); ++plane) {
+      context_state_->gr_context()->setBackendTextureState(
+          dest_scoped_access->promise_image_texture(plane)->backendTexture(),
+          *end_state);
     }
   }
 

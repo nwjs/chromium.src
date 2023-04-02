@@ -338,6 +338,14 @@ extern const base::FeatureParam<int> kFuzzyUrlSuggestionsPenaltyTaperLength;
 // Returns true if the default browser pedal feature is enabled.
 bool IsDefaultBrowserPedalEnabled();
 
+// Indicates whether the default browser pedal should make the change
+// immediately by calling the shell_integration API directly. When
+// false (default), the pedal goes to settings to let the user see
+// and commit the change themselves.
+extern const base::FeatureParam<bool> kDefaultBrowserPedalImmediate;
+
+// Note: These two feature params are only relevant when the above
+// param `kDefaultBrowserPedalImmediate` is true.
 // Indicates whether the default browser pedal can be used when the
 // shell_integration API indicates the system sets default browser
 // interactively, e.g. by bringing up system settings.
@@ -358,6 +366,7 @@ bool IsOnDeviceHeadSuggestEnabledForIncognito();
 bool IsOnDeviceHeadSuggestEnabledForNonIncognito();
 bool IsOnDeviceHeadSuggestEnabledForAnyMode();
 bool IsOnDeviceTailSuggestEnabled();
+bool ShouldEncodeLeadingSpaceForOnDeviceTailSuggest();
 // Functions can be used in both non-incognito and incognito.
 std::string OnDeviceHeadModelLocaleConstraint(bool is_incognito);
 
@@ -370,7 +379,18 @@ bool ShouldDisableCGIParamMatching();
 bool IsSiteSearchStarterPackEnabled();
 
 // Omnibox UI Simplification - Square icon backgrounds.
-bool IsSquareSuggestIconEnabled();
+// Blue rounded rect background icons for answers e.g. '1+1' and 'define x'.
+// Does not apply to weather answers. Also updates the shade of blue and the
+// stroke color.
+extern const base::FeatureParam<bool> kSquareSuggestIconAnswers;
+// Gray rounded rect background for search loop and nav fav icons.
+extern const base::FeatureParam<bool> kSquareSuggestIconIcons;
+// Gray rounded rect background for entities.
+extern const base::FeatureParam<bool> kSquareSuggestIconEntities;
+// The entity size relative to the background. 0.5 means the entity
+// takes up half of the space. Should be (0, 1). No effect if
+// `kSquareSuggestIconEntities` is false or this is 1.
+extern const base::FeatureParam<double> kSquareSuggestIconEntitiesScale;
 
 // Omnibox UI simplification - uniform row heights.
 // Returns true if the feature to enable uniform row height is enabled.
@@ -496,15 +516,6 @@ extern const base::FeatureParam<bool>
 // be default.
 extern const base::FeatureParam<bool>
     kAutocompleteStabilityPreventDefaultPreviousMatches;
-// Matches from the previous input are temporarily copied to carry over the
-// suggestions until the new input's suggestions are ready. If enabled, only
-// providers whose suggestions are pending have their old matches copied over.
-extern const base::FeatureParam<bool>
-    kAutocompleteStabilityDontCopyDoneProviders;
-// Begin async providers before sync providers so their async requests can
-// happen in parallel. This effects only the search, history_url, document, and
-// on device head providers.
-extern const base::FeatureParam<bool> kAutocompleteStabilityAsyncProvidersFirst;
 // Limit how frequently `AutocompleteController::UpdateResult()` will be
 // invoked. See the comments at `AutocompleteController::update_debouncer_`.
 extern const base::FeatureParam<bool>
@@ -548,6 +559,14 @@ extern const base::FeatureParam<std::string> kBookmarkPathsCounterfactual;
 
 // Shortcut Expanding.
 bool IsShortcutExpandingEnabled();
+
+// Shortcut boost
+// The scores to use for boosting search and URL suggestions respectively.
+// Default to 1414 (`kScoreForBestInlineableResult` + 1). Setting to 0 will
+// prevent boosting.
+extern const base::FeatureParam<int> kShortcutBoostSearchScore;
+extern const base::FeatureParam<int> kShortcutBoostUrlScore;
+extern const base::FeatureParam<bool> kShortcutBoostCounterfactual;
 
 // Rich autocompletion.
 bool IsRichAutocompletionEnabled();
@@ -621,10 +640,62 @@ extern const base::FeatureParam<double> kDomainSuggestionsScoreFactor;
 extern const base::FeatureParam<bool> kDomainSuggestionsAlternativeScoring;
 
 // ---------------------------------------------------------
-// ML Relevance Scoring:
+// ML Relevance Scoring ->
+
+// The ML Relevance Scoring features and params configuration.
+// Use `GetMLConfig()` to get the current configuration.
+//
+// `MLConfig` has the same thread-safety as base::FeatureList. The first call to
+// `GetMLConfig()` (which performs initialization) must be done single threaded
+// on the main thread. After that, it can be called from any thread.
+struct MLConfig {
+  MLConfig();
+
+  // If true, logs Omnibox URL scoring signals to OmniboxEventProto in UMA.
+  // Equivalent to omnibox::kLogUrlScoringSignals.
+  bool log_url_scoring_signals{false};
+
+  // If true, enables scoring signal annotators.
+  // Requires omnibox::kLogUrlScoringSignals to be enabled.
+  bool enable_scoring_signals_annotators{false};
+
+  // If true, runs the ML scoring model to assign relevance scores to URL
+  // suggestions. Also enables the autocomplete system related changes to
+  // support ML scoring and moves scoring out of the autocomplete providers into
+  // the autocomplete controller.
+  // Equivalent to omnibox::kMlRelevanceScoring.
+  bool ml_relevance_scoring{false};
+
+  // If true, creates Omnibox autocompete URL scoring model.
+  // Equivalent to omnibox::kUrlScoringModel.
+  bool url_scoring_model{false};
+};
+
+// A testing utility class for overriding the current configuration returned
+// by the global or member `GetMLConfig()` and restoring it once the instance
+// goes out of scope.
+class ScopedMLConfigForTesting {
+ public:
+  ScopedMLConfigForTesting();
+  ScopedMLConfigForTesting(const ScopedMLConfigForTesting&) = delete;
+  ScopedMLConfigForTesting& operator=(const ScopedMLConfigForTesting&) = delete;
+  ~ScopedMLConfigForTesting();
+
+  // Returns the current configuration.
+  MLConfig& GetMLConfig();
+
+ private:
+  std::unique_ptr<MLConfig> original_config_{nullptr};
+};
+
+// Returns the current configuration.
+const MLConfig& GetMLConfig();
 
 // For logging Omnibox scoring signals for training machine learning models.
 bool IsLogUrlScoringSignalsEnabled();
+
+// Returns whether the scoring signal annotators are enabled.
+bool AreScoringSignalsAnnotatorsEnabled();
 
 // If enabled, runs the machine learning scoring model and uses the ML-based
 // relevance scores. This flag enables the omnibox autocomplete system related
@@ -634,6 +705,9 @@ bool IsMlRelevanceScoringEnabled();
 
 // Whether the URL scoring model is enabled.
 bool IsUrlScoringModelEnabled();
+
+// <- ML Relevance Scoring
+// ---------------------------------------------------------
 
 // New params should be inserted above this comment. They should be ordered
 // consistently with `omnibox_features.h`. They should be formatted as:

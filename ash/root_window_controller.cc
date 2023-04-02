@@ -714,8 +714,21 @@ void RootWindowController::CloseChildWindows() {
       else
         non_toplevel_windows.Add(child);
     }
-    while (!toplevel_windows.windows().empty())
+    while (!toplevel_windows.windows().empty()) {
+      aura::Window* toplevel_window = toplevel_windows.windows().back();
+      // Complete in progress animations before deleting the window. This is
+      // done as deleting the window implicitly cancels animations (as long
+      // as the toplevel_window is the layer owner), which may delete the
+      // window.
+      if (toplevel_window->layer()->owner() == toplevel_window) {
+        toplevel_window->layer()->CompleteAllAnimations();
+        if (toplevel_windows.windows().empty() ||
+            toplevel_windows.windows().back() != toplevel_window) {
+          continue;
+        }
+      }
       delete toplevel_windows.Pop();
+    }
   }
 
   // Reset layout manager so that it won't fire unnecessary layout evetns.
@@ -1300,15 +1313,13 @@ void RootWindowController::CreateContainers() {
   overlay_container->SetLayoutManager(
       std::make_unique<OverlayLayoutManager>(overlay_container));
 
-  if (features::IsAmbientModeEnabled()) {
-    aura::Window* ambient_container =
-        CreateContainer(kShellWindowId_AmbientModeContainer,
-                        "AmbientModeContainer", lock_screen_related_containers);
-    ::wm::SetChildWindowVisibilityChangesAnimated(ambient_container);
-    ambient_container->SetProperty(::wm::kUsesScreenCoordinatesKey, true);
-    ambient_container->SetLayoutManager(
-        std::make_unique<FillLayoutManager>(ambient_container));
-  }
+  aura::Window* ambient_container =
+      CreateContainer(kShellWindowId_AmbientModeContainer,
+                      "AmbientModeContainer", lock_screen_related_containers);
+  ::wm::SetChildWindowVisibilityChangesAnimated(ambient_container);
+  ambient_container->SetProperty(::wm::kUsesScreenCoordinatesKey, true);
+  ambient_container->SetLayoutManager(
+      std::make_unique<FillLayoutManager>(ambient_container));
 
   aura::Window* mouse_cursor_container =
       CreateContainer(kShellWindowId_MouseCursorContainer,

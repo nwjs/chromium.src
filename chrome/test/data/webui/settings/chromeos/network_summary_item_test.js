@@ -21,14 +21,15 @@ suite('NetworkSummaryItem', function() {
     return (el !== null) && (el.style.display !== 'none');
   }
 
-  function initWithPSimOnly(isLocked) {
+  function initWithPSimOnly(isLocked, isDeviceEnabled = true) {
     const kTestIccid1 = '00000000000000000000';
 
     const simLockStatus = isLocked ? {lockType: 'sim-pin'} : {lockType: ''};
 
     netSummaryItem.setProperties({
       deviceState: {
-        deviceState: DeviceStateType.kEnabled,
+        deviceState: isDeviceEnabled ? DeviceStateType.kEnabled :
+                                       DeviceStateType.kDisabled,
         type: NetworkType.kCellular,
         simAbsent: false,
         simLockStatus: simLockStatus,
@@ -160,7 +161,7 @@ suite('NetworkSummaryItem', function() {
     netSummaryItem.setProperties({
       deviceState: {
         inhibitReason: InhibitReason.kNotInhibited,
-        deviceState: DeviceStateType.kUnavailable,
+        deviceState: DeviceStateType.kDisabled,
         type: NetworkType.kCellular,
         simAbsent: false,
       },
@@ -179,6 +180,59 @@ suite('NetworkSummaryItem', function() {
                     .disabled);
   });
 
+  test(
+      'Toggle should be disabled when device state is unavailable', function() {
+        netSummaryItem.setProperties({
+          deviceState: {
+            inhibitReason: InhibitReason.kNotInhibited,
+            deviceState: DeviceStateType.kUnavailable,
+            type: NetworkType.kCellular,
+            simAbsent: false,
+          },
+          activeNetworkState: {
+            connectionState: ConnectionStateType.kNotConnected,
+            guid: '',
+            type: NetworkType.kCellular,
+            typeState: {cellular: {networkTechnology: ''}},
+          },
+        });
+
+        flush();
+        assertFalse(
+            netSummaryItem.shadowRoot.querySelector('#deviceEnabledButton')
+                .checked);
+        assertTrue(
+            netSummaryItem.shadowRoot.querySelector('#deviceEnabledButton')
+                .disabled);
+      });
+
+  test(
+      'Toggle should be on and disabled when device state is enabling',
+      function() {
+        netSummaryItem.setProperties({
+          deviceState: {
+            deviceState: DeviceStateType.kEnabling,
+            type: NetworkType.kWiFi,
+          },
+          activeNetworkState: {
+            connectionState: ConnectionStateType.kNotConnected,
+            guid: '',
+            type: NetworkType.kWiFi,
+            typeState: {
+              wifi: {},
+            },
+          },
+        });
+
+        flush();
+        assertTrue(
+            netSummaryItem.shadowRoot.querySelector('#deviceEnabledButton')
+                .checked);
+        assertTrue(
+            netSummaryItem.shadowRoot.querySelector('#deviceEnabledButton')
+                .disabled);
+      });
+
   test('Mobile data toggle shown on locked device', function() {
     initWithESimLocked();
     assertNotEquals(
@@ -186,17 +240,29 @@ suite('NetworkSummaryItem', function() {
     assertTrue(doesElementExist('#deviceEnabledButton'));
   });
 
-  test('pSIM-only locked device, show SIM locked UI', function() {
+  // Regression test for b/264181192.
+  test('pSIM-only locked device enabled, no SIM locked UI', function() {
     initWithPSimOnly(/*isLocked=*/ true);
-    assertTrue(doesElementExist('network-siminfo'));
-    assertTrue(netSummaryItem.shadowRoot.querySelector('#networkState')
-                   .classList.contains('warning-message'));
+    assertFalse(doesElementExist('network-siminfo'));
     assertFalse(netSummaryItem.shadowRoot.querySelector('#networkState')
-                    .classList.contains('network-state'));
-    assertFalse(doesElementExist('#deviceEnabledButton'));
+                    .classList.contains('warning-message'));
+    assertTrue(netSummaryItem.shadowRoot.querySelector('#networkState')
+                   .classList.contains('network-state'));
+    assertTrue(doesElementExist('#deviceEnabledButton'));
   });
 
-  test('pSIM-only locked device, no SIM locked UI', function() {
+  // Regression test for b/264181192.
+  test('pSIM-only locked device disabled, no SIM locked UI', function() {
+    initWithPSimOnly(/*isLocked=*/ true, /*isDeviceEnabled=*/ false);
+    assertFalse(doesElementExist('network-siminfo'));
+    assertFalse(netSummaryItem.shadowRoot.querySelector('#networkState')
+                    .classList.contains('warning-message'));
+    assertTrue(netSummaryItem.shadowRoot.querySelector('#networkState')
+                   .classList.contains('network-state'));
+    assertTrue(doesElementExist('#deviceEnabledButton'));
+  });
+
+  test('pSIM-only unlocked device enabled, no SIM locked UI', function() {
     initWithPSimOnly(/*isLocked=*/ false);
     assertFalse(doesElementExist('network-siminfo'));
     assertFalse(netSummaryItem.shadowRoot.querySelector('#networkState')
@@ -206,7 +272,7 @@ suite('NetworkSummaryItem', function() {
     assertTrue(doesElementExist('#deviceEnabledButton'));
   });
 
-  test('eSIM enabled locked device, show SIM locked UI', function() {
+  test('eSIM enabled locked device, no SIM locked UI', function() {
     initWithESimLocked();
     assertFalse(doesElementExist('network-siminfo'));
     assertFalse(netSummaryItem.shadowRoot.querySelector('#networkState')

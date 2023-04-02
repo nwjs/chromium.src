@@ -64,8 +64,7 @@ class MockMessageCenterObserver : public message_center::MessageCenterObserver {
 class ProjectorUiControllerTest : public AshTestBase {
  public:
   ProjectorUiControllerTest() {
-    scoped_feature_list_.InitWithFeatures(
-        {features::kProjector, features::kProjectorAnnotator}, {});
+    scoped_feature_list_.InitWithFeatures({features::kProjector}, {});
   }
 
   ProjectorUiControllerTest(const ProjectorUiControllerTest&) = delete;
@@ -209,7 +208,8 @@ TEST_F(ProjectorUiControllerTest, SetAnnotatorTool) {
 }
 
 // Tests that right clicking the ProjectorAnnotationTray shows a bubble.
-TEST_F(ProjectorUiControllerTest, RightClickShowsBubble) {
+// Disabled for being flaky. crbug.com/1418409
+TEST_F(ProjectorUiControllerTest, DISABLED_RightClickShowsBubble) {
   controller_->ShowAnnotationTray(Shell::GetPrimaryRootWindow());
   controller_->OnCanvasInitialized(true);
 

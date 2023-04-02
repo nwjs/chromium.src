@@ -12,25 +12,22 @@
 
 #include "ash/accelerators/ash_accelerator_configuration.h"
 #include "ash/constants/ash_pref_names.h"
-#include "ash/public/cpp/accelerator_configuration.h"
 #include "ash/public/cpp/accelerators.h"
-#include "ash/public/cpp/accelerators_util.h"
 #include "ash/public/mojom/accelerator_info.mojom-shared.h"
 #include "ash/public/mojom/accelerator_info.mojom.h"
-#include "ash/public/mojom/accelerator_keys.mojom.h"
 #include "ash/session/session_controller_impl.h"
 #include "ash/shell.h"
 #include "ash/test/ash_test_base.h"
 #include "ash/webui/shortcut_customization_ui/backend/accelerator_layout_table.h"
 #include "ash/webui/shortcut_customization_ui/mojom/shortcut_customization.mojom.h"
-#include "base/functional/bind.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
+#include "base/ranges/algorithm.h"
 #include "base/run_loop.h"
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
 #include "chromeos/ash/components/test/ash_test_suite.h"
-#include "content/public/test/browser_task_environment.h"
+#include "device/udev_linux/fake_udev_loader.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -51,6 +48,45 @@ using NonConfigurableActionToParts =
 
 namespace {
 
+constexpr char kKbdTopRowPropertyName[] = "CROS_KEYBOARD_TOP_ROW_LAYOUT";
+constexpr char kKbdTopRowLayout2Tag[] = "2";
+
+class FakeDeviceManager {
+ public:
+  FakeDeviceManager() = default;
+  FakeDeviceManager(const FakeDeviceManager&) = delete;
+  FakeDeviceManager& operator=(const FakeDeviceManager&) = delete;
+  ~FakeDeviceManager() = default;
+
+  // Add a fake keyboard to DeviceDataManagerTestApi and provide layout info to
+  // fake udev.
+  void AddFakeKeyboard(const ui::InputDevice& fake_keyboard,
+                       const std::string& layout) {
+    fake_keyboard_devices_.push_back(fake_keyboard);
+
+    ui::DeviceDataManagerTestApi().SetKeyboardDevices({});
+    ui::DeviceDataManagerTestApi().SetKeyboardDevices(fake_keyboard_devices_);
+    ui::DeviceDataManagerTestApi().OnDeviceListsComplete();
+
+    std::map<std::string, std::string> sysfs_properties;
+    std::map<std::string, std::string> sysfs_attributes;
+    sysfs_properties[kKbdTopRowPropertyName] = layout;
+    fake_udev_.AddFakeDevice(fake_keyboard.name, fake_keyboard.sys_path.value(),
+                             /*subsystem=*/"input", /*devnode=*/absl::nullopt,
+                             /*devtype=*/absl::nullopt,
+                             std::move(sysfs_attributes),
+                             std::move(sysfs_properties));
+  }
+
+  void RemoveAllDevices() {
+    fake_udev_.Reset();
+    fake_keyboard_devices_.clear();
+  }
+
+ private:
+  testing::FakeUdevLoader fake_udev_;
+  std::vector<ui::InputDevice> fake_keyboard_devices_;
+};
 class FakeAcceleratorsUpdatedObserver
     : public shortcut_customization::mojom::AcceleratorsUpdatedObserver {
  public:
@@ -226,6 +262,7 @@ class AcceleratorConfigurationProviderTest : public AshTestBase {
     provider_ = std::make_unique<AcceleratorConfigurationProvider>();
     non_configurable_actions_map_ =
         provider_->GetNonConfigurableAcceleratorsForTesting();
+    fake_keyboard_manager_ = std::make_unique<FakeDeviceManager>();
     base::RunLoop().RunUntilIdle();
   }
 
@@ -272,11 +309,25 @@ class AcceleratorConfigurationProviderTest : public AshTestBase {
         ->second.message_id.value();
   }
 
+  const std::vector<ui::Accelerator>& GetNonConfigurableAcceleratorsForActionId(
+      uint32_t id) {
+    const auto accelerator_iter =
+        provider_->id_to_non_configurable_accelerators_.find(id);
+    DCHECK(accelerator_iter !=
+           provider_->id_to_non_configurable_accelerators_.end());
+    return accelerator_iter->second;
+  }
+
+  uint32_t GetNonConfigurableIdFromAccelerator(ui::Accelerator accelerator) {
+    return provider_->non_configurable_accelerator_to_id_.Get(accelerator);
+  }
+
   std::unique_ptr<AcceleratorConfigurationProvider> provider_;
   NonConfigurableActionsMap non_configurable_actions_map_;
   base::test::ScopedFeatureList scoped_feature_list_;
   // Test global singleton. Delete is handled by InputMethodManager::Shutdown().
   base::raw_ptr<TestInputMethodManager> input_method_manager_;
+  std::unique_ptr<FakeDeviceManager> fake_keyboard_manager_;
 };
 
 TEST_F(AcceleratorConfigurationProviderTest, ResetReceiverOnBindInterface) {
@@ -401,6 +452,13 @@ TEST_F(AcceleratorConfigurationProviderTest, ValidateAllAcceleratorLayouts) {
 }
 
 TEST_F(AcceleratorConfigurationProviderTest, TopRowKeyAcceleratorRemapped) {
+  // Add a fake layout2 keyboard.
+  ui::InputDevice fake_keyboard(
+      /*id=*/1, /*type=*/ui::InputDeviceType::INPUT_DEVICE_INTERNAL,
+      /*name=*/"fake_Keyboard");
+  fake_keyboard.sys_path = base::FilePath("path1");
+  fake_keyboard_manager_->AddFakeKeyboard(fake_keyboard, kKbdTopRowLayout2Tag);
+
   FakeAcceleratorsUpdatedObserver observer;
   SetUpObserver(&observer);
   EXPECT_EQ(0, observer.num_times_notified());
@@ -610,7 +668,7 @@ TEST_F(AcceleratorConfigurationProviderTest,
       {/*trigger_on_press=*/true, ui::VKEY_LEFT,
        ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN | ui::EF_SHIFT_DOWN,
        TAKE_WINDOW_SCREENSHOT},
-      {/*trigger_on_press=*/true, ui::VKEY_PRIOR,
+      {/*trigger_on_press=*/true, ui::VKEY_UP,
        ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN, DESKS_NEW_DESK},
       {/*trigger_on_press=*/true, ui::VKEY_RIGHT,
        ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN | ui::EF_SHIFT_DOWN,
@@ -632,9 +690,9 @@ TEST_F(AcceleratorConfigurationProviderTest,
       // done. [Left]+[Alt]>[Left]+[Alt].
       {/*trigger_on_press=*/true, ui::VKEY_LEFT, ui::EF_ALT_DOWN,
        CYCLE_BACKWARD_MRU},
-      // When [Search] is the only modifier, no remapping is done.
-      // [Left]+[Search]->[Left]+[Search].
+      // When [Search] is the only modifier, [Left]+[Search]->[Home].
       {/*trigger_on_press=*/true, ui::VKEY_LEFT, ui::EF_COMMAND_DOWN, NEW_TAB},
+      {/*trigger_on_press=*/true, ui::VKEY_HOME, ui::EF_NONE, NEW_TAB},
       // When key code is not reversed six pack key, no remapping is done.
       // [Tab]+[Search]+[Alt]->[Tab]+[Search]+[Alt].
       {/*trigger_on_press=*/true, ui::VKEY_TAB,
@@ -651,10 +709,11 @@ TEST_F(AcceleratorConfigurationProviderTest,
        TAKE_WINDOW_SCREENSHOT},
       {/*trigger_on_press=*/true, ui::VKEY_HOME,
        ui::EF_SHIFT_DOWN | ui::EF_ALT_DOWN, TAKE_WINDOW_SCREENSHOT},
-      // [Prior]+[Search]+[Alt]->[Up]+[Alt].
-      {/*trigger_on_press=*/true, ui::VKEY_PRIOR,
+      // [Up]+[Search]+[Alt]->[Prior]+[Alt].
+      {/*trigger_on_press=*/true, ui::VKEY_UP,
        ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN, DESKS_NEW_DESK},
-      {/*trigger_on_press=*/true, ui::VKEY_UP, ui::EF_ALT_DOWN, DESKS_NEW_DESK},
+      {/*trigger_on_press=*/true, ui::VKEY_PRIOR, ui::EF_ALT_DOWN,
+       DESKS_NEW_DESK},
       // [Right]+[Search]+[Shift]+[Alt]->[End]+[Shift]+[Alt].
       {/*trigger_on_press=*/true, ui::VKEY_RIGHT,
        ui::EF_COMMAND_DOWN | ui::EF_SHIFT_DOWN | ui::EF_ALT_DOWN,
@@ -678,11 +737,10 @@ TEST_F(AcceleratorConfigurationProviderTest,
        SHOW_TASK_MANAGER},
       {/*trigger_on_press=*/true, ui::VKEY_INSERT, ui::EF_ALT_DOWN,
        SHOW_TASK_MANAGER},
-
-      // If the accelerator is just the reverse of [Insert], no remapping is
-      // done. [Back]+[Search]+[Shift] -> [Back]+[Search]+[Shift].
+      // [Back]+[Search]+[Shift] -> [Insert].
       {/*trigger_on_press=*/true, ui::VKEY_BACK,
        ui::EF_COMMAND_DOWN | ui::EF_SHIFT_DOWN, BRIGHTNESS_UP},
+      {/*trigger_on_press=*/true, ui::VKEY_INSERT, ui::EF_NONE, BRIGHTNESS_UP},
   };
 
   Shell::Get()->ash_accelerator_configuration()->Initialize(test_data);
@@ -719,16 +777,12 @@ TEST_F(AcceleratorConfigurationProviderTest, TestGetKeyDisplay) {
   EXPECT_EQ(u"esc", GetKeyDisplay(ui::VKEY_ESCAPE));
   EXPECT_EQ(u"backspace", GetKeyDisplay(ui::VKEY_BACK));
   EXPECT_EQ(u"enter", GetKeyDisplay(ui::VKEY_RETURN));
-  EXPECT_EQ(u"space", GetKeyDisplay(ui::VKEY_SPACE));
+  EXPECT_EQ(u"Space", GetKeyDisplay(ui::VKEY_SPACE));
 }
 
 TEST_F(AcceleratorConfigurationProviderTest, NonConfigurableActions) {
   FakeAcceleratorsUpdatedObserver observer;
   SetUpObserver(&observer);
-  base::RunLoop().RunUntilIdle();
-  // Reinitialize the non-configurable accelerators to trigger the observer.
-  provider_->InitializeNonConfigurableAccelerators(
-      non_configurable_actions_map_);
   base::RunLoop().RunUntilIdle();
   auto config = observer.config();
   for (const auto& [id, accel_infos] :
@@ -762,6 +816,41 @@ TEST_F(AcceleratorConfigurationProviderTest, NonConfigurableActions) {
         for (size_t i = 0; i < replacement_parts.size(); i++) {
           ValidateTextAccelerators(replacement_parts[i], text_accel_parts[i]);
         }
+      }
+    }
+  }
+}
+
+// Tests that standard non-configurable look up is correctly configured and
+// matches the predefined non-configurable list.
+TEST_F(AcceleratorConfigurationProviderTest, NonConfigurableLookup) {
+  base::RunLoop().RunUntilIdle();
+  for (const auto& [ambient_action_id, accelerators_details] :
+       non_configurable_actions_map_) {
+    // Only standard accelerators are present in the lookup maps.
+    if (accelerators_details.IsStandardAccelerator()) {
+      std::vector<ui::Accelerator> actual_accelerators =
+          GetNonConfigurableAcceleratorsForActionId(
+              static_cast<uint32_t>(ambient_action_id));
+      EXPECT_TRUE(base::ranges::is_permutation(
+          actual_accelerators, accelerators_details.accelerators.value()));
+    }
+  }
+}
+
+// Tests that standard non-configurable reverse look up is correctly configured
+// and matches the predefined non-configurable list.
+TEST_F(AcceleratorConfigurationProviderTest, NonConfigurableReverseLookup) {
+  base::RunLoop().RunUntilIdle();
+  for (const auto& [ambient_action_id, accelerators_details] :
+       non_configurable_actions_map_) {
+    // Only standard accelerators are present in the lookup maps.
+    if (accelerators_details.IsStandardAccelerator()) {
+      for (const auto& accelerator :
+           accelerators_details.accelerators.value()) {
+        const uint32_t found_id =
+            GetNonConfigurableIdFromAccelerator(accelerator);
+        EXPECT_EQ(ambient_action_id, found_id);
       }
     }
   }

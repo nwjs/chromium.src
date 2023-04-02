@@ -17,7 +17,7 @@ import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.OneshotSupplier;
-import org.chromium.chrome.browser.layouts.FilterLayoutStateObserver;
+import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider.LayoutStateObserver;
 import org.chromium.chrome.browser.layouts.LayoutType;
@@ -100,7 +100,7 @@ public class TabGroupUiMediator implements BackPressHandler {
     private final BottomControlsCoordinator
             .BottomControlsVisibilityController mVisibilityController;
     private final IncognitoStateProvider mIncognitoStateProvider;
-    private final TabGridDialogMediator.DialogController mTabGridDialogController;
+    private final Supplier<TabGridDialogMediator.DialogController> mTabGridDialogControllerSupplier;
     private final IncognitoStateObserver mIncognitoStateObserver;
     private final TabModelSelectorObserver mTabModelSelectorObserver;
     private final ObservableSupplier<Boolean> mOmniboxFocusStateSupplier;
@@ -120,7 +120,7 @@ public class TabGroupUiMediator implements BackPressHandler {
             TabCreatorManager tabCreatorManager,
             OneshotSupplier<LayoutStateProvider> layoutStateProviderSupplier,
             IncognitoStateProvider incognitoStateProvider,
-            @Nullable TabGridDialogMediator.DialogController dialogController,
+            @Nullable Supplier<TabGridDialogMediator.DialogController> dialogControllerSupplier,
             ObservableSupplier<Boolean> omniboxFocusStateSupplier) {
         mContext = context;
         mResetHandler = resetHandler;
@@ -129,11 +129,13 @@ public class TabGroupUiMediator implements BackPressHandler {
         mTabCreatorManager = tabCreatorManager;
         mVisibilityController = visibilityController;
         mIncognitoStateProvider = incognitoStateProvider;
-        mTabGridDialogController = dialogController;
+        mTabGridDialogControllerSupplier = dialogControllerSupplier;
         mOmniboxFocusStateSupplier = omniboxFocusStateSupplier;
 
         if (layoutStateProviderSupplier.get() != null
-                && layoutStateProviderSupplier.get().isLayoutVisible(LayoutType.TAB_SWITCHER)) {
+                && (layoutStateProviderSupplier.get().isLayoutVisible(LayoutType.TAB_SWITCHER)
+                        || (layoutStateProviderSupplier.get().isLayoutVisible(
+                                LayoutType.START_SURFACE)))) {
             // It is possible that the overview mode is showing when the TabGroupUiMediator is
             // created, sets the mIsShowingOverViewMode early to prevent the Tab strip is wrongly
             // showing on the Start surface homepage. See https://crbug.com/1239272.
@@ -194,7 +196,9 @@ public class TabGroupUiMediator implements BackPressHandler {
                 // page when restore completed.
                 if (currentTab == null
                         || (mLayoutStateProvider != null
-                                && mLayoutStateProvider.isLayoutVisible(LayoutType.TAB_SWITCHER))) {
+                                && (mLayoutStateProvider.isLayoutVisible(LayoutType.TAB_SWITCHER)
+                                        || mLayoutStateProvider.isLayoutVisible(
+                                                LayoutType.START_SURFACE)))) {
                     return;
                 }
                 resetTabStripWithRelatedTabsForId(currentTab.getId());
@@ -208,26 +212,27 @@ public class TabGroupUiMediator implements BackPressHandler {
                 }
             }
         };
-        mLayoutStateObserver =
-                new FilterLayoutStateObserver(LayoutType.TAB_SWITCHER, new LayoutStateObserver() {
-                    @Override
-                    public void onStartedShowing(int layoutType, boolean showToolbar) {
-                        assert layoutType == LayoutType.TAB_SWITCHER;
+        mLayoutStateObserver = new LayoutStateProvider.LayoutStateObserver() {
+            @Override
+            public void onStartedShowing(@LayoutType int layoutType, boolean showToolbar) {
+                if (layoutType == LayoutType.TAB_SWITCHER
+                        || layoutType == LayoutType.START_SURFACE) {
+                    mIsShowingOverViewMode = true;
+                    resetTabStripWithRelatedTabsForId(Tab.INVALID_TAB_ID);
+                }
+            }
 
-                        mIsShowingOverViewMode = true;
-                        resetTabStripWithRelatedTabsForId(Tab.INVALID_TAB_ID);
-                    }
-
-                    @Override
-                    public void onFinishedHiding(int layoutType) {
-                        assert layoutType == LayoutType.TAB_SWITCHER;
-
-                        mIsShowingOverViewMode = false;
-                        Tab tab = mTabModelSelector.getCurrentTab();
-                        if (tab == null) return;
-                        resetTabStripWithRelatedTabsForId(tab.getId());
-                    }
-                });
+            @Override
+            public void onFinishedHiding(@LayoutType int layoutType) {
+                if (layoutType == LayoutType.TAB_SWITCHER
+                        || layoutType == LayoutType.START_SURFACE) {
+                    mIsShowingOverViewMode = false;
+                    Tab tab = mTabModelSelector.getCurrentTab();
+                    if (tab == null) return;
+                    resetTabStripWithRelatedTabsForId(tab.getId());
+                }
+            }
+        };
 
         mTabModelSelectorTabObserver = new TabModelSelectorTabObserver(mTabModelSelector) {
             @Override
@@ -408,20 +413,27 @@ public class TabGroupUiMediator implements BackPressHandler {
     public boolean onBackPressed() {
         // TODO(crbug.com/1006421): add a regression test to make sure that the back button closes
         // the dialog when the dialog is showing.
-        return mTabGridDialogController != null && mTabGridDialogController.handleBackPressed();
+        return mTabGridDialogControllerSupplier != null
+                && mTabGridDialogControllerSupplier.hasValue()
+                && mTabGridDialogControllerSupplier.get().handleBackPressed();
     }
 
     @Override
-    public void handleBackPress() {
-        if (mTabGridDialogController != null) mTabGridDialogController.handleBackPress();
+    public @BackPressResult int handleBackPress() {
+        if (mTabGridDialogControllerSupplier != null
+                && mTabGridDialogControllerSupplier.hasValue()) {
+            return mTabGridDialogControllerSupplier.get().handleBackPress();
+        }
+        return BackPressResult.FAILURE;
     }
 
     @Override
     public ObservableSupplier<Boolean> getHandleBackPressChangedSupplier() {
-        if (mTabGridDialogController == null) {
+        if (mTabGridDialogControllerSupplier == null
+                || !mTabGridDialogControllerSupplier.hasValue()) {
             return BackPressHandler.super.getHandleBackPressChangedSupplier();
         }
-        return mTabGridDialogController.getHandleBackPressChangedSupplier();
+        return mTabGridDialogControllerSupplier.get().getHandleBackPressChangedSupplier();
     }
 
     public void destroy() {

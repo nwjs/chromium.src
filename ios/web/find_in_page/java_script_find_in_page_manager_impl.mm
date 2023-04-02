@@ -104,7 +104,7 @@ void JavaScriptFindInPageManagerImpl::Find(NSString* query,
 void JavaScriptFindInPageManagerImpl::StartSearch(NSString* query) {
   RecordSearchStartedAction();
   std::set<WebFrame*> all_frames =
-      web_state_->GetWebFramesManager()->GetAllWebFrames();
+      web_state_->GetPageWorldWebFramesManager()->GetAllWebFrames();
   last_find_request_.Reset(query, all_frames.size());
   if (all_frames.size() == 0) {
     // No frames to search in.
@@ -145,7 +145,8 @@ void JavaScriptFindInPageManagerImpl::StopFinding() {
   last_find_request_.Reset(/*new_query=*/nil,
                            /*new_pending_frame_call_count=*/0);
 
-  for (WebFrame* frame : web_state_->GetWebFramesManager()->GetAllWebFrames()) {
+  for (WebFrame* frame :
+       web_state_->GetPageWorldWebFramesManager()->GetAllWebFrames()) {
     FindInPageJavaScriptFeature::GetInstance()->Stop(frame);
   }
   if (delegate_) {
@@ -252,14 +253,26 @@ void JavaScriptFindInPageManagerImpl::SelectDidFinish(
 }
 
 void JavaScriptFindInPageManagerImpl::SelectNextMatch() {
-  RecordFindNextAction();
+  if (last_find_request_.GetTotalMatchCount() > 2) {
+    // Only record if number of matches is greater than 2 so
+    // JavaScriptFindInPageManagerImpl and FindInPageManagerImpl can be
+    // compared. The latter lacks the ability to differentiate between FindNext
+    // and FindPrevious metrics for 2 matches or less.
+    RecordFindNextAction();
+  }
   if (last_find_request_.GoToNextMatch()) {
     SelectCurrentMatch();
   }
 }
 
 void JavaScriptFindInPageManagerImpl::SelectPreviousMatch() {
-  RecordFindPreviousAction();
+  if (last_find_request_.GetTotalMatchCount() > 2) {
+    // Only record if number of matches is greater than 2 so
+    // JavaScriptFindInPageManagerImpl and FindInPageManagerImpl can be
+    // compared. The latter lacks the ability to differentiate between FindNext
+    // and FindPrevious metrics for 2 matches or less.
+    RecordFindPreviousAction();
+  }
   if (last_find_request_.GoToPreviousMatch()) {
     SelectCurrentMatch();
   }

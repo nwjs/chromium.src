@@ -26,23 +26,31 @@ TestNetworkConfigurationObserver::~TestNetworkConfigurationObserver() = default;
 void TestNetworkConfigurationObserver::OnConfigurationModified(
     const std::string& service_path,
     const std::string& network_guid,
-    const base::Value* set_properties) {
+    const base::Value::Dict* set_properties) {
   if (!set_properties)
     return;
 
-  if (const base::Value* ui_data =
-          set_properties->GetDict().Find(shill::kUIDataProperty)) {
-    if (const std::string* ui_data_str = ui_data->GetIfString()) {
-      base::Value ui_data_dict(
-          chromeos::onc::ReadDictionaryFromJson(*ui_data_str));
-      if (const base::Value::Dict* user_settings =
-              ui_data_dict.GetDict().FindDict(kUIDataKeyUserSettings)) {
-        user_settings_.insert_or_assign(network_guid, user_settings->Clone());
-      }
-    }
-  }
-
   ++on_configuration_modified_call_count_;
+
+  const base::Value* ui_data = set_properties->Find(shill::kUIDataProperty);
+  if (!ui_data) {
+    return;
+  }
+  const std::string* ui_data_str = ui_data->GetIfString();
+  if (!ui_data_str) {
+    return;
+  }
+  absl::optional<base::Value::Dict> ui_data_dict =
+      chromeos::onc::ReadDictionaryFromJson(*ui_data_str);
+  if (!ui_data_dict.has_value()) {
+    return;
+  }
+  const base::Value::Dict* user_settings =
+      ui_data_dict->FindDict(kUIDataKeyUserSettings);
+  if (!user_settings) {
+    return;
+  }
+  user_settings_.insert_or_assign(network_guid, user_settings->Clone());
 }
 
 const base::Value::Dict* TestNetworkConfigurationObserver::GetUserSettings(

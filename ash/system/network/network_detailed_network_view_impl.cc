@@ -163,7 +163,6 @@ views::View* NetworkDetailedNetworkViewImpl::GetNetworkList(NetworkType type) {
                                                kMainContainerMargins);
       }
       return mobile_network_list_view_;
-    case NetworkType::kAll:
     case NetworkType::kEthernet:
       if (!first_list_view_) {
         first_list_view_ = scroll_content()->AddChildView(
@@ -172,6 +171,7 @@ views::View* NetworkDetailedNetworkViewImpl::GetNetworkList(NetworkType type) {
                                       gfx::Insets::TLBR(0, 0, 6, 0));
       }
       return first_list_view_;
+    case NetworkType::kAll:
     default:
       return scroll_content();
   }
@@ -212,6 +212,28 @@ void NetworkDetailedNetworkViewImpl::MaybeRemoveFirstListView() {
   if (first_list_view_ && first_list_view_->children().empty()) {
     scroll_content()->RemoveChildViewT(first_list_view_);
     first_list_view_ = nullptr;
+  }
+}
+
+void NetworkDetailedNetworkViewImpl::UpdateWifiStatus(bool enabled) {
+  if (wifi_top_container_) {
+    wifi_top_container_->SetBehavior(
+        enabled ? RoundedContainer::Behavior::kTopRounded
+                : RoundedContainer::Behavior::kAllRounded);
+  }
+  if (wifi_network_list_view_) {
+    wifi_network_list_view_->SetVisible(enabled);
+  }
+}
+
+void NetworkDetailedNetworkViewImpl::UpdateMobileStatus(bool enabled) {
+  if (mobile_top_container_) {
+    mobile_top_container_->SetBehavior(
+        enabled ? RoundedContainer::Behavior::kTopRounded
+                : RoundedContainer::Behavior::kAllRounded);
+  }
+  if (mobile_network_list_view_) {
+    mobile_network_list_view_->SetVisible(enabled);
   }
 }
 

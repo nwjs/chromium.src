@@ -37,7 +37,7 @@
 #include "ui/base/ui_base_features.h"
 #include "ui/chromeos/events/event_rewriter_chromeos.h"
 #include "ui/chromeos/events/keyboard_capability.h"
-#include "ui/chromeos/events/modifier_key.h"
+#include "ui/chromeos/events/mojom/modifier_key.mojom.h"
 #include "ui/chromeos/events/pref_names.h"
 #include "ui/events/devices/device_data_manager.h"
 #include "ui/events/devices/device_data_manager_test_api.h"
@@ -240,7 +240,7 @@ class EventRewriterTest : public ChromeAshTestBase {
 
   void InitModifierKeyPref(IntegerPrefMember* int_pref,
                            const std::string& pref_name,
-                           ui::chromeos::ModifierKey modifierKey) {
+                           ui::mojom::ModifierKey modifierKey) {
     if (int_pref->GetPrefName() != pref_name)  // skip if already initialized.
       int_pref->Init(pref_name, prefs());
     int_pref->SetValue(static_cast<int>(modifierKey));
@@ -491,7 +491,7 @@ TEST_F(EventRewriterTest, TestRewriteCommandToControl) {
   // Now simulate the user remapped the Command key back to Search.
   IntegerPrefMember command;
   InitModifierKeyPref(&command, ::prefs::kLanguageRemapExternalCommandKeyTo,
-                      ui::chromeos::ModifierKey::kSearchKey);
+                      ui::mojom::ModifierKey::kMeta);
 
   TestExternalAppleKeyboard({
       // VKEY_A, Win modifier.
@@ -529,7 +529,7 @@ TEST_F(EventRewriterTest, ModifiersNotRemappedWhenSuppressed) {
   Preferences::RegisterProfilePrefs(prefs()->registry());
   IntegerPrefMember control;
   InitModifierKeyPref(&control, ::prefs::kLanguageRemapControlKeyTo,
-                      ui::chromeos::ModifierKey::kAltKey);
+                      ui::mojom::ModifierKey::kAlt);
 
   delegate_->SuppressModifierKeyRewrites(false);
 
@@ -596,12 +596,12 @@ TEST_F(EventRewriterTest, TestRewriteExternalMetaKey) {
   // Remap Chrome OS Search to Ctrl.
   IntegerPrefMember internal_search;
   InitModifierKeyPref(&internal_search, ::prefs::kLanguageRemapSearchKeyTo,
-                      ui::chromeos::ModifierKey::kControlKey);
+                      ui::mojom::ModifierKey::kControl);
 
   // Remap external Meta to Alt.
   IntegerPrefMember meta;
   InitModifierKeyPref(&meta, ::prefs::kLanguageRemapExternalMetaKeyTo,
-                      ui::chromeos::ModifierKey::kAltKey);
+                      ui::mojom::ModifierKey::kAlt);
 
   TestChromeKeyboardVariants({
       // VKEY_A, Win modifier.
@@ -670,7 +670,7 @@ TEST_F(EventRewriterTest, TestRewriteCommandToControlWithControlRemapped) {
   Preferences::RegisterProfilePrefs(prefs()->registry());
   IntegerPrefMember control;
   InitModifierKeyPref(&control, ::prefs::kLanguageRemapControlKeyTo,
-                      ui::chromeos::ModifierKey::kAltKey);
+                      ui::mojom::ModifierKey::kAlt);
 
   TestNonAppleKeyboardVariants({
       // Control should be remapped to Alt.
@@ -1005,13 +1005,13 @@ TEST_F(EventRewriterTest, TestRewriteModifiersDisableSome) {
   Preferences::RegisterProfilePrefs(prefs()->registry());
   IntegerPrefMember search;
   InitModifierKeyPref(&search, ::prefs::kLanguageRemapSearchKeyTo,
-                      ui::chromeos::ModifierKey::kVoidKey);
+                      ui::mojom::ModifierKey::kVoid);
   IntegerPrefMember control;
   InitModifierKeyPref(&control, ::prefs::kLanguageRemapControlKeyTo,
-                      ui::chromeos::ModifierKey::kVoidKey);
+                      ui::mojom::ModifierKey::kVoid);
   IntegerPrefMember escape;
   InitModifierKeyPref(&escape, ::prefs::kLanguageRemapEscapeKeyTo,
-                      ui::chromeos::ModifierKey::kVoidKey);
+                      ui::mojom::ModifierKey::kVoid);
 
   TestChromeKeyboardVariants({
       // Press Alt with Shift. This key press shouldn't be affected by the
@@ -1069,7 +1069,7 @@ TEST_F(EventRewriterTest, TestRewriteModifiersDisableSome) {
   // Remap Alt to Control.
   IntegerPrefMember alt;
   InitModifierKeyPref(&alt, ::prefs::kLanguageRemapAltKeyTo,
-                      ui::chromeos::ModifierKey::kControlKey);
+                      ui::mojom::ModifierKey::kControl);
 
   TestChromeKeyboardVariants({
       // Press left Alt. Confirm the event is now VKEY_CONTROL
@@ -1094,7 +1094,7 @@ TEST_F(EventRewriterTest, TestRewriteModifiersRemapToControl) {
   Preferences::RegisterProfilePrefs(prefs()->registry());
   IntegerPrefMember search;
   InitModifierKeyPref(&search, ::prefs::kLanguageRemapSearchKeyTo,
-                      ui::chromeos::ModifierKey::kControlKey);
+                      ui::mojom::ModifierKey::kControl);
 
   TestChromeKeyboardVariants({
       // Press Search. Confirm the event is now VKEY_CONTROL.
@@ -1108,7 +1108,7 @@ TEST_F(EventRewriterTest, TestRewriteModifiersRemapToControl) {
   // Remap Alt to Control too.
   IntegerPrefMember alt;
   InitModifierKeyPref(&alt, ::prefs::kLanguageRemapAltKeyTo,
-                      ui::chromeos::ModifierKey::kControlKey);
+                      ui::mojom::ModifierKey::kControl);
 
   TestChromeKeyboardVariants({
       // Press Alt. Confirm the event is now VKEY_CONTROL.
@@ -1159,7 +1159,7 @@ TEST_F(EventRewriterTest, TestRewriteModifiersRemapToEscape) {
   Preferences::RegisterProfilePrefs(prefs()->registry());
   IntegerPrefMember search;
   InitModifierKeyPref(&search, ::prefs::kLanguageRemapSearchKeyTo,
-                      ui::chromeos::ModifierKey::kEscapeKey);
+                      ui::mojom::ModifierKey::kEscape);
 
   TestChromeKeyboardVariants({
       // Press Search. Confirm the event is now VKEY_ESCAPE.
@@ -1175,7 +1175,7 @@ TEST_F(EventRewriterTest, TestRewriteModifiersRemapEscapeToAlt) {
   Preferences::RegisterProfilePrefs(prefs()->registry());
   IntegerPrefMember escape;
   InitModifierKeyPref(&escape, ::prefs::kLanguageRemapEscapeKeyTo,
-                      ui::chromeos::ModifierKey::kAltKey);
+                      ui::mojom::ModifierKey::kAlt);
 
   TestAllKeyboardVariants({
       // Press Escape. Confirm the event is now VKEY_MENU.
@@ -1195,7 +1195,7 @@ TEST_F(EventRewriterTest, TestRewriteModifiersRemapAltToControl) {
   Preferences::RegisterProfilePrefs(prefs()->registry());
   IntegerPrefMember alt;
   InitModifierKeyPref(&alt, ::prefs::kLanguageRemapAltKeyTo,
-                      ui::chromeos::ModifierKey::kControlKey);
+                      ui::mojom::ModifierKey::kControl);
 
   TestAllKeyboardVariants({
       // Press left Alt. Confirm the event is now VKEY_CONTROL.
@@ -1226,17 +1226,17 @@ TEST_F(EventRewriterTest, TestRewriteModifiersRemapUnderEscapeControlAlt) {
   // Remap Escape to Alt.
   IntegerPrefMember escape;
   InitModifierKeyPref(&escape, ::prefs::kLanguageRemapEscapeKeyTo,
-                      ui::chromeos::ModifierKey::kAltKey);
+                      ui::mojom::ModifierKey::kAlt);
 
   // Remap Alt to Control.
   IntegerPrefMember alt;
   InitModifierKeyPref(&alt, ::prefs::kLanguageRemapAltKeyTo,
-                      ui::chromeos::ModifierKey::kControlKey);
+                      ui::mojom::ModifierKey::kControl);
 
   // Remap Control to Search.
   IntegerPrefMember control;
   InitModifierKeyPref(&control, ::prefs::kLanguageRemapControlKeyTo,
-                      ui::chromeos::ModifierKey::kSearchKey);
+                      ui::mojom::ModifierKey::kMeta);
 
   TestAllKeyboardVariants({
       // Press left Control. Confirm the event is now VKEY_LWIN.
@@ -1283,22 +1283,22 @@ TEST_F(EventRewriterTest,
   // Remap Escape to Alt.
   IntegerPrefMember escape;
   InitModifierKeyPref(&escape, ::prefs::kLanguageRemapEscapeKeyTo,
-                      ui::chromeos::ModifierKey::kAltKey);
+                      ui::mojom::ModifierKey::kAlt);
 
   // Remap Alt to Control.
   IntegerPrefMember alt;
   InitModifierKeyPref(&alt, ::prefs::kLanguageRemapAltKeyTo,
-                      ui::chromeos::ModifierKey::kControlKey);
+                      ui::mojom::ModifierKey::kControl);
 
   // Remap Control to Search.
   IntegerPrefMember control;
   InitModifierKeyPref(&control, ::prefs::kLanguageRemapControlKeyTo,
-                      ui::chromeos::ModifierKey::kSearchKey);
+                      ui::mojom::ModifierKey::kMeta);
 
   // Remap Search to Backspace.
   IntegerPrefMember search;
   InitModifierKeyPref(&search, ::prefs::kLanguageRemapSearchKeyTo,
-                      ui::chromeos::ModifierKey::kBackspaceKey);
+                      ui::mojom::ModifierKey::kBackspace);
 
   TestChromeKeyboardVariants({
       // Release Control and Escape, as Search and Alt would transform Backspace
@@ -1334,7 +1334,7 @@ TEST_F(EventRewriterTest, TestRewriteModifiersRemapBackspaceToEscape) {
   Preferences::RegisterProfilePrefs(prefs()->registry());
   IntegerPrefMember backspace;
   InitModifierKeyPref(&backspace, ::prefs::kLanguageRemapBackspaceKeyTo,
-                      ui::chromeos::ModifierKey::kEscapeKey);
+                      ui::mojom::ModifierKey::kEscape);
 
   TestAllKeyboardVariants({
       // Press Backspace. Confirm the event is now VKEY_ESCAPE.
@@ -1351,7 +1351,7 @@ TEST_F(EventRewriterTest,
   Preferences::RegisterProfilePrefs(prefs()->registry());
   IntegerPrefMember escape;
   InitModifierKeyPref(&escape, ::prefs::kLanguageRemapEscapeKeyTo,
-                      ui::chromeos::ModifierKey::kAltKey);
+                      ui::mojom::ModifierKey::kAlt);
 
   SetupKeyboard("Internal Keyboard");
 
@@ -1366,7 +1366,7 @@ TEST_F(EventRewriterTest,
 
   // Remap Escape to Control before releasing Escape.
   InitModifierKeyPref(&escape, ::prefs::kLanguageRemapEscapeKeyTo,
-                      ui::chromeos::ModifierKey::kControlKey);
+                      ui::mojom::ModifierKey::kControl);
 
   // Release Escape.
   EXPECT_EQ(
@@ -1401,7 +1401,7 @@ TEST_F(EventRewriterTest, TestRewriteModifiersRemapToCapsLock) {
   Preferences::RegisterProfilePrefs(prefs()->registry());
   IntegerPrefMember search;
   InitModifierKeyPref(&search, ::prefs::kLanguageRemapSearchKeyTo,
-                      ui::chromeos::ModifierKey::kCapsLockKey);
+                      ui::mojom::ModifierKey::kCapsLock);
 
   SetupKeyboard("Internal Keyboard");
   EXPECT_FALSE(fake_ime_keyboard_.caps_lock_is_enabled_);
@@ -1550,7 +1550,7 @@ TEST_F(EventRewriterTest, TestRewriteCapsLock) {
   // Remap Caps Lock to Control.
   IntegerPrefMember caps_lock;
   InitModifierKeyPref(&caps_lock, ::prefs::kLanguageRemapCapsLockKeyTo,
-                      ui::chromeos::ModifierKey::kControlKey);
+                      ui::mojom::ModifierKey::kControl);
 
   // Press Caps Lock. CapsLock is enabled but we have remapped the key to
   // now be Control. We want to ensure that the CapsLock modifier is still
@@ -1607,7 +1607,7 @@ TEST_F(EventRewriterTest, TestRewriteExternalCapsLockWithDifferentScenarios) {
   // Remap CapsLock to Search.
   IntegerPrefMember search;
   InitModifierKeyPref(&search, ::prefs::kLanguageRemapCapsLockKeyTo,
-                      ui::chromeos::ModifierKey::kSearchKey);
+                      ui::mojom::ModifierKey::kMeta);
 
   // Now that CapsLock is enabled, press the remapped CapsLock button again
   // and expect to not disable CapsLock.
@@ -1633,7 +1633,7 @@ TEST_F(EventRewriterTest, TestRewriteExternalCapsLockWithDifferentScenarios) {
   // Remap CapsLock key back to CapsLock.
   IntegerPrefMember capslock;
   InitModifierKeyPref(&capslock, ::prefs::kLanguageRemapCapsLockKeyTo,
-                      ui::chromeos::ModifierKey::kCapsLockKey);
+                      ui::mojom::ModifierKey::kCapsLock);
 
   // Now press CapsLock again and now expect that the CapsLock modifier is
   // removed.
@@ -1663,7 +1663,7 @@ TEST_F(EventRewriterTest, TestRewriteCapsLockToControl) {
   Preferences::RegisterProfilePrefs(prefs()->registry());
   IntegerPrefMember control;
   InitModifierKeyPref(&control, ::prefs::kLanguageRemapCapsLockKeyTo,
-                      ui::chromeos::ModifierKey::kControlKey);
+                      ui::mojom::ModifierKey::kControl);
 
   TestExternalGenericKeyboard({
       // Press CapsLock+a. Confirm that Mod3Mask is rewritten to ControlMask.
@@ -1697,7 +1697,7 @@ TEST_F(EventRewriterTest, TestRewriteCapsLockMod3InUse) {
   Preferences::RegisterProfilePrefs(prefs()->registry());
   IntegerPrefMember control;
   InitModifierKeyPref(&control, ::prefs::kLanguageRemapCapsLockKeyTo,
-                      ui::chromeos::ModifierKey::kControlKey);
+                      ui::mojom::ModifierKey::kControl);
 
   SetupKeyboard("External Generic Keyboard", kKbdTopRowLayoutUnspecified,
                 ui::INPUT_DEVICE_UNKNOWN);
@@ -3750,7 +3750,7 @@ TEST_F(EventRewriterTest, TestRewriteExtendedKeysWithControlRemapped) {
   Preferences::RegisterProfilePrefs(prefs()->registry());
   IntegerPrefMember search;
   InitModifierKeyPref(&search, ::prefs::kLanguageRemapControlKeyTo,
-                      ui::chromeos::ModifierKey::kSearchKey);
+                      ui::mojom::ModifierKey::kMeta);
 
   TestChromeKeyboardVariants({
       // Ctrl+Right -> End
@@ -3772,7 +3772,7 @@ TEST_F(EventRewriterTest, TestRewriteKeyEventSentByXSendEvent) {
   Preferences::RegisterProfilePrefs(prefs()->registry());
   IntegerPrefMember control;
   InitModifierKeyPref(&control, ::prefs::kLanguageRemapControlKeyTo,
-                      ui::chromeos::ModifierKey::kAltKey);
+                      ui::mojom::ModifierKey::kAlt);
 
   SetupKeyboard("Internal Keyboard");
 
@@ -3798,7 +3798,7 @@ TEST_F(EventRewriterTest, TestRewriteNonNativeEvent) {
   Preferences::RegisterProfilePrefs(prefs()->registry());
   IntegerPrefMember control;
   InitModifierKeyPref(&control, ::prefs::kLanguageRemapControlKeyTo,
-                      ui::chromeos::ModifierKey::kAltKey);
+                      ui::mojom::ModifierKey::kAlt);
 
   SetupKeyboard("Internal Keyboard");
 
@@ -3903,7 +3903,7 @@ class EventRewriterAshTest : public ChromeAshTestBase {
 
   void InitModifierKeyPref(IntegerPrefMember* int_pref,
                            const std::string& pref_name,
-                           ui::chromeos::ModifierKey modifierKey) {
+                           ui::mojom::ModifierKey modifierKey) {
     int_pref->Init(pref_name, prefs());
     int_pref->SetValue(static_cast<int>(modifierKey));
   }
@@ -4479,7 +4479,7 @@ TEST_F(EventRewriterAshTest, MouseWheelEventModifiersRewritten) {
   // Remap Control to Alt.
   IntegerPrefMember control;
   InitModifierKeyPref(&control, ::prefs::kLanguageRemapControlKeyTo,
-                      ui::chromeos::ModifierKey::kAltKey);
+                      ui::mojom::ModifierKey::kAlt);
 
   // Sends the same events once again and expect that it will be rewritten to
   // ALT_DOWN.
@@ -4826,7 +4826,7 @@ class ExtensionRewriterInputTest : public EventRewriterAshTest,
   }
 
   void SetModifierRemapping(const std::string& pref_name,
-                            ui::chromeos::ModifierKey value) {
+                            ui::mojom::ModifierKey value) {
     modifier_remapping_[pref_name] = static_cast<int>(value);
   }
 
@@ -4899,7 +4899,7 @@ TEST_F(ExtensionRewriterInputTest, RewrittenModifier) {
 
   // Remap Control -> Alt.
   SetModifierRemapping(::prefs::kLanguageRemapControlKeyTo,
-                       ui::chromeos::ModifierKey::kAltKey);
+                       ui::mojom::ModifierKey::kAlt);
   // Pressing Control + B should now be remapped to Alt + B.
   ExpectEventRewrittenTo({ui::ET_KEY_PRESSED,
                           {ui::VKEY_B, ui::DomCode::US_B, ui::EF_CONTROL_DOWN,
@@ -4909,7 +4909,7 @@ TEST_F(ExtensionRewriterInputTest, RewrittenModifier) {
 
   // Remap Alt -> Control.
   SetModifierRemapping(::prefs::kLanguageRemapAltKeyTo,
-                       ui::chromeos::ModifierKey::kControlKey);
+                       ui::mojom::ModifierKey::kControl);
   // Pressing Alt + B should now be remapped to Control + B.
   ExpectEventRewrittenTo({ui::ET_KEY_PRESSED,
                           {ui::VKEY_B, ui::DomCode::US_B, ui::EF_ALT_DOWN,
@@ -4954,6 +4954,308 @@ TEST_F(ExtensionRewriterInputTest, RewriteNumpadExtensionCommand) {
         ui::DomKey::END},
        {ui::VKEY_NUMPAD1, ui::DomCode::NUMPAD1, ui::EF_CONTROL_DOWN,
         ui::DomKey::Constant<'1'>::Character}});
+}
+
+class ModifierPressedMetricsTest
+    : public EventRewriterTest,
+      public testing::WithParamInterface<
+          std::tuple<KeyTestCase::Event,
+                     ui::EventRewriterChromeOS::ModifierKeyUsageMetric,
+                     std::vector<std::string>>> {
+ public:
+  void SetUp() override {
+    EventRewriterTest::SetUp();
+    std::tie(event_, modifier_key_usage_mapping_, key_pref_names_) = GetParam();
+  }
+
+ protected:
+  KeyTestCase::Event event_;
+  ui::EventRewriterChromeOS::ModifierKeyUsageMetric modifier_key_usage_mapping_;
+  std::vector<std::string> key_pref_names_;
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    ModifierPressedMetricsTest,
+    testing::ValuesIn(
+        std::vector<
+            std::tuple<KeyTestCase::Event,
+                       ui::EventRewriterChromeOS::ModifierKeyUsageMetric,
+                       std::vector<std::string>>>{
+            {{ui::VKEY_LWIN, ui::DomCode::META_LEFT, ui::EF_COMMAND_DOWN,
+              ui::DomKey::META},
+             ui::EventRewriterChromeOS::ModifierKeyUsageMetric::kMetaLeft,
+             {::prefs::kLanguageRemapSearchKeyTo,
+              ::prefs::kLanguageRemapExternalCommandKeyTo,
+              ::prefs::kLanguageRemapExternalMetaKeyTo}},
+            {{ui::VKEY_RWIN, ui::DomCode::META_RIGHT, ui::EF_COMMAND_DOWN,
+              ui::DomKey::META},
+             ui::EventRewriterChromeOS::ModifierKeyUsageMetric::kMetaRight,
+             {::prefs::kLanguageRemapSearchKeyTo,
+              ::prefs::kLanguageRemapExternalCommandKeyTo,
+              ::prefs::kLanguageRemapExternalMetaKeyTo}},
+            {{ui::VKEY_CONTROL, ui::DomCode::CONTROL_LEFT, ui::EF_CONTROL_DOWN,
+              ui::DomKey::CONTROL},
+             ui::EventRewriterChromeOS::ModifierKeyUsageMetric::kControlLeft,
+             {::prefs::kLanguageRemapControlKeyTo}},
+            {{ui::VKEY_CONTROL, ui::DomCode::CONTROL_RIGHT, ui::EF_CONTROL_DOWN,
+              ui::DomKey::CONTROL},
+             ui::EventRewriterChromeOS::ModifierKeyUsageMetric::kControlRight,
+             {::prefs::kLanguageRemapControlKeyTo}},
+            {{ui::VKEY_MENU, ui::DomCode::ALT_LEFT, ui::EF_ALT_DOWN,
+              ui::DomKey::ALT},
+             ui::EventRewriterChromeOS::ModifierKeyUsageMetric::kAltLeft,
+             {::prefs::kLanguageRemapAltKeyTo}},
+            {{ui::VKEY_MENU, ui::DomCode::ALT_RIGHT, ui::EF_ALT_DOWN,
+              ui::DomKey::ALT},
+             ui::EventRewriterChromeOS::ModifierKeyUsageMetric::kAltRight,
+             {::prefs::kLanguageRemapAltKeyTo}},
+            {{ui::VKEY_SHIFT, ui::DomCode::SHIFT_LEFT, ui::EF_SHIFT_DOWN,
+              ui::DomKey::SHIFT},
+             ui::EventRewriterChromeOS::ModifierKeyUsageMetric::kShiftLeft,
+             // Shift keys cannot be remapped and therefore do not have a real
+             // "pref" path.
+             {"fakePrefPath"}},
+            {{ui::VKEY_SHIFT, ui::DomCode::SHIFT_RIGHT, ui::EF_SHIFT_DOWN,
+              ui::DomKey::SHIFT},
+             ui::EventRewriterChromeOS::ModifierKeyUsageMetric::kShiftRight,
+             // Shift keys cannot be remapped and therefore do not have a real
+             // "pref" path.
+             {"fakePrefPath"}},
+            {{ui::VKEY_CAPITAL, ui::DomCode::CAPS_LOCK,
+              ui::EF_CAPS_LOCK_ON | ui::EF_MOD3_DOWN, ui::DomKey::CAPS_LOCK},
+             ui::EventRewriterChromeOS::ModifierKeyUsageMetric::kCapsLock,
+             {::prefs::kLanguageRemapCapsLockKeyTo}},
+            {{ui::VKEY_BACK, ui::DomCode::BACKSPACE, ui::EF_NONE,
+              ui::DomKey::BACKSPACE},
+             ui::EventRewriterChromeOS::ModifierKeyUsageMetric::kBackspace,
+             {::prefs::kLanguageRemapBackspaceKeyTo}},
+            {{ui::VKEY_ESCAPE, ui::DomCode::ESCAPE, ui::EF_NONE,
+              ui::DomKey::ESCAPE},
+             ui::EventRewriterChromeOS::ModifierKeyUsageMetric::kEscape,
+             {::prefs::kLanguageRemapEscapeKeyTo}},
+            {{ui::VKEY_ASSISTANT, ui::DomCode::LAUNCH_ASSISTANT, ui::EF_NONE,
+              ui::DomKey::LAUNCH_ASSISTANT},
+             ui::EventRewriterChromeOS::ModifierKeyUsageMetric::kAssistant,
+             {::prefs::kLanguageRemapAssistantKeyTo}}}));
+
+TEST_P(ModifierPressedMetricsTest, KeyPressedTest) {
+  base::HistogramTester histogram_tester;
+  TestInternalChromeKeyboard({{ui::ET_KEY_PRESSED, event_, event_}});
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.ModifierPressed.Internal",
+      modifier_key_usage_mapping_, 1);
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.Internal",
+      modifier_key_usage_mapping_, 1);
+
+  TestExternalChromeKeyboard({{ui::ET_KEY_PRESSED, event_, event_}});
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.ModifierPressed.CrOSExternal",
+      modifier_key_usage_mapping_, 1);
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.CrOSExternal",
+      modifier_key_usage_mapping_, 1);
+
+  TestExternalAppleKeyboard({{ui::ET_KEY_PRESSED, event_, event_}});
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.ModifierPressed.AppleExternal",
+      modifier_key_usage_mapping_, 1);
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.AppleExternal",
+      modifier_key_usage_mapping_, 1);
+
+  TestExternalGenericKeyboard({{ui::ET_KEY_PRESSED, event_, event_}});
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.ModifierPressed.External",
+      modifier_key_usage_mapping_, 1);
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.External",
+      modifier_key_usage_mapping_, 1);
+}
+
+TEST_P(ModifierPressedMetricsTest, KeyPressedWithRemappingToBackspaceTest) {
+  // Shift cant be remapped so skip this test.
+  if (event_.key_code == ui::VKEY_SHIFT) {
+    return;
+  }
+
+  Preferences::RegisterProfilePrefs(prefs()->registry());
+  base::HistogramTester histogram_tester;
+  const KeyTestCase::Event backspace_event{ui::VKEY_BACK,
+                                           ui::DomCode::BACKSPACE, ui::EF_NONE,
+                                           ui::DomKey::BACKSPACE};
+  for (const auto& pref_name : key_pref_names_) {
+    IntegerPrefMember pref_member;
+    InitModifierKeyPref(&pref_member, pref_name,
+                        ui::mojom::ModifierKey::kBackspace);
+  }
+
+  TestInternalChromeKeyboard({{ui::ET_KEY_PRESSED, event_, backspace_event}});
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.ModifierPressed.Internal",
+      modifier_key_usage_mapping_, 1);
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.Internal",
+      ui::EventRewriterChromeOS::ModifierKeyUsageMetric::kBackspace, 1);
+
+  TestExternalChromeKeyboard({{ui::ET_KEY_PRESSED, event_, backspace_event}});
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.ModifierPressed.CrOSExternal",
+      modifier_key_usage_mapping_, 1);
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.CrOSExternal",
+      ui::EventRewriterChromeOS::ModifierKeyUsageMetric::kBackspace, 1);
+
+  TestExternalAppleKeyboard({{ui::ET_KEY_PRESSED, event_, backspace_event}});
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.ModifierPressed.AppleExternal",
+      modifier_key_usage_mapping_, 1);
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.AppleExternal",
+      ui::EventRewriterChromeOS::ModifierKeyUsageMetric::kBackspace, 1);
+
+  TestExternalGenericKeyboard({{ui::ET_KEY_PRESSED, event_, backspace_event}});
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.ModifierPressed.External",
+      modifier_key_usage_mapping_, 1);
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.External",
+      ui::EventRewriterChromeOS::ModifierKeyUsageMetric::kBackspace, 1);
+}
+
+TEST_P(ModifierPressedMetricsTest, KeyPressedWithRemappingToControlTest) {
+  // Shift cant be remapped so skip this test.
+  if (event_.key_code == ui::VKEY_SHIFT) {
+    return;
+  }
+
+  Preferences::RegisterProfilePrefs(prefs()->registry());
+  base::HistogramTester histogram_tester;
+
+  const bool right = ui::KeycodeConverter::DomCodeToLocation(event_.code) ==
+                     ui::DomKeyLocation::RIGHT;
+  const ui::EventRewriterChromeOS::ModifierKeyUsageMetric
+      remapped_modifier_key_usage_mapping =
+          right
+              ? ui::EventRewriterChromeOS::ModifierKeyUsageMetric::kControlRight
+              : ui::EventRewriterChromeOS::ModifierKeyUsageMetric::kControlLeft;
+
+  const KeyTestCase::Event control_event{
+      ui::VKEY_CONTROL,
+      right ? ui::DomCode::CONTROL_RIGHT : ui::DomCode::CONTROL_LEFT,
+      ui::EF_CONTROL_DOWN, ui::DomKey::CONTROL};
+  for (const auto& pref_name : key_pref_names_) {
+    IntegerPrefMember pref_member;
+    InitModifierKeyPref(&pref_member, pref_name,
+                        ui::mojom::ModifierKey::kControl);
+  }
+
+  TestInternalChromeKeyboard({{ui::ET_KEY_PRESSED, event_, control_event}});
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.ModifierPressed.Internal",
+      modifier_key_usage_mapping_, 1);
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.Internal",
+      remapped_modifier_key_usage_mapping, 1);
+
+  TestExternalChromeKeyboard({{ui::ET_KEY_PRESSED, event_, control_event}});
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.ModifierPressed.CrOSExternal",
+      modifier_key_usage_mapping_, 1);
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.CrOSExternal",
+      remapped_modifier_key_usage_mapping, 1);
+
+  TestExternalAppleKeyboard({{ui::ET_KEY_PRESSED, event_, control_event}});
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.ModifierPressed.AppleExternal",
+      modifier_key_usage_mapping_, 1);
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.AppleExternal",
+      remapped_modifier_key_usage_mapping, 1);
+
+  TestExternalGenericKeyboard({{ui::ET_KEY_PRESSED, event_, control_event}});
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.ModifierPressed.External",
+      modifier_key_usage_mapping_, 1);
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.External",
+      remapped_modifier_key_usage_mapping, 1);
+}
+
+TEST_P(ModifierPressedMetricsTest, KeyRepeatTest) {
+  base::HistogramTester histogram_tester;
+  // No metrics should be published if it is a repeated key.
+  event_.flags |= ui::EF_IS_REPEAT;
+  TestInternalChromeKeyboard({{ui::ET_KEY_PRESSED, event_, event_}});
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.ModifierPressed.Internal",
+      modifier_key_usage_mapping_, 0);
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.Internal",
+      modifier_key_usage_mapping_, 0);
+
+  TestExternalChromeKeyboard({{ui::ET_KEY_PRESSED, event_, event_}});
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.ModifierPressed.CrOSExternal",
+      modifier_key_usage_mapping_, 0);
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.CrOSExternal",
+      modifier_key_usage_mapping_, 0);
+
+  TestExternalAppleKeyboard({{ui::ET_KEY_PRESSED, event_, event_}});
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.ModifierPressed.AppleExternal",
+      modifier_key_usage_mapping_, 0);
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.AppleExternal",
+      modifier_key_usage_mapping_, 0);
+
+  TestExternalGenericKeyboard({{ui::ET_KEY_PRESSED, event_, event_}});
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.ModifierPressed.External",
+      modifier_key_usage_mapping_, 0);
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.External",
+      modifier_key_usage_mapping_, 0);
+}
+
+TEST_P(ModifierPressedMetricsTest, KeyReleasedTest) {
+  base::HistogramTester histogram_tester;
+  // No metrics should be published if it is a repeated key.
+  event_.flags |= ui::EF_IS_REPEAT;
+  TestInternalChromeKeyboard({{ui::ET_KEY_PRESSED, event_, event_}});
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.ModifierPressed.Internal",
+      modifier_key_usage_mapping_, 0);
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.Internal",
+      modifier_key_usage_mapping_, 0);
+
+  TestExternalChromeKeyboard({{ui::ET_KEY_PRESSED, event_, event_}});
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.ModifierPressed.CrOSExternal",
+      modifier_key_usage_mapping_, 0);
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.CrOSExternal",
+      modifier_key_usage_mapping_, 0);
+
+  TestExternalAppleKeyboard({{ui::ET_KEY_PRESSED, event_, event_}});
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.ModifierPressed.AppleExternal",
+      modifier_key_usage_mapping_, 0);
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.AppleExternal",
+      modifier_key_usage_mapping_, 0);
+
+  TestExternalGenericKeyboard({{ui::ET_KEY_PRESSED, event_, event_}});
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.ModifierPressed.External",
+      modifier_key_usage_mapping_, 0);
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.External",
+      modifier_key_usage_mapping_, 0);
 }
 
 }  // namespace ash

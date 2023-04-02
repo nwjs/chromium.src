@@ -27,6 +27,7 @@
 #include "chrome/browser/password_manager/android/password_sync_controller_delegate_android.h"
 #include "chrome/browser/password_manager/android/password_sync_controller_delegate_bridge_impl.h"
 #include "components/password_manager/core/browser/android_backend_error.h"
+#include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_manager_test_utils.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
@@ -1174,7 +1175,7 @@ TEST_F(PasswordStoreAndroidBackendTest,
   RunUntilIdle();
 
   constexpr char kAPIErrorMetric[] =
-      "PasswordManager.PasswordStoreAndroidBackend.APIError.NoAuthError";
+      "PasswordManager.PasswordStoreAndroidBackend.APIError.SyncNotPaused";
 
   histogram_tester.ExpectBucketCount(kAPIErrorMetric, kInternalErrorCode, 1);
 }
@@ -1205,8 +1206,7 @@ TEST_F(PasswordStoreAndroidBackendTest,
   RunUntilIdle();
 
   constexpr char kAPIErrorMetric[] =
-      "PasswordManager.PasswordStoreAndroidBackend.APIError."
-      "PersistentAuthError";
+      "PasswordManager.PasswordStoreAndroidBackend.APIError.SyncPaused";
 
   histogram_tester.ExpectBucketCount(kAPIErrorMetric, kInternalErrorCode, 1);
 }
@@ -1721,6 +1721,39 @@ TEST_F(PasswordStoreAndroidBackendTest,
   EXPECT_FALSE(prefs()->GetBoolean(
       prefs::kUnenrolledFromGoogleMobileServicesDueToErrors));
   EXPECT_EQ(0, prefs()->GetInteger(prefs::kTimesUPMAuthErrorShown));
+}
+
+TEST_F(PasswordStoreAndroidBackendTest, FillMatchingLoginsWithSchemeMismatch) {
+  base::HistogramTester histogram_tester;
+  backend().InitBackend(PasswordStoreAndroidBackend::RemoteChangesReceived(),
+                        base::RepeatingClosure(), base::DoNothing());
+  base::MockCallback<LoginsOrErrorReply> mock_reply;
+
+  const JobId kFirstJobId{1337};
+  EXPECT_CALL(*bridge_helper(), GetLoginsForSignonRealm)
+      .WillOnce(Return(kFirstJobId));
+
+  std::string TestURL1("https://a.test.com");
+
+  std::vector<PasswordFormDigest> forms;
+  forms.emplace_back(PasswordForm::Scheme::kHtml, TestURL1, GURL(TestURL1));
+  backend().FillMatchingLoginsAsync(mock_reply.Get(), /*include_psl=*/true,
+                                    forms);
+
+  // Imitate login retrieval.
+  PasswordForm exact_match = CreateTestLogin(
+      kTestUsername, kTestPassword, "https://a.test.com/", kTestDateCreated);
+  PasswordForm psl_match = CreateTestLogin(
+      kTestUsername, kTestPassword, "https://b.test.com/", kTestDateCreated);
+  psl_match.scheme = PasswordForm::Scheme::kDigest;
+
+  // Retrieving logins for the last form should trigger the final callback.
+  LoginsResult expected_logins;
+  expected_logins.push_back(std::make_unique<PasswordForm>(exact_match));
+  EXPECT_CALL(mock_reply, Run(LoginsResultsOrErrorAre(&expected_logins)));
+
+  consumer().OnCompleteWithLogins(kFirstJobId, {exact_match, psl_match});
+  RunUntilIdle();
 }
 
 class PasswordStoreAndroidBackendTestForMetrics

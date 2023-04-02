@@ -64,6 +64,9 @@ function addPrivacyChildRoutes(r: Partial<SettingsRoutes>) {
   // TODO(tommycli): Find a way to refactor these repetitive category
   // routes.
   r.SITE_SETTINGS_ADS = r.SITE_SETTINGS.createChild('ads');
+  if (loadTimeData.getBoolean('privateStateTokensEnabled')) {
+    r.SITE_SETTINGS_ANTI_ABUSE = r.SITE_SETTINGS.createChild('antiAbuse');
+  }
   r.SITE_SETTINGS_AR = r.SITE_SETTINGS.createChild('ar');
   r.SITE_SETTINGS_AUTOMATIC_DOWNLOADS =
       r.SITE_SETTINGS.createChild('automaticDownloads');
@@ -132,9 +135,9 @@ function createBrowserSettingsRoutes(): SettingsRoutes {
   if (!loadTimeData.getBoolean('isGuest')) {
     r.PEOPLE = r.BASIC.createSection(
         '/people', 'people', loadTimeData.getString('peoplePageTitle'));
+    // <if expr="not chromeos_ash">
     r.SIGN_OUT = r.PEOPLE.createChild('/signOut');
     r.SIGN_OUT.isNavigableDialog = true;
-    // <if expr="not chromeos_ash">
     r.IMPORT_DATA = r.PEOPLE.createChild('/importData');
     r.IMPORT_DATA.isNavigableDialog = true;
     // </if>
@@ -255,7 +258,7 @@ function createBrowserSettingsRoutes(): SettingsRoutes {
     if (visibility.performance !== false &&
         ((loadTimeData.getBoolean('highEfficiencyModeAvailable')) ||
          (loadTimeData.getBoolean('batterySaverModeAvailable')))) {
-      r.PERFORMANCE = r.ADVANCED!.createSection(
+      r.PERFORMANCE = r.BASIC.createSection(
           '/performance', 'performance',
           loadTimeData.getString('performancePageTitle'));
     }

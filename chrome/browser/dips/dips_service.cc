@@ -35,6 +35,7 @@
 #include "content/public/browser/browsing_data_remover.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
+#include "services/network/public/mojom/clear_data_filter.mojom.h"
 
 namespace {
 
@@ -153,16 +154,26 @@ DIPSService::DIPSService(content::BrowserContext* context)
           Profile::FromBrowserContext(context))),
       repeating_timer_(CreateTimer(Profile::FromBrowserContext(context))) {
   DCHECK(base::FeatureList::IsEnabled(dips::kFeature));
-  absl::optional<base::FilePath> path;
+  absl::optional<base::FilePath> path_to_use;
+  base::FilePath dips_path = GetDIPSFilePath(browser_context_);
 
   if (dips::kPersistedDatabaseEnabled.Get() &&
       !browser_context_->IsOffTheRecord()) {
-    path = browser_context_->GetPath().Append(kDIPSFilename);
+    path_to_use = dips_path;
+    // Existing database files won't be deleted, so quit the
+    // `wait_for_file_deletion_` RunLoop.
+    wait_for_file_deletion_.Quit();
+  } else {
+    // If opening in-memory, delete any database files that may exist.
+    DIPSStorage::DeleteDatabaseFiles(dips_path,
+                                     wait_for_file_deletion_.QuitClosure());
   }
-  storage_ = base::SequenceBound<DIPSStorage>(CreateTaskRunner(), path);
 
-  // TODO: Prevent use of the DB until prepopulation starts.
-  InitializeStorageWithEngagedSites();
+  storage_ = base::SequenceBound<DIPSStorage>(CreateTaskRunner(), path_to_use);
+
+  storage_.AsyncCall(&DIPSStorage::IsPrepopulated)
+      .Then(base::BindOnce(&DIPSService::InitializeStorageWithEngagedSites,
+                           weak_factory_.GetWeakPtr()));
   if (repeating_timer_) {
     repeating_timer_->Start();
   }
@@ -212,8 +223,7 @@ bool DIPSService::HasCookieException(const std::string& site) const {
   // under |site| to use cookies.
   if (cookie_settings_->IsFullCookieAccessAllowed(
           GURL(), net::SiteForCookies::FromUrl(url), url::Origin::Create(url),
-          net::CookieSettingOverrides(),
-          content_settings::CookieSettingsBase::QueryReason::kCookies)) {
+          net::CookieSettingOverrides())) {
     return true;
   }
 
@@ -221,8 +231,7 @@ bool DIPSService::HasCookieException(const std::string& site) const {
   // embedded by any other site.
   if (cookie_settings_->IsFullCookieAccessAllowed(
           url, net::SiteForCookies(), absl::nullopt,
-          net::CookieSettingOverrides(),
-          content_settings::CookieSettingsBase::QueryReason::kCookies)) {
+          net::CookieSettingOverrides())) {
     return true;
   }
 
@@ -238,11 +247,16 @@ void DIPSService::RemoveEvents(const base::Time& delete_begin,
                                const base::Time& delete_end,
                                network::mojom::ClearDataFilterPtr filter,
                                DIPSEventRemovalType type) {
+  // Storage init should be finished by now, so no need to delay until then.
   storage_.AsyncCall(&DIPSStorage::RemoveEvents)
       .WithArgs(delete_begin, delete_end, std::move(filter), type);
 }
 
-void DIPSService::InitializeStorageWithEngagedSites() {
+void DIPSService::InitializeStorageWithEngagedSites(bool prepopulated) {
+  if (prepopulated) {
+    wait_for_prepopulating_.Quit();
+    return;
+  }
   base::Time now = base::Time::Now();
   base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE,
@@ -258,7 +272,8 @@ void DIPSService::InitializeStorageWithEngagedSites() {
 
 void DIPSService::InitializeStorage(base::Time time,
                                     std::vector<std::string> sites) {
-  storage_.AsyncCall(&DIPSStorage::Prepopulate).WithArgs(time, sites);
+  storage_.AsyncCall(&DIPSStorage::Prepopulate)
+      .WithArgs(time, sites, wait_for_prepopulating_.QuitClosure());
 }
 
 void DIPSService::HandleRedirectChain(
@@ -361,6 +376,7 @@ void DIPSService::HandleRedirect(const DIPSRedirectInfo& redirect,
 
 void DIPSService::OnTimerFired() {
   base::Time start = base::Time::Now();
+  // Storage init should be finished by now, so no need to delay until then.
   storage_.AsyncCall(&DIPSStorage::GetSitesToClear)
       .Then(base::BindOnce(&DIPSService::DeleteDIPSEligibleState,
                            weak_factory_.GetWeakPtr(), start));
@@ -404,6 +420,7 @@ void DIPSService::DeleteDIPSEligibleState(
     if (excepted_sites.empty()) {
       PostDeletionTaskToUIThread(deletion_start, std::move(non_excepted_sites));
     } else {
+      // Storage init should be finished by now, so no need to delay until then.
       storage_.AsyncCall(&DIPSStorage::RemoveRows)
           .WithArgs(std::move(excepted_sites))
           .Then(base::BindOnce(&DIPSService::PostDeletionTaskToUIThread,
@@ -411,6 +428,7 @@ void DIPSService::DeleteDIPSEligibleState(
                                std::move(non_excepted_sites)));
     }
   } else {
+    // Storage init should be finished by now, so no need to delay until then.
     storage_.AsyncCall(&DIPSStorage::RemoveRows)
         .WithArgs(std::move(sites_to_clear))
         .Then(base::BindOnce(&UmaHistogramDeletionLatency, deletion_start));

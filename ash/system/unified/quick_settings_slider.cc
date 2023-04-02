@@ -121,7 +121,7 @@ SkColor QuickSettingsSlider::GetThumbColor() const {
           cros_tokens::kCrosSysSystemPrimaryContainer));
     case Style::kRadioInactive:
       return GetColorProvider()->GetColor(
-          static_cast<ui::ColorId>(cros_tokens::kCrosSysDisabled));
+          static_cast<ui::ColorId>(cros_tokens::kCrosSysSystemOnBase));
     default:
       NOTREACHED();
   }
@@ -142,7 +142,7 @@ SkColor QuickSettingsSlider::GetTroughColor() const {
           static_cast<ui::ColorId>(cros_tokens::kCrosSysHighlightShape));
     case Style::kRadioInactive:
       return GetColorProvider()->GetColor(
-          static_cast<ui::ColorId>(cros_tokens::kCrosSysDisabled));
+          static_cast<ui::ColorId>(cros_tokens::kCrosSysSystemOnBase));
     default:
       NOTREACHED();
   }
@@ -212,6 +212,14 @@ void QuickSettingsSlider::OnPaint(gfx::Canvas* canvas) {
                                     slider_width + 2 * kFocusOffset),
                           slider_radius + kFocusOffset, highlight_border);
   }
+}
+
+void QuickSettingsSlider::OnThemeChanged() {
+  views::View::OnThemeChanged();
+
+  // Signals that this view needs to be repainted since `GetColorProvider()` is
+  // called in `OnPaint()` and the views system won't know about it.
+  SchedulePaint();
 }
 
 ReadOnlySlider::ReadOnlySlider(Style slider_style)

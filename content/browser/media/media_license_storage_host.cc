@@ -30,6 +30,24 @@ namespace content {
 
 using CdmFileId = MediaLicenseManager::CdmFileId;
 
+// static
+void MediaLicenseStorageHost::ReportDatabaseOpenError(
+    MediaLicenseStorageHostOpenError error,
+    bool is_incognito) {
+  DCHECK_NE(error, MediaLicenseStorageHostOpenError::kOk);
+  const std::string kDatabaseOpenErrorUmaName =
+      "Media.EME.MediaLicenseStorageHostOpenError";
+  base::UmaHistogramEnumeration(kDatabaseOpenErrorUmaName, error);
+
+  if (is_incognito) {
+    base::UmaHistogramEnumeration(kDatabaseOpenErrorUmaName + ".Incognito",
+                                  error);
+  } else {
+    base::UmaHistogramEnumeration(kDatabaseOpenErrorUmaName + ".NotIncognito",
+                                  error);
+  }
+}
+
 MediaLicenseStorageHost::MediaLicenseStorageHost(
     MediaLicenseManager* manager,
     const storage::BucketLocator& bucket_locator)
@@ -55,20 +73,23 @@ void MediaLicenseStorageHost::Open(const std::string& file_name,
 
   if (bucket_locator_.id.is_null()) {
     DVLOG(1) << "Could not retrieve valid bucket.";
-    ReportDatabaseOpenError(MediaLicenseStorageHostOpenError::kInvalidBucket);
+    ReportDatabaseOpenError(MediaLicenseStorageHostOpenError::kInvalidBucket,
+                            in_memory());
     std::move(callback).Run(Status::kFailure, mojo::NullAssociatedRemote());
     return;
   }
 
   if (file_name.empty()) {
     DVLOG(1) << "No file specified.";
-    ReportDatabaseOpenError(MediaLicenseStorageHostOpenError::kNoFileSpecified);
+    ReportDatabaseOpenError(MediaLicenseStorageHostOpenError::kNoFileSpecified,
+                            in_memory());
     std::move(callback).Run(Status::kFailure, mojo::NullAssociatedRemote());
     return;
   }
 
   if (!CdmFileImpl::IsValidName(file_name)) {
-    ReportDatabaseOpenError(MediaLicenseStorageHostOpenError::kInvalidFileName);
+    ReportDatabaseOpenError(MediaLicenseStorageHostOpenError::kInvalidFileName,
+                            in_memory());
     std::move(callback).Run(Status::kFailure, mojo::NullAssociatedRemote());
     return;
   }
@@ -98,7 +119,7 @@ void MediaLicenseStorageHost::DidOpenFile(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   if (error != MediaLicenseStorageHostOpenError::kOk) {
-    ReportDatabaseOpenError(error);
+    ReportDatabaseOpenError(error, in_memory());
     std::move(callback).Run(Status::kFailure, mojo::NullAssociatedRemote());
     return;
   }
@@ -126,14 +147,6 @@ void MediaLicenseStorageHost::DidOpenFile(
       base::SequencedTaskRunner::GetCurrentDefault(),
       base::BindOnce(std::move(callback), Status::kSuccess,
                      std::move(cdm_file)));
-}
-
-void MediaLicenseStorageHost::ReportDatabaseOpenError(
-    MediaLicenseStorageHostOpenError error) {
-  DCHECK_NE(error, MediaLicenseStorageHostOpenError::kOk);
-  const char kDatabaseOpenErrorUmaName[] =
-      "Media.EME.MediaLicenseStorageHostOpenError";
-  base::UmaHistogramEnumeration(kDatabaseOpenErrorUmaName, error);
 }
 
 void MediaLicenseStorageHost::ReadFile(const media::CdmType& cdm_type,

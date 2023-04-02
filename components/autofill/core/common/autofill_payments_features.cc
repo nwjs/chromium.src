@@ -67,6 +67,13 @@ BASE_FEATURE(kAutofillEnableCvcForVcnYellowPath,
              "AutofillEnableCvcForVcnYellowPath",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// When enabled, user's will see network card art images and network icons which
+// are larger, having a white border, and don't have the standard grey overlay
+// applied to them.
+BASE_FEATURE(kAutofillEnableNewCardArtAndNetworkImages,
+             "AutofillEnableNewCardArtAndNetworkImages",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, a progress dialog will display while authenticating with FIDO.
 // TODO(crbug.com/1337380): Clean up kAutofillEnableFIDOProgressDialog when it's
 // fully rolled out.
@@ -74,18 +81,22 @@ BASE_FEATURE(kAutofillEnableFIDOProgressDialog,
              "AutofillEnableFIDOProgressDialog",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled, client side URL filtering will be triggered for the IBAN
+// use-case, so that IBAN autofill is not offered on websites that are blocked.
+BASE_FEATURE(kAutofillEnableIbanClientSideUrlFiltering,
+             "AutofillEnableIbanClientSideUrlFiltering",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, enable manual falling component for virtual cards on Android.
 BASE_FEATURE(kAutofillEnableManualFallbackForVirtualCards,
              "AutofillEnableManualFallbackForVirtualCards",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// When enabled, if the user attempts to use a virtual card on a website
-// where the merchant has opted out of virtual cards, a descriptive error
-// message will appear letting the user know that the merchant has opted
-// out.
-BASE_FEATURE(kAutofillEnableMerchantOptOutErrorDialog,
-             "AutofillEnableMerchantOptOutErrorDialog",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+// When enabled, the user will see a new banner logo and text in the bubble
+// offering to Upstream their cards onto Google Pay.
+BASE_FEATURE(kAutofillEnableNewSaveCardBubbleUi,
+             "AutofillEnableNewSaveCardBubbleUi",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, a notification will be displayed on page navigation if the
 // domain has an eligible merchant promo code offer or reward.
@@ -193,28 +204,10 @@ BASE_FEATURE(kAutofillRemoveCardExpirationAndTypeTitles,
              "AutofillRemoveCardExpirationAndTypeTitles",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// When enabled, the Save Card infobar will be dismissed by a user initiated
-// navigation other than one caused by submitted form.
-BASE_FEATURE(kAutofillSaveCardDismissOnNavigation,
-             "AutofillSaveCardDismissOnNavigation",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // When enabled, the Save Card infobar supports editing before submitting.
 BASE_FEATURE(kAutofillSaveCardInfobarEditSupport,
              "AutofillSaveCardInfobarEditSupport",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-// When enabled, Chrome will display experimental UI variants to the user
-// during the upload save card process.
-BASE_FEATURE(kAutofillSaveCardUiExperiment,
-             "AutofillSaveCardUiExperiment",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// This will select one of the options for the save card UI bubble which we
-// want to display to the user. The value will be an integer(number).
-const base::FeatureParam<int> kAutofillSaveCardUiExperimentSelectorInNumber{
-    &kAutofillSaveCardUiExperiment,
-    "autofill_save_card_ui_experiment_selector_in_number", 0};
 
 // When enabled, the entire PAN and the CVC details of the unmasked cached card
 // will be shown in the manual filling view.
@@ -255,6 +248,17 @@ BASE_FEATURE(kAutofillUpstreamAllowAllEmailDomains,
              base::FEATURE_ENABLED_BY_DEFAULT
 #endif
 );
+
+// When enabled, the secure data type for cards sent during credit card upload
+// save is updated to match newer server requirements.
+BASE_FEATURE(kAutofillUpstreamUseAlternateSecureDataType,
+             "AutofillUpstreamUseAlternateSecureDataType",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, we use the Elo regex to match the BIN ranges.
+BASE_FEATURE(kAutofillUseEloRegexForBinMatching,
+             "AutofillUseEloRegexForBinMatching",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // The delay required since the last strike before offering another virtual card
 // enrollment attempt.

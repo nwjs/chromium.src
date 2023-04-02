@@ -284,6 +284,7 @@ namespace content_verifier_test_utils {
 class TestExtensionBuilder {
  public:
   TestExtensionBuilder();
+  explicit TestExtensionBuilder(const ExtensionId& extension_id);
   ~TestExtensionBuilder();
 
   TestExtensionBuilder(const TestExtensionBuilder&) = delete;
@@ -305,7 +306,7 @@ class TestExtensionBuilder {
 
   void WriteVerifiedContents();
 
-  std::vector<uint8_t> GetTestContentVerifierPublicKey();
+  std::vector<uint8_t> GetTestContentVerifierPublicKey() const;
 
   base::FilePath extension_path() const {
     return extension_dir_.UnpackedPath();

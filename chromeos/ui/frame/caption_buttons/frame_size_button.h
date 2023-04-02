@@ -62,6 +62,10 @@ class COMPONENT_EXPORT(CHROMEOS_UI_FRAME) FrameSizeButton
   // preview will be deleted and the button will be set back to its normal mode.
   void CancelSnap();
 
+  // Stores the callback in member variable `feedback_callback_` for when
+  // `multitask_menu_` is initialized.
+  void SetFeedbackButtonCallback(PressedCallback callback);
+
   // views::FrameCaptionButton:
   bool OnMousePressed(const ui::MouseEvent& event) override;
   bool OnMouseDragged(const ui::MouseEvent& event) override;
@@ -79,7 +83,7 @@ class COMPONENT_EXPORT(CHROMEOS_UI_FRAME) FrameSizeButton
     set_buttons_to_snap_mode_delay_ms_ = delay_ms;
   }
 
-  bool in_snap_mode_for_testing() { return in_snap_mode_; }
+  bool in_snap_mode_for_testing() const { return in_snap_mode_; }
 
  private:
   class PieAnimationView;
@@ -88,7 +92,7 @@ class COMPONENT_EXPORT(CHROMEOS_UI_FRAME) FrameSizeButton
   // Starts |set_buttons_to_snap_mode_timer_|.
   void StartSetButtonsToSnapModeTimer(const ui::LocatedEvent& event);
 
-  // Starts the pie animation, which gives a visual inidicator of when the
+  // Starts the pie animation, which gives a visual indicator of when the
   // multitask menu will show up on long press or long touch, where `entry_type`
   // indicates the method the user started this animation (but hasn't shown the
   // menu yet).
@@ -148,6 +152,10 @@ class COMPONENT_EXPORT(CHROMEOS_UI_FRAME) FrameSizeButton
   bool in_snap_mode_ = false;
 
   absl::optional<display::ScopedDisplayObserver> display_observer_;
+
+  // The callback set on the `MultitaskMenuView` feedback button when it
+  // is created.
+  PressedCallback feedback_callback_;
 
   base::WeakPtrFactory<FrameSizeButton> weak_factory_{this};
 };

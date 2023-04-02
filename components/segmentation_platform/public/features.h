@@ -13,9 +13,6 @@ namespace segmentation_platform::features {
 // Core feature flag for segmentation platform.
 BASE_DECLARE_FEATURE(kSegmentationPlatformFeature);
 
-// Feature flag for allowing structured metrics to be collected.
-BASE_DECLARE_FEATURE(kSegmentationStructuredMetricsFeature);
-
 // Feature flag for enabling UKM based engine.
 BASE_DECLARE_FEATURE(kSegmentationPlatformUkmEngine);
 
@@ -44,6 +41,9 @@ BASE_DECLARE_FEATURE(kContextualPageActions);
 // Feature flag for enabling search user segment.
 BASE_DECLARE_FEATURE(kSegmentationPlatformSearchUser);
 
+// Feature flag for device switcher segment.
+BASE_DECLARE_FEATURE(kSegmentationPlatformDeviceSwitcher);
+
 // Feature flag for enabling price tracking action feature.
 BASE_DECLARE_FEATURE(kContextualPageActionPriceTracking);
 
@@ -61,7 +61,6 @@ BASE_DECLARE_FEATURE(kSegmentationPlatformSegmentInfoCache);
 
 // Feature flag for enabling default reporting segments.
 BASE_DECLARE_FEATURE(kSegmentationDefaultReportingSegments);
-
 }  // namespace segmentation_platform::features
 
 #endif  // COMPONENTS_SEGMENTATION_PLATFORM_PUBLIC_FEATURES_H_

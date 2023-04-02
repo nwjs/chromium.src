@@ -94,6 +94,7 @@
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_messages.h"
 #include "extensions/common/extension_resource.h"
+#include "media/base/audio_codecs.h"
 #include "services/accessibility/buildflags.h"
 #include "services/audio/public/cpp/sounds/sounds_manager.h"
 #include "ui/accessibility/accessibility_features.h"
@@ -408,35 +409,46 @@ AccessibilityManager::AccessibilityManager() {
   ui::ResourceBundle& bundle = ui::ResourceBundle::GetSharedInstance();
   audio::SoundsManager* manager = audio::SoundsManager::Get();
   manager->Initialize(static_cast<int>(Sound::kShutdown),
-                      bundle.GetRawDataResource(IDR_SOUND_SHUTDOWN_WAV));
+                      bundle.GetRawDataResource(IDR_SOUND_SHUTDOWN_WAV),
+                      media::AudioCodec::kPCM);
   manager->Initialize(
       static_cast<int>(Sound::kSpokenFeedbackEnabled),
-      bundle.GetRawDataResource(IDR_SOUND_SPOKEN_FEEDBACK_ENABLED_WAV));
+      bundle.GetRawDataResource(IDR_SOUND_SPOKEN_FEEDBACK_ENABLED_WAV),
+      media::AudioCodec::kPCM);
   manager->Initialize(
       static_cast<int>(Sound::kSpokenFeedbackDisabled),
-      bundle.GetRawDataResource(IDR_SOUND_SPOKEN_FEEDBACK_DISABLED_WAV));
+      bundle.GetRawDataResource(IDR_SOUND_SPOKEN_FEEDBACK_DISABLED_WAV),
+      media::AudioCodec::kPCM);
   manager->Initialize(static_cast<int>(Sound::kPassthrough),
-                      bundle.GetRawDataResource(IDR_SOUND_PASSTHROUGH_WAV));
+                      bundle.GetRawDataResource(IDR_SOUND_PASSTHROUGH_WAV),
+                      media::AudioCodec::kPCM);
   manager->Initialize(static_cast<int>(Sound::kExitScreen),
-                      bundle.GetRawDataResource(IDR_SOUND_EXIT_SCREEN_WAV));
+                      bundle.GetRawDataResource(IDR_SOUND_EXIT_SCREEN_WAV),
+                      media::AudioCodec::kPCM);
   manager->Initialize(static_cast<int>(Sound::kEnterScreen),
-                      bundle.GetRawDataResource(IDR_SOUND_ENTER_SCREEN_WAV));
+                      bundle.GetRawDataResource(IDR_SOUND_ENTER_SCREEN_WAV),
+                      media::AudioCodec::kPCM);
   manager->Initialize(
       static_cast<int>(Sound::kSpokenFeedbackToggleCountdownHigh),
       bundle.GetRawDataResource(
-          IDR_SOUND_SPOKEN_FEEDBACK_TOGGLE_COUNTDOWN_HIGH_WAV));
+          IDR_SOUND_SPOKEN_FEEDBACK_TOGGLE_COUNTDOWN_HIGH_WAV),
+      media::AudioCodec::kPCM);
   manager->Initialize(
       static_cast<int>(Sound::kSpokenFeedbackToggleCountdownLow),
       bundle.GetRawDataResource(
-          IDR_SOUND_SPOKEN_FEEDBACK_TOGGLE_COUNTDOWN_LOW_WAV));
+          IDR_SOUND_SPOKEN_FEEDBACK_TOGGLE_COUNTDOWN_LOW_WAV),
+      media::AudioCodec::kPCM);
   manager->Initialize(static_cast<int>(Sound::kTouchType),
-                      bundle.GetRawDataResource(IDR_SOUND_TOUCH_TYPE_WAV));
+                      bundle.GetRawDataResource(IDR_SOUND_TOUCH_TYPE_WAV),
+                      media::AudioCodec::kPCM);
   manager->Initialize(static_cast<int>(Sound::kStartup),
-                      bundle.GetRawDataResource(IDR_SOUND_STARTUP_WAV));
+                      bundle.GetRawDataResource(IDR_SOUND_STARTUP_WAV),
+                      media::AudioCodec::kPCM);
 
   if (VolumeAdjustSoundEnabled()) {
     manager->Initialize(static_cast<int>(Sound::kVolumeAdjust),
-                        bundle.GetRawDataResource(IDR_SOUND_VOLUME_ADJUST_WAV));
+                        bundle.GetRawDataResource(IDR_SOUND_VOLUME_ADJUST_WAV),
+                        media::AudioCodec::kPCM);
   }
   if (::features::IsAccessibilityServiceEnabled()) {
     // We create an AccessibilityServiceClient even if the build flag is not
@@ -2408,16 +2420,31 @@ void AccessibilityManager::UpdateDictationNotification() {
   // 3. Pumpkin not installed, SODA installed
   // 4. Pumpkin not installed, SODA not installed
   DictationNotificationType type;
+  std::string notification_shown_pref;
   if (pumpkin_installed && soda_installed) {
     type = DictationNotificationType::kAllDlcsDownloaded;
+    notification_shown_pref =
+        prefs::kDictationDlcSuccessNotificationHasBeenShown;
   } else if (pumpkin_installed && !soda_installed) {
     type = DictationNotificationType::kOnlyPumpkinDownloaded;
+    notification_shown_pref =
+        prefs::kDictationDlcOnlyPumpkinDownloadedNotificationHasBeenShown;
   } else if (!pumpkin_installed && soda_installed) {
     type = DictationNotificationType::kOnlySodaDownloaded;
+    notification_shown_pref =
+        prefs::kDictationDlcOnlySodaDownloadedNotificationHasBeenShown;
   } else {
     type = DictationNotificationType::kNoDlcsDownloaded;
+    notification_shown_pref =
+        prefs::kDictationNoDlcsDownloadedNotificationHasBeenShown;
   }
 
+  if (profile_->GetPrefs()->GetBoolean(notification_shown_pref)) {
+    // Do not show DLC notifications more than once.
+    return;
+  }
+
+  profile_->GetPrefs()->SetBoolean(notification_shown_pref, true);
   AccessibilityController::Get()->ShowNotificationForDictation(type,
                                                                display_name);
 
@@ -2510,17 +2537,39 @@ base::FilePath AccessibilityManager::TtsDlcTypeToPath(DlcType dlc) {
   // Paths to TTS DLCs.
   static constexpr auto kTtsDlcTypeToSubDir =
       base::MakeFixedFlatMap<DlcType, base::StringPiece>(
-          {{DlcType::DLC_TYPE_TTSDEDE, "tts-de-de/"},
+          {{DlcType::DLC_TYPE_TTSBNBD, "tts-bn-bd/"},
+           {DlcType::DLC_TYPE_TTSCSCZ, "tts-cs-cz/"},
+           {DlcType::DLC_TYPE_TTSDADK, "tts-da-dk/"},
+           {DlcType::DLC_TYPE_TTSDEDE, "tts-de-de/"},
+           {DlcType::DLC_TYPE_TTSELGR, "tts-el-gr/"},
+           {DlcType::DLC_TYPE_TTSENAU, "tts-en-au/"},
+           {DlcType::DLC_TYPE_TTSENGB, "tts-en-gb/"},
            {DlcType::DLC_TYPE_TTSENUS, "tts-en-us/"},
            {DlcType::DLC_TYPE_TTSESES, "tts-es-es/"},
            {DlcType::DLC_TYPE_TTSESUS, "tts-es-us/"},
+           {DlcType::DLC_TYPE_TTSFIFI, "tts-fi-fi/"},
+           {DlcType::DLC_TYPE_TTSFILPH, "tts-fil-ph/"},
            {DlcType::DLC_TYPE_TTSFRFR, "tts-fr-fr/"},
            {DlcType::DLC_TYPE_TTSHIIN, "tts-hi-in/"},
+           {DlcType::DLC_TYPE_TTSHUHU, "tts-hu-hu/"},
+           {DlcType::DLC_TYPE_TTSIDID, "tts-id-id/"},
            {DlcType::DLC_TYPE_TTSITIT, "tts-it-it/"},
            {DlcType::DLC_TYPE_TTSJAJP, "tts-ja-jp/"},
+           {DlcType::DLC_TYPE_TTSKMKH, "tts-km-kh/"},
+           {DlcType::DLC_TYPE_TTSKOKR, "tts-ko-kr/"},
+           {DlcType::DLC_TYPE_TTSNBNO, "tts-nb-no/"},
+           {DlcType::DLC_TYPE_TTSNENP, "tts-ne-np/"},
            {DlcType::DLC_TYPE_TTSNLNL, "tts-nl-nl/"},
+           {DlcType::DLC_TYPE_TTSPLPL, "tts-pl-pl/"},
            {DlcType::DLC_TYPE_TTSPTBR, "tts-pt-br/"},
-           {DlcType::DLC_TYPE_TTSSVSE, "tts-sv-se/"}});
+           {DlcType::DLC_TYPE_TTSSILK, "tts-si-lk/"},
+           {DlcType::DLC_TYPE_TTSSKSK, "tts-sk-sk/"},
+           {DlcType::DLC_TYPE_TTSSVSE, "tts-sv-se/"},
+           {DlcType::DLC_TYPE_TTSTHTH, "tts-th-th/"},
+           {DlcType::DLC_TYPE_TTSTRTR, "tts-tr-tr/"},
+           {DlcType::DLC_TYPE_TTSUKUA, "tts-uk-ua/"},
+           {DlcType::DLC_TYPE_TTSVIVN, "tts-vi-vn/"},
+           {DlcType::DLC_TYPE_TTSYUEHK, "tts-yue-hk/"}});
 
   if (!base::Contains(kTtsDlcTypeToSubDir, dlc)) {
     NOTREACHED();

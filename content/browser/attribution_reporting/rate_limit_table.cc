@@ -5,11 +5,13 @@
 #include "content/browser/attribution_reporting/rate_limit_table.h"
 
 #include <string>
+#include <vector>
 
 #include "base/check.h"
 #include "base/containers/flat_set.h"
 #include "base/time/time.h"
 #include "components/attribution_reporting/suitable_origin.h"
+#include "content/browser/attribution_reporting/attribution_config.h"
 #include "content/browser/attribution_reporting/attribution_info.h"
 #include "content/browser/attribution_reporting/attribution_storage_delegate.h"
 #include "content/browser/attribution_reporting/common_source_info.h"
@@ -17,7 +19,6 @@
 #include "content/browser/attribution_reporting/sql_queries.h"
 #include "content/browser/attribution_reporting/sql_utils.h"
 #include "content/browser/attribution_reporting/storable_source.h"
-#include "content/public/browser/attribution_config.h"
 #include "net/base/schemeful_site.h"
 #include "sql/database.h"
 #include "sql/statement.h"
@@ -104,19 +105,23 @@ bool RateLimitTable::CreateTable(sql::Database* db) {
 bool RateLimitTable::AddRateLimitForSource(sql::Database* db,
                                            const StoredSource& source) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  return AddRateLimit(db, source, /*trigger_time=*/absl::nullopt);
+  return AddRateLimit(db, source, /*trigger_time=*/absl::nullopt,
+                      /*context_origin=*/source.common_info().source_origin());
 }
 
 bool RateLimitTable::AddRateLimitForAttribution(
     sql::Database* db,
     const AttributionInfo& attribution_info) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  return AddRateLimit(db, attribution_info.source, attribution_info.time);
+  return AddRateLimit(db, attribution_info.source, attribution_info.time,
+                      attribution_info.context_origin);
 }
 
-bool RateLimitTable::AddRateLimit(sql::Database* db,
-                                  const StoredSource& source,
-                                  absl::optional<base::Time> trigger_time) {
+bool RateLimitTable::AddRateLimit(
+    sql::Database* db,
+    const StoredSource& source,
+    absl::optional<base::Time> trigger_time,
+    const attribution_reporting::SuitableOrigin& context_origin) {
   const CommonSourceInfo& common_info = source.common_info();
 
   // Only delete expired rate limits periodically to avoid excessive DB
@@ -133,15 +138,12 @@ bool RateLimitTable::AddRateLimit(sql::Database* db,
   }
 
   Scope scope;
-  const attribution_reporting::SuitableOrigin* context_origin;
   base::Time source_expiry_or_attribution_time;
   if (trigger_time.has_value()) {
     scope = Scope::kAttribution;
-    context_origin = &common_info.destination_origin();
     source_expiry_or_attribution_time = *trigger_time;
   } else {
     scope = Scope::kSource;
-    context_origin = &common_info.source_origin();
     source_expiry_or_attribution_time = common_info.expiry_time();
   }
 
@@ -152,16 +154,37 @@ bool RateLimitTable::AddRateLimit(sql::Database* db,
       "VALUES(?,?,?,?,?,?,?,?)";
   sql::Statement statement(
       db->GetCachedStatement(SQL_FROM_HERE, kStoreRateLimitSql));
+
   statement.BindInt(0, static_cast<int>(scope));
   statement.BindInt64(1, *source.source_id());
   statement.BindString(2, common_info.SourceSite().Serialize());
-  statement.BindString(3, common_info.DestinationSite().Serialize());
-  statement.BindString(4, context_origin->Serialize());
+  statement.BindString(4, context_origin.Serialize());
   statement.BindString(5, common_info.reporting_origin().Serialize());
   statement.BindTime(6, common_info.source_time());
   statement.BindTime(7, source_expiry_or_attribution_time);
 
-  return statement.Run();
+  const base::flat_set<net::SchemefulSite>* destination_sites =
+      &common_info.destination_sites().destinations();
+  base::flat_set<net::SchemefulSite> context_sites;
+  if (source.attribution_logic() ==
+          StoredSource::AttributionLogic::kTruthfully &&
+      scope == Scope::kAttribution) {
+    context_sites.emplace(context_origin);
+    destination_sites = &context_sites;
+  }
+
+  sql::Transaction transaction(db);
+  if (!transaction.Begin()) {
+    return false;
+  }
+  for (const auto& site : *destination_sites) {
+    statement.Reset(/*clear_bound_vars=*/false);
+    statement.BindString(3, site.Serialize());
+    if (!statement.Run()) {
+      return false;
+    }
+  }
+  return transaction.Commit();
 }
 
 RateLimitResult RateLimitTable::AttributionAllowedForAttributionLimit(
@@ -183,7 +206,8 @@ RateLimitResult RateLimitTable::AttributionAllowedForAttributionLimit(
 
   sql::Statement statement(db->GetCachedStatement(
       SQL_FROM_HERE, attribution_queries::kRateLimitAttributionAllowedSql));
-  statement.BindString(0, common_info.DestinationSite().Serialize());
+  statement.BindString(
+      0, net::SchemefulSite(attribution_info.context_origin).Serialize());
   statement.BindString(1, common_info.SourceSite().Serialize());
   statement.BindString(2, common_info.reporting_origin().Serialize());
   statement.BindTime(3, min_timestamp);
@@ -202,9 +226,10 @@ RateLimitResult RateLimitTable::SourceAllowedForReportingOriginLimit(
     sql::Database* db,
     const StorableSource& source) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  return AllowedForReportingOriginLimit(db, Scope::kSource,
-                                        source.common_info(),
-                                        source.common_info().source_time());
+  return AllowedForReportingOriginLimit(
+      db, Scope::kSource, source.common_info(),
+      source.common_info().source_time(),
+      source.common_info().destination_sites().destinations());
 }
 
 RateLimitResult RateLimitTable::SourceAllowedForDestinationLimit(
@@ -226,30 +251,19 @@ RateLimitResult RateLimitTable::SourceAllowedForDestinationLimit(
   statement.BindString(1, common_info.reporting_origin().Serialize());
   statement.BindTime(2, common_info.source_time());
 
-  const std::string serialized_destination_site =
-      common_info.DestinationSite().Serialize();
-
   const int limit = delegate_->GetMaxDestinationsPerSourceSiteReportingOrigin();
   DCHECK_GT(limit, 0);
 
-  base::flat_set<std::string> destination_sites;
+  base::flat_set<net::SchemefulSite> destination_sites =
+      source.common_info().destination_sites().destinations();
+
   while (statement.Step()) {
-    std::string destination_site = statement.ColumnString(0);
+    destination_sites.insert(
+        net::SchemefulSite::Deserialize(statement.ColumnString(0)));
+  }
 
-    // The destination site isn't new, so it doesn't change the count.
-    //
-    // TODO(linnan): Consider adding an early exit query which first checks for
-    // the existence of `destination_site` for (source_site, reporting_origin),
-    // to avoid querying all of the rows in the case of multiple sources.
-    if (destination_site == serialized_destination_site) {
-      return RateLimitResult::kAllowed;
-    }
-
-    destination_sites.insert(std::move(destination_site));
-
-    if (destination_sites.size() == static_cast<size_t>(limit)) {
-      return RateLimitResult::kNotAllowed;
-    }
+  if (destination_sites.size() > static_cast<size_t>(limit)) {
+    return RateLimitResult::kNotAllowed;
   }
 
   return statement.Succeeded() ? RateLimitResult::kAllowed
@@ -260,16 +274,18 @@ RateLimitResult RateLimitTable::AttributionAllowedForReportingOriginLimit(
     sql::Database* db,
     const AttributionInfo& attribution_info) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  return AllowedForReportingOriginLimit(db, Scope::kAttribution,
-                                        attribution_info.source.common_info(),
-                                        attribution_info.time);
+  return AllowedForReportingOriginLimit(
+      db, Scope::kAttribution, attribution_info.source.common_info(),
+      attribution_info.time,
+      {net::SchemefulSite(attribution_info.context_origin)});
 }
 
 RateLimitResult RateLimitTable::AllowedForReportingOriginLimit(
     sql::Database* db,
     Scope scope,
     const CommonSourceInfo& common_info,
-    base::Time time) {
+    base::Time time,
+    const base::flat_set<net::SchemefulSite>& destination_sites) {
   const AttributionConfig::RateLimitConfig rate_limits =
       delegate_->GetRateLimits();
   DCHECK_GT(rate_limits.time_window, base::TimeDelta());
@@ -294,27 +310,34 @@ RateLimitResult RateLimitTable::AllowedForReportingOriginLimit(
       SQL_FROM_HERE, attribution_queries::kRateLimitSelectReportingOriginsSql));
   statement.BindInt(0, static_cast<int>(scope));
   statement.BindString(1, common_info.SourceSite().Serialize());
-  statement.BindString(2, common_info.DestinationSite().Serialize());
   statement.BindTime(3, min_timestamp);
 
-  base::flat_set<std::string> reporting_origins;
-  while (statement.Step()) {
-    std::string reporting_origin = statement.ColumnString(0);
+  for (const auto& destination : destination_sites) {
+    base::flat_set<std::string> reporting_origins;
+    statement.Reset(/*clear_bound_vars=*/false);
+    statement.BindString(2, destination.Serialize());
 
-    // The origin isn't new, so it doesn't change the count.
-    if (reporting_origin == serialized_reporting_origin) {
-      return RateLimitResult::kAllowed;
+    while (statement.Step()) {
+      std::string reporting_origin = statement.ColumnString(0);
+
+      // The origin isn't new, so it doesn't change the count.
+      if (reporting_origin == serialized_reporting_origin) {
+        break;
+      }
+
+      reporting_origins.insert(std::move(reporting_origin));
+
+      if (reporting_origins.size() == static_cast<size_t>(max)) {
+        return RateLimitResult::kNotAllowed;
+      }
     }
 
-    reporting_origins.insert(std::move(reporting_origin));
-
-    if (reporting_origins.size() == static_cast<size_t>(max)) {
-      return RateLimitResult::kNotAllowed;
+    if (!statement.Succeeded()) {
+      return RateLimitResult::kError;
     }
   }
 
-  return statement.Succeeded() ? RateLimitResult::kAllowed
-                               : RateLimitResult::kError;
+  return RateLimitResult::kAllowed;
 }
 
 bool RateLimitTable::ClearAllDataInRange(sql::Database* db,
@@ -367,7 +390,7 @@ bool RateLimitTable::ClearDataForOriginsInRange(
 
   while (select_statement.Step()) {
     int64_t rate_limit_id = select_statement.ColumnInt64(0);
-    if (filter.Run(blink::StorageKey(
+    if (filter.Run(blink::StorageKey::CreateFirstParty(
             DeserializeOrigin(select_statement.ColumnString(1))))) {
       // See https://www.sqlite.org/isolation.html for why it's OK for this
       // DELETE to be interleaved in the surrounding SELECT.

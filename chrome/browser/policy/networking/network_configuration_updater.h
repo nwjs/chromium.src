@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "base/feature_list.h"
 #include "base/memory/raw_ptr.h"
 #include "base/observer_list.h"
 #include "base/sequence_checker.h"
@@ -23,6 +24,11 @@
 namespace policy {
 
 class PolicyMap;
+
+// Disables the backwards-compatibility workaround which adds IP address and
+// name servers as "Recommended" to ethernet policies which don't specify
+// anything as "Recommended".
+BASE_DECLARE_FEATURE(kDisablePolicyEthernetRecommendedWorkaround);
 
 // Implements the common part of tracking the OpenNetworkConfiguration device
 // and user policy. Implements the handling of server and authority certificates
@@ -78,8 +84,9 @@ class NetworkConfigurationUpdater : public ash::PolicyCertificateProvider,
   // Parses the incoming policy, applies server and authority certificates.
   // Calls the specialized methods from subclasses to handle client certificates
   // and network configs.
-  virtual void ApplyNetworkPolicy(base::Value::List network_configs_onc,
-                                  base::Value::Dict global_network_config) = 0;
+  virtual void ApplyNetworkPolicy(
+      const base::Value::List& network_configs_onc,
+      const base::Value::Dict& global_network_config) = 0;
 
   // Parses the current value of the ONC policy. Clears |network_configs|,
   // |global_network_config| and |certificates| and fills them with the

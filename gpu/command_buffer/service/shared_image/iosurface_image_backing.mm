@@ -95,7 +95,12 @@ base::scoped_nsprotocol<id<MTLTexture>> CreateMetalTexture(
   // TODO(https://crbug.com/952063): For zero-copy resources that are populated
   // on the CPU (e.g, video frames), it may be that MTLStorageModeManaged will
   // be more appropriate.
+#if BUILDFLAG(IS_IOS)
+  // On iOS we are using IOSurfaces which must use MTLStorageModeShared.
+  [mtl_tex_desc setStorageMode:MTLStorageModeShared];
+#else
   [mtl_tex_desc setStorageMode:MTLStorageModePrivate];
+#endif
   mtl_texture.reset([mtl_device newTextureWithDescriptor:mtl_tex_desc
                                                iosurface:io_surface
                                                    plane:plane_index]);
@@ -376,6 +381,7 @@ bool OverlayIOSurfaceRepresentation::IsInUseByWindowServer() const {
   return IOSurfaceIsInUse(io_surface_);
 }
 
+#if BUILDFLAG(USE_DAWN)
 ///////////////////////////////////////////////////////////////////////////////
 // DawnIOSurfaceRepresentation
 
@@ -518,6 +524,7 @@ void DawnIOSurfaceRepresentation::EndAccess() {
   dawn_procs_.textureRelease(texture_);
   texture_ = nullptr;
 }
+#endif  // BUILDFLAG(USE_DAWN)
 
 ////////////////////////////////////////////////////////////////////////////////
 // SharedEventAndSignalValue
@@ -582,9 +589,12 @@ IOSurfaceImageBacking::IOSurfaceImageBacking(
   if (usage & SHARED_IMAGE_USAGE_HIGH_PERFORMANCE_GPU)
     return;
 
+// iOS uses Metal and doesn't need to retain the GL texture.
+#if !BUILDFLAG(IS_IOS)
   // NOTE: Mac currently retains GLTexture and reuses it. Not sure if this is
   // best approach as it can lead to issues with context losses.
   egl_state_for_legacy_mailbox_ = RetainGLTexture();
+#endif
 }
 
 IOSurfaceImageBacking::~IOSurfaceImageBacking() {
@@ -614,8 +624,7 @@ IOSurfaceImageBacking::RetainGLTexture() {
     // Allocate the GL texture.
     scoped_refptr<gles2::TexturePassthrough> gl_texture;
     GLTextureImageBackingHelper::MakeTextureAndSetParameters(
-        gl_target_, /*service_id=*/0, framebuffer_attachment_angle_,
-        &gl_texture, nullptr);
+        gl_target_, framebuffer_attachment_angle_, &gl_texture, nullptr);
     // Set the IOSurface to be initially unbound from the GL texture.
     gl_texture->SetEstimatedSize(GetEstimatedSize());
     gl_texture->set_bind_pending();
@@ -675,13 +684,13 @@ IOSurfaceImageBacking::TakeSharedEvents() {
   return std::move(shared_events_and_signal_values_);
 }
 
-void IOSurfaceImageBacking::OnMemoryDump(
+base::trace_event::MemoryAllocatorDump* IOSurfaceImageBacking::OnMemoryDump(
     const std::string& dump_name,
     base::trace_event::MemoryAllocatorDumpGuid client_guid,
     base::trace_event::ProcessMemoryDump* pmd,
     uint64_t client_tracing_id) {
-  SharedImageBacking::OnMemoryDump(dump_name, client_guid, pmd,
-                                   client_tracing_id);
+  auto* dump = SharedImageBacking::OnMemoryDump(dump_name, client_guid, pmd,
+                                                client_tracing_id);
 
   size_t size_bytes = 0u;
   if (format().is_single_plane()) {
@@ -695,8 +704,6 @@ void IOSurfaceImageBacking::OnMemoryDump(
     }
   }
 
-  base::trace_event::MemoryAllocatorDump* dump =
-      pmd->CreateAllocatorDump(dump_name);
   dump->AddScalar(base::trace_event::MemoryAllocatorDump::kNameSize,
                   base::trace_event::MemoryAllocatorDump::kUnitsBytes,
                   static_cast<uint64_t>(size_bytes));
@@ -728,6 +735,8 @@ void IOSurfaceImageBacking::OnMemoryDump(
     anonymous_dump->AddScalar("width", "pixels", size().width());
     anonymous_dump->AddScalar("height", "pixels", size().height());
   }
+
+  return dump;
 }
 
 SharedImageBackingType IOSurfaceImageBacking::GetType() const {
@@ -885,6 +894,10 @@ void IOSurfaceImageBacking::SetPurgeable(bool purgeable) {
 
   uint32_t old_state;
   IOSurfaceSetPurgeable(io_surface_, purgeable, &old_state);
+}
+
+bool IOSurfaceImageBacking::IsPurgeable() const {
+  return purgeable_;
 }
 
 void IOSurfaceImageBacking::Update(std::unique_ptr<gfx::GpuFence> in_fence) {

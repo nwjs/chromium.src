@@ -17,6 +17,7 @@
 #include "base/strings/strcat.h"
 #include "base/test/mock_callback.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/time/time.h"
 #include "chrome/browser/ash/crostini/crostini_manager.h"
 #include "chrome/browser/ash/crostini/crostini_pref_names.h"
 #include "chrome/browser/ash/crostini/fake_crostini_features.h"
@@ -648,7 +649,7 @@ IN_PROC_BROWSER_TEST_F(FileManagerPrivateApiTest, CrostiniIncognito) {
 
   extensions::api_test_utils::SendResponseHelper response_helper(
       function.get());
-  function->RunWithValidation()->Execute();
+  function->RunWithValidation().Execute();
   response_helper.WaitForResponse();
   EXPECT_TRUE(response_helper.GetResponse());
 }
@@ -724,7 +725,7 @@ IN_PROC_BROWSER_TEST_F(FileManagerPrivateApiTest, SearchFiles) {
     ASSERT_TRUE(jan_15_file.IsValid());
     base::Time jan_15_2020_noon;
     ASSERT_TRUE(base::Time::FromUTCExploded(
-        base::Time::Exploded(2020, 1, 3, 15, 12, 0, 0, 0), &jan_15_2020_noon));
+        base::Time::Exploded{2020, 1, 3, 15, 12, 0, 0, 0}, &jan_15_2020_noon));
     jan_15_file.SetTimes(jan_15_2020_noon, jan_15_2020_noon);
 
     base::File jan_01_file(downloads_dir.Append("bar_01012020.jpg"),
@@ -732,7 +733,7 @@ IN_PROC_BROWSER_TEST_F(FileManagerPrivateApiTest, SearchFiles) {
     ASSERT_TRUE(jan_01_file.IsValid());
     base::Time jan_01_2020_noon;
     ASSERT_TRUE(base::Time::FromUTCExploded(
-        base::Time::Exploded(2020, 1, 3, 1, 12, 0, 0, 0), &jan_01_2020_noon));
+        base::Time::Exploded{2020, 1, 3, 1, 12, 0, 0, 0}, &jan_01_2020_noon));
     jan_01_file.SetTimes(jan_01_2020_noon, jan_01_2020_noon);
   }
 
@@ -847,14 +848,21 @@ IN_PROC_BROWSER_TEST_F(FileManagerPrivateApiDlpTest, DlpMetadata) {
   ASSERT_TRUE(policy::DlpRulesManagerFactory::GetForPrimaryProfile());
   EXPECT_CALL(*mock_rules_manager_, IsFilesPolicyEnabled).Times(1);
 
-  AddLocalFileSystem(browser()->profile(), temp_dir_.GetPath());
+  base::FilePath my_files_dir_ =
+      file_manager::util::GetMyFilesFolderForProfile(browser()->profile());
+  {
+    base::ScopedAllowBlockingForTesting allow_io;
+
+    ASSERT_TRUE(base::CreateDirectory(my_files_dir_));
+  }
+  AddLocalFileSystem(browser()->profile(), my_files_dir_);
 
   const base::FilePath blocked_file_path =
-      temp_dir_.GetPath().Append("blocked_file.txt");
+      my_files_dir_.Append("blocked_file.txt");
   const base::FilePath unrestricted_file_path =
-      temp_dir_.GetPath().Append("unrestricted_file.txt");
+      my_files_dir_.Append("unrestricted_file.txt");
   const base::FilePath untracked_file_path =
-      temp_dir_.GetPath().Append("untracked_file.txt");
+      my_files_dir_.Append("untracked_file.txt");
 
   {
     base::ScopedAllowBlockingForTesting allow_io;

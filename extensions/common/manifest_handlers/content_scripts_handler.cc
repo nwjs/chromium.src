@@ -179,9 +179,9 @@ static base::LazyInstance<EmptyUserScriptList>::DestructorAtExit
 
 }  // namespace
 
-ContentScriptsInfo::ContentScriptsInfo() {}
+ContentScriptsInfo::ContentScriptsInfo() = default;
 
-ContentScriptsInfo::~ContentScriptsInfo() {}
+ContentScriptsInfo::~ContentScriptsInfo() = default;
 
 // static
 const UserScriptList& ContentScriptsInfo::GetContentScripts(

@@ -127,7 +127,6 @@
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/policy/chrome_policy_conversions_client.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/ash/default_pinned_apps.h"
 #include "chrome/browser/ui/ash/holding_space/holding_space_keyed_service.h"
@@ -4396,7 +4395,7 @@ AutotestPrivateWaitForDisplayRotationFunction::Run() {
 
   auto result = CheckScreenRotationAnimation();
   if (result)
-    return RespondNow(std::move(result));
+    return RespondNow(std::move(*result));
   return RespondLater();
 }
 
@@ -4428,10 +4427,10 @@ void AutotestPrivateWaitForDisplayRotationFunction::
   auto result = CheckScreenRotationAnimation();
   // Wait for the rotation if unlocking causes rotation.
   if (result)
-    Respond(std::move(result));
+    Respond(std::move(*result));
 }
 
-ExtensionFunction::ResponseValue
+absl::optional<ExtensionFunction::ResponseValue>
 AutotestPrivateWaitForDisplayRotationFunction::CheckScreenRotationAnimation() {
   auto* root_window = ash::Shell::GetRootWindowForDisplayId(display_id_);
   if (!root_window) {
@@ -4452,7 +4451,7 @@ AutotestPrivateWaitForDisplayRotationFunction::CheckScreenRotationAnimation() {
   self_ = this;
 
   animator->AddObserver(this);
-  return nullptr;
+  return absl::nullopt;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -4507,6 +4506,16 @@ AutotestPrivateGetAppWindowListFunction::Run() {
     window_info.can_resize =
         (window->GetProperty(aura::client::kResizeBehaviorKey) &
          aura::client::kResizeBehaviorCanResize) != 0;
+
+    window_info.stacking_order = -1;
+    // Find the window's stacking order among its siblings.
+    if (auto* parent = window->parent()) {
+      const auto& children = parent->children();
+      auto it = std::find(children.rbegin(), children.rend(), window);
+      if (it != children.rend()) {
+        window_info.stacking_order = it - children.rbegin();
+      }
+    }
 
     if (window->GetProperty(aura::client::kAppType) ==
         static_cast<int>(ash::AppType::ARC_APP)) {

@@ -159,11 +159,10 @@ class AutofillDownloadManagerWithCustomPayloadSize
   AutofillDownloadManagerWithCustomPayloadSize(AutofillClient* client,
                                                const std::string& api_key,
                                                size_t length)
-      : AutofillDownloadManager(
-            client,
-            api_key,
-            AutofillDownloadManager::IsRawMetadataUploadingEnabled(false),
-            /*log_manager=*/nullptr),
+      : AutofillDownloadManager(client,
+                                api_key,
+                                /*is_raw_metadata_uploading_enabled=*/false,
+                                /*log_manager=*/nullptr),
         length_(length) {}
   ~AutofillDownloadManagerWithCustomPayloadSize() override = default;
 
@@ -209,19 +208,21 @@ class AutofillDownloadManagerTest : public AutofillDownloadManager::Observer,
         AutofillClient* client,
         std::string api_key = "",
         bool is_raw_metadata_uploading_enabled = false)
-        : AutofillDownloadManager(
-              client,
-              /*api_key=*/std::move(api_key),
-              AutofillDownloadManager::IsRawMetadataUploadingEnabled(
-                  is_raw_metadata_uploading_enabled),
-              /*log_manager=*/nullptr) {}
+        : AutofillDownloadManager(client,
+                                  /*api_key=*/std::move(api_key),
+                                  /*is_raw_metadata_uploading_enabled=*/
+                                  is_raw_metadata_uploading_enabled,
+                                  /*log_manager=*/nullptr) {}
   };
 
   AutofillDownloadManagerTest()
       : test_shared_loader_factory_(
             base::MakeRefCounted<network::WeakWrapperSharedURLLoaderFactory>(
                 &test_url_loader_factory_)),
-        download_manager_(&client_),
+        download_manager_(&client_,
+                          /*api_key=*/"",
+                          /*is_raw_metadata_uploading_enabled=*/false,
+                          /*log_manager=*/nullptr),
         pref_service_(test::PrefServiceForTesting()) {
     client_.set_shared_url_loader_factory(test_shared_loader_factory_);
   }
@@ -378,7 +379,7 @@ TEST_F(AutofillDownloadManagerTest, QueryAndUploadTest) {
   // Make download manager.
   AutofillDownloadManager download_manager(
       &client_, "dummykey",
-      AutofillDownloadManager::IsRawMetadataUploadingEnabled(false),
+      /*is_raw_metadata_uploading_enabled=*/false,
       /*log_manager=*/nullptr);
 
   // Request with id 0.
@@ -549,10 +550,7 @@ TEST_F(AutofillDownloadManagerTest, QueryAPITest) {
   std::vector<std::unique_ptr<FormStructure>> form_structures;
   form_structures.push_back(std::make_unique<FormStructure>(form));
 
-  AutofillDownloadManager download_manager(
-      &client_, "dummykey",
-      AutofillDownloadManager::IsRawMetadataUploadingEnabled(false),
-      /*log_manager=*/nullptr);
+  TestAutofillDownloadManager download_manager(&client_, "dummykey");
 
   // Start the query request and look if it is successful. No response was
   // received yet.
@@ -739,7 +737,7 @@ TEST_F(AutofillDownloadManagerTest, UploadToAPITest) {
       {},
       // Disabled
       // We don't want upload throttling for testing purpose.
-      {features::kAutofillUploadThrottling});
+      {features::test::kAutofillUploadThrottling});
 
   // Build the form structures that we want to upload.
   FormData form;
@@ -761,10 +759,7 @@ TEST_F(AutofillDownloadManagerTest, UploadToAPITest) {
     fs_field->host_form_signature = form_structure.form_signature();
 
   std::unique_ptr<PrefService> pref_service = test::PrefServiceForTesting();
-  AutofillDownloadManager download_manager(
-      &client_, "dummykey",
-      AutofillDownloadManager::IsRawMetadataUploadingEnabled(false),
-      /*log_manager=*/nullptr);
+  TestAutofillDownloadManager download_manager(&client_, "dummykey");
   EXPECT_TRUE(download_manager.StartUploadRequest(
       form_structure, true, ServerFieldTypeSet(), "", true, pref_service.get(),
       GetWeakPtr()));
@@ -817,7 +812,7 @@ TEST_F(AutofillDownloadManagerTest, UploadWithRawMetadata) {
       {},
       // Disabled
       // We don't want upload throttling for testing purpose.
-      {features::kAutofillUploadThrottling});
+      {features::test::kAutofillUploadThrottling});
 
   for (bool is_raw_metadata_uploading_enabled : {false, true}) {
     SCOPED_TRACE(testing::Message() << "is_raw_metadata_uploading_enabled = "
@@ -840,11 +835,10 @@ TEST_F(AutofillDownloadManagerTest, UploadWithRawMetadata) {
       fs_field->host_form_signature = form_structure.form_signature();
 
     std::unique_ptr<PrefService> pref_service = test::PrefServiceForTesting();
-    AutofillDownloadManager download_manager(
+    TestAutofillDownloadManager download_manager(
         &client_, "dummykey",
-        AutofillDownloadManager::IsRawMetadataUploadingEnabled(
-            is_raw_metadata_uploading_enabled),
-        /*log_manager=*/nullptr);
+        /*is_raw_metadata_uploading_enabled=*/
+        is_raw_metadata_uploading_enabled);
     EXPECT_TRUE(download_manager.StartUploadRequest(
         form_structure, true, ServerFieldTypeSet(), "", true,
         pref_service.get(), GetWeakPtr()));
@@ -1408,7 +1402,7 @@ class AutofillServerCommunicationTest
 
     scoped_feature_list_1_.InitWithFeatures(
         // Enabled
-        {features::kAutofillUploadThrottling},
+        {features::test::kAutofillUploadThrottling},
         // Disabled
         {});
 
@@ -1436,11 +1430,11 @@ class AutofillServerCommunicationTest
     switch (GetParam()) {
       case DISABLED:
         scoped_feature_list_2_.InitAndDisableFeature(
-            features::kAutofillServerCommunication);
+            features::test::kAutofillServerCommunication);
         break;
       case FINCHED_URL:
         scoped_feature_list_2_.InitAndEnableFeatureWithParameters(
-            features::kAutofillServerCommunication,
+            features::test::kAutofillServerCommunication,
             {{switches::kAutofillServerURL, autofill_server_url.spec()}});
         break;
       case COMMAND_LINE_URL:
@@ -1449,7 +1443,7 @@ class AutofillServerCommunicationTest
         [[fallthrough]];
       case DEFAULT_URL:
         scoped_feature_list_2_.InitAndEnableFeature(
-            features::kAutofillServerCommunication);
+            features::test::kAutofillServerCommunication);
         break;
       default:
         ASSERT_TRUE(false);
@@ -1537,7 +1531,8 @@ class AutofillServerCommunicationTest
     run_loop_ = std::make_unique<base::RunLoop>();
 
     ScopedActiveAutofillExperiments scoped_active_autofill_experiments;
-    AutofillDownloadManager download_manager(client_.get());
+    AutofillDownloadManager download_manager(
+        client_.get(), version_info::Channel::UNKNOWN, nullptr);
     bool succeeded = download_manager.StartQueryRequest(
         ToRawPointerVector(form_structures), driver_->IsolationInfo(),
         weak_ptr_factory_.GetWeakPtr());
@@ -1556,7 +1551,8 @@ class AutofillServerCommunicationTest
     run_loop_ = std::make_unique<base::RunLoop>();
 
     ScopedActiveAutofillExperiments scoped_active_autofill_experiments;
-    AutofillDownloadManager download_manager(client_.get());
+    AutofillDownloadManager download_manager(
+        client_.get(), version_info::Channel::UNKNOWN, nullptr);
     bool succeeded = download_manager.StartUploadRequest(
         form, form_was_autofilled, available_field_types, login_form_signature,
         observed_submission, pref_service_.get(),
@@ -1589,7 +1585,8 @@ class AutofillServerCommunicationTest
 }  // namespace
 
 TEST_P(AutofillServerCommunicationTest, IsEnabled) {
-  AutofillDownloadManager download_manager(client_.get());
+  AutofillDownloadManager download_manager(
+      client_.get(), version_info::Channel::UNKNOWN, nullptr);
   EXPECT_EQ(download_manager.IsEnabled(), GetParam() != DISABLED);
 }
 
@@ -1627,7 +1624,8 @@ TEST_P(AutofillServerCommunicationTest, Upload) {
   field.form_control_type = "text";
   form.fields.push_back(field);
 
-  AutofillDownloadManager download_manager(client_.get());
+  AutofillDownloadManager download_manager(
+      client_.get(), version_info::Channel::UNKNOWN, nullptr);
   EXPECT_EQ(GetParam() != DISABLED,
             SendUploadRequest(FormStructure(form), true, {}, "", true));
 }
@@ -1894,7 +1892,8 @@ TEST_P(AutofillQueryTest, Metadata) {
   form.fields.push_back(field);
 
   // Setup the form structures to query.
-  AutofillDownloadManager download_manager(client_.get());
+  AutofillDownloadManager download_manager(
+      client_.get(), version_info::Channel::UNKNOWN, nullptr);
   std::vector<std::unique_ptr<FormStructure>> form_structures;
   form_structures.push_back(std::make_unique<FormStructure>(form));
 
@@ -1977,7 +1976,8 @@ TEST_P(AutofillUploadTest, RichMetadata) {
   field.placeholder = u"field-placeholder";
   form.fields.push_back(field);
 
-  AutofillDownloadManager download_manager(client_.get());
+  AutofillDownloadManager download_manager(
+      client_.get(), version_info::Channel::UNKNOWN, nullptr);
   FormStructure form_structure(form);
   form_structure.set_current_page_language(LanguageCode("fr"));
   for (auto& fs_field : form_structure)
@@ -2058,7 +2058,8 @@ TEST_P(AutofillUploadTest, Throttling) {
   field.form_control_type = "text";
   form.fields.push_back(field);
 
-  AutofillDownloadManager download_manager(client_.get());
+  AutofillDownloadManager download_manager(
+      client_.get(), version_info::Channel::UNKNOWN, nullptr);
   FormStructure form_structure(form);
   for (int i = 0; i <= static_cast<int>(SubmissionSource::kMaxValue); ++i) {
     base::HistogramTester histogram_tester;
@@ -2094,7 +2095,7 @@ TEST_P(AutofillUploadTest, ThrottlingDisabled) {
       // Enabled.
       {},
       // Disabled
-      {features::kAutofillUploadThrottling});
+      {features::test::kAutofillUploadThrottling});
 
   FormData form;
   FormData small_form;
@@ -2117,7 +2118,8 @@ TEST_P(AutofillUploadTest, ThrottlingDisabled) {
   field.form_control_type = "text";
   form.fields.push_back(field);
 
-  AutofillDownloadManager download_manager(client_.get());
+  AutofillDownloadManager download_manager(
+      client_.get(), version_info::Channel::UNKNOWN, nullptr);
   FormStructure form_structure(form);
   FormStructure small_form_structure(small_form);
   for (auto& fs_field : form_structure)
@@ -2182,7 +2184,7 @@ TEST_P(AutofillUploadTest, PeriodicReset) {
 
   base::test::ScopedFeatureList local_feature;
   local_feature.InitAndEnableFeatureWithParameters(
-      features::kAutofillUploadThrottling,
+      features::test::kAutofillUploadThrottling,
       {{switches::kAutofillUploadThrottlingPeriodInDays, "16"}});
 
   FormData form;
@@ -2203,7 +2205,8 @@ TEST_P(AutofillUploadTest, PeriodicReset) {
   field.form_control_type = "text";
   form.fields.push_back(field);
 
-  AutofillDownloadManager download_manager(client_.get());
+  AutofillDownloadManager download_manager(
+      client_.get(), version_info::Channel::UNKNOWN, nullptr);
   SubmissionSource submission_source = SubmissionSource::FORM_SUBMISSION;
 
   FormStructure form_structure(form);
@@ -2261,7 +2264,8 @@ TEST_P(AutofillUploadTest, ResetOnClearUploadHisotry) {
   field.form_control_type = "text";
   form.fields.push_back(field);
 
-  AutofillDownloadManager download_manager(client_.get());
+  AutofillDownloadManager download_manager(
+      client_.get(), version_info::Channel::UNKNOWN, nullptr);
   SubmissionSource submission_source = SubmissionSource::FORM_SUBMISSION;
 
   FormStructure form_structure(form);

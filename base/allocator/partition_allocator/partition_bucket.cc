@@ -39,7 +39,7 @@
 #include "build/build_config.h"
 
 #if BUILDFLAG(USE_STARSCAN)
-#include "base/allocator/partition_allocator/starscan/state_bitmap.h"
+#include "base/allocator/partition_allocator/starscan/pcscan.h"
 #endif
 
 namespace partition_alloc::internal {
@@ -75,7 +75,7 @@ template <bool thread_safe>
   PA_IMMEDIATE_CRASH();  // Not required, kept as documentation.
 }
 
-#if !PA_CONFIG(HAS_64_BITS_POINTERS) && BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
+#if !BUILDFLAG(HAS_64_BIT_POINTERS) && BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
 // |start| has to be aligned to kSuperPageSize, but |end| doesn't. This means
 // that a partial super page is allowed at the end. Since the block list uses
 // kSuperPageSize granularity, a partial super page is considered blocked if
@@ -94,7 +94,7 @@ bool AreAllowedSuperPagesForBRPPool(uintptr_t start, uintptr_t end) {
   }
   return true;
 }
-#endif  // !PA_CONFIG(HAS_64_BITS_POINTERS) &&
+#endif  // !BUILDFLAG(HAS_64_BIT_POINTERS) &&
         // BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
 
 // Reserves |requested_size| worth of super pages from the specified pool.
@@ -124,7 +124,7 @@ uintptr_t ReserveMemoryFromPool(pool_handle pool,
 
   // In 32-bit mode, when allocating from BRP pool, verify that the requested
   // allocation honors the block list. Find a better address otherwise.
-#if !PA_CONFIG(HAS_64_BITS_POINTERS) && BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
+#if !BUILDFLAG(HAS_64_BIT_POINTERS) && BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
   if (pool == kBRPPoolHandle) {
     constexpr int kMaxRandomAddressTries = 10;
     for (int i = 0; i < kMaxRandomAddressTries; ++i) {
@@ -173,10 +173,10 @@ uintptr_t ReserveMemoryFromPool(pool_handle pool,
       reserved_address = 0;
     }
   }
-#endif  // !PA_CONFIG(HAS_64_BITS_POINTERS) &&
+#endif  // !BUILDFLAG(HAS_64_BIT_POINTERS) &&
         // BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
 
-#if !PA_CONFIG(HAS_64_BITS_POINTERS)
+#if !BUILDFLAG(HAS_64_BIT_POINTERS)
   // Only mark the region as belonging to the pool after it has passed the
   // blocklist check in order to avoid a potential race with destructing a
   // raw_ptr<T> object that points to non-PA memory in another thread.
@@ -285,7 +285,7 @@ SlotSpanMetadata<thread_safe>* PartitionDirectMap(
     {
       // Reserving memory from the pool is actually not a syscall on 64 bit
       // platforms.
-#if !PA_CONFIG(HAS_64_BITS_POINTERS)
+#if !BUILDFLAG(HAS_64_BIT_POINTERS)
       ScopedSyscallTimer timer{root};
 #endif
       reservation_start = ReserveMemoryFromPool(pool, 0, reservation_size);
@@ -435,7 +435,7 @@ SlotSpanMetadata<thread_safe>* PartitionDirectMap(
 
       {
         ScopedSyscallTimer timer{root};
-#if !PA_CONFIG(HAS_64_BITS_POINTERS)
+#if !BUILDFLAG(HAS_64_BIT_POINTERS)
         AddressPoolManager::GetInstance().MarkUnused(pool, reservation_start,
                                                      reservation_size);
 #endif

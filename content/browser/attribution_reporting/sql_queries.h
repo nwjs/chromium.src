@@ -13,12 +13,14 @@ inline constexpr const char kMinPrioritySql[] =
     "WHERE source_id=? AND report_time=?";
 
 inline constexpr const char kGetMatchingSourcesSql[] =
-    "SELECT source_id,num_attributions,aggregatable_budget_consumed "
-    "FROM sources "
-    "WHERE destination_site=? AND reporting_origin=? "
-    "AND(event_level_active=1 OR aggregatable_active=1)"
-    "AND expiry_time>? "
-    "ORDER BY priority DESC,source_time DESC";
+    "SELECT I.source_id,I.num_attributions,I.aggregatable_budget_consumed "
+    "FROM sources I "
+    "JOIN source_destinations D "
+    "ON D.source_id=I.source_id AND D.destination_site=? "
+    "WHERE I.reporting_origin=? "
+    "AND(I.event_level_active=1 OR I.aggregatable_active=1)"
+    "AND I.expiry_time>? "
+    "ORDER BY I.priority DESC,I.source_time DESC";
 
 inline constexpr const char kSelectExpiredSourcesSql[] =
     "SELECT source_id FROM sources "
@@ -83,16 +85,11 @@ inline constexpr const char kGetSourcesDataKeysSql[] =
 inline constexpr const char kGetRateLimitDataKeysSql[] =
     "SELECT DISTINCT reporting_origin FROM rate_limits";
 
-// We need to hint to the query planner that/ `event_level_active` and
-// `aggregatable_active` are booleans, so include them in the conditional.
-#define ATTRIBUTION_COUNT_REPORTS_SQL(table) \
-  "SELECT COUNT(*)FROM " table               \
-  " R "                                      \
-  "JOIN sources I "                          \
-  "ON I.source_id=R.source_id "              \
-  "WHERE I.destination_site=? "              \
-  "AND(event_level_active BETWEEN 0 AND 1)"  \
-  "AND(aggregatable_active BETWEEN 0 AND 1)"
+#define ATTRIBUTION_COUNT_REPORTS_SQL(table)   \
+  "SELECT COUNT(*)FROM source_destinations D " \
+  "JOIN " table                                \
+  " R ON R.source_id=D.source_id "             \
+  "WHERE D.destination_site=?"
 
 inline constexpr const char kCountEventLevelReportsSql[] =
     ATTRIBUTION_COUNT_REPORTS_SQL("event_level_reports");
@@ -140,7 +137,6 @@ inline constexpr const char kSetAggregatableReportTimeSql[] =
   prefix "source_id,"                          \
   prefix "source_event_id,"                    \
   prefix "source_origin,"                      \
-  prefix "destination_origin,"                 \
   prefix "reporting_origin,"                   \
   prefix "source_time,"                        \
   prefix "expiry_time,"                        \
@@ -172,7 +168,8 @@ inline constexpr const char kGetActiveSourcesSql[] =
   "SELECT "                                                             \
   ATTRIBUTION_SOURCE_COLUMNS_SQL("I.")                                  \
   ",C.trigger_data,C.trigger_time,C.report_time,C.report_id,"           \
-  "C.priority,C.failed_send_attempts,C.external_report_id,C.debug_key " \
+  "C.priority,C.failed_send_attempts,C.external_report_id,C.debug_key," \
+  "C.context_origin "                                                   \
   "FROM event_level_reports C "                                         \
   "JOIN sources I ON C.source_id=I.source_id "
 
@@ -186,13 +183,13 @@ inline constexpr const char kGetEventLevelReportSql[] =
 
 #undef ATTRIBUTION_SELECT_EVENT_LEVEL_REPORT_AND_SOURCE_COLUMNS_SQL
 
-#define ATTRIBUTION_SELECT_AGGREGATABLE_REPORT_AND_SOURCE_COLUMNS_SQL  \
-  "SELECT "                                                            \
-  ATTRIBUTION_SOURCE_COLUMNS_SQL("I.")                                 \
-  ",A.aggregation_id,A.trigger_time,A.report_time,A.debug_key,"        \
-  "A.external_report_id,A.failed_send_attempts,A.initial_report_time," \
-  "A.aggregation_coordinator,A.attestation_token "                     \
-  "FROM aggregatable_report_metadata A "                               \
+#define ATTRIBUTION_SELECT_AGGREGATABLE_REPORT_AND_SOURCE_COLUMNS_SQL   \
+  "SELECT "                                                             \
+  ATTRIBUTION_SOURCE_COLUMNS_SQL("I.")                                  \
+  ",A.aggregation_id,A.trigger_time,A.report_time,A.debug_key,"         \
+  "A.external_report_id,A.failed_send_attempts,A.initial_report_time,"  \
+  "A.aggregation_coordinator,A.attestation_token,A.destination_origin " \
+  "FROM aggregatable_report_metadata A "                                \
   "JOIN sources I ON A.source_id=I.source_id "
 
 inline constexpr const char kGetAggregatableReportsSql[] =

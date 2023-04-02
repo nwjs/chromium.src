@@ -23,7 +23,6 @@
 #include "chrome/browser/web_applications/manifest_update_manager.h"
 #include "chrome/browser/web_applications/os_integration/os_integration_manager.h"
 #include "chrome/browser/web_applications/os_integration/url_handler_manager.h"
-#include "chrome/browser/web_applications/os_integration/url_handler_manager_impl.h"
 #include "chrome/browser/web_applications/os_integration/web_app_file_handler_manager.h"
 #include "chrome/browser/web_applications/os_integration/web_app_protocol_handler_manager.h"
 #include "chrome/browser/web_applications/os_integration/web_app_shortcut_manager.h"
@@ -282,14 +281,11 @@ void WebAppProvider::CreateSubsystems(Profile* profile) {
         profile, icon_manager_.get(), file_handler_manager.get(),
         protocol_handler_manager.get());
 
-    std::unique_ptr<UrlHandlerManager> url_handler_manager;
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-    url_handler_manager = std::make_unique<UrlHandlerManagerImpl>(profile);
-#endif
-
+    // TODO(crbug.com/1072058): Remove UrlHandlerManager from
+    // OsIntegrationManager.
     os_integration_manager_ = std::make_unique<OsIntegrationManager>(
         profile, std::move(shortcut_manager), std::move(file_handler_manager),
-        std::move(protocol_handler_manager), std::move(url_handler_manager));
+        std::move(protocol_handler_manager), /*url_handler_manager=*/nullptr);
   }
 
   command_manager_ = std::make_unique<WebAppCommandManager>(profile, this);
@@ -303,7 +299,7 @@ void WebAppProvider::ConnectSubsystems() {
   DCHECK(!started_);
 
   sync_bridge_->SetSubsystems(database_factory_.get(), command_manager_.get(),
-                              command_scheduler_.get());
+                              command_scheduler_.get(), install_manager_.get());
   icon_manager_->SetSubsystems(registrar_.get(), install_manager_.get());
   install_finalizer_->SetSubsystems(
       install_manager_.get(), registrar_.get(), ui_manager_.get(),
@@ -314,11 +310,9 @@ void WebAppProvider::ConnectSubsystems() {
       registrar_.get(), os_integration_manager_.get(), command_manager_.get(),
       install_finalizer_.get(), icon_manager_.get(), sync_bridge_.get(),
       translation_manager_.get());
-  manifest_update_manager_->SetSubsystems(
-      install_manager_.get(), registrar_.get(), icon_manager_.get(),
-      ui_manager_.get(), install_finalizer_.get(),
-      os_integration_manager_.get(), sync_bridge_.get(),
-      command_scheduler_.get());
+  manifest_update_manager_->SetSubsystems(install_manager_.get(),
+                                          registrar_.get(), ui_manager_.get(),
+                                          command_scheduler_.get());
   externally_managed_app_manager_->SetSubsystems(
       ui_manager_.get(), install_finalizer_.get(), command_scheduler_.get());
   preinstalled_web_app_manager_->SetSubsystems(

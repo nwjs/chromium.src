@@ -137,7 +137,8 @@ TEST_F(LocalFileStreamReaderTest, ReadAllowedByDataLeakPrevention) {
       base::OnceCallback<void(file_access::ScopedFileAccess)>)>
       callback;
   file_access::ScopedFileAccessDelegate::
-      SetRequestFilesAccessForSystemIOCallbackForTesting(callback.Get());
+      ScopedRequestFilesAccessCallbackForTesting file_access_callback(
+          callback.Get());
   EXPECT_CALL(
       callback,
       Run(testing::ElementsAre(test_dir().AppendASCII(kTestFileName)), _))
@@ -163,7 +164,8 @@ TEST_F(LocalFileStreamReaderTest, ReadBlockedByDataLeakPrevention) {
       base::OnceCallback<void(file_access::ScopedFileAccess)>)>
       callback;
   file_access::ScopedFileAccessDelegate::
-      SetRequestFilesAccessForSystemIOCallbackForTesting(callback.Get());
+      ScopedRequestFilesAccessCallbackForTesting file_access_callback(
+          callback.Get());
   EXPECT_CALL(
       callback,
       Run(testing::ElementsAre(test_dir().AppendASCII(kTestFileName)), _))

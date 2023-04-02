@@ -6,14 +6,20 @@
 
 #include <memory>
 
+#include "ash/constants/ash_switches.h"
+#include "base/functional/bind.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/scoped_command_line.h"
 #include "base/test/task_environment.h"
 #include "chrome/browser/ash/app_mode/fake_kiosk_app_launcher.h"
 #include "chrome/browser/ash/app_mode/kiosk_app_launch_error.h"
 #include "chrome/browser/ash/app_mode/kiosk_app_launcher.h"
 #include "chrome/browser/ash/app_mode/kiosk_app_types.h"
+#include "chrome/browser/ash/app_mode/web_app/web_kiosk_app_manager.h"
 #include "chrome/browser/ash/login/test/kiosk_test_helpers.h"
+#include "chrome/browser/ash/policy/core/device_local_account.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
 #include "chrome/browser/extensions/extension_service.h"
@@ -35,6 +41,7 @@
 #include "extensions/common/extension_builder.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "url/gurl.h"
 
 namespace ash {
 
@@ -42,6 +49,7 @@ namespace {
 
 using ::testing::Eq;
 
+const char kInstallUrl[] = "https://install.url";
 const char kExtensionId[] = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const char kInvalidExtensionId[] = "invalid-extension-id";
 const char kExtensionName[] = "extension_name";
@@ -99,27 +107,29 @@ class KioskLaunchControllerTest : public extensions::ExtensionServiceTestBase {
         ChromeKeyboardControllerClientTestHelper::InitializeWithFake();
 
     disable_wait_timer_and_login_operations_for_testing_ =
-        KioskLaunchController::DisableWaitTimerAndLoginOperationsForTesting();
-
-    auto app_launcher = std::make_unique<FakeKioskAppLauncher>();
-    app_launcher_ = app_launcher.get();
+        KioskLaunchController::DisableLoginOperationsForTesting();
 
     view_ = std::make_unique<FakeAppLaunchSplashScreenHandler>();
-    controller_ = KioskLaunchController::CreateForTesting(
-        view_.get(), std::move(app_launcher));
+    controller_ = std::make_unique<KioskLaunchController>(
+        /*host=*/nullptr, view_.get(),
+        base::BindRepeating(
+            &KioskLaunchControllerTest::BuildFakeKioskAppLauncher,
+            base::Unretained(this)));
 
     // We can't call `crash_reporter::ResetCrashKeysForTesting()` to reset crash
     // keys since it destroys the storage for static crash keys. Instead we set
     // the initial state to `KioskLaunchState::kStartLaunch` before testing.
     SetKioskLaunchStateCrashKey(KioskLaunchState::kStartLaunch);
 
-    kiosk_app_id_ = KioskAppId::ForWebApp(EmptyAccountId());
+    SetUpKioskAppInAppManager();
 
     extensions::ExtensionServiceTestBase::SetUp();
   }
 
   void TearDown() override {
     extensions::ExtensionServiceTestBase::TearDown();
+
+    kiosk_app_manager_.reset();
 
     policy::BrowserPolicyConnectorBase::SetPolicyServiceForTesting(nullptr);
   }
@@ -133,6 +143,8 @@ class KioskLaunchControllerTest : public extensions::ExtensionServiceTestBase {
   AppLaunchSplashScreenView::Delegate& view_controls() { return *controller_; }
 
   FakeKioskAppLauncher& launcher() { return *app_launcher_; }
+
+  int num_launchers_created() { return app_launchers_created_; }
 
   auto HasState(AppState app_state, NetworkUIState network_state) {
     return testing::AllOf(
@@ -155,7 +167,9 @@ class KioskLaunchControllerTest : public extensions::ExtensionServiceTestBase {
         Eq(error));
   }
 
-  void FireSplashScreenTimer() { controller_->OnTimerFire(); }
+  void FireSplashScreenTimer() {
+    task_environment()->FastForwardBy(kDefaultKioskSplashScreenMinTime);
+  }
 
   void DeleteSplashScreen() { controller_->OnDeletingSplashScreenView(); }
 
@@ -183,19 +197,48 @@ class KioskLaunchControllerTest : public extensions::ExtensionServiceTestBase {
   }
 
  private:
+  void SetUpKioskAppInAppManager() {
+    std::string email = policy::GenerateDeviceLocalAccountUserId(
+        kInstallUrl, policy::DeviceLocalAccount::Type::TYPE_WEB_KIOSK_APP);
+    AccountId account_id(AccountId::FromUserEmail(email));
+    kiosk_app_id_ = KioskAppId::ForWebApp(account_id);
+
+    kiosk_app_manager_ = std::make_unique<WebKioskAppManager>();
+    kiosk_app_manager_->AddAppForTesting(kiosk_app_id_.account_id.value(),
+                                         GURL(kInstallUrl));
+  }
+
+  std::unique_ptr<KioskAppLauncher> BuildFakeKioskAppLauncher(
+      Profile*,
+      const KioskAppId& kiosk_app_id,
+      KioskAppLauncher::NetworkDelegate*) {
+    app_launchers_created_++;
+    auto app_launcher = std::make_unique<FakeKioskAppLauncher>();
+    app_launcher_ = app_launcher.get();
+    return std::move(app_launcher);
+  }
+
   TestingProfile profile_;
   session_manager::SessionManager session_manager_;
   std::unique_ptr<ChromeKeyboardControllerClientTestHelper>
       keyboard_controller_client_;
+  std::unique_ptr<WebKioskAppManager> kiosk_app_manager_;
 
   ScopedCanConfigureNetwork can_configure_network_for_testing_{true, false};
   std::unique_ptr<base::AutoReset<bool>>
       disable_wait_timer_and_login_operations_for_testing_;
   std::unique_ptr<FakeAppLaunchSplashScreenHandler> view_;
-  FakeKioskAppLauncher* app_launcher_;  // owned by `controller_`.
+  FakeKioskAppLauncher* app_launcher_ = nullptr;  // owned by `controller_`.
+  int app_launchers_created_ = 0;
   std::unique_ptr<KioskLaunchController> controller_;
   KioskAppId kiosk_app_id_;
 };
+
+TEST_F(KioskLaunchControllerTest, StartShouldShowAppDataOnSplashScreen) {
+  controller().Start(kiosk_app_id(), /*auto_launch=*/false);
+
+  EXPECT_EQ(view().last_app_data().url, GURL(kInstallUrl));
+}
 
 TEST_F(KioskLaunchControllerTest, ProfileLoadedShouldInitializeLauncher) {
   controller().Start(kiosk_app_id(), /*auto_launch=*/false);
@@ -239,6 +282,24 @@ TEST_F(KioskLaunchControllerTest, SplashScreenTimerShouldLaunchPreparedApp) {
   EXPECT_TRUE(launcher().HasAppLaunched());
 }
 
+TEST_F(KioskLaunchControllerTest, SplashScreenTimeoutShouldBeConfigurable) {
+  const int kTimeStep = 15;
+
+  base::test::ScopedCommandLine command_line;
+  command_line.GetProcessCommandLine()->AppendSwitchASCII(
+      ash::switches::kKioskSplashScreenMinTimeSeconds,
+      base::NumberToString(2 * kTimeStep));
+
+  RunUntilAppPrepared();
+  EXPECT_FALSE(launcher().HasAppLaunched());
+
+  task_environment()->FastForwardBy(base::Seconds(kTimeStep));
+  EXPECT_FALSE(launcher().HasAppLaunched());
+
+  task_environment()->FastForwardBy(base::Seconds(kTimeStep));
+  EXPECT_TRUE(launcher().HasAppLaunched());
+}
+
 TEST_F(KioskLaunchControllerTest,
        SplashScreenTimerShouldNotLaunchUnpreparedApp) {
   controller().Start(kiosk_app_id(), /*auto_launch=*/false);
@@ -265,6 +326,15 @@ TEST_F(KioskLaunchControllerTest, AppLaunchedShouldStartSession) {
       HasViewState(
           AppLaunchSplashScreenView::AppLaunchState::kWaitingAppWindow));
   EXPECT_TRUE(session_manager::SessionManager::Get()->IsSessionStarted());
+}
+
+TEST_F(KioskLaunchControllerTest,
+       InitializeLauncherShouldSignalNetworkRequired) {
+  controller().Start(kiosk_app_id(), /*auto_launch=*/false);
+  profile_controls().OnProfileLoaded(profile());
+
+  network_delegate().InitializeNetwork();
+  EXPECT_TRUE(view().IsNetworkRequired());
 }
 
 TEST_F(KioskLaunchControllerTest,
@@ -369,6 +439,7 @@ TEST_F(KioskLaunchControllerTest, KioskProfileLoadFailedObserverShouldBeFired) {
 
   controller().RemoveKioskProfileLoadFailedObserver(
       &profile_load_failed_observer);
+  EXPECT_EQ(num_launchers_created(), 0);
 }
 
 TEST_F(KioskLaunchControllerTest, KioskProfileLoadErrorShouldBeStored) {
@@ -629,11 +700,12 @@ TEST_F(KioskLaunchControllerWithExtensionTest,
 TEST_F(KioskLaunchControllerTest, TestFullFlow) {
   SetOnline(true);
 
-  EXPECT_FALSE(launcher().IsInitialized());
-  EXPECT_FALSE(launcher().HasAppLaunched());
-  EXPECT_FALSE(launcher().HasContinueWithNetworkReadyBeenCalled());
+  EXPECT_EQ(num_launchers_created(), 0);
 
   controller().Start(kiosk_app_id(), /*auto_launch=*/false);
+
+  EXPECT_EQ(num_launchers_created(), 0);
+
   profile_controls().OnProfileLoaded(profile());
 
   EXPECT_EQ(launcher().initialize_called(), 1);
@@ -655,5 +727,6 @@ TEST_F(KioskLaunchControllerTest, TestFullFlow) {
   EXPECT_EQ(launcher().initialize_called(), 1);
   EXPECT_EQ(launcher().continue_with_network_ready_called(), 1);
   EXPECT_EQ(launcher().launch_app_called(), 1);
+  EXPECT_EQ(num_launchers_created(), 1);
 }
 }  // namespace ash

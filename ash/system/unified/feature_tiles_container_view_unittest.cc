@@ -7,11 +7,11 @@
 #include "ash/constants/ash_features.h"
 #include "ash/constants/quick_settings_catalogs.h"
 #include "ash/public/cpp/pagination/pagination_model.h"
+#include "ash/shell.h"
 #include "ash/system/tray/tray_constants.h"
 #include "ash/system/unified/feature_pod_button.h"
 #include "ash/system/unified/feature_pod_controller_base.h"
 #include "ash/system/unified/feature_tile.h"
-#include "ash/system/unified/page_indicator_view.h"
 #include "ash/system/unified/unified_system_tray.h"
 #include "ash/system/unified/unified_system_tray_bubble.h"
 #include "ash/system/unified/unified_system_tray_controller.h"
@@ -78,35 +78,39 @@ class FeatureTilesContainerViewTest : public AshTestBase,
   // AshTestBase:
   void SetUp() override {
     AshTestBase::SetUp();
-    GetPrimaryUnifiedSystemTray()->ShowBubble();
-    container_ = std::make_unique<FeatureTilesContainerView>(
-        GetPrimaryUnifiedSystemTray()
-            ->bubble()
-            ->unified_system_tray_controller());
+
+    tray_model_ =
+        base::MakeRefCounted<UnifiedSystemTrayModel>(/*shelf=*/nullptr);
+    tray_controller_ =
+        std::make_unique<UnifiedSystemTrayController>(tray_model_.get());
+    widget_ = CreateFramelessTestWidget();
+    widget_->SetFullscreen(true);
+
+    container_ = widget_->SetContentsView(
+        std::make_unique<FeatureTilesContainerView>(tray_controller_.get()));
     container_->AddObserver(this);
   }
 
   void TearDown() override {
     container_->RemoveObserver(this);
-    container_.reset();
-    GetPrimaryUnifiedSystemTray()->CloseBubble();
+    widget_.reset();
+    tray_controller_.reset();
+    tray_model_.reset();
+
     AshTestBase::TearDown();
   }
 
-  FeatureTilesContainerView* container() { return container_.get(); }
-
-  PageIndicatorView* GetPageIndicatorView() {
-    return GetPrimaryUnifiedSystemTray()
-        ->bubble()
-        ->quick_settings_view()
-        ->page_indicator_view_for_test();
+  void PressTab() {
+    ui::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
+    generator.PressKey(ui::KeyboardCode::VKEY_TAB, ui::EF_NONE);
   }
 
-  std::vector<views::View*> GetPageIndicatorButtons() {
-    return GetPageIndicatorView()->buttons_container()->children();
+  void PressShiftTab() {
+    ui::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
+    generator.PressKey(ui::KeyboardCode::VKEY_TAB, ui::EF_SHIFT_DOWN);
   }
 
-  int GetPageIndicatorButtonCount() { return GetPageIndicatorButtons().size(); }
+  FeatureTilesContainerView* container() { return container_; }
 
   PaginationModel* pagination_model() { return container()->pagination_model_; }
 
@@ -126,6 +130,10 @@ class FeatureTilesContainerViewTest : public AshTestBase,
 
   int GetPageCount() { return container()->page_count(); }
 
+  int GetVisibleCount() { return container()->GetVisibleFeatureTileCount(); }
+
+  // Fills the container with a number of `pages` given the max amount of
+  // displayable primary tiles per page.
   void FillContainerWithPrimaryTiles(int pages) {
     auto mock_controller = std::make_unique<MockFeaturePodController>();
     std::vector<std::unique_ptr<FeatureTile>> tiles;
@@ -140,12 +148,14 @@ class FeatureTilesContainerViewTest : public AshTestBase,
 
     EXPECT_EQ(pages, GetPageCount());
     EXPECT_EQ(pages, pagination_model()->total_pages());
-    EXPECT_EQ(pages, GetPageIndicatorButtonCount());
   }
 
  private:
   base::test::ScopedFeatureList feature_list_;
-  std::unique_ptr<FeatureTilesContainerView> container_;
+  std::unique_ptr<views::Widget> widget_;
+  std::unique_ptr<UnifiedSystemTrayController> tray_controller_;
+  scoped_refptr<UnifiedSystemTrayModel> tray_model_;
+  FeatureTilesContainerView* container_;
 };
 
 // Tests `CalculateRowsFromHeight()` which returns the number of max displayable
@@ -174,7 +184,8 @@ TEST_F(FeatureTilesContainerViewTest, FeatureTileRows) {
   two_primary_tiles.push_back(mock_controller->CreateTile());
   two_primary_tiles.push_back(mock_controller->CreateTile());
   container()->AddTiles(std::move(two_primary_tiles));
-  EXPECT_EQ(GetRowCount(), 1);
+  EXPECT_EQ(1, GetRowCount());
+  EXPECT_EQ(2, GetVisibleCount());
 
   // Expect one other row by adding a primary and two compact tiles.
   std::vector<std::unique_ptr<FeatureTile>> one_primary_two_compact_tiles;
@@ -184,13 +195,15 @@ TEST_F(FeatureTilesContainerViewTest, FeatureTileRows) {
   one_primary_two_compact_tiles.push_back(
       mock_controller->CreateTile(/*compact=*/true));
   container()->AddTiles(std::move(one_primary_two_compact_tiles));
-  EXPECT_EQ(GetRowCount(), 2);
+  EXPECT_EQ(2, GetRowCount());
+  EXPECT_EQ(5, GetVisibleCount());
 
   // Expect one other row by adding a single primary tile.
   std::vector<std::unique_ptr<FeatureTile>> one_primary_tile;
   one_primary_tile.push_back(mock_controller->CreateTile());
   container()->AddTiles(std::move(one_primary_tile));
-  EXPECT_EQ(GetRowCount(), 3);
+  EXPECT_EQ(3, GetRowCount());
+  EXPECT_EQ(6, GetVisibleCount());
 }
 
 TEST_F(FeatureTilesContainerViewTest, ChangeTileVisibility) {
@@ -212,15 +225,18 @@ TEST_F(FeatureTilesContainerViewTest, ChangeTileVisibility) {
   AddTiles(std::move(tiles));
 
   // Only one row is created because the first tile is not visible.
-  EXPECT_EQ(GetRowCount(), 1);
+  EXPECT_EQ(1, GetRowCount());
+  EXPECT_EQ(2, GetVisibleCount());
 
   // Making the tile visible causes a second row to be created.
   tile1_ptr->SetVisible(true);
-  EXPECT_EQ(GetRowCount(), 2);
+  EXPECT_EQ(2, GetRowCount());
+  EXPECT_EQ(3, GetVisibleCount());
 
   // Making the tile invisible causes the second row to be removed.
   tile1_ptr->SetVisible(false);
-  EXPECT_EQ(GetRowCount(), 1);
+  EXPECT_EQ(1, GetRowCount());
+  EXPECT_EQ(2, GetVisibleCount());
 }
 
 TEST_F(FeatureTilesContainerViewTest, PageCountUpdated) {
@@ -244,16 +260,19 @@ TEST_F(FeatureTilesContainerViewTest, PageCountUpdated) {
   // Since a row fits two primary tiles, expect two pages for five primary
   // tiles.
   AddTiles(std::move(tiles));
-  EXPECT_EQ(GetPageCount(), 2);
+  EXPECT_EQ(2, GetPageCount());
+  EXPECT_EQ(5, GetVisibleCount());
 
   // Expect change in page count after updating visibility of a tile.
   tile1_ptr->SetVisible(false);
-  EXPECT_EQ(GetPageCount(), 1);
+  EXPECT_EQ(1, GetPageCount());
+  EXPECT_EQ(4, GetVisibleCount());
 
   // Expect change in page count after updating max displayable rows by updating
   // the available height.
   SetRowsFromHeight(kFeatureTileHeight);
-  EXPECT_EQ(GetPageCount(), 2);
+  EXPECT_EQ(2, GetPageCount());
+  EXPECT_EQ(4, GetVisibleCount());
 }
 
 // TODO(b/263185068): Use EventGenerator.
@@ -409,31 +428,20 @@ TEST_F(FeatureTilesContainerViewTest, PaginationMouseWheel) {
   }
 }
 
-TEST_F(FeatureTilesContainerViewTest, PaginationDots) {
-  constexpr int kNumberOfPages = 4;
-  FillContainerWithPrimaryTiles(kNumberOfPages);
+TEST_F(FeatureTilesContainerViewTest, SwitchPageWithFocus) {
+  FillContainerWithPrimaryTiles(/*pages=*/2);
 
-  // Expect the current_page to increase with each pagination dot click.
-  int current_page = pagination_model()->selected_page();
-  for (auto* button : GetPageIndicatorButtons()) {
-    LeftClickOn(button);
-    pagination_model()->FinishAnimation();
-    EXPECT_EQ(current_page++, pagination_model()->selected_page());
+  // View starts at page with index zero.
+  EXPECT_EQ(0, pagination_model()->selected_page());
+
+  // Tab until the `selected_page` index changes to 1.
+  while (pagination_model()->selected_page() == 0) {
+    PressTab();
   }
-}
+  EXPECT_EQ(1, pagination_model()->selected_page());
 
-TEST_F(FeatureTilesContainerViewTest, ResetPagination) {
-  constexpr int kNumberOfPages = 4;
-  FillContainerWithPrimaryTiles(kNumberOfPages);
-
-  // Expect page with index 2 to be selected after clicking its dot.
-  LeftClickOn(GetPageIndicatorButtons()[2]);
-  pagination_model()->FinishAnimation();
-  EXPECT_EQ(2, pagination_model()->selected_page());
-
-  // Expect page reset after closing and opening bubble.
-  GetPrimaryUnifiedSystemTray()->CloseBubble();
-  GetPrimaryUnifiedSystemTray()->ShowBubble();
+  // Pressing shift tab returns to the previous page.
+  PressShiftTab();
   EXPECT_EQ(0, pagination_model()->selected_page());
 }
 

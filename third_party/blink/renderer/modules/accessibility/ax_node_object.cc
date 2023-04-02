@@ -46,6 +46,7 @@
 #include "third_party/blink/renderer/core/css/css_resolution_units.h"
 #include "third_party/blink/renderer/core/css/properties/longhands.h"
 #include "third_party/blink/renderer/core/display_lock/display_lock_utilities.h"
+#include "third_party/blink/renderer/core/dom/css_toggle_inference.h"
 #include "third_party/blink/renderer/core/dom/flat_tree_traversal.h"
 #include "third_party/blink/renderer/core/dom/layout_tree_builder_traversal.h"
 #include "third_party/blink/renderer/core/dom/node_computed_style.h"
@@ -453,6 +454,12 @@ AXObjectInclusion AXNodeObject::ShouldIncludeBasedOnSemantics(
     IgnoredReasons* ignored_reasons) const {
   DCHECK(GetDocument());
 
+  // All nodes must have an unignored parent within their tree under
+  // the root node of the web area, so force that node to always be unignored.
+  if (IsA<Document>(GetNode())) {
+    return kIncludeObject;
+  }
+
   if (IsPresentational()) {
     if (ignored_reasons)
       ignored_reasons->push_back(IgnoredReason(kAXPresentational));
@@ -472,6 +479,7 @@ AXObjectInclusion AXNodeObject::ShouldIncludeBasedOnSemantics(
     // alt text. This can allow auto alt to be applied to them.
     if (IsImage())
       return kIncludeObject;
+
     return kDefaultBehavior;
   }
 
@@ -487,8 +495,9 @@ AXObjectInclusion AXNodeObject::ShouldIncludeBasedOnSemantics(
   }
 
   Element* element = GetElement();
-  if (!element)
+  if (!element) {
     return kDefaultBehavior;
+  }
 
   if (IsA<SVGElement>(node)) {
     // The symbol element is used to define graphical templates which can be
@@ -515,6 +524,14 @@ AXObjectInclusion AXNodeObject::ShouldIncludeBasedOnSemantics(
       return kIncludeObject;
     }
 
+    // If setting enabled, do not ignore SVG grouping (<g>) elements.
+    if (IsA<SVGGElement>(node)) {
+      Settings* settings = GetDocument()->GetSettings();
+      if (settings->GetAccessibilityIncludeSvgGElement()) {
+        return kIncludeObject;
+      }
+    }
+
     // If we return kDefaultBehavior here, the logic related to inclusion of
     // clickable objects, links, controls, etc. will not be reached. We handle
     // SVG elements early to ensure properties in a <symbol> subtree do not
@@ -524,7 +541,14 @@ AXObjectInclusion AXNodeObject::ShouldIncludeBasedOnSemantics(
   if (IsTableLikeRole() || IsTableRowLikeRole() || IsTableCellLikeRole())
     return kIncludeObject;
 
-  // All focusable elements except the <body> are included.
+  if (IsA<HTMLHtmlElement>(node)) {
+    if (ignored_reasons) {
+      ignored_reasons->push_back(IgnoredReason(kAXUninteresting));
+    }
+    return kIgnoreObject;
+  }
+
+  // All focusable elements except the <body> and <html> are included.
   if (!IsA<HTMLBodyElement>(node) && CanSetFocusAttribute())
     return kIncludeObject;
 
@@ -579,6 +603,7 @@ AXObjectInclusion AXNodeObject::ShouldIncludeBasedOnSemantics(
           ax::mojom::blink::Role::kAbbr,
           ax::mojom::blink::Role::kApplication,
           ax::mojom::blink::Role::kArticle,
+          ax::mojom::blink::Role::kAudio,
           ax::mojom::blink::Role::kBanner,
           ax::mojom::blink::Role::kBlockquote,
           ax::mojom::blink::Role::kComplementary,
@@ -654,6 +679,7 @@ AXObjectInclusion AXNodeObject::ShouldIncludeBasedOnSemantics(
           ax::mojom::blink::Role::kSubscript,
           ax::mojom::blink::Role::kSuperscript,
           ax::mojom::blink::Role::kTime,
+          ax::mojom::blink::Role::kVideo,
       };
 
   if (always_included_computed_roles.find(RoleValue()) !=
@@ -705,7 +731,42 @@ AXObjectInclusion AXNodeObject::ShouldIncludeBasedOnSemantics(
     return kIncludeObject;
   }
 
+  // The SVG-AAM says the foreignObject element is normally presentational.
+  if (IsA<SVGForeignObjectElement>(node)) {
+    if (ignored_reasons) {
+      ignored_reasons->push_back(IgnoredReason(kAXPresentational));
+    }
+    return kIgnoreObject;
+  }
+
   return kDefaultBehavior;
+}
+
+bool AXNodeObject::ComputeAccessibilityIsIgnored(
+    IgnoredReasons* ignored_reasons) const {
+  if (AXObject::ComputeAccessibilityIsIgnored(ignored_reasons)) {
+    // Fallback elements inside of a <canvas> are invisible, but are not ignored
+    // if they are semantic and not aria-hidden or hidden via style.
+    if (IsAriaHidden() || IsHiddenViaStyle() || !GetNode()->parentElement() ||
+        !GetNode()->parentElement()->IsInCanvasSubtree()) {
+      return true;
+    }
+  }
+
+  // Handle content that is either visible or in a canvas subtree.
+  AXObjectInclusion include = ShouldIncludeBasedOnSemantics(ignored_reasons);
+  if (include == kIgnoreObject) {
+    return true;
+  }
+
+  if (include == kDefaultBehavior && !IsA<Text>(GetNode())) {
+    if (ignored_reasons) {
+      ignored_reasons->push_back(IgnoredReason(kAXUninteresting));
+    }
+    return true;
+  }
+
+  return false;
 }
 
 // static
@@ -743,95 +804,52 @@ absl::optional<String> AXNodeObject::GetCSSAltText(const Node* node) {
   return absl::nullopt;
 }
 
-bool AXNodeObject::ComputeAccessibilityIsIgnored(
-    IgnoredReasons* ignored_reasons) const {
-#if DCHECK_IS_ON()
-  // Double-check that an AXObject is never accessed before
-  // it's been initialized.
-  DCHECK(initialized_);
-#endif
+// The following lists are for deciding whether the tags aside,
+// header and footer can be interpreted as roles complementary, banner and
+// contentInfo or if they should be interpreted as generic. This list
+// includes all roles that correspond to the html sectioning content elements.
+static HashSet<ax::mojom::blink::Role>& GetLandmarkIsNotAllowedAncestorRoles(
+    ax::mojom::blink::Role landmark) {
+  // clang-format off
+  DEFINE_STATIC_LOCAL(
+      HashSet<ax::mojom::blink::Role>, sectioning_content_roles,
+      ({
+        ax::mojom::blink::Role::kArticle,
+        ax::mojom::blink::Role::kComplementary,
+        ax::mojom::blink::Role::kMain,
+        ax::mojom::blink::Role::kNavigation,
+        ax::mojom::blink::Role::kSection
+      }));
+  // clang-format on
 
-  // If we don't have a node, then ignore the node object.
-  // TODO(vmpstr/aleventhal): Investigate how this can happen.
-  if (!GetNode()) {
-    NOTREACHED();
-    return true;
-  }
+  DEFINE_STATIC_LOCAL(HashSet<ax::mojom::blink::Role>,
+                      aside_is_not_allowed_roles, ());
 
-  // All nodes must have an unignored parent within their tree under
-  // the root node of the web area, so force that node to always be unignored.
-  if (IsA<Document>(GetNode())) {
-    return false;
-  }
-
-  DCHECK_NE(role_, ax::mojom::blink::Role::kUnknown);
-  // Use AXLayoutObject::ComputeAccessibilityIsIgnored().
-  DCHECK(!GetLayoutObject());
-
-  if (DisplayLockUtilities::IsDisplayLockedPreventingPaint(GetNode())) {
-    if (IsAriaHidden() ||
-        DisplayLockUtilities::ShouldIgnoreNodeDueToDisplayLock(
-            *GetNode(), DisplayLockActivationReason::kAccessibility)) {
-      if (ignored_reasons)
-        ignored_reasons->push_back(IgnoredReason(kAXNotRendered));
-      return true;
+  // Main can contain complementary element but not header or footer.
+  if (landmark == ax::mojom::blink::Role::kComplementary) {
+    if (aside_is_not_allowed_roles.empty()) {
+      for (const auto& role : sectioning_content_roles) {
+        if (role != ax::mojom::blink::Role::kMain) {
+          aside_is_not_allowed_roles.insert(role);
+        }
+      }
     }
-    return ShouldIncludeBasedOnSemantics(ignored_reasons) == kIgnoreObject;
+    return aside_is_not_allowed_roles;
   }
-
-  auto* element = DynamicTo<Element>(GetNode());
-  if (!element)
-    element = GetNode()->parentElement();
-
-  if (!element)
-    return true;
-
-  if (element->IsInCanvasSubtree())
-    return ShouldIncludeBasedOnSemantics(ignored_reasons) == kIgnoreObject;
-
-  if (AOMPropertyOrARIAAttributeIsFalse(AOMBooleanProperty::kHidden))
-    return false;
-
-  if (element->HasDisplayContentsStyle()) {
-    if (ShouldIncludeBasedOnSemantics(ignored_reasons) == kIncludeObject)
-      return false;
-  }
-
-  if (ignored_reasons)
-    ignored_reasons->push_back(IgnoredReason(kAXNotRendered));
-  return true;
+  return sectioning_content_roles;
 }
 
-// There should only be one banner/contentInfo per page. If header/footer are
-// being used within an article, aside, nave, section, blockquote, details,
-// fieldset, figure, td, or main, then it should not be exposed as whole
-// page's banner/contentInfo.
-static HashSet<QualifiedName>& GetLandmarkRolesNotAllowed() {
-  DEFINE_STATIC_LOCAL(HashSet<QualifiedName>, landmark_roles_not_allowed, ());
-  if (landmark_roles_not_allowed.empty()) {
-    landmark_roles_not_allowed.insert(html_names::kArticleTag);
-    landmark_roles_not_allowed.insert(html_names::kAsideTag);
-    landmark_roles_not_allowed.insert(html_names::kNavTag);
-    landmark_roles_not_allowed.insert(html_names::kSectionTag);
-    landmark_roles_not_allowed.insert(html_names::kBlockquoteTag);
-    landmark_roles_not_allowed.insert(html_names::kDetailsTag);
-    landmark_roles_not_allowed.insert(html_names::kFieldsetTag);
-    landmark_roles_not_allowed.insert(html_names::kFigureTag);
-    landmark_roles_not_allowed.insert(html_names::kTdTag);
-    landmark_roles_not_allowed.insert(html_names::kMainTag);
-  }
-  return landmark_roles_not_allowed;
-}
-
-bool AXNodeObject::IsDescendantOfElementType(
-    HashSet<QualifiedName>& tag_names) const {
+bool AXNodeObject::IsDescendantOfLandmarkDisallowedElement() const {
   if (!GetNode())
     return false;
 
-  for (Element* parent = GetNode()->parentElement(); parent;
-       parent = parent->parentElement()) {
-    if (tag_names.Contains(parent->TagQName()))
+  auto role_names = GetLandmarkIsNotAllowedAncestorRoles(RoleValue());
+
+  for (AXObject* parent = ParentObjectUnignored(); parent;
+       parent = parent->ParentObjectUnignored()) {
+    if (role_names.Contains(parent->RoleValue())) {
       return true;
+    }
   }
   return false;
 }
@@ -1288,18 +1306,11 @@ ax::mojom::blink::Role AXNodeObject::NativeRoleIgnoringAria() const {
   if (IsFrame(GetNode()))
     return ax::mojom::blink::Role::kIframe;
 
-  // There should only be one banner/contentInfo per page. If header/footer are
-  // being used within an article or section then it should not be exposed as
-  // whole page's banner/contentInfo but as a generic container role.
   if (GetNode()->HasTagName(html_names::kHeaderTag)) {
-    if (IsDescendantOfElementType(GetLandmarkRolesNotAllowed()))
-      return ax::mojom::blink::Role::kHeaderAsNonLandmark;
     return ax::mojom::blink::Role::kHeader;
   }
 
   if (GetNode()->HasTagName(html_names::kFooterTag)) {
-    if (IsDescendantOfElementType(GetLandmarkRolesNotAllowed()))
-      return ax::mojom::blink::Role::kFooterAsNonLandmark;
     return ax::mojom::blink::Role::kFooter;
   }
 
@@ -1333,6 +1344,75 @@ ax::mojom::blink::Role AXNodeObject::NativeRoleIgnoringAria() const {
   return RoleFromLayoutObjectOrNode();
 }
 
+namespace {
+
+ax::mojom::blink::Role InferredCSSToggleRole(Node* node) {
+  Element* element = DynamicTo<Element>(node);
+  if (!element) {
+    return ax::mojom::blink::Role::kUnknown;
+  }
+
+  // toggle_inference is null when CSS toggles are not used in the document.
+  CSSToggleInference* toggle_inference =
+      element->GetDocument().GetCSSToggleInference();
+  if (!toggle_inference) {
+    return ax::mojom::blink::Role::kUnknown;
+  }
+
+  DCHECK(RuntimeEnabledFeatures::CSSTogglesEnabled());
+
+  switch (toggle_inference->RoleForElement(element)) {
+    case CSSToggleRole::kNone:
+      break;
+    case CSSToggleRole::kButtonWithPopup:
+      return ax::mojom::blink::Role::kPopUpButton;
+    case CSSToggleRole::kDisclosure:
+      break;
+    case CSSToggleRole::kDisclosureButton:
+      return ax::mojom::blink::Role::kButton;
+    case CSSToggleRole::kTree:
+      return ax::mojom::blink::Role::kTree;
+    case CSSToggleRole::kTreeGroup:
+      return ax::mojom::blink::Role::kGroup;
+    case CSSToggleRole::kTreeItem:
+      return ax::mojom::blink::Role::kTreeItem;
+    case CSSToggleRole::kAccordion:
+      break;
+    case CSSToggleRole::kAccordionItem:
+      return ax::mojom::blink::Role::kRegion;
+    case CSSToggleRole::kAccordionItemButton:
+      return ax::mojom::blink::Role::kButton;
+    case CSSToggleRole::kTabContainer:
+      // TODO(dbaron): We should verify that using kTabList really
+      // works here, since this is a container that has both the tab
+      // list *and* the tab panels.  We should also make sure that
+      // posinset/setsize work correctly for the tabs.
+      return ax::mojom::blink::Role::kTabList;
+    case CSSToggleRole::kTab:
+      return ax::mojom::blink::Role::kTab;
+    case CSSToggleRole::kTabPanel:
+      return ax::mojom::blink::Role::kTabPanel;
+    case CSSToggleRole::kRadioGroup:
+      return ax::mojom::blink::Role::kRadioGroup;
+    case CSSToggleRole::kRadioItem:
+      return ax::mojom::blink::Role::kRadioButton;
+    case CSSToggleRole::kCheckboxGroup:
+      break;
+    case CSSToggleRole::kCheckbox:
+      return ax::mojom::blink::Role::kCheckBox;
+    case CSSToggleRole::kListbox:
+      return ax::mojom::blink::Role::kListBox;
+    case CSSToggleRole::kListboxItem:
+      return ax::mojom::blink::Role::kListBoxOption;
+    case CSSToggleRole::kButton:
+      return ax::mojom::blink::Role::kButton;
+  }
+
+  return ax::mojom::blink::Role::kUnknown;
+}
+
+}  // namespace
+
 ax::mojom::blink::Role AXNodeObject::DetermineAccessibilityRole() {
 #if DCHECK_IS_ON()
   base::AutoReset<bool> reentrancy_protector(&is_computing_role_, true);
@@ -1347,8 +1427,25 @@ ax::mojom::blink::Role AXNodeObject::DetermineAccessibilityRole() {
 
   aria_role_ = DetermineAriaRoleAttribute();
 
-  return aria_role_ == ax::mojom::blink::Role::kUnknown ? native_role_
-                                                        : aria_role_;
+  // Order of precedence is currently:
+  //   1. ARIA role
+  //   2. Inferred role from CSS Toggle inference engine
+  //   3. Native markup role
+  // but we may decide to change how the CSS Toggle inference fits in.
+  //
+  // TODO(dbaron): Perhaps revisit whether there are types of elements
+  // where toggles should not work.
+
+  if (aria_role_ != ax::mojom::blink::Role::kUnknown) {
+    return aria_role_;
+  }
+
+  ax::mojom::blink::Role css_toggle_role = InferredCSSToggleRole(GetNode());
+  if (css_toggle_role != ax::mojom::blink::Role::kUnknown) {
+    return css_toggle_role;
+  }
+
+  return native_role_;
 }
 
 void AXNodeObject::AccessibilityChildrenFromAOMProperty(
@@ -1407,7 +1504,8 @@ void AXNodeObject::Init(AXObject* parent) {
 #endif
   AXObject::Init(parent);
 
-  DCHECK(role_ == native_role_ || role_ == aria_role_)
+  DCHECK(role_ == native_role_ || role_ == aria_role_ ||
+         GetNode()->GetDocument().GetCSSToggleInference())
       << "Role must be either the cached native role or cached aria role: "
       << "\n* Final role: " << role_ << "\n* Native role: " << native_role_
       << "\n* Aria role: " << aria_role_ << "\n* Node: " << GetNode();
@@ -3403,7 +3501,7 @@ String AXNodeObject::TextAlternative(
       recursive, aria_label_or_description_root, visited, name_from,
       related_objects, name_sources, &found_text_alternative);
   if (found_text_alternative && !name_sources)
-    return text_alternative;
+    return MaybeAppendFileDescriptionToName(text_alternative);
 
   // Step 2D from: http://www.w3.org/TR/accname-aam-1.1  -- native markup.
   text_alternative =
@@ -3413,7 +3511,7 @@ String AXNodeObject::TextAlternative(
       !text_alternative.empty() ||
       name_from == ax::mojom::blink::NameFrom::kAttributeExplicitlyEmpty;
   if (has_text_alternative && !name_sources)
-    return text_alternative;
+    return MaybeAppendFileDescriptionToName(text_alternative);
 
   // Step 2F / 2G from: http://www.w3.org/TR/accname-aam-1.1 -- from content.
   if (aria_label_or_description_root || SupportsNameFromContents(recursive)) {
@@ -3439,7 +3537,7 @@ String AXNodeObject::TextAlternative(
           found_text_alternative = true;
           name_sources->back().text = text_alternative;
         } else {
-          return text_alternative;
+          return MaybeAppendFileDescriptionToName(text_alternative);
         }
       }
     }
@@ -5125,31 +5223,6 @@ String AXNodeObject::NativeTextAlternative(
     }
   }
 
-  // Input type=file. Not part of the spec, but Blink implements it
-  // as a single control that has both a button ("Choose file...") and
-  // some text showing the filename, and we need to concatenate both into
-  // the name of the button.
-  if (input_element && input_element->type() == input_type_names::kFile) {
-    name_from = ax::mojom::blink::NameFrom::kValue;
-
-    String displayed_file_path = GetValueForControl();
-    String upload_button_text = input_element->UploadButton()->Value();
-    if (!displayed_file_path.empty()) {
-      text_alternative = displayed_file_path + ", " + upload_button_text;
-    } else {
-      text_alternative = upload_button_text;
-    }
-    *found_text_alternative = true;
-
-    if (name_sources) {
-      name_sources->push_back(NameSource(true, kValueAttr));
-      name_sources->back().type = name_from;
-      name_sources->back().text = text_alternative;
-    } else {
-      return text_alternative;
-    }
-  }
-
   // Also check for aria-placeholder.
   if (IsTextField()) {
     name_from = ax::mojom::blink::NameFrom::kPlaceholder;
@@ -5406,6 +5479,28 @@ String AXNodeObject::NativeTextAlternative(
   }
 
   return text_alternative;
+}
+
+// This is not part of the spec, but we think it's a worthy addition: if the
+// labelled input is of type="file", we append the chosen file name to it. We do
+// this because this type of input is actually exposed as a button, and buttons
+// may not have a "value" field. An unlabelled input is manager later in this
+// function, it's named with the default text in the button, 'Choose File', plus
+// the file name.
+String AXNodeObject::MaybeAppendFileDescriptionToName(
+    const String& name) const {
+  const auto* input_element = DynamicTo<HTMLInputElement>(GetNode());
+  if (!input_element || input_element->type() != input_type_names::kFile)
+    return name;
+
+  String displayed_file_path = GetValueForControl();
+  if (!displayed_file_path.empty()) {
+    if (GetTextDirection() == ax::mojom::blink::WritingDirection::kRtl)
+      return name + " :" + displayed_file_path;
+    else
+      return name + ": " + displayed_file_path;
+  }
+  return name;
 }
 
 String AXNodeObject::Description(

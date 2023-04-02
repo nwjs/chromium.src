@@ -73,6 +73,9 @@ class ArcNetHostImpl : public KeyedService,
                      CreateNetworkCallback callback) override;
   void ForgetNetwork(const std::string& guid,
                      ForgetNetworkCallback callback) override;
+  void UpdateWifiNetwork(const std::string& guid,
+                         mojom::WifiConfigurationPtr cfg,
+                         UpdateWifiNetworkCallback callback) override;
   void StartConnect(const std::string& guid,
                     StartConnectCallback callback) override;
   void StartDisconnect(const std::string& guid,
@@ -105,6 +108,8 @@ class ArcNetHostImpl : public KeyedService,
   // Overridden from ConnectionObserver<mojom::NetInstance>:
   void OnConnectionReady() override;
   void OnConnectionClosed() override;
+
+  static void EnsureFactoryBuilt();
 
  private:
   const ash::NetworkState* GetDefaultNetworkFromChrome();
@@ -206,8 +211,9 @@ class ArcNetHostImpl : public KeyedService,
       const std::string& error_name);
 
   // Callback for ash::NetworkHandler::GetShillProperties
-  void ReceiveShillProperties(const std::string& service_path,
-                              absl::optional<base::Value> shill_properties);
+  void ReceiveShillProperties(
+      const std::string& service_path,
+      absl::optional<base::Value::Dict> shill_properties);
 
   // PatchPanelClient::Observer implementation:
   void NetworkConfigurationChanged() override;

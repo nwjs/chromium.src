@@ -43,6 +43,8 @@
 #include "chrome/common/pref_names.h"
 #include "components/certificate_transparency/pref_names.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
+#include "components/content_settings/core/common/content_settings.h"
+#include "components/content_settings/core/common/content_settings_types.h"
 #include "components/embedder_support/pref_names.h"
 #include "components/embedder_support/switches.h"
 #include "components/language/core/browser/language_prefs.h"
@@ -197,6 +199,19 @@ bool IsAmbientAuthAllowedForProfile(Profile* profile) {
   return false;
 }
 
+void UpdateAntiAbuseSettings(Profile* profile) {
+  ContentSetting content_setting =
+      HostContentSettingsMapFactory::GetForProfile(profile)
+          ->GetDefaultContentSetting(ContentSettingsType::ANTI_ABUSE, nullptr);
+  profile->ForEachLoadedStoragePartition(base::BindRepeating(
+      [](ContentSetting content_setting,
+         content::StoragePartition* storage_partition) {
+        storage_partition->GetNetworkContext()->SetBlockTrustTokens(
+            content_setting == CONTENT_SETTING_BLOCK);
+      },
+      content_setting));
+}
+
 void UpdateCookieSettings(Profile* profile) {
   ContentSettingsForOneType settings;
   HostContentSettingsMapFactory::GetForProfile(profile)->GetSettingsForOneType(
@@ -224,7 +239,7 @@ void UpdateLegacyCookieSettings(Profile* profile) {
 }
 
 void UpdateStorageAccessSettings(Profile* profile) {
-  if (base::FeatureList::IsEnabled(net::features::kStorageAccessAPI)) {
+  if (base::FeatureList::IsEnabled(blink::features::kStorageAccessAPI)) {
     ContentSettingsForOneType settings;
     HostContentSettingsMapFactory::GetForProfile(profile)
         ->GetSettingsForOneType(ContentSettingsType::STORAGE_ACCESS, &settings);
@@ -241,7 +256,7 @@ void UpdateStorageAccessSettings(Profile* profile) {
 
 void UpdateTopLevelStorageAccessSettings(Profile* profile) {
   // TODO(crbug.com/1385156): Switch to an independent feature flag.
-  if (base::FeatureList::IsEnabled(net::features::kStorageAccessAPI) &&
+  if (base::FeatureList::IsEnabled(blink::features::kStorageAccessAPI) &&
       base::FeatureList::IsEnabled(
           blink::features::kStorageAccessAPIForOriginExtension)) {
     ContentSettingsForOneType settings;
@@ -438,17 +453,6 @@ void ProfileNetworkContextService::OnExtensionInstalled(
 }
 #endif
 
-void ProfileNetworkContextService::OnTrustTokenBlockingChanged(
-    bool block_trust_tokens) {
-  profile_->ForEachLoadedStoragePartition(base::BindRepeating(
-      [](bool block_trust_tokens,
-         content::StoragePartition* storage_partition) {
-        storage_partition->GetNetworkContext()->SetBlockTrustTokens(
-            block_trust_tokens);
-      },
-      block_trust_tokens));
-}
-
 void ProfileNetworkContextService::OnFirstPartySetsEnabledChanged(
     bool enabled) {
   // Update all FPS Access Delegates on the FPS service to be `enabled`.
@@ -613,7 +617,7 @@ ProfileNetworkContextService::CreateCookieManagerParams(
       std::move(settings_for_legacy_cookie_access);
 
   ContentSettingsForOneType settings_for_storage_access;
-  if (base::FeatureList::IsEnabled(net::features::kStorageAccessAPI)) {
+  if (base::FeatureList::IsEnabled(blink::features::kStorageAccessAPI)) {
     host_content_settings_map->GetSettingsForOneType(
         ContentSettingsType::STORAGE_ACCESS, &settings_for_storage_access);
   }
@@ -621,7 +625,7 @@ ProfileNetworkContextService::CreateCookieManagerParams(
 
   ContentSettingsForOneType settings_for_top_level_storage_access;
   // TODO(crbug.com/1385156): Separate the two flags entirely.
-  if (base::FeatureList::IsEnabled(net::features::kStorageAccessAPI) &&
+  if (base::FeatureList::IsEnabled(blink::features::kStorageAccessAPI) &&
       base::FeatureList::IsEnabled(
           blink::features::kStorageAccessAPIForOriginExtension)) {
     host_content_settings_map->GetSettingsForOneType(
@@ -1042,6 +1046,10 @@ void ProfileNetworkContextService::ConfigureNetworkContextParamsInternal(
   // / IsolationInfos, so storage can be isolated on a per-site basis.
   network_context_params->require_network_isolation_key = true;
 
+  ContentSetting anti_abuse_content_setting =
+      HostContentSettingsMapFactory::GetForProfile(profile_)
+          ->GetDefaultContentSetting(ContentSettingsType::ANTI_ABUSE, nullptr);
+
   const base::CommandLine& cmd_line =
     *base::CommandLine::ForCurrentProcess();
   if (cmd_line.HasSwitch("disable-cookie-encryption")) {
@@ -1049,8 +1057,7 @@ void ProfileNetworkContextService::ConfigureNetworkContextParamsInternal(
   }
 
   network_context_params->block_trust_tokens =
-      !PrivacySandboxSettingsFactory::GetForProfile(profile_)
-           ->IsTrustTokensAllowed();
+      anti_abuse_content_setting == CONTENT_SETTING_BLOCK;
 
   network_context_params->first_party_sets_access_delegate_params =
       network::mojom::FirstPartySetsAccessDelegateParams::New();
@@ -1087,6 +1094,9 @@ void ProfileNetworkContextService::OnContentSettingChanged(
     const ContentSettingsPattern& secondary_pattern,
     ContentSettingsType content_type) {
   switch (content_type) {
+    case ContentSettingsType::ANTI_ABUSE:
+      UpdateAntiAbuseSettings(profile_);
+      break;
     case ContentSettingsType::COOKIES:
       UpdateCookieSettings(profile_);
       break;

@@ -1087,7 +1087,8 @@ class StoragePartitionImpl::ServiceWorkerCookieAccessObserver
         storage_partition_->GetServiceWorkerContext();
     std::vector<GlobalRenderFrameHostId> destinations =
         *service_worker_context->GetWindowClientFrameRoutingIds(
-            blink::StorageKey(url::Origin::Create(details->url)));
+            blink::StorageKey::CreateFirstParty(
+                url::Origin::Create(details->url)));
     if (destinations.empty())
       return;
 
@@ -2629,11 +2630,56 @@ void StoragePartitionImpl::ClearDataForOrigin(
   CookieDeletionFilterPtr deletion_filter = CookieDeletionFilter::New();
   if (!storage_origin.host().empty())
     deletion_filter->host_name = storage_origin.host();
-  ClearDataImpl(remove_mask, quota_storage_remove_mask,
-                blink::StorageKey(url::Origin::Create(storage_origin)),
-                /*filter_builder=*/nullptr, StorageKeyPolicyMatcherFunction(),
+  // Construct a |BrowsingDataFilterBuilder| instead of just passing a storage
+  // key based on the origin directly. This is needed to be able to delete the
+  // associated 3P data embedded on the origin.
+  auto filter_builder = BrowsingDataFilterBuilder::Create(
+      content::BrowsingDataFilterBuilder::Mode::kDelete);
+  filter_builder->AddOrigin(url::Origin::Create(storage_origin));
+  ClearDataImpl(remove_mask, quota_storage_remove_mask, blink::StorageKey(),
+                filter_builder.get(), StorageKeyPolicyMatcherFunction(),
                 std::move(deletion_filter), false, base::Time(),
                 base::Time::Max(), std::move(callback));
+}
+
+void StoragePartitionImpl::ClearDataForAllBuckets(
+    const blink::StorageKey& storage_key,
+    base::OnceClosure callback) {
+  DCHECK(initialized_);
+  DCHECK(callback);
+
+  // Retrieve all the buckets info and clear the data.
+  // TODO(crbug.com/1415860): This can be slow for a great number of buckets.
+  GetQuotaManagerProxy()->GetBucketsForStorageKey(
+      storage_key,
+      blink::mojom::StorageType::kTemporary,  // Storage buckets only uses
+                                              // temporary storage.
+      /*delete_expired=*/true,  // The expired buckets should be deleted since
+                                // this method clears data for all buckets.
+      base::SequencedTaskRunner::GetCurrentDefault(),
+      base::BindOnce(&StoragePartitionImpl::RetrieveBucketsForClearingDone,
+                     base::Unretained(this), storage_key, std::move(callback)));
+}
+
+void StoragePartitionImpl::RetrieveBucketsForClearingDone(
+    const blink::StorageKey& storage_key,
+    base::OnceClosure callback,
+    storage::QuotaErrorOr<std::set<storage::BucketInfo>> buckets) {
+  DCHECK(initialized_);
+  DCHECK(callback);
+
+  if (!buckets.ok() || buckets->empty()) {
+    std::move(callback).Run();
+    return;
+  }
+
+  std::set<std::string> buckets_to_remove = {};
+
+  for (auto& bucket : buckets.value()) {
+    buckets_to_remove.insert(bucket.name);
+  }
+
+  ClearDataForBuckets(storage_key, buckets_to_remove, std::move(callback));
 }
 
 void StoragePartitionImpl::ClearDataForBuckets(
@@ -2641,12 +2687,12 @@ void StoragePartitionImpl::ClearDataForBuckets(
     const std::set<std::string>& storage_buckets,
     base::OnceClosure callback) {
   DCHECK(initialized_);
+  DCHECK(callback);
 
   const auto remove_buckets_done =
       base::BarrierCallback<blink::mojom::QuotaStatusCode>(
           storage_buckets.size(),
-          BindPostTask(
-              base::SequencedTaskRunner::GetCurrentDefault(),
+          BindPostTaskToCurrentDefault(
               base::BindOnce(&StoragePartitionImpl::ClearDataForBucketsDone,
                              base::Unretained(this), storage_key,
                              storage_buckets, std::move(callback))));
@@ -3105,7 +3151,21 @@ absl::optional<blink::StorageKey> StoragePartitionImpl::CalculateStorageKey(
   RenderFrameHostImpl* frame_host = node->current_frame_host();
   if (!frame_host)
     return absl::nullopt;
-  return frame_host->CalculateStorageKey(origin, nonce);
+
+  // Determine if we should allow partitioned StorageKeys.
+  //
+  // If this is a main frame navigation then the value of
+  // third_party_storage_partitioning_enabled is irrelevant because main frames
+  // are always first-party by definition. If this is a subframe navigation
+  // then the main frame will have the correct value.
+  bool third_party_storage_partitioning_enabled = false;
+  if (!frame_host->is_main_frame()) {
+    third_party_storage_partitioning_enabled =
+        frame_host->IsMainFrameThirdPartyStoragePartitioningEnabled();
+  }
+
+  return frame_host->CalculateStorageKey(
+      origin, nonce, third_party_storage_partitioning_enabled);
 }
 
 StoragePartitionImpl::URLLoaderNetworkContext::URLLoaderNetworkContext(

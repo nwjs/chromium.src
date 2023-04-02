@@ -49,7 +49,7 @@
 #include "ui/ozone/public/surface_factory_ozone.h"
 #endif
 
-#if BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_APPLE)
 #include "gpu/command_buffer/service/shared_image/iosurface_image_backing_factory.h"
 #endif
 
@@ -137,7 +137,7 @@ SharedImageFactory::SharedImageFactory(
       is_for_display_compositor_(is_for_display_compositor),
       gr_context_type_(context_state ? context_state->gr_context_type()
                                      : GrContextType::kGL) {
-#if BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_IOS)
   // OSX
   DCHECK(gr_context_type_ == GrContextType::kGL ||
          gr_context_type_ == GrContextType::kMetal ||
@@ -291,7 +291,7 @@ SharedImageFactory::SharedImageFactory(
 #endif  // BUILDFLAG(ENABLE_VULKAN)
 #endif  // BUILDFLAG(IS_OZONE)
 
-#if BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_APPLE)
   auto iosurface_backing_factory =
       std::make_unique<IOSurfaceImageBackingFactory>(
           gpu_preferences, workarounds, feature_info.get(),
@@ -313,7 +313,6 @@ bool SharedImageFactory::CreateSharedImage(const Mailbox& mailbox,
                                            SkAlphaType alpha_type,
                                            gpu::SurfaceHandle surface_handle,
                                            uint32_t usage) {
-  DCHECK(format.is_single_plane());
   auto* factory = GetFactoryByUsage(usage, format, size,
                                     /*pixel_data=*/{}, gfx::EMPTY_BUFFER);
   if (!factory) {
@@ -324,10 +323,13 @@ bool SharedImageFactory::CreateSharedImage(const Mailbox& mailbox,
   auto backing = factory->CreateSharedImage(
       mailbox, format, surface_handle, size, color_space, surface_origin,
       alpha_type, usage, IsSharedBetweenThreads(usage));
-  DVLOG(1) << "CreateSharedImage[" << backing->GetName()
-           << "] size=" << size.ToString()
-           << " usage=" << CreateLabelForSharedImageUsage(usage)
-           << " resource_format=" << format.ToString();
+
+  if (backing) {
+    DVLOG(1) << "CreateSharedImage[" << backing->GetName()
+             << "] size=" << size.ToString()
+             << " usage=" << CreateLabelForSharedImageUsage(usage)
+             << " format=" << format.ToString();
+  }
   return RegisterBacking(std::move(backing));
 }
 
@@ -339,7 +341,12 @@ bool SharedImageFactory::CreateSharedImage(const Mailbox& mailbox,
                                            SkAlphaType alpha_type,
                                            uint32_t usage,
                                            base::span<const uint8_t> data) {
-  DCHECK(format.is_single_plane());
+  if (!format.is_single_plane()) {
+    // Pixel upload path only supports single-planar formats.
+    LOG(ERROR) << "Invalid format " << format.ToString();
+    return false;
+  }
+
   SharedImageBackingFactory* factory = nullptr;
   if (backing_factory_for_testing_) {
     factory = backing_factory_for_testing_;
@@ -359,7 +366,7 @@ bool SharedImageFactory::CreateSharedImage(const Mailbox& mailbox,
     DVLOG(1) << "CreateSharedImagePixels[" << backing->GetName()
              << "] with pixels size=" << size.ToString()
              << " usage=" << CreateLabelForSharedImageUsage(usage)
-             << " resource_format=" << format.ToString();
+             << " format=" << format.ToString();
 
     backing->OnWriteSucceeded();
   }
@@ -375,15 +382,20 @@ bool SharedImageFactory::CreateSharedImage(
     SkAlphaType alpha_type,
     uint32_t usage,
     gfx::GpuMemoryBufferHandle buffer_handle) {
-  // Only use this for new multi-planar path for now. All legacy multi-planar
-  // and single planar GMBs can go through CreateSharedImage() that takes
-  // BufferPlane parameter.
-  DCHECK(format.is_multi_plane());
+  if (!format.is_multi_plane()) {
+    // Only use this for new multi-planar path for now. All legacy multi-planar
+    // and single planar GMBs can go through CreateSharedImage() that takes
+    // BufferPlane parameter.
+    LOG(ERROR) << "Invalid format " << format.ToString();
+    return false;
+  }
 
-  // Since client GMB code still operates on BufferFormat the SharedImageFormat
-  // received here must have an equivalent BufferFormat or something has gone
-  // wrong.
-  DCHECK(HasEquivalentBufferFormat(format));
+  if (!viz::HasEquivalentBufferFormat(format)) {
+    // Client GMB code still operates on BufferFormat so the SharedImageFormat
+    // received here must have an equivalent BufferFormat.
+    LOG(ERROR) << "Invalid format " << format.ToString();
+    return false;
+  }
 
   gfx::GpuMemoryBufferType gmb_type = buffer_handle.type;
 
@@ -531,7 +543,7 @@ void SharedImageFactory::DestroyAllSharedImages(bool have_context) {
 #if BUILDFLAG(IS_WIN)
 bool SharedImageFactory::CreateSwapChain(const Mailbox& front_buffer_mailbox,
                                          const Mailbox& back_buffer_mailbox,
-                                         viz::ResourceFormat format,
+                                         viz::SharedImageFormat format,
                                          const gfx::Size& size,
                                          const gfx::ColorSpace& color_space,
                                          GrSurfaceOrigin surface_origin,
@@ -635,8 +647,9 @@ SharedImageBackingFactory* SharedImageFactory::GetFactoryByUsage(
 
   bool share_between_threads = IsSharedBetweenThreads(usage);
   for (auto& factory : factories_) {
-    if (factory->IsSupported(usage, format, size, share_between_threads,
-                             gmb_type, gr_context_type_, pixel_data)) {
+    if (factory->CanCreateSharedImage(usage, format, size,
+                                      share_between_threads, gmb_type,
+                                      gr_context_type_, pixel_data)) {
       return factory.get();
     }
   }

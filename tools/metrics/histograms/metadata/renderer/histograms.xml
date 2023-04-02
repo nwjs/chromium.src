@@ -45,7 +45,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <histogram name="Renderer.BrowserLaunchToRunLoopStart" units="ms"
-    expires_after="2023-06-04">
+    expires_after="2023-08-06">
   <owner>sky@chromium.org</owner>
   <owner>jam@chromium.org</owner>
   <summary>
@@ -327,7 +327,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Renderer.Font.PrimaryFont.FCP" units="ms"
-    expires_after="2023-06-18">
+    expires_after="2023-08-20">
   <owner>kojii@chromium.org</owner>
   <owner>tkent@chromium.org</owner>
   <owner>yosin@chromium.org</owner>
@@ -352,33 +352,8 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Renderer.Font.Shaping.DomContentLoaded" units="ms"
-    expires_after="2023-05-27">
-  <owner>tkent@chromium.org</owner>
-  <owner>kojii@chromium.org</owner>
-  <owner>yosin@chromium.org</owner>
-  <owner>layout-dev@chromium.org</owner>
-  <summary>
-    The time spent shaping font before DOMContentLoaded event. This would be
-    helpful for evaluating performance of the &quot;deferred shaping&quot;
-    feature.
-  </summary>
-</histogram>
-
-<histogram name="Renderer.Font.Shaping.FCP" units="ms"
-    expires_after="2023-05-27">
-  <owner>tkent@chromium.org</owner>
-  <owner>kojii@chromium.org</owner>
-  <owner>yosin@chromium.org</owner>
-  <owner>layout-dev@chromium.org</owner>
-  <summary>
-    The time spent shaping font before FCP. This would be helpful for evaluating
-    performance of the &quot;deferred shaping&quot; feature.
-  </summary>
-</histogram>
-
 <histogram name="Renderer.Font.SystemFallback.DomContentLoaded" units="ms"
-    expires_after="2023-06-04">
+    expires_after="2023-08-08">
   <owner>kojii@chromium.org</owner>
   <owner>tkent@chromium.org</owner>
   <owner>yosin@chromium.org</owner>
@@ -445,6 +420,13 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Renderer.Preload.UnusedResource" enum="BooleanSuccess"
+    expires_after="2024-02-17">
+  <owner>yoavweiss@chromium.org</owner>
+  <owner>speed-metrics-dev@chromium.org</owner>
+  <summary>Counts the number of unused preloads per ResourceType.</summary>
+</histogram>
+
 <histogram name="Renderer.ProcessLifetime3{RendererHostedContentType}"
     units="ms" expires_after="2023-02-28">
   <owner>fdoray@chromium.org</owner>
@@ -458,7 +440,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Renderer.RenderThreadImpl.Init" units="ms"
-    expires_after="2023-06-18">
+    expires_after="2023-08-20">
   <owner>jam@chromium.org</owner>
   <owner>sky@chromium.org</owner>
   <summary>

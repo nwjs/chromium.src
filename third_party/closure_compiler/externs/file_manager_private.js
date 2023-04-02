@@ -257,7 +257,7 @@ chrome.fileManagerPrivate.SourceRestriction = {
 };
 
 /** @enum {string} */
-chrome.fileManagerPrivate.RecentFileType = {
+chrome.fileManagerPrivate.FileCategory = {
   ALL: 'all',
   AUDIO: 'audio',
   IMAGE: 'image',
@@ -336,7 +336,7 @@ chrome.fileManagerPrivate.VmType = {
 /** @enum {string} */
 chrome.fileManagerPrivate.UserType = {
   UNMANAGED: 'kUnmanaged',
-  ORGANIZATION: 'kOrganization'
+  ORGANIZATION: 'kOrganization',
 };
 
 /** @enum {string} */
@@ -425,8 +425,8 @@ chrome.fileManagerPrivate.MountPointSizeStats;
 /**
  * @typedef {{
  *   userType: !chrome.fileManagerPrivate.UserType,
- *   usedUserBytes: number,
- *   totalUserBytes: number,
+ *   usedBytes: number,
+ *   totalBytes: number,
  *   organizationLimitExceeded: boolean,
  *   organizationName: string
  * }}
@@ -473,7 +473,8 @@ chrome.fileManagerPrivate.IconSet;
  *   diskFileSystemType: (string|undefined),
  *   iconSet: !chrome.fileManagerPrivate.IconSet,
  *   driveLabel: (string|undefined),
- *   remoteMountPath: (string|undefined)
+ *   remoteMountPath: (string|undefined),
+ *   vmType: (!chrome.fileManagerPrivate.VmType|undefined),
  * }}
  */
 chrome.fileManagerPrivate.VolumeMetadata;
@@ -503,13 +504,12 @@ chrome.fileManagerPrivate.FileTransferStatus;
 
 /**
  * @typedef {{
- *   entry: !Entry,
- *   transferState: !chrome.fileManagerPrivate.TransferState,
- *   processed: number,
- *   total: number,
+ *   fileUrl: string,
+ *   syncStatus: !chrome.fileManagerPrivate.SyncStatus,
+ *   progress: number
  * }}
  */
-chrome.fileManagerPrivate.IndividualFileTransferStatus;
+chrome.fileManagerPrivate.SyncState;
 
 /**
  * @typedef {{
@@ -556,7 +556,9 @@ chrome.fileManagerPrivate.FileWatchEvent;
  *   arcEnabled: boolean,
  *   arcRemovableMediaAccessEnabled: boolean,
  *   folderShortcuts: !Array<string>,
- *   trashEnabled: boolean
+ *   trashEnabled: boolean,
+ *   officeFileMovedOneDrive: number,
+ *   officeFileMovedGoogleDrive: number,
  * }}
  */
 chrome.fileManagerPrivate.Preferences;
@@ -585,7 +587,8 @@ chrome.fileManagerPrivate.SearchParams;
  *   query: string,
  *   types: !chrome.fileManagerPrivate.SearchType,
  *   maxResults: number,
- *   timestamp: (number|undefined)
+ *   timestamp: (number|undefined),
+ *   category: (!chrome.fileManagerPrivate.FileCategory|undefined)
  * }}
  */
 chrome.fileManagerPrivate.SearchMetadataParams;
@@ -743,8 +746,9 @@ chrome.fileManagerPrivate.IOTaskParams;
 /**
  * @typedef {{
  *   conflictName: (string|undefined),
- *   conflictMultiple: (boolean|undefined),
  *   conflictIsDirectory: (boolean|undefined),
+ *   conflictMultiple: (boolean|undefined),
+ *   conflictTargetUrl: (string|undefined),
  * }}
  */
 chrome.fileManagerPrivate.PauseParams;
@@ -799,7 +803,8 @@ chrome.fileManagerPrivate.SyncStatus = {
   NOT_FOUND: 'not_found',
   QUEUED: 'queued',
   IN_PROGRESS: 'in_progress',
-  ERROR: 'error'
+  COMPLETED: 'completed',
+  ERROR: 'error',
 };
 
 /**
@@ -823,7 +828,7 @@ chrome.fileManagerPrivate.DialogCallerInformation;
  * @typedef {{
  *   restoreEntry: !Entry,
  *   trashInfoFileName: string,
- *   deletionDate: Date,
+ *   deletionDate: number,
  * }}
  */
 chrome.fileManagerPrivate.ParsedTrashInfoFile;
@@ -859,15 +864,16 @@ chrome.fileManagerPrivate.setDefaultTask = function(descriptor, entries, mimeTyp
 
 /**
  * Gets the list of tasks that can be performed over selected files. |entries|
- * Array of selected entries. |sourceUrls| Array of source URLs corresponding to
- * the entries  |callback|
+ * Array of selected entries. |dlpSourceUrls| Array of source URLs corresponding
+ * to the entries, used to check Data Leak Prevention (DLP) restrictions
+ * |callback|
  * @param {!Array<!Entry>} entries
- * @param {!Array<string>} sourceUrls
+ * @param {!Array<string>} dlpSourceUrls
  * @param {function((!chrome.fileManagerPrivate.ResultingTasks|undefined))}
  *     callback The list of matched file tasks for the entries.
  */
 chrome.fileManagerPrivate.getFileTasks = function(
-    entries, sourceUrls, callback) {};
+    entries, dlpSourceUrls, callback) {};
 
 /**
  * Gets the MIME type of an entry.
@@ -1093,11 +1099,12 @@ chrome.fileManagerPrivate.getSizeStats = function(volumeId, callback) {};
 
 /**
  * Retrieves drive quota metadata.
+ * @param {!Entry} entry
  * @param {function((!chrome.fileManagerPrivate.DriveQuotaMetadata|undefined))}
  *     callback Name/value pairs of drive quota metadata. Will be undefined if
  *     quota metadata could not be determined.
  */
-chrome.fileManagerPrivate.getDriveQuotaMetadata = function(callback) {};
+chrome.fileManagerPrivate.getDriveQuotaMetadata = function(entry, callback) {};
 
 /**
  * Formats a mounted volume. |volumeId| ID of the volume to be formatted.
@@ -1490,12 +1497,16 @@ chrome.fileManagerPrivate.sharesheetHasTargets = function(entries, callback) {};
 /**
  * Invoke Sharesheet for selected files. If not possible, then returns
  * an error via chrome.runtime.lastError. |entries| Array of selected entries.
+ * |launchSource| Source from which sharesheet was invoked. |dlpSourceUrls|
+ * Array of source URLs corresponding to the entries, used to check Data Leak
+ * Prevention (DLP) restrictions.
  * @param {!Array<!Entry>} entries
  * @param {chrome.fileManagerPrivate.SharesheetLaunchSource} launchSource
+ * @param {!Array<string>} dlpSourceUrls
  * @param {function()} callback
  */
 chrome.fileManagerPrivate.invokeSharesheet = function(
-    entries, launchSource, callback) {};
+    entries, launchSource, dlpSourceUrls, callback) {};
 
 /**
  * Adds or removes a list of entries to temporary holding space. Any entries
@@ -1567,6 +1578,20 @@ chrome.fileManagerPrivate.startIOTask = function(
 chrome.fileManagerPrivate.cancelIOTask = function (taskId) { };
 
 /**
+ * Resumes an I/O task by id. Task ids are communicated to the Files App in
+ * each I/O task's progress status.
+ * @param {number} taskId
+ * @param {!chrome.fileManagerPrivate.ResumeParams} params
+ */
+chrome.fileManagerPrivate.resumeIOTask = function (taskId, params) {};
+
+/**
+ * Makes I/O tasks in state::PAUSED emit (broadcast) their current I/O task
+ * progress status.
+ */
+chrome.fileManagerPrivate.progressPausedTasks = function () {};
+
+/**
  * Tells DriveFS to update its cached pin states of hosted files (once).
  */
 chrome.fileManagerPrivate.pollDriveHostedFilePinStates = function() {};
@@ -1596,9 +1621,6 @@ chrome.fileManagerPrivate.onPinTransfersUpdated;
 
 /** @type {!ChromeEvent} */
 chrome.fileManagerPrivate.onIndividualFileTransfersUpdated;
-
-/** @type {!ChromeEvent} */
-chrome.fileManagerPrivate.onIndividualPinTransfersUpdated;
 
 /** @type {!ChromeEvent} */
 chrome.fileManagerPrivate.onDirectoryChanged;

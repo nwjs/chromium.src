@@ -969,7 +969,8 @@ class ABSL_DLL MixingHashState : public HashStateBase<MixingHashState> {
   // The result should be the same as running the whole algorithm, but faster.
   template <typename T, absl::enable_if_t<IntegralFastPath<T>::value, int> = 0>
   static size_t hash(T value) {
-    return static_cast<size_t>(Mix(Seed(), static_cast<uint64_t>(value)));
+    return static_cast<size_t>(
+        Mix(Seed(), static_cast<std::make_unsigned_t<T>>(value)));
   }
 
   // Overload of MixingHashState::hash()
@@ -1135,7 +1136,8 @@ class ABSL_DLL MixingHashState : public HashStateBase<MixingHashState> {
   // probably per-build and not per-process.
   ABSL_ATTRIBUTE_ALWAYS_INLINE static uint64_t Seed() {
 #if (!defined(__clang__) || __clang_major__ > 11) && \
-    !defined(__apple_build_version__)
+    (!defined(__apple_build_version__) ||            \
+     __apple_build_version__ >= 19558921)  // Xcode 12
     return static_cast<uint64_t>(reinterpret_cast<uintptr_t>(&kSeed));
 #else
     // Workaround the absence of

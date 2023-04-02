@@ -11,11 +11,16 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ProgressBar;
 import android.widget.Spinner;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -31,6 +36,8 @@ import org.chromium.webengine.WebFragment;
 import org.chromium.webengine.WebMessageCallback;
 import org.chromium.webengine.WebMessageReplyProxy;
 import org.chromium.webengine.WebSandbox;
+import org.chromium.webengine.shell.topbar.TopBarImpl;
+import org.chromium.webengine.shell.topbar.TopBarObservers;
 
 import java.util.Arrays;
 
@@ -38,9 +45,7 @@ import java.util.Arrays;
  * Activity for managing the Demo Shell.
  *
  * TODO(swestphal):
- *  - Add url bar
- *  - UI to add/remove/switch tabs
- *  - Progress bar when navigation is ongoing
+ *  - UI to add/remove tabs
  *  - Expose some tab/navigation events in the UI
  *  - Move cookie test to manual-test activity
  *  - Move registerWebMessageCallback to manual-test activity
@@ -73,7 +78,7 @@ public class WebEngineShellActivity extends AppCompatActivity {
 
             @Override
             public void onFailure(Throwable thrown) {}
-        }, mContext.getMainExecutor());
+        }, ContextCompat.getMainExecutor(mContext));
 
         ListenableFuture<WebSandbox> webSandboxFuture = WebSandbox.create(mContext);
         Futures.addCallback(webSandboxFuture, new FutureCallback<WebSandbox>() {
@@ -83,8 +88,12 @@ public class WebEngineShellActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onFailure(Throwable thrown) {}
-        }, mContext.getMainExecutor());
+            public void onFailure(Throwable thrown) {
+                Toast.makeText(mContext, "Failed to start WebSandbox. WebView update needed.",
+                             Toast.LENGTH_LONG)
+                        .show();
+            }
+        }, ContextCompat.getMainExecutor(mContext));
     }
 
     @Override
@@ -118,7 +127,7 @@ public class WebEngineShellActivity extends AppCompatActivity {
 
             @Override
             public void onFailure(Throwable thrown) {}
-        }, mContext.getMainExecutor());
+        }, ContextCompat.getMainExecutor(mContext));
     }
 
     private void onWebEngineReady(WebEngine webEngine) {
@@ -126,8 +135,15 @@ public class WebEngineShellActivity extends AppCompatActivity {
         CookieManager cookieManager = webEngine.getCookieManager();
 
         Tab activeTab = mTabManager.getActiveTab();
+        ProgressBar progressBar = findViewById(R.id.progress_bar);
+        EditText urlBar = findViewById(R.id.url_bar);
+        Button tabCountButton = findViewById(R.id.tab_count);
+        Spinner tabListSpinner = findViewById(R.id.tab_list);
+        new TopBarObservers(new TopBarImpl(this, mTabManager, urlBar, progressBar, tabCountButton,
+                                    tabListSpinner),
+                mTabManager);
 
-        activeTab.registerTabObserver(new DefaultObservers.DefaultTabObserver());
+        mTabManager.registerTabListObserver(new DefaultObservers.DefaultTabListObserver());
         activeTab.getNavigationController().registerNavigationObserver(
                 new DefaultObservers.DefaultNavigationObserver() {
                     @Override
@@ -144,11 +160,10 @@ public class WebEngineShellActivity extends AppCompatActivity {
                             public void onFailure(Throwable thrown) {
                                 Log.w(TAG, "executeScript failed: " + thrown);
                             }
-                        }, mContext.getMainExecutor());
+                        }, ContextCompat.getMainExecutor(mContext));
                     }
                 });
-
-        activeTab.getNavigationController().navigate("https://google.com");
+        activeTab.getNavigationController().navigate("https://www.google.com");
 
         activeTab.registerWebMessageCallback(new WebMessageCallback() {
             @Override
@@ -164,7 +179,12 @@ public class WebEngineShellActivity extends AppCompatActivity {
             public void onWebMessageReplyProxyActiveStateChanged(WebMessageReplyProxy proxy) {}
         }, "x", Arrays.asList("*"));
 
-        mTabManager.registerTabListObserver(new DefaultObservers.DefaultTabListObserver());
+        activeTab.registerTabObserver(new DefaultObservers.DefaultTabObserver());
+
+        activeTab.addMessageEventListener((Tab source, String message) -> {
+            Log.w(TAG, "Received post message from web content: " + message);
+        }, Arrays.asList("*"));
+        activeTab.postMessage("Hello!", "*");
 
         ListenableFuture<Void> setCookieFuture =
                 cookieManager.setCookie("https://sadchonks.com", "foo=bar123");
@@ -181,14 +201,14 @@ public class WebEngineShellActivity extends AppCompatActivity {
 
                     @Override
                     public void onFailure(Throwable thrown) {}
-                }, mContext.getMainExecutor());
+                }, ContextCompat.getMainExecutor(mContext));
             }
 
             @Override
             public void onFailure(Throwable thrown) {
                 Log.w(TAG, "setCookie failed: " + thrown);
             }
-        }, mContext.getMainExecutor());
+        }, ContextCompat.getMainExecutor(mContext));
 
         getSupportFragmentManager()
                 .beginTransaction()
@@ -220,14 +240,13 @@ public class WebEngineShellActivity extends AppCompatActivity {
                 }
                 WebEngineShellActivity.super.onBackPressed();
             }
-        }, mContext.getMainExecutor());
+        }, ContextCompat.getMainExecutor(mContext));
     }
 
     // TODO(swestphal): Move this to a helper class.
     static void setupActivitySpinner(Spinner spinner, Activity activity, int index) {
-        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(
-                activity, R.array.activities_drop_down, android.R.layout.simple_spinner_item);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(activity,
+                R.array.activities_drop_down, android.R.layout.simple_spinner_dropdown_item);
         spinner.setAdapter(adapter);
         spinner.setSelection(index, false);
         spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {

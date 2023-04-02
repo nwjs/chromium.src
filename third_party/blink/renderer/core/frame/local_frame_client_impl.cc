@@ -520,6 +520,7 @@ void LocalFrameClientImpl::BeginNavigation(
     WebNavigationType type,
     NavigationPolicy policy,
     WebFrameLoadType frame_load_type,
+    mojom::blink::ForceHistoryPush force_history_push,
     bool is_client_redirect,
     bool is_unfenced_top_navigation,
     mojom::blink::TriggeringEventInfo triggering_event_info,
@@ -546,6 +547,7 @@ void LocalFrameClientImpl::BeginNavigation(
   navigation_info->url_request.CopyFrom(WrappedResourceRequest(request));
   navigation_info->requestor_base_url = requestor_base_url;
   navigation_info->frame_type = frame_type;
+  navigation_info->force_history_push = force_history_push;
   navigation_info->navigation_type = type;
   navigation_info->navigation_policy = static_cast<WebNavigationPolicy>(policy);
   navigation_info->has_transient_user_activation = request.HasUserGesture();
@@ -582,6 +584,19 @@ void LocalFrameClientImpl::BeginNavigation(
   }
 
   navigation_info->impression = impression;
+
+  // Propagate `has_storage_access` to the next document under certain
+  // circumstances. This corresponds to the "snapshotting source snapshot
+  // params" change and some of the "create navigation params by fetching"
+  // changes in the Storage Access API spec:
+  // https://privacycg.github.io/storage-access/#navigation
+  navigation_info->has_storage_access =
+      origin_window && origin_window->HasStorageAccess() &&
+      navigation_info->initiator_frame_token.has_value() &&
+      navigation_info->initiator_frame_token.value() ==
+          web_frame_->GetLocalFrameToken() &&
+      web_frame_->GetSecurityOrigin().IsSameOriginWith(
+          WebSecurityOrigin::Create(navigation_info->url_request.Url()));
 
   // Can be null.
   LocalFrame* local_parent_frame = GetLocalParentFrame(web_frame_);
@@ -1010,9 +1025,13 @@ WebTextCheckClient* LocalFrameClientImpl::GetTextCheckerClient() const {
   return web_frame_->GetTextCheckerClient();
 }
 
-std::unique_ptr<blink::WebURLLoaderFactory>
-LocalFrameClientImpl::CreateURLLoaderFactory() {
-  return web_frame_->Client()->CreateURLLoaderFactory();
+scoped_refptr<network::SharedURLLoaderFactory>
+LocalFrameClientImpl::GetURLLoaderFactory() {
+  return web_frame_->Client()->GetURLLoaderFactory();
+}
+
+std::unique_ptr<URLLoader> LocalFrameClientImpl::CreateURLLoaderForTesting() {
+  return web_frame_->Client()->CreateURLLoaderForTesting();
 }
 
 blink::BrowserInterfaceBrokerProxy&

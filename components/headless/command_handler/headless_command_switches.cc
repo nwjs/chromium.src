@@ -11,14 +11,19 @@ namespace headless::switches {
 // transparent.
 const char kDefaultBackgroundColor[] = "default-background-color";
 
-// Instructs headless_shell to print document.body.innerHTML to stdout.
+// Print the serialized DOM (doctype + document.documentElement.outerHTML) to
+// stdout.
 const char kDumpDom[] = "dump-dom";
 
-// Save a pdf file of the loaded page.
+// Save a PDF file of the loaded page.
 const char kPrintToPDF[] = "print-to-pdf";
 
-// Do not display header and footer in the pdf file.
-const char kPrintToPDFNoHeader[] = "print-to-pdf-no-header";
+// Do not display header and footer in the PDF file. This switch is deprecated,
+// use --no-pdf-header-footer instead.
+const char kPrintToPDFNoHeaderDeprecated[] = "print-to-pdf-no-header";
+
+// Do not display header and footer in the printed PDF file.
+const char kNoPDFHeaderFooter[] = "no-pdf-header-footer";
 
 // Save a screenshot of the loaded page.
 const char kScreenshot[] = "screenshot";

@@ -36,6 +36,8 @@ class HistoryClustersServiceTaskGetMostRecentClustersForUI
       base::WeakPtr<HistoryClustersService> weak_history_clusters_service,
       ClusteringBackend* const backend,
       history::HistoryService* const history_service,
+      ClusteringRequestSource clustering_request_source,
+      QueryClustersFilterParams filter_params,
       base::Time begin_time,
       QueryClustersContinuationParams continuation_params,
       QueryClustersCallback callback);
@@ -47,10 +49,11 @@ class HistoryClustersServiceTaskGetMostRecentClustersForUI
   //   OnGotModelClusters()
 
   // Invoked during construction. Will asyncly request persisted basic clusters.
-  void Start();
+  void Start(QueryClustersFilterParams filter_params);
 
   // Invoked after `Start()` asyncly fetches clusters.
-  void OnGotMostRecentPersistedClusters(base::TimeTicks start_time,
+  void OnGotMostRecentPersistedClusters(QueryClustersFilterParams filter_params,
+                                        base::TimeTicks start_time,
                                         std::vector<history::Cluster> clusters);
 
   // Invoked after `OnGotMostRecentPersistedClusters()` asyncly obtains
@@ -65,6 +68,8 @@ class HistoryClustersServiceTaskGetMostRecentClustersForUI
   const raw_ptr<ClusteringBackend> backend_;
   // Non-owning pointer, but never nullptr.
   const raw_ptr<history::HistoryService> history_service_;
+
+  ClusteringRequestSource clustering_request_source_;
 
   // Used to make requests to `HistoryService`.
   base::Time begin_time_;

@@ -1002,9 +1002,11 @@ ExtensionFunction::ResponseAction WebViewInternalStopFunction::Run() {
   return RespondNow(NoArguments());
 }
 
-WebViewInternalSetAudioMutedFunction::WebViewInternalSetAudioMutedFunction() {}
+WebViewInternalSetAudioMutedFunction::WebViewInternalSetAudioMutedFunction() =
+    default;
 
-WebViewInternalSetAudioMutedFunction::~WebViewInternalSetAudioMutedFunction() {}
+WebViewInternalSetAudioMutedFunction::~WebViewInternalSetAudioMutedFunction() =
+    default;
 
 ExtensionFunction::ResponseAction WebViewInternalSetAudioMutedFunction::Run() {
   std::unique_ptr<web_view_internal::SetAudioMuted::Params> params(
@@ -1015,9 +1017,11 @@ ExtensionFunction::ResponseAction WebViewInternalSetAudioMutedFunction::Run() {
   return RespondNow(NoArguments());
 }
 
-WebViewInternalIsAudioMutedFunction::WebViewInternalIsAudioMutedFunction() {}
+WebViewInternalIsAudioMutedFunction::WebViewInternalIsAudioMutedFunction() =
+    default;
 
-WebViewInternalIsAudioMutedFunction::~WebViewInternalIsAudioMutedFunction() {}
+WebViewInternalIsAudioMutedFunction::~WebViewInternalIsAudioMutedFunction() =
+    default;
 
 ExtensionFunction::ResponseAction WebViewInternalIsAudioMutedFunction::Run() {
   std::unique_ptr<web_view_internal::IsAudioMuted::Params> params(
@@ -1028,9 +1032,11 @@ ExtensionFunction::ResponseAction WebViewInternalIsAudioMutedFunction::Run() {
   return RespondNow(OneArgument(base::Value(web_contents->IsAudioMuted())));
 }
 
-WebViewInternalGetAudioStateFunction::WebViewInternalGetAudioStateFunction() {}
+WebViewInternalGetAudioStateFunction::WebViewInternalGetAudioStateFunction() =
+    default;
 
-WebViewInternalGetAudioStateFunction::~WebViewInternalGetAudioStateFunction() {}
+WebViewInternalGetAudioStateFunction::~WebViewInternalGetAudioStateFunction() =
+    default;
 
 ExtensionFunction::ResponseAction WebViewInternalGetAudioStateFunction::Run() {
   std::unique_ptr<web_view_internal::GetAudioState::Params> params(
@@ -1124,7 +1130,7 @@ ExtensionFunction::ResponseAction WebViewInternalClearDataFunction::Run() {
   EXTENSION_FUNCTION_VALIDATE(options.is_dict());
 
   // If |ms_since_epoch| isn't set, default it to 0.
-  double ms_since_epoch = options.FindDoubleKey(kSinceKey).value_or(0);
+  double ms_since_epoch = options.GetDict().FindDouble(kSinceKey).value_or(0);
 
   // base::Time takes a double that represents seconds since epoch. JavaScript
   // gives developers milliseconds, so do a quick conversion before populating

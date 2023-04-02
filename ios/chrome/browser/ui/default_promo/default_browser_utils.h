@@ -77,12 +77,13 @@ bool IsInRemindMeLaterGroup();
 // description and "Learn More" text.
 bool IsInModifiedStringsGroup();
 
-// Returns true if the user is in the default browser blue dot experiment.
-bool IsInBlueDotExperiment();
+// Returns true if the user is not in the blue dot default browser experiment,
+// or if they are in the group with all DB promos enabled.
+bool AreDefaultBrowserPromosEnabled();
 
 // Returns true if the user is in the default browser blue dot experiment and in
-// the blue dot active/enabled group.
-bool IsInBlueDotExperimentEnabledGroup();
+// one of the blue dot active/enabled groups.
+bool IsBlueDotPromoEnabled();
 
 // Returns true if the user is in the CTA experiment in the open links group.
 bool IsInCTAOpenLinksGroup();
@@ -155,5 +156,9 @@ DefaultPromoType MostRecentInterestDefaultPromoType(BOOL skipAllTabsPromo);
 // Return YES if the user has seen a promo recently, and shouldn't
 // see another one.
 bool UserInPromoCooldown();
+
+// List of all key used to store data in NSUserDefaults. Still used as key
+// in the NSDictionary stored under `kBrowserDefaultsKey`.
+const NSArray<NSString*>* DefaultBrowserUtilsLegacyKeysForTesting();
 
 #endif  // IOS_CHROME_BROWSER_UI_DEFAULT_PROMO_DEFAULT_BROWSER_UTILS_H_

@@ -300,6 +300,7 @@ void Frame::NotifyUserActivationInFrameTree(
     mojom::blink::UserActivationNotificationType notification_type) {
   for (Frame* node = this; node; node = node->Tree().Parent()) {
     node->user_activation_state_.Activate(notification_type);
+    node->ActivateHistoryUserActivationState();
   }
 
   // See the "Same-origin Visibility" section in |UserActivationState| class
@@ -317,6 +318,7 @@ void Frame::NotifyUserActivationInFrameTree(
           security_origin->CanAccess(
               local_frame_node->GetSecurityContext()->GetSecurityOrigin())) {
         node->user_activation_state_.Activate(notification_type);
+        node->ActivateHistoryUserActivationState();
       }
     }
   }
@@ -338,8 +340,10 @@ bool Frame::ConsumeTransientUserActivationInFrameTree() {
 }
 
 void Frame::ClearUserActivationInFrameTree() {
-  for (Frame* node = this; node; node = node->Tree().TraverseNext(this))
+  for (Frame* node = this; node; node = node->Tree().TraverseNext(this)) {
     node->user_activation_state_.Clear();
+    node->ClearHistoryUserActivationState();
+  }
 }
 
 void Frame::RenderFallbackContent() {
@@ -356,7 +360,7 @@ void Frame::RenderFallbackContentWithResourceTiming(
   DOMWindowPerformance::performance(*local_dom_window)
       ->AddResourceTimingWithUnparsedServerTiming(
           std::move(timing), server_timing_value,
-          html_names::kObjectTag.LocalName(), local_dom_window);
+          html_names::kObjectTag.LocalName());
   RenderFallbackContent();
 }
 

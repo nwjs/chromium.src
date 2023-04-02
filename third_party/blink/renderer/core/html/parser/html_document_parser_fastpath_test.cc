@@ -8,6 +8,10 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/renderer/core/dom/document_fragment.h"
 #include "third_party/blink/renderer/core/dom/text.h"
+#include "third_party/blink/renderer/core/html/forms/form_controller.h"
+#include "third_party/blink/renderer/core/html/forms/html_input_element.h"
+#include "third_party/blink/renderer/core/html/forms/html_text_area_element.h"
+#include "third_party/blink/renderer/core/html/html_body_element.h"
 #include "third_party/blink/renderer/core/html/html_div_element.h"
 #include "third_party/blink/renderer/core/html/html_document.h"
 #include "third_party/blink/renderer/core/html/parser/html_construction_site.h"
@@ -25,9 +29,14 @@ TEST(HTMLDocumentParserFastpathTest, SanityCheck) {
   auto* div = MakeGarbageCollected<HTMLDivElement>(*document);
   document->body()->AppendChild(div);
   DocumentFragment* fragment = DocumentFragment::Create(*document);
+  base::HistogramTester histogram_tester;
   EXPECT_TRUE(TryParsingHTMLFragment(
       "<div>test</div>", *document, *fragment, *div,
       ParserContentPolicy::kAllowScriptingContent, false));
+  histogram_tester.ExpectTotalCount(
+      "Blink.HTMLFastPathParser.UnsupportedTagType.CompositeMaskV2", 0);
+  histogram_tester.ExpectTotalCount(
+      "Blink.HTMLFastPathParser.UnsupportedContextTag.CompositeMaskV2", 0);
 }
 
 TEST(HTMLDocumentParserFastpathTest, SetInnerHTMLUsesFastPathSuccess) {
@@ -102,6 +111,149 @@ TEST(HTMLDocumentParserFastpathTest, MaximumHTMLParserDOMTreeDepth) {
   Element* deepest = div->getElementById("deepest");
   ASSERT_TRUE(deepest);
   EXPECT_EQ(deepest->parentNode()->CountChildren(), 3u);
+}
+
+TEST(HTMLDocumentParserFastpathTest, LogUnsupportedTags) {
+  ScopedNullExecutionContext execution_context;
+  auto* document =
+      HTMLDocument::CreateForTest(execution_context.GetExecutionContext());
+  auto* div = MakeGarbageCollected<HTMLDivElement>(*document);
+
+  base::HistogramTester histogram_tester;
+  div->setInnerHTML("<table></table>");
+  histogram_tester.ExpectTotalCount(
+      "Blink.HTMLFastPathParser.UnsupportedTag.CompositeMaskV2", 1);
+  histogram_tester.ExpectBucketCount(
+      "Blink.HTMLFastPathParser.UnsupportedTag.CompositeMaskV2", 2, 1);
+  histogram_tester.ExpectTotalCount(
+      "Blink.HTMLFastPathParser.UnsupportedTag.Mask0V2", 0);
+  histogram_tester.ExpectTotalCount(
+      "Blink.HTMLFastPathParser.UnsupportedTag.Mask1V2", 1);
+  histogram_tester.ExpectTotalCount(
+      "Blink.HTMLFastPathParser.UnsupportedTag.Mask2V2", 0);
+}
+
+TEST(HTMLDocumentParserFastpathTest, LogUnsupportedTagsWithValidTag) {
+  ScopedNullExecutionContext execution_context;
+  auto* document =
+      HTMLDocument::CreateForTest(execution_context.GetExecutionContext());
+  auto* div = MakeGarbageCollected<HTMLDivElement>(*document);
+
+  base::HistogramTester histogram_tester;
+  div->setInnerHTML("<div><table></table></div>");
+  histogram_tester.ExpectTotalCount(
+      "Blink.HTMLFastPathParser.UnsupportedTag.CompositeMaskV2", 1);
+  // Table is in the second chunk of values, so 2 should be set.
+  histogram_tester.ExpectBucketCount(
+      "Blink.HTMLFastPathParser.UnsupportedTag.CompositeMaskV2", 2, 1);
+  histogram_tester.ExpectTotalCount(
+      "Blink.HTMLFastPathParser.UnsupportedTag.Mask0V2", 0);
+  histogram_tester.ExpectTotalCount(
+      "Blink.HTMLFastPathParser.UnsupportedTag.Mask1V2", 1);
+  histogram_tester.ExpectTotalCount(
+      "Blink.HTMLFastPathParser.UnsupportedTag.Mask2V2", 0);
+}
+
+TEST(HTMLDocumentParserFastpathTest, LogUnsupportedContextTag) {
+  ScopedNullExecutionContext execution_context;
+  auto* document =
+      HTMLDocument::CreateForTest(execution_context.GetExecutionContext());
+  auto* dl = MakeGarbageCollected<HTMLTextAreaElement>(*document);
+
+  base::HistogramTester histogram_tester;
+  dl->setInnerHTML("some text");
+  histogram_tester.ExpectTotalCount(
+      "Blink.HTMLFastPathParser.UnsupportedContextTag.CompositeMaskV2", 1);
+  // Textarea is in the third chunk of values, so 3 should be set.
+  histogram_tester.ExpectBucketCount(
+      "Blink.HTMLFastPathParser.UnsupportedContextTag.CompositeMaskV2", 4, 1);
+  histogram_tester.ExpectTotalCount(
+      "Blink.HTMLFastPathParser.UnsupportedContextTag.Mask0V2", 0);
+  histogram_tester.ExpectTotalCount(
+      "Blink.HTMLFastPathParser.UnsupportedContextTag.Mask1V2", 0);
+  histogram_tester.ExpectTotalCount(
+      "Blink.HTMLFastPathParser.UnsupportedContextTag.Mask2V2", 1);
+}
+
+TEST(HTMLDocumentParserFastpathTest, LogSvg) {
+  ScopedNullExecutionContext execution_context;
+  auto* document =
+      HTMLDocument::CreateForTest(execution_context.GetExecutionContext());
+  auto* div = MakeGarbageCollected<HTMLDivElement>(*document);
+
+  base::HistogramTester histogram_tester;
+  div->setInnerHTML("<svg></svg>");
+  histogram_tester.ExpectTotalCount(
+      "Blink.HTMLFastPathParser.UnsupportedTag.CompositeMaskV2", 1);
+  // Svg is in the third chunk of values, so 4 should be set.
+  histogram_tester.ExpectBucketCount(
+      "Blink.HTMLFastPathParser.UnsupportedTag.CompositeMaskV2", 4, 1);
+  histogram_tester.ExpectTotalCount(
+      "Blink.HTMLFastPathParser.UnsupportedTag.Mask0V2", 0);
+  histogram_tester.ExpectTotalCount(
+      "Blink.HTMLFastPathParser.UnsupportedTag.Mask1V2", 0);
+  histogram_tester.ExpectTotalCount(
+      "Blink.HTMLFastPathParser.UnsupportedTag.Mask2V2", 1);
+}
+
+TEST(HTMLDocumentParserFastpathTest, LogUnsupportedContextTagBody) {
+  ScopedNullExecutionContext execution_context;
+  auto* document =
+      HTMLDocument::CreateForTest(execution_context.GetExecutionContext());
+  auto* body = MakeGarbageCollected<HTMLBodyElement>(*document);
+
+  base::HistogramTester histogram_tester;
+  body->setInnerHTML("some text");
+  histogram_tester.ExpectTotalCount(
+      "Blink.HTMLFastPathParser.UnsupportedContextTag.CompositeMaskV2", 1);
+  // Body is in the third chunk of values, so 4 should be set.
+  histogram_tester.ExpectBucketCount(
+      "Blink.HTMLFastPathParser.UnsupportedContextTag.CompositeMaskV2", 4, 1);
+  histogram_tester.ExpectTotalCount(
+      "Blink.HTMLFastPathParser.UnsupportedContextTag.Mask0V2", 0);
+  histogram_tester.ExpectTotalCount(
+      "Blink.HTMLFastPathParser.UnsupportedContextTag.Mask1V2", 0);
+  histogram_tester.ExpectTotalCount(
+      "Blink.HTMLFastPathParser.UnsupportedContextTag.Mask2V2", 1);
+}
+
+TEST(HTMLDocumentParserFastpathTest, HTMLInputElementCheckedState) {
+  ScopedNullExecutionContext execution_context;
+  auto* document =
+      HTMLDocument::CreateForTest(execution_context.GetExecutionContext());
+  document->write("<body></body>");
+  auto* div1 = MakeGarbageCollected<HTMLDivElement>(*document);
+  auto* div2 = MakeGarbageCollected<HTMLDivElement>(*document);
+  document->body()->AppendChild(div1);
+  document->body()->AppendChild(div2);
+
+  // Set the state for new controls, which triggers a different code path in
+  // HTMLInputElement::ParseAttribute.
+  div1->setInnerHTML("<select form='ff'></select>");
+  DocumentState* document_state = document->GetFormController().ControlStates();
+  Vector<String> state1 = document_state->ToStateVector();
+  document->GetFormController().SetStateForNewControls(state1);
+  EXPECT_TRUE(document->GetFormController().HasControlStates());
+
+  div2->setInnerHTML("<input checked='true'>");
+  HTMLInputElement* input_element = To<HTMLInputElement>(div2->firstChild());
+  ASSERT_TRUE(input_element);
+  EXPECT_TRUE(input_element->Checked());
+}
+
+TEST(HTMLDocumentParserFastpathTest, CharacterReferenceCases) {
+  ScopedNullExecutionContext execution_context;
+  auto* document =
+      HTMLDocument::CreateForTest(execution_context.GetExecutionContext());
+  auto* div = MakeGarbageCollected<HTMLDivElement>(*document);
+
+  // Various subtle cases of character references that have caused problems.
+  // The assertions are handled by DCHECKs in the code, specifically in
+  // serialization.cc.
+  div->setInnerHTML("Genius Nicer Dicer Plus | 18&nbsp&hellip;");
+  div->setInnerHTML("&nbsp&a");
+  div->setInnerHTML("&nbsp&");
+  div->setInnerHTML("&nbsp-");
 }
 
 }  // namespace

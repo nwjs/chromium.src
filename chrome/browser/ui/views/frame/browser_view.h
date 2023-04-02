@@ -191,11 +191,18 @@ class BrowserView : public BrowserWindow,
   // incognito avatar icon.
   int GetTabStripHeight() const;
 
+  // Returns the preferred size of the Web App Frame Toolbar. Used for example
+  // to determine the height of the title bar.
+  // Returns an empty size if this browser is not for a web app, or if
+  // features::kWebAppFrameToolbarInBrowserView is disabled.
+  gfx::Size GetWebAppFrameToolbarPreferredSize() const;
+
   // Container for the tabstrip, toolbar, etc.
   TopContainerView* top_container() { return top_container_; }
 
 #if BUILDFLAG(IS_MAC)
   views::Widget* overlay_widget() { return overlay_widget_.get(); }
+  views::Widget* tab_overlay_widget() { return tab_overlay_widget_.get(); }
 
   // Returns if this browser view will use immersive fullscreen mode, based
   // on the state of the two relevant base::Features, as well as the type of
@@ -798,6 +805,10 @@ class BrowserView : public BrowserWindow,
   void SetLoadingAnimationStateChangeClosureForTesting(
       base::OnceClosure closure);
 
+  WebAppFrameToolbarView* web_app_frame_toolbar_for_testing() {
+    return web_app_frame_toolbar();
+  }
+
  private:
   // Do not friend BrowserViewLayout. Use the BrowserViewLayoutDelegate
   // interface to keep these two classes decoupled and testable.
@@ -980,6 +991,7 @@ private:
   const WebAppFrameToolbarView* web_app_frame_toolbar() const;
 
   void PaintAsActiveChanged();
+  void FrameColorsChanged();
 
   // The BrowserFrame that hosts this view.
   raw_ptr<BrowserFrame, DanglingUntriaged> frame_ = nullptr;
@@ -992,6 +1004,8 @@ private:
   // --------------------------------------------------------------------
   // | TopContainerView (top_container_)                                |
   // |  --------------------------------------------------------------  |
+  // |  | Web App toolbar and title (web_app_frame_toolbar_)         |  |
+  // |  |------------------------------------------------------------|  |
   // |  | Tabs (tabstrip_)                                           |  |
   // |  |------------------------------------------------------------|  |
   // |  | Navigation buttons, address bar, menu (toolbar_)           |  |
@@ -1015,6 +1029,16 @@ private:
   // bar. Stacked top in the view hiearachy so it can be used to slide out
   // the top views in immersive fullscreen.
   raw_ptr<TopContainerView, DanglingUntriaged> top_container_ = nullptr;
+
+  // Menu button and page status icons. Only used by web-app windows.
+  raw_ptr<WebAppFrameToolbarView, DanglingUntriaged> web_app_frame_toolbar_ =
+      nullptr;
+
+  // Normally the BrowserNonClientFrameView is responsible for rendering the
+  // title of a window when appropriate. However for web applications the title
+  // needs to be more integrated with other UI components part of BrowserView,
+  // so have a title Label for them here.
+  raw_ptr<views::Label, DanglingUntriaged> web_app_window_title_ = nullptr;
 
   // The view that contains the tabstrip, new tab button, and grab handle space.
   raw_ptr<TabStripRegionView, DanglingUntriaged> tab_strip_region_view_ =
@@ -1049,6 +1073,12 @@ private:
   // Its content NSView will be reparented to a NSToolbarFullScreenWindow
   // during fullscreen.
   raw_ptr<views::Widget, DanglingUntriaged> overlay_widget_;
+
+  // Also used when calling CreateMacOverlayView(). This widget will host the
+  // tabstrip contents. Its content NSView will be reparented to a separate
+  // section of the NSToolbarFullScreenWindow allowing for the tabs to live in
+  // the Titlebar.
+  raw_ptr<views::Widget, DanglingUntriaged> tab_overlay_widget_;
 #endif
 
   // The Bookmark Bar View for this window. Lazily created. May be null for
