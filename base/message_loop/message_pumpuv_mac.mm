@@ -213,7 +213,6 @@ void MessagePumpUVNSRunLoop::RunIdleWork() {
     // This point can be reached with a NULL delegate_ if Run is not on the
     // stack but foreign code is spinning the CFRunLoop.  Arrange to come back
     // here when a delegate is available.
-    delegateless_idle_work_ = true;
     return;
   }
 
@@ -230,7 +229,7 @@ void MessagePumpUVNSRunLoop::RunIdleWork() {
   bool did_work = delegate_->DoIdleWork();
   PushWorkItemScope();
   if (did_work) {
-    CFRunLoopSourceSignal(idle_work_source_);
+    CFRunLoopSourceSignal(work_source_);
   }
 
   return;

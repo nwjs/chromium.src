@@ -1781,6 +1781,7 @@ void RenderViewContextMenu::AppendSearchWebForImageItems() {
 
   menu_model_.AddItem(GetSearchForImageIdc(), menu_string);
 
+#if 0
   if (base::FeatureList::IsEnabled(lens::features::kEnableImageTranslate) &&
       provider && !provider->image_translate_url().empty() &&
       provider->image_translate_url_ref().IsValid(
@@ -1795,6 +1796,7 @@ void RenderViewContextMenu::AppendSearchWebForImageItems() {
                                      GetImageSearchProviderName(provider)));
     }
   }
+#endif
 }
 
 void RenderViewContextMenu::AppendAudioItems() {
