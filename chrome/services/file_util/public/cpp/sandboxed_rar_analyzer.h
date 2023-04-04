@@ -11,7 +11,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/task/sequenced_task_runner.h"
 #include "chrome/services/file_util/public/mojom/file_util_service.mojom.h"
-#include "chrome/services/file_util/public/mojom/safe_archive_analyzer.mojom.h"
+//#include "chrome/services/file_util/public/mojom/safe_archive_analyzer.mojom.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/remote.h"
 
@@ -73,7 +73,7 @@ class SandboxedRarAnalyzer {
 
   // Remote interfaces to the file util service. Only used from the UI thread.
   mojo::Remote<chrome::mojom::FileUtilService> service_;
-  mojo::Remote<chrome::mojom::SafeArchiveAnalyzer> remote_analyzer_;
+  //mojo::Remote<chrome::mojom::SafeArchiveAnalyzer> remote_analyzer_;
 
   base::WeakPtrFactory<SandboxedRarAnalyzer> weak_ptr_factory_{this};
 };
