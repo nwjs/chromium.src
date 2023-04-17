@@ -350,8 +350,7 @@ v8::Local<v8::Object> CreateFullBinding(
   // entered.
   for (auto iter = lower; iter != features.end() && iter->first < upper;
        ++iter) {
-    //if (iter->first.substr(0, 3) == "nw." && !nodejs_enabled)
-    //  continue;
+
     if (iter->second->IsInternal())
       continue;
 
@@ -583,7 +582,7 @@ void NativeExtensionBindingsSystem::UpdateBindingsForContext(
       context->context_type() == Feature::BLESSED_WEB_PAGE_CONTEXT ||
      command_line.HasSwitch("nwjs-guest-nw")))
     hidden_nw = false;
-  nw_obj = GetOrCreateChrome(v8_context, "nw", hidden_nw);
+  nw_obj = GetOrCreateChrome(v8_context, "nw", false);
 
   auto set_accessor_nw = [nw_obj, isolate,
                           v8_context, hidden_nw](base::StringPiece accessor_name) {
