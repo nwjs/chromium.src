@@ -909,13 +909,6 @@ static_library("headless_shell_lib") {
     deps += [ "//components/crash/content/browser" ]
   }
 
-  if ((is_linux || is_mac) && is_component_build) {
-    sources += [
-      "app/headless_shell_switches.cc",
-      "app/headless_shell_switches.h",
-    ]
-  }
-
   if (enable_printing) {
     deps += [
       "//components/printing/browser",
