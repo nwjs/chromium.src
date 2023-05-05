@@ -246,7 +246,7 @@ void BrowserFrameViewWin::PaintAsActiveChanged() {
   }
 }
 
-gfx::Size GlassBrowserFrameView::GetMaximumSize() const {
+gfx::Size BrowserFrameViewWin::GetMaximumSize() const {
   gfx::Size max_size(browser_view()->GetMaximumSize());
   if (max_size.height() > 0 || max_size.width() > 0)
     max_size.Enlarge(0, GetTopInset(false));

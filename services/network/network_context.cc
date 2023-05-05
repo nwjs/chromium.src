@@ -2256,7 +2256,7 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext(
 #if BUILDFLAG(IS_LINUX)
     nw_cert_verifier_->InitializeOnIOThread(net::CertVerifyProc::CreateBuiltinVerifyProc(cert_net_fetcher_));
 #else
-    nw_cert_verifier_->InitializeOnIOThread(net::CertVerifyProc::CreateSystemVerifyProc(cert_net_fetcher_));
+    nw_cert_verifier_->InitializeOnIOThread(net::CertVerifyProc::CreateBuiltinWithChromeRootStore(cert_net_fetcher_));
 #endif
   }
 
