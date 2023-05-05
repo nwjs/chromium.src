@@ -329,7 +329,6 @@ def _reclient_property(*, instance, service, jobs, rewrapper_env, profiler_servi
                      ", ".join(_VALID_REPROXY_ENV_PREFIX_LIST) +
                      "), got '%s'" % k)
         reclient["bootstrap_env"] = bootstrap_env
-    scandeps_server = defaults.get_value("reclient_scandeps_server", scandeps_server)
     if scandeps_server:
         reclient["scandeps_server"] = scandeps_server
     profiler_service = defaults.get_value("reclient_profiler_service", profiler_service)
@@ -418,7 +417,7 @@ defaults = args.defaults(
     reclient_bootstrap_env = None,
     reclient_profiler_service = None,
     reclient_publish_trace = None,
-    reclient_scandeps_server = None,
+    reclient_scandeps_server = args.COMPUTE,
     reclient_cache_silo = None,
     reclient_ensure_verified = None,
     reclient_disable_bq_upload = None,
@@ -808,8 +807,14 @@ def builder(
     if code_coverage != None:
         properties["$build/code_coverage"] = code_coverage
 
-    if reclient_scandeps_server == args.DEFAULT and os and os.category == os_category.MAC:
-        reclient_scandeps_server = True
+    reclient_scandeps_server = defaults.get_value(
+        "reclient_scandeps_server",
+        reclient_scandeps_server,
+    )
+
+    # Enable scandeps_server on Mac by default.
+    if reclient_scandeps_server == args.COMPUTE:
+        reclient_scandeps_server = os and os.category == os_category.MAC
 
     reclient = _reclient_property(
         instance = reclient_instance,
@@ -847,8 +852,6 @@ def builder(
     if triggered_by != args.COMPUTE:
         kwargs["triggered_by"] = triggered_by
 
-    experiments = kwargs.pop("experiments", None) or {}
-
     builder = branches.builder(
         name = name,
         branch_selector = branch_selector,
@@ -859,7 +862,6 @@ def builder(
             resultdb_bigquery_exports = resultdb_bigquery_exports,
             resultdb_index_by_timestamp = resultdb_index_by_timestamp,
         ),
-        experiments = experiments,
         **kwargs
     )
 

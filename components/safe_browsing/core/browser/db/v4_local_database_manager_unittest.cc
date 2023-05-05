@@ -473,13 +473,13 @@ class V4LocalDatabaseManagerTest : public PlatformTest {
   void ResetV4Database() { v4_local_database_manager_->v4_database_.reset(); }
 
   void StartLocalDatabaseManager() {
-    v4_local_database_manager_->StartOnIOThread(test_shared_loader_factory_,
+    v4_local_database_manager_->StartOnSBThread(test_shared_loader_factory_,
                                                 GetTestV4ProtocolConfig());
   }
 
   void StopLocalDatabaseManager() {
     if (v4_local_database_manager_) {
-      v4_local_database_manager_->StopOnIOThread(true);
+      v4_local_database_manager_->StopOnSBThread(true);
     }
 
     // Force destruction of the database.
@@ -1049,7 +1049,7 @@ TEST_F(V4LocalDatabaseManagerTest, UsingWeakPtrDropsCallback) {
   EXPECT_FALSE(v4_local_database_manager_->CheckBrowseUrl(
       url_bad, usual_threat_types_, &client,
       MechanismExperimentHashDatabaseCache::kNoExperiment));
-  v4_local_database_manager_->StopOnIOThread(true);
+  v4_local_database_manager_->StopOnSBThread(true);
 
   // Release the V4LocalDatabaseManager object right away before the callback
   // gets called. When the callback gets called, without using a weak-ptr
@@ -1057,7 +1057,7 @@ TEST_F(V4LocalDatabaseManagerTest, UsingWeakPtrDropsCallback) {
   // that the callback is simply dropped.
   v4_local_database_manager_ = nullptr;
 
-  // Wait for the tasks scheduled by StopOnIOThread to complete.
+  // Wait for the tasks scheduled by StopOnSBThread to complete.
   WaitForTasksOnTaskRunner();
 }
 
@@ -1552,215 +1552,6 @@ TEST_F(V4LocalDatabaseManagerTest, SyncedLists) {
     }
   }
   EXPECT_EQ(expected_lists, synced_lists);
-}
-
-TEST_F(V4LocalDatabaseManagerTest, RenameStoreFile_RenameSuccess) {
-  const std::string old_store_name = "UrlCsdWhitelist";
-  const std::string old_name_in_use_histogram =
-      "SafeBrowsing.V4Store.OldFileNameInUse." + old_store_name;
-  const std::string old_name_exists_histogram =
-      "SafeBrowsing.V4Store.OldFileNameExists." + old_store_name;
-  const std::string new_store_name = "UrlCsdAllowlist";
-  const std::string new_name_exists_histogram =
-      "SafeBrowsing.V4Store.NewFileNameExists." + new_store_name;
-  const std::string rename_status_histogram =
-      "SafeBrowsing.V4Store.RenameStatus." + new_store_name;
-
-  histogram_tester_.ExpectTotalCount(old_name_in_use_histogram, 0);
-  histogram_tester_.ExpectTotalCount(old_name_exists_histogram, 0);
-  histogram_tester_.ExpectTotalCount(new_name_exists_histogram, 0);
-  histogram_tester_.ExpectTotalCount(rename_status_histogram, 0);
-
-  auto old_store_path =
-      base_dir_.GetPath().AppendASCII(old_store_name + ".store");
-  ASSERT_FALSE(base::PathExists(old_store_path));
-
-  // Now write an empty file at |old_store_path|.
-  base::WriteFile(old_store_path, "", 0);
-  ASSERT_TRUE(base::PathExists(old_store_path));
-
-  WaitForTasksOnTaskRunner();
-  ASSERT_FALSE(base::PathExists(old_store_path));
-
-  auto new_store_path =
-      base_dir_.GetPath().AppendASCII(new_store_name + ".store");
-  ASSERT_TRUE(base::PathExists(new_store_path));
-
-  histogram_tester_.ExpectTotalCount(old_name_in_use_histogram, 1);
-  histogram_tester_.ExpectBucketCount(old_name_in_use_histogram, false, 1);
-
-  histogram_tester_.ExpectTotalCount(old_name_exists_histogram, 1);
-  histogram_tester_.ExpectBucketCount(old_name_exists_histogram, true, 1);
-
-  histogram_tester_.ExpectTotalCount(new_name_exists_histogram, 1);
-  histogram_tester_.ExpectBucketCount(new_name_exists_histogram, false, 1);
-
-  histogram_tester_.ExpectTotalCount(rename_status_histogram, 1);
-  histogram_tester_.ExpectBucketCount(rename_status_histogram, 0, 1);
-
-  // Cleanup
-  base::DeleteFile(new_store_path);
-}
-
-TEST_F(V4LocalDatabaseManagerTest, RenameStoreFile_RenameSuccessMultiple) {
-  const std::string old_name_in_use = "SafeBrowsing.V4Store.OldFileNameInUse.";
-  const std::string old_name_exists = "SafeBrowsing.V4Store.OldFileNameExists.";
-  const std::string new_name_exists = "SafeBrowsing.V4Store.NewFileNameExists.";
-  const std::string rename_status = "SafeBrowsing.V4Store.RenameStatus.";
-
-  const auto kStoreFilesToRename =
-      base::MakeFixedFlatMap<std::string, std::string>({
-          {"UrlCsdDownloadWhitelist", "UrlCsdDownloadAllowlist"},
-          {"UrlCsdWhitelist", "UrlCsdAllowlist"},
-      });
-
-  for (auto const& pair : kStoreFilesToRename) {
-    const std::string& old_store_name = pair.first;
-    const std::string& new_store_name = pair.second;
-
-    std::string old_name_in_use_histogram = old_name_in_use + old_store_name;
-    histogram_tester_.ExpectTotalCount(old_name_in_use_histogram, 0);
-    std::string old_name_exists_histogram = old_name_exists + old_store_name;
-    histogram_tester_.ExpectTotalCount(old_name_exists_histogram, 0);
-
-    std::string new_name_exists_histogram = new_name_exists + new_store_name;
-    histogram_tester_.ExpectTotalCount(new_name_exists_histogram, 0);
-    std::string rename_status_histogram = rename_status + new_store_name;
-    histogram_tester_.ExpectTotalCount(rename_status_histogram, 0);
-
-    auto old_store_path =
-        base_dir_.GetPath().AppendASCII(old_store_name + ".store");
-    ASSERT_FALSE(base::PathExists(old_store_path));
-
-    auto new_store_path =
-        base_dir_.GetPath().AppendASCII(new_store_name + ".store");
-    ASSERT_FALSE(base::PathExists(new_store_path));
-
-    // Now write an empty file at |old_store_path|.
-    base::WriteFile(old_store_path, "", 0);
-    ASSERT_TRUE(base::PathExists(old_store_path));
-  }
-
-  WaitForTasksOnTaskRunner();
-  for (auto const& pair : kStoreFilesToRename) {
-    const std::string& old_store_name = pair.first;
-    const std::string& new_store_name = pair.second;
-
-    auto old_store_path =
-        base_dir_.GetPath().AppendASCII(old_store_name + ".store");
-    ASSERT_FALSE(base::PathExists(old_store_path));
-
-    auto new_store_path =
-        base_dir_.GetPath().AppendASCII(new_store_name + ".store");
-    ASSERT_TRUE(base::PathExists(new_store_path));
-
-    std::string old_name_in_use_histogram = old_name_in_use + old_store_name;
-    histogram_tester_.ExpectTotalCount(old_name_in_use_histogram, 1);
-    histogram_tester_.ExpectBucketCount(old_name_in_use_histogram, false, 1);
-
-    std::string old_name_exists_histogram = old_name_exists + old_store_name;
-    histogram_tester_.ExpectTotalCount(old_name_exists_histogram, 1);
-    histogram_tester_.ExpectBucketCount(old_name_exists_histogram, true, 1);
-
-    std::string new_name_exists_histogram = new_name_exists + new_store_name;
-    histogram_tester_.ExpectTotalCount(new_name_exists_histogram, 1);
-    histogram_tester_.ExpectBucketCount(new_name_exists_histogram, false, 1);
-
-    std::string rename_status_histogram = rename_status + new_store_name;
-    histogram_tester_.ExpectTotalCount(rename_status_histogram, 1);
-    histogram_tester_.ExpectBucketCount(rename_status_histogram, 0, 1);
-
-    // Cleanup
-    base::DeleteFile(new_store_path);
-  }
-}
-
-TEST_F(V4LocalDatabaseManagerTest,
-       RenameStoreOldFileDoesNotExist_DoesNotRename) {
-  const std::string old_store_name = "UrlCsdWhitelist";
-  const std::string old_name_in_use_histogram =
-      "SafeBrowsing.V4Store.OldFileNameInUse." + old_store_name;
-  const std::string old_name_exists_histogram =
-      "SafeBrowsing.V4Store.OldFileNameExists." + old_store_name;
-  const std::string new_store_name = "UrlCsdAllowlist";
-  const std::string new_name_exists_histogram =
-      "SafeBrowsing.V4Store.NewFileNameExists." + new_store_name;
-  const std::string rename_status_histogram =
-      "SafeBrowsing.V4Store.RenameStatus." + new_store_name;
-
-  histogram_tester_.ExpectTotalCount(old_name_in_use_histogram, 0);
-  histogram_tester_.ExpectTotalCount(old_name_exists_histogram, 0);
-  histogram_tester_.ExpectTotalCount(new_name_exists_histogram, 0);
-  histogram_tester_.ExpectTotalCount(rename_status_histogram, 0);
-
-  auto old_store_path =
-      base_dir_.GetPath().AppendASCII(old_store_name + ".store");
-  ASSERT_FALSE(base::PathExists(old_store_path));
-
-  WaitForTasksOnTaskRunner();
-
-  histogram_tester_.ExpectTotalCount(old_name_in_use_histogram, 1);
-  histogram_tester_.ExpectBucketCount(old_name_in_use_histogram, false, 1);
-
-  histogram_tester_.ExpectTotalCount(old_name_exists_histogram, 1);
-  histogram_tester_.ExpectBucketCount(old_name_exists_histogram, false, 1);
-
-  histogram_tester_.ExpectTotalCount(new_name_exists_histogram, 0);
-  histogram_tester_.ExpectTotalCount(rename_status_histogram, 0);
-
-  // Cleanup
-  base::DeleteFile(old_store_path);
-}
-
-TEST_F(V4LocalDatabaseManagerTest, RenameStoreNewFileExists_DoesNotRename) {
-  const std::string old_store_name = "UrlCsdWhitelist";
-  const std::string old_name_in_use_histogram =
-      "SafeBrowsing.V4Store.OldFileNameInUse." + old_store_name;
-  const std::string old_name_exists_histogram =
-      "SafeBrowsing.V4Store.OldFileNameExists." + old_store_name;
-  const std::string new_store_name = "UrlCsdAllowlist";
-  const std::string new_name_exists_histogram =
-      "SafeBrowsing.V4Store.NewFileNameExists." + new_store_name;
-  const std::string rename_status_histogram =
-      "SafeBrowsing.V4Store.RenameStatus." + new_store_name;
-
-  histogram_tester_.ExpectTotalCount(old_name_in_use_histogram, 0);
-  histogram_tester_.ExpectTotalCount(old_name_exists_histogram, 0);
-  histogram_tester_.ExpectTotalCount(new_name_exists_histogram, 0);
-  histogram_tester_.ExpectTotalCount(rename_status_histogram, 0);
-
-  auto old_store_path =
-      base_dir_.GetPath().AppendASCII(old_store_name + ".store");
-  ASSERT_FALSE(base::PathExists(old_store_path));
-
-  // Now write an empty old file.
-  base::WriteFile(old_store_path, "", 0);
-  ASSERT_TRUE(base::PathExists(old_store_path));
-
-  auto new_store_path =
-      base_dir_.GetPath().AppendASCII(new_store_name + ".store");
-  ASSERT_FALSE(base::PathExists(new_store_path));
-
-  // Now write an empty new file.
-  base::WriteFile(new_store_path, "", 0);
-  ASSERT_TRUE(base::PathExists(new_store_path));
-
-  WaitForTasksOnTaskRunner();
-
-  histogram_tester_.ExpectTotalCount(old_name_in_use_histogram, 1);
-  histogram_tester_.ExpectBucketCount(old_name_in_use_histogram, false, 1);
-
-  histogram_tester_.ExpectTotalCount(old_name_exists_histogram, 1);
-  histogram_tester_.ExpectBucketCount(old_name_exists_histogram, true, 1);
-
-  histogram_tester_.ExpectTotalCount(new_name_exists_histogram, 1);
-  histogram_tester_.ExpectBucketCount(new_name_exists_histogram, true, 1);
-
-  histogram_tester_.ExpectTotalCount(rename_status_histogram, 0);
-
-  // Cleanup
-  base::DeleteFile(old_store_path);
-  base::DeleteFile(new_store_path);
 }
 
 }  // namespace safe_browsing

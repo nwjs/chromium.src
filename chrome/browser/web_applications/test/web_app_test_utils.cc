@@ -418,6 +418,8 @@ proto::WebAppOsIntegrationState GenerateRandomWebAppOsIntegrationState(
   // Randomly fill uninstallation registration logic.
   state.mutable_uninstall_registration()->set_registered_with_os(
       random.next_bool());
+  state.mutable_uninstall_registration()->set_display_name(
+      app.untranslated_name());
 
   // Randomly fill shortcuts menu information.
   auto* shortcut_menus = state.mutable_shortcut_menus();
@@ -749,7 +751,7 @@ std::unique_ptr<WebApp> CreateRandomWebApp(const GURL& base_url,
 
   uint32_t install_source =
       random.next_uint(static_cast<int>(webapps::WebappInstallSource::COUNT));
-  app->SetInstallSourceForMetrics(
+  app->SetLatestInstallSource(
       static_cast<webapps::WebappInstallSource>(install_source));
 
   if (IsChromeOsDataMandatory()) {

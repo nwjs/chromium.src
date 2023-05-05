@@ -39,9 +39,13 @@ class MockReadAnythingModelObserver : public ReadAnythingModel::Observer {
                ui::ColorId foreground_color_id,
                ui::ColorId background_color_id,
                ui::ColorId separator_color_id,
+               ui::ColorId dropdown_color_id,
                read_anything::mojom::LineSpacing line_spacing,
                read_anything::mojom::LetterSpacing letter_spacing),
               (override));
+#if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
+  MOCK_METHOD(void, ScreenAIServiceReady, (), (override));
+#endif
 };
 
 class ReadAnythingModelTest : public TestWithBrowserView {
@@ -77,13 +81,13 @@ TEST_F(ReadAnythingModelTest, AddingModelObserverNotifiesAllObservers) {
   EXPECT_CALL(model_observer_1_, AccessibilityEventReceived(_)).Times(0);
   EXPECT_CALL(model_observer_1_, OnActiveAXTreeIDChanged(_, _)).Times(0);
   EXPECT_CALL(model_observer_1_,
-              OnReadAnythingThemeChanged(_, _, _, _, _, _, _))
+              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _))
       .Times(1);
 
   EXPECT_CALL(model_observer_2_, AccessibilityEventReceived(_)).Times(0);
   EXPECT_CALL(model_observer_2_, OnActiveAXTreeIDChanged(_, _)).Times(0);
   EXPECT_CALL(model_observer_2_,
-              OnReadAnythingThemeChanged(_, _, _, _, _, _, _))
+              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _))
       .Times(1);
 
   model_->AddObserver(&model_observer_2_);
@@ -96,19 +100,19 @@ TEST_F(ReadAnythingModelTest, RemovedModelObserversDoNotReceiveNotifications) {
   EXPECT_CALL(model_observer_1_, AccessibilityEventReceived(_)).Times(0);
   EXPECT_CALL(model_observer_1_, OnActiveAXTreeIDChanged(_, _)).Times(0);
   EXPECT_CALL(model_observer_1_,
-              OnReadAnythingThemeChanged(_, _, _, _, _, _, _))
+              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _))
       .Times(1);
 
   EXPECT_CALL(model_observer_2_, AccessibilityEventReceived(_)).Times(0);
   EXPECT_CALL(model_observer_2_, OnActiveAXTreeIDChanged(_, _)).Times(0);
   EXPECT_CALL(model_observer_2_,
-              OnReadAnythingThemeChanged(_, _, _, _, _, _, _))
+              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _))
       .Times(0);
 
   EXPECT_CALL(model_observer_3_, AccessibilityEventReceived(_)).Times(0);
   EXPECT_CALL(model_observer_3_, OnActiveAXTreeIDChanged(_, _)).Times(0);
   EXPECT_CALL(model_observer_3_,
-              OnReadAnythingThemeChanged(_, _, _, _, _, _, _))
+              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _))
       .Times(1);
 
   model_->RemoveObserver(&model_observer_2_);
@@ -119,7 +123,7 @@ TEST_F(ReadAnythingModelTest, NotificationsOnSetSelectedFontIndex) {
   model_->AddObserver(&model_observer_1_);
 
   EXPECT_CALL(model_observer_1_,
-              OnReadAnythingThemeChanged(_, _, _, _, _, _, _))
+              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _))
       .Times(1);
 
   model_->SetSelectedFontByIndex(2);
@@ -156,7 +160,7 @@ TEST_F(ReadAnythingModelTest, NotificationsOnDecreasedFontSize) {
   model_->AddObserver(&model_observer_1_);
 
   EXPECT_CALL(model_observer_1_,
-              OnReadAnythingThemeChanged(_, _, _, _, _, _, _))
+              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _))
       .Times(1);
 
   model_->DecreaseTextSize();
@@ -168,7 +172,7 @@ TEST_F(ReadAnythingModelTest, NotificationsOnIncreasedFontSize) {
   model_->AddObserver(&model_observer_1_);
 
   EXPECT_CALL(model_observer_1_,
-              OnReadAnythingThemeChanged(_, _, _, _, _, _, _))
+              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _))
       .Times(1);
 
   model_->IncreaseTextSize();
@@ -180,7 +184,7 @@ TEST_F(ReadAnythingModelTest, NotificationsOnSetSelectedColorsIndex) {
   model_->AddObserver(&model_observer_1_);
 
   EXPECT_CALL(model_observer_1_,
-              OnReadAnythingThemeChanged(_, _, _, _, _, _, _))
+              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _))
       .Times(1);
 
   model_->SetSelectedColorsByIndex(2);
@@ -190,7 +194,7 @@ TEST_F(ReadAnythingModelTest, NotificationsOnSetSelectedLineSpacingIndex) {
   model_->AddObserver(&model_observer_1_);
 
   EXPECT_CALL(model_observer_1_,
-              OnReadAnythingThemeChanged(_, _, _, _, _, _, _))
+              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _))
       .Times(1);
 
   model_->SetSelectedLineSpacingByIndex(2);
@@ -200,10 +204,20 @@ TEST_F(ReadAnythingModelTest, NotificationsOnSetSelectedLetterSpacingIndex) {
   model_->AddObserver(&model_observer_1_);
 
   EXPECT_CALL(model_observer_1_,
-              OnReadAnythingThemeChanged(_, _, _, _, _, _, _))
+              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _))
       .Times(1);
 
   model_->SetSelectedLetterSpacingByIndex(2);
+}
+
+TEST_F(ReadAnythingModelTest, NotificationsOnSystemThemeChanged) {
+  model_->AddObserver(&model_observer_1_);
+
+  EXPECT_CALL(model_observer_1_,
+              OnReadAnythingThemeChanged(_, _, _, _, _, _, _, _))
+      .Times(1);
+
+  model_->OnSystemThemeChanged();
 }
 
 TEST_F(ReadAnythingModelTest, MinimumFontScaleIsEnforced) {
@@ -241,6 +255,30 @@ TEST_F(ReadAnythingModelTest, FontModelGetCurrentFontName) {
   EXPECT_EQ("Arial", GetFontModel()->GetFontNameAt(3));
   EXPECT_EQ("Comic Sans MS", GetFontModel()->GetFontNameAt(4));
   EXPECT_EQ("Times New Roman", GetFontModel()->GetFontNameAt(5));
+}
+
+TEST_F(ReadAnythingModelTest, DefaultIndexSetOnSetSelectedFontByIndex) {
+  size_t testIndex = 2;
+  model_->SetSelectedFontByIndex(testIndex);
+  EXPECT_EQ(testIndex, GetFontModel()->GetDefaultIndexForTesting().value());
+}
+
+TEST_F(ReadAnythingModelTest, FontModelHasDefaultNullOptColors) {
+  EXPECT_FALSE(GetFontModel()->GetDropdownForegroundColorAt(0).has_value());
+  EXPECT_FALSE(GetFontModel()->GetDropdownBackgroundColorAt(0).has_value());
+}
+
+TEST_F(ReadAnythingModelTest, FontModelSetsDropdownAndForegroundColors) {
+  ReadAnythingColorsModel* color_model = model_->GetColorsModel();
+  ReadAnythingColorsModel::ColorInfo color_info = color_model->GetColorsAt(2);
+
+  GetFontModel()->SetForegroundColor(color_info.foreground_color_id);
+  GetFontModel()->SetBackgroundColor(color_info.dropdown_color_id);
+
+  EXPECT_EQ(color_info.foreground_color_id,
+            GetFontModel()->GetDropdownForegroundColorAt(0).value());
+  EXPECT_EQ(color_info.dropdown_color_id,
+            GetFontModel()->GetDropdownBackgroundColorAt(0).value());
 }
 
 #endif  // !defined(ADDRESS_SANITIZER)

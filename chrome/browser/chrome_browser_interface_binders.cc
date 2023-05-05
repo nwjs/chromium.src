@@ -97,7 +97,6 @@
 #include "ui/accessibility/accessibility_features.h"
 
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
-#include "chrome/browser/accessibility/ax_screen_ai_annotator_factory.h"
 #include "components/services/screen_ai/public/cpp/screen_ai_service_router.h"
 #include "components/services/screen_ai/public/cpp/screen_ai_service_router_factory.h"
 #endif
@@ -168,13 +167,13 @@
 #include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_ui.h"
 #include "chrome/browser/ui/webui/settings/settings_ui.h"
 #include "chrome/browser/ui/webui/side_panel/bookmarks/bookmarks_side_panel_ui.h"
+#include "chrome/browser/ui/webui/side_panel/companion/companion_side_panel_untrusted_ui.h"
 #include "chrome/browser/ui/webui/side_panel/customize_chrome/customize_chrome.mojom.h"
 #include "chrome/browser/ui/webui/side_panel/customize_chrome/customize_chrome_ui.h"
 #include "chrome/browser/ui/webui/side_panel/history_clusters/history_clusters_side_panel_ui.h"
 #include "chrome/browser/ui/webui/side_panel/read_anything/read_anything_ui.h"
 #include "chrome/browser/ui/webui/side_panel/reading_list/reading_list.mojom.h"
 #include "chrome/browser/ui/webui/side_panel/reading_list/reading_list_ui.h"
-#include "chrome/browser/ui/webui/side_panel/search_companion/search_companion_side_panel_ui.h"
 #include "chrome/browser/ui/webui/side_panel/user_notes/user_notes.mojom.h"
 #include "chrome/browser/ui/webui/side_panel/user_notes/user_notes_side_panel_ui.h"
 #include "chrome/browser/ui/webui/tab_search/tab_search.mojom.h"
@@ -249,6 +248,8 @@
 #include "ash/webui/personalization_app/personalization_app_ui.h"
 #include "ash/webui/personalization_app/search/search.mojom.h"
 #include "ash/webui/print_management/print_management_ui.h"
+#include "ash/webui/projector_app/mojom/annotator.mojom.h"
+#include "ash/webui/projector_app/trusted_projector_annotator_ui.h"
 #include "ash/webui/scanning/mojom/scanning.mojom.h"
 #include "ash/webui/scanning/scanning_ui.h"
 #include "ash/webui/shimless_rma/shimless_rma.h"
@@ -714,13 +715,6 @@ void BindScreenAIAnnotator(
   content::BrowserContext* browser_context =
       frame_host->GetProcess()->GetBrowserContext();
 
-  // Annotator function of ScreenAI service requires AXScreenAIAnnotator to be
-  // ready to receive accessibility tree data.
-  // TODO(https://crbug.com/1278249): Consider renaming AXScreenAIAnnotator to
-  // reduce confusion.
-  screen_ai::AXScreenAIAnnotatorFactory::EnsureExistsForBrowserContext(
-      browser_context);
-
   screen_ai::ScreenAIServiceRouterFactory::GetForBrowserContext(browser_context)
       ->BindScreenAIAnnotator(std::move(receiver));
 }
@@ -960,7 +954,7 @@ void PopulateChromeWebUIFrameBinders(
       TabStripUI,
 #endif
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-      ash::personalization_app::PersonalizationAppUI,
+      ash::OobeUI, ash::personalization_app::PersonalizationAppUI,
       ash::settings::OSSettingsUI,
 #endif
       NewTabPageUI, OmniboxPopupUI, BookmarksSidePanelUI>(map);
@@ -986,12 +980,18 @@ void PopulateChromeWebUIFrameBinders(
       RegisterWebUIControllerInterfaceBinder<
           history_clusters::mojom::PageHandler, HistoryUI>(map);
     }
+  }
 
-    if (history_clusters_service->IsJourneysImagesEnabled()) {
-      RegisterWebUIControllerInterfaceBinder<
-          image_service::mojom::ImageServiceHandler, HistoryUI,
-          HistoryClustersSidePanelUI>(map);
-    }
+  if ((history_clusters_service &&
+       history_clusters_service->IsJourneysEnabled() &&
+       history_clusters_service->IsJourneysImagesEnabled()) ||
+      base::FeatureList::IsEnabled(ntp_features::kNtpHistoryClustersModule) ||
+      base::FeatureList::IsEnabled(
+          ntp_features::kNtpHistoryClustersModuleLoad) ||
+      base::FeatureList::IsEnabled(features::kPowerBookmarksSidePanel)) {
+    RegisterWebUIControllerInterfaceBinder<
+        image_service::mojom::ImageServiceHandler, HistoryUI,
+        HistoryClustersSidePanelUI, NewTabPageUI, BookmarksSidePanelUI>(map);
   }
 #endif
 
@@ -1067,12 +1067,6 @@ void PopulateChromeWebUIFrameBinders(
   RegisterWebUIControllerInterfaceBinder<
       shopping_list::mojom::ShoppingListHandlerFactory, BookmarksSidePanelUI>(
       map);
-
-  if (base::FeatureList::IsEnabled(features::kSidePanelSearchCompanion)) {
-    RegisterWebUIControllerInterfaceBinder<
-        side_panel::mojom::SearchCompanionPageHandlerFactory,
-        SearchCompanionSidePanelUI>(map);
-  }
 
   if (customize_chrome::IsSidePanelEnabled()) {
     RegisterWebUIControllerInterfaceBinder<
@@ -1214,6 +1208,10 @@ void PopulateChromeWebUIFrameBinders(
       ash::camera_app::mojom::CameraAppHelper, ash::CameraAppUI>(map);
 
   RegisterWebUIControllerInterfaceBinder<
+      ash::annotator::mojom::AnnotatorPageHandlerFactory,
+      ash::TrustedProjectorAnnotatorUI>(map);
+
+  RegisterWebUIControllerInterfaceBinder<
       ash::help_app::mojom::PageHandlerFactory, ash::HelpAppUI>(map);
 
   RegisterWebUIControllerInterfaceBinder<
@@ -1243,6 +1241,10 @@ void PopulateChromeWebUIFrameBinders(
   RegisterWebUIControllerInterfaceBinder<
       ash::eche_app::mojom::StreamOrientationObserver,
       ash::eche_app::EcheAppUI>(map);
+
+  RegisterWebUIControllerInterfaceBinder<
+      ash::eche_app::mojom::ConnectionStatusObserver, ash::eche_app::EcheAppUI>(
+      map);
 
   RegisterWebUIControllerInterfaceBinder<
       ash::media_app_ui::mojom::PageHandlerFactory, ash::MediaAppUI>(map);
@@ -1480,6 +1482,12 @@ void PopulateChromeWebUIFrameInterfaceBrokers(
 #if !BUILDFLAG(IS_ANDROID) && BUILDFLAG(ENABLE_FEED_V2)
   registry.ForWebUI<feed::FeedUI>()
       .Add<feed::mojom::FeedSidePanelHandlerFactory>();
+#endif  // !BUILDFLAG(IS_ANDROID)
+#if !BUILDFLAG(IS_ANDROID)
+  if (base::FeatureList::IsEnabled(features::kSidePanelCompanion)) {
+    registry.ForWebUI<CompanionSidePanelUntrustedUI>()
+        .Add<side_panel::mojom::CompanionPageHandlerFactory>();
+  }
 #endif  // !BUILDFLAG(IS_ANDROID)
 }
 

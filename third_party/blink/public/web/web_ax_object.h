@@ -104,8 +104,7 @@ class BLINK_EXPORT WebAXObject {
   void Serialize(ui::AXNodeData* node_data,
                  ui::AXMode accessibility_mode) const;
 
-  void InvalidateSerializerSubtree() const;
-  bool IsInClientTree();
+  void MarkSerializerSubtreeDirty() const;
   void OnLoadInlineTextBoxes() const;
   void SetImageAsDataNodeId(const gfx::Size& max_size) const;
   int ImageDataNodeId() const;

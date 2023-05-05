@@ -4,9 +4,10 @@
 
 module blink.mojom;
 
-// Maps to the namesake enum in
-// https://github.com/WICG/web-smart-card/blob/main/README.md#web-idl
+// Errors that can arise from PC/SC requests.
 enum SmartCardResponseCode {
+  // SmartCardError:
+  // https://github.com/WICG/web-smart-card/blob/main/README.md#web-idl
   kNoService,
   kNoSmartCard,
   kNotReady,
@@ -15,12 +16,26 @@ enum SmartCardResponseCode {
   kReaderUnavailable,
   kRemovedCard,
   kResetCard,
+  kServerTooBusy,
   kSharingViolation,
   kSystemCancelled,
   kUnpoweredCard,
   kUnresponsiveCard,
   kUnsupportedCard,
-  kUnsupportedFeature
+  kUnsupportedFeature,
+
+  // DOMException:
+  // "InvalidStateError"
+  kInvalidConnection, // Derived from SCARD_E_INVALID_HANDLE in winscard.h
+  kServiceStopped, // SCARD_E_SERVICE_STOPPED in winscard.h
+  // "AbortError"
+  kShutdown, // SCARD_P_SHUTDOWN in winscard.h
+  // "UnknownError"
+  kCommError, // SCARD_F_COMM_ERROR in winscard.h
+  kInternalError, // SCARD_F_INTERNAL_ERROR in winscard.h
+  kNoMemory, // SCARD_E_NO_MEMORY in winscard.h
+  kUnexpected, // SCARD_E_UNEXPECTED in winscard.h
+  kUnknownError, // SCARD_F_UNKNOWN_ERROR in winscard.h
 };
 
 // Information about a smart card reader.
@@ -67,6 +82,11 @@ interface SmartCardServiceClient {
   // Notifies that the smart card reader info has changed.
   // The name is the only attribute that never changes.
   ReaderChanged(SmartCardReaderInfo reader_info);
+
+  // Notifies that a runtime error prevents monitoring of smart card reader
+  // changes/additions/removals from continuing. Can be retried by calling:
+  // SmartCardService::GetReadersAndStartTracking again.
+  Error(SmartCardResponseCode response_code);
 };
 
 // Interface for accessing smart card readers from the render process.
@@ -79,11 +99,18 @@ interface SmartCardService {
   RegisterClient(pending_associated_remote<SmartCardServiceClient> client)
       => (bool can_notify_added_removed);
 
-  // Enumerates all smart card readers in the system.
+  // Enumerates all smart card readers in the system and requests the service to
+  // start monitoring for additions, removals or changes.
+  //
   // If the client is denied access to smart cards, the call succeeds but the
   // `result.readers` array will be empty.
-  // If the call fails a `result.response_code` will be returned instead.
-  GetReaders() => (SmartCardGetReadersResult result);
+  //
+  // If it fails to enumerate all smart card readers, a `result.response_code`
+  // will be returned instead.
+  //
+  // Failing to subsequently start tracking changes will be reported via
+  // SmartCardServiceClient::Error.
+  GetReadersAndStartTracking() => (SmartCardGetReadersResult result);
 
   // TODO(crbug.com/1386175): Expose SmartCardConnection
 };

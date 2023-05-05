@@ -11,11 +11,11 @@
 #include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/ranges/algorithm.h"
+#include "base/task/bind_post_task.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
-#include "media/base/bind_to_current_loop.h"
 #include "media/base/limits.h"
 #include "media/capture/video_capture_types.h"
 #include "third_party/blink/public/web/modules/mediastream/media_stream_video_sink.h"
@@ -660,10 +660,10 @@ MediaStreamVideoTrack::MediaStreamVideoTrack(
           CrossThreadBindRepeating(&MediaStreamVideoTrack::FrameDeliverer::
                                        NewCropVersionOnVideoTaskRunner,
                                    frame_deliverer_)),
-      media::BindToCurrentLoop(WTF::BindRepeating(
+      base::BindPostTaskToCurrentDefault(WTF::BindRepeating(
           &MediaStreamVideoTrack::SetSizeAndComputedFrameRate,
           weak_factory_.GetWeakPtr())),
-      media::BindToCurrentLoop(
+      base::BindPostTaskToCurrentDefault(
           WTF::BindRepeating(&MediaStreamVideoTrack::set_computed_source_format,
                              weak_factory_.GetWeakPtr())),
       std::move(callback));
@@ -712,10 +712,10 @@ MediaStreamVideoTrack::MediaStreamVideoTrack(
           CrossThreadBindRepeating(&MediaStreamVideoTrack::FrameDeliverer::
                                        NewCropVersionOnVideoTaskRunner,
                                    frame_deliverer_)),
-      media::BindToCurrentLoop(WTF::BindRepeating(
+      base::BindPostTaskToCurrentDefault(WTF::BindRepeating(
           &MediaStreamVideoTrack::SetSizeAndComputedFrameRate,
           weak_factory_.GetWeakPtr())),
-      media::BindToCurrentLoop(
+      base::BindPostTaskToCurrentDefault(
           WTF::BindRepeating(&MediaStreamVideoTrack::set_computed_source_format,
                              weak_factory_.GetWeakPtr())),
       std::move(callback));
@@ -727,6 +727,27 @@ MediaStreamVideoTrack::~MediaStreamVideoTrack() {
   DCHECK(encoded_sinks_.empty());
   Stop();
   DVLOG(3) << "~MediaStreamVideoTrack()";
+}
+
+std::unique_ptr<MediaStreamTrackPlatform>
+MediaStreamVideoTrack::CreateFromComponent(
+    const MediaStreamComponent* component,
+    const String& id) {
+  MediaStreamSource* source = component->Source();
+  DCHECK_EQ(source->GetType(), MediaStreamSource::kTypeVideo);
+  MediaStreamVideoSource* native_source =
+      MediaStreamVideoSource::GetVideoSource(source);
+  DCHECK(native_source);
+  MediaStreamVideoTrack* original_track =
+      MediaStreamVideoTrack::From(component);
+  DCHECK(original_track);
+  return std::make_unique<MediaStreamVideoTrack>(
+      native_source, original_track->adapter_settings(),
+      original_track->noise_reduction(), original_track->is_screencast(),
+      original_track->min_frame_rate(), original_track->pan(),
+      original_track->tilt(), original_track->zoom(),
+      original_track->pan_tilt_zoom_allowed(),
+      MediaStreamVideoSource::ConstraintsOnceCallback(), component->Enabled());
 }
 
 static void AddSinkInternal(Vector<WebMediaStreamSink*>* sinks,
@@ -1009,6 +1030,10 @@ void MediaStreamVideoTrack::NotifyConstraintsConfigurationComplete() {
   for (auto* sink : sinks_) {
     sink->OnVideoConstraintsChanged(min_frame_rate_,
                                     adapter_settings_.max_frame_rate());
+  }
+
+  if (is_screencast_) {
+    StartTimerForRequestingFrames();
   }
 }
 

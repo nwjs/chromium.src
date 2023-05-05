@@ -258,18 +258,6 @@
   <message name="IDS_CELLULAR_SETUP_ESTABLISH_NETWORK_CONNECTION" desc="Message, informing user that a network connection is being established during cellular setup">
     Establishing network connection ...
   </message>
-  <message name="IDS_CELLULAR_SETUP_EID_MENU_ITEM_TITLE" desc="Title for menu item in the eSIM list triple dot menu that shows the EID and QR Code dialog when clicked.">
-    Show device EID
-  </message>
-  <message name="IDS_CELLULAR_SETUP_EID_POPUP_TITLE" desc="Label shown when vewing EID and QR Code popup describing device EID">
-    Your device EID
-  </message>
-  <message name="IDS_CELLULAR_SETUP_EID_POPUP_DESCRIPTION" desc="Label shown when veiwing EID and QR Code popup describing what an EID number is used for">
-    A customer service rep can use this EID number to help you activate service
-  </message>
-  <message name="IDS_CELLULAR_SETUP_EID_POPUP_A11Y_LABEL" desc="A11y label for EID and QR Code dialog describing what the device's EID number is and what it's used for">
-    Your device EID is <ph name="EID_NUMBER">$1<ex>123456789</ex></ph>. A customer service rep can use the EID number to help you activate service.
-  </message>
   <message name="IDS_CELLULAR_SETUP_ESIM_PAGE_CONFIRMATION_CODE_MESSAGE" desc="Message, prompting the user to enter the confirmation code to activate an eSIM profile.">
     Please enter your confirmation code.
   </message>
@@ -1131,6 +1119,7 @@
     Continue
   </message>
 
+   <!-- Strings for sync consent screen -->
   <message name="IDS_LOGIN_SYNC_CONSENT_SCREEN_TITLE_WITH_DEVICE" desc="Alternate title for the dialog that explains Chrome Sync and privacy options on first login.">
     Sync your <ph name="DEVICE_TYPE">$1<ex>Chromebook</ex></ph>
   </message>
@@ -1175,7 +1164,56 @@
   <message name="IDS_LOGIN_SYNC_CONSENT_SCREEN_DECLINE2" desc="Alternate label on the button that closes the dialog while not agreeing to sync.">
     No thanks
   </message>
-
+  <message name="IDS_LOGIN_OS_SYNC_CONSENT_SCREEN_TITLE" desc="Title of the screen that explains Chrome Sync and privacy options."  translateable="false">
+    Back up and restore your apps and settings
+  </message>
+  <message name="IDS_LOGIN_OS_SYNC_CONSENT_SCREEN_SUBTITLE" desc="Subtitle of the dialog that explains Chrome Sync and privacy options."  translateable="false">
+    Turn on device sync to restore your apps, settings, Wi-Fi networks, and wallpaper from your previous Chromebook. Make changes anytime in Settings > Accounts.
+  </message>
+  <message name="IDS_LOGIN_OS_SYNC_CONSENT_SCREEN_ADDITIONAL_SUBTITLE" desc="Additional subtitle of the dialog that explains Chrome Sync and privacy options."  translateable="false">
+    New to Chromebook? Turn on sync so your preferences will be backed up.
+  </message>
+  <message name="IDS_LOGIN_OS_SYNC_CONSENT_SCREEN_SYNC_OPTIONS" desc="The label on the button that displays the manage sync option screen." translateable="false">
+    Manage sync options
+  </message>
+  <!-- Strings for OS sync consent screen options -->
+  <message name="IDS_LOGIN_OS_SYNC_CONSENT_SCREEN_OPTION_APPS_TITLE" desc="Title of the os sync screen option Apps."  translateable="false">
+    Apps
+  </message>
+  <message name="IDS_LOGIN_OS_SYNC_CONSENT_SCREEN_OPTION_APPS_SUBTITLE" desc="Subtitle of the os sync screen option Apps."  translateable="false">
+    Apps installed from the Play Store and web apps from Chrome browser
+  </message>
+  <message name="IDS_LOGIN_OS_SYNC_CONSENT_SCREEN_OPTION_SETTINGS_TITLE" desc="Title of the os sync screen option Settings."  translateable="false">
+    Settings
+  </message>
+  <message name="IDS_LOGIN_OS_SYNC_CONSENT_SCREEN_OPTION_SETTINGS_SUBTITLE" desc="Subtitle of the os sync screen option Settings."  translateable="false">
+    Keyboard and mouse behavior, language preferences, and more
+  </message>
+  <message name="IDS_LOGIN_OS_SYNC_CONSENT_SCREEN_OPTION_WIFI_TITLE" desc="Title of the os sync screen option Wifi networks."  translateable="false">
+    Wi-Fi networks
+  </message>
+  <message name="IDS_LOGIN_OS_SYNC_CONSENT_SCREEN_OPTION_WIFI_SUBTITLE" desc="Subtitle of the os sync screen option Wifi networks."  translateable="false">
+    Saved networks and passwords so you can connect instantly
+  </message>
+  <message name="IDS_LOGIN_OS_SYNC_CONSENT_SCREEN_OPTION_WALLPAPER_TITLE" desc="Title of the os sync screen option Wallpaper."  translateable="false">
+    Wallpaper
+  </message>
+  <message name="IDS_LOGIN_OS_SYNC_CONSENT_SCREEN_OPTION_WALLPAPER_SUBTITLE" desc="Subtitle of the os sync screen option Wallpaper."  translateable="false">
+    Remember your desktop background across devices
+  </message>
+  <message name="IDS_LOGIN_OS_SYNC_CONSENT_SCREEN_TOOLTIP_TEXT" desc="Text of the disclaimer to the toggle of the Apps item in sync screen option."  translateable="false">
+    Once turned on, your apps will be available on any ChromeOS devices after you sign in with your Google Account.  Web apps will be synced through Chrome even if other browser sync features are turned off.
+  </message>
+   <message name="IDS_LOGIN_OS_SYNC_CONSENT_SCREEN_TOOLTIP_ADDITIONAL_TEXT" desc="Additional text of the disclaimer to the toggle of the Apps item in sync screen option."  translateable="false">
+    If you also chose to send diagnostic and usage data in the previous step, this data will be collected for installed apps.
+  </message>
+  <message name="IDS_LOGIN_OS_SYNC_CONSENT_SCREEN_MANAGE_SYNC_TITLE" desc="Title of the screen that displays sync options and allows user to control them."  translateable="false">
+    Manage sync options
+  </message>
+   <message name="IDS_LOGIN_OS_SYNC_CONSENT_SCREEN_MANAGE_SYNC_SUBTITLE" desc="Subtitle of the dialog that displays sync options and allows user to control them."  translateable="false">
+    Selected items will be available on this Chromebook. If you're new to Chromebook, sync all items so your preferences will be backed up. Make changes anytime in Settings > Accounts.
+  </message>
+  <!-- Strings for recommend apps screen -->
   <message name="IDS_LOGIN_RECOMMEND_APPS_SCREEN_TITLE" desc="The title of the dialog that recommend apps to user">
     Install apps for your <ph name="DEVICE_TYPE">$1<ex>Chromebook</ex></ph> from the Google Play Store
   </message>
@@ -2515,6 +2553,46 @@
     You'll still be able to use this <ph name="DEVICE_TYPE">$1<ex>Chromebook</ex></ph> after that time, but it will no longer get automatic software and security updates
   </message>
 
+  <!-- EOL Incentive Offer Notification Strings -->
+  <message name="IDS_EOL_INCENTIVE_NOTIFICATION_TITLE_OFFER" desc="Notification title shown to offer a dollar amount discount on a new chromebook, to incentivize the user to upgrade.">
+    Save &#36;50 or more on a new Chromebook, when you upgrade today
+  </message>
+  <message name="IDS_EOL_INCENTIVE_NOTIFICATION_TITLE_OFFER_WITH_WARNING_EXPIRING_SOON" desc="Notification title to inform user that updates end soon on this device, and to show an offer for buying a new Chromebook.">
+    Security updates end soon. Save &#36;50 or more on a new Chromebook.
+  </message>
+  <message name="IDS_EOL_INCENTIVE_NOTIFICATION_TITLE_OFFER_WITH_WARNING_EXPIRED" desc="Notification title to inform user that updates have ended on this device, and to show an offer for buying a new Chromebook.">
+    Security updates have ended. Save &#36;50 or more on a new Chromebook.
+  </message>
+
+  <message name="IDS_EOL_INCENTIVE_NOTIFICATION_MESSAGE_OFFER_EXPIRING_SOON" desc="Notification message shown to inform the user that this device will soon no longer receive the latest software updates, and that the user can upgrade to a new chromebook using an offer.">
+    You will stop getting security updates for this Chromebook in <ph name="MONTH_AND_YEAR">$1<ex>June 2023</ex></ph>. Time to upgrade for the latest security and software. Offer terms apply.
+  </message>
+  <message name="IDS_EOL_INCENTIVE_NOTIFICATION_MESSAGE_OFFER_EXPIRED" desc="Notification message shown to inform the user that this device will longer receive the latest software updates, and that the user can upgrade to get updates using an offer.">
+    Your Chromebook is no longer receiving security updates. Time to upgrade for the latest security and software. Offer terms apply.
+  </message>
+
+  <message name="IDS_EOL_INCENTIVE_NOTIFICATION_OFFER_SHOP_BUTTON" desc="The first button label shown in the end of life offer notification to open a link to shop for chromebooks.">
+    Shop Now
+  </message>
+  <message name="IDS_EOL_INCENTIVE_NOTIFICATION_OFFER_ABOUT_BUTTON" desc="The second button label shown in the end of life offer notification to learn more about device software updates.">
+    About Updates
+  </message>
+
+  <!-- EOL Incentive No Offer Notification Strings -->
+  <message name="IDS_EOL_INCENTIVE_NOTIFICATION_TITLE_NO_OFFER_EXPIRING_SOON" desc="Notification title to inform user that updates end soon and to get a new chromebook.">
+    Security updates end soon. Upgrade to a new Chromebook.
+  </message>
+  <message name="IDS_EOL_INCENTIVE_NOTIFICATION_TITLE_NO_OFFER_EXPIRED" desc="Notification title to inform user that updates have ended and to get a new chromebook.">
+    Security updates have ended. Upgrade to a new Chromebook.
+  </message>
+
+  <message name="IDS_EOL_INCENTIVE_NOTIFICATION_MESSAGE_NO_OFFER_EXPIRING_SOON" desc="Notification message shown to inform the user that this device will soon no longer receive the latest software updates, and that the user can upgrade their device to get updates.">
+    You will stop getting security and software updates for this Chromebook in <ph name="MONTH_AND_YEAR">$1<ex>June 2023</ex></ph>. Upgrade your Chromebook for the best experience.
+  </message>
+  <message name="IDS_EOL_INCENTIVE_NOTIFICATION_MESSAGE_NO_OFFER_EXPIRED" desc="Notification message shown to inform the user that this device is longer receiving the latest software updates, and that the user can upgrade their device to get updates.">
+    Your Chromebook is no longer receiving security and software updates. Upgrade your Chromebook for the best experience.
+  </message>
+
   <!-- TPM Firmware Update Notification Strings -->
   <message name="IDS_TPM_FIRMWARE_UPDATE_NOTIFICATION_TITLE" desc="Notification title shown to inform the user that there is a pending TPM firmware update for the device.">
     Security upgrade available
@@ -3047,6 +3125,20 @@
     Skip
   </message>
 
+  <!-- String for enrollment nudging pop-up -->
+  <message name="IDS_ENROLLMENT_NUDGE_TITLE" desc="The title for the modal dialog shown when managed user is required to go through enrollment during OOBE.">
+    Use enterprise enrollment for work and school accounts
+  </message>
+  <message name="IDS_ENROLLMENT_NUDGE_MESSAGE" desc="The message for the modal dialog shown when managed user is required to go through enrollment during OOBE. It mentions their email domain.">
+    To use your email address from your organization (<ph name="EMAIL_DOMAIN">$1<ex>example.com</ex></ph>), you need to use enterprise enrollment. If this device is for your personal use, sign in with your personal Google Account.
+  </message>
+  <message name="IDS_ENROLLMENT_NUDGE_ENROLL_BUTTON" desc="Button which sends a user to enterprise enrollment screen.">
+    Enterprise enrollment
+  </message>
+  <message name="IDS_ENROLLMENT_NUDGE_USE_ANOTHER_ACCOUNT_BUTTON" desc="Button which sends a user back to sign in screen where they can try to sign in with another account.">
+    Use another account
+  </message>
+
   <!-- Administrator facing strings for Active Directory screens. -->
   <message name="IDS_AD_DEVICE_NAME_INPUT_LABEL" desc="Admin-facing. Label for device name input field on the Active Directory domain join screen. User should tell us the name of their device.">
     Chromebook device name
@@ -3352,6 +3444,12 @@
   </message>
   <message name="IDS_NETWORK_UI_NETWORK_LOGS_DEBUGGING_UNKNOWN" desc="Text displayed when the Shill debugging mode is unknown.">
     Unknown
+  </message>
+  <message name="IDS_NETWORK_UI_RENDER_NETWORK_SELECT_BUTTON_TEXT" desc="Text displayed on the button for rendering network select.">
+    Render Network Select
+  </message>
+  <message name="IDS_NETWORK_UI_RENDER_NETWORK_SELECT_BUTTON_DESCRIPTION" desc="Text displayed above the render button to inform users the impact of rendering network select.">
+    Render network select list will trigger WiFi to scan frequently; this may affect your WiFi network performance.
   </message>
   <message name="IDS_NETWORK_UI_NETWORK_METRICS_LABEL" desc="Title for the section for displaying WiFi performance metrics.">
     WiFi Performance Metrics
@@ -4100,6 +4198,24 @@
   </message>
   <message name="IDS_CONSOLIDATED_CONSENT_USAGE_OPT_IN_LEARN_MORE_ARC_DISABLED_CHILD_OWNER" desc="Text shown in a pop-up dialog in the consolidated consent screen when the user clicks on the learn more for metrics opt-in when ARC is disabled in a child account.">
     <ph name="BEGIN_PARAGRAPH1">&lt;p&gt;</ph>Allowing ChromeOS devices to send automatic reports helps us prioritize what to fix and improve in ChromeOS. These reports can include things like when ChromeOS crashes, which features were used, and how much memory was typically used.<ph name="END_PARAGRAPH1">&lt;/p&gt;</ph>
+    <ph name="BEGIN_PARAGRAPH2">&lt;p&gt;</ph>You can start or stop allowing these reports any time in your child's ChromeOS device settings. If you're a domain administrator, you can change this setting in the admin console.<ph name="END_PARAGRAPH2">&lt;/p&gt;</ph>
+  </message>
+    <message name="IDS_CONSOLIDATED_CONSENT_USAGE_OPT_IN_LEARN_MORE_OWNER_LACROS" desc="Text shown in a pop-up dialog in the consolidated consent screen when the device owner clicks on the learn more for metrics opt-in when lacros is enabled.">
+    <ph name="BEGIN_PARAGRAPH1">&lt;p&gt;</ph>Allowing your ChromeOS devices to send automatic reports helps us prioritize what to fix and improve in ChromeOS. These reports can include things like when ChromeOS crashes, which features you use, how much memory you typically use, and Android app diagnostic and usage data. Some aggregate data will also help Google apps and partners, such as Android developers. Other app diagnostic and usage data, including for Android and web apps, will be collected if Apps sync is also enabled.<ph name="END_PARAGRAPH1">&lt;/p&gt;</ph>
+    <ph name="BEGIN_PARAGRAPH2">&lt;p&gt;</ph>You can start or stop allowing these reports any time in your ChromeOS device settings. If you’re a domain administrator, you can change this setting in the admin console.<ph name="END_PARAGRAPH2">&lt;/p&gt;</ph>
+    <ph name="BEGIN_PARAGRAPH3">&lt;p&gt;</ph>If the Web &amp; App Activity setting is turned on for your Google Account, your Android data may be saved to your Google Account. You can see your data, delete it, and change your account settings at account.google.com.<ph name="END_PARAGRAPH3">&lt;/p&gt;</ph>
+  </message>
+  <message name="IDS_CONSOLIDATED_CONSENT_USAGE_OPT_IN_LEARN_MORE_CHILD_OWNER_LACROS" desc="Text shown in a pop-up dialog in the consolidated consent screen when the user clicks on the learn more for metrics opt-in for a child device owner account when lacros is enabled..">
+    <ph name="BEGIN_PARAGRAPH1">&lt;p&gt;</ph>Allowing ChromeOS devices to send automatic reports helps us prioritize what to fix and improve in ChromeOS. These reports can include things like when ChromeOS crashes, which features were used, how much memory was typically used, and Android app diagnostic and usage data. Some aggregate data will also help Google apps and partners, such as Android developers. Other app diagnostic and usage data, including for Android and web apps, will be collected if Apps sync is also enabled.<ph name="END_PARAGRAPH1">&lt;/p&gt;</ph>
+    <ph name="BEGIN_PARAGRAPH2">&lt;p&gt;</ph>You can start or stop allowing these reports any time in your child's ChromeOS device settings. If you're a domain administrator, you can change this setting in the admin console.<ph name="END_PARAGRAPH2">&lt;/p&gt;</ph>
+    <ph name="BEGIN_PARAGRAPH4">&lt;p&gt;</ph>If the Web &amp; App Activity setting is turned on for your child's Google Account, your child's data may be saved to their Google Account. Learn more about these settings and how to adjust them at families.google.com.<ph name="END_PARAGRAPH4">&lt;/p&gt;</ph>
+  </message>
+  <message name="IDS_CONSOLIDATED_CONSENT_USAGE_OPT_IN_LEARN_MORE_ARC_DISABLED_OWNER_LACROS" desc="Text shown in a pop-up dialog in the consolidated consent screen when the device owner clicks on the learn more for metrics opt-in when ARC is disabled when lacros is enabled..">
+    <ph name="BEGIN_PARAGRAPH1">&lt;p&gt;</ph>Allowing your ChromeOS devices to send automatic reports helps us prioritize what to fix and improve in ChromeOS. These reports can include things like when ChromeOS crashes, which features you use and how much memory you typically use. Other app diagnostic and usage data, including for Android and web apps, will be collected if Apps sync is also enabled.<ph name="END_PARAGRAPH1">&lt;/p&gt;</ph>
+    <ph name="BEGIN_PARAGRAPH2">&lt;p&gt;</ph>You can start or stop allowing these reports any time in your Chrome device settings. If you’re a domain administrator, you can change this setting in the admin console.<ph name="END_PARAGRAPH2">&lt;/p&gt;</ph>
+  </message>
+  <message name="IDS_CONSOLIDATED_CONSENT_USAGE_OPT_IN_LEARN_MORE_ARC_DISABLED_CHILD_OWNER_LACROS" desc="Text shown in a pop-up dialog in the consolidated consent screen when the user clicks on the learn more for metrics opt-in when ARC is disabled in a child account when lacros is enabled..">
+    <ph name="BEGIN_PARAGRAPH1">&lt;p&gt;</ph>Allowing ChromeOS devices to send automatic reports helps us prioritize what to fix and improve in ChromeOS. These reports can include things like when ChromeOS crashes, which features were used, and how much memory was typically used. Other app diagnostic and usage data, including for Android and web apps, will be collected if Apps sync is also enabled.<ph name="END_PARAGRAPH1">&lt;/p&gt;</ph>
     <ph name="BEGIN_PARAGRAPH2">&lt;p&gt;</ph>You can start or stop allowing these reports any time in your child's ChromeOS device settings. If you're a domain administrator, you can change this setting in the admin console.<ph name="END_PARAGRAPH2">&lt;/p&gt;</ph>
   </message>
   <message name="IDS_CONSOLIDATED_CONSENT_BACKUP_OPT_IN_TITLE" desc="Title for the message in the consolidated consent screen to opt-in for back-up.">
@@ -4998,7 +5114,10 @@
     Sorry, an error occurred
   </message>
   <message name="IDS_BRUSCHETTA_INSTALLER_ERROR_MESSAGE" desc="More detailed message for the installer when Bruschetta (codename, do not translate) fails to install.">
-    Sorry, something went wrong. Please file feedback with #bruschetta in the description. Error code is <ph name="ERROR">$1<ex>kUnknown</ex></ph>
+    Sorry, something went wrong. Please file feedback with #bruschetta in the description. Error code is <ph name="ERROR">$1<ex>kUnknown</ex></ph>.
+  </message>
+  <message name="IDS_BRUSCHETTA_INSTALLER_ERROR_CLEANUP_MESSAGE" desc="More detailed message for the installer when Bruschetta (codename, do not translate) fails to install and the cleaning up the incomplete install also failed.">
+    Sorry, something went wrong. Please file feedback with #bruschetta in the description. Error code is <ph name="ERROR">$1<ex>kUnknown</ex></ph>. Cleaning up failed, you may need to do so manually.
   </message>
   <message name="IDS_BRUSCHETTA_INSTALLER_INSTALLING_DLC_MESSAGE" desc="Message while DLC (DownLoadable Content - codename) to support Bruschetta is being installed.">
     Configuring DLC.
@@ -5009,6 +5128,9 @@
   <message name="IDS_BRUSCHETTA_INSTALLER_STARTING_VM_MESSAGE" desc="Message while the installer is launching the Virtual Machine (VM).">
     This process may take a few minutes. Starting the virtual machine.
   </message>
+  <message name="IDS_BRUSCHETTA_INSTALLER_CLEANING_UP_MESSAGE" desc="Message while the installer is cleaning up a failed install.">
+    Install failed, cleaning up
+  </message>
   <message name="IDS_BRUSCHETTA_UNINSTALLER_TITLE" desc="Title of the Bruschetta (codename) uninstaller, a dialog for uninstalling Bruschetta, the associated VM and files.">
     Remove Bruschetta
   </message>
@@ -5018,7 +5140,7 @@
   <message name="IDS_BRUSCHETTA_UNINSTALLER_UNINSTALL_BUTTON" desc="Label for the button in the Bruschetta uninstaller dialog to uninstall the VM.">
     Remove
   </message>
-  <message name="IDS_BRUSCHETTA_UNINSTALLER_UNINSTALLING_MESSAGE" desc="Text shown in the Bruschetta installer dialog when uninstallation is in progress.">
+  <message name="IDS_BRUSCHETTA_UNINSTALLER_UNINSTALLING_MESSAGE" desc="Text shown in the Bruschetta uninstaller dialog when uninstallation is in progress.">
     Removing...
   </message>
   <message name="IDS_BRUSCHETTA_UNINSTALLER_ERROR" desc="Text shown in the Bruschetta (codename) uninstaller dialog when uninstallation fails.">
@@ -5127,12 +5249,6 @@
   <message name="IDS_EASY_UNLOCK_SCREENLOCK_TOOLTIP_LOGIN_DISABLED" desc="Tooltip for an icon on user's sign-in screen pod shown by EasyUnlock when the feature is only enabled for unlock, not sign-in.">
     To use Smart Lock to sign in to your Google Account, go to Settings &gt; Connected devices &gt; Your phone &gt; Smart Lock.
   </message>
-  <message name="IDS_SMART_LOCK_SIGN_IN_REMOVED_NOTIFICATION_TITLE" desc="Title for notification shown to users who had Sign in with Smart Lock enabled after the Sign in with Smart Lock subfeature is deprecated.">
-    Smart Lock has changed
-  </message>
-  <message name="IDS_SMART_LOCK_SIGN_IN_REMOVED_NOTIFICATION_MESSAGE" desc="Message for notification shown to users who had Sign in with Smart Lock enabled after the Sign in with Smart Lock subfeature is deprecated.">
-    Signing in with Smart Lock is no longer available. You can still unlock with Smart Lock.
-  </message>
   <message name="IDS_SMART_LOCK_SCREENLOCK_TOOLTIP_HARDLOCK_REAUTH_USER" desc="Tooltip text shown on a user's lock screen pod to reauthenticate the user before setting up Smart Lock. A password has to be entered to unlock the device.">
     To set up Smart Lock for Chromebook, Google needs to make sure it’s you—type your password to get started.
   </message>
@@ -5147,6 +5263,9 @@
   </message>
   <message name="IDS_SMART_LOCK_SCREENLOCK_AUTHENTICATED_LABEL" desc="Label for the Smart Lock icon used for accessibility purposes. Describes when a phone eligible to unlock the Chromebook is detected and authenticated.">
     Your device can be unlocked with Smart Lock. Press Enter to unlock.
+  </message>
+  <message name="IDS_CUSTOM_POLICY_PROVIDED_TRUST_ANCHORS_AT_LOCK_SCREEN_TOOLTIP" desc="Tooltip message shown on the lock screen when hovering above the managed icon which is shown when custom policy provided trusted anchors are present.">
+    Certificate provided by your administrator who can view credentials for <ph name="DOMAIN">$1<ex>google.com</ex></ph>
   </message>
 
   <!-- Strings for EcheApp -->
@@ -5281,6 +5400,9 @@
   </message>
   <message name="IDS_OOBE_GESTURE_NAVIGATION_INTRO_GO_HOME" desc="The label for the home gesture item in the gesture list within the gesture navigation education intro OOBE screen shown on the first user login.">
     Go home
+  </message>
+  <message name="IDS_OOBE_GESTURE_NAVIGATION_INTRO_SKIP" desc="A label on the button that skip the gesture navigation flow.">
+    Skip
   </message>
   <message name="IDS_OOBE_GESTURE_NAVIGATION_INTRO_SWITCH_APP" desc="The label for the switch app gesture item in the gesture list within the gesture navigation education intro OOBE screen shown on the first user login.">
     Switch to another open app
@@ -5665,6 +5787,9 @@
   <message name="IDS_PLUGIN_VM_INSUFFICIENT_DISK_SPACE_MESSAGE" desc="Error message shown if Plugin VM installation fails because there is not enough free space on the device.">
       Your device is low on storage. At least <ph name="MINIMUM_SPACE">$1<ex>16GB</ex></ph> of free space is required to use <ph name="APP_NAME">$2<ex>Plugin VM</ex></ph>. To increase free space, delete files from device.
   </message>
+  <message name="IDS_PLUGIN_VM_INSTALLER_ERROR_INVALID_IMAGE_MESSAGE" desc="Error message shown if Plugin VM installation fails because there is already VM with given name, but wrong type.">
+      Virtual machine "<ph name="VM_NAME">$1<ex>Plugin VM</ex></ph>" exists, but does not appear to be a valid <ph name="APP_NAME">$2<ex>Parallels Desktop</ex></ph> virtual machine. Please contact your administrator.
+  </message>
   <message name="IDS_PLUGIN_VM_APP_NAME_WINDOWS_SUFFIX" desc="Application name with ' (Windows)' suffix. Do not translate 'Windows'">
     <ph name="APP_NAME">$1<ex>Notepad</ex></ph> (Windows)
   </message>
@@ -5744,6 +5869,16 @@
 You can use this account with Android apps. If you want to add an account for someone else, <ph name="LINK_BEGIN">&lt;a id="newPersonLink" href="$1<ex>https://google.com/</ex>"&gt;</ph>add a new person<ph name="LINK_END">&lt;/a&gt;</ph> to your <ph name="DEVICE_TYPE">$2<ex>Chromebook</ex></ph> instead.
 
 Permissions you've already given to apps may apply to this account. You can control permissions for Android apps in <ph name="APPS_LINK_BEGIN">&lt;a id="appsSettingsLink" href="$3<ex>https://google.com/</ex>"&gt;</ph>Apps Settings<ph name="APPS_LINK_END">&lt;/a&gt;</ph>.
+  </message>
+  <message name="IDS_ACCOUNT_MANAGER_DIALOG_WELCOME_BODY_V2_WITH_DEVICE_GUEST_MODE" desc="Text body for the Welcome screen in ChromiumOS 'Add account' dialog.">
+If you want to use this account one-time only, you can <ph name="GUEST_LINK_BEGIN">&lt;a id="guestModeLink" href="#"&gt;</ph>use the device as guest<ph name="GUEST_LINK_END">&lt;/a&gt;</ph>. If you want to add an account for someone else, <ph name="LINK_BEGIN">&lt;a target="_blank" id="newPersonLink" href="$1<ex>https://google.com/</ex>"&gt;</ph>add a new person<ph name="LINK_END">&lt;/a&gt;</ph> to your <ph name="DEVICE_TYPE">$2<ex>Chromebook</ex></ph>.
+
+Permissions you've already given to websites and apps may apply to this account. You can manage your Google Accounts in <ph name="SETTINGS_LINK_BEGIN">&lt;a id="osSettingsLink" href="$3<ex>https://google.com/</ex>"&gt;</ph>Settings<ph name="SETTINGS_LINK_END">&lt;/a&gt;</ph>.
+  </message>
+  <message name="IDS_ACCOUNT_MANAGER_DIALOG_WELCOME_BODY_V2_WITHOUT_GUEST" desc="Text body for the Welcome screen in ChromiumOS 'Add account' dialog.">
+If you want to add an account for someone else, <ph name="LINK_BEGIN">&lt;a target="_blank" id="newPersonLink" href="$1<ex>https://google.com/</ex>"&gt;</ph>add a new person<ph name="LINK_END">&lt;/a&gt;</ph> to your <ph name="DEVICE_TYPE">$2<ex>Chromebook</ex></ph>.
+
+Permissions you've already given to websites and apps may apply to this account. You can manage your Google Accounts in <ph name="SETTINGS_LINK_BEGIN">&lt;a id="osSettingsLink" href="$3<ex>https://google.com/</ex>"&gt;</ph>Settings<ph name="SETTINGS_LINK_END">&lt;/a&gt;</ph>.
   </message>
   <message name="IDS_ACCOUNT_MANAGER_DIALOG_ARC_TOGGLE_LABEL" desc="Toggle text for the Welcome screen in ChromeOS 'Add account' dialog. If user toggles it on, the account that will be added will be available in Android Apps. The default value for the toggle may be 'on' or 'off' depending on where the dialog is being opened from.">
     Use this account with Android apps. You can control permissions for Android apps in <ph name="LINK_BEGIN">&lt;a id="appsSettingsLink" href="$1<ex>https://google.com/</ex>"&gt;</ph>Apps Settings<ph name="LINK_END">&lt;/a&gt;</ph>.
@@ -6147,29 +6282,6 @@ You can manage this account’s settings by installing the Family Link app on yo
     Please try again.
   </message>
 
-  <!-- Powerwash request strings -->
-  <message name="IDS_POWERWASH_REQUEST_TITLE" desc="Title of a notification asking user to powerwash the device">
-    Update required
-  </message>
-  <message name="IDS_POWERWASH_REQUEST_MESSAGE_FOR_ARC" desc="Message of the notification for user trying to start ARC application. MANAGER can be a domain or an email address.">
-    To start Google Play, <ph name="MANAGER">$1</ph> requires you to back up your data and reset this Chromebook to factory settings.
-  </message>
-  <message name="IDS_POWERWASH_REQUEST_MESSAGE_FOR_CROSTINI" desc="Message of the notification for user trying to start Crostini application. MANAGER can be a domain or an email address.">
-    To start Linux, <ph name="MANAGER">$1</ph> requires you to back up your data and reset this Chromebook to factory settings.
-  </message>
-    <message name="IDS_POWERWASH_REQUEST_MESSAGE_BUTTON" desc="Name of the button appearing in the notification">
-    Learn more
-  </message>
-  <message name="IDS_POWERWASH_REQUEST_UNDEFINED_STATE_ERROR_TITLE" desc="Title of a notification asking user to try again because failed to determine powerwash status">
-    Error launching application
-  </message>
-  <message name="IDS_POWERWASH_REQUEST_UNDEFINED_STATE_ERROR_MESSAGE_FOR_ARC" desc="Message of the notification for user trying to start ARC application while powerwash state is not determined yet">
-    Please try to start Google Play again in a few moments.
-  </message>
-  <message name="IDS_POWERWASH_REQUEST_UNDEFINED_STATE_ERROR_MESSAGE_FOR_CROSTINI" desc="Message of the notification for user trying to start Crostini application while powerwash state is not determined yet">
-    Please try to start Linux again in a few moments.
-  </message>
-
   <!-- PIN keyboard-->
   <message name="IDS_SETTINGS_PEOPLE_CONFIGURE_PIN_WEAK_PIN" desc="Message shown below the title that warns the user they have entered a PIN that is easy to guess.">
     PIN may be easy to guess
@@ -6403,6 +6515,11 @@ Your <ph name="DEVICE_TYPE">{0}<ex>Chromebook</ex></ph> will be locked now.
     ChromeOS-URLs
   </message>
 
+     <!-- Strings for WebAppSettings -->
+  <message name="IDS_RUN_ON_OS_LOGIN_ENABLED" desc="This is the message of the notification when an application is automatically started on OS login.">
+    The app <ph name="APP_NAME">$1</ph> has been configured by your admin to run on OS login
+  </message>
+
   <!-- Theme Selection -->
   <message name="IDS_THEME_SELECTION_TITLE" desc="Title of the theme selection screen.">
     Personalize your display theme
@@ -6531,4 +6648,13 @@ Your <ph name="DEVICE_TYPE">{0}<ex>Chromebook</ex></ph> will be locked now.
   <message name="IDS_OFFICE_FALLBACK_INSTRUCTIONS" desc="Office Fallback dialog instructions for the choices (buttons) the user has available to open the office file.">
     Choose "Try again", or choose "Open in offline editor" to use limited view and editing options.
   </message>
+
+  <!-- security curtain -->
+  <message name="IDS_SECURITY_CURTAIN_TITLE" desc="Title text displayed to inform the user a remote admin has taken control of the ChromeOs device.">
+    Your administrator is controlling your device
+  </message>
+  <message name="IDS_SECURITY_CURTAIN_DESCRIPTION" desc="Detailed description displayed to inform the user a remote admin has taken control of the ChromeOs device.">
+    Your administrator has logged in to look into an issue. You can continue to use the device after the administrator gives the control back to you.
+  </message>
+
 </grit-part>

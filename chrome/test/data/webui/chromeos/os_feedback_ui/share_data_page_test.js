@@ -525,6 +525,43 @@ export function shareDataPageTestSuite() {
     assertFalse(report.feedbackContext.fromAssistant);
   });
 
+  /**
+   * Test that when when the send button is clicked, an on-continue is fired.
+   * Case 11: Share autofill metadata.
+   */
+  test('SendAutofillMetadataChecked', async () => {
+    await initializePage();
+    page.feedbackContext = fakeInternalUserFeedbackContext;
+    page.feedbackContext.fromAutofill = true;
+    page.feedbackContext.autofillMetadata = 'Autofill Metadata';
+
+    assertTrue(isVisible(getElement('#autofillCheckboxContainer')));
+    getElement('#autofillCheckbox').checked = true;
+
+    const request = (await clickSendAndWait(page)).report;
+
+    assertTrue(!!request.feedbackContext.autofillMetadata);
+    assertTrue(request.includeAutofillMetadata);
+  });
+
+  /**
+   * Test that when when the send button is clicked, an on-continue is fired.
+   * Case 12: Do not share autofill metadata.
+   */
+  test('NotSendAutofillMetadataChecked', async () => {
+    await initializePage();
+    page.feedbackContext = fakeInternalUserFeedbackContext;
+    page.feedbackContext.fromAutofill = true;
+
+    assertTrue(isVisible(getElement('#autofillCheckboxContainer')));
+    getElement('#autofillCheckbox').checked = false;
+
+    const request = (await clickSendAndWait(page)).report;
+
+    assertFalse(!!request.feedbackContext.autofillMetadata);
+    assertFalse(request.includeAutofillMetadata);
+  });
+
   // Test that the send button will be disabled once clicked.
   test('DisableSendButtonAfterClick', async () => {
     await initializePage();
@@ -826,6 +863,24 @@ export function shareDataPageTestSuite() {
     assertEquals(1, feedbackServiceProvider.getOpenSystemInfoDialogCallCount());
     verifyRecordPreSubmitActionCallCount(
         1, FeedbackAppPreSubmitAction.kViewedSystemAndAppInfo);
+  });
+
+  /**
+   * Test that openAutofillDialog and recordPreSubmitAction are called when
+   * #autofillMetadataUrl ("autofill metadata") link is clicked.
+   */
+  test('openAutofillDialog', async () => {
+    await initializePage();
+
+    assertEquals(0, feedbackServiceProvider.getOpenAutofillDialogCallCount());
+    verifyRecordPreSubmitActionCallCount(
+        0, FeedbackAppPreSubmitAction.kViewedAutofillMetadata);
+
+    getElement('#autofillMetadataUrl').click();
+
+    assertEquals(1, feedbackServiceProvider.getOpenAutofillDialogCallCount());
+    verifyRecordPreSubmitActionCallCount(
+        1, FeedbackAppPreSubmitAction.kViewedAutofillMetadata);
   });
 
   /**

@@ -16,8 +16,11 @@
 #include "base/files/scoped_temp_dir.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/ref_counted.h"
+#include "base/types/expected.h"
 #include "build/build_config.h"
+#include "chrome/browser/web_applications/web_app_icon_generator.h"
 #include "chrome/browser/web_applications/web_app_id.h"
+#include "chrome/browser/web_applications/web_app_install_info.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/skia/include/core/SkColor.h"
 
@@ -115,14 +118,20 @@ class OsIntegrationTestOverride
                               std::string app_name,
                               std::string file_extension);
 
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
-  // Reads the icon color for a specific shortcut created
+  // Reads the icon color for a specific shortcut that has been created.
+  // For Mac and Win, the shortcut_dir field is mandatory. For all other OSes,
+  // this can be an empty base::FilePath().
+  // For ChromeOS and Linux, the size_px field is mandatory to prevent erroneous
+  // results. For all other OSes, the field can be skipped. The default value of
+  // size_px is usually filled up with kLauncherIconSize (see
+  // chrome/browser/web_applications/web_app_icon_generator.h for more
+  // information), which is 128.
   absl::optional<SkColor> GetShortcutIconTopLeftColor(
       Profile* profile,
       base::FilePath shortcut_dir,
       const AppId& app_id,
-      const std::string& app_name);
-#endif
+      const std::string& app_name,
+      SquareSizePx size_px = icon_size::k128);
 
 #if BUILDFLAG(IS_WIN)
   // These should not be called from tests, these are automatically
@@ -139,6 +148,14 @@ class OsIntegrationTestOverride
       const std::wstring& app_user_model_id);
   int GetCountOfShortcutIconsCreated(const std::wstring& app_user_model_id);
   bool IsShortcutsMenuRegisteredForApp(const std::wstring& app_user_model_id);
+
+  // Returns true if the given app_id/name/profile is registered with the OS in
+  // the uninstall menu, and false if it isn't. The unexpected value is a string
+  // description of the error.
+  base::expected<bool, std::string> IsUninstallRegisteredWithOs(
+      const AppId& app_id,
+      const std::string& app_name,
+      Profile* profile);
 #endif
 
   bool AreShortcutsMenuRegistered();
@@ -152,6 +169,7 @@ class OsIntegrationTestOverride
 
   // Looks into the current shortcut paths to determine if a shortcut has
   // been created or not. This should only be run on Windows, Mac and Linux.
+  // TODO(crbug.com/1425967): Add PList parsing logic for Mac shortcut checking.
   bool IsShortcutCreated(Profile* profile,
                          const AppId& app_id,
                          const std::string& app_name);
@@ -227,9 +245,11 @@ class OsIntegrationTestOverride
   // Records all ShellLinkItems for a given AppUserModelId for handling
   // shortcuts menu registration.
   JumpListEntryMap jump_list_entry_map_;
+
 #elif BUILDFLAG(IS_MAC)
   base::ScopedTempDir chrome_apps_folder_;
   std::map<base::FilePath, bool> startup_enabled_;
+
 #elif BUILDFLAG(IS_LINUX)
   base::ScopedTempDir desktop_;
   base::ScopedTempDir startup_;

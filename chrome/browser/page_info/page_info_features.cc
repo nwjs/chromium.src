@@ -21,12 +21,6 @@ bool IsMoreAboutThisSiteFeatureEnabled() {
       page_info::kPageInfoAboutThisSiteMoreInfo);
 }
 
-bool IsDescriptionPlaceholderFeatureEnabled() {
-  return IsMoreAboutThisSiteFeatureEnabled() &&
-         base::FeatureList::IsEnabled(
-             page_info::kPageInfoAboutThisSiteDescriptionPlaceholder);
-}
-
 bool IsAboutThisSiteNewIconFeatureEnabled() {
   return IsMoreAboutThisSiteFeatureEnabled() &&
          base::FeatureList::IsEnabled(page_info::kPageInfoAboutThisSiteNewIcon);
@@ -34,7 +28,6 @@ bool IsAboutThisSiteNewIconFeatureEnabled() {
 
 bool IsAboutThisSiteForNonMsbbFeatureEnabled() {
   return IsMoreAboutThisSiteFeatureEnabled() &&
-         IsDescriptionPlaceholderFeatureEnabled() &&
          IsAboutThisSiteNewIconFeatureEnabled() &&
          base::FeatureList::IsEnabled(page_info::kPageInfoAboutThisSiteNonMsbb);
 }
@@ -49,6 +42,12 @@ bool IsPersistentSidePanelEntryFeatureEnabled() {
 BASE_FEATURE(kAboutThisSitePersistentSidePanelEntry,
              "AboutThisSitePersistentSidePanelEntry",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsKeepSidePanelOnSameTabNavsFeatureEnabled() {
+  return IsMoreAboutThisSiteFeatureEnabled() &&
+         base::FeatureList::IsEnabled(
+             page_info::kPageInfoAboutThisSiteKeepSidePanelOnSameTabNavs);
+}
 #endif
 
 }  // namespace page_info

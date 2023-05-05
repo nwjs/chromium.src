@@ -11,6 +11,22 @@
 // Android.
 namespace feed {
 
+// Values for the UMA ContentSuggestions.Feed.FeedSignInUI histogram.
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused. This must be kept in sync with
+// FeedSignInUI in enums.xml.
+enum class FeedSignInUI : int {
+  // Histogram recorded when a sync half sheet is shown from Feed, when sign-in
+  // UI is not supported.
+  kShowSyncHalfSheet = 0,
+  // Histogram recorded when asign in only flow is shown from Feed.
+  kShowSignInOnlyFlow = 1,
+  // Histogram recorded when a service disabled toast is shown from Feed.
+  kShowSignInDisableToast = 2,
+
+  kMaxValue = kShowSignInDisableToast,
+};
+
 // Values for the UMA ContentSuggestions.Feed.EngagementType
 // histogram. These values are persisted to logs. Entries should not be
 // renumbered and numeric values should never be reused. This must be kept
@@ -52,7 +68,7 @@ enum class FeedUserActionType {
   kTappedOpenInNewTab = 8,
   // User opened the back of card menu.
   kOpenedContextMenu = 9,
-  // User action not reported here. See Suggestions.SurfaceVisible.
+  // Action reported whenever the feed is visible.
   kOpenedFeedSurface = 10,
   // User opened the article in an incognito tab from the back of card menu.
   kTappedOpenInNewIncognitoTab = 11,

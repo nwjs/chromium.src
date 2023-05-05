@@ -60,6 +60,10 @@ class SecurityTokenSessionController;
 }
 }  // namespace ash
 
+namespace drive {
+class DriveIntegrationService;
+}
+
 namespace extensions {
 class AutotestPrivateGetLacrosInfoFunction;
 }
@@ -121,6 +125,8 @@ class BrowserManager : public session_manager::SessionManagerObserver,
   // Lacros running and multiple users signed in simultaneously).
   // Virtual for testing.
   virtual bool IsRunningOrWillRun() const;
+
+  bool IsInitialized() const;
 
   // Returns true if Lacros is terminated.
   bool IsTerminated() const { return is_terminated_; }
@@ -238,7 +244,7 @@ class BrowserManager : public session_manager::SessionManagerObserver,
   // NOTE: If InitializeAndStartIfNeeded finds Lacros disabled, it unloads
   // Lacros via BrowserLoader::Unload, which also deletes the user data
   // directory.
-  void InitializeAndStartIfNeeded();
+  virtual void InitializeAndStartIfNeeded();
 
   // Returns true if keep-alive is enabled.
   bool IsKeepAliveEnabled() const;
@@ -493,6 +499,9 @@ class BrowserManager : public session_manager::SessionManagerObserver,
   // always be running.
   friend class PersistentForcedExtensionKeepAlive;
   friend class PersistentForcedExtensionKeepAliveTest;
+  // DriveFS requires Lacros to be alive so it can connect to the Docs Offline
+  // extension. This allows Files App to make Docs files available offline.
+  friend class drive::DriveIntegrationService;
 
   // Processes the action depending on the current state.
   // Ignoring a few exceptional cases, the logic is as follows:
@@ -515,6 +524,7 @@ class BrowserManager : public session_manager::SessionManagerObserver,
     kExtensions,
     kPersistentForcedExtension,
     kSmartCardSessionController,
+    kDriveFsNativeMessaging,
   };
 
   // Any instance of this class will ensure that the Lacros browser will stay

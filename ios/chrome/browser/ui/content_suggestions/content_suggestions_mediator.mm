@@ -34,12 +34,14 @@
 #import "ios/chrome/browser/ntp_tiles/most_visited_sites_observer_bridge.h"
 #import "ios/chrome/browser/policy/policy_util.h"
 #import "ios/chrome/browser/prefs/pref_names.h"
+#import "ios/chrome/browser/shared/public/commands/application_commands.h"
+#import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
+#import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
+#import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/signin/authentication_service.h"
 #import "ios/chrome/browser/signin/authentication_service_factory.h"
-#import "ios/chrome/browser/ui/commands/application_commands.h"
-#import "ios/chrome/browser/ui/commands/browser_coordinator_commands.h"
-#import "ios/chrome/browser/ui/commands/open_new_tab_command.h"
-#import "ios/chrome/browser/ui/commands/snackbar_commands.h"
 #import "ios/chrome/browser/ui/content_suggestions/cells/content_suggestions_most_visited_action_item.h"
 #import "ios/chrome/browser/ui/content_suggestions/cells/content_suggestions_most_visited_item.h"
 #import "ios/chrome/browser/ui/content_suggestions/cells/content_suggestions_return_to_recent_tab_item.h"
@@ -61,8 +63,6 @@
 #import "ios/chrome/browser/ui/ntp/metrics/metrics.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_feature.h"
 #import "ios/chrome/browser/ui/start_surface/start_surface_util.h"
-#import "ios/chrome/browser/ui/ui_feature_flags.h"
-#import "ios/chrome/browser/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/ui/whats_new/whats_new_util.h"
 #import "ios/chrome/browser/url/chrome_url_constants.h"
 #import "ios/chrome/browser/url_loading/url_loading_browser_agent.h"
@@ -262,11 +262,6 @@ const NSInteger kMaxNumMostVisitedTiles = 4;
 - (void)setWebState:(web::WebState*)webState {
   _webState = webState;
   self.NTPMetrics.webState = self.webState;
-}
-
-- (void)setShowingStartSurface:(BOOL)showingStartSurface {
-  _showingStartSurface = showingStartSurface;
-  self.NTPMetrics.showingStartSurface = showingStartSurface;
 }
 
 + (NSUInteger)maxSitesShown {
@@ -550,7 +545,7 @@ const NSInteger kMaxNumMostVisitedTiles = 4;
   UrlLoadParams params = UrlLoadParams::InNewTab(URL);
   params.SetInBackground(!incognito);
   params.in_incognito = incognito;
-  params.append_to = kCurrentTab;
+  params.append_to = OpenPosition::kCurrentTab;
   params.origin_point = originPoint;
   UrlLoadingBrowserAgent::FromBrowser(self.browser)->Load(params);
 }
@@ -617,11 +612,13 @@ const NSInteger kMaxNumMostVisitedTiles = 4;
   // Fetch Trending Queries
   TemplateURLRef::SearchTermsArgs args;
   args.request_source = RequestSource::NTP_MODULE;
+  BOOL isShowingStartSurface = NewTabPageTabHelper::FromWebState(self.webState)
+                                   ->ShouldShowStartSurface();
   _startSuggestService->FetchSuggestions(
       args,
       base::BindOnce(&StartSuggestServiceResponseBridge::OnSuggestionsReceived,
                      _startSuggestServiceResponseBridge->AsWeakPtr()),
-      self.showingStartSurface);
+      isShowingStartSurface);
 }
 
 - (NSString*)constructReturnToRecentTabSubtitleWithPageTitle:

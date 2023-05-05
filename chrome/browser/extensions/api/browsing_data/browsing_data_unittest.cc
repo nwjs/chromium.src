@@ -14,11 +14,11 @@
 #include "chrome/browser/extensions/extension_service_test_base.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/common/pref_names.h"
 #include "chrome/test/base/test_browser_window.h"
 #include "components/browsing_data/content/browsing_data_helper.h"
 #include "components/browsing_data/core/browsing_data_utils.h"
 #include "components/browsing_data/core/pref_names.h"
+#include "components/history/core/common/pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browsing_data_remover.h"
@@ -148,8 +148,8 @@ class BrowsingDataApiTest : public ExtensionServiceTestBase {
     std::unique_ptr<base::Value> result = RunFunctionAndReturnSingleResult(
         function.get(), std::string("[]"), browser());
     EXPECT_TRUE(result->is_dict());
-    ASSERT_TRUE(result->FindDoublePath("options.since"));
-    double since = *result->FindDoublePath("options.since");
+    ASSERT_TRUE(result->GetDict().FindDoubleByDottedPath("options.since"));
+    double since = *result->GetDict().FindDoubleByDottedPath("options.since");
 
     double expected_since = 0;
     if (since_pref != browsing_data::TimePeriod::ALL_TIME) {
@@ -467,7 +467,8 @@ TEST_F(BrowsingDataApiTest, BrowsingDataRemovalInputFromSettings) {
         settings_function.get(), std::string("[]"), browser()));
 
     EXPECT_TRUE(result->is_dict());
-    base::Value* data_to_remove = result->FindDictKey("dataToRemove");
+    base::Value::Dict* data_to_remove =
+        result->GetDict().FindDict("dataToRemove");
     EXPECT_TRUE(data_to_remove);
 
     JSONStringValueSerializer serializer(&json);

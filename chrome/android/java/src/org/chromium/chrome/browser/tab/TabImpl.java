@@ -18,6 +18,7 @@ import android.view.accessibility.AccessibilityEvent;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
+import org.chromium.base.CommandLine;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
 import org.chromium.base.ObserverList;
@@ -39,6 +40,7 @@ import org.chromium.chrome.browser.compositor.CompositorViewHolder;
 import org.chromium.chrome.browser.content.ContentUtils;
 import org.chromium.chrome.browser.contextmenu.ContextMenuPopulatorFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.native_page.NativePageAssassin;
 import org.chromium.chrome.browser.night_mode.NightModeUtils;
@@ -77,7 +79,7 @@ import org.chromium.url.GURL;
  * Implementation of the interface {@link Tab}. Contains and manages a {@link ContentView}.
  * This class is not intended to be extended.
  */
-public class TabImpl implements Tab, TabObscuringHandler.Observer {
+public class TabImpl implements Tab {
     private static final long INVALID_TIMESTAMP = -1;
 
     /** Used for logging. */
@@ -209,6 +211,7 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
     private final TabThemeColorHelper mThemeColorHelper;
     private int mThemeColor;
     private boolean mUsedCriticalPersistedTabData;
+    private boolean mIsWebContentObscured;
 
     /**
      * Creates an instance of a {@link TabImpl}.
@@ -831,16 +834,13 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
         return mIsTabSaveEnabledSupplier;
     }
 
-    // TabObscuringHandler.Observer
-
-    @Override
-    public void updateObscured(boolean obscureTabContent, boolean obscureToolbar) {
+    protected void updateWebContentObscured(boolean obscureWebContent) {
         // Update whether or not the current native tab and/or web contents are
         // currently visible (from an accessibility perspective), or whether
         // they're obscured by another view.
         View view = getView();
         if (view != null) {
-            int importantForAccessibility = obscureTabContent
+            int importantForAccessibility = obscureWebContent
                     ? View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
                     : View.IMPORTANT_FOR_ACCESSIBILITY_YES;
             if (view.getImportantForAccessibility() != importantForAccessibility) {
@@ -851,8 +851,9 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
 
         WebContentsAccessibility wcax = getWebContentsAccessibility(getWebContents());
         if (wcax != null) {
-            boolean isWebContentObscured = obscureTabContent || isShowingCustomView();
-            wcax.setObscuredByAnotherView(isWebContentObscured);
+            if (mIsWebContentObscured == obscureWebContent) return;
+            wcax.setObscuredByAnotherView(obscureWebContent);
+            mIsWebContentObscured = obscureWebContent;
         }
     }
 
@@ -1683,8 +1684,14 @@ public class TabImpl implements Tab, TabObscuringHandler.Observer {
             return userAgentOverrideOption;
         }
 
+        CommandLine commandLine = CommandLine.getInstance();
+        // For --request-desktop-sites, always override the user agent.
+        boolean alwaysRequestDesktopSite =
+                commandLine.hasSwitch(ChromeSwitches.REQUEST_DESKTOP_SITES);
+
         boolean shouldRequestDesktopSite =
-                TabUtils.readRequestDesktopSiteContentSettings(profile, url);
+                TabUtils.readRequestDesktopSiteContentSettings(profile, url)
+                || alwaysRequestDesktopSite;
         if (!shouldRequestDesktopSite
                 && ContentFeatureList.isEnabled(
                         ContentFeatureList.REQUEST_DESKTOP_SITE_ADDITIONS)) {

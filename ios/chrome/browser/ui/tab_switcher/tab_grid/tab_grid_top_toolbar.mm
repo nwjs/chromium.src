@@ -9,13 +9,13 @@
 #import "base/ios/ios_util.h"
 #import "base/location.h"
 #import "base/task/sequenced_task_runner.h"
+#import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/ui/icons/symbols.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/grid_constants.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/tab_grid_constants.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/tab_grid_page_control.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/tab_grid_toolbars_utils.h"
 #import "ios/chrome/browser/ui/thumb_strip/thumb_strip_feature.h"
-#import "ios/chrome/browser/ui/util/uikit_ui_util.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util.h"
@@ -220,8 +220,9 @@ const CGFloat kSymbolSearchImagePointSize = 22;
 }
 
 - (void)setScrollViewScrolledToEdge:(BOOL)scrolledToEdge {
-  if (!UseSymbols() || scrolledToEdge == _scrolledToEdge)
+  if (scrolledToEdge == _scrolledToEdge) {
     return;
+  }
 
   _scrolledToEdge = scrolledToEdge;
 
@@ -400,22 +401,11 @@ const CGFloat kSymbolSearchImagePointSize = 22;
 
 - (void)setupViews {
   self.translatesAutoresizingMaskIntoConstraints = NO;
-  if (UseSymbols()) {
-    self.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
-    [self createScrolledBackgrounds];
-  } else {
-    self.barStyle = UIBarStyleBlack;
-    self.translucent = YES;
-  }
+  self.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
+  [self createScrolledBackgrounds];
   self.delegate = self;
   [self setShadowImage:[[UIImage alloc] init]
       forToolbarPosition:UIBarPositionAny];
-  if (!UseSymbols() && base::ios::HasDynamicIsland()) {
-    // Do this to make the toolbar transparent instead of translucent.
-    [self setBackgroundImage:[UIImage new]
-          forToolbarPosition:UIToolbarPositionAny
-                  barMetrics:UIBarMetricsDefault];
-  }
 
   _closeAllOrUndoButton = [[UIBarButtonItem alloc] init];
   _closeAllOrUndoButton.tintColor =
@@ -463,20 +453,13 @@ const CGFloat kSymbolSearchImagePointSize = 22;
   }
                                    forState:UIControlStateDisabled];
 
-  if (UseSymbols()) {
-    UIImage* searchImage =
-        DefaultSymbolWithPointSize(kSearchSymbol, kSymbolSearchImagePointSize);
-    _searchButton =
-        [[UIBarButtonItem alloc] initWithImage:searchImage
-                                         style:UIBarButtonItemStylePlain
-                                        target:nil
-                                        action:nil];
-  } else {
-    _searchButton = [[UIBarButtonItem alloc]
-        initWithBarButtonSystemItem:UIBarButtonSystemItemSearch
-                             target:nil
-                             action:nil];
-  }
+  UIImage* searchImage =
+      DefaultSymbolWithPointSize(kSearchSymbol, kSymbolSearchImagePointSize);
+  _searchButton =
+      [[UIBarButtonItem alloc] initWithImage:searchImage
+                                       style:UIBarButtonItemStylePlain
+                                      target:nil
+                                      action:nil];
 
   _searchButton.tintColor = UIColorFromRGB(kTabGridToolbarTextButtonColor);
   _searchButton.accessibilityIdentifier = kTabGridSearchButtonIdentifier;

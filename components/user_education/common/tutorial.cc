@@ -5,6 +5,7 @@
 #include "components/user_education/common/tutorial.h"
 
 #include "base/functional/bind.h"
+#include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/ranges/algorithm.h"
 #include "base/time/time.h"
@@ -108,6 +109,12 @@ Tutorial::StepBuilder& Tutorial::StepBuilder::SetMustRemainVisible(
   return *this;
 }
 
+Tutorial::StepBuilder& Tutorial::StepBuilder::SetMustBeVisibleAtStart(
+    bool must_be_visible_) {
+  step_.must_be_visible = must_be_visible_;
+  return *this;
+}
+
 Tutorial::StepBuilder& Tutorial::StepBuilder::SetTransitionOnlyOnEvent(
     bool transition_only_on_event_) {
   step_.transition_only_on_event = transition_only_on_event_;
@@ -134,17 +141,25 @@ std::unique_ptr<ui::InteractionSequence::Step> Tutorial::StepBuilder::Build(
 
   interaction_sequence_step_builder->SetContext(step_.context_mode);
 
-  if (step_.element_id)
+  if (step_.element_id) {
     interaction_sequence_step_builder->SetElementID(step_.element_id);
+  }
 
-  if (!step_.element_name.empty())
+  if (!step_.element_name.empty()) {
     interaction_sequence_step_builder->SetElementName(step_.element_name);
+  }
 
   interaction_sequence_step_builder->SetType(step_.step_type, step_.event_type);
 
-  if (step_.must_remain_visible.has_value())
+  if (step_.must_remain_visible.has_value()) {
     interaction_sequence_step_builder->SetMustRemainVisible(
         step_.must_remain_visible.value());
+  }
+
+  if (step_.must_be_visible.has_value()) {
+    interaction_sequence_step_builder->SetMustBeVisibleAtStart(
+        step_.must_be_visible.value());
+  }
 
   interaction_sequence_step_builder->SetTransitionOnlyOnEvent(
       step_.transition_only_on_event);
@@ -340,7 +355,7 @@ Tutorial::Builder& Tutorial::Builder::SetContext(
 }
 
 std::unique_ptr<Tutorial> Tutorial::Builder::Build() {
-  return absl::WrapUnique(new Tutorial(builder_->Build()));
+  return base::WrapUnique(new Tutorial(builder_->Build()));
 }
 
 Tutorial::Tutorial(

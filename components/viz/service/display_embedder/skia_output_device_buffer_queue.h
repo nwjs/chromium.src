@@ -42,13 +42,9 @@ class VIZ_SERVICE_EXPORT SkiaOutputDeviceBufferQueue : public SkiaOutputDevice {
 
   // SkiaOutputDevice overrides.
   void Submit(bool sync_cpu, base::OnceClosure callback) override;
-  void SwapBuffers(BufferPresentedCallback feedback,
-                   OutputSurfaceFrame frame) override;
-  void PostSubBuffer(const gfx::Rect& rect,
-                     BufferPresentedCallback feedback,
-                     OutputSurfaceFrame frame) override;
-  void CommitOverlayPlanes(BufferPresentedCallback feedback,
-                           OutputSurfaceFrame frame) override;
+  void Present(const absl::optional<gfx::Rect>& update_rect,
+               BufferPresentedCallback feedback,
+               OutputSurfaceFrame frame) override;
   bool Reshape(const SkSurfaceCharacterization& characterization,
                const gfx::ColorSpace& color_space,
                float device_scale_factor,
@@ -94,6 +90,7 @@ class VIZ_SERVICE_EXPORT SkiaOutputDeviceBufferQueue : public SkiaOutputDevice {
   // Given an overlay mailbox, returns the corresponding OverlayData* from
   // |overlays_|. Inserts an OverlayData if mailbox is not in |overlays_|.
   OverlayData* GetOrCreateOverlayData(const gpu::Mailbox& mailbox,
+                                      bool is_root_render_pass,
                                       bool* is_existing = nullptr);
 
   std::unique_ptr<OutputPresenter> presenter_;

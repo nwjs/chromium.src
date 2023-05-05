@@ -5,7 +5,7 @@
 #include <string>
 
 #include "base/test/scoped_feature_list.h"
-#include "chrome/browser/sync/test/integration/autofill_helper.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/sync/test/integration/contact_info_helper.h"
 #include "chrome/browser/sync/test/integration/encryption_helper.h"
 #include "chrome/browser/sync/test/integration/fake_server_match_status_checker.h"
@@ -16,6 +16,7 @@
 #include "components/autofill/core/browser/contact_info_sync_util.h"
 #include "components/autofill/core/browser/personal_data_manager.h"
 #include "components/autofill/core/common/autofill_features.h"
+#include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/sync/base/features.h"
 #include "components/sync/base/model_type.h"
 #include "components/sync/engine/loopback_server/persistent_unique_client_entity.h"
@@ -151,6 +152,43 @@ IN_PROC_BROWSER_TEST_F(SingleClientContactInfoSyncTest, UploadProfile) {
                   .Wait());
 }
 
+// Tests that profile changes due to `AutofillProfile::FinalizeAfterImport()`
+// don't cause a reupload and hence can't cause ping-pong loops.
+// This is not expected to happen because only the PersonalDataManager can
+// trigger reuploads - and it only operates on finalized profiles.
+IN_PROC_BROWSER_TEST_F(SingleClientContactInfoSyncTest, FinalizeAfterImport) {
+  AutofillProfile unfinalized_profile(AutofillProfile::Source::kAccount);
+  unfinalized_profile.SetRawInfo(autofill::NAME_FULL, u"Full Name");
+  AutofillProfile finalized_profile = unfinalized_profile;
+  finalized_profile.FinalizeAfterImport();
+  ASSERT_NE(unfinalized_profile, finalized_profile);
+
+  // Add the `unfinalized_profile` to the server. An unfinalized profile is
+  // never uploaded through Autofill, but non-Autofill clients might do so.
+  AddSpecificsToServer(AsContactInfoSpecifics(unfinalized_profile),
+                       GetFakeServer());
+  ASSERT_TRUE(SetupSync());
+  // Expect that the PersonalDataManager receives the `finalized_profile`. The
+  // finalization step happen when reading the profile from AutofillTable.
+  EXPECT_TRUE(
+      PersonalDataManagerProfileChecker(GetPersonalDataManager(),
+                                        UnorderedElementsAre(finalized_profile))
+          .Wait());
+
+  // Expect that the finalized profile is not propagated back to the server.
+  // Since the PersonalDatamanager is operating on a single thread, this is
+  // verified by adding a dummy profile. It will only reach the server after any
+  // already pending changes.
+  const AutofillProfile kDummyProfile = BuildTestAccountProfile();
+  GetPersonalDataManager()->AddProfile(kDummyProfile);
+  EXPECT_TRUE(
+      FakeServerSpecificsChecker(
+          UnorderedElementsAre(
+              AsContactInfoSpecifics(unfinalized_profile).SerializeAsString(),
+              AsContactInfoSpecifics(kDummyProfile).SerializeAsString()))
+          .Wait());
+}
+
 IN_PROC_BROWSER_TEST_F(SingleClientContactInfoSyncTest, ClearOnDisableSync) {
   const AutofillProfile kProfile = BuildTestAccountProfile();
   AddSpecificsToServer(AsContactInfoSpecifics(kProfile), GetFakeServer());
@@ -270,9 +308,9 @@ IN_PROC_BROWSER_TEST_F(SingleClientContactInfoSyncTest,
       GetSyncService(0)->GetActiveDataTypes().Has(syncer::CONTACT_INFO));
 
   // Apply a change to the profile.
-  autofill_helper::UpdateProfile(
-      0, profile.guid(), autofill::AutofillType(autofill::NAME_FULL),
-      u"New Name", autofill::VerificationStatus::kParsed);
+  profile.SetRawInfoWithVerificationStatus(
+      autofill::NAME_FULL, u"New Name", autofill::VerificationStatus::kParsed);
+  GetPersonalDataManager()->UpdateProfile(profile);
 
   autofill::AutofillProfile profile2;
   profile2.SetRawInfoWithVerificationStatus(
@@ -282,22 +320,50 @@ IN_PROC_BROWSER_TEST_F(SingleClientContactInfoSyncTest,
 
   // Add an obsolete profile to make sure that the server has received the
   // update.
-  autofill_helper::AddProfile(0, profile2);
+  GetPersonalDataManager()->AddProfile(profile2);
 
   ASSERT_TRUE(ServerCountMatchStatusChecker(syncer::CONTACT_INFO, 2).Wait());
-
-  const std::vector<sync_pb::SyncEntity> entities =
-      fake_server_->GetSyncEntitiesByModelType(syncer::CONTACT_INFO);
-
-  ASSERT_EQ(entities.size(), 2u);
   // Verifies that the profile with `profile.guid()` has preserved
   // unknown_fields while they are completely stripped for `profile2`.
-  EXPECT_THAT(entities,
-              testing::Contains(HasContactInfoWithGuidAndUnknownFields(
-                  profile.guid(), kUnsupportedField)));
-  EXPECT_THAT(entities,
-              testing::Contains(
+  EXPECT_THAT(fake_server_->GetSyncEntitiesByModelType(syncer::CONTACT_INFO),
+              UnorderedElementsAre(
+                  HasContactInfoWithGuidAndUnknownFields(profile.guid(),
+                                                         kUnsupportedField),
                   HasContactInfoWithGuidAndUnknownFields(profile2.guid(), "")));
+}
+
+// Overwrite the Sync test account with a non-gmail account. This treats it as a
+// Dasher account.
+// On Android, `switches::kSyncUserForTest` isn't supported, so it's currently
+// not possible to simulate a non-gmail account.
+class SingleClientContactInfoManagedAccountTest
+    : public SingleClientContactInfoSyncTest {
+ public:
+  SingleClientContactInfoManagedAccountTest() {
+    // This can't be done in `SetUpCommandLine()` because `SyncTest::SetUp()`
+    // already consumes the parameter.
+    base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
+        switches::kSyncUserForTest, "user@managed-domain.com");
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(SingleClientContactInfoManagedAccountTest,
+                       DisabledForManagedAccounts) {
+  ASSERT_TRUE(SetupClients());
+  // Sign in with a managed account.
+  ASSERT_TRUE(GetClient(0)->SignInPrimaryAccount());
+  signin::IdentityManager* identity_manager =
+      IdentityManagerFactory::GetForProfile(GetProfile(0));
+  CoreAccountInfo account =
+      identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSync);
+  signin::SimulateSuccessfulFetchOfAccountInfo(
+      identity_manager, account.account_id, account.email, account.gaia,
+      "managed-domain.com", "Full Name", "Given Name", "en-US",
+      /*picture_url=*/"");
+  ASSERT_TRUE(SetupSync());
+
+  EXPECT_FALSE(
+      GetSyncService(0)->GetActiveDataTypes().Has(syncer::CONTACT_INFO));
 }
 #endif
 

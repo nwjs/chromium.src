@@ -242,9 +242,9 @@ class SyncDataTypeManagerImplTest : public testing::Test {
 
   // Adds a fake controller for the given type to |controllers_|.
   // Should be called only before setting up the DTM.
-  void AddController(ModelType model_type) {
-    controllers_[model_type] =
-        std::make_unique<FakeDataTypeController>(model_type);
+  void AddController(ModelType model_type, bool enable_transport_mode = false) {
+    controllers_[model_type] = std::make_unique<FakeDataTypeController>(
+        model_type, enable_transport_mode);
   }
 
   // Gets the fake controller for the given type, which should have
@@ -1001,6 +1001,32 @@ TEST_F(SyncDataTypeManagerImplTest, FailingPreconditionKeepData) {
   dtm_->Stop(ShutdownReason::STOP_SYNC_AND_KEEP_DATA);
   EXPECT_EQ(DataTypeManager::STOPPED, dtm_->state());
   EXPECT_TRUE(configurer_.connected_types().Empty());
+
+  EXPECT_EQ(0, GetController(BOOKMARKS)->model()->clear_metadata_call_count());
+}
+
+TEST_F(SyncDataTypeManagerImplTest, FailingPreconditionClearData) {
+  AddController(BOOKMARKS);
+  GetController(BOOKMARKS)->SetPreconditionState(
+      DataTypeController::PreconditionState::kMustStopAndClearData);
+
+  // Bookmarks is never started due to failing preconditions.
+  DataTypeStatusTable::TypeErrorMap error_map;
+  error_map[BOOKMARKS] =
+      SyncError(FROM_HERE, SyncError::DATATYPE_POLICY_ERROR, "", BOOKMARKS);
+  DataTypeStatusTable expected_status_table;
+  expected_status_table.UpdateFailedDataTypes(error_map);
+  SetConfigureStartExpectation();
+  SetConfigureDoneExpectation(DataTypeManager::OK, expected_status_table);
+
+  Configure(ModelTypeSet(BOOKMARKS));
+  FinishDownload(ModelTypeSet(), ModelTypeSet());  // control types
+
+  EXPECT_EQ(DataTypeController::NOT_RUNNING, GetController(BOOKMARKS)->state());
+  EXPECT_EQ(DataTypeManager::CONFIGURED, dtm_->state());
+  EXPECT_EQ(0U, configurer_.connected_types().Size());
+
+  EXPECT_EQ(1, GetController(BOOKMARKS)->model()->clear_metadata_call_count());
 }
 
 // Tests that unready types are not started after ResetDataTypeErrors and
@@ -1269,7 +1295,8 @@ TEST_F(SyncDataTypeManagerImplTest, AllTypesReady) {
 
   // Mark both types as already downloaded.
   sync_pb::ModelTypeState already_downloaded;
-  already_downloaded.set_initial_sync_done(true);
+  already_downloaded.set_initial_sync_state(
+      sync_pb::ModelTypeState_InitialSyncState_INITIAL_SYNC_DONE);
   GetController(PRIORITY_PREFERENCES)
       ->model()
       ->SetModelTypeStateForActivationResponse(already_downloaded);
@@ -1414,7 +1441,7 @@ TEST_F(SyncDataTypeManagerImplTest, StopWithDisableSync) {
 
 TEST_F(SyncDataTypeManagerImplTest, PurgeDataOnStartingPersistent) {
   AddController(BOOKMARKS);
-  AddController(AUTOFILL_WALLET_DATA);
+  AddController(AUTOFILL_WALLET_DATA, /*enable_transport_mode=*/true);
 
   // Configure as usual.
   SetConfigureStartExpectation();
@@ -1626,7 +1653,8 @@ TEST_F(SyncDataTypeManagerImplTest, ProvideDebugInfo) {
 
   // Mark BOOKMARKS as already downloaded.
   sync_pb::ModelTypeState bookmarks_state;
-  bookmarks_state.set_initial_sync_done(true);
+  bookmarks_state.set_initial_sync_state(
+      sync_pb::ModelTypeState_InitialSyncState_INITIAL_SYNC_DONE);
   GetController(BOOKMARKS)->model()->SetModelTypeStateForActivationResponse(
       bookmarks_state);
 

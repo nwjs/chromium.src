@@ -10,6 +10,7 @@
 
 #import "base/functional/callback.h"
 #import "base/mac/foundation_util.h"
+#import "base/notreached.h"
 #import "base/ranges/algorithm.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/values.h"
@@ -273,9 +274,11 @@ using UserDecision =
 }
 
 - (void)focusPreviousField {
+  web::WebFramesManager* framesManager =
+      autofill::AutofillJavaScriptFeature::GetInstance()->GetWebFramesManager(
+          _webState);
   web::WebFrame* frame =
-      _webState->GetPageWorldWebFramesManager()->GetFrameWithId(
-          _lastFormActivityWebFrameID);
+      framesManager->GetFrameWithId(_lastFormActivityWebFrameID);
 
   if (!frame)
     return;
@@ -285,9 +288,11 @@ using UserDecision =
 }
 
 - (void)focusNextField {
+  web::WebFramesManager* framesManager =
+      autofill::AutofillJavaScriptFeature::GetInstance()->GetWebFramesManager(
+          _webState);
   web::WebFrame* frame =
-      _webState->GetPageWorldWebFramesManager()->GetFrameWithId(
-          _lastFormActivityWebFrameID);
+      framesManager->GetFrameWithId(_lastFormActivityWebFrameID);
 
   if (!frame)
     return;
@@ -298,9 +303,11 @@ using UserDecision =
 
 - (void)checkIfPreviousAndNextFieldsAreAvailableForFocusWithCompletionHandler:
     (void (^)(BOOL previous, BOOL next))completionHandler {
+  web::WebFramesManager* framesManager =
+      autofill::AutofillJavaScriptFeature::GetInstance()->GetWebFramesManager(
+          _webState);
   web::WebFrame* frame =
-      _webState->GetPageWorldWebFramesManager()->GetFrameWithId(
-          _lastFormActivityWebFrameID);
+      framesManager->GetFrameWithId(_lastFormActivityWebFrameID);
 
   autofill::SuggestionControllerJavaScriptFeature::GetInstance()
       ->FetchPreviousAndNextElementsPresenceInFrame(
@@ -719,6 +726,14 @@ using UserDecision =
 - (void)sharedPasswordController:(SharedPasswordController*)controller
              didAcceptSuggestion:(FormSuggestion*)suggestion {
   // No op.
+}
+
+- (BOOL)shouldShowAccountStorageNotice {
+  return false;
+}
+
+- (void)showAccountStorageNotice:(void (^)())completion {
+  NOTREACHED_NORETURN();
 }
 
 @end

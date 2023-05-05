@@ -15,6 +15,7 @@
 #include "chromeos/ash/services/cros_healthd/public/mojom/cros_healthd.mojom.h"
 #include "chromeos/ash/services/cros_healthd/public/mojom/cros_healthd_diagnostics.mojom.h"
 #include "chromeos/ash/services/cros_healthd/public/mojom/cros_healthd_events.mojom.h"
+#include "chromeos/ash/services/cros_healthd/public/mojom/cros_healthd_exception.mojom.h"
 #include "chromeos/ash/services/cros_healthd/public/mojom/cros_healthd_probe.mojom.h"
 #include "chromeos/services/network_health/public/mojom/network_health.mojom.h"
 #include "chromeos/services/network_health/public/mojom/network_health_types.mojom-forward.h"
@@ -137,6 +138,9 @@ class FakeCrosHealthd final : public mojom::CrosHealthdDiagnosticsService,
   void SetProbeMultipleProcessInfoResponseForTesting(
       mojom::MultipleProcessResultPtr& result);
 
+  // Set the result for a call to `IsEventSupported`.
+  void SetIsEventSupportedResponseForTesting(mojom::SupportStatusPtr& result);
+
   // Set expectation about the parameter that is passed to a call of
   // a Diagnostics routine (`Run*Routine`) and `GetRoutineUpdate`.
   void SetExpectedLastPassedDiagnosticsParametersForTesting(
@@ -153,6 +157,9 @@ class FakeCrosHealthd final : public mojom::CrosHealthdDiagnosticsService,
   // `category`.
   void EmitEventForCategory(mojom::EventCategoryEnum category,
                             mojom::EventInfoPtr info);
+
+  mojo::RemoteSet<mojom::EventObserver>* GetObserversByCategory(
+      mojom::EventCategoryEnum category);
 
   // Calls the network event OnConnectionStateChangedEvent on all registered
   // network observers.
@@ -289,28 +296,30 @@ class FakeCrosHealthd final : public mojom::CrosHealthdDiagnosticsService,
       RunBluetoothPairingRoutineCallback callback) override;
 
   // CrosHealthdEventService overrides:
-  void AddBluetoothObserver(
+  void DEPRECATED_AddBluetoothObserver(
       mojo::PendingRemote<mojom::CrosHealthdBluetoothObserver> observer)
       override;
-  void AddLidObserver(
+  void DEPRECATED_AddLidObserver(
       mojo::PendingRemote<mojom::CrosHealthdLidObserver> observer) override;
-  void AddPowerObserver(
+  void DEPRECATED_AddPowerObserver(
       mojo::PendingRemote<mojom::CrosHealthdPowerObserver> observer) override;
   void AddNetworkObserver(
       mojo::PendingRemote<
           chromeos::network_health::mojom::NetworkEventsObserver> observer)
       override;
-  void AddAudioObserver(
+  void DEPRECATED_AddAudioObserver(
       mojo::PendingRemote<mojom::CrosHealthdAudioObserver> observer) override;
-  void AddThunderboltObserver(
+  void DEPRECATED_AddThunderboltObserver(
       mojo::PendingRemote<mojom::CrosHealthdThunderboltObserver> observer)
       override;
-  void AddUsbObserver(
+  void DEPRECATED_AddUsbObserver(
       mojo::PendingRemote<mojom::CrosHealthdUsbObserver> observer) override;
   void AddEventObserver(
       ash::cros_healthd::mojom::EventCategoryEnum category,
       mojo::PendingRemote<ash::cros_healthd::mojom::EventObserver> observer)
       override;
+  void IsEventSupported(ash::cros_healthd::mojom::EventCategoryEnum category,
+                        IsEventSupportedCallback callback) override;
 
   // CrosHealthdProbeService overrides:
   void ProbeTelemetryInfo(
@@ -334,6 +343,9 @@ class FakeCrosHealthd final : public mojom::CrosHealthdDiagnosticsService,
   mojom::RoutineUpdatePtr routine_update_response_{mojom::RoutineUpdate::New()};
   // Used as the response to any ProbeTelemetryInfo IPCs received.
   mojom::TelemetryInfoPtr telemetry_response_info_{mojom::TelemetryInfo::New()};
+  // Used as the response to any IsEventSupported IPCs received.
+  mojom::SupportStatusPtr is_event_supported_response_{
+      mojom::SupportStatus::NewUnmappedUnionField(0)};
   // Used as the response to any ProbeProcessInfo IPCs received.
   mojom::ProcessResultPtr process_response_{
       mojom::ProcessResult::NewProcessInfo(mojom::ProcessInfo::New())};

@@ -17,6 +17,7 @@
 #include "base/time/time.h"
 #include "components/exo/buffer.h"
 #include "components/exo/shell_surface.h"
+#include "components/exo/shell_surface_util.h"
 #include "components/exo/test/exo_test_base.h"
 #include "components/exo/test/shell_surface_builder.h"
 #include "components/exo/wayland/scoped_wl.h"
@@ -51,6 +52,7 @@ namespace wayland {
 namespace {
 
 constexpr auto kTransitionDuration = base::Seconds(3);
+constexpr int kTooltipExpectedHeight = 28;
 
 class TestAuraSurface : public AuraSurface {
  public:
@@ -426,6 +428,19 @@ TEST_F(ZAuraSurfaceTest, CanSetFullscreenModeToImmersive) {
   aura_surface().SetFullscreenMode(ZAURA_SURFACE_FULLSCREEN_MODE_IMMERSIVE);
 }
 
+TEST_F(ZAuraSurfaceTest, CanSetAccessibilityId) {
+  aura_surface().SetAccessibilityId(123);
+
+  EXPECT_EQ(123, exo::GetShellClientAccessibilityId(surface().window()));
+}
+
+TEST_F(ZAuraSurfaceTest, CanUnsetAccessibilityId) {
+  aura_surface().SetAccessibilityId(-1);
+
+  EXPECT_FALSE(
+      exo::GetShellClientAccessibilityId(surface().window()).has_value());
+}
+
 // Test without setting surfaces on SetUp().
 using ZAuraSurfaceCustomTest = test::ExoTestBase;
 
@@ -472,7 +487,7 @@ TEST_F(ZAuraSurfaceCustomTest, ShowTooltipFromCursor) {
 
   const char* text = "my tooltip";
   gfx::Rect expected_tooltip_position =
-      gfx::Rect(mouse_position, gfx::Size(77, 24));
+      gfx::Rect(mouse_position, gfx::Size(77, kTooltipExpectedHeight));
   views::corewm::TooltipAura::AdjustToCursor(&expected_tooltip_position);
   aura::Window::ConvertRectToTarget(surface->window(),
                                     surface->window()->GetToplevelWindow(),
@@ -505,7 +520,7 @@ TEST_F(ZAuraSurfaceCustomTest, ShowTooltipFromKeyboard) {
 
   const char* text = "my tooltip";
   gfx::Point anchor_point = surface->window()->bounds().bottom_center();
-  gfx::Size expected_tooltip_size = gfx::Size(77, 24);
+  gfx::Size expected_tooltip_size = gfx::Size(77, kTooltipExpectedHeight);
   // Calculate expected tooltip position. For keyboard tooltip, it should be
   // shown right below and in the center of tooltip target window while it must
   // fit inside the display bounds.
@@ -556,7 +571,7 @@ TEST_F(ZAuraSurfaceCustomTest, ShowTooltipOnMenuFromCursor) {
   const char* text = "my tooltip";
   // Size of the tooltip depends on the text to show.
   gfx::Rect expected_tooltip_position =
-      gfx::Rect(mouse_position, gfx::Size(77, 24));
+      gfx::Rect(mouse_position, gfx::Size(77, kTooltipExpectedHeight));
   views::corewm::TooltipAura::AdjustToCursor(&expected_tooltip_position);
   aura::Window::ConvertRectToTarget(surface->window(),
                                     surface->window()->GetToplevelWindow(),
@@ -589,7 +604,7 @@ TEST_F(ZAuraSurfaceCustomTest, ShowTooltipOnMenuFromKeyboard) {
 
   const char* text = "my tooltip";
   gfx::Point anchor_point = surface->window()->bounds().bottom_center();
-  gfx::Size expected_tooltip_size = gfx::Size(77, 24);
+  gfx::Size expected_tooltip_size = gfx::Size(77, kTooltipExpectedHeight);
   // Calculate expected tooltip position. For keyboard tooltip, it should be
   // shown right below and in the center of tooltip target window while it must
   // fit inside the display bounds.

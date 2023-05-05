@@ -103,21 +103,23 @@ void TearDownFakeSyncServer() {
 }
 
 void StartSync() {
-  DCHECK(!IsSyncEngineInitialized());
   ChromeBrowserState* browser_state =
       chrome_test_util::GetOriginalBrowserState();
   SyncSetupService* sync_setup_service =
       SyncSetupServiceFactory::GetForBrowserState(browser_state);
+  DCHECK(!sync_setup_service->IsSyncRequested());
   sync_setup_service->SetSyncEnabled(true);
+  sync_setup_service->CommitSyncChanges();
 }
 
 void StopSync() {
-  DCHECK(IsSyncEngineInitialized());
   ChromeBrowserState* browser_state =
       chrome_test_util::GetOriginalBrowserState();
   SyncSetupService* sync_setup_service =
       SyncSetupServiceFactory::GetForBrowserState(browser_state);
+  DCHECK(sync_setup_service->IsSyncRequested());
   sync_setup_service->SetSyncEnabled(false);
+  sync_setup_service->CommitSyncChanges();
 }
 
 void TriggerSyncCycle(syncer::ModelType type) {
@@ -258,7 +260,7 @@ void DeleteAutofillProfileFromFakeSyncServer(std::string guid) {
   for (const sync_pb::SyncEntity& autofill_profile : autofill_profiles) {
     if (autofill_profile.specifics().autofill_profile().guid() == guid) {
       entity_id = autofill_profile.id_string();
-      client_tag_hash = autofill_profile.client_defined_unique_tag();
+      client_tag_hash = autofill_profile.client_tag_hash();
       break;
     }
   }
@@ -358,6 +360,25 @@ void AddTypedURLToFakeSyncServer(const std::string& url) {
   gSyncFakeServer->InjectEntity(std::move(entity));
 }
 
+void AddHistoryVisitToFakeSyncServer(const GURL& url) {
+  sync_pb::EntitySpecifics entitySpecifics;
+  sync_pb::HistorySpecifics* history = entitySpecifics.mutable_history();
+  history->set_visit_time_windows_epoch_micros(
+      base::Time::Now().ToDeltaSinceWindowsEpoch().InMicroseconds());
+  history->set_originator_cache_guid("originator_cache_guid");
+  history->mutable_page_transition()->set_core_transition(
+      sync_pb::SyncEnums_PageTransition_LINK);
+  auto* redirect_entry = history->add_redirect_entries();
+  redirect_entry->set_url(url.spec());
+  std::unique_ptr<syncer::LoopbackServerEntity> entity =
+      syncer::PersistentUniqueClientEntity::CreateFromSpecificsForTesting(
+          /*non_unique_name=*/std::string(), /*client_tag=*/
+          base::NumberToString(history->visit_time_windows_epoch_micros()),
+          entitySpecifics, /*creation_time=*/12345,
+          /*last_modified_time=*/12345);
+  gSyncFakeServer->InjectEntity(std::move(entity));
+}
+
 void AddDeviceInfoToFakeSyncServer(const std::string& device_name,
                                    base::Time last_updated_timestamp) {
   sync_pb::EntitySpecifics specifics;
@@ -380,9 +401,9 @@ void AddDeviceInfoToFakeSyncServer(const std::string& device_name,
           /*creation_time=*/mtime, mtime));
 }
 
-BOOL IsTypedUrlPresentOnClient(const GURL& url,
-                               BOOL expect_present,
-                               NSError** error) {
+BOOL IsUrlPresentOnClient(const GURL& url,
+                          BOOL expect_present,
+                          NSError** error) {
   // Call the history service.
   ChromeBrowserState* browser_state =
       chrome_test_util::GetOriginalBrowserState();
@@ -415,9 +436,9 @@ BOOL IsTypedUrlPresentOnClient(const GURL& url,
     error_message = @"History::GetCountsAndLastVisitForOrigins callback never "
                      "called, app will probably crash later.";
   } else if (count == 0 && expect_present) {
-    error_message = @"Typed URL isn't found in HistoryService.";
+    error_message = @"URL isn't found in HistoryService.";
   } else if (count > 0 && !expect_present) {
-    error_message = @"Typed URL isn't supposed to be in HistoryService.";
+    error_message = @"URL isn't supposed to be in HistoryService.";
   }
 
   if (error_message != nil && error != nil) {

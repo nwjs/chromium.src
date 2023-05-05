@@ -57,7 +57,7 @@ class CONTENT_EXPORT PrefetchURLLoaderInterceptor
 
   // Checks the prefetch retrieved via |GetPrefetch| to see if it can be used
   // for |tenative_resource_request|.
-  void OnGotPrefetchToServce(
+  void OnGotPrefetchToServe(
       const network::ResourceRequest& tenative_resource_request,
       base::WeakPtr<PrefetchContainer> prefetch_container);
 
@@ -70,6 +70,10 @@ class CONTENT_EXPORT PrefetchURLLoaderInterceptor
   // |InterceptPrefetchedNavigation|.
   void EnsureCookiesCopiedAndInterceptPrefetchedNavigation(
       const network::ResourceRequest& tenative_resource_request,
+      base::WeakPtr<PrefetchContainer> prefetch_container);
+
+  // Starts the cookie copy for next redirect hop of |prefetch_container|.
+  virtual void StartCookieCopy(
       base::WeakPtr<PrefetchContainer> prefetch_container);
 
   void InterceptPrefetchedNavigation(
@@ -92,9 +96,17 @@ class CONTENT_EXPORT PrefetchURLLoaderInterceptor
   // reported to the tab helper.
   absl::optional<base::TimeTicks> probe_start_time_;
 
+  // Result of the most recent probe.
+  PrefetchProbeResult probe_result_{PrefetchProbeResult::kNoProbing};
+
   // The time when we started waiting for cookies to be copied, delaying the
   // navigation. Used to calculate total cookie wait time.
   absl::optional<base::TimeTicks> cookie_copy_start_time_;
+
+  // The prefetch container that has already been used to serve a redirect. If
+  // another request can be intercepted, this will be checked first to see if
+  // its next redirect hop matches the request URL.
+  base::WeakPtr<PrefetchContainer> redirect_prefetch_container_;
 
   SEQUENCE_CHECKER(sequence_checker_);
 

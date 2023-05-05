@@ -194,8 +194,8 @@ ScriptPromise SharedStorage::set(ScriptState* script_state,
   if (!CheckBrowsingContextIsValid(*script_state, exception_state))
     return ScriptPromise();
 
-  ScriptPromiseResolver* resolver =
-      MakeGarbageCollected<ScriptPromiseResolver>(script_state);
+  ScriptPromiseResolver* resolver = MakeGarbageCollected<ScriptPromiseResolver>(
+      script_state, exception_state.GetContext());
   ScriptPromise promise = resolver->Promise();
 
   if (!CheckSharedStoragePermissionsPolicy(*script_state, *execution_context,
@@ -240,8 +240,8 @@ ScriptPromise SharedStorage::append(ScriptState* script_state,
   if (!CheckBrowsingContextIsValid(*script_state, exception_state))
     return ScriptPromise();
 
-  ScriptPromiseResolver* resolver =
-      MakeGarbageCollected<ScriptPromiseResolver>(script_state);
+  ScriptPromiseResolver* resolver = MakeGarbageCollected<ScriptPromiseResolver>(
+      script_state, exception_state.GetContext());
   ScriptPromise promise = resolver->Promise();
 
   if (!CheckSharedStoragePermissionsPolicy(*script_state, *execution_context,
@@ -284,8 +284,8 @@ ScriptPromise SharedStorage::Delete(ScriptState* script_state,
   if (!CheckBrowsingContextIsValid(*script_state, exception_state))
     return ScriptPromise();
 
-  ScriptPromiseResolver* resolver =
-      MakeGarbageCollected<ScriptPromiseResolver>(script_state);
+  ScriptPromiseResolver* resolver = MakeGarbageCollected<ScriptPromiseResolver>(
+      script_state, exception_state.GetContext());
   ScriptPromise promise = resolver->Promise();
 
   if (!CheckSharedStoragePermissionsPolicy(*script_state, *execution_context,
@@ -319,8 +319,8 @@ ScriptPromise SharedStorage::clear(ScriptState* script_state,
   if (!CheckBrowsingContextIsValid(*script_state, exception_state))
     return ScriptPromise();
 
-  ScriptPromiseResolver* resolver =
-      MakeGarbageCollected<ScriptPromiseResolver>(script_state);
+  ScriptPromiseResolver* resolver = MakeGarbageCollected<ScriptPromiseResolver>(
+      script_state, exception_state.GetContext());
   ScriptPromise promise = resolver->Promise();
 
   if (!CheckSharedStoragePermissionsPolicy(*script_state, *execution_context,
@@ -382,8 +382,8 @@ ScriptPromise SharedStorage::selectURL(
   LocalFrame* frame = To<LocalDOMWindow>(execution_context)->GetFrame();
   DCHECK(frame);
 
-  ScriptPromiseResolver* resolver =
-      MakeGarbageCollected<ScriptPromiseResolver>(script_state);
+  ScriptPromiseResolver* resolver = MakeGarbageCollected<ScriptPromiseResolver>(
+      script_state, exception_state.GetContext());
   ScriptPromise promise = resolver->Promise();
 
   // For `selectURL()` to succeed, it is currently enforced in the browser side
@@ -535,9 +535,12 @@ ScriptPromise SharedStorage::selectURL(
     resolve_to_config = false;
   }
 
+  bool keep_alive = options->keepAlive();
+
   GetSharedStorageDocumentService(execution_context)
       ->RunURLSelectionOperationOnWorklet(
           name, std::move(converted_urls), std::move(serialized_data),
+          keep_alive,
           WTF::BindOnce(
               [](ScriptPromiseResolver* resolver, SharedStorage* shared_storage,
                  base::TimeTicks start_time, bool resolve_to_config,
@@ -603,8 +606,8 @@ ScriptPromise SharedStorage::run(
     return ScriptPromise();
   }
 
-  ScriptPromiseResolver* resolver =
-      MakeGarbageCollected<ScriptPromiseResolver>(script_state);
+  ScriptPromiseResolver* resolver = MakeGarbageCollected<ScriptPromiseResolver>(
+      script_state, exception_state.GetContext());
   ScriptPromise promise = resolver->Promise();
 
   if (!CheckSharedStoragePermissionsPolicy(*script_state, *execution_context,
@@ -613,9 +616,11 @@ ScriptPromise SharedStorage::run(
     return promise;
   }
 
+  bool keep_alive = options->keepAlive();
+
   GetSharedStorageDocumentService(execution_context)
       ->RunOperationOnWorklet(
-          name, std::move(serialized_data),
+          name, std::move(serialized_data), keep_alive,
           WTF::BindOnce(&OnVoidOperationFinished, WrapPersistent(resolver),
                         WrapPersistent(this),
                         blink::SharedStorageVoidOperation::kRun, start_time));

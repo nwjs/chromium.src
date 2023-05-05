@@ -2023,7 +2023,7 @@ IN_PROC_BROWSER_TEST_P(SearchPrefetchServiceEnabledBrowserTest,
   ASSERT_TRUE(prefetch_status.has_value());
   EXPECT_EQ(SearchPrefetchStatus::kCanBeServed, prefetch_status.value());
 
-  omnibox->model()->AcceptInput(WindowOpenDisposition::CURRENT_TAB);
+  omnibox->model()->OpenSelection();
 
   WaitUntilStatusChangesTo(canonical_search_url, absl::nullopt);
 
@@ -2069,7 +2069,7 @@ IN_PROC_BROWSER_TEST_P(SearchPrefetchServiceEnabledBrowserTest,
     EXPECT_EQ(SearchPrefetchStatus::kInFlight, prefetch_status.value());
   }
 
-  omnibox->model()->AcceptInput(WindowOpenDisposition::CURRENT_TAB);
+  omnibox->model()->OpenSelection();
 
   if (BlockOnHeadersEnabled()) {
     WaitUntilStatusChangesTo(canonical_search_url, absl::nullopt);
@@ -2117,7 +2117,7 @@ IN_PROC_BROWSER_TEST_P(SearchPrefetchServiceEnabledBrowserTest,
   GURL canonical_search_url = GetCanonicalSearchURL(
       autocomplete_controller->result().match_at(0).destination_url);
 
-  omnibox->model()->AcceptInput(WindowOpenDisposition::CURRENT_TAB);
+  omnibox->model()->OpenSelection();
   WaitUntilStatusChangesTo(canonical_search_url, absl::nullopt);
   DispatchDelayedResponseTask();
 
@@ -2167,7 +2167,7 @@ IN_PROC_BROWSER_TEST_P(SearchPrefetchServiceEnabledBrowserTest,
   WaitUntilStatusChangesTo(canonical_search_url,
                            SearchPrefetchStatus::kCanBeServed);
 
-  omnibox->model()->AcceptInput(WindowOpenDisposition::CURRENT_TAB);
+  omnibox->model()->OpenSelection();
 
   // Wait until it is served to a real navigation.
   WaitUntilStatusChangesTo(canonical_search_url, absl::nullopt);
@@ -2234,7 +2234,7 @@ IN_PROC_BROWSER_TEST_P(SearchPrefetchServiceEnabledBrowserTest,
       SecurityStateTabHelper::FromWebContents(GetWebContents());
   WaitUntilStatusChangesTo(canonical_search_url,
                            SearchPrefetchStatus::kCanBeServed);
-  omnibox->model()->AcceptInput(WindowOpenDisposition::CURRENT_TAB);
+  omnibox->model()->OpenSelection();
 
   // Wait until it is served to a real navigation.
   WaitUntilStatusChangesTo(canonical_search_url, absl::nullopt);
@@ -2284,7 +2284,7 @@ IN_PROC_BROWSER_TEST_P(SearchPrefetchServiceEnabledBrowserTest,
   WaitUntilStatusChangesTo(canonical_search_url,
                            SearchPrefetchStatus::kCanBeServed);
 
-  omnibox->model()->AcceptInput(WindowOpenDisposition::CURRENT_TAB);
+  omnibox->model()->OpenSelection();
   // Wait until it is served to the navigation.
   WaitUntilStatusChangesTo(canonical_search_url, absl::nullopt);
 
@@ -2338,7 +2338,7 @@ IN_PROC_BROWSER_TEST_P(SearchPrefetchServiceEnabledBrowserTest,
   ASSERT_TRUE(prefetch_status.has_value());
   EXPECT_EQ(SearchPrefetchStatus::kCanBeServed, prefetch_status.value());
   omnibox->model()->OnUpOrDownKeyPressed(1);
-  omnibox->model()->AcceptInput(WindowOpenDisposition::CURRENT_TAB);
+  omnibox->model()->OpenSelection();
 
   WaitUntilStatusChangesTo(canonical_search_url,
                            SearchPrefetchStatus::kRequestCancelled);
@@ -3179,7 +3179,7 @@ IN_PROC_BROWSER_TEST_F(SearchPrefetchServiceHeadStartTooLongTest,
   ASSERT_TRUE(prefetch_status.has_value());
   EXPECT_EQ(SearchPrefetchStatus::kInFlight, prefetch_status.value());
 
-  omnibox->model()->AcceptInput(WindowOpenDisposition::CURRENT_TAB);
+  omnibox->model()->OpenSelection();
 
   WaitUntilStatusChangesTo(canonical_search_url,
                            SearchPrefetchStatus::kRequestCancelled);
@@ -3243,7 +3243,7 @@ IN_PROC_BROWSER_TEST_F(SearchPrefetchServiceHeadStartTest,
   WaitUntilStatusChangesTo(canonical_search_url,
                            SearchPrefetchStatus::kCanBeServed);
 
-  omnibox->model()->AcceptInput(WindowOpenDisposition::CURRENT_TAB);
+  omnibox->model()->OpenSelection();
 
   WaitUntilStatusChangesTo(canonical_search_url, absl::nullopt);
 
@@ -3256,11 +3256,11 @@ class SearchPrefetchServiceBFCacheTest : public SearchPrefetchBaseBrowserTest {
  public:
   SearchPrefetchServiceBFCacheTest() {
     feature_list_.InitWithFeaturesAndParameters(
-        {{kSearchPrefetchServicePrefetching, {{"cache_size", "1"}}},
-         {{features::kBackForwardCache},
-          {{"ignore_outstanding_network_request_for_testing", "true"}}}},
-        // Allow BackForwardCache for all devices regardless of their memory.
-        {features::kBackForwardCacheMemoryControls});
+        content::GetBasicBackForwardCacheFeatureForTesting(
+            {{kSearchPrefetchServicePrefetching, {{"cache_size", "1"}}},
+             {features::kBackForwardCache,
+              {{"ignore_outstanding_network_request_for_testing", "true"}}}}),
+        content::GetDefaultDisabledBackForwardCacheFeaturesForTesting());
   }
 
  private:
@@ -3390,7 +3390,7 @@ IN_PROC_BROWSER_TEST_F(SearchPrefetchServiceZeroCacheTimeBrowserTest,
 
   histogram_tester.ExpectUniqueSample(
       "Omnibox.SearchPrefetch.PrefetchFinalStatus.SuggestionPrefetch",
-      SearchPrefetchStatus::kInFlight, 1);
+      SearchPrefetchStatus::kCanBeServed, 1);
 
   // Prefetch should be gone now.
   EXPECT_FALSE(prefetch_status.has_value());
@@ -3841,7 +3841,7 @@ IN_PROC_BROWSER_TEST_F(SearchPrefetchServiceNavigationPrefetchBrowserTest,
   ASSERT_TRUE(prefetch_status.has_value());
   EXPECT_EQ(SearchPrefetchStatus::kComplete, prefetch_status.value());
 
-  omnibox->model()->AcceptInput(WindowOpenDisposition::CURRENT_TAB);
+  omnibox->model()->OpenSelection();
 
   prefetch_status = search_prefetch_service->GetSearchPrefetchStatusForTesting(
       canonical_search_url);
@@ -3886,7 +3886,7 @@ IN_PROC_BROWSER_TEST_F(SearchPrefetchServiceNavigationPrefetchBrowserTest,
           canonical_search_url);
   EXPECT_FALSE(prefetch_status.has_value());
 
-  omnibox->model()->AcceptInput(WindowOpenDisposition::CURRENT_TAB);
+  omnibox->model()->OpenSelection();
 
   prefetch_status = search_prefetch_service->GetSearchPrefetchStatusForTesting(
       canonical_search_url);
@@ -4058,12 +4058,12 @@ IN_PROC_BROWSER_TEST_F(SearchNavigationPrefetchNoCancelBrowserTest,
 
   WaitUntilStatusChangesTo(
       GetCanonicalSearchURL(autocomplete_match.destination_url),
-      SearchPrefetchStatus::kInFlight);
+      SearchPrefetchStatus::kCanBeServed);
   auto prefetch_status =
       search_prefetch_service->GetSearchPrefetchStatusForTesting(
           GetCanonicalSearchURL(autocomplete_match.destination_url));
   ASSERT_TRUE(prefetch_status.has_value());
-  EXPECT_EQ(SearchPrefetchStatus::kInFlight, prefetch_status.value());
+  EXPECT_EQ(SearchPrefetchStatus::kCanBeServed, prefetch_status.value());
 
   // Change the autocomplete to remove "porgs" entirely.
   autocomplete_match =
@@ -4076,7 +4076,7 @@ IN_PROC_BROWSER_TEST_F(SearchNavigationPrefetchNoCancelBrowserTest,
   prefetch_status = search_prefetch_service->GetSearchPrefetchStatusForTesting(
       GetCanonicalSearchURL(autocomplete_match.destination_url));
   ASSERT_TRUE(prefetch_status.has_value());
-  EXPECT_EQ(SearchPrefetchStatus::kInFlight, prefetch_status.value());
+  EXPECT_EQ(SearchPrefetchStatus::kCanBeServed, prefetch_status.value());
 }
 
 class SearchNavigationPrefetchDefaultMatchBrowserTest

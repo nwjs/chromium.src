@@ -34,6 +34,7 @@ import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.base.task.PostTask;
+import org.chromium.base.task.TaskTraits;
 import org.chromium.chrome.browser.feed.v2.FeedUserActionType;
 import org.chromium.chrome.browser.feed.webfeed.WebFeedAvailabilityStatus;
 import org.chromium.chrome.browser.feed.webfeed.WebFeedBridge;
@@ -42,7 +43,6 @@ import org.chromium.chrome.browser.feed.webfeed.WebFeedSnackbarController;
 import org.chromium.chrome.browser.feed.webfeed.WebFeedSubscriptionRequestStatus;
 import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncher;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.share.ChromeShareExtras;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.ui.messages.snackbar.Snackbar;
@@ -55,6 +55,7 @@ import org.chromium.chrome.browser.xsurface.ListLayoutHelper;
 import org.chromium.chrome.browser.xsurface.LoggingParameters;
 import org.chromium.chrome.browser.xsurface.SurfaceActionsHandler;
 import org.chromium.chrome.browser.xsurface.SurfaceActionsHandler.OpenMode;
+import org.chromium.chrome.browser.xsurface.SurfaceActionsHandler.OpenWebFeedEntryPoint;
 import org.chromium.chrome.browser.xsurface.SurfaceScope;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
@@ -65,8 +66,8 @@ import org.chromium.components.browser_ui.share.ShareParams;
 import org.chromium.components.browser_ui.widget.animation.Interpolators;
 import org.chromium.components.feed.proto.FeedUiProto;
 import org.chromium.components.feed.proto.wire.ReliabilityLoggingEnums.DiscoverLaunchResult;
+import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.content_public.browser.LoadUrlParams;
-import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.ui.base.PageTransition;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.display.DisplayAndroid;
@@ -138,11 +139,6 @@ public class FeedStream implements Stream {
                             FeedUserActionType.TAPPED_ADD_TO_READING_LIST);
                     mActionDelegate.addToReadingList(options.getTitle(), url);
                     break;
-                case OpenMode.THANK_CREATOR:
-                    FeedStreamJni.get().reportOtherUserAction(mNativeFeedStream, FeedStream.this,
-                            FeedUserActionType.TAPPED_CROW_BUTTON);
-                    mActionDelegate.openCrow(url);
-                    break;
                 case OpenMode.NEW_TAB_IN_GROUP:
                     FeedStreamJni.get().reportOpenAction(mNativeFeedStream, FeedStream.this,
                             mMakeGURL.apply(url), getSliceIdFromView(options.actionSourceView()),
@@ -160,57 +156,6 @@ public class FeedStream implements Stream {
         @Override
         public void navigateTab(String url, View actionSourceView) {
             openUrl(OpenMode.SAME_TAB, url, new OpenUrlOptions() {
-                @Override
-                public View actionSourceView() {
-                    return actionSourceView;
-                }
-            });
-        }
-
-        // Deprecated in favor of openUrl(), will be removed once internal references are removed.
-        @Override
-        public void navigateNewTab(String url, View actionSourceView) {
-            openUrl(OpenMode.NEW_TAB, url, new OpenUrlOptions() {
-                @Override
-                public View actionSourceView() {
-                    return actionSourceView;
-                }
-            });
-        }
-
-        // Deprecated in favor of openUrl(), will be removed once internal references are removed.
-        @Override
-        public void navigateIncognitoTab(String url) {
-            openUrl(OpenMode.INCOGNITO_TAB, url, new OpenUrlOptions() {});
-        }
-
-        // Deprecated in favor of openUrl(), will be removed once internal references are removed.
-        @Override
-        public void downloadLink(String url) {
-            openUrl(OpenMode.DOWNLOAD_LINK, url, new OpenUrlOptions() {});
-        }
-
-        // Deprecated in favor of openUrl(), will be removed once internal references are removed.
-        @Override
-        public void addToReadingList(String title, String url) {
-            openUrl(OpenMode.READ_LATER, url, new OpenUrlOptions() {
-                @Override
-                public String getTitle() {
-                    return title;
-                }
-            });
-        }
-
-        // Deprecated in favor of openUrl(), will be removed once internal references are removed.
-        @Override
-        public void navigateCrow(String url) {
-            openUrl(OpenMode.THANK_CREATOR, url, new OpenUrlOptions() {});
-        }
-
-        // Deprecated in favor of openUrl(), will be removed once internal references are removed.
-        @Override
-        public void navigateNewTabInGroup(String url, View actionSourceView) {
-            openUrl(OpenMode.NEW_TAB_IN_GROUP, url, new OpenUrlOptions() {
                 @Override
                 public View actionSourceView() {
                     return actionSourceView;
@@ -308,7 +253,7 @@ public class FeedStream implements Stream {
                                 results.metadata.title,
                                 results.metadata.availabilityStatus
                                         == WebFeedAvailabilityStatus.ACTIVE,
-                                mStreamKind);
+                                mStreamKind, null /* tab */, null /* url */);
                     }
                 };
                 WebFeedBridge.followFromId(webFeedId, update.isDurable(),
@@ -325,8 +270,26 @@ public class FeedStream implements Stream {
         }
 
         @Override
-        public void openWebFeed(String webFeedName) {
-            mActionDelegate.openWebFeed(webFeedName);
+        public void openWebFeed(String webFeedName, @OpenWebFeedEntryPoint int entryPoint) {
+            @SingleWebFeedEntryPoint
+            int singleWebFeedEntryPoint;
+
+            switch (entryPoint) {
+                case OpenWebFeedEntryPoint.ATTRIBUTION:
+                    singleWebFeedEntryPoint = SingleWebFeedEntryPoint.ATTRIBUTION;
+                    break;
+                case OpenWebFeedEntryPoint.RECOMMENDATION:
+                    singleWebFeedEntryPoint = SingleWebFeedEntryPoint.RECOMMENDATION;
+                    break;
+                case OpenWebFeedEntryPoint.GROUP_HEADER:
+                    singleWebFeedEntryPoint = SingleWebFeedEntryPoint.GROUP_HEADER;
+                    break;
+
+                default:
+                    singleWebFeedEntryPoint = SingleWebFeedEntryPoint.OTHER;
+            }
+
+            mActionDelegate.openWebFeed(webFeedName, singleWebFeedEntryPoint);
         }
 
         private void openSuggestionUrl(
@@ -351,7 +314,7 @@ public class FeedStream implements Stream {
             // This postTask is necessary so that other click-handlers have a chance
             // to run before we begin navigating. On start surface, navigation immediately
             // triggers unbind, which can break event handling.
-            PostTask.postTask(UiThreadTaskTraits.DEFAULT, () -> {
+            PostTask.postTask(TaskTraits.UI_DEFAULT, () -> {
                 mActionDelegate.openSuggestionUrl(disposition, params, inGroup, /*onPageLoaded=*/
                         ()
                                 -> FeedStreamJni.get().reportPageLoaded(
@@ -362,8 +325,14 @@ public class FeedStream implements Stream {
         }
 
         @Override
-        public void showSignInPrompt() {
-            mActionDelegate.showSignInActivity();
+        public void showSyncConsentPrompt() {
+            mActionDelegate.showSyncConsentActivity(SigninAccessPoint.NTP_FEED_BOTTOM_PROMO);
+        }
+
+        @Override
+        public void showSignInInterstitial() {
+            mActionDelegate.showSignInInterstitial(SigninAccessPoint.NTP_FEED_CARD_MENU_PROMO,
+                    mBottomSheetController, mWindowAndroid);
         }
     }
 
@@ -392,7 +361,7 @@ public class FeedStream implements Stream {
         /** postTask to call runnable after all in-progress work is complete. */
         void postTaskAfterWorkComplete(Runnable runnable) {
             if (!mWorkPending.get()) {
-                PostTask.postTask(UiThreadTaskTraits.DEFAULT, runnable);
+                PostTask.postTask(TaskTraits.UI_DEFAULT, runnable);
             } else {
                 new DoneWatcher(runnable);
             }
@@ -410,7 +379,7 @@ public class FeedStream implements Stream {
             @Override
             public void onResult(Boolean workPending) {
                 if (!workPending) {
-                    PostTask.postTask(UiThreadTaskTraits.DEFAULT, mDelegate);
+                    PostTask.postTask(TaskTraits.UI_DEFAULT, mDelegate);
                     mWorkPending.removeObserver(this);
                 };
             }
@@ -452,11 +421,6 @@ public class FeedStream implements Stream {
             FeedStreamJni.get().reportOtherUserAction(
                     mNativeFeedStream, FeedStream.this, FeedUserActionType.TAPPED_SEND_FEEDBACK);
 
-            Profile profile = Profile.getLastUsedRegularProfile();
-            if (profile == null) {
-                return;
-            }
-
             String url = productSpecificDataMap.get(XSURFACE_CARD_URL);
 
             // We want to hide the bottom sheet before sending feedback so the snapshot doesn't show
@@ -467,10 +431,10 @@ public class FeedStream implements Stream {
             // FEEDBACK_REPORT_TYPE: Reports for Chrome mobile must have a contextTag of the form
             // com.chrome.feed.USER_INITIATED_FEEDBACK_REPORT, or they will be discarded for not
             // matching an allow list rule.
-            PostTask.postDelayedTask(UiThreadTaskTraits.DEFAULT,
+            PostTask.postDelayedTask(TaskTraits.UI_DEFAULT,
                     ()
-                            -> mHelpAndFeedbackLauncher.showFeedback(mActivity, profile, url,
-                                    FEEDBACK_REPORT_TYPE, productSpecificDataMap),
+                            -> mHelpAndFeedbackLauncher.showFeedback(
+                                    mActivity, url, FEEDBACK_REPORT_TYPE, productSpecificDataMap),
                     MENU_DISMISS_TASK_DELAY);
         }
 
@@ -655,7 +619,7 @@ public class FeedStream implements Stream {
 
     // Things valid only when bound.
     private @Nullable RecyclerView mRecyclerView;
-    private @Nullable NtpListContentManager mContentManager;
+    private @Nullable FeedListContentManager mContentManager;
     private @Nullable SurfaceScope mSurfaceScope;
     private @Nullable HybridListRenderer mRenderer;
     private FeedScrollState mScrollStateToRestore;
@@ -665,7 +629,7 @@ public class FeedStream implements Stream {
     private ArrayList<SnackbarManager.SnackbarController> mSnackbarControllers = new ArrayList<>();
 
     // Placeholder view that simply takes up space.
-    private NtpListContentManager.NativeViewContent mSpacerViewContent;
+    private FeedListContentManager.NativeViewContent mSpacerViewContent;
 
     // Bottomsheet.
     private final BottomSheetController mBottomSheetController;
@@ -795,7 +759,7 @@ public class FeedStream implements Stream {
     }
 
     @Override
-    public void bind(RecyclerView rootView, NtpListContentManager manager,
+    public void bind(RecyclerView rootView, FeedListContentManager manager,
             FeedScrollState savedInstanceState, SurfaceScope surfaceScope,
             HybridListRenderer renderer, FeedLaunchReliabilityLogger launchReliabilityLogger,
             int headerCount) {
@@ -859,7 +823,7 @@ public class FeedStream implements Stream {
         mScrollReporter.onUnbind();
 
         // Remove Feed content from the content manager. Add spacer if needed.
-        ArrayList<NtpListContentManager.FeedContent> list = new ArrayList<>();
+        ArrayList<FeedListContentManager.FeedContent> list = new ArrayList<>();
         if (shouldPlaceSpacer) {
             addSpacer(list);
         }
@@ -1036,7 +1000,7 @@ public class FeedStream implements Stream {
             // The native loadMore() call may immediately result in onStreamUpdated(), which can
             // result in a crash if maybeLoadMore() is being called in response to certain events.
             // Use postTask to avoid this.
-            PostTask.postTask(UiThreadTaskTraits.DEFAULT,
+            PostTask.postTask(TaskTraits.UI_DEFAULT,
                     ()
                             -> FeedStreamJni.get().loadMore(mNativeFeedStream, FeedStream.this,
                                     (Boolean success) -> { mIsLoadingMoreContent = false; }));
@@ -1054,7 +1018,7 @@ public class FeedStream implements Stream {
             DisplayMetrics displayMetrics = new DisplayMetrics();
             mActivity.getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
             FrameLayout spacerView = new FrameLayout(mActivity);
-            mSpacerViewContent = new NtpListContentManager.NativeViewContent(
+            mSpacerViewContent = new FeedListContentManager.NativeViewContent(
                     getLateralPaddingsPx(), SPACER_KEY, spacerView);
             spacerView.setLayoutParams(new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, displayMetrics.heightPixels));
@@ -1100,11 +1064,11 @@ public class FeedStream implements Stream {
         // Builds the new list containing:
         // * existing headers
         // * both new and existing contents
-        ArrayList<NtpListContentManager.FeedContent> newContentList = new ArrayList<>();
+        ArrayList<FeedListContentManager.FeedContent> newContentList = new ArrayList<>();
         for (FeedUiProto.StreamUpdate.SliceUpdate sliceUpdate :
                 streamUpdate.getUpdatedSlicesList()) {
             if (sliceUpdate.hasSlice()) {
-                NtpListContentManager.FeedContent content =
+                FeedListContentManager.FeedContent content =
                         createContentFromSlice(sliceUpdate.getSlice(), loggingParameters);
                 if (content != null) {
                     newContentList.add(content);
@@ -1142,11 +1106,11 @@ public class FeedStream implements Stream {
         maybeLoadMore(/*lookaheadTrigger=*/0);
     }
 
-    private NtpListContentManager.FeedContent createContentFromSlice(
+    private FeedListContentManager.FeedContent createContentFromSlice(
             FeedUiProto.Slice slice, LoggingParameters loggingParameters) {
         String sliceId = slice.getSliceId();
         if (slice.hasXsurfaceSlice()) {
-            return new NtpListContentManager.ExternalViewContent(sliceId,
+            return new FeedListContentManager.ExternalViewContent(sliceId,
                     slice.getXsurfaceSlice().getXsurfaceFrame().toByteArray(), loggingParameters);
         } else if (slice.hasLoadingSpinnerSlice()) {
             // If the placeholder is shown, spinner is not needed.
@@ -1155,15 +1119,15 @@ public class FeedStream implements Stream {
             }
             if (ChromeFeatureList.isEnabled(ChromeFeatureList.FEED_LOADING_PLACEHOLDER)
                     && slice.getLoadingSpinnerSlice().getIsAtTop()) {
-                return new NtpListContentManager.NativeViewContent(
+                return new FeedListContentManager.NativeViewContent(
                         getLateralPaddingsPx(), sliceId, R.layout.feed_placeholder_layout);
             }
-            return new NtpListContentManager.NativeViewContent(
+            return new FeedListContentManager.NativeViewContent(
                     getLateralPaddingsPx(), sliceId, R.layout.feed_spinner);
         }
         assert slice.hasZeroStateSlice();
         if (mStreamKind == StreamKind.FOLLOWING) {
-            return new NtpListContentManager.NativeViewContent(
+            return new FeedListContentManager.NativeViewContent(
                     getLateralPaddingsPx(), sliceId, R.layout.following_empty_state);
         }
         if (mStreamKind == StreamKind.SINGLE_WEB_FEED) {
@@ -1187,11 +1151,11 @@ public class FeedStream implements Stream {
             marginParams.setMargins(0, displayMetrics.heightPixels / 4, 0,
                     mActivity.getResources().getDimensionPixelSize(
                             R.dimen.creator_error_margin_bottom));
-            return new NtpListContentManager.NativeViewContent(
+            return new FeedListContentManager.NativeViewContent(
                     getLateralPaddingsPx(), sliceId, creatorErrorCard);
         }
         if (slice.getZeroStateSlice().getType() == FeedUiProto.ZeroStateSlice.Type.CANT_REFRESH) {
-            return new NtpListContentManager.NativeViewContent(
+            return new FeedListContentManager.NativeViewContent(
                     getLateralPaddingsPx(), sliceId, R.layout.no_connection);
         }
         // TODO(crbug/1152592): Add new UI for NO_WEB_FEED_SUBSCRIPTIONS.
@@ -1199,12 +1163,12 @@ public class FeedStream implements Stream {
                         == FeedUiProto.ZeroStateSlice.Type.NO_CARDS_AVAILABLE
                 || slice.getZeroStateSlice().getType()
                         == FeedUiProto.ZeroStateSlice.Type.NO_WEB_FEED_SUBSCRIPTIONS;
-        return new NtpListContentManager.NativeViewContent(
+        return new FeedListContentManager.NativeViewContent(
                 getLateralPaddingsPx(), sliceId, R.layout.no_content_v2);
     }
 
     private void updateContentsInPlace(
-            ArrayList<NtpListContentManager.FeedContent> newContentList) {
+            ArrayList<FeedListContentManager.FeedContent> newContentList) {
         assert mHeaderCount <= mContentManager.getItemCount();
         if (mContentManager.replaceRange(
                     mHeaderCount, mContentManager.getItemCount() - mHeaderCount, newContentList)) {

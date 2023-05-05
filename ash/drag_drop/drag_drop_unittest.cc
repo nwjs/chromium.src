@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "ash/drag_drop/draggable_test_view.h"
 #include "ash/shell.h"
 #include "ash/test/ash_test_base.h"
 #include "ash/test/ui_controls_factory_ash.h"
@@ -17,30 +18,12 @@
 #include "ui/base/dragdrop/mojom/drag_drop_types.mojom.h"
 #include "ui/base/test/ui_controls.h"
 #include "ui/base/test/ui_controls_aura.h"
+#include "ui/compositor/layer_tree_owner.h"
 #include "ui/views/view.h"
 #include "ui/views/widget/widget.h"
 
 namespace ash {
 namespace {
-
-class DraggableView : public views::View {
- public:
-  DraggableView() = default;
-
-  DraggableView(const DraggableView&) = delete;
-  DraggableView& operator=(const DraggableView&) = delete;
-
-  ~DraggableView() override = default;
-
-  // views::View overrides:
-  int GetDragOperations(const gfx::Point& press_pt) override {
-    return ui::DragDropTypes::DRAG_MOVE;
-  }
-  void WriteDragData(const gfx::Point& press_pt,
-                     OSExchangeData* data) override {
-    data->SetString(u"test");
-  }
-};
 
 class TargetView : public views::View {
  public:
@@ -71,7 +54,8 @@ class TargetView : public views::View {
 
  private:
   void PerformDrop(const ui::DropTargetEvent& event,
-                   ui::mojom::DragOperation& output_drag_op) {
+                   ui::mojom::DragOperation& output_drag_op,
+                   std::unique_ptr<ui::LayerTreeOwner> drag_image_layer_owner) {
     dropped_ = true;
     output_drag_op = ui::mojom::DragOperation::kMove;
   }
@@ -134,8 +118,10 @@ TEST_F(DragDropTest, DISABLED_DragDropAcrossMultiDisplay) {
 
   UpdateDisplay("400x300,400x300");
   aura::Window::Windows root_windows = Shell::Get()->GetAllRootWindows();
-  auto draggable_view = std::make_unique<DraggableView>();
-  draggable_view->set_drag_controller(NULL);
+  auto draggable_view = std::make_unique<DraggableTestView>();
+  EXPECT_CALL(*draggable_view, GetDragOperations)
+      .WillRepeatedly(testing::Return(ui::DragDropTypes::DRAG_MOVE));
+  draggable_view->set_drag_controller(nullptr);
   draggable_view->SetBounds(0, 0, 100, 100);
   views::Widget* source = CreateWidget(std::move(draggable_view),
                                        gfx::Rect(0, 0, 100, 100), GetContext());

@@ -244,6 +244,9 @@ class CORE_EXPORT CSSMathExpressionOperation final
 
   static CSSMathExpressionNode* CreateComparisonFunction(Operands&& operands,
                                                          CSSMathOperator op);
+  static CSSMathExpressionNode* CreateComparisonFunctionSimplified(
+      Operands&& operands,
+      CSSMathOperator op);
 
   static CSSMathExpressionNode* CreateTrigonometricFunctionSimplified(
       Operands&& operands,
@@ -253,6 +256,10 @@ class CORE_EXPORT CSSMathExpressionOperation final
       const CSSMathExpressionNode* left_side,
       const CSSMathExpressionNode* right_side,
       CSSMathOperator op);
+
+  static CSSMathExpressionNode* CreateSignRelatedFunctionSimplified(
+      Operands&& operands,
+      CSSValueID function_id);
 
   CSSMathExpressionOperation(const CSSMathExpressionNode* left_side,
                              const CSSMathExpressionNode* right_side,

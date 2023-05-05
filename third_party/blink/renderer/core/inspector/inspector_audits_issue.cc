@@ -117,9 +117,9 @@ protocol::Audits::GenericIssueErrorType GenericIssueErrorTypeToProtocol(
       return protocol::Audits::GenericIssueErrorTypeEnum::
           FormLabelForMatchesNonExistingIdError;
     case mojom::blink::GenericIssueErrorType::
-        kFormHasPasswordFieldWithoutUsernameFieldError:
+        kFormInputHasWrongButWellIntendedAutocompleteValueError:
       return protocol::Audits::GenericIssueErrorTypeEnum::
-          FormHasPasswordFieldWithoutUsernameFieldError;
+          FormInputHasWrongButWellIntendedAutocompleteValueError;
   }
 }
 
@@ -190,9 +190,6 @@ BuildAttributionReportingIssueType(AttributionReportingIssueType type) {
     case AttributionReportingIssueType::kPermissionPolicyDisabled:
       return protocol::Audits::AttributionReportingIssueTypeEnum::
           PermissionPolicyDisabled;
-    case AttributionReportingIssueType::kPermissionPolicyNotDelegated:
-      return protocol::Audits::AttributionReportingIssueTypeEnum::
-          PermissionPolicyNotDelegated;
     case AttributionReportingIssueType::kUntrustworthyReportingOrigin:
       return protocol::Audits::AttributionReportingIssueTypeEnum::
           UntrustworthyReportingOrigin;
@@ -218,6 +215,21 @@ BuildAttributionReportingIssueType(AttributionReportingIssueType type) {
     case AttributionReportingIssueType::kTriggerIgnored:
       return protocol::Audits::AttributionReportingIssueTypeEnum::
           TriggerIgnored;
+    case AttributionReportingIssueType::kOsSourceIgnored:
+      return protocol::Audits::AttributionReportingIssueTypeEnum::
+          OsSourceIgnored;
+    case AttributionReportingIssueType::kOsTriggerIgnored:
+      return protocol::Audits::AttributionReportingIssueTypeEnum::
+          OsTriggerIgnored;
+    case AttributionReportingIssueType::kInvalidRegisterOsSourceHeader:
+      return protocol::Audits::AttributionReportingIssueTypeEnum::
+          InvalidRegisterOsSourceHeader;
+    case AttributionReportingIssueType::kInvalidRegisterOsTriggerHeader:
+      return protocol::Audits::AttributionReportingIssueTypeEnum::
+          InvalidRegisterOsTriggerHeader;
+    case AttributionReportingIssueType::kWebAndOsHeaders:
+      return protocol::Audits::AttributionReportingIssueTypeEnum::
+          WebAndOsHeaders;
   }
 }
 

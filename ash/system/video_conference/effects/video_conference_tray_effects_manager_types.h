@@ -18,14 +18,12 @@ struct VectorIcon;
 
 namespace ash {
 
+class VcEffectsDelegate;
+
 // All the data that's needed to present one possible state of a video
 // conference effect UI control that's being hosted by a `VcEffectsDelegate`.
 class ASH_EXPORT VcEffectState {
  public:
-  // Use this in cases where an ID needs to be specified but isn't actually
-  // used.
-  static const int kUnusedId;
-
   // Arguments:
   //
   // `icon` - The icon displayed, used for all effect types (if non-nullptr).
@@ -44,14 +42,14 @@ class ASH_EXPORT VcEffectState {
                 const std::u16string& label_text,
                 int accessible_name_id,
                 views::Button::PressedCallback button_callback,
-                absl::optional<int> state = absl::nullopt);
+                absl::optional<int> state_value = absl::nullopt);
 
   VcEffectState(const VcEffectState&) = delete;
   VcEffectState& operator=(const VcEffectState&) = delete;
 
   ~VcEffectState();
 
-  absl::optional<int> state() const { return state_; }
+  absl::optional<int> state_value() const { return state_value_; }
   const gfx::VectorIcon* icon() const { return icon_; }
   const std::u16string& label_text() const { return label_text_; }
   int accessible_name_id() const { return accessible_name_id_; }
@@ -76,7 +74,7 @@ class ASH_EXPORT VcEffectState {
   views::Button::PressedCallback button_callback_;
 
   // The state value.
-  absl::optional<int> state_;
+  absl::optional<int> state_value_;
 };
 
 // Designates the type of user-adjustments made to this effect.
@@ -86,6 +84,18 @@ enum class VcEffectType {
 
   // An effect that can be set to one of several integer values.
   kSetValue = 1,
+};
+
+// Represents all the available effects in the Video Conference panel. Each
+// effect must have its own id for the purpose of metrics collection, unless it
+// is for testing.
+enum class VcEffectId {
+  kTestEffect = -1,
+  kBackgroundBlur = 0,
+  kPortraitRelighting = 1,
+  kNoiseCancellation = 2,
+  kLiveCaption = 3,
+  kMaxValue = kLiveCaption,
 };
 
 // Represents a single video conference effect that's being "hosted" by an
@@ -113,8 +123,9 @@ class ASH_EXPORT VcHostedEffect {
 
   // `type` is the type of value adjustment allowed.
   // `get_state_callback` is invoked to obtain the current state of the effect.
-  explicit VcHostedEffect(VcEffectType type,
-                          GetEffectStateCallback get_state_callback);
+  VcHostedEffect(VcEffectType type,
+                 GetEffectStateCallback get_state_callback,
+                 VcEffectId effect_id);
 
   VcHostedEffect(const VcHostedEffect&) = delete;
   VcHostedEffect& operator=(const VcHostedEffect&) = delete;
@@ -136,8 +147,7 @@ class ASH_EXPORT VcHostedEffect {
     return get_state_callback_;
   }
 
-  void set_id(int id) { id_ = id; }
-  int id() const { return id_; }
+  VcEffectId id() const { return id_; }
 
   void set_label_text(const std::u16string label_text) {
     label_text_ = label_text;
@@ -148,6 +158,11 @@ class ASH_EXPORT VcHostedEffect {
     dependency_flags_ = dependency_flags;
   }
   ResourceDependencyFlags dependency_flags() const { return dependency_flags_; }
+
+  void set_effects_delegate(VcEffectsDelegate* delegate) {
+    delegate_ = delegate;
+  }
+  VcEffectsDelegate* delegate() const { return delegate_; }
 
   absl::optional<int> container_id() const { return container_id_; }
   void set_container_id(absl::optional<int> id) { container_id_ = id; }
@@ -164,8 +179,8 @@ class ASH_EXPORT VcHostedEffect {
   // state of the effect.
   GetEffectStateCallback get_state_callback_;
 
-  // Unique ID of the effect, if desired.
-  int id_;
+  // Unique ID of the effect.
+  const VcEffectId id_;
 
   // Label text for the effect (that's separate from the label text of
   // individual child states).
@@ -180,6 +195,9 @@ class ASH_EXPORT VcHostedEffect {
   // toggle control. For testing only, this facilitates easy lookup of the
   // outermost container that houses the UI controls for this effect.
   absl::optional<int> container_id_;
+
+  // The effects delegate associated with this effect.
+  VcEffectsDelegate* delegate_ = nullptr;
 };
 
 }  // namespace ash

@@ -24,6 +24,10 @@ bool MediaRouterEnabled(content::BrowserContext* context);
 // process.
 void ClearMediaRouterStoredPrefsForTesting();
 
+// If enabled, separate Media Router instances will be created for normal and
+// off-the-record profiles.
+BASE_DECLARE_FEATURE(kMediaRouterOTRInstance);
+
 #if BUILDFLAG(IS_ANDROID)
 // If enabled, the sink discovery on Caf MRP is run asynchronously when the main
 // thread is idle.
@@ -51,6 +55,10 @@ BASE_DECLARE_FEATURE(kAllowAllSitesToInitiateMirroring);
 // If enabled, the Cast Media Route Provider starts a session without
 // terminating any existing session on the same sink.
 BASE_DECLARE_FEATURE(kStartCastSessionWithoutTerminating);
+
+// If enabled, sinks that do not support presentation or remote playback, will
+// fall back to audio tab mirroring when casting from the Global Media Controls.
+BASE_DECLARE_FEATURE(kFallbackToAudioTabMirroring);
 
 // Registers |kMediaRouterCastAllowAllIPs| with local state pref |registry|.
 void RegisterLocalStatePrefs(PrefRegistrySimple* registry);

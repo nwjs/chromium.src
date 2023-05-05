@@ -30,7 +30,6 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.signin.services.DisplayableProfileData;
-import org.chromium.chrome.browser.signin.services.FREMobileIdentityConsistencyFieldTrial;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.signin.services.ProfileDataCache;
 import org.chromium.chrome.browser.signin.services.SigninManager;
@@ -400,7 +399,7 @@ public abstract class SyncConsentFragmentBase
             // TODO(https://crbug.com/821127): Revise this user action.
             RecordUserAction.record("Signin_MoreButton_Shown");
         });
-        mSyncConsentView.getScrollView().setScrolledToBottomObserver(this::showAcceptButton);
+        mSyncConsentView.getScrollView().setScrolledToBottomObserver(this::showButtonBar);
         mSyncConsentView.getDetailsDescriptionView().setMovementMethod(
                 LinkMovementMethod.getInstance());
 
@@ -412,14 +411,14 @@ public abstract class SyncConsentFragmentBase
 
         mSigninView.getAccountPickerView().setOnClickListener(view -> onAccountPickerClicked());
         mSigninView.getRefuseButton().setOnClickListener(this::onRefuseButtonClicked);
-        mSigninView.getAcceptButton().setVisibility(View.GONE);
+        mSigninView.getButtonBar().setVisibility(View.GONE);
         mSigninView.getMoreButton().setVisibility(View.VISIBLE);
         mSigninView.getMoreButton().setOnClickListener(view -> {
             mSigninView.getScrollView().smoothScrollBy(0, mSigninView.getScrollView().getHeight());
             // TODO(https://crbug.com/821127): Revise this user action.
             RecordUserAction.record("Signin_MoreButton_Shown");
         });
-        mSigninView.getScrollView().setScrolledToBottomObserver(this::showAcceptButton);
+        mSigninView.getScrollView().setScrolledToBottomObserver(this::showButtonBar);
         mSigninView.getDetailsDescriptionView().setMovementMethod(LinkMovementMethod.getInstance());
 
         final Drawable endImageViewDrawable;
@@ -461,8 +460,8 @@ public abstract class SyncConsentFragmentBase
                 IdentityServicesProvider.get()
                         .getIdentityManager(Profile.getLastUsedRegularProfile())
                         .getPrimaryAccountInfo(ConsentLevel.SIGNIN);
-        mIsSignedInWithoutSync = (FREMobileIdentityConsistencyFieldTrial.isEnabled()
-                && mSigninAccessPoint == SigninAccessPoint.START_PAGE && primaryAccount != null);
+        mIsSignedInWithoutSync =
+                mSigninAccessPoint == SigninAccessPoint.START_PAGE && primaryAccount != null;
         if (mIsSignedInWithoutSync) {
             mSelectedAccountName = primaryAccount.getEmail();
             mAccountManagerFacade.getAccounts().then(this::updateAccounts);
@@ -478,8 +477,7 @@ public abstract class SyncConsentFragmentBase
 
         if (hasAccounts) {
             final boolean hideAccountPicker = mIsSignedInWithoutSync
-                    || (FREMobileIdentityConsistencyFieldTrial.isEnabled()
-                            && mSigninAccessPoint == SigninAccessPoint.START_PAGE && mIsChild);
+                    || (mSigninAccessPoint == SigninAccessPoint.START_PAGE && mIsChild);
             mSigninView.getAccountPickerView().setVisibility(
                     hideAccountPicker ? View.GONE : View.VISIBLE);
             mConsentTextTracker.setText(
@@ -641,14 +639,14 @@ public abstract class SyncConsentFragmentBase
         }
     }
 
-    private void showAcceptButton() {
+    private void showButtonBar() {
         if (mSyncConsentView != null) {
             mSyncConsentView.getRefuseButton().setVisibility(View.VISIBLE);
             mSyncConsentView.getAcceptButton().setVisibility(View.VISIBLE);
             mSyncConsentView.getMoreButton().setVisibility(View.GONE);
             mSyncConsentView.getScrollView().setScrolledToBottomObserver(null);
         } else {
-            mSigninView.getAcceptButton().setVisibility(View.VISIBLE);
+            mSigninView.getButtonBar().setVisibility(View.VISIBLE);
             mSigninView.getMoreButton().setVisibility(View.GONE);
             mSigninView.getScrollView().setScrolledToBottomObserver(null);
         }
@@ -822,8 +820,8 @@ public abstract class SyncConsentFragmentBase
                 IdentityServicesProvider.get()
                         .getIdentityManager(Profile.getLastUsedRegularProfile())
                         .getPrimaryAccountInfo(ConsentLevel.SIGNIN);
-        mIsSignedInWithoutSync = (FREMobileIdentityConsistencyFieldTrial.isEnabled()
-                && mSigninAccessPoint == SigninAccessPoint.START_PAGE && primaryAccount != null);
+        mIsSignedInWithoutSync =
+                mSigninAccessPoint == SigninAccessPoint.START_PAGE && primaryAccount != null;
         if (mIsSignedInWithoutSync) {
             mSelectedAccountName = primaryAccount.getEmail();
         }

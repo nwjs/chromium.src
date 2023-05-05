@@ -9,8 +9,9 @@
 
 #import "base/notreached.h"
 #import "base/numerics/safe_conversions.h"
-#import "ios/chrome/browser/ui/ui_feature_flags.h"
-#import "ios/chrome/browser/ui/util/attributed_string_util.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/ui/util/attributed_string_util.h"
+#import "ios/chrome/browser/ui/elements/fade_truncating_label+private.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
 #error "This file requires ARC support."
@@ -109,6 +110,7 @@ NSArray<NSValue*>* StringRangeInLines(NSAttributedString* attributed_string,
   self = [super initWithFrame:frame];
   if (self) {
     self.lineBreakMode = NSLineBreakByClipping;
+    self.lineSpacing = 0;
     _isMultilineEnabled =
         base::FeatureList::IsEnabled(kMultilineFadeTruncatingLabel);
     [self setup];
@@ -149,8 +151,9 @@ NSArray<NSValue*>* StringRangeInLines(NSAttributedString* attributed_string,
     NOTREACHED();
   }
 
-  if (textAlignment != self.textAlignment)
+  if (textAlignment != self.textAlignment) {
     self.gradient = nil;
+  }
 
   [super setTextAlignment:textAlignment];
 }
@@ -202,11 +205,13 @@ NSArray<NSValue*>* StringRangeInLines(NSAttributedString* attributed_string,
       round(wrappingStringSize.height / singleLineStringSize.height);
   const NSInteger numberOfLinesToDraw =
       MIN(maxNumberOfLines, wrappingStringNumberOfLines);
+  const CGFloat totalLineSpacing =
+      MAX((numberOfLinesToDraw - 1), 0) * self.lineSpacing;
 
   const CGFloat boundingWidth =
       MIN(ceil(singleLineStringSize.width), bounds.size.width);
-  CGFloat boundingHeight =
-      ceil(singleLineStringSize.height * numberOfLinesToDraw);
+  CGFloat boundingHeight = ceil(
+      singleLineStringSize.height * numberOfLinesToDraw + totalLineSpacing);
   boundingHeight = MIN(boundingHeight, bounds.size.height);
   const CGRect boundingRect = CGRectMake(bounds.origin.x, bounds.origin.y,
                                          boundingWidth, boundingHeight);
@@ -216,7 +221,7 @@ NSArray<NSValue*>* StringRangeInLines(NSAttributedString* attributed_string,
 #pragma mark Text Drawing Private
 
 /// Draws `attributedString` in `requestedRect`.
-/// `applyGradient`: Wheter gradient should be applied when drawing the text.
+/// `applyGradient`: Whether gradient should be applied when drawing the text.
 /// `alignmentOffset`: offset added to draw the text on the left of
 /// `requestedRect`. Note: with NSLineBreakByClipping the text is always clipped
 /// to the right even when the text is aligned to the right, with the offset the
@@ -251,44 +256,44 @@ NSArray<NSValue*>* StringRangeInLines(NSAttributedString* attributed_string,
   NSAttributedString* wrappingString =
       [self attributedString:self.attributedText
            withLineBreakMode:NSLineBreakByWordWrapping];
-  const CGSize wrappingStringSize =
-      [wrappingString
-          boundingRectWithSize:CGSizeMake(requestedRect.size.width, 0)
-                       options:NSStringDrawingUsesLineFragmentOrigin
-                       context:nil]
-          .size;
 
-  // Apply gradient if the height needed to draw `attributedText` exceeds the
-  // available height.
-  const BOOL applyGradient =
-      floor(wrappingStringSize.height) > floor(requestedRect.size.height);
-
-  NSArray<NSValue*>* stringRangeForLines =
-      StringRangeInLines(wrappingString, requestedRect.size.width);
   const CGFloat lineHeight = self.font.lineHeight;
   if (!lineHeight) {
     return;
   }
 
+  NSArray<NSValue*>* stringRangeForLines =
+      StringRangeInLines(wrappingString, requestedRect.size.width);
+
+  const NSInteger availableLineCount =
+      floor(requestedRect.size.height / lineHeight);
+  const NSInteger stringLineCount =
+      base::checked_cast<NSInteger>(stringRangeForLines.count);
+
+  const BOOL applyGradient = availableLineCount < stringLineCount;
+
   // Like UILabel, always draw a minimum of one line even if there is not enough
   // vertical space.
-  NSInteger lineCount = MAX(floor(requestedRect.size.height / lineHeight), 1);
-  lineCount =
-      MIN(lineCount, base::checked_cast<NSInteger>(stringRangeForLines.count));
+  NSInteger lineCount = MAX(availableLineCount, 1);
+  lineCount = MIN(lineCount, stringLineCount);
   if (lineCount <= 0) {
     return;
   }
 
+  const CGFloat lineSpacing = self.lineSpacing;
+  const CGFloat totalLineSpacing = MAX(lineCount - 1, 0) * lineSpacing;
   // Offset to vertical center the text.
   const CGFloat verticalOffset =
-      (requestedRect.size.height - lineCount * lineHeight) / 2;
+      (requestedRect.size.height - lineCount * lineHeight - totalLineSpacing) /
+      2;
   const NSInteger lastLine = lineCount - 1;
 
   /* Draw every line before last line. */
   for (int i = 0; i < lastLine; ++i) {
     const CGRect lineRect =
         CGRectMake(requestedRect.origin.x,
-                   requestedRect.origin.y + i * lineHeight + verticalOffset,
+                   requestedRect.origin.y + i * (lineHeight + lineSpacing) +
+                       verticalOffset,
                    requestedRect.size.width, lineHeight);
     const NSRange stringRange = stringRangeForLines[i].rangeValue;
     NSAttributedString* subString =
@@ -300,10 +305,11 @@ NSArray<NSValue*>* StringRangeInLines(NSAttributedString* attributed_string,
   }
 
   /*  Draw last line. */
-  const CGRect lastLineRect = CGRectMake(
-      requestedRect.origin.x,
-      requestedRect.origin.y + lastLine * lineHeight + verticalOffset,
-      requestedRect.size.width, lineHeight);
+  const CGRect lastLineRect =
+      CGRectMake(requestedRect.origin.x,
+                 requestedRect.origin.y +
+                     lastLine * (lineHeight + lineSpacing) + verticalOffset,
+                 requestedRect.size.width, lineHeight);
   // Last line takes all the remaining text, from start of last line to end of
   // `attributedText`.
   const NSRange lastLineRange =

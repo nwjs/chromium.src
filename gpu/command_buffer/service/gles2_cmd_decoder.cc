@@ -134,10 +134,6 @@
 #include <OpenGL/CGLIOSurface.h>
 #endif  // BUILDFLAG(IS_MAC)
 
-#if BUILDFLAG(IS_WIN)
-#include "ui/gl/gl_image_d3d.h"
-#endif
-
 // Note: this undefs far and near so include this after other Windows headers.
 #include "third_party/angle/src/image_util/loadimage.h"
 
@@ -1269,6 +1265,16 @@ class GLES2DecoderImpl : public GLES2Decoder,
                                  GLsizei height,
                                  GLboolean unpack_flip_y,
                                  const volatile GLbyte* mailboxes);
+  void DoCopySharedImageToTextureINTERNAL(GLuint texture,
+                                          GLenum target,
+                                          GLuint internal_format,
+                                          GLenum type,
+                                          GLint src_x,
+                                          GLint src_y,
+                                          GLsizei width,
+                                          GLsizei height,
+                                          GLboolean flip_y,
+                                          const volatile GLbyte* src_mailbox);
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE)
   void AttachImageToTextureWithDecoderBinding(uint32_t client_texture_id,
@@ -1290,6 +1296,31 @@ class GLES2DecoderImpl : public GLES2Decoder,
 
   void DoFlushMappedBufferRange(
       GLenum target, GLintptr offset, GLsizeiptr size);
+
+  // Wrappers for ANGLE_shader_pixel_local_storage.
+  void DoFramebufferMemorylessPixelLocalStorageANGLE(GLint plane,
+                                                     GLenum internalformat);
+  void DoFramebufferTexturePixelLocalStorageANGLE(GLint plane,
+                                                  GLuint backingtexture,
+                                                  GLint level,
+                                                  GLint layer);
+  void DoFramebufferPixelLocalClearValuefvANGLE(GLint plane,
+                                                const volatile GLfloat* value);
+  void DoFramebufferPixelLocalClearValueivANGLE(GLint plane,
+                                                const volatile GLint* value);
+  void DoFramebufferPixelLocalClearValueuivANGLE(GLint plane,
+                                                 const volatile GLuint* value);
+  void DoBeginPixelLocalStorageANGLE(GLsizei n, const volatile GLenum* loadops);
+  void DoEndPixelLocalStorageANGLE(GLsizei n, const volatile GLenum* storeops);
+  void DoPixelLocalStorageBarrierANGLE();
+  void DoGetFramebufferPixelLocalStorageParameterfvANGLE(GLint plane,
+                                                         GLenum pname,
+                                                         GLfloat* params,
+                                                         GLsizei params_size);
+  void DoGetFramebufferPixelLocalStorageParameterivANGLE(GLint plane,
+                                                         GLenum pname,
+                                                         GLint* params,
+                                                         GLsizei params_size);
 
   // Creates a Program for the given program.
   Program* CreateProgram(GLuint client_id, GLuint service_id) {
@@ -3583,10 +3614,6 @@ gpu::ContextResult GLES2DecoderImpl::Initialize(
   context_ = context;
   surface_ = surface;
 
-  // Set workarounds for the surface.
-  if (workarounds().rely_on_implicit_sync_for_swap_buffers)
-    surface_->SetRelyOnImplicitSync();
-
   // Create GPU Tracer for timing values.
   gpu_tracer_ = std::make_unique<GPUTracer>(this);
 
@@ -4301,7 +4328,7 @@ Capabilities GLES2DecoderImpl::GetCapabilities() {
   caps.angle_rgbx_internal_format =
       feature_info_->feature_flags().angle_rgbx_internal_format;
 
-#if BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
   PopulateDRMCapabilities(&caps, feature_info_.get());
 #endif
 
@@ -5323,11 +5350,6 @@ void GLES2DecoderImpl::Destroy(bool have_context) {
     return;
 
   DCHECK(!have_context || context_->IsCurrent(nullptr));
-
-  // Prepare to destroy the surface while the context is still current, because
-  // some surface destructors make GL calls.
-  if (surface_)
-    surface_->PrepareToDestroy(have_context);
 
 #if !BUILDFLAG(IS_ANDROID)
   // Destroy any textures that are pending destruction.
@@ -10580,15 +10602,6 @@ bool GLES2DecoderImpl::DoBindTexImageIfNeeded(Texture* texture,
       if (texture_unit)
         api()->glActiveTextureFn(texture_unit);
       api()->glBindTextureFn(textarget, texture->service_id());
-#if BUILDFLAG(IS_WIN)
-      auto* d3d_image =
-          gl::GLImage::ToGLImageD3D(texture->GetLevelImage(textarget, 0));
-      if (d3d_image) {
-        bool rv = d3d_image->BindTexImage(textarget);
-        DCHECK(rv) << "BindTexImage() failed";
-      }
-#endif
-
       texture->MarkLevelImageBound(textarget, 0);
       if (!texture_unit) {
         RestoreCurrentTextureBindings(&state_, textarget,
@@ -13115,6 +13128,13 @@ void GLES2DecoderImpl::FinishReadPixels(GLsizei width,
   if (result != nullptr) {
     result->success = 1;
   }
+}
+
+error::Error GLES2DecoderImpl::HandleReadbackARGBImagePixelsINTERNAL(
+    uint32_t immediate_data_size,
+    const volatile void* cmd_data) {
+  NOTIMPLEMENTED_LOG_ONCE();
+  return error::kNoError;
 }
 
 error::Error GLES2DecoderImpl::HandleReadPixels(uint32_t immediate_data_size,
@@ -18598,6 +18618,20 @@ void GLES2DecoderImpl::DoCopySharedImageINTERNAL(
   NOTIMPLEMENTED_LOG_ONCE();
 }
 
+void GLES2DecoderImpl::DoCopySharedImageToTextureINTERNAL(
+    GLuint texture,
+    GLenum target,
+    GLuint internal_format,
+    GLenum type,
+    GLint src_x,
+    GLint src_y,
+    GLsizei width,
+    GLsizei height,
+    GLboolean flip_y,
+    const volatile GLbyte* src_mailbox) {
+  NOTIMPLEMENTED_LOG_ONCE();
+}
+
 void GLES2DecoderImpl::DoInsertEventMarkerEXT(
     GLsizei length, const GLchar* marker) {
   if (!marker) {
@@ -19250,6 +19284,70 @@ void GLES2DecoderImpl::DoFlushMappedBufferRange(
     buffer->SetRange(mapped_range->offset + offset, size, client_data + offset);
   }
   api()->glFlushMappedBufferRangeFn(target, offset, size);
+}
+
+void GLES2DecoderImpl::DoFramebufferMemorylessPixelLocalStorageANGLE(
+    GLint plane,
+    GLenum internalformat) {
+  NOTIMPLEMENTED();
+}
+
+void GLES2DecoderImpl::DoFramebufferTexturePixelLocalStorageANGLE(
+    GLint plane,
+    GLuint client_texture_id,
+    GLint level,
+    GLint layer) {
+  NOTIMPLEMENTED();
+}
+
+void GLES2DecoderImpl::DoFramebufferPixelLocalClearValuefvANGLE(
+    GLint plane,
+    const volatile GLfloat* value) {
+  NOTIMPLEMENTED();
+}
+
+void GLES2DecoderImpl::DoFramebufferPixelLocalClearValueivANGLE(
+    GLint plane,
+    const volatile GLint* value) {
+  NOTIMPLEMENTED();
+}
+
+void GLES2DecoderImpl::DoFramebufferPixelLocalClearValueuivANGLE(
+    GLint plane,
+    const volatile GLuint* value) {
+  NOTIMPLEMENTED();
+}
+
+void GLES2DecoderImpl::DoBeginPixelLocalStorageANGLE(
+    GLsizei n,
+    const volatile GLenum* loadops) {
+  NOTIMPLEMENTED();
+}
+
+void GLES2DecoderImpl::DoEndPixelLocalStorageANGLE(
+    GLsizei n,
+    const volatile GLenum* storeops) {
+  NOTIMPLEMENTED();
+}
+
+void GLES2DecoderImpl::DoPixelLocalStorageBarrierANGLE() {
+  NOTIMPLEMENTED();
+}
+
+void GLES2DecoderImpl::DoGetFramebufferPixelLocalStorageParameterfvANGLE(
+    GLint plane,
+    GLenum pname,
+    GLfloat* params,
+    GLsizei params_size) {
+  NOTIMPLEMENTED();
+}
+
+void GLES2DecoderImpl::DoGetFramebufferPixelLocalStorageParameterivANGLE(
+    GLint plane,
+    GLenum pname,
+    GLint* params,
+    GLsizei params_size) {
+  NOTIMPLEMENTED();
 }
 
 // Note that GL_LOST_CONTEXT is specific to GLES.

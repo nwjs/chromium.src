@@ -118,6 +118,19 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
     absl::optional<IdentityProviderData> data;
   };
 
+  // For use by the devtools protocol for browser automation.
+  IdentityRequestDialogController* GetDialogController() {
+    return request_dialog_controller_.get();
+  }
+
+  const std::vector<IdentityProviderData>& GetSortedIdpData() const {
+    return idp_data_for_display_;
+  }
+
+  void AcceptAccountsDialogForDevtools(const GURL& config_url,
+                                       const IdentityRequestAccount& account);
+  void DismissAccountsDialogForDevtools(bool should_embargo);
+
  private:
   friend class FederatedAuthRequestImplTest;
 
@@ -253,8 +266,6 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
   void MaybeAddResponseCodeToConsole(const char* fetch_description,
                                      int response_code);
 
-  bool ShouldCompleteRequestImmediately();
-
   // Computes the login state of accounts. It uses the IDP-provided signal, if
   // it had been populated. Otherwise, it uses the browser knowledge on which
   // accounts are returning and which are not. In either case, this method also
@@ -288,6 +299,7 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
 
   // Populated by MaybeShowAccountsDialog().
   base::flat_map<GURL, std::unique_ptr<IdentityProviderInfo>> idp_infos_;
+  std::vector<IdentityProviderData> idp_data_for_display_;
 
   raw_ptr<FederatedIdentityApiPermissionContextDelegate>
       api_permission_delegate_ = nullptr;
@@ -305,6 +317,11 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
   base::TimeTicks token_response_time_;
   base::TimeDelta token_request_delay_;
   bool errors_logged_to_console_{false};
+  // This gets set at the beginning of a request. It indicates whether we
+  // should bypass the delay to notify the renderer, for use in automated
+  // tests when the delay is irrelevant to the test but slows it down
+  // unncessarily.
+  bool should_complete_request_immediately_{false};
   // While there could be both token request and user info request when a user
   // visits a site, it's worth noting that they must be from different render
   // frames. e.g. one top frame rp.example and one iframe idp.example.

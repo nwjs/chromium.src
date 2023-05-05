@@ -635,6 +635,10 @@ bool BrowserManager::IsRunningOrWillRun() const {
          state_ == State::CREATING_LOG_FILE || state_ == State::TERMINATING;
 }
 
+bool BrowserManager::IsInitialized() const {
+  return state_ != State::NOT_INITIALIZED;
+}
+
 void BrowserManager::NewWindow(bool incognito,
                                bool should_trigger_session_restore) {
   int64_t target_display_id =
@@ -1090,6 +1094,10 @@ void BrowserManager::StartWithLogFile(LaunchParamsFromBackground params) {
     // DetermineLoggingDestination in logging_chrome.cc.
     argv.push_back("--enable-logging=stderr");
 
+    // TODO(crbug.com/1423163): Remove after root causing the issue.
+    argv.push_back(
+        "--vmodule=command_storage_backend=1,session_service_commands=1");
+
     if (launch_at_login_screen_ &&
         !base::CommandLine::ForCurrentProcess()->HasSwitch(
             switches::kDisableLoggingRedirect)) {
@@ -1538,14 +1546,19 @@ void BrowserManager::PrepareLacrosPolicies() {
     case user_manager::USER_TYPE_KIOSK_APP:
     case user_manager::USER_TYPE_PUBLIC_ACCOUNT:
     case user_manager::USER_TYPE_WEB_KIOSK_APP: {
-      policy::DeviceLocalAccountPolicyBroker* broker =
+      policy::DeviceLocalAccountPolicyService* policy_service =
           g_browser_process->platform_part()
               ->browser_policy_connector_ash()
-              ->GetDeviceLocalAccountPolicyService()
-              ->GetBrokerForUser(user->GetAccountId().GetUserEmail());
-      if (broker) {
-        core = broker->core();
-        component_policy_service = broker->component_policy_service();
+              ->GetDeviceLocalAccountPolicyService();
+      // `policy_service` can be nullptr, e.g. in unit tests.
+      if (policy_service) {
+        policy::DeviceLocalAccountPolicyBroker* broker =
+            policy_service->GetBrokerForUser(
+                user->GetAccountId().GetUserEmail());
+        if (broker) {
+          core = broker->core();
+          component_policy_service = broker->component_policy_service();
+        }
       }
       break;
     }
@@ -1689,6 +1702,9 @@ void BrowserManager::RecordLacrosLaunchMode() {
 
   UMA_HISTOGRAM_ENUMERATION("Ash.Lacros.Launch.ModeAndSource",
                             lacros_mode_and_source);
+  LOG(WARNING) << "Using LacrosLaunchModeAndSource "
+               << static_cast<int>(lacros_mode_and_source);
+
   if (!lacros_mode_.has_value() || !lacros_mode_and_source_.has_value() ||
       lacros_mode != *lacros_mode_ ||
       lacros_mode_and_source != *lacros_mode_and_source_) {

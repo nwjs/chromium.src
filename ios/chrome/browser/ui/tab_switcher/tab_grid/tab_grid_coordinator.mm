@@ -14,25 +14,32 @@
 #import "components/bookmarks/browser/bookmark_model.h"
 #import "components/search_engines/template_url_service.h"
 #import "components/strings/grit/components_strings.h"
-#import "ios/chrome/browser/bookmarks/bookmark_model_factory.h"
+#import "ios/chrome/browser/bookmarks/local_or_syncable_bookmark_model_factory.h"
 #import "ios/chrome/browser/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/main/browser.h"
+#import "ios/chrome/browser/main/browser_util.h"
 #import "ios/chrome/browser/policy/policy_util.h"
 #import "ios/chrome/browser/prefs/pref_names.h"
 #import "ios/chrome/browser/search_engines/template_url_service_factory.h"
 #import "ios/chrome/browser/sessions/ios_chrome_tab_restore_service_factory.h"
+#import "ios/chrome/browser/shared/public/commands/application_commands.h"
+#import "ios/chrome/browser/shared/public/commands/bookmarks_commands.h"
+#import "ios/chrome/browser/shared/public/commands/browser_commands.h"
+#import "ios/chrome/browser/shared/public/commands/browsing_data_commands.h"
+#import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
+#import "ios/chrome/browser/shared/public/commands/reading_list_add_command.h"
+#import "ios/chrome/browser/shared/public/commands/thumb_strip_commands.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/ui/util/named_guide.h"
+#import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
+#import "ios/chrome/browser/shared/ui/util/util_swift.h"
+#import "ios/chrome/browser/synced_sessions/distant_session.h"
+#import "ios/chrome/browser/synced_sessions/synced_sessions_util.h"
 #import "ios/chrome/browser/tabs/features.h"
 #import "ios/chrome/browser/tabs/inactive_tabs/features.h"
 #import "ios/chrome/browser/ui/alert_coordinator/action_sheet_coordinator.h"
 #import "ios/chrome/browser/ui/bookmarks/bookmarks_coordinator.h"
-#import "ios/chrome/browser/ui/commands/application_commands.h"
-#import "ios/chrome/browser/ui/commands/bookmarks_commands.h"
-#import "ios/chrome/browser/ui/commands/browser_commands.h"
-#import "ios/chrome/browser/ui/commands/browsing_data_commands.h"
-#import "ios/chrome/browser/ui/commands/command_dispatcher.h"
-#import "ios/chrome/browser/ui/commands/open_new_tab_command.h"
-#import "ios/chrome/browser/ui/commands/reading_list_add_command.h"
-#import "ios/chrome/browser/ui/commands/thumb_strip_commands.h"
 #import "ios/chrome/browser/ui/commerce/price_card/price_card_mediator.h"
 #import "ios/chrome/browser/ui/default_promo/default_browser_promo_non_modal_scheduler.h"
 #import "ios/chrome/browser/ui/gestures/view_controller_trait_collection_observer.h"
@@ -50,7 +57,6 @@
 #import "ios/chrome/browser/ui/recent_tabs/recent_tabs_menu_helper.h"
 #import "ios/chrome/browser/ui/recent_tabs/recent_tabs_presentation_delegate.h"
 #import "ios/chrome/browser/ui/recent_tabs/recent_tabs_table_view_controller.h"
-#import "ios/chrome/browser/ui/recent_tabs/synced_sessions.h"
 #import "ios/chrome/browser/ui/sharing/sharing_coordinator.h"
 #import "ios/chrome/browser/ui/sharing/sharing_params.h"
 #import "ios/chrome/browser/ui/snackbar/snackbar_coordinator.h"
@@ -66,12 +72,9 @@
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/tab_grid_paging.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/tab_grid_view_controller.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/transitions/tab_grid_transition_handler.h"
+#import "ios/chrome/browser/ui/tab_switcher/tab_utils.h"
 #import "ios/chrome/browser/ui/thumb_strip/thumb_strip_coordinator.h"
 #import "ios/chrome/browser/ui/thumb_strip/thumb_strip_feature.h"
-#import "ios/chrome/browser/ui/ui_feature_flags.h"
-#import "ios/chrome/browser/ui/util/named_guide.h"
-#import "ios/chrome/browser/ui/util/uikit_ui_util.h"
-#import "ios/chrome/browser/ui/util/util_swift.h"
 #import "ios/chrome/browser/url/chrome_url_constants.h"
 #import "ios/chrome/browser/url_loading/url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/url_loading_params.h"
@@ -233,7 +236,12 @@
   DCHECK(self.incognitoTabsMediator);
   self.incognitoTabsMediator.browser = incognitoBrowser;
   self.thumbStripCoordinator.incognitoBrowser = incognitoBrowser;
-  self.incognitoTabContextMenuHelper.browser = incognitoBrowser;
+  if (incognitoBrowser) {
+    self.incognitoTabContextMenuHelper.browserState =
+        incognitoBrowser->GetBrowserState();
+  } else {
+    self.incognitoTabContextMenuHelper.browserState = nullptr;
+  }
 
   if (self.incognitoSnackbarCoordinator) {
     [self.incognitoSnackbarCoordinator stop];
@@ -679,7 +687,7 @@
   if (IsInactiveTabsEnabled()) {
     self.inactiveTabsButtonMediator = [[InactiveTabsButtonMediator alloc]
         initWithConsumer:baseViewController.regularTabsConsumer
-            webStateList:_inactiveBrowser->GetWebStateList()->AsWeakPtr()];
+            webStateList:_inactiveBrowser->GetWebStateList()];
   }
 
   self.incognitoTabsMediator = [[TabGridMediator alloc]
@@ -716,14 +724,14 @@
   self.baseViewController.remoteTabsViewController.menuProvider =
       self.recentTabsContextMenuHelper;
 
-  self.regularTabContextMenuHelper =
-      [[TabContextMenuHelper alloc] initWithBrowser:self.regularBrowser
-                             tabContextMenuDelegate:self];
+  self.regularTabContextMenuHelper = [[TabContextMenuHelper alloc]
+        initWithBrowserState:self.regularBrowser->GetBrowserState()
+      tabContextMenuDelegate:self];
   self.baseViewController.regularTabsContextMenuProvider =
       self.regularTabContextMenuHelper;
-  self.incognitoTabContextMenuHelper =
-      [[TabContextMenuHelper alloc] initWithBrowser:self.incognitoBrowser
-                             tabContextMenuDelegate:self];
+  self.incognitoTabContextMenuHelper = [[TabContextMenuHelper alloc]
+        initWithBrowserState:self.incognitoBrowser->GetBrowserState()
+      tabContextMenuDelegate:self];
   self.baseViewController.incognitoTabsContextMenuProvider =
       self.incognitoTabContextMenuHelper;
 
@@ -1074,10 +1082,30 @@
       initWithBaseViewController:self.baseViewController
                          browser:_inactiveBrowser];
   self.inactiveTabsCoordinator.delegate = self;
+  self.inactiveTabsCoordinator.menuProvider = self.regularTabContextMenuHelper;
   [self.inactiveTabsCoordinator start];
 }
 
 #pragma mark - InactiveTabsCoordinatorDelegate
+
+- (void)inactiveTabsCoordinator:
+            (InactiveTabsCoordinator*)inactiveTabsCoordinator
+            didSelectItemWithID:(NSString*)itemID {
+  // TODO(crbug.com/1418021): Add metrics when the user activate back an
+  // inactive tab and bring it back to the active tab list.
+  WebStateList* regularWebStateList = self.regularBrowser->GetWebStateList();
+  int toInsertIndex = regularWebStateList->count();
+
+  MoveTabToBrowser(itemID, self.regularBrowser, toInsertIndex);
+
+  // TODO(crbug.com/1420938): Adapt the animation so the grid animation is
+  // coming from the inactive panel.
+  regularWebStateList->ActivateWebStateAt(toInsertIndex);
+  [self.delegate tabGrid:self
+      shouldActivateBrowser:self.regularBrowser
+             dismissTabGrid:YES
+               focusOmnibox:NO];
+}
 
 - (void)inactiveTabsCoordinatorDidFinish:
     (InactiveTabsCoordinator*)inactiveTabsCoordinator {
@@ -1127,16 +1155,11 @@
       "Mobile.RecentTabsManager.TotalTabsFromOtherDevicesOpenAll",
       session->tabs.size());
 
-  for (auto const& tab : session->tabs) {
-    UrlLoadParams params = UrlLoadParams::InNewTab(tab->virtual_url);
-    params.SetInBackground(YES);
-    params.web_params.transition_type = ui::PAGE_TRANSITION_AUTO_BOOKMARK;
-    params.load_strategy =
-        self.baseViewController.remoteTabsViewController.loadStrategy;
-    params.in_incognito =
-        self.regularBrowser->GetBrowserState()->IsOffTheRecord();
-    UrlLoadingBrowserAgent::FromBrowser(self.regularBrowser)->Load(params);
-  }
+  BOOL inIncognito = self.regularBrowser->GetBrowserState()->IsOffTheRecord();
+  OpenDistantSessionInBackground(
+      session, inIncognito,
+      UrlLoadingBrowserAgent::FromBrowser(self.regularBrowser),
+      self.baseViewController.remoteTabsViewController.loadStrategy);
 
   [self showActiveRegularTabFromRecentTabs];
 }
@@ -1170,7 +1193,7 @@
 
 - (void)bookmarkURL:(const GURL&)URL title:(NSString*)title {
   bookmarks::BookmarkModel* bookmarkModel =
-      ios::BookmarkModelFactory::GetForBrowserState(
+      ios::LocalOrSyncableBookmarkModelFactory::GetForBrowserState(
           self.regularBrowser->GetBrowserState());
   bool currentlyBookmarked =
       bookmarkModel && bookmarkModel->GetMostRecentlyAddedUserNodeForURL(URL);

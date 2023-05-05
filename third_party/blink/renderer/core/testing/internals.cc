@@ -1139,6 +1139,9 @@ Node* Internals::effectiveRootScroller(Document* document) {
 
 ShadowRoot* Internals::shadowRoot(Element* host) {
   DCHECK(host);
+  if (auto* input = DynamicTo<HTMLInputElement>(*host)) {
+    input->EnsureShadowSubtree();
+  }
   return host->GetShadowRoot();
 }
 
@@ -2092,12 +2095,6 @@ void Internals::cancelCurrentSpellCheckRequest(
 
 String Internals::idleTimeSpellCheckerState(Document* document,
                                             ExceptionState& exception_state) {
-  static const char* const kTexts[] = {
-#define V(state) #state,
-      FOR_EACH_IDLE_SPELL_CHECK_CONTROLLER_STATE(V)
-#undef V
-  };
-
   if (!document || !document->GetFrame()) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidAccessError,
@@ -2105,14 +2102,10 @@ String Internals::idleTimeSpellCheckerState(Document* document,
     return String();
   }
 
-  IdleSpellCheckController::State state = document->GetFrame()
-                                              ->GetSpellChecker()
-                                              .GetIdleSpellCheckController()
-                                              .GetState();
-  auto* const* const it = std::begin(kTexts) + static_cast<size_t>(state);
-  DCHECK_GE(it, std::begin(kTexts)) << "Unknown state value";
-  DCHECK_LT(it, std::end(kTexts)) << "Unknown state value";
-  return *it;
+  return document->GetFrame()
+      ->GetSpellChecker()
+      .GetIdleSpellCheckController()
+      .GetStateAsString();
 }
 
 void Internals::runIdleTimeSpellChecker(Document* document,
@@ -2128,6 +2121,18 @@ void Internals::runIdleTimeSpellChecker(Document* document,
       ->GetSpellChecker()
       .GetIdleSpellCheckController()
       .ForceInvocationForTesting();
+}
+
+bool Internals::hasLastEditCommand(Document* document,
+                                   ExceptionState& exception_state) {
+  if (!document || !document->GetFrame()) {
+    exception_state.ThrowDOMException(
+        DOMExceptionCode::kInvalidAccessError,
+        "No frame can be obtained from the provided document.");
+    return false;
+  }
+
+  return document->GetFrame()->GetEditor().LastEditCommand();
 }
 
 Vector<AtomicString> Internals::userPreferredLanguages() const {

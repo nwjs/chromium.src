@@ -51,6 +51,14 @@ BASE_FEATURE(kDisableQuickAnswersV2Translation,
              "DisableQuickAnswersV2Translation",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enable experimental goldfish web app isolation.
+BASE_FEATURE(kExperimentalWebAppStoragePartitionIsolation,
+             "ExperimentalWebAppStoragePartitionIsolation",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables Jelly features.
+BASE_FEATURE(kJelly, "Jelly", base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables Jellyroll features. Jellyroll is a feature flag for CrOSNext, which
 // controls all system UI updates and new system components.
 BASE_FEATURE(kJellyroll, "Jellyroll", base::FEATURE_DISABLED_BY_DEFAULT);
@@ -87,8 +95,14 @@ bool IsDemoModeSWAEnabled() {
   return base::FeatureList::IsEnabled(kDemoModeSWA);
 }
 
+bool IsJellyEnabled() {
+  return base::FeatureList::IsEnabled(kJelly);
+}
+
 bool IsJellyrollEnabled() {
-  return base::FeatureList::IsEnabled(kJellyroll);
+  // Force Jellyroll features on if Jelly is enabled since they need to be
+  // tested together. b/270742469
+  return IsJellyEnabled() || base::FeatureList::IsEnabled(kJellyroll);
 }
 
 bool IsPasswordManagerSystemAuthenticationEnabled() {

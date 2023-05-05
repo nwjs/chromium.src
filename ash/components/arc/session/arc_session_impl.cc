@@ -14,7 +14,6 @@
 
 #include "ash/components/arc/arc_features.h"
 #include "ash/components/arc/arc_util.h"
-#include "ash/components/arc/enterprise/arc_data_snapshotd_manager.h"
 #include "ash/components/arc/session/arc_bridge_host_impl.h"
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_switches.h"
@@ -467,12 +466,13 @@ void ArcSessionImpl::DoStartMiniInstance(size_t num_cores_disabled) {
   params.num_cores_disabled = num_cores_disabled;
   params.enable_notifications_refresh =
       ash::features::IsNotificationsRefreshEnabled();
-  params.enable_tts_caching =
-      base::FeatureList::IsEnabled(kEnableTTSCacheSetup);
+  params.enable_tts_caching = true;
   params.enable_consumer_auto_update_toggle = base::FeatureList::IsEnabled(
       ash::features::kConsumerAutoUpdateToggleAllowed);
   params.enable_privacy_hub_for_chrome =
       base::FeatureList::IsEnabled(ash::features::kCrosPrivacyHub);
+  params.arc_switch_to_keymint =
+      base::FeatureList::IsEnabled(kSwitchToKeyMintOnT);
   params.use_virtio_blk_data = use_virtio_blk_data_;
 
   // TODO (b/196460968): Remove after CTS run is complete.
@@ -639,23 +639,7 @@ void ArcSessionImpl::OnSocketCreated(base::ScopedFD socket_fd) {
     return;
   }
 
-  VLOG(2) << "Socket is created. Start loading ARC data snapshot";
-  StartLoadingDataSnapshot(base::BindOnce(&ArcSessionImpl::OnDataSnapshotLoaded,
-                                          weak_factory_.GetWeakPtr(),
-                                          std::move(socket_fd)));
-}
-
-void ArcSessionImpl::StartLoadingDataSnapshot(base::OnceClosure callback) {
-  auto* arc_data_snapshotd_manager =
-      arc::data_snapshotd::ArcDataSnapshotdManager::Get();
-  if (arc_data_snapshotd_manager)
-    arc_data_snapshotd_manager->StartLoadingSnapshot(std::move(callback));
-  else
-    std::move(callback).Run();
-}
-
-void ArcSessionImpl::OnDataSnapshotLoaded(base::ScopedFD socket_fd) {
-  VLOG(2) << "Starting ARC container";
+  VLOG(2) << "Socket is created. Starting ARC container";
   client_->UpgradeArc(
       std::move(upgrade_params_),
       base::BindOnce(&ArcSessionImpl::OnUpgraded, weak_factory_.GetWeakPtr(),

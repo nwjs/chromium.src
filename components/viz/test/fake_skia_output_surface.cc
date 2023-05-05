@@ -170,6 +170,7 @@ SkCanvas* FakeSkiaOutputSurface::BeginPaintRenderPass(
     const gfx::Size& surface_size,
     ResourceFormat format,
     bool mipmap,
+    bool scanout_dcomp_surface,
     sk_sp<SkColorSpace> color_space,
     bool is_overlay,
     const gpu::Mailbox& mailbox) {
@@ -200,6 +201,7 @@ SkCanvas* FakeSkiaOutputSurface::RecordOverdrawForCurrentPaint() {
 void FakeSkiaOutputSurface::EndPaint(
     base::OnceClosure on_finished,
     base::OnceCallback<void(gfx::GpuFenceHandle)> return_release_fence_cb,
+    const gfx::Rect& update_rect,
     bool is_overlay) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   sk_surfaces_[current_render_pass_id_]->flushAndSubmit();

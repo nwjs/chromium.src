@@ -10,7 +10,6 @@
 #include <vector>
 
 #include "ash/components/arc/arc_util.h"
-#include "ash/components/arc/enterprise/arc_data_snapshotd_manager.h"
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/constants/ash_switches.h"
@@ -63,7 +62,6 @@
 #include "chrome/browser/ash/policy/core/device_local_account.h"
 #include "chrome/browser/ash/policy/core/device_local_account_policy_service.h"
 #include "chrome/browser/ash/policy/handlers/minimum_version_policy_handler.h"
-#include "chrome/browser/ash/policy/handlers/powerwash_requirements_checker.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/ash/settings/cros_settings.h"
 #include "chrome/browser/ash/system/device_disabling_manager.h"
@@ -279,26 +277,6 @@ absl::optional<EncryptionMigrationMode> GetEncryptionMigrationMode(
                             : EncryptionMigrationMode::ASK_USER;
 }
 
-// Returns account ID of a public session account if it is unique, otherwise
-// returns invalid account ID.
-AccountId GetArcDataSnapshotAutoLoginAccountId(
-    const std::vector<policy::DeviceLocalAccount>& device_local_accounts) {
-  AccountId auto_login_account_id = EmptyAccountId();
-  for (std::vector<policy::DeviceLocalAccount>::const_iterator it =
-           device_local_accounts.begin();
-       it != device_local_accounts.end(); ++it) {
-    if (it->type == policy::DeviceLocalAccount::TYPE_PUBLIC_SESSION) {
-      // Do not perform ARC data snapshot auto-login if more than one public
-      // session account is configured.
-      if (auto_login_account_id.is_valid())
-        return EmptyAccountId();
-      auto_login_account_id = AccountId::FromUserEmail(it->user_id);
-      VLOG(2) << "PublicSession autologin found: " << it->user_id;
-    }
-  }
-  return auto_login_account_id;
-}
-
 // Returns account ID if a corresponding to `auto_login_account_id` device local
 // account exists, otherwise returns invalid account ID.
 AccountId GetPublicSessionAutoLoginAccountId(
@@ -423,9 +401,6 @@ void ExistingUserController::UpdateLoginDisplay(
           RebootOnSignOutPolicy::REBOOT_ON_SIGNOUT_MODE_UNSPECIFIED &&
       reboot_on_signout_policy != RebootOnSignOutPolicy::NEVER) {
     SessionTerminationManager::Get()->RebootIfNecessary();
-    // Initialize PowerwashRequirementsChecker so its instances will be able to
-    // use stored cryptohome powerwash state later
-    policy::PowerwashRequirementsChecker::Initialize();
   }
   bool show_users_on_signin = true;
   user_manager::UserList saml_users_for_password_sync;
@@ -884,9 +859,9 @@ void ExistingUserController::ContinueAuthSuccessAfterResumeAttempt(
 
   // Mark device will be consumer owned if the device is not managed and this is
   // the first user on the device.
-  if (!is_enterprise_managed && InstallAttributes::Get()->IsFirstSignIn()) {
+  if (!is_enterprise_managed &&
+      user_manager::UserManager::Get()->GetUsers().empty()) {
     DeviceSettingsService::Get()->MarkWillEstablishConsumerOwnership();
-    user_manager::UserManager::Get()->RecordOwner(user_context.GetAccountId());
   }
 
   if (user_context.CanLockManagedGuestSession()) {
@@ -1348,18 +1323,8 @@ void ExistingUserController::ConfigureAutoLogin() {
       policy::GetDeviceLocalAccounts(cros_settings_);
   const bool show_update_required_screen = IsUpdateRequiredDeadlineReached();
 
-  auto* data_snapshotd_manager =
-      arc::data_snapshotd::ArcDataSnapshotdManager::Get();
-  bool is_arc_data_snapshot_autologin =
-      (data_snapshotd_manager &&
-       data_snapshotd_manager->IsAutoLoginConfigured());
-  if (is_arc_data_snapshot_autologin) {
-    public_session_auto_login_account_id_ =
-        GetArcDataSnapshotAutoLoginAccountId(device_local_accounts);
-  } else {
-    public_session_auto_login_account_id_ = GetPublicSessionAutoLoginAccountId(
-        device_local_accounts, auto_login_account_id);
-  }
+  public_session_auto_login_account_id_ = GetPublicSessionAutoLoginAccountId(
+      device_local_accounts, auto_login_account_id);
 
   const user_manager::User* public_session_user =
       user_manager::UserManager::Get()->FindUser(
@@ -1370,8 +1335,7 @@ void ExistingUserController::ConfigureAutoLogin() {
     public_session_auto_login_account_id_ = EmptyAccountId();
   }
 
-  if (is_arc_data_snapshot_autologin ||
-      !cros_settings_->GetInteger(kAccountsPrefDeviceLocalAccountAutoLoginDelay,
+  if (!cros_settings_->GetInteger(kAccountsPrefDeviceLocalAccountAutoLoginDelay,
                                   &auto_login_delay_)) {
     auto_login_delay_ = 0;
   }
@@ -1456,20 +1420,6 @@ void ExistingUserController::StartAutoLoginTimer() {
     StopAutoLoginTimer();
   }
 
-  // Block auto-login flow until ArcDataSnapshotdManager is ready to enter an
-  // auto-login session.
-  // ArcDataSnapshotdManager stores a reset auto-login callback to fire it once
-  // it is ready.
-  auto* data_snapshotd_manager =
-      arc::data_snapshotd::ArcDataSnapshotdManager::Get();
-  if (data_snapshotd_manager && !data_snapshotd_manager->IsAutoLoginAllowed() &&
-      data_snapshotd_manager->IsAutoLoginConfigured()) {
-    data_snapshotd_manager->set_reset_autologin_callback(
-        base::BindOnce(&ExistingUserController::StartAutoLoginTimer,
-                       weak_factory_.GetWeakPtr()));
-    return;
-  }
-
   // Start the auto-login timer.
   if (!auto_login_timer_)
     auto_login_timer_ = std::make_unique<base::OneShotTimer>();
@@ -1506,8 +1456,9 @@ void ExistingUserController::SetPublicSessionKeyboardLayoutAndLogin(
   UserContext new_user_context = user_context;
   std::string keyboard_layout;
   for (auto& entry : keyboard_layouts) {
-    if (entry.FindBoolKey("selected").value_or(false)) {
-      const std::string* keyboard_layout_ptr = entry.FindStringKey("value");
+    base::Value::Dict& entry_dict = entry.GetDict();
+    if (entry_dict.FindBool("selected").value_or(false)) {
+      const std::string* keyboard_layout_ptr = entry_dict.FindString("value");
       if (keyboard_layout_ptr)
         keyboard_layout = *keyboard_layout_ptr;
       break;

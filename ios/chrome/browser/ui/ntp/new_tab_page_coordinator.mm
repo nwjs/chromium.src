@@ -4,13 +4,18 @@
 
 #import "ios/chrome/browser/ui/ntp/new_tab_page_coordinator.h"
 
+#import <MaterialComponents/MaterialSnackbar.h>
+
 #import "base/feature_list.h"
 #import "base/metrics/field_trial_params.h"
 #import "base/metrics/histogram_functions.h"
+#import "base/metrics/histogram_macros.h"
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
 #import "base/time/time.h"
+#import "components/feed/core/v2/public/common_enums.h"
 #import "components/feed/core/v2/public/ios/pref_names.h"
+#import "components/policy/policy_constants.h"
 #import "components/pref_registry/pref_registry_syncable.h"
 #import "components/prefs/ios/pref_observer_bridge.h"
 #import "components/prefs/pref_change_registrar.h"
@@ -37,6 +42,17 @@
 #import "ios/chrome/browser/ntp/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/prefs/pref_names.h"
 #import "ios/chrome/browser/search_engines/template_url_service_factory.h"
+#import "ios/chrome/browser/shared/public/commands/application_commands.h"
+#import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
+#import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/lens_commands.h"
+#import "ios/chrome/browser/shared/public/commands/omnibox_commands.h"
+#import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
+#import "ios/chrome/browser/shared/public/commands/show_signin_command.h"
+#import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/ui/util/named_guide.h"
+#import "ios/chrome/browser/shared/ui/util/util_swift.h"
 #import "ios/chrome/browser/signin/authentication_service.h"
 #import "ios/chrome/browser/signin/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/capabilities_types.h"
@@ -46,14 +62,6 @@
 #import "ios/chrome/browser/sync/sync_service_factory.h"
 #import "ios/chrome/browser/ui/alert_coordinator/action_sheet_coordinator.h"
 #import "ios/chrome/browser/ui/authentication/enterprise/enterprise_utils.h"
-#import "ios/chrome/browser/ui/commands/application_commands.h"
-#import "ios/chrome/browser/ui/commands/browser_coordinator_commands.h"
-#import "ios/chrome/browser/ui/commands/command_dispatcher.h"
-#import "ios/chrome/browser/ui/commands/lens_commands.h"
-#import "ios/chrome/browser/ui/commands/omnibox_commands.h"
-#import "ios/chrome/browser/ui/commands/open_new_tab_command.h"
-#import "ios/chrome/browser/ui/commands/show_signin_command.h"
-#import "ios/chrome/browser/ui/commands/snackbar_commands.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_coordinator.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_feature.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_header_commands.h"
@@ -76,7 +84,9 @@
 #import "ios/chrome/browser/ui/ntp/feed_top_section/feed_top_section_coordinator.h"
 #import "ios/chrome/browser/ui/ntp/feed_wrapper_view_controller.h"
 #import "ios/chrome/browser/ui/ntp/incognito/incognito_view_controller.h"
+#import "ios/chrome/browser/ui/ntp/metrics/feed_metrics_constants.h"
 #import "ios/chrome/browser/ui/ntp/metrics/feed_metrics_recorder.h"
+#import "ios/chrome/browser/ui/ntp/new_tab_page_component_factory_protocol.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_content_delegate.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_coordinator+private.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_delegate.h"
@@ -87,9 +97,6 @@
 #import "ios/chrome/browser/ui/overscroll_actions/overscroll_actions_controller.h"
 #import "ios/chrome/browser/ui/settings/utils/pref_backed_boolean.h"
 #import "ios/chrome/browser/ui/toolbar/public/fakebox_focuser.h"
-#import "ios/chrome/browser/ui/ui_feature_flags.h"
-#import "ios/chrome/browser/ui/util/named_guide.h"
-#import "ios/chrome/browser/ui/util/util_swift.h"
 #import "ios/chrome/browser/url_loading/url_loading_browser_agent.h"
 #import "ios/chrome/browser/web_state_list/web_state_list.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
@@ -247,6 +254,11 @@ bool IsNTPActiveForWebState(web::WebState* web_state) {
 // Returns `YES` if the coordinator is started.
 @property(nonatomic, assign) BOOL started;
 
+// Contains a factory which can generate NTP components which are initialized
+// on `start`.
+@property(nonatomic, strong) id<NewTabPageComponentFactoryProtocol>
+    componentFactory;
+
 @end
 
 @implementation NewTabPageCoordinator
@@ -257,10 +269,13 @@ bool IsNTPActiveForWebState(web::WebState* web_state) {
 
 #pragma mark - ChromeCoordinator
 
-- (instancetype)initWithBrowser:(Browser*)browser {
+- (instancetype)initWithBrowser:(Browser*)browser
+               componentFactory:
+                   (id<NewTabPageComponentFactoryProtocol>)componentFactory {
   DCHECK(browser);
   self = [super initWithBaseViewController:nil browser:browser];
   if (self) {
+    _componentFactory = componentFactory;
     _containerViewController = [[UIViewController alloc] init];
   }
   return self;
@@ -451,7 +466,7 @@ bool IsNTPActiveForWebState(web::WebState* web_state) {
 }
 
 - (void)focusFakebox {
-  [self.NTPViewController focusFakebox];
+  [self.NTPViewController focusOmnibox];
 }
 
 - (void)reload {
@@ -462,7 +477,8 @@ bool IsNTPActiveForWebState(web::WebState* web_state) {
   // before callbacks in repsonse to a feed refresh are called, ensuring the NTP
   // returns to a state at the top of the surface upon refresh.
   [self.NTPViewController resetStateUponReload];
-  self.discoverFeedService->RefreshFeed(/*feed_visible=*/true);
+  self.discoverFeedService->RefreshFeed(
+      FeedRefreshTrigger::kForegroundUserTriggered);
   [self reloadContentSuggestions];
 }
 
@@ -472,7 +488,11 @@ bool IsNTPActiveForWebState(web::WebState* web_state) {
 }
 
 - (void)locationBarDidResignFirstResponder {
-  [self.NTPViewController omniboxDidResignFirstResponder];
+  // Do not trigger defocus animation if the user is already navigating away
+  // from the NTP.
+  if (self.viewPresented) {
+    [self.NTPViewController omniboxDidResignFirstResponder];
+  }
 }
 
 - (void)constrainDiscoverHeaderMenuButtonNamedGuide {
@@ -584,25 +604,19 @@ bool IsNTPActiveForWebState(web::WebState* web_state) {
 
 // Creates all the NTP components.
 - (void)initializeNTPComponents {
-  self.NTPViewController = [[NewTabPageViewController alloc] init];
-  self.headerController = [[ContentSuggestionsHeaderViewController alloc] init];
-  self.NTPMediator = [[NewTabPageMediator alloc]
-              initWithWebState:self.webState
-            templateURLService:self.templateURLService
-                     URLLoader:UrlLoadingBrowserAgent::FromBrowser(self.browser)
-                   authService:self.authService
-               identityManager:IdentityManagerFactory::GetForBrowserState(
-                                   self.browser->GetBrowserState())
-         accountManagerService:ChromeAccountManagerServiceFactory::
-                                   GetForBrowserState(
-                                       self.browser->GetBrowserState())
-                    logoVendor:ios::provider::CreateLogoVendor(self.browser,
-                                                               self.webState)
-      identityDiscImageUpdater:self.headerController];
-  self.contentSuggestionsCoordinator = [[ContentSuggestionsCoordinator alloc]
-      initWithBaseViewController:nil
-                         browser:self.browser];
-  self.feedMetricsRecorder = self.discoverFeedService->GetFeedMetricsRecorder();
+  Browser* browser = self.browser;
+  id<NewTabPageComponentFactoryProtocol> componentFactory =
+      self.componentFactory;
+  self.NTPViewController = [componentFactory NTPViewController];
+  self.headerController = [componentFactory headerController];
+  self.NTPMediator =
+      [componentFactory NTPMediatorForBrowser:browser
+                                     webState:self.webState
+                     identityDiscImageUpdater:self.headerController];
+  self.contentSuggestionsCoordinator =
+      [componentFactory contentSuggestionsCoordinatorForBrowser:browser];
+  self.feedMetricsRecorder =
+      [componentFactory feedMetricsRecorderForBrowser:browser];
 }
 
 #pragma mark - Configurators
@@ -648,8 +662,8 @@ bool IsNTPActiveForWebState(web::WebState* web_state) {
   // TODO(crbug.com/1045047): Use HandlerForProtocol after commands protocol
   // clean up.
   self.headerController.dispatcher =
-      static_cast<id<ApplicationCommands, BrowserCommands, OmniboxCommands,
-                     FakeboxFocuser, LensCommands>>(
+      static_cast<id<ApplicationCommands, BrowserCoordinatorCommands,
+                     OmniboxCommands, FakeboxFocuser, LensCommands>>(
           self.browser->GetCommandDispatcher());
   self.headerController.commandHandler = self;
   self.headerController.delegate = self.NTPViewController;
@@ -657,15 +671,10 @@ bool IsNTPActiveForWebState(web::WebState* web_state) {
       LayoutGuideCenterForBrowser(self.browser);
   self.headerController.toolbarDelegate = self.toolbarDelegate;
   self.headerController.baseViewController = self.baseViewController;
-  if (NewTabPageTabHelper::FromWebState(self.webState)
-          ->ShouldShowStartSurface()) {
-    self.headerController.isStartShowing = YES;
-  }
 }
 
 // Configures `self.contentSuggestionsCoordiantor`.
 - (void)configureContentSuggestionsCoordinator {
-  DCHECK(self.contentSuggestionsCoordinator);
   self.contentSuggestionsCoordinator.webState = self.webState;
   self.contentSuggestionsCoordinator.ntpDelegate = self;
   self.contentSuggestionsCoordinator.feedDelegate = self;
@@ -676,7 +685,6 @@ bool IsNTPActiveForWebState(web::WebState* web_state) {
 - (void)configureNTPMediator {
   NewTabPageMediator* NTPMediator = self.NTPMediator;
   DCHECK(NTPMediator);
-  DCHECK(self.contentSuggestionsCoordinator.contentSuggestionsMediator);
   NTPMediator.browser = self.browser;
   NTPMediator.feedControlDelegate = self;
   NTPMediator.contentSuggestionsHeaderConsumer = self.headerController;
@@ -771,6 +779,18 @@ bool IsNTPActiveForWebState(web::WebState* web_state) {
 
 - (void)updateForHeaderSizeChange {
   [self.NTPViewController updateHeightAboveFeedAndScrollToTopIfNeeded];
+}
+
+- (void)fakeboxTapped {
+  if (NewTabPageTabHelper::FromWebState(self.webState)
+          ->ShouldShowStartSurface()) {
+    UMA_HISTOGRAM_ENUMERATION("IOS.ContentSuggestions.ActionOnStartSurface",
+                              IOSContentSuggestionsActionType::kFakebox);
+  } else {
+    UMA_HISTOGRAM_ENUMERATION("IOS.ContentSuggestions.ActionOnNTP",
+                              IOSContentSuggestionsActionType::kFakebox);
+  }
+  [self focusFakebox];
 }
 
 - (void)identityDiscWasTapped {
@@ -1011,15 +1031,62 @@ bool IsNTPActiveForWebState(web::WebState* web_state) {
 #pragma mark - FeedSignInPromoDelegate
 
 - (void)showSignInPromoUI {
-  // Show a sign-in promo half sheet.
-  self.feedSignInPromoCoordinator = [[FeedSignInPromoCoordinator alloc]
-      initWithBaseViewController:self.NTPViewController
-                         browser:self.browser];
-  [self.feedSignInPromoCoordinator start];
+  ChromeAccountManagerService* accountManagerService =
+      ChromeAccountManagerServiceFactory::GetForBrowserState(
+          self.browser->GetBrowserState());
+
+  BOOL hasUserIdentities = accountManagerService->HasIdentities();
+
+  if ([self isSignInAllowed] &&
+      (IsConsistencyNewAccountInterfaceEnabled() || hasUserIdentities)) {
+    // Show Sign-In only flow, since Sync is not needed for this feature.
+    // TODO(crbug.com/1382615): Currently we show sign-in only UI when it's
+    // enabled, or when the user has one or more device-level user identities,
+    // and when sign-in is allowed. Remove the user identity check when sign-in
+    // only flow is fully launched.
+    const signin_metrics::AccessPoint access_point =
+        signin_metrics::AccessPoint::ACCESS_POINT_NTP_FEED_CARD_MENU_PROMO;
+    id<ApplicationCommands> handler = HandlerForProtocol(
+        self.browser->GetCommandDispatcher(), ApplicationCommands);
+    ShowSigninCommand* command = [[ShowSigninCommand alloc]
+        initWithOperation:AuthenticationOperationSigninOnly
+              accessPoint:access_point];
+    signin_metrics::RecordSigninUserActionForAccessPoint(access_point);
+    [handler showSignin:command baseViewController:self.NTPViewController];
+    [self.feedMetricsRecorder
+        recordShowSignInOnlyUIWithUserId:hasUserIdentities];
+    [self.feedMetricsRecorder recordShowSignInRelatedUIWithType:
+                                  feed::FeedSignInUI::kShowSignInOnlyFlow];
+  } else if ([self isSignInAllowed] && [self isSyncAllowed]) {
+    // Show a sign-in promo half sheet for feed BoC sign-in promo when the
+    // condition of showing sign-in only flow is not fulfilled. This UI will
+    // lead to sync flow,
+    // TODO(crbug.com/1382615): remove this else if block and
+    // FeedSignInPromoCoordinator class when sign-in only flow is fully
+    // launched.
+    self.feedSignInPromoCoordinator = [[FeedSignInPromoCoordinator alloc]
+        initWithBaseViewController:self.NTPViewController
+                           browser:self.browser];
+    [self.feedSignInPromoCoordinator start];
+    [self.feedMetricsRecorder recordShowSignInRelatedUIWithType:
+                                  feed::FeedSignInUI::kShowSyncHalfSheet];
+  } else {
+    // Show a snackbar message if sign-in or sync is disabled and the above UI
+    // shouldn't be shown.
+    [self showSignInDisableMessage];
+    [self.feedMetricsRecorder recordShowSignInRelatedUIWithType:
+                                  feed::FeedSignInUI::kShowSignInDisableToast];
+  }
 }
 
 - (void)showSignInUI {
-  // Show sign-in and sync page.
+  // Show a snackbar message if sign-in or sync is disabled.
+  if (![self isSignInAllowed] || ![self isSyncAllowed]) {
+    [self showSignInDisableMessage];
+    return;
+  }
+
+  // Show sign-in and sync page for feed bottom sync promo.
   const signin_metrics::AccessPoint access_point =
       signin_metrics::AccessPoint::ACCESS_POINT_NTP_FEED_BOTTOM_PROMO;
   id<ApplicationCommands> handler = HandlerForProtocol(
@@ -1346,12 +1413,8 @@ bool IsNTPActiveForWebState(web::WebState* web_state) {
 }
 
 - (void)updateStartForVisibilityChange:(BOOL)visible {
-  if (visible && self.started &&
-      NewTabPageTabHelper::FromWebState(self.webState)
-          ->ShouldShowStartSurface()) {
-    // Start is being shown on an existing NTP, so configure it
-    // appropriately.
-    self.headerController.isStartShowing = YES;
+  if (visible && NewTabPageTabHelper::FromWebState(self.webState)
+                     ->ShouldShowStartSurface()) {
     [self.contentSuggestionsCoordinator configureStartSurfaceIfNeeded];
   }
   if (!visible && NewTabPageTabHelper::FromWebState(self.webState)
@@ -1360,7 +1423,6 @@ bool IsNTPActiveForWebState(web::WebState* web_state) {
     // since it should not show Start after disappearing.
     NewTabPageTabHelper::FromWebState(self.webState)
         ->SetShowStartSurface(false);
-    self.headerController.isStartShowing = NO;
   }
 }
 
@@ -1635,27 +1697,63 @@ bool IsNTPActiveForWebState(web::WebState* web_state) {
         self.feedMetricsRecorder.feedControlDelegate = self;
         self.feedMetricsRecorder.followDelegate = self;
       }
-    } else {
-      // Unfocus omnibox, to prevent it from lingering when it should be
-      // dismissed (for example, when navigating away or when changing feed
-      // visibility). Do this after the MVC classes are deallocated so no reset
-      // animations are fired in response to this cancel.
-      id<OmniboxCommands> omniboxCommandHandler = HandlerForProtocol(
-          self.browser->GetCommandDispatcher(), OmniboxCommands);
-      [omniboxCommandHandler cancelOmniboxEdit];
     }
     // Check if feed is visible before reporting NTP visibility as the feed
     // needs to be visible in order to use for metrics.
     // TODO(crbug.com/1373650) Move isFeedVisible check to the metrics recorder
-    if (IsGoodVisitsMetricEnabled()) {
-      if ([self isFeedVisible]) {
-        [self.feedMetricsRecorder recordNTPDidChangeVisibility:visible];
-      }
+    if ([self isFeedVisible]) {
+      [self.feedMetricsRecorder recordNTPDidChangeVisibility:visible];
     }
   }
 
   self.viewPresented = visible;
   [self updateVisible];
+
+  if (!self.browser->GetBrowserState()->IsOffTheRecord() && !visible) {
+    // Unfocus omnibox, to prevent it from lingering when it should be
+    // dismissed (for example, when navigating away or when changing feed
+    // visibility).
+    // Do this after updating `viewPresented` to prevent defocus animation from
+    // happening when already navigating away from NTP.
+    [self cancelOmniboxEdit];
+  }
+}
+
+- (BOOL)isSignInAllowed {
+  AuthenticationService::ServiceStatus statusService =
+      self.authService->GetServiceStatus();
+  switch (statusService) {
+    case AuthenticationService::ServiceStatus::SigninDisabledByPolicy:
+    case AuthenticationService::ServiceStatus::SigninDisabledByInternal:
+    case AuthenticationService::ServiceStatus::SigninDisabledByUser: {
+      return NO;
+    }
+    case AuthenticationService::ServiceStatus::SigninForcedByPolicy:
+    case AuthenticationService::ServiceStatus::SigninAllowed: {
+      break;
+    }
+  }
+  return YES;
+}
+
+- (BOOL)isSyncAllowed {
+  if (self.prefService->FindPreference(policy::key::kSyncDisabled) &&
+      self.prefService->GetBoolean(policy::key::kSyncDisabled)) {
+    return NO;
+  }
+
+  return YES;
+}
+
+- (void)showSignInDisableMessage {
+  id<SnackbarCommands> handler =
+      static_cast<id<SnackbarCommands>>(self.browser->GetCommandDispatcher());
+  MDCSnackbarMessage* message = [MDCSnackbarMessage
+      messageWithText:
+          l10n_util::GetNSString(
+              IDS_IOS_NTP_FEED_SIGNIN_PROMO_DISABLE_SNACKBAR_MESSAGE)];
+
+  [handler showSnackbarMessage:message];
 }
 
 #pragma mark - Getters

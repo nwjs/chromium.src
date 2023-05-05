@@ -166,6 +166,7 @@
 #include "third_party/blink/public/mojom/input/input_handler.mojom-shared.h"
 #include "third_party/blink/public/mojom/loader/referrer.mojom.h"
 #include "third_party/blink/public/mojom/loader/request_context_frame_type.mojom.h"
+#include "third_party/blink/public/mojom/loader/resource_cache.mojom.h"
 #include "third_party/blink/public/mojom/loader/resource_load_info.mojom.h"
 #include "third_party/blink/public/mojom/navigation/navigation_params.mojom.h"
 #include "third_party/blink/public/mojom/page/widget.mojom.h"
@@ -607,8 +608,7 @@ blink::mojom::CommonNavigationParamsPtr MakeCommonNavigationParams(
 
 WebFrameLoadType NavigationTypeToLoadType(
     blink::mojom::NavigationType navigation_type,
-    bool should_replace_current_entry,
-    bool has_valid_page_state) {
+    bool should_replace_current_entry) {
   switch (navigation_type) {
     case blink::mojom::NavigationType::RELOAD:
     case blink::mojom::NavigationType::RELOAD_ORIGINAL_REQUEST_URL:
@@ -619,14 +619,9 @@ WebFrameLoadType NavigationTypeToLoadType(
 
     case blink::mojom::NavigationType::HISTORY_SAME_DOCUMENT:
     case blink::mojom::NavigationType::HISTORY_DIFFERENT_DOCUMENT:
-      return WebFrameLoadType::kBackForward;
-
     case blink::mojom::NavigationType::RESTORE:
     case blink::mojom::NavigationType::RESTORE_WITH_POST:
-      if (has_valid_page_state)
-        return WebFrameLoadType::kBackForward;
-      // If there is no valid page state, fall through to the default case.
-      [[fallthrough]];
+      return WebFrameLoadType::kBackForward;
 
     case blink::mojom::NavigationType::SAME_DOCUMENT:
     case blink::mojom::NavigationType::DIFFERENT_DOCUMENT:
@@ -874,9 +869,11 @@ std::unique_ptr<DocumentState> BuildDocumentStateFromParams(
   if (commit_params.is_load_data_with_base_url)
     document_state->set_data_url(common_params.url);
 
-  document_state->set_navigation_state(NavigationState::Create(
-      common_params.Clone(), commit_params.Clone(), std::move(commit_callback),
-      std::move(navigation_client), was_initiated_in_this_frame));
+  document_state->set_navigation_state(
+      NavigationState::CreateForCrossDocumentCommit(
+          common_params.Clone(), commit_params.Clone(),
+          std::move(commit_callback), std::move(navigation_client),
+          was_initiated_in_this_frame));
   return document_state;
 }
 
@@ -947,6 +944,8 @@ blink::WebNavigationTimings BuildNavigationTimings(
       browser_navigation_timings.fetch_start;
 
   renderer_navigation_timings.input_start = input_start;
+  renderer_navigation_timings.parent_resource_timing_access =
+      browser_navigation_timings.parent_resource_timing_access;
 
   return renderer_navigation_timings;
 }
@@ -1048,7 +1047,7 @@ void FillMiscNavigationParams(
 
   if (commit_params.fenced_frame_properties) {
     navigation_params->fenced_frame_properties =
-        std::move(commit_params.fenced_frame_properties);
+        commit_params.fenced_frame_properties;
 
     if (commit_params.fenced_frame_properties->nested_urn_config_pairs() &&
         commit_params.fenced_frame_properties->nested_urn_config_pairs()
@@ -1065,8 +1064,6 @@ void FillMiscNavigationParams(
         navigation_params->ad_auction_components->push_back(blink::WebURL(urn));
       }
     }
-    navigation_params->has_fenced_frame_reporting =
-        commit_params.fenced_frame_properties->has_fenced_frame_reporting();
   }
 
   navigation_params->ancestor_or_self_has_cspee =
@@ -2214,6 +2211,12 @@ void RenderFrameImpl::GetSerializedHtmlWithLocalLinks(
                                 save_with_empty_url);
 }
 
+void RenderFrameImpl::SetResourceCache(
+    mojo::PendingRemote<blink::mojom::ResourceCache> remote) {
+  CHECK(base::FeatureList::IsEnabled(blink::features::kRemoteResourceCache));
+  frame_->SetResourceCacheRemote(std::move(remote));
+}
+
 void RenderFrameImpl::SetWantErrorMessageStackTrace() {
   want_error_message_stack_trace_ = true;
   v8::Isolate::GetCurrent()->SetCaptureStackTraceForUncaughtExceptions(true);
@@ -2764,11 +2767,9 @@ void RenderFrameImpl::CommitNavigationWithParams(
 
   PrepareFrameForCommit(common_params->url, *commit_params);
 
-  blink::WebFrameLoadType load_type = NavigationTypeToLoadType(
-      common_params->navigation_type,
-      common_params->should_replace_current_entry,
-      blink::PageState::CreateFromEncodedData(commit_params->page_state)
-          .IsValid());
+  blink::WebFrameLoadType load_type =
+      NavigationTypeToLoadType(common_params->navigation_type,
+                               common_params->should_replace_current_entry);
 
   WebHistoryItem item_for_history_navigation;
   blink::mojom::CommitResult commit_status = blink::mojom::CommitResult::Ok;
@@ -3025,27 +3026,35 @@ void RenderFrameImpl::CommitSameDocumentNavigation(
 
   PrepareFrameForCommit(common_params->url, *commit_params);
 
-  blink::WebFrameLoadType load_type = NavigationTypeToLoadType(
-      common_params->navigation_type,
-      common_params->should_replace_current_entry,
-      blink::PageState::CreateFromEncodedData(commit_params->page_state)
-          .IsValid());
+  blink::WebFrameLoadType load_type =
+      NavigationTypeToLoadType(common_params->navigation_type,
+                               common_params->should_replace_current_entry);
+
+  DocumentState* document_state =
+      DocumentState::FromDocumentLoader(frame_->GetDocumentLoader());
+  document_state->set_navigation_state(
+      NavigationState::CreateForSameDocumentCommitFromBrowser(
+          std::move(common_params), std::move(commit_params),
+          std::move(callback)));
+  NavigationState* navigation_state = document_state->navigation_state();
 
   blink::mojom::CommitResult commit_status = blink::mojom::CommitResult::Ok;
   WebHistoryItem item_for_history_navigation;
 
-  if (common_params->navigation_type ==
+  if (navigation_state->common_params().navigation_type ==
       blink::mojom::NavigationType::HISTORY_SAME_DOCUMENT) {
-    DCHECK(blink::PageState::CreateFromEncodedData(commit_params->page_state)
+    DCHECK(blink::PageState::CreateFromEncodedData(
+               navigation_state->commit_params().page_state)
                .IsValid());
     // We must know the nav entry ID of the page we are navigating back to,
     // which should be the case because history navigations are routed via the
     // browser.
-    DCHECK_NE(0, commit_params->nav_entry_id);
-    DCHECK(!common_params->is_history_navigation_in_new_child_frame);
+    DCHECK_NE(0, navigation_state->commit_params().nav_entry_id);
+    DCHECK(!navigation_state->common_params()
+                .is_history_navigation_in_new_child_frame);
     commit_status = PrepareForHistoryNavigationCommit(
-        *common_params, *commit_params, &item_for_history_navigation,
-        &load_type);
+        navigation_state->common_params(), navigation_state->commit_params(),
+        &item_for_history_navigation, &load_type);
   }
 
   if (commit_status == blink::mojom::CommitResult::Ok) {
@@ -3053,39 +3062,34 @@ void RenderFrameImpl::CommitSameDocumentNavigation(
     // Same-document navigations on data URLs loaded with a valid base URL
     // should keep the base URL as document URL.
     bool use_base_url_for_data_url =
-        !common_params->base_url_for_data_url.is_empty();
+        !navigation_state->common_params().base_url_for_data_url.is_empty();
 #if BUILDFLAG(IS_ANDROID)
-    use_base_url_for_data_url |= !commit_params->data_url_as_string.empty();
+    use_base_url_for_data_url |=
+        !navigation_state->commit_params().data_url_as_string.empty();
 #endif
 
     GURL url;
     if (is_main_frame_ && use_base_url_for_data_url) {
-      url = common_params->base_url_for_data_url;
+      url = navigation_state->common_params().base_url_for_data_url;
     } else {
-      url = common_params->url;
+      url = navigation_state->common_params().url;
     }
-    bool is_client_redirect =
-        !!(common_params->transition & ui::PAGE_TRANSITION_CLIENT_REDIRECT);
-    bool started_with_transient_activation = common_params->has_user_gesture;
-    bool is_browser_initiated = commit_params->is_browser_initiated;
+    bool is_client_redirect = !!(navigation_state->common_params().transition &
+                                 ui::PAGE_TRANSITION_CLIENT_REDIRECT);
+    bool started_with_transient_activation =
+        navigation_state->common_params().has_user_gesture;
+    bool is_browser_initiated =
+        navigation_state->commit_params().is_browser_initiated;
     absl::optional<blink::scheduler::TaskAttributionId>
         soft_navigation_heuristics_task_id =
-            commit_params->soft_navigation_heuristics_task_id;
+            navigation_state->commit_params()
+                .soft_navigation_heuristics_task_id;
 
     WebSecurityOrigin initiator_origin;
-    if (common_params->initiator_origin)
-      initiator_origin = common_params->initiator_origin.value();
-
-    DocumentState* document_state =
-        DocumentState::FromDocumentLoader(frame_->GetDocumentLoader());
-    // This is a same-document navigation coming from the browser process (as
-    // opposed to a fragment link click, which would have been handled
-    // synchronously in the renderer process), therefore
-    // |was_initiated_in_this_frame| must be false.
-    document_state->set_navigation_state(NavigationState::Create(
-        std::move(common_params), std::move(commit_params),
-        mojom::NavigationClient::CommitNavigationCallback(), nullptr,
-        false /* was_initiated_in_this_frame */));
+    if (navigation_state->common_params().initiator_origin) {
+      initiator_origin =
+          navigation_state->common_params().initiator_origin.value();
+    }
 
     // Load the request.
     commit_status = frame_->CommitSameDocumentNavigation(
@@ -3093,20 +3097,32 @@ void RenderFrameImpl::CommitSameDocumentNavigation(
         started_with_transient_activation, initiator_origin,
         is_browser_initiated, soft_navigation_heuristics_task_id);
 
+    // If `commit_status` is Ok, RunCommitSameDocumentNavigationCallback() was
+    // called in DidCommitNavigationInternal(), and no further work is needed
+    // here.
+    if (commit_status == blink::mojom::CommitResult::Ok) {
+      return;
+    }
+
     // The load of the URL can result in this frame being removed. Use a
     // WeakPtr as an easy way to detect whether this has occured. If so, this
     // method should return immediately and not touch any part of the object,
     // otherwise it will result in a use-after-free bug.
-    if (!weak_this)
+    // Similarly, check whether `navigation_state` is still the state associated
+    // with the WebDocumentLoader. It may have been preempted by a navigation
+    // started by an event handler.
+    if (!weak_this || document_state->navigation_state() != navigation_state) {
       return;
+    }
   }
 
-  std::move(callback).Run(commit_status);
+  DCHECK_NE(commit_status, blink::mojom::CommitResult::Ok);
+  navigation_state->RunCommitSameDocumentNavigationCallback(commit_status);
+  document_state->clear_navigation_state();
 
   // The browser expects the frame to be loading this navigation. Inform it
   // that the load stopped if needed.
-  if (frame_ && !frame_->IsLoading() &&
-      commit_status != blink::mojom::CommitResult::Ok) {
+  if (frame_ && !frame_->IsLoading()) {
     GetFrameHost()->DidStopLoading();
   }
 }
@@ -3285,10 +3301,9 @@ RenderFrameImpl::CreateWorkerFetchContext() {
       RenderThreadImpl::current()->cors_exempt_header_list();
   blink::WebVector<blink::WebString> web_cors_exempt_header_list(
       cors_exempt_header_list.size());
-  std::transform(cors_exempt_header_list.begin(), cors_exempt_header_list.end(),
-                 web_cors_exempt_header_list.begin(), [](const std::string& h) {
-                   return blink::WebString::FromLatin1(h);
-                 });
+  base::ranges::transform(
+      cors_exempt_header_list, web_cors_exempt_header_list.begin(),
+      [](const auto& header) { return blink::WebString::FromLatin1(header); });
 
   // |pending_subresource_loader_updater| and
   // |pending_resource_load_info_notifier| are not used for
@@ -3528,6 +3543,13 @@ blink::WebFrame* RenderFrameImpl::FindFrame(const blink::WebString& name) {
 
   return GetContentClient()->renderer()->FindFrame(this->GetWebFrame(),
                                                    name.Utf8());
+}
+
+void RenderFrameImpl::WillSwap() {
+  if (navigation_client_impl_ &&
+      ShouldQueueNavigationsWhenPendingCommitRFHExists()) {
+    navigation_client_impl_->ResetWithoutCancelling();
+  }
 }
 
 void RenderFrameImpl::WillDetach() {
@@ -4862,13 +4884,17 @@ void RenderFrameImpl::DidCommitNavigationInternal(
       commit_type, transition, permissions_policy_header,
       document_policy_header, embedding_token);
 
+  NavigationState* navigation_state =
+      DocumentState::FromDocumentLoader(frame_->GetDocumentLoader())
+          ->navigation_state();
   if (same_document_params) {
     GetFrameHost()->DidCommitSameDocumentNavigation(
         std::move(params), std::move(same_document_params));
+    // This will be a noop if this same document navigation is a synchronous
+    // renderer-initiated commit.
+    navigation_state->RunCommitSameDocumentNavigationCallback(
+        blink::mojom::CommitResult::Ok);
   } else {
-    NavigationState* navigation_state =
-        DocumentState::FromDocumentLoader(frame_->GetDocumentLoader())
-            ->navigation_state();
     if (navigation_state->has_navigation_client()) {
       navigation_state->RunCommitNavigationCallback(
           std::move(params), std::move(interface_params));
@@ -5782,7 +5808,8 @@ void RenderFrameImpl::BeginNavigationInternal(
               : nullptr,
           info->impression, renderer_before_unload_start,
           renderer_before_unload_end, web_bundle_token_params,
-          initiator_activation_and_ad_status);
+          initiator_activation_and_ad_status, info->is_container_initiated,
+          info->is_fullscreen_requested);
 
   mojo::PendingAssociatedRemote<mojom::NavigationClient>
       navigation_client_remote;
@@ -6206,8 +6233,7 @@ WebView* RenderFrameImpl::CreateNewWindow(
     const blink::SessionStorageNamespaceId& session_storage_namespace_id,
     bool& consumed_user_gesture,
     const absl::optional<blink::Impression>& impression,
-    const absl::optional<blink::WebPictureInPictureWindowOptions>&
-    pip_options,
+    const absl::optional<blink::WebPictureInPictureWindowOptions>& pip_options,
     blink::WebString* manifest) {
   consumed_user_gesture = false;
   mojom::CreateNewWindowParamsPtr params = mojom::CreateNewWindowParams::New();

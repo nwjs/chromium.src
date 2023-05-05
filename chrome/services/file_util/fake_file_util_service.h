@@ -34,22 +34,24 @@ class MockSafeArchiveAnalyzer : public chrome::mojom::SafeArchiveAnalyzer {
 
   void Bind(mojo::PendingReceiver<chrome::mojom::SafeArchiveAnalyzer> receiver);
 
-  MOCK_METHOD(void,
-              AnalyzeZipFile,
-              (base::File zip_file,
-               base::File temporary_file,
-               AnalyzeZipFileCallback callback),
-              (override));
+  MOCK_METHOD(
+      void,
+      AnalyzeZipFile,
+      (base::File zip_file,
+       mojo::PendingRemote<chrome::mojom::TemporaryFileGetter> temp_file_getter,
+       AnalyzeZipFileCallback callback),
+      (override));
   MOCK_METHOD(void,
               AnalyzeDmgFile,
               (base::File dmg_file, AnalyzeDmgFileCallback callback),
               (override));
-  MOCK_METHOD(void,
-              AnalyzeRarFile,
-              (base::File rar_file,
-               base::File temporary_file,
-               AnalyzeRarFileCallback callback),
-              (override));
+  MOCK_METHOD(
+      void,
+      AnalyzeRarFile,
+      (base::File rar_file,
+       mojo::PendingRemote<chrome::mojom::TemporaryFileGetter> temp_file_getter,
+       AnalyzeRarFileCallback callback),
+      (override));
   MOCK_METHOD(void,
               AnalyzeSevenZipFile,
               (base::File seven_zip_file,

@@ -19,11 +19,11 @@
 #import "ios/chrome/browser/main/browser.h"
 #import "ios/chrome/browser/promos_manager/promo_config.h"
 #import "ios/chrome/browser/promos_manager/promos_manager.h"
+#import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/credential_provider_promo_commands.h"
+#import "ios/chrome/browser/shared/public/commands/promos_manager_commands.h"
 #import "ios/chrome/browser/ui/app_store_rating/app_store_rating_display_handler.h"
 #import "ios/chrome/browser/ui/app_store_rating/features.h"
-#import "ios/chrome/browser/ui/commands/command_dispatcher.h"
-#import "ios/chrome/browser/ui/commands/credential_provider_promo_commands.h"
-#import "ios/chrome/browser/ui/commands/promos_manager_commands.h"
 #import "ios/chrome/browser/ui/credential_provider_promo/credential_provider_promo_display_handler.h"
 #import "ios/chrome/browser/ui/post_restore_signin/features.h"
 #import "ios/chrome/browser/ui/post_restore_signin/post_restore_signin_provider.h"
@@ -69,6 +69,9 @@
   base::small_map<
       std::map<promos_manager::Promo, id<StandardPromoAlertProvider>>>
       _alertProviderPromos;
+
+  // The currently displayed promo, if any.
+  absl::optional<promos_manager::Promo> current_promo;
 }
 
 // A mediator that observes when it's a good time to display a promo.
@@ -118,16 +121,21 @@
 #pragma mark - Public
 
 - (void)start {
-  absl::optional<promos_manager::Promo> nextPromoForDisplay =
-      [self.mediator nextPromoForDisplay];
-
-  if (nextPromoForDisplay.has_value())
-    [self displayPromo:nextPromoForDisplay.value()];
+  [self displayPromoIfAvailable];
 }
 
 - (void)stop {
   self.mediator = nil;
   [self dismissViewControllers];
+}
+
+- (void)displayPromoIfAvailable {
+  absl::optional<promos_manager::Promo> nextPromoForDisplay =
+      [self.mediator nextPromoForDisplay];
+
+  if (nextPromoForDisplay.has_value()) {
+    [self displayPromo:nextPromoForDisplay.value()];
+  }
 }
 
 - (void)dismissViewControllers {
@@ -144,12 +152,21 @@
                            completion:nil];
     self.banneredViewController = nil;
   }
+
+  [self promoWasDismissed];
+}
+
+- (void)promoWasDismissed {
+  current_promo = absl::nullopt;
 }
 
 - (void)displayPromo:(promos_manager::Promo)promo {
   if (tests_hook::DisablePromoManagerFullScreenPromos()) {
     return;
   }
+
+  DCHECK(!current_promo.has_value());
+  current_promo = promo;
 
   auto handler_it = _displayHandlerPromos.find(promo);
   auto provider_it = _viewProviderPromos.find(promo);
@@ -265,6 +282,8 @@
                   if ([alertProvider respondsToSelector:@selector
                                      (standardPromoAlertDefaultAction)])
                     [alertProvider standardPromoAlertDefaultAction];
+
+                  [self dismissViewControllers];
                 }];
 
     UIAlertAction* cancelAction = [UIAlertAction
@@ -274,8 +293,8 @@
                   if ([alertProvider respondsToSelector:@selector
                                      (standardPromoAlertCancelAction)]) {
                     [alertProvider standardPromoAlertCancelAction];
-                    [self dismissViewControllers];
                   }
+                  [self dismissViewControllers];
                 }];
 
     [alert addAction:defaultAction];

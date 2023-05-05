@@ -9,6 +9,8 @@
 #import "base/metrics/user_metrics_action.h"
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/drag_and_drop/url_drag_drop_handler.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/ui/content_suggestions/cells/content_suggestions_cells_constants.h"
 #import "ios/chrome/browser/ui/content_suggestions/cells/content_suggestions_module_container.h"
 #import "ios/chrome/browser/ui/content_suggestions/cells/content_suggestions_most_visited_action_item.h"
@@ -30,8 +32,6 @@
 #import "ios/chrome/browser/ui/ntp/new_tab_page_header_constants.h"
 #import "ios/chrome/browser/ui/start_surface/start_surface_features.h"
 #import "ios/chrome/browser/ui/toolbar/public/toolbar_utils.h"
-#import "ios/chrome/browser/ui/ui_feature_flags.h"
-#import "ios/chrome/browser/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/url_loading/url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/url_loading_params.h"
 #import "ios/chrome/common/material_timing.h"
@@ -56,6 +56,9 @@ const float kModuleMinimizedVerticalSpacing = 14.0f;
 
 // The horizontal spacing between trending query views.
 const float kTrendingQueryViewHorizontalSpacing = 12.0f;
+
+// The bottom padding for the vertical stack view.
+const float kBottomStackViewPadding = 6.0f;
 
 // Returns the module width depending on the horizontal trait collection.
 CGFloat GetModuleWidthForHorizontalTraitCollection(
@@ -168,26 +171,32 @@ CGFloat ModuleVerticalSpacing() {
   // height/width configurations for each row.
   self.verticalStackView.distribution = UIStackViewDistributionFill;
   [self.view addSubview:self.verticalStackView];
+  // Add bottom spacing to last module by applying it after
+  // `_verticalStackView`. If ShouldMinimizeSpacingForModuleRefresh() is YES,
+  // then no space is added after the last module.
+
+  // Add bottom spacing to the last module by applying it after
+  // `_verticalStackView`. If `IsContentSuggestionsUIModuleRefreshEnabled()` is
+  // YES, and ShouldMinimizeSpacingForModuleRefresh() is YES, then no space is
+  // added after the last module. Otherwise we add kModuleVerticalSpacing. If
+  // `IsContentSuggestionsUIModuleRefreshEnabled()` is NO, then we add
+  // `kBottomStackViewPadding`
+  CGFloat bottomSpacing = kBottomStackViewPadding;
   if (IsContentSuggestionsUIModuleRefreshEnabled()) {
-    // Add bottom spacing to last module by applying it after
-    // `_verticalStackView`. If ShouldMinimizeSpacingForModuleRefresh() is YES,
-    // then no space is added after the last module.
-    CGFloat bottomSpacing =
+    bottomSpacing =
         ShouldMinimizeSpacingForModuleRefresh() ? 0 : kModuleVerticalSpacing;
-    [NSLayoutConstraint activateConstraints:@[
-      [self.verticalStackView.leadingAnchor
-          constraintEqualToAnchor:self.view.leadingAnchor],
-      [self.verticalStackView.trailingAnchor
-          constraintEqualToAnchor:self.view.trailingAnchor],
-      [self.verticalStackView.topAnchor
-          constraintEqualToAnchor:self.view.topAnchor],
-      [self.verticalStackView.bottomAnchor
-          constraintEqualToAnchor:self.view.bottomAnchor
-                         constant:-bottomSpacing]
-    ]];
-  } else {
-    AddSameConstraints(self.view, self.verticalStackView);
   }
+  [NSLayoutConstraint activateConstraints:@[
+    [self.verticalStackView.leadingAnchor
+        constraintEqualToAnchor:self.view.leadingAnchor],
+    [self.verticalStackView.trailingAnchor
+        constraintEqualToAnchor:self.view.trailingAnchor],
+    [self.verticalStackView.topAnchor
+        constraintEqualToAnchor:self.view.topAnchor],
+    [self.verticalStackView.bottomAnchor
+        constraintEqualToAnchor:self.view.bottomAnchor
+                       constant:-bottomSpacing]
+  ]];
 
   CGFloat horizontalSpacing =
       ContentSuggestionsTilesHorizontalSpacing(self.traitCollection);
@@ -417,8 +426,8 @@ CGFloat ModuleVerticalSpacing() {
       addGestureRecognizer:self.returnToRecentTabTapRecognizer];
   self.returnToRecentTabTapRecognizer.enabled = YES;
   // If the Content Suggestions is already shown, add the Return to Recent Tab
-  // tile to the StackView.
-  if ([[self.verticalStackView arrangedSubviews] count]) {
+  // tile to the StackView, otherwise, add to the verticalStackView.
+  if (self.isViewLoaded) {
     UIView* parentView = self.returnToRecentTabTile;
     if (IsContentSuggestionsUIModuleRefreshEnabled()) {
       self.returnToRecentTabContainer = [[ContentSuggestionsModuleContainer

@@ -42,6 +42,7 @@
 #include "extensions/browser/extension_dialog_auto_confirm.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
+#include "extensions/browser/extension_util.h"
 #include "extensions/common/extension_builder.h"
 #include "extensions/test/result_catcher.h"
 #include "google_apis/gaia/fake_gaia.h"
@@ -151,7 +152,9 @@ class ParentPermissionDialogViewTest
     MixinBasedInProcessBrowserTest::SetUpOnMainThread();
     logged_in_user_mixin_.LogInUser(/*issue_any_scope_token=*/true);
 
-    SetSupervisedUserExtensionsMayRequestPermissionsPref(true);
+    supervised_user_test_util::
+        SetSupervisedUserExtensionsMayRequestPermissionsPref(
+            browser()->profile(), true);
 
     if (browser()->profile()->IsChild())
       InitializeFamilyData();
@@ -232,12 +235,6 @@ class ParentPermissionDialogViewTest
  protected:
   SupervisedUserService* GetSupervisedUserService() {
     return SupervisedUserServiceFactory::GetForProfile(browser()->profile());
-  }
-
-  void SetSupervisedUserExtensionsMayRequestPermissionsPref(bool enabled) {
-    GetSupervisedUserService()
-        ->SetSupervisedUserExtensionsMayRequestPermissionsPrefForTesting(
-            enabled);
   }
 
   const extensions::Extension* test_extension() {
@@ -536,7 +533,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionEnableFlowTestSupervised,
 
   // Simulate the parent disabling the "Permissions for sites, apps and
   // extensions" toggle.
-  SetSupervisedUserExtensionsMayRequestPermissionsPref(false);
+  supervised_user_test_util::
+      SetSupervisedUserExtensionsMayRequestPermissionsPref(browser()->profile(),
+                                                           false);
 
   extensions::ScopedTestDialogAutoConfirm auto_confirm(
       extensions::ScopedTestDialogAutoConfirm::ACCEPT);
@@ -735,7 +734,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementApiTestSupervised,
 
   // Simulate the parent disabling the "Permissions for sites, apps and
   // extensions" toggle.
-  SetSupervisedUserExtensionsMayRequestPermissionsPref(false);
+  supervised_user_test_util::
+      SetSupervisedUserExtensionsMayRequestPermissionsPref(browser()->profile(),
+                                                           false);
 
   extensions::ScopedTestDialogAutoConfirm auto_confirm(
       extensions::ScopedTestDialogAutoConfirm::ACCEPT);

@@ -887,6 +887,7 @@ TEST_F('CrSettingsMenuTest', 'All', function() {
    'SettingsCategoryDefaultRadioGroup',
    'settings_category_default_radio_group_tests.js',
  ],
+ ['AntiAbusePage', 'anti_abuse_page_test.js'],
  ['CategoryDefaultSetting', 'category_default_setting_tests.js'],
  ['CategorySettingExceptions', 'category_setting_exceptions_tests.js'],
  ['Checkbox', 'checkbox_tests.js'],
@@ -900,10 +901,16 @@ TEST_F('CrSettingsMenuTest', 'All', function() {
  ['DownloadsPage', 'downloads_page_test.js'],
  ['DropdownMenu', 'dropdown_menu_tests.js'],
  ['ExtensionControlledIndicator', 'extension_controlled_indicator_tests.js'],
+ ['FileSystemSettings', 'file_system_site_list_tests.js'],
  ['HelpPage', 'help_page_test.js'],
  ['PasswordView', 'password_view_test.js'],
  ['PasswordsExportDialog', 'passwords_export_dialog_test.js'],
  ['PasswordsImportDialog', 'passwords_import_dialog_test.js'],
+ ['PaymentsSection', 'payments_section_test.js'],
+ ['PaymentsSectionCardDialogs', 'payments_section_card_dialogs_test.js'],
+ ['PaymentsSectionCardRows', 'payments_section_card_rows_test.js'],
+ ['PaymentsSectionIban', 'payments_section_iban_test.js'],
+ ['PaymentsSectionUpi', 'payments_section_upi_test.js'],
  ['PeoplePage', 'people_page_test.js'],
  ['PeoplePageSyncControls', 'people_page_sync_controls_test.js'],
  ['Prefs', 'prefs_tests.js'],
@@ -927,6 +934,7 @@ TEST_F('CrSettingsMenuTest', 'All', function() {
  ['SecurityKeysSetPinDialog', 'security_keys_set_pin_dialog_test.js'],
  ['SecurityKeysPhonesSubpage', 'security_keys_phones_subpage_test.js'],
  ['SecureDns', 'secure_dns_test.js'],
+ ['SimpleConfirmationDialog', 'simple_confirmation_dialog_test.js'],
  ['SiteDataTest', 'site_data_test.js'],
  ['SiteDetailsPermission', 'site_details_permission_tests.js'],
  [
@@ -948,12 +956,6 @@ TEST_F('CrSettingsMenuTest', 'All', function() {
 // Timeout on Linux dbg bots: https://crbug.com/1394737
 GEN('#if !(BUILDFLAG(IS_LINUX) && !defined(NDEBUG))');
 [['PeoplePageSyncPage', 'people_page_sync_page_test.js']].forEach(
-    test => registerTest(...test));
-GEN('#endif');
-
-// Flaky on Linux dbg bots: https://crbug.com/1411294
-GEN('#if !(BUILDFLAG(IS_LINUX) && !defined(NDEBUG))');
-[['PaymentsSection', 'payments_section_test.js']].forEach(
     test => registerTest(...test));
 GEN('#endif');
 
@@ -1055,6 +1057,13 @@ function registerTest(testName, module, caseName) {
    ],
  ],
 ].forEach(test => registerTestSuites(...test));
+
+// TODO(https://crbug.com/1426530): Re-enable when no longer flaky.
+GEN('#if !BUILDFLAG(IS_LINUX) || defined(NDEBUG)');
+registerTestSuites(
+    'PrivacyGuideIntegration', 'privacy_guide_integration_test.js',
+    ['PrivacyGuideEligibleReachedMetricsTests']);
+GEN('#endif');
 
 // TODO(crbug.com/1403969): SecurityPage_SafeBrowsing suite is flaky on Mac.
 // TODO(crbug.com/1404109): SecurityPage_SafeBrowsing suite is flaky on Linux.

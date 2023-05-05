@@ -659,6 +659,7 @@ void MetricsStateManager::ResetMetricsIDsIfNecessary() {
   DCHECK(client_id_.empty());
 
   local_state_->ClearPref(prefs::kMetricsClientID);
+  local_state_->ClearPref(prefs::kMetricsLogRecordId);
   EntropyState::ClearPrefs(local_state_);
 
   ClonedInstallDetector::RecordClonedInstallInfo(local_state_);

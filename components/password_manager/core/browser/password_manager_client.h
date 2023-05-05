@@ -68,7 +68,7 @@ class PasswordProtectionService;
 }
 
 namespace device_reauth {
-class BiometricAuthenticator;
+class DeviceAuthenticator;
 }
 
 namespace version_info {
@@ -96,7 +96,9 @@ enum class SyncState {
   kSyncingWithCustomPassphrase,
   // Sync is disabled but the user is signed in and opted in to passwords
   // account storage.
-  kAccountPasswordsActiveNormalEncryption
+  kAccountPasswordsActiveNormalEncryption,
+  // Same as above but the account has a custom passphrase set.
+  kAccountPasswordsActiveWithCustomPassphrase,
 };
 
 enum class ErrorMessageFlowType { kSaveFlow, kFillFlow };
@@ -131,10 +133,6 @@ class PasswordManagerClient {
   // TODO(crbug.com/1071842): This method's name is misleading as it also
   // determines whether saving prompts should be shown.
   virtual bool IsFillingEnabled(const GURL& url) const;
-
-  // Checks if manual filling fallback is enabled for the page that has |url|
-  // address.
-  virtual bool IsFillingFallbackEnabled(const GURL& url) const;
 
   // Checks if the auto sign-in functionality is enabled.
   virtual bool IsAutoSignInEnabled() const;
@@ -209,10 +207,10 @@ class PasswordManagerClient {
   virtual void OnPasswordSelected(const std::u16string& text);
 #endif
 
-  // Returns a pointer to a BiometricAuthenticator. Might be null if
+  // Returns a pointer to a DeviceAuthenticator. Might be null if
   // BiometricAuthentication is not available for a given platform.
-  virtual scoped_refptr<device_reauth::BiometricAuthenticator>
-  GetBiometricAuthenticator();
+  virtual scoped_refptr<device_reauth::DeviceAuthenticator>
+  GetDeviceAuthenticator();
 
   // Informs the embedder that the user has requested to generate a
   // password in the focused password field.
@@ -475,6 +473,10 @@ class PasswordManagerClient {
   // Causes a navigation to the manage passwords page.
   virtual void NavigateToManagePasswordsPage(ManagePasswordsReferrer referrer) {
   }
+
+#if BUILDFLAG(IS_ANDROID)
+  virtual void NavigateToManagePasskeysPage(ManagePasswordsReferrer referrer) {}
+#endif
 
   virtual bool IsIsolationForPasswordSitesEnabled() const = 0;
 

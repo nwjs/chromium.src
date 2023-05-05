@@ -13,15 +13,14 @@ source_set("price_notifications") {
   deps = [
     ":constants",
     ":price_notifications_ui",
-    "resources:line_downtrend",
     "//base",
     "//ios/chrome/app/strings",
-    "//ios/chrome/browser/ui/coordinators:chrome_coordinators",
+    "//ios/chrome/browser/shared/coordinator/chrome_coordinator",
+    "//ios/chrome/browser/shared/ui/list_model",
+    "//ios/chrome/browser/shared/ui/table_view:utils",
+    "//ios/chrome/browser/shared/ui/table_view/cells",
     "//ios/chrome/browser/ui/icons:symbols",
-    "//ios/chrome/browser/ui/list_model",
     "//ios/chrome/browser/ui/settings/price_notifications/tracking_price",
-    "//ios/chrome/browser/ui/table_view:utils",
-    "//ios/chrome/browser/ui/table_view/cells",
     "//ios/chrome/common/ui/colors",
     "//ui/base",
   ]
@@ -39,9 +38,9 @@ source_set("price_notifications_ui") {
   deps = [
     ":constants",
     "//ios/chrome/app/strings",
+    "//ios/chrome/browser/shared/ui/table_view",
+    "//ios/chrome/browser/shared/ui/table_view:utils",
     "//ios/chrome/browser/ui/settings:settings_root",
-    "//ios/chrome/browser/ui/table_view",
-    "//ios/chrome/browser/ui/table_view:utils",
     "//ui/base",
   ]
 }
@@ -68,7 +67,6 @@ source_set("eg2_tests") {
     "//components/commerce/core:feature_list",
     "//ios/chrome/test/earl_grey:eg_test_support+eg2",
     "//ios/testing/earl_grey:eg_test_support+eg2",
-    "//ios/third_party/earl_grey2:test_lib",
     "//ui/base",
   ]
   frameworks = [ "UIKit.framework" ]

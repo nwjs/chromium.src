@@ -12,6 +12,7 @@
 #import "ios/chrome/browser/flags/chrome_switches.h"
 #import "ios/chrome/browser/ntp/features.h"
 #import "ios/chrome/browser/prefs/pref_names.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/capabilities_types.h"
 #import "ios/chrome/browser/signin/fake_system_identity.h"
 #import "ios/chrome/browser/ui/authentication/cells/signin_promo_view_constants.h"
@@ -28,7 +29,6 @@
 #import "ios/chrome/browser/ui/settings/settings_table_view_controller_constants.h"
 #import "ios/chrome/browser/ui/start_surface/start_surface_features.h"
 #import "ios/chrome/browser/ui/toolbar/public/toolbar_constants.h"
-#import "ios/chrome/browser/ui/ui_feature_flags.h"
 #import "ios/chrome/browser/ui/whats_new/feature_flags.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_actions.h"
@@ -1105,6 +1105,11 @@ id<GREYMatcher> notPracticallyVisible() {
 // Test that signing in and signing out results in the NTP scrolled to the top
 // and not in some unexpected layout state.
 - (void)testSignInSignOutScrolledToTop {
+  // Test fails on iPads, see TODO:(crbug.com/1427123).
+  if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_DISABLED(@"Test is disabled on iPads.");
+  }
+
   [[EarlGrey selectElementWithMatcher:chrome_test_util::NTPLogo()]
       assertWithMatcher:grey_sufficientlyVisible()];
   [[EarlGrey selectElementWithMatcher:chrome_test_util::FakeOmnibox()]
@@ -1317,6 +1322,11 @@ id<GREYMatcher> notPracticallyVisible() {
 // Tests that content suggestions are hidden for supervised users on sign-in.
 // When the supervised user signs out the active policy should apply to the NTP.
 - (void)testFeedHiddenForSupervisedUser {
+  // Test fails on iPads, see TODO:(crbug.com/1427123).
+  if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_DISABLED(@"Test is disabled on iPads.");
+  }
+
   // Disable trending queries experiment to ensure that the Discover feed is
   // visible when first opening the NTP.
   // TODO(crbug.com/1350826): Adapt the test with launch of trending queries.

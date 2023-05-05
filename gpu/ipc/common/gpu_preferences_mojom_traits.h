@@ -129,6 +129,45 @@ struct GPU_EXPORT
 };
 
 template <>
+struct GPU_EXPORT
+    EnumTraits<gpu::mojom::WebGPUPowerPreference, gpu::WebGPUPowerPreference> {
+  static gpu::mojom::WebGPUPowerPreference ToMojom(
+      gpu::WebGPUPowerPreference input) {
+    switch (input) {
+      case gpu::WebGPUPowerPreference::kDefaultLowPower:
+        return gpu::mojom::WebGPUPowerPreference::kDefaultLowPower;
+      case gpu::WebGPUPowerPreference::kDefaultHighPerformance:
+        return gpu::mojom::WebGPUPowerPreference::kDefaultHighPerformance;
+      case gpu::WebGPUPowerPreference::kForceLowPower:
+        return gpu::mojom::WebGPUPowerPreference::kForceLowPower;
+      case gpu::WebGPUPowerPreference::kForceHighPerformance:
+        return gpu::mojom::WebGPUPowerPreference::kForceHighPerformance;
+    }
+    NOTREACHED();
+    return gpu::mojom::WebGPUPowerPreference::kDefaultHighPerformance;
+  }
+
+  static bool FromMojom(gpu::mojom::WebGPUPowerPreference input,
+                        gpu::WebGPUPowerPreference* out) {
+    switch (input) {
+      case gpu::mojom::WebGPUPowerPreference::kDefaultLowPower:
+        *out = gpu::WebGPUPowerPreference::kDefaultLowPower;
+        return true;
+      case gpu::mojom::WebGPUPowerPreference::kDefaultHighPerformance:
+        *out = gpu::WebGPUPowerPreference::kDefaultHighPerformance;
+        return true;
+      case gpu::mojom::WebGPUPowerPreference::kForceLowPower:
+        *out = gpu::WebGPUPowerPreference::kForceLowPower;
+        return true;
+      case gpu::mojom::WebGPUPowerPreference::kForceHighPerformance:
+        *out = gpu::WebGPUPowerPreference::kForceHighPerformance;
+        return true;
+    }
+    return false;
+  }
+};
+
+template <>
 struct GPU_EXPORT EnumTraits<gpu::mojom::DawnBackendValidationLevel,
                              gpu::DawnBackendValidationLevel> {
   static gpu::mojom::DawnBackendValidationLevel ToMojom(
@@ -176,8 +215,6 @@ struct GPU_EXPORT
     out->enable_low_latency_dxva = prefs.enable_low_latency_dxva();
     out->enable_zero_copy_dxgi_video = prefs.enable_zero_copy_dxgi_video();
     out->enable_nv12_dxgi_video = prefs.enable_nv12_dxgi_video();
-    out->enable_media_foundation_vea_on_windows7 =
-        prefs.enable_media_foundation_vea_on_windows7();
     out->disable_software_rasterizer = prefs.disable_software_rasterizer();
     out->log_gpu_control_list_decisions =
         prefs.log_gpu_control_list_decisions();
@@ -241,6 +278,10 @@ struct GPU_EXPORT
     out->enable_unsafe_webgpu = prefs.enable_unsafe_webgpu();
     if (!prefs.ReadUseWebgpuAdapter(&out->use_webgpu_adapter))
       return false;
+    if (!prefs.ReadUseWebgpuPowerPreference(
+            &out->use_webgpu_power_preference)) {
+      return false;
+    }
     if (!prefs.ReadEnableDawnBackendValidation(
             &out->enable_dawn_backend_validation))
       return false;
@@ -297,10 +338,6 @@ struct GPU_EXPORT
   }
   static bool enable_nv12_dxgi_video(const gpu::GpuPreferences& prefs) {
     return prefs.enable_nv12_dxgi_video;
-  }
-  static bool enable_media_foundation_vea_on_windows7(
-      const gpu::GpuPreferences& prefs) {
-    return prefs.enable_media_foundation_vea_on_windows7;
   }
   static bool disable_software_rasterizer(const gpu::GpuPreferences& prefs) {
     return prefs.disable_software_rasterizer;
@@ -429,6 +466,10 @@ struct GPU_EXPORT
   static gpu::WebGPUAdapterName use_webgpu_adapter(
       const gpu::GpuPreferences& prefs) {
     return prefs.use_webgpu_adapter;
+  }
+  static gpu::WebGPUPowerPreference use_webgpu_power_preference(
+      const gpu::GpuPreferences& prefs) {
+    return prefs.use_webgpu_power_preference;
   }
   static gpu::DawnBackendValidationLevel enable_dawn_backend_validation(
       const gpu::GpuPreferences& prefs) {

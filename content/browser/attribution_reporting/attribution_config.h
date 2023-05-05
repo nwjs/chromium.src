@@ -9,7 +9,6 @@
 
 #include "base/time/time.h"
 #include "content/common/content_export.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 
 namespace content {
 
@@ -85,9 +84,14 @@ struct CONTENT_EXPORT AttributionConfig {
     // should also be updated.
     int64_t aggregatable_budget_per_source = 65536;
 
+    // Default constants for the report delivery time to be used when declaring
+    // field trial params.
+    static constexpr base::TimeDelta kDefaultMinDelay = base::Minutes(10);
+    static constexpr base::TimeDelta kDefaultDelaySpan = base::Minutes(50);
+
     // Controls the report delivery time.
-    base::TimeDelta min_delay = base::Minutes(10);
-    base::TimeDelta delay_span = base::Minutes(50);
+    base::TimeDelta min_delay = kDefaultMinDelay;
+    base::TimeDelta delay_span = kDefaultDelaySpan;
 
     // When adding new members, the corresponding `Validate()` definition and
     // `operator==()` definition in `attribution_interop_parser_unittest.cc`
@@ -99,9 +103,6 @@ struct CONTENT_EXPORT AttributionConfig {
 
   // Controls how many sources can be in the storage per source origin.
   int max_sources_per_origin = 1024;
-
-  // Controls the valid range of source event id. No limit if `absl::nullopt`.
-  absl::optional<uint64_t> source_event_id_cardinality = absl::nullopt;
 
   // Controls the maximum number of distinct attribution destinations that can
   // be in storage at any time for sources with the same <source site, reporting

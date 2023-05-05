@@ -30,6 +30,8 @@
 
 namespace blink {
 
+MODULES_EXPORT BASE_DECLARE_FEATURE(kCanvasOverdrawOptimization);
+
 class CanvasColorCache;
 class CanvasImageSource;
 class Color;
@@ -451,7 +453,8 @@ class MODULES_EXPORT BaseRenderingContext2D : public CanvasPath {
     NOTREACHED();
     return false;
   }
-  virtual scoped_refptr<StaticBitmapImage> GetImage() {
+  virtual scoped_refptr<StaticBitmapImage> GetImage(
+      CanvasResourceProvider::FlushReason) {
     NOTREACHED();
     return nullptr;
   }
@@ -466,7 +469,7 @@ class MODULES_EXPORT BaseRenderingContext2D : public CanvasPath {
   int layer_count_ = 0;
   AntiAliasingMode clip_antialiasing_;
 
-  virtual void FinalizeFrame(bool printing = false) {}
+  virtual void FinalizeFrame(CanvasResourceProvider::FlushReason) {}
 
   float GetFontBaseline(const SimpleFontData&) const;
   virtual void DispatchContextLostEvent(TimerBase*);
@@ -612,7 +615,7 @@ class MODULES_EXPORT BaseRenderingContext2D : public CanvasPath {
                     const SkIRect& clip_bounds,
                     CanvasPerformanceMonitor::DrawType);
 
-  void DrawPathInternal(const Path&,
+  void DrawPathInternal(const CanvasPath&,
                         CanvasRenderingContext2DState::PaintType,
                         SkPathFillType,
                         UsePaintCache);
@@ -661,7 +664,7 @@ class MODULES_EXPORT BaseRenderingContext2D : public CanvasPath {
     return false;
   }
 
-  virtual void FlushCanvas() = 0;
+  virtual void FlushCanvas(CanvasResourceProvider::FlushReason) = 0;
 
   // Only call if identifiability_study_helper_.ShouldUpdateBuilder() returns
   // true.
@@ -691,6 +694,10 @@ ALWAYS_INLINE void BaseRenderingContext2D::CheckOverdraw(
     const cc::PaintFlags* flags,
     CanvasRenderingContext2DState::ImageType image_type,
     BaseRenderingContext2D::OverdrawOp overdraw_op) {
+  if (UNLIKELY(!base::FeatureList::IsEnabled(kCanvasOverdrawOptimization))) {
+    return;
+  }
+
   // Note on performance: because this method is inlined, all conditional
   // branches on arguments that are static at the call site can be optimized-out
   // by the compiler.
@@ -780,7 +787,7 @@ void BaseRenderingContext2D::DrawInternal(
     // This happens if draw_func called flush() on the PaintCanvas. The flush
     // cannot be performed inside the scope of draw_func because it would break
     // the logic of CompositedDraw.
-    FlushCanvas();
+    FlushCanvas(CanvasResourceProvider::FlushReason::kVolatileSourceImage);
   }
 }
 

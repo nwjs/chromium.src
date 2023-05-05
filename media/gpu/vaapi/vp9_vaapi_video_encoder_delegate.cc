@@ -111,6 +111,9 @@ libvpx::VP9RateControlRtcConfig CreateRateControlConfig(
   // Fill spatial/temporal layers variables.
   rc_cfg.ss_number_layers = num_spatial_layers;
   rc_cfg.ts_number_layers = num_temporal_layers;
+  for (size_t tid = 0; tid < num_temporal_layers; ++tid) {
+    rc_cfg.ts_rate_decimator[tid] = 1u << (num_temporal_layers - tid - 1);
+  }
   for (size_t sid = 0; sid < num_spatial_layers; ++sid) {
     int gcd =
         GCD(encode_size.height(), spatial_layer_resolutions[sid].height());
@@ -124,7 +127,6 @@ libvpx::VP9RateControlRtcConfig CreateRateControlConfig(
       rc_cfg.min_quantizers[idx] = rc_cfg.min_quantizer;
       bitrate_sum += bitrate_allocation.GetBitrateBps(sid, tid);
       rc_cfg.layer_target_bitrate[idx] = bitrate_sum / 1000;
-      rc_cfg.ts_rate_decimator[tid] = 1u << (num_temporal_layers - tid - 1);
     }
   }
   return rc_cfg;
@@ -153,9 +155,7 @@ VP9VaapiVideoEncoderDelegate::VP9VaapiVideoEncoderDelegate(
     base::RepeatingClosure error_cb)
     : VaapiVideoEncoderDelegate(std::move(vaapi_wrapper), error_cb) {}
 
-VP9VaapiVideoEncoderDelegate::~VP9VaapiVideoEncoderDelegate() {
-  // VP9VaapiVideoEncoderDelegate can be destroyed on any thread.
-}
+VP9VaapiVideoEncoderDelegate::~VP9VaapiVideoEncoderDelegate() = default;
 
 bool VP9VaapiVideoEncoderDelegate::Initialize(
     const VideoEncodeAccelerator::Config& config,
@@ -331,12 +331,25 @@ std::vector<gfx::Size> VP9VaapiVideoEncoderDelegate::GetSVCLayerResolutions() {
 }
 
 void VP9VaapiVideoEncoderDelegate::BitrateControlUpdate(
-    uint64_t encoded_chunk_size_bytes) {
+    const BitstreamBufferMetadata& metadata) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   CHECK(rate_ctrl_);
 
-  DVLOGF(4) << "|encoded_chunk_size_bytes|=" << encoded_chunk_size_bytes;
-  rate_ctrl_->PostEncodeUpdate(encoded_chunk_size_bytes);
+  libvpx::VP9FrameParamsQpRTC frame_params{};
+  frame_params.frame_type = metadata.key_frame
+                                ? libvpx::RcFrameType::kKeyFrame
+                                : libvpx::RcFrameType::kInterFrame;
+  if (metadata.vp9) {
+    frame_params.spatial_layer_id =
+        base::saturated_cast<int>(metadata.vp9->spatial_idx);
+    frame_params.temporal_layer_id =
+        base::saturated_cast<int>(metadata.vp9->temporal_idx);
+  }
+  DVLOGF(4) << "spatial_idx=" << (metadata.vp9 ? metadata.vp9->spatial_idx : 0)
+            << ", temporal_idx="
+            << (metadata.vp9 ? metadata.vp9->temporal_idx : 0)
+            << ", encoded chunk size=" << metadata.payload_size_bytes;
+  rate_ctrl_->PostEncodeUpdate(metadata.payload_size_bytes, frame_params);
 }
 
 bool VP9VaapiVideoEncoderDelegate::ApplyPendingUpdateRates() {
@@ -451,8 +464,8 @@ void VP9VaapiVideoEncoderDelegate::SetFrameHeader(
 
   CHECK(rate_ctrl_);
   libvpx::VP9FrameParamsQpRTC frame_params{};
-  frame_params.frame_type =
-      keyframe ? FRAME_TYPE::KEY_FRAME : FRAME_TYPE::INTER_FRAME;
+  frame_params.frame_type = keyframe ? libvpx::RcFrameType::kKeyFrame
+                                     : libvpx::RcFrameType::kInterFrame;
   if (picture->metadata_for_encoding) {
     frame_params.temporal_layer_id =
         picture->metadata_for_encoding->temporal_idx;

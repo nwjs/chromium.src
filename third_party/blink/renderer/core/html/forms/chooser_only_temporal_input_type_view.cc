@@ -103,7 +103,7 @@ void ChooserOnlyTemporalInputTypeView::CreateShadowSubtree() {
 }
 
 void ChooserOnlyTemporalInputTypeView::UpdateView() {
-  Node* node = GetElement().UserAgentShadowRoot()->firstChild();
+  Node* node = GetElement().EnsureShadowSubtree()->firstChild();
   auto* html_element = DynamicTo<HTMLElement>(node);
   if (!html_element)
     return;

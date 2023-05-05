@@ -12,6 +12,7 @@
 #include <utility>
 
 #include "base/command_line.h"
+#include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
@@ -70,6 +71,7 @@
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/url_constants.h"
+#include "content/public/test/back_forward_cache_util.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/content_browser_test.h"
@@ -77,6 +79,7 @@
 #include "content/public/test/content_browser_test_utils.h"
 #include "content/public/test/fenced_frame_test_util.h"
 #include "content/public/test/mock_client_hints_controller_delegate.h"
+#include "content/public/test/navigation_handle_observer.h"
 #include "content/public/test/test_utils.h"
 #include "content/public/test/url_loader_interceptor.h"
 #include "content/shell/browser/shell.h"
@@ -3777,11 +3780,11 @@ class ServiceWorkerBackForwardCacheAndKeepActiveFreezingBrowserTest
  protected:
   ServiceWorkerBackForwardCacheAndKeepActiveFreezingBrowserTest() {
     feature_list_.InitWithFeaturesAndParameters(
-        {{features::kBackForwardCache,
-          {{"process_binding_strength", "NORMAL"}}},
-         {features::kBackForwardCacheTimeToLiveControl,
-          {{"time_to_live_seconds", "3600"}}}},
-        {features::kBackForwardCacheMemoryControls});
+        GetDefaultEnabledBackForwardCacheFeaturesForTesting(
+            {{features::kBackForwardCache,
+              {{"process_binding_strength", "NORMAL"}}}},
+            /*ignore_outstanding_network_request=*/false),
+        GetDefaultDisabledBackForwardCacheFeaturesForTesting());
   }
 
   WebContentsImpl* web_contents() const {
@@ -4528,15 +4531,18 @@ IN_PROC_BROWSER_TEST_P(ServiceWorkerSpeculativeStartupBrowserTest,
 
 class ServiceWorkerBypassFetchHandlerTest
     : public ServiceWorkerBrowserTest,
-      public testing::WithParamInterface<std::tuple<bool, bool>> {
+      public testing::WithParamInterface<
+          std::tuple<bool,
+                     bool,
+                     features::ServiceWorkerBypassFetchHandlerTarget>> {
  public:
   ServiceWorkerBypassFetchHandlerTest() {
     feature_list_.InitWithFeaturesAndParameters(
         {{features::kServiceWorkerBypassFetchHandler,
           {{"script_checksum_to_bypass",
             ShouldUseValidChecksum() ? kValidChecksum : kInvalidChecksum},
-           {"strategy",
-            ShouldUseAllowListStrategy() ? "allowlist" : "optin"}}}},
+           {"strategy", ShouldUseAllowListStrategy() ? "allowlist" : "optin"},
+           {"bypass_for", BypassFetchHandlerTargetStr()}}}},
         {});
   }
   ~ServiceWorkerBypassFetchHandlerTest() override = default;
@@ -4550,6 +4556,23 @@ class ServiceWorkerBypassFetchHandlerTest
  protected:
   bool ShouldUseValidChecksum() { return std::get<0>(GetParam()); }
   bool ShouldUseAllowListStrategy() { return std::get<1>(GetParam()); }
+  features::ServiceWorkerBypassFetchHandlerTarget BypassFetchHandlerTarget() {
+    return std::get<2>(GetParam());
+  }
+  std::string BypassFetchHandlerTargetStr() {
+    switch (BypassFetchHandlerTarget()) {
+      case features::ServiceWorkerBypassFetchHandlerTarget::kMainResource:
+        return "main_resource";
+      case features::ServiceWorkerBypassFetchHandlerTarget::
+          kAllOnlyIfServiceWorkerNotStarted:
+        return "all_only_if_service_worker_not_started";
+      case features::ServiceWorkerBypassFetchHandlerTarget::kSubResource:
+        return "sub_resource";
+      case features::ServiceWorkerBypassFetchHandlerTarget::
+          kAllWithRaceNetworkRequest:
+        return "all_with_race_network_request";
+    }
+  }
 
  private:
   base::test::ScopedFeatureList feature_list_;
@@ -4558,18 +4581,27 @@ class ServiceWorkerBypassFetchHandlerTest
   std::string kInvalidChecksum = "";
 };
 
-INSTANTIATE_TEST_SUITE_P(All,
-                         ServiceWorkerBypassFetchHandlerTest,
-                         testing::Combine(testing::Bool(), testing::Bool()));
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    ServiceWorkerBypassFetchHandlerTest,
+    testing::Combine(
+        testing::Bool(),
+        testing::Bool(),
+        testing::Values(
+            features::ServiceWorkerBypassFetchHandlerTarget::kMainResource,
+            features::ServiceWorkerBypassFetchHandlerTarget::
+                kAllOnlyIfServiceWorkerNotStarted,
+            features::ServiceWorkerBypassFetchHandlerTarget::kSubResource)));
 
-IN_PROC_BROWSER_TEST_P(ServiceWorkerBypassFetchHandlerTest, UrlInAllowList) {
+IN_PROC_BROWSER_TEST_P(ServiceWorkerBypassFetchHandlerTest, All) {
   StartServerAndNavigateToSetup();
 
   const GURL create_service_worker_url(embedded_test_server()->GetURL(
       "/service_worker/create_service_worker.html"));
   const GURL out_scope_url(embedded_test_server()->GetURL("/empty.html"));
+  // |in_scope_url| is a page that has more than one subresources.
   const GURL in_scope_url(
-      embedded_test_server()->GetURL("/service_worker/empty.html"));
+      embedded_test_server()->GetURL("/service_worker/with_subresources.html"));
 
   // Register a service worker.
   WorkerRunningStatusObserver observer1(public_context());
@@ -4606,22 +4638,63 @@ IN_PROC_BROWSER_TEST_P(ServiceWorkerBypassFetchHandlerTest, UrlInAllowList) {
   )";
 
   // Navigate to the service worker's scope.
+  WorkerRunningStatusObserver observer2(public_context());
   EXPECT_TRUE(NavigateToURL(shell(), in_scope_url));
 
-  if (ShouldUseAllowListStrategy()) {
-    if (ShouldUseValidChecksum()) {
-      // If bypassing is allowed, the service worker was bypassed and the
-      // navigation request shouldn't be handled by the fetch handler.
+  switch (BypassFetchHandlerTarget()) {
+    case features::ServiceWorkerBypassFetchHandlerTarget::kMainResource:
+      if (ShouldUseAllowListStrategy()) {
+        if (ShouldUseValidChecksum()) {
+          // If bypassing is allowed, the service worker was bypassed and the
+          // navigation request shouldn't be handled by the fetch handler.
+          // 2 from subresources.
+          EXPECT_EQ(2, EvalJs(GetPrimaryMainFrame(), script));
+        } else {
+          // If bypassing is not allowed, the navigation request should be
+          // handled by the fetch handler. 3 = main + subresources
+          EXPECT_EQ(3, EvalJs(GetPrimaryMainFrame(), script));
+        }
+      } else {
+        // If the allowlist isn't used, the service worker was bypassed and the
+        // navigation request shouldn't be handled by the fetch handler.
+        EXPECT_EQ(2, EvalJs(GetPrimaryMainFrame(), script));
+      }
+      break;
+    case features::ServiceWorkerBypassFetchHandlerTarget::
+        kAllOnlyIfServiceWorkerNotStarted:
+      // TODO(crbug.com/1371756): Consider supporing the allowlist if needed.
+
+      // this option doesn't involve a fetch handler at all when the
+      // ServiceWorker is not started yet while the navigation happens.
       EXPECT_EQ(0, EvalJs(GetPrimaryMainFrame(), script));
-    } else {
-      // If bypassing is not allowed, the navigation request should be handled
-      // by the fetch handler.
+
+      // Wait until running.
+      observer2.WaitUntilRunning();
+      version = wrapper()->GetLiveVersion(observer2.version_id());
+      EXPECT_EQ(EmbeddedWorkerStatus::RUNNING, version->running_status());
+
+      // The handler is not used for subsequent requests even if the
+      // worker has already started.
+      EXPECT_TRUE(
+          ExecJs(GetPrimaryMainFrame(), "fetch('/service_worker/empty.html')"));
+      EXPECT_EQ(0, EvalJs(GetPrimaryMainFrame(), script));
+
+      // Navigate to the page again while the ServicWorker is running.
+      EXPECT_TRUE(NavigateToURL(shell(), in_scope_url));
+      // Expect both the main resource and subresource are handled.
+      EXPECT_EQ(3, EvalJs(GetPrimaryMainFrame(), script));
+      break;
+    case features::ServiceWorkerBypassFetchHandlerTarget::kSubResource:
+      // TODO(crbug.com/1371756): Consider supporing the allowlist if needed.
+      // The service worker handles the navigation request, but bypasses fetch
+      // handlers for subsequent subresources.
       EXPECT_EQ(1, EvalJs(GetPrimaryMainFrame(), script));
-    }
-  } else {
-    // If the allowlist isn't used, the service worker was bypassed and the
-    // navigation request shouldn't be handled by the fetch handler.
-    EXPECT_EQ(0, EvalJs(GetPrimaryMainFrame(), script));
+      break;
+    case features::ServiceWorkerBypassFetchHandlerTarget::
+        kAllWithRaceNetworkRequest:
+      // This case is tested in ServiceWorkerRaceNetworkRequestBrowserTest.
+      NOTREACHED();
+      break;
   }
 }
 
@@ -4922,4 +4995,189 @@ IN_PROC_BROWSER_TEST_P(ServiceWorkerSkipEmptyFetchHandlerBrowserTest,
       ServiceWorkerVersion::FetchHandlerType::kEmptyFetchHandler, 1);
 }
 
+// Test class for BestEffortServiceWorker (crbug.com/1420517) browsertest.
+class ServiceWorkerRaceNetworkRequestBrowserTest
+    : public ServiceWorkerBrowserTest {
+ public:
+  ServiceWorkerRaceNetworkRequestBrowserTest() {
+    feature_list_.InitWithFeaturesAndParameters(
+        {{features::kServiceWorkerBypassFetchHandler,
+          {{"strategy", "optin"},
+           {"bypass_for", "all_with_race_network_request"}}}},
+        {});
+  }
+  ~ServiceWorkerRaceNetworkRequestBrowserTest() override = default;
+
+  WebContents* web_contents() const { return shell()->web_contents(); }
+
+  RenderFrameHost* GetPrimaryMainFrame() {
+    return web_contents()->GetPrimaryMainFrame();
+  }
+
+  void SetupAndRegisterServiceWorker() {
+    RegisterRequestHandlerForSlowResponsePage();
+    StartServerAndNavigateToSetup();
+
+    const GURL create_service_worker_url(embedded_test_server()->GetURL(
+        "/service_worker/create_service_worker.html"));
+
+    // Register a service worker.
+    WorkerRunningStatusObserver observer1(public_context());
+    ASSERT_TRUE(NavigateToURL(shell(), create_service_worker_url));
+    ASSERT_EQ("DONE",
+              EvalJs(GetPrimaryMainFrame(),
+                     "register('/service_worker/race_network_request.js')"));
+    observer1.WaitUntilRunning();
+    scoped_refptr<ServiceWorkerVersion> version =
+        wrapper()->GetLiveVersion(observer1.version_id());
+    ASSERT_EQ(EmbeddedWorkerStatus::RUNNING, version->running_status());
+
+    // Stop the current running service worker.
+    StopServiceWorker(version.get());
+    ASSERT_EQ(EmbeddedWorkerStatus::STOPPED, version->running_status());
+  }
+
+  EvalJsResult GetInnerText() {
+    // This script asks the service worker what fetch events it saw.
+    return EvalJs(GetPrimaryMainFrame(), "document.body.innerText;");
+  }
+
+ private:
+  void RegisterRequestHandlerForSlowResponsePage() {
+    embedded_test_server()->RegisterRequestHandler(base::BindRepeating(
+        [](const net::test_server::HttpRequest& request)
+            -> std::unique_ptr<net::test_server::HttpResponse> {
+          if (!base::Contains(request.GetURL().path(),
+                              "/service_worker/slow")) {
+            return nullptr;
+          }
+
+          auto http_response =
+              std::make_unique<net::test_server::DelayedHttpResponse>(
+                  base::Seconds(2));
+
+          if (base::Contains(request.GetURL().query(), "notfound")) {
+            http_response->set_code(net::HTTP_NOT_FOUND);
+            http_response->set_content_type("text/plain");
+            http_response->set_content("Not found");
+            return http_response;
+          }
+
+          http_response->set_code(net::HTTP_OK);
+          http_response->set_content_type("text/html");
+          http_response->set_content(
+              "<body>[ServiceWorkerRaceNetworkRequest] Slow response from the "
+              "network</body>");
+          return http_response;
+        }));
+  }
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(ServiceWorkerRaceNetworkRequestBrowserTest,
+                       NetworkRequest_Wins) {
+  // Register the ServiceWorker and navigate to the in scope URL.
+  SetupAndRegisterServiceWorker();
+  // Capture the response head.
+  const GURL test_url = embedded_test_server()->GetURL(
+      "/service_worker/"
+      "race_network_request.html?timeout&respond_from_fetch_handler");
+
+  NavigationHandleObserver observer(web_contents(), test_url);
+  NavigateToURLBlockUntilNavigationsComplete(shell(), test_url, 1);
+  EXPECT_TRUE(observer.has_committed());
+
+  // ServiceWorker will respond after the delay, so we expect the response from
+  // the network request initiated by the RaceNetworkRequest mode comes first.
+  EXPECT_EQ("[ServiceWorkerRaceNetworkRequest] Response from the network",
+            GetInnerText());
+
+  // Check the response header. "X-Response-From: fetch-handler" is returned
+  // when the result from the fetch handler is used.
+  EXPECT_NE("fetch-handler",
+            observer.GetNormalizedResponseHeader("X-Response-From"));
+}
+
+IN_PROC_BROWSER_TEST_F(ServiceWorkerRaceNetworkRequestBrowserTest,
+                       NetworkRequest_Wins_Fetch_No_Respond) {
+  // Register the ServiceWorker and navigate to the in scope URL.
+  SetupAndRegisterServiceWorker();
+  NavigateToURLBlockUntilNavigationsComplete(
+      shell(),
+      embedded_test_server()->GetURL(
+          "/service_worker/race_network_request.html?timeout"),
+      1);
+
+  // ServiceWorker will respond after the delay, so we expect the response from
+  // the network request initiated by the RaceNetworkRequest mode comes first.
+  EXPECT_EQ("[ServiceWorkerRaceNetworkRequest] Response from the network",
+            GetInnerText());
+}
+
+IN_PROC_BROWSER_TEST_F(ServiceWorkerRaceNetworkRequestBrowserTest,
+                       NetworkRequest_Wins_NotFound) {
+  SetupAndRegisterServiceWorker();
+
+  // Network request is faster, but the response is not found.
+  // If the fetch handler respondWith a meaningful response (i.e. 200 response
+  // from the cache API), then expect the response from the fetch handler.
+  NavigateToURLBlockUntilNavigationsComplete(
+      shell(),
+      embedded_test_server()->GetURL(
+          "/service_worker/not_exist.html?timeout&respond_from_fetch_handler"),
+      1);
+  EXPECT_EQ("[ServiceWorkerRaceNetworkRequest] Response from the fetch handler",
+            GetInnerText());
+
+  // If the fallback request is not found. Then expect 404.
+  NavigateToURLBlockUntilNavigationsComplete(
+      shell(), embedded_test_server()->GetURL("/service_worker/not_exist.html"),
+      1);
+  EXPECT_EQ("Server returned HTTP status 404", GetInnerText());
+}
+
+IN_PROC_BROWSER_TEST_F(ServiceWorkerRaceNetworkRequestBrowserTest,
+                       FetchHandler_Wins) {
+  SetupAndRegisterServiceWorker();
+  // Need to navigate to the page with slow response.
+  const GURL slow_url = embedded_test_server()->GetURL(
+      "/service_worker/slow?respond_from_fetch_handler");
+
+  NavigationHandleObserver observer(web_contents(), slow_url);
+  NavigateToURLBlockUntilNavigationsComplete(shell(), slow_url, 1);
+  EXPECT_TRUE(observer.has_committed());
+  // RaceNetworkRequest takes long time, but the fetch handler should respond
+  // from the cache.
+  EXPECT_EQ("[ServiceWorkerRaceNetworkRequest] Response from the fetch handler",
+            GetInnerText());
+
+  // Check the response header. "X-Response-From: fetch-handler" is returned
+  // when the result from the fetch handler is used.
+  EXPECT_EQ("fetch-handler",
+            observer.GetNormalizedResponseHeader("X-Response-From"));
+}
+
+IN_PROC_BROWSER_TEST_F(ServiceWorkerRaceNetworkRequestBrowserTest,
+                       FetchHandler_Wins_Fallback) {
+  SetupAndRegisterServiceWorker();
+  // Fetch handler will fallback. This case the response from the default
+  // fallback requset will be used. RaceNetworkRequset is not involved.
+  const GURL slow_url =
+      embedded_test_server()->GetURL("/service_worker/slow?fallback");
+  NavigateToURLBlockUntilNavigationsComplete(shell(), slow_url, 1);
+  EXPECT_EQ("[ServiceWorkerRaceNetworkRequest] Slow response from the network",
+            GetInnerText());
+}
+
+IN_PROC_BROWSER_TEST_F(ServiceWorkerRaceNetworkRequestBrowserTest,
+                       FetchHandler_Wins_NotFound) {
+  SetupAndRegisterServiceWorker();
+  const GURL slow_url =
+      embedded_test_server()->GetURL("/service_worker/slow?fallback&notfound");
+
+  // Fetch handler is fallback but the response is 404. In this case
+  // RaceNetworkRequest is not involved with the navigation.
+  EXPECT_TRUE(NavigateToURL(shell(), slow_url));
+  EXPECT_EQ("Not found", GetInnerText());
+}
 }  // namespace content

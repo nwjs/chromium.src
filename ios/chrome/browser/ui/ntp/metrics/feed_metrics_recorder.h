@@ -8,8 +8,10 @@
 #import <UIKit/UIKit.h>
 
 #import "base/time/time.h"
+#import "components/feed/core/v2/public/common_enums.h"
 #import "ios/chrome/browser/discover_feed/feed_constants.h"
 #import "ios/chrome/browser/ui/ntp/metrics/feed_metrics_constants.h"
+#import "ios/chrome/browser/ui/ntp/metrics/feed_refresh_state_tracker.h"
 
 class DiscoverFeedRefresher;
 @protocol FeedControlDelegate;
@@ -20,7 +22,7 @@ class Time;
 }
 
 // Records different metrics for the NTP feeds.
-@interface FeedMetricsRecorder : NSObject
+@interface FeedMetricsRecorder : NSObject <FeedRefreshStateTracker>
 
 // Delegate to get the currently selected feed.
 @property(nonatomic, weak) id<FeedControlDelegate> feedControlDelegate;
@@ -270,12 +272,23 @@ class Time;
 // are able to follow a website.
 - (void)recordFollowRecommendationIPHShown;
 
+#pragma mark - Sign-in Promo
+
 // Record metrics for when a user tapped on "Continue" of the Sign-in promo
 // UI.
 - (void)recordSignInPromoUIContinueTapped;
 
 // Record metrics for when a user tapped on "Cancel" of the Sign-in promo UI.
 - (void)recordSignInPromoUICancelTapped;
+
+// Record metrics for when a user triggered a sign-in only flow from Discover
+// feed. `hasUserId` is YES when the user has one or more device-level
+// identities.
+- (void)recordShowSignInOnlyUIWithUserId:(BOOL)hasUserId;
+
+// Record metrics for sign-in related UI from Discover feed personalization
+// controls.
+- (void)recordShowSignInRelatedUIWithType:(feed::FeedSignInUI)type;
 
 @end
 

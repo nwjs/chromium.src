@@ -45,8 +45,37 @@ class PrintedPage;
 
 class PrintBackendServiceManager {
  public:
+  // A RemoteId is used to identify a particular PrintBackendService that
+  // will be servicing queries and printing of a document.  This abstraction
+  // allows for identifying the service desired to be used, without relying
+  // upon a printer name (which sometimes is not available, such as when
+  // doing general queries).
   using RemoteId = base::StrongAlias<class RemoteIdTag, uint32_t>;
+
+  // A ClientId represents a printing action that is being performed by a
+  // browser tab.  There can be different ClientIds depending upon the
+  // action that is being performed:
+  // - During Print Preview, the tab will have a ClientId for the related
+  //   queries.  This ClientId might make use of multiple different RemoteIds,
+  //   depending upon the destinations selected during the preview.
+  // - If a user initiates system print, then a different ClientId is used to
+  //   manage the actions of the system dialog.
+  // - Once it is time to print a document, a different ClientId is used for
+  //   managing the printing sequence.
+  // For system print dialog and document printing, using the same RemoteId
+  // between the two different clients is important to be able to maintain the
+  // same device context in the PrintBackendService.
   using ClientId = base::StrongAlias<class ClientIdTag, uint32_t>;
+
+  // A ContextId is an abstraction of a printing context which resides in the
+  // PrintBackendService.  There can be multiple ContextIds associated with a
+  // RemoteId, since a service could be supporting a system print dialog as
+  // well as multiple documents being printed.  A ContextId is only ever
+  // associated with a single RemoteId.
+  // For system print dialogs, the ContextId used to get the settings will
+  // be shared with another ClientId for printing the document, so that the
+  // same device context settings are used at printing time.
+  using ContextId = base::StrongAlias<class ContextIdTag, uint32_t>;
 
   // Contains set of client IDs.
   using ClientsSet = base::flat_set<ClientId>;
@@ -107,23 +136,45 @@ class PrintBackendServiceManager {
       const std::string& printer_name,
       mojom::PrintBackendService::GetPrinterSemanticCapsAndDefaultsCallback
           callback);
+  ContextId EstablishPrintingContext(ClientId client_id,
+                                     const std::string& printer_name
+#if BUILDFLAG(ENABLE_OOP_BASIC_PRINT_DIALOG)
+                                     ,
+                                     gfx::NativeView parent_view
+#endif
+  );
   void UseDefaultSettings(
-      const std::string& printer_name,
+      ClientId client_id,
       mojom::PrintBackendService::UseDefaultSettingsCallback callback);
 #if BUILDFLAG(ENABLE_OOP_BASIC_PRINT_DIALOG)
   void AskUserForSettings(
-      const std::string& printer_name,
+      ClientId client_id,
       gfx::NativeView parent_view,
       int max_pages,
       bool has_selection,
       bool is_scripted,
       mojom::PrintBackendService::AskUserForSettingsCallback callback);
 #endif
+  // `UpdatePrintSettings()` can be used in two different scenarios:
+  //    - For Print Preview, where the desire is to use the appropriate
+  //      service based on the `printer_name` indicated.
+  //    - System printing, where a particular PrintBackendService instance
+  //      is desired, and is selected based upon a ClientId.
+  // When `client_id` is null, then the `printer_name` will be used to select
+  // the service.  Otherwise the `client_id` value will be used, similar to
+  // other methods related for supporting the system print dialog and for
+  // printing the document.
+  // TODO(crbug.com/1414968):  Remove use of optional for `client_id` once
+  // this the callers are updated to take advantage of `UpdatePrintSettings()`
+  // no longer being needed for Print Preview queries after
+  // https://crrev.com/1117252.
   void UpdatePrintSettings(
+      absl::optional<ClientId> client_id,
       const std::string& printer_name,
       base::Value::Dict job_settings,
       mojom::PrintBackendService::UpdatePrintSettingsCallback callback);
   void StartPrinting(
+      ClientId client_id,
       const std::string& printer_name,
       int document_cookie,
       const std::u16string& document_name,
@@ -132,6 +183,7 @@ class PrintBackendServiceManager {
       mojom::PrintBackendService::StartPrintingCallback callback);
 #if BUILDFLAG(IS_WIN)
   void RenderPrintedPage(
+      ClientId client_id,
       const std::string& printer_name,
       int document_cookie,
       const PrintedPage& page,
@@ -140,16 +192,19 @@ class PrintBackendServiceManager {
       mojom::PrintBackendService::RenderPrintedPageCallback callback);
 #endif
   void RenderPrintedDocument(
+      ClientId client_id,
       const std::string& printer_name,
       int document_cookie,
       uint32_t page_count,
       mojom::MetafileDataType data_type,
       base::ReadOnlySharedMemoryRegion serialized_data,
       mojom::PrintBackendService::RenderPrintedDocumentCallback callback);
-  void DocumentDone(const std::string& printer_name,
+  void DocumentDone(ClientId client_id,
+                    const std::string& printer_name,
                     int document_cookie,
                     mojom::PrintBackendService::DocumentDoneCallback callback);
-  void Cancel(const std::string& printer_name,
+  void Cancel(ClientId client_id,
+              const std::string& printer_name,
               int document_cookie,
               mojom::PrintBackendService::CancelCallback callback);
 
@@ -289,7 +344,17 @@ class PrintBackendServiceManager {
   void SetCrashKeys(const std::string& printer_name);
 
   // Determine the remote ID that is used for the specified `printer_name`.
+  // Could generate a new RemoteId if one has not been previously created
+  // for the indicated printer.
   RemoteId GetRemoteIdForPrinterName(const std::string& printer_name);
+
+  // Determine the remote ID that is used for the specified `client_id` of a
+  // query with UI client.  Will crash if no such client is found.
+  RemoteId GetRemoteIdForQueryWithUiClientId(ClientId client_id) const;
+
+  // Determine the remote ID that is used for the specified `client_id` of a
+  // print document client.  Will crash if no such client is found.
+  RemoteId GetRemoteIdForPrintDocumentClientId(ClientId client_id) const;
 
   // Common helper for registering clients.  The `destination` parameter can be
   // either a `std::string` for a printer name or a `RemoteId` which was
@@ -405,10 +470,36 @@ class PrintBackendServiceManager {
   RemoteSavedCancelCallbacks& GetRemoteSavedCancelCallbacks(bool sandboxed);
 
   // Helper function to get the service and initialize a `context` for a given
-  // `printer_name`.
-  const mojo::Remote<mojom::PrintBackendService>& GetServiceAndCallbackContext(
+  // `printer_name`.  This is used for calls supporting Print Preview, where
+  // the client type is `kQuery`.
+  // TODO(crbug.com/1418830):  Replace out parameter `context` with a
+  // structured return.
+  const mojo::Remote<mojom::PrintBackendService>&
+  GetServiceAndCallbackContextForQuery(const std::string& printer_name,
+                                       CallbackContext& context);
+
+  // Helper function to get the service and initialize a `context` for a given
+  // query with UI `client_id`.  Use `printer_name` for extra sandbox behavior
+  // handling.  This is used for calls supporting system print dialogs and
+  // printing of a document.
+  // TODO(crbug.com/1418830):  Replace out parameter `context` with a
+  // structured return.
+  const mojo::Remote<mojom::PrintBackendService>&
+  GetServiceAndCallbackContextForQueryWithUiClient(
+      ClientId client_id,
       const std::string& printer_name,
-      ClientType client_type,
+      CallbackContext& context);
+
+  // Helper function to get the service and initialize a `context` for a given
+  // print document `client_id`.  Use `printer_name` for extra sandbox behavior
+  // handling.  This is used for calls supporting system print dialogs and
+  // printing of a document.
+  // TODO(crbug.com/1418830):  Replace out parameter `context` with a
+  // structured return.
+  const mojo::Remote<mojom::PrintBackendService>&
+  GetServiceAndCallbackContextForPrintDocumentClient(
+      ClientId client_id,
+      const std::string& printer_name,
       CallbackContext& context);
 
   // Helper functions to save outstanding callbacks.
@@ -505,9 +596,14 @@ class PrintBackendServiceManager {
   PrintClientsMap print_document_clients_;
 
   // Simple counter for incrementing ClientId.  All ClientId objects are used
-  // only within the browser process, so need for this to be a more complicated
-  // token.
+  // only within the browser process, so no need for this to be a more
+  // complicated token.
   uint32_t last_client_id_ = 0;
+
+  // Simple counter for incrementing ContextId.  ContextId objects are passed
+  // as parameters to the service but are never provided back, so no need for
+  // this to be a more complicated token.
+  uint32_t last_context_id_ = 0;
 
   // Track the saved callbacks for each remote.
   RemoteSavedEnumeratePrintersCallbacks

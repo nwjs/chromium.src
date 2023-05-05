@@ -1468,6 +1468,8 @@ export class DirectoryModel extends EventTarget {
         );
       };
     }
+    // TODO(b/271485133): Make sure the entry here is a fake entry, not real
+    // volume entry.
     if (entry.rootType == VolumeManagerCommon.RootType.CROSTINI) {
       return () => {
         return new CrostiniMounter();
@@ -1500,8 +1502,7 @@ export class DirectoryModel extends EventTarget {
       if (query) {
         return () => {
           return new SearchV2ContentScanner(
-              locationInfo ? locationInfo.rootType : null,
-              /** @type {!DirectoryEntry} */ (entry), query, opt_options);
+              this.volumeManager_, entry, query, opt_options);
         };
       }
     }

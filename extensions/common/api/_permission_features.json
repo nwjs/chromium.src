@@ -11,6 +11,10 @@
 // chrome/test/data/extensions/api_test/stubs_app/manifest.json
 
 {
+  "activeTab": {
+    "channel": "stable",
+    "extension_types": ["extension", "legacy_packaged_app"]
+  },
   "alarms": {
     "channel": "stable",
     "extension_types": ["extension", "legacy_packaged_app", "platform_app"]
@@ -502,10 +506,15 @@
     "min_manifest_version": 3,
     "feature_flag": "ExtensionsOffscreenDocuments"
   },
-  "power": {
+  "power": [{
     "channel": "stable",
     "extension_types": [ "extension", "legacy_packaged_app", "platform_app" ]
   },
+  {
+    "channel": "stable",
+    "dependencies": ["behavior:imprivata_login_screen_extension"],
+    "extension_types": ["login_screen_extension"]
+  }],
   "printerProvider": {
     "channel": "stable",
     "extension_types": ["extension", "platform_app" ]

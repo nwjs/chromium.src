@@ -351,6 +351,9 @@ void LocalFrameClientImpl::Detached(FrameDetachType type) {
   // place at this point since we are no longer associated with the Page.
   web_frame_->SetClient(nullptr);
 
+  if (type == FrameDetachType::kSwap) {
+    client->WillSwap();
+  }
   client->WillDetach();
 
   // We only notify the browser process when the frame is being detached for
@@ -534,7 +537,9 @@ void LocalFrameClientImpl::BeginNavigation(
     const LocalFrameToken* initiator_frame_token,
     std::unique_ptr<SourceLocation> source_location,
     mojo::PendingRemote<mojom::blink::PolicyContainerHostKeepAliveHandle>
-        initiator_policy_container_keep_alive_handle) {
+        initiator_policy_container_keep_alive_handle,
+    bool is_container_initiated,
+    bool is_fullscreen_requested) {
   if (!web_frame_->Client())
     return;
 
@@ -584,6 +589,7 @@ void LocalFrameClientImpl::BeginNavigation(
   }
 
   navigation_info->impression = impression;
+  navigation_info->is_fullscreen_requested = is_fullscreen_requested;
 
   // Propagate `has_storage_access` to the next document under certain
   // circumstances. This corresponds to the "snapshotting source snapshot
@@ -693,6 +699,7 @@ void LocalFrameClientImpl::BeginNavigation(
                                                     .GetSandboxFlags();
 
   navigation_info->href_translate = href_translate;
+  navigation_info->is_container_initiated = is_container_initiated;
 
   web_frame_->Client()->BeginNavigation(std::move(navigation_info));
 }
@@ -912,9 +919,8 @@ RemoteFrame* LocalFrameClientImpl::AdoptPortal(HTMLPortalElement* portal) {
 RemoteFrame* LocalFrameClientImpl::CreateFencedFrame(
     HTMLFencedFrameElement* fenced_frame,
     mojo::PendingAssociatedReceiver<mojom::blink::FencedFrameOwnerHost>
-        receiver,
-    mojom::blink::FencedFrameMode mode) {
-  return web_frame_->CreateFencedFrame(fenced_frame, std::move(receiver), mode);
+        receiver) {
+  return web_frame_->CreateFencedFrame(fenced_frame, std::move(receiver));
 }
 
 WebPluginContainerImpl* LocalFrameClientImpl::CreatePlugin(

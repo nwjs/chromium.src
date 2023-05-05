@@ -65,7 +65,7 @@ assert(
     !window.settings || !defaultResourceLoaded,
     'os_settings_ui.js was executed twice. You probably have an invalid import.');
 
-interface OsSettingsUiElement {
+export interface OsSettingsUiElement {
   $: {
     container: HTMLDivElement,
     prefs: SettingsPrefsElement,
@@ -79,7 +79,7 @@ const OsSettingsUiElementBase =
     RouteObserverMixin(
         FindShortcutMixin(CrContainerShadowMixin(PolymerElement)));
 
-class OsSettingsUiElement extends OsSettingsUiElementBase {
+export class OsSettingsUiElement extends OsSettingsUiElementBase {
   static get is() {
     return 'os-settings-ui';
   }
@@ -269,10 +269,8 @@ class OsSettingsUiElement extends OsSettingsUiElementBase {
 
     document.documentElement.classList.remove('loading');
 
-    setTimeout(function() {
-      chrome.send(
-          'metricsHandler:recordTime',
-          ['Settings.TimeUntilInteractive', window.performance.now()]);
+    setTimeout(() => {
+      this.recordTimeUntilInteractive_();
     });
 
     // Preload bold Roboto so it doesn't load and flicker the first time used.
@@ -486,6 +484,12 @@ class OsSettingsUiElement extends OsSettingsUiElementBase {
    */
   private onDrawerIconClick_() {
     this.getDrawer_().cancel();
+  }
+
+  private recordTimeUntilInteractive_(): void {
+    const METRIC_NAME = 'ChromeOS.Settings.TimeUntilInteractive';
+    const timeMs = Math.round(window.performance.now());
+    chrome.metricsPrivate.recordTime(METRIC_NAME, timeMs);
   }
 }
 

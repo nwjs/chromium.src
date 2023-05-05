@@ -45,6 +45,12 @@ constexpr const char kGeneratedBuildPropertyFilePath[] =
 constexpr const char kGeneratedCombinedPropertyFilePathVm[] =
     "/run/arcvm/host_generated/combined.prop";
 
+// Maximum number of auto-resumes for ARCVM /data migration. When this number of
+// auto-resumes have been already attempted but the migration has not finished,
+// ARC is blocked and the user needs to manually trigger the resume by clicking
+// a notification.
+constexpr int kArcVmDataMigrationMaxAutoResumeCount = 3;
+
 class ArcDataRemover;
 class ArcDlcInstaller;
 class ArcFastAppReinstallStarter;
@@ -305,6 +311,8 @@ class ArcSessionManager : public ArcSessionRunner::Observer,
   ArcSessionRunner* GetArcSessionRunnerForTesting();
   void SetAttemptUserExitCallbackForTesting(
       const base::RepeatingClosure& callback);
+  void SetAttemptRestartCallbackForTesting(
+      const base::RepeatingClosure& callback);
   void SetAndroidManagementCheckerFactoryForTesting(
       ArcRequirementChecker::AndroidManagementCheckerFactory
           android_management_checker_factory) {
@@ -506,6 +514,8 @@ class ArcSessionManager : public ArcSessionRunner::Observer,
   std::unique_ptr<base::ElapsedTimer> activation_delay_elapsed_timer_;
 
   base::RepeatingClosure attempt_user_exit_callback_;
+
+  base::RepeatingClosure attempt_restart_callback_;
 
   ArcAppIdProviderImpl app_id_provider_;
 

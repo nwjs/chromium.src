@@ -21,8 +21,10 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.commerce.ShoppingFeatures;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchFieldTrial;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchManager;
-import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncherImpl;
+import org.chromium.chrome.browser.feedback.FragmentHelpAndFeedbackLauncher;
+import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncher;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.metrics.ChangeMetricsReportingStateCalledFrom;
 import org.chromium.chrome.browser.metrics.UmaSessionStats;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.price_tracking.PriceTrackingFeatures;
@@ -51,8 +53,9 @@ import org.chromium.ui.modaldialog.ModalDialogManagerHolder;
  * Settings fragment controlling a number of features communicating with Google services, such as
  * search autocomplete and the automatic upload of crash reports.
  */
-public class GoogleServicesSettings extends PreferenceFragmentCompat
-        implements Preference.OnPreferenceChangeListener, Listener {
+public class GoogleServicesSettings
+        extends PreferenceFragmentCompat implements Preference.OnPreferenceChangeListener, Listener,
+                                                    FragmentHelpAndFeedbackLauncher {
     private static final String SIGN_OUT_DIALOG_TAG = "sign_out_dialog_tag";
     private static final String CLEAR_DATA_PROGRESS_DIALOG_TAG = "clear_data_progress";
 
@@ -88,6 +91,7 @@ public class GoogleServicesSettings extends PreferenceFragmentCompat
     private @Nullable Preference mContextualSearch;
     private Preference mPriceNotificationSection;
     private Preference mUsageStatsReporting;
+    private HelpAndFeedbackLauncher mHelpAndFeedbackLauncher;
 
     @Override
     public void onCreatePreferences(@Nullable Bundle savedInstanceState, String rootKey) {
@@ -178,9 +182,8 @@ public class GoogleServicesSettings extends PreferenceFragmentCompat
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == R.id.menu_id_targeted_help) {
-            HelpAndFeedbackLauncherImpl.getInstance().show(getActivity(),
-                    getString(R.string.help_context_sync_and_services),
-                    Profile.getLastUsedRegularProfile(), null);
+            mHelpAndFeedbackLauncher.show(
+                    getActivity(), getString(R.string.help_context_sync_and_services), null);
             return true;
         }
         return false;
@@ -229,7 +232,8 @@ public class GoogleServicesSettings extends PreferenceFragmentCompat
         } else if (PREF_SEARCH_SUGGESTIONS.equals(key)) {
             mPrefService.setBoolean(Pref.SEARCH_SUGGEST_ENABLED, (boolean) newValue);
         } else if (PREF_USAGE_AND_CRASH_REPORTING.equals(key)) {
-            UmaSessionStats.changeMetricsReportingConsent((boolean) newValue);
+            UmaSessionStats.changeMetricsReportingConsent(
+                    (boolean) newValue, ChangeMetricsReportingStateCalledFrom.UI_SETTINGS);
         } else if (PREF_URL_KEYED_ANONYMIZED_DATA.equals(key)) {
             UnifiedConsentServiceBridge.setUrlKeyedAnonymizedDataCollectionEnabled(
                     Profile.getLastUsedRegularProfile(), (boolean) newValue);
@@ -342,5 +346,10 @@ public class GoogleServicesSettings extends PreferenceFragmentCompat
                         forceWipeUserData);
         mPrefService.setBoolean(Pref.SIGNIN_ALLOWED, false);
         updatePreferences();
+    }
+
+    @Override
+    public void setHelpAndFeedbackLauncher(HelpAndFeedbackLauncher helpAndFeedbackLauncher) {
+        mHelpAndFeedbackLauncher = helpAndFeedbackLauncher;
     }
 }

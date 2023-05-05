@@ -8,11 +8,11 @@
 #import "base/mac/foundation_util.h"
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
+#import "ios/chrome/browser/shared/ui/table_view/cells/table_view_switch_cell.h"
+#import "ios/chrome/browser/shared/ui/table_view/cells/table_view_text_header_footer_item.h"
+#import "ios/chrome/browser/shared/ui/table_view/table_view_utils.h"
 #import "ios/chrome/browser/ui/settings/price_notifications/tracking_price/tracking_price_constants.h"
 #import "ios/chrome/browser/ui/settings/price_notifications/tracking_price/tracking_price_view_controller_delegate.h"
-#import "ios/chrome/browser/ui/table_view/cells/table_view_switch_cell.h"
-#import "ios/chrome/browser/ui/table_view/cells/table_view_text_header_footer_item.h"
-#import "ios/chrome/browser/ui/table_view/table_view_utils.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util.h"
 
@@ -24,6 +24,7 @@ namespace {
 
 typedef NS_ENUM(NSInteger, SectionIdentifier) {
   SectionIdentifierTrackingPriceContent = kSectionIdentifierEnumZero,
+  SectionIdentifierTrackingPriceEmailNotifications,
 };
 
 }  // namespace
@@ -34,6 +35,8 @@ typedef NS_ENUM(NSInteger, SectionIdentifier) {
 @property(nonatomic, strong) TableViewItem* mobileNotificationItem;
 // Tracking price header received by mediator.
 @property(nonatomic, strong) TableViewHeaderFooterItem* trackPriceHeaderItem;
+// Email notification table view item received by mediator.
+@property(nonatomic, strong) TableViewItem* emailNotificationItem;
 
 @end
 
@@ -66,8 +69,12 @@ typedef NS_ENUM(NSInteger, SectionIdentifier) {
 
   TableViewModel* model = self.tableViewModel;
   [model addSectionWithIdentifier:SectionIdentifierTrackingPriceContent];
+  [model addSectionWithIdentifier:
+             SectionIdentifierTrackingPriceEmailNotifications];
   [model addItem:self.mobileNotificationItem
       toSectionWithIdentifier:SectionIdentifierTrackingPriceContent];
+  [model addItem:self.emailNotificationItem
+      toSectionWithIdentifier:SectionIdentifierTrackingPriceEmailNotifications];
   [model setHeader:self.trackPriceHeaderItem
       forSectionWithIdentifier:SectionIdentifierTrackingPriceContent];
 }

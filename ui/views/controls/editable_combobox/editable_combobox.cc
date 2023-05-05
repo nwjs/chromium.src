@@ -28,6 +28,7 @@
 #include "ui/base/models/menu_separator_types.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/base/ui_base_types.h"
+#include "ui/color/color_provider.h"
 #include "ui/events/event.h"
 #include "ui/events/types/event_type.h"
 #include "ui/gfx/canvas.h"
@@ -67,35 +68,27 @@ namespace views {
 
 namespace {
 
+int kEditableComboboxButtonSize = 24;
+int kEditableComboboxControlsContainerInsets = 6;
+
 class Arrow : public Button {
  public:
   METADATA_HEADER(Arrow);
 
   explicit Arrow(PressedCallback callback) : Button(std::move(callback)) {
-    SetPreferredSize(gfx::Size(GetComboboxArrowContainerWidthAndMargins(),
-                               ComboboxArrowSize().height()));
-    // Similar to Combobox's TransparentButton.
-    SetFocusBehavior(FocusBehavior::NEVER);
+    if (features::IsChromeRefresh2023()) {
+      SetPreferredSize(
+          gfx::Size(kEditableComboboxButtonSize, kEditableComboboxButtonSize));
+    } else {
+      SetPreferredSize(gfx::Size(GetComboboxArrowContainerWidthAndMargins(),
+                                 ComboboxArrowSize().height()));
+      SetFocusBehavior(FocusBehavior::NEVER);
+    }
+
     button_controller()->set_notify_action(
         ButtonController::NotifyAction::kOnPress);
 
-    // TODO(pbos): Share ink-drop configuration code between here and
-    // Combobox's TransparentButton.
-    // Similar to Combobox's TransparentButton.
-    InkDrop::Get(this)->SetMode(views::InkDropHost::InkDropMode::ON);
-    SetHasInkDropActionOnClick(true);
-    InkDrop::UseInkDropForSquareRipple(InkDrop::Get(this),
-                                       /*highlight_on_hover=*/false);
-    InkDrop::Get(this)->SetCreateRippleCallback(base::BindRepeating(
-        [](Button* host) -> std::unique_ptr<views::InkDropRipple> {
-          return std::make_unique<views::FloodFillInkDropRipple>(
-              InkDrop::Get(host), host->size(),
-              InkDrop::Get(host)->GetInkDropCenterBasedOnLastEvent(),
-              style::GetColor(*host, style::CONTEXT_TEXTFIELD,
-                              style::STYLE_PRIMARY),
-              InkDrop::Get(host)->GetVisibleOpacity());
-        },
-        this));
+    ConfigureComboboxButtonInkDrop(this);
   }
   Arrow(const Arrow&) = delete;
   Arrow& operator=(const Arrow&) = delete;
@@ -112,10 +105,11 @@ class Arrow : public Button {
     gfx::Rect arrow_bounds = GetLocalBounds();
     arrow_bounds.ClampToCenteredSize(ComboboxArrowSize());
     // Make sure the arrow use the same color as the text in the combobox.
-    PaintComboboxArrow(style::GetColor(*this, style::CONTEXT_TEXTFIELD,
-                                       GetEnabled() ? style::STYLE_PRIMARY
-                                                    : style::STYLE_DISABLED),
-                       arrow_bounds, canvas);
+    PaintComboboxArrow(
+        GetColorProvider()->GetColor(style::GetColorId(
+            style::CONTEXT_TEXTFIELD,
+            GetEnabled() ? style::STYLE_PRIMARY : style::STYLE_DISABLED)),
+        arrow_bounds, canvas);
   }
 
   void GetAccessibleNodeData(ui::AXNodeData* node_data) override {
@@ -384,11 +378,12 @@ EditableCombobox::EditableCombobox(
   AddChildView(textfield_.get());
 
   control_elements_container_ = AddChildView(std::make_unique<BoxLayoutView>());
-  control_elements_container_->SetInsideBorderInsets(
-      gfx::Insets::TLBR(0, 0, 0,
-                        GetComboboxArrowContainerWidthAndMargins() -
-                            GetComboboxArrowContainerWidth()));
-
+  if (features::IsChromeRefresh2023()) {
+    control_elements_container_->SetInsideBorderInsets(
+        gfx::Insets::TLBR(kEditableComboboxControlsContainerInsets, 0,
+                          kEditableComboboxControlsContainerInsets,
+                          kEditableComboboxControlsContainerInsets));
+  }
   if (display_arrow) {
     arrow_ = AddControlElement(std::make_unique<Arrow>(base::BindRepeating(
         &EditableCombobox::ArrowButtonPressed, base::Unretained(this))));
@@ -417,6 +412,14 @@ void EditableCombobox::SetText(const std::u16string& text) {
   // SetText does not actually notify the TextfieldController, so we call the
   // handling code directly.
   HandleNewContent(text);
+}
+
+std::u16string EditableCombobox::GetPlaceholderText() const {
+  return textfield_->GetPlaceholderText();
+}
+
+void EditableCombobox::SetPlaceholderText(const std::u16string& text) {
+  textfield_->SetPlaceholderText(text);
 }
 
 const gfx::FontList& EditableCombobox::GetFontList() const {
@@ -504,7 +507,16 @@ void EditableCombobox::OnLayoutIsAnimatingChanged(
   }
 }
 
+bool EditableCombobox::ShouldApplyInkDropEffects() {
+  return features::IsChromeRefresh2023() && arrow_ && InkDrop::Get(arrow_) &&
+         GetWidget();
+}
+
 void EditableCombobox::CloseMenu() {
+  if (ShouldApplyInkDropEffects()) {
+    InkDrop::Get(arrow_)->AnimateToState(InkDropState::DEACTIVATED, nullptr);
+    InkDrop::Get(arrow_)->GetInkDrop()->SetHovered(arrow_->IsMouseHovered());
+  }
   menu_runner_.reset();
   pre_target_handler_.reset();
 }
@@ -537,6 +549,9 @@ void EditableCombobox::HandleNewContent(const std::u16string& new_content) {
 
 void EditableCombobox::ArrowButtonPressed(const ui::Event& event) {
   textfield_->RequestFocus();
+  if (ShouldApplyInkDropEffects()) {
+    InkDrop::Get(arrow_)->AnimateToState(InkDropState::ACTIVATED, nullptr);
+  }
   if (menu_runner_ && menu_runner_->IsRunning()) {
     CloseMenu();
   } else {
@@ -614,6 +629,8 @@ const ui::ComboboxModel* EditableCombobox::GetComboboxModel() const {
 }
 
 BEGIN_METADATA(EditableCombobox, View)
+ADD_PROPERTY_METADATA(std::u16string, Text)
+ADD_PROPERTY_METADATA(std::u16string, PlaceholderText)
 END_METADATA
 
 }  // namespace views

@@ -37,7 +37,6 @@
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/common/net/safe_search_util.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/base/testing_browser_process.h"
@@ -49,9 +48,11 @@
 #include "components/download/public/common/download_features.h"
 #include "components/download/public/common/download_interrupt_reasons.h"
 #include "components/download/public/common/mock_download_item.h"
+#include "components/policy/core/common/policy_pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/buildflags.h"
 #include "components/safe_browsing/core/common/features.h"
+#include "components/safe_search_api/safe_search_util.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "content/public/browser/download_item_utils.h"
 #include "content/public/browser/web_contents.h"
@@ -757,6 +758,8 @@ TEST_F(ChromeDownloadManagerDelegateTest, BlockedByPolicy) {
   EXPECT_CALL(*download_item, GetURL()).WillRepeatedly(ReturnRef(kUrl));
   EXPECT_CALL(*download_item, GetContentDisposition())
       .WillRepeatedly(Return(kTargetDisposition));
+  EXPECT_CALL(*download_item, RequireSafetyChecks())
+      .WillRepeatedly(Return(true));
 
   base::FilePath kExpectedPath = GetPathInDownloadDir("bar.txt");
 
@@ -778,6 +781,41 @@ TEST_F(ChromeDownloadManagerDelegateTest, BlockedByPolicy) {
   DetermineDownloadTarget(download_item.get(), &result);
   EXPECT_EQ(download::DOWNLOAD_INTERRUPT_REASON_FILE_BLOCKED,
             result.interrupt_reason);
+
+  VerifyAndClearExpectations();
+}
+
+TEST_F(ChromeDownloadManagerDelegateTest, NoSafetyChecksNotBlockedByPolicy) {
+  const GURL kUrl("http://example.com/foo");
+  const std::string kTargetDisposition("attachment; filename=\"foo.txt\"");
+
+  std::unique_ptr<download::MockDownloadItem> download_item =
+      CreateActiveDownloadItem(0);
+  EXPECT_CALL(*download_item, GetURL()).WillRepeatedly(ReturnRef(kUrl));
+  EXPECT_CALL(*download_item, GetContentDisposition())
+      .WillRepeatedly(Return(kTargetDisposition));
+  EXPECT_CALL(*download_item, RequireSafetyChecks())
+      .WillRepeatedly(Return(false));
+
+  base::FilePath kExpectedPath = GetPathInDownloadDir("bar.txt");
+
+  DetermineDownloadTargetResult result;
+
+  EXPECT_CALL(*delegate(), MockReserveVirtualPath(_, _, _, _, _))
+      .WillOnce(DoAll(SetArgPointee<4>(PathValidationResult::CONFLICT),
+                      ReturnArg<1>()));
+  EXPECT_CALL(*delegate(),
+              RequestConfirmation_(
+                  _, _, DownloadConfirmationReason::TARGET_CONFLICT, _))
+      .WillOnce(WithArg<3>(ScheduleCallback2(
+          DownloadConfirmationResult::CONFIRMED, kExpectedPath)));
+
+  pref_service()->SetInteger(
+      prefs::kDownloadRestrictions,
+      static_cast<int>(DownloadPrefs::DownloadRestriction::ALL_FILES));
+
+  DetermineDownloadTarget(download_item.get(), &result);
+  EXPECT_EQ(download::DOWNLOAD_INTERRUPT_REASON_NONE, result.interrupt_reason);
 
   VerifyAndClearExpectations();
 }
@@ -975,7 +1013,149 @@ TEST_F(ChromeDownloadManagerDelegateTest,
       download::DownloadItem::InsecureDownloadStatus::SAFE);
 }
 
-// Verify that downloads ending in a blob URL are considered secure.
+// Verify that downloads initiated by a non-unique hostname aren't blocked, but
+// we record that the download was from a non-unique source.
+TEST_F(ChromeDownloadManagerDelegateTest,
+       BlockedAsActiveContent_NonUniqueInitiator) {
+  const GURL kRedirectUrl("https://example.org/");
+  const GURL kFinalUrl("https://example.org/xyz.foo");
+  const auto kInitiator = Origin::Create(GURL("http://10.0.0.1"));
+
+  DetermineDownloadTargetResult result;
+  base::test::ScopedFeatureList feature_list;
+  base::HistogramTester histograms;
+
+  std::unique_ptr<download::MockDownloadItem> download_item =
+      PrepareDownloadItemForInsecureBlocking(kFinalUrl, kInitiator,
+                                             kRedirectUrl);
+
+  feature_list.InitAndEnableFeature(features::kTreatUnsafeDownloadsAsActive);
+
+#if BUILDFLAG(ENABLE_PLUGINS)
+  // DownloadTargetDeterminer looks for plugin handlers if there's an
+  // extension.
+  content::PluginService::GetInstance()->Init();
+#endif
+
+  DetermineDownloadTarget(download_item.get(), &result);
+  EXPECT_EQ(download::DOWNLOAD_INTERRUPT_REASON_NONE, result.interrupt_reason);
+  EXPECT_EQ(download::DownloadItem::InsecureDownloadStatus::SAFE,
+            result.insecure_download_status);
+  histograms.ExpectUniqueSample(
+      kInsecureDownloadHistogramName,
+      InsecureDownloadSecurityStatus::kInitiatorInsecureNonUniqueFileSecure, 1);
+  ExpectExtensionOnlyIn(InsecureDownloadExtensions::kUnknown,
+                        kInsecureDownloadExtensionInitiatorInsecureNonUnique,
+                        kInsecureDownloadHistogramTargetSecure, histograms);
+}
+
+// Verify that downloads from a non-unique download url aren't treated as secure
+// nor do they record different metrics.
+TEST_F(ChromeDownloadManagerDelegateTest,
+       BlockedAsActiveContent_NonUniqueFinalUrl) {
+  const GURL kRedirectUrl("https://example.org/");
+  const GURL kFinalUrl("http://10.0.0.1/xyz.foo");
+  const auto kInitiator = Origin::Create(GURL("https://example.org"));
+
+  DetermineDownloadTargetResult result;
+  base::test::ScopedFeatureList feature_list;
+  base::HistogramTester histograms;
+
+  std::unique_ptr<download::MockDownloadItem> download_item =
+      PrepareDownloadItemForInsecureBlocking(kFinalUrl, kInitiator,
+                                             kRedirectUrl);
+
+  feature_list.InitAndEnableFeature(features::kTreatUnsafeDownloadsAsActive);
+
+#if BUILDFLAG(ENABLE_PLUGINS)
+  // DownloadTargetDeterminer looks for plugin handlers if there's an
+  // extension.
+  content::PluginService::GetInstance()->Init();
+#endif
+
+  DetermineDownloadTarget(download_item.get(), &result);
+  EXPECT_EQ(download::DOWNLOAD_INTERRUPT_REASON_FILE_BLOCKED,
+            result.interrupt_reason);
+  EXPECT_EQ(download::DownloadItem::InsecureDownloadStatus::SILENT_BLOCK,
+            result.insecure_download_status);
+  histograms.ExpectUniqueSample(
+      kInsecureDownloadHistogramName,
+      InsecureDownloadSecurityStatus::kInitiatorSecureFileInsecure, 1);
+  ExpectExtensionOnlyIn(InsecureDownloadExtensions::kUnknown,
+                        kInsecureDownloadExtensionInitiatorSecure,
+                        kInsecureDownloadHistogramTargetInsecure, histograms);
+}
+
+// Verify that downloads coming from localhost are considered secure.
+TEST_F(ChromeDownloadManagerDelegateTest, BlockedAsActiveContent_Localhost) {
+  const GURL kRedirectUrl("https://example.org/");
+  const GURL kFinalUrl("http://127.0.0.1/xyz.foo");
+  const auto kInitiator = Origin::Create(GURL("https://example.org"));
+
+  DetermineDownloadTargetResult result;
+  base::test::ScopedFeatureList feature_list;
+  base::HistogramTester histograms;
+
+  std::unique_ptr<download::MockDownloadItem> download_item =
+      PrepareDownloadItemForInsecureBlocking(kFinalUrl, kInitiator,
+                                             kRedirectUrl);
+
+  feature_list.InitAndEnableFeature(features::kTreatUnsafeDownloadsAsActive);
+
+#if BUILDFLAG(ENABLE_PLUGINS)
+  // DownloadTargetDeterminer looks for plugin handlers if there's an
+  // extension.
+  content::PluginService::GetInstance()->Init();
+#endif
+
+  DetermineDownloadTarget(download_item.get(), &result);
+  EXPECT_EQ(download::DOWNLOAD_INTERRUPT_REASON_NONE, result.interrupt_reason);
+  EXPECT_EQ(download::DownloadItem::InsecureDownloadStatus::SAFE,
+            result.insecure_download_status);
+  histograms.ExpectUniqueSample(
+      kInsecureDownloadHistogramName,
+      InsecureDownloadSecurityStatus::kInitiatorSecureFileSecure, 1);
+  ExpectExtensionOnlyIn(InsecureDownloadExtensions::kUnknown,
+                        kInsecureDownloadExtensionInitiatorSecure,
+                        kInsecureDownloadHistogramTargetSecure, histograms);
+}
+
+// Verify that downloads initiated by localhost are considered secure.
+TEST_F(ChromeDownloadManagerDelegateTest,
+       BlockedAsActiveContent_LocalhostInitiator) {
+  const GURL kRedirectUrl("https://example.org/");
+  const GURL kFinalUrl("https://example.org/xyz.foo");
+  const auto kInitiator = Origin::Create(GURL("http://localhost"));
+
+  DetermineDownloadTargetResult result;
+  base::test::ScopedFeatureList feature_list;
+  base::HistogramTester histograms;
+
+  std::unique_ptr<download::MockDownloadItem> download_item =
+      PrepareDownloadItemForInsecureBlocking(kFinalUrl, kInitiator,
+                                             kRedirectUrl);
+
+  feature_list.InitAndEnableFeature(features::kTreatUnsafeDownloadsAsActive);
+
+#if BUILDFLAG(ENABLE_PLUGINS)
+  // DownloadTargetDeterminer looks for plugin handlers if there's an
+  // extension.
+  content::PluginService::GetInstance()->Init();
+#endif
+
+  DetermineDownloadTarget(download_item.get(), &result);
+  EXPECT_EQ(download::DOWNLOAD_INTERRUPT_REASON_NONE, result.interrupt_reason);
+  EXPECT_EQ(download::DownloadItem::InsecureDownloadStatus::SAFE,
+            result.insecure_download_status);
+  histograms.ExpectUniqueSample(
+      kInsecureDownloadHistogramName,
+      InsecureDownloadSecurityStatus::kInitiatorSecureFileSecure, 1);
+  ExpectExtensionOnlyIn(InsecureDownloadExtensions::kUnknown,
+                        kInsecureDownloadExtensionInitiatorSecure,
+                        kInsecureDownloadHistogramTargetSecure, histograms);
+}
+
+// Verify that insecure in a blob URL are considered secure.
 TEST_F(ChromeDownloadManagerDelegateTest,
        BlockedAsActiveContent_BlobConsideredSecure) {
   // Verifies blob URLs are not blocked for active content blocking.
@@ -1384,7 +1564,8 @@ TEST_F(ChromeDownloadManagerDelegateTest, SanitizeGoogleSearchLink) {
   const GURL kGoogleSearchUrl("https://www.google.com/search?q=google");
   for (auto is_safe_search_enabled : {true, false}) {
     auto* prefs = profile()->GetPrefs();
-    prefs->SetBoolean(prefs::kForceGoogleSafeSearch, is_safe_search_enabled);
+    prefs->SetBoolean(policy::policy_prefs::kForceGoogleSafeSearch,
+                      is_safe_search_enabled);
 
     download::DownloadUrlParameters params(kGoogleSearchUrl,
                                            TRAFFIC_ANNOTATION_FOR_TESTS);
@@ -1392,7 +1573,7 @@ TEST_F(ChromeDownloadManagerDelegateTest, SanitizeGoogleSearchLink) {
     delegate()->SanitizeDownloadParameters(&params);
     GURL expected_url = kGoogleSearchUrl;
     if (is_safe_search_enabled)
-      safe_search_util::ForceGoogleSafeSearch(expected_url, &expected_url);
+      safe_search_api::ForceGoogleSafeSearch(expected_url, &expected_url);
     EXPECT_EQ(params.url(), expected_url);
   }
 }

@@ -88,9 +88,9 @@ class DataTypeManagerImpl : public DataTypeManager,
   // Prepare the parameters for the configurer's configuration.
   ModelTypeConfigurer::ConfigureParams PrepareConfigureParams();
 
-  // Update precondition state of types in data_type_status_table_ to match
+  // Update precondition state of types in `data_type_status_table_` to match
   // value of DataTypeController::GetPreconditionState().
-  void UpdatePreconditionErrors(const ModelTypeSet& desired_types);
+  void UpdatePreconditionErrors();
 
   // Update precondition state for |type|, such that data_type_status_table_
   // matches DataTypeController::GetPreconditionState(). Returns true if there
@@ -142,6 +142,7 @@ class DataTypeManagerImpl : public DataTypeManager,
   // be maintained as part of |downloaded_types_|, however, since in some edge
   // cases (notably PurgeForMigration()), this class might have to trigger a
   // re-download of NIGORI data.
+  // TODO(crbug.com/1422901): Consider removing this; see bug for details.
   ModelTypeSet downloaded_types_ = ControlTypes();
 
   // Types that requested in current configuration cycle.

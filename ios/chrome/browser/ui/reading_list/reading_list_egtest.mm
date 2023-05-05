@@ -17,10 +17,10 @@
 #import "base/strings/sys_string_conversions.h"
 #import "base/strings/utf_string_conversions.h"
 #import "base/test/ios/wait_util.h"
+#import "ios/chrome/browser/shared/ui/table_view/table_view_constants.h"
 #import "ios/chrome/browser/ui/popup_menu/popup_menu_constants.h"
 #import "ios/chrome/browser/ui/reading_list/reading_list_app_interface.h"
 #import "ios/chrome/browser/ui/reading_list/reading_list_constants.h"
-#import "ios/chrome/browser/ui/table_view/table_view_constants.h"
 #import "ios/chrome/common/ui/table_view/table_view_cells_constants.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_actions_app_interface.h"
@@ -647,6 +647,17 @@ void AssertIsShowingDistillablePage(bool online, const GURL& distillable_url) {
   // Verify that the webState's title is correct.
   GREYAssertEqualObjects([ChromeEarlGreyAppInterface currentTabTitle],
                          kDistillableTitle, @"Wrong page name");
+}
+
+// Tests that URL can be added in the incognito mode and that a snackbar
+// appears after the item is added. See https://crbug.com/1428055.
+- (void)testSavingToReadingListInIncognito {
+  GURL pageURL(self.testServer->GetURL(kDistillableURL));
+  [ChromeEarlGrey openNewIncognitoTab];
+  [ChromeEarlGrey loadURL:pageURL];
+  [ChromeEarlGrey waitForPageToFinishLoading];
+
+  AddCurrentPageToReadingList();
 }
 
 // Tests that offline page does not request online resources.

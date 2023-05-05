@@ -18,6 +18,10 @@ BASE_FEATURE(kRunOnMainThread,
              "RunOnMainThread",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kRunOnDedicatedThreadPoolThread,
+             "RunOnDedicatedThreadPoolThread",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 #if !BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kBackgroundTabLoadingFromPerformanceManager,
              "BackgroundTabLoadingFromPerformanceManager",
@@ -25,11 +29,11 @@ BASE_FEATURE(kBackgroundTabLoadingFromPerformanceManager,
 
 BASE_FEATURE(kHighEfficiencyModeAvailable,
              "HighEfficiencyModeAvailable",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kBatterySaverModeAvailable,
              "BatterySaverModeAvailable",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 const base::FeatureParam<base::TimeDelta> kHighEfficiencyModeTimeBeforeDiscard{
     &kHighEfficiencyModeAvailable, "time_before_discard", base::Hours(2)};
@@ -83,11 +87,35 @@ const base::FeatureParam<int>
       0,
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 };
+
+BASE_FEATURE(kHeuristicMemorySaver,
+             "HeuristicMemorySaver",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+const base::FeatureParam<int>
+    kHeuristicMemorySaverThresholdReachedHeartbeatSeconds{
+        &kHeuristicMemorySaver, "threshold_reached_heartbeat_seconds", 10};
+const base::FeatureParam<int>
+    kHeuristicMemorySaverThresholdNotReachedHeartbeatSeconds{
+        &kHeuristicMemorySaver, "threshold_not_reached_heartbeat_seconds", 60};
+
+const base::FeatureParam<int>
+    kHeuristicMemorySaverAvailableMemoryThresholdPercent{
+        &kHeuristicMemorySaver, "threshold_percent", 5};
+
+const base::FeatureParam<int> kHeuristicMemorySaverMinimumMinutesInBackground{
+    &kHeuristicMemorySaver, "minimum_minutes_in_background", 120};
+
 #endif
 
 BASE_FEATURE(kBFCachePerformanceManagerPolicy,
              "BFCachePerformanceManagerPolicy",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+#if !BUILDFLAG(IS_ANDROID)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
 
 BASE_FEATURE(kUrgentPageDiscarding,
              "UrgentPageDiscarding",
@@ -95,7 +123,7 @@ BASE_FEATURE(kUrgentPageDiscarding,
 
 BASE_FEATURE(kPageTimelineMonitor,
              "PageTimelineMonitor",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 const base::FeatureParam<base::TimeDelta> kPageTimelineStateIntervalTime{
     &kPageTimelineMonitor, "time_between_collect_slice", base::Minutes(5)};

@@ -1581,6 +1581,5 @@ bool PageInfo::IsIsolatedWebApp() const {
 
   return web_contents_ &&
          web_contents_->GetPrimaryMainFrame()->GetWebExposedIsolationLevel() >=
-             content::RenderFrameHost::WebExposedIsolationLevel::
-                 kMaybeIsolatedApplication;
+             content::WebExposedIsolationLevel::kMaybeIsolatedApplication;
 }

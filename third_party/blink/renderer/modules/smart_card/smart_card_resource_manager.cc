@@ -100,6 +100,13 @@ void SmartCardResourceManager::ReaderChanged(
   ReaderAdded(std::move(reader_info));
 }
 
+void SmartCardResourceManager::Error(SmartCardResponseCode response_code) {
+  tracking_started_ = false;
+  // TODO(crbug.com/1386175):
+  // * Put existing SmartCardReader instances into an invalid state.
+  // * Forward error to existing SmartCardPresenceObservers.
+}
+
 void SmartCardResourceManager::Trace(Visitor* visitor) const {
   visitor->Trace(service_);
   visitor->Trace(get_readers_promises_);
@@ -124,7 +131,8 @@ ScriptPromise SmartCardResourceManager::getReaders(
 
   EnsureServiceConnection();
 
-  service_->GetReaders(
+  tracking_started_ = true;
+  service_->GetReadersAndStartTracking(
       WTF::BindOnce(&SmartCardResourceManager::FinishGetReaders,
                     WrapPersistent(this), WrapPersistent(resolver)));
   return resolver->Promise();
@@ -162,8 +170,7 @@ void SmartCardResourceManager::FinishGetReaders(
   get_readers_promises_.erase(resolver);
 
   if (result->is_response_code()) {
-    auto* error =
-        MakeGarbageCollected<SmartCardError>(result->get_response_code());
+    auto* error = SmartCardError::Create(result->get_response_code());
     resolver->Reject(error);
     return;
   }
@@ -176,6 +183,17 @@ void SmartCardResourceManager::FinishGetReaders(
   resolver->Resolve(readers);
 }
 
+void SmartCardResourceManager::UpdateReadersCache(
+    mojom::blink::SmartCardGetReadersResultPtr result) {
+  if (result->is_response_code()) {
+    return;
+  }
+
+  for (auto& reader_info : result->get_readers()) {
+    GetOrCreateReader(std::move(reader_info));
+  }
+}
+
 SmartCardReader* SmartCardResourceManager::GetOrCreateReader(
     mojom::blink::SmartCardReaderInfoPtr info) {
   auto it = reader_cache_.find(info->name);
@@ -186,6 +204,7 @@ SmartCardReader* SmartCardResourceManager::GetOrCreateReader(
   const String name = info->name;
   SmartCardReader* reader = MakeGarbageCollected<SmartCardReader>(
       std::move(info), GetExecutionContext());
+
   reader_cache_.insert(name, reader);
   return reader;
 }
@@ -250,12 +269,20 @@ void SmartCardResourceManager::ResolveWatchForReadersPromise(
     ScriptPromiseResolver* resolver) {
   DCHECK(supports_reader_presence_observer_.has_value());
 
-  if (supports_reader_presence_observer_.value()) {
-    resolver->Resolve(GetOrCreatePresenceObserver());
-  } else {
+  if (!supports_reader_presence_observer_.value()) {
     resolver->RejectWithDOMException(DOMExceptionCode::kNotSupportedError,
                                      kWatchForReadersNotSupported);
+    return;
   }
+
+  if (!tracking_started_) {
+    tracking_started_ = true;
+    service_->GetReadersAndStartTracking(WTF::BindOnce(
+        &SmartCardResourceManager::UpdateReadersCache, WrapPersistent(this)));
+  }
+
+  // TODO(crbug.com/1386175): possibly always create a new observer.
+  resolver->Resolve(GetOrCreatePresenceObserver());
 }
 
 void SmartCardResourceManager::CloseServiceConnection() {

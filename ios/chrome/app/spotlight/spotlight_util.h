@@ -22,6 +22,7 @@ enum Domain {
   DOMAIN_BOOKMARKS = 1,
   DOMAIN_TOPSITES = 2,
   DOMAIN_ACTIONS = 3,
+  DOMAIN_READING_LIST = 4,
   DOMAIN_COUNT
 };
 
@@ -41,6 +42,9 @@ extern const int kCurrentSpotlightIndexVersion;
 // NSUserDefault key of entry containing Chrome version of the latest bookmarks
 // indexing.
 extern const char kSpotlightLastIndexingVersionKey[];
+
+// Maximum retry attempts to delete/index a set of items.
+const NSUInteger kMaxAttempts = 5;
 
 // Utility methods deleting nodes in Spotlight index. Will be retried in case of
 // failure as required by Apple documentation.

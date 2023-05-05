@@ -112,8 +112,7 @@ class PrerenderOmniboxUIBrowserTest : public InProcessBrowserTest,
             &PrerenderOmniboxUIBrowserTest::GetActiveWebContents,
             base::Unretained(this))) {
     scoped_feature_list_.InitWithFeatures(
-        {features::kOmniboxTriggerForPrerender2},
-        {kSearchPrefetchOnlyAllowDefaultMatchPreloading});
+        {}, {kSearchPrefetchOnlyAllowDefaultMatchPreloading});
   }
 
   void SetUp() override {
@@ -174,13 +173,11 @@ class PrerenderOmniboxUIBrowserTest : public InProcessBrowserTest,
   }
 
   void SelectAutocompleteMatchAndWaitForActivation(
-      const AutocompleteMatch& match,
+      OmniboxPopupSelection selection,
       int host_id) {
-    GURL url = match.destination_url;
     content::test::PrerenderHostObserver prerender_observer(
         *GetActiveWebContents(), host_id);
-    omnibox()->model()->OpenMatch(match, WindowOpenDisposition::CURRENT_TAB,
-                                  url, std::u16string(), 0);
+    omnibox()->model()->OpenSelection(selection);
     prerender_observer.WaitForActivation();
   }
 
@@ -510,8 +507,7 @@ class PrerenderPreloaderHoldbackBrowserTest
  public:
   PrerenderPreloaderHoldbackBrowserTest() {
     feature_list_.InitWithFeatures(
-        /*enabled_features=*/{features::kOmniboxTriggerForPrerender2,
-                              features::kPrerender2Holdback},
+        /*enabled_features=*/{features::kPrerender2Holdback},
         /* disabled_features=*/{
             kSearchPrefetchOnlyAllowDefaultMatchPreloading});
   }
@@ -979,7 +975,10 @@ IN_PROC_BROWSER_TEST_F(PrerenderOmniboxSearchSuggestionUIBrowserTest,
 
   content::NavigationHandleObserver activation_observer(
       GetActiveWebContents(), prerender_match->destination_url);
-  SelectAutocompleteMatchAndWaitForActivation(*prerender_match, host_id);
+  SelectAutocompleteMatchAndWaitForActivation(
+      OmniboxPopupSelection(std::distance(
+          autocomplete_controller->result().begin(), prerender_match)),
+      host_id);
   EXPECT_TRUE(IsPrerenderingNavigation());
 
   // Wait until the history is updated.
@@ -1133,7 +1132,10 @@ IN_PROC_BROWSER_TEST_F(PrerenderOmniboxSearchSuggestionUIBrowserTest,
   ASSERT_NE(prerender_match, std::end(autocomplete_controller->result()));
   content::NavigationHandleObserver activation_observer(
       GetActiveWebContents(), prerender_match->destination_url);
-  SelectAutocompleteMatchAndWaitForActivation(*prerender_match, host_id);
+  SelectAutocompleteMatchAndWaitForActivation(
+      OmniboxPopupSelection(std::distance(
+          autocomplete_controller->result().begin(), prerender_match)),
+      host_id);
   EXPECT_TRUE(IsPrerenderingNavigation());
   base::RunLoop().RunUntilIdle();
 
@@ -1223,7 +1225,10 @@ IN_PROC_BROWSER_TEST_F(PrerenderOmniboxSearchSuggestionUIBrowserTest,
 
   content::NavigationHandleObserver activation_observer(
       GetActiveWebContents(), prerender_match->destination_url);
-  SelectAutocompleteMatchAndWaitForActivation(*prerender_match, host_id2);
+  SelectAutocompleteMatchAndWaitForActivation(
+      OmniboxPopupSelection(std::distance(
+          autocomplete_controller->result().begin(), prerender_match)),
+      host_id2);
   EXPECT_TRUE(IsPrerenderingNavigation());
 
   {

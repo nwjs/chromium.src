@@ -4,7 +4,7 @@
 
 #include "chrome/browser/ui/views/download/bubble/download_bubble_security_view.h"
 
-#include "chrome/browser/download/bubble/download_bubble_controller.h"
+#include "chrome/browser/download/bubble/download_bubble_ui_controller.h"
 #include "chrome/browser/download/download_item_model.h"
 #include "chrome/browser/download/download_item_warning_data.h"
 #include "chrome/browser/download/download_ui_model.h"
@@ -34,7 +34,7 @@ class MockDownloadBubbleUIController : public DownloadBubbleUIController {
  public:
   explicit MockDownloadBubbleUIController(Browser* browser)
       : DownloadBubbleUIController(browser) {}
-  ~MockDownloadBubbleUIController() override = default;
+  ~MockDownloadBubbleUIController() = default;
 };
 
 class MockDownloadBubbleNavigationHandler

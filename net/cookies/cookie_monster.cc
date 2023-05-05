@@ -1729,6 +1729,8 @@ void CookieMonster::InternalDeleteCookie(CookieMap::iterator it,
   if (different_prev && different_next)
     --num_keys_;
 
+  DCHECK(cookies_.find(it->first) != cookies_.end())
+      << "Called erase with an iterator not in the cookie map";
   cookies_.erase(it);
 }
 
@@ -1773,6 +1775,9 @@ void CookieMonster::InternalDeletePartitionedCookie(
           mapping.cause),
       mapping.notify);
 
+  DCHECK(partition_it->second->find(cookie_it->first) !=
+         partition_it->second->end())
+      << "Called erase with an iterator not in this partitioned cookie map";
   partition_it->second->erase(cookie_it);
   --num_partitioned_cookies_;
 

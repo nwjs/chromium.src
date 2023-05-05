@@ -70,8 +70,10 @@ const char kWasAutoSignInFirstRunExperienceShown[] =
 const char kWereOldGoogleLoginsRemoved[] =
     "profile.were_old_google_logins_removed";
 
+#if !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
 const char kAccountStoragePerAccountSettings[] =
     "profile.password_account_storage_settings";
+#endif  // !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
 
 const char kSyncPasswordHash[] = "profile.sync_password_hash";
 
@@ -117,6 +119,22 @@ const char kBiometricAuthenticationBeforeFilling[] =
     "password_manager.biometric_authentication_filling";
 const char kHadBiometricsAvailable[] =
     "password_manager.had_biometrics_available";
+#endif
+
+const char kPasswordsGroupingInfoRequested[] =
+    "password_manager.passwords_grouping_info_requested";
+
+#if BUILDFLAG(IS_IOS)
+const char kAccountStorageNoticeShown[] =
+    "password_manager.account_storage_notice_shown";
+
+const char kAccountStorageNewFeatureIconImpressions[] =
+    "password_manager.account_storage_new_feature_icon_impressions";
+#endif  // BUILDFLAG(IS_IOS)
+
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)  // Desktop
+const char kPasswordManagerPromoCardsList[] =
+    "password_manager.password_promo_cards_list";
 #endif
 
 }  // namespace prefs

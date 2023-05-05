@@ -656,10 +656,10 @@ suite('full screen mode', () => {
     const selectWallpaperPromise = selectWallpaper(
         wallpaperProvider.images![0]!, wallpaperProvider, personalizationStore);
 
-    const [assetId, previewMode] =
+    const [unitId, previewMode] =
         await wallpaperProvider.whenCalled('selectWallpaper');
     assertTrue(previewMode);
-    assertEquals(wallpaperProvider.images![0]!.assetId, assetId);
+    assertEquals(wallpaperProvider.images![0]!.unitId, unitId);
 
     await selectWallpaperPromise;
     assertEquals(
@@ -866,7 +866,7 @@ suite('does not respond to re-selecting the current wallpaper', () => {
       return image.dedupKey ? image.dedupKey : image.id;
     }
     if (isWallpaperImage(image)) {
-      return image.assetId.toString();
+      return image.unitId.toString();
     }
     if (isFilePath(image)) {
       return image.path;

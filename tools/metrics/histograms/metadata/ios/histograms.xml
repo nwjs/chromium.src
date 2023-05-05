@@ -74,7 +74,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IOS.BackgroundTimeBeforeColdStart" units="minutes"
-    expires_after="2023-07-09">
+    expires_after="2023-09-17">
   <owner>thegreenfrog@chromium.org</owner>
   <owner>bling-team@google.com</owner>
   <summary>
@@ -90,6 +90,61 @@ chromium-metrics-reviews@google.com.
   <summary>
     This event is recorded on every warm start app open. The value represents
     how long the app was away from the foreground.
+  </summary>
+</histogram>
+
+<histogram name="IOS.BringAndroidTabs.ActionOnPrompt"
+    enum="IOSBringAndroidTabsPromptActionType" expires_after="2024-02-28">
+  <owner>hiramahmood@google.com</owner>
+  <owner>ginnyhuang@chromium.org</owner>
+  <owner>bling-get-set-up@google.com</owner>
+  <summary>
+    The action taken by the user after the Bring Android Tabs prompt is
+    presented.
+  </summary>
+</histogram>
+
+<histogram name="IOS.BringAndroidTabs.ActionOnTabsList"
+    enum="IOSBringAndroidTabsTabsListActionType" expires_after="2024-02-28">
+  <owner>hiramahmood@google.com</owner>
+  <owner>ginnyhuang@chromium.org</owner>
+  <owner>bling-get-set-up@google.com</owner>
+  <summary>
+    The action taken by the user in response to the Bring Android Tabs Tab List
+    .
+  </summary>
+</histogram>
+
+<histogram name="IOS.BringAndroidTabs.DeselectedTabCount" units="count"
+    expires_after="2024-02-28">
+  <owner>hiramahmood@google.com</owner>
+  <owner>ginnyhuang@chromium.org</owner>
+  <owner>bling-get-set-up@google.com</owner>
+  <summary>
+    The number of tabs deselected from the Tab List View of the Bring Android
+    Tabs prompt. Recorded after the Tab List View is dismissed.
+  </summary>
+</histogram>
+
+<histogram name="IOS.BringAndroidTabs.PromptTabsStatus"
+    enum="IOSPromptAndroidTabsStatus" expires_after="2024-02-28">
+  <owner>hiramahmood@google.com</owner>
+  <owner>ginnyhuang@chromium.org</owner>
+  <owner>bling-get-set-up@google.com</owner>
+  <summary>
+    The result of prompting the set of tabs for an Android switcher. Recorded
+    after the set of tabs are prompted.
+  </summary>
+</histogram>
+
+<histogram name="IOS.BringAndroidTabs.TabCount" units="count"
+    expires_after="2024-02-28">
+  <owner>hiramahmood@google.com</owner>
+  <owner>ginnyhuang@chromium.org</owner>
+  <owner>bling-get-set-up@google.com</owner>
+  <summary>
+    The number of tabs imported from Android for Android Switchers. Recorded
+    when the Bring Android Tabs prompt is displayed.
   </summary>
 </histogram>
 
@@ -272,7 +327,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IOS.CredentialExtension.IsEnabled.Startup" enum="Boolean"
-    expires_after="2023-07-01">
+    expires_after="2023-09-03">
   <owner>veronguyen@google.com</owner>
   <owner>tmartino@chromium.org</owner>
   <summary>
@@ -393,7 +448,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IOS.CredentialExtension.StatusDidChangeTo.Startup"
-    enum="Boolean" expires_after="2023-07-01">
+    enum="Boolean" expires_after="2023-09-17">
   <owner>veronguyen@google.com</owner>
   <owner>tmartino@chromium.org</owner>
   <summary>
@@ -442,7 +497,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IOS.CRWWKNavigationStatesRemoveOldPending" enum="Boolean"
-    expires_after="2023-07-09">
+    expires_after="2023-09-17">
   <owner>justincohen@chromium.org</owner>
   <owner>gambard@chromium.org</owner>
   <summary>
@@ -580,6 +635,50 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="IOS.EditMenu.DismissedMenuOnPage" enum="IOSEditMenuPage"
+    expires_after="2024-03-21">
+  <owner>olivierrobin@chromium.org</owner>
+  <owner>djean@chromium.org</owner>
+  <owner>bling-team@google.com</owner>
+  <summary>Page on which the iOS web edit menu is dismissed.</summary>
+</histogram>
+
+<histogram name="IOS.EditMenu.Error" enum="IOSEditMenuError"
+    expires_after="2024-03-21">
+  <owner>olivierrobin@chromium.org</owner>
+  <owner>djean@chromium.org</owner>
+  <owner>bling-team@google.com</owner>
+  <summary>Report errors when reporting metrics for web edit menu.</summary>
+</histogram>
+
+<histogram name="IOS.EditMenu.SelectedAction" enum="IOSEditMenuActions"
+    expires_after="2024-03-21">
+  <owner>olivierrobin@chromium.org</owner>
+  <owner>djean@chromium.org</owner>
+  <owner>bling-team@google.com</owner>
+  <summary>
+    The action that was triggered by the user on the iOS web edit menu.
+  </summary>
+</histogram>
+
+<histogram name="IOS.EditMenu.SelectedActionOnPage" enum="IOSEditMenuPage"
+    expires_after="2024-03-21">
+  <owner>olivierrobin@chromium.org</owner>
+  <owner>djean@chromium.org</owner>
+  <owner>bling-team@google.com</owner>
+  <summary>Page on which an iOS web edit menu action is triggered.</summary>
+</histogram>
+
+<histogram name="IOS.EditMenu.UpdatingSelectionOnPage" enum="IOSEditMenuPage"
+    expires_after="2024-03-21">
+  <owner>olivierrobin@chromium.org</owner>
+  <owner>djean@chromium.org</owner>
+  <owner>bling-team@google.com</owner>
+  <summary>
+    Page on which the iOS web edit menu is dismissed by updating the selection.
+  </summary>
+</histogram>
+
 <histogram name="IOS.EnterTabSwitcherSnapshotResult"
     enum="EnterTabSwitcherSnapshotResult" expires_after="2021-08-01">
   <owner>edchin@chromium.org</owner>
@@ -591,7 +690,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IOS.ExperienceKitCalendar.Present"
-    enum="ExperienceKitCalendarTypes" expires_after="2023-06-01">
+    enum="ExperienceKitCalendarTypes" expires_after="2023-09-03">
   <owner>djean@chromium.org</owner>
   <owner>erahmaoui@google.com</owner>
   <summary>
@@ -681,7 +780,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IOS.Frame.FirstContentfulPaint.MainFrame" units="ms"
-    expires_after="2023-07-16">
+    expires_after="2023-09-17">
   <owner>danieltwhite@chromium.org</owner>
   <owner>ajuma@chromium.org</owner>
   <summary>
@@ -697,7 +796,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IOS.Frame.FirstContentfulPaint.SubFrame" units="ms"
-    expires_after="2023-07-16">
+    expires_after="2023-09-17">
   <owner>danieltwhite@chromium.org</owner>
   <owner>ajuma@chromium.org</owner>
   <summary>
@@ -715,7 +814,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IOS.Frame.FirstInputDelay.MainFrame" units="ms"
-    expires_after="2023-10-18">
+    expires_after="2023-03-06">
+  <obsolete>
+    Replaced by IOS.Frame.FirstInputDelay.MainFrame2 due to rebucketing.
+  </obsolete>
   <owner>danieltwhite@chromium.org</owner>
   <owner>ajuma@chromium.org</owner>
   <summary>
@@ -733,7 +835,12 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="IOS.Frame.FirstInputDelay.MainFrame.AfterBackForwardCacheRestore"
-    units="ms" expires_after="2023-10-18">
+    units="ms" expires_after="2023-03-06">
+  <obsolete>
+    Replaced by
+    IOS.Frame.FirstInputDelay.MainFrame.AfterBackForwardCacheRestore2 due to
+    rebucketing.
+  </obsolete>
   <owner>danieltwhite@chromium.org</owner>
   <owner>ajuma@chromium.org</owner>
   <summary>
@@ -749,8 +856,46 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram
+    name="IOS.Frame.FirstInputDelay.MainFrame.AfterBackForwardCacheRestore2"
+    units="ms" expires_after="2024-02-27">
+  <owner>danieltwhite@chromium.org</owner>
+  <owner>ajuma@chromium.org</owner>
+  <summary>
+    Many features include JavaScript injected logic that run in the WebKit
+    renderer process. One Web Vitals metric that evaluates user experience is
+    First Input Delay. First Input Delay is defined as the amount of time
+    between the a user's first interaction with the page and the page receiving
+    the input event for this interaction. This histogram captures the First
+    Input Delay time for user's main frame that is loaded from the Back/Forward
+    cache. This histogram's understanding of First Contentful Paint differs from
+    the traditional understanding because it does not aggregate and compare the
+    First Input Delay times across the frames on a page.
+  </summary>
+</histogram>
+
+<histogram name="IOS.Frame.FirstInputDelay.MainFrame2" units="ms"
+    expires_after="2024-02-27">
+  <owner>danieltwhite@chromium.org</owner>
+  <owner>ajuma@chromium.org</owner>
+  <summary>
+    Many features include JavaScript injected logic that run in the WebKit
+    renderer process. One Web Vitals metric that evaluates user experience is
+    First Input Delay. First Input Delay is defined as the amount of time
+    between the a user's first interaction with the page and the page receiving
+    the input event for this interaction. This histogram captures the First
+    Input Delay time for every main frame. This histogram's understanding of
+    First Input Delay differs from the traditional understanding because it does
+    not aggregate and compare the First Input Delay times across the frames on a
+    page.
+  </summary>
+</histogram>
+
 <histogram name="IOS.Frame.FirstInputDelay.SubFrame" units="ms"
-    expires_after="2023-10-18">
+    expires_after="2023-03-06">
+  <obsolete>
+    Replaced by IOS.Frame.FirstInputDelay.SubFrame2 due to rebucketing.
+  </obsolete>
   <owner>danieltwhite@chromium.org</owner>
   <owner>ajuma@chromium.org</owner>
   <summary>
@@ -768,7 +913,11 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="IOS.Frame.FirstInputDelay.SubFrame.AfterBackForwardCacheRestore"
-    units="ms" expires_after="2023-10-18">
+    units="ms" expires_after="2023-03-06">
+  <obsolete>
+    Replaced by IOS.Frame.FirstInputDelay.SubFrame.AfterBackForwardCacheRestore2
+    due to rebucketing.
+  </obsolete>
   <owner>danieltwhite@chromium.org</owner>
   <owner>ajuma@chromium.org</owner>
   <summary>
@@ -784,8 +933,43 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram
+    name="IOS.Frame.FirstInputDelay.SubFrame.AfterBackForwardCacheRestore2"
+    units="ms" expires_after="2024-02-27">
+  <owner>danieltwhite@chromium.org</owner>
+  <owner>ajuma@chromium.org</owner>
+  <summary>
+    Many features include JavaScript injected logic that run in the WebKit
+    renderer process. One Web Vitals metric that evaluates user experience is
+    First Input Delay. First Input Delay is defined as the amount of time
+    between the a user's first interaction with the page and the page receiving
+    the input event for this interaction. This histogram captures the First
+    Input Delay time for user's subframes that is loaded from the Back/Forward
+    cache. This histogram's understanding of First Contentful Paint differs from
+    the traditional understanding because it does not aggregate and compare the
+    First Input Delay times across the frames on a page.
+  </summary>
+</histogram>
+
+<histogram name="IOS.Frame.FirstInputDelay.SubFrame2" units="ms"
+    expires_after="2024-02-27">
+  <owner>danieltwhite@chromium.org</owner>
+  <owner>ajuma@chromium.org</owner>
+  <summary>
+    Many features include JavaScript injected logic that run in the WebKit
+    renderer process. One Web Vitals metric that evaluates user experience is
+    First Input Delay. First Input Delay is defined as the amount of time
+    between the a user's first interaction with the page and the page receiving
+    the input event for this interaction. This histogram captures the First
+    Input Delay time for user's subframes. This histogram's understanding of
+    First Contentful Paint differs from the traditional understanding because it
+    does not aggregate and compare the First Input Delay times across the frames
+    on a page.
+  </summary>
+</histogram>
+
 <histogram name="IOS.Fullscreen.State" enum="CrFullscreenState"
-    expires_after="2023-04-18">
+    expires_after="2023-06-18">
   <owner>joemerramos@chromium.org</owner>
   <owner>ajuma@chromium.org</owner>
   <summary>
@@ -848,7 +1032,11 @@ chromium-metrics-reviews@google.com.
   <owner>djean@chromium.org</owner>
   <summary>
     Logged when the Incognito Interstitial is dismissed, with a value which
-    depends on what user action led to the dismissal.
+    depends on what user action led to the dismissal. Before M113, the Cancel
+    bucket contains all times the Incognito interstitial was dismissed without
+    opening the URL. Starting M113, it only contains times the user triggered
+    the Cancel button, and new &quot;Learn more about Incognito&quot; and
+    &quot;Dismissed by external event&quot; buckets are added.
   </summary>
 </histogram>
 
@@ -935,7 +1123,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IOS.LinkToText.ShouldOfferResult"
-    enum="LinkToTextShouldOfferResult" expires_after="2023-06-25">
+    enum="LinkToTextShouldOfferResult" expires_after="2023-09-03">
   <owner>tmartino@chromium.org</owner>
   <owner>seblalancette@chromium.org</owner>
   <summary>
@@ -1277,7 +1465,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IOS.NTP.Impression" enum="IOSNTPImpression"
-    expires_after="2023-07-02">
+    expires_after="2023-09-03">
   <owner>gambard@chromium.org</owner>
   <summary>
     The type of NTP impressions on iOS, split by type of suggestions shown
@@ -1293,7 +1481,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IOS.OpenIn.DownloadResult" enum="IOSOpenInDownloadResult"
-    expires_after="2023-07-16">
+    expires_after="2023-09-17">
   <owner>ewannpv@chromium.org</owner>
   <owner>mrefaat@chromium.org</owner>
   <owner>bling-team@google.com</owner>
@@ -1304,7 +1492,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IOS.OpenIn.MimeType" enum="IOSOpenInMimeType"
-    expires_after="2023-07-16">
+    expires_after="2023-09-17">
   <owner>ewannpv@chromium.org</owner>
   <owner>gambard@chromium.org</owner>
   <owner>bling-team@google.com</owner>
@@ -1329,7 +1517,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IOS.PageLoad.DefaultModeMobile" enum="Boolean"
-    expires_after="2023-06-25">
+    expires_after="2023-09-03">
   <owner>gambard@chromium.org</owner>
   <owner>ajuma@chromium.org</owner>
   <summary>
@@ -1382,8 +1570,15 @@ chromium-metrics-reviews@google.com.
   <summary>The outcome of the partial translate feature.</summary>
 </histogram>
 
+<histogram name="IOS.PartialTranslate.SelectionLength" units="characters"
+    expires_after="2024-02-23">
+  <owner>olivierrobin@chromium.org</owner>
+  <owner>djean@chromium.org</owner>
+  <summary>The length of the selection received from javascript.</summary>
+</histogram>
+
 <histogram name="IOS.PasswordManager.Favicons.Count" units="count"
-    expires_after="2023-07-01">
+    expires_after="2023-09-03">
   <owner>veronguyen@google.com</owner>
   <owner>tmartino@chromium.org</owner>
   <summary>
@@ -1403,7 +1598,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IOS.PasswordManager.PasswordsWithFavicons.Count" units="count"
-    expires_after="2023-07-01">
+    expires_after="2023-09-03">
   <owner>veronguyen@google.com</owner>
   <owner>tmartino@chromium.org</owner>
   <summary>
@@ -1506,7 +1701,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IOS.Process.ActivePrewarm" enum="Boolean"
-    expires_after="2023-05-14">
+    expires_after="2023-09-03">
   <owner>justincohen@google.com</owner>
   <owner>olivierrobin@google.com</owner>
   <summary>
@@ -1716,7 +1911,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IOS.SadTab.FileIsPDF" enum="Boolean"
-    expires_after="2023-04-29">
+    expires_after="2024-03-20">
   <owner>ajuma@chromium.org</owner>
   <owner>gambard@chromium.org</owner>
   <summary>
@@ -1726,7 +1921,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IOS.SadTab.URLIsChromeExternalFile" enum="Boolean"
-    expires_after="2023-04-29">
+    expires_after="2024-03-20">
   <owner>ajuma@chromium.org</owner>
   <owner>gambard@chromium.org</owner>
   <summary>
@@ -2209,7 +2404,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IOS.Variations.FirstRun.SeedFetchTime" units="ms"
-    expires_after="2023-05-09">
+    expires_after="2023-09-17">
   <owner>ginnyhuang@chromium.org</owner>
   <owner>bling-get-set-up@google.com</owner>
   <summary>
@@ -2234,7 +2429,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IOS.Web.URLDidChangeToEmptyURL" enum="BooleanHit"
-    expires_after="2023-07-03">
+    expires_after="2023-09-03">
   <owner>gambard@chromium.org</owner>
   <owner>justincohen@chromium.org</owner>
   <summary>

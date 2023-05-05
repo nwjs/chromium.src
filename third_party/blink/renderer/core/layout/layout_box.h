@@ -2152,6 +2152,8 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
   bool HasAnchorScrollTranslation() const;
   PhysicalOffset AnchorScrollTranslationOffset() const;
 
+  bool HasScrollbarGutters(ScrollbarOrientation orientation) const;
+
   // This should be called when the border-box size of this box is changed.
   void SizeChanged();
 
@@ -2375,7 +2377,6 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
            StyleRef().IsScrollbarGutterAuto();
   }
 
-  bool HasScrollbarGutters(ScrollbarOrientation orientation) const;
   NGPhysicalBoxStrut ComputeScrollbarsInternal(
       ShouldClampToContentBox = kDoNotClampToContentBox,
       OverlayScrollbarClipBehavior = kIgnoreOverlayScrollbarSize,
@@ -2412,6 +2413,7 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
   // Clear LayoutObject fields of physical fragments.
   void DisassociatePhysicalFragments();
 
+ protected:
   // The CSS border box rect for this box.
   //
   // The rectangle is in LocationContainer's physical coordinates in flipped
@@ -2422,7 +2424,6 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
   // include transforms, relative position offsets etc.
   LayoutPoint frame_location_;
 
- protected:
   // TODO(crbug.com/1353190): Remove frame_size_.
   LayoutSize frame_size_;
 
@@ -2475,6 +2476,8 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
   wtf_size_t first_fragment_item_index_ = 0u;
 
   Member<LayoutBoxRareData> rare_data_;
+
+  FRIEND_TEST_ALL_PREFIXES(LayoutMultiColumnSetTest, ScrollAnchroingCrash);
 };
 
 template <>

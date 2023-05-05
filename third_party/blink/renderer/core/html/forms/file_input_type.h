@@ -103,7 +103,7 @@ class CORE_EXPORT FileInputType final : public InputType,
 
   // FileChooserClient implementation.
   void FilesChosen(FileChooserFileInfoList files,
-                   const base::FilePath& base_dir, bool canceled = false) override;
+                   const base::FilePath& base_dir) override;
   LocalFrame* FrameOrNull() const override;
 
   // PopupOpeningObserver implementation.

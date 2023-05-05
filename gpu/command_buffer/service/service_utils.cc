@@ -79,8 +79,7 @@ gl::GLContextAttribs GenerateGLContextAttribs(
     attribs.client_minor_es_version = 0;
   }
 
-  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kDisableES3GLContext)) {
+  if (gl::GetGlWorkarounds().disable_es3gl_context) {
     // Forcefully disable ES3 contexts
     attribs.client_major_es_version = 2;
     attribs.client_minor_es_version = 0;
@@ -161,6 +160,8 @@ GpuPreferences ParseGpuPreferences(const base::CommandLine* command_line) {
   gpu_preferences.enable_unsafe_webgpu =
       command_line->HasSwitch(switches::kEnableUnsafeWebGPU);
   gpu_preferences.use_webgpu_adapter = ParseWebGPUAdapterName(command_line);
+  gpu_preferences.use_webgpu_power_preference =
+      ParseWebGPUPowerPreference(command_line);
   if (command_line->HasSwitch(switches::kEnableDawnBackendValidation)) {
     auto value = command_line->GetSwitchValueASCII(
         switches::kEnableDawnBackendValidation);
@@ -274,6 +275,29 @@ WebGPUAdapterName ParseWebGPUAdapterName(
     }
   }
   return WebGPUAdapterName::kDefault;
+}
+
+WebGPUPowerPreference ParseWebGPUPowerPreference(
+    const base::CommandLine* command_line) {
+  if (command_line->HasSwitch(switches::kUseWebGPUPowerPreference)) {
+    auto value =
+        command_line->GetSwitchValueASCII(switches::kUseWebGPUPowerPreference);
+    if (value.empty()) {
+      return WebGPUPowerPreference::kDefaultLowPower;
+    } else if (value == "default-low-power") {
+      return WebGPUPowerPreference::kDefaultLowPower;
+    } else if (value == "default-high-performance") {
+      return WebGPUPowerPreference::kDefaultHighPerformance;
+    } else if (value == "force-low-power") {
+      return WebGPUPowerPreference::kForceLowPower;
+    } else if (value == "force-high-performance") {
+      return WebGPUPowerPreference::kForceHighPerformance;
+    } else {
+      DLOG(ERROR) << "Invalid switch " << switches::kUseWebGPUPowerPreference
+                  << "=" << value << ".";
+    }
+  }
+  return WebGPUPowerPreference::kDefaultLowPower;
 }
 
 }  // namespace gles2

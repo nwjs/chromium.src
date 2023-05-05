@@ -54,14 +54,16 @@ void AndroidAutofillManager::FillCreditCardFormImpl(
     const FormData& form,
     const FormFieldData& field,
     const CreditCard& credit_card,
-    const std::u16string& cvc) {
+    const std::u16string& cvc,
+    AutofillTriggerSource trigger_source) {
   NOTREACHED();
 }
 
 void AndroidAutofillManager::FillProfileFormImpl(
     const FormData& form,
     const FormFieldData& field,
-    const autofill::AutofillProfile& profile) {
+    const autofill::AutofillProfile& profile,
+    AutofillTriggerSource trigger_source) {
   NOTREACHED();
 }
 
@@ -144,10 +146,7 @@ void AndroidAutofillManager::OnSelectControlDidChangeImpl(
     provider->OnSelectControlDidChange(this, form, field, bounding_box);
 }
 
-bool AndroidAutofillManager::ShouldParseForms(
-    const std::vector<FormData>& forms) {
-  // Need to parse the |forms| to FormStructure, so heuristic_type can be
-  // retrieved later.
+bool AndroidAutofillManager::ShouldParseForms() {
   return true;
 }
 

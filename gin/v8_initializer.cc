@@ -364,6 +364,9 @@ void SetFlags(IsolateHolder::ScriptMode mode,
   SetV8FlagsIfOverridden(features::kWebAssemblyTailCall,
                          "--experimental-wasm-return-call",
                          "--no-experimental-wasm-return-call");
+  SetV8FlagsIfOverridden(features::kWebAssemblyInlining,
+                         "--experimental-wasm-inlining",
+                         "--no-experimental-wasm-inlining");
 
   if (js_command_line_flags.empty())
     return;

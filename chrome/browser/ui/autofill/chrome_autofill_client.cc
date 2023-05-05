@@ -19,6 +19,7 @@
 #include "chrome/browser/autofill/address_normalizer_factory.h"
 #include "chrome/browser/autofill/autocomplete_history_manager_factory.h"
 #include "chrome/browser/autofill/autofill_offer_manager_factory.h"
+#include "chrome/browser/autofill/autofill_optimization_guide_factory.h"
 #include "chrome/browser/autofill/iban_manager_factory.h"
 #include "chrome/browser/autofill/manual_filling_controller.h"
 #include "chrome/browser/autofill/merchant_promo_code_manager_factory.h"
@@ -53,6 +54,7 @@
 #include "components/autofill/content/browser/autofill_log_router_factory.h"
 #include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/autofill/content/browser/content_autofill_driver_factory.h"
+#include "components/autofill/core/browser/autofill_optimization_guide.h"
 #include "components/autofill/core/browser/data_model/autofill_offer_data.h"
 #include "components/autofill/core/browser/form_data_importer.h"
 #include "components/autofill/core/browser/payments/autofill_error_dialog_context.h"
@@ -102,6 +104,7 @@
 #include "chrome/browser/android/tab_android.h"
 #include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/browser/touch_to_fill/payments/android/touch_to_fill_credit_card_view_impl.h"
+#include "chrome/browser/ui/android/autofill/autofill_accessibility_utils.h"
 #include "chrome/browser/ui/android/autofill/autofill_logger_android.h"
 #include "chrome/browser/ui/android/autofill/card_expiration_date_fix_flow_view_android.h"
 #include "chrome/browser/ui/android/autofill/card_name_fix_flow_view_android.h"
@@ -117,6 +120,7 @@
 #include "components/infobars/content/content_infobar_manager.h"
 #include "components/infobars/core/infobar.h"
 #include "components/messages/android/messages_feature.h"
+#include "components/strings/grit/components_strings.h"
 #include "components/webauthn/android/internal_authenticator_android.h"
 #include "ui/android/window_android.h"
 #else  // BUILDFLAG(IS_ANDROID)
@@ -136,6 +140,17 @@
 #endif  // BUILDFLAG(IS_ANDROID)
 
 namespace autofill {
+
+// static
+void ChromeAutofillClient::CreateForWebContents(
+    content::WebContents* web_contents) {
+  DCHECK(web_contents);
+  if (!FromWebContents(web_contents)) {
+    web_contents->SetUserData(
+        UserDataKey(),
+        base::WrapUnique(new ChromeAutofillClient(web_contents)));
+  }
+}
 
 ChromeAutofillClient::~ChromeAutofillClient() {
   // NOTE: It is too late to clean up the autofill popup; that cleanup process
@@ -168,6 +183,15 @@ AutofillDownloadManager* ChromeAutofillClient::GetDownloadManager() {
         this, GetChannel(), GetLogManager());
   }
   return download_manager_.get();
+}
+
+AutofillOptimizationGuide* ChromeAutofillClient::GetAutofillOptimizationGuide()
+    const {
+  Profile* profile =
+      Profile::FromBrowserContext(web_contents()->GetBrowserContext());
+  return profile->ShutdownStarted()
+             ? nullptr
+             : AutofillOptimizationGuideFactory::GetForProfile(profile);
 }
 
 PersonalDataManager* ChromeAutofillClient::GetPersonalDataManager() {
@@ -376,6 +400,7 @@ void ChromeAutofillClient::ShowAutofillSettings(PopupType popup_type) {
       return;
     case PopupType::kUnspecified:
     case PopupType::kPasswords:
+    case PopupType::kIbans:
       NOTREACHED();
   }
 #else
@@ -383,6 +408,7 @@ void ChromeAutofillClient::ShowAutofillSettings(PopupType popup_type) {
   if (browser) {
     switch (popup_type) {
       case PopupType::kCreditCards:
+      case PopupType::kIbans:
         chrome::ShowSettingsSubPage(browser, chrome::kPaymentsSubPage);
         return;
       case PopupType::kPersonalInformation:
@@ -717,7 +743,8 @@ void ChromeAutofillClient::ConfirmSaveAddressProfile(
 #if BUILDFLAG(IS_ANDROID)
   // TODO(crbug.com/1167061): Respect SaveAddressProfilePromptOptions.
   save_update_address_profile_flow_manager_.OfferSave(
-      web_contents(), profile, original_profile, std::move(callback));
+      web_contents(), profile, original_profile,
+      options.is_migration_to_account, std::move(callback));
 #else
   SaveUpdateAddressProfileBubbleControllerImpl::CreateForWebContents(
       web_contents());
@@ -760,9 +787,14 @@ void ChromeAutofillClient::HideFastCheckout(bool allow_further_runs) {
 #endif
 }
 
-bool ChromeAutofillClient::IsFastCheckoutSupported() {
+bool ChromeAutofillClient::IsFastCheckoutSupported(
+    const FormData& form,
+    const FormFieldData& field,
+    const AutofillManager& autofill_manager) {
 #if BUILDFLAG(IS_ANDROID)
-  return base::FeatureList::IsEnabled(::features::kFastCheckout);
+  return base::FeatureList::IsEnabled(::features::kFastCheckout) &&
+         FastCheckoutClient::GetOrCreateForWebContents(web_contents())
+             ->IsSupported(form, field, autofill_manager);
 #else
   return false;
 #endif
@@ -878,9 +910,7 @@ ChromeAutofillClient::GetReopenPopupArgs() const {
   gfx::RectF screen_space_independent_bounds =
       controller->element_bounds() - client_area.OffsetFromOrigin();
   return autofill::AutofillClient::PopupOpenArgs(
-      screen_space_independent_bounds,
-      controller->IsRTL() ? base::i18n::RIGHT_TO_LEFT
-                          : base::i18n::LEFT_TO_RIGHT,
+      screen_space_independent_bounds, controller->GetElementTextDirection(),
       controller->GetSuggestions(), AutoselectFirstSuggestion(false));
 }
 
@@ -1027,6 +1057,21 @@ void ChromeAutofillClient::PropagateAutofillPredictions(
   }
 }
 
+void ChromeAutofillClient::DidFillOrPreviewForm(
+    mojom::RendererFormDataAction action,
+    AutofillTriggerSource trigger_source,
+    bool is_refill) {
+#if BUILDFLAG(IS_ANDROID)
+  if (action == mojom::RendererFormDataAction::kFill &&
+      trigger_source == AutofillTriggerSource::kTouchToFillCreditCard &&
+      !is_refill) {
+    // TODO(crbug.com/1428492): Test that the message was announced.
+    autofill::AnnounceTextForA11y(
+        l10n_util::GetStringUTF16(IDS_AUTOFILL_A11Y_ANNOUNCE_FILLED_FORM));
+  }
+#endif  // BUILDFLAG(IS_ANDROID)
+}
+
 void ChromeAutofillClient::DidFillOrPreviewField(
     const std::u16string& autofilled_value,
     const std::u16string& profile_full_name) {
@@ -1146,7 +1191,11 @@ void ChromeAutofillClient::OnZoomChanged(
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 ChromeAutofillClient::ChromeAutofillClient(content::WebContents* web_contents)
-    : content::WebContentsUserData<ChromeAutofillClient>(*web_contents),
+    : ContentAutofillClient(
+          web_contents,
+          base::BindRepeating(&BrowserDriverInitHook,
+                              this,
+                              g_browser_process->GetApplicationLocale())),
       content::WebContentsObserver(web_contents),
       log_manager_(
           // TODO(crbug.com/928595): Replace the closure with a callback to the
@@ -1211,7 +1260,5 @@ std::u16string ChromeAutofillClient::GetAccountHolderEmail() {
       identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSync));
   return base::UTF8ToUTF16(primary_account_info.email);
 }
-
-WEB_CONTENTS_USER_DATA_KEY_IMPL(ChromeAutofillClient);
 
 }  // namespace autofill

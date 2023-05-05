@@ -140,12 +140,25 @@ TEST_P(AboutThisSiteServiceTest, ValidResponse) {
 
 // Tests the language specific feature check.
 TEST_P(AboutThisSiteServiceTest, FeatureCheck) {
-  EXPECT_TRUE(page_info::IsAboutThisSiteFeatureEnabled("en-US"));
-  EXPECT_TRUE(page_info::IsAboutThisSiteFeatureEnabled("en-GB"));
-  EXPECT_TRUE(page_info::IsAboutThisSiteFeatureEnabled("en"));
+  const char* enabled[]{"en-US", "en-UK", "en"};
+  const char* disabled[]{"da", "id", "zh-TW", "ja"};
+  const char* enabled_on_android[]{"pt", "pt-BR", "pt-PT", "fr", "fr-CA", "it",
+                                   "nl", "de",    "de-DE", "es", "es-419"};
 
-  EXPECT_FALSE(page_info::IsAboutThisSiteFeatureEnabled("de-DE"));
-  EXPECT_FALSE(page_info::IsAboutThisSiteFeatureEnabled("de"));
+  for (const char* lang : enabled) {
+    EXPECT_TRUE(page_info::IsAboutThisSiteFeatureEnabled(lang));
+  }
+  for (const char* lang : disabled) {
+    EXPECT_FALSE(page_info::IsAboutThisSiteFeatureEnabled(lang));
+  }
+
+  for (const char* lang : enabled_on_android) {
+#if BUILDFLAG(IS_ANDROID)
+    EXPECT_TRUE(page_info::IsAboutThisSiteFeatureEnabled(lang));
+#else
+    EXPECT_FALSE(page_info::IsAboutThisSiteFeatureEnabled(lang));
+#endif
+  }
 }
 
 // Tests that incorrect proto messages are discarded.
@@ -236,6 +249,68 @@ TEST_P(AboutThisSiteServiceTest, LocalHosts) {
   t.ExpectTotalCount("Security.PageInfo.AboutThisSiteStatus", 0);
   t.ExpectUniqueSample("Security.PageInfo.AboutThisSiteInteraction",
                        AboutThisSiteInteraction::kNotShownLocalHost, 3);
+}
+
+// Tests the local creation of the Diner URL for navigation.
+TEST_P(AboutThisSiteServiceTest, CreateMoreAboutUrlForNavigation) {
+  auto url =
+      service()->CreateMoreAboutUrlForNavigation(GURL("https://foo.com"));
+  EXPECT_EQ(url,
+            "https://www.google.com/search?"
+            "q=About+https%3A%2F%2Ffoo.com%2F"
+            "&tbm=ilp&ctx=chrome_nav");
+}
+
+// Tests the local creation of the Diner URL for navigation with anchor.
+TEST_P(AboutThisSiteServiceTest, CreateMoreAboutUrlForNavigationWithAnchor) {
+  auto url = service()->CreateMoreAboutUrlForNavigation(
+      GURL("https://foo.com#anchor"));
+  EXPECT_EQ(url,
+            "https://www.google.com/search?"
+            "q=About+https%3A%2F%2Ffoo.com%2F%23anchor"
+            "&tbm=ilp&ctx=chrome_nav");
+}
+
+// Tests the local creation of the Diner URL for navigation from an origin with
+// path.
+TEST_P(AboutThisSiteServiceTest, CreateMoreAboutUrlForNavigationWithPath) {
+  auto url = service()->CreateMoreAboutUrlForNavigation(
+      GURL("https://foo.com/index.html"));
+  EXPECT_EQ(url,
+            "https://www.google.com/search?"
+            "q=About+https%3A%2F%2Ffoo.com%2Findex.html"
+            "&tbm=ilp&ctx=chrome_nav");
+}
+
+// Tests the local creation of the Diner URL for navigation from an invalid
+// origin.
+TEST_P(AboutThisSiteServiceTest, CreateMoreAboutUrlForNavigationInvalid) {
+  auto url = service()->CreateMoreAboutUrlForNavigation(
+      GURL("https://127.0.0.1/index.html"));
+  EXPECT_EQ(url,
+            "https://www.google.com/search?"
+            "q=About+https%3A%2F%2F127.0.0.1%2F"
+            "&tbm=ilp&ctx=chrome_nav");
+}
+
+// Tests the local creation of the Diner URL for navigation from an invalid
+// origin (blank).
+TEST_P(AboutThisSiteServiceTest, CreateMoreAboutUrlForNavigationInvalidBlank) {
+  auto url = service()->CreateMoreAboutUrlForNavigation(GURL("about:blank"));
+  EXPECT_EQ(url,
+            "https://www.google.com/search?"
+            "q=About+"
+            "&tbm=ilp&ctx=chrome_nav");
+}
+
+// Tests the local creation of the Diner URL for navigation from an invalid
+// origin (file).
+TEST_P(AboutThisSiteServiceTest, CreateMoreAboutUrlForNavigationInvalidFile) {
+  auto url = service()->CreateMoreAboutUrlForNavigation(GURL("file:///a/b/c"));
+  EXPECT_EQ(url,
+            "https://www.google.com/search?"
+            "q=About+file%3A%2F%2F%2F"
+            "&tbm=ilp&ctx=chrome_nav");
 }
 
 class AboutThisSiteNonMsbbUsersNotAllowedServiceTest

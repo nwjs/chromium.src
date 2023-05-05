@@ -119,9 +119,11 @@ void Label::SetText(const std::u16string& new_text) {
   stored_selection_range_ = gfx::Range::InvalidRange();
 }
 
-const std::u16string& Label::GetAccessibleName() const {
-  return View::GetAccessibleName().empty() ? full_text_->GetDisplayText()
-                                           : View::GetAccessibleName();
+void Label::AdjustAccessibleName(std::u16string& new_name,
+                                 ax::mojom::NameFrom& name_from) {
+  if (new_name.empty()) {
+    new_name = full_text_->GetDisplayText();
+  }
 }
 
 int Label::GetTextContext() const {
@@ -202,6 +204,7 @@ void Label::SetEnabledColor(SkColor color) {
 
   enabled_color_set_ = true;
   requested_enabled_color_ = color;
+  enabled_color_id_.reset();
   RecalculateColors();
   OnPropertyChanged(&requested_enabled_color_, kPropertyEffectsPaint);
 }
@@ -215,9 +218,10 @@ void Label::SetEnabledColorId(absl::optional<ui::ColorId> enabled_color_id) {
     return;
 
   enabled_color_id_ = enabled_color_id;
-  if (GetWidget())
+  if (GetWidget()) {
     UpdateColorsFromTheme();
-
+    enabled_color_set_ = true;
+  }
   OnPropertyChanged(&enabled_color_id_, kPropertyEffectsPaint);
 }
 
@@ -1245,8 +1249,9 @@ void Label::UpdateColorsFromTheme() {
   } else if (!enabled_color_set_) {
     const absl::optional<SkColor> cascading_color =
         GetCascadingProperty(this, kCascadingLabelEnabledColor);
-    requested_enabled_color_ = cascading_color.value_or(
-        style::GetColor(*this, text_context_, text_style_));
+    requested_enabled_color_ =
+        cascading_color.value_or(GetColorProvider()->GetColor(
+            style::GetColorId(text_context_, text_style_)));
   }
 
   if (background_color_id_.has_value()) {

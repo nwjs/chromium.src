@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "base/cxx17_backports.h"
+#include "base/features.h"
 #include "base/memory/shared_memory_mapping.h"
 #include "base/memory/unsafe_shared_memory_region.h"
 #include "base/task/sequenced_task_runner.h"
@@ -104,6 +105,14 @@ static const CLSID kIntelAV1HybridEncoderCLSID = {
     0x4794,
     {0x8c, 0x5a, 0xfb, 0xef, 0xfe, 0xff, 0xb8, 0x2d}};
 
+#ifndef ARCH_CPU_X86
+// Temporal layers are reported to be supported by the Intel driver but cause
+// initialization errors.
+BASE_FEATURE(kMediaFoundationIntelVP9TemporalLayerSupport,
+             "MediaFoundationIntelVP9TemporalLayerSupport",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // !defined(ARCH_CPU_X86)
+
 eAVEncH264VProfile GetH264VProfile(VideoCodecProfile profile,
                                    bool is_constrained_h264) {
   switch (profile) {
@@ -172,14 +181,67 @@ eAVEncH265VProfile GetHEVCProfile(VideoCodecProfile profile) {
   }
 }
 
-bool IsSvcSupported(IMFActivate* activate) {
+GUID VideoCodecToMFSubtype(VideoCodec codec) {
+  switch (codec) {
+    case VideoCodec::kH264:
+      return MFVideoFormat_H264;
+    case VideoCodec::kVP8:
+      return MFVideoFormat_VP80;
+    case VideoCodec::kVP9:
+      return MFVideoFormat_VP90;
+    case VideoCodec::kHEVC:
+      return MFVideoFormat_HEVC;
+    case VideoCodec::kAV1:
+      return MFVideoFormat_AV1;
+    default:
+      return GUID_NULL;
+  }
+}
+
+MediaFoundationVideoEncodeAccelerator::DriverVendor GetDriverVendor(
+    IMFActivate* encoder) {
+  using DriverVendor = MediaFoundationVideoEncodeAccelerator::DriverVendor;
+  base::win::ScopedCoMem<WCHAR> vendor_id;
+  UINT32 id_length;
+  encoder->GetAllocatedString(MFT_ENUM_HARDWARE_VENDOR_ID_Attribute, &vendor_id,
+                              &id_length);
+  if (id_length != 8) {  // Normal vendor ids have length 8.
+    return DriverVendor::kOther;
+  }
+  if (!_wcsnicmp(vendor_id.get(), L"VEN_10DE", id_length)) {
+    return DriverVendor::kNvidia;
+  }
+  if (!_wcsnicmp(vendor_id.get(), L"VEN_1002", id_length)) {
+    return DriverVendor::kAMD;
+  }
+  if (!_wcsnicmp(vendor_id.get(), L"VEN_8086 ", id_length)) {
+    return DriverVendor::kIntel;
+  }
+  return DriverVendor::kOther;
+}
+
+bool IsSvcSupported(IMFActivate* activate, VideoCodec codec) {
 #if defined(ARCH_CPU_X86)
   // x86 systems sometimes crash in video drivers here.
   // More info: https://crbug.com/1253748
   return false;
 #else
-  // crbug.com/1350257
-  TRACE_EVENT0("catan_investigation", "IsSvcSupported");
+  using DriverVendor = MediaFoundationVideoEncodeAccelerator::DriverVendor;
+  // crbug.com/1373780: Nvidia HEVC encoder reports supporting 3 temporal
+  // layers, but will fail initialization if configured to encoded with
+  // more than one temporal layers, thus we block Nvidia HEVC encoder for
+  // temporal SVC encoding.
+  // crbug.com/1425117: Intel VP9 HW encoder reports supporting 3 temporal
+  // layers, but will fail initialization if configured with more than one
+  // temporal layers.
+  auto vendor = GetDriverVendor(activate);
+  if ((codec == VideoCodec::kHEVC && vendor == DriverVendor::kNvidia) ||
+      (!base::FeatureList::IsEnabled(
+           kMediaFoundationIntelVP9TemporalLayerSupport) &&
+       codec == VideoCodec::kVP9 && vendor == DriverVendor::kIntel)) {
+    return false;
+  }
+
   Microsoft::WRL::ComPtr<IMFTransform> encoder;
   Microsoft::WRL::ComPtr<ICodecAPI> codec_api;
   HRESULT hr = activate->ActivateObject(IID_PPV_ARGS(&encoder));
@@ -211,41 +273,6 @@ bool IsSvcSupported(IMFActivate* activate) {
   activate->ShutdownObject();
   return result;
 #endif  // defined(ARCH_CPU_X86)
-}
-
-GUID VideoCodecToMFSubtype(VideoCodec codec) {
-  switch (codec) {
-    case VideoCodec::kH264:
-      return MFVideoFormat_H264;
-    case VideoCodec::kVP8:
-      return MFVideoFormat_VP80;
-    case VideoCodec::kVP9:
-      return MFVideoFormat_VP90;
-    case VideoCodec::kHEVC:
-      return MFVideoFormat_HEVC;
-    case VideoCodec::kAV1:
-      return MFVideoFormat_AV1;
-    default:
-      return GUID_NULL;
-  }
-}
-
-MediaFoundationVideoEncodeAccelerator::DriverVendor GetDriverVendor(
-    IMFActivate* encoder) {
-  using DriverVendor = MediaFoundationVideoEncodeAccelerator::DriverVendor;
-  base::win::ScopedCoMem<WCHAR> vendor_id;
-  UINT32 id_length;
-  encoder->GetAllocatedString(MFT_ENUM_HARDWARE_VENDOR_ID_Attribute, &vendor_id,
-                              &id_length);
-  if (id_length != 8)  // Normal vendor ids have length 8.
-    return DriverVendor::kOther;
-  if (!_wcsnicmp(vendor_id.get(), L"VEN_10DE", id_length))
-    return DriverVendor::kNvidia;
-  if (!_wcsnicmp(vendor_id.get(), L"VEN_1002", id_length))
-    return DriverVendor::kAMD;
-  if (!_wcsnicmp(vendor_id.get(), L"VEN_8086 ", id_length))
-    return DriverVendor::kIntel;
-  return DriverVendor::kOther;
 }
 
 uint32_t EnumerateHardwareEncoders(VideoCodec codec,
@@ -478,15 +505,9 @@ MediaFoundationVideoEncodeAccelerator::GetSupportedProfilesForCodec(
   if (pp_activate) {
     for (UINT32 i = 0; i < encoder_count; i++) {
       if (pp_activate[i]) {
-        // crbug.com/1373780: Nvidia HEVC encoder reports supporting 3 temporal
-        // layers, but will fail initialization if configured to encoded with
-        // more than one temporal layers, thus we block Nvidia HEVC encoder for
-        // temporal SVC encoding.
-        bool flawy_svc =
-            (codec == VideoCodec::kHEVC) &&
-            (GetDriverVendor(pp_activate[i]) == DriverVendor::kNvidia);
-        if (!svc_supported && !flawy_svc && IsSvcSupported(pp_activate[i]))
+        if (!svc_supported && IsSvcSupported(pp_activate[i], codec)) {
           svc_supported = true;
+        }
 
         // Release the enumerated instances if any.
         // According to Windows Dev Center,
@@ -1077,6 +1098,9 @@ bool MediaFoundationVideoEncodeAccelerator::SetEncoderModes() {
       var.ulVal = eAVEncCommonRateControlMode_PeakConstrainedVBR;
       break;
     }
+    case Bitrate::Mode::kExternal:
+      // Unsupported.
+      return false;
   }
   hr = codec_api_->SetValue(&CODECAPI_AVEncCommonRateControlMode, &var);
   RETURN_ON_HR_FAILURE(hr, "Couldn't set CommonRateControlMode", false);
@@ -1604,15 +1628,6 @@ void MediaFoundationVideoEncodeAccelerator::ProcessOutput() {
   hr = output_data_buffer.pSample->GetBufferByIndex(0, &output_buffer);
   RETURN_ON_HR_FAILURE(hr, "Couldn't get buffer by index", );
 
-  DWORD size = 0;
-  hr = output_buffer->GetCurrentLength(&size);
-  RETURN_ON_HR_FAILURE(hr, "Couldn't get buffer length", );
-  DCHECK_NE(size, 0u);
-  if (rate_ctrl_) {
-    // Notify SW BRC about recent encoded frame size.
-    rate_ctrl_->PostEncodeUpdate(size);
-  }
-
   base::TimeDelta timestamp;
   LONGLONG sample_time;
   hr = output_data_buffer.pSample->GetSampleTime(&sample_time);
@@ -1652,11 +1667,24 @@ void MediaFoundationVideoEncodeAccelerator::ProcessOutput() {
 
   const bool keyframe = MFGetAttributeUINT32(
       output_data_buffer.pSample, MFSampleExtension_CleanPoint, false);
+  DWORD size = 0;
+  hr = output_buffer->GetCurrentLength(&size);
+  RETURN_ON_HR_FAILURE(hr, "Couldn't get buffer length", );
+  DCHECK_NE(size, 0u);
   int temporal_id = 0;
   if (!AssignTemporalId(output_buffer, size, &temporal_id, keyframe)) {
     DLOG(ERROR) << "Parse temporalId failed.";
     NotifyError(VideoEncodeAccelerator::Error::kPlatformFailureError);
     return;
+  }
+  if (rate_ctrl_) {
+    VideoRateControlWrapper::FrameParams frame_params{};
+    frame_params.frame_type =
+        keyframe ? VideoRateControlWrapper::FrameParams::FrameType::kKeyFrame
+                 : VideoRateControlWrapper::FrameParams::FrameType::kInterFrame;
+    frame_params.temporal_layer_id = temporal_id;
+    // Notify SW BRC about recent encoded frame size.
+    rate_ctrl_->PostEncodeUpdate(size, frame_params);
   }
   DVLOG(3) << "Encoded data with size:" << size << " keyframe " << keyframe;
 

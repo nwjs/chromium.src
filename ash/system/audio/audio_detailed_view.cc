@@ -300,8 +300,6 @@ views::View* AudioDetailedView::AddDeviceSlider(
 void AudioDetailedView::CreateItems() {
   CreateScrollableList();
   if (features::IsQsRevampEnabled()) {
-    // TODO(b/264446152): Add the settings button once the audio system settings
-    // page is ready.
     CreateTitleRow(IDS_ASH_STATUS_TRAY_AUDIO_QS_REVAMP);
     // `live_caption_view_` will always shows up in the revamped
     // `AudioDetailedView`.
@@ -310,24 +308,9 @@ void AudioDetailedView::CreateItems() {
     CreateTitleRow(IDS_ASH_STATUS_TRAY_AUDIO);
   }
 
-  if (features::IsAudioSettingsPageEnabled()) {
-    CreateTitleSettingsButton();
-  }
-
   mic_gain_controller_ = std::make_unique<MicGainSliderController>();
   unified_volume_slider_controller_ =
       std::make_unique<UnifiedVolumeSliderController>();
-}
-
-void AudioDetailedView::CreateTitleSettingsButton() {
-  tri_view()->SetContainerVisible(TriView::Container::END, /*visible=*/true);
-  std::unique_ptr<views::Button> settings =
-      base::WrapUnique(CreateSettingsButton(
-          base::BindRepeating(&AudioDetailedView::OnSettingsButtonClicked,
-                              weak_factory_.GetWeakPtr()),
-          IDS_ASH_STATUS_TRAY_AUDIO_SETTINGS));
-  settings_button_ =
-      tri_view()->AddView(TriView::Container::END, std::move(settings));
 }
 
 void AudioDetailedView::CreateLiveCaptionView() {
@@ -357,11 +340,10 @@ void AudioDetailedView::CreateLiveCaptionView() {
       l10n_util::GetStringUTF16(IDS_ASH_STATUS_TRAY_LIVE_CAPTION));
 
   // Creates a toggle button on the right.
-  auto toggle = std::make_unique<TrayToggleButton>(
-      base::BindRepeating(&AudioDetailedView::ToggleLiveCaptionState,
-                          weak_factory_.GetWeakPtr()),
-      IDS_ASH_STATUS_TRAY_LIVE_CAPTION,
-      /*use_empty_border=*/true);
+  auto toggle = std::make_unique<Switch>(base::BindRepeating(
+      &AudioDetailedView::ToggleLiveCaptionState, weak_factory_.GetWeakPtr()));
+  SetAccessibleName(
+      l10n_util::GetStringUTF16(IDS_ASH_STATUS_TRAY_LIVE_CAPTION));
   toggle->SetIsOn(live_caption_enabled);
   std::u16string toggle_tooltip =
       live_caption_enabled
@@ -452,10 +434,7 @@ AudioDetailedView::CreateQsNoiseCancellationToggleRow(
 
   // Create a non-clickable non-focusable toggle button on the right. The events
   // and focus behavior should be handled by `noise_cancellation_view_` instead.
-  auto toggle =
-      std::make_unique<TrayToggleButton>(views::Button::PressedCallback(),
-                                         /*accessible_name_id=*/absl::nullopt,
-                                         /*use_empty_border=*/true);
+  auto toggle = std::make_unique<Switch>();
   toggle->SetIsOn(noise_cancellation_state);
   toggle->SetCanProcessEventsWithinSubtree(false);
   toggle->SetFocusBehavior(views::View::FocusBehavior::NEVER);
@@ -738,6 +717,19 @@ void AudioDetailedView::HandleViewClicked(views::View* view) {
   } else {
     audio_handler->SwitchToDevice(device, true,
                                   CrasAudioHandler::ACTIVATE_BY_USER);
+  }
+}
+
+void AudioDetailedView::CreateExtraTitleRowButtons() {
+  if (features::IsAudioSettingsPageEnabled()) {
+    tri_view()->SetContainerVisible(TriView::Container::END, /*visible=*/true);
+    std::unique_ptr<views::Button> settings =
+        base::WrapUnique(CreateSettingsButton(
+            base::BindRepeating(&AudioDetailedView::OnSettingsButtonClicked,
+                                weak_factory_.GetWeakPtr()),
+            IDS_ASH_STATUS_TRAY_AUDIO_SETTINGS));
+    settings_button_ =
+        tri_view()->AddView(TriView::Container::END, std::move(settings));
   }
 }
 

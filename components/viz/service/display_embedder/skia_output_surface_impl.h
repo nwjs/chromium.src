@@ -116,6 +116,7 @@ class VIZ_SERVICE_EXPORT SkiaOutputSurfaceImpl : public SkiaOutputSurface {
                                  const gfx::Size& surface_size,
                                  ResourceFormat format,
                                  bool mipmap,
+                                 bool scanout_dcomp_surface,
                                  sk_sp<SkColorSpace> color_space,
                                  bool is_overlay,
                                  const gpu::Mailbox& mailbox) override;
@@ -123,6 +124,7 @@ class VIZ_SERVICE_EXPORT SkiaOutputSurfaceImpl : public SkiaOutputSurface {
   void EndPaint(
       base::OnceClosure on_finished,
       base::OnceCallback<void(gfx::GpuFenceHandle)> return_release_fence_cb,
+      const gfx::Rect& update_rect,
       bool is_overlay) override;
   void MakePromiseSkImage(ImageContext* image_context,
                           const gfx::ColorSpace& yuv_color_space) override;
@@ -187,14 +189,20 @@ class VIZ_SERVICE_EXPORT SkiaOutputSurfaceImpl : public SkiaOutputSurface {
   bool Initialize();
   void InitializeOnGpuThread(GpuVSyncCallback vsync_callback_runner,
                              bool* result);
-  SkSurfaceCharacterization CreateSkSurfaceCharacterization(
+  SkSurfaceCharacterization CreateSkSurfaceCharacterizationRenderPass(
       const gfx::Size& surface_size,
       SkColorType color_type,
       SkAlphaType alpha_type,
       bool mipmap,
       sk_sp<SkColorSpace> color_space,
-      bool is_root_render_pass,
-      bool is_overlay);
+      bool is_overlay,
+      bool scanout_dcomp_surface) const;
+  SkSurfaceCharacterization CreateSkSurfaceCharacterizationCurrentFrame(
+      const gfx::Size& surface_size,
+      SkColorType color_type,
+      SkAlphaType alpha_type,
+      bool mipmap,
+      sk_sp<SkColorSpace> color_space) const;
   void DidSwapBuffersComplete(gpu::SwapBuffersCompleteParams params,
                               const gfx::Size& pixel_size,
                               gfx::GpuFenceHandle release_fence);

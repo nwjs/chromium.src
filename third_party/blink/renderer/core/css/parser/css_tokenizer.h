@@ -23,12 +23,23 @@ class CORE_EXPORT CSSTokenizer {
   DISALLOW_NEW();
 
  public:
+  // The overload with const String& holds on to a reference to the string.
+  // (Most places, we probably don't need to do that, but fixing that would
+  // require manual inspection.)
   explicit CSSTokenizer(const String&, wtf_size_t offset = 0);
+  explicit CSSTokenizer(StringView, wtf_size_t offset = 0);
   CSSTokenizer(const CSSTokenizer&) = delete;
   CSSTokenizer& operator=(const CSSTokenizer&) = delete;
 
   Vector<CSSParserToken, 32> TokenizeToEOF();
   wtf_size_t TokenCount();
+
+  // Like TokenizeToEOF(), but also returns the start byte for each token.
+  // There's an extra offset at the very end that returns the end byte
+  // of the last token, i.e., the length of the input string.
+  // This matches the convention CSSParserTokenOffsets expects.
+  std::pair<Vector<CSSParserToken, 32>, Vector<wtf_size_t, 32>>
+  TokenizeToEOFWithOffsets();
 
   wtf_size_t Offset() const { return input_.Offset(); }
   wtf_size_t PreviousOffset() const { return prev_offset_; }
@@ -36,6 +47,14 @@ class CORE_EXPORT CSSTokenizer {
   const Vector<String>& StringPool() const { return string_pool_; }
   CSSParserToken TokenizeSingle();
   CSSParserToken TokenizeSingleWithComments();
+
+  // If you want the returned CSSParserTokens' Value() to be valid beyond
+  // the destruction of CSSTokenizer, you'll need to call PersistString()
+  // to some longer-lived tokenizer (escaped string tokens may have
+  // StringViews that refer to the string pool). The tokenizer
+  // (*this, not the destination) is in an undefined state after this;
+  // all you can do is destroy it.
+  void PersistStrings(CSSTokenizer& destination);
 
  private:
   template <bool SkipComments, bool StoreOffset>

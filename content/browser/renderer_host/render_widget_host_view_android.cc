@@ -414,6 +414,16 @@ bool RenderWidgetHostViewAndroid::ScreenStateChangeHandler::
   } else if (pending_screen_state_.has_unlocked_orientation_lock &&
              rwhva_->in_rotation_) {
     end_rotation = true;
+  } else if (!pending_screen_state_.is_fullscreen &&
+             current_screen_state_.is_fullscreen) {
+    // PWA and WebView may be created as Fullscreen, without marking the
+    // WebContents as Fullscreen. In this state the Renderer can still request
+    // to toggle Fullscreen, which enables the ScreenOrientation APIs. However
+    // there will be no layout changes occuring.
+    //
+    // To account for this trigger a sync now to release the JavaScript Promise,
+    // and to update our `current_screen_state_`.
+    sync_needed = true;
   } else {
     bool physical_backing_rotation = false;
     bool screen_info_rotation = false;
@@ -534,7 +544,10 @@ bool RenderWidgetHostViewAndroid::ScreenStateChangeHandler::
     if (pending_screen_state_.is_fullscreen) {
       pending_screen_state_.any_non_rotation_size_changed = true;
     }
-    rwhva_->SynchronizeVisualProperties(deadline_policy, absl::nullopt);
+    rwhva_->SynchronizeVisualProperties(
+        deadline_policy, absl::nullopt,
+        /*reuse_current_local_surface_id=*/false,
+        /*ignore_ack=*/true);
   }
 
   current_screen_state_.CopyDefinedAttributes(pending_screen_state_);

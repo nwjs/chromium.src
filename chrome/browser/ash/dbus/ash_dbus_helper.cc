@@ -14,11 +14,11 @@
 #include "chrome/browser/ash/settings/device_settings_service.h"
 #include "chrome/browser/ash/wilco_dtc_supportd/wilco_dtc_supportd_client.h"
 #include "chrome/common/chrome_paths.h"
+#include "chromeos/ash/components/attestation/attestation_features.h"
 #include "chromeos/ash/components/cryptohome/system_salt_getter.h"
 #include "chromeos/ash/components/dbus/anomaly_detector/anomaly_detector_client.h"
 #include "chromeos/ash/components/dbus/arc/arc_appfuse_provider_client.h"
 #include "chromeos/ash/components/dbus/arc/arc_camera_client.h"
-#include "chromeos/ash/components/dbus/arc/arc_data_snapshotd_client.h"
 #include "chromeos/ash/components/dbus/arc/arc_keymaster_client.h"
 #include "chromeos/ash/components/dbus/arc/arc_keymint_client.h"
 #include "chromeos/ash/components/dbus/arc/arc_midis_client.h"
@@ -139,7 +139,6 @@ void InitializeDBus() {
   InitializeDBusClient<AnomalyDetectorClient>(bus);
   InitializeDBusClient<ArcAppfuseProviderClient>(bus);
   InitializeDBusClient<ArcCameraClient>(bus);
-  InitializeDBusClient<ArcDataSnapshotdClient>(bus);
   InitializeDBusClient<ArcKeymasterClient>(bus);
   InitializeDBusClient<ArcKeyMintClient>(bus);
   InitializeDBusClient<ArcMidisClient>(bus);
@@ -204,6 +203,7 @@ void InitializeDBus() {
   InitializeDBusClient<VirtualFileProviderClient>(bus);
   InitializeDBusClient<VmPluginDispatcherClient>(bus);
 
+  attestation::AttestationFeatures::Initialize();
   // Initialize the device settings service so that we'll take actions per
   // signals sent from the session manager. This needs to happen before
   // g_browser_process initializes BrowserPolicyConnector.
@@ -339,7 +339,6 @@ void ShutdownDBus() {
   ArcMidisClient::Shutdown();
   ArcKeyMintClient::Shutdown();
   ArcKeymasterClient::Shutdown();
-  ArcDataSnapshotdClient::Shutdown();
   ArcCameraClient::Shutdown();
   ArcAppfuseProviderClient::Shutdown();
   AnomalyDetectorClient::Shutdown();

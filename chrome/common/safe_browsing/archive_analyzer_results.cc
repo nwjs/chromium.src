@@ -18,6 +18,7 @@
 #include "components/safe_browsing/content/common/file_type_policies.h"
 #include "crypto/secure_hash.h"
 #include "crypto/sha2.h"
+#include "url/gurl.h"
 
 #if BUILDFLAG(IS_MAC)
 #include <mach-o/fat.h>
@@ -30,46 +31,6 @@
 namespace safe_browsing {
 
 namespace {
-
-void SetNameForContainedFile(
-    const base::FilePath& path,
-    ClientDownloadRequest::ArchivedBinary* archived_binary) {
-  std::string file_basename(path.BaseName().AsUTF8Unsafe());
-  if (base::StreamingUtf8Validator::Validate(file_basename))
-    archived_binary->set_file_basename(file_basename);
-}
-
-void SetLengthAndDigestForContainedFile(
-    base::File* temp_file,
-    int file_length,
-    ClientDownloadRequest::ArchivedBinary* archived_binary) {
-  archived_binary->set_length(file_length);
-
-  std::unique_ptr<crypto::SecureHash> hasher =
-      crypto::SecureHash::Create(crypto::SecureHash::SHA256);
-
-  const size_t kReadBufferSize = 4096;
-  char block[kReadBufferSize];
-
-  int bytes_read_previously = 0;
-  temp_file->Seek(base::File::Whence::FROM_BEGIN, 0);
-  while (true) {
-    int bytes_read_now = temp_file->ReadAtCurrentPos(block, kReadBufferSize);
-
-    if (bytes_read_previously + bytes_read_now > file_length)
-      bytes_read_now = file_length - bytes_read_previously;
-
-    if (bytes_read_now <= 0)
-      break;
-
-    hasher->Update(block, bytes_read_now);
-    bytes_read_previously += bytes_read_now;
-  }
-
-  uint8_t digest[crypto::kSHA256Length];
-  hasher->Finish(digest, std::size(digest));
-  archived_binary->mutable_digests()->set_sha256(digest, std::size(digest));
-}
 
 void AnalyzeContainedBinary(
     const scoped_refptr<BinaryFeatureExtractor>& binary_feature_extractor,
@@ -104,7 +65,6 @@ void UpdateArchiveAnalyzerResultsWithFile(base::FilePath path,
   scoped_refptr<BinaryFeatureExtractor> binary_feature_extractor(
       new BinaryFeatureExtractor());
   bool current_entry_is_executable;
-
 #if BUILDFLAG(IS_MAC)
   uint32_t magic;
   file->Read(0, reinterpret_cast<char*>(&magic), sizeof(uint32_t));
@@ -181,6 +141,56 @@ void UpdateArchiveAnalyzerResultsWithFile(base::FilePath path,
     }
 #endif  // BUILDFLAG(IS_MAC)
   }
+}
+
+safe_browsing::DownloadFileType_InspectionType GetFileType(
+    base::FilePath path) {
+  return FileTypePolicies::GetInstance()
+      ->PolicyForFile(path, GURL{}, nullptr)
+      .inspection_type();
+}
+
+void SetNameForContainedFile(
+    const base::FilePath& path,
+    ClientDownloadRequest::ArchivedBinary* archived_binary) {
+  std::string file_basename(path.AsUTF8Unsafe());
+  if (base::StreamingUtf8Validator::Validate(file_basename)) {
+    archived_binary->set_file_basename(file_basename);
+  }
+}
+
+void SetLengthAndDigestForContainedFile(
+    base::File* temp_file,
+    int file_length,
+    ClientDownloadRequest::ArchivedBinary* archived_binary) {
+  archived_binary->set_length(file_length);
+
+  std::unique_ptr<crypto::SecureHash> hasher =
+      crypto::SecureHash::Create(crypto::SecureHash::SHA256);
+
+  const size_t kReadBufferSize = 4096;
+  char block[kReadBufferSize];
+
+  int bytes_read_previously = 0;
+  temp_file->Seek(base::File::Whence::FROM_BEGIN, 0);
+  while (true) {
+    int bytes_read_now = temp_file->ReadAtCurrentPos(block, kReadBufferSize);
+
+    if (bytes_read_now > file_length - bytes_read_previously) {
+      bytes_read_now = file_length - bytes_read_previously;
+    }
+
+    if (bytes_read_now <= 0) {
+      break;
+    }
+
+    hasher->Update(block, bytes_read_now);
+    bytes_read_previously += bytes_read_now;
+  }
+
+  uint8_t digest[crypto::kSHA256Length];
+  hasher->Finish(digest, std::size(digest));
+  archived_binary->mutable_digests()->set_sha256(digest, std::size(digest));
 }
 
 }  // namespace safe_browsing

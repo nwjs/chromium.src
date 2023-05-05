@@ -13,7 +13,7 @@ import org.chromium.base.ByteArrayGenerator;
 import org.chromium.base.Log;
 import org.chromium.base.task.AsyncTask;
 import org.chromium.base.task.PostTask;
-import org.chromium.content_public.browser.UiThreadTaskTraits;
+import org.chromium.base.task.TaskTraits;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -165,7 +165,7 @@ public class CipherFactory {
                     mData = data;
 
                     // Posting an asynchronous task to notify the observers.
-                    PostTask.postTask(UiThreadTaskTraits.DEFAULT, new Runnable() {
+                    PostTask.postTask(TaskTraits.UI_DEFAULT, new Runnable() {
                         @Override
                         public void run() {
                             notifyCipherDataGenerated();
@@ -265,27 +265,19 @@ public class CipherFactory {
      *
      */
     public boolean restoreFromBundle(Bundle savedInstanceState) {
-        if (savedInstanceState == null) {
-            Log.i(TAG, "#restoreFromBundle, no savedInstanceState.");
-            return false;
-        }
+        if (savedInstanceState == null) return false;
 
         byte[] wrappedKey = savedInstanceState.getByteArray(BUNDLE_KEY);
         byte[] iv = savedInstanceState.getByteArray(BUNDLE_IV);
-        if (wrappedKey == null || iv == null) {
-            Log.i(TAG, "#restoreFromBundle, no wrapped key or no iv.");
-            return false;
-        }
+        if (wrappedKey == null || iv == null) return false;
 
         try {
             Key bundledKey = new SecretKeySpec(wrappedKey, "AES");
             synchronized (mDataLock) {
                 if (mData == null) {
-                    Log.i(TAG, "#restoreFromBundle, creating new CipherData.");
                     mData = new CipherData(bundledKey, iv);
                     return true;
                 } else if (mData.key.equals(bundledKey) && Arrays.equals(mData.iv, iv)) {
-                    Log.i(TAG, "#restoreFromBundle, using existing CipherData.");
                     return true;
                 } else {
                     Log.e(TAG, "Attempted to restore different cipher data.");

@@ -525,6 +525,21 @@ class EnrollmentSignInStep extends PolymerElementApi {
   }
 }
 
+class EnrollmentAttributeStep extends PolymerElementApi {
+  constructor(parent) {
+    super(parent, '#step-attribute-prompt');
+    this.skipButton = new PolymerElementApi(parent, '#attributesSkip');
+  }
+
+  isReadyForTesting() {
+    return this.isVisible() && this.skipButton.isVisible();
+  }
+
+  clickSkip() {
+    return this.skipButton.click();
+  }
+}
+
 class EnrollmentSuccessStep extends PolymerElementApi {
   constructor(parent) {
     super(parent, '#step-success');
@@ -589,6 +604,7 @@ class EnterpriseEnrollmentScreenTester extends ScreenElementApi {
   constructor() {
     super('enterprise-enrollment');
     this.signInStep = new EnrollmentSignInStep(this);
+    this.attributeStep = new EnrollmentAttributeStep(this);
     this.successStep = new EnrollmentSuccessStep(this);
     this.errorStep = new EnrollmentErrorStep(this);
     this.enrollmentInProgressDlg = new PolymerElementApi(this, '#step-working');
@@ -671,19 +687,6 @@ class DemoPreferencesScreenTester extends ScreenElementApi {
 
   getDemoPreferencesNextButtonName() {
     return loadTimeData.getString('demoPreferencesNextButtonLabel');
-  }
-}
-
-class ArcTosScreenTester extends ScreenElementApi {
-  constructor() {
-    super('arc-tos');
-  }
-
-  // Note that the Accept Button text key is different depending on whether
-  // the device in Demo Mode setup. Key for non-demo setup is
-  // "arcTermsOfServiceAcceptButton"
-  getArcTosDemoModeAcceptButtonName() {
-    return loadTimeData.getString('arcTermsOfServiceAcceptAndContinueButton');
   }
 }
 
@@ -850,6 +853,13 @@ class ConsolidatedConsentScreenTester extends ScreenElementApi {
   getPrivacyPolicyLinkName() {
     return this.privacyPolicyLink.element().text.trim();
   }
+
+  /**
+   * Click `accept` button to go to the next screen.
+   */
+  clickAcceptButton() {
+    this.nextButton.element().click();
+  }
 }
 
 class SmartPrivacyProtectionScreenTester extends ScreenElementApi {
@@ -901,7 +911,6 @@ export class OobeApiProvider {
       ErrorScreen: new ErrorScreenTester(),
       OfflineLoginScreen: new OfflineLoginScreenTester(),
       DemoPreferencesScreen: new DemoPreferencesScreenTester(),
-      ArcTosScreen: new ArcTosScreenTester(),
       ThemeSelectionScreen: new ThemeSelectionScreenTester(),
       GestureNavigation: new GestureNavigationScreenTester(),
       ConsolidatedConsentScreen: new ConsolidatedConsentScreenTester(),

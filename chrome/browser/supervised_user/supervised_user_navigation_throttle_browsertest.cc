@@ -28,12 +28,12 @@
 #include "chrome/browser/supervised_user/supervised_user_service.h"
 #include "chrome/browser/supervised_user/supervised_user_service_factory.h"
 #include "chrome/browser/supervised_user/supervised_user_settings_service_factory.h"
-#include "chrome/browser/supervised_user/supervised_user_url_filter.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/supervised_user/core/browser/supervised_user_settings_service.h"
+#include "components/supervised_user/core/browser/supervised_user_url_filter.h"
 #include "components/supervised_user/core/common/features.h"
 #include "components/supervised_user/core/common/supervised_user_constants.h"
 #include "content/public/browser/navigation_controller.h"
@@ -325,7 +325,7 @@ IN_PROC_BROWSER_TEST_F(SupervisedUserNavigationThrottleTest,
               profile->GetProfileKey());
   supervised_user_settings_service->SetLocalSetting(
       supervised_user::kContentPackDefaultFilteringBehavior,
-      base::Value(SupervisedUserURLFilter::BLOCK));
+      base::Value(supervised_user::SupervisedUserURLFilter::BLOCK));
 
   std::unique_ptr<WebContents> web_contents(
       WebContents::Create(WebContents::CreateParams(profile)));
@@ -450,13 +450,13 @@ void SupervisedUserIframeFilterTest::SetUpOnMainThread() {
 
   SupervisedUserService* service =
       SupervisedUserServiceFactory::GetForProfile(browser()->profile());
-  std::unique_ptr<PermissionRequestCreator> creator =
+  std::unique_ptr<supervised_user::PermissionRequestCreator> creator =
       std::make_unique<PermissionRequestCreatorMock>(browser()->profile());
   permission_creator_ =
       static_cast<PermissionRequestCreatorMock*>(creator.get());
   permission_creator_->SetEnabled();
-  service->web_approvals_manager().ClearRemoteApprovalRequestsCreators();
-  service->web_approvals_manager().AddRemoteApprovalRequestCreator(
+  service->remote_web_approvals_manager().ClearApprovalRequestsCreators();
+  service->remote_web_approvals_manager().AddApprovalRequestCreator(
       std::move(creator));
 
   WebContents* tab = browser()->tab_strip_model()->GetActiveWebContents();
@@ -893,10 +893,11 @@ IN_PROC_BROWSER_TEST_P(SupervisedUserIframeFilterTest,
                        IframesWithSameDomainAsMainFrameAllowed) {
   SupervisedUserService* service =
       SupervisedUserServiceFactory::GetForProfile(browser()->profile());
-  SupervisedUserURLFilter* filter = service->GetURLFilter();
+  supervised_user::SupervisedUserURLFilter* filter = service->GetURLFilter();
 
   // Set the default behavior to block.
-  filter->SetDefaultFilteringBehavior(SupervisedUserURLFilter::BLOCK);
+  filter->SetDefaultFilteringBehavior(
+      supervised_user::SupervisedUserURLFilter::BLOCK);
 
   // The async checker will make rpc calls to check if the url should be
   // blocked or not. This may cause flakiness.

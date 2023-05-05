@@ -35,6 +35,7 @@
 #include <limits>
 
 #include "third_party/blink/public/common/input/web_pointer_properties.h"
+#include "third_party/blink/public/strings/grit/blink_strings.h"
 #include "third_party/blink/renderer/core/accessibility/ax_object_cache.h"
 #include "third_party/blink/renderer/core/dom/events/scoped_event_queue.h"
 #include "third_party/blink/renderer/core/dom/events/simulated_click_options.h"
@@ -59,6 +60,7 @@
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
+#include "third_party/blink/renderer/platform/text/platform_locale.h"
 #include "third_party/blink/renderer/platform/wtf/math_extras.h"
 
 namespace blink {
@@ -152,6 +154,10 @@ StepRange RangeInputType::CreateStepRange(
 }
 
 void RangeInputType::HandleMouseDownEvent(MouseEvent& event) {
+  if (!HasCreatedShadowSubtree()) {
+    return;
+  }
+
   if (GetElement().IsDisabledFormControl())
     return;
 
@@ -299,7 +305,9 @@ ControlPart RangeInputType::AutoAppearance() const {
 }
 
 void RangeInputType::UpdateView() {
-  GetSliderThumbElement()->SetPositionFromValue();
+  if (HasCreatedShadowSubtree()) {
+    GetSliderThumbElement()->SetPositionFromValue();
+  }
 }
 
 String RangeInputType::SanitizeValue(const String& proposed_value) const {
@@ -316,7 +324,20 @@ void RangeInputType::WarnIfValueIsInvalid(const String& value) const {
       "The specified value %s cannot be parsed, or is out of range.", value);
 }
 
+String RangeInputType::RangeOverflowText(const Decimal& maximum) const {
+  return GetLocale().QueryString(IDS_FORM_VALIDATION_RANGE_OVERFLOW,
+                                 LocalizeValue(Serialize(maximum)));
+}
+
+String RangeInputType::RangeUnderflowText(const Decimal& minimum) const {
+  return GetLocale().QueryString(IDS_FORM_VALIDATION_RANGE_UNDERFLOW,
+                                 LocalizeValue(Serialize(minimum)));
+}
+
 void RangeInputType::DisabledAttributeChanged() {
+  if (!HasCreatedShadowSubtree()) {
+    return;
+  }
   if (GetElement().IsDisabledFormControl())
     GetSliderThumbElement()->StopDragging();
 }
@@ -332,6 +353,10 @@ inline SliderThumbElement* RangeInputType::GetSliderThumbElement() const {
 }
 
 inline Element* RangeInputType::SliderTrackElement() const {
+  if (!HasCreatedShadowSubtree()) {
+    return nullptr;
+  }
+
   return GetElement().UserAgentShadowRoot()->getElementById(
       shadow_element_names::kIdSliderTrack);
 }
@@ -341,7 +366,7 @@ void RangeInputType::ListAttributeTargetChanged() {
   if (auto* object = GetElement().GetLayoutObject())
     object->SetSubtreeShouldDoFullPaintInvalidation();
   Element* slider_track_element = SliderTrackElement();
-  if (slider_track_element->GetLayoutObject()) {
+  if (slider_track_element && slider_track_element->GetLayoutObject()) {
     slider_track_element->GetLayoutObject()->SetNeedsLayout(
         layout_invalidation_reason::kAttributeChanged);
   }

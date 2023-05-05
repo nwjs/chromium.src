@@ -5,12 +5,12 @@
 #import "ios/chrome/browser/ui/settings/price_notifications/price_notifications_mediator.h"
 
 #import "base/notreached.h"
+#import "ios/chrome/browser/shared/ui/list_model/list_model.h"
+#import "ios/chrome/browser/shared/ui/table_view/cells/table_view_detail_icon_item.h"
 #import "ios/chrome/browser/ui/icons/symbols.h"
-#import "ios/chrome/browser/ui/list_model/list_model.h"
 #import "ios/chrome/browser/ui/settings/price_notifications/price_notifications_constants.h"
 #import "ios/chrome/browser/ui/settings/price_notifications/price_notifications_consumer.h"
 #import "ios/chrome/browser/ui/settings/price_notifications/price_notifications_navigation_commands.h"
-#import "ios/chrome/browser/ui/table_view/cells/table_view_detail_icon_item.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util.h"
@@ -18,12 +18,6 @@
 #if !defined(__has_feature) || !__has_feature(objc_arc)
 #error "This file requires ARC support."
 #endif
-
-namespace {
-
-NSString* const kTrackingPriceImageName = @"line_downtrend";
-
-}  // namespace
 
 // List of items.
 typedef NS_ENUM(NSInteger, ItemType) {
@@ -53,7 +47,6 @@ typedef NS_ENUM(NSInteger, ItemType) {
                      detailText:nil
                          symbol:kDownTrendSymbol
           symbolBackgroundColor:[UIColor colorNamed:kPink500Color]
-                      iconImage:kTrackingPriceImageName
         accessibilityIdentifier:kSettingsPriceNotificationsPriceTrackingCellId];
   }
   return _priceTrackingItem;
@@ -74,7 +67,6 @@ typedef NS_ENUM(NSInteger, ItemType) {
                                     detailText:(NSString*)detailText
                                         symbol:(NSString*)symbol
                          symbolBackgroundColor:(UIColor*)backgroundColor
-                                     iconImage:(NSString*)imageName
                        accessibilityIdentifier:
                            (NSString*)accessibilityIdentifier {
   TableViewDetailIconItem* detailItem =
@@ -84,14 +76,10 @@ typedef NS_ENUM(NSInteger, ItemType) {
   detailItem.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
   detailItem.accessibilityTraits |= UIAccessibilityTraitButton;
   detailItem.accessibilityIdentifier = accessibilityIdentifier;
-  if (UseSymbols()) {
-    detailItem.iconImage = CustomSettingsRootSymbol(symbol);
-    detailItem.iconTintColor = UIColor.whiteColor;
-    detailItem.iconCornerRadius = kColorfulBackgroundSymbolCornerRadius;
-    detailItem.iconBackgroundColor = backgroundColor;
-  } else {
-    detailItem.iconImage = [UIImage imageNamed:imageName];
-  }
+  detailItem.iconImage = CustomSettingsRootSymbol(symbol);
+  detailItem.iconTintColor = UIColor.whiteColor;
+  detailItem.iconCornerRadius = kColorfulBackgroundSymbolCornerRadius;
+  detailItem.iconBackgroundColor = backgroundColor;
 
   return detailItem;
 }

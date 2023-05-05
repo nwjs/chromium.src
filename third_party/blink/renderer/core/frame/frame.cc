@@ -65,6 +65,7 @@
 #include "third_party/blink/renderer/platform/instrumentation/instance_counters.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_error.h"
+#include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
 #include "third_party/blink/renderer/platform/wtf/assertions.h"
 
 namespace blink {
@@ -353,17 +354,6 @@ void Frame::RenderFallbackContent() {
       HTMLObjectElement::ErrorEventPolicy::kDispatch);
 }
 
-void Frame::RenderFallbackContentWithResourceTiming(
-    mojom::blink::ResourceTimingInfoPtr timing,
-    const String& server_timing_value) {
-  auto* local_dom_window = To<LocalDOMWindow>(Parent()->DomWindow());
-  DOMWindowPerformance::performance(*local_dom_window)
-      ->AddResourceTimingWithUnparsedServerTiming(
-          std::move(timing), server_timing_value,
-          html_names::kObjectTag.LocalName());
-  RenderFallbackContent();
-}
-
 bool Frame::IsInFencedFrameTree() const {
   DCHECK(!IsDetached());
   if (!features::IsFencedFramesEnabled())
@@ -380,8 +370,8 @@ bool Frame::IsFencedFrameRoot() const {
   return IsInFencedFrameTree() && IsMainFrame();
 }
 
-absl::optional<mojom::blink::FencedFrameMode> Frame::GetFencedFrameMode()
-    const {
+absl::optional<blink::FencedFrame::DeprecatedFencedFrameMode>
+Frame::GetDeprecatedFencedFrameMode() const {
   DCHECK(!IsDetached());
 
   if (!features::IsFencedFramesEnabled())
@@ -390,7 +380,7 @@ absl::optional<mojom::blink::FencedFrameMode> Frame::GetFencedFrameMode()
   if (!IsInFencedFrameTree())
     return absl::nullopt;
 
-  return GetPage()->FencedFrameMode();
+  return GetPage()->DeprecatedFencedFrameMode();
 }
 
 void Frame::SetOwner(FrameOwner* owner) {
@@ -891,6 +881,29 @@ void Frame::DetachFromParent() {
     }
   }
   Parent()->RemoveChild(this);
+}
+
+HeapVector<Member<Resource>> Frame::AllResourcesUnderFrame() {
+  DCHECK(base::FeatureList::IsEnabled(features::kMemoryCacheStrongReference));
+
+  HeapVector<Member<Resource>> resources;
+  if (IsLocalFrame()) {
+    if (auto* this_local_frame = DynamicTo<LocalFrame>(this)) {
+      HeapHashSet<Member<Resource>> local_frame_resources =
+          this_local_frame->GetDocument()
+              ->Fetcher()
+              ->MoveResourceStrongReferences();
+      for (Resource* resource : local_frame_resources) {
+        resources.push_back(resource);
+      }
+    }
+  }
+
+  for (Frame* child = Tree().FirstChild(); child;
+       child = child->Tree().NextSibling()) {
+    resources.AppendVector(child->AllResourcesUnderFrame());
+  }
+  return resources;
 }
 
 bool Frame::isNwDisabledChildFrame() const

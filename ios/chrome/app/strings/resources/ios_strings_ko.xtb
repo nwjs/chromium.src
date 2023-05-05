@@ -16,6 +16,7 @@
 <translation id="1054745118061919935">계속하면 <ph name="BEGIN_LINK" />서비스 약관<ph name="END_LINK" />에 동의하는 것으로 간주됩니다.</translation>
 <translation id="1063454504051558093">다른 비밀번호를 사용하세요...</translation>
 <translation id="1066060668811609597">동기화 관리</translation>
+<translation id="1069154182096085577">이미 존재하는 비밀번호</translation>
 <translation id="1076421457278169141">코드 스캔됨</translation>
 <translation id="1076785341346483463">관리 계정과 동기화</translation>
 <translation id="1084365883616172403">Facebook 게시가 완료되었습니다.</translation>
@@ -57,6 +58,7 @@
 <translation id="1283524564873030414">지난 24시간</translation>
 <translation id="1285320974508926690">이 사이트 번역 안함</translation>
 <translation id="1291506870746876680">사이트를 나가면 <ph name="BEGIN_BOLD" />"<ph name="SITE_NAME" />"<ph name="END_BOLD" /> 권한이 사용 안함으로 재설정됩니다.</translation>
+<translation id="1305822519689023679">Google 계정에서 언제든지 비밀번호를 사용할 수 있도록 본인 인증을 완료하세요.</translation>
 <translation id="1312721752506309252">향상된 보호 모드를 사용 중입니다.</translation>
 <translation id="1321993286294231467">이미지를 저장하는 중에 오류가 발생했습니다.</translation>
 <translation id="1322735045095424339">조직에서 시크릿 모드 사용을 요구함</translation>
@@ -81,6 +83,7 @@
 <translation id="149095475893949513">웹사이트에서 구성 프로필을 다운로드하려고 합니다.</translation>
 <translation id="1491277525950327607">설정을 전환하려면 두 번 탭하세요.</translation>
 <translation id="1492417797159476138">이미 사이트에 사용 중인 사용자 이름입니다.</translation>
+<translation id="1497590942294823549">메뉴 → 비밀번호 관리자</translation>
 <translation id="1498283581832036924"><ph name="WEBSITE" /> 계정은 삭제되지 않습니다.</translation>
 <translation id="1506063256525392513">액세스를 허용하면 사진을 찍고, 업로드하고, QR 코드를 스캔할 수 있습니다.</translation>
 <translation id="1509486075633541495">웹사이트에 로그인</translation>
@@ -105,6 +108,7 @@
 <translation id="1626771852476987600">재사용된 비밀번호 <ph name="COUNT" />개</translation>
 <translation id="1641113438599504367">세이프 브라우징</translation>
 <translation id="1644574205037202324">방문 기록</translation>
+<translation id="165008673352427892">새로운 기능</translation>
 <translation id="1650222530560417226">모든 탭에서 앞으로 자바스크립트 콘솔 로그 및 오류를 수집하려면 '로그 기록 시작' 버튼을 탭하세요. 이 페이지가 닫히거나 '로그 기록 중지'를 탭할 때까지 로그가 수집됩니다(메모리에만 저장됨).</translation>
 <translation id="1653432787084483144">{count,plural, =1{키보드 위에 저장된 비밀번호 {count}개가 있습니다.}other{키보드 위에 저장된 비밀번호 {count}개가 있습니다.}}</translation>
 <translation id="1657011748321897393">네트워크에 연결되어 있지 않아 공유하지 못했습니다.</translation>
@@ -117,16 +121,18 @@
 <translation id="1689333818294560261">닉네임</translation>
 <translation id="1700629756560807968"><ph name="NUMBER_OF_SELECTED_BOOKMARKS" />개 항목 선택됨</translation>
 <translation id="1715515772563243997"><ph name="SITE" /> 사이트를 신뢰하는 경우 저장된 비밀번호를 사용하여 로그인할 수 있습니다.</translation>
-<translation id="173842016780303328">부분 번역에 실패했습니다.</translation>
 <translation id="1740468249224277719">설치하려면 두 번 탭하세요.</translation>
+<translation id="1750238553597293878">Google 계정의 비밀번호를 계속 사용하세요.</translation>
 <translation id="1752547299766512813">비밀번호 저장</translation>
 <translation id="1753905327828125965">자주 방문한 페이지</translation>
+<translation id="1767766085187034454">Google 번역</translation>
 <translation id="1789803444939621101"><ph name="USER_NAME" />님, 다시 방문해 주셔서 감사합니다</translation>
 <translation id="1803264062614276815">카드 소유자 이름</translation>
 <translation id="1809939268435598390">폴더 삭제</translation>
 <translation id="1813414402673211292">인터넷 사용 기록 삭제</translation>
 <translation id="1815941218935345331">비밀번호</translation>
 <translation id="1820259098641718022">읽기 목록에 추가됨</translation>
+<translation id="1829392566394960110">{COUNT,plural, =0{유출된 비밀번호}=1{유출된 비밀번호 {COUNT}개}other{유출된 비밀번호 {COUNT}개}}</translation>
 <translation id="1832848789136765277">동기화 데이터에 항상 액세스하려면 본인 확인 절차를 거치세요.</translation>
 <translation id="1870148520156231997">비밀번호 표시</translation>
 <translation id="1872096359983322073">토치</translation>
@@ -213,6 +219,8 @@
 <translation id="2500374554657206846">비밀번호 저장 옵션</translation>
 <translation id="2523363575747517183">다른 애플리케이션을 열려는 반복적인 시도가 실행되는 웹사이트입니다.</translation>
 <translation id="2529021024822217800">모두 열기</translation>
+<translation id="2547458583188611426">동기화가 작동하지 않습니다. 동기화를 시작하려면 암호를 입력하세요.</translation>
+<translation id="2551153019974022505">계정 오류</translation>
 <translation id="2556092377360758201">보호되지 않음(권장되지 않음)</translation>
 <translation id="2562041823070056534"><ph name="DEVICE_NAME" />에 보내는 중...</translation>
 <translation id="2576499762020411840">내 Google 계정에서 비밀번호 사용 및 저장</translation>
@@ -244,7 +252,6 @@
 <translation id="2747003861858887689">이전 필드</translation>
 <translation id="2749231692441336879"><ph name="CHANNEL_NAME" /> 사이트를 팔로우했습니다.</translation>
 <translation id="2764831210418622012">방금 전</translation>
-<translation id="2768727608073497433">선택한 텍스트가 비어 있습니다.</translation>
 <translation id="2773292004659987824">시크릿 검색</translation>
 <translation id="277771892408211951">언어 선택</translation>
 <translation id="2780046210906776326">이메일 계정이 없음</translation>
@@ -261,6 +268,7 @@
 <translation id="2834399722155632105">3. 비밀번호 옵션 탭하기</translation>
 <translation id="2834956026595107950"><ph name="TITLE" />, <ph name="STATE" />, <ph name="URL" /></translation>
 <translation id="2843803966603263712">번역 설정 재설정</translation>
+<translation id="284581348330507117">사용한 적이 없는 비밀번호를 만드세요.</translation>
 <translation id="2848086008667475748">설정에서 기본 브라우저로 지정…</translation>
 <translation id="2858204748079866344">Chrome에서는 개인 정보 보호를 위해 이 입력란의 비밀번호를 자동 완성하지 않습니다.</translation>
 <translation id="285960592395650245">다운로드 다시 시도</translation>
@@ -373,6 +381,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="3595252146048399851">언제든지 <ph name="BEGIN_LINK" />설정<ph name="END_LINK" />에서 동기화할 항목을 선택할 수 있습니다. Google에서는 사용자의 방문 기록을 기반으로 Google 검색 및 기타 서비스를 맞춤설정할 수 있습니다.</translation>
 <translation id="3603009562372709545">링크 URL 복사</translation>
 <translation id="3607167657931203000">데이터 자동 완성</translation>
+<translation id="3608008480985212611">환경설정을 관리하려면 로그인하세요.</translation>
 <translation id="3609785682760573515">동기화 중...</translation>
 <translation id="3631443864840848029">사이트의 현재 비밀번호를 저장해 두시기 바랍니다.</translation>
 <translation id="3638472932233958418">웹페이지 미리 로드하기</translation>
@@ -396,6 +405,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="3810973564298564668">관리</translation>
 <translation id="3818293389945649617">다음 찾기</translation>
 <translation id="3819183753496523827">오프라인 상태입니다. 인터넷 연결을 확인한 후 다시 시도해 보세요.</translation>
+<translation id="3832419617903252251">비밀번호가 이 기기에만 저장됨</translation>
 <translation id="3835964409414434850">다음 탭으로 이동</translation>
 <translation id="3838691874161539578">저장된 비밀번호를 점검하여 보안을 강화하고 온라인에서 더 안전하게 보호하세요.</translation>
 <translation id="385051799172605136">뒤로</translation>
@@ -405,6 +415,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="3863769054730344136">기기로 전송</translation>
 <translation id="387280738075653372">여기에서 Chrome을 다운로드하세요.</translation>
 <translation id="3888863481921783344">일정에 초대할 수 있는 사람을 표시하는 데 사용됩니다.</translation>
+<translation id="3891414008432200754">가격</translation>
 <translation id="3892144330757387737">여기에서 방문 기록을 확인할 수 있습니다</translation>
 <translation id="3897092660631435901">메뉴</translation>
 <translation id="3904829425754749514">조직에서 동기화를 사용 중지했습니다. 북마크, 방문 기록, 비밀번호, 기타 설정은 이 기기에서 계속 확인할 수 있습니다. 변경할 경우 변경사항이 내 계정에 동기화되지는 않습니다.</translation>
@@ -414,6 +425,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="3928666092801078803">내 데이터 결합하기</translation>
 <translation id="3929457972718048006">주소</translation>
 <translation id="3943492037546055397">비밀번호</translation>
+<translation id="3951717558054674026">{count,plural, =1{취약한 비밀번호 {count}개}other{취약한 비밀번호 {count}개}}</translation>
 <translation id="3959736869653157332">메뉴 → 새 시크릿 탭</translation>
 <translation id="3967822245660637423">다운로드 완료</translation>
 <translation id="3968505803272650567">관심분야 관리</translation>
@@ -430,7 +442,6 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="4063300985191096908">피드로 이동</translation>
 <translation id="408404951701638773">검색창을 사용하기가 더욱 쉬워졌습니다.</translation>
 <translation id="4092655288299341041">도움말 표시</translation>
-<translation id="4101942614374785540">비밀번호가 Google 계정(<ph name="ACCOUNT" />)에 저장되었습니다. 로그인하면 어디서나 비밀번호를 사용할 수 있습니다. 사용 중지하려면 <ph name="BEGIN_LINK" />설정<ph name="END_LINK" />으로 이동하세요</translation>
 <translation id="4105841739161771091">{count,plural, =1{주소 삭제}other{주소 삭제}}</translation>
 <translation id="4108998448622696017">위험한 이벤트가 발생하면 이를 감지하여 알립니다.</translation>
 <translation id="411254640334432676">다운로드에 실패했습니다.</translation>
@@ -466,8 +477,10 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="4334428914252001502">읽지 않은 기사 1개 있음</translation>
 <translation id="4338650699862464074">방문한 페이지의 URL을 Google에 전송합니다.</translation>
 <translation id="4342054591427973606">{count,plural, =1{이 기기와 다른 로그인된 기기에서 이 주소가 삭제됩니다.}other{이 기기와 다른 로그인된 기기에서 이 주소가 삭제됩니다.}}</translation>
+<translation id="4342946437867096381">이미 Google 계정에 이 사이트의 비밀번호를 저장했습니다. Google에서 최근 비밀번호를 선택할 수 있습니다.</translation>
 <translation id="4343046787186034850">카메라 및 마이크 액세스 허용됨</translation>
 <translation id="4359125752503270327">이 페이지는 다른 애플리케이션에서 열립니다.</translation>
+<translation id="4371526908359194219">이메일 알림</translation>
 <translation id="4375040482473363939">QR 코드 검색</translation>
 <translation id="4378154925671717803">전화기</translation>
 <translation id="4389019817280890563">언어를 변경하려면 탭하세요.</translation>
@@ -476,10 +489,13 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="4454246407045105932">언어 추가</translation>
 <translation id="4461286950227634995">비밀번호 저장 여부 확인</translation>
 <translation id="4462491365653392320">탭에서 가격 추적</translation>
+<translation id="4469324811108161144">메모에는 <ph name="CHARACTER_LIMIT" />자(영문 기준)까지만 저장할 수 있습니다.</translation>
 <translation id="4469418912670346607">설정 계속하기</translation>
 <translation id="4474494258097106883">iPhone을 위한 웹브라우저</translation>
 <translation id="4476574785019001431">설정</translation>
 <translation id="448433063499977729">동기화가 사용 중지되었습니다</translation>
+<translation id="4488754974567924717">비밀번호가 유출되면 알려드립니다</translation>
+<translation id="4489536976005181779">{count,plural, =1{페이지가 계정({email})의 읽기 목록에 추가됨}other{페이지가 계정({email})의 읽기 목록에 추가됨}}</translation>
 <translation id="4496373720959965247">탭 추가 및 페이지 간에 전환</translation>
 <translation id="4502566650163919158">지금 확인</translation>
 <translation id="4505980578794259603"><ph name="TIME" />에 마지막으로 확인함</translation>
@@ -490,6 +506,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="4536418791685807335">다시 로그인해 주세요.</translation>
 <translation id="4540780316273593836">문제 발생</translation>
 <translation id="457386861538956877">더보기...</translation>
+<translation id="4587235830039045480">Google 계정에 비밀번호 저장</translation>
 <translation id="4587589328781138893">사이트</translation>
 <translation id="4588014171431912783">마지막 백업에 따라 동기화 설정이 복원됩니다. <ph name="BEGIN_LINK" />동기화할 수 있는 항목 확인하기<ph name="END_LINK" /></translation>
 <translation id="4592368184551360546">키보드</translation>
@@ -518,6 +535,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="4737560986434232178">최근 탭 검색</translation>
 <translation id="473775607612524610">업데이트</translation>
 <translation id="4747097190499141774">Google Pay 결제 수단 및 주소는 암호로 암호화되지 않습니다. 암호를 아는 사람만 암호화된 데이터를 읽을 수 있습니다. 암호는 Google로 전송되거나 Google에 저장되지 않습니다. 암호가 기억나지 않거나 이 설정을 변경하려면 동기화를 재설정해야 합니다. <ph name="BEGIN_LINK" />자세히 알아보기<ph name="END_LINK" /></translation>
+<translation id="4751162929052964260"><ph name="TITLE" />, <ph name="STATE" />, 이 기기에서만, <ph name="URL" /></translation>
 <translation id="4751645464639803239">새 시크릿 탭</translation>
 <translation id="4766112107778026136">디스커버 및 팔로우</translation>
 <translation id="4775879719735953715">기본 브라우저</translation>
@@ -539,6 +557,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="48274138579728272">읽음으로 표시</translation>
 <translation id="4833686396768033263">최근 탭을 사용할 수 없음</translation>
 <translation id="4833786495304741580">사용 통계 및 비정상 종료 보고서를 Google에 자동으로 전송합니다.</translation>
+<translation id="4834499902900503484">Chrome에 로그인하면 저장한 비밀번호가 내 Google 계정에 저장됩니다. 이 기능을 사용 중지하려면 <ph name="BEGIN_LINK" />설정으로 이동하세요<ph name="END_LINK" />.</translation>
 <translation id="4840495572919996524">북마크, 방문 기록, 비밀번호 등이 더 이상 Google 계정과 동기화되지 않습니다.</translation>
 <translation id="4844899002472726590">관심 주제를 보고 수정합니다.</translation>
 <translation id="4848999860252535517"><ph name="WEBSITE" />의 비밀번호를 삭제하시겠습니까?</translation>
@@ -563,6 +582,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="4986678885919050584">기기에서 삭제</translation>
 <translation id="498985224078955265">이 탭을 다른 기기로 보내려면 두 기기 모두에서 Chrome에 로그인하세요.</translation>
 <translation id="5005498671520578047">비밀번호 복사</translation>
+<translation id="5016420433031926653"><ph name="USER_EMAIL" /> 이메일 주소로 보내기</translation>
 <translation id="5017828934289857214">나중에 알림</translation>
 <translation id="5037676449506322593">모두 선택</translation>
 <translation id="5039804452771397117">허용</translation>
@@ -582,6 +602,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="5150492518600715772">기기로 보내기</translation>
 <translation id="5168414296986405587">iPadOS 최적화</translation>
 <translation id="5173088371991956744">동기화를 위해 본인 인증 필요</translation>
+<translation id="5176312250994681348">최근 비밀번호 유지</translation>
 <translation id="5181140330217080051">다운로드 중</translation>
 <translation id="5184329579814168207">Chrome에서 열기</translation>
 <translation id="5186185447130319458">비공개</translation>
@@ -616,6 +637,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="54401264925851789">페이지 보안 정보</translation>
 <translation id="5443952882982198570">신용카드</translation>
 <translation id="5444892875087332195">북마크</translation>
+<translation id="5453250766792920795">{count,plural, =1{계정({email})에 북마크가 저장됨}other{계정({email})에 북마크가 저장됨}}</translation>
 <translation id="5457226814769348910">오프라인 버전 열기</translation>
 <translation id="5489208564673669003">모든 사이트의 쿠키를 관리하려면 <ph name="BEGIN_LINK" />쿠키 설정<ph name="END_LINK" />을 참조하세요.</translation>
 <translation id="5490005495580364134">모든 쿠키 차단(권장되지 않음)</translation>
@@ -642,11 +664,13 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="5669528293118408608">www</translation>
 <translation id="5669617676038747374">QR 코드 만들기</translation>
 <translation id="567881659373499783">버전 <ph name="PRODUCT_VERSION" /></translation>
+<translation id="5683499062697987550">Google 계정에서 비밀번호를 사용하고 저장하려면 본인 인증을 완료하세요.</translation>
 <translation id="5690398455483874150">{count,plural, =1{Chrome 창 1개 표시 중}other{Chrome 창 {count}개 표시 중}}</translation>
 <translation id="5701270923492462699">카메라 액세스 허용됨</translation>
 <translation id="5704908597376970822">로그인할 수 없습니다</translation>
 <translation id="5706552126692816153">1일 전 사용됨</translation>
 <translation id="5711039611392265845">개인 정보 보호, 보안, 데이터 수집에 관한 설정을 더 보려면 <ph name="BEGIN_LINK" />동기화 및 Google 서비스<ph name="END_LINK" />를 참조하세요.</translation>
+<translation id="5718049162805123412">지금 변경해야 합니다.</translation>
 <translation id="5724941645893276623">비공개로 웹을 탐색하려면 새 탭을 추가하세요.</translation>
 <translation id="5728700505257787410">죄송합니다. 계정에 로그인하는 중에 문제가 발생했습니다.</translation>
 <translation id="5733084997078800044">Chrome 관련 도움말</translation>
@@ -657,6 +681,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="5755162682436943950">로그아웃했습니다. 대화상자를 열어 로그인하고 동기화를 사용 설정합니다.</translation>
 <translation id="5758631781033351321">여기에서 읽기 목록을 확인할 수 있습니다</translation>
 <translation id="5765456154762864099">메뉴 → 설정 → 기본 브라우저</translation>
+<translation id="5777888488419460501">계정에 저장</translation>
 <translation id="5782227691023083829">번역 중...</translation>
 <translation id="5791632441210678828">팔로우 피드의 정렬 버튼.</translation>
 <translation id="5802829331520313983">설정…</translation>
@@ -681,6 +706,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="5899314093904173337">근처에 있는 사용자와 공유하려면 상대방에게 카메라나 QR 스캐너 앱으로 QR 코드를 스캔해 달라고 요청하세요.</translation>
 <translation id="5911030830365207728">Google 번역</translation>
 <translation id="5913600720976431809">페이지 번역 옵션</translation>
+<translation id="5922999516621365983">탭을 고정하려면 여기로 드래그하세요</translation>
 <translation id="5938160824633642847">기기의 저장용량이 거의 가득 찼습니다. 여유 공간을 확보한 후 다시 시도해 보세요.</translation>
 <translation id="5948291296578561264">이렇게 하면 사진 라이브러리에 사진을 저장할 수 있습니다.</translation>
 <translation id="5951816930277761335">링크 공유</translation>
@@ -720,6 +746,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="6152406514676263192">동기화하여 내 관심분야와 가장 관련성이 높은 콘텐츠를 받아보세요.</translation>
 <translation id="6159839020698489198">선택사항</translation>
 <translation id="6170450281939467187">번역 실패</translation>
+<translation id="6173499589275053515">비밀번호가 Google 계정(<ph name="EMAIL" />)에 저장되었습니다.</translation>
 <translation id="6177442314419606057">Chrome에서 검색</translation>
 <translation id="6184086493125982861">탭 표시</translation>
 <translation id="6187302354554850004">최근 동기화: <ph name="LAST_USED_TIME" /></translation>
@@ -727,9 +754,11 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="6193424046394092997">{count,plural, =1{{title}에 북마크를 생성함}other{{title}에 북마크를 생성함}}</translation>
 <translation id="6196207969502475924">음성 검색</translation>
 <translation id="6202364442240589072">{COUNT,plural, =1{탭 {COUNT}개 닫기}other{탭 {COUNT}개 닫기}}</translation>
+<translation id="6213567400989743524">닫은 경고</translation>
 <translation id="6219550825416862075">다시 방문해 주셔서 감사합니다</translation>
 <translation id="6219688215832490856">번역 안함</translation>
 <translation id="6223816392543092032">모든 기기에서 북마크, 방문 기록, 비밀번호, 기타 설정을 동기화합니다</translation>
+<translation id="6224759905509595045">본인 인증…</translation>
 <translation id="6229318421047648685">데스크톱 사이트로 보기</translation>
 <translation id="6231782223312638214">추천</translation>
 <translation id="6232329973559504466">시크릿 검색</translation>
@@ -744,11 +773,13 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="6324669097367352121">로그인 설정</translation>
 <translation id="6337234675334993532">암호화</translation>
 <translation id="633809752005859102">문제가 발생했습니다. 조사해 보겠습니다.</translation>
+<translation id="6340285871011301182">부분 번역을 사용할 수 없습니다.</translation>
 <translation id="6342069812937806050">방금</translation>
 <translation id="6344783595350022745">텍스트 삭제</translation>
 <translation id="6346549652287021269">다운로드를 새로 시작하시겠습니까?</translation>
 <translation id="6347953390226388422">{count,plural, =1{Google 계정(<ph name="USER_EMAIL" />)과 이 기기에서 이 주소가 삭제됩니다.}other{Google 계정(<ph name="USER_EMAIL" />)과 이 기기에서 이 주소가 삭제됩니다.}}</translation>
 <translation id="634878792104344809">비밀번호, 방문 기록 등을 모든 기기에 동기화</translation>
+<translation id="6355820205320395730">취약한 비밀번호는 추측하기 쉽습니다. 안전한 비밀번호를 만들어야 합니다. <ph name="BEGIN_LINK" />보안 도움말 더보기<ph name="END_LINK" /></translation>
 <translation id="6361848730467328243"><ph name="DOMAIN_NAME" /> 팔로우</translation>
 <translation id="6362362396625799311">시크릿 탭 없음</translation>
 <translation id="6363526231572697780">사용자 이름 없음</translation>
@@ -767,6 +798,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 
 <ph name="TIME" />에 동기화 암호로 데이터가 암호화되었습니다. 동기화를 시작하려면 입력하세요.</translation>
 <translation id="6418346271604475326">PDF 준비 중</translation>
+<translation id="6421095165635308">{count,plural, =1{계정({email})의 {title}에 북마크가 저장됨}other{계정({email})의 {title}에 북마크가 저장됨}}</translation>
 <translation id="6429213933892582367">비밀번호 옵션을 엽니다.</translation>
 <translation id="6434591244308415567">오류가 발생했습니다. 나중에 다시 시도해 보세요.</translation>
 <translation id="6435236283694032571">읽기 목록에 추가</translation>
@@ -791,6 +823,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="650279896687777322">자세히 알아보기...</translation>
 <translation id="6510072653668207258">나중에 알림</translation>
 <translation id="651505212789431520">동기화를 취소하시겠습니까? 언제든지 설정에서 동기화를 사용 설정할 수 있습니다.</translation>
+<translation id="6518133107902771759">확인</translation>
 <translation id="6524918542306337007">시크릿 모드를 사용할 수 없음</translation>
 <translation id="6530992499366869131">정보 유출로 인해 비밀번호가 노출된 경우 알림</translation>
 <translation id="6537746030088321027">example.com</translation>
@@ -820,6 +853,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="6672241253012342409">사이트에서 사용자의 로그인 상태를 유지하거나 장바구니에 담긴 상품을 기억하는 등 탐색 환경을 개선하는 데 쿠키를 사용할 수 있습니다.
 
 시크릿 모드에 있는 동안에는 사이트에서 사용자의 다양한 사이트 탐색 활동 정보를 이용해 광고 맞춤설정 등의 작업을 하는 데 쿠키를 사용할 수 없습니다.</translation>
+<translation id="6672697278890207089">암호 입력</translation>
 <translation id="6674571176963658787">동기화를 시작하려면 암호를 입력하세요.</translation>
 <translation id="667999046851023355">문서</translation>
 <translation id="6684906340059221832">가격 추적 중</translation>
@@ -838,6 +872,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="6801927553864092214">비공개로 탐색하려면 시크릿 탭을 여세요.</translation>
 <translation id="6807889908376551050">모두 표시...</translation>
 <translation id="681368974849482173">북마크가 생성되었습니다.</translation>
+<translation id="6822587385560699678">사용 설정하면 비밀번호가 <ph name="ACCOUNT" />에 저장됩니다. 사용 중지하면 비밀번호가 이 기기에만 저장됩니다</translation>
 <translation id="683022620450280906">어느 기기에서든 저장된 비밀번호를 사용할 수 있습니다. <ph name="EMAIL" />의 Google 비밀번호 관리자에 비밀번호가 저장됩니다.</translation>
 <translation id="6831043979455480757">번역</translation>
 <translation id="6842136130964845393">저장된 비밀번호에 항상 액세스하려면 본인 확인 절차를 거치세요.</translation>
@@ -852,6 +887,8 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="6888009575607455378">변경사항을 삭제하시겠습니까?</translation>
 <translation id="6896758677409633944">복사</translation>
 <translation id="6897187120838603299">비밀번호가 현재 기기에 저장됩니다.</translation>
+<translation id="6906448540340261898">Google 계정의 비밀번호를 언제든지 사용할 수 있도록 설정하세요.</translation>
+<translation id="6913136913033237761"><ph name="FOLDER_NAME" />, 이 기기에서만 표시</translation>
 <translation id="6914583639806229067">복사한 이미지 검색</translation>
 <translation id="6914783257214138813">내보낸 파일을 볼 수 있는 모든 사용자에게 비밀번호가 표시됩니다.</translation>
 <translation id="6930799952781667037">이 언어로 변경하려면 탭하세요.</translation>
@@ -874,9 +911,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="7029809446516969842">비밀번호</translation>
 <translation id="7053983685419859001">차단</translation>
 <translation id="7062545763355031412">동의 및 계정 전환</translation>
-<translation id="707592680990535433">Google 계정으로 Chrome에 로그인한 후 환경설정을 관리할 수 있습니다</translation>
 <translation id="7080806333218412752">세이프 브라우징 서비스에 URL을 전송하여 확인하도록 합니다. 또한 페이지, 다운로드 항목, 확장 프로그램 활동, 시스템 정보의 표본을 일부 전송하여 새로운 위협을 발견하는 데 도움을 줍니다. 사용자가 로그인하면 이 데이터를 사용자의 Google 계정에 일시적으로 연결하여 Google 앱 전반에서 사용자를 보호합니다.</translation>
-<translation id="7083860864742905105">사용 설정하면 비밀번호가 <ph name="ACCOUNT" />에 저장됩니다. 사용 중지하면 비밀번호가 이 기기에만 저장됩니다</translation>
 <translation id="7095110968493193530"><ph name="EMAIL" />의 Google 비밀번호 관리자에 저장</translation>
 <translation id="7099761977003084116">최근 탭</translation>
 <translation id="7102005569666697658">다운로드 중… <ph name="FILE_SIZE" /></translation>
@@ -884,6 +919,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="7108762695052995889">사이트 방문</translation>
 <translation id="7133798577887235672">이름</translation>
 <translation id="7136892417564438900">카메라를 사용할 수 없음</translation>
+<translation id="7161230316646448869">모든 기기에서 북마크, 방문 기록 등을 동기화하기</translation>
 <translation id="7162168282402939716"><ph name="BIOMETRIC_AUTHENITCATION_TYPE" /> 인증으로 시크릿 탭 잠금 해제</translation>
 <translation id="7172852049901402487">보안 문제로부터 비밀번호를 안전하게 보호합니다.</translation>
 <translation id="7173114856073700355">설정 열기</translation>
@@ -937,6 +973,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="7600965453749440009"><ph name="LANGUAGE" /> 번역 안함</translation>
 <translation id="7603852183842204213">팝업 차단(<ph name="NUMBER_OF_BLOCKED_POPUPS" />개)</translation>
 <translation id="7607521702806708809">비밀번호 삭제</translation>
+<translation id="7611459119367035420">여기에서 고정된 탭을 찾을 수 있습니다.</translation>
 <translation id="7638584964844754484">암호가 잘못되었습니다.</translation>
 <translation id="7646263789464975852">메뉴 → 설정 → 안전 확인</translation>
 <translation id="7646772052135772216">비밀번호 동기화가 작동하지 않음</translation>
@@ -947,11 +984,14 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="7679915578945954324">사이트 주소 복사됨</translation>
 <translation id="7687508192620387263">캘린더 파일 사용 가능</translation>
 <translation id="7701040980221191251">없음</translation>
+<translation id="7711440461521638739">재사용된 비밀번호가 없습니다</translation>
 <translation id="7720410380936703141">다시 시도</translation>
 <translation id="7726702057919861819">메뉴 → 방문 기록 → 인터넷 사용 기록 삭제</translation>
+<translation id="7733646263819020771"><ph name="BOOKMRK_NAME" />. 이 기기에서만 표시.</translation>
 <translation id="7738120385185846461">문제 신고…</translation>
 <translation id="7741325291586284254">새 시크릿 탭 페이지</translation>
 <translation id="7744394900930577716">다른 앱의 비밀번호</translation>
+<translation id="7749790401023484470">선택한 텍스트가 없습니다.</translation>
 <translation id="7756478488453921771">메뉴 → 설정 → 결제 수단</translation>
 <translation id="7765158879357617694">이동</translation>
 <translation id="7772032839648071052">암호 확인</translation>
@@ -1017,9 +1057,11 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="8114753159095730575">파일을 다운로드할 수 있습니다. 화면 하단에서 옵션을 선택할 수 있습니다.</translation>
 <translation id="81313319706244542">2. 비밀번호 탭하기</translation>
 <translation id="8132598642024322408">정가 <ph name="PREVIOUS_PRICE" />인 제품을 <ph name="PRICE" />에 판매 중</translation>
+<translation id="813370552429173916">사이트 또는 앱별로 다른 비밀번호를 사용하세요. 재사용된 비밀번호가 유출되면 다른 계정도 도용당할 수 있습니다. 클릭하여 웹사이트를 열고 지금 변경하세요.</translation>
 <translation id="8136856065410661948">Chrome 및 Google 렌즈에서 Apple 캘린더 일정을 만들 때 사용됩니다.</translation>
 <translation id="8156478151976189188">비밀번호 동기화가 작동하지 않음</translation>
 <translation id="8157532349231307196">계정 <ph name="NUMBER_OF_ACCOUNTS" />개</translation>
+<translation id="8179976553408161302">Enter</translation>
 <translation id="8193953846147532858"><ph name="BEGIN_LINK" />내 기기<ph name="END_LINK" /> · <ph name="EMAIL" /></translation>
 <translation id="8197543752516192074">페이지 번역</translation>
 <translation id="8205564605687841303">취소</translation>
@@ -1028,6 +1070,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="8225985093977202398">캐시된 이미지 및 파일</translation>
 <translation id="8237382152611443140">AutoFill Passwords(비밀번호 자동 완성) 설정을 엽니다.</translation>
 <translation id="8261506727792406068">삭제</translation>
+<translation id="8264966119170358612">저장된 비밀번호 중 일부가 서드 파티의 정보 유출로 인해 노출되었습니다. <ph name="BEGIN_LINK" />자세히 알아보기<ph name="END_LINK" /></translation>
 <translation id="8271720166617117963">수락 및 로그인</translation>
 <translation id="8278938988428169257">단어 또는 구문 입력</translation>
 <translation id="8281781826761538115">기본값 - <ph name="DEFAULT_LOCALE" /></translation>
@@ -1042,10 +1085,11 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="8343993175958086504">콘텐츠를 백업하고 어느 기기에서나 사용하세요.</translation>
 <translation id="8378714024927312812">조직에서 관리</translation>
 <translation id="8386068868580335421">재설정</translation>
+<translation id="838867811594159347">암호 입력…</translation>
 <translation id="8393889347136007944">탭을 <ph name="THRESHOLD" />일 동안 사용하지 않음</translation>
 <translation id="8407669440184693619">이 사이트의 비밀번호를 찾을 수 없음</translation>
 <translation id="842017693807136194">다음을 사용하여 로그인함</translation>
-<translation id="8427613705947111202">메뉴 → 설정 → 비밀번호</translation>
+<translation id="8425693829365242963">고유한 비밀번호</translation>
 <translation id="8428045167754449968">시/군/구</translation>
 <translation id="8428213095426709021">설정</translation>
 <translation id="8428634594422941299">확인</translation>
@@ -1066,6 +1110,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="8533670235862049797">세이프 브라우징 사용 설정됨</translation>
 <translation id="8534481786647257214">Google+ 게시가 완료되었습니다.</translation>
 <translation id="8548878600947630424">페이지에서 찾기...</translation>
+<translation id="8556590991644167667">{count,plural, =1{경고 {count}개를 닫았습니다}other{경고 {count}개를 닫았습니다}}</translation>
 <translation id="8558480467877843976">이제 언제든지 메시지, 문서, 기타 앱에서 탐색하거나 링크를 탭하여 Chrome을 사용할 수 있습니다.</translation>
 <translation id="8588404856427128947">사용 안함</translation>
 <translation id="8591976964826315682">시크릿 모드에서 서드 파티 쿠키 차단</translation>
@@ -1074,9 +1119,11 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="8626393685701737946">설정 &gt; 콘텐츠 설정에서 기본 사이트 보기를 데스크톱으로 변경할 수 있습니다.</translation>
 <translation id="8636825310635137004">다른 기기에서 탭을 가져오려면 동기화를 사용 설정하세요.</translation>
 <translation id="8654802032646794042">취소</translation>
+<translation id="8663764600409216912">추측하기 어려운 비밀번호를 사용 중입니다</translation>
 <translation id="8668210798914567634">읽기 목록에 저장된 페이지입니다.</translation>
 <translation id="8680787084697685621">계정 로그인 세부정보의 유효기간이 만료되었습니다.</translation>
 <translation id="8693663554456874301">{count,plural, =1{탭 닫기}other{탭 닫기}}</translation>
+<translation id="8703536910991780768">안전한 비밀번호</translation>
 <translation id="8706588385081740091">비밀번호</translation>
 <translation id="8717864919010420084">링크 복사</translation>
 <translation id="8721297211384281569">도구 메뉴</translation>
@@ -1113,17 +1160,23 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="890565330728586731">뒤로</translation>
 <translation id="8909135823018751308">공유…</translation>
 <translation id="8911759861431145525">'추가'를 탭하고 정보 입력</translation>
+<translation id="891282356902782456">비밀번호는 이 기기에만 저장됩니다. 다른 기기에서 사용하려면 Google 계정(<ph name="EMAIL" />)에 저장하세요.</translation>
 <translation id="891658175948553296">사이트의 텍스트 강조표시</translation>
 <translation id="8917490105272468696">사용</translation>
 <translation id="8928133177108699615">데스크톱</translation>
+<translation id="8934982071228289624">이 비밀번호를 계정에 저장하려면 먼저 기기에 비밀번호를 설정해야 합니다.</translation>
+<translation id="894191600409472540">안전한 비밀번호를 만드세요.</translation>
 <translation id="8952559610785099500">비밀번호 추가</translation>
 <translation id="8953046091948372197">여기에서 비밀번호 확인</translation>
 <translation id="895541991026785598">문제 신고</translation>
+<translation id="8971545611707025079">다시 확인</translation>
 <translation id="8974714402877957201">1. iPad 설정을 엽니다.</translation>
 <translation id="8976382372951310360">도움말</translation>
 <translation id="8976414606286374109">카드가 Google 계정에 저장됩니다.</translation>
+<translation id="8978059030508051916">{count,plural, =0{유출된 비밀번호 없음}=1{유출된 비밀번호 {count}개}other{유출된 비밀번호 {count}개}}</translation>
 <translation id="8981454092730389528">Google 활동 제어</translation>
 <translation id="8985320356172329008">다음 계정으로 Google에 로그인함:</translation>
+<translation id="8998289560386111590">내 기기에서 사용할 수 없음</translation>
 <translation id="9000089900434778519">사용 중인 검색엔진은 <ph name="DSE_NAME" />입니다. 해당 검색엔진에서 검색 기록을 삭제할 수 있는 경우 검색 기록 삭제 안내를 확인하세요.</translation>
 <translation id="9008201768610948239">무시</translation>
 <translation id="9034759925968272072">Google 계정에서 로그아웃되지 않습니다. <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" />에서 내 Google 계정에 있는 다른 형식의 탐색 기록을 확인할 수 있습니다.</translation>
@@ -1152,7 +1205,6 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="9165320910061267720">가격 인하 알림을 받으려면 iOS 설정에서 알림을 사용 설정해야 합니다.</translation>
 <translation id="9177438225260810839">열린 탭 검색</translation>
 <translation id="9188680907066685419">관리 계정에서 로그아웃</translation>
-<translation id="9193147658040604536">탭을 고정하려면 여기로 드래그하세요.</translation>
 <translation id="9200875785104711666"><ph name="TIME" />일 전</translation>
 <translation id="9203116392574189331">Handoff</translation>
 <translation id="9219154867334666734">탭 검색…</translation>

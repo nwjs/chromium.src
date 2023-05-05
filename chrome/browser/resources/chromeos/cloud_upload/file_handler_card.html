@@ -1,4 +1,12 @@
 <style>
+  :host {
+    outline: none;
+  }
+
+  #container {
+    position: relative;
+  }
+
   #card {
     align-items: center;
     background-color: var(--cros-textfield-background-color);
@@ -11,7 +19,11 @@
     user-select: none;
   }
 
-  #card[checked] {
+  #card:hover {
+    background-color: var(--cros-ripple-color);
+  }
+
+  :host(:focus-visible) #card {
     border: 2px solid var(--cros-focus-ring-color);
   }
 
@@ -19,12 +31,15 @@
     margin-block-start: 8px;
   }
 
-  .round-top {
+  /* Apply border radius to both #card and paper-ripple */
+  #container.round-top #card,
+  #container.round-top paper-ripple {
     border-top-left-radius: 12px;
     border-top-right-radius: 12px;
   }
 
-  .round-bottom {
+  #container.round-bottom #card,
+  #container.round-bottom paper-ripple {
     border-bottom-left-radius: 12px;
     border-bottom-right-radius: 12px;
   }
@@ -53,25 +68,38 @@
   #icon.sheets,
   #icon.slides,
   #icon.office {
-    background: no-repeat center var(--cros-bg-color-elevation-3);
-    background-size: 20px;
     border: 1px solid var(--cros-separator-color);
   }
 
+  #icon.office {
+    background: no-repeat center var(--cros-bg-color-elevation-3);
+    background-image: url(../icons/office.svg);
+    background-size: 20px;
+  }
+
+  #icon.docs,
+  #icon.sheets,
+  #icon.slides {
+    background: no-repeat var(--cros-bg-color-elevation-3);
+  }
+
   #icon.docs {
-    background-image: url(../icons/docs.svg);
+    /**
+    The format for requesting an icon is:
+        chrome://app-icon/<app_id>/<icon_size>
+    **/
+    background-image: url(
+      chrome://app-icon/mpnpojknpmmopombnjdcgaaiekajbnjb/32);
   }
 
   #icon.sheets {
-    background-image: url(../icons/sheets.svg);
+    background-image: url(
+      chrome://app-icon/fhihpiojkbmbpdjeoajapmgkhlnakfjf/32);
   }
 
   #icon.slides {
-    background-image: url(../icons/slides.svg);
-  }
-
-  #icon.office {
-    background-image: url(../icons/office.svg);
+    background-image: url(
+      chrome://app-icon/kefjledonklijopmnomlcbpllchaibag/32);
   }
 
   #title {
@@ -110,16 +138,19 @@
     transform: rotate(0deg);
   }
 
-  #card:not([checked]) > #right-icon:not(.chevron) {
+  #card:not([selected]) > #right-icon:not(.chevron) {
     visibility: hidden;
   }
 </style>
 
-<div id="card">
-  <div id="icon"></div>
-  <div id="content">
-    <div id="title"></div>
-    <div id="description"></div>
+<div id="container">
+  <paper-ripple></paper-ripple>
+  <div id="card">
+    <div id="icon"></div>
+    <div id="content">
+      <div id="title"></div>
+      <div id="description"></div>
+    </div>
+    <div id="right-icon"></div>
   </div>
-  <div id="right-icon"></div>
 </div>

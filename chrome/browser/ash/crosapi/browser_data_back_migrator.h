@@ -23,26 +23,6 @@ namespace browser_data_back_migrator {
 constexpr char kTmpDir[] = "back_migrator_tmp";
 }  // namespace browser_data_back_migrator
 
-constexpr char kFinalStatusUMA[] = "Ash.BrowserDataBackMigrator.FinalStatus";
-constexpr char kPosixErrnoUMA[] = "Ash.BrowserDataBackMigrator.PosixErrno.";
-constexpr char kSuccessfulMigrationTimeUMA[] =
-    "Ash.BrowserDataBackMigrator.SuccessfulMigrationTime";
-
-constexpr char kPreMigrationCleanUpTimeUMA[] =
-    "Ash.BrowserDataBackMigrator.ElapsedTimePreMigrationCleanUp";
-constexpr char kMergeSplitItemsTimeUMA[] =
-    "Ash.BrowserDataBackMigrator.ElapsedTimeMergeSplitItems";
-constexpr char kDeleteAshItemsTimeUMA[] =
-    "Ash.BrowserDataBackMigrator.ElapsedTimeDeleteAshItems";
-constexpr char kMoveLacrosItemsToAshDirTimeUMA[] =
-    "Ash.BrowserDataBackMigrator.ElapsedTimeMoveLacrosItemsToAshDir";
-constexpr char kMoveMergedItemsBackToAshTimeUMA[] =
-    "Ash.BrowserDataBackMigrator.ElapsedTimeMoveMergedItemsBackToAsh";
-constexpr char kDeleteLacrosDirTimeUMA[] =
-    "Ash.BrowserDataBackMigrator.ElapsedTimeDeleteLacrosDir";
-constexpr char kDeleteTmpDirTimeUMA[] =
-    "Ash.BrowserDataBackMigrator.ElapsedTimeDeleteTmpDir";
-
 // Injects the restart function called from
 // `BrowserDataBackMigrator::AttemptRestart()` in RAII manner.
 class ScopedBackMigratorRestartAttemptForTesting {
@@ -58,6 +38,46 @@ class BrowserDataBackMigrator {
   enum class Result {
     kSucceeded,
     kFailed,
+  };
+
+  // A list of all the possible results of migration, including success and all
+  // failure types in each step of the migration.
+  //
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+  //
+  // When adding new cases to this enum, also update the following:
+  // - `BrowserDataBackMigrator::ToResult()`
+  // - `browser_data_back_migrator_metrics::TaskStatusToString()`
+  // - `Ash.BrowserDataBackMigrator.PosixErrno.{TaskStatus}` histogram
+  // - `BrowserDataBackMigratorFinalStatus` histogram enum
+  enum class TaskStatus {
+    kSucceeded = 0,
+    kPreMigrationCleanUpDeleteTmpDirFailed = 1,
+    kMergeSplitItemsCreateTmpDirFailed = 2,
+    kMergeSplitItemsCopyExtensionsFailed = 3,
+    kMergeSplitItemsCopyExtensionStorageFailed = 4,
+    kMergeSplitItemsCreateDirFailed = 5,
+    kMergeSplitItemsMergeIndexedDBFailed = 6,
+    kMergeSplitItemsMergePrefsFailed = 7,
+    kMergeSplitItemsMergeLocalStorageLevelDBFailed = 8,
+    kMergeSplitItemsMergeStateStoreLevelDBFailed = 9,
+    kMergeSplitItemsMergeSyncDataFailed = 10,
+    kDeleteAshItemsDeleteExtensionsFailed = 11,
+    kDeleteAshItemsDeleteLacrosItemFailed = 12,
+    kDeleteTmpDirDeleteFailed = 13,
+    kDeleteLacrosDirDeleteFailed = 14,
+    kMoveLacrosItemsToAshDirFailed = 15,
+    kMoveMergedItemsBackToAshMoveFileFailed = 16,
+    kMoveMergedItemsBackToAshCopyDirectoryFailed = 17,
+    kMaxValue = kMoveMergedItemsBackToAshCopyDirectoryFailed,
+  };
+
+  struct TaskResult {
+    TaskStatus status;
+
+    // Value of `errno` set after a task has failed.
+    absl::optional<int> posix_errno;
   };
 
   using BackMigrationFinishedCallback =
@@ -117,12 +137,6 @@ class BrowserDataBackMigrator {
                            DeletesLacrosItemsFromAshDirCorrectly);
   FRIEND_TEST_ALL_PREFIXES(BrowserDataBackMigratorFilesSetupTest,
                            MovesLacrosItemsToAshDirCorrectly);
-  FRIEND_TEST_ALL_PREFIXES(BrowserDataBackMigratorUMATest, RecordFinalStatus);
-  FRIEND_TEST_ALL_PREFIXES(BrowserDataBackMigratorUMATest,
-                           RecordPosixErrnoIfAvailable);
-  FRIEND_TEST_ALL_PREFIXES(BrowserDataBackMigratorUMATest,
-                           RecordMigrationTimeIfSuccessful);
-  FRIEND_TEST_ALL_PREFIXES(BrowserDataBackMigratorUMATest, TaskStatusToString);
   FRIEND_TEST_ALL_PREFIXES(BrowserDataBackMigratorTest,
                            MergesAshOnlyPreferencesCorrectly);
   FRIEND_TEST_ALL_PREFIXES(BrowserDataBackMigratorTest,
@@ -131,40 +145,6 @@ class BrowserDataBackMigrator {
                            MergesListSplitPreferencesCorrectly);
   FRIEND_TEST_ALL_PREFIXES(BrowserDataBackMigratorTest,
                            MergesLacrosPreferencesCorrectly);
-
-  // A list of all the possible results of migration, including success and all
-  // failure types in each step of the migration.
-  //
-  // These values are persisted to logs. Entries should not be renumbered and
-  // numeric values should never be reused.
-  //
-  // When adding new cases to this enum, also update the following:
-  // - `BrowserDataBackMigrator::ToResult()`
-  // - `BrowserDataBackMigrator::TaskStatusToString()`
-  // - `BrowserDataBackMigratorUMATest.TaskStatusToString`
-  // - `Ash.BrowserDataBackMigrator.PosixErrno.{TaskStatus}` histogram
-  // - `BrowserDataBackMigratorFinalStatus` histogram enum
-  enum class TaskStatus {
-    kSucceeded = 0,
-    kPreMigrationCleanUpDeleteTmpDirFailed = 1,
-    kMergeSplitItemsCreateTmpDirFailed = 2,
-    kMergeSplitItemsCopyExtensionsFailed = 3,
-    kMergeSplitItemsCopyExtensionStorageFailed = 4,
-    kMergeSplitItemsCreateDirFailed = 5,
-    kMergeSplitItemsMergeIndexedDBFailed = 6,
-    kMergeSplitItemsMergePrefsFailed = 7,
-    kMergeSplitItemsMergeLocalStorageLevelDBFailed = 8,
-    kMergeSplitItemsMergeStateStoreLevelDBFailed = 9,
-    kMergeSplitItemsMergeSyncDataFailed = 10,
-    kDeleteAshItemsDeleteExtensionsFailed = 11,
-    kDeleteAshItemsDeleteLacrosItemFailed = 12,
-    kDeleteTmpDirDeleteFailed = 13,
-    kDeleteLacrosDirDeleteFailed = 14,
-    kMoveLacrosItemsToAshDirFailed = 15,
-    kMoveMergedItemsBackToAshMoveFileFailed = 16,
-    kMoveMergedItemsBackToAshCopyDirectoryFailed = 17,
-    kMaxValue = kMoveMergedItemsBackToAshCopyDirectoryFailed,
-  };
 
   enum class MigrationStep {
     kStart = 0,
@@ -180,13 +160,6 @@ class BrowserDataBackMigrator {
     kMaxValue = kDone,
   };
 
-  struct TaskResult {
-    TaskStatus status;
-
-    // Value of `errno` set after a task has failed.
-    absl::optional<int> posix_errno;
-  };
-
   bool running_ = false;
   BackMigrationProgressCallback progress_callback_;
   BackMigrationFinishedCallback finished_callback_;
@@ -196,9 +169,8 @@ class BrowserDataBackMigrator {
   // Creates `kTmpDir` and deletes its contents if it already exists. Deletes
   // ash and lacros `ItemType::kDeletable` items to free up extra space but this
   // does not affect `PreMigrationCleanUpResult::success`.
-  static TaskResult PreMigrationCleanUp(
-      const base::FilePath& ash_profile_dir,
-      const base::FilePath& lacros_profile_dir);
+  static TaskResult PreMigrationCleanUp(const base::FilePath& ash_profile_dir,
+                                        const base::FilePath& lacros_dir);
 
   // Called as a reply to `PreMigrationCleanUp()`.
   void OnPreMigrationCleanUp(TaskResult result);
@@ -251,10 +223,10 @@ class BrowserDataBackMigrator {
   void OnMarkMigrationComplete();
 
   // For `target_dir` copy subdirectories belonging to extensions that are in
-  // both Chromes from `lacros_profile_dir` to `tmp_user_dir`.
+  // both Chromes from `lacros_default_profile_dir` to `tmp_user_dir`.
   static bool MergeCommonExtensionsDataFiles(
       const base::FilePath& ash_profile_dir,
-      const base::FilePath& lacros_profile_dir,
+      const base::FilePath& lacros_default_profile_dir,
       const base::FilePath& tmp_user_dir,
       const std::string& target_dir);
 
@@ -266,13 +238,14 @@ class BrowserDataBackMigrator {
       const std::string& target_dir);
 
   // Merge IndexedDB objects for extensions that are both in Ash and Lacros.
-  // If both exists, delete Ash version and move Lacros version to its place.
+  // If both exist, delete Ash version and move Lacros version to its place.
   // If only Ash exists, do not delete it, i.e. do nothing.
   // If only Lacros exists, move to the expected Ash location.
   // If neither exists, do nothing.
-  static bool MergeCommonIndexedDB(const base::FilePath& ash_profile_dir,
-                                   const base::FilePath& lacros_profile_dir,
-                                   const char* extension_id);
+  static bool MergeCommonIndexedDB(
+      const base::FilePath& ash_profile_dir,
+      const base::FilePath& lacros_default_profile_dir,
+      const char* extension_id);
 
   // Merge Preferences.
   static bool MergePreferences(const base::FilePath& ash_pref_path,
@@ -341,22 +314,6 @@ class BrowserDataBackMigrator {
   // Records UMA metrics and calls `finished_callback_`. This function gets
   // called once regardless of whether the migration succeeded or not.
   void InvokeCallback(TaskResult);
-
-  // Records the final status of the migration in `kFinalStatusUMA`.
-  static void RecordFinalStatus(TaskResult result);
-
-  // Records Ash.BrowserDataBackMigrator.PosixErrno.{result.status} UMA with the
-  // value of `result.posix_errno` if the migration failed.
-  static void RecordPosixErrnoIfAvailable(TaskResult result);
-
-  // Records `kSuccessfulMigrationTimeUMA` UMA with the elapsed time since
-  // starting backward migration. Only recorded if migration was successful.
-  static void RecordMigrationTimeIfSuccessful(
-      TaskResult result,
-      base::TimeTicks migration_start_time);
-
-  // Converts `TaskStatus` to string.
-  static std::string TaskStatusToString(TaskStatus task_status);
 
   // Path to the ash profile directory.
   const base::FilePath ash_profile_dir_;

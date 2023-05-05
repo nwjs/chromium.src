@@ -18,11 +18,11 @@
 #include "chrome/browser/web_applications/locks/noop_lock.h"
 #include "chrome/browser/web_applications/locks/web_app_lock_manager.h"
 #include "chrome/browser/web_applications/web_app_command_manager.h"
-#include "chrome/browser/web_applications/web_app_data_retriever.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chrome/browser/web_applications/web_app_id.h"
 #include "chrome/browser/web_applications/web_app_install_utils.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
+#include "chrome/browser/web_applications/web_contents/web_app_data_retriever.h"
 #include "chrome/common/chrome_features.h"
 #include "components/webapps/browser/features.h"
 #include "components/webapps/browser/installable/installable_logging.h"
@@ -213,6 +213,7 @@ base::Value FetchManifestAndInstallCommand::ToDebugValue() const {
 void FetchManifestAndInstallCommand::Abort(webapps::InstallResultCode code) {
   if (!install_callback_)
     return;
+  debug_log_.Set("result_code", base::ToString(code));
   webapps::InstallableMetrics::TrackInstallResult(false);
   SignalCompletionAndSelfDestruct(
       CommandResult::kFailure,
@@ -529,6 +530,7 @@ void FetchManifestAndInstallCommand::OnInstallCompleted(
           install_error_log_entry_.TakeErrorDict());
     }
   }
+  debug_log_.Set("result_code", base::ToString(code));
 
   webapps::InstallableMetrics::TrackInstallResult(webapps::IsSuccess(code));
   SignalCompletionAndSelfDestruct(

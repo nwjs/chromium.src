@@ -7,13 +7,12 @@
 
 #import <UIKit/UIKit.h>
 
-#import "ios/chrome/browser/ui/coordinators/chrome_coordinator.h"
+#import "ios/chrome/browser/shared/coordinator/chrome_coordinator/chrome_coordinator.h"
 #import "ios/chrome/browser/ui/toolbar/public/side_swipe_toolbar_snapshot_providing.h"
 #import "ios/chrome/browser/ui/toolbar/toolbar_coordinatee.h"
 
 @class AdaptiveToolbarViewController;
 class Browser;
-@protocol PopupMenuLongPressDelegate;
 
 // Coordinator for the adaptive toolbar. This Coordinator is the super class of
 // the specific coordinator (primary or secondary).
@@ -29,9 +28,6 @@ class Browser;
 
 // The Toolbar view controller owned by this coordinator.
 @property(nonatomic, strong) AdaptiveToolbarViewController* viewController;
-
-// Delegate for the long press gesture recognizer triggering popup menu.
-@property(nonatomic, weak) id<PopupMenuLongPressDelegate> longPressDelegate;
 
 @end
 

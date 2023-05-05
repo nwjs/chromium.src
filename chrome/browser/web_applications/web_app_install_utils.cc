@@ -737,6 +737,7 @@ void UpdateWebAppInfoFromManifest(const blink::mojom::Manifest& manifest,
   for (const auto& decl : manifest.permissions_policy) {
     blink::ParsedPermissionsPolicyDeclaration copy;
     copy.feature = decl.feature;
+    copy.self_if_matches = decl.self_if_matches;
     for (const auto& origin : decl.allowed_origins)
       copy.allowed_origins.push_back(origin);
     copy.matches_all_origins = decl.matches_all_origins;
@@ -891,10 +892,15 @@ void PopulateProductIcons(WebAppInstallInfo* web_app_info,
       web_app_info->icon_bitmaps.monochrome[bitmap.width()] = std::move(bitmap);
   }
 
-  char32_t icon_letter =
-      web_app_info->title.empty()
-          ? GenerateIconLetterFromUrl(web_app_info->start_url)
-          : GenerateIconLetterFromAppName(web_app_info->title);
+  char32_t icon_letter = 0;
+  const auto& title = web_app_info->title;
+  if (title.empty()) {
+    icon_letter = GenerateIconLetterFromUrl(web_app_info->start_url);
+  } else {
+    GURL url(title);
+    icon_letter = url.is_valid() ? GenerateIconLetterFromUrl(url)
+                                 : GenerateIconLetterFromAppName(title);
+  }
   // Ensure that all top-level icons that are in web_app_info with  Purpose::ANY
   // are present, by generating icons for any sizes that have failed to
   // download. This ensures that the created manifest for the web app does not
@@ -1044,6 +1050,7 @@ WebAppManagement::Type ConvertInstallSurfaceToWebAppSource(
     case webapps::WebappInstallSource::SYNC:
     case webapps::WebappInstallSource::MENU_CREATE_SHORTCUT:
     case webapps::WebappInstallSource::CHROME_SERVICE:
+    case webapps::WebappInstallSource::PROFILE_MENU:
       return WebAppManagement::kSync;
 
     case webapps::WebappInstallSource::ISOLATED_APP_DEV_INSTALL:

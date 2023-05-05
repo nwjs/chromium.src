@@ -33,9 +33,9 @@
 #include "chrome/browser/ash/borealis/borealis_service.h"
 #include "chrome/browser/ash/bruschetta/bruschetta_util.h"
 #include "chrome/browser/ash/crostini/ansible/ansible_management_service.h"
-#include "chrome/browser/ash/crostini/crostini_engagement_metrics_service.h"
 #include "chrome/browser/ash/crostini/crostini_features.h"
 #include "chrome/browser/ash/crostini/crostini_manager_factory.h"
+#include "chrome/browser/ash/crostini/crostini_metrics_service.h"
 #include "chrome/browser/ash/crostini/crostini_mount_provider.h"
 #include "chrome/browser/ash/crostini/crostini_port_forwarder.h"
 #include "chrome/browser/ash/crostini/crostini_pref_names.h"
@@ -58,7 +58,6 @@
 #include "chrome/browser/ash/guest_os/public/guest_os_service_factory.h"
 #include "chrome/browser/ash/guest_os/public/guest_os_wayland_server.h"
 #include "chrome/browser/ash/guest_os/public/types.h"
-#include "chrome/browser/ash/policy/handlers/powerwash_requirements_checker.h"
 #include "chrome/browser/ash/scheduler_configuration_manager.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
@@ -68,8 +67,8 @@
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
 #include "chromeos/ash/components/dbus/anomaly_detector/anomaly_detector_client.h"
-#include "chromeos/ash/components/dbus/concierge/concierge_service.pb.h"
 #include "chromeos/ash/components/dbus/session_manager/session_manager_client.h"
+#include "chromeos/ash/components/dbus/vm_concierge/concierge_service.pb.h"
 #include "chromeos/ash/components/network/device_state.h"
 #include "chromeos/ash/components/network/network_state.h"
 #include "chromeos/ash/components/network/network_state_handler.h"
@@ -1478,17 +1477,6 @@ void CrostiniManager::StartTerminaVm(std::string name,
     return;
   }
 
-  // When Crostini is blocked because of powerwash request, do not start VM,
-  // but show notification requesting powerwash.
-  policy::PowerwashRequirementsChecker pw_checker(
-      policy::PowerwashRequirementsChecker::Context::kCrostini, profile_);
-  if (pw_checker.GetState() !=
-      policy::PowerwashRequirementsChecker::State::kNotRequired) {
-    pw_checker.ShowNotification();
-    std::move(callback).Run(/*success=*/false);
-    return;
-  }
-
   for (auto& observer : vm_starting_observers_) {
     observer.OnVmStarting();
   }
@@ -2687,11 +2675,11 @@ void CrostiniManager::OnContainerStarted(
   guest_os::GuestId container_id(kCrostiniDefaultVmType, signal.vm_name(),
                                  signal.container_name());
 
-  auto* engagement_metrics_service =
-      CrostiniEngagementMetricsService::Factory::GetForProfile(profile_);
+  auto* metrics_service =
+      CrostiniMetricsService::Factory::GetForProfile(profile_);
   // This is null in unit tests.
-  if (engagement_metrics_service) {
-    engagement_metrics_service->SetBackgroundActive(true);
+  if (metrics_service) {
+    metrics_service->SetBackgroundActive(true);
   }
 
   VLOG(1) << "Container " << signal.container_name() << " started";
@@ -4014,11 +4002,11 @@ void CrostiniManager::HandleContainerShutdown(
     observer.OnContainerShutdown(container_id);
   }
   if (!IsVmRunning(kCrostiniDefaultVmName)) {
-    auto* engagement_metrics_service =
-        CrostiniEngagementMetricsService::Factory::GetForProfile(profile_);
+    auto* metrics_service =
+        CrostiniMetricsService::Factory::GetForProfile(profile_);
     // This is null in unit tests.
-    if (engagement_metrics_service) {
-      engagement_metrics_service->SetBackgroundActive(false);
+    if (metrics_service) {
+      metrics_service->SetBackgroundActive(false);
     }
   }
 }

@@ -74,8 +74,7 @@ uint64_t StyleMaskForParams(const Widget::InitParams& params) {
 
   if (params.type == Widget::InitParams::TYPE_WINDOW) {
     return NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
-           NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable |
-           NSWindowStyleMaskTexturedBackground;
+           NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable;
   }
   return NSWindowStyleMaskBorderless;
 }

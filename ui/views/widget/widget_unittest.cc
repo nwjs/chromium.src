@@ -43,6 +43,7 @@
 #include "ui/views/event_monitor.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/style/platform_style.h"
+#include "ui/views/test/mock_drag_controller.h"
 #include "ui/views/test/native_widget_factory.h"
 #include "ui/views/test/test_views.h"
 #include "ui/views/test/test_widget_observer.h"
@@ -53,6 +54,7 @@
 #include "ui/views/widget/native_widget_delegate.h"
 #include "ui/views/widget/native_widget_private.h"
 #include "ui/views/widget/root_view.h"
+#include "ui/views/widget/unique_widget_ptr.h"
 #include "ui/views/widget/widget_deletion_observer.h"
 #include "ui/views/widget/widget_interactive_uitest_utils.h"
 #include "ui/views/widget/widget_removals_observer.h"
@@ -4304,6 +4306,37 @@ TEST_F(WidgetTest, ScrollGestureEventDispatch) {
   widget->Close();
 }
 
+// TODO(b/271490637): on Mac a drag controller should still be notified when
+// drag will start. Figure out how to write a unit test for Mac. Then remove
+// this build flag check.
+#if !BUILDFLAG(IS_MAC)
+
+// Verifies that the drag controller is notified when the view drag will start.
+TEST_F(WidgetTest, NotifyDragControllerWhenDragWillStart) {
+  // Create a widget whose contents view is draggable.
+  UniqueWidgetPtr widget(std::make_unique<Widget>());
+  Widget::InitParams params = CreateParams(Widget::InitParams::TYPE_POPUP);
+  params.bounds = gfx::Rect(/*width=*/650, /*height=*/650);
+  widget->Init(std::move(params));
+  widget->Show();
+  MockDragController mock_drag_controller;
+  views::View contents_view;
+  contents_view.set_drag_controller(&mock_drag_controller);
+  widget->SetContentsView(&contents_view);
+
+  // Expect the drag controller is notified of the drag start.
+  EXPECT_CALL(mock_drag_controller, OnWillStartDragForView(&contents_view));
+
+  // Drag-and-drop `contents_view` by mouse.
+  ui::test::EventGenerator generator(GetContext(), widget->GetNativeWindow());
+  generator.MoveMouseTo(contents_view.GetBoundsInScreen().CenterPoint());
+  generator.PressLeftButton();
+  generator.MoveMouseBy(/*x=*/200, /*y=*/0);
+  generator.ReleaseLeftButton();
+}
+
+#endif  // !BUILDFLAG(IS_MAC)
+
 // A class used in WidgetTest.GestureEventLocationWhileBubbling to verify
 // that when a gesture event bubbles up a View hierarchy, the location
 // of a gesture event seen by each View is in the local coordinate space
@@ -5397,11 +5430,14 @@ TEST_F(DesktopWidgetTest, StackAboveTest) {
   grandchild_two->ShowInactive();
 
   // Creates the following where Z-Order is from Left to Right.
-  //            Root_one                    Root_two
+  //            root_one                    root_two
   //             /    \                         /
-  //       child_one  child_one_b           child_two
-  //          /                               /
-  // grandchild_one                     grandchild_two
+  //       child_one_b  child_one           child_two
+  //                       /                  /
+  //                 grandchild_one    grandchild_two
+  //
+  // Note: child_one and grandchild_one were brought to front
+  //       when grandchild_one was shown.
 
   // Child elements are stacked above parent.
   EXPECT_TRUE(child_one->IsStackedAbove(root_one->GetNativeView()));
@@ -5410,8 +5446,8 @@ TEST_F(DesktopWidgetTest, StackAboveTest) {
   EXPECT_TRUE(grandchild_two->IsStackedAbove(root_two->GetNativeView()));
 
   // Siblings with higher z-order are stacked correctly.
-  EXPECT_TRUE(child_one_b->IsStackedAbove(child_one->GetNativeView()));
-  EXPECT_TRUE(child_one_b->IsStackedAbove(grandchild_one->GetNativeView()));
+  EXPECT_TRUE(child_one->IsStackedAbove(child_one_b->GetNativeView()));
+  EXPECT_TRUE(grandchild_one->IsStackedAbove(child_one_b->GetNativeView()));
 
   // Root elements are stacked above child of a root with lower z-order.
   EXPECT_TRUE(root_two->IsStackedAbove(root_one->GetNativeView()));
@@ -5431,7 +5467,7 @@ TEST_F(DesktopWidgetTest, StackAboveTest) {
   EXPECT_FALSE(child_one_b->IsStackedAbove(child_two->GetNativeView()));
   EXPECT_FALSE(grandchild_one->IsStackedAbove(grandchild_two->GetNativeView()));
   EXPECT_FALSE(grandchild_one->IsStackedAbove(root_two->GetNativeView()));
-  EXPECT_FALSE(grandchild_one->IsStackedAbove(child_one_b->GetNativeView()));
+  EXPECT_FALSE(child_one_b->IsStackedAbove(grandchild_one->GetNativeView()));
 }
 
 #endif  // BUILDFLAG(IS_WIN)

@@ -34,7 +34,9 @@
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
+#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/models/image_model.h"
 #include "ui/compositor/layer.h"
 #include "ui/views/background.h"
 #include "ui/views/bubble/bubble_frame_view.h"
@@ -54,6 +56,31 @@ namespace {
 
 constexpr int kMinPermissionRowHeight = 40;
 constexpr float kMaxPermissionRowCount = 10.5;
+
+// Used to experiment with different icons through a finch parameter.
+enum class AboutThisSiteSeconaryIcon {
+  kNewTabIcon = 0,
+  kArrowIcon = 1,
+  kSidePanelIcon = 2,
+  kNoIcon = 3,
+};
+
+// Return a secondary icon for the AboutThisSite row based on finch parameters.
+absl::optional<ui::ImageModel> GetAboutThisSiteSecondaryIcon() {
+  AboutThisSiteSeconaryIcon icon_id = static_cast<AboutThisSiteSeconaryIcon>(
+      page_info::kAboutThisSiteSecondaryIconId.Get());
+  switch (icon_id) {
+    case AboutThisSiteSeconaryIcon::kNewTabIcon:
+      return PageInfoViewFactory::GetLaunchIcon();
+    case AboutThisSiteSeconaryIcon::kArrowIcon:
+      return PageInfoViewFactory::GetOpenSubpageIcon();
+    case AboutThisSiteSeconaryIcon::kSidePanelIcon:
+      return PageInfoViewFactory::GetSidePanelIcon();
+    case AboutThisSiteSeconaryIcon::kNoIcon:
+      return absl::nullopt;
+  }
+  return PageInfoViewFactory::GetLaunchIcon();
+}
 
 }  // namespace
 
@@ -381,7 +408,6 @@ void PageInfoMainView::SetIdentityInfo(const IdentityInfo& identity_info) {
     if (page_info::IsAboutThisSiteFeatureEnabled(
             g_browser_process->GetApplicationLocale())) {
       auto info = ui_delegate_->GetAboutThisSiteInfo();
-      presenter_->SetAboutThisSiteShown(info.has_value());
       if (info.has_value()) {
         about_this_site_section_->RemoveAllChildViews();
         about_this_site_section_->AddChildView(
@@ -522,7 +548,7 @@ void PageInfoMainView::HandleMoreInfoRequestAsync(int view_id) {
       presenter_->OpenCookiesDialog();
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_NORETURN();
   }
 }
 
@@ -612,7 +638,7 @@ std::unique_ptr<views::View> PageInfoMainView::CreateAboutThisSiteSection(
             l10n_util::GetStringUTF16(IDS_PAGE_INFO_ABOUT_THIS_PAGE_TITLE),
             std::u16string(),
             l10n_util::GetStringUTF16(IDS_PAGE_INFO_ABOUT_THIS_PAGE_TOOLTIP),
-            description, PageInfoViewFactory::GetLaunchIcon()));
+            description, GetAboutThisSiteSecondaryIcon()));
     about_this_site_button->SetID(
         PageInfoViewFactory::VIEW_ID_PAGE_INFO_ABOUT_THIS_SITE_BUTTON);
   } else {

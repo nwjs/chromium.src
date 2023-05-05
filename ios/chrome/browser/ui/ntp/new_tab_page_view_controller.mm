@@ -9,6 +9,8 @@
 #import "base/check.h"
 #import "base/ios/block_types.h"
 #import "ios/chrome/browser/ntp/features.h"
+#import "ios/chrome/browser/shared/ui/util/named_guide.h"
+#import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/ui/bubble/bubble_presenter.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_collection_utils.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_feature.h"
@@ -28,8 +30,6 @@
 #import "ios/chrome/browser/ui/ntp/new_tab_page_omnibox_positioning.h"
 #import "ios/chrome/browser/ui/overscroll_actions/overscroll_actions_controller.h"
 #import "ios/chrome/browser/ui/toolbar/public/toolbar_utils.h"
-#import "ios/chrome/browser/ui/util/named_guide.h"
-#import "ios/chrome/browser/ui/util/uikit_ui_util.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/elements/gradient_view.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
@@ -386,6 +386,19 @@ const CGFloat kShiftTilesUpAnimationDuration = 0.1;
 
 #pragma mark - Public
 
+- (void)focusOmnibox {
+  // If the feed is meant to be visible and its contents have not loaded yet,
+  // then any omnibox focus animations (i.e. opening app from search widget
+  // action) needs to wait until it is ready. viewDidAppear: currently serves as
+  // this proxy as there is no specific signal given from the feed that its
+  // contents have loaded.
+  if (self.isFeedVisible && !self.viewDidAppear) {
+    self.shouldFocusFakebox = YES;
+  } else {
+    [self shiftTilesUpToFocusOmnibox];
+  }
+}
+
 - (void)layoutContentInParentCollectionView {
   DCHECK(self.feedWrapperViewController);
   DCHECK(self.contentSuggestionsViewController);
@@ -629,19 +642,6 @@ const CGFloat kShiftTilesUpAnimationDuration = 0.1;
 }
 
 #pragma mark - ContentSuggestionsHeaderViewControllerDelegate
-
-- (void)focusFakebox {
-  // If the feed is meant to be visible and its contents have not loaded yet,
-  // then any omnibox focus animations (i.e. opening app from search widget
-  // action) needs to wait until it is ready. viewDidAppear: currently serves as
-  // this proxy as there is no specific signal given from the feed that its
-  // contents have loaded.
-  if (self.isFeedVisible && !self.viewDidAppear) {
-    self.shouldFocusFakebox = YES;
-  } else {
-    [self shiftTilesUpToFocusOmnibox];
-  }
-}
 
 - (void)shiftTilesDownForOmniboxDefocus {
   if (IsSplitToolbarMode(self)) {
@@ -1117,7 +1117,9 @@ const CGFloat kShiftTilesUpAnimationDuration = 0.1;
     ];
   }
 
-  [self.feedHeaderViewController toggleBackgroundBlur:YES animated:YES];
+  [self.feedHeaderViewController
+      toggleBackgroundBlur:[self.ntpContentDelegate isContentHeaderSticky]
+                  animated:YES];
   [NSLayoutConstraint activateConstraints:self.feedHeaderConstraints];
 }
 
@@ -1148,13 +1150,10 @@ const CGFloat kShiftTilesUpAnimationDuration = 0.1;
 - (void)updateFeedInsetsForContentAbove {
   self.collectionView.contentInset = UIEdgeInsetsMake(
       [self heightAboveFeed], 0, self.collectionView.contentInset.bottom, 0);
-  [self updateAdditionalOffset];
-  [self updateScrolledToMinimumHeight];
-}
-
-// Updates additionalOffset using the content above the feed.
-- (void)updateAdditionalOffset {
+  // Updates `additionalOffset` using the content above the feed.
   self.additionalOffset = [self heightAboveFeed];
+  // Update `scrolledToMinimumHeight` after updating `additionalOffset`.
+  [self updateScrolledToMinimumHeight];
 }
 
 // Checks whether the feed top section is visible and updates the
@@ -1611,9 +1610,12 @@ const CGFloat kShiftTilesUpAnimationDuration = 0.1;
 - (void)setContentOffset:(CGFloat)offset {
   self.collectionView.contentOffset = CGPointMake(0, offset);
   self.scrolledIntoFeed = offset > [self offsetWhenScrolledIntoFeed];
+  [self handleStickyElementsForScrollPosition:offset force:YES];
   if (self.feedHeaderViewController) {
-    [self.feedHeaderViewController toggleBackgroundBlur:self.scrolledIntoFeed
-                                               animated:NO];
+    [self.feedHeaderViewController
+        toggleBackgroundBlur:(self.scrolledIntoFeed &&
+                              [self.ntpContentDelegate isContentHeaderSticky])
+                    animated:NO];
   }
 }
 

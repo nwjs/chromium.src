@@ -28,6 +28,7 @@
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/bluetooth/bluetooth_chooser_context_factory.h"
 #include "chrome/browser/browsing_data/access_context_audit_service_factory.h"
+#include "chrome/browser/browsing_data/chrome_browsing_data_model_delegate.h"
 #include "chrome/browser/browsing_data/cookies_tree_model.h"
 #include "chrome/browser/browsing_topics/browsing_topics_service_factory.h"
 #include "chrome/browser/content_settings/chrome_content_settings_utils.h"
@@ -80,6 +81,7 @@
 #include "content/public/browser/browsing_data_filter_builder.h"
 #include "content/public/browser/browsing_data_remover.h"
 #include "content/public/browser/storage_partition.h"
+#include "content/public/browser/storage_partition_config.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/common/content_features.h"
@@ -320,12 +322,9 @@ std::string ConvertEtldToOrigin(const std::string etld_plus1, bool secure) {
 }
 
 bool IsPatternValidForType(const std::string& pattern_string,
-                           const std::string& type,
+                           ContentSettingsType content_type,
                            Profile* profile,
                            std::string* out_error) {
-  ContentSettingsType content_type =
-      site_settings::ContentSettingsTypeFromGroupName(type);
-
   ContentSettingsPattern pattern =
       ContentSettingsPattern::FromString(pattern_string);
 
@@ -884,6 +883,7 @@ void SiteSettingsHandler::OnGetUsageInfo() {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   // Site Details Page does not display the number of cookies for the origin.
   const CookieTreeNode* root = cookies_tree_model_->GetRoot();
+  int64_t size = 0;
   std::string usage_string;
   std::string cookie_string;
   std::string fps_string;
@@ -899,9 +899,7 @@ void SiteSettingsHandler::OnGetUsageInfo() {
     if (title != usage_hostname) {
       continue;
     }
-    int64_t size = site->InclusiveSize();
-    if (size != 0)
-      usage_string = base::UTF16ToUTF8(ui::FormatBytes(size));
+    size += site->InclusiveSize();
 
     // Usage info only includes unpartitioned cookies, so each cookie must be
     // inspected.
@@ -946,6 +944,19 @@ void SiteSettingsHandler::OnGetUsageInfo() {
     }
     break;
   }
+
+  for (const BrowsingDataModel::BrowsingDataEntryView& entry :
+       *browsing_data_model_) {
+    if (*entry.primary_host != usage_hostname) {
+      continue;
+    }
+    size += entry.data_details->storage_size;
+  }
+
+  if (size > 0) {
+    usage_string = base::UTF16ToUTF8(ui::FormatBytes(size));
+  }
+
   FireWebUIListener("usage-total-changed", base::Value(usage_origin_),
                     base::Value(usage_string), base::Value(cookie_string),
                     base::Value(fps_string), base::Value(fpsPolicy));
@@ -1472,6 +1483,8 @@ void SiteSettingsHandler::HandleGetOriginPermissions(
       type = *maybe_type;
     ContentSettingsType content_type =
         site_settings::ContentSettingsTypeFromGroupName(type);
+    CHECK(content_type != ContentSettingsType::DEFAULT)
+        << type << " is not expected to have a UI representation.";
     HostContentSettingsMap* map =
         HostContentSettingsMapFactory::GetForProfile(profile_);
 
@@ -1595,8 +1608,11 @@ void SiteSettingsHandler::HandleSetOriginPermissions(
   CHECK(content_settings::ContentSettingFromString(value, &setting));
   std::vector<ContentSettingsType> types;
   if (type_string) {
-    types.push_back(
-        site_settings::ContentSettingsTypeFromGroupName(*type_string));
+    ContentSettingsType content_type =
+        site_settings::ContentSettingsTypeFromGroupName(*type_string);
+    CHECK(content_type != ContentSettingsType::DEFAULT)
+        << *type_string << " is not expected to have a UI representation.";
+    types.push_back(content_type);
   } else {
     // Clear device chooser data permission exceptions.
     if (setting == CONTENT_SETTING_DEFAULT) {
@@ -1691,6 +1707,8 @@ void SiteSettingsHandler::HandleResetCategoryPermissionForPattern(
 
   ContentSettingsType content_type =
       site_settings::ContentSettingsTypeFromGroupName(type);
+  CHECK(content_type != ContentSettingsType::DEFAULT)
+      << type << " is not expected to have a UI representation.";
 
   Profile* profile = nullptr;
   if (incognito) {
@@ -1753,6 +1771,8 @@ void SiteSettingsHandler::HandleSetCategoryPermissionForPattern(
 
   ContentSettingsType content_type =
       site_settings::ContentSettingsTypeFromGroupName(type);
+  CHECK(content_type != ContentSettingsType::DEFAULT)
+      << type << " is not expected to have a UI representation.";
   ContentSetting setting;
   CHECK(content_settings::ContentSettingFromString(value, &setting));
 
@@ -1937,11 +1957,16 @@ void SiteSettingsHandler::HandleIsPatternValidForType(
   CHECK_EQ(3U, args.size());
   const base::Value& callback_id = args[0];
   const std::string& pattern_string = args[1].GetString();
-  const std::string& type = args[2].GetString();
+  const std::string& type_string = args[2].GetString();
+
+  ContentSettingsType content_type =
+      site_settings::ContentSettingsTypeFromGroupName(type_string);
+  CHECK(content_type != ContentSettingsType::DEFAULT)
+      << type_string << " is not expected to have a UI representation.";
 
   std::string reason;
   bool is_valid =
-      IsPatternValidForType(pattern_string, type, profile_, &reason);
+      IsPatternValidForType(pattern_string, content_type, profile_, &reason);
 
   base::Value::Dict return_value;
   return_value.Set(kIsValidKey, base::Value(is_valid));
@@ -2118,10 +2143,8 @@ void SiteSettingsHandler::RebuildModels() {
 
   num_models_being_built_ = 2;
 
-  content::StoragePartition* storage_partition =
-      profile_->GetDefaultStoragePartition();
   BrowsingDataModel::BuildFromDisk(
-      storage_partition,
+      profile_, ChromeBrowsingDataModelDelegate::CreateForProfile(profile_),
       base::BindOnce(&SiteSettingsHandler::BrowsingDataModelCreated,
                      weak_ptr_factory_.GetWeakPtr()));
 
@@ -2407,8 +2430,16 @@ void SiteSettingsHandler::RemoveNonTreeModelData(
   // TODO(crbug.com/1271155) - When the browsing data model supports all storage
   // types, re-work this handler to work directly with primary hosts as defined
   // by the model.
-  for (const auto& origin : origins)
-    browsing_data_model_->RemoveBrowsingData(origin.host(), base::DoNothing());
+  // TODO(crbug.com/1368048) - Permission info loading before storage info
+  // can result in an interleaving of actions that means this pointer is
+  // null (as it hasn't loaded yet, but the user can delete an entry which has
+  // been created by permission info).
+  if (browsing_data_model_) {
+    for (const auto& origin : origins) {
+      browsing_data_model_->RemoveBrowsingData(origin.host(),
+                                               base::DoNothing());
+    }
+  }
 
 #if BUILDFLAG(IS_WIN)
   // Removes any Media License Data associated with the origin that is not

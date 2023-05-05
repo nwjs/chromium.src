@@ -56,7 +56,7 @@ TEST_F(RTCEncodedVideoFrameTest, GetMetadataReturnsMetadata) {
   webrtc_vp8_specifics.beginningOfPartition = true;
   webrtc_metadata.SetRTPVideoHeaderCodecSpecifics(webrtc_vp8_specifics);
 
-  EXPECT_CALL(*frame, GetMetadata()).WillOnce(ReturnRef(webrtc_metadata));
+  EXPECT_CALL(*frame, Metadata()).WillOnce(Return(webrtc_metadata));
   EXPECT_CALL(*frame, GetPayloadType()).WillRepeatedly(Return(13));
 
   RTCEncodedVideoFrame encoded_frame(std::move(frame));
@@ -94,6 +94,24 @@ TEST_F(RTCEncodedVideoFrameTest, GetMetadataReturnsMetadata) {
   EXPECT_EQ(11, retrieved_vp8_specifics->keyIdx());
   EXPECT_EQ(12, retrieved_vp8_specifics->partitionId());
   EXPECT_EQ(true, retrieved_vp8_specifics->beginningOfPartition());
+}
+
+TEST_F(RTCEncodedVideoFrameTest, ClosedFramesFailToClone) {
+  V8TestingScope v8_scope;
+
+  std::unique_ptr<MockTransformableVideoFrame> frame =
+      std::make_unique<MockTransformableVideoFrame>();
+
+  RTCEncodedVideoFrame encoded_frame(std::move(frame));
+
+  // Move the WebRTC frame out, as if the frame had been written into
+  // an encoded insertable stream's WritableStream to be sent on.
+  encoded_frame.PassWebRtcFrame();
+
+  DummyExceptionStateForTesting exception_state;
+  encoded_frame.clone(exception_state);
+
+  EXPECT_TRUE(exception_state.HadException());
 }
 
 }  // namespace blink

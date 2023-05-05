@@ -45,6 +45,10 @@
 
 namespace blink {
 
+BASE_FEATURE(kCanvasOverdrawOptimization,
+             "CanvasOverdrawOptimization",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 const char BaseRenderingContext2D::kDefaultFont[] = "10px sans-serif";
 const char BaseRenderingContext2D::kInheritDirectionString[] = "inherit";
 const char BaseRenderingContext2D::kRtlDirectionString[] = "rtl";
@@ -118,7 +122,7 @@ BaseRenderingContext2D::~BaseRenderingContext2D() {
 void BaseRenderingContext2D::save() {
   if (isContextLost())
     return;
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(CanvasOps::kSave);
   }
 
@@ -147,7 +151,7 @@ void BaseRenderingContext2D::restore() {
   if (isContextLost())
     return;
 
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(CanvasOps::kRestore);
   }
   ValidateStateStack();
@@ -165,7 +169,7 @@ void BaseRenderingContext2D::restore() {
 
   // Verify that the current state's transform is invertible.
   if (IsTransformInvertible())
-    path_.Transform(GetState().GetTransform());
+    GetModifiablePath().Transform(GetState().GetTransform());
 
   PopAndRestore();
 }
@@ -268,7 +272,7 @@ void BaseRenderingContext2D::endLayer() {
 
   // Verify that the current state's transform is invertible.
   if (IsTransformInvertible())
-    path_.Transform(GetState().GetTransform());
+    GetModifiablePath().Transform(GetState().GetTransform());
 
   // All saves performed since the last beginLayer are no-ops.
   while (state_stack_.back() &&
@@ -308,7 +312,7 @@ void BaseRenderingContext2D::PopAndRestore() {
 
     SetIsTransformInvertible(GetState().IsTransformInvertible());
     if (IsTransformInvertible())
-      path_.Transform(GetState().GetTransform().Inverse());
+      GetModifiablePath().Transform(GetState().GetTransform().Inverse());
 
     DCHECK(state_stack_.back()->GetSaveType() ==
            CanvasRenderingContext2DState::SaveType::kBeginEndLayer);
@@ -320,7 +324,7 @@ void BaseRenderingContext2D::PopAndRestore() {
 
   SetIsTransformInvertible(GetState().IsTransformInvertible());
   if (IsTransformInvertible())
-    path_.Transform(GetState().GetTransform().Inverse());
+    GetModifiablePath().Transform(GetState().GetTransform().Inverse());
 
   canvas->restore();
 
@@ -355,7 +359,7 @@ void BaseRenderingContext2D::UnwindStateStack() {
 }
 
 void BaseRenderingContext2D::ResetInternal() {
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(CanvasOps::kReset);
   }
   ValidateStateStack();
@@ -363,7 +367,7 @@ void BaseRenderingContext2D::ResetInternal() {
   state_stack_.resize(1);
   state_stack_.front() = MakeGarbageCollected<CanvasRenderingContext2DState>();
   SetIsTransformInvertible(true);
-  path_.Clear();
+  Clear();
   if (cc::PaintCanvas* c = GetPaintCanvas()) {
     // The canvas should always have an initial/unbalanced save frame, which
     // we use to reset the top level matrix and clip here.
@@ -428,7 +432,7 @@ void BaseRenderingContext2D::
     UpdateIdentifiabilityStudyBeforeSettingStrokeOrFill(
         const V8CanvasStyle& v8_style,
         CanvasOps op) {
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(op);
     IdentifiabilityUpdateForStyleUnion(v8_style);
   }
@@ -578,7 +582,7 @@ void BaseRenderingContext2D::setLineWidth(double width) {
     return;
   if (GetState().LineWidth() == width)
     return;
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(CanvasOps::kSetLineWidth,
                                                 width);
   }
@@ -595,7 +599,7 @@ void BaseRenderingContext2D::setLineCap(const String& s) {
     return;
   if (GetState().GetLineCap() == cap)
     return;
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(CanvasOps::kSetLineCap, cap);
   }
   GetState().SetLineCap(cap);
@@ -611,7 +615,7 @@ void BaseRenderingContext2D::setLineJoin(const String& s) {
     return;
   if (GetState().GetLineJoin() == join)
     return;
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(CanvasOps::kSetLineJoin, join);
   }
   GetState().SetLineJoin(join);
@@ -626,7 +630,7 @@ void BaseRenderingContext2D::setMiterLimit(double limit) {
     return;
   if (GetState().MiterLimit() == limit)
     return;
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(CanvasOps::kSetMiterLimit,
                                                 limit);
   }
@@ -642,7 +646,7 @@ void BaseRenderingContext2D::setShadowOffsetX(double x) {
     return;
   if (GetState().ShadowOffset().x() == x)
     return;
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(CanvasOps::kSetShadowOffsetX,
                                                 x);
   }
@@ -658,7 +662,7 @@ void BaseRenderingContext2D::setShadowOffsetY(double y) {
     return;
   if (GetState().ShadowOffset().y() == y)
     return;
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(CanvasOps::kSetShadowOffsetY,
                                                 y);
   }
@@ -674,7 +678,7 @@ void BaseRenderingContext2D::setShadowBlur(double blur) {
     return;
   if (GetState().ShadowBlur() == blur)
     return;
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(CanvasOps::kSetShadowBlur,
                                                 blur);
   }
@@ -696,7 +700,7 @@ void BaseRenderingContext2D::setShadowColor(const String& color_string) {
   if (GetState().ShadowColor() == color) {
     return;
   }
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(CanvasOps::kSetShadowColor,
                                                 color.Rgb());
   }
@@ -715,7 +719,7 @@ static bool LineDashSequenceIsValid(const Vector<double>& dash) {
 void BaseRenderingContext2D::setLineDash(const Vector<double>& dash) {
   if (!LineDashSequenceIsValid(dash))
     return;
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(CanvasOps::kSetLineDash,
                                                 base::make_span(dash));
   }
@@ -729,7 +733,7 @@ double BaseRenderingContext2D::lineDashOffset() const {
 void BaseRenderingContext2D::setLineDashOffset(double offset) {
   if (!std::isfinite(offset) || GetState().LineDashOffset() == offset)
     return;
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(CanvasOps::kSetLineDashOffset,
                                                 offset);
   }
@@ -745,7 +749,7 @@ void BaseRenderingContext2D::setGlobalAlpha(double alpha) {
     return;
   if (GetState().GlobalAlpha() == alpha)
     return;
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(CanvasOps::kSetGlobalAlpha,
                                                 alpha);
   }
@@ -767,7 +771,7 @@ void BaseRenderingContext2D::setGlobalCompositeOperation(
   SkBlendMode sk_blend_mode = WebCoreCompositeToSkiaComposite(op, blend_mode);
   if (GetState().GlobalComposite() == sk_blend_mode)
     return;
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(
         CanvasOps::kSetGlobalCompositeOpertion, sk_blend_mode);
   }
@@ -799,7 +803,7 @@ void BaseRenderingContext2D::setFilter(
       break;
     case V8UnionCanvasFilterOrString::ContentType::kString: {
       const String& filter_string = input->GetAsString();
-      if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+      if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
         identifiability_study_helper_.UpdateBuilder(
             CanvasOps::kSetFilter,
             IdentifiabilitySensitiveStringToken(filter_string));
@@ -833,7 +837,7 @@ void BaseRenderingContext2D::scale(double sx, double sy) {
 
   if (!std::isfinite(sx) || !std::isfinite(sy))
     return;
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(CanvasOps::kScale, sx, sy);
   }
 
@@ -849,7 +853,8 @@ void BaseRenderingContext2D::scale(double sx, double sy) {
     return;
 
   c->scale(fsx, fsy);
-  path_.Transform(AffineTransform().ScaleNonUniform(1.0 / fsx, 1.0 / fsy));
+  GetModifiablePath().Transform(
+      AffineTransform().ScaleNonUniform(1.0 / fsx, 1.0 / fsy));
 }
 
 void BaseRenderingContext2D::rotate(double angle_in_radians) {
@@ -859,7 +864,7 @@ void BaseRenderingContext2D::rotate(double angle_in_radians) {
 
   if (!std::isfinite(angle_in_radians))
     return;
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(CanvasOps::kRotate,
                                                 angle_in_radians);
   }
@@ -873,7 +878,8 @@ void BaseRenderingContext2D::rotate(double angle_in_radians) {
   if (!IsTransformInvertible())
     return;
   c->rotate(ClampTo<float>(angle_in_radians * (180.0 / kPiFloat)));
-  path_.Transform(AffineTransform().RotateRadians(-angle_in_radians));
+  GetModifiablePath().Transform(
+      AffineTransform().RotateRadians(-angle_in_radians));
 }
 
 void BaseRenderingContext2D::translate(double tx, double ty) {
@@ -888,7 +894,7 @@ void BaseRenderingContext2D::translate(double tx, double ty) {
 
   if (!std::isfinite(tx) || !std::isfinite(ty))
     return;
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(CanvasOps::kTranslate, tx, ty);
   }
 
@@ -905,7 +911,7 @@ void BaseRenderingContext2D::translate(double tx, double ty) {
     return;
 
   c->translate(ftx, fty);
-  path_.Transform(AffineTransform().Translate(-ftx, -fty));
+  GetModifiablePath().Transform(AffineTransform().Translate(-ftx, -fty));
 }
 
 void BaseRenderingContext2D::transform(double m11,
@@ -929,7 +935,7 @@ void BaseRenderingContext2D::transform(double m11,
   float fm22 = ClampTo<float>(m22);
   float fdx = ClampTo<float>(dx);
   float fdy = ClampTo<float>(dy);
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(CanvasOps::kTransform, fm11,
                                                 fm12, fm21, fm22, fdx, fdy);
   }
@@ -944,14 +950,14 @@ void BaseRenderingContext2D::transform(double m11,
     return;
 
   c->concat(AffineTransformToSkM44(transform));
-  path_.Transform(transform.Inverse());
+  GetModifiablePath().Transform(transform.Inverse());
 }
 
 void BaseRenderingContext2D::resetTransform() {
   cc::PaintCanvas* c = GetOrCreatePaintCanvas();
   if (!c)
     return;
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(CanvasOps::kResetTransform);
   }
 
@@ -969,7 +975,7 @@ void BaseRenderingContext2D::resetTransform() {
   c->setMatrix(SkM44());
 
   if (invertible_ctm)
-    path_.Transform(ctm);
+    GetModifiablePath().Transform(ctm);
   // When else, do nothing because all transform methods didn't update m_path
   // when CTM became non-invertible.
   // It means that resetTransform() restores m_path just before CTM became
@@ -1018,29 +1024,51 @@ AffineTransform BaseRenderingContext2D::GetTransform() const {
 }
 
 void BaseRenderingContext2D::beginPath() {
-  path_.Clear();
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  Clear();
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(CanvasOps::kBeginPath);
   }
 }
 
 void BaseRenderingContext2D::DrawPathInternal(
-    const Path& path,
+    const CanvasPath& path,
     CanvasRenderingContext2DState::PaintType paint_type,
     SkPathFillType fill_type,
     UsePaintCache use_paint_cache) {
   if (path.IsEmpty())
     return;
 
-  SkPath sk_path = path.GetSkPath();
   gfx::RectF bounds(path.BoundingRect());
   if (std::isnan(bounds.x()) || std::isnan(bounds.y()) ||
       std::isnan(bounds.width()) || std::isnan(bounds.height()))
     return;
-  sk_path.setFillType(fill_type);
 
   if (paint_type == CanvasRenderingContext2DState::kStrokePaintType)
     InflateStrokeRect(bounds);
+
+  if (path.IsLine()) {
+    auto line = path.line();
+    Draw<OverdrawOp::kNone>(
+        [line](cc::PaintCanvas* c,
+               const cc::PaintFlags* flags)  // draw lambda
+        {
+          c->drawLine(SkFloatToScalar(line.start.x()),
+                      SkFloatToScalar(line.start.y()),
+                      SkFloatToScalar(line.end.x()),
+                      SkFloatToScalar(line.end.y()), *flags);
+        },
+        [](const SkIRect& rect)  // overdraw test lambda
+        { return false; },
+        bounds, paint_type,
+        GetState().HasPattern(paint_type)
+            ? CanvasRenderingContext2DState::kNonOpaqueImage
+            : CanvasRenderingContext2DState::kNoImage,
+        CanvasPerformanceMonitor::DrawType::kPath);
+    return;
+  }
+
+  SkPath sk_path = path.GetPath().GetSkPath();
+  sk_path.setFillType(fill_type);
 
   Draw<OverdrawOp::kNone>(
       [sk_path, use_paint_cache](cc::PaintCanvas* c,
@@ -1067,40 +1095,38 @@ static SkPathFillType ParseWinding(const String& winding_rule_string) {
 
 void BaseRenderingContext2D::fill(const String& winding_rule_string) {
   const SkPathFillType winding_rule = ParseWinding(winding_rule_string);
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(CanvasOps::kFill, winding_rule);
   }
-  DrawPathInternal(path_, CanvasRenderingContext2DState::kFillPaintType,
+  DrawPathInternal(*this, CanvasRenderingContext2DState::kFillPaintType,
                    winding_rule, UsePaintCache::kDisabled);
 }
 
 void BaseRenderingContext2D::fill(Path2D* dom_path,
                                   const String& winding_rule_string) {
   const SkPathFillType winding_rule = ParseWinding(winding_rule_string);
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(
         CanvasOps::kFill__Path, dom_path->GetIdentifiableToken(), winding_rule);
   }
-  DrawPathInternal(dom_path->GetPath(),
-                   CanvasRenderingContext2DState::kFillPaintType, winding_rule,
-                   path2d_use_paint_cache_);
+  DrawPathInternal(*dom_path, CanvasRenderingContext2DState::kFillPaintType,
+                   winding_rule, path2d_use_paint_cache_);
 }
 
 void BaseRenderingContext2D::stroke() {
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(CanvasOps::kStroke);
   }
-  DrawPathInternal(path_, CanvasRenderingContext2DState::kStrokePaintType,
+  DrawPathInternal(*this, CanvasRenderingContext2DState::kStrokePaintType,
                    SkPathFillType::kWinding, UsePaintCache::kDisabled);
 }
 
 void BaseRenderingContext2D::stroke(Path2D* dom_path) {
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(
         CanvasOps::kStroke__Path, dom_path->GetIdentifiableToken());
   }
-  DrawPathInternal(dom_path->GetPath(),
-                   CanvasRenderingContext2DState::kStrokePaintType,
+  DrawPathInternal(*dom_path, CanvasRenderingContext2DState::kStrokePaintType,
                    SkPathFillType::kWinding, path2d_use_paint_cache_);
 }
 
@@ -1113,7 +1139,7 @@ void BaseRenderingContext2D::fillRect(double x,
 
   if (!GetOrCreatePaintCanvas())
     return;
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(CanvasOps::kFillRect, x, y,
                                                 width, height);
   }
@@ -1175,7 +1201,7 @@ void BaseRenderingContext2D::strokeRect(double x,
 
   if (!GetOrCreatePaintCanvas())
     return;
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(CanvasOps::kStrokeRect, x, y,
                                                 width, height);
   }
@@ -1224,17 +1250,17 @@ void BaseRenderingContext2D::ClipInternal(const Path& path,
 }
 
 void BaseRenderingContext2D::clip(const String& winding_rule_string) {
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(
         CanvasOps::kClip,
         IdentifiabilitySensitiveStringToken(winding_rule_string));
   }
-  ClipInternal(path_, winding_rule_string, UsePaintCache::kDisabled);
+  ClipInternal(GetPath(), winding_rule_string, UsePaintCache::kDisabled);
 }
 
 void BaseRenderingContext2D::clip(Path2D* dom_path,
                                   const String& winding_rule_string) {
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(
         CanvasOps::kClip__Path, dom_path->GetIdentifiableToken(),
         IdentifiabilitySensitiveStringToken(winding_rule_string));
@@ -1246,7 +1272,7 @@ void BaseRenderingContext2D::clip(Path2D* dom_path,
 bool BaseRenderingContext2D::isPointInPath(const double x,
                                            const double y,
                                            const String& winding_rule_string) {
-  return IsPointInPathInternal(path_, x, y, winding_rule_string);
+  return IsPointInPathInternal(GetPath(), x, y, winding_rule_string);
 }
 
 bool BaseRenderingContext2D::isPointInPath(Path2D* dom_path,
@@ -1278,7 +1304,7 @@ bool BaseRenderingContext2D::IsPointInPathInternal(
 }
 
 bool BaseRenderingContext2D::isPointInStroke(const double x, const double y) {
-  return IsPointInStrokeInternal(path_, x, y);
+  return IsPointInStrokeInternal(GetPath(), x, y);
 }
 
 bool BaseRenderingContext2D::isPointInStroke(Path2D* dom_path,
@@ -1330,7 +1356,7 @@ void BaseRenderingContext2D::clearRect(double x,
   SkIRect clip_bounds;
   if (!c->getDeviceClipBounds(&clip_bounds))
     return;
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(CanvasOps::kClearRect, x, y,
                                                 width, height);
   }
@@ -1642,8 +1668,9 @@ void BaseRenderingContext2D::drawImage(CanvasImageSource* image_source,
   gfx::SizeF default_object_size(Width(), Height());
   SourceImageStatus source_image_status = kInvalidSourceImageStatus;
   if (!image_source->IsVideoElement()) {
-    image = image_source->GetSourceImageForCanvas(&source_image_status,
-                                                  default_object_size);
+    image = image_source->GetSourceImageForCanvas(
+        CanvasResourceProvider::FlushReason::kDrawImage, &source_image_status,
+        default_object_size);
     if (source_image_status == kUndecodableSourceImageStatus) {
       exception_state.ThrowDOMException(
           DOMExceptionCode::kInvalidStateError,
@@ -1682,7 +1709,7 @@ void BaseRenderingContext2D::drawImage(CanvasImageSource* image_source,
 
   if (src_rect.IsEmpty())
     return;
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(
         CanvasOps::kDrawImage, fsx, fsy, fsw, fsh, fdx, fdy, fdw, fdh,
         image ? image->width() : 0, image ? image->height() : 0);
@@ -1838,7 +1865,9 @@ CanvasPattern* BaseRenderingContext2D::createPattern(
 
   gfx::SizeF default_object_size(Width(), Height());
   scoped_refptr<Image> image_for_rendering =
-      image_source->GetSourceImageForCanvas(&status, default_object_size);
+      image_source->GetSourceImageForCanvas(
+          CanvasResourceProvider::FlushReason::kCreatePattern, &status,
+          default_object_size);
 
   switch (status) {
     case kNormalSourceImageStatus:
@@ -2011,7 +2040,7 @@ ImageData* BaseRenderingContext2D::getImageDataInternal(
 
   // Deferred offscreen canvases might have recorded commands, make sure
   // that those get drawn here
-  FinalizeFrame();
+  FinalizeFrame(CanvasResourceProvider::FlushReason::kGetImageData);
 
   num_readbacks_performed_++;
   CanvasContextCreationAttributesCore::WillReadFrequently
@@ -2054,7 +2083,8 @@ ImageData* BaseRenderingContext2D::getImageDataInternal(
     }
   }
 
-  scoped_refptr<StaticBitmapImage> snapshot = GetImage();
+  scoped_refptr<StaticBitmapImage> snapshot =
+      GetImage(CanvasResourceProvider::FlushReason::kGetImageData);
 
   // Determine if the array should be zero initialized, or if it will be
   // completely overwritten.
@@ -2124,7 +2154,7 @@ void BaseRenderingContext2D::putImageData(ImageData* data,
   if (!hasResourceProvider)
     return;
 
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(
         CanvasOps::kPutImageData, data->width(), data->height(),
         data->GetPredefinedColorSpace(), data->GetImageDataStorageFormat(), dx,
@@ -2250,7 +2280,7 @@ bool BaseRenderingContext2D::imageSmoothingEnabled() const {
 void BaseRenderingContext2D::setImageSmoothingEnabled(bool enabled) {
   if (enabled == GetState().ImageSmoothingEnabled())
     return;
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(
         CanvasOps::kSetImageSmoothingEnabled, enabled);
   }
@@ -2266,7 +2296,7 @@ void BaseRenderingContext2D::setImageSmoothingQuality(const String& quality) {
   if (quality == GetState().ImageSmoothingQuality())
     return;
 
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(
         CanvasOps::kSetImageSmoothingQuality,
         IdentifiabilitySensitiveStringToken(quality));
@@ -2296,7 +2326,7 @@ String BaseRenderingContext2D::textAlign() const {
 }
 
 void BaseRenderingContext2D::setTextAlign(const String& s) {
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(
         CanvasOps::kSetTextAlign, IdentifiabilityBenignStringToken(s));
   }
@@ -2313,7 +2343,7 @@ String BaseRenderingContext2D::textBaseline() const {
 }
 
 void BaseRenderingContext2D::setTextBaseline(const String& s) {
-  if (identifiability_study_helper_.ShouldUpdateBuilder()) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
     identifiability_study_helper_.UpdateBuilder(
         CanvasOps::kSetTextBaseline, IdentifiabilityBenignStringToken(s));
   }

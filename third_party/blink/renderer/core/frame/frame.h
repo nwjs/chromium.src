@@ -36,6 +36,7 @@
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "services/network/public/mojom/web_sandbox_flags.mojom-blink.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
+#include "third_party/blink/public/common/fenced_frame/redacted_fenced_frame_config.h"
 #include "third_party/blink/public/common/frame/frame_ad_evidence.h"
 #include "third_party/blink/public/common/frame/user_activation_state.h"
 #include "third_party/blink/public/common/frame/user_activation_update_source.h"
@@ -57,6 +58,7 @@
 #include "third_party/blink/renderer/core/loader/frame_loader_types.h"
 #include "third_party/blink/renderer/core/page/frame_tree.h"
 #include "third_party/blink/renderer/platform/graphics/touch_action.h"
+#include "third_party/blink/renderer/platform/heap/collection_support/heap_vector.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cancellable_task.h"
 #include "third_party/blink/renderer/platform/wtf/forward.h"
@@ -79,6 +81,7 @@ class HTMLFrameOwnerElement;
 class LayoutEmbeddedContent;
 class LocalFrame;
 class Page;
+class Resource;
 class SecurityContext;
 class Settings;
 class WindowProxy;
@@ -448,7 +451,11 @@ class CORE_EXPORT Frame : public GarbageCollected<Frame> {
   // Returns the mode set on the fenced frame if the frame is inside a fenced
   // frame tree. Otherwise returns `absl::nullopt`. This should not be called
   // on a detached frame.
-  absl::optional<mojom::blink::FencedFrameMode> GetFencedFrameMode() const;
+  absl::optional<blink::FencedFrame::DeprecatedFencedFrameMode>
+  GetDeprecatedFencedFrameMode() const;
+
+  // Returns all the resources under the frame tree of this node.
+  HeapVector<Member<Resource>> AllResourcesUnderFrame();
 
  protected:
   // |inheriting_agent_factory| should basically be set to the parent frame or
@@ -490,9 +497,6 @@ class CORE_EXPORT Frame : public GarbageCollected<Frame> {
   void ClearUserActivationInFrameTree();
 
   void RenderFallbackContent();
-  void RenderFallbackContentWithResourceTiming(
-      mojom::blink::ResourceTimingInfoPtr timing,
-      const String& server_timing_values);
 
   // Only implemented for LocalFrames.
   virtual void ActivateHistoryUserActivationState() {}

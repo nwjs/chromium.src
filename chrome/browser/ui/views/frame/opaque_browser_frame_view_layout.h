@@ -13,7 +13,6 @@
 #include "ui/views/window/frame_buttons.h"
 
 class CaptionButtonPlaceholderContainer;
-class WebAppFrameToolbarView;
 class OpaqueBrowserFrameViewLayoutDelegate;
 
 namespace views {
@@ -30,9 +29,14 @@ class OpaqueBrowserFrameViewLayout : public views::LayoutManager {
   // Constants used by OpaqueBrowserFrameView as well.
   static const int kContentEdgeShadowThickness;
 
+  // The frame border is only visible in restored mode and is hardcoded to 4 px
+  // on each side regardless of the system window border size.  This is
+  // overridable by subclasses, so RestoredFrameBorderInsets() should be used
+  // instead of using this constant directly.
+  static constexpr int kFrameBorderThickness = 4;
+
   // Constants public for testing only.
   static constexpr int kNonClientExtraTopThickness = 1;
-  static const int kFrameBorderThickness;
   static const int kTopFrameEdgeThickness;
   static const int kSideFrameEdgeThickness;
   static const int kIconLeftSpacing;
@@ -243,9 +247,6 @@ class OpaqueBrowserFrameViewLayout : public views::LayoutManager {
 
   raw_ptr<views::View> window_icon_;
   raw_ptr<views::Label, DanglingUntriaged> window_title_;
-
-  raw_ptr<WebAppFrameToolbarView, DanglingUntriaged> web_app_frame_toolbar_ =
-      nullptr;
 
   std::vector<views::FrameButton> leading_buttons_;
   std::vector<views::FrameButton> trailing_buttons_;

@@ -64,9 +64,6 @@
 #include "chrome/browser/permissions/permission_actions_history_factory.h"
 #include "chrome/browser/permissions/permission_decision_auto_blocker_factory.h"
 #include "chrome/browser/preloading/prefetch/no_state_prefetch/no_state_prefetch_manager_factory.h"
-#include "chrome/browser/preloading/prefetch/prefetch_proxy/prefetch_proxy_origin_decider.h"
-#include "chrome/browser/preloading/prefetch/prefetch_proxy/prefetch_proxy_service.h"
-#include "chrome/browser/preloading/prefetch/prefetch_proxy/prefetch_proxy_service_factory.h"
 #include "chrome/browser/preloading/prefetch/search_prefetch/search_prefetch_service.h"
 #include "chrome/browser/preloading/prefetch/search_prefetch/search_prefetch_service_factory.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_settings_factory.h"
@@ -86,7 +83,6 @@
 #include "chrome/browser/web_data_service_factory.h"
 #include "chrome/browser/webauthn/chrome_authenticator_request_delegate.h"
 #include "chrome/common/buildflags.h"
-#include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "components/autofill/core/browser/personal_data_manager.h"
 #include "components/autofill/core/browser/strike_databases/strike_database.h"
@@ -106,6 +102,7 @@
 #include "components/heavy_ad_intervention/heavy_ad_blocklist.h"
 #include "components/heavy_ad_intervention/heavy_ad_service.h"
 #include "components/history/core/browser/history_service.h"
+#include "components/history/core/common/pref_names.h"
 #include "components/keyed_service/core/service_access_type.h"
 #include "components/language/core/browser/url_language_histogram.h"
 #include "components/nacl/browser/nacl_browser.h"
@@ -529,12 +526,6 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
         OptimizationGuideKeyedServiceFactory::GetForProfile(profile_);
     if (optimization_guide_keyed_service)
       optimization_guide_keyed_service->ClearData();
-
-    PrefetchProxyService* prefetch_proxy_service =
-        PrefetchProxyServiceFactory::GetForProfile(profile_);
-    if (prefetch_proxy_service) {
-      prefetch_proxy_service->origin_decider()->OnBrowsingDataCleared();
-    }
 
     content::PrefetchServiceDelegate::ClearData(profile_);
 
@@ -1340,8 +1331,10 @@ void ChromeBrowsingDataRemoverDelegate::OnTaskComplete(
   // are refreshed the next time, typically on the next browser restart.
   if (should_clear_password_account_storage_settings_) {
     should_clear_password_account_storage_settings_ = false;
+#if !BUILDFLAG(IS_ANDROID)
     password_manager::features_util::ClearAccountStorageSettingsForAllUsers(
         profile_->GetPrefs());
+#endif  // !BUILDFLAG(IS_ANDROID)
   }
 
   slow_pending_tasks_closure_.Cancel();

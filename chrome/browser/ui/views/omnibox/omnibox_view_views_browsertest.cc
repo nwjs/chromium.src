@@ -216,7 +216,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewViewsTest, AyncDropCallback) {
                             ui::DragDropTypes::DRAG_COPY);
   auto cb = omnibox_view_views->CreateDropCallback(event);
   ui::mojom::DragOperation output_drag_op = ui::mojom::DragOperation::kNone;
-  std::move(cb).Run(event, output_drag_op);
+  std::move(cb).Run(event, output_drag_op, /*drag_image_layer_owner=*/nullptr);
 
   EXPECT_EQ(input, omnibox_view_views->GetText());
   EXPECT_TRUE(ui_test_utils::IsViewFocused(browser(), VIEW_ID_OMNIBOX));
@@ -884,7 +884,7 @@ class OmniboxViewViewsIMETest : public OmniboxViewViewsTest {
   OmniboxMockInputMethod* GetInputMethod() const { return input_method_; }
 
  private:
-  raw_ptr<OmniboxMockInputMethod> input_method_ = nullptr;
+  raw_ptr<OmniboxMockInputMethod, DanglingUntriaged> input_method_ = nullptr;
 };
 
 IN_PROC_BROWSER_TEST_F(OmniboxViewViewsIMETest, TextInputTypeChangedTest) {

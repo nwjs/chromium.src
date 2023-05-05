@@ -116,7 +116,8 @@ ExtensionsToolbarContainer::ExtensionsToolbarContainer(Browser* browser,
                         browser,
                         this,
                         extensions_menu_coordinator_.get()),
-                    std::make_unique<ExtensionsRequestAccessButton>(browser_))
+                    std::make_unique<ExtensionsRequestAccessButton>(browser_,
+                                                                    this))
               : nullptr),
       display_mode_(display_mode),
       action_hover_card_controller_(
@@ -591,9 +592,19 @@ void ExtensionsToolbarContainer::OnToolbarPinnedActionsChanged() {
 void ExtensionsToolbarContainer::OnUserPermissionsSettingsChanged(
     const extensions::PermissionsManager::UserPermissionsSettings& settings) {
   UpdateControlsVisibility();
-  // TODO(crbug.com/1351778): Update hover card. This will be slightly different
-  // than 'OnToolbarActionUpdated' since site settings update are not tied to a
-  // specific action.
+  // TODO(crbug.com/1351778): Update request access button hover card. This
+  // will be slightly different than 'OnToolbarActionUpdated' since site
+  // settings update are not tied to a specific action.
+}
+
+void ExtensionsToolbarContainer::OnShowAccessRequestsInToolbarChanged(
+    const extensions::ExtensionId& extension_id,
+    bool can_show_requests) {
+  UpdateControlsVisibility();
+  // TODO(crbug.com/1351778): Update requests access button hover card. This is
+  // tricky because it would need to change the items in the dialog. Another
+  // option is to close the hover card if its shown whenever request access
+  // button is updated.
 }
 
 void ExtensionsToolbarContainer::ReorderViews() {
@@ -913,7 +924,8 @@ void ExtensionsToolbarContainer::MovePinnedAction(
     size_t index,
     base::ScopedClosureRunner cleanup,
     const ui::DropTargetEvent& event,
-    ui::mojom::DragOperation& output_drag_op) {
+    ui::mojom::DragOperation& output_drag_op,
+    std::unique_ptr<ui::LayerTreeOwner> drag_image_layer_owner) {
   model_->MovePinnedAction(action_id, index);
 
   output_drag_op = DragOperation::kMove;

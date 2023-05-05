@@ -34,7 +34,7 @@
 #include "ash/public/cpp/view_shadow.h"
 #include "ash/search_box/search_box_constants.h"
 #include "ash/shell.h"
-#include "ash/style/ash_color_provider.h"
+#include "ash/style/ash_color_id.h"
 #include "ash/style/icon_button.h"
 #include "base/check.h"
 #include "base/check_op.h"
@@ -43,8 +43,10 @@
 #include "base/i18n/rtl.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/time/time.h"
+#include "chromeos/constants/chromeos_features.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/ui_base_types.h"
+#include "ui/chromeos/styles/cros_tokens_color_mappings.h"
 #include "ui/compositor/animation_throughput_reporter.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/layer_type.h"
@@ -191,6 +193,21 @@ AppListBubbleView::AppListBubbleView(
   layer()->SetIsFastRoundedCorner(true);
   layer()->SetBackgroundBlur(ColorProvider::kBackgroundBlurSigma);
   layer()->SetBackdropFilterQuality(ColorProvider::kBackgroundBlurQuality);
+
+  const bool is_jelly_enabled = chromeos::features::IsJellyEnabled();
+  ui::ColorId background_color_id =
+      is_jelly_enabled
+          ? static_cast<ui::ColorId>(cros_tokens::kCrosSysSystemBaseElevated)
+          : kColorAshShieldAndBase80;
+  SetBackground(views::CreateThemedRoundedRectBackground(background_color_id,
+                                                         kBubbleCornerRadius));
+
+  SetBorder(std::make_unique<views::HighlightBorder>(
+      kBubbleCornerRadius,
+      is_jelly_enabled ? views::HighlightBorder::Type::kHighlightBorderOnShadow
+                       : views::HighlightBorder::Type::kHighlightBorder1,
+      /*use_light_colors=*/false,
+      /*insets_type=*/views::HighlightBorder::InsetsType::kHalfInsets));
 
   views::FillLayout* layout =
       SetLayoutManager(std::make_unique<views::FillLayout>());
@@ -577,19 +594,6 @@ bool AppListBubbleView::AcceleratorPressed(const ui::Accelerator& accelerator) {
 
   // Don't let the accelerator propagate any further.
   return true;
-}
-
-void AppListBubbleView::OnThemeChanged() {
-  views::View::OnThemeChanged();
-
-  SetBackground(views::CreateRoundedRectBackground(
-      AshColorProvider::Get()->GetBaseLayerColor(
-          AshColorProvider::BaseLayerType::kTransparent80),
-      kBubbleCornerRadius));
-  SetBorder(std::make_unique<views::HighlightBorder>(
-      kBubbleCornerRadius, views::HighlightBorder::Type::kHighlightBorder1,
-      /*use_light_colors=*/false,
-      /*insets_type=*/views::HighlightBorder::InsetsType::kHalfInsets));
 }
 
 void AppListBubbleView::Layout() {

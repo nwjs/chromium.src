@@ -6,6 +6,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_MODULES_AD_AUCTION_NAVIGATOR_AUCTION_H_
 
 #include <stdint.h>
+
 #include <memory>
 
 #include "base/memory/scoped_refptr.h"
@@ -28,6 +29,7 @@ namespace blink {
 class AdRequestConfig;
 class Ads;
 class AuctionAdInterestGroup;
+class AuctionAdInterestGroupKey;
 class AuctionAdConfig;
 class ScopedAbortState;
 class ScriptPromiseResolver;
@@ -56,11 +58,11 @@ class MODULES_EXPORT NavigatorAuction final
                                            double,
                                            ExceptionState&);
   ScriptPromise leaveAdInterestGroup(ScriptState*,
-                                     const AuctionAdInterestGroup*,
+                                     const AuctionAdInterestGroupKey*,
                                      ExceptionState&);
   static ScriptPromise leaveAdInterestGroup(ScriptState*,
                                             Navigator&,
-                                            const AuctionAdInterestGroup*,
+                                            const AuctionAdInterestGroupKey*,
                                             ExceptionState&);
   // Implicit leaveAdInterestGroup - only supported when called from within
   // a fenced frame showing FLEDGE ads.
@@ -138,6 +140,18 @@ class MODULES_EXPORT NavigatorAuction final
                                   const Ads*,
                                   const AuctionAdConfig*,
                                   ExceptionState&);
+
+  // Web-exposed API that returns whether an opaque-ads fenced frame would be
+  // allowed to be created in the current active document of this node after
+  // an ad auction is run.
+  // Checks the following criteria:
+  // - Not trying to load in a default mode fenced frame tree
+  // - All of the sandbox/allow flags required to load a fenced frame are set
+  //   in the embedder. See: blink::kFencedFrameMandatoryUnsandboxedFlags
+  // - No CSP headers are in place that will stop the fenced frame from loading
+  // - No CSPEE is applied to this or an ancestor frame
+  bool canLoadAdAuctionFencedFrame(ScriptState*);
+  static bool canLoadAdAuctionFencedFrame(ScriptState*, Navigator&);
 
   void Trace(Visitor* visitor) const override {
     visitor->Trace(ad_auction_service_);

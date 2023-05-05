@@ -86,6 +86,10 @@ class CONTENT_EXPORT PrefetchService {
   void GetPrefetchToServe(const GURL& url,
                           OnPrefetchToServeReady on_prefetch_to_serve_ready);
 
+  // Copies any cookies in the isolated network context associated with
+  // |prefetch_container| to the default network context.
+  void CopyIsolatedCookies(base::WeakPtr<PrefetchContainer> prefetch_container);
+
   // Removes the prefetch with the given |prefetch_container_key| from
   // |all_prefetches_|.
   void RemovePrefetch(const PrefetchContainer::Key& prefetch_container_key);
@@ -115,10 +119,12 @@ class CONTENT_EXPORT PrefetchService {
   // with result and an optional status stating why the prefetch is not
   // eligible.
   using OnEligibilityResultCallback =
-      base::OnceCallback<void(base::WeakPtr<PrefetchContainer>,
+      base::OnceCallback<void(const GURL& url,
+                              base::WeakPtr<PrefetchContainer>,
                               bool eligible,
                               absl::optional<PrefetchStatus> status)>;
   void CheckEligibilityOfPrefetch(
+      const GURL& url,
       base::WeakPtr<PrefetchContainer> prefetch_container,
       OnEligibilityResultCallback result_callback) const;
 
@@ -126,6 +132,7 @@ class CONTENT_EXPORT PrefetchService {
   // |prefetch_container|. If there are any cookies, then the prefetch is not
   // eligible.
   void OnGotCookiesForEligibilityCheck(
+      const GURL& url,
       base::WeakPtr<PrefetchContainer> prefetch_container,
       OnEligibilityResultCallback result_callback,
       const net::CookieAccessResultList& cookie_list,
@@ -135,6 +142,7 @@ class CONTENT_EXPORT PrefetchService {
   // of |prefetch_container|. If there is an existing proxy, then the prefetch
   // is not eligible.
   void StartProxyLookupCheck(
+      const GURL& url,
       base::WeakPtr<PrefetchContainer> prefetch_container,
       OnEligibilityResultCallback result_callback) const;
 
@@ -142,6 +150,7 @@ class CONTENT_EXPORT PrefetchService {
   // |prefetch_container|. If there is an existing proxy, then the prefetch is
   // not eligible.
   void OnGotProxyLookupResult(
+      const GURL& url,
       base::WeakPtr<PrefetchContainer> prefetch_container,
       OnEligibilityResultCallback result_callback,
       bool has_proxy) const;
@@ -150,6 +159,16 @@ class CONTENT_EXPORT PrefetchService {
   // prefetch is eligible it is added to the queue to be prefetched. If it is
   // not eligible, then we consider making it a decoy request.
   void OnGotEligibilityResult(
+      const GURL& url,
+      base::WeakPtr<PrefetchContainer> prefetch_container,
+      bool eligible,
+      absl::optional<PrefetchStatus> status);
+
+  // Called once the eligibility of a redirect for a |prefetch_container| is
+  // determined. If its eligible, then the prefetch will continue, otherwise it
+  // is stopped.
+  void OnGotEligibilityResultForRedirect(
+      const GURL& url,
       base::WeakPtr<PrefetchContainer> prefetch_container,
       bool eligible,
       absl::optional<PrefetchStatus> status);
@@ -182,10 +201,11 @@ class CONTENT_EXPORT PrefetchService {
       base::WeakPtr<PrefetchContainer> prefetch_container);
 
   // Called when the request for |prefetch_container| is redirected.
-  void OnPrefetchRedirect(base::WeakPtr<PrefetchContainer> prefetch_container,
-                          const net::RedirectInfo& redirect_info,
-                          const network::mojom::URLResponseHead& response_head,
-                          std::vector<std::string>* removed_headers);
+  PrefetchStreamingURLLoaderStatus OnPrefetchRedirect(
+      base::WeakPtr<PrefetchContainer> prefetch_container,
+      const net::RedirectInfo& redirect_info,
+      const network::mojom::URLResponseHead& response_head);
+
   // Called when the response for |prefetch_container| has started. Based on
   // |head|, returns a status to inform the |PrefetchStreamingURLLoader| whether
   // the prefetch is servable. If servable, then |kHeadReceivedWaitingOnBody|
@@ -201,9 +221,9 @@ class CONTENT_EXPORT PrefetchService {
       base::WeakPtr<PrefetchContainer> prefetch_container,
       const network::URLLoaderCompletionStatus& completion_status);
 
-  // Copies any cookies in the isolated network context associated with
-  // |prefetch_container| to the default network context.
-  void CopyIsolatedCookies(base::WeakPtr<PrefetchContainer> prefetch_container);
+  // Called when the cookies from |prefetch_conatiner| are read from the
+  // isolated network context and are ready to be written to the default network
+  // context.
   void OnGotIsolatedCookiesForCopy(
       base::WeakPtr<PrefetchContainer> prefetch_container,
       const net::CookieAccessResultList& cookie_list,

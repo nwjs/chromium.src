@@ -57,6 +57,9 @@
 // the operation failed.
 + (NSError*)removeBrowsingCache;
 
+// Persists the current list of tabs to disk immediately.
++ (void)saveSessionImmediately;
+
 // Opens `URL` using some connected scene.
 + (void)sceneOpenURL:(NSString*)spec;
 
@@ -220,6 +223,9 @@
 
 // Returns the number of open incognito tabs, in window with given number.
 + (NSUInteger)incognitoTabCountInWindowWithNumber:(int)windowNumber;
+
+// Returns a key window from the connected scenes.
++ (UIWindow*)keyWindow;
 
 #pragma mark - WebState Utilities (EG2)
 
@@ -392,8 +398,11 @@
                      originator_client_item_id:
                          (NSString*)originator_client_item_id;
 
-// Injects typed URL to sync FakeServer.
+// Injects a typed URL to the sync FakeServer.
 + (void)addFakeSyncServerTypedURL:(NSString*)URL;
+
+// Injects a HISTORY visit to the sync FakeServer.
++ (void)addFakeSyncServerHistoryVisit:(NSURL*)URL;
 
 // Injects device info to sync FakeServer.
 + (void)addFakeSyncServerDeviceInfo:(NSString*)deviceName
@@ -408,7 +417,7 @@
 // If the provided URL `spec` is either present or not present in HistoryService
 // (depending on `expectPresent`), return YES. If the present status of `spec`
 // is not what is expected, or there is an error, return NO.
-+ (BOOL)isTypedURL:(NSString*)spec presentOnClient:(BOOL)expectPresent;
++ (BOOL)isURL:(NSString*)spec presentOnClient:(BOOL)expectPresent;
 
 // Triggers a sync cycle for a `type`.
 + (void)triggerSyncCycleForType:(syncer::ModelType)type;
@@ -536,8 +545,8 @@
 // Returns whether the Web Channels feature is enabled.
 + (BOOL)isWebChannelsEnabled;
 
-// Returns whether SF Symbols are used.
-+ (BOOL)isSFSymbolEnabled;
+// Returns whether UIButtonConfiguration changes are enabled.
++ (BOOL)isUIButtonConfigurationEnabled;
 
 #pragma mark - ContentSettings
 
@@ -551,6 +560,11 @@
 
 // Resets the desktop content setting to its default value.
 + (void)resetDesktopContentSetting;
+
+#pragma mark - Default Utilities (EG2)
+
+// Stores a value for the provided key in NSUserDefaults.
++ (void)setUserDefaultObject:(id)value forKey:(NSString*)defaultName;
 
 #pragma mark - Pref Utilities (EG2)
 

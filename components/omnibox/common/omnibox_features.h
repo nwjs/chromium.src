@@ -5,6 +5,8 @@
 #ifndef COMPONENTS_OMNIBOX_COMMON_OMNIBOX_FEATURES_H_
 #define COMPONENTS_OMNIBOX_COMMON_OMNIBOX_FEATURES_H_
 
+#include <string>
+
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
 
@@ -17,11 +19,14 @@ BASE_DECLARE_FEATURE(kExperimentalKeywordMode);
 BASE_DECLARE_FEATURE(kImageSearchSuggestionThumbnail);
 BASE_DECLARE_FEATURE(kOmniboxRemoveSuggestionsFromClipboard);
 
-// Flags that affect the "twiddle" step of AutocompleteResult, e.g.,
-// `SortAndCull()`.
-BASE_DECLARE_FEATURE(kGroupingFramework);
+// Features that affect the "twiddle" step of AutocompleteController, e.g.,
+// deduping or `SortAndCull()`.
+BASE_DECLARE_FEATURE(kGroupingFrameworkForZPS);
+BASE_DECLARE_FEATURE(kGroupingFrameworkForNonZPS);
 BASE_DECLARE_FEATURE(kOmniboxDemoteByType);
 BASE_DECLARE_FEATURE(kOmniboxRemoveExcessiveRecycledViewClearCalls);
+BASE_DECLARE_FEATURE(kPreferNonShortcutMatchesWhenDeduping);
+BASE_DECLARE_FEATURE(kPreferTailOverHistoryClusterSuggestions);
 BASE_DECLARE_FEATURE(kPreserveDefault);
 BASE_DECLARE_FEATURE(kSingleSortAndCullPass);
 BASE_DECLARE_FEATURE(kUpdateResultDebounce);
@@ -100,7 +105,33 @@ BASE_DECLARE_FEATURE(kWebUIOmniboxPopup);
 // Omnibox UI - these affect the UI or function of the location bar (not the
 // popup).
 BASE_DECLARE_FEATURE(kOmniboxAssistantVoiceSearch);
+
+BASE_DECLARE_FEATURE(kCr2023Umbrella);
+
+BASE_DECLARE_FEATURE(kOmniboxSteadyStateBackgroundColor);
+// These feature params are located here, as opposed to omnibox_field_trial.h,
+// in order to permit inclusion into (non-Omnibox) color mixer code.
+extern const base::FeatureParam<std::string> kOmniboxDarkBackgroundColor;
+extern const base::FeatureParam<std::string> kOmniboxDarkBackgroundColorHovered;
+extern const base::FeatureParam<std::string> kOmniboxLightBackgroundColor;
+extern const base::FeatureParam<std::string>
+    kOmniboxLightBackgroundColorHovered;
+
 BASE_DECLARE_FEATURE(kOmniboxSteadyStateHeight);
+BASE_DECLARE_FEATURE(kOmniboxSteadyStateTextStyle);
+
+BASE_DECLARE_FEATURE(kOmniboxSteadyStateTextColor);
+// These feature params are located here, as opposed to omnibox_field_trial.h,
+// in order to permit inclusion into (non-Omnibox) color mixer code.
+extern const base::FeatureParam<std::string> kOmniboxTextColorDarkMode;
+extern const base::FeatureParam<std::string> kOmniboxTextColorDimmedDarkMode;
+extern const base::FeatureParam<std::string> kOmniboxTextColorLightMode;
+extern const base::FeatureParam<std::string> kOmniboxTextColorDimmedLightMode;
+
+BASE_DECLARE_FEATURE(kDiscardTemporaryInputOnTabSwitch);
+BASE_DECLARE_FEATURE(kRedoCurrentMatch);
+BASE_DECLARE_FEATURE(kRevertModelBeforeClosingPopup);
+BASE_DECLARE_FEATURE(kUseExistingAutocompleteClient);
 
 // Omnibox & Suggestions UI - these affect both the omnibox and the suggestions
 // popup.
@@ -125,6 +156,9 @@ BASE_DECLARE_FEATURE(kReportSearchboxStats);
 BASE_DECLARE_FEATURE(kLogUrlScoringSignals);
 BASE_DECLARE_FEATURE(kMlRelevanceScoring);
 BASE_DECLARE_FEATURE(kUrlScoringModel);
+
+// Inspire Me - additional suggestions based on user's location and interests.
+BASE_DECLARE_FEATURE(kInspireMe);
 
 }  // namespace omnibox
 

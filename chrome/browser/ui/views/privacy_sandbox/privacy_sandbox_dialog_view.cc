@@ -48,8 +48,7 @@ GURL GetDialogURL(PrivacySandboxService::PromptType prompt_type) {
     case PrivacySandboxService::PromptType::kM1NoticeEEA:
       return net::AppendQueryParameter(combined_dialog_url, "step", "notice");
     case PrivacySandboxService::PromptType::kNone:
-      NOTREACHED();
-      return GURL();
+      NOTREACHED_NORETURN();
   }
 }
 
@@ -63,8 +62,7 @@ int GetDialogWidth(PrivacySandboxService::PromptType prompt_type) {
     case PrivacySandboxService::PromptType::kM1NoticeEEA:
       return kM1DialogWidth;
     case PrivacySandboxService::PromptType::kNone:
-      NOTREACHED();
-      return 0;
+      NOTREACHED_NORETURN();
   }
 }
 
@@ -185,7 +183,8 @@ void PrivacySandboxDialogView::ResizeNativeView(int height) {
   const int target_height = std::min(height, max_height);
   web_view_->SetPreferredSize(
       gfx::Size(web_view_->GetPreferredSize().width(), target_height));
-  GetWidget()->SetSize(GetWidget()->non_client_view()->GetPreferredSize());
+  constrained_window::UpdateWebContentsModalDialogPosition(
+      GetWidget(), browser_->window()->GetWebContentsModalDialogHost());
 }
 
 void PrivacySandboxDialogView::ShowNativeView() {

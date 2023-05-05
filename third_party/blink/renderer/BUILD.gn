@@ -132,23 +132,14 @@ config("config") {
         "dump-graph",
       ]
     }
-
-    # Enable GC plugin forbidden fields feature:
-    cflags += [
-      "-Xclang",
-      "-plugin-arg-blink-gc-plugin",
-      "-Xclang",
-      "enable-forbidden-fields-check",
-    ]
   }
 }
 
 # The follow configs apply to all targets except for unit tests, which rely on
 # static initializers.
 config("non_test_config") {
-  cflags = []
-
-  if (is_clang) {
-    cflags += [ "-Wglobal-constructors" ]
-  }
+  configs = [
+    "//build/config/compiler:wexit_time_destructors",
+    "//build/config/compiler:wglobal_constructors",
+  ]
 }

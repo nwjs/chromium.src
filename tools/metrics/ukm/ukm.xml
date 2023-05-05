@@ -3237,8 +3237,11 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="Blink.ContextMenu.ImageSelection">
-  <owner>benwgold@google.com</owner>
+  <obsolete>
+    No longer recorded after August 2022 launch of the feature.
+  </obsolete>
   <owner>flackr@chromium.org</owner>
+  <owner>blink-interactions-team@google.com</owner>
   <summary>
     Sent when a user long presses or right clicks a document (and that an image
     is found). Requires that the `EnablePenetratingImageSelection` feature is
@@ -5448,7 +5451,7 @@ be describing additional metrics about the same event.
       will be recorded iff `CandidateTopic2` is recorded.
     </summary>
   </metric>
-  <metric name="FailureReason" enum="BrowsingTopicsApiAccessFailureReason">
+  <metric name="FailureReason" enum="BrowsingTopicsApiAccessResult">
     <summary>
       The reason why the API access is not allowed.
     </summary>
@@ -7720,6 +7723,90 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="GamingInputOverlay.ActionRepositionOperationType">
+  <owner>pjlee@google.com</owner>
+  <owner>cuicuiruan@google.com</owner>
+  <owner>arc-gaming@google.com</owner>
+  <summary>
+    An event that is logged when key mapping position is changed.
+  </summary>
+  <metric name="OperationType" enum="ArcInputOverlayRepositionOperationType">
+    <summary>
+      Type about how the reposition is done.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
+<event name="GamingInputOverlay.ActionRepositionWindowStateType">
+  <owner>pjlee@google.com</owner>
+  <owner>cuicuiruan@google.com</owner>
+  <owner>arc-gaming@google.com</owner>
+  <summary>
+    An event that is logged when key mapping position is changed.
+  </summary>
+  <metric name="WindowStateType" enum="ArcInputOverlayWindowStateType">
+    <summary>
+      Window state type when the reposition is done.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
+<event name="GamingInputOverlay.ButtonGroupRepositionOperationType">
+  <owner>pjlee@google.com</owner>
+  <owner>cuicuiruan@google.com</owner>
+  <owner>arc-gaming@google.com</owner>
+  <summary>
+    An event that is logged when button group position is changed.
+  </summary>
+  <metric name="OperationType" enum="ArcInputOverlayRepositionOperationType">
+    <summary>
+      Type about how the reposition is done.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
+<event name="GamingInputOverlay.ButtonGroupRepositionWindowStateType">
+  <owner>pjlee@google.com</owner>
+  <owner>cuicuiruan@google.com</owner>
+  <owner>arc-gaming@google.com</owner>
+  <summary>
+    An event that is logged when menu entry position is changed.
+  </summary>
+  <metric name="WindowStateType" enum="ArcInputOverlayWindowStateType">
+    <summary>
+      Window state type when the reposition is done.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
 <event name="GamingInputOverlay.Customization">
   <owner>pjlee@google.com</owner>
   <owner>cuicuiruan@google.com</owner>
@@ -7775,6 +7862,48 @@ be describing additional metrics about the same event.
   <metric name="MappingHintStateOn" enum="Boolean">
     <summary>
       Whether the mapping hint for gaming input overlay is on.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
+<event name="GamingInputOverlay.MenuEntryRepositionOperationType">
+  <owner>pjlee@google.com</owner>
+  <owner>cuicuiruan@google.com</owner>
+  <owner>arc-gaming@google.com</owner>
+  <summary>
+    An event that is logged when key mapping position is changed.
+  </summary>
+  <metric name="OperationType" enum="ArcInputOverlayRepositionOperationType">
+    <summary>
+      Type about how the reposition is done.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
+<event name="GamingInputOverlay.MenuEntryRepositionWindowStateType">
+  <owner>pjlee@google.com</owner>
+  <owner>cuicuiruan@google.com</owner>
+  <owner>arc-gaming@google.com</owner>
+  <summary>
+    An event that is logged when menu entry position is changed.
+  </summary>
+  <metric name="WindowStateType" enum="ArcInputOverlayWindowStateType">
+    <summary>
+      Window state type when the reposition is done.
     </summary>
     <aggregation>
       <history>
@@ -10801,6 +10930,20 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="InputMethod.LongpressDiacritics">
+  <owner>jopalmer@google.com</owner>
+  <owner>essential-inputs-team@google.com</owner>
+  <summary>
+    Recorded when a user uses the long press diacritics feature to insert
+    diacritics via long press with a physical keyboard.
+  </summary>
+  <metric name="Actions" enum="IMEPKLongpressDiacriticAction">
+    <summary>
+      Action taken by the user to interact with this feature.
+    </summary>
+  </metric>
+</event>
+
 <event name="InputMethod.NonCompliantApi">
   <owner>shend@chromium.org</owner>
   <summary>
@@ -13810,6 +13953,47 @@ be describing additional metrics about the same event.
   <metric name="Viewport.Width">
     <summary>
       The width of the viewport, in pixels.
+    </summary>
+  </metric>
+</event>
+
+<event name="NavigationPredictorPreloadOnHover">
+  <owner>ryansturm@chromium.org</owner>
+  <owner>domenic@chromium.org</owner>
+  <owner>isaboori@google.com</owner>
+  <summary>
+    This event records required data to assess and fine-tune the preloading
+    on-hover and on pointer down heuristics, and is submitted once per mouse
+    over, mouse out, mouse down and mouse up events for randomly selected anchor
+    elements.
+  </summary>
+  <metric name="HoverNotTakenMs">
+    <summary>
+      Duration that the user was hovering over the anchor element and it did not
+      result in a navigation to that link. Exponentially bucketed using
+      GetExponentialBucketMin with a spacing of 1.3.
+    </summary>
+  </metric>
+  <metric name="HoverTakenMs">
+    <summary>
+      Duration that the user was hovering over the anchor element and it
+      resulted in a navigation to that link. Exponentially bucketed using
+      GetExponentialBucketMin with a spacing of 1.3.
+    </summary>
+  </metric>
+  <metric name="MouseDownNotTakenMs">
+    <summary>
+      Time since the user pressed the left/middle mouse button over the anchor
+      element and that did not result in a navigation to that link.
+      Exponentially bucketed using GetExponentialBucketMin with a spacing of
+      1.3.
+    </summary>
+  </metric>
+  <metric name="MouseDownTakenMs">
+    <summary>
+      Time since the user presses the left/middle mouse button over the anchor
+      element and that resulted in a navigation to that link. Exponentially
+      bucketed using GetExponentialBucketMin with a spacing of 1.3.
     </summary>
   </metric>
 </event>
@@ -17216,6 +17400,918 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="PerformanceAPI.LongAnimationFrame.AfterLoad.BlockingFrame">
+  <owner>nrosenthal@chromium.org</owner>
+  <summary>
+    This event is associated with the LongAnimationFrame Web Platform API. The
+    metrics are recorded when a long animation frame is detected and reported to
+    the page. For more details see https://crbug.com/1392685.
+  </summary>
+  <metric name="DidPause" enum="Boolean">
+    <summary>
+      True if there was a pause (sync XHR, dialog) during the long frame.
+    </summary>
+  </metric>
+  <metric name="Duration.DelayDefer">
+    <summary>
+      A positive or negative duration in milliseconds, representing the time
+      between the desired time for rendering the frame and rendering it in
+      practice. Positive means delayed, negative means deferred.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.EffectiveBlocking">
+    <summary>
+      The duration in milliseconds, representing the time the LoAF blocked an
+      actual UI event or pending render.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSCompilation">
+    <summary>
+      The total duration of long-script JS compilation, in milliseconds.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSExecution">
+    <summary>
+      The total duration of long-script JS execution, not including compilation,
+      in milliseconds.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSExecution.EventListeners">
+    <summary>
+      The total duration spent in event listeners (e.g. onclick).
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSExecution.PromiseHandlers">
+    <summary>
+      The total duration spent in promise resolve/reject tasks.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSExecution.ScriptBlocks">
+    <summary>
+      The total duration spent in script blocks (script element, import)
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSExecution.UserCallbacks">
+    <summary>
+      The total duration spent in user callbacks (e.g. requestAnimationFrame).
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.StyleAndLayout.Forced">
+    <summary>
+      The total duration of forced style and layout in long scripts.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.StyleAndLayout.RenderPhase">
+    <summary>
+      The total duration of the style and layout lifecycle phase, not including
+      forced style and layout.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.Total">
+    <summary>
+      The duration of the long animation frame in milliseconds. Mirrors the
+      value reported in PerformanceEntry.duration.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
+<event name="PerformanceAPI.LongAnimationFrame.AfterLoad.BlockingInput">
+  <owner>nrosenthal@chromium.org</owner>
+  <summary>
+    This event is associated with the LongAnimationFrame Web Platform API. The
+    metrics are recorded when a long animation frame is detected and reported to
+    the page. For more details see https://crbug.com/1392685.
+  </summary>
+  <metric name="DidPause" enum="Boolean">
+    <summary>
+      True if there was a pause (sync XHR, dialog) during the long frame.
+    </summary>
+  </metric>
+  <metric name="Duration.DelayDefer">
+    <summary>
+      A positive or negative duration in milliseconds, representing the time
+      between the desired time for rendering the frame and rendering it in
+      practice. Positive means delayed, negative means deferred.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.EffectiveBlocking">
+    <summary>
+      The duration in milliseconds, representing the time the LoAF blocked an
+      actual UI event or pending render.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSCompilation">
+    <summary>
+      The total duration of long-script JS compilation, in milliseconds.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSExecution">
+    <summary>
+      The total duration of long-script JS execution, not including compilation,
+      in milliseconds.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSExecution.EventListeners">
+    <summary>
+      The total duration spent in event listeners (e.g. onclick).
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSExecution.PromiseHandlers">
+    <summary>
+      The total duration spent in promise resolve/reject tasks.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSExecution.ScriptBlocks">
+    <summary>
+      The total duration spent in script blocks (script element, import)
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSExecution.UserCallbacks">
+    <summary>
+      The total duration spent in user callbacks (e.g. requestAnimationFrame).
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.StyleAndLayout.Forced">
+    <summary>
+      The total duration of forced style and layout in long scripts.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.StyleAndLayout.RenderPhase">
+    <summary>
+      The total duration of the style and layout lifecycle phase, not including
+      forced style and layout.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.Total">
+    <summary>
+      The duration of the long animation frame in milliseconds. Mirrors the
+      value reported in PerformanceEntry.duration.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
+<event name="PerformanceAPI.LongAnimationFrame.AfterLoad.NonBlocking">
+  <owner>nrosenthal@chromium.org</owner>
+  <summary>
+    This event is associated with the LongAnimationFrame Web Platform API. The
+    metrics are recorded when a long animation frame is detected and reported to
+    the page. For more details see https://crbug.com/1392685.
+  </summary>
+  <metric name="DidPause" enum="Boolean">
+    <summary>
+      True if there was a pause (sync XHR, dialog) during the long frame.
+    </summary>
+  </metric>
+  <metric name="Duration.DelayDefer">
+    <summary>
+      A positive or negative duration in milliseconds, representing the time
+      between the desired time for rendering the frame and rendering it in
+      practice. Positive means delayed, negative means deferred.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.EffectiveBlocking">
+    <summary>
+      The duration in milliseconds, representing the time the LoAF blocked an
+      actual UI event or pending render.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSCompilation">
+    <summary>
+      The total duration of long-script JS compilation, in milliseconds.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSExecution">
+    <summary>
+      The total duration of long-script JS execution, not including compilation,
+      in milliseconds.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSExecution.EventListeners">
+    <summary>
+      The total duration spent in event listeners (e.g. onclick).
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSExecution.PromiseHandlers">
+    <summary>
+      The total duration spent in promise resolve/reject tasks.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSExecution.ScriptBlocks">
+    <summary>
+      The total duration spent in script blocks (script element, import)
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSExecution.UserCallbacks">
+    <summary>
+      The total duration spent in user callbacks (e.g. requestAnimationFrame).
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.StyleAndLayout.Forced">
+    <summary>
+      The total duration of forced style and layout in long scripts.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.StyleAndLayout.RenderPhase">
+    <summary>
+      The total duration of the style and layout lifecycle phase, not including
+      forced style and layout.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.Total">
+    <summary>
+      The duration of the long animation frame in milliseconds. Mirrors the
+      value reported in PerformanceEntry.duration.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
+<event name="PerformanceAPI.LongAnimationFrame.BeforeLoad.BlockingFrame">
+  <owner>nrosenthal@chromium.org</owner>
+  <summary>
+    This event is associated with the LongAnimationFrame Web Platform API. The
+    metrics are recorded when a long animation frame is detected and reported to
+    the page. For more details see https://crbug.com/1392685.
+  </summary>
+  <metric name="DidPause" enum="Boolean">
+    <summary>
+      True if there was a pause (sync XHR, dialog) during the long frame.
+    </summary>
+  </metric>
+  <metric name="Duration.DelayDefer">
+    <summary>
+      A positive or negative duration in milliseconds, representing the time
+      between the desired time for rendering the frame and rendering it in
+      practice. Positive means delayed, negative means deferred.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.EffectiveBlocking">
+    <summary>
+      The duration in milliseconds, representing the time the LoAF blocked an
+      actual UI event or pending render.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSCompilation">
+    <summary>
+      The total duration of long-script JS compilation, in milliseconds.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSExecution">
+    <summary>
+      The total duration of long-script JS execution, not including compilation,
+      in milliseconds.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSExecution.EventListeners">
+    <summary>
+      The total duration spent in event listeners (e.g. onclick).
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSExecution.PromiseHandlers">
+    <summary>
+      The total duration spent in promise resolve/reject tasks.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSExecution.ScriptBlocks">
+    <summary>
+      The total duration spent in script blocks (script element, import)
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSExecution.UserCallbacks">
+    <summary>
+      The total duration spent in user callbacks (e.g. requestAnimationFrame).
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.StyleAndLayout.Forced">
+    <summary>
+      The total duration of forced style and layout in long scripts.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.StyleAndLayout.RenderPhase">
+    <summary>
+      The total duration of the style and layout lifecycle phase, not including
+      forced style and layout.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.Total">
+    <summary>
+      The duration of the long animation frame in milliseconds. Mirrors the
+      value reported in PerformanceEntry.duration.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
+<event name="PerformanceAPI.LongAnimationFrame.BeforeLoad.BlockingInput">
+  <owner>nrosenthal@chromium.org</owner>
+  <summary>
+    This event is associated with the LongAnimationFrame Web Platform API. The
+    metrics are recorded when a long animation frame is detected and reported to
+    the page. For more details see https://crbug.com/1392685.
+  </summary>
+  <metric name="DidPause" enum="Boolean">
+    <summary>
+      True if there was a pause (sync XHR, dialog) during the long frame.
+    </summary>
+  </metric>
+  <metric name="Duration.DelayDefer">
+    <summary>
+      A positive or negative duration in milliseconds, representing the time
+      between the desired time for rendering the frame and rendering it in
+      practice. Positive means delayed, negative means deferred.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.EffectiveBlocking">
+    <summary>
+      The duration in milliseconds, representing the time the LoAF blocked an
+      actual UI event or pending render.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSCompilation">
+    <summary>
+      The total duration of long-script JS compilation, in milliseconds.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSExecution">
+    <summary>
+      The total duration of long-script JS execution, not including compilation,
+      in milliseconds.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSExecution.EventListeners">
+    <summary>
+      The total duration spent in event listeners (e.g. onclick).
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSExecution.PromiseHandlers">
+    <summary>
+      The total duration spent in promise resolve/reject tasks.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSExecution.ScriptBlocks">
+    <summary>
+      The total duration spent in script blocks (script element, import)
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSExecution.UserCallbacks">
+    <summary>
+      The total duration spent in user callbacks (e.g. requestAnimationFrame).
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.StyleAndLayout.Forced">
+    <summary>
+      The total duration of forced style and layout in long scripts.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.StyleAndLayout.RenderPhase">
+    <summary>
+      The total duration of the style and layout lifecycle phase, not including
+      forced style and layout.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.Total">
+    <summary>
+      The duration of the long animation frame in milliseconds. Mirrors the
+      value reported in PerformanceEntry.duration.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
+<event name="PerformanceAPI.LongAnimationFrame.BeforeLoad.NonBlocking">
+  <owner>nrosenthal@chromium.org</owner>
+  <summary>
+    This event is associated with the LongAnimationFrame Web Platform API. The
+    metrics are recorded when a long animation frame is detected and reported to
+    the page. For more details see https://crbug.com/1392685.
+  </summary>
+  <metric name="DidPause" enum="Boolean">
+    <summary>
+      True if there was a pause (sync XHR, dialog) during the long frame.
+    </summary>
+  </metric>
+  <metric name="Duration.DelayDefer">
+    <summary>
+      A positive or negative duration in milliseconds, representing the time
+      between the desired time for rendering the frame and rendering it in
+      practice. Positive means delayed, negative means deferred.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.EffectiveBlocking">
+    <summary>
+      The duration in milliseconds, representing the time the LoAF blocked an
+      actual UI event or pending render.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSCompilation">
+    <summary>
+      The total duration of long-script JS compilation, in milliseconds.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSExecution">
+    <summary>
+      The total duration of long-script JS execution, not including compilation,
+      in milliseconds.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSExecution.EventListeners">
+    <summary>
+      The total duration spent in event listeners (e.g. onclick).
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSExecution.PromiseHandlers">
+    <summary>
+      The total duration spent in promise resolve/reject tasks.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSExecution.ScriptBlocks">
+    <summary>
+      The total duration spent in script blocks (script element, import)
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.LongScript.JSExecution.UserCallbacks">
+    <summary>
+      The total duration spent in user callbacks (e.g. requestAnimationFrame).
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.StyleAndLayout.Forced">
+    <summary>
+      The total duration of forced style and layout in long scripts.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.StyleAndLayout.RenderPhase">
+    <summary>
+      The total duration of the style and layout lifecycle phase, not including
+      forced style and layout.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Duration.Total">
+    <summary>
+      The duration of the long animation frame in milliseconds. Mirrors the
+      value reported in PerformanceEntry.duration.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
 <event name="PerformanceAPI.LongTask">
   <owner>hpayer@chromium.org</owner>
   <owner>mlippautz@chromium.org</owner>
@@ -17478,10 +18574,16 @@ be describing additional metrics about the same event.
       True if this page is playing audio.
     </summary>
   </metric>
+  <metric name="PrivateFootprint">
+    <summary>
+      The total memory footprint of this page at the moment the sample was
+      recorded, in kilobytes.
+    </summary>
+  </metric>
   <metric name="ResidentSetSize">
     <summary>
-      The total resident set size footprint of this page at the moment the
-      sample was recorded, in kilobytes.
+      The total resident set size of this page at the moment the sample was
+      recorded, in kilobytes.
     </summary>
   </metric>
   <metric name="SliceId">
@@ -18615,6 +19717,17 @@ be describing additional metrics about the same event.
       only meaningful to these three types of preloading.
     </summary>
   </metric>
+  <metric name="SamplingLikelihood">
+    <summary>
+      The sampling rate of this particular event multiplied by 1,000,000
+      (because we cannot log floating point values in UKM). A value of 1,000,000
+      means that the event had a 100% chance of being sampled, whereas a value
+      of one means that the event had a one-in-a-millon chance of being sampled.
+      The sampling rate for preloading attempts is set via field trial through
+      the PreloadingConfig feature. The logged value just represents the
+      configuration used for that preloading attempt.
+    </summary>
+  </metric>
   <metric name="TimeToNextNavigation">
     <summary>
       The amount of time the attempt took to reach the next navigation, in
@@ -18689,6 +19802,17 @@ be describing additional metrics about the same event.
       to be used for the next navigation, in milliseconds. Note: currently only
       Prefetch, Prerender and NoStatePrefetch have a ready state. This field is
       only meaningful to these three types of preloading.
+    </summary>
+  </metric>
+  <metric name="SamplingLikelihood">
+    <summary>
+      The sampling rate of this particular event multiplied by 1,000,000
+      (because we cannot log floating point values in UKM). A value of 1,000,000
+      means that the event had a 100% chance of being sampled, whereas a value
+      of one means that the event had a one-in-a-millon chance of being sampled.
+      The sampling rate for preloading attempts is set via field trial through
+      the PreloadingConfig feature. The logged value just represents the
+      configuration used for that preloading attempt.
     </summary>
   </metric>
   <metric name="TimeToNextNavigation">
@@ -23819,14 +24943,14 @@ be describing additional metrics about the same event.
     Features of a web app recorded at most once per day if a user interacted
     with the web app. Recorded for installed and/or promotable (installable) web
     apps unless noted otherwise on the metric. Keyed by start_url of the app.
-    Note: Changed in Feb 2022 to only record when App sync is enabled.
+    Note: Changed in Feb 2023 to only record when App sync is enabled.
   </summary>
   <metric name="BackgroundDuration">
     <summary>
       Records the total duration (seconds, bucketed) that the app was open in
       the background in the last calendar day. Summed during the day and emitted
       if the date changes. Recorded only for installed web apps that are
-      currently open in a web app window.
+      currently open in a web app window, and all preinstalled web apps.
     </summary>
     <aggregation>
       <history>
@@ -23835,6 +24959,23 @@ be describing additional metrics about the same event.
         <index fields="profile.system_ram"/>
         <statistics>
           <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="CapturesLinks" enum="Boolean">
+    <summary>
+      Whether the user has enabled link capturing to open in-scope links in the
+      app window. Recorded only for installed web apps that are currently open
+      in a web app window, and all preinstalled web apps.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <index fields="profile.form_factor"/>
+        <index fields="profile.system_ram"/>
+        <statistics>
+          <enumeration/>
         </statistics>
       </history>
     </aggregation>
@@ -23860,7 +25001,7 @@ be describing additional metrics about the same event.
       Records the total duration (seconds, bucketed) that the app was open in
       the foreground in the last calendar day. Summed during the day and emitted
       if the date changes. Recorded only for installed web apps that are
-      currently open in a web app window.
+      currently open in a web app window, and all preinstalled web apps.
     </summary>
     <aggregation>
       <history>
@@ -23907,7 +25048,7 @@ be describing additional metrics about the same event.
     <summary>
       Records the total number of times the app was focused in the foreground in
       the last calendar day. Recorded only for installed web apps that are
-      currently open in a web app window.
+      currently open in a web app window, and all preinstalled web apps.
     </summary>
     <aggregation>
       <history>
@@ -23916,6 +25057,41 @@ be describing additional metrics about the same event.
         <index fields="profile.system_ram"/>
         <statistics>
           <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="PreinstalledWindowExperimentHasLaunchedBefore" enum="Boolean">
+    <summary>
+      Records whether the user has launched this preinstalled app before the
+      preinstalled app window vs tab experiment started. Recorded only if the
+      user was eligible for the experiment, which is new Chrome OS users.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <index fields="profile.form_factor"/>
+        <index fields="profile.system_ram"/>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="PreinstalledWindowExperimentUserGroup"
+      enum="WebAppPreinstalledWindowExperimentUserGroup">
+    <summary>
+      Records the user group that the user is in, for an experiment on opening
+      preinstalled apps in windows vs tabs. Recorded only if the user was
+      eligible for the experiment, which is new Chrome OS users.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <index fields="profile.form_factor"/>
+        <index fields="profile.system_ram"/>
+        <statistics>
+          <enumeration/>
         </statistics>
       </history>
     </aggregation>

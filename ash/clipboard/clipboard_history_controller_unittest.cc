@@ -9,6 +9,7 @@
 
 #include "ash/app_list/app_list_controller_impl.h"
 #include "ash/clipboard/clipboard_history.h"
+#include "ash/clipboard/clipboard_history_item.h"
 #include "ash/public/cpp/clipboard_image_model_factory.h"
 #include "ash/public/cpp/session/session_types.h"
 #include "ash/session/session_controller_impl.h"
@@ -17,7 +18,6 @@
 #include "ash/test/ash_test_base.h"
 #include "base/location.h"
 #include "base/run_loop.h"
-#include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/repeating_test_future.h"
@@ -30,10 +30,9 @@
 #include "ui/base/clipboard/clipboard_data.h"
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
 #include "ui/base/models/image_model.h"
-#include "ui/base/webui/web_ui_util.h"
 #include "ui/events/test/event_generator.h"
-#include "ui/gfx/codec/png_codec.h"
 #include "ui/gfx/image/image_unittest_util.h"
+#include "ui/gfx/skia_util.h"
 #include "ui/views/controls/button/label_button.h"
 
 namespace ash {
@@ -75,18 +74,16 @@ class MockClipboardImageModelFactory : public ClipboardImageModelFactory {
   void OnShutdown() override {}
 };
 
-void ExpectHistoryValueMatchesBitmap(const base::Value::Dict* value,
-                                     const SkBitmap& expected_bitmap) {
-  ASSERT_TRUE(value);
-  auto* format = value->FindString("displayFormat");
-  ASSERT_TRUE(format);
-  EXPECT_EQ("png", *format);
+void ExpectHistoryItemImageMatchesBitmap(const ClipboardHistoryItem& item,
+                                         const SkBitmap& expected_bitmap) {
+  EXPECT_EQ(item.display_format(), ClipboardHistoryItem::DisplayFormat::kPng);
 
-  auto* image_data = value->FindString("imageData");
-  ASSERT_TRUE(image_data);
-  auto png = ui::ClipboardData::EncodeBitmapData(expected_bitmap);
-  std::string png_data_url = webui::GetPngDataUrl(png.data(), png.size());
-  EXPECT_EQ(png_data_url, *image_data);
+  const auto& image = item.display_image();
+  ASSERT_TRUE(image.has_value());
+  ASSERT_TRUE(image.value().IsImage());
+  ASSERT_FALSE(image.value().IsEmpty());
+  EXPECT_TRUE(gfx::BitmapsAreEqual(*image.value().GetImage().ToSkBitmap(),
+                                   expected_bitmap));
 }
 
 }  // namespace
@@ -134,22 +131,18 @@ class ClipboardHistoryControllerTest : public AshTestBase {
     WaitForOperationConfirmed();
   }
 
-  base::Value::List GetHistoryValues() {
-    base::test::TestFuture<base::Value> future;
-    GetClipboardHistoryController()->GetHistoryValuesForTest(
-        future.GetCallback());
-    auto result = future.Take();
-    EXPECT_TRUE(result.is_list());
-    return std::move(result).TakeList();
+  std::vector<ClipboardHistoryItem> GetHistoryValues() {
+    base::test::TestFuture<std::vector<ClipboardHistoryItem>> future;
+    GetClipboardHistoryController()->GetHistoryValues(future.GetCallback());
+    return future.Take();
   }
 
   void TestEnteringLockScreen() {
     // Querying clipboard history should return nothing if the screen is locked
     // while the request is in progress.
     GetClipboardHistoryController()->BlockGetHistoryValuesForTest();
-    base::test::TestFuture<base::Value> future;
-    GetClipboardHistoryController()->GetHistoryValuesForTest(
-        future.GetCallback());
+    base::test::TestFuture<std::vector<ClipboardHistoryItem>> future;
+    GetClipboardHistoryController()->GetHistoryValues(future.GetCallback());
     EXPECT_FALSE(future.IsReady());
 
     auto* session_controller = Shell::Get()->session_controller();
@@ -158,14 +151,13 @@ class ClipboardHistoryControllerTest : public AshTestBase {
     EXPECT_TRUE(session_controller->IsScreenLocked());
 
     GetClipboardHistoryController()->ResumeGetHistoryValuesForTest();
-    auto* locked_during_query_result = future.Get().GetIfList();
-    ASSERT_TRUE(locked_during_query_result);
-    EXPECT_EQ(0u, locked_during_query_result->size());
+    auto locked_during_query_result = future.Take();
+    EXPECT_TRUE(locked_during_query_result.empty());
 
     // Querying clipboard history should return nothing if the screen is locked
     // before the request is made.
     auto locked_before_query_result = GetHistoryValues();
-    EXPECT_EQ(0u, locked_before_query_result.size());
+    EXPECT_TRUE(locked_before_query_result.empty());
   }
 
  protected:
@@ -190,7 +182,7 @@ TEST_F(ClipboardHistoryControllerTest, NoHistoryNoMenu) {
 }
 
 // Tests that search + v shows a menu when there is something to show.
-TEST_F(ClipboardHistoryControllerTest, MultiShowMenu) {
+TEST_F(ClipboardHistoryControllerTest, ShowMenu) {
   base::HistogramTester histogram_tester;
   // Copy something to enable the clipboard history menu.
   WriteTextToClipboardAndConfirm(u"test");
@@ -241,6 +233,84 @@ TEST_F(ClipboardHistoryControllerTest, MultiShowMenu) {
   EXPECT_FALSE(GetClipboardHistoryController()->IsMenuShowing());
   histogram_tester.ExpectTotalCount(
       "Ash.ClipboardHistory.ContextMenu.UserJourneyTime", 2);
+}
+
+// Tests that `ShowMenu()` returns whether the menu was shown successfully.
+TEST_F(ClipboardHistoryControllerTest, ShowMenuReturnsSuccess) {
+  // Try to show the menu without populating the clipboard. The menu should not
+  // show.
+  EXPECT_FALSE(GetClipboardHistoryController()->ShowMenu(
+      gfx::Rect(), ui::MenuSourceType::MENU_SOURCE_NONE,
+      crosapi::mojom::ClipboardHistoryControllerShowSource::kUnknown));
+  EXPECT_FALSE(GetClipboardHistoryController()->IsMenuShowing());
+
+  // Copy something to enable the clipboard history menu.
+  WriteTextToClipboardAndConfirm(u"test");
+
+  // Try to show the menu with the screen locked. The menu should not show.
+  auto* session_controller = Shell::Get()->session_controller();
+  session_controller->LockScreen();
+  GetSessionControllerClient()->FlushForTest();
+  EXPECT_TRUE(session_controller->IsScreenLocked());
+
+  EXPECT_FALSE(GetClipboardHistoryController()->ShowMenu(
+      gfx::Rect(), ui::MenuSourceType::MENU_SOURCE_NONE,
+      crosapi::mojom::ClipboardHistoryControllerShowSource::kUnknown));
+  EXPECT_FALSE(GetClipboardHistoryController()->IsMenuShowing());
+
+  session_controller->HideLockScreen();
+  GetSessionControllerClient()->FlushForTest();
+  EXPECT_FALSE(session_controller->IsScreenLocked());
+
+  // Show the menu.
+  EXPECT_TRUE(GetClipboardHistoryController()->ShowMenu(
+      gfx::Rect(), ui::MenuSourceType::MENU_SOURCE_NONE,
+      crosapi::mojom::ClipboardHistoryControllerShowSource::kUnknown));
+  EXPECT_TRUE(GetClipboardHistoryController()->IsMenuShowing());
+
+  // Try to show the menu again without closing the active menu. The menu should
+  // still be showing, but this attempt should fail.
+  EXPECT_FALSE(GetClipboardHistoryController()->ShowMenu(
+      gfx::Rect(), ui::MenuSourceType::MENU_SOURCE_NONE,
+      crosapi::mojom::ClipboardHistoryControllerShowSource::kUnknown));
+  EXPECT_TRUE(GetClipboardHistoryController()->IsMenuShowing());
+}
+
+// Tests that the client-provided `OnMenuClosingCallback` runs before the menu
+// closes.
+TEST_F(ClipboardHistoryControllerTest, OnMenuClosingCallback) {
+  base::test::RepeatingTestFuture<bool> on_menu_closing_future;
+  // Copy something to enable the clipboard history menu.
+  WriteTextToClipboardAndConfirm(u"test");
+
+  gfx::Rect test_window_rect(100, 100, 100, 100);
+  std::unique_ptr<aura::Window> window(CreateTestWindow(test_window_rect));
+
+  // Show the menu with an `OnMenuClosingCallback`.
+  GetClipboardHistoryController()->ShowMenu(
+      test_window_rect, ui::MenuSourceType::MENU_SOURCE_NONE,
+      crosapi::mojom::ClipboardHistoryControllerShowSource::kUnknown,
+      on_menu_closing_future.GetCallback());
+  EXPECT_TRUE(GetClipboardHistoryController()->IsMenuShowing());
+  EXPECT_TRUE(on_menu_closing_future.IsEmpty());
+
+  // Hide the menu. The callback should indicate that nothing will be pasted.
+  PressAndReleaseKey(ui::VKEY_ESCAPE);
+  EXPECT_FALSE(GetClipboardHistoryController()->IsMenuShowing());
+  EXPECT_FALSE(on_menu_closing_future.Take());
+
+  // Show the menu again.
+  GetClipboardHistoryController()->ShowMenu(
+      test_window_rect, ui::MenuSourceType::MENU_SOURCE_NONE,
+      crosapi::mojom::ClipboardHistoryControllerShowSource::kUnknown,
+      on_menu_closing_future.GetCallback());
+  EXPECT_TRUE(GetClipboardHistoryController()->IsMenuShowing());
+  EXPECT_TRUE(on_menu_closing_future.IsEmpty());
+
+  // Toggle the menu closed. The callback should indicate a pending paste.
+  PressAndReleaseKey(ui::VKEY_V, ui::EF_COMMAND_DOWN);
+  EXPECT_FALSE(GetClipboardHistoryController()->IsMenuShowing());
+  EXPECT_TRUE(on_menu_closing_future.Take());
 }
 
 // Verifies that the clipboard history is disabled in some user modes, which
@@ -404,9 +474,9 @@ TEST_F(ClipboardHistoryControllerTest, EncodeImage) {
   // The bitmap should be encoded to a PNG. Manually pry into the contents of
   // the result to confirm that the newly-encoded PNG is included.
   auto result = GetHistoryValues();
-  EXPECT_EQ(1u, result.size());
+  ASSERT_EQ(result.size(), 1u);
 
-  ExpectHistoryValueMatchesBitmap(result[0].GetIfDict(), test_bitmap);
+  ExpectHistoryItemImageMatchesBitmap(result[0], test_bitmap);
 }
 
 TEST_F(ClipboardHistoryControllerTest, EncodeMultipleImages) {
@@ -420,14 +490,14 @@ TEST_F(ClipboardHistoryControllerTest, EncodeMultipleImages) {
 
   auto result = GetHistoryValues();
   auto num_results = result.size();
-  EXPECT_EQ(num_results, test_bitmaps.size());
+  ASSERT_EQ(num_results, test_bitmaps.size());
 
   // The bitmaps should be encoded to PNGs. Manually pry into the contents of
   // the result to confirm that the newly-encoded PNGs are included. History
   // values should be sorted by recency.
   for (uint i = 0; i < num_results; ++i) {
-    ExpectHistoryValueMatchesBitmap(result[i].GetIfDict(),
-                                    test_bitmaps[num_results - 1 - i]);
+    ExpectHistoryItemImageMatchesBitmap(result[i],
+                                        test_bitmaps[num_results - 1 - i]);
   }
 }
 
@@ -445,37 +515,31 @@ TEST_F(ClipboardHistoryControllerTest, WriteBitmapWhileEncodingImage) {
   // Make sure the second bitmap is written to the clipboard before history
   // values are returned.
   GetClipboardHistoryController()->BlockGetHistoryValuesForTest();
-  base::test::TestFuture<base::Value> future;
-  GetClipboardHistoryController()->GetHistoryValuesForTest(
-      future.GetCallback());
+  base::test::TestFuture<std::vector<ClipboardHistoryItem>> future;
+  GetClipboardHistoryController()->GetHistoryValues(future.GetCallback());
   EXPECT_FALSE(future.IsReady());
   WaitForOperationConfirmed();
 
   GetClipboardHistoryController()->ResumeGetHistoryValuesForTest();
-  auto* result = future.Get().GetIfList();
-  ASSERT_TRUE(result);
-  auto num_results = result->size();
-  EXPECT_EQ(num_results, test_bitmaps.size());
+  auto result = future.Take();
+  auto num_results = result.size();
+  ASSERT_EQ(num_results, test_bitmaps.size());
 
   // Both bitmaps should be encoded to PNGs. Manually pry into the contents of
   // the result to confirm that the newly-encoded PNGs are included. History
   // values should be sorted by recency.
   for (uint i = 0; i < num_results; ++i) {
-    ExpectHistoryValueMatchesBitmap((*result)[i].GetIfDict(),
-                                    test_bitmaps[num_results - 1 - i]);
+    ExpectHistoryItemImageMatchesBitmap(result[i],
+                                        test_bitmaps[num_results - 1 - i]);
   }
 }
 
 TEST_F(ClipboardHistoryControllerTest, LockedScreenText) {
   // Write text to ClipboardHistory and verify that it can be retrieved.
   WriteTextToClipboardAndConfirm(u"test");
-  auto history_list_value = GetHistoryValues();
-  EXPECT_EQ(1u, history_list_value.size());
-  auto* history_list_item = history_list_value[0].GetIfDict();
-  EXPECT_TRUE(history_list_item);
-  auto* history_list_item_text = history_list_item->FindString("textData");
-  EXPECT_TRUE(history_list_item_text);
-  EXPECT_EQ("test", *history_list_item_text);
+  auto history_list = GetHistoryValues();
+  ASSERT_EQ(history_list.size(), 1u);
+  ASSERT_EQ(history_list[0].display_text(), u"test");
 
   TestEnteringLockScreen();
 }
@@ -485,8 +549,8 @@ TEST_F(ClipboardHistoryControllerTest, LockedScreenImage) {
   SkBitmap test_bitmap = gfx::test::CreateBitmap(3, 2);
   WriteImageToClipboardAndConfirm(test_bitmap);
   auto result = GetHistoryValues();
-  EXPECT_EQ(1u, result.size());
-  ExpectHistoryValueMatchesBitmap(result[0].GetIfDict(), test_bitmap);
+  ASSERT_EQ(result.size(), 1u);
+  ExpectHistoryItemImageMatchesBitmap(result[0], test_bitmap);
 
   TestEnteringLockScreen();
 }

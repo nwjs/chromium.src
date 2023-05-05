@@ -16,6 +16,7 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
+#include "components/autofill/core/browser/data_model/iban.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
 #include "components/autofill/core/browser/metrics/payments/credit_card_save_metrics.h"
@@ -289,16 +290,24 @@ bool IsInAutofillSuggestionsDisabledExperiment() {
 }
 
 bool IsCreditCardFidoAuthenticationEnabled() {
-  // The feature is enabled if the flag is enabled.
-  if (base::FeatureList::IsEnabled(features::kAutofillCreditCardAuthentication))
-    return true;
-
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_MAC)
-  // Better Auth project is fully launched on Windows, Android, and the Mac.
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_ANDROID)
+  // Better Auth project is fully launched on Windows/Mac for Desktop, and
+  // Android for mobile.
   return true;
 #else
   return false;
 #endif
+}
+
+bool ShouldShowIbanOnSettingsPage(const std::string& user_country_code,
+                                  PrefService* pref_service) {
+  if (!base::FeatureList::IsEnabled(features::kAutofillFillIbanFields)) {
+    return false;
+  }
+
+  std::string country_code = base::ToUpperASCII(user_country_code);
+  return IBAN::IsIbanApplicableInCountry(user_country_code) ||
+         prefs::HasSeenIban(pref_service);
 }
 
 }  // namespace autofill

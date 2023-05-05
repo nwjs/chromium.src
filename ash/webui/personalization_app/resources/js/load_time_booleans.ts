@@ -31,6 +31,10 @@ export function isRgbKeyboardSupported() {
   return loadTimeData.getBoolean('isRgbKeyboardSupported');
 }
 
+export function isScreenSaverDurationEnabled() {
+  return loadTimeData.getBoolean('isScreenSaverDurationEnabled');
+}
+
 export function isScreenSaverPreviewEnabled() {
   return loadTimeData.getBoolean('isScreenSaverPreviewEnabled');
 }
@@ -40,5 +44,5 @@ export function isPersonalizationJellyEnabled() {
 }
 
 export function isMultiZoneRgbKeyboardSupported() {
-  return loadTimeData.getBoolean('isMultiZoneRgbKeyboardSupported');
+  return loadTimeData.getInteger('keyboardBacklightZoneCount') > 1;
 }

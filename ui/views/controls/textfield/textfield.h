@@ -26,6 +26,7 @@
 #include "ui/base/ime/text_input_type.h"
 #include "ui/base/models/simple_menu_model.h"
 #include "ui/base/pointer/touch_editing_controller.h"
+#include "ui/compositor/layer_tree_owner.h"
 #include "ui/events/gesture_event_details.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/gfx/font_list.h"
@@ -397,7 +398,6 @@ class VIEWS_EXPORT Textfield : public View,
   gfx::NativeView GetNativeView() const override;
   void ConvertPointToScreen(gfx::Point* point) override;
   void ConvertPointFromScreen(gfx::Point* point) override;
-  bool DrawsHandles() override;
   void OpenContextMenu(const gfx::Point& anchor) override;
   void DestroyTouchSelection() override;
 
@@ -657,20 +657,20 @@ class VIEWS_EXPORT Textfield : public View,
   void OnEnabledChanged();
 
   // Drops the dragged text.
-  void DropDraggedText(const ui::DropTargetEvent& event,
-                       ui::mojom::DragOperation& output_drag_op);
+  void DropDraggedText(
+      const ui::DropTargetEvent& event,
+      ui::mojom::DragOperation& output_drag_op,
+      std::unique_ptr<ui::LayerTreeOwner> drag_image_layer_owner);
 
   // Returns the corner radius of the text field.
   float GetCornerRadius();
 
-#if BUILDFLAG(IS_CHROMEOS)
   // Checks and updates the selection dragging state for the upcoming scroll
   // sequence, if required. If the scroll sequence starts while long pressing,
   // it will be used for adjusting the text selection. Otherwise, if the scroll
   // begins horizontally it will be used for cursor placement. Otherwise, the
   // scroll sequence won't be used for selection dragging.
   void MaybeStartSelectionDragging(ui::GestureEvent* event);
-#endif
 
   // The text model.
   std::unique_ptr<TextfieldModel> model_;
@@ -792,9 +792,11 @@ class VIEWS_EXPORT Textfield : public View,
   // shrinking.
   gfx::BreakType break_type_ = gfx::CHARACTER_BREAK;
 
-  // Tracks if touch editing handles are hidden because user has started
-  // scrolling. If |true|, handles are shown after scrolling ends.
-  bool touch_handles_hidden_due_to_scroll_ = false;
+  // Whether touch selection handles should be shown once the current scroll
+  // sequence ends. Handles should be shown if touch editing handles were hidden
+  // while scrolling or if part of the scroll sequence was used for cursor
+  // placement or adjusting the text selection.
+  bool show_touch_handles_after_scroll_ = false;
 
   // Whether the user should be notified if the clipboard is restricted.
   bool show_rejection_ui_if_any_ = false;

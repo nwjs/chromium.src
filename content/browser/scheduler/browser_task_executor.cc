@@ -24,6 +24,7 @@
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/task_scheduler/post_task_android.h"
+#include "base/android/task_scheduler/task_runner_android.h"
 #endif
 
 using QueueType = content::BrowserTaskQueues::QueueType;
@@ -73,14 +74,8 @@ bool BaseBrowserTaskExecutor::PostDelayedTask(const base::Location& from_here,
                                               const base::TaskTraits& traits,
                                               base::OnceClosure task,
                                               base::TimeDelta delay) {
-  if (traits.extension_id() != BrowserTaskTraitsExtension::kExtensionId ||
-      traits.GetExtension<BrowserTaskTraitsExtension>().nestable()) {
-    return GetTaskRunner(ExtractBrowserThreadId(traits), traits)
-        ->PostDelayedTask(from_here, std::move(task), delay);
-  } else {
-    return GetTaskRunner(ExtractBrowserThreadId(traits), traits)
-        ->PostNonNestableDelayedTask(from_here, std::move(task), delay);
-  }
+  return GetTaskRunner(ExtractBrowserThreadId(traits), traits)
+      ->PostDelayedTask(from_here, std::move(task), delay);
 }
 
 scoped_refptr<base::TaskRunner> BaseBrowserTaskExecutor::CreateTaskRunner(
@@ -229,6 +224,10 @@ void BrowserTaskExecutor::CreateInternal(
       ->EnableAllExceptBestEffortQueues();
 
 #if BUILDFLAG(IS_ANDROID)
+  // In Android Java, UI thread is a base/ concept, but needs to know how that
+  // maps onto the BrowserThread::UI in C++.
+  base::TaskRunnerAndroid::SetUiThreadExtension(
+      {BrowserTaskTraitsExtension::kExtensionId, {}});
   base::PostTaskAndroid::SignalNativeSchedulerReady();
 #endif
 }
@@ -244,9 +243,6 @@ BrowserTaskExecutor* BrowserTaskExecutor::Get() {
 
 // static
 void BrowserTaskExecutor::ResetForTesting() {
-#if BUILDFLAG(IS_ANDROID)
-  base::PostTaskAndroid::SignalNativeSchedulerShutdownForTesting();
-#endif
   if (g_browser_task_executor) {
     RunAllPendingTasksOnThreadForTesting(BrowserThread::UI);
     RunAllPendingTasksOnThreadForTesting(BrowserThread::IO);

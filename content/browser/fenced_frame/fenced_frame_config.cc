@@ -68,7 +68,8 @@ FencedFrameConfig::FencedFrameConfig(const GURL& mapped_url)
     : mapped_url_(absl::in_place,
                   mapped_url,
                   VisibilityToEmbedder::kOpaque,
-                  VisibilityToContent::kTransparent) {}
+                  VisibilityToContent::kTransparent),
+      mode_(DeprecatedFencedFrameMode::kOpaqueAds) {}
 
 FencedFrameConfig::FencedFrameConfig(const GURL& urn_uuid,
                                      const GURL& mapped_url)
@@ -76,7 +77,8 @@ FencedFrameConfig::FencedFrameConfig(const GURL& urn_uuid,
       mapped_url_(absl::in_place,
                   mapped_url,
                   VisibilityToEmbedder::kOpaque,
-                  VisibilityToContent::kTransparent) {}
+                  VisibilityToContent::kTransparent),
+      mode_(DeprecatedFencedFrameMode::kOpaqueAds) {}
 
 FencedFrameConfig::FencedFrameConfig(
     const GURL& urn_uuid,
@@ -89,14 +91,15 @@ FencedFrameConfig::FencedFrameConfig(
                   VisibilityToEmbedder::kOpaque,
                   VisibilityToContent::kTransparent),
       deprecated_should_freeze_initial_size_(absl::in_place,
-                                             true,
+                                             false,
                                              VisibilityToEmbedder::kTransparent,
                                              VisibilityToContent::kOpaque),
       shared_storage_budget_metadata_(absl::in_place,
                                       shared_storage_budget_metadata,
                                       VisibilityToEmbedder::kOpaque,
                                       VisibilityToContent::kOpaque),
-      fenced_frame_reporter_(std::move(fenced_frame_reporter)) {}
+      fenced_frame_reporter_(std::move(fenced_frame_reporter)),
+      mode_(DeprecatedFencedFrameMode::kOpaqueAds) {}
 
 FencedFrameConfig::FencedFrameConfig(const FencedFrameConfig&) = default;
 FencedFrameConfig::FencedFrameConfig(FencedFrameConfig&&) = default;
@@ -151,6 +154,7 @@ FencedFrameProperties::FencedFrameProperties()
     : ad_auction_data_(absl::nullopt),
       nested_urn_config_pairs_(absl::nullopt),
       shared_storage_budget_metadata_(absl::nullopt),
+      embedder_shared_storage_context_(absl::nullopt),
       partition_nonce_(absl::in_place,
                        base::UnguessableToken::Create(),
                        VisibilityToEmbedder::kOpaque,
@@ -166,6 +170,7 @@ FencedFrameProperties::FencedFrameProperties(const FencedFrameConfig& config)
       on_navigate_callback_(config.on_navigate_callback_),
       nested_urn_config_pairs_(absl::nullopt),
       shared_storage_budget_metadata_(absl::nullopt),
+      embedder_shared_storage_context_(absl::nullopt),
       fenced_frame_reporter_(config.fenced_frame_reporter_),
       partition_nonce_(absl::in_place,
                        base::UnguessableToken::Create(),
@@ -255,6 +260,12 @@ FencedFrameProperties::RedactFor(FencedFrameEntity entity) const {
 void FencedFrameProperties::UpdateMappedURL(GURL url) {
   CHECK(mapped_url_.has_value());
   mapped_url_->value_ = url;
+}
+
+void FencedFrameProperties::UpdateAutomaticBeaconData(
+    const std::string& event_data,
+    const std::vector<blink::FencedFrame::ReportingDestination>& destination) {
+  automatic_beacon_info_.emplace(event_data, destination);
 }
 
 }  // namespace content

@@ -22,7 +22,6 @@
 #include "ash/system/tray/tri_view.h"
 #include "base/check.h"
 #include "base/functional/bind.h"
-#include "base/memory/weak_ptr.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/time/time.h"
 #include "components/vector_icons/vector_icons.h"
@@ -1391,6 +1390,10 @@ void CalendarView::ScrollUpOneMonth() {
   scroll_view_->ScrollToPosition(scroll_view_->vertical_scroll_bar(), position);
 
   MaybeResetContentViewFocusBehavior();
+
+  if (current_month_->has_events()) {
+    calendar_view_controller_->EventsDisplayedToUser();
+  }
 }
 
 void CalendarView::ScrollDownOneMonth() {
@@ -1428,6 +1431,10 @@ void CalendarView::ScrollDownOneMonth() {
   scroll_view_->ScrollToPosition(scroll_view_->vertical_scroll_bar(), position);
 
   MaybeResetContentViewFocusBehavior();
+
+  if (current_month_->has_events()) {
+    calendar_view_controller_->EventsDisplayedToUser();
+  }
 }
 
 void CalendarView::ScrollOneMonthAndAutoScroll(bool scroll_up) {
@@ -1857,8 +1864,7 @@ void CalendarView::OnOpenEventListAnimationComplete() {
 
   if (up_next_view_ && up_next_view_mask_) {
     // Once the animation is complete, the `up_next_view_` needs to be invisible
-    // otherwise ChromeVox will pick it
-    // up.
+    // otherwise ChromeVox will pick it up.
     up_next_view_->SetVisible(false);
 
     // Remove the layer mask, otherwise it repositions to the top of the
@@ -1877,8 +1883,8 @@ void CalendarView::OnOpenEventListAnimationComplete() {
   calendar_view_controller_->OnEventListOpened();
 
   // Moves focusing ring to the close button of the event list if it's opened
-  // from the date cell view focus.
-  if (IsDateCellViewFocused()) {
+  // from the date cell view focus or from the `up_next_view_`.
+  if (IsDateCellViewFocused() || up_next_view_) {
     RequestFocusForEventListCloseButton();
   }
 
@@ -2074,6 +2080,7 @@ void CalendarView::MaybeShowUpNextView() {
   }
 
   if (up_next_view_) {
+    up_next_view_->RefreshEvents();
     return;
   }
 

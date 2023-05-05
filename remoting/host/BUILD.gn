@@ -671,7 +671,6 @@ static_library("common") {
       # On Windows, we use //media/gpu/MediaFoundationVideoEncodeAcceleratorWin
       # to detect whether HW encoder is supported by the system.
       "//media",
-      "//media/base/win:media_foundation_util",
       "//media/gpu:gpu",
       "//mojo/core/embedder:embedder",
       "//remoting/host/win",
@@ -1097,6 +1096,7 @@ if (enable_me2me_host) {
       "//base",
       "//base:debugging_buildflags",
       "//mojo/core/embedder:embedder",
+      "//remoting/base",
       "//remoting/base:breakpad",
       "//remoting/host/base",
       "//remoting/host/setup:common",

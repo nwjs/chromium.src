@@ -15,6 +15,7 @@ import functools
 import hashlib
 import multiprocessing
 import os
+import re
 import string
 import sys
 import zipfile
@@ -97,8 +98,9 @@ def _Generate(options, java_file_paths):
     module_name = next(iter(combined_dicts))
     combined_dict = combined_dicts[module_name]
 
-    combined_dict['HEADER_GUARD'] = \
-        os.path.splitext(options.header_path)[0].replace('/', '_').replace('.', '_').upper() + '_'
+    header_guard = os.path.splitext(options.header_path)[0].upper() + '_'
+    header_guard = re.sub(r'[/.-]', '_', header_guard)
+    combined_dict['HEADER_GUARD'] = header_guard
     combined_dict['NAMESPACE'] = options.namespace
     header_content = CreateFromDict(options, module_name, combined_dict)
     with build_utils.AtomicOutput(options.header_path, mode='w') as f:
@@ -142,11 +144,16 @@ def _DictForPath(options, path):
   fully_qualified_class = jni_generator.ExtractFullyQualifiedJavaClassName(
       path, contents)
 
-  natives, module_name = jni_generator.ProxyHelpers.ExtractStaticProxyNatives(
+  natives, found_module_name = jni_generator.ProxyHelpers.ExtractStaticProxyNatives(
       fully_qualified_class=fully_qualified_class,
       contents=contents,
       ptr_type='long',
       include_test_only=options.include_test_only)
+
+  if options.module_name and found_module_name != options.module_name:
+    # Ignoring any code from modules we aren't looking at.
+    return None
+
   natives += jni_generator.ExtractNatives(contents, 'long')
 
   if len(natives) == 0:
@@ -157,9 +164,9 @@ def _DictForPath(options, path):
   jni_params = jni_generator.JniParams(fully_qualified_class)
   jni_params.ExtractImportsAndInnerClasses(contents)
   is_main_dex = jni_generator.IsMainDexJavaClass(contents)
-  dict_generator = DictionaryGenerator(options, module_name, content_namespace,
-                                       fully_qualified_class, natives,
-                                       jni_params, is_main_dex)
+  dict_generator = DictionaryGenerator(options, found_module_name,
+                                       content_namespace, fully_qualified_class,
+                                       natives, jni_params, is_main_dex)
   return dict_generator.Generate()
 
 
@@ -886,6 +893,10 @@ def main(argv):
       action='store_true',
       help='Enables hashing of the native declaration for methods in '
       'an @JniNatives interface')
+  arg_parser.add_argument(
+      '--module-name',
+      default='',
+      help='Only look at natives annotated with a specific module name.')
   arg_parser.add_argument(
       '--enable-jni-multiplexing',
       action='store_true',

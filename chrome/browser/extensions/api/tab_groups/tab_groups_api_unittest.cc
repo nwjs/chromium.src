@@ -193,12 +193,10 @@ TEST_F(TabGroupsApiUnitTest, TabStripModelWithNoTabGroupFails) {
   scoped_refptr<const Extension> extension = CreateTabGroupsExtension();
 
   const char* kTitleQueryInfo = R"([{"title": "Sample title"}])";
-  auto function = base::MakeRefCounted<TabGroupsQueryFunction>();
-  function->set_extension(extension);
+  base::Value::List groups_list =
+      RunTabGroupsQueryFunction(browser(), extension.get(), kTitleQueryInfo);
 
-  std::string error = extension_function_test_utils::RunFunctionAndReturnError(
-      function.get(), kTitleQueryInfo, browser2.get());
-  EXPECT_EQ(tabs_constants::kTabStripDoesNotSupportTabGroupsError, error);
+  ASSERT_EQ(0u, groups_list.size());
 
   tab_strip_model2->CloseAllTabs();
 }
@@ -237,9 +235,8 @@ TEST_F(TabGroupsApiUnitTest, TabGroupsQueryTitle) {
 
   const base::Value& group_info = groups_list[0];
   ASSERT_TRUE(group_info.is_dict());
-  EXPECT_EQ(
-      tab_groups_util::GetGroupId(group1),
-      group_info.FindKeyOfType("id", base::Value::Type::INTEGER)->GetInt());
+  EXPECT_EQ(tab_groups_util::GetGroupId(group1),
+            *group_info.GetDict().FindInt("id"));
 }
 
 // Test that querying groups by color returns the correct groups.
@@ -275,9 +272,8 @@ TEST_F(TabGroupsApiUnitTest, TabGroupsQueryColor) {
 
   const base::Value& group_info = groups_list[0];
   ASSERT_EQ(base::Value::Type::DICT, group_info.type());
-  EXPECT_EQ(
-      tab_groups_util::GetGroupId(group3),
-      group_info.FindKeyOfType("id", base::Value::Type::INTEGER)->GetInt());
+  EXPECT_EQ(tab_groups_util::GetGroupId(group3),
+            *group_info.GetDict().FindInt("id"));
 }
 
 // Test that getting a group returns the correct metadata.

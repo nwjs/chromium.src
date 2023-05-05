@@ -12,18 +12,18 @@
 #import "ios/chrome/browser/policy/policy_util.h"
 #import "ios/chrome/browser/prefs/pref_names.h"
 #import "ios/chrome/browser/search_engines/template_url_service_factory.h"
-#import "ios/chrome/browser/ui/commands/application_commands.h"
-#import "ios/chrome/browser/ui/commands/browser_coordinator_commands.h"
-#import "ios/chrome/browser/ui/commands/command_dispatcher.h"
-#import "ios/chrome/browser/ui/commands/load_query_commands.h"
-#import "ios/chrome/browser/ui/commands/open_new_tab_command.h"
-#import "ios/chrome/browser/ui/commands/qr_scanner_commands.h"
+#import "ios/chrome/browser/shared/public/commands/application_commands.h"
+#import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
+#import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/load_query_commands.h"
+#import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
+#import "ios/chrome/browser/shared/public/commands/qr_scanner_commands.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/ui/util/pasteboard_util.h"
 #import "ios/chrome/browser/ui/icons/symbols.h"
 #import "ios/chrome/browser/ui/incognito_reauth/incognito_reauth_scene_agent.h"
 #import "ios/chrome/browser/ui/main/scene_state_browser_agent.h"
 #import "ios/chrome/browser/ui/menu/action_factory+protected.h"
-#import "ios/chrome/browser/ui/ui_feature_flags.h"
-#import "ios/chrome/browser/ui/util/pasteboard_util.h"
 #import "ios/chrome/browser/url_loading/image_search_param_generator.h"
 #import "ios/chrome/browser/url_loading/url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/url_loading_params.h"
@@ -99,9 +99,8 @@
     };
   }
 
-  UIImage* image = UseSymbols() ? CustomSymbolWithPointSize(
-                                      kIncognitoSymbol, kSymbolActionPointSize)
-                                : [UIImage imageNamed:@"open_in_incognito"];
+  UIImage* image =
+      CustomSymbolWithPointSize(kIncognitoSymbol, kSymbolActionPointSize);
   ProceduralBlock completionBlock =
       [self recordMobileWebContextMenuOpenTabActionWithBlock:block];
 
@@ -118,10 +117,8 @@
   id<ApplicationCommands> windowOpener = HandlerForProtocol(
       self.browser->GetCommandDispatcher(), ApplicationCommands);
 
-  UIImage* image = UseSymbols()
-                       ? DefaultSymbolWithPointSize(kNewWindowActionSymbol,
-                                                    kSymbolActionPointSize)
-                       : [UIImage imageNamed:@"open_new_window"];
+  UIImage* image = DefaultSymbolWithPointSize(kNewWindowActionSymbol,
+                                              kSymbolActionPointSize);
   NSUserActivity* activity = ActivityToLoadURL(activityOrigin, URL);
   return [self actionWithTitle:l10n_util::GetNSString(
                                    IDS_IOS_CONTENT_CONTEXT_OPENINNEWWINDOW)
@@ -136,10 +133,8 @@
   id<ApplicationCommands> windowOpener = HandlerForProtocol(
       self.browser->GetCommandDispatcher(), ApplicationCommands);
 
-  UIImage* image = UseSymbols()
-                       ? DefaultSymbolWithPointSize(kNewWindowActionSymbol,
-                                                    kSymbolActionPointSize)
-                       : [UIImage imageNamed:@"open_new_window"];
+  UIImage* image = DefaultSymbolWithPointSize(kNewWindowActionSymbol,
+                                              kSymbolActionPointSize);
   return [self actionWithTitle:l10n_util::GetNSString(
                                    IDS_IOS_CONTENT_CONTEXT_OPENINNEWWINDOW)
                          image:image
@@ -153,10 +148,8 @@
                          completion:(ProceduralBlock)completion {
   UrlLoadingBrowserAgent* loadingAgent =
       UrlLoadingBrowserAgent::FromBrowser(self.browser);
-  UIImage* image = UseSymbols()
-                       ? DefaultSymbolWithPointSize(kOpenImageActionSymbol,
-                                                    kSymbolActionPointSize)
-                       : [UIImage imageNamed:@"open"];
+  UIImage* image = DefaultSymbolWithPointSize(kOpenImageActionSymbol,
+                                              kSymbolActionPointSize);
   UIAction* action = [self
       actionWithTitle:l10n_util::GetNSString(IDS_IOS_CONTENT_CONTEXT_OPENIMAGE)
                 image:image
@@ -175,10 +168,8 @@
                                                (ProceduralBlock)completion {
   UrlLoadingBrowserAgent* loadingAgent =
       UrlLoadingBrowserAgent::FromBrowser(self.browser);
-  UIImage* image = UseSymbols()
-                       ? CustomSymbolWithPointSize(kPhotoBadgePlusSymbol,
-                                                   kSymbolActionPointSize)
-                       : [UIImage imageNamed:@"open_image_in_new_tab"];
+  UIImage* image =
+      CustomSymbolWithPointSize(kPhotoBadgePlusSymbol, kSymbolActionPointSize);
   UIAction* action =
       [self actionWithTitle:l10n_util::GetNSString(
                                 IDS_IOS_CONTENT_CONTEXT_OPENIMAGENEWTAB)

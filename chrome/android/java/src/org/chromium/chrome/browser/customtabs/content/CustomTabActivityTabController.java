@@ -209,6 +209,21 @@ public class CustomTabActivityTabController implements InflationObserver {
         return model.getCount() == 1;
     }
 
+    /**
+     * Checks if the current tab contains unload events and if so it opens the dialog
+     * to ask the user before closing the tab.
+     *
+     * @return Whether we ran the unload events or not.
+     */
+    public boolean dispatchBeforeUnloadIfNeeded() {
+        Tab currentTab = mTabProvider.getTab();
+        if (currentTab.getWebContents().needToFireBeforeUnloadOrUnloadEvents()) {
+            currentTab.getWebContents().dispatchBeforeUnload(false);
+            return true;
+        }
+        return false;
+    }
+
     public void closeAndForgetTab() {
         // TODO(https://crbug.com/1379452): Store all the tabs in the tab model.
         if (mTabFactory.getTabModelSelector().getCurrentModel().getCount() > 0) {

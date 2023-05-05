@@ -10,14 +10,14 @@
 #import "base/memory/weak_ptr.h"
 #import "ios/chrome/browser/ui/partial_translate/partial_translate_delegate.h"
 
-@protocol ActivityServiceCommands;
 @protocol BrowserCoordinatorCommands;
 @protocol EditMenuAlertDelegate;
+class FullscreenController;
 class PrefService;
 class WebStateList;
 
 // Mediator that mediates between the browser container views and the
-// link_to_text tab helpers.
+// partial translate tab helpers.
 @interface PartialTranslateMediator : NSObject <PartialTranslateDelegate>
 
 // Initializer for a mediator. `webStateList` is the WebStateList for the
@@ -26,6 +26,7 @@ class WebStateList;
 - (instancetype)initWithWebStateList:(base::WeakPtr<WebStateList>)webStateList
               withBaseViewController:(UIViewController*)baseViewController
                          prefService:(PrefService*)prefs
+                fullscreenController:(FullscreenController*)fullscreenController
                            incognito:(BOOL)incognito NS_DESIGNATED_INITIALIZER;
 - (instancetype)init NS_UNAVAILABLE;
 

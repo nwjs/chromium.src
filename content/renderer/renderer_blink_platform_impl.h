@@ -88,8 +88,6 @@ class CONTENT_EXPORT RendererBlinkPlatformImpl : public BlinkPlatformImpl {
   blink::WebString ReducedUserAgent() override;
   blink::UserAgentMetadata UserAgentMetadata() override;
   bool IsRedirectSafe(const GURL& from_url, const GURL& to_url) override;
-  blink::WebResourceRequestSenderDelegate* GetResourceRequestSenderDelegate()
-      override;
   void AppendVariationsThrottles(
       const url::Origin& top_origin,
       std::vector<std::unique_ptr<blink::URLLoaderThrottle>>* throttles)
@@ -229,6 +227,9 @@ class CONTENT_EXPORT RendererBlinkPlatformImpl : public BlinkPlatformImpl {
 #if BUILDFLAG(IS_ANDROID)
   void SetPrivateMemoryFootprint(
       uint64_t private_memory_footprint_bytes) override;
+  bool IsUserLevelMemoryPressureSignalEnabled() override;
+  base::TimeDelta InertIntervalOfUserLevelMemoryPressureSignal() override;
+  base::TimeDelta MinimumIntervalOfUserLevelMemoryPressureSignal() override;
 #endif
 
   // Tells this platform that the renderer is locked to a site (i.e., a scheme

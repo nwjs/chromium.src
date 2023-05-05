@@ -20,6 +20,7 @@
 #include "components/sync/driver/data_type_manager_observer.h"
 #include "components/sync/driver/data_type_status_table.h"
 #include "components/sync/engine/data_type_activation_response.h"
+#include "components/sync/protocol/model_type_state_helper.h"
 
 namespace syncer {
 
@@ -139,6 +140,13 @@ void DataTypeManagerImpl::Configure(ModelTypeSet preferred_types,
   // Add types with controllers.
   for (const auto& [type, controller] : *controllers_) {
     allowed_types.Put(type);
+
+    // Ensure that the initial precondition state is accurate, and clear
+    // existing metadata if necessary. Note that this happens for *all* data
+    // types, not just the preferred ones!
+    // TODO(crbug.com/897628): For non-preferred types, metadata should probably
+    // be cleared independent of the precondition state.
+    DataTypePreconditionChanged(type);
   }
 
   ConfigureImpl(Intersection(preferred_types, allowed_types), context);
@@ -258,7 +266,8 @@ void DataTypeManagerImpl::ConnectDataTypes() {
       continue;
     }
 
-    if (activation_response->model_type_state.initial_sync_done()) {
+    if (IsInitialSyncDone(
+            activation_response->model_type_state.initial_sync_state())) {
       downloaded_types_.Put(type);
     } else {
       downloaded_types_.Remove(type);
@@ -355,7 +364,7 @@ void DataTypeManagerImpl::Restart() {
     data_type_status_table_.ResetCryptoErrors();
   }
 
-  UpdatePreconditionErrors(preferred_types_);
+  UpdatePreconditionErrors();
 
   last_restart_time_ = base::Time::Now();
 
@@ -407,9 +416,8 @@ void DataTypeManagerImpl::OnAllDataTypesReadyForConfigure() {
   StartNextConfiguration();
 }
 
-void DataTypeManagerImpl::UpdatePreconditionErrors(
-    const ModelTypeSet& desired_types) {
-  for (ModelType type : desired_types) {
+void DataTypeManagerImpl::UpdatePreconditionErrors() {
+  for (ModelType type : preferred_types_) {
     UpdatePreconditionError(type);
   }
 }

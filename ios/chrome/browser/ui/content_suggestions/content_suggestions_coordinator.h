@@ -5,7 +5,7 @@
 #ifndef IOS_CHROME_BROWSER_UI_CONTENT_SUGGESTIONS_CONTENT_SUGGESTIONS_COORDINATOR_H_
 #define IOS_CHROME_BROWSER_UI_CONTENT_SUGGESTIONS_CONTENT_SUGGESTIONS_COORDINATOR_H_
 
-#import "ios/chrome/browser/ui/coordinators/chrome_coordinator.h"
+#import "ios/chrome/browser/shared/coordinator/chrome_coordinator/chrome_coordinator.h"
 
 namespace web {
 class WebState;
@@ -53,7 +53,9 @@ class WebState;
 // Reloads the suggestions.
 - (void)reload;
 
-// Configure Content Suggestions if showing the Start Surface.
+// Configure Content Suggestions if showing the Start Surface. NOTE: this should
+// only be called once for every Start configuration. Calling it multiple times
+// in sequence can lead to unpredictable outcomes.
 - (void)configureStartSurfaceIfNeeded;
 
 @end

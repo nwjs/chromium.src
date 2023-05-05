@@ -131,6 +131,7 @@
 #include "third_party/blink/renderer/core/fullscreen/fullscreen.h"
 #include "third_party/blink/renderer/core/geometry/dom_rect.h"
 #include "third_party/blink/renderer/core/geometry/dom_rect_list.h"
+#include "third_party/blink/renderer/core/html/anchor_element_observer.h"
 #include "third_party/blink/renderer/core/html/canvas/html_canvas_element.h"
 #include "third_party/blink/renderer/core/html/custom/custom_element.h"
 #include "third_party/blink/renderer/core/html/custom/custom_element_registry.h"
@@ -244,6 +245,10 @@ class DisplayLockStyleScope {
     if (auto* context = element_->GetDisplayLockContext()) {
       if (did_update_children_) {
         context->DidStyleChildren();
+        if (auto* document_rules = DocumentSpeculationRules::FromIfExists(
+                element_->GetDocument())) {
+          document_rules->DidStyleChildren(element_);
+        }
       }
     }
   }
@@ -274,6 +279,10 @@ class DisplayLockStyleScope {
     DCHECK(element_->GetDisplayLockContext());
 
     element_->GetDisplayLockContext()->NotifyChildStyleRecalcWasBlocked(change);
+    if (auto* document_rules =
+            DocumentSpeculationRules::FromIfExists(element_->GetDocument())) {
+      document_rules->ChildStyleRecalcBlocked(element_);
+    }
   }
 
  private:
@@ -2828,6 +2837,8 @@ void Element::RemovedFrom(ContainerNode& insertion_point) {
     if (UNLIKELY(HasUndoStack())) {
       frame->GetEditor().GetUndoStack().ElementRemoved(this);
     }
+    frame->GetEditor().ElementRemoved(this);
+    frame->GetSpellChecker().ElementRemoved(this);
     frame->GetEventHandler().ElementRemoved(this);
   }
 }
@@ -4781,6 +4792,13 @@ Attr* Element::removeAttributeNode(Attr* attr,
   return attr;
 }
 
+void Element::LangAttributeChanged() {
+  SetNeedsStyleRecalc(
+      kSubtreeStyleChange,
+      StyleChangeReasonForTracing::Create(style_change_reason::kPseudoClass));
+  PseudoStateChanged(CSSSelector::kPseudoLang);
+}
+
 void Element::ParseAttribute(const AttributeModificationParams& params) {
   if (params.name == html_names::kTabindexAttr) {
     int tabindex = 0;
@@ -4799,8 +4817,8 @@ void Element::ParseAttribute(const AttributeModificationParams& params) {
     if (parentNode()) {
       UpdateFocusgroup(params.new_value);
     }
-  } else if (params.name == xml_names::kLangAttr) {
-    PseudoStateChanged(CSSSelector::kPseudoLang);
+  } else if (params.name.Matches(xml_names::kLangAttr)) {
+    LangAttributeChanged();
   }
 }
 
@@ -6814,8 +6832,6 @@ PseudoElement* Element::CreatePseudoElementIfNeeded(
 
   if (pseudo_id == kPseudoIdBackdrop) {
     GetDocument().AddToTopLayer(pseudo_element, this);
-  } else if (pseudo_id == kPseudoIdViewTransition) {
-    GetDocument().AddToTopLayer(pseudo_element);
   }
 
   pseudo_element->SetComputedStyle(pseudo_style);
@@ -7011,10 +7027,13 @@ scoped_refptr<const ComputedStyle> Element::StyleForPseudoElement(
     first_line_inherited_request.pseudo_id =
         IsPseudoElement() ? To<PseudoElement>(this)->GetPseudoId()
                           : kPseudoIdNone;
+    first_line_inherited_request.can_trigger_animations = false;
+    StyleRecalcContext local_recalc_context(style_recalc_context);
+    local_recalc_context.old_style = PostStyleUpdateScope::GetOldStyle(*this);
     Element* target = IsPseudoElement() ? parentElement() : this;
     scoped_refptr<const ComputedStyle> result =
         GetDocument().GetStyleResolver().ResolveStyle(
-            target, style_recalc_context, first_line_inherited_request);
+            target, local_recalc_context, first_line_inherited_request);
     if (result) {
       ComputedStyleBuilder builder(*result);
       builder.SetStyleType(kPseudoIdFirstLineInherited);
@@ -7279,7 +7298,8 @@ void Element::SetIsInTopLayer(bool in_top_layer) {
 ScriptValue Element::requestPointerLock(ScriptState* script_state,
                                         const PointerLockOptions* options,
                                         ExceptionState& exception_state) {
-  auto* resolver = MakeGarbageCollected<ScriptPromiseResolver>(script_state);
+  auto* resolver = MakeGarbageCollected<ScriptPromiseResolver>(
+      script_state, exception_state.GetContext());
   ScriptPromise promise;
   if (GetDocument().GetPage()) {
     promise =
@@ -8889,26 +8909,38 @@ AnchorScrollData* Element::GetAnchorScrollData() const {
   return HasRareData() ? GetElementRareData()->GetAnchorScrollData() : nullptr;
 }
 
-void Element::IncrementAnchoredPopoverCount() {
-  DCHECK(RuntimeEnabledFeatures::HTMLPopoverAttributeEnabled(
-      GetDocument().GetExecutionContext()));
-  if (RuntimeEnabledFeatures::CSSAnchorPositioningEnabled() &&
-      !HasAnchoredPopover() && GetLayoutObject()) {
+void Element::IncrementImplicitlyAnchoredElementCount() {
+  DCHECK(RuntimeEnabledFeatures::CSSAnchorPositioningEnabled());
+  if (!HasImplicitlyAnchoredElement() && GetLayoutObject()) {
     // Invalidate layout to populate itself into NGPhysical/LogicalAnchorQuery.
     GetLayoutObject()->SetNeedsLayoutAndFullPaintInvalidation(
         layout_invalidation_reason::kAnchorPositioning);
     GetLayoutObject()->MarkMayHaveAnchorQuery();
   }
-  EnsureElementRareData().IncrementAnchoredPopoverCount();
+  EnsureElementRareData().IncrementImplicitlyAnchoredElementCount();
 }
-void Element::DecrementAnchoredPopoverCount() {
-  DCHECK(RuntimeEnabledFeatures::HTMLPopoverAttributeEnabled(
-      GetDocument().GetExecutionContext()));
-  EnsureElementRareData().DecrementAnchoredPopoverCount();
+void Element::DecrementImplicitlyAnchoredElementCount() {
+  DCHECK(HasRareData());
+  GetElementRareData()->DecrementImplicitlyAnchoredElementCount();
 }
-bool Element::HasAnchoredPopover() const {
-  return (HasRareData() && GetElementRareData()->HasAnchoredPopover()) ||
+bool Element::HasImplicitlyAnchoredElement() const {
+  // TODO(xiaochengh): <selectmenu> should also use the implicitly anchored
+  // element count on element rare data.
+  return (HasRareData() &&
+          GetElementRareData()->HasImplicitlyAnchoredElement()) ||
          IsA<HTMLSelectMenuElement>(this);
+}
+
+AnchorElementObserver* Element::GetAnchorElementObserver() const {
+  return HasRareData() ? GetElementRareData()->GetAnchorElementObserver()
+                       : nullptr;
+}
+
+AnchorElementObserver& Element::EnsureAnchorElementObserver() {
+  DCHECK(IsHTMLElement());
+  DCHECK(RuntimeEnabledFeatures::CSSAnchorPositioningEnabled());
+  return EnsureElementRareData().EnsureAnchorElementObserver(
+      To<HTMLElement>(this));
 }
 
 Element* Element::ImplicitAnchorElement() {

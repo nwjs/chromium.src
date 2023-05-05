@@ -7,10 +7,13 @@
 #include "base/command_line.h"
 #include "base/memory/raw_ptr.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
+#include "chrome/browser/ui/exclusive_access/fullscreen_controller.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -18,9 +21,13 @@
 #include "components/permissions/permission_request_manager.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/test/browser_test.h"
+#include "content/public/test/browser_test_utils.h"
+#include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/common/features_generated.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
 #include "ui/display/screen_base.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/native_widget_types.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_observer.h"
@@ -37,21 +44,18 @@
 
 namespace {
 
-// Tests of window placement for popup browser windows. Test fixtures are run
-// with and without multi-screen Window Management permission.
-class PopupBrowserTest : public InProcessBrowserTest,
-                         public ::testing::WithParamInterface<bool> {
+// Tests of window placement for popup browser windows.
+class PopupBrowserTest : public InProcessBrowserTest {
  public:
+  PopupBrowserTest() = default;
   PopupBrowserTest(const PopupBrowserTest&) = delete;
   PopupBrowserTest& operator=(const PopupBrowserTest&) = delete;
 
  protected:
-  PopupBrowserTest() = default;
   ~PopupBrowserTest() override = default;
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
-    base::CommandLine::ForCurrentProcess()->AppendSwitch(
-        embedder_support::kDisablePopupBlocking);
+    command_line->AppendSwitch(embedder_support::kDisablePopupBlocking);
   }
 
   display::Display GetDisplayNearestBrowser(const Browser* browser) const {
@@ -69,8 +73,6 @@ class PopupBrowserTest : public InProcessBrowserTest,
     return popup;
   }
 };
-
-INSTANTIATE_TEST_SUITE_P(All, PopupBrowserTest, ::testing::Bool());
 
 // A helper class to wait for widget bounds changes beyond given thresholds.
 class WidgetBoundsChangeWaiter final : public views::WidgetObserver {
@@ -98,8 +100,9 @@ class WidgetBoundsChangeWaiter final : public views::WidgetObserver {
 
   // Wait for changes to occur, or return immediately if they already have.
   void Wait() {
-    if (!BoundsChangeMeetsThreshold(widget_->GetWindowBoundsInScreen()))
+    if (!BoundsChangeMeetsThreshold(widget_->GetWindowBoundsInScreen())) {
       run_loop_.Run();
+    }
   }
 
  private:
@@ -116,8 +119,51 @@ class WidgetBoundsChangeWaiter final : public views::WidgetObserver {
   base::RunLoop run_loop_;
 };
 
+// A helper class to wait for the bounds of two widgets to become equal.
+class WidgetBoundsEqualWaiter final : public views::WidgetObserver {
+ public:
+  WidgetBoundsEqualWaiter(views::Widget* widget, views::Widget* widget_cmp)
+      : widget_(widget), widget_cmp_(widget_cmp) {
+    widget_->AddObserver(this);
+    widget_cmp_->AddObserver(this);
+  }
+
+  WidgetBoundsEqualWaiter(const WidgetBoundsEqualWaiter&) = delete;
+  WidgetBoundsEqualWaiter& operator=(const WidgetBoundsEqualWaiter&) = delete;
+  ~WidgetBoundsEqualWaiter() final {
+    widget_->RemoveObserver(this);
+    widget_cmp_->RemoveObserver(this);
+  }
+
+  // views::WidgetObserver:
+  void OnWidgetBoundsChanged(views::Widget* widget,
+                             const gfx::Rect& rect) final {
+    if (WidgetsBoundsEqual()) {
+      widget_->RemoveObserver(this);
+      widget_cmp_->RemoveObserver(this);
+      run_loop_.Quit();
+    }
+  }
+
+  // Wait for changes to occur, or return immediately if they already have.
+  void Wait() {
+    if (!WidgetsBoundsEqual()) {
+      run_loop_.Run();
+    }
+  }
+
+ private:
+  bool WidgetsBoundsEqual() {
+    return widget_->GetWindowBoundsInScreen() ==
+           widget_cmp_->GetWindowBoundsInScreen();
+  }
+  const raw_ptr<views::Widget> widget_ = nullptr;
+  const raw_ptr<views::Widget> widget_cmp_ = nullptr;
+  base::RunLoop run_loop_;
+};
+
 // Ensure `left=0,top=0` popup window feature coordinates are respected.
-IN_PROC_BROWSER_TEST_P(PopupBrowserTest, OpenLeftAndTopZeroCoordinates) {
+IN_PROC_BROWSER_TEST_F(PopupBrowserTest, OpenLeftAndTopZeroCoordinates) {
   // Attempt to open a popup at (0,0). Its bounds should match the request, but
   // be adjusted to meet minimum size and available display area constraints.
   Browser* popup =
@@ -140,7 +186,7 @@ IN_PROC_BROWSER_TEST_P(PopupBrowserTest, OpenLeftAndTopZeroCoordinates) {
 
 // Ensure popups are opened in the available space of the opener's display.
 // TODO(crbug.com/1211516): Flaky.
-IN_PROC_BROWSER_TEST_P(PopupBrowserTest, DISABLED_OpenClampedToCurrentDisplay) {
+IN_PROC_BROWSER_TEST_F(PopupBrowserTest, DISABLED_OpenClampedToCurrentDisplay) {
   const auto display = GetDisplayNearestBrowser(browser());
   EXPECT_TRUE(display.work_area().Contains(browser()->window()->GetBounds()))
       << "The browser window should be contained by its display's work area";
@@ -187,7 +233,7 @@ IN_PROC_BROWSER_TEST_P(PopupBrowserTest, DISABLED_OpenClampedToCurrentDisplay) {
 #else
 #define MAYBE_MoveClampedToCurrentDisplay MoveClampedToCurrentDisplay
 #endif
-IN_PROC_BROWSER_TEST_P(PopupBrowserTest, MAYBE_MoveClampedToCurrentDisplay) {
+IN_PROC_BROWSER_TEST_F(PopupBrowserTest, MAYBE_MoveClampedToCurrentDisplay) {
   const auto display = GetDisplayNearestBrowser(browser());
   const char kOpenPopup[] =
       "open('.', '', 'left=' + (screen.availLeft + 50) + "
@@ -228,7 +274,7 @@ IN_PROC_BROWSER_TEST_P(PopupBrowserTest, MAYBE_MoveClampedToCurrentDisplay) {
 }
 
 // Ensure popups cannot be resized beyond the available display space by script.
-IN_PROC_BROWSER_TEST_P(PopupBrowserTest, ResizeClampedToCurrentDisplay) {
+IN_PROC_BROWSER_TEST_F(PopupBrowserTest, ResizeClampedToCurrentDisplay) {
   const auto display = GetDisplayNearestBrowser(browser());
   const char kOpenPopup[] =
       "open('.', '', 'left=' + (screen.availLeft + 50) + "
@@ -260,6 +306,139 @@ IN_PROC_BROWSER_TEST_P(PopupBrowserTest, ResizeClampedToCurrentDisplay) {
   }
 }
 
+// Opens two popups with custom position and size, but one has noopener. They
+// should both have the same position and size. http://crbug.com/1011688
+IN_PROC_BROWSER_TEST_F(PopupBrowserTest, NoopenerPositioning) {
+  Browser* noopener_popup = OpenPopup(
+      browser(),
+      "open('.', '', 'noopener=1,height=200,width=200,top=100,left=100')");
+  Browser* opener_popup = OpenPopup(
+      browser(), "open('.', '', 'height=200,width=200,top=100,left=100')");
+
+  WidgetBoundsEqualWaiter(views::Widget::GetWidgetForNativeWindow(
+                              noopener_popup->window()->GetNativeWindow()),
+                          views::Widget::GetWidgetForNativeWindow(
+                              opener_popup->window()->GetNativeWindow()))
+      .Wait();
+
+  EXPECT_EQ(noopener_popup->window()->GetBounds(),
+            opener_popup->window()->GetBounds());
+}
+
+// Tests popups with extended features from the Window Management API.
+// Test fixtures are run with and without multi-screen Window Management
+// permission. Manages virtual displays on supported platforms.
+class WindowManagementPopupBrowserTest
+    : public PopupBrowserTest,
+      public ::testing::WithParamInterface<bool> {
+ public:
+  WindowManagementPopupBrowserTest() {
+    scoped_feature_list_.InitWithFeatures(
+        {blink::features::kFullscreenPopupWindows}, {});
+  }
+
+  void TearDownOnMainThread() override {
+#if BUILDFLAG(IS_MAC)
+    virtual_display_util_.reset();
+#endif
+    PopupBrowserTest::TearDownOnMainThread();
+  }
+
+ protected:
+  bool ShouldTestWindowManagement() { return GetParam(); }
+
+  // Requests screen details and grants window management permission.
+  void SetUpWindowManagement() {
+    if (!ShouldTestWindowManagement()) {
+      return;
+    }
+    auto* contents = browser()->tab_strip_model()->GetActiveWebContents();
+    // Request and auto-accept the permission request.
+    permissions::PermissionRequestManager* permission_request_manager =
+        permissions::PermissionRequestManager::FromWebContents(contents);
+    permission_request_manager->set_auto_response_for_test(
+        permissions::PermissionRequestManager::ACCEPT_ALL);
+    ASSERT_GT(EvalJs(contents,
+                     R"JS(getScreenDetails().then(s => {
+                            window.screenDetails = s;
+                            return s.screens.length; }))JS"),
+              0);
+    // Do not auto-accept any other permission requests.
+    permission_request_manager->set_auto_response_for_test(
+        permissions::PermissionRequestManager::NONE);
+  }
+
+  // Initializes the embedded test server and navigates to an empty page.
+  void SetUpWebServer() {
+    ASSERT_TRUE(embedded_test_server()->Start());
+    ASSERT_TRUE(ui_test_utils::NavigateToURL(
+        browser(), embedded_test_server()->GetURL("/empty.html")));
+  }
+
+  // Waits until an element is fullscreen in the specified web contents.
+  // Returns immediately if an element is already fullscreen.
+  void WaitForHTMLFullscreen(content::WebContents* contents) {
+    content::WaitForLoadStop(contents);
+    ASSERT_TRUE(EvalJs(contents, R"JS(
+          (new Promise(r => {
+            if (!!document.fullscreenElement) {
+              r();
+            } else {
+              document.addEventListener(`fullscreenchange`,
+                () => { if (!!document.fullscreenElement) r(); },
+                {once: true}
+              );
+            }
+          })))JS")
+                    .error.empty());
+  }
+
+  // Attempts to create virtual displays such that 2 displays become available
+  // for testing multi-screen functionality. Not all platforms and OS versions
+  // are supported. Returns false if virtual displays could not be created.
+  // If the host already has 2 or more displays available, no virtual displays
+  // are created.
+  bool SetUpVirtualDisplays() {
+    if (display::Screen::GetScreen()->GetNumDisplays() > 1) {
+      return true;
+    }
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+    display::test::DisplayManagerTestApi(ash::Shell::Get()->display_manager())
+        .UpdateDisplay("100+100-801x802,901+100-802x802");
+    AssertMinimumDisplayCount(2);
+    return true;
+#elif BUILDFLAG(IS_MAC)
+    if (display::test::VirtualDisplayMacUtil::IsAPIAvailable()) {
+      virtual_display_util_ =
+          std::make_unique<display::test::VirtualDisplayMacUtil>();
+      virtual_display_util_->AddDisplay(
+          1, display::test::VirtualDisplayMacUtil::k1920x1080);
+      AssertMinimumDisplayCount(2);
+      return true;
+    }
+    return false;
+#else
+    return false;
+#endif
+  }
+
+  // Asserts that the test environment has at least `count` screens available.
+  void AssertMinimumDisplayCount(int count) {
+    ASSERT_GE(count, display::Screen::GetScreen()->GetNumDisplays());
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+
+#if BUILDFLAG(IS_MAC)
+  std::unique_ptr<display::test::VirtualDisplayMacUtil> virtual_display_util_;
+#endif
+};
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         WindowManagementPopupBrowserTest,
+                         ::testing::Bool());
+
 // TODO(crbug.com/1183791): Disabled everywhere except ChromeOS and Mac because
 // of races with SetScreenInstance and observers not being notified.
 #if BUILDFLAG(IS_CHROMEOS_ASH) || BUILDFLAG(IS_MAC)
@@ -269,19 +448,12 @@ IN_PROC_BROWSER_TEST_P(PopupBrowserTest, ResizeClampedToCurrentDisplay) {
   DISABLED_AboutBlankCrossScreenPlacement
 #endif
 // Tests that an about:blank popup can be moved across screens with permission.
-IN_PROC_BROWSER_TEST_P(PopupBrowserTest, MAYBE_AboutBlankCrossScreenPlacement) {
-  display::Screen* screen = display::Screen::GetScreen();
-  int actual_num_displays = screen->GetNumDisplays();
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-  display::test::DisplayManagerTestApi(ash::Shell::Get()->display_manager())
-      .UpdateDisplay("100+100-801x802,901+100-802x802");
-#elif BUILDFLAG(IS_MAC)
-  if (!display::test::VirtualDisplayMacUtil::IsAPIAvailable()) {
-    GTEST_SKIP() << "Skipping test for unsupported MacOS version.";
+IN_PROC_BROWSER_TEST_P(WindowManagementPopupBrowserTest,
+                       MAYBE_AboutBlankCrossScreenPlacement) {
+#if BUILDFLAG(IS_CHROMEOS_ASH) || BUILDFLAG(IS_MAC)
+  if (!SetUpVirtualDisplays()) {
+    GTEST_SKIP() << "Virtual displays not supported on this platform.";
   }
-  display::test::VirtualDisplayMacUtil virtual_display_mac_util;
-  virtual_display_mac_util.AddDisplay(
-      1, display::test::VirtualDisplayMacUtil::k1920x1080);
 #else
   display::ScreenBase test_screen;
   test_screen.display_list().AddDisplay({1, gfx::Rect(100, 100, 801, 802)},
@@ -291,36 +463,14 @@ IN_PROC_BROWSER_TEST_P(PopupBrowserTest, MAYBE_AboutBlankCrossScreenPlacement) {
       display::DisplayList::Type::NOT_PRIMARY);
   display::Screen::SetScreenInstance(&test_screen);
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
-  ASSERT_EQ(actual_num_displays + 1, screen->GetNumDisplays());
-
-  ASSERT_TRUE(embedded_test_server()->Start());
-  const GURL url(embedded_test_server()->GetURL("/empty.html"));
-  EXPECT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+  AssertMinimumDisplayCount(2);
+  SetUpWebServer();
   auto* opener = browser()->tab_strip_model()->GetActiveWebContents();
 
   // TODO(crbug.com/1119974): this test could be in content_browsertests
   // and not browser_tests if permission controls were supported.
 
-  if (GetParam()) {  // Check whether to test multi-screen features.
-    // Request and auto-accept the permission request.
-    permissions::PermissionRequestManager* permission_request_manager =
-        permissions::PermissionRequestManager::FromWebContents(opener);
-    permission_request_manager->set_auto_response_for_test(
-        permissions::PermissionRequestManager::ACCEPT_ALL);
-    constexpr char kGetScreensLength[] = R"(
-      (async () => {
-        try {
-          return (await getScreenDetails()).screens.length;
-        } catch {
-          return 0;
-        }
-      })();
-    )";
-    EXPECT_EQ(actual_num_displays + 1, EvalJs(opener, kGetScreensLength));
-    // Do not auto-accept any other permission requests.
-    permission_request_manager->set_auto_response_for_test(
-        permissions::PermissionRequestManager::NONE);
-  }
+  SetUpWindowManagement();
 
   // Open an about:blank popup. It should start on the same screen as browser().
   Browser* popup = OpenPopup(
@@ -328,8 +478,7 @@ IN_PROC_BROWSER_TEST_P(PopupBrowserTest, MAYBE_AboutBlankCrossScreenPlacement) {
   const auto opener_display = GetDisplayNearestBrowser(browser());
   auto original_popup_display = GetDisplayNearestBrowser(popup);
   EXPECT_EQ(opener_display, original_popup_display);
-
-  const auto second_display = screen->GetAllDisplays()[1];
+  const auto second_display = display::Screen::GetScreen()->GetAllDisplays()[1];
   const std::string move_popup_to_the_second_screen_script = base::StringPrintf(
       "w.moveTo(%d, %d);", second_display.work_area().x() + 100,
       second_display.work_area().y() + 100);
@@ -342,8 +491,9 @@ IN_PROC_BROWSER_TEST_P(PopupBrowserTest, MAYBE_AboutBlankCrossScreenPlacement) {
   WidgetBoundsChangeWaiter(widget, /*move_by=*/40, /*resize_by=*/0).Wait();
   auto new_popup_display = GetDisplayNearestBrowser(popup);
   // The popup only moves to the second screen with permission.
-  EXPECT_EQ(GetParam(), original_popup_display != new_popup_display);
-  EXPECT_EQ(GetParam(), second_display == new_popup_display);
+  EXPECT_EQ(ShouldTestWindowManagement(),
+            original_popup_display != new_popup_display);
+  EXPECT_EQ(ShouldTestWindowManagement(), second_display == new_popup_display);
   // The popup is always constrained to the bounds of the target display.
   auto popup_bounds = popup->window()->GetBounds();
   EXPECT_TRUE(new_popup_display.work_area().Contains(popup_bounds))
@@ -355,17 +505,156 @@ IN_PROC_BROWSER_TEST_P(PopupBrowserTest, MAYBE_AboutBlankCrossScreenPlacement) {
 #endif  //  !BUILDFLAG(IS_CHROMEOS_ASH) && !BUILDFLAG(IS_MAC)
 }
 
-// Opens two popups with custom position and size, but one has noopener. They
-// should both have the same position and size. http://crbug.com/1011688
-IN_PROC_BROWSER_TEST_P(PopupBrowserTest, NoopenerPositioning) {
-  Browser* noopener_popup = OpenPopup(
-      browser(),
-      "open('.', '', 'noopener=1,height=200,width=200,top=100,left=100')");
-  Browser* opener_popup = OpenPopup(
-      browser(),
-      "open('.', '', 'height=200,width=200,top=100,left=100')");
-  EXPECT_EQ(noopener_popup->window()->GetBounds(),
-            opener_popup->window()->GetBounds());
+IN_PROC_BROWSER_TEST_P(WindowManagementPopupBrowserTest, BasicFullscreen) {
+  SetUpWebServer();
+  SetUpWindowManagement();
+  Browser* new_popup =
+      OpenPopup(browser(), "open('/empty.html', '_blank', 'popup,fullscreen')");
+  content::WebContents* new_contents =
+      new_popup->tab_strip_model()->GetActiveWebContents();
+  if (ShouldTestWindowManagement()) {
+    WaitForHTMLFullscreen(new_contents);
+  }
+  EXPECT_EQ(EvalJs(new_contents,
+                   "!!document.fullscreenElement && document.fullscreenElement "
+                   "== document.documentElement")
+                .ExtractBool(),
+            ShouldTestWindowManagement());
+  FullscreenController* fullscreen_controller =
+      new_popup->exclusive_access_manager()->fullscreen_controller();
+  EXPECT_FALSE(fullscreen_controller->IsFullscreenForBrowser());
+  EXPECT_EQ(fullscreen_controller->IsTabFullscreen(),
+            ShouldTestWindowManagement());
+  EXPECT_EQ(EvalJs(new_contents, "document.exitFullscreen()").error.empty(),
+            ShouldTestWindowManagement());
+  EXPECT_FALSE(fullscreen_controller->IsFullscreenForBrowser());
+  EXPECT_FALSE(fullscreen_controller->IsTabFullscreen());
+
+  // Test that a navigation doesn't re-trigger fullscreen.
+  EXPECT_TRUE(EvalJs(new_contents,
+                     "window.location.href = '" +
+                         embedded_test_server()->GetURL("/title1.html").spec() +
+                         "'")
+                  .error.empty());
+  EXPECT_TRUE(content::WaitForLoadStop(new_contents));
+  EXPECT_FALSE(fullscreen_controller->IsFullscreenForBrowser());
+  EXPECT_FALSE(fullscreen_controller->IsTabFullscreen());
+}
+
+IN_PROC_BROWSER_TEST_P(WindowManagementPopupBrowserTest, FullscreenWithBounds) {
+  SetUpWebServer();
+  SetUpWindowManagement();
+  Browser* new_popup =
+      OpenPopup(browser(),
+                "open('/empty.html', '_blank', "
+                "'height=200,width=200,top=100,left=100,fullscreen')");
+  content::WebContents* new_contents =
+      new_popup->tab_strip_model()->GetActiveWebContents();
+  if (ShouldTestWindowManagement()) {
+    WaitForHTMLFullscreen(new_contents);
+  }
+  EXPECT_EQ(EvalJs(new_contents,
+                   "!!document.fullscreenElement && document.fullscreenElement "
+                   "== document.documentElement")
+                .ExtractBool(),
+            ShouldTestWindowManagement());
+  FullscreenController* fullscreen_controller =
+      new_popup->exclusive_access_manager()->fullscreen_controller();
+  EXPECT_FALSE(fullscreen_controller->IsFullscreenForBrowser());
+  EXPECT_EQ(fullscreen_controller->IsTabFullscreen(),
+            ShouldTestWindowManagement());
+}
+
+// Fullscreen should not work if the new window is not specified as a popup.
+IN_PROC_BROWSER_TEST_P(WindowManagementPopupBrowserTest,
+                       FullscreenRequiresPopupWindowFeature) {
+  SetUpWebServer();
+  SetUpWindowManagement();
+
+  // OpenPopup() cannot be used here since it waits for a new browser which
+  // would not open in this case.
+  auto* web_contents = browser()->tab_strip_model()->GetActiveWebContents();
+  EXPECT_TRUE(
+      EvalJs(web_contents, "open('/empty.html', '_blank', 'fullscreen')")
+          .error.empty());
+  EXPECT_EQ(browser()->tab_strip_model()->count(), 2);
+  EXPECT_FALSE(
+      EvalJs(web_contents, "!!document.fullscreenElement").ExtractBool());
+  FullscreenController* fullscreen_controller =
+      browser()->exclusive_access_manager()->fullscreen_controller();
+  EXPECT_FALSE(fullscreen_controller->IsFullscreenForBrowser());
+  EXPECT_FALSE(fullscreen_controller->IsTabFullscreen());
+}
+
+// Tests that the fullscreen flag is ignored if the window.open() does not
+// result in a new window.
+IN_PROC_BROWSER_TEST_P(WindowManagementPopupBrowserTest,
+                       FullscreenRequiresNewWindow) {
+  SetUpWebServer();
+  SetUpWindowManagement();
+
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), embedded_test_server()->GetURL("/iframe.html")));
+  // OpenPopup() cannot be used here since it waits for a new browser which
+  // would not open in this case. open() targeting a frame named "test" in
+  // "iframe.html" will not create a new window.
+  auto* web_contents = browser()->tab_strip_model()->GetActiveWebContents();
+  EXPECT_TRUE(
+      EvalJs(web_contents, "open('/empty.html', 'test', 'popup,fullscreen')")
+          .error.empty());
+  EXPECT_EQ(browser()->tab_strip_model()->count(), 1);
+  EXPECT_FALSE(
+      EvalJs(web_contents, "!!document.fullscreenElement").ExtractBool());
+  FullscreenController* fullscreen_controller =
+      browser()->exclusive_access_manager()->fullscreen_controller();
+  EXPECT_FALSE(fullscreen_controller->IsFullscreenForBrowser());
+  EXPECT_FALSE(fullscreen_controller->IsTabFullscreen());
+}
+
+IN_PROC_BROWSER_TEST_P(WindowManagementPopupBrowserTest,
+                       FullscreenDifferentScreen) {
+  if (!SetUpVirtualDisplays()) {
+    GTEST_SKIP() << "Virtual displays not supported on this platform.";
+  }
+  SetUpWebServer();
+  SetUpWindowManagement();
+
+  // Falls back to opening a popup on the current screen in testing scenarios
+  // where window management is not granted in SetUpWindowManagement().
+  Browser* new_popup = OpenPopup(browser(), R"JS(
+    (() =>
+          {
+            otherScreen = (!!window.screenDetails && screenDetails.screens
+              .find(s => s != screenDetails.currentScreen)) || window.screen;
+            return open('/empty.html', '_blank',
+                    `top=${otherScreen.availTop},
+                    left=${otherScreen.availLeft},
+                    height=200,
+                    width=200,
+                    popup,
+                    fullscreen`);
+          })()
+  )JS");
+
+  content::WebContents* new_contents =
+      new_popup->tab_strip_model()->GetActiveWebContents();
+  if (ShouldTestWindowManagement()) {
+    WaitForHTMLFullscreen(new_contents);
+  }
+  EXPECT_EQ(EvalJs(new_contents,
+                   "!!document.fullscreenElement && "
+                   "document.fullscreenElement == document.documentElement")
+                .ExtractBool(),
+            ShouldTestWindowManagement());
+  EXPECT_TRUE(EvalJs(new_contents,
+                     "screen.availLeft == opener.otherScreen.availLeft && "
+                     "screen.availTop == opener.otherScreen.availTop")
+                  .ExtractBool());
+  FullscreenController* fullscreen_controller =
+      new_popup->exclusive_access_manager()->fullscreen_controller();
+  EXPECT_FALSE(fullscreen_controller->IsFullscreenForBrowser());
+  EXPECT_EQ(fullscreen_controller->IsTabFullscreen(),
+            ShouldTestWindowManagement());
 }
 
 }  // namespace

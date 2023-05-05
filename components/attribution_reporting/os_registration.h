@@ -8,7 +8,9 @@
 #include "base/component_export.h"
 #include "base/strings/string_piece_forward.h"
 #include "components/attribution_reporting/os_support.mojom-forward.h"
-#include "url/gurl.h"
+#include "net/http/structured_headers.h"
+
+class GURL;
 
 namespace attribution_reporting {
 
@@ -25,6 +27,11 @@ namespace attribution_reporting {
 // "https://x.test/abc"
 COMPONENT_EXPORT(ATTRIBUTION_REPORTING)
 GURL ParseOsSourceOrTriggerHeader(base::StringPiece);
+
+// Same as the above, but using an already-parsed structured-header item.
+COMPONENT_EXPORT(ATTRIBUTION_REPORTING)
+GURL ParseOsSourceOrTriggerHeader(
+    const net::structured_headers::ParameterizedItem&);
 
 COMPONENT_EXPORT(ATTRIBUTION_REPORTING)
 base::StringPiece GetSupportHeader(mojom::OsSupport);

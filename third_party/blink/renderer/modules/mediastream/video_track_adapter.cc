@@ -17,11 +17,11 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/sequence_checker.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/task/bind_post_task.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
-#include "media/base/bind_to_current_loop.h"
 #include "media/base/limits.h"
 #include "media/base/video_util.h"
 #include "third_party/blink/public/common/features.h"
@@ -364,9 +364,6 @@ void VideoTrackAdapter::VideoFrameResolutionAdapter::DeliverFrame(
     return;
   }
 
-  // Update the last timestamp since the frame was approved and not dropped.
-  last_time_stamp_ = video_frame->timestamp();
-
   // If the frame is a texture not backed up by GPU memory we don't apply
   // cropping/scaling and deliver the frame as-is, leaving it up to the
   // destination to rescale it. Otherwise, cropping and scaling is soft-applied
@@ -497,6 +494,7 @@ bool VideoTrackAdapter::VideoFrameResolutionAdapter::MaybeDropFrame(
 
   // Do not drop frames if max frame rate hasn't been specified.
   if (!settings_.max_frame_rate().has_value()) {
+    last_time_stamp_ = frame.timestamp();
     return false;
   }
 
@@ -505,7 +503,8 @@ bool VideoTrackAdapter::VideoFrameResolutionAdapter::MaybeDropFrame(
   // Check if the time since the last frame is completely off.
   if (delta_ms.is_negative() || delta_ms > kMaxTimeInMsBetweenFrames) {
     DVLOG(3) << " reset timestamps";
-    // Reset fps calculation.
+    // Reset |last_time_stamp_| and fps calculation.
+    last_time_stamp_ = frame.timestamp();
     frame_rate_ = settings_.max_frame_rate().value_or(
         MediaStreamVideoSource::kDefaultFrameRate);
     DVLOG(1) << " frame rate filter initialized to " << frame_rate_ << " fps";
@@ -528,6 +527,8 @@ bool VideoTrackAdapter::VideoFrameResolutionAdapter::MaybeDropFrame(
         kResolutionAdapterTimestampTooCloseToPrevious;
     return true;
   }
+
+  last_time_stamp_ = frame.timestamp();
 
   // Calculate the frame rate using an exponential moving average (EMA) filter.
   // Use a simple filter with 0.1 weight of the current sample.
@@ -696,7 +697,7 @@ void VideoTrackAdapter::StartFrameMonitoring(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   VideoTrackAdapter::OnMutedCallback bound_on_muted_callback =
-      media::BindToCurrentLoop(on_muted_callback);
+      base::BindPostTaskToCurrentDefault(on_muted_callback);
 
   PostCrossThreadTask(
       *video_task_runner_, FROM_HERE,

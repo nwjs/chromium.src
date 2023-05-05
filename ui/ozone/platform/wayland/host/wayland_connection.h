@@ -49,6 +49,7 @@ class WaylandEventSource;
 class WaylandOutputManager;
 class WaylandSeat;
 class WaylandZAuraShell;
+class WaylandZAuraOutputManager;
 class WaylandZcrColorManager;
 class WaylandZcrCursorShapes;
 class WaylandZcrTouchpadHaptics;
@@ -159,6 +160,10 @@ class WaylandConnection {
     return xdg_output_manager_.get();
   }
 
+  wp_fractional_scale_manager_v1* fractional_scale_manager_v1() const {
+    return fractional_scale_manager_v1_.get();
+  }
+
   void SetPlatformCursor(wl_cursor* cursor_data, int buffer_scale);
 
   void SetCursorBufferListener(WaylandCursorBufferListener* listener);
@@ -184,6 +189,10 @@ class WaylandConnection {
 
   WaylandBufferManagerHost* buffer_manager_host() const {
     return buffer_manager_host_.get();
+  }
+
+  WaylandZAuraOutputManager* zaura_output_manager() const {
+    return zaura_output_manager_.get();
   }
 
   WaylandZAuraShell* zaura_shell() const { return zaura_shell_.get(); }
@@ -315,6 +324,7 @@ class WaylandConnection {
   // makes it possible to avoid exposing setters for all those global objects:
   // these setters would only be needed by the globals but would be visible to
   // everyone.
+  friend class FractionalScaleManager;
   friend class GtkPrimarySelectionDeviceManager;
   friend class GtkShell1;
   friend class OrgKdeKwinIdle;
@@ -323,6 +333,7 @@ class WaylandConnection {
   friend class WaylandDataDeviceManager;
   friend class WaylandOutput;
   friend class WaylandSeat;
+  friend class WaylandZAuraOutputManager;
   friend class WaylandZAuraShell;
   friend class WaylandZcrTouchpadHaptics;
   friend class WaylandZwpPointerConstraints;
@@ -397,6 +408,7 @@ class WaylandConnection {
   wl::Object<zxdg_decoration_manager_v1> xdg_decoration_manager_;
   wl::Object<zcr_extended_drag_v1> extended_drag_v1_;
   wl::Object<zxdg_output_manager_v1> xdg_output_manager_;
+  wl::Object<wp_fractional_scale_manager_v1> fractional_scale_manager_v1_;
 
   // Manages Wayland windows.
   WaylandWindowManager window_manager_{this};
@@ -413,6 +425,7 @@ class WaylandConnection {
   std::unique_ptr<WaylandDataDeviceManager> data_device_manager_;
   std::unique_ptr<WaylandOutputManager> output_manager_;
   std::unique_ptr<WaylandCursorPosition> cursor_position_;
+  std::unique_ptr<WaylandZAuraOutputManager> zaura_output_manager_;
   std::unique_ptr<WaylandZAuraShell> zaura_shell_;
   std::unique_ptr<WaylandZcrColorManager> zcr_color_manager_;
   std::unique_ptr<WaylandZcrCursorShapes> zcr_cursor_shapes_;

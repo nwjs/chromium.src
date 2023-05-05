@@ -85,6 +85,14 @@ BASE_FEATURE(kPreventNavigationWithoutUserInteraction,
              "PreventNavigationWithoutUserInteraction",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kEnableWebInspector,
+             "EnableWebInspector",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSmoothScrollingDefault,
+             "FullscreenSmoothScrollingDefault",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 bool IsMediaPermissionsControlEnabled() {
   if (@available(iOS 15, *)) {
     return base::FeatureList::IsEnabled(kMediaPermissionsControl);

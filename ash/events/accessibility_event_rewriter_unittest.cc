@@ -13,6 +13,7 @@
 #include "ash/shell.h"
 #include "ash/test/ash_test_base.h"
 #include "base/check_op.h"
+#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/aura/env.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_tree_host.h"
@@ -137,7 +138,7 @@ class ChromeVoxAccessibilityEventRewriterTest
   void SetModifierRemapping(const std::string& pref_name,
                             ui::mojom::ModifierKey value) {
     DCHECK_NE(ui::mojom::ModifierKey::kIsoLevel5ShiftMod3, value);
-    modifier_remapping_[pref_name] = static_cast<int>(value);
+    modifier_remapping_[pref_name] = value;
   }
 
   bool RewriteEventForChromeVox(
@@ -175,18 +176,23 @@ class ChromeVoxAccessibilityEventRewriterTest
   // ui::EventRewriterChromeOS::Delegate:
   bool RewriteModifierKeys() override { return true; }
   void SuppressModifierKeyRewrites(bool should_suppress) override {}
-
-  bool GetKeyboardRemappedPrefValue(const std::string& pref_name,
-                                    int* value) const override {
-    auto it = modifier_remapping_.find(pref_name);
-    if (it == modifier_remapping_.end())
-      return false;
-
-    *value = it->second;
+  bool RewriteMetaTopRowKeyComboEvents(int device_id) const override {
     return true;
   }
+  void SuppressMetaTopRowKeyComboRewrites(bool should_suppress) override {}
 
-  bool TopRowKeysAreFunctionKeys() const override { return false; }
+  absl::optional<ui::mojom::ModifierKey> GetKeyboardRemappedModifierValue(
+      int device_id,
+      ui::mojom::ModifierKey modifier_key,
+      const std::string& pref_name) const override {
+    auto it = modifier_remapping_.find(pref_name);
+    if (it == modifier_remapping_.end())
+      return absl::nullopt;
+
+    return it->second;
+  }
+
+  bool TopRowKeysAreFunctionKeys(int device_id) const override { return false; }
 
   bool IsExtensionCommandRegistered(ui::KeyboardCode key_code,
                                     int flags) const override {
@@ -200,7 +206,7 @@ class ChromeVoxAccessibilityEventRewriterTest
     return false;
   }
 
-  std::map<std::string, int> modifier_remapping_;
+  std::map<std::string, ui::mojom::ModifierKey> modifier_remapping_;
 };
 
 // The delegate should not intercept events when spoken feedback is disabled.
@@ -545,7 +551,7 @@ class SwitchAccessAccessibilityEventRewriterTest
   void SetModifierRemapping(const std::string& pref_name,
                             ui::mojom::ModifierKey value) {
     DCHECK_NE(ui::mojom::ModifierKey::kIsoLevel5ShiftMod3, value);
-    modifier_remapping_[pref_name] = static_cast<int>(value);
+    modifier_remapping_[pref_name] = value;
   }
 
   const std::map<int, std::set<ui::InputDeviceType>> GetKeyCodesToCapture() {
@@ -568,18 +574,23 @@ class SwitchAccessAccessibilityEventRewriterTest
   // ui::EventRewriterChromeOS::Delegate:
   bool RewriteModifierKeys() override { return true; }
   void SuppressModifierKeyRewrites(bool should_suppress) override {}
-
-  bool GetKeyboardRemappedPrefValue(const std::string& pref_name,
-                                    int* value) const override {
-    auto it = modifier_remapping_.find(pref_name);
-    if (it == modifier_remapping_.end())
-      return false;
-
-    *value = it->second;
+  bool RewriteMetaTopRowKeyComboEvents(int device_id) const override {
     return true;
   }
+  void SuppressMetaTopRowKeyComboRewrites(bool should_suppress) override {}
 
-  bool TopRowKeysAreFunctionKeys() const override { return false; }
+  absl::optional<ui::mojom::ModifierKey> GetKeyboardRemappedModifierValue(
+      int device_id,
+      ui::mojom::ModifierKey modifier_key,
+      const std::string& pref_name) const override {
+    auto it = modifier_remapping_.find(pref_name);
+    if (it == modifier_remapping_.end())
+      return absl::nullopt;
+
+    return it->second;
+  }
+
+  bool TopRowKeysAreFunctionKeys(int device_id) const override { return false; }
 
   bool IsExtensionCommandRegistered(ui::KeyboardCode key_code,
                                     int flags) const override {
@@ -593,7 +604,7 @@ class SwitchAccessAccessibilityEventRewriterTest
     return false;
   }
 
-  std::map<std::string, int> modifier_remapping_;
+  std::map<std::string, ui::mojom::ModifierKey> modifier_remapping_;
 
  protected:
   ui::test::EventGenerator* generator_ = nullptr;

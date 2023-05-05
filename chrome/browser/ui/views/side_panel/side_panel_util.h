@@ -20,7 +20,9 @@ class View;
 class SidePanelUtil {
  public:
   // These values are persisted to logs. Entries should not be renumbered and
-  // numeric values should never be reused.
+  // numeric values should never be reused. SidePanelOpenTrigger in
+  // tools/metrics/histograms/enums.xml should also be updated when changed
+  // here.
   enum class SidePanelOpenTrigger {
     kToolbarButton = 0,
     kLensContextMenu = 1,
@@ -33,7 +35,9 @@ class SidePanelUtil {
     kContextMenuSearchOption = 8,
     kReadAnythingContextMenu = 9,
     kExtensionEntryRegistered = 10,
-    kMaxValue = kExtensionEntryRegistered,
+    kBookmarkBar = 11,
+    kPinnedEntryToolbarButton = 12,
+    kMaxValue = kPinnedEntryToolbarButton,
   };
 
   static void PopulateGlobalEntries(Browser* browser,

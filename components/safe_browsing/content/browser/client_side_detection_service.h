@@ -50,6 +50,15 @@ namespace safe_browsing {
 class ClientPhishingRequest;
 class ClientSideDetectionHost;
 
+// Enum used to keep stats on classification using threshold comparison.
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum class SBClientDetectionClassifyThresholdsResult {
+  kSuccess = 0,
+  kModelSizeMismatch = 1,
+  kMaxValue = kModelSizeMismatch,
+};
+
 // Main service which pushes models to the renderers, responds to classification
 // requests. This owns two ModelLoader objects.
 class ClientSideDetectionService
@@ -152,6 +161,14 @@ class ClientSideDetectionService
   // override it.
   virtual const base::File& GetVisualTfLiteModel();
 
+  // Returns the visual TFLite model thresholds from the model class
+  virtual const google::protobuf::RepeatedPtrField<
+      TfLiteModelMetadata::Threshold>&
+  GetVisualTfLiteModelThresholds();
+
+  // Compare the scores from classification to TFLite model thresholds
+  void ClassifyPhishingThroughThresholds(ClientPhishingRequest* verdict);
+
   // Overrides the SharedURLLoaderFactory
   void SetURLLoaderFactoryForTesting(
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory);
@@ -177,6 +194,7 @@ class ClientSideDetectionService
   FRIEND_TEST_ALL_PREFIXES(ClientSideDetectionServiceTest,
                            SendClientReportPhishingRequest);
   FRIEND_TEST_ALL_PREFIXES(ClientSideDetectionServiceTest, GetNumReportTest);
+  FRIEND_TEST_ALL_PREFIXES(ClientSideDetectionServiceTest, GetNumReportTestESB);
   FRIEND_TEST_ALL_PREFIXES(ClientSideDetectionServiceTest,
                            TestModelFollowsPrefs);
 

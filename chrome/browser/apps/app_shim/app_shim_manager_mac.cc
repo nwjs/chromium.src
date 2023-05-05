@@ -68,7 +68,7 @@ namespace {
 // https://crbug.com/1274236
 BASE_FEATURE(kAppShimProfileMenuIcons,
              "AppShimProfileMenuIcons",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // A crash key that is used when dumping because of errors when building and
 // verifying the app shim requirement.
@@ -1369,8 +1369,9 @@ void AppShimManager::UpdateApplicationDockMenu(Profile* profile,
 AppShimManager::ProfileState* AppShimManager::GetOrCreateProfileState(
     Profile* profile,
     const web_app::AppId& app_id) {
-  if (web_app::AppShimLaunchDisabled())
+  if (web_app::AppShimCreationAndLaunchDisabledForTest()) {
     return nullptr;
+  }
 
   const bool is_multi_profile = delegate_->AppIsMultiProfile(profile, app_id);
   const base::FilePath profile_path =

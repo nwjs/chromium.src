@@ -19,7 +19,6 @@
 #include "build/build_config.h"
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/bookmarks/browser/bookmark_node.h"
-#include "components/bookmarks/browser/bookmark_utils.h"
 #include "components/sync/base/client_tag_hash.h"
 #include "components/sync/base/data_type_histogram.h"
 #include "components/sync/base/features.h"
@@ -29,10 +28,10 @@
 #include "components/sync/engine/data_type_activation_response.h"
 #include "components/sync/engine/model_type_processor_metrics.h"
 #include "components/sync/engine/model_type_processor_proxy.h"
-#include "components/sync/engine/model_type_worker.h"
 #include "components/sync/model/data_type_activation_request.h"
 #include "components/sync/model/type_entities_count.h"
 #include "components/sync/protocol/bookmark_model_metadata.pb.h"
+#include "components/sync/protocol/model_type_state_helper.h"
 #include "components/sync/protocol/proto_value_conversions.h"
 #include "components/sync_bookmarks/bookmark_local_changes_builder.h"
 #include "components/sync_bookmarks/bookmark_model_merger.h"
@@ -40,7 +39,6 @@
 #include "components/sync_bookmarks/bookmark_remote_updates_handler.h"
 #include "components/sync_bookmarks/bookmark_specifics_conversions.h"
 #include "components/sync_bookmarks/parent_guid_preprocessing.h"
-#include "components/sync_bookmarks/switches.h"
 #include "components/sync_bookmarks/synced_bookmark_tracker_entity.h"
 #include "components/undo/bookmark_undo_utils.h"
 #include "ui/base/models/tree_node_iterator.h"
@@ -49,22 +47,7 @@ namespace sync_bookmarks {
 
 namespace {
 
-#if BUILDFLAG(IS_IOS) or BUILDFLAG(IS_ANDROID)
-// Set a lower limit for mobile platforms.
-// 1. There are not many users of bookmarks on mobiles.
-// 2. Prevents creation of an overly huge sync metadata file to be stored on
-// the disk.
-// 3. Reduced memory consumption and processing, noticeable especially during
-// an initial merge.
-// 4. A lower limit for mobile platforms reflects the lower
-// capacity/processing power of mobile devices.
-//
-// Since the bookmark model thread is the UI thread, a smoother user
-// experience outweighs the resulting downsides.
-constexpr size_t kDefaultMaxBookmarksTillSyncEnabled = 20000;
-#else
 constexpr size_t kDefaultMaxBookmarksTillSyncEnabled = 100000;
-#endif
 
 class ScopedRemoteUpdateBookmarks {
  public:
@@ -219,7 +202,7 @@ void BookmarkModelTypeProcessor::OnUpdateReceived(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(!model_type_state.cache_guid().empty());
   DCHECK_EQ(model_type_state.cache_guid(), cache_guid_);
-  DCHECK(model_type_state.initial_sync_done());
+  DCHECK(syncer::IsInitialSyncDone(model_type_state.initial_sync_state()));
   DCHECK(start_callback_.is_null());
   // Processor should never connect if
   // |last_initial_merge_remote_updates_exceeded_limit_| is set.
@@ -342,6 +325,9 @@ void BookmarkModelTypeProcessor::ModelReadyToSync(
 
   sync_pb::BookmarkModelMetadata model_metadata;
   model_metadata.ParseFromString(metadata_str);
+
+  syncer::MigrateLegacyInitialSyncDone(
+      *model_metadata.mutable_model_type_state(), syncer::BOOKMARKS);
 
   if (pending_clear_metadata_) {
     pending_clear_metadata_ = false;

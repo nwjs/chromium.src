@@ -15,8 +15,23 @@ struct CredentialUIEntry;
 class PasswordManagerClient;
 }  // namespace password_manager
 
+namespace syncer {
+class SyncService;
+}  // namespace syncer
+
+class PrefService;
+
 class IOSChromePasswordCheckManager;
 @protocol PasswordDetailsConsumer;
+
+// Provides PasswordManagerClient (per-tab object) on-demand, so there's no need
+// to worry about tabs being closed.
+class PasswordManagerClientProvider {
+ public:
+  virtual ~PasswordManagerClientProvider() = default;
+
+  virtual password_manager::PasswordManagerClient* GetAny() = 0;
+};
 
 // This mediator fetches and organises the credentials for its consumer.
 @interface PasswordDetailsMediator
@@ -30,6 +45,11 @@ class IOSChromePasswordCheckManager;
                         credentials
                       displayName:(NSString*)displayName
              passwordCheckManager:(IOSChromePasswordCheckManager*)manager
+                      prefService:(PrefService*)prefService
+                      syncService:(syncer::SyncService*)syncService
+             supportMoveToAccount:(BOOL)supportMoveToAccount
+    passwordManagerClientProvider:
+        (PasswordManagerClientProvider*)passwordManagerClientProvider
     NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)init NS_UNAVAILABLE;
@@ -37,21 +57,24 @@ class IOSChromePasswordCheckManager;
 // Consumer of this mediator.
 @property(nonatomic, weak) id<PasswordDetailsConsumer> consumer;
 
-// Array of credentials passed to the mediator.
-@property(nonatomic, readonly) std::vector<password_manager::CredentialUIEntry>
-    credentials;
-
 // Disconnects the mediator from all observers.
 - (void)disconnect;
 
 // Remove credential from credentials cache.
-- (void)removeCredential:(const password_manager::CredentialUIEntry&)credential;
+- (void)removeCredential:(PasswordDetails*)password;
 
 // Moves credential and its duplicates to account store.
-- (void)moveCredentialToAccountStore:
-            (const password_manager::CredentialUIEntry&)credential
-                              client:(password_manager::PasswordManagerClient*)
-                                         client;
+- (void)moveCredentialToAccountStore:(PasswordDetails*)password;
+
+// Called to handle moving a credential to account store in case of a duplicate
+// conflict. Deletes the outdated password, and moves the local credential if it
+// is the recent one.
+- (void)moveCredentialToAccountStoreWithConflict:(PasswordDetails*)password;
+
+// Called when the user chooses to move a password to account store.
+// Returns YES if the account stores the same username for the website with a
+// different password, NO otherwise.
+- (BOOL)hasPasswordConflictInAccount:(PasswordDetails*)password;
 
 @end
 

@@ -67,6 +67,7 @@
 #include "chrome/browser/ash/crosapi/login_ash.h"
 #include "chrome/browser/ash/crosapi/login_screen_storage_ash.h"
 #include "chrome/browser/ash/crosapi/login_state_ash.h"
+#include "chrome/browser/ash/crosapi/media_ui_ash.h"
 #include "chrome/browser/ash/crosapi/message_center_ash.h"
 #include "chrome/browser/ash/crosapi/metrics_ash.h"
 #include "chrome/browser/ash/crosapi/metrics_reporting_ash.h"
@@ -104,6 +105,7 @@
 #include "chrome/browser/ash/sync/sync_mojo_service_factory_ash.h"
 #include "chrome/browser/ash/telemetry_extension/diagnostics_service_ash.h"
 #include "chrome/browser/ash/telemetry_extension/probe_service_ash.h"
+#include "chrome/browser/ash/telemetry_extension/telemetry_event_service_ash.h"
 #include "chrome/browser/ash/video_conference/video_conference_manager_ash.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
@@ -228,6 +230,7 @@ CrosapiAsh::CrosapiAsh(CrosapiDependencyRegistry* registry)
       login_ash_(std::make_unique<LoginAsh>()),
       login_screen_storage_ash_(std::make_unique<LoginScreenStorageAsh>()),
       login_state_ash_(std::make_unique<LoginStateAsh>()),
+      media_ui_ash_(std::make_unique<MediaUIAsh>()),
       message_center_ash_(std::make_unique<MessageCenterAsh>()),
       metrics_ash_(std::make_unique<MetricsAsh>()),
       metrics_reporting_ash_(registry->CreateMetricsReportingAsh(
@@ -248,6 +251,8 @@ CrosapiAsh::CrosapiAsh(CrosapiDependencyRegistry* registry)
 #if BUILDFLAG(USE_CUPS)
       printing_metrics_ash_(std::make_unique<PrintingMetricsAsh>()),
 #endif  // BUILDFLAG(USE_CUPS)
+      telemetry_event_service_ash_(
+          std::make_unique<ash::TelemetryEventServiceAsh>()),
       probe_service_ash_(std::make_unique<ash::ProbeServiceAsh>()),
       remoting_ash_(std::make_unique<RemotingAsh>()),
       resource_manager_ash_(std::make_unique<ResourceManagerAsh>()),
@@ -255,6 +260,7 @@ CrosapiAsh::CrosapiAsh(CrosapiDependencyRegistry* registry)
       search_provider_ash_(std::make_unique<SearchProviderAsh>()),
       select_file_ash_(std::make_unique<SelectFileAsh>()),
       sharesheet_ash_(std::make_unique<SharesheetAsh>()),
+      smart_reader_manager_ash_(std::make_unique<ash::SmartReaderManagerAsh>()),
       speech_recognition_ash_(std::make_unique<SpeechRecognitionAsh>()),
       structured_metrics_service_ash_(
           std::make_unique<StructuredMetricsServiceAsh>()),
@@ -600,6 +606,10 @@ void CrosapiAsh::BindMachineLearningService(
       ->BindMachineLearningService(std::move(receiver));
 }
 
+void CrosapiAsh::BindMediaUI(mojo::PendingReceiver<mojom::MediaUI> receiver) {
+  media_ui_ash_->BindReceiver(std::move(receiver));
+}
+
 void CrosapiAsh::BindMediaSessionAudioFocus(
     mojo::PendingReceiver<media_session::mojom::AudioFocusManager> receiver) {
   content::GetMediaSessionService().BindAudioFocusManager(std::move(receiver));
@@ -748,6 +758,11 @@ void CrosapiAsh::BindSharesheet(
   sharesheet_ash_->BindReceiver(std::move(receiver));
 }
 
+void CrosapiAsh::BindSmartReaderClient(
+    mojo::PendingRemote<mojom::SmartReaderClient> remote) {
+  smart_reader_manager_ash_->BindRemote(std::move(remote));
+}
+
 void CrosapiAsh::BindSpeechRecognition(
     mojo::PendingReceiver<mojom::SpeechRecognition> receiver) {
   speech_recognition_ash_->BindReceiver(std::move(receiver));
@@ -786,6 +801,11 @@ void CrosapiAsh::BindSyncService(
 void CrosapiAsh::BindTaskManager(
     mojo::PendingReceiver<mojom::TaskManager> receiver) {
   task_manager_ash_->BindReceiver(std::move(receiver));
+}
+
+void CrosapiAsh::BindTelemetryEventService(
+    mojo::PendingReceiver<mojom::TelemetryEventService> receiver) {
+  telemetry_event_service_ash_->BindReceiver(std::move(receiver));
 }
 
 void CrosapiAsh::BindTelemetryProbeService(

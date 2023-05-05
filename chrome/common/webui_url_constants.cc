@@ -254,6 +254,10 @@ const char kChromeUIBookmarksSidePanelHost[] =
     "bookmarks-side-panel.top-chrome";
 const char kChromeUIBookmarksSidePanelURL[] =
     "chrome://bookmarks-side-panel.top-chrome/";
+const char kChromeUIUntrustedCompanionSidePanelHost[] =
+    "companion-side-panel.top-chrome";
+const char kChromeUIUntrustedCompanionSidePanelURL[] =
+    "chrome-untrusted://companion-side-panel.top-chrome/";
 const char kChromeUICustomizeChromeSidePanelHost[] =
     "customize-chrome-side-panel.top-chrome";
 const char kChromeUICustomizeChromeSidePanelURL[] =
@@ -268,10 +272,6 @@ const char kChromeUIReadAnythingSidePanelURL[] =
     "chrome://read-anything-side-panel.top-chrome/";
 const char kChromeUIReadLaterHost[] = "read-later.top-chrome";
 const char kChromeUIReadLaterURL[] = "chrome://read-later.top-chrome/";
-const char kChromeUISearchCompanionSidePanelHost[] =
-    "search-companion-side-panel.top-chrome";
-const char kChromeUISearchCompanionSidePanelURL[] =
-    "chrome://search-companion-side-panel.top-chrome/";
 const char kChromeUIUntrustedFeedURL[] = "chrome-untrusted://feed/";
 const char kChromeUIUserNotesSidePanelHost[] =
     "user-notes-side-panel.top-chrome";
@@ -377,6 +377,7 @@ const char kChromeUIPasswordChangeUrl[] = "chrome://password-change";
 const char kChromeUIPrintManagementUrl[] = "chrome://print-management";
 const char kChromeUIPowerHost[] = "power";
 const char kChromeUIPowerUrl[] = "chrome://power";
+const char kChromeUIRemoteManagementCurtainHost[] = "security-curtain";
 const char kChromeUIScanningAppURL[] = "chrome://scanning";
 const char kChromeUIScreenlockIconHost[] = "screenlock-icon";
 const char kChromeUIScreenlockIconURL[] = "chrome://screenlock-icon/";
@@ -417,6 +418,7 @@ const char kOsUIAppServiceInternalsURL[] = "os://app-service-internals";
 const char kOsUIBluetoothInternalsURL[] = "os://bluetooth-internals";
 const char kOsUICrashesURL[] = "os://crashes";
 const char kOsUICreditsURL[] = "os://credits";
+const char kOsUIDeviceEmulatorURL[] = "os://device-emulator";
 const char kOsUIDeviceLogURL[] = "os://device-log";
 const char kOsUIDriveInternalsURL[] = "os://drive-internals";
 const char kOsUIEmojiPickerURL[] = "os://emoji-picker";
@@ -430,6 +432,7 @@ const char kOsUIMultiDeviceInternalsURL[] = "os://multidevice-internals";
 const char kOsUINearbyInternalsURL[] = "os://nearby-internals";
 const char kOsUINetworkURL[] = "os://network";
 const char kOsUINetExportURL[] = "os://net-export";
+const char kOsUIPrefsInternalsURL[] = "os://prefs-internals";
 const char kOsUIRestartURL[] = "os://restart";
 const char kOsUISettingsURL[] = "os://settings";
 const char kOsUISignInInternalsURL[] = "os://signin-internals";
@@ -480,8 +483,9 @@ bool IsSystemWebUIHost(base::StringPiece host) {
 #endif  // BUILDFLAG(PLATFORM_CFM)
   };
   for (const char* h : kHosts) {
-    if (host == h)
+    if (host == h) {
       return true;
+    }
   }
   return false;
 }
@@ -716,6 +720,7 @@ const char* const kChromeHostURLs[] = {
     safe_browsing::kChromeUISafeBrowsingHost,
     kChromeUISyncInternalsHost,
 #if !BUILDFLAG(IS_ANDROID)
+    kChromeUITabSearchHost,
     kChromeUITermsHost,
 #endif
     kChromeUITranslateInternalsHost,

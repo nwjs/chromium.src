@@ -95,6 +95,9 @@ class VIEWS_EXPORT EditableCombobox
   const std::u16string& GetText() const;
   void SetText(const std::u16string& text);
 
+  std::u16string GetPlaceholderText() const;
+  void SetPlaceholderText(const std::u16string& text);
+
   const gfx::FontList& GetFontList() const;
 
   void SetCallback(base::RepeatingClosure callback) {
@@ -128,6 +131,8 @@ class VIEWS_EXPORT EditableCombobox
   }
 
   Textfield& GetTextfield() { return *textfield_; }
+
+  Button* GetArrowButtonForTesting() { return arrow_; }
 
  private:
   friend class EditableComboboxTest;
@@ -182,6 +187,8 @@ class VIEWS_EXPORT EditableCombobox
   // Overridden from views::AnimatingLayoutManager::Observer:
   void OnLayoutIsAnimatingChanged(views::AnimatingLayoutManager* source,
                                   bool is_animating) override;
+
+  bool ShouldApplyInkDropEffects();
 
   raw_ptr<Textfield> textfield_;
   raw_ptr<BoxLayoutView> control_elements_container_ = nullptr;

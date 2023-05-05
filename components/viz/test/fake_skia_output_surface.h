@@ -69,6 +69,7 @@ class FakeSkiaOutputSurface : public SkiaOutputSurface {
                                  const gfx::Size& surface_size,
                                  ResourceFormat format,
                                  bool mipmap,
+                                 bool scanout_dcomp_surface,
                                  sk_sp<SkColorSpace> color_space,
                                  bool is_overlay,
                                  const gpu::Mailbox& mailbox) override;
@@ -76,6 +77,7 @@ class FakeSkiaOutputSurface : public SkiaOutputSurface {
   void EndPaint(
       base::OnceClosure on_finished,
       base::OnceCallback<void(gfx::GpuFenceHandle)> return_release_fence_cb,
+      const gfx::Rect& update_rect,
       bool is_overlay) override;
   void MakePromiseSkImage(ImageContext* image_context,
                           const gfx::ColorSpace& yuv_color_space) override;

@@ -12,13 +12,13 @@
 #include <vector>
 
 #include "ash/components/arc/arc_util.h"
-#include "ash/components/arc/enterprise/arc_data_snapshotd_manager.h"
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_switches.h"
 #include "ash/keyboard/ui/resources/keyboard_resource_util.h"
 #include "ash/public/ash_interfaces.h"
 #include "ash/public/cpp/event_rewriter_controller.h"
 #include "ash/public/cpp/keyboard/keyboard_controller.h"
+#include "ash/public/cpp/session/session_controller.h"
 #include "ash/shell.h"
 #include "ash/system/diagnostics/diagnostics_log_controller.h"
 #include "ash/system/pcie_peripheral/pcie_peripheral_notification_controller.h"
@@ -51,7 +51,6 @@
 #include "chrome/browser/ash/app_mode/kiosk_app_manager.h"
 #include "chrome/browser/ash/app_mode/kiosk_mode_idle_app_name_notification.h"
 #include "chrome/browser/ash/app_mode/web_app/web_kiosk_app_manager.h"
-#include "chrome/browser/ash/arc/enterprise/arc_data_snapshotd_delegate.h"
 #include "chrome/browser/ash/arc/session/arc_service_launcher.h"
 #include "chrome/browser/ash/audio/audio_survey_handler.h"
 #include "chrome/browser/ash/bluetooth/hats_bluetooth_revamp_trigger_impl.h"
@@ -190,8 +189,10 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/logging_chrome.h"
 #include "chrome/common/pref_names.h"
+#include "chromeos/ash/components/attestation/attestation_features.h"
 #include "chromeos/ash/components/audio/audio_devices_pref_handler_impl.h"
 #include "chromeos/ash/components/audio/cras_audio_handler.h"
+#include "chromeos/ash/components/browser_context_helper/browser_context_flusher.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/cryptohome/cryptohome_parameters.h"
 #include "chromeos/ash/components/cryptohome/system_salt_getter.h"
@@ -217,6 +218,7 @@
 #include "chromeos/ash/components/network/network_handler.h"
 #include "chromeos/ash/components/network/portal_detector/network_portal_detector_stub.h"
 #include "chromeos/ash/components/network/system_token_cert_db_storage.h"
+#include "chromeos/ash/components/osauth/public/auth_parts.h"
 #include "chromeos/ash/components/peripheral_notification/peripheral_notification_manager.h"
 #include "chromeos/ash/components/power/dark_resume_controller.h"
 #include "chromeos/ash/components/settings/cros_settings_names.h"
@@ -831,6 +833,8 @@ int ChromeBrowserMainPartsAsh::PreMainMessageLoopRun() {
   auth_metrics_recorder_ =
       base::WrapUnique<AuthMetricsRecorder>(new AuthMetricsRecorder());
 
+  auth_parts_ = AuthParts::Create();
+
   return ChromeBrowserMainPartsLinux::PreMainMessageLoopRun();
 }
 
@@ -856,11 +860,6 @@ void ChromeBrowserMainPartsAsh::PreProfileInit() {
     g_browser_process->metrics_service()->InitPerUserMetrics();
   }
 
-  arc_data_snapshotd_manager_ =
-      std::make_unique<arc::data_snapshotd::ArcDataSnapshotdManager>(
-          g_browser_process->local_state(),
-          std::make_unique<arc::data_snapshotd::ArcDataSnapshotdDelegate>(),
-          base::BindOnce(chrome::AttemptUserExit));
   if (base::FeatureList::IsEnabled(::features::kWilcoDtc))
     wilco_dtc_supportd_manager_ = std::make_unique<WilcoDtcSupportdManager>();
 
@@ -1006,12 +1005,6 @@ void ChromeBrowserMainPartsAsh::PreProfileInit() {
   lacros_data_backward_migration_mode_policy_observer_ = std::make_unique<
       crosapi::LacrosDataBackwardMigrationModePolicyObserver>();
 
-  // Only creates VideoConferenceAppServiceClient if VcControlsUi is enabled.
-  if (features::IsVideoConferenceEnabled()) {
-    vc_app_service_client_ =
-        std::make_unique<VideoConferenceAppServiceClient>();
-  }
-
   chromeos::machine_learning::ServiceConnection::GetInstance()->Initialize();
 
   // Needs to be initialized after crosapi_manager_.
@@ -1152,8 +1145,9 @@ void ChromeBrowserMainPartsAsh::PostProfileInit(Profile* profile,
     if (ProfileHelper::IsSigninProfile(profile)) {
       // Flush signin profile if it is just created (new device or after
       // recovery) to ensure it is correctly persisted.
-      if (profile->IsNewProfile())
-        ProfileHelper::Get()->FlushProfile(profile);
+      if (profile->IsNewProfile()) {
+        BrowserContextFlusher::Get()->ScheduleFlush(profile);
+      }
 
       ApplySigninProfileModifications(profile);
     } else {
@@ -1216,6 +1210,11 @@ void ChromeBrowserMainPartsAsh::PostProfileInit(Profile* profile,
     DCHECK(session_manager);
 
     manager->SetState(session_manager->GetDefaultIMEState(profile));
+
+    misconfigured_user_cleaner_ = std::make_unique<MisconfiguredUserCleaner>(
+        g_browser_process->local_state(), ash::SessionController::Get());
+
+    misconfigured_user_cleaner_->ScheduleCleanup();
 
     g_browser_process->platform_part()->session_manager()->Initialize(
         *base::CommandLine::ForCurrentProcess(), profile,
@@ -1390,6 +1389,8 @@ void ChromeBrowserMainPartsAsh::PostBrowserStart() {
   if (features::IsVideoConferenceEnabled()) {
     video_conference_manager_client_ =
         std::make_unique<video_conference::VideoConferenceManagerClientImpl>();
+    vc_app_service_client_ =
+        std::make_unique<VideoConferenceAppServiceClient>();
   }
 
   ChromeBrowserMainPartsLinux::PostBrowserStart();
@@ -1432,8 +1433,6 @@ void ChromeBrowserMainPartsAsh::PostMainMessageLoopRun() {
   // This must be shut down before |arc_service_launcher_|.
   if (pre_profile_init_called_)
     NoteTakingHelper::Shutdown();
-
-  arc_data_snapshotd_manager_.reset();
 
   arc_service_launcher_->Shutdown();
 
@@ -1663,6 +1662,7 @@ void ChromeBrowserMainPartsAsh::PostDestroyThreads() {
   // Shutdown these services after g_browser_process.
   InstallAttributes::Shutdown();
   DeviceSettingsService::Shutdown();
+  attestation::AttestationFeatures::Shutdown();
 }
 
 void ChromeBrowserMainPartsAsh::StartDeviceActivityController() {

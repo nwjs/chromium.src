@@ -10,7 +10,9 @@
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/apps/app_service/app_launch_params.h"
 #include "chrome/browser/apps/app_service/launch_utils.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_navigator_params.h"
@@ -112,7 +114,9 @@ content::WebContents* WebAppLaunchProcess::Run() {
               *ash::GetSystemWebAppTypeForAppId(&*profile_, params_->app_id))
           ->IsUrlInSystemAppScope(launch_url);
   DCHECK(registrar_->IsUrlInAppScope(launch_url, params_->app_id) ||
-         is_url_in_system_web_app_sccope);
+         is_url_in_system_web_app_sccope)
+      << "Url " << launch_url.spec() << " not in scope for app "
+      << params_->app_id;
 #else
   DCHECK(registrar_->IsUrlInAppScope(launch_url, params_->app_id));
 #endif
@@ -135,8 +139,9 @@ content::WebContents* WebAppLaunchProcess::Run() {
   NavigateResult navigate_result =
       MaybeNavigateBrowser(browser, is_new_browser, launch_url, share_target);
   content::WebContents* web_contents = navigate_result.web_contents;
-  if (!web_contents)
+  if (!web_contents) {
     return nullptr;
+  }
 
   MaybeEnqueueWebLaunchParams(
       launch_url, is_file_handling, web_contents,
@@ -144,9 +149,9 @@ content::WebContents* WebAppLaunchProcess::Run() {
 
   UpdateLaunchStats(web_contents, params_->app_id, launch_url);
   RecordLaunchMetrics(params_->app_id, params_->container,
-                      apps::GetAppLaunchSource(params_->launch_source),
-                      launch_url, web_contents);
+                      params_->launch_source, launch_url, web_contents);
 
+  MaybeShowProfileSwitchIPH(browser);
   return web_contents;
 }
 
@@ -378,6 +383,17 @@ void WebAppLaunchProcess::MaybeEnqueueWebLaunchParams(
         ->EnsureLaunchQueue()
         .Enqueue(std::move(launch_params));
   }
+}
+
+void WebAppLaunchProcess::MaybeShowProfileSwitchIPH(Browser* browser) {
+#if !BUILDFLAG(IS_CHROMEOS)
+  ProfileManager* profile_manager = g_browser_process->profile_manager();
+  if (browser && browser->app_controller() &&
+      browser->app_controller()->HasProfileMenuButton() && profile_manager &&
+      profile_manager->GetNumberOfProfiles() > 1) {
+    browser->window()->MaybeShowProfileSwitchIPH();
+  }
+#endif
 }
 
 }  // namespace web_app

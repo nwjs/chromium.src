@@ -229,8 +229,6 @@ const NGLayoutResult* NGGridLayoutAlgorithm::Layout() {
 
 const NGLayoutResult* NGGridLayoutAlgorithm::LayoutInternal() {
   PaintLayerScrollableArea::DelayScrollOffsetClampScope delay_clamp_scope;
-
-  const auto& node = Node();
   HeapVector<Member<LayoutBox>> oof_children;
 
   // Don't re-accumulate out-of-flow children if we're resuming layout, since
@@ -268,8 +266,20 @@ const NGLayoutResult* NGGridLayoutAlgorithm::LayoutInternal() {
     ComputeGridGeometry(&grid_sizing_tree, &intrinsic_block_size);
   }
 
-  // Subgridded items must be placed by their parent.
+  // Subgridded items must be laid out by their parent.
+  //
+  // TODO(ethavar): Removing subgridded items seems weird since there are more
+  // parts in the code where we explicitly want to ignore them. We need to allow
+  // the caller to decide whether they want to iterate over subgridded items.
   grid_items.RemoveSubgriddedItems();
+
+  const auto& constraint_space = ConstraintSpace();
+  const auto* cached_layout_subtree = constraint_space.GridLayoutSubtree();
+
+  const auto layout_subtree =
+      cached_layout_subtree
+          ? *cached_layout_subtree
+          : NGGridLayoutSubtree(grid_sizing_tree.FinalizeTree());
 
   Vector<EBreakBetween> row_break_between;
   LayoutUnit consumed_grid_block_size;
@@ -290,7 +300,7 @@ const NGLayoutResult* NGGridLayoutAlgorithm::LayoutInternal() {
     } else {
       row_offset_adjustments =
           Vector<LayoutUnit>(layout_data.Rows().GetSetCount() + 1);
-      PlaceGridItems(grid_items, layout_data, &row_break_between,
+      PlaceGridItems(grid_items, layout_subtree, &row_break_between,
                      &grid_items_placement_data);
     }
 
@@ -299,11 +309,12 @@ const NGLayoutResult* NGGridLayoutAlgorithm::LayoutInternal() {
         &row_offset_adjustments, &intrinsic_block_size,
         &consumed_grid_block_size);
   } else {
-    PlaceGridItems(grid_items, layout_data, &row_break_between);
+    PlaceGridItems(grid_items, layout_subtree, &row_break_between);
   }
 
+  const auto& node = Node();
   const auto& border_padding = BorderPadding();
-  const auto& constraint_space = ConstraintSpace();
+
   const auto block_size = ComputeBlockSizeForFragment(
       constraint_space, Style(), border_padding, intrinsic_block_size,
       container_builder_.InlineSize());
@@ -409,17 +420,10 @@ MinMaxSizesResult NGGridLayoutAlgorithm::ComputeMinMaxSizes(
   auto& grid_items = grid_sizing_tree[0].grid_items;
   auto& layout_data = grid_sizing_tree[0].layout_data;
 
-  InitializeTrackCollections(&grid_sizing_tree);
-  CacheGridItemsProperties(layout_data.Columns(), &grid_items);
-  CacheGridItemsProperties(layout_data.Rows(), &grid_items);
-
   bool depends_on_block_constraints = false;
   auto ComputeTotalColumnSize =
       [&](SizingConstraint sizing_constraint) -> LayoutUnit {
-    ComputeUsedTrackSizes(layout_data, sizing_constraint, &grid_items,
-                          &layout_data.Rows(),
-                          /* needs_additional_pass */ nullptr,
-                          /* only_initialize_track_sizes */ true);
+    InitializeTrackSizes(&grid_sizing_tree);
 
     bool needs_additional_pass = false;
     ComputeUsedTrackSizes(layout_data, sizing_constraint, &grid_items,
@@ -436,6 +440,7 @@ MinMaxSizesResult NGGridLayoutAlgorithm::ComputeMinMaxSizes(
                               &layout_data.Rows(), &needs_additional_pass);
 
         if (needs_additional_pass) {
+          InitializeTrackSizes(&grid_sizing_tree, kForColumns);
           ComputeUsedTrackSizes(layout_data, sizing_constraint, &grid_items,
                                 &layout_data.Columns());
         }
@@ -456,20 +461,24 @@ MinMaxSizesResult NGGridLayoutAlgorithm::ComputeMinMaxSizes(
 
 namespace {
 
-GridArea SubgriddedAreaInParent(const GridItemData& subgrid_data) {
-  DCHECK(subgrid_data.IsSubgrid());
+absl::optional<GridArea> SubgriddedAreaInParent(
+    const NGSubgriddedItemData& opt_subgrid_data) {
+  if (!opt_subgrid_data) {
+    return absl::nullopt;
+  }
 
-  auto subgridded_area_in_parent = subgrid_data.resolved_position;
+  DCHECK(opt_subgrid_data->IsSubgrid());
+  auto subgridded_area_in_parent = opt_subgrid_data->resolved_position;
 
-  if (!subgrid_data.is_parallel_with_root_grid) {
+  if (!opt_subgrid_data->is_parallel_with_root_grid) {
     std::swap(subgridded_area_in_parent.columns,
               subgridded_area_in_parent.rows);
   }
 
-  if (!subgrid_data.has_subgridded_columns) {
+  if (!opt_subgrid_data->has_subgridded_columns) {
     subgridded_area_in_parent.columns = GridSpan::IndefiniteGridSpan();
   }
-  if (!subgrid_data.has_subgridded_rows) {
+  if (!opt_subgrid_data->has_subgridded_rows) {
     subgridded_area_in_parent.rows = GridSpan::IndefiniteGridSpan();
   }
   return subgridded_area_in_parent;
@@ -480,39 +489,40 @@ GridArea SubgriddedAreaInParent(const GridItemData& subgrid_data) {
 wtf_size_t NGGridLayoutAlgorithm::BuildGridSizingSubtree(
     NGGridSizingTree* sizing_tree,
     HeapVector<Member<LayoutBox>>* oof_children,
+    const NGSubgriddedItemData& opt_subgrid_data,
     const NGGridLineResolver* parent_line_resolver,
-    const NGGridSizingData* parent_sizing_data,
-    const GridItemData* subgrid_data,
     bool must_ignore_children) const {
   DCHECK(sizing_tree);
 
   const auto& node = Node();
   const auto& style = node.Style();
-  wtf_size_t column_auto_repetitions = kNotFound;
-  wtf_size_t row_auto_repetitions = kNotFound;
+  const auto opt_subgrid_area = SubgriddedAreaInParent(opt_subgrid_data);
 
-  // TODO(ethavar): Compute automatic repetitions for subgridded axes as
-  // described in https://drafts.csswg.org/css-grid-2/#auto-repeat.
-  if (!parent_sizing_data) {
-    column_auto_repetitions = ComputeAutomaticRepetitions(kForColumns);
-    row_auto_repetitions = ComputeAutomaticRepetitions(kForRows);
-  }
+  const wtf_size_t column_auto_repetitions =
+      ComputeAutomaticRepetitions(opt_subgrid_area, kForColumns);
+  const wtf_size_t row_auto_repetitions =
+      ComputeAutomaticRepetitions(opt_subgrid_area, kForRows);
 
   // Initialize this grid's placement data.
+  //   - Standalone grids will have no |parent_line_resolver|.
+  //   - Subgrids must have both |parent_line_resolver| and |opt_subgrid_area|.
   // TODO(kschmi): Remove placement data from `NGGridPlacement`.
+  DCHECK(!parent_line_resolver || opt_subgrid_area);
   auto placement_data =
       parent_line_resolver
-          ? NGGridPlacementData(style, *parent_line_resolver,
-                                SubgriddedAreaInParent(*subgrid_data))
+          ? NGGridPlacementData(style, *parent_line_resolver, *opt_subgrid_area,
+                                column_auto_repetitions, row_auto_repetitions)
           : NGGridPlacementData(style, column_auto_repetitions,
                                 row_auto_repetitions);
+
   bool has_nested_subgrid = false;
-  auto& sizing_data = sizing_tree->CreateSizingData();
+  auto& [grid_items, layout_data, subtree_size] =
+      sizing_tree->CreateSizingData();
 
   if (!must_ignore_children) {
     // Construct grid items that are not subgridded.
-    sizing_data.grid_items = node.ConstructGridItems(
-        placement_data, oof_children, &has_nested_subgrid);
+    grid_items = node.ConstructGridItems(placement_data, oof_children,
+                                         &has_nested_subgrid);
 
     placement_data.column_start_offset =
         node.CachedPlacementData().column_start_offset;
@@ -524,7 +534,7 @@ wtf_size_t NGGridLayoutAlgorithm::BuildGridSizingSubtree(
     NGGridRangeBuilder range_builder(style, placement_data, track_direction);
 
     bool must_create_baselines = false;
-    for (auto& grid_item : sizing_data.grid_items) {
+    for (auto& grid_item : grid_items) {
       must_create_baselines |=
           grid_item.IsBaselineSpecifiedForDirection(track_direction);
 
@@ -534,16 +544,16 @@ wtf_size_t NGGridLayoutAlgorithm::BuildGridSizingSubtree(
                                         &range_indices.begin,
                                         &range_indices.end);
     }
-    sizing_data.layout_data.SetTrackCollection(
+    layout_data.SetTrackCollection(
         std::make_unique<NGGridSizingTrackCollection>(
             range_builder.FinalizeRanges(), must_create_baselines,
             track_direction));
   };
 
   const bool must_build_sizing_column_collection =
-      !subgrid_data || !subgrid_data->has_subgridded_columns;
+      !opt_subgrid_data || !opt_subgrid_data->has_subgridded_columns;
   const bool must_build_sizing_row_collection =
-      !subgrid_data || !subgrid_data->has_subgridded_rows;
+      !opt_subgrid_data || !opt_subgrid_data->has_subgridded_rows;
 
   if (must_build_sizing_column_collection)
     BuildSizingCollection(kForColumns);
@@ -551,45 +561,49 @@ wtf_size_t NGGridLayoutAlgorithm::BuildGridSizingSubtree(
     BuildSizingCollection(kForRows);
 
   if (!has_nested_subgrid)
-    return sizing_data.subtree_size;
+    return subtree_size;
 
-  NGSubgridSizingData opt_subgrid_sizing_data;
-  if (subgrid_data && parent_sizing_data) {
-    opt_subgrid_sizing_data =
-        NGGridItemSizingData(*subgrid_data, parent_sizing_data->layout_data);
+  InitializeTrackCollection(opt_subgrid_data, kForColumns, &layout_data);
+  InitializeTrackCollection(opt_subgrid_data, kForRows, &layout_data);
+
+  if (must_build_sizing_column_collection) {
+    layout_data.SizingCollection(kForColumns).CacheDefiniteSetsGeometry();
   }
-
-  InitializeTrackCollection(kForColumns, opt_subgrid_sizing_data, &sizing_data,
-                            /* force_sets_geometry_caching */ true);
-  InitializeTrackCollection(kForRows, opt_subgrid_sizing_data, &sizing_data,
-                            /* force_sets_geometry_caching */ true);
+  if (must_build_sizing_row_collection) {
+    layout_data.SizingCollection(kForRows).CacheDefiniteSetsGeometry();
+  }
 
   // |AppendSubgriddedItems| rely on the cached placement data of a subgrid to
   // construct its grid items, so we need to build their subtrees beforehand.
-  for (auto& grid_item : sizing_data.grid_items) {
+  for (auto& grid_item : grid_items) {
     if (!grid_item.IsSubgrid())
       continue;
 
-    grid_item.ComputeSetIndices(sizing_data.layout_data.Columns());
-    grid_item.ComputeSetIndices(sizing_data.layout_data.Rows());
+    // TODO(ethavar): Currently we have an issue where we can't correctly cache
+    // the set indices of this grid item to determine its available space. This
+    // happens because subgridded items are not considered by the range builder
+    // since they can't be placed before we recurse into subgrids.
+    grid_item.ComputeSetIndices(layout_data.Columns());
+    grid_item.ComputeSetIndices(layout_data.Rows());
 
-    LogicalRect unused_containing_grid_area;
-    const auto space = CreateConstraintSpaceForLayout(
-        grid_item, sizing_data.layout_data, &unused_containing_grid_area);
+    NGSubgriddedItemData subgrid_data(grid_item, layout_data);
 
-    const auto fragment_geometry = CalculateInitialFragmentGeometry(
-        space, grid_item.node, /* break_token */ nullptr,
-        /* is_intrinsic */ !space.IsFixedInlineSize());
+    NGConstraintSpace unused_space;
+    NGFragmentGeometry unused_fragment_geometry;
+    auto subgrid_algorithm = CreateSubgridLayoutAlgorithm(
+        subgrid_data, &unused_space, &unused_fragment_geometry);
 
-    auto subgrid_algorithm =
-        NGGridLayoutAlgorithm({grid_item.node, fragment_geometry, space});
+    subtree_size += subgrid_algorithm.BuildGridSizingSubtree(
+        sizing_tree, /* oof_children */ nullptr, subgrid_data,
+        &placement_data.line_resolver);
 
-    sizing_data.subtree_size += subgrid_algorithm.BuildGridSizingSubtree(
-        sizing_tree, /* oof_children */ nullptr, &placement_data.line_resolver,
-        &sizing_data, &grid_item);
+    // After we accommodate subgridded items in their respective sizing track
+    // collections, their placement indices might be incorrect, so we want to
+    // recompute them when we call |InitializeTrackSizes|.
+    grid_item.ResetPlacementIndices();
   }
 
-  node.AppendSubgriddedItems(&sizing_data.grid_items);
+  node.AppendSubgriddedItems(&grid_items);
 
   // We need to recreate the track builder collections to ensure track coverage
   // for subgridded items; it would be ideal to have them accounted for already,
@@ -600,75 +614,23 @@ wtf_size_t NGGridLayoutAlgorithm::BuildGridSizingSubtree(
   if (must_build_sizing_row_collection)
     BuildSizingCollection(kForRows);
 
-  return sizing_data.subtree_size;
+  return subtree_size;
 }
 
 NGGridSizingTree NGGridLayoutAlgorithm::BuildGridSizingTree(
     HeapVector<Member<LayoutBox>>* oof_children) const {
   NGGridSizingTree sizing_tree;
 
-  const auto& constraint_space = ConstraintSpace();
-  const auto* subgridded_columns = constraint_space.SubgriddedColumns();
-  const auto* subgridded_rows = constraint_space.SubgriddedRows();
-
-  // For subgrids, we build only the direct children and rely on the subgridded
-  // tracks from the constraint space to build layout data. This isn't ideal for
-  // the grid sizing tree approach, but we do it to keep passing subgrid tests.
-  //
-  // TODO(ethavar): Remove all of this redundant code.
-  if (subgridded_columns || subgridded_rows) {
+  if (const auto* layout_subtree = ConstraintSpace().GridLayoutSubtree()) {
     const auto& node = Node();
-    const auto& container_style = Style();
     auto& sizing_data = sizing_tree.CreateSizingData();
 
-    bool has_nested_subgrid;
-    sizing_data.grid_items = node.ConstructGridItems(
-        node.CachedPlacementData(), oof_children, &has_nested_subgrid);
-    if (has_nested_subgrid)
-      node.AppendSubgriddedItems(&sizing_data.grid_items);
-
-    auto BuildSizingCollection = [&](GridTrackSizingDirection track_direction) {
-      NGGridRangeBuilder range_builder(
-          container_style, node.CachedPlacementData(), track_direction);
-
-      bool must_create_baselines = false;
-      for (auto& grid_item : sizing_data.grid_items) {
-        must_create_baselines |=
-            grid_item.IsBaselineSpecifiedForDirection(track_direction);
-
-        auto& range_indices = grid_item.RangeIndices(track_direction);
-        range_builder.EnsureTrackCoverage(grid_item.StartLine(track_direction),
-                                          grid_item.SpanSize(track_direction),
-                                          &range_indices.begin,
-                                          &range_indices.end);
-      }
-      sizing_data.layout_data.SetTrackCollection(
-          std::make_unique<NGGridSizingTrackCollection>(
-              range_builder.FinalizeRanges(), must_create_baselines,
-              track_direction));
-    };
-
-    if (subgridded_columns) {
-      sizing_data.layout_data.SetTrackCollection(
-          std::make_unique<NGGridLayoutTrackCollection>(
-              *subgridded_columns, BorderScrollbarPadding(),
-              ComputeMarginsForSelf(constraint_space, container_style)));
-    } else {
-      BuildSizingCollection(kForColumns);
-    }
-
-    if (subgridded_rows) {
-      sizing_data.layout_data.SetTrackCollection(
-          std::make_unique<NGGridLayoutTrackCollection>(
-              *subgridded_rows, BorderScrollbarPadding(),
-              ComputeMarginsForSelf(constraint_space, container_style)));
-    } else {
-      BuildSizingCollection(kForRows);
-    }
-    return sizing_tree;
+    sizing_data.grid_items =
+        node.ConstructGridItems(node.CachedPlacementData(), oof_children);
+    sizing_data.layout_data = layout_subtree->LayoutData();
+  } else {
+    BuildGridSizingSubtree(&sizing_tree, oof_children);
   }
-
-  BuildGridSizingSubtree(&sizing_tree, oof_children);
   return sizing_tree;
 }
 
@@ -676,9 +638,8 @@ NGGridSizingTree NGGridLayoutAlgorithm::BuildGridSizingTreeIgnoringChildren()
     const {
   NGGridSizingTree sizing_tree;
   BuildGridSizingSubtree(&sizing_tree, /* oof_children */ nullptr,
+                         /* opt_subgrid_data */ kNoSubgriddedItemData,
                          /* parent_line_resolver */ nullptr,
-                         /* parent_sizing_data */ nullptr,
-                         /* subgrid_data */ nullptr,
                          /* must_ignore_children */ true);
   return sizing_tree;
 }
@@ -846,14 +807,7 @@ void NGGridLayoutAlgorithm::ComputeGridGeometry(
   auto& grid_items = root_sizing_data.grid_items;
   auto& layout_data = root_sizing_data.layout_data;
 
-  InitializeTrackCollections(grid_sizing_tree);
-  CacheGridItemsProperties(layout_data.Columns(), &grid_items);
-  CacheGridItemsProperties(layout_data.Rows(), &grid_items);
-
-  ComputeUsedTrackSizes(layout_data, SizingConstraint::kLayout, &grid_items,
-                        &layout_data.Rows(),
-                        /* needs_additional_pass */ nullptr,
-                        /* only_initialize_track_sizes */ true);
+  InitializeTrackSizes(grid_sizing_tree);
 
   bool needs_additional_pass = false;
   ComputeUsedTrackSizes(layout_data, SizingConstraint::kLayout, &grid_items,
@@ -935,12 +889,11 @@ void NGGridLayoutAlgorithm::ComputeGridGeometry(
   }
 
   if (needs_additional_pass) {
-    InitializeTrackCollections(grid_sizing_tree);
-    CacheGridItemsProperties(layout_data.Columns(), &grid_items);
-    CacheGridItemsProperties(layout_data.Rows(), &grid_items);
-
+    InitializeTrackSizes(grid_sizing_tree, kForColumns);
     ComputeUsedTrackSizes(layout_data, SizingConstraint::kLayout, &grid_items,
                           &layout_data.Columns());
+
+    InitializeTrackSizes(grid_sizing_tree, kForRows);
     ComputeUsedTrackSizes(layout_data, SizingConstraint::kLayout, &grid_items,
                           &layout_data.Rows());
   }
@@ -975,7 +928,7 @@ LayoutUnit NGGridLayoutAlgorithm::ComputeIntrinsicBlockSizeIgnoringChildren()
   auto& grid_items = grid_sizing_tree[0].grid_items;
   auto& layout_data = grid_sizing_tree[0].layout_data;
 
-  InitializeTrackCollections(&grid_sizing_tree);
+  InitializeTrackSizes(&grid_sizing_tree, kForRows);
   ComputeUsedTrackSizes(layout_data, SizingConstraint::kLayout, &grid_items,
                         &layout_data.Rows());
 
@@ -1037,6 +990,12 @@ LayoutUnit NGGridLayoutAlgorithm::ContributionSizeForGridItem(
     SizingConstraint sizing_constraint,
     GridItemData* grid_item) const {
   DCHECK(grid_item);
+
+  // TODO(ethavar): Measuring a subgrid depends on a new method that computes a
+  // single axis track collection, this is incorrect in the meantime.
+  if (grid_item->IsSubgrid()) {
+    return LayoutUnit();
+  }
 
   // From https://drafts.csswg.org/css-grid-2/#subgrid-size-contribution:
   //   The subgrid itself [...] acts as if it was completely empty for track
@@ -1313,6 +1272,7 @@ LayoutUnit NGGridLayoutAlgorithm::ContributionSizeForGridItem(
 
 // https://drafts.csswg.org/css-grid-2/#auto-repeat
 wtf_size_t NGGridLayoutAlgorithm::ComputeAutomaticRepetitions(
+    const absl::optional<GridArea>& opt_subgrid_area,
     GridTrackSizingDirection track_direction) const {
   const bool is_for_columns = track_direction == kForColumns;
   const auto& track_list = is_for_columns
@@ -1321,6 +1281,17 @@ wtf_size_t NGGridLayoutAlgorithm::ComputeAutomaticRepetitions(
 
   if (!track_list.HasAutoRepeater())
     return 0;
+
+  // Subgrids compute auto repetitions differently than standalone grids. See
+  // https://drafts.csswg.org/css-grid-2/#auto-repeat.
+  const auto subgrid_span = opt_subgrid_area
+                                ? opt_subgrid_area->Span(track_direction)
+                                : GridSpan::IndefiniteGridSpan();
+
+  if (subgrid_span.IsTranslatedDefinite()) {
+    return ComputeAutomaticRepetitionsForSubgrid(subgrid_span.IntegerSpan(),
+                                                 track_direction);
+  }
 
   LayoutUnit available_size = is_for_columns ? grid_available_size_.inline_size
                                              : grid_available_size_.block_size;
@@ -1427,6 +1398,43 @@ wtf_size_t NGGridLayoutAlgorithm::ComputeAutomaticRepetitions(
   return (count <= 0) ? 1u : count;
 }
 
+wtf_size_t NGGridLayoutAlgorithm::ComputeAutomaticRepetitionsForSubgrid(
+    wtf_size_t subgrid_span_size,
+    GridTrackSizingDirection track_direction) const {
+  // "On a subgridded axis, the auto-fill keyword is only valid once per
+  // <line-name-list>, and repeats enough times for the name list to match the
+  // subgrid’s specified grid span (falling back to 0 if the span is already
+  // fulfilled).
+  // https://drafts.csswg.org/css-grid-2/#auto-repeat
+  const auto& computed_track_list = (track_direction == kForColumns)
+                                        ? Style().GridTemplateColumns()
+                                        : Style().GridTemplateRows();
+  const auto& track_list = computed_track_list.TrackList();
+  DCHECK(track_list.HasAutoRepeater());
+
+  const wtf_size_t non_auto_repeat_line_count =
+      track_list.NonAutoRepeatLineCount();
+
+  if (non_auto_repeat_line_count > subgrid_span_size) {
+    // No more room left for auto repetitions due to the number of non-auto
+    // repeat named grid lines (the span is already fulfilled).
+    return 0;
+  }
+
+  const wtf_size_t tracks_per_repeat =
+      track_list.RepeaterCount() * track_list.AutoRepeatTrackCount();
+  if (tracks_per_repeat > subgrid_span_size) {
+    // No room left for auto repetitions because each repetition is too large.
+    return 0;
+  }
+
+  const wtf_size_t tracks_left_over_for_auto_repeat =
+      subgrid_span_size - non_auto_repeat_line_count + 1;
+  DCHECK_GT(tracks_per_repeat, 0u);
+  return static_cast<wtf_size_t>(
+      std::floor(tracks_left_over_for_auto_repeat / tracks_per_repeat));
+}
+
 void NGGridLayoutAlgorithm::CalculateAlignmentBaselines(
     const NGGridLayoutData& layout_data,
     SizingConstraint sizing_constraint,
@@ -1498,56 +1506,121 @@ void NGGridLayoutAlgorithm::CalculateAlignmentBaselines(
 }
 
 void NGGridLayoutAlgorithm::InitializeTrackCollection(
+    const NGSubgriddedItemData& opt_subgrid_data,
     GridTrackSizingDirection track_direction,
-    NGSubgridSizingData opt_subgrid_sizing_data,
-    NGGridSizingData* sizing_data,
-    bool force_sets_geometry_caching) const {
-  auto& layout_data = sizing_data->layout_data;
-
-  if (layout_data.HasSubgriddedAxis(track_direction)) {
+    NGGridLayoutData* layout_data) const {
+  if (layout_data->HasSubgriddedAxis(track_direction)) {
     // TODO(ethavar): We need to remove this and let the DCHECK catch when we
     // don't have subgrid sizing data, but it keeps the subgrid tests passing.
-    if (!opt_subgrid_sizing_data) {
+    if (!opt_subgrid_data) {
       return;
     }
 
     // If we don't have a sizing collection for this axis, then we're in a
     // subgrid that must inherit the track collection of its parent grid.
-    DCHECK(opt_subgrid_sizing_data);
-    layout_data.SetTrackCollection(
-        opt_subgrid_sizing_data->CreateSubgridCollection(track_direction));
+    DCHECK(opt_subgrid_data && opt_subgrid_data->IsSubgrid());
+    layout_data->SetTrackCollection(
+        opt_subgrid_data.CreateSubgridCollection(track_direction));
     return;
   }
 
+  auto& track_collection = layout_data->SizingCollection(track_direction);
   const LayoutUnit available_size = (track_direction == kForColumns)
                                         ? grid_available_size_.inline_size
                                         : grid_available_size_.block_size;
-  auto& track_collection = layout_data.SizingCollection(track_direction);
-  track_collection.BuildSets(Style(), available_size);
 
-  // Caching the definite sets geometry is useful to correctly determine the
-  // available space for subgrids. However, we may not want to set this cache if
-  // the grid has a cache already or if it doesn't have nested subgrids.
-  if (!force_sets_geometry_caching &&
-      (track_collection.HasCachedSetsGeometry() ||
-       sizing_data->subtree_size == 1)) {
+  track_collection.BuildSets(Style(), available_size);
+  track_collection.InitializeSets(available_size, GutterSize(track_direction));
+}
+
+void NGGridLayoutAlgorithm::InitializeTrackSizes(
+    wtf_size_t current_grid_index,
+    const NGSubgriddedItemData& opt_subgrid_data,
+    const absl::optional<GridTrackSizingDirection>& opt_track_direction,
+    NGGridSizingTree* sizing_tree) const {
+  DCHECK(sizing_tree && current_grid_index < sizing_tree->Size());
+
+  auto& [grid_items, layout_data, subtree_size] =
+      sizing_tree->At(current_grid_index);
+
+  auto InitAndCacheTrackSizes = [&](GridTrackSizingDirection track_direction) {
+    InitializeTrackCollection(opt_subgrid_data, track_direction, &layout_data);
+
+    if (layout_data.HasSubgriddedAxis(track_direction)) {
+      const auto& track_collection = (track_direction == kForColumns)
+                                         ? layout_data.Columns()
+                                         : layout_data.Rows();
+      for (auto& grid_item : grid_items) {
+        grid_item.ComputeSetIndices(track_collection);
+      }
+    } else {
+      auto& track_collection = layout_data.SizingCollection(track_direction);
+      CacheGridItemsProperties(track_collection, &grid_items);
+
+      const bool is_for_columns = track_direction == kForColumns;
+      const auto start_border_scrollbar_padding =
+          is_for_columns ? BorderScrollbarPadding().inline_start
+                         : BorderScrollbarPadding().block_start;
+
+      // If all tracks have a definite size upfront, we can use the current set
+      // sizes as the used track sizes (applying alignment, if present).
+      if (track_collection.IsSpanningOnlyDefiniteTracks()) {
+        auto first_set_geometry = ComputeFirstSetGeometry(
+            track_collection, Style(),
+            is_for_columns ? grid_available_size_.inline_size
+                           : grid_available_size_.block_size,
+            start_border_scrollbar_padding);
+
+        track_collection.FinalizeSetsGeometry(first_set_geometry.start_offset,
+                                              first_set_geometry.gutter_size);
+      } else {
+        track_collection.CacheInitializedSetsGeometry(
+            start_border_scrollbar_padding);
+      }
+    }
+  };
+
+  if (opt_track_direction) {
+    InitAndCacheTrackSizes(*opt_track_direction);
+  } else {
+    InitAndCacheTrackSizes(kForColumns);
+    InitAndCacheTrackSizes(kForRows);
+  }
+
+  if (subtree_size == 1) {
+    // If we know this subtree doesn't have nested subgrids we can exit early
+    // instead of iterating over every grid item looking for them.
     return;
   }
 
-  track_collection.InitializeSets(available_size);
-  track_collection.SetGutterSize(GutterSize(track_direction));
-  track_collection.CacheDefiniteSetsGeometry(available_size);
+  wtf_size_t next_subgrid_index = current_grid_index + 1;
+  for (const auto& grid_item : grid_items) {
+    if (!grid_item.IsSubgrid()) {
+      continue;
+    }
+
+    DCHECK_LT(next_subgrid_index, current_grid_index + subtree_size);
+    NGSubgriddedItemData subgrid_data(grid_item, layout_data);
+
+    NGConstraintSpace unused_space;
+    NGFragmentGeometry unused_fragment_geometry;
+    auto subgrid_algorithm = CreateSubgridLayoutAlgorithm(
+        subgrid_data, &unused_space, &unused_fragment_geometry);
+
+    subgrid_algorithm.InitializeTrackSizes(next_subgrid_index, subgrid_data,
+                                           opt_track_direction, sizing_tree);
+
+    next_subgrid_index += sizing_tree->SubtreeSize(next_subgrid_index);
+  }
+  DCHECK_EQ(next_subgrid_index, current_grid_index + subtree_size);
 }
 
-void NGGridLayoutAlgorithm::InitializeTrackCollections(
+void NGGridLayoutAlgorithm::InitializeTrackSizes(
     NGGridSizingTree* sizing_tree,
-    wtf_size_t current_grid_index,
-    NGSubgridSizingData opt_subgrid_sizing_data) const {
-  DCHECK(sizing_tree && current_grid_index < sizing_tree->Size());
-
-  auto& sizing_data = (*sizing_tree)[current_grid_index];
-  InitializeTrackCollection(kForColumns, opt_subgrid_sizing_data, &sizing_data);
-  InitializeTrackCollection(kForRows, opt_subgrid_sizing_data, &sizing_data);
+    const absl::optional<GridTrackSizingDirection>& opt_track_direction) const {
+  InitializeTrackSizes(/* current_grid_index */ 0,
+                       /* opt_subgrid_data */ kNoSubgriddedItemData,
+                       opt_track_direction, sizing_tree);
 }
 
 namespace {
@@ -1602,43 +1675,25 @@ void NGGridLayoutAlgorithm::ComputeUsedTrackSizes(
     SizingConstraint sizing_constraint,
     GridItems* grid_items,
     NGGridLayoutTrackCollection* track_collection,
-    bool* needs_additional_pass,
-    bool only_initialize_track_sizes) const {
+    bool* needs_additional_pass) const {
   DCHECK(grid_items && track_collection);
 
-  // The track collection is not being sized by this grid container.
-  if (!track_collection->IsForSizing())
-    return;
-
-  auto& sizing_collection = To<NGGridSizingTrackCollection>(*track_collection);
-  const auto track_direction = sizing_collection.Direction();
-  const bool is_for_columns = track_direction == kForColumns;
-
-  LayoutUnit available_size = is_for_columns ? grid_available_size_.inline_size
-                                             : grid_available_size_.block_size;
-  LayoutUnit start_border_scrollbar_padding =
-      is_for_columns ? BorderScrollbarPadding().inline_start
-                     : BorderScrollbarPadding().block_start;
-
-  sizing_collection.InitializeSets(available_size);
-  sizing_collection.SetGutterSize(GutterSize(track_direction));
-
-  // If all of our tracks have a definite size upfront, we can use the current
-  // set sizes as the used track sizes (applying alignment, if present).
-  if (sizing_collection.IsSpanningOnlyDefiniteTracks()) {
-    auto first_set_geometry =
-        ComputeFirstSetGeometry(sizing_collection, Style(), available_size,
-                                start_border_scrollbar_padding);
-    sizing_collection.FinalizeSetsGeometry(first_set_geometry.start_offset,
-                                           first_set_geometry.gutter_size);
+  // We can skip the rest of the track sizing algorithm if:
+  //   - The track collection is not being sized by this grid container.
+  //   - All the sets in the collection have a definite size.
+  if (!track_collection->IsForSizing() ||
+      track_collection->IsSpanningOnlyDefiniteTracks()) {
     return;
   }
 
-  sizing_collection.CacheInitializedSetsGeometry(
-      start_border_scrollbar_padding);
+  auto& sizing_collection = To<NGGridSizingTrackCollection>(*track_collection);
+  const auto track_direction = sizing_collection.Direction();
 
-  if (only_initialize_track_sizes)
-    return;
+  const bool is_for_columns = track_direction == kForColumns;
+  const auto available_size = is_for_columns ? grid_available_size_.inline_size
+                                             : grid_available_size_.block_size;
+
+  sizing_collection.InitializeSets(available_size, GutterSize(track_direction));
 
   // Cache baselines, as these contributions can influence track sizing.
   if (sizing_collection.HasBaselines()) {
@@ -1683,9 +1738,10 @@ void NGGridLayoutAlgorithm::ComputeUsedTrackSizes(
         BlockSizeDependentGridItems(*grid_items, sizing_collection);
   }
 
-  auto first_set_geometry =
-      ComputeFirstSetGeometry(sizing_collection, Style(), available_size,
-                              start_border_scrollbar_padding);
+  auto first_set_geometry = ComputeFirstSetGeometry(
+      sizing_collection, Style(), available_size,
+      is_for_columns ? BorderScrollbarPadding().inline_start
+                     : BorderScrollbarPadding().block_start);
 
   sizing_collection.FinalizeSetsGeometry(first_set_geometry.start_offset,
                                          first_set_geometry.gutter_size);
@@ -2770,8 +2826,9 @@ NGConstraintSpace NGGridLayoutAlgorithm::CreateConstraintSpace(
     const NGGridLayoutData& layout_data,
     const LogicalSize& containing_grid_area_size,
     absl::optional<LayoutUnit> opt_fixed_block_size,
-    absl::optional<LayoutUnit> opt_fragment_relative_block_offset,
-    bool min_block_size_should_encompass_intrinsic_size) const {
+    NGGridLayoutSubtree&& layout_subtree,
+    bool min_block_size_should_encompass_intrinsic_size,
+    absl::optional<LayoutUnit> opt_fragment_relative_block_offset) const {
   const auto& container_constraint_space = ConstraintSpace();
 
   NGConstraintSpaceBuilder builder(
@@ -2790,47 +2847,20 @@ NGConstraintSpace NGGridLayoutAlgorithm::CreateConstraintSpace(
   }
 
   if (grid_item.IsSubgrid()) {
-    if (containing_grid_area_size.inline_size != kIndefiniteSize)
+    if (layout_subtree) {
+      builder.SetGridLayoutSubtree(std::move(layout_subtree));
+    }
+    if (containing_grid_area_size.inline_size != kIndefiniteSize) {
       builder.SetIsFixedInlineSize(true);
-    if (containing_grid_area_size.block_size != kIndefiniteSize)
+    }
+    if (containing_grid_area_size.block_size != kIndefiniteSize) {
       builder.SetIsFixedBlockSize(true);
+    }
   }
 
   builder.SetPercentageResolutionSize(containing_grid_area_size);
   builder.SetInlineAutoBehavior(grid_item.inline_auto_behavior);
   builder.SetBlockAutoBehavior(grid_item.block_auto_behavior);
-
-  // TODO(ethavar): Currently, we inherit a subgridded track collection, but our
-  // new approach to subgrid layout requires to pass the grid sizing subtree.
-  if (layout_data.columns() && layout_data.rows() &&
-      grid_item.has_subgridded_columns) {
-    const auto& range_indices = grid_item.is_parallel_with_root_grid
-                                    ? grid_item.column_range_indices
-                                    : grid_item.row_range_indices;
-
-    const auto& track_collection = grid_item.is_parallel_with_root_grid
-                                       ? layout_data.Columns()
-                                       : layout_data.Rows();
-
-    builder.SetSubgriddedColumns(std::make_unique<NGGridLayoutTrackCollection>(
-        track_collection.CreateSubgridCollection(
-            range_indices.begin, range_indices.end, kForColumns)));
-  }
-
-  if (layout_data.columns() && layout_data.rows() &&
-      grid_item.has_subgridded_rows) {
-    const auto& range_indices = grid_item.is_parallel_with_root_grid
-                                    ? grid_item.row_range_indices
-                                    : grid_item.column_range_indices;
-
-    const auto& track_collection = grid_item.is_parallel_with_root_grid
-                                       ? layout_data.Rows()
-                                       : layout_data.Columns();
-
-    builder.SetSubgriddedRows(std::make_unique<NGGridLayoutTrackCollection>(
-        track_collection.CreateSubgridCollection(range_indices.begin,
-                                                 range_indices.end, kForRows)));
-  }
 
   if (container_constraint_space.HasBlockFragmentation() &&
       opt_fragment_relative_block_offset) {
@@ -2849,8 +2879,11 @@ NGConstraintSpace NGGridLayoutAlgorithm::CreateConstraintSpaceForLayout(
     const GridItemData& grid_item,
     const NGGridLayoutData& layout_data,
     LogicalRect* containing_grid_area,
-    absl::optional<LayoutUnit> opt_fragment_relative_block_offset,
-    bool min_block_size_should_encompass_intrinsic_size) const {
+    NGGridLayoutSubtree&& layout_subtree,
+    bool min_block_size_should_encompass_intrinsic_size,
+    absl::optional<LayoutUnit> opt_fragment_relative_block_offset) const {
+  DCHECK(containing_grid_area);
+
   ComputeGridItemOffsetAndSize(grid_item, layout_data.Columns(),
                                &containing_grid_area->offset.inline_offset,
                                &containing_grid_area->size.inline_size);
@@ -2859,11 +2892,11 @@ NGConstraintSpace NGGridLayoutAlgorithm::CreateConstraintSpaceForLayout(
                                &containing_grid_area->offset.block_offset,
                                &containing_grid_area->size.block_size);
 
-  return CreateConstraintSpace(NGCacheSlot::kLayout, grid_item, layout_data,
-                               containing_grid_area->size,
-                               /* opt_fixed_block_size */ absl::nullopt,
-                               opt_fragment_relative_block_offset,
-                               min_block_size_should_encompass_intrinsic_size);
+  return CreateConstraintSpace(
+      NGCacheSlot::kLayout, grid_item, layout_data, containing_grid_area->size,
+      /* opt_fixed_block_size */ absl::nullopt, std::move(layout_subtree),
+      min_block_size_should_encompass_intrinsic_size,
+      opt_fragment_relative_block_offset);
 }
 
 NGConstraintSpace NGGridLayoutAlgorithm::CreateConstraintSpaceForMeasure(
@@ -2884,7 +2917,28 @@ NGConstraintSpace NGGridLayoutAlgorithm::CreateConstraintSpaceForMeasure(
                                  &containing_grid_area_size.inline_size);
   }
   return CreateConstraintSpace(NGCacheSlot::kMeasure, grid_item, layout_data,
-                               containing_grid_area_size, opt_fixed_block_size);
+                               containing_grid_area_size, opt_fixed_block_size,
+                               /* layout_subtree */ NGGridLayoutSubtree());
+}
+
+NGGridLayoutAlgorithm NGGridLayoutAlgorithm::CreateSubgridLayoutAlgorithm(
+    const NGSubgriddedItemData& subgrid_data,
+    NGConstraintSpace* constraint_space,
+    NGFragmentGeometry* fragment_geometry) const {
+  DCHECK(subgrid_data && subgrid_data->IsSubgrid());
+  DCHECK(constraint_space && fragment_geometry);
+
+  LogicalRect unused_containing_grid_area;
+  *constraint_space = CreateConstraintSpaceForLayout(
+      *subgrid_data, subgrid_data.ParentLayoutData(),
+      &unused_containing_grid_area);
+
+  *fragment_geometry = CalculateInitialFragmentGeometry(
+      *constraint_space, subgrid_data->node, /* break_token */ nullptr,
+      /* is_intrinsic */ !constraint_space->IsFixedInlineSize());
+
+  return NGGridLayoutAlgorithm(
+      {subgrid_data->node, *fragment_geometry, *constraint_space});
 }
 
 namespace {
@@ -3025,15 +3079,17 @@ class BaselineAccumulator {
 
 void NGGridLayoutAlgorithm::PlaceGridItems(
     const GridItems& grid_items,
-    const NGGridLayoutData& layout_data,
+    const NGGridLayoutSubtree& layout_subtree,
     Vector<EBreakBetween>* out_row_break_between,
     Vector<GridItemPlacementData>* out_grid_items_placement_data) {
   DCHECK(out_row_break_between);
 
   const auto& container_space = ConstraintSpace();
+  const auto& layout_data = layout_subtree.LayoutData();
+
   const auto container_writing_direction =
       container_space.GetWritingDirection();
-  bool should_propagate_child_break_values =
+  const bool should_propagate_child_break_values =
       container_space.ShouldPropagateChildBreakValues();
 
   if (should_propagate_child_break_values) {
@@ -3042,11 +3098,21 @@ void NGGridLayoutAlgorithm::PlaceGridItems(
   }
 
   BaselineAccumulator baseline_accumulator(Style().GetFontBaseline());
+  auto next_subgrid_subtree = layout_subtree.FirstChild();
 
   for (const auto& grid_item : grid_items) {
+    NGGridLayoutSubtree child_layout_subtree;
+
+    if (grid_item.IsSubgrid()) {
+      DCHECK(next_subgrid_subtree);
+      child_layout_subtree = next_subgrid_subtree;
+      next_subgrid_subtree = next_subgrid_subtree.NextSibling();
+    }
+
     LogicalRect containing_grid_area;
-    const auto space = CreateConstraintSpaceForLayout(grid_item, layout_data,
-                                                      &containing_grid_area);
+    const auto space = CreateConstraintSpaceForLayout(
+        grid_item, layout_data, &containing_grid_area,
+        std::move(child_layout_subtree));
 
     const auto& item_style = grid_item.node.Style();
     const auto margins = ComputeMarginsFor(space, item_style, container_space);
@@ -3294,8 +3360,9 @@ void NGGridLayoutAlgorithm::PlaceGridItemsForFragmentation(
                   .has_descendant_that_depends_on_percentage_block_size);
       LogicalRect grid_area;
       const auto space = CreateConstraintSpaceForLayout(
-          grid_item, *layout_data, &grid_area, fragment_relative_block_offset,
-          min_block_size_should_encompass_intrinsic_size);
+          grid_item, *layout_data, &grid_area, NGGridLayoutSubtree(),
+          min_block_size_should_encompass_intrinsic_size,
+          fragment_relative_block_offset);
 
       // Make the grid area relative to this fragment.
       const auto item_row_set_index = grid_item.SetIndices(kForRows).begin;

@@ -880,7 +880,8 @@ typedef void (^ViewportStateCompletion)(const web::PageViewportState*);
 
 - (void)closeMediaPresentations {
   if (@available(iOS 16, *)) {
-    if (self.webView.fullscreenState == WKFullscreenStateInFullscreen) {
+    if (self.webView.fullscreenState == WKFullscreenStateInFullscreen ||
+        self.webView.fullscreenState == WKFullscreenStateEnteringFullscreen) {
       [self.webView closeAllMediaPresentationsWithCompletionHandler:^{
       }];
       return;
@@ -1091,6 +1092,10 @@ typedef void (^ViewportStateCompletion)(const web::PageViewportState*);
 }
 
 #pragma mark - JavaScript
+
+- (void)retrieveExistingFramesInContentWorld:(WKContentWorld*)contentWorld {
+  web::RegisterExistingFrames(self.webView, contentWorld);
+}
 
 - (void)executeJavaScript:(NSString*)javascript
         completionHandler:(void (^)(id result, NSError* error))completion {

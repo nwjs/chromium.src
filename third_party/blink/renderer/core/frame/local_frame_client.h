@@ -188,7 +188,9 @@ class CORE_EXPORT LocalFrameClient : public FrameClient {
       const LocalFrameToken* initiator_frame_token,
       std::unique_ptr<SourceLocation> source_location,
       mojo::PendingRemote<mojom::blink::PolicyContainerHostKeepAliveHandle>
-          initiator_policy_container_handle) = 0;
+          initiator_policy_container_handle,
+      bool is_container_initiated,
+      bool is_fullscreen_requested) = 0;
 
   virtual void DispatchWillSendSubmitEvent(HTMLFormElement*) = 0;
 
@@ -284,8 +286,7 @@ class CORE_EXPORT LocalFrameClient : public FrameClient {
   // |HTMLFencedFrameElement|.
   virtual RemoteFrame* CreateFencedFrame(
       HTMLFencedFrameElement*,
-      mojo::PendingAssociatedReceiver<mojom::blink::FencedFrameOwnerHost>,
-      mojom::blink::FencedFrameMode) = 0;
+      mojo::PendingAssociatedReceiver<mojom::blink::FencedFrameOwnerHost>) = 0;
 
   // Whether or not plugin creation should fail if the HTMLPlugInElement isn't
   // in the DOM after plugin initialization.

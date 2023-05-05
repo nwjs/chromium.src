@@ -657,11 +657,6 @@ std::unique_ptr<ScopedPauseRendering> LayerTreeHost::PauseRendering() {
   return std::make_unique<ScopedPauseRendering>(this);
 }
 
-void LayerTreeHost::OnPauseRenderingChanged(bool paused) {
-  DCHECK(IsMainThread());
-  client_->OnPauseRenderingChanged(paused);
-}
-
 void LayerTreeHost::OnDeferMainFrameUpdatesChanged(bool defer_status) {
   DCHECK(IsMainThread());
   client_->OnDeferMainFrameUpdatesChanged(defer_status);
@@ -1206,14 +1201,15 @@ void LayerTreeHost::AnimateLayers(base::TimeTicks monotonic_time) {
 
 int LayerTreeHost::ScheduleMicroBenchmark(
     const std::string& benchmark_name,
-    base::Value settings,
+    base::Value::Dict settings,
     MicroBenchmark::DoneCallback callback) {
   DCHECK(IsMainThread());
   return micro_benchmark_controller_.ScheduleRun(
       benchmark_name, std::move(settings), std::move(callback));
 }
 
-bool LayerTreeHost::SendMessageToMicroBenchmark(int id, base::Value message) {
+bool LayerTreeHost::SendMessageToMicroBenchmark(int id,
+                                                base::Value::Dict message) {
   DCHECK(IsMainThread());
   return micro_benchmark_controller_.SendMessage(id, std::move(message));
 }

@@ -524,6 +524,7 @@ class CONTENT_EXPORT RenderFrameImpl
   void DidCreateFencedFrame(
       const blink::RemoteFrameToken& frame_token) override;
   blink::WebFrame* FindFrame(const blink::WebString& name) override;
+  void WillSwap() override;
   void WillDetach() override;
   void FrameDetached() override;
   void DidChangeName(const blink::WebString& name) override;
@@ -639,7 +640,7 @@ class CONTENT_EXPORT RenderFrameImpl
       bool& consumed_user_gesture,
       const absl::optional<blink::Impression>& impression,
       const absl::optional<blink::WebPictureInPictureWindowOptions>&
-      pip_options,
+          pip_options,
       blink::WebString* manifest) override;
 
   // Dispatches the current state of selection on the webpage to the browser if
@@ -885,6 +886,8 @@ class CONTENT_EXPORT RenderFrameImpl
       bool save_with_empty_url,
       mojo::PendingRemote<mojom::FrameHTMLSerializerHandler> handler_remote)
       override;
+  void SetResourceCache(
+      mojo::PendingRemote<blink::mojom::ResourceCache> remote) override;
 
   // Callback scheduled from SerializeAsMHTML for when writing serialized
   // MHTML to the handle has been completed in the file thread.

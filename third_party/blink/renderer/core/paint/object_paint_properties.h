@@ -203,9 +203,10 @@ class CORE_EXPORT ObjectPaintProperties {
   // |     will have SkBlendMode::kDstIn and shall paint last, i.e. after
   // |     clipped contents. If there is no Mask node, then this node is a
   // |     direct child of the Effect node.
-  // +-[ VerticalScrollbarEffect / HorizontalScrollbarEffect ]
+  // +-[ VerticalScrollbarEffect / HorizontalScrollbarEffect / ScrollCorner ]
   //       Overlay Scrollbars on Aura and Android need effect node for fade
-  //       animation.
+  //       animation. Also used in ViewTransitions to separate out scrollbars
+  //       from the root snapshot.
   //
   // ... +-[ EffectIsolationNode ]
   //       This serves as a parent to subtree effects on an element with paint
@@ -214,13 +215,14 @@ class CORE_EXPORT ObjectPaintProperties {
  public:
   bool HasEffectNode() const {
     return effect_ || filter_ || vertical_scrollbar_effect_ ||
-           horizontal_scrollbar_effect_ || mask_ || clip_path_mask_ ||
-           effect_isolation_node_;
+           horizontal_scrollbar_effect_ || scroll_corner_effect_ || mask_ ||
+           clip_path_mask_ || effect_isolation_node_;
   }
   ADD_EFFECT(Effect, effect_);
   ADD_EFFECT(Filter, filter_);
   ADD_EFFECT(VerticalScrollbarEffect, vertical_scrollbar_effect_);
   ADD_EFFECT(HorizontalScrollbarEffect, horizontal_scrollbar_effect_);
+  ADD_EFFECT(ScrollCornerEffect, scroll_corner_effect_);
   ADD_EFFECT(Mask, mask_);
   ADD_EFFECT(ClipPathMask, clip_path_mask_);
   ADD_ALIAS_NODE(Effect, EffectIsolationNode, effect_isolation_node_);
@@ -229,6 +231,13 @@ class CORE_EXPORT ObjectPaintProperties {
   // [ FragmentClip ]
   // |    Clips to a fragment's bounds.
   // |    This is only present for content under a fragmentation container.
+  // +-[ ViewTransitionClip ]
+  //   |  Clip created only when there is an active ViewTransition. This is used
+  //   |  to clip the element's painting to a subset close to the viewport.
+  //   |  See
+  //   |
+  //   https://drafts.csswg.org/css-view-transitions-1/#compute-the-interest-rectangle-algorithm
+  //  /   for details.
   // +-[ ClipPathClip ]
   //   |  Clip created by path-based CSS clip-path. Only exists if the
   //  /   clip-path is "simple" that can be applied geometrically. This and

@@ -6,7 +6,7 @@
 
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
-#import "ios/chrome/browser/ui/commands/find_in_page_commands.h"
+#import "ios/chrome/browser/shared/public/commands/find_in_page_commands.h"
 #import "ios/chrome/browser/ui/icons/symbols.h"
 #import "ios/chrome/browser/ui/sharing/activity_services/data/share_to_data.h"
 #import "ios/chrome/grit/ios_strings.h"
@@ -53,11 +53,8 @@ NSString* const kFindInPageActivityType =
 }
 
 - (UIImage*)activityImage {
-  if (UseSymbols()) {
-    return DefaultSymbolWithPointSize(kFindInPageActionSymbol,
-                                      kSymbolActionPointSize);
-  }
-  return [UIImage imageNamed:@"activity_services_find_in_page"];
+  return DefaultSymbolWithPointSize(kFindInPageActionSymbol,
+                                    kSymbolActionPointSize);
 }
 
 - (BOOL)canPerformWithActivityItems:(NSArray*)activityItems {

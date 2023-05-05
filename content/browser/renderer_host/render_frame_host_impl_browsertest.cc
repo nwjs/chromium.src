@@ -42,6 +42,7 @@
 #include "content/browser/sms/test/mock_sms_provider.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/common/content_navigation_policy.h"
+#include "content/common/features.h"
 #include "content/common/frame_messages.mojom.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/cors_origin_pattern_setter.h"
@@ -306,6 +307,24 @@ bool NavigateToURLAndDoNotWaitForLoadStop(Shell* window, const GURL& url) {
   EXPECT_TRUE(observer.WaitForNavigationFinished());
   return url ==
          window->web_contents()->GetPrimaryMainFrame()->GetLastCommittedURL();
+}
+
+using blink::mojom::BlockingDetails;
+using BackForwardCacheBlockingDetails =
+    RenderFrameHostImpl::BackForwardCacheBlockingDetails;
+using BlocklistedFeature = blink::scheduler::WebSchedulerTrackedFeature;
+using BlocklistedFeatures = blink::scheduler::WebSchedulerTrackedFeatures;
+// Helper function to create a vector which contains the mojom feature
+// information.
+BackForwardCacheBlockingDetails CreateBlockingDetails(
+    BlocklistedFeatures features) {
+  BackForwardCacheBlockingDetails feature_vector;
+  for (auto feature : features) {
+    auto feature_info = BlockingDetails::New();
+    feature_info->feature = static_cast<uint32_t>(feature);
+    feature_vector.push_back(std::move(feature_info));
+  }
+  return feature_vector;
 }
 
 IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
@@ -1995,6 +2014,9 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest, FastNavigationAbort) {
   // ensure that we won't trigger a same-site cross-RFH navigation.
   // TODO(crbug.com/1099193): This should also work on cross-RFH same-site
   // navigations.
+  if (ShouldCreateNewHostForAllFrames()) {
+    return;
+  }
   DisableProactiveBrowsingInstanceSwapFor(
       web_contents()->GetPrimaryMainFrame());
 
@@ -2444,6 +2466,9 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   // that we won't trigger a same-site cross-RFH navigation.
   DisableProactiveBrowsingInstanceSwapFor(
       web_contents()->GetPrimaryMainFrame());
+  if (ShouldCreateNewHostForAllFrames()) {
+    return;
+  }
 
   // Prepare an interface receiver for FrameHostTestInterface.
   mojo::Remote<mojom::FrameHostTestInterface> test_interface;
@@ -3569,20 +3594,30 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   EXPECT_TRUE(
       NavigateToURL(shell(), embedded_test_server()->GetURL("/title1.html")));
   RenderFrameHostImpl* main_frame = web_contents()->GetPrimaryMainFrame();
-  // Simulate getting 0b1 as a feature vector from the renderer.
-  main_frame->DidChangeBackForwardCacheDisablingFeatures(0b1u);
-  DCHECK_EQ(main_frame->GetBackForwardCacheDisablingFeatures().ToEnumBitmask(),
-            0b1u);
-  // Simulate the browser side reporting a feature usage.
+  // Simulate getting WebSocket in a feature vector from the renderer.
+  main_frame->DidChangeBackForwardCacheDisablingFeatures(
+      CreateBlockingDetails(BlocklistedFeature::kWebSocket));
+  ASSERT_EQ(main_frame->GetBackForwardCacheDisablingFeatures(),
+            BlocklistedFeatures(BlocklistedFeature::kWebSocket));
+
+  // Simulate the browser side reporting WebRTC usage.
   main_frame->OnBackForwardCacheDisablingStickyFeatureUsed(
-      static_cast<blink::scheduler::WebSchedulerTrackedFeature>(1));
-  DCHECK_EQ(main_frame->GetBackForwardCacheDisablingFeatures().ToEnumBitmask(),
-            0b11u);
+      static_cast<BlocklistedFeature>(BlocklistedFeature::kWebRTC));
+  ASSERT_EQ(main_frame->GetBackForwardCacheDisablingFeatures(),
+            BlocklistedFeatures(BlocklistedFeature::kWebSocket,
+                                BlocklistedFeature::kWebRTC));
+
   // Simulate a feature vector being updated from the renderer with some
   // features being activated and some being deactivated.
-  main_frame->DidChangeBackForwardCacheDisablingFeatures(0b100u);
-  DCHECK_EQ(main_frame->GetBackForwardCacheDisablingFeatures().ToEnumBitmask(),
-            0b110u);
+  // [kWebSocket(0), kWebRTC(1)] -> [kWebRTC(1),
+  // kMainResourceHasCacheControlNoCache(2)]
+  main_frame->DidChangeBackForwardCacheDisablingFeatures(CreateBlockingDetails(
+      {BlocklistedFeature::kWebRTC,
+       BlocklistedFeature::kMainResourceHasCacheControlNoCache}));
+  ASSERT_EQ(main_frame->GetBackForwardCacheDisablingFeatures(),
+            BlocklistedFeatures(
+                BlocklistedFeature::kWebRTC,
+                BlocklistedFeature::kMainResourceHasCacheControlNoCache));
 
   // Navigate away and expect that no values persist the navigation.
   // Note that we are still simulating the renderer call, otherwise features
@@ -3590,7 +3625,9 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   EXPECT_TRUE(
       NavigateToURL(shell(), embedded_test_server()->GetURL("/title2.html")));
   main_frame = web_contents()->GetPrimaryMainFrame();
-  main_frame->DidChangeBackForwardCacheDisablingFeatures(0b0u);
+  BackForwardCacheBlockingDetails empty_vector;
+  main_frame->DidChangeBackForwardCacheDisablingFeatures(
+      CreateBlockingDetails({}));
 }
 
 IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
@@ -5730,7 +5767,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   // Not isolated:
   EXPECT_TRUE(
       NavigateToURL(shell(), embedded_test_server()->GetURL("/empty.html")));
-  EXPECT_EQ(RenderFrameHost::WebExposedIsolationLevel::kNotIsolated,
+  EXPECT_EQ(WebExposedIsolationLevel::kNotIsolated,
             root_frame_host()->GetWebExposedIsolationLevel());
 
   // Cross-Origin Isolated:
@@ -5740,11 +5777,10 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
                                 "Cross-Origin-Opener-Policy: same-origin&"
                                 "Cross-Origin-Embedder-Policy: require-corp")));
   // Status can be kIsolated or kMaybeIsolated.
-  EXPECT_LT(RenderFrameHost::WebExposedIsolationLevel::kNotIsolated,
+  EXPECT_LT(WebExposedIsolationLevel::kNotIsolated,
             root_frame_host()->GetWebExposedIsolationLevel());
-  EXPECT_GT(
-      RenderFrameHost::WebExposedIsolationLevel::kMaybeIsolatedApplication,
-      root_frame_host()->GetWebExposedIsolationLevel());
+  EXPECT_GT(WebExposedIsolationLevel::kMaybeIsolatedApplication,
+            root_frame_host()->GetWebExposedIsolationLevel());
 }
 
 namespace {
@@ -5810,7 +5846,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTestWithRestrictedApis,
   navigation_observer.Wait();
 
   EXPECT_TRUE(navigation_observer.last_navigation_succeeded());
-  EXPECT_EQ(RenderFrameHost::WebExposedIsolationLevel::kNotIsolated,
+  EXPECT_EQ(WebExposedIsolationLevel::kNotIsolated,
             root_frame_host()->GetWebExposedIsolationLevel());
 
   // Cross-Origin Isolated:
@@ -5820,7 +5856,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTestWithRestrictedApis,
                              "/set-header?"
                              "Cross-Origin-Opener-Policy: same-origin&"
                              "Cross-Origin-Embedder-Policy: require-corp")));
-  EXPECT_EQ(RenderFrameHost::WebExposedIsolationLevel::kMaybeIsolated,
+  EXPECT_EQ(WebExposedIsolationLevel::kMaybeIsolated,
             root_frame_host()->GetWebExposedIsolationLevel());
 
   // Isolated Application:
@@ -5829,11 +5865,10 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTestWithRestrictedApis,
       /*site_instance=*/nullptr, gfx::Size());
   EXPECT_TRUE(NavigateToURL(app_shell,
                             https_server()->GetURL(kAppHost, "/empty.html")));
-  EXPECT_EQ(
-      RenderFrameHost::WebExposedIsolationLevel::kMaybeIsolatedApplication,
-      app_shell->web_contents()
-          ->GetPrimaryMainFrame()
-          ->GetWebExposedIsolationLevel());
+  EXPECT_EQ(WebExposedIsolationLevel::kMaybeIsolatedApplication,
+            app_shell->web_contents()
+                ->GetPrimaryMainFrame()
+                ->GetWebExposedIsolationLevel());
 }
 
 IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
@@ -6600,8 +6635,13 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   EXPECT_TRUE(NavigateToURLFromRenderer(
       main_frame, embedded_test_server()->GetURL("a.com", "/title2.html")));
 
-  // The navigation should reuse the same RenderFrameHost.
-  EXPECT_EQ(web_contents()->GetPrimaryMainFrame(), main_frame_wrapper.get());
+  // The navigation should reuse the same RenderFrameHost, except when
+  // RenderDocument is enabled.
+  if (ShouldCreateNewHostForAllFrames()) {
+    EXPECT_TRUE(main_frame_wrapper.WaitUntilRenderFrameDeleted());
+  } else {
+    EXPECT_EQ(web_contents()->GetPrimaryMainFrame(), main_frame_wrapper.get());
+  }
 
   // The destructors of DestructorLifetimeDocumentService and
   // DestructorLifetimeDocumentUserData also perform googletest
@@ -6682,8 +6722,13 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   EXPECT_TRUE(NavigateToURLFromRenderer(
       child_frame, embedded_test_server()->GetURL("a.com", "/title2.html")));
 
-  // The navigation should reuse the same RenderFrameHost.
-  EXPECT_EQ(ChildFrameAt(shell(), 0), child_frame_wrapper.get());
+  // The navigation should reuse the same RenderFrameHost, except when
+  // RenderDocument is enabled.
+  if (ShouldCreateNewHostForAllFrames()) {
+    EXPECT_TRUE(child_frame_wrapper.WaitUntilRenderFrameDeleted());
+  } else {
+    EXPECT_EQ(ChildFrameAt(shell(), 0), child_frame_wrapper.get());
+  }
 
   // The destructors of DestructorLifetimeDocumentService and
   // DestructorLifetimeDocumentUserData also perform googletest
@@ -7265,23 +7310,45 @@ class RenderFrameHostImplBrowsingContextStateNameTest
 
  protected:
   void SetUp() override {
-    if (testing::get<0>(GetParam())) {
-      browsing_context_state_feature_list_.InitAndEnableFeature(
-          features::kNewBrowsingContextStateOnBrowsingContextGroupSwap);
-    } else {
-      browsing_context_state_feature_list_.InitAndDisableFeature(
-          features::kNewBrowsingContextStateOnBrowsingContextGroupSwap);
+    // TODO(https://crbug.com/1326944): Flaky on Mac and Android.
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_ANDROID)
+    GTEST_SKIP();
+#else
+    // TODO(1326944): This configuration is flaky, for every tests.
+    if (!DisableFrameNameUpdateOnNonCurrentRenderFrameHost()) {
+      GTEST_SKIP();
     }
 
-    if (testing::get<1>(GetParam())) {
-      disable_name_update_feature_list_.InitAndEnableFeature(
-          features::kDisableFrameNameUpdateOnNonCurrentRenderFrameHost);
-    } else {
-      disable_name_update_feature_list_.InitAndDisableFeature(
-          features::kDisableFrameNameUpdateOnNonCurrentRenderFrameHost);
+    // TODO(https://crbug.com/1422190):
+    // A RenderViewHostImpl from outside the BackForward take a
+    // `main_browsing_context_state` associated with a RenderFrameHost from
+    // within the BackForwardCache.
+    //
+    // During WebContents deletion, this causes the
+    // RenderViewHostImpl::main_browsing_context_state SafeRef to become
+    // dangling, because the BackForwardCache is cleared first.
+    if (NewBrowsingContextStateOnBrowsingContextGroupSwap()) {
+      GTEST_SKIP();
     }
+
+    browsing_context_state_feature_list_.InitWithFeatureState(
+        features::kNewBrowsingContextStateOnBrowsingContextGroupSwap,
+        NewBrowsingContextStateOnBrowsingContextGroupSwap());
+
+    disable_name_update_feature_list_.InitWithFeatureState(
+        features::kDisableFrameNameUpdateOnNonCurrentRenderFrameHost,
+        DisableFrameNameUpdateOnNonCurrentRenderFrameHost());
 
     RenderFrameHostImplBrowserTest::SetUp();
+#endif
+  }
+
+  bool DisableFrameNameUpdateOnNonCurrentRenderFrameHost() {
+    return testing::get<0>(GetParam());
+  }
+
+  bool NewBrowsingContextStateOnBrowsingContextGroupSwap() {
+    return testing::get<1>(GetParam());
   }
 
  private:
@@ -7292,28 +7359,12 @@ class RenderFrameHostImplBrowsingContextStateNameTest
 // Test that, when the RenderFrameHostImpl is in the BackForwardCache, the
 // name update is blocked if kDisableFrameNameUpdateOnNonCurrentRenderFrameHost
 // is enabled
-//
-// TODO(crbug.com/1326943): Flaky on Mac.
-#if BUILDFLAG(IS_MAC)
-#define MAYBE_BlockNameUpdateForBackForwardCache \
-  DISABLED_BlockNameUpdateForBackForwardCache
-#else
-#define MAYBE_BlockNameUpdateForBackForwardCache \
-  BlockNameUpdateForBackForwardCache
-#endif  // BUILDFLAG(IS_MAC)
 IN_PROC_BROWSER_TEST_P(RenderFrameHostImplBrowsingContextStateNameTest,
-                       MAYBE_BlockNameUpdateForBackForwardCache) {
+                       BlockNameUpdateForBackForwardCache) {
   // This test specifically wants to test with BackForwardCache enabled, so skip
   // it if BackForwardCache is disabled.
   if (!IsBackForwardCacheEnabled())
     return;
-  const bool disable_frame_name_update = base::FeatureList::IsEnabled(
-      features::kDisableFrameNameUpdateOnNonCurrentRenderFrameHost);
-
-  // TODO(1326943): This configuration is flaky.
-  if (!disable_frame_name_update) {
-    GTEST_SKIP();
-  }
 
   // Create the RenderFrameHost and store it in the BackForwardCache.
   GURL url_a(embedded_test_server()->GetURL("a.com", "/title1.html"));
@@ -7348,7 +7399,7 @@ IN_PROC_BROWSER_TEST_P(RenderFrameHostImplBrowsingContextStateNameTest,
                                 ->current_replication_state()
                                 .unique_name;
 
-  if (disable_frame_name_update) {
+  if (DisableFrameNameUpdateOnNonCurrentRenderFrameHost()) {
     // Verify that the frame name and unique name haven't been changed, even
     // though a name change was triggered by the Javascript.
     EXPECT_EQ(frame_name, "page_name");
@@ -7364,24 +7415,8 @@ IN_PROC_BROWSER_TEST_P(RenderFrameHostImplBrowsingContextStateNameTest,
 // Test that, when the RenderFrameHostImpl is in a pending delete state, the
 // name update is blocked if kDisableFrameNameUpdateOnNonCurrentRenderFrameHost
 // is enabled
-//
-// TODO(https://crbug.com/1326944): Flaky on Mac and Android.
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_ANDROID)
-#define MAYBE_BlockNameUpdateForPendingDelete \
-  DISABLED_BlockNameUpdateForPendingDelete
-#else
-#define MAYBE_BlockNameUpdateForPendingDelete BlockNameUpdateForPendingDelete
-#endif  // BUILDFLAG(IS_MAC)
 IN_PROC_BROWSER_TEST_P(RenderFrameHostImplBrowsingContextStateNameTest,
-                       MAYBE_BlockNameUpdateForPendingDelete) {
-  const bool disable_frame_name_update = base::FeatureList::IsEnabled(
-      features::kDisableFrameNameUpdateOnNonCurrentRenderFrameHost);
-
-  // TODO(1326944): This configuration is flaky.
-  if (!disable_frame_name_update) {
-    GTEST_SKIP();
-  }
-
+                       BlockNameUpdateForPendingDelete) {
   // Disable BackForwardCache so that a pending delete state can be forced.
   web_contents()->GetController().GetBackForwardCache().DisableForTesting(
       content::BackForwardCache::TEST_USES_UNLOAD_EVENT);
@@ -7420,7 +7455,7 @@ IN_PROC_BROWSER_TEST_P(RenderFrameHostImplBrowsingContextStateNameTest,
                                 ->current_replication_state()
                                 .unique_name;
 
-  if (disable_frame_name_update) {
+  if (DisableFrameNameUpdateOnNonCurrentRenderFrameHost()) {
     // Verify that the frame name and unique name haven't been changed, even
     // though a name change was triggered by the Javascript.
     EXPECT_EQ(frame_name, "page_name");
@@ -7502,12 +7537,13 @@ class RenderFrameHostImplBrowserTestWithBFCache
     : public RenderFrameHostImplBrowserTest {
  public:
   RenderFrameHostImplBrowserTestWithBFCache() {
+    std::vector<base::test::FeatureRefAndParams> enabled_features =
+        GetDefaultEnabledBackForwardCacheFeaturesForTesting(
+            /*ignore_outstanding_network_request=*/false);
+    enabled_features.push_back({kNavigationUpdatesChildViewsVisibility, {{}}});
     scoped_feature_list_.InitWithFeaturesAndParameters(
-        {{features::kBackForwardCache, {{}}},
-         {features::kBackForwardCacheTimeToLiveControl,
-          {{"time_to_live_seconds", "3600"}}}},
-        // Allow BackForwardCache for all devices regardless of their memory.
-        {features::kBackForwardCacheMemoryControls});
+        enabled_features,
+        GetDefaultDisabledBackForwardCacheFeaturesForTesting());
   }
   ~RenderFrameHostImplBrowserTestWithBFCache() override = default;
 
@@ -7550,6 +7586,84 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTestWithBFCache,
   EXPECT_EQ(expected_parent_ftn, rfh_a->owner_);
   EXPECT_EQ(expected_child_ftn, rfh_b->owner_);
   EXPECT_EQ(nullptr, rfh_c->owner_);
+}
+
+// Tests that when a RenderFrameHost is stored in BFCache, that the visibility
+// of its child frames are also updating. Any OOPIF should stop submitting new
+// viz::CompositorFrames while in the cache. Conversely upon being removed from
+// the BFCache, and re-navigated to, the OOPIF should once again start
+// submitting new frames.
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTestWithBFCache,
+                       ChildFramesHiddenWhileInBFCache) {
+  GURL url_a(embedded_test_server()->GetURL(
+      "a.com", "/cross_site_iframe_factory.html?a(b)"));
+  GURL url_c(embedded_test_server()->GetURL("c.com", "/title2.html"));
+
+  // 1) Navigate to A(B).
+  EXPECT_TRUE(NavigateToURL(shell(), url_a));
+  RenderFrameHostImpl* rfh_a = web_contents()->GetPrimaryMainFrame();
+  RenderFrameHostImpl* rfh_b = rfh_a->child_at(0)->current_frame_host();
+  FrameTreeNode* expected_parent_ftn = rfh_a->frame_tree_node();
+  FrameTreeNode* expected_child_ftn = rfh_b->frame_tree_node();
+
+  // 2) Navigate OOPIF B to a page with a continuous Compositor-thread
+  // animation.
+  auto* child_rfh =
+      ChildFrameAt(shell()->web_contents()->GetPrimaryMainFrame(), 0);
+  RenderFrameSubmissionObserver rfso_d(child_rfh);
+  GURL url_d(embedded_test_server()->GetURL(
+      "b.com", "/rwhv_compositing_animation.html"));
+  EXPECT_TRUE(NavigateToURLFromRenderer(child_rfh, url_d));
+
+  // 3) Navigate to C.
+  EXPECT_TRUE(NavigateToURL(shell(), url_c));
+
+  // Even though navigation has completed, there may still be a frame from D
+  // that is being processed by Viz, or whose RenderFrameMetadata has yet to
+  // arrive and be processed on the Browser UI thread.
+  //
+  // So we wait until the first frame submitted by C has been produced and the
+  // metadata processed on the Browser UI thread. From this point on we expect
+  // that there are no new frames submitted by D.
+  RenderFrameHostImpl* rfh_c = web_contents()->GetPrimaryMainFrame();
+  RenderFrameSubmissionObserver rfso_c = RenderFrameSubmissionObserver(rfh_c);
+  rfso_c.WaitForAnyFrameSubmission();
+  int post_nav_num_frames = rfso_d.render_frame_count();
+
+  // 4) Ensure A(B) are cached.
+  EXPECT_TRUE(rfh_a->IsInBackForwardCache());
+  EXPECT_TRUE(rfh_b->IsInBackForwardCache());
+  EXPECT_FALSE(rfh_c->IsInBackForwardCache());
+  EXPECT_NE(rfh_a, rfh_c);
+  EXPECT_EQ(nullptr, rfh_a->owner_);
+  EXPECT_EQ(expected_child_ftn, rfh_b->owner_);
+  EXPECT_EQ(expected_parent_ftn, rfh_c->owner_);
+
+  // Since previous content had continuous animation, wait a while and confirm
+  // no further frames were submitted. Let's wait for 10 frames at 60 Hz, to
+  // give some time for slower builds.
+  {
+    base::RunLoop run_loop;
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+        FROM_HERE, run_loop.QuitClosure(), base::Milliseconds(160));
+    run_loop.Run();
+  }
+  int post_wait_num_frames = rfso_d.render_frame_count();
+  EXPECT_EQ(post_wait_num_frames, post_nav_num_frames);
+
+  // 5) Navigate back to A(B).
+  ASSERT_TRUE(HistoryGoBack(web_contents()));
+
+  // 6) Ensure C is cached and A's owner is updated.
+  EXPECT_TRUE(rfh_c->IsInBackForwardCache());
+  EXPECT_EQ(rfh_a, web_contents()->GetPrimaryMainFrame());
+  EXPECT_EQ(expected_parent_ftn, rfh_a->owner_);
+  EXPECT_EQ(expected_child_ftn, rfh_b->owner_);
+  EXPECT_EQ(nullptr, rfh_c->owner_);
+
+  // Ensure that the OOPIF became visible and submitted a frame. If this times
+  // out then D failed to become visible again.
+  rfso_d.WaitForAnyFrameSubmission();
 }
 
 class RenderFrameHostImplPrerenderBrowserTest

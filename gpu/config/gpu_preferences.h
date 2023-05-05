@@ -45,6 +45,19 @@ enum class WebGPUAdapterName : uint32_t {
   kSwiftShader = 2,
 };
 
+// Affecting how chromium handles GPUPowerPreference in
+// GPURequestAdapterOptions.
+enum class WebGPUPowerPreference : uint32_t {
+  // Choose the preferred adapter when GPUPowerPreference is not given.
+  // Has no impact when GPUPowerPreference is given.
+  kDefaultLowPower = 0,
+  kDefaultHighPerformance = 1,
+  // Choose the forced adapter regardless of whether GPUPowerPreference is set
+  // or not.
+  kForceLowPower = 2,
+  kForceHighPerformance = 3,
+};
+
 enum class GrContextType : uint32_t {
   kGL = 0,
   kVulkan = 1,
@@ -105,11 +118,6 @@ struct GPU_EXPORT GpuPreferences {
 
   // Enables support for outputting NV12 video frames. Windows only.
   bool enable_nv12_dxgi_video = false;
-
-  // Enables MediaFoundationVideoEncoderAccelerator on Windows 7. Windows 7 does
-  // not support some of the attributes which may impact the performance or the
-  // quality of output. So this flag is disabled by default. Windows only.
-  bool enable_media_foundation_vea_on_windows7 = false;
 
   // Disables the use of a 3D software rasterizer, for example, SwiftShader.
   bool disable_software_rasterizer = false;
@@ -257,6 +265,10 @@ struct GPU_EXPORT GpuPreferences {
 
   // The adapter to use for WebGPU content.
   WebGPUAdapterName use_webgpu_adapter = WebGPUAdapterName::kDefault;
+
+  // The adapter selecting strategy related to GPUPowerPreference.
+  WebGPUPowerPreference use_webgpu_power_preference =
+      WebGPUPowerPreference::kDefaultHighPerformance;
 
   // The Dawn features(toggles) enabled on the creation of Dawn devices.
   std::vector<std::string> enabled_dawn_features_list;

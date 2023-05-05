@@ -11,6 +11,7 @@
 #include "ash/constants/ash_features.h"
 #include "ash/public/cpp/accelerators.h"
 #include "ash/public/cpp/accelerators_util.h"
+#include "ash/public/mojom/accelerator_configuration.mojom.h"
 #include "ash/public/mojom/accelerator_info.mojom.h"
 #include "base/containers/contains.h"
 #include "base/containers/cxx20_erase.h"
@@ -27,6 +28,7 @@
 namespace {
 
 using AcceleratorActionMap = ui::AcceleratorMap<ash::AcceleratorAction>;
+using ::ash::mojom::AcceleratorConfigResult;
 
 void AppendAcceleratorData(
     std::vector<ash::AcceleratorData>& data,
@@ -143,7 +145,19 @@ bool AshAcceleratorConfiguration::IsMutable() const {
 
 bool AshAcceleratorConfiguration::IsDeprecated(
     const ui::Accelerator& accelerator) const {
-  return deprecated_accelerators_.contains(accelerator);
+  return deprecated_accelerators_to_id_.Find(accelerator);
+}
+
+const AcceleratorAction* AshAcceleratorConfiguration::FindAcceleratorAction(
+    const ui::Accelerator& accelerator) const {
+  // If the accelerator is deprecated, return the action ID first.
+  const AcceleratorAction* deprecated_action_id =
+      deprecated_accelerators_to_id_.Find(accelerator);
+  if (deprecated_action_id) {
+    return deprecated_action_id;
+  }
+
+  return accelerator_to_id_.Find(accelerator);
 }
 
 AcceleratorConfigResult AshAcceleratorConfiguration::AddUserAccelerator(
@@ -177,11 +191,73 @@ AcceleratorConfigResult AshAcceleratorConfiguration::ReplaceAccelerator(
 
 AcceleratorConfigResult AshAcceleratorConfiguration::RestoreDefault(
     AcceleratorActionId action_id) {
-  return AcceleratorConfigResult::kActionLocked;
+  const auto& current_accelerators = id_to_accelerators_.find(action_id);
+  if (current_accelerators == id_to_accelerators_.end()) {
+    VLOG(1) << "ResetAction called for ActionID: " << action_id
+            << " returned with error: " << AcceleratorConfigResult::kNotFound;
+    return AcceleratorConfigResult::kNotFound;
+  }
+
+  auto& accelerators_for_id = current_accelerators->second;
+  // Clear reverse mapping first.
+  for (const auto& accelerator : accelerators_for_id) {
+    // There should never be a mismatch between the two maps, `Get()` does an
+    // implicit DCHECK too.
+    auto& found_id = accelerator_to_id_.Get(accelerator);
+    if (found_id != action_id) {
+      VLOG(1) << "ResetAction called for ActionID: " << action_id
+              << " returned with error: " << AcceleratorConfigResult::kNotFound;
+      return AcceleratorConfigResult::kNotFound;
+    }
+
+    accelerator_to_id_.Erase(accelerator);
+  }
+
+  // Clear lookup map.
+  accelerators_for_id.clear();
+
+  // Restore the system default accelerator(s) for this action only if it the
+  // default is not used by another accelerator.
+  // Users will have to manually re-add the default accelerator if there exists
+  // a conflict.
+  const auto& defaults = default_id_to_accelerators_cache_.find(action_id);
+  DCHECK(defaults != default_id_to_accelerators_cache_.end());
+
+  // Iterate through the default and only add back the default if they're not
+  // in use.
+  for (const auto& default_accelerator : defaults->second) {
+    if (!accelerator_to_id_.Find(default_accelerator)) {
+      accelerators_for_id.push_back(default_accelerator);
+      accelerator_to_id_.InsertNew(
+          {default_accelerator, static_cast<AcceleratorAction>(action_id)});
+    }
+  }
+
+  // TODO(jimmyxgong): Update prefs when available.
+  UpdateAndNotifyAccelerators();
+
+  VLOG(1) << "ResetAction called for ActionID: " << action_id
+          << " returned successfully.";
+  return AcceleratorConfigResult::kSuccess;
 }
 
 AcceleratorConfigResult AshAcceleratorConfiguration::RestoreAllDefaults() {
-  return AcceleratorConfigResult::kActionLocked;
+  accelerators_.clear();
+  id_to_accelerators_.clear();
+  accelerator_to_id_.Clear();
+  deprecated_accelerators_to_id_.Clear();
+  actions_with_deprecations_.clear();
+
+  // TODO(jimmyxgong): Reset the prefs here too.
+  id_to_accelerators_ = default_id_to_accelerators_cache_;
+  accelerator_to_id_ = default_accelerators_to_id_cache_;
+
+  deprecated_accelerators_to_id_ = default_deprecated_accelerators_to_id_cache_;
+  actions_with_deprecations_ = default_actions_with_deprecations_cache_;
+
+  UpdateAndNotifyAccelerators();
+
+  return AcceleratorConfigResult::kSuccess;
 }
 
 void AshAcceleratorConfiguration::Initialize() {
@@ -192,7 +268,7 @@ void AshAcceleratorConfiguration::Initialize() {
 void AshAcceleratorConfiguration::Initialize(
     base::span<const AcceleratorData> accelerators) {
   accelerators_.clear();
-  deprecated_accelerators_.clear();
+  deprecated_accelerators_to_id_.Clear();
   id_to_accelerators_.clear();
   accelerator_to_id_.Clear();
   default_accelerators_to_id_cache_.Clear();
@@ -234,10 +310,15 @@ void AshAcceleratorConfiguration::InitializeDeprecatedAccelerators(
   }
 
   for (const auto& data : deprecated_accelerators) {
-    deprecated_accelerators_.emplace(data.keycode, data.modifiers);
+    deprecated_accelerators_to_id_.InsertNew(
+        {{data.keycode, data.modifiers},
+         static_cast<AcceleratorAction>(data.action)});
   }
 
-  AddAccelerators(deprecated_accelerators);
+  // Cache a copy of the default deprecated accelerators.
+  default_actions_with_deprecations_cache_ = actions_with_deprecations_;
+  default_deprecated_accelerators_to_id_cache_ = deprecated_accelerators_to_id_;
+  UpdateAndNotifyAccelerators();
 }
 
 void AshAcceleratorConfiguration::AddAccelerators(
@@ -251,7 +332,16 @@ AcceleratorConfigResult AshAcceleratorConfiguration::DoRemoveAccelerator(
     const ui::Accelerator& accelerator) {
   DCHECK(::features::IsShortcutCustomizationEnabled());
 
-  AcceleratorAction* found_id = accelerator_to_id_.Find(accelerator);
+  // If the accelerator is deprecated, remove it.
+  const AcceleratorAction* deprecated_action_id =
+      deprecated_accelerators_to_id_.Find(accelerator);
+  if (deprecated_action_id && *deprecated_action_id == action_id) {
+    deprecated_accelerators_to_id_.Erase(accelerator);
+    actions_with_deprecations_.erase(action_id);
+    return AcceleratorConfigResult::kSuccess;
+  }
+
+  const AcceleratorAction* found_id = accelerator_to_id_.Find(accelerator);
   auto found_accelerators_iter = id_to_accelerators_.find(action_id);
   if (found_accelerators_iter == id_to_accelerators_.end() || !found_id) {
     return AcceleratorConfigResult::kNotFound;
@@ -306,10 +396,22 @@ AshAcceleratorConfiguration::GetDefaultAcceleratorsForId(
   return iter->second;
 }
 
+bool AshAcceleratorConfiguration::IsValid(uint32_t id) const {
+  return id_to_accelerators_.contains(id) &&
+         default_id_to_accelerators_cache_.contains(id);
+}
+
 void AshAcceleratorConfiguration::UpdateAndNotifyAccelerators() {
+  // Re-populate `accelerators_` which contains all currently available
+  // accelerators and deprecated accelerators, if present.
   accelerators_.clear();
-  accelerators_.reserve(accelerator_to_id_.size());
+  accelerators_.reserve(accelerator_to_id_.size() +
+                        deprecated_accelerators_to_id_.size());
   for (const auto& [accel, action_id] : accelerator_to_id_) {
+    accelerators_.push_back(accel);
+  }
+
+  for (const auto& [accel, action_id] : deprecated_accelerators_to_id_) {
     accelerators_.push_back(accel);
   }
 

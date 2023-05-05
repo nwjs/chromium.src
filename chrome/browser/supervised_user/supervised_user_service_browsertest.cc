@@ -27,9 +27,10 @@
 #include "chrome/browser/supervised_user/supervised_user_settings_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/common/chrome_paths.h"
-#include "chrome/common/net/safe_search_util.h"
 #include "chrome/common/pref_names.h"
+#include "components/policy/core/common/policy_pref_names.h"
 #include "components/prefs/pref_service.h"
+#include "components/safe_search_api/safe_search_util.h"
 #include "components/supervised_user/core/browser/supervised_user_settings_service.h"
 #include "components/supervised_user/core/common/supervised_user_constants.h"
 #include "content/public/test/browser_test.h"
@@ -57,11 +58,13 @@ using SupervisedUserServiceTest = InProcessBrowserTest;
 IN_PROC_BROWSER_TEST_F(SupervisedUserServiceTest, LocalPolicies) {
   Profile* profile = browser()->profile();
   PrefService* prefs = profile->GetPrefs();
-  EXPECT_FALSE(prefs->GetBoolean(prefs::kForceGoogleSafeSearch));
-  EXPECT_EQ(prefs->GetInteger(prefs::kForceYouTubeRestrict),
-            safe_search_util::YOUTUBE_RESTRICT_OFF);
-  EXPECT_TRUE(prefs->IsUserModifiablePreference(prefs::kForceGoogleSafeSearch));
-  EXPECT_TRUE(prefs->IsUserModifiablePreference(prefs::kForceYouTubeRestrict));
+  EXPECT_FALSE(prefs->GetBoolean(policy::policy_prefs::kForceGoogleSafeSearch));
+  EXPECT_EQ(prefs->GetInteger(policy::policy_prefs::kForceYouTubeRestrict),
+            safe_search_api::YOUTUBE_RESTRICT_OFF);
+  EXPECT_TRUE(prefs->IsUserModifiablePreference(
+      policy::policy_prefs::kForceGoogleSafeSearch));
+  EXPECT_TRUE(prefs->IsUserModifiablePreference(
+      policy::policy_prefs::kForceYouTubeRestrict));
 }
 
 IN_PROC_BROWSER_TEST_F(SupervisedUserServiceTest, ProfileName) {
@@ -82,47 +85,13 @@ IN_PROC_BROWSER_TEST_F(SupervisedUserServiceTestSupervised, LocalPolicies) {
   logged_in_user_mixin_.LogInUser();
   Profile* profile = browser()->profile();
   PrefService* prefs = profile->GetPrefs();
-  EXPECT_TRUE(prefs->GetBoolean(prefs::kForceGoogleSafeSearch));
-  EXPECT_EQ(prefs->GetInteger(prefs::kForceYouTubeRestrict),
-            safe_search_util::YOUTUBE_RESTRICT_MODERATE);
-  EXPECT_FALSE(
-      prefs->IsUserModifiablePreference(prefs::kForceGoogleSafeSearch));
-  EXPECT_FALSE(prefs->IsUserModifiablePreference(prefs::kForceYouTubeRestrict));
-}
-
-IN_PROC_BROWSER_TEST_F(SupervisedUserServiceTestSupervised, ProfileName) {
-  logged_in_user_mixin_.LogInUser();
-  Profile* profile = browser()->profile();
-  PrefService* prefs = profile->GetPrefs();
-  std::string original_name = prefs->GetString(prefs::kProfileName);
-
-  supervised_user::SupervisedUserSettingsService* settings =
-      SupervisedUserSettingsServiceFactory::GetForKey(profile->GetProfileKey());
-
-  // Change the name. Both the profile pref and the entry in
-  // ProfileAttributesStorage should be updated.
-  std::string name = "Supervised User Test Name";
-  settings->SetLocalSetting(supervised_user::kUserName, base::Value(name));
-  EXPECT_FALSE(prefs->IsUserModifiablePreference(prefs::kProfileName));
-  EXPECT_EQ(name, prefs->GetString(prefs::kProfileName));
-
-  ProfileAttributesEntry* entry =
-      g_browser_process->profile_manager()
-          ->GetProfileAttributesStorage()
-          .GetProfileAttributesWithPath(profile->GetPath());
-  ASSERT_NE(entry, nullptr);
-  EXPECT_EQ(name, base::UTF16ToUTF8(entry->GetName()));
-
-  // Change the name once more.
-  std::string new_name = "New Supervised User Test Name";
-  settings->SetLocalSetting(supervised_user::kUserName, base::Value(new_name));
-  EXPECT_EQ(new_name, prefs->GetString(prefs::kProfileName));
-  EXPECT_EQ(new_name, base::UTF16ToUTF8(entry->GetName()));
-
-  // Remove the setting.
-  settings->RemoveLocalSetting(supervised_user::kUserName);
-  EXPECT_EQ(original_name, prefs->GetString(prefs::kProfileName));
-  EXPECT_EQ(original_name, base::UTF16ToUTF8(entry->GetName()));
+  EXPECT_TRUE(prefs->GetBoolean(policy::policy_prefs::kForceGoogleSafeSearch));
+  EXPECT_EQ(prefs->GetInteger(policy::policy_prefs::kForceYouTubeRestrict),
+            safe_search_api::YOUTUBE_RESTRICT_MODERATE);
+  EXPECT_FALSE(prefs->IsUserModifiablePreference(
+      policy::policy_prefs::kForceGoogleSafeSearch));
+  EXPECT_FALSE(prefs->IsUserModifiablePreference(
+      policy::policy_prefs::kForceYouTubeRestrict));
 }
 
 // Disabled due to excessive flakiness (crbug/1251785).

@@ -97,6 +97,10 @@ class CONTENT_EXPORT CacheStorageManager
       const blink::StorageKey& storage_key,
       storage::mojom::CacheStorageOwner owner,
       storage::mojom::QuotaClient::DeleteBucketDataCallback callback);
+  void DeleteStorageKeyData(
+      const std::set<blink::StorageKey>& storage_keys,
+      storage::mojom::CacheStorageOwner owner,
+      storage::mojom::QuotaClient::DeleteBucketDataCallback callback);
   void DeleteBucketData(
       const storage::BucketLocator& bucket_locator,
       storage::mojom::CacheStorageOwner owner,
@@ -127,10 +131,7 @@ class CONTENT_EXPORT CacheStorageManager
  protected:
   friend class base::RefCounted<CacheStorageManager>;
 
-  // TODO(https://crbug.com/1353198): NOINLINE here is needed to prevent a crash
-  // when ThinLTO is enabled on x86 Android chrome-branded release-mode builds.
-  // Remove this once the underlying issue is resolved.
-  NOINLINE CacheStorageManager(
+  CacheStorageManager(
       const base::FilePath& path,
       scoped_refptr<base::SequencedTaskRunner> cache_task_runner,
       scoped_refptr<base::SequencedTaskRunner> scheduler_task_runner,
@@ -156,8 +157,8 @@ class CONTENT_EXPORT CacheStorageManager
                              storage::mojom::StorageUsageInfoPtr>>
           usage_tuples);
 
-  void DeleteStorageKeyDataGotAllBucketInfo(
-      const blink::StorageKey storage_key,
+  void DeleteStorageKeysDataGotAllBucketInfo(
+      const std::set<blink::StorageKey>& storage_keys,
       storage::mojom::CacheStorageOwner owner,
       base::OnceCallback<void(std::vector<blink::mojom::QuotaStatusCode>)>
           callback,

@@ -834,7 +834,15 @@ void BookmarkBridge::DeleteBookmark(
   int type = JavaBookmarkIdGetType(env, j_bookmark_id_obj);
   const BookmarkNode* node = GetNodeByID(bookmark_id, type);
 
-  // TODO(twellington): Switch back to a DCHECK after debugging
+  // TODO(crbug.com/1425438): Switch to an early returns after debugging why
+  // this is called with a nullptr.
+  if (!node) {
+    LOG(ERROR) << "Deleting null bookmark, type:" << type;
+    NOTREACHED();
+    return;
+  }
+
+  // TODO(crbug.com/1425438): Switch back to a D/CHECK after debugging
   // why this is called with an uneditable node.
   // See https://crbug.com/981172.
   if (!IsEditable(node)) {
@@ -846,6 +854,15 @@ void BookmarkBridge::DeleteBookmark(
   if (partner_bookmarks_shim_->IsPartnerBookmark(node)) {
     partner_bookmarks_shim_->RemoveBookmark(node);
   } else if (type == BookmarkType::BOOKMARK_TYPE_READING_LIST) {
+    const BookmarkNode* reading_list_parent = reading_list_manager_->GetRoot();
+    size_t index = reading_list_parent->GetIndexOf(node).value();
+    // Intentionally left empty.
+    std::set<GURL> removed_urls;
+    // Observer must be trigger prior, the underlying BookmarkNode* will be
+    // deleted immediately after the delete call.
+    BookmarkNodeRemoved(bookmark_model_, reading_list_parent, index, node,
+                        removed_urls);
+
     // Inside the Delete method, node will be destroyed and node->url will be
     // also destroyed. This causes heap-use-after-free at
     // ReadingListModelImpl::RemoveEntryByURLImpl. To avoid the
@@ -853,7 +870,8 @@ void BookmarkBridge::DeleteBookmark(
     GURL url(node->url());
     reading_list_manager_->Delete(url);
   } else {
-    bookmark_model_->Remove(node);
+    bookmark_model_->Remove(node,
+                            bookmarks::metrics::BookmarkEditSource::kUser);
   }
 }
 

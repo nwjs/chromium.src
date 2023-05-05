@@ -15,9 +15,12 @@
 #import "base/notreached.h"
 #import "base/numerics/safe_conversions.h"
 #import "base/strings/sys_string_conversions.h"
+#import "ios/chrome/browser/shared/public/commands/thumb_strip_commands.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/ui/util/rtl_geometry.h"
+#import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/tabs/features.h"
 #import "ios/chrome/browser/tabs/inactive_tabs/features.h"
-#import "ios/chrome/browser/ui/commands/thumb_strip_commands.h"
 #import "ios/chrome/browser/ui/commerce/price_card/price_card_data_source.h"
 #import "ios/chrome/browser/ui/commerce/price_card/price_card_item.h"
 #import "ios/chrome/browser/ui/gestures/view_revealing_vertical_pan_handler.h"
@@ -36,16 +39,13 @@
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/grid_view_controller+private.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/horizontal_layout.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/plus_sign_cell.h"
-#import "ios/chrome/browser/ui/tab_switcher/tab_grid/inactive_tabs/inactive_tabs_button.h"
-#import "ios/chrome/browser/ui/tab_switcher/tab_grid/inactive_tabs/inactive_tabs_button_header.h"
+#import "ios/chrome/browser/ui/tab_switcher/tab_grid/inactive_tabs/inactive_tabs_button_ui_swift.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/suggested_actions/suggested_actions_delegate.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/suggested_actions/suggested_actions_grid_cell.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/suggested_actions/suggested_actions_view_controller.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/tab_context_menu/tab_context_menu_provider.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/transitions/grid_transition_layout.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_switcher_item.h"
-#import "ios/chrome/browser/ui/util/rtl_geometry.h"
-#import "ios/chrome/browser/ui/util/uikit_ui_util.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/public/provider/chrome/browser/modals/modals_api.h"
@@ -146,27 +146,23 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
 // the transition. Is used to avoid cancelling again during enabling/disabling
 // of the thumbstrip.
 @property(nonatomic, assign) BOOL transitionLayoutIsFinishing;
-
 // Tap gesture recognizer to dismiss the thumb strip.
 @property(nonatomic, strong)
     UITapGestureRecognizer* thumbStripDismissRecognizer;
-
 // Swipe up gesture recognizer to dismiss the thumb strip.
 @property(nonatomic, strong)
     UISwipeGestureRecognizer* thumbStripSwipeUpDismissRecognizer;
-
 // YES while batch updates and the batch update completion are being performed.
 @property(nonatomic) BOOL updating;
-
 // YES while the grid has the suggested actions section.
 @property(nonatomic) BOOL showingSuggestedActions;
-
 // YES if the dragged tab moved to a new index.
 @property(nonatomic, assign) BOOL dragEndAtNewIndex;
-
 // Whether there are inactive tabs to consider. If there are and the grid is in
 // TabGridModeNormal, a button is displayed at the top, advertizing them.
 @property(nonatomic, assign) NSUInteger inactiveTabsCount;
+// Tracks if a drop action initiated in this grid is in progress.
+@property(nonatomic) BOOL localDragActionInProgress;
 
 @end
 
@@ -180,6 +176,8 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
     _selectedEditingItemIDs = [[NSMutableSet<NSString*> alloc] init];
     _selectedSharableEditingItemIDs = [[NSMutableSet<NSString*> alloc] init];
     _showsSelectionUpdates = YES;
+    _dropAnimationInProgress = NO;
+    _localDragActionInProgress = NO;
     _notSelectedTabCellOpacity = 1.0;
     _mode = TabGridModeNormal;
 
@@ -188,6 +186,13 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
         addObserver:self
            selector:@selector(voiceOverStatusDidChange)
                name:UIAccessibilityVoiceOverStatusDidChangeNotification
+             object:nil];
+
+    // Register for Dynamic Type notifications.
+    [[NSNotificationCenter defaultCenter]
+        addObserver:self
+           selector:@selector(preferredContentSizeCategoryDidChange)
+               name:UIContentSizeCategoryDidChangeNotification
              object:nil];
   }
 
@@ -397,16 +402,13 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
     // selection border doesn't show around the selection item. The
     // collection view needs to be updated with the selected item again
     // for it to appear correctly.
-    NSUInteger selectedIndex = self.selectedIndex;
-    if (selectedIndex != NSNotFound) {
-      [self.collectionView
-          selectItemAtIndexPath:CreateIndexPath(selectedIndex)
-                       animated:NO
-                 scrollPosition:UICollectionViewScrollPositionNone];
-      [self updateFractionVisibleOfLastItem];
+    [self deselectAllCollectionViewItemsAnimated:NO];
+    [self selectCollectionViewItemWithID:self.selectedItemID
+                                animated:NO
+                          scrollPosition:UICollectionViewScrollPositionNone];
+    [self updateFractionVisibleOfLastItem];
     }
     self.searchText = nil;
-  }
 }
 
 - (void)setSearchText:(NSString*)searchText {
@@ -482,13 +484,10 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
     [self animateEmptyStateIn];
     return;
   }
-  UICollectionViewScrollPosition scrollPosition =
-      (self.currentLayout == self.horizontalLayout)
-          ? UICollectionViewScrollPositionCenteredHorizontally
-          : UICollectionViewScrollPositionTop;
-  [self.collectionView selectItemAtIndexPath:CreateIndexPath(self.selectedIndex)
-                                    animated:NO
-                              scrollPosition:scrollPosition];
+
+  [self deselectAllCollectionViewItemsAnimated:NO];
+  [self selectCollectionViewItemWithID:self.selectedItemID animated:NO];
+
   // Update the delegate, in case it wasn't set when `items` was populated.
   [self.delegate gridViewController:self didChangeItemCount:self.items.count];
   [self removeEmptyStateAnimated:NO];
@@ -530,14 +529,23 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
                                 atIndexPath:(NSIndexPath*)indexPath {
   switch (_mode) {
     case TabGridModeNormal: {
+      // The Regular Tabs grid has a button to inform about the hidden inactive
+      // tabs.
+      DCHECK(IsInactiveTabsEnabled());
       InactiveTabsButtonHeader* header = [collectionView
           dequeueReusableSupplementaryViewOfKind:kind
                              withReuseIdentifier:kInactiveTabsHeaderIdentifier
                                     forIndexPath:indexPath];
-      header.button.count = self.inactiveTabsCount;
-      [header.button addTarget:self
-                        action:@selector(didTapInactiveTabsButton)
-              forControlEvents:UIControlEventTouchUpInside];
+      header.parent = self;
+      __weak __typeof(self) weakSelf = self;
+      header.buttonAction = ^{
+        [weakSelf didTapInactiveTabsButton];
+      };
+      header.inactivityThresholdDisplayString =
+          InactiveTabsTimeThresholdDisplayString();
+      if (IsShowInactiveTabsCountEnabled()) {
+        [header configureWithCount:self.inactiveTabsCount];
+      }
       return header;
     }
     case TabGridModeSelection:
@@ -568,6 +576,10 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
       }
       return headerView;
     }
+    case TabGridModeInactive:
+      // The Inactive Tabs grid doesn’t have a header.
+      NOTREACHED();
+      return nil;
   }
 }
 
@@ -664,10 +676,12 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
       if (!IsInactiveTabsEnabled() || self.inactiveTabsCount == 0) {
         return CGSizeZero;
       }
-      return CGSizeMake(collectionView.bounds.size.width, 100);
+      // The Regular Tabs grid has a button to inform about the hidden inactive
+      // tabs.
+      return [self inactiveTabsButtonHeaderSize];
     case TabGridModeSelection:
       return CGSizeZero;
-    case TabGridModeSearch:
+    case TabGridModeSearch: {
       if (_searchText.length == 0) {
         return CGSizeZero;
       }
@@ -677,6 +691,10 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
                            ? kGridHeaderAccessibilityHeight
                            : kGridHeaderHeight;
       return CGSizeMake(collectionView.bounds.size.width, height);
+    }
+    case TabGridModeInactive:
+      // The Inactive Tabs grid doesn’t have a header.
+      return CGSizeZero;
   }
 }
 
@@ -750,6 +768,8 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
   MenuScenarioHistogram scenario;
   if (_mode == TabGridModeSearch) {
     scenario = MenuScenarioHistogram::kTabGridSearchResult;
+  } else if (_mode == TabGridModeInactive) {
+    scenario = MenuScenarioHistogram::kInactiveTabsEntry;
   } else if (self.currentLayout == self.horizontalLayout) {
     scenario = MenuScenarioHistogram::kThumbStrip;
   } else {
@@ -802,6 +822,7 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
 - (void)collectionView:(UICollectionView*)collectionView
     dragSessionWillBegin:(id<UIDragSession>)session {
   self.dragEndAtNewIndex = NO;
+  self.localDragActionInProgress = YES;
   base::UmaHistogramEnumeration(kUmaGridViewDragDropTabs,
                                 DragDropTabs::kDragBegin);
 
@@ -810,9 +831,16 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
 
 - (void)collectionView:(UICollectionView*)collectionView
      dragSessionDidEnd:(id<UIDragSession>)session {
+  self.localDragActionInProgress = NO;
+
   DragDropTabs dragEvent = self.dragEndAtNewIndex
                                ? DragDropTabs::kDragEndAtNewIndex
                                : DragDropTabs::kDragEndAtSameIndex;
+  // If a drop animation is in progress and the drag didn't end at a new index,
+  // that means the item has been dropped outside of its collection view.
+  if (_dropAnimationInProgress && !_dragEndAtNewIndex) {
+    dragEvent = DragDropTabs::kDragEndInOtherCollection;
+  }
   base::UmaHistogramEnumeration(kUmaGridViewDragDropTabs, dragEvent);
 
   // Used to let the Taptic Engine return to its idle state.
@@ -829,6 +857,10 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
 - (NSArray<UIDragItem*>*)collectionView:(UICollectionView*)collectionView
            itemsForBeginningDragSession:(id<UIDragSession>)session
                             atIndexPath:(NSIndexPath*)indexPath {
+  if (self.dragDropHandler == nil) {
+    // Don't support dragging items if the drag&drop handler is not set.
+    return @[];
+  }
   if (self.thumbStripEnabled && self.items.count <= 1) {
     // If only one item, don't drag it or this will leave the BVC or the grid
     // empty.
@@ -898,6 +930,14 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
 
 - (BOOL)collectionView:(UICollectionView*)collectionView
     canHandleDropSession:(id<UIDropSession>)session {
+  if (self.dragDropHandler == nil) {
+    // Don't support dropping items if the drag&drop handler is not set.
+    return NO;
+  }
+  if (IsTabGridSortedByRecency() && self.localDragActionInProgress) {
+    // Don't support dropping local items when sorting by recency.
+    return NO;
+  }
   // Prevent dropping tabs into grid while displaying search results.
   return (_mode != TabGridModeSearch);
 }
@@ -952,10 +992,12 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
     // Drop synchronously if local object is available.
     if (item.dragItem.localObject) {
       __weak __typeof(self) weakSelf = self;
+      _dropAnimationInProgress = YES;
       [self.delegate gridViewControllerDropAnimationWillBegin:weakSelf];
       [[coordinator dropItem:item.dragItem toItemAtIndexPath:dropIndexPath]
           addCompletion:^(UIViewAnimatingPosition finalPosition) {
             [weakSelf.delegate gridViewControllerDropAnimationDidEnd:weakSelf];
+            weakSelf.dropAnimationInProgress = NO;
           }];
       // The sourceIndexPath is non-nil if the drop item is from this same
       // collection view.
@@ -1125,10 +1167,12 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
   self.selectedItemID = selectedItemID;
   [self.selectedEditingItemIDs removeAllObjects];
   [self.selectedSharableEditingItemIDs removeAllObjects];
+
   [self reloadTabs];
-  [self.collectionView selectItemAtIndexPath:CreateIndexPath(self.selectedIndex)
-                                    animated:NO
-                              scrollPosition:UICollectionViewScrollPositionTop];
+
+  [self deselectAllCollectionViewItemsAnimated:NO];
+  [self selectCollectionViewItemWithID:self.selectedItemID animated:NO];
+
   if ([self shouldShowEmptyState]) {
     [self animateEmptyStateIn];
   } else {
@@ -1170,22 +1214,23 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
     [self removeEmptyStateAnimated:YES];
     [self.collectionView insertItemsAtIndexPaths:@[ CreateIndexPath(index) ]];
   };
-  NSString* previouslySelectedItemID = self.selectedItemID;
+
   auto completion = ^(BOOL finished) {
-    [self.collectionView
-        deselectItemAtIndexPath:CreateIndexPath([self
-                                    indexOfItemWithID:previouslySelectedItemID])
-                       animated:NO];
-    UICollectionViewScrollPosition scrollPosition =
-        (self.currentLayout == self.horizontalLayout)
-            ? UICollectionViewScrollPositionCenteredHorizontally
-            : UICollectionViewScrollPositionNone;
-    [self.collectionView
-        selectItemAtIndexPath:CreateIndexPath(self.selectedIndex)
-                     animated:NO
-               scrollPosition:scrollPosition];
+    [self deselectAllCollectionViewItemsAnimated:NO];
+    [self selectCollectionViewItemWithID:self.selectedItemID animated:NO];
+
     [self.delegate gridViewController:self didChangeItemCount:self.items.count];
-    [self updateFractionVisibleOfLastItem];
+
+    // Check `index` boundaries in order to filter out possible race
+    // conditions while mutating the collection.
+    if (index == NSNotFound || index >= self.items.count) {
+      return;
+    }
+
+    [self.collectionView
+        scrollToItemAtIndexPath:CreateIndexPath(index)
+               atScrollPosition:UICollectionViewScrollPositionCenteredVertically
+                       animated:YES];
   };
 
   [self performModelUpdates:modelUpdates
@@ -1222,10 +1267,10 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
   __weak __typeof(self) weakSelf = self;
   auto completion = ^(BOOL finished) {
     if (weakSelf.items.count > 0) {
-      [weakSelf.collectionView
-          selectItemAtIndexPath:CreateIndexPath(weakSelf.selectedIndex)
-                       animated:NO
-                 scrollPosition:UICollectionViewScrollPositionNone];
+      [self deselectAllCollectionViewItemsAnimated:NO];
+      [self selectCollectionViewItemWithID:weakSelf.selectedItemID
+                                  animated:NO
+                            scrollPosition:UICollectionViewScrollPositionNone];
     }
     [weakSelf.delegate gridViewController:weakSelf
                        didChangeItemCount:weakSelf.items.count];
@@ -1250,14 +1295,12 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
   if ([self.selectedItemID isEqualToString:selectedItemID])
     return;
 
-  [self.collectionView
-      deselectItemAtIndexPath:CreateIndexPath(self.selectedIndex)
-                     animated:NO];
+  [self deselectAllCollectionViewItemsAnimated:NO];
+
   self.selectedItemID = selectedItemID;
-  [self.collectionView
-      selectItemAtIndexPath:CreateIndexPath(self.selectedIndex)
-                   animated:NO
-             scrollPosition:UICollectionViewScrollPositionNone];
+  [self selectCollectionViewItemWithID:self.selectedItemID
+                              animated:NO
+                        scrollPosition:UICollectionViewScrollPositionNone];
   [self updateVisibleCellsOpacity];
 }
 
@@ -1320,12 +1363,13 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
                        [weakSelf.collectionView reloadItemsAtIndexPaths:@[
                          CreateIndexPath(weakSelf.selectedIndex)
                        ]];
-                       [weakSelf.collectionView
-                           selectItemAtIndexPath:CreateIndexPath(
-                                                     weakSelf.selectedIndex)
-                                        animated:NO
-                                  scrollPosition:
-                                      UICollectionViewScrollPositionNone];
+                       [self deselectAllCollectionViewItemsAnimated:NO];
+                       [self
+                           selectCollectionViewItemWithID:weakSelf
+                                                              .selectedItemID
+                                                 animated:NO
+                                           scrollPosition:
+                                               UICollectionViewScrollPositionNone];
                      }
                      completion:nil];
   };
@@ -1346,11 +1390,17 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
 
 - (void)advertizeInactiveTabsWithCount:(NSUInteger)count {
   DCHECK(IsInactiveTabsEnabled());
+
+  // Update `inactiveTabsCount`.
   NSUInteger oldCount = self.inactiveTabsCount;
   if (self.inactiveTabsCount == count) {
     return;
   }
   self.inactiveTabsCount = count;
+
+  if (!IsShowInactiveTabsCountEnabled()) {
+    return;
+  }
 
   // Update the header.
   if (oldCount == 0 || count == 0) {
@@ -1368,7 +1418,7 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
                                 atIndexPath:indexPath]);
     // Note: At this point, `header` could be nil if not visible, or if the
     // supplementary view is not an InactiveTabsButtonHeader.
-    header.button.count = count;
+    [header configureWithCount:count];
   }
 }
 
@@ -1490,9 +1540,56 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
 
 #pragma mark - Private
 
+// Selects the collection view's item with `itemID`.
+- (void)selectCollectionViewItemWithID:(NSString*)itemID
+                              animated:(BOOL)animated
+                        scrollPosition:
+                            (UICollectionViewScrollPosition)scrollPosition {
+  NSUInteger itemIndex = [self indexOfItemWithID:itemID];
+
+  // Check `itemIndex` boundaries in order to filter out possible race
+  // conditions while mutating the collection.
+  if (itemIndex == NSNotFound || itemIndex >= self.items.count) {
+    return;
+  }
+
+  NSIndexPath* itemIndexPath = CreateIndexPath(itemIndex);
+
+  [self.collectionView selectItemAtIndexPath:itemIndexPath
+                                    animated:animated
+                              scrollPosition:scrollPosition];
+}
+
+// Selects the collection view's item with `itemID`.
+- (void)selectCollectionViewItemWithID:(NSString*)itemID
+                              animated:(BOOL)animated {
+  UICollectionViewScrollPosition scrollPosition =
+      (self.currentLayout == self.horizontalLayout)
+          ? UICollectionViewScrollPositionCenteredHorizontally
+          : UICollectionViewScrollPositionTop;
+
+  [self selectCollectionViewItemWithID:itemID
+                              animated:animated
+                        scrollPosition:scrollPosition];
+}
+
+// Deselects all the collection view items.
+- (void)deselectAllCollectionViewItemsAnimated:(BOOL)animated {
+  NSArray<NSIndexPath*>* indexPathsForSelectedItems =
+      [self.collectionView indexPathsForSelectedItems];
+  for (NSIndexPath* itemIndexPath in indexPathsForSelectedItems) {
+    [self.collectionView deselectItemAtIndexPath:itemIndexPath
+                                        animated:animated];
+  }
+}
+
 - (void)voiceOverStatusDidChange {
   self.collectionView.dragInteractionEnabled =
       [self shouldEnableDrapAndDropInteraction];
+}
+
+- (void)preferredContentSizeCategoryDidChange {
+  [self.collectionView.collectionViewLayout invalidateLayout];
 }
 
 - (BOOL)shouldEnableDrapAndDropInteraction {
@@ -1821,6 +1918,24 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
   }];
 
   return [itemIdentifiers copy];
+}
+
+- (CGSize)inactiveTabsButtonHeaderSize {
+  NSString* kind = UICollectionElementKindSectionHeader;
+  NSIndexPath* indexPath = [NSIndexPath indexPathForItem:0
+                                               inSection:kOpenTabsSectionIndex];
+  InactiveTabsButtonHeader* header =
+      base::mac::ObjCCastStrict<InactiveTabsButtonHeader>([self
+                             collectionView:self.collectionView
+          viewForSupplementaryElementOfKind:kind
+                                atIndexPath:indexPath]);
+  CGFloat width = CGRectGetWidth(self.collectionView.bounds);
+  CGSize targetSize = CGSize(width, UILayoutFittingExpandedSize.height);
+  CGSize size =
+      [header systemLayoutSizeFittingSize:targetSize
+            withHorizontalFittingPriority:UILayoutPriorityRequired
+                  verticalFittingPriority:UILayoutPriorityFittingSizeLevel];
+  return CGSizeMake(width, size.height);
 }
 
 #pragma mark Suggested Actions Section

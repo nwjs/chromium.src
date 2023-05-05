@@ -177,10 +177,7 @@ void SettingsUI::RegisterProfilePrefs(
 }
 
 SettingsUI::SettingsUI(content::WebUI* web_ui)
-    : ui::MojoWebUIController(web_ui, /*enable_chrome_send=*/true),
-      webui_load_timer_(web_ui->GetWebContents(),
-                        "Settings.LoadDocumentTime.MD",
-                        "Settings.LoadCompletedTime.MD") {
+    : ui::MojoWebUIController(web_ui, /*enable_chrome_send=*/true) {
   Profile* profile = Profile::FromWebUI(web_ui);
   content::WebUIDataSource* html_source =
       content::WebUIDataSource::CreateAndAdd(
@@ -275,9 +272,10 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
                           has_incompatible_applications);
   html_source->AddBoolean("hasAdminRights", HasAdminRights());
 
-  if (has_incompatible_applications)
+  if (has_incompatible_applications) {
     AddSettingsPageUIHandler(
         std::make_unique<IncompatibleApplicationsHandler>());
+  }
 #endif  // BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
   html_source->AddBoolean("signinAllowed", !profile->IsGuestSession() &&
@@ -401,11 +399,17 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       "importPasswordsSuccessSummaryDevice",
       IDS_SETTINGS_PASSWORDS_IMPORT_SUCCESS_SUMMARY_DEVICE);
   plural_string_handler->AddLocalizedString(
+      "importPasswordsConflictsTitle",
+      IDS_SETTINGS_PASSWORDS_IMPORT_CONFLICTS_TITLE);
+  plural_string_handler->AddLocalizedString(
       "importPasswordsSuccessSummaryAccount",
       IDS_SETTINGS_PASSWORDS_IMPORT_SUCCESS_SUMMARY_ACCOUNT);
   plural_string_handler->AddLocalizedString(
       "importPasswordsBadRowsFormat",
       IDS_SETTINGS_PASSWORDS_IMPORT_BAD_ROWS_FORMAT);
+  plural_string_handler->AddLocalizedString(
+      "importPasswordsFailuresSummary",
+      IDS_SETTINGS_PASSWORDS_IMPORT_FAILURES_SUMMARY);
   plural_string_handler->AddLocalizedString(
       "safetyCheckNotificationPermissionReviewHeaderLabel",
       IDS_SETTINGS_SAFETY_CHECK_REVIEW_NOTIFICATION_PERMISSIONS_HEADER_LABEL);
@@ -465,7 +469,8 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
 
   html_source->AddBoolean(
       "privateStateTokensEnabled",
-      base::FeatureList::IsEnabled(network::features::kPrivateStateTokens));
+      base::FeatureList::IsEnabled(network::features::kPrivateStateTokens) ||
+          base::FeatureList::IsEnabled(network::features::kFledgePst));
 
   html_source->AddBoolean("safetyCheckNotificationPermissionsEnabled",
                           base::FeatureList::IsEnabled(
@@ -525,6 +530,7 @@ void SettingsUI::InitBrowserSettingsWebUIHandlers() {
         ash::phonehub::PhoneHubManagerFactory::GetForProfile(profile);
     ash::eche_app::EcheAppManager* eche_app_manager =
         ash::eche_app::EcheAppManagerFactory::GetForProfile(profile);
+
     web_ui()->AddMessageHandler(std::make_unique<
                                 ash::settings::MultideviceHandler>(
         profile->GetPrefs(),
@@ -539,7 +545,8 @@ void SettingsUI::InitBrowserSettingsWebUIHandlers() {
         android_sms_service ? android_sms_service->android_sms_app_manager()
                             : nullptr,
         eche_app_manager ? eche_app_manager->GetAppsAccessManager() : nullptr,
-        phone_hub_manager ? phone_hub_manager->GetCameraRollManager()
+        phone_hub_manager ? phone_hub_manager->GetCameraRollManager() : nullptr,
+        phone_hub_manager ? phone_hub_manager->GetBrowserTabsModelProvider()
                           : nullptr));
   }
 }
@@ -548,8 +555,9 @@ void SettingsUI::BindInterface(
     mojo::PendingReceiver<
         customize_themes::mojom::CustomizeThemesHandlerFactory>
         pending_receiver) {
-  if (customize_themes_factory_receiver_.is_bound())
+  if (customize_themes_factory_receiver_.is_bound()) {
     customize_themes_factory_receiver_.reset();
+  }
   customize_themes_factory_receiver_.Bind(std::move(pending_receiver));
 }
 #endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
@@ -557,8 +565,9 @@ void SettingsUI::BindInterface(
 void SettingsUI::BindInterface(
     mojo::PendingReceiver<help_bubble::mojom::HelpBubbleHandlerFactory>
         pending_receiver) {
-  if (help_bubble_handler_factory_receiver_.is_bound())
+  if (help_bubble_handler_factory_receiver_.is_bound()) {
     help_bubble_handler_factory_receiver_.reset();
+  }
   help_bubble_handler_factory_receiver_.Bind(std::move(pending_receiver));
 }
 

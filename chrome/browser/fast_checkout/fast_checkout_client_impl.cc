@@ -14,8 +14,8 @@
 #include "chrome/browser/fast_checkout/fast_checkout_enums.h"
 #include "chrome/browser/fast_checkout/fast_checkout_personal_data_helper_impl.h"
 #include "chrome/browser/fast_checkout/fast_checkout_trigger_validator_impl.h"
-#include "chrome/browser/ui/autofill/chrome_autofill_client.h"
 #include "chrome/grit/generated_resources.h"
+#include "components/autofill/content/browser/content_autofill_client.h"
 #include "components/autofill/core/browser/data_model/autofill_profile.h"
 #include "components/autofill/core/browser/data_model/credit_card.h"
 #include "components/autofill/core/common/dense_set.h"
@@ -108,7 +108,7 @@ FastCheckoutClientImpl::FastCheckoutClientImpl(
     content::WebContents* web_contents)
     : content::WebContentsUserData<FastCheckoutClientImpl>(*web_contents),
       autofill_client_(
-          autofill::ChromeAutofillClient::FromWebContents(web_contents)),
+          autofill::ContentAutofillClient::FromWebContents(web_contents)),
       fetcher_(FastCheckoutCapabilitiesFetcherFactory::GetForBrowserContext(
           web_contents->GetBrowserContext())),
       personal_data_helper_(
@@ -132,7 +132,7 @@ bool FastCheckoutClientImpl::TryToStart(
   }
 
   if (!trigger_validator_->ShouldRun(form, field, fast_checkout_ui_state_,
-                                     is_running_, autofill_manager)) {
+                                     is_running_, *autofill_manager)) {
     return false;
   }
 
@@ -368,8 +368,9 @@ void FastCheckoutClientImpl::TryToFillForms() {
         static_cast<autofill::BrowserAutofillManager*>(autofill_manager_.get())
             ->SetFastCheckoutRunId(autofill::FieldTypeGroup::kAddressHome,
                                    run_id_);
-        autofill_manager_->FillProfileForm(*autofill_profile,
-                                           form->ToFormData(), *field);
+        autofill_manager_->FillProfileForm(
+            *autofill_profile, form->ToFormData(), *field,
+            autofill::AutofillTriggerSource::kFastCheckout);
       }
     }
 
@@ -406,8 +407,9 @@ void FastCheckoutClientImpl::FillCreditCardForm(
       FillingState::kFilling;
   static_cast<autofill::BrowserAutofillManager*>(autofill_manager_.get())
       ->SetFastCheckoutRunId(autofill::FieldTypeGroup::kCreditCard, run_id_);
-  autofill_manager_->FillCreditCardForm(form.ToFormData(), field, credit_card,
-                                        cvc);
+  autofill_manager_->FillCreditCardForm(
+      form.ToFormData(), field, credit_card, cvc,
+      autofill::AutofillTriggerSource::kFastCheckout);
 }
 
 autofill::AutofillProfile*
@@ -617,6 +619,18 @@ void FastCheckoutClientImpl::OnNavigation(const GURL& url,
   } else if (!is_cart_or_checkout_url) {
     OnRunComplete(FastCheckoutRunOutcome::kNonCheckoutPage);
   }
+}
+
+bool FastCheckoutClientImpl::IsSupported(
+    const autofill::FormData& form,
+    const autofill::FormFieldData& field,
+    const autofill::AutofillManager& autofill_manager) {
+  return trigger_validator_->ShouldRun(form, field, fast_checkout_ui_state_,
+                                       is_running_, autofill_manager);
+}
+
+bool FastCheckoutClientImpl::IsNotShownYet() const {
+  return fast_checkout_ui_state_ == FastCheckoutUIState::kNotShownYet;
 }
 
 WEB_CONTENTS_USER_DATA_KEY_IMPL(FastCheckoutClientImpl);

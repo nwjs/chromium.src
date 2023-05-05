@@ -55,6 +55,7 @@ dependencies {
     // This library version is hard-coded as it does not match the
     // version of the filepath in the snapshot.
     compile 'androidx.privacysandbox.ads:ads-adservices:1.0.0-alpha01'
+    compile 'androidx.privacysandbox.ads:ads-adservices-java:1.0.0-alpha01'
     compile 'androidx.recyclerview:recyclerview:{{androidx_dependency_version}}'
     compile 'androidx.savedstate:savedstate:{{androidx_dependency_version}}'
     compile 'androidx.slice:slice-builders:{{androidx_dependency_version}}'
@@ -95,10 +96,12 @@ dependencies {
 
     // testCompile targets have test_only = true.
     androidTestCompile 'androidx.fragment:fragment-testing:{{androidx_dependency_version}}'
+    androidTestCompile 'androidx.benchmark:benchmark-macro-junit4:{{androidx_dependency_version}}'
+    androidTestCompile 'androidx.benchmark:benchmark-junit4:{{androidx_dependency_version}}'
     androidTestCompile 'androidx.test:core:1.4.0-rc01'
     androidTestCompile 'androidx.test:monitor:1.4.0-rc01'
     androidTestCompile 'androidx.test:rules:1.2.0'
-    androidTestCompile 'androidx.test:runner:1.2.0'
+    androidTestCompile 'androidx.test:runner:1.5.2'
     androidTestCompile 'androidx.test.espresso:espresso-contrib:3.2.0'
     androidTestCompile 'androidx.test.espresso:espresso-core:3.2.0'
     androidTestCompile 'androidx.test.espresso:espresso-intents:3.2.0'

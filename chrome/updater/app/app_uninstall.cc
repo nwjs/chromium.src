@@ -23,6 +23,7 @@
 #include "chrome/updater/app/app.h"
 #include "chrome/updater/app/app_utils.h"
 #include "chrome/updater/constants.h"
+#include "chrome/updater/lock.h"
 #include "chrome/updater/persisted_data.h"
 #include "chrome/updater/prefs.h"
 #include "chrome/updater/util/util.h"
@@ -88,17 +89,17 @@ class AppUninstall : public App {
 
   void UninstallAll();
 
-  // Conditionally set, if prefs must be acquired for some uninstall scenarios.
-  // Creating the prefs instance may result in deadlocks. Therefore, the prefs
-  // lock can't be taken in all cases.
+  // Inter-process lock taken by AppInstall, AppUninstall, and AppUpdate.
+  std::unique_ptr<ScopedLock> setup_lock_;
+
   scoped_refptr<GlobalPrefs> global_prefs_;
 };
 
 void AppUninstall::Initialize() {
-  const base::CommandLine* command_line =
-      base::CommandLine::ForCurrentProcess();
-  if (command_line->HasSwitch(kUninstallIfUnusedSwitch))
-    global_prefs_ = CreateGlobalPrefs(updater_scope());
+  setup_lock_ =
+      ScopedLock::Create(kSetupMutex, updater_scope(), kWaitForSetupLock);
+
+  global_prefs_ = CreateGlobalPrefs(updater_scope());
 }
 
 void AppUninstall::Uninitialize() {
@@ -118,26 +119,33 @@ void AppUninstall::UninstallAll() {
 }
 
 void AppUninstall::FirstTaskRun() {
+  if (WrongUser(updater_scope())) {
+    VLOG(0) << "The current user is not compatible with the current scope.";
+    Shutdown(kErrorWrongUser);
+    return;
+  }
+
+  if (!setup_lock_) {
+    VLOG(0) << "Failed to acquire setup mutex; shutting down.";
+    Shutdown(kErrorFailedToLockSetupMutex);
+    return;
+  }
+
+  if (!global_prefs_) {
+    VLOG(0) << "Failed to acquire global prefs; shutting down.";
+    Shutdown(kErrorFailedToLockPrefsMutex);
+    return;
+  }
+
   const base::CommandLine* command_line =
       base::CommandLine::ForCurrentProcess();
 
   if (command_line->HasSwitch(kUninstallSwitch)) {
-    CHECK(!global_prefs_);
     UninstallAll();
     return;
   }
 
-  if (command_line->HasSwitch(kUninstallSelfSwitch)) {
-    CHECK(!global_prefs_);
-    base::ThreadPool::PostTaskAndReplyWithResult(
-        FROM_HERE, {base::MayBlock()},
-        base::BindOnce(&UninstallCandidate, updater_scope()),
-        base::BindOnce(&AppUninstall::Shutdown, this));
-    return;
-  }
-
   if (command_line->HasSwitch(kUninstallIfUnusedSwitch)) {
-    CHECK(global_prefs_);
     auto persisted_data = base::MakeRefCounted<PersistedData>(
         updater_scope(), global_prefs_->GetPrefService());
     const bool should_uninstall = ShouldUninstall(

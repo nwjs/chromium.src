@@ -56,10 +56,14 @@ enum class LaunchSource {
   kFromUrlHandler = 31,                // Url handler.
   kFromLockScreen = 32,                // Lock screen app launcher.
   kFromAppHomePage = 33,               // App Home (chrome://apps) page.
+  kFromReparenting = 34,               // Moving content into an app.
+  kFromProfileMenu =
+      35,  // Profile menu of installable chrome://password-manager WebUI.
+  kFromSysTrayCalendar = 36,  // Launches from the system tray Calendar.
 
   // Add any new values above this one, and update kMaxValue to the highest
   // enumerator value.
-  kMaxValue = kFromAppHomePage,
+  kMaxValue = kFromSysTrayCalendar,
 };
 
 // Don't remove items or change the order of this enum.  It's used in

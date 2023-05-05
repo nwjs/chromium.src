@@ -10,13 +10,12 @@
 #include <string>
 #include <vector>
 
-#include "base/containers/enum_set.h"
 #include "base/guid.h"
 #include "base/numerics/checked_math.h"
 #include "base/time/time.h"
 #include "base/types/strong_alias.h"
 #include "base/values.h"
-#include "components/aggregation_service/aggregation_service.mojom.h"
+#include "components/aggregation_service/aggregation_service.mojom-forward.h"
 #include "content/browser/aggregation_service/aggregatable_report.h"
 #include "content/browser/attribution_reporting/aggregatable_histogram_contribution.h"
 #include "content/browser/attribution_reporting/attribution_info.h"
@@ -39,8 +38,6 @@ class CONTENT_EXPORT AttributionReport {
  public:
   using Type = ::attribution_reporting::mojom::ReportType;
 
-  using Types = base::EnumSet<Type, Type::kMinValue, Type::kMaxValue>;
-
   // Struct that contains the data specific to the event-level report.
   struct CONTENT_EXPORT EventLevelData {
     using Id = base::StrongAlias<EventLevelData, int64_t>;
@@ -48,7 +45,8 @@ class CONTENT_EXPORT AttributionReport {
     EventLevelData(uint64_t trigger_data,
                    int64_t priority,
                    double randomized_trigger_rate,
-                   Id id);
+                   Id id,
+                   base::Time initial_report_time);
     EventLevelData(const EventLevelData&);
     EventLevelData& operator=(const EventLevelData&);
     EventLevelData(EventLevelData&&);
@@ -69,6 +67,10 @@ class CONTENT_EXPORT AttributionReport {
 
     // Id assigned by storage to uniquely identify a completed conversion.
     Id id;
+
+    // The initial report time scheduled by the browser.
+    // TODO(tquintanilla): Move to top level with aggregatable equivalent.
+    base::Time initial_report_time;
 
     // When adding new members, the corresponding `operator==()` definition in
     // `attribution_test_utils.h` should also be updated.

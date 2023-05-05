@@ -275,7 +275,8 @@ void RenderAccessibilityImpl::AccessibilityModeChanged(const ui::AXMode& mode) {
 }
 
 void RenderAccessibilityImpl::FireLoadCompleteIfLoaded() {
-  if (GetMainDocument().GetFrame()->GetEmbeddingToken()) {
+  if (GetMainDocument().IsLoaded() &&
+      GetMainDocument().GetFrame()->GetEmbeddingToken()) {
     DCHECK(ax_context_);
     ax_context_->UpdateAXForAllDocuments();
     ax_context_->FireLoadCompleteIfLoaded();
@@ -564,7 +565,7 @@ void RenderAccessibilityImpl::HandleAXEvent(const ui::AXEvent& event) {
   // field, ensure we re-serialize the whole thing including its inline text
   // boxes.
   if (event.event_type == ax::mojom::Event::kFocus && obj.IsEditable())
-    obj.InvalidateSerializerSubtree();
+    obj.MarkSerializerSubtreeDirty();
 #endif
 
   if (!ax_context_->AddPendingEvent(event)) {
@@ -735,7 +736,7 @@ void RenderAccessibilityImpl::AXReadyCallback() {
   // due to an iframe returning 204 or window.stop() being called. In these
   // cases there will never be an AXTreeID as there is no commit, which will
   // prevent accessibility updates from ever being sent even if the rendering is
-  // fixed.
+  // fixed. See also other TODOs related to 1231184 in this file.
   if (!render_frame_->GetWebFrame()->GetAXTreeID().token()) {
     // This <frame> doesn't have a token yet, which would make it impossible
     // to connect to its parent "child tree owner" node.
@@ -818,7 +819,7 @@ void RenderAccessibilityImpl::LegacyScheduleSendPendingAccessibilityEvents(
   // due to an iframe returning 204 or window.stop() being called. In these
   // cases there will never be an AXTreeID as there is no commit, which will
   // prevent accessibility updates from ever being sent even if the rendering is
-  // fixed.
+  // fixed. See also other TODOs related to 1231184.
   if (!render_frame_->GetWebFrame()->GetAXTreeID().token()) {
     return;
   }
@@ -891,13 +892,22 @@ int RenderAccessibilityImpl::GenerateAXID() {
   return ax_context_->GenerateAXID();
 }
 
+ui::AXMode RenderAccessibilityImpl::GetAXMode() const {
+  return accessibility_mode_;
+}
+
 ui::AXTreeID RenderAccessibilityImpl::GetTreeIDForPluginHost() const {
   DCHECK(render_frame_) << "A plugin tree should be under active construction "
                            "only while this render frame is alive.";
   DCHECK(render_frame_->GetWebFrame())
       << "A render frame that contains an actively constructed plugin tree "
          "should be in the list of committed web frames.";
-  // TODO(nektar): Why are some frames without an embedding token?
+  // Note: the AXTreeID comes from an embedding token.
+  // TODO(1231184): There are some cases where no content is currently rendered,
+  // due to an iframe returning 204 or window.stop() being called. In these
+  // cases there will never be an AXTreeID as there is no commit, which will
+  // prevent accessibility updates from ever being sent even if the rendering is
+  // fixed. See also other TODOs related to 1231184 in this file.
   return render_frame_->GetWebFrame()->GetAXTreeID();
 }
 
@@ -943,7 +953,7 @@ void RenderAccessibilityImpl::ShowPluginContextMenu() {
   target->PerformAction(action_data);
 }
 
-WebDocument RenderAccessibilityImpl::GetMainDocument() {
+WebDocument RenderAccessibilityImpl::GetMainDocument() const {
   if (render_frame_ && render_frame_->GetWebFrame())
     return render_frame_->GetWebFrame()->GetDocument();
   return WebDocument();
@@ -1175,7 +1185,7 @@ bool RenderAccessibilityImpl::SerializeUpdatesAndEvents(
     WebAXObject root,
     std::vector<ui::AXEvent>& events,
     std::vector<ui::AXTreeUpdate>& updates,
-    bool invalidate_plugin_subtree) {
+    bool mark_plugin_subtree_dirty) {
   bool had_end_of_test_event = false;
 
   // If there's a layout complete or a scroll changed message, we need to send
@@ -1197,11 +1207,11 @@ bool RenderAccessibilityImpl::SerializeUpdatesAndEvents(
 
   for (auto& update : updates) {
     if (update.node_id_to_clear > 0) {
-      invalidate_plugin_subtree = true;
+      mark_plugin_subtree_dirty = true;
     }
 
     if (plugin_tree_source_) {
-      AddPluginTreeToUpdate(&update, invalidate_plugin_subtree);
+      AddPluginTreeToUpdate(&update, mark_plugin_subtree_dirty);
     }
 
     AddImageAnnotations(document, update.nodes);
@@ -1338,11 +1348,11 @@ void RenderAccessibilityImpl::SendPendingAccessibilityEvents() {
   }
 #endif
 
-  // Keep track of if the host node for a plugin has been invalidated,
+  // Keep track of if the host document for a plugin has been invalidated,
   // because if so, the plugin subtree will need to be re-serialized.
-  bool invalidate_plugin_subtree = false;
+  bool mark_plugin_subtree_dirty = false;
   if (plugin_tree_source_) {
-    invalidate_plugin_subtree = !plugin_host_node_.IsInClientTree();
+    mark_plugin_subtree_dirty = WebAXObject::IsDirty(GetMainDocument());
   }
 
   // The serialized list of updates and events to send to the browser.
@@ -1351,7 +1361,7 @@ void RenderAccessibilityImpl::SendPendingAccessibilityEvents() {
 
   bool need_to_send_location_changes = SerializeUpdatesAndEvents(
       document, root, updates_and_events->events, updates_and_events->updates,
-      invalidate_plugin_subtree);
+      mark_plugin_subtree_dirty);
   if (updates_and_events->updates.empty()) {
     // Do not send a serialization if there are no updates.
     DCHECK(updates_and_events->events.empty())
@@ -1488,7 +1498,7 @@ void RenderAccessibilityImpl::OnGetImageData(const ui::AXActionTarget* target,
     return;
   }
 
-  obj.InvalidateSerializerSubtree();
+  obj.MarkSerializerSubtreeDirty();
   if (!serialize_post_lifecycle_) {
     legacy_event_schedule_mode_ =
         LegacyEventScheduleMode::kProcessEventsImmediately;
@@ -1517,15 +1527,14 @@ void RenderAccessibilityImpl::OnDestruct() {
 
 void RenderAccessibilityImpl::AddPluginTreeToUpdate(
     ui::AXTreeUpdate* update,
-    bool invalidate_plugin_subtree) {
+    bool mark_plugin_subtree_dirty) {
   const WebDocument& document = GetMainDocument();
-  if (invalidate_plugin_subtree)
+  if (mark_plugin_subtree_dirty) {
     plugin_serializer_->Reset();
+  }
 
   for (ui::AXNodeData& node : update->nodes) {
     if (node.role == ax::mojom::Role::kEmbeddedObject) {
-      plugin_host_node_ = WebAXObject::FromWebDocumentByID(document, node.id);
-
       const ui::AXNode* root = plugin_tree_source_->GetRoot();
       node.child_ids.push_back(root->id());
 

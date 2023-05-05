@@ -19,7 +19,6 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.CancellationSignal;
-import android.os.Handler;
 import android.os.SystemClock;
 import android.util.Pair;
 import android.util.TypedValue;
@@ -175,7 +174,6 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelectorProfileSupplier;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorSupplier;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
-import org.chromium.chrome.browser.tasks.ReturnToChromeUtil;
 import org.chromium.chrome.browser.toolbar.ControlContainer;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.chrome.browser.translate.TranslateAssistContent;
@@ -190,7 +188,6 @@ import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager.SnackbarManageable;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManagerProvider;
 import org.chromium.chrome.browser.ui.system.StatusBarColorController;
-import org.chromium.chrome.browser.vr.ArDelegateProvider;
 import org.chromium.chrome.browser.vr.VrModuleProvider;
 import org.chromium.components.browser_ui.accessibility.FontSizePrefs;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
@@ -223,7 +220,8 @@ import org.chromium.components.webapps.AddToHomescreenCoordinator;
 import org.chromium.components.webapps.InstallTrigger;
 import org.chromium.components.webapps.bottomsheet.PwaBottomSheetController;
 import org.chromium.components.webapps.bottomsheet.PwaBottomSheetControllerProvider;
-import org.chromium.components.webxr.ArDelegate;
+import org.chromium.components.webxr.XrDelegate;
+import org.chromium.components.webxr.XrDelegateProvider;
 import org.chromium.content_public.browser.ContentFeatureList;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.ScreenOrientationProvider;
@@ -235,6 +233,7 @@ import org.chromium.printing.PrintingController;
 import org.chromium.printing.PrintingControllerImpl;
 import org.chromium.ui.UiUtils;
 import org.chromium.ui.base.ActivityWindowAndroid;
+import org.chromium.ui.base.ApplicationViewportInsetSupplier;
 import org.chromium.ui.base.Clipboard;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.PageTransition;
@@ -397,13 +396,14 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
     // returned by {@link isInPictureInPictureMode}.
     private boolean mLastPictureInPictureModeForTesting;
 
-    protected BackPressManager mBackPressManager = new BackPressManager(this::handleOnBackPressed);
+    protected BackPressManager mBackPressManager = new BackPressManager();
     private TextBubbleBackPressHandler mTextBubbleBackPressHandler;
     private SelectionPopupBackPressHandler mSelectionPopupBackPressHandler;
     private Callback<TabModelSelector> mSelectionPopupBackPressInitCallback;
     private StylusWritingCoordinator mStylusWritingCoordinator;
     private boolean mBlockingDrawForAppRestart;
     private Runnable mShowContentRunnable;
+    private boolean mIsRecreatingForTabletModeChange;
 
     protected ChromeActivity() {
         mIntentHandler = new IntentHandler(this, createIntentHandlerDelegate());
@@ -645,8 +645,7 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
                     getControlContainerHeightResource());
 
             mBottomContainer.initialize(getBrowserControlsManager(),
-                    getWindowAndroid().getApplicationBottomInsetProvider(),
-                    mManualFillingComponentSupplier.get().getBottomInsetSupplier());
+                    getWindowAndroid().getApplicationBottomInsetSupplier());
 
             ShareDelegate shareDelegate =
                     new ShareDelegateImpl(mRootUiCoordinator.getBottomSheetController(),
@@ -980,6 +979,8 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         if (mDeferredStartupQueued || shouldPostDeferredStartupForReparentedTab()) {
             postDeferredStartupIfNeeded();
         }
+
+        mRootUiCoordinator.restoreUiState(getSavedInstanceState());
     }
 
     /**
@@ -1492,6 +1493,7 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
+        mRootUiCoordinator.onSaveInstanceState(outState, mIsRecreatingForTabletModeChange);
     }
 
     /**
@@ -1664,19 +1666,9 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         // focus dependency is because doing it earlier can cause drawing bugs, e.g. crbug/673831.
         if (!mNativeInitialized || !hasWindowFocus()) return;
 
-        if (!DeviceFormFactor.isNonMultiDisplayContextOnTablet(this)) {
-            changeBackgroundColorForResizing();
-        } else {
-            // Post the background update call as a separate task, as doing it synchronously
-            // here can cause redrawing glitches. See crbug.com/686662 and crbug.com/1260127 for
-            // example problems.
-            Handler handler = new Handler();
-            handler.post(() -> {
-                // The window background color is used as the resizing background color in
-                // Android N+ multi-window mode. See crbug.com/602366.
-                changeBackgroundColorForResizing();
-            });
-        }
+        // The window background color is used as the resizing background color in Android N+
+        // multi-window mode. See crbug.com/602366.
+        changeBackgroundColorForResizing();
         mRemoveWindowBackgroundDone = true;
     }
 
@@ -2038,11 +2030,14 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         compositorViewHolder.setControlContainer(controlContainer);
         compositorViewHolder.setBrowserControlsManager(mBrowserControlsManagerSupplier.get());
         compositorViewHolder.setUrlBar(urlBar);
-        compositorViewHolder.setInsetObserverView(mInsetObserverViewSupplier.get());
-        compositorViewHolder.setAutofillUiBottomInsetSupplier(
+
+        ApplicationViewportInsetSupplier insetSupplier =
+                getWindowAndroid().getApplicationBottomInsetSupplier();
+        insetSupplier.setKeyboardInsetSupplier(
+                mInsetObserverViewSupplier.get().getSupplierForBottomInset());
+        insetSupplier.setKeyboardAccessoryInsetSupplier(
                 mManualFillingComponentSupplier.get().getBottomInsetSupplier());
-        compositorViewHolder.setApplicationViewportInsetSupplier(
-                getWindowAndroid().getApplicationBottomInsetProvider());
+        compositorViewHolder.setApplicationViewportInsetSupplier(insetSupplier);
 
         compositorViewHolder.setTopUiThemeColorProvider(
                 mRootUiCoordinator.getTopUiThemeColorProvider());
@@ -2221,9 +2216,9 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
             return true;
         }
 
-        ArDelegate arDelegate = ArDelegateProvider.getDelegate();
-        if (arDelegate != null && arDelegate.onBackPressed()) {
-            BackPressManager.record(Type.AR_DELEGATE);
+        XrDelegate xrDelegate = XrDelegateProvider.getDelegate();
+        if (xrDelegate != null && xrDelegate.onBackPressed()) {
+            BackPressManager.record(Type.XR_DELEGATE);
             return true;
         }
 
@@ -2280,8 +2275,8 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
             mBackPressManager.addHandler(mTextBubbleBackPressHandler, Type.TEXT_BUBBLE);
             mBackPressManager.addHandler(VrModuleProvider.getDelegate(), Type.VR_DELEGATE);
 
-            if (ArDelegateProvider.getDelegate() != null) {
-                mBackPressManager.addHandler(ArDelegateProvider.getDelegate(), Type.AR_DELEGATE);
+            if (XrDelegateProvider.getDelegate() != null) {
+                mBackPressManager.addHandler(XrDelegateProvider.getDelegate(), Type.XR_DELEGATE);
             }
 
             mLayoutManagerSupplier.addObserver((layoutManager) -> {
@@ -2429,7 +2424,6 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
                 NewTabPageUma.recordAction(NewTabPageUma.ACTION_OPENED_HISTORY_MANAGER);
             }
             RecordUserAction.record("MobileMenuHistory");
-            ReturnToChromeUtil.onHistoryOpened();
             HistoryManagerUtils.showHistoryManager(
                     this, currentTab, getTabModelSelector().isIncognitoSelected());
             RecordHistogram.recordEnumeratedHistogram("Android.OpenHistoryFromMenu.PerProfileType",
@@ -2576,7 +2570,7 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
             if (isEnabled) {
                 WebContentsDarkModeMessageController.attemptToShowDialog(this, profile,
                         url.getSpec(), getModalDialogManager(), new SettingsLauncherImpl(),
-                        HelpAndFeedbackLauncherImpl.getInstance());
+                        HelpAndFeedbackLauncherImpl.getForProfile(profile));
             }
 
             return true;
@@ -2606,7 +2600,7 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         // before starting the GoogleHelp.
         String helpContextId = HelpAndFeedbackLauncherImpl.getHelpContextIdFromUrl(
                 this, url, getCurrentTabModel().isIncognito());
-        HelpAndFeedbackLauncherImpl.getInstance().show(this, helpContextId, profile, url);
+        HelpAndFeedbackLauncherImpl.getForProfile(profile).show(this, helpContextId, url);
         RecordUserAction.record(recordAction);
     }
 
@@ -2813,6 +2807,7 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
             mTabReparentingControllerSupplier.get().prepareTabsForReparenting();
             mIsTabReparentingPrepared = true;
             if (!isFinishing()) {
+                mIsRecreatingForTabletModeChange = true;
                 recreate();
                 mHandler.removeCallbacks(mShowContentRunnable);
                 return true;
@@ -2845,6 +2840,11 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
     @VisibleForTesting
     public BackPressManager getBackPressManagerForTesting() {
         return mBackPressManager;
+    }
+
+    @VisibleForTesting
+    public boolean recreatingForTabletModeChangeForTesting() {
+        return mIsRecreatingForTabletModeChange;
     }
 
     /** Returns whether the print action was successfully started. */

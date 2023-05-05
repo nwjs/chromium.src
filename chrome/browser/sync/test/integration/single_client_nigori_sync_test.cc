@@ -33,6 +33,7 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/password_manager/core/browser/password_manager_features_util.h"
+#include "components/password_manager/core/browser/password_store_interface.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/sync/base/command_line_switches.h"
@@ -45,9 +46,9 @@
 #include "components/sync/test/fake_security_domains_server.h"
 #include "components/sync/test/fake_server_nigori_helper.h"
 #include "components/sync/test/nigori_test_utils.h"
-#include "components/sync/trusted_vault/securebox.h"
-#include "components/sync/trusted_vault/trusted_vault_connection.h"
-#include "components/sync/trusted_vault/trusted_vault_server_constants.h"
+#include "components/trusted_vault/securebox.h"
+#include "components/trusted_vault/trusted_vault_connection.h"
+#include "components/trusted_vault/trusted_vault_server_constants.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/test_launcher.h"
 #include "crypto/ec_private_key.h"
@@ -1299,6 +1300,10 @@ IN_PROC_BROWSER_TEST_F(
   histogram_tester.ExpectTotalCount(
       "Sync.TrustedVaultErrorShownOnStartup.MigratedLastDay",
       /*count=*/0);
+  histogram_tester.ExpectUniqueSample(
+      "Sync.TrustedVaultErrorShownOnFirstTimeSync",
+      /*sample=*/true,
+      /*expected_bucket_count=*/1);
 }
 
 IN_PROC_BROWSER_TEST_F(

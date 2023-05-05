@@ -14,7 +14,6 @@
 #include "base/guid.h"
 #include "base/location.h"
 #include "base/logging.h"
-#include "base/metrics/histogram_functions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
@@ -33,6 +32,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/pref_names.h"
+#include "chromeos/ash/components/attestation/attestation_features.h"
 #include "chromeos/ash/components/attestation/attestation_flow.h"
 #include "chromeos/ash/components/dbus/authpolicy/authpolicy_client.h"
 #include "chromeos/ash/components/dbus/constants/attestation_constants.h"
@@ -59,19 +59,6 @@ namespace em = ::enterprise_management;
 // An enum for PSM execution result values.
 using PsmExecutionResult = em::DeviceRegisterRequest::PsmExecutionResult;
 
-// This enum is used to define the buckets for an enumerated UMA histogram.
-// Hence,
-//   (a) existing enumerated constants should never be deleted or reordered, and
-//   (b) new constants should only be appended at the end of the enumeration
-//       (update tools/metrics/histograms/enums.xml as well).
-enum class EnrollmentAttestationBasedCertificateStatus {
-  kValid = 0,
-  kExpired = 1,
-  kUnknown = 2,
-
-  kMaxValue = kUnknown,  // Must be the last.
-};
-
 class TpmEnrollmentKeySigningServiceProvider final
     : public EnrollmentHandler::SigningServiceProvider {
  public:
@@ -79,17 +66,6 @@ class TpmEnrollmentKeySigningServiceProvider final
     return std::make_unique<TpmEnrollmentKeySigningService>();
   }
 };
-
-// UMAs for status of the first fetched enrollment certificate for registration
-// during attestation-based enrollment.
-constexpr char
-    kMetricEnrollmentAttestationBasedCertificateStatusInitialAttempt[] =
-        "Enterprise.EnrollmentAttestationBased.EnrollmentCertificateStatus."
-        "InitialAttempt";
-constexpr char
-    kMetricEnrollmentAttestationBasedCertificateStatusSubsequentAttempt[] =
-        "Enterprise.EnrollmentAttestationBased.EnrollmentCertificateStatus."
-        "SubsequentAttempt";
 
 // Retry for InstallAttrs initialization every 500ms.
 const int kLockRetryIntervalMs = 500;
@@ -215,20 +191,6 @@ std::string GetActiveDirectoryDomainJoinConfig(
     return std::string();
   }
   return result;
-}
-
-EnrollmentAttestationBasedCertificateStatus CertificateStatusToMetric(
-    ash::attestation::CertificateExpiryStatus status) {
-  switch (status) {
-    case ash::attestation::CertificateExpiryStatus::kValid:
-      return EnrollmentAttestationBasedCertificateStatus::kValid;
-    case ash::attestation::CertificateExpiryStatus::kExpiringSoon:
-    case ash::attestation::CertificateExpiryStatus::kExpired:
-      return EnrollmentAttestationBasedCertificateStatus::kExpired;
-    case ash::attestation::CertificateExpiryStatus::kInvalidPemChain:
-    case ash::attestation::CertificateExpiryStatus::kInvalidX509:
-      return EnrollmentAttestationBasedCertificateStatus::kUnknown;
-  }
 }
 
 }  // namespace
@@ -515,12 +477,47 @@ void EnrollmentHandler::StartAttestationBasedEnrollmentFlow(
   ash::attestation::AttestationFlow::CertificateCallback callback =
       base::BindOnce(&EnrollmentHandler::HandleRegistrationCertificateResult,
                      weak_ptr_factory_.GetWeakPtr(), is_initial_attempt);
+  ash::attestation::AttestationFeatures::GetFeatures(base::BindOnce(
+      &EnrollmentHandler::OnGetFeaturesReady, weak_ptr_factory_.GetWeakPtr(),
+      force_new_key, std::move(callback)));
+}
+
+void EnrollmentHandler::OnGetFeaturesReady(
+    bool force_new_key,
+    ash::attestation::AttestationFlow::CertificateCallback callback,
+    const ash::attestation::AttestationFeatures* features) {
+  if (!features) {
+    LOG(ERROR) << "Failed to get AttestationFeatures.";
+    std::move(callback).Run(ash::attestation::ATTESTATION_UNSPECIFIED_FAILURE,
+                            "");
+    return;
+  }
+  if (!features->IsAttestationAvailable()) {
+    LOG(ERROR) << "The Attestation is not available.";
+    std::move(callback).Run(ash::attestation::ATTESTATION_UNSPECIFIED_FAILURE,
+                            "");
+    return;
+  }
+
+  // prefers ECC certificate if available
+  ::attestation::KeyType key_crypto_type;
+  if (features->IsEccSupported()) {
+    key_crypto_type = ::attestation::KEY_TYPE_ECC;
+  } else if (features->IsRsaSupported()) {
+    key_crypto_type = ::attestation::KEY_TYPE_RSA;
+  } else {
+    LOG(ERROR) << "No appropriate crypto key type supported.";
+    std::move(callback).Run(ash::attestation::ATTESTATION_UNSPECIFIED_FAILURE,
+                            "");
+    return;
+  }
+
   attestation_flow_->GetCertificate(
       /*certificate_profile=*/ash::attestation::
           PROFILE_ENTERPRISE_ENROLLMENT_CERTIFICATE,
       /*account_id=*/EmptyAccountId(), /*request_origin=*/std::string(),
       /*force_new_key=*/force_new_key,
-      /*key_crypto_type=*/::attestation::KEY_TYPE_RSA,
+      /*key_crypto_type=*/key_crypto_type,
       /*key_name=*/ash::attestation::kEnterpriseEnrollmentKey,
       /*profile_specific_data=*/absl::nullopt,
       /*callback=*/std::move(callback));
@@ -543,11 +540,6 @@ void EnrollmentHandler::HandleRegistrationCertificateResult(
       ash::attestation::CheckCertificateExpiry(
           pem_certificate_chain,
           /*expiry_threshold=*/base::TimeDelta());
-  base::UmaHistogramEnumeration(
-      is_initial_attempt
-          ? kMetricEnrollmentAttestationBasedCertificateStatusInitialAttempt
-          : kMetricEnrollmentAttestationBasedCertificateStatusSubsequentAttempt,
-      CertificateStatusToMetric(cert_status));
 
   switch (cert_status) {
     case ash::attestation::CertificateExpiryStatus::kValid:

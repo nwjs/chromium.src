@@ -369,7 +369,8 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
             supported_abis_includes = "x86",
             sdk_is_greater_than = O_MR1, sdk_is_less_than = Q)
     public void testTabToGridFromLiveTab() throws InterruptedException {
-        assertFalse(TabUiFeatureUtilities.isTabToGtsAnimationEnabled());
+        assertFalse(
+                TabUiFeatureUtilities.isTabToGtsAnimationEnabled(mActivityTestRule.getActivity()));
         assertEquals(0, mTabListDelegate.getSoftCleanupDelayForTesting());
         assertEquals(0, mTabListDelegate.getCleanupDelayForTesting());
 
@@ -383,7 +384,8 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
     @CommandLineFlags.Add({BASE_PARAMS})
     @DisabledTest(message = "crbug.com/991852 This test is flaky")
     public void testTabToGridFromLiveTabAnimation() throws InterruptedException {
-        assertTrue(TabUiFeatureUtilities.isTabToGtsAnimationEnabled());
+        assertTrue(
+                TabUiFeatureUtilities.isTabToGtsAnimationEnabled(mActivityTestRule.getActivity()));
 
         prepareTabs(2, 0, NTP_URL);
         testTabToGrid(mUrl);
@@ -397,7 +399,8 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
             supported_abis_includes = "x86",
             sdk_is_greater_than = O_MR1, sdk_is_less_than = Q)
     public void testTabToGridFromLiveTabWarm() throws InterruptedException {
-        assertFalse(TabUiFeatureUtilities.isTabToGtsAnimationEnabled());
+        assertFalse(
+                TabUiFeatureUtilities.isTabToGtsAnimationEnabled(mActivityTestRule.getActivity()));
         assertEquals(2000, mTabListDelegate.getSoftCleanupDelayForTesting());
         assertEquals(10000, mTabListDelegate.getCleanupDelayForTesting());
 
@@ -411,7 +414,8 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
     @CommandLineFlags.Add({BASE_PARAMS + "/soft-cleanup-delay/2000/cleanup-delay/10000"})
     @DisabledTest(message = "https://crbug.com/1207875")
     public void testTabToGridFromLiveTabWarmAnimation() throws InterruptedException {
-        assertTrue(TabUiFeatureUtilities.isTabToGtsAnimationEnabled());
+        assertTrue(
+                TabUiFeatureUtilities.isTabToGtsAnimationEnabled(mActivityTestRule.getActivity()));
         prepareTabs(2, 0, NTP_URL);
         testTabToGrid(mUrl);
     }
@@ -421,7 +425,8 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
     @DisableFeatures(ChromeFeatureList.TAB_TO_GTS_ANIMATION)
     @CommandLineFlags.Add({BASE_PARAMS + "/cleanup-delay/10000"})
     public void testTabToGridFromLiveTabSoft() throws InterruptedException {
-        assertFalse(TabUiFeatureUtilities.isTabToGtsAnimationEnabled());
+        assertFalse(
+                TabUiFeatureUtilities.isTabToGtsAnimationEnabled(mActivityTestRule.getActivity()));
         assertEquals(0, mTabListDelegate.getSoftCleanupDelayForTesting());
         assertEquals(10000, mTabListDelegate.getCleanupDelayForTesting());
 
@@ -435,7 +440,8 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
     @CommandLineFlags.Add({BASE_PARAMS + "/cleanup-delay/10000"})
     @DisabledTest(message = "https://crbug.com/1272561")
     public void testTabToGridFromLiveTabSoftAnimation() throws InterruptedException {
-        assertTrue(TabUiFeatureUtilities.isTabToGtsAnimationEnabled());
+        assertTrue(
+                TabUiFeatureUtilities.isTabToGtsAnimationEnabled(mActivityTestRule.getActivity()));
         prepareTabs(2, 0, NTP_URL);
         testTabToGrid(mUrl);
     }
@@ -444,7 +450,6 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
     @MediumTest
     @EnableFeatures({ChromeFeatureList.TAB_TO_GTS_ANIMATION + "<Study"})
     @CommandLineFlags.Add({BASE_PARAMS})
-    @DisabledTest(message = "crbug.com/1130830")
     public void testTabToGridFromNtp() throws InterruptedException {
         prepareTabs(2, 0, NTP_URL);
         testTabToGrid(NTP_URL);
@@ -499,7 +504,8 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
             supported_abis_includes = "x86",
             sdk_is_greater_than = O_MR1, sdk_is_less_than = Q)
     public void testGridToTabToCurrentLive() throws InterruptedException {
-        assertFalse(TabUiFeatureUtilities.isTabToGtsAnimationEnabled());
+        assertFalse(
+                TabUiFeatureUtilities.isTabToGtsAnimationEnabled(mActivityTestRule.getActivity()));
         prepareTabs(1, 0, mUrl);
         testGridToTab(false, false);
     }
@@ -526,7 +532,8 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
         supported_abis_includes = "x86")
     public void testGridToTabToCurrentLiveDetached() throws Exception {
         // clang-format on
-        assertFalse(TabUiFeatureUtilities.isTabToGtsAnimationEnabled());
+        assertFalse(
+                TabUiFeatureUtilities.isTabToGtsAnimationEnabled(mActivityTestRule.getActivity()));
         // This works on emulators but not on real devices. See crbug.com/986047.
         if (!isEmulator()) return;
 
@@ -566,7 +573,8 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
     @EnableFeatures(ChromeFeatureList.TAB_TO_GTS_ANIMATION + "<Study")
     @DisabledTest(message = "crbug.com/993201 This test fails deterministically on Nexus 5X")
     public void testGridToTabToCurrentLiveWithAnimation() throws InterruptedException {
-        assertTrue(TabUiFeatureUtilities.isTabToGtsAnimationEnabled());
+        assertTrue(
+                TabUiFeatureUtilities.isTabToGtsAnimationEnabled(mActivityTestRule.getActivity()));
         prepareTabs(1, 0, mUrl);
         testGridToTab(false, false);
     }
@@ -576,7 +584,8 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
     @DisableFeatures(ChromeFeatureList.TAB_TO_GTS_ANIMATION)
     @DisabledTest(message = "crbug.com/1313972")
     public void testGridToTabToOtherLive() throws InterruptedException {
-        assertFalse(TabUiFeatureUtilities.isTabToGtsAnimationEnabled());
+        assertFalse(
+                TabUiFeatureUtilities.isTabToGtsAnimationEnabled(mActivityTestRule.getActivity()));
         prepareTabs(2, 0, mUrl);
         testGridToTab(true, false);
     }
@@ -586,7 +595,8 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
     @EnableFeatures(ChromeFeatureList.TAB_TO_GTS_ANIMATION + "<Study")
     @DisabledTest(message = "crbug.com/993201 This test fails deterministically on Nexus 5X")
     public void testGridToTabToOtherLiveWithAnimation() throws InterruptedException {
-        assertTrue(TabUiFeatureUtilities.isTabToGtsAnimationEnabled());
+        assertTrue(
+                TabUiFeatureUtilities.isTabToGtsAnimationEnabled(mActivityTestRule.getActivity()));
         prepareTabs(2, 0, mUrl);
         testGridToTab(true, false);
     }
@@ -596,7 +606,8 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
     @DisableFeatures(ChromeFeatureList.TAB_TO_GTS_ANIMATION)
     @DisabledTest(message = "crbug.com/1237623 test is flaky")
     public void testGridToTabToOtherFrozen() throws InterruptedException {
-        assertFalse(TabUiFeatureUtilities.isTabToGtsAnimationEnabled());
+        assertFalse(
+                TabUiFeatureUtilities.isTabToGtsAnimationEnabled(mActivityTestRule.getActivity()));
         prepareTabs(2, 0, mUrl);
         testGridToTab(true, true);
     }
@@ -885,6 +896,9 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
     @CommandLineFlags.Add({BASE_PARAMS + "/baseline_tab_suggestions/true" +
             "/baseline_close_tab_suggestions/true/min_time_between_prefetches/0/"
         + "thumbnail_aspect_ratio/1.0"})
+    // TODO(crbug/1422295): TabSelectionEditorV2 is currently not compatible with TabSuggestions.
+    // TabSuggestions are not launched and need to be reworked to use TabSelectionEditorV2.
+    @DisableFeatures({ChromeFeatureList.TAB_SELECTION_EDITOR_V2})
     public void testTabSuggestionMessageCard_dismiss() throws InterruptedException {
         // clang-format on
         prepareTabs(3, 0, null);
@@ -917,6 +931,9 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
     @CommandLineFlags.Add({BASE_PARAMS + "/baseline_tab_suggestions/true" +
             "/baseline_close_tab_suggestions/true/min_time_between_prefetches/0"
         + "/thumbnail_aspect_ratio/1.0"})
+    // TODO(crbug/1422295): TabSelectionEditorV2 is currently not compatible with TabSuggestions.
+    // TabSuggestions are not launched and need to be reworked to use TabSelectionEditorV2.
+    @DisableFeatures({ChromeFeatureList.TAB_SELECTION_EDITOR_V2})
     public void testTabSuggestionMessageCard_review() throws InterruptedException {
         // clang-format on
         prepareTabs(3, 0, null);
@@ -950,6 +967,9 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
     @CommandLineFlags.Add({BASE_PARAMS + "/baseline_tab_suggestions/true" +
             "/baseline_close_tab_suggestions/true/min_time_between_prefetches/0/"
         + "thumbnail_aspect_ratio/1.0"})
+    // TODO(crbug/1422295): TabSelectionEditorV2 is currently not compatible with TabSuggestions.
+    // TabSuggestions are not launched and need to be reworked to use TabSelectionEditorV2.
+    @DisableFeatures({ChromeFeatureList.TAB_SELECTION_EDITOR_V2})
     public void testShowOnlyOneTabSuggestionMessageCard_withSoftCleanup()
             throws InterruptedException {
         // clang-format on
@@ -965,6 +985,9 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
     @CommandLineFlags.Add({BASE_PARAMS + "/baseline_tab_suggestions/true" +
             "/baseline_close_tab_suggestions/true/min_time_between_prefetches/0/"
         + "thumbnail_aspect_ratio/1.0"})
+    // TODO(crbug/1422295): TabSelectionEditorV2 is currently not compatible with TabSuggestions.
+    // TabSuggestions are not launched and need to be reworked to use TabSelectionEditorV2.
+    @DisableFeatures({ChromeFeatureList.TAB_SELECTION_EDITOR_V2})
     @DisabledTest(message = "https://crbug.com/1198484, crbug.com/1130621")
     public void testShowOnlyOneTabSuggestionMessageCard_withHardCleanup()
             throws InterruptedException {
@@ -981,6 +1004,9 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
     @CommandLineFlags.Add({BASE_PARAMS + "/baseline_tab_suggestions/true" +
             "/baseline_close_tab_suggestions/true/min_time_between_prefetches/0/"
         + "thumbnail_aspect_ratio/1.0"})
+    // TODO(crbug/1422295): TabSelectionEditorV2 is currently not compatible with TabSuggestions.
+    // TabSuggestions are not launched and need to be reworked to use TabSelectionEditorV2.
+    @DisableFeatures({ChromeFeatureList.TAB_SELECTION_EDITOR_V2})
     @DisabledTest(message = "https://crbug.com/1311825")
     public void testTabSuggestionMessageCardDismissAfterTabClosing() throws InterruptedException {
         // clang-format on
@@ -1015,6 +1041,9 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
     @CommandLineFlags.Add({BASE_PARAMS + "/baseline_tab_suggestions/true" +
             "/baseline_close_tab_suggestions/true/min_time_between_prefetches/0/"
         + "thumbnail_aspect_ratio/1.0"})
+    // TODO(crbug/1422295): TabSelectionEditorV2 is currently not compatible with TabSuggestions.
+    // TabSuggestions are not launched and need to be reworked to use TabSelectionEditorV2.
+    @DisableFeatures({ChromeFeatureList.TAB_SELECTION_EDITOR_V2})
     @DisabledTest(message = "https://crbug.com/1326533")
     public void testTabSuggestionMessageCard_orientation() throws InterruptedException {
         // clang-format on
@@ -1445,9 +1474,13 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
     @Test
     @MediumTest
     @EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID})
-    @DisableFeatures(ChromeFeatureList.TAB_TO_GTS_ANIMATION)
+    // TODO(crbug/1422295): Manual selection for V2 is tested elsewhere in TabSelectionEditorTest.
+    // This can be removed once the feature flag is cleaned up.
+    @DisableFeatures(
+            {ChromeFeatureList.TAB_TO_GTS_ANIMATION, ChromeFeatureList.TAB_SELECTION_EDITOR_V2})
     @DisabledTest(message = "crbug.com/1096997")
-    public void testTabGroupManualSelection() throws InterruptedException {
+    public void
+    testTabGroupManualSelection() throws InterruptedException {
         ChromeTabbedActivity cta = mActivityTestRule.getActivity();
         TabSelectionEditorTestingRobot robot = new TabSelectionEditorTestingRobot();
         createTabs(cta, false, 3);
@@ -1471,6 +1504,9 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
     @Test
     @MediumTest
     @EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID})
+    // TODO(crbug/1422295): Manual selection for V2 is tested elsewhere in TabSelectionEditorTest.
+    // This can be removed once the feature flag is cleaned up.
+    @DisableFeatures({ChromeFeatureList.TAB_SELECTION_EDITOR_V2})
     public void testTabGroupManualSelection_DisabledForSingleTab() {
         ChromeTabbedActivity cta = mActivityTestRule.getActivity();
         TabSelectionEditorTestingRobot robot = new TabSelectionEditorTestingRobot();
@@ -1513,6 +1549,10 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
     // clang-format off
     @EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
             ChromeFeatureList.TAB_TO_GTS_ANIMATION + "<Study"})
+    // TODO(crbug/1422295): System back is partly tested in TabSelectionEditorTest. This test should
+    // stay, but the test fixtures for TabSelectionEditor assume V1 here and need to be updated
+    // during flag cleanup.
+    @DisableFeatures({ChromeFeatureList.TAB_SELECTION_EDITOR_V2})
     public void testTabGroupManualSelection_SystemBackDismiss() {
         // clang-format on
         ChromeTabbedActivity cta = mActivityTestRule.getActivity();
@@ -1554,7 +1594,10 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
     // clang-format off
     @EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
             ChromeFeatureList.CLOSE_TAB_SUGGESTIONS + "<Study"})
-    @DisableFeatures(ChromeFeatureList.TAB_TO_GTS_ANIMATION)
+    // TODO(crbug/1422295): TabSelectionEditorV2 is currently not compatible with TabSuggestions.
+    // TabSuggestions are not launched and need to be reworked to use TabSelectionEditorV2.
+    @DisableFeatures({ChromeFeatureList.TAB_SELECTION_EDITOR_V2,
+                      ChromeFeatureList.TAB_TO_GTS_ANIMATION})
     @CommandLineFlags.Add({BASE_PARAMS + "/baseline_tab_suggestions/true" +
             "/baseline_close_tab_suggestions/true/min_time_between_prefetches/0" +
             "/thumbnail_aspect_ratio/1.0"})
@@ -1713,12 +1756,18 @@ public class TabSwitcherAndStartSurfaceLayoutTest {
 
     @Test
     @MediumTest
-    // clang-format off
     @EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_CONTINUATION_ANDROID,
-            ChromeFeatureList.TAB_TO_GTS_ANIMATION + "<Study"})
-    public void testUndoClosure_AccessibilityMode() throws Exception {
-        // clang-format on
+            ChromeFeatureList.TAB_TO_GTS_ANIMATION + "<Study",
+            ChromeFeatureList.START_SURFACE_WITH_ACCESSIBILITY})
+    // clang-format off
+    @CommandLineFlags.Add({
+            "enable-features=" + ChromeFeatureList.TAB_GROUPS_CONTINUATION_ANDROID + "<Study",
+            "force-fieldtrials=Study/Group",
+            "force-fieldtrial-params=Study.Group:gts-low-end-support/true" +
+                                               "/gts-accessibility-support/true"})
+    // clang-format on
+    public void
+    testUndoClosure_AccessibilityMode() throws Exception {
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> ChromeAccessibilityUtil.get().setAccessibilityEnabledForTesting(true));
         ChromeTabbedActivity cta = mActivityTestRule.getActivity();

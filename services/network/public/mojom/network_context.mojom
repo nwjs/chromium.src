@@ -312,9 +312,6 @@ struct NetworkContextParams {
   // If false, the referrer of requests is never populated.
   bool enable_referrers = true;
 
-  // Whether dns-prefetch and preconnect are allowed.
-  bool enable_preconnect = true;
-
   // If true, requests initiated with referrers that don't match their referrer
   // policy will fail.
   bool validate_referrer_policy_on_initial_request = true;
@@ -880,6 +877,7 @@ interface NetworkContext {
       RestrictedCookieManagerRole role,
       url.mojom.Origin origin,
       IsolationInfo isolation_info,
+      CookieSettingOverrides cookie_setting_overrides,
       pending_remote<CookieAccessObserver>? cookie_observer);
 
   // Provides a TrustTokenQueryAnswerer scoped to the given top-frame origin
@@ -906,6 +904,10 @@ interface NetworkContext {
   //
   // A null |filter| indicates that all Trust Tokens data should be cleared.
   ClearTrustTokenData(ClearDataFilter? filter) => ();
+
+  // Clears session only Trust Tokens data. Depends on CookieSettings
+  // at determining which data is session only.
+  ClearTrustTokenSessionOnlyData() => (bool any_data_deleted);
 
   // Returns the number of signed-but-not-spent Trust Tokens.
   GetStoredTrustTokenCounts()
@@ -1093,9 +1095,6 @@ interface NetworkContext {
   // If false, the referrer of requests is never populated.
   SetEnableReferrers(bool enable_referrers);
 
-  // See 'enable_preconnect' above.
-  SetEnablePreconnect(bool enable_preconnect);
-
   // Updates the additional trust anchors for certificate verification.
   [EnableIf=is_chromeos]
   UpdateAdditionalCertificates(AdditionalCertificates? additional_certificates);
@@ -1118,7 +1117,7 @@ interface NetworkContext {
                   pending_remote<UDPSocketListener>? listener);
 
   // Creates a Restricted UDP socket that wraps an internal UDP Socket connected
-  // or bound to |addr| with |options| depending on the provided |mode|.
+  // or bound to |addr| with |params| depending on the provided |mode|.
   //
   // The socket created can only be used for the purpose specified in
   // |traffic_annotation|, and cannot be re-used for other purposes.
@@ -1136,7 +1135,7 @@ interface NetworkContext {
       IPEndPoint addr,
       RestrictedUDPSocketMode mode,
       MutableNetworkTrafficAnnotationTag traffic_annotation,
-      UDPSocketOptions? options,
+      RestrictedUDPSocketParams? params,
       pending_receiver<RestrictedUDPSocket> receiver,
       pending_remote<UDPSocketListener>? listener)
       => (int32 result, IPEndPoint? local_addr_out);
@@ -1146,15 +1145,14 @@ interface NetworkContext {
   // and cannot be re-used for other purposes. Caller must specify an address
   // family in |local_addr| to be either IPv4 or IPv6. If port in |local_addr|
   // is 0, the OS will pick an available port. If address bytes are 0, the OS
-  // will pick a local address of the specified address family. |backlog| will
-  // be passed to the OS to set the size of accept queue.
+  // will pick a local address of the specified address family.
   // On success, the resulting local address will be written to |local_addr_out|
   // and |result| is net::OK. On failure, |result| is a network error code.
   //
   // Any sockets that are created but are yet to be destroyed will be destroyed
   // when NetworkContext goes away.
   CreateTCPServerSocket(IPEndPoint local_addr,
-                        uint32 backlog,
+                        TCPServerSocketOptions options,
                         MutableNetworkTrafficAnnotationTag traffic_annotation,
                         pending_receiver<TCPServerSocket> socket)
       => (int32 result, IPEndPoint? local_addr_out);

@@ -148,12 +148,6 @@ const char kSupervisedUserApprovedExtensions[] =
     "profile.managed.approved_extensions";
 #endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS) && BUILDFLAG(ENABLE_EXTENSIONS)
 
-#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
-// Integer pref to record the day id (number of days since origin of time) when
-// supervised user metrics were last recorded.
-const char kSupervisedUserMetricsDayId[] = "supervised_user.metrics.day_id";
-#endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS)
-
 #if BUILDFLAG(ENABLE_RLZ)
 // Integer. RLZ ping delay in seconds.
 const char kRlzPingDelaySeconds[] = "rlz_ping_delay";
@@ -336,12 +330,6 @@ const char kSSLErrorOverrideAllowed[] = "ssl.error_override_allowed";
 const char kSSLErrorOverrideAllowedForOrigins[] =
     "ssl.error_override_allowed_for_origins";
 
-// Enum that specifies whether Incognito mode is:
-// 0 - Enabled. Default behaviour. Default mode is available on demand.
-// 1 - Disabled. User cannot browse pages in Incognito mode.
-// 2 - Forced. All pages/sessions are forced into Incognito.
-const char kIncognitoModeAvailability[] = "incognito.mode_availability";
-
 // Boolean that is true when Suggest support is enabled.
 const char kSearchSuggestEnabled[] = "search.suggest_enabled";
 
@@ -409,10 +397,6 @@ const char kNetworkPredictionOptions[] = "net.network_prediction_options";
 // See possible values in external_provider_impl.cc.
 const char kPreinstalledAppsInstallState[] = "default_apps_install_state";
 
-// A boolean pref set to true if the Chrome Web Store icons should be hidden
-// from the New Tab Page and app launcher.
-const char kHideWebStoreIcon[] = "hide_web_store_icon";
-
 #if BUILDFLAG(IS_CHROMEOS)
 // The list of extensions allowed to use the platformKeys API for remote
 // attestation.
@@ -444,54 +428,9 @@ const char kEnableSyncConsent[] = "sync_consent.enabled";
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-// A boolean pref set to true if touchpad tap-to-click is enabled.
-const char kTapToClickEnabled[] = "settings.touchpad.enable_tap_to_click";
-
-// A boolean pref set to true if touchpad three-finger-click is enabled.
-const char kEnableTouchpadThreeFingerClick[] =
-    "settings.touchpad.enable_three_finger_click";
-
-// A boolean pref set to true if primary pointing stick button is the left
-// button.
-const char kPrimaryPointingStickButtonRight[] =
-    "settings.pointing_stick.primary_right";
-
 // Copy of the primary pointing stick buttons option to use on login screen.
 const char kOwnerPrimaryPointingStickButtonRight[] =
     "owner.pointing_stick.primary_right";
-
-// A boolean pref set to true if pointing stick acceleration is enabled. When
-// disabled only simple linear scaling is applied based on sensitivity.
-const char kPointingStickAcceleration[] =
-    "settings.pointing_stick.acceleration";
-
-// A boolean pref set to true if touchpad acceleration is enabled. When
-// disabled only simple linear scaling is applied based on sensitivity.
-const char kTouchpadAcceleration[] = "settings.touchpad.acceleration";
-
-// A boolean pref set to true if touchpad scroll acceleration is enabled. When
-// disabled only simple linear scaling is applied based on sensitivity.
-const char kTouchpadScrollAcceleration[] =
-    "settings.touchpad.scroll_acceleration";
-
-// A boolean pref set to true if touchpad haptic feedback is enabled.
-const char kTouchpadHapticFeedback[] = "settings.touchpad.haptic_feedback";
-
-// A integer pref for the touchpad haptic click sensitivity ranging from Soft
-// feedback to Firm feedback [1, 3, 5].
-const char kTouchpadHapticClickSensitivity[] =
-    "settings.touchpad.haptic_click_sensitivity";
-
-// A integer pref for the touchpad sensitivity.
-const char kTouchpadSensitivity[] = "settings.touchpad.sensitivity2";
-
-// A integer pref for the touchpad scroll sensitivity, in the range
-// [PointerSensitivity::kLowest, PointerSensitivity::kHighest].
-const char kTouchpadScrollSensitivity[] =
-    "settings.touchpad.scroll_sensitivity";
-
-// A integer pref for pointing stick sensitivity.
-const char kPointingStickSensitivity[] = "settings.pointing_stick.sensitivity";
 
 // A boolean pref set to true if time should be displayed in 24-hour clock.
 const char kUse24HourClock[] = "settings.clock.use_24hour_clock";
@@ -891,6 +830,11 @@ const char kSecondEolWarningDismissed[] = "second_eol_warning_dismissed";
 // dismissed by the user.
 const char kEolNotificationDismissed[] = "eol_notification_dismissed";
 
+const char kEolApproachingIncentiveNotificationDismissed[] =
+    "approaching_eol_incentive_dismissed";
+const char kEolPassedFinalIncentiveDismissed[] =
+    "passed_eol_incentive_dismissed";
+
 // A boolean pref that controls whether the PIN autosubmit feature is enabled.
 // This feature, when enabled, exposes the user's PIN length by showing how many
 // digits are necessary to unlock the device. Can be recommended.
@@ -1155,6 +1099,11 @@ const char kSharedStorage[] = "shared_storage";
 // window size.
 const char kForceMaximizeOnFirstRun[] = "ui.force_maximize_on_first_run";
 
+// A list of extensions ids that have to be allowed to run in Incognito by the
+// user in order to use Incognito mode.
+const char kMandatoryExtensionsForIncognitoNavigation[] =
+    "mandatory_extensions_for_incognito_navigation";
+
 // Counter for reporting daily OOM kills count.
 const char kOOMKillsDailyCount[] = "oom_kills.daily_count";
 
@@ -1188,17 +1137,6 @@ const char kShowHomeButton[] = "browser.show_home_button";
 // The old key value is kept to avoid unnecessary migration code.
 const char kSpeechRecognitionFilterProfanities[] =
     "browser.speechinput_censor_results";
-
-// Boolean controlling whether deleting browsing and download history is
-// permitted.
-const char kAllowDeletingBrowserHistory[] = "history.deleting_enabled";
-
-// Boolean controlling whether SafeSearch is mandatory for Google Web Searches.
-const char kForceGoogleSafeSearch[] = "settings.force_google_safesearch";
-
-// Integer controlling whether Restrict Mode (moderate/strict) is mandatory on
-// YouTube. See |safe_search_util::YouTubeRestrictMode| for possible values.
-const char kForceYouTubeRestrict[] = "settings.force_youtube_restrict";
 
 // Comma separated list of domain names (e.g. "google.com,school.edu").
 // When this pref is set, the user will be able to access Google Apps
@@ -1548,14 +1486,6 @@ const char kDeletePrintJobHistoryAllowed[] =
     "printing.delete_print_job_history_allowed";
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
-// An integer pref specifying the fallback behavior for sites outside of content
-// packs. One of:
-// 0: Allow (does nothing)
-// 1: Warn. [Deprecated]
-// 2: Block.
-const char kDefaultSupervisedUserFilteringBehavior[] =
-    "profile.managed.default_filtering_behavior";
-
 // List pref containing the users supervised by this user.
 const char kSupervisedUsers[] = "profile.managed_users";
 
@@ -1601,9 +1531,6 @@ const char kEasyUnlockAllowed[] = "easy_unlock.allowed";
 
 // Preference storing Easy Unlock pairing data.
 const char kEasyUnlockPairing[] = "easy_unlock.pairing";
-
-const char kHasSeenSmartLockSignInRemovedNotification[] =
-    "easy_unlock.has_seen_smart_lock_sign_in_removed_notification";
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 // Used to indicate whether or not the toolbar redesign bubble has been shown
@@ -1710,6 +1637,10 @@ const char kForceMajorVersionToMinorPositionInUserAgent[] =
 // Boolean determining the side the side panel will be appear on (left / right).
 // True when the side panel is aligned to the right.
 const char kSidePanelHorizontalAlignment[] = "side_panel.is_right_aligned";
+// Boolean determining whether the companion side panel should be pinned to have
+// a button in the toolbar.
+const char kSidePanelCompanionEntryPinnedToToolbar[] =
+    "side_panel.companion_pinned_to_toolbar";
 #endif
 
 // Number of minutes of inactivity before running actions from
@@ -1881,11 +1812,15 @@ const char kOfficeSetupComplete[] = "filebrowser.office.setup_complete";
 // Whether we should always move office files without prompting the user first.
 const char kOfficeFilesAlwaysMove[] = "filebrowser.office.always_move";
 
-// Whether at least one file has been moved to OneDrive.
+// Whether the move confirmation dialog has been shown before.
+const char kOfficeMoveConfirmationShown[] =
+    "filebrowser.office.move_confirmation_shown";
+
+// The timestamp of the latest office file automatically moved to OneDrive.
 const char kOfficeFileMovedToOneDrive[] =
     "filebrowser.office.file_moved_one_drive";
 
-// Whether at least one office file has been moved to Google Drive.
+// The timestamp of the latest office file automatically moved to Google Drive.
 const char kOfficeFileMovedToGoogleDrive[] =
     "filebrowser.office.file_moved_google_drive";
 #endif
@@ -2969,16 +2904,6 @@ const char kCryptAuthInstanceIdToken[] = "cryptauth.instance_id_token";
 // A dictionary that maps user id to hardlock state.
 const char kEasyUnlockHardlockState[] = "easy_unlock.hardlock_state";
 
-// A dictionary that maps user id to public part of RSA key pair used by
-// Easy Sign-in for the user.
-const char kEasyUnlockLocalStateTpmKeys[] = "easy_unlock.public_tpm_keys";
-
-// A dictionary in local state containing each user's Easy Unlock profile
-// preferences, so they can be accessed outside of the user's profile. The value
-// is a dictionary containing an entry for each user. Each user's entry mirrors
-// their profile's Easy Unlock preferences.
-const char kEasyUnlockLocalStateUserPrefs[] = "easy_unlock.user_prefs";
-
 // Boolean that indicates whether elevation is needed to recover Chrome upgrade.
 const char kRecoveryComponentNeedsElevation[] =
     "recovery_component.needs_elevation";
@@ -3267,6 +3192,16 @@ const char kAutoplayAllowlist[] = "media.autoplay_whitelist";
 
 // Boolean that specifies whether autoplay blocking is enabled.
 const char kBlockAutoplayEnabled[] = "media.block_autoplay";
+
+// Holds URL patterns that specify origins that will be allowed to call
+// `getDisplayMedia()` without prior user gesture.
+const char kScreenCaptureWithoutGestureAllowedForOrigins[] =
+    "media.screen_capture_without_gesture_allowed_for_origins";
+
+// Holds URL patterns that specify origins that will be allowed to call
+// `show{OpenFile|SaveFile|Directory}Picker()` without prior user gesture.
+const char kFileOrDirectoryPickerWithoutGestureAllowedForOrigins[] =
+    "file_system.file_or_directory_picker_without_allowed_for_origins";
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 // Boolean allowing Chrome to block external protocol navigation in sandboxed
@@ -3663,10 +3598,6 @@ const char kNewBaseUrlInheritanceBehaviorAllowed[] =
 const char kOutOfProcessSystemDnsResolutionEnabled[] =
     "net.out_of_process_system_dns_resolution_enabled";
 #endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX)
-
-#if BUILDFLAG(IS_ANDROID)
-const char kQuickDeleteDialogSuppressed[] = "quick_delete.dialog_suppressed";
-#endif
 
 // A list of hostnames to disable HTTPS Upgrades / HTTPS-First Mode warnings on.
 const char kHttpAllowlist[] = "https_upgrades.policy.http_allowlist";

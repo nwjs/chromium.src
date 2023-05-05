@@ -1065,6 +1065,10 @@
     // (overflow-block:) media feature
     "paged",
 
+    // (update:) media feature
+    "slow",
+    "fast",
+
     // position
     "sticky",
 
@@ -1380,6 +1384,10 @@
     "atan",
     "atan2",
     "acos",
+
+    // Sign related functions
+    "sign",
+    "abs",
 
     //<calc-constant>
     //https://drafts.csswg.org/css-values/#calc-syntax

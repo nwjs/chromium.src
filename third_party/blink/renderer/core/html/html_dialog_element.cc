@@ -26,7 +26,6 @@
 #include "third_party/blink/renderer/core/html/html_dialog_element.h"
 
 #include "third_party/blink/renderer/bindings/core/v8/v8_focus_options.h"
-#include "third_party/blink/renderer/core/accessibility/ax_object_cache.h"
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
 #include "third_party/blink/renderer/core/dom/events/native_event_listener.h"
@@ -39,6 +38,7 @@
 #include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/fullscreen/fullscreen.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_control_element.h"
+#include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/html/html_frame_owner_element.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
@@ -61,7 +61,8 @@ void HTMLDialogElement::SetFocusForDialogLegacy(HTMLDialogElement* dialog) {
           document.GetExecutionContext())) {
     HTMLElement::HideAllPopoversUntil(
         nullptr, document, HidePopoverFocusBehavior::kNone,
-        HidePopoverTransitionBehavior::kFireEventsAndWaitForTransitions);
+        HidePopoverTransitionBehavior::kFireEventsAndWaitForTransitions,
+        HidePopoverIndependence::kHideUnrelated);
   }
 
   dialog->previously_focused_element_ = document.FocusedElement();
@@ -134,7 +135,7 @@ static void InertSubtreesChanged(Document& document,
   // tree can change inertness which means they must be added or removed from
   // the tree. The most foolproof way is to clear the entire tree and rebuild
   // it, though a more clever way is probably possible.
-  document.ClearAXObjectCache();
+  document.RefreshAccessibilityTree();
 }
 
 HTMLDialogElement::HTMLDialogElement(Document& document)
@@ -280,9 +281,7 @@ void HTMLDialogElement::showModal(ExceptionState& exception_state) {
 
   SetIsModal(true);
 
-  // Throw away the AX cache first, so the subsequent steps don't have a chance
-  // of queuing up AX events on objects that would be invalidated when the cache
-  // is thrown away.
+  // Refresh the AX cache first, because most of it is changing.
   InertSubtreesChanged(document, old_modal_dialog);
   document.UpdateStyleAndLayout(DocumentUpdateReason::kJavaScript);
 
@@ -357,7 +356,8 @@ void HTMLDialogElement::SetFocusForDialog() {
           GetDocument().GetExecutionContext())) {
     HTMLElement::HideAllPopoversUntil(
         nullptr, GetDocument(), HidePopoverFocusBehavior::kNone,
-        HidePopoverTransitionBehavior::kFireEventsAndWaitForTransitions);
+        HidePopoverTransitionBehavior::kFireEventsAndWaitForTransitions,
+        HidePopoverIndependence::kHideUnrelated);
   }
 
   Element* control = GetFocusDelegate(/*autofocus_only=*/false);

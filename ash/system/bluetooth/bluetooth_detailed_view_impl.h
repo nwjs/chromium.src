@@ -6,6 +6,7 @@
 #define ASH_SYSTEM_BLUETOOTH_BLUETOOTH_DETAILED_VIEW_IMPL_H_
 
 #include "ash/ash_export.h"
+#include "ash/style/switch.h"
 #include "ash/system/bluetooth/bluetooth_detailed_view.h"
 #include "ash/system/tray/tray_detailed_view.h"
 #include "base/memory/weak_ptr.h"
@@ -14,7 +15,6 @@
 namespace views {
 class Button;
 class ImageView;
-class ToggleButton;
 }  // namespace views
 
 namespace ash {
@@ -47,12 +47,10 @@ class ASH_EXPORT BluetoothDetailedViewImpl : public BluetoothDetailedView,
 
   // TrayDetailedView:
   void HandleViewClicked(views::View* view) override;
+  void CreateExtraTitleRowButtons() override;
 
  private:
   friend class BluetoothDetailedViewImplTest;
-
-  // Creates and configures the title section settings button.
-  void CreateTitleSettingsButton();
 
   // Creates the top rounded container, which contains the main on/off toggle.
   void CreateTopContainer();
@@ -75,7 +73,7 @@ class ASH_EXPORT BluetoothDetailedViewImpl : public BluetoothDetailedView,
   RoundedContainer* top_container_ = nullptr;
   HoverHighlightView* toggle_row_ = nullptr;
   views::ImageView* toggle_icon_ = nullptr;
-  views::ToggleButton* toggle_button_ = nullptr;
+  Switch* toggle_button_ = nullptr;
   RoundedContainer* main_container_ = nullptr;
   HoverHighlightView* pair_new_device_view_ = nullptr;
   views::ImageView* pair_new_device_icon_ = nullptr;

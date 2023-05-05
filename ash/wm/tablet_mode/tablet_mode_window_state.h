@@ -87,7 +87,9 @@ class TabletModeWindowState : public WindowState::State {
 
   // Updates the bounds to the maximum possible bounds according to the current
   // window state. If `animate` is set we animate the change.
-  void UpdateBounds(WindowState* window_state, bool animate);
+  void UpdateBounds(WindowState* window_state,
+                    chromeos::WindowStateType previous_state,
+                    bool animate);
 
   // Handles Alt+[ if `snap_position` is
   // `SplitViewController::SnapPosition::kPrimary`; handles // Alt+] if
@@ -95,8 +97,11 @@ class TabletModeWindowState : public WindowState::State {
   void CycleTabletSnap(WindowState* window_state,
                        SplitViewController::SnapPosition snap_position);
 
-  // Snap the window in tablet split view if it can be snapped.
-  void DoTabletSnap(WindowState* window_state, WMEventType snap_event_type);
+  // Tries to snap the window in tablet split view if possible. Shows a toast if
+  // it cannot be snapped.
+  void DoTabletSnap(WindowState* window_state,
+                    WMEventType snap_event_type,
+                    float snap_ratio);
 
   // Called by `WM_EVENT_RESTORE`, or a `WM_EVENT_NORMAL` that is restoring.
   // Restores to the state in `window_states`'s restore history.

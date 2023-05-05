@@ -315,7 +315,7 @@ TabStrip::Visibility ProtoToTabStripVisibility(
 std::string FilePathToProto(const base::FilePath& path) {
   base::Pickle pickle;
   path.WriteToPickle(&pickle);
-  return std::string(static_cast<const char*>(pickle.data()), pickle.size());
+  return std::string(pickle.data_as_char(), pickle.size());
 }
 
 absl::optional<base::FilePath> ProtoToFilePath(const std::string& bytes) {
@@ -473,9 +473,9 @@ std::unique_ptr<WebAppProto> WebAppDatabase::CreateWebAppProto(
         syncer::TimeToProtoTime(web_app.manifest_update_time()));
   }
 
-  if (web_app.install_source_for_metrics()) {
-    local_data->set_install_source_for_metrics(
-        static_cast<int>(*web_app.install_source_for_metrics()));
+  if (web_app.latest_install_source()) {
+    local_data->set_latest_install_source(
+        static_cast<int>(*web_app.latest_install_source()));
   }
 
   if (web_app.chromeos_data().has_value()) {
@@ -719,6 +719,10 @@ std::unique_ptr<WebAppProto> WebAppDatabase::CreateWebAppProto(
         continue;
       const std::string feature_string(feature_name->second);
       proto_policy.set_feature(feature_string);
+      // TODO(crbug.com/1418009): Consolidate code and filter opaque origins.
+      if (decl.self_if_matches) {
+        proto_policy.add_allowed_origins(decl.self_if_matches->Serialize());
+      }
       for (const auto& origin_with_possible_wildcards : decl.allowed_origins) {
         proto_policy.add_allowed_origins(
             origin_with_possible_wildcards.Serialize());
@@ -1006,12 +1010,12 @@ std::unique_ptr<WebApp> WebAppDatabase::CreateWebApp(
     web_app->SetLastLaunchTime(
         syncer::ProtoTimeToTime(local_data.last_launch_time()));
   }
-  if (local_data.has_install_source_for_metrics()) {
-    int install_source = local_data.install_source_for_metrics();
+  if (local_data.has_latest_install_source()) {
+    int install_source = local_data.latest_install_source();
     if (install_source >= 0 &&
         install_source <
             static_cast<int>(webapps::WebappInstallSource::COUNT)) {
-      web_app->SetInstallSourceForMetrics(
+      web_app->SetLatestInstallSource(
           static_cast<webapps::WebappInstallSource>(install_source));
     }
   }
@@ -1379,9 +1383,15 @@ std::unique_ptr<WebApp> WebAppDatabase::CreateWebApp(
       decl.feature = feature_enum->second;
 
       for (const std::string& origin : decl_proto.allowed_origins()) {
-        decl.allowed_origins.emplace_back(
-            blink::OriginWithPossibleWildcards::Parse(
-                origin, blink::OriginWithPossibleWildcards::NodeType::kHeader));
+        absl::optional<blink::OriginWithPossibleWildcards>
+            maybe_origin_with_possible_wildcards =
+                blink::OriginWithPossibleWildcards::Parse(
+                    origin,
+                    blink::OriginWithPossibleWildcards::NodeType::kHeader);
+        if (maybe_origin_with_possible_wildcards.has_value()) {
+          decl.allowed_origins.emplace_back(
+              *maybe_origin_with_possible_wildcards);
+        }
       }
       decl.matches_all_origins = decl_proto.matches_all_origins();
       decl.matches_opaque_src = decl_proto.matches_opaque_src();
@@ -1526,8 +1536,6 @@ void WebAppDatabase::OnDatabaseOpened(
   }
 
   store_ = std::move(store);
-  // TODO(loyso): Use ReadAllDataAndPreprocess to parse protos in the background
-  // sequence.
   store_->ReadAllData(base::BindOnce(&WebAppDatabase::OnAllDataRead,
                                      weak_ptr_factory_.GetWeakPtr(),
                                      std::move(callback)));

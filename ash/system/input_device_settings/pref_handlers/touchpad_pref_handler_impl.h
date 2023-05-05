@@ -25,14 +25,6 @@ class ASH_EXPORT TouchpadPrefHandlerImpl : public TouchpadPrefHandler {
                                   mojom::Touchpad* touchpad) override;
   void UpdateTouchpadSettings(PrefService* pref_service,
                               const mojom::Touchpad& touchpad) override;
-
- private:
-  mojom::TouchpadSettingsPtr GetNewTouchpadSettings(
-      const mojom::Touchpad& touchpad);
-  mojom::TouchpadSettingsPtr RetreiveTouchpadSettings(
-      PrefService* prefs,
-      const mojom::Touchpad& touchpad,
-      const base::Value::Dict& settings_dict);
 };
 
 }  // namespace ash

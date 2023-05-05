@@ -59,6 +59,7 @@
 #include "components/dom_distiller/core/dom_distiller_features.h"
 #include "components/lens/buildflags.h"
 #include "components/lens/lens_features.h"
+#include "components/policy/core/common/policy_pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/services/screen_ai/buildflags/buildflags.h"
 #include "components/sessions/content/session_tab_helper.h"
@@ -113,8 +114,7 @@
 #include "ui/ozone/public/ozone_platform.h"
 #endif
 
-using WebExposedIsolationLevel =
-    content::RenderFrameHost::WebExposedIsolationLevel;
+using WebExposedIsolationLevel = content::WebExposedIsolationLevel;
 
 using content::NavigationController;
 using content::NavigationEntry;
@@ -202,7 +202,7 @@ BrowserCommandController::BrowserCommandController(Browser* browser)
           &BrowserCommandController::UpdateCommandsForBookmarkBar,
           base::Unretained(this)));
   profile_pref_registrar_.Add(
-      prefs::kIncognitoModeAvailability,
+      policy::policy_prefs::kIncognitoModeAvailability,
       base::BindRepeating(
           &BrowserCommandController::UpdateCommandsForIncognitoAvailability,
           base::Unretained(this)));
@@ -797,6 +797,14 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
     case IDC_MANAGE_EXTENSIONS:
       ShowExtensions(browser_->GetBrowserForOpeningWebUi());
       break;
+    case IDC_EXTENSIONS_SUBMENU_MANAGE_EXTENSIONS:
+      CHECK(base::FeatureList::IsEnabled(features::kExtensionsMenuInAppMenu));
+      ShowExtensions(browser_->GetBrowserForOpeningWebUi());
+      break;
+    case IDC_EXTENSIONS_SUBMENU_VISIT_CHROME_WEB_STORE:
+      CHECK(base::FeatureList::IsEnabled(features::kExtensionsMenuInAppMenu));
+      ShowWebStore(browser_);
+      break;
     case IDC_PERFORMANCE:
       ShowSettingsSubPage(browser_->GetBrowserForOpeningWebUi(),
                           chrome::kPerformanceSubPage);
@@ -1256,6 +1264,7 @@ void BrowserCommandController::InitCommandState() {
   UpdateCommandsForContentRestrictionState();
   UpdateCommandsForBookmarkEditing();
   UpdateCommandsForIncognitoAvailability();
+  UpdateCommandsForExtensionsMenu();
   UpdateCommandsForTabKeyboardFocus(GetKeyboardFocusedTabIndex(browser_));
   UpdateCommandsForWebContentsFocus();
 }
@@ -1313,6 +1322,22 @@ void BrowserCommandController::UpdateCommandsForIncognitoAvailability() {
   if (!IsShowingMainUI()) {
     command_updater_.UpdateCommandEnabled(IDC_IMPORT_SETTINGS, false);
     command_updater_.UpdateCommandEnabled(IDC_OPTIONS, false);
+  }
+}
+
+void BrowserCommandController::UpdateCommandsForExtensionsMenu() {
+  // TODO(crbug.com/401026): Talk with isandrk@chromium.org about whether this
+  // is necessary for the experiment or not.
+  if (is_locked_fullscreen_) {
+    return;
+  }
+
+  if (base::FeatureList::IsEnabled(features::kExtensionsMenuInAppMenu)) {
+    command_updater_.UpdateCommandEnabled(
+        IDC_EXTENSIONS_SUBMENU_MANAGE_EXTENSIONS,
+        /*state=*/true);
+    command_updater_.UpdateCommandEnabled(
+        IDC_EXTENSIONS_SUBMENU_VISIT_CHROME_WEB_STORE, /*state=*/true);
   }
 }
 

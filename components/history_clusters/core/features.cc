@@ -37,17 +37,20 @@ BASE_FEATURE(kJourneysImages,
              "JourneysImages",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+const base::FeatureParam<bool> kJourneysImagesCover{
+    &kJourneysImages, "JourneysImagesCover", true};
+
 BASE_FEATURE(kPersistedClusters,
              "HistoryClustersPersistedClusters",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kOmniboxAction,
              "JourneysOmniboxAction",
-             enabled_by_default_desktop_only);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kOmniboxHistoryClusterProvider,
              "JourneysOmniboxHistoryClusterProvider",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             enabled_by_default_desktop_only);
 
 BASE_FEATURE(kNonUserVisibleDebug,
              "JourneysNonUserVisibleDebug",
@@ -79,6 +82,10 @@ BASE_FEATURE(kHistoryClustersVisitDeduping,
 
 BASE_FEATURE(kJourneysIncludeSyncedVisits,
              "JourneysIncludeSyncedVisits",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kJourneysPersistCachesToPrefs,
+             "JourneysPersistCachesToPrefs",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kHistoryClustersNavigationContextClustering,

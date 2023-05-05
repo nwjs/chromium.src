@@ -30,13 +30,13 @@
 #import "ios/chrome/browser/flags/system_flags.h"
 #import "ios/chrome/browser/main/browser.h"
 #import "ios/chrome/browser/metrics/first_user_action_recorder.h"
+#import "ios/chrome/browser/ntp/new_tab_page_util.h"
 #import "ios/chrome/browser/prefs/pref_names.h"
 #import "ios/chrome/browser/signin/signin_util.h"
 #import "ios/chrome/browser/ui/default_promo/default_browser_utils.h"
 #import "ios/chrome/browser/ui/main/browser_interface_provider.h"
 #import "ios/chrome/browser/ui/main/connection_information.h"
 #import "ios/chrome/browser/ui/main/scene_state.h"
-#import "ios/chrome/browser/ui/ntp/new_tab_page_util.h"
 #import "ios/chrome/browser/url/chrome_url_constants.h"
 #import "ios/chrome/browser/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/widget_kit/features.h"
@@ -363,14 +363,6 @@ using metrics_mediator::kAppDidFinishLaunchingConsecutiveCallsKey;
   base::UmaHistogramCounts100(
       "Startup.ConsecutiveDidFinishLaunchingWithoutLaunch",
       consecutiveDidFinishLaunching);
-
-  if ([connectionInformation startupParameters]) {
-    base::UmaHistogramTimes("Startup.ColdStartWithExternalURLTime",
-                            mainToNowTime);
-  } else {
-    base::UmaHistogramTimes("Startup.ColdStartWithoutExternalURLTime",
-                            mainToNowTime);
-  }
 #if BUILDFLAG(IOS_ENABLE_SANDBOX_DUMP)
   DumpEnvironment(startupInformation);
 #endif  // BUILDFLAG(IOS_ENABLE_SANDBOX_DUMP)
@@ -636,8 +628,6 @@ using metrics_mediator::kAppDidFinishLaunchingConsecutiveCallsKey;
 
 + (void)applicationDidEnterBackground:(NSInteger)memoryWarningCount {
   base::RecordAction(base::UserMetricsAction("MobileEnteredBackground"));
-  base::UmaHistogramCounts100("MemoryWarning.OccurrencesPerSession",
-                              memoryWarningCount);
 
   task_vm_info task_info_data;
   mach_msg_type_number_t count = sizeof(task_vm_info) / sizeof(natural_t);

@@ -5,7 +5,7 @@
 import {BacklightColor, KeyboardBacklightProviderInterface} from '../../personalization_app.mojom-webui.js';
 import {PersonalizationStore} from '../personalization_store.js';
 
-import {setBacklightColorAction, setShouldShowNudgeAction} from './keyboard_backlight_actions.js';
+import {setCurrentBacklightStateAction, setShouldShowNudgeAction} from './keyboard_backlight_actions.js';
 
 /**
  * @fileoverview contains all of the functions to interact with keyboard
@@ -19,8 +19,21 @@ export function setBacklightColor(
     provider: KeyboardBacklightProviderInterface, store: PersonalizationStore) {
   provider.setBacklightColor(backlightColor);
 
-  // Dispatch action to highlight backlight color.
-  store.dispatch(setBacklightColorAction(backlightColor));
+  // Dispatch action to set the current backlight state - color.
+  store.dispatch(setCurrentBacklightStateAction({color: backlightColor}));
+}
+
+// Set the keyboard backlight color for the given zone.
+export function setBacklightZoneColor(
+    zone: number, backlightColor: BacklightColor, zoneColors: BacklightColor[],
+    provider: KeyboardBacklightProviderInterface, store: PersonalizationStore) {
+  provider.setBacklightZoneColor(zone, backlightColor);
+
+  // Dispatch action to set the current backlight state - zone colors.
+  const updatedZoneColors = [...zoneColors];
+  updatedZoneColors[zone] = backlightColor;
+  store.dispatch(
+      setCurrentBacklightStateAction({zoneColors: updatedZoneColors}));
 }
 
 // Set the should show nudge boolean.

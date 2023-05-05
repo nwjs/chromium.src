@@ -18,7 +18,6 @@
 #include "chrome/browser/ash/policy/core/browser_policy_connector_ash.h"
 #include "chrome/browser/ash/policy/core/device_policy_cros_browser_test.h"
 #include "chrome/browser/notifications/notification_display_service_tester.h"
-#include "chrome/browser/preloading/prefetch/prefetch_proxy/prefetch_proxy_test_utils.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/login/login_handler.h"
 #include "chrome/browser/ui/login/login_handler_test_utils.h"
@@ -566,11 +565,11 @@ IN_PROC_BROWSER_TEST_F(SystemProxyManagerPolicyCredentialsBrowserTest,
   ExpectSystemCredentialsSent("", "");
 
   // Configure a proxy via user policy.
-  base::Value proxy_config(base::Value::Type::DICT);
-  proxy_config.SetKey("mode", base::Value(ProxyPrefs::kPacScriptProxyModeName));
-  proxy_config.SetKey("pac_url", base::Value("http://proxy"));
-  browser()->profile()->GetPrefs()->Set(::proxy_config::prefs::kProxy,
-                                        proxy_config);
+  base::Value::Dict proxy_config;
+  proxy_config.Set("mode", ProxyPrefs::kPacScriptProxyModeName);
+  proxy_config.Set("pac_url", "http://proxy");
+  browser()->profile()->GetPrefs()->SetDict(::proxy_config::prefs::kProxy,
+                                            std::move(proxy_config));
   RunUntilIdle();
   EXPECT_EQ(++set_auth_details_call_count,
             client_test_interface()->GetSetAuthenticationDetailsCallCount());
@@ -583,8 +582,8 @@ IN_PROC_BROWSER_TEST_F(SystemProxyManagerPolicyCredentialsBrowserTest,
                        UserSetProxy) {
   SetPolicyCredentials(kUsername, kPassword);
   base::Value::Dict proxy_config;
-  proxy_config.Set("mode", base::Value(ProxyPrefs::kFixedServersProxyModeName));
-  proxy_config.Set("server", base::Value("proxy:8080"));
+  proxy_config.Set("mode", ProxyPrefs::kFixedServersProxyModeName);
+  proxy_config.Set("server", "proxy:8080");
   SetProxyConfigForNetworkService(kDefaultServicePath, std::move(proxy_config));
   RunUntilIdle();
   int set_auth_details_call_count = 0;
@@ -661,13 +660,11 @@ class SystemProxyCredentialsReuseBrowserTest
 
   void SetManagedProxy() {
     // Configure a proxy via user policy.
-    base::Value proxy_config(base::Value::Type::DICT);
-    proxy_config.SetKey("mode",
-                        base::Value(ProxyPrefs::kFixedServersProxyModeName));
-    proxy_config.SetKey(
-        "server", base::Value(proxy_server_->host_port_pair().ToString()));
-    browser()->profile()->GetPrefs()->Set(::proxy_config::prefs::kProxy,
-                                          proxy_config);
+    base::Value::Dict proxy_config;
+    proxy_config.Set("mode", ProxyPrefs::kFixedServersProxyModeName);
+    proxy_config.Set("server", proxy_server_->host_port_pair().ToString());
+    browser()->profile()->GetPrefs()->SetDict(::proxy_config::prefs::kProxy,
+                                              std::move(proxy_config));
     RunUntilIdle();
   }
 

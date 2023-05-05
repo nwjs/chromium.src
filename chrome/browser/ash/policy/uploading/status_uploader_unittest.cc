@@ -57,8 +57,9 @@ class MockDeviceStatusCollector : public DeviceStatusCollector {
   std::unique_ptr<DeviceLocalAccount> GetAutoLaunchedKioskSessionInfo()
       override {
     return std::make_unique<DeviceLocalAccount>(
-        DeviceLocalAccount::TYPE_KIOSK_APP, "account_id", "app_id",
-        "update_url");
+        DeviceLocalAccount::TYPE_KIOSK_APP,
+        policy::DeviceLocalAccount::EphemeralMode::kUnset, "account_id",
+        "app_id", "update_url");
   }
 };
 
@@ -112,7 +113,7 @@ class StatusUploaderTest : public testing::Test {
     // Running the status collected callback should trigger
     // CloudPolicyClient::UploadDeviceStatus.
     CloudPolicyClient::ResultCallback callback;
-    EXPECT_CALL(client_, UploadDeviceStatus_).WillOnce(MoveArg<3>(&callback));
+    EXPECT_CALL(client_, UploadDeviceStatus).WillOnce(MoveArg<3>(&callback));
 
     // Send some "valid" (read: non-nullptr) device/session data to the
     // callback in order to simulate valid status data.
@@ -260,7 +261,7 @@ TEST_F(StatusUploaderTest, ResetTimerAfterUnregisteredClient) {
   // Running the status collected callback should trigger
   // CloudPolicyClient::UploadDeviceStatus.
   CloudPolicyClient::ResultCallback callback;
-  EXPECT_CALL(client_, UploadDeviceStatus_).WillOnce(MoveArg<3>(&callback));
+  EXPECT_CALL(client_, UploadDeviceStatus).WillOnce(MoveArg<3>(&callback));
 
   // Send some "valid" (read: non-nullptr) device/session data to the
   // callback in order to simulate valid status data.

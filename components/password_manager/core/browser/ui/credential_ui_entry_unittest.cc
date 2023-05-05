@@ -186,15 +186,31 @@ TEST(CredentialUIEntryTest, CredentialUIEntryInsecureHelpers) {
 
   auto leaked_entry = CreateInsecureCredential(InsecureType::kLeaked);
   EXPECT_TRUE(leaked_entry.IsLeaked());
+  EXPECT_TRUE(IsCompromised(leaked_entry));
 
   auto phished_entry = CreateInsecureCredential(InsecureType::kPhished);
   EXPECT_TRUE(phished_entry.IsPhished());
+  EXPECT_TRUE(IsCompromised(phished_entry));
 
   auto weak_entry = CreateInsecureCredential(InsecureType::kWeak);
   EXPECT_TRUE(weak_entry.IsWeak());
 
   auto reused_entry = CreateInsecureCredential(InsecureType::kReused);
   EXPECT_TRUE(reused_entry.IsReused());
+}
+
+TEST(CredentialUIEntryTest, TestGetAffiliatedDomainsWithDuplicates) {
+  PasswordForm form1;
+  form1.signon_realm = "https://g.com/";
+  form1.url = GURL("https://g.com/");
+
+  PasswordForm form2;
+  form2.signon_realm = "https://g.com/";
+  form2.url = GURL("https://g.com/");
+
+  CredentialUIEntry entry = CredentialUIEntry({form1, form2});
+  EXPECT_THAT(entry.GetAffiliatedDomains(),
+              ElementsAre(ExpectDomain("g.com", form1.url)));
 }
 
 }  // namespace password_manager

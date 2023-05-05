@@ -245,7 +245,7 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
     UIResourceData& operator=(UIResourceData&&);
 
     bool opaque;
-    viz::ResourceFormat format;
+    viz::SharedImageFormat format;
 
     // Backing for software compositing.
     viz::SharedBitmapId shared_bitmap_id;
@@ -914,6 +914,8 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   void SetDownsampleMetricsForTesting(bool value) {
     downsample_metrics_ = value;
   }
+
+  std::string GetHungCommitDebugInfo() const;
 
  protected:
   LayerTreeHostImpl(

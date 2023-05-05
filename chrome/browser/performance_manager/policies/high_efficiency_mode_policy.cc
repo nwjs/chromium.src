@@ -152,7 +152,7 @@ void HighEfficiencyModePolicy::DiscardPageTimerCallback(
   DCHECK(IsHighEfficiencyDiscardingEnabled());
 
   PageDiscardingHelper::GetFromGraph(graph_)->ImmediatelyDiscardSpecificPage(
-      page_node);
+      page_node, PageDiscardingHelper::DiscardReason::PROACTIVE);
 }
 
 }  // namespace performance_manager::policies

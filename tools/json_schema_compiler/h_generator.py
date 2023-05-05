@@ -25,6 +25,8 @@ class _Generator(object):
     self._type_helper = cpp_type_generator
     self._generate_error_messages = namespace.compiler_options.get(
         'generate_error_messages', False)
+    self._modernised_enums = namespace.compiler_options.get(
+        'modernised_enums', False)
 
   def Generate(self):
     """Generates a Code object with the .h for a single namespace.
@@ -148,13 +150,20 @@ class _Generator(object):
     """Generate a code object with the  declaration of a C++ enum.
     """
     c = Code()
-    c.Sblock('enum %s {' % enum_name)
-    c.Append(self._type_helper.GetEnumNoneValue(type_) + ',')
+    c.Sblock('enum {enum_type} {name} {{'.format(
+      enum_type=('class' if self._modernised_enums else ''),
+      name=enum_name))
+    c.Append(self._type_helper.GetEnumNoneValue(type_, full_name=False) + ',')
+
     for value in type_.enum_values:
-      current_enum_string = self._type_helper.GetEnumValue(type_, value)
+      current_enum_string = (
+        self._type_helper.GetEnumValue(type_, value, full_name=False))
       c.Append(current_enum_string + ',')
-    c.Append('%s = %s,' % (
-        self._type_helper.GetEnumLastValue(type_), current_enum_string))
+
+    c.Append('{last_key} = {last_key_value},'.format(
+        last_key=self._type_helper.GetEnumLastValue(type_),
+        last_key_value=current_enum_string))
+
     c.Eblock('};')
     return c
 
@@ -220,7 +229,7 @@ class _Generator(object):
       (c.Append()
         .Append('%sconst char* ToString(%s as_enum);' %
                 (maybe_static, classname))
-        .Append('%s%s Parse%s(const std::string& as_string);' %
+        .Append('%s%s Parse%s(base::StringPiece as_string);' %
                 (maybe_static, classname, classname))
       )
     elif type_.property_type in (PropertyType.CHOICES,
@@ -242,24 +251,39 @@ class _Generator(object):
         c.Comment('Manifest key constants.')
         c.Concat(self._GenerateManifestKeyConstants(type_.properties.values()))
 
+      value_type = ('base::Value'
+                    if type_.property_type is PropertyType.CHOICES else
+                    'base::Value::Dict')
+
       if type_.origin.from_json:
         (c.Append()
-          .Comment('Populates a %s object from a base::Value. Returns'
-                   ' whether |out| was successfully populated.' % classname)
+          .Comment('Populates a %s object from a base::Value& instance. Returns'
+                   ' whether |out| was successfully populated.' %  classname)
           .Append('static bool Populate(%s);' % self._GenerateParams(
-              ('const base::Value& value', '%s* out' % classname)))
+              ('const base::Value& value', '%s& out' % classname)))
         )
+        if type_.property_type is not PropertyType.CHOICES:
+          (c.Append()
+            .Comment('Populates a %s object from a Dict& instance. Returns'
+                    ' whether |out| was successfully populated.' %  classname)
+            .Append('static bool Populate(%s);' % self._GenerateParams(
+                ('const base::Value::Dict& value', '%s& out' % classname)))
+          )
         if is_toplevel:
           (c.Append()
             .Comment('Creates a %s object from a base::Value, or NULL on '
                      'failure.' % classname)
-            .Append('static std::unique_ptr<%s> FromValue(%s);' % (
+            .Append('static std::unique_ptr<%s> FromValueDeprecated(%s);' % (
                 classname, self._GenerateParams(('const base::Value& value',))))
           )
+          (c.Append()
+            .Comment('Creates a %s object from a base::Value, or nullopt on '
+                     'failure.' % classname)
+            .Append('static absl::optional<%s> FromValue(%s);' % (
+                classname, self._GenerateParams(
+                  ('const %s& value' % value_type,))))
+          )
       if type_.origin.from_client:
-        value_type = ('base::Value'
-                      if type_.property_type is PropertyType.CHOICES else
-                      'base::Value::Dict')
         (c.Append()
           .Comment('Returns a new %s representing the serialized form of this'
                    '%s object.' % (value_type, classname))
@@ -337,11 +361,13 @@ class _Generator(object):
 
     c = Code()
     (c.Sblock('struct Params {')
-      .Append('static std::unique_ptr<Params> Create(%s);' %
+      .Append('static absl::optional<Params> Create(%s);' %
                   self._GenerateParams(
                       ('const base::Value::List& args',)))
       .Append('Params(const Params&) = delete;')
       .Append('Params& operator=(const Params&) = delete;')
+      .Append('Params(Params&& rhs);')
+      .Append('Params& operator=(Params&& rhs);')
       .Append('~Params();')
       .Append()
       .Cblock(self._GenerateTypes(p.type_ for p in function.params))

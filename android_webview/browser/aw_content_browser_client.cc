@@ -602,8 +602,9 @@ AwContentBrowserClient::CreateURLLoaderThrottles(
            features::kWebViewRestrictSensitiveContent))) {
     auto* origin_verification_bridge =
         AwOriginVerificationSchedulerBridge::GetInstance();
-    result.push_back(digital_asset_links::BrowserURLLoaderThrottle::Create(
-        origin_verification_bridge));
+    result.push_back(
+        content_relationship_verification::BrowserURLLoaderThrottle::Create(
+            origin_verification_bridge));
   }
 
   result.push_back(safe_browsing::BrowserURLLoaderThrottle::Create(
@@ -617,7 +618,8 @@ AwContentBrowserClient::CreateURLLoaderThrottles(
       // used to perform real time URL check, which is gated by UKM opted-in.
       // Since AW currently doesn't support UKM, this feature is not enabled.
       /* rt_lookup_service */ nullptr,
-      /* hash_realtime_service */ nullptr));
+      /* hash_realtime_service */ nullptr,
+      /* ping_manager */ nullptr));
 
   if (request.destination == network::mojom::RequestDestination::kDocument) {
     const bool is_load_url =
@@ -639,7 +641,10 @@ AwContentBrowserClient::CreateURLLoaderThrottles(
 
 scoped_refptr<safe_browsing::UrlCheckerDelegate>
 AwContentBrowserClient::GetSafeBrowsingUrlCheckerDelegate() {
-  DCHECK_CURRENTLY_ON(BrowserThread::IO);
+  DCHECK_CURRENTLY_ON(
+      base::FeatureList::IsEnabled(safe_browsing::kSafeBrowsingOnUIThread)
+          ? content::BrowserThread::UI
+          : content::BrowserThread::IO);
 
   if (!safe_browsing_url_checker_delegate_) {
     safe_browsing_url_checker_delegate_ = new AwUrlCheckerDelegateImpl(
@@ -1044,11 +1049,11 @@ void AwContentBrowserClient::LogWebFeatureForCurrentPage(
       render_frame_host, feature);
 }
 
-bool AwContentBrowserClient::ShouldAllowInsecurePrivateNetworkRequests(
+bool AwContentBrowserClient::ShouldAllowInsecureLocalNetworkRequests(
     content::BrowserContext* browser_context,
     const url::Origin& origin) {
   // Webview does not implement support for deprecation trials, so webview apps
-  // broken by Private Network Access restrictions cannot help themselves by
+  // broken by Local Network Access restrictions cannot help themselves by
   // registering for the trial.
   // See crbug.com/1255675.
   return true;
@@ -1071,7 +1076,8 @@ bool AwContentBrowserClient::SuppressDifferentOriginSubframeJSDialogs(
 
 bool AwContentBrowserClient::ShouldPreconnectNavigation(
     content::BrowserContext* browser_context) {
-  return true;
+  // This didn't make a performance improvement in WebView.
+  return false;
 }
 
 void AwContentBrowserClient::OnDisplayInsecureContent(

@@ -11,6 +11,7 @@
 #include "ash/app_list/app_list_controller_impl.h"
 #include "ash/constants/ash_features.h"
 #include "ash/constants/notifier_catalogs.h"
+#include "ash/public/cpp/app_types_util.h"
 #include "ash/public/cpp/desk_template.h"
 #include "ash/public/cpp/shelf_model.h"
 #include "ash/public/cpp/shelf_types.h"
@@ -55,6 +56,7 @@
 #include "base/containers/unique_ptr_adapters.h"
 #include "base/cxx17_backports.h"
 #include "base/debug/crash_logging.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/functional/bind.h"
 #include "base/guid.h"
 #include "base/i18n/number_formatting.h"
@@ -62,6 +64,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
 #include "base/ranges/algorithm.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
@@ -610,6 +613,10 @@ void DesksController::NewDesk(DesksCreationRemovalSource source) {
     UMA_HISTOGRAM_ENUMERATION(kNewDeskHistogramName, source);
     ReportDesksCountHistogram();
   }
+}
+
+bool DesksController::HasDesk(const Desk* desk) const {
+  return base::Contains(desks_, desk, &std::unique_ptr<Desk>::get);
 }
 
 void DesksController::RemoveDesk(const Desk* desk,
@@ -1575,10 +1582,6 @@ void DesksController::OnAnimationFinished(DeskAnimationBase* animation) {
   animation_.reset();
 }
 
-bool DesksController::HasDesk(const Desk* desk) const {
-  return base::Contains(desks_, desk, &std::unique_ptr<Desk>::get);
-}
-
 bool DesksController::HasDeskWithName(const std::u16string& desk_name) const {
   return base::Contains(desks_, desk_name, &Desk::name);
 }
@@ -2046,7 +2049,11 @@ void DesksController::CleanUpClosedAppWindowsTask(
     // logic. However, the desk controller has waited for the app window to
     // close cleanly before this.
     if (widget) {
-      widget->CloseNow();
+      // TODO(b/276351837): Remove this ARC check once we have a better way of
+      // closing ARC++ windows.
+      if (!IsArcWindow(window)) {
+        widget->CloseNow();
+      }
     } else {
       // If the window does not have a widget, we add it to the
       // `widgetless_windows` tracker to check back on later.
@@ -2055,7 +2062,7 @@ void DesksController::CleanUpClosedAppWindowsTask(
   }
 
   // We post a delayed task to check that all of the windows in
-  // `widgetless_windows` eventually end up closing.
+  // `widgetless_windows eventually end up closing.
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
       FROM_HERE,
       base::BindOnce(&ReportNumberOfZombieWindows,
@@ -2118,7 +2125,22 @@ void DesksController::RestackVisibleOnAllDesksWindowsOnActiveDesk() {
     auto* desk_container =
         visible_on_all_desks_window->GetRootWindow()->GetChildById(
             active_desk_->container_id());
-    DCHECK_EQ(desk_container, visible_on_all_desks_window->parent());
+    if (desk_container != visible_on_all_desks_window->parent()) {
+      // TODO(b/252556509): Clean this up when the root cause has been resolved.
+      // This can sometimes happen and we're still trying to nail down the root
+      // cause. Rather than proceeding to stack the window (which will crash),
+      // we'll log some info and skip the window.
+      SCOPED_CRASH_KEY_NUMBER("Restack", "adw_type",
+                              visible_on_all_desks_window->GetType());
+      SCOPED_CRASH_KEY_NUMBER(
+          "Restack", "adw_app_type",
+          visible_on_all_desks_window->GetProperty(aura::client::kAppType));
+      SCOPED_CRASH_KEY_STRING32(
+          "Restack", "adw_app_id",
+          full_restore::GetAppId(visible_on_all_desks_window));
+      base::debug::DumpWithoutCrashing();
+      continue;
+    }
 
     // Search through the MRU list for the next element that shares the same
     // parent. This will be used to stack |visible_on_all_desks_window| in

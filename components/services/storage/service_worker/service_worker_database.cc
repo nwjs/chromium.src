@@ -1480,9 +1480,8 @@ ServiceWorkerDatabase::PurgeUncommittedResourceIds(
   return WriteBatch(&batch);
 }
 
-ServiceWorkerDatabase::Status
-ServiceWorkerDatabase::DeleteAllDataForStorageKeys(
-    const std::set<blink::StorageKey>& keys,
+ServiceWorkerDatabase::Status ServiceWorkerDatabase::DeleteAllDataForOrigins(
+    const std::set<url::Origin>& origins,
     std::vector<int64_t>* newly_purgeable_resources) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   Status status = LazyOpen(false);
@@ -1503,10 +1502,7 @@ ServiceWorkerDatabase::DeleteAllDataForStorageKeys(
   for (const mojom::ServiceWorkerRegistrationDataPtr& reg : registrations) {
     blink::StorageKey& key = reg->key;
 
-    for (const blink::StorageKey& requested_key : keys) {
-      // Only the origin of the requested key is relevant.
-      const url::Origin& requested_origin = requested_key.origin();
-
+    for (const url::Origin& requested_origin : origins) {
       if (requested_origin.opaque()) {
         return Status::kErrorFailed;
       }
@@ -1702,10 +1698,10 @@ network::mojom::ReferrerPolicy ConvertReferrerPolicyFromProtocolBufferToMojom(
 network::mojom::IPAddressSpace ConvertIPAddressSpaceFromProtocolBufferToMojom(
     ServiceWorkerRegistrationData::IPAddressSpace value) {
   switch (value) {
+    case ServiceWorkerRegistrationData::LOOPBACK:
+      return network::mojom::IPAddressSpace::kLoopback;
     case ServiceWorkerRegistrationData::LOCAL:
       return network::mojom::IPAddressSpace::kLocal;
-    case ServiceWorkerRegistrationData::PRIVATE:
-      return network::mojom::IPAddressSpace::kPrivate;
     case ServiceWorkerRegistrationData::PUBLIC:
       return network::mojom::IPAddressSpace::kPublic;
     case ServiceWorkerRegistrationData::UNKNOWN:
@@ -2004,10 +2000,10 @@ ServiceWorkerRegistrationData::IPAddressSpace
 ConvertIPAddressSpaceFromMojomToProtocolBuffer(
     network::mojom::IPAddressSpace value) {
   switch (value) {
+    case network::mojom::IPAddressSpace::kLoopback:
+      return ServiceWorkerRegistrationData::LOOPBACK;
     case network::mojom::IPAddressSpace::kLocal:
       return ServiceWorkerRegistrationData::LOCAL;
-    case network::mojom::IPAddressSpace::kPrivate:
-      return ServiceWorkerRegistrationData::PRIVATE;
     case network::mojom::IPAddressSpace::kPublic:
       return ServiceWorkerRegistrationData::PUBLIC;
     case network::mojom::IPAddressSpace::kUnknown:

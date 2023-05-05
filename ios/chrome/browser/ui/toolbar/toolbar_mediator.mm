@@ -10,19 +10,19 @@
 #import "base/strings/sys_string_conversions.h"
 #import "components/open_from_clipboard/clipboard_recent_content.h"
 #import "components/search_engines/template_url_service.h"
+#import "ios/chrome/browser/ntp/new_tab_page_util.h"
 #import "ios/chrome/browser/overlays/public/overlay_presenter.h"
 #import "ios/chrome/browser/overlays/public/overlay_presenter_observer_bridge.h"
 #import "ios/chrome/browser/policy/policy_util.h"
 #import "ios/chrome/browser/search_engines/search_engines_util.h"
-#import "ios/chrome/browser/ui/commands/application_commands.h"
-#import "ios/chrome/browser/ui/commands/browser_commands.h"
-#import "ios/chrome/browser/ui/commands/load_query_commands.h"
-#import "ios/chrome/browser/ui/commands/open_new_tab_command.h"
+#import "ios/chrome/browser/shared/public/commands/application_commands.h"
+#import "ios/chrome/browser/shared/public/commands/browser_commands.h"
+#import "ios/chrome/browser/shared/public/commands/load_query_commands.h"
+#import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/ui/icons/symbols.h"
 #import "ios/chrome/browser/ui/menu/browser_action_factory.h"
-#import "ios/chrome/browser/ui/ntp/new_tab_page_util.h"
 #import "ios/chrome/browser/ui/toolbar/toolbar_consumer.h"
-#import "ios/chrome/browser/ui/ui_feature_flags.h"
 #import "ios/chrome/browser/url/chrome_url_constants.h"
 #import "ios/chrome/browser/url_loading/image_search_param_generator.h"
 #import "ios/chrome/browser/url_loading/url_loading_browser_agent.h"
@@ -371,17 +371,13 @@
     if ([self shouldUseIncognitoNTPResourcesForURL:navigationItem
                                                        ->GetVirtualURL()]) {
       title = l10n_util::GetNSStringWithFixup(IDS_IOS_NEW_INCOGNITO_TAB);
-      if (UseSymbols()) {
-        if (@available(iOS 15, *)) {
-          image =
-              SymbolWithPalette(CustomSymbolWithPointSize(
-                                    kIncognitoSymbol, kInfobarSymbolPointSize),
-                                @[ UIColor.whiteColor ]);
-        } else {
-          image = [UIImage imageNamed:@"incognito_badge_ios14"];
-        }
+      if (@available(iOS 15, *)) {
+        image =
+            SymbolWithPalette(CustomSymbolWithPointSize(
+                                  kIncognitoSymbol, kInfobarSymbolPointSize),
+                              @[ UIColor.whiteColor ]);
       } else {
-        image = [UIImage imageNamed:@"incognito_badge"];
+        image = [UIImage imageNamed:@"incognito_badge_ios14"];
       }
     } else {
       title = base::SysUTF16ToNSString(navigationItem->GetTitleForDisplay());
@@ -389,12 +385,7 @@
       if (!gfxImage.IsEmpty()) {
         image = gfxImage.ToUIImage();
       } else {
-        if (UseSymbols()) {
-          image =
-              DefaultSymbolWithPointSize(kDocSymbol, kInfobarSymbolPointSize);
-        } else {
-          image = [UIImage imageNamed:@"default_favicon"];
-        }
+        image = DefaultSymbolWithPointSize(kDocSymbol, kInfobarSymbolPointSize);
       }
     }
 

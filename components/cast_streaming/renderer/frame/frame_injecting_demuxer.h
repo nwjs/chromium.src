@@ -6,7 +6,7 @@
 #define COMPONENTS_CAST_STREAMING_RENDERER_FRAME_FRAME_INJECTING_DEMUXER_H_
 
 #include "base/task/sequenced_task_runner.h"
-#include "components/cast_streaming/public/mojom/demuxer_connector.mojom.h"
+#include "components/cast_streaming/common/public/mojom/demuxer_connector.mojom.h"
 #include "media/base/demuxer.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 
@@ -69,6 +69,7 @@ class FrameInjectingDemuxer final : public media::Demuxer {
       const std::vector<media::MediaTrack::Id>& track_ids,
       base::TimeDelta curr_time,
       TrackChangeCB change_completed_cb) override;
+  void SetPlaybackRate(double rate) override {}
 
   // The number of initialized streams that have yet to call
   // OnStreamInitializationComplete().

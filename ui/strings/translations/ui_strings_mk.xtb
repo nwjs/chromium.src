@@ -76,6 +76,7 @@
 <translation id="3157931365184549694">Обнови</translation>
 <translation id="3183922693828471536">Помрдни до тука</translation>
 <translation id="3234408098842461169">Стрелка надолу</translation>
+<translation id="3240426699337459095">Врската е копирана</translation>
 <translation id="3291688615589870984">{DAYS,plural, =1{1 ден}one{# ден}other{# дена}}</translation>
 <translation id="3295886253693811851">Јавете се од</translation>
 <translation id="3306688585798492231">Вграден екран</translation>
@@ -106,7 +107,7 @@
 <translation id="4289540628985791613">Преглед</translation>
 <translation id="4306392492252714209">Отстранете од привремената меморија.</translation>
 <translation id="4491109536499578614">Слика</translation>
-<translation id="4565377596337484307">Сокриј ја лозинката</translation>
+<translation id="4565377596337484307">Скриј ја лозинката</translation>
 <translation id="4588090240171750605">Лизгај надесно</translation>
 <translation id="4724120544754982507">Центар за известувања, <ph name="UNREAD_NOTIFICATION_COUNT" /> непрочитани известувања</translation>
 <translation id="4746179598275229723">Екстензијата е откачена</translation>

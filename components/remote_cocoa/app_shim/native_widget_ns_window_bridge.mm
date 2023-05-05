@@ -2,9 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/memory/raw_ptr.h"
-
-#import "base/task/single_thread_task_runner.h"
 #import "components/remote_cocoa/app_shim/native_widget_ns_window_bridge.h"
 
 #import <objc/runtime.h>
@@ -19,6 +16,7 @@
 #include "base/logging.h"
 #import "base/mac/foundation_util.h"
 #include "base/mac/mac_util.h"
+#include "base/memory/raw_ptr.h"
 #include "base/no_destructor.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/sys_string_conversions.h"
@@ -36,7 +34,6 @@
 #include "components/remote_cocoa/common/native_widget_ns_window_host.mojom.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "ui/accelerated_widget_mac/window_resize_helper_mac.h"
-#include "ui/base/cocoa/cocoa_base_utils.h"
 #import "ui/base/cocoa/constrained_window/constrained_window_animation.h"
 #include "ui/base/cocoa/cursor_utils.h"
 #include "ui/base/cocoa/remote_accessibility_api.h"
@@ -140,19 +137,26 @@ display::Display GetDisplayForWindow(NSWindow* window) {
     (remote_cocoa::NativeWidgetNSWindowBridge*)widget {
   if ((self = [super initWithWindow:widget->ns_window()])) {
     _bridgedNativeWidget = widget;
-    [self setDelegate:self];
+    CHECK(_bridgedNativeWidget);
+    self.delegate = self;
   }
   return self;
 }
 - (void)dealloc {
-  DCHECK(!_bridgedNativeWidget);
+  CHECK(!_bridgedNativeWidget);
   [super dealloc];
 }
 - (void)animationDidEnd:(NSAnimation*)animation {
-  DCHECK(_bridgedNativeWidget);
-  _bridgedNativeWidget->OnShowAnimationComplete();
+  CHECK(_bridgedNativeWidget);
+  // The call to `OnShowAnimationComplete()` will immediately reset an owning
+  // pointer of this object. Therefore, make sure all the invariants of the
+  // `-dealloc` method above are satisfied now by moving the pointer value to be
+  // local.
+  remote_cocoa::NativeWidgetNSWindowBridge* bridgedNativeWidget =
+      _bridgedNativeWidget;
   _bridgedNativeWidget = nullptr;
-  [self setDelegate:nil];
+  bridgedNativeWidget->OnShowAnimationComplete();
+  self.delegate = nil;
 }
 - (void)stopAnimation {
   [super stopAnimation];
@@ -443,6 +447,8 @@ void NativeWidgetNSWindowBridge::InitWindow(
 
   if (params->is_headless_mode_window)
     headless_mode_window_ = absl::make_optional<HeadlessModeWindow>();
+
+  [window_ setIsHeadless:params->is_headless_mode_window];
 
   // Register for application hide notifications so that visibility can be
   // properly tracked. This is not done in the delegate so that the lifetime is
@@ -748,8 +754,8 @@ void NativeWidgetNSWindowBridge::SetVisibilityState(
   //      NSWindow API, or changes propagating out from here.
   wants_to_be_visible_ = new_state != WindowVisibilityState::kHideWindow;
 
-  [show_animation_ stopAnimation];
-  DCHECK(!show_animation_);
+  [show_animation_ stopAnimation];  // If set, calls OnShowAnimationComplete().
+  CHECK(!show_animation_);
 
   if (new_state == WindowVisibilityState::kHideWindow) {
     // Calling -orderOut: on a window with an attached sheet encounters broken
@@ -1005,6 +1011,28 @@ void NativeWidgetNSWindowBridge::ImmersiveFullscreenRevealUnlock() {
   }
 }
 
+bool NativeWidgetNSWindowBridge::ImmersiveFullscreenIsEnabled() {
+  if (!immersive_mode_controller_) {
+    return false;
+  }
+  return immersive_mode_controller_->is_enabled();
+}
+
+bool NativeWidgetNSWindowBridge::ImmersiveFullscreenIsTabbed() {
+  if (!immersive_mode_controller_) {
+    return false;
+  }
+  return immersive_mode_controller_->IsTabbed();
+}
+
+mojom::ToolbarVisibilityStyle
+NativeWidgetNSWindowBridge::ImmersiveFullscreenLastUsedStyle() {
+  if (!immersive_mode_controller_) {
+    return mojom::ToolbarVisibilityStyle::kAlways;
+  }
+  return immersive_mode_controller_->last_used_style();
+}
+
 void NativeWidgetNSWindowBridge::SetCanGoBack(bool can_go_back) {
   can_go_back_ = can_go_back;
 }
@@ -1042,7 +1070,7 @@ void NativeWidgetNSWindowBridge::OnWindowWillClose() {
   [[NSNotificationCenter defaultCenter] removeObserver:window_delegate_];
 
   [show_animation_ stopAnimation];  // If set, calls OnShowAnimationComplete().
-  DCHECK(!show_animation_);
+  CHECK(!show_animation_);
 
   [window_ setDelegate:nil];
   [window_ setBridge:nullptr];
@@ -1281,7 +1309,11 @@ void NativeWidgetNSWindowBridge::FullscreenControllerTransitionComplete(
 
   // Add any children that were skipped during the fullscreen transition.
   OrderChildren();
+
   host_->OnWindowFullscreenTransitionComplete(is_fullscreen);
+  if (is_fullscreen && immersive_mode_controller_) {
+    immersive_mode_controller_->FullscreenTransitionCompleted();
+  }
 }
 
 void NativeWidgetNSWindowBridge::FullscreenControllerSetFrame(
@@ -1610,8 +1642,7 @@ void NativeWidgetNSWindowBridge::ClearTouchBar() {
 }
 
 void NativeWidgetNSWindowBridge::UpdateTooltip() {
-  NSPoint nspoint =
-      ui::ConvertPointFromScreenToWindow(window_, [NSEvent mouseLocation]);
+  NSPoint nspoint = [window_ convertPointFromScreen:NSEvent.mouseLocation];
   // Note: flip in the view's frame, which matches the window's contentRect.
   gfx::Point point(nspoint.x, NSHeight([bridged_view_ frame]) - nspoint.y);
   [bridged_view_ updateTooltipIfRequiredAt:point];
@@ -1790,7 +1821,7 @@ void NativeWidgetNSWindowBridge::ShowAsModalSheet() {
   // Since |this| may destroy [window_ delegate], use |window_| itself as the
   // delegate, which will forward to ViewsNSWindowDelegate if |this| is still
   // alive (i.e. it has not set the window delegate to nil).
-  // TODO(crbug.com/841631): Migrate to `[NSWindow
+  // TODO(crbug.com/1422060): Migrate to `[NSWindow
   // beginSheet:completionHandler:]` instead of this method.
   auto begin_sheet_closure = base::BindOnce(base::RetainBlock(^{
 #pragma clang diagnostic push

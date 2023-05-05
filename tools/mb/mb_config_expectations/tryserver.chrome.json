@@ -289,22 +289,6 @@
       "use_thin_lto": true
     }
   },
-  "lacros-arm-generic-chrome": {
-    "args_file": "//build/args/chromeos/arm-generic-crostoolchain.gni",
-    "gn_args": {
-      "chromeos_is_browser_only": true,
-      "dcheck_always_on": false,
-      "is_cfi": true,
-      "is_chrome_branded": true,
-      "is_chromeos_device": true,
-      "is_official_build": true,
-      "ozone_platform_headless": true,
-      "symbol_level": 1,
-      "target_os": "chromeos",
-      "use_goma": true,
-      "use_thin_lto": true
-    }
-  },
   "lacros-arm-generic-chrome-skylab": {
     "args_file": "//build/args/chromeos/arm-generic-crostoolchain.gni",
     "gn_args": {
@@ -315,22 +299,6 @@
       "is_chromeos_device": true,
       "is_official_build": true,
       "is_skylab": true,
-      "ozone_platform_headless": true,
-      "symbol_level": 1,
-      "target_os": "chromeos",
-      "use_goma": true,
-      "use_thin_lto": true
-    }
-  },
-  "lacros-arm64-generic-chrome": {
-    "args_file": "//build/args/chromeos/arm64-generic-crostoolchain.gni",
-    "gn_args": {
-      "chromeos_is_browser_only": true,
-      "dcheck_always_on": false,
-      "is_cfi": true,
-      "is_chrome_branded": true,
-      "is_chromeos_device": true,
-      "is_official_build": true,
       "ozone_platform_headless": true,
       "symbol_level": 1,
       "target_os": "chromeos",
@@ -359,21 +327,21 @@
     "gn_args": {
       "is_chrome_branded": true,
       "is_official_build": true,
-      "use_goma": true
+      "use_remoteexec": true
     }
   },
   "linux-chrome-beta": {
     "gn_args": {
       "is_chrome_branded": true,
       "is_official_build": true,
-      "use_goma": true
+      "use_remoteexec": true
     }
   },
   "linux-chrome-stable": {
     "gn_args": {
       "is_chrome_branded": true,
       "is_official_build": true,
-      "use_goma": true
+      "use_remoteexec": true
     }
   },
   "linux-chromeos-chrome": {
@@ -383,7 +351,7 @@
       "is_official_build": true,
       "symbol_level": 1,
       "target_os": "chromeos",
-      "use_goma": true
+      "use_remoteexec": true
     }
   },
   "linux-chromeos-compile-chrome": {
@@ -393,14 +361,14 @@
       "is_official_build": true,
       "symbol_level": 1,
       "target_os": "chromeos",
-      "use_goma": true
+      "use_remoteexec": true
     }
   },
   "linux-finch-smoke-chrome": {
     "gn_args": {
       "is_chrome_branded": true,
       "is_official_build": true,
-      "use_goma": true
+      "use_remoteexec": true
     }
   },
   "mac-arm64-finch-smoke-chrome": {
@@ -409,7 +377,7 @@
       "is_chrome_branded": true,
       "is_official_build": true,
       "target_cpu": "arm64",
-      "use_goma": true
+      "use_remoteexec": true
     }
   },
   "mac-chrome": {
@@ -417,7 +385,7 @@
       "ignore_missing_widevine_signing_cert": true,
       "is_chrome_branded": true,
       "is_official_build": true,
-      "use_goma": true
+      "use_remoteexec": true
     }
   },
   "mac-chrome-beta": {
@@ -425,7 +393,7 @@
       "ignore_missing_widevine_signing_cert": true,
       "is_chrome_branded": true,
       "is_official_build": true,
-      "use_goma": true
+      "use_remoteexec": true
     }
   },
   "mac-chrome-stable": {
@@ -433,17 +401,17 @@
       "ignore_missing_widevine_signing_cert": true,
       "is_chrome_branded": true,
       "is_official_build": true,
-      "use_goma": true
+      "use_remoteexec": true
     }
   },
-  "win-branded-rel": {
+  "win-branded-compile-rel": {
     "gn_args": {
       "dcheck_always_on": false,
       "is_chrome_branded": true,
       "is_component_build": false,
       "is_debug": false,
       "symbol_level": 1,
-      "use_goma": true
+      "use_remoteexec": true
     }
   },
   "win-celab-try-rel": {
@@ -454,7 +422,7 @@
       "is_debug": false,
       "is_official_build": true,
       "symbol_level": 1,
-      "use_goma": true
+      "use_remoteexec": true
     }
   },
   "win-chrome": {
@@ -462,7 +430,7 @@
       "is_chrome_branded": true,
       "is_official_build": true,
       "target_cpu": "x86",
-      "use_goma": true
+      "use_remoteexec": true
     }
   },
   "win-chrome-beta": {
@@ -470,7 +438,7 @@
       "is_chrome_branded": true,
       "is_official_build": true,
       "target_cpu": "x86",
-      "use_goma": true
+      "use_remoteexec": true
     }
   },
   "win-chrome-stable": {
@@ -478,14 +446,14 @@
       "is_chrome_branded": true,
       "is_official_build": true,
       "target_cpu": "x86",
-      "use_goma": true
+      "use_remoteexec": true
     }
   },
   "win-finch-smoke-chrome": {
     "gn_args": {
       "is_chrome_branded": true,
       "is_official_build": true,
-      "use_goma": true
+      "use_remoteexec": true
     }
   },
   "win64-chrome": {
@@ -493,7 +461,7 @@
       "is_chrome_branded": true,
       "is_official_build": true,
       "target_cpu": "x64",
-      "use_goma": true
+      "use_remoteexec": true
     }
   },
   "win64-chrome-beta": {
@@ -501,7 +469,7 @@
       "is_chrome_branded": true,
       "is_official_build": true,
       "target_cpu": "x64",
-      "use_goma": true
+      "use_remoteexec": true
     }
   },
   "win64-chrome-stable": {
@@ -509,7 +477,7 @@
       "is_chrome_branded": true,
       "is_official_build": true,
       "target_cpu": "x64",
-      "use_goma": true
+      "use_remoteexec": true
     }
   }
 }

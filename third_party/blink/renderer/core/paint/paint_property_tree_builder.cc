@@ -251,7 +251,7 @@ class FragmentPaintPropertyTreeBuilder {
 
   void UpdateIndividualTransform(
       bool (*needs_property)(const LayoutObject&, CompositingReasons),
-      void (*compute_matrix)(const ComputedStyle& style,
+      void (*compute_matrix)(const LayoutBox& box,
                              const PhysicalSize& size,
                              gfx::Transform& matrix),
       CompositingReasons compositing_reasons_for_property,
@@ -273,6 +273,7 @@ class FragmentPaintPropertyTreeBuilder {
   ALWAYS_INLINE bool NeedsEffect() const;
   ALWAYS_INLINE bool EffectCanUseCurrentClipAsOutputClip() const;
   ALWAYS_INLINE void UpdateViewTransitionEffect();
+  ALWAYS_INLINE void UpdateViewTransitionClip();
   ALWAYS_INLINE void UpdateEffect();
   ALWAYS_INLINE void UpdateFilter();
   ALWAYS_INLINE void UpdateFragmentClip();
@@ -1087,11 +1088,11 @@ static bool UpdateBoxSizeAndCheckActiveAnimationAxisAlignment(
 static TransformPaintPropertyNode::TransformAndOrigin TransformAndOriginState(
     const LayoutBox& box,
     const PhysicalSize& size,
-    void (*compute_matrix)(const ComputedStyle& style,
+    void (*compute_matrix)(const LayoutBox& box,
                            const PhysicalSize& size,
                            gfx::Transform& matrix)) {
   gfx::Transform matrix;
-  compute_matrix(box.StyleRef(), size, matrix);
+  compute_matrix(box, size, matrix);
   return {matrix, GetTransformOrigin(box, size)};
 }
 
@@ -1104,7 +1105,7 @@ static bool IsLayoutShiftRootTransform(
 
 void FragmentPaintPropertyTreeBuilder::UpdateIndividualTransform(
     bool (*needs_property)(const LayoutObject&, CompositingReasons),
-    void (*compute_matrix)(const ComputedStyle& style,
+    void (*compute_matrix)(const LayoutBox& box,
                            const PhysicalSize& size,
                            gfx::Transform& matrix),
     CompositingReasons compositing_reasons_for_property,
@@ -1227,8 +1228,9 @@ void FragmentPaintPropertyTreeBuilder::UpdateIndividualTransform(
 void FragmentPaintPropertyTreeBuilder::UpdateTranslate() {
   UpdateIndividualTransform(
       &NeedsTranslate,
-      [](const ComputedStyle& style, const PhysicalSize& size,
+      [](const LayoutBox& box, const PhysicalSize& size,
          gfx::Transform& matrix) {
+        const ComputedStyle& style = box.StyleRef();
         if (style.Translate())
           style.Translate()->Apply(matrix, gfx::SizeF(size));
       },
@@ -1243,8 +1245,9 @@ void FragmentPaintPropertyTreeBuilder::UpdateTranslate() {
 void FragmentPaintPropertyTreeBuilder::UpdateRotate() {
   UpdateIndividualTransform(
       &NeedsRotate,
-      [](const ComputedStyle& style, const PhysicalSize& size,
+      [](const LayoutBox& box, const PhysicalSize& size,
          gfx::Transform& matrix) {
+        const ComputedStyle& style = box.StyleRef();
         if (style.Rotate())
           style.Rotate()->Apply(matrix, gfx::SizeF(size));
       },
@@ -1258,8 +1261,9 @@ void FragmentPaintPropertyTreeBuilder::UpdateRotate() {
 void FragmentPaintPropertyTreeBuilder::UpdateScale() {
   UpdateIndividualTransform(
       &NeedsScale,
-      [](const ComputedStyle& style, const PhysicalSize& size,
+      [](const LayoutBox& box, const PhysicalSize& size,
          gfx::Transform& matrix) {
+        const ComputedStyle& style = box.StyleRef();
         if (style.Scale())
           style.Scale()->Apply(matrix, gfx::SizeF(size));
       },
@@ -1273,10 +1277,11 @@ void FragmentPaintPropertyTreeBuilder::UpdateScale() {
 void FragmentPaintPropertyTreeBuilder::UpdateOffset() {
   UpdateIndividualTransform(
       &NeedsOffset,
-      [](const ComputedStyle& style, const PhysicalSize& size,
+      [](const LayoutBox& box, const PhysicalSize& size,
          gfx::Transform& matrix) {
+        const ComputedStyle& style = box.StyleRef();
         style.ApplyTransform(
-            matrix, size.ToLayoutSize(),
+            matrix, &box, size.ToLayoutSize(),
             ComputedStyle::kExcludeTransformOperations,
             ComputedStyle::kExcludeTransformOrigin,
             ComputedStyle::kIncludeMotionPath,
@@ -1294,10 +1299,11 @@ void FragmentPaintPropertyTreeBuilder::UpdateOffset() {
 void FragmentPaintPropertyTreeBuilder::UpdateTransform() {
   UpdateIndividualTransform(
       &NeedsTransform,
-      [](const ComputedStyle& style, const PhysicalSize& size,
+      [](const LayoutBox& box, const PhysicalSize& size,
          gfx::Transform& matrix) {
+        const ComputedStyle& style = box.StyleRef();
         style.ApplyTransform(
-            matrix, size.ToLayoutSize(),
+            matrix, &box, size.ToLayoutSize(),
             ComputedStyle::kIncludeTransformOperations,
             ComputedStyle::kExcludeTransformOrigin,
             ComputedStyle::kExcludeMotionPath,
@@ -1397,7 +1403,9 @@ static bool NeedsEffectIgnoringClipPath(
   // We do this by ensuring that this object needs an effect node.
   // This is not required for the root element since its snapshot comes from the
   // root stacking context which is already a backdrop filter root.
-  if (style.ViewTransitionName() && !object.IsDocumentElement()) {
+  if ((style.ViewTransitionName() ||
+       ViewTransitionUtils::IsRepresentedViaPseudoElements(object)) &&
+      !object.IsDocumentElement()) {
     return true;
   }
 
@@ -1551,7 +1559,7 @@ void FragmentPaintPropertyTreeBuilder::UpdateEffect() {
       animation_state.is_running_backdrop_filter_animation_on_compositor =
           style.IsRunningBackdropFilterAnimationOnCompositor();
 
-      auto* parent_effect = context_.current_effect;
+      const auto* parent_effect = context_.current_effect;
       // The transition pseudo element doesn't draw into the LayoutView's
       // effect, but rather as its sibling. So this re-parents the effect to
       // whatever the grand-parent effect was. Note that it doesn't matter
@@ -1657,6 +1665,25 @@ void FragmentPaintPropertyTreeBuilder::UpdateViewTransitionEffect() {
                                               context_.current.clip,
                                               context_.current.transform));
       context_.current_effect = transition->GetEffect(object_);
+    }
+  }
+}
+
+void FragmentPaintPropertyTreeBuilder::UpdateViewTransitionClip() {
+  if (NeedsPaintPropertyUpdate()) {
+    if (full_context_.direct_compositing_reasons &
+        CompositingReason::kViewTransitionElement) {
+      auto* transition =
+          ViewTransitionUtils::GetActiveTransition(object_.GetDocument());
+      DCHECK(transition);
+
+      if (!transition->NeedsViewTransitionClipNode(object_)) {
+        return;
+      }
+
+      OnUpdateClip(transition->UpdateCaptureClip(object_, context_.current.clip,
+                                                 context_.current.transform));
+      context_.current.clip = transition->GetCaptureClip(object_);
     }
   }
 }
@@ -2383,41 +2410,105 @@ void FragmentPaintPropertyTreeBuilder::UpdateScrollAndScrollTranslation() {
       OnUpdateScroll(properties_->UpdateScroll(*context_.current.scroll,
                                                std::move(state)));
 
-      // Create opacity effect nodes for overlay scrollbars for their fade
-      // animation in the compositor.
-      if (scrollable_area->VerticalScrollbar() &&
-          scrollable_area->VerticalScrollbar()->IsOverlayScrollbar()) {
-        EffectPaintPropertyNode::State effect_state;
-        effect_state.local_transform_space = context_.current.transform;
-        effect_state.direct_compositing_reasons =
-            CompositingReason::kActiveOpacityAnimation;
-        effect_state.compositor_element_id =
-            scrollable_area->GetScrollbarElementId(
-                ScrollbarOrientation::kVerticalScrollbar);
-        OnUpdateEffect(properties_->UpdateVerticalScrollbarEffect(
-            *context_.current_effect, std::move(effect_state)));
-      } else {
-        OnClearEffect(properties_->ClearVerticalScrollbarEffect());
-      }
+      // While in a view transition, page content is painted into a "snapshot"
+      // surface by creating a new effect node to force a separate surface.
+      // e.g.:
+      //    #Root
+      //      +--ViewTransitionEffect
+      //         +--PageContentEffect
+      //            +--...
+      // However, frame scrollbars paint after all other content so the paint
+      // chunks look like this:
+      // [
+      //    ...
+      //    FrameBackground (effect: ViewTransitionEffect),
+      //    PageContent (effect: PageContentEffect),
+      //    FrameScrollbar (effect ViewTransitionEffect),
+      //    ...
+      // ]
+      // The non-contiguous node causes the creation of two compositor effect
+      // nodes from this one paint effect node which isn't supported by view
+      // transitions. Create a separate effect node, a child of the root, for
+      // any frame scrollbars so that:
+      // 1) they don't cause multiple compositor effect nodes for a view
+      //    transition
+      // 2) scrollbars aren't captured in the root snapshot.
+      bool transition_forces_scrollbar_effect_nodes =
+          object_.IsLayoutView() &&
+          ViewTransitionUtils::GetActiveTransition(object_.GetDocument());
 
-      if (scrollable_area->HorizontalScrollbar() &&
-          scrollable_area->HorizontalScrollbar()->IsOverlayScrollbar()) {
+      auto setup_scrollbar_effect_node =
+          [this, scrollable_area, transition_forces_scrollbar_effect_nodes](
+              ScrollbarOrientation orientation) {
+            Scrollbar* scrollbar = scrollable_area->GetScrollbar(orientation);
+
+            bool scrollbar_is_overlay =
+                scrollbar && scrollbar->IsOverlayScrollbar();
+
+            bool needs_effect_node =
+                scrollbar && (transition_forces_scrollbar_effect_nodes ||
+                              scrollbar_is_overlay);
+
+            if (needs_effect_node) {
+              EffectPaintPropertyNode::State effect_state;
+              effect_state.local_transform_space = context_.current.transform;
+              effect_state.compositor_element_id =
+                  scrollable_area->GetScrollbarElementId(orientation);
+
+              if (scrollbar_is_overlay) {
+                effect_state.direct_compositing_reasons =
+                    CompositingReason::kActiveOpacityAnimation;
+              }
+
+              const EffectPaintPropertyNodeOrAlias* parent =
+                  transition_forces_scrollbar_effect_nodes
+                      ? &EffectPaintPropertyNode::Root()
+                      : context_.current_effect;
+
+              PaintPropertyChangeType change_type =
+                  orientation == ScrollbarOrientation::kHorizontalScrollbar
+                      ? properties_->UpdateHorizontalScrollbarEffect(
+                            *parent, std::move(effect_state))
+                      : properties_->UpdateVerticalScrollbarEffect(
+                            *parent, std::move(effect_state));
+              OnUpdateEffect(change_type);
+            } else {
+              bool result =
+                  orientation == ScrollbarOrientation::kHorizontalScrollbar
+                      ? properties_->ClearHorizontalScrollbarEffect()
+                      : properties_->ClearVerticalScrollbarEffect();
+              OnClearEffect(result);
+            }
+          };
+
+      setup_scrollbar_effect_node(ScrollbarOrientation::kVerticalScrollbar);
+      setup_scrollbar_effect_node(ScrollbarOrientation::kHorizontalScrollbar);
+
+      bool has_scroll_corner =
+          scrollable_area->HorizontalScrollbar() &&
+          scrollable_area->VerticalScrollbar() &&
+          !scrollable_area->VerticalScrollbar()->IsOverlayScrollbar();
+      DCHECK(!has_scroll_corner ||
+             !scrollable_area->HorizontalScrollbar()->IsOverlayScrollbar());
+
+      if (transition_forces_scrollbar_effect_nodes && has_scroll_corner) {
+        // The scroll corner needs to paint with the scrollbars during a
+        // transition, for the same reason as explained above. Scroll corners
+        // are only painted for non-overlay scrollbars.
         EffectPaintPropertyNode::State effect_state;
         effect_state.local_transform_space = context_.current.transform;
-        effect_state.direct_compositing_reasons =
-            CompositingReason::kActiveOpacityAnimation;
         effect_state.compositor_element_id =
-            scrollable_area->GetScrollbarElementId(
-                ScrollbarOrientation::kHorizontalScrollbar);
-        OnUpdateEffect(properties_->UpdateHorizontalScrollbarEffect(
-            *context_.current_effect, std::move(effect_state)));
+            scrollable_area->GetScrollCornerElementId();
+        OnUpdateEffect(properties_->UpdateScrollCornerEffect(
+            EffectPaintPropertyNode::Root(), std::move(effect_state)));
       } else {
-        OnClearEffect(properties_->ClearHorizontalScrollbarEffect());
+        OnClearEffect(properties_->ClearScrollCornerEffect());
       }
     } else {
       OnClearScroll(properties_->ClearScroll());
       OnClearEffect(properties_->ClearVerticalScrollbarEffect());
       OnClearEffect(properties_->ClearHorizontalScrollbarEffect());
+      OnClearEffect(properties_->ClearScrollCornerEffect());
     }
 
     // A scroll translation node is created for static offset (e.g., overflow
@@ -3054,6 +3145,7 @@ void FragmentPaintPropertyTreeBuilder::UpdateForSelf() {
       UpdateTransform();
     }
     UpdateViewTransitionEffect();
+    UpdateViewTransitionClip();
     UpdateClipPathClip();
     UpdateEffect();
     UpdateCssClip();
@@ -4243,10 +4335,11 @@ void PaintPropertyTreeBuilder::DirectlyUpdateTransformMatrix(
   auto* transform = properties->Transform();
   auto transform_and_origin = TransformAndOriginState(
       box, size,
-      [](const ComputedStyle& style, const PhysicalSize& size,
+      [](const LayoutBox& box, const PhysicalSize& size,
          gfx::Transform& matrix) {
+        const ComputedStyle& style = box.StyleRef();
         style.ApplyTransform(
-            matrix, size.ToLayoutSize(),
+            matrix, &box, size.ToLayoutSize(),
             ComputedStyle::kIncludeTransformOperations,
             ComputedStyle::kExcludeTransformOrigin,
             ComputedStyle::kExcludeMotionPath,

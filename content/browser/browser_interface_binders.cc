@@ -190,10 +190,6 @@
 #include "third_party/blink/public/mojom/serial/serial.mojom.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_FUCHSIA)
-#include "third_party/blink/public/mojom/smart_card/smart_card.mojom.h"
-#endif
-
 #if BUILDFLAG(ENABLE_MEDIA_REMOTING)
 #include "media/mojo/mojom/remoting.mojom-forward.h"
 #endif
@@ -212,6 +208,7 @@
 #if BUILDFLAG(IS_CHROMEOS)
 #include "content/browser/lock_screen/lock_screen_service_impl.h"
 #include "third_party/blink/public/mojom/lock_screen/lock_screen.mojom.h"
+#include "third_party/blink/public/mojom/smart_card/smart_card.mojom.h"
 #endif
 
 #if BUILDFLAG(IS_FUCHSIA)
@@ -411,6 +408,22 @@ BindWorkerReceiver(
           (process_host->*method)(std::move(receiver));
       },
       base::Unretained(host), method);
+}
+
+template <typename WorkerHost>
+base::RepeatingCallback<
+    void(const url::Origin&,
+         mojo::PendingReceiver<device::mojom::PressureManager>)>
+BindPressureManagerWorkerForOrigin(WorkerHost* host) {
+  return base::BindRepeating(
+      [](WorkerHost* host, const url::Origin& origin,
+         mojo::PendingReceiver<device::mojom::PressureManager> receiver) {
+        if (!network::IsOriginPotentiallyTrustworthy(origin)) {
+          return;
+        }
+        GetDeviceService().BindPressureManager(std::move(receiver));
+      },
+      base::Unretained(host));
 }
 
 template <typename WorkerHost, typename Interface>
@@ -1031,7 +1044,7 @@ void PopulateFrameBinders(RenderFrameHostImpl* host, mojo::BinderMap* map) {
       &RenderFrameHostImpl::BindSerialService, base::Unretained(host)));
 #endif  // BUILDFLAG(IS_ANDROID)
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_FUCHSIA)
+#if BUILDFLAG(IS_CHROMEOS)
   map->Add<blink::mojom::SmartCardService>(base::BindRepeating(
       &RenderFrameHostImpl::GetSmartCardService, base::Unretained(host)));
 #endif
@@ -1288,6 +1301,13 @@ void PopulateBinderMapWithContext(
       &RenderProcessHostImpl::CreatePaymentManagerForOrigin, host));
   map->Add<blink::mojom::PermissionService>(BindWorkerReceiverForOrigin(
       &RenderProcessHostImpl::CreatePermissionService, host));
+
+  // BindPressureManagerWorkerForOrigin() does not use RenderProcessHost,
+  // but also needs an origin for its checks.
+  if (base::FeatureList::IsEnabled(blink::features::kComputePressure)) {
+    map->Add<device::mojom::PressureManager>(
+        BindPressureManagerWorkerForOrigin(host));
+  }
 }
 
 void PopulateBinderMap(DedicatedWorkerHost* host, mojo::BinderMap* map) {
@@ -1381,6 +1401,13 @@ void PopulateBinderMapWithContext(
       &RenderProcessHostImpl::CreatePaymentManagerForOrigin, host));
   map->Add<blink::mojom::PermissionService>(BindWorkerReceiverForOrigin(
       &RenderProcessHostImpl::CreatePermissionService, host));
+
+  // BindPressureManagerWorkerForOrigin() does not use RenderProcessHost,
+  // but also needs an origin for its checks.
+  if (base::FeatureList::IsEnabled(blink::features::kComputePressure)) {
+    map->Add<device::mojom::PressureManager>(
+        BindPressureManagerWorkerForOrigin(host));
+  }
 }
 
 void PopulateBinderMap(SharedWorkerHost* host, mojo::BinderMap* map) {

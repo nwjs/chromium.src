@@ -76,6 +76,7 @@
 #include "third_party/blink/renderer/core/scroll/scrollable_area.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
+#include "third_party/blink/renderer/core/view_transition/view_transition.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_utils.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 
@@ -235,15 +236,7 @@ bool SelectorChecker::Match(const SelectorCheckingContext& context,
       return false;
     }
   }
-  if (MatchSelector(context, result) != kSelectorMatches) {
-    return false;
-  }
-  if (context.style_scope != nullptr &&
-      RuntimeEnabledFeatures::CSSScopeEnabled() &&
-      !CheckInStyleScope(context, result)) {
-    return false;
-  }
-  return true;
+  return MatchSelector(context, result) == kSelectorMatches;
 }
 
 // Recursive check of selectors and combinators
@@ -378,7 +371,7 @@ SelectorChecker::MatchStatus SelectorChecker::MatchForRelation(
   if ((!context.is_sub_selector || context.in_nested_complex_selector) &&
       (context.element->IsLink() || (relation != CSSSelector::kDescendant &&
                                      relation != CSSSelector::kChild))) {
-    next_context.is_inside_visited_link = false;
+    next_context.match_visited = false;
   }
 
   next_context.in_rightmost_compound = false;
@@ -394,7 +387,7 @@ SelectorChecker::MatchStatus SelectorChecker::MatchForRelation(
     case CSSSelector::kDescendant:
       if (next_context.selector->GetPseudoType() == CSSSelector::kPseudoScope) {
         if (next_context.selector->IsLastInTagHistory()) {
-          if (context.scope->IsDocumentFragment()) {
+          if (context.scope && context.scope->IsDocumentFragment()) {
             return kSelectorMatches;
           }
         }
@@ -410,7 +403,7 @@ SelectorChecker::MatchStatus SelectorChecker::MatchForRelation(
           return kSelectorFailsCompletely;
         }
         if (next_context.element->IsLink()) {
-          next_context.is_inside_visited_link = false;
+          next_context.match_visited = false;
         }
       }
       return kSelectorFailsCompletely;
@@ -526,6 +519,24 @@ SelectorChecker::MatchStatus SelectorChecker::MatchForRelation(
       return kSelectorFailsCompletely;
     case CSSSelector::kSubSelector:
       break;
+    case CSSSelector::kScopeActivation:
+      if (context.style_scope) {
+        const StyleScopeActivations& activations =
+            EnsureActivations(context, *context.style_scope);
+        if (activations.empty()) {
+          return kSelectorFailsCompletely;
+        }
+        for (const StyleScopeActivation& activation : activations) {
+          next_context.style_scope = nullptr;
+          next_context.scope = activation.root;
+          if (MatchSelector(next_context, result) == kSelectorMatches) {
+            result.proximity = activation.proximity;
+            return kSelectorMatches;
+          }
+        }
+        return kSelectorFailsLocally;
+      }
+      return MatchSelector(next_context, result);
   }
   NOTREACHED();
   return kSelectorFailsCompletely;
@@ -1195,7 +1206,7 @@ bool SelectorChecker::CheckPseudoHas(const SelectorCheckingContext& context,
   DCHECK(document.GetCheckPseudoHasCacheScope());
   SelectorCheckingContext sub_context(has_anchor_element);
   sub_context.scope = context.scope;
-  // sub_context.is_inside_visited_link is false (by default) to disable
+  // sub_context.match_visited is false (by default) to disable
   // :visited matching when it is in the :has argument
   sub_context.is_inside_has_pseudo_class = true;
   sub_context.pseudo_has_in_rightmost_compound = context.in_rightmost_compound;
@@ -1509,9 +1520,9 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
     case CSSSelector::kPseudoWebkitAnyLink:
       return element.IsLink();
     case CSSSelector::kPseudoLink:
-      return element.IsLink() && !context.is_inside_visited_link;
+      return element.IsLink() && !context.match_visited;
     case CSSSelector::kPseudoVisited:
-      return element.IsLink() && context.is_inside_visited_link;
+      return element.IsLink() && context.match_visited;
     case CSSSelector::kPseudoDrag:
       if (mode_ == kResolvingStyle) {
         if (!context.in_rightmost_compound) {
@@ -1862,7 +1873,7 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
         return !toggle->ValueMatches(State(0));
       }
     }
-    case CSSSelector::kPseudoParentUnparsed:
+    case CSSSelector::kPseudoUnparsed:
       // Only kept around for parsing; can never match anything
       // (because we don't know what it's supposed to mean).
       return false;
@@ -1874,6 +1885,8 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
       result.SetFlag(MatchFlag::kAffectedByInitial);
       return true;
     }
+    case CSSSelector::kPseudoTrue:
+      return true;
     case CSSSelector::kPseudoUnknown:
     default:
       NOTREACHED();
@@ -2048,21 +2061,6 @@ bool SelectorChecker::CheckPseudoHost(const SelectorCheckingContext& context,
 bool SelectorChecker::CheckPseudoScope(const SelectorCheckingContext& context,
                                        MatchResult& result) const {
   Element& element = *context.element;
-  if (RuntimeEnabledFeatures::CSSScopeEnabled() && context.style_scope) {
-    DCHECK(context.style_scope_frame);
-    const StyleScopeActivations& activations =
-        EnsureActivations(context, *context.style_scope);
-    // The same @scope may produce multiple activations, but only (at most)
-    // one activation per element in the ancestor chain. Therefore we do not
-    // need to check the list of activations in any particular order.
-    for (const StyleScopeActivation& activation : activations) {
-      if (&element == activation.root) {
-        result.proximity = activation.proximity;
-        return true;
-      }
-    }
-    return false;
-  }
   if (!context.scope) {
     return false;
   }
@@ -2402,24 +2400,6 @@ bool SelectorChecker::ElementIsScopingLimit(
     return false;
   }
   return MatchesWithScope(element, *style_scope.To(), activation.root.Get());
-}
-
-bool SelectorChecker::CheckInStyleScope(const SelectorCheckingContext& context,
-                                        MatchResult& result) const {
-  SelectorCheckingContext local_context(context);
-
-  // TODO(crbug.com/1280240): We can probably skip this if the main selector
-  // contained :scope.
-
-  for (; local_context.element;
-       local_context.element = ParentElement(local_context)) {
-    if (CheckPseudoScope(local_context, result)) {
-      return true;
-    }
-    // TODO(crbug.com/1280240): Early-out if there are no activations.
-  }
-
-  return false;
 }
 
 }  // namespace blink

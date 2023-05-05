@@ -46,7 +46,6 @@ import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.offline_items_collection.LaunchLocation;
 import org.chromium.components.offlinepages.SavePageResult;
 import org.chromium.content_public.browser.LoadUrlParams;
-import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.net.NetworkChangeNotifier;
 import org.chromium.ui.base.PageTransition;
@@ -66,8 +65,6 @@ import java.util.Map;
  */
 public class OfflinePageUtils {
     private static final String TAG = "OfflinePageUtils";
-    /** Background task tag to differentiate from other task types */
-    public static final String TASK_TAG = "OfflinePageUtils";
 
     private static final int DEFAULT_SNACKBAR_DURATION_MS = 6 * 1000; // 6 second
 
@@ -377,7 +374,7 @@ public class OfflinePageUtils {
                     uri = Uri.parse(tabUrl);
                 }
                 final Uri finalUri = uri;
-                PostTask.postTask(UiThreadTaskTraits.DEFAULT, callback.bind(finalUri));
+                PostTask.postTask(TaskTraits.UI_DEFAULT, callback.bind(finalUri));
             });
         } else {
             callback.onResult(Uri.parse(tabUrl));

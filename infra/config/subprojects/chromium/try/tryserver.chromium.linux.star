@@ -5,7 +5,7 @@
 
 load("//lib/branches.star", "branches")
 load("//lib/builder_config.star", "builder_config")
-load("//lib/builders.star", "goma", "os", "reclient")
+load("//lib/builders.star", "os", "reclient")
 load("//lib/try.star", "try_")
 load("//lib/consoles.star", "consoles")
 load("//project.star", "settings")
@@ -17,7 +17,6 @@ try_.defaults.set(
     cores = 8,
     os = os.LINUX_DEFAULT,
     compilator_cores = 8,
-    compilator_goma_jobs = goma.jobs.J300,
     compilator_reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CQ,
     execution_timeout = try_.DEFAULT_EXECUTION_TIMEOUT,
     orchestrator_cores = 2,
@@ -65,6 +64,12 @@ try_.builder(
 )
 
 try_.builder(
+    name = "linux-afl-asan-rel",
+    branch_selector = branches.selector.LINUX_BRANCHES,
+    executable = "recipe:chromium/fuzz",
+)
+
+try_.builder(
     name = "linux-annotator-rel",
     mirrors = ["ci/linux-annotator-rel"],
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
@@ -100,6 +105,12 @@ try_.builder(
 )
 
 try_.builder(
+    name = "linux-centipede-asan-rel",
+    branch_selector = branches.selector.LINUX_BRANCHES,
+    executable = "recipe:chromium/fuzz",
+)
+
+try_.builder(
     name = "linux-dcheck-off-rel",
     mirrors = builder_config.copy_from("linux-rel"),
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
@@ -125,6 +136,11 @@ try_.builder(
     name = "linux-headless-shell-rel",
     mirrors = ["ci/linux-headless-shell-rel"],
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    tryjob = try_.job(
+        location_filters = [
+            "headless/.+",
+        ],
+    ),
 )
 
 try_.builder(
@@ -657,6 +673,7 @@ try_.gpu.optional_tests_builder(
             cq.location_filter(path_regexp = "third_party/blink/renderer/modules/mediastream/.+"),
             cq.location_filter(path_regexp = "third_party/blink/renderer/modules/webcodecs/.+"),
             cq.location_filter(path_regexp = "third_party/blink/renderer/modules/webgl/.+"),
+            cq.location_filter(path_regexp = "third_party/blink/renderer/modules/webgpu/.+"),
             cq.location_filter(path_regexp = "third_party/blink/renderer/platform/graphics/gpu/.+"),
             cq.location_filter(path_regexp = "tools/clang/scripts/update.py"),
             cq.location_filter(path_regexp = "tools/mb/mb_config_expectations/tryserver.chromium.linux.json"),

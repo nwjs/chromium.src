@@ -4,24 +4,26 @@
 
 #include "chrome/browser/ash/input_method/longpress_diacritics_suggester.h"
 
-#include <algorithm>
 #include <string>
 
-#include "base/containers/flat_map.h"
+#include "base/containers/fixed_flat_map.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/no_destructor.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
-#include "base/strings/utf_string_conversions.h"
+#include "chrome/browser/ash/input_method/suggestion_handler_interface.h"
 #include "chrome/browser/ash/input_method/ui/assistive_delegate.h"
 #include "chrome/grit/generated_resources.h"
+#include "chromeos/ash/services/ime/public/cpp/assistive_suggestions.h"
+#include "services/metrics/public/cpp/ukm_builders.h"
+#include "services/metrics/public/cpp/ukm_recorder.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
+#include "ui/base/ime/ash/ime_bridge.h"
+#include "ui/base/ime/ash/text_input_target.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/events/keycodes/dom/dom_code.h"
 
-namespace ash {
-namespace input_method {
+namespace ash::input_method {
 
 namespace {
 
@@ -84,6 +86,15 @@ AssistiveWindowButton CreateButtonFor(size_t index,
 void RecordActionMetric(IMEPKLongpressDiacriticAction action) {
   base::UmaHistogramEnumeration(
       "InputMethod.PhysicalKeyboard.LongpressDiacritics.Action", action);
+  TextInputTarget* input_context = IMEBridge::Get()->GetInputContextHandler();
+  if (!input_context) {
+    return;
+  }
+
+  auto sourceId = input_context->GetClientSourceForMetrics();
+  ukm::builders::InputMethod_LongpressDiacritics(sourceId)
+      .SetActions(static_cast<long>(action))
+      .Record(ukm::UkmRecorder::Get());
 }
 
 void RecordAcceptanceCharCodeMetric(const std::u16string diacritic) {
@@ -105,7 +116,7 @@ void RecordAcceptanceCharCodeMetric(const std::u16string diacritic) {
 
 LongpressDiacriticsSuggester::LongpressDiacriticsSuggester(
     SuggestionHandlerInterface* suggestion_handler)
-    : suggestion_handler_(suggestion_handler) {}
+    : LongpressSuggester(suggestion_handler) {}
 
 LongpressDiacriticsSuggester::~LongpressDiacriticsSuggester() = default;
 
@@ -124,6 +135,7 @@ bool LongpressDiacriticsSuggester::TrySuggestOnLongpress(char key_character) {
     properties.candidates = diacritics_candidates;
     properties.announce_string =
         l10n_util::GetStringUTF16(IDS_SUGGESTION_DIACRITICS_OPEN);
+    properties.show_setting_link = true;
 
     std::string error;
     suggestion_handler_->SetAssistiveWindowProperties(
@@ -144,22 +156,6 @@ void LongpressDiacriticsSuggester::SetEngineId(const std::string& engine_id) {
 
 bool LongpressDiacriticsSuggester::HasDiacriticSuggestions(char c) {
   return !GetDiacriticsFor(c, engine_id_).empty();
-}
-
-void LongpressDiacriticsSuggester::OnFocus(int context_id) {
-  Reset();
-  focused_context_id_ = context_id;
-}
-
-void LongpressDiacriticsSuggester::OnBlur() {
-  focused_context_id_ = absl::nullopt;
-  Reset();
-}
-
-void LongpressDiacriticsSuggester::OnExternalSuggestionsUpdated(
-    const std::vector<ime::AssistiveSuggestion>& suggestions) {
-  // Relevant since suggestions are not updated externally.
-  return;
 }
 
 SuggestionStatus LongpressDiacriticsSuggester::HandleKeyEvent(
@@ -246,7 +242,7 @@ SuggestionStatus LongpressDiacriticsSuggester::HandleKeyEvent(
 bool LongpressDiacriticsSuggester::TrySuggestWithSurroundingText(
     const std::u16string& text,
     const gfx::Range selection_range) {
-  // Should dismiss on text change.
+  // Suggestions should dismiss on text change.
   return false;
 }
 
@@ -305,17 +301,6 @@ AssistiveType LongpressDiacriticsSuggester::GetProposeActionType() {
   return AssistiveType::kLongpressDiacritics;
 }
 
-bool LongpressDiacriticsSuggester::HasSuggestions() {
-  // Unused.
-  return false;
-}
-
-std::vector<ime::AssistiveSuggestion>
-LongpressDiacriticsSuggester::GetSuggestions() {
-  // Unused.
-  return {};
-}
-
 void LongpressDiacriticsSuggester::SetButtonHighlighted(size_t index,
                                                         bool highlighted) {
   if (!focused_context_id_.has_value()) {
@@ -345,5 +330,4 @@ void LongpressDiacriticsSuggester::Reset() {
   displayed_window_base_character_ = absl::nullopt;
   highlighted_index_ = absl::nullopt;
 }
-}  // namespace input_method
-}  // namespace ash
+}  // namespace ash::input_method

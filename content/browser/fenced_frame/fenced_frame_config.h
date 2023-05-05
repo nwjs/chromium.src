@@ -94,6 +94,23 @@ using DeprecatedFencedFrameMode = blink::FencedFrame::DeprecatedFencedFrameMode;
 using SharedStorageBudgetMetadata =
     blink::FencedFrame::SharedStorageBudgetMetadata;
 
+struct CONTENT_EXPORT AutomaticBeaconInfo {
+  AutomaticBeaconInfo(
+      const std::string& data,
+      const std::vector<blink::FencedFrame::ReportingDestination>& destination);
+
+  AutomaticBeaconInfo(const AutomaticBeaconInfo&);
+  AutomaticBeaconInfo(AutomaticBeaconInfo&&);
+
+  AutomaticBeaconInfo& operator=(const AutomaticBeaconInfo&);
+  AutomaticBeaconInfo& operator=(AutomaticBeaconInfo&&);
+
+  ~AutomaticBeaconInfo();
+
+  std::string data;
+  std::vector<blink::FencedFrame::ReportingDestination> destination;
+};
+
 // Different kinds of entities (renderers) that should receive different
 // views of the information in fenced frame configs.
 enum class FencedFrameEntity {
@@ -313,8 +330,20 @@ struct CONTENT_EXPORT FencedFrameProperties {
   // any server-side redirects.
   void UpdateMappedURL(GURL url);
 
+  // Stores the payload that will be sent as part of the
+  // `reserved.top_navigation` automatic beacon.
+  void UpdateAutomaticBeaconData(
+      const std::string& event_data,
+      const std::vector<blink::FencedFrame::ReportingDestination>& destination);
+
+  const absl::optional<AutomaticBeaconInfo>& automatic_beacon_info() const {
+    return automatic_beacon_info_;
+  }
+
   absl::optional<FencedFrameProperty<gfx::Size>> container_size_;
 
+  // TODO(crbug.com/1420638): The representation of size in fenced frame config
+  // will need to work with the size carried with the winning bid.
   absl::optional<FencedFrameProperty<gfx::Size>> content_size_;
 
   absl::optional<FencedFrameProperty<bool>>
@@ -344,11 +373,26 @@ struct CONTENT_EXPORT FencedFrameProperties {
       FencedFrameProperty<raw_ptr<const SharedStorageBudgetMetadata>>>
       shared_storage_budget_metadata_;
 
+  // Any context that is written by the embedder using
+  // `blink::FencedFrameConfig::setSharedStorageContext`. Only readable in
+  // shared storage worklets via `sharedStorage.context()`. Not copied during
+  // redaction.
+  absl::optional<std::u16string> embedder_shared_storage_context_;
+
   scoped_refptr<FencedFrameReporter> fenced_frame_reporter_;
 
   absl::optional<FencedFrameProperty<base::UnguessableToken>> partition_nonce_;
 
   DeprecatedFencedFrameMode mode_ = DeprecatedFencedFrameMode::kDefault;
+
+  // Stores data registered by one of the documents in a FencedFrame using
+  // the `Fence.setReportEventDataForAutomaticBeacons` API.
+  //
+  // Currently, only the `reserved.top_navigation` event exists.
+  //
+  // The data will be sent directly to the network, without going back to any
+  // renderer process, so they are not made part of the redacted properties.
+  absl::optional<AutomaticBeaconInfo> automatic_beacon_info_;
 };
 
 }  // namespace content

@@ -33,7 +33,6 @@
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/apps/app_service/metrics/app_platform_metrics.h"
 #include "chrome/browser/apps/app_service/metrics/app_service_metrics.h"
-#include "chrome/browser/ash/crostini/crostini_features.h"
 #include "chrome/browser/ash/drive/drive_integration_service.h"
 #include "chrome/browser/ash/drive/file_system_util.h"
 #include "chrome/browser/ash/file_manager/app_id.h"
@@ -82,7 +81,6 @@
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/extension_util.h"
-#include "extensions/common/constants.h"
 #include "extensions/common/extension_set.h"
 #include "net/base/mime_util.h"
 #include "pdf/buildflags.h"
@@ -121,6 +119,7 @@ namespace {
 const char kFileBrowserHandlerTaskType[] = "file";
 const char kFileHandlerTaskType[] = "app";
 const char kArcAppTaskType[] = "arc";
+const char kBruschettaAppTaskType[] = "bruschetta";
 const char kCrostiniAppTaskType[] = "crostini";
 const char kPluginVmAppTaskType[] = "pluginvm";
 const char kWebAppTaskType[] = "web";
@@ -339,8 +338,7 @@ void PostProcessFoundTasks(Profile* profile,
     disabled_actions.emplace(kActionIdWebDriveOfficePowerPoint);
   } else {
     // Hide the office PWA File Handler.
-    RemoveActionsForApp(extension_misc::kOfficePwaAppId,
-                        &resulting_tasks->tasks);
+    RemoveActionsForApp(web_app::kMicrosoft365AppId, &resulting_tasks->tasks);
 
     // Hack around the fact that App Service will only return one task for each
     // app. We want both tasks to be available, so add the office task if the
@@ -402,7 +400,8 @@ bool OpenFilesWithBrowser(Profile* profile,
 
 bool ExecuteWebDriveOfficeTask(Profile* profile,
                                const TaskDescriptor& task,
-                               const std::vector<FileSystemURL>& file_urls) {
+                               const std::vector<FileSystemURL>& file_urls,
+                               gfx::NativeWindow modal_parent) {
   bool offline = drive::util::GetDriveConnectionStatus(profile) !=
                  drive::util::DRIVE_CONNECTED;
   if (offline) {
@@ -410,7 +409,7 @@ bool ExecuteWebDriveOfficeTask(Profile* profile,
                               OfficeDriveErrors::OFFLINE);
     // TODO(petermarshall): Quick Office vs. other default handler.
     return GetUserFallbackChoice(
-        profile, task, file_urls,
+        profile, task, file_urls, modal_parent,
         ash::office_fallback::FallbackReason::kOffline);
   }
 
@@ -418,14 +417,15 @@ bool ExecuteWebDriveOfficeTask(Profile* profile,
       drive::DriveIntegrationServiceFactory::FindForProfile(profile);
   if (integration_service && integration_service->IsMounted() &&
       integration_service->GetDriveFsInterface()) {
-    return ash::cloud_upload::OpenFilesWithCloudProvider(
-        profile, file_urls, ash::cloud_upload::CloudProvider::kGoogleDrive);
+    return ash::cloud_upload::CloudOpenTask::Execute(
+        profile, file_urls, ash::cloud_upload::CloudProvider::kGoogleDrive,
+        modal_parent);
   } else {
     UMA_HISTOGRAM_ENUMERATION(kDriveErrorMetricName,
                               OfficeDriveErrors::DRIVEFS_INTERFACE);
 
     return GetUserFallbackChoice(
-        profile, task, file_urls,
+        profile, task, file_urls, modal_parent,
         ash::office_fallback::FallbackReason::kDriveUnavailable);
   }
 }
@@ -436,16 +436,18 @@ using ash::file_system_provider::Service;
 
 bool ExecuteOpenInOfficeTask(Profile* profile,
                              const TaskDescriptor& task,
-                             const std::vector<FileSystemURL>& file_urls) {
+                             const std::vector<FileSystemURL>& file_urls,
+                             gfx::NativeWindow modal_parent) {
   if (content::GetNetworkConnectionTracker()->IsOffline()) {
     return GetUserFallbackChoice(
-        profile, task, file_urls,
+        profile, task, file_urls, modal_parent,
         ash::office_fallback::FallbackReason::kOffline);
     // TODO(petermarshall): UMAs.
   }
 
-  return ash::cloud_upload::OpenFilesWithCloudProvider(
-      profile, file_urls, ash::cloud_upload::CloudProvider::kOneDrive);
+  return ash::cloud_upload::CloudOpenTask::Execute(
+      profile, file_urls, ash::cloud_upload::CloudProvider::kOneDrive,
+      modal_parent);
 }
 
 }  // namespace
@@ -459,6 +461,7 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
       prefs::kOfficeSetupComplete, false,
       user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PREF);
   registry->RegisterBooleanPref(prefs::kOfficeFilesAlwaysMove, false);
+  registry->RegisterBooleanPref(prefs::kOfficeMoveConfirmationShown, false);
   registry->RegisterTimePref(prefs::kOfficeFileMovedToOneDrive, base::Time());
   registry->RegisterTimePref(prefs::kOfficeFileMovedToGoogleDrive,
                              base::Time());
@@ -472,6 +475,8 @@ TaskType StringToTaskType(const std::string& str) {
     return TASK_TYPE_FILE_HANDLER;
   if (str == kArcAppTaskType)
     return TASK_TYPE_ARC_APP;
+  if (str == kBruschettaAppTaskType)
+    return TASK_TYPE_BRUSCHETTA_APP;
   if (str == kCrostiniAppTaskType)
     return TASK_TYPE_CROSTINI_APP;
   if (str == kWebAppTaskType)
@@ -490,6 +495,8 @@ std::string TaskTypeToString(TaskType task_type) {
       return kFileHandlerTaskType;
     case TASK_TYPE_ARC_APP:
       return kArcAppTaskType;
+    case TASK_TYPE_BRUSCHETTA_APP:
+      return kBruschettaAppTaskType;
     case TASK_TYPE_CROSTINI_APP:
       return kCrostiniAppTaskType;
     case TASK_TYPE_WEB_APP:
@@ -692,6 +699,7 @@ bool ParseTaskID(const std::string& task_id, TaskDescriptor* task) {
 bool ExecuteFileTask(Profile* profile,
                      const TaskDescriptor& task,
                      const std::vector<FileSystemURL>& file_urls,
+                     gfx::NativeWindow modal_parent,
                      FileTaskFinishedCallback done) {
   UMA_HISTOGRAM_ENUMERATION("FileBrowser.ViewingTaskType", task.task_type,
                             NUM_TASK_TYPE);
@@ -715,7 +723,8 @@ bool ExecuteFileTask(Profile* profile,
   const std::string parsed_action_id(ParseFilesAppActionId(task.action_id));
 
   if (IsWebDriveOfficeTask(task)) {
-    const bool started = ExecuteWebDriveOfficeTask(profile, task, file_urls);
+    const bool started =
+        ExecuteWebDriveOfficeTask(profile, task, file_urls, modal_parent);
     if (done) {
       if (started) {
         std::move(done).Run(
@@ -728,7 +737,8 @@ bool ExecuteFileTask(Profile* profile,
     return true;
   }
   if (IsOpenInOfficeTask(task)) {
-    const bool started = ExecuteOpenInOfficeTask(profile, task, file_urls);
+    const bool started =
+        ExecuteOpenInOfficeTask(profile, task, file_urls, modal_parent);
     if (done) {
       if (started) {
         std::move(done).Run(
@@ -801,7 +811,8 @@ bool ExecuteFileTask(Profile* profile,
       task.task_type == TASK_TYPE_WEB_APP ||
       task.task_type == TASK_TYPE_FILE_HANDLER ||
       (ash::features::ShouldGuestOsFileTasksUseAppService() &&
-       (task.task_type == TASK_TYPE_CROSTINI_APP ||
+       (task.task_type == TASK_TYPE_BRUSCHETTA_APP ||
+        task.task_type == TASK_TYPE_CROSTINI_APP ||
         task.task_type == TASK_TYPE_PLUGIN_VM_APP))) {
     // TODO(petermarshall): Implement GetProfileForExtensionTask in Lacros if
     // necessary, for Chrome Apps.
@@ -815,7 +826,8 @@ bool ExecuteFileTask(Profile* profile,
   }
 
   if (!ash::features::ShouldGuestOsFileTasksUseAppService() &&
-      (task.task_type == TASK_TYPE_CROSTINI_APP ||
+      (task.task_type == TASK_TYPE_BRUSCHETTA_APP ||
+       task.task_type == TASK_TYPE_CROSTINI_APP ||
        task.task_type == TASK_TYPE_PLUGIN_VM_APP)) {
     DCHECK_EQ(kGuestOsAppActionID, task.action_id);
     ExecuteGuestOsTask(profile, task, file_urls, std::move(done));
@@ -851,7 +863,7 @@ void LaunchQuickOffice(Profile* profile,
       kActionIdQuickOffice);
 
   file_tasks::ExecuteFileTask(
-      profile, quick_office_task, file_urls,
+      profile, quick_office_task, file_urls, /* modal_parent */ nullptr,
       base::BindOnce(
           [](extensions::api::file_manager_private::TaskResult result,
              std::string error_message) {
@@ -868,14 +880,15 @@ void LaunchQuickOffice(Profile* profile,
 void OnDialogChoiceReceived(Profile* profile,
                             const TaskDescriptor& task,
                             const std::vector<FileSystemURL>& file_urls,
+                            gfx::NativeWindow modal_parent,
                             const std::string& choice) {
   if (choice == ash::office_fallback::kDialogChoiceQuickOffice) {
     LaunchQuickOffice(profile, file_urls);
   } else if (choice == ash::office_fallback::kDialogChoiceTryAgain) {
     if (IsWebDriveOfficeTask(task)) {
-      ExecuteWebDriveOfficeTask(profile, task, file_urls);
+      ExecuteWebDriveOfficeTask(profile, task, file_urls, modal_parent);
     } else if (IsOpenInOfficeTask(task)) {
-      ExecuteOpenInOfficeTask(profile, task, file_urls);
+      ExecuteOpenInOfficeTask(profile, task, file_urls, modal_parent);
     }
   }
 }
@@ -884,6 +897,7 @@ bool GetUserFallbackChoice(
     Profile* profile,
     const TaskDescriptor& task,
     const std::vector<FileSystemURL>& file_urls,
+    gfx::NativeWindow modal_parent,
     ash::office_fallback::FallbackReason fallback_reason) {
   // If QuickOffice is not installed, don't launch dialog.
   if (!IsExtensionInstalled(profile,
@@ -896,8 +910,8 @@ bool GetUserFallbackChoice(
   // `OnDialogChoiceReceived()` can open multiple files.
   std::vector<storage::FileSystemURL> first_url{file_urls.front()};
 
-  ash::office_fallback::DialogChoiceCallback callback =
-      base::BindOnce(&OnDialogChoiceReceived, profile, task, first_url);
+  ash::office_fallback::DialogChoiceCallback callback = base::BindOnce(
+      &OnDialogChoiceReceived, profile, task, first_url, modal_parent);
 
   const std::string parsed_action_id = ParseFilesAppActionId(task.action_id);
 
@@ -1120,7 +1134,7 @@ std::string ToSwaActionId(const std::string& action_id) {
 
 }  // namespace
 
-void SetWordFileHandler(Profile* profile, TaskDescriptor& task) {
+void SetWordFileHandler(Profile* profile, const TaskDescriptor& task) {
   UpdateDefaultTask(
       profile, task, {".doc", ".docx"},
       {"application/msword",
@@ -1134,7 +1148,7 @@ void SetWordFileHandlerToFilesSWA(Profile* profile,
   SetWordFileHandler(profile, task);
 }
 
-void SetExcelFileHandler(Profile* profile, TaskDescriptor& task) {
+void SetExcelFileHandler(Profile* profile, const TaskDescriptor& task) {
   UpdateDefaultTask(
       profile, task, {".xls", ".xlsx"},
       {"application/vnd.ms-excel",
@@ -1148,7 +1162,7 @@ void SetExcelFileHandlerToFilesSWA(Profile* profile,
   SetExcelFileHandler(profile, task);
 }
 
-void SetPowerPointFileHandler(Profile* profile, TaskDescriptor& task) {
+void SetPowerPointFileHandler(Profile* profile, const TaskDescriptor& task) {
   UpdateDefaultTask(
       profile, task, {".ppt", ".pptx"},
       {"application/vnd.ms-powerpoint",
@@ -1177,6 +1191,15 @@ void SetAlwaysMoveOfficeFiles(Profile* profile, bool always_move) {
 
 bool AlwaysMoveOfficeFiles(Profile* profile) {
   return profile->GetPrefs()->GetBoolean(prefs::kOfficeFilesAlwaysMove);
+}
+
+void SetOfficeMoveConfirmationShown(Profile* profile, bool complete) {
+  profile->GetPrefs()->SetBoolean(prefs::kOfficeMoveConfirmationShown,
+                                  complete);
+}
+
+bool OfficeMoveConfirmationShown(Profile* profile) {
+  return profile->GetPrefs()->GetBoolean(prefs::kOfficeMoveConfirmationShown);
 }
 
 void SetOfficeFileMovedToOneDrive(Profile* profile, base::Time moved) {

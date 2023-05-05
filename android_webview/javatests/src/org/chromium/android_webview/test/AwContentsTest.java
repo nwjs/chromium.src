@@ -224,6 +224,24 @@ public class AwContentsTest {
     @Test
     @SmallTest
     @Feature({"AndroidWebView"})
+    public void testGoBackGoForwardWithoutSessionHistory() throws Throwable {
+        mActivityTestRule.startBrowserProcess();
+        mActivityTestRule.runOnUiThread(() -> {
+            AwContents awContents =
+                    mActivityTestRule.createAwTestContainerView(mContentsClient).getAwContents();
+
+            Assert.assertFalse(awContents.canGoBack());
+            Assert.assertFalse(awContents.canGoForward());
+            // If no back/forward entries exist, then calling these should do nothing and not crash
+            // or fail asserts.
+            awContents.goBack();
+            awContents.goForward();
+        });
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"AndroidWebView"})
     public void testBackgroundColorInDarkMode() throws Throwable {
         mActivityTestRule.startBrowserProcess();
         mActivityTestRule.runOnUiThread(() -> {
@@ -1199,7 +1217,7 @@ public class AwContentsTest {
         }
     }
 
-    // This test verifies that Private Network Access' secure context
+    // This test verifies that Local Network Access' secure context
     // restriction (feature flag BlockInsecurePrivateNetworkRequests) does not
     // apply to Webview: insecure private network requests are allowed.
     //
@@ -1208,7 +1226,7 @@ public class AwContentsTest {
     @Feature({"AndroidWebView"})
     @CommandLineFlags.Add(ContentSwitches.HOST_RESOLVER_RULES + "=MAP * 127.0.0.1")
     @SmallTest
-    public void testInsecurePrivateNetworkAccess() throws Throwable {
+    public void testInsecureLocalNetworkAccess() throws Throwable {
         mActivityTestRule.startBrowserProcess();
         final AwTestContainerView testContainer =
                 mActivityTestRule.createAwTestContainerViewOnMainSync(mContentsClient);

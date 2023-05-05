@@ -953,6 +953,7 @@ class FileTransferConnectorFilesAppBrowserTest : public FilesAppBrowserTest {
           /*result*/
           expected_results,
           /*username*/ kUserName,
+          /*profile_identifier*/ profile()->GetPath().AsUTF8Unsafe(),
           /*scan_ids*/ expected_scan_ids);
 
       return true;
@@ -1154,6 +1155,12 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
                       TestCase("textOpenDrive")));
 
 WRAPPED_INSTANTIATE_TEST_SUITE_P(
+    OpenHostedFiles, /* open_hosted_files.js */
+    FilesAppBrowserTest,
+    ::testing::Values(TestCase("hostedOpenDrive"),
+                      TestCase("encryptedHostedOpenDrive")));
+
+WRAPPED_INSTANTIATE_TEST_SUITE_P(
     ZipFiles, /* zip_files.js */
     FilesAppBrowserTest,
     ::testing::Values(
@@ -1209,6 +1216,7 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
         TestCase("keyboardDeleteDownloads"),
         TestCase("keyboardDeleteDownloads").EnableTrash(),
         TestCase("keyboardDeleteDrive"),
+        TestCase("keyboardDeleteDrive").EnableTrash(),
         TestCase("keyboardDeleteFolderDownloads").InGuestMode(),
         TestCase("keyboardDeleteFolderDownloads"),
         TestCase("keyboardDeleteFolderDownloads").EnableTrash(),
@@ -2171,9 +2179,14 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
         TestCase("searchLocalWithTypeOptions").EnableSearchV2(),
         TestCase("searchDriveWithTypeOptions").EnableSearchV2(),
         TestCase("searchWithRecencyOptions").EnableSearchV2(),
+        TestCase("searchDriveWithRecencyOptions").EnableSearchV2(),
         TestCase("searchRemovableDevice").EnableSearchV2(),
+        TestCase("searchPartitionedRemovableDevice").EnableSearchV2(),
         TestCase("resetSearchOptionsOnFolderChange").EnableSearchV2(),
-        TestCase("showSearchResultMessageWhenSearching").EnableSearchV2()
+        TestCase("showSearchResultMessageWhenSearching").EnableSearchV2(),
+        TestCase("showsEducationNudge").EnableSearchV2(),
+        TestCase("searchFromMyFiles").EnableSearchV2(),
+        TestCase("selectionPath").EnableSearchV2()
         // TODO(b/189173190): Enable
         // TestCase("searchQueryLaunchParam")
         ));
@@ -2247,6 +2260,9 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
             .EnableTrash()
             .FeatureIds({"screenplay-38573550-c60a-4009-ba92-c0af1420fde6"}),
         TestCase("trashDeleteFromTrashOriginallyFromMyFiles")
+            .EnableTrash()
+            .FeatureIds({"screenplay-38573550-c60a-4009-ba92-c0af1420fde6"}),
+        TestCase("trashDeleteFromTrashOriginallyFromDrive")
             .EnableTrash()
             .FeatureIds({"screenplay-38573550-c60a-4009-ba92-c0af1420fde6"}),
         TestCase("trashNoTasksInTrashRoot").EnableTrash(),

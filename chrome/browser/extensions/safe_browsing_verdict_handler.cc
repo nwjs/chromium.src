@@ -48,10 +48,10 @@ void SafeBrowsingVerdictHandler::Init() {
   TRACE_EVENT0("browser,startup", "SafeBrowsingVerdictHandler::Init");
 
 #if 0
-  std::unique_ptr<ExtensionSet> all_extensions =
+  const ExtensionSet all_extensions =
       registry_->GenerateInstalledExtensionsSet();
 
-  for (const auto& extension : *all_extensions) {
+  for (const auto& extension : all_extensions) {
     const BitMapBlocklistState state =
         blocklist_prefs::GetSafeBrowsingExtensionBlocklistState(
             extension->id(), extension_prefs_);
@@ -78,7 +78,7 @@ void SafeBrowsingVerdictHandler::ManageBlocklist(
   ExtensionIdSet unchanged;
 
   ExtensionIdSet installed_ids =
-      registry_->GenerateInstalledExtensionsSet()->GetIDs();
+      registry_->GenerateInstalledExtensionsSet().GetIDs();
   for (const auto& it : state_map) {
     // It is possible that an extension is uninstalled when the blocklist is
     // fetching asynchronously. In this case, we should ignore this extension.

@@ -12,11 +12,6 @@
 #include "components/profile_metrics/browser_profile_type.h"
 #include "components/safe_browsing/content/browser/download/download_stats.h"
 
-void RecordDownloadCount(ChromeDownloadCountTypes type) {
-  base::UmaHistogramEnumeration("Download.CountsChrome", type,
-                                CHROME_DOWNLOAD_COUNT_TYPES_LAST_ENTRY);
-}
-
 void RecordDownloadSource(ChromeDownloadSource source) {
   base::UmaHistogramEnumeration("Download.SourcesChrome", source,
                                 CHROME_DOWNLOAD_SOURCE_LAST_ENTRY);
@@ -35,13 +30,6 @@ void RecordDangerousDownloadWarningShown(
 #endif
 }
 
-void RecordOpenedDangerousConfirmDialog(
-    download::DownloadDangerType danger_type) {
-  base::UmaHistogramEnumeration(
-      "Download.ShowDangerousDownloadConfirmationPrompt", danger_type,
-      download::DOWNLOAD_DANGER_TYPE_MAX);
-}
-
 void RecordDownloadOpen(ChromeDownloadOpenMethod open_method,
                         const std::string& mime_type_string) {
   base::RecordAction(base::UserMetricsAction("Download.Open"));
@@ -50,17 +38,6 @@ void RecordDownloadOpen(ChromeDownloadOpenMethod open_method,
   download::DownloadContent download_content =
       download::DownloadContentFromMimeType(
           mime_type_string, /*record_content_subcategory=*/false);
-  if (download_content == download::DownloadContent::DOCUMENT ||
-      download_content == download::DownloadContent::PDF ||
-      download_content == download::DownloadContent::SPREADSHEET ||
-      download_content == download::DownloadContent::TEXT ||
-      download_content == download::DownloadContent::UNRECOGNIZED) {
-    // TODO(crbug.com/1372476): Remove this histogram after debugging.
-    base::UmaHistogramEnumeration(
-        "Download.OpenMethod." +
-            download::GetDownloadContentString(download_content),
-        open_method, DOWNLOAD_OPEN_METHOD_LAST_ENTRY);
-  }
   base::UmaHistogramEnumeration("Download.Open.ContentType", download_content,
                                 download::DownloadContent::MAX);
 }

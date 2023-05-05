@@ -43,6 +43,7 @@
 #include "chrome/browser/google/google_brand.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/metrics/cached_metrics_profile.h"
+#include "chrome/browser/metrics/chrome_browser_main_extra_parts_metrics.h"
 #include "chrome/browser/metrics/chrome_metrics_extensions_helper.h"
 #include "chrome/browser/metrics/chrome_metrics_service_accessor.h"
 #include "chrome/browser/metrics/chrome_metrics_services_manager_client.h"
@@ -123,7 +124,6 @@
 
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/metrics/chrome_android_metrics_provider.h"
-#include "chrome/browser/metrics/family_link_user_metrics_provider.h"
 #include "chrome/browser/metrics/page_load_metrics_provider.h"
 #include "components/metrics/android_metrics_provider.h"
 #else
@@ -201,6 +201,12 @@
 #include "chrome/browser/metrics/bluetooth_metrics_provider.h"
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS_LACROS) || BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/metrics/family_link_user_metrics_provider.h"
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || (BUILDFLAG(IS_LINUX) ||
+        // BUILDFLAG(IS_CHROMEOS_LACROS))||BUILDFLAG(IS_ANDROID))
+
 namespace {
 
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS_ASH)
@@ -233,6 +239,9 @@ base::LazyInstance<std::string>::Leaky g_environment_for_crash_reporter;
 void RegisterFileMetricsPreferences(PrefRegistrySimple* registry) {
   metrics::FileMetricsProvider::RegisterSourcePrefs(registry,
                                                     kBrowserMetricsName);
+
+  metrics::FileMetricsProvider::RegisterSourcePrefs(
+      registry, kDeferredBrowserMetricsName);
 
   metrics::FileMetricsProvider::RegisterSourcePrefs(
       registry, kCrashpadHistogramAllocatorName);
@@ -295,6 +304,8 @@ std::unique_ptr<metrics::FileMetricsProvider> CreateFileMetricsProvider(
 
     base::FilePath browser_metrics_upload_dir =
         user_data_dir.AppendASCII(kBrowserMetricsName);
+    base::FilePath deferred_browser_metrics_upload_dir =
+        user_data_dir.AppendASCII(kDeferredBrowserMetricsName);
     if (metrics_reporting_enabled) {
       metrics::FileMetricsProvider::Params browser_metrics_params(
           browser_metrics_upload_dir,
@@ -305,6 +316,14 @@ std::unique_ptr<metrics::FileMetricsProvider> CreateFileMetricsProvider(
       browser_metrics_params.filter = base::BindRepeating(
           &ChromeMetricsServiceClient::FilterBrowserMetricsFiles);
       file_metrics_provider->RegisterSource(browser_metrics_params);
+
+      metrics::FileMetricsProvider::Params deferred_browser_metrics_params(
+          deferred_browser_metrics_upload_dir,
+          metrics::FileMetricsProvider::SOURCE_HISTOGRAMS_ATOMIC_DIR,
+          metrics::FileMetricsProvider::ASSOCIATE_CURRENT_RUN,
+          kDeferredBrowserMetricsName);
+      deferred_browser_metrics_params.max_dir_kib = kMaxHistogramStorageKiB;
+      file_metrics_provider->RegisterSource(deferred_browser_metrics_params);
 
       base::FilePath crashpad_active_path =
           base::GlobalHistogramAllocator::ConstructFilePathForActiveFile(
@@ -325,6 +344,12 @@ std::unique_ptr<metrics::FileMetricsProvider> CreateFileMetricsProvider(
            base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN},
           base::GetDeletePathRecursivelyCallback(
               std::move(browser_metrics_upload_dir)));
+      base::ThreadPool::PostTask(
+          FROM_HERE,
+          {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
+           base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN},
+          base::GetDeletePathRecursivelyCallback(
+              std::move(deferred_browser_metrics_upload_dir)));
     }
   }
 
@@ -522,6 +547,7 @@ std::unique_ptr<ChromeMetricsServiceClient> ChromeMetricsServiceClient::Create(
 
 // static
 void ChromeMetricsServiceClient::RegisterPrefs(PrefRegistrySimple* registry) {
+  ChromeBrowserMainExtraPartsMetrics::RegisterPrefs(registry);
   metrics::MetricsService::RegisterPrefs(registry);
   ukm::UkmService::RegisterPrefs(registry);
   metrics::StabilityMetricsHelper::RegisterPrefs(registry);
@@ -807,8 +833,6 @@ void ChromeMetricsServiceClient::RegisterMetricsServiceProviders() {
       std::make_unique<ChromeAndroidMetricsProvider>(local_state));
   metrics_service_->RegisterMetricsProvider(
       std::make_unique<PageLoadMetricsProvider>());
-  metrics_service_->RegisterMetricsProvider(
-      std::make_unique<FamilyLinkUserMetricsProvider>());
 #else
   metrics_service_->RegisterMetricsProvider(
       base::WrapUnique(new performance_manager::MetricsProvider(local_state)));
@@ -829,6 +853,23 @@ void ChromeMetricsServiceClient::RegisterMetricsServiceProviders() {
       std::make_unique<DesktopPlatformFeaturesMetricsProvider>());
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || (BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS_LACROS))
+
+#if BUILDFLAG(ENABLE_SUPERVISED_USERS) &&                             \
+    (BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+     BUILDFLAG(IS_CHROMEOS_LACROS))
+  if (base::FeatureList::IsEnabled(
+          kExtendFamilyLinkUserLogSegmentToAllPlatforms)) {
+    metrics_service_->RegisterMetricsProvider(
+        std::make_unique<FamilyLinkUserMetricsProvider>());
+  }
+#endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS) && (BUILDFLAG(IS_WIN) ||
+        // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
+        // BUILDFLAG(IS_CHROMEOS_LACROS) )
+
+#if BUILDFLAG(ENABLE_SUPERVISED_USERS) && BUILDFLAG(IS_ANDROID)
+  metrics_service_->RegisterMetricsProvider(
+      std::make_unique<FamilyLinkUserMetricsProvider>());
+#endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS) && BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
   metrics_service_->RegisterMetricsProvider(

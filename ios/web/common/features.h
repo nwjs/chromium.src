@@ -82,6 +82,13 @@ BASE_DECLARE_FEATURE(kScrollViewProxyScrollEnabledWorkaround);
 // Feature flag to prevent navigation without user interaction.
 BASE_DECLARE_FEATURE(kPreventNavigationWithoutUserInteraction);
 
+// Feature flag to enable Web Inspector support.
+BASE_DECLARE_FEATURE(kEnableWebInspector);
+
+// Feature used by finch config to enable smooth scrolling when the default
+// viewport adjustment experiment is selected via command line switches.
+BASE_DECLARE_FEATURE(kSmoothScrollingDefault);
+
 // When true, user control for camera and/or microphone access should be
 // enabled.
 bool IsMediaPermissionsControlEnabled();
@@ -92,6 +99,9 @@ bool IsLoadSimulatedRequestAPIEnabled();
 
 // When true, the fullscreen API should be used to enable fullscreen mode.
 bool IsFullscreenAPIEnabled();
+
+// Return true when the smooth scrolling feature is enabled.
+bool IsFullscreenSmoothScrollingEnabled();
 
 }  // namespace features
 }  // namespace web

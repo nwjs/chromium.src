@@ -44,11 +44,6 @@ class ASH_EXPORT FeatureTile : public views::Button {
     kMaxValue = kCompact,
   };
 
-  // Constructor for prototype tiles without a callback. Applies placeholder
-  // icons and titles.
-  // TODO(b/252871301): Remove when having implemented each feature tile.
-  explicit FeatureTile(TileType type = TileType::kPrimary);
-
   // Constructor for FeatureTiles. `callback` will be called when interacting
   // with the main part of the button, which accounts for the whole tile.
   // For primary tiles with drill-in, `callback` is called when interacting with
@@ -99,6 +94,9 @@ class ASH_EXPORT FeatureTile : public views::Button {
   // Sets the tooltip text of `drill_in_button_`.
   void SetDrillInButtonTooltipText(const std::u16string& text);
 
+  // views::View:
+  void OnThemeChanged() override;
+
   views::ImageView* icon() { return icon_; }
   views::Label* label() { return label_; }
   views::Label* sub_label() { return sub_label_; }
@@ -107,6 +105,10 @@ class ASH_EXPORT FeatureTile : public views::Button {
  private:
   friend class BluetoothFeaturePodControllerTest;
   friend class NotificationCounterViewTest;
+
+  // Updates `drill_in_arrow_` since it uses a different focus ring color when
+  // the tile is toggled to provide contrast with the background color.
+  void UpdateDrillInButtonFocusRingColor();
 
   // The vector icon for the tile, if one is set.
   const gfx::VectorIcon* vector_icon_ = nullptr;

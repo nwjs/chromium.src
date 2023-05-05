@@ -8,6 +8,7 @@
 #include <string>
 
 #include "ash/ash_export.h"
+#include "ash/public/cpp/session/session_observer.h"
 #include "ash/style/icon_button.h"
 #include "ash/system/tray/tray_background_view.h"
 #include "ash/system/video_conference/video_conference_tray_controller.h"
@@ -18,6 +19,10 @@ namespace gfx {
 class Canvas;
 struct VectorIcon;
 }  // namespace gfx
+
+namespace session_manager {
+enum class SessionState;
+}  // namespace session_manager
 
 namespace ui {
 class Event;
@@ -33,6 +38,7 @@ namespace video_conference {
 class BubbleViewTest;
 class ReturnToAppPanelTest;
 class ResourceDependencyTest;
+class ToggleEffectsViewTest;
 }  // namespace video_conference
 
 class Shelf;
@@ -78,7 +84,8 @@ class VideoConferenceTrayButton : public IconButton {
 // This class represents the VC Controls tray button in the status area and
 // controls the bubble that is shown when the tray button is clicked.
 class ASH_EXPORT VideoConferenceTray
-    : public TrayBackgroundView,
+    : public SessionObserver,
+      public TrayBackgroundView,
       public VideoConferenceTrayController::Observer {
  public:
   METADATA_HEADER(VideoConferenceTray);
@@ -91,6 +98,7 @@ class ASH_EXPORT VideoConferenceTray
   VideoConferenceTrayButton* audio_icon() { return audio_icon_; }
   VideoConferenceTrayButton* camera_icon() { return camera_icon_; }
   VideoConferenceTrayButton* screen_share_icon() { return screen_share_icon_; }
+  IconButton* toggle_bubble_button() { return toggle_bubble_button_; }
 
   // TrayBackgroundView:
   void CloseBubble() override;
@@ -100,6 +108,7 @@ class ASH_EXPORT VideoConferenceTray
   void HideBubbleWithView(const TrayBubbleView* bubble_view) override;
   void ClickedOutsideBubble() override;
   void HandleLocaleChange() override;
+  void AnchorUpdated() override;
 
   // VideoConferenceTrayController::Observer:
   void OnHasMediaAppStateChange() override;
@@ -122,7 +131,11 @@ class ASH_EXPORT VideoConferenceTray
   friend class video_conference::BubbleViewTest;
   friend class video_conference::ReturnToAppPanelTest;
   friend class video_conference::ResourceDependencyTest;
+  friend class video_conference::ToggleEffectsViewTest;
   friend class VideoConferenceTrayTest;
+
+  // SessionObserver:
+  void OnSessionStateChanged(session_manager::SessionState state) override;
 
   // Callback function for `toggle_bubble_button_`.
   void ToggleBubble(const ui::Event& event);

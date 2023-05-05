@@ -29,7 +29,7 @@
 #include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/browser/renderer_host/render_view_host_impl.h"
 #include "content/browser/web_package/subresource_web_bundle_navigation_info.h"
-#include "content/browser/webauth/authenticator_environment_impl.h"
+#include "content/browser/webauth/authenticator_environment.h"
 #include "content/common/navigation_params_utils.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/site_isolation_policy.h"
@@ -326,7 +326,7 @@ Navigator& FrameTreeNode::navigator() {
   return frame_tree().navigator();
 }
 
-bool FrameTreeNode::IsOutermostMainFrame() {
+bool FrameTreeNode::IsOutermostMainFrame() const {
   return !GetParentOrOuterDocument();
 }
 
@@ -343,7 +343,7 @@ void FrameTreeNode::ResetForNavigation() {
       blink::mojom::UserActivationNotificationType::kNone);
 }
 
-RenderFrameHostImpl* FrameTreeNode::GetParentOrOuterDocument() {
+RenderFrameHostImpl* FrameTreeNode::GetParentOrOuterDocument() const {
   return GetParentOrOuterDocumentHelper(/*escape_guest_view=*/false,
                                         /*include_prospective=*/true);
 }
@@ -355,7 +355,7 @@ RenderFrameHostImpl* FrameTreeNode::GetParentOrOuterDocumentOrEmbedder() {
 
 RenderFrameHostImpl* FrameTreeNode::GetParentOrOuterDocumentHelper(
     bool escape_guest_view,
-    bool include_prospective) {
+    bool include_prospective) const {
   // Find the parent in the FrameTree (iframe).
   if (parent_) {
     return parent_;
@@ -884,9 +884,6 @@ FrameTreeNode::GetFencedFrameProperties() {
 absl::optional<FencedFrameProperties>&
 FrameTreeNode::GetFencedFramePropertiesForEditing() {
   if (IsInFencedFrameTree()) {
-    // Because we already confirmed we're in a fenced frame tree, we know
-    // there must be a fenced frame root with properties stored.
-    CHECK(frame_tree().root()->fenced_frame_properties_.has_value());
     return frame_tree().root()->fenced_frame_properties_;
   }
 
@@ -930,11 +927,13 @@ void FrameTreeNode::SetFencedFrameAutomaticBeaconReportEventData(
         "origin to the mapped url from the fenced frame config.");
     return;
   }
-  properties->fenced_frame_reporter_->UpdateAutomaticBeaconData(event_data,
-                                                                destination);
+  properties->UpdateAutomaticBeaconData(event_data, destination);
 }
 
-size_t FrameTreeNode::GetFencedFrameDepth() {
+size_t FrameTreeNode::GetFencedFrameDepth(
+    size_t& shared_storage_fenced_frame_root_count) {
+  DCHECK_EQ(shared_storage_fenced_frame_root_count, 0u);
+
   size_t depth = 0;
   FrameTreeNode* node = this;
 
@@ -942,6 +941,12 @@ size_t FrameTreeNode::GetFencedFrameDepth() {
          FencedFrameStatus::kNotNestedInFencedFrame) {
     if (node->fenced_frame_status() == FencedFrameStatus::kFencedFrameRoot) {
       depth += 1;
+
+      // This implies the fenced frame is from shared storage.
+      if (node->fenced_frame_properties_ &&
+          node->fenced_frame_properties_->shared_storage_budget_metadata_) {
+        shared_storage_fenced_frame_root_count += 1;
+      }
     } else {
       DCHECK_EQ(node->fenced_frame_status(),
                 FencedFrameStatus::kIframeNestedWithinFencedFrame);
@@ -980,19 +985,18 @@ void FrameTreeNode::SetFencedFramePropertiesIfNeeded() {
   fenced_frame_properties_ = FencedFrameProperties();
 }
 
-absl::optional<blink::mojom::FencedFrameMode>
-FrameTreeNode::GetFencedFrameMode() {
+blink::FencedFrame::DeprecatedFencedFrameMode
+FrameTreeNode::GetDeprecatedFencedFrameMode() {
   if (!IsInFencedFrameTree()) {
-    return absl::nullopt;
+    return blink::FencedFrame::DeprecatedFencedFrameMode::kDefault;
   }
 
-  FrameTreeNode* outer_delegate_node = render_manager()->GetOuterDelegateNode();
-  DCHECK(outer_delegate_node);
+  auto& root_fenced_frame_properties = GetFencedFrameProperties();
+  if (!root_fenced_frame_properties.has_value()) {
+    return blink::FencedFrame::DeprecatedFencedFrameMode::kDefault;
+  }
 
-  FencedFrame* fenced_frame = FindFencedFrame(outer_delegate_node);
-  DCHECK(fenced_frame);
-
-  return fenced_frame->mode();
+  return root_fenced_frame_properties->mode_;
 }
 
 bool FrameTreeNode::IsErrorPageIsolationEnabled() const {
@@ -1029,6 +1033,20 @@ FrameTreeNode::FindSharedStorageBudgetMetadata() {
   }
 
   return result;
+}
+
+absl::optional<std::u16string>
+FrameTreeNode::GetEmbedderSharedStorageContextIfAllowed() {
+  absl::optional<FencedFrameProperties>& properties =
+      GetFencedFramePropertiesForEditing();
+  // We only return embedder context for frames that are same origin with the
+  // fenced frame root or ancestor URN iframe.
+  if (!properties || !properties->mapped_url_.has_value() ||
+      !current_origin().IsSameOriginWith(url::Origin::Create(
+          properties->mapped_url_->GetValueIgnoringVisibility()))) {
+    return absl::nullopt;
+  }
+  return properties->embedder_shared_storage_context_;
 }
 
 const scoped_refptr<BrowsingContextState>&
@@ -1134,7 +1152,7 @@ bool FrameTreeNode::Credentialless() const {
 void FrameTreeNode::GetVirtualAuthenticatorManager(
     mojo::PendingReceiver<blink::test::mojom::VirtualAuthenticatorManager>
         receiver) {
-  auto* environment_singleton = AuthenticatorEnvironmentImpl::GetInstance();
+  auto* environment_singleton = AuthenticatorEnvironment::GetInstance();
   environment_singleton->EnableVirtualAuthenticatorFor(this,
                                                        /*enable_ui=*/false);
   environment_singleton->AddVirtualAuthenticatorReceiver(this,

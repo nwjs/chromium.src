@@ -74,7 +74,11 @@ gfx::NativeView WebContentsViewIOS::GetContentNativeView() const {
 }
 
 gfx::NativeWindow WebContentsViewIOS::GetTopLevelNativeWindow() const {
-  return nullptr;
+  gfx::NativeView view = GetContentNativeView();
+  if (!view) {
+    return nullptr;
+  }
+  return gfx::NativeWindow([view window]);
 }
 
 gfx::Rect WebContentsViewIOS::GetContainerBounds() const {
@@ -104,6 +108,14 @@ DropData* WebContentsViewIOS::GetDropData() const {
 
 gfx::Rect WebContentsViewIOS::GetViewBounds() const {
   return gfx::Rect();
+}
+
+void WebContentsViewIOS::GotFocus(RenderWidgetHostImpl* render_widget_host) {
+  web_contents_->NotifyWebContentsFocused(render_widget_host);
+}
+
+void WebContentsViewIOS::LostFocus(RenderWidgetHostImpl* render_widget_host) {
+  web_contents_->NotifyWebContentsLostFocus(render_widget_host);
 }
 
 void WebContentsViewIOS::CreateView(gfx::NativeView context) {}

@@ -46,7 +46,6 @@ import org.chromium.chrome.browser.tasks.ReturnToChromeUtilUnitTest.ShadowHomepa
 import org.chromium.chrome.browser.tasks.ReturnToChromeUtilUnitTest.ShadowHomepagePolicyManager;
 import org.chromium.chrome.browser.tasks.ReturnToChromeUtilUnitTest.ShadowSysUtils;
 import org.chromium.chrome.browser.util.ChromeAccessibilityUtil;
-import org.chromium.chrome.features.start_surface.StartSurfaceConfiguration;
 import org.chromium.chrome.test.util.browser.Features;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.segmentation_platform.SegmentSelectionResult;
@@ -55,12 +54,14 @@ import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.components.url_formatter.UrlFormatterJni;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.url.JUnitTestGURLs;
+import org.chromium.base.test.util.DisabledTest;
 
 /** Unit tests for {@link ReturnToChromeUtil} class. */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE,
         shadows = {ShadowHomepageManager.class, ShadowHomepagePolicyManager.class,
                 ShadowSysUtils.class})
+@Features.EnableFeatures({ChromeFeatureList.START_SURFACE_WITH_ACCESSIBILITY})
 public class ReturnToChromeUtilUnitTest {
     /** Shadow for {@link HomepageManager}. */
     @Implements(HomepageManager.class)
@@ -136,7 +137,6 @@ public class ReturnToChromeUtilUnitTest {
         Assert.assertFalse(SysUtils.isLowEndDevice());
 
         // Sets accessibility:
-        StartSurfaceConfiguration.SUPPORT_ACCESSIBILITY.setForTesting(true);
         ChromeAccessibilityUtil.get().setAccessibilityEnabledForTesting(false);
 
         // Sets for !DeviceFormFactor.isNonMultiDisplayContextOnTablet():
@@ -154,6 +154,7 @@ public class ReturnToChromeUtilUnitTest {
 
     @Test
     @SmallTest
+    @DisabledTest(message = "Flaky, see crbug.com/1425954")
     public void testShouldShowTabSwitcher() {
         Assert.assertEquals(START_SURFACE_RETURN_TIME_SECONDS.getDefaultValue(),
                 START_SURFACE_RETURN_TIME_SECONDS.getValue());

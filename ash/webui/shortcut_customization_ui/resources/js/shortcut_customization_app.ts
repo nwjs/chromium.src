@@ -6,6 +6,7 @@ import './accelerator_edit_dialog.js';
 import './shortcut_input.js';
 import './shortcuts_page.js';
 import '../strings.m.js';
+import './search/search_box.js';
 import '../css/shortcut_customization_shared.css.js';
 import 'chrome://resources/ash/common/navigation_view_panel.js';
 import 'chrome://resources/ash/common/page_toolbar.js';
@@ -25,8 +26,8 @@ import {AcceleratorLookupManager} from './accelerator_lookup_manager.js';
 import {ShowEditDialogEvent} from './accelerator_row.js';
 import {getShortcutProvider} from './mojo_interface_provider.js';
 import {getTemplate} from './shortcut_customization_app.html.js';
-import {AcceleratorInfo, AcceleratorSource, AcceleratorState, AcceleratorType, MojoAcceleratorConfig, MojoLayoutInfo, ShortcutProviderInterface, StandardAcceleratorInfo} from './shortcut_types.js';
-import {getCategoryNameStringId, isCustomizationDisabled} from './shortcut_utils.js';
+import {AcceleratorConfigResult, AcceleratorInfo, AcceleratorSource, MojoAcceleratorConfig, MojoLayoutInfo, ShortcutProviderInterface} from './shortcut_types.js';
+import {getCategoryNameStringId, isCustomizationDisabled, isSearchEnabled} from './shortcut_utils.js';
 
 export interface ShortcutCustomizationAppElement {
   $: {
@@ -125,6 +126,11 @@ export class ShortcutCustomizationAppElement extends
     // Kickoff fetching accelerators by first fetching the accelerator configs.
     this.shortcutProvider.getAccelerators().then(
         ({config}) => this.onAcceleratorConfigFetched(config));
+
+    // Fetch the hasLauncherButton value.
+    this.shortcutProvider.hasLauncherButton().then(({hasLauncherButton}) => {
+      this.acceleratorlookupManager.setHasLauncherButton(hasLauncherButton);
+    });
   }
 
   private onAcceleratorConfigFetched(config: MojoAcceleratorConfig): void {
@@ -151,6 +157,11 @@ export class ShortcutCustomizationAppElement extends
   onAcceleratorsUpdated(config: MojoAcceleratorConfig): void {
     this.acceleratorlookupManager.setAcceleratorLookup(config);
     this.$.navigationPanel.notifyEvent('updateSubsections');
+
+    // Update the hasLauncherButton value every time accelerators are updated.
+    this.shortcutProvider.hasLauncherButton().then(({hasLauncherButton}) => {
+      this.acceleratorlookupManager.setHasLauncherButton(hasLauncherButton);
+    });
   }
 
   private addNavigationSelectors(layoutInfos: MojoLayoutInfo[]): void {
@@ -184,14 +195,8 @@ export class ShortcutCustomizationAppElement extends
   private onRequestUpdateAccelerators(e: RequestUpdateAcceleratorEvent): void {
     this.$.navigationPanel.notifyEvent('updateSubsections');
     const updatedAccels =
-        this.acceleratorlookupManager
-            .getStandardAcceleratorInfos(e.detail.source, e.detail.action)
-            ?.filter((accel: StandardAcceleratorInfo) => {
-              // Hide accelerators that are default and disabled.
-              return !(
-                  accel.type === AcceleratorType.kDefault &&
-                  accel.state === AcceleratorState.kDisabledByUser);
-            });
+        this.acceleratorlookupManager.getStandardAcceleratorInfos(
+            e.detail.source, e.detail.action);
 
     this.shadowRoot!.querySelector<AcceleratorEditDialogElement>('#editDialog')!
         .updateDialogAccelerators(updatedAccels as AcceleratorInfo[]);
@@ -206,7 +211,12 @@ export class ShortcutCustomizationAppElement extends
   }
 
   protected onConfirmRestoreButtonClicked(): void {
-    // TODO(jimmyxgong): Implement this function.
+    this.shortcutProvider.restoreAllDefaults().then(({result}) => {
+      // TODO(jimmyxgong): Explore error state with restore all.
+      if (result.result === AcceleratorConfigResult.kSuccess) {
+        this.closeRestoreAllDialog();
+      }
+    });
   }
 
   protected closeRestoreAllDialog(): void {
@@ -215,6 +225,11 @@ export class ShortcutCustomizationAppElement extends
 
   protected shouldHideRestoreAllButton(): boolean {
     return isCustomizationDisabled();
+  }
+
+  protected shouldHideSearchBox(): boolean {
+    // Hide the search box when flag is disabled.
+    return !isSearchEnabled();
   }
 
   static get template(): HTMLTemplateElement {

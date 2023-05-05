@@ -96,7 +96,8 @@ class AutocompleteResult {
                           AutocompleteResult* old_matches);
 
   // Adds a new set of matches to the result set.  Does not re-sort.
-  void AppendMatches(const ACMatches& matches);
+  // When `preserve` is true, the matches are appended without modifications.
+  void AppendMatches(const ACMatches& matches, bool preserve = false);
 
   // Removes duplicates, puts the list in sorted order and culls to leave only
   // the best GetMaxMatches() matches. Sets the default match to the best match
@@ -281,12 +282,8 @@ class AutocompleteResult {
   static constexpr size_t kMaxAutocompletePositionValue = 30;
 
  private:
-  FRIEND_TEST_ALL_PREFIXES(AutocompleteResultTest,
-                           DemoteOnDeviceSearchSuggestions);
-  FRIEND_TEST_ALL_PREFIXES(
-      AutocompleteResultTest,
-      GroupSuggestionsBySearchVsURLHonorsProtectedSuggestions);
   friend class AutocompleteController;  // Friended to use `CopyFrom()`.
+  friend class AutocompleteResultForTesting;
   friend class AutocompleteProviderTest;
   friend class HistoryURLProviderTest;
 

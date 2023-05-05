@@ -40,6 +40,7 @@
 #include "chromeos/ash/services/auth_factor_config/in_process_instances.h"
 #include "chromeos/ash/services/cellular_setup/cellular_setup_impl.h"
 #include "chromeos/ash/services/cellular_setup/public/mojom/esim_manager.mojom.h"
+#include "chromeos/constants/chromeos_features.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/web_contents.h"
@@ -96,6 +97,9 @@ OSSettingsUI::OSSettingsUI(content::WebUI* web_ui)
       base::make_span(kOsSettingsResources, kOsSettingsResourcesSize),
       IDR_OS_SETTINGS_OS_SETTINGS_V3_HTML);
   html_source->DisableTrustedTypesCSP();
+  html_source->OverrideContentSecurityPolicy(
+      network::mojom::CSPDirectiveName::WorkerSrc,
+      "worker-src blob: chrome://resources 'self';");
 
   ManagedUIHandler::Initialize(web_ui, html_source);
 }
@@ -250,7 +254,7 @@ void OSSettingsUI::BindInterface(
 
 void OSSettingsUI::BindInterface(
     mojo::PendingReceiver<color_change_listener::mojom::PageHandler> receiver) {
-  if (!features::IsJellyEnabled()) {
+  if (!chromeos::features::IsJellyEnabled()) {
     mojo::ReportBadMessage(
         "Jelly not enabled: OSSettingsUI should not listen to color changes.");
     return;

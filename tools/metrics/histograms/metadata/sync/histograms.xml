@@ -66,6 +66,7 @@ chromium-metrics-reviews@google.com.
   <variant name=".USER_EVENT" summary="USER_EVENT"/>
   <variant name=".WALLET_METADATA" summary="WALLET_METADATA"/>
   <variant name=".WEB_APP" summary="WEB_APP"/>
+  <variant name=".WEBAUTHN_CREDENTIAL" summary="WEBAUTHN_CREDENTIAL"/>
   <variant name=".WIFI_CONFIGURATION" summary="WIFI_CONFIGURATION"/>
   <variant name=".WORKSPACE_DESK" summary="WORKSPACE_DESK"/>
 </variants>
@@ -83,6 +84,12 @@ chromium-metrics-reviews@google.com.
   <variant name=".MigratedLast28Days"
       summary="Includes data for users that went through migration during the
                last 28 days (wrt recording the metrics)."/>
+  <variant name=".MigratedLast90Days"
+      summary="Includes data for users that went through migration during the
+               last 90 days (wrt recording the metrics)."/>
+  <variant name=".MigratedLast180Days"
+      summary="Includes data for users that went through migration during the
+               last 180 days (wrt recording the metrics)."/>
   <variant name=".MigratedLastDay"
       summary="Includes data for users that went through migration during the
                last day (wrt recording the metrics)."/>
@@ -106,7 +113,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.BackedOffModelType" enum="SyncModelTypes"
-    expires_after="2023-06-25">
+    expires_after="2023-08-27">
   <owner>victorvianna@google.com</owner>
   <owner>src/components/sync/OWNERS</owner>
   <component>Services&gt;Sync</component>
@@ -207,7 +214,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.BookmarksGUIDDuplicates" enum="BookmarksGUIDDuplicates"
-    expires_after="2023-07-16">
+    expires_after="2023-09-17">
   <owner>mastiz@chromium.org</owner>
   <owner>rushans@google.com</owner>
   <component>Services&gt;Sync</component>
@@ -278,7 +285,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.CommitResponse{SyncModelType}" enum="SyncerErrorValues"
-    expires_after="2023-04-10">
+    expires_after="2024-03-02">
   <owner>rushans@google.com</owner>
   <owner>treib@chromium.org</owner>
   <component>Services&gt;Sync</component>
@@ -307,7 +314,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.ConfigureDataTypes" enum="SyncModelTypes"
-    expires_after="2023-07-09">
+    expires_after="2023-09-10">
   <owner>mastiz@chromium.org</owner>
   <owner>treib@chromium.org</owner>
   <component>Services&gt;Sync</component>
@@ -358,7 +365,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Sync.Crypto.CustomPassphraseKeyDerivationMethodStateOnStartup"
     enum="SyncCustomPassphraseKeyDerivationMethodState"
-    expires_after="2023-07-09">
+    expires_after="2023-09-10">
   <owner>mmoskvitin@google.com</owner>
   <owner>treib@chromium.org</owner>
   <component>Services&gt;Sync</component>
@@ -431,7 +438,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.CustomSync3" enum="SyncModelTypes"
-    expires_after="2023-06-25">
+    expires_after="2023-08-27">
   <owner>treib@chromium.org</owner>
   <owner>mastiz@chromium.org</owner>
   <component>Services&gt;Sync</component>
@@ -446,20 +453,20 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.DataTypeRunFailures2" enum="SyncModelTypes"
-    expires_after="2023-07-09">
+    expires_after="2023-09-10">
   <owner>rushans@google.com</owner>
   <owner>mastiz@chromium.org</owner>
   <component>Services&gt;Sync</component>
   <summary>
     Histogram of the run failures for the different sync datatypes. These are
     failures that occur after startup while the datatype is syncing. This is one
-    of the base sync health metrics. The Sync.ModelTypeStoreBackendError
-    histograms may help diagnosing the problem.
+    of the base sync health metrics. The Sync.ModelTypeStoreBackendError and
+    Sync.ModelTypeErrorSite histograms may help diagnosing the problem.
   </summary>
 </histogram>
 
 <histogram name="Sync.DataTypeStartFailures2" enum="SyncModelTypes"
-    expires_after="2023-07-09">
+    expires_after="2023-09-10">
   <owner>rushans@google.com</owner>
   <owner>mastiz@chromium.org</owner>
   <component>Services&gt;Sync</component>
@@ -468,7 +475,8 @@ chromium-metrics-reviews@google.com.
     are failures that occur during startup before the data type is fully loaded.
     These errors are caused by failures in reading metadata (or data) from the
     DB or by another failure in interaction with the model. The
-    Sync.ModelTypeStoreBackendError histograms may help diagnosing the problem.
+    Sync.ModelTypeStoreBackendError and Sync.ModelTypeErrorSite histograms may
+    help diagnosing the problem.
   </summary>
 </histogram>
 
@@ -504,7 +512,7 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
-<histogram name="Sync.EntitySizeOnCommit.{SyncModelType}" units="bytes"
+<histogram name="Sync.EntitySizeOnCommit{SyncModelType}" units="bytes"
     expires_after="2023-11-30">
   <owner>ankushkush@google.com</owner>
   <owner>treib@chromium.org</owner>
@@ -540,7 +548,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.History.DatabaseError" enum="SyncHistoryDatabaseError"
-    expires_after="2023-06-30">
+    expires_after="2023-09-03">
   <owner>treib@chromium.org</owner>
   <owner>mastiz@chromium.org</owner>
   <component>Services&gt;Sync</component>
@@ -599,7 +607,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.InitialState2" enum="SyncInitialState"
-    expires_after="2023-07-09">
+    expires_after="2023-09-10">
   <owner>treib@chromium.org</owner>
   <owner>mastiz@chromium.org</owner>
   <component>Services&gt;Sync</component>
@@ -825,7 +833,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.ModelTypeCount4{SyncModelType}" units="entries"
-    expires_after="2023-04-24">
+    expires_after="2024-04-24">
   <owner>rushans@google.com</owner>
   <owner>mastiz@chromium.org</owner>
   <component>Services&gt;Sync</component>
@@ -838,7 +846,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.ModelTypeEntityChange3{SyncModelType}"
-    enum="SyncEntityChange" expires_after="2023-04-24">
+    enum="SyncEntityChange" expires_after="2024-04-24">
   <owner>treib@chromium.org</owner>
   <owner>rushans@google.com</owner>
   <component>Services&gt;Sync</component>
@@ -852,7 +860,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.ModelTypeEntityMetadataWithoutInitialSync"
-    enum="SyncModelTypes" expires_after="2023-07-05">
+    enum="SyncModelTypes" expires_after="2023-09-03">
   <owner>mastiz@chromium.org</owner>
   <owner>treib@chromium.org</owner>
   <component>Services&gt;Sync</component>
@@ -863,7 +871,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.ModelTypeErrorSite{SyncModelType}"
-    enum="SyncModelTypeErrorSite" expires_after="2023-04-10">
+    enum="SyncModelTypeErrorSite" expires_after="2024-02-28">
   <owner>treib@chromium.org</owner>
   <owner>rushans@google.com</owner>
   <component>Services&gt;Sync</component>
@@ -876,7 +884,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.ModelTypeIncrementalUpdateReceived" enum="SyncModelTypes"
-    expires_after="2023-04-16">
+    expires_after="2024-04-16">
   <owner>rushans@google.com</owner>
   <owner>mastiz@chromium.org</owner>
   <component>Services&gt;Sync</component>
@@ -899,7 +907,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.ModelTypeMemoryKB{SyncModelType}" units="KB"
-    expires_after="2023-04-17">
+    expires_after="2024-03-09">
   <owner>mastiz@chromium.org</owner>
   <owner>rushans@google.com</owner>
   <component>Services&gt;Sync</component>
@@ -998,7 +1006,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.ModelTypeUpdateDrop.{Reason}" enum="SyncModelTypes"
-    expires_after="2023-04-24">
+    expires_after="2024-04-24">
   <owner>treib@chromium.org</owner>
   <owner>rushans@google.com</owner>
   <component>Services&gt;Sync</component>
@@ -1033,7 +1041,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Sync.NonReflectionUpdateFreshnessPossiblySkewed2{SyncModelType}"
-    units="ms" expires_after="2023-04-24">
+    units="ms" expires_after="2024-04-24">
   <owner>mastiz@chromium.org</owner>
   <owner>treib@chromium.org</owner>
   <component>Services&gt;Sync</component>
@@ -1050,7 +1058,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.PassphraseType" enum="SyncPassphraseType"
-    expires_after="2023-06-25">
+    expires_after="2023-08-27">
   <owner>treib@chromium.org</owner>
   <owner>mastiz@chromium.org</owner>
   <component>Services&gt;Sync</component>
@@ -1068,7 +1076,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.PassphraseTypeUponNotMyBirthdayOrEncryptionObsolete"
-    enum="SyncPassphraseType" expires_after="2023-06-25">
+    enum="SyncPassphraseType" expires_after="2023-08-27">
   <owner>mastiz@chromium.org</owner>
   <owner>mmoskvitin@google.com</owner>
   <component>Services&gt;Sync</component>
@@ -1091,7 +1099,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.PendingInvalidationStatus"
-    enum="PendingInvalidationStatus" expires_after="2023-07-02">
+    enum="PendingInvalidationStatus" expires_after="2023-09-03">
   <owner>shabdan@google.com</owner>
   <owner>rushans@google.com</owner>
   <component>Services&gt;Sync</component>
@@ -1103,7 +1111,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.PostedClientToServerMessage"
-    enum="SyncClientToServerMessageContents" expires_after="2023-07-02">
+    enum="SyncClientToServerMessageContents" expires_after="2023-09-03">
   <owner>mastiz@chromium.org</owner>
   <component>Services&gt;Sync</component>
   <summary>
@@ -1113,7 +1121,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.PostedClientToServerMessageError2" enum="SyncErrorType"
-    expires_after="2023-07-02">
+    expires_after="2023-09-03">
   <owner>mastiz@chromium.org</owner>
   <owner>treib@chromium.org</owner>
   <component>Services&gt;Sync</component>
@@ -1293,6 +1301,17 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Sync.SyncablePrefValueChanged" enum="SyncablePref"
+    expires_after="2024-01-31">
+  <owner>ankushkush@google.com</owner>
+  <owner>treib@chromium.org</owner>
+  <component>Services&gt;Sync</component>
+  <summary>
+    This is recorded everytime a syncable pref is changed locally. This does not
+    include changes sent during the initial sync/merge.
+  </summary>
+</histogram>
+
 <histogram name="Sync.SyncedHistoryFaviconAvailability.{RequestOrigin}"
     enum="FaviconAvailabilityStatus" expires_after="2023-07-10">
   <owner>victorvianna@google.com</owner>
@@ -1315,7 +1334,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.SyncErrorInfobarDisplayed" enum="SyncErrorInfobarTypes"
-    expires_after="2023-06-25">
+    expires_after="2023-09-03">
   <owner>jlebel@chromium.org</owner>
   <owner>chrome-signin-team@google.com</owner>
   <component>Services&gt;Sync</component>
@@ -1441,7 +1460,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.TrustedVaultDegradedRecoverabilityValue2"
-    enum="TrustedVaultDegradedRecoverabilityValue" expires_after="2023-07-09">
+    enum="TrustedVaultDegradedRecoverabilityValue" expires_after="2023-09-10">
   <owner>mmrashad@google.com</owner>
   <owner>mmoskvitin@google.com</owner>
   <component>Services&gt;Sync</component>
@@ -1508,6 +1527,18 @@ chromium-metrics-reviews@google.com.
   <summary>
     Records the result of an attempt to download trusted vault keys from the
     server, specifically if the local device is known to have a V1 registration.
+  </summary>
+</histogram>
+
+<histogram name="Sync.TrustedVaultErrorShownOnFirstTimeSync" enum="Boolean"
+    expires_after="2023-09-15">
+  <owner>mmoskvitin@google.com</owner>
+  <owner>mastiz@chromium.org</owner>
+  <component>Services&gt;Sync</component>
+  <summary>
+    Records whether user action was required to fetch trusted vault keys upon
+    first sync (i.e. after signin). Recorded only if trusted vault passphrase
+    type is used and at most once per browser/profile lifetime.
   </summary>
 </histogram>
 
@@ -1762,7 +1793,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sync.URLFetchTimedOut" enum="BooleanTimedOut"
-    expires_after="2023-06-18">
+    expires_after="2023-08-27">
   <owner>mastiz@chromium.org</owner>
   <owner>treib@chromium.org</owner>
   <component>Services&gt;Sync</component>

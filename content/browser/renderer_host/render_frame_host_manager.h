@@ -45,6 +45,7 @@ struct FramePolicy;
 }  // namespace blink
 
 namespace content {
+class BatchedProxyIPCSender;
 class FrameTree;
 class FrameTreeNode;
 class NavigationControllerImpl;
@@ -270,7 +271,7 @@ class CONTENT_EXPORT RenderFrameHostManager {
   // If this is a RenderFrameHostManager for a main frame, this method returns
   // the FrameTreeNode for the frame in the outer WebContents (if any) that
   // contains the inner WebContents.
-  FrameTreeNode* GetOuterDelegateNode();
+  FrameTreeNode* GetOuterDelegateNode() const;
 
   // Return a proxy for this frame in the parent frame's SiteInstance.  Returns
   // nullptr if this is a main frame or if such a proxy does not exist (for
@@ -346,12 +347,21 @@ class CONTENT_EXPORT RenderFrameHostManager {
       bool for_early_commit,
       const scoped_refptr<BrowsingContextState>& browsing_context_state);
 
-  // Helper method to create and initialize a RenderFrameProxyHost.
-  // |browsing_context_state| is the BrowsingContextState in which the newly
-  // created RenderFrameProxyHost will be stored.
+  // Helper method to create and initialize a `RenderFrameProxyHost`.
+  // `browsing_context_state` is the `BrowsingContextState` in which the newly
+  // created `RenderFrameProxyHost` will be stored. If
+  // `batched_proxy_ipc_sender` is not null, then proxy creation will be
+  // delayed, and batched created later when
+  // `BatchedProxyIPCSender::CreateAllProxies()` is called. The only
+  // case where `batched_proxy_ipc_sender` is not null is when called by
+  // `FrameTree::CreateProxiesForSiteInstance()` in addition to
+  // `kConsolidatedIPCForProxyCreation` being enabled.
+  // TODO(peilinwang): consider refactoring this into 2 code paths if
+  // experiment shows promising results (https://crbug.com/1393697).
   void CreateRenderFrameProxy(
       SiteInstanceImpl* instance,
-      const scoped_refptr<BrowsingContextState>& browsing_context_state);
+      const scoped_refptr<BrowsingContextState>& browsing_context_state,
+      BatchedProxyIPCSender* batched_proxy_ipc_sender = nullptr);
 
   // Creates proxies for a new child frame at FrameTreeNode |child| in all
   // SiteInstances for which the current frame has proxies.  This method is
@@ -629,6 +639,10 @@ class CONTENT_EXPORT RenderFrameHostManager {
   enum class SiteInstanceRelation {
     // A SiteInstance in a different browsing instance from the current.
     UNRELATED,
+    // A SiteInstance in a different BrowsingInstance, but in the same
+    // CoopRelatedGroup. Only used for COOP: restrict-properties
+    // navigations.
+    RELATED_IN_COOP_GROUP,
     // A SiteInstance in the same browsing instance as the current.
     RELATED,
     // A pre-existing SiteInstance that might or might not be in the same
@@ -652,21 +666,21 @@ class CONTENT_EXPORT RenderFrameHostManager {
   // It can point to an existing one or store the details needed to create a new
   // one.
   struct CONTENT_EXPORT SiteInstanceDescriptor {
-    explicit SiteInstanceDescriptor(SiteInstanceImpl* site_instance)
-        : existing_site_instance(site_instance),
-          relation(SiteInstanceRelation::PREEXISTING) {}
+    // Constructor used for PREEXISTING relations.
+    explicit SiteInstanceDescriptor(SiteInstanceImpl* site_instance);
 
+    // Constructor used for UNRELATED/RELATED_IN_COOP_GROUP/RELATED relations.
     SiteInstanceDescriptor(UrlInfo dest_url_info,
                            SiteInstanceRelation relation_to_current);
 
     // Set with an existing SiteInstance to be reused.
     raw_ptr<SiteInstanceImpl> existing_site_instance;
 
-    // In case |existing_site_instance| is null, specify a destination URL.
+    // In case `existing_site_instance` is null, specify a destination URL.
     UrlInfo dest_url_info;
 
     // Specifies how the new site is related to the current BrowsingInstance.
-    // This is PREEXISTING iff |existing_site_instance| is defined.
+    // This is PREEXISTING iff `existing_site_instance` is defined.
     SiteInstanceRelation relation;
   };
 
@@ -772,11 +786,12 @@ class CONTENT_EXPORT RenderFrameHostManager {
   // suitable anymore.
   //
   // This is a helper function for GetSiteInstanceForNavigation.
-  bool CanUseDestinationInstance(const UrlInfo& dest_url_info,
-                                 SiteInstanceImpl* current_instance,
-                                 SiteInstanceImpl* dest_instance,
-                                 bool is_failure,
-                                 bool force_browsing_instance_swap);
+  bool CanUseDestinationInstance(
+      const UrlInfo& dest_url_info,
+      SiteInstanceImpl* current_instance,
+      SiteInstanceImpl* dest_instance,
+      bool is_failure,
+      const BrowsingContextGroupSwap& browsing_context_group_swap);
 
   // Returns true if a navigation to |dest_url| that uses the specified
   // PageTransition in the current frame is allowed to swap BrowsingInstances.

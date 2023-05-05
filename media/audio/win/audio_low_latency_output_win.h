@@ -121,6 +121,7 @@ namespace media {
 
 class AudioManagerWin;
 class AudioSessionEventListener;
+class AmplitudePeakDetector;
 
 // AudioOutputStream implementation using Windows Core Audio APIs.
 class MEDIA_EXPORT WASAPIAudioOutputStream
@@ -197,6 +198,8 @@ class MEDIA_EXPORT WASAPIAudioOutputStream
   // Used to aggregate and report glitch metrics to UMA (periodically) and to
   // text logs (when a stream ends).
   SystemGlitchReporter glitch_reporter_;
+
+  std::unique_ptr<AmplitudePeakDetector> peak_detector_;
 
   // Rendering is driven by this thread (which has no message loop).
   // All OnMoreData() callbacks will be called from this thread.

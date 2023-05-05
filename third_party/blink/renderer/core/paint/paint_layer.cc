@@ -92,6 +92,7 @@
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/core/style/reference_clip_path_operation.h"
 #include "third_party/blink/renderer/core/style/shape_clip_path_operation.h"
+#include "third_party/blink/renderer/core/view_transition/view_transition.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_utils.h"
 #include "third_party/blink/renderer/platform/bindings/runtime_call_stats.h"
 #include "third_party/blink/renderer/platform/bindings/v8_per_isolate_data.h"
@@ -331,7 +332,8 @@ void PaintLayer::UpdateTransform() {
     DCHECK(box);
     transform->MakeIdentity();
     box->StyleRef().ApplyTransform(
-        *transform, box->Size(), ComputedStyle::kIncludeTransformOperations,
+        *transform, box, box->Size(),
+        ComputedStyle::kIncludeTransformOperations,
         ComputedStyle::kIncludeTransformOrigin,
         ComputedStyle::kIncludeMotionPath,
         ComputedStyle::kIncludeIndependentTransformProperties);
@@ -1358,8 +1360,8 @@ Node* PaintLayer::EnclosingNode() const {
   return nullptr;
 }
 
-bool PaintLayer::IsInTopLayer() const {
-  return GetLayoutObject().StyleRef().TopLayer() == ETopLayer::kBrowser;
+bool PaintLayer::IsInTopOrViewTransitionLayer() const {
+  return GetLayoutObject().IsInTopOrViewTransitionLayer();
 }
 
 // Compute the z-offset of the point in the transformState.

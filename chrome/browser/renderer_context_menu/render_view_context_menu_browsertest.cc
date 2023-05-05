@@ -127,7 +127,8 @@
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
 #include "chrome/browser/supervised_user/supervised_user_service.h"
 #include "chrome/browser/supervised_user/supervised_user_service_factory.h"
-#include "chrome/browser/supervised_user/supervised_user_url_filter.h"
+#include "components/supervised_user/core/browser/supervised_user_url_filter.h"
+#include "components/supervised_user/core/common/features.h"
 #include "components/supervised_user/core/common/supervised_user_constants.h"
 #endif
 
@@ -553,8 +554,21 @@ IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
 }
 
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
-IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
-                       SaveLinkAsEntryIsDisabledForUrlsNotAccessibleForChild) {
+class ContextMenuWithoutFilteringForSupervisedUsersBrowserTest
+    : public ContextMenuBrowserTest {
+ public:
+  ContextMenuWithoutFilteringForSupervisedUsersBrowserTest() {
+    scoped_feature_list_.InitAndDisableFeature(
+        supervised_user::kFilterWebsitesForSupervisedUsersOnDesktopAndIOS);
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(
+    ContextMenuWithoutFilteringForSupervisedUsersBrowserTest,
+    SaveLinkAsEntryIsDisabledForUrlsNotAccessibleForChildWithoutFiltering) {
   // Set up child user profile.
   Profile* profile = browser()->profile();
   browser()->profile()->GetPrefs()->SetString(
@@ -563,7 +577,48 @@ IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
   // Block access to http://www.google.com/ in the URL filter.
   SupervisedUserService* supervised_user_service =
       SupervisedUserServiceFactory::GetForProfile(profile);
-  SupervisedUserURLFilter* url_filter = supervised_user_service->GetURLFilter();
+  supervised_user::SupervisedUserURLFilter* url_filter =
+      supervised_user_service->GetURLFilter();
+  std::map<std::string, bool> hosts;
+  hosts["www.google.com"] = false;
+  url_filter->SetManualHosts(std::move(hosts));
+
+  base::RunLoop().RunUntilIdle();
+
+  std::unique_ptr<TestRenderViewContextMenu> menu =
+      CreateContextMenuMediaTypeNone(GURL("http://www.google.com/"),
+                                     GURL("http://www.google.com/"));
+
+  ASSERT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_SAVELINKAS));
+
+  // The entry is only disabled for platforms on which URL filtering is enabled.
+  if (supervised_user_service->IsURLFilteringEnabled()) {
+    EXPECT_FALSE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_SAVELINKAS));
+  } else {
+    EXPECT_TRUE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_SAVELINKAS));
+  }
+}
+
+class ContextMenuWithFilteringForSupervisedUsersBrowserTest
+    : public ContextMenuBrowserTest {
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_{
+      supervised_user::kFilterWebsitesForSupervisedUsersOnDesktopAndIOS};
+};
+
+IN_PROC_BROWSER_TEST_F(
+    ContextMenuWithFilteringForSupervisedUsersBrowserTest,
+    SaveLinkAsEntryIsDisabledForUrlsNotAccessibleForChildWithFiltering) {
+  // Set up child user profile.
+  Profile* profile = browser()->profile();
+  browser()->profile()->GetPrefs()->SetString(
+      prefs::kSupervisedUserId, supervised_user::kChildAccountSUID);
+
+  // Block access to http://www.google.com/ in the URL filter.
+  SupervisedUserService* supervised_user_service =
+      SupervisedUserServiceFactory::GetForProfile(profile);
+  supervised_user::SupervisedUserURLFilter* url_filter =
+      supervised_user_service->GetURLFilter();
   std::map<std::string, bool> hosts;
   hosts["www.google.com"] = false;
   url_filter->SetManualHosts(std::move(hosts));
@@ -577,8 +632,7 @@ IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
   ASSERT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_SAVELINKAS));
   EXPECT_FALSE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_SAVELINKAS));
 }
-
-#endif
+#endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS)
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
@@ -2740,6 +2794,37 @@ IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest, OpenReadingMode) {
                                                   params);
   menu3->Init();
   ASSERT_TRUE(menu3->IsItemPresent(IDC_CONTENT_CONTEXT_OPEN_IN_READING_MODE));
+}
+
+// Ensure that the context menu can tolerate changes to session history that
+// happen between menu initialization and command execution.
+IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest, BackAfterBackEntryRemoved) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+
+  WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  content::NavigationController& controller = web_contents->GetController();
+
+  GURL url(embedded_test_server()->GetURL("/title1.html"));
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+
+  // At the time the context menu is created, it is possible to navigate back,
+  // so the back menu item is enabled. While the context menu is open, we
+  // navigate back to the first entry. This will make it so that there is no
+  // back entry to navigate to when clicking the back menu item.
+  base::OnceClosure nav_to_first_entry = base::BindLambdaForTesting([&]() {
+    content::TestNavigationObserver back_nav_observer(web_contents);
+    EXPECT_TRUE(controller.CanGoBack());
+    controller.GoBack();
+    back_nav_observer.Wait();
+    EXPECT_FALSE(controller.CanGoBack());
+  });
+
+  ContextMenuWaiter menu_observer(IDC_BACK, std::move(nav_to_first_entry));
+  content::SimulateMouseClickAt(web_contents, 0,
+                                blink::WebMouseEvent::Button::kRight,
+                                gfx::Point(15, 15));
+  menu_observer.WaitForMenuOpenAndClose();
 }
 
 }  // namespace

@@ -177,8 +177,8 @@ void KidsManagementService::SetActive(bool newValue) {
         << "StartFetchFamilyMembers should make the status started";
 
     // Registers a request for permission for the user to access a blocked site.
-    supervised_user_service_->web_approvals_manager()
-        .AddRemoteApprovalRequestCreator(
+    supervised_user_service_->remote_web_approvals_manager()
+        .AddApprovalRequestCreator(
             PermissionRequestCreatorApiary::CreateWithProfile(profile_));
   } else {
     StopFetchFamilyMembers();
@@ -291,9 +291,15 @@ const std::string& KidsManagementService::GetEndpointUrl() {
 }
 
 KidsManagementServiceFactory::KidsManagementServiceFactory()
-    : ProfileKeyedServiceFactory("KidsManagementService") {
+    : ProfileKeyedServiceFactory(
+          "KidsManagementService",
+          ProfileSelections::Builder()
+              .WithRegular(ProfileSelection::kOriginalOnly)
+              // TODO(crbug.com/1418376): Check if this service is needed in
+              // Guest mode.
+              .WithGuest(ProfileSelection::kOriginalOnly)
+              .Build()) {
   DependsOn(IdentityManagerFactory::GetInstance());
-  DependsOn(SyncServiceFactory::GetInstance());
   DependsOn(SupervisedUserServiceFactory::GetInstance());
 }
 KidsManagementServiceFactory::~KidsManagementServiceFactory() = default;

@@ -11,6 +11,7 @@
 #include "base/functional/callback.h"
 #include "base/observer_list_types.h"
 #include "base/time/time.h"
+#include "base/values.h"
 
 namespace network {
 namespace mojom {
@@ -22,13 +23,9 @@ namespace signin {
 class IdentityManager;
 }  // namespace signin
 
-namespace base {
-class Value;
-}  // namespace base
-
 namespace ash {
 
-class AnnotatorMessageHandler;
+class AnnotatorPageHandlerImpl;
 struct AnnotatorTool;
 struct ProjectorScreencastVideo;
 struct NewScreencastPrecondition;
@@ -44,7 +41,7 @@ struct PendingScreencast {
   PendingScreencast& operator=(const PendingScreencast&);
   ~PendingScreencast();
 
-  base::Value ToValue() const;
+  base::Value::Dict ToValue() const;
   bool operator==(const PendingScreencast& rhs) const;
 
   // The container path of the screencast. It's a relative path of drive, looks
@@ -161,14 +158,13 @@ class ProjectorAppClient {
                         const std::string& resource_key,
                         OnGetVideoCallback callback) const = 0;
 
-  // Registers the AnnotatorMessageHandler that is owned by the WebUI that
+  // Registers the AnnotatorPageHandlerImpl that is owned by the WebUI that
   // contains the Projector annotator.
-  virtual void SetAnnotatorMessageHandler(AnnotatorMessageHandler* handler) = 0;
+  virtual void SetAnnotatorPageHandler(AnnotatorPageHandlerImpl* handler) = 0;
 
-  // Resets the stored AnnotatorMessageHandler if it matches the one that is
+  // Resets the stored AnnotatorPageHandlerImpl if it matches the one that is
   // passed in.
-  virtual void ResetAnnotatorMessageHandler(
-      AnnotatorMessageHandler* handler) = 0;
+  virtual void ResetAnnotatorPageHandler(AnnotatorPageHandlerImpl* handler) = 0;
 
   // Sets the tool inside the annotator WebUI.
   virtual void SetTool(const AnnotatorTool& tool) = 0;

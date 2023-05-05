@@ -55,9 +55,6 @@ extern const char kManagedProfileSerialAllowUsbDevicesForUrlsDeprecated[];
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS) && BUILDFLAG(ENABLE_EXTENSIONS)
 extern const char kSupervisedUserApprovedExtensions[];
 #endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS) && BUILDFLAG(ENABLE_EXTENSIONS)
-#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
-extern const char kSupervisedUserMetricsDayId[];
-#endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS)
 
 extern const char kURLsToRestoreOnStartup[];
 extern const char kUserFeedbackAllowed[];
@@ -162,7 +159,6 @@ extern const char kWebKitPasswordEchoEnabled[];
 #endif
 extern const char kSSLErrorOverrideAllowed[];
 extern const char kSSLErrorOverrideAllowedForOrigins[];
-extern const char kIncognitoModeAvailability[];
 extern const char kSearchSuggestEnabled[];
 #if BUILDFLAG(IS_ANDROID)
 extern const char kContextualSearchEnabled[];
@@ -202,25 +198,13 @@ extern const char kNetworkQualities[];
 extern const char kNetworkEasterEggHighScore[];
 extern const char kNetworkPredictionOptions[];
 extern const char kPreinstalledAppsInstallState[];
-extern const char kHideWebStoreIcon[];
 #if BUILDFLAG(IS_CHROMEOS)
 extern const char kAttestationExtensionAllowlist[];
 extern const char kPrintingAPIExtensionsAllowlist[];
 extern const char kEnableSyncConsent[];
 #endif
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-extern const char kTapToClickEnabled[];
-extern const char kEnableTouchpadThreeFingerClick[];
-extern const char kPrimaryPointingStickButtonRight[];
 extern const char kOwnerPrimaryPointingStickButtonRight[];
-extern const char kPointingStickAcceleration[];
-extern const char kTouchpadAcceleration[];
-extern const char kTouchpadScrollAcceleration[];
-extern const char kTouchpadHapticFeedback[];
-extern const char kTouchpadHapticClickSensitivity[];
-extern const char kTouchpadSensitivity[];
-extern const char kTouchpadScrollSensitivity[];
-extern const char kPointingStickSensitivity[];
 extern const char kUse24HourClock[];
 extern const char kUserTimezone[];
 extern const char kResolveTimezoneByGeolocationMethod[];
@@ -309,6 +293,8 @@ extern const char kEndOfLifeDate[];
 extern const char kEolNotificationDismissed[];
 extern const char kFirstEolWarningDismissed[];
 extern const char kSecondEolWarningDismissed[];
+extern const char kEolApproachingIncentiveNotificationDismissed[];
+extern const char kEolPassedFinalIncentiveDismissed[];
 extern const char kPinUnlockFeatureNotificationShown[];
 extern const char kFingerprintUnlockFeatureNotificationShown[];
 extern const char kPinUnlockAutosubmitEnabled[];
@@ -372,6 +358,7 @@ extern const char kDeskAPIThirdPartyAccessEnabled[];
 extern const char kDeskAPIThirdPartyAllowlist[];
 extern const char kForceMaximizeOnFirstRun[];
 extern const char kInsightsExtensionEnabled[];
+extern const char kMandatoryExtensionsForIncognitoNavigation[];
 extern const char kOOMKillsDailyCount[];
 extern const char kOOMKillsDailySample[];
 extern const char kRestrictedManagedGuestSessionExtensionCleanupExemptList[];
@@ -379,9 +366,6 @@ extern const char kUsedPolicyCertificates[];
 #endif  // BUILDFLAG(IS_CHROMEOS)
 extern const char kShowHomeButton[];
 extern const char kSpeechRecognitionFilterProfanities[];
-extern const char kAllowDeletingBrowserHistory[];
-extern const char kForceGoogleSafeSearch[];
-extern const char kForceYouTubeRestrict[];
 extern const char kAllowedDomainsForApps[];
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
 extern const char kUseAshProxy[];
@@ -501,8 +485,6 @@ extern const char kDeletePrintJobHistoryAllowed[];
 extern const char kPrintingOAuth2AuthorizationServers[];
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
-extern const char kDefaultSupervisedUserFilteringBehavior[];
-
 extern const char kSupervisedUsers[];
 
 extern const char kMessageCenterDisabledExtensionIds[];
@@ -521,7 +503,6 @@ extern const char kGCMProductCategoryForSubtypes[];
 
 extern const char kEasyUnlockAllowed[];
 extern const char kEasyUnlockPairing[];
-extern const char kHasSeenSmartLockSignInRemovedNotification[];
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 extern const char kToolbarIconSurfacingBubbleAcknowledged[];
@@ -620,6 +601,7 @@ extern const char kDefaultTasksBySuffix[];
 extern const char kDefaultHandlersForFileExtensions[];
 extern const char kOfficeSetupComplete[];
 extern const char kOfficeFilesAlwaysMove[];
+extern const char kOfficeMoveConfirmationShown[];
 extern const char kOfficeFileMovedToOneDrive[];
 extern const char kOfficeFileMovedToGoogleDrive[];
 #endif
@@ -997,8 +979,6 @@ extern const char kCryptAuthDeviceId[];
 extern const char kCryptAuthInstanceId[];
 extern const char kCryptAuthInstanceIdToken[];
 extern const char kEasyUnlockHardlockState[];
-extern const char kEasyUnlockLocalStateTpmKeys[];
-extern const char kEasyUnlockLocalStateUserPrefs[];
 
 extern const char kRecoveryComponentNeedsElevation[];
 
@@ -1121,6 +1101,8 @@ extern const char kSharedArrayBufferUnrestrictedAccessAllowed[];
 extern const char kAutoplayAllowed[];
 extern const char kAutoplayAllowlist[];
 extern const char kBlockAutoplayEnabled[];
+extern const char kScreenCaptureWithoutGestureAllowedForOrigins[];
+extern const char kFileOrDirectoryPickerWithoutGestureAllowedForOrigins[];
 #endif
 extern const char kSandboxExternalProtocolBlocked[];
 
@@ -1257,6 +1239,7 @@ extern const char kLastWhatsNewVersion[];
 #if !BUILDFLAG(IS_ANDROID)
 extern const char kLensRegionSearchEnabled[];
 extern const char kSidePanelHorizontalAlignment[];
+extern const char kSidePanelCompanionEntryPinnedToToolbar[];
 extern const char kLensDesktopNTPSearchEnabled[];
 #endif
 
@@ -1302,10 +1285,6 @@ extern const char kNewBaseUrlInheritanceBehaviorAllowed[];
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX)
 extern const char kOutOfProcessSystemDnsResolutionEnabled[];
 #endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX)
-
-#if BUILDFLAG(IS_ANDROID)
-extern const char kQuickDeleteDialogSuppressed[];
-#endif
 
 extern const char kHttpAllowlist[];
 extern const char kHttpsUpgradesEnabled[];

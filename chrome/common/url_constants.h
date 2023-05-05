@@ -358,6 +358,12 @@ extern const char kEchoLearnMoreURL[];
 // The URL for EOL notification
 extern const char kEolNotificationURL[];
 
+// The URL for the EOL incentive with offer.
+extern const char kEolIncentiveNotificationOfferURL[];
+
+// The URL for the EOL incentive with no offer.
+extern const char kEolIncentiveNotificationNoOfferURL[];
+
 // The URL for Auto Update Policy.
 extern const char kAutoUpdatePolicyURL[];
 
@@ -448,6 +454,9 @@ extern const char kWifiSyncLearnMoreURL[];
 
 // The URL for the help center article about hidden Wi-Fi networks.
 extern const char kWifiHiddenNetworkURL[];
+
+// The URL for the help center article about Passpoint.
+extern const char kWifiPasspointURL[];
 
 // The URL for contacts management in Nearby Share feature.
 extern const char kNearbyShareManageContactsURL[];

@@ -7,7 +7,7 @@
 
 #import <UIKit/UIKit.h>
 
-#import "ios/chrome/browser/ui/table_view/chrome_table_view_consumer.h"
+#import "ios/chrome/browser/shared/ui/table_view/chrome_table_view_consumer.h"
 
 @class TableViewHeaderFooterItem;
 @class TableViewItem;
@@ -21,6 +21,9 @@
 // Initializes `trackPriceHeaderItem`.
 - (void)setTrackPriceHeaderItem:
     (TableViewHeaderFooterItem*)trackPriceHeaderItem;
+
+// Initializes 'emailNotificationItem'.
+- (void)setEmailNotificationItem:(TableViewItem*)emailNotificationItem;
 
 @end
 

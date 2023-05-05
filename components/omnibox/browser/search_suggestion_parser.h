@@ -17,7 +17,7 @@
 #include "components/omnibox/browser/suggestion_answer.h"
 #include "components/omnibox/browser/suggestion_group_util.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
-#include "third_party/metrics_proto/chrome_searchbox_stats.pb.h"
+#include "third_party/omnibox_proto/chrome_searchbox_stats.pb.h"
 #include "third_party/omnibox_proto/entity_info.pb.h"
 #include "third_party/omnibox_proto/types.pb.h"
 #include "url/gurl.h"
@@ -273,7 +273,7 @@ class SearchSuggestionParser {
 
   typedef std::vector<SuggestResult> SuggestResults;
   typedef std::vector<NavigationResult> NavigationResults;
-  typedef std::vector<metrics::ChromeSearchboxStats::ExperimentStatsV2>
+  typedef std::vector<omnibox::metrics::ChromeSearchboxStats::ExperimentStatsV2>
       ExperimentStatsV2s;
 
   // A simple structure bundling most of the information (including
@@ -343,7 +343,7 @@ class SearchSuggestionParser {
   // Parses JSON response received from the provider, stripping XSSI
   // protection if needed. Returns the parsed data if successful, NULL
   // otherwise.
-  static std::unique_ptr<base::Value> DeserializeJsonData(
+  static absl::optional<base::Value> DeserializeJsonData(
       base::StringPiece json_data);
 
   // Parses results from the suggest server and updates the appropriate suggest

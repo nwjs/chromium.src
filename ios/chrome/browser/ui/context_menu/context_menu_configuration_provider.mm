@@ -6,7 +6,6 @@
 
 #import "base/ios/ios_util.h"
 #import "base/metrics/histogram_functions.h"
-#import "base/metrics/histogram_macros.h"
 #import "base/metrics/user_metrics.h"
 #import "components/prefs/pref_service.h"
 #import "components/search_engines/template_url_service.h"
@@ -18,13 +17,16 @@
 #import "ios/chrome/browser/prefs/pref_names.h"
 #import "ios/chrome/browser/search_engines/search_engines_util.h"
 #import "ios/chrome/browser/search_engines/template_url_service_factory.h"
+#import "ios/chrome/browser/shared/public/commands/application_commands.h"
+#import "ios/chrome/browser/shared/public/commands/browser_commands.h"
+#import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/lens_commands.h"
+#import "ios/chrome/browser/shared/public/commands/reading_list_add_command.h"
+#import "ios/chrome/browser/shared/public/commands/search_image_with_lens_command.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/ui/util/pasteboard_util.h"
+#import "ios/chrome/browser/shared/ui/util/url_with_title.h"
 #import "ios/chrome/browser/ui/alert_coordinator/action_sheet_coordinator.h"
-#import "ios/chrome/browser/ui/commands/application_commands.h"
-#import "ios/chrome/browser/ui/commands/browser_commands.h"
-#import "ios/chrome/browser/ui/commands/command_dispatcher.h"
-#import "ios/chrome/browser/ui/commands/lens_commands.h"
-#import "ios/chrome/browser/ui/commands/reading_list_add_command.h"
-#import "ios/chrome/browser/ui/commands/search_image_with_lens_command.h"
 #import "ios/chrome/browser/ui/context_menu/context_menu_utils.h"
 #import "ios/chrome/browser/ui/image_util/image_copier.h"
 #import "ios/chrome/browser/ui/image_util/image_saver.h"
@@ -35,9 +37,6 @@
 #import "ios/chrome/browser/ui/main/scene_state_browser_agent.h"
 #import "ios/chrome/browser/ui/menu/browser_action_factory.h"
 #import "ios/chrome/browser/ui/menu/menu_histograms.h"
-#import "ios/chrome/browser/ui/ui_feature_flags.h"
-#import "ios/chrome/browser/ui/util/pasteboard_util.h"
-#import "ios/chrome/browser/ui/util/url_with_title.h"
 #import "ios/chrome/browser/url_loading/image_search_param_generator.h"
 #import "ios/chrome/browser/url_loading/url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/url_loading_params.h"
@@ -147,7 +146,7 @@ const NSUInteger kContextMenuMaxTitleLength = 30;
       UrlLoadParams loadParams = UrlLoadParams::InNewTab(linkURL);
       loadParams.SetInBackground(YES);
       loadParams.in_incognito = isOffTheRecord;
-      loadParams.append_to = kCurrentTab;
+      loadParams.append_to = OpenPosition::kCurrentTab;
       loadParams.web_params.referrer = referrer;
       loadParams.origin_point = [params.view convertPoint:params.location
                                                    toView:nil];
@@ -244,7 +243,7 @@ const NSUInteger kContextMenuMaxTitleLength = 30;
     loadParams.SetInBackground(YES);
     loadParams.web_params.referrer = referrer;
     loadParams.in_incognito = isOffTheRecord;
-    loadParams.append_to = kCurrentTab;
+    loadParams.append_to = OpenPosition::kCurrentTab;
     loadParams.origin_point = [params.view convertPoint:params.location
                                                  toView:nil];
     UIAction* openImageInNewTab =
@@ -258,13 +257,10 @@ const NSUInteger kContextMenuMaxTitleLength = 30;
         ios::TemplateURLServiceFactory::GetForBrowserState(
             self.browser->GetBrowserState());
 
-    const BOOL lensEnabled =
-        ios::provider::IsLensSupported() &&
-        base::FeatureList::IsEnabled(kUseLensToSearchForImage);
     const BOOL useLens =
-        lensEnabled && search_engines::SupportsSearchImageWithLens(service) &&
-        ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET;
-
+        lens_availability::CheckAndLogAvailabilityForLensEntryPoint(
+            LensEntrypoint::ContextMenu,
+            search_engines::SupportsSearchImageWithLens(service));
     if (useLens) {
       UIAction* searchImageWithLensAction =
           [actionFactory actionToSearchImageUsingLensWithBlock:^{
@@ -273,14 +269,6 @@ const NSUInteger kContextMenuMaxTitleLength = 30;
                                 referrer:referrer];
           }];
       [menuElements addObject:searchImageWithLensAction];
-      UMA_HISTOGRAM_ENUMERATION(kIOSLensSupportStatusHistogram,
-                                LensSupportStatus::LensSearchSupported);
-    } else if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
-      UMA_HISTOGRAM_ENUMERATION(kIOSLensSupportStatusHistogram,
-                                LensSupportStatus::DeviceFormFactorTablet);
-    } else {
-      UMA_HISTOGRAM_ENUMERATION(kIOSLensSupportStatusHistogram,
-                                LensSupportStatus::NonGoogleSearchEngine);
     }
 
     if (!useLens && search_engines::SupportsSearchByImage(service)) {

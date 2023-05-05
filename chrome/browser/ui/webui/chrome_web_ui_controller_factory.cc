@@ -164,7 +164,6 @@
 #include "chrome/browser/ui/webui/side_panel/history_clusters/history_clusters_side_panel_ui.h"
 #include "chrome/browser/ui/webui/side_panel/read_anything/read_anything_ui.h"
 #include "chrome/browser/ui/webui/side_panel/reading_list/reading_list_ui.h"
-#include "chrome/browser/ui/webui/side_panel/search_companion/search_companion_side_panel_ui.h"
 #include "chrome/browser/ui/webui/side_panel/user_notes/user_notes_side_panel_ui.h"
 #include "chrome/browser/ui/webui/signin/sync_confirmation_ui.h"
 #include "chrome/browser/ui/webui/support_tool/support_tool_ui.h"
@@ -279,6 +278,7 @@
 #include "chrome/browser/ui/webui/ash/in_session_password_change/password_change_ui.h"
 #include "chrome/browser/ui/webui/ash/internet_config_dialog.h"
 #include "chrome/browser/ui/webui/ash/internet_detail_dialog.h"
+#include "chrome/browser/ui/webui/ash/kerberos/kerberos_in_browser_ui.h"
 #include "chrome/browser/ui/webui/ash/launcher_internals/launcher_internals_ui.h"
 #include "chrome/browser/ui/webui/ash/lock_screen_reauth/lock_screen_network_ui.h"
 #include "chrome/browser/ui/webui/ash/lock_screen_reauth/lock_screen_start_reauth_ui.h"
@@ -290,6 +290,7 @@
 #include "chrome/browser/ui/webui/ash/notification_tester/notification_tester_ui.h"
 #include "chrome/browser/ui/webui/ash/parent_access/parent_access_ui.h"
 #include "chrome/browser/ui/webui/ash/power_ui.h"
+#include "chrome/browser/ui/webui/ash/remote_maintenance_curtain_ui.h"
 #include "chrome/browser/ui/webui/ash/set_time_ui.h"
 #include "chrome/browser/ui/webui/ash/slow_trace_ui.h"
 #include "chrome/browser/ui/webui/ash/slow_ui.h"
@@ -582,6 +583,15 @@ void BindEcheStreamOrientationObserver(
   }
 }
 
+void BindEcheConnectionStatusHandler(
+    ash::eche_app::EcheAppManager* manager,
+    mojo::PendingReceiver<ash::eche_app::mojom::ConnectionStatusObserver>
+        receiver) {
+  if (manager) {
+    manager->BindConnectionStatusObserverInterface(std::move(receiver));
+  }
+}
+
 template <>
 WebUIController* NewWebUI<ash::eche_app::EcheAppUI>(WebUI* web_ui,
                                                     const GURL& url) {
@@ -594,7 +604,8 @@ WebUIController* NewWebUI<ash::eche_app::EcheAppUI>(WebUI* web_ui,
       base::BindRepeating(&BindEcheUidGenerator, manager),
       base::BindRepeating(&BindEcheNotificationGenerator, manager),
       base::BindRepeating(&BindEcheDisplayStreamHandler, manager),
-      base::BindRepeating(&BindEcheStreamOrientationObserver, manager));
+      base::BindRepeating(&BindEcheStreamOrientationObserver, manager),
+      base::BindRepeating(&BindEcheConnectionStatusHandler, manager));
 }
 
 template <>
@@ -920,15 +931,14 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
     if (url.host_piece() == chrome::kChromeUINewTabPageThirdPartyHost)
       return &NewWebUI<NewTabPageThirdPartyUI>;
   }
-  if (url.host_piece() == chrome::kChromeUIFeedbackHost)
+  if (url.host_piece() == chrome::kChromeUIFeedbackHost &&
+      FeedbackUI::IsFeedbackEnabled(profile)) {
     return &NewWebUI<FeedbackUI>;
+  }
   if (url.host_piece() == chrome::kChromeUIReadLaterHost)
     return &NewWebUI<ReadingListUI>;
   if (url.host_piece() == chrome::kChromeUIBookmarksSidePanelHost)
     return &NewWebUI<BookmarksSidePanelUI>;
-  if (url.host_piece() == chrome::kChromeUISearchCompanionSidePanelHost) {
-    return &NewWebUI<SearchCompanionSidePanelUI>;
-  }
   if (url.host_piece() == chrome::kChromeUICustomizeChromeSidePanelHost &&
       customize_chrome::IsSidePanelEnabled()) {
     return &NewWebUI<CustomizeChromeUI>;
@@ -1021,6 +1031,9 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
     }
     return nullptr;
   }
+  if (url.host_piece() == chrome::kChromeUIRemoteManagementCurtainHost) {
+    return &NewWebUI<ash::RemoteMaintenanceCurtainUI>;
+  }
   if (url.host_piece() == ash::kChromeUIDiagnosticsAppHost) {
     return &NewWebUI<ash::DiagnosticsDialogUI>;
   }
@@ -1053,6 +1066,10 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
   if (url.host_piece() ==
       ash::personalization_app::kChromeUIPersonalizationAppHost) {
     return &NewWebUI<ash::personalization_app::PersonalizationAppUI>;
+  }
+  if (base::FeatureList::IsEnabled(net::features::kKerberosInBrowserRedirect) &&
+      url.host_piece() == chrome::kChromeUIKerberosInBrowserHost) {
+    return &NewWebUI<ash::KerberosInBrowserUI>;
   }
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
@@ -1159,7 +1176,8 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
 #if !BUILDFLAG(IS_ANDROID)
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   if (url.host_piece() == chrome::kChromeUICastFeedbackHost &&
-      media_router::MediaRouterEnabled(profile)) {
+      media_router::MediaRouterEnabled(profile) &&
+      FeedbackUI::IsFeedbackEnabled(profile)) {
     return &NewWebUI<media_router::CastFeedbackUI>;
   }
 #endif
@@ -1536,7 +1554,8 @@ std::vector<GURL> ChromeWebUIControllerFactory::GetListOfAcceptableURLs() {
         GURL(chrome::kChromeUICrostiniCreditsURL),
         GURL(chrome::kChromeUICrostiniInstallerUrl),
         GURL(chrome::kChromeUICrostiniUpgraderUrl),
-        GURL(chrome::kChromeUICryptohomeURL), GURL(chrome::kOsUIDeviceLogURL),
+        GURL(chrome::kChromeUICryptohomeURL),
+        GURL(chrome::kOsUIDeviceEmulatorURL), GURL(chrome::kOsUIDeviceLogURL),
         GURL(chrome::kChromeUIDiagnosticsAppURL),
         GURL(chrome::kChromeUIDriveInternalsUrl),
         GURL(chrome::kOsUIDriveInternalsURL),
@@ -1559,6 +1578,7 @@ std::vector<GURL> ChromeWebUIControllerFactory::GetListOfAcceptableURLs() {
         GURL(chrome::kChromeUINetworkUrl),
         GURL(chrome::kChromeUIOfficeFallbackURL), GURL(chrome::kOsUINetworkURL),
         GURL(chrome::kChromeUIOSCreditsURL), GURL(chrome::kChromeUIPowerUrl),
+        GURL(chrome::kOsUIPrefsInternalsURL),
         GURL(chrome::kChromeUIPrintManagementUrl),
         GURL(ash::multidevice::kChromeUIProximityAuthURL),
         GURL(ash::multidevice::kOsUIProximityAuthURL),
@@ -1629,8 +1649,9 @@ std::vector<GURL> ChromeWebUIControllerFactory::GetListOfAcceptableURLs() {
 }
 
 bool ChromeWebUIControllerFactory::CanHandleUrl(const GURL& url) {
-  return crosapi::gurl_os_handler_utils::IsUrlInList(url,
-                                                     GetListOfAcceptableURLs());
+  return crosapi::gurl_os_handler_utils::IsUrlInList(
+      crosapi::gurl_os_handler_utils::SanitizeAshURL(url),
+      GetListOfAcceptableURLs());
 }
 
 #endif

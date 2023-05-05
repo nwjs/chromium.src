@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "ash/constants/ash_features.h"
+#include "ash/webui/eche_app_ui/eche_connection_status_handler.h"
 #include "base/test/scoped_feature_list.h"
 #include "chromeos/ash/components/phonehub/fake_multidevice_feature_access_manager.h"
 #include "chromeos/ash/components/phonehub/notification.h"
@@ -14,16 +15,17 @@
 #include "chromeos/ash/services/multidevice_setup/public/cpp/fake_multidevice_setup_client.h"
 #include "chromeos/ash/services/multidevice_setup/public/mojom/multidevice_setup.mojom.h"
 #include "components/prefs/testing_pref_service.h"
+#include "recent_apps_interaction_handler.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/skia/include/core/SkColor.h"
 
-namespace ash {
-namespace phonehub {
+namespace ash::phonehub {
 
 namespace {
 
 using FeatureState = multidevice_setup::mojom::FeatureState;
 using HostStatus = multidevice_setup::mojom::HostStatus;
+using ConnectionStatus = eche_app::mojom::ConnectionStatus;
 
 // Garbage color for the purpose of verification in these tests.
 const SkColor kIconColor = SkColorSetRGB(0x12, 0x34, 0x56);
@@ -63,8 +65,10 @@ class RecentAppsInteractionHandlerTest : public testing::Test {
   // testing::Test:
   void SetUp() override {
     feature_list_.InitWithFeatures(
-        /*enabled_features=*/{features::kEcheSWA},
+        /*enabled_features=*/{features::kEcheSWA,
+                              features::kEcheNetworkConnectionState},
         /*disabled_features=*/{});
+
     RecentAppsInteractionHandlerImpl::RegisterPrefs(pref_service_.registry());
     fake_multidevice_setup_client_ =
         std::make_unique<multidevice_setup::FakeMultiDeviceSetupClient>();
@@ -72,6 +76,12 @@ class RecentAppsInteractionHandlerTest : public testing::Test {
         &pref_service_, fake_multidevice_setup_client_.get(),
         &fake_multidevice_feature_access_manager_);
     interaction_handler_->AddRecentAppClickObserver(&fake_click_handler_);
+
+    eche_connection_status_handler_ =
+        std::make_unique<eche_app::EcheConnectionStatusHandler>();
+
+    interaction_handler_->SetConnectionStatusHandler(
+        eche_connection_status_handler_.get());
   }
 
   void TearDown() override {
@@ -107,7 +117,7 @@ class RecentAppsInteractionHandlerTest : public testing::Test {
     const char16_t app_visible_name1[] = u"Fake App";
     const char package_name1[] = "com.fakeapp";
     const int64_t expected_user_id1 = 1;
-    base::Value app_metadata_value =
+    base::Value::Dict app_metadata_value =
         Notification::AppMetadata(
             app_visible_name1, package_name1, gfx::Image(),
             /*icon_color=*/kIconColor, /*icon_is_monochrome=*/false,
@@ -115,10 +125,10 @@ class RecentAppsInteractionHandlerTest : public testing::Test {
             .ToValue();
 
     // Simulate an un-migrated preference without new fields.
-    EXPECT_TRUE(app_metadata_value.GetDict().Remove(kIconIsMonochrome));
-    EXPECT_TRUE(app_metadata_value.GetDict().Remove(kIconColorR));
-    EXPECT_TRUE(app_metadata_value.GetDict().Remove(kIconColorG));
-    EXPECT_TRUE(app_metadata_value.GetDict().Remove(kIconColorB));
+    EXPECT_TRUE(app_metadata_value.Remove(kIconIsMonochrome));
+    EXPECT_TRUE(app_metadata_value.Remove(kIconColorR));
+    EXPECT_TRUE(app_metadata_value.Remove(kIconColorG));
+    EXPECT_TRUE(app_metadata_value.Remove(kIconColorB));
 
     base::Value::List app_metadata_value_list;
     app_metadata_value_list.Append(std::move(app_metadata_value));
@@ -232,15 +242,31 @@ class RecentAppsInteractionHandlerTest : public testing::Test {
     handler().NotifyRecentAppAddedOrUpdated(app_metadata2, now);
   }
 
+  void NotifyConnectionStatusChanged(ConnectionStatus connection_status) {
+    eche_connection_status_handler_->OnConnectionStatusChanged(
+        connection_status);
+  }
+
+  void SetConnectionStatus(ConnectionStatus connection_status) {
+    interaction_handler_->set_connection_status_for_testing(connection_status);
+  }
+
+  RecentAppsInteractionHandler::RecentAppsUiState
+  GetUiStateFromConnectionStatus() {
+    return interaction_handler_->GetUiStateFromConnectionStatus();
+  }
+
   std::unique_ptr<multidevice_setup::FakeMultiDeviceSetupClient>
       fake_multidevice_setup_client_;
+  base::test::ScopedFeatureList feature_list_;
 
  private:
   FakeClickHandler fake_click_handler_;
+  std::unique_ptr<eche_app::EcheConnectionStatusHandler>
+      eche_connection_status_handler_;
   std::unique_ptr<RecentAppsInteractionHandlerImpl> interaction_handler_;
   TestingPrefServiceSimple pref_service_;
   FakeMultideviceFeatureAccessManager fake_multidevice_feature_access_manager_;
-  base::test::ScopedFeatureList feature_list_;
 };
 
 TEST_F(RecentAppsInteractionHandlerTest, RecentAppsClicked) {
@@ -562,7 +588,7 @@ TEST_F(RecentAppsInteractionHandlerTest,
   SetAppsAccessStatus(true);
   SetNotificationAccess(true);
 
-  EXPECT_EQ(RecentAppsInteractionHandler::RecentAppsUiState::PLACEHOLDER_VIEW,
+  EXPECT_EQ(RecentAppsInteractionHandler::RecentAppsUiState::LOADING,
             handler().ui_state());
 }
 
@@ -573,34 +599,34 @@ TEST_F(RecentAppsInteractionHandlerTest,
   SetAppsAccessStatus(true);
   SetNotificationAccess(true);
 
-  EXPECT_EQ(RecentAppsInteractionHandler::RecentAppsUiState::PLACEHOLDER_VIEW,
+  EXPECT_EQ(RecentAppsInteractionHandler::RecentAppsUiState::LOADING,
             handler().ui_state());
 
-  // Disable notification access permission on the host device.
-  SetNotificationAccess(false);
+  // Disable apps access permission on the host device.
+  SetAppsAccessStatus(false);
 
   EXPECT_EQ(RecentAppsInteractionHandler::RecentAppsUiState::HIDDEN,
             handler().ui_state());
 
-  // Disable notification access permission on the local device.
-  SetNotificationAccess(true);
-  SetPhoneHubNotificationsFeatureState(FeatureState::kDisabledByUser);
+  // Disable apps access permission on the local device.
+  SetAppsAccessStatus(true);
+  SetEcheFeatureState(FeatureState::kDisabledByUser);
 
   EXPECT_EQ(RecentAppsInteractionHandler::RecentAppsUiState::HIDDEN,
             handler().ui_state());
 
-  // Disable notification access permission on both devices.
-  SetNotificationAccess(false);
-  SetPhoneHubNotificationsFeatureState(FeatureState::kDisabledByUser);
+  // Disable apps access permission on both devices.
+  SetAppsAccessStatus(false);
+  SetEcheFeatureState(FeatureState::kDisabledByUser);
 
   EXPECT_EQ(RecentAppsInteractionHandler::RecentAppsUiState::HIDDEN,
             handler().ui_state());
 
-  // Enable notification access permission back on both devices.
-  SetNotificationAccess(true);
-  SetPhoneHubNotificationsFeatureState(FeatureState::kEnabledByUser);
+  // Enable apps access permission back on both devices.
+  SetAppsAccessStatus(true);
+  SetEcheFeatureState(FeatureState::kEnabledByUser);
 
-  EXPECT_EQ(RecentAppsInteractionHandler::RecentAppsUiState::PLACEHOLDER_VIEW,
+  EXPECT_EQ(RecentAppsInteractionHandler::RecentAppsUiState::LOADING,
             handler().ui_state());
 }
 
@@ -615,6 +641,7 @@ TEST_F(RecentAppsInteractionHandlerTest,
                                 /*icon_color=*/absl::nullopt,
                                 /*icon_is_monochrome=*/true, expected_user_id1,
                                 proto::AppStreamabilityStatus::STREAMABLE);
+  SetConnectionStatus(ConnectionStatus::kConnectionStatusConnected);
   SetAppsAccessStatus(true);
   handler().NotifyRecentAppAddedOrUpdated(app_metadata1, now);
   SetEcheFeatureState(FeatureState::kEnabledByUser);
@@ -635,6 +662,7 @@ TEST_F(RecentAppsInteractionHandlerTest,
                                 /*icon_is_monochrome=*/true, expected_user_id1,
                                 proto::AppStreamabilityStatus::STREAMABLE);
 
+  SetConnectionStatus(ConnectionStatus::kConnectionStatusConnected);
   SetAppsAccessStatus(true);
   handler().NotifyRecentAppAddedOrUpdated(app_metadata1, now);
   SetEcheFeatureState(FeatureState::kEnabledByUser);
@@ -665,8 +693,14 @@ TEST_F(RecentAppsInteractionHandlerTest,
 
 TEST_F(RecentAppsInteractionHandlerTest,
        UiStateChangedToVisibleWhenRecentAppBeAdded) {
+  feature_list_.Reset();
+  feature_list_.InitWithFeatures(
+      /*enabled_features=*/{features::kEcheSWA},
+      /*disabled_features=*/{features::kEcheNetworkConnectionState});
+
   SetEcheFeatureState(FeatureState::kEnabledByUser);
   SetPhoneHubNotificationsFeatureState(FeatureState::kEnabledByUser);
+  SetConnectionStatus(ConnectionStatus::kConnectionStatusConnected);
   SetAppsAccessStatus(true);
   SetNotificationAccess(true);
 
@@ -821,5 +855,94 @@ TEST_F(RecentAppsInteractionHandlerTest, GetUserIdSet) {
   EXPECT_EQ(1, recent_apps_metadata_result[1].user_id);
 }
 
-}  // namespace phonehub
-}  // namespace ash
+TEST_F(RecentAppsInteractionHandlerTest, OnConnectionStatusChanged) {
+  // Start in the Disconnected state.
+  // Handler will only change connection state for Connected and Failed.
+  EXPECT_EQ(handler().connection_status_for_testing(),
+            ConnectionStatus::kConnectionStatusDisconnected);
+
+  NotifyConnectionStatusChanged(ConnectionStatus::kConnectionStatusConnecting);
+  EXPECT_EQ(handler().connection_status_for_testing(),
+            ConnectionStatus::kConnectionStatusDisconnected);
+
+  NotifyConnectionStatusChanged(ConnectionStatus::kConnectionStatusConnected);
+  EXPECT_EQ(handler().connection_status_for_testing(),
+            ConnectionStatus::kConnectionStatusConnected);
+
+  NotifyConnectionStatusChanged(ConnectionStatus::kConnectionStatusFailed);
+  EXPECT_EQ(handler().connection_status_for_testing(),
+            ConnectionStatus::kConnectionStatusFailed);
+
+  NotifyConnectionStatusChanged(
+      ConnectionStatus::kConnectionStatusDisconnected);
+  EXPECT_EQ(handler().connection_status_for_testing(),
+            ConnectionStatus::kConnectionStatusFailed);
+}
+
+TEST_F(RecentAppsInteractionHandlerTest,
+       OnConnectionStatusChangedFlagDisabled) {
+  feature_list_.Reset();
+  feature_list_.InitWithFeatures(
+      /*enabled_features=*/{features::kEcheSWA},
+      /*disabled_features=*/{features::kEcheNetworkConnectionState});
+
+  // Start in the Disconnected state. When flag is disabled, the state should
+  // never change.
+  EXPECT_EQ(handler().connection_status_for_testing(),
+            ConnectionStatus::kConnectionStatusDisconnected);
+
+  NotifyConnectionStatusChanged(ConnectionStatus::kConnectionStatusConnecting);
+  EXPECT_EQ(handler().connection_status_for_testing(),
+            ConnectionStatus::kConnectionStatusDisconnected);
+
+  NotifyConnectionStatusChanged(ConnectionStatus::kConnectionStatusConnected);
+  EXPECT_EQ(handler().connection_status_for_testing(),
+            ConnectionStatus::kConnectionStatusDisconnected);
+
+  NotifyConnectionStatusChanged(ConnectionStatus::kConnectionStatusFailed);
+  EXPECT_EQ(handler().connection_status_for_testing(),
+            ConnectionStatus::kConnectionStatusDisconnected);
+
+  NotifyConnectionStatusChanged(
+      ConnectionStatus::kConnectionStatusDisconnected);
+  EXPECT_EQ(handler().connection_status_for_testing(),
+            ConnectionStatus::kConnectionStatusDisconnected);
+}
+
+TEST_F(RecentAppsInteractionHandlerTest, GetUiStateFromConnectionStatus) {
+  RecentAppsInteractionHandler::RecentAppsUiState ui_state;
+
+  SetConnectionStatus(ConnectionStatus::kConnectionStatusDisconnected);
+  ui_state = GetUiStateFromConnectionStatus();
+  EXPECT_EQ(handler().connection_status_for_testing(),
+            ConnectionStatus::kConnectionStatusDisconnected);
+  EXPECT_EQ(ui_state, RecentAppsInteractionHandler::RecentAppsUiState::LOADING);
+
+  SetConnectionStatus(ConnectionStatus::kConnectionStatusConnecting);
+  ui_state = GetUiStateFromConnectionStatus();
+  EXPECT_EQ(handler().connection_status_for_testing(),
+            ConnectionStatus::kConnectionStatusConnecting);
+  EXPECT_EQ(ui_state, RecentAppsInteractionHandler::RecentAppsUiState::LOADING);
+
+  SetConnectionStatus(ConnectionStatus::kConnectionStatusConnected);
+  ui_state = GetUiStateFromConnectionStatus();
+  EXPECT_EQ(handler().connection_status_for_testing(),
+            ConnectionStatus::kConnectionStatusConnected);
+  EXPECT_EQ(ui_state,
+            RecentAppsInteractionHandler::RecentAppsUiState::ITEMS_VISIBLE);
+
+  SetConnectionStatus(ConnectionStatus::kConnectionStatusFailed);
+  ui_state = GetUiStateFromConnectionStatus();
+  EXPECT_EQ(handler().connection_status_for_testing(),
+            ConnectionStatus::kConnectionStatusFailed);
+  EXPECT_EQ(ui_state,
+            RecentAppsInteractionHandler::RecentAppsUiState::CONNECTION_FAILED);
+
+  SetConnectionStatus(ConnectionStatus::kConnectionStatusDisconnected);
+  ui_state = GetUiStateFromConnectionStatus();
+  EXPECT_EQ(handler().connection_status_for_testing(),
+            ConnectionStatus::kConnectionStatusDisconnected);
+  EXPECT_EQ(ui_state, RecentAppsInteractionHandler::RecentAppsUiState::LOADING);
+}
+
+}  // namespace ash::phonehub

@@ -6,54 +6,35 @@
 
 namespace blink {
 
-NGGridItemSizingData::NGGridItemSizingData(
-    const GridItemData& item_data_in_parent,
-    const NGGridLayoutData& parent_layout_data)
-    : item_data_in_parent(&item_data_in_parent),
-      parent_layout_data(&parent_layout_data) {
-  DCHECK_LE(item_data_in_parent.column_set_indices.end,
-            parent_layout_data.Columns().GetSetCount());
-  DCHECK_LE(item_data_in_parent.row_set_indices.end,
-            parent_layout_data.Rows().GetSetCount());
-}
-
 std::unique_ptr<NGGridLayoutTrackCollection>
-NGGridItemSizingData::CreateSubgridCollection(
+NGSubgriddedItemData::CreateSubgridCollection(
     GridTrackSizingDirection track_direction) const {
-  DCHECK(item_data_in_parent->IsSubgrid());
+  DCHECK(item_data_in_parent_->IsSubgrid());
 
   const bool is_for_columns_in_parent =
-      item_data_in_parent->is_parallel_with_root_grid
+      item_data_in_parent_->is_parallel_with_root_grid
           ? track_direction == kForColumns
           : track_direction == kForRows;
 
   const auto& parent_track_collection = is_for_columns_in_parent
-                                            ? parent_layout_data->Columns()
-                                            : parent_layout_data->Rows();
+                                            ? parent_layout_data_->Columns()
+                                            : parent_layout_data_->Rows();
   const auto& range_indices = is_for_columns_in_parent
-                                  ? item_data_in_parent->column_range_indices
-                                  : item_data_in_parent->row_range_indices;
+                                  ? item_data_in_parent_->column_range_indices
+                                  : item_data_in_parent_->row_range_indices;
 
   return std::make_unique<NGGridLayoutTrackCollection>(
       parent_track_collection.CreateSubgridCollection(
           range_indices.begin, range_indices.end, track_direction));
 }
 
-NGGridSizingTree NGGridSizingTree::CopySubtree(wtf_size_t subtree_root) const {
-  DCHECK_LT(subtree_root, sizing_data_.size());
-
-  const wtf_size_t subtree_size = sizing_data_[subtree_root]->subtree_size;
-  DCHECK_LE(subtree_root + subtree_size, sizing_data_.size());
-
-  NGGridSizingTree subtree_copy(subtree_size);
-  for (wtf_size_t i = 0; i < subtree_size; ++i) {
-    auto& copy_data = subtree_copy.CreateSizingData();
-    const auto& original_data = *sizing_data_[subtree_root + i];
-
-    copy_data.subtree_size = original_data.subtree_size;
-    copy_data.layout_data = original_data.layout_data;
+scoped_refptr<const NGGridLayoutTree> NGGridSizingTree::FinalizeTree() const {
+  auto layout_tree =
+      base::MakeRefCounted<NGGridLayoutTree>(sizing_data_.size());
+  for (const auto& sizing_data : sizing_data_) {
+    layout_tree->Append(sizing_data->layout_data, sizing_data->subtree_size);
   }
-  return subtree_copy;
+  return layout_tree;
 }
 
 }  // namespace blink

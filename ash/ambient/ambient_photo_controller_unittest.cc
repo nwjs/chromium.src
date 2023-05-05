@@ -11,6 +11,7 @@
 
 #include "ash/ambient/ambient_constants.h"
 #include "ash/ambient/ambient_controller.h"
+#include "ash/ambient/ambient_photo_cache.h"
 #include "ash/ambient/ambient_weather_controller.h"
 #include "ash/ambient/model/ambient_animation_photo_config.h"
 #include "ash/ambient/model/ambient_backend_model.h"
@@ -20,6 +21,7 @@
 #include "ash/ambient/test/ambient_ash_test_base.h"
 #include "ash/ambient/test/ambient_test_util.h"
 #include "ash/ambient/test/ambient_topic_queue_test_delegate.h"
+#include "ash/ambient/test/mock_ambient_backend_model_observer.h"
 #include "ash/public/cpp/ambient/ambient_backend_controller.h"
 #include "ash/public/cpp/ambient/fake_ambient_backend_controller_impl.h"
 #include "ash/public/cpp/ambient/proto/photo_cache_entry.pb.h"
@@ -57,15 +59,6 @@ using ::testing::Pointwise;
 using ::testing::SizeIs;
 
 namespace {
-class MockAmbientBackendModelObserver : public AmbientBackendModelObserver {
- public:
-  MockAmbientBackendModelObserver() = default;
-  ~MockAmbientBackendModelObserver() override = default;
-
-  // AmbientBackendModelObserver:
-  MOCK_METHOD(void, OnImageAdded, (), (override));
-  MOCK_METHOD(void, OnImagesReady, (), (override));
-};
 
 bool AreBackedBySameImage(const PhotoWithDetails& topic_l,
                           const PhotoWithDetails& topic_r) {
@@ -670,7 +663,7 @@ TEST_F(AmbientPhotoControllerTest, UsesBackupCacheAfterPrimaryCacheCleared) {
   // photos from the last "screen update". ClearCache() should only clear the
   // primary cache, leaving photos in the backup cache to use.
   ASSERT_FALSE(GetBackupCachedFiles().empty());
-  photo_controller()->ClearCache();
+  ambient_controller()->ambient_photo_cache()->Clear();
   // Simulate an IMAX failure to leave the photo controller no choice but to
   // resort to the backup cache.
   backend_controller()->SetFetchScreenUpdateInfoResponseSize(0);

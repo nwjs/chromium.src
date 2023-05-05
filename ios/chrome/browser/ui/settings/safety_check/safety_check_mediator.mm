@@ -28,6 +28,10 @@
 #import "ios/chrome/browser/passwords/password_check_observer_bridge.h"
 #import "ios/chrome/browser/passwords/password_store_observer_bridge.h"
 #import "ios/chrome/browser/prefs/pref_names.h"
+#import "ios/chrome/browser/shared/ui/table_view/cells/table_view_link_header_footer_item.h"
+#import "ios/chrome/browser/shared/ui/table_view/cells/table_view_text_item.h"
+#import "ios/chrome/browser/shared/ui/table_view/table_view_utils.h"
+#import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/signin/authentication_service.h"
 #import "ios/chrome/browser/sync/sync_setup_service.h"
 #import "ios/chrome/browser/ui/icons/symbols.h"
@@ -40,10 +44,6 @@
 #import "ios/chrome/browser/ui/settings/safety_check/safety_check_utils.h"
 #import "ios/chrome/browser/ui/settings/utils/observable_boolean.h"
 #import "ios/chrome/browser/ui/settings/utils/pref_backed_boolean.h"
-#import "ios/chrome/browser/ui/table_view/cells/table_view_link_header_footer_item.h"
-#import "ios/chrome/browser/ui/table_view/cells/table_view_text_item.h"
-#import "ios/chrome/browser/ui/table_view/table_view_utils.h"
-#import "ios/chrome/browser/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/upgrade/upgrade_constants.h"
 #import "ios/chrome/browser/upgrade/upgrade_recommended_details.h"
 #import "ios/chrome/browser/upgrade/upgrade_utils.h"
@@ -65,6 +65,7 @@
 #endif
 
 using l10n_util::GetNSString;
+using password_manager::features::IsPasswordCheckupEnabled;
 
 namespace {
 
@@ -103,11 +104,6 @@ constexpr double kUpdateRowMinDelay = 2.0;
 constexpr double kPasswordRowMinDelay = 1.5;
 constexpr double kSafeBrowsingRowMinDelay = 3.0;
 
-// Returns true if the Password Checkup feature flag is enabled.
-bool IsPasswordCheckupEnabled() {
-  return base::FeatureList::IsEnabled(
-      password_manager::features::kIOSPasswordCheckup);
-}
 }  // namespace
 
 @interface SafetyCheckMediator () <BooleanObserver, PasswordCheckObserver> {
@@ -193,12 +189,8 @@ bool IsPasswordCheckupEnabled() {
     _updateCheckItem = [[SettingsCheckItem alloc] initWithType:UpdateItemType];
     _updateCheckItem.text =
         l10n_util::GetNSString(IDS_IOS_SETTINGS_SAFETY_CHECK_UPDATES_TITLE);
-    UIImage* updateCheckIcon =
-        UseSymbols()
-            ? DefaultSymbolTemplateWithPointSize(kInfoCircleSymbol,
-                                                 kLeadingSymbolImagePointSize)
-            : [[UIImage imageNamed:@"settings_info"]
-                  imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+    UIImage* updateCheckIcon = DefaultSymbolTemplateWithPointSize(
+        kInfoCircleSymbol, kLeadingSymbolImagePointSize);
     _updateCheckItem.leadingIcon = updateCheckIcon;
     _updateCheckItem.leadingIconTintColor = [UIColor colorNamed:kGrey400Color];
     _updateCheckItem.enabled = YES;
@@ -220,14 +212,8 @@ bool IsPasswordCheckupEnabled() {
     _passwordCheckItem.text =
         l10n_util::GetNSString(IDS_IOS_SETTINGS_SAFETY_CHECK_PASSWORDS_TITLE);
 
-    UIImage* passwordCheckIcon = nil;
-    if (UseSymbols()) {
-      passwordCheckIcon = CustomSymbolTemplateWithPointSize(
-          kPasswordSymbol, kLeadingSymbolImagePointSize);
-    } else {
-      passwordCheckIcon = [[UIImage imageNamed:@"password_key"]
-          imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-    }
+    UIImage* passwordCheckIcon = CustomSymbolTemplateWithPointSize(
+        kPasswordSymbol, kLeadingSymbolImagePointSize);
 
     _passwordCheckItem.leadingIcon = passwordCheckIcon;
     _passwordCheckItem.leadingIconTintColor =
@@ -253,11 +239,7 @@ bool IsPasswordCheckupEnabled() {
     _safeBrowsingCheckItem.text = l10n_util::GetNSString(
         IDS_IOS_SETTINGS_SAFETY_CHECK_SAFE_BROWSING_TITLE);
     UIImage* safeBrowsingCheckIcon =
-        UseSymbols()
-            ? CustomSymbolWithPointSize(kPrivacySymbol,
-                                        kLeadingSymbolImagePointSize)
-            : [[UIImage imageNamed:@"settings_safe_browsing"]
-                  imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+        CustomSymbolWithPointSize(kPrivacySymbol, kLeadingSymbolImagePointSize);
     _safeBrowsingCheckItem.leadingIcon = safeBrowsingCheckIcon;
     _safeBrowsingCheckItem.leadingIconTintColor =
         [UIColor colorNamed:kGrey400Color];
@@ -996,12 +978,8 @@ bool IsPasswordCheckupEnabled() {
       break;
     }
     case UpdateCheckRowStateUpToDate: {
-      UIImage* safeIconImage =
-          UseSymbols()
-              ? DefaultSymbolTemplateWithPointSize(
-                    kCheckmarkCircleFillSymbol, kTrailingSymbolImagePointSize)
-              : [[UIImage imageNamed:@"settings_safe_state"]
-                    imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+      UIImage* safeIconImage = DefaultSymbolTemplateWithPointSize(
+          kCheckmarkCircleFillSymbol, kTrailingSymbolImagePointSize);
       self.updateCheckItem.trailingImage = safeIconImage;
       self.updateCheckItem.trailingImageTintColor =
           [UIColor colorNamed:kGreenColor];
@@ -1010,12 +988,8 @@ bool IsPasswordCheckupEnabled() {
       break;
     }
     case UpdateCheckRowStateOutOfDate: {
-      UIImage* unSafeIconImage =
-          UseSymbols()
-              ? DefaultSymbolTemplateWithPointSize(
-                    kWarningFillSymbol, kTrailingSymbolImagePointSize)
-              : [[UIImage imageNamed:@"settings_unsafe_state"]
-                    imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+      UIImage* unSafeIconImage = DefaultSymbolTemplateWithPointSize(
+          kWarningFillSymbol, kTrailingSymbolImagePointSize);
       self.updateCheckItem.trailingImage = unSafeIconImage;
       self.updateCheckItem.trailingImageTintColor =
           [UIColor colorNamed:kRedColor];
@@ -1092,12 +1066,8 @@ bool IsPasswordCheckupEnabled() {
     }
     case PasswordCheckRowStateSafe: {
       DCHECK(self.passwordCheckManager->GetInsecureCredentials().empty());
-      UIImage* safeIconImage =
-          UseSymbols()
-              ? DefaultSymbolTemplateWithPointSize(
-                    kCheckmarkCircleFillSymbol, kTrailingSymbolImagePointSize)
-              : [[UIImage imageNamed:@"settings_safe_state"]
-                    imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+      UIImage* safeIconImage = DefaultSymbolTemplateWithPointSize(
+          kCheckmarkCircleFillSymbol, kTrailingSymbolImagePointSize);
       self.passwordCheckItem.detailText =
           base::SysUTF16ToNSString(l10n_util::GetPluralStringFUTF16(
               IDS_IOS_CHECK_PASSWORDS_COMPROMISED_COUNT, 0));
@@ -1111,12 +1081,8 @@ bool IsPasswordCheckupEnabled() {
           base::SysUTF16ToNSString(l10n_util::GetPluralStringFUTF16(
               IDS_IOS_CHECK_PASSWORDS_COMPROMISED_COUNT,
               self.passwordCheckManager->GetInsecureCredentials().size()));
-      UIImage* unSafeIconImage =
-          UseSymbols()
-              ? DefaultSymbolTemplateWithPointSize(
-                    kWarningFillSymbol, kTrailingSymbolImagePointSize)
-              : [[UIImage imageNamed:@"settings_unsafe_state"]
-                    imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+      UIImage* unSafeIconImage = DefaultSymbolTemplateWithPointSize(
+          kWarningFillSymbol, kTrailingSymbolImagePointSize);
       self.passwordCheckItem.trailingImage = unSafeIconImage;
       self.passwordCheckItem.trailingImageTintColor =
           [UIColor colorNamed:kRedColor];
@@ -1167,12 +1133,8 @@ bool IsPasswordCheckupEnabled() {
       break;
     }
     case SafeBrowsingCheckRowStateSafe: {
-      UIImage* safeIconImage =
-          UseSymbols()
-              ? DefaultSymbolTemplateWithPointSize(
-                    kCheckmarkCircleFillSymbol, kTrailingSymbolImagePointSize)
-              : [[UIImage imageNamed:@"settings_safe_state"]
-                    imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+      UIImage* safeIconImage = DefaultSymbolTemplateWithPointSize(
+          kCheckmarkCircleFillSymbol, kTrailingSymbolImagePointSize);
       self.safeBrowsingCheckItem.trailingImage = safeIconImage;
       self.safeBrowsingCheckItem.trailingImageTintColor =
           [UIColor colorNamed:kGreenColor];
@@ -1186,12 +1148,8 @@ bool IsPasswordCheckupEnabled() {
       break;
     }
     case SafeBrowsingCheckRowStateUnsafe: {
-      UIImage* unSafeIconImage =
-          UseSymbols()
-              ? DefaultSymbolTemplateWithPointSize(
-                    kWarningFillSymbol, kTrailingSymbolImagePointSize)
-              : [[UIImage imageNamed:@"settings_unsafe_state"]
-                    imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+      UIImage* unSafeIconImage = DefaultSymbolTemplateWithPointSize(
+          kWarningFillSymbol, kTrailingSymbolImagePointSize);
       self.safeBrowsingCheckItem.trailingImage = unSafeIconImage;
       self.safeBrowsingCheckItem.trailingImageTintColor =
           [UIColor colorNamed:kRedColor];

@@ -58,6 +58,7 @@
 #include "ios/web/public/js_messaging/web_frame.h"
 #include "ios/web/public/js_messaging/web_frame_util.h"
 #import "ios/web/public/js_messaging/web_frames_manager.h"
+#import "ios/web/public/js_messaging/web_frames_manager_observer_bridge.h"
 #import "ios/web/public/navigation/navigation_context.h"
 #import "ios/web/public/web_state.h"
 #import "ios/web/public/web_state_observer_bridge.h"
@@ -119,6 +120,7 @@ constexpr base::TimeDelta kA11yAnnouncementQueueDelay = base::Seconds(1);
 }  // namespace
 
 @interface AutofillAgent () <CRWWebStateObserver,
+                             CRWWebFramesManagerObserver,
                              FormActivityObserver,
                              PrefObserverDelegate> {
   // The WebState this instance is observing. Will be null after
@@ -127,6 +129,10 @@ constexpr base::TimeDelta kA11yAnnouncementQueueDelay = base::Seconds(1);
 
   // Bridge to observe the web state from Objective-C.
   std::unique_ptr<web::WebStateObserverBridge> _webStateObserverBridge;
+
+  // Bridge to observe the web frames manager from Objective-C.
+  std::unique_ptr<web::WebFramesManagerObserverBridge>
+      _webFramesManagerObserverBridge;
 
   // The pref service for which this agent was created.
   PrefService* _prefService;
@@ -190,6 +196,12 @@ constexpr base::TimeDelta kA11yAnnouncementQueueDelay = base::Seconds(1);
     _webStateObserverBridge =
         std::make_unique<web::WebStateObserverBridge>(self);
     _webState->AddObserver(_webStateObserverBridge.get());
+    _webFramesManagerObserverBridge =
+        std::make_unique<web::WebFramesManagerObserverBridge>(self);
+    web::WebFramesManager* framesManager =
+        autofill::AutofillJavaScriptFeature::GetInstance()->GetWebFramesManager(
+            _webState);
+    framesManager->AddObserver(_webFramesManagerObserverBridge.get());
     _formActivityObserverBridge =
         std::make_unique<autofill::FormActivityObserverBridge>(_webState, self);
     _prefService = prefService;
@@ -312,8 +324,10 @@ constexpr base::TimeDelta kA11yAnnouncementQueueDelay = base::Seconds(1);
       GetWebFrameWithId(webState, SysNSStringToUTF8(frameID));
   autofill::BrowserAutofillManager* autofillManager =
       [self autofillManagerFromWebState:webState webFrame:frame];
-  if (!autofillManager)
+  if (!autofillManager) {
+    completion(NO);
     return;
+  }
 
   // Find the right field.
   autofill::FormFieldData field;
@@ -688,30 +702,6 @@ constexpr base::TimeDelta kA11yAnnouncementQueueDelay = base::Seconds(1);
   [self sendData:std::move(pendingFormData.second) toFrame:frame];
 }
 
-- (void)webState:(web::WebState*)webState
-    frameDidBecomeAvailable:(web::WebFrame*)web_frame {
-  DCHECK_EQ(_webState, webState);
-  DCHECK(web_frame);
-  if (![self isAutofillEnabled] || webState->IsLoading()) {
-    return;
-  }
-  if (web_frame->IsMainFrame()) {
-    [self processPage:webState];
-    return;
-  }
-  // Check that the main frame has already been processed.
-  if (!webState->GetPageWorldWebFramesManager()->GetMainWebFrame()) {
-    return;
-  }
-  if (!autofill::AutofillDriverIOS::FromWebStateAndWebFrame(
-           webState,
-           webState->GetPageWorldWebFramesManager()->GetMainWebFrame())
-           ->is_processed()) {
-    return;
-  }
-  [self processFrame:web_frame inWebState:webState];
-}
-
 - (void)webState:(web::WebState*)webState didLoadPageWithSuccess:(BOOL)success {
   DCHECK_EQ(_webState, webState);
   if (![self isAutofillEnabled])
@@ -726,22 +716,53 @@ constexpr base::TimeDelta kA11yAnnouncementQueueDelay = base::Seconds(1);
     _formActivityObserverBridge.reset();
     _webState->RemoveObserver(_webStateObserverBridge.get());
     _webStateObserverBridge.reset();
+    web::WebFramesManager* framesManager =
+        autofill::AutofillJavaScriptFeature::GetInstance()->GetWebFramesManager(
+            _webState);
+    framesManager->RemoveObserver(_webFramesManagerObserverBridge.get());
+    _webFramesManagerObserverBridge.reset();
     _webState = nullptr;
   }
   // Do not wait for deallocation. Remove all observers here.
   _prefChangeRegistrar.RemoveAll();
 }
 
+#pragma mark - CRWWebFramesManagerObserver
+
+- (void)webFramesManager:(web::WebFramesManager*)webFramesManager
+    frameBecameAvailable:(web::WebFrame*)webFrame {
+  DCHECK(_webState);
+  DCHECK(webFrame);
+  if (![self isAutofillEnabled] || _webState->IsLoading()) {
+    return;
+  }
+  if (webFrame->IsMainFrame()) {
+    [self processPage:_webState];
+    return;
+  }
+  // Check that the main frame has already been processed.
+  if (!webFramesManager->GetMainWebFrame()) {
+    return;
+  }
+  if (!autofill::AutofillDriverIOS::FromWebStateAndWebFrame(
+           _webState, webFramesManager->GetMainWebFrame())
+           ->is_processed()) {
+    return;
+  }
+  [self processFrame:webFrame inWebState:_webState];
+}
+
 #pragma mark - Private methods
 
 - (void)processPage:(web::WebState*)webState {
-  web::WebFramesManager* framesManager =
-      webState->GetPageWorldWebFramesManager();
-  if (!framesManager->GetMainWebFrame()) {
+  web::WebFramesManager* frames_manager =
+      autofill::AutofillJavaScriptFeature::GetInstance()->GetWebFramesManager(
+          webState);
+  if (!frames_manager->GetMainWebFrame()) {
     return;
   }
-  [self processFrame:framesManager->GetMainWebFrame() inWebState:webState];
-  for (auto* frame : framesManager->GetAllWebFrames()) {
+  [self processFrame:frames_manager->GetMainWebFrame() inWebState:webState];
+  for (auto* frame : frames_manager->GetAllWebFrames()) {
     if (frame->IsMainFrame()) {
       continue;
     }
@@ -750,8 +771,9 @@ constexpr base::TimeDelta kA11yAnnouncementQueueDelay = base::Seconds(1);
 }
 
 - (void)processFrame:(web::WebFrame*)frame inWebState:(web::WebState*)webState {
-  if (!frame || !frame->CanCallJavaScriptFunction())
+  if (!frame) {
     return;
+  }
 
   autofill::AutofillDriverIOS* driver =
       autofill::AutofillDriverIOS::FromWebStateAndWebFrame(webState, frame);
@@ -822,8 +844,9 @@ constexpr base::TimeDelta kA11yAnnouncementQueueDelay = base::Seconds(1);
   if (![self isAutofillEnabled])
     return;
 
-  if (!frame || !frame->CanCallJavaScriptFunction())
+  if (!frame) {
     return;
+  }
 
   // Return early if the page is not processed yet.
   DCHECK(autofill::AutofillDriverIOS::FromWebStateAndWebFrame(webState, frame));
@@ -884,8 +907,9 @@ constexpr base::TimeDelta kA11yAnnouncementQueueDelay = base::Seconds(1);
                            inFrame:(web::WebFrame*)frame {
   if (![self isAutofillEnabled])
     return;
-  if (!frame || !frame->CanCallJavaScriptFunction())
+  if (!frame) {
     return;
+  }
   FormDataVector forms;
 
   bool success = autofill::ExtractFormsData(
@@ -1015,9 +1039,12 @@ constexpr base::TimeDelta kA11yAnnouncementQueueDelay = base::Seconds(1);
   if (!_webState)
     return;
 
-  DCHECK(_webState->GetPageWorldWebFramesManager());
-  web::WebFrame* webFrame =
-      _webState->GetPageWorldWebFramesManager()->GetFrameWithId(webFrameId);
+  web::WebFramesManager* frames_manager =
+      autofill::AutofillJavaScriptFeature::GetInstance()->GetWebFramesManager(
+          _webState);
+
+  DCHECK(frames_manager);
+  web::WebFrame* webFrame = frames_manager->GetFrameWithId(webFrameId);
   if (!webFrame)
     return;
 

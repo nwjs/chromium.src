@@ -16,9 +16,6 @@
 #import "base/metrics/histogram_macros.h"
 #import "base/path_service.h"
 #import "base/strings/sys_string_conversions.h"
-#import "components/breadcrumbs/core/breadcrumb_manager_keyed_service.h"
-#import "components/breadcrumbs/core/breadcrumb_persistent_storage_manager.h"
-#import "components/breadcrumbs/core/features.h"
 #import "components/component_updater/component_updater_service.h"
 #import "components/component_updater/crl_set_remover.h"
 #import "components/component_updater/installer_policies/autofill_states_component_installer.h"
@@ -35,6 +32,7 @@
 #import "components/prefs/ios/pref_observer_bridge.h"
 #import "components/prefs/pref_change_registrar.h"
 #import "components/previous_session_info/previous_session_info.h"
+#import "components/sync/base/features.h"
 #import "components/sync/driver/sync_service.h"
 #import "components/web_resource/web_resource_pref_names.h"
 #import "ios/chrome/app/app_metrics_app_state_agent.h"
@@ -45,7 +43,6 @@
 #import "ios/chrome/app/fast_app_terminate_buildflags.h"
 #import "ios/chrome/app/feed_app_agent.h"
 #import "ios/chrome/app/first_run_app_state_agent.h"
-#import "ios/chrome/app/keyboard_shortcuts_menu_app_agent.h"
 #import "ios/chrome/app/memory_monitor.h"
 #import "ios/chrome/app/post_restore_app_agent.h"
 #import "ios/chrome/app/safe_mode_app_state_agent.h"
@@ -68,7 +65,6 @@
 #import "ios/chrome/browser/browsing_data/browsing_data_remover.h"
 #import "ios/chrome/browser/browsing_data/browsing_data_remover_factory.h"
 #import "ios/chrome/browser/browsing_data/sessions_storage_util.h"
-#import "ios/chrome/browser/crash_report/breadcrumbs/breadcrumb_manager_keyed_service_factory.h"
 #import "ios/chrome/browser/crash_report/crash_helper.h"
 #import "ios/chrome/browser/crash_report/crash_keys_helper.h"
 #import "ios/chrome/browser/crash_report/crash_loop_detection_util.h"
@@ -102,21 +98,21 @@
 #import "ios/chrome/browser/sessions/session_service_ios.h"
 #import "ios/chrome/browser/share_extension/share_extension_service.h"
 #import "ios/chrome/browser/share_extension/share_extension_service_factory.h"
+#import "ios/chrome/browser/shared/public/commands/browser_commands.h"
+#import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
+#import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/signin/authentication_service_delegate.h"
 #import "ios/chrome/browser/signin/authentication_service_factory.h"
 #import "ios/chrome/browser/snapshots/snapshot_browser_agent.h"
 #import "ios/chrome/browser/snapshots/snapshot_cache.h"
 #import "ios/chrome/browser/sync/sync_service_factory.h"
 #import "ios/chrome/browser/ui/appearance/appearance_customization.h"
-#import "ios/chrome/browser/ui/commands/browser_commands.h"
-#import "ios/chrome/browser/ui/commands/browser_coordinator_commands.h"
-#import "ios/chrome/browser/ui/commands/command_dispatcher.h"
 #import "ios/chrome/browser/ui/first_run/first_run_util.h"
 #import "ios/chrome/browser/ui/main/browser_view_wrangler.h"
 #import "ios/chrome/browser/ui/main/scene_delegate.h"
 #import "ios/chrome/browser/ui/main/scene_state.h"
-#import "ios/chrome/browser/ui/ui_feature_flags.h"
-#import "ios/chrome/browser/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/ui/webui/chrome_web_ui_ios_controller_factory.h"
 #import "ios/chrome/browser/url_loading/url_loading_params.h"
 #import "ios/chrome/browser/web/certificate_policy_app_agent.h"
@@ -341,8 +337,6 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
 - (void)scheduleAppDistributionPings;
 // Asynchronously schedule the init of the memoryDebuggerManager.
 - (void)scheduleMemoryDebuggingTools;
-// Starts logging breadcrumbs.
-- (void)startLoggingBreadcrumbs;
 // Asynchronously kick off regular free memory checks.
 - (void)startFreeMemoryMonitoring;
 // Asynchronously schedules the reset of the failed startup attempt counter.
@@ -568,10 +562,6 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
   }
   [[PreviousSessionInfo sharedInstance] resetConnectedSceneSessionIDs];
 
-  if (base::FeatureList::IsEnabled(breadcrumbs::kLogBreadcrumbs)) {
-    [self startLoggingBreadcrumbs];
-  }
-
   // Send "Chrome Opened" event to the feature_engagement::Tracker on cold
   // start.
   feature_engagement::TrackerFactory::GetForBrowserState(
@@ -768,7 +758,6 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
   [appState addAgent:[[SafeModeAppAgent alloc] init]];
   [appState addAgent:[[FeedAppAgent alloc] init]];
   [appState addAgent:[[VariationsAppStateAgent alloc] init]];
-  [appState addAgent:[[KeyboardShortcutsMenuAppAgent alloc] init]];
 
   // Create the window accessibility agent only when multiple windows are
   // possible.
@@ -1110,6 +1099,12 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
 - (void)saveFieldTrialValuesForExtensions {
   NSUserDefaults* sharedDefaults = app_group::GetGroupUserDefaults();
 
+  NSNumber* credentialProviderExtensionPasswordNotesValue =
+      [NSNumber numberWithBool:base::FeatureList::IsEnabled(
+                                   syncer::kPasswordNotesWithBackup)];
+  NSNumber* credentialProviderExtensionPasswordNotesVersion =
+      [NSNumber numberWithInt:kCredentialProviderExtensionPasswordNotesVersion];
+
   // Add other field trial values here if they are needed by extensions.
   // The general format is
   // {
@@ -1118,7 +1113,12 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
   //     version: NSNumber int,
   //   }
   // }
-  NSDictionary* fieldTrialValues = @{};
+  NSDictionary* fieldTrialValues = @{
+    base::SysUTF8ToNSString(syncer::kPasswordNotesWithBackup.name) : @{
+      kFieldTrialValueKey : credentialProviderExtensionPasswordNotesValue,
+      kFieldTrialVersionKey : credentialProviderExtensionPasswordNotesVersion,
+    },
+  };
   [sharedDefaults setObject:fieldTrialValues
                      forKey:app_group::kChromeExtensionFieldTrialPreference];
 }
@@ -1145,20 +1145,6 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
   // No need for a post-task or a deferred initialisation as the memory
   // monitoring already happens on a background sequence.
   StartFreeMemoryMonitor();
-}
-
-- (void)startLoggingBreadcrumbs {
-  BreadcrumbManagerKeyedServiceFactory::GetForBrowserState(
-      self.appState.mainBrowserState);
-
-  // Get stored persistent breadcrumbs from last run to set on crash reports.
-  breadcrumbs::BreadcrumbPersistentStorageManager* persistentStorageManager =
-      GetApplicationContext()->GetBreadcrumbPersistentStorageManager();
-  DCHECK(persistentStorageManager);
-  persistentStorageManager->GetStoredEvents(
-      base::BindOnce(^(std::vector<std::string> events) {
-        crash_report_helper::SetPreviousSessionEvents(events);
-      }));
 }
 
 - (void)scheduleLowPriorityStartupTasks {

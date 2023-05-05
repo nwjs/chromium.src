@@ -35,6 +35,7 @@
 #include "components/autofill/ios/form_util/form_activity_params.h"
 #include "components/autofill/ios/form_util/unique_id_data_tab_helper.h"
 #include "components/password_manager/core/browser/password_bubble_experiment.h"
+#import "components/password_manager/core/browser/password_feature_manager.h"
 #include "components/password_manager/core/browser/password_generation_frame_helper.h"
 #include "components/password_manager/core/browser/password_manager_client.h"
 #include "components/password_manager/core/common/password_manager_features.h"
@@ -268,9 +269,6 @@ BOOL canProcessCrossOriginIframes() {
     frameDidBecomeAvailable:(web::WebFrame*)web_frame {
   DCHECK_EQ(_webState, webState);
   DCHECK(web_frame);
-  if (!web_frame->CanCallJavaScriptFunction()) {
-    return;
-  }
   UniqueIDDataTabHelper* uniqueIDDataTabHelper =
       UniqueIDDataTabHelper::FromWebState(_webState);
   uint32_t nextAvailableRendererID =
@@ -298,7 +296,7 @@ BOOL canProcessCrossOriginIframes() {
   if (webState->IsBeingDestroyed()) {
     return;
   }
-  if (web_frame->IsMainFrame() || !web_frame->CanCallJavaScriptFunction()) {
+  if (web_frame->IsMainFrame()) {
     return;
   }
 
@@ -349,6 +347,7 @@ BOOL canProcessCrossOriginIframes() {
                              (SuggestionsAvailableCompletion)completion {
   DCHECK_EQ(_webState, webState);
   if (!GetPageURLAndCheckTrustLevel(webState, nullptr)) {
+    completion(NO);
     return;
   }
   web::WebFrame* frame =
@@ -422,6 +421,7 @@ BOOL canProcessCrossOriginIframes() {
                  completionHandler:(SuggestionsReadyCompletion)completion {
   DCHECK_EQ(_webState, webState);
   if (!GetPageURLAndCheckTrustLevel(webState, nullptr)) {
+    completion({}, self);
     return;
   }
   web::WebFrame* frame =
@@ -490,7 +490,27 @@ BOOL canProcessCrossOriginIframes() {
     LogPasswordDropdownShown(*suggestionState, [self isIncognito]);
   }
 
-  completion([suggestions copy], self);
+  if (suggestions.count == 0 || ![_delegate shouldShowAccountStorageNotice]) {
+    completion(suggestions, self);
+    return;
+  }
+
+  __weak __typeof(self) weakSelf = self;
+  [_delegate showAccountStorageNotice:^{
+    if (!weakSelf) {
+      return;
+    }
+    if (weakSelf.delegate && !weakSelf.delegate.passwordManagerClient
+             ->GetPasswordFeatureManager()
+             ->IsOptedInForAccountStorage()) {
+      // Re-fetch, account suggestions are no longer valid.
+      [weakSelf retrieveSuggestionsForForm:formQuery
+                                  webState:webState
+                         completionHandler:completion];
+    } else {
+      completion(suggestions, weakSelf);
+    }
+  }];
 }
 
 - (void)didSelectSuggestion:(FormSuggestion*)suggestion
@@ -891,7 +911,7 @@ BOOL canProcessCrossOriginIframes() {
 
   GURL pageURL;
   if (!GetPageURLAndCheckTrustLevel(webState, &pageURL) || !frame ||
-      !frame->CanCallJavaScriptFunction() || params.input_missing ||
+      params.input_missing ||
       (IsCrossOriginIframe(_webState, frame->IsMainFrame(),
                            frame->GetSecurityOrigin()) &&
        !canProcessCrossOriginIframes())) {

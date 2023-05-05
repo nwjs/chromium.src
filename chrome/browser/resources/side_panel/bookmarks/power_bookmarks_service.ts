@@ -4,8 +4,11 @@
 
 // This file contains business logic for power bookmarks side panel content.
 
+import {ImageServiceBrowserProxy} from '//resources/cr_components/image_service/browser_proxy.js';
+import {ClientId as ImageServiceClientId} from '//resources/cr_components/image_service/image_service.mojom-webui.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import {PluralStringProxyImpl} from '//resources/js/plural_string_proxy.js';
+import {Url} from '//resources/mojo/url/mojom/url.mojom-webui.js';
 
 import {BookmarksApiProxy, BookmarksApiProxyImpl} from './bookmarks_api_proxy.js';
 
@@ -21,6 +24,7 @@ interface PowerBookmarksDelegate {
       bookmark: chrome.bookmarks.BookmarkTreeNode, description: string): void;
   setExpandedDescription(
       bookmark: chrome.bookmarks.BookmarkTreeNode, description: string): void;
+  setImageUrl(bookmark: chrome.bookmarks.BookmarkTreeNode, url: string): void;
   onBookmarksLoaded(): void;
   onBookmarkChanged(id: string, changedInfo: chrome.bookmarks.ChangeInfo): void;
   onBookmarkCreated(
@@ -32,6 +36,7 @@ interface PowerBookmarksDelegate {
       newParent: chrome.bookmarks.BookmarkTreeNode): void;
   onBookmarkRemoved(bookmark: chrome.bookmarks.BookmarkTreeNode): void;
   isPriceTracked(bookmark: chrome.bookmarks.BookmarkTreeNode): boolean;
+  getProductImageUrl(bookmark: chrome.bookmarks.BookmarkTreeNode): string;
 }
 
 export function editingDisabledByPolicy(
@@ -57,6 +62,7 @@ export class PowerBookmarksService {
       BookmarksApiProxyImpl.getInstance();
   private listeners_ = new Map<string, Function>();
   private folders_: chrome.bookmarks.BookmarkTreeNode[] = [];
+  private bookmarksWithCachedImages_ = new Set<string>();
 
   constructor(delegate: PowerBookmarksDelegate) {
     this.delegate_ = delegate;
@@ -146,12 +152,10 @@ export class PowerBookmarksService {
                   folder.children!));
       shownBookmarks = topLevelBookmarks;
     }
-    if (searchQuery) {
-      shownBookmarks = this.applySearchQuery_(searchQuery!, shownBookmarks);
+    if (searchQuery || labels.find((label) => label.active)) {
+      shownBookmarks =
+          this.applySearchQueryAndLabels_(labels, searchQuery, shownBookmarks);
     }
-    shownBookmarks = shownBookmarks.filter(
-        (b: chrome.bookmarks.BookmarkTreeNode) =>
-            this.nodeMatchesContentFilters_(b, labels));
     const sortChangedPosition =
         this.sortBookmarks(shownBookmarks, activeSortIndex);
     if (sortChangedPosition) {
@@ -203,13 +207,26 @@ export class PowerBookmarksService {
   }
 
   /**
+   * Checks bookmarks for any relevant data and updates delegate_ with the
+   * results. Used to batch data fetching in any cases where it is particularly
+   * expensive.
+   */
+  refreshDataForBookmarks(bookmarks: chrome.bookmarks.BookmarkTreeNode[]) {
+    bookmarks.forEach(
+        (bookmark) => this.findBookmarkImageUrls_(bookmark, true, false));
+  }
+
+  /**
    * Returns the BookmarkTreeNode with the given id, or undefined if one does
    * not exist.
    */
-  findBookmarkWithId(id: string): chrome.bookmarks.BookmarkTreeNode|undefined {
-    const path = this.findPathToId_(id);
-    if (path) {
-      return path[path.length - 1];
+  findBookmarkWithId(id: string|undefined): chrome.bookmarks.BookmarkTreeNode
+      |undefined {
+    if (id) {
+      const path = this.findPathToId_(id);
+      if (path) {
+        return path[path.length - 1];
+      }
     }
     return undefined;
   }
@@ -240,6 +257,7 @@ export class PowerBookmarksService {
     const bookmark = this.findBookmarkWithId(id)!;
     Object.assign(bookmark, changedInfo);
     this.findBookmarkDescriptions_(bookmark, false);
+    this.findBookmarkImageUrls_(bookmark, false, true);
     this.delegate_.onBookmarkChanged(id, changedInfo);
   }
 
@@ -254,6 +272,7 @@ export class PowerBookmarksService {
     this.delegate_.onBookmarkCreated(node, parent);
     this.findBookmarkDescriptions_(parent, false);
     this.findBookmarkDescriptions_(node, false);
+    this.findBookmarkImageUrls_(node, false, false);
   }
 
   private onMoved_(movedInfo: chrome.bookmarks.MoveInfo) {
@@ -350,6 +369,61 @@ export class PowerBookmarksService {
     }
   }
 
+  /**
+   * Assigns an image url for the given bookmark. Also assigns an image url to
+   * all children if recurse is true.
+   */
+  private async findBookmarkImageUrls_(
+      bookmark: chrome.bookmarks.BookmarkTreeNode, recurse: boolean,
+      forceUpdate: boolean) {
+    const hasImage =
+        this.bookmarksWithCachedImages_.has(bookmark.id.toString());
+    if (forceUpdate || !hasImage) {
+      // Reset image url to ensure old images don't persist while the new image
+      // is being fetched.
+      this.delegate_.setImageUrl(bookmark, '');
+      if (bookmark.url) {
+        const productImageUrl = this.delegate_.getProductImageUrl(bookmark);
+        if (productImageUrl) {
+          this.delegate_.setImageUrl(bookmark, productImageUrl);
+          this.bookmarksWithCachedImages_.add(bookmark.id.toString());
+        } else {
+          const imageUrl = await this.findBookmarkImageUrl_(bookmark.url);
+          if (imageUrl) {
+            this.delegate_.setImageUrl(bookmark, imageUrl);
+            this.bookmarksWithCachedImages_.add(bookmark.id.toString());
+          }
+        }
+      }
+    }
+    if (recurse && bookmark.children) {
+      bookmark.children.forEach(
+          child => this.findBookmarkImageUrls_(child, false, forceUpdate));
+    }
+  }
+
+  private async findBookmarkImageUrl_(bookmarkUrl: string): Promise<string> {
+    const emptyUrl = '';
+
+    if (!bookmarkUrl || !loadTimeData.getBoolean('urlImagesEnabled')) {
+      return emptyUrl;
+    }
+
+    const url: Url = new Url();
+    url.url = bookmarkUrl;
+
+    // Fetch the representative image for this page, if possible.
+    const {result} =
+        await ImageServiceBrowserProxy.getInstance().handler.getPageImageUrl(
+            ImageServiceClientId.Bookmarks, url,
+            {suggestImages: true, optimizationGuideImages: true});
+    if (result) {
+      return result.imageUrl.url;
+    }
+
+    return emptyUrl;
+  }
+
   // Return an array that includes folder and all its descendants.
   private expandFolder_(folder: chrome.bookmarks.BookmarkTreeNode):
       chrome.bookmarks.BookmarkTreeNode[] {
@@ -362,8 +436,8 @@ export class PowerBookmarksService {
     return expanded;
   }
 
-  private applySearchQuery_(
-      searchQuery: string,
+  private applySearchQueryAndLabels_(
+      labels: Label[], searchQuery: string|undefined,
       shownBookmarks: chrome.bookmarks.BookmarkTreeNode[]) {
     let searchSpace: chrome.bookmarks.BookmarkTreeNode[] = [];
     // Search space should include all descendants of the shown bookmarks, in
@@ -373,10 +447,12 @@ export class PowerBookmarksService {
     });
     return searchSpace.filter(
         (bookmark: chrome.bookmarks.BookmarkTreeNode) =>
-            (bookmark.title &&
-             bookmark.title.toLocaleLowerCase().includes(searchQuery)) ||
-            (bookmark.url &&
-             bookmark.url.toLocaleLowerCase().includes(searchQuery)));
+            this.nodeMatchesContentFilters_(bookmark, labels) &&
+            (!searchQuery ||
+             (bookmark.title &&
+              bookmark.title.toLocaleLowerCase().includes(searchQuery!)) ||
+             (bookmark.url &&
+              bookmark.url.toLocaleLowerCase().includes(searchQuery!))));
   }
 
   private nodeMatchesContentFilters_(

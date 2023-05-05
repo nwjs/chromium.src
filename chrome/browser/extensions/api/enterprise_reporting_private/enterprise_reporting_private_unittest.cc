@@ -366,9 +366,10 @@ TEST_F(EnterpriseReportingPrivateGetDeviceInfoTest, GetDeviceInfo) {
   std::unique_ptr<base::Value> device_info_value =
       RunFunctionAndReturnValue(function.get(), "[]");
   ASSERT_TRUE(device_info_value.get());
+  ASSERT_TRUE(device_info_value->is_dict());
   enterprise_reporting_private::DeviceInfo info;
   ASSERT_TRUE(enterprise_reporting_private::DeviceInfo::Populate(
-      *device_info_value, &info));
+      device_info_value->GetDict(), info));
 #if BUILDFLAG(IS_MAC)
   EXPECT_EQ("macOS", info.os_name);
 #elif BUILDFLAG(IS_WIN)
@@ -445,31 +446,24 @@ class EnterpriseReportingPrivateGetContextInfoTest
     std::unique_ptr<base::Value> context_info_value =
         RunFunctionAndReturnValue(function.get(), "[]");
     EXPECT_TRUE(context_info_value.get());
+    EXPECT_TRUE(context_info_value->is_dict());
 
     enterprise_reporting_private::ContextInfo info;
     EXPECT_TRUE(enterprise_reporting_private::ContextInfo::Populate(
-        *context_info_value, &info));
+        context_info_value->GetDict(), info));
 
     return info;
   }
 
   bool BuiltInDnsClientPlatformDefault() {
 #if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_ANDROID) || \
-    BUILDFLAG(IS_WIN)
+    BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
     return true;
 #else
     return false;
 #endif
   }
 
-  void ExpectDefaultChromeCleanupEnabled(
-      const enterprise_reporting_private::ContextInfo& info) {
-#if BUILDFLAG(IS_WIN)
-    EXPECT_TRUE(*info.chrome_cleanup_enabled);
-#else
-    EXPECT_FALSE(info.chrome_cleanup_enabled.has_value());
-#endif
-  }
   void ExpectDefaultThirdPartyBlockingEnabled(
       const enterprise_reporting_private::ContextInfo& info) {
 #if BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
@@ -501,7 +495,6 @@ TEST_F(EnterpriseReportingPrivateGetContextInfoTest, NoSpecialContext) {
   EXPECT_EQ(
       enterprise_reporting_private::PASSWORD_PROTECTION_TRIGGER_POLICY_UNSET,
       info.password_protection_warning_trigger);
-  ExpectDefaultChromeCleanupEnabled(info);
   EXPECT_FALSE(info.chrome_remote_desktop_app_blocked);
   ExpectDefaultThirdPartyBlockingEnabled(info);
   EXPECT_TRUE(info.enterprise_profile_id);
@@ -533,7 +526,6 @@ TEST_P(EnterpriseReportingPrivateGetContextInfoThirdPartyBlockingTest, Test) {
             info.safe_browsing_protection_level);
   EXPECT_EQ(BuiltInDnsClientPlatformDefault(),
             info.built_in_dns_client_enabled);
-  ExpectDefaultChromeCleanupEnabled(info);
   EXPECT_FALSE(info.chrome_remote_desktop_app_blocked);
   EXPECT_EQ(policyValue, *info.third_party_blocking_enabled);
 }
@@ -702,11 +694,9 @@ class EnterpriseReportingPrivateGetContextOSFirewallLinuxTest
           enterprise_reporting_private::SettingValue> {
  public:
   void SetUp() override {
-    ExtensionApiUnittest::SetUp();
+    EnterpriseReportingPrivateGetContextInfoTest::SetUp();
     ASSERT_TRUE(fake_appdata_dir_.CreateUniqueTempDir());
     file_path_ = fake_appdata_dir_.GetPath().Append("ufw.conf");
-    enterprise::ProfileIdServiceFactory::GetInstance()->SetTestingFactory(
-        browser()->profile(), base::BindRepeating(&CreateProfileIDService));
   }
 
   void ExpectDefaultPolicies(
@@ -727,7 +717,6 @@ class EnterpriseReportingPrivateGetContextOSFirewallLinuxTest
     EXPECT_EQ(
         enterprise_reporting_private::PASSWORD_PROTECTION_TRIGGER_POLICY_UNSET,
         info.password_protection_warning_trigger);
-    ExpectDefaultChromeCleanupEnabled(info);
     EXPECT_FALSE(info.chrome_remote_desktop_app_blocked);
     ExpectDefaultThirdPartyBlockingEnabled(info);
     EXPECT_TRUE(info.enterprise_profile_id);
@@ -800,46 +789,6 @@ INSTANTIATE_TEST_SUITE_P(
                     enterprise_reporting_private::SETTING_VALUE_UNKNOWN));
 #endif  // BUILDFLAG(IS_LINUX)
 
-#if BUILDFLAG(IS_WIN)
-class EnterpriseReportingPrivateGetContextInfoChromeCleanupTest
-    : public EnterpriseReportingPrivateGetContextInfoTest,
-      public testing::WithParamInterface<bool> {};
-
-TEST_P(EnterpriseReportingPrivateGetContextInfoChromeCleanupTest, Test) {
-  bool policy_value = GetParam();
-
-  g_browser_process->local_state()->SetBoolean(prefs::kSwReporterEnabled,
-                                               policy_value);
-
-  enterprise_reporting_private::ContextInfo info = GetContextInfo();
-
-  EXPECT_TRUE(info.browser_affiliation_ids.empty());
-  EXPECT_TRUE(info.profile_affiliation_ids.empty());
-  EXPECT_TRUE(info.on_file_attached_providers.empty());
-  EXPECT_TRUE(info.on_file_downloaded_providers.empty());
-  EXPECT_TRUE(info.on_bulk_data_entry_providers.empty());
-  EXPECT_EQ(enterprise_reporting_private::REALTIME_URL_CHECK_MODE_DISABLED,
-            info.realtime_url_check_mode);
-  EXPECT_TRUE(info.on_security_event_providers.empty());
-  EXPECT_EQ(version_info::GetVersionNumber(), info.browser_version);
-  EXPECT_EQ(enterprise_reporting_private::SAFE_BROWSING_LEVEL_STANDARD,
-            info.safe_browsing_protection_level);
-  EXPECT_EQ(BuiltInDnsClientPlatformDefault(),
-            info.built_in_dns_client_enabled);
-  EXPECT_EQ(
-      enterprise_reporting_private::PASSWORD_PROTECTION_TRIGGER_POLICY_UNSET,
-      info.password_protection_warning_trigger);
-  ExpectDefaultThirdPartyBlockingEnabled(info);
-  EXPECT_EQ(policy_value, *info.chrome_cleanup_enabled);
-  EXPECT_TRUE(info.enterprise_profile_id);
-}
-
-INSTANTIATE_TEST_SUITE_P(
-    ,
-    EnterpriseReportingPrivateGetContextInfoChromeCleanupTest,
-    testing::Bool());
-#endif  // BUILDFLAG(IS_WIN)
-
 class EnterpriseReportingPrivateGetContextInfoChromeRemoteDesktopAppBlockedTest
     : public EnterpriseReportingPrivateGetContextInfoTest,
       public testing::WithParamInterface<const char*> {
@@ -876,7 +825,6 @@ class EnterpriseReportingPrivateGetContextInfoChromeRemoteDesktopAppBlockedTest
     EXPECT_EQ(
         enterprise_reporting_private::PASSWORD_PROTECTION_TRIGGER_POLICY_UNSET,
         info.password_protection_warning_trigger);
-    ExpectDefaultChromeCleanupEnabled(info);
     ExpectDefaultThirdPartyBlockingEnabled(info);
     EXPECT_TRUE(info.enterprise_profile_id);
   }
@@ -938,11 +886,11 @@ class EnterpriseReportingPrivateGetContextInfoOSFirewallTest
     EnterpriseReportingPrivateGetContextInfoTest::SetUp();
     HRESULT hr = CoCreateInstance(CLSID_NetFwPolicy2, nullptr, CLSCTX_ALL,
                                   IID_PPV_ARGS(&firewall_policy_));
-    EXPECT_FALSE(FAILED(hr));
+    EXPECT_GE(hr, 0);
 
     long profile_types = 0;
     hr = firewall_policy_->get_CurrentProfileTypes(&profile_types);
-    EXPECT_FALSE(FAILED(hr));
+    EXPECT_GE(hr, 0);
 
     // Setting the firewall for each active profile
     const NET_FW_PROFILE_TYPE2 kProfileTypes[] = {NET_FW_PROFILE2_PUBLIC,
@@ -951,13 +899,13 @@ class EnterpriseReportingPrivateGetContextInfoOSFirewallTest
     for (size_t i = 0; i < std::size(kProfileTypes); ++i) {
       if ((profile_types & kProfileTypes[i]) != 0) {
         hr = firewall_policy_->get_FirewallEnabled(kProfileTypes[i], &enabled_);
-        EXPECT_FALSE(FAILED(hr));
+        EXPECT_GE(hr, 0);
         active_profile_ = kProfileTypes[i];
         hr = firewall_policy_->put_FirewallEnabled(
             kProfileTypes[i], firewall_value_ == SettingValue::ENABLED
                                   ? VARIANT_TRUE
                                   : VARIANT_FALSE);
-        EXPECT_FALSE(FAILED(hr));
+        EXPECT_GE(hr, 0);
         break;
       }
     }
@@ -967,7 +915,8 @@ class EnterpriseReportingPrivateGetContextInfoOSFirewallTest
     // Resetting the firewall to its initial state
     HRESULT hr =
         firewall_policy_->put_FirewallEnabled(active_profile_, enabled_);
-    EXPECT_FALSE(FAILED(hr));
+    EXPECT_GE(hr, 0);
+    EnterpriseReportingPrivateGetContextInfoTest::TearDown();
   }
 
   extensions::api::enterprise_reporting_private::SettingValue
@@ -1010,7 +959,6 @@ TEST_P(EnterpriseReportingPrivateGetContextInfoOSFirewallTest, Test) {
   EXPECT_EQ(
       enterprise_reporting_private::PASSWORD_PROTECTION_TRIGGER_POLICY_UNSET,
       info.password_protection_warning_trigger);
-  ExpectDefaultChromeCleanupEnabled(info);
   EXPECT_FALSE(info.chrome_remote_desktop_app_blocked);
   ExpectDefaultThirdPartyBlockingEnabled(info);
   EXPECT_EQ(ToInfoSettingValue(firewall_value_), info.os_firewall);
@@ -1423,9 +1371,10 @@ TEST_F(EnterpriseReportingPrivateGetFileSystemInfoTest, Success) {
   ASSERT_EQ(list_value.size(), signal_response.file_system_items.size());
 
   const base::Value& file_system_value = list_value.front();
+  ASSERT_TRUE(file_system_value.is_dict());
   auto parsed_file_system_signal =
       enterprise_reporting_private::GetFileSystemInfoResponse::FromValue(
-          file_system_value);
+          file_system_value.GetDict());
   ASSERT_TRUE(parsed_file_system_signal);
   EXPECT_EQ(parsed_file_system_signal->path,
             fake_file_item.file_path.AsUTF8Unsafe());
@@ -1620,9 +1569,10 @@ TEST_F(EnterpriseReportingPrivateGetSettingsTest, Success) {
   ASSERT_EQ(list_value.size(), signal_response.settings_items.size());
 
   const base::Value& settings_value = list_value.front();
+  ASSERT_TRUE(settings_value.is_dict());
   auto parsed_settings_signal =
       enterprise_reporting_private::GetSettingsResponse::FromValue(
-          settings_value);
+          settings_value.GetDict());
   ASSERT_TRUE(parsed_settings_signal);
   EXPECT_EQ(parsed_settings_signal->path, fake_settings_item.path);
   EXPECT_EQ(parsed_settings_signal->presence,
@@ -1802,8 +1752,10 @@ TEST_F(EnterpriseReportingPrivateGetAvInfoTest, Success) {
   ASSERT_EQ(list_value.size(), av_response.av_products.size());
 
   const base::Value& av_value = list_value.front();
+  ASSERT_TRUE(av_value.is_dict());
   auto parsed_av_signal =
-      enterprise_reporting_private::AntiVirusSignal::FromValue(av_value);
+      enterprise_reporting_private::AntiVirusSignal::FromValue(
+          av_value.GetDict());
   ASSERT_TRUE(parsed_av_signal);
   EXPECT_EQ(parsed_av_signal->display_name, fake_av_product.display_name);
   EXPECT_EQ(parsed_av_signal->state,
@@ -1948,8 +1900,9 @@ TEST_F(EnterpriseReportingPrivateGetHotfixesTest, Success) {
   ASSERT_EQ(list_value.size(), hotfix_response.hotfixes.size());
 
   const base::Value& hotfix_value = list_value.front();
-  auto parsed_hotfix =
-      enterprise_reporting_private::HotfixSignal::FromValue(hotfix_value);
+  ASSERT_TRUE(hotfix_value.is_dict());
+  auto parsed_hotfix = enterprise_reporting_private::HotfixSignal::FromValue(
+      hotfix_value.GetDict());
   ASSERT_TRUE(parsed_hotfix);
   EXPECT_EQ(parsed_hotfix->hotfix_id, kFakeHotfixId);
 

@@ -20,6 +20,8 @@ namespace features {
 
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kAnonymousIframeOriginTrial);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kAttributionReportingCrossAppWeb);
+BLINK_COMMON_EXPORT
+BASE_DECLARE_FEATURE(kAutofillDetectRemovedFormControls);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kAutomaticLazyFrameLoadingToAds);
 BLINK_COMMON_EXPORT extern const base::FeatureParam<int>
     kTimeoutMillisForLazyAds;
@@ -58,7 +60,6 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kScriptStreaming);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kSmallScriptStreaming);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kConsumeCodeCacheOffThread);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kUserLevelMemoryPressureSignal);
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kFreezePurgeMemoryAllPagesFrozen);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(
     kFrequencyCappingForOverlayPopupDetection);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(
@@ -68,13 +69,33 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kEditingNG);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kMixedContentAutoupgrade);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kNavigationPredictor);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kAnchorElementInteraction);
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kOSKResizesVisualViewportByDefault);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kPlzDedicatedWorker);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kPortalsCrossOrigin);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kFencedFrames);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kFullUserAgent);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kPath2DPaintCache);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kPrivacySandboxAdsAPIs);
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kDefaultViewportIsDeviceWidth);
+
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kPrivateAggregationApi);
+BLINK_COMMON_EXPORT extern const base::FeatureParam<bool>
+    kPrivateAggregationApiEnabledInSharedStorage;
+BLINK_COMMON_EXPORT extern const base::FeatureParam<bool>
+    kPrivateAggregationApiEnabledInFledge;
+BLINK_COMMON_EXPORT extern const base::FeatureParam<bool>
+    kPrivateAggregationApiFledgeExtensionsEnabled;
+BLINK_COMMON_EXPORT extern const base::FeatureParam<int>
+    kPrivateAggregationApiMaxBudgetPerScope;
+
+enum class SharedStorageWorkletImplementationType {
+  // The worklet thread is created via base::SequenceBound, and JS bindings are
+  // added with native v8 and/or Gin library.
+  kLegacy,
+
+  // Use the blink worklet pattern (i.e. blink::ThreadedWorkletMessagingProxy,
+  // blink::WorkerThread, IDL, etc.) to create the thread and add JS bindings.
+  kBlinkStyle,
+};
 
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kSharedStorageAPI);
 // Maximum number of URLs allowed to be included in the input parameter for
@@ -130,15 +151,23 @@ BLINK_COMMON_EXPORT extern const base::FeatureParam<base::TimeDelta>
 // main frame has fenced frame depth 1, etc).
 BLINK_COMMON_EXPORT extern const base::FeatureParam<int>
     kSharedStorageMaxAllowedFencedFrameDepthForSelectURL;
+// The implementation type of the worklet.
+BLINK_COMMON_EXPORT extern const base::FeatureParam<
+    SharedStorageWorkletImplementationType>
+    kSharedStorageWorkletImplementationType;
 
 // If enabled, limits the number of times per origin per pageload that
 // `sharedStorage.selectURL()` is allowed to be invoked.
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kSharedStorageSelectURLLimit);
-// Maximum number of times per origin per pageload that
-// `sharedStorage.selectURL()` is allowed to be invoked, if
-// `kSharedStorageSelectURLLimit` is enabled.
+// Maximum number of bits of entropy per pageload that are allowed to leak via
+// `sharedStorage.selectURL()`, if `kSharedStorageSelectURLLimit` is enabled.
 BLINK_COMMON_EXPORT extern const base::FeatureParam<int>
-    kSharedStorageMaxAllowedSelectURLCallsPerOriginPerPageLoad;
+    kSharedStorageSelectURLBitBudgetPerPageLoad;
+// Maximum number of bits of entropy per origin per pageload that are allowed to
+// leak via `sharedStorage.selectURL()`, if `kSharedStorageSelectURLLimit` is
+// enabled.
+BLINK_COMMON_EXPORT extern const base::FeatureParam<int>
+    kSharedStorageSelectURLBitBudgetPerOriginPerPageLoad;
 
 // If enabled, limits the maximum bits of entropy per pageload that
 // `fence.reportEvent()` is allowed to leak when called with
@@ -176,23 +205,15 @@ BLINK_COMMON_EXPORT extern const char kPrerender2MemoryThresholdParamName[];
 // pages will not be prerendered even when kPrerender2 is enabled.
 BLINK_COMMON_EXPORT extern const char
     kPrerender2MemoryAcceptablePercentOfSystemMemoryParamName[];
-// Enables to keep prerenderings alive in the background when their visibility
-// state changes to HIDDEN.
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kPrerender2InBackground);
 // Enables to run prerendering for new tabs (e.g., target="_blank").
 // See https://crbug.com/1350676.
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kPrerender2InNewTab);
-
-// Returns true if the Android On-Screen-Keyboard is in "resize visual
-// viewport" mode.
-BLINK_COMMON_EXPORT bool OSKResizesVisualViewportByDefault();
 
 // Fenced Frames:
 BLINK_COMMON_EXPORT bool IsFencedFramesEnabled();
 
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(
     kPreviewsResourceLoadingHintsSpecificResourceTypes);
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kPurgeRendererMemoryWhenBackgrounded);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kRTCOfferExtmapAllowMixed);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kRTCGpuCodecSupportWaiter);
 BLINK_COMMON_EXPORT extern const base::FeatureParam<int>
@@ -278,8 +299,6 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kCanvasFreeMemoryWhenHidden);
 
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kCreateImageBitmapOrientationNone);
 
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kDiscardCodeCacheAfterFirstUse);
-
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kCacheCodeOnIdle);
 BLINK_COMMON_EXPORT extern const base::FeatureParam<int>
     kCacheCodeOnIdleDelayParam;
@@ -360,7 +379,6 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kCompressParkableStrings);
 BLINK_COMMON_EXPORT bool ParkableStringsUseSnappy();
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kUseSnappyForParkableStrings);
 BLINK_COMMON_EXPORT bool IsParkableStringsToDiskEnabled();
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kDelayFirstParkingOfStrings);
 
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kReducedReferrerGranularity);
 
@@ -529,7 +547,6 @@ BLINK_COMMON_EXPORT bool IsSetTimeoutWithoutClampEnabled();
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kMaxUnthrottledTimeoutNestingLevel);
 BLINK_COMMON_EXPORT extern const base::FeatureParam<int>
     kMaxUnthrottledTimeoutNestingLevelParam;
-BLINK_COMMON_EXPORT void ClearUnthrottledNestedTimeoutOverrideCacheForTesting();
 BLINK_COMMON_EXPORT bool IsMaxUnthrottledTimeoutNestingLevelEnabled();
 BLINK_COMMON_EXPORT int GetMaxUnthrottledTimeoutNestingLevel();
 
@@ -759,8 +776,8 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kStylusRichGestures);
 // Stylus handwriting recognition to text input feature.
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kStylusWritingToInput);
 
-// Physical keyboard shortcuts for Android with respect to editing.
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kAndroidExtendedEditingCommands);
+// Extended physical keyboard shortcuts for Android.
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kAndroidExtendedKeyboardShortcuts);
 
 // Apply touch adjustment for stylus pointer events. This feature allows
 // enabling functions like writing into a nearby input element.
@@ -775,6 +792,11 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(
 // If enabled, the HTMLDocumentParser will use a budget based on elapsed time
 // rather than token count.
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kTimedHTMLParserBudget);
+
+// If enabled, the HTMLDocumentParser will only check its budget after parsing a
+// commonly slow token or for one out of 10 fast tokens. Note that this feature
+// is a no-op if kTimedHTMLParserBudget is disabled.
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kCheckHTMLParserBudgetLessOften);
 
 // Allows reading/writing unsanitized content from/to the clipboard. Currently,
 // it is only applicable to HTML format. See crbug.com/1268679.
@@ -1037,6 +1059,30 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(
 // process.
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(
     kRuntimeFeatureStateControllerApplyFeatureDiff);
+
+// Disallow setting URL ports with a value that will overflow.
+// See https://crbug.com/1416017
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kURLSetPortCheckOverflow);
+
+// Keep strong references in the blink memory cache to maximize resource reuse.
+// See https://crbug.com/1409349.
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kMemoryCacheStrongReference);
+
+// Save only one unloaded page's resources in the memory cache.
+// See https://crbug.com/1409349.
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(
+    kMemoryCacheStrongReferenceSingleUnload);
+
+// Save strong references only for fonts, stylesheets and scripts
+// See https://crbug.com/1409349.
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(
+    kMemoryCacheStrongReferenceFilterImages);
+
+// If enabled, renderers look for cached resources from another renderer
+// that has the same process isolation policies. Note that renderers don't
+// use cached resources in other rendereres yet, just record histograms.
+// See https://crbug.com/1414262
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kRemoteResourceCache);
 
 }  // namespace features
 }  // namespace blink

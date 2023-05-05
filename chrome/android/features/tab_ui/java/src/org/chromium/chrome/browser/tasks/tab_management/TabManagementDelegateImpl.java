@@ -13,7 +13,6 @@ import android.view.ViewGroup;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import org.chromium.base.SysUtils;
 import org.chromium.base.jank_tracker.JankTracker;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.OneshotSupplier;
@@ -30,7 +29,6 @@ import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.metrics.UmaSessionStats;
 import org.chromium.chrome.browser.multiwindow.MultiWindowModeStateDispatcher;
-import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModel;
@@ -66,7 +64,6 @@ public class TabManagementDelegateImpl implements TabManagementDelegate {
             @NonNull TabCreatorManager tabCreatorManager,
             @NonNull MenuOrKeyboardActionController menuOrKeyboardActionController,
             @NonNull ViewGroup containerView,
-            @NonNull Supplier<ShareDelegate> shareDelegateSupplier,
             @NonNull MultiWindowModeStateDispatcher multiWindowModeStateDispatcher,
             @NonNull ScrimCoordinator scrimCoordinator, @NonNull ViewGroup rootView,
             @NonNull Supplier<DynamicResourceLoader> dynamicResourceLoaderSupplier,
@@ -82,10 +79,9 @@ public class TabManagementDelegateImpl implements TabManagementDelegate {
 
         return new TabSwitcherCoordinator(activity, activityLifecycleDispatcher, tabModelSelector,
                 tabContentManager, browserControlsStateProvider, tabCreatorManager,
-                menuOrKeyboardActionController, containerView, shareDelegateSupplier,
-                multiWindowModeStateDispatcher, scrimCoordinator,
-                TabUiFeatureUtilities.isTabGroupsAndroidContinuationEnabled(activity)
-                                && SysUtils.isLowEndDevice()
+                menuOrKeyboardActionController, containerView, multiWindowModeStateDispatcher,
+                scrimCoordinator,
+                TabUiFeatureUtilities.shouldUseListMode(activity)
                         ? TabListCoordinator.TabListMode.LIST
                         : TabListCoordinator.TabListMode.GRID,
                 rootView, dynamicResourceLoaderSupplier, snackbarManager, modalDialogManager,
@@ -101,7 +97,6 @@ public class TabManagementDelegateImpl implements TabManagementDelegate {
             @NonNull TabCreatorManager tabCreatorManager,
             @NonNull MenuOrKeyboardActionController menuOrKeyboardActionController,
             @NonNull ViewGroup containerView,
-            @NonNull Supplier<ShareDelegate> shareDelegateSupplier,
             @NonNull MultiWindowModeStateDispatcher multiWindowModeStateDispatcher,
             @NonNull ScrimCoordinator scrimCoordinator, @NonNull ViewGroup rootView,
             @NonNull Supplier<DynamicResourceLoader> dynamicResourceLoaderSupplier,
@@ -109,10 +104,9 @@ public class TabManagementDelegateImpl implements TabManagementDelegate {
             @NonNull ModalDialogManager modalDialogManager) {
         return new TabSwitcherCoordinator(activity, lifecycleDispatcher, tabModelSelector,
                 tabContentManager, browserControls, tabCreatorManager,
-                menuOrKeyboardActionController, containerView, shareDelegateSupplier,
-                multiWindowModeStateDispatcher, scrimCoordinator,
-                TabListCoordinator.TabListMode.CAROUSEL, rootView, dynamicResourceLoaderSupplier,
-                snackbarManager, modalDialogManager, null, null);
+                menuOrKeyboardActionController, containerView, multiWindowModeStateDispatcher,
+                scrimCoordinator, TabListCoordinator.TabListMode.CAROUSEL, rootView,
+                dynamicResourceLoaderSupplier, snackbarManager, modalDialogManager, null, null);
     }
 
     @Override
@@ -126,14 +120,13 @@ public class TabManagementDelegateImpl implements TabManagementDelegate {
             @NonNull TabContentManager tabContentManager, ViewGroup rootView,
             @NonNull Supplier<DynamicResourceLoader> dynamicResourceLoaderSupplier,
             @NonNull TabCreatorManager tabCreatorManager,
-            @NonNull Supplier<ShareDelegate> shareDelegateSupplier,
             @NonNull OneshotSupplier<LayoutStateProvider> layoutStateProviderSupplier,
             @NonNull SnackbarManager snackbarManager) {
         return new TabGroupUiCoordinator(activity, parentView, incognitoStateProvider,
                 scrimCoordinator, omniboxFocusStateSupplier, bottomSheetController,
                 activityLifecycleDispatcher, isWarmOnResumeSupplier, tabModelSelector,
                 tabContentManager, rootView, dynamicResourceLoaderSupplier, tabCreatorManager,
-                shareDelegateSupplier, layoutStateProviderSupplier, snackbarManager);
+                layoutStateProviderSupplier, snackbarManager);
     }
 
     @Override

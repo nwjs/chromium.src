@@ -75,6 +75,7 @@ class AuthenticatorRequestDialogModel {
     kErrorNoAvailableTransports,
     kErrorNoPasskeys,
     kErrorInternalUnrecognized,
+    kErrorWindowsHelloNotEnabled,
 
     // The request is already complete, but the error dialog should wait
     // until user acknowledgement.
@@ -104,6 +105,7 @@ class AuthenticatorRequestDialogModel {
     kOffTheRecordInterstitial,
 
     // Phone as a security key.
+    kPhoneConfirmationSheet,
     kCableActivate,
     kAndroidAccessory,
     kCableV2QRCode,
@@ -179,11 +181,9 @@ class AuthenticatorRequestDialogModel {
     // These types describe the type of Mechanism.
     using Transport =
         base::StrongAlias<class TransportTag, AuthenticatorTransport>;
-    using WindowsAPI = base::StrongAlias<class WindowsAPITag,
-                                         bool /* unused, but cannot be void */>;
+    using WindowsAPI = base::StrongAlias<class WindowsAPITag, std::monostate>;
     using Phone = base::StrongAlias<class PhoneTag, std::string>;
-    using AddPhone = base::StrongAlias<class AddPhoneTag,
-                                       bool /* unused, but cannot be void */>;
+    using AddPhone = base::StrongAlias<class AddPhoneTag, std::monostate>;
     using Type = absl::variant<Transport, WindowsAPI, Phone, AddPhone>;
 
     Mechanism(Type type,
@@ -263,6 +263,7 @@ class AuthenticatorRequestDialogModel {
            current_step() == Step::kKeyNotRegistered ||
            current_step() == Step::kKeyAlreadyRegistered ||
            current_step() == Step::kMissingCapability ||
+           current_step() == Step::kErrorWindowsHelloNotEnabled ||
            current_step() == Step::kClosed;
   }
 
@@ -518,6 +519,10 @@ class AuthenticatorRequestDialogModel {
   // activated mechanism, or nullopt if there isn't one.
   absl::optional<size_t> current_mechanism() const;
 
+  // Contacts the "priority" paired phone. This is only valid to call when there
+  // is a single phone paired.
+  void ContactPriorityPhone();
+
   // ContactPhoneForTesting triggers a contact for a phone with the given name.
   // Only for unittests. UI should use |mechanisms()| to enumerate the
   // user-visible mechanisms and use the callbacks therein.
@@ -689,6 +694,10 @@ class AuthenticatorRequestDialogModel {
   // too much #ifdef soup.
   void PopulateMechanisms(bool prefer_native_api);
 
+  // IndexOfPriorityMechanism returns the index, in |mechanisms_|, of the
+  // Mechanism that should be triggered immediately, if any.
+  absl::optional<size_t> IndexOfPriorityMechanism();
+
   // Identifier for the RenderFrameHost of the frame that initiated the current
   // request.
   content::GlobalRenderFrameHostId frame_host_id_;
@@ -767,6 +776,10 @@ class AuthenticatorRequestDialogModel {
   // mechanisms contains the entries that appear in the "transport" selection
   // sheet and the drop-down menu.
   std::vector<Mechanism> mechanisms_;
+
+  // priority_mechanism_index_ contains an index in `mechanisms_` for the
+  // mechanism that should immediately be triggered, if any.
+  absl::optional<size_t> priority_mechanism_index_;
 
   // current_mechanism_ contains the index of the most recently activated
   // mechanism.

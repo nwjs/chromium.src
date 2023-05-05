@@ -19,6 +19,7 @@
 #include "components/crx_file/id_util.h"
 #include "extensions/common/extension_api.h"
 #include "extensions/common/extension_features.h"
+#include "extensions/common/features/feature.h"
 #include "extensions/common/features/feature_channel.h"
 #include "extensions/common/features/feature_developer_mode_only.h"
 #include "extensions/common/features/feature_flags.h"
@@ -248,9 +249,11 @@ Feature::Availability SimpleFeature::IsAvailableToContextForBind(
     const GURL& url,
     Feature::Platform platform,
     int context_id,
+    const ContextData* context_data,
     const Feature* feature) {
-  return feature->IsAvailableToContextImpl(extension, context, url, platform,
-                                           context_id, true);
+  return feature->IsAvailableToContextImpl(
+      extension, context, url, platform, context_id, true,
+      context_data ? context_data->Clone() : nullptr);
 }
 
 Feature::Availability SimpleFeature::IsAvailableToContextImpl(
@@ -259,7 +262,14 @@ Feature::Availability SimpleFeature::IsAvailableToContextImpl(
     const GURL& url,
     Platform platform,
     int context_id,
-    bool check_developer_mode) const {
+    bool check_developer_mode,
+    std::unique_ptr<ContextData> context_data) const {
+  if (RequiresDelegatedAvailabilityCheck()) {
+    return RunDelegatedAvailabilityCheck(extension, context, url, platform,
+                                         context_id, check_developer_mode,
+                                         std::move(context_data));
+  }
+
   Availability environment_availability = GetEnvironmentAvailability(
       platform, GetCurrentChannel(), GetCurrentFeatureSessionType(), context_id,
       check_developer_mode);
@@ -293,9 +303,16 @@ Feature::Availability SimpleFeature::IsAvailableToContextImpl(
 
   // TODO(kalman): Assert that if the context was a webpage or WebUI context
   // then at some point a "matches" restriction was checked.
+
+  // NOTE: The current function (IsAvailableToContextImpl) owns |context_data|
+  // until it completes running. Each call to the bound thunk that
+  // CheckDependencies() makes will access the object and dereference its
+  // pointer. |context_data| must remain alive while it's bound to the thunk
+  // and the thunk lifespan should not run beyond the lifespan of
+  // IsAvailableToContextImpl().
   return CheckDependencies(base::BindRepeating(
       &IsAvailableToContextForBind, base::RetainedRef(extension), context, url,
-      platform, context_id));
+      platform, context_id, base::Unretained(context_data.get())));
 }
 
 Feature::Availability SimpleFeature::IsAvailableToEnvironment(
@@ -391,6 +408,9 @@ std::string SimpleFeature::GetAvailabilityMessage(
       return base::StringPrintf(
           "'%s' requires the user to have developer mode enabled.",
           name().c_str());
+    case FAILED_DELEGATED_AVAILABILITY_CHECK:
+      return base::StringPrintf("'%s' failed its delegated availability check.",
+                                name().c_str());
   }
 
   NOTREACHED();
@@ -521,6 +541,17 @@ bool SimpleFeature::MatchesSessionTypes(
 
 bool SimpleFeature::RequiresDelegatedAvailabilityCheck() const {
   return requires_delegated_availability_check_;
+}
+
+bool SimpleFeature::HasDelegatedAvailabilityCheckHandler() const {
+  return !delegated_availability_check_handler_.is_null();
+}
+
+void SimpleFeature::SetDelegatedAvailabilityCheckHandler(
+    DelegatedAvailabilityCheckHandler handler) {
+  DCHECK(RequiresDelegatedAvailabilityCheck());
+  DCHECK(!HasDelegatedAvailabilityCheckHandler());
+  delegated_availability_check_handler_ = handler;
 }
 
 Feature::Availability SimpleFeature::CheckDependencies(
@@ -724,6 +755,24 @@ Feature::Availability SimpleFeature::GetContextAvailability(
   if (is_for_service_worker && disallow_for_service_workers_)
     return CreateAvailability(INVALID_CONTEXT);
 
+  return CreateAvailability(IS_AVAILABLE);
+}
+
+Feature::Availability SimpleFeature::RunDelegatedAvailabilityCheck(
+    const Extension* extension,
+    Context context,
+    const GURL& url,
+    Platform platform,
+    int context_id,
+    bool check_developer_mode,
+    std::unique_ptr<ContextData> context_data) const {
+  DCHECK(RequiresDelegatedAvailabilityCheck());
+  DCHECK(HasDelegatedAvailabilityCheckHandler());
+  if (!delegated_availability_check_handler_.Run(
+          name_, extension, context, url, platform, context_id,
+          check_developer_mode, std::move(context_data))) {
+    return CreateAvailability(FAILED_DELEGATED_AVAILABILITY_CHECK);
+  }
   return CreateAvailability(IS_AVAILABLE);
 }
 

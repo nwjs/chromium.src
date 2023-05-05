@@ -180,11 +180,11 @@ template("chrome_extra_paks") {
         "$root_gen_dir/chrome/profile_internals_resources.pak",
         "$root_gen_dir/chrome/settings_resources.pak",
         "$root_gen_dir/chrome/side_panel_bookmarks_resources.pak",
+        "$root_gen_dir/chrome/side_panel_companion_resources.pak",
         "$root_gen_dir/chrome/side_panel_customize_chrome_resources.pak",
         "$root_gen_dir/chrome/side_panel_history_clusters_resources.pak",
         "$root_gen_dir/chrome/side_panel_read_anything_resources.pak",
         "$root_gen_dir/chrome/side_panel_reading_list_resources.pak",
-        "$root_gen_dir/chrome/side_panel_search_companion_resources.pak",
         "$root_gen_dir/chrome/side_panel_shared_resources.pak",
         "$root_gen_dir/chrome/side_panel_user_notes_resources.pak",
         "$root_gen_dir/chrome/signin_resources.pak",
@@ -219,11 +219,11 @@ template("chrome_extra_paks") {
         "//chrome/browser/resources/profile_internals:resources",
         "//chrome/browser/resources/settings:resources",
         "//chrome/browser/resources/side_panel/bookmarks:resources",
+        "//chrome/browser/resources/side_panel/companion:resources",
         "//chrome/browser/resources/side_panel/customize_chrome:resources",
         "//chrome/browser/resources/side_panel/history_clusters:resources",
         "//chrome/browser/resources/side_panel/read_anything:resources",
         "//chrome/browser/resources/side_panel/reading_list:resources",
-        "//chrome/browser/resources/side_panel/search_companion:resources",
         "//chrome/browser/resources/side_panel/shared:resources",
         "//chrome/browser/resources/side_panel/user_notes:resources",
         "//chrome/browser/resources/signin:resources",
@@ -282,6 +282,7 @@ template("chrome_extra_paks") {
         "$root_gen_dir/ash/webui/ash_shimless_rma_resources.pak",
         "$root_gen_dir/ash/webui/ash_shortcut_customization_app_resources.pak",
         "$root_gen_dir/ash/webui/ash_system_extensions_internals_resources.pak",
+        "$root_gen_dir/ash/webui/ash_webui_common_resources.pak",
         "$root_gen_dir/ash/webui/connectivity_diagnostics_resources.pak",
         "$root_gen_dir/ash/webui/file_manager/resources/file_manager_swa_resources.pak",
         "$root_gen_dir/ash/webui/file_manager/untrusted_resources/file_manager_untrusted_resources.pak",
@@ -311,6 +312,7 @@ template("chrome_extra_paks") {
         "$root_gen_dir/chrome/oobe_unconditional_resources.pak",
         "$root_gen_dir/chrome/os_settings_resources.pak",
         "$root_gen_dir/chrome/password_change_resources.pak",
+        "$root_gen_dir/chrome/remote_maintenance_curtain_resources.pak",
         "$root_gen_dir/chrome/supervision_resources.pak",
         "$root_gen_dir/chrome/vc_tray_tester_resources.pak",
         "$root_gen_dir/chromeos/ash/ash_resources.pak",
@@ -326,6 +328,7 @@ template("chrome_extra_paks") {
       deps += [
         "//ash/components/arc/input_overlay/resources",
         "//ash/public/cpp/resources:ash_public_unscaled_resources",
+        "//ash/webui/common/resources:resources",
         "//ash/webui/common/resources/office_fallback:resources",
         "//ash/webui/file_manager/resources:file_manager_swa_resources",
         "//ash/webui/file_manager/untrusted_resources:file_manager_untrusted_resources",
@@ -385,6 +388,7 @@ template("chrome_extra_paks") {
         "//chrome/browser/resources/chromeos/network_ui:resources",
         "//chrome/browser/resources/chromeos/notification_tester:resources",
         "//chrome/browser/resources/chromeos/password_change:resources",
+        "//chrome/browser/resources/chromeos/remote_maintenance_curtain:resources",
         "//chrome/browser/resources/chromeos/supervision:resources",
         "//chrome/browser/resources/chromeos/vc_tray_tester:resources",
         "//chrome/browser/resources/nearby_internals:resources",
@@ -413,8 +417,14 @@ template("chrome_extra_paks") {
       }
     }
     if (is_chromeos) {
-      sources += [ "$root_gen_dir/chrome/common/chromeos/extensions/chromeos_system_extensions_resources.pak" ]
-      deps += [ "//chrome/common/chromeos/extensions:resources" ]
+      sources += [
+        "$root_gen_dir/chrome/common/chromeos/extensions/chromeos_system_extensions_resources.pak",
+        "$root_gen_dir/chrome/kerberos_resources.pak",
+      ]
+      deps += [
+        "//chrome/browser/resources/chromeos/kerberos:resources",
+        "//chrome/common/chromeos/extensions:resources",
+      ]
     }
     if (is_linux || is_chromeos) {
       sources += [ "$root_gen_dir/chrome/webui_js_error_resources.pak" ]

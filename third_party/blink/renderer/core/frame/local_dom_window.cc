@@ -1308,6 +1308,13 @@ void LocalDOMWindow::DispatchMessageEventWithOriginCheck(
                       WebFeature::kCapabilityDelegationOfFullscreenRequest);
     fullscreen_request_token_.Activate();
   }
+  if (RuntimeEnabledFeatures::CapabilityDelegationDisplayCaptureRequestEnabled(
+          this) &&
+      event->delegatedCapability() ==
+          mojom::blink::DelegatedCapability::kDisplayCaptureRequest) {
+    // TODO(crbug.com/1412770): Add use counter.
+    display_capture_request_token_.Activate();
+  }
 
   if (GetFrame() &&
       GetFrame()->GetPage()->GetPageScheduler()->IsInBackForwardCache()) {
@@ -1957,18 +1964,6 @@ bool LocalDOMWindow::originAgentCluster() const {
   return GetAgent()->IsOriginKeyed();
 }
 
-int LocalDOMWindow::requestIdleCallback(V8IdleRequestCallback* callback,
-                                        const IdleRequestOptions* options) {
-  SetCurrentTaskAsCallbackParent(callback);
-  if (!GetFrame())
-    return 0;
-  return document_->RequestIdleCallback(V8IdleTask::Create(callback), options);
-}
-
-void LocalDOMWindow::cancelIdleCallback(int id) {
-  document()->CancelIdleCallback(id);
-}
-
 CustomElementRegistry* LocalDOMWindow::customElements(
     ScriptState* script_state) const {
   if (!script_state->World().IsMainWorld())
@@ -2253,6 +2248,14 @@ DOMWindow* LocalDOMWindow::open(v8::Isolate* isolate,
   if (!result.frame)
     return nullptr;
 
+  // If the resulting frame didn't create a new window and fullscreen was
+  // requested, reset the flag to prevent making a pre-existing frame
+  // fullscreen.
+  if (!result.new_window && window_features.is_fullscreen) {
+    window_features.is_fullscreen = false;
+    frame_request.SetFeaturesForWindowOpen(window_features);
+  }
+
   if (window_features.x_set || window_features.y_set) {
     // This runs after FindOrCreateFrameForNavigation() so blocked popups are
     // not counted.
@@ -2425,6 +2428,14 @@ bool LocalDOMWindow::ConsumeFullscreenRequestToken() {
   return fullscreen_request_token_.ConsumeIfActive();
 }
 
+bool LocalDOMWindow::IsDisplayCaptureRequestTokenActive() const {
+  return display_capture_request_token_.IsActive();
+}
+
+bool LocalDOMWindow::ConsumeDisplayCaptureRequestToken() {
+  return display_capture_request_token_.ConsumeIfActive();
+}
+
 void LocalDOMWindow::SetIsInBackForwardCache(bool is_in_back_forward_cache) {
   ExecutionContext::SetIsInBackForwardCache(is_in_back_forward_cache);
   if (!is_in_back_forward_cache) {
@@ -2461,7 +2472,12 @@ Fence* LocalDOMWindow::fence() {
     // metadata (navigated by urn:uuids).
     // If we are in an iframe that doesn't qualify, return nullptr.
     if (!blink::features::IsAllowURNsInIframeEnabled() ||
-        !GetFrame()->GetDocument()->Loader()->HasFencedFrameReporting()) {
+        !GetFrame()->GetDocument()->Loader()->FencedFrameProperties() ||
+        !GetFrame()
+             ->GetDocument()
+             ->Loader()
+             ->FencedFrameProperties()
+             ->has_fenced_frame_reporting()) {
       return nullptr;
     }
   }

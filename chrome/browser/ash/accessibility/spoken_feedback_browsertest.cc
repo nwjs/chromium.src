@@ -62,6 +62,7 @@
 #include "extensions/browser/browsertest_util.h"
 #include "extensions/common/constants.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/accessibility/accessibility_features.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/display/manager/display_manager.h"
 #include "ui/display/screen.h"
@@ -79,7 +80,11 @@ const double kExpectedPhoneticSpeechAndHintDelayMS = 1000;
 }  // namespace
 
 LoggedInSpokenFeedbackTest::LoggedInSpokenFeedbackTest()
-    : animation_mode_(ui::ScopedAnimationDurationScaleMode::ZERO_DURATION) {}
+    : animation_mode_(ui::ScopedAnimationDurationScaleMode::ZERO_DURATION) {
+  scoped_feature_list_.InitAndDisableFeature(
+      ::features::kAccessibilityDeprecateChromeVoxTabs);
+}
+
 LoggedInSpokenFeedbackTest::~LoggedInSpokenFeedbackTest() = default;
 
 void LoggedInSpokenFeedbackTest::SetUpInProcessBrowserTestFixture() {
@@ -279,34 +284,6 @@ IN_PROC_BROWSER_TEST_F(LoggedInSpokenFeedbackTest, DISABLED_AddBookmark) {
   sm_.Replay();
 }
 
-IN_PROC_BROWSER_TEST_F(LoggedInSpokenFeedbackTest, NavigateNotificationCenter) {
-  // TODO: (b/270605638) test the revamped notification center.
-  if (base::FeatureList::IsEnabled(features::kQsRevamp)) {
-    return;
-  }
-
-  EnableChromeVox();
-
-  sm_.Call([this]() {
-    EXPECT_TRUE(PerformAcceleratorAction(
-        AcceleratorAction::TOGGLE_MESSAGE_CENTER_BUBBLE));
-  });
-  sm_.ExpectSpeech(
-      "Quick Settings, Press search plus left to access the notification "
-      "center.");
-
-  sm_.Call([this]() { SendKeyPressWithSearch(ui::VKEY_LEFT); });
-  sm_.Call([this]() { SendKeyPressWithSearch(ui::VKEY_LEFT); });
-
-  // If you are hitting this in the course of changing the UI, please fix. This
-  // item needs a label.
-  sm_.ExpectSpeech("List item");
-
-  // Furthermore, navigation is generally broken using Search+Left.
-
-  sm_.Replay();
-}
-
 IN_PROC_BROWSER_TEST_F(LoggedInSpokenFeedbackTest, ChromeVoxSpeaksIntro) {
   EnableChromeVox();
   sm_.ExpectSpeech("ChromeVox spoken feedback is ready");
@@ -366,12 +343,17 @@ IN_PROC_BROWSER_TEST_F(LoggedInSpokenFeedbackTest, LearnModeEscapeWithGesture) {
   sm_.Replay();
 }
 
-class NotificationCenterSpokenFeedbackTest : public LoggedInSpokenFeedbackTest {
+class NotificationCenterSpokenFeedbackTest
+    : public LoggedInSpokenFeedbackTest,
+      public ::testing::WithParamInterface<bool> {
  protected:
   NotificationCenterSpokenFeedbackTest() {
-    feature_list_.InitAndEnableFeature(features::kQsRevamp);
+    feature_list_.InitWithFeatureState(features::kQsRevamp,
+                                       IsQsRevampEnabled());
   }
   ~NotificationCenterSpokenFeedbackTest() override = default;
+
+  bool IsQsRevampEnabled() const { return GetParam(); }
 
   NotificationCenterTestApi* test_api() {
     if (!test_api_) {
@@ -387,9 +369,61 @@ class NotificationCenterSpokenFeedbackTest : public LoggedInSpokenFeedbackTest {
   std::unique_ptr<NotificationCenterTestApi> test_api_;
 };
 
+INSTANTIATE_TEST_SUITE_P(QsRevampEnabled,
+                         NotificationCenterSpokenFeedbackTest,
+                         ::testing::Bool());
+
+// Tests the spoken feedback text when using the notification center accelerator
+// to navigate to the notification center.
+IN_PROC_BROWSER_TEST_P(NotificationCenterSpokenFeedbackTest,
+                       NavigateNotificationCenter) {
+  EnableChromeVox();
+
+  if (IsQsRevampEnabled()) {
+    // Add a notification so that the notification center tray is visible.
+    test_api()->AddNotification();
+    ASSERT_TRUE(test_api()->IsTrayShown());
+
+    // Press the accelerator that toggles the notification center.
+    sm_.Call([this]() {
+      EXPECT_TRUE(PerformAcceleratorAction(
+          AcceleratorAction::TOGGLE_MESSAGE_CENTER_BUBBLE));
+    });
+
+    // Verify the spoken feedback text.
+    sm_.ExpectSpeech("Notification Center");
+    sm_.Replay();
+    return;
+  }
+
+  sm_.Call([this]() {
+    EXPECT_TRUE(PerformAcceleratorAction(
+        AcceleratorAction::TOGGLE_MESSAGE_CENTER_BUBBLE));
+  });
+  sm_.ExpectSpeech(
+      "Quick Settings, Press search plus left to access the notification "
+      "center.");
+
+  sm_.Call([this]() { SendKeyPressWithSearch(ui::VKEY_LEFT); });
+  sm_.Call([this]() { SendKeyPressWithSearch(ui::VKEY_LEFT); });
+
+  // If you are hitting this in the course of changing the UI, please fix. This
+  // item needs a label.
+  sm_.ExpectSpeech("List item");
+
+  // Furthermore, navigation is generally broken using Search+Left.
+
+  sm_.Replay();
+}
+
 // Tests that clicking the notification center tray does not crash when spoken
 // feedback is enabled.
-IN_PROC_BROWSER_TEST_F(NotificationCenterSpokenFeedbackTest, OpenBubble) {
+IN_PROC_BROWSER_TEST_P(NotificationCenterSpokenFeedbackTest, OpenBubble) {
+  // This test only makes sense in the context of the QS revamp.
+  if (!IsQsRevampEnabled()) {
+    return;
+  }
+
   // Enable spoken feedback and add a notification to ensure the tray is
   // visible.
   EnableChromeVox();
@@ -917,11 +951,6 @@ IN_PROC_BROWSER_TEST_P(SpokenFeedbackTest, OpenStatusTray) {
 // with parameterized tests).
 #if !defined(ADDRESS_SANITIZER)
 IN_PROC_BROWSER_TEST_P(SpokenFeedbackTest, NavigateSystemTray) {
-  // TODO: (b/270609503) test the revapmped power button.
-  if (base::FeatureList::IsEnabled(features::kQsRevamp)) {
-    return;
-  }
-
   EnableChromeVox();
 
   sm_.Call([this]() {
@@ -930,6 +959,35 @@ IN_PROC_BROWSER_TEST_P(SpokenFeedbackTest, NavigateSystemTray) {
   sm_.ExpectSpeech(
       "Quick Settings, Press search plus left to access the notification "
       "center.");
+
+  if (base::FeatureList::IsEnabled(features::kQsRevamp)) {
+    // Settings button.
+    sm_.Call([this]() { SendKeyPressWithShift(ui::VKEY_TAB); });
+    sm_.ExpectSpeech("Settings");
+    sm_.ExpectSpeech("Button");
+
+    // Battery indicator.
+    sm_.Call([this]() { SendKeyPressWithShift(ui::VKEY_TAB); });
+    sm_.ExpectSpeech("Battery");
+
+    // Avatar button. Disabled for guest account.
+    if (GetParam() != kTestAsGuestUser) {
+      sm_.Call([this]() { SendKeyPressWithShift(ui::VKEY_TAB); });
+      sm_.ExpectSpeech("Button");
+    }
+
+    // Shutdown button.
+    sm_.Call([this]() { SendKeyPressWithShift(ui::VKEY_TAB); });
+    if (base::FeatureList::IsEnabled(features::kQsRevamp)) {
+      sm_.ExpectSpeech("Power menu");
+    } else {
+      sm_.ExpectSpeech("Shut down");
+    }
+    sm_.ExpectSpeech("Button");
+
+    sm_.Replay();
+    return;
+  }
 
   // Avatar button. Disabled for guest account.
   if (GetParam() != kTestAsGuestUser) {
@@ -943,7 +1001,11 @@ IN_PROC_BROWSER_TEST_P(SpokenFeedbackTest, NavigateSystemTray) {
 
   // Shutdown button.
   sm_.Call([this]() { SendKeyPressWithSearch(ui::VKEY_B); });
-  sm_.ExpectSpeech("Shut down");
+  if (base::FeatureList::IsEnabled(features::kQsRevamp)) {
+    sm_.ExpectSpeech("Power menu");
+  } else {
+    sm_.ExpectSpeech("Shut down");
+  }
   sm_.ExpectSpeech("Button");
 
   sm_.Replay();
@@ -1609,6 +1671,9 @@ IN_PROC_BROWSER_TEST_P(SpokenFeedbackTest,
   sm_.Replay();
 }
 
+// TODO(https://crbug.com/1064947): Flaky on ASAN. (Note MAYBE_ doesn't work
+// well with parameterized tests).
+#if !defined(ADDRESS_SANITIZER)
 IN_PROC_BROWSER_TEST_P(SpokenFeedbackTest, ResetTtsSettings) {
   EnableChromeVox();
   sm_.Call([this]() {
@@ -1641,6 +1706,7 @@ IN_PROC_BROWSER_TEST_P(SpokenFeedbackTest, ResetTtsSettings) {
   sm_.ExpectSpeech("Pitch 50 percent");
   sm_.Replay();
 }
+#endif  // !defined(ADDRESS_SANITIZER)
 
 // Tests the keyboard shortcut to cycle the punctuation echo setting,
 // Search+A then P.
@@ -2104,6 +2170,50 @@ IN_PROC_BROWSER_TEST_F(SigninToUserProfileSwitchTest, DISABLED_LoginAsNewUser) {
     ASSERT_EQ(AccessibilityManager::Get()->profile(),
               ProfileManager::GetActiveUserProfile());
   });
+  sm_.Replay();
+}
+
+class DeprecateTabsSpokenFeedbackTest : public LoggedInSpokenFeedbackTest {
+ public:
+  DeprecateTabsSpokenFeedbackTest() = default;
+  DeprecateTabsSpokenFeedbackTest(const DeprecateTabsSpokenFeedbackTest&) =
+      delete;
+  DeprecateTabsSpokenFeedbackTest& operator=(
+      const DeprecateTabsSpokenFeedbackTest&) = delete;
+  ~DeprecateTabsSpokenFeedbackTest() override = default;
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_{
+      ::features::kAccessibilityDeprecateChromeVoxTabs};
+};
+
+// Matches NavigateTabsMenu test.
+IN_PROC_BROWSER_TEST_F(DeprecateTabsSpokenFeedbackTest, NoTabsMenu) {
+  EnableChromeVox();
+
+  // Open two tabs, titled "Hello" and "World".
+  sm_.Call([this]() {
+    ASSERT_TRUE(ui_test_utils::NavigateToURL(
+        browser(), GURL(R"(data:text/html;charset=utf-8,
+            <title>Hello</title>
+            <button autofocus>Hello webpage</button>
+            <a target="_blank" href="https://google.com">Open world</a>)")));
+  });
+  sm_.ExpectSpeech("Hello webpage");
+  sm_.Call([this]() { SendKeyPressWithSearch(ui::VKEY_RIGHT); });
+  sm_.ExpectSpeech("Open world");
+  sm_.Call([this]() { SendKeyPressWithSearch(ui::VKEY_SPACE); });
+
+  // Move to where the tabs menu was (see SpokenFeedbackTest.NavigateTabsMenu).
+  sm_.Call([this]() { SendKeyPressWithSearch(ui::VKEY_OEM_PERIOD); });
+  sm_.ExpectSpeech("Search the menus");
+  sm_.Call([this]() {
+    SendKeyPress(ui::VKEY_RIGHT);
+    SendKeyPress(ui::VKEY_RIGHT);
+    SendKeyPress(ui::VKEY_RIGHT);
+  });
+  sm_.ExpectNextSpeechIsNot("Tabs Menu");
+
   sm_.Replay();
 }
 

@@ -33,6 +33,7 @@
 #include "components/safe_browsing/content/browser/client_side_phishing_model_optimization_guide.h"
 #include "components/safe_browsing/content/browser/web_ui/safe_browsing_ui.h"
 #include "components/safe_browsing/content/common/safe_browsing.mojom.h"
+#include "components/safe_browsing/core/common/fbs/client_model_generated.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "components/safe_browsing/core/common/proto/client_model.pb.h"
 #include "components/safe_browsing/core/common/proto/csd.pb.h"
@@ -269,11 +270,25 @@ void ClientSideDetectionService::StartClientReportPhishingRequest(
               "you and your device from dangerous sites' in Chrome settings "
               "under Privacy. This feature is enabled by default."
             chrome_policy {
+              subProto1 {
+                ClientSidePhishingProtectionAllowed {
+                  ClientSidePhishingProtectionAllowed: false
+                }
+              }
+            }
+            chrome_policy {
+              SafeBrowsingProtectionLevel {
+                policy_options {mode: MANDATORY}
+                SafeBrowsingProtectionLevel: 0
+              }
+            }
+            chrome_policy {
               SafeBrowsingEnabled {
                 policy_options {mode: MANDATORY}
                 SafeBrowsingEnabled: false
               }
             }
+            deprecated_policies: "SafeBrowsingEnabled"
           })");
   auto resource_request = std::make_unique<network::ResourceRequest>();
   if (!access_token.empty()) {
@@ -398,6 +413,11 @@ void ClientSideDetectionService::UpdateCache() {
 }
 
 bool ClientSideDetectionService::OverPhishingReportLimit() {
+  if (base::FeatureList::IsEnabled(kSafeBrowsingDailyPhishingReportsLimit) &&
+      IsEnhancedProtectionEnabled(*delegate_->GetPrefs())) {
+    return GetPhishingNumReports() >
+           kSafeBrowsingDailyPhishingReportsLimitESB.Get();
+  }
   return GetPhishingNumReports() > kMaxReportsPerInterval;
 }
 
@@ -517,6 +537,64 @@ void ClientSideDetectionService::SetPhishingModel(
           GetModelSharedMemoryRegion(), GetVisualTfLiteModel().Duplicate());
       return;
   }
+}
+
+const google::protobuf::RepeatedPtrField<TfLiteModelMetadata::Threshold>&
+ClientSideDetectionService::GetVisualTfLiteModelThresholds() {
+  if (base::FeatureList::IsEnabled(
+          kClientSideDetectionModelOptimizationGuide)) {
+    return client_side_phishing_model_optimization_guide_
+        ->GetVisualTfLiteModelThresholds();
+  }
+  return ClientSidePhishingModel::GetInstance()
+      ->GetVisualTfLiteModelThresholds();
+}
+
+void ClientSideDetectionService::ClassifyPhishingThroughThresholds(
+    ClientPhishingRequest* verdict) {
+  const google::protobuf::RepeatedPtrField<TfLiteModelMetadata::Threshold>&
+      thresholds = GetVisualTfLiteModelThresholds();
+
+  if (static_cast<int>(verdict->tflite_model_scores().size()) >
+      thresholds.size()) {
+    // Model is misconfigured, so bail out.
+    base::UmaHistogramEnumeration(
+        "SBClientPhishing.ClassifyThresholdsResult",
+        SBClientDetectionClassifyThresholdsResult::kModelSizeMismatch);
+    DVLOG(0)
+        << "Model is misconfigured. Size is mismatched. Verdict scores size is "
+        << static_cast<int>(verdict->tflite_model_scores().size())
+        << " and model thresholds size is "
+        << static_cast<int>(thresholds.size());
+    verdict->set_is_phishing(false);
+    verdict->set_is_tflite_match(false);
+    return;
+  }
+
+  for (int i = 0; i < verdict->tflite_model_scores().size(); i++) {
+    // Users can have older models that do not have the esb thresholds in their
+    // fields, so ESB subscribed users will use the standard thresholds instead
+    if (base::FeatureList::IsEnabled(
+            kSafeBrowsingPhishingClassificationESBThreshold) &&
+        IsEnhancedProtectionEnabled(*delegate_->GetPrefs()) &&
+        thresholds.at(i).esb_threshold() > 0) {
+      if (verdict->tflite_model_scores().at(i).value() >=
+          thresholds.at(i).esb_threshold()) {
+        verdict->set_is_phishing(true);
+        verdict->set_is_tflite_match(true);
+      }
+    } else {
+      if (verdict->tflite_model_scores().at(i).value() >=
+          thresholds.at(i).threshold()) {
+        verdict->set_is_phishing(true);
+        verdict->set_is_tflite_match(true);
+      }
+    }
+  }
+
+  base::UmaHistogramEnumeration(
+      "SBClientPhishing.ClassifyThresholdsResult",
+      SBClientDetectionClassifyThresholdsResult::kSuccess);
 }
 
 base::WeakPtr<ClientSideDetectionService>

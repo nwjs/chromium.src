@@ -40,6 +40,7 @@
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/browser/web_contents/web_contents_view.h"
 #include "content/common/content_navigation_policy.h"
+#include "content/common/features.h"
 #include "content/common/frame_messages.mojom.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -159,11 +160,11 @@ class NavigationControllerBrowserTestBase : public ContentBrowserTest {
 void InitBackForwardCacheFeature(base::test::ScopedFeatureList* feature_list,
                                  bool enable_back_forward_cache) {
   if (enable_back_forward_cache) {
-    std::vector<base::test::FeatureRefAndParams> features;
-    features.push_back({features::kBackForwardCache, {}});
-    features.push_back({kBackForwardCacheNoTimeEviction, {}});
-    features.push_back({features::kBackForwardCacheMemoryControls, {}});
-    feature_list->InitWithFeaturesAndParameters(features, {});
+    feature_list->InitWithFeaturesAndParameters(
+        GetBasicBackForwardCacheFeatureForTesting(
+            {{kBackForwardCacheNoTimeEviction, {}},
+             {features::kBackForwardCacheMemoryControls, {}}}),
+        {});
   } else {
     feature_list->InitAndDisableFeature(features::kBackForwardCache);
   }
@@ -13672,6 +13673,28 @@ class HistoryNavigationBeforeCommitInjector
 IN_PROC_BROWSER_TEST_P(
     NavigationControllerBrowserTest,
     RaceCrossOriginNavigationAndSameDocumentHistoryNavigation) {
+  if (CanSameSiteMainFrameNavigationsChangeRenderFrameHosts()) {
+    // When RenderDocument is enabled, the cross-document navigation uses a
+    // new RenderFrameHost to commit the navigation, causing the previous
+    // RenderFrameHost to be deleted and the same-document navigation to be
+    // cancelled, so just return early.
+    // TODO(https://crbug.com/936696): When
+    // ShouldAvoidRedundantNavigationCancellations() returns true, we won't
+    // actually cancel the same-document navigation as it still lives in the
+    // FrameTreeNode (instead of owned by the swapped out RenderFrameHost), but
+    // apparently there is a bug with same-document history navigations that
+    // happen while there are pending cross-document commits, where we will
+    // still try to trigger beforeunload, causing the same-document history
+    // navigation to get stalled forever. Also, due to the way the history
+    // navigation injection works, it might trigger the deletion of the pending
+    // commit RenderFrameHost while in the middle of processing the
+    // DidCommitNavigation call because the history navigation will try to
+    // create a new speculative RenderFrameHost, unless when navigation queueing
+    // is enabled. After fixing the beforeunload bug, we should be able to
+    // continue running the test when RenderDocument is enabled
+    // and ShouldQueueNavigationsWhenPendingCommitRFHExists() is true.
+    return;
+  }
   WebContentsImpl* web_contents =
       static_cast<WebContentsImpl*>(shell()->web_contents());
   FrameTreeNode* root = web_contents->GetPrimaryFrameTree().root();
@@ -13679,10 +13702,6 @@ IN_PROC_BROWSER_TEST_P(
   // Navigate to a simple page and then perform a same document navigation.
   GURL start_url(embedded_test_server()->GetURL("a.com", "/title1.html"));
   EXPECT_TRUE(NavigateToURL(shell(), start_url));
-
-  // The test below only makes sense for same-site same-RFH navigations, so we
-  // need to ensure that we won't trigger a same-site cross-RFH navigation.
-  DisableProactiveBrowsingInstanceSwapFor(root->current_frame_host());
 
   GURL same_document_url(
       embedded_test_server()->GetURL("a.com", "/title1.html#foo"));
@@ -13720,6 +13739,29 @@ IN_PROC_BROWSER_TEST_P(
 // ResetForCrossDocumentRestart. See https://crbug.com/1006677.
 IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
                        OnCommitTimeoutAfterResetForCrossDocumentRestart) {
+  if (CanSameSiteMainFrameNavigationsChangeRenderFrameHosts()) {
+    // When RenderDocument is enabled, the cross-document navigation uses a
+    // new RenderFrameHost to commit the navigation, causing the previous
+    // RenderFrameHost to be deleted and the same-document navigation to be
+    // cancelled, so just return early.
+    // TODO(https://crbug.com/936696): When
+    // ShouldAvoidRedundantNavigationCancellations() returns true, we won't
+    // actually cancel the same-document navigation as it still lives in the
+    // FrameTreeNode (instead of owned by the swapped out RenderFrameHost), but
+    // apparently there is a bug with same-document history navigations that
+    // happen while there are pending cross-document commits, where we will
+    // still try to trigger beforeunload, causing the same-document history
+    // navigation to get stalled forever. Also, due to the way the history
+    // navigation injection works, it might trigger the deletion of the pending
+    // commit RenderFrameHost while in the middle of processing the
+    // DidCommitNavigation call because the history navigation will try to
+    // create a new speculative RenderFrameHost, unless when navigation queueing
+    // is enabled. After fixing the beforeunload bug, we should be able to
+    // continue running the test when RenderDocument is enabled
+    // and ShouldQueueNavigationsWhenPendingCommitRFHExists() is true.
+    return;
+  }
+
   WebContentsImpl* web_contents =
       static_cast<WebContentsImpl*>(shell()->web_contents());
   FrameTreeNode* root = web_contents->GetPrimaryFrameTree().root();
@@ -13727,10 +13769,6 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
   // Navigate to a simple page and then perform a same document navigation.
   GURL start_url(embedded_test_server()->GetURL("a.com", "/title1.html"));
   EXPECT_TRUE(NavigateToURL(shell(), start_url));
-
-  // The test below only makes sense for same-site same-RFH navigations, so we
-  // need to ensure that we won't trigger a same-site cross-RFH navigation.
-  DisableProactiveBrowsingInstanceSwapFor(root->current_frame_host());
 
   GURL same_document_url(
       embedded_test_server()->GetURL("a.com", "/title1.html#foo"));
@@ -13828,9 +13866,29 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTestNoServer,
     // committed.
     EXPECT_TRUE(trigger.did_trigger_history_navigation());
 
-    // The same-document back navigation had to be converted to a cross-document
-    // navigation because it was racing with, and will complete after, the
-    // cross-document navigation. It is still waiting to complete.
+    if (ShouldCreateNewHostForAllFrames()) {
+      // When RenderDocument is enabled, the cross-document navigation used a
+      // new RenderFrameHost to commit the navigation, causing the previous
+      // RenderFrameHost to be deleted and the same-document navigation to be
+      // cancelled. Since there are no navigations left, just return early.
+      // TODO(https://crbug.com/936696): When
+      // ShouldAvoidRedundantNavigationCancellations() returns true, we won't
+      // actually cancel the same-document navigation as it still lives in the
+      // FrameTreeNode (instead of owned by the swapped out RenderFrameHost),
+      // but apparently there is a bug with same-document history navigations
+      // that happen while there are pending cross-document commits, where we
+      // will still try to trigger beforeunload, causing the same-document
+      // history navigation to get stalled forever. After fixing that bug, we
+      // should be able to continue running the test when RenderDocument is
+      // enabled and ShouldAvoidRedundantNavigationCancellations() is true.
+      EXPECT_EQ(ShouldAvoidRedundantNavigationCancellations(),
+                !!root->navigation_request());
+      return;
+    }
+
+    // Otherwise, the same-document back navigation had to be converted to a
+    // cross-document navigation because it was racing with, and will complete
+    // after, the cross-document navigation. It is still waiting to complete.
     EXPECT_TRUE(root->navigation_request());
     // This is the history navigation.
     EXPECT_EQ(root->navigation_request()->common_params().url.spec(),
@@ -17663,9 +17721,6 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerHistoryInterventionBrowserTest,
 
   // CanGoBack should return false since all previous entries are skippable.
   EXPECT_FALSE(controller.CanGoBack());
-
-  controller.GoBack();  // Will not go back
-  EXPECT_EQ(controller.GetLastCommittedEntryIndex(), 2);
 }
 
 // Same as above but tests the metrics on going forward.
@@ -18931,11 +18986,9 @@ class SandboxedNavigationControllerWithBfcacheBrowserTest
  protected:
   void SetUp() override {
     feature_list_.InitWithFeaturesAndParameters(
-        {{features::kBackForwardCache, {{}}},
-         {features::kBackForwardCacheTimeToLiveControl,
-          {{"time_to_live_seconds", "3600"}}}},
-        // Allow BackForwardCache for all devices regardless of their memory.
-        {features::kBackForwardCacheMemoryControls});
+        GetDefaultEnabledBackForwardCacheFeaturesForTesting(
+            /*ignore_outstanding_network_request=*/false),
+        GetDefaultDisabledBackForwardCacheFeaturesForTesting());
     NavigationControllerBrowserTest::SetUp();
   }
 
@@ -20526,6 +20579,70 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
   EXPECT_EQ(base_url, EvalJs(shell(), "document.URL"));
 }
 
+// Checks that a renderer-initiated back/forward navigation to a page which has
+// a valid base URL does not crash during restore.
+// See https://crbug.com/1082141.
+IN_PROC_BROWSER_TEST_P(
+    NavigationControllerBrowserTest,
+    RendererInitiatedBackToLoadDataWithBaseURLDuringRestore) {
+  // LoadDataWithBaseURL is never subject to --site-per-process policy today
+  // (this API is only used by Android WebView [where OOPIFs have not shipped
+  // yet] and GuestView cases [which always hosts guests inside a renderer
+  // without an origin lock]).  Therefore, skip the test in --site-per-process
+  // mode to avoid renderer kills which won't happen in practice as described
+  // above.
+  //
+  // TODO(https://crbug.com/962643): Consider enabling this test once Android
+  // Webview or WebView guests support OOPIFs and/or origin locks.
+  if (AreAllSitesIsolatedForTesting()) {
+    return;
+  }
+
+  const GURL base_url("http://baseurl");
+  const GURL history_url("http://history");
+  const std::string data = "<html><title>One</title><body>foo</body></html>";
+  const GURL data_url = GURL("data:text/html;charset=utf-8," + data);
+
+  NavigationControllerImpl& controller = static_cast<NavigationControllerImpl&>(
+      shell()->web_contents()->GetController());
+
+  {
+    TestNavigationObserver same_tab_observer(shell()->web_contents(), 1);
+    shell()->LoadDataWithBaseURL(history_url, data, base_url);
+    same_tab_observer.Wait();
+  }
+
+  GURL url2(embedded_test_server()->GetURL(
+      "/navigation_controller/simple_page_1.html"));
+  ASSERT_TRUE(NavigateToURL(shell(), url2));
+
+  // Restore into a new shell.
+  Shell* restore_shell = Shell::CreateNewWindow(
+      controller.GetBrowserContext(), GURL::EmptyGURL(), nullptr, gfx::Size());
+  NavigationControllerImpl& restore_controller =
+      static_cast<NavigationControllerImpl&>(
+          restore_shell->web_contents()->GetController());
+  restore_controller.CopyStateFrom(&controller, true /* needs_reload */);
+  EXPECT_EQ(2, restore_controller.GetEntryCount());
+  EXPECT_EQ(1, restore_controller.GetLastCommittedEntryIndex());
+  {
+    TestNavigationObserver restore_observer(restore_shell->web_contents());
+    restore_controller.LoadIfNecessary();
+    restore_observer.Wait();
+  }
+
+  {
+    // Renderer-initiated-back to data url with base url. This should not crash.
+    FrameTreeNode* root =
+        static_cast<WebContentsImpl*>(restore_shell->web_contents())
+            ->GetPrimaryFrameTree()
+            .root();
+    FrameNavigateParamsCapturer capturer(root);
+    EXPECT_TRUE(ExecJs(root, "history.back()"));
+    capturer.Wait();
+  }
+}
+
 IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
                        HistoryNavigationInNewSubframe) {
   // This test specifically observes behavior of creating a new frame during a
@@ -20535,15 +20652,15 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
 
   NavigationControllerImpl& controller = static_cast<NavigationControllerImpl&>(
       shell()->web_contents()->GetController());
-  RenderFrameHostImpl* main_frame =
-      static_cast<WebContentsImpl*>(shell()->web_contents())
-          ->GetPrimaryMainFrame();
+  FrameTreeNode* root = static_cast<WebContentsImpl*>(shell()->web_contents())
+                            ->GetPrimaryFrameTree()
+                            .root();
 
   // Navigate to a page with an iframe.
   GURL url1 =
       embedded_test_server()->GetURL("/frame_tree/page_with_one_frame.html");
   ASSERT_TRUE(NavigateToURL(shell(), url1));
-  GURL iframe_url = main_frame->child_at(0)->current_url();
+  GURL iframe_url = root->child_at(0)->current_url();
 
   // Navigate away so the iframe is destroyed.
   GURL url2(embedded_test_server()->GetURL(
@@ -20557,7 +20674,7 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
   EXPECT_TRUE(observer.WaitForRequestStart());
 
   // Check the initial navigation for the new iframe.
-  NavigationRequest* navigation = main_frame->child_at(0)->navigation_request();
+  NavigationRequest* navigation = root->child_at(0)->navigation_request();
   ASSERT_TRUE(navigation);
   EXPECT_TRUE(navigation->IsRendererInitiated());
 }
@@ -20571,15 +20688,15 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
 
   NavigationControllerImpl& controller = static_cast<NavigationControllerImpl&>(
       shell()->web_contents()->GetController());
-  RenderFrameHostImpl* main_frame =
-      static_cast<WebContentsImpl*>(shell()->web_contents())
-          ->GetPrimaryMainFrame();
+  FrameTreeNode* root = static_cast<WebContentsImpl*>(shell()->web_contents())
+                            ->GetPrimaryFrameTree()
+                            .root();
 
   // Navigate to a page with an iframe.
   GURL url1 =
       embedded_test_server()->GetURL("/frame_tree/page_with_one_frame.html");
   ASSERT_TRUE(NavigateToURL(shell(), url1));
-  GURL iframe_url = main_frame->child_at(0)->current_url();
+  GURL iframe_url = root->child_at(0)->current_url();
 
   // Navigate away so the iframe is destroyed.
   GURL url2(embedded_test_server()->GetURL(
@@ -20589,15 +20706,13 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
   // Go back (renderer-initiated).
   ASSERT_TRUE(controller.CanGoBack());
   TestNavigationManager observer(shell()->web_contents(), iframe_url);
-  FrameTreeNode* root = static_cast<WebContentsImpl*>(shell()->web_contents())
-                            ->GetPrimaryFrameTree()
-                            .root();
+
   FrameNavigateParamsCapturer capturer(root);
   EXPECT_TRUE(ExecJs(root, "history.back()"));
   EXPECT_TRUE(observer.WaitForRequestStart());
 
   // Check the initial navigation for the new iframe.
-  NavigationRequest* navigation = main_frame->child_at(0)->navigation_request();
+  NavigationRequest* navigation = root->child_at(0)->navigation_request();
   ASSERT_TRUE(navigation);
   EXPECT_TRUE(navigation->IsRendererInitiated());
 }
@@ -20802,6 +20917,7 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
 
   // Consecutive cross-document same-origin navigation uses the new state.
   EXPECT_TRUE(ExecJs(shell(), "location.href = '/title1.html';"));
+  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
   EXPECT_TRUE(controller.GetLastCommittedEntry()->GetIsOverridingUserAgent());
 
   // Consecutive cross-document cross-origin navigation uses the new state.
@@ -21309,7 +21425,7 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
   EXPECT_EQ("bar", EvalJs(root, "history.state"));
 
   // Navigate the main frame to the same URL it's currently on.
-  ASSERT_TRUE(NavigateToURL(shell(), root->current_url()));
+  ASSERT_TRUE(NavigateToURL(shell(), GURL(root->current_url())));
   // Check that the history.state is retained after the navigation.
   EXPECT_EQ("bar", EvalJs(root, "history.state"));
 
@@ -21530,14 +21646,12 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
   EXPECT_TRUE(NavigateToURL(contents(), url1));
   EXPECT_TRUE(NavigateToURL(contents(), url2));
 
-  EXPECT_TRUE(ExecJs(contents(),
-                     "navigation.onnavigateerror = e => document.title ="
-                     "e.error.name === 'InvalidStateError'"
-                     "    ? 'PASS' : 'WRONG_ERROR_TYPE';"));
-
   // Request navigation.back() in the renderer.
   ExecuteScriptAsync(contents()->GetPrimaryFrameTree().root(),
-                     "navigation.back()");
+                     "navigation.back().committed.then("
+                     "() => document.title = 'FAIL',"
+                     "e => document.title = e.name === 'InvalidStateError'"
+                     "   ? 'PASS' : 'WRONG_ERROR_TYPE');");
 
   // Before the navigation.back() is processed and sent to the browser, remove
   // the NavigationEntry that navigation.back() will request to be navigated to.
@@ -22484,19 +22598,19 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
   EXPECT_TRUE(b1_navigation.GetNavigationHandle());
 
   // 4) Start a same-RFH navigation to A3 after B1 gets to "pending commit"
-  // stage. The behavior depends on whether
-  // the kAvoidUnnecessaryNavigationCancellations flag is enabled or not:
-  // - If the flag is enabled, A3's navigation won't cancel the previous
-  //  cross-RFH navigation to B1, as B1's NavigationRequest had moved.
-  // - If the flag is disabled,  A3's navigation will cancel the previous
-  // cross-RFH navigation to B1, because when a same-RFH navigation starts
-  // it will delete the speculative RFH.
+  // stage. The behavior depends on whether the navigation queueing feature
+  // level is at least kAvoidRedundantCancellations:
+  // - If it is at least kAvoidReundantCancellations, A3's navigation won't
+  //   cancel the previous cross-RFH navigation to B1, as B1's NavigationRequest
+  //   had moved.
+  // - Otherwise, A3's navigation will cancel the previous cross-RFH navigation
+  //   to B1, because when a same-RFH navigation starts it will delete the
+  //   speculative RFH.
   TestNavigationManager a3_navigation(shell()->web_contents(), url_a3);
   EXPECT_TRUE(b1_navigation.WaitForResponse());
   StartNavigationOnReadyToCommit(shell(), b1_navigation, url_a3);
 
-  if (base::FeatureList::IsEnabled(
-          features::kAvoidUnnecessaryNavigationCancellations)) {
+  if (ShouldAvoidRedundantNavigationCancellations()) {
     // Assert that the navigation to B1 didn't get cancelled, and finish
     // committing B1. This shouldn't cancel the navigation to A3.
     ASSERT_TRUE(b1_navigation.WaitForNavigationFinished());
@@ -22605,8 +22719,7 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
 // cancel other navigations happening in the same FrameTreeNode.
 IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
                        UnloadingPreviousRFHOnCommitWontCancelNavigation) {
-  if (!base::FeatureList::IsEnabled(
-          features::kAvoidUnnecessaryNavigationCancellations)) {
+  if (!ShouldAvoidRedundantNavigationCancellations()) {
     return;
   }
   GURL main_url(embedded_test_server()->GetURL("a.com", "/title1.html"));

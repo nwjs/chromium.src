@@ -33,7 +33,7 @@
 //    // use |params|
 //  }
 //
-//  std::string value = GetVariationParamValue("trial", "param_x");
+//  std::string value = base::GetFieldTrialParamValue("trial", "param_x");
 //  // use |value|, which will be "" if it does not exist
 //
 // VariationID id = GetGoogleVariationID(
@@ -125,44 +125,6 @@ COMPONENT_EXPORT(VARIATIONS)
 bool AssociateVariationParams(const std::string& trial_name,
                               const std::string& group_name,
                               const std::map<std::string, std::string>& params);
-
-// Deprecated. Use base::GetFieldTrialParams() instead.
-COMPONENT_EXPORT(VARIATIONS)
-bool GetVariationParams(const std::string& trial_name,
-                        std::map<std::string, std::string>* params);
-
-// Deprecated. Use base::GetFieldTrialParamsByFeature() instead.
-COMPONENT_EXPORT(VARIATIONS)
-bool GetVariationParamsByFeature(const base::Feature& feature,
-                                 std::map<std::string, std::string>* params);
-
-// Deprecated. Use base::GetFieldTrialParamValue() instead.
-COMPONENT_EXPORT(VARIATIONS)
-std::string GetVariationParamValue(const std::string& trial_name,
-                                   const std::string& param_name);
-
-// Deprecated. Use base::GetFieldTrialParamValueByFeature() instead.
-COMPONENT_EXPORT(VARIATIONS)
-std::string GetVariationParamValueByFeature(const base::Feature& feature,
-                                            const std::string& param_name);
-
-// Deprecated. Use base::GetFieldTrialParamByFeatureAsInt() instead.
-COMPONENT_EXPORT(VARIATIONS)
-int GetVariationParamByFeatureAsInt(const base::Feature& feature,
-                                    const std::string& param_name,
-                                    int default_value);
-
-// Deprecated. Use base::GetFieldTrialParamByFeatureAsDouble() instead.
-COMPONENT_EXPORT(VARIATIONS)
-double GetVariationParamByFeatureAsDouble(const base::Feature& feature,
-                                          const std::string& param_name,
-                                          double default_value);
-
-// Deprecated. Use base::GetFieldTrialParamByFeatureAsBool() instead.
-COMPONENT_EXPORT(VARIATIONS)
-bool GetVariationParamByFeatureAsBool(const base::Feature& feature,
-                                      const std::string& param_name,
-                                      bool default_value);
 
 // Expose some functions for testing.
 namespace testing {

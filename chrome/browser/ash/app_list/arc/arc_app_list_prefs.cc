@@ -13,6 +13,7 @@
 #include "ash/components/arc/arc_util.h"
 #include "ash/components/arc/compat_mode/arc_resize_lock_manager.h"
 #include "ash/components/arc/mojom/compatibility_mode.mojom.h"
+#include "ash/components/arc/net/arc_net_host_impl.h"
 #include "ash/components/arc/session/arc_bridge_service.h"
 #include "ash/components/arc/session/arc_service_manager.h"
 #include "ash/components/arc/session/connection_holder.h"
@@ -34,6 +35,7 @@
 #include "base/task/thread_pool.h"
 #include "base/values.h"
 #include "chrome/browser/ash/app_list/arc/arc_app_list_prefs_factory.h"
+#include "chrome/browser/ash/app_list/arc/arc_app_metrics_util.h"
 #include "chrome/browser/ash/app_list/arc/arc_app_scoped_pref_update.h"
 #include "chrome/browser/ash/app_list/arc/arc_app_utils.h"
 #include "chrome/browser/ash/app_list/arc/arc_default_app_list.h"
@@ -163,10 +165,7 @@ bool WriteIconFile(const base::FilePath& icon_path,
 
   base::CreateDirectory(icon_path.DirName());
 
-  int wrote = base::WriteFile(icon_path,
-                              reinterpret_cast<const char*>(&icon_png_data[0]),
-                              icon_png_data.size());
-  if (wrote != static_cast<int>(icon_png_data.size())) {
+  if (!base::WriteFile(icon_path, icon_png_data)) {
     VLOG(2) << "Failed to write ARC icon file: " << icon_path.MaybeAsASCII()
             << ".";
     if (!base::DeleteFile(icon_path)) {
@@ -504,6 +503,7 @@ ArcAppListPrefs::ArcAppListPrefs(
   DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
   const base::FilePath& base_path = profile->GetPath();
   base_path_ = base_path.AppendASCII(arc::prefs::kArcApps);
+  arc_app_metrics_util_ = std::make_unique<arc::ArcAppMetricsUtil>();
 
   // Once default apps are ready OnDefaultAppsReady is called.
   default_apps_ = std::make_unique<ArcDefaultAppList>(
@@ -531,6 +531,14 @@ ArcAppListPrefs::ArcAppListPrefs(
       arc::ArcResizeLockManager::GetForBrowserContext(profile_);
   if (resize_lock_manager)
     resize_lock_manager->SetPrefDelegate(this);
+
+  if (ash::features::IsPasspointARCSupportEnabled()) {
+    arc::ArcNetHostImpl* net_host =
+        arc::ArcNetHostImpl::GetForBrowserContext(profile_);
+    if (net_host) {
+      net_host->SetArcAppMetadataProvider(this);
+    }
+  }
 }
 
 ArcAppListPrefs::~ArcAppListPrefs() {
@@ -1179,6 +1187,10 @@ void ArcAppListPrefs::OnArcPlayStoreEnabledChanged(bool enabled) {
   }
 }
 
+void ArcAppListPrefs::OnArcSessionStopped(arc::ArcStopReason stop_reason) {
+  arc_app_metrics_util_->reportIncompleteInstalls();
+}
+
 void ArcAppListPrefs::SetDefaultAppsFilterLevel() {
   // There is no a blocklisting mechanism for Android apps. Until there is
   // one, we have no option but to ban all pre-installed apps on Android side.
@@ -1359,6 +1371,15 @@ int ArcAppListPrefs::GetShowSplashScreenDialogCount() const {
 void ArcAppListPrefs::SetShowSplashScreenDialogCount(int count) {
   profile_->GetPrefs()->SetInteger(
       arc::prefs::kArcShowResizeLockSplashScreenLimits, count);
+}
+
+std::string ArcAppListPrefs::GetAppPackageName(const std::string& app_id) {
+  std::unique_ptr<AppInfo> app_info = GetApp(app_id);
+  if (!app_info) {
+    VLOG(2) << "Failed to get app info: " << app_id << ".";
+    return std::string();
+  }
+  return app_info->package_name;
 }
 
 void ArcAppListPrefs::Shutdown() {
@@ -2362,7 +2383,10 @@ void ArcAppListPrefs::OnInstallationStarted(
     return;
 
   apps_installations_.insert(*package_name);
-
+  if (!(sync_service_ && sync_service_->IsPackageSyncing(*package_name)) &&
+      !IsDefaultPackage(*package_name)) {
+    arc_app_metrics_util_->recordAppInstallStartTime(*package_name);
+  }
   for (auto& observer : observer_list_)
     observer.OnInstallationStarted(*package_name);
 }
@@ -2389,7 +2413,7 @@ void ArcAppListPrefs::OnInstallationFinished(
         reason = InstallationCounterReasonEnum::POLICY;
       }
       UMA_HISTOGRAM_ENUMERATION("Arc.AppInstalledReason", reason);
-
+      arc_app_metrics_util_->maybeReportInstallTimeDelta(result->package_name);
       packages_to_be_added_.insert(result->package_name);
     }
   }

@@ -187,6 +187,7 @@ chromium-metrics-reviews@google.com.
     enum="CustomTabsConnection" expires_after="2023-07-16">
   <owner>peconn@chromium.org</owner>
   <owner>peter@chromium.org</owner>
+  <owner>cct-team@google.com</owner>
   <summary>
     Android: Recorded whenever user closes the custom tab by hitting the close
     button or back to return to the caller app. Keeps track of the connection
@@ -197,9 +198,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.ConnectionStatusOnReturn.NonGSA"
-    enum="CustomTabsConnection" expires_after="M114">
+    enum="CustomTabsConnection" expires_after="2023-07-16">
   <owner>peconn@chromium.org</owner>
   <owner>peter@chromium.org</owner>
+  <owner>cct-team@google.com</owner>
   <summary>
     Android: Recorded whenever user closes the custom tab by hitting the close
     button or back to return to the caller app. Keeps track of the connection
@@ -221,7 +223,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.DetachedResourceRequest.FinalStatus"
-    enum="NetErrorCodes" expires_after="2023-07-02">
+    enum="NetErrorCodes" expires_after="2023-09-10">
   <owner>lizeb@chromium.org</owner>
   <owner>cct-team@google.com</owner>
   <summary>
@@ -244,7 +246,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.FeatureUsage" enum="CustomTabsFeatureUsed"
-    expires_after="2023-06-30">
+    expires_after="2023-09-03">
   <owner>donnd@chromium.org</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -285,7 +287,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.HadInteractionOnClose.FormStillActive"
-    enum="Boolean" expires_after="2023-07-18">
+    enum="Boolean" expires_after="2023-09-17">
   <owner>katzz@google.com</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -521,7 +523,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.SessionDisconnectStatus"
-    enum="CustomTabsSessionDisconnectStatus" expires_after="2023-07-16">
+    enum="CustomTabsSessionDisconnectStatus" expires_after="2023-09-17">
   <owner>kgrosu@google.com</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -617,6 +619,18 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="CustomTabs.TimeScrollUpdateReceivedAfterScrollEnd" units="ms"
+    expires_after="2023-08-26">
+  <owner>sinansahin@google.com</owner>
+  <owner>chrome-connective-tissue@google.com</owner>
+  <summary>
+    Android only. Recorded when the RealtimeEngagementSignalObserver receives a
+    scroll-update signal after the scroll-end signal from the renderer. This is
+    the time it took to receive the scroll-update after the scroll-end signal in
+    milliseconds.
+  </summary>
+</histogram>
+
 <histogram name="CustomTabs.Visible" enum="VisibleTab" expires_after="never">
 <!-- expires-never: Used to classify UMA reports by the dashboards. -->
 
@@ -704,7 +718,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TrustedWebActivity.LocationDelegationEnrolled" enum="Boolean"
-    expires_after="2023-06-30">
+    expires_after="2023-09-03">
   <owner>eirage@chromium.org</owner>
   <owner>peconn@chromium.org</owner>
   <summary>
@@ -715,7 +729,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TrustedWebActivity.LocationPermissionChanged"
-    enum="TrustedWebActivityPermissionChanged" expires_after="2023-06-30">
+    enum="TrustedWebActivityPermissionChanged" expires_after="2023-09-03">
   <owner>eirage@chromium.org</owner>
   <owner>peconn@chromium.org</owner>
   <summary>
@@ -725,7 +739,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TrustedWebActivity.LocationPermissionRequestIsGranted"
-    enum="Boolean" expires_after="2023-06-30">
+    enum="Boolean" expires_after="2023-09-03">
   <owner>eirage@chromium.org</owner>
   <owner>peconn@chromium.org</owner>
   <summary>
@@ -766,7 +780,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="TrustedWebActivity.QualityEnforcementViolation"
     enum="TrustedWebActivityQualityEnforcementViolationType"
-    expires_after="2023-06-30">
+    expires_after="2023-09-03">
   <owner>eirage@chromium.org</owner>
   <owner>peconn@chromium.org</owner>
   <summary>
@@ -797,7 +811,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TrustedWebActivity.SplashScreenShown" enum="Boolean"
-    expires_after="2023-07-16">
+    expires_after="2023-09-17">
   <owner>peconn@chromium.org</owner>
   <owner>peter@chromium.org</owner>
   <summary>

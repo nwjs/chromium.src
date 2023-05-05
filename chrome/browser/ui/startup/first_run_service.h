@@ -8,16 +8,26 @@
 #include <memory>
 
 #include "base/functional/callback_forward.h"
+#include "base/metrics/field_trial.h"
 #include "base/no_destructor.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/profiles/profile_keyed_service_factory.h"
+#include "chrome/browser/ui/profile_picker.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/signin/public/base/signin_buildflags.h"
 
 class PrefRegistrySimple;
 class Profile;
 class SilentSyncEnabler;
+
+namespace base {
+class FeatureList;
+}
+
+namespace version_info {
+enum class Channel;
+}
 
 // Task to run after the FRE is exited, with `proceed` indicating whether it
 // should be aborted or resumed.
@@ -46,6 +56,18 @@ class FirstRunService : public KeyedService {
   static void RegisterLocalStatePrefs(PrefRegistrySimple* registry);
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  // Creates a field trial to control the ForYouFre and
+  // ForYouFreSyntheticTrialRegistration features. The trial is client
+  // controlled because ForYouFre controls the First Run Experience (FRE), which
+  // shows up before a variations seed is available.
+  //
+  // No persistence happens here, instead it happens if/when the attempt to show
+  // the FRE happens, and the client joins an experiment cohort through
+  // `JoinFirstRunCohort()`.
+  static void SetUpClientSideFieldTrialIfNeeded(
+      const base::FieldTrial::EntropyProvider& entropy_provider,
+      base::FeatureList* feature_list);
+
   // Ensures that the user's experiment group is appropriately reported
   // to track the effect of the first run experience over time. Should be called
   // once per browser process startup.
@@ -79,9 +101,21 @@ class FirstRunService : public KeyedService {
   void OpenFirstRunIfNeeded(EntryPoint entry_point,
                             ResumeTaskCallback callback);
 
+  // Terminates the first run without re-opening a browser window.
+  void FinishFirstRunWithoutResumeTask();
+
  private:
   friend class FirstRunServiceFactory;
+  FRIEND_TEST_ALL_PREFIXES(FirstRunFieldTrialCreatorTest, SetUpFromClientSide);
+
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  // Internal interface for `SetUpClientSideFieldTrialIfNeeded()`, exposed to
+  // allow for channel-independent testing.
+  static void SetUpClientSideFieldTrial(
+      const base::FieldTrial::EntropyProvider& entropy_provider,
+      base::FeatureList* feature_list,
+      version_info::Channel channel);
+
   // Enrolls this client with a synthetic field trial based on the Finch params.
   // Should be called when the FRE is launched, then the client needs to
   // register again on each process startup by calling
@@ -108,8 +142,10 @@ class FirstRunService : public KeyedService {
   // The finished state can be checked by calling `ShouldOpenFirstRun()`.
   void TryMarkFirstRunAlreadyFinished(base::OnceClosure callback);
 
-  void OpenFirstRunInternal(EntryPoint entry_point,
-                            ResumeTaskCallback callback);
+  void OpenFirstRunInternal(EntryPoint entry_point);
+
+  // Processes the outcome from the FRE and resumes the user's interrupted task.
+  void OnFirstRunHasExited(ProfilePicker::FirstRunExitStatus status);
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
   void StartSilentSync(base::OnceClosure callback);
@@ -123,6 +159,7 @@ class FirstRunService : public KeyedService {
   std::unique_ptr<SilentSyncEnabler> silent_sync_enabler_;
 #endif
 
+  ResumeTaskCallback resume_task_callback_;
   base::WeakPtrFactory<FirstRunService> weak_ptr_factory_{this};
 };
 
@@ -132,6 +169,9 @@ class FirstRunServiceFactory : public ProfileKeyedServiceFactory {
   FirstRunServiceFactory& operator=(const FirstRunServiceFactory&) = delete;
 
   static FirstRunService* GetForBrowserContext(
+      content::BrowserContext* context);
+
+  static FirstRunService* GetForBrowserContextIfExists(
       content::BrowserContext* context);
 
   static FirstRunServiceFactory* GetInstance();

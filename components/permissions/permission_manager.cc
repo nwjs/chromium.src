@@ -13,6 +13,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
+#include "base/ranges/algorithm.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
@@ -51,9 +52,8 @@ void PermissionStatusVectorCallbackWrapper(
     base::OnceCallback<void(const std::vector<PermissionStatus>&)> callback,
     const std::vector<ContentSetting>& content_settings) {
   std::vector<PermissionStatus> permission_statuses;
-  std::transform(content_settings.begin(), content_settings.end(),
-                 back_inserter(permission_statuses),
-                 PermissionUtil::ContentSettingToPermissionStatus);
+  base::ranges::transform(content_settings, back_inserter(permission_statuses),
+                          PermissionUtil::ContentSettingToPermissionStatus);
   std::move(callback).Run(permission_statuses);
 }
 
@@ -257,9 +257,8 @@ void PermissionManager::RequestPermissionsInternal(
     base::OnceCallback<void(const std::vector<blink::mojom::PermissionStatus>&)>
         permission_status_callback) {
   std::vector<ContentSettingsType> permissions;
-  std::transform(permissions_types.begin(), permissions_types.end(),
-                 back_inserter(permissions),
-                 PermissionUtil::PermissionTypeToContentSettingType);
+  base::ranges::transform(permissions_types, back_inserter(permissions),
+                          PermissionUtil::PermissionTypeToContentSettingType);
 
   base::OnceCallback<void(const std::vector<ContentSetting>&)> callback =
       base::BindOnce(&PermissionStatusVectorCallbackWrapper,
@@ -402,6 +401,26 @@ PermissionStatus PermissionManager::GetPermissionStatusForWorker(
 
   return PermissionUtil::ContentSettingToPermissionStatus(
       result.content_setting);
+}
+
+blink::mojom::PermissionStatus
+PermissionManager::GetPermissionStatusForEmbeddedRequester(
+    blink::PermissionType permission,
+    content::RenderFrameHost* render_frame_host,
+    const url::Origin& requesting_origin) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  ContentSettingsType type =
+      PermissionUtil::PermissionTypeToContentSettingType(permission);
+
+  const GURL embedding_origin =
+      GetEmbeddingOrigin(render_frame_host, requesting_origin.GetURL());
+
+  PermissionResult result = GetPermissionStatusInternal(
+      type,
+      /*render_process_host=*/nullptr, render_frame_host,
+      requesting_origin.GetURL(), embedding_origin);
+
+  return PermissionUtil::ToContentPermissionResult(result).status;
 }
 
 bool PermissionManager::IsPermissionOverridable(

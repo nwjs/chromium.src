@@ -18,11 +18,9 @@ namespace viz {
 
 const absl::optional<gfx::Rect>& GetOptionalDamageRectFromQuad(
     const DrawQuad* quad) {
-  if (quad->material == DrawQuad::Material::kTextureContent) {
-    auto* texture_quad = TextureDrawQuad::MaterialCast(quad);
+  if (auto* texture_quad = quad->DynamicCast<TextureDrawQuad>()) {
     return texture_quad->damage_rect;
-  } else if (quad->material == DrawQuad::Material::kYuvVideoContent) {
-    auto* yuv_video_quad = YUVVideoDrawQuad::MaterialCast(quad);
+  } else if (auto* yuv_video_quad = quad->DynamicCast<YUVVideoDrawQuad>()) {
     return yuv_video_quad->damage_rect;
   } else {
     static absl::optional<gfx::Rect> no_damage;
@@ -75,6 +73,10 @@ ResolvedFrameData::~ResolvedFrameData() {
 
 void ResolvedFrameData::SetFullDamageForNextAggregation() {
   previous_frame_index_ = kInvalidFrameIndex;
+}
+
+uint32_t ResolvedFrameData::GetClientNamespaceId() const {
+  return static_cast<uint32_t>(child_resource_id_);
 }
 
 void ResolvedFrameData::ForceReleaseResource() {

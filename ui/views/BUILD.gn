@@ -47,7 +47,6 @@ aggregate_vector_icons("views_vector_icons") {
     "pin.icon",
     "radio_button_active.icon",
     "radio_button_normal.icon",
-    "toggle_button_check.icon",
     "uninstall.icon",
     "unpin.icon",
   ]
@@ -584,7 +583,10 @@ component("views") {
   if (is_chromeos) {
     public += [ "highlight_border.h" ]
     sources += [ "highlight_border.cc" ]
-    deps += [ "//chromeos/constants" ]
+    deps += [
+      "//chromeos/constants",
+      "//ui/chromeos/styles:cros_tokens_color_mappings_generator",
+    ]
   }
 
   if (is_linux) {
@@ -682,6 +684,7 @@ component("views") {
       "win/hwnd_message_handler_delegate.h",
       "win/hwnd_util.h",
       "win/pen_event_processor.h",
+      "win/pen_id_handler.h",
       "win/scoped_enable_unadjusted_mouse_events_win.h",
       "win/scoped_fullscreen_visibility.h",
     ]
@@ -693,6 +696,7 @@ component("views") {
       "win/hwnd_message_handler.cc",
       "win/hwnd_util_aurawin.cc",
       "win/pen_event_processor.cc",
+      "win/pen_id_handler.cc",
       "win/scoped_enable_unadjusted_mouse_events_win.cc",
       "win/scoped_fullscreen_visibility.cc",
     ]
@@ -730,6 +734,7 @@ component("views") {
       "corewm/tooltip_aura.h",
       "corewm/tooltip_controller.h",
       "corewm/tooltip_state_manager.h",
+      "corewm/tooltip_view_aura.h",
       "event_monitor_aura.h",
       "native_window_tracker_aura.h",
       "touchui/touch_selection_controller_impl.h",
@@ -759,6 +764,7 @@ component("views") {
       "corewm/tooltip_aura.cc",
       "corewm/tooltip_controller.cc",
       "corewm/tooltip_state_manager.cc",
+      "corewm/tooltip_view_aura.cc",
       "drag_utils_aura.cc",
       "event_monitor_aura.cc",
       "metrics_aura.cc",
@@ -1002,6 +1008,8 @@ source_set("test_support") {
     "test/menu_runner_test_api.h",
     "test/menu_test_utils.cc",
     "test/menu_test_utils.h",
+    "test/mock_drag_controller.cc",
+    "test/mock_drag_controller.h",
     "test/mock_input_event_activation_protector.cc",
     "test/mock_input_event_activation_protector.h",
     "test/native_widget_factory.cc",
@@ -1081,6 +1089,10 @@ source_set("test_support") {
     sources += [
       "test/desktop_window_tree_host_win_test_api.cc",
       "test/desktop_window_tree_host_win_test_api.h",
+      "win/test_support/fake_ipen_device.cc",
+      "win/test_support/fake_ipen_device.h",
+      "win/test_support/fake_ipen_device_statics.cc",
+      "win/test_support/fake_ipen_device_statics.h",
     ]
   }
   if (is_mac) {
@@ -1332,6 +1344,7 @@ test("views_unittests") {
       "accessibility/test_list_grid_view.h",
       "accessibility/view_ax_platform_node_delegate_win_unittest.cc",
       "win/pen_event_processor_unittest.cc",
+      "win/pen_id_handler_unittest.cc",
     ]
   }
 

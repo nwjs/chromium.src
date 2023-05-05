@@ -224,8 +224,7 @@ class MockHostResolverProc : public HostResolverProc {
               AddressList* addrlist,
               int* os_error) override {
     base::AutoLock lock(lock_);
-    capture_list_.push_back(
-        ResolveKey(hostname, address_family, host_resolver_flags));
+    capture_list_.emplace_back(hostname, address_family, host_resolver_flags);
     ++num_requests_waiting_;
     requests_waiting_.Broadcast();
     {
@@ -3907,8 +3906,10 @@ DnsConfig CreateUpgradableDnsConfig() {
 TEST_F(HostResolverManagerTest, NetworkAnonymizationKeyWriteToHostCache) {
   const SchemefulSite kSite1(GURL("https://origin1.test/"));
   const SchemefulSite kSite2(GURL("https://origin2.test/"));
-  const NetworkAnonymizationKey kNetworkAnonymizationKey1(kSite1, kSite1);
-  const NetworkAnonymizationKey kNetworkAnonymizationKey2(kSite2, kSite2);
+  auto kNetworkAnonymizationKey1 =
+      net::NetworkAnonymizationKey::CreateSameSite(kSite1);
+  auto kNetworkAnonymizationKey2 =
+      net::NetworkAnonymizationKey::CreateSameSite(kSite2);
 
   const char kFirstDnsResult[] = "192.168.1.42";
   const char kSecondDnsResult[] = "192.168.1.43";
@@ -4020,8 +4021,10 @@ TEST_F(HostResolverManagerTest, NetworkAnonymizationKeyWriteToHostCache) {
 TEST_F(HostResolverManagerTest, NetworkAnonymizationKeyReadFromHostCache) {
   const SchemefulSite kSite1(GURL("https://origin1.test/"));
   const SchemefulSite kSite2(GURL("https://origin2.test/"));
-  const NetworkAnonymizationKey kNetworkAnonymizationKey1(kSite1, kSite1);
-  const NetworkAnonymizationKey kNetworkAnonymizationKey2(kSite2, kSite2);
+  auto kNetworkAnonymizationKey1 =
+      net::NetworkAnonymizationKey::CreateSameSite(kSite1);
+  auto kNetworkAnonymizationKey2 =
+      net::NetworkAnonymizationKey::CreateSameSite(kSite2);
 
   struct CacheEntry {
     NetworkAnonymizationKey network_anonymization_key;
@@ -4112,8 +4115,10 @@ TEST_F(HostResolverManagerTest, NetworkAnonymizationKeyReadFromHostCache) {
 TEST_F(HostResolverManagerTest, NetworkAnonymizationKeyTwoRequestsAtOnce) {
   const SchemefulSite kSite1(GURL("https://origin1.test/"));
   const SchemefulSite kSite2(GURL("https://origin2.test/"));
-  const NetworkAnonymizationKey kNetworkAnonymizationKey1(kSite1, kSite1);
-  const NetworkAnonymizationKey kNetworkAnonymizationKey2(kSite2, kSite2);
+  auto kNetworkAnonymizationKey1 =
+      net::NetworkAnonymizationKey::CreateSameSite(kSite1);
+  auto kNetworkAnonymizationKey2 =
+      net::NetworkAnonymizationKey::CreateSameSite(kSite2);
 
   const char kDnsResult[] = "192.168.1.42";
 
@@ -7165,7 +7170,7 @@ TEST_F(HostResolverManagerDnsTest,
     // so they should be unaffected.
     parameters.source = HostResolverSource::DNS;
     ResolveHostResponseHelper response_dns(resolver_->CreateRequest(
-        HostPortPair("4slow_ok", 80), NetworkAnonymizationKey(),
+        HostPortPair("6slow_ok", 80), NetworkAnonymizationKey(),
         NetLogWithSource(), parameters, resolve_context_.get(),
         resolve_context_->host_cache()));
     EXPECT_FALSE(response_dns.complete());

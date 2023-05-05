@@ -242,13 +242,13 @@ public class PageInfoViewTest {
 
     private void expectHasCookies(boolean hasData) throws TimeoutException {
         for (String type : sCookieDataTypes) {
-            assertEquals(hasData ? "true" : "false", runJavascriptAsync("has" + type + "()"));
+            assertEquals(hasData ? "true" : "false", runJavascriptAsync("has" + type + "Async()"));
         }
     }
 
     private void createCookies() throws TimeoutException {
         for (String type : sCookieDataTypes) {
-            runJavascriptAsync("set" + type + "()");
+            runJavascriptAsync("set" + type + "Async()");
         }
     }
 
@@ -765,7 +765,12 @@ public class PageInfoViewTest {
     // When both START_SURFACE_ANDROID and TAB_GROUPS_CONTINUATION_ANDROID are enabled, changing
     // accessibility status won't recreate ChromeTabbedActivity.
     @EnableFeatures({ChromeFeatureList.START_SURFACE_ANDROID,
-            ChromeFeatureList.TAB_GROUPS_CONTINUATION_ANDROID})
+            ChromeFeatureList.START_SURFACE_WITH_ACCESSIBILITY})
+    @CommandLineFlags.
+    Add({"enable-features=" + ChromeFeatureList.TAB_GROUPS_CONTINUATION_ANDROID + "<Study",
+            "force-fieldtrials=Study/Group",
+            "force-fieldtrial-params=Study.Group:gts-low-end-support/true"
+                    + "/gts-accessibility-support/true"})
     // clang-format off
     public void testCloseButton() {
         // clang-format on
@@ -849,7 +854,6 @@ public class PageInfoViewTest {
     @Test
     @MediumTest
     @Feature({"RenderTest"})
-    @Features.EnableFeatures(ChromeFeatureList.PRIVACY_SANDBOX_SETTINGS_3)
     @Features.DisableFeatures(ChromeFeatureList.PRIVACY_SANDBOX_SETTINGS_4)
     public void testShowAdPersonalizationInfoSubPage() throws IOException {
         loadUrlAndOpenPageInfo(
@@ -860,11 +864,26 @@ public class PageInfoViewTest {
     }
 
     /**
+     * Tests ad personalization subpage.
+     */
+    @Test
+    @MediumTest
+    @Feature({"RenderTest"})
+    @Features.EnableFeatures(ChromeFeatureList.PRIVACY_SANDBOX_SETTINGS_4)
+    public void testShowAdPersonalizationInfoSubPageV4() throws IOException {
+        loadUrlAndOpenPageInfo(
+                mTestServerRule.getServer().getURLWithHostName("example.com", sSimpleHtml));
+        onView(withId(PageInfoAdPersonalizationController.ROW_ID)).perform(click());
+        onViewWaiting(allOf(
+                withText(R.string.page_info_ad_privacy_subpage_manage_button), isDisplayed()));
+        mRenderTestRule.render(getPageInfoView(), "PageInfo_AdPersonalizationSubPageV4");
+    }
+
+    /**
      * Tests opening ad personalization settings.
      */
     @Test
     @MediumTest
-    @Features.EnableFeatures(ChromeFeatureList.PRIVACY_SANDBOX_SETTINGS_3)
     @Features.DisableFeatures(ChromeFeatureList.PRIVACY_SANDBOX_SETTINGS_4)
     public void testOpenAdPersonalizationSettings() throws IOException {
         loadUrlAndOpenPageInfo(
@@ -878,6 +897,27 @@ public class PageInfoViewTest {
         // Leave settings view.
         onView(withContentDescription("Navigate up")).perform(click());
         onView(withText(R.string.privacy_sandbox_topic_interests_subtitle)).check(doesNotExist());
+    }
+
+    /**
+     * Tests opening ad personalization settings.
+     */
+    @Test
+    @MediumTest
+    @Features.EnableFeatures(ChromeFeatureList.PRIVACY_SANDBOX_SETTINGS_4)
+    public void testOpenAdPersonalizationSettingsV4() throws IOException {
+        loadUrlAndOpenPageInfo(
+                mTestServerRule.getServer().getURLWithHostName("example.com", sSimpleHtml));
+        onView(withId(PageInfoAdPersonalizationController.ROW_ID)).perform(click());
+        onViewWaiting(
+                allOf(withText(R.string.page_info_ad_privacy_subpage_manage_button), isDisplayed()))
+                .perform(click());
+        // Check that settings are displayed.
+        onView(withText(R.string.ad_privacy_page_topics_link_row_label))
+                .check(matches(isDisplayed()));
+        // Leave settings view.
+        onView(withContentDescription("Navigate up")).perform(click());
+        onView(withText(R.string.ad_privacy_page_topics_link_row_label)).check(doesNotExist());
     }
 
     // TODO(1071762): Add tests for preview pages, offline pages, offline state and other states.

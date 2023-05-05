@@ -28,6 +28,7 @@
 
 #include "base/check_op.h"
 #include "third_party/blink/renderer/core/core_export.h"
+#include "third_party/blink/renderer/core/css/parser/css_nesting_type.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_mode.h"
 #include "third_party/blink/renderer/core/dom/qualified_name.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
@@ -112,6 +113,7 @@ class CORE_EXPORT CSSSelector {
   CSSSelector(CSSSelector&&);
   explicit CSSSelector(const QualifiedName&, bool tag_is_implicit = false);
   explicit CSSSelector(const StyleRule* parent_rule, bool is_implicit);
+  explicit CSSSelector(const AtomicString& pseudo_name, bool is_implicit);
 
   ~CSSSelector();
 
@@ -187,7 +189,20 @@ class CORE_EXPORT CSSSelector {
     // leftmost + combinator of relative selector
     kRelativeDirectAdjacent,
     // leftmost ~ combinator of relative selector
-    kRelativeIndirectAdjacent
+    kRelativeIndirectAdjacent,
+
+    // The following applies to selectors within @scope
+    // (see CSSNestingType::kScope):
+    //
+    // The kScopeActivation relation is implicitly inserted parse-time before
+    // any compound selector which contains either :scope or the parent
+    // selector (&). When encountered during selector matching,
+    // kScopeActivation will try the to match the rest of the selector (i.e. the
+    // TagHistory from that point) using activation roots as the :scope
+    // element, trying the nearest activation root first.
+    //
+    // See also StyleScopeActivation.
+    kScopeActivation,
   };
 
   enum PseudoType {
@@ -244,9 +259,6 @@ class CORE_EXPORT CSSSelector {
     kPseudoOnlyOfType,
     kPseudoOptional,
     kPseudoParent,  // Written as & (in nested rules).
-    // Something that was unparsable, but contained a & and thus must be kept
-    // for serialization purposes.
-    kPseudoParentUnparsed,
     kPseudoPart,
     kPseudoPlaceholder,
     kPseudoPlaceholderShown,
@@ -270,6 +282,10 @@ class CORE_EXPORT CSSSelector {
     kPseudoState,
     kPseudoTarget,
     kPseudoUnknown,
+    // Something that was unparsable, but contained either a nesting
+    // selector (&), or a :scope pseudo-class, and must therefore be kept
+    // for serialization purposes.
+    kPseudoUnparsed,
     kPseudoValid,
     kPseudoVertical,
     kPseudoVisited,
@@ -317,6 +333,8 @@ class CORE_EXPORT CSSSelector {
     kPseudoSpatialNavigationInterest,
     kPseudoSpellingError,
     kPseudoTargetText,
+    // Always matches. See SetTrue().
+    kPseudoTrue,
     kPseudoVideoPersistent,
     kPseudoVideoPersistentAncestor,
 
@@ -346,18 +364,33 @@ class CORE_EXPORT CSSSelector {
                         const CSSParserContext&,
                         bool has_arguments,
                         CSSParserMode);
-  void SetUnparsedPlaceholder(const AtomicString&);
+  void SetUnparsedPlaceholder(CSSNestingType, const AtomicString&);
+  // If this simple selector contains a parent selector (&), returns kNesting.
+  // Otherwise, if this simple selector contains a :scope pseudo-class,
+  // returns kScope. Otherwise, returns kNone.
+  //
+  // Note that this means that a selector which contains both '&' and :scope
+  // (which can happen for kPseudoUnparsed) will return kNesting. This is OK,
+  // since any selector which is nest-containing is also treated as
+  // scope-containing during parsing.
+  CSSNestingType GetNestingType() const;
+  // Set this CSSSelector as a :true pseudo-class. This can be useful if you
+  // need to insert a special RelationType into a selector's TagHistory,
+  // but lack any existing/suitable CSSSelector to attach that RelationType to.
+  //
+  // Note that :true is always implicit (see IsImplicit).
+  void SetTrue();
   void UpdatePseudoPage(const AtomicString&, const Document*);
   static PseudoType NameToPseudoType(const AtomicString&,
                                      bool has_arguments,
                                      const Document* document);
   static PseudoId GetPseudoId(PseudoType);
 
-  // See StyleRule::Reparent().
-  void Reparent(StyleRule* old_parent, StyleRule* new_parent) {
-    DCHECK_EQ(old_parent, ParentRule());
-    data_.parent_rule_ = new_parent;
-  }
+  // Replaces the parent pointer held by kPseudoParent selectors found
+  // within this simple selector (including inner selector lists).
+  //
+  // See also StyleRule::Reparent().
+  void Reparent(StyleRule* old_parent, StyleRule* new_parent);
 
   // Selectors are kept in an array by CSSSelectorList. The next component of
   // the selector is the next item in the array.
@@ -414,10 +447,10 @@ class CORE_EXPORT CSSSelector {
                           : false;
   }
 
-#ifndef NDEBUG
+#if DCHECK_IS_ON()
   void Show() const;
   void Show(int indent) const;
-#endif
+#endif  // DCHECK_IS_ON()
 
   bool IsASCIILower(const AtomicString& value);
   void SetValue(const AtomicString&, bool match_lower_case);
@@ -494,6 +527,10 @@ class CORE_EXPORT CSSSelector {
   // Returns true if the immediately preceeding simple selector is ::slotted.
   bool FollowsSlotted() const;
 
+  // True if the selector was added implicitly. This can happen for e.g.
+  // nested rules that would otherwise lack the nesting selector (&).
+  bool IsImplicit() const { return is_implicitly_added_; }
+
   void Trace(Visitor* visitor) const;
 
   static String FormatPseudoTypeForDebugging(PseudoType);
@@ -524,7 +561,7 @@ class CORE_EXPORT CSSSelector {
   // flags in MatchResult.
   //
   // This always starts out false, and is set when we bucket a given
-  // RuleData (by calling ComputeEntirelyCoveredByBucketing()).
+  // RuleData (by calling MarkAsCoveredByBucketing()).
   unsigned is_covered_by_bucketing_ : 1;
 
   void SetPseudoType(PseudoType pseudo_type) {
@@ -568,6 +605,9 @@ class CORE_EXPORT CSSSelector {
         // containing complex selector in its argument. e.g. :has(:is(.a .b))
         bool contains_complex_logical_combinations_;
       } has_;
+
+      // See GetNestingType.
+      CSSNestingType unparsed_nesting_type_;
     } bits_;
     QualifiedName attribute_;  // Used for attribute selector
     AtomicString argument_;    // Used for :contains, :lang, :dir, :toggle, etc.
@@ -605,6 +645,12 @@ class CORE_EXPORT CSSSelector {
 
     enum ConstructEmptyValueTag { kConstructEmptyValue };
     explicit DataUnion(ConstructEmptyValueTag) : value_() {}
+
+    // A string `value` is used by many different selectors to store the string
+    // part of the selector. For example the name of a pseudo class (without
+    // the colon), the class name of a class selector (without the dot),
+    // the attribute of an attribute selector (without the brackets), etc.
+    explicit DataUnion(const AtomicString& value) : value_(value) {}
 
     explicit DataUnion(const QualifiedName& tag_q_name)
         : tag_q_name_(tag_q_name) {}
@@ -701,6 +747,21 @@ inline CSSSelector::CSSSelector(const StyleRule* parent_rule, bool is_implicit)
       is_implicitly_added_(is_implicit),
       is_covered_by_bucketing_(false),
       data_(parent_rule) {}
+
+inline CSSSelector::CSSSelector(const AtomicString& pseudo_name,
+                                bool is_implicit)
+    : relation_(kSubSelector),
+      match_(kPseudoClass),
+      pseudo_type_(NameToPseudoType(pseudo_name,
+                                    /* has_arguments */ false,
+                                    /* document */ nullptr)),
+      is_last_in_selector_list_(false),
+      is_last_in_tag_history_(false),
+      has_rare_data_(false),
+      is_for_page_(false),
+      is_implicitly_added_(is_implicit),
+      is_covered_by_bucketing_(false),
+      data_(pseudo_name) {}
 
 inline CSSSelector::CSSSelector(const CSSSelector& o)
     : relation_(o.relation_),
@@ -804,6 +865,11 @@ inline void swap(CSSSelector& a, CSSSelector& b) {
 // call NOTREACHED().
 CSSSelector::RelationType ConvertRelationToRelative(
     CSSSelector::RelationType relation);
+
+// Returns the maximum specificity within a list of selectors. This is typically
+// used to calculate the specificity of selectors that have an inner selector
+// list, e.g. :is(), :where() etc.
+unsigned MaximumSpecificity(const CSSSelector* first_selector);
 
 }  // namespace blink
 

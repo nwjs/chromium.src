@@ -78,11 +78,13 @@ import "chromeos/crosapi/mojom/resource_manager.mojom";
 import "chromeos/crosapi/mojom/screen_manager.mojom";
 import "chromeos/crosapi/mojom/select_file.mojom";
 import "chromeos/crosapi/mojom/sharesheet.mojom";
+import "chromeos/crosapi/mojom/smart_reader.mojom";
 import "chromeos/crosapi/mojom/speech_recognition.mojom";
 import "chromeos/crosapi/mojom/structured_metrics_service.mojom";
 import "chromeos/crosapi/mojom/sync.mojom";
 import "chromeos/crosapi/mojom/system_display.mojom";
 import "chromeos/crosapi/mojom/task_manager.mojom";
+import "chromeos/crosapi/mojom/telemetry_event_service.mojom";
 import "chromeos/crosapi/mojom/test_controller.mojom";
 import "chromeos/crosapi/mojom/timezone.mojom";
 import "chromeos/crosapi/mojom/tts.mojom";
@@ -98,6 +100,7 @@ import "chromeos/crosapi/mojom/vpn_extension_observer.mojom";
 import "chromeos/crosapi/mojom/wallpaper.mojom";
 import "chromeos/crosapi/mojom/web_app_service.mojom";
 import "chromeos/crosapi/mojom/web_page_info.mojom";
+import "chromeos/crosapi/mojom/media_ui.mojom";
 import "mojo/public/mojom/base/big_string.mojom";
 import "mojo/public/mojom/base/file_path.mojom";
 import "mojo/public/mojom/base/generic_pending_receiver.mojom";
@@ -134,8 +137,8 @@ struct BrowserInfo {
 // please note the milestone when you added it, to help us reason about
 // compatibility between the client applications and older ash-chrome binaries.
 //
-// Next version: 104
-// Next method id: 107
+// Next version: 107
+// Next method id: 110
 [Stable, Uuid="8b79c34f-2bf8-4499-979a-b17cac522c1e",
  RenamedFrom="crosapi.mojom.AshChromeService"]
 interface Crosapi {
@@ -420,6 +423,10 @@ interface Crosapi {
   [MinVersion=17] BindMachineLearningService@22(
       pending_receiver<chromeos.machine_learning.mojom.MachineLearningService> receiver);
 
+  // Binds the MediaUI interface for the Global Media Controls UI.
+  // Added in M113.
+  [MinVersion=105] BindMediaUI@108(pending_receiver<MediaUI> receiver);
+
   // Binds the MessageCenter interface for showing notification messages.
   // Added in M86.
   BindMessageCenter@3(pending_receiver<MessageCenter> receiver);
@@ -499,6 +506,11 @@ interface Crosapi {
   [MinVersion=66]
   BindSharesheet@70(
       pending_receiver<Sharesheet> receiver);
+
+  // Binds the Smart Reader manager to the Smart Reader client.
+  [MinVersion=103]
+  BindSmartReaderClient@107(
+      pending_remote<crosapi.mojom.SmartReaderClient> remote);
 
   // Binds the SpeechRecognition interface to access on-device speech
   // recognition.
@@ -587,6 +599,12 @@ interface Crosapi {
   // task manager.
   // Added in M91.
   [MinVersion=19] BindTaskManager@24(pending_receiver<TaskManager> receiver);
+
+  // Binds the TelemetryEventService interface for registering telemetry events
+  // in Lacros-Chrome.
+  // Added in M114.
+  [MinVersion=106] BindTelemetryEventService@109(
+    pending_receiver<TelemetryEventService> receiver);
 
   // Binds the telemetry probe service to allow Lacros request telemetry data
   // from Ash.

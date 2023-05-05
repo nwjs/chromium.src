@@ -20,6 +20,7 @@
 #include "media/filters/ivf_parser.h"
 #include "media/filters/vp9_parser.h"
 #include "media/gpu/macros.h"
+#include "media/gpu/v4l2/test/upstream_pix_fmt.h"
 
 namespace media {
 
@@ -195,7 +196,7 @@ std::unique_ptr<Vp9Decoder> Vp9Decoder::Create(
   if (!v4l2_ioctl->VerifyCapabilities(kDriverCodecFourcc,
                                       uncompressed_fourcc)) {
     // Fall back to MM21 for MediaTek platforms
-    uncompressed_fourcc = v4l2_fourcc('M', 'M', '2', '1');
+    uncompressed_fourcc = V4L2_PIX_FMT_MM21;
     num_planes = 2;
 
     if (!v4l2_ioctl->VerifyCapabilities(kDriverCodecFourcc,
@@ -232,8 +233,8 @@ std::unique_ptr<Vp9Decoder> Vp9Decoder::Create(
 
 std::set<int> Vp9Decoder::RefreshReferenceSlots(
     uint8_t refresh_frame_flags,
-    scoped_refptr<MmapedBuffer> buffer,
-    uint32_t last_queued_buffer_index) {
+    scoped_refptr<MmappedBuffer> buffer,
+    uint32_t last_queued_buffer_id) {
   const std::bitset<kVp9NumRefFrames> refresh_frame_slots(refresh_frame_flags);
 
   std::set<int> reusable_buffer_slots;
@@ -261,7 +262,7 @@ std::set<int> Vp9Decoder::RefreshReferenceSlots(
 
     // Note that the CAPTURE buffer for previous frame can be used as well,
     // but it is already queued again at this point.
-    reusable_buffer_slots.erase(last_queued_buffer_index);
+    reusable_buffer_slots.erase(last_queued_buffer_id);
 
     // Updates to assign current key frame as a reference frame for all
     // reference frame slots in the reference frames list.
@@ -450,14 +451,14 @@ void Vp9Decoder::CopyFrameData(const Vp9FrameHeader& frame_hdr,
   LOG_ASSERT(queue->num_planes() == 1)
       << "Number of planes is expected to be 1 for OUTPUT queue.";
 
-  scoped_refptr<MmapedBuffer> buffer = queue->GetBuffer(0);
+  scoped_refptr<MmappedBuffer> buffer = queue->GetBuffer(0);
 
-  buffer->mmaped_planes()[0].CopyIn(frame_hdr.data, frame_hdr.frame_size);
+  buffer->mmapped_planes()[0].CopyIn(frame_hdr.data, frame_hdr.frame_size);
 }
 
-VideoDecoder::Result Vp9Decoder::DecodeNextFrame(std::vector<char>& y_plane,
-                                                 std::vector<char>& u_plane,
-                                                 std::vector<char>& v_plane,
+VideoDecoder::Result Vp9Decoder::DecodeNextFrame(std::vector<uint8_t>& y_plane,
+                                                 std::vector<uint8_t>& u_plane,
+                                                 std::vector<uint8_t>& v_plane,
                                                  gfx::Size& size,
                                                  const int frame_number) {
   Vp9FrameHeader frame_hdr{};
@@ -517,35 +518,20 @@ VideoDecoder::Result Vp9Decoder::DecodeNextFrame(std::vector<char>& y_plane,
   if (!v4l2_ioctl_->MediaRequestIocQueue(OUTPUT_queue_))
     LOG(FATAL) << "MEDIA_REQUEST_IOC_QUEUE failed.";
 
-  uint32_t index;
+  uint32_t buffer_id;
 
-  if (!v4l2_ioctl_->DQBuf(CAPTURE_queue_, &index))
+  if (!v4l2_ioctl_->DQBuf(CAPTURE_queue_, &buffer_id)) {
     LOG(FATAL) << "VIDIOC_DQBUF failed for CAPTURE queue.";
-
-  scoped_refptr<MmapedBuffer> buffer = CAPTURE_queue_->GetBuffer(index);
-  size = CAPTURE_queue_->display_size();
-  if (CAPTURE_queue_->fourcc() == V4L2_PIX_FMT_NV12) {
-    CHECK_EQ(buffer->mmaped_planes().size(), 1u)
-        << "NV12 should have exactly 1 plane but CAPTURE queue does not.";
-
-    ConvertNV12ToYUV(y_plane, u_plane, v_plane, size,
-                     static_cast<char*>(buffer->mmaped_planes()[0].start_addr),
-                     CAPTURE_queue_->coded_size());
-  } else if (CAPTURE_queue_->fourcc() == v4l2_fourcc('M', 'M', '2', '1')) {
-    CHECK_EQ(buffer->mmaped_planes().size(), 2u)
-        << "MM21 should have exactly 2 planes but CAPTURE queue does not.";
-
-    ConvertMM21ToYUV(y_plane, u_plane, v_plane, size,
-                     static_cast<char*>(buffer->mmaped_planes()[0].start_addr),
-                     static_cast<char*>(buffer->mmaped_planes()[1].start_addr),
-                     CAPTURE_queue_->coded_size());
-  } else {
-    LOG(FATAL) << "Unsupported CAPTURE queue format";
   }
 
+  scoped_refptr<MmappedBuffer> buffer = CAPTURE_queue_->GetBuffer(buffer_id);
+  size = CAPTURE_queue_->display_size();
+  ConvertToYUV(y_plane, u_plane, v_plane, size, buffer->mmapped_planes(),
+               CAPTURE_queue_->coded_size(), CAPTURE_queue_->fourcc());
+
   const std::set<int> reusable_buffer_slots = RefreshReferenceSlots(
-      frame_hdr.refresh_frame_flags, CAPTURE_queue_->GetBuffer(index),
-      CAPTURE_queue_->last_queued_buffer_index());
+      frame_hdr.refresh_frame_flags, CAPTURE_queue_->GetBuffer(buffer_id),
+      CAPTURE_queue_->last_queued_buffer_id());
 
   for (const auto reusable_buffer_slot : reusable_buffer_slots) {
     if (!v4l2_ioctl_->QBuf(CAPTURE_queue_, reusable_buffer_slot))
@@ -562,11 +548,12 @@ VideoDecoder::Result Vp9Decoder::DecodeNextFrame(std::vector<char>& y_plane,
     // Inter frames coming right after key frames doesn't have this issue, so we
     // don't need to track which buffer was queued for key frames.
     if (frame_hdr.frame_type == Vp9FrameHeader::INTERFRAME)
-      CAPTURE_queue_->set_last_queued_buffer_index(reusable_buffer_slot);
+      CAPTURE_queue_->set_last_queued_buffer_id(reusable_buffer_slot);
   }
 
-  if (!v4l2_ioctl_->DQBuf(OUTPUT_queue_, &index))
+  if (!v4l2_ioctl_->DQBuf(OUTPUT_queue_, &buffer_id)) {
     LOG(FATAL) << "VIDIOC_DQBUF failed for OUTPUT queue.";
+  }
 
   // TODO(stevecho): With current VP9 API, VIDIOC_G_EXT_CTRLS ioctl call is
   // needed when forward probabilities update is used. With new VP9 API landing

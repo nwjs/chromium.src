@@ -53,6 +53,7 @@
           '--gtest_filter=-OfferNotificationControllerAndroidBrowserTestForMessagesUi.MessageShown',
         ],
       },
+      # If you change this, make similar changes in android-x86-code-coverage below
       'android-nougat-x86-rel': {
         'ci_only': True,
         'swarming': {
@@ -71,7 +72,7 @@
               'device_type': 'sailfish',
             },
           ],
-          'shards': 3,
+          'shards': 4,
           'quickrun_shards': 6,
         },
       },
@@ -87,6 +88,13 @@
           ],
         },
       },
+      # Keep this same as android-nougat-x86-rel above
+      'android-x86-code-coverage': {
+        'ci_only': True,
+        'swarming': {
+          'shards': 9,
+        },
+      },
     },
   },
   'android_sync_integration_tests': {
@@ -96,7 +104,15 @@
           'shards': 3,
         },
       },
+      # If you change this, make similar changes in android-x86-code-coverage below
       'android-nougat-x86-rel': {
+        'ci_only': True,
+        'swarming': {
+          'shards': 2,
+        },
+      },
+      # Keep this same as android-nougat-x86-rel above
+      'android-x86-code-coverage': {
         'ci_only': True,
         'swarming': {
           'shards': 2,
@@ -197,6 +213,7 @@
   'blink_platform_unittests': {
     'modifications': {
       # TODO(crbug.com/1303439): Remove this filter
+      # If you change this, make similar changes in android-x86-code-coverage below
       'android-nougat-x86-rel': {
         'args': [
           '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_n.blink_platform_unittests.filter',
@@ -212,6 +229,12 @@
             },
           ],
         },
+      },
+      # Keep this same as android-nougat-x86-rel above
+      'android-x86-code-coverage': {
+        'args': [
+          '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_n.blink_platform_unittests.filter',
+        ],
       },
       'fuchsia-code-coverage': {
         'swarming': {
@@ -237,7 +260,6 @@
   'blink_web_tests': {
     'remove_from': [
       'Win10 Tests x64 (dbg)',
-      'mac-osxbeta-rel',
     ],
     'modifications': {
       'Linux Tests': {
@@ -489,12 +511,26 @@
       'linux-rel-cft': {
         "args": [
           "--additional-env-var=LLVM_PROFILE_FILE=${ISOLATED_OUTDIR}/profraw/default-%2m.profraw",
+	  '--test-launcher-filter-file=../../testing/buildbot/filters/cft.blink_web_tests.filter',
         ],
         'swarming': {
           'shards': 8,
         },
       },
+      'mac-osxbeta-rel': {
+        'swarming': {
+          'dimension_sets': [
+            {
+              'gpu': None
+            }
+          ],
+          'shards': 10,
+        },
+      },
       'mac-rel-cft': {
+       "args": [
+          '--test-launcher-filter-file=../../testing/buildbot/filters/cft.blink_web_tests.filter',
+        ],
         'swarming': {
           'dimension_sets': [
             {
@@ -546,6 +582,7 @@
         'args': [
           '--target',
           'Release_x64',
+	  '--test-launcher-filter-file=../../testing/buildbot/filters/cft.blink_web_tests.filter',
         ],
         'swarming': {
           "shards": 12,
@@ -583,7 +620,9 @@
       'Win10 Tests x64 (dbg)',
       'devtools_frontend_linux_blink_light_rel',
       'devtools_frontend_linux_blink_light_rel_fastbuild',
-      'mac-osxbeta-rel',
+      'linux-rel-cft',
+      'mac-rel-cft',
+      'win-rel-cft',
     ],
     'modifications': {
       'Linux Tests': {
@@ -633,9 +672,6 @@
         },
       },
       'Mac12 Tests': {
-        'args': [
-          '--driver-logging',
-        ],
         'swarming': {
           'dimension_sets': [
             {
@@ -826,6 +862,16 @@
           'shards': 10,
         },
       },
+      'mac-osxbeta-rel': {
+        'swarming': {
+          'dimension_sets': [
+            {
+              'gpu': None
+            }
+          ],
+          'shards': 7,
+        },
+      },
       'mac-rel-cft': {
         'args': [
           '--driver-logging',
@@ -987,7 +1033,7 @@
       },
       'Linux MSan Tests': {
         'swarming': {
-          'shards': 15,
+          'shards': 23,
         },
       },
       'Linux Tests': {
@@ -1020,6 +1066,11 @@
           '--test-launcher-filter-file=../../testing/buildbot/filters/mac.mac-rel.browser_tests.filter',
         ],
         'experiment_percentage': 100, # https://crbug.com/1251657
+      },
+      'Mac Builder Next': {
+        'swarming': {
+          'shards': 20,  # crbug.com/1419045
+        },
       },
       'Mac10.15 Tests': {
         # crbug.com/1042757
@@ -1180,6 +1231,13 @@
         'swarming': {
           'shards': 20,  # crbug.com/1361887
         },
+      },
+      'win-arm64-rel': {
+        # Surface Pros aren't using 100% scaling, which some browser tests
+        # rely on.
+        'args': [
+          '--force-device-scale-factor=1',
+        ],
       },
       'win-asan': {
          # Tests shows tests run faster with fewer retries by using fewer jobs crbug.com/1411912
@@ -1374,6 +1432,7 @@
           'shards': 25,
         },
       },
+      # If you change this, make similar changes in android-x86-code-coverage below
       'android-nougat-x86-rel': {
         'args': [
           '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_n.chrome_public_test_apk.filter',
@@ -1395,7 +1454,7 @@
         ],
         'ci_only': True, # https://crbug.com/1233700
       },
-      'android-pie-arm64-rel-swarming': {
+      'android-pie-arm64-rel-dev': {
         'swarming': {
           'service_account': 'chrome-gold-dev@chops-service-accounts.iam.gserviceaccount.com'
         },
@@ -1408,6 +1467,21 @@
         'swarming': {
           # See https://crbug.com/1230192, runs of 40-60 minutes at 20 shards.
           'shards': 30,
+        },
+      },
+      # Keep this same as android-nougat-x86-rel above
+      'android-x86-code-coverage': {
+        'args': [
+          '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_n.chrome_public_test_apk.filter',
+        ],
+        'swarming': {
+          'shards': 75,
+          'dimension_sets': [
+            {
+              # use 8-core to shorten runtime
+              'cores': '8',
+            },
+          ],
         },
       },
     },
@@ -1509,6 +1583,7 @@
     ],
     'modifications': {
       'android-12-x64-rel': {
+        'ci_only': True,
         'args': [
           '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_12.chrome_public_unit_test_apk.filter',
         ],
@@ -1547,16 +1622,6 @@
         },
       },
       'lacros-amd64-generic-chrome-skylab': {
-        'swarming': {
-          'dimension_sets': [
-            {
-              'cpu': 'x86-64',
-              'os': 'Ubuntu-18.04',
-            },
-          ],
-        },
-      },
-      'lacros-arm-generic-chrome': {
         'swarming': {
           'dimension_sets': [
             {
@@ -1621,7 +1686,14 @@
           'shards': 3,
         },
       },
+      # If you change this, make similar changes in android-x86-code-coverage below
       'android-nougat-x86-rel': {
+        'swarming': {
+          'shards': 4,
+        },
+      },
+      # Keep this same as android-nougat-x86-rel above
+      'android-x86-code-coverage': {
         'swarming': {
           'shards': 4,
         },
@@ -1677,7 +1749,14 @@
           '--gtest_filter=-FieldFormatterTest.DifferentLocales',
         ],
       },
+      # If you change this, make similar changes in android-x86-code-coverage below
       'android-nougat-x86-rel': {
+        'swarming': {
+          'inverse_quickrun_shards': 12,
+        },
+      },
+      # Keep this same as android-nougat-x86-rel above
+      'android-x86-code-coverage': {
         'swarming': {
           'inverse_quickrun_shards': 12,
         },
@@ -1854,6 +1933,7 @@
           'shards': 25,
         },
       },
+      # If you change this, make similar changes in android-x86-code-coverage below
       'android-nougat-x86-rel': {
         'args': [
           '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_n.content_browsertests.filter',
@@ -1884,6 +1964,21 @@
           # Flaking with only 20 shards with 40-60 minute runs.
           # https://crbug.com/1230118
           'shards': 30,
+        },
+      },
+      # Keep this same as android-nougat-x86-rel above
+      'android-x86-code-coverage': {
+        'args': [
+          '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_n.content_browsertests.filter',
+        ],
+        'swarming': {
+          'shards': 75,
+          'dimension_sets': [
+            {
+              # use 8-core to shorten runtime
+              'cores': '8',
+            },
+          ],
         },
       },
       'fuchsia-arm64-cast-receiver-rel': {
@@ -1957,7 +2052,7 @@
         },
       },
       # https://crbug.com/1255940
-      'mac-rel-swarming': {
+      'mac-rel-dev': {
         'swarming': {
           'dimension_sets': [
             {
@@ -1995,7 +2090,8 @@
   },
   'content_shell_crash_test': {
     'remove_from': [
-      'android-nougat-x86-rel', # crbug.com/1084353
+      'android-nougat-x86-rel', # crbug.com/1084353. If you remove this, also remove android-x86-code-coverage.
+      'android-x86-code-coverage'
     ],
     'modifications': {
       'Win10 Tests x64 (dbg)': {
@@ -2034,6 +2130,7 @@
           '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_13.content_shell_test_apk.filter',
         ],
       },
+      # If you change this, make similar changes in android-x86-code-coverage below
       'android-nougat-x86-rel': {
         'args': [
           '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_n.content_shell_test_apk.filter',
@@ -2052,6 +2149,21 @@
         'args': [
           '--gtest_filter=-ContentViewScrollingTest.testFling',
         ],
+      },
+      # Keep this same as android-nougat-x86-rel above
+      'android-x86-code-coverage': {
+        'args': [
+          '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_n.content_shell_test_apk.filter',
+        ],
+        'swarming': {
+          'shards': 6,
+          'dimension_sets': [
+            {
+              # use 8-core to shorten runtime
+              'cores': '8',
+            },
+          ],
+        },
       },
     },
   },
@@ -2410,6 +2522,7 @@
           '--test-launcher-filter-file=../../testing/buildbot/filters/android.pie_arm64_rel.gl_tests.filter', # https://crbug.com/1034007
         ],
       },
+      # If you change this, make similar changes in android-x86-code-coverage below
       'android-nougat-x86-rel': {
         'args': [
           '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_n.gl_tests.filter',
@@ -2423,6 +2536,12 @@
       'android-pie-x86-rel': {
         'args': [
           '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator.gl_tests.filter',
+        ],
+      },
+      # Keep this same as android-nougat-x86-rel above
+      'android-x86-code-coverage': {
+        'args': [
+          '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_n.gl_tests.filter',
         ],
       },
     },
@@ -2738,9 +2857,6 @@
   },
   'lacros_all_tast_tests jacuzzi': {
     'modifications': {
-      'lacros-arm-generic-chrome': {
-        'experiment_percentage': 100,
-      },
       'lacros-arm-generic-rel': {
         'ci_only': True,
       },
@@ -2814,6 +2930,13 @@
           # work around the issue. See https://crbug.com/1166379 for more
           # information.
           '--extra-browser-args=--disable-wcg-for-test',
+        ],
+      },
+      'ChromeOS FYI Release Skylab (kevin)': {
+        'args': [
+          # Skylab currently doesn't support use of LUCI_CONTEXT, so Gold cannot
+          # automatically get the service account to authenticate with.
+          '--service-account=/creds/service_accounts/skylab-drone.json',
         ],
       },
       'android_optional_gpu_tests_rel': {
@@ -2956,6 +3079,7 @@
       'linux-win_cross-rel',  # Sets enable_nacl=false, https://crbug.com/774186
       'Linux TSan Tests',  # The TSan bot sets enable_nacl=false
       'Mac ASan 64 Tests (1)',  # The mac asan bot sets enable_nacl=false
+      'win-arm64-rel',  # Not available on arm64.
     ],
   },
   'net_unittests': {
@@ -3175,7 +3299,15 @@
           '--gtest_filter=-ScopedDirTest.CloseOutOfScope',
         ],
       },
+      # If you change this, make similar changes in android-x86-code-coverage below
       'android-nougat-x86-rel': {
+        'args': [
+          # TODO(crbug.com/1260440): Fix the failed test
+          '--gtest_filter=-ScopedDirTest.CloseOutOfScope',
+        ],
+      },
+      # Keep this same as android-nougat-x86-rel above
+      'android-x86-code-coverage': {
         'args': [
           # TODO(crbug.com/1260440): Fix the failed test
           '--gtest_filter=-ScopedDirTest.CloseOutOfScope',
@@ -3293,6 +3425,13 @@
           '--extra-browser-args=--disable-wcg-for-test',
         ],
       },
+      'ChromeOS FYI Release Skylab (kevin)': {
+        'args': [
+          # Skylab currently doesn't support use of LUCI_CONTEXT, so Gold cannot
+          # automatically get the service account to authenticate with.
+          '--service-account=/creds/service_accounts/skylab-drone.json',
+        ],
+      },
       'android_optional_gpu_tests_rel': {
         'args': [
           # See above.
@@ -3329,12 +3468,19 @@
   },
   'sandbox_linux_unittests': {
     'modifications': {
+      # If you change this, make similar changes in android-x86-code-coverage below
       'android-nougat-x86-rel': {
         'args': [
           '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator.sandbox_linux_unittests.filter',
         ]
       },
       'android-pie-x86-rel': {
+        'args': [
+          '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator.sandbox_linux_unittests.filter',
+        ]
+      },
+      # Keep this same as android-nougat-x86-rel above
+      'android-x86-code-coverage': {
         'args': [
           '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator.sandbox_linux_unittests.filter',
         ]
@@ -3397,14 +3543,6 @@
       'Linux ChromiumOS MSan Tests',  # https://crbug.com/831676
       'Linux MSan Tests',  # https://crbug.com/831676
     ],
-    'replacements': {
-      # TODO(crbug.com/1078982): Remove once the test is fixed on 10.15.4.
-      'Mac FYI Experimental Release (Intel)': {
-        'args': {
-          '--gtest_filter': '*Detection*:-FaceDetectionImplMacTest.ScanOneFace*',
-        },
-      },
-    },
     'modifications': {
       'Linux ASan LSan Tests (1)': {
         'swarming': {
@@ -3426,7 +3564,20 @@
           'shards': 2,
         },
       },
+      # If you change this, make similar changes in android-x86-code-coverage below
       'android-nougat-x86-rel': {
+        'args': [
+          # TODO(crbug.com/1264654): Fix the failed tests
+          '--gtest_filter=-PacLibraryTest.ActualPacMyIpAddress*'
+        ],
+        'ci_only': True,
+        'swarming': {
+          'shards': 3,
+          'inverse_quickrun_shards': 4,
+        },
+      },
+      # Keep this same as android-nougat-x86-rel above
+      'android-x86-code-coverage': {
         'args': [
           # TODO(crbug.com/1264654): Fix the failed tests
           '--gtest_filter=-PacLibraryTest.ActualPacMyIpAddress*'
@@ -3550,6 +3701,9 @@
   },
   'system_webview_wpt': {
     'modifications': {
+      'android-pie-arm64-wpt-rel-non-cq': {
+        'experiment_percentage': 100,
+      },
       'android-webview-pie-x86-wpt-fyi-rel': {
         'args': [
           '--log-wptreport',
@@ -3573,14 +3727,24 @@
   },
   'telemetry_chromium_minidump_unittests': {
     'modifications': {
+      # If you change this, make similar changes in android-x86-code-coverage below
       'android-nougat-x86-rel': {
+        'ci_only': True,
+      },
+      # Keep this same as android-nougat-x86-rel above
+      'android-x86-code-coverage': {
         'ci_only': True,
       },
     },
   },
   'telemetry_monochrome_minidump_unittests': {
     'modifications': {
+      # If you change this, make similar changes in android-x86-code-coverage below
       'android-nougat-x86-rel': {
+        'ci_only': True,
+      },
+      # Keep this same as android-nougat-x86-rel above
+      'android-x86-code-coverage': {
         'ci_only': True,
       },
     },
@@ -3605,7 +3769,17 @@
       'Mac12 Tests': {
         'ci_only': True,
       },
+      # If you change this, make similar changes in android-x86-code-coverage below
       'android-nougat-x86-rel': {
+        'args': [
+          # For whatever reason, automatic browser selection on this bot chooses
+          # webview instead of the full browser, so explicitly specify it here.
+          '--browser=android-chromium',
+        ],
+        'ci_only': True,
+      },
+      # Keep this same as android-nougat-x86-rel above
+      'android-x86-code-coverage': {
         'args': [
           # For whatever reason, automatic browser selection on this bot chooses
           # webview instead of the full browser, so explicitly specify it here.
@@ -3761,7 +3935,7 @@
           '--test-launcher-filter-file=../../testing/buildbot/filters/android.asan.unit_tests.filter',
         ],
       },
-      'android-pie-arm64-rel-swarming': {
+      'android-pie-arm64-rel-dev': {
         'swarming': {
           'shards': 8,
         },
@@ -3785,6 +3959,11 @@
         'swarming': {
           'inverse_quickrun_shards': 2,
         },
+      },
+      'win-arm64-rel': {
+        'args': [
+          '--top-chrome-touch-ui=disabled',
+        ],
       },
     },
   },
@@ -3935,10 +4114,15 @@
       'android-12-x64-rel': {
         'ci_only': True,
       },
+      # If you change this, make similar changes in android-x86-code-coverage below
       'android-nougat-x86-rel': {
         'ci_only': True,
       },
       'android-pie-arm64-rel': {
+        'ci_only': True,
+      },
+      # Keep this same as android-nougat-x86-rel above
+      'android-x86-code-coverage': {
         'ci_only': True,
       },
     },
@@ -4003,6 +4187,11 @@
           '--enable-metal-debug-layers',
         ],
       },
+      'Mac FYI Experimental Retina Release (AMD)': {
+        'args': [
+          '--enable-metal-debug-layers',
+        ],
+      },
       'Mac FYI Release (Intel)': {
         'args': [
           '--enable-metal-debug-layers',
@@ -4034,6 +4223,17 @@
         'args': [
           '--enable-metal-debug-layers',
         ],
+      },
+    },
+    'replacements': {
+      # --enable-features=EGLDualGPURendering,ForceHighPerformanceGPUForWebGL
+      # flag is suspected for flakiness on MacBook Pro 2019,
+      # so use the old --force_high_performance_gpu flag there
+      # crbug.com/1421053, crbug.com/1424896, crbug.com/1251724
+      'Mac FYI Experimental Retina Release (AMD)': {
+        'args': {
+          '--extra-browser-args': '--use-gl=angle --use-angle=metal --use-cmd-decoder=passthrough --force_high_performance_gpu',
+        },
       },
     },
   },
@@ -4100,6 +4300,11 @@
           '--enable-metal-debug-layers',
         ],
       },
+      'Mac FYI Experimental Retina Release (AMD)': {
+        'args': [
+          '--enable-metal-debug-layers',
+        ],
+      },
       'Mac FYI Release (Intel)': {
         'args': [
           '--enable-metal-debug-layers',
@@ -4131,6 +4336,17 @@
         'args': [
           '--enable-metal-debug-layers',
         ],
+      },
+    },
+    'replacements': {
+      # --enable-features=EGLDualGPURendering,ForceHighPerformanceGPUForWebGL
+      # flag is suspected for flakiness on MacBook Pro 2019,
+      # so use the old --force_high_performance_gpu flag there
+      # crbug.com/1421053, crbug.com/1424896, crbug.com/1251724
+      'Mac FYI Experimental Retina Release (AMD)': {
+        'args': {
+          '--extra-browser-args': '--use-gl=angle --use-angle=metal --use-cmd-decoder=passthrough --force_high_performance_gpu',
+        },
       },
     },
   },
@@ -4206,22 +4422,8 @@
         },
       },
     },
-    'replacements': {
-      'Dawn Mac x64 Experimental Release (Intel)': {
-        'args': {
-          '--platform': 'mac-mac11',
-        },
-      }
-    },
   },
   'webgpu_blink_web_tests_with_backend_validation': {
-    'replacements': {
-      'Dawn Mac x64 Experimental Release (Intel)': {
-        'args': {
-          '--platform': 'mac-mac11',
-        },
-      },
-    },
     # Remove from bots where capacity is constrained.
     'remove_from': [
       # TODO(crbug.com/1363409): Enable these once they're shown to work on
@@ -4355,7 +4557,14 @@
           'shards': 2,
         },
       },
+      # If you change this, make similar changes in android-x86-code-coverage below
       'android-nougat-x86-rel': {
+        'swarming': {
+          'inverse_quickrun_shards': 12,
+        },
+      },
+      # Keep this same as android-nougat-x86-rel above
+      'android-x86-code-coverage': {
         'swarming': {
           'inverse_quickrun_shards': 12,
         },
@@ -4382,6 +4591,7 @@
   },
   'webview_cts_tests': {
     'modifications': {
+      # If you change this, make similar changes in android-x86-code-coverage below
       'android-nougat-x86-rel': {
         'args': [
           '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator.webview_cts_tests.filter',
@@ -4398,6 +4608,13 @@
             },
           ],
         },
+      },
+      # Keep this same as android-nougat-x86-rel above
+      'android-x86-code-coverage': {
+        'args': [
+          '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator.webview_cts_tests.filter',
+          '--test-launcher-filter-file=../../testing/buildbot/filters/android.webview_cts_tests_coverage.filter',
+        ],
       },
     },
   },
@@ -4424,9 +4641,27 @@
       },
       'android-12-x64-rel': {
         'swarming': {
+          'shards': 10,
           'inverse_quickrun_shards': 14,
         },
       },
+      'android-12l-x64-dbg-tests': {
+        'args': [
+          '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_12l.webview_instrumentation_test_apk.filter',
+        ],
+        'swarming': {
+          'shards': 9,
+        },
+      },
+      'android-13-x64-rel': {
+        'args': [
+          '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_13.webview_instrumentation_test_apk.filter',
+        ],
+        'swarming': {
+          'shards': 9,
+        },
+      },
+      # If you change this, make similar changes in android-x86-code-coverage below
       'android-nougat-x86-rel': {
         'args': [
           '--use-persistent-shell',
@@ -4452,6 +4687,15 @@
           'shards': 9,
         },
       },
+      # Keep this same as android-nougat-x86-rel above
+      'android-x86-code-coverage': {
+        'args': [
+          '--use-persistent-shell',
+        ],
+        'swarming': {
+          'shards': 27,
+        },
+      },
     },
   },
   'webview_ui_test_app_test_apk': {
@@ -4468,6 +4712,22 @@
         'swarming': {
           'shards': 8,
         },
+        'experiment_percentage': 100,
+      },
+      'mac10.15-wpt-content-shell-fyi-rel': {
+        'experiment_percentage': 100,
+      },
+      'mac11-wpt-content-shell-fyi-rel': {
+        'experiment_percentage': 100,
+      },
+      'mac12-arm64-wpt-content-shell-fyi-rel': {
+        'experiment_percentage': 100,
+      },
+      'mac13-arm64-wpt-content-shell-fyi-rel': {
+        'experiment_percentage': 100,
+      },
+      'mac13-wpt-content-shell-fyi-rel': {
+        'experiment_percentage': 100,
       },
       'win10-wpt-content-shell-fyi-rel': {
         'args': [

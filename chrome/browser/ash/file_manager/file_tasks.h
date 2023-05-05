@@ -143,6 +143,7 @@ enum TaskType {
   TASK_TYPE_CROSTINI_APP,
   TASK_TYPE_WEB_APP,
   TASK_TYPE_PLUGIN_VM_APP,
+  TASK_TYPE_BRUSCHETTA_APP,
   // The enum values must be kept in sync with FileManagerTaskType in
   // tools/metrics/histograms/enums.xml. Since enums for histograms are
   // append-only (for keeping the number consistent across versions), new values
@@ -330,15 +331,18 @@ typedef base::OnceCallback<void(
 // |done| can be a null callback.
 //
 // Parameters:
-// profile    - The profile used for making this function call.
-// task       - See the comment at TaskDescriptor struct.
-// file_urls  - URLs of the target files.
-// done       - The callback which will be called on completion.
-//              The callback won't be called if the function returns
-//              false.
+// profile      - The profile used for making this function call.
+// task         - See the comment at TaskDescriptor struct.
+// file_urls    - URLs of the target files.
+// modal_parent - Certain tasks like the Office setup flow can create WebUIs,
+//                which will be made modal to this parent, if not null.
+// done         - The callback which will be called on completion.
+//                The callback won't be called if the function returns
+//                false.
 bool ExecuteFileTask(Profile* profile,
                      const TaskDescriptor& task,
                      const std::vector<storage::FileSystemURL>& file_urls,
+                     gfx::NativeWindow modal_parent,
                      FileTaskFinishedCallback done);
 
 // Executes QuickOffice file handler for each element of |file_urls|.
@@ -352,6 +356,7 @@ void LaunchQuickOffice(Profile* profile,
 void OnDialogChoiceReceived(Profile* profile,
                             const TaskDescriptor& task,
                             const std::vector<FileSystemURL>& file_urls,
+                            gfx::NativeWindow modal_parent,
                             const std::string& choice);
 
 // Shows a new dialog for users to choose what to do next. Returns True
@@ -359,6 +364,7 @@ void OnDialogChoiceReceived(Profile* profile,
 bool GetUserFallbackChoice(Profile* profile,
                            const TaskDescriptor& task,
                            const std::vector<FileSystemURL>& file_urls,
+                           gfx::NativeWindow modal_parent,
                            ash::office_fallback::FallbackReason failure_reason);
 
 // Callback function type for FindAllTypesOfTasks.
@@ -403,9 +409,9 @@ bool IsHtmlFile(const base::FilePath& path);
 bool IsOfficeFile(const base::FilePath& path);
 
 // Updates the default task for each of the office file types.
-void SetWordFileHandler(Profile* profile, TaskDescriptor& task);
-void SetExcelFileHandler(Profile* profile, TaskDescriptor& task);
-void SetPowerPointFileHandler(Profile* profile, TaskDescriptor& task);
+void SetWordFileHandler(Profile* profile, const TaskDescriptor& task);
+void SetExcelFileHandler(Profile* profile, const TaskDescriptor& task);
+void SetPowerPointFileHandler(Profile* profile, const TaskDescriptor& task);
 
 // TODO(petermarshall): Move these to a new file office_file_tasks.cc/h
 // Updates the default task for each of the office file types to a Files
@@ -430,6 +436,12 @@ bool OfficeSetupComplete(Profile* profile);
 void SetAlwaysMoveOfficeFiles(Profile* profile, bool complete = true);
 // Whether we should always move office files without first asking the user.
 bool AlwaysMoveOfficeFiles(Profile* profile);
+
+// Sets the user preference storing whether the move confirmation dialog has
+// been shown before.
+void SetOfficeMoveConfirmationShown(Profile* profile, bool complete);
+// Whether the move confirmation dialog has been shown before.
+bool OfficeMoveConfirmationShown(Profile* profile);
 
 // Sets the preference `office.file_moved_one_drive`.
 void SetOfficeFileMovedToOneDrive(Profile* profile, base::Time moved);

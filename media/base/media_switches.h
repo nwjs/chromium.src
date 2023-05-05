@@ -164,14 +164,15 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kCdmHostVerification);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kCdmProcessSiteIsolation);
 #if BUILDFLAG(CHROME_WIDE_ECHO_CANCELLATION)
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kChromeWideEchoCancellation);
-MEDIA_EXPORT extern const base::FeatureParam<int>
-    kChromeWideEchoCancellationProcessingFifoSize;
 MEDIA_EXPORT extern const base::FeatureParam<bool>
     kChromeWideEchoCancellationMinimizeResampling;
 MEDIA_EXPORT extern const base::FeatureParam<double>
     kChromeWideEchoCancellationDynamicMixingTimeout;
 MEDIA_EXPORT extern const base::FeatureParam<bool>
     kChromeWideEchoCancellationAllowAllSampleRates;
+MEDIA_EXPORT BASE_DECLARE_FEATURE(kDecreaseProcessingAudioFifoSize);
+MEDIA_EXPORT extern const base::FeatureParam<int>
+    kDecreaseProcessingAudioFifoSizeValue;
 #endif
 #if BUILDFLAG(IS_CHROMEOS)
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kCrOSSystemAEC);
@@ -243,6 +244,7 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaLearningSmoothnessExperiment);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaOptimizer);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaPowerExperiment);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMemoryPressureBasedSourceBufferGC);
+MEDIA_EXPORT BASE_DECLARE_FEATURE(kUseMultiPlaneFormatForHardwareVideo);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMultiPlaneSoftwareVideoSharedImages);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMultiPlaneVideoCaptureSharedImages);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kOpenscreenCastStreamingSession);
@@ -296,7 +298,6 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kVaapiVp9kSVCHWEncoding);
 #endif  // defined(ARCH_CPU_X86_FAMILY) && BUILDFLAG(IS_CHROMEOS)
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kVideoBlitColorAccuracy);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kVp9kSVCHWDecoding);
-MEDIA_EXPORT BASE_DECLARE_FEATURE(kWakeLockOptimisationHiddenMuted);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kWebContentsCaptureHiDpi);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kWebrtcMediaCapabilitiesParameters);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kResolutionBasedDecoderPriority);
@@ -315,18 +316,17 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kRequestSystemAudioFocus);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kUseAudioLatencyFromHAL);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kUsePooledSharedImageVideoProvider);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kUseRealColorSpaceForAndroidVideo);
+#endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(ENABLE_HLS_DEMUXER)
 // The feature |kHlsPlayer| enables the use of Android's builtin media-player
 // based HLS implementation, which chrome currently relies on when playing
 // on android, while this feature enabled chrome's built-in HLS parser and
 // demuxer. When this feature is enabled, the media-player based HLS player
-// will NOT be used. This will roll out first on android (hence inside the
-// IS_ANDROID buildflag), but will eventually land in desktop chrome as well.
+// will NOT be used. This will roll out first on android, but will eventually
+// land in desktop chrome as well.
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kBuiltInHlsPlayer);
 #endif  // BUILDFLAG(ENABLE_HLS_DEMUXER)
-
-#endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kChromeOSHWAV1Decoder);
@@ -407,6 +407,7 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kUseOutOfProcessVideoEncoding);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kUseMojoVideoDecoderForPepper);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kUseSequencedTaskRunnerForMediaService);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kUseSequencedTaskRunnerForMojoVEAProvider);
+MEDIA_EXPORT BASE_DECLARE_FEATURE(kUseSequencedTaskRunnerForMojoVEAService);
 
 #if BUILDFLAG(IS_FUCHSIA)
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kFuchsiaMediacodecVideoEncoder);
@@ -421,14 +422,13 @@ MEDIA_EXPORT std::string GetEffectiveAutoplayPolicy(
     const base::CommandLine& command_line);
 
 MEDIA_EXPORT bool IsChromeWideEchoCancellationEnabled();
+MEDIA_EXPORT int GetProcessingAudioFifoSize();
 MEDIA_EXPORT bool IsHardwareSecureDecryptionEnabled();
 MEDIA_EXPORT bool IsVideoCaptureAcceleratedJpegDecodingEnabled();
 
 #if BUILDFLAG(IS_WIN)
 MEDIA_EXPORT bool IsMediaFoundationD3D11VideoCaptureEnabled();
 #endif
-
-MEDIA_EXPORT bool IsUseMojoVideoDecoderForPepperEnabled();
 
 enum class kCrosGlobalMediaControlsPinOptions {
   kPin,

@@ -18,6 +18,7 @@
 #include "ash/system/model/clock_model.h"
 #include "ash/system/model/clock_observer.h"
 #include "ash/system/model/system_tray_model.h"
+#include "ash/system/model/update_model.h"
 #include "ash/system/power/adaptive_charging_controller.h"
 #include "ash/system/power/power_status.h"
 #include "ash/system/time/calendar_metrics.h"
@@ -25,6 +26,7 @@
 #include "ash/system/tray/tray_popup_utils.h"
 #include "ash/system/unified/buttons.h"
 #include "ash/system/unified/quick_settings_metrics_util.h"
+#include "ash/system/update/eol_notice_quick_settings_view.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/i18n/time_formatting.h"
@@ -118,9 +120,6 @@ DateView::DateView(UnifiedSystemTrayController* controller)
   Update();
 
   Shell::Get()->system_tray_model()->clock()->AddObserver(this);
-  if (!features::IsCalendarViewEnabled())
-    SetEnabled(
-        Shell::Get()->system_tray_model()->clock()->IsSettingsAvailable());
   SetInstallFocusRingOnFocus(true);
   views::FocusRing::Get(this)->SetColorId(ui::kColorAshFocusRing);
   views::InkDrop::Get(this)->SetMode(views::InkDropHost::InkDropMode::OFF);
@@ -141,7 +140,7 @@ void DateView::OnButtonPressed(const ui::Event& event) {
   quick_settings_metrics_util::RecordQsButtonActivated(
       QsButtonCatalogName::kDateViewButton);
 
-  if (features::IsCalendarViewEnabled() && controller_->IsExpanded()) {
+  if (controller_->IsExpanded()) {
     controller_->ShowCalendarView(
         calendar_metrics::CalendarViewShowSource::kDateView,
         calendar_metrics::GetEventType(event));
@@ -155,13 +154,10 @@ void DateView::Update() {
   base::Time now = base::Time::Now();
   label_->SetText(l10n_util::GetStringFUTF16(
       IDS_ASH_STATUS_TRAY_DATE, FormatDayOfWeek(now), FormatDate(now)));
-  if (features::IsCalendarViewEnabled()) {
-    SetAccessibleName(l10n_util::GetStringFUTF16(
-        IDS_ASH_CALENDAR_ENTRY_ACCESSIBLE_DESCRIPTION,
-        TimeFormatFriendlyDateAndTime(now)));
-  } else {
-    SetAccessibleName(TimeFormatFriendlyDateAndTime(now));
-  }
+
+  SetAccessibleName(
+      l10n_util::GetStringFUTF16(IDS_ASH_CALENDAR_ENTRY_ACCESSIBLE_DESCRIPTION,
+                                 TimeFormatFriendlyDateAndTime(now)));
 }
 
 gfx::Insets DateView::GetInsets() const {
@@ -202,8 +198,9 @@ class ManagementPowerDateComboView : public views::View {
       separator_view_->SetPreferredLength(kUnifiedSystemInfoHeight);
 
       const bool use_smart_charging_ui = UseSmartChargingUI();
-      if (use_smart_charging_ui)
+      if (use_smart_charging_ui) {
         AddChildView(std::make_unique<BatteryIconView>(controller));
+      }
       AddChildView(std::make_unique<BatteryLabelView>(controller,
                                                       use_smart_charging_ui));
     }
@@ -261,19 +258,35 @@ UnifiedSystemInfoView::UnifiedSystemInfoView(
       AddChildView(std::make_unique<ManagementPowerDateComboView>(controller));
   layout->SetFlexForView(combo_view_, 1);
 
-  // If the release track is not "stable" then channel indicator UI for quick
-  // settings is put up.
-  auto channel = Shell::Get()->shell_delegate()->GetChannel();
-  if (features::IsReleaseTrackUiEnabled() &&
-      channel_indicator_utils::IsDisplayableChannel(channel) &&
-      Shell::Get()->session_controller()->GetSessionState() ==
-          session_manager::SessionState::ACTIVE) {
-    channel_view_ =
-        AddChildView(std::make_unique<ChannelIndicatorQuickSettingsView>(
-            channel, Shell::Get()
-                         ->system_tray_model()
-                         ->client()
-                         ->IsUserFeedbackEnabled()));
+  if (Shell::Get()->session_controller()->GetSessionState() ==
+      session_manager::SessionState::ACTIVE) {
+    if (Shell::Get()->system_tray_model()->update_model()->show_eol_notice()) {
+      auto* eol_notice_wrapper = AddChildView(std::make_unique<views::View>());
+      auto* eol_notice_layout = eol_notice_wrapper->SetLayoutManager(
+          std::make_unique<views::BoxLayout>(
+              views::BoxLayout::Orientation::kHorizontal, gfx::Insets(),
+              kUnifiedSystemInfoSpacing));
+      eol_notice_layout->set_main_axis_alignment(
+          views::BoxLayout::MainAxisAlignment::kCenter);
+      eol_notice_layout->set_cross_axis_alignment(
+          views::BoxLayout::CrossAxisAlignment::kCenter);
+
+      eol_notice_ = eol_notice_wrapper->AddChildView(
+          std::make_unique<EolNoticeQuickSettingsView>());
+    }
+
+    // If the release track is not "stable" then channel indicator UI for quick
+    // settings is put up.
+    auto channel = Shell::Get()->shell_delegate()->GetChannel();
+    if (features::IsReleaseTrackUiEnabled() && !eol_notice_ &&
+        channel_indicator_utils::IsDisplayableChannel(channel)) {
+      channel_view_ =
+          AddChildView(std::make_unique<ChannelIndicatorQuickSettingsView>(
+              channel, Shell::Get()
+                           ->system_tray_model()
+                           ->client()
+                           ->IsUserFeedbackEnabled()));
+    }
   }
 }
 

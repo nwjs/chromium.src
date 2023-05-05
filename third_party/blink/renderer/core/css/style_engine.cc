@@ -102,6 +102,7 @@
 #include "third_party/blink/renderer/core/style/filter_operations.h"
 #include "third_party/blink/renderer/core/style/style_initial_data.h"
 #include "third_party/blink/renderer/core/svg/svg_resource.h"
+#include "third_party/blink/renderer/core/view_transition/view_transition.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_utils.h"
 #include "third_party/blink/renderer/platform/fonts/font_cache.h"
 #include "third_party/blink/renderer/platform/fonts/font_selector.h"
@@ -722,14 +723,7 @@ RuleSet* StyleEngine::RuleSetForSheet(CSSStyleSheet& sheet) {
   if (!sheet.MatchesMediaQueries(EnsureMediaQueryEvaluator())) {
     return nullptr;
   }
-
-  AddRuleFlags add_rule_flags = kRuleHasNoSpecialState;
-  if (document_->GetExecutionContext()->GetSecurityOrigin()->CanRequest(
-          sheet.BaseURL())) {
-    add_rule_flags = kRuleHasDocumentSecurityOrigin;
-  }
-  return &sheet.Contents()->EnsureRuleSet(*media_query_evaluator_,
-                                          add_rule_flags);
+  return &sheet.Contents()->EnsureRuleSet(*media_query_evaluator_);
 }
 
 RuleSet* StyleEngine::RuleSetScope::RuleSetForSheet(StyleEngine& engine,
@@ -824,6 +818,7 @@ void StyleEngine::UpdateGenericFontFamilySettings() {
   if (resolver_) {
     resolver_->InvalidateMatchedPropertiesCache();
   }
+  FontCache::Get().InvalidateNGShapeCache();
   FontCache::Get().InvalidateShapeCache();
 }
 
@@ -3316,7 +3311,8 @@ void StyleEngine::ViewportDefiningElementDidChange() {
     //
     // This update is also necessary if the first body element changes because
     // another body element is inserted or removed.
-    layout_object->SetStyle(ComputedStyle::Clone(*layout_object->Style()));
+    layout_object->SetStyle(
+        ComputedStyleBuilder(*layout_object->Style()).TakeStyle());
   }
 }
 

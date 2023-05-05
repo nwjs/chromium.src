@@ -3656,14 +3656,12 @@ TEST_F(MiddleClickWebViewTest, MiddleClickAutoscrollCursor) {
   web_view_helper_.Reset();
 }
 
-static void ConfigueCompositingWebView(WebSettings* settings) {
-  settings->SetPreferCompositingToLCDTextEnabled(true);
-}
-
 TEST_F(WebViewTest, ShowPressOnTransformedLink) {
   frame_test_helpers::WebViewHelper web_view_helper;
-  WebViewImpl* web_view_impl =
-      web_view_helper.InitializeWithSettings(&ConfigueCompositingWebView);
+  WebViewImpl* web_view_impl = web_view_helper.Initialize();
+  web_view_impl->GetPage()
+      ->GetSettings()
+      .SetPreferCompositingToLCDTextForTesting(true);
 
   int page_width = 640;
   int page_height = 480;
@@ -3894,7 +3892,8 @@ class ViewCreatingWebFrameClient
       const SessionStorageNamespaceId&,
       bool& consumed_user_gesture,
       const absl::optional<Impression>&,
-      const absl::optional<WebPictureInPictureWindowOptions>&, WebString*) override {
+      const absl::optional<WebPictureInPictureWindowOptions>&,
+      WebString*) override {
     return web_view_helper_.InitializeWithOpener(Frame());
   }
   WebView* CreatedWebView() const { return web_view_helper_.GetWebView(); }
@@ -5459,7 +5458,6 @@ TEST_F(WebViewTest, ViewportUnitsPrintingWithPageZoom) {
 }
 
 TEST_F(WebViewTest, ResizeWithFixedPosCrash) {
-  ScopedLayoutNGPrintingForTest ng_printing_enabled(true);
   WebViewImpl* web_view = web_view_helper_.Initialize();
   WebURL base_url = url_test_helpers::ToKURL("http://example.com/");
   frame_test_helpers::LoadHTMLString(web_view->MainFrameImpl(),

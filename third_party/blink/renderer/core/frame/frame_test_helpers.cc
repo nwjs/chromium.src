@@ -426,7 +426,8 @@ WebViewImpl* WebViewHelper::InitializeWithOpener(
     TestWebFrameClient* web_frame_client,
     WebViewClient* web_view_client,
     void (*update_settings_func)(WebSettings*),
-    absl::optional<mojom::blink::FencedFrameMode> fenced_frame_mode) {
+    absl::optional<blink::FencedFrame::DeprecatedFencedFrameMode>
+        fenced_frame_mode) {
   Reset();
 
   InitializeWebView(web_view_client, opener ? opener->View() : nullptr,
@@ -472,6 +473,15 @@ WebViewImpl* WebViewHelper::Initialize(
 WebViewImpl* WebViewHelper::InitializeWithSettings(
     void (*update_settings_func)(WebSettings*)) {
   return InitializeWithOpener(nullptr, nullptr, nullptr, update_settings_func);
+}
+
+// static
+void WebViewHelper::UpdateAndroidCompositingSettings(WebSettings* settings) {
+  settings->SetLCDTextPreference(LCDTextPreference::kIgnored);
+  settings->SetViewportMetaEnabled(true);
+  settings->SetViewportEnabled(true);
+  settings->SetMainFrameResizesAreOrientationChanges(true);
+  settings->SetShrinksViewportContentToFit(true);
 }
 
 WebViewImpl* WebViewHelper::InitializeAndLoad(
@@ -695,7 +705,8 @@ void WebViewHelper::Resize(const gfx::Size& size) {
 void WebViewHelper::InitializeWebView(
     WebViewClient* web_view_client,
     class WebView* opener,
-    absl::optional<mojom::blink::FencedFrameMode> fenced_frame_mode) {
+    absl::optional<blink::FencedFrame::DeprecatedFencedFrameMode>
+        fenced_frame_mode) {
   web_view_client =
       CreateDefaultClientIfNeeded(web_view_client, owned_web_view_client_);
   web_view_ = To<WebViewImpl>(

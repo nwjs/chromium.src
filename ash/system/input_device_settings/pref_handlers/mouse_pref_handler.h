@@ -15,8 +15,11 @@ namespace ash {
 // Handles reading and updating prefs that store mouse settings.
 class ASH_EXPORT MousePrefHandler {
  public:
+  virtual ~MousePrefHandler() = default;
+
   // Initializes device settings in prefs and update the `settings` member of
   // the `mojom::Mouse` object.
+  // If `pref_service` is null, sets the `settings` member to default settings.
   virtual void InitializeMouseSettings(PrefService* pref_service,
                                        mojom::Mouse* mouse) = 0;
 
@@ -24,9 +27,6 @@ class ASH_EXPORT MousePrefHandler {
   // `mouse.settings`.
   virtual void UpdateMouseSettings(PrefService* pref_service,
                                    const mojom::Mouse& mouse) = 0;
-
- protected:
-  virtual ~MousePrefHandler() = default;
 };
 
 }  // namespace ash

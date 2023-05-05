@@ -7,7 +7,7 @@
 
 #import <UIKit/UIKit.h>
 
-class ChromeBrowserState;
+class Browser;
 @protocol SigninPresenter;
 @class SigninPromoViewConfigurator;
 @class SigninPromoViewMediator;
@@ -37,10 +37,16 @@ class ChromeBrowserState;
 
 @property(nonatomic, readonly) SigninPromoViewMediator* signinPromoViewMediator;
 
-- (instancetype)initWithBrowserState:(ChromeBrowserState*)browserState
-                            delegate:
-                                (id<BookmarkPromoControllerDelegate>)delegate
-                           presenter:(id<SigninPresenter>)presenter;
+// See `-[BookmarkPromoController initWithBrowser:delegate:presenter:
+// baseViewController:]`.
+- (instancetype)init NS_UNAVAILABLE;
+// Designated initializer.
+// `baseViewController` is the view to present UI for sign-in.
+- (instancetype)initWithBrowser:(Browser*)browser
+                       delegate:(id<BookmarkPromoControllerDelegate>)delegate
+                      presenter:(id<SigninPresenter>)presenter
+             baseViewController:(UIViewController*)baseViewController
+    NS_DESIGNATED_INITIALIZER;
 
 // Called before the instance is deallocated.
 - (void)shutdown;

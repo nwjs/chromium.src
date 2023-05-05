@@ -25,7 +25,7 @@ SavedDeskSaveDeskButton::SavedDeskSaveDeskButton(
     const gfx::VectorIcon* icon)
     : PillButton(callback,
                  text,
-                 PillButton::Type::kDefaultWithIconLeading,
+                 PillButton::Type::kDefaultElevatedWithIconLeading,
                  icon),
       callback_(callback),
       button_type_(button_type) {
@@ -39,7 +39,7 @@ SavedDeskSaveDeskButton::SavedDeskSaveDeskButton(
   if (features::IsDarkLightModeEnabled()) {
     SetBorder(std::make_unique<views::HighlightBorder>(
         /*corner_radius=*/kCornerRadius,
-        views::HighlightBorder::Type::kHighlightBorder2,
+        views::HighlightBorder::Type::kHighlightBorder1,
         /*use_light_colors=*/false));
   }
 }

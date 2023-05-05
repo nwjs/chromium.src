@@ -24,7 +24,6 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/web_apps/frame_toolbar/web_app_frame_toolbar_utils.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
-#include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/bookmarks/common/bookmark_pref_names.h"
@@ -154,9 +153,7 @@ void BrowserFrameMac::GetWindowFrameTitlebarHeight(
     *titlebar_height =
         browser_view_->GetTabStripHeight() +
         browser_view_->frame()->GetFrameView()->GetTopInset(true);
-    if (base::FeatureList::IsEnabled(
-            features::kWebAppFrameToolbarInBrowserView) &&
-        !browser_view_->GetTabStripVisible()) {
+    if (!browser_view_->GetTabStripVisible()) {
       *titlebar_height +=
           browser_view_->GetWebAppFrameToolbarPreferredSize().height() +
           kWebAppMenuMargin * 2;
@@ -442,7 +439,7 @@ void BrowserFrameMac::EnabledStateChangedForCommand(int id, bool enabled) {
       GetNSWindowHost()->CanGoForward(enabled);
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_NORETURN();
   }
 }
 

@@ -194,6 +194,9 @@ class ShellVariationsServiceClient
     return false;
   }
   bool IsEnterprise() override { return false; }
+  // Profiles aren't supported, so nothing to do here.
+  void RemoveGoogleGroupsFromPrefsForDeletedProfiles(
+      PrefService* local_state) override {}
 };
 
 // Returns the full user agent string for the content shell.
@@ -828,6 +831,7 @@ ShellContentBrowserClient::GetPermissionsPolicyForIsolatedWebApp(
       blink::mojom::PermissionsPolicyFeature::kDirectSockets,
       {blink::OriginWithPossibleWildcards(app_origin,
                                           /*has_subdomain_wildcard=*/false)},
+      /*self_if_matches=*/absl::nullopt,
       /*matches_all_origins=*/false, /*matches_opaque_src=*/false);
   return {{decl}};
 }

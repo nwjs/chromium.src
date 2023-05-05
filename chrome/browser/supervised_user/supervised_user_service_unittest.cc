@@ -22,6 +22,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
 #include "chrome/browser/supervised_user/supervised_user_service_factory.h"
+#include "chrome/browser/supervised_user/supervised_user_test_util.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/testing_browser_process.h"
@@ -30,6 +31,7 @@
 #include "components/signin/public/identity_manager/account_capabilities_test_mutator.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/supervised_user/core/common/features.h"
+#include "components/supervised_user/core/common/pref_names.h"
 #include "components/version_info/version_info.h"
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/test_utils.h"
@@ -93,7 +95,7 @@ class AsyncTestHelper {
 
 class SupervisedUserURLFilterObserver
     : public AsyncTestHelper,
-      public SupervisedUserURLFilter::Observer {
+      public supervised_user::SupervisedUserURLFilter::Observer {
  public:
   SupervisedUserURLFilterObserver() {}
 
@@ -104,7 +106,7 @@ class SupervisedUserURLFilterObserver
 
   ~SupervisedUserURLFilterObserver() {}
 
-  void Init(SupervisedUserURLFilter* url_filter) {
+  void Init(supervised_user::SupervisedUserURLFilter* url_filter) {
     scoped_observation_.Observe(url_filter);
   }
 
@@ -112,18 +114,16 @@ class SupervisedUserURLFilterObserver
   void OnSiteListUpdated() override { QuitRunLoop(); }
 
  private:
-  base::ScopedObservation<SupervisedUserURLFilter,
-                          SupervisedUserURLFilter::Observer>
+  base::ScopedObservation<supervised_user::SupervisedUserURLFilter,
+                          supervised_user::SupervisedUserURLFilter::Observer>
       scoped_observation_{this};
 };
 
 }  // namespace
 
-class SupervisedUserServiceTest
-    : public ::testing::TestWithParam<
-          /* is_subject_to_parental_controls */ bool> {
+class SupervisedUserServiceTestBase : public ::testing::Test {
  public:
-  SupervisedUserServiceTest() {
+  explicit SupervisedUserServiceTestBase(bool is_supervised) {
     // The testing browser process may be deleted following a crash.
     // Re-instantiate it before its use in testing profile creation.
     if (!g_browser_process) {
@@ -134,7 +134,9 @@ class SupervisedUserServiceTest
     TestingProfile::Builder builder;
     builder.AddTestingFactory(SyncServiceFactory::GetInstance(),
                               SyncServiceFactory::GetDefaultFactory());
-    builder.SetIsSupervisedProfile();
+    if (is_supervised) {
+      builder.SetIsSupervisedProfile();
+    }
     profile_ = IdentityTestEnvironmentProfileAdaptor::
         CreateProfileForIdentityTestEnvironment(builder);
     identity_test_env_profile_adaptor_ =
@@ -151,35 +153,69 @@ class SupervisedUserServiceTest
       identity_test_env_profile_adaptor_;
 };
 
-#if !(BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS))
-TEST_P(SupervisedUserServiceTest, IsURLFilteringEnabled) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(
-      supervised_user::kFilterWebsitesForSupervisedUsersOnThirdParty);
-  EXPECT_TRUE(base::FeatureList::IsEnabled(
-      supervised_user::kFilterWebsitesForSupervisedUsersOnThirdParty));
+class SupervisedUserServiceTest : public SupervisedUserServiceTestBase {
+ public:
+  SupervisedUserServiceTest()
+      : SupervisedUserServiceTestBase(/*is_supervised=*/true) {}
+};
 
-  signin::IdentityTestEnvironment* identity_test_env =
-      identity_test_env_profile_adaptor_->identity_test_env();
-  AccountInfo account = identity_test_env->MakePrimaryAccountAvailable(
-      "account@gmail.com", signin::ConsentLevel::kSignin);
-
-  bool is_subject_to_parental_controls = GetParam();
-  AccountCapabilitiesTestMutator mutator(&account.capabilities);
-  mutator.set_is_subject_to_parental_controls(is_subject_to_parental_controls);
-  signin::UpdateAccountInfoForAccount(identity_test_env->identity_manager(),
-                                      account);
-
+TEST_F(SupervisedUserServiceTest, IsURLFilteringEnabled) {
   SupervisedUserService* service =
       SupervisedUserServiceFactory::GetForProfile(profile_.get());
-  EXPECT_EQ(service->IsURLFilteringEnabled(), is_subject_to_parental_controls);
+  EXPECT_TRUE(profile_->IsChild());
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS)
+  EXPECT_TRUE(service->IsURLFilteringEnabled());
+#else
+  EXPECT_FALSE(service->IsURLFilteringEnabled());
+#endif
+
+  // Enable filtering flag across platforms.
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      supervised_user::kFilterWebsitesForSupervisedUsersOnDesktopAndIOS);
+
+  EXPECT_TRUE(service->IsURLFilteringEnabled());
 }
 
-INSTANTIATE_TEST_SUITE_P(,
-                         SupervisedUserServiceTest,
-                         /* is_subject_to_parental_controls */ testing::Bool());
+#if !BUILDFLAG(ENABLE_EXTENSIONS)
+TEST_F(SupervisedUserServiceTest, AreExtensionsPermissionsEnabled) {
+  EXPECT_TRUE(profile_->IsChild());
+  SupervisedUserService* service =
+      SupervisedUserServiceFactory::GetForProfile(profile_.get());
+  EXPECT_FALSE(service->AreExtensionsPermissionsEnabled());
+}
+#endif  // !BUILDFLAG(ENABLE_EXTENSIONS)
 
-#endif  // !(BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS))
+class SupervisedUserServiceTestUnsupervised
+    : public SupervisedUserServiceTestBase {
+ public:
+  SupervisedUserServiceTestUnsupervised()
+      : SupervisedUserServiceTestBase(/*is_supervised=*/false) {}
+};
+
+TEST_F(SupervisedUserServiceTestUnsupervised, IsURLFilteringEnabled) {
+  SupervisedUserService* service =
+      SupervisedUserServiceFactory::GetForProfile(profile_.get());
+  EXPECT_FALSE(service->IsURLFilteringEnabled());
+
+  // Enable filtering flag across platforms.
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      supervised_user::kFilterWebsitesForSupervisedUsersOnDesktopAndIOS);
+  EXPECT_TRUE(base::FeatureList::IsEnabled(
+      supervised_user::kFilterWebsitesForSupervisedUsersOnDesktopAndIOS));
+
+  EXPECT_FALSE(service->IsURLFilteringEnabled());
+}
+
+#if !BUILDFLAG(ENABLE_EXTENSIONS)
+TEST_F(SupervisedUserServiceTestUnsupervised, AreExtensionsPermissionsEnabled) {
+  EXPECT_FALSE(profile_->IsChild());
+  SupervisedUserService* service =
+      SupervisedUserServiceFactory::GetForProfile(profile_.get());
+  EXPECT_FALSE(service->AreExtensionsPermissionsEnabled());
+}
+#endif  // !BUILDFLAG(ENABLE_EXTENSIONS)
 
 // TODO(crbug.com/1364589): Failing consistently on linux-chromeos-dbg
 // due to failed timezone conversion assertion.
@@ -191,7 +227,7 @@ INSTANTIATE_TEST_SUITE_P(,
 TEST_F(SupervisedUserServiceTest, MAYBE_DeprecatedFilterPolicy) {
   PrefService* prefs = profile_->GetPrefs();
   EXPECT_EQ(prefs->GetInteger(prefs::kDefaultSupervisedUserFilteringBehavior),
-            SupervisedUserURLFilter::ALLOW);
+            supervised_user::SupervisedUserURLFilter::ALLOW);
 
   ASSERT_DCHECK_DEATH(
       prefs->SetInteger(prefs::kDefaultSupervisedUserFilteringBehavior,
@@ -220,7 +256,8 @@ class SupervisedUserServiceExtensionTestBase
         SupervisedUserServiceFactory::GetForProfile(profile_.get());
     service->Init();
 
-    SupervisedUserURLFilter* url_filter = service->GetURLFilter();
+    supervised_user::SupervisedUserURLFilter* url_filter =
+        service->GetURLFilter();
     url_filter->SetBlockingTaskRunnerForTesting(
         base::SingleThreadTaskRunner::GetCurrentDefault());
     url_filter_observer_.Init(url_filter);
@@ -261,6 +298,14 @@ class SupervisedUserServiceExtensionTestUnsupervised
       : SupervisedUserServiceExtensionTestBase(false) {}
 };
 
+TEST_F(SupervisedUserServiceExtensionTestUnsupervised,
+       AreExtensionsPermissionsEnabled) {
+  EXPECT_FALSE(profile_->IsChild());
+  SupervisedUserService* service =
+      SupervisedUserServiceFactory::GetForProfile(profile_.get());
+  EXPECT_FALSE(service->AreExtensionsPermissionsEnabled());
+}
+
 class SupervisedUserServiceExtensionTest
     : public SupervisedUserServiceExtensionTestBase {
  public:
@@ -269,13 +314,42 @@ class SupervisedUserServiceExtensionTest
 };
 
 TEST_F(SupervisedUserServiceExtensionTest,
+       AreExtensionsPermissionsEnabledWithExtensionsPermissionsFlagDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      supervised_user::kEnableExtensionsPermissionsForSupervisedUsersOnDesktop);
+  EXPECT_TRUE(profile_->IsChild());
+
+  SupervisedUserService* service =
+      SupervisedUserServiceFactory::GetForProfile(profile_.get());
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS)
+  EXPECT_TRUE(service->AreExtensionsPermissionsEnabled());
+#else
+  EXPECT_FALSE(service->AreExtensionsPermissionsEnabled());
+#endif
+}
+
+TEST_F(SupervisedUserServiceExtensionTest,
+       AreExtensionsPermissionsEnabledWithExtensionsPermissionsFlagEnabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      supervised_user::kEnableExtensionsPermissionsForSupervisedUsersOnDesktop);
+  EXPECT_TRUE(profile_->IsChild());
+
+  SupervisedUserService* service =
+      SupervisedUserServiceFactory::GetForProfile(profile_.get());
+  EXPECT_TRUE(service->AreExtensionsPermissionsEnabled());
+}
+
+TEST_F(SupervisedUserServiceExtensionTest,
        ExtensionManagementPolicyProviderWithoutSUInitiatedInstalls) {
   SupervisedUserService* supervised_user_service =
       SupervisedUserServiceFactory::GetForProfile(profile_.get());
-  supervised_user_service
-      ->SetSupervisedUserExtensionsMayRequestPermissionsPrefForTesting(false);
-  EXPECT_FALSE(supervised_user_service
-                   ->GetSupervisedUserExtensionsMayRequestPermissionsPref());
+  supervised_user_test_util::
+      SetSupervisedUserExtensionsMayRequestPermissionsPref(profile_.get(),
+                                                           false);
+  EXPECT_FALSE(profile_->GetPrefs()->GetBoolean(
+      prefs::kSupervisedUserExtensionsMayRequestPermissions));
   EXPECT_TRUE(profile_->IsChild());
 
   // Check that a supervised user can install and uninstall a theme even if
@@ -325,10 +399,11 @@ TEST_F(SupervisedUserServiceExtensionTest,
       SupervisedUserServiceFactory::GetForProfile(profile_.get());
   // Enable child users to initiate extension installs by simulating the
   // toggling of "Permissions for sites, apps and extensions" to enabled.
-  supervised_user_service
-      ->SetSupervisedUserExtensionsMayRequestPermissionsPrefForTesting(true);
-  EXPECT_TRUE(supervised_user_service
-                  ->GetSupervisedUserExtensionsMayRequestPermissionsPref());
+  supervised_user_test_util::
+      SetSupervisedUserExtensionsMayRequestPermissionsPref(profile_.get(),
+                                                           true);
+  EXPECT_TRUE(profile_->GetPrefs()->GetBoolean(
+      prefs::kSupervisedUserExtensionsMayRequestPermissions));
   EXPECT_TRUE(profile_->IsChild());
 
   // The supervised user should be able to load and uninstall the extensions

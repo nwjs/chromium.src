@@ -2026,11 +2026,9 @@ void ChildProcessSecurityPolicyImpl::AddFutureIsolatedOrigins(
     BrowserContext* browser_context) {
   std::vector<IsolatedOriginPattern> patterns;
   patterns.reserve(origins_to_add.size());
-  std::transform(origins_to_add.cbegin(), origins_to_add.cend(),
-                 std::back_inserter(patterns),
-                 [](const url::Origin& o) -> IsolatedOriginPattern {
-                   return IsolatedOriginPattern(o);
-                 });
+  base::ranges::transform(
+      origins_to_add, std::back_inserter(patterns),
+      [](const url::Origin& o) { return IsolatedOriginPattern(o); });
   AddFutureIsolatedOrigins(patterns, source, browser_context);
 }
 
@@ -2490,7 +2488,9 @@ void ChildProcessSecurityPolicyImpl::AddDefaultIsolatedOriginIfNeeded(
   // Since there was no prior record for this BrowsingInstance, track that this
   // origin should use the default isolation model.
   origin_isolation_by_browsing_instance_[browsing_instance_id].emplace_back(
-      OriginAgentClusterIsolationState::CreateForDefaultIsolation(), origin);
+      OriginAgentClusterIsolationState::CreateForDefaultIsolation(
+          browser_context),
+      origin);
 }
 
 void ChildProcessSecurityPolicyImpl::

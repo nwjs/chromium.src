@@ -8,6 +8,7 @@
 
 import 'chrome://resources/cr_elements/cr_button/cr_button.js';
 import '../../css/common.css.js';
+import '../../css/cros_button_style.css.js';
 import 'chrome://resources/cr_elements/cr_toggle/cr_toggle.js';
 import 'chrome://resources/polymer/v3_0/iron-a11y-keys/iron-a11y-keys.js';
 import 'chrome://resources/polymer/v3_0/iron-selector/iron-selector.js';
@@ -26,6 +27,7 @@ import {getTemplate} from './dynamic_color_element.html.js';
 import {initializeDynamicColorData, setColorSchemePref, setStaticColorPref} from './theme_controller.js';
 import {getThemeProvider} from './theme_interface_provider.js';
 import {ThemeObserver} from './theme_observer.js';
+import {DEFAULT_COLOR_SCHEME, DEFAULT_STATIC_COLOR, isAutomaticSeedColorEnabled} from './utils.js';
 
 export interface DynamicColorElement {
   $: {
@@ -35,9 +37,6 @@ export interface DynamicColorElement {
     staticColorSelector: IronSelectorElement,
   };
 }
-
-const DEFAULT_STATIC_COLOR = hexColorToSkColor('#4285f4');
-const DEFAULT_COLOR_SCHEME = ColorScheme.kTonalSpot;
 
 export class DynamicColorElement extends WithPersonalizationStore {
   static get is() {
@@ -63,11 +62,10 @@ export class DynamicColorElement extends WithPersonalizationStore {
         type: Object,
         readOnly: true,
         value: [
-          // TODO(b/254479499): Replace colors when the spec is ready.
           '#4285f4',
-          '#bdc1c6',
-          '#edd0e4',
-          '#eadecd',
+          '#ffd6d6',
+          '#485045',
+          '#cbbfff',
         ],
       },
       sampleColorSchemes_: {
@@ -144,7 +142,7 @@ export class DynamicColorElement extends WithPersonalizationStore {
   }
 
   private isAutomaticSeedColorEnabled_(colorScheme: ColorScheme|null) {
-    return colorScheme === null || colorScheme !== ColorScheme.kStatic;
+    return isAutomaticSeedColorEnabled(colorScheme);
   }
 
   private getColorSchemeAriaChecked_(
@@ -203,19 +201,18 @@ export class DynamicColorElement extends WithPersonalizationStore {
   }
 
   /**
-   * Returns the tab index for static color and color scheme buttons. Static
-   * color id is a string whereas color scheme id is an enum.
+   * Returns the tab index for the color scheme buttons.
    */
-  private getTabIndex_(id: string|number): string {
-    if (typeof id === 'string' &&
-        hexColorToSkColor(id).value === DEFAULT_STATIC_COLOR.value) {
-      // Handles static color.
-      return '0';
-    } else if (typeof id === 'number' && id === DEFAULT_COLOR_SCHEME) {
-      // Handles color scheme.
-      return '0';
-    }
-    return '-1';
+  private getColorSchemeTabIndex_(id: number): string {
+    return id === DEFAULT_COLOR_SCHEME ? '0' : '-1';
+  }
+
+  /**
+   * Returns the tab index for the static color buttons.
+   */
+  private getStaticColorTabIndex_(id: string): string {
+    return hexColorToSkColor(id).value === DEFAULT_STATIC_COLOR.value ? '0' :
+                                                                        '-1';
   }
 }
 

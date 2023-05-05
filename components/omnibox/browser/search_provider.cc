@@ -36,6 +36,7 @@
 #include "components/omnibox/browser/keyword_provider.h"
 #include "components/omnibox/browser/omnibox_field_trial.h"
 #include "components/omnibox/browser/omnibox_triggered_feature_service.h"
+#include "components/omnibox/browser/page_classification_functions.h"
 #include "components/omnibox/browser/remote_suggestions_service.h"
 #include "components/omnibox/browser/suggestion_answer.h"
 #include "components/omnibox/browser/url_prefix.h"
@@ -53,6 +54,7 @@
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/cpp/simple_url_loader.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
+#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/metrics_proto/omnibox_event.pb.h"
 #include "third_party/metrics_proto/omnibox_focus_type.pb.h"
 #include "third_party/metrics_proto/omnibox_input_type.pb.h"
@@ -209,7 +211,7 @@ bool SearchProvider::CanSendCurrentPageURLInRequest(
   // Don't bother sending the URL of an NTP page; it's not useful. The server
   // already gets equivalent information in the form of the current page
   // classification.
-  return !IsNTPPage(page_classification) &&
+  return !omnibox::IsNTPPage(page_classification) &&
          CanSendPageURLInRequest(current_page_url) &&
          CanSendSuggestRequestWithURL(current_page_url, template_url,
                                       search_terms_data, client);
@@ -442,10 +444,10 @@ void SearchProvider::OnURLLoadComplete(
   // request we're constructing here for on-focus inputs.
   if (input_.focus_type() == metrics::OmniboxFocusType::INTERACTION_DEFAULT &&
       request_succeeded) {
-    std::unique_ptr<base::Value> data(
+    absl::optional<base::Value> data =
         SearchSuggestionParser::DeserializeJsonData(
             SearchSuggestionParser::ExtractJsonData(source,
-                                                    std::move(response_body))));
+                                                    std::move(response_body)));
     if (data) {
       SearchSuggestionParser::Results* results =
           is_keyword ? &keyword_results_ : &default_results_;
