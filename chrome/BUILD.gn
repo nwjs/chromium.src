@@ -1395,7 +1395,6 @@ if (is_win || (is_linux && !is_component_build)) {
                            root_build_dir),
                "-d",
                "-m",
-               "-a", "x86_64",
                "-g",
                rebase_path(
                    "$root_out_dir/{{source_file_part}}.dSYM/Contents/Resources/DWARF/{{source_file_part}}",
