@@ -85,19 +85,12 @@ void OsTelemetryGetBatteryInfoFunction::OnResult(
   }
   auto& battery_info = ptr->battery_result->get_battery_info();
 
-  // Protect accessing the serial number by a permission.
-  absl::optional<std::string> serial_number;
-  if (extension()->permissions_data()->HasAPIPermission(
-          extensions::mojom::APIPermissionID::kChromeOSTelemetrySerialNumber)) {
-    serial_number = std::move(battery_info->serial_number);
-  }
+  const bool has_permission = extension()->permissions_data()->HasAPIPermission(
+      extensions::mojom::APIPermissionID::kChromeOSTelemetrySerialNumber);
 
   telemetry::BatteryInfo result =
-      converters::ConvertPtr<telemetry::BatteryInfo>(std::move(battery_info));
-
-  if (serial_number && !serial_number->empty()) {
-    result.serial_number = std::move(serial_number);
-  }
+      converters::ConvertPtr<telemetry::BatteryInfo>(std::move(battery_info),
+                                                     has_permission);
 
   Respond(ArgumentList(telemetry::GetBatteryInfo::Results::Create(result)));
 }
@@ -389,6 +382,15 @@ void OsTelemetryGetTpmInfoFunction::OnResult(
 // OsTelemetryGetUsbBusInfoFunction --------------------------------------------
 
 void OsTelemetryGetUsbBusInfoFunction::RunIfAllowed() {
+  // USB info is guarded by the `os.attached_device_info` permission.
+  if (!extension()->permissions_data()->HasAPIPermission(
+          extensions::mojom::APIPermissionID::kChromeOSAttachedDeviceInfo)) {
+    Respond(Error(
+        "Unauthorized access to chrome.os.telemetry.getUsbBusInfo. Extension"
+        " doesn't have the permission."));
+    return;
+  }
+
   auto cb = base::BindOnce(&OsTelemetryGetUsbBusInfoFunction::OnResult, this);
 
   GetRemoteService()->ProbeTelemetryInfo(

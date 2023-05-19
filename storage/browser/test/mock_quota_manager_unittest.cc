@@ -105,7 +105,7 @@ class MockQuotaManagerTest : public testing::Test {
                                      blink::mojom::StorageType type) {
     QuotaErrorOr<BucketInfo> result;
     base::RunLoop run_loop;
-    manager_->GetBucketForTesting(
+    manager_->GetBucketByNameUnsafe(
         storage_key, bucket_name, type,
         base::BindLambdaForTesting([&](QuotaErrorOr<BucketInfo> bucket) {
           result = std::move(bucket);
@@ -174,13 +174,9 @@ class MockQuotaManagerTest : public testing::Test {
     EXPECT_EQ(quota, expected_quota);
   }
 
-  int deletion_callback_count() const {
-    return deletion_callback_count_;
-  }
+  int deletion_callback_count() const { return deletion_callback_count_; }
 
-  MockQuotaManager* manager() const {
-    return manager_.get();
-  }
+  MockQuotaManager* manager() const { return manager_.get(); }
 
   const std::set<BucketLocator>& buckets() const { return buckets_; }
 
@@ -209,7 +205,7 @@ TEST_F(MockQuotaManagerTest, GetOrCreateBucket) {
 
   QuotaErrorOr<BucketInfo> bucket1 =
       GetOrCreateBucket(kStorageKey1, kBucketName);
-  EXPECT_TRUE(bucket1.has_value());
+  ASSERT_TRUE(bucket1.has_value());
   EXPECT_EQ(bucket1->storage_key, kStorageKey1);
   EXPECT_EQ(bucket1->name, kBucketName);
   EXPECT_EQ(bucket1->type, kTemporary);
@@ -218,7 +214,7 @@ TEST_F(MockQuotaManagerTest, GetOrCreateBucket) {
 
   QuotaErrorOr<BucketInfo> bucket2 =
       GetOrCreateBucket(kStorageKey2, kBucketName);
-  EXPECT_TRUE(bucket2.has_value());
+  ASSERT_TRUE(bucket2.has_value());
   EXPECT_EQ(bucket2->storage_key, kStorageKey2);
   EXPECT_EQ(bucket2->name, kBucketName);
   EXPECT_EQ(bucket2->type, kTemporary);
@@ -227,7 +223,7 @@ TEST_F(MockQuotaManagerTest, GetOrCreateBucket) {
 
   QuotaErrorOr<BucketInfo> dupe_bucket =
       GetOrCreateBucket(kStorageKey1, kBucketName);
-  EXPECT_TRUE(dupe_bucket.has_value());
+  ASSERT_TRUE(dupe_bucket.has_value());
   EXPECT_EQ(dupe_bucket.value(), bucket1.value());
   EXPECT_EQ(manager()->BucketDataCount(kClientFile), 2);
 
@@ -252,7 +248,7 @@ TEST_F(MockQuotaManagerTest, GetOrCreateBucketSync) {
 
   BucketInitParams params(kStorageKey1, kBucketName);
   QuotaErrorOr<BucketInfo> bucket1 = manager()->GetOrCreateBucketSync(params);
-  EXPECT_TRUE(bucket1.has_value());
+  ASSERT_TRUE(bucket1.has_value());
   EXPECT_EQ(bucket1->storage_key, kStorageKey1);
   EXPECT_EQ(bucket1->name, kBucketName);
   EXPECT_EQ(bucket1->type, kTemporary);
@@ -261,7 +257,7 @@ TEST_F(MockQuotaManagerTest, GetOrCreateBucketSync) {
 
   params = BucketInitParams(kStorageKey2, kBucketName);
   QuotaErrorOr<BucketInfo> bucket2 = manager()->GetOrCreateBucketSync(params);
-  EXPECT_TRUE(bucket2.has_value());
+  ASSERT_TRUE(bucket2.has_value());
   EXPECT_EQ(bucket2->storage_key, kStorageKey2);
   EXPECT_EQ(bucket2->name, kBucketName);
   EXPECT_EQ(bucket2->type, kTemporary);
@@ -271,7 +267,7 @@ TEST_F(MockQuotaManagerTest, GetOrCreateBucketSync) {
   params = BucketInitParams(kStorageKey1, kBucketName);
   QuotaErrorOr<BucketInfo> dupe_bucket =
       manager()->GetOrCreateBucketSync(params);
-  EXPECT_TRUE(dupe_bucket.has_value());
+  ASSERT_TRUE(dupe_bucket.has_value());
   EXPECT_EQ(dupe_bucket.value(), bucket1.value());
   EXPECT_EQ(manager()->BucketDataCount(kClientFile), 2);
 
@@ -296,7 +292,7 @@ TEST_F(MockQuotaManagerTest, CreateBucketForTesting) {
 
   QuotaErrorOr<BucketInfo> bucket1 =
       CreateBucketForTesting(kStorageKey1, kBucketName, kTemporary);
-  EXPECT_TRUE(bucket1.has_value());
+  ASSERT_TRUE(bucket1.has_value());
   EXPECT_EQ(bucket1->storage_key, kStorageKey1);
   EXPECT_EQ(bucket1->name, kBucketName);
   EXPECT_EQ(bucket1->type, kTemporary);
@@ -305,7 +301,7 @@ TEST_F(MockQuotaManagerTest, CreateBucketForTesting) {
 
   QuotaErrorOr<BucketInfo> bucket2 =
       CreateBucketForTesting(kStorageKey2, kBucketName, kTemporary);
-  EXPECT_TRUE(bucket2.has_value());
+  ASSERT_TRUE(bucket2.has_value());
   EXPECT_EQ(bucket2->storage_key, kStorageKey2);
   EXPECT_EQ(bucket2->name, kBucketName);
   EXPECT_EQ(bucket2->type, kTemporary);
@@ -314,7 +310,7 @@ TEST_F(MockQuotaManagerTest, CreateBucketForTesting) {
 
   QuotaErrorOr<BucketInfo> dupe_bucket =
       GetOrCreateBucket(kStorageKey1, kBucketName);
-  EXPECT_TRUE(dupe_bucket.has_value());
+  ASSERT_TRUE(dupe_bucket.has_value());
   EXPECT_EQ(dupe_bucket.value(), bucket1.value());
   EXPECT_EQ(manager()->BucketDataCount(kClientFile), 2);
 }
@@ -328,10 +324,10 @@ TEST_F(MockQuotaManagerTest, GetBucket) {
   {
     QuotaErrorOr<BucketInfo> created =
         GetOrCreateBucket(kStorageKey1, kDefaultBucketName);
-    EXPECT_TRUE(created.has_value());
+    ASSERT_TRUE(created.has_value());
     QuotaErrorOr<BucketInfo> fetched =
         GetBucket(kStorageKey1, kDefaultBucketName, kTemporary);
-    EXPECT_TRUE(fetched.has_value());
+    ASSERT_TRUE(fetched.has_value());
     EXPECT_EQ(fetched.value(), created.value());
     EXPECT_EQ(fetched->storage_key, kStorageKey1);
     EXPECT_EQ(fetched->name, kDefaultBucketName);
@@ -341,19 +337,18 @@ TEST_F(MockQuotaManagerTest, GetBucket) {
   {
     QuotaErrorOr<BucketInfo> created =
         GetOrCreateBucket(kStorageKey2, kDefaultBucketName);
-    EXPECT_TRUE(created.has_value());
+    ASSERT_TRUE(created.has_value());
     QuotaErrorOr<BucketInfo> fetched =
         GetBucket(kStorageKey2, kDefaultBucketName, kTemporary);
-    EXPECT_TRUE(fetched.has_value());
+    ASSERT_TRUE(fetched.has_value());
     EXPECT_EQ(fetched.value(), created.value());
     EXPECT_EQ(fetched->storage_key, kStorageKey2);
     EXPECT_EQ(fetched->name, kDefaultBucketName);
     EXPECT_EQ(fetched->type, kTemporary);
   }
 
-  QuotaErrorOr<BucketInfo> not_found =
-      GetBucket(kStorageKey1, kDefaultBucketName, kSyncable);
-  EXPECT_FALSE(not_found.has_value());
+  EXPECT_FALSE(
+      GetBucket(kStorageKey1, kDefaultBucketName, kSyncable).has_value());
 }
 
 TEST_F(MockQuotaManagerTest, BasicBucketManipulation) {

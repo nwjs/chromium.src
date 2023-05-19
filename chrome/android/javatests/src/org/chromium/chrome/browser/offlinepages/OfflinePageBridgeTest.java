@@ -5,9 +5,9 @@
 package org.chromium.chrome.browser.offlinepages;
 
 import android.net.Uri;
-import android.support.test.InstrumentationRegistry;
 import android.util.Base64;
 
+import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.MediumTest;
 
 import org.junit.After;
@@ -145,7 +145,8 @@ public class OfflinePageBridgeTest {
         }
         deletePages(ids);
 
-        mTestServer = EmbeddedTestServer.createAndStartServer(InstrumentationRegistry.getContext());
+        mTestServer = EmbeddedTestServer.createAndStartServer(
+                ApplicationProvider.getApplicationContext());
         mTestPage = mTestServer.getURL(TEST_PAGE);
     }
 

@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/allocator/partition_alloc_features.h"
 #include "base/allocator/partition_allocator/partition_alloc_buildflags.h"
 #include "base/command_line.h"
 #include "base/containers/contains.h"
@@ -703,10 +704,10 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
   // initial load of push_state.html, and start and stop for
   // the "navigation" triggered by history.pushState(). However, the start
   // notification for the history.pushState() navigation should set
-  // should_show_loading_ui to false.
+  // should_show_loading_ui to false, as should all stop notifications.
   EXPECT_EQ("pushState", shell()->web_contents()->GetLastCommittedURL().ref());
   EXPECT_EQ(4, delegate->loadingStateChangedCount());
-  EXPECT_EQ(3, delegate->loadingStateShowLoadingUICount());
+  EXPECT_EQ(1, delegate->loadingStateShowLoadingUICount());
 }
 
 IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest, ResourceLoadComplete) {
@@ -3696,11 +3697,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
   WebContents* new_contents = nullptr;
   {
     ShellAddedObserver new_shell_observer;
-    bool success = false;
-    EXPECT_TRUE(ExecuteScriptAndExtractBool(
-        shell(),
-        "window.domAutomationController.send(clickLinkToSelfNoOpener());",
-        &success));
+    EXPECT_TRUE(ExecJs(shell(), "clickLinkToSelfNoOpener();"));
     new_shell = new_shell_observer.GetShell();
     new_contents = new_shell->web_contents();
     // Delaying popup holds the initial load of |url|.
@@ -3740,10 +3737,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
   WebContents* new_contents = nullptr;
   {
     ShellAddedObserver new_shell_observer;
-    bool success = false;
-    EXPECT_TRUE(ExecuteScriptAndExtractBool(
-        shell(), "window.domAutomationController.send(clickLinkToSelf());",
-        &success));
+    EXPECT_TRUE(ExecJs(shell(), "clickLinkToSelf();"));
     new_shell = new_shell_observer.GetShell();
     new_contents = new_shell->web_contents();
     // Delaying popup holds the initial load of |url|.
@@ -5189,14 +5183,17 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
                        IgnoreUnresponsiveRendererDuringPaste) {
   WebContentsImpl* web_contents =
       static_cast<WebContentsImpl*>(shell()->web_contents());
+  ClipboardPasteData clipboard_paste_data =
+      ClipboardPasteData("random pasted text", std::string(), {});
 
   EXPECT_FALSE(web_contents->ShouldIgnoreUnresponsiveRenderer());
   web_contents->IsClipboardPasteContentAllowed(
       GURL("https://google.com"), ui::ClipboardFormatType::PlainTextType(),
-      "random pasted text",
+      clipboard_paste_data,
       base::BindLambdaForTesting(
-          [&web_contents](const absl::optional<std::string>& data) {
-            EXPECT_TRUE(data);
+          [&web_contents](
+              absl::optional<ClipboardPasteData> clipboard_paste_data) {
+            EXPECT_TRUE(clipboard_paste_data.has_value());
             EXPECT_TRUE(web_contents->ShouldIgnoreUnresponsiveRenderer());
           }));
   EXPECT_FALSE(web_contents->ShouldIgnoreUnresponsiveRenderer());
@@ -5926,7 +5923,24 @@ class PCScanFeature {
 // Initialize PCScanFeature before WebContentsImplBrowserTest to make sure that
 // the feature is enabled within the entire lifetime of the test.
 class WebContentsImplStarScanBrowserTest : private PCScanFeature,
-                                           public WebContentsImplBrowserTest {};
+                                           public WebContentsImplBrowserTest {
+ public:
+  void SetUp() override {
+    // Since ReconfigureAfterFeatureListInit() has been already invoked at
+    // FeatureListScopedToEachTest::OnTestStart(), we cannot enable PCScan
+    // and cannot re-reconfigure partition roots here. This causes DCHECK()
+    // failure at PerfromcScan().
+    if (!base::FeatureList::IsEnabled(base::features::kPartitionAllocPCScan) &&
+        !base::FeatureList::IsEnabled(
+            base::features::kPartitionAllocPCScanBrowserOnly) &&
+        !base::FeatureList::IsEnabled(
+            base::features::kPartitionAllocPCScanRendererOnly)) {
+      GTEST_SKIP() << "PCScanFeature is not enabled. Need --enable-features"
+                   << "=PartitionAllocPCScan";
+    }
+    WebContentsImplBrowserTest::SetUp();
+  }
+};
 
 }  // namespace
 

@@ -24,6 +24,8 @@ bool DesktopWindowTreeHost::IsMoveLoopSupported() const {
 void DesktopWindowTreeHost::UpdateWindowShapeIfNeeded(
     const ui::PaintContext& context) {}
 
+void DesktopWindowTreeHost::PaintAsActiveChanged() {}
+
 #if defined(OS_WIN)
 void DesktopWindowTreeHost::SetPositionInDIP(const gfx::Point& pos) {
   const gfx::Point pos_in_pixels =

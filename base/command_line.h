@@ -25,6 +25,7 @@
 
 #include "base/base_export.h"
 #include "base/debug/debugging_buildflags.h"
+#include "base/memory/raw_ptr.h"
 #include "base/strings/string_piece.h"
 #include "build/build_config.h"
 
@@ -338,7 +339,7 @@ class BASE_EXPORT CommandLine {
   InstanceBoundSequenceChecker sequence_checker_;
 #endif
   int argc0_;
-  char** argv0_;
+  raw_ptr<char*> argv0_ = nullptr;
 };
 
 class BASE_EXPORT DuplicateSwitchHandler {

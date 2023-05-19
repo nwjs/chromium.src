@@ -5,10 +5,11 @@
 package org.chromium.chrome.browser.omnibox;
 
 import android.annotation.SuppressLint;
-import android.support.test.InstrumentationRegistry;
 import android.view.KeyEvent;
 import android.widget.ImageView;
 
+import androidx.test.InstrumentationRegistry;
+import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.MediumTest;
 import androidx.test.filters.SmallTest;
 
@@ -25,7 +26,6 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.EnormousTest;
 import org.chromium.base.test.util.Feature;
-import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.omnibox.status.StatusCoordinator;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteController.OnSuggestionsReceivedListener;
@@ -38,6 +38,7 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabObserver;
 import org.chromium.chrome.browser.theme.ThemeColorProvider.ThemeColorObserver;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
+import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.util.ChromeTabUtils;
 import org.chromium.chrome.test.util.OmniboxTestUtils;
 import org.chromium.components.embedder_support.util.UrlConstants;
@@ -162,8 +163,8 @@ public class OmniboxTest {
     @MediumTest
     @SkipCommandLineParameterization
     public void testSecurityIconOnHTTP() {
-        EmbeddedTestServer testServer =
-                EmbeddedTestServer.createAndStartServer(InstrumentationRegistry.getContext());
+        EmbeddedTestServer testServer = EmbeddedTestServer.createAndStartServer(
+                ApplicationProvider.getApplicationContext());
         try {
             final String testUrl = testServer.getURL("/chrome/test/data/android/omnibox/one.html");
 
@@ -189,8 +190,7 @@ public class OmniboxTest {
     @SkipCommandLineParameterization
     public void testSecurityIconOnHTTPS() throws Exception {
         EmbeddedTestServer httpsTestServer = EmbeddedTestServer.createAndStartHTTPSServer(
-                InstrumentationRegistry.getContext(),
-                ServerCertificate.CERT_OK);
+                ApplicationProvider.getApplicationContext(), ServerCertificate.CERT_OK);
         CallbackHelper onSSLStateUpdatedCallbackHelper = new CallbackHelper();
         TabObserver observer = new EmptyTabObserver() {
             @Override
@@ -243,7 +243,7 @@ public class OmniboxTest {
         setNonDefaultSearchEngine();
 
         EmbeddedTestServer httpsTestServer = EmbeddedTestServer.createAndStartHTTPSServer(
-                InstrumentationRegistry.getContext(), ServerCertificate.CERT_OK);
+                ApplicationProvider.getApplicationContext(), ServerCertificate.CERT_OK);
         CallbackHelper onSSLStateUpdatedCallbackHelper = new CallbackHelper();
         TabObserver observer = new EmptyTabObserver() {
             @Override

@@ -87,7 +87,6 @@ source_set("browser_sources") {
     "browser_plugin_guest_delegate.h",
     "browser_plugin_guest_manager.cc",
     "browser_plugin_guest_manager.h",
-    "browser_task_traits.cc",
     "browser_task_traits.h",
     "browser_thread.h",
     "browser_url_handler.h",
@@ -417,6 +416,8 @@ source_set("browser_sources") {
     "usb_chooser.cc",
     "usb_chooser.h",
     "usb_delegate.h",
+    "user_level_memory_pressure_signal_features.cc",
+    "user_level_memory_pressure_signal_features.h",
     "video_capture_device_launcher.cc",
     "video_capture_device_launcher.h",
     "video_capture_service.h",
@@ -427,6 +428,8 @@ source_set("browser_sources") {
     "weak_document_ptr.h",
     "web_contents.cc",
     "web_contents.h",
+    "web_contents_ax_mode_notifier.cc",
+    "web_contents_ax_mode_notifier.h",
     "web_contents_delegate.cc",
     "web_contents_delegate.h",
     "web_contents_media_capture_id.cc",
@@ -634,7 +637,6 @@ source_set("browser_sources") {
     sources += [
       "chromeos/multi_capture_service.cc",
       "chromeos/multi_capture_service.h",
-      "firewall_hole_proxy.h",
       "lock_screen_storage.h",
       "smart_card_delegate.h",
     ]

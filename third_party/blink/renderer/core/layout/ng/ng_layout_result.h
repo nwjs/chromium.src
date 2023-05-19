@@ -10,6 +10,7 @@
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/renderer/bindings/core/v8/serialization/serialized_script_value.h"
 #include "third_party/blink/renderer/core/core_export.h"
+#include "third_party/blink/renderer/core/layout/geometry/scroll_offset_range.h"
 #include "third_party/blink/renderer/core/layout/ng/exclusions/ng_exclusion_space.h"
 #include "third_party/blink/renderer/core/layout/ng/flex/ng_flex_data.h"
 #include "third_party/blink/renderer/core/layout/ng/geometry/ng_bfc_offset.h"
@@ -31,8 +32,8 @@ namespace blink {
 
 class NGBoxFragmentBuilder;
 class NGColumnSpannerPath;
-class NGContainerFragmentBuilder;
 class NGExclusionSpace;
+class NGFragmentBuilder;
 class NGLineBoxFragmentBuilder;
 
 // The NGLayoutResult stores the resulting data from layout. This includes
@@ -88,7 +89,7 @@ class CORE_EXPORT NGLayoutResult final
 
   // Delegate constructor that sets up what it can, based on the builder.
   NGLayoutResult(const NGPhysicalFragment* physical_fragment,
-                 NGContainerFragmentBuilder* builder);
+                 NGFragmentBuilder* builder);
 
   // We don't need the copy constructor, move constructor, copy
   // assigmnment-operator, or move assignment-operator today.
@@ -149,6 +150,15 @@ class CORE_EXPORT NGLayoutResult final
   bool CanUseOutOfFlowPositionedFirstTierCache() const {
     DCHECK(physical_fragment_->IsOutOfFlowPositioned());
     return bitfields_.can_use_out_of_flow_positioned_first_tier_cache;
+  }
+
+  absl::optional<wtf_size_t> PositionFallbackIndex() const {
+    return HasRareData() ? rare_data_->PositionFallbackIndex() : absl::nullopt;
+  }
+  const Vector<PhysicalScrollRange>* PositionFallbackNonOverflowingRanges()
+      const {
+    return HasRareData() ? rare_data_->PositionFallbackNonOverflowingRanges()
+                         : nullptr;
   }
 
   // Get the path to the column spanner (if any) that interrupted column layout.
@@ -467,6 +477,13 @@ class CORE_EXPORT NGLayoutResult final
         layout_result_->oof_positioned_offset_ = offset;
     }
 
+    void SetPositionFallbackResult(
+        wtf_size_t fallback_index,
+        const Vector<PhysicalScrollRange>& non_overflowing_ranges) {
+      layout_result_->EnsureRareData()->SetPositionFallbackResult(
+          fallback_index, non_overflowing_ranges);
+    }
+
    private:
     friend class NGLayoutResult;
     MutableForOutOfFlow(const NGLayoutResult* layout_result)
@@ -508,12 +525,9 @@ class CORE_EXPORT NGLayoutResult final
                                     bool check_no_fragmentation = true) const;
 #endif
 
-  using NGContainerFragmentBuilderPassKey =
-      base::PassKey<NGContainerFragmentBuilder>;
+  using NGFragmentBuilderPassKey = base::PassKey<NGFragmentBuilder>;
   // This constructor is for a non-success status.
-  NGLayoutResult(NGContainerFragmentBuilderPassKey,
-                 EStatus,
-                 NGContainerFragmentBuilder*);
+  NGLayoutResult(NGFragmentBuilderPassKey, EStatus, NGFragmentBuilder*);
 
   // This constructor requires a non-null fragment and sets a success status.
   using NGBoxFragmentBuilderPassKey = base::PassKey<NGBoxFragmentBuilder>;
@@ -560,8 +574,10 @@ class CORE_EXPORT NGLayoutResult final
     using BfcBlockOffsetIsSetFlag = BitField::DefineFirstValue<bool, 1>;
     using LineBoxBfcBlockOffsetIsSetFlag =
         BfcBlockOffsetIsSetFlag::DefineNextValue<bool, 1>;
+    using PositionFallbackResultIsSetFlag =
+        LineBoxBfcBlockOffsetIsSetFlag::DefineNextValue<uint8_t, 1>;
     using DataUnionTypeValue =
-        LineBoxBfcBlockOffsetIsSetFlag::DefineNextValue<uint8_t, 3>;
+        PositionFallbackResultIsSetFlag::DefineNextValue<uint8_t, 3>;
 
     struct BlockData {
       GC_PLUGIN_IGNORE("crbug.com/1146383")
@@ -616,6 +632,14 @@ class CORE_EXPORT NGLayoutResult final
 
     void set_line_box_bfc_block_offset_is_set(bool flag) {
       return bit_field.set<LineBoxBfcBlockOffsetIsSetFlag>(flag);
+    }
+
+    bool position_fallback_result_is_set() const {
+      return bit_field.get<PositionFallbackResultIsSetFlag>();
+    }
+
+    void set_position_fallback_result_is_set(bool flag) {
+      return bit_field.set<PositionFallbackResultIsSetFlag>(flag);
     }
 
     DataUnionType data_union_type() const {
@@ -704,6 +728,9 @@ class CORE_EXPORT NGLayoutResult final
           lines_until_clamp(rare_data.lines_until_clamp),
           bfc_block_offset(rare_data.bfc_block_offset),
           line_box_bfc_block_offset(rare_data.line_box_bfc_block_offset),
+          position_fallback_index(rare_data.position_fallback_index),
+          position_fallback_non_overflowing_ranges(
+              rare_data.position_fallback_non_overflowing_ranges),
           bit_field(rare_data.bit_field) {
       switch (data_union_type()) {
         case kNone:
@@ -782,6 +809,27 @@ class CORE_EXPORT NGLayoutResult final
       return line_box_bfc_block_offset;
     }
 
+    void SetPositionFallbackResult(
+        wtf_size_t fallback_index,
+        const Vector<PhysicalScrollRange>& non_overflowing_ranges) {
+      position_fallback_index = fallback_index;
+      position_fallback_non_overflowing_ranges = non_overflowing_ranges;
+      set_position_fallback_result_is_set(true);
+    }
+    absl::optional<wtf_size_t> PositionFallbackIndex() const {
+      if (!position_fallback_result_is_set()) {
+        return absl::nullopt;
+      }
+      return position_fallback_index;
+    }
+    const Vector<PhysicalScrollRange>* PositionFallbackNonOverflowingRanges()
+        const {
+      if (!position_fallback_result_is_set()) {
+        return nullptr;
+      }
+      return &position_fallback_non_overflowing_ranges;
+    }
+
     void Trace(Visitor* visitor) const;
 
     LayoutUnit bfc_line_offset;
@@ -816,6 +864,10 @@ class CORE_EXPORT NGLayoutResult final
 
     // Only valid if line_box_bfc_block_offset_is_set
     LayoutUnit line_box_bfc_block_offset;
+
+    // Only valid if position_fallback_result_is_set
+    wtf_size_t position_fallback_index;
+    Vector<PhysicalScrollRange> position_fallback_non_overflowing_ranges;
 
     BitField bit_field;
 

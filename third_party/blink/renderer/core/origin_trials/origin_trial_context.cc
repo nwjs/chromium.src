@@ -527,6 +527,17 @@ bool OriginTrialContext::CanEnableTrialFromName(const StringView& trial_name) {
         features::kBackForwardCacheSendNotRestoredReasons);
   }
 
+  if (trial_name == "CompressionDictionaryTransport") {
+    return base::FeatureList::IsEnabled(
+        features::kCompressionDictionaryTransport);
+  }
+
+  if (trial_name == "AttributionReportingCrossAppWeb") {
+    return base::FeatureList::IsEnabled(features::kConversionMeasurement) &&
+           base::FeatureList::IsEnabled(
+               network::features::kAttributionReportingCrossAppWeb);
+  }
+
   return true;
 }
 

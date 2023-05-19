@@ -16,6 +16,8 @@
 #error "This file requires ARC support."
 #endif
 
+const int kInactiveTabsDisabledByUser = -1;
+
 BASE_FEATURE(kTabInactivityThreshold,
              "TabInactivityThreshold",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -30,22 +32,30 @@ const char kTabInactivityThresholdThreeWeeksParam[] =
 const char kTabInactivityThresholdOneMinuteDemoParam[] =
     "tab-inactivity-threshold-one-minute-demo";
 
-bool IsInactiveTabsEnabled() {
+bool IsInactiveTabsAvailable() {
   if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
     return false;
   }
 
-  if (!base::FeatureList::IsEnabled(kTabInactivityThreshold)) {
+  return base::FeatureList::IsEnabled(kTabInactivityThreshold);
+}
+
+bool IsInactiveTabsEnabled() {
+  if (!IsInactiveTabsAvailable()) {
     return false;
   }
 
-  static const int kDisabledByUser = -1;
+  return !IsInactiveTabsExplictlyDisabledByUser();
+}
+
+bool IsInactiveTabsExplictlyDisabledByUser() {
+  CHECK(IsInactiveTabsAvailable());
   return GetApplicationContext()->GetLocalState()->GetInteger(
-             prefs::kInactiveTabsTimeThreshold) != kDisabledByUser;
+             prefs::kInactiveTabsTimeThreshold) == kInactiveTabsDisabledByUser;
 }
 
 const base::TimeDelta InactiveTabsTimeThreshold() {
-  DCHECK(IsInactiveTabsEnabled());
+  CHECK(IsInactiveTabsAvailable());
 
   // Preference.
   PrefService* local_state = GetApplicationContext()->GetLocalState();
@@ -70,17 +80,11 @@ const base::TimeDelta InactiveTabsTimeThreshold() {
   return base::Days(14);
 }
 
-NSString* InactiveTabsTimeThresholdDisplayString() {
-  DCHECK(IsInactiveTabsEnabled());
-  return [NSString
-      stringWithFormat:@"%@", @(InactiveTabsTimeThreshold().InDays())];
-}
-
 BASE_FEATURE(kShowInactiveTabsCount,
              "ShowInactiveTabsCount",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsShowInactiveTabsCountEnabled() {
-  DCHECK(IsInactiveTabsEnabled());
+  CHECK(IsInactiveTabsAvailable());
   return base::FeatureList::IsEnabled(kShowInactiveTabsCount);
 }

@@ -3330,9 +3330,9 @@ TEST_F(NetworkContextTest, CreateRestrictedUDPSocket) {
         CreateTestMessage(static_cast<uint8_t>(j), kDatagramSize));
     {
       base::test::TestFuture<int32_t> send_future;
-      server_socket->SendTo(test_msg,
-                            net::HostPortPair::FromIPEndPoint(client_addr),
-                            send_future.GetCallback());
+      server_socket->SendTo(
+          test_msg, net::HostPortPair::FromIPEndPoint(client_addr),
+          net::DnsQueryType::UNSPECIFIED, send_future.GetCallback());
       ASSERT_EQ(send_future.Get(), net::OK);
     }
   }
@@ -7143,6 +7143,27 @@ TEST_F(NetworkContextTest, EnableTrustTokens) {
   EXPECT_TRUE(success);
 }
 
+TEST_F(NetworkContextTest, EnableTrustTokensForFledge) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures({features::kFledgePst},
+                                       {features::kPrivateStateTokens});
+
+  std::unique_ptr<NetworkContext> network_context =
+      CreateContextWithParams(CreateNetworkContextParamsForTesting());
+
+  EXPECT_TRUE(network_context->trust_token_store());
+
+  base::RunLoop run_loop;
+  bool success = false;
+  network_context->trust_token_store()->ExecuteOrEnqueue(
+      base::BindLambdaForTesting([&](TrustTokenStore* store) {
+        success = !!store;
+        run_loop.Quit();
+      }));
+  run_loop.Run();
+  EXPECT_TRUE(success);
+}
+
 TEST_F(NetworkContextTestWithMockTime, EnableTrustTokensWithStoreOnDisk) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeature(features::kPrivateStateTokens);
@@ -7290,7 +7311,7 @@ TEST_F(NetworkContextExpectBadMessageTest,
 
   auto factory_params = mojom::URLLoaderFactoryParams::New();
   factory_params->trust_token_redemption_policy =
-      mojom::TrustTokenRedemptionPolicy::kForbid;
+      mojom::TrustTokenOperationPolicyVerdict::kForbid;
   std::unique_ptr<TestURLLoaderClient> client =
       FetchRequest(my_request, network_context.get(), mojom::kURLLoadOptionNone,
                    mojom::kBrowserProcessId, std::move(factory_params));
@@ -7320,7 +7341,39 @@ TEST_F(NetworkContextExpectBadMessageTest,
 
   auto factory_params = mojom::URLLoaderFactoryParams::New();
   factory_params->trust_token_redemption_policy =
-      mojom::TrustTokenRedemptionPolicy::kForbid;
+      mojom::TrustTokenOperationPolicyVerdict::kForbid;
+  std::unique_ptr<TestURLLoaderClient> client =
+      FetchRequest(my_request, network_context.get(), mojom::kURLLoadOptionNone,
+                   mojom::kBrowserProcessId, std::move(factory_params));
+
+  AssertBadMessage();
+}
+
+TEST_F(NetworkContextExpectBadMessageTest,
+       FailsTrustTokenIssuanceWhenForbidden) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(features::kPrivateStateTokens);
+
+  std::unique_ptr<NetworkContext> network_context =
+      CreateContextWithParams(CreateNetworkContextParamsForTesting());
+
+  // Allow |network_context|'s Trust Tokens store time to initialize
+  // asynchronously, if necessary.
+  task_environment_.RunUntilIdle();
+
+  ASSERT_TRUE(network_context->trust_token_store());
+
+  ResourceRequest my_request;
+  my_request.trust_token_params =
+      OptionalTrustTokenParams(mojom::TrustTokenParams::New());
+  my_request.trust_token_params->version =
+      mojom::TrustTokenMajorVersion::kPrivateStateTokenV1;
+  my_request.trust_token_params->operation =
+      mojom::TrustTokenOperationType::kIssuance;
+
+  auto factory_params = mojom::URLLoaderFactoryParams::New();
+  factory_params->trust_token_issuance_policy =
+      mojom::TrustTokenOperationPolicyVerdict::kForbid;
   std::unique_ptr<TestURLLoaderClient> client =
       FetchRequest(my_request, network_context.get(), mojom::kURLLoadOptionNone,
                    mojom::kBrowserProcessId, std::move(factory_params));
@@ -7752,8 +7805,6 @@ TEST_F(NetworkContextExpectBadMessageTest, DataUrl) {
   ResourceRequest request;
   request.url = GURL("data:,foo");
   auto factory_params = mojom::URLLoaderFactoryParams::New();
-  factory_params->trust_token_redemption_policy =
-      mojom::TrustTokenRedemptionPolicy::kForbid;
   std::unique_ptr<TestURLLoaderClient> client =
       FetchRequest(request, network_context.get(), mojom::kURLLoadOptionNone,
                    mojom::kBrowserProcessId, std::move(factory_params));

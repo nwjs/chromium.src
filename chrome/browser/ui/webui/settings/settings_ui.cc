@@ -17,6 +17,7 @@
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/commerce/shopping_service_factory.h"
+#include "chrome/browser/download/bubble/download_bubble_prefs.h"
 #include "chrome/browser/performance_manager/public/user_tuning/user_performance_tuning_manager.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_service.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_service_factory.h"
@@ -29,6 +30,7 @@
 #include "chrome/browser/ui/managed_ui.h"
 #include "chrome/browser/ui/passwords/ui_utils.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/webui/extension_control_handler.h"
 #include "chrome/browser/ui/webui/favicon_source.h"
 #include "chrome/browser/ui/webui/managed_ui_handler.h"
 #include "chrome/browser/ui/webui/metrics_handler.h"
@@ -38,12 +40,12 @@
 #include "chrome/browser/ui/webui/settings/appearance_handler.h"
 #include "chrome/browser/ui/webui/settings/browser_lifetime_handler.h"
 #include "chrome/browser/ui/webui/settings/downloads_handler.h"
-#include "chrome/browser/ui/webui/settings/extension_control_handler.h"
 #include "chrome/browser/ui/webui/settings/font_handler.h"
 #include "chrome/browser/ui/webui/settings/hats_handler.h"
 #include "chrome/browser/ui/webui/settings/import_data_handler.h"
 #include "chrome/browser/ui/webui/settings/metrics_reporting_handler.h"
 #include "chrome/browser/ui/webui/settings/on_startup_handler.h"
+#include "chrome/browser/ui/webui/settings/password_manager_handler.h"
 #include "chrome/browser/ui/webui/settings/people_handler.h"
 #include "chrome/browser/ui/webui/settings/performance_handler.h"
 #include "chrome/browser/ui/webui/settings/privacy_sandbox_handler.h"
@@ -91,6 +93,11 @@
 #include "printing/buildflags/buildflags.h"
 #include "services/network/public/cpp/features.h"
 #include "ui/base/interaction/element_identifier.h"
+
+#if !BUILDFLAG(OPTIMIZE_WEBUI)
+#include "chrome/grit/settings_shared_resources.h"
+#include "chrome/grit/settings_shared_resources_map.h"
+#endif
 
 #if BUILDFLAG(IS_WIN)
 #include "chrome/browser/safe_browsing/chrome_cleaner/chrome_cleaner_controller_win.h"
@@ -243,6 +250,10 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       std::make_unique<SecurityKeysBioEnrollmentHandler>());
   AddSettingsPageUIHandler(std::make_unique<SecurityKeysPhonesHandler>());
 
+  if (base::FeatureList::IsEnabled(
+          password_manager::features::kPasswordManagerRedesign)) {
+    AddSettingsPageUIHandler(std::make_unique<PasswordManagerHandler>());
+  }
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
   AddSettingsPageUIHandler(std::make_unique<PasskeysHandler>());
 #endif
@@ -286,32 +297,35 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       "turnOffSyncAllowedForManagedProfiles",
       base::FeatureList::IsEnabled(kDisallowManagedProfileSignout));
 
-  html_source->AddBoolean("showImportPasswords",
-                          base::FeatureList::IsEnabled(
-                              password_manager::features::kPasswordImport));
+  const bool enable_new_password_manager_page = base::FeatureList::IsEnabled(
+      password_manager::features::kPasswordManagerRedesign);
 
-  html_source->AddBoolean("enablePasswordsImportM2",
-                          base::FeatureList::IsEnabled(
-                              password_manager::features::kPasswordsImportM2));
+  // Turn-off all Password related features when kPasswordManagerRedesign is on.
+  html_source->AddBoolean(
+      "enablePasswordsImportM2",
+      !enable_new_password_manager_page &&
+          base::FeatureList::IsEnabled(
+              password_manager::features::kPasswordsImportM2));
 
   html_source->AddBoolean(
       "enablePasswordViewPage",
-      base::FeatureList::IsEnabled(
-          password_manager::features::kPasswordViewPageInSettings) ||
-          base::FeatureList::IsEnabled(syncer::kPasswordNotesWithBackup));
+      !enable_new_password_manager_page &&
+          (base::FeatureList::IsEnabled(
+               password_manager::features::kPasswordViewPageInSettings) ||
+           base::FeatureList::IsEnabled(syncer::kPasswordNotesWithBackup)));
 
   html_source->AddBoolean(
       "enablePasswordNotes",
-      base::FeatureList::IsEnabled(syncer::kPasswordNotesWithBackup));
+      !enable_new_password_manager_page &&
+          base::FeatureList::IsEnabled(syncer::kPasswordNotesWithBackup));
 
-  html_source->AddBoolean(
-      "enableSendPasswords",
-      base::FeatureList::IsEnabled(password_manager::features::kSendPasswords));
+  html_source->AddBoolean("enableSendPasswords",
+                          !enable_new_password_manager_page &&
+                              base::FeatureList::IsEnabled(
+                                  password_manager::features::kSendPasswords));
 
-  html_source->AddBoolean(
-      "enableNewPasswordManagerPage",
-      base::FeatureList::IsEnabled(
-          password_manager::features::kPasswordManagerRedesign));
+  html_source->AddBoolean("enableNewPasswordManagerPage",
+                          enable_new_password_manager_page);
 
   commerce::ShoppingService* shopping_service =
       commerce::ShoppingServiceFactory::GetForBrowserContext(profile);
@@ -366,6 +380,9 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       "enableEsbCollapse",
       safe_browsing::kEsbIphBubbleAndCollapseSettingsEnableCollapse.Get());
 
+  html_source->AddBoolean("downloadBubbleEnabled",
+                          download::IsDownloadBubbleEnabled(profile));
+
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
   html_source->AddBoolean(
       "biometricAuthenticationForFilling",
@@ -373,6 +390,12 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
           ShouldBiometricAuthenticationForFillingToggleBeVisible(
               g_browser_process->local_state()));
 #endif
+
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  html_source->AddBoolean(
+      "showGetTheMostOutOfChromeSection",
+      base::FeatureList::IsEnabled(features::kGetTheMostOutOfChrome));
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
   AddSettingsPageUIHandler(std::make_unique<AboutHandler>(profile));
   AddSettingsPageUIHandler(std::make_unique<ResetSettingsHandler>(profile));
@@ -443,6 +466,11 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       html_source, base::make_span(kSettingsResources, kSettingsResourcesSize),
       IDR_SETTINGS_SETTINGS_HTML);
 
+#if !BUILDFLAG(OPTIMIZE_WEBUI)
+  html_source->AddResourcePaths(
+      base::make_span(kSettingsSharedResources, kSettingsSharedResourcesSize));
+#endif
+
   AddLocalizedStrings(html_source, profile, web_ui->GetWebContents());
 
   ManagedUIHandler::Initialize(web_ui, html_source);
@@ -453,15 +481,20 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
                    profile, chrome::FaviconUrlFormat::kFavicon2));
 
   // Privacy Sandbox
+  PrivacySandboxService* privacy_sandbox_service =
+      PrivacySandboxServiceFactory::GetForProfile(profile);
   bool is_privacy_sandbox_restricted =
-      PrivacySandboxServiceFactory::GetForProfile(profile)
-          ->IsPrivacySandboxRestricted();
+      privacy_sandbox_service->IsPrivacySandboxRestricted();
   bool is_privacy_sandbox_settings_4 =
       base::FeatureList::IsEnabled(privacy_sandbox::kPrivacySandboxSettings4);
+  bool is_restricted_notice_enabled =
+      privacy_sandbox_service->IsRestrictedNoticeEnabled();
   html_source->AddBoolean("isPrivacySandboxRestricted",
                           is_privacy_sandbox_restricted);
   html_source->AddBoolean("isPrivacySandboxSettings4",
                           is_privacy_sandbox_settings_4);
+  html_source->AddBoolean("isPrivacySandboxRestrictedNoticeEnabled",
+                          is_restricted_notice_enabled);
   if (!is_privacy_sandbox_restricted && !is_privacy_sandbox_settings_4) {
     html_source->AddResourcePath(
         "privacySandbox", IDR_SETTINGS_PRIVACY_SANDBOX_PRIVACY_SANDBOX_HTML);
@@ -482,14 +515,6 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
 
   // Performance
   AddSettingsPageUIHandler(std::make_unique<PerformanceHandler>());
-  html_source->AddBoolean(
-      "highEfficiencyModeAvailable",
-      base::FeatureList::IsEnabled(
-          performance_manager::features::kHighEfficiencyModeAvailable));
-  html_source->AddBoolean(
-      "batterySaverModeAvailable",
-      base::FeatureList::IsEnabled(
-          performance_manager::features::kBatterySaverModeAvailable));
 
   TryShowHatsSurveyWithTimeout();
 }

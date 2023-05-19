@@ -262,7 +262,7 @@ class AppWindow : public content::WebContentsDelegate,
             const CreateParams& params);
 
   const std::string& window_key() const { return window_key_; }
-  const SessionID& session_id() const { return session_id_; }
+  SessionID session_id() const { return session_id_; }
   const std::string& extension_id() const { return extension_id_; }
   content::WebContents* web_contents() const;
   WindowType window_type() const { return window_type_; }
@@ -417,7 +417,7 @@ class AppWindow : public content::WebContentsDelegate,
       std::unique_ptr<AppWindowContents> contents) {
     app_window_contents_ = std::move(contents);
   }
-  nw::Menu* menu_;
+  raw_ptr<nw::Menu> menu_ = nullptr;
 
   void SetNativeAppWindowForTesting(
       std::unique_ptr<NativeAppWindow> native_app_window) {

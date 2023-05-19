@@ -313,6 +313,7 @@ class RenderViewContextMenu
   bool IsAddANoteEnabled() const;
 
   // Command execution functions.
+  void ExecSearchWebInCompanionSidePanel(const GURL& url);
   void ExecSearchWebInSidePanel(const GURL& url);
   void ExecOpenWebApp();
   void ExecProtocolHandler(int event_flags, int handler_index);
@@ -370,6 +371,10 @@ class RenderViewContextMenu
   // The destination URL to use if the user tries to search for or navigate to
   // a text selection.
   GURL selection_navigation_url_;
+
+  // URL of current page and current main frame url
+  GURL current_url_;
+  GURL main_frame_url_;
 
   ui::SimpleMenuModel profile_link_submenu_model_;
   std::vector<base::FilePath> profile_link_paths_;

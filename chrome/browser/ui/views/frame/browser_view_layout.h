@@ -177,7 +177,7 @@ class BrowserViewLayout : public views::LayoutManager {
   // Child views that the layout manager manages.
   // NOTE: If you add a view, try to add it as a views::View, which makes
   // testing much easier.
-  views::View* menu_bar_;
+  raw_ptr<views::View> menu_bar_;
   const raw_ptr<views::View, DanglingUntriaged> top_container_;
   const raw_ptr<WebAppFrameToolbarView, DanglingUntriaged>
       web_app_frame_toolbar_;

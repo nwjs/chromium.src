@@ -15,8 +15,6 @@ namespace features {
 
 #if BUILDFLAG(IS_ANDROID)
 BASE_DECLARE_FEATURE(kAddToHomescreenMessaging);
-BASE_DECLARE_FEATURE(kAmbientBadgeSiteEngagement);
-extern const base::FeatureParam<int> kAmbientBadgeSiteEngagement_MinEngagement;
 BASE_DECLARE_FEATURE(kAmbientBadgeSuppressFirstVisit);
 extern const base::FeatureParam<base::TimeDelta>
     kAmbientBadgeSuppressFirstVisit_Period;
@@ -33,6 +31,8 @@ BASE_DECLARE_FEATURE(kCreateShortcutIgnoresManifest);
 BASE_DECLARE_FEATURE(kSkipServiceWorkerCheckInstallOnly);
 BASE_DECLARE_FEATURE(kDesktopPWAsDetailedInstallDialog);
 BASE_DECLARE_FEATURE(kSkipServiceWorkerForInstallPrompt);
+
+BASE_DECLARE_FEATURE(kInstallPromptSegmentation);
 
 bool SkipInstallServiceWorkerCheck();
 bool SkipServiceWorkerForInstallPromotion();

@@ -93,7 +93,7 @@ class ChromeAppDelegate : public extensions::AppDelegate {
   std::unique_ptr<NewWindowContentsDelegate> new_window_contents_delegate_;
   base::OnceClosure terminating_callback_;
   base::CallbackListSubscription subscription_;
-  content::WebContents* web_contents_;
+  raw_ptr<content::WebContents> web_contents_;
   base::WeakPtrFactory<ChromeAppDelegate> weak_factory_{this};
 };
 

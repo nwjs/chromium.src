@@ -12,6 +12,7 @@
 
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
+#include "content/browser/interest_group/auction_metrics_recorder.h"
 #include "content/browser/interest_group/auction_worklet_manager.h"
 #include "content/browser/interest_group/interest_group_auction.h"
 #include "content/browser/interest_group/interest_group_auction_reporter.h"
@@ -56,6 +57,9 @@ class CONTENT_EXPORT AuctionRunner : public blink::mojom::AbortableAdAuction {
   //
   // `winning_group_id` owner and name of the winning interest group (if any).
   //
+  // `requested_ad_size` requested size for the ad auction (if any). Stored into
+  // the fenced frame config container size.
+  //
   // `ad_descriptor` URL of auction winning ad to render with optional
   // size. Null if there is no winner.
   //
@@ -72,6 +76,7 @@ class CONTENT_EXPORT AuctionRunner : public blink::mojom::AbortableAdAuction {
       AuctionRunner* auction_runner,
       bool manually_aborted,
       absl::optional<blink::InterestGroupKey> winning_group_id,
+      absl::optional<blink::AdSize> requested_ad_size,
       absl::optional<blink::AdDescriptor> ad_descriptor,
       std::vector<blink::AdDescriptor> ad_component_descriptors,
       std::vector<std::string> errors,
@@ -127,6 +132,7 @@ class CONTENT_EXPORT AuctionRunner : public blink::mojom::AbortableAdAuction {
       const blink::AuctionConfig& auction_config,
       const url::Origin& main_frame_origin,
       const url::Origin& frame_origin,
+      ukm::SourceId ukm_source_id,
       network::mojom::ClientSecurityStatePtr client_security_state,
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
       IsInterestGroupApiAllowedCallback is_interest_group_api_allowed_callback,
@@ -151,6 +157,9 @@ class CONTENT_EXPORT AuctionRunner : public blink::mojom::AbortableAdAuction {
       blink::mojom::AuctionAdConfigAuctionIdPtr auction_id,
       blink::mojom::AuctionAdConfigBuyerTimeoutField field,
       const blink::AuctionConfig::BuyerTimeouts& buyer_timeouts) override;
+  void ResolvedBuyerCurrenciesPromise(
+      blink::mojom::AuctionAdConfigAuctionIdPtr auction_id,
+      const blink::AuctionConfig::BuyerCurrencies& buyer_currencies) override;
   void ResolvedDirectFromSellerSignalsPromise(
       blink::mojom::AuctionAdConfigAuctionIdPtr auction_id,
       const absl::optional<blink::DirectFromSellerSignals>&
@@ -187,6 +196,7 @@ class CONTENT_EXPORT AuctionRunner : public blink::mojom::AbortableAdAuction {
       const blink::AuctionConfig& auction_config,
       const url::Origin& main_frame_origin,
       const url::Origin& frame_origin,
+      ukm::SourceId ukm_source_id,
       network::mojom::ClientSecurityStatePtr client_security_state,
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
       IsInterestGroupApiAllowedCallback is_interest_group_api_allowed_callback,
@@ -263,6 +273,9 @@ class CONTENT_EXPORT AuctionRunner : public blink::mojom::AbortableAdAuction {
   // Number of fields in `owned_auction_config_` that are promises; decremented
   // as they get resolved.
   int promise_fields_in_auction_config_;
+
+  // Used to store data needed to record UKM.
+  AuctionMetricsRecorder auction_metrics_recorder_;
 
   InterestGroupAuction auction_;
   State state_ = State::kLoadingGroupsPhase;

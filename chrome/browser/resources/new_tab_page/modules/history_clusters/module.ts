@@ -10,8 +10,10 @@ import {assert} from 'chrome://resources/js/assert_ts.js';
 import {listenOnce} from 'chrome://resources/js/util_ts.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
+import {Cart} from '../../cart.mojom-webui.js';
 import {Cluster, URLVisit} from '../../history_cluster_types.mojom-webui.js';
 import {I18nMixin, loadTimeData} from '../../i18n_setup.js';
+import {NewTabPageProxy} from '../../new_tab_page_proxy.js';
 import {InfoDialogElement} from '../info_dialog';
 import {ModuleDescriptor} from '../module_descriptor.js';
 
@@ -25,7 +27,6 @@ export const LAYOUT_2_MIN_IMAGE_VISITS = 1;
 export const LAYOUT_2_MIN_VISITS = 3;
 export const LAYOUT_3_MIN_IMAGE_VISITS = 2;
 export const LAYOUT_3_MIN_VISITS = 4;
-export const MIN_RELATED_SEARCHES = 3;
 
 /**
  * Available module UI layouts. This enum must match the numbering for
@@ -48,6 +49,7 @@ export enum HistoryClusterElementType {
   VISIT = 0,
   SUGGEST = 1,
   SHOW_ALL = 2,
+  CART = 3,
 }
 
 /**
@@ -85,13 +87,21 @@ export class HistoryClustersModuleElement extends I18nMixin
       /** The cluster displayed by this element. */
       cluster: Object,
 
+      /** The cart displayed by this element, could be null. */
+      cart: {
+        type: Object,
+        value: null,
+      },
+
       searchResultPage: Object,
     };
   }
 
   cluster: Cluster;
+  cart: Cart|null;
   layoutType: HistoryClusterLayoutType;
   searchResultPage: URLVisit;
+  private setDisabledModulesListenerId_: number|null = null;
 
   override ready() {
     super.ready();
@@ -112,6 +122,36 @@ export class HistoryClustersModuleElement extends I18nMixin
     });
   }
 
+  override connectedCallback() {
+    super.connectedCallback();
+
+    if (loadTimeData.getBoolean(
+            'modulesChromeCartInHistoryClustersModuleEnabled')) {
+      this.setDisabledModulesListenerId_ =
+          NewTabPageProxy.getInstance()
+              .callbackRouter.setDisabledModules.addListener(
+                  async (_: boolean, ids: string[]) => {
+                    if (ids.includes('chrome_cart')) {
+                      this.cart = null;
+                    } else if (!this.cart) {
+                      const {cart} =
+                          await HistoryClustersProxyImpl.getInstance()
+                              .handler.getCartForCluster(this.cluster);
+                      this.cart = cart;
+                    }
+                  });
+    }
+  }
+
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+
+    if (this.setDisabledModulesListenerId_) {
+      NewTabPageProxy.getInstance().callbackRouter.removeListener(
+          this.setDisabledModulesListenerId_);
+    }
+  }
+
   private isLayout_(type: HistoryClusterLayoutType): boolean {
     return type === this.layoutType;
   }
@@ -124,6 +164,10 @@ export class HistoryClustersModuleElement extends I18nMixin
   private onSuggestTileClick_(e: Event) {
     this.recordTileClickIndex_(e.target as HTMLElement, 'Suggest');
     this.recordClick_(HistoryClusterElementType.SUGGEST);
+  }
+
+  private onCartTileClick_() {
+    this.recordClick_(HistoryClusterElementType.CART);
   }
 
   private recordClick_(type: HistoryClusterElementType) {
@@ -190,6 +234,12 @@ export class HistoryClustersModuleElement extends I18nMixin
         visit => visit.normalizedUrl);
     HistoryClustersProxyImpl.getInstance().handler.openUrlsInTabGroup(urls);
   }
+
+  private shouldShowCartTile_(cart: Object): boolean {
+    return loadTimeData.getBoolean(
+               'modulesChromeCartInHistoryClustersModuleEnabled') &&
+        !!cart;
+  }
 }
 
 customElements.define(
@@ -221,20 +271,27 @@ function processLayoutVisits(
 }
 
 async function createElement(): Promise<HistoryClustersModuleElement|null> {
-  const data =
-      await HistoryClustersProxyImpl.getInstance().handler.getCluster();
-  // Do not show module if no cluster or not enough related search results.
-  if (!data.cluster ||
-      data.cluster.relatedSearches.length < MIN_RELATED_SEARCHES) {
+  const {clusters} =
+      await HistoryClustersProxyImpl.getInstance().handler.getClusters();
+  // Do not show module if there are no clusters.
+  if (clusters.length === 0) {
     recordSelectedLayout(HistoryClusterLayoutType.NONE);
     return null;
   }
 
   const element = new HistoryClustersModuleElement();
-  element.cluster = data.cluster!;
+  element.cluster = clusters[0];
+  // Initialize the cart element when the feature is enabled.
+  if (loadTimeData.getBoolean(
+          'modulesChromeCartInHistoryClustersModuleEnabled')) {
+    const {cart} =
+        await HistoryClustersProxyImpl.getInstance().handler.getCartForCluster(
+            clusters[0]);
+    element.cart = cart;
+  }
   // Pull out the SRP to be used in the header and to open the cluster
   // in tab group.
-  element.searchResultPage = data.cluster!.visits[0];
+  element.searchResultPage = clusters[0]!.visits[0];
 
   // History cluster visits minus the SRP that is included, since the SRP
   // isn't used in the layout.

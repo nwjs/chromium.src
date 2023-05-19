@@ -34,7 +34,7 @@
 <translation id="1272293450992660632">പിൻ മൂല്യങ്ങൾ പൊരുത്തപ്പെടുന്നില്ല.</translation>
 <translation id="1280820357415527819">മൊബൈൽ നെറ്റ്‌വർക്കുകൾ തിരയുന്നു</translation>
 <translation id="1293556467332435079">Files</translation>
-<translation id="1297922636971898492">Google ഡ്രൈവ് ഇപ്പോൾ ലഭ്യമല്ല. ലഭ്യമായിക്കഴിഞ്ഞാൽ, അപ്‌ലോഡ് ചെയ്യുന്നത് സ്വമേധയാ പുനരാരംഭിക്കും.</translation>
+<translation id="1297922636971898492">Google ഡ്രൈവ് ഇപ്പോൾ ലഭ്യമല്ല. ലഭ്യമായിക്കഴിഞ്ഞാൽ, അപ്‌ലോഡ് ചെയ്യുന്നത് സ്വയമേവ പുനരാരംഭിക്കും.</translation>
 <translation id="1307931752636661898">Linux ഫയലുകൾ കാണാനാവുന്നില്ല</translation>
 <translation id="1313405956111467313">സ്വയമേവയുള്ള പ്രോക്സി ക്രമീകരണം</translation>
 <translation id="1353686479385938207"><ph name="PROVIDER_NAME" />: <ph name="NETWORK_NAME" /></translation>
@@ -97,7 +97,6 @@
 <translation id="1773212559869067373">പരിശോധിച്ചുറപ്പിക്കൽ സർട്ടിഫിക്കറ്റ് പ്രാദേശികമായി നിരസിച്ചു</translation>
 <translation id="1775381402323441512">വീഡിയോ വിവരം</translation>
 <translation id="180035236176489073">ഈ ഫയലുകൾ ആക്‌സസ്സുചെയ്യുന്നതിന് നിങ്ങൾ ഓൺലൈനിലായിരിക്കണം.</translation>
-<translation id="1805030087840125683">{COUNT,plural, =1{ഐഡിക്ക് ഒപ്പമുള്ള വിപുലീകരണം}other{ഐഡികൾക്ക് ഒപ്പമുള്ള വിപുലീകരണങ്ങൾ}}</translation>
 <translation id="1807938677607439181">എല്ലാ ഫയലുകളും</translation>
 <translation id="1810764548349082891">പ്രിവ്യൂ ലഭ്യമല്ല</translation>
 <translation id="1812302367230252929">അമാറിക് ലിപ്യന്തരണം</translation>
@@ -108,7 +107,6 @@
 <translation id="1834290891154666894">സബ്ജക്റ്റ് ഓൾട്ടർനേറ്റീവ് നെയിം പൊരുത്തത്തിന്റെ എൻട്രി അസാധുവാണ്</translation>
 <translation id="1838709767668011582">Google സൈറ്റ്</translation>
 <translation id="1853795129690976061">Linux-മായി ഈ ഫോൾഡർ പങ്കിട്ടു</translation>
-<translation id="1859422890169495746">ഈ Chromebook</translation>
 <translation id="1864756863218646478">ഫയൽ കണ്ടെത്താൻ കഴിഞ്ഞില്ല.</translation>
 <translation id="1884013283844450420"><ph name="NETWORK_COUNT" />-ൽ <ph name="NETWORK_INDEX" /> നെറ്റ്‌വർക്ക്, <ph name="NETWORK_NAME" />, കണക്‌റ്റ് ചെയ്യുക</translation>
 <translation id="1920670151694390848">മലയാള ലിപ്യന്തരണം</translation>
@@ -161,6 +159,7 @@
 <translation id="2304820083631266885">ഗ്രഹം</translation>
 <translation id="2305020378527873881"><ph name="VOLUME_NAME" /> ഒഴിവാക്കി.</translation>
 <translation id="2307462900900812319">നെറ്റ്‌വർക്ക് കോൺഫിഗർ ചെയ്യുക</translation>
+<translation id="2312704192806647271">{COUNT,plural, =1{<ph name="BEGIN_LIST" /><ph name="END_LIST" /> ഐഡിയിൽ ഉള്ള വിപുലീകരണം കണ്ടെത്താനായില്ല. നിങ്ങളുടെ അഡ്‌മിനെ ബന്ധപ്പെടുക.}other{<ph name="BEGIN_LIST" /><ph name="END_LIST" /> ഐഡികളിൽ ഉള്ള വിപുലീകരണങ്ങൾ കണ്ടെത്താനായില്ല. നിങ്ങളുടെ അഡ്‌മിനെ ബന്ധപ്പെടുക.}}</translation>
 <translation id="2325650632570794183">ഈ ഫയൽ തരം പിന്തുണയ്‌ക്കുന്നില്ല. ഈ ഫയൽ തരം തുറക്കാൻ കഴിയുന്ന ഒരു ആപ്പ് കണ്ടെത്തുന്നതിന് ഒരു Chrome വെബ് സ്റ്റോർ കണ്ടെത്തുക.</translation>
 <translation id="2326539130272988168">ബൾഗേറിയൻ</translation>
 <translation id="2337715497728194187">Bruschetta-യുമായി പങ്കിടുക</translation>
@@ -276,6 +275,7 @@
 <translation id="3290356915286466215">സുരക്ഷിതമല്ല</translation>
 <translation id="3291218047831493686">സിം ലോക്ക് ക്രമീകരണം മാറ്റാൻ ഈ നെറ്റ്‌വർക്കിലേക്ക് കണക്റ്റ് ചെയ്യുക</translation>
 <translation id="3293023191599135697">WEP നെറ്റ്‌വർക്കുകൾ പിന്തുണയ്ക്കുന്നില്ല</translation>
+<translation id="3295006446256079333">ഈ വോളിയം</translation>
 <translation id="3295357220137379386">ഉപകരണം തിരക്കിലാണ്</translation>
 <translation id="3296763833017966289">ജോര്‍ജ്ജിയന്‍</translation>
 <translation id="3307875152560779385">ഉക്രേനിയൻ</translation>
@@ -475,6 +475,7 @@
 <translation id="4843566743023903107">Chromebase-കൾ</translation>
 <translation id="4850886885716139402">കാണുക</translation>
 <translation id="485316830061041779">ജര്‍മ്മന്‍</translation>
+<translation id="4862885579661885411">Files ക്രമീകരണം</translation>
 <translation id="4867079195717347957">കോളം അവരോഹണക്രമത്തിൽ അടുക്കാൻ ക്ലിക്ക് ചെയ്യുക</translation>
 <translation id="4867297348137739678">കഴിഞ്ഞ ആഴ്ച്ച</translation>
 <translation id="4873265419374180291"><ph name="NUMBER_OF_BYTES" /> ബൈറ്റ്സ്</translation>
@@ -801,7 +802,6 @@
 <translation id="7359359531237882347"><ph name="NUMBER_OF_ITEMS" /> ഇനങ്ങൾ പകർത്തുന്നു...</translation>
 <translation id="7375951387215729722">അവരോഹണ ക്രമത്തിൽ <ph name="COLUMN_NAME" /> അടുക്കിയ ഫയൽ ലിസ്‌റ്റ്.</translation>
 <translation id="7377161162143020057">ഈ ഫയൽ പകർത്തുന്നത് അഡ്‌മിൻ നയം ബ്ലോക്ക് ചെയ്തിരിക്കുന്നു</translation>
-<translation id="7392500733467492920">കണ്ടെത്താനാകുന്നില്ല. നിങ്ങളുടെ അഡ്‌മിനെ ബന്ധപ്പെടുക.</translation>
 <translation id="7402503521691663770">ChromeOS Flex ഉപകരണങ്ങൾ</translation>
 <translation id="7408870451288633753">ചെക്ക്</translation>
 <translation id="7417453074306512035">എത്യോപിക് കീബോർഡ്</translation>
@@ -809,7 +809,7 @@
 <translation id="7419668828140929293">"<ph name="FILENAME" />" പുനഃസ്ഥാപിക്കുന്നു</translation>
 <translation id="7458955835361612701">അടുത്തിടെയുള്ള ചിത്രങ്ങളൊന്നുമില്ല</translation>
 <translation id="7460898608667578234">ഉക്രേനിയന്‍</translation>
-<translation id="7469894403370665791">ഈ നെറ്റ്‍വര്‍ക്കിലേക്ക് സ്വപ്രേരിതമായി ബന്ധിപ്പിക്കുന്നു</translation>
+<translation id="7469894403370665791">ഈ നെറ്റ്‍വര്‍ക്കിലേക്ക് സ്വയമേവ ബന്ധിപ്പിക്കുന്നു</translation>
 <translation id="7486315294984620427">Parallels Desktop-ലേക്ക് ഫയലുകൾ ചേർക്കാൻ അവയെ Windows ഫയലുകൾ എന്ന ഫോൾഡറിലേക്ക് പകർത്തണം.</translation>
 <translation id="749452993132003881">ഹിരാഗാന</translation>
 <translation id="7495372004724182530">മലയാള ഉച്ചാരണശബ്‌ദം</translation>

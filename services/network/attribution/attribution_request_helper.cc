@@ -10,14 +10,14 @@
 #include <utility>
 
 #include "base/check.h"
-#include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
-#include "base/guid.h"
 #include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/strcat.h"
+#include "base/strings/string_piece.h"
+#include "base/uuid.h"
 #include "net/base/isolation_info.h"
 #include "net/base/schemeful_site.h"
 #include "net/http/http_request_headers.h"
@@ -26,8 +26,10 @@
 #include "services/network/attribution/attribution_attestation_mediator.h"
 #include "services/network/attribution/attribution_attestation_mediator_metrics_recorder.h"
 #include "services/network/attribution/boringssl_attestation_cryptographer.h"
+#include "services/network/public/cpp/attribution_utils.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
+#include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/trigger_attestation.h"
 #include "services/network/public/cpp/trust_token_http_headers.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
@@ -39,6 +41,8 @@
 namespace network {
 
 namespace {
+
+using ::network::mojom::AttributionReportingEligibility;
 
 void RecordDestinationOriginStatus(
     AttributionRequestHelper::DestinationOriginStatus status) {
@@ -55,13 +59,17 @@ bool IsSuitableDestinationOrigin(const url::Origin& origin) {
          network::IsOriginPotentiallyTrustworthy(origin);
 }
 
-bool IsNeededForRequest(const net::HttpRequestHeaders& request_headers) {
-  std::string attribution_header;
-  bool is_trigger_ping =
-      request_headers.GetHeader("Attribution-Reporting-Eligible",
-                                &attribution_header) &&
-      base::Contains(attribution_header, "trigger");
-  return is_trigger_ping;
+bool IsNeededForRequest(AttributionReportingEligibility eligibility) {
+  switch (eligibility) {
+    case AttributionReportingEligibility::kUnset:
+    case AttributionReportingEligibility::kEmpty:
+    case AttributionReportingEligibility::kEventSource:
+    case AttributionReportingEligibility::kNavigationSource:
+      return false;
+    case AttributionReportingEligibility::kTrigger:
+    case AttributionReportingEligibility::kEventSourceOrTrigger:
+      return true;
+  }
 }
 
 }  // namespace
@@ -70,7 +78,7 @@ struct AttributionRequestHelper::AttestationOperation {
   explicit AttestationOperation(
       const base::RepeatingCallback<AttributionAttestationMediator()>&
           create_mediator)
-      : aggregatable_report_id(base::GUID::GenerateRandomV4()),
+      : aggregatable_report_id(base::Uuid::GenerateRandomV4()),
         mediator(create_mediator.Run()) {}
 
   // Returns the message associated to this atttestation operation. It is
@@ -79,7 +87,7 @@ struct AttributionRequestHelper::AttestationOperation {
   std::string Message(const url::Origin& destination_origin);
 
   // TODO(https://crbug.com/1406645): use explicitly spec compliant structure
-  base::GUID aggregatable_report_id;
+  base::Uuid aggregatable_report_id;
 
   AttributionAttestationMediator mediator;
 };
@@ -94,13 +102,13 @@ std::string AttributionRequestHelper::AttestationOperation::Message(
 
 std::unique_ptr<AttributionRequestHelper>
 AttributionRequestHelper::CreateIfNeeded(
-    const net::HttpRequestHeaders& request_headers,
+    AttributionReportingEligibility eligibility,
     const TrustTokenKeyCommitmentGetter* key_commitment_getter) {
   DCHECK(key_commitment_getter);
 
   if (!base::FeatureList::IsEnabled(
           network::features::kAttributionReportingTriggerAttestation) ||
-      !IsNeededForRequest(request_headers)) {
+      !IsNeededForRequest(eligibility)) {
     return nullptr;
   }
 
@@ -119,9 +127,9 @@ AttributionRequestHelper::CreateIfNeeded(
 
 std::unique_ptr<AttributionRequestHelper>
 AttributionRequestHelper::CreateForTesting(
-    const net::HttpRequestHeaders& request_headers,
+    AttributionReportingEligibility eligibility,
     base::RepeatingCallback<AttributionAttestationMediator()> create_mediator) {
-  if (!IsNeededForRequest(request_headers)) {
+  if (!IsNeededForRequest(eligibility)) {
     return nullptr;
   }
 
@@ -270,6 +278,42 @@ void AttributionRequestHelper::OnDoneProcessingAttestationResponse(
       /*token=*/*std::move(maybe_attestation_header),
       attestation_operation->aggregatable_report_id.AsLowercaseString());
   std::move(done).Run();
+}
+
+// https://wicg.github.io/attribution-reporting-api/#mark-a-request-for-attribution-reporting-eligibility
+void SetAttributionReportingHeaders(net::URLRequest& url_request,
+                                    const ResourceRequest& request) {
+  base::StringPiece eligibility_header;
+  switch (request.attribution_reporting_eligibility) {
+    case AttributionReportingEligibility::kUnset:
+      return;
+    case AttributionReportingEligibility::kEmpty:
+      eligibility_header = "";
+      break;
+    case AttributionReportingEligibility::kEventSource:
+      eligibility_header = "event-source";
+      break;
+    case AttributionReportingEligibility::kNavigationSource:
+      eligibility_header = "navigation-source";
+      break;
+    case AttributionReportingEligibility::kTrigger:
+      eligibility_header = "trigger";
+      break;
+    case AttributionReportingEligibility::kEventSourceOrTrigger:
+      eligibility_header = "event-source, trigger";
+      break;
+  }
+  url_request.SetExtraRequestHeaderByName("Attribution-Reporting-Eligible",
+                                          eligibility_header,
+                                          /*overwrite=*/true);
+
+  if (base::FeatureList::IsEnabled(
+          features::kAttributionReportingCrossAppWeb)) {
+    url_request.SetExtraRequestHeaderByName(
+        "Attribution-Reporting-Support",
+        GetAttributionSupportHeader(request.attribution_reporting_support),
+        /*overwrite=*/true);
+  }
 }
 
 }  // namespace network

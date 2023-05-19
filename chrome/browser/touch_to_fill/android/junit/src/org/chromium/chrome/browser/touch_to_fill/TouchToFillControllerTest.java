@@ -4,11 +4,12 @@
 
 package org.chromium.chrome.browser.touch_to_fill;
 
+import static androidx.test.espresso.matcher.ViewMatchers.assertThat;
+
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -95,7 +96,7 @@ public class TouchToFillControllerTest {
     private static final Credential CARL =
             new Credential("Carl", "G3h3!m", "Carl", TEST_URL.getSpec(), false, false, 0);
     private static final WebAuthnCredential DINO =
-            new WebAuthnCredential("dino@example.com", "12345");
+            new WebAuthnCredential("dinos.com", new byte[] {1}, new byte[] {2}, "dino@example.com");
     private static final @Px int DESIRED_FAVICON_SIZE = 64;
 
     @Rule

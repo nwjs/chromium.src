@@ -108,8 +108,10 @@
   DCHECK(!_parent->target_fullscreen_state());
 }
 
-- (void)setAspectRatio:(float)aspectRatio {
+- (void)setAspectRatio:(float)aspectRatio
+        excludedMargin:(const gfx::Size&)excludedMargin {
   _aspectRatio = aspectRatio;
+  _excludedMargin = excludedMargin;
 }
 
 - (NSSize)windowWillResize:(NSWindow*)window toSize:(NSSize)size {
@@ -130,10 +132,11 @@
   if (!maxSize.IsEmpty())
     maxSizeParam = maxSize;
 
-  gfx::SizeRectToAspectRatio(*_resizingHorizontally ? gfx::ResizeEdge::kRight
-                                                    : gfx::ResizeEdge::kBottom,
-                             *_aspectRatio, gfx::Size([window minSize]),
-                             maxSizeParam, &resizedWindowRect);
+  gfx::SizeRectToAspectRatioWithExcludedMargin(
+      *_resizingHorizontally ? gfx::ResizeEdge::kRight
+                             : gfx::ResizeEdge::kBottom,
+      *_aspectRatio, gfx::Size([window minSize]), maxSizeParam, _excludedMargin,
+      resizedWindowRect);
   // Discard any updates to |resizedWindowRect| origin as Cocoa takes care of
   // that.
   return resizedWindowRect.size().ToCGSize();

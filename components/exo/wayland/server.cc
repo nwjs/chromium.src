@@ -315,8 +315,8 @@ void Server::Initialize() {
   // This is necessary to ensure aura_output_manager can send relevant output
   // events immediately after an output is bound to the client and before the
   // data in these events might be needed by the client.
-  wl_global_create(wl_display_.get(), &zaura_output_manager_interface, 1, this,
-                   bind_aura_output_manager);
+  wl_global_create(wl_display_.get(), &zaura_output_manager_interface,
+                   kZAuraOutputManagerVersion, this, bind_aura_output_manager);
   wl_global_create(wl_display_.get(), &wl_subcompositor_interface, 1, display_,
                    bind_subcompositor);
   for (const auto& display : display::Screen::GetScreen()->GetAllDisplays()) {
@@ -428,7 +428,7 @@ void Server::Initialize() {
 
   zcr_text_input_extension_data_ =
       std::make_unique<WaylandTextInputExtension>();
-  wl_global_create(wl_display_.get(), &zcr_text_input_extension_v1_interface, 8,
+  wl_global_create(wl_display_.get(), &zcr_text_input_extension_v1_interface, 9,
                    zcr_text_input_extension_data_.get(),
                    bind_text_input_extension);
 

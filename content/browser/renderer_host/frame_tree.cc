@@ -546,15 +546,15 @@ void FrameTree::CreateProxiesForSiteInstance(
     }
   }
 
-  // Check whether we're in an inner delegate and |site_instance| corresponds
-  // to the outer delegate.  Subframe proxies aren't needed if this is the
-  // case.
-  bool is_site_instance_for_outer_delegate = false;
+  // Check whether we're in an inner delegate and the group |site_instance| is
+  // in corresponds to the outer delegate.  Subframe proxies aren't needed if
+  // this is the case.
+  bool is_site_instance_group_for_outer_delegate = false;
   RenderFrameProxyHost* outer_delegate_proxy =
       root()->render_manager()->GetProxyToOuterDelegate();
   if (outer_delegate_proxy) {
-    is_site_instance_for_outer_delegate =
-        (site_instance == outer_delegate_proxy->GetSiteInstance());
+    is_site_instance_group_for_outer_delegate =
+        (site_instance->group() == outer_delegate_proxy->site_instance_group());
   }
 
   // Proxies are created in the FrameTree in response to a node navigating to a
@@ -592,11 +592,12 @@ void FrameTree::CreateProxiesForSiteInstance(
       }
 
       // Do not create proxies for subframes in the outer delegate's
-      // SiteInstance, since there is no need to expose these subframes to the
-      // outer delegate.  See also comments in CreateProxiesForChildFrame() and
-      // https://crbug.com/1013553.
-      if (!node->IsMainFrame() && is_site_instance_for_outer_delegate)
+      // SiteInstanceGroup, since there is no need to expose these subframes to
+      // the outer delegate.  See also comments in CreateProxiesForChildFrame()
+      // and https://crbug.com/1013553.
+      if (!node->IsMainFrame() && is_site_instance_group_for_outer_delegate) {
         continue;
+      }
 
       // If |node| is the FrameTreeNode being navigated, we use
       // |browsing_context_state| (as BrowsingContextState might change for
@@ -770,12 +771,26 @@ double FrameTree::GetLoadProgress() {
 }
 
 bool FrameTree::IsLoadingIncludingInnerFrameTrees() const {
-  for (const FrameTreeNode* node :
-       const_cast<FrameTree*>(this)->CollectNodesForIsLoading()) {
-    if (node->IsLoading())
-      return true;
+  return GetLoadingState() != LoadingState::NONE;
+}
+
+LoadingState FrameTree::GetLoadingState() const {
+  // The overall loading state for the FrameTree matches the root node's loading
+  // state if the root is loading.
+  if (root_.GetLoadingState() != LoadingState::NONE) {
+    return root_.GetLoadingState();
   }
-  return false;
+
+  // Otherwise, check if a subframe is loading without an associated navigation
+  // in the root frame. If so, we are loading, but we don't want to show
+  // loading UI.
+  for (const FrameTreeNode* node_to_check :
+       const_cast<FrameTree*>(this)->CollectNodesForIsLoading()) {
+    if (node_to_check->IsLoading()) {
+      return LoadingState::LOADING_WITHOUT_UI;
+    }
+  }
+  return LoadingState::NONE;
 }
 
 void FrameTree::ReplicatePageFocus(bool is_focused) {
@@ -899,22 +914,22 @@ void FrameTree::DidAccessInitialMainDocument() {
   controller().DidAccessInitialMainDocument();
 }
 
-void FrameTree::DidStartLoadingNode(FrameTreeNode& node,
-                                    bool should_show_loading_ui,
-                                    bool was_previously_loading) {
-  if (was_previously_loading)
+void FrameTree::NodeLoadingStateChanged(
+    FrameTreeNode& node,
+    LoadingState previous_frame_tree_loading_state) {
+  LoadingState new_frame_tree_loading_state = GetLoadingState();
+  if (previous_frame_tree_loading_state == new_frame_tree_loading_state) {
     return;
+  }
 
-  root()->render_manager()->SetIsLoading(IsLoadingIncludingInnerFrameTrees());
-  delegate_->DidStartLoading(&node, should_show_loading_ui);
-}
-
-void FrameTree::DidStopLoadingNode(FrameTreeNode& node) {
-  if (IsLoadingIncludingInnerFrameTrees())
-    return;
-
-  root()->render_manager()->SetIsLoading(false);
-  delegate_->DidStopLoading();
+  root()->render_manager()->SetIsLoading(new_frame_tree_loading_state !=
+                                         LoadingState::NONE);
+  delegate_->LoadingStateChanged(new_frame_tree_loading_state);
+  if (previous_frame_tree_loading_state == LoadingState::NONE) {
+    delegate_->DidStartLoading(&node);
+  } else if (new_frame_tree_loading_state == LoadingState::NONE) {
+    delegate_->DidStopLoading();
+  }
 }
 
 void FrameTree::DidCancelLoading() {

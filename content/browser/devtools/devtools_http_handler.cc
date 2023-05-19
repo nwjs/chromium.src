@@ -14,7 +14,6 @@
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
-#include "base/guid.h"
 #include "base/json/json_writer.h"
 #include "base/location.h"
 #include "base/logging.h"
@@ -28,6 +27,7 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "base/threading/thread.h"
+#include "base/uuid.h"
 #include "base/values.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
@@ -63,7 +63,7 @@
 #include "base/android/build_info.h"
 #endif
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_FUCHSIA)
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_FUCHSIA) && !BUILDFLAG(IS_IOS)
 extern const int kCcompressedProtocolJSON;
 #endif
 
@@ -693,7 +693,7 @@ void DevToolsHttpHandler::OnJsonRequest(
 }
 
 void DevToolsHttpHandler::DecompressAndSendJsonProtocol(int connection_id) {
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FUCHSIA)
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_IOS)
   NOTREACHED();
 #else
   scoped_refptr<base::RefCountedMemory> bytes =
@@ -709,7 +709,7 @@ void DevToolsHttpHandler::DecompressAndSendJsonProtocol(int connection_id) {
       FROM_HERE, base::BindOnce(&ServerWrapper::SendResponse,
                                 base::Unretained(server_wrapper_.get()),
                                 connection_id, response));
-#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FUCHSIA)
+#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_IOS)
 }
 
 void DevToolsHttpHandler::RespondToJsonList(
@@ -746,7 +746,7 @@ void DevToolsHttpHandler::OnDiscoveryPageRequest(int connection_id) {
 
 void DevToolsHttpHandler::OnFrontendResourceRequest(
     int connection_id, const std::string& path) {
-#if BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
   Send404(connection_id);
 #else
   Send200(connection_id,
@@ -831,10 +831,12 @@ DevToolsHttpHandler::DevToolsHttpHandler(
     const base::FilePath& debug_frontend_dir)
     : delegate_(delegate) {
 #if defined(NWJS_SDK)
-  browser_guid_ = delegate_->IsBrowserTargetDiscoverable()
-                      ? kBrowserUrlPrefix
-                      : base::StringPrintf("%s/%s", kBrowserUrlPrefix,
-                                           base::GenerateGUID().c_str());
+  browser_guid_ =
+      delegate_->IsBrowserTargetDiscoverable()
+          ? kBrowserUrlPrefix
+          : base::StringPrintf(
+                "%s/%s", kBrowserUrlPrefix,
+                base::Uuid::GenerateRandomV4().AsLowercaseString().c_str());
   std::unique_ptr<base::Thread> thread(
       new base::Thread(kDevToolsHandlerThreadName));
   base::Thread::Options options;

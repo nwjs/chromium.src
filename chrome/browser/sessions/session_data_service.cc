@@ -12,8 +12,6 @@
 
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
-#include "base/metrics/histogram_functions.h"
-#include "base/time/time.h"
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/profiles/profile.h"
@@ -55,10 +53,9 @@ SessionDataService::SessionDataService(
 
   SetStatusPref(Status::kInitialized);
   auto* policy = profile_->GetSpecialStoragePolicy();
-  if (policy && policy->HasSessionOnlyOrigins()) {
-    RecordHistogramForLastSession(last_status);
-    if (base::FeatureList::IsEnabled(kDeleteSessionOnlyDataOnStartup))
-      MaybeContinueDeletionFromLastSesssion(last_status);
+  if (policy && policy->HasSessionOnlyOrigins() &&
+      base::FeatureList::IsEnabled(kDeleteSessionOnlyDataOnStartup)) {
+    MaybeContinueDeletionFromLastSesssion(last_status);
   }
 
   for (Browser* browser : *BrowserList::GetInstance())
@@ -69,13 +66,6 @@ SessionDataService::SessionDataService(
 
 SessionDataService::~SessionDataService() {
   BrowserList::RemoveObserver(this);
-}
-
-void SessionDataService::RecordHistogramForLastSession(Status last_status) {
-  if (last_status == Status::kUninitialized)
-    return;
-  base::UmaHistogramEnumeration("Session.SessionData.StatusFromLastSession",
-                                last_status);
 }
 
 void SessionDataService::MaybeContinueDeletionFromLastSesssion(
@@ -110,14 +100,10 @@ void SessionDataService::MaybeContinueDeletionFromLastSesssion(
   deleter_->DeleteSessionOnlyData(
       /*skip_session_cookies=*/true,
       base::BindOnce(&SessionDataService::OnCleanupAtStartupFinished,
-                     base::Unretained(this), base::TimeTicks::Now()));
+                     base::Unretained(this)));
 }
 
-void SessionDataService::OnCleanupAtStartupFinished(
-    base::TimeTicks time_started) {
-  base::UmaHistogramMediumTimes("Session.SessionData.StartupCleanupTime",
-                                base::TimeTicks::Now() - time_started);
-}
+void SessionDataService::OnCleanupAtStartupFinished() {}
 
 void SessionDataService::SetStatusPref(Status status) {
   profile_->GetPrefs()->SetInteger(kSessionDataStatusPref,
@@ -193,17 +179,11 @@ void SessionDataService::StartCleanupInternal(bool skip_session_cookies) {
   deleter_->DeleteSessionOnlyData(
       skip_session_cookies,
       base::BindOnce(&SessionDataService::OnCleanupAtSessionEndFinished,
-                     base::Unretained(this), base::TimeTicks::Now()));
+                     base::Unretained(this)));
 }
 
-void SessionDataService::OnCleanupAtSessionEndFinished(
-    base::TimeTicks time_started) {
+void SessionDataService::OnCleanupAtSessionEndFinished() {
   SetStatusPref(Status::kDeletionFinished);
-  auto* policy = profile_->GetSpecialStoragePolicy();
-  if (policy && policy->HasSessionOnlyOrigins()) {
-    base::UmaHistogramMediumTimes("Session.SessionData.CleanupTime",
-                                  base::TimeTicks::Now() - time_started);
-  }
 }
 
 void SessionDataService::SetForceKeepSessionState() {

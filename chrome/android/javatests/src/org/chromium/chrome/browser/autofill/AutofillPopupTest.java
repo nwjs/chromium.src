@@ -6,11 +6,12 @@ package org.chromium.chrome.browser.autofill;
 
 import android.app.Activity;
 import android.content.pm.ActivityInfo;
-import android.support.test.InstrumentationRegistry;
 import android.view.View;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.test.InstrumentationRegistry;
+import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.MediumTest;
 
 import org.hamcrest.Matchers;
@@ -40,6 +41,7 @@ import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
+import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.util.browser.Features;
 import org.chromium.chrome.test.util.browser.Features.DisableFeatures;
 import org.chromium.chrome.test.util.browser.Features.EnableFeatures;
@@ -51,7 +53,6 @@ import org.chromium.content_public.browser.test.util.TouchCommon;
 import org.chromium.content_public.browser.test.util.WebContentsUtils;
 import org.chromium.net.test.EmbeddedTestServer;
 import org.chromium.ui.DropdownPopupWindowInterface;
-import org.chromium.ui.R;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -142,7 +143,7 @@ public class AutofillPopupTest {
         );
         Features.getInstance().enable(ChromeFeatureList.AUTOFILL_ALLOW_NON_HTTP_ACTIVATION);
         mServer = new EmbeddedTestServer();
-        mServer.initializeNative(InstrumentationRegistry.getContext(),
+        mServer.initializeNative(ApplicationProvider.getApplicationContext(),
                 EmbeddedTestServer.ServerHTTPSSetting.USE_HTTP);
         mServer.addDefaultHandlers(TEST_SERVER_DIR);
         mServer.start();

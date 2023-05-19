@@ -59,14 +59,13 @@ network::mojom::URLLoaderFactoryParamsPtr CreateParams(
     mojo::PendingRemote<network::mojom::URLLoaderNetworkServiceObserver>
         url_loader_network_observer,
     mojo::PendingRemote<network::mojom::DevToolsObserver> devtools_observer,
-    network::mojom::TrustTokenRedemptionPolicy trust_token_redemption_policy,
+    network::mojom::TrustTokenOperationPolicyVerdict
+        trust_token_issuance_policy,
+    network::mojom::TrustTokenOperationPolicyVerdict
+        trust_token_redemption_policy,
     net::CookieSettingOverrides cookie_setting_overrides,
     base::StringPiece debug_tag) {
   DCHECK(process);
-
-  // "chrome-guest://..." is never used as a main or isolated world origin.
-  DCHECK_NE(kGuestScheme, origin.scheme());
-  DCHECK_NE(kGuestScheme, request_initiator_origin_lock.scheme());
 
   network::mojom::URLLoaderFactoryParamsPtr params =
       network::mojom::URLLoaderFactoryParams::New();
@@ -99,6 +98,7 @@ network::mojom::URLLoaderFactoryParamsPtr CreateParams(
     params->is_corb_enabled = true;
   }
 
+  params->trust_token_issuance_policy = trust_token_issuance_policy;
   params->trust_token_redemption_policy = trust_token_redemption_policy;
 
   if (GetContentClient()->browser()->IsNWOrigin(origin, process->GetBrowserContext())) {
@@ -139,7 +139,10 @@ URLLoaderFactoryParamsHelper::CreateForFrame(
     mojo::PendingRemote<network::mojom::CrossOriginEmbedderPolicyReporter>
         coep_reporter,
     RenderProcessHost* process,
-    network::mojom::TrustTokenRedemptionPolicy trust_token_redemption_policy,
+    network::mojom::TrustTokenOperationPolicyVerdict
+        trust_token_issuance_policy,
+    network::mojom::TrustTokenOperationPolicyVerdict
+        trust_token_redemption_policy,
     net::CookieSettingOverrides cookie_setting_overrides,
     base::StringPiece debug_tag) {
   return CreateParams(
@@ -155,7 +158,8 @@ URLLoaderFactoryParamsHelper::CreateForFrame(
       frame->CreateTrustTokenAccessObserver(),
       frame->CreateURLLoaderNetworkObserver(),
       NetworkServiceDevToolsObserver::MakeSelfOwned(frame->frame_tree_node()),
-      trust_token_redemption_policy, cookie_setting_overrides, debug_tag);
+      trust_token_issuance_policy, trust_token_redemption_policy,
+      cookie_setting_overrides, debug_tag);
 }
 
 // static
@@ -166,7 +170,10 @@ URLLoaderFactoryParamsHelper::CreateForIsolatedWorld(
     const url::Origin& main_world_origin,
     const net::IsolationInfo& isolation_info,
     network::mojom::ClientSecurityStatePtr client_security_state,
-    network::mojom::TrustTokenRedemptionPolicy trust_token_redemption_policy,
+    network::mojom::TrustTokenOperationPolicyVerdict
+        trust_token_issuance_policy,
+    network::mojom::TrustTokenOperationPolicyVerdict
+        trust_token_redemption_policy,
     net::CookieSettingOverrides cookie_setting_overrides) {
   return CreateParams(
       frame->GetProcess(),
@@ -182,8 +189,8 @@ URLLoaderFactoryParamsHelper::CreateForIsolatedWorld(
       frame->CreateTrustTokenAccessObserver(),
       frame->CreateURLLoaderNetworkObserver(),
       NetworkServiceDevToolsObserver::MakeSelfOwned(frame->frame_tree_node()),
-      trust_token_redemption_policy, cookie_setting_overrides,
-      "ParamHelper::CreateForIsolatedWorld");
+      trust_token_issuance_policy, trust_token_redemption_policy,
+      cookie_setting_overrides, "ParamHelper::CreateForIsolatedWorld");
 }
 
 network::mojom::URLLoaderFactoryParamsPtr
@@ -210,7 +217,8 @@ URLLoaderFactoryParamsHelper::CreateForPrefetch(
       frame->CreateTrustTokenAccessObserver(),
       frame->CreateURLLoaderNetworkObserver(),
       NetworkServiceDevToolsObserver::MakeSelfOwned(frame->frame_tree_node()),
-      network::mojom::TrustTokenRedemptionPolicy::kForbid,
+      network::mojom::TrustTokenOperationPolicyVerdict::kForbid,
+      network::mojom::TrustTokenOperationPolicyVerdict::kForbid,
       cookie_setting_overrides, "ParamHelper::CreateForPrefetch");
 }
 
@@ -250,7 +258,8 @@ URLLoaderFactoryParamsHelper::CreateForWorker(
       // Policy. It seems Permissions Policy in worker contexts
       // is currently an open issue (as of 06/21/2022):
       // https://github.com/w3c/webappsec-permissions-policy/issues/207.
-      network::mojom::TrustTokenRedemptionPolicy::kPotentiallyPermit,
+      network::mojom::TrustTokenOperationPolicyVerdict::kPotentiallyPermit,
+      network::mojom::TrustTokenOperationPolicyVerdict::kPotentiallyPermit,
       net::CookieSettingOverrides(), debug_tag);
 }
 
@@ -300,7 +309,8 @@ URLLoaderFactoryParamsHelper::CreateForEarlyHintsPreload(
       /*is_for_isolated_world=*/false, std::move(cookie_observer),
       std::move(trust_token_observer), std::move(url_loader_network_observer),
       /*devtools_observer=*/mojo::NullRemote(),
-      network::mojom::TrustTokenRedemptionPolicy::kForbid,
+      network::mojom::TrustTokenOperationPolicyVerdict::kForbid,
+      network::mojom::TrustTokenOperationPolicyVerdict::kForbid,
       net::CookieSettingOverrides(), "ParamHelper::CreateForEarlyHintsPreload");
 }
 

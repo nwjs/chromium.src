@@ -275,10 +275,6 @@ TEST_F(PageDiscardingHelperTest,
 }
 
 TEST_F(PageDiscardingHelperTest, TestCannotDiscardPageOnNoDiscardList) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatures({features::kHighEfficiencyModeAvailable,
-                                 features::kBatterySaverModeAvailable},
-                                {});
   // static_cast page_node because it's declared as a PageNodeImpl which hides
   // the members it overrides from PageNode.
   PageDiscardingHelper::GetFromGraph(graph())->SetNoDiscardPatternsForProfile(
@@ -604,13 +600,13 @@ TEST_F(PageDiscardingHelperTest, DiscardAPageTwoCandidates) {
   process_node()->set_resident_set_kb(1024);
   process_node2->set_resident_set_kb(2048);
 
-    EXPECT_CALL(*discarder(), DiscardPageNodeImpl(page_node()))
-        .WillOnce(Return(true));
+  EXPECT_CALL(*discarder(), DiscardPageNodeImpl(page_node()))
+      .WillOnce(Return(true));
 
-    PageDiscardingHelper::GetFromGraph(graph())->DiscardAPage(
-        base::BindOnce([](bool success) { EXPECT_TRUE(success); }),
-        DiscardReason::URGENT);
-    ::testing::Mock::VerifyAndClearExpectations(discarder());
+  PageDiscardingHelper::GetFromGraph(graph())->DiscardAPage(
+      base::BindOnce([](bool success) { EXPECT_TRUE(success); }),
+      DiscardReason::URGENT);
+  ::testing::Mock::VerifyAndClearExpectations(discarder());
 
   histogram_tester()->ExpectBucketCount("Discarding.DiscardCandidatesCount", 2,
                                         1);

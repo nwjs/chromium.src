@@ -143,10 +143,6 @@
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_ASH)
-#include "ui/ozone/buildflags.h"
-#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_ASH)
-
 using content::WebContents;
 
 namespace extensions {
@@ -228,13 +224,15 @@ const char kPerformXhrJs[] =
     "var url = 'http://%s:%d/%s';\n"
     "var xhr = new XMLHttpRequest();\n"
     "xhr.open('GET', url);\n"
-    "xhr.onload = function() {\n"
-    "  window.domAutomationController.send(true);\n"
-    "};\n"
-    "xhr.onerror = function() {\n"
-    "  window.domAutomationController.send(false);\n"
-    "};\n"
-    "xhr.send();\n";
+    "new Promise(resolve => {"
+    "  xhr.onload = function() {\n"
+    "    resolve(true);\n"
+    "  };\n"
+    "  xhr.onerror = function() {\n"
+    "    resolve(false);\n"
+    "  };\n"
+    "  xhr.send();\n"
+    "});\n";
 
 // Header values set by the server and by the extension.
 const char kHeaderValueFromExtension[] = "ValueFromExtension";
@@ -250,12 +248,8 @@ void PerformXhrInFrame(content::RenderFrameHost* frame,
                       const std::string& host,
                       int port,
                       const std::string& page) {
-  bool success = false;
-  EXPECT_TRUE(ExecuteScriptAndExtractBool(
-      frame,
-      base::StringPrintf(kPerformXhrJs, host.c_str(), port, page.c_str()),
-      &success));
-  EXPECT_TRUE(success);
+  EXPECT_EQ(true, EvalJs(frame, base::StringPrintf(kPerformXhrJs, host.c_str(),
+                                                   port, page.c_str())));
 }
 
 base::Value ExecuteScriptAndReturnValue(const ExtensionId& extension_id,
@@ -406,15 +400,15 @@ class ExtensionWebRequestApiTest : public ExtensionApiTest {
         "webRequest"
       ]
     })";
-    auto dir = std::make_unique<TestExtensionDir>();
-    dir->WriteManifest(base::StringPrintf(kManifest, name.c_str()));
-    LoadExtension(dir->UnpackedPath());
+    TestExtensionDir dir;
+    dir.WriteManifest(base::StringPrintf(kManifest, name.c_str()));
+    LoadExtension(dir.UnpackedPath());
     test_dirs_.push_back(std::move(dir));
   }
 
  private:
   base::test::ScopedFeatureList feature_list_;
-  std::vector<std::unique_ptr<TestExtensionDir>> test_dirs_;
+  std::vector<TestExtensionDir> test_dirs_;
   std::unique_ptr<NavigateTabMessageHandler> navigationHandler_;
 };
 
@@ -1198,13 +1192,9 @@ void ExtensionWebRequestApiTest::RunPermissionTest(
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
       browser(), embedded_test_server()->GetURL("/extensions/test_file.html")));
 
-  std::string body;
   WebContents* tab = browser()->tab_strip_model()->GetActiveWebContents();
-  ASSERT_TRUE(content::ExecuteScriptAndExtractString(
-        tab,
-        "window.domAutomationController.send(document.body.textContent)",
-        &body));
-  EXPECT_EQ(expected_content_regular_window, body);
+  EXPECT_EQ(expected_content_regular_window,
+            content::EvalJs(tab, "document.body.textContent"));
 
   // Test that navigation in OTR window is properly redirected.
   Browser* otr_browser =
@@ -1219,13 +1209,9 @@ void ExtensionWebRequestApiTest::RunPermissionTest(
       otr_browser,
       embedded_test_server()->GetURL("/extensions/test_file.html")));
 
-  body.clear();
   WebContents* otr_tab = otr_browser->tab_strip_model()->GetActiveWebContents();
-  ASSERT_TRUE(content::ExecuteScriptAndExtractString(
-      otr_tab,
-      "window.domAutomationController.send(document.body.textContent)",
-      &body));
-  EXPECT_EQ(exptected_content_incognito_window, body);
+  EXPECT_EQ(exptected_content_incognito_window,
+            content::EvalJs(otr_tab, "document.body.textContent"));
 }
 
 IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiTestWithContextType,
@@ -1400,17 +1386,14 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest, HostedAppRequest) {
   scoped_refptr<const Extension> hosted_app =
       ExtensionBuilder()
           .SetManifest(
-              DictionaryBuilder()
+              base::Value::Dict()
                   .Set("name", "Some hosted app")
                   .Set("version", "1")
                   .Set("manifest_version", 2)
-                  .Set("app", DictionaryBuilder()
-                                  .Set("launch", DictionaryBuilder()
-                                                     .Set("web_url",
-                                                          hosted_app_url.spec())
-                                                     .Build())
-                                  .Build())
-                  .Build())
+                  .Set("app",
+                       base::Value::Dict().Set(
+                           "launch", base::Value::Dict().Set(
+                                         "web_url", hosted_app_url.spec()))))
           .Build();
   extension_service()->AddExtension(hosted_app.get());
 
@@ -1706,14 +1689,14 @@ IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiTestWithContextType,
   const char kRequest[] = R"(
       var xhr = new XMLHttpRequest();
       xhr.open('GET', 'http://clients1.google.com');
-      xhr.onload = () => {window.domAutomationController.send(true);};
-      xhr.onerror = () => {window.domAutomationController.send(false);};
-      xhr.send();)";
-  bool success = false;
-  EXPECT_TRUE(ExecuteScriptAndExtractBool(web_contents->GetPrimaryMainFrame(),
-                                          kRequest, &success));
+      new Promise(resolve => {
+        xhr.onload = () => {resolve(true);};
+        xhr.onerror = () => {resolve(false);};
+        xhr.send();
+      });
+      )";
+  EXPECT_EQ(false, EvalJs(web_contents->GetPrimaryMainFrame(), kRequest));
   // Requests always fail due to cross origin nature.
-  EXPECT_FALSE(success);
 
   EXPECT_EQ(1, get_clients_google_request_count());
   EXPECT_EQ(0, get_yahoo_request_count());
@@ -2070,15 +2053,10 @@ IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiTestWithContextType,
       browser()->tab_strip_model()->GetActiveWebContents();
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), google_url));
   EXPECT_EQ(google_url, web_contents->GetLastCommittedURL());
-  {
-    // google.com should succeed.
-    std::string content;
-    EXPECT_TRUE(content::ExecuteScriptAndExtractString(
-        web_contents,
-        "domAutomationController.send(document.body.textContent.trim());",
-        &content));
-    EXPECT_EQ(kGoogleBodyContent, content);
-  }
+
+  // google.com should succeed.
+  EXPECT_EQ(kGoogleBodyContent,
+            content::EvalJs(web_contents, "document.body.textContent.trim();"));
 
   GURL example_url =
       embedded_test_server()->GetURL("example.com", "/extensions/body2.html");
@@ -2090,12 +2068,9 @@ IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiTestWithContextType,
         web_contents->GetController().GetLastCommittedEntry();
     ASSERT_TRUE(nav_entry);
     EXPECT_EQ(content::PAGE_TYPE_ERROR, nav_entry->GetPageType());
-    std::string content;
-    EXPECT_TRUE(content::ExecuteScriptAndExtractString(
-        web_contents,
-        "domAutomationController.send(document.body.textContent.trim());",
-        &content));
-    EXPECT_NE(kExampleBodyContent, content);
+    EXPECT_NE(
+        kExampleBodyContent,
+        content::EvalJs(web_contents, "document.body.textContent.trim();"));
   }
 
   // A callback allow waiting for responses to complete with an expected status
@@ -2405,11 +2380,8 @@ IN_PROC_BROWSER_TEST_P(NTPInterceptionWebRequestAPITest,
   // Returns true if the given |web_contents| has window.scriptExecuted set to
   // true;
   auto was_ntp_script_loaded = [](content::WebContents* web_contents) {
-    bool was_ntp_script_loaded = false;
-    EXPECT_TRUE(content::ExecuteScriptAndExtractBool(
-        web_contents, "domAutomationController.send(!!window.scriptExecuted);",
-        &was_ntp_script_loaded));
-    return was_ntp_script_loaded;
+    return content::EvalJs(web_contents, "!!window.scriptExecuted;")
+        .ExtractBool();
   };
 
   WebContents* web_contents =
@@ -3793,11 +3765,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest,
       "webrequest", {.extension_url = "test_simple_cancel_navigation.html"}))
       << message_;
 
-  std::string body;
   WebContents* tab = browser()->tab_strip_model()->GetActiveWebContents();
-  ASSERT_TRUE(content::ExecuteScriptAndExtractString(
-      tab, "window.domAutomationController.send(document.body.textContent)",
-      &body));
+  std::string body =
+      content::EvalJs(tab, "document.body.textContent").ExtractString();
 
   EXPECT_TRUE(
       base::Contains(body, "This page has been blocked by an extension"));
@@ -3978,51 +3948,49 @@ class SubresourceWebBundlesWebRequestApiTest
   bool TryLoadScript(const std::string& script_src) {
     content::WebContents* web_contents =
         browser()->tab_strip_model()->GetActiveWebContents();
-    bool success = false;
     std::string script = base::StringPrintf(R"(
           (() => {
             const script = document.createElement('script');
-            script.addEventListener('load', () => {
-              window.domAutomationController.send(true);
+            return new Promise(resolve => {
+              script.addEventListener('load', () => {
+                resolve(true);
+              });
+              script.addEventListener('error', () => {
+                resolve(false);
+              });
+              script.src = '%s';
+              document.body.appendChild(script);
             });
-            script.addEventListener('error', () => {
-              window.domAutomationController.send(false);
-            });
-            script.src = '%s';
-            document.body.appendChild(script);
           })();
         )",
                                             script_src.c_str());
-    EXPECT_TRUE(ExecuteScriptAndExtractBool(web_contents->GetPrimaryMainFrame(),
-                                            script, &success));
-    return success;
+    return EvalJs(web_contents->GetPrimaryMainFrame(), script).ExtractBool();
   }
 
   bool TryLoadBundle(const std::string& href, const std::string& resources) {
     content::WebContents* web_contents =
         browser()->tab_strip_model()->GetActiveWebContents();
-    bool success = false;
     std::string script = base::StringPrintf(R"(
           (() => {
             const script = document.createElement('script');
             script.type = 'webbundle';
-            script.addEventListener('load', () => {
-              window.domAutomationController.send(true);
+            return new Promise(resolve => {
+              script.addEventListener('load', () => {
+                resolve(true);
+              });
+              script.addEventListener('error', () => {
+                resolve(false);
+              });
+              script.textContent = JSON.stringify({
+                'source': '%s',
+                'resources': ['%s']
+              });
+              document.body.appendChild(script);
             });
-            script.addEventListener('error', () => {
-              window.domAutomationController.send(false);
-            });
-            script.textContent = JSON.stringify({
-              'source': '%s',
-              'resources': ['%s']
-            });
-            document.body.appendChild(script);
           })();
         )",
                                             href.c_str(), resources.c_str());
-    EXPECT_TRUE(ExecuteScriptAndExtractBool(web_contents->GetPrimaryMainFrame(),
-                                            script, &success));
-    return success;
+    return EvalJs(web_contents->GetPrimaryMainFrame(), script).ExtractBool();
   }
 
   // Registers a request handler for static content.
@@ -5360,16 +5328,15 @@ IN_PROC_BROWSER_TEST_P(ProxyCORSWebRequestApiTest,
       var xhr = new XMLHttpRequest();
       xhr.open('GET', '%s');
       xhr.setRequestHeader('%s', 'testvalue');
-      xhr.onload = () => {window.domAutomationController.send(true);};
-      xhr.onerror = () => {window.domAutomationController.send(false);};
-      xhr.send();)";
-  bool success = false;
-  ASSERT_TRUE(ExecuteScriptAndExtractBool(
-      web_contents->GetPrimaryMainFrame(),
-      base::StringPrintf(kCORSPreflightedRequest, kCORSUrl,
-                         kCustomPreflightHeader),
-      &success));
-  EXPECT_TRUE(success);
+      new Promise(resolve => {
+        xhr.onload = () => {resolve(true);};
+        xhr.onerror = () => {resolve(false);};
+        xhr.send();
+      });
+      )";
+  EXPECT_EQ(true, EvalJs(web_contents->GetPrimaryMainFrame(),
+                         base::StringPrintf(kCORSPreflightedRequest, kCORSUrl,
+                                            kCustomPreflightHeader)));
   EXPECT_TRUE(preflight_listener.WaitUntilSatisfied());
   EXPECT_EQ(1, GetCountFromBackgroundScript(
                    extension, profile(), "self.preflightHeadersReceivedCount"));
@@ -5388,7 +5355,8 @@ class ExtensionWebRequestApiFencedFrameTest
  protected:
   ExtensionWebRequestApiFencedFrameTest() {
     feature_list_.InitWithFeaturesAndParameters(
-        {{blink::features::kFencedFrames, {{}}},
+        {{blink::features::kFencedFrames, {}},
+         {blink::features::kFencedFramesAPIChanges, {}},
          {features::kPrivacySandboxAdsAPIsOverride, {}}},
         {/* disabled_features */});
     // Fenced frames are only allowed in secure contexts.
@@ -5698,10 +5666,7 @@ IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest,
     return GetCountFromBackgroundScript(extension, profile(), "secondCount");
   };
   auto get_third_count = [page_host]() {
-    int count = -1;
-    EXPECT_TRUE(content::ExecuteScriptAndExtractInt(
-        page_host, "domAutomationController.send(window.thirdCount);", &count));
-    return count;
+    return content::EvalJs(page_host, "window.thirdCount;").ExtractInt();
   };
 
   // No listeners should have fired yet.
@@ -6114,10 +6079,7 @@ IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest,
     return GetCountFromBackgroundScript(extension, profile(), "eventCount");
   };
   auto get_page_event_count = [page_host]() {
-    int count = -1;
-    EXPECT_TRUE(content::ExecuteScriptAndExtractInt(
-        page_host, "domAutomationController.send(self.eventCount);", &count));
-    return count;
+    return content::EvalJs(page_host, "self.eventCount;").ExtractInt();
   };
 
   // Stop the extension's service worker. The worker listener should now be
@@ -6205,25 +6167,10 @@ IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest, TestOnAuthRequired) {
   EXPECT_TRUE(navigation_observer.last_navigation_succeeded());
 }
 
-// The build flag OZONE_PLATFORM_WAYLAND is only available on
-// Linux or ChromeOS, so this simplifies the next set of ifdefs.
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_ASH)
-#if BUILDFLAG(OZONE_PLATFORM_WAYLAND)
-#define OZONE_PLATFORM_WAYLAND
-#endif  // BUILDFLAG(OZONE_PLATFORM_WAYLAND)
-#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_ASH)
-
 // Tests the behavior of an extension that registers an event listener
 // asynchronously.
 // Regression test for https://crbug.com/1397879.
-// Flaky on linux-lacros and linux-wayland-rel. See https://crbug.com/1423018
-#if BUILDFLAG(IS_CHROMEOS_LACROS) || defined(OZONE_PLATFORM_WAYLAND)
-#define MAYBE_AsyncListenerRegistration DISABLED_AsyncListenerRegistration
-#else
-#define MAYBE_AsyncListenerRegistration AsyncListenerRegistration
-#endif
-IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest,
-                       MAYBE_AsyncListenerRegistration) {
+IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest, AsyncListenerRegistration) {
   ASSERT_TRUE(StartEmbeddedTestServer());
   static constexpr char kManifest[] =
       R"({

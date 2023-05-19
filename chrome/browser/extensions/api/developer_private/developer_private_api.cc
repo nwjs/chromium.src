@@ -17,7 +17,6 @@
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
-#include "base/guid.h"
 #include "base/lazy_instance.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/ranges/algorithm.h"
@@ -26,6 +25,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/thread_pool.h"
+#include "base/uuid.h"
 #include "chrome/browser/apps/app_service/app_launch_params.h"
 #include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/extensions/api/developer_private/developer_private_mangle.h"
@@ -61,6 +61,7 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/grit/generated_resources.h"
+#include "components/policy/core/common/policy_pref_names.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_details.h"
@@ -517,7 +518,7 @@ std::unique_ptr<developer::ProfileInfo> DeveloperPrivateAPI::CreateProfileInfo(
   const PrefService::Preference* pref =
       prefs->FindPreference(prefs::kExtensionsUIDeveloperMode);
   info->is_incognito_available = IncognitoModePrefs::GetAvailability(prefs) !=
-                                 IncognitoModePrefs::Availability::kDisabled;
+                                 policy::IncognitoModeAvailability::kDisabled;
   info->is_developer_mode_controlled_by_policy = pref->IsManaged();
   info->in_developer_mode =
       !info->is_child_account &&
@@ -822,7 +823,7 @@ DeveloperPrivateAPI::UnpackedRetryId DeveloperPrivateAPI::AddUnpackedPath(
   if (existing != paths.end())
     return existing->first;
 
-  UnpackedRetryId id = base::GenerateGUID();
+  UnpackedRetryId id = base::Uuid::GenerateRandomV4().AsLowercaseString();
   paths[id] = path;
   return id;
 }

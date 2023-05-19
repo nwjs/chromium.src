@@ -50,12 +50,12 @@
 #include "third_party/blink/renderer/core/event_target_names.h"
 #include "third_party/blink/renderer/core/events/progress_event.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
-#include "third_party/blink/renderer/core/fetch/trust_token_issuance_authorization.h"
+#include "third_party/blink/renderer/core/fetch/attribution_reporting_to_mojom.h"
 #include "third_party/blink/renderer/core/fetch/trust_token_to_mojom.h"
 #include "third_party/blink/renderer/core/fileapi/blob.h"
 #include "third_party/blink/renderer/core/fileapi/file.h"
+#include "third_party/blink/renderer/core/fileapi/file_reader_client.h"
 #include "third_party/blink/renderer/core/fileapi/file_reader_loader.h"
-#include "third_party/blink/renderer/core/fileapi/file_reader_loader_client.h"
 #include "third_party/blink/renderer/core/fileapi/public_url_manager.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
 #include "third_party/blink/renderer/core/frame/deprecation/deprecation.h"
@@ -243,34 +243,40 @@ bool ValidateOpenArguments(const AtomicString& method,
 
 class XMLHttpRequest::BlobLoader final
     : public GarbageCollected<XMLHttpRequest::BlobLoader>,
-      public FileReaderLoaderClient {
+      public FileReaderClient {
  public:
   BlobLoader(XMLHttpRequest* xhr, scoped_refptr<BlobDataHandle> handle)
       : xhr_(xhr),
-        loader_(std::make_unique<FileReaderLoader>(
-            FileReaderLoader::kReadByClient,
+        loader_(MakeGarbageCollected<FileReaderLoader>(
             this,
             xhr->GetExecutionContext()->GetTaskRunner(
                 TaskType::kFileReading))) {
     loader_->Start(std::move(handle));
   }
 
-  // FileReaderLoaderClient functions.
-  void DidStartLoading() override {}
-  void DidReceiveDataForClient(const char* data, unsigned length) override {
+  // FileReaderClient functions.
+  FileErrorCode DidStartLoading(uint64_t) override {
+    return FileErrorCode::kOK;
+  }
+  FileErrorCode DidReceiveData(const char* data, unsigned length) override {
     DCHECK_LE(length, static_cast<unsigned>(INT_MAX));
     xhr_->DidReceiveData(data, length);
+    return FileErrorCode::kOK;
   }
   void DidFinishLoading() override { xhr_->DidFinishLoadingFromBlob(); }
   void DidFail(FileErrorCode error) override { xhr_->DidFailLoadingFromBlob(); }
 
   void Cancel() { loader_->Cancel(); }
 
-  void Trace(Visitor* visitor) const { visitor->Trace(xhr_); }
+  void Trace(Visitor* visitor) const override {
+    FileReaderClient::Trace(visitor);
+    visitor->Trace(xhr_);
+    visitor->Trace(loader_);
+  }
 
  private:
   Member<XMLHttpRequest> xhr_;
-  std::unique_ptr<FileReaderLoader> loader_;
+  Member<FileReaderLoader> loader_;
 };
 
 XMLHttpRequest* XMLHttpRequest::Create(ScriptState* script_state) {
@@ -289,7 +295,8 @@ XMLHttpRequest* XMLHttpRequest::Create(ExecutionContext* context) {
 XMLHttpRequest::XMLHttpRequest(ExecutionContext* context,
                                v8::Isolate* isolate,
                                scoped_refptr<const DOMWrapperWorld> world)
-    : ExecutionContextLifecycleObserver(context),
+    : ActiveScriptWrappable<XMLHttpRequest>({}),
+      ExecutionContextLifecycleObserver(context),
       progress_event_throttle_(
           MakeGarbageCollected<XMLHttpRequestProgressEventThrottle>(this)),
       isolate_(isolate),
@@ -1073,6 +1080,9 @@ void XMLHttpRequest::CreateRequest(scoped_refptr<EncodedFormData> http_body,
   if (trust_token_params_)
     request.SetTrustTokenParams(*trust_token_params_);
 
+  request.SetAttributionReportingEligibility(
+      attribution_reporting_eligibility_);
+
   probe::WillLoadXHR(&execution_context, method_, url_, async_,
                      request_headers_, with_credentials_);
 
@@ -1170,6 +1180,8 @@ void XMLHttpRequest::CreateRequest(scoped_refptr<EncodedFormData> http_body,
       UMA_HISTOGRAM_MEDIUM_TIMES("XHR.Sync.BlockingTime.WorkerThread",
                                  blocking_time);
     }
+
+    probe::DidFinishSyncXHR(&execution_context, blocking_time);
 
     ThrowForLoadFailureIfNeeded(exception_state, String());
   }
@@ -1446,38 +1458,29 @@ void XMLHttpRequest::setPrivateToken(const PrivateToken* trust_token,
   }
 
   auto params = network::mojom::blink::TrustTokenParams::New();
-  if (!ConvertTrustTokenToMojom(*trust_token, &exception_state, params.get())) {
+  if (!ConvertTrustTokenToMojomAndCheckPermissions(
+          *trust_token, GetExecutionContext(), &exception_state,
+          params.get())) {
     DCHECK(exception_state.HadException());
     return;
   }
 
-  bool operation_requires_permissions_policy =
-      params->operation ==
-          network::mojom::blink::TrustTokenOperationType::kRedemption ||
-      params->operation ==
-          network::mojom::blink::TrustTokenOperationType::kSigning;
-  if (operation_requires_permissions_policy &&
-      !GetExecutionContext()->IsFeatureEnabled(
-          mojom::blink::PermissionsPolicyFeature::kTrustTokenRedemption)) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kNotAllowedError,
-        "Trust Tokens redemption and signing require the "
-        "trust-token-redemption Permissions Policy feature.");
-    return;
-  }
-
-  if (params->operation ==
-          network::mojom::blink::TrustTokenOperationType::kIssuance &&
-      !IsTrustTokenIssuanceAvailableInExecutionContext(
-          *GetExecutionContext())) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kNotAllowedError,
-        "Trust Tokens issuance is disabled except in "
-        "contexts with the TrustTokens Origin Trial enabled.");
-    return;
-  }
-
   trust_token_params_ = std::move(params);
+}
+
+void XMLHttpRequest::setAttributionReporting(
+    const AttributionReportingRequestOptions* options,
+    ExceptionState& exception_state) {
+  // These precondition checks are copied from |setRequestHeader|.
+  if (state_ != kOpened || send_flag_) {
+    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
+                                      "The object's state must be OPENED.");
+    return;
+  }
+
+  attribution_reporting_eligibility_ =
+      ConvertAttributionReportingRequestOptionsToMojom(
+          *options, *GetExecutionContext(), exception_state);
 }
 
 bool XMLHttpRequest::HasContentTypeRequestHeader() const {

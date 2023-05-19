@@ -111,7 +111,9 @@ void WebAppSettingsUI::BindInterface(
 #endif
 }
 
-void WebAppSettingsUI::OnWebAppUninstalled(const web_app::AppId& app_id) {
+void WebAppSettingsUI::OnWebAppUninstalled(
+    const web_app::AppId& app_id,
+    webapps::WebappUninstallSource uninstall_source) {
   auto* web_contents = web_ui()->GetWebContents();
   const web_app::AppId current_app_id =
       web_app::GetAppIdFromAppSettingsUrl(web_contents->GetURL());

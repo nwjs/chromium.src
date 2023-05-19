@@ -10,6 +10,7 @@ Některé funkce možná nebudou k dispozici a změny nastavení se neuloží.</
 <translation id="1104942323762546749">Chromium chce exportovat vaše hesla. Tato akce vyžaduje zadání hesla systému Windows.</translation>
 <translation id="113122355610423240">Chromium je vaším výchozím prohlížečem</translation>
 <translation id="1131805035311359397">Chcete-li zkontrolovat, zda jsou hesla v bezpečí před porušením zabezpečení údajů a ostatními bezpečnostními hrozbami, <ph name="BEGIN_LINK" />přihlaste se do prohlížeče Chromium<ph name="END_LINK" />.</translation>
+<translation id="1157106475430165622">{NUM_DEVICES,plural, =0{Rozšíření prohlížeče Chromium používala zařízení HID}=1{Rozšíření prohlížeče Chromium používají zařízení HID}few{Rozšíření prohlížeče Chromium používají # zařízení HID}many{Rozšíření prohlížeče Chromium používají # zařízení HID}other{Rozšíření prohlížeče Chromium používají # zařízení HID}}</translation>
 <translation id="1185134272377778587">O prohlížeči Chromium</translation>
 <translation id="1202417120496358351">{COUNT,plural, =1{Váš administrátor nakonfiguroval prohlížeč Chromium tak, aby se po 1 minutě nečinnosti automaticky zavřel. Údaje o prohlížení se smažou. To může zahrnovat historii, automatické vyplňování a stažené soubory.}few{Váš administrátor nakonfiguroval prohlížeč Chromium tak, aby se po # minutách nečinnosti automaticky zavřel. Údaje o prohlížení se smažou. To může zahrnovat historii, automatické vyplňování a stažené soubory.}many{Váš administrátor nakonfiguroval prohlížeč Chromium tak, aby se po # minuty nečinnosti automaticky zavřel. Údaje o prohlížení se smažou. To může zahrnovat historii, automatické vyplňování a stažené soubory.}other{Váš administrátor nakonfiguroval prohlížeč Chromium tak, aby se po # minutách nečinnosti automaticky zavřel. Údaje o prohlížení se smažou. To může zahrnovat historii, automatické vyplňování a stažené soubory.}}</translation>
 <translation id="1203500561924088507">Děkujeme za instalaci aplikace <ph name="BUNDLE_NAME" />. Před jejím použitím je potřeba restartovat prohlížeč.</translation>
@@ -60,6 +61,7 @@ Na tento účet se mohou vztahovat oprávnění, která jste již udělili webů
 <translation id="2478295928299953161">Chromium se brzy zavře</translation>
 <translation id="2483889755041906834">V prohlížeči Chromium</translation>
 <translation id="2485422356828889247">Odinstalovat</translation>
+<translation id="2554739539410784893">Chromium se pokouší nahradit stávající hesla. Tato akce vyžaduje zadání hesla systému Windows.</translation>
 <translation id="2560420686485554789">Aby bylo možné stahovat soubory, potřebuje Chromium přístup k úložišti</translation>
 <translation id="2572494885440352020">Chromium Helper</translation>
 <translation id="2583187216237139145">Veškerá data prohlížeče Chromium vygenerovaná během používání tohoto profilu (jako je vytvoření záložek, historie, hesel a další nastavení) může administrátor pracovního profilu odstranit. <ph name="LEARN_MORE" /></translation>
@@ -81,7 +83,6 @@ Na tento účet se mohou vztahovat oprávnění, která jste již udělili webů
 <translation id="2928420929544864228">Instalace byla dokončena.</translation>
 <translation id="2977470724722393594">Chromium je aktuální</translation>
 <translation id="2977506796191543575">Pokud se web pokusí odcizit vám heslo nebo když stáhnete škodlivý soubor, může Chromium Bezpečnému prohlížení odeslat také adresy URL, včetně částí obsahu stránky</translation>
-<translation id="3021964162552004083">{NUM_DEVICES,plural, =1{Prohlížeč Chromium je připojen k zařízení HID}few{Prohlížeč Chromium je připojen k zařízením HID}many{Prohlížeč Chromium je připojen k zařízením HID}other{Prohlížeč Chromium je připojen k zařízením HID}}</translation>
 <translation id="3032706164202344641">Chromium nemůže zkontrolovat hesla. Zkuste to později.</translation>
 <translation id="3032787606318309379">Přidávání do prohlížeče Chromium...</translation>
 <translation id="3038232873781883849">Čekání na instalaci…</translation>
@@ -96,7 +97,6 @@ Na tento účet se mohou vztahovat oprávnění, která jste již udělili webů
 <translation id="3258596308407688501">Chromium nemůže číst ani zapisovat do svého datového adresáře:
 
 <ph name="USER_DATA_DIRECTORY" /></translation>
-<translation id="3259037713047794342">Tento průvodce vám pomůže porozumět vašim možnostem, aby prohlížeč Chromium fungoval tak, jak chcete</translation>
 <translation id="3283186697780795848">Je nainstalována tato verze prohlížeče Chromium: <ph name="PRODUCT_VERSION" /></translation>
 <translation id="3286538390144397061">Restartovat</translation>
 <translation id="328888136576916638">Chybí klíče rozhraní Google API. Některé funkce Chromium nebudou k dispozici.</translation>
@@ -248,8 +248,10 @@ Na tento účet se mohou vztahovat oprávnění, která jste již udělili webů
 <translation id="6442900851116057561">Restartujte ChromiumOS</translation>
 <translation id="6455857529632101747">Vítejte v profilech Chromium</translation>
 <translation id="6475912303565314141">Také řídí, která stránka se zobrazí při spuštění prohlížeče Chromium.</translation>
+<translation id="648319183876919572">Vylepšené Bezpečné prohlížení vás chrání před nebezpečnými weby a soubory ke stažení</translation>
 <translation id="6510925080656968729">Odinstalovat Chromium</translation>
 <translation id="6542839706527980775">V každém profilu jsou uloženy soukromé údaje z Chromia, například záložky, historie, hesla a další</translation>
+<translation id="656935081669708576">Přepnutím můžete zobrazit hesla z jiného profilu Chromium</translation>
 <translation id="6570579332384693436">Text zadaný do textových polí odesílá Chromium kvůli opravě pravopisných chyb do Googlu</translation>
 <translation id="6598877126913850652">Přejít na nastavení oznámení prohlížeče Chromium</translation>
 <translation id="6613594504749178791">Změny se projeví po příštím restartu prohlížeče Chromium.</translation>
@@ -357,6 +359,7 @@ Chromium nemůže vaše nastavení obnovit.</translation>
 <translation id="8608079656141766906"><ph name="BEGIN_BOLD" />Jak tyto údaje využíváme:<ph name="END_BOLD" /> Weby mohou v prohlížeči Chromium ukládat informace o vašich zájmech. Např. když navštívíte web, kde se prodávají boty na maraton, web může definovat váš zájem jako běhání maratonů. Když později navštívíte jiný web s registrací na závod, může se vám na něm na základě vašich zájmů zobrazit reklama na boty na běhání.</translation>
 <translation id="8619360774459241877">Spouštění prohlížeče Chromium...</translation>
 <translation id="8621669128220841554">Instalace se z neznámého důvodu nezdařila. Stáhněte prosím Chromium znovu.</translation>
+<translation id="867492205098279939">{NUM_DEVICES,plural, =0{Rozšíření prohlížeče Chromium používalo zařízení HID}=1{Rozšíření prohlížeče Chromium používá 1 zařízení HID}few{Rozšíření prohlížeče Chromium používají # zařízení HID}many{Rozšíření prohlížeče Chromium používá # zařízení HID}other{Rozšíření prohlížeče Chromium používá # zařízení HID}}</translation>
 <translation id="8697124171261953979">Také řídí, která stránka se zobrazí po spuštění prohlížeče Chromium nebo při vyhledávání v omniboxu.</translation>
 <translation id="8704119203788522458">Toto je váš prohlížeč Chromium</translation>
 <translation id="8796602469536043152">Chromium pro tento web potřebuje oprávnění k přístupu k fotoaparátu a mikrofonu</translation>
@@ -385,7 +388,6 @@ Chromium nemůže vaše nastavení obnovit.</translation>
 <translation id="924957577793602335">Přizpůsobte si Chromium</translation>
 <translation id="93478295209880648">Prohlížeč Chromium nemusí fungovat správně, protože v systémech Windows XP a Windows Vista již není podporován</translation>
 <translation id="942598560705308788">Certifikáty spravované prohlížečem Chromium</translation>
-<translation id="959579472876010517">Využívejte prohlížeč Chromium naplno</translation>
 <translation id="965162752251293939">Kdo Chromium používá?</translation>
 <translation id="967427899662692980">Aktivujte si v prohlížeči Chromium maximální zabezpečení</translation>
 <translation id="9792300276217204">Při zavření prohlížeče Chromium vždy vymazat ze zařízení data webů</translation>

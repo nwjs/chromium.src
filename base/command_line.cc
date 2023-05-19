@@ -215,27 +215,27 @@ void CommandLine::SetDuplicateSwitchHandler(
 CommandLine::CommandLine(NoProgram no_program)
     : argv_(1),
       begin_args_(1),
-      argc0_(0), argv0_(NULL) {
+      argc0_(0) {
 }
 
 CommandLine::CommandLine(const FilePath& program)
     : argv_(1),
       begin_args_(1),
-      argc0_(0), argv0_(NULL) {
+      argc0_(0) {
   SetProgram(program);
 }
 
 CommandLine::CommandLine(int argc, const CommandLine::CharType* const* argv)
     : argv_(1),
       begin_args_(1),
-      argc0_(0), argv0_(NULL) {
+      argc0_(0) {
   InitFromArgv(argc, argv);
 }
 
 CommandLine::CommandLine(const StringVector& argv)
     : argv_(1),
       begin_args_(1),
-      argc0_(0), argv0_(NULL) {
+      argc0_(0) {
   InitFromArgv(argv);
 }
 

@@ -7,6 +7,7 @@
 #include "base/containers/contains.h"
 #include "services/network/public/mojom/no_vary_search.mojom-shared.h"
 #include "services/network/public/mojom/referrer_policy.mojom-shared.h"
+#include "third_party/blink/public/mojom/speculation_rules/speculation_rules.mojom-shared.h"
 #include "third_party/blink/renderer/core/css/style_rule.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
@@ -261,16 +262,8 @@ SpeculationRule* ParseSpeculationRule(JSONObject* input,
                                target_hint_str + "\".");
       return nullptr;
     }
-    // Currently only "_blank" and "_self" are supported.
-    // TODO(https://crbug.com/1354049): Support more browsing context names and
-    // keywords.
-    if (EqualIgnoringASCIICase(target_hint_str, "_blank")) {
-      target_hint = mojom::blink::SpeculationTargetHint::kBlank;
-    } else if (EqualIgnoringASCIICase(target_hint_str, "_self")) {
-      target_hint = mojom::blink::SpeculationTargetHint::kSelf;
-    } else {
-      target_hint = mojom::blink::SpeculationTargetHint::kNoHint;
-    }
+    target_hint =
+        SpeculationRuleSet::SpeculationTargetHintFromString(target_hint_str);
   }
 
   // Let referrerPolicy be the empty string.
@@ -302,7 +295,7 @@ SpeculationRule* ParseSpeculationRule(JSONObject* input,
     }
   }
 
-  absl::optional<mojom::blink::SpeculationEagerness> eagerness;
+  mojom::blink::SpeculationEagerness eagerness;
   if (JSONValue* eagerness_value = input->Get("eagerness")) {
     // Feature gated due to known keys check above.
     DCHECK(speculation_rules::EagernessEnabled(context));
@@ -326,6 +319,10 @@ SpeculationRule* ParseSpeculationRule(JSONObject* input,
     }
 
     UseCounter::Count(context, WebFeature::kSpeculationRulesExplicitEagerness);
+  } else {
+    eagerness = source == "list"
+                    ? mojom::blink::SpeculationEagerness::kEager
+                    : mojom::blink::SpeculationEagerness::kConservative;
   }
 
   network::mojom::blink::NoVarySearchPtr no_vary_search = nullptr;
@@ -350,9 +347,17 @@ SpeculationRule* ParseSpeculationRule(JSONObject* input,
     no_vary_search = std::move(no_vary_search_expected->get_no_vary_search());
   }
 
+  const mojom::blink::SpeculationInjectionWorld world =
+      context->GetCurrentWorld()
+          ? context->GetCurrentWorld()->IsMainWorld()
+                ? mojom::blink::SpeculationInjectionWorld::kMain
+                : mojom::blink::SpeculationInjectionWorld::kIsolated
+          : mojom::blink::SpeculationInjectionWorld::kNone;
+
   return MakeGarbageCollected<SpeculationRule>(
       std::move(urls), document_rule_predicate, requires_anonymous_client_ip,
-      target_hint, referrer_policy, eagerness, std::move(no_vary_search));
+      target_hint, referrer_policy, eagerness, std::move(no_vary_search),
+      world);
 }
 
 }  // namespace
@@ -489,6 +494,10 @@ SpeculationRuleSet* SpeculationRuleSet::Parse(Source* source,
             result->selectors_.AppendVector(rule->predicate()->GetStyleRules());
           }
 
+          if (rule->eagerness() != mojom::blink::SpeculationEagerness::kEager) {
+            result->requires_unfiltered_input_ = true;
+          }
+
           // Append rule to result's prefetch/prerender rules.
           destination.push_back(rule);
         }
@@ -520,6 +529,22 @@ bool SpeculationRuleSet::ShouldReportUMAForError() const {
     case SpeculationRuleSetErrorType::kNoError:
     case SpeculationRuleSetErrorType::kInvalidRulesSkipped:
       return false;
+  }
+}
+
+// static
+mojom::blink::SpeculationTargetHint
+SpeculationRuleSet::SpeculationTargetHintFromString(
+    const StringView& target_hint_str) {
+  // Currently only "_blank" and "_self" are supported.
+  // TODO(https://crbug.com/1354049): Support more browsing context names and
+  // keywords.
+  if (EqualIgnoringASCIICase(target_hint_str, "_blank")) {
+    return mojom::blink::SpeculationTargetHint::kBlank;
+  } else if (EqualIgnoringASCIICase(target_hint_str, "_self")) {
+    return mojom::blink::SpeculationTargetHint::kSelf;
+  } else {
+    return mojom::blink::SpeculationTargetHint::kNoHint;
   }
 }
 

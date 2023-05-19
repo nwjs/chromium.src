@@ -121,6 +121,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   using PopupNavigationDelegateFactory =
       std::unique_ptr<blocked_content::PopupNavigationDelegate> (*)(
           NavigateParams);
+  using ClipboardPasteData = content::ClipboardPasteData;
 
   static PopupNavigationDelegateFactory&
   GetPopupNavigationDelegateFactoryForTesting();
@@ -324,6 +325,9 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
                                  InterestGroupApiOperation operation,
                                  const url::Origin& top_frame_origin,
                                  const url::Origin& api_origin) override;
+  void OnAuctionComplete(content::RenderFrameHost* render_frame_host,
+                         content::InterestGroupManager::InterestGroupDataKey
+                             winner_data_key) override;
   bool IsAttributionReportingOperationAllowed(
       content::BrowserContext* browser_context,
       AttributionReportingOperation operation,
@@ -364,8 +368,6 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
 #endif
   content::GeneratedCodeCacheSettings GetGeneratedCodeCacheSettings(
       content::BrowserContext* context) override;
-  cert_verifier::mojom::CertVerifierServiceParamsPtr
-  GetCertVerifierServiceParams() override;
   void AllowCertificateError(
       content::WebContents* web_contents,
       int cert_error,
@@ -650,6 +652,10 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   GetWebAuthenticationRequestDelegate(
       content::RenderFrameHost* render_frame_host) override;
 #endif
+#if BUILDFLAG(IS_CHROMEOS)
+  content::SmartCardDelegate* GetSmartCardDelegate(
+      content::BrowserContext* browser_context) override;
+#endif
   bool ShowPaymentHandlerWindow(
       content::BrowserContext* browser_context,
       const GURL& url,
@@ -771,7 +777,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       content::WebContents* web_contents,
       const GURL& url,
       const ui::ClipboardFormatType& data_type,
-      const std::string& data,
+      ClipboardPasteData clipboard_paste_data,
       IsClipboardPasteContentAllowedCallback callback) override;
 
   bool IsClipboardCopyAllowed(content::BrowserContext* browser_context,
@@ -884,9 +890,8 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
 
   // Used by subclasses (e.g. implemented by downstream embedders) to add
   // their own extra part objects.
-  void AddExtraPart(ChromeContentBrowserClientParts* part) {
-    extra_parts_.push_back(part);
-  }
+  // TODO: This should receive unique_ptr<ChromeContentBrowserClientParts>.
+  void AddExtraPart(ChromeContentBrowserClientParts* part);
 
  private:
   friend class DisableWebRtcEncryptionFlagTest;
@@ -965,7 +970,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
 
   // Vector of additional ChromeContentBrowserClientParts.
   // Parts are deleted in the reverse order they are added.
-  std::vector<ChromeContentBrowserClientParts*> extra_parts_;
+  std::vector<std::unique_ptr<ChromeContentBrowserClientParts>> extra_parts_;
 
   scoped_refptr<safe_browsing::SafeBrowsingService> safe_browsing_service_;
   scoped_refptr<safe_browsing::UrlCheckerDelegate>
@@ -982,6 +987,10 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   std::unique_ptr<permissions::BluetoothDelegateImpl> bluetooth_delegate_;
   std::unique_ptr<ChromeUsbDelegate> usb_delegate_;
 
+#if BUILDFLAG(IS_CHROMEOS)
+  std::unique_ptr<content::SmartCardDelegate> smart_card_delegate_;
+#endif
+
 #if BUILDFLAG(ENABLE_VR)
   std::unique_ptr<vr::ChromeXrIntegrationClient> xr_integration_client_;
 #endif
@@ -997,9 +1006,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
 #endif
 
 #if BUILDFLAG(IS_MAC)
-  base::FilePath GetChildProcessPath(
-      int child_flags,
-      const base::FilePath& helpers_path) override;
+  std::string GetChildProcessSuffix(int child_flags) override;
 #endif  // BUILDFLAG(IS_MAC)
 
   base::WeakPtrFactory<ChromeContentBrowserClient> weak_factory_{this};

@@ -18,6 +18,7 @@
 #include "base/functional/callback_forward.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/raw_ptr_exclusion.h"
 #include "base/memory/safe_ref.h"
 #include "base/observer_list.h"
 #include "base/scoped_observation_traits.h"
@@ -146,7 +147,7 @@ class PushMessagingManager;
 class RenderProcessHostCreationObserver;
 class RenderProcessHostFactory;
 class RenderProcessHostPriorityClients;
-class RenderProcessHostTest;
+class RenderProcessHostTestBase;
 class RenderWidgetHelper;
 class ResolveProxyHelper;
 class SiteInfo;
@@ -330,8 +331,8 @@ class CONTENT_EXPORT RenderProcessHostImpl
       const GlobalRenderFrameHostId& render_frame_host_id) override;
 
 #if BUILDFLAG(IS_ANDROID)
-  void SetOsSupportForAttributionReporting(
-      attribution_reporting::mojom::OsSupport os_support) override;
+  void SetAttributionReportingSupport(
+      network::mojom::AttributionSupport) override;
 #endif
 
   // IPC::Sender via RenderProcessHost.
@@ -789,7 +790,7 @@ class CONTENT_EXPORT RenderProcessHostImpl
   friend class RenderFrameHostImplSubframeReuseBrowserTest_MultipleDelays_Test;
   friend class VisitRelayingRenderProcessHost;
   friend class StoragePartitonInterceptor;
-  friend class RenderProcessHostTest;
+  friend class RenderProcessHostTestBase;
   // TODO(crbug.com/1111231): This class is a friend so that it can call our
   // private mojo implementation methods, acting as a pass-through. This is only
   // necessary during the associated interface migration, after which,
@@ -957,9 +958,11 @@ class CONTENT_EXPORT RenderProcessHostImpl
 
   // Returns a RenderProcessHost that is rendering a URL corresponding to
   // |site_instance| in one of its frames, or that is expecting a navigation to
-  // that SiteInstance.
+  // that SiteInstance. `main_frame_threshold` is an optional parameter to
+  // limit the maximum number of main frames a RenderProcessHost can host.
   static RenderProcessHost* FindReusableProcessHostForSiteInstance(
-      SiteInstanceImpl* site_instance);
+      SiteInstanceImpl* site_instance,
+      absl::optional<size_t> main_frame_threshold = absl::nullopt);
 
   void NotifyRendererOfLockedStateUpdate();
 
@@ -1117,7 +1120,10 @@ class CONTENT_EXPORT RenderProcessHostImpl
   // The globally-unique identifier for this RenderProcessHost.
   const int id_;
 
-  BrowserContext* browser_context_ = nullptr;
+  // This field is not a raw_ptr<> because problems related to passing to a
+  // templated && parameter, which is later forwarded to something that doesn't
+  // vibe with raw_ptr<T>.
+  RAW_PTR_EXCLUSION BrowserContext* browser_context_ = nullptr;
 
   // Owned by |browser_context_|.
   //

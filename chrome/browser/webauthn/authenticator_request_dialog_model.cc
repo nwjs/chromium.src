@@ -7,6 +7,7 @@
 #include <iterator>
 #include <utility>
 
+#include "base/base64.h"
 #include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
@@ -24,6 +25,8 @@
 #include "chrome/browser/ui/webauthn/authenticator_request_dialog.h"
 #include "chrome/browser/webauthn/webauthn_metrics_util.h"
 #include "chrome/grit/generated_resources.h"
+#include "components/password_manager/core/browser/passkey_credential.h"
+#include "components/strings/grit/components_strings.h"
 #include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/render_frame_host.h"
@@ -132,6 +135,21 @@ constexpr const gfx::VectorIcon& GetTransportIcon(
 // "native" WebAuthn UI.
 constexpr bool kShowCreatePlatformPasskeyStep = BUILDFLAG(IS_MAC);
 
+password_manager::PasskeyCredential::Source ToPasswordManagerSource(
+    device::AuthenticatorType type) {
+  switch (type) {
+    case device::AuthenticatorType::kWinNative:
+      return password_manager::PasskeyCredential::Source::kWindowsHello;
+    case device::AuthenticatorType::kTouchID:
+      return password_manager::PasskeyCredential::Source::kTouchId;
+    case device::AuthenticatorType::kPhone:
+      return password_manager::PasskeyCredential::Source::kAndroidPhone;
+    case device::AuthenticatorType::kChromeOS:
+    case device::AuthenticatorType::kOther:
+      return password_manager::PasskeyCredential::Source::kOther;
+  }
+}
+
 }  // namespace
 
 AuthenticatorRequestDialogModel::EphemeralState::EphemeralState() = default;
@@ -196,8 +214,7 @@ void AuthenticatorRequestDialogModel::HideDialog() {
 
 void AuthenticatorRequestDialogModel::StartFlow(
     TransportAvailabilityInfo transport_availability,
-    bool use_conditional_mediation,
-    bool prefer_native_api) {
+    bool use_conditional_mediation) {
   DCHECK(!started_);
   DCHECK_EQ(current_step(), Step::kNotStarted);
 
@@ -205,7 +222,7 @@ void AuthenticatorRequestDialogModel::StartFlow(
   transport_availability_ = std::move(transport_availability);
   use_conditional_mediation_ = use_conditional_mediation;
 
-  PopulateMechanisms(prefer_native_api);
+  PopulateMechanisms();
   if (base::FeatureList::IsEnabled(device::kWebAuthnNewPrioritiesImpl)) {
     priority_mechanism_index_ = IndexOfPriorityMechanism();
   } else {
@@ -259,8 +276,7 @@ void AuthenticatorRequestDialogModel::
     SetCurrentStep(*pending_step_);
     pending_step_.reset();
   } else if (mechanisms_.empty()) {
-    if (base::FeatureList::IsEnabled(device::kWebAuthnNoPasskeysError) &&
-        transport_availability_.transport_list_did_include_internal) {
+    if (transport_availability_.transport_list_did_include_internal) {
       SetCurrentStep(Step::kErrorNoPasskeys);
     } else {
       SetCurrentStep(Step::kErrorNoAvailableTransports);
@@ -382,11 +398,18 @@ void AuthenticatorRequestDialogModel::TryUsbDevice() {
 }
 
 void AuthenticatorRequestDialogModel::StartPlatformAuthenticatorFlow() {
+  // Never try the platform authenticator if the request is known in advance to
+  // fail. Proceed to a special error screen instead.
   if (transport_availability_.request_type ==
       device::FidoRequestType::kGetAssertion) {
-    DCHECK_EQ(transport_availability_.has_platform_authenticator_credential,
-              device::FidoRequestHandlerBase::RecognizedCredential::
-                  kHasRecognizedCredential);
+    DCHECK_NE(transport_availability_.has_platform_authenticator_credential,
+              device::FidoRequestHandlerBase::RecognizedCredential::kUnknown);
+    if (transport_availability_.has_platform_authenticator_credential ==
+        device::FidoRequestHandlerBase::RecognizedCredential::
+            kNoRecognizedCredential) {
+      SetCurrentStep(Step::kErrorInternalUnrecognized);
+      return;
+    }
 
     // If the platform authenticator reports known credentials, show them in the
     // UI.
@@ -1038,10 +1061,20 @@ void AuthenticatorRequestDialogModel::StartConditionalMediationRequest() {
   auto* render_frame_host = content::RenderFrameHost::FromID(frame_host_id_);
   auto* web_contents = GetWebContents();
   if (web_contents && render_frame_host) {
-    ReportConditionalUiPasskeyCount(ephemeral_state_.creds_.size());
+    std::vector<password_manager::PasskeyCredential> credentials;
+    base::ranges::transform(
+        ephemeral_state_.creds_, std::back_inserter(credentials),
+        [](const auto& credential) {
+          return password_manager::PasskeyCredential(
+              ToPasswordManagerSource(credential.source), credential.rp_id,
+              credential.cred_id, credential.user.id,
+              credential.user.name.value_or(""),
+              credential.user.display_name.value_or(""));
+        });
+    ReportConditionalUiPasskeyCount(credentials.size());
     ChromeWebAuthnCredentialsDelegateFactory::GetFactory(web_contents)
         ->GetDelegateForFrame(render_frame_host)
-        ->OnCredentialsReceived(ephemeral_state_.creds_);
+        ->OnCredentialsReceived(std::move(credentials));
   }
 
   SetCurrentStep(Step::kConditionalMediation);
@@ -1093,8 +1126,7 @@ void AuthenticatorRequestDialogModel::ContactNextPhoneByName(
   DCHECK(found_name);
 }
 
-void AuthenticatorRequestDialogModel::PopulateMechanisms(
-    bool prefer_native_api) {
+void AuthenticatorRequestDialogModel::PopulateMechanisms() {
   const bool is_get_assertion = transport_availability_.request_type ==
                                 device::FidoRequestType::kGetAssertion;
   const bool is_passkey_request =

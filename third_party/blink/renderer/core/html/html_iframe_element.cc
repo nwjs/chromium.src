@@ -37,7 +37,6 @@
 #include "third_party/blink/renderer/core/css/css_property_names.h"
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
 #include "third_party/blink/renderer/core/dom/element.h"
-#include "third_party/blink/renderer/core/fetch/trust_token_issuance_authorization.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/html/client_hints_util.h"
@@ -297,7 +296,8 @@ void HTMLIFrameElement::ParseAttribute(
       UseCounter::Count(GetDocument(), WebFeature::kIFrameCSPAttribute);
     }
   } else if (name == html_names::kBrowsingtopicsAttr) {
-    if (RuntimeEnabledFeatures::TopicsAPIEnabled(GetExecutionContext())) {
+    if (RuntimeEnabledFeatures::TopicsAPIEnabled(GetExecutionContext()) &&
+        GetExecutionContext()->IsSecureContext()) {
       bool old_browsing_topics = !params.old_value.IsNull();
       bool new_browsing_topics = !params.new_value.IsNull();
 
@@ -486,8 +486,7 @@ bool HTMLIFrameElement::LayoutObjectIsNeeded(const DisplayStyle& style) const {
          HTMLElement::LayoutObjectIsNeeded(style);
 }
 
-LayoutObject* HTMLIFrameElement::CreateLayoutObject(const ComputedStyle&,
-                                                    LegacyLayout) {
+LayoutObject* HTMLIFrameElement::CreateLayoutObject(const ComputedStyle&) {
   return MakeGarbageCollected<LayoutIFrame>(this);
 }
 
@@ -597,8 +596,12 @@ void HTMLIFrameElement::DidChangeAttributes() {
   auto attributes = mojom::blink::IframeAttributes::New();
   attributes->parsed_csp_attribute = csp.empty() ? nullptr : std::move(csp[0]);
   attributes->credentialless = credentialless_;
-  attributes->browsing_topics =
-      !FastGetAttribute(html_names::kBrowsingtopicsAttr).IsNull();
+
+  if (RuntimeEnabledFeatures::TopicsAPIEnabled(GetExecutionContext()) &&
+      GetExecutionContext()->IsSecureContext()) {
+    attributes->browsing_topics =
+        !FastGetAttribute(html_names::kBrowsingtopicsAttr).IsNull();
+  }
 
   attributes->id = ConvertToReportValue(id_);
   attributes->name = ConvertToReportValue(name_);

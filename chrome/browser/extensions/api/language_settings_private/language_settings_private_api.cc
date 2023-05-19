@@ -214,7 +214,7 @@ ExtensionFunction::ResponseAction
 LanguageSettingsPrivateGetLanguageListFunction::Run() {
 #if 1
   base::Value::List language_list;
-  return RespondNow(OneArgument(base::Value(std::move(language_list))));
+  return RespondNow(WithArguments(std::move(language_list)));
 #else
   // Collect the language codes from the supported accept-languages.
   const std::string app_locale = g_browser_process->GetApplicationLocale();

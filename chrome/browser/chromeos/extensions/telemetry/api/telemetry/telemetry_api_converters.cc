@@ -136,7 +136,8 @@ telemetry_api::PhysicalCpuInfo UncheckedConvertPtr(
 }
 
 telemetry_api::BatteryInfo UncheckedConvertPtr(
-    telemetry_service::ProbeBatteryInfoPtr input) {
+    telemetry_service::ProbeBatteryInfoPtr input,
+    bool has_serial_number_permission) {
   telemetry_api::BatteryInfo result;
   result.vendor = std::move(input->vendor);
   result.model_name = std::move(input->model_name);
@@ -167,6 +168,10 @@ telemetry_api::BatteryInfo UncheckedConvertPtr(
     result.temperature = input->temperature->value;
   }
   result.manufacture_date = std::move(input->manufacture_date);
+
+  if (has_serial_number_permission) {
+    result.serial_number = std::move(input->serial_number);
+  }
 
   return result;
 }
@@ -381,7 +386,7 @@ telemetry_api::CpuArchitectureEnum Convert(
     case telemetry_service::ProbeCpuArchitectureEnum::kUnknown:
       return telemetry_api::CpuArchitectureEnum::kUnknown;
     case telemetry_service::ProbeCpuArchitectureEnum::kX86_64:
-      return telemetry_api::CpuArchitectureEnum::kX8664;
+      return telemetry_api::CpuArchitectureEnum::kX86_64;
     case telemetry_service::ProbeCpuArchitectureEnum::kAArch64:
       return telemetry_api::CpuArchitectureEnum::kAarch64;
     case telemetry_service::ProbeCpuArchitectureEnum::kArmv7l:
@@ -506,7 +511,7 @@ telemetry_api::UsbSpecSpeed Convert(
     case crosapi::mojom::ProbeUsbSpecSpeed::kUnknown:
       return telemetry_api::UsbSpecSpeed::kUnknown;
     case crosapi::mojom::ProbeUsbSpecSpeed::k1_5Mbps:
-      return telemetry_api::UsbSpecSpeed::kN15mbps;
+      return telemetry_api::UsbSpecSpeed::kN1_5mbps;
     case crosapi::mojom::ProbeUsbSpecSpeed::k12Mbps:
       return telemetry_api::UsbSpecSpeed::kN12Mbps;
     case crosapi::mojom::ProbeUsbSpecSpeed::k480Mbps:

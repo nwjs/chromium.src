@@ -533,9 +533,16 @@ DedicatedWorkerHost::CreateNetworkFactoryForSubresources(
           worker_client_security_state_->Clone(), std::move(coep_reporter),
           worker_process_host_,
           ancestor_render_frame_host->IsFeatureEnabled(
+              blink::mojom::PermissionsPolicyFeature::
+                  kPrivateStateTokenIssuance)
+              ? network::mojom::TrustTokenOperationPolicyVerdict::
+                    kPotentiallyPermit
+              : network::mojom::TrustTokenOperationPolicyVerdict::kForbid,
+          ancestor_render_frame_host->IsFeatureEnabled(
               blink::mojom::PermissionsPolicyFeature::kTrustTokenRedemption)
-              ? network::mojom::TrustTokenRedemptionPolicy::kPotentiallyPermit
-              : network::mojom::TrustTokenRedemptionPolicy::kForbid,
+              ? network::mojom::TrustTokenOperationPolicyVerdict::
+                    kPotentiallyPermit
+              : network::mojom::TrustTokenOperationPolicyVerdict::kForbid,
           ancestor_render_frame_host->GetCookieSettingOverrides(),
           "DedicatedWorkerHost::CreateNetworkFactoryForSubresources");
   GetContentClient()->browser()->WillCreateURLLoaderFactory(
@@ -746,7 +753,7 @@ void DedicatedWorkerHost::CreateCodeCacheHost(
   RenderProcessHost* rph = GetProcessHost();
   code_cache_host_receivers_.Add(rph->GetID(),
                                  isolation_info_.network_isolation_key(),
-                                 std::move(receiver));
+                                 GetStorageKey(), std::move(receiver));
 }
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -959,12 +966,7 @@ void DedicatedWorkerHost::DidChangeBackForwardCacheDisablingFeatures(
     // The frame may have already been closed.
     return;
   }
-  bfcache_disabling_features_.Clear();
-  for (auto& feature_details : details) {
-    bfcache_disabling_features_.Put(
-        static_cast<blink::scheduler::WebSchedulerTrackedFeature>(
-            feature_details->feature));
-  }
+  bfcache_blocking_details_ = std::move(details);
   ancestor_render_frame_host->MaybeEvictFromBackForwardCache();
 }
 
@@ -1016,7 +1018,17 @@ GlobalRenderFrameHostId DedicatedWorkerHost::GetAssociatedRenderFrameHostId()
 
 blink::scheduler::WebSchedulerTrackedFeatures
 DedicatedWorkerHost::GetBackForwardCacheDisablingFeatures() const {
-  return bfcache_disabling_features_;
+  blink::scheduler::WebSchedulerTrackedFeatures features;
+  for (auto& details : bfcache_blocking_details_) {
+    features.Put(static_cast<blink::scheduler::WebSchedulerTrackedFeature>(
+        details->feature));
+  }
+  return features;
+}
+
+const DedicatedWorkerHost::BackForwardCacheBlockingDetails&
+DedicatedWorkerHost::GetBackForwardCacheBlockingDetails() const {
+  return bfcache_blocking_details_;
 }
 
 base::WeakPtr<ServiceWorkerContainerHost>

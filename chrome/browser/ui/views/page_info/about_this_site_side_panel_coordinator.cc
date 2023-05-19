@@ -81,8 +81,8 @@ void AboutThisSideSidePanelCoordinator::RegisterEntry(
         SidePanelEntry::Id::kAboutThisSite,
         l10n_util::GetStringUTF16(IDS_PAGE_INFO_ABOUT_THIS_PAGE_TITLE),
         ui::ImageModel::FromVectorIcon(
-            PageInfoViewFactory::GetAboutThisSiteVectorIcon(), ui::kColorIcon,
-            icon_size),
+            PageInfoViewFactory::GetAboutThisSiteColorVectorIcon(),
+            ui::kColorIcon, icon_size),
         base::BindRepeating(
             &AboutThisSideSidePanelCoordinator::CreateAboutThisSiteWebView,
             base::Unretained(this)),
@@ -117,8 +117,19 @@ void AboutThisSideSidePanelCoordinator::RegisterEntryAndShow(
 void AboutThisSideSidePanelCoordinator::DidFinishNavigation(
     content::NavigationHandle* navigation_handle) {
   if (!navigation_handle->IsInPrimaryMainFrame() ||
-      navigation_handle->IsSameDocument() ||
       !navigation_handle->HasCommitted()) {
+    return;
+  }
+
+  if (!page_info::IsKeepSidePanelOnSameTabNavsFeatureEnabled() &&
+      navigation_handle->IsSameDocument()) {
+    return;
+  }
+
+  if (page_info::IsKeepSidePanelOnSameTabNavsFeatureEnabled() &&
+      navigation_handle->IsSameDocument() &&
+      web_contents()->GetLastCommittedURL().GetWithoutRef() ==
+          last_url_info_->context_url.GetWithoutRef()) {
     return;
   }
 

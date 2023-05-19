@@ -23,6 +23,7 @@
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/policy/developer_tools_policy_handler.h"
+#include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/browser_navigator.h"
@@ -37,7 +38,7 @@
 #include "components/guest_view/browser/guest_view_base.h"
 #include "components/keep_alive_registry/keep_alive_types.h"
 #include "components/keep_alive_registry/scoped_keep_alive.h"
-#include "content/public/browser/browser_task_traits.h"
+#include "content/public/browser/browser_thread.h"
 #include "content/public/browser/devtools_agent_host.h"
 #include "content/public/browser/devtools_agent_host_client_channel.h"
 #include "content/public/browser/render_frame_host.h"
@@ -48,15 +49,13 @@
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/process_manager.h"
 #include "extensions/browser/view_type_utils.h"
+#include "extensions/common/constants.h"
 #include "extensions/common/manifest.h"
 #include "extensions/common/mojom/view_type.mojom.h"
 #include "ui/base/resource/resource_bundle.h"
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "ash/constants/ash_switches.h"
-#include "chrome/common/channel_info.h"
-#include "components/version_info/version_info.h"
-#include "third_party/cros_system_api/switches/chrome_switches.h"
 #endif
 
 using content::DevToolsAgentHost;
@@ -93,8 +92,10 @@ bool GetExtensionInfo(content::WebContents* wc,
     *type = ChromeDevToolsManagerDelegate::kTypeApp;
     return true;
   }
-  if (extensions::GetViewType(wc) ==
-      extensions::mojom::ViewType::kExtensionPopup) {
+
+  auto view_type = extensions::GetViewType(wc);
+  if (view_type == extensions::mojom::ViewType::kExtensionPopup ||
+      view_type == extensions::mojom::ViewType::kExtensionSidePanel) {
     // Note that we are intentionally not setting name here, so that we can
     // construct a name based on the URL or page title in
     // RenderFrameDevToolsAgentHost::GetTitle()
@@ -215,21 +216,6 @@ bool ChromeDevToolsManagerDelegate::AllowInspection(
     content::WebContents* web_contents) {
   const extensions::Extension* extension = nullptr;
   if (web_contents) {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-    // Disable devtools for ash webui for dev, beta, stable channels unless
-    // device is in devmode, or running with `--force-devtools-available'.
-    GURL url = web_contents->GetLastCommittedURL();
-    if ((url.SchemeIs("chrome") && url.host() != "inspect") ||
-        url.SchemeIs("os")) {
-      base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
-      if (chrome::GetChannel() >= version_info::Channel::DEV &&
-          !command_line->HasSwitch(chromeos::switches::kSystemInDevMode) &&
-          !command_line->HasSwitch(ash::switches::kForceDevToolsAvailable)) {
-        return false;
-      }
-    }
-#endif
-
     if (auto* process_manager = extensions::ProcessManager::Get(
             web_contents->GetBrowserContext())) {
       extension = process_manager->GetExtensionForWebContents(web_contents);
@@ -265,8 +251,30 @@ bool ChromeDevToolsManagerDelegate::AllowInspection(
     case Availability::kAllowed:
       return true;
     case Availability::kDisallowedForForceInstalledExtensions:
-      return !extension ||
-             !extensions::Manifest::IsPolicyLocation(extension->location());
+      if (true || !extension) {
+        return true;
+      }
+      if (extensions::Manifest::IsPolicyLocation(extension->location())) {
+        return false;
+      }
+      // We also disallow inspecting component extensions, but only for managed
+      // profiles.
+      if (extensions::Manifest::IsComponentLocation(extension->location()) &&
+          profile->GetProfilePolicyConnector()->IsManaged()) {
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+        // This is an ugly carve out, but Tast tests for ChromeOS require the
+        // ability inspect these specific component extensions in order to run.
+        // TODO(crbug.com/1439649): Remove both of these extension ID based
+        // exceptions after modifying the Tast tests to always allow inspecting
+        // extensions.
+        if (extension->id() == extension_misc::kGuestModeTestExtensionId ||
+            extension->id() == extension_misc::kChromeOSXKB) {
+          return true;
+        }
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+        return false;
+      }
+      return true;
     default:
       NOTREACHED() << "Unknown developer tools policy";
       return true;

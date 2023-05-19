@@ -47,7 +47,6 @@ import org.chromium.base.PowerMonitor;
 import org.chromium.base.StrictModeContext;
 import org.chromium.base.SysUtils;
 import org.chromium.base.TraceEvent;
-import org.chromium.base.jank_tracker.DummyJankTracker;
 import org.chromium.base.memory.MemoryPurgeManager;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
@@ -151,7 +150,6 @@ import org.chromium.chrome.browser.share.ShareDelegateImpl;
 import org.chromium.chrome.browser.share.ShareDelegateSupplier;
 import org.chromium.chrome.browser.stylus_handwriting.StylusWritingCoordinator;
 import org.chromium.chrome.browser.sync.SyncService;
-import org.chromium.chrome.browser.tab.AccessibilityVisibilityHandler;
 import org.chromium.chrome.browser.tab.RequestDesktopUtils;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabHidingType;
@@ -223,6 +221,7 @@ import org.chromium.components.webapps.bottomsheet.PwaBottomSheetControllerProvi
 import org.chromium.components.webxr.XrDelegate;
 import org.chromium.components.webxr.XrDelegateProvider;
 import org.chromium.content_public.browser.ContentFeatureList;
+import org.chromium.content_public.browser.DeviceUtils;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.ScreenOrientationProvider;
 import org.chromium.content_public.browser.SelectionPopupController;
@@ -313,7 +312,6 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
 
     private boolean mNativeInitialized;
     private boolean mRemoveWindowBackgroundDone;
-    protected AccessibilityVisibilityHandler mAccessibilityVisibilityHandler;
 
     // Observes when sync becomes ready to create the mContextReporter.
     private SyncService.SyncStateChangedListener mSyncStateChangedListener;
@@ -522,7 +520,7 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
                 getTabModelSelectorSupplier(), new OneshotSupplierImpl<>(),
                 new OneshotSupplierImpl<>(), new OneshotSupplierImpl<>(),
                 new OneshotSupplierImpl<>(), () -> null, mBrowserControlsManagerSupplier.get(),
-                getWindowAndroid(), new DummyJankTracker(), getLifecycleDispatcher(),
+                getWindowAndroid(), getLifecycleDispatcher(),
                 getLayoutManagerSupplier(), /* menuOrKeyboardActionController= */ this,
                 this::getActivityThemeColor, getModalDialogManagerSupplier(),
                 /* appMenuBlocker= */ this, this::supportsAppMenu, this::supportsFindInPage,
@@ -1604,6 +1602,10 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
             mStylusWritingCoordinator = null;
         }
 
+        // Destroy spare tab on activitiy destruction.
+        WarmupManager warmupManager = WarmupManager.getInstance();
+        warmupManager.destroySpareTab();
+
         mActivityTabProvider.destroy();
         ChromeActivitySessionTracker.getInstance().unregisterTabModelSelectorSupplier(this);
 
@@ -1716,7 +1718,7 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
             @Override
             public void onCurrentModeChanged(Mode currentMode) {
                 if (ChromeFeatureList.isEnabled(ChromeFeatureList.FOLDABLE_JANK_FIX)
-                        && !mBlockingDrawForAppRestart && didChangeTabletMode()) {
+                        && !mBlockingDrawForAppRestart && getTabletMode().changed) {
                     mBlockingDrawForAppRestart = true;
                     findViewById(android.R.id.content).setVisibility(View.INVISIBLE);
                     showContent();
@@ -1728,8 +1730,9 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
     }
 
     private boolean maybeOnScreenSizeChange() {
-        if (didChangeTabletMode()) {
-            return onScreenLayoutSizeChange();
+        TabletMode tabletMode = getTabletMode();
+        if (tabletMode.changed) {
+            return onScreenLayoutSizeChange(tabletMode.isTablet);
         }
         return false;
     }
@@ -2784,7 +2787,7 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
     }
 
     @VisibleForTesting
-    public boolean didChangeTabletMode() {
+    public TabletMode getTabletMode() {
         assert mConfig
                 != null : "Can not determine the tablet mode when mConfig is not initialized";
         int smallestWidth = getCurrentSmallestScreenWidth(this);
@@ -2795,14 +2798,18 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         if (didChangeTabletMode && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             Log.i(TAG, "Current smallest screen width is: " + smallestWidth);
         }
-        return didChangeTabletMode;
+        return new TabletMode(isTablet, didChangeTabletMode);
     }
 
     /**
      * Switch between phone and tablet mode and do the tab re-parenting in the meantime.
+     * Also update switch USE_MOBILE_UA depends on whether the device is tablet sized.
+     * @param isTablet whether the current screen is tablet size.
      * @return whether screen layout change lead to a recreate.
      */
-    private boolean onScreenLayoutSizeChange() {
+    private boolean onScreenLayoutSizeChange(boolean isTablet) {
+        DeviceUtils.updateDeviceSpecificUserAgentSwitch(isTablet);
+
         if (mTabReparentingControllerSupplier.get() != null && !mIsTabReparentingPrepared) {
             mTabReparentingControllerSupplier.get().prepareTabsForReparenting();
             mIsTabReparentingPrepared = true;
@@ -2906,5 +2913,19 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
             Toast.makeText(context, R.string.open_webapk_failed, Toast.LENGTH_SHORT).show();
         }
         return true;
+    }
+
+    /**
+     * Preserve whether the current screen is tablet size; and whether the tablet mode has changed.
+     */
+    @VisibleForTesting
+    public static class TabletMode {
+        public boolean isTablet;
+        public boolean changed;
+
+        TabletMode(boolean isTablet, boolean changed) {
+            this.isTablet = isTablet;
+            this.changed = changed;
+        }
     }
 }

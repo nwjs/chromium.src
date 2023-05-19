@@ -54,6 +54,7 @@
 #include "content/browser/renderer_host/cross_origin_opener_policy_access_report_manager.h"
 #include "content/browser/renderer_host/frame_navigation_entry.h"
 #include "content/browser/renderer_host/keep_alive_handle_factory.h"
+#include "content/browser/renderer_host/loading_state.h"
 #include "content/browser/renderer_host/media/render_frame_audio_input_stream_factory.h"
 #include "content/browser/renderer_host/media/render_frame_audio_output_stream_factory.h"
 #include "content/browser/renderer_host/navigation_discard_reason.h"
@@ -319,6 +320,9 @@ class CONTENT_EXPORT RenderFrameHostImpl
   using IsClipboardPasteContentAllowedCallback =
       ContentBrowserClient::IsClipboardPasteContentAllowedCallback;
 
+  // Data used with IsClipboardPasteContentAllowed() method.
+  using ClipboardPasteData = content::ClipboardPasteData;
+
   // An accessibility reset is only allowed to prevent very rare corner cases
   // or race conditions where the browser and renderer get out of sync. If
   // this happens more than this many times, kill the renderer.
@@ -384,11 +388,6 @@ class CONTENT_EXPORT RenderFrameHostImpl
   const base::UnguessableToken& GetReportingSource() override;
 
   ui::AXTreeID GetAXTreeID() override;
-  void RequestAXTreeSnapshot(AXTreeSnapshotCallback callback,
-                             const ui::AXMode& ax_mode,
-                             bool exclude_offscreen,
-                             size_t max_nodes,
-                             const base::TimeDelta& timeout) override;
   bool nodejs() override;
   bool context_created() override;
   SiteInstanceImpl* GetSiteInstance() const override;
@@ -580,7 +579,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // description of the latter method for complete details.
   void IsClipboardPasteContentAllowed(
       const ui::ClipboardFormatType& data_type,
-      const std::string& data,
+      ClipboardPasteData clipboard_paste_data,
       IsClipboardPasteContentAllowedCallback callback);
 
   // This is called when accessibility events arrive from renderer to browser.
@@ -774,6 +773,17 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // when the navigation commits. See also `GetLastCommittedURL`.
   void SetLastCommittedUrl(const GURL& url);
 
+  // RenderFrameHost represents a document in a frame. It is either:
+  // 1. The initial empty document,
+  // 2. A document created by a navigation.
+  //
+  // In case of (2), this returns the ID of the navigation who created this
+  // document.
+  //
+  // Note 1: This is updated after receiving DidCommitNavigation IPC.
+  // Note 2: Same-document navigation are not updating this field.
+  int64_t navigation_id() const { return navigation_id_; }
+
   // The most recent non-net-error URL to commit in this frame.  In almost all
   // cases, use GetLastCommittedURL instead.
   const GURL& last_successful_url() const { return last_successful_url_; }
@@ -943,12 +953,13 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // Returns this RenderFrameHost's loading state. This method is only used by
   // FrameTreeNode. The proper way to check whether a frame is loading is to
   // call FrameTreeNode::IsLoading.
-  bool is_loading() const { return is_loading_; }
+  bool is_loading() const { return loading_state_ != LoadingState::NONE; }
 
-  // Sets `is_loading_` to true to handle renderer debug URLs. This is needed
-  // to generate DidStopLoading events for these URLs.
-  void SetIsLoadingForRendererDebugURL() { is_loading_ = true; }
+  LoadingState loading_state() const { return loading_state_; }
 
+  // Sets `loading_state_` to LOADING_UI_REQUESTED to handle renderer debug
+  // URLs. This is needed to generate DidStopLoading events for these URLs.
+  void SetIsLoadingForRendererDebugURL();
   // Returns true if this is a top-level frame, or if this frame
   // uses a proxy to communicate with its parent frame. Local roots are
   // distinguished by owning a RenderWidgetHost, which manages input events
@@ -1497,13 +1508,9 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // addition, its associated RenderWidgetHost has to be focused.
   bool IsFocused();
 
-  // Creates a WebUI for this RenderFrameHost based on the provided |dest_url|
-  // if required. Returns true if a new WebUI was created.
-  // If this is a history navigation its NavigationEntry bindings should be
-  // provided through |entry_bindings| to allow verifying that they are not
-  // being set differently this time around. Otherwise |entry_bindings| should
-  // be set to NavigationEntryImpl::kInvalidBindings so that no checks are done.
-  bool CreateWebUI(const GURL& dest_url, int entry_bindings);
+  // Sets the WebUI owned by `request` as the WebUI for this RenderFrameHost,
+  // which is based on the provided `request`'s URL.
+  void SetWebUI(NavigationRequest& request);
 
   // Destroys WebUI instance and resets related data.
   // This indirectly calls content's embedders and may have arbitrary side
@@ -1557,6 +1564,10 @@ class CONTENT_EXPORT RenderFrameHostImpl
 
   bool has_focused_editable_element() const {
     return has_focused_editable_element_;
+  }
+
+  bool has_focused_richly_editable_element() const {
+    return has_focused_richly_editable_element_;
   }
 
   // Binds a DevToolsAgent interface for debugging.
@@ -1834,13 +1845,19 @@ class CONTENT_EXPORT RenderFrameHostImpl
   using BackForwardCacheDisablingFeature =
       blink::scheduler::WebSchedulerTrackedFeature;
 
-  // BackForwardCache disabling feature for |this|, used in determing |this|
-  // frame's BackForwardCache eligibility.
-  // See comments at |renderer_reported_bfcache_disabling_features_| and
+  // BackForwardCache disabling feature for |this|, used in determining |this|
+  // frame's BackForwardCache eligibility. The return value includes all the
+  // blocking features from browser, renderer and dedicated workers.
+  // See comments at |renderer_reported_bfcache_blocking_details_| and
   // |browser_reported_bfcache_disabling_features_|.
   BackForwardCacheDisablingFeatures GetBackForwardCacheDisablingFeatures()
       const;
-
+  using BackForwardCacheBlockingDetails =
+      std::vector<blink::mojom::BlockingDetailsPtr>;
+  // Returns a vector of blocking details for |this|. This returns more
+  // information than `GetBackForwardCacheDisablingFeatures()`, which returns
+  // only a list of features used.
+  BackForwardCacheBlockingDetails GetBackForwardCacheBlockingDetails() const;
   using BackForwardCacheDisablingFeaturesCallback =
       base::RepeatingCallback<void(BackForwardCacheDisablingFeatures)>;
   void SetBackForwardCacheDisablingFeaturesCallbackForTesting(
@@ -1872,8 +1889,9 @@ class CONTENT_EXPORT RenderFrameHostImpl
     // This will reduce the feature count for |feature_| for the first time, and
     // do nothing for further calls.
     inline void reset() {
-      if (render_frame_host_)
+      if (render_frame_host_) {
         render_frame_host_->OnBackForwardCacheDisablingFeatureRemoved(feature_);
+      }
       render_frame_host_ = nullptr;
     }
 
@@ -1996,9 +2014,10 @@ class CONTENT_EXPORT RenderFrameHostImpl
 
   void CreateCodeCacheHost(
       mojo::PendingReceiver<blink::mojom::CodeCacheHost> receiver);
-  void CreateCodeCacheHostWithIsolationKey(
+  void CreateCodeCacheHostWithKeys(
       mojo::PendingReceiver<blink::mojom::CodeCacheHost> receiver,
-      const net::NetworkIsolationKey& nik);
+      const net::NetworkIsolationKey& nik,
+      const blink::StorageKey& storage_key);
 
 #if BUILDFLAG(IS_ANDROID)
   void BindNFCReceiver(mojo::PendingReceiver<device::mojom::NFC> receiver);
@@ -2259,7 +2278,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
   void SetVirtualKeyboardMode(ui::mojom::VirtualKeyboardMode mode) override;
   void VisibilityChanged(blink::mojom::FrameVisibility) override;
   void DidChangeThemeColor(absl::optional<SkColor> theme_color) override;
-  void DidChangeBackgroundColor(SkColor background_color,
+  void DidChangeBackgroundColor(const SkColor4f& background_color,
                                 bool color_adjust) override;
   void DidFailLoadWithError(const GURL& url, int32_t error_code) override;
   void DidFocusFrame() override;
@@ -2324,6 +2343,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
       std::vector<blink::mojom::FaviconURLPtr> favicon_urls) override;
   void DownloadURL(blink::mojom::DownloadURLParamsPtr params) override;
   void FocusedElementChanged(bool is_editable_element,
+                             bool is_richly_editable_element,
                              const gfx::Rect& bounds_in_frame_widget,
                              blink::mojom::FocusType focus_type) override;
   void TextSelectionChanged(const std::u16string& text,
@@ -2385,10 +2405,11 @@ class CONTENT_EXPORT RenderFrameHostImpl
   void SendFencedFrameReportingBeacon(
       const std::string& event_data,
       const std::string& event_type,
-      blink::FencedFrame::ReportingDestination destination) override;
+      const std::vector<blink::FencedFrame::ReportingDestination>& destinations)
+      override;
   void SetFencedFrameAutomaticBeaconReportEventData(
       const std::string& event_data,
-      const std::vector<blink::FencedFrame::ReportingDestination>& destination)
+      const std::vector<blink::FencedFrame::ReportingDestination>& destinations)
       override;
   void SendPrivateAggregationRequestsForFencedFrameEvent(
       const std::string& event_type) override;
@@ -2414,8 +2435,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
 
   // blink::mojom::BackForwardCacheControllerHost:
   void EvictFromBackForwardCache(blink::mojom::RendererEvictionReason) override;
-  using BackForwardCacheBlockingDetails =
-      std::vector<blink::mojom::BlockingDetailsPtr>;
+
   void DidChangeBackForwardCacheDisablingFeatures(
       BackForwardCacheBlockingDetails details) override;
 
@@ -2894,13 +2914,11 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // last committed document.
   CookieChangeListener::CookieChangeInfo GetCookieChangeInfo();
 
-  // Sets a ResourceCache in the renderer. `remote` must have the same process
+  // Sets a ResourceCache in the renderer. `this` must be active and there must
+  // be no pending navigation. `remote` must have the same and process
   // isolation policy.
-  // TODO(https://crbug.com/1414262): Add checks to ensure the preconditions.
-  void SetResourceCache(
-      mojo::PendingRemote<blink::mojom::ResourceCache> remote);
-
-  void FlushMojomFrameRemoteForTesting();
+  void SetResourceCacheRemote(
+      mojo::PendingRemote<blink::mojom::ResourceCache> pending_remote);
 
   // Records metrics on sudden termination handlers found in this frame and
   // subframes.
@@ -2955,6 +2973,9 @@ class CONTENT_EXPORT RenderFrameHostImpl
           prefetch_loader_factory,
       mojo::PendingRemote<network::mojom::URLLoaderFactory>
           topics_loader_factory,
+      mojo::PendingRemote<network::mojom::URLLoaderFactory>
+          keep_alive_loader_factory,
+      mojo::PendingRemote<blink::mojom::ResourceCache> resource_cache_remote,
       const absl::optional<blink::ParsedPermissionsPolicy>& permissions_policy,
       blink::mojom::PolicyContainerPtr policy_container,
       const blink::DocumentToken& document_token,
@@ -3036,6 +3057,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
   FRIEND_TEST_ALL_PREFIXES(
       RenderFrameHostManagerUnloadBrowserTest,
       PendingDeleteRFHProcessShutdownDoesNotRemoveSubframes);
+  FRIEND_TEST_ALL_PREFIXES(RenderFrameHostManagerUnloadBrowserTest,
+                           PostMessageToParentWhenSubframeNavigates);
   FRIEND_TEST_ALL_PREFIXES(SecurityExploitBrowserTest,
                            AttemptDuplicateRenderViewHost);
   FRIEND_TEST_ALL_PREFIXES(SecurityExploitBrowserTest,
@@ -3105,6 +3128,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
                            ResetOwnerInBFCache);
   FRIEND_TEST_ALL_PREFIXES(RenderFrameHostImplBrowserTestWithBFCache,
                            ChildFramesHiddenWhileInBFCache);
+  FRIEND_TEST_ALL_PREFIXES(RenderFrameHostImplBrowserTestWithBFCache,
+                           EvictionInBFCache);
   FRIEND_TEST_ALL_PREFIXES(RenderFrameHostImplPrerenderBrowserTest,
                            KeepPrerenderRFHOwnerAfterActivation);
   FRIEND_TEST_ALL_PREFIXES(NavigationSuddenTerminationDisablerTypeBrowserTest,
@@ -3181,6 +3206,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
       blink::mojom::FrameOwnerPropertiesPtr frame_owner_properties,
       blink::FrameOwnerElementType owner_type,
       ukm::SourceId document_ukm_source_id) override;
+  void StartLoadingForAsyncNavigationApiCommit() override;
   void DidCommitSameDocumentNavigation(
       mojom::DidCommitProvisionalLoadParamsPtr params,
       mojom::DidCommitSameDocumentNavigationParamsPtr same_document_params)
@@ -4074,6 +4100,11 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // Track this frame's last committed origin.
   url::Origin last_committed_origin_;
 
+  // Tracks the id of the navigation that created the document. It is updated
+  // after receiving DidCommitNavigation IPC. Same-document navigation are not
+  // updating this field. It will be empty `0` for the initial empty document.
+  int64_t navigation_id_ = 0;
+
   // For about:blank and about:srcdoc documents, this tracks the inherited base
   // URL, snapshotted from the initiator's FrameLoadRequest. This is an empty
   // URL for all other cases. This is currently only set if
@@ -4258,8 +4289,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
   bool was_discarded_ = false;
 
   // Indicates whether this RenderFrameHost is in the process of loading a
-  // document or not.
-  bool is_loading_ = false;
+  // document or not, and if so, whether it should show loading UI.
+  LoadingState loading_state_ = LoadingState::NONE;
 
   // The unique ID of the latest NavigationEntry that this RenderFrameHost is
   // showing. This may change even when this frame hasn't committed a page,
@@ -4409,6 +4440,10 @@ class CONTENT_EXPORT RenderFrameHostImpl
 
   // If true then this frame's document has a focused element which is editable.
   bool has_focused_editable_element_ = false;
+
+  // If true then this frame's document has a focused element which is richly
+  // editable.
+  bool has_focused_richly_editable_element_ = false;
 
   std::unique_ptr<PendingNavigation> pending_navigate_;
 
@@ -4591,16 +4626,16 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // These values should be cleared on document commit.
   //
   // Some features are tracked in these places:
-  //   * `renderer_reported_bfcache_disabling_features_` for features in the
-  //      document in the renderer.
+  //   * `renderer_reported_bfcache_blocking_details_` for features in the
+  //      document in the renderer and the JavaScript locations that used the
+  //      features.
   //   * `browser_reported_bfcache_disabling_features_counts_` for the browser
   //      features.
   //   * `DedicatedWorkerHost` for features used in dedicated workers.
   // They are tracked separately, because when the renderer updates the set of
   // features, the browser ones should persist. Also, dedicated workers might be
   // destroyed while their renderers persist.
-  BackForwardCacheDisablingFeatures
-      renderer_reported_bfcache_disabling_features_;
+  BackForwardCacheBlockingDetails renderer_reported_bfcache_blocking_details_;
 
   // Count the usage of BackForwardCacheDisablingFeature.
   base::flat_map<BackForwardCacheDisablingFeature, int>

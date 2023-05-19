@@ -65,6 +65,8 @@ import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
+import org.chromium.chrome.browser.tasks.tab_management.TabManagementFieldTrial;
+import org.chromium.chrome.browser.tasks.tab_management.TabUiFeatureUtilities;
 import org.chromium.chrome.browser.theme.TopUiThemeColorProvider;
 import org.chromium.chrome.browser.toolbar.ControlContainer;
 import org.chromium.chrome.browser.toolbar.ToolbarFeatures;
@@ -112,7 +114,6 @@ public class CompositorViewHolder extends FrameLayout
             new MutableFlagWithSafeDefault(ChromeFeatureList.DEFER_NOTIFY_IN_MOTION, false);
     private static final MutableFlagWithSafeDefault sResizeOnlyActiveTab =
             new MutableFlagWithSafeDefault(ChromeFeatureList.RESIZE_ONLY_ACTIVE_TAB, false);
-    private Runnable mSetBackgroundRunnable;
 
     /**
      * Initializer interface used to decouple initialization from the class that owns
@@ -192,8 +193,6 @@ public class CompositorViewHolder extends FrameLayout
     private final Rect mCacheRect = new Rect();
     private final Point mCachePoint = new Point();
 
-    private boolean mHasDrawnOnce;
-
     private boolean mIsInVr;
 
     private boolean mControlsResizeView;
@@ -223,6 +222,15 @@ public class CompositorViewHolder extends FrameLayout
     private final Set<Runnable> mOnCompositorLayoutCallbacks = new HashSet<>();
     private final Set<Runnable> mDidSwapFrameCallbacks = new HashSet<>();
     private final Set<Runnable> mDidSwapBuffersCallbacks = new HashSet<>();
+
+    /** Used to remove the temporary tab strip on startup, once ready (or timed out). */
+    private Runnable mSetBackgroundRunnable;
+    private boolean mDelayTempStripRemoval;
+    private boolean mSetBackgroundTimedOut;
+    private boolean mCanSetBackground;
+    private boolean mFirstTabCreated;
+    private boolean mHasDrawnOnce;
+    private int mDelayTempStripRemovalTimeoutMs;
 
     /**
      * Last MotionEvent dispatched to this object for a currently active gesture. If there is no
@@ -320,11 +328,21 @@ public class CompositorViewHolder extends FrameLayout
 
                     @Override
                     public void setCurrentTouchEventOffsets(float top) {
-                        if (mTabVisible == null) return;
+                        EventForwarder forwarder = getEventForwarder();
+                        if (forwarder != null) forwarder.setCurrentTouchEventOffsets(0, top);
+                    }
+
+                    @Override
+                    public void setCurrentDragEventOffsets(float dx, float dy) {
+                        EventForwarder forwarder = getEventForwarder();
+                        if (forwarder != null) forwarder.setDragDispatchingOffset(dx, dy);
+                    }
+
+                    private EventForwarder getEventForwarder() {
+                        if (mTabVisible == null) return null;
                         WebContents webContents = mTabVisible.getWebContents();
-                        if (webContents == null) return;
-                        EventForwarder forwarder = webContents.getEventForwarder();
-                        forwarder.setCurrentTouchEventOffsets(0, top);
+                        if (webContents == null) return null;
+                        return webContents.getEventForwarder();
                     }
                 });
 
@@ -437,6 +455,10 @@ public class CompositorViewHolder extends FrameLayout
 
         setOnSystemUiVisibilityChangeListener(visibility -> handleSystemUiVisibilityChange());
         handleSystemUiVisibilityChange();
+
+        mDelayTempStripRemoval = TabUiFeatureUtilities.isDelayTempStripRemovalEnabled(getContext());
+        mDelayTempStripRemovalTimeoutMs =
+                TabManagementFieldTrial.DELAY_TEMP_STRIP_TIMEOUT_MS.getValue();
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             ApiHelperForO.setDefaultFocusHighlightEnabled(this, false);
@@ -744,7 +766,7 @@ public class CompositorViewHolder extends FrameLayout
 
     @Override
     public boolean dispatchDragEvent(DragEvent e) {
-        mEventOffsetHandler.onPreDispatchDragEvent(e.getAction());
+        mEventOffsetHandler.onPreDispatchDragEvent(e.getAction(), 0.f, 0.f);
         boolean ret = super.dispatchDragEvent(e);
         mEventOffsetHandler.onPostDispatchDragEvent(e.getAction());
         return ret;
@@ -1232,9 +1254,16 @@ public class CompositorViewHolder extends FrameLayout
 
     @Override
     public void didSwapBuffers(boolean swappedCurrentSize, int framesUntilHideBackground) {
-        if (mSetBackgroundRunnable != null && mHasDrawnOnce && framesUntilHideBackground == 0) {
-            post(mSetBackgroundRunnable);
-            mSetBackgroundRunnable = null;
+        if (mSetBackgroundRunnable != null && mHasDrawnOnce && framesUntilHideBackground == 0
+                && !mCanSetBackground) {
+            // Remove temporary background if tab state is ready. Otherwise, mark that the
+            // background can be removed and handle in TabModelSelectorObserver.
+            if (!mDelayTempStripRemoval || mTabModelSelector.isTabStateInitialized()
+                    || mSetBackgroundTimedOut) {
+                runSetBackgroundRunnable();
+            } else {
+                mCanSetBackground = true;
+            }
         }
 
         for (Runnable runnable : mDidSwapBuffersCallbacks) {
@@ -1242,6 +1271,31 @@ public class CompositorViewHolder extends FrameLayout
         }
         mDidSwapBuffersCallbacks.clear();
         updateNeedsSwapBuffersCallback();
+    }
+
+    private void runSetBackgroundRunnable() {
+        new Handler().post(mSetBackgroundRunnable);
+        mSetBackgroundRunnable = null;
+    }
+
+    @VisibleForTesting
+    void maybeInitializeSetBackgroundRunnableTimeout() {
+        if (mDelayTempStripRemoval && !mFirstTabCreated) {
+            mFirstTabCreated = true;
+            new Handler().postDelayed(() -> {
+                // If null, the background has already been removed before the timeout.
+                if (mSetBackgroundRunnable == null) return;
+
+                if (mCanSetBackground) {
+                    // If the background can be removed, remove it now.
+                    runSetBackgroundRunnable();
+                } else {
+                    // If the background cannot be removed, mark that we have timed out, so
+                    // that we can remove the background when the buffer swaps.
+                    mSetBackgroundTimedOut = true;
+                }
+            }, mDelayTempStripRemovalTimeoutMs);
+        }
     }
 
     @Override
@@ -1410,8 +1464,18 @@ public class CompositorViewHolder extends FrameLayout
             }
 
             @Override
+            public void onTabStateInitialized() {
+                // Tab state is initialized, so remove background if we've not yet done so and a
+                // frame is ready.
+                if (mDelayTempStripRemoval && mSetBackgroundRunnable != null && mCanSetBackground) {
+                    runSetBackgroundRunnable();
+                }
+            }
+
+            @Override
             public void onNewTabCreated(Tab tab, @TabCreationState int creationState) {
                 initializeTab(tab);
+                maybeInitializeSetBackgroundRunnableTimeout();
             }
         });
 
@@ -1514,9 +1578,11 @@ public class CompositorViewHolder extends FrameLayout
         if (mContentView != null) {
             mContentView.removeOnHierarchyChangeListener(this);
             mContentView.setDeferKeepScreenOnChanges(false);
+            mContentView.setEventOffsetHandlerForDragDrop(null);
         }
         if (newContentView != null) {
             newContentView.addOnHierarchyChangeListener(this);
+            newContentView.setEventOffsetHandlerForDragDrop(mEventOffsetHandler);
         }
         mContentView = newContentView;
     }

@@ -830,6 +830,15 @@ void DownloadItemModel::ExecuteCommand(DownloadCommands* download_commands,
       CompleteSafeBrowsingScan();
       SetOpenWhenComplete(true);
 #endif
+      if (GetDangerType() == download::DOWNLOAD_DANGER_TYPE_ASYNC_SCANNING) {
+        base::UmaHistogramEnumeration(
+            "SBClientDownload.DeepScanEvent",
+            safe_browsing::DeepScanEvent::kScanCanceled);
+      } else {
+        base::UmaHistogramEnumeration(
+            "SBClientDownload.DeepScanEvent",
+            safe_browsing::DeepScanEvent::kPromptBypassed);
+      }
       [[fallthrough]];
     case DownloadCommands::KEEP:
 #if BUILDFLAG(FULL_SAFE_BROWSING)
@@ -925,8 +934,11 @@ void DownloadItemModel::ExecuteCommand(DownloadCommands* download_commands,
               &ChromeDownloadManagerDelegate::CheckClientDownloadDone,
               delegate->GetWeakPtr(), download_->GetId()),
           safe_browsing::DeepScanningRequest::DeepScanTrigger::
-              TRIGGER_APP_PROMPT,
+              TRIGGER_CONSUMER_PROMPT,
           safe_browsing::DownloadCheckResult::UNKNOWN, std::move(settings));
+      base::UmaHistogramEnumeration(
+          "SBClientDownload.DeepScanEvent",
+          safe_browsing::DeepScanEvent::kPromptAccepted);
 #endif
       break;
   }

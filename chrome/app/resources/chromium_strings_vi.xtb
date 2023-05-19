@@ -8,6 +8,7 @@
 <translation id="1104942323762546749">Chromium muốn xuất các mật khẩu của bạn. Hãy nhập mật khẩu Windows để cho phép thực hiện việc này.</translation>
 <translation id="113122355610423240">Chromium là trình duyệt mặc định của bạn</translation>
 <translation id="1131805035311359397">Để kiểm tra xem mật khẩu của bạn có bị ảnh hưởng bởi các vụ rò rỉ dữ liệu và sự cố bảo mật khác hay không, hãy <ph name="BEGIN_LINK" />đăng nhập vào Chromium<ph name="END_LINK" />.</translation>
+<translation id="1157106475430165622">{NUM_DEVICES,plural, =0{Nhiều tiện ích của Chromium đang truy cập vào các thiết bị HID}=1{Nhiều tiện ích Chromium đang truy cập vào các thiết bị HID}other{Nhiều tiện ích Chromium đang truy cập vào # thiết bị HID}}</translation>
 <translation id="1185134272377778587">Giới thiệu về Chromium</translation>
 <translation id="1202417120496358351">{COUNT,plural, =1{Quản trị viên sẽ tự động đóng Chromium sau 1 phút bạn không dùng đến. Dữ liệu duyệt web sẽ bị xoá. Dữ liệu này có thể bao gồm nhật ký, nội dung tự động điền và tệp đã tải xuống.}other{Quản trị viên sẽ tự động đóng Chromium sau # phút bạn không dùng đến. Dữ liệu duyệt web sẽ bị xoá. Dữ liệu này có thể bao gồm nhật ký, nội dung tự động điền và tệp đã tải xuống.}}</translation>
 <translation id="1203500561924088507">Cảm ơn bạn đã cài đặt. Bạn phải khởi động lại trình duyệt trước khi sử dụng <ph name="BUNDLE_NAME" />.</translation>
@@ -58,6 +59,7 @@ Các quyền bạn từng cấp cho trang web và ứng dụng có thể áp d�
 <translation id="2478295928299953161">Chromium sắp đóng</translation>
 <translation id="2483889755041906834">Trong Chromium</translation>
 <translation id="2485422356828889247">Gỡ cài đặt</translation>
+<translation id="2554739539410784893">Chromium đang cố gắng thay thế các mật khẩu hiện tại. Nhập mật khẩu Windows của bạn để cho phép việc này.</translation>
 <translation id="2560420686485554789">Chromium cần quyền truy cập vào bộ nhớ để tải tệp xuống</translation>
 <translation id="2572494885440352020">Trình trợ giúp của Chromium</translation>
 <translation id="2583187216237139145">Quản trị viên hồ sơ công việc có thể xóa mọi dữ liệu trên Chromium được tạo trong quá trình sử dụng hồ sơ này (chẳng hạn như hoạt động tạo dấu trang, các trang web đã truy cập, mật khẩu và các tùy chọn cài đặt khác). <ph name="LEARN_MORE" /></translation>
@@ -79,7 +81,6 @@ Các quyền bạn từng cấp cho trang web và ứng dụng có thể áp d�
 <translation id="2928420929544864228">Đã cài đặt xong.</translation>
 <translation id="2977470724722393594">Chromium đã được cập nhật</translation>
 <translation id="2977506796191543575">Nếu một trang web cố ăn cắp mật khẩu của bạn hoặc nếu bạn tải một tệp gây hại xuống, thì Chromium cũng có thể gửi các URL đến tính năng Duyệt web an toàn, bao gồm cả các đoạn nội dung trên trang</translation>
-<translation id="3021964162552004083">{NUM_DEVICES,plural, =1{Chromium được kết nối với một thiết bị HID}other{Chromium được kết nối với nhiều thiết bị HID}}</translation>
 <translation id="3032706164202344641">Chromium không thể kiểm tra mật khẩu của bạn. Hãy thử lại sau.</translation>
 <translation id="3032787606318309379">Đang thêm vào Chromium...</translation>
 <translation id="3038232873781883849">Đang chờ cài đặt...</translation>
@@ -94,7 +95,6 @@ Các quyền bạn từng cấp cho trang web và ứng dụng có thể áp d�
 <translation id="3258596308407688501">Chromium không thể đọc và ghi vào thư mục dữ liệu:
 
 <ph name="USER_DATA_DIRECTORY" /></translation>
-<translation id="3259037713047794342">Hướng dẫn này giúp bạn hiểu được các lựa chọn mà bạn có để Chromium hoạt động theo cách bạn muốn</translation>
 <translation id="3283186697780795848">Bạn đã cài đặt Chromium phiên bản <ph name="PRODUCT_VERSION" /></translation>
 <translation id="3286538390144397061">Khởi động lại Ngay bây giờ</translation>
 <translation id="328888136576916638">Khóa API của Google bị thiếu. Một số chức năng của Chromium sẽ bị tắt.</translation>
@@ -246,8 +246,10 @@ Các quyền bạn từng cấp cho trang web và ứng dụng có thể áp d�
 <translation id="6442900851116057561">Khởi động lại ChromiumOS</translation>
 <translation id="6455857529632101747">Chào mừng bạn đến với hồ sơ trên Chromium</translation>
 <translation id="6475912303565314141">Tiện ích này cũng điều khiển trang nào được hiển thị khi bạn khởi động Chromium.</translation>
+<translation id="648319183876919572">Tính năng Duyệt web an toàn có tăng cường bảo vệ hoạt động hiệu quả hơn để bảo vệ bạn khỏi các tệp đã tải xuống và trang web nguy hiểm</translation>
 <translation id="6510925080656968729">Gỡ cài đặt Chromium</translation>
 <translation id="6542839706527980775">Mỗi hồ sơ đều có thông tin riêng trên Chromium, chẳng hạn như dấu trang, các trang web đã truy cập, mật khẩu và nhiều thông tin khác</translation>
+<translation id="656935081669708576">Bạn có thể chuyển để xem mật khẩu trong một hồ sơ Chromium khác</translation>
 <translation id="6570579332384693436">Để sửa lỗi chính tả, Chromium sẽ gửi cho Google nội dung bạn nhập vào các trường văn bản</translation>
 <translation id="6598877126913850652">Chuyển đến phần cài đặt thông báo của Chromium</translation>
 <translation id="6613594504749178791">Các thay đổi của bạn sẽ có hiệu lực vào lần tới khi bạn chạy lại Chromium.</translation>
@@ -355,6 +357,7 @@ Chromium không thể khôi phục cài đặt của bạn.</translation>
 <translation id="8608079656141766906"><ph name="BEGIN_BOLD" />Cách chúng tôi sử dụng dữ liệu này:<ph name="END_BOLD" /> Các trang web có thể lưu trữ thông tin trên Chromium về mối quan tâm của bạn. Ví dụ: sau khi bạn truy cập một trang web bán giày chạy marathon, trang web đó có thể sẽ xác định rằng bạn quan tâm đến chạy marathon. Sau đó, nếu bạn truy cập một trang web khác để đăng ký thi chạy, thì trang web đó sẽ hiện quảng cáo giày chạy dựa trên mối quan tâm của bạn.</translation>
 <translation id="8619360774459241877">Đang khởi động Chromium...</translation>
 <translation id="8621669128220841554">Không thể cài đặt do xảy ra lỗi không xác định. Hãy tải xuống Chromium lại lần nữa.</translation>
+<translation id="867492205098279939">{NUM_DEVICES,plural, =0{Một tiện ích của Chromium đang truy cập vào các thiết bị HID}=1{Một tiện ích của Chromium đang truy cập vào 1 thiết bị HID}other{Một tiện ích của Chromium đang truy cập vào # thiết bị HID}}</translation>
 <translation id="8697124171261953979">Tiện ích này cũng điều khiển trang nào được hiển thị khi bạn khởi động Chromium hoặc tìm kiếm từ Thanh địa chỉ.</translation>
 <translation id="8704119203788522458">Đây là Chromium của bạn</translation>
 <translation id="8796602469536043152">Chromium cần có quyền truy cập vào máy ảnh và micrô của bạn cho trang web này</translation>
@@ -383,7 +386,6 @@ Chromium không thể khôi phục cài đặt của bạn.</translation>
 <translation id="924957577793602335">Biến Chromium thành trình duyệt của riêng bạn</translation>
 <translation id="93478295209880648">Chromium có thể không hoạt động chính xác do không được hỗ trợ trên Windows XP hoặc Windows Vista nữa</translation>
 <translation id="942598560705308788">Chứng chỉ do Chromium quản lý</translation>
-<translation id="959579472876010517">Sử dụng Chromium hiệu quả nhất</translation>
 <translation id="965162752251293939">Ai đang sử dụng Chromium?</translation>
 <translation id="967427899662692980">Có được chế độ bảo mật mạnh nhất của Chromium</translation>
 <translation id="9792300276217204">Luôn xoá dữ liệu trang web khỏi thiết bị của bạn khi bạn đóng Chromium</translation>

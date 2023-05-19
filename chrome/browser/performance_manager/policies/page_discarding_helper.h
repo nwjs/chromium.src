@@ -57,14 +57,18 @@ class PageNodeSortProxy {
 
   // Returns true if the rhs is more important.
   bool operator<(const PageNodeSortProxy& rhs) const {
-    if (is_marked_ && !rhs.is_marked_)
+    if (is_marked_ && !rhs.is_marked_) {
       return false;
-    if (!is_marked_ && rhs.is_marked_)
+    }
+    if (!is_marked_ && rhs.is_marked_) {
       return true;
-    if (is_protected_ && !rhs.is_protected_)
+    }
+    if (is_protected_ && !rhs.is_protected_) {
       return false;
-    if (!is_protected_ && rhs.is_protected_)
+    }
+    if (!is_protected_ && rhs.is_protected_) {
       return true;
+    }
     return last_visible_ > rhs.last_visible_;
   }
 

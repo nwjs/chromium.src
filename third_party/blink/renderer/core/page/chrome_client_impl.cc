@@ -301,7 +301,7 @@ Page* ChromeClientImpl::CreateWindowDelegate(
           static_cast<WebNavigationPolicy>(r.GetNavigationPolicy()),
           sandbox_flags, session_storage_namespace_id, consumed_user_gesture,
           r.Impression(), r.GetPictureInPictureWindowOptions(),
-          manifest));
+          r.GetRequestorBaseURL(), manifest));
   if (!new_view)
     return nullptr;
   return new_view->GetPage();

@@ -211,8 +211,9 @@ void PageTimelineMonitor::OnBeforePageNodeRemoved(const PageNode* page_node) {
 }
 
 void PageTimelineMonitor::OnIsVisibleChanged(const PageNode* page_node) {
-  if (page_node->GetType() != performance_manager::PageType::kTab)
+  if (page_node->GetType() != performance_manager::PageType::kTab) {
     return;
+  }
 
   // It's possible for this to happen when a tab is discarded. The sequence of
   // events is:
@@ -248,8 +249,9 @@ void PageTimelineMonitor::OnIsVisibleChanged(const PageNode* page_node) {
 
 void PageTimelineMonitor::OnPageLifecycleStateChanged(
     const PageNode* page_node) {
-  if (page_node->GetType() != performance_manager::PageType::kTab)
+  if (page_node->GetType() != performance_manager::PageType::kTab) {
     return;
+  }
 
   auto it = page_node_info_map_.find(page_node);
   if (it == page_node_info_map_.end()) {

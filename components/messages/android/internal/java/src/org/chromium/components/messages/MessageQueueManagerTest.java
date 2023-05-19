@@ -224,7 +224,7 @@ public class MessageQueueManagerTest {
         queueManager.enqueueMessage(m3, m3, SCOPE_INSTANCE_ID_A, false);
 
         var dismissed = HistogramWatcher.newBuilder()
-                                .expectIntRecords("Android.Messages.Dismissed.TestMessage",
+                                .expectIntRecordTimes("Android.Messages.Dismissed.TestMessage",
                                         DismissReason.ACTIVITY_DESTROYED, 3)
                                 .build();
         queueManager.dismissAllMessages(DismissReason.ACTIVITY_DESTROYED);
@@ -736,5 +736,55 @@ public class MessageQueueManagerTest {
         messages = queueManager.getNextMessages();
         Assert.assertEquals(m3, messages.get(0).handler);
         Assert.assertEquals(m1, messages.get(1).handler);
+    }
+
+    @Test
+    @SmallTest
+    public void testIsLowerPriority() {
+        MessageQueueManager queueManager = new MessageQueueManager(mAnimationCoordinator);
+        // highPriority first but id is larger.
+        Assert.assertFalse("High-priority message has a higher priority.",
+                queueManager.isLowerPriority(
+                        buildMessageState(true, 2), buildMessageState(false, 1)));
+
+        // highPriority first but id is smaller.
+        Assert.assertFalse("High-priority message has a higher priority.",
+                queueManager.isLowerPriority(
+                        buildMessageState(true, 2), buildMessageState(false, 3)));
+
+        // highPriority second but id is larger.
+        Assert.assertTrue("High-priority message has a higher priority.",
+                queueManager.isLowerPriority(
+                        buildMessageState(false, 2), buildMessageState(true, 3)));
+
+        // highPriority second but id is smaller.
+        Assert.assertTrue("High-priority message has a higher priority.",
+                queueManager.isLowerPriority(
+                        buildMessageState(false, 2), buildMessageState(true, 1)));
+
+        // both high priority. Smaller id has a higher priority
+        Assert.assertTrue("Message with a smaller id has a higher priority.",
+                queueManager.isLowerPriority(
+                        buildMessageState(true, 2), buildMessageState(true, 1)));
+
+        // both high priority. Smaller id has a higher priority
+        Assert.assertFalse("Message with a smaller id has a higher priority.",
+                queueManager.isLowerPriority(
+                        buildMessageState(true, 2), buildMessageState(true, 3)));
+
+        // both normal priority. Smaller id has a higher priority
+        Assert.assertTrue("Message with a smaller id has a higher priority.",
+                queueManager.isLowerPriority(
+                        buildMessageState(false, 2), buildMessageState(false, 1)));
+
+        // both normal priority. Smaller id has a higher priority
+        Assert.assertFalse("Message with a smaller id has a higher priority.",
+                queueManager.isLowerPriority(
+                        buildMessageState(false, 2), buildMessageState(false, 3)));
+    }
+
+    private MessageState buildMessageState(boolean highPriority, int id) {
+        MessageStateHandler m1 = Mockito.spy(new EmptyMessageStateHandler());
+        return new MessageState(SCOPE_INSTANCE_ID, m1, m1, highPriority, id);
     }
 }

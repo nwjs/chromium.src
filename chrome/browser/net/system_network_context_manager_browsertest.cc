@@ -40,6 +40,7 @@
 #include "net/cookies/canonical_cookie_test_helpers.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/net_buildflags.h"
+#include "net/proxy_resolution/proxy_info.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/network_service_buildflags.h"
 #include "services/network/public/mojom/network_context.mojom.h"
@@ -216,6 +217,8 @@ class SystemNetworkContextManagerWithCustomProxyConfigBrowserTest
     : public SystemNetworkContextManagerBrowsertest {
  protected:
   void SetUpDefaultCommandLine(base::CommandLine* command_line) override {
+    SystemNetworkContextManagerBrowsertest::SetUpDefaultCommandLine(
+        command_line);
     command_line->AppendSwitchASCII(switches::kIPAnonymizationProxyServer,
                                     "testproxy:80");
     command_line->AppendSwitchASCII(

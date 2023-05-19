@@ -11,10 +11,15 @@ class WebState;
 }
 
 @class ContentSuggestionsCoordinator;
-@class ContentSuggestionsHeaderViewController;
+@class DiscoverFeedViewControllerConfiguration;
 @class FeedMetricsRecorder;
+@class FeedWrapperViewController;
+@protocol FeedWrapperViewControllerDelegate;
+typedef NS_ENUM(NSInteger, FollowingFeedSortType);
+@class NewTabPageHeaderViewController;
 @class NewTabPageMediator;
 @class NewTabPageViewController;
+@class UIViewController;
 @protocol UserAccountImageUpdateDelegate;
 
 @protocol NewTabPageComponentFactoryProtocol
@@ -27,7 +32,7 @@ class WebState;
 - (FeedMetricsRecorder*)feedMetricsRecorderForBrowser:(Browser*)browser;
 
 // The header view controller containing the fake omnibox and logo.
-- (ContentSuggestionsHeaderViewController*)headerController;
+- (NewTabPageHeaderViewController*)headerViewController;
 
 // Mediator owned by the NewTabPageCoordinator
 - (NewTabPageMediator*)NTPMediatorForBrowser:(Browser*)browser
@@ -37,6 +42,25 @@ class WebState;
 
 // View controller for the regular NTP.
 - (NewTabPageViewController*)NTPViewController;
+
+// Discover feed view controller.
+- (UIViewController*)discoverFeedForBrowser:(Browser*)browser
+                viewControllerConfiguration:
+                    (DiscoverFeedViewControllerConfiguration*)
+                        viewControllerConfiguration;
+
+// Following feed view controller.
+- (UIViewController*)followingFeedForBrowser:(Browser*)browser
+                 viewControllerConfiguration:
+                     (DiscoverFeedViewControllerConfiguration*)
+                         viewControllerConfiguration
+                                    sortType:(FollowingFeedSortType)sortType;
+
+// Wrapper for the feed view controller.
+- (FeedWrapperViewController*)
+    feedWrapperViewControllerWithDelegate:
+        (id<FeedWrapperViewControllerDelegate>)delegate
+                       feedViewController:(UIViewController*)feedViewController;
 
 @end
 

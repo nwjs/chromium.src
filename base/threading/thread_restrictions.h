@@ -173,9 +173,6 @@ class OutputDevice;
 }
 
 namespace blink {
-class CategorizedWorkerPoolImpl;
-class CategorizedWorkerPoolJob;
-class CategorizedWorkerPool;
 class DiskDataAllocator;
 class IdentifiabilityActiveSampler;
 class RTCVideoDecoderAdapter;
@@ -201,6 +198,9 @@ class Package;
 }
 
 namespace cc {
+class CategorizedWorkerPoolImpl;
+class CategorizedWorkerPoolJob;
+class CategorizedWorkerPool;
 class CompletionEvent;
 class TileTaskManagerImpl;
 }  // namespace cc
@@ -227,6 +227,9 @@ class BrowserGpuChannelHostFactory;
 class BrowserMainLoop;
 class BrowserProcessIOThread;
 class BrowserTestBase;
+#if BUILDFLAG(IS_IOS)
+class ContentMainRunnerImpl;
+#endif  // BUILDFLAG(IS_IOS)
 class DesktopCaptureDevice;
 class DWriteFontCollectionProxy;
 class DWriteFontProxyImpl;
@@ -304,6 +307,9 @@ class HistoryReportJniBridge;
 }
 namespace ios_web_view {
 class WebViewBrowserState;
+}
+namespace io_thread {
+class IOSIOThread;
 }
 namespace leveldb::port {
 class CondVar;
@@ -439,7 +445,6 @@ class VrShell;
 
 namespace web {
 class WebMainLoop;
-class WebSubThread;
 }  // namespace web
 
 namespace webrtc {
@@ -626,6 +631,7 @@ class BASE_EXPORT [[maybe_unused, nodiscard]] ScopedAllowBlocking {
   friend class extensions::UnpackedInstaller;
   friend class font_service::internal::MappedFontFile;
   friend class ios_web_view::WebViewBrowserState;
+  friend class io_thread::IOSIOThread;
   friend class media::FileVideoCaptureDeviceFactory;
   friend class memory_instrumentation::OSMetrics;
   friend class memory_pressure::UserLevelMemoryPressureSignalGenerator;
@@ -648,7 +654,6 @@ class BASE_EXPORT [[maybe_unused, nodiscard]] ScopedAllowBlocking {
   friend class ui::DrmDisplayHostManager;
   friend class ui::ScopedAllowBlockingForGbmSurface;
   friend class ui::SelectFileDialogLinux;
-  friend class web::WebSubThread;
   friend class weblayer::BrowserContextImpl;
   friend class weblayer::ContentBrowserClientImpl;
   friend class weblayer::ProfileImpl;
@@ -752,13 +757,13 @@ class BASE_EXPORT [[maybe_unused, nodiscard]] ScopedAllowBaseSyncPrimitives {
   friend class android_webview::JsSandboxIsolate;
   friend class base::SimpleThread;
   friend class base::internal::GetAppOutputScopedAllowBaseSyncPrimitives;
-  friend class blink::CategorizedWorkerPoolImpl;
-  friend class blink::CategorizedWorkerPoolJob;
   friend class blink::IdentifiabilityActiveSampler;
   friend class blink::SourceStream;
   friend class blink::VideoTrackRecorderImplContextProvider;
   friend class blink::WorkerThread;
   friend class blink::scheduler::NonMainThreadImpl;
+  friend class cc::CategorizedWorkerPoolImpl;
+  friend class cc::CategorizedWorkerPoolJob;
   friend class chrome_cleaner::ResetShortcutsComponent;
   friend class chrome_cleaner::SystemReportComponent;
   friend class content::BrowserMainLoop;
@@ -839,13 +844,13 @@ class BASE_EXPORT
   friend class base::StackSamplingProfiler;
   friend class base::internal::JobTaskSource;
   friend class base::sequence_manager::internal::TaskQueueImpl;
-  friend class blink::CategorizedWorkerPoolImpl;
-  friend class blink::CategorizedWorkerPoolJob;
-  friend class blink::CategorizedWorkerPool;
   friend class blink::LegacyWebRtcVideoFrameAdapter;
   friend class blink::RTCVideoDecoderAdapter;
   friend class blink::RTCVideoEncoder;
   friend class blink::WebRtcVideoFrameAdapter;
+  friend class cc::CategorizedWorkerPoolImpl;
+  friend class cc::CategorizedWorkerPoolJob;
+  friend class cc::CategorizedWorkerPool;
   friend class cc::TileTaskManagerImpl;
   friend class content::DesktopCaptureDevice;
   friend class content::EmergencyTraceFinalisationCoordinator;
@@ -1014,6 +1019,9 @@ class BASE_EXPORT PermanentThreadAllowance {
   friend class base::TestCustomDisallow;
   friend class content::BrowserMainLoop;
   friend class content::BrowserTestBase;
+#if BUILDFLAG(IS_IOS)
+  friend class content::ContentMainRunnerImpl;
+#endif  // BUILDFLAG(IS_IOS)
   friend class web::WebMainLoop;
 
   friend class extensions::ContentVerifier;
@@ -1021,21 +1029,6 @@ class BASE_EXPORT PermanentThreadAllowance {
 
   static void AllowBlocking() EMPTY_BODY_IF_DCHECK_IS_OFF;
   static void AllowBaseSyncPrimitives() EMPTY_BODY_IF_DCHECK_IS_OFF;
-};
-
-// Similar to PermanentThreadAllowance but separate because it's dangerous and
-// should have even fewer friends.
-class BASE_EXPORT PermanentSingletonAllowance {
- public:
-  // Class is merely a namespace-with-friends.
-  PermanentSingletonAllowance() = delete;
-
- private:
-  // Re-allow singletons on this thread. Since //base APIs DisallowSingleton()
-  // when they risk running past shutdown, this should only be called in rare
-  // cases where the caller knows the process will be killed rather than
-  // shutdown.
-  static void AllowSingleton() EMPTY_BODY_IF_DCHECK_IS_OFF;
 };
 
 #undef INLINE_OR_NOT_TAIL_CALLED

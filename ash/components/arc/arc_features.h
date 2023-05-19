@@ -24,10 +24,12 @@ BASE_DECLARE_FEATURE(kEnableArcNearbyShareFuseBox);
 BASE_DECLARE_FEATURE(kEnableArcVmDataMigration);
 BASE_DECLARE_FEATURE(kEnableLazyWebViewInit);
 BASE_DECLARE_FEATURE(kEnablePerVmCoreScheduling);
+BASE_DECLARE_FEATURE(kEnableReadOnlyPermissions);
 BASE_DECLARE_FEATURE(kEnableUnifiedAudioFocusFeature);
 BASE_DECLARE_FEATURE(kEnableUnmanagedToManagedTransitionFeature);
 BASE_DECLARE_FEATURE(kEnableUsap);
 BASE_DECLARE_FEATURE(kEnableVirtioBlkForData);
+BASE_DECLARE_FEATURE(kExternalStorageAccess);
 BASE_DECLARE_FEATURE(kFixupWindowFeature);
 BASE_DECLARE_FEATURE(kGhostWindowNewStyle);
 BASE_DECLARE_FEATURE(kVirtioBlkDataConfigOverride);
@@ -72,7 +74,9 @@ BASE_DECLARE_FEATURE(kVmmSwapPolicy);
 extern const base::FeatureParam<int> kVmmSwapOutDelaySecond;
 extern const base::FeatureParam<int> kVmmSwapOutTimeIntervalSecond;
 extern const base::FeatureParam<int> kVmmSwapArcSilenceIntervalSecond;
-
+BASE_DECLARE_FEATURE(kPriorityAppLmkDelay);
+extern const base::FeatureParam<int> kPriorityAppLmkDelaySecond;
+extern const base::FeatureParam<std::string> kPriorityAppLmkDelayList;
 }  // namespace arc
 
 #endif  // ASH_COMPONENTS_ARC_ARC_FEATURES_H_

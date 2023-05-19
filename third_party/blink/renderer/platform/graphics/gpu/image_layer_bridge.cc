@@ -173,9 +173,6 @@ bool ImageLayerBridge::PrepareTransferableResource(
 
     const gfx::Size size(image_for_compositor->width(),
                          image_for_compositor->height());
-    uint32_t filter = filter_quality_ == cc::PaintFlags::FilterQuality::kNone
-                          ? GL_NEAREST
-                          : GL_LINEAR;
     auto mailbox_holder = image_for_compositor->GetMailboxHolder();
 
     if (mailbox_holder.mailbox.IsZero()) {
@@ -192,9 +189,11 @@ bool ImageLayerBridge::PrepareTransferableResource(
 
     SkColorType color_type = image_for_compositor->GetSkColorInfo().colorType();
     *out_resource = viz::TransferableResource::MakeGpu(
-        mailbox_holder.mailbox, filter, mailbox_holder.texture_target,
+        mailbox_holder.mailbox, mailbox_holder.texture_target,
         mailbox_holder.sync_token, size,
-        viz::SkColorTypeToResourceFormat(color_type), is_overlay_candidate);
+        viz::SharedImageFormat::SinglePlane(
+            viz::SkColorTypeToResourceFormat(color_type)),
+        is_overlay_candidate);
 
     // If the transferred ImageBitmap contained in this ImageLayerBridge was
     // originated in a WebGPU context, we need to set the layer to be flipped.
@@ -282,8 +281,8 @@ ImageLayerBridge::RegisteredBitmap ImageLayerBridge::CreateOrRecycleBitmap(
 
   // There are no bitmaps to recycle so allocate a new one.
   viz::SharedBitmapId id = viz::SharedBitmap::GenerateId();
-  base::MappedReadOnlyRegion shm = viz::bitmap_allocation::AllocateSharedBitmap(
-      size, format.resource_format());
+  base::MappedReadOnlyRegion shm =
+      viz::bitmap_allocation::AllocateSharedBitmap(size, format);
 
   RegisteredBitmap registered;
   registered.bitmap = base::MakeRefCounted<cc::CrossThreadSharedBitmap>(

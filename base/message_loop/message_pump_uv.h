@@ -6,6 +6,7 @@
 #define BASE_MESSAGE_PUMP_UV_H_
 #pragma once
 
+#include "base/memory/raw_ptr_exclusion.h"
 #include "base/message_loop/message_pump.h"
 #include "base/time/time.h"
 #include "content/common/content_export.h"
@@ -39,7 +40,7 @@ class BASE_EXPORT MessagePumpUV : public MessagePump {
 
   // Handle to wake up loop.
   std::vector<void*> wakeup_events_;
-  void* wakeup_event_;
+  RAW_PTR_EXCLUSION void* wakeup_event_;
   WaitableEvent event_;
 
 };

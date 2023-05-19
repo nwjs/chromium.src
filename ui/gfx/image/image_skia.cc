@@ -10,6 +10,7 @@
 #include <limits>
 #include <memory>
 
+#include "base/check.h"
 #include "base/check_op.h"
 #include "base/command_line.h"
 #include "base/containers/contains.h"
@@ -42,7 +43,7 @@ std::vector<float>* g_supported_scales = NULL;
 // The difference to fall back to the smaller scale factor rather than the
 // larger one. For example, assume 1.20 is requested but only 1.0 and 2.0 are
 // supported. In that case, not fall back to 2.0 but 1.0, and then expand
-// the image to 1.25.
+// the image to 1.20.
 const float kFallbackToSmallerScaleDiff = 0.20f;
 
 }  // namespace
@@ -237,8 +238,9 @@ std::vector<ImageSkiaRep>::const_iterator ImageSkiaStorage::FindRepresentation(
 
     ImageSkiaRep image;
     float resource_scale = scale;
-    if (!HasRepresentationAtAllScales() && g_supported_scales)
+    if (!HasRepresentationAtAllScales()) {
       resource_scale = ImageSkia::MapToResourceScale(scale);
+    }
     if (scale != resource_scale) {
       auto iter = FindRepresentation(resource_scale, fetch_new_image);
       CHECK(iter != image_reps_.end());
@@ -320,17 +322,19 @@ void ImageSkia::SetSupportedScales(const std::vector<float>& supported_scales) {
 
 // static
 const std::vector<float>& ImageSkia::GetSupportedScales() {
-  DCHECK(g_supported_scales != NULL);
+  CHECK_NE(g_supported_scales, nullptr);
   return *g_supported_scales;
 }
 
 // static
 float ImageSkia::GetMaxSupportedScale() {
+  CHECK_NE(g_supported_scales, nullptr);
   return g_supported_scales->back();
 }
 
 // static
 float ImageSkia::MapToResourceScale(float scale) {
+  CHECK_NE(g_supported_scales, nullptr);
   // Returns an exact match, a smaller scale within 0.2 units, the nearest
   // larger scale, or the min/max supported scale.
   for (float supported_scale : *g_supported_scales) {

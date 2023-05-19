@@ -10,6 +10,7 @@
 #include "chrome/browser/enterprise/util/managed_browser_utils.h"
 #include "chrome/browser/new_tab_page/promos/promo_service.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/search/search.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_navigator.h"
@@ -99,15 +100,12 @@ void BrowserCommandHandler::CanExecuteCommand(
       can_execute = true;
       break;
     case Command::kOpenPerformanceSettings:
-      can_execute =
-          base::FeatureList::IsEnabled(
-              performance_manager::features::kBatterySaverModeAvailable) ||
-          base::FeatureList::IsEnabled(
-              performance_manager::features::kHighEfficiencyModeAvailable);
+      can_execute = true;
       break;
     case Command::kOpenNTPAndStartCustomizeChromeTutorial:
-      can_execute =
-          !!GetTutorialService() && BrowserSupportsCustomizeChromeSidePanel();
+      can_execute = !!GetTutorialService() &&
+                    BrowserSupportsCustomizeChromeSidePanel() &&
+                    DefaultSearchProviderIsGoogle();
       break;
   }
   std::move(callback).Run(can_execute);
@@ -236,6 +234,10 @@ bool BrowserCommandHandler::BrowserSupportsCustomizeChromeSidePanel() {
   return base::FeatureList::IsEnabled(ntp_features::kCustomizeChromeSidePanel);
 }
 
+bool BrowserCommandHandler::DefaultSearchProviderIsGoogle() {
+  return search::DefaultSearchProviderIsGoogle(profile_);
+}
+
 void BrowserCommandHandler::OpenNTPAndStartCustomizeChromeTutorial(
     WindowOpenDisposition disposition) {
   user_education::TutorialService* tutorial_service = GetTutorialService();
@@ -252,6 +254,10 @@ void BrowserCommandHandler::OpenNTPAndStartCustomizeChromeTutorial(
   }
 
   if (!BrowserSupportsCustomizeChromeSidePanel()) {
+    return;
+  }
+
+  if (!DefaultSearchProviderIsGoogle()) {
     return;
   }
 

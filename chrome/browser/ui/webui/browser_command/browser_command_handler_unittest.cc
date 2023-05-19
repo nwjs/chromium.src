@@ -108,6 +108,10 @@ class TestCommandHandler : public BrowserCommandHandler {
     customize_chrome_side_panel_feature_supported_ = is_supported;
   }
 
+  void SetDefaultSearchProviderToGoogle(bool is_google) {
+    default_search_provider_is_google_ = is_google;
+  }
+
  protected:
   bool BrowserSupportsTabGroups() override {
     return tab_groups_feature_supported_;
@@ -119,6 +123,10 @@ class TestCommandHandler : public BrowserCommandHandler {
     return customize_chrome_side_panel_feature_supported_;
   }
 
+  bool DefaultSearchProviderIsGoogle() override {
+    return default_search_provider_is_google_;
+  }
+
  private:
   raw_ptr<user_education::TutorialService> tutorial_service_;
   std::unique_ptr<CommandUpdater> command_updater_;
@@ -126,6 +134,7 @@ class TestCommandHandler : public BrowserCommandHandler {
   bool tab_groups_feature_supported_ = true;
   bool has_tab_groups_ = false;
   bool customize_chrome_side_panel_feature_supported_ = true;
+  bool default_search_provider_is_google_ = true;
 };
 
 class TestTutorialService : public user_education::TutorialService {
@@ -520,62 +529,20 @@ TEST_F(BrowserCommandHandlerTest, OpenPasswordManagerCommand) {
 }
 
 TEST_F(BrowserCommandHandlerTest, OpenPerformanceSettings) {
-  {
-    // Cannot open performance settings if the features enabling the page are
-    // not enabled.
-    base::test::ScopedFeatureList disabled;
-    disabled.InitWithFeaturesAndParameters(
-        /*enabled_features=*/{},
-        /*disabled_features=*/{
-            {performance_manager::features::kBatterySaverModeAvailable},
-            {performance_manager::features::kHighEfficiencyModeAvailable}});
-    EXPECT_FALSE(CanExecuteCommand(Command::kOpenPerformanceSettings));
-  }
-  {
-    // Can open the performance settings if at least one feature is enabled.
-    base::test::ScopedFeatureList battery_saver;
-    battery_saver.InitWithFeaturesAndParameters(
-        /*enabled_features=*/{{performance_manager::features::
-                                   kBatterySaverModeAvailable,
-                               {}}},
-        /*disabled_features=*/{
-            {performance_manager::features::kHighEfficiencyModeAvailable}});
-    EXPECT_TRUE(CanExecuteCommand(Command::kOpenPerformanceSettings));
-  }
-  {
-    // Can open the performance settings if at least one feature is enabled.
-    base::test::ScopedFeatureList high_efficiency;
-    high_efficiency.InitWithFeaturesAndParameters(
-        /*enabled_features=*/{{performance_manager::features::
-                                   kHighEfficiencyModeAvailable,
-                               {}}},
-        /*disabled_features=*/{
-            {performance_manager::features::kBatterySaverModeAvailable}});
-    EXPECT_TRUE(CanExecuteCommand(Command::kOpenPerformanceSettings));
-  }
-  {
-    // Can open with both features enabled.
-    base::test::ScopedFeatureList enabled;
-    enabled.InitWithFeaturesAndParameters(
-        /*enabled_features=*/
-        {{performance_manager::features::kBatterySaverModeAvailable, {}},
-         {performance_manager::features::kHighEfficiencyModeAvailable, {}}},
-        /*disabled_features=*/{});
-    EXPECT_TRUE(CanExecuteCommand(Command::kOpenPerformanceSettings));
+  EXPECT_TRUE(CanExecuteCommand(Command::kOpenPerformanceSettings));
 
-    // Confirm executing the command works.
-    ClickInfoPtr info = ClickInfo::New();
-    info->middle_button = true;
-    info->meta_key = true;
-    // The OpenPassswordManager command opens a new settings window with the
-    // password manager and the correct disposition.
-    EXPECT_CALL(
-        *command_handler_,
-        NavigateToURL(GURL(chrome::GetSettingsUrl(chrome::kPerformanceSubPage)),
-                      DispositionFromClick(*info)));
-    EXPECT_TRUE(
-        ExecuteCommand(Command::kOpenPerformanceSettings, std::move(info)));
-  }
+  // Confirm executing the command works.
+  ClickInfoPtr info = ClickInfo::New();
+  info->middle_button = true;
+  info->meta_key = true;
+  // The OpenPerformanceSettings command opens a new settings window with the
+  // performance page open.
+  EXPECT_CALL(
+      *command_handler_,
+      NavigateToURL(GURL(chrome::GetSettingsUrl(chrome::kPerformanceSubPage)),
+                    DispositionFromClick(*info)));
+  EXPECT_TRUE(
+      ExecuteCommand(Command::kOpenPerformanceSettings, std::move(info)));
 }
 
 TEST_F(BrowserCommandHandlerTest,
@@ -596,9 +563,16 @@ TEST_F(BrowserCommandHandlerTest,
   command_handler_->SetBrowserSupportsCustomizeChromeSidePanel(false);
   EXPECT_FALSE(
       CanExecuteCommand(Command::kOpenNTPAndStartCustomizeChromeTutorial));
-
-  // If the browser has feature enabled, allow running command
   command_handler_->SetBrowserSupportsCustomizeChromeSidePanel(true);
+
+  // If the search provider is not set to Google, dont run the command
+  command_handler_->SetDefaultSearchProviderToGoogle(false);
+  EXPECT_FALSE(
+      CanExecuteCommand(Command::kOpenNTPAndStartCustomizeChromeTutorial));
+  command_handler_->SetDefaultSearchProviderToGoogle(true);
+
+  // If the browser has feature enabled and google is default search
+  // provider, allow running command
   EXPECT_TRUE(
       CanExecuteCommand(Command::kOpenNTPAndStartCustomizeChromeTutorial));
 
@@ -612,6 +586,9 @@ TEST_F(BrowserCommandHandlerTest,
     EXPECT_CALL(service, IsRunningTutorial).WillOnce(testing::Return(true));
     EXPECT_CALL(service, LogStartedFromWhatsNewPage(
                              kSidePanelCustomizeChromeTutorialId, true));
+    EXPECT_CALL(*command_handler_,
+                NavigateToURL(GURL(chrome::kChromeUINewTabPageURL),
+                              DispositionFromClick(*info)));
     EXPECT_TRUE(ExecuteCommand(Command::kOpenNTPAndStartCustomizeChromeTutorial,
                                std::move(info)));
   }

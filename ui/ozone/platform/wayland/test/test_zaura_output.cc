@@ -4,6 +4,7 @@
 
 #include "ui/ozone/platform/wayland/test/test_zaura_output.h"
 
+#include "base/bit_cast.h"
 #include "ui/base/wayland/wayland_display_util.h"
 #include "ui/ozone/platform/wayland/test/test_output_metrics.h"
 
@@ -29,6 +30,10 @@ void TestZAuraOutput::Flush(const TestOutputMetrics& metrics) {
   const auto insets = metrics.aura_logical_insets;
   zaura_output_send_insets(resource(), insets.top(), insets.left(),
                            insets.bottom(), insets.right());
+
+  zaura_output_send_device_scale_factor(
+      resource(), base::bit_cast<uint32_t>(metrics.aura_device_scale_factor));
+
   zaura_output_send_logical_transform(resource(),
                                       metrics.aura_logical_transform);
 }

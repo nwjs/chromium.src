@@ -9,6 +9,7 @@
 
 #include "base/check_op.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/raw_ptr_exclusion.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
 #include "base/time/time.h"
@@ -238,9 +239,6 @@ class TouchSelectionControllerImpl::EditingHandleView : public View {
 
   // View:
   void OnPaint(gfx::Canvas* canvas) override {
-    if (draw_invisible_)
-      return;
-
     // Draw the handle image.
     canvas->DrawImageInt(
         *image_->ToImageSkia(), kSelectionHandleHorizPadding,
@@ -251,7 +249,9 @@ class TouchSelectionControllerImpl::EditingHandleView : public View {
     event->SetHandled();
     switch (event->type()) {
       case ui::ET_GESTURE_TAP:
-        controller_->OnHandleTapped(this);
+        if (is_cursor_handle_) {
+          controller_->ToggleQuickMenu();
+        }
         break;
       case ui::ET_GESTURE_SCROLL_BEGIN: {
         widget_->SetCapture(this);
@@ -346,14 +346,6 @@ class TouchSelectionControllerImpl::EditingHandleView : public View {
     widget_->GetNativeWindow()->targeter()->SetInsets(insets, insets);
   }
 
-  void SetDrawInvisible(bool draw_invisible) {
-    if (draw_invisible_ == draw_invisible)
-      return;
-    draw_invisible_ = draw_invisible;
-    OnPropertyChanged(&draw_invisible_, kPropertyEffectsPaint);
-  }
-  bool GetDrawInvisible() const { return draw_invisible_; }
-
  private:
   raw_ptr<TouchSelectionControllerImpl> controller_;
 
@@ -369,20 +361,15 @@ class TouchSelectionControllerImpl::EditingHandleView : public View {
   // TouchSelectionControllerImpl::OnDragUpdate while dragging the handle.
   gfx::Vector2d drag_offset_;
 
-  // If set to true, the handle will not draw anything, hence providing an empty
-  // widget. We need this because we may want to stop showing the handle while
-  // it is being dragged. Since it is being dragged, we cannot destroy the
-  // handle.
-  bool draw_invisible_ = false;
-
   // Owning widget.
-  Widget* widget_ = nullptr;
+  // This field is not a raw_ptr<> because it was filtered by the rewriter for:
+  // #addr-of
+  RAW_PTR_EXCLUSION Widget* widget_ = nullptr;
 };
 
 BEGIN_METADATA(TouchSelectionControllerImpl, EditingHandleView, View)
 ADD_READONLY_PROPERTY_METADATA(gfx::SelectionBound::Type, SelectionBoundType)
 ADD_PROPERTY_METADATA(bool, WidgetVisible)
-ADD_PROPERTY_METADATA(bool, DrawInvisible)
 END_METADATA
 
 TouchSelectionControllerImpl::TouchSelectionControllerImpl(
@@ -407,8 +394,7 @@ TouchSelectionControllerImpl::TouchSelectionControllerImpl(
                                    ui::ET_KEY_PRESSED, ui::ET_MOUSEWHEEL};
   env->AddEventObserver(this, env, types);
 
-  tap_cursor_to_toggle_menu_enabled_ =
-      ::features::IsTouchTextEditingRedesignEnabled();
+  toggle_menu_enabled_ = ::features::IsTouchTextEditingRedesignEnabled();
 }
 
 TouchSelectionControllerImpl::~TouchSelectionControllerImpl() {
@@ -465,13 +451,6 @@ void TouchSelectionControllerImpl::SelectionChanged() {
     // Hence, we are not using |SetHandleBound()| method here.
     dragging_handle_->SetBoundInScreen(screen_bound_focus_clipped, true);
 
-    // Temporary fix for selection handle going outside a window. On a webpage,
-    // the page should scroll if the selection handle is dragged outside the
-    // window. That does not happen currently. So we just hide the handle for
-    // now.
-    // TODO(varunjain): Fix this: crbug.com/269003
-    dragging_handle_->SetDrawInvisible(!ShouldShowHandleFor(focus));
-
     if (dragging_handle_ != cursor_handle_) {
       // The non-dragging-handle might have recently become visible.
       EditingHandleView* non_dragging_handle = selection_handle_1_;
@@ -493,7 +472,7 @@ void TouchSelectionControllerImpl::SelectionChanged() {
       selection_handle_1_->SetWidgetVisible(false);
       selection_handle_2_->SetWidgetVisible(false);
       SetHandleBound(cursor_handle_, anchor, screen_bound_anchor_clipped);
-      quick_menu_requested_ = !tap_cursor_to_toggle_menu_enabled_;
+      quick_menu_requested_ = !toggle_menu_enabled_;
     } else {
       // Non-empty selection, show selection handles.
       cursor_handle_->SetWidgetVisible(false);
@@ -505,19 +484,17 @@ void TouchSelectionControllerImpl::SelectionChanged() {
   }
 }
 
+void TouchSelectionControllerImpl::ToggleQuickMenu() {
+  if (toggle_menu_enabled_) {
+    quick_menu_requested_ = !quick_menu_requested_;
+    UpdateQuickMenu();
+  }
+}
+
 void TouchSelectionControllerImpl::ShowQuickMenuImmediatelyForTesting() {
   if (quick_menu_timer_.IsRunning()) {
     quick_menu_timer_.Stop();
     QuickMenuTimerFired();
-  }
-}
-
-void TouchSelectionControllerImpl::OnHandleTapped(EditingHandleView* handle) {
-  if (tap_cursor_to_toggle_menu_enabled_) {
-    if (handle == cursor_handle_) {
-      quick_menu_requested_ = !quick_menu_requested_;
-    }
-    UpdateQuickMenu();
   }
 }
 

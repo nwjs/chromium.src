@@ -58,7 +58,7 @@ NGLayoutResult::NGLayoutResult(NGBoxFragmentBuilderPassKey passkey,
                                const NGPhysicalFragment* physical_fragment,
                                NGBoxFragmentBuilder* builder)
     : NGLayoutResult(std::move(physical_fragment),
-                     static_cast<NGContainerFragmentBuilder*>(builder)) {
+                     static_cast<NGFragmentBuilder*>(builder)) {
   bitfields_.is_initial_block_size_indefinite =
       builder->is_initial_block_size_indefinite_;
   intrinsic_block_size_ = builder->intrinsic_block_size_;
@@ -129,7 +129,7 @@ NGLayoutResult::NGLayoutResult(NGLineBoxFragmentBuilderPassKey passkey,
                                const NGPhysicalFragment* physical_fragment,
                                NGLineBoxFragmentBuilder* builder)
     : NGLayoutResult(std::move(physical_fragment),
-                     static_cast<NGContainerFragmentBuilder*>(builder)) {
+                     static_cast<NGFragmentBuilder*>(builder)) {
   DCHECK_EQ(builder->bfc_block_offset_.has_value(),
             builder->line_box_bfc_block_offset_.has_value());
   if (builder->bfc_block_offset_ != builder->line_box_bfc_block_offset_) {
@@ -146,9 +146,9 @@ NGLayoutResult::NGLayoutResult(NGLineBoxFragmentBuilderPassKey passkey,
   }
 }
 
-NGLayoutResult::NGLayoutResult(NGContainerFragmentBuilderPassKey key,
+NGLayoutResult::NGLayoutResult(NGFragmentBuilderPassKey key,
                                EStatus status,
-                               NGContainerFragmentBuilder* builder)
+                               NGFragmentBuilder* builder)
     : NGLayoutResult(/* physical_fragment */ nullptr, builder) {
   bitfields_.status = status;
   DCHECK_NE(status, kSuccess)
@@ -213,7 +213,7 @@ NGLayoutResult::NGLayoutResult(const NGLayoutResult& other,
 }
 
 NGLayoutResult::NGLayoutResult(const NGPhysicalFragment* physical_fragment,
-                               NGContainerFragmentBuilder* builder)
+                               NGFragmentBuilder* builder)
     : space_(builder->space_),
       physical_fragment_(std::move(physical_fragment)),
       bitfields_(builder->is_self_collapsing_,
@@ -299,6 +299,7 @@ NGExclusionSpace NGLayoutResult::MergeExclusionSpaces(
 
 NGLayoutResult::RareData* NGLayoutResult::EnsureRareData() {
   if (!HasRareData()) {
+    DCHECK(!bitfields_.has_oof_positioned_offset);
     absl::optional<LayoutUnit> bfc_block_offset;
     if (!bitfields_.is_bfc_block_offset_nullopt)
       bfc_block_offset = bfc_offset_.block_offset;

@@ -21,6 +21,7 @@
 #include "chrome/browser/ui/views/side_panel/side_panel_registry.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/browser_with_test_window_test.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/interactive_test_utils.h"
@@ -157,6 +158,12 @@ class PriceTrackingIconViewInteractiveTest : public InProcessBrowserTest {
         BookmarkModelFactory::GetForBrowserContext(browser()->profile());
     const bookmarks::BookmarkNode* node = model->other_node();
     return node->GetTitle();
+  }
+
+  void WaitForIconFinishAnimating(PriceTrackingIconView* icon_view) {
+    while (icon_view->is_animating_label()) {
+      base::RunLoop().RunUntilIdle();
+    }
   }
 
  protected:
@@ -364,6 +371,14 @@ IN_PROC_BROWSER_TEST_F(PriceTrackingIconViewInteractiveTest,
   EXPECT_FALSE(GetBookmarkStar()->GetActive());
 }
 
+IN_PROC_BROWSER_TEST_F(PriceTrackingIconViewInteractiveTest,
+                       IconViewAccessibleName) {
+  EXPECT_EQ(GetChip()->GetAccessibleName(),
+            l10n_util::GetStringUTF16(IDS_OMNIBOX_TRACK_PRICE));
+  EXPECT_EQ(GetChip()->GetTextForTooltipAndAccessibleName(),
+            l10n_util::GetStringUTF16(IDS_OMNIBOX_TRACK_PRICE));
+}
+
 class PriceTrackingIconViewErrorHandelingTest
     : public PriceTrackingIconViewInteractiveTest {
  public:
@@ -442,12 +457,6 @@ class PriceTrackingIconViewEngagementTest
     SimulateServerPriceTrackStateUpdated(/*is_price_tracked=*/false);
     ON_CALL(*mock_tab_helper_, ShouldShowPriceTrackingIconView)
         .WillByDefault(testing::Return(true));
-  }
-
-  void WaitForIconFinishAnimating(PriceTrackingIconView* icon_view) {
-    while (icon_view->is_animating_label()) {
-      base::RunLoop().RunUntilIdle();
-    }
   }
 
  private:
@@ -890,4 +899,160 @@ IN_PROC_BROWSER_TEST_F(PriceTrackingIconViewUnifiedSidePanelInteractiveTest,
       SidePanelCoordinator::GetGlobalSidePanelRegistry(browser());
   EXPECT_FALSE(registry->active_entry().has_value());
   EXPECT_FALSE(prefs->GetBoolean(prefs::kShouldShowSidePanelBookmarkTab));
+}
+
+class PriceTrackingIconViewAlwaysExpandedTest
+    : public PriceTrackingIconViewInteractiveTest {
+ public:
+  PriceTrackingIconViewAlwaysExpandedTest() {
+    test_features_.InitAndEnableFeaturesWithParameters(
+        {{feature_engagement::kIPHPriceTrackingPageActionIconLabelFeature,
+          GetFeatureEngagementParams()}});
+  }
+
+  std::map<std::string, std::string> GetFeatureEngagementParams() {
+    return {
+        {"availability", "any"},
+        {"event_used", "name:used;comparator:any;window:0;storage:360"},
+        {"event_trigger", "name:trigger;comparator:any;window:0;storage:360"},
+        {"session_rate", "any"}};
+  }
+
+ private:
+  feature_engagement::test::ScopedIphFeatureList test_features_;
+};
+
+IN_PROC_BROWSER_TEST_F(PriceTrackingIconViewAlwaysExpandedTest,
+                       IconAlwaysIsExpanded) {
+  BrowserFeaturePromoController* const promo_controller =
+      BrowserView::GetBrowserViewForBrowser(browser())
+          ->GetFeaturePromoController();
+  EXPECT_TRUE(
+      user_education::test::WaitForFeatureEngagementReady(promo_controller));
+
+  SimulateServerPriceTrackStateUpdated(/*is_price_tracked=*/false);
+  ON_CALL(*mock_tab_helper_, ShouldShowPriceTrackingIconView)
+      .WillByDefault(testing::Return(true));
+  auto* icon_view = GetChip();
+  EXPECT_FALSE(icon_view->GetVisible());
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL(kTrackableUrl)));
+  EXPECT_TRUE(icon_view->GetVisible());
+  EXPECT_TRUE(icon_view->ShouldShowLabel());
+
+  // Navigate to a non trackable page.
+  ON_CALL(*mock_tab_helper_, ShouldShowPriceTrackingIconView)
+      .WillByDefault(testing::Return(false));
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL(kNonTrackableUrl)));
+  EXPECT_FALSE(icon_view->GetVisible());
+  EXPECT_FALSE(icon_view->ShouldShowLabel());
+
+  // Navigate to a trackable page and verify the icon is expanded again.
+  ON_CALL(*mock_tab_helper_, ShouldShowPriceTrackingIconView)
+      .WillByDefault(testing::Return(true));
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL(kTrackableUrl)));
+  EXPECT_TRUE(icon_view->GetVisible());
+  EXPECT_TRUE(icon_view->ShouldShowLabel());
+}
+
+class PriceTrackingIconViewIPHTest
+    : public PriceTrackingIconViewInteractiveTest {
+ public:
+  PriceTrackingIconViewIPHTest() {
+    int variation_num = static_cast<int>(
+        commerce::PriceTrackingChipExperimentVariation::kWithChipIPH);
+    test_features_.InitAndEnableFeaturesWithParameters(
+        {{feature_engagement::kIPHPriceTrackingPageActionIconLabelFeature, {}},
+         {feature_engagement::kIPHPriceTrackingChipFeature, {}},
+         {commerce::kCommercePriceTrackingChipExperiment,
+          {{commerce::kCommercePriceTrackingChipExperimentVariationParam,
+            base::NumberToString(variation_num)}}}});
+  }
+
+ private:
+  feature_engagement::test::ScopedIphFeatureList test_features_;
+};
+
+IN_PROC_BROWSER_TEST_F(PriceTrackingIconViewIPHTest, TriggerChipIPH) {
+  BrowserFeaturePromoController* const promo_controller =
+      BrowserView::GetBrowserViewForBrowser(browser())
+          ->GetFeaturePromoController();
+  EXPECT_TRUE(
+      user_education::test::WaitForFeatureEngagementReady(promo_controller));
+
+  PrefService* prefs = browser()->profile()->GetPrefs();
+  prefs->SetBoolean(prefs::kShouldShowPriceTrackFUEBubble, true);
+
+  SimulateServerPriceTrackStateUpdated(/*is_price_tracked=*/false);
+  ON_CALL(*mock_tab_helper_, ShouldShowPriceTrackingIconView)
+      .WillByDefault(testing::Return(true));
+  auto* icon_view = GetChip();
+  EXPECT_FALSE(icon_view->GetVisible());
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL(kTrackableUrl)));
+  WaitForIconFinishAnimating(icon_view);
+  EXPECT_TRUE(icon_view->GetVisible());
+  EXPECT_TRUE(icon_view->ShouldShowLabel());
+  EXPECT_TRUE(promo_controller->IsPromoActive(
+      feature_engagement::kIPHPriceTrackingChipFeature));
+}
+
+IN_PROC_BROWSER_TEST_F(PriceTrackingIconViewIPHTest,
+                       NotTriggerChipIPH_AfterTriggered) {
+  BrowserFeaturePromoController* const promo_controller =
+      BrowserView::GetBrowserViewForBrowser(browser())
+          ->GetFeaturePromoController();
+  EXPECT_TRUE(
+      user_education::test::WaitForFeatureEngagementReady(promo_controller));
+
+  PrefService* prefs = browser()->profile()->GetPrefs();
+  prefs->SetBoolean(prefs::kShouldShowPriceTrackFUEBubble, true);
+
+  // Trigger IPH now so it won't be triggred later.
+  EXPECT_TRUE(
+      promo_controller->feature_engagement_tracker()->ShouldTriggerHelpUI(
+          feature_engagement::kIPHPriceTrackingChipFeature));
+  promo_controller->feature_engagement_tracker()->Dismissed(
+      feature_engagement::kIPHPriceTrackingChipFeature);
+
+  SimulateServerPriceTrackStateUpdated(/*is_price_tracked=*/false);
+  ON_CALL(*mock_tab_helper_, ShouldShowPriceTrackingIconView)
+      .WillByDefault(testing::Return(true));
+  auto* icon_view = GetChip();
+  EXPECT_FALSE(icon_view->GetVisible());
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL(kTrackableUrl)));
+  WaitForIconFinishAnimating(icon_view);
+  EXPECT_TRUE(icon_view->GetVisible());
+  EXPECT_TRUE(icon_view->ShouldShowLabel());
+  EXPECT_FALSE(promo_controller->IsPromoActive(
+      feature_engagement::kIPHPriceTrackingChipFeature));
+}
+
+IN_PROC_BROWSER_TEST_F(PriceTrackingIconViewIPHTest,
+                       NotTriggerChipIPH_ForNormalBubble) {
+  BrowserFeaturePromoController* const promo_controller =
+      BrowserView::GetBrowserViewForBrowser(browser())
+          ->GetFeaturePromoController();
+  EXPECT_TRUE(
+      user_education::test::WaitForFeatureEngagementReady(promo_controller));
+
+  PrefService* prefs = browser()->profile()->GetPrefs();
+  prefs->SetBoolean(prefs::kShouldShowPriceTrackFUEBubble, false);
+
+  // Trigger IPH now so it won't be triggred later.
+  EXPECT_TRUE(
+      promo_controller->feature_engagement_tracker()->ShouldTriggerHelpUI(
+          feature_engagement::kIPHPriceTrackingChipFeature));
+  promo_controller->feature_engagement_tracker()->Dismissed(
+      feature_engagement::kIPHPriceTrackingChipFeature);
+
+  SimulateServerPriceTrackStateUpdated(/*is_price_tracked=*/false);
+  ON_CALL(*mock_tab_helper_, ShouldShowPriceTrackingIconView)
+      .WillByDefault(testing::Return(true));
+  auto* icon_view = GetChip();
+  EXPECT_FALSE(icon_view->GetVisible());
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL(kTrackableUrl)));
+  WaitForIconFinishAnimating(icon_view);
+  EXPECT_TRUE(icon_view->GetVisible());
+  EXPECT_TRUE(icon_view->ShouldShowLabel());
+  EXPECT_FALSE(promo_controller->IsPromoActive(
+      feature_engagement::kIPHPriceTrackingChipFeature));
 }

@@ -502,12 +502,9 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest,
   // The middle tab only should have visible disposition.
   for (int i = 0; i < tab_strip_model->count(); ++i) {
     content::WebContents* contents = tab_strip_model->GetWebContentsAt(i);
-    std::string document_visibility_state;
-    const char kGetStateJS[] =
-        "window.domAutomationController.send("
-        "window.document.visibilityState);";
-    EXPECT_TRUE(content::ExecuteScriptAndExtractString(
-        contents, kGetStateJS, &document_visibility_state));
+    const char kGetStateJS[] = "window.document.visibilityState;";
+    std::string document_visibility_state =
+        content::EvalJs(contents, kGetStateJS).ExtractString();
     if (i == 1) {
       EXPECT_EQ("visible", document_visibility_state);
     } else {
@@ -543,18 +540,10 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, RestoredTabsHaveCorrectInitialSize) {
   const gfx::Size contents_size = restored->window()->GetContentsSize();
   for (int i = 0; i < tab_strip_model->count(); ++i) {
     content::WebContents* contents = tab_strip_model->GetWebContentsAt(i);
-    int width = 0;
-    const char kGetWidthJS[] =
-        "window.domAutomationController.send("
-        "window.innerWidth);";
-    EXPECT_TRUE(
-        content::ExecuteScriptAndExtractInt(contents, kGetWidthJS, &width));
-    int height = 0;
-    const char kGetHeigthJS[] =
-        "window.domAutomationController.send("
-        "window.innerHeight);";
-    EXPECT_TRUE(
-        content::ExecuteScriptAndExtractInt(contents, kGetHeigthJS, &height));
+    const char kGetWidthJS[] = "window.innerWidth;";
+    int width = content::EvalJs(contents, kGetWidthJS).ExtractInt();
+    const char kGetHeigthJS[] = "window.innerHeight;";
+    int height = content::EvalJs(contents, kGetHeigthJS).ExtractInt();
     const gfx::Size tab_size(width, height);
     EXPECT_EQ(contents_size, tab_size);
   }
@@ -2819,7 +2808,7 @@ IN_PROC_BROWSER_TEST_F(MultiOriginSessionRestoreTest,
         content::ExecJs(old_tab, "window.open('about:blank', 'subframe');"));
     nav_observer.Wait();
   }
-  EXPECT_EQ(subframe, ChildFrameAt(old_tab_main_frame.get(), 0));
+  subframe = ChildFrameAt(old_tab_main_frame.get(), 0);
   EXPECT_EQ(GURL(url::kAboutBlankURL), subframe->GetLastCommittedURL());
   EXPECT_EQ(a_origin, subframe->GetLastCommittedOrigin());
 
@@ -4020,20 +4009,10 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreNavigationApiTest,
 
   // Ensure that url2 is censored in navigation due to the no-referrer policy,
   // but url1 isn't.
-  bool url1_is_censored = false;
-  bool url2_is_censored = false;
-  const char kCheckEntry1Js[] =
-      "window.domAutomationController.send("
-      "navigation.entries()[0].url == null);";
-  const char kCheckEntry2Js[] =
-      "window.domAutomationController.send("
-      "navigation.entries()[1].url == null);";
-  EXPECT_TRUE(content::ExecuteScriptAndExtractBool(contents, kCheckEntry1Js,
-                                                   &url1_is_censored));
-  EXPECT_TRUE(content::ExecuteScriptAndExtractBool(contents, kCheckEntry2Js,
-                                                   &url2_is_censored));
-  EXPECT_FALSE(url1_is_censored);
-  EXPECT_TRUE(url2_is_censored);
+  const char kCheckEntry1Js[] = "navigation.entries()[0].url == null;";
+  const char kCheckEntry2Js[] = "navigation.entries()[1].url == null;";
+  EXPECT_EQ(false, content::EvalJs(contents, kCheckEntry1Js));
+  EXPECT_EQ(true, content::EvalJs(contents, kCheckEntry2Js));
 
   // Simulate an exit by shutting down the session service. If we don't do this
   // the first window close is treated as though the user closed the window
@@ -4048,19 +4027,12 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreNavigationApiTest,
   content::WebContents* restored_contents =
       active_browser_list_->get(0)->tab_strip_model()->GetWebContentsAt(0);
   EXPECT_EQ(GetUrl3(), restored_contents->GetLastCommittedURL());
-  int entries_length = 0;
-  const char kCheckEntriesLength[] =
-      "window.domAutomationController.send("
-      "navigation.entries().length);";
-  EXPECT_TRUE(content::ExecuteScriptAndExtractInt(
-      restored_contents, kCheckEntriesLength, &entries_length));
+  const char kCheckEntriesLength[] = "navigation.entries().length;";
+  int entries_length =
+      content::EvalJs(restored_contents, kCheckEntriesLength).ExtractInt();
   EXPECT_EQ(entries_length, 3);
-  EXPECT_TRUE(content::ExecuteScriptAndExtractBool(
-      restored_contents, kCheckEntry1Js, &url1_is_censored));
-  EXPECT_TRUE(content::ExecuteScriptAndExtractBool(
-      restored_contents, kCheckEntry2Js, &url2_is_censored));
-  EXPECT_FALSE(url1_is_censored);
-  EXPECT_TRUE(url2_is_censored);
+  EXPECT_EQ(false, content::EvalJs(restored_contents, kCheckEntry1Js));
+  EXPECT_EQ(true, content::EvalJs(restored_contents, kCheckEntry2Js));
 }
 
 class TabbedAppSessionRestoreTest : public AppSessionRestoreTest {

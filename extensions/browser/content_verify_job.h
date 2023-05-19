@@ -192,7 +192,7 @@ class ContentVerifyJob : public base::RefCountedThreadSafe<ContentVerifyJob> {
 
  public:
   int len_;
-  char* buf_;
+  raw_ptr<char> buf_;
   base::File file_;
 };
 

@@ -1599,7 +1599,7 @@ TEST_F(CartServiceTest, TestAcknowledgeDiscountConsent) {
 }
 
 // Tests HasActiveCartForURL API correctly checks cart existence.
-TEST_F(CartServiceTest, TestHHasActiveCartForURL) {
+TEST_F(CartServiceTest, TestHasActiveCartForURL) {
   base::RunLoop run_loop[4];
   const GURL url_with_cart_A = GURL("https://www.foo.com/A");
   const GURL url_with_cart_B = GURL("https://www.foo.com/B");
@@ -1639,6 +1639,22 @@ TEST_F(CartServiceTest, TestHHasActiveCartForURL) {
       base::BindOnce(&CartServiceTest::GetEvaluationBoolResult,
                      base::Unretained(this), run_loop[3].QuitClosure(), false));
   run_loop[3].Run();
+}
+
+TEST_F(CartServiceTest, TestIsCartEnabled) {
+  const std::string cart_key = "chrome_cart";
+  ScopedListPrefUpdate update(profile_->GetPrefs(), prefs::kNtpDisabledModules);
+  base::Value::List& disabled_list = update.Get();
+
+  disabled_list.Append(base::Value(cart_key));
+
+  ASSERT_TRUE(base::Contains(disabled_list, base::Value(cart_key)));
+  ASSERT_FALSE(service_->IsCartEnabled());
+
+  disabled_list.EraseValue(base::Value(cart_key));
+
+  ASSERT_FALSE(base::Contains(disabled_list, base::Value(cart_key)));
+  ASSERT_TRUE(service_->IsCartEnabled());
 }
 
 class CartServiceNoDiscountTest : public CartServiceTest {
@@ -2433,12 +2449,13 @@ class FakeFetchDiscountWorker : public FetchDiscountWorker {
       scoped_refptr<network::SharedURLLoaderFactory>
           browserProcessURLLoaderFactory,
       std::unique_ptr<CartDiscountFetcherFactory> fetcher_factory,
-      std::unique_ptr<CartServiceDelegate> cart_service_delegate,
+      std::unique_ptr<CartDiscountServiceDelegate>
+          cart_discount_service_delegate,
       signin::IdentityManager* const identity_manager,
       variations::VariationsClient* const chrome_variations_client)
       : FetchDiscountWorker(browserProcessURLLoaderFactory,
                             std::move(fetcher_factory),
-                            std::move(cart_service_delegate),
+                            std::move(cart_discount_service_delegate),
                             identity_manager,
                             chrome_variations_client) {}
 
@@ -2453,7 +2470,7 @@ class FakeFetchDiscountWorker : public FetchDiscountWorker {
   }
 
  private:
-  void FakeFetch() { cart_service_delegate_->RecordFetchTimestamp(); }
+  void FakeFetch() { cart_discount_service_delegate_->RecordFetchTimestamp(); }
 
   base::WeakPtrFactory<FakeFetchDiscountWorker> weak_ptr_factory_{this};
 };
@@ -2474,8 +2491,9 @@ class CartServiceDiscountFetchTest : public CartServiceTest {
     profile_->GetPrefs()->SetBoolean(prefs::kCartDiscountEnabled, true);
     // Only initialize CartServiceDelegate which is relevant to this test.
     fetch_discount_worker_ = std::make_unique<FakeFetchDiscountWorker>(
-        nullptr, nullptr, std::make_unique<CartServiceDelegate>(service_),
-        nullptr, nullptr);
+        nullptr, nullptr,
+        std::make_unique<CartDiscountServiceDelegate>(service_), nullptr,
+        nullptr);
     service_->SetFetchDiscountWorkerForTesting(
         std::move(fetch_discount_worker_));
   }

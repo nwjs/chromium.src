@@ -41,13 +41,13 @@ luci.bucket(
                 "findit-for-me@appspot.gserviceaccount.com",
                 "tricium-prod@appspot.gserviceaccount.com",
             ],
-            projects = [
-                "angle",
-                "dawn",
-                "skia",
-                "swiftshader",
-                "v8",
-            ] if settings.is_main else None,
+            projects = [p for p in [
+                branches.value(branch_selector = branches.selector.MAIN, value = "angle"),
+                branches.value(branch_selector = branches.selector.DESKTOP_BRANCHES, value = "dawn"),
+                branches.value(branch_selector = branches.selector.MAIN, value = "skia"),
+                branches.value(branch_selector = branches.selector.MAIN, value = "swiftshader"),
+                branches.value(branch_selector = branches.selector.MAIN, value = "v8"),
+            ] if p != None],
         ),
         acl.entry(
             roles = acl.BUILDBUCKET_OWNER,
@@ -169,9 +169,9 @@ exec("./try/tryserver.chromium.chromiumos.star")
 exec("./try/tryserver.chromium.cft.star")
 exec("./try/tryserver.chromium.dawn.star")
 exec("./try/tryserver.chromium.fuchsia.star")
+exec("./try/tryserver.chromium.infra.star")
 exec("./try/tryserver.chromium.linux.star")
 exec("./try/tryserver.chromium.mac.star")
-exec("./try/tryserver.chromium.packager.star")
 exec("./try/tryserver.chromium.rust.star")
 exec("./try/tryserver.chromium.tricium.star")
 exec("./try/tryserver.chromium.updater.star")

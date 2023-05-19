@@ -54,7 +54,7 @@ class ChromeFileSystemAccessPermissionContext
     : public content::FileSystemAccessPermissionContext,
       public permissions::ObjectPermissionContextBase {
  public:
-  content::BrowserContext* browser_context_; //optimal place to patch
+  raw_ptr<content::BrowserContext> browser_context_; //optimal place to patch
                                              //this in NW
   explicit ChromeFileSystemAccessPermissionContext(
       content::BrowserContext* context,

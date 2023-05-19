@@ -22,12 +22,12 @@ Feature::Availability ManifestFeature::IsAvailableToContextImpl(
     Feature::Platform platform,
     int context_id,
     bool check_developer_mode,
-    std::unique_ptr<ContextData> context_data) const {
+    const ContextData& context_data) const {
   if (extension && extension->is_nwjs_app())
     return CreateAvailability(IS_AVAILABLE);
   Availability availability = SimpleFeature::IsAvailableToContextImpl(
       extension, context, url, platform, context_id, check_developer_mode,
-      std::move(context_data));
+      context_data);
   if (!availability.is_available())
     return availability;
 

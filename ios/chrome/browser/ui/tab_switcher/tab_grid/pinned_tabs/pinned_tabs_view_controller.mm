@@ -11,10 +11,10 @@
 #import "base/metrics/histogram_functions.h"
 #import "base/notreached.h"
 #import "base/numerics/safe_conversions.h"
+#import "ios/chrome/browser/shared/ui/util/rtl_geometry.h"
 #import "ios/chrome/browser/tabs/features.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_collection_drag_drop_handler.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_collection_drag_drop_metrics.h"
-#import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/grid_image_data_source.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/pinned_tabs/pinned_cell.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/pinned_tabs/pinned_tabs_constants.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/pinned_tabs/pinned_tabs_layout.h"
@@ -24,6 +24,7 @@
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/grit/ios_strings.h"
+#import "ios/public/provider/chrome/browser/modals/modals_api.h"
 #import "ui/base/l10n/l10n_util_mac.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
@@ -78,9 +79,6 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
   // Tracks if the view is available.
   BOOL _available;
 
-  // Tracks if the view is visible.
-  BOOL _visible;
-
   // Tracks if a drag action is in progress.
   BOOL _dragSessionEnabled;
   BOOL _localDragActionInProgress;
@@ -90,6 +88,9 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
 
   // YES if view controller's content has appeared.
   BOOL _contentAppeared;
+
+  // Tracks if there is a scroll in progress.
+  BOOL _scrollInProgress;
 }
 
 - (instancetype)init {
@@ -110,6 +111,7 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
   _localDragActionInProgress = NO;
   _dropAnimationInProgress = NO;
   _contentAppeared = NO;
+  _scrollInProgress = NO;
 
   [self configureCollectionView];
   [self configureDropOverlayView];
@@ -147,15 +149,19 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
 
   _dragSessionEnabled = enabled;
 
+  __weak __typeof(self) weakSelf = self;
   [UIView animateWithDuration:kPinnedViewDragAnimationTime
-                   animations:^{
-                     self->_dragEnabledConstraint.active = enabled;
-                     self->_defaultConstraint.active = !enabled;
-                     [self updateDropOverlayViewVisibility];
-                     [self resetViewBackgrounds];
-                     [self.view.superview layoutIfNeeded];
-                   }
-                   completion:nil];
+      animations:^{
+        self->_dragEnabledConstraint.active = enabled;
+        self->_defaultConstraint.active = !enabled;
+        [self updateDropOverlayViewVisibility];
+        [self resetViewBackgrounds];
+        [self.view.superview layoutIfNeeded];
+        [self.view layoutIfNeeded];
+      }
+      completion:^(BOOL finished) {
+        [weakSelf popLastInsertedItem];
+      }];
 }
 
 - (void)pinnedTabsAvailable:(BOOL)available {
@@ -167,6 +173,7 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
   if (visible == _visible) {
     return;
   }
+  _visible = visible;
 
   // Show the view if `visible` is true to ensure smooth animation.
   if (visible) {
@@ -174,13 +181,17 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
     self.view.hidden = NO;
   }
 
+  // Tell the delegate that the visibility has changed in order to update the
+  // tab grid view inset before hiding the pinned view.
+  [self.delegate pinnedTabsViewControllerVisibilityDidChange:self];
+
   __weak __typeof(self) weakSelf = self;
   [UIView animateWithDuration:kPinnedViewFadeInTime
       animations:^{
         self.view.alpha = visible ? 1.0 : 0.0;
       }
       completion:^(BOOL finished) {
-        [weakSelf updatePinnedTabsVisibilityAfterAnimation:visible];
+        [weakSelf updatePinnedTabsVisibilityAfterAnimation];
       }];
 }
 
@@ -382,8 +393,7 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
 }
 
 - (void)dismissModals {
-  // Should never be called for this class.
-  NOTREACHED();
+  ios::provider::DismissModalsForCollectionView(self.collectionView);
 }
 
 #pragma mark - UICollectionViewDataSource
@@ -612,6 +622,17 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
   return _available;
 }
 
+#pragma mark - UIScrollViewDelegate
+
+- (void)scrollViewDidScroll:(UIScrollView*)scrollView {
+  _scrollInProgress = YES;
+}
+
+- (void)scrollViewDidEndScrollingAnimation:(UIScrollView*)scrollView {
+  _scrollInProgress = NO;
+  [self popLastInsertedItem];
+}
+
 #pragma mark - Private properties
 
 - (NSUInteger)selectedIndex {
@@ -619,6 +640,53 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
 }
 
 #pragma mark - Private
+
+// Animates the lastest inserted item (if any) with a pop animation.
+// This method is called when :
+// - The pinned overlay is hidden.
+// - A scroll animation ends.
+- (void)popLastInsertedItem {
+  if (_dragSessionEnabled || !_lastInsertedItemID) {
+    return;
+  }
+
+  NSUInteger itemIndex = [self indexOfItemWithID:_lastInsertedItemID];
+
+  // Check `itemIndex` boundaries in order to filter out possible race
+  // conditions while mutating the collection.
+  if (itemIndex == NSNotFound || itemIndex >= _items.count) {
+    return;
+  }
+
+  PinnedCell* pinnedCell = base::mac::ObjCCastStrict<PinnedCell>(
+      [self.collectionView cellForItemAtIndexPath:CreateIndexPath(itemIndex)]);
+  CGAffineTransform originalTransform = pinnedCell.transform;
+
+  // Initial attributes.
+  pinnedCell.alpha = 0;
+  pinnedCell.hidden = NO;
+  pinnedCell.transform =
+      CGAffineTransformScale(pinnedCell.transform, kPinnedCellPopInitialScale,
+                             kPinnedCellPopInitialScale);
+
+  const BOOL isSelectedItem = _lastInsertedItemID == _selectedItemID;
+  _lastInsertedItemID = nil;
+
+  __weak __typeof(self) weakSelf = self;
+  [UIView animateWithDuration:kPinnedViewPopAnimationTime
+      animations:^{
+        pinnedCell.alpha = 1;
+        pinnedCell.transform = originalTransform;
+        [self.view layoutIfNeeded];
+      }
+      completion:^(BOOL finished) {
+        if (isSelectedItem) {
+          PinnedTabsViewController* strongSelf = weakSelf;
+          [strongSelf selectCollectionViewItemWithID:strongSelf->_selectedItemID
+                                            animated:NO];
+        }
+      }];
+}
 
 // Updates the visibility of the pinned view.
 - (void)updatePinnedTabsVisibility {
@@ -677,8 +745,11 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
   collectionView.dropDelegate = self;
   collectionView.dragInteractionEnabled = YES;
   collectionView.showsHorizontalScrollIndicator = NO;
+  collectionView.accessibilityIdentifier = kPinnedViewIdentifier;
 
   self.view = collectionView;
+
+  UIView* backgroundView;
 
   // Only apply the blur if transparency effects are not disabled.
   if (!UIAccessibilityIsReduceTransparencyEnabled()) {
@@ -686,17 +757,18 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
 
     UIBlurEffect* blurEffect =
         [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemThinMaterialDark];
-    UIVisualEffectView* blurEffectView =
-        [[UIVisualEffectView alloc] initWithEffect:blurEffect];
-
-    blurEffectView.frame = collectionView.bounds;
-    blurEffectView.autoresizingMask =
-        UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-
-    collectionView.backgroundView = blurEffectView;
+    backgroundView = [[UIVisualEffectView alloc] initWithEffect:blurEffect];
   } else {
     _backgroundColor = [UIColor colorNamed:kPrimaryBackgroundColor];
+
+    backgroundView = [[UIView alloc] init];
   }
+
+  backgroundView.frame = collectionView.bounds;
+  backgroundView.autoresizingMask =
+      UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+
+  collectionView.backgroundView = backgroundView;
   collectionView.backgroundColor = _backgroundColor;
 
   _dragEnabledConstraint = [collectionView.heightAnchor
@@ -716,10 +788,19 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
 
   UILabel* label = [[UILabel alloc] init];
   label.numberOfLines = 0;
+  label.textAlignment = NSTextAlignmentCenter;
   label.font = [UIFont preferredFontForTextStyle:UIFontTextStyleHeadline];
+  label.adjustsFontForContentSizeCategory = YES;
+  label.adjustsFontSizeToFitWidth = YES;
   label.textColor = [UIColor colorNamed:kTextPrimaryColor];
   label.text = l10n_util::GetNSString(IDS_IOS_PINNED_TABS_DRAG_TO_PIN_LABEL);
   label.translatesAutoresizingMaskIntoConstraints = NO;
+
+  // Mirror the label for RTL (see crbug.com/1426256).
+  if (base::i18n::IsRTL()) {
+    label.transform = CGAffineTransformScale(label.transform, -1, 1);
+  }
+
   [_dropOverlayView addSubview:label];
 
   AddSameConstraints(_dropOverlayView, self.collectionView.backgroundView);
@@ -728,39 +809,52 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
         constraintEqualToAnchor:_dropOverlayView.centerYAnchor],
     [label.centerXAnchor
         constraintEqualToAnchor:_dropOverlayView.centerXAnchor],
+    [label.leadingAnchor
+        constraintGreaterThanOrEqualToAnchor:_dropOverlayView.leadingAnchor
+                                    constant:kPinnedViewHorizontalPadding],
+    [label.trailingAnchor
+        constraintLessThanOrEqualToAnchor:_dropOverlayView.trailingAnchor
+                                 constant:-kPinnedViewHorizontalPadding],
+    [label.bottomAnchor constraintEqualToAnchor:_dropOverlayView.bottomAnchor],
+    [label.topAnchor constraintEqualToAnchor:_dropOverlayView.topAnchor],
   ]];
 
   [self updateDropOverlayViewVisibility];
 }
 
-// Configures `cell`'s identifier and title synchronously, favicon and snapshot
-// asynchronously with information from `item`.
+// Configures `cell`'s identifier and title synchronously, and favicon and
+// snapshot asynchronously from `item`.
 - (void)configureCell:(PinnedCell*)cell withItem:(TabSwitcherItem*)item {
   if (item) {
     cell.itemIdentifier = item.identifier;
     cell.title = item.title;
-    NSString* itemIdentifier = item.identifier;
-    [self.imageDataSource faviconForIdentifier:itemIdentifier
-                                    completion:^(UIImage* icon) {
-                                      // Only update the icon if the cell is not
-                                      // already reused for another item.
-                                      if ([cell hasIdentifier:itemIdentifier]) {
-                                        cell.icon = icon;
-                                      }
-                                    }];
-    [self.imageDataSource
-        snapshotForIdentifier:itemIdentifier
-                   completion:^(UIImage* snapshot) {
-                     if ([cell hasIdentifier:itemIdentifier]) {
-                       cell.snapshot = snapshot;
-                     }
-                   }];
+    [item fetchFavicon:^(TabSwitcherItem* innerItem, UIImage* icon) {
+      // Only update the icon if the cell is not already reused for another
+      // item.
+      if ([cell hasIdentifier:innerItem.identifier]) {
+        cell.icon = icon;
+      }
+    }];
+    [item fetchSnapshot:^(TabSwitcherItem* innerItem, UIImage* snapshot) {
+      // Only update the icon if the cell is not already reused for another
+      // item.
+      if ([cell hasIdentifier:innerItem.identifier]) {
+        cell.snapshot = snapshot;
+      }
+    }];
   }
+
+  cell.accessibilityIdentifier =
+      [NSString stringWithFormat:@"%@%ld", kPinnedCellIdentifier,
+                                 [self indexOfItemWithID:cell.itemIdentifier]];
 
   if (item.showsActivity) {
     [cell showActivityIndicator];
   } else {
     [cell hideActivityIndicator];
+  }
+  if (_contentAppeared && cell.itemIdentifier == _lastInsertedItemID) {
+    cell.hidden = YES;
   }
 }
 
@@ -780,19 +874,20 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
 }
 
 // Updates the pinned tabs view visibility after an animation.
-- (void)updatePinnedTabsVisibilityAfterAnimation:(BOOL)visible {
-  _visible = visible;
-  if (!visible) {
+- (void)updatePinnedTabsVisibilityAfterAnimation {
+  if (!_visible) {
     self.view.hidden = YES;
   }
 
   // Don't call the delegate if the pinned view is hidden after a tab grid page
   // change.
-  if (!visible && _items.count > 0) {
+  if (!_visible && _items.count > 0) {
     return;
   }
 
-  [self.delegate pinnedTabsViewControllerVisibilityDidChange:self];
+  if (_visible && _items.count == 1) {
+    [self popLastInsertedItem];
+  }
 }
 
 // Shows `_dropOverlayView` when a external drag action is in progress.

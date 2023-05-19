@@ -664,7 +664,7 @@ class BrowserViewLayoutDelegateImpl : public BrowserViewLayoutDelegate {
       return 0;
     }
 #if BUILDFLAG(IS_MAC)
-    if (base::FeatureList::IsEnabled(features::kImmersiveFullscreenTabs) &&
+    if (browser_view_->UsesImmersiveFullscreenTabbedMode() &&
         browser_view_->immersive_mode_controller()->IsEnabled()) {
       return 0;
     }
@@ -769,7 +769,7 @@ class BrowserViewLayoutDelegateImpl : public BrowserViewLayoutDelegate {
 #if BUILDFLAG(IS_MAC)
     // The tab strip is hosted in a separate widget in immersive fullscreen on
     // macOS.
-    if (base::FeatureList::IsEnabled(features::kImmersiveFullscreenTabs) &&
+    if (browser_view_->UsesImmersiveFullscreenTabbedMode() &&
         browser_view_->immersive_mode_controller()->IsEnabled()) {
       return false;
     }
@@ -981,12 +981,8 @@ BrowserView::BrowserView(std::unique_ptr<Browser> browser)
 #endif
 
   // High Efficiency mode is default off but is available to turn on
-  if (!performance_manager::features::kHighEfficiencyModeDefaultState.Get() &&
-      base::FeatureList::IsEnabled(
-          performance_manager::features::kHighEfficiencyModeAvailable)) {
-    high_efficiency_opt_in_iph_controller_ =
-        std::make_unique<HighEfficiencyOptInIPHController>(browser_.get());
-  }
+  high_efficiency_opt_in_iph_controller_ =
+      std::make_unique<HighEfficiencyOptInIPHController>(browser_.get());
 }
 
 void BrowserView::ForceClose() {
@@ -1206,6 +1202,13 @@ bool BrowserView::UsesImmersiveFullscreenMode() const {
   return base::FeatureList::IsEnabled(features::kImmersiveFullscreen) &&
          (!GetIsWebAppType() ||
           base::FeatureList::IsEnabled(features::kImmersiveFullscreenPWAs));
+}
+
+bool BrowserView::UsesImmersiveFullscreenTabbedMode() const {
+  return (GetSupportsTabStrip() &&
+          base::FeatureList::IsEnabled(features::kImmersiveFullscreen) &&
+          base::FeatureList::IsEnabled(features::kImmersiveFullscreenTabs)) &&
+         !GetIsWebAppType();
 }
 #endif
 
@@ -2343,6 +2346,12 @@ void BrowserView::ToggleWindowControlsOverlayEnabled(base::OnceClosure done) {
 
 bool BrowserView::IsBorderlessModeEnabled() const {
   return borderless_mode_enabled_ && window_management_permission_granted_;
+}
+
+void BrowserView::ShowSidePanel(
+    absl::optional<SidePanelEntry::Id> entry_id,
+    absl::optional<SidePanelUtil::SidePanelOpenTrigger> open_trigger) {
+  side_panel_coordinator_->Show(entry_id, open_trigger);
 }
 
 bool BrowserView::AppUsesBorderlessMode() const {
@@ -3691,7 +3700,7 @@ views::View* BrowserView::CreateMacOverlayView() {
   overlay_view_ = overlay_view.get();
   overlay_widget_->GetRootView()->AddChildView(std::move(overlay_view));
 
-  if (base::FeatureList::IsEnabled(features::kImmersiveFullscreenTabs)) {
+  if (UsesImmersiveFullscreenTabbedMode()) {
     // Create the tab overlay widget as a child of overlay_widget_.
     tab_overlay_widget_ = create_overlay_widget(overlay_widget_);
     std::unique_ptr<TabContainerOverlayView> tab_overlay_view =

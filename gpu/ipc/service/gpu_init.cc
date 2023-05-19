@@ -98,6 +98,10 @@ void InitializePlatformOverlaySettings(GPUInfo* gpu_info,
   // Also, this has to be called after falling back to SwiftShader decision is
   // finalized because this function depends on GL is ANGLE's GLES or not.
   gl::DirectCompositionOverlayWorkarounds workarounds = {
+      .disable_sw_video_overlays = gpu_feature_info.IsWorkaroundEnabled(
+          DISABLE_DIRECT_COMPOSITION_SW_VIDEO_OVERLAYS),
+      .disable_decode_swap_chain =
+          gpu_feature_info.IsWorkaroundEnabled(DISABLE_DECODE_SWAP_CHAIN),
       .enable_bgra8_overlays_with_yuv_overlay_support =
           gpu_feature_info.IsWorkaroundEnabled(
               gpu::ENABLE_BGRA8_OVERLAYS_WITH_YUV_OVERLAY_SUPPORT),
@@ -400,12 +404,6 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
 #endif  // BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
   ui::OzonePlatform::InitializeForGPU(params);
-  // We need to get supported formats before sandboxing to avoid an known
-  // issue which breaks the camera preview. (b/166850715)
-  std::vector<gfx::BufferFormat> supported_buffer_formats_for_texturing =
-      ui::OzonePlatform::GetInstance()
-          ->GetSurfaceFactoryOzone()
-          ->GetSupportedFormatsForTexturing();
 #endif  // BUILDFLAG(IS_OZONE)
 
   gl::GLDisplay* gl_display = nullptr;
@@ -663,6 +661,15 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
     }
   }
 
+#if BUILDFLAG(IS_OZONE)
+  // We need to get supported formats before sandboxing to avoid an known
+  // issue which breaks the camera preview. (b/166850715)
+  std::vector<gfx::BufferFormat> supported_buffer_formats_for_texturing =
+      ui::OzonePlatform::GetInstance()
+          ->GetSurfaceFactoryOzone()
+          ->GetSupportedFormatsForTexturing();
+#endif  // BUILDFLAG(IS_OZONE)
+
   InitializePlatformOverlaySettings(&gpu_info_, gpu_feature_info_);
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
@@ -769,15 +776,6 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
 
   if (!watchdog_thread_)
     watchdog_init.SetGpuWatchdogPtr(nullptr);
-
-#if BUILDFLAG(IS_WIN)
-  if (gpu_feature_info_.IsWorkaroundEnabled(DISABLE_DECODE_SWAP_CHAIN))
-    gl::DisableDirectCompositionDecodeSwapChain();
-  if (gpu_feature_info_.IsWorkaroundEnabled(
-          DISABLE_DIRECT_COMPOSITION_SW_VIDEO_OVERLAYS)) {
-    gl::DisableDirectCompositionSoftwareOverlays();
-  }
-#endif
 
 #if defined(USE_EGL) && !BUILDFLAG(IS_MAC)
   if (gpu_feature_info_.IsWorkaroundEnabled(CHECK_EGL_FENCE_BEFORE_WAIT))
@@ -933,6 +931,12 @@ void GpuInit::InitializeInProcess(base::CommandLine* command_line,
 
   InitializePlatformOverlaySettings(&gpu_info_, gpu_feature_info_);
 
+  if (!gl_disabled) {
+    if (!CollectGpuExtraInfo(&gpu_extra_info_, gpu_preferences)) {
+      VLOG(1) << "gpu::CollectGpuExtraInfo failed";
+    }
+  }
+
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
   // Driver may create a compatibility profile context when collect graphics
   // information on Linux platform. Try to collect graphics information
@@ -973,11 +977,6 @@ void GpuInit::InitializeInProcess(base::CommandLine* command_line,
 #endif
 
   DisableInProcessGpuVulkan(&gpu_feature_info_, &gpu_preferences_);
-
-#if BUILDFLAG(IS_WIN)
-  if (gpu_feature_info_.IsWorkaroundEnabled(DISABLE_DECODE_SWAP_CHAIN))
-    gl::DisableDirectCompositionDecodeSwapChain();
-#endif
 
   UMA_HISTOGRAM_ENUMERATION("GPU.GLImplementation", gl::GetGLImplementation());
 }

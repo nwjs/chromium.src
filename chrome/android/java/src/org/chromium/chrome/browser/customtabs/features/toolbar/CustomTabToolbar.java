@@ -49,7 +49,9 @@ import androidx.browser.customtabs.CustomTabsIntent.CloseButtonPosition;
 import androidx.core.view.MarginLayoutParamsCompat;
 import androidx.core.widget.ImageViewCompat;
 
+import org.chromium.base.Callback;
 import org.chromium.base.CallbackController;
+import org.chromium.base.ObserverList;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
@@ -127,6 +129,14 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
     private LocationBarModel mLocationBarModel;
     private BrowserStateBrowserControlsVisibilityDelegate mBrowserControlsVisibilityDelegate;
     private @Nullable CustomTabCaptureStateToken mLastCustomTabCaptureStateToken;
+    private ObserverList<Callback<Integer>> mContainerVisibilityChangeObserverList =
+            new ObserverList<>();
+
+    // Whether the maximization button should be shown when it can. Set to {@code true}
+    // while the side sheet is running with the maximize button option on.
+    private boolean mMaximizeButtonEnabled;
+
+    private OnClickListener mCloseClickListener;
 
     /**
      * Whether to use the toolbar as handle to resize the Window height.
@@ -154,7 +164,19 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
          *
          * @param handler The handler for closing the current tab.
          */
-        void setCloseClickHandler(Runnable handler);
+        void setCloseClickHandler(OnClickListener handler);
+
+        /**
+         * Start the closing animation. This should be invoked before the close click handler
+         * set via {@link #setCloseClickHandler} to avoid seeing a blank content during
+         * the animation.
+         */
+        void startCloseAnimation();
+
+        /**
+         * Close the toolbar and the tab.
+         */
+        void close();
     }
 
     private HandleStrategy mHandleStrategy;
@@ -210,7 +232,20 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
 
     @Override
     protected void setCustomTabCloseClickHandler(OnClickListener listener) {
-        mCloseButton.setOnClickListener(listener);
+        mCloseClickListener = listener;
+        if (mHandleStrategy == null) {
+            // Normal CCT does not have HandleStrategy.
+            mCloseButton.setOnClickListener(listener);
+        } else {
+            setHandleStrategyCloseClickHandler(listener);
+        }
+    }
+
+    private void setHandleStrategyCloseClickHandler(OnClickListener listener) {
+        // Let the close button click initiate the closing animation first. The actual
+        // closing task will follow the animation.
+        mCloseButton.setOnClickListener(v -> mHandleStrategy.startCloseAnimation());
+        mHandleStrategy.setCloseClickHandler(listener);
     }
 
     @Override
@@ -227,8 +262,6 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
 
         // Add the view at the beginning of the child list.
         mCustomActionButtons.addView(button, 0);
-
-        updateMaximizeButtonPosition();
     }
 
     @Override
@@ -237,7 +270,6 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
                 mCustomActionButtons.getChildCount() - 1 - index);
         assert button != null;
         updateCustomActionButtonVisuals(button, drawable, description);
-        updateMaximizeButtonPosition();
     }
 
     /**
@@ -274,16 +306,41 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
             boolean maximizedOnInit, MaximizeButtonCallback callback) {
         if (!ChromeFeatureList.sCctResizableSideSheet.isEnabled()) return;
         var maximizeButton = (ImageButton) findViewById(R.id.custom_tabs_sidepanel_maximize);
-        boolean buttonExists = maximizeButton != null;
-        if (buttonExists) {
-            maximizeButton.setVisibility(View.VISIBLE);
-        } else {
+        if (maximizeButton == null) {
             ViewStub maximizeButtonStub = findViewById(R.id.maximize_button_stub);
             maximizeButtonStub.inflate();
             maximizeButton = (ImageButton) findViewById(R.id.custom_tabs_sidepanel_maximize);
         }
+        // The visibility will get updated after the location bar completes its layout.
+        maximizeButton.setVisibility(View.GONE);
+        mMaximizeButtonEnabled = true;
         setMaximizeButtonDrawable(maximizedOnInit);
         maximizeButton.setOnClickListener((v) -> setMaximizeButtonDrawable(callback.onClick()));
+    }
+
+    private void setMaximizeButtonVisibility() {
+        if (!mMaximizeButtonEnabled) return;
+        var maximizeButton = (ImageButton) findViewById(R.id.custom_tabs_sidepanel_maximize);
+        if (maximizeButton == null) return;
+
+        // Find the title/url width threshold that turns the maximize button visible.
+        int containerWidthPx = mLocationBar.mTitleUrlContainer.getWidth();
+        int maximizeButtonWidthPx =
+                getResources().getDimensionPixelSize(R.dimen.location_bar_action_icon_width);
+        int titleUrlPaddingEndPx =
+                getResources().getDimensionPixelSize(R.dimen.toolbar_edge_padding);
+        if (containerWidthPx < maximizeButtonWidthPx * 2 - titleUrlPaddingEndPx) {
+            // We expect to see at least as much URL text as the width of the maximize button.
+            // Hide the button if we can't.
+            maximizeButton.setVisibility(View.GONE);
+        } else {
+            // Take some space from the title/url for maximization button.
+            var lpTitle = (ViewGroup.MarginLayoutParams) mLocationBar.mTitleBar.getLayoutParams();
+            var lpUrl = (ViewGroup.MarginLayoutParams) mLocationBar.mUrlBar.getLayoutParams();
+            lpTitle.rightMargin = maximizeButtonWidthPx;
+            lpUrl.rightMargin = maximizeButtonWidthPx;
+            maximizeButton.setVisibility(View.VISIBLE);
+        }
     }
 
     private void setMaximizeButtonDrawable(boolean maximized) {
@@ -293,9 +350,7 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
                                      : R.string.custom_tab_side_sheet_maximize;
         var maximizeButton = (ImageButton) findViewById(R.id.custom_tabs_sidepanel_maximize);
         var d = UiUtils.getTintedDrawable(getContext(), drawableId, mTint);
-        updateCustomActionButtonVisuals(maximizeButton, d, null);
-        maximizeButton.setImageDrawable(d);
-        maximizeButton.setContentDescription(getResources().getString(buttonDescId));
+        updateCustomActionButtonVisuals(maximizeButton, d, getResources().getString(buttonDescId));
     }
 
     /**
@@ -306,23 +361,7 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
         var maximizeButton = (ImageButton) findViewById(R.id.custom_tabs_sidepanel_maximize);
         maximizeButton.setOnClickListener(null);
         maximizeButton.setVisibility(View.GONE);
-    }
-
-    private void updateMaximizeButtonPosition() {
-        ImageButton maximizeButton =
-                (ImageButton) findViewById(R.id.custom_tabs_sidepanel_maximize);
-        if (maximizeButton != null) {
-            FrameLayout.LayoutParams lp =
-                    (FrameLayout.LayoutParams) maximizeButton.getLayoutParams();
-            View buttonAtEnd =
-                    mCloseButtonPosition == CLOSE_BUTTON_POSITION_END ? mCloseButton : mMenuButton;
-            int margin = buttonAtEnd.getVisibility() == View.GONE
-                    ? 0
-                    : getResources().getDimensionPixelSize(R.dimen.toolbar_button_width);
-            if (mCustomActionButtons != null) margin += mCustomActionButtons.getWidth();
-            lp.setMarginEnd(margin);
-            maximizeButton.setLayoutParams(lp);
-        }
+        mMaximizeButtonEnabled = false;
     }
 
     private void updateCustomActionButtonVisuals(
@@ -404,19 +443,14 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
         return false;
     }
 
-    public void setHandleStrategy(@Nullable HandleStrategy strategy) {
+    public void setHandleStrategy(HandleStrategy strategy) {
         if (!CustomTabsConnection.getInstance().isDynamicFeatureEnabled(
                     ChromeFeatureList.CCT_BRAND_TRANSPARENCY)) {
             mLocationBar.showBranding();
         }
 
-        // When the (P)CCT does not need to be resized the handle strategy can be null.
-        if (strategy == null) {
-            mHandleStrategy = null;
-            return;
-        }
         mHandleStrategy = strategy;
-        mHandleStrategy.setCloseClickHandler(mCloseButton::callOnClick);
+        if (mCloseClickListener != null) setHandleStrategyCloseClickHandler(mCloseClickListener);
     }
 
     /**
@@ -660,8 +694,8 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
         maybeSwapCloseAndMenuButtons();
         updateToolbarLayoutMargin();
         maybeAdjustButtonSpacingForCloseButtonPosition();
+        setMaximizeButtonVisibility();
 
-        updateMaximizeButtonPosition();
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
     }
 
@@ -717,7 +751,6 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
                 (ViewGroup.MarginLayoutParams) mCustomActionButtons.getLayoutParams();
         p.setMarginEnd(0);
         mCustomActionButtons.setLayoutParams(p);
-        updateMaximizeButtonPosition();
     }
 
     @Override
@@ -743,6 +776,27 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
         if (textureMode) {
             mLastCustomTabCaptureStateToken = generateCaptureStateToken();
         }
+    }
+
+    @Override
+    protected void onVisibilityChanged(View changedView, int visibility) {
+        // Ignore when the changed view is our self. This happens on startup, and is not our
+        // container being changed.
+        if (changedView != this) {
+            for (Callback<Integer> observer : mContainerVisibilityChangeObserverList) {
+                observer.onResult(visibility);
+            }
+        }
+    }
+
+    /** Subscribe to container visibility changes. */
+    public void addContainerVisibilityChangeObserver(Callback<Integer> observer) {
+        mContainerVisibilityChangeObserverList.addObserver(observer);
+    }
+
+    /** Unsubscribe to container visibility changes. */
+    public void removeContainerVisibilityChangeObserver(Callback<Integer> observer) {
+        mContainerVisibilityChangeObserverList.removeObserver(observer);
     }
 
     private CustomTabCaptureStateToken generateCaptureStateToken() {
@@ -1340,5 +1394,15 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
         void setAnimDelegateForTesting(CustomTabToolbarAnimationDelegate animDelegate) {
             mAnimDelegate = animDelegate;
         }
+
+        @VisibleForTesting
+        void setTitleUrlContainerForTesting(View titleUrlContainer) {
+            mTitleUrlContainer = titleUrlContainer;
+        }
+    }
+
+    @VisibleForTesting
+    boolean isMaximizeButtonEnabledForTesting() {
+        return mMaximizeButtonEnabled;
     }
 }

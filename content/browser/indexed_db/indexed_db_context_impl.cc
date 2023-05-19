@@ -1021,7 +1021,8 @@ void IndexedDBContextImpl::ShutdownOnIDBSequence() {
     auto delete_bucket = origins_to_purge_on_shutdown_.find(
                              bucket_locator.storage_key.origin()) !=
                          origins_to_purge_on_shutdown_.end();
-    if (!delete_bucket) {
+
+    if (!delete_bucket && bucket_locator.storage_key.IsThirdPartyContext()) {
       auto& bucket_site = bucket_locator.storage_key.top_level_site();
       for (const auto& origin_to_purge : origins_to_purge_on_shutdown_) {
         if (net::SchemefulSite(origin_to_purge) == bucket_site) {
@@ -1176,11 +1177,9 @@ void IndexedDBContextImpl::InitializeFromFilesIfNeeded(
   auto on_lookup_done = base::BindRepeating(
       [](Barrier barrier,
          storage::QuotaErrorOr<storage::BucketInfo> bucket_info) {
-        if (bucket_info.has_value()) {
-          barrier.Run(bucket_info->ToBucketLocator());
-        } else {
-          barrier.Run(absl::nullopt);
-        }
+        barrier.Run(bucket_info.has_value()
+                        ? absl::make_optional(bucket_info->ToBucketLocator())
+                        : absl::nullopt);
       },
       barrier);
 

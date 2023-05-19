@@ -811,14 +811,13 @@ IN_PROC_BROWSER_TEST_F(PDFExtensionTest, EnsureInternalPluginDisabled) {
       "</body></html>";
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL(data_url)));
   WebContents* web_contents = GetActiveWebContents();
-  bool plugin_loaded = false;
-  ASSERT_TRUE(content::ExecuteScriptAndExtractBool(
-      web_contents,
-      "var plugin_loaded = "
-      "    document.getElementsByTagName('embed')[0].postMessage !== undefined;"
-      "window.domAutomationController.send(plugin_loaded);",
-      &plugin_loaded));
-  ASSERT_FALSE(plugin_loaded);
+  ASSERT_EQ(false,
+            content::EvalJs(
+                web_contents,
+                "var plugin_loaded = "
+                "    document.getElementsByTagName('embed')[0].postMessage !== "
+                "undefined;"
+                "plugin_loaded;"));
 }
 
 // Ensure cross-origin replies won't work for getSelectedText.
@@ -1065,32 +1064,20 @@ class PDFExtensionScrollTest : public PDFExtensionTest {
   static constexpr float kScrollPositionEpsilon = 2.0f;
 
   static int GetViewportHeight(content::ToRenderFrameHost guest_main_frame) {
-    int viewport_height = 0;
-    EXPECT_TRUE(content::ExecuteScriptAndExtractInt(
-        guest_main_frame,
-        "window.domAutomationController.send(viewer.viewport.size.height);",
-        &viewport_height));
-    return viewport_height;
+    return content::EvalJs(guest_main_frame, "viewer.viewport.size.height;")
+        .ExtractInt();
   }
 
   static int GetViewportScrollPositionX(
       content::ToRenderFrameHost guest_main_frame) {
-    int position_x = 0;
-    EXPECT_TRUE(content::ExecuteScriptAndExtractInt(
-        guest_main_frame,
-        "window.domAutomationController.send(viewer.viewport.position.x);",
-        &position_x));
-    return position_x;
+    return content::EvalJs(guest_main_frame, "viewer.viewport.position.x;")
+        .ExtractInt();
   }
 
   static int GetViewportScrollPositionY(
       content::ToRenderFrameHost guest_main_frame) {
-    int position_y = 0;
-    EXPECT_TRUE(content::ExecuteScriptAndExtractInt(
-        guest_main_frame,
-        "window.domAutomationController.send(viewer.viewport.position.y);",
-        &position_y));
-    return position_y;
+    return content::EvalJs(guest_main_frame, "viewer.viewport.position.y;")
+        .ExtractInt();
   }
 };
 
@@ -2333,14 +2320,8 @@ void EnsureCustomPinchZoomInvoked(content::RenderFrameHost* guest_mainframe,
 
   std::move(send_events).Run();
 
-  bool got_update;
-  ASSERT_TRUE(content::ExecuteScriptAndExtractBool(
-      guest_mainframe,
-      "updatePromise.then(function(update) { "
-      "  window.domAutomationController.send(!!update); "
-      "});",
-      &got_update));
-  EXPECT_TRUE(got_update);
+  EXPECT_EQ(true, content::EvalJs(guest_mainframe,
+                                  "updatePromise.then((update) => !!update);"));
 
   zoom_watcher.Wait();
 
@@ -2482,15 +2463,9 @@ IN_PROC_BROWSER_TEST_F(PDFExtensionHitTestTest, DISABLED_MouseLeave) {
   // Verify MouseEnter, MouseLeave received.
   int leave_count = 0;
   do {
-    ASSERT_TRUE(ExecuteScriptAndExtractInt(
-        guest_mainframe, "window.domAutomationController.send(leave_count);",
-        &leave_count));
+    leave_count = EvalJs(guest_mainframe, "leave_count;").ExtractInt();
   } while (!leave_count);
-  int enter_count = 0;
-  ASSERT_TRUE(ExecuteScriptAndExtractInt(
-      guest_mainframe, "window.domAutomationController.send(enter_count);",
-      &enter_count));
-  EXPECT_EQ(1, enter_count);
+  EXPECT_EQ(1, EvalJs(guest_mainframe, "enter_count;"));
 }
 
 IN_PROC_BROWSER_TEST_F(PDFExtensionHitTestTest, ContextMenuCoordinates) {
@@ -2552,15 +2527,11 @@ IN_PROC_BROWSER_TEST_F(PDFExtensionTest, BackgroundColor) {
   ASSERT_TRUE(guest_mainframe);
 
   const std::string script =
-      "window.domAutomationController.send("
-      "    window.getComputedStyle(document.body, null)."
-      "    getPropertyValue('background-color'))";
-  std::string outer;
-  ASSERT_TRUE(content::ExecuteScriptAndExtractString(GetActiveWebContents(),
-                                                     script, &outer));
-  std::string inner;
-  ASSERT_TRUE(
-      content::ExecuteScriptAndExtractString(guest_mainframe, script, &inner));
+      "window.getComputedStyle(document.body, null)."
+      "getPropertyValue('background-color')";
+  std::string outer =
+      content::EvalJs(GetActiveWebContents(), script).ExtractString();
+  std::string inner = content::EvalJs(guest_mainframe, script).ExtractString();
   EXPECT_EQ(inner, outer);
 }
 
@@ -2576,12 +2547,9 @@ IN_PROC_BROWSER_TEST_F(PDFExtensionTest, DefaultFocusForEmbeddedPDF) {
   const std::string script =
       "const is_plugin_focused = document.activeElement === "
       "document.body;"
-      "window.domAutomationController.send(is_plugin_focused);";
+      "is_plugin_focused;";
 
-  bool result = false;
-  ASSERT_TRUE(
-      content::ExecuteScriptAndExtractBool(guest_mainframe, script, &result));
-  ASSERT_TRUE(result);
+  ASSERT_EQ(true, content::EvalJs(guest_mainframe, script));
 }
 
 IN_PROC_BROWSER_TEST_F(PDFExtensionTest, DefaultFocusForNonEmbeddedPDF) {
@@ -2596,12 +2564,9 @@ IN_PROC_BROWSER_TEST_F(PDFExtensionTest, DefaultFocusForNonEmbeddedPDF) {
   const std::string script =
       "const is_plugin_focused = document.activeElement === "
       "document.body;"
-      "window.domAutomationController.send(is_plugin_focused);";
+      "is_plugin_focused;";
 
-  bool result = false;
-  ASSERT_TRUE(
-      content::ExecuteScriptAndExtractBool(guest_mainframe, script, &result));
-  ASSERT_TRUE(result);
+  ASSERT_EQ(true, content::EvalJs(guest_mainframe, script));
 }
 
 // A helper for waiting for the first request for |url_to_intercept|.

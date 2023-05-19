@@ -10,6 +10,7 @@
 #import "ios/chrome/browser/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/main/browser.h"
 #import "ios/chrome/browser/prefs/pref_names.h"
+#import "ios/chrome/browser/shared/coordinator/alert/alert_coordinator.h"
 #import "ios/chrome/browser/shared/public/commands/browsing_data_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/signin/authentication_service_factory.h"
@@ -17,7 +18,6 @@
 #import "ios/chrome/browser/signin/constants.h"
 #import "ios/chrome/browser/signin/identity_manager_factory.h"
 #import "ios/chrome/browser/signin/system_identity.h"
-#import "ios/chrome/browser/ui/alert_coordinator/alert_coordinator.h"
 #import "ios/chrome/browser/ui/authentication/authentication_flow.h"
 #import "ios/chrome/browser/ui/authentication/signin/consistency_promo_signin/consistency_account_chooser/consistency_account_chooser_coordinator.h"
 #import "ios/chrome/browser/ui/authentication/signin/consistency_promo_signin/consistency_default_account/consistency_default_account_coordinator.h"
@@ -184,14 +184,25 @@
   }
 }
 
-// Does cleanup (metrics and remove coordinator) once the add account is
-// finished.
+// Does cleanup (metrics and remove coordinator) once the add-account flow is
+// finished. If `hasAccounts == NO` and `signinResult` is successful , the
+// function immediately signs in to Chrome with the identity acquired from the
+// add-account flow after the cleanup.
 - (void)
     addAccountCompletionWithSigninResult:(SigninCoordinatorResult)signinResult
                           completionInfo:(SigninCompletionInfo*)completionInfo
-                             startSignin:(BOOL)startSignin {
-  RecordConsistencyPromoUserAction(
-      signin_metrics::AccountConsistencyPromoAction::ADD_ACCOUNT_COMPLETED);
+                             hasAccounts:(BOOL)hasAccounts {
+  if (hasAccounts) {
+    RecordConsistencyPromoUserAction(
+        signin_metrics::AccountConsistencyPromoAction::ADD_ACCOUNT_COMPLETED,
+        _accessPoint);
+  } else {
+    RecordConsistencyPromoUserAction(
+        signin_metrics::AccountConsistencyPromoAction::
+            ADD_ACCOUNT_COMPLETED_WITH_NO_DEVICE_ACCOUNT,
+        _accessPoint);
+  }
+
   [self.addAccountCoordinator stop];
   self.addAccountCoordinator = nil;
 
@@ -203,18 +214,26 @@
       systemIdentityAdded:completionInfo.identity];
   self.defaultAccountCoordinator.selectedIdentity = completionInfo.identity;
 
-  if (!startSignin) {
+  if (hasAccounts) {
     return;
   }
   [self startSignIn];
 }
 
-// Opens an AddAccountSigninCoordinator to add an account to the device. If
-// startSignin == YES, the added account will be used to sign in to Chrome
+// Opens an AddAccountSigninCoordinator to add an account to the device.
+// If `hasAccounts == NO`, the added account will be used to sign in to Chrome
 // directly after the AddAccountSigninCoordinator finishes.
-- (void)openAddAccountCoordinatorWithStartSignin:(BOOL)startSignin {
-  RecordConsistencyPromoUserAction(
-      signin_metrics::AccountConsistencyPromoAction::ADD_ACCOUNT_STARTED);
+- (void)openAddAccountCoordinatorWithHasAccounts:(BOOL)hasAccounts {
+  if (hasAccounts) {
+    RecordConsistencyPromoUserAction(
+        signin_metrics::AccountConsistencyPromoAction::ADD_ACCOUNT_STARTED,
+        _accessPoint);
+  } else {
+    RecordConsistencyPromoUserAction(
+        signin_metrics::AccountConsistencyPromoAction::
+            ADD_ACCOUNT_STARTED_WITH_NO_DEVICE_ACCOUNT,
+        _accessPoint);
+  }
   DCHECK(!self.addAccountCoordinator);
   self.addAccountCoordinator = [SigninCoordinator
       addAccountCoordinatorWithBaseViewController:self.navigationController
@@ -226,7 +245,7 @@
         SigninCompletionInfo* signinCompletionInfo) {
         [weakSelf addAccountCompletionWithSigninResult:signinResult
                                         completionInfo:signinCompletionInfo
-                                           startSignin:startSignin];
+                                           hasAccounts:hasAccounts];
       };
   [self.addAccountCoordinator start];
 }
@@ -265,7 +284,7 @@
   AuthenticationFlow* authenticationFlow =
       [[AuthenticationFlow alloc] initWithBrowser:self.browser
                                          identity:self.selectedIdentity
-                                 postSignInAction:POST_SIGNIN_ACTION_NONE
+                                 postSignInAction:PostSignInAction::kNone
                          presentingViewController:self.navigationController];
   authenticationFlow.dispatcher = HandlerForProtocol(
       self.browser->GetCommandDispatcher(), BrowsingDataCommands);
@@ -286,7 +305,7 @@
 
 - (void)consistencyAccountChooserCoordinatorOpenAddAccount:
     (ConsistencyAccountChooserCoordinator*)coordinator {
-  [self openAddAccountCoordinatorWithStartSignin:NO];
+  [self openAddAccountCoordinatorWithHasAccounts:YES];
 }
 
 #pragma mark - ConsistencyDefaultAccountCoordinatorDelegate
@@ -344,7 +363,7 @@
 
 - (void)consistencyDefaultAccountCoordinatorOpenAddAccount:
     (ConsistencyDefaultAccountCoordinator*)coordinator {
-  [self openAddAccountCoordinatorWithStartSignin:YES];
+  [self openAddAccountCoordinatorWithHasAccounts:NO];
 }
 
 #pragma mark - ConsistencyLayoutDelegate

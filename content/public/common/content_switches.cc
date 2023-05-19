@@ -303,10 +303,6 @@ const char kDisable2dCanvasClipAntialiasing[] = "disable-2d-canvas-clip-aa";
 // Has no effect unless GPU rasterization is enabled.
 const char kDisableYUVImageDecoding[] = "disable-yuv-image-decoding";
 
-// Enables the Accept-CH cache for client hints to be durable past browser
-// restarts.
-const char kDurableClientHintsCache[] = "durable-client-hints-cache";
-
 // Enables LCD text.
 const char kEnableLCDText[]                 = "enable-lcd-text";
 
@@ -491,6 +487,11 @@ const char kForcePresentationReceiverForTesting[] =
 // Force renderer accessibility to be on instead of enabling it on demand when
 // a screen reader is detected. The disable-renderer-accessibility switch
 // overrides this if present.
+// This switch has an optional parameter that forces an AXMode bundle. The three
+// available bundle settings are: 'basic', 'form-controls', and 'complete'. If
+// the bundle argument is invalid, then the forced AXMode will default to
+// 'complete'. If the bundle argument is missing, then the initial AXMode will
+// default to complete but allow changes to the AXMode during execution.
 const char kForceRendererAccessibility[]    = "force-renderer-accessibility";
 
 // Force Skia's CPU backend to use analytic anti-aliasing for all content
@@ -998,9 +999,17 @@ const char kRemoteDebuggingSocketName[]     = "remote-debugging-socket-name";
 // Java debugger is attached.
 const char kRendererWaitForJavaDebugger[] = "renderer-wait-for-java-debugger";
 
+// Provides user-level memory pressure signal parameters for renderer processes.
+// The parameters are a pair of base::TimeDelta(). The first one is
+// inert interval and the second one is minimum interval.
+// If any valid parameters are specified, the renderer processes know that
+// the browser process enabled user-level memory pressure signal feature.
+const char kUserLevelMemoryPressureSignalParams[] =
+    "user-level-memory-pressure-signal-params";
+
 // Disables debug crash dumps for OOPR.
 const char kDisableOoprDebugCrashDump[] = "disable-oopr-debug-crash-dump";
-#endif
+#endif  // BUILDFLAG(IS_ANDROID)
 
 // Enable the aggressive flushing of DOM Storage to minimize data loss.
 const char kEnableAggressiveDOMStorageFlushing[] =

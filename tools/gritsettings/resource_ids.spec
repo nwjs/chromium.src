@@ -259,7 +259,7 @@
     "META": {"sizes": {"includes": [40]}},
     "includes": [1740],
   },
-  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/nearby_share/nearby_share_dialog_resources.grd": {
+  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/nearby_share/resources.grd": {
     "META": {"sizes": {"includes": [100]}},
     "includes": [1760],
   },
@@ -346,6 +346,10 @@
     "META": {"sizes": {"includes": [500],}},
     "includes": [1960],
   },
+  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/settings_shared/resources.grd": {
+    "META": {"sizes": {"includes": [20],}},
+    "includes": [1970],
+  },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/signin/profile_picker/resources.grd": {
     "META": {"sizes": {"includes": [50],}},
     "includes": [1980],
@@ -409,7 +413,7 @@
     "includes": [2240],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/chromeos/healthd_internals/resources.grd": {
-    "META": {"sizes": {"includes": [5]}},
+    "META": {"sizes": {"includes": [50]}},
     "includes": [2250],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/chromeos/internet_config_dialog/internet_config_dialog_resources.grd": {
@@ -423,6 +427,10 @@
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/chromeos/network_ui/network_ui_resources.grd": {
     "META": {"sizes": {"includes": [20]}},
     "includes": [2300],
+  },
+  "<(SHARED_INTERMEDIATE_DIR)/components/commerce/core/internals/resources/resources.grd": {
+    "META": {"sizes": {"includes": [10]}},
+    "includes": [2305],
   },
   "<(SHARED_INTERMEDIATE_DIR)/components/history_clusters/history_clusters_internals/resources/resources.grd": {
     "META": {"sizes": {"includes": [10]}},
@@ -506,6 +514,14 @@
   "<(SHARED_INTERMEDIATE_DIR)/content/browser/resources/attribution_reporting/resources.grd": {
     "META": {"sizes": {"includes": [20]}},
     "includes": [2565],
+  },
+  "<(SHARED_INTERMEDIATE_DIR)/content/browser/resources/gpu/resources.grd": {
+    "META": {"sizes": {"includes": [20]}},
+    "includes": [2566],
+  },
+  "<(SHARED_INTERMEDIATE_DIR)/content/browser/resources/histograms/resources.grd": {
+    "META": {"sizes": {"includes": [5]}},
+    "includes": [2568],
   },
   "<(SHARED_INTERMEDIATE_DIR)/content/browser/resources/indexed_db/resources.grd": {
     "META": {"sizes": {"includes": [20]}},
@@ -633,7 +649,7 @@
     "includes": [3030],
   },
   "<(SHARED_INTERMEDIATE_DIR)/ash/webui/common/resources/resources.grd": {
-    "META": {"sizes": {"includes": [400]}},
+    "META": {"sizes": {"includes": [700]}},
     "includes": [3035],
   },
   "ash/webui/help_app_ui/resources/help_app_resources.grd": {
@@ -740,10 +756,6 @@
   "<(SHARED_INTERMEDIATE_DIR)/ash/webui/projector_app/resources/annotator/untrusted/ash_projector_annotator_untrusted_resources.grd": {
     "META": {"sizes": {"includes": [50],}},
     "includes": [3405],
-  },
-  "<(SHARED_INTERMEDIATE_DIR)/ash/webui/projector_app/resources/annotator/trusted/ash_projector_annotator_trusted_resources.grd": {
-    "META": {"sizes": {"includes": [50],}},
-    "includes": [3410],
   },
   "<(SHARED_INTERMEDIATE_DIR)/ash/webui/projector_app/resources/common/ash_projector_common_resources.grd": {
     "META": {"sizes": {"includes": [50],}},
@@ -1059,6 +1071,10 @@
   "ui/chromeos/resources/ui_chromeos_resources.grd": {
     "structures": [4660],
   },
+  "<(SHARED_INTERMEDIATE_DIR)/ui/chromeos/styles/cros_typography_resources.grd": {
+    "META": {"sizes": {"includes": [5],}},
+    "includes": [4678],
+  },
   "ui/chromeos/ui_chromeos_strings.grd": {
     "messages": [4680],
   },
@@ -1106,7 +1122,7 @@
   "<(DEVTOOLS_GRD_PATH).grd": {
     # In debug build, devtools frontend sources are not bundled and therefore
     # includes a lot of individual resources
-    "META": {"sizes": {"includes": [2200],}},
+    "META": {"sizes": {"includes": [2500],}},
     "includes": [4940],
   },
 

@@ -15,6 +15,12 @@ const char kAppStoreRatingPolicyEnabled[] = "ios.app_store_rating_enabled";
 // Boolean that is true when Suggest support is enabled.
 const char kArticlesForYouEnabled[] = "suggestions.articles_enabled";
 
+// Boolean which indicates if the omnibox should be at the bottom of the screen.
+const char kBottomOmnibox[] = "ios.bottom_omnibox";
+
+// Boolean that is true when Browser Lockdown Mode is enabled.
+const char kBrowserLockdownModeEnabled[] = "ios.browser_lockdown_mode_enabled";
+
 // A map of browser state data directory to cached information. This cache can
 // be used to display information about browser states without actually having
 // to load them.
@@ -126,6 +132,12 @@ const char kIosDiscoverFeedLastRefreshTime[] =
 const char kIosDiscoverFeedLastUnseenRefreshTime[] =
     "ios.discover_feed.last_unseen_refresh_time";
 
+// The number of consecutive times the user dismissed the password bottom sheet.
+// This gets reset to 0 whenever the user selects a password from the bottom
+// sheet or from the keyboard accessory.
+const char kIosPasswordBottomSheetDismissCount[] =
+    "ios.password_bottom_sheet_dismiss_count";
+
 // The user's account info from before a device restore.
 const char kIosPreRestoreAccountInfo[] = "ios.pre_restore_account_info";
 
@@ -160,6 +172,11 @@ const char kIosShareChromeCount[] = "ios.share_chrome.count";
 
 // Preference to store the last time the user shared the chrome app.
 const char kIosShareChromeLastShare[] = "ios.share_chrome.last_share";
+
+// Preference to store the number of times the user opens the New Tab Page
+// with foreign history included in segments data (i.e. Most Visited Tiles).
+const char kIosSyncSegmentsNewTabPageDisplayCount[] =
+    "ios.sync_segments.ntp.display_count";
 
 // Preference that hold a boolean indicating if the user has already dismissed
 // the sign-in promo in the ntp feed top section.

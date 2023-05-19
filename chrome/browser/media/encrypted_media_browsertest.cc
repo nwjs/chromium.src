@@ -177,13 +177,9 @@ class EncryptedMediaTestBase : public MediaBrowserTest {
     RunEncryptedMediaTest(kDefaultEmePlayer, media_file, key_system, src_type,
                           kNoSessionToLoad, false, play_count, expected_title);
     // Check KeyMessage received for all key systems.
-    bool receivedKeyMessage = false;
-    EXPECT_TRUE(content::ExecuteScriptAndExtractBool(
-        browser()->tab_strip_model()->GetActiveWebContents(),
-        "window.domAutomationController.send("
-        "document.querySelector('video').receivedKeyMessage);",
-        &receivedKeyMessage));
-    EXPECT_TRUE(receivedKeyMessage);
+    EXPECT_EQ(true, content::EvalJs(
+                        browser()->tab_strip_model()->GetActiveWebContents(),
+                        "document.querySelector('video').receivedKeyMessage;"));
   }
 
   void RunEncryptedMediaMultipleFileTest(const std::string& key_system,
@@ -852,17 +848,12 @@ IN_PROC_BROWSER_TEST_P(ECKEncryptedMediaTest, PlatformVerificationTest) {
 IN_PROC_BROWSER_TEST_P(ECKEncryptedMediaTest, MAYBE_MessageTypeTest) {
   TestPlaybackCase(media::kExternalClearKeyMessageTypeTestKeySystem,
                    kNoSessionToLoad, media::kEndedTitle);
-
-  int num_received_message_types = 0;
-  EXPECT_TRUE(content::ExecuteScriptAndExtractInt(
-      browser()->tab_strip_model()->GetActiveWebContents(),
-      "window.domAutomationController.send("
-      "document.querySelector('video').receivedMessageTypes.size);",
-      &num_received_message_types));
-
   // Expects 3 message types: 'license-request', 'license-renewal' and
   // 'individualization-request'.
-  EXPECT_EQ(3, num_received_message_types);
+  EXPECT_EQ(3,
+            content::EvalJs(
+                browser()->tab_strip_model()->GetActiveWebContents(),
+                "document.querySelector('video').receivedMessageTypes.size;"));
 }
 
 IN_PROC_BROWSER_TEST_P(ECKEncryptedMediaTest, LoadPersistentLicense) {
@@ -1014,22 +1005,6 @@ IN_PROC_BROWSER_TEST_F(ECKIncognitoEncryptedMediaTest, LoadSessionAfterClose) {
 // and H264 is always supported.
 class MediaFoundationEncryptedMediaTest : public EncryptedMediaTestBase {
  public:
-  void SetUp() override {
-    EncryptedMediaTestBase::SetUp();
-
-    // Run test only if the test machine supports MediaFoundation playback.
-    // Otherwise, NotSupportedError is expected.
-    if (!media::SupportMediaFoundationEncryptedPlayback()) {
-      auto os_version = static_cast<int>(base::win::GetVersion());
-      DLOG(INFO) << "os_version=" << os_version;
-      GTEST_SKIP()
-          << "Test method "
-          << ::testing::UnitTest::GetInstance()->current_test_info()->name()
-          << " is inconclusive since MediaFoundation "
-             "playback is not supported.";
-    }
-  }
-
   void TestLicenseExchange(const std::string& encrypted_media) {
     // Skip the playback since we test the EME parts only.
     RunSimpleEncryptedMediaTest(encrypted_media,

@@ -116,19 +116,7 @@ void HandleRendererErrorTestParameters(const base::CommandLine& command_line) {
 }
 
 std::unique_ptr<base::MessagePump> CreateMainThreadMessagePump(bool nwjs) {
-#if BUILDFLAG(IS_MAC)
-  // As long as scrollbars on Mac are painted with Cocoa, the message pump
-  // needs to be backed by a Foundation-level loop to process NSTimers. See
-  // http://crbug.com/306348#c24 for details.
-  base::MessagePump* p;
-  if (nwjs) {
-    p = new base::MessagePumpUVNSRunLoop();
-  } else
-    p = new base::MessagePumpNSRunLoop();
-  std::unique_ptr<base::MessagePump> pump(p);
-  return pump;
-
-#elif BUILDFLAG(IS_FUCHSIA)
+#if BUILDFLAG(IS_FUCHSIA)
   // Allow FIDL APIs on renderer main thread.
   return base::MessagePump::Create(base::MessagePumpType::IO);
 #else

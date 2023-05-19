@@ -764,7 +764,9 @@ public class ExternalNavigationHandler {
         PermissionCallback permissionCallback = new PermissionCallback() {
             @Override
             public void onRequestPermissionsResult(String[] permissions, int[] grantResults) {
-                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED
+                if (grantResults.length == 0) return;
+                assert permissionNeeded.equals(permissions[0]);
+                if (grantResults[0] == PackageManager.PERMISSION_GRANTED
                         && mDelegate.hasValidTab()) {
                     if (params.getRequiredAsyncActionTakenCallback() != null) {
                         params.getRequiredAsyncActionTakenCallback().onResult(
@@ -1004,7 +1006,7 @@ public class ExternalNavigationHandler {
 
         // Ensure the navigation was started with a user gesture so that inactive pages can't launch
         // apps unexpectedly, unless we trust the calling app for a CCT/TWA.
-        if (initialState.isRendererInitiated && !initialState.hasUserGesture()) {
+        if (initialState.isRendererInitiated && !initialState.hasUserGesture) {
             if (isExternalProtocol) handler.maybeLogExternalRedirectBlockedWithMissingGesture();
             if (debug()) Log.i(TAG, "Navigation chain started without a gesture.");
             return NavigationChainResult.REQUIRES_PROMPT;
@@ -1131,7 +1133,6 @@ public class ExternalNavigationHandler {
             QueryIntentActivitiesSupplier resolvingInfos, ResolveActivitySupplier resolveActivity,
             boolean isExternalProtocol) {
         if (sAllowIntentsToSelfForTesting) return false;
-        if (!ExternalIntentsFeatures.BLOCK_SUBFRAME_INTENT_TO_SELF.isEnabled()) return false;
         if (!ExternalIntentsFeatures.BLOCK_INTENTS_TO_SELF.isEnabled() && params.isMainFrame()) {
             return false;
         }
@@ -1263,8 +1264,19 @@ public class ExternalNavigationHandler {
      */
     private boolean isCrossFrameRenavigation(ExternalNavigationParams params) {
         if (!ExternalIntentsFeatures.BLOCK_FRAME_RENAVIGATIONS.isEnabled()) return false;
+
+        if (params.getRedirectHandler().navigationChainPerformedCrossFrameNavigation()) {
+            if (debug()) Log.i(TAG, "Navigation chain used cross-frame re-navigation.");
+            return true;
+        }
+
         if (params.isInitialNavigationInFrame() || !params.isCrossFrameNavigation()) return false;
+        // Server redirects can be seen as cross frame to the initial navigation in the frame, but
+        // are still controlled by the site in the frame.
+        if (params.isRedirect()) return false;
+
         if (debug()) Log.i(TAG, "Cross-frame re-navigation.");
+        params.getRedirectHandler().setPerformedCrossFrameNavigation();
         return true;
     }
 
@@ -1519,6 +1531,10 @@ public class ExternalNavigationHandler {
         boolean isIntentWithSupportedProtocol = UrlUtilities.hasIntentScheme(params.getUrl())
                 && UrlUtilities.isAcceptedScheme(intentDataUrl);
 
+        // Needs to be checked first as a failure for this reason is persisted through the
+        // navigation chain, and other failures should not cause this check to be skipped.
+        if (isCrossFrameRenavigation(params)) return OverrideUrlLoadingResult.forNoOverride();
+
         if (shouldBlockAllExternalAppLaunches(params, incomingIntentRedirect)) {
             return OverrideUrlLoadingResult.forNoOverride();
         }
@@ -1563,8 +1579,6 @@ public class ExternalNavigationHandler {
         if (preventDirectInstantAppsIntent(targetIntent)) {
             return OverrideUrlLoadingResult.forNoOverride();
         }
-
-        if (isCrossFrameRenavigation(params)) return OverrideUrlLoadingResult.forNoOverride();
 
         QueryIntentActivitiesSupplier resolvingInfos =
                 new QueryIntentActivitiesSupplier(targetIntent);

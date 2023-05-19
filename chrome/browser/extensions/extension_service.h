@@ -810,6 +810,8 @@ class ExtensionService : public ExtensionServiceInterface,
                            ExtensionsNotAllowlistedThenBlocklisted);
   FRIEND_TEST_ALL_PREFIXES(ExtensionAllowlistUnitTest,
                            ExtensionsBlocklistedThenNotAllowlisted);
+  FRIEND_TEST_ALL_PREFIXES(OmahaAttributesHandlerUnitTest,
+                           NoUnsetBlocklistWhenSBBlocklistPolicyDisabled);
   FRIEND_TEST_ALL_PREFIXES(SafeBrowsingVerdictHandlerUnitTest,
                            GreylistedExtensionDisabled);
   FRIEND_TEST_ALL_PREFIXES(SafeBrowsingVerdictHandlerUnitTest,
@@ -832,6 +834,8 @@ class ExtensionService : public ExtensionServiceInterface,
                            ExtensionUninstalledWhenBlocklisted);
   FRIEND_TEST_ALL_PREFIXES(SafeBrowsingVerdictHandlerUnitTest,
                            ExtensionUninstalledWhenBlocklistFetching);
+  FRIEND_TEST_ALL_PREFIXES(SafeBrowsingVerdictHandlerUnitTest,
+                           ReloadBlocklistedExtensionWhenPolicyDisabled);
   friend class ::BlocklistedExtensionSyncServiceTest;
   friend class SafeBrowsingVerdictHandlerUnitTest;
   friend class BlocklistStatesInteractionUnitTest;

@@ -91,11 +91,7 @@ bool HasIsolatedStorage(const Extension& extension,
   }
 #endif
 
-  return LegacyHasIsolatedStorage(&extension);
-}
-
-bool LegacyHasIsolatedStorage(const Extension* extension) {
-  return extension->is_platform_app() && !extension->is_nwjs_app();
+  return extension.is_platform_app() && !extension.is_nwjs_app();
 }
 
 void SetIsIncognitoEnabled(const std::string& extension_id,

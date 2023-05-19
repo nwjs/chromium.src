@@ -97,7 +97,8 @@ using SharedStorageBudgetMetadata =
 struct CONTENT_EXPORT AutomaticBeaconInfo {
   AutomaticBeaconInfo(
       const std::string& data,
-      const std::vector<blink::FencedFrame::ReportingDestination>& destination);
+      const std::vector<blink::FencedFrame::ReportingDestination>&
+          destinations);
 
   AutomaticBeaconInfo(const AutomaticBeaconInfo&);
   AutomaticBeaconInfo(AutomaticBeaconInfo&&);
@@ -108,7 +109,7 @@ struct CONTENT_EXPORT AutomaticBeaconInfo {
   ~AutomaticBeaconInfo();
 
   std::string data;
-  std::vector<blink::FencedFrame::ReportingDestination> destination;
+  std::vector<blink::FencedFrame::ReportingDestination> destinations;
 };
 
 // Different kinds of entities (renderers) that should receive different
@@ -214,7 +215,15 @@ class CONTENT_EXPORT FencedFrameProperty {
 struct CONTENT_EXPORT FencedFrameConfig {
   FencedFrameConfig();
   explicit FencedFrameConfig(const GURL& mapped_url);
+  explicit FencedFrameConfig(
+      const GURL& mapped_url,
+      const gfx::Size& content_size,
+      scoped_refptr<FencedFrameReporter> fenced_frame_reporter,
+      bool is_ad_component);
   FencedFrameConfig(const GURL& urn_uuid, const GURL& url);
+  FencedFrameConfig(const GURL& mapped_url,
+                    scoped_refptr<FencedFrameReporter> fenced_frame_reporter,
+                    bool is_ad_component);
   FencedFrameConfig(
       const GURL& urn_uuid,
       const GURL& url,
@@ -285,6 +294,12 @@ struct CONTENT_EXPORT FencedFrameConfig {
   // control the behavior of the frame, e.g. sandbox flags. We do not want
   // mode to exist as a concept going forward.
   DeprecatedFencedFrameMode mode_ = DeprecatedFencedFrameMode::kDefault;
+
+  // Whether this is a configuration for an ad component fenced frame. Note
+  // there is no corresponding field in `RedactedFencedFrameConfig`. This field
+  // is only used during the construction of `FencedFrameProperties`, where it
+  // is copied directly to the field of same name in `FencedFrameProperties`.
+  bool is_ad_component_ = false;
 };
 
 // Contains a set of fenced frame properties. These are generated at
@@ -334,7 +349,8 @@ struct CONTENT_EXPORT FencedFrameProperties {
   // `reserved.top_navigation` automatic beacon.
   void UpdateAutomaticBeaconData(
       const std::string& event_data,
-      const std::vector<blink::FencedFrame::ReportingDestination>& destination);
+      const std::vector<blink::FencedFrame::ReportingDestination>&
+          destinations);
 
   const absl::optional<AutomaticBeaconInfo>& automatic_beacon_info() const {
     return automatic_beacon_info_;
@@ -393,6 +409,14 @@ struct CONTENT_EXPORT FencedFrameProperties {
   // The data will be sent directly to the network, without going back to any
   // renderer process, so they are not made part of the redacted properties.
   absl::optional<AutomaticBeaconInfo> automatic_beacon_info_;
+
+  // Whether this is an ad component fenced frame. An ad component fenced frame
+  // is a nested fenced frame which loads the config from its parent fenced
+  // frame's `nested_configs_`.
+  // Note there is no corresponding field in `RedactedFencedFrameProperties`.
+  // This flag is needed to enable automatic reportEvent beacon support for
+  // ad component.
+  bool is_ad_component_ = false;
 };
 
 }  // namespace content

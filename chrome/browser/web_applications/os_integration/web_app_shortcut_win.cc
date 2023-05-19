@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/check_is_test.h"
 #include "base/check_op.h"
 #include "base/command_line.h"
 #include "base/files/file_enumerator.h"
@@ -426,7 +427,8 @@ void GetShortcutLocationsAndDeleteShortcuts(
 
   // Calling UnpinShortcuts in unit-tests currently crashes the test, so skip it
   // for now using the shortcut override mechanism.
-  if (web_app::GetOsIntegrationTestOverride()) {
+  if (OsIntegrationTestOverride::Get()) {
+    CHECK_IS_TEST();
     DeleteShortcuts(all_shortcuts, std::move(result_callback));
     return;
   }
@@ -576,7 +578,7 @@ bool CreatePlatformShortcuts(const base::FilePath& web_app_path,
   // If this is set, then keeping this as a local variable ensures it is not
   // destroyed while we use state from it (retrieved in `GetShortcutPaths()`).
   scoped_refptr<OsIntegrationTestOverride> test_override =
-      web_app::GetOsIntegrationTestOverride();
+      OsIntegrationTestOverride::Get();
 
   // Shortcut paths under which to create shortcuts.
   std::vector<base::FilePath> shortcut_paths =
@@ -635,7 +637,7 @@ Result UpdatePlatformShortcuts(const base::FilePath& web_app_path,
   // If this is set, then keeping this as a local variable ensures it is not
   // destroyed while we use state from it (retrieved in `GetShortcutPaths()`).
   scoped_refptr<OsIntegrationTestOverride> test_override =
-      web_app::GetOsIntegrationTestOverride();
+      OsIntegrationTestOverride::Get();
 
   // Update the icon if necessary.
   const base::FilePath icon_file =
@@ -669,7 +671,7 @@ ShortcutLocations GetAppExistingShortCutLocationImpl(
   // If this is set, then keeping this as a local variable ensures it is not
   // destroyed while we use state from it (retrieved in `GetShortcutPaths()`).
   scoped_refptr<OsIntegrationTestOverride> test_override =
-      web_app::GetOsIntegrationTestOverride();
+      OsIntegrationTestOverride::Get();
   ShortcutLocations result;
   ShortcutLocations desktop;
   desktop.on_desktop = true;
@@ -745,7 +747,7 @@ void DeletePlatformShortcuts(const base::FilePath& web_app_path,
   // If this is set, then keeping this as a local variable ensures it is not
   // destroyed while we use state from it (retrieved in `GetShortcutPaths()`).
   scoped_refptr<OsIntegrationTestOverride> test_override =
-      web_app::GetOsIntegrationTestOverride();
+      OsIntegrationTestOverride::Get();
   GetShortcutLocationsAndDeleteShortcuts(
       web_app_path, shortcut_info.profile_path, shortcut_info.title,
       base::BindOnce(&FinishDeletingPlatformShortcuts, web_app_path,
@@ -769,7 +771,7 @@ void DeleteAllShortcutsForProfile(const base::FilePath& profile_path) {
   // If this is set, then keeping this as a local variable ensures it is not
   // destroyed while we use state from it (retrieved in `GetShortcutPaths()`).
   scoped_refptr<OsIntegrationTestOverride> test_override =
-      web_app::GetOsIntegrationTestOverride();
+      OsIntegrationTestOverride::Get();
   GetShortcutLocationsAndDeleteShortcuts(
       base::FilePath(), profile_path, std::u16string(),
       base::BindOnce(&FinishDeletingAllShortcutsForProfile));
@@ -781,7 +783,7 @@ std::vector<base::FilePath> GetShortcutPaths(
   std::vector<base::FilePath> shortcut_paths;
   // if there is no ShortcutOverrirdeForTesting, set it to empty.
   scoped_refptr<OsIntegrationTestOverride> testing_shortcuts =
-      GetOsIntegrationTestOverride();
+      OsIntegrationTestOverride::Get();
   // Locations to add to shortcut_paths.
   struct {
     bool use_this_location;

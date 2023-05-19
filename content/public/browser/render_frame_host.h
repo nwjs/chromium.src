@@ -50,7 +50,6 @@ class JavaRef;
 }  // namespace android
 #endif
 
-class TimeDelta;
 class UnguessableToken;
 }  // namespace base
 
@@ -97,7 +96,6 @@ class InterfaceProvider;
 namespace ui {
 struct AXActionData;
 struct AXTreeUpdate;
-class AXMode;
 class AXTreeID;
 }  // namespace ui
 
@@ -199,13 +197,6 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
 
   using AXTreeSnapshotCallback =
       base::OnceCallback<void(const ui::AXTreeUpdate&)>;
-  // Request a one-time snapshot of the accessibility tree without changing
-  // the accessibility mode.
-  virtual void RequestAXTreeSnapshot(AXTreeSnapshotCallback callback,
-                                     const ui::AXMode& ax_mode,
-                                     bool exclude_offscreen,
-                                     size_t max_nodes,
-                                     const base::TimeDelta& timeout) = 0;
 
   virtual bool nodejs() = 0;
   virtual bool context_created() = 0;

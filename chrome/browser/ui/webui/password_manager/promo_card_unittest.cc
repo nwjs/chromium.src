@@ -7,10 +7,13 @@
 #include <memory>
 
 #include "base/json/values_util.h"
+#include "base/test/bind.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
 #include "chrome/browser/extensions/api/passwords_private/passwords_private_delegate.h"
 #include "chrome/browser/extensions/api/passwords_private/passwords_private_delegate_factory.h"
+#include "chrome/browser/password_manager/affiliation_service_factory.h"
 #include "chrome/browser/password_manager/password_manager_test_util.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/web_applications/test/fake_web_app_provider.h"
@@ -19,8 +22,10 @@
 #include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
+#include "components/password_manager/core/browser/affiliation/fake_affiliation_service.h"
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/test_password_store.h"
+#include "components/password_manager/core/common/password_manager_features.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/prefs/pref_registry.h"
 #include "components/prefs/pref_registry_simple.h"
@@ -61,7 +66,7 @@ class FakePromoCard : public PromoCardInterface {
   explicit FakePromoCard(PrefService* prefs)
       : PromoCardInterface(GetPromoID(), prefs) {}
 
-  static constexpr char kId[] = "fake_promo_card";
+  static constexpr char kId[] = "password_checkup_promo";
 
   // PromoCardInterface implementation.
   std::string GetPromoID() const override { return kId; }
@@ -104,6 +109,10 @@ class PromoCardBaseTest : public ChromeRenderViewHostTestHarness {
   void SetUp() override {
     ChromeRenderViewHostTestHarness::SetUp();
     profile_store_ = CreateAndUseTestPasswordStore(profile());
+    AffiliationServiceFactory::GetInstance()->SetTestingSubclassFactoryAndUse(
+        profile(), base::BindRepeating([](content::BrowserContext*) {
+          return std::make_unique<password_manager::FakeAffiliationService>();
+        }));
   }
 
   PrefService* pref_service() { return profile()->GetPrefs(); }
@@ -207,6 +216,7 @@ class PromoCardCheckupTest : public PromoCardBaseTest {
  public:
   void SetUp() override {
     PromoCardBaseTest::SetUp();
+    feature_list_.InitAndEnableFeature(features::kPasswordsGrouping);
     delegate_ =
         extensions::PasswordsPrivateDelegateFactory::GetForBrowserContext(
             profile(), true);
@@ -229,6 +239,7 @@ class PromoCardCheckupTest : public PromoCardBaseTest {
   }
 
  private:
+  base::test::ScopedFeatureList feature_list_;
   scoped_refptr<extensions::PasswordsPrivateDelegate> delegate_;
 };
 
@@ -279,6 +290,8 @@ TEST_F(PromoCardCheckupTest, PromoShownFirstThreeTimes) {
 }
 
 TEST_F(PromoCardCheckupTest, PromoShownIn7DaysAfterDismiss) {
+  base::HistogramTester histogram_tester;
+
   SavePassword();
 
   ASSERT_THAT(pref_service()->GetList(prefs::kPasswordManagerPromoCardsList),
@@ -294,6 +307,10 @@ TEST_F(PromoCardCheckupTest, PromoShownIn7DaysAfterDismiss) {
   // Check that in 7 days it's shown again even after dismissing.
   task_environment()->AdvanceClock(base::Days(7) + base::Seconds(1));
   EXPECT_TRUE(promo->ShouldShowPromo());
+
+  histogram_tester.ExpectUniqueSample("PasswordManager.PromoCard.Shown", 0, 1);
+  histogram_tester.ExpectUniqueSample("PasswordManager.PromoCard.Dismissed", 0,
+                                      1);
 }
 
 class PromoCardInWebTest : public PromoCardBaseTest {
@@ -366,6 +383,8 @@ TEST_F(PromoCardInWebTest, ShouldShowPromoFirstThreeTimes) {
 }
 
 TEST_F(PromoCardInWebTest, PromoNotShownAfterDismiss) {
+  base::HistogramTester histogram_tester;
+
   sync_service()->SetLocalSyncEnabled(false);
   ASSERT_TRUE(sync_service()->IsSyncFeatureEnabled());
 
@@ -377,6 +396,8 @@ TEST_F(PromoCardInWebTest, PromoNotShownAfterDismiss) {
 
   promo->OnPromoCardDismissed();
   EXPECT_FALSE(promo->ShouldShowPromo());
+  histogram_tester.ExpectUniqueSample("PasswordManager.PromoCard.Dismissed", 1,
+                                      1);
 }
 
 class PromoCardShortcutTest : public WebAppTest {
@@ -425,6 +446,7 @@ TEST_F(PromoCardShortcutTest, ShouldShowPromoFirstThreeTimes) {
 }
 
 TEST_F(PromoCardShortcutTest, PromoNotShownAfterDismiss) {
+  base::HistogramTester histogram_tester;
   ASSERT_THAT(pref_service()->GetList(prefs::kPasswordManagerPromoCardsList),
               IsEmpty());
   std::unique_ptr<PromoCardInterface> promo =
@@ -433,6 +455,8 @@ TEST_F(PromoCardShortcutTest, PromoNotShownAfterDismiss) {
 
   promo->OnPromoCardDismissed();
   EXPECT_FALSE(promo->ShouldShowPromo());
+  histogram_tester.ExpectUniqueSample("PasswordManager.PromoCard.Dismissed", 2,
+                                      1);
 }
 
 using PromoCardAccessAnyDeviceTest = PromoCardBaseTest;
@@ -453,6 +477,7 @@ TEST_F(PromoCardAccessAnyDeviceTest, ShouldShowPromoFirstThreeTimes) {
 }
 
 TEST_F(PromoCardAccessAnyDeviceTest, PromoNotShownAfterDismiss) {
+  base::HistogramTester histogram_tester;
   ASSERT_THAT(pref_service()->GetList(prefs::kPasswordManagerPromoCardsList),
               IsEmpty());
   std::unique_ptr<PromoCardInterface> promo =
@@ -461,6 +486,8 @@ TEST_F(PromoCardAccessAnyDeviceTest, PromoNotShownAfterDismiss) {
 
   promo->OnPromoCardDismissed();
   EXPECT_FALSE(promo->ShouldShowPromo());
+  histogram_tester.ExpectUniqueSample("PasswordManager.PromoCard.Dismissed", 3,
+                                      1);
 }
 
 }  // namespace password_manager

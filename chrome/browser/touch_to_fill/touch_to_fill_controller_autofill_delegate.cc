@@ -4,6 +4,7 @@
 
 #include "chrome/browser/touch_to_fill/touch_to_fill_controller_autofill_delegate.h"
 
+#include "base/base64.h"
 #include "base/check.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_functions.h"
@@ -121,9 +122,8 @@ void TouchToFillControllerAutofillDelegate::OnCredentialSelected(
   ukm::builders::TouchToFill_Shown(source_id_)
       .SetUserAction(static_cast<int64_t>(UserAction::kSelectedCredential))
       .Record(ukm::UkmRecorder::Get());
-  if (!password_manager_util::CanUseBiometricAuth(
-          authenticator_.get(),
-          device_reauth::DeviceAuthRequester::kTouchToFill, password_client_)) {
+  if (!password_manager_util::CanUseBiometricAuth(authenticator_.get(),
+                                                  password_client_)) {
     FillCredential(credential);
     return;
   }
@@ -144,7 +144,7 @@ void TouchToFillControllerAutofillDelegate::OnPasskeyCredentialSelected(
     return;
 
   password_client_->GetWebAuthnCredentialsDelegateForDriver(driver_.get())
-      ->SelectPasskey(credential.id().value());
+      ->SelectPasskey(base::Base64Encode(credential.credential_id()));
 
   CleanUpDriverAndReportOutcome(TouchToFillOutcome::kPasskeyCredentialSelected,
                                 /*show_virtual_keyboard=*/false);

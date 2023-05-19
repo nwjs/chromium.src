@@ -9,9 +9,12 @@
 
 #include "base/functional/callback_forward.h"
 #include "base/memory/weak_ptr.h"
-#include "components/webapps/browser/android/ambient_badge_metrics.h"
+#include "components/segmentation_platform/public/segmentation_platform_service.h"
 #include "components/webapps/browser/android/installable/installable_ambient_badge_client.h"
 #include "components/webapps/browser/android/installable/installable_ambient_badge_message_controller.h"
+#include "components/webapps/browser/installable/installable_data.h"
+#include "components/webapps/browser/installable/installable_params.h"
+#include "content/public/browser/web_contents.h"
 #include "url/gurl.h"
 
 namespace webapps {
@@ -28,38 +31,52 @@ class AmbientBadgeManager : public InstallableAmbientBadgeClient {
  public:
   explicit AmbientBadgeManager(
       content::WebContents* web_contents,
-      base::WeakPtr<AppBannerManagerAndroid> app_banner_manager);
+      base::WeakPtr<AppBannerManagerAndroid> app_banner_manager,
+      segmentation_platform::SegmentationPlatformService*
+          segmentation_platform_service);
 
   AmbientBadgeManager(const AmbientBadgeManager&) = delete;
   AmbientBadgeManager& operator=(const AmbientBadgeManager&) = delete;
   ~AmbientBadgeManager() override;
 
+  // This enum backs a UMA histogram , so it should be treated as append-only.
   // GENERATED_JAVA_ENUM_PACKAGE: org.chromium.chrome.browser.banners
   // GENERATED_JAVA_CLASS_NAME_OVERRIDE: AmbientBadgeState
   enum class State {
     // The ambient badge pipeline has not yet been triggered for this page load.
-    INACTIVE = 0,
+    kInactive = 0,
 
     // The ambient badge pipeline is running.
-    ACTIVE = 1,
+    kActive = 1,
 
     // Ambient badge blocked because of recently dismissed
-    BLOCKED = 2,
+    kBlocked = 2,
 
     // Waiting for service worker install to trigger the banner.
-    PENDING_WORKER = 3,
+    kPendingWorker = 3,
 
     // Waiting for sufficient engagement to trigger the ambient badge.
-    PENDING_ENGAGEMENT = 4,
+    kPendingEngagement = 4,
 
     // Showing Ambient Badge.
-    SHOWING = 5,
+    kShowing = 5,
 
     // Ambient badge dismissed.
-    DISMISSED = 6,
+    kDismissed = 6,
+
+    // Ambient badge clicked by the user.
+    kClicked = 7,
+
+    // Ambient badge pipeline completed.
+    kComplete = 8,
+
+    // Getting classification result from the segmentation platform.
+    kSegmentation = 9,
+
+    kMaxValue = kSegmentation,
   };
 
-  State GetStatus() const;
+  State state() const { return state_; }
 
   void MaybeShow(const GURL& validated_url,
                  const std::u16string& app_name,
@@ -69,6 +86,7 @@ class AmbientBadgeManager : public InstallableAmbientBadgeClient {
   // InstallableAmbientBadgeClient overrides.
   void AddToHomescreenFromBadge() override;
   void BadgeDismissed() override;
+  void BadgeIgnored() override;
 
   // Hides the ambient badge if it is showing.
   void HideAmbientBadge();
@@ -80,31 +98,40 @@ class AmbientBadgeManager : public InstallableAmbientBadgeClient {
  protected:
   virtual void UpdateState(State state);
 
- private:
-  // Perform checks and shows the install ambient badge.
-  void MaybeShowAmbientBadge();
-
-  void CheckEngagementForAmbientBadge();
-
-  void PerformWorkerCheckForAmbientBadge();
-
-  // Checks whether the web page has sufficient engagement for showing the
-  // ambient badge.
-  bool HasSufficientEngagementForAmbientBadge();
-
-  // Returns true if it's the first visit and  the badge should be suprressed.
-  bool ShouldSuppressAmbientBadge();
+  content::WebContents* web_contents() const { return web_contents_.get(); }
 
   // Called to show UI that promotes installation of a PWA. This is normally the
   // mini-infobar ("banner") but clients can override it by providing a
   // specialization of this class.
   void ShowAmbientBadge();
 
+ private:
+  // Perform checks and shows the install ambient badge. Uses legacy conditions
+  // instead of the segmentation APIs.
+  void MaybeShowAmbientBadgeLegacy();
+
+  // Uses the segmentation APIs to decide showing the install ambient badge
+  void MaybeShowAmbientBadgeSmart(const InstallableData& data);
+
+  void OnGotClassificationResult(
+      const segmentation_platform::ClassificationResult& result);
+
+  // Returns true if the prompt should be block.
+  bool ShouldMessageBeBlockedByGuardrail();
+
+  void PerformWorkerCheckForAmbientBadge(InstallableParams params,
+                                         InstallableCallback callback);
+
+  // Returns true if it's the first visit and  the badge should be suprressed.
+  bool ShouldSuppressAmbientBadgeOnFirstVisit();
+
   // Message controller for the ambient badge.
   InstallableAmbientBadgeMessageController message_controller_{this};
 
   base::WeakPtr<content::WebContents> web_contents_;
   base::WeakPtr<AppBannerManagerAndroid> app_banner_manager_;
+  raw_ptr<segmentation_platform::SegmentationPlatformService>
+      segmentation_platform_service_;
 
   GURL validated_url_;
   std::u16string app_name_;
@@ -114,7 +141,7 @@ class AmbientBadgeManager : public InstallableAmbientBadgeClient {
   base::OnceClosure show_banner_callback_;
 
   // The current ambient badge status.
-  State badge_state_ = State::INACTIVE;
+  State state_ = State::kInactive;
 
   bool passed_worker_check_ = false;
 
