@@ -639,6 +639,30 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="NewTabPage.Drive.FileCount" units="count"
+    expires_after="never">
+<!-- expires-never: Used for Chirp monitoring. -->
+
+  <owner>tiborg@chromium.org</owner>
+  <owner>chrome-desktop-ntp@google.com</owner>
+  <summary>
+    Logs the number of files returned by ItemSuggest. Logged every time the
+    Drive module successfully processed an ItemSuggest response.
+  </summary>
+</histogram>
+
+<histogram name="NewTabPage.Drive.ItemSuggestRequestResult"
+    enum="ItemSuggestRequestResult" expires_after="never">
+<!-- expires-never: Used for Chirp monitoring. -->
+
+  <owner>tiborg@chromium.org</owner>
+  <owner>chrome-desktop-ntp@google.com</owner>
+  <summary>
+    Logs the result of a request to the ItemSuggest API. Logged every time the
+    Drive module makes an ItemSuggest request.
+  </summary>
+</histogram>
+
 <histogram name="NewTabPage.FeedPositionSegmentationResult"
     enum="FeedPositionSegmentationResult" expires_after="2023-09-10">
   <owner>hanxi@chromium.org</owner>
@@ -673,6 +697,22 @@ chromium-metrics-reviews@google.com.
     logged on the 1P NTP. Note that even if the user has Google as their default
     search engine, Incognito and Guest mode NTPs are not considered 1P and don't
     log this histogram.
+  </summary>
+</histogram>
+
+<histogram name="NewTabPage.HistoryClusters.CartAssociationStatus"
+    units="NTPHistoryClustersModuleCartAssociationStatus"
+    expires_after="2023-08-08">
+  <owner>yuezhanggg@chromium.org</owner>
+  <owner>romanarora@chromium.org</owner>
+  <owner>tiborg@chromium.org</owner>
+  <owner>chrome-desktop-ntp@google.com</owner>
+  <summary>
+    Logs the association status of every abandoned cart to history clusters when
+    history clusters are loaded and ranked to be shown in the NTP History
+    Cluster Module. Logged at module UI creation time when determining if there
+    is necessary data to display the module. Only logged on the 1P NTP and when
+    the history clusters module is enabled.
   </summary>
 </histogram>
 
